@@ -11,18 +11,21 @@ Later → 3个月 → 本月 → 本周 → 今天
 
 时间列回答「什么时候做」，关联回答「为什么做」。移动保留同一个条目；拆解产生独立条目。
 
-> **文档 v0.3 · 2026-09-21。仅文档，尚无应用实现、安装包或桌面测试结果。**
+> **文档 v0.3.1 · 2026-09-21。仅文档，尚无应用实现、安装包或桌面测试结果。**
 > Goalloom / `goalloom.com` 已由用户确认，域名购买依据用户告知，未验证 DNS。
 > 首版已确认：**Electron、macOS / Windows 本地桌面、自定义三个月周期、单一主位置**。
 > 沿用无关联进度汇总、无父子完成状态传播的 MVP 边界。
 > 本轮确认：按列回看历史、往期未完成入口、按时间尺度设置自动顺延、关键变化记录。
-> 私人仓库预设 `thinkingjimmy/goalloom`。本轮仅更新文档包，未创建或修改远端仓库。
+> 私人仓库 `thinkingjimmy/goalloom` 已创建；v0.3 文档已提交并读回校验（初始提交 `06e70d5`）。应用开发与平台测试仍未开始。
+> v0.3.1 明确采用 **Hugeicons** 作为应用 UI 图标库，并修正文档 review 中的往期入口与事件链校验边界。
 
 ## 首版技术路线
 
-**Electron + React + TypeScript + Vite + shadcn/ui + Tailwind CSS + SQLite。**
+**Electron + React + TypeScript + Vite + shadcn/ui + Tailwind CSS + Hugeicons + SQLite。**
 
 Electron 为用户已确认选型；具体版本、SQLite 驱动和打包工具在 M1 做双平台验证并锁定。Tauri / QuickGUI 仅保留在历史评估中，不建立第二套正式工程。
+
+图标使用要求见 [图标规范](docs/ICONOGRAPHY.md)。首版实施默认使用 Hugeicons 免费 Stroke Rounded，npm 包随桌面应用打包，不依赖运行时 CDN；不默认采购 Pro，不混用其他 UI 图标库。
 
 ## 历史与顺延默认规则
 
@@ -34,6 +37,8 @@ Electron 为用户已确认选型；具体版本、SQLite 驱动和打包工具�
 | 3个月 | 放入「往期未完成」，重新确认方向 | 首版固定手动安排 |
 | Later | 不处理 | 无周期 |
 
+无论手动还是自动策略，只要存在有效往期未完成事项，当前列就保留往期入口，包括撤销、失败、策略生效前积压或恢复暂停的情况。
+
 过去能回看，未完成不会消失。历史记录不是第二个主位置；顺延不改变截止日期、目标关联或完成状态。首版不自动归档或删除长期未完成事项，也不做完整历史版本恢复。
 
 ## 文档导航
@@ -42,6 +47,7 @@ Electron 为用户已确认选型；具体版本、SQLite 驱动和打包工具�
 | --- | --- |
 | [PRD](docs/PRD.md) | 已确认的产品范围、交互和边界 |
 | [历史与顺延规格](docs/HISTORY_AND_ROLLOVER.md) | 翻页、历史口径、默认策略、撤销与异常场景 |
+| [图标规范](docs/ICONOGRAPHY.md) | Hugeicons、shadcn 组件适配、离线打包与可访问性 |
 | [技术架构](docs/ARCHITECTURE.md) | Electron 安全边界、SQLite、事件记录和事务 |
 | [开发 TODO](docs/TODO.md) | Markdown 清单；应用功能全部未实现 |
 | [验收用例](docs/ACCEPTANCE.md) | 业务、历史、顺延、数据恢复与双平台测试规格 |
@@ -52,7 +58,7 @@ Electron 为用户已确认选型；具体版本、SQLite 驱动和打包工具�
 | [资料来源](docs/SOURCES.md) | 外部技术事实依据与核查范围 |
 | [文档检查](docs/DOC_CHECK.md) | 本次文档一致性检查，不是应用测试报告 |
 | [开发代理约定](AGENTS.md) | 开发、数据与权限边界 |
-| [创建私人仓库](CREATE_REPO.md) | 用户本地执行的私人仓库创建脚本说明 |
+| [仓库维护](CREATE_REPO.md) | 已存在仓库的维护与首次创建历史说明 |
 
 ## 实施顺序与权限
 

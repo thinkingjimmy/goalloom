@@ -1,6 +1,6 @@
 # Goalloom · 技术架构与数据契约
 
-v0.3 · 2026-09-21。**Electron 已由用户确认；本文仍是实现规格，无应用源码或平台实测。**
+v0.3.1 · 2026-09-21。**Electron 已由用户确认；本文仍是实现规格，无应用源码或平台实测。**
 
 ## 1. 技术路线与边界
 
@@ -8,6 +8,7 @@ v0.3 · 2026-09-21。**Electron 已由用户确认；本文仍是实现规格，
 | --- | --- | --- |
 | 桌面壳 | Electron | Accepted，不并行实现 Tauri / QuickGUI |
 | 界面 | React + TypeScript strict + shadcn/ui + Tailwind CSS | 保持用户指定 UI 体系；版本在 M1 锁定 [S3](SOURCES.md#s3) |
+| UI 图标 | Hugeicons；默认 @hugeicons/react + @hugeicons/core-free-icons | 用户指定库，免费 Stroke Rounded 为实施默认，见 [图标规范](ICONOGRAPHY.md) |
 | 构建 | Vite；建议评估 electron-vite 的三入口方案 | 具体构建 / 打包工具待技术验证 [S24](SOURCES.md#s24) |
 | 持久化 | SQLite，稳定应用数据目录 | 驱动在所选 Electron 运行时与两种安装包中验证 |
 | 拖拽 | dnd-kit 候选 | 锁定兼容 major，不以浏览器成功代替桌面测试 [S16](SOURCES.md#s16) |
@@ -16,6 +17,8 @@ v0.3 · 2026-09-21。**Electron 已由用户确认；本文仍是实现规格，
 | 测试 | 纯规则、组件、repository、真实 Electron 和安装 | 所有承诺 OS / CPU 实测 |
 
 Tauri 和 QuickGUI 的旧评估仅为决策背景，见 [FRAMEWORK_EVALUATION.md](FRAMEWORK_EVALUATION.md)。不是待完成的另一套架构。
+
+图标模块放在 renderer 的共享组件层；统一尺寸、线宽、颜色和可访问性，显式导入实际使用的图标。检查新增 shadcn 源码中的所有图标入口，不保留第二套 UI 图标依赖或运行时远程资源。当前只定义规范，尚未安装依赖或创建组件。
 
 ## 2. Electron 进程与权限
 
@@ -86,6 +89,16 @@ SQLite 驱动只在 main / 受控存储 worker 使用。M1 对比所选 Electron
 解除关系不删除实体；删除目标仅使其边失效，保留其他条目。恢复关系重新防环；有冲突时恢复实体而不恢复非法边，并提示。
 
 排序可用间隔整数；耗尽时重排目标列并原子保存。撤销恢复相对邻居，不通过覆写整列旧排序破坏新安排。
+
+### 4.4 导入时的事件链校验，不等于撤销版本校验
+
+历史事件是关键业务变化记录，不是每次编辑的完整日志。按 itemId 和 seq 校验以下白名单字段的连续性：horizon、periodId、status、completedAt、archivedAt、deletedAt；创建 / baseline 是明确起点，字段更改必须由相应事件类型支持。同一事件的前后状态也须满足类型和日期约束，不能只检查两条事件能否相接。
+
+相邻事件的完整 before_json / after_json **不要求全等**。标题、说明、关系及同周期排序可以在不写历史事件时递增 itemVersion / placementVersion；版本须合法、不得无故倒退，但允许跳号。sortKey、原邻居和版本字段不是历史业务链连续性比较字段，autoHold 另按撤销 / 策略约束校验。不能因这些未记录变化拒绝应用自身的合法导出。
+
+导入仍需严格验证实体身份、payload schema、operation / event 唯一性、seq 顺序、引用、undo 指向及上述业务字段的状态链。末尾历史业务状态与当前表须一致；当前版本可高于最后事件版本，当前排序也可能不同。baseline 之前没有可验证的状态，不倒推或捏造历史。若缺少必要事件而导致业务字段真正不一致，仍拒绝导入。
+
+安全撤销使用另一套规则：当前 item.version 与 placement.version 必须严格匹配待撤销事件的 after 版本，否则跳过。允许导入版本跳号不等于允许撤销覆盖后续编辑。验收 D13 必须覆盖创建→改标题 / 说明→列内排序→完成→导出恢复，并保留 D06 对真实非法链的拒绝。
 
 ## 5. 历史查询投影
 

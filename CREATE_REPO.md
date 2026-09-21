@@ -1,16 +1,14 @@
-# 将文档放入私人 GitHub 仓库
+# 私人 GitHub 仓库维护与首次创建说明
 
 ## 当前状态
 
-计划账号：`thinkingjimmy`。计划仓库名：`goalloom`。要求：Private。
+`thinkingjimmy/goalloom` 已创建，读回可见性为 **Private**；初始文档提交 `06e70d5` 已验证。下面的创建命令仅作为首次上传历史操作说明，不是当前待执行任务。**维护现有仓库时不要重新执行创建脚本，不要删除重建或force push。**
 
-本次已尝试通过 GitHub 连接器读取 `thinkingjimmy/goalloom`，返回 404；这可能表示仓库不存在，也可能表示当前连接无访问权限，不能据此断言远端不存在。当前会话暴露的 GitHub 操作均为读取，未提供创建仓库或提交文件入口；容器也没有已配置的 GitHub CLI 登录。**本资料包尚未提交到 GitHub，没有远端提交 SHA。**
+后续更新从现有远端最新分支开始，核对差异后创建新提交；写入前再次检查分支是否变化，保护规则要求PR时走PR流程。不要将旧文档包整体覆盖到已有应用代码上。连接器能否写入，以当前会话实际动作与权限为准，不能沿用历史会话的只读结论。
 
-如用户已自行创建同名仓库，先读取现有仓库的可见性与内容，再采用已有仓库工作流；不要据此文档推断远端不存在。
+不要把token、密码、SSH私钥或付费图标许可密钥发到聊天中或写入仓库。
 
-**更正此前说明：当前会话不能通过 GitHub 连接器直接向已有仓库写入文件。** 仅创建空私人仓库并不能解决当前会话缺少写入操作的问题。请在你自己的已登录 GitHub 环境执行以下脚本；不要把 token、密码或 SSH 私钥发到聊天中。
-
-## 推荐：在 Mac 本地运行附带脚本
+## 首次创建历史说明：在 Mac 本地运行附带脚本
 
 前提：已经安装 Git 和 GitHub CLI，且 `gh` 登录的是 `thinkingjimmy`，具备创建私人仓库权限。
 
@@ -26,7 +24,7 @@ bash scripts/publish-private-repo.sh
 
 脚本如果遇到已存在仓库或部分成功会停止，保留本地文件，按错误说明处理后再继续；不自动 force push 或删除重建。
 
-## 手动方式，适用于 macOS / Windows 终端
+## 首次创建历史说明：手动方式
 
 在**全新解压、确认不属于其他 Git 仓库**的 `goalloom` 目录里逐行执行；Git 与 GitHub CLI 需提前安装并登录。不要复制到已有产品的仓库根目录运行。
 
@@ -44,7 +42,7 @@ gh repo view thinkingjimmy/goalloom --json visibility --jq .visibility
 git push -u origin main
 ```
 
-命令参数依据 [GitHub CLI 官方文档](https://cli.github.com/manual/gh_repo_create)。上述命令需在用户本地执行，本资料包没有声称这些远端操作已经发生。
+命令参数依据 [GitHub CLI 官方文档](https://cli.github.com/manual/gh_repo_create)。上述首次创建命令不应在现有仓库重复执行；远端当前状态以上文读回结果为准。
 
 提交失败若提示缺少 Git 用户名 / 邮箱，请用自己的提交身份配置；不要复制他人的身份或把私人凭据写入文档。
 
