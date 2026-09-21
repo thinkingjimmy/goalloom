@@ -1,0 +1,222 @@
+{
+  "checked_on": "2026-09-21",
+  "source": "Connected Spaceship domain-bulk-check tool, two batches in the user conversation",
+  "registered_or_purchased": false,
+  "caveat": "Point-in-time availability. Purchase term, renewal price, taxes and checkout total were not returned. No reservation or trademark clearance.",
+  "total_checked": 40,
+  "available_count": 7,
+  "batches": [
+    {
+      "batch": 1,
+      "results": [
+        {
+          "name": "aimlane.com",
+          "isAvailable": false
+        },
+        {
+          "name": "aimthread.com",
+          "isAvailable": true,
+          "prices": {
+            "purchase": {
+              "amount": 9.08,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "name": "arcday.com",
+          "isAvailable": false
+        },
+        {
+          "name": "dayrung.com",
+          "isAvailable": true,
+          "prices": {
+            "purchase": {
+              "amount": 9.08,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "name": "daytandem.com",
+          "isAvailable": true,
+          "prices": {
+            "purchase": {
+              "amount": 9.08,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "name": "nearday.com",
+          "isAvailable": false
+        },
+        {
+          "name": "steploom.com",
+          "isAvailable": false
+        },
+        {
+          "name": "goalloom.com",
+          "isAvailable": true,
+          "prices": {
+            "purchase": {
+              "amount": 9.08,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "name": "weekora.com",
+          "isAvailable": false
+        },
+        {
+          "name": "daystride.com",
+          "isAvailable": false
+        },
+        {
+          "name": "dayweave.com",
+          "isAvailable": false
+        },
+        {
+          "name": "aimora.com",
+          "isAvailable": false
+        },
+        {
+          "name": "ordino.com",
+          "isAvailable": false
+        },
+        {
+          "name": "orvilo.com",
+          "isAvailable": false
+        },
+        {
+          "name": "wayloom.com",
+          "isAvailable": false
+        },
+        {
+          "name": "towardo.com",
+          "isAvailable": true,
+          "prices": {
+            "purchase": {
+              "amount": 9.08,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "name": "planrill.com",
+          "isAvailable": false
+        },
+        {
+          "name": "dayrill.com",
+          "isAvailable": false
+        },
+        {
+          "name": "daylume.com",
+          "isAvailable": false
+        },
+        {
+          "name": "aimrill.com",
+          "isAvailable": true,
+          "prices": {
+            "purchase": {
+              "amount": 9.08,
+              "currency": "USD"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "batch": 2,
+      "results": [
+        {
+          "name": "aimtide.com",
+          "isAvailable": false
+        },
+        {
+          "name": "stepward.com",
+          "isAvailable": false
+        },
+        {
+          "name": "towra.com",
+          "isAvailable": false
+        },
+        {
+          "name": "towilo.com",
+          "isAvailable": false
+        },
+        {
+          "name": "towdio.com",
+          "isAvailable": false
+        },
+        {
+          "name": "runglo.com",
+          "isAvailable": false
+        },
+        {
+          "name": "rungly.com",
+          "isAvailable": false
+        },
+        {
+          "name": "aimelo.com",
+          "isAvailable": false
+        },
+        {
+          "name": "aimilo.com",
+          "isAvailable": false
+        },
+        {
+          "name": "aimeno.com",
+          "isAvailable": false
+        },
+        {
+          "name": "aimuno.com",
+          "isAvailable": false
+        },
+        {
+          "name": "steporo.com",
+          "isAvailable": false
+        },
+        {
+          "name": "nearlio.com",
+          "isAvailable": false
+        },
+        {
+          "name": "ordelo.com",
+          "isAvailable": false
+        },
+        {
+          "name": "tandoro.com",
+          "isAvailable": false
+        },
+        {
+          "name": "tendori.com",
+          "isAvailable": false
+        },
+        {
+          "name": "dayrivo.com",
+          "isAvailable": false
+        },
+        {
+          "name": "daynivo.com",
+          "isAvailable": false
+        },
+        {
+          "name": "goalrill.com",
+          "isAvailable": true,
+          "prices": {
+            "purchase": {
+              "amount": 9.08,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "name": "aimlark.com",
+          "isAvailable": false
+        }
+      ]
+    }
+  ]
+}

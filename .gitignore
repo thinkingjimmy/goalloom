@@ -1,0 +1,34 @@
+# Operating system / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Dependencies / build output
+node_modules/
+dist/
+build/
+target/
+src-tauri/target/
+coverage/
+playwright-report/
+test-results/
+*.log
+
+# Secrets and private app data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-shm
+*.db-wal
+backups/
+exports/
