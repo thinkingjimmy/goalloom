@@ -1,51 +1,12 @@
 # Development agent instructions
 
-## Status and authority
+Read [docs/PRD.md](docs/PRD.md) and [docs/TODO.md](docs/TODO.md) before implementation. This is a documentation-only repository; application work and tests are not complete.
 
-Documentation-only, v0.3.1. Read docs/DECISIONS.md, docs/PRD.md, docs/HISTORY_AND_ROLLOVER.md, docs/ARCHITECTURE.md, docs/ICONOGRAPHY.md, docs/TODO.md and docs/ACCEPTANCE.md before scaffolding. The private thinkingjimmy/goalloom repository exists; initial documentation commit 06e70d5 was read back and verified. No application, installer or desktop test has been produced.
-
-Electron is ACCEPTED. Use the existing React / TypeScript / Vite / shadcn/ui / Tailwind CSS direction. Do not reopen framework selection or scaffold Tauri / QuickGUI alongside it. FRAMEWORK_EVALUATION.md is decision background, not an active multi-backend plan. Lock actual runtime, driver and build dependencies after real platform validation.
-
-## Confirmed product constraints
-
-Goalloom / goalloom.com (purchase reported by the owner). Private repository slug goalloom. macOS and Windows local desktop; no accounts, cloud sync or production web application. Five horizons: Later, custom three-month cycle, Month, Week, Today. Exactly one primary planning placement per item.
-
-No relationship-based progress rollups or completion propagation. An item reference showing a changed title/status is normal entity display, not propagation. Do not add percentages, contribution weights or KR scoring.
-
-Relationship cardinality is still UNDECIDED. One primary placement does not imply one parent. Confirm the directed graph cardinality before production relation migrations, not the already accepted Electron or local-desktop choice.
-
-## Icons
-
-Hugeicons is REQUIRED for application UI icons, including icons inside copied/generated shadcn components. Follow docs/ICONOGRAPHY.md. Default to @hugeicons/react with @hugeicons/core-free-icons (Stroke Rounded); do not assume a Pro license or purchase one. Use explicit named imports and a small shared icon wrapper; bundle locally, without runtime CDN, icon fonts or remote SVG fetching. Do not introduce Lucide, Heroicons, Tabler, react-icons or emoji as UI-icon fallbacks. Audit menus, dialogs, checkboxes, navigation, toasts and loading states when adding components. Keep accessible button names, decorative-icon semantics, focus/ref behavior, currentColor and consistent size/stroke. Native OS controls and separately designed brand assets are not replaced by arbitrary library symbols. Icon installation and component work remain unchecked until implemented and tested.
-
-## History and rollover
-
-History paging changes only a column's view state. Past cards are read-only references, not additional active placements. Opening one opens the CURRENT item explicitly; editing it never rewrites the past. Disable history card drag/drop and direct completion. Do not draw current relationship edges to historical endpoints or imply full historical relationship reconstruction.
-
-Defaults: Today auto-rolls into the current day; Week and Month use manual re-planning but may enable auto; Cycle is manual-only for P0; Later has no rollover policy. Old unfinished work stays discoverable in the current column's pending section regardless of manual/auto policy, including after undo, failed rollover, policy activation exclusions or restore pause. Do not force reviews or silently archive/delete tasks.
-
-Rollover changes only placement/order, never due dates, relationships or status. Cross-horizon refinement (Month -> Week -> Today) is movement, not repeated postponement. Apply only the item's own placement policy, never cascade along relations.
-
-Record actual observed processing times. An app closed from September until November performs one real September-to-November move, not invented October operations. Rollover must not depend on a background service while the app is exited.
-
-Current entity updates, key events and operation receipts commit in one SQLite transaction. Retries do not duplicate moves/events. Batch undo is version-checked and skips subsequently modified items; append inverse records instead of deleting original history. Persist a same-target-period hold to prevent immediately reapplying an undone rollover.
-
-History separates status at period end from later outcomes; October completion does not turn September into an on-time completion. Current title/content may be shown with an explicit current-content label. Missing legacy events require a baseline and an incomplete-history label, not fabricated past versions.
-
-Event-chain restore validation compares the explicit historical business fields, not whole before/after JSON snapshots. Unlogged title, description, relation and same-period order edits may advance versions or ordering between events. Validate identity, schema, references, sequence and business-state continuity; allow explained version gaps and unlogged sort differences. Undo still requires strict current item/placement version matches.
-
-Export/restore events, policies, batch identities and undo holds with the data. Restored workspaces pause automatic catch-up until confirmed. Do not let restart bypass that pause.
-
-## Implementation and security
-
-Use narrow typed contextBridge/preload APIs and validated main-side IPC. Keep contextIsolation=true, sandbox=true, nodeIntegration=false. Do not expose arbitrary IPC, SQL, shell commands or filesystem access to renderer code. Load local resources; restrict external navigation and protocols.
-
-SQLite belongs in a stable application-data directory, with tested atomic writes, migrations, consistent backups and restore validation. Native drivers must work with the actual Electron ABI and packaged CPU architecture, not just host Node. Browser mocks must be visibly nonpersistent; production must fail rather than silently use memory.
-
-Current board reads current tables directly. The small key-event ledger supports history, rollback safety and idempotence; it is not a full event-sourcing platform, CRDT, sync queue, content-version database or complete period snapshot feature. Do not omit key events from early CRUD work and try to invent them later.
-
-Validate real macOS/Windows runtimes, Chinese IME, drag/drop, lifecycle, history navigation, rollover/undo and restart persistence. Record measurements and tests actually run. Do not mark application TODOs complete for writing documentation.
-
-## Privacy and external actions
-
-Task content, local history, screenshots and backup files are private. No task bodies in developer logs or telemetry. No private-repository tokens in installers. No public releases, open-source license, DNS changes, domain purchases or paid services without authorization. Re-read the target branch before writes, preserve concurrent changes and never force-push or change repository visibility without authorization. Stable app identifiers and data paths require deliberate release decisions.
+- Keep product decisions in PRD and engineering tasks / acceptance in TODO. Update them in place; do not recreate separate architecture, history, icon, decision or test-report documents for the same rules. Use commits and PR descriptions for change notes and test results.
+- Electron and Hugeicons are confirmed. Preserve the required UI stack, offline desktop scope, one current placement, independent item state, history and rollover rules. Do not reopen framework selection or silently add progress, cloud sync or other deferred features.
+- Resolve PRD's remaining decisions before the affected production schema or platform commitments. An unconfirmed relationship model is not permission to choose silently.
+- Implement one milestone at a time. Check a TODO only after implementation and relevant tests; record commands, actual results and tested OS / CPU. Browser mocks are not desktop acceptance.
+- Enforce the security, transactional history, restore validation and version-checked undo rules in TODO. Never weaken them to make an error disappear.
+- Keep Hugeicons consistent, including copied shadcn internals. No additional UI icon library, remote icon loading, unapproved Pro dependency or purchase.
+- Keep tasks, history, screenshots, exports and credentials private. No task-body telemetry, public release, open-source license, paid service or DNS change without authorization.
+- Read the latest branch before writes, preserve concurrent changes, use non-forced updates and keep the repository Private. Do not run obsolete repository-creation steps. Keep stable app identifiers and user-data paths across upgrades.
