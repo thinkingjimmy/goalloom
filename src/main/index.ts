@@ -53,7 +53,9 @@ async function createWindow(): Promise<void> {
   const state = await loadWindowState(statePath, screen.getAllDisplays().map(display => display.workArea))
   window = new BrowserWindow({
     width: state?.width ?? 1280, height: state?.height ?? 840, ...(state ? { x: state.x, y: state.y } : {}), minWidth: 720, minHeight: 540, show: false,
-    title: 'Goalloom', backgroundColor: '#f7f7f2',
+    title: 'Goalloom', backgroundColor: '#f5f1eb',
+    // macOS draws the traffic lights inside the renderer's 56px top bar; other platforms keep the native frame.
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 20, y: 20 } } : {}),
     webPreferences: {
       preload: join(directory, '../preload/index.cjs'), contextIsolation: true,
       sandbox: true, nodeIntegration: false, webSecurity: true, webviewTag: false,

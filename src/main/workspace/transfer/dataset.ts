@@ -11,7 +11,7 @@ import { datasetSchema, type Dataset } from '../../../shared/contracts/transfer'
 import { validateImport } from '../../../domain/import-validation'
 import { Store } from '../../storage/store'
 import { transaction, verifyDatabase } from '../../storage/database'
-import { schemaVersion } from '../../storage/schema'
+import { schemaVersion, supportedVersions } from '../../storage/schema'
 
 export function exportDataset(store: Store, now: string): Dataset {
   const items = store.items('1')
@@ -27,7 +27,7 @@ export async function readSqliteDataset(path: string, now: string): Promise<Data
   const db = new DatabaseSync(path, { readOnly: true, allowExtension: false })
   try {
     db.exec('PRAGMA trusted_schema=OFF')
-    if (Number(db.prepare('PRAGMA user_version').get()?.user_version) !== schemaVersion) throw new Error('不支持的数据库版本')
+    if (!supportedVersions.includes(Number(db.prepare('PRAGMA user_version').get()?.user_version))) throw new Error('不支持的数据库版本')
     const tables = db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
     const required = ['workspace', 'items', 'item_placements', 'planning_periods', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects', 'schema_migrations']
     if (tables.some(row => row.type === 'view') || required.some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new Error('数据库结构无效')
@@ -37,7 +37,7 @@ export async function readSqliteDataset(path: string, now: string): Promise<Data
 }
 export function emptyDataset(store: Store, now: string): Dataset {
   const workspace = store.workspace()
-  return { schemaVersion: 1, historyMode: 'complete', exportedAt: now,
+  return { schemaVersion, historyMode: 'complete', exportedAt: now,
     workspace: { ...workspace, generation: randomUUID(), calendar: null, setupConfirmedAt: null, pausedAfterRestore: false, revision: 0, clockAnomaly: false, lastObservedAt: null, backupEnabled: true, backupRetention: 7 },
     items: [], placements: [], periods: [], policies: [], relations: [], events: [], operations: [], undoEffects: [] }
 }

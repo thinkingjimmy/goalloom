@@ -5,14 +5,15 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { z } from 'zod'
-import { dateSchema, horizonSchema, idSchema, statusSchema } from './entities'
+import { dateSchema, flowColorSchema, horizonSchema, idSchema, statusSchema } from './entities'
 
 const envelope = { operationId: idSchema, generation: idSchema }
 const target = { itemId: idSchema, expectedVersion: z.number().int().positive() }
 export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('confirmSetup'), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema, confirmed: z.literal(true) }),
-  z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null) }),
+  z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null) }),
   z.strictObject({ ...envelope, ...target, type: z.literal('edit'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000), dueDate: dateSchema.nullable() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('status'), status: statusSchema }),

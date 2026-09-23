@@ -1,13 +1,19 @@
+/**
+ * [INPUT]: 可访问名称、可选页眉内容、关闭回调与尺寸。
+ * [OUTPUT]: 原生 dialog 模态框：焦点限制、Esc 关闭、统一页眉与关闭按钮。
+ * [POS]: 通用 UI 原语；详情、设置、搜索、往期未完成共用同一弹窗外观。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ */
 import { messages } from '../i18n/messages'
 import { useEffect, useRef, type ReactNode } from 'react'
-import { Button } from './ui/button'
 import { Icon } from './icons'
 
-export function Modal({ title, children, close, wide = false }: { title: string; children: ReactNode; close: () => void; wide?: boolean }) {
+export function Modal({ title, heading, children, close, wide = false, className = '' }: { title: string; heading?: ReactNode; children: ReactNode; close: () => void; wide?: boolean; className?: string }) {
   const dialog = useRef<HTMLDialogElement>(null)
   useEffect(() => { dialog.current?.showModal() }, [])
-  return <dialog ref={dialog} className={wide ? 'modal modal-wide' : 'modal'} aria-label={title} onCancel={event => { event.preventDefault(); close() }}>
-    <header><h2>{title}</h2><Button variant="ghost" size="icon" aria-label={messages.close} onClick={close}><Icon name="close" /></Button></header>
+  return <dialog ref={dialog} className={`modal ${wide ? 'modal-wide' : ''} ${className}`} aria-label={title} onCancel={event => { event.preventDefault(); close() }}
+    onMouseDown={event => { if (event.target === dialog.current) close() }}>
+    <header className="modal-header">{heading ?? <h2>{title}</h2>}<button className="icon-button" aria-label={messages.close} onClick={close}><Icon name="close" size={18} /></button></header>
     {children}
   </dialog>
 }

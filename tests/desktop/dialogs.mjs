@@ -19,7 +19,8 @@ try {
     if (!reply.ok) throw new Error(reply.message)
     return { generation, id: reply.result.itemId }
   })
-  await page.getByRole('button', { name: '导出工作区', exact: true }).click()
+  await page.getByRole('button', { name: '设置与数据', exact: true }).click()
+  await page.getByRole('button', { name: '导出完整 JSON', exact: true }).click()
   console.log(JSON.stringify({ stage: 'native-save-dialog', destination: exported }))
   let exists = false
   for (let n = 0; n < 360 && !exists; n++) { await pause(500); exists = await stat(exported).then(info => info.size > 0).catch(() => false) }
@@ -27,7 +28,6 @@ try {
   const data = JSON.parse(await readFile(exported, 'utf8'))
   assert.equal(data.items[0].id, original.id)
   assert.equal(data.items[0].description, '中文路径 / 空格 / emoji 🌱')
-  await page.getByRole('button', { name: '设置与数据', exact: true }).click()
   await page.getByRole('button', { name: '从 JSON 恢复…', exact: true }).click()
   console.log(JSON.stringify({ stage: 'native-open-dialog', source: exported }))
   await page.getByRole('button', { name: '创建保护备份并继续', exact: true }).waitFor({ timeout: 180_000 })

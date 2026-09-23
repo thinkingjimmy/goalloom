@@ -7,7 +7,7 @@ storage/
 ├── client.ts       # main 的请求关联、worker 故障隔离与退出排空
 ├── worker.ts       # 串行 RPC 组合根，装配 workspace 服务与数据库
 ├── database.ts     # node:sqlite 连接、外键/WAL、同步事务与完整性校验
-├── schema.ts       # schema v1，DAG/唯一位置/历史/操作约束和迁移
+├── schema.ts       # schema v2，DAG/唯一位置/流程颜色/历史/操作约束，v1→v2 原子升级
 ├── store.ts        # 参数化批量读取、版本保护、事件/回执适配
 ├── atomic-json.ts  # 窗口偏好、导出、备份回执共用的原子文件写入
 └── backup/

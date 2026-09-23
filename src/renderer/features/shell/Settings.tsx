@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 权威工作区、固定数据动作 API、受限普通命令。
- * [OUTPUT]: 只读日历、策略/备份设置、批次预览、整库操作的两阶段确认。
+ * [OUTPUT]: 主题、只读日历、策略/备份设置、批次预览、整库操作的两阶段确认。
  * [POS]: 数据管理 UI；保护备份期间持续只读，确认框每次默认未选。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -71,7 +71,12 @@ export function Settings({ snapshot, submit, refresh, busy, close }: { snapshot:
       </>}
       <Button variant="ghost" disabled={working} onClick={() => void data({ type: 'cancel', generation, token: preview.token })}>{messages.cancelData}</Button>
     </section> : <>
-      <section><h3>{messages.fixedCalendar}</h3>{calendar ? <><p className="field-note">{calendar.timezone}  {messages.weekStartsPrefix}{[messages.monday, messages.tuesday, messages.wednesday, messages.thursday, messages.friday, messages.saturday, messages.sunday][calendar.weekStart - 1]}{messages.cycleStartsSuffix} {calendar.cycleAnchor}</p><p className="field-note">{messages.calendarLocked}</p></> : <p className="field-note">{messages.setupUnconfirmed}</p>}</section>
+      <section><h3>{messages.appearance}</h3>
+        <div className="segmented" role="radiogroup" aria-label={messages.theme}>
+          {(['system', 'light', 'dark'] as const).map(value => <button key={value} role="radio" aria-checked={snapshot.workspace.theme === value} disabled={busy || working} onClick={() => void submit({ type: 'preferences', theme: value })}>{{ system: messages.systemTheme, light: messages.lightTheme, dark: messages.darkTheme }[value]}</button>)}
+        </div>
+      </section>
+      <section className="relations-section"><h3>{messages.fixedCalendar}</h3>{calendar ? <><p className="field-note">{calendar.timezone}  {messages.weekStartsPrefix}{[messages.monday, messages.tuesday, messages.wednesday, messages.thursday, messages.friday, messages.saturday, messages.sunday][calendar.weekStart - 1]}{messages.cycleStartsSuffix} {calendar.cycleAnchor}</p><p className="field-note">{messages.calendarLocked}</p></> : <p className="field-note">{messages.setupUnconfirmed}</p>}</section>
       {calendar && <section className="relations-section"><h3>{messages.rolloverSettings}</h3>
         {snapshot.policies.map(policy => <label key={policy.horizon}>{horizonNames[policy.horizon]}<select value={policy.mode} disabled={busy || working || policy.horizon === 'cycle'} onChange={event => void submit({ type: 'policy', horizon: policy.horizon, mode: event.target.value as 'auto' | 'manual', expectedVersion: policy.version })}><option value="manual">{messages.manualMode}</option><option value="auto">{messages.autoMode}</option></select><small className="field-note">{messages.effectiveFrom} {policy.effectiveFromPeriodId.split(':').at(-1)}  {messages.effectiveNote}</small></label>)}
       </section>}

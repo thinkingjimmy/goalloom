@@ -12,7 +12,7 @@ v0.7.0 · 2026-09-23。产品规则见 [PRD](PRD.md)，执行与文档协议见 
 
 Vite构建，electron-vite、dnd-kit与测试runner在M1验证锁版。预览mock明示不持久化，正式包缺存储报错。文档组织只遵循AGENTS的项目约定，此处不复制数值硬限或另设协议。
 
-**图标与颜色：** `@hugeicons/react` + `@hugeicons/core-free-icons`，共享入口 `src/renderer/components/icons/`，显式导入实际存在的图标。默认Stroke Rounded、线宽1.5、工具栏20px / 行内16px / 空状态24–32px、currentColor；审查shadcn内部图标 / SVG选择器 / ref / 焦点 / 键盘 / 命中区 / 许可证。关联标记用固定哈希(ID)%8选择配对的light/dark语义token，算法和索引顺序稳定；八组均验对比度、禁用 / 选中 / 高对比模式，颜色碰撞不合并条目。无远程图标 / 整库扫描 / 第二图标库 / 未授权Pro，缺合适图标先用文字。[接入](https://hugeicons.com/docs/integrations/react/quick-start) · [实践](https://hugeicons.com/docs/integrations/react/best-practices)
+**图标与颜色：** `@hugeicons/react` + `@hugeicons/core-free-icons`，共享入口 `src/renderer/components/icons/`，显式导入实际存在的图标。默认Stroke Rounded、线宽1.5、工具栏20px / 行内16px / 空状态24–32px、currentColor；审查shadcn内部图标 / SVG选择器 / ref / 焦点 / 键盘 / 命中区 / 许可证。流程颜色为流程根持久化的0–7索引，选择配对的light/dark语义token，复选框描边对底色≥3:1；八组均验对比度、禁用 / 选中 / 高对比模式。无远程图标 / 整库扫描 / 第二图标库 / 未授权Pro，缺合适图标先用文字。[接入](https://hugeicons.com/docs/integrations/react/quick-start) · [实践](https://hugeicons.com/docs/integrations/react/best-practices)
 
 ## 2. 数据与事务
 
@@ -20,7 +20,7 @@ Vite构建，electron-vite、dnd-kit与测试runner在M1验证锁版。预览moc
 
 | 实体 | 必要信息 / 约束 |
 | --- | --- |
-| items | 稳定ID、title / description、status、due_date、completed_at、cancelled_at、archived_at、deleted_at、version及创建 / 修改时间；无kind / 自定义color |
+| items | 稳定ID、title / description、status、due_date、completed_at、cancelled_at、archived_at、deleted_at、version及创建 / 修改时间、flow_color（0–7，可空）；无kind。flow_color 只能设在无有效上级的条目，未删除条目间唯一（部分唯一索引＋触发器与事务双重保证） |
 | calendar_config / settings | 首次timezone、week_start、cycle参数、setup_confirmed_at；当前workspace_generation及备份启用 / N / 结果、rollover_paused_after_restore。setup_confirmed_at为空则未配置，不可创建；首版无pending日历规则 |
 | planning_periods / item_placements | 尺度、日期起止 / 排他结束、固定UTC边界 / 时区 / 配置标识；每项唯一位置、sort_key / version / auto_hold_period_id。Later period为空，其余匹配尺度 |
 | item_relations | parent / child、失效标记及删除失效来源；活跃父子对唯一，同事务防自关联 / 防环；D06 已确认多父 DAG，不限制活跃 child 的父数量 |
@@ -178,6 +178,12 @@ restoreWorkspace和resetWorkspace每次成功都使用全新的本地workspace_g
 通过标准：全部承诺平台能安装、离线使用和整库恢复，主要输入 / 生命周期有实机证据，无已知阻断问题。**开发与自动化交付已完成；这个完整人工验收门槛由负责人后续勾选，不冒充已通过。**
 
 **内测阻断：** 数据丢失 / 历史不一致、循环关系、无确认覆盖、顺延改截止日、已锁日历被暗改、历史浏览写计划、逆操作覆盖无关新数据或新增关系依赖、重复顺延 / 撤销失效、有效往期不可见、Later无法还原、还原误改整库暂停、未确认配置就写任务、无有效备份 / 最终确认就重置、维护期间接受新业务写入、陈旧请求写入新工作区、离线不可用或承诺平台不能运行。
+
+### 工程维护 · 极简看板与流程颜色
+
+- [x] schema v2：`items.flowColor`、未删除唯一索引与"流程根无上级"触发器；v1 库原子升级，v1 JSON / SQLite 备份仍可导入（颜色为空）。命令 `create.flowColor` 与不入撤销栈的 `flowColor`；关联、还原、撤销、导入均复核流程约束。快照返回全部流程根。
+- [x] 按 PRD §2.4/§3 重做 renderer：顶栏流程筛选 / 搜索 / 视图 / 设置，单行卡片与整行拖动，列内连续录入与流程选择，居中详情弹窗（截止、流程、上下级勾选、移动 / 拆解 / 更多），自研细滚动条与最小列宽横向滚动；深浅主题同步。
+- [x] 新增 `tests/integration/flows.test.ts`、`tests/domain/flows.test.ts`，更新颜色与全部 Electron 场景脚本；本机执行记录于开发提交。
 
 ### 工程维护 · 目录结构
 

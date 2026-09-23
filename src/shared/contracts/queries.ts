@@ -1,11 +1,11 @@
 /**
  * [INPUT]: 受限查询、实体/操作 DTO。
- * [OUTPUT]: 工作区快照、列表视图类型、分页列表和当前条目详情。
+ * [OUTPUT]: 工作区快照（含全部流程根）、列表视图类型、分页列表和当前条目详情。
  * [POS]: 只读 IPC 契约；历史查询后续沿用固定周期 ID。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { z } from 'zod'
-import { dateSchema, horizonSchema, idSchema, itemSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
+import { dateSchema, flowColorSchema, horizonSchema, idSchema, itemSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 
 export const querySchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('snapshot') }),
@@ -19,13 +19,15 @@ export const querySchema = z.discriminatedUnion('type', [
 export type Query = z.infer<typeof querySchema>
 export type ListView = Extract<Query, { type: 'list' }>['view']
 export const relationViewSchema = relationSchema.extend({ parentTitle: z.string(), childTitle: z.string(), parentArchived: z.boolean(), childArchived: z.boolean() })
+export const flowSchema = z.strictObject({ id: idSchema, title: z.string(), flowColor: flowColorSchema, archived: z.boolean() })
 export const snapshotSchema = z.strictObject({
   workspace: workspaceSchema, periods: z.array(periodSchema), items: z.array(itemSchema), relations: z.array(relationViewSchema), policies: z.array(policySchema),
   backlog: z.record(z.string(), z.number().int().nonnegative()), observedAt: z.string(), maintenance: z.boolean(), backupError: z.string().nullable(),
-  rolloverSources: z.record(idSchema, dateSchema),
+  rolloverSources: z.record(idSchema, dateSchema), flows: z.array(flowSchema),
 })
 export const itemPageSchema = z.strictObject({ items: z.array(itemSchema), total: z.number().int().nonnegative() })
 export const detailSchema = z.strictObject({ item: itemSchema, relations: z.array(relationViewSchema) })
 export type Snapshot = z.infer<typeof snapshotSchema>
+export type Flow = z.infer<typeof flowSchema>
 export type ItemPage = z.infer<typeof itemPageSchema>
 export type ItemDetail = z.infer<typeof detailSchema>

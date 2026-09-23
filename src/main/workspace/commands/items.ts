@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 已校验命令与最新事务 Context。
- * [OUTPUT]: 首次确认、创建、编辑、移动和关联的原子字段/边差量及真实事件。
- * [POS]: workspace 的条目与首次配置命令库；关系为多父 DAG，各条目状态/位置独立。
+ * [OUTPUT]: 首次确认、创建、编辑、流程颜色、移动和关联的原子字段/边差量及真实事件。
+ * [POS]: workspace 的条目与首次配置命令库；关系为多父 DAG，流程根颜色唯一且无上级，各条目状态/位置独立。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { randomUUID } from 'node:crypto'
@@ -10,7 +10,7 @@ import { relationProblem } from '../../../domain/relations'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { calendarSchema, type Item, type Relation } from '../../../shared/contracts/entities'
 import { statusGroup } from '../../../shared/contracts/effects'
-import { assertAvailable, nextSortKey, targetPeriod, touch, type Context } from '../context'
+import { assertAvailable, assertFlowColorFree, hasActiveParent, nextSortKey, targetPeriod, touch, type Context } from '../context'
 
 export function confirmSetup(context: Context, command: CommandOf<'confirmSetup'>): boolean {
   if (context.workspace.setupConfirmedAt) throw new DomainError('setup', '日历已锁定，重新配置需先备份并重置工作区')
@@ -30,11 +30,15 @@ export function confirmSetup(context: Context, command: CommandOf<'confirmSetup'
 export function createItem(context: Context, command: CommandOf<'create'>): boolean {
   const parent = command.parentId ? context.store.item(command.parentId, command.expectedParentVersion ?? -1) : null
   if (parent) assertAvailable(parent)
+  if (command.flowColor !== null) {
+    if (parent) throw new DomainError('invalid', '有上级的条目跟随上级流程，不能单独设置颜色')
+    assertFlowColorFree(context, command.flowColor, null)
+  }
   const id = randomUUID()
   const period = targetPeriod(context, command.horizon)
   const item: Item = { id, title: command.title, description: command.description, dueDate: command.dueDate,
     status: 'todo', completedAt: null, cancelledAt: null, archivedAt: null, deletedAt: null, deletedBy: null,
-    createdAt: context.now, updatedAt: context.now, version: 1,
+    createdAt: context.now, updatedAt: context.now, version: 1, flowColor: command.flowColor,
     placement: { itemId: id, horizon: command.horizon, periodId: period?.id ?? null, sortKey: nextSortKey(context, command.horizon, period?.id ?? null, null), version: 1, holdPeriodId: null } }
   context.store.insertItem(item)
   const relation = parent ? newRelation(parent.id, id, context.now) : null
@@ -55,6 +59,21 @@ export function editItem(context: Context, command: CommandOf<'edit'>): boolean 
   touch(context, item)
   context.itemId = item.id
   context.label = '保存'
+  return true
+}
+
+export function setFlowColor(context: Context, command: CommandOf<'flowColor'>): boolean {
+  const item = context.store.item(command.itemId, command.expectedVersion)
+  assertAvailable(item)
+  if ((item.flowColor ?? null) === command.flowColor) return false
+  if (command.flowColor !== null) {
+    if (hasActiveParent(context, item.id)) throw new DomainError('invalid', '有上级的条目跟随上级流程，不能单独设置颜色')
+    assertFlowColorFree(context, command.flowColor, item.id)
+  }
+  item.flowColor = command.flowColor
+  touch(context, item)
+  context.itemId = item.id
+  context.label = '流程颜色'
   return true
 }
 
@@ -90,6 +109,7 @@ export function linkItems(context: Context, command: CommandOf<'link'>): boolean
   const parent = context.store.item(command.parentId, command.expectedParentVersion)
   const child = context.store.item(command.childId, command.expectedChildVersion)
   assertAvailable(parent); assertAvailable(child)
+  if (child.flowColor !== null) throw new DomainError('conflict', `「${child.title}」是一个流程，请先移除它的流程颜色`)
   const problem = relationProblem(parent.id, child.id, context.store.relations())
   if (problem) throw new DomainError('conflict', problem)
   const relation = newRelation(parent.id, child.id, context.now)

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 新建或受支持版本的 SQLite 连接；main 的迁移保护备份。
- * [OUTPUT]: 已冻结多父 DAG、唯一位置、原子历史与不可变操作回执的 schema v1。
+ * [OUTPUT]: 多父 DAG、唯一位置、流程颜色、原子历史与不可变操作回执的 schema v2，及 v1→v2 原子升级。
  * [POS]: 唯一生产 DDL；升级非空旧 schema 前由打开流程先备份。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -8,10 +8,20 @@ import type { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
 import { transaction } from './database'
 
-export const schemaVersion = 1
+export const schemaVersion = 2
+export const supportedVersions = [1, 2]
 export function migrate(db: DatabaseSync): void {
   const version = Number(db.prepare('PRAGMA user_version').get()?.user_version)
   if (version === schemaVersion) return
+  if (version === 1) {
+    // Additive and atomic: an interrupted upgrade leaves the v1 file untouched.
+    transaction(db, () => {
+      db.exec(`ALTER TABLE items ADD COLUMN flowColor INTEGER CHECK(flowColor IS NULL OR flowColor BETWEEN 0 AND 7);\n${flowDdl}`)
+      db.prepare('INSERT INTO schema_migrations VALUES (?, ?)').run(schemaVersion, new Date().toISOString())
+      db.exec(`PRAGMA user_version = ${schemaVersion}`)
+    })
+    return
+  }
   if (version !== 0 || db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().length) throw new Error('不支持的数据库版本，原文件未修改')
   transaction(db, () => {
     db.exec(ddl)
@@ -20,6 +30,17 @@ export function migrate(db: DatabaseSync): void {
     db.exec(`PRAGMA user_version = ${schemaVersion}`)
   })
 }
+
+// --- A flow root owns one colour among live items and never has an active parent. ---
+const flowDdl = `
+CREATE UNIQUE INDEX unique_flow_color ON items(flowColor) WHERE flowColor IS NOT NULL AND deletedAt IS NULL;
+CREATE TRIGGER flow_root_color BEFORE UPDATE OF flowColor ON items WHEN NEW.flowColor IS NOT NULL BEGIN
+  SELECT CASE WHEN EXISTS(SELECT 1 FROM item_relations WHERE childId=NEW.id AND invalidatedAt IS NULL) THEN RAISE(ABORT,'flow root has parent') END;
+END;
+${['INSERT', 'UPDATE'].map(event => `CREATE TRIGGER flow_root_edge_${event.toLowerCase()} BEFORE ${event} ON item_relations WHEN NEW.invalidatedAt IS NULL BEGIN
+  SELECT CASE WHEN (SELECT flowColor FROM items WHERE id=NEW.childId) IS NOT NULL THEN RAISE(ABORT,'flow root has parent') END;
+END;`).join('\n')}
+`
 
 const ddl = `
 CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, appliedAt TEXT NOT NULL) STRICT;
@@ -42,6 +63,7 @@ CREATE TABLE items (
   status TEXT NOT NULL CHECK(status IN ('todo','done','cancelled')), completedAt TEXT, cancelledAt TEXT,
   archivedAt TEXT, deletedAt TEXT, deletedBy TEXT,
   createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, version INTEGER NOT NULL CHECK(version>0),
+  flowColor INTEGER CHECK(flowColor IS NULL OR flowColor BETWEEN 0 AND 7),
   CHECK ((deletedAt IS NULL) = (deletedBy IS NULL)),
   CHECK ((status='todo' AND completedAt IS NULL AND cancelledAt IS NULL)
     OR (status='done' AND cancelledAt IS NULL) OR (status='cancelled' AND completedAt IS NULL))
@@ -99,4 +121,4 @@ ${['INSERT', 'UPDATE'].map(event => `CREATE TRIGGER relation_guard_${event.toLow
     ) SELECT 1 FROM ancestors WHERE id=NEW.childId
   ) THEN RAISE(ABORT,'relation cycle') END;
 END;`).join('\n')}
-`
+${flowDdl}`
