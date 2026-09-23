@@ -19,4 +19,6 @@ it('IPC 允许同页锚点，但拒绝伪造域与其他文档', () => {
   expect(isTrustedFrameUrl('goalloom://app.evil/index.html', expected)).toBe(false)
   expect(isTrustedFrameUrl('goalloom://app/other.html', expected)).toBe(false)
   expect(isTrustedFrameUrl(`${expected}?remote=true`, expected)).toBe(false)
+  expect(isTrustedFrameUrl('http://localhost:5173/', 'http://localhost:5173')).toBe(true)
+  expect(isTrustedFrameUrl('http://localhost:5174/', 'http://localhost:5173')).toBe(false)
 })

@@ -37,9 +37,10 @@ export function App() {
   const [view, setView] = useState<View>('board'), [addRequest, setAddRequest] = useState<AddRequest | null>(null)
   const select = (id: string) => setSelected(id)
   const requestAdd = (horizon: ItemHorizon | null, split: AddRequest['split'] = null) => { setView('board'); setAddRequest(previous => ({ seq: (previous?.seq ?? 0) + 1, horizon, split })) }
-  const theme = snapshot?.workspace.theme ?? 'system'
+  const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper'
   const ready = !!snapshot?.workspace.setupConfirmedAt
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+  useEffect(() => { document.documentElement.dataset.style = style }, [style])
   useEffect(() => { document.documentElement.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other' }, [])
   useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setView('board'); setFilter(null); setComposing(false); setMemory(null) }, [snapshot?.workspace.generation])
   // A filter pointing at a flow that no longer exists falls back to showing everything.

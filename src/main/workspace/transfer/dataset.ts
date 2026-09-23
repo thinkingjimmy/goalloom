@@ -43,8 +43,8 @@ export function emptyDataset(store: Store, now: string): Dataset {
     items: [], placements: [], periods: [], policies: [], relations: [], events: [], operations: [], undoEffects: [] }
 }
 export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 'restore', now: string): string {
-  const data = structuredClone(input), generation = randomUUID(), theme = store.workspace().theme
-  Object.assign(data.workspace, { generation, theme, pausedAfterRestore: mode === 'restore', revision: data.workspace.revision + 1 })
+  const data = structuredClone(input), generation = randomUUID(), { theme, style } = store.workspace()
+  Object.assign(data.workspace, { generation, theme, style, pausedAfterRestore: mode === 'restore', revision: data.workspace.revision + 1 })
   return transaction(store.db, () => {
     // --- 唯一连接中原子替换；任何约束/校验/磁盘错误全部回滚旧库。 ---
     store.db.exec('PRAGMA defer_foreign_keys=ON; DELETE FROM undo_effects; DELETE FROM item_events; DELETE FROM operations; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM planning_periods; DELETE FROM items; DELETE FROM sqlite_sequence WHERE name=\'item_events\';')

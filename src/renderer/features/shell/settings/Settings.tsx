@@ -87,7 +87,7 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
       ? <TransferReview preview={preview} working={working} acknowledged={acknowledged} acknowledge={setAcknowledged} timezone={timezone} generation={generation} data={data}>{status}</TransferReview>
       : <div className="settings-body">
         {status}
-        {section === 'appearance' && <AppearancePane theme={snapshot.workspace.theme} disabled={disabled} submit={submit} />}
+        {section === 'appearance' && <AppearancePane workspace={snapshot.workspace} disabled={disabled} submit={submit} />}
         {section === 'smart' && <SmartPane smart={smart} />}
         {section === 'calendar' && (calendar
           ? <CalendarPane calendar={calendar} policies={snapshot.policies} batches={batches} disabled={disabled} submit={submit} goReset={() => setSection('data')} />

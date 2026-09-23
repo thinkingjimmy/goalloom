@@ -20,7 +20,8 @@ export function isTrustedFrameUrl(actual: string, expected: string): boolean {
   try {
     const url = new URL(actual)
     url.hash = ''
-    return url.href === expected
+    // Normalise the expected side too: a dev server origin like http://localhost:5173 loads as http://localhost:5173/.
+    return url.href === new URL(expected).href
   } catch { return false }
 }
 

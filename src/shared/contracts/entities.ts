@@ -40,10 +40,13 @@ export const relationSchema = z.strictObject({
 export const policySchema = z.strictObject({
   horizon: periodHorizonSchema, mode: z.enum(['auto', 'manual']), version: z.number().int().positive(), effectiveFromPeriodId: idSchema,
 })
+export const themeSchema = z.enum(['system', 'light', 'dark'])
+// Pre-v4 databases and datasets carry no style column; they keep the default paper look.
+export const styleSchema = z.enum(['paper', 'minimal']).default('paper')
 export const workspaceSchema = z.strictObject({
   generation: idSchema, calendar: calendarSchema.nullable(), setupConfirmedAt: instantSchema.nullable(),
   pausedAfterRestore: z.boolean(), revision: z.number().int().nonnegative(), lastObservedAt: instantSchema.nullable(),
-  clockAnomaly: z.boolean(), theme: z.enum(['system', 'light', 'dark']), backupEnabled: z.boolean(), backupRetention: z.number().int().min(1).max(100),
+  clockAnomaly: z.boolean(), theme: themeSchema, style: styleSchema, backupEnabled: z.boolean(), backupRetention: z.number().int().min(1).max(100),
 })
 export type CalendarConfig = z.infer<typeof calendarSchema>
 export type PlanningPeriod = z.infer<typeof periodSchema>

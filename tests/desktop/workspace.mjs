@@ -176,11 +176,24 @@ try {
     try { await fetch('https://example.invalid/goalloom-csp-check'); return false } catch { return true }
   }), true, 'CSP 必须阻断远程连接')
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
-  await page.getByRole('radio', { name: '深色主题', exact: true }).click()
+  await page.getByRole('radio', { name: '深色', exact: true }).click()
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark')
-  await page.getByRole('radio', { name: '浅色主题', exact: true }).click()
+  await page.getByRole('radio', { name: '浅色', exact: true }).click()
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'light')
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.style), 'paper', '新工作区默认纸感风格')
+  await mkdir('output/tests/screenshots', { recursive: true })
+  await page.screenshot({ path: 'output/tests/screenshots/appearance-paper.png' })
+  await page.getByRole('radio', { name: /^简约/ }).click()
+  await page.waitForFunction(() => document.documentElement.dataset.style === 'minimal')
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(255, 255, 255)', '简约浅色使用纯白底')
+  await page.waitForTimeout(300) // let the selection ring transition settle before capturing
+  await page.screenshot({ path: 'output/tests/screenshots/appearance-minimal.png' })
   await page.getByRole('dialog', { name: '设置与数据' }).getByRole('button', { name: '关闭', exact: true }).click()
+  await page.screenshot({ path: 'output/tests/screenshots/board-minimal-light.png' })
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'dark' })
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(9, 9, 11)', '简约深色使用 zinc-950 底')
+  await page.screenshot({ path: 'output/tests/screenshots/board-minimal-dark.png' })
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'light' })
   await page.setViewportSize({ width: 720, height: 600 })
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   await page.evaluate(() => { location.hash = 'main' })
@@ -209,7 +222,7 @@ try {
   assert.equal(rejectsOtherWindow, true, 'IPC 必须拒绝非主窗口的请求，即使 URL 与 preload 相同')
   await mkdir('output/tests/screenshots', { recursive: true })
   await page.screenshot({ path: 'output/tests/screenshots/electron-foundation.png', fullPage: true })
-  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['cancel unsaved quit keeps storage available (native answer stub)', 'preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
+  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['cancel unsaved quit keeps storage available (native answer stub)', 'preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', 'style', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
 } finally {
   await application.close()
 }
@@ -223,6 +236,8 @@ try {
     assert.equal(snapshot.relations.length, 3)
     assert.deepEqual(snapshot.flows.map(flow => flow.title), ['测试流程'])
     assert.equal(snapshot.items.find(item => item.title === '测试行动').placement.horizon, 'day')
-    console.log('真实进程重启：5 个条目、3 条关联、流程颜色和唯一位置均保留。')
+    assert.equal(snapshot.workspace.style, 'minimal')
+    await page.waitForFunction(() => document.documentElement.dataset.style === 'minimal')
+    console.log('真实进程重启：5 个条目、3 条关联、流程颜色、唯一位置和界面风格均保留。')
   } finally { await reopened.close() }
 } finally { await rm(profile, { recursive: true, force: true }) }

@@ -15,8 +15,8 @@ renderer/
 │   │   ├── CommandPalette.tsx # 快捷搜索、命令、视图跳转与撤销入口
 │   │   └── settings/        # 左侧分类 + 右侧分组卡片的设置弹窗
 │   │       ├── Settings.tsx     # 容器：分类导航、备份/批次读取、数据动作与预览状态
-│   │       ├── AppearancePane.tsx # 主题预览卡
-│   │       ├── SmartPane.tsx    # 智能输入：状态/暂停、启用关闭、按服务 Key 更换/删除、隐私提示
+│   │       ├── AppearancePane.tsx # 风格预览卡（纸感/简约）+ 明暗分段
+│   │       ├── SmartPane.tsx    # 智能输入：状态卡、按服务 Key 更换/删除（表单在行下展开）、隐私提示
 │   │       ├── CalendarPane.tsx # 只读日历、逐列顺延策略、可撤销的顺延记录
 │   │       ├── BackupPane.tsx   # 上次备份、每日开关、即时保存的保留份数、备份列表
 │   │       ├── DataPane.tsx     # 导出、JSON/SQLite 恢复入口、危险区重置

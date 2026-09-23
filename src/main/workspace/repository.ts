@@ -91,9 +91,10 @@ export class Repository {
       case 'backupPreferences': return setBackupPreferences(context, command)
       case 'undoBatch': return undoBatch(context, command)
       case 'preferences': {
-        if (context.workspace.theme === command.theme) return false
-        context.workspace.theme = command.theme
-        context.label = '主题'
+        const theme = command.theme ?? context.workspace.theme, style = command.style ?? context.workspace.style
+        if (context.workspace.theme === theme && context.workspace.style === style) return false
+        context.label = context.workspace.style === style ? '主题' : '风格'
+        Object.assign(context.workspace, { theme, style })
         return true
       }
       default: throw new DomainError('invalid', '该操作尚未开放')
