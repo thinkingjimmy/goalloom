@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 权威工作区、固定数据动作 API、受限普通命令、设备侧智能输入状态。
- * [OUTPUT]: 左侧分类导航 + 右侧分组面板的设置弹窗；整库操作切换为 TransferReview 两阶段确认。
+ * [INPUT]: 权威工作区、固定数据动作 API、受限普通命令、设备侧智能输入状态、条目详情打开回调。
+ * [OUTPUT]: 左侧分类导航（设置五类 + 条目：已完成/回收站）+ 右侧面板的设置弹窗；已完成页头切换完成/取消/归档；整库操作切换为 TransferReview 两阶段确认。
  * [POS]: 数据管理 UI 的容器：持有备份/批次读取、数据动作与预览状态；保护备份期间锁定导航，确认框每次默认未选。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -16,10 +16,12 @@ import { CalendarPane } from './CalendarPane'
 import { BackupPane } from './BackupPane'
 import { DataPane } from './DataPane'
 import { SmartPane } from './SmartPane'
+import { ItemsPane, type ItemsView } from './ItemsPane'
+import { Segmented } from './parts'
 import type { Smart } from '../../../state/smart'
 import { TransferReview, TransferSteps } from './TransferReview'
 
-export type Section = 'appearance' | 'smart' | 'calendar' | 'backup' | 'data'
+export type Section = 'appearance' | 'smart' | 'calendar' | 'backup' | 'data' | 'done' | 'trash'
 const sections: { id: Section; label: string; icon: IconName }[] = [
   { id: 'appearance', label: messages.appearance, icon: 'appearance' },
   { id: 'smart', label: '智能输入', icon: 'smart' },
@@ -27,9 +29,15 @@ const sections: { id: Section; label: string; icon: IconName }[] = [
   { id: 'backup', label: messages.backups, icon: 'backup' },
   { id: 'data', label: messages.dataSection, icon: 'transfer' },
 ]
+const itemSections: { id: Section; label: string; icon: IconName }[] = [
+  { id: 'done', label: messages.done, icon: 'check' },
+  { id: 'trash', label: messages.trash, icon: 'delete' },
+]
+const endings = [{ value: 'done', label: messages.doneShort }, { value: 'cancelled', label: messages.cancelledShort }, { value: 'archived', label: messages.archive }] as const
+type Ending = typeof endings[number]['value']
 
-export function Settings({ snapshot, smart, initial = 'appearance', submit, refresh, busy, close }: { snapshot: Snapshot; smart: Smart; initial?: Section; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; close: () => void }) {
-  const [section, setSection] = useState<Section>(initial)
+export function Settings({ snapshot, smart, initial = 'appearance', submit, refresh, busy, select, close }: { snapshot: Snapshot; smart: Smart; initial?: Section; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; select: (id: string) => void; close: () => void }) {
+  const [section, setSection] = useState<Section>(initial), [ending, setEnding] = useState<Ending>('done')
   const [backups, setBackups] = useState<BackupStatus | null>(null), [batches, setBatches] = useState<BatchSummary[]>([])
   const [preview, setPreview] = useState<TransferPreview | null>(null), [acknowledged, setAcknowledged] = useState(false)
   const [working, setWorking] = useState(false), [error, setError] = useState('')
@@ -68,8 +76,10 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
     close()
   }
   const disabled = busy || working
-  const title = preview ? (preview.mode === 'reset' ? messages.resetWorkspace : messages.restoreWorkspace) : sections.find(entry => entry.id === section)!.label
-  const heading = <><h2>{title}</h2>{preview && <TransferSteps backedUp={!!preview.backup} />}</>
+  const title = preview ? (preview.mode === 'reset' ? messages.resetWorkspace : messages.restoreWorkspace) : [...sections, ...itemSections].find(entry => entry.id === section)!.label
+  const heading = <><h2>{title}</h2>{preview && <TransferSteps backedUp={!!preview.backup} />}
+    {!preview && section === 'done' && <Segmented label={messages.endingFilter} value={ending} options={endings} onChange={setEnding} />}</>
+  const items = section === 'done' ? ending : section === 'trash' ? 'trash' : null
   const status = <>
     {error && <p className="settings-alert" role="alert">{error}</p>}
     {working && <p className="settings-footnote" role="status">{messages.checkingData}</p>}
@@ -79,6 +89,10 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
     <nav className="settings-nav" aria-label={messages.settingsSections} data-locked={!!preview}>
       <p className="settings-nav-title">{messages.settings}</p>
       {sections.map(entry => <button key={entry.id} type="button" aria-current={!preview && section === entry.id ? 'page' : undefined} disabled={!!preview} onClick={() => setSection(entry.id)}>
+        <Icon name={entry.icon} size={16} />{entry.label}
+      </button>)}
+      <p className="settings-nav-group">{messages.itemsSection}</p>
+      {itemSections.map(entry => <button key={entry.id} type="button" aria-current={!preview && section === entry.id ? 'page' : undefined} disabled={!!preview} onClick={() => setSection(entry.id)}>
         <Icon name={entry.icon} size={16} />{entry.label}
       </button>)}
       {preview && <small className="settings-nav-note">{messages.maintenanceNav}</small>}
@@ -93,6 +107,7 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
           ? <CalendarPane calendar={calendar} policies={snapshot.policies} batches={batches} disabled={disabled} submit={submit} goReset={() => setSection('data')} />
           : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}
         {section === 'backup' && <BackupPane status={backups} enabled={snapshot.workspace.backupEnabled} retention={snapshot.workspace.backupRetention} timezone={timezone} generation={generation} configured={!!calendar} disabled={disabled} submit={submit} data={data} />}
+        {items && calendar && <ItemsPane key={items} view={items as ItemsView} revision={snapshot.workspace.revision} timezone={calendar.timezone} disabled={disabled} select={select} submit={submit} />}
         {section === 'data' && <DataPane generation={generation} disabled={disabled} exportJson={() => void desktopApi().exportWorkspace().catch(() => setError(messages.exportUnknown))} data={data} />}
       </div>}
   </Modal>

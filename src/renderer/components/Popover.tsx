@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 受控开关、锚点内容与浮层内容。
  * [OUTPUT]: 锚点相对定位的轻量浮层；外部按下或 Esc 关闭，Esc 不冒泡到外层 dialog。
- * [POS]: 通用 UI 原语，供筛选、视图菜单、截止日、关联选择器和流程选择器复用。
+ * [POS]: 通用 UI 原语，供筛选、列显示、截止日、关联选择器和流程选择器复用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { useEffect, useRef, type ReactNode } from 'react'

@@ -11,17 +11,18 @@ renderer/
 ├── styles.css               # Tailwind、深浅 token、极简看板/弹窗/菜单、细滚动条与可访问性
 ├── features/                # 按用户功能聚合页面及其专属组件
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
-│   │   ├── TopBar.tsx       # 可拖动顶栏：流程筛选、搜索、视图菜单、设置
-│   │   ├── CommandPalette.tsx # 快捷搜索、命令、视图跳转与撤销入口
+│   │   ├── TopBar.tsx       # 可拖动顶栏：流程筛选、搜索、列显示勾选浮层、设置
+│   │   ├── CommandPalette.tsx # 快捷搜索、命令、打开已完成/回收站与撤销入口
 │   │   └── settings/        # 左侧分类 + 右侧分组卡片的设置弹窗
-│   │       ├── Settings.tsx     # 容器：分类导航、备份/批次读取、数据动作与预览状态
+│   │       ├── Settings.tsx     # 容器：分类导航（设置 + 条目）、备份/批次读取、数据动作与预览状态
 │   │       ├── AppearancePane.tsx # 风格预览卡（纸感/简约）+ 明暗分段
 │   │       ├── SmartPane.tsx    # 智能输入：状态卡、按服务 Key 更换/删除（表单在行下展开）、隐私提示
 │   │       ├── CalendarPane.tsx # 只读日历、逐列顺延策略、可撤销的顺延记录
 │   │       ├── BackupPane.tsx   # 上次备份、每日开关、即时保存的保留份数、备份列表
 │   │       ├── DataPane.tsx     # 导出、JSON/SQLite 恢复入口、危险区重置
+│   │       ├── ItemsPane.tsx    # 条目：已完成/已取消/已归档/回收站的搜索、日期分组与行内还原
 │   │       ├── TransferReview.tsx # 三步进度与整库替换的两阶段确认
-│   │       └── parts.tsx        # 分组/行/分段选择原语与工作区时区时间格式
+│   │       └── parts.tsx        # 分组（标题与说明在卡外、卡片只装内容）/行/分段选择原语与工作区时区时间格式
 │   ├── composer/            # 全局新建：普通单条 Later / Jev 可编辑预览
 │   │   ├── Composer.tsx     # 固定输入、防抖/IME、修订回声、失败降级、会话草稿与 createPlan 确认
 │   │   ├── DraftCard.tsx    # 预览项：执行列范围、截止、多上级、建议 chips、手动新流程
@@ -31,16 +32,15 @@ renderer/
 │   │   ├── JevConnect.tsx   # 服务单选、Key、同意、测试并启用（Onboarding/设置共用）
 │   │   └── JevStep.tsx      # 日历确认后的可跳过 Jev 步骤
 │   ├── board/
-│   │   ├── Board.tsx        # 五列、指针优先落点的 dnd-kit 排序、列头与折叠
+│   │   ├── Board.tsx        # 本机可见列、指针优先落点的 dnd-kit 排序、列头、历史周期切换与折叠
 │   │   ├── TaskRow.tsx      # 单行卡片：流程描边复选框、标题与截止/说明/顺延提示
 │   │   ├── QuickAdd.tsx     # 列头＋/拆解的列内连续录入：加入流程/新流程/拆解上级
-│   │   ├── HistoryColumn.tsx # 独立列只读历史、期末与后来结果
+│   │   ├── HistoryColumn.tsx # 独立列只读历史：期末状态标记与标签、变化后的当前状态
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
 │   │   ├── ItemDetail.tsx   # 居中详情：草稿/退出保护、流程颜色、生命周期、移动与拆解
 │   │   ├── DuePicker.tsx    # 截止日快捷选项与日期输入
 │   │   ├── RelationPicker.tsx # 上级/下级勾选列表，流程根不能作下级
-│   │   ├── ItemList.tsx     # 分页搜索、状态时间分组、归档和回收站
 │   │   └── Activity.tsx     # 按真实事件序列分页查看活动
 │   └── setup/
 │       ├── Setup.tsx        # 日历预览与首次显式确认
@@ -54,6 +54,7 @@ renderer/
 ├── state/
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
 │   ├── flows.ts            # 快照派生的流程列表、条目归属与颜色占用
+│   ├── columns.ts          # 本机列显示偏好（localStorage，至少一列，不入工作区）
 │   ├── smart.ts            # 设备侧智能输入状态与动作（代次变化即重读）
 │   └── use-workspace.ts    # 权威快照、幂等提交、未知结果同 ID 重试
 ├── i18n/

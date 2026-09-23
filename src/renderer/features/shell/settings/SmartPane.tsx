@@ -47,10 +47,11 @@ export function SmartPane({ smart }: { smart: Smart }) {
         </div>
       })}
     </SettingsGroup>
-    <section className="settings-group">
-      <h3>{t.privacyTitle}</h3>
-      <p className="settings-footnote settings-lock"><Icon name="lock" size={14} /><span>{t.privacy}</span></p>
-      {status.unsignedBuild && <p className="settings-footnote settings-lock"><Icon name="warning" size={14} /><span>{t.unsigned}</span></p>}
-    </section>
+    <SettingsGroup title={t.privacyTitle}>
+      <div className="settings-card-pad settings-notes">
+        <p className="settings-footnote settings-lock"><Icon name="lock" size={14} /><span>{t.privacy}</span></p>
+        {status.unsignedBuild && <p className="settings-footnote settings-lock"><Icon name="warning" size={14} /><span>{t.unsigned}</span></p>}
+      </div>
+    </SettingsGroup>
   </>
 }

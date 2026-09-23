@@ -1,16 +1,19 @@
 /**
- * [INPUT]: 分组标题、行标题/说明与右侧控件；可选工作区时区。
- * [OUTPUT]: SettingsGroup 圆角分组、SettingsRow 左文右控行、Segmented 分段选择、stamp 本地时间格式。
+ * [INPUT]: 分组标题/说明/右侧状态或操作、行标题/说明与右侧控件；可选工作区时区。
+ * [OUTPUT]: SettingsGroup（标题与说明在卡片外、卡片只装内容）、SettingsRow 左文右控行、Segmented 分段选择、stamp 本地时间格式。
  * [POS]: settings 各分类面板共用的版式原语，不持有状态、不提交命令。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { ReactNode } from 'react'
 
-export function SettingsGroup({ title, footnote, danger = false, children }: { title: string; footnote?: ReactNode; danger?: boolean; children: ReactNode }) {
-  return <section className="settings-group">
-    <h3 className={danger ? 'danger' : undefined}>{title}</h3>
+/** A group reads as heading + card: title, description and status sit above; the card holds only content. */
+export function SettingsGroup({ title, description, aside, danger = false, children }: { title: string; description?: ReactNode; aside?: ReactNode; danger?: boolean; children?: ReactNode }) {
+  return <section className={`settings-group ${danger ? 'danger' : ''}`}>
+    <header className="settings-group-header">
+      <div><h3>{title}</h3>{description && <div className="settings-group-description">{description}</div>}</div>
+      {aside}
+    </header>
     <div className={`settings-card ${danger ? 'danger' : ''}`}>{children}</div>
-    {footnote && <p className="settings-footnote">{footnote}</p>}
   </section>
 }
 

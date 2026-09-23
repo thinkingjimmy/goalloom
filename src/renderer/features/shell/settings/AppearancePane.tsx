@@ -18,9 +18,8 @@ const themes = [{ value: 'system', label: messages.systemTheme }, { value: 'ligh
 
 export function AppearancePane({ workspace, disabled, submit }: { workspace: Workspace; disabled: boolean; submit: (action: Action) => Promise<unknown> }) {
   return <>
-    <section className="settings-group">
-      <h3>{messages.style}</h3>
-      <div className="style-cards" role="radiogroup" aria-label={messages.style}>
+    <SettingsGroup title={messages.style}>
+      <div className="style-cards settings-card-pad" role="radiogroup" aria-label={messages.style}>
         {styles.map(option => <button key={option.value} type="button" role="radio" className="style-card" aria-checked={workspace.style === option.value} disabled={disabled}
           onClick={() => { if (workspace.style !== option.value) void submit({ type: 'preferences', style: option.value }) }}>
           {/* Each preview carries its own style so both looks stay visible whatever is active. */}
@@ -31,9 +30,9 @@ export function AppearancePane({ workspace, disabled, submit }: { workspace: Wor
           <span className="style-card-label"><span>{option.label}</span><small>{option.note}</small></span>
         </button>)}
       </div>
-    </section>
-    <SettingsGroup title={messages.theme} footnote={messages.themeNote}>
-      <SettingsRow title={messages.themeMode} note={messages.themeModeNote}>
+    </SettingsGroup>
+    <SettingsGroup title={messages.theme} description={<>{messages.themeModeNote}。{messages.themeNote}</>}>
+      <SettingsRow title={messages.themeMode}>
         <Segmented label={messages.themeMode} value={workspace.theme} options={themes} disabled={disabled} onChange={theme => void submit({ type: 'preferences', theme })} />
       </SettingsRow>
     </SettingsGroup>
