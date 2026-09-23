@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 条目 ID、权威版本、流程视图、看板候选、受限提交和详情读取接口。
- * [OUTPUT]: 居中详情弹窗：标题/截止/说明草稿、流程颜色、上下级勾选、移动/拆解/生命周期操作与活动。
- * [POS]: 当前内容详情；草稿不随无关刷新丢失，业务校验仍由事务执行。
+ * [OUTPUT]: 居中详情弹窗：页眉位置标签即移动、⋯ 收纳低频生命周期操作；标题行内流程标签；截止/上下级/拆解；说明草稿；折叠活动；仅在有修改时出现保存栏。
+ * [POS]: 当前内容详情；草稿不随无关刷新丢失，业务校验仍由事务执行；仅正文滚动，页眉与保存栏固定。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
@@ -10,7 +10,7 @@ import { horizons, type Item, type ItemHorizon } from '../../../shared/contracts
 import { statusNames, messages, horizonNames } from '../../i18n/messages'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
-import { flowRing, relationColors } from '../../lib/colors'
+import { flowRing } from '../../lib/colors'
 import { Modal } from '../../components/Modal'
 import { Popover } from '../../components/Popover'
 import { FlowMark } from '../../components/FlowMark'
@@ -18,10 +18,11 @@ import { Icon } from '../../components/icons'
 import { Activity } from './Activity'
 import { DuePicker } from './DuePicker'
 import { RelationPicker } from './RelationPicker'
+import { FlowChip } from './FlowChip'
 
 const draftOf = (item: Item) => ({ title: item.title, description: item.description, dueDate: item.dueDate ?? '' })
 const nextHorizon: Record<ItemHorizon, ItemHorizon> = { later: 'later', cycle: 'month', month: 'week', week: 'day', day: 'day' }
-type Pop = 'parent' | 'child' | 'move' | 'more' | null
+type Pop = 'parent' | 'child' | 'move' | 'more' | 'flow' | null
 
 export function ItemDetail({ itemId, close, select, submit, revision, busy, locate, flows, candidates, today, split }: {
   itemId: string; close: () => void; select: (id: string) => void; submit: (action: Action) => Promise<unknown>; revision: number; busy: boolean
@@ -66,8 +67,32 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
   const children = detail?.relations.filter(edge => edge.parentId === itemId) ?? []
   const done = item?.status === 'done'
   const ring = item && !done ? flowRing(flows.colorsOf(itemId)) : undefined
-  const heading = item && <p className="modal-context">{horizonNames[item.placement.horizon]}{item.placement.periodId ? ` · ${item.placement.periodId.split(':').at(-1)}` : ''}{item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}{item.archivedAt ? messages.archivedSuffix : ''}{readOnly ? ` · ${messages.trash}` : ''}</p>
-  return <Modal title={readOnly ? messages.trashItem : messages.currentItem} heading={heading} close={dismiss} className="detail">
+  const context = item && `${horizonNames[item.placement.horizon]}${item.placement.periodId ? ` · ${item.placement.periodId.split(':').at(-1)}` : ''}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}${readOnly ? ` · ${messages.trash}` : ''}`
+  const heading = item && (readOnly ? <p className="modal-context">{context}</p> : <div className="modal-context">
+    <Popover open={pop === 'move'} onClose={() => setPop(null)} anchor={<button type="button" className="placement-chip" aria-label={`${messages.moveTo}：${context}`} aria-expanded={pop === 'move'} onClick={() => toggle('move')}>
+      <span className="placement-text">{context}</span><Icon name="expand" size={14} />
+    </button>}>
+      <div className="menu" role="menu" aria-label={messages.moveTo}>
+        {horizons.map(horizon => <button key={horizon} role="menuitemradio" aria-checked={item.placement.horizon === horizon} className="menu-item" disabled={busy} onClick={() => {
+          setPop(null)
+          if (item.placement.horizon !== horizon) void submit({ type: 'move', itemId, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon })
+        }}><span className="menu-check">{item.placement.horizon === horizon && <Icon name="check" size={14} strokeWidth={2} />}</span>{horizonNames[horizon]}</button>)}
+      </div>
+    </Popover>
+  </div>)
+  const actions = item && detail && !readOnly && <Popover open={pop === 'more'} onClose={() => setPop(null)} align="end" anchor={<button className="icon-button" aria-label={messages.moreActions} aria-expanded={pop === 'more'} onClick={() => toggle('more')}><Icon name="more" size={18} /></button>}>
+    <div className="menu" role="menu" aria-label={messages.moreActions}>
+      {locate && <button role="menuitem" className="menu-item" onClick={() => { setPop(null); if (mayLeave()) locate() }}>{messages.locate}</button>}
+      <button role="menuitem" className="menu-item" disabled={busy} onClick={() => { setPop(null); void submit({ type: 'status', itemId, expectedVersion: item.version, status: item.status === 'cancelled' ? 'todo' : 'cancelled' }) }}>{item.status === 'cancelled' ? messages.restoreTodo : messages.cancelItem}</button>
+      <button role="menuitem" className="menu-item" disabled={busy} onClick={() => { setPop(null); void submit({ type: 'archive', itemId, expectedVersion: item.version, archived: !item.archivedAt }) }}>{item.archivedAt ? messages.unarchive : messages.archiveItem}</button>
+      <div className="menu-separator" />
+      <button role="menuitem" className="menu-item danger" disabled={busy} onClick={() => {
+        setPop(null)
+        if (mayLeave() && window.confirm(messages.deletePreview(detail.relations.length))) void submit({ type: 'delete', itemId, expectedVersion: item.version }).then(result => { if (result) close() })
+      }}><Icon name="delete" size={16} />{messages.moveTrash}</button>
+    </div>
+  </Popover>
+  return <Modal title={readOnly ? messages.trashItem : messages.currentItem} heading={heading} actions={actions} close={dismiss} className="detail">
     {error && <p className="inline-error" role="alert">{error}</p>}
     {item && detail && <>
       <form className="detail-body" onSubmit={event => { event.preventDefault(); void save() }} onKeyDown={event => {
@@ -79,31 +104,18 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
             aria-label={done ? messages.reopenAction : messages.markDone} onClick={() => void submit({ type: 'status', itemId, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
             {done && <Icon name="check" size={14} strokeWidth={2.5} />}
           </button>
-          <input className="title-input" aria-label={messages.title} value={draft.title} onChange={event => setField('title', event.target.value)} maxLength={500} required readOnly={readOnly} />
+          <div className="title-line">
+            <input className="title-input" aria-label={messages.title} value={draft.title} onChange={event => setField('title', event.target.value)} maxLength={500} required readOnly={readOnly} />
+            <FlowChip item={item} hasParents={parents.length > 0} flows={flows} busy={busy} readOnly={readOnly} open={pop === 'flow'} setOpen={open => setPop(open ? 'flow' : null)} submit={submit} />
+          </div>
         </div>
         <div className="fields">
           <span className="field-label">{messages.dueShort}</span>
           <div className="field-value"><DuePicker value={draft.dueDate} today={today} readOnly={readOnly} onChange={value => setField('dueDate', value)} /></div>
 
-          <span className="field-label">{messages.flow}</span>
-          <div className="field-value">{!parents.length
-            ? <div className="swatches" role="radiogroup" aria-label={messages.flow}>
-              {[null, ...relationColors.map((_, index) => index)].map(index => {
-                const owner = index === null ? undefined : flows.owner(index)
-                const taken = !!owner && owner.id !== itemId
-                const name = index === null ? messages.noFlowColor : taken ? messages.flowTaken(relationColors[index]!.name, owner!.title) : relationColors[index]!.name
-                const checked = (item.flowColor ?? null) === index
-                return <button key={index ?? 'none'} type="button" role="radio" aria-checked={checked} aria-label={name} title={name} className="swatch" disabled={busy || readOnly || taken}
-                  onClick={() => { if (!checked) void submit({ type: 'flowColor', itemId, expectedVersion: item.version, flowColor: index }) }}><FlowMark colors={index === null ? [] : [index]} dashed={index === null} /></button>
-              })}
-            </div>
-            : <div className="flow-list">{flows.of(itemId).map(flow => <span key={flow.id}><FlowMark colors={[flow.flowColor]} />{flow.title}</span>)}
-              {!flows.of(itemId).length && <span className="muted">{messages.parentWithoutFlow}</span>}<span className="muted small">{messages.followParent}</span></div>}
-          </div>
-
           {(['parent', 'child'] as const).map(side => {
             const edges = side === 'parent' ? parents : children
-            const blocked = side === 'parent' && item.flowColor !== null
+            const flowRoot = side === 'parent' && item.flowColor !== null
             return [<span key={`${side}-label`} className="field-label">{side === 'parent' ? messages.parents : messages.children}</span>,
               <div key={side} className="field-value relation-list">
                 {edges.map(edge => {
@@ -112,43 +124,31 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
                     <FlowMark colors={flows.colorsOf(other)} /><span>{side === 'parent' ? edge.parentTitle : edge.childTitle}{(side === 'parent' ? edge.parentArchived : edge.childArchived) ? messages.archivedSuffix : ''}</span>
                   </button>
                 })}
-                {!readOnly && <Popover open={pop === side} onClose={() => setPop(null)} anchor={
-                  <button type="button" className="text-button" aria-expanded={pop === side} disabled={blocked} title={blocked ? messages.flowRootNoParent : undefined} onClick={() => toggle(side)}>{side === 'parent' ? messages.linkParent : messages.linkChild}</button>
-                }><RelationPicker side={side} detail={detail} flows={flows} candidates={candidates} submit={submit} onError={setError} /></Popover>}
-                {blocked && <span className="muted small">{messages.flowRootNoParent}</span>}
+                {flowRoot && !edges.length && <span className="field-hint" title={messages.flowRootNoParent}>{messages.flowRootParent}<Icon name="info" size={14} /></span>}
+                {!readOnly && !flowRoot && <div className="relation-actions">
+                  {side === 'child' && <button type="button" className="chip-button" onClick={() => { if (mayLeave()) split({ id: item.id, title: item.title }, nextHorizon[item.placement.horizon]) }}><Icon name="split" size={14} />{messages.decompose}</button>}
+                  <Popover open={pop === side} onClose={() => setPop(null)} anchor={
+                    <button type="button" className={side === 'child' ? 'chip-button' : 'field-button'} data-empty="true" aria-expanded={pop === side} onClick={() => toggle(side)}>
+                      {side === 'child' && <Icon name="link" size={14} />}{side === 'parent' ? messages.linkParent : messages.linkExisting}
+                    </button>
+                  }><RelationPicker side={side} detail={detail} flows={flows} candidates={candidates} submit={submit} onError={setError} /></Popover>
+                </div>}
               </div>]
           })}
         </div>
         <label className="field-label" htmlFor="item-description">{messages.description}</label>
-        <textarea id="item-description" className="note-input" value={draft.description} onChange={event => setField('description', event.target.value)} rows={4} maxLength={100_000} placeholder={messages.descriptionPlaceholder} readOnly={readOnly} />
+        <textarea id="item-description" className="note-input" value={draft.description} onChange={event => setField('description', event.target.value)} rows={5} maxLength={100_000} placeholder={messages.descriptionPlaceholder} readOnly={readOnly} />
         <Activity itemId={itemId} revision={revision} />
       </form>
-      <footer className="modal-footer">
-        {readOnly ? <button className="button" disabled={busy} onClick={() => void submit({ type: 'restoreItem', itemId, expectedVersion: item.version })}>{messages.restoreItemAction}</button> : <>
-          <Popover open={pop === 'move'} onClose={() => setPop(null)} side="top" anchor={<button className="button soft" aria-expanded={pop === 'move'} onClick={() => toggle('move')}>{messages.moveTo}…</button>}>
-            <div className="menu" role="menu" aria-label={messages.moveTo}>
-              {horizons.map(horizon => <button key={horizon} role="menuitemradio" aria-checked={item.placement.horizon === horizon} className="menu-item" disabled={busy} onClick={() => {
-                setPop(null)
-                if (item.placement.horizon !== horizon) void submit({ type: 'move', itemId, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon })
-              }}><span className="menu-check">{item.placement.horizon === horizon && <Icon name="check" size={14} strokeWidth={2} />}</span>{horizonNames[horizon]}</button>)}
-            </div>
-          </Popover>
-          <button className="button soft" onClick={() => { if (mayLeave()) split({ id: item.id, title: item.title }, nextHorizon[item.placement.horizon]) }}>{messages.decompose}</button>
-          <span className="footer-spacer" />
-          {dirty && <button className="button primary" disabled={busy || !draft.title.trim()} onClick={() => void save()}>{messages.save}<kbd>{messages.saveHint}</kbd></button>}
-          <button className="button quiet" disabled={busy} onClick={() => void submit({ type: 'status', itemId, expectedVersion: item.version, status: item.status === 'cancelled' ? 'todo' : 'cancelled' })}>{item.status === 'cancelled' ? messages.restoreTodo : messages.cancelItem}</button>
-          <Popover open={pop === 'more'} onClose={() => setPop(null)} side="top" align="end" anchor={<button className="icon-button" aria-label={messages.moreActions} aria-expanded={pop === 'more'} onClick={() => toggle('more')}><Icon name="more" size={18} /></button>}>
-            <div className="menu" role="menu" aria-label={messages.moreActions}>
-              {locate && <button role="menuitem" className="menu-item" onClick={() => { setPop(null); if (mayLeave()) locate() }}>{messages.locate}</button>}
-              <button role="menuitem" className="menu-item" disabled={busy} onClick={() => { setPop(null); void submit({ type: 'archive', itemId, expectedVersion: item.version, archived: !item.archivedAt }) }}>{item.archivedAt ? messages.unarchive : messages.archiveItem}</button>
-              <button role="menuitem" className="menu-item danger" disabled={busy} onClick={() => {
-                setPop(null)
-                if (mayLeave() && window.confirm(messages.deletePreview(detail.relations.length))) void submit({ type: 'delete', itemId, expectedVersion: item.version }).then(result => { if (result) close() })
-              }}><Icon name="delete" size={16} />{messages.moveTrash}</button>
-            </div>
-          </Popover>
-        </>}
-      </footer>
+      {readOnly ? <footer className="modal-footer">
+        <span className="footer-spacer" />
+        <button className="button" disabled={busy} onClick={() => void submit({ type: 'restoreItem', itemId, expectedVersion: item.version })}>{messages.restoreItemAction}</button>
+      </footer> : dirty && <footer className="modal-footer save-bar">
+        <span className="save-dot" aria-hidden="true" /><span className="save-note">{messages.unsavedChanges}</span>
+        <span className="footer-spacer" />
+        <button className="button quiet" disabled={busy} onClick={() => setDraft(baseline.current)}>{messages.discardChanges}</button>
+        <button className="button primary" disabled={busy || !draft.title.trim()} onClick={() => void save()}>{messages.save}<kbd>{messages.saveHint}</kbd></button>
+      </footer>}
     </>}
   </Modal>
 }

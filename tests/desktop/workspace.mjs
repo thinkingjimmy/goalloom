@@ -99,9 +99,14 @@ try {
   // dnd-kit swallows clicks for 50ms after a drop so the release never opens a row.
   await page.waitForTimeout(100)
   await page.getByRole('button', { name: '测试行动', exact: true }).click()
-  await page.getByRole('button', { name: '移动到…', exact: true }).click()
+  // 移动入口是页眉的位置标签，点开即选列。
+  await page.getByRole('button', { name: /^移动到：/ }).click()
   await page.getByRole('menuitemradio', { name: '今天', exact: true }).click()
   await page.getByRole('dialog', { name: '当前条目' }).getByText('今天', { exact: false }).first().waitFor()
+  // 详情默认无底栏、活动折叠；截图供人工核对布局与滚动条位置。
+  assert.equal(await page.getByRole('dialog', { name: '当前条目' }).locator('.modal-footer').count(), 0)
+  await mkdir('output/tests/screenshots', { recursive: true })
+  await page.getByRole('dialog', { name: '当前条目' }).screenshot({ path: 'output/tests/screenshots/item-detail.png' })
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await page.getByRole('button', { name: '设置与数据', exact: true }).focus()
   // 全局 Cmd/Ctrl+N 打开 composer；未配置 Jev 时确认后只保存 1 条 Later，不拆分、不因“今天”换列。
@@ -145,7 +150,9 @@ try {
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later · 已完成', exact: true }).click()
   await detail.waitFor()
   try { assert.equal(await detail.getByLabel('说明', { exact: true }).inputValue({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
-  await detail.getByRole('button', { name: '取消事项', exact: true }).click()
+  // 取消事项是低频操作，收在 ⋯ 菜单。
+  await detail.getByRole('button', { name: '更多操作', exact: true }).click()
+  await page.getByRole('menuitem', { name: '取消事项', exact: true }).click()
   await detail.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.getByRole('radio', { name: '取消', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later · 已取消', exact: true }).click()
