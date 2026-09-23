@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 权威工作区、会话撤销、流程派生视图、设备侧智能输入状态、受限命令和页面组件。
- * [OUTPUT]: 顶栏/配置→可选 Jev 步骤/可选显示列的看板/详情/设置（含已完成与回收站）/搜索、快捷键；FAB 与 Cmd/Ctrl+N 打开全局 composer（会话草稿保留），列头＋与拆解保留原入口；单项定向还原、多项查看回收站的撤销反馈。
+ * [OUTPUT]: 顶栏/配置→可选 Jev 步骤/可选显示列的看板/详情/设置（含已完成与回收站）/搜索、快捷键；FAB 与 Cmd/Ctrl+N 打开全局 composer（会话草稿保留），列头＋与拆解保留原入口；单项定向还原、多项查看回收站的撤销反馈（6 秒自动消失，悬停/聚焦时暂停）。
  * [POS]: renderer 组合根；工作区代次更换清空旧页面、会话状态与 composer 草稿。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -24,6 +24,9 @@ import { JevStep } from './features/smart/JevStep'
 import { useSmart } from './state/smart'
 import { smartMessages } from './i18n/smart'
 
+// Long enough to read and reach the undo button; ⌘Z keeps working after the toast leaves.
+const TOAST_MS = 6000
+
 export function App() {
   const { snapshot, error, setError, busy, submit, feedback, setFeedback, undo, undoCount, pending, retry, refresh } = useWorkspace()
   const flows = useFlows(snapshot)
@@ -36,6 +39,13 @@ export function App() {
   const [palette, setPalette] = useState(false)
   const [filter, setFilter] = useState<string | null>(null)
   const [addRequest, setAddRequest] = useState<AddRequest | null>(null)
+  const [toastHeld, setToastHeld] = useState(false)
+  useEffect(() => {
+    if (!feedback || toastHeld || busy) return
+    const timer = setTimeout(() => setFeedback(null), TOAST_MS)
+    return () => clearTimeout(timer)
+  }, [feedback, toastHeld, busy, setFeedback])
+  useEffect(() => { if (!feedback) setToastHeld(false) }, [feedback])
   const select = (id: string) => setSelected(id)
   const requestAdd = (horizon: ItemHorizon | null, split: AddRequest['split'] = null) => { setAddRequest(previous => ({ seq: (previous?.seq ?? 0) + 1, horizon, split })) }
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper'
@@ -79,7 +89,9 @@ export function App() {
     {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={() => setSelected(null)} submit={submit} revision={snapshot.workspace.revision} busy={busy}
       flows={flows} candidates={snapshot.items} today={today} split={(parent, horizon) => { setSelected(null); setSettings(false); requestAdd(horizon, parent) }}
       locate={snapshot.items.some(item => item.id === selected) ? () => { setSettings(false); setSelected(null) } : undefined} />}
-    {feedback && <div className="toast" key={feedback.result.operationId}><span role="status">{feedback.text}</span>
+    {feedback && <div className="toast" key={feedback.result.operationId}
+      onMouseEnter={() => setToastHeld(true)} onMouseLeave={() => setToastHeld(false)}
+      onFocus={() => setToastHeld(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setToastHeld(false) }}><span role="status">{feedback.text}</span>
       {!feedback.result.undoable && !feedback.result.originalOperationId && <button className="toast-action" onClick={() => openSettings('calendar')}>{messages.viewBatches}</button>}
       {feedback.result.undoable && <button className="toast-action" disabled={busy} onClick={() => void undo(feedback.result.operationId)}>{messages.undo}<kbd>⌘Z</kbd></button>}
       {feedback.result.restoreSource && !feedback.result.itemId && (feedback.result.itemIds?.length ?? 0) > 1 && <button className="toast-action" onClick={() => { setFeedback(null); openSettings('trash') }}>{smartMessages.viewTrash}</button>}
