@@ -4,7 +4,7 @@ v0.7.0 · 2026-09-23。产品规则见 [PRD](PRD.md)，执行与文档协议见 
 
 ## 1. 工程约束
 
-**结构：** `src/main`（命令 / 存储）、`src/preload`、`src/renderer`、`src/shared/contracts`、`src/domain`、`tests`。单实例 / 单工作窗口，一个权威写入通道。日历、候选、撤销匹配、历史投影与导入校验做成纯函数，时间 / 设置 / 数据显式注入，无 Electron、数据库或全局时钟依赖；事务服务读取最新状态后复核并落实数据库约束。
+**结构：** `src/main` 按 `window`、`storage`（持久化 / worker）、`workspace`（权威业务事务）划分；`src/renderer` 按 `features`、共享 `components`、`state`、`i18n`、`lib` 划分。`src/preload` 为桥接层，`src/shared/contracts` 为共享契约，`src/domain` 为纯领域库。测试按层放在 `tests`，真实 Electron 场景 / 夹具集中在 `tests/desktop`，运行器与构建工具在 `scripts`，测试产物统一在忽略的 `output/tests`。单实例 / 单工作窗口，一个权威写入通道。日历、候选、撤销匹配、历史投影与导入校验做成纯函数，时间 / 设置 / 数据显式注入，无 Electron、数据库或全局时钟依赖；事务服务读取最新状态后复核并落实数据库约束。
 
 **安全：** renderer → 有限 `window.goalloom` API → contextBridge / preload → main 命令 → SQLite。保持 `contextIsolation=true`、`sandbox=true`、`nodeIntegration=false`、`webSecurity=true`，验证来源 / 参数 / 版本 / DTO，限制导航、新窗口、权限与外链；不暴露原始 IPC、任意路径、SQL 或 shell。生产 CSP 限定本地可信脚本，禁止远程脚本、unsafe-eval、任意内联脚本、object和非必要连接，样式 / 图标按组件最小放行；自有协议用响应头，file路线用及早生效的meta，开发HMR策略独立，测试实际阻断注入。日志无正文 / 凭据。[Electron安全](https://www.electronjs.org/docs/latest/tutorial/security)
 
@@ -173,11 +173,15 @@ restoreWorkspace和resetWorkspace每次成功都使用全新的本地workspace_g
 - [ ] **负责人验收：** 每个承诺 OS / CPU 干净安装验证 SQLite / preload、中文 / 空格路径、原生文件对话框、权限、卸载数据与覆盖升级。Windows 仅完成本机交叉打包和 x64/产物静态校验，CI 已配置但未远端运行。
 - [ ] **负责人验收：** Mac / Windows 的 IME / emoji / 剪贴板、全键盘、辅助功能、拖动、主题 / 缩放 / 多屏、关闭 / 退出 / Dock 重开 / 睡眠。按负责人要求留待其手动完成。
 - [x] 1,000 活跃 / 10,000 总条目、1,000 条关系与 19,360 条真实事件完成看板、单/双字中文及特殊字符搜索、关系、历史、200 项顺延、备份恢复、启动 / 内存 / 包体测量。包含本机正式 macOS 包，脚本为 `test:performance`；版本 / 设备 / 延迟记录于开发提交，不外推为 Windows 性能。
-- [x] 生产 CSP / 有限 IPC 的窗口攻击回归通过，无测试时钟 / HMR / 第二图标库 / 凭据 / 正文遥测。集中中文 UI 文案并预留同类型语言表，修复工作区替换后的历史缓存 / 新建请求泄漏，以及取消未保存退出后存储应继续可用的生命周期顺序。交付未签名 macOS ARM64 ZIP 与中文 Windows x64 NSIS 安装器；两包 ASAR 均与最终生产文件一致，默认应用图标、未签名/公证及人工验收范围在 README 说明。
+- [x] 生产 CSP / 有限 IPC 的窗口攻击回归通过，无测试时钟 / HMR / 第二图标库 / 凭据 / 正文遥测。集中中文 UI 文案并预留同类型语言表，修复工作区替换后的历史缓存 / 新建请求泄漏，以及取消未保存退出后存储应继续可用的生命周期顺序。交付未签名 macOS ARM64 ZIP 与中文 Windows x64 NSIS 安装器；交付时两包 ASAR 均与生产文件一致，默认应用图标、未签名/公证及人工验收范围在 README 说明。
 
 通过标准：全部承诺平台能安装、离线使用和整库恢复，主要输入 / 生命周期有实机证据，无已知阻断问题。**开发与自动化交付已完成；这个完整人工验收门槛由负责人后续勾选，不冒充已通过。**
 
 **内测阻断：** 数据丢失 / 历史不一致、循环关系、无确认覆盖、顺延改截止日、已锁日历被暗改、历史浏览写计划、逆操作覆盖无关新数据或新增关系依赖、重复顺延 / 撤销失效、有效往期不可见、Later无法还原、还原误改整库暂停、未确认配置就写任务、无有效备份 / 最终确认就重置、维护期间接受新业务写入、陈旧请求写入新工作区、离线不可用或承诺平台不能运行。
+
+### 工程维护 · 目录结构
+
+- [x] 按主进程职责、前端功能和测试层级重组目录；同步导入、npm/CI/构建入口与模块地图。类型检查、现有测试、Electron 自动化和 macOS ARM64 目录包验证完成；运行命令与环境记录于开发提交。
 
 ### M4之后可选 · 日历编辑与SVG
 

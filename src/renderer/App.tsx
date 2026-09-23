@@ -4,19 +4,20 @@
  * [POS]: renderer 组合根；工作区代次更换清空旧页面和会话状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import { messages } from './lib/messages'
+import { messages } from './i18n/messages'
 import { useEffect, useState } from 'react'
 import { Icon } from './components/icons'
 import { Button } from './components/ui/button'
-import { Setup } from './components/Setup'
-import { Board } from './components/Board'
-import { ItemDetail } from './components/ItemDetail'
-import { ItemList, type ListView } from './components/ItemList'
-import { viewNames } from './lib/messages'
-import { desktopApi, useWorkspace } from './lib/use-workspace'
-import { editingTarget } from './lib/session'
-import { Settings } from './components/Settings'
-import { CommandPalette } from './components/CommandPalette'
+import { Setup } from './features/setup/Setup'
+import { Board } from './features/board/Board'
+import { ItemDetail } from './features/items/ItemDetail'
+import { ItemList } from './features/items/ItemList'
+import type { ListView } from '../shared/contracts/queries'
+import { viewNames } from './i18n/messages'
+import { desktopApi, useWorkspace } from './state/use-workspace'
+import { editingTarget } from './state/session'
+import { Settings } from './features/settings/Settings'
+import { CommandPalette } from './features/search/CommandPalette'
 
 export function App() {
   const { snapshot, error, setError, busy, submit, feedback, setFeedback, undo, undoCount, pending, retry, refresh } = useWorkspace()

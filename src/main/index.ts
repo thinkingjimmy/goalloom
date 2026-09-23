@@ -7,13 +7,13 @@
 import { app, BrowserWindow, powerMonitor, protocol, screen, session } from 'electron'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { StorageClient } from './storage-client'
+import { StorageClient } from './storage/client'
 import { registerIpc } from './ipc'
 import { appOrigin, restrictSession, restrictWindow, serveResource } from './security'
 import type { CommandResult } from '../shared/contracts/commands'
 import type { Snapshot } from '../shared/contracts/queries'
-import { loadWindowState, saveWindowState } from './window-state'
-import { protectWindowClose } from './window-close'
+import { loadWindowState, saveWindowState } from './window/state'
+import { protectWindowClose } from './window/close'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined

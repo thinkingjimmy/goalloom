@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 受限查询、实体/操作 DTO。
- * [OUTPUT]: 工作区快照、分页列表和当前条目详情。
+ * [OUTPUT]: 工作区快照、列表视图类型、分页列表和当前条目详情。
  * [POS]: 只读 IPC 契约；历史查询后续沿用固定周期 ID。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -17,6 +17,7 @@ export const querySchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('batches') }),
 ])
 export type Query = z.infer<typeof querySchema>
+export type ListView = Extract<Query, { type: 'list' }>['view']
 export const relationViewSchema = relationSchema.extend({ parentTitle: z.string(), childTitle: z.string(), parentArchived: z.boolean(), childArchived: z.boolean() })
 export const snapshotSchema = z.strictObject({
   workspace: workspaceSchema, periods: z.array(periodSchema), items: z.array(itemSchema), relations: z.array(relationViewSchema), policies: z.array(policySchema),

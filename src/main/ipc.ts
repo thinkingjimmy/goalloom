@@ -10,9 +10,9 @@ import { commandSchema, DomainError, type CommandResult } from '../shared/contra
 import { querySchema } from '../shared/contracts/queries'
 import { runtimeChannel, runtimeInfoSchema } from '../shared/contracts/runtime'
 import { isTrustedFrameUrl } from './security'
-import type { StorageClient } from './storage-client'
+import type { StorageClient } from './storage/client'
 import { dataActionSchema } from '../shared/contracts/transfer'
-import { atomicJson } from './storage/backup-manager'
+import { atomicJson } from './storage/atomic-json'
 
 export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, changed: () => void): void {
   const guard = (event: IpcMainInvokeEvent) => {

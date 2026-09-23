@@ -29,7 +29,7 @@ Node >=22.12；`npm ci` 安装锁定依赖与 Electron。测试使用 Electron �
 ```sh
 npm run dev              # Electron 开发预览
 npm run typecheck        # TypeScript strict
-npm test                 # 领域 / repository / 安全与色板
+npm test                 # 领域 / SQLite 集成 / 主进程 / 前端库
 npm run test:electron    # 真实 Electron main 的 SQLite 探针
 npm run build            # 三入口与生产产物约束检查
 npm run test:ui          # 真实窗口业务闭环与 CSP/IPC/主题
@@ -43,21 +43,34 @@ npm run package:dir      # 当前平台本地目录包
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。真机、原生对话框、安装/升级、IME 与睡眠验收由负责人完成，待验项集中在 TODO。
 
-`node scripts/test-desktop.mjs <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/playwright/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。CI 的 macOS ARM64 / Windows x64 托管 VM 检查与实机输入、安装/升级验收分别追踪。
+`npm run test:ui -- <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。CI 的 macOS ARM64 / Windows x64 托管 VM 检查与实机输入、安装/升级验收分别追踪。
 
 ## 代码地图
 
 ```text
 src/
-├── domain/             # 可独立测试的日历、DAG、候选与效果字段撤销库
-├── main/               # Electron 生命周期、安全边界与 storage worker
+├── domain/             # 独立纯函数库：日历、DAG、候选、历史和效果字段撤销
+├── main/               # Electron 生命周期、IPC 和安全边界
+│   ├── window/         # 窗口偏好与退出保护
+│   ├── storage/        # SQLite/备份/文件适配器与 worker 通道
+│   └── workspace/      # 业务事务、commands、历史/顺延与 transfer
 ├── preload/            # 沙箱 contextBridge，只暴露有限 API
-├── renderer/           # React 五列/状态/详情、会话撤销、Hugeicons 与配对主题
+├── renderer/
+│   ├── features/       # board、items、setup、settings、search 功能
+│   ├── components/     # 跨功能 UI 原语、Hugeicons 与 shadcn Button
+│   ├── state/          # 工作区快照、会话撤销与提交协调
+│   ├── i18n/           # 中文文案与语言表契约
+│   └── lib/            # 色板与样式纯工具
 └── shared/contracts/   # main/preload/renderer 共享 DTO 与运行时校验
-tests/                  # 领域 / repository / Electron 验证
-scripts/                # 隔离测试 runner 与生产构建检查
+tests/                  # domain、main、renderer、integration 与 desktop
+scripts/                # 测试运行器与 build 构建工具
 .github/workflows/      # 私人仓库 macOS/Windows 托管 VM 验证配置
 docs/                   # PRD、工程 TODO 和私人设计参考
+out/                    # 忽略：生产编译产物
+release/                # 忽略：私人安装包与目录包
+output/tests/           # 忽略：测试夹具构建、截图与性能记录
 ```
 
 `electron.vite.config.ts` 管理三入口/worker；`electron-builder.yml` 固定 app 身份、中文 NSIS 1.2.1 工具包与私人打包目标；`tsconfig.json` 开启严格检查；`components.json` 约定 shadcn 与 Hugeicons。复杂边界维护 INPUT/OUTPUT/POS，产品规则只在 PRD，工程验收只在 TODO。
+
+按职责维护边界：业务服务在 `main/workspace`，持久化适配器在 `main/storage`；前端专属组件随 feature 放置，共用 UI 才进入 components。测试场景放在 tests，通用运行/构建工具放在 scripts。框架自动发现的配置保留在项目根，详情见各模块 README。

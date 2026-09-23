@@ -6,13 +6,10 @@ Thumbs.db
 
 # Dependencies / build output
 node_modules/
-dist/
-out/
-release/
-.electron-test/
-build/
-target/
-src-tauri/target/
+/dist/
+/out/
+/release/
+/build/
 coverage/
 playwright-report/
 test-results/

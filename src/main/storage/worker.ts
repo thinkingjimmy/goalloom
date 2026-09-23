@@ -1,7 +1,7 @@
 /**
  * [INPUT]: main 注入的数据路径与受限 RPC，系统时钟由组合根注入。
  * [OUTPUT]: 串行 SQLite 命令/查询、完整导出；错误不泄露任务正文或路径。
- * [POS]: 权威存储线程；数据库操作不占用 Electron 主线程。
+ * [POS]: 存储线程组合根；装配 storage 适配器与 workspace 服务，不承载业务规则。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { parentPort, workerData } from 'node:worker_threads'
@@ -12,10 +12,10 @@ import { DomainError } from '../../shared/contracts/commands'
 import { querySchema } from '../../shared/contracts/queries'
 import { openDatabase } from './database'
 import { migrate } from './schema'
-import { Repository } from './repository'
-import { readActivity, readHistory } from './history'
-import { WorkspaceService } from './workspace-service'
-import { exportDataset, readSqliteDataset } from './transfer'
+import { Repository } from '../workspace/repository'
+import { readActivity, readHistory } from '../workspace/history'
+import { WorkspaceService } from '../workspace/transfer/service'
+import { exportDataset, readSqliteDataset } from '../workspace/transfer/dataset'
 
 if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort

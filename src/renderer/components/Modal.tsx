@@ -1,4 +1,4 @@
-import { messages } from '../lib/messages'
+import { messages } from '../i18n/messages'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Button } from './ui/button'
 import { Icon } from './icons'
