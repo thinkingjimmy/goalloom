@@ -15,8 +15,7 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "types": ["node", "vite/client"],
-    "baseUrl": ".",
-    "paths": { "@/*": ["src/renderer/*"] }
+    "paths": { "@/*": ["./src/renderer/*"] }
   },
   "include": ["src", "tests", "*.config.ts"]
 }
