@@ -13,7 +13,7 @@ renderer/
 │   ├── Settings.tsx         # 只读日历/策略/备份、持续维护与整库两阶段确认
 │   ├── Setup.tsx            # 三项日历预览与显式确认
 │   ├── Board.tsx            # 五列、独立滚动、录入、状态切换与 dnd-kit 排序
-│   ├── ItemDetail.tsx       # 当前草稿、生命周期、关系双入口、拆解
+│   ├── ItemDetail.tsx       # 当前草稿/关闭退出保护、生命周期、关系双入口、拆解
 │   ├── ItemList.tsx         # 分页中文搜索、状态时间分组、归档和回收站
 │   ├── HistoryColumn.tsx    # 独立列只读历史、期末与后来结果
 │   ├── Backlog.tsx          # 往期分页、选择和当前/Later 批量安排
@@ -26,7 +26,7 @@ renderer/
     ├── colors.ts            # 八组固定配对色板与稳定 ID 哈希
     ├── session.ts           # 纯会话撤销成员、代次隔离、反馈去重
     ├── use-workspace.ts     # 权威快照、幂等提交、未知结果同 ID 重试
-    ├── messages.ts          # 首版中文基础文案
+    ├── messages.ts          # 集中中文文案/参数化消息与尺度/视图/状态映射；英文实现同一类型
     └── utils.ts             # Tailwind class 合并
 ```
 

@@ -20,12 +20,13 @@ tests/
 │   └── undo.test.ts         # 生命周期、效果撤销/冲突、原始时间与 hold
 └── fixtures/
     ├── electron-probe.ts   # 真正 Electron main 的驱动、事务和恢复探针
+    ├── performance.ts     # 正式事务生成10,000条目/1,000活跃及真实历史，测恢复与延迟
     └── history-seed.ts     # 正式事务生成历史样本；无生产时钟控制口
 ```
 
 `npm test` 使用锁定 Electron 自带的 Node 运行 Vitest；`npm run test:electron` 使用实际 Electron main，在临时中文/空格路径验证内置驱动。探针不进入生产构建。临时目录由测试创建并清理，不访问用户任务。
 
-`scripts/test-desktop.mjs` 以 Playwright 控制真正的 Electron 窗口，检查生产资源协议、CSP、preload/worker、来源拒绝、主题和窄窗口；传入可执行文件时检查目录包。自动化关闭 CDP 默认的 unsafe-eval 绕过再验证 CSP。正式应用没有测试 IPC 或时钟控制口。
+`scripts/test-desktop.mjs` 以 Playwright 控制真正的 Electron 窗口，检查生产资源协议、CSP、preload/worker、来源拒绝、主题和窄窗口；退出草稿用原生消息框回答桩验证取消后仍可保存，实际系统点击由负责人验收；传入可执行文件时检查目录包。自动化关闭 CDP 默认的 unsafe-eval 绕过再验证 CSP。正式应用没有测试 IPC 或时钟控制口。
 
 纯函数与 repository 通过不表示打包桌面、Windows 安装、IME 或睡眠验收通过。实际命令、运行版本和平台范围记录于开发提交/PR。
 

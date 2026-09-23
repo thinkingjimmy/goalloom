@@ -8,6 +8,8 @@ files:
   - '!node_modules/**/*'
 asar: true
 npmRebuild: false
+toolsets:
+  nsis: '1.2.1'
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 mac:
   minimumSystemVersion: '14.0'
@@ -20,6 +22,7 @@ win:
     - target: nsis
       arch: [x64]
 nsis:
+  installerLanguages: [zh_CN]
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true

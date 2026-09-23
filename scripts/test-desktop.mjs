@@ -34,6 +34,23 @@ try {
   }
   await page.getByRole('button', { name: '测试行动', exact: true }).click()
   await page.getByLabel('说明', { exact: true }).fill('重启仍保留的说明')
+  // 原生消息框的实际点击留给人工验收；只替换回答，窗口/退出/存储均是真实进程。
+  const interceptBeforeUnload = dialog => { void dialog.dismiss().catch(() => undefined) }
+  page.on('dialog', interceptBeforeUnload)
+  const prompted = await application.evaluate(async ({ app, dialog }) => {
+    const original = dialog.showMessageBoxSync
+    let prompted = false
+    dialog.showMessageBoxSync = () => { prompted = true; return 0 }
+    try {
+      app.quit()
+      for (let attempt = 0; attempt < 50 && !prompted; attempt++) await new Promise(resolve => setTimeout(resolve, 10))
+      return prompted
+    } finally { dialog.showMessageBoxSync = original }
+  })
+  page.off('dialog', interceptBeforeUnload)
+  assert.equal(prompted, true)
+  assert.equal(await page.getByLabel('说明', { exact: true }).inputValue(), '重启仍保留的说明')
+  // 取消退出之后仍须能够提交，而不只是窗口尚在。
   await page.getByRole('button', { name: '保存', exact: true }).click()
   await page.getByRole('button', { name: '保存', exact: true }).waitFor({ state: 'visible' })
   for (const title of ['测试上级 A', '测试上级 B']) {
@@ -54,6 +71,10 @@ try {
   await page.getByRole('button', { name: '测试行动', exact: true }).click()
   await page.getByLabel('移动到', { exact: true }).selectOption('day')
   await page.getByRole('button', { name: '关闭', exact: true }).click()
+  await page.getByRole('button', { name: '撤销上一步', exact: true }).focus()
+  await page.keyboard.press('ControlOrMeta+n')
+  await page.getByRole('textbox', { name: '新建到Later', exact: true }).waitFor()
+  await page.keyboard.press('Escape')
   const saved = await page.evaluate(() => window.goalloom.getSnapshot())
   assert.equal(saved.relations.length, 2)
   assert.equal(saved.items.find(item => item.title === '测试行动').description, '重启仍保留的说明')
@@ -139,7 +160,7 @@ try {
   assert.equal(rejectsOtherWindow, true, 'IPC 必须拒绝非主窗口的请求，即使 URL 与 preload 相同')
   await mkdir('output/playwright', { recursive: true })
   await page.screenshot({ path: 'output/playwright/electron-foundation.png', fullPage: true })
-  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
+  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['cancel unsaved quit keeps storage available (native answer stub)', 'preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
 } finally {
   await application.close()
 }

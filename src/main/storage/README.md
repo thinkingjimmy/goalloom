@@ -8,7 +8,7 @@ storage/
 ├── backup.ts      # 在线一致性副本、校验/fsync/原子改名和失败清理
 ├── backup-manager.ts # 工作区外备份回执、本地日去重、仅日常副本轮换
 ├── schema.ts      # schema v1，DAG/唯一位置/历史/操作约束和迁移
-├── store.ts       # 参数化 SQL 读写、版本保护、事件/回执适配
+├── store.ts       # 参数化 JOIN 批量读取、版本保护、事件/回执适配
 ├── context.ts     # 事务上下文、当前周期和语义排序工具
 ├── core-commands.ts # 首次确认、创建/编辑/移动/关联的字段差量
 ├── lifecycle.ts   # 独立状态、归档、软删除、还原和解除关联

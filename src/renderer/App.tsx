@@ -4,13 +4,15 @@
  * [POS]: renderer 组合根；工作区代次更换清空旧页面和会话状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
+import { messages } from './lib/messages'
 import { useEffect, useState } from 'react'
 import { Icon } from './components/icons'
 import { Button } from './components/ui/button'
 import { Setup } from './components/Setup'
 import { Board } from './components/Board'
 import { ItemDetail } from './components/ItemDetail'
-import { ItemList, viewNames, type ListView } from './components/ItemList'
+import { ItemList, type ListView } from './components/ItemList'
+import { viewNames } from './lib/messages'
 import { desktopApi, useWorkspace } from './lib/use-workspace'
 import { editingTarget } from './lib/session'
 import { Settings } from './components/Settings'
@@ -40,39 +42,39 @@ export function App() {
   }, [undo, busy, selected, settings, snapshot?.workspace.setupConfirmedAt])
   return <div className="app-shell">
     <header className="app-header">
-      <a href="#main" className="brand" aria-label="Goalloom 首页" onClick={() => setView('board')}>goalloom<span className="brand-dot" /></a>
+      <a href="#main" className="brand" aria-label={messages.home} onClick={() => setView('board')}>goalloom<span className="brand-dot" /></a>
       <div className="toolbar">
-        <Button variant="ghost" size="icon" aria-label="设置与数据" onClick={() => setSettings(true)} disabled={!snapshot}><Icon name="settings" /></Button>
+        <Button variant="ghost" size="icon" aria-label={messages.settings} onClick={() => setSettings(true)} disabled={!snapshot}><Icon name="settings" /></Button>
         {snapshot?.workspace.setupConfirmedAt && <>
-          <Button variant="ghost" size="icon" aria-label="搜索与命令" title="Cmd/Ctrl+K" onClick={() => setPalette(true)}><Icon name="search" /></Button>
-          <Button variant="ghost" size="icon" aria-label="撤销上一步" title="Cmd/Ctrl+Z" disabled={busy || !undoCount} onClick={() => void undo()}><Icon name="undo" /></Button>
-          <Button variant="ghost" onClick={() => void desktopApi().exportWorkspace().catch(() => setError('导出失败，请重试'))}><Icon name="export" />导出工作区</Button>
+          <Button variant="ghost" size="icon" aria-label={messages.commands} title="Cmd/Ctrl+K" onClick={() => setPalette(true)}><Icon name="search" /></Button>
+          <Button variant="ghost" size="icon" aria-label={messages.undoPrevious} title="Cmd/Ctrl+Z" disabled={busy || !undoCount} onClick={() => void undo()}><Icon name="undo" /></Button>
+          <Button variant="ghost" onClick={() => void desktopApi().exportWorkspace().catch(() => setError(messages.exportFailed))}><Icon name="export" />{messages.exportWorkspace}</Button>
         </>}
-        <div className="theme-picker" role="group" aria-label="主题">
-          {(['system', 'light', 'dark'] as const).map(value => <Button key={value} size="icon" variant="ghost" aria-label={{ system: '跟随系统', light: '浅色主题', dark: '深色主题' }[value]} aria-pressed={theme === value} disabled={busy || !snapshot} onClick={() => void submit({ type: 'preferences', theme: value })}><Icon name={{ system: 'system', light: 'sun', dark: 'moon' }[value] as 'system' | 'sun' | 'moon'} /></Button>)}
+        <div className="theme-picker" role="group" aria-label={messages.theme}>
+          {(['system', 'light', 'dark'] as const).map(value => <Button key={value} size="icon" variant="ghost" aria-label={{ system: messages.systemTheme, light: messages.lightTheme, dark: messages.darkTheme }[value]} aria-pressed={theme === value} disabled={busy || !snapshot} onClick={() => void submit({ type: 'preferences', theme: value })}><Icon name={{ system: 'system', light: 'sun', dark: 'moon' }[value] as 'system' | 'sun' | 'moon'} /></Button>)}
         </div>
       </div>
     </header>
-    {snapshot?.workspace.setupConfirmedAt && <nav className="view-tabs" aria-label="工作区视图">{(['board', 'search', 'done', 'cancelled', 'archived', 'trash'] as const).map(name => <button key={name} aria-current={view === name ? 'page' : undefined} onClick={() => setView(name)}>{viewNames[name]}</button>)}{view === 'board' && <button onClick={() => document.querySelector('[data-horizon=day]')?.scrollIntoView({ block: 'nearest', inline: 'end' })}>跳到今天</button>}</nav>}
-    {snapshot?.workspace.clockAnomaly && <div className="notice-banner">检测到系统时间回拨，自动处理已暂停。请核对系统时间。<Button variant="outline" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>已核对系统时间</Button></div>}
-    {snapshot?.workspace.calendar && Intl.DateTimeFormat().resolvedOptions().timeZone !== snapshot.workspace.calendar.timezone && <div className="notice-banner">系统时区与工作区不同，计划仍使用 {snapshot.workspace.calendar.timezone}。</div>}
-    {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">工作区恢复完成，确认后按设置处理往期事项。<Button variant="outline" disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>确认按设置处理</Button></div>}
-    {snapshot?.backupError && <div className="notice-banner">{snapshot.backupError}<Button variant="ghost" onClick={() => setSettings(true)}>查看备份</Button></div>}
-    {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <Button variant="outline" onClick={() => void retry()}>重试核对</Button>}<button aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
-    {!snapshot ? <main className="setup-page" role="status">正在打开本地工作区…</main> : !snapshot.workspace.setupConfirmedAt ? <Setup submit={submit} busy={busy} /> : <><div className="board-host" hidden={view !== 'board'}><Board snapshot={snapshot} submit={submit} busy={busy} select={select} newRequest={newRequest} highlighted={highlighted} /></div>{view !== 'board' && <ItemList key={view} view={view} revision={snapshot.workspace.revision} select={select} timezone={snapshot.workspace.calendar!.timezone} />}</>}
+    {snapshot?.workspace.setupConfirmedAt && <nav className="view-tabs" aria-label={messages.workspaceViews}>{(['board', 'search', 'done', 'cancelled', 'archived', 'trash'] as const).map(name => <button key={name} aria-current={view === name ? 'page' : undefined} onClick={() => setView(name)}>{viewNames[name]}</button>)}{view === 'board' && <button onClick={() => document.querySelector('[data-horizon=day]')?.scrollIntoView({ block: 'nearest', inline: 'end' })}>{messages.jumpToday}</button>}</nav>}
+    {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<Button variant="outline" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</Button></div>}
+    {snapshot?.workspace.calendar && Intl.DateTimeFormat().resolvedOptions().timeZone !== snapshot.workspace.calendar.timezone && <div className="notice-banner">{messages.timezoneMismatch} {snapshot.workspace.calendar.timezone}。</div>}
+    {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">{messages.restorePaused}<Button variant="outline" disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>{messages.confirmRollover}</Button></div>}
+    {snapshot?.backupError && <div className="notice-banner">{snapshot.backupError}<Button variant="ghost" onClick={() => setSettings(true)}>{messages.viewBackups}</Button></div>}
+    {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <Button variant="outline" onClick={() => void retry()}>{messages.retry}</Button>}<button aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
+    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !snapshot.workspace.setupConfirmedAt ? <Setup submit={submit} busy={busy} /> : <><div className="board-host" hidden={view !== 'board'}><Board key={snapshot.workspace.generation} snapshot={snapshot} submit={submit} busy={busy} select={select} newRequest={newRequest} highlighted={highlighted} /></div>{view !== 'board' && <ItemList key={`${snapshot.workspace.generation}:${view}`} view={view} revision={snapshot.workspace.revision} select={select} timezone={snapshot.workspace.calendar!.timezone} />}</>}
     {settings && snapshot && <Settings snapshot={snapshot} submit={submit} refresh={refresh} busy={busy} close={() => setSettings(false)} />}
     {palette && <CommandPalette close={() => setPalette(false)} navigate={setView} select={select} undo={() => void undo()} canUndo={!busy && undoCount > 0} />}
     {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={() => setSelected(null)} submit={submit} revision={snapshot.workspace.revision} busy={busy} locate={snapshot.items.some(item => item.id === selected) ? () => { setView('board'); setSelected(null) } : undefined} />}
     {feedback && <div className="toast" key={feedback.result.operationId}><span role="status">{feedback.text}</span>
-      {!feedback.result.undoable && !feedback.result.originalOperationId && <Button variant="ghost" onClick={() => setSettings(true)}>查看批次</Button>}
-      {feedback.result.undoable && <Button variant="ghost" disabled={busy} onClick={() => void undo(feedback.result.operationId)}>撤销</Button>}
+      {!feedback.result.undoable && !feedback.result.originalOperationId && <Button variant="ghost" onClick={() => setSettings(true)}>{messages.viewBatches}</Button>}
+      {feedback.result.undoable && <Button variant="ghost" disabled={busy} onClick={() => void undo(feedback.result.operationId)}>{messages.undo}</Button>}
       {feedback.result.restoreSource && <Button variant="ghost" disabled={busy} onClick={async () => {
         if (!feedback.result.itemId || feedback.result.generation !== snapshot?.workspace.generation) return
         try { const detail = await desktopApi().getItem(feedback.result.itemId); await submit({ type: 'restoreItem', itemId: detail.item.id, expectedVersion: detail.item.version, deletionSource: feedback.result.restoreSource }) }
-        catch { setError('还原失败，请在回收站检查当前条目') }
-      }}>还原</Button>}
-      <Button size="icon" variant="ghost" aria-label="关闭操作提示" onClick={() => setFeedback(null)}><Icon name="close" size={16} /></Button>
+        catch { setError(messages.restoreItemFailed) }
+      }}>{messages.restoreItem}</Button>}
+      <Button size="icon" variant="ghost" aria-label={messages.closeFeedback} onClick={() => setFeedback(null)}><Icon name="close" size={16} /></Button>
     </div>}
-    <footer><span>把三个月的方向，连接到今天的行动。</span><span role="status">{busy ? '正在保存或核对…' : snapshot ? '已连接本地工作区' : '正在连接…'}</span></footer>
+    <footer><span>{messages.tagline}</span><span role="status">{busy ? messages.saving : snapshot ? messages.connected : messages.connecting}</span></footer>
   </div>
 }

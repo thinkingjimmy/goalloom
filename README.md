@@ -12,7 +12,7 @@ Later → 3个月 → 本月 → 本周 → 今天
 
 **技术栈：** Electron · React · TypeScript · Vite · shadcn/ui · Tailwind CSS · Hugeicons · SQLite。
 
-**状态：** 文档 v0.7.0；已实现首次配置、SQLite 持久化、五列看板、多父 DAG、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置。正在完成性能与私人打包；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中文与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
+**状态：** 文档 v0.7.0；已实现首次配置、SQLite 持久化、五列看板、多父 DAG、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中文与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
 
 | 文档 | 用途 |
 | --- | --- |
@@ -35,10 +35,13 @@ npm run build            # 三入口与生产产物约束检查
 npm run test:ui          # 真实窗口业务闭环与 CSP/IPC/主题
 npm run test:history     # 独立夹具的历史/往期/hold 窗口验证
 npm run test:recovery    # 保护备份/维护/重置/SQLite 恢复与暂停
+npm run test:performance # 10,000 总条目/1,000 活跃与真实事件、启动/内存
 npm run package:dir      # 当前平台本地目录包
 ```
 
-`package:mac` / `package:win` 只生成私人测试产物，默认不发布。macOS 包未配置签名/公证；自动更新与公开分发不在当前范围。
+`package:mac` / `package:win` 只生成私人测试产物，默认不发布。产物位于 `release/Goalloom-0.1.0-mac-arm64.zip` 与 `release/Goalloom-0.1.0-win-x64.exe`；前者解压为应用，后者为中文 x64 安装器。两者均未签名，macOS 未公证，使用默认 Electron 应用图标。自动更新与公开分发不在当前范围。
+
+默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。真机、原生对话框、安装/升级、IME 与睡眠验收由负责人完成，待验项集中在 TODO。
 
 `node scripts/test-desktop.mjs <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/playwright/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。CI 的 macOS ARM64 / Windows x64 托管 VM 检查与实机输入、安装/升级验收分别追踪。
 
@@ -57,4 +60,4 @@ scripts/                # 隔离测试 runner 与生产构建检查
 docs/                   # PRD、工程 TODO 和私人设计参考
 ```
 
-`electron.vite.config.ts` 管理三入口/worker；`electron-builder.yml` 固定 app 身份与私有打包目标；`tsconfig.json` 开启严格检查；`components.json` 约定 shadcn 与 Hugeicons。复杂边界维护 INPUT/OUTPUT/POS，产品规则只在 PRD，工程验收只在 TODO。
+`electron.vite.config.ts` 管理三入口/worker；`electron-builder.yml` 固定 app 身份、中文 NSIS 1.2.1 工具包与私人打包目标；`tsconfig.json` 开启严格检查；`components.json` 约定 shadcn 与 Hugeicons。复杂边界维护 INPUT/OUTPUT/POS，产品规则只在 PRD，工程验收只在 TODO。

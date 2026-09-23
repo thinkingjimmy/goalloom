@@ -43,10 +43,16 @@ jobs:
       - run: npm run package:${{ matrix.package }}
       - name: Packaged macOS smoke
         if: runner.os == 'macOS'
-        run: node scripts/test-desktop.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+        run: |
+          node scripts/test-desktop.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+          node scripts/test-history.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+          node scripts/test-recovery.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
       - name: Packaged Windows smoke
         if: runner.os == 'Windows'
-        run: node scripts/test-desktop.mjs release/win-unpacked/Goalloom.exe
+        run: |
+          node scripts/test-desktop.mjs release/win-unpacked/Goalloom.exe
+          node scripts/test-history.mjs release/win-unpacked/Goalloom.exe
+          node scripts/test-recovery.mjs release/win-unpacked/Goalloom.exe
       - uses: actions/upload-artifact@v4
         with:
           name: private-preview-${{ matrix.os }}-${{ matrix.arch }}

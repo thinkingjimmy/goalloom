@@ -23,7 +23,8 @@
     "package:mac": "npm run build && electron-builder --mac --arm64 --publish never",
     "package:win": "npm run build && electron-builder --win --x64 --publish never",
     "test:history": "node scripts/test-history.mjs",
-    "test:recovery": "node scripts/test-recovery.mjs"
+    "test:recovery": "node scripts/test-recovery.mjs",
+    "test:performance": "node scripts/test-performance.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

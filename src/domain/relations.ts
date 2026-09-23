@@ -11,7 +11,10 @@ export function relationProblem(parentId: string, childId: string, edges: Relati
   const active = edges.filter(edge => edge.invalidatedAt === null)
   if (active.some(edge => edge.parentId === parentId && edge.childId === childId)) return '这两个条目已经关联'
   const children = new Map<string, string[]>()
-  for (const edge of active) children.set(edge.parentId, [...(children.get(edge.parentId) ?? []), edge.childId])
+  for (const edge of active) {
+    const group = children.get(edge.parentId) ?? []
+    group.push(edge.childId); children.set(edge.parentId, group)
+  }
   const pending = [childId]
   const seen = new Set<string>()
   while (pending.length) {
@@ -26,14 +29,30 @@ export function relationProblem(parentId: string, childId: string, edges: Relati
 
 export function validateDag(itemIds: Set<string>, edges: Relation[], deletedIds = new Set<string>()): void {
   const identities = new Set<string>()
-  const active: Relation[] = []
+  const pairs = new Set<string>(), children = new Map<string, string[]>(), degrees = new Map<string, number>()
   for (const edge of edges) {
     if (identities.has(edge.id) || !itemIds.has(edge.parentId) || !itemIds.has(edge.childId) || edge.parentId === edge.childId) throw new Error('关系身份或端点无效')
     identities.add(edge.id)
     if (edge.invalidatedAt !== null) continue
     if (deletedIds.has(edge.parentId) || deletedIds.has(edge.childId)) throw new Error('有效关系包含已删除端点')
-    const problem = relationProblem(edge.parentId, edge.childId, active)
-    if (problem) throw new Error(problem)
-    active.push(edge)
+    const pair = JSON.stringify([edge.parentId, edge.childId])
+    if (pairs.has(pair)) throw new Error('这两个条目已经关联')
+    pairs.add(pair)
+    const group = children.get(edge.parentId) ?? []
+    group.push(edge.childId); children.set(edge.parentId, group)
+    degrees.set(edge.childId, (degrees.get(edge.childId) ?? 0) + 1)
   }
+  // --- Kahn 拓扑遍历：整库校验 O(V+E)，不逐边重复扫描整张图。 ---
+  const pending = [...itemIds].filter(id => !degrees.has(id))
+  let visited = 0
+  while (pending.length) {
+    const id = pending.pop()!
+    visited++
+    for (const child of children.get(id) ?? []) {
+      const degree = degrees.get(child)! - 1
+      degrees.set(child, degree)
+      if (!degree) pending.push(child)
+    }
+  }
+  if (visited !== itemIds.size) throw new Error('此关联会形成循环')
 }

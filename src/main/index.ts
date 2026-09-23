@@ -13,6 +13,7 @@ import { appOrigin, restrictSession, restrictWindow, serveResource } from './sec
 import type { CommandResult } from '../shared/contracts/commands'
 import type { Snapshot } from '../shared/contracts/queries'
 import { loadWindowState, saveWindowState } from './window-state'
+import { protectWindowClose } from './window-close'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -60,6 +61,7 @@ async function createWindow(): Promise<void> {
     },
   })
   restrictWindow(window)
+  protectWindowClose(window)
   if (state?.maximized) window.maximize()
   let saving: ReturnType<typeof setTimeout> | undefined
   const persist = () => {
@@ -96,7 +98,8 @@ if (!app.requestSingleInstanceLock()) {
     app.on('activate', () => { if (!window) void createWindow() })
   }).catch(() => { app.exit(1) })
   let drained = false
-  app.on('before-quit', event => {
+  // 先让窗口确认未保存草稿；窗口取消退出时，存储服务必须继续可用。
+  app.on('will-quit', event => {
     if (drained || !storage) return
     event.preventDefault()
     quitting = true

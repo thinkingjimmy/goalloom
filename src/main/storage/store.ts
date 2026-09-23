@@ -31,8 +31,11 @@ export class Store {
     return { ...row, placement }
   }
   items(where: string, parameters: SQLInputValue[] = [], suffix = 'ORDER BY p.sortKey,i.id'): Item[] {
-    const rows = this.db.prepare(`SELECT i.id FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where} ${suffix}`).all(...parameters)
-    return rows.map(row => this.item(String(row.id)))
+    const rows = this.db.prepare(`SELECT i.*,p.horizon,p.periodId,p.sortKey,p.version AS placementVersion,p.holdPeriodId FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where} ${suffix}`).all(...parameters)
+    return rows.map(row => {
+      const { horizon, periodId, sortKey, placementVersion, holdPeriodId, ...item } = row
+      return { ...item, placement: { itemId: item.id, horizon, periodId, sortKey, version: placementVersion, holdPeriodId } } as Item
+    })
   }
   insertItem(item: Item): void {
     this.db.prepare('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').run(item.id, item.title, item.description, item.dueDate, item.status, item.completedAt, item.cancelledAt, item.archivedAt, item.deletedAt, item.deletedBy, item.createdAt, item.updatedAt, item.version)
