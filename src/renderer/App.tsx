@@ -17,8 +17,8 @@ import { TopBar, type View } from './features/shell/TopBar'
 import { desktopApi, useWorkspace } from './state/use-workspace'
 import { useFlows } from './state/flows'
 import { editingTarget } from './state/session'
-import { Settings } from './features/settings/Settings'
-import { CommandPalette } from './features/search/CommandPalette'
+import { Settings } from './features/shell/Settings'
+import { CommandPalette } from './features/shell/CommandPalette'
 
 export function App() {
   const { snapshot, error, setError, busy, submit, feedback, setFeedback, undo, undoCount, pending, retry, refresh } = useWorkspace()

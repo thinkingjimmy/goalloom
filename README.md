@@ -12,7 +12,7 @@ Later → 3个月 → 本月 → 本周 → 今天
 
 **技术栈：** Electron · React · TypeScript · Vite · shadcn/ui · Tailwind CSS · Hugeicons · SQLite。
 
-**状态：** 文档 v0.7.0；已实现首次配置、SQLite 持久化、五列看板、多父 DAG、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中文与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
+**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、极简五列看板、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中文与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
 
 | 文档 | 用途 |
 | --- | --- |
@@ -49,18 +49,18 @@ npm run package:dir      # 当前平台本地目录包
 
 ```text
 src/
-├── domain/             # 独立纯函数库：日历、DAG、候选、历史和效果字段撤销
+├── domain/             # 独立纯函数库：日历、DAG、流程归属、候选、历史和效果字段撤销
 ├── main/               # Electron 生命周期、IPC 和安全边界
 │   ├── window/         # 窗口偏好与退出保护
 │   ├── storage/        # SQLite/备份/文件适配器与 worker 通道
 │   └── workspace/      # 业务事务、commands、历史/顺延与 transfer
 ├── preload/            # 沙箱 contextBridge，只暴露有限 API
 ├── renderer/
-│   ├── features/       # board、items、setup、settings、search 功能
+│   ├── features/       # shell（顶栏/搜索/设置）、board、items、setup 功能
 │   ├── components/     # 跨功能 UI 原语、Hugeicons 与 shadcn Button
-│   ├── state/          # 工作区快照、会话撤销与提交协调
+│   ├── state/          # 工作区快照、流程派生、会话撤销与提交协调
 │   ├── i18n/           # 中文文案与语言表契约
-│   └── lib/            # 色板与样式纯工具
+│   └── lib/            # 色板、日期与样式纯工具
 └── shared/contracts/   # main/preload/renderer 共享 DTO 与运行时校验
 tests/                  # domain、main、renderer、integration 与 desktop
 scripts/                # 测试运行器与 build 构建工具
