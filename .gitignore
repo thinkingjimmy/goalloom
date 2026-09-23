@@ -7,12 +7,16 @@ Thumbs.db
 # Dependencies / build output
 node_modules/
 dist/
+out/
+release/
+.electron-test/
 build/
 target/
 src-tauri/target/
 coverage/
 playwright-report/
 test-results/
+output/
 *.log
 
 # Secrets and private app data

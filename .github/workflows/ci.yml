@@ -1,0 +1,54 @@
+name: Private desktop checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+            package: mac
+          - os: windows-2025
+            arch: x64
+            package: win
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+          architecture: ${{ matrix.arch }}
+          cache: npm
+      - name: Record hosted VM scope
+        run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0].model})); if(process.arch !== '${{ matrix.arch }}') process.exit(1)"
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:electron
+      - run: npm run build
+      - run: npm run test:ui
+      - run: npm run package:${{ matrix.package }}
+      - name: Packaged macOS smoke
+        if: runner.os == 'macOS'
+        run: node scripts/test-desktop.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+      - name: Packaged Windows smoke
+        if: runner.os == 'Windows'
+        run: node scripts/test-desktop.mjs release/win-unpacked/Goalloom.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: private-preview-${{ matrix.os }}-${{ matrix.arch }}
+          retention-days: 3
+          path: |
+            release/*.zip
+            release/*.exe

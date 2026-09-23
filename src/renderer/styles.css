@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-ring: var(--primary);
+}
+
+:root { color-scheme: light; --background: #f7f7f2; --foreground: #222c25; --primary: #315b42; --primary-foreground: #ffffff; --card: #ffffff; --muted: #e9ece4; --border: #d5dbd0; --secondary: #5c685e; }
+:root[data-theme='dark'] { color-scheme: dark; --background: #191f1b; --foreground: #e7ede7; --primary: #a7d0ac; --primary-foreground: #17251b; --card: #232b25; --muted: #303a31; --border: #455147; --secondary: #b3beb4; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='system'] { color-scheme: dark; --background: #191f1b; --foreground: #e7ede7; --primary: #a7d0ac; --primary-foreground: #17251b; --card: #232b25; --muted: #303a31; --border: #455147; --secondary: #b3beb4; }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif; -webkit-font-smoothing: antialiased; }
+button, a { -webkit-app-region: no-drag; }
+button { cursor: pointer; }
+a:focus-visible { outline: 2px solid var(--primary); outline-offset: 6px; }
+.app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+.app-header { display: flex; justify-content: space-between; align-items: center; padding: 26px 48px; border-bottom: 1px solid var(--border); }
+.brand { color: var(--foreground); text-decoration: none; font-size: 27px; font-weight: 650; letter-spacing: -1.2px; display: flex; align-items: baseline; gap: 4px; }
+.brand-dot { height: 6px; width: 6px; border-radius: 50%; background: var(--primary); }
+.theme-picker { display: flex; gap: 3px; }
+.theme-picker [aria-pressed='true'] { background: var(--muted); }
+.welcome { width: min(840px, calc(100% - 80px)); margin: auto; padding: 56px 0 48px; }
+.eyebrow { color: var(--primary); font-size: 13px; letter-spacing: 1.5px; font-weight: 600; margin: 0 0 22px; }
+h1 { font-size: clamp(32px, 4vw, 48px); letter-spacing: -1.6px; line-height: 1.3; font-weight: 600; margin: 0 0 20px; }
+.intro { color: var(--secondary); max-width: 570px; font-size: 16px; line-height: 1.9; margin: 0; }
+.horizon-strip { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); margin: 48px 0; gap: 16px; }
+.horizon-strip li { display: flex; flex-direction: column; gap: 12px; }
+.horizon-number { color: var(--secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
+.horizon-strip strong { font-size: 18px; font-weight: 500; }
+.horizon-line { display: block; height: 3px; background: var(--border); border-radius: 2px; }
+.horizon-strip li:last-child .horizon-line { background: var(--primary); }
+.setup-card { padding: 26px; border: 1px solid var(--border); background: var(--card); border-radius: 14px; display: flex; gap: 20px; }
+.setup-symbol { background: var(--muted); color: var(--primary); width: 48px; height: 48px; display: grid; place-items: center; border-radius: 12px; flex-shrink: 0; }
+h2 { font-size: 17px; font-weight: 600; margin: 2px 0 8px; }
+.setup-card p { font-size: 14px; line-height: 1.7; color: var(--secondary); margin: 0; }
+.setup-card .runtime-status { margin-top: 12px; font-size: 12px; }
+.privacy-note { display: flex; justify-content: center; align-items: center; gap: 8px; color: var(--secondary); font-size: 12px; margin: 22px 0 0; }
+footer { display: flex; justify-content: space-between; padding: 24px 48px; color: var(--secondary); font-size: 11px; border-top: 1px solid var(--border); }
+@media (max-width: 760px) { .app-header, footer { padding-inline: 24px; } .welcome { width: calc(100% - 48px); } .horizon-strip { gap: 10px; } .setup-card { padding: 20px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+@media (forced-colors: active) { .horizon-line, .brand-dot { background: CanvasText; } button[aria-pressed='true'] { outline: 2px solid Highlight; } }

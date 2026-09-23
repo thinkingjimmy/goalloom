@@ -97,20 +97,22 @@ restoreWorkspace和resetWorkspace每次成功都使用全新的本地workspace_g
 
 ## 3. 分阶段开发与验收
 
+**当前进度（2026-09-23）：** M0 参数确认等待负责人答复；M1 已建立可构建的 Electron 基础工程与本机验证入口，仍未通过完整里程碑验收。M2–M5 未开始。当前界面明确为开发预览，不能录入任务；没有生产业务表/迁移，也没有将 D06/D07 候选规则当作已批准默认值。实际命令、版本和测试结果随开发提交记录。
+
 ### M0 · 纸面冻结边界
 
 - [ ] 确认D06基数、D07初始参数、最低OS / CPU、语言与内测范围，冻结受影响的DDL / 选择器。
-- [ ] 纸面推演配置确认 / 锁定、重置备份 / 最终确认、三种工作区操作、撤销成员 / 冲突跳过、状态时间和归档端点；系统时区改变后仍按原工作区日历。
+- [x] 纸面推演配置确认 / 锁定、重置备份 / 最终确认、三种工作区操作、撤销成员 / 冲突跳过、状态时间和归档端点；系统时区改变后仍按原工作区日历。依据 PRD §2–§6 与下方 M4 回归表核对；此项只代表纸面检查，不代表这些流程已经实现。
 
 通过标准：产品样例和待定项清晰，未定参数不固化为生产迁移；M0不要求不存在的应用执行测试。
 
 ### M1 · 最小 Electron 双平台闭环
 
-- [ ] 建React / TypeScript strict / Vite / shadcn / Tailwind / Electron三入口、受控IPC与生产CSP，锁依赖 / 构建 / 打包 / runner。
-- [ ] 优先在真实Electron与Mac / Windows包验证node:sqlite import / API / 事务 / 备份恢复，失败再选外部驱动并记录原因。
-- [ ] 接Hugeicons与固定配对色板，审查shadcn残留 / 授权 / 离线图标；两列录入 / 拖拽 / 关联选择器、SQLite重启恢复、文件对话框可用。
-- [ ] 建无Electron依赖的domain及注入时钟，将日历 / 候选 / 撤销 / 导入样例做成fixture，并单独跑repository测试。
-- [ ] 工程存在后加macOS + Windows CI：静态 / 单元 / 集成 / 构建产物，固定镜像与架构并标托管VM / 自托管等环境。
+- [x] 建React / TypeScript strict / Vite / shadcn / Tailwind / Electron三入口、受控IPC与生产CSP，锁依赖 / 构建 / 打包 / runner。本机 macOS ARM64 目录包完成基础窗口验证；不代表下列双平台/业务闭环已通过。
+- [ ] 优先在真实Electron与Mac / Windows包验证node:sqlite import / API / 事务 / 备份恢复，失败再选外部驱动并记录原因。已完成 macOS 真实 main 的事务/WAL副本恢复探针及本机包的 SQLite worker 启动；Windows 与完整打包业务恢复仍待验。
+- [ ] 接Hugeicons与固定配对色板，审查shadcn残留 / 授权 / 离线图标；两列录入 / 拖拽 / 关联选择器、SQLite重启恢复、文件对话框可用。已有免费显式图标入口、八组配对色及许可证打包；业务交互尚未实现。
+- [ ] 建无Electron依赖的domain及注入时钟，将日历 / 候选 / 撤销 / 导入样例做成fixture，并单独跑repository测试。已有日/周/月边界、候选/hold、状态效果差量与独立 repository 测试；D07 cycle、完整撤销及导入样例待后续实现。
+- [ ] 工程存在后加macOS + Windows CI：静态 / 单元 / 集成 / 构建产物，固定镜像与架构并标托管VM / 自托管等环境。已添加 macos-15 ARM64 / windows-2025 x64 托管 VM 配置；尚未提交远端运行，不将配置存在计作两平台测试通过。
 - [ ] Windows x64干净VM验安装 / 升级 / 存储 / 自动化；Windows x64和Apple Silicon实机验IME / 拖拽 / 睡眠 / 缩放，记录缺失的环境与未执行用例。
 
 通过标准：两平台实际安装完成最小闭环，记录Electron / Node / SQLite / OS / CPU与环境；HMR和测试控制口不进入正式包。

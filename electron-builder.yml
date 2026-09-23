@@ -1,0 +1,26 @@
+appId: com.goalloom.desktop
+productName: Goalloom
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+  - '!node_modules/**/*'
+asar: true
+npmRebuild: false
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: zip
+      arch: [arm64]
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+publish: null
