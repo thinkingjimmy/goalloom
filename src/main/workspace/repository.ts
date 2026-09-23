@@ -10,7 +10,7 @@ import { compareInstants, currentPeriod, workspaceDate, type Clock } from '../..
 import { commandSchema, DomainError, type Command, type CommandResult } from '../../shared/contracts/commands'
 import type { ItemDetail, ItemPage, Query, Snapshot } from '../../shared/contracts/queries'
 import type { Context } from './context'
-import { confirmSetup, createItem, editItem, linkItems, moveItem } from './commands/items'
+import { confirmSetup, createItem, editItem, linkItems, moveItem, setFlowColor } from './commands/items'
 import { transaction } from '../storage/database'
 import { Store } from '../storage/store'
 import { deleteItem, restoreItem, setArchive, setStatus, unlinkItems } from './commands/lifecycle'
@@ -71,6 +71,7 @@ export class Repository {
       case 'confirmSetup': return confirmSetup(context, command)
       case 'create': return createItem(context, command)
       case 'edit': return editItem(context, command)
+      case 'flowColor': return setFlowColor(context, command)
       case 'move': return moveItem(context, command)
       case 'link': return linkItems(context, command)
       case 'status': return setStatus(context, command)
@@ -110,7 +111,9 @@ export class Repository {
       const row = source.get(item.id)
       return row ? [[item.id, String(row.startDate)]] : []
     }))
-    return { workspace, periods, items, relations: this.relationViews(), policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance, backupError: null, rolloverSources }
+    const flows = this.db.prepare('SELECT id,title,flowColor,archivedAt FROM items WHERE flowColor IS NOT NULL AND deletedAt IS NULL ORDER BY flowColor').all()
+      .map(row => ({ id: String(row.id), title: String(row.title), flowColor: Number(row.flowColor), archived: row.archivedAt !== null }))
+    return { workspace, periods, items, relations: this.relationViews(), policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance, backupError: null, rolloverSources, flows }
   }
   relationViews(): Snapshot['relations'] {
     return this.db.prepare('SELECT r.*,p.title AS parentTitle,c.title AS childTitle,p.archivedAt AS parentArchived,c.archivedAt AS childArchived FROM item_relations r JOIN items p ON p.id=r.parentId JOIN items c ON c.id=r.childId WHERE r.invalidatedAt IS NULL ORDER BY r.createdAt,r.id').all()

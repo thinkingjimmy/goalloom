@@ -1,6 +1,6 @@
 /**
  * [INPUT]: zod 与纯日历校验。
- * [OUTPUT]: 工作区/条目/位置/多父 DAG 边/周期的严格 schema 和 DTO。
+ * [OUTPUT]: 工作区/条目/流程颜色/位置/多父 DAG 边/周期的严格 schema 和 DTO。
  * [POS]: 持久化、IPC、导入的共同数据契约；无 Electron 依赖。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -13,6 +13,8 @@ export const instantSchema = z.iso.datetime({ offset: true })
 export const horizonSchema = z.enum(['later', 'cycle', 'month', 'week', 'day'])
 export const periodHorizonSchema = z.enum(['cycle', 'month', 'week', 'day'])
 export const statusSchema = z.enum(['todo', 'done', 'cancelled'])
+// Fixed palette index owned by a flow root; schema v1 data has no field and reads as null.
+export const flowColorSchema = z.number().int().min(0).max(7)
 export const calendarSchema = z.strictObject({ id: idSchema, timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema })
   .refine(value => { try { validateCalendar(value); return true } catch { return false } }, '日历配置无效')
 export const periodSchema = z.strictObject({
@@ -24,6 +26,7 @@ export const itemRecordSchema = z.strictObject({
   status: statusSchema, completedAt: instantSchema.nullable(), cancelledAt: instantSchema.nullable(),
   archivedAt: instantSchema.nullable(), deletedAt: instantSchema.nullable(), deletedBy: idSchema.nullable(),
   createdAt: instantSchema, updatedAt: instantSchema, version: z.number().int().positive(),
+  flowColor: flowColorSchema.nullable().default(null),
 })
 export const placementSchema = z.strictObject({
   itemId: idSchema, horizon: horizonSchema, periodId: idSchema.nullable(), sortKey: z.number().finite(),

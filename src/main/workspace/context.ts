@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 权威事务快照、命令、注入观察时刻和 Store。
- * [OUTPUT]: 命令共享上下文、当前周期与有限顺序重排工具。
+ * [OUTPUT]: 命令共享上下文、当前周期、流程颜色占用/根判定与有限顺序重排工具。
  * [POS]: workspace 命令的公共原语；不在此打开嵌套事务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -16,6 +16,17 @@ export interface Context {
   restoreSource?: string; outcome?: 'conflict_skipped'; undone?: { originalId: string; index: number }[]
 }
 export function assertAvailable(item: Item): void { if (item.deletedAt !== null) throw new DomainError('conflict', '条目已在回收站中') }
+export function hasActiveParent(context: Context, itemId: string): boolean {
+  return !!context.store.db.prepare('SELECT 1 FROM item_relations WHERE childId=? AND invalidatedAt IS NULL LIMIT 1').get(itemId)
+}
+export function flowColorOwner(context: Context, color: number, exceptId: string | null): string | null {
+  const row = context.store.db.prepare('SELECT title FROM items WHERE flowColor=? AND deletedAt IS NULL AND id IS NOT ? LIMIT 1').get(color, exceptId)
+  return row ? String(row.title) : null
+}
+export function assertFlowColorFree(context: Context, color: number, exceptId: string | null): void {
+  const owner = flowColorOwner(context, color, exceptId)
+  if (owner !== null) throw new DomainError('conflict', `这个颜色已被「${owner}」使用`)
+}
 export function targetPeriod(context: Context, horizon: ItemHorizon): PlanningPeriod | null {
   if (horizon === 'later') return null
   if (!context.workspace.calendar) throw new DomainError('setup', '请先确认工作区配置')

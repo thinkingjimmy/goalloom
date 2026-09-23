@@ -2,8 +2,9 @@ import { statusNames, messages } from '../../i18n/messages'
 import { useEffect, useState } from 'react'
 import type { Activity as ActivityPage } from '../../../shared/contracts/history'
 import { desktopApi } from '../../state/use-workspace'
-import { activityNames } from '../../i18n/messages'
+import { activityNames, horizonNames } from '../../i18n/messages'
 import { Button } from '../../components/ui/button'
+const stamp = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
 export function Activity({ itemId, revision }: { itemId: string; revision: number }) {
   const [page, setPage] = useState<ActivityPage>({ events: [], more: false }), [error, setError] = useState('')
   useEffect(() => {
@@ -18,7 +19,7 @@ export function Activity({ itemId, revision }: { itemId: string; revision: numbe
     } catch { setError(messages.activityFailed) }
   }
   return <section className="relations-section"><h3>{messages.activity}</h3>{error && <p role="alert">{error}</p>}
-    <ol className="activity-list">{page.events.map(event => <li key={event.id}><strong>{activityNames[event.type]}</strong><time dateTime={event.at}>{event.at.replace('T', ' ')}</time><span>{statusNames[event.after.status]} · {event.after.horizon === 'later' ? 'Later' : event.after.periodId?.split(':').slice(-2).join(' · ')}</span></li>)}</ol>
+    <ol className="activity-list">{page.events.map(event => <li key={event.id}><strong>{activityNames[event.type]}</strong><time dateTime={event.at}>{stamp.format(new Date(event.at))}</time><span>{statusNames[event.after.status]} · {horizonNames[event.after.horizon]}{event.after.periodId ? ` · ${event.after.periodId.split(':').at(-1)}` : ''}</span></li>)}</ol>
     {page.more && <Button variant="ghost" onClick={() => void more()}>{messages.olderActivity}</Button>}
   </section>
 }

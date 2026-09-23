@@ -1,24 +1,36 @@
 /**
- * [INPUT]: 条目 ID、权威版本、受限提交和详情读取接口。
- * [OUTPUT]: 文本草稿、独立状态操作、上下级双入口与拆解；草稿不随无关刷新丢失。
- * [POS]: 当前内容详情，关系导航复用抽屉；业务校验仍由事务执行。
+ * [INPUT]: 条目 ID、权威版本、流程视图、看板候选、受限提交和详情读取接口。
+ * [OUTPUT]: 居中详情弹窗：标题/截止/说明草稿、流程颜色、上下级勾选、移动/拆解/生命周期操作与活动。
+ * [POS]: 当前内容详情；草稿不随无关刷新丢失，业务校验仍由事务执行。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import type { ItemDetail as Detail } from '../../../shared/contracts/queries'
+import { horizons, type Item, type ItemHorizon } from '../../../shared/contracts/entities'
 import { statusNames, messages, horizonNames } from '../../i18n/messages'
-import { useEffect, useRef, useState } from 'react'
-import type { ItemDetail as Detail, ItemPage } from '../../../shared/contracts/queries'
-import { horizons, type ItemHorizon, type Item } from '../../../shared/contracts/entities'
 import { desktopApi, type Action } from '../../state/use-workspace'
+import type { Flows } from '../../state/flows'
+import { flowRing, relationColors } from '../../lib/colors'
 import { Modal } from '../../components/Modal'
-import { Button } from '../../components/ui/button'
+import { Popover } from '../../components/Popover'
+import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
 import { Activity } from './Activity'
+import { DuePicker } from './DuePicker'
+import { RelationPicker } from './RelationPicker'
 
 const draftOf = (item: Item) => ({ title: item.title, description: item.description, dueDate: item.dueDate ?? '' })
-export function ItemDetail({ itemId, close, select, submit, revision, busy, locate }: { itemId: string; close: () => void; select: (id: string) => void; submit: (action: Action) => Promise<unknown>; revision: number; busy: boolean; locate?: (() => void) | undefined }) {
+const nextHorizon: Record<ItemHorizon, ItemHorizon> = { later: 'later', cycle: 'month', month: 'week', week: 'day', day: 'day' }
+type Pop = 'parent' | 'child' | 'move' | 'more' | null
+
+export function ItemDetail({ itemId, close, select, submit, revision, busy, locate, flows, candidates, today, split }: {
+  itemId: string; close: () => void; select: (id: string) => void; submit: (action: Action) => Promise<unknown>; revision: number; busy: boolean
+  locate?: (() => void) | undefined; flows: Flows; candidates: Item[]; today: string; split: (parent: { id: string; title: string }, horizon: ItemHorizon) => void
+}) {
   const [detail, setDetail] = useState<Detail | null>(null)
   const [draft, setDraft] = useState({ title: '', description: '', dueDate: '' })
   const baseline = useRef(draft), draftRef = useRef(draft); draftRef.current = draft
+  const [pop, setPop] = useState<Pop>(null), [error, setError] = useState('')
   useEffect(() => {
     const guardClose = (event: BeforeUnloadEvent) => {
       if (JSON.stringify(draftRef.current) === JSON.stringify(baseline.current)) return
@@ -27,11 +39,6 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
     window.addEventListener('beforeunload', guardClose)
     return () => window.removeEventListener('beforeunload', guardClose)
   }, [])
-  const [query, setQuery] = useState(''), [results, setResults] = useState<ItemPage>({ items: [], total: 0 })
-  const [direction, setDirection] = useState<'parent' | 'child'>('parent')
-  const [searching, setSearching] = useState(false), [decomposing, setDecomposing] = useState(false)
-  const [nextTitle, setNextTitle] = useState(''), [nextHorizon, setNextHorizon] = useState<ItemHorizon>('day')
-  const [error, setError] = useState('')
   useEffect(() => {
     let active = true
     void desktopApi().getItem(itemId).then(value => {
@@ -42,73 +49,106 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
     }).catch(() => { if (active) setError(messages.itemFailed) })
     return () => { active = false }
   }, [itemId, revision])
-  useEffect(() => {
-    let active = true
-    const timer = setTimeout(() => void desktopApi().listItems({ type: 'list', view: 'search', query, offset: 0, limit: 50 }).then(value => { if (active) setResults(value) }).catch(() => { if (active) setError(messages.relationSearchFailed) }), 180)
-    return () => { active = false; clearTimeout(timer) }
-  }, [query, revision])
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline.current)
   const mayLeave = () => !dirty || window.confirm(messages.discardDraft)
   const dismiss = () => { if (mayLeave()) close() }
   const navigate = (id: string) => { if (mayLeave()) select(id) }
   const save = async () => {
-    if (!detail) return
+    if (!detail || !dirty || !draft.title.trim()) return
     const result = await submit({ type: 'edit', itemId, expectedVersion: detail.item.version, ...draft, dueDate: draft.dueDate || null })
     if (result) { baseline.current = { ...draft }; setDraft({ ...draft }) }
   }
   const setField = (name: keyof typeof draft, value: string) => setDraft(previous => ({ ...previous, [name]: value }))
-  return <Modal title={detail?.item.deletedAt ? messages.trashItem : messages.currentItem} close={dismiss} wide>
-    {error && <p role="alert">{error}</p>}
-    {detail && <>
-      <form onSubmit={event => { event.preventDefault(); void save() }} onKeyDown={event => {
+  const toggle = (next: Pop) => setPop(pop === next ? null : next)
+  const item = detail?.item
+  const readOnly = !!item?.deletedAt
+  const parents = detail?.relations.filter(edge => edge.childId === itemId) ?? []
+  const children = detail?.relations.filter(edge => edge.parentId === itemId) ?? []
+  const done = item?.status === 'done'
+  const ring = item && !done ? flowRing(flows.colorsOf(itemId)) : undefined
+  const heading = item && <p className="modal-context">{horizonNames[item.placement.horizon]}{item.placement.periodId ? ` · ${item.placement.periodId.split(':').at(-1)}` : ''}{item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}{item.archivedAt ? messages.archivedSuffix : ''}{readOnly ? ` · ${messages.trash}` : ''}</p>
+  return <Modal title={readOnly ? messages.trashItem : messages.currentItem} heading={heading} close={dismiss} className="detail">
+    {error && <p className="inline-error" role="alert">{error}</p>}
+    {item && detail && <>
+      <form className="detail-body" onSubmit={event => { event.preventDefault(); void save() }} onKeyDown={event => {
         if (event.nativeEvent.isComposing && event.key === 'Enter') event.preventDefault()
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void save() }
       }}>
-        <label>{messages.title}<input value={draft.title} onChange={event => setField('title', event.target.value)} maxLength={500} required readOnly={!!detail.item.deletedAt} /></label>
-        <label htmlFor="item-description">{messages.description}</label><textarea id="item-description" value={draft.description} onChange={event => setField('description', event.target.value)} rows={6} maxLength={100_000} placeholder={messages.descriptionPlaceholder} readOnly={!!detail.item.deletedAt} />
-        <label>{messages.dueDate}<input type="date" value={draft.dueDate} onChange={event => setField('dueDate', event.target.value)} readOnly={!!detail.item.deletedAt} /></label>
-        <p className="field-note">{messages.dueDateNote}</p>
-        {!detail.item.deletedAt && <Button type="submit" disabled={!dirty || busy || !draft.title.trim()}>{messages.save}</Button>}
+        <div className="detail-title">
+          <button type="button" className="check large" data-checked={done} style={ring ? { '--flow-ring': ring } as CSSProperties : undefined} disabled={busy || readOnly || item.status === 'cancelled'}
+            aria-label={done ? messages.reopenAction : messages.markDone} onClick={() => void submit({ type: 'status', itemId, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
+            {done && <Icon name="check" size={14} strokeWidth={2.5} />}
+          </button>
+          <input className="title-input" aria-label={messages.title} value={draft.title} onChange={event => setField('title', event.target.value)} maxLength={500} required readOnly={readOnly} />
+        </div>
+        <div className="fields">
+          <span className="field-label">{messages.dueShort}</span>
+          <div className="field-value"><DuePicker value={draft.dueDate} today={today} readOnly={readOnly} onChange={value => setField('dueDate', value)} /></div>
+
+          <span className="field-label">{messages.flow}</span>
+          <div className="field-value">{!parents.length
+            ? <div className="swatches" role="radiogroup" aria-label={messages.flow}>
+              {[null, ...relationColors.map((_, index) => index)].map(index => {
+                const owner = index === null ? undefined : flows.owner(index)
+                const taken = !!owner && owner.id !== itemId
+                const name = index === null ? messages.noFlowColor : taken ? messages.flowTaken(relationColors[index]!.name, owner!.title) : relationColors[index]!.name
+                const checked = (item.flowColor ?? null) === index
+                return <button key={index ?? 'none'} type="button" role="radio" aria-checked={checked} aria-label={name} title={name} className="swatch" disabled={busy || readOnly || taken}
+                  onClick={() => { if (!checked) void submit({ type: 'flowColor', itemId, expectedVersion: item.version, flowColor: index }) }}><FlowMark colors={index === null ? [] : [index]} dashed={index === null} /></button>
+              })}
+            </div>
+            : <div className="flow-list">{flows.of(itemId).map(flow => <span key={flow.id}><FlowMark colors={[flow.flowColor]} />{flow.title}</span>)}
+              {!flows.of(itemId).length && <span className="muted">{messages.parentWithoutFlow}</span>}<span className="muted small">{messages.followParent}</span></div>}
+          </div>
+
+          {(['parent', 'child'] as const).map(side => {
+            const edges = side === 'parent' ? parents : children
+            const blocked = side === 'parent' && item.flowColor !== null
+            return [<span key={`${side}-label`} className="field-label">{side === 'parent' ? messages.parents : messages.children}</span>,
+              <div key={side} className="field-value relation-list">
+                {edges.map(edge => {
+                  const other = side === 'parent' ? edge.parentId : edge.childId
+                  return <button type="button" key={edge.id} className="relation-link" onClick={() => navigate(other)}>
+                    <FlowMark colors={flows.colorsOf(other)} /><span>{side === 'parent' ? edge.parentTitle : edge.childTitle}{(side === 'parent' ? edge.parentArchived : edge.childArchived) ? messages.archivedSuffix : ''}</span>
+                  </button>
+                })}
+                {!readOnly && <Popover open={pop === side} onClose={() => setPop(null)} anchor={
+                  <button type="button" className="text-button" aria-expanded={pop === side} disabled={blocked} title={blocked ? messages.flowRootNoParent : undefined} onClick={() => toggle(side)}>{side === 'parent' ? messages.linkParent : messages.linkChild}</button>
+                }><RelationPicker side={side} detail={detail} flows={flows} candidates={candidates} submit={submit} onError={setError} /></Popover>}
+                {blocked && <span className="muted small">{messages.flowRootNoParent}</span>}
+              </div>]
+          })}
+        </div>
+        <label className="field-label" htmlFor="item-description">{messages.description}</label>
+        <textarea id="item-description" className="note-input" value={draft.description} onChange={event => setField('description', event.target.value)} rows={4} maxLength={100_000} placeholder={messages.descriptionPlaceholder} readOnly={readOnly} />
+        <Activity itemId={itemId} revision={revision} />
       </form>
-      <div className="detail-actions">
-        {locate && <Button variant="outline" onClick={() => { if (mayLeave()) locate() }}>{messages.locate}</Button>}
-        {detail.item.deletedAt ? <Button disabled={busy} onClick={() => void submit({ type: 'restoreItem', itemId, expectedVersion: detail.item.version })}>{messages.restoreItemAction}</Button> : <>
-          <Button variant="outline" disabled={busy} onClick={() => void submit({ type: 'status', itemId, expectedVersion: detail.item.version, status: detail.item.status === 'done' ? 'todo' : 'done' })}><Icon name="done" />{detail.item.status === 'done' ? messages.reopenAction : messages.markDone}</Button>
-          <Button variant="outline" disabled={busy} onClick={() => void submit({ type: 'status', itemId, expectedVersion: detail.item.version, status: detail.item.status === 'cancelled' ? 'todo' : 'cancelled' })}>{detail.item.status === 'cancelled' ? messages.restoreTodo : messages.cancelItem}</Button>
-          <Button variant="outline" disabled={busy} onClick={() => void submit({ type: 'archive', itemId, expectedVersion: detail.item.version, archived: !detail.item.archivedAt })}>{detail.item.archivedAt ? messages.unarchive : messages.archiveItem}</Button>
-          <Button variant="ghost" disabled={busy} onClick={() => { if (mayLeave() && window.confirm(messages.deletePreview(detail.relations.length))) void submit({ type: 'delete', itemId, expectedVersion: detail.item.version }).then(result => { if (result) close() }) }}><Icon name="delete" />{messages.moveTrash}</Button>
+      <footer className="modal-footer">
+        {readOnly ? <button className="button" disabled={busy} onClick={() => void submit({ type: 'restoreItem', itemId, expectedVersion: item.version })}>{messages.restoreItemAction}</button> : <>
+          <Popover open={pop === 'move'} onClose={() => setPop(null)} side="top" anchor={<button className="button soft" aria-expanded={pop === 'move'} onClick={() => toggle('move')}>{messages.moveTo}…</button>}>
+            <div className="menu" role="menu" aria-label={messages.moveTo}>
+              {horizons.map(horizon => <button key={horizon} role="menuitemradio" aria-checked={item.placement.horizon === horizon} className="menu-item" disabled={busy} onClick={() => {
+                setPop(null)
+                if (item.placement.horizon !== horizon) void submit({ type: 'move', itemId, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon })
+              }}><span className="menu-check">{item.placement.horizon === horizon && <Icon name="check" size={14} strokeWidth={2} />}</span>{horizonNames[horizon]}</button>)}
+            </div>
+          </Popover>
+          <button className="button soft" onClick={() => { if (mayLeave()) split({ id: item.id, title: item.title }, nextHorizon[item.placement.horizon]) }}>{messages.decompose}</button>
+          <span className="footer-spacer" />
+          {dirty && <button className="button primary" disabled={busy || !draft.title.trim()} onClick={() => void save()}>{messages.save}<kbd>{messages.saveHint}</kbd></button>}
+          <button className="button quiet" disabled={busy} onClick={() => void submit({ type: 'status', itemId, expectedVersion: item.version, status: item.status === 'cancelled' ? 'todo' : 'cancelled' })}>{item.status === 'cancelled' ? messages.restoreTodo : messages.cancelItem}</button>
+          <Popover open={pop === 'more'} onClose={() => setPop(null)} side="top" align="end" anchor={<button className="icon-button" aria-label={messages.moreActions} aria-expanded={pop === 'more'} onClick={() => toggle('more')}><Icon name="more" size={18} /></button>}>
+            <div className="menu" role="menu" aria-label={messages.moreActions}>
+              {locate && <button role="menuitem" className="menu-item" onClick={() => { setPop(null); if (mayLeave()) locate() }}>{messages.locate}</button>}
+              <button role="menuitem" className="menu-item" disabled={busy} onClick={() => { setPop(null); void submit({ type: 'archive', itemId, expectedVersion: item.version, archived: !item.archivedAt }) }}>{item.archivedAt ? messages.unarchive : messages.archiveItem}</button>
+              <button role="menuitem" className="menu-item danger" disabled={busy} onClick={() => {
+                setPop(null)
+                if (mayLeave() && window.confirm(messages.deletePreview(detail.relations.length))) void submit({ type: 'delete', itemId, expectedVersion: item.version }).then(result => { if (result) close() })
+              }}><Icon name="delete" size={16} />{messages.moveTrash}</button>
+            </div>
+          </Popover>
         </>}
-      </div>
-      <p className="field-note">{statusNames[detail.item.status]}{detail.item.archivedAt ? messages.archivedSuffix : ''} · {horizonNames[detail.item.placement.horizon]}{detail.item.placement.periodId ? ` · ${detail.item.placement.periodId.split(':').at(-1)}` : ''}</p>
-      {!detail.item.deletedAt && <>
-        <label>{messages.moveTo}<select aria-label={messages.moveTo} value={detail.item.placement.horizon} onChange={event => void submit({ type: 'move', itemId, expectedVersion: detail.item.version, expectedPlacementVersion: detail.item.placement.version, horizon: event.target.value as ItemHorizon })} disabled={busy}>
-          {horizons.map(horizon => <option key={horizon} value={horizon}>{horizonNames[horizon]}</option>)}
-        </select></label>
-        {(['parent', 'child'] as const).map(side => <section className="relations-section" key={side}><h3>{side === 'parent' ? messages.parents : messages.children}</h3>
-          {detail.relations.filter(edge => (side === 'parent' ? edge.childId : edge.parentId) === itemId).map(edge => <div className="relation-row" key={edge.id}><button onClick={() => navigate(side === 'parent' ? edge.parentId : edge.childId)}>{side === 'parent' ? edge.parentTitle : edge.childTitle}{(side === 'parent' ? edge.parentArchived : edge.childArchived) ? messages.archivedSuffix : ''}</button><Button size="icon" variant="ghost" aria-label={messages.unlinkLabel(side === 'parent' ? edge.parentTitle : edge.childTitle)} disabled={busy} onClick={async () => {
-            try {
-              const parent = await desktopApi().getItem(edge.parentId), child = await desktopApi().getItem(edge.childId)
-              await submit({ type: 'unlink', relationId: edge.id, expectedParentVersion: parent.item.version, expectedChildVersion: child.item.version })
-            } catch { setError(messages.unlinkFailed) }
-          }}><Icon name="close" size={16} /></Button></div>)}
-          <Button variant="outline" onClick={() => { setDirection(side); setSearching(true) }}>{side === 'parent' ? messages.linkParent : messages.linkChild}</Button>
-          {side === 'child' && <Button variant="ghost" onClick={() => { setNextHorizon(({ later: 'later', cycle: 'month', month: 'week', week: 'day', day: 'day' } as const)[detail.item.placement.horizon]); setDecomposing(true) }}>{messages.decompose}</Button>}
-        </section>)}
-        {searching && <section className="relation-picker"><label>{direction === 'parent' ? messages.searchParents : messages.searchChildren}<input value={query} onChange={event => setQuery(event.target.value)} autoFocus /></label>
-          {results.items.filter(item => item.id !== itemId).map(item => <button type="button" key={item.id} disabled={busy} onClick={async () => {
-            const parent = direction === 'parent' ? item : detail.item, child = direction === 'child' ? item : detail.item
-            const result = await submit({ type: 'link', parentId: parent.id, childId: child.id, expectedParentVersion: parent.version, expectedChildVersion: child.version })
-            if (result) { setSearching(false); setQuery('') }
-          }}>{item.title}{item.archivedAt ? messages.archivedSuffix : ''}</button>)}
-          <Button variant="ghost" onClick={() => setSearching(false)}>{messages.cancelLink}</Button>
-        </section>}
-        {decomposing && <form className="relation-picker" onSubmit={async event => {
-          event.preventDefault()
-          const result = await submit({ type: 'create', title: nextTitle, horizon: nextHorizon, parentId: itemId, expectedParentVersion: detail.item.version })
-          if (result) { setDecomposing(false); setNextTitle('') }
-        }}><label>{messages.nextTitle}<input autoFocus required value={nextTitle} maxLength={500} onChange={event => setNextTitle(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && event.nativeEvent.isComposing) event.preventDefault() }} /></label><label>{messages.arrangeTo}<select value={nextHorizon} onChange={event => setNextHorizon(event.target.value as ItemHorizon)}>{horizons.map(horizon => <option key={horizon} value={horizon}>{horizonNames[horizon]}</option>)}</select></label><Button type="submit" disabled={busy || !nextTitle.trim()}>{messages.createNext}</Button><Button variant="ghost" onClick={() => setDecomposing(false)}>{messages.cancelDecompose}</Button></form>}
-      </>}
-      <Activity itemId={itemId} revision={revision} />
+      </footer>
     </>}
   </Modal>
 }

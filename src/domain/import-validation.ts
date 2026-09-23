@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 不可信 schema v1 数据集与显式导入观察时刻。
- * [OUTPUT]: 严格实体/日期/引用/DAG/效果/业务事件链校验后的 Dataset。
+ * [INPUT]: 不可信 schema v1/v2 数据集与显式导入观察时刻；v1 条目没有流程颜色。
+ * [OUTPUT]: 严格实体/日期/引用/DAG/流程颜色/效果/业务事件链校验后的 Dataset。
  * [POS]: 纯导入入口，JSON 与 SQLite 恢复共用；不执行文件或数据库操作。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -72,6 +72,10 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
   }
   for (const p of data.placements) requireValid(items.has(p.itemId), '位置悬空')
   validateDag(new Set(data.items.map(item => item.id)), data.relations, new Set(data.items.filter(item => item.deletedAt).map(item => item.id)))
+  const children = new Set(data.relations.filter(edge => edge.invalidatedAt === null).map(edge => edge.childId))
+  const colours = data.items.filter(item => item.flowColor !== null && item.deletedAt === null).map(item => item.flowColor)
+  requireValid(new Set(colours).size === colours.length, '流程颜色重复')
+  requireValid(data.items.every(item => item.flowColor === null || !children.has(item.id)), '流程根不能有上级')
   for (const edge of data.relations) requireValid((edge.invalidatedAt === null) === (edge.invalidatedBy === null) && (edge.invalidatedAt === null) === (edge.reason === null), '关联失效标记不完整')
   if (data.historyMode === 'baseline') {
     requireValid(!data.events.length && !data.operations.length && !data.undoEffects.length, '无历史模式不可混入部分事件或操作')
@@ -146,7 +150,7 @@ function validateEffect(effect: Effect, items: Map<string | number, unknown>, pe
   }
 }
 function validateKind(operation: Dataset['operations'][number]): void {
-  const allowed: Record<string, Effect['kind'][]> = { create: ['create'], edit: [], move: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
+  const allowed: Record<string, Effect['kind'][]> = { create: ['create'], edit: [], flowColor: [], move: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
   requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), '操作类型或效果白名单不符')
   requireValid(operation.source === (['rollover', 'baseline'].includes(operation.kind) ? 'system' : 'user'), '操作来源不符')
   const inverse = ['undo', 'undoBatch'].includes(operation.kind)

@@ -9,7 +9,7 @@ import { relationProblem } from '../../../domain/relations'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { statusGroup, type EdgeDelta } from '../../../shared/contracts/effects'
 import type { Item, Relation } from '../../../shared/contracts/entities'
-import { assertAvailable, touch, type Context } from '../context'
+import { assertAvailable, flowColorOwner, touch, type Context } from '../context'
 
 export function setStatus(context: Context, command: CommandOf<'status'>): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion)
@@ -67,11 +67,15 @@ export function restoreItem(context: Context, command: CommandOf<'restoreItem'>)
   const before = structuredClone(item)
   const candidates = context.store.relations(false).filter(edge => edge.reason === 'delete' && edge.invalidatedBy === item.deletedBy && (edge.parentId === item.id || edge.childId === item.id))
   Object.assign(item, { deletedAt: null, deletedBy: null })
+  // A colour reused while this flow was in the trash stays with its new owner.
+  const owner = item.flowColor !== null ? flowColorOwner(context, item.flowColor, item.id) : null
+  if (owner !== null) { item.flowColor = null; context.warnings.push(`流程颜色已被「${owner}」使用，已移除本条目的流程颜色`) }
   touch(context, item)
   const edges: EdgeDelta[] = []
   for (const edge of candidates) {
     const other = context.store.item(edge.parentId === item.id ? edge.childId : edge.parentId)
-    const problem = other.deletedAt ? '关联端点仍在回收站' : relationProblem(edge.parentId, edge.childId, context.store.relations())
+    const child = edge.childId === item.id ? item : other
+    const problem = other.deletedAt ? '关联端点仍在回收站' : child.flowColor !== null ? '下级已设为流程' : relationProblem(edge.parentId, edge.childId, context.store.relations())
     if (problem) { context.warnings.push(`未恢复一条关联：${problem}`); continue }
     const restored: Relation = { ...edge, invalidatedAt: null, invalidatedBy: null, reason: null }
     writeEdges(context, [restored], item.id)

@@ -1,28 +1,41 @@
-import { messages } from '../../i18n/messages'
+/**
+ * [INPUT]: 受限搜索查询、视图/新建/设置/撤销回调。
+ * [OUTPUT]: 搜索与命令弹窗：空查询列命令，输入后列条目；Enter 执行首项。
+ * [POS]: Cmd/Ctrl+K 与顶栏搜索入口；不写数据，只打开详情或切换视图。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ */
+import { messages, viewNames, horizonNames, statusNames } from '../../i18n/messages'
 import { useEffect, useState } from 'react'
 import type { Item } from '../../../shared/contracts/entities'
+import type { ListView } from '../../../shared/contracts/queries'
 import { desktopApi } from '../../state/use-workspace'
 import { Modal } from '../../components/Modal'
-import type { ListView } from '../../../shared/contracts/queries'
-import { viewNames } from '../../i18n/messages'
+import { Icon } from '../../components/icons'
 
-export function CommandPalette({ close, navigate, select, undo, canUndo }: { close: () => void; navigate: (view: 'board' | ListView) => void; select: (id: string) => void; undo: () => void; canUndo: boolean }) {
+interface Entry { key: string; label: string; hint: string; disabled?: boolean; run: () => void }
+export function CommandPalette({ close, navigate, select, undo, canUndo, create, openSettings }: { close: () => void; navigate: (view: 'board' | ListView) => void; select: (id: string) => void; undo: () => void; canUndo: boolean; create: () => void; openSettings: () => void }) {
   const [query, setQuery] = useState(''), [items, setItems] = useState<Item[]>([]), [error, setError] = useState('')
   useEffect(() => {
     let active = true
     const timer = setTimeout(() => void desktopApi().listItems({ type: 'list', view: 'search', query, offset: 0, limit: 20 }).then(page => { if (active) setItems(page.items) }).catch(() => { if (active) setError(messages.searchFailed) }), 180)
     return () => { active = false; clearTimeout(timer) }
   }, [query])
-  return <Modal title={messages.commands} close={close}>
-    <label>{messages.searchItems}<input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder={messages.searchPlaceholder} /></label>
-    {error && <p role="alert">{error}</p>}
+  const done = (action: () => void) => () => { close(); action() }
+  const entries: Entry[] = query.trim()
+    ? items.map(item => ({ key: item.id, label: item.title, hint: `${horizonNames[item.placement.horizon]}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}`, run: done(() => select(item.id)) }))
+    : [
+      { key: 'new', label: messages.newItem.replace('（⌘N）', ''), hint: '⌘N', run: done(create) },
+      { key: 'undo', label: messages.undoPrevious, hint: '⌘Z', disabled: !canUndo, run: done(undo) },
+      ...(['board', 'done', 'cancelled', 'archived', 'trash'] as const).map(view => ({ key: view, label: `${messages.views}：${viewNames[view]}`, hint: '', run: done(() => navigate(view)) })),
+      { key: 'settings', label: messages.settings, hint: '', run: done(openSettings) },
+    ]
+  return <Modal title={messages.commands} heading={<div className="palette-search"><Icon name="search" size={18} /><input autoFocus aria-label={messages.searchItems} value={query} onChange={event => setQuery(event.target.value)} placeholder={messages.searchOrCommand}
+    onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); const first = entries.find(entry => !entry.disabled); first?.run() } }} /></div>} close={close} className="palette">
+    {error && <p className="inline-error" role="alert">{error}</p>}
+    <p className="menu-heading">{query.trim() ? messages.itemsHeading : messages.commandsHeading}</p>
     <div className="command-results">
-      {items.map(item => <button key={item.id} onClick={() => { close(); select(item.id) }}>{item.title}{item.archivedAt ? messages.archivedSuffix : ''}</button>)}
-      {!query && <>
-        {(['board', 'done', 'cancelled', 'archived', 'trash'] as const).map(view => <button key={view} onClick={() => { close(); navigate(view) }}>{viewNames[view]}</button>)}
-        <button disabled={!canUndo} onClick={() => { close(); undo() }}>{messages.undoPrevious} <small>Cmd/Ctrl+Z</small></button>
-      </>}
-      {query && !items.length && <p className="field-note">{messages.noResults}</p>}
+      {entries.map(entry => <button key={entry.key} className="menu-item" disabled={entry.disabled} onClick={entry.run}><span className="menu-text">{entry.label}</span>{entry.hint && <span className="menu-hint">{entry.hint}</span>}</button>)}
+      {query.trim() && !items.length && <p className="menu-note">{messages.noResults}</p>}
     </div>
   </Modal>
 }

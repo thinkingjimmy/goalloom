@@ -1,29 +1,47 @@
-import { messages } from '../../i18n/messages'
-import { currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'
+/**
+ * [INPUT]: 权威快照、流程派生视图与筛选、受限提交、新建请求。
+ * [OUTPUT]: 五列看板：极简列头、整行拖动排序/跨列、列内连续录入、完成折叠、往期入口与只读历史。
+ * [POS]: renderer 主视图；位置/状态规则仍由事务复核，筛选只影响本会话显示。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ */
 import { useEffect, useRef, useState } from 'react'
-import { closestCenter, DndContext, DragOverlay, KeyboardSensor, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { closestCenter, DndContext, DragOverlay, KeyboardSensor, pointerWithin, PointerSensor, useDroppable, useSensor, useSensors, type CollisionDetection, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'
 import { horizons, type Item, type ItemHorizon, type PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
+import { messages, horizonNames } from '../../i18n/messages'
 import type { Action } from '../../state/use-workspace'
-import { relationColorIndex, relationColors } from '../../lib/colors'
-import { horizonNames } from '../../i18n/messages'
-import { Button } from '../../components/ui/button'
+import type { Flows } from '../../state/flows'
 import { Icon } from '../../components/icons'
 import { HistoryColumn } from './HistoryColumn'
 import { Backlog } from './Backlog'
+import { QuickAdd, type SplitParent } from './QuickAdd'
+import { TaskRow } from './TaskRow'
 
-interface BoardProps { highlighted: string | null; newRequest: number; snapshot: Snapshot; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void }
-export function Board({ snapshot, submit, busy, select, newRequest, highlighted }: BoardProps) {
+// Rows under the pointer win; empty column space appends to that column. Keyboard drags keep closest-center.
+const collision: CollisionDetection = args => {
+  const within = pointerWithin(args)
+  if (!within.length) return closestCenter(args)
+  const rows = within.filter(hit => !String(hit.id).startsWith('column:'))
+  return rows.length ? closestCenter({ ...args, droppableContainers: args.droppableContainers.filter(container => rows.some(hit => hit.id === container.id)) }) : within
+}
+
+export interface AddRequest { seq: number; horizon: ItemHorizon | null; split: SplitParent | null }
+interface BoardProps { snapshot: Snapshot; flows: Flows; filter: string | null; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void }
+
+export function Board({ snapshot, flows, filter, highlighted, addRequest, submit, busy, select }: BoardProps) {
   useEffect(() => { if (highlighted) document.getElementById(`item-${highlighted}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }, [highlighted])
   const [focused, setFocused] = useState<ItemHorizon>('later')
-  const [addingTo, setAddingTo] = useState<ItemHorizon | null>(null)
-  const previousRequest = useRef(newRequest)
+  const [adding, setAdding] = useState<{ horizon: ItemHorizon; split: SplitParent | null; key: number } | null>(null)
+  const handled = useRef(addRequest?.seq ?? 0)
   useEffect(() => {
-    if (newRequest !== previousRequest.current) setAddingTo(document.activeElement?.closest('[data-horizon]') ? focused : 'later')
-    previousRequest.current = newRequest
-  }, [newRequest])
+    if (!addRequest || addRequest.seq === handled.current) return
+    handled.current = addRequest.seq
+    const horizon = addRequest.horizon ?? (document.activeElement?.closest('[data-horizon]') ? focused : 'later')
+    setAdding({ horizon, split: addRequest.split, key: addRequest.seq })
+    document.querySelector(`[data-horizon="${horizon}"]`)?.scrollIntoView({ inline: 'nearest' })
+  }, [addRequest])
   const [dragging, setDragging] = useState<string | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
   const end = (event: DragEndEvent) => {
@@ -38,62 +56,64 @@ export function Board({ snapshot, submit, busy, select, newRequest, highlighted 
     if (item.placement.horizon === horizon && target && columnItems.indexOf(target) > columnItems.indexOf(item)) beforeId = columnItems[columnItems.indexOf(target) + 1]?.id ?? null
     void submit({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon, beforeId })
   }
-  return <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={event => setDragging(String(event.active.id))} onDragCancel={() => setDragging(null)} onDragEnd={end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
+  const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
+  return <DndContext sensors={sensors} collisionDetection={collision} onDragStart={event => setDragging(String(event.active.id))} onDragCancel={() => setDragging(null)} onDragEnd={end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
     <main className="board" aria-label={messages.board}>
-      {horizons.map(horizon => <Column highlighted={highlighted} adding={addingTo === horizon} setAdding={value => setAddingTo(value ? horizon : null)} focus={editable => setFocused(editable ? horizon : 'later')} newRequest={newRequest} key={horizon} horizon={horizon} items={snapshot.items.filter(item => item.placement.horizon === horizon)} snapshot={snapshot} submit={submit} busy={busy} select={select} />)}
+      {horizons.map(horizon => <Column key={horizon} horizon={horizon} items={snapshot.items.filter(item => item.placement.horizon === horizon)}
+        snapshot={snapshot} flows={flows} filter={filter} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
+        adding={adding?.horizon === horizon ? adding : null} setAdding={open => setAdding(open ? { horizon, split: null, key: Date.now() } : null)}
+        focus={editable => setFocused(editable ? horizon : 'later')} />)}
     </main>
-    <DragOverlay>{dragging ? <div className="drag-overlay">{snapshot.items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
+    {/* No drop animation: the overlay would fly back to the old slot before the authoritative refresh lands. */}
+    <DragOverlay dropAnimation={null}>{dragging ? <div className="drag-overlay">{snapshot.items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
   </DndContext>
 }
 
-function Column({ horizon, items, snapshot, submit, busy, select, adding, setAdding, focus, highlighted }: BoardProps & { horizon: ItemHorizon; items: Item[]; adding: boolean; setAdding: (value: boolean) => void; focus: (editable: boolean) => void }) {
+function Column({ horizon, items, snapshot, flows, filter, highlighted, today, submit, busy, select, adding, setAdding, focus }: Omit<BoardProps, 'addRequest'> & {
+  horizon: ItemHorizon; items: Item[]; today: string; adding: { split: SplitParent | null; key: number } | null; setAdding: (open: boolean) => void; focus: (editable: boolean) => void
+}) {
   const [history, setHistory] = useState<PlanningPeriod | null>(null), [backlog, setBacklog] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: `column:${horizon}`, disabled: history !== null })
-  const [title, setTitle] = useState('')
   const current = snapshot.periods.find(period => period.horizon === horizon)
   const period = history ?? current
-  const previous = period ? precedingPeriod(snapshot.workspace.calendar!, period) : null
+  const calendar = snapshot.workspace.calendar!
+  const previous = period ? precedingPeriod(calendar, period) : null
+  const todo = items.filter(item => item.status === 'todo'), done = items.filter(item => item.status === 'done')
+  const row = (item: Item) => <TaskRow key={item.id} item={item} flows={flows} today={today} rolloverFrom={snapshot.rolloverSources[item.id]} selected={highlighted === item.id}
+    dimmed={filter !== null && !flows.of(item.id).some(flow => flow.id === filter)} disabled={busy} select={select} submit={submit} />
   return <section className={`board-column ${isOver ? 'drop-target' : ''}`} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(horizonNames[horizon])} ref={setNodeRef}>
-    <header><div><h2>{horizonNames[horizon]} <span>{history ? messages.history : items.length}</span></h2><p>{period ? `${period.startDate} — ${period.endDate}` : messages.futureIdeas}</p></div><Button variant="ghost" size="icon" aria-label={messages.newInColumn(horizonNames[horizon])} disabled={!!history || busy} onClick={() => setAdding(true)}><Icon name="add" /></Button></header>
-    {period && <div className="period-navigation"><Button variant="ghost" size="icon" aria-label={messages.previousPeriod(horizonNames[horizon])} disabled={!previous} onClick={() => { setHistory(previous); setAdding(false); focus(false) }}><Icon name="previous" size={16} /></Button>{history && <><Button variant="ghost" onClick={() => setHistory(null)}>{messages.returnCurrent}</Button><Button variant="ghost" size="icon" aria-label={messages.nextPeriod(horizonNames[horizon])} onClick={() => { const next = currentPeriod(snapshot.workspace.calendar!, history.horizon, history.endAt); setHistory(next.id === current?.id ? null : next) }}><Icon name="next" size={16} /></Button></>}</div>}
-    {!history && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}</button>}
+    <header className="column-header">
+      <h2>{horizonNames[horizon]}</h2>
+      <span className="column-meta">{history ? messages.history : horizon === 'later' ? todo.length : periodLabel(horizon, period!)}</span>
+      <span className="column-spacer" />
+      {period && !history && <button className="icon-button small" aria-label={messages.previousPeriod(horizonNames[horizon])} title={messages.columnHistory(horizonNames[horizon])} disabled={!previous} onClick={() => { setHistory(previous); setAdding(false); focus(false) }}><Icon name="history" size={16} /></button>}
+      {!history && <button className="icon-button small" aria-label={messages.newInColumn(horizonNames[horizon])} aria-pressed={!!adding} disabled={busy} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>}
+    </header>
+    {history && <div className="period-navigation">
+      <button className="icon-button small" aria-label={messages.previousPeriod(horizonNames[horizon])} disabled={!previous} onClick={() => setHistory(previous)}><Icon name="previous" size={16} /></button>
+      <span className="tabular">{history.startDate} — {history.endDate}</span>
+      <button className="icon-button small" aria-label={messages.nextPeriod(horizonNames[horizon])} onClick={() => { const next = currentPeriod(calendar, history.horizon, history.endAt); setHistory(next.id === current?.id ? null : next) }}><Icon name="next" size={16} /></button>
+      <button className="text-button" onClick={() => setHistory(null)}>{messages.returnCurrent}</button>
+    </div>}
+    {!history && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
     <div className="column-content">
       {history ? <HistoryColumn key={history.id} period={history} revision={snapshot.workspace.revision} select={select} /> : <>
-      <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
-        {items.filter(item => item.status === 'todo').map(item => <TaskCard highlighted={highlighted === item.id} key={item.id} item={item} snapshot={snapshot} select={select} disabled={busy} submit={submit} />)}
-        {items.some(item => item.status === 'done') && <details className="completed-fold"><summary>{messages.done} {items.filter(item => item.status === 'done').length}</summary>{items.filter(item => item.status === 'done').map(item => <TaskCard highlighted={highlighted === item.id} key={item.id} item={item} snapshot={snapshot} select={select} disabled={busy} submit={submit} />)}</details>}
-      </SortableContext>
-      {items.length === 0 && !adding && <p className="empty-column">{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p>}
-      {adding ? <form className="quick-add" onSubmit={async event => {
-        event.preventDefault()
-        if (!title.trim()) return
-        const result = await submit({ type: 'create', title, horizon })
-        if (result) { setTitle(''); setAdding(false) }
-      }}><input aria-label={messages.newToColumn(horizonNames[horizon])} placeholder={messages.titlePlaceholder} autoFocus value={title} maxLength={500} onChange={event => setTitle(event.target.value)} onKeyDown={event => {
-        if (event.nativeEvent.isComposing && event.key === 'Enter') event.preventDefault()
-        if (event.key === 'Escape' && !event.nativeEvent.isComposing) { event.stopPropagation(); setAdding(false); setTitle('') }
-      }} /><div><Button disabled={busy || !title.trim()} type="submit">{messages.addTo}{horizonNames[horizon]}</Button><Button variant="ghost" type="button" onClick={() => { setAdding(false); setTitle('') }}>{messages.cancel}</Button></div></form>
-        : <button className="add-row" onClick={() => setAdding(true)}><Icon name="add" size={16} />{messages.addItem}</button>}
+        <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
+          {todo.map(row)}
+          {adding && <QuickAdd key={adding.key} horizon={horizon} flows={flows} split={adding.split} submit={submit} busy={busy} close={() => setAdding(false)} />}
+          {done.length > 0 && <details className="completed-fold"><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{done.map(row)}</details>}
+        </SortableContext>
+        {items.length === 0 && !adding && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}
       </>}
     </div>
   </section>
 }
 
-function TaskCard({ item, snapshot, select, disabled, submit, highlighted }: { highlighted: boolean; item: Item; snapshot: Snapshot; select: (id: string) => void; disabled: boolean; submit: BoardProps['submit'] }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled })
-  const parents = snapshot.relations.filter(edge => edge.childId === item.id)
-  return <article id={`item-${item.id}`} data-highlighted={highlighted} ref={setNodeRef} className={`task-card ${isDragging ? 'dragging' : ''}`} style={{ transform: CSS.Transform.toString(transform), transition }} data-item-id={item.id}>
-    <button className="drag-handle" {...attributes} {...listeners} aria-label={messages.dragItem(item.title)}><Icon name="drag" size={16} /></button>
-    <button className="status-toggle" aria-label={`${item.status === 'done' ? messages.reopen : messages.complete} ${item.title}`} disabled={disabled} onClick={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: item.status === 'done' ? 'todo' : 'done' })}><Icon name={item.status === 'done' ? 'done' : 'todo'} size={20} /></button>
-    <div className="task-content"><button className="task-title" onClick={() => select(item.id)}>{item.title}</button>
-      {item.dueDate && <small className="due-date">{item.dueDate < workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt) ? messages.overdue : messages.dueDatePrefix}{item.dueDate}</small>}
-      {snapshot.rolloverSources[item.id] && <small className="field-note">{messages.rolloverFrom} {snapshot.rolloverSources[item.id]}</small>}
-      {parents.length > 0 && <div className="parent-badges">{parents.slice(0, 2).map(edge => {
-        const palette = relationColors[relationColorIndex(edge.parentId)]!
-        return <button key={edge.id} className="relation-badge" style={{ backgroundColor: `light-dark(${palette.light[0]},${palette.dark[0]})`, color: `light-dark(${palette.light[1]},${palette.dark[1]})`, borderColor: `light-dark(${palette.light[2]},${palette.dark[2]})` }} onClick={() => select(edge.parentId)} aria-label={messages.parentLabel(edge.parentTitle)}><Icon name="link" size={16} />{edge.parentTitle}</button>
-      })}{parents.length > 2 && <button onClick={() => select(item.id)} className="relation-badge">+{parents.length - 2}</button>}</div>}
-      {snapshot.relations.some(edge => edge.parentId === item.id) && <button className="child-link" onClick={() => select(item.id)}>{messages.childrenCount} {snapshot.relations.filter(edge => edge.parentId === item.id).length}</button>}
-    </div>
-  </article>
+function periodLabel(horizon: ItemHorizon, period: PlanningPeriod): string {
+  const [, sm, sd] = period.startDate.split('-').map(Number)
+  if (horizon === 'day') return `${sm}月${sd}日`
+  if (horizon === 'month') return `${sm}月`
+  const end = new Date(`${period.endDate}T00:00:00Z`); end.setUTCDate(end.getUTCDate() - 1)
+  return `${sm}.${sd} – ${end.getUTCMonth() + 1}.${end.getUTCDate()}`
 }
