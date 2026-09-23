@@ -147,3 +147,24 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary);
 .activity-list time, .activity-list span { font-size: 10px; color: var(--secondary); }
 .board-host { display: flex; flex: 1; min-height: 0; }
 [hidden] { display: none !important; }
+.notice-banner { display: flex; align-items: center; gap: 14px; padding: 10px 24px; font-size: 12px; line-height: 1.6; background: var(--muted); color: var(--foreground); }
+.transfer-preview p { font-size: 13px; line-height: 1.8; margin: 12px 0; }
+.check-label { display: flex; align-items: center; gap: 10px; line-height: 1.6; }
+.check-label input { width: 18px; height: 18px; flex-shrink: 0; }
+.backup-receipt { padding: 14px; background: var(--muted); border-radius: 9px; margin: 20px 0; font-size: 13px; overflow-wrap: anywhere; }
+.backup-receipt small { font-size: 11px; color: var(--secondary); }
+.backup-list { margin-top: 18px; max-height: 240px; overflow-y: auto; }
+.backup-list > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.backup-list small, .batch-preview small { display: block; color: var(--secondary); margin-top: 5px; }
+.batch-preview { margin: 14px 0; font-size: 12px; }
+.batch-preview summary { cursor: pointer; line-height: 1.8; }
+.batch-preview ul { max-height: 220px; overflow-y: auto; }
+.batch-preview li { margin: 12px 0; }
+/* --- 窗口尺寸由桌面保存；内容区承担滚动，导航和状态栏保持可达。 --- */
+.app-shell { height: 100vh; min-height: 0; overflow: hidden; }
+.app-header, .view-tabs, footer, .notice-banner, .error-banner { flex-shrink: 0; }
+.board { height: 100%; }
+.board-column { display: flex; flex-direction: column; height: 100%; }
+.board-column > header, .period-navigation, .backlog-entry { flex-shrink: 0; }
+.column-content { height: auto; min-height: 0; flex: 1; }
+.list-page, .setup-page { min-height: 0; overflow-y: auto; }

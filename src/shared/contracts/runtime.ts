@@ -8,6 +8,7 @@ import { z } from 'zod'
 import type { CommandInput, CommandReply, CommandResult } from './commands'
 import type { ItemDetail, ItemPage, Query, Snapshot } from './queries'
 import type { Activity, HistoryPage } from './history'
+import type { BatchSummary, DataAction, DataReply } from './transfer'
 
 export const runtimeChannel = 'goalloom:runtime'
 export const runtimeInfoSchema = z.strictObject({
@@ -26,6 +27,9 @@ export interface GoalloomApi {
   listItems(query: Extract<Query, { type: 'list' }>): Promise<ItemPage>
   getHistory(query: Extract<Query, { type: 'history' }>): Promise<HistoryPage>
   getActivity(query: Extract<Query, { type: 'activity' }>): Promise<Activity>
+  getBatches(): Promise<BatchSummary[]>
+  data(action: DataAction): Promise<DataReply>
+  onChanged(listener: (result: CommandResult | null) => void): () => void
   execute(command: CommandInput): Promise<CommandReply>
   getReceipt(operationId: string, generation: string): Promise<CommandResult | null>
   exportWorkspace(): Promise<boolean>

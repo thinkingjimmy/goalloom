@@ -11,9 +11,11 @@ import { ZodError } from 'zod'
 import { DomainError } from '../../shared/contracts/commands'
 import { querySchema } from '../../shared/contracts/queries'
 import { openDatabase } from './database'
-import { migrate, schemaVersion } from './schema'
+import { migrate } from './schema'
 import { Repository } from './repository'
 import { readActivity, readHistory } from './history'
+import { WorkspaceService } from './workspace-service'
+import { exportDataset, readSqliteDataset } from './transfer'
 
 if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort
@@ -21,34 +23,38 @@ mkdirSync(dirname(workerData.databasePath), { recursive: true })
 const db = openDatabase(workerData.databasePath)
 migrate(db)
 const repository = new Repository(db, { now: () => new Date().toISOString() })
+const service = new WorkspaceService(repository, workerData.backupDirectory)
 
 function handle(method: string, argument: unknown): unknown {
   if (method === 'close') { db.close(); return null }
   if (method === 'runtime') return { sqlite: String(db.prepare('SELECT sqlite_version() AS version').get()!.version) }
   if (method === 'command') return repository.execute(argument)
-  if (method === 'export') return exportWorkspace()
+  if (method === 'export') return exportDataset(repository.store, repository.clock.now())
+  if (method === 'data') return service.action(argument)
+  if (method === 'reconcile') return service.reconcile()
+  if (method === 'previewImport') {
+    const source = argument as { generation: string; format: 'json' | 'sqlite'; content?: unknown; path?: string }
+    if (source.format === 'sqlite') return readSqliteDataset(source.path!, repository.clock.now()).then(data => service.previewImport(data, source.generation))
+    return service.previewImport(source.content, source.generation)
+  }
   if (method !== 'query') throw new DomainError('invalid', '未知存储操作')
   const query = querySchema.parse(argument)
   switch (query.type) {
-    case 'snapshot': return repository.snapshot()
+    case 'snapshot': return { ...repository.snapshot(), backupError: service.backups.lastError }
     case 'item': return repository.detail(query.itemId)
     case 'list': return repository.list(query)
     case 'history': return readHistory(repository.store, query, repository.clock.now())
     case 'activity': return readActivity(repository.store, query)
+    case 'batches': return db.prepare("SELECT id FROM operations WHERE kind='rollover' AND source='system' ORDER BY rowid DESC LIMIT 50").all().map(row => {
+      const operation = repository.store.operation(String(row.id))!
+      const undone = Number(db.prepare('SELECT count(*) AS n FROM undo_effects WHERE originalId=?').get(operation.id)!.n)
+      return { id: operation.id, at: operation.at, total: operation.effects.length, undone, items: operation.effects.filter(effect => effect.kind === 'position').map(effect => ({ id: effect.itemId, title: repository.store.item(effect.itemId).title, from: effect.before.periodId ? repository.store.period(effect.before.periodId).startDate : 'Later', to: effect.after.periodId ? repository.store.period(effect.after.periodId).startDate : 'Later' })) }
+    })
     case 'receipt': {
       if (repository.store.workspace().generation !== query.generation) throw new DomainError('generation', '工作区已更换')
       return repository.store.operation(query.operationId)?.result ?? null
     }
   }
-}
-function exportWorkspace(): unknown {
-  const items = repository.store.items('1=1')
-  return { schemaVersion, exportedAt: new Date().toISOString(), workspace: repository.store.workspace(),
-    items: items.map(({ placement: _placement, ...item }) => item), placements: items.map(item => item.placement),
-    periods: repository.store.periods(), relations: repository.store.relations(false), policies: repository.store.policies(),
-    events: items.flatMap(item => repository.store.events(item.id)).sort((a, b) => a.seq - b.seq),
-    operations: db.prepare('SELECT id FROM operations ORDER BY rowid').all().map(row => repository.store.operation(String(row.id))),
-    undoEffects: db.prepare('SELECT * FROM undo_effects').all() }
 }
 let queue = Promise.resolve()
 port.on('message', (request: { id: number; method: string; argument: unknown }) => {

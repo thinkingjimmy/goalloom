@@ -14,12 +14,14 @@ export const querySchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('receipt'), operationId: idSchema, generation: idSchema }),
   z.strictObject({ type: z.literal('history'), horizon: z.enum(['cycle', 'month', 'week', 'day']), startDate: dateSchema, offset: z.number().int().min(0).max(100_000).default(0), limit: z.number().int().min(1).max(100).default(50) }),
   z.strictObject({ type: z.literal('activity'), itemId: idSchema, beforeSeq: z.number().int().positive().optional(), limit: z.number().int().min(1).max(100).default(50) }),
+  z.strictObject({ type: z.literal('batches') }),
 ])
 export type Query = z.infer<typeof querySchema>
 export const relationViewSchema = relationSchema.extend({ parentTitle: z.string(), childTitle: z.string(), parentArchived: z.boolean(), childArchived: z.boolean() })
 export const snapshotSchema = z.strictObject({
   workspace: workspaceSchema, periods: z.array(periodSchema), items: z.array(itemSchema), relations: z.array(relationViewSchema), policies: z.array(policySchema),
-  backlog: z.record(z.string(), z.number().int().nonnegative()), observedAt: z.string(), maintenance: z.boolean(),
+  backlog: z.record(z.string(), z.number().int().nonnegative()), observedAt: z.string(), maintenance: z.boolean(), backupError: z.string().nullable(),
+  rolloverSources: z.record(idSchema, dateSchema),
 })
 export const itemPageSchema = z.strictObject({ items: z.array(itemSchema), total: z.number().int().nonnegative() })
 export const detailSchema = z.strictObject({ item: itemSchema, relations: z.array(relationViewSchema) })

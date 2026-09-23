@@ -10,6 +10,7 @@ renderer/
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
 ├── styles.css               # Tailwind、配对主题、焦点/强制颜色/减少动效
 ├── components/
+│   ├── Settings.tsx         # 只读日历/策略/备份、持续维护与整库两阶段确认
 │   ├── Setup.tsx            # 三项日历预览与显式确认
 │   ├── Board.tsx            # 五列、独立滚动、录入、状态切换与 dnd-kit 排序
 │   ├── ItemDetail.tsx       # 当前草稿、生命周期、关系双入口、拆解

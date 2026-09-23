@@ -9,6 +9,7 @@ import { runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/c
 import { detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
 import { replySchema, resultSchema } from '../shared/contracts/commands'
 import { activitySchema, historyPageSchema } from '../shared/contracts/history'
+import { batchSchema, dataReplySchema } from '../shared/contracts/transfer'
 
 const api: GoalloomApi = {
   getRuntime: async () => runtimeInfoSchema.parse(await ipcRenderer.invoke(runtimeChannel)),
@@ -17,6 +18,13 @@ const api: GoalloomApi = {
   listItems: async query => itemPageSchema.parse(await ipcRenderer.invoke('goalloom:query', query)),
   getHistory: async query => historyPageSchema.parse(await ipcRenderer.invoke('goalloom:query', query)),
   getActivity: async query => activitySchema.parse(await ipcRenderer.invoke('goalloom:query', query)),
+  getBatches: async () => batchSchema.array().parse(await ipcRenderer.invoke('goalloom:query', { type: 'batches' })),
+  data: async action => dataReplySchema.parse(await ipcRenderer.invoke('goalloom:data', action)),
+  onChanged: listener => {
+    const receive = (_event: unknown, value: unknown) => { const parsed = resultSchema.nullable().safeParse(value); if (parsed.success) listener(parsed.data) }
+    ipcRenderer.on('goalloom:changed', receive)
+    return () => { ipcRenderer.removeListener('goalloom:changed', receive) }
+  },
   execute: async command => replySchema.parse(await ipcRenderer.invoke('goalloom:command', command)),
   getReceipt: async (operationId, generation) => resultSchema.nullable().parse(await ipcRenderer.invoke('goalloom:query', { type: 'receipt', operationId, generation })),
   exportWorkspace: async () => Boolean(await ipcRenderer.invoke('goalloom:export')),

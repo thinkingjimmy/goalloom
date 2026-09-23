@@ -39,6 +39,7 @@ jobs:
       - run: npm run build
       - run: npm run test:ui
       - run: npm run test:history
+      - run: npm run test:recovery
       - run: npm run package:${{ matrix.package }}
       - name: Packaged macOS smoke
         if: runner.os == 'macOS'

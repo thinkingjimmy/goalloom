@@ -24,7 +24,7 @@ export function undoOperation(context: Context, command: CommandOf<'undo'>): boo
   context.undone = original.effects.map((_, index) => ({ originalId: original.id, index }))
   return true
 }
-function reverseEffect(context: Context, effect: Effect, originalId: string): void {
+export function reverseEffect(context: Context, effect: Effect, originalId: string): void {
   const item = context.store.item(effect.itemId)
   const before = structuredClone(item)
   const allEdges = context.store.relations(false)

@@ -59,7 +59,7 @@ function Column({ horizon, items, snapshot, submit, busy, select, adding, setAdd
         {items.filter(item => item.status === 'todo').map(item => <TaskCard highlighted={highlighted === item.id} key={item.id} item={item} snapshot={snapshot} select={select} disabled={busy} submit={submit} />)}
         {items.some(item => item.status === 'done') && <details className="completed-fold"><summary>已完成 {items.filter(item => item.status === 'done').length}</summary>{items.filter(item => item.status === 'done').map(item => <TaskCard highlighted={highlighted === item.id} key={item.id} item={item} snapshot={snapshot} select={select} disabled={busy} submit={submit} />)}</details>}
       </SortableContext>
-      {items.length === 0 && !adding && <p className="empty-column">{horizon === 'later' ? '先记下来，慢慢安排。' : '今天，先从一件小事开始。'}</p>}
+      {items.length === 0 && !adding && <p className="empty-column">{horizon === 'later' ? '先记下来，慢慢安排。' : horizon === 'day' ? '今天，先从一件小事开始。' : '为这一段时间，留一个清楚的方向。'}</p>}
       {adding ? <form className="quick-add" onSubmit={async event => {
         event.preventDefault()
         if (!title.trim()) return
@@ -83,6 +83,7 @@ function TaskCard({ item, snapshot, select, disabled, submit, highlighted }: { h
     <button className="status-toggle" aria-label={`${item.status === 'done' ? '重开' : '完成'} ${item.title}`} disabled={disabled} onClick={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: item.status === 'done' ? 'todo' : 'done' })}><Icon name={item.status === 'done' ? 'done' : 'todo'} size={20} /></button>
     <div className="task-content"><button className="task-title" onClick={() => select(item.id)}>{item.title}</button>
       {item.dueDate && <small className="due-date">{item.dueDate < workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt) ? '截止已过 · ' : '截止 '}{item.dueDate}</small>}
+      {snapshot.rolloverSources[item.id] && <small className="field-note">顺延自 {snapshot.rolloverSources[item.id]}</small>}
       {parents.length > 0 && <div className="parent-badges">{parents.slice(0, 2).map(edge => {
         const palette = relationColors[relationColorIndex(edge.parentId)]!
         return <button key={edge.id} className="relation-badge" style={{ backgroundColor: `light-dark(${palette.light[0]},${palette.dark[0]})`, color: `light-dark(${palette.light[1]},${palette.dark[1]})`, borderColor: `light-dark(${palette.light[2]},${palette.dark[2]})` }} onClick={() => select(edge.parentId)} aria-label={`上级：${edge.parentTitle}`}><Icon name="link" size={16} />{edge.parentTitle}</button>

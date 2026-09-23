@@ -15,6 +15,8 @@ tests/
 │   ├── database.test.ts     # 实际 SQLite/WAL/事务/副本与失败保留
 │   ├── commands.test.ts     # 首次确认、唯一位置、幂等、DAG 和中文搜索
 │   ├── history.test.ts      # 真实周期成员/期末/后来结果、分页、批量往期与回拨
+│   ├── reconcile.test.ts    # 自动策略边界、批次部分撤销、排除、hold 与时钟暂停
+│   ├── transfer.test.ts     # 完整 JSON/SQLite、保护备份、持续维护、原子替换故障与 baseline
 │   └── undo.test.ts         # 生命周期、效果撤销/冲突、原始时间与 hold
 └── fixtures/
     ├── electron-probe.ts   # 真正 Electron main 的驱动、事务和恢复探针

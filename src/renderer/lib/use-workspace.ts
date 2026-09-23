@@ -34,6 +34,12 @@ export function useWorkspace() {
     return next
   }, [])
   useEffect(() => { void refresh().catch(error => setError(String(error))) }, [refresh])
+  useEffect(() => {
+    if (!window.goalloom) return
+    return desktopApi().onChanged(result => { void refresh().then(() => {
+      if (result?.changed && session.current.accept(result)) setFeedback({ result, text: result.label })
+    }).catch(() => setError('工作区刷新失败，请重试')) })
+  }, [refresh])
   const accept = useCallback(async (result: CommandResult) => {
     await refresh()
     if (!session.current.accept(result)) return result

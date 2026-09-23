@@ -6,7 +6,7 @@
  */
 import { createHash } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
-import { compareInstants, currentPeriod, type Clock } from '../../domain/calendar'
+import { compareInstants, currentPeriod, workspaceDate, type Clock } from '../../domain/calendar'
 import { commandSchema, DomainError, type Command, type CommandResult } from '../../shared/contracts/commands'
 import type { ItemDetail, ItemPage, Query, Snapshot } from '../../shared/contracts/queries'
 import type { Context } from './context'
@@ -16,6 +16,7 @@ import { Store } from './store'
 import { deleteItem, restoreItem, setArchive, setStatus, unlinkItems } from './lifecycle'
 import { undoOperation } from './undo'
 import { arrangeBacklog } from './backlog'
+import { setPolicy, confirmClock, setBackupPreferences, confirmRollover, undoBatch } from './settings-commands'
 
 export class Repository {
   readonly store: Store
@@ -44,7 +45,7 @@ export class Repository {
     else workspace.lastObservedAt = now
     this.store.saveWorkspace(workspace)
     const result: CommandResult = { operationId: command.operationId, generation: command.generation, changed, undoable: context.effects.length > 0,
-      outcome: context.outcome ?? 'committed', itemId: context.itemId, label: context.label, warnings: context.warnings, restoreSource: context.restoreSource ?? null, originalOperationId: command.type === 'undo' ? command.originalOperationId : null }
+      outcome: context.outcome ?? 'committed', itemId: context.itemId, label: context.label, warnings: context.warnings, restoreSource: context.restoreSource ?? null, originalOperationId: command.type === 'undo' || command.type === 'undoBatch' ? command.originalOperationId : null }
     this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: 'user', at: now, effectsVersion: 1, effects: context.effects, result })
     for (const effect of context.undone ?? []) this.db.prepare('INSERT INTO undo_effects VALUES (?,?,?)').run(effect.originalId, effect.index, command.operationId)
     return result
@@ -78,6 +79,11 @@ export class Repository {
       case 'restoreItem': return restoreItem(context, command)
       case 'unlink': return unlinkItems(context, command)
       case 'arrangeBacklog': return arrangeBacklog(context, command)
+      case 'policy': return setPolicy(context, command)
+      case 'confirmClock': return confirmClock(context)
+      case 'confirmRollover': return confirmRollover(context)
+      case 'backupPreferences': return setBackupPreferences(context, command)
+      case 'undoBatch': return undoBatch(context, command)
       case 'preferences': {
         if (context.workspace.theme === command.theme) return false
         context.workspace.theme = command.theme
@@ -90,12 +96,21 @@ export class Repository {
   snapshot(): Snapshot {
     const workspace = this.store.workspace()
     const observedAt = this.clock.now()
-    const periods = workspace.calendar ? (['cycle', 'month', 'week', 'day'] as const).map(horizon => currentPeriod(workspace.calendar!, horizon, observedAt)) : []
+    const periods = workspace.calendar ? (['cycle', 'month', 'week', 'day'] as const).map(horizon => {
+      const beforeAnchor = workspaceDate(workspace.calendar!.timezone, observedAt) < workspace.calendar!.cycleAnchor
+      const cycleObservation = beforeAnchor ? workspace.lastObservedAt ?? workspace.setupConfirmedAt! : observedAt
+      return currentPeriod(workspace.calendar!, horizon, horizon === 'cycle' ? cycleObservation : observedAt)
+    }) : []
     const ids = periods.map(period => period.id)
     const items = this.store.items(`i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status!='cancelled' AND (p.horizon='later' OR p.periodId IN (${ids.map(() => '?').join(',') || 'NULL'}))`, ids)
     const backlog: Record<string, number> = {}
     for (const row of this.db.prepare("SELECT p.horizon, count(*) AS n FROM items i JOIN item_placements p ON p.itemId=i.id JOIN planning_periods pp ON pp.id=p.periodId WHERE i.status='todo' AND i.deletedAt IS NULL AND i.archivedAt IS NULL AND julianday(pp.endAt)<=julianday(?) GROUP BY p.horizon").all(observedAt)) backlog[String(row.horizon)] = Number(row.n)
-    return { workspace, periods, items, relations: this.relationViews(), policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance }
+    const source = this.db.prepare("SELECT pp.startDate FROM item_events e JOIN planning_periods pp ON pp.id=e.fromPeriodId WHERE e.seq=(SELECT seq FROM item_events WHERE itemId=? AND fromPeriodId IS NOT toPeriodId ORDER BY seq DESC LIMIT 1) AND e.type='rolled_over'")
+    const rolloverSources = Object.fromEntries(items.flatMap(item => {
+      const row = source.get(item.id)
+      return row ? [[item.id, String(row.startDate)]] : []
+    }))
+    return { workspace, periods, items, relations: this.relationViews(), policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance, backupError: null, rolloverSources }
   }
   relationViews(): Snapshot['relations'] {
     return this.db.prepare('SELECT r.*,p.title AS parentTitle,c.title AS childTitle,p.archivedAt AS parentArchived,c.archivedAt AS childArchived FROM item_relations r JOIN items p ON p.id=r.parentId JOIN items c ON c.id=r.childId WHERE r.invalidatedAt IS NULL ORDER BY r.createdAt,r.id').all()

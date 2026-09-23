@@ -1,0 +1,77 @@
+import assert from 'node:assert/strict'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { _electron as electron } from 'playwright'
+const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
+const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'Goalloom 整库窗口 '))
+const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
+let application = await electron.launch({ ...options, env: environment })
+try {
+  let page = await application.firstWindow()
+  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
+  await page.getByRole('main', { name: '时间看板' }).waitFor()
+  const seed = await page.evaluate(async () => {
+    const snapshot = await window.goalloom.getSnapshot(), generation = snapshot.workspace.generation
+    const execute = async action => { const reply = await window.goalloom.execute({ ...action, generation, operationId: crypto.randomUUID() }); if (!reply.ok) throw new Error(reply.message); return reply.result }
+    const parent = await execute({ type: 'create', title: '保护备份目标', horizon: 'month' })
+    const child = await execute({ type: 'create', title: '保护备份行动', horizon: 'day', parentId: parent.itemId, expectedParentVersion: 1 })
+    const deleted = await execute({ type: 'create', title: '恢复后还原', horizon: 'later' })
+    await execute({ type: 'delete', itemId: deleted.itemId, expectedVersion: 1 })
+    return { generation, parentId: parent.itemId, childId: child.itemId, deletedId: deleted.itemId }
+  })
+  const openSettings = async () => { await page.getByRole('button', { name: '设置与数据', exact: true }).click(); return page.getByRole('dialog', { name: '设置与数据' }) }
+  let settings = await openSettings()
+  await settings.getByRole('button', { name: '重置工作区…', exact: true }).click()
+  await settings.getByRole('button', { name: '创建保护备份并继续', exact: true }).click()
+  await settings.getByText('保护备份已创建并验证', { exact: true }).waitFor()
+  assert.equal(await settings.getByRole('checkbox').isChecked(), false)
+  assert.equal(await settings.getByRole('button', { name: '重置并重新配置' }).isDisabled(), true)
+  const blocked = await page.evaluate(async generation => window.goalloom.execute({ type: 'create', title: '维护期不能创建', horizon: 'later', generation, operationId: crypto.randomUUID() }), seed.generation)
+  assert.equal(blocked.ok, false); assert.equal(blocked.code, 'maintenance')
+  await settings.getByRole('button', { name: '取消数据操作', exact: true }).click()
+  assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).maintenance, false)
+  await settings.getByRole('button', { name: '重置工作区…', exact: true }).click()
+  await settings.getByRole('button', { name: '创建保护备份并继续', exact: true }).click()
+  await settings.getByText('保护备份已创建并验证', { exact: true }).waitFor()
+  assert.equal(await settings.getByRole('checkbox').isChecked(), false)
+  await settings.getByRole('checkbox').check()
+  await settings.getByRole('button', { name: '重置并重新配置' }).click()
+  await page.getByRole('button', { name: '确认并开始', exact: true }).waitFor()
+  const reset = await page.evaluate(() => window.goalloom.getSnapshot())
+  assert.notEqual(reset.workspace.generation, seed.generation)
+  assert.equal(reset.workspace.setupConfirmedAt, null); assert.equal(reset.workspace.pausedAfterRestore, false)
+  assert.equal(reset.items.length, 0)
+  const stale = await page.evaluate(async generation => window.goalloom.execute({ type: 'create', title: '过期请求', horizon: 'later', generation, operationId: crypto.randomUUID() }), seed.generation)
+  assert.equal(stale.ok, false); assert.equal(stale.code, 'generation')
+  settings = await openSettings()
+  const protective = settings.locator('.backup-list > div').filter({ hasText: '保护' }).first()
+  await protective.getByRole('button', { name: '预览恢复', exact: true }).click()
+  await settings.getByRole('button', { name: '创建保护备份并继续', exact: true }).click()
+  await settings.getByText('保护备份已创建并验证', { exact: true }).waitFor()
+  assert.equal(await settings.getByRole('checkbox').isChecked(), false)
+  await settings.getByRole('checkbox').check()
+  await settings.getByRole('button', { name: '确认恢复工作区' }).click()
+  await page.getByRole('button', { name: '确认按设置处理', exact: true }).waitFor()
+  let restored = await page.evaluate(() => window.goalloom.getSnapshot())
+  assert.equal(restored.items.length, 2); assert.equal(restored.relations.length, 1)
+  assert.equal(restored.workspace.pausedAfterRestore, true)
+  assert.notEqual(restored.workspace.generation, reset.workspace.generation)
+  assert.equal(await page.getByRole('button', { name: '撤销上一步', exact: true }).isDisabled(), true)
+  await application.close()
+  application = await electron.launch({ ...options, env: environment }); page = await application.firstWindow()
+  await page.getByRole('button', { name: '确认按设置处理', exact: true }).waitFor()
+  await page.getByRole('button', { name: '回收站', exact: true }).click()
+  await page.getByRole('button', { name: '恢复后还原 Later · 未完成', exact: true }).click()
+  await page.getByRole('button', { name: '还原条目', exact: true }).click()
+  await page.getByText('已连接本地工作区', { exact: true }).waitFor()
+  assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.pausedAfterRestore, true)
+  await page.getByRole('button', { name: '关闭', exact: true }).click()
+  await page.getByRole('button', { name: '确认按设置处理', exact: true }).click()
+  await page.waitForFunction(async () => !(await window.goalloom.getSnapshot()).workspace.pausedAfterRestore)
+  restored = await page.evaluate(() => window.goalloom.getSnapshot())
+  assert.equal(restored.items.length, 3)
+  const status = await page.evaluate(() => window.goalloom.data({ type: 'backupStatus' }))
+  assert(status.status.records.filter(record => record.kind === 'protective').length >= 3)
+  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()), checks: ['reset protective preview', 'unchecked final confirmation', 'maintenance UI/IPC', 'cancel preserves', 'new generation rejects old write', 'SQLite restore', 'restore pause survives restart', 'item restore keeps pause', 'explicit resume', 'backup receipts survive replacement'] }))
+} finally { await application.close(); await rm(profile, { recursive: true, force: true }) }

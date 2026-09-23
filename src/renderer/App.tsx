@@ -13,33 +13,36 @@ import { ItemDetail } from './components/ItemDetail'
 import { ItemList, viewNames, type ListView } from './components/ItemList'
 import { desktopApi, useWorkspace } from './lib/use-workspace'
 import { editingTarget } from './lib/session'
+import { Settings } from './components/Settings'
 import { CommandPalette } from './components/CommandPalette'
 
 export function App() {
-  const { snapshot, error, setError, busy, submit, feedback, setFeedback, undo, undoCount, pending, retry } = useWorkspace()
+  const { snapshot, error, setError, busy, submit, feedback, setFeedback, undo, undoCount, pending, retry, refresh } = useWorkspace()
+  const [settings, setSettings] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [highlighted, setHighlighted] = useState<string | null>(null), [palette, setPalette] = useState(false)
   const select = (id: string) => { setSelected(id); setHighlighted(id) }
   const [view, setView] = useState<'board' | ListView>('board'), [newRequest, setNewRequest] = useState(0)
   const theme = snapshot?.workspace.theme ?? 'system'
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
-  useEffect(() => { setSelected(null); setHighlighted(null); setPalette(false); setView('board') }, [snapshot?.workspace.generation])
+  useEffect(() => { setSelected(null); setHighlighted(null); setPalette(false); setSettings(false); setView('board') }, [snapshot?.workspace.generation])
   useEffect(() => {
     const handle = (event: KeyboardEvent) => {
       if (event.isComposing || (!event.metaKey && !event.ctrlKey) || event.altKey) return
       const key = event.key.toLowerCase()
       if (key === 'z' && !event.shiftKey && !editingTarget(event.target)) { event.preventDefault(); if (!busy) void undo() }
-      if (!snapshot?.workspace.setupConfirmedAt || selected) return
+      if (!snapshot?.workspace.setupConfirmedAt || selected || settings) return
       if (key === 'k') { event.preventDefault(); setPalette(true) }
       if (key === 'n' && !editingTarget(event.target)) { event.preventDefault(); setView('board'); setNewRequest(value => value + 1) }
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [undo, busy, selected, snapshot?.workspace.setupConfirmedAt])
+  }, [undo, busy, selected, settings, snapshot?.workspace.setupConfirmedAt])
   return <div className="app-shell">
     <header className="app-header">
       <a href="#main" className="brand" aria-label="Goalloom 首页" onClick={() => setView('board')}>goalloom<span className="brand-dot" /></a>
       <div className="toolbar">
+        <Button variant="ghost" size="icon" aria-label="设置与数据" onClick={() => setSettings(true)} disabled={!snapshot}><Icon name="settings" /></Button>
         {snapshot?.workspace.setupConfirmedAt && <>
           <Button variant="ghost" size="icon" aria-label="搜索与命令" title="Cmd/Ctrl+K" onClick={() => setPalette(true)}><Icon name="search" /></Button>
           <Button variant="ghost" size="icon" aria-label="撤销上一步" title="Cmd/Ctrl+Z" disabled={busy || !undoCount} onClick={() => void undo()}><Icon name="undo" /></Button>
@@ -50,12 +53,18 @@ export function App() {
         </div>
       </div>
     </header>
-    {snapshot?.workspace.setupConfirmedAt && <nav className="view-tabs" aria-label="工作区视图">{(['board', 'search', 'done', 'cancelled', 'archived', 'trash'] as const).map(name => <button key={name} aria-current={view === name ? 'page' : undefined} onClick={() => setView(name)}>{viewNames[name]}</button>)}</nav>}
+    {snapshot?.workspace.setupConfirmedAt && <nav className="view-tabs" aria-label="工作区视图">{(['board', 'search', 'done', 'cancelled', 'archived', 'trash'] as const).map(name => <button key={name} aria-current={view === name ? 'page' : undefined} onClick={() => setView(name)}>{viewNames[name]}</button>)}{view === 'board' && <button onClick={() => document.querySelector('[data-horizon=day]')?.scrollIntoView({ block: 'nearest', inline: 'end' })}>跳到今天</button>}</nav>}
+    {snapshot?.workspace.clockAnomaly && <div className="notice-banner">检测到系统时间回拨，自动处理已暂停。请核对系统时间。<Button variant="outline" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>已核对系统时间</Button></div>}
+    {snapshot?.workspace.calendar && Intl.DateTimeFormat().resolvedOptions().timeZone !== snapshot.workspace.calendar.timezone && <div className="notice-banner">系统时区与工作区不同，计划仍使用 {snapshot.workspace.calendar.timezone}。</div>}
+    {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">工作区恢复完成，确认后按设置处理往期事项。<Button variant="outline" disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>确认按设置处理</Button></div>}
+    {snapshot?.backupError && <div className="notice-banner">{snapshot.backupError}<Button variant="ghost" onClick={() => setSettings(true)}>查看备份</Button></div>}
     {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <Button variant="outline" onClick={() => void retry()}>重试核对</Button>}<button aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
     {!snapshot ? <main className="setup-page" role="status">正在打开本地工作区…</main> : !snapshot.workspace.setupConfirmedAt ? <Setup submit={submit} busy={busy} /> : <><div className="board-host" hidden={view !== 'board'}><Board snapshot={snapshot} submit={submit} busy={busy} select={select} newRequest={newRequest} highlighted={highlighted} /></div>{view !== 'board' && <ItemList key={view} view={view} revision={snapshot.workspace.revision} select={select} timezone={snapshot.workspace.calendar!.timezone} />}</>}
+    {settings && snapshot && <Settings snapshot={snapshot} submit={submit} refresh={refresh} busy={busy} close={() => setSettings(false)} />}
     {palette && <CommandPalette close={() => setPalette(false)} navigate={setView} select={select} undo={() => void undo()} canUndo={!busy && undoCount > 0} />}
     {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={() => setSelected(null)} submit={submit} revision={snapshot.workspace.revision} busy={busy} locate={snapshot.items.some(item => item.id === selected) ? () => { setView('board'); setSelected(null) } : undefined} />}
     {feedback && <div className="toast" key={feedback.result.operationId}><span role="status">{feedback.text}</span>
+      {!feedback.result.undoable && !feedback.result.originalOperationId && <Button variant="ghost" onClick={() => setSettings(true)}>查看批次</Button>}
       {feedback.result.undoable && <Button variant="ghost" disabled={busy} onClick={() => void undo(feedback.result.operationId)}>撤销</Button>}
       {feedback.result.restoreSource && <Button variant="ghost" disabled={busy} onClick={async () => {
         if (!feedback.result.itemId || feedback.result.generation !== snapshot?.workspace.generation) return

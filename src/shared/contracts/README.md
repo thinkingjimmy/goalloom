@@ -8,6 +8,7 @@ contracts/
 ├── commands.ts   # 有限写命令、代次/版本、错误与操作结果
 ├── effects.ts    # 不可变效果描述和不含正文的历史事件
 ├── history.ts    # 严格事件、期末投影、后续活动和历史分页
+├── transfer.ts   # 完整数据集、效果白名单、备份/恢复/重置确认 DTO
 ├── queries.ts    # 分页查询、当前快照和详情 DTO
 └── runtime.ts    # 有限 preload API 和运行时诊断
 ```

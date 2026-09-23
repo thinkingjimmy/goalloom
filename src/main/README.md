@@ -7,6 +7,7 @@ main/
 ├── index.ts       # 单实例、窗口与持久化 worker 生命周期
 ├── ipc.ts         # 固定读写入口、来源检查和原生文件对话框
 ├── storage-client.ts # 内部请求关联与 worker 故障隔离
+├── window-state.ts # 工作区之外的窗口尺寸/位置偏好，跨屏恢复不出界
 ├── security.ts    # 本地协议白名单、生产 CSP、权限/导航/下载拒绝
 └── storage/       # SQLite 基础库；详见 storage/README.md
 ```

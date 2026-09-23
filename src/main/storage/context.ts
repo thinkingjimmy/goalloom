@@ -11,7 +11,7 @@ import type { Item, ItemHorizon, PlanningPeriod, Workspace } from '../../shared/
 import type { Store } from './store'
 
 export interface Context {
-  store: Store; workspace: Workspace; command: Command; now: string;
+  store: Store; workspace: Workspace; command: Pick<Command, 'operationId' | 'generation'>; now: string;
   effects: Effect[]; warnings: string[]; itemId: string | null; label: string
   restoreSource?: string; outcome?: 'conflict_skipped'; undone?: { originalId: string; index: number }[]
 }

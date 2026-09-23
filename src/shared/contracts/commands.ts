@@ -23,6 +23,11 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('undo'), originalOperationId: idSchema }),
   z.strictObject({ ...envelope, type: z.literal('preferences'), theme: z.enum(['system', 'light', 'dark']) }),
   z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),
+  z.strictObject({ ...envelope, type: z.literal('policy'), horizon: z.enum(['cycle', 'month', 'week', 'day']), mode: z.enum(['auto', 'manual']), expectedVersion: z.number().int().positive() }),
+  z.strictObject({ ...envelope, type: z.literal('confirmRollover'), confirmed: z.literal(true) }),
+  z.strictObject({ ...envelope, type: z.literal('confirmClock'), confirmed: z.literal(true) }),
+  z.strictObject({ ...envelope, type: z.literal('backupPreferences'), enabled: z.boolean(), retention: z.number().int().min(1).max(100) }),
+  z.strictObject({ ...envelope, type: z.literal('undoBatch'), originalOperationId: idSchema }),
 ])
 export type Command = z.infer<typeof commandSchema>
 export type CommandInput = z.input<typeof commandSchema>
