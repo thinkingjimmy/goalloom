@@ -1,8 +1,8 @@
 name: Private desktop checks
 
+# Manual only: the free plan has no Actions minutes for private macOS/Windows runners.
+# Merges are gated by a local `pnpm verify` instead (see AGENTS.md).
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 permissions:

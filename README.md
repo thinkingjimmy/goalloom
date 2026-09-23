@@ -43,7 +43,7 @@ pnpm package:dir          # 当前平台本地目录包
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与两渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
-`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。CI 的 macOS ARM64 / Windows x64 托管 VM 检查与实机输入、安装/升级验收分别追踪。
+`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。合入 `main` 前在本地运行 `pnpm verify`（单元/集成 → SQLite → 构建 → 看板/历史/恢复/composer 窗口测试）。GitHub Actions 仅手动触发（免费版无私有仓库托管分钟数）；Windows x64 与实机输入、安装/升级验收由负责人另行完成。
 
 ## 代码地图
 
