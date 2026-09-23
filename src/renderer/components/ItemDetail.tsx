@@ -11,6 +11,7 @@ import { desktopApi, type Action } from '../lib/use-workspace'
 import { Modal } from './Modal'
 import { Button } from './ui/button'
 import { Icon } from './icons'
+import { Activity } from './Activity'
 
 export const horizonNames: Record<ItemHorizon, string> = { later: 'Later', cycle: '3个月', month: '本月', week: '本周', day: '今天' }
 const draftOf = (item: Item) => ({ title: item.title, description: item.description, dueDate: item.dueDate ?? '' })
@@ -99,6 +100,7 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
           if (result) { setDecomposing(false); setNextTitle('') }
         }}><label>下一步标题<input autoFocus required value={nextTitle} maxLength={500} onChange={event => setNextTitle(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && event.nativeEvent.isComposing) event.preventDefault() }} /></label><label>安排到<select value={nextHorizon} onChange={event => setNextHorizon(event.target.value as ItemHorizon)}>{horizons.map(horizon => <option key={horizon} value={horizon}>{horizonNames[horizon]}</option>)}</select></label><Button type="submit" disabled={busy || !nextTitle.trim()}>创建下一步</Button><Button variant="ghost" onClick={() => setDecomposing(false)}>取消拆解</Button></form>}
       </>}
+      <Activity itemId={itemId} revision={revision} />
     </>}
   </Modal>
 }

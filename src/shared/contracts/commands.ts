@@ -22,6 +22,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('unlink'), relationId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('undo'), originalOperationId: idSchema }),
   z.strictObject({ ...envelope, type: z.literal('preferences'), theme: z.enum(['system', 'light', 'dark']) }),
+  z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),
 ])
 export type Command = z.infer<typeof commandSchema>
 export type CommandInput = z.input<typeof commandSchema>

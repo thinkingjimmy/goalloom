@@ -13,6 +13,7 @@ import { querySchema } from '../../shared/contracts/queries'
 import { openDatabase } from './database'
 import { migrate, schemaVersion } from './schema'
 import { Repository } from './repository'
+import { readActivity, readHistory } from './history'
 
 if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort
@@ -32,6 +33,8 @@ function handle(method: string, argument: unknown): unknown {
     case 'snapshot': return repository.snapshot()
     case 'item': return repository.detail(query.itemId)
     case 'list': return repository.list(query)
+    case 'history': return readHistory(repository.store, query, repository.clock.now())
+    case 'activity': return readActivity(repository.store, query)
     case 'receipt': {
       if (repository.store.workspace().generation !== query.generation) throw new DomainError('generation', '工作区已更换')
       return repository.store.operation(query.operationId)?.result ?? null

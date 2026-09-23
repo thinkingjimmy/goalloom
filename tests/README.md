@@ -14,8 +14,11 @@ tests/
 ├── repository/
 │   ├── database.test.ts     # 实际 SQLite/WAL/事务/副本与失败保留
 │   ├── commands.test.ts     # 首次确认、唯一位置、幂等、DAG 和中文搜索
+│   ├── history.test.ts      # 真实周期成员/期末/后来结果、分页、批量往期与回拨
 │   └── undo.test.ts         # 生命周期、效果撤销/冲突、原始时间与 hold
-└── fixtures/electron-probe.ts   # 真正 Electron main 的驱动、事务和恢复探针
+└── fixtures/
+    ├── electron-probe.ts   # 真正 Electron main 的驱动、事务和恢复探针
+    └── history-seed.ts     # 正式事务生成历史样本；无生产时钟控制口
 ```
 
 `npm test` 使用锁定 Electron 自带的 Node 运行 Vitest；`npm run test:electron` 使用实际 Electron main，在临时中文/空格路径验证内置驱动。探针不进入生产构建。临时目录由测试创建并清理，不访问用户任务。

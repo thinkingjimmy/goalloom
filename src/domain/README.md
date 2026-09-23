@@ -8,6 +8,7 @@ domain/
 ├── relations.ts  # 多父 DAG，自关联/重复/环与端点校验
 ├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断
 ├── undo.ts       # 效果字段/关系身份/语义顺序匹配，不依赖整体版本
+├── history.ts    # 真实事件投影期末与后续状态，缺失/回拨为 unknown
 └── status.ts     # 独立状态时间组、效果匹配与差量逆转
 ```
 

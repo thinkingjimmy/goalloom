@@ -12,6 +12,8 @@ storage/
 ├── core-commands.ts # 首次确认、创建/编辑/移动/关联的字段差量
 ├── lifecycle.ts   # 独立状态、归档、软删除、还原和解除关联
 ├── undo.ts        # 效果字段逆转、依赖保护、实际反向事件和 hold
+├── history.ts     # from/to 索引分页、只读历史和活动查询
+├── backlog.ts     # 往期候选复核与批量安排，一个原子用户操作
 ├── repository.ts  # 唯一事务入口、幂等/代次/版本复核和查询
 └── worker.ts      # 串行存储 RPC、真实 SQLite 连接和导出
 ```

@@ -8,12 +8,15 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
 import { detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
 import { replySchema, resultSchema } from '../shared/contracts/commands'
+import { activitySchema, historyPageSchema } from '../shared/contracts/history'
 
 const api: GoalloomApi = {
   getRuntime: async () => runtimeInfoSchema.parse(await ipcRenderer.invoke(runtimeChannel)),
   getSnapshot: async () => snapshotSchema.parse(await ipcRenderer.invoke('goalloom:query', { type: 'snapshot' })),
   getItem: async itemId => detailSchema.parse(await ipcRenderer.invoke('goalloom:query', { type: 'item', itemId })),
   listItems: async query => itemPageSchema.parse(await ipcRenderer.invoke('goalloom:query', query)),
+  getHistory: async query => historyPageSchema.parse(await ipcRenderer.invoke('goalloom:query', query)),
+  getActivity: async query => activitySchema.parse(await ipcRenderer.invoke('goalloom:query', query)),
   execute: async command => replySchema.parse(await ipcRenderer.invoke('goalloom:command', command)),
   getReceipt: async (operationId, generation) => resultSchema.nullable().parse(await ipcRenderer.invoke('goalloom:query', { type: 'receipt', operationId, generation })),
   exportWorkspace: async () => Boolean(await ipcRenderer.invoke('goalloom:export')),

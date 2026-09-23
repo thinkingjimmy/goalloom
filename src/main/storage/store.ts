@@ -83,6 +83,9 @@ export class Store {
       .run(randomUUID(), operationId, index, after.id, at, type, before ? JSON.stringify(businessState(before)) : null, JSON.stringify(businessState(after)), before?.placement.periodId ?? null, after.placement.periodId, undoOf)
   }
   events(itemId: string): ItemEvent[] {
-    return this.db.prepare('SELECT * FROM item_events WHERE itemId=? ORDER BY seq').all(itemId).map(row => ({ seq: Number(row.seq), id: String(row.id), operationId: String(row.operationId), eventIndex: Number(row.eventIndex), itemId, at: String(row.at), type: String(row.type), before: row.beforeState ? JSON.parse(String(row.beforeState)) : null, after: JSON.parse(String(row.afterState)), undoOf: row.undoOf as string | null }))
+    return this.eventRows(this.db.prepare('SELECT * FROM item_events WHERE itemId=? ORDER BY seq').all(itemId))
+  }
+  eventRows(rows: Record<string, unknown>[]): ItemEvent[] {
+    return rows.map(row => ({ seq: Number(row.seq), id: String(row.id), operationId: String(row.operationId), eventIndex: Number(row.eventIndex), itemId: String(row.itemId), at: String(row.at), type: String(row.type), before: row.beforeState ? JSON.parse(String(row.beforeState)) : null, after: JSON.parse(String(row.afterState)), undoOf: row.undoOf as string | null }))
   }
 }

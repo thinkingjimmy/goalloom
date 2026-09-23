@@ -21,7 +21,8 @@
     "build": "npm run typecheck && electron-vite build && node scripts/third-party-notices.mjs && node scripts/check-production.mjs",
     "package:dir": "npm run build && electron-builder --dir --publish never",
     "package:mac": "npm run build && electron-builder --mac --arm64 --publish never",
-    "package:win": "npm run build && electron-builder --win --x64 --publish never"
+    "package:win": "npm run build && electron-builder --win --x64 --publish never",
+    "test:history": "node scripts/test-history.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

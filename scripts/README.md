@@ -7,6 +7,7 @@ scripts/
 ├── test-unit.mjs           # 用锁定 Electron 自带 Node 运行 Vitest
 ├── test-electron.mjs       # 单独构建/启动真实 main 的 SQLite 探针
 ├── test-desktop.mjs        # 源构建或目录包的真实窗口自动化
+├── test-history.mjs        # 独立历史数据夹具、真实窗口只读历史/往期/hold
 ├── third-party-notices.mjs # 从安装依赖汇总原始许可证，随离线包交付
 └── check-production.mjs    # 检查产物无 HMR/测试入口/第二图标库
 ```

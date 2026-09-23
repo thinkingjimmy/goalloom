@@ -14,6 +14,9 @@ renderer/
 │   ├── Board.tsx            # 五列、独立滚动、录入、状态切换与 dnd-kit 排序
 │   ├── ItemDetail.tsx       # 当前草稿、生命周期、关系双入口、拆解
 │   ├── ItemList.tsx         # 分页中文搜索、状态时间分组、归档和回收站
+│   ├── HistoryColumn.tsx    # 独立列只读历史、期末与后来结果
+│   ├── Backlog.tsx          # 往期分页、选择和当前/Later 批量安排
+│   ├── Activity.tsx         # 按真实事件序列分页查看活动
 │   ├── CommandPalette.tsx   # 快捷搜索、视图跳转与撤销入口
 │   ├── Modal.tsx            # 原生 dialog 焦点限制和关闭
 │   ├── icons/index.tsx      # 唯一 Hugeicons 免费显式导入入口

@@ -1,15 +1,17 @@
-import { workspaceDate } from '../../domain/calendar'
+import { currentPeriod, precedingPeriod, workspaceDate } from '../../domain/calendar'
 import { useEffect, useState } from 'react'
 import { closestCenter, DndContext, DragOverlay, KeyboardSensor, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { horizons, type Item, type ItemHorizon } from '../../shared/contracts/entities'
+import { horizons, type Item, type ItemHorizon, type PlanningPeriod } from '../../shared/contracts/entities'
 import type { Snapshot } from '../../shared/contracts/queries'
 import type { Action } from '../lib/use-workspace'
 import { relationColorIndex, relationColors } from '../lib/colors'
 import { horizonNames } from './ItemDetail'
 import { Button } from './ui/button'
 import { Icon } from './icons'
+import { HistoryColumn } from './HistoryColumn'
+import { Backlog } from './Backlog'
 
 interface BoardProps { highlighted: string | null; newRequest: number; snapshot: Snapshot; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void }
 export function Board({ snapshot, submit, busy, select, newRequest, highlighted }: BoardProps) {
@@ -33,19 +35,26 @@ export function Board({ snapshot, submit, busy, select, newRequest, highlighted 
   }
   return <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={event => setDragging(String(event.active.id))} onDragCancel={() => setDragging(null)} onDragEnd={end} accessibility={{ screenReaderInstructions: { draggable: '按空格开始拖动，方向键移动，空格放下，Esc 取消。也可在详情使用“移动到”。' } }}>
     <main className="board" aria-label="时间看板">
-      {horizons.map(horizon => <Column highlighted={highlighted} adding={addingTo === horizon} setAdding={value => setAddingTo(value ? horizon : null)} focus={() => setFocused(horizon)} newRequest={newRequest} key={horizon} horizon={horizon} items={snapshot.items.filter(item => item.placement.horizon === horizon)} snapshot={snapshot} submit={submit} busy={busy} select={select} />)}
+      {horizons.map(horizon => <Column highlighted={highlighted} adding={addingTo === horizon} setAdding={value => setAddingTo(value ? horizon : null)} focus={editable => setFocused(editable ? horizon : 'later')} newRequest={newRequest} key={horizon} horizon={horizon} items={snapshot.items.filter(item => item.placement.horizon === horizon)} snapshot={snapshot} submit={submit} busy={busy} select={select} />)}
     </main>
     <DragOverlay>{dragging ? <div className="drag-overlay">{snapshot.items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
   </DndContext>
 }
 
-function Column({ horizon, items, snapshot, submit, busy, select, adding, setAdding, focus, highlighted }: BoardProps & { horizon: ItemHorizon; items: Item[]; adding: boolean; setAdding: (value: boolean) => void; focus: () => void }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `column:${horizon}` })
+function Column({ horizon, items, snapshot, submit, busy, select, adding, setAdding, focus, highlighted }: BoardProps & { horizon: ItemHorizon; items: Item[]; adding: boolean; setAdding: (value: boolean) => void; focus: (editable: boolean) => void }) {
+  const [history, setHistory] = useState<PlanningPeriod | null>(null), [backlog, setBacklog] = useState(false)
+  const { setNodeRef, isOver } = useDroppable({ id: `column:${horizon}`, disabled: history !== null })
   const [title, setTitle] = useState('')
-  const period = snapshot.periods.find(period => period.horizon === horizon)
-  return <section className={`board-column ${isOver ? 'drop-target' : ''}`} onFocusCapture={focus} onPointerDown={focus} data-horizon={horizon} aria-label={`${horizonNames[horizon]}列`} ref={setNodeRef}>
-    <header><div><h2>{horizonNames[horizon]} <span>{items.length}</span></h2><p>{period ? `${period.startDate} — ${period.endDate}` : '留给未来的想法'}</p></div><Button variant="ghost" size="icon" aria-label={`在${horizonNames[horizon]}新建`} onClick={() => setAdding(true)}><Icon name="add" /></Button></header>
+  const current = snapshot.periods.find(period => period.horizon === horizon)
+  const period = history ?? current
+  const previous = period ? precedingPeriod(snapshot.workspace.calendar!, period) : null
+  return <section className={`board-column ${isOver ? 'drop-target' : ''}`} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={`${horizonNames[horizon]}列`} ref={setNodeRef}>
+    <header><div><h2>{horizonNames[horizon]} <span>{history ? '历史' : items.length}</span></h2><p>{period ? `${period.startDate} — ${period.endDate}` : '留给未来的想法'}</p></div><Button variant="ghost" size="icon" aria-label={`在${horizonNames[horizon]}新建`} disabled={!!history || busy} onClick={() => setAdding(true)}><Icon name="add" /></Button></header>
+    {period && <div className="period-navigation"><Button variant="ghost" size="icon" aria-label={`查看${horizonNames[horizon]}上一期`} disabled={!previous} onClick={() => { setHistory(previous); setAdding(false); focus(false) }}><Icon name="previous" size={16} /></Button>{history && <><Button variant="ghost" onClick={() => setHistory(null)}>返回当前</Button><Button variant="ghost" size="icon" aria-label={`查看${horizonNames[horizon]}下一期`} onClick={() => { const next = currentPeriod(snapshot.workspace.calendar!, history.horizon, history.endAt); setHistory(next.id === current?.id ? null : next) }}><Icon name="next" size={16} /></Button></>}</div>}
+    {!history && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>往期未完成 · {snapshot.backlog[horizon]}</button>}
+    {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
     <div className="column-content">
+      {history ? <HistoryColumn key={history.id} period={history} revision={snapshot.workspace.revision} select={select} /> : <>
       <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
         {items.filter(item => item.status === 'todo').map(item => <TaskCard highlighted={highlighted === item.id} key={item.id} item={item} snapshot={snapshot} select={select} disabled={busy} submit={submit} />)}
         {items.some(item => item.status === 'done') && <details className="completed-fold"><summary>已完成 {items.filter(item => item.status === 'done').length}</summary>{items.filter(item => item.status === 'done').map(item => <TaskCard highlighted={highlighted === item.id} key={item.id} item={item} snapshot={snapshot} select={select} disabled={busy} submit={submit} />)}</details>}
@@ -61,6 +70,7 @@ function Column({ horizon, items, snapshot, submit, busy, select, adding, setAdd
         if (event.key === 'Escape' && !event.nativeEvent.isComposing) { event.stopPropagation(); setAdding(false); setTitle('') }
       }} /><div><Button disabled={busy || !title.trim()} type="submit">添加到{horizonNames[horizon]}</Button><Button variant="ghost" type="button" onClick={() => { setAdding(false); setTitle('') }}>取消</Button></div></form>
         : <button className="add-row" onClick={() => setAdding(true)}><Icon name="add" size={16} />添加条目</button>}
+      </>}
     </div>
   </section>
 }

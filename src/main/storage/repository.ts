@@ -15,6 +15,7 @@ import { transaction } from './database'
 import { Store } from './store'
 import { deleteItem, restoreItem, setArchive, setStatus, unlinkItems } from './lifecycle'
 import { undoOperation } from './undo'
+import { arrangeBacklog } from './backlog'
 
 export class Repository {
   readonly store: Store
@@ -76,6 +77,7 @@ export class Repository {
       case 'delete': return deleteItem(context, command)
       case 'restoreItem': return restoreItem(context, command)
       case 'unlink': return unlinkItems(context, command)
+      case 'arrangeBacklog': return arrangeBacklog(context, command)
       case 'preferences': {
         if (context.workspace.theme === command.theme) return false
         context.workspace.theme = command.theme

@@ -5,13 +5,15 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { z } from 'zod'
-import { horizonSchema, idSchema, itemSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
+import { dateSchema, horizonSchema, idSchema, itemSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 
 export const querySchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('snapshot') }),
   z.strictObject({ type: z.literal('item'), itemId: idSchema }),
   z.strictObject({ type: z.literal('list'), view: z.enum(['search', 'done', 'cancelled', 'archived', 'trash', 'backlog']), query: z.string().max(500).default(''), horizon: horizonSchema.optional(), offset: z.number().int().min(0).max(100_000).default(0), limit: z.number().int().min(1).max(100).default(50) }),
   z.strictObject({ type: z.literal('receipt'), operationId: idSchema, generation: idSchema }),
+  z.strictObject({ type: z.literal('history'), horizon: z.enum(['cycle', 'month', 'week', 'day']), startDate: dateSchema, offset: z.number().int().min(0).max(100_000).default(0), limit: z.number().int().min(1).max(100).default(50) }),
+  z.strictObject({ type: z.literal('activity'), itemId: idSchema, beforeSeq: z.number().int().positive().optional(), limit: z.number().int().min(1).max(100).default(50) }),
 ])
 export type Query = z.infer<typeof querySchema>
 export const relationViewSchema = relationSchema.extend({ parentTitle: z.string(), childTitle: z.string(), parentArchived: z.boolean(), childArchived: z.boolean() })

@@ -16,7 +16,7 @@ try {
   page.on('pageerror', error => console.error(error.message))
   await page.getByRole('button', { name: '确认并开始', exact: true }).waitFor()
   console.log(await page.locator('body').ariaSnapshot())
-  assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['execute', 'exportWorkspace', 'getItem', 'getReceipt', 'getRuntime', 'getSnapshot', 'listItems'])
+  assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['execute', 'exportWorkspace', 'getActivity', 'getHistory', 'getItem', 'getReceipt', 'getRuntime', 'getSnapshot', 'listItems'])
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
   assert.equal(await page.evaluate(() => typeof window.process), 'undefined')
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())

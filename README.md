@@ -12,7 +12,7 @@ Later → 3个月 → 本月 → 本周 → 今天
 
 **技术栈：** Electron · React · TypeScript · Vite · shadcn/ui · Tailwind CSS · Hugeicons · SQLite。
 
-**状态：** 文档 v0.7.0；已实现首次配置、SQLite 持久化、五列看板、多父 DAG、独立状态/回收站及效果字段撤销；历史/顺延/整库恢复继续按 TODO 推进，双平台里程碑尚未验收。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中文与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
+**状态：** 文档 v0.7.0；已实现首次配置、SQLite 持久化、五列看板、多父 DAG、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；顺延/整库恢复继续按 TODO 推进，双平台里程碑尚未验收。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中文与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
 
 | 文档 | 用途 |
 | --- | --- |
@@ -32,7 +32,8 @@ npm run typecheck        # TypeScript strict
 npm test                 # 领域 / repository / 安全与色板
 npm run test:electron    # 真实 Electron main 的 SQLite 探针
 npm run build            # 三入口与生产产物约束检查
-npm run test:ui          # 构建后在真实 Electron 窗口验证 CSP/IPC/主题
+npm run test:ui          # 真实窗口业务闭环与 CSP/IPC/主题
+npm run test:history     # 独立夹具的历史/往期/hold 窗口验证
 npm run package:dir      # 当前平台本地目录包
 ```
 
