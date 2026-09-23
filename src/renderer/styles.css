@@ -46,3 +46,88 @@ footer { display: flex; justify-content: space-between; padding: 24px 48px; colo
 @media (max-width: 760px) { .app-header, footer { padding-inline: 24px; } .welcome { width: calc(100% - 48px); } .horizon-strip { gap: 10px; } .setup-card { padding: 20px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 @media (forced-colors: active) { .horizon-line, .brand-dot { background: CanvasText; } button[aria-pressed='true'] { outline: 2px solid Highlight; } }
+
+/* --- 首次配置 / 工作区表单 --- */
+.setup-page { width: min(680px, calc(100% - 64px)); margin: 50px auto; }
+.setup-page form { margin-top: 30px; }
+label { display: grid; gap: 8px; font-size: 13px; font-weight: 550; margin: 18px 0 8px; }
+input, select, textarea { font: inherit; color: var(--foreground); border: 1px solid var(--border); background: var(--card); border-radius: 7px; padding: 10px 12px; width: 100%; }
+textarea { resize: vertical; line-height: 1.7; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.field-note, .setup-lock-note { font-size: 12px; color: var(--secondary); line-height: 1.7; }
+.calendar-preview { background: var(--muted); border-radius: 10px; padding: 16px; display: grid; gap: 6px; margin-top: 22px; font-size: 14px; }
+.calendar-preview small { color: var(--secondary); }
+.setup-lock-note { margin: 20px 0; }
+.toolbar { display: flex; align-items: center; gap: 14px; }
+.error-banner { color: #8a2334; background: #fce5e9; padding: 12px 30px; display: flex; justify-content: space-between; align-items: center; }
+
+/* --- 时间看板：每列单独滚动，空列同样接受落点 --- */
+.board { flex: 1; display: flex; padding: 28px 32px; gap: 28px; overflow-x: auto; align-items: stretch; min-height: 0; }
+.board-column { flex: 1 0 290px; max-width: 440px; min-width: 260px; border-radius: 10px; transition: background .15s; }
+.board-column.drop-target { background: var(--muted); }
+.board-column > header { display: flex; align-items: flex-start; justify-content: space-between; padding: 4px 8px 20px; border-bottom: 1px solid var(--border); }
+.board-column h2 { font-size: 19px; }
+.board-column h2 span { font-size: 12px; color: var(--secondary); padding-left: 8px; }
+.board-column header p { font-size: 11px; color: var(--secondary); margin-top: 5px; }
+.column-content { overflow-y: auto; height: calc(100vh - 255px); min-height: 220px; padding: 14px 2px; }
+.task-card { display: flex; align-items: flex-start; gap: 6px; padding: 14px 6px; border-bottom: 1px solid var(--border); background: var(--background); }
+.task-card.dragging { opacity: .25; }
+.drag-handle { color: var(--secondary); cursor: grab; flex-shrink: 0; margin-top: 3px; border-radius: 4px; padding: 4px; touch-action: none; }
+.drag-handle:hover { background: var(--muted); }
+.drag-handle:focus-visible, .task-title:focus-visible, .relation-badge:focus-visible, .add-row:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.task-content { min-width: 0; flex: 1; }
+.task-title { text-align: left; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; width: 100%; }
+.due-date { display: block; font-size: 11px; margin-top: 7px; color: var(--secondary); }
+.parent-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.relation-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 6px; border-radius: 5px; border: 1px solid var(--border); font-size: 11px; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.empty-column { font-size: 13px; line-height: 1.8; color: var(--secondary); text-align: center; margin: 48px 0; }
+.add-row { display: flex; align-items: center; gap: 9px; color: var(--secondary); font-size: 13px; width: 100%; padding: 16px 12px; }
+.add-row:hover { background: var(--muted); border-radius: 7px; }
+.quick-add { padding: 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); }
+.quick-add > div { display: flex; gap: 5px; margin-top: 10px; }
+.drag-overlay { background: var(--card); padding: 18px; border: 1px solid var(--primary); border-radius: 9px; box-shadow: 0 10px 25px #0002; }
+
+/* --- 详情与关系：原生 dialog 提供焦点限制和 Esc 入口 --- */
+.modal { margin: auto; width: min(480px, calc(100vw - 40px)); max-height: calc(100vh - 60px); overflow: auto; background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 14px; padding: 24px; box-shadow: 0 20px 70px #0003; }
+.modal-wide { width: min(580px, calc(100vw - 40px)); margin-right: 20px; }
+.modal::backdrop { background: #12221944; }
+.modal > header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.relations-section { border-top: 1px solid var(--border); margin-top: 24px; padding-top: 18px; }
+.relations-section h3 { font-size: 13px; color: var(--secondary); margin-bottom: 12px; }
+.relations-section p { font-size: 14px; margin-bottom: 12px; }
+.relation-picker { margin-top: 18px; padding: 16px; background: var(--muted); border-radius: 9px; }
+.relation-picker > button { display: block; padding: 10px; width: 100%; text-align: left; }
+
+/* --- 五列与状态视图 --- */
+.app-header { padding-block: 18px; }
+.view-tabs { display: flex; gap: 8px; padding: 12px 32px 0; overflow-x: auto; }
+.view-tabs button { padding: 8px 15px; border-radius: 7px; white-space: nowrap; font-size: 13px; color: var(--secondary); }
+.view-tabs button[aria-current='page'] { color: var(--primary); background: var(--muted); }
+.board { padding: 20px 24px; gap: 20px; }
+.board-column { flex-basis: 240px; min-width: 230px; max-width: 360px; }
+.column-content { height: calc(100vh - 280px); }
+.board-column:focus-within > header { border-bottom-color: var(--primary); }
+.status-toggle { color: var(--secondary); padding: 4px 0; margin-top: 3px; flex-shrink: 0; }
+.completed-fold { margin-top: 16px; color: var(--secondary); font-size: 12px; }
+.completed-fold summary { cursor: pointer; padding: 12px; }
+.completed-fold .task-title { text-decoration: line-through; }
+.list-page { width: min(780px, calc(100% - 48px)); margin: 32px auto; flex: 1; }
+.list-page h1 { font-size: 26px; letter-spacing: -.5px; }
+.list-item { display: flex; flex-direction: column; gap: 8px; width: 100%; text-align: left; padding: 18px 8px; border-bottom: 1px solid var(--border); }
+.list-item strong { font-weight: 500; font-size: 14px; overflow-wrap: anywhere; }
+.list-item span { font-size: 11px; color: var(--secondary); }
+.date-group { margin-top: 24px; font-size: 13px; color: var(--secondary); }
+.pagination { display: flex; justify-content: center; gap: 20px; align-items: center; font-size: 12px; margin: 24px 0; }
+.detail-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 24px; }
+.relation-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; }
+.relation-row > button:first-child { text-align: left; font-size: 14px; overflow-wrap: anywhere; }
+.toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 14px; max-width: calc(100vw - 48px); border: 1px solid var(--border); border-radius: 10px; background: var(--card); box-shadow: 0 8px 30px #0002; z-index: 20; font-size: 13px; }
+.toast > span { overflow-wrap: anywhere; }
+button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+@media (forced-colors: active) { .relation-badge { border: 1px solid ButtonText; } .view-tabs button[aria-current='page'] { outline: 2px solid Highlight; } }
+.child-link { font-size: 11px; color: var(--secondary); margin-top: 8px; text-decoration: underline; text-underline-offset: 3px; }
+.command-results { display: grid; gap: 4px; margin-top: 14px; }
+.command-results button { padding: 12px; text-align: left; border-radius: 7px; font-size: 14px; }
+.command-results button:hover { background: var(--muted); }
+.command-results small { float: right; color: var(--secondary); }
+.task-card[data-highlighted='true'] { background: var(--muted); box-shadow: inset 3px 0 var(--primary); }

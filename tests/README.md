@@ -9,8 +9,12 @@ tests/
 │   ├── rollover.test.ts     # 策略范围、维护/恢复暂停、往期可见与 hold
 │   ├── status.test.ts       # 独立状态时间组和保留无关字段的逆转
 │   ├── security.test.ts     # 本地协议路径约束与 CSP 静态约束
+│   ├── session.test.ts      # 会话撤销去重、非栈顶/冲突单项移除、代次隔离
 │   └── colors.test.ts       # 八组浅/深色文字与边框对比度
-├── repository/database.test.ts # 实际 SQLite/WAL/事务/副本与失败保留
+├── repository/
+│   ├── database.test.ts     # 实际 SQLite/WAL/事务/副本与失败保留
+│   ├── commands.test.ts     # 首次确认、唯一位置、幂等、DAG 和中文搜索
+│   └── undo.test.ts         # 生命周期、效果撤销/冲突、原始时间与 hold
 └── fixtures/electron-probe.ts   # 真正 Electron main 的驱动、事务和恢复探针
 ```
 

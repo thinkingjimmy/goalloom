@@ -6,9 +6,16 @@
 storage/
 ├── database.ts    # node:sqlite 连接、外键/WAL、同步事务与完整性校验
 ├── backup.ts      # 在线一致性副本、校验/fsync/原子改名和失败清理
-└── worker.ts      # 隔离线程启动，读取真实 SQLite 版本
+├── schema.ts      # schema v1，DAG/唯一位置/历史/操作约束和迁移
+├── store.ts       # 参数化 SQL 读写、版本保护、事件/回执适配
+├── context.ts     # 事务上下文、当前周期和语义排序工具
+├── core-commands.ts # 首次确认、创建/编辑/移动/关联的字段差量
+├── lifecycle.ts   # 独立状态、归档、软删除、还原和解除关联
+├── undo.ts        # 效果字段逆转、依赖保护、实际反向事件和 hold
+├── repository.ts  # 唯一事务入口、幂等/代次/版本复核和查询
+└── worker.ts      # 串行存储 RPC、真实 SQLite 连接和导出
 ```
 
-`database.ts` 不包含业务 DDL；D06/D07 冻结后再建立生产迁移。`consistentBackup` 是基础原语，不实现日常轮换或整库恢复/维护会话，不能替代 M4 验收。副本名由 main 生成，失败不删除旧副本。
+`schema.ts` 采用负责人最终确认的多父 DAG。`repository.ts` 在事务内检查配置、代次和当前版本；关键数据/事件/回执全成全败。`consistentBackup` 是基础原语，不能替代 M4 完整恢复/维护验收。副本名由 main 生成，失败不删除旧副本。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 README.md

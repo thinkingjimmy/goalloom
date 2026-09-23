@@ -12,7 +12,7 @@ Later → 3个月 → 本月 → 本周 → 今天
 
 **技术栈：** Electron · React · TypeScript · Vite · shadcn/ui · Tailwind CSS · Hugeicons · SQLite。
 
-**状态：** 文档 v0.6.2；已建立可构建的 M1 Electron 工程底座，尚未实现可录入任务的产品，M1 双平台里程碑尚未验收。D06/D07 及平台、语言、内测范围仍待确认；不会把候选默认值写入生产迁移。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
+**状态：** 文档 v0.7.0；已实现首次配置、SQLite 持久化、五列看板、多父 DAG、独立状态/回收站及效果字段撤销；历史/顺延/整库恢复继续按 TODO 推进，双平台里程碑尚未验收。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中文与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
 
 | 文档 | 用途 |
 | --- | --- |
@@ -44,10 +44,10 @@ npm run package:dir      # 当前平台本地目录包
 
 ```text
 src/
-├── domain/             # 可独立测试的日历、候选、状态效果基础库
+├── domain/             # 可独立测试的日历、DAG、候选与效果字段撤销库
 ├── main/               # Electron 生命周期、安全边界与 storage worker
 ├── preload/            # 沙箱 contextBridge，只暴露有限 API
-├── renderer/           # React 开发预览、Hugeicons、主题与配对色板
+├── renderer/           # React 五列/状态/详情、会话撤销、Hugeicons 与配对主题
 └── shared/contracts/   # main/preload/renderer 共享 DTO 与运行时校验
 tests/                  # 领域 / repository / Electron 验证
 scripts/                # 隔离测试 runner 与生产构建检查

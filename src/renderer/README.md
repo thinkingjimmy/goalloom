@@ -4,20 +4,28 @@
 
 ```text
 renderer/
-├── App.tsx                  # 明示不可录入的 M1 开发预览、连接状态和主题切换
+├── App.tsx                  # 首次配置/五列/状态列表组合、快捷键和操作反馈
 ├── main.tsx                 # React 挂载
-├── index.html               # 本地页面入口，生产 CSP 由协议响应头下发
+├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
-├── styles.css               # Tailwind、浅/深主题、焦点和减少动效
-├── components/icons/index.tsx # 唯一 Hugeicons 显式导入入口
-├── components/ui/button.tsx # shadcn 风格 Radix/CVA Button，无第二图标库
-├── components/ui/LICENSE    # shadcn 原始 MIT 声明，随构建许可证汇总交付
+├── styles.css               # Tailwind、配对主题、焦点/强制颜色/减少动效
+├── components/
+│   ├── Setup.tsx            # 三项日历预览与显式确认
+│   ├── Board.tsx            # 五列、独立滚动、录入、状态切换与 dnd-kit 排序
+│   ├── ItemDetail.tsx       # 当前草稿、生命周期、关系双入口、拆解
+│   ├── ItemList.tsx         # 分页中文搜索、状态时间分组、归档和回收站
+│   ├── CommandPalette.tsx   # 快捷搜索、视图跳转与撤销入口
+│   ├── Modal.tsx            # 原生 dialog 焦点限制和关闭
+│   ├── icons/index.tsx      # 唯一 Hugeicons 免费显式导入入口
+│   └── ui/                 # Radix/CVA Button 与 shadcn 原始 MIT 授权
 └── lib/
     ├── colors.ts            # 八组固定配对色板与稳定 ID 哈希
-    ├── messages.ts          # 集中文案；首版语言仍待 D09 确认
+    ├── session.ts           # 纯会话撤销成员、代次隔离、反馈去重
+    ├── use-workspace.ts     # 权威快照、幂等提交、未知结果同 ID 重试
+    ├── messages.ts          # 首版中文基础文案
     └── utils.ts             # Tailwind class 合并
 ```
 
-当前是工程预览，不代表已完成首次配置、看板或可靠持久化。缺少 preload 时明确报错。业务规则属于 domain/main，UI 不伪造写入成功。
+领域规则属于 domain/main；取消/失败不乐观伪造业务结果。UndoSession 只保存已提交的用户操作 ID；历史与业务数据不复制进本地状态。未保存草稿保留到明确保存或放弃；整库代次更换销毁旧抽屉、Toast、栈与缓存。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 README.md

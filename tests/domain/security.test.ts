@@ -9,7 +9,8 @@ it('本地资源拒绝其他域、类型和转义后的越界路径', () => {
     expect(localResource(root, url)).toBeNull()
   }
   expect(productionCsp).toContain("connect-src 'none'")
-  expect(productionCsp).not.toMatch(/unsafe-inline|unsafe-eval/)
+  expect(productionCsp).toContain("script-src 'self';")
+  expect(productionCsp).not.toMatch(/unsafe-eval/)
 })
 
 it('IPC 允许同页锚点，但拒绝伪造域与其他文档', () => {

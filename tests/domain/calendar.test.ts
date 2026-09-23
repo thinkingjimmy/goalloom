@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { currentPeriod, validateCalendar, workspaceDate } from '../../src/domain/calendar'
+import { currentPeriod, precedingPeriod, validateCalendar, workspaceDate } from '../../src/domain/calendar'
 
 const calendar = { id: 'calendar-1', timezone: 'Asia/Shanghai', weekStart: 1 }
 describe('固定工作区日历', () => {
+  it('三个月始终从原始月底锚点推导，历史止于锚点', () => {
+    const configured = { ...calendar, cycleAnchor: '2026-01-31' }
+    const april = currentPeriod(configured, 'cycle', '2026-04-30T00:00:00Z')
+    expect([april.startDate, april.endDate]).toEqual(['2026-04-30', '2026-07-31'])
+    expect(currentPeriod(configured, 'cycle', '2026-07-31T00:00:00Z').endDate).toBe('2026-10-31')
+    const first = precedingPeriod(configured, april)!
+    expect(first.startDate).toBe('2026-01-31')
+    expect(precedingPeriod(configured, first)).toBeNull()
+    expect(() => currentPeriod({ ...calendar, cycleAnchor: '2026-12-01' }, 'cycle', '2026-09-23T00:00:00Z')).toThrow('晚于今天')
+  })
   it('日界时刻属于下一天，结束日不包含', () => {
     const previous = currentPeriod(calendar, 'day', '2026-09-22T15:59:59Z')
     const current = currentPeriod(calendar, 'day', '2026-09-22T16:00:00Z')

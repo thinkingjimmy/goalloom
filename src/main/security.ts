@@ -10,7 +10,7 @@ import type { BrowserWindow, Session } from 'electron'
 
 export const appOrigin = 'goalloom://app'
 export const productionCsp = [
-  "default-src 'none'", "script-src 'self'", "style-src 'self'",
+  "default-src 'none'", "script-src 'self'", "style-src 'self'", "style-src-attr 'unsafe-inline'",
   "img-src 'self' data:", "font-src 'self'", "connect-src 'none'",
   "object-src 'none'", "base-uri 'none'", "frame-src 'none'",
   "frame-ancestors 'none'", "form-action 'none'",
