@@ -10,6 +10,7 @@ import { detailSchema, itemPageSchema, snapshotSchema } from '../shared/contract
 import { replySchema, resultSchema } from '../shared/contracts/commands'
 import { activitySchema, historyPageSchema } from '../shared/contracts/history'
 import { batchSchema, dataReplySchema } from '../shared/contracts/transfer'
+import { smartChannel, smartReplySchema } from '../shared/contracts/smart-input'
 
 const api: GoalloomApi = {
   getRuntime: async () => runtimeInfoSchema.parse(await ipcRenderer.invoke(runtimeChannel)),
@@ -28,5 +29,6 @@ const api: GoalloomApi = {
   execute: async command => replySchema.parse(await ipcRenderer.invoke('goalloom:command', command)),
   getReceipt: async (operationId, generation) => resultSchema.nullable().parse(await ipcRenderer.invoke('goalloom:query', { type: 'receipt', operationId, generation })),
   exportWorkspace: async () => Boolean(await ipcRenderer.invoke('goalloom:export')),
+  smart: async action => smartReplySchema.parse(await ipcRenderer.invoke(smartChannel, action)),
 }
 contextBridge.exposeInMainWorld('goalloom', Object.freeze(api))

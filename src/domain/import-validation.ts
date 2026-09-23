@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 不可信 schema v1/v2 数据集与显式导入观察时刻；v1 条目没有流程颜色。
- * [OUTPUT]: 严格实体/日期/引用/DAG/流程颜色/效果/业务事件链校验后的 Dataset。
+ * [INPUT]: 不可信 schema v1/v2/v3 数据集与显式导入观察时刻；v1 条目没有流程颜色，仅 v3 可含 createPlan。
+ * [OUTPUT]: 严格实体/日期/引用/DAG/流程颜色/效果/业务事件链/计划多效果与整批撤销双射校验后的 Dataset。
  * [POS]: 纯导入入口，JSON 与 SQLite 恢复共用；不执行文件或数据库操作。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -10,6 +10,7 @@ import type { ItemHorizon, PlanningPeriod, Relation } from '../shared/contracts/
 import { compareInstants, currentPeriod, parseDate, workspaceDate } from './calendar'
 import { validateDag } from './relations'
 import { matchesStatus } from './status'
+import { planLimit } from '../shared/contracts/commands'
 
 function requireValid(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
 function unique<T>(rows: T[], identity: (row: T) => string | number, label: string): Map<string | number, T> {
@@ -86,13 +87,17 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
     requireValid(!operation.result.itemId || items.has(operation.result.itemId), '操作指向不存在条目')
     requireValid(operation.result.undoable === (operation.source === 'user' && operation.effects.length > 0), '操作撤销标记与效果不一致')
     requireValid(operation.result.outcome !== 'conflict_skipped' || (!operation.result.changed && !operation.effects.length && operation.kind === 'undo'), '冲突回执包含业务变化')
-    validateKind(operation)
+    validateKind(operation, data.schemaVersion)
     for (const effect of operation.effects) validateEffect(effect, items, periods, edges)
+    if (operation.kind === 'createPlan') validatePlan(operation, edges)
+    validateItemIds(operation, operations)
   }
   for (const marker of data.undoEffects) {
     const original = operations.get(marker.originalId), inverse = operations.get(marker.undoId)
     requireValid(original?.effects[marker.effectIndex] && inverse && inverse.result.changed && inverse.result.originalOperationId === original.id && ['undo', 'undoBatch'].includes(inverse.kind), '撤销标记悬空或回执不一致')
     requireValid(original.id !== inverse.id, '操作不能撤销自己')
+    // A plan is reversed only as a whole: every original effect marked, all by one inverse operation.
+    if (original.kind === 'createPlan') requireValid(inverse.kind === 'undo' && original.effects.every((_, index) => data.undoEffects.some(row => row.originalId === original.id && row.effectIndex === index && row.undoId === inverse.id)), '计划撤销必须覆盖全部原效果')
   }
   const chains = new Map<string, ItemEvent[]>()
   for (const event of [...data.events].sort((a, b) => a.seq - b.seq)) {
@@ -118,6 +123,7 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
   for (const operation of data.operations) {
     const events = eventsByOperation.get(operation.id) ?? []
     requireValid(events.every((event, index) => event.eventIndex === index), '操作内事件序号不连续')
+    if (operation.kind === 'createPlan') requireValid(events.length === operation.effects.length && events.every((event, index) => event.type === 'created' && event.itemId === operation.effects[index]?.itemId), '计划的 created 事件必须与效果逐项对应')
     for (const effect of operation.effects) {
       const needsEvent = !['relations'].includes(effect.kind) && !(effect.kind === 'position' && effect.before.periodId === effect.after.periodId && effect.before.horizon === effect.after.horizon)
       if (needsEvent) {
@@ -149,19 +155,45 @@ function validateEffect(effect: Effect, items: Map<string | number, unknown>, pe
     for (const delta of effect.edges) requireValid(edges.has(delta.after.id) && edgeIdentity(edges.get(delta.after.id)!, delta.after) && (!delta.before || edgeIdentity(delta.before, delta.after)), '关系效果身份不一致')
   }
 }
-function validateKind(operation: Dataset['operations'][number]): void {
-  const allowed: Record<string, Effect['kind'][]> = { create: ['create'], edit: [], flowColor: [], move: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
+function validateKind(operation: Dataset['operations'][number], version: Dataset['schemaVersion']): void {
+  requireValid(operation.kind !== 'createPlan' || version >= 3, '旧版本数据集不能包含批量计划')
+  const allowed: Record<string, Effect['kind'][]> = { create: ['create'], createPlan: ['create'], edit: [], flowColor: [], move: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
   requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), '操作类型或效果白名单不符')
   requireValid(operation.source === (['rollover', 'baseline'].includes(operation.kind) ? 'system' : 'user'), '操作来源不符')
   const inverse = ['undo', 'undoBatch'].includes(operation.kind)
   requireValid(inverse === (operation.result.originalOperationId !== null), '逆操作引用不符')
   requireValid(operation.result.changed || !operation.effects.length, '无变化操作不能包含效果')
   if (operation.result.changed && allowed[operation.kind]!.length) requireValid(operation.effects.length > 0, '可撤销业务操作缺少效果')
-  if (!['rollover', 'arrangeBacklog'].includes(operation.kind)) requireValid(operation.effects.length <= 1, '普通用户操作包含多余效果')
+  if (operation.kind === 'createPlan') requireValid(!operation.result.changed || (operation.effects.length >= 1 && operation.effects.length <= planLimit && new Set(operation.effects.map(effect => effect.itemId)).size === operation.effects.length), '计划必须为 1–8 个互不相同的新项')
+  else if (!['rollover', 'arrangeBacklog'].includes(operation.kind)) requireValid(operation.effects.length <= 1, '普通用户操作包含多余效果')
+}
+// --- Creation-time ownership: each new edge is the child's incoming edge, its parent existing or an earlier new item. ---
+function validatePlan(operation: Dataset['operations'][number], edges: Map<string | number, Relation>): void {
+  const order = operation.effects.map(effect => effect.itemId), owned = new Set<string>()
+  operation.effects.forEach((effect, index) => {
+    if (effect.kind !== 'create') return
+    for (const id of effect.initialRelations) {
+      const edge = edges.get(id)
+      requireValid(edge && edge.childId === effect.itemId && edge.createdAt === operation.at && !owned.has(id), '计划关联必须唯一归属下级且在创建时建立')
+      const parentIndex = order.indexOf(edge.parentId)
+      requireValid(parentIndex < index, '计划中的新上级必须先于下级创建')
+      owned.add(id)
+    }
+  })
+}
+function validateItemIds(operation: Dataset['operations'][number], operations: Map<string | number, Dataset['operations'][number]>): void {
+  const { itemIds, itemId } = operation.result
+  const original = operation.kind === 'undo' && operation.result.originalOperationId ? operations.get(operation.result.originalOperationId) : undefined
+  if (operation.kind === 'createPlan' && operation.result.changed) {
+    const expected = operation.effects.map(effect => effect.itemId)
+    requireValid(itemIds && JSON.stringify(itemIds) === JSON.stringify(expected) && itemId === (expected.length === 1 ? expected[0] : null), '计划回执的条目标识与效果不符')
+  } else if (original?.kind === 'createPlan') {
+    requireValid(itemIds && (operation.result.outcome === 'conflict_skipped' ? !itemIds.length && itemId === null && operation.result.restoreSource === null : JSON.stringify(itemIds) === JSON.stringify(original.result.itemIds) && itemId === original.result.itemId), '计划撤销回执的条目标识不符')
+  } else requireValid(itemIds === undefined, '非计划操作不能带多条目回执')
 }
 function validateEvent(event: ItemEvent, operation: Dataset['operations'][number], data: Dataset, periods: Map<string | number, PlanningPeriod>): void {
   const a = event.before, b = event.after
-  const types: Record<string, string[]> = { created: ['create'], baseline: ['baseline'], moved: ['move', 'arrangeBacklog'], rolled_over: ['move', 'arrangeBacklog', 'rollover'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
+  const types: Record<string, string[]> = { created: ['create', 'createPlan'], baseline: ['baseline'], moved: ['move', 'arrangeBacklog'], rolled_over: ['move', 'arrangeBacklog', 'rollover'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
   requireValid(types[event.type]?.includes(operation.kind), '事件类型与操作不符')
   if (event.type === 'baseline') { requireValid(!a && !event.undoOf, 'baseline 必须是明确起点'); return }
   if (event.type === 'created') { requireValid(!a && b.status === 'todo' && !b.archivedAt && !b.deletedAt && !b.holdPeriodId, '创建事件初始状态无效'); return }

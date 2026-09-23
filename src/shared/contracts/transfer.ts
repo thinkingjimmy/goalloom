@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 不可信完整 JSON/SQLite 数据集、受限数据管理动作。
- * [OUTPUT]: 版本化导入 schema、效果白名单、备份与维护预览 DTO。
+ * [OUTPUT]: v1/v2/v3 版本化导入 schema（v3 含 createPlan 与多 ID 回执）、效果白名单、备份与维护预览 DTO。
  * [POS]: 整库边界；路径只能由主进程/本地目录选择，不能来自导入数据。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -27,7 +27,7 @@ export const operationSchema = z.strictObject({
 })
 export const undoMarkerSchema = z.strictObject({ originalId: idSchema, effectIndex: z.number().int().nonnegative(), undoId: idSchema })
 export const datasetSchema = z.strictObject({
-  schemaVersion: z.union([z.literal(1), z.literal(2)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,
   workspace: workspaceSchema, items: z.array(itemRecordSchema).max(100_000), placements: z.array(placementSchema).max(100_000),
   periods: z.array(periodSchema).max(100_000), relations: z.array(relationSchema).max(500_000), policies: z.array(policySchema).max(4),
   events: z.array(eventSchema).max(1_000_000), operations: z.array(operationSchema).max(500_000), undoEffects: z.array(undoMarkerSchema).max(500_000),

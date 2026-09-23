@@ -12,6 +12,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
 try {
   const page = await application.firstWindow()
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
+  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   const original = await page.evaluate(async () => {
     const snapshot = await window.goalloom.getSnapshot(), generation = snapshot.workspace.generation

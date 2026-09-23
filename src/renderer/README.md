@@ -4,7 +4,7 @@
 
 ```text
 renderer/
-├── App.tsx                  # 组合功能视图、快捷键、悬浮新建和操作反馈
+├── App.tsx                  # 组合功能视图、快捷键、FAB/⌘N 全局 composer、可选 Jev 步骤和操作反馈
 ├── main.tsx                 # React 挂载
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
@@ -16,15 +16,24 @@ renderer/
 │   │   └── settings/        # 左侧分类 + 右侧分组卡片的设置弹窗
 │   │       ├── Settings.tsx     # 容器：分类导航、备份/批次读取、数据动作与预览状态
 │   │       ├── AppearancePane.tsx # 主题预览卡
+│   │       ├── SmartPane.tsx    # 智能输入：状态/暂停、启用关闭、按服务 Key 更换/删除、隐私提示
 │   │       ├── CalendarPane.tsx # 只读日历、逐列顺延策略、可撤销的顺延记录
 │   │       ├── BackupPane.tsx   # 上次备份、每日开关、即时保存的保留份数、备份列表
 │   │       ├── DataPane.tsx     # 导出、JSON/SQLite 恢复入口、危险区重置
 │   │       ├── TransferReview.tsx # 三步进度与整库替换的两阶段确认
 │   │       └── parts.tsx        # 分组/行/分段选择原语与工作区时区时间格式
+│   ├── composer/            # 全局新建：普通单条 Later / Jev 可编辑预览
+│   │   ├── Composer.tsx     # 固定输入、防抖/IME、修订回声、失败降级、会话草稿与 createPlan 确认
+│   │   ├── DraftCard.tsx    # 预览项：执行列范围、截止、多上级、建议 chips、手动新流程
+│   │   ├── draft.ts         # 纯草稿模型：手动优先合并、orphan、计划负载与本地复核
+│   │   └── composer.css     # composer 与连接表单样式（仅 token）
+│   ├── smart/
+│   │   ├── JevConnect.tsx   # 服务单选、Key、同意、测试并启用（Onboarding/设置共用）
+│   │   └── JevStep.tsx      # 日历确认后的可跳过 Jev 步骤
 │   ├── board/
 │   │   ├── Board.tsx        # 五列、指针优先落点的 dnd-kit 排序、列头与折叠
 │   │   ├── TaskRow.tsx      # 单行卡片：流程描边复选框、标题与截止/说明/顺延提示
-│   │   ├── QuickAdd.tsx     # 列内连续录入：加入流程/新流程/拆解上级
+│   │   ├── QuickAdd.tsx     # 列头＋/拆解的列内连续录入：加入流程/新流程/拆解上级
 │   │   ├── HistoryColumn.tsx # 独立列只读历史、期末与后来结果
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
@@ -45,8 +54,11 @@ renderer/
 ├── state/
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
 │   ├── flows.ts            # 快照派生的流程列表、条目归属与颜色占用
+│   ├── smart.ts            # 设备侧智能输入状态与动作（代次变化即重读）
 │   └── use-workspace.ts    # 权威快照、幂等提交、未知结果同 ID 重试
-├── i18n/messages.ts         # 集中中文文案与同类型语言表契约
+├── i18n/
+│   ├── messages.ts          # 集中中文文案与同类型语言表契约
+│   └── smart.ts             # 智能输入分册文案
 └── lib/
     ├── colors.ts            # 八组固定配对色板、色名与流程描边值
     ├── dates.ts             # 纯日历日加减与中文日期格式

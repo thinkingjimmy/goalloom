@@ -1,0 +1,54 @@
+/* --- Global composer: one fixed input, a calm status line, editable preview cards. Tokens only. --- */
+.composer-modal { width: min(640px, calc(100vw - 40px)); }
+.composer-input { min-height: 104px; max-height: 240px; font-size: 15px; line-height: 1.7; resize: none; background: var(--raised); }
+.composer-status { display: flex; align-items: center; gap: 10px; min-height: 22px; margin: 10px 0 6px; font-size: 12.5px; color: var(--secondary); }
+.composer-status[data-failed='true'] { color: var(--danger); }
+.composer-spinner { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--line); border-top-color: var(--secondary); animation: composer-spin .8s linear infinite; flex-shrink: 0; }
+@keyframes composer-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .composer-spinner { animation: none; } }
+.composer-note, .composer-warning { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; font-size: 12px; line-height: 1.6; color: var(--backlog); }
+.composer-note { color: var(--secondary); }
+.composer-warning.inset { margin: -2px 0 8px 14px; }
+.composer-tip { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 6px 6px 6px 12px; border-radius: 10px; background: var(--hover); font-size: 12px; color: var(--fg-soft); }
+.composer-tip > span { flex: 1; line-height: 1.6; }
+.composer-preview { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.composer-fallback { margin-top: 10px; padding: 14px 16px; border-radius: 12px; background: var(--raised); border: 1px solid var(--line); font-size: 13px; }
+.composer-fallback p { margin: 6px 0 12px; color: var(--secondary); line-height: 1.6; }
+.composer-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.composer-footer kbd { margin-left: 6px; }
+.composer-spacer { flex: 1; }
+.draft-card { padding: 10px 12px; border-radius: 12px; background: var(--raised); border: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 6px; }
+.draft-card[data-orphan='true'] { border-style: dashed; border-color: var(--line); }
+.draft-card.plain { gap: 4px; }
+.draft-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.draft-title { flex: 1; min-width: 0; height: 30px; padding: 0 6px; margin-left: -6px; border: 0; background: transparent; font-size: 14px; font-weight: 500; }
+.draft-title:hover { background: var(--hover); }
+.draft-title-text { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-target { flex-shrink: 0; font-size: 12px; color: var(--secondary); }
+.draft-badge { flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: var(--hover); font-size: 11px; color: var(--secondary); }
+.draft-note { display: block; width: 100%; font-size: 12px; line-height: 1.6; color: var(--secondary); white-space: pre-wrap; text-align: left; border-radius: 6px; padding: 2px 6px; margin-left: -6px; }
+.draft-note:hover { background: var(--hover); }
+.draft-description { font-size: 12.5px; }
+.draft-fields, .draft-parents, .draft-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.draft-field { margin: 0; }
+.draft-field select { height: 30px; padding: 0 8px; width: auto; font-size: 13px; background: transparent; border-color: transparent; }
+.draft-field select:hover { background: var(--hover); }
+.draft-fields .field-button { margin-left: 0; font-size: 13px; }
+.suggestion { height: 26px; padding: 0 10px; border-radius: 13px; border: 1px dashed var(--line); font-size: 12px; color: var(--secondary); }
+.suggestion:hover:not(:disabled) { color: var(--fg); border-color: var(--edit-line); }
+.parent-chip { height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 4px 0 8px; border-radius: 13px; background: var(--hover); font-size: 12px; max-width: 240px; }
+.parent-chip .chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.parent-chip button { width: 20px; height: 20px; border-radius: 10px; display: grid; place-items: center; color: var(--secondary); }
+.parent-chip button:hover { background: var(--pressed); color: var(--fg); }
+.draft-flow .check-label { margin: 0; font-size: 12.5px; gap: 8px; }
+.draft-flow .check-label input { width: 15px; height: 15px; }
+.draft-flow small { font-size: 12px; }
+/* --- Jev connect form shared by onboarding and settings. --- */
+.jev-connect { display: flex; flex-direction: column; gap: 4px; }
+.jev-connect .segmented { align-self: flex-start; margin-bottom: 4px; }
+.jev-connect .field-note { margin: 2px 0; }
+.jev-actions { display: flex; gap: 8px; margin-top: 8px; }
+.jev-result { min-height: 20px; margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--danger); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.jev-result[data-ok='true'] { color: var(--secondary); }
+.jev-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 24px; }
+.settings-form { padding: 14px 16px; }

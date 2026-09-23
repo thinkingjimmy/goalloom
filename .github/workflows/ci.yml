@@ -26,21 +26,23 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
+      # Version comes from packageManager in package.json.
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24.21.0'
           architecture: ${{ matrix.arch }}
-          cache: npm
+          cache: pnpm
       - name: Record hosted VM scope
         run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0].model})); if(process.arch !== '${{ matrix.arch }}') process.exit(1)"
-      - run: npm ci
-      - run: npm test
-      - run: npm run test:electron
-      - run: npm run build
-      - run: npm run test:ui
-      - run: npm run test:history
-      - run: npm run test:recovery
-      - run: npm run package:${{ matrix.package }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm run test:electron
+      - run: pnpm run build
+      - run: pnpm run test:ui
+      - run: pnpm run test:history
+      - run: pnpm run test:recovery
+      - run: pnpm run package:${{ matrix.package }}
       - name: Packaged macOS smoke
         if: runner.os == 'macOS'
         run: |

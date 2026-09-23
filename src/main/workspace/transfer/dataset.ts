@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 已校验 Dataset、固定本机连接与注入时刻。
- * [OUTPUT]: 完整导出、只读 SQLite 读取、单事务整库替换和新工作区代次。
+ * [OUTPUT]: 完整 v3 导出、保留源版本的只读 SQLite 读取、单事务整库替换和新工作区代次。
  * [POS]: 恢复存储适配器；不自行确认、不跨过保护备份会话。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -11,11 +11,12 @@ import { datasetSchema, type Dataset } from '../../../shared/contracts/transfer'
 import { validateImport } from '../../../domain/import-validation'
 import { Store } from '../../storage/store'
 import { transaction, verifyDatabase } from '../../storage/database'
-import { schemaVersion, supportedVersions } from '../../storage/schema'
+import { requiredTables, schemaVersion, supportedVersions, userVersion } from '../../storage/schema'
 
-export function exportDataset(store: Store, now: string): Dataset {
+// A source file keeps its own contract version: an old SQLite copy is validated as v1/v2, never relabelled as v3.
+export function exportDataset(store: Store, now: string, version: number = schemaVersion): Dataset {
   const items = store.items('1')
-  return datasetSchema.parse({ schemaVersion, historyMode: 'complete', exportedAt: now, workspace: store.workspace(),
+  return datasetSchema.parse({ schemaVersion: version, historyMode: 'complete', exportedAt: now, workspace: store.workspace(),
     items: items.map(({ placement: _placement, ...item }) => item), placements: items.map(item => item.placement),
     periods: store.periods(), relations: store.relations(false), policies: store.policies(),
     events: store.eventRows(store.db.prepare('SELECT * FROM item_events ORDER BY seq').all()),
@@ -27,12 +28,12 @@ export async function readSqliteDataset(path: string, now: string): Promise<Data
   const db = new DatabaseSync(path, { readOnly: true, allowExtension: false })
   try {
     db.exec('PRAGMA trusted_schema=OFF')
-    if (!supportedVersions.includes(Number(db.prepare('PRAGMA user_version').get()?.user_version))) throw new Error('不支持的数据库版本')
+    const version = userVersion(db)
+    if (!supportedVersions.includes(version)) throw new Error('不支持的数据库版本')
     const tables = db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
-    const required = ['workspace', 'items', 'item_placements', 'planning_periods', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects', 'schema_migrations']
-    if (tables.some(row => row.type === 'view') || required.some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new Error('数据库结构无效')
+    if (tables.some(row => row.type === 'view') || requiredTables.some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new Error('数据库结构无效')
     verifyDatabase(db)
-    return validateImport(exportDataset(new Store(db), now), now)
+    return validateImport(exportDataset(new Store(db), now, version), now)
   } finally { db.close() }
 }
 export function emptyDataset(store: Store, now: string): Dataset {

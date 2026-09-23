@@ -1,0 +1,12 @@
+# Flat node_modules: electron-builder packaging and the license collector resolve dependencies npm-style.
+nodeLinker: hoisted
+
+# Dependency build scripts run only when listed here. Electron's binary comes from our own postinstall;
+# electron-winstaller (Squirrel) is unused because Windows packages ship as NSIS.
+allowBuilds:
+  esbuild: true
+  electron-winstaller: false
+
+# Electron is pinned to an exact, deliberately chosen release, so the default release-age gate does not apply.
+minimumReleaseAgeExclude:
+  - electron@44.4.4

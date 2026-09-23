@@ -20,6 +20,7 @@ export function undoOperation(context: Context, command: CommandOf<'undo'>): boo
   if (context.store.db.prepare('SELECT 1 FROM undo_effects WHERE originalId=? LIMIT 1').get(original.id)) return conflict('原操作已撤销')
   context.label = original.result.label
   context.itemId = original.result.itemId
+  if (original.result.itemIds) context.itemIds = original.result.itemIds
   for (const effect of [...original.effects].reverse()) reverseEffect(context, effect, original.id)
   context.undone = original.effects.map((_, index) => ({ originalId: original.id, index }))
   return true

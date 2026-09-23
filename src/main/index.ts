@@ -1,10 +1,10 @@
 /**
  * [INPUT]: Electron 生命周期、安全策略、内部存储 worker、严格共享 DTO。
- * [OUTPUT]: 单实例窗口、受限读写 IPC 与持久化存储 worker。
+ * [OUTPUT]: 单实例窗口、受限读写 IPC、持久化存储 worker（启动失败时原生错误页给出副本位置与重试/退出）与独立智能输入服务。
  * [POS]: 应用组合根，协调权限/存储/窗口，不承载领域规则。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import { app, BrowserWindow, powerMonitor, protocol, screen, session } from 'electron'
+import { app, BrowserWindow, dialog, powerMonitor, protocol, screen, session } from 'electron'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { StorageClient } from './storage/client'
@@ -14,6 +14,7 @@ import type { CommandResult } from '../shared/contracts/commands'
 import type { Snapshot } from '../shared/contracts/queries'
 import { loadWindowState, saveWindowState } from './window/state'
 import { protectWindowClose } from './window/close'
+import { createSmartService } from './smart/electron'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -46,6 +47,20 @@ async function requestReconcile(): Promise<void> {
     }
   } catch { /* 存储错误由有限查询/命令反馈，不记录正文。 */ }
   finally { reconciling = false }
+}
+
+// --- Startup protection failure: no business window; show where the untouched data and copies live. ---
+async function openStorage(): Promise<StorageClient | null> {
+  const backups = join(app.getPath('userData'), 'backups')
+  for (;;) {
+    const client = new StorageClient(join(directory, 'storage.js'), join(app.getPath('userData'), 'workspace.sqlite'), backups)
+    const status = await client.call<{ ok: true } | { ok: false; message: string; backupPath: string | null; backupDirectory: string }>('startup').catch(() => ({ ok: false as const, message: '本地存储服务未能启动，原文件未修改。', backupPath: null, backupDirectory: backups }))
+    if (status.ok) return client
+    await client.close().catch(() => undefined)
+    const detail = `${status.backupPath ? `本次升级前保护副本：${status.backupPath}\n` : ''}备份目录：${status.backupDirectory}\n工作区文件：${join(app.getPath('userData'), 'workspace.sqlite')}\n\n请勿用旧版本 Goalloom 打开已升级的工作区；需要回到旧数据时，可在新版本“设置与数据 → 备份”中从保护副本恢复。`
+    const choice = await dialog.showMessageBox({ type: 'error', title: 'Goalloom 无法打开工作区', message: status.message, detail, buttons: ['重试', '退出'], defaultId: 0, cancelId: 1, noLink: true })
+    if (choice.response !== 0) return null
+  }
 }
 
 async function createWindow(): Promise<void> {
@@ -90,8 +105,11 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     restrictSession(session.defaultSession)
     protocol.handle('goalloom', request => serveResource(join(directory, '../renderer'), request))
-    storage = new StorageClient(join(directory, 'storage.js'), join(app.getPath('userData'), 'workspace.sqlite'), join(app.getPath('userData'), 'backups'))
-    registerIpc(() => window, trustedUrl, storage, () => { void requestReconcile() })
+    storage = await openStorage()
+    if (!storage) { app.exit(0); return }
+    const client = storage
+    const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client)
+    registerIpc(() => window, trustedUrl, storage, smart, () => { void requestReconcile() })
     await requestReconcile()
     await createWindow()
     powerMonitor.on('resume', () => { void requestReconcile() })

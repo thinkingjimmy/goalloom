@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 严格命令、有限查询、注入时钟、SQLite Store。
- * [OUTPUT]: 权威事务中复核的写入/历史/幂等回执及只读投影。
+ * [OUTPUT]: 权威事务中复核的写入/历史/幂等回执（计划含有序 itemIds）及只读投影。
  * [POS]: workspace 业务命令唯一事务入口；worker 串行调用，renderer 不直连数据库。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -16,6 +16,7 @@ import { Store } from '../storage/store'
 import { deleteItem, restoreItem, setArchive, setStatus, unlinkItems } from './commands/lifecycle'
 import { undoOperation } from './commands/undo'
 import { arrangeBacklog } from './commands/backlog'
+import { createPlan } from './commands/plan'
 import { setPolicy, confirmClock, setBackupPreferences, confirmRollover, undoBatch } from './commands/settings'
 
 export class Repository {
@@ -45,7 +46,8 @@ export class Repository {
     else workspace.lastObservedAt = now
     this.store.saveWorkspace(workspace)
     const result: CommandResult = { operationId: command.operationId, generation: command.generation, changed, undoable: context.effects.length > 0,
-      outcome: context.outcome ?? 'committed', itemId: context.itemId, label: context.label, warnings: context.warnings, restoreSource: context.restoreSource ?? null, originalOperationId: command.type === 'undo' || command.type === 'undoBatch' ? command.originalOperationId : null }
+      outcome: context.outcome ?? 'committed', itemId: context.itemId, label: context.label, warnings: context.warnings, restoreSource: context.restoreSource ?? null, originalOperationId: command.type === 'undo' || command.type === 'undoBatch' ? command.originalOperationId : null,
+      ...(context.itemIds ? { itemIds: context.itemIds } : {}) }
     this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: 'user', at: now, effectsVersion: 1, effects: context.effects, result })
     for (const effect of context.undone ?? []) this.db.prepare('INSERT INTO undo_effects VALUES (?,?,?)').run(effect.originalId, effect.index, command.operationId)
     return result
@@ -61,6 +63,8 @@ export class Repository {
       if (!(error instanceof DomainError) || !['conflict', 'invalid', 'stale'].includes(error.code)) throw error
       context.outcome = 'conflict_skipped'
       context.warnings = [error.message]
+      // A failed plan undo exposes no partial IDs, so no restore entry can survive it.
+      if (this.store.operation(command.originalOperationId)?.kind === 'createPlan') { context.itemIds = []; context.itemId = null }
       delete context.restoreSource
       delete context.undone
       return false
@@ -70,6 +74,7 @@ export class Repository {
     switch (command.type) {
       case 'confirmSetup': return confirmSetup(context, command)
       case 'create': return createItem(context, command)
+      case 'createPlan': return createPlan(context, command)
       case 'edit': return editItem(context, command)
       case 'flowColor': return setFlowColor(context, command)
       case 'move': return moveItem(context, command)

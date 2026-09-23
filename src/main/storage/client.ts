@@ -25,7 +25,7 @@ export class StorageClient {
     this.worker.on('error', () => this.fail())
     this.worker.on('exit', () => this.fail())
   }
-  call<T>(method: 'query' | 'command' | 'runtime' | 'export' | 'close' | 'data' | 'previewImport' | 'reconcile', argument?: unknown): Promise<T> {
+  call<T>(method: 'startup' | 'query' | 'command' | 'runtime' | 'export' | 'close' | 'data' | 'previewImport' | 'reconcile', argument?: unknown): Promise<T> {
     if (this.stopped || this.closing) return Promise.reject(new DomainError('storage', '本地存储服务正在关闭，请重新打开应用'))
     const id = ++this.sequence
     return new Promise<T>((resolve, reject) => {

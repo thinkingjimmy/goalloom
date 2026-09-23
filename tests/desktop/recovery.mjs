@@ -10,6 +10,7 @@ let application = await electron.launch({ ...options, env: environment })
 try {
   let page = await application.firstWindow()
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
+  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   const seed = await page.evaluate(async () => {
     const snapshot = await window.goalloom.getSnapshot(), generation = snapshot.workspace.generation

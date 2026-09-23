@@ -10,8 +10,9 @@ workspace/
 ├── reconcile.ts      # 自动候选重读、统一核对与原子系统顺延
 ├── commands/
 │   ├── items.ts      # 首次确认、创建/编辑/移动/关联的字段差量
+│   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级
 │   ├── lifecycle.ts  # 独立状态、归档、软删除、还原和解除关联
-│   ├── undo.ts       # 效果字段逆转、依赖保护、实际反向事件和 hold
+│   ├── undo.ts       # 效果字段逆转（计划按逆拓扑整体）、依赖保护、实际反向事件和 hold
 │   ├── backlog.ts    # 往期候选复核与批量安排，一个原子用户操作
 │   └── settings.ts   # 策略生效边界、暂停确认与独立批次撤销
 └── transfer/

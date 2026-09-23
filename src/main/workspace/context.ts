@@ -12,7 +12,7 @@ import type { Store } from '../storage/store'
 
 export interface Context {
   store: Store; workspace: Workspace; command: Pick<Command, 'operationId' | 'generation'>; now: string;
-  effects: Effect[]; warnings: string[]; itemId: string | null; label: string
+  effects: Effect[]; warnings: string[]; itemId: string | null; label: string; itemIds?: string[]
   restoreSource?: string; outcome?: 'conflict_skipped'; undone?: { originalId: string; index: number }[]
 }
 export function assertAvailable(item: Item): void { if (item.deletedAt !== null) throw new DomainError('conflict', '条目已在回收站中') }

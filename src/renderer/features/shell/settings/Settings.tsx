@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 权威工作区、固定数据动作 API、受限普通命令。
+ * [INPUT]: 权威工作区、固定数据动作 API、受限普通命令、设备侧智能输入状态。
  * [OUTPUT]: 左侧分类导航 + 右侧分组面板的设置弹窗；整库操作切换为 TransferReview 两阶段确认。
  * [POS]: 数据管理 UI 的容器：持有备份/批次读取、数据动作与预览状态；保护备份期间锁定导航，确认框每次默认未选。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
@@ -15,18 +15,21 @@ import { AppearancePane } from './AppearancePane'
 import { CalendarPane } from './CalendarPane'
 import { BackupPane } from './BackupPane'
 import { DataPane } from './DataPane'
+import { SmartPane } from './SmartPane'
+import type { Smart } from '../../../state/smart'
 import { TransferReview, TransferSteps } from './TransferReview'
 
-type Section = 'appearance' | 'calendar' | 'backup' | 'data'
+export type Section = 'appearance' | 'smart' | 'calendar' | 'backup' | 'data'
 const sections: { id: Section; label: string; icon: IconName }[] = [
   { id: 'appearance', label: messages.appearance, icon: 'appearance' },
+  { id: 'smart', label: '智能输入', icon: 'smart' },
   { id: 'calendar', label: messages.calendarSection, icon: 'calendar' },
   { id: 'backup', label: messages.backups, icon: 'backup' },
   { id: 'data', label: messages.dataSection, icon: 'transfer' },
 ]
 
-export function Settings({ snapshot, submit, refresh, busy, close }: { snapshot: Snapshot; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; close: () => void }) {
-  const [section, setSection] = useState<Section>('appearance')
+export function Settings({ snapshot, smart, initial = 'appearance', submit, refresh, busy, close }: { snapshot: Snapshot; smart: Smart; initial?: Section; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; close: () => void }) {
+  const [section, setSection] = useState<Section>(initial)
   const [backups, setBackups] = useState<BackupStatus | null>(null), [batches, setBatches] = useState<BatchSummary[]>([])
   const [preview, setPreview] = useState<TransferPreview | null>(null), [acknowledged, setAcknowledged] = useState(false)
   const [working, setWorking] = useState(false), [error, setError] = useState('')
@@ -85,6 +88,7 @@ export function Settings({ snapshot, submit, refresh, busy, close }: { snapshot:
       : <div className="settings-body">
         {status}
         {section === 'appearance' && <AppearancePane theme={snapshot.workspace.theme} disabled={disabled} submit={submit} />}
+        {section === 'smart' && <SmartPane smart={smart} />}
         {section === 'calendar' && (calendar
           ? <CalendarPane calendar={calendar} policies={snapshot.policies} batches={batches} disabled={disabled} submit={submit} goReset={() => setSection('data')} />
           : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}

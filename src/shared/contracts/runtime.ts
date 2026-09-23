@@ -9,6 +9,7 @@ import type { CommandInput, CommandReply, CommandResult } from './commands'
 import type { ItemDetail, ItemPage, Query, Snapshot } from './queries'
 import type { Activity, HistoryPage } from './history'
 import type { BatchSummary, DataAction, DataReply } from './transfer'
+import type { SmartAction, SmartReply } from './smart-input'
 
 export const runtimeChannel = 'goalloom:runtime'
 export const runtimeInfoSchema = z.strictObject({
@@ -33,4 +34,5 @@ export interface GoalloomApi {
   execute(command: CommandInput): Promise<CommandReply>
   getReceipt(operationId: string, generation: string): Promise<CommandResult | null>
   exportWorkspace(): Promise<boolean>
+  smart(action: SmartAction): Promise<SmartReply>
 }

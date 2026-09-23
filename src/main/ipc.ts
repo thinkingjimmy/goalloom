@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 唯一窗口、可信 URL 与内部 StorageClient。
- * [OUTPUT]: 有限查询/命令/原生导出对话框；main/worker 双重验证。
+ * [OUTPUT]: 有限查询/命令/原生导出对话框与独立智能输入通道；main/worker 双重验证。
  * [POS]: renderer 权限边界；文件路径只来自本机原生对话框。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -13,8 +13,10 @@ import { isTrustedFrameUrl } from './security'
 import type { StorageClient } from './storage/client'
 import { dataActionSchema } from '../shared/contracts/transfer'
 import { atomicJson } from './storage/atomic-json'
+import { smartChannel } from '../shared/contracts/smart-input'
+import type { SmartInputService } from './smart/service'
 
-export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, changed: () => void): void {
+export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, changed: () => void): void {
   const guard = (event: IpcMainInvokeEvent) => {
     const current = window()
     if (!current || event.sender !== current.webContents || event.senderFrame !== current.webContents.mainFrame || !isTrustedFrameUrl(event.senderFrame.url, trustedUrl)) throw new Error('请求来源无效')
@@ -35,6 +37,8 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     }
     catch (error) { return { ok: false, code: error instanceof DomainError ? error.code : 'invalid', message: error instanceof DomainError ? error.message : '请求参数无效' } }
   })
+  // Separate async channel: cloud waits never enter the serial storage queue or hold a transaction.
+  ipcMain.handle(smartChannel, async (event, input: unknown) => { guard(event); return smart.handle(input) })
   ipcMain.handle('goalloom:export', async event => {
     guard(event)
     const selected = await dialog.showSaveDialog(window()!, { title: '导出完整工作区', defaultPath: 'Goalloom-workspace.json', filters: [{ name: 'Goalloom JSON', extensions: ['json'] }] })

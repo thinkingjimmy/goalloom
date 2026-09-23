@@ -30,7 +30,7 @@ try {
   assert.equal(await month.locator('.drag-handle').count(), 0)
   await month.getByRole('button', { name: '返回当前' }).focus()
   await page.keyboard.press('ControlOrMeta+n')
-  await page.getByRole('textbox', { name: '新建到Later', exact: true }).waitFor()
+  await page.getByRole('textbox', { name: '写下想法', exact: true }).waitFor()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: '视图', exact: true }).click()
   await page.getByRole('menuitemradio', { name: '已完成', exact: true }).click()

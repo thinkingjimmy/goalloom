@@ -84,13 +84,13 @@ it('导入校验流程颜色唯一与根约束，并接受没有颜色字段的 
   expect(validateImport(legacy, now).items.every(item => item.flowColor === null)).toBe(true)
 })
 
-it('v1 数据库原子升级到 v2，保留条目并启用流程约束', () => {
+it('v1 数据库原子升级到 v3，保留条目并启用流程约束', () => {
   const kept = create('升级前的条目')
   // Rebuild the v1 shape in place: drop the v2 objects and column.
   repo.db.exec(`DROP INDEX unique_flow_color; DROP TRIGGER flow_root_color; DROP TRIGGER flow_root_edge_insert; DROP TRIGGER flow_root_edge_update;
-    ALTER TABLE items DROP COLUMN flowColor; DELETE FROM schema_migrations WHERE version=2; PRAGMA user_version = 1;`)
+    ALTER TABLE items DROP COLUMN flowColor; DELETE FROM schema_migrations WHERE version>=2; PRAGMA user_version = 1;`)
   migrate(repo.db)
-  expect(Number(repo.db.prepare('PRAGMA user_version').get()!.user_version)).toBe(2)
+  expect(Number(repo.db.prepare('PRAGMA user_version').get()!.user_version)).toBe(3)
   expect(fresh(kept.id)).toMatchObject({ title: '升级前的条目', flowColor: null })
   create('升级后的流程', 4)
   expect(() => create('重复', 4)).toThrow('已被')
