@@ -1,19 +1,19 @@
 /**
- * [INPUT]: 受限搜索查询、视图/新建/设置/撤销回调。
+ * [INPUT]: 受限搜索查询、新建/设置分类/撤销回调。
  * [OUTPUT]: 搜索与命令弹窗：空查询列命令，输入后列条目；Enter 执行首项。
- * [POS]: Cmd/Ctrl+K 与顶栏搜索入口；不写数据，只打开详情或切换视图。
+ * [POS]: Cmd/Ctrl+K 与顶栏搜索入口；不写数据，只打开详情或设置中的已完成/回收站。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import { messages, viewNames, horizonNames, statusNames } from '../../i18n/messages'
+import { messages, horizonNames, statusNames } from '../../i18n/messages'
 import { useEffect, useState } from 'react'
 import type { Item } from '../../../shared/contracts/entities'
-import type { ListView } from '../../../shared/contracts/queries'
+import type { Section } from './settings/Settings'
 import { desktopApi } from '../../state/use-workspace'
 import { Modal } from '../../components/Modal'
 import { Icon } from '../../components/icons'
 
 interface Entry { key: string; label: string; hint: string; disabled?: boolean; run: () => void }
-export function CommandPalette({ close, navigate, select, undo, canUndo, create, openSettings }: { close: () => void; navigate: (view: 'board' | ListView) => void; select: (id: string) => void; undo: () => void; canUndo: boolean; create: () => void; openSettings: () => void }) {
+export function CommandPalette({ close, select, undo, canUndo, create, openSettings }: { close: () => void; select: (id: string) => void; undo: () => void; canUndo: boolean; create: () => void; openSettings: (section?: Section) => void }) {
   const [query, setQuery] = useState(''), [items, setItems] = useState<Item[]>([]), [error, setError] = useState('')
   useEffect(() => {
     let active = true
@@ -26,8 +26,9 @@ export function CommandPalette({ close, navigate, select, undo, canUndo, create,
     : [
       { key: 'new', label: messages.newItem.replace('（⌘N）', ''), hint: '⌘N', run: done(create) },
       { key: 'undo', label: messages.undoPrevious, hint: '⌘Z', disabled: !canUndo, run: done(undo) },
-      ...(['board', 'done', 'cancelled', 'archived', 'trash'] as const).map(view => ({ key: view, label: `${messages.views}：${viewNames[view]}`, hint: '', run: done(() => navigate(view)) })),
-      { key: 'settings', label: messages.settings, hint: '', run: done(openSettings) },
+      { key: 'done', label: messages.done, hint: messages.settings, run: done(() => openSettings('done')) },
+      { key: 'trash', label: messages.trash, hint: messages.settings, run: done(() => openSettings('trash')) },
+      { key: 'settings', label: messages.settings, hint: '', run: done(() => openSettings()) },
     ]
   return <Modal title={messages.commands} heading={<div className="palette-search"><Icon name="search" size={18} /><input autoFocus aria-label={messages.searchItems} value={query} onChange={event => setQuery(event.target.value)} placeholder={messages.searchOrCommand}
     onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); const first = entries.find(entry => !entry.disabled); first?.run() } }} /></div>} close={close} className="palette">

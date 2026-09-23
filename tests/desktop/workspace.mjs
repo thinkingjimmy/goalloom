@@ -99,9 +99,14 @@ try {
   // dnd-kit swallows clicks for 50ms after a drop so the release never opens a row.
   await page.waitForTimeout(100)
   await page.getByRole('button', { name: '测试行动', exact: true }).click()
-  await page.getByRole('button', { name: '移动到…', exact: true }).click()
+  // 移动入口是页眉的位置标签，点开即选列。
+  await page.getByRole('button', { name: /^移动到：/ }).click()
   await page.getByRole('menuitemradio', { name: '今天', exact: true }).click()
   await page.getByRole('dialog', { name: '当前条目' }).getByText('今天', { exact: false }).first().waitFor()
+  // 详情默认无底栏、活动折叠；截图供人工核对布局与滚动条位置。
+  assert.equal(await page.getByRole('dialog', { name: '当前条目' }).locator('.modal-footer').count(), 0)
+  await mkdir('output/tests/screenshots', { recursive: true })
+  await page.getByRole('dialog', { name: '当前条目' }).screenshot({ path: 'output/tests/screenshots/item-detail.png' })
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await page.getByRole('button', { name: '设置与数据', exact: true }).focus()
   // 全局 Cmd/Ctrl+N 打开 composer；未配置 Jev 时确认后只保存 1 条 Later，不拆分、不因“今天”换列。
@@ -138,26 +143,39 @@ try {
   await page.getByRole('button', { name: '撤销内容保留', exact: true }).waitFor()
   await page.getByRole('button', { name: '完成 撤销内容保留', exact: true }).click()
   await page.locator('.sr-only[role="status"]', { hasText: '已连接本地工作区' }).waitFor({ state: 'attached' })
-  await page.getByRole('button', { name: '视图', exact: true }).click()
-  await page.getByRole('menuitemradio', { name: '已完成', exact: true }).click()
-  await page.getByRole('button', { name: '撤销内容保留 Later · 已完成', exact: true }).click()
-  await page.getByRole('dialog', { name: '当前条目' }).waitFor()
-  try { assert.equal(await page.getByLabel('说明', { exact: true }).inputValue({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
-  await page.getByRole('button', { name: '取消事项', exact: true }).click()
-  await page.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.getByRole('button', { name: '视图', exact: true }).click()
-  await page.getByRole('menuitemradio', { name: '已取消', exact: true }).click()
-  await page.getByRole('button', { name: '撤销内容保留 Later · 已取消', exact: true }).click()
+  // 已完成/已取消/回收站都在设置的「条目」分类里；详情叠在设置之上，关闭后回到原列表。
+  const settingsDialog = page.getByRole('dialog', { name: '设置与数据' }), detail = page.getByRole('dialog', { name: '当前条目' })
+  await page.getByRole('button', { name: '设置与数据', exact: true }).click()
+  await settingsDialog.getByRole('button', { name: '已完成', exact: true }).click()
+  await settingsDialog.getByRole('button', { name: '撤销内容保留 Later · 已完成', exact: true }).click()
+  await detail.waitFor()
+  try { assert.equal(await detail.getByLabel('说明', { exact: true }).inputValue({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
+  // 取消事项是低频操作，收在 ⋯ 菜单。
+  await detail.getByRole('button', { name: '更多操作', exact: true }).click()
+  await page.getByRole('menuitem', { name: '取消事项', exact: true }).click()
+  await detail.getByRole('button', { name: '关闭', exact: true }).click()
+  await settingsDialog.getByRole('radio', { name: '取消', exact: true }).click()
+  await settingsDialog.getByRole('button', { name: '撤销内容保留 Later · 已取消', exact: true }).click()
   page.once('dialog', dialog => dialog.accept())
-  await page.getByRole('button', { name: '更多操作', exact: true }).click()
+  await detail.getByRole('button', { name: '更多操作', exact: true }).click()
   await page.getByRole('menuitem', { name: '移到回收站', exact: true }).click()
-  await page.getByRole('button', { name: '视图', exact: true }).click()
-  await page.getByRole('menuitemradio', { name: '回收站', exact: true }).click()
-  await page.getByRole('button', { name: '撤销内容保留 Later · 已取消', exact: true }).click()
-  try { assert.equal(await page.getByLabel('说明', { exact: true }).inputValue({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
-  await page.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.getByRole('button', { name: '视图', exact: true }).click()
-  await page.getByRole('menuitemradio', { name: '时间看板', exact: true }).click()
+  await detail.waitFor({ state: 'hidden' })
+  await settingsDialog.getByRole('button', { name: '回收站', exact: true }).click()
+  await settingsDialog.getByRole('button', { name: '撤销内容保留 Later · 已取消', exact: true }).click()
+  const trashed = page.getByRole('dialog', { name: '回收站条目' })
+  try { assert.equal(await trashed.getByLabel('说明', { exact: true }).inputValue({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
+  await trashed.getByRole('button', { name: '关闭', exact: true }).click()
+  await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click()
+  await settingsDialog.waitFor({ state: 'hidden' })
+  // 列显示只影响本机显示：隐藏 Later 后看板少一列，至少保留一列，全部显示恢复。
+  await page.getByRole('button', { name: '显示的列', exact: true }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Later', exact: true }).click()
+  assert.equal(await page.getByRole('region', { name: 'Later列', exact: true }).count(), 0)
+  for (const column of ['3个月', '本月', '本周']) await page.getByRole('menuitemcheckbox', { name: column, exact: true }).click()
+  assert.equal(await page.getByRole('menuitemcheckbox', { name: '今天', exact: true }).isDisabled(), true, '最后一列不可隐藏')
+  await page.getByRole('menuitem', { name: '全部显示', exact: true }).click()
+  assert.equal(await page.locator('.board-column').count(), 5)
+  await page.keyboard.press('Escape')
   assert.equal(await page.evaluate(() => {
     const script = document.createElement('script')
     script.textContent = 'window.__unsafeInline = true'
@@ -176,11 +194,24 @@ try {
     try { await fetch('https://example.invalid/goalloom-csp-check'); return false } catch { return true }
   }), true, 'CSP 必须阻断远程连接')
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
-  await page.getByRole('radio', { name: '深色主题', exact: true }).click()
+  await page.getByRole('radio', { name: '深色', exact: true }).click()
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark')
-  await page.getByRole('radio', { name: '浅色主题', exact: true }).click()
+  await page.getByRole('radio', { name: '浅色', exact: true }).click()
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'light')
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.style), 'paper', '新工作区默认纸感风格')
+  await mkdir('output/tests/screenshots', { recursive: true })
+  await page.screenshot({ path: 'output/tests/screenshots/appearance-paper.png' })
+  await page.getByRole('radio', { name: /^简约/ }).click()
+  await page.waitForFunction(() => document.documentElement.dataset.style === 'minimal')
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(255, 255, 255)', '简约浅色使用纯白底')
+  await page.waitForTimeout(300) // let the selection ring transition settle before capturing
+  await page.screenshot({ path: 'output/tests/screenshots/appearance-minimal.png' })
   await page.getByRole('dialog', { name: '设置与数据' }).getByRole('button', { name: '关闭', exact: true }).click()
+  await page.screenshot({ path: 'output/tests/screenshots/board-minimal-light.png' })
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'dark' })
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(9, 9, 11)', '简约深色使用 zinc-950 底')
+  await page.screenshot({ path: 'output/tests/screenshots/board-minimal-dark.png' })
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'light' })
   await page.setViewportSize({ width: 720, height: 600 })
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   await page.evaluate(() => { location.hash = 'main' })
@@ -209,7 +240,7 @@ try {
   assert.equal(rejectsOtherWindow, true, 'IPC 必须拒绝非主窗口的请求，即使 URL 与 preload 相同')
   await mkdir('output/tests/screenshots', { recursive: true })
   await page.screenshot({ path: 'output/tests/screenshots/electron-foundation.png', fullPage: true })
-  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['cancel unsaved quit keeps storage available (native answer stub)', 'preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
+  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['cancel unsaved quit keeps storage available (native answer stub)', 'preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', 'style', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
 } finally {
   await application.close()
 }
@@ -223,6 +254,8 @@ try {
     assert.equal(snapshot.relations.length, 3)
     assert.deepEqual(snapshot.flows.map(flow => flow.title), ['测试流程'])
     assert.equal(snapshot.items.find(item => item.title === '测试行动').placement.horizon, 'day')
-    console.log('真实进程重启：5 个条目、3 条关联、流程颜色和唯一位置均保留。')
+    assert.equal(snapshot.workspace.style, 'minimal')
+    await page.waitForFunction(() => document.documentElement.dataset.style === 'minimal')
+    console.log('真实进程重启：5 个条目、3 条关联、流程颜色、唯一位置和界面风格均保留。')
   } finally { await reopened.close() }
 } finally { await rm(profile, { recursive: true, force: true }) }

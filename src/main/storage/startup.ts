@@ -68,7 +68,7 @@ export function probeSource(path: string): Probe {
 
 function readOnly(path: string): DatabaseSync { return new DatabaseSync(path, { readOnly: true, allowExtension: false }) }
 function sourceWorkspace(db: DatabaseSync): Workspace {
-  // Store.workspace only reads columns shared by v1/v2; a missing or corrupt row stops before any backup is invented.
+  // Store.workspace defaults columns later versions added; a missing or corrupt row stops before any backup is invented.
   try { return new Store(db).workspace() }
   catch { throw new StartupError('旧工作区记录损坏，已停止升级；原文件未修改。') }
 }

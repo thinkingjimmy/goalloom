@@ -16,12 +16,12 @@ export class Store {
     const row = this.db.prepare('SELECT * FROM workspace WHERE id=1').get()!
     return workspaceSchema.parse({ generation: row.generation, calendar: row.calendar ? JSON.parse(String(row.calendar)) : null,
       setupConfirmedAt: row.setupConfirmedAt, pausedAfterRestore: Boolean(row.pausedAfterRestore), revision: row.revision,
-      lastObservedAt: row.lastObservedAt, clockAnomaly: Boolean(row.clockAnomaly), theme: row.theme,
+      lastObservedAt: row.lastObservedAt, clockAnomaly: Boolean(row.clockAnomaly), theme: row.theme, style: row.style,
       backupEnabled: Boolean(row.backupEnabled), backupRetention: row.backupRetention })
   }
   saveWorkspace(workspace: Workspace): void {
-    this.db.prepare('UPDATE workspace SET generation=?,calendar=?,setupConfirmedAt=?,pausedAfterRestore=?,revision=?,lastObservedAt=?,clockAnomaly=?,theme=?,backupEnabled=?,backupRetention=? WHERE id=1')
-      .run(workspace.generation, workspace.calendar ? JSON.stringify(workspace.calendar) : null, workspace.setupConfirmedAt, Number(workspace.pausedAfterRestore), workspace.revision, workspace.lastObservedAt, Number(workspace.clockAnomaly), workspace.theme, Number(workspace.backupEnabled), workspace.backupRetention)
+    this.db.prepare('UPDATE workspace SET generation=?,calendar=?,setupConfirmedAt=?,pausedAfterRestore=?,revision=?,lastObservedAt=?,clockAnomaly=?,theme=?,style=?,backupEnabled=?,backupRetention=? WHERE id=1')
+      .run(workspace.generation, workspace.calendar ? JSON.stringify(workspace.calendar) : null, workspace.setupConfirmedAt, Number(workspace.pausedAfterRestore), workspace.revision, workspace.lastObservedAt, Number(workspace.clockAnomaly), workspace.theme, workspace.style, Number(workspace.backupEnabled), workspace.backupRetention)
   }
   item(id: string, expectedVersion?: number): Item {
     const row = this.db.prepare('SELECT * FROM items WHERE id=?').get(id) as unknown as ItemRecord | undefined

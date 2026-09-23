@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 权威快照、流程派生视图与筛选、受限提交、新建请求。
- * [OUTPUT]: 五列看板：极简列头、整行拖动排序/跨列、列内连续录入、完成折叠、往期入口与只读历史。
- * [POS]: renderer 主视图；位置/状态规则仍由事务复核，筛选只影响本会话显示。
+ * [INPUT]: 权威快照、流程派生视图与筛选、本机可见列、受限提交、新建请求。
+ * [OUTPUT]: 按可见列渲染的看板：极简列头、整行拖动排序/跨列、列内连续录入、完成折叠、往期入口与只读历史（历史标签、周期切换条、返回当前）。
+ * [POS]: renderer 主视图；位置/状态规则仍由事务复核，筛选与列显示只影响本机显示。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { useEffect, useRef, useState } from 'react'
@@ -28,9 +28,9 @@ const collision: CollisionDetection = args => {
 }
 
 export interface AddRequest { seq: number; horizon: ItemHorizon | null; split: SplitParent | null }
-interface BoardProps { snapshot: Snapshot; flows: Flows; filter: string | null; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void }
+interface BoardProps { snapshot: Snapshot; flows: Flows; filter: string | null; columns: ItemHorizon[]; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void }
 
-export function Board({ snapshot, flows, filter, highlighted, addRequest, submit, busy, select }: BoardProps) {
+export function Board({ snapshot, flows, filter, columns, highlighted, addRequest, submit, busy, select }: BoardProps) {
   useEffect(() => { if (highlighted) document.getElementById(`item-${highlighted}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }, [highlighted])
   const [focused, setFocused] = useState<ItemHorizon>('later')
   const [adding, setAdding] = useState<{ horizon: ItemHorizon; split: SplitParent | null; key: number } | null>(null)
@@ -38,11 +38,19 @@ export function Board({ snapshot, flows, filter, highlighted, addRequest, submit
   useEffect(() => {
     if (!addRequest || addRequest.seq === handled.current) return
     handled.current = addRequest.seq
-    const horizon = addRequest.horizon ?? (document.activeElement?.closest('[data-horizon]') ? focused : 'later')
+    const wanted = addRequest.horizon ?? (document.activeElement?.closest('[data-horizon]') ? focused : 'later')
+    // A request for a hidden column opens in the first visible one instead of off-screen.
+    const horizon = columns.includes(wanted) ? wanted : columns[0]!
     setAdding({ horizon, split: addRequest.split, key: addRequest.seq })
     document.querySelector(`[data-horizon="${horizon}"]`)?.scrollIntoView({ inline: 'nearest' })
   }, [addRequest])
   const [dragging, setDragging] = useState<string | null>(null)
+  // A live drag owns the cursor app-wide so it stays a grabbing hand over any column or gap.
+  useEffect(() => {
+    if (!dragging) return
+    document.documentElement.dataset.dragging = 'true'
+    return () => { delete document.documentElement.dataset.dragging }
+  }, [dragging])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
   const end = (event: DragEndEvent) => {
     setDragging(null)
@@ -59,7 +67,7 @@ export function Board({ snapshot, flows, filter, highlighted, addRequest, submit
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
   return <DndContext sensors={sensors} collisionDetection={collision} onDragStart={event => setDragging(String(event.active.id))} onDragCancel={() => setDragging(null)} onDragEnd={end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
     <main className="board" aria-label={messages.board}>
-      {horizons.map(horizon => <Column key={horizon} horizon={horizon} items={snapshot.items.filter(item => item.placement.horizon === horizon)}
+      {columns.map(horizon => <Column key={horizon} horizon={horizon} items={snapshot.items.filter(item => item.placement.horizon === horizon)}
         snapshot={snapshot} flows={flows} filter={filter} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
         adding={adding?.horizon === horizon ? adding : null} setAdding={open => setAdding(open ? { horizon, split: null, key: Date.now() } : null)}
         focus={editable => setFocused(editable ? horizon : 'later')} />)}
@@ -69,7 +77,7 @@ export function Board({ snapshot, flows, filter, highlighted, addRequest, submit
   </DndContext>
 }
 
-function Column({ horizon, items, snapshot, flows, filter, highlighted, today, submit, busy, select, adding, setAdding, focus }: Omit<BoardProps, 'addRequest'> & {
+function Column({ horizon, items, snapshot, flows, filter, highlighted, today, submit, busy, select, adding, setAdding, focus }: Omit<BoardProps, 'addRequest' | 'columns'> & {
   horizon: ItemHorizon; items: Item[]; today: string; adding: { split: SplitParent | null; key: number } | null; setAdding: (open: boolean) => void; focus: (editable: boolean) => void
 }) {
   const [history, setHistory] = useState<PlanningPeriod | null>(null), [backlog, setBacklog] = useState(false)
@@ -84,16 +92,17 @@ function Column({ horizon, items, snapshot, flows, filter, highlighted, today, s
   return <section className={`board-column ${isOver ? 'drop-target' : ''}`} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(horizonNames[horizon])} ref={setNodeRef}>
     <header className="column-header">
       <h2>{horizonNames[horizon]}</h2>
-      <span className="column-meta">{history ? messages.history : horizon === 'later' ? todo.length : periodLabel(horizon, period!)}</span>
+      {history ? <span className="history-badge"><Icon name="history" size={12} strokeWidth={1.8} />{messages.history}</span>
+        : <span className="column-meta">{horizon === 'later' ? todo.length : periodLabel(horizon, period!)}</span>}
       <span className="column-spacer" />
+      {history && <button className="history-return" onClick={() => setHistory(null)}>{messages.returnCurrent}<Icon name="next" size={12} strokeWidth={2} /></button>}
       {period && !history && <button className="icon-button small" aria-label={messages.previousPeriod(horizonNames[horizon])} title={messages.columnHistory(horizonNames[horizon])} disabled={!previous} onClick={() => { setHistory(previous); setAdding(false); focus(false) }}><Icon name="history" size={16} /></button>}
       {!history && <button className="icon-button small" aria-label={messages.newInColumn(horizonNames[horizon])} aria-pressed={!!adding} disabled={busy} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>}
     </header>
     {history && <div className="period-navigation">
       <button className="icon-button small" aria-label={messages.previousPeriod(horizonNames[horizon])} disabled={!previous} onClick={() => setHistory(previous)}><Icon name="previous" size={16} /></button>
-      <span className="tabular">{history.startDate} — {history.endDate}</span>
+      <span className="period-label tabular">{historyLabel(horizon, history)}</span>
       <button className="icon-button small" aria-label={messages.nextPeriod(horizonNames[horizon])} onClick={() => { const next = currentPeriod(calendar, history.horizon, history.endAt); setHistory(next.id === current?.id ? null : next) }}><Icon name="next" size={16} /></button>
-      <button className="text-button" onClick={() => setHistory(null)}>{messages.returnCurrent}</button>
     </div>}
     {!history && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
@@ -108,6 +117,16 @@ function Column({ horizon, items, snapshot, flows, filter, highlighted, today, s
       </>}
     </div>
   </section>
+}
+
+const weekdays = [messages.sunday, messages.monday, messages.tuesday, messages.wednesday, messages.thursday, messages.friday, messages.saturday]
+
+/** Past periods read as a single day, a named month or a range, never as the raw half-open date pair. */
+function historyLabel(horizon: ItemHorizon, period: PlanningPeriod): string {
+  const [year, month] = period.startDate.split('-').map(Number)
+  if (horizon === 'day') return `${periodLabel(horizon, period)} ${messages.weekdayShort(weekdays[new Date(`${period.startDate}T00:00:00Z`).getUTCDay()]!)}`
+  if (horizon === 'month') return `${year}年${month}月`
+  return `${year}年 ${periodLabel(horizon, period)}`
 }
 
 function periodLabel(horizon: ItemHorizon, period: PlanningPeriod): string {

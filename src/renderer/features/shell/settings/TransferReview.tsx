@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 恢复/重置预览、执行中状态、每次默认未选的确认勾选、工作区时区与数据动作。
- * [OUTPUT]: 三步进度（预览 → 保护备份 → 确认）、数据规模、源日历、保护备份回执与底部确认栏。
+ * [OUTPUT]: 三步进度（预览 → 保护备份 → 确认）、数据规模卡（源日历/警告/说明在卡内）、保护备份回执卡与底部确认栏。
  * [POS]: settings 整库替换的两阶段确认界面；维护期间由 Settings 锁定导航，取消恢复原运行状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 import type { DataAction, TransferPreview } from '../../../../shared/contracts/transfer'
 import { messages } from '../../../i18n/messages'
 import { Icon } from '../../../components/icons'
-import { stamp } from './parts'
+import { SettingsGroup, stamp } from './parts'
 
 const weekdays = [messages.monday, messages.tuesday, messages.wednesday, messages.thursday, messages.friday, messages.saturday, messages.sunday]
 const steps = [messages.stepPreview, messages.stepBackup, messages.stepConfirm]
@@ -28,26 +28,25 @@ export function TransferReview({ children, preview, working, acknowledged, ackno
   const reset = preview.mode === 'reset'
   const stats = [[preview.items, messages.statItems], [preview.relations, messages.statRelations], [preview.periods, messages.statPeriods], [preview.events, messages.statEvents], [preview.operations, messages.statOperations]] as const
   const token = preview.token
+  const notes = [
+    preview.sourceCalendar && <p key="calendar">{messages.sourceCalendar(preview.sourceCalendar.timezone, weekdays[preview.sourceCalendar.weekStart - 1] ?? '', preview.sourceCalendar.cycleAnchor)}</p>,
+    ...preview.warnings.map(warning => <p className="warning" key={warning}>{warning}</p>),
+    !preview.backup && <p key="scope">{reset ? messages.resetNote : messages.restoreNoteFull}{messages.maintenanceNote}</p>,
+  ].filter(Boolean)
   return <>
     <div className="settings-body">
       {children}
       {preview.backup && <div className="maintenance-note"><Icon name="lock" size={16} /><span>{messages.maintenanceActive}</span></div>}
-      <section className="settings-group">
-        <h3>{reset ? messages.resetClears : messages.replacesWith}</h3>
-        <div className="transfer-stats">{stats.map(([value, label]) => <div key={label}><strong className="tabular">{value.toLocaleString()}</strong><span>{label}</span></div>)}</div>
-        {preview.sourceCalendar && <p className="settings-footnote">{messages.sourceCalendar(preview.sourceCalendar.timezone, weekdays[preview.sourceCalendar.weekStart - 1] ?? '', preview.sourceCalendar.cycleAnchor)}</p>}
-        {preview.warnings.map(warning => <p className="settings-footnote warning" key={warning}>{warning}</p>)}
-        {!preview.backup && <p className="settings-footnote">{reset ? messages.resetNote : messages.restoreNoteFull}{messages.maintenanceNote}</p>}
-      </section>
-      {preview.backup && <section className="settings-group">
-        <h3>{messages.stepBackup}</h3>
-        <div className="settings-card"><div className="settings-row receipt-row">
+      <SettingsGroup title={reset ? messages.resetClears : messages.replacesWith} description={notes.length > 0 && notes}>
+        <div className="transfer-stats settings-card-pad">{stats.map(([value, label]) => <div key={label}><strong className="tabular">{value.toLocaleString()}</strong><span>{label}</span></div>)}</div>
+      </SettingsGroup>
+      {preview.backup && <SettingsGroup title={messages.stepBackup} description={messages.restoreBackupHelp}>
+        <div className="settings-row receipt-row">
           <span className="receipt-check" aria-hidden="true"><Icon name="check" size={18} strokeWidth={1.8} /></span>
           <div className="settings-row-text"><span>{messages.backupCreatedVerified}</span><small className="settings-path" title={preview.backupPath ?? undefined}>{preview.backupPath}</small></div>
           <span className="settings-hint tabular">{stamp(preview.backup.createdAt, timezone)} · {Math.ceil(preview.backup.size / 1024)} KB</span>
-        </div></div>
-        <p className="settings-footnote">{messages.restoreBackupHelp}</p>
-      </section>}
+        </div>
+      </SettingsGroup>}
     </div>
     <footer className="settings-footer">
       {preview.backup

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: useSmart 状态与动作、可选预设服务、成功回调。
+ * [INPUT]: useSmart 状态与动作、可选预设服务、是否复用已存 Key、是否隐藏未签名提示（设置页已常驻显示）、成功回调。
  * [OUTPUT]: 连接表单：TypeSafe 原生/AI Gateway 单选、密码输入（提交即清空）、只读模型、官方控制台入口、接收方与费用说明、默认未勾选的发送同意、「测试并启用」及分类反馈。
  * [POS]: Onboarding 与「设置 → 智能输入」共用的唯一配置表单；测试通过前不标为已启用，失败始终可跳过。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
@@ -9,7 +9,7 @@ import { jevProviders, type JevProvider, type TestOutcome } from '../../../share
 import { providerNames, smartMessages as t } from '../../i18n/smart'
 import type { Smart } from '../../state/smart'
 
-export function JevConnect({ smart, preset, reuseSaved = false, done }: { smart: Smart; preset?: JevProvider; reuseSaved?: boolean; done?: (outcome: TestOutcome) => void }) {
+export function JevConnect({ smart, preset, reuseSaved = false, hideUnsigned = false, done }: { smart: Smart; preset?: JevProvider; reuseSaved?: boolean; hideUnsigned?: boolean; done?: (outcome: TestOutcome) => void }) {
   const [provider, setProvider] = useState<JevProvider>(preset ?? smart.status?.activeProvider ?? 'typesafe')
   const [key, setKey] = useState(''), [consent, setConsent] = useState(false)
   const [working, setWorking] = useState(false), [outcome, setOutcome] = useState<TestOutcome | null>(null)
@@ -36,7 +36,7 @@ export function JevConnect({ smart, preset, reuseSaved = false, done }: { smart:
     <p className="field-note">{t.modelNote(provider)} · <button type="button" className="text-button small" onClick={() => smart.openConsole(provider)}>{t.getKey}</button></p>
     <p className="field-note">{t.recipient(provider)}</p>
     <p className="field-note">{t.cost}</p>
-    {smart.status?.unsignedBuild && <p className="field-note">{t.unsigned}</p>}
+    {smart.status?.unsignedBuild && !hideUnsigned && <p className="field-note">{t.unsigned}</p>}
     <label className="check-label"><input type="checkbox" checked={consent} disabled={working} onChange={event => setConsent(event.target.checked)} />{t.consent}</label>
     <div className="jev-actions">
       <button type="submit" className="settings-button primary" disabled={working || !consent || (!useSaved && key.trim().length < 8)}>{working ? t.testing : t.testEnable}</button>

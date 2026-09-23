@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 新建或已由启动编排保护的受支持版本 SQLite 连接。
- * [OUTPUT]: 多父 DAG、唯一位置、流程颜色、原子历史与不可变操作回执的 schema v3（v3 标识 createPlan 与多 ID 回执语义，无新表），以及 v1/v2→v3 单事务升级。
+ * [OUTPUT]: 多父 DAG、唯一位置、流程颜色、原子历史与不可变操作回执的 schema v4（v3 标识 createPlan 与多 ID 回执语义；v4 为 workspace 增加界面风格列），以及 v1/v2/v3→v4 单事务升级。
  * [POS]: 唯一生产 DDL；只负责原子 DDL 与版本变更。迁移前只读探测和保护副本由 startup.ts 编排，本文件不做备份。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -8,18 +8,19 @@ import type { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
 import { transaction } from './database'
 
-export const schemaVersion = 3
-export const supportedVersions = [1, 2, 3]
-export const upgradableVersions = [1, 2]
+export const schemaVersion = 4
+export const supportedVersions = [1, 2, 3, 4]
+export const upgradableVersions = [1, 2, 3]
 export const requiredTables = ['workspace', 'items', 'item_placements', 'planning_periods', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects', 'schema_migrations']
 export function userVersion(db: DatabaseSync): number { return Number(db.prepare('PRAGMA user_version').get()?.user_version) }
 export function migrate(db: DatabaseSync): void {
   const version = userVersion(db)
   if (version === schemaVersion) return
   if (upgradableVersions.includes(version)) {
-    // Additive and atomic: v1→v2→v3 commit together, so an interrupted upgrade leaves the old file untouched.
+    // Additive and atomic: every step up to v4 commits together, so an interrupted upgrade leaves the old file untouched.
     transaction(db, () => {
       if (version === 1) db.exec(`ALTER TABLE items ADD COLUMN flowColor INTEGER CHECK(flowColor IS NULL OR flowColor BETWEEN 0 AND 7);\n${flowDdl}`)
+      db.exec(`ALTER TABLE workspace ADD COLUMN ${styleColumn}`)
       db.prepare('INSERT INTO schema_migrations VALUES (?, ?)').run(schemaVersion, new Date().toISOString())
       db.exec(`PRAGMA user_version = ${schemaVersion}`)
     })
@@ -33,6 +34,8 @@ export function migrate(db: DatabaseSync): void {
     db.exec(`PRAGMA user_version = ${schemaVersion}`)
   })
 }
+
+const styleColumn = "style TEXT NOT NULL DEFAULT 'paper' CHECK(style IN ('paper','minimal'))"
 
 // --- A flow root owns one colour among live items and never has an active parent. ---
 const flowDdl = `
@@ -51,7 +54,7 @@ CREATE TABLE workspace (
   id INTEGER PRIMARY KEY CHECK(id=1), generation TEXT NOT NULL UNIQUE, calendar TEXT CHECK(calendar IS NULL OR json_valid(calendar)),
   setupConfirmedAt TEXT, pausedAfterRestore INTEGER NOT NULL DEFAULT 0 CHECK(pausedAfterRestore IN (0,1)),
   revision INTEGER NOT NULL DEFAULT 0 CHECK(revision>=0), lastObservedAt TEXT, clockAnomaly INTEGER NOT NULL DEFAULT 0 CHECK(clockAnomaly IN (0,1)),
-  theme TEXT NOT NULL DEFAULT 'system' CHECK(theme IN ('system','light','dark')),
+  theme TEXT NOT NULL DEFAULT 'system' CHECK(theme IN ('system','light','dark')), ${styleColumn},
   backupEnabled INTEGER NOT NULL DEFAULT 1 CHECK(backupEnabled IN (0,1)), backupRetention INTEGER NOT NULL DEFAULT 7 CHECK(backupRetention BETWEEN 1 AND 100),
   CHECK ((calendar IS NULL) = (setupConfirmedAt IS NULL))
 ) STRICT;

@@ -15,7 +15,7 @@ export function DataPane({ generation, disabled, exportJson, data }: { generatio
         <button type="button" className="settings-button" disabled={disabled} onClick={exportJson}>{messages.exportAction}</button>
       </SettingsRow>
     </SettingsGroup>
-    <SettingsGroup title={messages.restoreWorkspace} footnote={messages.restoreFootnote}>
+    <SettingsGroup title={messages.restoreWorkspace} description={messages.restoreFootnote}>
       <SettingsRow title={messages.fromJson} note={messages.fromJsonNote}>
         <button type="button" className="settings-button" disabled={disabled} onClick={() => void data({ type: 'chooseImport', format: 'json', generation })}>{messages.chooseJson}</button>
       </SettingsRow>

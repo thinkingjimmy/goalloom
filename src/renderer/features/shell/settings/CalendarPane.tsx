@@ -19,12 +19,13 @@ const modes = [{ value: 'manual', label: messages.manualShort }, { value: 'auto'
 export function CalendarPane({ calendar, policies, batches, disabled, submit, goReset }: { calendar: CalendarConfig; policies: Policy[]; batches: BatchSummary[]; disabled: boolean; submit: (action: Action) => Promise<unknown>; goReset: () => void }) {
   const [open, setOpen] = useState<string | null>(null)
   return <>
-    <SettingsGroup title={messages.fixedCalendar} footnote={<span className="settings-lock"><Icon name="lock" size={14} /><span>{messages.calendarLockedLead}<button type="button" className="inline-link" onClick={goReset}>{messages.goReset}</button>。</span></span>}>
+    <SettingsGroup title={messages.fixedCalendar} description={<span>{messages.calendarResetHint}<button type="button" className="inline-link" onClick={goReset}>{messages.goReset}</button></span>}
+      aside={<span className="settings-status"><Icon name="lock" size={12} strokeWidth={1.8} />{messages.locked}</span>}>
       <SettingsRow title={messages.timezone}><span className="settings-value">{calendar.timezone}</span><span className="settings-hint tabular">{gmtOffset(calendar.timezone)}</span></SettingsRow>
       <SettingsRow title={messages.weekStartRow}><span className="settings-value">{messages.weekdayPrefix}{weekdays[calendar.weekStart - 1]}</span></SettingsRow>
       <SettingsRow title={messages.cycleAnchorRow}><span className="settings-value tabular">{calendar.cycleAnchor}</span></SettingsRow>
     </SettingsGroup>
-    <SettingsGroup title={messages.rolloverSettings} footnote={messages.policyFootnote}>
+    <SettingsGroup title={messages.rolloverSettings} description={messages.policyFootnote}>
       {policies.map(policy => policy.horizon === 'cycle'
         ? <SettingsRow key={policy.horizon} title={horizonNames[policy.horizon]} note={messages.cyclePolicyNote}><span className="settings-hint">{messages.cycleAlwaysManual}</span></SettingsRow>
         : <SettingsRow key={policy.horizon} title={horizonNames[policy.horizon]} note={messages.policyEffective(policy.effectiveFromPeriodId.split(':').at(-1) ?? '')}>
@@ -33,7 +34,7 @@ export function CalendarPane({ calendar, policies, batches, disabled, submit, go
         </SettingsRow>)}
     </SettingsGroup>
     <SettingsGroup title={messages.rolloverRecords}>
-      {!batches.length && <SettingsRow title={<span className="settings-hint">{messages.noBatches}</span>} />}
+      {!batches.length && <p className="settings-card-empty">{messages.noBatches}</p>}
       {batches.map(batch => {
         const expanded = open === batch.id
         return <div key={batch.id} className="settings-batch">

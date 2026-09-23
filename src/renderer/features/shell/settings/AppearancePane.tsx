@@ -1,25 +1,40 @@
 /**
- * [INPUT]: 当前主题、受限提交与禁用状态。
- * [OUTPUT]: 三张主题预览卡（跟随系统/浅色/深色），选择即提交 preferences。
- * [POS]: settings 的外观分类；主题只影响本机显示。
+ * [INPUT]: 工作区的明暗与风格偏好、受限提交与禁用状态。
+ * [OUTPUT]: 风格预览卡（纸感/简约）+ 明暗分段（跟随系统/浅色/深色），选择即提交 preferences。
+ * [POS]: settings 的外观分类；两项偏好相互独立，只影响本机显示。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
+import type { Workspace } from '../../../../shared/contracts/entities'
 import { messages } from '../../../i18n/messages'
 import type { Action } from '../../../state/use-workspace'
+import { Segmented, SettingsGroup, SettingsRow } from './parts'
 
-type Theme = 'system' | 'light' | 'dark'
-const themes: { value: Theme; label: string }[] = [{ value: 'system', label: messages.systemTheme }, { value: 'light', label: messages.lightTheme }, { value: 'dark', label: messages.darkTheme }]
+type Style = Workspace['style']
+const styles: { value: Style; label: string; note: string }[] = [
+  { value: 'paper', label: messages.paperStyle, note: messages.paperStyleNote },
+  { value: 'minimal', label: messages.minimalStyle, note: messages.minimalStyleNote },
+]
+const themes = [{ value: 'system', label: messages.systemTheme }, { value: 'light', label: messages.lightTheme }, { value: 'dark', label: messages.darkTheme }] as const
 
-export function AppearancePane({ theme, disabled, submit }: { theme: Theme; disabled: boolean; submit: (action: Action) => Promise<unknown> }) {
-  return <section className="settings-group">
-    <h3>{messages.theme}</h3>
-    <div className="theme-cards" role="radiogroup" aria-label={messages.theme}>
-      {themes.map(option => <button key={option.value} type="button" role="radio" className="theme-card" aria-checked={theme === option.value} disabled={disabled}
-        onClick={() => { if (theme !== option.value) void submit({ type: 'preferences', theme: option.value }) }}>
-        <span className={`theme-preview theme-preview-${option.value}`} aria-hidden="true"><i /><i /></span>
-        <span className="theme-card-label">{option.label}</span>
-      </button>)}
-    </div>
-    <p className="settings-footnote">{messages.themeNote}</p>
-  </section>
+export function AppearancePane({ workspace, disabled, submit }: { workspace: Workspace; disabled: boolean; submit: (action: Action) => Promise<unknown> }) {
+  return <>
+    <SettingsGroup title={messages.style}>
+      <div className="style-cards settings-card-pad" role="radiogroup" aria-label={messages.style}>
+        {styles.map(option => <button key={option.value} type="button" role="radio" className="style-card" aria-checked={workspace.style === option.value} disabled={disabled}
+          onClick={() => { if (workspace.style !== option.value) void submit({ type: 'preferences', style: option.value }) }}>
+          {/* Each preview carries its own style so both looks stay visible whatever is active. */}
+          <span className="style-preview" data-preview={option.value} aria-hidden="true">
+            <span className="style-preview-bar"><i /><i /><b /></span>
+            {[62, 44, 70].map(width => <span key={width} className="style-preview-row"><s /><i style={{ width: `${width}%` }} /></span>)}
+          </span>
+          <span className="style-card-label"><span>{option.label}</span><small>{option.note}</small></span>
+        </button>)}
+      </div>
+    </SettingsGroup>
+    <SettingsGroup title={messages.theme} description={<>{messages.themeModeNote}。{messages.themeNote}</>}>
+      <SettingsRow title={messages.themeMode}>
+        <Segmented label={messages.themeMode} value={workspace.theme} options={themes} disabled={disabled} onChange={theme => void submit({ type: 'preferences', theme })} />
+      </SettingsRow>
+    </SettingsGroup>
+  </>
 }

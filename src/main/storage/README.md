@@ -8,7 +8,7 @@ storage/
 ├── worker.ts       # 串行 RPC 组合根：等待启动编排后装配 workspace 服务，报告 startup 状态
 ├── startup.ts      # 只读探测 user_version/schema → 现有 BackupManager 创建并校验 protective 副本 → 复核后原子迁移
 ├── database.ts     # node:sqlite 连接、外键/WAL、同步事务与完整性校验
-├── schema.ts       # schema v3，DAG/唯一位置/流程颜色/历史/操作约束，v1/v2→v3 单事务升级（只做 DDL 与版本）
+├── schema.ts       # schema v4，DAG/唯一位置/流程颜色/历史/操作约束、workspace 界面风格列，v1/v2/v3→v4 单事务升级（只做 DDL 与版本）
 ├── store.ts        # 参数化批量读取、版本保护、事件/回执适配
 ├── atomic-json.ts  # 窗口偏好、导出、备份回执共用的原子文件写入
 └── backup/

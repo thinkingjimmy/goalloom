@@ -106,6 +106,8 @@ export const smartMessages = {
   addKey: '填写 Key',
   forgetKey: '删除 Key',
   switchTo: '切换到此服务',
+  current: '当前',
+  collapse: '收起',
   privacyTitle: '隐私与私测',
   privacy: 'Key 由系统钥匙串/凭据保护加密保存在本机，不进入工作区数据库、导出、备份或日志。只有智能输入窗口和你触发的连接测试会调用服务。',
   unsigned: '当前为未签名的私测版：更新应用后系统可能再次请求钥匙串授权，或需要重新填写 Key。',

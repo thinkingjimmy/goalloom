@@ -6,7 +6,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { openDatabase } from '../../src/main/storage/database'
-import { migrate } from '../../src/main/storage/schema'
+import { migrate, schemaVersion } from '../../src/main/storage/schema'
 import { openWorkspace, StartupError } from '../../src/main/storage/startup'
 import { BackupManager } from '../../src/main/storage/backup/manager'
 import { Repository } from '../../src/main/workspace/repository'
@@ -16,13 +16,14 @@ let directory: string, path: string, backups: string
 const now = () => '2026-09-23T02:00:00.000Z'
 const version = (file: string) => { const db = new DatabaseSync(file, { readOnly: true }); try { return Number(db.prepare('PRAGMA user_version').get()!.user_version) } finally { db.close() } }
 // Builds a real older-version file: v3 DDL rewound to the v1/v2 shape, with tasks and history.
-function legacy(target: 1 | 2, tasks = 1): DatabaseSync {
+function legacy(target: 1 | 2 | 3, tasks = 1): DatabaseSync {
   const db = openDatabase(path); migrate(db)
   const repo = new Repository(db, { now })
   const run = (command: Record<string, unknown>) => repo.execute({ ...command, operationId: randomUUID(), generation: repo.store.workspace().generation })
   run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-09-01', confirmed: true })
   for (let index = 0; index < tasks; index++) run({ type: 'create', title: `旧任务 ${index}`, horizon: 'later' })
-  db.exec('DELETE FROM schema_migrations WHERE version=3')
+  db.exec('ALTER TABLE workspace DROP COLUMN style; DELETE FROM schema_migrations WHERE version=4')
+  if (target <= 2) db.exec('DELETE FROM schema_migrations WHERE version=3')
   if (target === 1) db.exec(`DROP INDEX unique_flow_color; DROP TRIGGER flow_root_color; DROP TRIGGER flow_root_edge_insert; DROP TRIGGER flow_root_edge_update; ALTER TABLE items DROP COLUMN flowColor; DELETE FROM schema_migrations WHERE version=2;`)
   db.exec(`PRAGMA user_version = ${target}`)
   return db
@@ -33,10 +34,10 @@ beforeEach(async () => {
 })
 afterEach(async () => { vi.restoreAllMocks(); await rm(directory, { force: true, recursive: true }) })
 
-it('新库直接初始化 v3，不创建保护副本', async () => {
+it('新库直接初始化当前版本，不创建保护副本', async () => {
   const opened = await openWorkspace(path, backups, now)
   expect(opened.protective).toBeNull()
-  expect(Number(opened.db.prepare('PRAGMA user_version').get()!.user_version)).toBe(3)
+  expect(Number(opened.db.prepare('PRAGMA user_version').get()!.user_version)).toBe(schemaVersion)
   opened.db.close()
   expect(existsSync(backups)).toBe(false)
 })
@@ -54,7 +55,7 @@ it('v2 未 checkpoint 的 WAL：只读源经现有 BackupManager 保护并校验
   expect(Number(copy.prepare('PRAGMA user_version').get()!.user_version)).toBe(2)
   expect(copy.prepare("SELECT count(*) AS n FROM items WHERE title='WAL 中的修改'").get()!.n).toBe(1)
   copy.close()
-  expect(Number(opened.db.prepare('PRAGMA user_version').get()!.user_version)).toBe(3)
+  expect(Number(opened.db.prepare('PRAGMA user_version').get()!.user_version)).toBe(schemaVersion)
   const repo = new Repository(opened.db, { now }), service = new WorkspaceService(repo, backups)
   expect(repo.store.items('1')).toHaveLength(3)
   const generation = repo.store.workspace().generation
@@ -68,12 +69,22 @@ it('v2 未 checkpoint 的 WAL：只读源经现有 BackupManager 保护并校验
   opened.db.close()
 })
 
-it('v1 无活跃任务的旧库同样先保护，再一次提交到 v3', async () => {
+it('v3 升级保留明暗偏好，界面风格默认纸感', async () => {
+  const db = legacy(3, 1)
+  db.exec("UPDATE workspace SET theme='dark'")
+  db.close()
+  const opened = await openWorkspace(path, backups, now)
+  expect(version(join(backups, `${opened.protective!.id}.sqlite`))).toBe(3)
+  expect(new Repository(opened.db, { now }).store.workspace()).toMatchObject({ theme: 'dark', style: 'paper' })
+  opened.db.close()
+})
+
+it('v1 无活跃任务的旧库同样先保护，再一次提交到当前版本', async () => {
   legacy(1, 0).close()
   const opened = await openWorkspace(path, backups, now)
   expect(opened.protective).not.toBeNull()
   expect(version(join(backups, `${opened.protective!.id}.sqlite`))).toBe(1)
-  expect(Number(opened.db.prepare('PRAGMA user_version').get()!.user_version)).toBe(3)
+  expect(Number(opened.db.prepare('PRAGMA user_version').get()!.user_version)).toBe(schemaVersion)
   expect(opened.db.prepare('SELECT count(*) AS n FROM pragma_table_info(\'items\') WHERE name=\'flowColor\'').get()!.n).toBe(1)
   opened.db.close()
 })
@@ -104,8 +115,8 @@ it('保护副本创建失败、校验失败或迁移失败：不开放业务、�
   expect(existsSync(failure.backupPath)).toBe(true)
   expect(version(path)).toBe(2)
   verify.mockRestore()
-  // 预置冲突的迁移记录使 v3 DDL 事务失败：原子回滚到 v2。
-  const db = new DatabaseSync(path); db.exec(`INSERT INTO schema_migrations VALUES (3, '${now()}')`); db.close()
+  // 预置冲突的迁移记录使升级事务失败：原子回滚到 v2。
+  const db = new DatabaseSync(path); db.exec(`INSERT INTO schema_migrations VALUES (${schemaVersion}, '${now()}')`); db.close()
   const migration = await openWorkspace(path, backups, now).catch(error => error)
   expect(migration.message).toContain('升级失败')
   expect(version(path)).toBe(2)

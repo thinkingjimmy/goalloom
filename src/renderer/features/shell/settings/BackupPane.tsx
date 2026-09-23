@@ -40,17 +40,15 @@ export function BackupPane({ status, enabled, retention, timezone, generation, c
         </div>
       </SettingsRow>
     </SettingsGroup>}
-    <section className="settings-group">
-      <div className="settings-group-heading"><h3>{messages.backupList}</h3><span className="settings-path" title={status?.directory}>{status?.directory ?? messages.readingBackupPath}</span></div>
-      {records.length > 0 && <div className="settings-card backup-records">
+    <SettingsGroup title={messages.backupList} description={<><span>{messages.sameDiskNote}</span><span className="settings-path" title={status?.directory}>{status?.directory ?? messages.readingBackupPath}</span></>}>
+      {records.length > 0 ? <div className="backup-records">
         {records.map(record => <div key={record.id} className="settings-row backup-record">
           <span className={`backup-kind backup-kind-${record.kind}`}>{kinds[record.kind]}</span>
           <span className="settings-row-text tabular">{stamp(record.createdAt, timezone)}</span>
           <span className="settings-hint tabular">{Math.ceil(record.size / 1024)} KB</span>
           <button type="button" className="settings-button subtle" disabled={disabled} onClick={() => void data({ type: 'previewBackup', generation, backupId: record.id })}>{messages.previewRestore}</button>
         </div>)}
-      </div>}
-      <p className="settings-footnote">{messages.sameDiskNote}</p>
-    </section>
+      </div> : <p className="settings-card-empty">{messages.noBackupYet}</p>}
+    </SettingsGroup>
   </>
 }
