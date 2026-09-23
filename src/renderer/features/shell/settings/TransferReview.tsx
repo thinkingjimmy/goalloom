@@ -1,0 +1,62 @@
+/**
+ * [INPUT]: 恢复/重置预览、执行中状态、每次默认未选的确认勾选、工作区时区与数据动作。
+ * [OUTPUT]: 三步进度（预览 → 保护备份 → 确认）、数据规模、源日历、保护备份回执与底部确认栏。
+ * [POS]: settings 整库替换的两阶段确认界面；维护期间由 Settings 锁定导航，取消恢复原运行状态。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ */
+import type { ReactNode } from 'react'
+import type { DataAction, TransferPreview } from '../../../../shared/contracts/transfer'
+import { messages } from '../../../i18n/messages'
+import { Icon } from '../../../components/icons'
+import { stamp } from './parts'
+
+const weekdays = [messages.monday, messages.tuesday, messages.wednesday, messages.thursday, messages.friday, messages.saturday, messages.sunday]
+const steps = [messages.stepPreview, messages.stepBackup, messages.stepConfirm]
+
+export function TransferSteps({ backedUp }: { backedUp: boolean }) {
+  const current = backedUp ? 2 : 0
+  return <ol className="transfer-steps" aria-label={messages.transferSteps}>
+    {steps.map((step, index) => <li key={step} aria-current={index === current ? 'step' : undefined} data-done={index < current}>
+      <span className="transfer-step-mark">{index < current ? <Icon name="check" size={12} strokeWidth={2} /> : index + 1}</span>{step}
+    </li>)}
+  </ol>
+}
+
+export function TransferReview({ children, preview, working, acknowledged, acknowledge, timezone, generation, data }: {
+  children?: ReactNode; preview: TransferPreview; working: boolean; acknowledged: boolean; acknowledge: (value: boolean) => void; timezone: string | undefined; generation: string; data: (action: DataAction) => Promise<void>
+}) {
+  const reset = preview.mode === 'reset'
+  const stats = [[preview.items, messages.statItems], [preview.relations, messages.statRelations], [preview.periods, messages.statPeriods], [preview.events, messages.statEvents], [preview.operations, messages.statOperations]] as const
+  const token = preview.token
+  return <>
+    <div className="settings-body">
+      {children}
+      {preview.backup && <div className="maintenance-note"><Icon name="lock" size={16} /><span>{messages.maintenanceActive}</span></div>}
+      <section className="settings-group">
+        <h3>{reset ? messages.resetClears : messages.replacesWith}</h3>
+        <div className="transfer-stats">{stats.map(([value, label]) => <div key={label}><strong className="tabular">{value.toLocaleString()}</strong><span>{label}</span></div>)}</div>
+        {preview.sourceCalendar && <p className="settings-footnote">{messages.sourceCalendar(preview.sourceCalendar.timezone, weekdays[preview.sourceCalendar.weekStart - 1] ?? '', preview.sourceCalendar.cycleAnchor)}</p>}
+        {preview.warnings.map(warning => <p className="settings-footnote warning" key={warning}>{warning}</p>)}
+        {!preview.backup && <p className="settings-footnote">{reset ? messages.resetNote : messages.restoreNoteFull}{messages.maintenanceNote}</p>}
+      </section>
+      {preview.backup && <section className="settings-group">
+        <h3>{messages.stepBackup}</h3>
+        <div className="settings-card"><div className="settings-row receipt-row">
+          <span className="receipt-check" aria-hidden="true"><Icon name="check" size={18} strokeWidth={1.8} /></span>
+          <div className="settings-row-text"><span>{messages.backupCreatedVerified}</span><small className="settings-path" title={preview.backupPath ?? undefined}>{preview.backupPath}</small></div>
+          <span className="settings-hint tabular">{stamp(preview.backup.createdAt, timezone)} · {Math.ceil(preview.backup.size / 1024)} KB</span>
+        </div></div>
+        <p className="settings-footnote">{messages.restoreBackupHelp}</p>
+      </section>}
+    </div>
+    <footer className="settings-footer">
+      {preview.backup
+        ? <label className="check-label"><input type="checkbox" checked={acknowledged} onChange={event => acknowledge(event.target.checked)} />{messages.acknowledgeBackup}</label>
+        : <span />}
+      <button type="button" className="settings-button ghost" disabled={working} onClick={() => void data({ type: 'cancel', generation, token })}>{messages.cancel}</button>
+      {preview.backup
+        ? <button type="button" className="settings-button danger-solid" disabled={working || !acknowledged} onClick={() => void data({ type: 'commit', generation, token, acknowledged: true })}>{reset ? messages.resetConfirm : messages.restoreConfirm}</button>
+        : <button type="button" className="settings-button primary" disabled={working} onClick={() => void data({ type: 'prepare', generation, token })}>{messages.prepareBackup}</button>}
+    </footer>
+  </>
+}

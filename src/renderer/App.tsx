@@ -17,7 +17,7 @@ import { TopBar, type View } from './features/shell/TopBar'
 import { desktopApi, useWorkspace } from './state/use-workspace'
 import { useFlows } from './state/flows'
 import { editingTarget } from './state/session'
-import { Settings } from './features/shell/Settings'
+import { Settings } from './features/shell/settings/Settings'
 import { CommandPalette } from './features/shell/CommandPalette'
 
 export function App() {
@@ -25,16 +25,16 @@ export function App() {
   const flows = useFlows(snapshot)
   const [settings, setSettings] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
-  const [highlighted, setHighlighted] = useState<string | null>(null), [palette, setPalette] = useState(false)
+  const [palette, setPalette] = useState(false)
   const [filter, setFilter] = useState<string | null>(null)
   const [view, setView] = useState<View>('board'), [addRequest, setAddRequest] = useState<AddRequest | null>(null)
-  const select = (id: string) => { setSelected(id); setHighlighted(id) }
+  const select = (id: string) => setSelected(id)
   const requestAdd = (horizon: ItemHorizon | null, split: AddRequest['split'] = null) => { setView('board'); setAddRequest(previous => ({ seq: (previous?.seq ?? 0) + 1, horizon, split })) }
   const theme = snapshot?.workspace.theme ?? 'system'
   const ready = !!snapshot?.workspace.setupConfirmedAt
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   useEffect(() => { document.documentElement.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other' }, [])
-  useEffect(() => { setSelected(null); setHighlighted(null); setPalette(false); setSettings(false); setView('board'); setFilter(null) }, [snapshot?.workspace.generation])
+  useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setView('board'); setFilter(null) }, [snapshot?.workspace.generation])
   // A filter pointing at a flow that no longer exists falls back to showing everything.
   useEffect(() => { if (filter && !flows.all.some(flow => flow.id === filter && !flow.archived)) setFilter(null) }, [flows, filter])
   useEffect(() => {
@@ -60,7 +60,7 @@ export function App() {
     {snapshot?.backupError && <div className="notice-banner">{snapshot.backupError}<button className="text-button" onClick={() => setSettings(true)}>{messages.viewBackups}</button></div>}
     {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <button className="text-button" onClick={() => void retry()}>{messages.retry}</button>}<button className="icon-button small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !ready ? <Setup submit={submit} busy={busy} /> : <>
-      <div className="board-host" hidden={view !== 'board'}><Board key={snapshot.workspace.generation} snapshot={snapshot} flows={flows} filter={filter} submit={submit} busy={busy} select={select} addRequest={addRequest} highlighted={highlighted} /></div>
+      <div className="board-host" hidden={view !== 'board'}><Board key={snapshot.workspace.generation} snapshot={snapshot} flows={flows} filter={filter} submit={submit} busy={busy} select={select} addRequest={addRequest} highlighted={selected} /></div>
       {view !== 'board' && <ItemList key={`${snapshot.workspace.generation}:${view}`} view={view} revision={snapshot.workspace.revision} select={select} timezone={snapshot.workspace.calendar!.timezone} />}
       {view === 'board' && <button className="fab" aria-label={messages.newItem} title="⌘N" disabled={busy} onClick={() => requestAdd(null)}><Icon name="add" size={24} strokeWidth={1.8} /></button>}
     </>}

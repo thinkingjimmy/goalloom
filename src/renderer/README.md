@@ -13,7 +13,14 @@ renderer/
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
 │   │   ├── TopBar.tsx       # 可拖动顶栏：流程筛选、搜索、视图菜单、设置
 │   │   ├── CommandPalette.tsx # 快捷搜索、命令、视图跳转与撤销入口
-│   │   └── Settings.tsx     # 主题、日历/策略/备份、维护与整库两阶段确认
+│   │   └── settings/        # 左侧分类 + 右侧分组卡片的设置弹窗
+│   │       ├── Settings.tsx     # 容器：分类导航、备份/批次读取、数据动作与预览状态
+│   │       ├── AppearancePane.tsx # 主题预览卡
+│   │       ├── CalendarPane.tsx # 只读日历、逐列顺延策略、可撤销的顺延记录
+│   │       ├── BackupPane.tsx   # 上次备份、每日开关、即时保存的保留份数、备份列表
+│   │       ├── DataPane.tsx     # 导出、JSON/SQLite 恢复入口、危险区重置
+│   │       ├── TransferReview.tsx # 三步进度与整库替换的两阶段确认
+│   │       └── parts.tsx        # 分组/行/分段选择原语与工作区时区时间格式
 │   ├── board/
 │   │   ├── Board.tsx        # 五列、指针优先落点的 dnd-kit 排序、列头与折叠
 │   │   ├── TaskRow.tsx      # 单行卡片：流程描边复选框、标题与截止/说明/顺延提示
@@ -26,7 +33,9 @@ renderer/
 │   │   ├── RelationPicker.tsx # 上级/下级勾选列表，流程根不能作下级
 │   │   ├── ItemList.tsx     # 分页搜索、状态时间分组、归档和回收站
 │   │   └── Activity.tsx     # 按真实事件序列分页查看活动
-│   └── setup/Setup.tsx      # 日历预览与首次显式确认
+│   └── setup/
+│       ├── Setup.tsx        # 日历预览与首次显式确认
+│       └── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择、GMT 偏移
 ├── components/              # 可跨功能使用的 UI 原语
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉
 │   ├── Popover.tsx          # 锚点浮层，外部按下/Esc 关闭且不关闭外层弹窗
@@ -41,6 +50,7 @@ renderer/
 └── lib/
     ├── colors.ts            # 八组固定配对色板、色名与流程描边值
     ├── dates.ts             # 纯日历日加减与中文日期格式
+    ├── timezones.ts         # IANA 时区的 GMT 偏移标签
     └── utils.ts             # Tailwind class 合并
 ```
 

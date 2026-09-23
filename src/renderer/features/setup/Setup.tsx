@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { currentPeriod, workspaceDate } from '../../../domain/calendar'
 import type { Action } from '../../state/use-workspace'
 import { Button } from '../../components/ui/button'
+import { TimezoneSelect } from './TimezoneSelect'
 
 export function Setup({ submit, busy }: { submit: (action: Action) => Promise<unknown>; busy: boolean }) {
   const detected = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
@@ -18,8 +19,7 @@ export function Setup({ submit, busy }: { submit: (action: Action) => Promise<un
     <p className="eyebrow">{messages.welcome}</p><h1>{messages.setupHeading}</h1>
     <p className="intro">{messages.setupIntroduction}</p>
     <form onSubmit={event => event.preventDefault()}>
-      <label>{messages.timezone}<input list="timezones" value={timezone} onChange={event => setTimezone(event.target.value)} required aria-describedby="timezone-note" /></label>
-      <datalist id="timezones">{timezones.map(zone => <option key={zone} value={zone} />)}</datalist>
+      <div className="field"><span id="timezone-label">{messages.timezone}</span><TimezoneSelect value={timezone} zones={timezones} onChange={setTimezone} labelId="timezone-label" describedBy="timezone-note" /></div>
       <p id="timezone-note" className="field-note">{messages.timezoneNote}</p>
       <label>{messages.weekStart}<select value={weekStart} onChange={event => setWeekStart(Number(event.target.value))}>{[messages.monday, messages.tuesday, messages.wednesday, messages.thursday, messages.friday, messages.saturday, messages.sunday].map((label, index) => <option key={label} value={index + 1}>{messages.weekdayPrefix}{label}</option>)}</select></label>
       <label>{messages.cycleAnchor}<input type="date" value={anchor} onChange={event => setAnchor(event.target.value)} required /></label>
