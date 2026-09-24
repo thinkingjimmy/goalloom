@@ -7,7 +7,7 @@
 import type { JevProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
-export const providerNames: typeof source = { typesafe: 'TypeSafe native', 'vercel-gateway': 'Vercel AI Gateway' }
+export const providerNames: typeof source = { typesafe: 'TypeSafe native', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
   composer: 'New',
   inputLabel: 'Write down an idea',
@@ -94,13 +94,15 @@ export const smartMessages: SmartCatalog = {
   connectFootnote: 'Once the test passes you go straight to the board. If it fails, you can still skip.',
   backToDemo: 'Back to example',
   providerLabel: 'Service',
-  keyLabel: (provider: JevProvider) => provider === 'typesafe' ? 'TypeSafe API Key' : 'AI Gateway API Key',
+  keyLabel: (provider: JevProvider) => ({ typesafe: 'TypeSafe API Key', 'vercel-gateway': 'AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: 'Paste API Key',
   modelNote: (model: string) => `Model: ${model} (fixed)`,
   getKey: 'Get a key in the official console',
-  recipient: (provider: JevProvider) => provider === 'typesafe'
-    ? 'What’s sent: the current input text, the workspace date, and the title/status/position of goals you mention or select; processed by TypeSafe. Descriptions, history, trash and the full workspace are never sent.'
-    : 'What’s sent: the current input text, the workspace date, and the title/status/position of goals you mention or select; passed through Vercel AI Gateway and routed only to TypeSafe’s Jev. Descriptions, history, trash and the full workspace are never sent.',
+  recipient: (provider: JevProvider) => ({
+    typesafe: 'What’s sent: the current input text, the workspace date, and the title/status/position of goals you mention or select; processed by TypeSafe. Descriptions, history, trash and the full workspace are never sent.',
+    'vercel-gateway': 'What’s sent: the current input text, the workspace date, and the title/status/position of goals you mention or select; passed through Vercel AI Gateway and routed only to TypeSafe’s Jev. Descriptions, history, trash and the full workspace are never sent.',
+    openrouter: 'What’s sent: the current input text, the workspace date, and the title/status/position of goals you mention or select; passed through OpenRouter, which forwards it to TypeSafe’s Jev. Descriptions, history, trash and the full workspace are never sent.',
+  })[provider],
   cost: 'Usage is billed to your account under its pricing and quota. Goalloom doesn’t buy or top up credits for you, and doesn’t promise zero data retention.',
   consent: 'I agree to send the content above to the selected service for processing',
   testEnable: 'Test and enable',

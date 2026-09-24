@@ -1,9 +1,9 @@
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { classifyFailure, gatewayAdapter, ProviderFailure, typesafeAdapter, type Adapter, type EvaluateInput } from '../../src/main/smart/providers'
+import { classifyFailure, gatewayAdapter, ProviderFailure, systemOneAdapter, type Adapter, type EvaluateInput } from '../../src/main/smart/providers'
 import { DeviceStore, type Cipher } from '../../src/main/smart/credentials'
 import { SmartInputService, type WorkspaceReader } from '../../src/main/smart/service'
 import type { SmartContext } from '../../src/domain/smart/questions'
@@ -22,10 +22,10 @@ const input = (): EvaluateInput => ({ state: { text: '今天写文案' }, signal
 } })
 const header = (init: RequestInit, name: string) => new Headers(init.headers).get(name)
 
-describe('双渠道 adapter', () => {
+describe('三渠道 adapter', () => {
   it('TypeSafe 原生：systemOne、jev-latest、不重试；noul 映射为 boolean，精度来自适配器 d=2', async () => {
     const { fetch, calls } = fakeFetch(() => json({ model: 'jev-2026-09', answers: { horizon: { type: 'choice', choice: 'day', confidence: 0.9, probabilities: { day: 0.97, later: 0.03 } }, task: { type: 'noul', noul: 0.99 } }, usage: { input_tokens: 120, output_tokens: 3 } }, 200, { 'x-typesafe-request-id': 'req_1' }))
-    const output = await typesafeAdapter(fetch)('ts-key-AAAA', input())
+    const output = await systemOneAdapter('typesafe', fetch)('ts-key-AAAA', input())
     expect(calls).toHaveLength(1)
     expect(calls[0]!.url).toBe('https://api.typesafe.ai/v1/systemone')
     expect(calls[0]!.body.model).toBe('jev-latest')
@@ -34,6 +34,18 @@ describe('双渠道 adapter', () => {
     expect(output.answers).toEqual({ horizon: { type: 'choice', choice: 'day', probabilities: { day: 0.97, later: 0.03 } }, task: { type: 'boolean', probability: 0.99 } })
     expect(output.precision).toEqual({ decimals: 2, source: 'adapter' })
     expect(output.meta).toEqual({ requestedModel: 'jev-latest', routingCanonicalSlug: null, modelVersion: 'jev-2026-09', inputTokens: 120, requestId: 'req_1' })
+  })
+  it('OpenRouter：System One 形状发往 openrouter.ai/api、固定 typesafe/jev-1.13；requestId 取响应 id，402 归为付费', async () => {
+    const { fetch, calls } = fakeFetch(() => json({ id: 'gen-dec-1', model: 'typesafe/jev-1.13-20260917', provider: 'TypeSafe', answers: { horizon: { type: 'choice', choice: 'day', confidence: 0.9, probabilities: { day: 0.97, later: 0.03 } }, task: { type: 'noul', noul: 0.98 } }, usage: { input_tokens: 275, output_tokens: 20, cost: 0.00003 } }))
+    const output = await systemOneAdapter('openrouter', fetch)('or-key-CCCC', input())
+    expect(calls[0]!.url).toBe('https://openrouter.ai/api/v1/systemone')
+    expect(calls[0]!.body.model).toBe('typesafe/jev-1.13')
+    expect(header(calls[0]!.init, 'authorization')).toContain('or-key-CCCC')
+    expect(calls[0]!.body.questions).toMatchObject({ task: { type: 'noul' } })
+    expect(output.answers.task).toEqual({ type: 'boolean', probability: 0.98 })
+    expect(output.meta).toEqual({ requestedModel: 'typesafe/jev-1.13', routingCanonicalSlug: null, modelVersion: 'typesafe/jev-1.13-20260917', inputTokens: 275, requestId: 'gen-dec-1' })
+    const paid = await systemOneAdapter('openrouter', fakeFetch(() => json({ error: { code: 402, message: 'Insufficient credits' } }, 402)).fetch)('or-key-CCCC', input()).catch((error: ProviderFailure) => error.failure)
+    expect(paid).toMatchObject({ kind: 'payment_required', status: 402, message: expect.stringContaining('OpenRouter') })
   })
   it('Gateway：/v1/evaluate、typesafe-ai/jev、only 限制、boolean 类型；不发送 ZDR；routing 与 rounding 从官方嵌套路径读取', async () => {
     const { fetch, calls } = fakeFetch(() => json({ model: 'typesafe-ai/jev', answers: { horizon: { type: 'choice', choice: 'day', probabilities: { day: 0.97, later: 0.03 } }, task: { type: 'boolean', probability: 0.98 } }, rounding: { probabilityDecimals: 2 }, usage: { inputTokens: 275 }, providerMetadata: { gateway: { routing: { canonicalSlug: 'typesafe-ai/jev', finalProvider: 'typesafe-ai' }, generationId: 'gen_1' } } }))
@@ -97,7 +109,7 @@ const reader = (): WorkspaceReader => ({
   generation: async () => generation,
   context: async (text): Promise<SmartContext> => ({ text, referenceDate: '2026-09-23', weekdayName: '周三', timezone: 'Asia/Shanghai', weekStart: 1, periods, candidates: [] }),
 })
-let service: SmartInputService, adapters: Record<'typesafe' | 'vercel-gateway', Adapter>
+let service: SmartInputService, adapters: Record<'typesafe' | 'vercel-gateway' | 'openrouter', Adapter>
 const act = (action: unknown) => service.handle(action) as Promise<SmartReply>
 const status = async () => { const reply = await act({ type: 'status', generation }); if (reply.type !== 'status') throw new Error('status'); return reply }
 const request = (text: string, overrides: Partial<AnalyzeRequest> = {}): AnalyzeRequest => ({ requestId: randomUUID(), draftSessionId: randomUUID(), inputRevision: 1, manualRevision: 0, generation, providerRevision: 1, contextRevision: 0, referenceTime: '2026-09-23T02:00:00.000Z', text, parentHints: [], ...overrides })
@@ -106,12 +118,21 @@ const analyze = async (value: AnalyzeRequest) => { const reply = await act({ typ
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'Goalloom 智能输入 ')); generation = randomUUID(); keyState = { available: true }; calls = []
   behaviour = (id, criteria) => withProbabilities(defaults(id, criteria), criteria)
-  adapters = { typesafe: answerAll, 'vercel-gateway': answerAll }
-  service = new SmartInputService({ store: new DeviceStore(directory, cipher(keyState)), adapters: { typesafe: (key, value) => adapters.typesafe(key, value), 'vercel-gateway': (key, value) => adapters['vercel-gateway'](key, value) }, reader: reader(), unsignedBuild: true })
+  adapters = { typesafe: answerAll, 'vercel-gateway': answerAll, openrouter: answerAll }
+  service = new SmartInputService({ store: new DeviceStore(directory, cipher(keyState)), adapters: { typesafe: (key, value) => adapters.typesafe(key, value), 'vercel-gateway': (key, value) => adapters['vercel-gateway'](key, value), openrouter: (key, value) => adapters.openrouter(key, value) }, reader: reader(), unsignedBuild: true })
 })
 afterEach(async () => { await rm(directory, { recursive: true, force: true }) })
 
 describe('设备配置与凭据', () => {
+  it('加入 OpenRouter 前保存的设备配置仍保留当前服务与同意，OpenRouter 为未配置', async () => {
+    await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
+    const path = join(directory, 'config.json'), saved = JSON.parse(await readFile(path, 'utf8'))
+    delete saved.providers.openrouter
+    await writeFile(path, JSON.stringify(saved))
+    const { status: current } = await status()
+    expect(current).toMatchObject({ activeProvider: 'typesafe', enabled: true })
+    expect(current.providers.openrouter).toMatchObject({ credential: 'missing', consentedAt: null })
+  })
   it('测试通过才启用并加密保存；Key 不以明文落盘，配置不含 Key', async () => {
     const reply = await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
     expect(reply.type === 'status' && reply.test).toMatchObject({ ok: true, sampleMatched: true })

@@ -26,7 +26,7 @@
 | --- | --- |
 | 未配置或关闭 Jev → Later | 不增加离线分类器；不解析时间、不拆分、不自动关联；默认只创建一个 Later 条目 |
 | Onboarding 可以配置 Jev | 保留可跳过的配置机会；不是必填 Key 才能进入产品 |
-| TypeSafe 原生 + Vercel AI Gateway | 首发同时支持，分别使用自己的 Key，一次启用一个服务 |
+| TypeSafe 原生 + Vercel AI Gateway + OpenRouter | 三个服务并列，分别使用自己的 Key，一次启用一个服务（OpenRouter 于 2026-09-25 按负责人要求加入） |
 | 原文直接交给 Jev | 不先用关键词/其他模型理解一次，不固定「先分类再填字段」两轮 |
 | 预览可编辑、确认后才写入 | 不在输入或判断阶段修改条目、关系、历史 |
 | 多父 DAG、单一主位置、现有流程 | 不为减少请求而把持久化或手动关联能力改为单父 |
@@ -66,7 +66,7 @@
 2. **日历**：一句话里三个可改的胶囊——时区、每周开始、「3个月」起点（今天 / 本月初 / 本季度初 / 自选日期，均不晚于工作区今天）；下方显示剩余天数与下一周期开始日，以及与真实看板相同列头和空状态的只读预览，方向以「待确认」行放进 3个月。「确认并开始」才锁定日历。确认成功后，方向作为普通条目创建在 3个月并设为流程根（独立、可撤销的操作）；创建失败不回滚日历，按常规错误提示处理。
 3. **Jev（可选）**：先展示不调用服务的预设示例动画与「暂时跳过」「连接 Jev」；仅选择连接才展开服务和 Key 表单，「测试并启用」放在底栏右下。测试通过直接进入看板，不再额外试用；任何时候都可跳过。不强制注册、跳出购买或填写 Key，不改变日历确认及锁定语义。
 
-连接表单包含 TypeSafe 原生/AI Gateway 单选、密码输入框、只读模型说明、官方密钥入口、数据接收方与费用说明、默认未勾选的发送同意，以及「测试并启用」。Gateway 只需 Gateway Key，不要求 TypeSafe Key 或部署 Vercel 网站。[R3][R4]
+连接表单包含 TypeSafe 原生/AI Gateway/OpenRouter 单选、密码输入框、只读模型说明、官方密钥入口、数据接收方与费用说明、默认未勾选的发送同意，以及「测试并启用」。Gateway 只需 Gateway Key，不要求 TypeSafe Key 或部署 Vercel 网站；OpenRouter 同理只需 OpenRouter Key。[R3][R4][R13]
 
 测试使用固定非私人样例，真实完成一次判断并验证响应 schema；Key 字符串长度、模型列表和示例动画都不等于调用成功。**认证、账户验证、权限、额度、限流与语义质量分别反馈**，题目答错不能提示 Key 无效。若服务返回 `customer_verification_required`，显示「AI Gateway 账户需要完成验证，请到该账户的官方控制台查看要求」，保留凭据，不将所有403都归为无效Key。只有供应商明确要求付款方式时才提示到官方页面处理，Goalloom不收集银行卡资料、不代替用户购买额度。429或明确的rate-limit错误进入限流状态，不自动擦除Key。
 
@@ -188,6 +188,8 @@ Choice 用于布局、位置、片段角色、日期用途等单选；Noul 用�
 | 是非数据 | `noul`概率 | `probability`概率，问题类型为boolean |
 | 输入用量 | `usage.input_tokens` | `usage.inputTokens` |
 | 模型元数据 | 响应model | 文档定义的routing元数据中的canonicalSlug；不是模型发布版本 |
+
+**OpenRouter 渠道：** 复用原生 adapter 与 `@typesafe-ai/sdk` 的 systemOne，仅把 baseURL 换成 `https://openrouter.ai/api`（SDK 追加 `/v1/systemone`）、凭据换成 OpenRouter API Key，requestedModel 固定 `typesafe/jev-1.13`（带作者前缀原样使用，不随 `~typesafe/jev-latest` 漂移）。请求/响应沿用 TypeSafe 形状（choice/probabilities、noul、`usage.input_tokens`）；响应 `model` 记为 modelVersion，响应体 `id` 作为 requestId，额外的 `provider`、`usage.cost` 不进入统一答案。精度沿用原生 adapter d=2（OpenRouter 直接转发 TypeSafe 答案），A02 真实 Key 联调时核对。控制台入口 `https://openrouter.ai/settings/keys`。[R13]
 
 provider、protocol、endpoint和requestedModel是应用预设，不允许用户任填，不跨服务复用Key，不改成chat/completions。兼容路径地位见§6.2。[R1][R3][R7]
 
@@ -500,6 +502,7 @@ type ParentRef =
 - [R9] TypeSafe官方[Choice](https://docs.typesafe.ai/primitives/choice)、[Confidence](https://docs.typesafe.ai/confidence)、[Fan-out](https://docs.typesafe.ai/patterns/fan-out)：接入权威入口，本环境本轮未取得独立页面正文。255选项边界可由本次实际读回的官方适配器R12交叉核对；本功能仍用最多32选项。原文直送和并行语义由R1/R2支撑，不把第三方代读当成本轮直接读取。
 - [R10] [SQLite Online Backup API](https://www.sqlite.org/backup.html)、[WAL文件](https://www.sqlite.org/wal.html)和[Node sqlite](https://nodejs.org/api/sqlite.html)：DatabaseSync的readOnly选项、一致性备份及WAL依据。应在项目锁定的Electron/Node中验证只读源备份，不依赖宿主Node代替；readOnly打开失败不等于文件不存在。
 - [R11] [Vercel官方概率验证实现](https://github.com/vercel/ai/blob/21b2d6c3658bb397014bbcac4e7108468ce1f9e4/packages/ai/src/evaluate/validate-evaluation.ts)：已读回；d范围0–15、每项舍入误差0.5×10^-d、总和容差1e-6＋K×误差，choice最大值使用独立1e-6检查，保留供应商值。blob `879466122a7c93158011012a807bfc729a8b297c`。本规格只为派生熵使用归一化副本，不改原答案。
+- [R13] [OpenRouter Jev 文档](https://openrouter.ai/docs/guides/community/jev)、[TypeSafe SDK 指向 OpenRouter](https://openrouter.ai/docs/guides/community/typesafe-sdk)、[模型页](https://openrouter.ai/typesafe/jev-1.13)：System One API 基址、模型 ID 映射与响应附加字段；2026-09-25 读取。
 - [R12] [Vercel官方TypeSafe适配器](https://github.com/vercel/ai/blob/21b2d6c3658bb397014bbcac4e7108468ce1f9e4/packages/typesafe-ai/src/typesafe-ai-evaluation-model.ts)：已读回；声明原生响应两位概率/分数精度并校验Choice最多255项，blob `ea0926c520e9173226d3143d5f25353def140414`。这是有版本范围的适配器事实，不推断所有Gateway协议的缺省精度；本功能不因此新增对该包的依赖。
 
 官方源说明接口设计，不等于已使用真实账户验证。本版新增核对BackupManager、consistentBackup、Store.workspace、现有设置恢复通道、任务行焦点控件，以及R11/R12的舍入验证与适配器代码。其余渠道调用、HTTP元数据和平台行为仍按A01/A02及P05验证；未直接读到的网页不冒充本轮直接访问，独立规范演算不作为应用测试。

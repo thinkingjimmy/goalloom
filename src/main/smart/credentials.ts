@@ -1,6 +1,6 @@
 /**
  * [INPUT]: main 固定的设备目录（userData/smart-input）、注入的 OS 保护 Cipher（Electron safeStorage 或测试替身）。
- * [OUTPUT]: DeviceStore：每服务加密 Key 文件与遮罩提示、区分 missing/unreadable/unavailable 的读取；设备配置 activeProvider/providerRevision/enabledForGeneration/同意/提示关闭状态的原子读写。
+ * [OUTPUT]: DeviceStore：每服务加密 Key 文件（后加入的服务缺省为未配置，旧设备配置照常解析）与遮罩提示、区分 missing/unreadable/unavailable 的读取；设备配置 activeProvider/providerRevision/enabledForGeneration/同意/提示关闭状态的原子读写。
  * [POS]: 智能输入的设备侧持久化；不进入业务 SQLite、workspace 表、导出/备份或迁移；绝不明文回退，读取失败保留加密文件供重试。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -13,13 +13,15 @@ import { atomicJson } from '../storage/atomic-json'
 
 export interface Cipher { available(): boolean; encrypt(text: string): Buffer; decrypt(data: Buffer): string }
 const providerConfig = z.strictObject({ consentedAt: z.string().nullable(), verifiedAt: z.string().nullable(), keyHint: z.string().max(12).nullable() })
+const blank = () => ({ consentedAt: null, verifiedAt: null, keyHint: null })
 export const deviceConfigSchema = z.strictObject({
   version: z.literal(1), activeProvider: jevProviderSchema.nullable(), providerRevision: z.number().int().nonnegative(), enabledForGeneration: z.string().nullable(),
-  providers: z.strictObject({ typesafe: providerConfig, 'vercel-gateway': providerConfig }), dismissed: z.array(noticeSchema), lastFailure: failureSchema.nullable(),
+  // Providers added later default to blank, so an existing device config keeps its active service and consent.
+  providers: z.strictObject({ typesafe: providerConfig, 'vercel-gateway': providerConfig, openrouter: providerConfig.default(blank) }), dismissed: z.array(noticeSchema), lastFailure: failureSchema.nullable(),
 })
 export type DeviceConfig = z.infer<typeof deviceConfigSchema>
 const empty = (): DeviceConfig => ({ version: 1, activeProvider: null, providerRevision: 0, enabledForGeneration: null, dismissed: [], lastFailure: null,
-  providers: { typesafe: { consentedAt: null, verifiedAt: null, keyHint: null }, 'vercel-gateway': { consentedAt: null, verifiedAt: null, keyHint: null } } })
+  providers: { typesafe: blank(), 'vercel-gateway': blank(), openrouter: blank() } })
 export type KeyRead = { state: 'saved'; key: string } | { state: 'missing' | 'unreadable' | 'unavailable' }
 export class CredentialError extends Error { constructor(readonly state: 'unavailable') { super('系统凭据保护不可用') } }
 

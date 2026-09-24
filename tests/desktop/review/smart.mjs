@@ -21,7 +21,7 @@ for (const length of [200, 300, 400]) {
 }
 const generation = 'review-generation'
 let config = { version: 1, activeProvider: 'typesafe', providerRevision: 1, enabledForGeneration: generation, dismissed: [], lastFailure: null,
- providers: { typesafe: { consentedAt: '2026-09-24T00:00:00Z', verifiedAt: '2026-09-24T00:00:00Z', keyHint: 'fixture' }, 'vercel-gateway': { consentedAt: null, verifiedAt: null, keyHint: null } } }
+ providers: { typesafe: { consentedAt: '2026-09-24T00:00:00Z', verifiedAt: '2026-09-24T00:00:00Z', keyHint: 'fixture' }, 'vercel-gateway': { consentedAt: null, verifiedAt: null, keyHint: null }, openrouter: { consentedAt: null, verifiedAt: null, keyHint: null } } }
 const store = { config: async () => structuredClone(config), saveConfig: async next => { config = structuredClone(next) }, readKey: async () => ({ state: 'saved', key: 'synthetic-fixture' }), saveKey: async () => 'fixture', removeKey: async () => {} }
 let version = 1, calls = 0
 const answer = async (_key, req) => {
@@ -34,7 +34,7 @@ const answer = async (_key, req) => {
  return { answers, precision: { decimals: 2, source: 'adapter' }, meta: { requestedModel: 'fixture', routingCanonicalSlug: null, modelVersion: null, inputTokens: null, requestId: null } }
 }
 let adapter = answer
-const service = new SmartInputService({ store, adapters: { typesafe: (...args) => adapter(...args), 'vercel-gateway': answer }, reader: { generation: async () => generation, context: async text => ({ ...context(text), candidates: [{ ref: 'g1', itemId: 'parent', title: 'Parent', status: 'todo', horizon: 'cycle', archived: false, flowColor: 0, version, named: true }] }) }, unsignedBuild: true })
+const service = new SmartInputService({ store, adapters: { typesafe: (...args) => adapter(...args), 'vercel-gateway': answer, openrouter: answer }, reader: { generation: async () => generation, context: async text => ({ ...context(text), candidates: [{ ref: 'g1', itemId: 'parent', title: 'Parent', status: 'todo', horizon: 'cycle', archived: false, flowColor: 0, version, named: true }] }) }, unsignedBuild: true })
 const req = () => ({ requestId: randomUUID(), draftSessionId: randomUUID(), inputRevision: 1, manualRevision: 0, generation, providerRevision: 1, contextRevision: version, referenceTime: '2026-09-24T00:00:00Z', text: '推进 Parent', parentHints: [] })
 const first = await service.analyze(req())
 version = 2

@@ -7,7 +7,7 @@
 import type { JevProvider } from '../../../../shared/contracts/smart-input'
 import { widen } from '../../../../shared/i18n/locale'
 
-export const providerNames: Record<JevProvider, string> = { typesafe: 'TypeSafe 原生', 'vercel-gateway': 'Vercel AI Gateway' }
+export const providerNames: Record<JevProvider, string> = { typesafe: 'TypeSafe 原生', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages = widen({
   composer: '新建',
   inputLabel: '写下想法',
@@ -94,13 +94,15 @@ export const smartMessages = widen({
   connectFootnote: '测试通过后直接进入看板；不通过也可以先跳过。',
   backToDemo: '返回示例',
   providerLabel: '服务',
-  keyLabel: (provider: JevProvider) => provider === 'typesafe' ? 'TypeSafe API Key' : 'AI Gateway API Key',
+  keyLabel: (provider: JevProvider) => ({ typesafe: 'TypeSafe API Key', 'vercel-gateway': 'AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: '粘贴 API Key',
   modelNote: (model: string) => `模型：${model}（固定，不可修改）`,
   getKey: '打开官方控制台获取 Key',
-  recipient: (provider: JevProvider) => provider === 'typesafe'
-    ? '发送内容：当前输入原文、工作区日期，以及被点名或选中的目标标题/状态/位置；由 TypeSafe 处理。不发送说明、历史、回收站或整库。'
-    : '发送内容：当前输入原文、工作区日期，以及被点名或选中的目标标题/状态/位置；先经 Vercel AI Gateway，再仅路由到 TypeSafe 的 Jev。不发送说明、历史、回收站或整库。',
+  recipient: (provider: JevProvider) => ({
+    typesafe: '发送内容：当前输入原文、工作区日期，以及被点名或选中的目标标题/状态/位置；由 TypeSafe 处理。不发送说明、历史、回收站或整库。',
+    'vercel-gateway': '发送内容：当前输入原文、工作区日期，以及被点名或选中的目标标题/状态/位置；先经 Vercel AI Gateway，再仅路由到 TypeSafe 的 Jev。不发送说明、历史、回收站或整库。',
+    openrouter: '发送内容：当前输入原文、工作区日期，以及被点名或选中的目标标题/状态/位置；先经 OpenRouter，再由其转发给 TypeSafe 的 Jev。不发送说明、历史、回收站或整库。',
+  })[provider],
   cost: '调用按你账户的计费与额度执行；Goalloom 不代为购买或充值，也不承诺零数据保留。',
   consent: '我同意把上述内容发送给所选服务处理',
   testEnable: '测试并启用',

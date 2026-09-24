@@ -7,7 +7,7 @@
 import type { JevProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
-export const providerNames: typeof source = { typesafe: 'TypeSafe ネイティブ', 'vercel-gateway': 'Vercel AI Gateway' }
+export const providerNames: typeof source = { typesafe: 'TypeSafe ネイティブ', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
   composer: '新規',
   inputLabel: '考えを書く',
@@ -94,13 +94,15 @@ export const smartMessages: SmartCatalog = {
   connectFootnote: 'テストに通るとそのままボードへ進みます。通らなくてもスキップできます。',
   backToDemo: '例に戻る',
   providerLabel: 'サービス',
-  keyLabel: (provider: JevProvider) => provider === 'typesafe' ? 'TypeSafe API Key' : 'AI Gateway API Key',
+  keyLabel: (provider: JevProvider) => ({ typesafe: 'TypeSafe API Key', 'vercel-gateway': 'AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: 'API Key を貼り付け',
   modelNote: (model: string) => `モデル：${model}（固定、変更不可）`,
   getKey: '公式コンソールを開いて Key を取得',
-  recipient: (provider: JevProvider) => provider === 'typesafe'
-    ? '送信する内容：現在の入力の原文、ワークスペースの日付、名前を挙げたか選択した目標のタイトル・状態・配置。TypeSafe が処理します。メモ、履歴、ゴミ箱、データ全体は送信しません。'
-    : '送信する内容：現在の入力の原文、ワークスペースの日付、名前を挙げたか選択した目標のタイトル・状態・配置。Vercel AI Gateway を経由し、TypeSafe の Jev にのみルーティングされます。メモ、履歴、ゴミ箱、データ全体は送信しません。',
+  recipient: (provider: JevProvider) => ({
+    typesafe: '送信する内容：現在の入力の原文、ワークスペースの日付、名前を挙げたか選択した目標のタイトル・状態・配置。TypeSafe が処理します。メモ、履歴、ゴミ箱、データ全体は送信しません。',
+    'vercel-gateway': '送信する内容：現在の入力の原文、ワークスペースの日付、名前を挙げたか選択した目標のタイトル・状態・配置。Vercel AI Gateway を経由し、TypeSafe の Jev にのみルーティングされます。メモ、履歴、ゴミ箱、データ全体は送信しません。',
+    openrouter: '送信する内容：現在の入力の原文、ワークスペースの日付、名前を挙げたか選択した目標のタイトル・状態・配置。OpenRouter を経由し、TypeSafe の Jev に転送されます。メモ、履歴、ゴミ箱、データ全体は送信しません。',
+  })[provider],
   cost: '呼び出しはあなたのアカウントの料金と利用枠に従います。Goalloom は購入やチャージを代行せず、データを一切保持しないことも保証しません。',
   consent: '上記の内容を選択したサービスに送信して処理することに同意します',
   testEnable: 'テストして有効化',

@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto'
 import { checkBoolean, checkChoice, ContractError } from '../../domain/smart/distribution'
 import { planQuestions, relationRound, payloadSize, payloadLimit, tokenBudget, questionBudget, type SmartContext } from '../../domain/smart/questions'
 import { buildPreview, taskSlots, type Round } from '../../domain/smart/preview'
-import { smartActionSchema, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type Failure, type JevProvider, type SmartReply, type SmartStatus, type TestOutcome } from '../../shared/contracts/smart-input'
+import { jevProviders, smartActionSchema, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type Failure, type JevProvider, type SmartReply, type SmartStatus, type TestOutcome } from '../../shared/contracts/smart-input'
 import type { DeviceConfig, DeviceStore } from './credentials'
 import { Aborted, failure, JEV_PROVIDERS, ProviderFailure, type Adapter, type EvaluateOutput } from './providers'
 
@@ -65,7 +65,7 @@ export class SmartInputService {
 
   async status(generation: string): Promise<SmartStatus> {
     const config = await this.options.store.config()
-    const providers = Object.fromEntries(await Promise.all((['typesafe', 'vercel-gateway'] as const).map(async provider => {
+    const providers = Object.fromEntries(await Promise.all(jevProviders.map(async provider => {
       const read = await this.options.store.readKey(provider)
       return [provider, { credential: read.state, keyHint: config.providers[provider].keyHint, consentedAt: config.providers[provider].consentedAt, verifiedAt: config.providers[provider].verifiedAt }]
     }))) as SmartStatus['providers']
