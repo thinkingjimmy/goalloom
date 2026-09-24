@@ -1,15 +1,16 @@
 /**
- * [INPUT]: 权威工作区、会话撤销、流程派生视图、设备侧智能输入状态、受限命令和页面组件。
- * [OUTPUT]: 顶栏/首次流程（方向→日历确认后创建方向为 3个月流程根→可选 Jev）/可选显示列的看板/详情/设置（含已完成与回收站）/搜索、本机可改键的全局快捷键（搜索/新建/设置/撤销/按顶栏位置筛选流程）；FAB 与新建快捷键打开全局 composer（会话草稿保留），列头＋与拆解保留原入口；单项定向还原、多项查看回收站的撤销反馈（6 秒自动消失，悬停/聚焦时暂停）。
- * [POS]: renderer 组合根；工作区代次更换清空旧页面、会话状态与 composer 草稿。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Workspace state, undo session, stable flow views, device preferences and feature components.
+ * [OUTPUT]: Onboarding, board, search, settings, composer, strict platform shortcuts and scoped feedback.
+ * [POS]: Renderer composition root; replacement clears old-generation drafts, dialogs and session state.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { messages, smartMessages, useLocale } from './i18n'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { workspaceDate } from '../domain/calendar'
 import type { ItemHorizon } from '../shared/contracts/entities'
 import { Icon } from './components/icons'
 import { Setup, type CalendarChoice } from './features/setup/Setup'
+import { revealRow } from './features/board/VirtualRows'
 import { Board, type AddRequest } from './features/board/Board'
 import { ItemDetail } from './features/items/ItemDetail'
 import { TopBar } from './features/shell/TopBar'
@@ -30,7 +31,7 @@ const TOAST_MS = 6000
 export function App() {
   // Re-render the whole tree on a language switch; state (drafts, undo stack, open dialogs) is kept.
   useLocale()
-  const { snapshot, error, setError, busy, submit, feedback, setFeedback, undo, undoCount, pending, retry, refresh } = useWorkspace()
+  const { snapshot, error, errorCode, setError, busy, submit, feedback, setFeedback, undo, undoCount, pending, retry, refresh } = useWorkspace()
   const flows = useFlows(snapshot)
   const smart = useSmart(snapshot?.workspace.generation)
   const [composing, setComposing] = useState(false), [memory, setMemory] = useState<ComposerMemory | null>(null), [onboarding, setOnboarding] = useState(false)
@@ -49,7 +50,8 @@ export function App() {
     return () => clearTimeout(timer)
   }, [feedback, toastHeld, busy, setFeedback])
   useEffect(() => { if (!feedback) setToastHeld(false) }, [feedback])
-  const select = (id: string) => setSelected(id)
+  const select = useCallback((id: string) => setSelected(id), [])
+  const closeDetail = () => { const id = selected; setSelected(null); if (id && !settings) requestAnimationFrame(() => revealRow(id, '.task-title')) }
   const requestAdd = (horizon: ItemHorizon | null, split: AddRequest['split'] = null) => { setAddRequest(previous => ({ seq: (previous?.seq ?? 0) + 1, horizon, split })) }
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const ready = !!snapshot?.workspace.setupConfirmedAt
@@ -102,10 +104,10 @@ export function App() {
     </>}
     {settings && snapshot && <Settings snapshot={snapshot} smart={smart} initial={settingsSection} submit={submit} refresh={refresh} busy={busy} select={select} close={() => setSettings(false)} />}
     {palette && <CommandPalette close={() => setPalette(false)} select={select} undo={() => void undo()} canUndo={!busy && undoCount > 0} create={compose} openSettings={openSettings} bindings={bindings} />}
-    {composing && snapshot && ready && <Composer key={snapshot.workspace.generation} snapshot={snapshot} flows={flows} smart={smart} submit={submit} busy={busy} error={error} memory={memory} keep={setMemory} close={() => setComposing(false)} openSettings={() => openSettings('smart')} />}
-    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={() => setSelected(null)} submit={submit} revision={snapshot.workspace.revision} busy={busy}
+    {composing && snapshot && ready && <Composer key={snapshot.workspace.generation} snapshot={snapshot} flows={flows} smart={smart} submit={submit} busy={busy} error={error} errorCode={errorCode} memory={memory} keep={setMemory} close={() => setComposing(false)} openSettings={() => openSettings('smart')} />}
+    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={closeDetail} submit={submit} revision={snapshot.workspace.revision} busy={busy}
       flows={flows} candidates={snapshot.items} today={today} split={(parent, horizon) => { setSelected(null); setSettings(false); requestAdd(horizon, parent) }}
-      locate={snapshot.items.some(item => item.id === selected) ? () => { setSettings(false); setSelected(null) } : undefined} />}
+      locate={snapshot.items.some(item => item.id === selected) ? () => { const id = selected; setSettings(false); setSelected(null); requestAnimationFrame(() => revealRow(id, '.task-title')) } : undefined} />}
     {feedback && <div className="toast" key={feedback.result.operationId}
       onMouseEnter={() => setToastHeld(true)} onMouseLeave={() => setToastHeld(false)}
       onFocus={() => setToastHeld(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setToastHeld(false) }}><span role="status">{feedback.text}</span>

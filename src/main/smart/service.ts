@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 已校验 SmartAction、DeviceStore、两个 Adapter、WorkspaceReader（短只读 RPC 取日历/候选）与注入时钟。
- * [OUTPUT]: SmartInputService：状态、测试并启用（成功前旧配置不变）、关闭/删除/提示关闭；analyze 按 generation/providerRevision/同意门控，同草稿单链取消、限流冷却、会话缓存，一轮判断＋分组后可选具名补充轮，返回带修订回声的预览或归一化失败。
- * [POS]: main 独立异步智能服务；HTTP 等待不进入存储 worker 队列、不持有事务，也不改变 workspace 或 pausedAfterRestore。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Validated actions, DeviceStore, adapters, a workspace reader and injected clock.
+ * [OUTPUT]: Revision-guarded configuration, cancellable analysis, cooldown and bounded generation-aware preview cache.
+ * [POS]: Independent main-process service; HTTP never holds a storage transaction.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createHash } from 'node:crypto'
 import { checkBoolean, checkChoice, ContractError } from '../../domain/smart/distribution'
-import { planQuestions, relationRound, type SmartContext } from '../../domain/smart/questions'
+import { planQuestions, relationRound, payloadSize, payloadLimit, tokenBudget, questionBudget, type SmartContext } from '../../domain/smart/questions'
 import { buildPreview, taskSlots, type Round } from '../../domain/smart/preview'
 import { smartActionSchema, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type Failure, type JevProvider, type SmartReply, type SmartStatus, type TestOutcome } from '../../shared/contracts/smart-input'
 import type { DeviceConfig, DeviceStore } from './credentials'
@@ -29,24 +29,32 @@ const sample = {
 
 export class SmartInputService {
   private chains = new Map<string, AbortController>()
-  private cache = new Map<string, AnalyzeReply>()
+  private cache = new Map<string, { reply: AnalyzeReply; bytes: number }>()
+  private cacheBytes = 0
+  private cacheGeneration: string | null = null
   private cooldownUntil = 0
+  private configurationRevision = 0
+  private connections = new Set<AbortController>()
+  private configurationQueue: Promise<unknown> = Promise.resolve()
   private readonly now: () => number
   constructor(private readonly options: ServiceOptions) { this.now = options.now ?? Date.now }
+
+  private clearCache(): void { this.cache.clear(); this.cacheBytes = 0 }
 
   async handle(input: unknown): Promise<SmartReply> {
     const action = smartActionSchema.parse(input)
     switch (action.type) {
       case 'status': return this.reply(action.generation, null)
       case 'connect': return this.reply(action.generation, await this.connect(action.generation, action.provider, action.apiKey))
-      case 'disable': await this.update(config => { config.enabledForGeneration = null; config.providerRevision++ }); this.abortAll(); return this.reply(action.generation, null)
+      case 'disable': this.configurationRevision++; this.abortAll(); await this.update(config => { config.enabledForGeneration = null; config.providerRevision++ }); return this.reply(action.generation, null)
       case 'forget': {
-        await this.options.store.removeKey(action.provider)
-        await this.update(config => {
+        this.configurationRevision++; this.abortAll()
+        await this.update(async config => {
+          await this.options.store.removeKey(action.provider)
           config.providers[action.provider] = { consentedAt: null, verifiedAt: null, keyHint: null }
           if (config.activeProvider === action.provider) { config.activeProvider = null; config.enabledForGeneration = null; config.providerRevision++ }
         })
-        this.abortAll(); return this.reply(action.generation, null)
+        return this.reply(action.generation, null)
       }
       case 'dismiss': await this.update(config => { if (!config.dismissed.includes(action.notice)) config.dismissed.push(action.notice) }); return this.reply(action.generation, null)
       case 'openConsole': this.options.openExternal?.(JEV_PROVIDERS[action.provider].console); return { type: 'cancelled' }
@@ -68,52 +76,75 @@ export class SmartInputService {
       cooldownUntil: this.cooldownUntil > this.now() ? new Date(this.cooldownUntil).toISOString() : null, dismissed: config.dismissed, unsignedBuild: this.options.unsignedBuild }
   }
   private async reply(generation: string, test: TestOutcome | null): Promise<SmartReply> { return { type: 'status', status: await this.status(generation), test } }
-  private async update(change: (config: DeviceConfig) => void): Promise<void> {
-    const config = await this.options.store.config()
-    change(config)
-    await this.options.store.saveConfig(config)
+  private configure<T>(action: () => Promise<T>): Promise<T> {
+    const pending = this.configurationQueue.then(action)
+    this.configurationQueue = pending.catch(() => undefined)
+    return pending
   }
-  private abortAll(): void { for (const chain of this.chains.values()) chain.abort(); this.chains.clear(); this.cache.clear() }
+  private update(change: (config: DeviceConfig) => void | Promise<void>): Promise<void> {
+    return this.configure(async () => {
+      const config = await this.options.store.config()
+      await change(config)
+      await this.options.store.saveConfig(config)
+    })
+  }
+  private abortAll(): void {
+    for (const chain of [...this.chains.values(), ...this.connections]) chain.abort()
+    this.chains.clear(); this.connections.clear(); this.clearCache()
+  }
 
   // --- Test first with the candidate key; only a verified judgement replaces the previous working setup. ---
   private async connect(generation: string, provider: JevProvider, apiKey: string | null): Promise<TestOutcome> {
-    if (generation !== await this.options.reader.generation()) return { ok: false, failure: failure('not_enabled', provider), sampleMatched: null }
-    let key = apiKey
-    if (key === null) {
-      const read = await this.options.store.readKey(provider)
-      if (read.state !== 'saved') return { ok: false, failure: failure(read.state === 'unavailable' ? 'credential_unavailable' : read.state === 'unreadable' ? 'credential_unreadable' : 'authentication_failed', provider), sampleMatched: null }
-      key = read.key
-    }
-    const controller = new AbortController()
-    let output: EvaluateOutput
-    try { output = await this.options.adapters[provider](key, { ...sample, signal: controller.signal }) }
-    catch (error) {
-      const outcome = error instanceof ProviderFailure ? error.failure : failure('unavailable', provider)
-      if (outcome.kind === 'rate_limited') this.cooldownUntil = Date.parse(outcome.retryAt!)
-      return { ok: false, failure: outcome, sampleMatched: null }
-    }
-    let matched: boolean
-    try {
-      const horizon = checkChoice(output.answers.horizon, Object.keys(sample.questions.horizon.criteria), output.precision)
-      checkBoolean(output.answers.task)
-      matched = horizon.choice === 'day'
-    } catch { return { ok: false, failure: failure('malformed_response', provider), sampleMatched: null } }
-    let hint: string | null = null
-    if (apiKey !== null) {
-      // Never falls back to plaintext: an unavailable OS store leaves the previous setup untouched.
-      try { hint = await this.options.store.saveKey(provider, apiKey) }
-      catch { return { ok: false, failure: failure('credential_unavailable', provider), sampleMatched: matched } }
-    }
-    const at = new Date(this.now()).toISOString()
-    await this.update(config => {
-      config.providers[provider] = { consentedAt: config.providers[provider].consentedAt ?? at, verifiedAt: at, keyHint: hint ?? config.providers[provider].keyHint }
-      config.activeProvider = provider; config.enabledForGeneration = generation; config.providerRevision++; config.lastFailure = null
-    })
+    const revision = ++this.configurationRevision
     this.abortAll()
-    return { ok: true, failure: null, sampleMatched: matched }
+    const controller = new AbortController()
+    this.connections.add(controller)
+    const superseded = (): TestOutcome => ({ ok: false, failure: failure('not_enabled', provider), sampleMatched: null })
+    const current = () => revision === this.configurationRevision && !controller.signal.aborted
+    try {
+      if (generation !== await this.options.reader.generation()) return { ok: false, failure: failure('not_enabled', provider), sampleMatched: null }
+      let key = apiKey
+      if (key === null) {
+        const read = await this.options.store.readKey(provider)
+        if (read.state !== 'saved') return { ok: false, failure: failure(read.state === 'unavailable' ? 'credential_unavailable' : read.state === 'unreadable' ? 'credential_unreadable' : 'authentication_failed', provider), sampleMatched: null }
+        key = read.key
+      }
+      if (!current()) return superseded()
+      let output: EvaluateOutput
+      try { output = await this.options.adapters[provider](key, { ...sample, signal: controller.signal }) }
+      catch (error) {
+        const outcome = error instanceof ProviderFailure ? error.failure : failure('unavailable', provider)
+        if (outcome.kind === 'rate_limited') this.cooldownUntil = Date.parse(outcome.retryAt!)
+        return { ok: false, failure: outcome, sampleMatched: null }
+      }
+      let matched: boolean
+      try {
+        const horizon = checkChoice(output.answers.horizon, Object.keys(sample.questions.horizon.criteria), output.precision)
+        checkBoolean(output.answers.task)
+        matched = horizon.choice === 'day'
+      } catch { return { ok: false, failure: failure('malformed_response', provider), sampleMatched: null } }
+      return await this.configure(async () => {
+        if (!current() || generation !== await this.options.reader.generation()) return superseded()
+        let hint: string | null = null
+        if (apiKey !== null) {
+          // Serialize credential commits with forget/disable; HTTP never holds this queue.
+          try { hint = await this.options.store.saveKey(provider, apiKey) }
+          catch { return { ok: false, failure: failure('credential_unavailable', provider), sampleMatched: matched } }
+        }
+        const config = await this.options.store.config()
+        if (!current() || generation !== await this.options.reader.generation()) return superseded()
+        const at = new Date(this.now()).toISOString()
+        config.providers[provider] = { consentedAt: config.providers[provider].consentedAt ?? at, verifiedAt: at, keyHint: hint ?? config.providers[provider].keyHint }
+        config.activeProvider = provider; config.enabledForGeneration = generation; config.providerRevision++; config.lastFailure = null
+        await this.options.store.saveConfig(config)
+        this.clearCache()
+        return { ok: true, failure: null, sampleMatched: matched }
+      })
+    } finally { this.connections.delete(controller) }
   }
 
   async analyze(request: AnalyzeRequest): Promise<AnalyzeReply> {
+    const revision = this.configurationRevision
     const echo: AnalyzeEcho = { requestId: request.requestId, draftSessionId: request.draftSessionId, inputRevision: request.inputRevision, manualRevision: request.manualRevision, generation: request.generation, providerRevision: request.providerRevision, contextRevision: request.contextRevision, referenceTime: request.referenceTime }
     const config = await this.options.store.config()
     const provider = config.activeProvider
@@ -127,18 +158,28 @@ export class SmartInputService {
     const controller = new AbortController()
     this.chains.set(request.draftSessionId, controller)
     try {
+      const checkCurrent = () => { if (revision !== this.configurationRevision || controller.signal.aborted) throw new Aborted() }
+      checkCurrent()
       const context = await this.options.reader.context(request.text, request.parentHints, request.referenceTime)
       if (!context) return failed(failure('not_enabled', provider))
       const plan = planQuestions(context)
       if ('kind' in plan) return failed({ ...failure('too_large', provider), message: plan.message })
-      const cacheKey = createHash('sha256').update(JSON.stringify([provider, config.providerRevision, JEV_PROVIDERS[provider].model, plan.state, plan.questions, context.periods])).digest('hex')
+      checkCurrent()
+      if (this.cacheGeneration !== request.generation) { this.clearCache(); this.cacheGeneration = request.generation }
+      const cacheKey = createHash('sha256').update(JSON.stringify([request.generation, provider, config.providerRevision, JEV_PROVIDERS[provider].model, plan.state, plan.questions, context.periods, context.candidates])).digest('hex')
       const cached = this.cache.get(cacheKey)
-      if (cached?.status === 'ready') return { ...cached, echo }
+      if (cached?.reply.status === 'ready') { this.cache.delete(cacheKey); this.cache.set(cacheKey, cached); return { ...cached.reply, echo } }
       const diagnostics: Diagnostics[] = []
+      let questionsSent = 0
       const call = async (state: typeof plan.state, questions: typeof plan.questions): Promise<Round> => {
+        checkCurrent()
+        const size = payloadSize(state, questions)
+        questionsSent += Object.keys(questions).length
+        if (size.bytes > payloadLimit || size.tokens > tokenBudget || questionsSent > questionBudget) throw new ProviderFailure(failure('too_large', provider))
         const started = this.now()
         const output = await this.options.adapters[provider](read.key, { state, questions, signal: controller.signal })
-        diagnostics.push({ provider, ...output.meta, estimatedInputTokens: plan.estimatedTokens, latencyMs: Math.max(0, Math.round(this.now() - started)) })
+        checkCurrent()
+        diagnostics.push({ provider, ...output.meta, estimatedInputTokens: size.tokens, latencyMs: Math.max(0, Math.round(this.now() - started)) })
         return { answers: output.answers, precision: output.precision }
       }
       const first = await call(plan.state, plan.questions)
@@ -148,8 +189,9 @@ export class SmartInputService {
         supplement = { pairs: next.pairs, round: Object.keys(next.questions).length ? await call(next.state, next.questions) : { answers: {}, precision: first.precision } }
       }
       const reply: AnalyzeReply = { status: 'ready', echo, preview: buildPreview(context, plan, first, supplement), diagnostics }
-      if (this.cache.size > 50) this.cache.delete(this.cache.keys().next().value!)
-      this.cache.set(cacheKey, reply)
+      const bytes = Buffer.byteLength(JSON.stringify(reply))
+      while (this.cache.size && (this.cache.size >= 32 || this.cacheBytes + bytes > 512 * 1024)) { const key = this.cache.keys().next().value!; this.cacheBytes -= this.cache.get(key)!.bytes; this.cache.delete(key) }
+      if (bytes <= 512 * 1024) { this.cache.set(cacheKey, { reply, bytes }); this.cacheBytes += bytes }
       return reply
     } catch (error) {
       if (error instanceof Aborted || controller.signal.aborted) return { status: 'cancelled', echo }

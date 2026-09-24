@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 不可信 schema v1/v2/v3 数据集与显式导入观察时刻；v1 条目没有流程颜色，仅 v3 可含 createPlan；依赖 shared/i18n/server 的 serverText().import 文案。
- * [OUTPUT]: 严格实体/日期/引用/DAG/流程颜色/效果/业务事件链/计划多效果与整批撤销双射校验后的 Dataset。
- * [POS]: 纯导入入口，JSON 与 SQLite 恢复共用；不执行文件或数据库操作。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Untrusted v1-v5 datasets or exclusively owned normalized rows, plus an observation time.
+ * [OUTPUT]: Entity, date, DAG, effect, marker/inverse and event-chain integrity validation.
+ * [POS]: Shared JSON/SQLite import rules; indexed references and one event ordering, without IO.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { datasetSchema, type Dataset } from '../shared/contracts/transfer'
 import type { BusinessState, Effect, ItemEvent } from '../shared/contracts/effects'
@@ -33,7 +33,11 @@ function placement(horizon: ItemHorizon, periodId: string | null, periods: Map<s
 function edgeIdentity(a: Relation, b: Relation): boolean { return a.id === b.id && a.parentId === b.parentId && a.childId === b.childId && a.createdAt === b.createdAt }
 
 export function validateImport(input: unknown, observedAt: string): Dataset {
-  const data = datasetSchema.parse(input)
+  return validateDataset(datasetSchema.parse(input), observedAt)
+}
+
+/** Internal, exclusively owned DTOs have already passed the wire schema. Recheck business integrity without cloning their text. */
+export function validateDataset(data: Dataset, observedAt: string): Dataset {
   // --- 无历史旧数据缺策略时，只从恢复当天的来源周期启用默认策略。 ---
   if (data.historyMode === 'baseline' && data.workspace.calendar && data.policies.length === 0) {
     for (const horizon of ['cycle', 'month', 'week', 'day'] as const) {
@@ -46,13 +50,27 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
   const periods = unique(data.periods, row => row.id, serverText().import.labels.periods), edges = unique(data.relations, row => row.id, serverText().import.labels.relations)
   const operations = unique(data.operations, row => row.id, serverText().import.labels.operations), policies = unique(data.policies, row => row.horizon, serverText().import.labels.policies)
   const eventsByOperation = new Map<string, ItemEvent[]>()
-  for (const event of [...data.events].sort((a, b) => a.seq - b.seq)) {
+  const eventsByItem = new Map<string, Map<string, ItemEvent[]>>()
+  const effectsByItem = new Map<string, Map<string, Array<{ effect: Effect; index: number }>>>()
+  for (const operation of data.operations) {
+    const byItem = new Map<string, Array<{ effect: Effect; index: number }>>()
+    operation.effects.forEach((effect, index) => {
+      const group = byItem.get(effect.itemId) ?? []
+      group.push({ effect, index }); byItem.set(effect.itemId, group)
+    })
+    effectsByItem.set(operation.id, byItem)
+  }
+  const orderedEvents = [...data.events].sort((a, b) => a.seq - b.seq)
+  for (const event of orderedEvents) {
     const group = eventsByOperation.get(event.operationId) ?? []
     group.push(event); eventsByOperation.set(event.operationId, group)
+    const byItem = eventsByItem.get(event.operationId) ?? new Map<string, ItemEvent[]>()
+    const itemEvents = byItem.get(event.itemId) ?? []
+    itemEvents.push(event); byItem.set(event.itemId, itemEvents); eventsByItem.set(event.operationId, byItem)
   }
   unique(data.events, row => row.id, serverText().import.labels.events); unique(data.events, row => row.seq, serverText().import.labels.eventSequence)
   unique(data.events, row => `${row.operationId}:${row.eventIndex}`, serverText().import.labels.operationEvents)
-  unique(data.undoEffects, row => `${row.originalId}:${row.effectIndex}`, serverText().import.labels.undoEffects)
+  const markers = unique(data.undoEffects, row => `${row.originalId}:${row.effectIndex}`, serverText().import.labels.undoEffects)
   const calendar = data.workspace.calendar
   requireValid((calendar === null) === (data.workspace.setupConfirmedAt === null), serverText().import.setupMarkerIncomplete)
   requireValid(calendar || (!data.items.length && !data.periods.length && !data.policies.length && !data.events.length), serverText().import.unconfirmedWorkspaceHasData)
@@ -98,26 +116,38 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
     requireValid(original?.effects[marker.effectIndex] && inverse && inverse.result.changed && inverse.result.originalOperationId === original.id && ['undo', 'undoBatch'].includes(inverse.kind), serverText().import.undoMarkerDangling)
     requireValid(original.id !== inverse.id, serverText().import.selfUndo)
     // A plan is reversed only as a whole: every original effect marked, all by one inverse operation.
-    if (original.kind === 'createPlan') requireValid(inverse.kind === 'undo' && original.effects.every((_, index) => data.undoEffects.some(row => row.originalId === original.id && row.effectIndex === index && row.undoId === inverse.id)), serverText().import.planUndoIncomplete)
+    if (original.kind === 'createPlan') requireValid(inverse.kind === 'undo' && original.effects.every((_, index) => markers.get(`${original.id}:${index}`)?.undoId === inverse.id), serverText().import.planUndoIncomplete)
+    const effect = original.effects[marker.effectIndex]!
+    const inverseEvents = eventsByItem.get(inverse.id)?.get(effect.itemId) ?? []
+    requireValid(inverseEvents.length === (needsEvent(effect) ? 1 : 0), serverText().import.effectMissingEvent)
+    for (const event of inverseEvents) {
+      requireValid(event.type === 'undo' && event.undoOf === original.id, serverText().import.invalidInverseReference)
+      validateInverse(event, effect, inverse.id)
+    }
   }
-  const chains = new Map<string, ItemEvent[]>()
-  for (const event of [...data.events].sort((a, b) => a.seq - b.seq)) {
+  for (const inverse of data.operations.filter(operation => ['undo', 'undoBatch'].includes(operation.kind) && operation.result.changed)) {
+    const original = operations.get(inverse.result.originalOperationId!)
+    requireValid(original && original.effects.some((_, index) => markers.get(`${original.id}:${index}`)?.undoId === inverse.id), serverText().import.inverseMissingMarker)
+    if (original.kind === 'createPlan') requireValid(original.effects.every((_, index) => markers.get(`${original.id}:${index}`)?.undoId === inverse.id), serverText().import.planUndoIncomplete)
+  }
+  const chains = new Map<string, ItemEvent>()
+  const clockConfirmed = data.workspace.clockAnomaly || data.operations.some(operation => operation.kind === 'confirmClock')
+  for (const event of orderedEvents) {
     const operation = operations.get(event.operationId)
     requireValid(items.has(event.itemId) && operation, serverText().import.danglingEventReference)
     requireValid(compareInstants(operation.at, event.at) === 0, serverText().import.eventTimeMismatch)
-    const chain = chains.get(event.itemId) ?? []
-    const previous = chain.at(-1)
+    const previous = chains.get(event.itemId)
     requireValid(previous ? event.before && sameBusiness(previous.after, event.before) && event.before.version >= previous.after.version : event.before === null && ['created', 'baseline'].includes(event.type), serverText().import.brokenEventChain)
     for (const state of [event.before, event.after].filter(state => state !== null)) {
       placement(state.horizon, state.periodId, periods); validState(state, baselines.has(event.itemId)); validateHold(state.horizon, state.periodId, state.holdPeriodId, periods)
     }
     if (event.before) requireValid(event.after.version > event.before.version, serverText().import.eventVersionNotIncreasing)
-    if (previous && compareInstants(previous.at, event.at) > 0) requireValid(data.workspace.clockAnomaly || data.operations.some(operation => operation.kind === 'confirmClock'), serverText().import.clockRollbackUnconfirmed)
-    validateEvent(event, operation, data, periods)
-    chain.push(event); chains.set(event.itemId, chain)
+    if (previous && compareInstants(previous.at, event.at) > 0) requireValid(clockConfirmed, serverText().import.clockRollbackUnconfirmed)
+    validateEvent(event, operation, effectsByItem, markers, periods)
+    chains.set(event.itemId, event)
   }
   for (const item of data.items) {
-    const last = chains.get(item.id)?.at(-1), p = places.get(item.id)!
+    const last = chains.get(item.id), p = places.get(item.id)!
     const current: BusinessState = { ...item, horizon: p.horizon, periodId: p.periodId, sortKey: p.sortKey, holdPeriodId: p.holdPeriodId }
     requireValid(last && sameBusiness(last.after, current) && item.version >= last.after.version, serverText().import.eventTailMismatch)
   }
@@ -126,9 +156,8 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
     requireValid(events.every((event, index) => event.eventIndex === index), serverText().import.eventIndexGap)
     if (operation.kind === 'createPlan') requireValid(events.length === operation.effects.length && events.every((event, index) => event.type === 'created' && event.itemId === operation.effects[index]?.itemId), serverText().import.planEventsMismatch)
     for (const effect of operation.effects) {
-      const needsEvent = !['relations'].includes(effect.kind) && !(effect.kind === 'position' && effect.before.periodId === effect.after.periodId && effect.before.horizon === effect.after.horizon)
-      if (needsEvent) {
-        const event = events.find(event => event.itemId === effect.itemId)
+      if (needsEvent(effect)) {
+        const event = eventsByItem.get(operation.id)?.get(effect.itemId)?.[0]
         requireValid(event, serverText().import.effectMissingEvent)
         validateOwnedFields(effect, event)
       }
@@ -139,6 +168,9 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
     }
   }
   return data
+}
+function needsEvent(effect: Effect): boolean {
+  return effect.kind !== 'relations' && !(effect.kind === 'position' && effect.before.periodId === effect.after.periodId && effect.before.horizon === effect.after.horizon)
 }
 function validateHold(horizon: ItemHorizon, periodId: string | null, hold: string | null, periods: Map<string | number, PlanningPeriod>): void {
   if (!hold) return
@@ -192,7 +224,7 @@ function validateItemIds(operation: Dataset['operations'][number], operations: M
     requireValid(itemIds && (operation.result.outcome === 'conflict_skipped' ? !itemIds.length && itemId === null && operation.result.restoreSource === null : JSON.stringify(itemIds) === JSON.stringify(original.result.itemIds) && itemId === original.result.itemId), serverText().import.planUndoReceiptItemsMismatch)
   } else requireValid(itemIds === undefined, serverText().import.unexpectedItemIds)
 }
-function validateEvent(event: ItemEvent, operation: Dataset['operations'][number], data: Dataset, periods: Map<string | number, PlanningPeriod>): void {
+function validateEvent(event: ItemEvent, operation: Dataset['operations'][number], effectsByItem: Map<string, Map<string, Array<{ effect: Effect; index: number }>>>, markers: Map<string | number, Dataset['undoEffects'][number]>, periods: Map<string | number, PlanningPeriod>): void {
   const a = event.before, b = event.after
   const types: Record<string, string[]> = { created: ['create', 'createPlan'], baseline: ['baseline'], moved: ['move', 'arrangeBacklog'], rolled_over: ['move', 'arrangeBacklog', 'rollover'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
   requireValid(types[event.type]?.includes(operation.kind), serverText().import.eventTypeMismatch)
@@ -200,12 +232,13 @@ function validateEvent(event: ItemEvent, operation: Dataset['operations'][number
   if (event.type === 'created') { requireValid(!a && b.status === 'todo' && !b.archivedAt && !b.deletedAt && !b.holdPeriodId, serverText().import.invalidCreatedEvent); return }
   requireValid(a, serverText().import.changeEventMissingBefore)
   if (event.type === 'undo') {
-    const original = data.operations.find(row => row.id === event.undoOf)
-    requireValid(original && operation.result.originalOperationId === original.id, serverText().import.invalidInverseReference)
-    const effects = original.effects.filter(effect => effect.itemId === event.itemId)
+    const originalId = event.undoOf!
+    requireValid(effectsByItem.has(originalId) && operation.result.originalOperationId === originalId, serverText().import.invalidInverseReference)
+    const effects = effectsByItem.get(originalId)?.get(event.itemId) ?? []
     requireValid(effects.length === 1, serverText().import.inverseMissingOriginalEffect)
-    validateInverse(event, effects[0]!, operation.id)
-    requireValid(data.undoEffects.some(marker => marker.originalId === original.id && marker.undoId === operation.id && original.effects[marker.effectIndex]?.itemId === event.itemId), serverText().import.inverseMissingMarker)
+    const { effect, index } = effects[0]!
+    validateInverse(event, effect, operation.id)
+    requireValid(markers.get(`${originalId}:${index}`)?.undoId === operation.id, serverText().import.inverseMissingMarker)
     return
   }
   requireValid(!event.undoOf, serverText().import.ordinaryEventWithUndo)

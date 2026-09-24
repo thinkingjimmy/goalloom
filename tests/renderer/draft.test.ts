@@ -35,8 +35,7 @@ it('低确定性执行列只作建议；未来周期落 Later 并标记', () => 
 it('计划负载带预览版本的既有上级与本批上级；本地复核颜色与根约束', () => {
   const drafts = mergePreview(preview([{ id: 's1', source: '方向', horizon: 'day' }, { id: 's2', source: '子项' }], [{ parent: { kind: 'draft', draftId: 's1' }, childDraftId: 's2', state: 'yes', probability: 0.9 }, { parent: { kind: 'existing', itemId: 'goal' }, childDraftId: 's2', state: 'yes', probability: 0.9 }]), [], [])
   const parents = new Map<string, ParentInfo>([['goal', { itemId: 'goal', title: '目标', version: 7, archived: true, flowColor: 2, horizon: 'month' }]])
-  const periodRows = Object.entries(periods).map(([horizon, row]) => ({ ...row, horizon: horizon as 'day', startAt: '2026-09-22T16:00:00Z', endAt: '2026-09-23T16:00:00Z' }))
-  const items = planItems(drafts, parents, periodRows)
+  const items = planItems(drafts, parents)
   expect(items[0]).toMatchObject({ horizon: 'day', previewPeriodId: 'c:day:2026-09-23', parentRefs: [] })
   expect(items[1]!.parentRefs).toEqual([{ kind: 'draft', draftId: drafts[0]!.id }, { kind: 'existing', itemId: 'goal', expectedVersion: 7 }])
   expect(draftProblem(drafts, parents, [])).toBeNull()

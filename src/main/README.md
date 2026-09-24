@@ -4,8 +4,8 @@
 
 ```text
 main/
-├── index.ts       # 单实例、窗口生命周期、退出确认后排空存储 worker
-├── ipc.ts         # 固定读写入口、来源检查和原生文件对话框
+├── index.ts       # 单实例、先展示后日常备份/核对、首次写入门控、renderer 会话释放与退出排空
+├── ipc.ts         # 固定读写入口、来源/会话检查、原生选择后仅向 worker 传受控路径
 ├── security.ts    # 本地协议白名单、生产 CSP、权限/导航/下载拒绝
 ├── window/
 │   ├── state.ts   # 工作区之外的窗口偏好，跨屏恢复不出界
@@ -20,4 +20,4 @@ main/
 
 main 只接受唯一窗口主 frame 的已知请求。云端 HTTP 只在 main 的独立智能通道中发生，从不进入存储 worker 串行队列。renderer 无任意路径、SQL、shell 或原始 IPC。运行时诊断来自真实存储 worker，失败不回退浏览器 mock。`com.goalloom.desktop` 与默认 `appData/Goalloom` 是稳定身份/数据目录。
 
-[PROTOCOL]: 变更时更新此头部，然后检查 README.md
+[PROTOCOL]: Update this header when making changes, then check README.md.

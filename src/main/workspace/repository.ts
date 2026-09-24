@@ -1,14 +1,14 @@
 /**
- * [INPUT]: 严格命令、有限查询、注入时钟、SQLite Store。
- * [OUTPUT]: 权威事务中复核的写入/历史/幂等回执（计划含有序 itemIds）及只读投影。
- * [POS]: workspace 业务命令唯一事务入口；worker 串行调用，renderer 不直连数据库。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Strict commands, finite queries, injected clock and SQLite Store.
+ * [OUTPUT]: Authoritative writes, idempotent receipts, lightweight metadata and summary/detail projections.
+ * [POS]: Sole workspace command transaction boundary, called by the serial worker.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createHash } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import { compareInstants, currentPeriod, workspaceDate, type Clock } from '../../domain/calendar'
 import { commandSchema, DomainError, type Command, type CommandResult } from '../../shared/contracts/commands'
-import type { ItemDetail, ItemPage, Query, Snapshot } from '../../shared/contracts/queries'
+import type { ItemDetail, ItemPage, Query, Snapshot, WorkspaceMetadata } from '../../shared/contracts/queries'
 import type { Context } from './context'
 import { confirmSetup, createItem, editItem, linkItems, moveItem, setFlowColor } from './commands/items'
 import { transaction } from '../storage/database'
@@ -101,7 +101,7 @@ export class Repository {
       default: throw new DomainError('invalid', serverText().errors.notAvailable)
     }
   }
-  snapshot(): Snapshot {
+  metadata(): WorkspaceMetadata {
     const workspace = this.store.workspace()
     const observedAt = this.clock.now()
     const periods = workspace.calendar ? (['cycle', 'month', 'week', 'day'] as const).map(horizon => {
@@ -109,24 +109,27 @@ export class Repository {
       const cycleObservation = beforeAnchor ? workspace.lastObservedAt ?? workspace.setupConfirmedAt! : observedAt
       return currentPeriod(workspace.calendar!, horizon, horizon === 'cycle' ? cycleObservation : observedAt)
     }) : []
+    return { workspace, periods, observedAt, maintenance: this.maintenance, backupError: null }
+  }
+  snapshot(): Snapshot {
+    const { workspace, periods, observedAt } = this.metadata()
     const ids = periods.map(period => period.id)
-    const items = this.store.items(`i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status!='cancelled' AND (p.horizon='later' OR p.periodId IN (${ids.map(() => '?').join(',') || 'NULL'}))`, ids)
+    const items = this.store.summaries(`i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status!='cancelled' AND (p.horizon='later' OR p.periodId IN (${ids.map(() => '?').join(',') || 'NULL'}))`, ids)
     const backlog: Record<string, number> = {}
     for (const row of this.db.prepare("SELECT p.horizon, count(*) AS n FROM items i JOIN item_placements p ON p.itemId=i.id JOIN planning_periods pp ON pp.id=p.periodId WHERE i.status='todo' AND i.deletedAt IS NULL AND i.archivedAt IS NULL AND julianday(pp.endAt)<=julianday(?) GROUP BY p.horizon").all(observedAt)) backlog[String(row.horizon)] = Number(row.n)
-    const source = this.db.prepare("SELECT pp.startDate FROM item_events e JOIN planning_periods pp ON pp.id=e.fromPeriodId WHERE e.seq=(SELECT seq FROM item_events WHERE itemId=? AND fromPeriodId IS NOT toPeriodId ORDER BY seq DESC LIMIT 1) AND e.type='rolled_over'")
-    const rolloverSources = Object.fromEntries(items.flatMap(item => {
-      const row = source.get(item.id)
-      return row ? [[item.id, String(row.startDate)]] : []
-    }))
+    const sources = items.length ? this.db.prepare(`SELECT e.itemId,pp.startDate FROM item_events e JOIN planning_periods pp ON pp.id=e.fromPeriodId
+      WHERE e.seq IN (SELECT max(seq) FROM item_events WHERE itemId IN (${items.map(() => '?').join(',')}) AND fromPeriodId IS NOT toPeriodId GROUP BY itemId)
+      AND e.type='rolled_over'`).all(...items.map(item => item.id)) : []
+    const rolloverSources = Object.fromEntries(sources.map(row => [String(row.itemId), String(row.startDate)]))
     const flows = this.db.prepare('SELECT id,title,flowColor,archivedAt FROM items WHERE flowColor IS NOT NULL AND deletedAt IS NULL ORDER BY flowColor').all()
       .map(row => ({ id: String(row.id), title: String(row.title), flowColor: Number(row.flowColor), archived: row.archivedAt !== null }))
-    return { workspace, periods, items, relations: this.relationViews(), policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance, backupError: null, rolloverSources, flows }
+    return { workspace, periods, items, relations: this.db.prepare('SELECT id,parentId,childId FROM item_relations WHERE invalidatedAt IS NULL ORDER BY createdAt,id').all() as Snapshot['relations'], policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance, backupError: null, rolloverSources, flows }
   }
-  relationViews(): Snapshot['relations'] {
-    return this.db.prepare('SELECT r.*,p.title AS parentTitle,c.title AS childTitle,p.archivedAt AS parentArchived,c.archivedAt AS childArchived FROM item_relations r JOIN items p ON p.id=r.parentId JOIN items c ON c.id=r.childId WHERE r.invalidatedAt IS NULL ORDER BY r.createdAt,r.id').all()
-      .map(row => ({ ...row, parentArchived: row.parentArchived !== null, childArchived: row.childArchived !== null })) as unknown as Snapshot['relations']
+  relationViews(itemId: string): ItemDetail['relations'] {
+    return this.db.prepare('SELECT r.*,p.title AS parentTitle,c.title AS childTitle,p.archivedAt AS parentArchived,c.archivedAt AS childArchived FROM item_relations r JOIN items p ON p.id=r.parentId JOIN items c ON c.id=r.childId WHERE r.invalidatedAt IS NULL AND (r.parentId=? OR r.childId=?) ORDER BY r.createdAt,r.id').all(itemId, itemId)
+      .map(row => ({ ...row, parentArchived: row.parentArchived !== null, childArchived: row.childArchived !== null })) as unknown as ItemDetail['relations']
   }
-  detail(itemId: string): ItemDetail { return { item: this.store.item(itemId), relations: this.relationViews().filter(edge => edge.parentId === itemId || edge.childId === itemId) } }
+  detail(itemId: string): ItemDetail { return { item: this.store.item(itemId), relations: this.relationViews(itemId) } }
   list(query: Extract<Query, { type: 'list' }>): ItemPage {
     const conditions = [query.view === 'trash' ? 'i.deletedAt IS NOT NULL' : 'i.deletedAt IS NULL']
     const parameters: (string | number)[] = []
@@ -146,6 +149,6 @@ export class Repository {
     const where = conditions.join(' AND ')
     const total = Number(this.db.prepare(`SELECT count(*) AS n FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where}`).get(...parameters)!.n)
     const sort = { done: 'i.completedAt DESC,i.id', cancelled: 'i.cancelledAt DESC,i.id', archived: 'i.archivedAt DESC,i.id', trash: 'i.deletedAt DESC,i.id', search: 'i.updatedAt DESC,i.id', backlog: 'p.periodId DESC,p.sortKey,i.id' }[query.view]
-    return { items: this.store.items(where, [...parameters, query.limit, query.offset], `ORDER BY ${sort} LIMIT ? OFFSET ?`), total }
+    return { items: this.store.summaries(where, [...parameters, query.limit, query.offset], `ORDER BY ${sort} LIMIT ? OFFSET ?`), total }
   }
 }

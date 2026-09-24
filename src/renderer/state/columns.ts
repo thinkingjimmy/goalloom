@@ -1,10 +1,10 @@
 /**
- * [INPUT]: 共享契约的看板列顺序、renderer 本机 localStorage。
- * [OUTPUT]: useColumns：可见列（保持看板顺序）、切换单列、全部显示；至少保留一列。
- * [POS]: renderer/state 的本机显示偏好；不进入工作区数据、历史、导出或备份，读写失败时退回全部显示。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Canonical column order and device-local storage.
+ * [OUTPUT]: Stable visible-column identities and controls that retain at least one column.
+ * [POS]: Local renderer preference outside workspace history, exports and backups.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { horizons, type ItemHorizon } from '../../shared/contracts/entities'
 
 const key = 'goalloom.hiddenColumns'
@@ -25,7 +25,7 @@ export function useColumns(): Columns {
     setHidden(next)
     try { localStorage.setItem(key, JSON.stringify(next)) } catch { /* Display preference only; the session keeps working without persistence. */ }
   }
-  const visible = horizons.filter(horizon => !hidden.includes(horizon))
+  const visible = useMemo(() => horizons.filter(horizon => !hidden.includes(horizon)), [hidden])
   return {
     visible, hiddenCount: hidden.length,
     toggle: horizon => {

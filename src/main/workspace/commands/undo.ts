@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 不可变原操作、事务最新状态、纯效果匹配规则与注入时钟。
- * [OUTPUT]: 全成全败的字段逆转、最新状态形成的反向事件和持久化 hold。
- * [POS]: 用户撤销事务库；SAVEPOINT 冲突回滚由 repository 统一处理。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Immutable original effects, current state, indexed neighbors and injected time.
+ * [OUTPUT]: Atomic owned-field inverses, reverse events, dependency guards and persisted expiry holds.
+ * [POS]: Undo transaction rules; Repository handles SAVEPOINT conflict rollback.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { effectProblem, insertionProblem, inverseEdges } from '../../../domain/undo'
 import { undoHold } from '../../../domain/rollover'
@@ -29,7 +29,7 @@ export function undoOperation(context: Context, command: CommandOf<'undo'>): boo
 export function reverseEffect(context: Context, effect: Effect, originalId: string): void {
   const item = context.store.item(effect.itemId)
   const before = structuredClone(item)
-  const allEdges = context.store.relations(false)
+  const allEdges = ['create', 'visibility', 'relations'].includes(effect.kind) ? context.store.relations(false) : []
   const problem = effectProblem(effect, item, allEdges, context.store.position(item))
   if (problem) conflict(problem)
   switch (effect.kind) {
@@ -61,7 +61,10 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
   if (effect.kind !== 'relations' && !(effect.kind === 'position' && samePeriod)) context.store.event(context.command.operationId, context.now, 'undo', before, item, originalId)
 }
 function reversePosition(context: Context, item: Item, effect: Extract<Effect, { kind: 'position' }>): void {
-  const ids = context.store.order(effect.before.horizon, effect.before.periodId).filter(row => row.id !== item.id).map(row => row.id)
+  let neighbors
+  try { neighbors = context.store.insertion(effect.before.horizon, effect.before.periodId, effect.before.nextId, item.id) }
+  catch (error) { if (error instanceof DomainError && error.code === 'conflict') conflict(serverText().undo.orderUnsafe); throw error }
+  const ids = [neighbors.previous?.itemId, neighbors.next?.itemId].filter((id): id is string => id !== undefined)
   const problem = insertionProblem(effect.before, ids)
   if (problem) conflict(problem)
   const key = nextSortKey(context, effect.before.horizon, effect.before.periodId, effect.before.nextId, item.id)
@@ -72,8 +75,8 @@ function reversePosition(context: Context, item: Item, effect: Extract<Effect, {
 function reverseRelations(context: Context, reversed: Relation[], item: Item): void {
   const replacements = new Map(reversed.map(edge => [edge.id, edge]))
   const graph = context.store.relations(false).map(edge => replacements.get(edge.id) ?? edge)
-  const items = context.store.items('1')
-  try { validateDag(new Set(items.map(row => row.id)), graph, new Set(items.filter(row => row.deletedAt).map(row => row.id))) }
+  const items = context.store.db.prepare('SELECT id,deletedAt FROM items').all()
+  try { validateDag(new Set(items.map(row => String(row.id))), graph, new Set(items.filter(row => row.deletedAt).map(row => String(row.id)))) }
   catch (error) { conflict(error instanceof Error ? error.message : serverText().undo.relationUnsafe) }
   for (const edge of reversed) {
     if (!edge.invalidatedAt && context.store.item(edge.childId).flowColor !== null) conflict(serverText().undo.childIsFlow)

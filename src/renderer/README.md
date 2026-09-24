@@ -35,6 +35,7 @@ renderer/
 │   │   └── JevStep.tsx      # 首次流程第 3 步：先看示例，选择连接才填 Key，通过或跳过都进入看板
 │   ├── board/
 │   │   ├── Board.tsx        # 本机可见列、指针优先落点的 dnd-kit 排序、列头、历史周期切换与折叠
+│   │   ├── VirtualRows.tsx # 可测量行高、有界 DOM、逻辑 Tab/Home/End、拖动/焦点锁定与定位
 │   │   ├── TaskRow.tsx      # 单行卡片：流程描边复选框、标题与截止/说明/顺延提示
 │   │   ├── QuickAdd.tsx     # 列头＋/拆解的列内连续录入：加入流程/新流程/拆解上级
 │   │   ├── HistoryColumn.tsx # 独立列只读历史：期末状态标记与标签、变化后的当前状态
@@ -61,13 +62,14 @@ renderer/
 │   ├── icons/index.tsx      # 唯一 Hugeicons 免费显式导入入口
 │   └── ui/                 # Radix/CVA Button 与 shadcn 原始 MIT 授权
 ├── state/
+│   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
 │   ├── flows.ts            # 快照派生的流程列表（含顶栏顺序的可见流程）、条目归属与颜色占用
 │   ├── columns.ts          # 本机列显示偏好（localStorage，至少一列，不入工作区）
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
 │   ├── smart.ts            # 设备侧智能输入状态与动作（代次变化即重读）
-│   └── use-workspace.ts    # 权威快照、幂等提交、未知结果同 ID 重试
+│   └── use-workspace.ts    # 合并刷新、稳定快照、类型化错误/反馈、幂等提交与未知结果重试
 ├── i18n/
 │   ├── index.ts             # 唯一文案入口：当前语言的实时视图（原地替换，不重挂载）、setLocale/useLocale
 │   ├── format.ts            # 按当前语言的 Intl 日期/星期/时间/数字格式
@@ -83,4 +85,4 @@ renderer/
 
 取消/失败不乐观伪造业务结果。UndoSession 只保存已提交的用户操作 ID；历史与业务数据不复制进本地状态。未保存草稿保留到明确保存或放弃；整库代次更换销毁旧弹窗、Toast、栈与缓存。
 
-[PROTOCOL]: 变更时更新此头部，然后检查 README.md
+[PROTOCOL]: Update this header when making changes, then check README.md.

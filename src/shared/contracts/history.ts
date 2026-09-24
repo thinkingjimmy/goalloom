@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 不含正文的业务事件和当前条目 DTO。
- * [OUTPUT]: 活动分页与只读周期历史 schema。
- * [POS]: 共享历史/导入边界，期末状态与当前内容分离。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Body-free business events and current item summaries.
+ * [OUTPUT]: Strict activity pages and read-only period history DTOs.
+ * [POS]: History/import boundary separating historical state from current content.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
-import { horizonSchema, idSchema, itemSchema, periodSchema, statusSchema, instantSchema } from './entities'
+import { horizonSchema, idSchema, itemSummarySchema, periodSchema, statusSchema, instantSchema } from './entities'
 export const businessStateSchema = z.strictObject({
   status: statusSchema, completedAt: instantSchema.nullable(), cancelledAt: instantSchema.nullable(),
   archivedAt: instantSchema.nullable(), deletedAt: instantSchema.nullable(), deletedBy: idSchema.nullable(),
@@ -21,7 +21,7 @@ export const activitySchema = z.strictObject({ events: z.array(eventSchema), mor
 export const historyPageSchema = z.strictObject({
   period: periodSchema, previous: periodSchema.nullable(), next: periodSchema,
   total: z.number().int().nonnegative(),
-  rows: z.array(z.strictObject({ item: itemSchema, endState: businessStateSchema.nullable(), later: z.array(eventSchema), laterCount: z.number().int().nonnegative(), anomalous: z.boolean() })),
+  rows: z.array(z.strictObject({ item: itemSummarySchema, endState: businessStateSchema.nullable(), later: z.array(eventSchema), laterCount: z.number().int().nonnegative(), anomalous: z.boolean() })),
 })
 export type HistoryPage = z.infer<typeof historyPageSchema>
 export type Activity = z.infer<typeof activitySchema>

@@ -1,9 +1,10 @@
 /**
- * [INPUT]: 无；错误、警告与操作标签的参数化文案。
- * [OUTPUT]: appMessages：原生对话框、启动保护、存储通道、工作区命令错误、操作标签/警告、撤销冲突、关系/计划/日历校验、备份与智能输入失败的用户可见文案。
- * [POS]: shared/i18n/catalogs/zh 的服务端通用分册；main、worker 与 domain 经 serverText() 读取。Jev 提示词与中文日期解析不属于界面文案，不在此处。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Shared wire-validation messages and typed localized server copy.
+ * [OUTPUT]: zh appMessages for native dialogs, storage, commands, calendar and smart-input feedback.
+ * [POS]: Server catalog composed by serverText; wire errors are shared with preload without importing this module.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { validationCatalogs } from '../../validation'
 import { widen } from '../../locale'
 export const appMessages = widen({
   dialogs: {
@@ -165,9 +166,7 @@ export const appMessages = widen({
     dateFormat: '日期格式必须为 YYYY-MM-DD',
     anchorAfterToday: '周期起点不能晚于今天',
     anchorMissing: '缺少周期起点',
-    invalidDate: '日期无效',
-    invalidCalendarConfig: '日历配置无效',
-    missingPreference: '缺少外观偏好',
+    ...validationCatalogs.zh,
   },
   smart: {
     failures: {

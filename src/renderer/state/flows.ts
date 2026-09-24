@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 权威快照中的有效关系与全部流程根。
- * [OUTPUT]: visibleFlows（顶栏筛选顺序的未归档流程）；useFlows：全部/可筛选流程、条目所属流程/颜色与颜色占用查询。
- * [POS]: renderer/state 的派生视图；归属规则来自 domain/flows，唯一性由事务强制。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Stable snapshot topology and all flow roots.
+ * [OUTPUT]: Memoized memberships, colors and visible top-bar flow ordering.
+ * [POS]: Renderer projection using shared domain ancestor memoization.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useMemo } from 'react'
 import { flowIndex } from '../../domain/flows'
@@ -25,10 +25,14 @@ export function useFlows(snapshot: Snapshot | null): Flows {
     const byId = new Map(all.map(flow => [flow.id, flow]))
     const resolve = flowIndex(snapshot?.relations ?? [], byId.keys())
     const children = new Set((snapshot?.relations ?? []).map(edge => edge.childId))
-    const of = (itemId: string) => resolve(itemId).map(id => byId.get(id)!)
+    const resolved = new Map<string, Flow[]>(), colors = new Map<string, number[]>()
+    const of = (itemId: string) => {
+      if (!resolved.has(itemId)) resolved.set(itemId, resolve(itemId).map(id => byId.get(id)!))
+      return resolved.get(itemId)!
+    }
     return {
       all, of, visible: visibleFlows(all),
-      colorsOf: itemId => of(itemId).slice(0, 2).map(flow => flow.flowColor),
+      colorsOf: itemId => { if (!colors.has(itemId)) colors.set(itemId, of(itemId).slice(0, 2).map(flow => flow.flowColor)); return colors.get(itemId)! },
       owner: color => all.find(flow => flow.flowColor === color),
       isRoot: itemId => !children.has(itemId),
     }

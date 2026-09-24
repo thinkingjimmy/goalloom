@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 原文、工作区日期/周期范围、有限已有目标候选（带显式点名标记）。
- * [OUTPUT]: planQuestions：原文直接作 state 的一轮并行 Choice/boolean 题单，Q=1+3S+D+3+R≤64，按点名优先+按条目轮转分配关系对；超出预算的对标 not_evaluated；relationRound 为分组确定后的具名补充请求；payload/token 预算与裁剪。
- * [POS]: 智能输入的调度器；发送前先计算并校验题单，不做前置语义分类，同轮题目互不依赖。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Source text, workspace periods and bounded existing-parent candidates.
+ * [OUTPUT]: Initial and supplemental questions within total question, payload and token budgets.
+ * [POS]: Provider-neutral smart-input planning, without network calls or preliminary semantic classification.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Candidate } from '../../shared/contracts/smart-input'
 import { dateCandidates, type DateCandidate } from './dates'
@@ -14,6 +14,8 @@ export const textLimit = 4_000
 export const dateLimit = 8
 export const payloadLimit = 64 * 1024
 export const tokenBudget = 24_000
+// Reserve space for the fixed provider/model envelope; adapters check the exact body too.
+const payloadHeadroom = 512, tokenHeadroom = 128
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 export type NeutralQuestion =
   | { type: 'choice'; instructions: string; criteria: Record<string, string> }
@@ -45,7 +47,7 @@ export function estimateTokens(text: string): number {
   for (const char of text) { if (char.charCodeAt(0) < 0x80) ascii++; else wide++ }
   return Math.ceil(wide + ascii / 4)
 }
-function sizeOf(state: unknown, questions: unknown): { bytes: number; tokens: number } {
+export function payloadSize(state: unknown, questions: unknown): { bytes: number; tokens: number } {
   const body = JSON.stringify({ state, questions })
   return { bytes: new TextEncoder().encode(body).length, tokens: estimateTokens(body) }
 }
@@ -59,8 +61,8 @@ export function planQuestions(context: SmartContext): QuestionPlan | PlanFailure
   let candidates = context.candidates
   for (;;) {
     const plan = assemble(context, slots, dates, candidates)
-    const size = sizeOf(plan.state, plan.questions)
-    if (size.bytes <= payloadLimit && size.tokens <= tokenBudget) return { ...plan, estimatedTokens: size.tokens }
+    const size = payloadSize(plan.state, plan.questions)
+    if (size.bytes <= payloadLimit - payloadHeadroom && size.tokens <= tokenBudget - tokenHeadroom) return { ...plan, estimatedTokens: size.tokens }
     // --- Trim order: unnamed candidates first (their pairs go with them); the original text is never cut. ---
     const drop = [...candidates].reverse().find(candidate => !candidate.named) ?? candidates.at(-1)
     if (!drop) return { kind: 'too_large', message: serverText().smart.failures.too_large() }
@@ -138,5 +140,15 @@ export function relationRound(plan: QuestionPlan, taskSlotIds: string[], candida
   const questions: Record<string, NeutralQuestion> = {}
   for (const pair of pairs) if (pair.key) questions[pair.key] = relationQuestion(pair, plan.slots, candidates, 'state.tasks')
   const tasks = plan.slots.filter(slot => taskSlotIds.includes(slot.id)).map(slot => ({ id: slot.id, text: slot.text }))
-  return { questions, pairs, state: { text: plan.state.text!, reason: '第一轮已确定事项分组，补充判断事项之间及与已有目标的上级关系', tasks, goals: plan.state.goals! } }
+  const state = { text: plan.state.text!, reason: '第一轮已确定事项分组，补充判断事项之间及与已有目标的上级关系', tasks, goals: [] as Json[] }
+  // Retain original text and every task. Drop low-priority pairs, never turn them into "no".
+  for (;;) {
+    const usedGoals = new Set(pairs.filter(pair => pair.key && pair.parent.kind === 'existing').map(pair => (pair.parent as { ref: string }).ref))
+    state.goals = candidates.filter(candidate => usedGoals.has(candidate.ref)).map(candidate => ({ id: candidate.ref, title: candidate.title, status: candidate.status, archived: candidate.archived, named: candidate.named }))
+    const size = payloadSize(state, questions)
+    if (size.bytes <= payloadLimit - payloadHeadroom && size.tokens <= tokenBudget - tokenHeadroom) return { questions, pairs, state }
+    const last = pairs.findLast(pair => pair.key !== null)
+    if (!last) return { questions: {}, pairs, state: {} }
+    delete questions[last.key!]; last.key = null
+  }
 }

@@ -11,7 +11,8 @@ desktop/
 ├── composer.mjs         # 首次流程（方向草稿确认后成为 3个月流程根、Jev 示例与可跳过连接，截图 onboarding-*.png）、全局 composer 普通 Later/会话草稿、列头＋Enter/Space 与 Tab 步数、拆解
 ├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
 ├── language.mjs         # 系统语言侦测、配置页/设置即时切换、main/worker 文案、重启保持与 en/es/fr 漏译检查（截图 language-*.png、output/tests/language.json）
-├── dialogs.mjs          # 需人工操控原生保存/打开对话框的验收入口
+├── dialogs.mjs          # 操控真实原生保存/打开对话框的验收入口，保存 JSON 证据和恢复后截图
+├── review/              # 已确认缺陷、输入/维护竞态、智能预算、长列、wire、增长曲线和大备份回归
 └── fixtures/
     ├── sqlite-probe.ts  # Electron main 的驱动/事务/恢复探针
     ├── history-seed.ts  # 正式事务生成历史样本，无生产测试时钟
@@ -24,4 +25,4 @@ desktop/
 
 Playwright 控制真实窗口，并关闭 CDP 默认的 unsafe-eval 绕过再验证 CSP。退出草稿的消息框回答桩只验证逻辑；原生对话框、IME、安装/升级与睡眠仍由负责人验收。
 
-[PROTOCOL]: 变更时更新此头部，然后检查 README.md
+[PROTOCOL]: Update this header when making changes, then check README.md.

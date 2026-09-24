@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 不可信完整 JSON/SQLite 数据集、受限数据管理动作。
- * [OUTPUT]: v1/v2/v3 版本化导入 schema（v3 含 createPlan 与多 ID 回执）、效果白名单、备份与维护预览 DTO。
- * [POS]: 整库边界；路径只能由主进程/本地目录选择，不能来自导入数据。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Untrusted JSON/SQLite datasets and finite maintenance actions.
+ * [OUTPUT]: Versioned v1-v5 imports, effect whitelist, backup/replacement previews and paged batch details.
+ * [POS]: Workspace transfer boundary; selected paths remain main-owned.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { calendarSchema, horizonSchema, idSchema, instantSchema, itemRecordSchema, periodSchema, placementSchema, policySchema, relationSchema, workspaceSchema } from './entities'
@@ -64,5 +64,7 @@ export const dataReplySchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('cancelled') }),
 ])
 export type DataReply = z.infer<typeof dataReplySchema>
-export const batchSchema = z.strictObject({ id: idSchema, at: instantSchema, total: z.number().int().nonnegative(), undone: z.number().int().nonnegative(), items: z.array(z.strictObject({ id: idSchema, title: z.string(), from: z.string(), to: z.string() })) })
+export const batchSchema = z.strictObject({ id: idSchema, at: instantSchema, total: z.number().int().nonnegative(), undone: z.number().int().nonnegative() })
+export const batchPageSchema = z.strictObject({ total: z.number().int().nonnegative(), items: z.array(z.strictObject({ id: idSchema, title: z.string(), from: z.string(), to: z.string() })) })
+export type BatchPage = z.infer<typeof batchPageSchema>
 export type BatchSummary = z.infer<typeof batchSchema>

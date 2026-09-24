@@ -1,15 +1,15 @@
 /**
- * [INPUT]: zod 的运行时校验；main 提供的最小诊断数据。
- * [OUTPUT]: RuntimeInfo 与 LanguageState DTO、固定读写 GoalloomApi（含语言偏好读写），不暴露通用 IPC。
- * [POS]: main/preload/renderer 共同边界；不暴露路径、SQL 或原始 IPC。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Zod and minimum runtime/language diagnostics.
+ * [OUTPUT]: RuntimeInfo, LanguageState and the fixed GoalloomApi with bounded read methods.
+ * [POS]: Shared main/preload/renderer boundary without generic IPC, SQL or file access.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { languageSchema, locales, type Language } from '../i18n/locale'
 import type { CommandInput, CommandReply, CommandResult } from './commands'
-import type { ItemDetail, ItemPage, Query, Snapshot } from './queries'
+import type { ItemDetail, ItemPage, Query, Snapshot, ActivitySummary, ItemCounts, BackupSummary } from './queries'
 import type { Activity, HistoryPage } from './history'
-import type { BatchSummary, DataAction, DataReply } from './transfer'
+import type { BatchSummary, BatchPage, DataAction, DataReply } from './transfer'
 import type { SmartAction, SmartReply } from './smart-input'
 
 export const runtimeChannel = 'goalloom:runtime'
@@ -35,6 +35,10 @@ export interface GoalloomApi {
   getHistory(query: Extract<Query, { type: 'history' }>): Promise<HistoryPage>
   getActivity(query: Extract<Query, { type: 'activity' }>): Promise<Activity>
   getBatches(): Promise<BatchSummary[]>
+  getBatchItems(query: Extract<Query, { type: 'batchItems' }>): Promise<BatchPage>
+  getCounts(): Promise<ItemCounts>
+  getBackupSummary(): Promise<BackupSummary>
+  getActivitySummary(itemId: string): Promise<ActivitySummary>
   data(action: DataAction): Promise<DataReply>
   onChanged(listener: (result: CommandResult | null) => void): () => void
   execute(command: CommandInput): Promise<CommandReply>

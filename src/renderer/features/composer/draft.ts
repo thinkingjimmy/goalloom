@@ -1,13 +1,13 @@
 /**
- * [INPUT]: 智能预览 DTO、上一版可编辑草稿（含手动字段标记）、当前快照周期/流程色、普通 Later 规则。
- * [OUTPUT]: EditableDraft 模型；mergePreview 手动字段优先、按原文片段稳定映射、无法映射的手动项标为 orphan；plainDraft；planItems 生成带预览版本 ParentRef 的 createPlan 负载；draftProblem 本地复核。
- * [POS]: composer 的纯状态层；不调用 IPC，最终约束由 createPlan 事务复核。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Smart preview, previous edits, original preview periods and flow constraints.
+ * [OUTPUT]: Manual-priority draft merging, orphan handling and versioned createPlan payloads.
+ * [POS]: Pure composer state; preserves period identity instead of rebasing stale previews.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { planProblem } from '../../../domain/plan'
 import { plainLater } from '../../../domain/smart/segments'
 import type { ParentRef } from '../../../shared/contracts/commands'
-import type { ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
+import type { ItemHorizon } from '../../../shared/contracts/entities'
 import type { Candidate, HorizonChoice, ParentKey, SmartPreview } from '../../../shared/contracts/smart-input'
 import { smartMessages } from '../../i18n'
 
@@ -19,6 +19,7 @@ export interface EditableDraft {
   due: string | null; dueSuggestion: string | null
   parents: ParentKey[]; parentSuggestions: ParentKey[]
   flowColor: number | null; manual: Field[]; roleCertain: boolean; orphan: boolean
+  periods: SmartPreview['periods'] | null
 }
 
 let sequence = 0
@@ -31,7 +32,7 @@ export function plainDraft(text: string, previous: EditableDraft | null): Editab
   if (!plain) return null
   const manual = previous?.manual.includes('title') ? previous.title : null
   return { id: previous?.id ?? newId(), source: null, title: manual ?? plain.title, description: plain.description, horizon: 'later', horizonSuggestion: null, future: false,
-    due: null, dueSuggestion: null, parents: [], parentSuggestions: [], flowColor: null, manual: manual ? ['title'] : [], roleCertain: true, orphan: false }
+    due: null, dueSuggestion: null, parents: [], parentSuggestions: [], flowColor: null, manual: manual ? ['title'] : [], roleCertain: true, orphan: false, periods: null }
 }
 
 // --- Manual fields and structure win: a fresh preview only fills fields the user never touched. ---
@@ -54,7 +55,7 @@ export function mergePreview(preview: SmartPreview, previous: EditableDraft[], r
     const parents = edges.filter(row => row.state === 'yes').map(row => mapKey(row.parent)).filter(key => key !== null)
     const suggestions = edges.filter(row => row.state === 'maybe').map(row => mapKey(row.parent)).filter(key => key !== null)
     return {
-      id, source: draft.source, roleCertain: draft.roleCertain, orphan: false, manual,
+      id, source: draft.source, roleCertain: draft.roleCertain, orphan: false, manual, periods: preview.periods,
       title: keep('title', draft.title, old?.title), description: keep('description', draft.description, old?.description),
       horizon: keep('horizon', draft.horizon.certain ? horizon : 'later', old?.horizon), horizonSuggestion: draft.horizon.certain || horizon === 'later' ? null : horizon, future: draft.horizon.value === 'future',
       due: keep('due', draft.due.certain ? draft.due.value : null, old?.due), dueSuggestion: draft.due.certain ? null : draft.due.value,
@@ -63,7 +64,7 @@ export function mergePreview(preview: SmartPreview, previous: EditableDraft[], r
     }
   })
   // A manually shaped draft whose source no longer maps stays visible instead of being silently dropped.
-  const orphans = pool.filter(row => row.manual.length && !removed.includes(row.source ?? '')).map(row => ({ ...row, orphan: true }))
+  const orphans = pool.filter(row => row.manual.length && !removed.includes(row.source ?? '')).map(row => ({ ...row, orphan: true, periods: preview.periods }))
   const all = [...merged, ...orphans]
   const live = new Set(all.map(row => row.id))
   return all.map(row => ({ ...row, parents: row.parents.filter(key => key.kind === 'existing' || live.has(key.draftId)), parentSuggestions: row.parentSuggestions.filter(key => key.kind === 'existing' || live.has(key.draftId)) }))
@@ -72,12 +73,9 @@ export function mergePreview(preview: SmartPreview, previous: EditableDraft[], r
 export function candidateInfo(candidates: Candidate[]): Map<string, ParentInfo> {
   return new Map(candidates.map(candidate => [candidate.itemId, { itemId: candidate.itemId, title: candidate.title, version: candidate.version, archived: candidate.archived, flowColor: candidate.flowColor, horizon: candidate.horizon }]))
 }
-export function periodFor(horizon: ItemHorizon, periods: PlanningPeriod[]): string | null {
-  return horizon === 'later' ? null : periods.find(period => period.horizon === horizon)?.id ?? null
-}
-export function planItems(drafts: EditableDraft[], parents: Map<string, ParentInfo>, periods: PlanningPeriod[]) {
+export function planItems(drafts: EditableDraft[], parents: Map<string, ParentInfo>) {
   return drafts.map(draft => ({
-    draftId: draft.id, title: draft.title.trim(), description: draft.description, dueDate: draft.due, horizon: draft.horizon, previewPeriodId: periodFor(draft.horizon, periods), flowColor: draft.flowColor,
+    draftId: draft.id, title: draft.title.trim(), description: draft.description, dueDate: draft.due, horizon: draft.horizon, previewPeriodId: draft.horizon === 'later' ? null : draft.periods?.[draft.horizon].id ?? null, flowColor: draft.flowColor,
     parentRefs: draft.parents.map((key): ParentRef => key.kind === 'draft' ? key : { kind: 'existing', itemId: key.itemId, expectedVersion: parents.get(key.itemId)!.version }),
   }))
 }

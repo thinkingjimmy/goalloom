@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 经过校验的周期/活动查询、Store 与观察时刻。
- * [OUTPUT]: 由 from/to 周期索引找到的分页成员、期末投影和活动。
- * [POS]: 只读历史适配器；不会创建空周期、补事件或写位置。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Validated history/activity queries, Store and observation time.
+ * [OUTPUT]: Batched item summaries, streaming period projections and paged activity.
+ * [POS]: Read-only history adapter; never creates periods or synthesizes events.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { compareInstants, currentPeriod, parseDate, precedingPeriod } from '../../domain/calendar'
-import { projectHistory } from '../../domain/history'
+import { projectOrderedHistory } from '../../domain/history'
 import { DomainError } from '../../shared/contracts/commands'
 import type { Query } from '../../shared/contracts/queries'
 import type { HistoryPage, Activity } from '../../shared/contracts/history'
@@ -22,14 +22,24 @@ export function readHistory(store: Store, query: Extract<Query, { type: 'history
   const membership = 'SELECT itemId FROM item_events WHERE fromPeriodId=? UNION SELECT itemId FROM item_events WHERE toPeriodId=?'
   const total = Number(store.db.prepare(`SELECT count(*) AS n FROM (${membership})`).get(period.id, period.id)!.n)
   const ids = store.db.prepare(`${membership} ORDER BY itemId LIMIT ? OFFSET ?`).all(period.id, period.id, query.limit, query.offset)
-  const rows = ids.map(row => {
-    const item = store.item(String(row.itemId)), projection = projectHistory(store.events(item.id), period)
-    return { item, endState: projection.endState, later: projection.later.slice(-5), laterCount: projection.later.length, anomalous: projection.anomalous }
+  const keys = ids.map(row => String(row.itemId)), placeholders = keys.map(() => '?').join(',') || 'NULL'
+  const items = new Map(store.summaries(`i.id IN (${placeholders})`, keys).map(item => [item.id, item]))
+  const stream = store.prepare(`SELECT * FROM item_events WHERE itemId IN (${placeholders}) ORDER BY itemId,seq`).iterate(...keys)
+  let current = stream.next()
+  function* eventsFor(id: string) {
+    while (!current.done && current.value.itemId === id) {
+      yield store.eventRows([current.value])[0]!
+      current = stream.next()
+    }
+  }
+  const rows = keys.map(id => {
+    const { endState, later, laterCount, anomalous } = projectOrderedHistory(eventsFor(id), period, 5)
+    return { item: items.get(id)!, endState, later, laterCount, anomalous }
   }) as HistoryPage['rows']
   return { period, previous: precedingPeriod(calendar, period), next: currentPeriod(calendar, period.horizon, period.endAt), rows, total }
 }
 export function readActivity(store: Store, query: Extract<Query, { type: 'activity' }>): Activity {
-  store.item(query.itemId)
+  if (!store.prepare('SELECT 1 FROM items WHERE id=?').get(query.itemId)) throw new DomainError('invalid', serverText().errors.itemMissing)
   const events = store.eventRows(store.db.prepare('SELECT * FROM item_events WHERE itemId=? AND seq<? ORDER BY seq DESC LIMIT ?').all(query.itemId, query.beforeSeq ?? Number.MAX_SAFE_INTEGER, query.limit + 1)) as Activity['events']
   return { events: events.slice(0, query.limit), more: events.length > query.limit }
 }

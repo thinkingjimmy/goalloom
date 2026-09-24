@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 条目 ID、权威版本、流程视图、看板候选、受限提交和详情读取接口。
- * [OUTPUT]: 居中详情弹窗：页眉位置标签即移动、⋯ 收纳低频生命周期操作；复选框旁流程色点；截止/上下级/拆解；说明草稿；折叠活动；仅在有修改时出现保存栏，保存/确认快捷键提交。
- * [POS]: 当前内容详情；草稿不随无关刷新丢失，业务校验仍由事务执行；仅正文滚动，页眉与保存栏固定。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Item ID, authoritative detail, flow views, summary candidates and actions.
+ * [OUTPUT]: Editable details, lifecycle/relationship controls and revision-safe save feedback.
+ * [POS]: Full-body detail boundary; refresh and save receipts preserve newer drafts.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { ItemDetail as Detail } from '../../../shared/contracts/queries'
-import { horizons, type Item, type ItemHorizon } from '../../../shared/contracts/entities'
+import { horizons, type Item, type ItemSummary, type ItemHorizon } from '../../../shared/contracts/entities'
 import { statusNames, messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
@@ -27,12 +27,13 @@ type Pop = 'parent' | 'child' | 'move' | 'more' | 'flow' | null
 
 export function ItemDetail({ itemId, close, select, submit, revision, busy, locate, flows, candidates, today, split }: {
   itemId: string; close: () => void; select: (id: string) => void; submit: (action: Action) => Promise<unknown>; revision: number; busy: boolean
-  locate?: (() => void) | undefined; flows: Flows; candidates: Item[]; today: string; split: (parent: { id: string; title: string }, horizon: ItemHorizon) => void
+  locate?: (() => void) | undefined; flows: Flows; candidates: ItemSummary[]; today: string; split: (parent: { id: string; title: string }, horizon: ItemHorizon) => void
 }) {
   const [detail, setDetail] = useState<Detail | null>(null)
   const { bindings } = useShortcuts()
   const [draft, setDraft] = useState({ title: '', description: '', dueDate: '' })
   const baseline = useRef(draft), draftRef = useRef(draft); draftRef.current = draft
+  const inputRevision = useRef(0), saving = useRef(false)
   const [pop, setPop] = useState<Pop>(null), [error, setError] = useState('')
   useEffect(() => {
     const guardClose = (event: BeforeUnloadEvent) => {
@@ -57,11 +58,18 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
   const dismiss = () => { if (mayLeave()) close() }
   const navigate = (id: string) => { if (mayLeave()) select(id) }
   const save = async () => {
-    if (!detail || !dirty || !draft.title.trim()) return
-    const result = await submit({ type: 'edit', itemId, expectedVersion: detail.item.version, ...draft, dueDate: draft.dueDate || null })
-    if (result) { baseline.current = { ...draft }; setDraft({ ...draft }) }
+    if (!detail || !dirty || !draft.title.trim() || busy || saving.current) return
+    const submitted = { ...draft, title: draft.title.trim() }, revision = inputRevision.current
+    saving.current = true
+    try {
+      const result = await submit({ type: 'edit', itemId, expectedVersion: detail.item.version, ...submitted, dueDate: submitted.dueDate || null })
+      if (result) {
+        baseline.current = submitted
+        setDraft(current => inputRevision.current === revision ? submitted : { ...current })
+      }
+    } finally { saving.current = false }
   }
-  const setField = (name: keyof typeof draft, value: string) => setDraft(previous => ({ ...previous, [name]: value }))
+  const setField = (name: keyof typeof draft, value: string) => { inputRevision.current++; setDraft(previous => ({ ...previous, [name]: value })) }
   const toggle = (next: Pop) => setPop(pop === next ? null : next)
   const item = detail?.item
   const readOnly = !!item?.deletedAt

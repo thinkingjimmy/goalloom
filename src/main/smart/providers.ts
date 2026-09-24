@@ -1,13 +1,14 @@
 /**
- * [INPUT]: 单个服务自己的 API Key、提供方中立题单/state、取消信号；@typesafe-ai/sdk 与受控 fetch。
- * [OUTPUT]: JEV_PROVIDERS 固定预设；evaluate 两个 adapter（TypeSafe systemOne / Gateway POST /v1/evaluate）返回统一 Choice/boolean 答案、精度来源与受限元数据；classifyFailure 按 type/code 优先、HTTP 状态其次的归一化失败。
- * [POS]: main 智能服务的供应商边界；不读取供应商 confidence，不改 chat/completions，不记录正文/Authorization/完整响应。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Provider-owned credentials, bounded question payloads, abort signals and controlled HTTP.
+ * [OUTPUT]: Fixed TypeSafe/Gateway adapters, normalized distributions and typed failures.
+ * [POS]: Provider boundary; no task-body or credential logging, and no alternate API protocols.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { APIConnectionError, APIError, APIUserAbortError, TypeSafeClient, type Questions } from '@typesafe-ai/sdk'
 import type { Answer, Precision } from '../../domain/smart/distribution'
 import { validDecimals } from '../../domain/smart/distribution'
 import type { Json, NeutralQuestion } from '../../domain/smart/questions'
+import { estimateTokens, payloadLimit, tokenBudget } from '../../domain/smart/questions'
 import type { Failure, FailureKind, JevProvider } from '../../shared/contracts/smart-input'
 import { serverText } from '../../shared/i18n/server'
 
@@ -69,6 +70,11 @@ function unify(answers: unknown, questions: Record<string, NeutralQuestion>, pro
   return out
 }
 const numberOrNull = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+function requestBody(value: unknown, provider: JevProvider): string {
+  const body = JSON.stringify(value)
+  if (Buffer.byteLength(body) > payloadLimit || estimateTokens(body) > tokenBudget) throw new ProviderFailure(failure('too_large', provider))
+  return body
+}
 
 export function typesafeAdapter(fetch?: Fetch): Adapter {
   return async (apiKey, { state, questions, signal }) => {
@@ -78,6 +84,7 @@ export function typesafeAdapter(fetch?: Fetch): Adapter {
       ? { type: 'choice', instructions: question.instructions, criteria: question.criteria }
       : { type: 'noul', instructions: question.instructions, criteria: question.criteria }]))
     try {
+      requestBody({ state, questions: native, model: preset.model }, 'typesafe')
       const { data, requestId } = await client.systemOne({ state, questions: native, model: preset.model }, { signal }).withResponse()
       return { answers: unify(data.answers, questions, 'typesafe'), precision: { decimals: nativeDecimals, source: 'adapter' },
         meta: { requestedModel: preset.model, routingCanonicalSlug: null, modelVersion: typeof data.model === 'string' ? data.model.slice(0, 100) : null, inputTokens: numberOrNull(data.usage?.input_tokens), requestId: requestId?.slice(0, 200) ?? null } }
@@ -94,10 +101,10 @@ export function typesafeAdapter(fetch?: Fetch): Adapter {
 export function gatewayAdapter(fetch: Fetch = globalThis.fetch): Adapter {
   return async (apiKey, { state, questions, signal }) => {
     const preset = JEV_PROVIDERS['vercel-gateway']
-    const body = { model: preset.model, state, questions, providerOptions: preset.providerOptions }
+    const body = requestBody({ model: preset.model, state, questions, providerOptions: preset.providerOptions }, 'vercel-gateway')
     let response: Response
     try {
-      response = await fetch(preset.endpoint, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)]), redirect: 'error' })
+      response = await fetch(preset.endpoint, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body, signal: AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)]), redirect: 'error' })
     } catch { if (signal.aborted) throw new Aborted(); throw new ProviderFailure(failure('unavailable', 'vercel-gateway')) }
     let data: Record<string, unknown>
     try { data = await response.json() as Record<string, unknown> }

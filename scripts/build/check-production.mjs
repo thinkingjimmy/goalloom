@@ -15,6 +15,7 @@ for (const path of output) {
 }
 const preload = await readFile('out/preload/index.cjs', 'utf8')
 assert(!/require\(["'](?:node:|zod)/.test(preload), '沙箱 preload 不得依赖 Node 或未打包 npm 模块')
+for (const [, dependency] of preload.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)) assert.equal(dependency, 'electron', `Unexpected sandbox dependency: ${dependency}`)
 const metadata = JSON.parse(await readFile('package.json', 'utf8'))
 assert(!Object.keys(metadata.dependencies).some(name => /lucide|heroicons|phosphor/.test(name)), '仅允许 Hugeicons')
 console.log(`生产产物检查通过：${output.length} 个文件；无 HMR/测试控制口/第二图标库。`)

@@ -1,3 +1,9 @@
+/**
+ * [INPUT]: A source or packaged Electron executable and operator-driven native file dialogs.
+ * [OUTPUT]: Isolated export/restore assertions, runtime evidence and a restored-window screenshot.
+ * [POS]: Packaged desktop acceptance for native paths; no dialog mocks or real workspace data.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -47,7 +53,11 @@ try {
   const restored = await page.evaluate(() => window.goalloom.getSnapshot())
   assert.notEqual(restored.workspace.generation, original.generation)
   assert.equal(restored.items[0].id, original.id)
-  assert.equal(restored.items[0].description, '中文路径 / 空格 / emoji 🌱')
+  assert.equal((await page.evaluate(id => window.goalloom.getItem(id), restored.items[0].id)).item.description, '中文路径 / 空格 / emoji 🌱')
   assert.equal(restored.workspace.pausedAfterRestore, true)
-  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()), checks: ['native save dialog', 'atomic JSON export', 'Chinese space path and emoji', 'native open dialog', 'validated JSON preview', 'protective backup', 'full JSON restore with new generation and pause'] }))
+  const evidence = { packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()), checks: ['native save dialog', 'atomic JSON export', 'Chinese space path and emoji', 'native open dialog', 'validated JSON preview', 'protective backup', 'full JSON restore with new generation and pause'] }
+  await mkdir('output/tests/review-fixes', { recursive: true })
+  await page.screenshot({ path: 'output/tests/review-fixes/native-dialogs-restored.png' })
+  await writeFile('output/tests/review-fixes/native-dialogs.json', JSON.stringify(evidence, null, 2))
+  console.log(JSON.stringify(evidence))
 } finally { await application.close(); await rm(root, { recursive: true, force: true }) }

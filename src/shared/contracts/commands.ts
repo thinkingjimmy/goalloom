@@ -1,12 +1,12 @@
 /**
- * [INPUT]: renderer 不可信输入；实体 schema。
- * [OUTPUT]: 固定命令白名单（含 1–8 项 createPlan 与可判别 ParentRef）、代次/版本保护、多 ID 回执和可判定错误结果。
- * [POS]: 主进程与存储事务的写边界，不接收 SQL 或任意效果字段。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Untrusted command input and entity schemas.
+ * [OUTPUT]: Finite commands, versioned parent references, generation guards, receipts and stable error codes.
+ * [POS]: Write boundary; accepts neither SQL nor caller-defined effects.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, statusSchema, themeSchema } from './entities'
-import { serverText } from '../i18n/server'
+import { validationText } from '../i18n/validation'
 
 const envelope = { operationId: idSchema, generation: idSchema }
 const target = { itemId: idSchema, expectedVersion: z.number().int().positive() }
@@ -35,7 +35,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, ...target, type: z.literal('restoreItem'), deletionSource: idSchema.nullable().default(null) }),
   z.strictObject({ ...envelope, type: z.literal('unlink'), relationId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('undo'), originalOperationId: idSchema }),
-  z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: z.enum(['paper', 'minimal']).optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => serverText().calendar.missingPreference }),
+  z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: z.enum(['paper', 'minimal']).optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => validationText().missingPreference }),
   z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),
   z.strictObject({ ...envelope, type: z.literal('policy'), horizon: z.enum(['cycle', 'month', 'week', 'day']), mode: z.enum(['auto', 'manual']), expectedVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('confirmRollover'), confirmed: z.literal(true) }),
@@ -56,7 +56,7 @@ export const resultSchema = z.strictObject({
 })
 export type CommandResult = z.infer<typeof resultSchema>
 export class DomainError extends Error {
-  constructor(public code: 'invalid' | 'stale' | 'conflict' | 'generation' | 'setup' | 'maintenance' | 'storage' | 'startup', message: string) { super(message) }
+  constructor(public code: 'invalid' | 'stale' | 'stale_preview' | 'conflict' | 'generation' | 'setup' | 'maintenance' | 'storage' | 'startup' | 'backup' | 'import' | 'restore' | 'read', message: string) { super(message) }
 }
 export const replySchema = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(true), result: resultSchema }),

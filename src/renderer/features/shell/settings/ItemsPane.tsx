@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 列表视图（已完成/已取消/已归档/回收站）、工作区修订号、时区与今天、详情打开与受限提交。
- * [OUTPUT]: 设置内的条目浏览：标题搜索、按完成/取消日期分组（今天/昨天/日期）的卡片与结束标记、回收站逐项还原与说明、分页。
- * [POS]: settings 的「条目」分类；只读取 listItems 查询，还原仍走 restoreItem 命令并由主进程事务复核。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: List view, workspace revision/date, navigation and guarded restore action.
+ * [OUTPUT]: Searchable paged summaries with offset clamping after removal or restore.
+ * [POS]: Settings item browser; restoreItem remains an authoritative command.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState } from 'react'
 import type { ItemPage, ListView } from '../../../../shared/contracts/queries'
@@ -20,7 +20,12 @@ export function ItemsPane({ view, revision, timezone, today, disabled, select, s
   useEffect(() => {
     let active = true
     const timer = setTimeout(() => void desktopApi().listItems({ type: 'list', view, query, offset, limit })
-      .then(value => { if (active) { setPage(value); setError('') } }).catch(() => { if (active) setError(messages.listFailed) }), query ? 180 : 0)
+      .then(value => {
+        if (!active) return
+        const lastOffset = Math.max(0, Math.ceil(value.total / limit) - 1) * limit
+        if (offset > lastOffset) { setOffset(lastOffset); return }
+        setPage(value); setError('')
+      }).catch(() => { if (active) setError(messages.listFailed) }), query ? 180 : 0)
     return () => { active = false; clearTimeout(timer) }
   }, [view, query, offset, revision])
   const day = (instant: string | null) => instant ? relativeDay(instant, today, timezone, settingsMessages) : messages.unknownDate
@@ -58,7 +63,7 @@ export function ItemsPane({ view, revision, timezone, today, disabled, select, s
     </section>)}
     {page && !total && <p className="settings-empty">{query.trim() ? messages.noResults : messages.emptyList}</p>}
     {view === 'trash' && page && total > 0 && <p className="settings-footnote">{settingsMessages.trashNote}</p>}
-    {total > limit && <div className="items-pagination">
+    {(total > limit || offset > 0) && <div className="items-pagination">
       <button type="button" className="settings-button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - limit))}>{messages.previousPage}</button>
       <span className="tabular">{offset + 1}–{Math.min(offset + limit, total)} / {total}</span>
       <button type="button" className="settings-button" disabled={offset + limit >= total} onClick={() => setOffset(offset + limit)}>{messages.nextPage}</button>

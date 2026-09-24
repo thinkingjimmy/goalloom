@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 已发送的 QuestionPlan、按题号的统一答案（可含补充轮）、精度来源与上下文候选。
- * [OUTPUT]: buildPreview：片段角色归并为 1–8 个草稿（标题/说明只取原文）、执行列与截止建议及确定性、多父关系建议（未评估不当否定、去环）、未支持能力与精度警示。
- * [POS]: 智能输入的纯组装层；代码计算具体值，模型只提供分布；契约违规抛 ContractError 由服务归为 malformed_response。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Question plans, normalized answers, precision metadata and current candidates.
+ * [OUTPUT]: Editable drafts, schedule/date/parent suggestions and explicit unevaluated warnings.
+ * [POS]: Pure preview assembly; contract violations become malformed-response failures.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { HorizonChoice, PreviewDraft, PreviewWarning, RelationSuggestion, SmartPreview } from '../../shared/contracts/smart-input'
 import { planOrder } from '../plan'
@@ -67,8 +67,9 @@ export function buildPreview(context: SmartContext, plan: QuestionPlan, first: R
   const relations = relationsFor(context, plan, first, supplement, owner, tasks)
   if (relations.some(row => row.state === 'not_evaluated')) warnings.push({ kind: 'relations_partial', draftId: null, text: serverText().smart.relationsPartial })
   const sent = new Set((plan.state.goals as { id: string }[]).map(goal => goal.id))
+  const related = new Set(relations.flatMap(row => row.parent.kind === 'existing' ? [row.parent.itemId] : []))
   return { layout: suggestion(layout.choice as SmartPreview['layout']['value'], layout, certainChoice(layout)), referenceDate: context.referenceDate, periods: context.periods,
-    drafts, candidates: context.candidates.filter(candidate => sent.has(candidate.ref)), relations, warnings,
+    drafts, candidates: context.candidates.filter(candidate => sent.has(candidate.ref) || related.has(candidate.itemId)), relations, warnings,
     questionCount: Object.keys(plan.questions).length + (supplement?.pairs.filter(pair => pair.key).length ?? 0), requests: supplement ? 2 : 1 }
 }
 

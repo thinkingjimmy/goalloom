@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 原文片段、固定 referenceTime 的工作区日期与 ISO weekStart(1–7)。
- * [OUTPUT]: dateCandidates：原文中可无损定位的日期表达及代码计算的绝对日期、歧义标记；weekDay 计算本周/下周/最近星期。
- * [POS]: 智能输入的确定性日期层；只列候选值，日期用途（截止/执行）由 Jev 判断，绝不按服务或宿主的“今天”计算。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Chinese source fragments, a fixed workspace date and ISO week start.
+ * [OUTPUT]: Whole-expression date candidates, calculated dates and explicit ambiguity.
+ * [POS]: Deterministic smart-input dates; the provider classifies purpose, never computes calendar values.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Temporal } from '@js-temporal/polyfill'
 import { parseDate } from '../calendar'
@@ -44,14 +44,26 @@ const patterns: { pattern: RegExp; resolve: (match: RegExpExecArray, reference: 
     // Missing year: take the next occurrence and flag it, since "past date this year" may mean next year.
     return current >= reference ? { value: current, ambiguous: false } : { value: plain(today.year + 1, month, day), ambiguous: true }
   } },
-  { pattern: /(下下|下个?|本|这个?|这)?(?:周|星期|礼拜)([一二三四五六日天1-7])/g, resolve: (m, reference, weekStart) => {
+  { pattern: /(上上|下下|上个?|下个?|本|这个?|这)?(?:周|星期|礼拜)([一二三四五六日天1-7])/g, resolve: (m, reference, weekStart) => {
     const day = weekdays[m[2]!]!, prefix = m[1] ?? ''
     if (!prefix) return { value: nextWeekday(reference, day), ambiguous: false }
-    const offset = prefix.startsWith('下下') ? 2 : prefix.startsWith('下') ? 1 : 0
+    const offset = prefix.startsWith('下下') ? 2 : prefix.startsWith('下') ? 1 : prefix.startsWith('上上') ? -2 : prefix.startsWith('上') ? -1 : 0
     return { value: weekDay(reference, weekStart, day, offset), ambiguous: false }
   } },
-  { pattern: /(?:本月|这个月)?月底/g, resolve: (_m, reference) => { const today = parseDate(reference); return { value: today.with({ day: today.daysInMonth }).toString(), ambiguous: false } } },
-  { pattern: /今天|今日|明天|明日|后天/g, resolve: (m, reference) => ({ value: parseDate(reference).add({ days: { 今天: 0, 今日: 0, 明天: 1, 明日: 1, 后天: 2 }[m[0]]! }).toString(), ambiguous: false }) },
+  { pattern: /(?:(\d{4})年)?([0-9一二三四五六七八九十]{1,3})月[底末]/g, resolve: (m, reference) => {
+    const today = parseDate(reference), year = m[1] ? Number(m[1]) : today.year, month = number(m[2]!)
+    const start = plain(year, month, 1)
+    if (!start) return { value: null, ambiguous: true }
+    const date = parseDate(start), end = date.with({ day: date.daysInMonth })
+    const nextYear = !m[1] && end.toString() < reference
+    return { value: (nextYear ? end.add({ years: 1 }).with({ day: end.add({ years: 1 }).daysInMonth }) : end).toString(), ambiguous: nextYear }
+  } },
+  { pattern: /(上上个?|下下个?|上个?|下个?|本|这个?|这)?月[底末]/g, resolve: (m, reference) => {
+    const prefix = m[1] ?? '', offset = prefix.startsWith('下下') ? 2 : prefix.startsWith('下') ? 1 : prefix.startsWith('上上') ? -2 : prefix.startsWith('上') ? -1 : 0
+    const date = parseDate(reference).add({ months: offset })
+    return { value: date.with({ day: date.daysInMonth }).toString(), ambiguous: false }
+  } },
+  { pattern: /大前天|大后天|前天|昨天|昨日|今天|今日|明天|明日|后天/g, resolve: (m, reference) => ({ value: parseDate(reference).add({ days: { 大前天: -3, 前天: -2, 昨天: -1, 昨日: -1, 今天: 0, 今日: 0, 明天: 1, 明日: 1, 后天: 2, 大后天: 3 }[m[0]]! }).toString(), ambiguous: false }) },
 ]
 
 export function dateCandidates(text: string, reference: string, weekStart: number): DateCandidate[] {
@@ -60,8 +72,15 @@ export function dateCandidates(text: string, reference: string, weekStart: numbe
     for (const match of text.matchAll(new RegExp(pattern.source, pattern.flags))) {
       const start = match.index!, end = start + match[0].length
       if (found.some(row => start < row.end && end > row.start)) continue
+      // Unknown qualifiers must never turn a longer expression into a certain substring.
+      if (start > 0 && /[\d一二三四五六七八九十百千年月上下去来前后大本这今明个]/.test(text[start - 1]!)) continue
       found.push({ text: match[0], start, end, ...resolve(match as RegExpExecArray, reference, weekStart) })
     }
   }
-  return found.sort((a, b) => a.start - b.start)
+  found.sort((a, b) => a.start - b.start)
+  for (let index = 1; index < found.length; index++) {
+    const previous = found[index - 1]!, next = found[index]!
+    if (/^\s*(?:到|至|[-—~～])\s*$/.test(text.slice(previous.end, next.start))) previous.ambiguous = next.ambiguous = true
+  }
+  return found
 }

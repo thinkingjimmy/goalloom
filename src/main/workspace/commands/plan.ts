@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 已校验 createPlan 命令（1–8 项、ParentRef 带预览版本）与最新事务 Context。
- * [OUTPUT]: 写入前统一复核去重后的既有上级/周期/颜色，再按稳定拓扑序每项一个 create 效果、入边归下级、created 事件与有序 itemIds。
- * [POS]: 智能输入确认后的唯一批量创建命令；与单项 createItem 共用位置/关系原语，失败由 repository 事务整体回滚。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Validated createPlan entries, versioned parent references and current transaction context.
+ * [OUTPUT]: Revalidated periods/parents/colors, topological creation effects, events and ordered item IDs.
+ * [POS]: Atomic batch creation sharing single-item primitives; stale previews have a stable error code.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import { planOrder, planProblem } from '../../../domain/plan'
@@ -26,7 +26,7 @@ export function createPlan(context: Context, command: CommandOf<'createPlan'>): 
   }
   for (const item of command.items) {
     const period = targetPeriod(context, item.horizon)
-    if ((period?.id ?? null) !== item.previewPeriodId) throw new DomainError('stale', serverText().errors.planPeriodChanged)
+    if ((period?.id ?? null) !== item.previewPeriodId) throw new DomainError('stale_preview', serverText().errors.planPeriodChanged)
     if (item.flowColor !== null) assertFlowColorFree(context, item.flowColor, null)
   }
   const ids = new Map<string, string>()

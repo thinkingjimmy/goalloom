@@ -7,17 +7,60 @@ files:
   - package.json
   - '!node_modules/**/*'
 asar: true
+compression: normal
 npmRebuild: false
 toolsets:
   nsis: '1.2.1'
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 mac:
+  electronLanguages:
+    - en
+    - en_FEMININE
+    - en_GB
+    - en_GB_FEMININE
+    - en_GB_MASCULINE
+    - en_GB_NEUTER
+    - en_MASCULINE
+    - en_NEUTER
+    - es
+    - es_419
+    - es_419_FEMININE
+    - es_419_MASCULINE
+    - es_419_NEUTER
+    - es_FEMININE
+    - es_MASCULINE
+    - es_NEUTER
+    - fr
+    - fr_FEMININE
+    - fr_MASCULINE
+    - fr_NEUTER
+    - ja
+    - ja_FEMININE
+    - ja_MASCULINE
+    - ja_NEUTER
+    - zh_CN
+    - zh_CN_FEMININE
+    - zh_CN_MASCULINE
+    - zh_CN_NEUTER
+    - zh_TW
+    - zh_TW_FEMININE
+    - zh_TW_MASCULINE
+    - zh_TW_NEUTER
   minimumSystemVersion: '14.0'
   category: public.app-category.productivity
   target:
     - target: zip
       arch: [arm64]
 win:
+  electronLanguages:
+    - en-GB
+    - en-US
+    - es
+    - es-419
+    - fr
+    - ja
+    - zh-CN
+    - zh-TW
   target:
     - target: nsis
       arch: [x64]

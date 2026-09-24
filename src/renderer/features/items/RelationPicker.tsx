@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 当前条目、方向（上级/下级）、有效关系、流程视图、看板候选与受限提交。
- * [OUTPUT]: 可搜索的勾选列表：勾选即关联，取消即解除；流程根不能作为下级。
- * [POS]: items 详情的关系入口；自关联/重复/环/流程约束最终由事务拒绝并提示。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Current item, incident edges, flow view, summary candidates and actions.
+ * [OUTPUT]: Searchable relationship controls with local hints and authoritative error feedback.
+ * [POS]: Detail relationship entry; storage rejects self-links, duplicates, cycles and invalid roots.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState } from 'react'
-import type { Item } from '../../../shared/contracts/entities'
+import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { ItemDetail } from '../../../shared/contracts/queries'
 import { messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
@@ -14,11 +14,11 @@ import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
 
 export function RelationPicker({ side, detail, flows, candidates, submit, onError }: {
-  side: 'parent' | 'child'; detail: ItemDetail; flows: Flows; candidates: Item[]
+  side: 'parent' | 'child'; detail: ItemDetail; flows: Flows; candidates: ItemSummary[]
   submit: (action: Action) => Promise<unknown>; onError: (message: string) => void
 }) {
   const self = detail.item
-  const [query, setQuery] = useState(''), [results, setResults] = useState<Item[]>([])
+  const [query, setQuery] = useState(''), [results, setResults] = useState<ItemSummary[]>([])
   useEffect(() => {
     if (!query.trim()) return
     let active = true
@@ -28,7 +28,7 @@ export function RelationPicker({ side, detail, flows, candidates, submit, onErro
   }, [query])
   const edgeFor = (other: string) => detail.relations.find(edge => side === 'parent' ? edge.parentId === other && edge.childId === self.id : edge.childId === other && edge.parentId === self.id)
   const roots = new Set(flows.all.map(flow => flow.id))
-  const toggle = async (other: Item) => {
+  const toggle = async (other: ItemSummary) => {
     const edge = edgeFor(other.id)
     try {
       if (edge) {

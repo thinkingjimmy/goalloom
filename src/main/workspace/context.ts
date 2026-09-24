@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 权威事务快照、命令、注入观察时刻和 Store。
- * [OUTPUT]: 命令共享上下文、当前周期、流程颜色占用/根判定与有限顺序重排工具。
- * [POS]: workspace 命令的公共原语；不在此打开嵌套事务。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Authoritative workspace, command, injected observation time and Store.
+ * [OUTPUT]: Shared period, color and indexed ordering primitives; lightweight rebalancing only when needed.
+ * [POS]: Command context with transaction-local calculations and rollback-safe period insertion.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { currentPeriod } from '../../domain/calendar'
 import { DomainError, type Command } from '../../shared/contracts/commands'
@@ -14,6 +14,7 @@ import { serverText } from '../../shared/i18n/server'
 export interface Context {
   store: Store; workspace: Workspace; command: Pick<Command, 'operationId' | 'generation'>; now: string;
   effects: Effect[]; warnings: string[]; itemId: string | null; label: string; itemIds?: string[]
+  periods?: Map<ItemHorizon, PlanningPeriod | null>
   restoreSource?: string; outcome?: 'conflict_skipped'; undone?: { originalId: string; index: number }[]
 }
 export function assertAvailable(item: Item): void { if (item.deletedAt !== null) throw new DomainError('conflict', serverText().errors.inTrash) }
@@ -31,8 +32,10 @@ export function assertFlowColorFree(context: Context, color: number, exceptId: s
 export function targetPeriod(context: Context, horizon: ItemHorizon): PlanningPeriod | null {
   if (horizon === 'later') return null
   if (!context.workspace.calendar) throw new DomainError('setup', serverText().errors.setupRequired)
-  const period = currentPeriod(context.workspace.calendar, horizon, context.now)
+  const period = context.periods?.get(horizon) ?? currentPeriod(context.workspace.calendar, horizon, context.now)
+  // Cache only the calculation: a previous SAVEPOINT may have rolled back the insertion.
   context.store.ensurePeriod(period)
+  context.periods ??= new Map(); context.periods.set(horizon, period)
   return period
 }
 export function touch(context: Context, item: Item): void {
@@ -42,22 +45,20 @@ export function touch(context: Context, item: Item): void {
   context.store.saveItem(item, previousVersion)
 }
 export function nextSortKey(context: Context, horizon: ItemHorizon, periodId: string | null, beforeId: string | null, excludedId?: string): number {
-  const order = context.store.order(horizon, periodId).filter(item => item.id !== excludedId)
-  const index = beforeId === null ? order.length : order.findIndex(item => item.id === beforeId)
-  if (index < 0) throw new DomainError('conflict', serverText().errors.sortTargetGone)
+  let neighbors = context.store.insertion(horizon, periodId, beforeId, excludedId ?? null)
   const calculate = (): number => {
-    const previous = order[index - 1]?.placement.sortKey
-    const next = order[index]?.placement.sortKey
+    const previous = neighbors.previous?.sortKey, next = neighbors.next?.sortKey
     return previous === undefined ? (next ?? 1024) - 1024 : next === undefined ? previous + 1024 : previous + (next - previous) / 2
   }
   let key = calculate()
-  if (!Number.isFinite(key) || Math.abs(key) > 1e15 || key === order[index - 1]?.placement.sortKey || key === order[index]?.placement.sortKey) {
-    order.forEach((item, index) => {
+  if (!Number.isFinite(key) || Math.abs(key) > 1e15 || key === neighbors.previous?.sortKey || key === neighbors.next?.sortKey) {
+    // Only exhausted gaps need a complete order. Exclude the moving row, preserving all other membership rules.
+    context.store.order(horizon, periodId).filter(item => item.id !== excludedId).forEach((item, index) => {
       const previous = item.placement.version
-      item.placement.sortKey = (index + 1) * 1024
-      item.placement.version++
+      item.placement.sortKey = (index + 1) * 1024; item.placement.version++
       context.store.savePlacement(item.placement, previous)
     })
+    neighbors = context.store.insertion(horizon, periodId, beforeId, excludedId ?? null)
     key = calculate()
   }
   return key

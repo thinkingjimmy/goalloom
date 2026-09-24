@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 目标列、流程派生视图、可选拆解上级与受限提交。
- * [OUTPUT]: 列内连续录入行；复选框选择加入流程/新流程/不加入，Enter 创建并保留选择。
- * [POS]: board 的创建入口；加入流程即关联到流程根，新流程即设置唯一颜色，均由事务复核。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Target column, flow view, optional parent and guarded submission.
+ * [OUTPUT]: Continuous inline creation preserving input typed during save or refresh.
+ * [POS]: Board creation entry; input revision controls clearing, storage owns relationship constraints.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useRef, useState } from 'react'
 import type { ItemHorizon } from '../../../shared/contracts/entities'
@@ -21,6 +21,8 @@ export function QuickAdd({ horizon, flows, split, submit, busy, close }: { horiz
   const [choice, setChoice] = useState<Choice>(split ? { kind: 'split', parent: split } : { kind: 'none' })
   const [picking, setPicking] = useState(false)
   const input = useRef<HTMLInputElement>(null), root = useRef<HTMLDivElement>(null)
+  const revision = useRef(0), saving = useRef(false), choiceRef = useRef(choice)
+  choiceRef.current = choice
   const joinable = flows.visible
   const free = relationColors.map((_, index) => index).filter(index => !flows.owner(index))
   const parentId = choice.kind === 'join' ? choice.id : choice.kind === 'split' ? choice.parent.id : null
@@ -32,16 +34,20 @@ export function QuickAdd({ horizon, flows, split, submit, busy, close }: { horiz
   const pick = (next: Choice) => { setChoice(next); setPicking(false); input.current?.focus() }
   const create = async () => {
     const text = title.trim()
-    if (!text || busy) return
-    const expectedParentVersion = parentId ? (await desktopApi().getItem(parentId).catch(() => null))?.item.version ?? null : null
-    if (parentId && expectedParentVersion === null) return
-    const result = await submit({ type: 'create', title: text, horizon, parentId, expectedParentVersion, flowColor: choice.kind === 'new' ? choice.color : null })
-    if (!result) return
-    setTitle('')
-    // The new item now owns the colour, so following entries join that flow.
-    const created = (result as { itemId: string | null }).itemId
-    if (choice.kind === 'new' && created) setChoice({ kind: 'join', id: created })
-    input.current?.focus()
+    if (!text || busy || saving.current) return
+    const submittedRevision = revision.current
+    saving.current = true
+    try {
+      const expectedParentVersion = parentId ? (await desktopApi().getItem(parentId).catch(() => null))?.item.version ?? null : null
+      if (parentId && expectedParentVersion === null) return
+      const result = await submit({ type: 'create', title: text, horizon, parentId, expectedParentVersion, flowColor: choice.kind === 'new' ? choice.color : null })
+      if (!result) return
+      if (revision.current === submittedRevision) setTitle('')
+      // The new item now owns the colour, so following entries join that flow.
+      const created = (result as { itemId: string | null }).itemId
+      if (choice.kind === 'new' && created && choiceRef.current === choice) setChoice({ kind: 'join', id: created })
+      input.current?.focus()
+    } finally { saving.current = false }
   }
   return <div className="quick-add" ref={root} onBlur={event => {
     if (!root.current?.contains(event.relatedTarget as Node | null) && !title.trim() && !picking) close()
@@ -63,7 +69,7 @@ export function QuickAdd({ horizon, flows, split, submit, busy, close }: { horiz
       </div>
     </Popover>
     <input ref={input} aria-label={messages.newToColumn(horizonNames[horizon])} placeholder={messages.titlePlaceholder} autoFocus value={title} maxLength={500}
-      onChange={event => setTitle(event.target.value)}
+      onChange={event => { revision.current++; setTitle(event.target.value) }}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return
         if (event.key === 'Enter') { event.preventDefault(); void create() }

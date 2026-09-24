@@ -28,6 +28,11 @@ async function main() {
   let now = start.toInstant().toString()
   const db = openDatabase(join(profile, 'workspace.sqlite')); migrate(db)
   const repo = new Repository(db, { now: () => now }), service = new WorkspaceService(repo, join(profile, 'backups'))
+  if (process.argv[3] === 'prepare') {
+    const workspace = repo.store.workspace(); workspace.pausedAfterRestore = process.argv[4] === 'true'; repo.store.saveWorkspace(workspace)
+    if (process.argv[5] === 'true') await service.backups.daily(workspace, new Date().toISOString())
+    db.close(); return
+  }
   const run = (action: Action) => repo.execute({ ...action, generation: repo.store.workspace().generation, operationId: randomUUID() })
   const measured: Record<string, number | number[]> = {}
   const measure = <T>(label: string, work: () => T): T => { const t = performance.now(); const result = work(); measured[label] = Math.round((performance.now() - t) * 10) / 10; return result }
@@ -78,7 +83,12 @@ async function main() {
   measure('atomicRestoreMs', () => replaceDataset(repo.store, restored, 'restore', now))
   assert.equal(repo.snapshot().items.length, 1000)
   assert.equal(exportDataset(repo.store, now).events.length, data.events.length)
-  const report = { environment: { electron: process.versions.electron, node: process.versions.node, sqlite: db.prepare('SELECT sqlite_version() AS v').get()!.v, os: release(), arch: process.arch, cpu: cpus()[0]!.model }, counts: { total: data.items.length, active: 1000, relations: data.relations.length, events: data.events.length, operations: data.operations.length, rollover: repo.store.operation(batch.operationId)!.effects.length }, measured, sqliteBytes: (await stat(service.backups.path(backup.id))).size, processRssBytes: process.memoryUsage().rss, historyStart: oldDay, firstId: active[200] }
+  const queryPlans = [
+    ["SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? ORDER BY p.sortKey DESC,p.itemId DESC LIMIT 1", ['day', snapshot.periods.find(period => period.horizon === 'day')!.id]],
+    ["SELECT seq FROM item_events WHERE itemId=? AND fromPeriodId IS NOT toPeriodId ORDER BY seq DESC LIMIT 1", [active[200]!]],
+    ["SELECT count(*) FROM item_events WHERE operationId=?", [batch.operationId]],
+  ].map(([sql, parameters]) => ({ sql, plan: db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...parameters as string[]) }))
+  const report = { queryPlans, environment: { electron: process.versions.electron, node: process.versions.node, sqlite: db.prepare('SELECT sqlite_version() AS v').get()!.v, os: release(), arch: process.arch, cpu: cpus()[0]!.model }, counts: { total: data.items.length, active: 1000, relations: data.relations.length, events: data.events.length, operations: data.operations.length, rollover: repo.store.operation(batch.operationId)!.effects.length }, measured, sqliteBytes: (await stat(service.backups.path(backup.id))).size, processRssBytes: process.memoryUsage().rss, historyStart: oldDay, firstId: active[200] }
   writeFileSync(join(profile, 'performance.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
   db.close()

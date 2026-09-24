@@ -1,15 +1,15 @@
 /**
- * [INPUT]: 工作区日历、顺延策略、自动顺延批次、受限提交与禁用状态。
- * [OUTPUT]: 三栏只读日历卡（时区/一周开始/周期起点，锁定说明与前往重置）、逐列手动/自动顺延（说明随选择变化，3个月固定手动）、可展开并撤销的顺延记录。
- * [POS]: settings 的日历与顺延分类；策略版本与批次撤销仍由主进程事务复核。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Workspace calendar, policies, batch summaries and guarded actions.
+ * [OUTPUT]: Read-only calendar, rollover policies and expanded paged batch members.
+ * [POS]: Calendar settings; batch identities and undo are revalidated in storage.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CalendarConfig, Policy } from '../../../../shared/contracts/entities'
-import type { BatchSummary } from '../../../../shared/contracts/transfer'
+import type { BatchPage, BatchSummary } from '../../../../shared/contracts/transfer'
 import { horizonNames, messages, settingsMessages as s } from '../../../i18n'
 import { weekdayName } from '../../../i18n/format'
-import type { Action } from '../../../state/use-workspace'
+import { desktopApi, type Action } from '../../../state/use-workspace'
 import { gmtOffset } from '../../../lib/timezones'
 import { cycleRange, parseDate } from '../../../../domain/calendar'
 import { Icon } from '../../../components/icons'
@@ -56,7 +56,7 @@ export function CalendarPane({ calendar, policies, batches, today, disabled, sub
             <span className="settings-hint">{messages.batchSummary(batch.total, batch.undone)}</span>
           </button>
           {expanded && <div className="settings-batch-body">
-            <ul>{batch.items.map(item => <li key={item.id}><span>{item.title}</span><small>{item.from} → {item.to}</small></li>)}</ul>
+            <BatchItems key={batch.id} id={batch.id} undone={batch.undone} />
             <div className="settings-batch-actions">
               <small>{messages.batchUndoNote}</small>
               <button type="button" className="settings-button" disabled={disabled || batch.undone === batch.total} onClick={() => void submit({ type: 'undoBatch', originalOperationId: batch.id })}>{s.undoRollover}</button>
@@ -65,5 +65,23 @@ export function CalendarPane({ calendar, policies, batches, today, disabled, sub
         </div>
       })}
     </SettingsGroup>
+  </>
+}
+
+function BatchItems({ id, undone }: { id: string; undone: number }) {
+  const [offset, setOffset] = useState(0), [page, setPage] = useState<BatchPage | null>(null), [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    void desktopApi().getBatchItems({ type: 'batchItems', operationId: id, offset, limit: 50 }).then(next => { if (active) setPage(next) }).catch(() => { if (active) setError(messages.listFailed) })
+    return () => { active = false }
+  }, [id, offset, undone])
+  return <>
+    {error && <p role="alert">{error}</p>}
+    <ul>{page?.items.map(item => <li key={item.id}><span>{item.title}</span><small>{item.from} → {item.to}</small></li>)}</ul>
+    {page && page.total > 50 && <div className="items-pagination">
+      <button type="button" className="settings-button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>{messages.previousPage}</button>
+      <span>{offset + 1}–{Math.min(offset + 50, page.total)} / {page.total}</span>
+      <button type="button" className="settings-button" disabled={offset + 50 >= page.total} onClick={() => setOffset(offset + 50)}>{messages.nextPage}</button>
+    </div>}
   </>
 }

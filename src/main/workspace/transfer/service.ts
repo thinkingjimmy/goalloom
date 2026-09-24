@@ -1,15 +1,16 @@
 /**
- * [INPUT]: 串行 worker 请求、主进程选择的数据、注入时钟和 BackupManager。
- * [OUTPUT]: 可审阅预览→持续维护/保护副本→显式确认→原子替换；取消保留旧运行状态。
- * [POS]: workspace 的整库服务；所有危险动作只依赖本机生成令牌和已验证回执。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Serial worker requests, owned source data, clock and BackupManager.
+ * [OUTPUT]: Preview, sustained maintenance, verified protective copy and explicit atomic replacement.
+ * [POS]: Workspace replacement service; cancellation, failure and renderer-session release drop pending data.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { metric } from '../../storage/metrics'
 import { randomUUID } from 'node:crypto'
-import { validateImport } from '../../../domain/import-validation'
+import { validateDataset, validateImport } from '../../../domain/import-validation'
 import { DomainError, type CommandResult } from '../../../shared/contracts/commands'
 import { dataActionSchema, type DataReply, type Dataset, type TransferPreview } from '../../../shared/contracts/transfer'
 import { BackupManager } from '../../storage/backup/manager'
-import { emptyDataset, readSqliteDataset, replaceDataset } from './dataset'
+import { emptyDataset, readSqliteDataset, replaceDataset, verifySqliteDataset } from './dataset'
 import { reconcile } from '../reconcile'
 import type { Repository } from '../repository'
 import { serverText } from '../../../shared/i18n/server'
@@ -23,7 +24,9 @@ export class WorkspaceService {
   async reconcile(): Promise<CommandResult | null> {
     if (this.repository.maintenance) return null
     const now = this.repository.clock.now(), workspace = this.repository.store.workspace()
-    try { await this.backups.daily(workspace, now) } catch { /* 日常失败显示状态，但不阻断正常编辑或核对。 */ }
+    const start = performance.now()
+    try { await this.backups.daily(workspace, now) } catch { /* A failed daily attempt is visible but does not prevent editing. */ }
+    metric('daily-backup', { ms: performance.now() - start, failed: this.backups.lastError !== null })
     return reconcile(this.repository, now)
   }
   previewImport(source: unknown, generation: string): DataReply {
@@ -32,6 +35,15 @@ export class WorkspaceService {
     let data: Dataset
     try { data = validateImport(source, this.repository.clock.now()) }
     catch (error) { throw new DomainError('invalid', serverText().errors.notImported(error instanceof Error ? error.message.slice(0, 300) : serverText().errors.fileCheckFailed)) }
+    return this.previewDataset(data, generation)
+  }
+  async previewSqlite(path: string, generation: string, source: 'external' | 'backup' = 'external'): Promise<DataReply> {
+    this.guard(generation)
+    if (this.repository.maintenance) throw new DomainError('maintenance', serverText().errors.finishMaintenance)
+    const data = await readSqliteDataset(path, this.repository.clock.now(), source)
+    return this.previewDataset(data, generation)
+  }
+  private previewDataset(data: Dataset, generation: string): DataReply {
     const workspace = this.repository.store.workspace()
     const preview: TransferPreview = { token: randomUUID(), mode: 'restore', generation, revision: workspace.revision, items: data.items.length, relations: data.relations.length, periods: data.periods.length, events: data.events.length, operations: data.operations.length,
       sourceCalendar: data.workspace.calendar, warnings: data.historyMode === 'baseline' ? [serverText().warnings.baselineImport] : [], backup: null, backupPath: null }
@@ -59,7 +71,7 @@ export class WorkspaceService {
         const record = (await this.backups.records()).find(record => record.id === action.backupId)
         if (!record) throw new DomainError('invalid', serverText().errors.backupReceiptMissing)
         await this.backups.verify(record)
-        return this.previewImport(await readSqliteDataset(this.backups.path(record.id), this.repository.clock.now()), action.generation)
+        return this.previewSqlite(this.backups.path(record.id), action.generation, 'backup')
       }
       case 'prepare': return this.prepare(action.token)
       default: throw new DomainError('invalid', serverText().errors.nativePickerOnly)
@@ -87,6 +99,8 @@ export class WorkspaceService {
       pending.preview.revision = workspace.revision
       const backup = await this.backups.create('protective', workspace, this.repository.clock.now())
       await this.backups.verify(backup)
+      // The exact protective file must pass the actual restore path before replacement is offered.
+      await verifySqliteDataset(this.backups.path(backup.id), this.repository.clock.now())
       pending.preview.backup = backup
       pending.preview.backupPath = this.backups.path(backup.id)
       pending.ready = true
@@ -101,7 +115,7 @@ export class WorkspaceService {
       await this.backups.verify(pending.preview.backup)
       const now = this.repository.clock.now()
       const source = pending.source ?? emptyDataset(this.repository.store, now)
-      validateImport(source, now)
+      validateDataset(source, now)
       const generation = replaceDataset(this.repository.store, source, pending.preview.mode, now)
       this.completed.set(token, { originalGeneration: current.generation, generation })
       this.release()
@@ -115,5 +129,5 @@ export class WorkspaceService {
   private guard(generation: string): void {
     if (generation !== this.repository.store.workspace().generation) throw new DomainError('generation', serverText().errors.workspaceReplacedShort)
   }
-  private release(): void { this.pending = null; this.repository.maintenance = false }
+  release(): void { this.pending = null; this.repository.maintenance = false }
 }

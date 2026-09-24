@@ -1,9 +1,10 @@
 /**
- * [INPUT]: 依赖 ../zh/app 的 appMessages 类型；错误、警告与操作标签的参数化英文文案。
- * [OUTPUT]: appMessages：与 zh 同构的原生对话框、存储、命令错误、操作标签/警告、撤销冲突、校验、备份与智能输入失败文案。
- * [POS]: shared/i18n/catalogs/en 的服务端通用分册，与 zh 同构；main、worker 与 domain 经 serverText() 读取。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Shared wire-validation messages and typed localized server copy.
+ * [OUTPUT]: en appMessages for native dialogs, storage, commands, calendar and smart-input feedback.
+ * [POS]: Server catalog composed by serverText; wire errors are shared with preload without importing this module.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { validationCatalogs } from '../../validation'
 import type { appMessages as source } from '../zh/app'
 
 export const appMessages: typeof source = {
@@ -166,9 +167,7 @@ export const appMessages: typeof source = {
     dateFormat: 'Dates must use YYYY-MM-DD',
     anchorAfterToday: 'The cycle start can’t be later than today',
     anchorMissing: 'Cycle start is missing',
-    invalidDate: 'Invalid date',
-    invalidCalendarConfig: 'Invalid calendar configuration',
-    missingPreference: 'Appearance preference is missing',
+    ...validationCatalogs.en,
   },
   smart: {
     failures: {

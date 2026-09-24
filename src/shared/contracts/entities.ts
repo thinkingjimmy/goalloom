@@ -1,15 +1,16 @@
 /**
- * [INPUT]: zod 与纯日历校验。
- * [OUTPUT]: 工作区/条目/流程颜色/位置/多父 DAG 边/周期的严格 schema 和 DTO。
- * [POS]: 持久化、IPC、导入的共同数据契约；无 Electron 依赖。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Zod and date/calendar wire validation.
+ * [OUTPUT]: Strict workspace, item summary/detail, placement, relation and period DTOs.
+ * [POS]: Persistence, IPC and import schemas without Electron dependencies.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { measureDate } from './validation-metrics'
 import { z } from 'zod'
-import { parseDate, validateCalendar } from '../../domain/calendar'
-import { serverText } from '../i18n/server'
+import { validDate, validTimezone } from './wire-calendar'
+import { validationText } from '../i18n/validation'
 
 export const idSchema = z.string().min(1).max(180).regex(/^[a-zA-Z0-9:_-]+$/)
-export const dateSchema = z.string().refine(value => { try { parseDate(value); return true } catch { return false } }, { error: () => serverText().calendar.invalidDate })
+export const dateSchema = z.string().refine(value => measureDate(() => validDate(value)), { error: () => validationText().invalidDate })
 export const instantSchema = z.iso.datetime({ offset: true })
 export const horizonSchema = z.enum(['later', 'cycle', 'month', 'week', 'day'])
 export const periodHorizonSchema = z.enum(['cycle', 'month', 'week', 'day'])
@@ -17,7 +18,7 @@ export const statusSchema = z.enum(['todo', 'done', 'cancelled'])
 // Fixed palette index owned by a flow root; schema v1 data has no field and reads as null.
 export const flowColorSchema = z.number().int().min(0).max(7)
 export const calendarSchema = z.strictObject({ id: idSchema, timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema })
-  .refine(value => { try { validateCalendar(value); return true } catch { return false } }, { error: () => serverText().calendar.invalidCalendarConfig })
+  .refine(value => measureDate(() => validTimezone(value.timezone)), { error: () => validationText().invalidCalendarConfig })
 export const periodSchema = z.strictObject({
   id: idSchema, horizon: periodHorizonSchema, startDate: dateSchema, endDate: dateSchema,
   startAt: instantSchema, endAt: instantSchema,
@@ -34,6 +35,8 @@ export const placementSchema = z.strictObject({
   version: z.number().int().positive(), holdPeriodId: idSchema.nullable(),
 })
 export const itemSchema = itemRecordSchema.extend({ placement: placementSchema })
+export const itemSummarySchema = itemRecordSchema.omit({ description: true }).extend({ hasDescription: z.boolean(), placement: placementSchema })
+export type ItemSummary = z.infer<typeof itemSummarySchema>
 export const relationSchema = z.strictObject({
   id: idSchema, parentId: idSchema, childId: idSchema, invalidatedAt: instantSchema.nullable(),
   invalidatedBy: idSchema.nullable(), reason: z.enum(['unlink', 'delete']).nullable(), createdAt: instantSchema,

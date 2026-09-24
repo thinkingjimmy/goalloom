@@ -1,15 +1,14 @@
 /**
- * [INPUT]: 权威快照/流程视图、智能输入状态、受限提交与最近错误、可选会话草稿与示例文本。
- * [OUTPUT]: 全局居中 composer：固定多行输入；未启用为单条 Later 普通预览；启用后 600ms 防抖、IME 不发送、按修订回声采纳 Jev 预览，手动优先编辑，失败可重试/冻结/先存 Later，保存/确认快捷键（默认 Cmd/Ctrl+Enter）确认 createPlan。
- * [POS]: FAB 与 Cmd/Ctrl+N 的唯一入口；不继承聚焦列/筛选/选中项；预览阶段不写业务库，关闭时把未保存内容交回会话草稿。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Snapshot, smart-input state, guarded submission and session draft.
+ * [OUTPUT]: Revision-aware analysis, editable previews, bounded parent metadata and safe createPlan confirmation.
+ * [POS]: Global composer; preserves newer input and removals and invalidates outdated preview context.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { workspaceDate } from '../../../domain/calendar'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import type { AnalyzeReply, Failure, PreviewWarning } from '../../../shared/contracts/smart-input'
 import { smartMessages as t } from '../../i18n'
-import { serverText } from '../../../shared/i18n/server'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import type { Smart } from '../../state/smart'
@@ -20,15 +19,15 @@ import { candidateInfo, draftProblem, edited, mergePreview, plainDraft, planItem
 import { DraftCard } from './DraftCard'
 import './composer.css'
 
-export interface ComposerMemory { text: string; drafts: EditableDraft[]; removed: string[]; parents: [string, ParentInfo][]; warnings: PreviewWarning[]; previewText: string | null; consentRevision: number | null }
+export interface ComposerMemory { text: string; drafts: EditableDraft[]; removed: string[]; parents: [string, ParentInfo][]; warnings: PreviewWarning[]; previewText: string | null; previewContext: string | null; consentRevision: number | null }
 interface Props {
-  snapshot: Snapshot; flows: Flows; smart: Smart; submit: (action: Action) => Promise<unknown>; busy: boolean; error: string | null
+  snapshot: Snapshot; flows: Flows; smart: Smart; submit: (action: Action) => Promise<unknown>; busy: boolean; error: string | null; errorCode: string | null
   memory: ComposerMemory | null; keep: (memory: ComposerMemory | null) => void; close: () => void; openSettings: () => void
 }
 type Phase = { kind: 'idle' } | { kind: 'pending' } | { kind: 'ready' } | { kind: 'failed'; failure: Failure }
 const debounceMs = 600
 
-export function Composer({ snapshot, flows, smart, submit, busy, error, memory, keep, close, openSettings }: Props) {
+export function Composer({ snapshot, flows, smart, submit, busy, error, errorCode, memory, keep, close, openSettings }: Props) {
   const status = smart.status
   const enabled = !!status?.enabled
   const [text, setText] = useState(memory?.text ?? '')
@@ -38,24 +37,30 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, memory, 
   const [parents, setParents] = useState(() => new Map(memory?.parents ?? []))
   const [warnings, setWarnings] = useState<PreviewWarning[]>(memory?.warnings ?? [])
   const [previewText, setPreviewText] = useState<string | null>(memory?.previewText ?? null)
+  const [previewContext, setPreviewContext] = useState<string | null>(memory?.previewContext ?? null)
   // A draft typed before (re)enabling or under another provider is never forwarded until the user asks.
   const [consentRevision, setConsentRevision] = useState<number | null>(memory ? memory.consentRevision : enabled ? status!.providerRevision : null)
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const [fallback, setFallback] = useState(false), [composing, setComposing] = useState(false), [problem, setProblem] = useState<string | null>(null)
   const session = useRef(crypto.randomUUID()), input = useRef(0), manual = useRef(0), field = useRef<HTMLTextAreaElement>(null)
+  const latestRequest = useRef<string | null>(null), alive = useRef(true), saving = useRef(false)
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
   const smartMode = enabled && consentRevision === status?.providerRevision
   const plain = useMemo(() => plainDraft(text, null), [text])
-  const current = previewText === text.trim()
+  const contextKey = JSON.stringify([snapshot.workspace.generation, snapshot.workspace.revision, status?.providerRevision, today, snapshot.periods.map(period => period.id)])
+  const current = previewText === text.trim() && previewContext === contextKey
   const usedColors = flows.all.map(flow => flow.flowColor)
-  const stateRef = useRef({ text, drafts, removed, parents, warnings, previewText, consentRevision })
-  stateRef.current = { text, drafts, removed, parents, warnings, previewText, consentRevision }
+  const stateRef = useRef({ text, drafts, removed, parents, warnings, previewText, previewContext, consentRevision })
+  stateRef.current = { text, drafts, removed, parents, warnings, previewText, previewContext, consentRevision }
+  const contextRef = useRef({ contextKey, smartMode })
+  contextRef.current = { contextKey, smartMode }
 
-  useEffect(() => () => {
+  useEffect(() => { alive.current = true; return () => {
+    alive.current = false
     void desktopApi().smart({ type: 'cancel', draftSessionId: session.current }).catch(() => null)
     const state = stateRef.current
     keep(state.text.trim() ? { ...state, parents: [...state.parents] } : null)
-  }, [])
+  } }, [])
   useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => { if (stateRef.current.text.trim()) event.preventDefault() }
     window.addEventListener('beforeunload', guard)
@@ -66,29 +71,36 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, memory, 
     const value = text.trim()
     if (!status || !smartMode || !value) return
     const request = { requestId: crypto.randomUUID(), draftSessionId: session.current, inputRevision: input.current, manualRevision: manual.current, generation: snapshot.workspace.generation,
-      providerRevision: status.providerRevision, contextRevision: snapshot.workspace.revision, referenceTime: new Date().toISOString(), text: value, parentHints: [] }
+      providerRevision: status.providerRevision, contextRevision: snapshot.workspace.revision, referenceTime: snapshot.observedAt, text: value, parentHints: [] }
+    latestRequest.current = request.requestId
+    const applicable = () => alive.current && latestRequest.current === request.requestId && input.current === request.inputRevision && contextRef.current.contextKey === contextKey && contextRef.current.smartMode
     setPhase({ kind: 'pending' })
     let reply: AnalyzeReply
     try {
       const result = await desktopApi().smart({ type: 'analyze', request })
       if (result.type !== 'analysis') return
       reply = result.reply
-    } catch { setPhase({ kind: 'failed', failure: { kind: 'unavailable', message: t.analyzeFailed, status: null, retryAt: null } }); return }
+    } catch { if (applicable()) setPhase({ kind: 'failed', failure: { kind: 'unavailable', message: t.analyzeFailed, status: null, retryAt: null } }); return }
     // --- Only an answer for this exact input, manual state, provider and context may touch the preview. ---
-    if (reply.echo.inputRevision !== input.current || reply.echo.generation !== snapshot.workspace.generation || reply.echo.providerRevision !== smart.status?.providerRevision) return
+    if (!applicable() || reply.echo.requestId !== request.requestId || reply.echo.inputRevision !== input.current || reply.echo.contextRevision !== request.contextRevision || reply.echo.generation !== request.generation || reply.echo.providerRevision !== request.providerRevision) return
     if (reply.status === 'cancelled') return
-    if (reply.echo.manualRevision !== manual.current) { void analyze(); return }
+    if (reply.echo.manualRevision !== manual.current) { void analyzeRef.current(); return }
     if (reply.status === 'failed') { setPhase({ kind: 'failed', failure: reply.failure }); if (reply.failure.kind === 'rate_limited') void smart.refresh(); return }
-    setDrafts(previous => mergePreview(reply.preview, previous, removed))
-    setParents(previous => new Map([...previous, ...candidateInfo(reply.preview.candidates)]))
-    setWarnings(reply.preview.warnings); setPreviewText(value); setPhase({ kind: 'ready' })
+    if (reply.preview.referenceDate !== today || snapshot.periods.some(period => reply.preview.periods[period.horizon]?.id !== period.id)) { setProblem(t.stalePeriod); setPhase({ kind: 'idle' }); return }
+    const merged = mergePreview(reply.preview, stateRef.current.drafts, stateRef.current.removed)
+    setDrafts(merged)
+    const referenced = new Set(merged.flatMap(draft => [...draft.parents, ...draft.parentSuggestions].flatMap(parent => parent.kind === 'existing' ? [parent.itemId] : [])))
+    setParents(previous => new Map([...previous].filter(([id]) => referenced.has(id)).concat([...candidateInfo(reply.preview.candidates)])))
+    setWarnings(reply.preview.warnings); setPreviewText(value); setPreviewContext(contextKey); setPhase({ kind: 'ready' }); setProblem(null)
   }
+  const analyzeRef = useRef(analyze)
+  analyzeRef.current = analyze
   useEffect(() => {
     if (!smartMode || composing || !text.trim() || current) return
     const cooldown = status?.cooldownUntil ? Date.parse(status.cooldownUntil) - Date.now() : 0
     const timer = setTimeout(() => void analyze(), Math.max(debounceMs, cooldown))
     return () => clearTimeout(timer)
-  }, [text, smartMode, composing, current, snapshot.workspace.revision])
+  }, [text, smartMode, composing, current, contextKey])
   // Status may arrive after opening: an empty composer adopts the current provider; typed text still waits for an explicit resend.
   useEffect(() => { if (consentRevision === null && enabled && !stateRef.current.text.trim()) setConsentRevision(status!.providerRevision) }, [enabled])
 
@@ -104,19 +116,27 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, memory, 
   }
   const finish = () => { setText(''); stateRef.current.text = ''; keep(null); close() }
   const saveLater = async () => {
-    if (!plain || busy) return
-    const result = await submit({ type: 'createPlan', items: [{ draftId: 'later', title: plain.title, description: plain.description, dueDate: null, horizon: 'later', previewPeriodId: null, parentRefs: [], flowColor: null }] })
-    if (result) finish()
+    if (!plain || busy || saving.current) return
+    const revision = input.current, manualRevision = manual.current
+    saving.current = true
+    try {
+      const result = await submit({ type: 'createPlan', items: [{ draftId: 'later', title: plain.title, description: plain.description, dueDate: null, horizon: 'later', previewPeriodId: null, parentRefs: [], flowColor: null }] })
+      if (result && alive.current && revision === input.current && manualRevision === manual.current) finish()
+    } finally { saving.current = false }
   }
   const confirm = async () => {
-    if (busy) return
+    if (busy || saving.current || !current) return
     const issue = draftProblem(drafts, parents, usedColors)
     if (issue) { setProblem(issue); return }
-    const result = await submit({ type: 'createPlan', items: planItems(drafts, parents, snapshot.periods) })
-    if (result) finish()
+    const revision = input.current, manualRevision = manual.current
+    saving.current = true
+    try {
+      const result = await submit({ type: 'createPlan', items: planItems(drafts, parents) })
+      if (result && alive.current && revision === input.current && manualRevision === manual.current) finish()
+    } finally { saving.current = false }
   }
   // A day/week/month boundary passed since the preview: refresh dates rather than silently re-scheduling.
-  useEffect(() => { if (error?.includes(serverText().errors.planPeriodChanged)) { setPreviewText(null); setProblem(t.stalePeriod) } }, [error])
+  useEffect(() => { if (errorCode === 'stale_preview') { setPreviewText(null); setProblem(t.stalePeriod) } }, [errorCode])
   // A failed refresh may still confirm the preview of this exact text (frozen as a manual draft); anything older may not.
   const canConfirm = smartMode && drafts.length > 0 && previewText !== null && current
   const primary = () => { if (!smartMode) void saveLater(); else if (canConfirm) void confirm() }

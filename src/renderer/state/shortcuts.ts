@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 浏览器 KeyboardEvent（按物理键 code 解析）、本机 localStorage、navigator 平台。
- * [OUTPUT]: 快捷键定义表 shortcutIds/defaultBindings、按顶栏位置的 filterCombo/filterSlot、parseEvent/validate/formatKeys/formatCombo/ariaKeys/conflictsOf 纯函数，useShortcuts（绑定、流程筛选开关、改键、清除、恢复默认）。
- * [POS]: renderer/state 的本机键位偏好，App/设置/composer/详情/顶栏共用的唯一来源；不进入工作区数据、历史、导出或备份，读写失败时退回默认。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Physical-key events, platform and device-local storage.
+ * [OUTPUT]: Strict platform Mod mapping, bindings, conflict detection and accessible key labels.
+ * [POS]: Shared shortcut source; macOS Control retains native editing behavior.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 
@@ -36,8 +36,9 @@ function keyOf(code: string): string | null {
 
 export function parseEvent(event: KeyboardEvent | ReactKeyboardEvent): string | null {
   const key = keyOf(event.code)
-  if (!key) return null
-  return [event.metaKey || event.ctrlKey ? 'Mod' : '', event.altKey ? 'Alt' : '', event.shiftKey ? 'Shift' : '', key].filter(Boolean).join('+')
+  // The other platform modifier is an extra key, never an alias for Mod.
+  if (!key || (mac ? event.ctrlKey : event.metaKey)) return null
+  return [mac ? event.metaKey ? 'Mod' : '' : event.ctrlKey ? 'Mod' : '', event.altKey ? 'Alt' : '', event.shiftKey ? 'Shift' : '', key].filter(Boolean).join('+')
 }
 
 /** True for a real press of the bound combo; IME composition never triggers a shortcut. */

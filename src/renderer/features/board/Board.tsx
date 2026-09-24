@@ -1,16 +1,16 @@
 /**
- * [INPUT]: 权威快照、流程派生视图与筛选、本机可见列、受限提交、新建请求。
- * [OUTPUT]: 按可见列渲染的看板（并导出列头周期标签 periodLabel）：极简列头、整行拖动排序/跨列、列内连续录入、完成折叠、往期入口与只读历史（历史标签、周期切换条、返回当前）。
- * [POS]: renderer 主视图；位置/状态规则仍由事务复核，筛选与列显示只影响本机显示。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Summary snapshot, stable flow views, visible columns and guarded actions.
+ * [OUTPUT]: Memoized columns, virtual task rows, logical keyboard/pointer sorting and history views.
+ * [POS]: Main board view; authoritative transactions revalidate all position and state changes.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useEffect, useRef, useState } from 'react'
-import { closestCenter, DndContext, DragOverlay, KeyboardSensor, pointerWithin, PointerSensor, useDroppable, useSensor, useSensors, type CollisionDetection, type DragEndEvent } from '@dnd-kit/core'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { closestCenter, DndContext, DragOverlay, KeyboardSensor, pointerWithin, PointerSensor, useDroppable, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type KeyboardCoordinateGetter } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'
-import { horizons, type Item, type ItemHorizon, type PlanningPeriod } from '../../../shared/contracts/entities'
+import { horizons, type ItemSummary, type ItemHorizon, type PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
-import { messages, horizonNames } from '../../i18n'
+import { messages, horizonNames, useLocale } from '../../i18n'
 import { longDate, monthDay, monthName, shortDate, yearMonth, yearOf } from '../../i18n/format'
 import { addDays } from '../../lib/dates'
 import type { Action } from '../../state/use-workspace'
@@ -20,6 +20,7 @@ import { HistoryColumn } from './HistoryColumn'
 import { Backlog } from './Backlog'
 import { QuickAdd, type SplitParent } from './QuickAdd'
 import { TaskRow } from './TaskRow'
+import { VirtualRows, revealRow } from './VirtualRows'
 
 // Rows under the pointer win; empty column space appends to that column. Keyboard drags keep closest-center.
 const collision: CollisionDetection = args => {
@@ -29,11 +30,16 @@ const collision: CollisionDetection = args => {
   return rows.length ? closestCenter({ ...args, droppableContainers: args.droppableContainers.filter(container => rows.some(hit => hit.id === container.id)) }) : within
 }
 
+let boardCommits = 0
 export interface AddRequest { seq: number; horizon: ItemHorizon | null; split: SplitParent | null }
 interface BoardProps { snapshot: Snapshot; flows: Flows; filter: string | null; columns: ItemHorizon[]; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void }
 
-export function Board({ snapshot, flows, filter, columns, highlighted, addRequest, submit, busy, select }: BoardProps) {
-  useEffect(() => { if (highlighted) document.getElementById(`item-${highlighted}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }, [highlighted])
+export const Board = memo(function Board({ snapshot, flows, filter, columns, highlighted, addRequest, submit, busy, select }: BoardProps) {
+  useLocale()
+  const renderedAt = performance.now()
+  useLayoutEffect(() => { performance.clearMeasures('goalloom.board-commit'); performance.measure('goalloom.board-commit', { start: renderedAt, detail: { sequence: ++boardCommits } }) })
+  useEffect(() => { if (highlighted) { const frame = requestAnimationFrame(() => revealRow(highlighted)); return () => cancelAnimationFrame(frame) } }, [highlighted])
+  const byColumn = useMemo(() => new Map(horizons.map(horizon => [horizon, snapshot.items.filter(item => item.placement.horizon === horizon)])), [snapshot.items])
   const [focused, setFocused] = useState<ItemHorizon>('later')
   const [adding, setAdding] = useState<{ horizon: ItemHorizon; split: SplitParent | null; key: number } | null>(null)
   const handled = useRef(addRequest?.seq ?? 0)
@@ -47,49 +53,77 @@ export function Board({ snapshot, flows, filter, columns, highlighted, addReques
     document.querySelector(`[data-horizon="${horizon}"]`)?.scrollIntoView({ inline: 'nearest' })
   }, [addRequest])
   const [dragging, setDragging] = useState<string | null>(null)
+  const keyboardTarget = useRef<{ id: string | null; horizon: ItemHorizon } | null>(null)
+  const onAdding = useCallback((horizon: ItemHorizon, open: boolean) => setAdding(open ? { horizon, split: null, key: Date.now() } : null), [])
+  const onFocus = useCallback((horizon: ItemHorizon, editable: boolean) => setFocused(editable ? horizon : 'later'), [])
   // A live drag owns the cursor app-wide so it stays a grabbing hand over any column or gap.
   useEffect(() => {
     if (!dragging) return
     document.documentElement.dataset.dragging = 'true'
     return () => { delete document.documentElement.dataset.dragging }
   }, [dragging])
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
+  const keyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
+    if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(event.code)) return sortableKeyboardCoordinates(event, args)
+    const active = snapshot.items.find(item => item.id === args.active)
+    if (!active) return
+    const cursor = keyboardTarget.current ?? { id: active.id, horizon: active.placement.horizon }
+    let horizon = cursor.horizon
+    const source = byColumn.get(horizon)!.filter(item => item.status === active.status)
+    let index = source.findIndex(item => item.id === cursor.id)
+    if (event.code === 'ArrowRight' || event.code === 'ArrowLeft') {
+      horizon = columns[columns.indexOf(horizon) + (event.code === 'ArrowRight' ? 1 : -1)] ?? horizon
+    } else index += event.code === 'ArrowDown' ? 1 : -1
+    const rows = byColumn.get(horizon)!.filter(item => item.status === active.status)
+    const target = rows[Math.max(0, Math.min(index, rows.length - 1))]
+    keyboardTarget.current = { id: target?.id ?? null, horizon }
+    event.preventDefault()
+    if (target) revealRow(target.id)
+    const node = target ? document.getElementById(`item-${target.id}`) : document.querySelector(`[data-horizon="${horizon}"] .column-content`)
+    const rect = node?.getBoundingClientRect()
+    return rect ? { x: rect.left, y: rect.top } : args.currentCoordinates
+  }
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: keyboardCoordinates }))
   const end = (event: DragEndEvent) => {
     setDragging(null)
-    if (!event.over) return
+    const keyTarget = keyboardTarget.current
+    keyboardTarget.current = null
+    if (!event.over && !keyTarget) return
     const item = snapshot.items.find(item => item.id === event.active.id)
-    const target = snapshot.items.find(item => item.id === event.over!.id)
-    const horizon = target?.placement.horizon ?? String(event.over.id).replace('column:', '') as ItemHorizon
+    const target = snapshot.items.find(item => item.id === (keyTarget?.id ?? event.over?.id))
+    const horizon = keyTarget?.horizon ?? target?.placement.horizon ?? String(event.over?.id).replace('column:', '') as ItemHorizon
     if (!item || !horizons.includes(horizon)) return
     let beforeId = target?.id ?? null
     const columnItems = snapshot.items.filter(row => row.placement.horizon === horizon)
     if (item.placement.horizon === horizon && target && columnItems.indexOf(target) > columnItems.indexOf(item)) beforeId = columnItems[columnItems.indexOf(target) + 1]?.id ?? null
-    void submit({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon, beforeId })
+    void submit({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon, beforeId }).then(() => { if (keyTarget) requestAnimationFrame(() => revealRow(item.id, '.drag-handle')) })
   }
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
-  return <DndContext sensors={sensors} collisionDetection={collision} onDragStart={event => setDragging(String(event.active.id))} onDragCancel={() => setDragging(null)} onDragEnd={end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
+  return <DndContext sensors={sensors} collisionDetection={collision} onDragStart={event => { keyboardTarget.current = null; setDragging(String(event.active.id)) }} onDragCancel={() => { keyboardTarget.current = null; setDragging(null) }} onDragEnd={end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
     <main className="board" aria-label={messages.board}>
-      {columns.map(horizon => <Column key={horizon} horizon={horizon} items={snapshot.items.filter(item => item.placement.horizon === horizon)}
+      {columns.map(horizon => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!}
         snapshot={snapshot} flows={flows} filter={filter} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
-        adding={adding?.horizon === horizon ? adding : null} setAdding={open => setAdding(open ? { horizon, split: null, key: Date.now() } : null)}
-        focus={editable => setFocused(editable ? horizon : 'later')} />)}
+        dragging={dragging} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} />)}
     </main>
     {/* No drop animation: the overlay would fly back to the old slot before the authoritative refresh lands. */}
     <DragOverlay dropAnimation={null}>{dragging ? <div className="drag-overlay">{snapshot.items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
   </DndContext>
-}
+})
 
-function Column({ horizon, items, snapshot, flows, filter, highlighted, today, submit, busy, select, adding, setAdding, focus }: Omit<BoardProps, 'addRequest' | 'columns'> & {
-  horizon: ItemHorizon; items: Item[]; today: string; adding: { split: SplitParent | null; key: number } | null; setAdding: (open: boolean) => void; focus: (editable: boolean) => void
+const Column = memo(function Column({ horizon, items, snapshot, flows, filter, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging }: Omit<BoardProps, 'addRequest' | 'columns'> & {
+  horizon: ItemHorizon; items: ItemSummary[]; today: string; adding: { split: SplitParent | null; key: number } | null; dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean) => void; onFocus: (horizon: ItemHorizon, editable: boolean) => void
 }) {
+  useLocale()
+  const setAdding = (open: boolean) => onAdding(horizon, open), focus = (editable: boolean) => onFocus(horizon, editable)
+  const [doneOpen, setDoneOpen] = useState(false)
+  useEffect(() => { if (highlighted && items.some(item => item.id === highlighted && item.status === 'done')) setDoneOpen(true) }, [highlighted, items])
   const [history, setHistory] = useState<PlanningPeriod | null>(null), [backlog, setBacklog] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: `column:${horizon}`, disabled: history !== null })
   const current = snapshot.periods.find(period => period.horizon === horizon)
   const period = history ?? current
   const calendar = snapshot.workspace.calendar!
   const previous = period ? precedingPeriod(calendar, period) : null
-  const todo = items.filter(item => item.status === 'todo'), done = items.filter(item => item.status === 'done')
-  const row = (item: Item) => <TaskRow key={item.id} item={item} flows={flows} today={today} rolloverFrom={snapshot.rolloverSources[item.id]} selected={highlighted === item.id}
+  const todo = useMemo(() => items.filter(item => item.status === 'todo'), [items]), done = useMemo(() => items.filter(item => item.status === 'done'), [items])
+  const row = (item: ItemSummary, index: number, total: number) => <TaskRow index={index} total={total} key={item.id} item={item} flows={flows} today={today} rolloverFrom={snapshot.rolloverSources[item.id]} selected={highlighted === item.id}
     dimmed={filter !== null && !flows.of(item.id).some(flow => flow.id === filter)} disabled={busy} select={select} submit={submit} />
   return <section className={`board-column ${isOver ? 'drop-target' : ''}`} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(horizonNames[horizon])} ref={setNodeRef}>
     <header className="column-header">
@@ -111,15 +145,15 @@ function Column({ horizon, items, snapshot, flows, filter, highlighted, today, s
     <div className="column-content">
       {history ? <HistoryColumn key={history.id} period={history} revision={snapshot.workspace.revision} select={select} /> : <>
         <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
-          {todo.map(row)}
+          <VirtualRows items={todo} dragging={dragging} highlighted={highlighted} render={row} />
           {adding && <QuickAdd key={adding.key} horizon={horizon} flows={flows} split={adding.split} submit={submit} busy={busy} close={() => setAdding(false)} />}
-          {done.length > 0 && <details className="completed-fold"><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{done.map(row)}</details>}
+          {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows items={done} dragging={dragging} highlighted={highlighted} render={row} />}</details>}
         </SortableContext>
         {items.length === 0 && !adding && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}
       </>}
     </div>
   </section>
-}
+})
 
 /** Past periods read as a single day, a named month or a range, never as the raw half-open date pair. */
 function historyLabel(horizon: ItemHorizon, period: PlanningPeriod): string {

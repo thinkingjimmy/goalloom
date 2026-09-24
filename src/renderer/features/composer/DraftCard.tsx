@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 一个可编辑草稿、同批草稿、上级信息表、流程视图/已占用色、周期范围、工作区今天与更新回调。
- * [OUTPUT]: 预览行：标题/说明、执行列（显示实际范围）、截止日、多上级 chips 与搜索添加、待确认建议 chips、手动“设为新流程”色选择、移除。
- * [POS]: composer 的单项编辑视图；每次修改标记手动字段，后续判断不覆盖；颜色与上级互斥在此提示、提交时由事务复核。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Editable draft, peer drafts, parent metadata, periods and change callbacks.
+ * [OUTPUT]: Manual-priority title, description, schedule, due date, parent and flow controls.
+ * [POS]: One composer preview row; transaction validation remains authoritative.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState } from 'react'
-import { horizons, type Item, type ItemHorizon, type PlanningPeriod } from '../../../shared/contracts/entities'
+import { horizons, type ItemSummary, type ItemHorizon, type PlanningPeriod } from '../../../shared/contracts/entities'
 import type { ParentKey } from '../../../shared/contracts/smart-input'
 import { horizonNames, messages, smartMessages as t } from '../../i18n'
 import { relationColors } from '../../lib/colors'
@@ -87,7 +87,7 @@ export function DraftCard({ draft, drafts, parents, flows, usedColors, periods, 
 }
 
 function ParentMenu({ draft, drafts, parents, flows, pick }: { draft: EditableDraft; drafts: EditableDraft[]; parents: Map<string, ParentInfo>; flows: Flows; pick: (key: ParentKey, info: ParentInfo | null) => void }) {
-  const [query, setQuery] = useState(''), [results, setResults] = useState<Item[]>([])
+  const [query, setQuery] = useState(''), [results, setResults] = useState<ItemSummary[]>([])
   useEffect(() => {
     if (!query.trim()) { setResults([]); return }
     let active = true
@@ -98,7 +98,7 @@ function ParentMenu({ draft, drafts, parents, flows, pick }: { draft: EditableDr
   const others = drafts.filter(row => row.id !== draft.id && !chosen({ kind: 'draft', draftId: row.id }))
   const known = [...parents.values()].filter(info => !chosen({ kind: 'existing', itemId: info.itemId }))
   const found = results.filter(item => !chosen({ kind: 'existing', itemId: item.id }) && item.status !== 'cancelled')
-  const info = (item: Item): ParentInfo => ({ itemId: item.id, title: item.title, version: item.version, archived: item.archivedAt !== null, flowColor: item.flowColor, horizon: item.placement.horizon })
+  const info = (item: ItemSummary): ParentInfo => ({ itemId: item.id, title: item.title, version: item.version, archived: item.archivedAt !== null, flowColor: item.flowColor, horizon: item.placement.horizon })
   return <div className="menu relation-picker" role="dialog" aria-label={t.addParent}>
     <input className="menu-search" autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder={t.searchParents} aria-label={t.searchParents} />
     {query.trim() ? <>

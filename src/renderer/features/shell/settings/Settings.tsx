@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 权威工作区、固定数据动作 API、受限普通命令、设备侧智能输入状态、本机快捷键、条目详情打开回调。
- * [OUTPUT]: 左侧三组分类导航（偏好：外观/快捷键/智能输入；工作区：日历与顺延/备份与恢复；条目：已完成/回收站，行尾显示启用状态、上次备份与回收站数量，底部显示打开设置的快捷键）+ 页头标题与一句说明（快捷键带恢复默认、已完成带带数量的结束方式切换）+ 右侧面板；整库操作切换为 TransferReview 两阶段确认。
- * [POS]: 数据管理 UI 的容器：持有备份/批次/条目数量读取、数据动作与预览状态；保护备份期间锁定导航，确认框每次默认未选。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Workspace, narrow data/actions API and device preferences.
+ * [OUTPUT]: Settings navigation, lightweight counts and section-scoped backup/batch reads.
+ * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState } from 'react'
 import type { Snapshot } from '../../../../shared/contracts/queries'
@@ -51,6 +51,7 @@ type Counts = Record<Ending | 'trash', number>
 export function Settings({ snapshot, smart, initial = 'appearance', submit, refresh, busy, select, close }: { snapshot: Snapshot; smart: Smart; initial?: Section; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; select: (id: string) => void; close: () => void }) {
   const [section, setSection] = useState<Section>(initial), [ending, setEnding] = useState<Ending>('done')
   const [backups, setBackups] = useState<BackupStatus | null>(null), [batches, setBatches] = useState<BatchSummary[]>([])
+  const [latest, setLatest] = useState<string | null>(null)
   const [counts, setCounts] = useState<Counts | null>(null)
   const [preview, setPreview] = useState<TransferPreview | null>(null), [acknowledged, setAcknowledged] = useState(false)
   const [working, setWorking] = useState(false), [error, setError] = useState('')
@@ -58,21 +59,24 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
   const { generation, calendar, revision } = snapshot.workspace
   const timezone = calendar?.timezone
   const today = calendar ? workspaceDate(calendar.timezone, snapshot.observedAt) : ''
-  const reload = async () => {
-    const [reply, batches] = await Promise.all([desktopApi().data({ type: 'backupStatus' }), desktopApi().getBatches()])
-    if (reply.type === 'status') setBackups(reply.status)
-    setBatches(batches)
+  const reload = async (active: () => boolean = () => true) => {
+    const [summary, totals] = await Promise.all([desktopApi().getBackupSummary(), desktopApi().getCounts()])
+    if (!active()) return
+    setLatest(summary.latest); setCounts(totals)
+    if (section === 'backup') {
+      const reply = await desktopApi().data({ type: 'backupStatus' })
+      if (active() && reply.type === 'status') setBackups(reply.status)
+    }
+    if (section === 'calendar') {
+      const next = await desktopApi().getBatches()
+      if (active()) setBatches(next)
+    }
   }
-  useEffect(() => { void reload().catch(() => setError(messages.backupStatusFailed)) }, [generation, revision])
-  // Totals only (limit 1): the nav shows the trash count and the ending switch shows each list's size.
   useEffect(() => {
-    if (!calendar) return
     let active = true
-    const total = (view: Ending | 'trash') => desktopApi().listItems({ type: 'list', view, query: '', offset: 0, limit: 1 }).then(page => page.total)
-    void Promise.all([total('done'), total('cancelled'), total('archived'), total('trash')])
-      .then(([done, cancelled, archived, trash]) => { if (active) setCounts({ done, cancelled, archived, trash }) }).catch(() => undefined)
+    void reload(() => active).catch(() => { if (active) setError(messages.backupStatusFailed) })
     return () => { active = false }
-  }, [generation, revision, !!calendar])
+  }, [generation, revision, section])
   const data = async (action: DataAction) => {
     setWorking(true); setError('')
     try {
@@ -100,7 +104,6 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
     close()
   }
   const disabled = busy || working
-  const latest = backups?.records.reduce<string | null>((last, record) => !last || record.createdAt > last ? record.createdAt : last, null)
   const meta: Partial<Record<Section, { text: string; dot?: boolean }>> = {
     ...(smart.status?.enabled && { smart: { text: s.enabledMeta, dot: true } }),
     ...(latest && today && { backup: { text: relativeDay(latest, today, timezone, s) } }),

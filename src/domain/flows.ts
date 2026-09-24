@@ -1,31 +1,32 @@
 /**
- * [INPUT]: 有效父子边与流程根（带唯一颜色的无上级条目）。
- * [OUTPUT]: 条目所属流程根的稳定去重列表；不读取存储、不修改状态。
- * [POS]: 流程归属的纯规则；renderer 着色/筛选与导入校验共用，事务层另行强制唯一与根约束。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Active parent edges and uniquely colored flow roots.
+ * [OUTPUT]: Stable, deduplicated root memberships with shared ancestor memoization.
+ * [POS]: Pure flow resolution used by renderer projections; storage enforces root and color constraints.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export interface FlowEdge { parentId: string; childId: string }
 
 export function flowIndex(edges: FlowEdge[], rootIds: Iterable<string>): (itemId: string) => string[] {
   const roots = new Set(rootIds)
   const parents = new Map<string, string[]>()
-  for (const edge of edges) parents.set(edge.childId, [...(parents.get(edge.childId) ?? []), edge.parentId])
-  const memo = new Map<string, string[]>()
-  // --- Iterative DFS keeps deep chains safe; the DAG guarantees termination. ---
+  for (const edge of edges) {
+    const list = parents.get(edge.childId) ?? []
+    list.push(edge.parentId); parents.set(edge.childId, list)
+  }
+  const memo = new Map<string, string[]>([...roots].map(id => [id, [id]]))
+  // Resolve ancestors once in dependency order, retaining the original parent order.
   const resolve = (itemId: string): string[] => {
-    const cached = memo.get(itemId)
-    if (cached) return cached
-    if (roots.has(itemId)) { memo.set(itemId, [itemId]); return [itemId] }
-    const found: string[] = [], seen = new Set<string>([itemId]), stack = [...(parents.get(itemId) ?? [])].reverse()
+    const stack = [{ id: itemId, next: 0 }]
     while (stack.length) {
-      const id = stack.pop()!
-      if (seen.has(id)) continue
-      seen.add(id)
-      if (roots.has(id)) { if (!found.includes(id)) found.push(id); continue }
-      stack.push(...[...(parents.get(id) ?? [])].reverse())
+      const frame = stack.at(-1)!
+      if (memo.has(frame.id)) { stack.pop(); continue }
+      const ancestors = parents.get(frame.id) ?? []
+      const parent = ancestors[frame.next++]
+      if (parent !== undefined) { if (!memo.has(parent)) stack.push({ id: parent, next: 0 }); continue }
+      memo.set(frame.id, [...new Set(ancestors.flatMap(id => memo.get(id)!))])
+      stack.pop()
     }
-    memo.set(itemId, found)
-    return found
+    return memo.get(itemId)!
   }
   return resolve
 }

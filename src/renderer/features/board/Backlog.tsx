@@ -1,6 +1,12 @@
+/**
+ * [INPUT]: Summary pages of overdue items, current periods and guarded batch actions.
+ * [OUTPUT]: Read-only selection and explicit current-period arrangement requests.
+ * [POS]: Board backlog dialog; storage revalidates membership, versions and holds.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import { messages, horizonNames } from '../../i18n'
 import { useEffect, useState } from 'react'
-import type { Item, ItemHorizon } from '../../../shared/contracts/entities'
+import type { ItemSummary, ItemHorizon } from '../../../shared/contracts/entities'
 import type { ItemPage } from '../../../shared/contracts/queries'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import { Modal } from '../../components/Modal'
@@ -8,7 +14,7 @@ import { Button } from '../../components/ui/button'
 
 export function Backlog({ horizon, revision, submit, busy, close, select }: { horizon: ItemHorizon; revision: number; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void; select: (id: string) => void }) {
   const [page, setPage] = useState<ItemPage>({ items: [], total: 0 }), [offset, setOffset] = useState(0)
-  const [selected, setSelected] = useState<Map<string, Item>>(new Map()), [error, setError] = useState('')
+  const [selected, setSelected] = useState<Map<string, ItemSummary>>(new Map()), [error, setError] = useState('')
   useEffect(() => {
     let active = true
     void desktopApi().listItems({ type: 'list', view: 'backlog', horizon, query: '', offset, limit: 50 }).then(value => { if (active) setPage(value) }).catch(() => { if (active) setError(messages.backlogFailed) })
