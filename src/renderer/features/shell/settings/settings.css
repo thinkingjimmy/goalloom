@@ -225,5 +225,4 @@
   .filter-diagram { border-radius: 8px; }
 }
 
-/* Native select keeps OS keyboard/typeahead behaviour; only its width is settings-specific. */
-.settings-select { width: auto; min-width: 180px; flex-shrink: 0; padding: 7px 10px; font-size: 13.5px; }
+.select-trigger.settings-select { width: auto; min-width: 180px; flex-shrink: 0; padding: 7px 8px 7px 10px; font-size: 13.5px; }

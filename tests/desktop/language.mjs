@@ -28,6 +28,12 @@ async function assertTranslated(page, where) {
 // A command with a stale generation is rejected inside the storage worker, so its message proves the worker's language.
 const workerMessage = page => page.evaluate(async () => (await window.goalloom.execute({ type: 'preferences', theme: 'dark', operationId: crypto.randomUUID(), generation: 'stale-generation' })).message)
 const settingsDialog = (page, name) => page.getByRole('dialog', { name, exact: true })
+const names = { zh: '简体中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }
+// shadcn Select: open the trigger, then pick the option from the portaled listbox.
+async function choose(page, trigger, code) {
+  await trigger.click()
+  await page.getByRole('option', { name: names[code], exact: true }).click()
+}
 
 const workerText = {
   zh: '工作区已更换，请刷新后重试',
@@ -56,11 +62,11 @@ try {
   const detected = system.map(tag => tag.toLowerCase().split(/[-_]/)[0]).find(code => code in tags) ?? 'en'
   Object.assign(report, { system, detected })
   assert.equal(await page.evaluate(() => document.documentElement.lang), tags[detected])
-  assert.equal(await language.inputValue(), 'system')
+  assert.match(await language.innerText(), new RegExp(`· ${names[detected]}$`))
   assert.deepEqual(await page.evaluate(() => window.goalloom.getLanguage()), { language: 'system', locale: detected, system: detected })
 
   // 2. Setup page switches instantly, before the calendar is confirmed; typed setup values survive the switch.
-  await language.selectOption('en')
+  await choose(page, language, 'en')
   await page.getByRole('button', { name: 'Skip', exact: true }).waitFor()
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'en')
   await assertTranslated(page, 'en direction step')
@@ -93,7 +99,7 @@ try {
   for (const code of ['en', 'es', 'fr', 'ja', 'zh']) {
     if (code !== 'en') {
       await dialog.locator('.settings-nav button').first().click()
-      await dialog.locator('.settings-select').selectOption(code)
+      await choose(page, dialog.locator('.settings-select'), code)
       dialog = settingsDialog(page, ui[code].settings)
       await dialog.waitFor()
     }
@@ -113,7 +119,7 @@ try {
 
   // 5. Choose French and quit: the preference lives outside the workspace and is read before storage starts.
   await dialog.locator('.settings-nav button').first().click()
-  await dialog.locator('.settings-select').selectOption('fr')
+  await choose(page, dialog.locator('.settings-select'), 'fr')
   await settingsDialog(page, ui.fr.settings).waitFor()
   assert.deepEqual(JSON.parse(await readFile(join(profile, 'preferences.json'), 'utf8')), { language: 'fr' })
 } finally { await application.close() }

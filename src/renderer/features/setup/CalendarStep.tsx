@@ -9,7 +9,7 @@ import { currentPeriod, workspaceDate, type Horizon, type Period } from '../../.
 import { messages } from '../../i18n'
 import { monthDay, weekdayName } from '../../i18n/format'
 import { Button } from '../../components/ui/button'
-import { Icon } from '../../components/icons'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { BoardPreview } from './BoardPreview'
 import { OnboardingFrame } from './OnboardingFrame'
 import { TimezoneSelect } from './TimezoneSelect'
@@ -47,19 +47,22 @@ export function CalendarStep({ draft, change, direction, zones, back, confirm, b
   const cycle = preview?.cycle
   const remaining = cycle ? Math.round((Date.parse(cycle.endDate) - Date.parse(today)) / dayMs) : 0
 
-  const pill = (control: ReactNode) => <span className="pill">{control}<Icon name="expand" size={14} /></span>
   const slots: Record<string, ReactNode> = {
     timezone: <><span id={timezoneLabel} className="sr-only">{messages.timezone}</span>
       <TimezoneSelect className="pill-trigger" value={draft.timezone} zones={zones} labelId={timezoneLabel} onChange={timezone => change({ timezone })} /></>,
-    weekStart: pill(<select aria-label={messages.weekStart} value={draft.weekStart} onChange={event => change({ weekStart: Number(event.target.value) })}>
-      {[1, 2, 3, 4, 5, 6, 7].map(day => <option key={day} value={day}>{weekdayName(day)}</option>)}
-    </select>),
-    anchor: <>{pill(<select aria-label={messages.cycleAnchor} value={draft.anchorMode} onChange={event => change({ anchorMode: event.target.value as AnchorMode, customAnchor: draft.customAnchor || today })}>
-      <option value="today">{messages.anchorToday(monthDay(presets.today))}</option>
-      <option value="month">{messages.anchorMonth(monthDay(presets.month))}</option>
-      <option value="quarter">{messages.anchorQuarter(monthDay(presets.quarter))}</option>
-      <option value="custom">{messages.anchorCustom}</option>
-    </select>)}{draft.anchorMode === 'custom' && <input type="date" className="pill-date" aria-label={messages.customAnchor} max={today} required value={draft.customAnchor} onChange={event => change({ customAnchor: event.target.value })} />}</>,
+    weekStart: <Select value={String(draft.weekStart)} onValueChange={value => change({ weekStart: Number(value) })}>
+      <SelectTrigger className="pill-trigger" aria-label={messages.weekStart}><SelectValue /></SelectTrigger>
+      <SelectContent>{[1, 2, 3, 4, 5, 6, 7].map(day => <SelectItem key={day} value={String(day)}>{weekdayName(day)}</SelectItem>)}</SelectContent>
+    </Select>,
+    anchor: <><Select value={draft.anchorMode} onValueChange={value => change({ anchorMode: value as AnchorMode, customAnchor: draft.customAnchor || today })}>
+      <SelectTrigger className="pill-trigger" aria-label={messages.cycleAnchor}><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="today">{messages.anchorToday(monthDay(presets.today))}</SelectItem>
+        <SelectItem value="month">{messages.anchorMonth(monthDay(presets.month))}</SelectItem>
+        <SelectItem value="quarter">{messages.anchorQuarter(monthDay(presets.quarter))}</SelectItem>
+        <SelectItem value="custom">{messages.anchorCustom}</SelectItem>
+      </SelectContent>
+    </Select>{draft.anchorMode === 'custom' && <input type="date" className="pill-date" aria-label={messages.customAnchor} max={today} required value={draft.customAnchor} onChange={event => change({ customAnchor: event.target.value })} />}</>,
   }
   // Word order differs per language, so the sentence is a template with named slots.
   const sentence = messages.calendarSentence.split(/\{(\w+)\}/).map((part, index) => index % 2 ? <span key={index}>{slots[part]}</span> : part)

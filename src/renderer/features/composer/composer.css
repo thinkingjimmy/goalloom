@@ -30,9 +30,8 @@
 .draft-note:hover { background: var(--hover); }
 .draft-description { font-size: 12.5px; }
 .draft-fields, .draft-parents, .draft-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.draft-field { margin: 0; }
-.draft-field select { height: 30px; padding: 0 8px; width: auto; font-size: 13px; background: transparent; border-color: transparent; }
-.draft-field select:hover { background: var(--hover); }
+.select-trigger.draft-select { width: auto; height: 30px; gap: 6px; padding: 0 6px 0 8px; font-size: 13px; background: transparent; border-color: transparent; box-shadow: none; }
+.select-trigger.draft-select:hover:not(:disabled) { background: var(--hover); }
 .draft-fields .field-button { margin-left: 0; font-size: 13px; }
 .suggestion { height: 26px; padding: 0 10px; border-radius: 13px; border: 1px dashed var(--line); font-size: 12px; color: var(--secondary); }
 .suggestion:hover:not(:disabled) { color: var(--fg); border-color: var(--edit-line); }

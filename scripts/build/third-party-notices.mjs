@@ -4,7 +4,8 @@ import { dirname, join, resolve } from 'node:path'
 // --- 将实际安装包中的许可证随离线产物一同交付，不修改项目授权。 ---
 const visited = new Set()
 const notices = []
-notices.push(`shadcn/ui Button (MIT)\n\n${await readFile('src/renderer/components/ui/LICENSE', 'utf8')}`)
+notices.push(`shadcn/ui Button, Select (MIT)\n\n${await readFile('src/renderer/components/ui/LICENSE', 'utf8')}`)
+const mit = holder => `MIT License\n\nCopyright (c) ${holder}\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n`
 async function locate(name, from) {
   for (let directory = from; ; directory = dirname(directory)) {
     const candidate = join(directory, 'node_modules', name)
@@ -18,8 +19,10 @@ async function collect(name, from) {
   if (visited.has(identity)) return
   visited.add(identity)
   const licenses = (await readdir(root)).filter(file => /^(license|licence|copying)(\.[^.]+)?$/i.test(file))
-  if (!licenses.length) throw new Error(`依赖缺少许可证文本: ${identity}`)
   const text = await Promise.all(licenses.map(file => readFile(join(root, file), 'utf8')))
+  // Some MIT packages declare the license only in package.json; reproduce the standard text with the declared author.
+  if (!text.length && metadata.license === 'MIT' && metadata.author) text.push(mit(typeof metadata.author === 'string' ? metadata.author : metadata.author.name))
+  if (!text.length) throw new Error(`依赖缺少许可证文本: ${identity}`)
   notices.push(`${identity} (${metadata.license ?? 'see below'})\n\n${text.join('\n')}`)
   for (const dependency of Object.keys(metadata.dependencies ?? {})) await collect(dependency, root)
 }
