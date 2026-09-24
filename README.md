@@ -17,6 +17,7 @@ Later → 3个月 → 本月 → 本周 → 今天
 | 文档 | 用途 |
 | --- | --- |
 | [智能输入功能规格](docs/features/smart-input.md) | 全局输入、Jev 双渠道、Onboarding、计划创建/撤销、导出恢复与迁移保护的规则、工程契约、TODO 与验收 |
+| [关系线功能规格](docs/features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [开发代理约定](AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
 每个功能的产品规则、工程契约、TODO 与验收集中在 `docs/features/` 下的一份规格，不另建重复文件；变更过程和测试结果记录在 Git / PR 中。`CLAUDE.md` 仅导入 `AGENTS.md`，不另维护一套规则。
@@ -36,6 +37,7 @@ pnpm test:history         # 独立夹具的历史/往期/hold 窗口验证
 pnpm test:recovery        # 保护备份/维护/重置/SQLite 恢复与暂停
 pnpm test:composer        # 可跳过 Onboarding、全局 composer、列头＋键盘路径与 Tab 步数
 pnpm test:language        # 系统语言侦测、配置页/设置即时切换、main 与 worker 文案、重启保持、en/es/fr 无漏译
+pnpm test:relations       # 单流程筛选的关系线、悬停链、滚出视野标记与设置开关持久化
 pnpm test:review          # Review 缺陷、长列键盘/拖放、真实 preload 边界回归
 pnpm test:performance     # 四组启动、页面搜索、110 次面板往返及传输峰值
 pnpm test:large-backup    # 360 条长说明、超过 100 MiB 备份的重置/完整恢复

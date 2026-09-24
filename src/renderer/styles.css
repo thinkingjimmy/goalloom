@@ -136,8 +136,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 
 /* --- Board --- */
 .board-host { display: flex; flex: 1; min-height: 0; }
-.board { flex: 1; display: flex; min-height: 0; padding: 0 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
-.board-column { flex: 1 0 320px; min-width: 320px; display: flex; flex-direction: column; padding: 4px 20px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
+.board { position: relative; flex: 1; display: flex; min-height: 0; padding: 0 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
+.board-column { position: relative; flex: 1 0 320px; min-width: 320px; display: flex; flex-direction: column; padding: 4px 20px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
 .board-column:first-child { border-left: 0; }
 .board-column.drop-target { background: var(--hover); }
 .column-header { height: 40px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
@@ -160,7 +160,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .task-row[data-highlighted='true'] { background: var(--hover); }
 /* Pointer hover stays lighter than the located/highlighted row so the two remain distinguishable. */
 :root:not([data-dragging='true']) .task-row:not([data-highlighted='true']):hover { background: color-mix(in srgb, var(--hover) 50%, transparent); }
-.task-row[data-dimmed='true'] { opacity: .28; }
+.task-row > :not(.drag-handle) { transition: opacity .18s ease-out; }
+/* Only the content fades, so a row keeps its ground and still hides relation lines passing behind it. */
+.task-row[data-dimmed='true'] > :not(.drag-handle), .task-row[data-chain-out='true'] > :not(.drag-handle) { opacity: .28; }
 .task-row.dragging { opacity: .3; }
 /* Rows open on click and drag on press: point on hover, grab on the handle, grabbing everywhere while a drag is live. */
 .task-row { cursor: pointer; }
@@ -183,6 +185,34 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .completed-fold[open] > summary svg { transform: rotate(90deg); }
 .empty-column { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 22vh; color: var(--faint); text-align: center; }
 .empty-column p { margin: 0; font-size: 13px; line-height: 1.7; color: var(--secondary); max-width: 200px; }
+
+/* --- Relation lines: an overlay under the columns while one flow is filtered. Rows gain an opaque ground and a
+   right-hand corridor, so curves travel between rows and pass behind them instead of across text. --- */
+.board[data-lines='true'] .task-row { margin-right: 24px; background-color: var(--bg); transition: opacity .18s ease-out, background-color .18s ease-out, margin .22s cubic-bezier(.2, .8, .2, 1); }
+.board[data-lines='true'] .task-row[data-highlighted='true'] { background: linear-gradient(var(--hover), var(--hover)) var(--bg); }
+:root:not([data-dragging='true']) .board[data-lines='true'] .task-row:not([data-highlighted='true']):hover { background: linear-gradient(color-mix(in srgb, var(--hover) 50%, transparent), color-mix(in srgb, var(--hover) 50%, transparent)) var(--bg); }
+.relation-lines { position: absolute; top: 0; left: 0; pointer-events: none; transition: opacity .15s ease-out; }
+:root[data-dragging='true'] .relation-lines { opacity: 0; }
+.relation-lines svg { display: block; overflow: visible; }
+.relation-edge { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-opacity: .6; stroke-linecap: round; transition: stroke-opacity .15s ease-out, stroke-width .15s ease-out; }
+.relation-edge[data-skip] { stroke-dasharray: 4 5; }
+.relation-edge[data-state='done'] { stroke-opacity: .3; }
+.relation-edge[data-state='hot'] { stroke-opacity: 1; stroke-width: 2; }
+.relation-edge[data-state='faded'] { stroke-opacity: .12; }
+.relation-port { fill: currentColor; transition: opacity .15s ease-out; }
+.relation-port[data-state='faded'] { opacity: .2; }
+.relation-lines[data-entering='true'] .relation-edge:not([data-skip]) { stroke-dasharray: 1; stroke-dashoffset: 1; animation: relation-draw .5s cubic-bezier(.2, .8, .2, 1) forwards; }
+.relation-lines[data-entering='true'] .relation-edge[data-skip], .relation-lines[data-entering='true'] .relation-port { animation: relation-fade .35s ease-out both; }
+@keyframes relation-draw { to { stroke-dashoffset: 0; } }
+@keyframes relation-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .relation-lines[data-entering='true'] .relation-edge:not([data-skip]) { stroke-dasharray: none; animation: relation-fade .15s ease-out both; }
+}
+/* Marks where a related row sits beyond the column's scroll edge; clicking reveals the nearest one. */
+.relation-marker { position: absolute; z-index: 2; pointer-events: auto; height: 20px; margin-top: -10px; padding: 0 7px 0 5px; display: inline-flex; align-items: center; gap: 2px; border-radius: 10px; background: var(--raised); box-shadow: 0 0 0 .5px var(--edge), 0 1px 2px rgba(60, 40, 20, .08); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.relation-marker[data-align='start'] { transform: translateX(4px); }
+.relation-marker[data-align='end'] { transform: translateX(calc(-100% - 4px)); }
+.relation-marker:hover { background: linear-gradient(var(--hover), var(--hover)) var(--raised); }
 
 /* --- Checkbox and flow marks --- */
 /* The ring lives on a masked pseudo-element so the fill can be see-through, paper or the flow's own tint.

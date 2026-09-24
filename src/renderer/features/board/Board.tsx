@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Summary snapshot, stable flow views, visible columns and guarded actions.
- * [OUTPUT]: Memoized columns, virtual task rows and shared editable drop targets for keyboard/pointer sorting.
+ * [OUTPUT]: Memoized columns, virtual task rows, shared editable drop targets for keyboard/pointer sorting and, under a single-flow filter, the relation-line overlay.
  * [POS]: Main board view; authoritative transactions revalidate all position and state changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,10 +15,12 @@ import { longDate, monthDay, monthName, shortDate, yearMonth, yearOf } from '../
 import { addDays } from '../../lib/dates'
 import type { Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
+import { useRelationLines } from '../../state/relation-lines'
 import { Icon } from '../../components/icons'
 import { HistoryColumn } from './HistoryColumn'
 import { Backlog } from './Backlog'
 import { QuickAdd, type SplitParent } from './QuickAdd'
+import { RelationLines } from './RelationLines'
 import { TaskRow } from './TaskRow'
 import { VirtualRows, revealRow } from './VirtualRows'
 
@@ -102,8 +104,11 @@ export const Board = memo(function Board({ snapshot, flows, filter, columns, hig
     void submit({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon, beforeId }).then(() => { if (keyTarget) requestAnimationFrame(() => revealRow(item.id, '.drag-handle')) })
   }
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
+  const lines = useRelationLines().enabled && filter !== null
   return <DndContext sensors={sensors} collisionDetection={collision} onDragStart={event => { keyboardTarget.current = null; setDragging(String(event.active.id)) }} onDragCancel={() => { keyboardTarget.current = null; setDragging(null) }} onDragEnd={end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
-    <main className="board" aria-label={messages.board}>
+    <main className="board" aria-label={messages.board} data-lines={lines}>
+      {/* Keyed by flow so switching flows replays the draw-in. */}
+      {lines && <RelationLines key={filter} items={snapshot.items} relations={snapshot.relations} flows={flows} filter={filter} columns={columns} />}
       {columns.map(horizon => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!}
         snapshot={snapshot} flows={flows} filter={filter} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
         dragging={dragging} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} history={history[horizon] ?? null} onHistory={onHistory} />)}

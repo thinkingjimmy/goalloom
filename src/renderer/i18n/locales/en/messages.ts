@@ -227,6 +227,8 @@ export const messages: MessageCatalog = {
   undoConflict: (reason: string | number) => `Not undone: ${reason}. This entry was removed; the next undo handles the previous one.`,
   allFlows: "All",
   flowFilter: "Flow filter",
+  relationsAbove: (n: number) => `${n} related above`,
+  relationsBelow: (n: number) => `${n} related below`,
   onlyFlow: (title: string | number) => `Only ${title}`,
   newItem: "New",
   flow: "Flow",

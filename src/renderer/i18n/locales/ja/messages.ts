@@ -227,6 +227,8 @@ export const messages: MessageCatalog = {
   undoConflict: (reason: string | number) => `取り消せませんでした：${reason}。この項目は取り消し履歴から外しました。次の取り消しでは前の項目を処理します。`,
   allFlows: "すべて",
   flowFilter: "フローで絞り込み",
+  relationsAbove: (n: number) => `上にあと ${n} 件の関連`,
+  relationsBelow: (n: number) => `下にあと ${n} 件の関連`,
   onlyFlow: (title: string | number) => `${title} のみ表示`,
   newItem: "新規",
   flow: "フロー",

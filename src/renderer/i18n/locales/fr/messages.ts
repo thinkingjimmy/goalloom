@@ -227,6 +227,8 @@ export const messages: MessageCatalog = {
   undoConflict: (reason: string | number) => `Non annulé : ${reason}. Cette entrée a été retirée ; la prochaine annulation traitera la précédente.`,
   allFlows: "Tous",
   flowFilter: "Filtre de flux",
+  relationsAbove: (n: number) => `${n} liés plus haut`,
+  relationsBelow: (n: number) => `${n} liés plus bas`,
   onlyFlow: (title: string | number) => `Seulement ${title}`,
   newItem: "Nouveau",
   flow: "Flux",

@@ -23,6 +23,8 @@ export const settingsMessages: SettingsCatalog = {
   // Appearance
   styleNotes: { paper: 'Papel cálido, separadores punteados, sombras suaves', minimal: 'Grises neutros, bordes finos continuos' },
   checkNotes: { outline: 'Solo el contorno del color de flujo; el más discreto', paper: 'Fondo blanco que resalta el color de flujo', tint: 'Fondo del mismo color, suave; agrupa mejor' },
+  relationLines: 'Líneas de relación',
+  relationLinesNote: 'Al filtrar un solo flujo, unas líneas unen sus elementos superiores e inferiores',
   // Smart input
   smartEnabledNote: 'Escribe una idea con el ＋ global; se organiza cuando dejas de escribir',
   privacy: 'Privacidad',

@@ -10,6 +10,7 @@ desktop/
 ├── recovery.mjs         # 保护备份/维护/重置/SQLite 恢复与重启暂停
 ├── composer.mjs         # 首次流程、全局 composer 普通 Later/会话草稿与关闭后的真实保存回执、列头＋Enter/Space 与 Tab 步数、拆解
 ├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
+├── relations.mjs        # 关系线：单流程筛选画线/跨级虚线/其余置灰、悬停与聚焦链、滚出视野标记、设置开关持久化（截图 relation-lines*.png）
 ├── language.mjs         # 系统语言侦测、配置页/设置即时切换、main/worker 文案、重启保持与 en/es/fr 漏译检查（截图 language-*.png、output/tests/language.json）
 ├── dialogs.mjs          # 操控真实原生保存/打开对话框的验收入口，保存 JSON 证据和恢复后截图
 ├── review/              # 已确认缺陷、输入/维护竞态、智能预算、长列、wire、增长曲线和大备份回归
@@ -19,7 +20,7 @@ desktop/
     └── performance.ts   # 10,000 条目/1,000 活跃及真实历史，测恢复与延迟
 ```
 
-从仓库根调用 `pnpm test:electron`、`test:ui`、`test:history`、`test:recovery`、`test:composer`、`test:language`、`test:performance`。其余窗口脚本在隔离 profile 写入 `preferences.json` 固定中文，断言不随本机系统语言变化。`composer.mjs` 把 Tab 步数写入 `output/tests/composer.json`。窗口脚本接受可执行文件路径，例如 `pnpm test:ui release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom`。`dialogs.mjs` 需要人工操作，不纳入自动检查。
+从仓库根调用 `pnpm test:electron`、`test:ui`、`test:history`、`test:recovery`、`test:composer`、`test:language`、`test:relations`、`test:performance`。其余窗口脚本在隔离 profile 写入 `preferences.json` 固定中文，断言不随本机系统语言变化。`composer.mjs` 把 Tab 步数写入 `output/tests/composer.json`。窗口脚本接受可执行文件路径，例如 `pnpm test:ui release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom`。`dialogs.mjs` 需要人工操作，不纳入自动检查。
 
 夹具各自构建到 `output/tests/build/{sqlite,history,performance}/`，避免清空其他场景的文件；截图在 `output/tests/screenshots/`，性能记录在 `output/tests/performance/`。这些目录全部忽略，不进入正式包。
 

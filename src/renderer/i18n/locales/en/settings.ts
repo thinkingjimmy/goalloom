@@ -23,6 +23,8 @@ export const settingsMessages: SettingsCatalog = {
   // Appearance
   styleNotes: { paper: 'Warm paper, dashed dividers, soft shadows', minimal: 'Neutral grays, thin solid borders' },
   checkNotes: { outline: 'Flow-color outline only, the quietest', paper: 'White fill sets off the flow color', tint: 'Tinted fill, clearest grouping' },
+  relationLines: 'Relation lines',
+  relationLinesNote: 'When one flow is filtered, lines connect its parents and children',
   // Smart input
   smartEnabledNote: 'Write ideas with the global +; they’re organized once you stop typing',
   privacy: 'Privacy',

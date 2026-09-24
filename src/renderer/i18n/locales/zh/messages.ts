@@ -227,6 +227,8 @@ export const messages = widen({
   undoConflict: (reason: string | number) => `未撤销：${reason}。该快捷项已移出，下次撤销处理前一项。`,
   allFlows: "全部",
   flowFilter: "流程筛选",
+  relationsAbove: (n: number) => `上方还有 ${n} 项相关`,
+  relationsBelow: (n: number) => `下方还有 ${n} 项相关`,
   onlyFlow: (title: string | number) => `只看 ${title}`,
   newItem: "新建",
   flow: "流程",

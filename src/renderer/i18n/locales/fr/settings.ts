@@ -23,6 +23,8 @@ export const settingsMessages: SettingsCatalog = {
   // Appearance
   styleNotes: { paper: 'Papier chaud, séparateurs pointillés, ombres douces', minimal: 'Gris neutres, contours fins et pleins' },
   checkNotes: { outline: 'Seul le contour à la couleur du flux, le plus discret', paper: 'Fond blanc qui fait ressortir la couleur du flux', tint: 'Fond teinté de la même couleur, groupes les plus visibles' },
+  relationLines: 'Lignes de relation',
+  relationLinesNote: 'Quand un seul flux est filtré, des lignes relient ses parents et ses enfants',
   // Smart input
   smartEnabledNote: 'Notez une idée avec le + global ; elle est organisée dès que vous arrêtez de taper',
   privacy: 'Confidentialité',

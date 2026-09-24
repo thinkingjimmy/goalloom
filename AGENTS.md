@@ -1,6 +1,6 @@
 # Development agent instructions
 
-Read the relevant feature spec under [docs/features/](docs/features/) before implementation (currently [smart-input.md](docs/features/smart-input.md) and [shortcuts.md](docs/features/shortcuts.md)). Each feature keeps its product rules, engineering contract, TODO and acceptance in that one file; use Git / PR descriptions for changes and actual test results. Do not recreate separate duplicate specifications, restore the deleted PRD/TODO, or reset already completed work to unchecked.
+Read the relevant feature spec under [docs/features/](docs/features/) before implementation (currently [smart-input.md](docs/features/smart-input.md), [shortcuts.md](docs/features/shortcuts.md) and [relation-lines.md](docs/features/relation-lines.md)). Each feature keeps its product rules, engineering contract, TODO and acceptance in that one file; use Git / PR descriptions for changes and actual test results. Do not recreate separate duplicate specifications, restore the deleted PRD/TODO, or reset already completed work to unchecked.
 
 ## Delivery and authority
 

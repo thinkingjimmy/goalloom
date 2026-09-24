@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 工作区的明暗、风格与复选框样式偏好、受限提交与禁用状态；LanguageSelect 语言控件。
- * [OUTPUT]: 一张卡片四行：语言（跟随系统并显示系统语言/五种语言原生名，下拉即时切换）、风格（纸感/简约）、复选框（透明描边/纸白底/同色淡底）、明暗（跟随系统/浅色/深色），分段带色块示意，说明随选中项变化，外观选择即提交 preferences。
- * [POS]: settings 的外观分类；各项偏好相互独立，只影响本机显示；语言写入 main 的设备偏好而非工作区。
+ * [OUTPUT]: 一张卡片五行：语言（跟随系统并显示系统语言/五种语言原生名，下拉即时切换）、风格（纸感/简约）、复选框（透明描边/纸白底/同色淡底）、明暗（跟随系统/浅色/深色）、关系线开关（筛选单个流程时画上下级连线），分段带色块示意，说明随选中项变化，外观选择即提交 preferences。
+ * [POS]: settings 的外观分类；各项偏好相互独立，只影响本机显示；语言写入 main 的设备偏好，关系线存本机 localStorage，都不进工作区。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { Workspace } from '../../../../shared/contracts/entities'
@@ -9,7 +9,8 @@ import { messages, settingsMessages as t } from '../../../i18n'
 import type { Action } from '../../../state/use-workspace'
 import { flowVars } from '../../../lib/colors'
 import { LanguageSelect } from '../../../components/LanguageSelect'
-import { Segmented, SettingsGroup, SettingsRow, type SegmentOption } from './parts'
+import { useRelationLines } from '../../../state/relation-lines'
+import { Segmented, SettingsGroup, SettingsRow, Switch, type SegmentOption } from './parts'
 
 // The checkbox swatches use the blue flow so each fill reads against a real flow ring.
 const blue = flowVars([1])
@@ -30,6 +31,7 @@ const themes = (): SegmentOption<Workspace['theme']>[] => [
 ]
 
 export function AppearancePane({ workspace, disabled, submit }: { workspace: Workspace; disabled: boolean; submit: (action: Action) => Promise<unknown> }) {
+  const lines = useRelationLines()
   return <SettingsGroup>
     <SettingsRow title={messages.language} note={messages.languageNote}><LanguageSelect className="settings-select" /></SettingsRow>
     <SettingsRow title={messages.style} note={t.styleNotes[workspace.style]}>
@@ -40,6 +42,9 @@ export function AppearancePane({ workspace, disabled, submit }: { workspace: Wor
     </SettingsRow>
     <SettingsRow title={messages.theme} note={messages.themeModeNote}>
       <Segmented label={messages.theme} value={workspace.theme} options={themes()} disabled={disabled} onChange={theme => void submit({ type: 'preferences', theme })} />
+    </SettingsRow>
+    <SettingsRow title={t.relationLines} note={t.relationLinesNote}>
+      <Switch label={t.relationLines} checked={lines.enabled} onChange={lines.setEnabled} />
     </SettingsRow>
   </SettingsGroup>
 }

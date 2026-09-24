@@ -227,6 +227,8 @@ export const messages: MessageCatalog = {
   undoConflict: (reason: string | number) => `No se deshizo: ${reason}. Se quitó este paso; el próximo deshacer tratará el anterior.`,
   allFlows: "Todos",
   flowFilter: "Filtro de flujo",
+  relationsAbove: (n: number) => `${n} relacionados más arriba`,
+  relationsBelow: (n: number) => `${n} relacionados más abajo`,
   onlyFlow: (title: string | number) => `Solo ${title}`,
   newItem: "Nuevo",
   flow: "Flujo",
