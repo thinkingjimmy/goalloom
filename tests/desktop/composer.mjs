@@ -120,8 +120,52 @@ try {
   const final = await page.evaluate(() => window.goalloom.getSnapshot())
   const child = final.items.find(item => item.title === '拆解出的下一步'), parent = final.items.find(item => item.title === '列内连续一')
   assert(final.relations.some(edge => edge.parentId === parent.id && edge.childId === child.id))
+  await split.press('Escape')
+  // Failure cases: a committed write leaves a cached draft after closing, or its
+  // delayed receipt clears newer input. Only receipt delivery is held; IPC and SQLite stay real.
+  await application.evaluate(({ipcMain})=>{
+    const original=ipcMain._invokeHandlers.get('goalloom:command')
+    globalThis.reviewCommand=original
+    ipcMain.removeHandler('goalloom:command')
+    ipcMain.handle('goalloom:command',async(...args)=>{
+      const reply=await original(...args), gate=globalThis.reviewReceipt
+      if(gate) await new Promise(resolve=>gate.release=resolve)
+      return reply
+    })
+  })
+  for(const outcome of ['closed','edited']) {
+    await page.keyboard.press('ControlOrMeta+n')
+    const title=`Close during save ${outcome}`
+    await composer.fill(title)
+    await application.evaluate(()=>{globalThis.reviewReceipt={}})
+    await page.getByRole('button',{name:/保存到 Later/}).click()
+    await application.evaluate(async()=>{
+      for(let i=0;i<200;i++) {
+        if(globalThis.reviewReceipt.release)return
+        await new Promise(resolve=>setTimeout(resolve,10))
+      }
+      throw Error('Receipt gate was not reached')
+    })
+    await page.locator('.composer-modal .modal-header').getByRole('button',{name:'关闭',exact:true}).click()
+    if(outcome==='edited') {
+      await page.keyboard.press('ControlOrMeta+n')
+      await composer.fill('New text after save dialog closed')
+    }
+    await application.evaluate(()=>{globalThis.reviewReceipt.release();delete globalThis.reviewReceipt})
+    await page.waitForFunction(()=>!document.querySelector('.fab').disabled)
+    if(outcome==='closed')await page.locator('.fab').click()
+    assert.equal(await composer.inputValue(),outcome==='closed'?'':'New text after save dialog closed')
+    assert.equal((await page.evaluate(()=>window.goalloom.getSnapshot())).items.filter(item=>item.title===title).length,1)
+    if(outcome==='edited')await page.getByRole('button',{name:'清空草稿',exact:true}).click()
+    else await page.keyboard.press('Escape')
+  }
+  await application.evaluate(({ipcMain})=>{
+    ipcMain.removeHandler('goalloom:command')
+    ipcMain.handle('goalloom:command',globalThis.reviewCommand)
+    delete globalThis.reviewCommand
+  })
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
-  const record = { packaged: Boolean(packaged), runtime, tabStepsToTodayAdd: tabSteps, checks: ['direction draft not written before confirm', 'direction becomes 3-month flow root', 'onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar', 'settings entry', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent'] }
+  const record = { packaged: Boolean(packaged), runtime, tabStepsToTodayAdd: tabSteps, checks: ['direction draft not written before confirm', 'direction becomes 3-month flow root', 'onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar', 'settings entry', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent', 'closed composer consumes a committed receipt', 'reopened input survives an earlier receipt'] }
   await mkdir('output/tests', { recursive: true })
   await writeFile('output/tests/composer.json', JSON.stringify(record, null, 2))
   console.log(JSON.stringify(record))

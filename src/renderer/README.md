@@ -25,7 +25,7 @@ renderer/
 │   │       ├── parts.tsx        # 分组/行/分段选择（色块、数量）/开关原语，工作区时区时间与相对日期
 │   │       └── settings.css     # 设置弹窗专属样式（仅 token）
 │   ├── composer/            # 全局新建：普通单条 Later / Jev 可编辑预览
-│   │   ├── Composer.tsx     # 固定输入、防抖/IME、修订回声、失败降级、会话草稿与 createPlan 确认
+│   │   ├── Composer.tsx     # 工作区生命周期内持有草稿/在途保存，弹窗关闭停止分析，回执按修订清理，createPlan 确认
 │   │   ├── DraftCard.tsx    # 预览项：执行列范围、截止、多上级、建议 chips、手动新流程
 │   │   ├── draft.ts         # 纯草稿模型：手动优先合并、orphan、计划负载与本地复核
 │   │   └── composer.css     # composer 与连接表单样式（仅 token）
@@ -34,7 +34,7 @@ renderer/
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── JevStep.tsx      # 首次流程第 3 步：先看示例，选择连接才填 Key，通过或跳过都进入看板
 │   ├── board/
-│   │   ├── Board.tsx        # 本机可见列、指针优先落点的 dnd-kit 排序、列头、历史周期切换与折叠
+│   │   ├── Board.tsx        # 可见列/历史状态、键盘和指针共用可编辑落点、虚拟排序、列头与折叠
 │   │   ├── VirtualRows.tsx # 可测量行高、有界 DOM、逻辑 Tab/Home/End、拖动/焦点锁定与定位
 │   │   ├── TaskRow.tsx      # 单行卡片：流程描边复选框、标题与截止/说明/顺延提示
 │   │   ├── QuickAdd.tsx     # 列头＋/拆解的列内连续录入：加入流程/新流程/拆解上级

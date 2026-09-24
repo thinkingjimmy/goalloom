@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Workspace state, undo session, stable flow views, device preferences and feature components.
  * [OUTPUT]: Onboarding, board, search, settings, composer, strict platform shortcuts and scoped feedback.
- * [POS]: Renderer composition root; replacement clears old-generation drafts, dialogs and session state.
+ * [POS]: Renderer composition root; composer lifetime follows the workspace generation rather than dialog visibility.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { messages, smartMessages, useLocale } from './i18n'
@@ -21,7 +21,7 @@ import { editingTarget } from './state/session'
 import { ariaKeys, filterSlot, formatCombo, parseEvent, useShortcuts } from './state/shortcuts'
 import { Settings, type Section } from './features/shell/settings/Settings'
 import { CommandPalette } from './features/shell/CommandPalette'
-import { Composer, type ComposerMemory } from './features/composer/Composer'
+import { Composer } from './features/composer/Composer'
 import { JevStep } from './features/smart/JevStep'
 import { useSmart } from './state/smart'
 
@@ -34,7 +34,7 @@ export function App() {
   const { snapshot, error, errorCode, setError, busy, submit, feedback, setFeedback, undo, undoCount, pending, retry, refresh } = useWorkspace()
   const flows = useFlows(snapshot)
   const smart = useSmart(snapshot?.workspace.generation)
-  const [composing, setComposing] = useState(false), [memory, setMemory] = useState<ComposerMemory | null>(null), [onboarding, setOnboarding] = useState(false)
+  const [composing, setComposing] = useState(false), [onboarding, setOnboarding] = useState(false)
   const columns = useColumns()
   const { bindings, filters: filterKeys } = useShortcuts()
   const compose = () => setComposing(true)
@@ -59,7 +59,7 @@ export function App() {
   useEffect(() => { document.documentElement.dataset.style = style }, [style])
   useEffect(() => { document.documentElement.dataset.check = checkStyle }, [checkStyle])
   useEffect(() => { document.documentElement.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other' }, [])
-  useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setMemory(null) }, [snapshot?.workspace.generation])
+  useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false) }, [snapshot?.workspace.generation])
   // A filter pointing at a flow that no longer exists falls back to showing everything.
   useEffect(() => { if (filter && !flows.visible.some(flow => flow.id === filter)) setFilter(null) }, [flows, filter])
   const openSettings = (section: Section = 'appearance') => { setSettingsSection(section); setSettings(true) }
@@ -104,7 +104,7 @@ export function App() {
     </>}
     {settings && snapshot && <Settings snapshot={snapshot} smart={smart} initial={settingsSection} submit={submit} refresh={refresh} busy={busy} select={select} close={() => setSettings(false)} />}
     {palette && <CommandPalette close={() => setPalette(false)} select={select} undo={() => void undo()} canUndo={!busy && undoCount > 0} create={compose} openSettings={openSettings} bindings={bindings} />}
-    {composing && snapshot && ready && <Composer key={snapshot.workspace.generation} snapshot={snapshot} flows={flows} smart={smart} submit={submit} busy={busy} error={error} errorCode={errorCode} memory={memory} keep={setMemory} close={() => setComposing(false)} openSettings={() => openSettings('smart')} />}
+    {snapshot && ready && <Composer key={snapshot.workspace.generation} open={composing} snapshot={snapshot} flows={flows} smart={smart} submit={submit} busy={busy} error={error} errorCode={errorCode} close={() => setComposing(false)} openSettings={() => openSettings('smart')} />}
     {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={closeDetail} submit={submit} revision={snapshot.workspace.revision} busy={busy}
       flows={flows} candidates={snapshot.items} today={today} split={(parent, horizon) => { setSelected(null); setSettings(false); requestAdd(horizon, parent) }}
       locate={snapshot.items.some(item => item.id === selected) ? () => { const id = selected; setSettings(false); setSelected(null); requestAnimationFrame(() => revealRow(id, '.task-title')) } : undefined} />}

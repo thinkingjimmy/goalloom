@@ -67,6 +67,23 @@ for (const action of [{type:'forget',provider:'typesafe'}, {type:'connect',provi
  assert.notEqual((await service.status(generation)).activeProvider,'typesafe')
 }
 const dates=[['下月底', '2026-10-31'],['10月底','2026-10-31'],['十月底','2026-10-31'],['下个月底','2026-10-31'],['大后天','2026-09-27'],['上周五','2026-09-18'],['上星期五','2026-09-18']]
+// Failure cases: a shortened range end is missed; whole current-month end forms disappear.
+const ranges = ['9月24日至26日前交稿', '9月24日到26号交稿', '2026年9月24日—26日', '九月二十四日至二十六日', '9月24日至10月2日', '周四至周五']
+const monthEnds = ['本月月底', '这个月月底', '这月月末', '本月底', '这个月底', '月底', '下个月月底']
+console.log('DATE_BOUNDARIES', JSON.stringify([...ranges, ...monthEnds].map(text => ({ text, candidates: dateCandidates(text, '2026-09-24', 1) }))))
+for (const text of ranges) {
+ const candidates = dateCandidates(text, '2026-09-24', 1)
+ assert(candidates.length > 0, text)
+ assert(candidates.every(candidate => candidate.ambiguous || candidate.value === null), text)
+ results.push({ case: 'date-range', text, candidates })
+}
+for (const text of monthEnds) {
+ const candidate = dateCandidates(text + '前交稿', '2026-09-24', 1)[0]
+ assert.equal(candidate?.text, text)
+ assert.equal(candidate?.value, text.startsWith('下') ? '2026-10-31' : '2026-09-30')
+ assert.equal(candidate?.ambiguous, false)
+ results.push({ case: 'whole-month-end', text, candidate })
+}
 for(const [text,expected] of dates) assert.equal(dateCandidates(text+'前交稿','2026-09-24',1)[0]?.value,expected)
 for(const text of ['大大后天','上上上周五','13月底','去年10月底','2027年10月底']) {
  const values=dateCandidates(text,'2026-09-24',1)

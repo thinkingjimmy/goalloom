@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Strict commands, finite queries, injected clock and SQLite Store.
- * [OUTPUT]: Authoritative writes, idempotent receipts, lightweight metadata and summary/detail projections.
+ * [OUTPUT]: Authoritative writes, idempotent receipts and summary/detail projections with bounded SQL parameters.
  * [POS]: Sole workspace command transaction boundary, called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -114,12 +114,13 @@ export class Repository {
   snapshot(): Snapshot {
     const { workspace, periods, observedAt } = this.metadata()
     const ids = periods.map(period => period.id)
-    const items = this.store.summaries(`i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status!='cancelled' AND (p.horizon='later' OR p.periodId IN (${ids.map(() => '?').join(',') || 'NULL'}))`, ids)
+    const visible = `i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status!='cancelled' AND (p.horizon='later' OR p.periodId IN (${ids.map(() => '?').join(',') || 'NULL'}))`
+    const items = this.store.summaries(visible, ids)
     const backlog: Record<string, number> = {}
     for (const row of this.db.prepare("SELECT p.horizon, count(*) AS n FROM items i JOIN item_placements p ON p.itemId=i.id JOIN planning_periods pp ON pp.id=p.periodId WHERE i.status='todo' AND i.deletedAt IS NULL AND i.archivedAt IS NULL AND julianday(pp.endAt)<=julianday(?) GROUP BY p.horizon").all(observedAt)) backlog[String(row.horizon)] = Number(row.n)
-    const sources = items.length ? this.db.prepare(`SELECT e.itemId,pp.startDate FROM item_events e JOIN planning_periods pp ON pp.id=e.fromPeriodId
-      WHERE e.seq IN (SELECT max(seq) FROM item_events WHERE itemId IN (${items.map(() => '?').join(',')}) AND fromPeriodId IS NOT toPeriodId GROUP BY itemId)
-      AND e.type='rolled_over'`).all(...items.map(item => item.id)) : []
+    const sources = items.length ? this.db.prepare(`SELECT e.itemId,pp.startDate FROM items i JOIN item_placements p ON p.itemId=i.id
+      JOIN item_events e ON e.seq=(SELECT max(seq) FROM item_events WHERE itemId=i.id AND fromPeriodId IS NOT toPeriodId)
+      JOIN planning_periods pp ON pp.id=e.fromPeriodId WHERE ${visible} AND e.type='rolled_over'`).all(...ids) : []
     const rolloverSources = Object.fromEntries(sources.map(row => [String(row.itemId), String(row.startDate)]))
     const flows = this.db.prepare('SELECT id,title,flowColor,archivedAt FROM items WHERE flowColor IS NOT NULL AND deletedAt IS NULL ORDER BY flowColor').all()
       .map(row => ({ id: String(row.id), title: String(row.title), flowColor: Number(row.flowColor), archived: row.archivedAt !== null }))

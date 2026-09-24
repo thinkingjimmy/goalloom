@@ -15,7 +15,7 @@ domain/
 ├── status.ts     # 独立状态时间组、效果匹配与差量逆转
 └── smart/        # 智能输入纯规则
     ├── segments.ts     # 强/弱边界无损槽位（≤8）与普通模式单条 Later
-    ├── dates.ts        # 工作区 weekStart 的本周/下周/最近星期、绝对日期与歧义
+    ├── dates.ts        # 工作区 weekStart 的星期、绝对/月底日期与完整/省略终点的范围歧义
     ├── questions.ts    # 原文直接作 state 的题单，Q=1+3S+D+3+R≤64，payload/token 预算与补充轮
     ├── distribution.ts # 统一 Choice/boolean 契约校验、K×d 总和容差、top/margin/集中度与确定性
     └── preview.ts      # 答案组装为可编辑预览：角色归并、执行/截止、多父建议去环、警示

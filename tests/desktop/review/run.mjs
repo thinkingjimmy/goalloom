@@ -11,8 +11,8 @@ const run = (command, args, env = process.env) => new Promise((resolve, reject) 
   child.on('error', reject)
   child.on('exit', code => code === 0 ? resolve() : reject(new Error(`${args.join(' ')} exited ${code}`)))
 })
-for (const name of process.argv.slice(2).length ? process.argv.slice(2) : ['smart', 'storage', 'renderer', 'lifecycle', 'virtual', 'wire']) {
-  if (['smart', 'storage', 'scaling'].includes(name)) {
+for (const name of process.argv.slice(2).length ? process.argv.slice(2) : ['smart', 'storage', 'renderer', 'lifecycle', 'virtual', 'wire', 'large-workspace', 'package-report']) {
+  if (['smart', 'storage', 'scaling', 'large-workspace'].includes(name)) {
     const outfile = `${evidence}/${name}.cjs`
     await build({ entryPoints: [`tests/desktop/review/${name}.mjs`], outfile, bundle: true, platform: 'node', format: 'esm' })
     // Electron's Node runtime supplies the production node:sqlite version.

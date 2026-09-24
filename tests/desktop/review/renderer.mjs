@@ -28,6 +28,7 @@ await page.addInitScript(()=>{
  const item={id:'item-a',title:'Original title',description:'',dueDate:null,status:'todo',completedAt:null,cancelledAt:null,archivedAt:null,deletedAt:null,deletedBy:null,createdAt:now,updatedAt:now,version:1,flowColor:null,placement:{itemId:'item-a',horizon:'later',periodId:null,sortKey:1,version:1,holdPeriodId:null}}
  window.review={snapshot:{workspace:{generation:'test-generation',calendar:{id:'c',timezone:'UTC',weekStart:1,cycleAnchor:'2026-07-01'},setupConfirmedAt:now,pausedAfterRestore:false,revision:1,lastObservedAt:now,clockAnomaly:false,theme:'light',style:'paper',checkStyle:'outline',backupEnabled:true,backupRetention:7},periods:[period('cycle','2026-07-01','2026-10-01'),period('month','2026-09-01','2026-10-01'),period('week','2026-09-21','2026-09-28'),period('day','2026-09-24','2026-09-25')],items:[item],relations:[],policies:[],backlog:{},observedAt:now,maintenance:false,backupError:null,rolloverSources:{},flows:[]},listeners:[],commands:[],analyses:[],delayAnalysis:false,waiters:[],delayExecute:false,executeWaiters:[],smartEnabled:true}
  const r=window.review
+ r.smartEnabled = !location.search.includes('plain')
  const status=()=>({activeProvider:'typesafe',providerRevision:1,enabled:r.smartEnabled,paused:false,providers:{typesafe:{credential:'saved',keyHint:'abc',consentedAt:now,verifiedAt:now},'vercel-gateway':{credential:'missing',keyHint:null,consentedAt:null,verifiedAt:null}},lastFailure:null,cooldownUntil:null,dismissed:['globalEntry','smartSetup'],unsignedBuild:false})
  r.advance=()=>{r.snapshot.observedAt='2026-09-25T12:00:00.000Z';r.snapshot.workspace.revision++;r.snapshot.periods=r.snapshot.periods.map(p=>p.horizon==='day'?period('day','2026-09-25','2026-09-26'):p);r.listeners.forEach(f=>f(null))}
  window.goalloom={getLanguage:async()=>({language:'en',locale:'en',system:'en'}),getSnapshot:async()=>{if(r.delaySnapshot){r.delaySnapshot=false;await new Promise(resolve=>r.snapshotWaiter=resolve)}return structuredClone(r.snapshot)},onChanged:listener=>{r.listeners.push(listener);return()=>{r.listeners=r.listeners.filter(f=>f!==listener)}},getItem:async id=>({item:structuredClone(r.snapshot.items.find(i=>i.id===id)),relations:[]}),getActivitySummary:async()=>({total:0,latest:null}),getCounts:async()=>({done:0,cancelled:0,archived:0,trash:0}),getBackupSummary:async()=>({latest:null,total:0}),getActivity:async()=>({events:[],more:false}),listItems:async()=>({items:[],total:0}),smart:async action=>{
@@ -38,7 +39,7 @@ await page.addInitScript(()=>{
   if(r.delayAnalysis)await new Promise(resolve=>r.waiters.push(resolve))
   const {requestId,draftSessionId,inputRevision,manualRevision,generation,providerRevision,contextRevision,referenceTime}=action.request
   return {type:'analysis',reply:{status:'ready',echo:{requestId,draftSessionId,inputRevision,manualRevision,generation,providerRevision,contextRevision,referenceTime},preview:{layout:{value:'list',certain:true,metrics:null},referenceDate:previewSnapshot.observedAt.slice(0,10),periods:Object.fromEntries(previewSnapshot.periods.map(p=>[p.horizon,p])),drafts:['Alpha','Beta'].map((title,index)=>({draftId:`d${index}`,source:title,title,description:'',roleCertain:true,horizon:{value:'day',certain:true,metrics:null},due:{value:null,certain:true,metrics:null}})),candidates:r.suggestParent?[{ref:'g0',itemId:'parent-existing',title:'Existing suggested parent',status:'todo',horizon:'month',archived:false,flowColor:null,version:7,named:true}]:[],relations:r.suggestParent?[{parent:{kind:'existing',itemId:'parent-existing'},childDraftId:'d0',state:'maybe',probability:.7}]:[],warnings:[],questionCount:1,requests:1},diagnostics:[]}}
- },execute:async command=>{r.commands.push(command);if(r.delayExecute)await new Promise(resolve=>r.executeWaiters.push(resolve));if(command.type==='edit'){Object.assign(r.snapshot.items[0],{title:command.title,description:command.description,dueDate:command.dueDate,version:r.snapshot.items[0].version+1})};r.snapshot.workspace.revision++;return {ok:true,result:{operationId:command.operationId,generation:command.generation,changed:true,undoable:false,outcome:'committed',itemId:command.type==='edit'?'item-a':null,itemIds:[],label:'Saved',warnings:[],restoreSource:null,originalOperationId:null}}},getReceipt:async()=>null}
+ },execute:async command=>{r.commands.push(command);if(r.delayExecute)await new Promise(resolve=>r.executeWaiters.push(resolve));if(r.failExecute)return {ok:false,code:'invalid',message:'Synthetic save failure'};if(command.type==='edit'){Object.assign(r.snapshot.items[0],{title:command.title,description:command.description,dueDate:command.dueDate,version:r.snapshot.items[0].version+1})};r.snapshot.workspace.revision++;return {ok:true,result:{operationId:command.operationId,generation:command.generation,changed:true,undoable:false,outcome:'committed',itemId:command.type==='edit'?'item-a':null,itemIds:[],label:'Saved',warnings:[],restoreSource:null,originalOperationId:null}}},getReceipt:async()=>null}
 })
 const result={scope:'Current source rendered in Chromium, mocked IPC, no production data or external service',checks:[]}
 try{
@@ -144,6 +145,38 @@ try{
  await page.waitForFunction(()=>review.commands.length>0)
  assert.deepEqual(await page.evaluate(()=>review.commands.at(-1).items[0].parentRefs),[{kind:'existing',itemId:'parent-existing',expectedVersion:7}])
  result.checks.push({case:'suggested-parent-metadata',version:7})
+ // Failure cases: closing during a save retains submitted text; an old receipt
+ // clears newer reopened input or failed input, or retains an old-generation draft.
+ for (const mode of ['plain', 'smart']) for (const outcome of ['closed', 'reopened', 'edited', 'failed', 'replaced']) {
+  await page.goto(`${server.resolvedUrls.local[0]}?${mode}`)
+  await page.getByRole('button',{name:'Original title',exact:true}).waitFor()
+  await page.locator('.fab').click()
+  await page.locator('.composer-input').fill('Alpha\nBeta')
+  if (mode === 'smart') await page.locator('.draft-title').first().waitFor()
+  await page.evaluate(failed => { review.delayExecute=true; review.failExecute=failed }, outcome === 'failed')
+  await page.locator('.composer-footer .primary').click()
+  await page.waitForFunction(()=>review.executeWaiters.length===1)
+  await page.locator('.composer-modal .modal-header').getByRole('button',{name:'Close',exact:true}).click()
+  if (outcome === 'replaced') {
+   await page.evaluate(()=>{review.snapshot.workspace.generation='replacement';review.listeners.forEach(listener=>listener(null))})
+   await page.waitForTimeout(100)
+  }
+  if (['reopened','edited','replaced'].includes(outcome)) {
+   await page.keyboard.press('Meta+n')
+   await page.locator('.composer-input').waitFor()
+   if (outcome !== 'reopened') await page.locator('.composer-input').fill('New draft after close')
+  }
+  await page.evaluate(()=>{review.delayExecute=false;review.executeWaiters.shift()()})
+  await page.waitForFunction(()=>!document.querySelector('.fab').disabled)
+  if (!await page.locator('.composer-input').count()) await page.locator('.fab').click()
+  // Replacement notifications wait behind the accepted write; text typed before
+  // that refresh still belongs to the old workspace and must be discarded.
+  const expected = outcome === 'edited' ? 'New draft after close' : outcome === 'failed' ? 'Alpha\nBeta' : ''
+  console.log('COMPOSER_CLOSE',JSON.stringify({mode,outcome,expected,actual:await page.locator('.composer-input').inputValue()}))
+  await page.waitForFunction(expected=>document.querySelector('.composer-input')?.value===expected,expected,{timeout:2000})
+  assert.equal(await page.evaluate(()=>review.commands.length),1)
+  result.checks.push({case:`composer-close-${mode}-${outcome}`,text:await page.locator('.composer-input').inputValue()})
+ }
  assert.deepEqual(errors,[])
  await writeFile(`${evidence}/renderer.json`,JSON.stringify(result,null,2))
  console.log('Renderer review regressions passed')

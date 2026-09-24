@@ -4,7 +4,7 @@
 
 ```text
 workspace/
-├── repository.ts     # 用户命令唯一事务入口，复核幂等/代次/版本与配置；轻量 metadata 与摘要快照
+├── repository.ts     # 用户命令唯一事务入口，复核幂等/代次/版本与配置；摘要快照与按当前周期连接的有界参数查询
 ├── context.ts        # 事务上下文、当前周期和语义排序工具
 ├── queries.ts        # 轻量数量/活动/备份摘要及按页展开的批次成员
 ├── history.ts        # from/to 索引分页、批量摘要与流式历史投影

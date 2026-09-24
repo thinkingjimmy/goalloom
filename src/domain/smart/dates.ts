@@ -50,7 +50,7 @@ const patterns: { pattern: RegExp; resolve: (match: RegExpExecArray, reference: 
     const offset = prefix.startsWith('下下') ? 2 : prefix.startsWith('下') ? 1 : prefix.startsWith('上上') ? -2 : prefix.startsWith('上') ? -1 : 0
     return { value: weekDay(reference, weekStart, day, offset), ambiguous: false }
   } },
-  { pattern: /(?:(\d{4})年)?([0-9一二三四五六七八九十]{1,3})月[底末]/g, resolve: (m, reference) => {
+  { pattern: /(?:(\d{4})年)?([0-9一二三四五六七八九十]{1,3})月月?[底末]/g, resolve: (m, reference) => {
     const today = parseDate(reference), year = m[1] ? Number(m[1]) : today.year, month = number(m[2]!)
     const start = plain(year, month, 1)
     if (!start) return { value: null, ambiguous: true }
@@ -58,7 +58,7 @@ const patterns: { pattern: RegExp; resolve: (match: RegExpExecArray, reference: 
     const nextYear = !m[1] && end.toString() < reference
     return { value: (nextYear ? end.add({ years: 1 }).with({ day: end.add({ years: 1 }).daysInMonth }) : end).toString(), ambiguous: nextYear }
   } },
-  { pattern: /(上上个?|下下个?|上个?|下个?|本|这个?|这)?月[底末]/g, resolve: (m, reference) => {
+  { pattern: /(上上个?|下下个?|上个?|下个?|本|这个?|这)?月月?[底末]/g, resolve: (m, reference) => {
     const prefix = m[1] ?? '', offset = prefix.startsWith('下下') ? 2 : prefix.startsWith('下') ? 1 : prefix.startsWith('上上') ? -2 : prefix.startsWith('上') ? -1 : 0
     const date = parseDate(reference).add({ months: offset })
     return { value: date.with({ day: date.daysInMonth }).toString(), ambiguous: false }
@@ -78,6 +78,15 @@ export function dateCandidates(text: string, reference: string, weekStart: numbe
     }
   }
   found.sort((a, b) => a.start - b.start)
+  for (const candidate of found) {
+    // A range may omit the month (or weekday prefix) at its second endpoint.
+    // Preserve the whole range as uncertain instead of offering its first day as a deadline.
+    const shortened = /^\s*(?:到|至|[-—~～])\s*(?:[0-9]{1,2}|[一二三四五六七八九十]{1,3})(?:[日号]|(?=$|[前后止，。；、\s]))/.exec(text.slice(candidate.end))
+    if (!shortened) continue
+    candidate.end += shortened[0].length
+    candidate.text = text.slice(candidate.start, candidate.end)
+    candidate.value = null; candidate.ambiguous = true
+  }
   for (let index = 1; index < found.length; index++) {
     const previous = found[index - 1]!, next = found[index]!
     if (/^\s*(?:到|至|[-—~～])\s*$/.test(text.slice(previous.end, next.start))) previous.ambiguous = next.ambiguous = true

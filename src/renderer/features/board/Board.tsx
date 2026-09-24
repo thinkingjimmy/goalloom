@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Summary snapshot, stable flow views, visible columns and guarded actions.
- * [OUTPUT]: Memoized columns, virtual task rows, logical keyboard/pointer sorting and history views.
+ * [OUTPUT]: Memoized columns, virtual task rows and shared editable drop targets for keyboard/pointer sorting.
  * [POS]: Main board view; authoritative transactions revalidate all position and state changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -53,6 +53,9 @@ export const Board = memo(function Board({ snapshot, flows, filter, columns, hig
     document.querySelector(`[data-horizon="${horizon}"]`)?.scrollIntoView({ inline: 'nearest' })
   }, [addRequest])
   const [dragging, setDragging] = useState<string | null>(null)
+  const [history, setHistory] = useState<Partial<Record<ItemHorizon, PlanningPeriod | null>>>({})
+  const editableColumns = columns.filter(horizon => !history[horizon])
+  const onHistory = useCallback((horizon: ItemHorizon, period: PlanningPeriod | null) => setHistory(previous => ({ ...previous, [horizon]: period })), [])
   const keyboardTarget = useRef<{ id: string | null; horizon: ItemHorizon } | null>(null)
   const onAdding = useCallback((horizon: ItemHorizon, open: boolean) => setAdding(open ? { horizon, split: null, key: Date.now() } : null), [])
   const onFocus = useCallback((horizon: ItemHorizon, editable: boolean) => setFocused(editable ? horizon : 'later'), [])
@@ -65,13 +68,13 @@ export const Board = memo(function Board({ snapshot, flows, filter, columns, hig
   const keyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
     if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(event.code)) return sortableKeyboardCoordinates(event, args)
     const active = snapshot.items.find(item => item.id === args.active)
-    if (!active) return
-    const cursor = keyboardTarget.current ?? { id: active.id, horizon: active.placement.horizon }
+    if (!active || !editableColumns.includes(active.placement.horizon)) return
+    const cursor = keyboardTarget.current && editableColumns.includes(keyboardTarget.current.horizon) ? keyboardTarget.current : { id: active.id, horizon: active.placement.horizon }
     let horizon = cursor.horizon
     const source = byColumn.get(horizon)!.filter(item => item.status === active.status)
     let index = source.findIndex(item => item.id === cursor.id)
     if (event.code === 'ArrowRight' || event.code === 'ArrowLeft') {
-      horizon = columns[columns.indexOf(horizon) + (event.code === 'ArrowRight' ? 1 : -1)] ?? horizon
+      horizon = editableColumns[editableColumns.indexOf(horizon) + (event.code === 'ArrowRight' ? 1 : -1)] ?? horizon
     } else index += event.code === 'ArrowDown' ? 1 : -1
     const rows = byColumn.get(horizon)!.filter(item => item.status === active.status)
     const target = rows[Math.max(0, Math.min(index, rows.length - 1))]
@@ -89,9 +92,10 @@ export const Board = memo(function Board({ snapshot, flows, filter, columns, hig
     keyboardTarget.current = null
     if (!event.over && !keyTarget) return
     const item = snapshot.items.find(item => item.id === event.active.id)
-    const target = snapshot.items.find(item => item.id === (keyTarget?.id ?? event.over?.id))
+    // An empty keyboard destination deliberately has no row; collision geometry may still point at the source.
+    const target = snapshot.items.find(item => item.id === (keyTarget ? keyTarget.id : event.over?.id))
     const horizon = keyTarget?.horizon ?? target?.placement.horizon ?? String(event.over?.id).replace('column:', '') as ItemHorizon
-    if (!item || !horizons.includes(horizon)) return
+    if (!item || !editableColumns.includes(item.placement.horizon) || !editableColumns.includes(horizon)) return
     let beforeId = target?.id ?? null
     const columnItems = snapshot.items.filter(row => row.placement.horizon === horizon)
     if (item.placement.horizon === horizon && target && columnItems.indexOf(target) > columnItems.indexOf(item)) beforeId = columnItems[columnItems.indexOf(target) + 1]?.id ?? null
@@ -102,21 +106,23 @@ export const Board = memo(function Board({ snapshot, flows, filter, columns, hig
     <main className="board" aria-label={messages.board}>
       {columns.map(horizon => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!}
         snapshot={snapshot} flows={flows} filter={filter} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
-        dragging={dragging} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} />)}
+        dragging={dragging} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} history={history[horizon] ?? null} onHistory={onHistory} />)}
     </main>
     {/* No drop animation: the overlay would fly back to the old slot before the authoritative refresh lands. */}
     <DragOverlay dropAnimation={null}>{dragging ? <div className="drag-overlay">{snapshot.items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
   </DndContext>
 })
 
-const Column = memo(function Column({ horizon, items, snapshot, flows, filter, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging }: Omit<BoardProps, 'addRequest' | 'columns'> & {
+const Column = memo(function Column({ horizon, items, snapshot, flows, filter, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, history, onHistory }: Omit<BoardProps, 'addRequest' | 'columns'> & {
   horizon: ItemHorizon; items: ItemSummary[]; today: string; adding: { split: SplitParent | null; key: number } | null; dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean) => void; onFocus: (horizon: ItemHorizon, editable: boolean) => void
+  history: PlanningPeriod | null; onHistory: (horizon: ItemHorizon, period: PlanningPeriod | null) => void
 }) {
   useLocale()
   const setAdding = (open: boolean) => onAdding(horizon, open), focus = (editable: boolean) => onFocus(horizon, editable)
   const [doneOpen, setDoneOpen] = useState(false)
   useEffect(() => { if (highlighted && items.some(item => item.id === highlighted && item.status === 'done')) setDoneOpen(true) }, [highlighted, items])
-  const [history, setHistory] = useState<PlanningPeriod | null>(null), [backlog, setBacklog] = useState(false)
+  const setHistory = (period: PlanningPeriod | null) => onHistory(horizon, period)
+  const [backlog, setBacklog] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: `column:${horizon}`, disabled: history !== null })
   const current = snapshot.periods.find(period => period.horizon === horizon)
   const period = history ?? current
