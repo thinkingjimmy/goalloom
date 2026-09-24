@@ -16,7 +16,7 @@ type Action<T = CommandInput> = T extends unknown ? Omit<T, 'operationId' | 'gen
 let repo: Repository, service: WorkspaceService, directory: string, now: string
 const generation = () => repo.store.workspace().generation
 const run = (command: Action) => repo.execute({ ...command, operationId: randomUUID(), generation: generation() })
-const create = (title = '恢复数据') => run({ type: 'create', title, horizon: 'later' })
+const create = (title = '恢复数据', horizon: 'later' | 'month' | 'week' = 'later') => run({ type: 'create', title, horizon })
 function preview(reply: DataReply) { if (reply.type !== 'preview') throw new Error('expected preview'); return reply.preview }
 const resetPreview = async () => preview(await service.action({ type: 'previewReset', generation: generation() }))
 const prepare = (token: string) => service.action({ type: 'prepare', generation: generation(), token })
@@ -30,7 +30,7 @@ beforeEach(async () => {
 })
 afterEach(async () => { vi.restoreAllMocks(); repo.db.close(); await rm(directory, { force: true, recursive: true }) })
 it('完整 JSON 校验允许无关编辑/关系/排序版本跳号与非栈顶撤销后的真实链', () => {
-  const a = create('A'), b = create('B')
+  const a = create('A', 'month'), b = create('B', 'week')
   run({ type: 'link', parentId: a.itemId!, childId: b.itemId!, expectedParentVersion: 1, expectedChildVersion: 1 })
   const item = repo.store.item(b.itemId!)
   const moved = run({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon: 'day' })

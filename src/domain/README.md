@@ -5,7 +5,7 @@
 ```text
 domain/
 ├── calendar.ts   # 日/周/月/原锚点三个月区间、固定 IANA 边界
-├── relations.ts  # 多父 DAG，线性整图拓扑校验与增量防环
+├── relations.ts  # 多父 DAG，线性整图拓扑校验与增量防环；新建关联的周期规则（上级周期更长、Later 不参与）
 ├── flows.ts      # 流程归属：复用祖先缓存解析带颜色的流程根
 ├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断
 ├── undo.ts       # 效果字段/关系身份/语义顺序匹配，不依赖整体版本

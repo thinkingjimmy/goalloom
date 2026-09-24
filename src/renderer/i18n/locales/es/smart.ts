@@ -72,6 +72,7 @@ export const smartMessages: SmartCatalog = {
   titleRequired: 'Cada elemento necesita un título',
   parentMissing: 'Un superior no tiene datos de vista previa. Vuelve a elegirlo',
   colorTaken: 'El color de flujo elegido ya está en uso. Elige otro',
+  relationHorizon: 'El superior debe estar en un horizonte más largo; Later no participa en vínculos ni flujos',
   analyzeFailed: 'No se puede conectar con Jev por ahora. El borrador se conserva',
   testFailed: 'No se pudo completar la prueba. Reinténtalo más tarde u omítela por ahora',
   // --- Connect / settings ---

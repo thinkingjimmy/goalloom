@@ -152,6 +152,8 @@ export const appMessages: typeof source = {
     self: 'Un élément ne peut pas être lié à lui-même',
     duplicate: 'Ces deux éléments sont déjà liés',
     cycle: 'Ce lien créerait une boucle',
+    laterEndpoint: 'Later est une zone d’attente et ne participe ni aux liens ni aux flux',
+    horizonOrder: 'Le parent doit se trouver dans un horizon plus long',
     invalidEdge: 'Identité ou extrémités du lien non valides',
     deletedEndpoint: 'Un lien actif contient une extrémité supprimée',
     planDuplicateDraft: 'Identifiant de brouillon en double dans le plan',

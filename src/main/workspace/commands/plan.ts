@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Validated createPlan entries, versioned parent references and current transaction context.
- * [OUTPUT]: Revalidated periods/parents/colors, topological creation effects, events and ordered item IDs.
+ * [OUTPUT]: Revalidated periods/parents/colors and the new-link horizon rule, topological creation effects, events and ordered item IDs.
  * [POS]: Atomic batch creation sharing single-item primitives; stale previews have a stable error code.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import { planOrder, planProblem } from '../../../domain/plan'
+import { horizonProblem } from '../../../domain/relations'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import type { Item } from '../../../shared/contracts/entities'
 import { statusGroup } from '../../../shared/contracts/effects'
@@ -23,6 +24,13 @@ export function createPlan(context: Context, command: CommandOf<'createPlan'>): 
     const parent = context.store.item(ref.itemId, ref.expectedVersion)
     assertAvailable(parent)
     parents.set(parent.id, parent)
+  }
+  // New plan links follow the same horizon rule as `link`: a longer-horizon parent, never Later, and no Later flow roots.
+  const horizonOf = new Map(command.items.map(item => [item.draftId, item.horizon]))
+  for (const item of command.items) {
+    const issue = item.flowColor !== null && item.horizon === 'later' ? serverText().relations.laterEndpoint
+      : item.parentRefs.map(ref => horizonProblem(ref.kind === 'existing' ? parents.get(ref.itemId)!.placement.horizon : horizonOf.get(ref.draftId)!, item.horizon)).find(Boolean)
+    if (issue) throw new DomainError('conflict', issue)
   }
   for (const item of command.items) {
     const period = targetPeriod(context, item.horizon)

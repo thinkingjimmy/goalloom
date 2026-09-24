@@ -72,6 +72,7 @@ export const smartMessages: SmartCatalog = {
   titleRequired: 'すべての項目にタイトルが必要です',
   parentMissing: 'プレビューの根拠がない親があります。選び直してください',
   colorTaken: '選んだフローの色は使用中です。別の色を選んでください',
+  relationHorizon: '上位は期間がより長い列に置いてください。Later は関連付けやフローに参加しません',
   analyzeFailed: '現在 Jev に接続できません。下書きは保持されています',
   testFailed: '現在テストを完了できません。しばらくしてから再試行するか、先にスキップしてください',
   // --- Connect / settings ---

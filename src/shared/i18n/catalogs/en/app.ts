@@ -151,6 +151,8 @@ export const appMessages: typeof source = {
     self: 'An item can’t link to itself',
     duplicate: 'These two items are already linked',
     cycle: 'This link would create a cycle',
+    laterEndpoint: 'Later is a parking lot and takes no part in links or flows',
+    horizonOrder: 'A parent must sit in a longer horizon',
     invalidEdge: 'Invalid link identity or endpoints',
     deletedEndpoint: 'An active link includes a deleted item',
     planDuplicateDraft: 'Duplicate plan draft ID',

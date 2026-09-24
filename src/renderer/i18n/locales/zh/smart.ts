@@ -72,6 +72,7 @@ export const smartMessages = widen({
   titleRequired: '每一项都需要标题',
   parentMissing: '有上级缺少预览依据，请重新选择',
   colorTaken: '所选流程颜色已被占用，请换一个',
+  relationHorizon: '上级必须在周期更长的列；Later 不参与关联和流程',
   analyzeFailed: '暂时无法连接 Jev，草稿已保留',
   testFailed: '暂时无法完成测试，可稍后重试或先跳过',
   // --- Connect / settings ---

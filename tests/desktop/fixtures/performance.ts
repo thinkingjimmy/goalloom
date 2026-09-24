@@ -49,15 +49,17 @@ async function main() {
   }
   now = today.subtract({ days: 1 }).toInstant().toString()
   const oldDay = Temporal.Instant.from(now).toZonedDateTimeISO('Asia/Shanghai').toPlainDate().toString()
-  const active: string[] = [], horizons: ItemHorizon[] = ['later', 'cycle', 'month', 'week', 'day']
-  for (let i = 0; i < 1000; i++) active.push(run({ type: 'create', title: `活跃计划 ${i} Alpha %_`, description, horizon: i < 200 ? 'day' : horizons[i % 5]! }).itemId!)
+  // 0-199 roll over; 200-699 are children (shorter horizons) of the cycle parents 700-899; 900+ mix every column.
+  const active: string[] = [], horizons: ItemHorizon[] = ['later', 'cycle', 'month', 'week', 'day'], childHorizons: ItemHorizon[] = ['month', 'week', 'day']
+  const horizonOf = (i: number): ItemHorizon => i < 200 ? 'day' : i < 700 ? childHorizons[i % 3]! : i < 900 ? 'cycle' : horizons[i % 5]!
+  for (let i = 0; i < 1000; i++) active.push(run({ type: 'create', title: `活跃计划 ${i} Alpha %_`, description, horizon: horizonOf(i) }).itemId!)
   now = today.toInstant().toString()
   // 边界可能恰逢周/月初；其余活跃计划显式安排今天所在的当前列。
   for (let i = 200; i < active.length; i++) {
     const item = repo.store.item(active[i]!)
-    run({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon: horizons[i % 5]! })
+    run({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon: horizonOf(i) })
   }
-  for (let i = 200; i < 700; i++) for (const parentId of [active[(i - 200) % 100]!, active[100 + (i - 200) % 100]!]) {
+  for (let i = 200; i < 700; i++) for (const parentId of [active[700 + (i - 200) % 100]!, active[800 + (i - 200) % 100]!]) {
     const childId = active[i]!
     run({ type: 'link', parentId, childId, expectedParentVersion: repo.store.item(parentId).version, expectedChildVersion: repo.store.item(childId).version })
   }

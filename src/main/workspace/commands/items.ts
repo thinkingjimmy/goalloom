@@ -1,12 +1,12 @@
 /**
  * [INPUT]: 已校验命令与最新事务 Context。
  * [OUTPUT]: 首次确认、创建、编辑、流程颜色、移动和关联的原子字段/边差量及真实事件。
- * [POS]: workspace 的条目与首次配置命令库；关系为多父 DAG，流程根颜色唯一且无上级，各条目状态/位置独立。
+ * [POS]: workspace 的条目与首次配置命令库；关系为多父 DAG，流程根颜色唯一且无上级，各条目状态/位置独立。新建关联（link/带上级新建）须上级周期更长且不含 Later；Later 条目不能设流程色。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { randomUUID } from 'node:crypto'
 import { currentPeriod, workspaceDate } from '../../../domain/calendar'
-import { relationProblem } from '../../../domain/relations'
+import { horizonProblem, relationProblem } from '../../../domain/relations'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { calendarSchema, type Item, type Relation } from '../../../shared/contracts/entities'
 import { statusGroup } from '../../../shared/contracts/effects'
@@ -31,6 +31,8 @@ export function confirmSetup(context: Context, command: CommandOf<'confirmSetup'
 export function createItem(context: Context, command: CommandOf<'create'>): boolean {
   const parent = command.parentId ? context.store.item(command.parentId, command.expectedParentVersion ?? -1) : null
   if (parent) assertAvailable(parent)
+  const horizonIssue = parent ? horizonProblem(parent.placement.horizon, command.horizon) : command.flowColor !== null && command.horizon === 'later' ? serverText().relations.laterEndpoint : null
+  if (horizonIssue) throw new DomainError('conflict', horizonIssue)
   if (command.flowColor !== null) {
     if (parent) throw new DomainError('invalid', serverText().errors.parentFollowsFlow)
     assertFlowColorFree(context, command.flowColor, null)
@@ -68,6 +70,7 @@ export function setFlowColor(context: Context, command: CommandOf<'flowColor'>):
   assertAvailable(item)
   if ((item.flowColor ?? null) === command.flowColor) return false
   if (command.flowColor !== null) {
+    if (item.placement.horizon === 'later') throw new DomainError('conflict', serverText().relations.laterEndpoint)
     if (hasActiveParent(context, item.id)) throw new DomainError('invalid', serverText().errors.parentFollowsFlow)
     assertFlowColorFree(context, command.flowColor, item.id)
   }
@@ -111,7 +114,7 @@ export function linkItems(context: Context, command: CommandOf<'link'>): boolean
   const child = context.store.item(command.childId, command.expectedChildVersion)
   assertAvailable(parent); assertAvailable(child)
   if (child.flowColor !== null) throw new DomainError('conflict', serverText().errors.childIsFlow(child.title))
-  const problem = relationProblem(parent.id, child.id, context.store.relations())
+  const problem = horizonProblem(parent.placement.horizon, child.placement.horizon) ?? relationProblem(parent.id, child.id, context.store.relations())
   if (problem) throw new DomainError('conflict', problem)
   const relation = newRelation(parent.id, child.id, context.now)
   context.store.saveRelation(relation)

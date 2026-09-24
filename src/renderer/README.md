@@ -15,7 +15,7 @@ renderer/
 │   │   ├── CommandPalette.tsx # 快捷搜索、命令、打开已完成/回收站与撤销入口
 │   │   └── settings/        # 左侧三组导航（偏好/工作区/条目）+ 页头说明 + 分组卡片的设置弹窗；外观含语言
 │   │       ├── Settings.tsx     # 容器：分组导航与状态提示、页头（说明/恢复默认/结束方式）、备份/批次/数量读取、数据动作与预览状态
-│   │       ├── AppearancePane.tsx # 风格/复选框/明暗三行分段（带色块示意）
+│   │       ├── AppearancePane.tsx # 语言/风格/复选框/明暗分段（带色块示意）与关系线开关
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
 │   │       ├── SmartPane.tsx    # 智能输入：状态卡、服务单选列表（Key 更换/删除，表单在行下展开）、隐私要点
 │   │       ├── CalendarPane.tsx # 三栏只读日历、逐列顺延策略（说明随选择变化）、可撤销的顺延记录
@@ -36,14 +36,17 @@ renderer/
 │   ├── board/
 │   │   ├── Board.tsx        # 可见列/历史状态、键盘和指针共用可编辑落点、虚拟排序、列头与折叠
 │   │   ├── VirtualRows.tsx # 可测量行高、有界 DOM、逻辑 Tab/Home/End、拖动/焦点锁定与定位
-│   │   ├── TaskRow.tsx      # 单行卡片：流程描边复选框、标题与截止/说明/顺延提示
-│   │   ├── QuickAdd.tsx     # 列头＋/拆解的列内连续录入：加入流程/新流程/拆解上级
+│   │   ├── TaskRow.tsx      # 单行卡片：流程圆点、流程描边复选框、标题与截止/说明/顺延提示，点亮时铺流程底色
+│   │   ├── FlowDot.tsx      # 复选框前的流程圆点：起点改色、下级改上级、独立条目二选一；悬停预览流程；Later 不显示
+│   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
+│   │   ├── QuickAdd.tsx     # 列头＋/拆解的列内连续录入：加入（根在更长周期的）流程/新流程/拆解上级；Later 不选流程
 │   │   ├── HistoryColumn.tsx # 独立列只读历史：期末状态标记与标签、变化后的当前状态
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
-│   │   ├── ItemDetail.tsx   # 居中详情：草稿/退出保护、流程颜色、生命周期、移动与拆解
+│   │   ├── ItemDetail.tsx   # 居中详情：草稿/退出保护、流程颜色、生命周期、移动与拆解；Later 不设流程和关联
 │   │   ├── DuePicker.tsx    # 截止日快捷选项与日期输入
-│   │   ├── RelationPicker.tsx # 上级/下级勾选列表，流程根不能作下级
+│   │   ├── RelationPicker.tsx # 上级/下级勾选列表（详情与看板圆点共用）：只列周期合规的候选，流程根不能作下级
+│   │   ├── FlowPicker.tsx   # 详情标题前的流程色点；FlowColorMenu 为色板本体，看板圆点复用
 │   │   └── Activity.tsx     # 按真实事件序列分页查看活动
 │   └── setup/
 │       ├── Setup.tsx        # 首次流程前两步的状态：方向草稿 → 日历确认
@@ -55,7 +58,7 @@ renderer/
 │       └── onboarding.css   # 首次流程样式（仅 token）
 ├── components/              # 可跨功能使用的 UI 原语
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉
-│   ├── Popover.tsx          # 锚点浮层，外部按下/Esc 关闭且不关闭外层弹窗
+│   ├── Popover.tsx          # 锚点浮层，外部按下/Esc 关闭且不关闭外层弹窗；floating 经 portal 浮出滚动容器
 │   ├── FlowMark.tsx         # 与复选框同构的流程色块
 │   ├── Kbd.tsx              # 一键一帽的组合键展示（平台符号）
 │   ├── LanguageSelect.tsx   # 首次配置与设置外观共用的语言下拉（语言名用各自原文）
@@ -66,6 +69,7 @@ renderer/
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
 │   ├── flows.ts            # 快照派生的流程列表（含顶栏顺序的可见流程）、条目归属与颜色占用
 │   ├── columns.ts          # 本机列显示偏好（localStorage，至少一列，不入工作区）
+│   ├── relation-lines.ts   # 本机关系线开关（localStorage，默认开，只存关闭，不入工作区）
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
 │   ├── smart.ts            # 设备侧智能输入状态与动作（代次变化即重读）

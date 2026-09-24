@@ -23,6 +23,8 @@ export const settingsMessages: SettingsCatalog = {
   // Appearance
   styleNotes: { paper: '温かみのある紙面、点線の区切り、やわらかな影', minimal: 'ニュートラルなグレー、細い実線の枠' },
   checkNotes: { outline: 'フローの色の枠線だけで、最も控えめ', paper: '白地でフローの色を引き立てる', tint: '同系色の淡い地で、グループが最も分かりやすい' },
+  relationLines: '関係線',
+  relationLinesNote: 'フローを 1 つに絞り込むと、上位と下位を線でつなぎます',
   // Smart input
   smartEnabledNote: '全体の＋で考えを書き、入力を止めると自動で整理します',
   privacy: 'プライバシー',

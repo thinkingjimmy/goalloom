@@ -22,6 +22,8 @@ export const settingsMessages = widen({
   // Appearance
   styleNotes: { paper: '暖色纸面，虚线分隔，柔和投影', minimal: '中性灰阶，实线细描边' },
   checkNotes: { outline: '只留流程色描边，最安静', paper: '白底衬出流程色', tint: '同色淡底，分组最明显' },
+  relationLines: '关系线',
+  relationLinesNote: '筛选单个流程时，用线连起它的上下级',
   // Smart input
   smartEnabledNote: '全局＋写下想法，停下输入后自动整理',
   privacy: '隐私',

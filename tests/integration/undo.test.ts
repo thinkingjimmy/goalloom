@@ -8,9 +8,9 @@ type Action<T = CommandInput> = T extends unknown ? Omit<T, 'generation' | 'oper
 let repo: Repository, now: string
 const run = (action: Action) => repo.execute({ ...action, generation: repo.store.workspace().generation, operationId: randomUUID() })
 const item = (id: string) => repo.store.item(id)
-const create = (title = '事项', horizon: 'later' | 'day' | 'month' = 'later') => run({ type: 'create', title, horizon })
+const create = (title = '事项', horizon: 'later' | 'cycle' | 'month' | 'week' | 'day' = 'later') => run({ type: 'create', title, horizon })
 const status = (id: string, state: 'todo' | 'done' | 'cancelled') => run({ type: 'status', itemId: id, expectedVersion: item(id).version, status: state })
-const move = (id: string, horizon: 'later' | 'day' | 'month', beforeId: string | null = null) => run({ type: 'move', itemId: id, expectedVersion: item(id).version, expectedPlacementVersion: item(id).placement.version, horizon, beforeId })
+const move = (id: string, horizon: 'later' | 'cycle' | 'month' | 'week' | 'day', beforeId: string | null = null) => run({ type: 'move', itemId: id, expectedVersion: item(id).version, expectedPlacementVersion: item(id).placement.version, horizon, beforeId })
 const undo = (result: CommandResult) => run({ type: 'undo', originalOperationId: result.operationId })
 const link = (parentId: string, childId: string) => run({ type: 'link', parentId, childId, expectedParentVersion: item(parentId).version, expectedChildVersion: item(childId).version })
 const remove = (id: string) => run({ type: 'delete', itemId: id, expectedVersion: item(id).version })
@@ -45,8 +45,8 @@ it('创建→移动→完成可连续逆转，保留不可变回执且版本递�
   expect(undo(created).outcome).toBe('conflict_skipped')
 })
 it('撤销拆解软删除最新文本，定向还原同 ID 和本次初始关系', () => {
-  const parent = create('方向').itemId!
-  const created = run({ type: 'create', title: '下一步', horizon: 'later', parentId: parent, expectedParentVersion: item(parent).version })
+  const parent = create('方向', 'month').itemId!
+  const created = run({ type: 'create', title: '下一步', horizon: 'week', parentId: parent, expectedParentVersion: item(parent).version })
   const id = created.itemId!
   run({ type: 'edit', itemId: id, expectedVersion: item(id).version, title: '补充后', description: '新增说明', dueDate: null })
   const undone = undo(created)
@@ -61,7 +61,7 @@ it('撤销拆解软删除最新文本，定向还原同 ID 和本次初始关系
   expect(() => restore(id, undone.restoreSource)).toThrow('这次删除已失效')
 })
 it('新增依赖阻止撤销创建；确定冲突无业务改变且不标记已撤销', () => {
-  const a = create('A'), b = create('B')
+  const a = create('A', 'month'), b = create('B', 'day')
   link(a.itemId!, b.itemId!)
   const before = repo.store.items('1'), events = repo.store.events(a.itemId!)
   expect(undo(a).outcome).toBe('conflict_skipped')
@@ -70,7 +70,7 @@ it('新增依赖阻止撤销创建；确定冲突无业务改变且不标记已�
   expect(repo.db.prepare('SELECT * FROM undo_effects WHERE originalId=?').all(a.operationId)).toHaveLength(0)
 })
 it('归档端点可关联，所有状态独立；解除边不随删除还原复活', () => {
-  const a = create('A').itemId!, b = create('B').itemId!, c = create('C').itemId!
+  const a = create('A', 'month').itemId!, b = create('B', 'month').itemId!, c = create('C', 'day').itemId!
   run({ type: 'archive', itemId: a, expectedVersion: item(a).version, archived: true })
   link(a, c); link(b, c)
   status(a, 'done')
@@ -81,25 +81,27 @@ it('归档端点可关联，所有状态独立；解除边不随删除还原复�
   expect(repo.store.relations().map(edge => edge.parentId)).toEqual([b])
 })
 it('关联撤销保留无关正文与其他父边，循环冲突整体不写', () => {
-  const a = create('A').itemId!, b = create('B').itemId!, c = create('C').itemId!
+  const a = create('A', 'month').itemId!, b = create('B', 'month').itemId!, c = create('C', 'day').itemId!
   const first = link(a, c); link(b, c)
   expect(undo(first).outcome).toBe('committed')
   expect(repo.store.relations().map(edge => edge.parentId)).toEqual([b])
   const edge = repo.store.relations()[0]!
   const unlink = run({ type: 'unlink', relationId: edge.id, expectedParentVersion: item(b).version, expectedChildVersion: item(c).version })
-  link(c, b)
+  // Moves are exempt from the horizon rule, so lifting c above b lets the reverse edge close the would-be cycle.
+  move(c, 'cycle'); link(c, b)
   const before = repo.store.items('1')
-  expect(undo(unlink).outcome).toBe('conflict_skipped')
+  const conflicted = undo(unlink)
+  expect(conflicted).toMatchObject({ outcome: 'conflict_skipped', warnings: ['此关联会形成循环'] })
   expect(repo.store.items('1')).toEqual(before)
 })
 it('删除和还原可逆，但还原后新增关联阻止逆向删除', () => {
-  const a = create('A').itemId!, b = create('B').itemId!
+  const a = create('A', 'month').itemId!, b = create('B', 'day').itemId!
   link(a, b)
   const deleted = remove(b)
   expect(undo(deleted).outcome).toBe('committed')
   expect(repo.store.relations()).toHaveLength(1)
   remove(b)
-  const restored = restore(b), c = create('C').itemId!
+  const restored = restore(b), c = create('C', 'week').itemId!
   link(c, b)
   expect(undo(restored).outcome).toBe('conflict_skipped')
   expect(item(b).deletedAt).toBeNull()
