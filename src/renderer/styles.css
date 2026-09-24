@@ -95,7 +95,7 @@ label, .field { display: grid; gap: 8px; font-size: 13px; font-weight: 500; marg
 input, select, textarea { font: inherit; color: var(--fg); border: 1px solid var(--line); background: var(--raised); border-radius: 8px; padding: 9px 12px; width: 100%; }
 textarea { resize: vertical; line-height: 1.7; }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-.field-note, .setup-lock-note { font-size: 12px; color: var(--secondary); line-height: 1.7; }
+.field-note { font-size: 12px; color: var(--secondary); line-height: 1.7; }
 h1 { font-size: 26px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; margin: 0 0 10px; }
 h2 { font-size: 17px; font-weight: 600; margin: 0; }
 h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10px; }
@@ -379,12 +379,6 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
 /* --- Setup --- */
 /* Inline padding keeps focus outlines from being clipped by the scroll container. */
 .setup-page { flex: 1; min-height: 0; overflow-y: auto; width: min(468px, calc(100% - 40px)); margin: 0 auto; padding: 8vh 4px 48px; }
-.setup-page form { margin-top: 24px; }
-.eyebrow { font-size: 12px; color: var(--secondary); margin: 0 0 14px; }
-.intro { font-size: 14px; line-height: 1.8; color: var(--secondary); margin: 0; }
-.calendar-preview { background: var(--hover); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; margin-top: 20px; font-size: 14px; }
-.calendar-preview small { color: var(--secondary); }
-.setup-lock-note { margin: 18px 0; }
 
 /* The app keeps native default cursors; the title bar is a link-like surface, so its controls point. */
 .titlebar button:not(:disabled) { cursor: pointer; }
@@ -454,7 +448,6 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
   .toast-action:hover { background: var(--hover); }
   .fab { width: 44px; height: 44px; border-radius: 22px; background: var(--fg); color: var(--bg); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .15), 0 4px 6px -4px rgba(0, 0, 0, .1); }
   .inline-link { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--faint); }
-  .calendar-preview { border-radius: 10px; background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
 }
 
 /* --- Scrollbars: thin, no track, thumb only while the scroller is hovered or in use. --- */

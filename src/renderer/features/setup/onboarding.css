@@ -1,0 +1,69 @@
+/* --- First-run flow: steps header, scrolling body, fixed footer with actions bottom-right. Tokens only. --- */
+.onboarding { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.onboarding-header { position: relative; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0 32px; }
+.onboarding-steps { display: flex; gap: 24px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--secondary); }
+.onboarding-steps li { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.onboarding-steps li[data-state='current'] { color: var(--fg); font-weight: 500; }
+.onboarding-step-mark { width: 20px; height: 20px; border-radius: 10px; display: grid; place-items: center; font-size: 11px; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--line); }
+[data-state='current'] > .onboarding-step-mark { background: var(--fg); color: var(--bg); box-shadow: none; }
+[data-state='done'] > .onboarding-step-mark { background: var(--pressed); color: var(--fg-soft); box-shadow: none; }
+.onboarding-language { position: absolute; right: 32px; width: auto; height: 32px; padding: 0 10px; font-size: 13px; font-weight: 400; }
+.onboarding-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding: 24px clamp(24px, 6vw, 72px) 0; }
+.onboarding-footer { flex-shrink: 0; min-height: 84px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 16px clamp(24px, 6vw, 72px); border-top: 1px solid var(--hairline); background: var(--surface); color: var(--secondary); }
+.onboarding-note { flex: 1; min-width: 0; margin: 0; font-size: 13px; line-height: 1.6; color: var(--fg-soft); }
+.onboarding-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+.onboarding-eyebrow { margin: 0; font-size: 13px; color: var(--secondary); }
+.onboarding-title { margin: 0; font-size: 34px; line-height: 1.3; font-weight: 600; letter-spacing: -.02em; text-wrap: balance; }
+.onboarding-title.small { font-size: 28px; letter-spacing: -.01em; }
+.onboarding-body { margin: 0; font-size: 14px; line-height: 1.8; color: var(--fg-soft); }
+.onboarding-hint { margin: 0; font-size: 13px; line-height: 1.7; color: var(--secondary); }
+
+/* Step 1 · direction */
+.onboarding-hero { margin: auto 0; max-width: 760px; display: flex; flex-direction: column; gap: 20px; padding-bottom: 6vh; }
+.direction-input { height: 60px; padding: 0 18px; font-size: 20px; border-radius: 12px; border: 1.5px solid var(--edit-line); }
+.direction-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--secondary); }
+.direction-example { height: 32px; padding: 0 12px; border-radius: 16px; border: 1px dashed var(--line); font-size: 13px; color: var(--fg-soft); }
+.direction-example:hover { border-color: var(--edit-line); color: var(--fg); }
+
+/* Step 2 · calendar sentence with inline pills */
+.onboarding-calendar { display: flex; flex-direction: column; gap: 6px; }
+.calendar-sentence { margin: 4px 0 0; font-size: 18px; line-height: 2.3; }
+.pill { position: relative; display: inline-flex; align-items: center; margin: 0 4px; vertical-align: 1px; }
+.pill select { width: auto; field-sizing: content; appearance: none; height: 36px; padding: 0 30px 0 12px; font-size: 16px; font-weight: 500; cursor: pointer; }
+.pill > svg { position: absolute; right: 10px; pointer-events: none; color: var(--secondary); }
+.select-trigger.pill-trigger { width: auto; height: 36px; margin: 0 4px; padding: 0 10px 0 12px; font-size: 16px; font-weight: 500; vertical-align: 1px; }
+.calendar-sentence .popover-root { vertical-align: 1px; }
+.calendar-sentence .timezone-popover { right: auto; width: 340px; font-size: 14px; line-height: 1.5; font-weight: 400; }
+.pill-date { width: auto; height: 36px; margin: 0 4px; padding: 0 10px; font-size: 16px; vertical-align: 1px; }
+.preview-caption { margin: 20px 0 10px; font-size: 13px; font-weight: 500; }
+
+/* Read-only board preview: same column header and empty state as the real board. */
+.board-preview { flex: 1; min-height: 240px; margin: 0 calc(-1 * clamp(0px, 2vw, 24px)); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 8px 0; border: 1px solid var(--edge); border-bottom: 0; border-radius: 14px 14px 0 0; background: var(--bg); box-shadow: var(--shadow); overflow: hidden; }
+.preview-column { min-width: 0; padding: 4px 20px 0; border-left: 1px solid var(--hairline); }
+.preview-column:first-child { border-left: 0; }
+.preview-column .column-meta { overflow: hidden; text-overflow: ellipsis; }
+.preview-row { display: flex; align-items: center; gap: 12px; min-height: 48px; margin: 0 -8px; padding: 0 8px; border-radius: 10px; background: var(--hover); }
+.preview-title { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preview-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 28px; color: var(--faint); text-align: center; }
+.preview-empty p { margin: 0; font-size: 13px; line-height: 1.7; color: var(--secondary); max-width: 180px; }
+
+/* Step 3 · Jev: lead text on the left, example or connect form on the right. */
+.onboarding-split { margin: auto 0; display: flex; align-items: center; gap: clamp(32px, 5vw, 64px); padding: 12px 0 24px; }
+.onboarding-lead { flex: 0 1 380px; min-width: 260px; display: flex; flex-direction: column; gap: 16px; }
+.onboarding-panel { flex: 1 1 520px; min-width: 0; padding: 24px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.jev-points { margin: 0; padding: 0 0 0 20px; list-style: decimal; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.6; color: var(--fg-soft); }
+.jev-points li::marker { color: var(--secondary); font-variant-numeric: tabular-nums; }
+.jev-demo { flex: 1 1 520px; min-width: 0; margin: 0; padding: 0 24px 20px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-lg); }
+.jev-demo-head { height: 56px; display: flex; align-items: center; gap: 8px; }
+.jev-demo-head h2 { flex: 1; font-size: 15px; }
+.jev-demo-head span { font-size: 12px; color: var(--secondary); }
+.jev-demo-input { min-height: 72px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); font-size: 15px; line-height: 1.7; }
+.jev-demo-placeholder { color: var(--faint); }
+.jev-demo-caret { display: inline-block; width: 1.5px; height: 1.1em; margin-left: 1px; vertical-align: -.15em; background: var(--fg); animation: jev-demo-caret 1s step-end infinite; }
+@keyframes jev-demo-caret { 50% { opacity: 0; } }
+.jev-demo-body .composer-preview { min-height: 272px; }
+.jev-demo-card { opacity: 0; transform: translateY(8px); transition: opacity .3s ease-out, transform .3s ease-out; }
+.jev-demo-card[data-shown='true'] { opacity: 1; transform: none; }
+.jev-demo-card .check { width: 16px; height: 16px; border-radius: 4px; }
+.jev-demo-card .draft-head { min-height: 30px; }

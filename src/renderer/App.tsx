@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 权威工作区、会话撤销、流程派生视图、设备侧智能输入状态、受限命令和页面组件。
- * [OUTPUT]: 顶栏/配置→可选 Jev 步骤/可选显示列的看板/详情/设置（含已完成与回收站）/搜索、本机可改键的全局快捷键（搜索/新建/设置/撤销/按顶栏位置筛选流程）；FAB 与新建快捷键打开全局 composer（会话草稿保留），列头＋与拆解保留原入口；单项定向还原、多项查看回收站的撤销反馈（6 秒自动消失，悬停/聚焦时暂停）。
+ * [OUTPUT]: 顶栏/首次流程（方向→日历确认后创建方向为 3个月流程根→可选 Jev）/可选显示列的看板/详情/设置（含已完成与回收站）/搜索、本机可改键的全局快捷键（搜索/新建/设置/撤销/按顶栏位置筛选流程）；FAB 与新建快捷键打开全局 composer（会话草稿保留），列头＋与拆解保留原入口；单项定向还原、多项查看回收站的撤销反馈（6 秒自动消失，悬停/聚焦时暂停）。
  * [POS]: renderer 组合根；工作区代次更换清空旧页面、会话状态与 composer 草稿。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 import { workspaceDate } from '../domain/calendar'
 import type { ItemHorizon } from '../shared/contracts/entities'
 import { Icon } from './components/icons'
-import { Setup } from './features/setup/Setup'
+import { Setup, type CalendarChoice } from './features/setup/Setup'
 import { Board, type AddRequest } from './features/board/Board'
 import { ItemDetail } from './features/items/ItemDetail'
 import { TopBar } from './features/shell/TopBar'
@@ -61,6 +61,12 @@ export function App() {
   // A filter pointing at a flow that no longer exists falls back to showing everything.
   useEffect(() => { if (filter && !flows.visible.some(flow => flow.id === filter)) setFilter(null) }, [flows, filter])
   const openSettings = (section: Section = 'appearance') => { setSettingsSection(section); setSettings(true) }
+  // The calendar is confirmed first (it gates every item write); the onboarding direction then becomes an ordinary, undoable 3-month flow root.
+  const confirmSetup = async (calendar: CalendarChoice, direction: string) => {
+    if (!await submit({ type: 'confirmSetup', ...calendar, confirmed: true })) return
+    setOnboarding(true)
+    if (direction) await submit({ type: 'create', title: direction, description: '', dueDate: null, horizon: 'cycle', parentId: null, expectedParentVersion: null, flowColor: 0 })
+  }
   useEffect(() => {
     const handle = (event: KeyboardEvent) => {
       const combo = event.isComposing ? null : parseEvent(event)
@@ -82,15 +88,15 @@ export function App() {
   }, [undo, busy, selected, settings, ready, onboarding, composing, palette, bindings, filterKeys, flows])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
   return <div className="app-shell">
-    <TopBar ready={ready} flows={flows} filter={filter} setFilter={setFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
+    <TopBar ready={ready && !onboarding} flows={flows} filter={filter} setFilter={setFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
       openSearch={() => setPalette(true)} openSettings={() => openSettings()} />
     {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</button></div>}
     {snapshot?.workspace.calendar && Intl.DateTimeFormat().resolvedOptions().timeZone !== snapshot.workspace.calendar.timezone && <div className="notice-banner">{messages.timezoneMismatch} {snapshot.workspace.calendar.timezone}。</div>}
     {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">{messages.restorePaused}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>{messages.confirmRollover}</button></div>}
     {snapshot?.backupError && <div className="notice-banner">{snapshot.backupError}<button className="text-button" onClick={() => openSettings('backup')}>{messages.viewBackups}</button></div>}
     {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <button className="text-button" onClick={() => void retry()}>{messages.retry}</button>}<button className="icon-button small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
-    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !ready ? <Setup submit={async action => { const result = await submit(action); if (result) setOnboarding(true); return result }} busy={busy} />
-      : onboarding ? <JevStep smart={smart} finish={() => setOnboarding(false)} tryComposer={() => { setOnboarding(false); setMemory({ text: smartMessages.sampleText, drafts: [], removed: [], parents: [], warnings: [], previewText: null, consentRevision: smart.status?.providerRevision ?? null }); compose() }} /> : <>
+    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !ready ? <Setup confirm={(calendar, direction) => void confirmSetup(calendar, direction)} busy={busy} />
+      : onboarding ? <JevStep smart={smart} finish={() => setOnboarding(false)} /> : <>
       <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={addRequest} highlighted={selected} /></div>
       <button className="fab" aria-label={messages.newItem} title={[messages.newItem, formatCombo(bindings.compose)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.compose)} disabled={busy} onClick={compose}><Icon name="add" size={24} strokeWidth={1.8} /></button>
     </>}

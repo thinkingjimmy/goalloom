@@ -16,7 +16,7 @@ const application = await electron.launch({ ...options, env: environment, timeou
 try {
   const page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
-  await page.getByRole('button', { name: '确认并开始', exact: true }).waitFor()
+  await page.getByRole('textbox', { name: '三个月的方向', exact: true }).waitFor()
   console.log(await page.locator('body').ariaSnapshot())
   assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getBatches', 'getHistory', 'getItem', 'getLanguage', 'getReceipt', 'getRuntime', 'getSnapshot', 'listItems', 'onChanged', 'setLanguage', 'smart'])
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
@@ -24,11 +24,14 @@ try {
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
   assert.match(runtime.sqlite, /^3\./)
   assert.equal(runtime.electron, '44.4.4')
+  // 不写方向也能继续：跳过后进入日历确认，看板保持为空。
+  await page.getByRole('button', { name: '先跳过', exact: true }).click()
   await page.getByRole('button', { name: '工作区时区' }).click()
   await page.getByRole('combobox', { name: '搜索城市或时区' }).fill('Asia/Shanghai')
   await page.keyboard.press('Enter')
   assert.match(await page.getByRole('button', { name: '工作区时区' }).innerText(), /Asia\/Shanghai/)
-  await page.getByLabel('三个月周期的起点').fill('2026-01-31')
+  await page.getByLabel('三个月周期的起点', { exact: true }).selectOption('custom')
+  await page.getByLabel('自选起点日期', { exact: true }).fill('2026-01-31')
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
   // 可选 Jev 步骤：两个同样可见的按钮，跳过后直接进入看板，不生成任何任务。
   await page.getByRole('button', { name: '连接 Jev', exact: true }).waitFor()

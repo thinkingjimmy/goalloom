@@ -17,11 +17,21 @@ const tabSteps = {}
 try {
   const page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
+  // --- Onboarding 第 1 步：写下三个月的方向，Enter 前进；第 2 步预览把它放进 3个月，确认前不写入。 ---
+  const direction = page.getByRole('textbox', { name: '三个月的方向', exact: true })
+  await direction.fill('上线 2.0 版本')
+  await direction.press('Enter')
+  await page.getByRole('heading', { name: '「上线 2.0 版本」会放进 3个月', exact: true }).waitFor()
+  await page.getByRole('figure', { name: '确认后，你的看板会是这样' }).getByText('待确认', { exact: true }).waitFor()
+  assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).items.length, 0)
+  await page.screenshot({ path: 'output/tests/screenshots/onboarding-calendar.png' })
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  // --- Onboarding：先只有介绍与两个同样可见的按钮；选择连接才出现 Key 表单，同意默认未勾选。 ---
+  // --- Onboarding 第 3 步：预设示例与两个按钮；选择连接才出现 Key 表单，同意默认未勾选，提交按钮在底栏。 ---
   const connect = page.getByRole('button', { name: '连接 Jev', exact: true }), skip = page.getByRole('button', { name: '暂时跳过', exact: true })
   await connect.waitFor()
   assert.equal(await skip.isVisible(), true)
+  await page.getByRole('figure', { name: 'Jev 示例：一句话整理成三项行动' }).waitFor()
+  await page.screenshot({ path: 'output/tests/screenshots/onboarding-jev.png' })
   assert.equal(await page.getByLabel(/API Key/).count(), 0)
   await connect.click()
   await page.getByLabel('TypeSafe API Key').waitFor()
@@ -32,8 +42,10 @@ try {
   await page.getByText('模型：typesafe-ai/jev（固定，不可修改）').waitFor()
   await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
   await page.getByRole('main', { name: '时间看板' }).waitFor()
+  await page.getByRole('button', { name: '上线 2.0 版本', exact: true }).waitFor()
   const first = await page.evaluate(() => window.goalloom.getSnapshot())
-  assert.equal(first.items.length, 0)
+  assert.equal(first.items.length, 1)
+  assert.deepEqual([first.items[0].title, first.items[0].placement.horizon, first.items[0].flowColor], ['上线 2.0 版本', 'cycle', 0])
   assert(first.workspace.setupConfirmedAt)
   // --- 列头＋键盘路径：记录 Tab 从顶栏设置按钮到「在今天新建」的实际步数，随前方任务控件增长。 ---
   const measure = async label => {
@@ -44,7 +56,7 @@ try {
     }
     throw new Error('Tab 无法到达今天列＋')
   }
-  await measure('empty board')
+  await measure('direction only')
   // --- 设置 → 智能输入：已有用户入口；未启用。 ---
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
   await page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '智能输入', exact: true }).click()
@@ -78,7 +90,7 @@ try {
   await measure('1 task (Later)')
   await seed(11); await page.getByRole('button', { name: '前方任务 10', exact: true }).waitFor(); await measure('12 tasks')
   await seed(48); await page.getByRole('button', { name: '前方任务 47', exact: true }).waitFor(); await measure('60 tasks')
-  assert(tabSteps['60 tasks'] > tabSteps['12 tasks'] && tabSteps['12 tasks'] > tabSteps['1 task (Later)'] && tabSteps['1 task (Later)'] >= tabSteps['empty board'])
+  assert(tabSteps['60 tasks'] > tabSteps['12 tasks'] && tabSteps['12 tasks'] > tabSteps['1 task (Later)'] && tabSteps['1 task (Later)'] >= tabSteps['direction only'])
   // Enter 与 Space 都启动今天列 QuickAdd，保留列名与连续输入；全局 Cmd/Ctrl+N 仍是 composer。
   await page.keyboard.press('Enter')
   const today = page.getByRole('textbox', { name: '新建到今天', exact: true })
@@ -109,7 +121,7 @@ try {
   const child = final.items.find(item => item.title === '拆解出的下一步'), parent = final.items.find(item => item.title === '列内连续一')
   assert(final.relations.some(edge => edge.parentId === parent.id && edge.childId === child.id))
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
-  const record = { packaged: Boolean(packaged), runtime, tabStepsToTodayAdd: tabSteps, checks: ['onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar and no tasks', 'settings entry', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent'] }
+  const record = { packaged: Boolean(packaged), runtime, tabStepsToTodayAdd: tabSteps, checks: ['direction draft not written before confirm', 'direction becomes 3-month flow root', 'onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar', 'settings entry', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent'] }
   await mkdir('output/tests', { recursive: true })
   await writeFile('output/tests/composer.json', JSON.stringify(record, null, 2))
   console.log(JSON.stringify(record))

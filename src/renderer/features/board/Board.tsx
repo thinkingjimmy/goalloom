@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 权威快照、流程派生视图与筛选、本机可见列、受限提交、新建请求。
- * [OUTPUT]: 按可见列渲染的看板：极简列头、整行拖动排序/跨列、列内连续录入、完成折叠、往期入口与只读历史（历史标签、周期切换条、返回当前）。
+ * [OUTPUT]: 按可见列渲染的看板（并导出列头周期标签 periodLabel）：极简列头、整行拖动排序/跨列、列内连续录入、完成折叠、往期入口与只读历史（历史标签、周期切换条、返回当前）。
  * [POS]: renderer 主视图；位置/状态规则仍由事务复核，筛选与列显示只影响本机显示。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -128,7 +128,8 @@ function historyLabel(horizon: ItemHorizon, period: PlanningPeriod): string {
   return `${yearOf(period.startDate)} ${periodLabel(horizon, period)}`
 }
 
-function periodLabel(horizon: ItemHorizon, period: PlanningPeriod): string {
+/** Column-header label for a current period; shared with the onboarding board preview. */
+export function periodLabel(horizon: ItemHorizon, period: Pick<PlanningPeriod, 'startDate' | 'endDate'>): string {
   if (horizon === 'day') return monthDay(period.startDate)
   if (horizon === 'month') return monthName(period.startDate)
   return `${shortDate(period.startDate)} – ${shortDate(addDays(period.endDate, -1))}`

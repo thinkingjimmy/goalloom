@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 当前时区、候选 IANA 时区列表与选择回调；依赖 Popover 与 Icon。
+ * [INPUT]: 当前时区、候选 IANA 时区列表、选择回调与可选触发器样式；依赖 Popover 与 Icon。
  * [OUTPUT]: 只能从列表中选择的时区下拉：按钮触发、浮层内搜索、方向键/Enter 选择，附 GMT 偏移提示。
- * [POS]: setup 的时区字段，替代原生 datalist，避免输入任意文本和系统下拉样式。
+ * [POS]: setup 日历句中的时区胶囊，替代原生 datalist，避免输入任意文本和系统下拉样式。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
@@ -10,7 +10,7 @@ import { Popover } from '../../components/Popover'
 import { gmtOffset } from '../../lib/timezones'
 import { Icon } from '../../components/icons'
 
-export function TimezoneSelect({ value, zones, onChange, labelId, describedBy }: { value: string; zones: string[]; onChange: (zone: string) => void; labelId: string; describedBy?: string }) {
+export function TimezoneSelect({ value, zones, onChange, labelId, describedBy, className }: { value: string; zones: string[]; onChange: (zone: string) => void; labelId: string; describedBy?: string; className?: string }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -34,7 +34,7 @@ export function TimezoneSelect({ value, zones, onChange, labelId, describedBy }:
   const choose = (zone: string) => { onChange(zone); close() }
 
   return <Popover open={open} onClose={() => setOpen(false)} className="timezone-popover" anchor={
-    <button ref={trigger} type="button" className="select-trigger" aria-haspopup="listbox" aria-expanded={open} aria-labelledby={labelId} aria-describedby={describedBy}
+    <button ref={trigger} type="button" className={className ? `select-trigger ${className}` : 'select-trigger'} aria-haspopup="listbox" aria-expanded={open} aria-labelledby={labelId} aria-describedby={describedBy}
       onClick={() => open ? close() : show()}
       onKeyDown={event => { if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) { event.preventDefault(); show() } }}>
       <span className="select-value">{value}</span>

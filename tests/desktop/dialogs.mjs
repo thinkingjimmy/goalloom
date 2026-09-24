@@ -14,6 +14,7 @@ const application = await electron.launch({ ...options, env: environment })
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
 try {
   const page = await application.firstWindow()
+  await page.getByRole('button', { name: '先跳过', exact: true }).click()
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
   await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
   await page.getByRole('main', { name: '时间看板' }).waitFor()

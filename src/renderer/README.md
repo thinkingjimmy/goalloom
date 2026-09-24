@@ -30,8 +30,9 @@ renderer/
 │   │   ├── draft.ts         # 纯草稿模型：手动优先合并、orphan、计划负载与本地复核
 │   │   └── composer.css     # composer 与连接表单样式（仅 token）
 │   ├── smart/
-│   │   ├── JevConnect.tsx   # 服务单选、Key、同意、测试并启用（Onboarding/设置共用）
-│   │   └── JevStep.tsx      # 日历确认后的可跳过 Jev 步骤
+│   │   ├── JevConnect.tsx   # 服务单选、Key、同意、测试并启用（Onboarding/设置共用；提交按钮可渲染到底栏）
+│   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
+│   │   └── JevStep.tsx      # 首次流程第 3 步：先看示例，选择连接才填 Key，通过或跳过都进入看板
 │   ├── board/
 │   │   ├── Board.tsx        # 本机可见列、指针优先落点的 dnd-kit 排序、列头、历史周期切换与折叠
 │   │   ├── TaskRow.tsx      # 单行卡片：流程描边复选框、标题与截止/说明/顺延提示
@@ -44,8 +45,13 @@ renderer/
 │   │   ├── RelationPicker.tsx # 上级/下级勾选列表，流程根不能作下级
 │   │   └── Activity.tsx     # 按真实事件序列分页查看活动
 │   └── setup/
-│       ├── Setup.tsx        # 日历预览与首次显式确认
-│       └── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择、GMT 偏移
+│       ├── Setup.tsx        # 首次流程前两步的状态：方向草稿 → 日历确认
+│       ├── OnboardingFrame.tsx # 三步进度、语言、固定底栏（主按钮统一在右下）
+│       ├── DirectionStep.tsx # 写下三个月的方向（示例可填入），确认前只存草稿
+│       ├── CalendarStep.tsx # 一句话三胶囊（时区/周起始/3个月起点）与剩余天数，显式确认锁定日历
+│       ├── BoardPreview.tsx # 真实列头与空状态的只读预览，方向以「待确认」行放进 3个月
+│       ├── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择、GMT 偏移
+│       └── onboarding.css   # 首次流程样式（仅 token）
 ├── components/              # 可跨功能使用的 UI 原语
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉
 │   ├── Popover.tsx          # 锚点浮层，外部按下/Esc 关闭且不关闭外层弹窗
