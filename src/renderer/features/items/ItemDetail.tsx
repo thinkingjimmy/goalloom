@@ -76,6 +76,8 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
   const parents = detail?.relations.filter(edge => edge.childId === itemId) ?? []
   const children = detail?.relations.filter(edge => edge.parentId === itemId) ?? []
   const done = item?.status === 'done'
+  // Later is a parking lot: no flow colour and no links; existing edges still show and open. 今天 is the shortest horizon, so it has nothing to split into.
+  const later = item?.placement.horizon === 'later'
   const ring = item && !done ? flowVars(flows.colorsOf(itemId)) : undefined
   const context = item && `${horizonNames[item.placement.horizon]}${item.placement.periodId ? ` · ${item.placement.periodId.split(':').at(-1)}` : ''}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}${readOnly ? ` · ${messages.trash}` : ''}`
   const heading = item && (readOnly ? <p className="modal-context">{context}</p> : <div className="modal-context">
@@ -110,7 +112,8 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
         if (matches(event, bindings.submit)) { event.preventDefault(); void save() }
       }}>
         <div className="detail-title">
-          <FlowPicker item={item} hasParents={parents.length > 0} flows={flows} busy={busy} readOnly={readOnly} open={pop === 'flow'} setOpen={open => setPop(open ? 'flow' : null)} submit={submit} />
+          {later ? <span className="flow-handle" aria-hidden="true" />
+            : <FlowPicker item={item} hasParents={parents.length > 0} flows={flows} busy={busy} readOnly={readOnly} open={pop === 'flow'} setOpen={open => setPop(open ? 'flow' : null)} submit={submit} />}
           <button type="button" className="check large" data-checked={done} style={ring} disabled={busy || readOnly || item.status === 'cancelled'}
             aria-label={done ? messages.reopenAction : messages.markDone} onClick={() => void submit({ type: 'status', itemId, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
             {done && <Icon name="check" size={14} strokeWidth={2.5} />}
@@ -135,13 +138,14 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
                   </button>
                 })}
                 {flowRoot && !edges.length && <span className="field-hint" title={messages.flowRootNoParent}>{messages.flowRootParent}<Icon name="info" size={14} /></span>}
-                {!readOnly && !flowRoot && <div className="relation-actions">
-                  {side === 'child' && <button type="button" className="chip-button" onClick={() => { if (mayLeave()) split({ id: item.id, title: item.title }, nextHorizon[item.placement.horizon]) }}><Icon name="split" size={14} />{messages.decompose}</button>}
+                {later && side === 'parent' && !edges.length && <span className="field-hint">{messages.laterNoRelations}</span>}
+                {!readOnly && !flowRoot && !later && <div className="relation-actions">
+                  {side === 'child' && item.placement.horizon !== 'day' && <button type="button" className="chip-button" onClick={() => { if (mayLeave()) split({ id: item.id, title: item.title }, nextHorizon[item.placement.horizon]) }}><Icon name="split" size={14} />{messages.decompose}</button>}
                   <Popover open={pop === side} onClose={() => setPop(null)} anchor={
                     <button type="button" className={side === 'child' ? 'chip-button' : 'field-button'} data-empty="true" aria-expanded={pop === side} onClick={() => toggle(side)}>
                       {side === 'child' && <Icon name="link" size={14} />}{side === 'parent' ? messages.linkParent : messages.linkExisting}
                     </button>
-                  }><RelationPicker side={side} detail={detail} flows={flows} candidates={candidates} submit={submit} onError={setError} /></Popover>
+                  }><RelationPicker side={side} self={{ id: item.id, horizon: item.placement.horizon }} edges={detail.relations} flows={flows} candidates={candidates} submit={submit} onError={setError} /></Popover>
                 </div>}
               </div>]
           })}

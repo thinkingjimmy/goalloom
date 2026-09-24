@@ -20,7 +20,8 @@ let repo: Repository, service: WorkspaceService, directory: string, now: string
 const generation = () => repo.store.workspace().generation
 const run = (command: Action, operationId = randomUUID()) => repo.execute({ ...command, operationId, generation: generation() })
 const item = (id: string) => repo.store.item(id)
-const create = (title: string, flowColor: number | null = null) => run({ type: 'create', title, horizon: 'later', flowColor }).itemId!
+// Flow roots cannot sit in later, so coloured items default to the cycle column.
+const create = (title: string, flowColor: number | null = null, horizon: ItemHorizon = flowColor === null ? 'later' : 'cycle') => run({ type: 'create', title, horizon, flowColor }).itemId!
 const existing = (id: string): ParentRef => ({ kind: 'existing', itemId: id, expectedVersion: item(id).version })
 const draft = (draftId: string): ParentRef => ({ kind: 'draft', draftId })
 const periodOf = (horizon: ItemHorizon) => horizon === 'later' ? null : repo.snapshot().periods.find(period => period.horizon === horizon)!.id
@@ -42,7 +43,7 @@ const diamond = (goal: string) => plan([
   { draftId: 'A', title: 'A 方向', horizon: 'month', parents: [existing(goal)] },
   { draftId: 'D', title: 'D 汇合', horizon: 'day', parents: [draft('B'), draft('C')] },
   { draftId: 'B', title: 'B 分支', horizon: 'week', parents: [draft('A')] },
-  { draftId: 'C', title: 'C 分支', parents: [draft('A')] },
+  { draftId: 'C', title: 'C 分支', horizon: 'week', parents: [draft('A')] },
 ])
 
 beforeEach(async () => {
@@ -88,7 +89,7 @@ it('菱形计划：每项一个 create、入边归下级、拓扑写入与逆拓
 })
 
 it('先父后子还原复用删除来源，重试另一端合法边', () => {
-  const goal = create('目标')
+  const goal = create('目标', null, 'cycle')
   const created = diamond(goal), undone = undo(created)
   for (const id of created.itemIds!) run({ type: 'restoreItem', itemId: id, expectedVersion: item(id).version, deletionSource: undone.operationId })
   expect(edgesOf(created.itemIds![3]!)).toHaveLength(2)
@@ -97,14 +98,14 @@ it('先父后子还原复用删除来源，重试另一端合法边', () => {
 })
 
 it('多子项引用同一既有父：写入前去重验版本，自身 touch 不制造冲突；外部变化全批 stale', () => {
-  const parent = create('同一上级'), version = item(parent).version
-  const ok = plan([{ draftId: 'x', title: '子一', parents: [existing(parent)] }, { draftId: 'y', title: '子二', parents: [existing(parent)] }])
+  const parent = create('同一上级', null, 'cycle'), version = item(parent).version
+  const ok = plan([{ draftId: 'x', title: '子一', horizon: 'week', parents: [existing(parent)] }, { draftId: 'y', title: '子二', horizon: 'week', parents: [existing(parent)] }])
   expect(ok.itemIds).toHaveLength(2)
   expect(item(parent).version).toBe(version + 1)
   const before = repo.store.items('1').length
   const stale: ParentRef = { kind: 'existing', itemId: parent, expectedVersion: version }
-  expect(() => plan([{ draftId: 'x', title: '过期', parents: [stale] }])).toThrow('条目已变化')
-  expect(() => plan([{ draftId: 'x', title: '矛盾', parents: [existing(parent)] }, { draftId: 'y', title: '矛盾二', parents: [stale] }])).toThrow('版本依据不一致')
+  expect(() => plan([{ draftId: 'x', title: '过期', horizon: 'week', parents: [stale] }])).toThrow('条目已变化')
+  expect(() => plan([{ draftId: 'x', title: '矛盾', horizon: 'week', parents: [existing(parent)] }, { draftId: 'y', title: '矛盾二', horizon: 'week', parents: [stale] }])).toThrow('版本依据不一致')
   expect(() => plan([{ draftId: 'x', title: '自环', parents: [draft('x')] }])).toThrow('自己')
   expect(() => plan([{ draftId: 'x', title: '环', parents: [draft('y')] }, { draftId: 'y', title: '环二', parents: [draft('x')] }])).toThrow('循环')
   expect(repo.store.items('1')).toHaveLength(before)
@@ -112,13 +113,13 @@ it('多子项引用同一既有父：写入前去重验版本，自身 touch 不
 
 it('手动新流程：色互斥、有上级不能设色、提交时已被占用拒绝；无色计划仍可见', () => {
   create('已有流程', 1)
-  const coloured = plan([{ draftId: 'r', title: '新流程', flowColor: 3 }, { draftId: 'k', title: '下级', parents: [draft('r')] }])
+  const coloured = plan([{ draftId: 'r', title: '新流程', horizon: 'cycle', flowColor: 3 }, { draftId: 'k', title: '下级', horizon: 'week', parents: [draft('r')] }])
   expect(item(coloured.itemIds![0]!).flowColor).toBe(3)
   expect(repo.snapshot().flows.map(flow => flow.flowColor)).toEqual([1, 3])
   const before = repo.store.items('1').length
-  expect(() => plan([{ draftId: 'a', title: '抢色', flowColor: 1 }])).toThrow('已被「已有流程」使用')
-  expect(() => plan([{ draftId: 'a', title: '一', flowColor: 5 }, { draftId: 'b', title: '二', flowColor: 5 }])).toThrow('不能重复')
-  expect(() => plan([{ draftId: 'a', title: '根' }, { draftId: 'b', title: '有上级', parents: [draft('a')], flowColor: 6 }])).toThrow('跟随上级')
+  expect(() => plan([{ draftId: 'a', title: '抢色', horizon: 'cycle', flowColor: 1 }])).toThrow('已被「已有流程」使用')
+  expect(() => plan([{ draftId: 'a', title: '一', horizon: 'cycle', flowColor: 5 }, { draftId: 'b', title: '二', horizon: 'cycle', flowColor: 5 }])).toThrow('不能重复')
+  expect(() => plan([{ draftId: 'a', title: '根', horizon: 'cycle' }, { draftId: 'b', title: '有上级', horizon: 'week', parents: [draft('a')], flowColor: 6 }])).toThrow('跟随上级')
   expect(repo.store.items('1')).toHaveLength(before)
   const plain = plan([{ draftId: 'p', title: '无色', horizon: 'day' }])
   expect(repo.snapshot().items.some(row => row.id === plain.itemIds![0])).toBe(true)
@@ -134,8 +135,8 @@ it('同 ID 重试复用回执只生成一份计划；同 ID 异请求冲突', ()
 })
 
 it('外部新下级阻断整批撤销：无任何删除、不写 marker、itemIds 为空', () => {
-  const created = plan([{ draftId: 'a', title: '父' }, { draftId: 'b', title: '子', parents: [draft('a')] }])
-  const outside = create('外部下级')
+  const created = plan([{ draftId: 'a', title: '父', horizon: 'cycle' }, { draftId: 'b', title: '子', horizon: 'month', parents: [draft('a')] }])
+  const outside = create('外部下级', null, 'day')
   run({ type: 'link', parentId: created.itemIds![1]!, childId: outside, expectedParentVersion: item(created.itemIds![1]!).version, expectedChildVersion: item(outside).version })
   const items = repo.store.items('1')
   const result = undo(created)
@@ -146,7 +147,7 @@ it('外部新下级阻断整批撤销：无任何删除、不写 marker、itemId
 })
 
 it('跨期或中途写入失败时整批回滚，含事件、回执与颜色占用', () => {
-  const command = planCommand([{ draftId: 'a', title: '今天', horizon: 'day', flowColor: 4 }, { draftId: 'b', title: '子', parents: [draft('a')] }])
+  const command = planCommand([{ draftId: 'a', title: '流程', horizon: 'cycle', flowColor: 4 }, { draftId: 'b', title: '今天', horizon: 'day', parents: [draft('a')] }])
   now = '2026-09-24T02:00:00.000Z'
   expect(() => run(command)).toThrow('周期已变化')
   now = '2026-09-23T02:00:00.000Z'
@@ -160,7 +161,7 @@ it('跨期或中途写入失败时整批回滚，含事件、回执与颜色占�
 })
 
 it('导入拒绝伪造的计划：同项多效果/缺事件/错 IDs/重复归属/非拓扑/缺 marker/半撤销/旧版本', () => {
-  const goal = create('目标')
+  const goal = create('目标', null, 'cycle')
   const created = diamond(goal), undone = undo(created)
   const source = exported()
   const op = (data: Dataset) => data.operations.find(row => row.id === created.operationId)!
@@ -201,7 +202,7 @@ it('跨代次 JSON/SQLite 恢复：快照都可恢复并再导出；旧计划不
     expect(undo(created)).toMatchObject({ outcome: 'conflict_skipped', itemIds: [] })
     expect(repo.store.operation(created.operationId)!.result).toEqual(snapshot.operations.find(row => row.id === created.operationId)!.result)
   }
-  const later = plan([{ draftId: 'n', title: '新代次计划' }, { draftId: 'm', title: '新代次下级', parents: [draft('n')] }])
+  const later = plan([{ draftId: 'n', title: '新代次计划', horizon: 'cycle' }, { draftId: 'm', title: '新代次下级', horizon: 'week', parents: [draft('n')] }])
   expect(undo(later)).toMatchObject({ outcome: 'committed', itemIds: later.itemIds })
   // SQLite 路径：现有备份回执 → 预览 → 替换，源版本保持 v3。
   const record = await service.backups.create('manual', repo.store.workspace(), now)

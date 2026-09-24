@@ -110,16 +110,21 @@ try {
   await page.keyboard.press('ControlOrMeta+n')
   await composer.waitFor()
   await page.keyboard.press('Escape')
-  // 详情「拆解下一步」保留带上级的显式创建。
+  // 今天已是最短周期，没有可拆解的下一列；「拆解下一步」在更长的列里保留带上级的显式创建（落到下一列）。
   await page.getByRole('button', { name: '列内连续一', exact: true }).click()
+  await page.getByRole('dialog', { name: '当前条目' }).waitFor()
+  assert.equal(await page.getByRole('button', { name: /拆解下一步/ }).count(), 0)
+  await page.getByRole('button', { name: '关闭', exact: true }).click()
+  await page.getByRole('region', { name: '本周列', exact: true }).getByRole('button', { name: '前方任务 3', exact: true }).first().click()
   await page.getByRole('button', { name: /拆解下一步/ }).first().click()
   const split = page.locator('.quick-add input')
   await split.waitFor()
   await split.fill('拆解出的下一步'); await split.press('Enter')
   await page.getByRole('button', { name: '拆解出的下一步', exact: true }).waitFor()
   const final = await page.evaluate(() => window.goalloom.getSnapshot())
-  const child = final.items.find(item => item.title === '拆解出的下一步'), parent = final.items.find(item => item.title === '列内连续一')
-  assert(final.relations.some(edge => edge.parentId === parent.id && edge.childId === child.id))
+  const child = final.items.find(item => item.title === '拆解出的下一步'), edge = final.relations.find(row => row.childId === child.id)
+  const parent = final.items.find(item => item.id === edge?.parentId)
+  assert.deepEqual([parent?.title, parent?.placement.horizon, child.placement.horizon], ['前方任务 3', 'week', 'day'])
   await split.press('Escape')
   // Failure cases: a committed write leaves a cached draft after closing, or its
   // delayed receipt clears newer input. Only receipt delivery is held; IPC and SQLite stay real.

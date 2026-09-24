@@ -36,15 +36,17 @@ renderer/
 │   ├── board/
 │   │   ├── Board.tsx        # 可见列/历史状态、键盘和指针共用可编辑落点、虚拟排序、列头与折叠
 │   │   ├── VirtualRows.tsx # 可测量行高、有界 DOM、逻辑 Tab/Home/End、拖动/焦点锁定与定位
-│   │   ├── TaskRow.tsx      # 单行卡片：流程描边复选框、标题与截止/说明/顺延提示
-│   │   ├── RelationLines.tsx # 单流程筛选时的只读关系线层：量取已挂载行、跨级沿行间穿过、悬停/聚焦链高亮、滚出视野标记
-│   │   ├── QuickAdd.tsx     # 列头＋/拆解的列内连续录入：加入流程/新流程/拆解上级
+│   │   ├── TaskRow.tsx      # 单行卡片：流程圆点、流程描边复选框、标题与截止/说明/顺延提示，点亮时铺流程底色
+│   │   ├── FlowDot.tsx      # 复选框前的流程圆点：起点改色、下级改上级、独立条目二选一；悬停预览流程；Later 不显示
+│   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
+│   │   ├── QuickAdd.tsx     # 列头＋/拆解的列内连续录入：加入（根在更长周期的）流程/新流程/拆解上级；Later 不选流程
 │   │   ├── HistoryColumn.tsx # 独立列只读历史：期末状态标记与标签、变化后的当前状态
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
-│   │   ├── ItemDetail.tsx   # 居中详情：草稿/退出保护、流程颜色、生命周期、移动与拆解
+│   │   ├── ItemDetail.tsx   # 居中详情：草稿/退出保护、流程颜色、生命周期、移动与拆解；Later 不设流程和关联
 │   │   ├── DuePicker.tsx    # 截止日快捷选项与日期输入
-│   │   ├── RelationPicker.tsx # 上级/下级勾选列表，流程根不能作下级
+│   │   ├── RelationPicker.tsx # 上级/下级勾选列表（详情与看板圆点共用）：只列周期合规的候选，流程根不能作下级
+│   │   ├── FlowPicker.tsx   # 详情标题前的流程色点；FlowColorMenu 为色板本体，看板圆点复用
 │   │   └── Activity.tsx     # 按真实事件序列分页查看活动
 │   └── setup/
 │       ├── Setup.tsx        # 首次流程前两步的状态：方向草稿 → 日历确认
@@ -56,7 +58,7 @@ renderer/
 │       └── onboarding.css   # 首次流程样式（仅 token）
 ├── components/              # 可跨功能使用的 UI 原语
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉
-│   ├── Popover.tsx          # 锚点浮层，外部按下/Esc 关闭且不关闭外层弹窗
+│   ├── Popover.tsx          # 锚点浮层，外部按下/Esc 关闭且不关闭外层弹窗；floating 经 portal 浮出滚动容器
 │   ├── FlowMark.tsx         # 与复选框同构的流程色块
 │   ├── Kbd.tsx              # 一键一帽的组合键展示（平台符号）
 │   ├── LanguageSelect.tsx   # 首次配置与设置外观共用的语言下拉（语言名用各自原文）

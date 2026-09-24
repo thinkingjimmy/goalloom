@@ -153,10 +153,11 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .period-navigation .icon-button.small { color: var(--fg-soft); }
 .period-navigation .icon-button.small:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
 .period-label { flex: 1; text-align: center; font-size: 13px; font-weight: 500; }
-.column-content { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -8px; padding: 0 8px 96px; }
+/* The left gutter reaches the column edge so row flow dots are not clipped by the scroll box. */
+.column-content { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -8px 0 -20px; padding: 0 8px 96px 20px; }
 .backlog-entry { flex-shrink: 0; height: 36px; margin-top: 2px; display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--backlog); }
 .backlog-entry:hover { text-decoration: underline; text-underline-offset: 3px; }
-.task-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; margin: 0 -8px; padding: 0 8px; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
+.task-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; margin: 0 -8px 0 -4px; padding: 0 8px 0 4px; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
 .task-row[data-highlighted='true'] { background: var(--hover); }
 /* Pointer hover stays lighter than the located/highlighted row so the two remain distinguishable. */
 :root:not([data-dragging='true']) .task-row:not([data-highlighted='true']):hover { background: color-mix(in srgb, var(--hover) 50%, transparent); }
@@ -175,7 +176,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .row-meta { flex-shrink: 0; font-size: 12px; color: var(--secondary); }
 .row-icon { flex-shrink: 0; display: flex; color: var(--faint); }
 .row-icon.overdue { color: var(--danger); }
-.drag-handle { position: absolute; left: -12px; width: 16px; height: 28px; display: grid; place-items: center; color: var(--secondary); opacity: 0; pointer-events: none; }
+.drag-handle { position: absolute; left: -16px; width: 16px; height: 28px; display: grid; place-items: center; color: var(--secondary); opacity: 0; pointer-events: none; }
 .drag-handle:focus-visible { opacity: 1; }
 .drag-overlay { background: var(--raised); padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); font-size: 14px; max-width: 320px; }
 .completed-fold { margin-top: 6px; }
@@ -192,6 +193,11 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .board[data-lines='true'] .task-row[data-highlighted='true'] { background: linear-gradient(var(--hover), var(--hover)) var(--bg); }
 :root:not([data-dragging='true']) .board[data-lines='true'] .task-row:not([data-highlighted='true']):hover { background: linear-gradient(color-mix(in srgb, var(--hover) 50%, transparent), color-mix(in srgb, var(--hover) 50%, transparent)) var(--bg); }
 .relation-lines { position: absolute; top: 0; left: 0; pointer-events: none; transition: opacity .15s ease-out; }
+/* Rows of an active flow take its tint; hovering the row or its dot deepens it, rows outside the hovered chain return to the ground. */
+.board[data-lines='true'] .task-row[data-lit='true'] { background: color-mix(in srgb, var(--row-tint) 65%, var(--bg)); }
+:root:not([data-dragging='true']) .board[data-lines='true'] .task-row[data-lit='true']:not([data-highlighted='true']):hover,
+.board[data-lines='true'] .task-row[data-lit='true']:has(.flow-dot-button:is(:hover, :focus-visible, [aria-expanded='true'])) { background: var(--row-tint); }
+.board[data-lines='true'] .task-row[data-lit='true'][data-chain-out='true'] { background: var(--bg); }
 :root[data-dragging='true'] .relation-lines { opacity: 0; }
 .relation-lines svg { display: block; overflow: visible; }
 .relation-edge { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-opacity: .6; stroke-linecap: round; transition: stroke-opacity .15s ease-out, stroke-width .15s ease-out; }
@@ -213,6 +219,35 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .relation-marker[data-align='start'] { transform: translateX(4px); }
 .relation-marker[data-align='end'] { transform: translateX(calc(-100% - 4px)); }
 .relation-marker:hover { background: linear-gradient(var(--hover), var(--hover)) var(--raised); }
+
+/* --- Flow dot: sits in the gutter before a row's checkbox. Shown on row hover/focus, while its menu is open and on every
+   row of an active flow, where forward relation lines end on it. Later rows have none. --- */
+.flow-dot-slot { position: absolute; left: -16px; top: 50%; margin-top: -14px; z-index: 1; }
+.flow-dot-slot > .popover-root { display: block; }
+.flow-dot-button { width: 16px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: var(--fg-soft); opacity: 0; transition: opacity .12s ease-out, background-color .12s ease-out; }
+.flow-dot-button > * { grid-area: 1 / 1; }
+.task-row:hover .flow-dot-button, .flow-dot-button:focus-visible, .flow-dot-button[aria-expanded='true'],
+.board[data-lines='true'] .task-row[data-lit='true'] .flow-dot-button { opacity: 1; }
+:root[data-dragging='true'] .flow-dot-button, .task-row:has(.drag-handle:focus-visible) .flow-dot-button { opacity: 0; }
+.flow-dot-button:hover, .flow-dot-button[aria-expanded='true'] { background: var(--hover); }
+.flow-dot-button .flow-dot { transition: transform .15s cubic-bezier(.2, .8, .2, 1); }
+.flow-dot-button:hover .flow-dot:not([data-empty='true']) { transform: scale(1.25); }
+.flow-dot-button > svg { visibility: hidden; }
+/* A loose item's dashed dot becomes a plus: it adds the item to a flow. */
+.flow-dot-button[data-role='loose']:is(:hover, :focus-visible, [aria-expanded='true']) > .flow-dot { visibility: hidden; }
+.flow-dot-button[data-role='loose']:is(:hover, :focus-visible, [aria-expanded='true']) > svg { visibility: visible; }
+.flow-dot-count { font-size: 10px; font-weight: 600; line-height: 1; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.flow-choose { width: 300px; }
+.flow-choose .menu-item { align-items: flex-start; padding: 9px 10px; }
+.flow-choose .menu-item > :first-child { margin-top: 3px; flex-shrink: 0; }
+.flow-choose .menu-item:disabled { color: var(--faint); cursor: default; }
+.menu-rich { display: flex; flex-direction: column; gap: 2px; font-weight: 500; }
+.menu-rich small { font-size: 12px; font-weight: 400; line-height: 1.5; color: var(--secondary); }
+.relation-note { padding-bottom: 2px; }
+.flow-dot-owners { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.flow-dot-owners > span { display: inline-flex; align-items: center; gap: 6px; color: var(--fg-soft); }
+.flow-dot-owners .flow-dot { width: 7px; height: 7px; }
+.flow-dot-relations > .inline-error { margin: 6px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--raised); box-shadow: var(--shadow); }
 
 /* --- Checkbox and flow marks --- */
 /* The ring lives on a masked pseudo-element so the fill can be see-through, paper or the flow's own tint.
@@ -250,6 +285,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .popover-top { bottom: calc(100% + 6px); }
 .popover-start { left: -6px; }
 .popover-end { right: 0; }
+.popover-floating { position: fixed; z-index: 45; }
 .menu { min-width: 208px; max-width: 380px; padding: 6px; border-radius: 12px; background: var(--raised); box-shadow: var(--shadow); display: flex; flex-direction: column; }
 .menu-item { width: 100%; min-height: 34px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; font-size: 13px; text-align: left; }
 .menu-item:hover:not(:disabled), .menu-item[aria-selected='true'] { background: var(--hover); }
@@ -264,6 +300,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .menu-heading { margin: 0; padding: 6px 10px 4px; font-size: 12px; color: var(--secondary); }
 .menu-separator { height: 1px; margin: 6px 4px; background: var(--hairline); }
 .menu-note { margin: 0; padding: 8px 10px; font-size: 12px; line-height: 1.6; color: var(--secondary); max-width: 300px; }
+.relation-rule { padding: 0 10px 4px; color: var(--faint); }
 .menu-field { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0 10px; min-height: 34px; font-size: 13px; font-weight: 400; color: var(--secondary); }
 .menu-field input { flex: 1; min-width: 0; height: 28px; padding: 0; border: 0; background: transparent; font-size: 13px; width: auto; }
 .menu-search { height: 40px; margin: -6px -6px 6px; width: calc(100% + 12px); padding: 0 14px; border: 0; border-bottom: 1px solid var(--hairline); border-radius: 12px 12px 0 0; background: transparent; font-size: 13px; }

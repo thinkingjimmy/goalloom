@@ -6,13 +6,15 @@ import { Repository } from '../../src/main/workspace/repository'
 import { exportDataset } from '../../src/main/workspace/transfer/dataset'
 import { validateImport } from '../../src/domain/import-validation'
 import type { CommandInput } from '../../src/shared/contracts/commands'
+import type { ItemHorizon } from '../../src/shared/contracts/entities'
 
 type Action<T = CommandInput> = T extends unknown ? Omit<T, 'operationId' | 'generation'> : never
 let repo: Repository
 const now = '2026-09-23T02:00:00.000Z'
 const generation = () => repo.store.workspace().generation
 const run = (command: Action) => repo.execute({ ...command, operationId: randomUUID(), generation: generation() })
-const create = (title: string, flowColor: number | null = null) => repo.store.item(run({ type: 'create', title, horizon: 'later', flowColor }).itemId!)
+// Flow roots cannot sit in later, so coloured items default to the cycle column.
+const create = (title: string, flowColor: number | null = null, horizon: ItemHorizon = flowColor === null ? 'later' : 'cycle') => repo.store.item(run({ type: 'create', title, horizon, flowColor }).itemId!)
 const fresh = (id: string) => repo.store.item(id)
 beforeEach(() => {
   const db = openDatabase(':memory:'); migrate(db)
@@ -25,7 +27,7 @@ it('流程颜色在未删除条目中唯一，快照列出全部流程根', () =
   const goal = create('上线内测', 1)
   expect(goal.flowColor).toBe(1)
   expect(() => create('另一个目标', 1)).toThrow('已被「上线内测」使用')
-  const other = create('写长文')
+  const other = create('写长文', null, 'cycle')
   run({ type: 'flowColor', itemId: other.id, expectedVersion: other.version, flowColor: 2 })
   expect(repo.snapshot().flows.map(flow => [flow.title, flow.flowColor])).toEqual([['上线内测', 1], ['写长文', 2]])
   expect(() => run({ type: 'flowColor', itemId: other.id, expectedVersion: fresh(other.id).version, flowColor: 1 })).toThrow('已被')
@@ -35,7 +37,7 @@ it('流程颜色在未删除条目中唯一，快照列出全部流程根', () =
 })
 
 it('有上级的条目不能设颜色；流程根不能被关联为下级', () => {
-  const goal = create('目标', 3), task = create('任务')
+  const goal = create('目标', 3), task = create('任务', null, 'week')
   run({ type: 'link', parentId: goal.id, childId: task.id, expectedParentVersion: goal.version, expectedChildVersion: task.version })
   expect(() => run({ type: 'flowColor', itemId: task.id, expectedVersion: fresh(task.id).version, flowColor: 4 })).toThrow('跟随上级流程')
   expect(() => run({ type: 'create', title: '拆解', horizon: 'day', parentId: goal.id, expectedParentVersion: fresh(goal.id).version, flowColor: 5 })).toThrow('跟随上级流程')
@@ -58,7 +60,7 @@ it('删除释放颜色；还原时颜色已被占用则移除并提示，撤销�
 })
 
 it('解除关联后下级成为流程时，撤销解除不会恢复这条边', () => {
-  const goal = create('目标', 1), task = create('任务')
+  const goal = create('目标', 1), task = create('任务', null, 'week')
   run({ type: 'link', parentId: goal.id, childId: task.id, expectedParentVersion: goal.version, expectedChildVersion: task.version })
   const edge = repo.store.relations()[0]!
   const unlinked = run({ type: 'unlink', relationId: edge.id, expectedParentVersion: fresh(goal.id).version, expectedChildVersion: fresh(task.id).version })
@@ -69,7 +71,7 @@ it('解除关联后下级成为流程时，撤销解除不会恢复这条边', (
 })
 
 it('导入校验流程颜色唯一与根约束，并接受没有颜色字段的 v1 数据', () => {
-  const goal = create('目标', 1), task = create('任务')
+  const goal = create('目标', 1), task = create('任务', null, 'week')
   run({ type: 'link', parentId: goal.id, childId: task.id, expectedParentVersion: goal.version, expectedChildVersion: task.version })
   const source = exportDataset(repo.store, now)
   expect(source.schemaVersion).toBe(schemaVersion)

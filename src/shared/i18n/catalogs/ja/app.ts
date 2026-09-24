@@ -151,6 +151,8 @@ export const appMessages: typeof source = {
     self: '自分自身にはリンクできません',
     duplicate: 'この 2 つの項目はすでにリンクされています',
     cycle: 'このリンクは循環になります',
+    laterEndpoint: 'Later は保留エリアのため、関連付けやフローには参加しません',
+    horizonOrder: '上位は期間がより長い列にある必要があります',
     invalidEdge: 'リンクの ID または端点が無効です',
     deletedEndpoint: '有効なリンクに削除済みの端点が含まれています',
     planDuplicateDraft: '計画の下書き ID が重複しています',

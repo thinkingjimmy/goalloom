@@ -1,10 +1,11 @@
 /**
  * [INPUT]: Smart preview, previous edits, original preview periods and flow constraints.
- * [OUTPUT]: Manual-priority draft merging, orphan handling and versioned createPlan payloads.
+ * [OUTPUT]: Manual-priority draft merging, orphan handling, the new-link horizon rule and versioned createPlan payloads.
  * [POS]: Pure composer state; preserves period identity instead of rebasing stale previews.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { planProblem } from '../../../domain/plan'
+import { mayParent } from '../../../domain/relations'
 import { plainLater } from '../../../domain/smart/segments'
 import type { ParentRef } from '../../../shared/contracts/commands'
 import type { ItemHorizon } from '../../../shared/contracts/entities'
@@ -84,6 +85,9 @@ export function draftProblem(drafts: EditableDraft[], parents: Map<string, Paren
   if (drafts.some(draft => !draft.title.trim())) return smartMessages.titleRequired
   if (drafts.some(draft => draft.parents.some(key => key.kind === 'existing' && !parents.has(key.itemId)))) return smartMessages.parentMissing
   if (drafts.some(draft => draft.flowColor !== null && usedColors.includes(draft.flowColor))) return smartMessages.colorTaken
+  // Mirrors the storage rule for new links: a longer-horizon parent, never Later, and no Later flow roots.
+  const horizonOf = (key: ParentKey) => key.kind === 'existing' ? parents.get(key.itemId)!.horizon : drafts.find(draft => draft.id === key.draftId)?.horizon
+  if (drafts.some(draft => (draft.flowColor !== null && draft.horizon === 'later') || draft.parents.some(key => { const horizon = horizonOf(key); return !!horizon && !mayParent(horizon, draft.horizon) }))) return smartMessages.relationHorizon
   return planProblem(drafts.map(draft => ({ draftId: draft.id, flowColor: draft.flowColor, parentRefs: draft.parents.map((key): ParentRef => key.kind === 'draft' ? key : { kind: 'existing', itemId: key.itemId, expectedVersion: parents.get(key.itemId)?.version ?? 1 }) })))
 }
 export function edited(drafts: EditableDraft[]): number { return drafts.filter(draft => draft.manual.length > 0).length }

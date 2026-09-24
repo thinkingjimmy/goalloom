@@ -151,6 +151,8 @@ export const appMessages: typeof source = {
     self: 'Un elemento no se puede vincular consigo mismo',
     duplicate: 'Estos dos elementos ya están vinculados',
     cycle: 'Este vínculo crearía un ciclo',
+    laterEndpoint: 'Later es una zona de espera y no participa en vínculos ni flujos',
+    horizonOrder: 'El elemento superior debe estar en un horizonte más largo',
     invalidEdge: 'Identidad o extremos del vínculo no válidos',
     deletedEndpoint: 'Un vínculo activo contiene un extremo eliminado',
     planDuplicateDraft: 'Identificador de borrador duplicado en el plan',

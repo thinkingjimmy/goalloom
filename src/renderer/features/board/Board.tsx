@@ -1,6 +1,7 @@
 /**
  * [INPUT]: Summary snapshot, stable flow views, visible columns and guarded actions.
- * [OUTPUT]: Memoized columns, virtual task rows, shared editable drop targets for keyboard/pointer sorting and, under a single-flow filter, the relation-line overlay.
+ * [OUTPUT]: Memoized columns, virtual task rows, shared editable drop targets for keyboard/pointer sorting and the relation-line overlay:
+ *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  * [POS]: Main board view; authoritative transactions revalidate all position and state changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,6 +17,7 @@ import { addDays } from '../../lib/dates'
 import type { Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import { useRelationLines } from '../../state/relation-lines'
+import { flowTint } from '../../lib/colors'
 import { Icon } from '../../components/icons'
 import { HistoryColumn } from './HistoryColumn'
 import { Backlog } from './Backlog'
@@ -104,13 +106,24 @@ export const Board = memo(function Board({ snapshot, flows, filter, columns, hig
     void submit({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon, beforeId }).then(() => { if (keyTarget) requestAnimationFrame(() => revealRow(item.id, '.drag-handle')) })
   }
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
-  const lines = useRelationLines().enabled && filter !== null
+  // Hovering or focusing a coloured flow dot previews that item's flows, even under 全部; leaving waits 120ms so crossing rows never flickers.
+  const [preview, setPreview] = useState<string | null>(null)
+  const previewTimer = useRef(0)
+  const onPreview = useCallback((itemId: string | null) => {
+    clearTimeout(previewTimer.current)
+    if (itemId) setPreview(itemId); else previewTimer.current = window.setTimeout(() => setPreview(null), 120)
+  }, [])
+  useEffect(() => () => clearTimeout(previewTimer.current), [])
+  const enabled = useRelationLines().enabled
+  const previewKey = enabled && preview ? flows.of(preview).map(flow => flow.id).join(' ') : ''
+  const active = useMemo(() => previewKey ? previewKey.split(' ') : filter ? [filter] : [], [previewKey, filter])
+  const lines = enabled && active.length > 0
   return <DndContext sensors={sensors} collisionDetection={collision} onDragStart={event => { keyboardTarget.current = null; setDragging(String(event.active.id)) }} onDragCancel={() => { keyboardTarget.current = null; setDragging(null) }} onDragEnd={end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
     <main className="board" aria-label={messages.board} data-lines={lines}>
-      {/* Keyed by flow so switching flows replays the draw-in. */}
-      {lines && <RelationLines key={filter} items={snapshot.items} relations={snapshot.relations} flows={flows} filter={filter} columns={columns} />}
+      {/* Keyed by the filtered flow so switching flows replays the draw-in; a hover preview never animates in. */}
+      {lines && <RelationLines key={filter ?? 'preview'} items={snapshot.items} relations={snapshot.relations} flows={flows} flowIds={active} focus={previewKey ? preview : null} animate={filter !== null} columns={columns} />}
       {columns.map(horizon => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!}
-        snapshot={snapshot} flows={flows} filter={filter} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
+        snapshot={snapshot} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
         dragging={dragging} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} history={history[horizon] ?? null} onHistory={onHistory} />)}
     </main>
     {/* No drop animation: the overlay would fly back to the old slot before the authoritative refresh lands. */}
@@ -118,7 +131,8 @@ export const Board = memo(function Board({ snapshot, flows, filter, columns, hig
   </DndContext>
 })
 
-const Column = memo(function Column({ horizon, items, snapshot, flows, filter, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, history, onHistory }: Omit<BoardProps, 'addRequest' | 'columns'> & {
+const Column = memo(function Column({ horizon, items, snapshot, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, history, onHistory }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter'> & {
+  active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
   horizon: ItemHorizon; items: ItemSummary[]; today: string; adding: { split: SplitParent | null; key: number } | null; dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean) => void; onFocus: (horizon: ItemHorizon, editable: boolean) => void
   history: PlanningPeriod | null; onHistory: (horizon: ItemHorizon, period: PlanningPeriod | null) => void
 }) {
@@ -134,8 +148,12 @@ const Column = memo(function Column({ horizon, items, snapshot, flows, filter, h
   const calendar = snapshot.workspace.calendar!
   const previous = period ? precedingPeriod(calendar, period) : null
   const todo = useMemo(() => items.filter(item => item.status === 'todo'), [items]), done = useMemo(() => items.filter(item => item.status === 'done'), [items])
-  const row = (item: ItemSummary, index: number, total: number) => <TaskRow index={index} total={total} key={item.id} item={item} flows={flows} today={today} rolloverFrom={snapshot.rolloverSources[item.id]} selected={highlighted === item.id}
-    dimmed={filter !== null && !flows.of(item.id).some(flow => flow.id === filter)} disabled={busy} select={select} submit={submit} />
+  const row = (item: ItemSummary, index: number, total: number) => {
+    // A row in an active flow takes that flow's tint while lines are drawn; the rest fade.
+    const lit = active.length ? flows.of(item.id).find(flow => active.includes(flow.id)) : undefined
+    return <TaskRow index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={snapshot.items} today={today} rolloverFrom={snapshot.rolloverSources[item.id]} selected={highlighted === item.id}
+      dimmed={active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={busy} select={select} submit={submit} onPreview={onPreview} />
+  }
   return <section className={`board-column ${isOver ? 'drop-target' : ''}`} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(horizonNames[horizon])} ref={setNodeRef}>
     <header className="column-header">
       <h2>{horizonNames[horizon]}</h2>
@@ -157,7 +175,7 @@ const Column = memo(function Column({ horizon, items, snapshot, flows, filter, h
       {history ? <HistoryColumn key={history.id} period={history} revision={snapshot.workspace.revision} select={select} /> : <>
         <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
           <VirtualRows items={todo} dragging={dragging} highlighted={highlighted} render={row} />
-          {adding && <QuickAdd key={adding.key} horizon={horizon} flows={flows} split={adding.split} submit={submit} busy={busy} close={() => setAdding(false)} />}
+          {adding && <QuickAdd key={adding.key} horizon={horizon} flows={flows} items={snapshot.items} split={adding.split} submit={submit} busy={busy} close={() => setAdding(false)} />}
           {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows items={done} dragging={dragging} highlighted={highlighted} render={row} />}</details>}
         </SortableContext>
         {items.length === 0 && !adding && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}

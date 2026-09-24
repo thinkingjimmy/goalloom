@@ -1,11 +1,21 @@
 /**
- * [INPUT]: 显式端点集合与有效/失效关系快照。
- * [OUTPUT]: 多父 DAG 的自关联/重复/环校验，不修改实体或状态。
- * [POS]: 可复用关系规则；事务、撤销、还原和导入共同使用。
+ * [INPUT]: 显式端点集合与有效/失效关系快照；新建关联时两端的计划周期。
+ * [OUTPUT]: 多父 DAG 的自关联/重复/环校验，以及新建关联的周期规则（mayParent/horizonProblem），不修改实体或状态。
+ * [POS]: 可复用关系规则；事务、撤销、还原和导入共用 DAG 校验，周期规则只约束用户新建关联并被 renderer 候选过滤复用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import type { Relation } from '../shared/contracts/entities'
+import { horizons, type ItemHorizon, type Relation } from '../shared/contracts/entities'
 import { serverText } from '../shared/i18n/server'
+
+// Later is a parking lot, not a planning horizon: it never takes part in relations. A parent is a bigger goal, so it
+// must sit in a strictly longer horizon. Only new links are held to this; moves, undo, restore and import keep edges.
+export const mayParent = (parent: ItemHorizon, child: ItemHorizon): boolean =>
+  parent !== 'later' && child !== 'later' && horizons.indexOf(parent) < horizons.indexOf(child)
+
+export function horizonProblem(parent: ItemHorizon, child: ItemHorizon): string | null {
+  if (parent === 'later' || child === 'later') return serverText().relations.laterEndpoint
+  return mayParent(parent, child) ? null : serverText().relations.horizonOrder
+}
 
 export function relationProblem(parentId: string, childId: string, edges: Relation[]): string | null {
   if (parentId === childId) return serverText().relations.self

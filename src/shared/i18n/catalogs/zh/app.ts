@@ -150,6 +150,8 @@ export const appMessages = widen({
     self: '不能关联到自己',
     duplicate: '这两个条目已经关联',
     cycle: '此关联会形成循环',
+    laterEndpoint: 'Later 是暂存区，不参与关联和流程',
+    horizonOrder: '上级必须在周期更长的列',
     invalidEdge: '关系身份或端点无效',
     deletedEndpoint: '有效关系包含已删除端点',
     planDuplicateDraft: '计划草稿标识重复',

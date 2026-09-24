@@ -76,6 +76,7 @@ export const smartMessages: SmartCatalog = {
   titleRequired: 'Chaque élément doit avoir un titre',
   parentMissing: 'Un parent n’a plus de référence dans l’aperçu. Choisissez-le à nouveau',
   colorTaken: 'La couleur de flux choisie est déjà utilisée. Choisissez-en une autre',
+  relationHorizon: 'Le parent doit se trouver dans un horizon plus long ; Later ne participe ni aux liens ni aux flux',
   analyzeFailed: 'Connexion à Jev impossible pour le moment. Le brouillon est conservé',
   testFailed: 'Test impossible pour le moment. Réessayez plus tard ou passez cette étape',
   // --- Connect / settings ---

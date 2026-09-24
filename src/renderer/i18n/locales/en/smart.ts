@@ -72,6 +72,7 @@ export const smartMessages: SmartCatalog = {
   titleRequired: 'Every item needs a title',
   parentMissing: 'A parent is missing its preview basis. Please choose it again.',
   colorTaken: 'That flow color is taken. Choose another.',
+  relationHorizon: 'A parent must sit in a longer horizon, and Later takes no part in links or flows.',
   analyzeFailed: 'Can’t reach Jev right now. Your draft is kept.',
   testFailed: 'Couldn’t complete the test. Try again later, or skip for now.',
   // --- Connect / settings ---

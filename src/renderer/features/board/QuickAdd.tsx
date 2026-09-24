@@ -1,11 +1,13 @@
 /**
- * [INPUT]: Target column, flow view, optional parent and guarded submission.
- * [OUTPUT]: Continuous inline creation preserving input typed during save or refresh.
+ * [INPUT]: Target column, flow view, board items (flow-root horizons), optional parent and guarded submission.
+ * [OUTPUT]: Continuous inline creation preserving input typed during save or refresh; offers only flows whose root is in a longer
+ *           horizon, and no flow choice at all in Later.
  * [POS]: Board creation entry; input revision controls clearing, storage owns relationship constraints.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useRef, useState } from 'react'
-import type { ItemHorizon } from '../../../shared/contracts/entities'
+import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
+import { mayParent } from '../../../domain/relations'
 import { messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
@@ -16,15 +18,17 @@ import { Popover } from '../../components/Popover'
 export interface SplitParent { id: string; title: string }
 type Choice = { kind: 'none' } | { kind: 'join'; id: string } | { kind: 'new'; color: number } | { kind: 'split'; parent: SplitParent }
 
-export function QuickAdd({ horizon, flows, split, submit, busy, close }: { horizon: ItemHorizon; flows: Flows; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void }) {
+export function QuickAdd({ horizon, flows, items, split, submit, busy, close }: { horizon: ItemHorizon; flows: Flows; items: ItemSummary[]; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void }) {
   const [title, setTitle] = useState('')
   const [choice, setChoice] = useState<Choice>(split ? { kind: 'split', parent: split } : { kind: 'none' })
   const [picking, setPicking] = useState(false)
   const input = useRef<HTMLInputElement>(null), root = useRef<HTMLDivElement>(null)
   const revision = useRef(0), saving = useRef(false), choiceRef = useRef(choice)
   choiceRef.current = choice
-  const joinable = flows.visible
-  const free = relationColors.map((_, index) => index).filter(index => !flows.owner(index))
+  // Joining links the new item under the flow root, so the root must sit in a longer horizon; Later starts no flow.
+  const joinable = flows.visible.filter(flow => { const root = items.find(item => item.id === flow.id); return !!root && mayParent(root.placement.horizon, horizon) })
+  const free = horizon === 'later' ? [] : relationColors.map((_, index) => index).filter(index => !flows.owner(index))
+  const flowless = horizon === 'later' && !split
   const parentId = choice.kind === 'join' ? choice.id : choice.kind === 'split' ? choice.parent.id : null
   const colors = choice.kind === 'new' ? [choice.color] : parentId ? flows.colorsOf(parentId) : []
   const ring = flowVars(colors)
@@ -52,7 +56,7 @@ export function QuickAdd({ horizon, flows, split, submit, busy, close }: { horiz
   return <div className="quick-add" ref={root} onBlur={event => {
     if (!root.current?.contains(event.relatedTarget as Node | null) && !title.trim() && !picking) close()
   }}>
-    <Popover open={picking} onClose={() => setPicking(false)} anchor={
+    {flowless ? <span className="check check-dashed" aria-hidden="true" /> : <Popover open={picking} onClose={() => setPicking(false)} anchor={
       <button type="button" className={`check ${ring ? '' : 'check-dashed'}`} style={ring} aria-label={messages.chooseFlow(label)} aria-haspopup="listbox" aria-expanded={picking} onMouseDown={event => event.preventDefault()} onClick={() => setPicking(!picking)} />
     }>
       <div className="menu flow-picker" role="listbox" aria-label={messages.flow}>
@@ -67,7 +71,7 @@ export function QuickAdd({ horizon, flows, split, submit, busy, close }: { horiz
           {free.map(index => <button key={index} role="option" aria-selected={choice.kind === 'new' && choice.color === index} aria-label={messages.newFlowName(messages.colorNames[index]!)} title={messages.colorNames[index]!} className="swatch" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'new', color: index })}><FlowMark colors={[index]} /></button>)}
         </div>
       </div>
-    </Popover>
+    </Popover>}
     <input ref={input} aria-label={messages.newToColumn(horizonNames[horizon])} placeholder={messages.titlePlaceholder} autoFocus value={title} maxLength={500}
       onChange={event => { revision.current++; setTitle(event.target.value) }}
       onKeyDown={event => {
