@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Item summary, stable flow colors, snapshot topology/candidates for the flow dot, status indicators, the lit flow tint and actions.
- * [OUTPUT]: Memoized accessible task row with its flow dot and keyboard/pointer drag controls; a lit row carries `data-lit` and `--row-tint`.
+ * [OUTPUT]: Memoized accessible task row (title clamped to two lines) with its flow dot and keyboard/pointer drag controls; a lit row carries `data-lit` and `--row-tint`.
  * [POS]: One virtual board row; Board owns placement, preview and dimming, detail loading owns description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -38,7 +38,7 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
       {done && <Icon name="check" size={12} strokeWidth={2.5} />}
     </button>
     <div className="task-line">
-      <button className="task-title" onClick={() => select(item.id)}>{item.title}</button>
+      <button className="task-title" title={item.title} onClick={() => select(item.id)}><span>{item.title}</span></button>
       {rolloverFrom && <span className="row-meta" title={messages.rolloverTitle(rolloverFrom)}>{messages.rolloverMark}</span>}
       {item.dueDate && !overdue && !done && <span className="row-meta tabular" title={`${messages.dueDate} ${longDate(item.dueDate)}`}>{shortDate(item.dueDate)}</span>}
       {overdue && <span className="row-icon overdue" role="img" aria-label={messages.dueOverdue(longDate(item.dueDate!))} title={messages.dueOverdue(longDate(item.dueDate!))}><Icon name="overdue" size={16} /></span>}
