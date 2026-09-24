@@ -11,6 +11,7 @@ const options = packaged ? { executablePath: resolve(packaged), args: [`--user-d
 let application = await electron.launch({ ...options, env: environment })
 try {
   let page = await application.firstWindow()
+  await page.getByRole('button', { name: '先跳过', exact: true }).click()
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
   await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
   await page.getByRole('main', { name: '时间看板' }).waitFor()
@@ -41,7 +42,7 @@ try {
   assert.equal(await settings.getByRole('checkbox').isChecked(), false)
   await settings.getByRole('checkbox').check()
   await settings.getByRole('button', { name: '重置并重新配置' }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).waitFor()
+  await page.getByRole('textbox', { name: '三个月的方向', exact: true }).waitFor()
   const reset = await page.evaluate(() => window.goalloom.getSnapshot())
   assert.notEqual(reset.workspace.generation, seed.generation)
   assert.equal(reset.workspace.setupConfirmedAt, null); assert.equal(reset.workspace.pausedAfterRestore, false)

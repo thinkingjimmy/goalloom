@@ -61,11 +61,16 @@ try {
 
   // 2. Setup page switches instantly, before the calendar is confirmed; typed setup values survive the switch.
   await language.selectOption('en')
-  await page.getByRole('button', { name: 'Confirm and start', exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Skip', exact: true }).waitFor()
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'en')
-  await assertTranslated(page, 'en setup')
+  await assertTranslated(page, 'en direction step')
   await page.screenshot({ path: `${shots}/language-setup-en.png` })
+  await page.getByRole('button', { name: 'Skip', exact: true }).click()
+  await page.getByRole('button', { name: 'Confirm and start', exact: true }).waitFor()
+  await assertTranslated(page, 'en calendar step')
   await page.getByRole('button', { name: 'Confirm and start', exact: true }).click()
+  await page.getByRole('button', { name: 'Connect Jev', exact: true }).waitFor()
+  await assertTranslated(page, 'en Jev step')
   await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
   await page.getByRole('main', { name: ui.en.board }).waitFor()
 

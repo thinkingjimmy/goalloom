@@ -50,5 +50,4 @@
 .jev-actions { display: flex; gap: 8px; margin-top: 8px; }
 .jev-result { min-height: 20px; margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--danger); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .jev-result[data-ok='true'] { color: var(--secondary); }
-.jev-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 24px; }
 .settings-form { padding: 14px 16px; }
