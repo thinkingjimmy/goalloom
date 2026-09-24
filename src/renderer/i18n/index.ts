@@ -28,7 +28,7 @@ export const shortcutNotes: Catalog['shortcutNotes'] = { ...zh.shortcutNotes }
 export const horizonNames = {} as Record<ItemHorizon, string>
 export const activityNames: Record<string, string> = {}
 export const statusNames = {} as Record<'todo' | 'done' | 'cancelled', string>
-export const providerModels: Record<JevProvider, string> = { typesafe: 'jev-latest', 'vercel-gateway': 'typesafe-ai/jev' }
+export const providerModels: Record<JevProvider, string> = { typesafe: 'jev-latest', 'vercel-gateway': 'typesafe-ai/jev', openrouter: 'typesafe/jev-1.13' }
 export type MessageCatalog = Catalog['messages']
 
 let locale: Locale = 'zh'

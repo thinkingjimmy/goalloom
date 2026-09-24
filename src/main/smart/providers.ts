@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Provider-owned credentials, bounded question payloads, abort signals and controlled HTTP.
- * [OUTPUT]: Fixed TypeSafe/Gateway adapters, normalized distributions and typed failures.
+ * [OUTPUT]: Fixed System One (TypeSafe native / OpenRouter) and Gateway adapters, normalized distributions and typed failures.
  * [POS]: Provider boundary; no task-body or credential logging, and no alternate API protocols.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,11 +14,13 @@ import { serverText } from '../../shared/i18n/server'
 
 export const JEV_PROVIDERS = {
   typesafe: { protocol: 'typesafe-system-one', baseURL: 'https://api.typesafe.ai', model: 'jev-latest', console: 'https://typesafe.ai' },
+  // OpenRouter serves TypeSafe's System One shapes at /api/v1/systemone; the SDK appends /v1/systemone to this base.
+  openrouter: { protocol: 'typesafe-system-one', baseURL: 'https://openrouter.ai/api', model: 'typesafe/jev-1.13', console: 'https://openrouter.ai/settings/keys' },
   'vercel-gateway': { protocol: 'gateway-evaluate', endpoint: 'https://ai-gateway.vercel.sh/v1/evaluate', model: 'typesafe-ai/jev', providerOptions: { gateway: { only: ['typesafe-ai'] } }, console: 'https://vercel.com/dashboard' },
 } as const
 export const requestTimeoutMs = 8_000
 export const cooldownMs = 30_000
-// Official TypeSafe adapter declares two-decimal probabilities for the native API; Gateway must state its own.
+// Official TypeSafe adapter declares two-decimal probabilities for System One (OpenRouter forwards TypeSafe's answers); Gateway must state its own.
 const nativeDecimals = 2
 
 export interface EvaluateInput { state: { [key: string]: Json }; questions: Record<string, NeutralQuestion>; signal: AbortSignal }
@@ -31,7 +33,7 @@ export class Aborted extends Error {}
 export type Adapter = (apiKey: string, input: EvaluateInput) => Promise<EvaluateOutput>
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 
-const names: Record<JevProvider, string> = { typesafe: 'TypeSafe', 'vercel-gateway': 'AI Gateway' }
+const names: Record<JevProvider, string> = { typesafe: 'TypeSafe', 'vercel-gateway': 'AI Gateway', openrouter: 'OpenRouter' }
 export function failure(kind: FailureKind, provider: JevProvider, status: number | null = null, retryAt: string | null = null): Failure {
   const name = names[provider]
   return { kind, message: serverText().smart.failures[kind](name, status), status, retryAt }
@@ -76,24 +78,27 @@ function requestBody(value: unknown, provider: JevProvider): string {
   return body
 }
 
-export function typesafeAdapter(fetch?: Fetch): Adapter {
+export function systemOneAdapter(provider: 'typesafe' | 'openrouter', fetch?: Fetch): Adapter {
   return async (apiKey, { state, questions, signal }) => {
-    const preset = JEV_PROVIDERS.typesafe
+    const preset = JEV_PROVIDERS[provider]
     const client = new TypeSafeClient({ apiKey, baseURL: preset.baseURL, defaultModel: preset.model, retry: { maxRetries: 0 }, timeout: requestTimeoutMs, logLevel: 'off', ...(fetch ? { fetch } : {}) })
     const native: Questions = Object.fromEntries(Object.entries(questions).map(([id, question]) => [id, question.type === 'choice'
       ? { type: 'choice', instructions: question.instructions, criteria: question.criteria }
       : { type: 'noul', instructions: question.instructions, criteria: question.criteria }]))
     try {
-      requestBody({ state, questions: native, model: preset.model }, 'typesafe')
+      requestBody({ state, questions: native, model: preset.model }, provider)
       const { data, requestId } = await client.systemOne({ state, questions: native, model: preset.model }, { signal }).withResponse()
-      return { answers: unify(data.answers, questions, 'typesafe'), precision: { decimals: nativeDecimals, source: 'adapter' },
-        meta: { requestedModel: preset.model, routingCanonicalSlug: null, modelVersion: typeof data.model === 'string' ? data.model.slice(0, 100) : null, inputTokens: numberOrNull(data.usage?.input_tokens), requestId: requestId?.slice(0, 200) ?? null } }
+      // OpenRouter reports its generation id in the body rather than a TypeSafe request-id header.
+      const generationId = (data as { id?: unknown }).id
+      return { answers: unify(data.answers, questions, provider), precision: { decimals: nativeDecimals, source: 'adapter' },
+        meta: { requestedModel: preset.model, routingCanonicalSlug: null, modelVersion: typeof data.model === 'string' ? data.model.slice(0, 100) : null, inputTokens: numberOrNull(data.usage?.input_tokens),
+          requestId: (requestId ?? (typeof generationId === 'string' ? generationId : null))?.slice(0, 200) ?? null } }
     } catch (error) {
       if (error instanceof ProviderFailure) throw error
       if (error instanceof APIUserAbortError || signal.aborted) throw new Aborted()
-      if (error instanceof APIError) throw new ProviderFailure(classifyFailure('typesafe', error.status, error.body, error.headers, Date.now()))
-      if (error instanceof APIConnectionError) throw new ProviderFailure(failure('unavailable', 'typesafe'))
-      throw new ProviderFailure(failure('malformed_response', 'typesafe'))
+      if (error instanceof APIError) throw new ProviderFailure(classifyFailure(provider, error.status, error.body, error.headers, Date.now()))
+      if (error instanceof APIConnectionError) throw new ProviderFailure(failure('unavailable', provider))
+      throw new ProviderFailure(failure('malformed_response', provider))
     }
   }
 }

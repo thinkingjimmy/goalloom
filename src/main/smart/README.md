@@ -4,7 +4,7 @@
 
 ```text
 smart/
-├── providers.ts    # JEV_PROVIDERS 固定预设；TypeSafe systemOne / Gateway /v1/evaluate adapter、统一答案、错误归一化
+├── providers.ts    # JEV_PROVIDERS 固定预设；systemOne adapter（TypeSafe 原生 / OpenRouter，仅 baseURL 与 model 不同）/ Gateway /v1/evaluate adapter、统一答案、错误归一化
 ├── credentials.ts  # DeviceStore：OS 保护加密 Key、设备配置（activeProvider/providerRevision/enabledForGeneration）
 ├── service.ts      # SmartInputService：配置修订与串行落盘、代次门控、单链取消、冷却、32 项/512 KiB 缓存、一轮＋可选补充轮
 ├── context.ts      # 经 StorageClient 短只读查询构造 SmartContext（日期/周期/≤8 候选）

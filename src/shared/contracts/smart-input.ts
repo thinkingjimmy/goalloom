@@ -8,9 +8,9 @@ import { z } from 'zod'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, statusSchema } from './entities'
 
 export const smartChannel = 'goalloom:smart'
-export const jevProviderSchema = z.enum(['typesafe', 'vercel-gateway'])
+export const jevProviderSchema = z.enum(['typesafe', 'vercel-gateway', 'openrouter'])
 export type JevProvider = z.infer<typeof jevProviderSchema>
-export const jevProviders: JevProvider[] = ['typesafe', 'vercel-gateway']
+export const jevProviders: JevProvider[] = [...jevProviderSchema.options]
 
 // --- Normalised failure kinds: each maps to one user-facing remedy, never a guessed "invalid key". ---
 export const failureKindSchema = z.enum(['account_verification_required', 'rate_limited', 'quota_exhausted', 'payment_required', 'authentication_failed', 'permission_denied', 'routing_policy', 'unavailable', 'malformed_response', 'request_failed', 'too_large', 'credential_unreadable', 'credential_unavailable', 'not_enabled'])
@@ -26,7 +26,7 @@ export const smartStatusSchema = z.strictObject({
   activeProvider: jevProviderSchema.nullable(), providerRevision: z.number().int().nonnegative(),
   // enabled: bound to the current workspace generation with a readable key and consent; paused: bound to an older generation.
   enabled: z.boolean(), paused: z.boolean(),
-  providers: z.strictObject({ typesafe: providerStatusSchema, 'vercel-gateway': providerStatusSchema }),
+  providers: z.strictObject({ typesafe: providerStatusSchema, 'vercel-gateway': providerStatusSchema, openrouter: providerStatusSchema }),
   lastFailure: failureSchema.nullable(), cooldownUntil: instantSchema.nullable(), dismissed: z.array(noticeSchema), unsignedBuild: z.boolean(),
 })
 export type SmartStatus = z.infer<typeof smartStatusSchema>

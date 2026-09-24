@@ -12,11 +12,11 @@ Later → 3个月 → 本月 → 本周 → 今天
 
 **技术栈：** Electron · React · TypeScript · Vite · shadcn/ui · Tailwind CSS · Hugeicons · SQLite · TypeSafe SDK（Jev，可选）。
 
-**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、极简五列看板、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、TypeSafe 原生 / Vercel AI Gateway 双渠道、可编辑预览与 `createPlan` 整批事务/同代次撤销、迁移前保护副本）；外观支持纸感/简约两种风格 × 明暗模式与三种复选框样式（schema v5）。智能输入的两渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中/英/日/西/法五种界面语言（默认跟随系统，可在设置切换）与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
+**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、极简五列看板、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、TypeSafe 原生 / Vercel AI Gateway / OpenRouter 三渠道、可编辑预览与 `createPlan` 整批事务/同代次撤销、迁移前保护副本）；外观支持纸感/简约两种风格 × 明暗模式与三种复选框样式（schema v5）。智能输入的各渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中/英/日/西/法五种界面语言（默认跟随系统，可在设置切换）与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
 
 | 文档 | 用途 |
 | --- | --- |
-| [智能输入功能规格](docs/features/smart-input.md) | 全局输入、Jev 双渠道、Onboarding、计划创建/撤销、导出恢复与迁移保护的规则、工程契约、TODO 与验收 |
+| [智能输入功能规格](docs/features/smart-input.md) | 全局输入、Jev 三渠道、Onboarding、计划创建/撤销、导出恢复与迁移保护的规则、工程契约、TODO 与验收 |
 | [关系线功能规格](docs/features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [开发代理约定](AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
@@ -48,7 +48,7 @@ pnpm package:dir          # 当前平台本地目录包
 
 `package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/解压时间。产物位于 `release/Goalloom-0.1.0-mac-arm64.zip` 与 `release/Goalloom-0.1.0-win-x64.exe`；前者解压为应用，后者为中文 x64 安装器。两者均未签名，macOS 未公证，使用默认 Electron 应用图标。自动更新与公开分发不在当前范围。
 
-默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与两渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
+默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
 `pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。合入 `main` 前在本地运行 `pnpm verify`（单元/集成 → SQLite → 构建 → 看板/历史/恢复/composer/多语言与 Review 回归窗口测试）。GitHub Actions 仅手动触发（免费版无私有仓库托管分钟数）；Windows x64 与实机输入、安装/升级验收由负责人另行完成。
 
@@ -59,7 +59,7 @@ src/
 ├── domain/             # 独立纯函数库：日历、DAG、流程归属、候选、历史、效果字段撤销、计划拓扑与 smart/ 智能输入规则
 ├── main/               # Electron 生命周期、IPC 和安全边界
 │   ├── window/         # 窗口偏好与退出保护
-│   ├── smart/          # Jev 双渠道 adapter、设备凭据与独立异步智能服务
+│   ├── smart/          # Jev 三渠道 adapter、设备凭据与独立异步智能服务
 │   ├── storage/        # SQLite/启动迁移保护/备份/文件适配器与 worker 通道
 │   └── workspace/      # 业务事务、commands、历史/顺延与 transfer
 ├── preload/            # 沙箱 contextBridge，只暴露有限 API

@@ -12,7 +12,7 @@ tests/
 │   └── smart.test.ts        # weekStart 1–7 日期、槽位、K×d 概率容差、64 题预算、预览组装与计划拓扑
 ├── main/
 │   ├── security.test.ts     # 本地协议路径约束与 CSP 静态约束
-│   └── smart.test.ts        # 双渠道请求形状/路由/精度、错误归类、凭据与代次门控、取消/冷却/缓存（fixture，非真实服务）
+│   └── smart.test.ts        # 三渠道请求形状/路由/精度、错误归类、凭据与代次门控、取消/冷却/缓存（fixture，非真实服务）
 ├── renderer/
 │   ├── session.test.ts      # 会话去重、非栈顶/冲突单项移除、代次隔离
 │   ├── colors.test.ts       # 八组浅/深色对比度、流程描边与拼色
@@ -32,6 +32,6 @@ tests/
 
 `pnpm test` 使用锁定 Electron 自带的 Node 运行全部 Vitest 测试；`test:domain` 只运行纯领域层，`test:integration` 运行 SQLite 集成测试（保留 `test:repository` 别名）。临时工作区由测试创建并清理，不访问用户任务。桌面自动化独立运行，正式应用没有测试 IPC 或时钟控制口。
 
-`tests/main/smart.test.ts` 只用受控 fixture 验证请求/响应契约，不代表两渠道真实 Key 已联调。纯函数与集成测试通过不表示打包桌面、Windows 安装、IME 或睡眠验收通过。实际命令、运行版本和平台范围记录于开发提交/PR。
+`tests/main/smart.test.ts` 只用受控 fixture 验证请求/响应契约，不代表各渠道真实 Key 已联调。纯函数与集成测试通过不表示打包桌面、Windows 安装、IME 或睡眠验收通过。实际命令、运行版本和平台范围记录于开发提交/PR。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 README.md

@@ -7,7 +7,7 @@
 import type { JevProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
-export const providerNames: typeof source = { typesafe: 'TypeSafe natif', 'vercel-gateway': 'Vercel AI Gateway' }
+export const providerNames: typeof source = { typesafe: 'TypeSafe natif', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
   composer: 'Nouveau',
   inputLabel: 'Notez une idée',
@@ -98,13 +98,15 @@ export const smartMessages: SmartCatalog = {
   connectFootnote: 'Si le test réussit, vous arrivez directement au tableau. Sinon, vous pouvez passer.',
   backToDemo: 'Retour à l’exemple',
   providerLabel: 'Service',
-  keyLabel: (provider: JevProvider) => provider === 'typesafe' ? 'TypeSafe API Key' : 'AI Gateway API Key',
+  keyLabel: (provider: JevProvider) => ({ typesafe: 'TypeSafe API Key', 'vercel-gateway': 'AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: 'Collez l’API Key',
   modelNote: (model: string) => `Modèle : ${model} (fixe, non modifiable)`,
   getKey: 'Ouvrir la console officielle pour obtenir une Key',
-  recipient: (provider: JevProvider) => provider === 'typesafe'
-    ? 'Contenu envoyé : le texte saisi, la date de l’espace de travail, et le titre, l’état et l’emplacement des objectifs mentionnés ou sélectionnés ; traité par TypeSafe. Les descriptions, l’historique, la corbeille et la base complète ne sont pas envoyés.'
-    : 'Contenu envoyé : le texte saisi, la date de l’espace de travail, et le titre, l’état et l’emplacement des objectifs mentionnés ou sélectionnés ; il passe par Vercel AI Gateway, puis est routé uniquement vers Jev de TypeSafe. Les descriptions, l’historique, la corbeille et la base complète ne sont pas envoyés.',
+  recipient: (provider: JevProvider) => ({
+    typesafe: 'Contenu envoyé : le texte saisi, la date de l’espace de travail, et le titre, l’état et l’emplacement des objectifs mentionnés ou sélectionnés ; traité par TypeSafe. Les descriptions, l’historique, la corbeille et la base complète ne sont pas envoyés.',
+    'vercel-gateway': 'Contenu envoyé : le texte saisi, la date de l’espace de travail, et le titre, l’état et l’emplacement des objectifs mentionnés ou sélectionnés ; il passe par Vercel AI Gateway, puis est routé uniquement vers Jev de TypeSafe. Les descriptions, l’historique, la corbeille et la base complète ne sont pas envoyés.',
+    openrouter: 'Contenu envoyé : le texte saisi, la date de l’espace de travail, et le titre, l’état et l’emplacement des objectifs mentionnés ou sélectionnés ; il passe par OpenRouter, qui le transmet à Jev de TypeSafe. Les descriptions, l’historique, la corbeille et la base complète ne sont pas envoyés.',
+  })[provider],
   cost: 'Les appels sont facturés selon votre compte et son quota ; Goalloom n’achète ni ne recharge rien pour vous et ne garantit pas l’absence de conservation des données.',
   consent: 'J’accepte d’envoyer ce contenu au service choisi pour traitement',
   testEnable: 'Tester et activer',

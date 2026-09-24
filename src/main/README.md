@@ -12,7 +12,7 @@ main/
 │   ├── language.ts # 设备语言偏好（preferences.json，跟随系统或指定），先于存储加载并设置 main 文案
 │   └── close.ts   # 未保存草稿确认，默认继续编辑；取消退出不关数据库
 ├── storage/       # SQLite、启动迁移保护、备份与文件适配器、worker 通道，见局部地图
-├── smart/         # Jev 智能输入：双渠道 adapter、设备凭据、独立异步服务，见局部地图
+├── smart/         # Jev 智能输入：三渠道 adapter、设备凭据、独立异步服务，见局部地图
 └── workspace/     # 权威事务、业务命令、历史/顺延与整库服务，见局部地图
 ```
 
