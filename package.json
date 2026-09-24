@@ -28,7 +28,8 @@
     "test:recovery": "node tests/desktop/recovery.mjs",
     "test:performance": "node tests/desktop/performance.mjs",
     "test:composer": "node tests/desktop/composer.mjs",
-    "verify": "pnpm test && pnpm run test:electron && pnpm run build && pnpm run test:ui && pnpm run test:history && pnpm run test:recovery && pnpm run test:composer"
+    "test:language": "node tests/desktop/language.mjs",
+    "verify": "pnpm test && pnpm run test:electron && pnpm run build && pnpm run test:ui && pnpm run test:history && pnpm run test:recovery && pnpm run test:composer && pnpm run test:language"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

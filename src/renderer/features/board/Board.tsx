@@ -10,7 +10,9 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'
 import { horizons, type Item, type ItemHorizon, type PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
-import { messages, horizonNames } from '../../i18n/messages'
+import { messages, horizonNames } from '../../i18n'
+import { longDate, monthDay, monthName, shortDate, yearMonth, yearOf } from '../../i18n/format'
+import { addDays } from '../../lib/dates'
 import type { Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import { Icon } from '../../components/icons'
@@ -119,20 +121,15 @@ function Column({ horizon, items, snapshot, flows, filter, highlighted, today, s
   </section>
 }
 
-const weekdays = [messages.sunday, messages.monday, messages.tuesday, messages.wednesday, messages.thursday, messages.friday, messages.saturday]
-
 /** Past periods read as a single day, a named month or a range, never as the raw half-open date pair. */
 function historyLabel(horizon: ItemHorizon, period: PlanningPeriod): string {
-  const [year, month] = period.startDate.split('-').map(Number)
-  if (horizon === 'day') return `${periodLabel(horizon, period)} ${messages.weekdayShort(weekdays[new Date(`${period.startDate}T00:00:00Z`).getUTCDay()]!)}`
-  if (horizon === 'month') return `${year}年${month}月`
-  return `${year}年 ${periodLabel(horizon, period)}`
+  if (horizon === 'day') return longDate(period.startDate)
+  if (horizon === 'month') return yearMonth(period.startDate)
+  return `${yearOf(period.startDate)} ${periodLabel(horizon, period)}`
 }
 
 function periodLabel(horizon: ItemHorizon, period: PlanningPeriod): string {
-  const [, sm, sd] = period.startDate.split('-').map(Number)
-  if (horizon === 'day') return `${sm}月${sd}日`
-  if (horizon === 'month') return `${sm}月`
-  const end = new Date(`${period.endDate}T00:00:00Z`); end.setUTCDate(end.getUTCDate() - 1)
-  return `${sm}.${sd} – ${end.getUTCMonth() + 1}.${end.getUTCDate()}`
+  if (horizon === 'day') return monthDay(period.startDate)
+  if (horizon === 'month') return monthName(period.startDate)
+  return `${shortDate(period.startDate)} – ${shortDate(addDays(period.endDate, -1))}`
 }

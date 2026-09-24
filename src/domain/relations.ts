@@ -5,11 +5,12 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { Relation } from '../shared/contracts/entities'
+import { serverText } from '../shared/i18n/server'
 
 export function relationProblem(parentId: string, childId: string, edges: Relation[]): string | null {
-  if (parentId === childId) return '不能关联到自己'
+  if (parentId === childId) return serverText().relations.self
   const active = edges.filter(edge => edge.invalidatedAt === null)
-  if (active.some(edge => edge.parentId === parentId && edge.childId === childId)) return '这两个条目已经关联'
+  if (active.some(edge => edge.parentId === parentId && edge.childId === childId)) return serverText().relations.duplicate
   const children = new Map<string, string[]>()
   for (const edge of active) {
     const group = children.get(edge.parentId) ?? []
@@ -19,7 +20,7 @@ export function relationProblem(parentId: string, childId: string, edges: Relati
   const seen = new Set<string>()
   while (pending.length) {
     const id = pending.pop()!
-    if (id === parentId) return '此关联会形成循环'
+    if (id === parentId) return serverText().relations.cycle
     if (seen.has(id)) continue
     seen.add(id)
     pending.push(...(children.get(id) ?? []))
@@ -31,12 +32,12 @@ export function validateDag(itemIds: Set<string>, edges: Relation[], deletedIds 
   const identities = new Set<string>()
   const pairs = new Set<string>(), children = new Map<string, string[]>(), degrees = new Map<string, number>()
   for (const edge of edges) {
-    if (identities.has(edge.id) || !itemIds.has(edge.parentId) || !itemIds.has(edge.childId) || edge.parentId === edge.childId) throw new Error('关系身份或端点无效')
+    if (identities.has(edge.id) || !itemIds.has(edge.parentId) || !itemIds.has(edge.childId) || edge.parentId === edge.childId) throw new Error(serverText().relations.invalidEdge)
     identities.add(edge.id)
     if (edge.invalidatedAt !== null) continue
-    if (deletedIds.has(edge.parentId) || deletedIds.has(edge.childId)) throw new Error('有效关系包含已删除端点')
+    if (deletedIds.has(edge.parentId) || deletedIds.has(edge.childId)) throw new Error(serverText().relations.deletedEndpoint)
     const pair = JSON.stringify([edge.parentId, edge.childId])
-    if (pairs.has(pair)) throw new Error('这两个条目已经关联')
+    if (pairs.has(pair)) throw new Error(serverText().relations.duplicate)
     pairs.add(pair)
     const group = children.get(edge.parentId) ?? []
     group.push(edge.childId); children.set(edge.parentId, group)
@@ -54,5 +55,5 @@ export function validateDag(itemIds: Set<string>, edges: Relation[], deletedIds 
       if (!degree) pending.push(child)
     }
   }
-  if (visited !== itemIds.size) throw new Error('此关联会形成循环')
+  if (visited !== itemIds.size) throw new Error(serverText().relations.cycle)
 }

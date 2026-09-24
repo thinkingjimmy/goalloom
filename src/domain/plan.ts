@@ -5,33 +5,34 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { ParentRef } from '../shared/contracts/commands'
+import { serverText } from '../shared/i18n/server'
 
 export interface PlanDraft { draftId: string; parentRefs: ParentRef[]; flowColor: number | null }
 
 export function planProblem(drafts: PlanDraft[]): string | null {
   const ids = new Set(drafts.map(draft => draft.draftId))
-  if (ids.size !== drafts.length) return '计划草稿标识重复'
+  if (ids.size !== drafts.length) return serverText().relations.planDuplicateDraft
   const versions = new Map<string, number>(), colours = new Set<number>()
   for (const draft of drafts) {
     const keys = draft.parentRefs.map(ref => ref.kind === 'existing' ? `e:${ref.itemId}` : `d:${ref.draftId}`)
-    if (new Set(keys).size !== keys.length) return '同一上级不能重复关联'
+    if (new Set(keys).size !== keys.length) return serverText().relations.planDuplicateParent
     for (const ref of draft.parentRefs) {
       if (ref.kind === 'draft') {
-        if (ref.draftId === draft.draftId) return '不能关联到自己'
-        if (!ids.has(ref.draftId)) return '计划上级引用不存在'
+        if (ref.draftId === draft.draftId) return serverText().relations.self
+        if (!ids.has(ref.draftId)) return serverText().relations.planMissingParent
         continue
       }
       const seen = versions.get(ref.itemId)
-      if (seen !== undefined && seen !== ref.expectedVersion) return '同一上级的版本依据不一致，请刷新预览'
+      if (seen !== undefined && seen !== ref.expectedVersion) return serverText().relations.planVersionMismatch
       versions.set(ref.itemId, ref.expectedVersion)
     }
     if (draft.flowColor !== null) {
-      if (draft.parentRefs.length) return '有上级的条目跟随上级流程，不能同时设为新流程'
-      if (colours.has(draft.flowColor)) return '同一批计划中的流程颜色不能重复'
+      if (draft.parentRefs.length) return serverText().relations.planParentFlow
+      if (colours.has(draft.flowColor)) return serverText().relations.planDuplicateColor
       colours.add(draft.flowColor)
     }
   }
-  return planOrder(drafts) ? null : '此计划的关联会形成循环'
+  return planOrder(drafts) ? null : serverText().relations.planCycle
 }
 
 // --- Kahn order: parents before children, siblings keep the original draft order. ---

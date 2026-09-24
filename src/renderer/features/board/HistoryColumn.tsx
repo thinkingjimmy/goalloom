@@ -4,7 +4,7 @@
  * [POS]: board 的历史视图，由 Board 列头的周期切换条驱动；期末状态与当前内容分离，不提供编辑入口。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import { horizonNames, statusNames, messages } from '../../i18n/messages'
+import { horizonNames, statusNames, messages } from '../../i18n'
 import { useEffect, useState } from 'react'
 import type { PlanningPeriod } from '../../../shared/contracts/entities'
 import type { HistoryPage } from '../../../shared/contracts/history'

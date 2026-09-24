@@ -1,40 +1,45 @@
 /**
- * [INPUT]: 工作区的明暗与风格偏好、受限提交与禁用状态。
- * [OUTPUT]: 风格预览卡（纸感/简约）+ 明暗分段（跟随系统/浅色/深色），选择即提交 preferences。
- * [POS]: settings 的外观分类；两项偏好相互独立，只影响本机显示。
+ * [INPUT]: 工作区的明暗、风格与复选框样式偏好、受限提交与禁用状态；LanguageSelect 语言控件。
+ * [OUTPUT]: 一张卡片四行：语言（跟随系统并显示系统语言/五种语言原生名，下拉即时切换）、风格（纸感/简约）、复选框（透明描边/纸白底/同色淡底）、明暗（跟随系统/浅色/深色），分段带色块示意，说明随选中项变化，外观选择即提交 preferences。
+ * [POS]: settings 的外观分类；各项偏好相互独立，只影响本机显示；语言写入 main 的设备偏好而非工作区。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { Workspace } from '../../../../shared/contracts/entities'
-import { messages } from '../../../i18n/messages'
+import { messages, settingsMessages as t } from '../../../i18n'
 import type { Action } from '../../../state/use-workspace'
-import { Segmented, SettingsGroup, SettingsRow } from './parts'
+import { flowVars } from '../../../lib/colors'
+import { LanguageSelect } from '../../../components/LanguageSelect'
+import { Segmented, SettingsGroup, SettingsRow, type SegmentOption } from './parts'
 
-type Style = Workspace['style']
-const styles: { value: Style; label: string; note: string }[] = [
-  { value: 'paper', label: messages.paperStyle, note: messages.paperStyleNote },
-  { value: 'minimal', label: messages.minimalStyle, note: messages.minimalStyleNote },
+// The checkbox swatches use the blue flow so each fill reads against a real flow ring.
+const blue = flowVars([1])
+// Built per render so labels follow the current language.
+const styles = (): SegmentOption<Workspace['style']>[] => [
+  { value: 'paper', label: messages.paperStyle, swatch: 'style-paper' },
+  { value: 'minimal', label: messages.minimalStyle, swatch: 'style-minimal' },
 ]
-const themes = [{ value: 'system', label: messages.systemTheme }, { value: 'light', label: messages.lightTheme }, { value: 'dark', label: messages.darkTheme }] as const
+const checks = (): SegmentOption<Workspace['checkStyle']>[] => [
+  { value: 'outline', label: messages.outlineCheck, swatch: 'check-outline', swatchStyle: blue },
+  { value: 'paper', label: messages.paperCheck, swatch: 'check-paper', swatchStyle: blue },
+  { value: 'tint', label: messages.tintCheck, swatch: 'check-tint', swatchStyle: blue },
+]
+const themes = (): SegmentOption<Workspace['theme']>[] => [
+  { value: 'system', label: messages.systemTheme, swatch: 'theme-system' },
+  { value: 'light', label: messages.lightTheme, swatch: 'theme-light' },
+  { value: 'dark', label: messages.darkTheme, swatch: 'theme-dark' },
+]
 
 export function AppearancePane({ workspace, disabled, submit }: { workspace: Workspace; disabled: boolean; submit: (action: Action) => Promise<unknown> }) {
-  return <>
-    <SettingsGroup title={messages.style}>
-      <div className="style-cards settings-card-pad" role="radiogroup" aria-label={messages.style}>
-        {styles.map(option => <button key={option.value} type="button" role="radio" className="style-card" aria-checked={workspace.style === option.value} disabled={disabled}
-          onClick={() => { if (workspace.style !== option.value) void submit({ type: 'preferences', style: option.value }) }}>
-          {/* Each preview carries its own style so both looks stay visible whatever is active. */}
-          <span className="style-preview" data-preview={option.value} aria-hidden="true">
-            <span className="style-preview-bar"><i /><i /><b /></span>
-            {[62, 44, 70].map(width => <span key={width} className="style-preview-row"><s /><i style={{ width: `${width}%` }} /></span>)}
-          </span>
-          <span className="style-card-label"><span>{option.label}</span><small>{option.note}</small></span>
-        </button>)}
-      </div>
-    </SettingsGroup>
-    <SettingsGroup title={messages.theme} description={<>{messages.themeModeNote}。{messages.themeNote}</>}>
-      <SettingsRow title={messages.themeMode}>
-        <Segmented label={messages.themeMode} value={workspace.theme} options={themes} disabled={disabled} onChange={theme => void submit({ type: 'preferences', theme })} />
-      </SettingsRow>
-    </SettingsGroup>
-  </>
+  return <SettingsGroup>
+    <SettingsRow title={messages.language} note={messages.languageNote}><LanguageSelect className="settings-select" /></SettingsRow>
+    <SettingsRow title={messages.style} note={t.styleNotes[workspace.style]}>
+      <Segmented label={messages.style} value={workspace.style} options={styles()} disabled={disabled} onChange={style => void submit({ type: 'preferences', style })} />
+    </SettingsRow>
+    <SettingsRow title={messages.checkStyle} note={t.checkNotes[workspace.checkStyle]}>
+      <Segmented label={messages.checkStyle} value={workspace.checkStyle} options={checks()} disabled={disabled} onChange={checkStyle => void submit({ type: 'preferences', checkStyle })} />
+    </SettingsRow>
+    <SettingsRow title={messages.theme} note={messages.themeModeNote}>
+      <Segmented label={messages.theme} value={workspace.theme} options={themes()} disabled={disabled} onChange={theme => void submit({ type: 'preferences', theme })} />
+    </SettingsRow>
+  </SettingsGroup>
 }

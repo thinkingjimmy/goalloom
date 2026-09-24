@@ -10,6 +10,7 @@ import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { statusGroup, type EdgeDelta } from '../../../shared/contracts/effects'
 import type { Item, Relation } from '../../../shared/contracts/entities'
 import { assertAvailable, flowColorOwner, touch, type Context } from '../context'
+import { serverText } from '../../../shared/i18n/server'
 
 export function setStatus(context: Context, command: CommandOf<'status'>): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion)
@@ -21,7 +22,7 @@ export function setStatus(context: Context, command: CommandOf<'status'>): boole
   context.effects.push({ kind: 'status', itemId: item.id, before: statusGroup(before), after: statusGroup(item) })
   context.store.event(command.operationId, context.now, 'status_changed', before, item)
   context.itemId = item.id
-  context.label = { todo: '重开', done: '完成', cancelled: '取消' }[command.status]
+  context.label = serverText().labels.status[command.status]
   return true
 }
 export function setArchive(context: Context, command: CommandOf<'archive'>): boolean {
@@ -34,7 +35,7 @@ export function setArchive(context: Context, command: CommandOf<'archive'>): boo
   context.effects.push({ kind: 'archive', itemId: item.id, before: before.archivedAt, after: item.archivedAt })
   context.store.event(command.operationId, context.now, command.archived ? 'archived' : 'unarchived', before, item)
   context.itemId = item.id
-  context.label = command.archived ? '归档' : '解除归档'
+  context.label = command.archived ? serverText().labels.archive : serverText().labels.unarchive
   return true
 }
 export function invalidateEdges(context: Context, itemId: string): EdgeDelta[] {
@@ -58,32 +59,32 @@ export function deleteItem(context: Context, command: CommandOf<'delete'>): bool
   touch(context, item)
   visibilityEffect(context, before, item, edges)
   context.store.event(command.operationId, context.now, 'deleted', before, item)
-  context.label = '删除'
+  context.label = serverText().labels.delete
   return true
 }
 export function restoreItem(context: Context, command: CommandOf<'restoreItem'>): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion)
-  if (!item.deletedAt || (command.deletionSource !== null && item.deletedBy !== command.deletionSource)) throw new DomainError('conflict', '这次删除已失效，请在回收站查看当前条目')
+  if (!item.deletedAt || (command.deletionSource !== null && item.deletedBy !== command.deletionSource)) throw new DomainError('conflict', serverText().errors.deletionExpired)
   const before = structuredClone(item)
   const candidates = context.store.relations(false).filter(edge => edge.reason === 'delete' && edge.invalidatedBy === item.deletedBy && (edge.parentId === item.id || edge.childId === item.id))
   Object.assign(item, { deletedAt: null, deletedBy: null })
   // A colour reused while this flow was in the trash stays with its new owner.
   const owner = item.flowColor !== null ? flowColorOwner(context, item.flowColor, item.id) : null
-  if (owner !== null) { item.flowColor = null; context.warnings.push(`流程颜色已被「${owner}」使用，已移除本条目的流程颜色`) }
+  if (owner !== null) { item.flowColor = null; context.warnings.push(serverText().warnings.restoreColorTaken(owner)) }
   touch(context, item)
   const edges: EdgeDelta[] = []
   for (const edge of candidates) {
     const other = context.store.item(edge.parentId === item.id ? edge.childId : edge.parentId)
     const child = edge.childId === item.id ? item : other
-    const problem = other.deletedAt ? '关联端点仍在回收站' : child.flowColor !== null ? '下级已设为流程' : relationProblem(edge.parentId, edge.childId, context.store.relations())
-    if (problem) { context.warnings.push(`未恢复一条关联：${problem}`); continue }
+    const problem = other.deletedAt ? serverText().warnings.endpointInTrash : child.flowColor !== null ? serverText().warnings.childIsFlow : relationProblem(edge.parentId, edge.childId, context.store.relations())
+    if (problem) { context.warnings.push(serverText().warnings.relationNotRestored(problem)); continue }
     const restored: Relation = { ...edge, invalidatedAt: null, invalidatedBy: null, reason: null }
     writeEdges(context, [restored], item.id)
     edges.push({ before: edge, after: restored })
   }
   visibilityEffect(context, before, item, edges)
   context.store.event(command.operationId, context.now, 'item_restored', before, item)
-  context.label = '还原'
+  context.label = serverText().labels.restore
   return true
 }
 function visibilityEffect(context: Context, before: Item, after: Item, edges: EdgeDelta[]): void {
@@ -92,13 +93,13 @@ function visibilityEffect(context: Context, before: Item, after: Item, edges: Ed
 }
 export function unlinkItems(context: Context, command: CommandOf<'unlink'>): boolean {
   const edge = context.store.relations().find(row => row.id === command.relationId)
-  if (!edge) throw new DomainError('conflict', '该关联已经解除')
+  if (!edge) throw new DomainError('conflict', serverText().errors.relationGone)
   assertAvailable(context.store.item(edge.parentId, command.expectedParentVersion))
   assertAvailable(context.store.item(edge.childId, command.expectedChildVersion))
   const after: Relation = { ...edge, invalidatedAt: context.now, invalidatedBy: command.operationId, reason: 'unlink' }
   writeEdges(context, [after])
   context.effects.push({ kind: 'relations', itemId: edge.childId, edges: [{ before: edge, after }] })
   context.itemId = edge.childId
-  context.label = '解除关联'
+  context.label = serverText().labels.unlink
   return true
 }

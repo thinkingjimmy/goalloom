@@ -10,13 +10,14 @@ import { DomainError } from '../../shared/contracts/commands'
 import type { Query } from '../../shared/contracts/queries'
 import type { HistoryPage, Activity } from '../../shared/contracts/history'
 import type { Store } from '../storage/store'
+import { serverText } from '../../shared/i18n/server'
 
 export function readHistory(store: Store, query: Extract<Query, { type: 'history' }>, now: string): HistoryPage {
   const calendar = store.workspace().calendar
-  if (!calendar) throw new DomainError('setup', '请先确认工作区配置')
+  if (!calendar) throw new DomainError('setup', serverText().errors.setupRequired)
   const instant = parseDate(query.startDate).toZonedDateTime(calendar.timezone).toInstant().toString()
   const period = currentPeriod(calendar, query.horizon, instant)
-  if (period.startDate !== query.startDate || compareInstants(period.endAt, now) > 0) throw new DomainError('invalid', '只可查看已结束的合法周期')
+  if (period.startDate !== query.startDate || compareInstants(period.endAt, now) > 0) throw new DomainError('invalid', serverText().errors.closedPeriodOnly)
   // --- 两个独立索引取成员，不扫描全库 JSON，也不把其他尺度隐式纳入。 ---
   const membership = 'SELECT itemId FROM item_events WHERE fromPeriodId=? UNION SELECT itemId FROM item_events WHERE toPeriodId=?'
   const total = Number(store.db.prepare(`SELECT count(*) AS n FROM (${membership})`).get(period.id, period.id)!.n)

@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'Goalloom 整库窗口 '))
+// Assertions use Chinese copy; pin the device language instead of following the machine's system language.
+await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
 const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
 let application = await electron.launch({ ...options, env: environment })
 try {
@@ -23,8 +25,8 @@ try {
   })
   const openSettings = async () => { await page.getByRole('button', { name: '设置与数据', exact: true }).click(); return page.getByRole('dialog', { name: '设置与数据' }) }
   let settings = await openSettings()
-  await settings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '导入导出', exact: true }).click()
-  await settings.getByRole('button', { name: '重置…', exact: true }).click()
+  await settings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '备份与恢复', exact: true }).click()
+  await settings.getByRole('button', { name: '重置', exact: true }).click()
   await settings.getByRole('button', { name: '创建保护备份并继续', exact: true }).click()
   await settings.getByText('已创建并校验', { exact: true }).waitFor()
   assert.equal(await settings.getByRole('checkbox').isChecked(), false)
@@ -33,7 +35,7 @@ try {
   assert.equal(blocked.ok, false); assert.equal(blocked.code, 'maintenance')
   await settings.getByRole('button', { name: '取消', exact: true }).click()
   assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).maintenance, false)
-  await settings.getByRole('button', { name: '重置…', exact: true }).click()
+  await settings.getByRole('button', { name: '重置', exact: true }).click()
   await settings.getByRole('button', { name: '创建保护备份并继续', exact: true }).click()
   await settings.getByText('已创建并校验', { exact: true }).waitFor()
   assert.equal(await settings.getByRole('checkbox').isChecked(), false)
@@ -47,9 +49,13 @@ try {
   const stale = await page.evaluate(async generation => window.goalloom.execute({ type: 'create', title: '过期请求', horizon: 'later', generation, operationId: crypto.randomUUID() }), seed.generation)
   assert.equal(stale.ok, false); assert.equal(stale.code, 'generation')
   settings = await openSettings()
-  await settings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '备份', exact: true }).click()
+  await settings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '备份与恢复', exact: true }).click()
+  // The list shows the latest three; the protective copy made before reset may sit further down.
+  const showAll = settings.getByRole('button', { name: /^显示全部 \d+ 份$/ })
+  await settings.locator('.backup-record').first().waitFor()
+  if (await showAll.count()) await showAll.click()
   const protective = settings.locator('.backup-record').filter({ hasText: '保护' }).first()
-  await protective.getByRole('button', { name: '预览恢复', exact: true }).click()
+  await protective.getByRole('button', { name: '用它恢复', exact: true }).click()
   await settings.getByRole('button', { name: '创建保护备份并继续', exact: true }).click()
   await settings.getByText('已创建并校验', { exact: true }).waitFor()
   assert.equal(await settings.getByRole('checkbox').isChecked(), false)

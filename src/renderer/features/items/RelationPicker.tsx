@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { Item } from '../../../shared/contracts/entities'
 import type { ItemDetail } from '../../../shared/contracts/queries'
-import { messages, horizonNames } from '../../i18n/messages'
+import { messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import { FlowMark } from '../../components/FlowMark'

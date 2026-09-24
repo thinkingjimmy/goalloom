@@ -22,7 +22,7 @@ function legacy(target: 1 | 2 | 3, tasks = 1): DatabaseSync {
   const run = (command: Record<string, unknown>) => repo.execute({ ...command, operationId: randomUUID(), generation: repo.store.workspace().generation })
   run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-09-01', confirmed: true })
   for (let index = 0; index < tasks; index++) run({ type: 'create', title: `旧任务 ${index}`, horizon: 'later' })
-  db.exec('ALTER TABLE workspace DROP COLUMN style; DELETE FROM schema_migrations WHERE version=4')
+  db.exec('ALTER TABLE workspace DROP COLUMN checkStyle; ALTER TABLE workspace DROP COLUMN style; DELETE FROM schema_migrations WHERE version>=4')
   if (target <= 2) db.exec('DELETE FROM schema_migrations WHERE version=3')
   if (target === 1) db.exec(`DROP INDEX unique_flow_color; DROP TRIGGER flow_root_color; DROP TRIGGER flow_root_edge_insert; DROP TRIGGER flow_root_edge_update; ALTER TABLE items DROP COLUMN flowColor; DELETE FROM schema_migrations WHERE version=2;`)
   db.exec(`PRAGMA user_version = ${target}`)

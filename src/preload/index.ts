@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { contextBridge, ipcRenderer } from 'electron'
-import { runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
+import { languageChannel, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
 import { detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
 import { replySchema, resultSchema } from '../shared/contracts/commands'
 import { activitySchema, historyPageSchema } from '../shared/contracts/history'
@@ -14,6 +14,8 @@ import { smartChannel, smartReplySchema } from '../shared/contracts/smart-input'
 
 const api: GoalloomApi = {
   getRuntime: async () => runtimeInfoSchema.parse(await ipcRenderer.invoke(runtimeChannel)),
+  getLanguage: async () => languageStateSchema.parse(await ipcRenderer.invoke(languageChannel)),
+  setLanguage: async language => languageStateSchema.parse(await ipcRenderer.invoke(languageChannel, language)),
   getSnapshot: async () => snapshotSchema.parse(await ipcRenderer.invoke('goalloom:query', { type: 'snapshot' })),
   getItem: async itemId => detailSchema.parse(await ipcRenderer.invoke('goalloom:query', { type: 'item', itemId })),
   listItems: async query => itemPageSchema.parse(await ipcRenderer.invoke('goalloom:query', query)),

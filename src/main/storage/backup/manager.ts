@@ -14,10 +14,13 @@ import { backupRecordSchema, type BackupRecord, type BackupStatus } from '../../
 import { consistentBackup } from './snapshot'
 import { verifyDatabase } from '../database'
 import { atomicJson } from '../atomic-json'
+import { serverText } from '../../../shared/i18n/server'
 
 async function checksum(path: string): Promise<string> { return createHash('sha256').update(await readFile(path)).digest('hex') }
 export class BackupManager {
-  lastError: string | null = null
+  // Persisted as a kind, rendered in the current language on read, so switching language never leaves stale text.
+  private failure: 'create' | 'rotation' | null = null
+  get lastError(): string | null { return this.failure && (this.failure === 'create' ? serverText().storage.backupFailed : serverText().storage.backupRotationFailed) }
   constructor(readonly db: DatabaseSync, readonly directory: string) {}
   path(id: string): string { return join(this.directory, `${backupRecordSchema.shape.id.parse(id)}.sqlite`) }
   async records(): Promise<BackupRecord[]> {
@@ -34,12 +37,12 @@ export class BackupManager {
     return records.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
   }
   async status(): Promise<BackupStatus> {
-    try { const saved = JSON.parse(await readFile(join(this.directory, 'last-result.json'), 'utf8')); this.lastError = typeof saved.error === 'string' ? saved.error : null } catch { /* 首次无结果。 */ }
+    try { const saved = JSON.parse(await readFile(join(this.directory, 'last-result.json'), 'utf8')); this.failure = saved.error === 'rotation' ? 'rotation' : saved.error ? 'create' : null } catch { /* 首次无结果。 */ }
     return { directory: this.directory, records: await this.records(), lastError: this.lastError }
   }
   async verify(record: BackupRecord): Promise<void> {
     const path = this.path(record.id)
-    if ((await stat(path)).size !== record.size || await checksum(path) !== record.sha256) throw new Error('备份回执与文件不一致')
+    if ((await stat(path)).size !== record.size || await checksum(path) !== record.sha256) throw new Error(serverText().storage.backupMismatch)
     const copy = new DatabaseSync(path, { readOnly: true })
     try { verifyDatabase(copy) } finally { copy.close() }
   }
@@ -49,12 +52,12 @@ export class BackupManager {
       const record: BackupRecord = { id: basename(path, '.sqlite'), kind, createdAt: now, localDate: workspace.calendar ? workspaceDate(workspace.calendar.timezone, now) : null,
         generation: workspace.generation, revision: workspace.revision, size: (await stat(path)).size, sha256: await checksum(path) }
       await atomicJson(join(this.directory, `${record.id}.json`), record)
-      this.lastError = null
+      this.failure = null
       await atomicJson(join(this.directory, 'last-result.json'), { error: null })
       return record
     } catch (error) {
-      this.lastError = '备份失败，原工作区和已有副本均保留；请检查磁盘空间和目录权限后重试。'
-      await atomicJson(join(this.directory, 'last-result.json'), { error: this.lastError }).catch(() => undefined)
+      this.failure = 'create'
+      await atomicJson(join(this.directory, 'last-result.json'), { error: this.failure }).catch(() => undefined)
       throw error
     }
   }
@@ -71,11 +74,11 @@ export class BackupManager {
         await rm(this.path(record.id))
         await rm(join(this.directory, `${record.id}.json`))
       }
-      this.lastError = null
+      this.failure = null
       await atomicJson(join(this.directory, 'last-result.json'), { error: null })
     } catch (error) {
-      this.lastError = '备份检查或轮换未完成，现有工作区保持可用；请检查磁盘空间和目录权限后重试。'
-      await atomicJson(join(this.directory, 'last-result.json'), { error: this.lastError }).catch(() => undefined)
+      this.failure = 'rotation'
+      await atomicJson(join(this.directory, 'last-result.json'), { error: this.failure }).catch(() => undefined)
       throw error
     }
   }

@@ -1,14 +1,14 @@
 /**
- * [INPUT]: 服务标识与界面参数。
- * [OUTPUT]: 智能输入（全局 composer、Jev 连接、Onboarding、设置）的中文文案与参数化消息。
- * [POS]: renderer/i18n 的智能输入分册，与 messages.ts 同构；不决定业务状态。
+ * [INPUT]: 服务标识与界面参数（模型名由调用方传入，不随语言变化）。
+ * [OUTPUT]: 智能输入（全局 composer、草稿校验、Jev 连接、Onboarding、设置）的文案、服务显示名与参数化消息。
+ * [POS]: renderer/i18n/locales/zh 的智能输入分册，与 messages.ts 同构；不决定业务状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import type { JevProvider } from '../../shared/contracts/smart-input'
+import type { JevProvider } from '../../../../shared/contracts/smart-input'
+import { widen } from '../../../../shared/i18n/locale'
 
 export const providerNames: Record<JevProvider, string> = { typesafe: 'TypeSafe 原生', 'vercel-gateway': 'Vercel AI Gateway' }
-export const providerModels: Record<JevProvider, string> = { typesafe: 'jev-latest', 'vercel-gateway': 'typesafe-ai/jev' }
-export const smartMessages = {
+export const smartMessages = widen({
   composer: '新建',
   inputLabel: '写下想法',
   placeholder: '写下想法，一行一件事也可以…',
@@ -68,6 +68,12 @@ export const smartMessages = {
   viewTrash: '查看回收站',
   stalePeriod: '周期已变化，已刷新预览，请重新确认',
   empty: '先写下一件事',
+  noDrafts: '没有要创建的事项',
+  titleRequired: '每一项都需要标题',
+  parentMissing: '有上级缺少预览依据，请重新选择',
+  colorTaken: '所选流程颜色已被占用，请换一个',
+  analyzeFailed: '暂时无法连接 Jev，草稿已保留',
+  testFailed: '暂时无法完成测试，可稍后重试或先跳过',
   // --- Connect / settings ---
   sectionTitle: '智能输入',
   introTitle: '让 Jev 帮你整理想法',
@@ -77,7 +83,7 @@ export const smartMessages = {
   providerLabel: '服务',
   keyLabel: (provider: JevProvider) => provider === 'typesafe' ? 'TypeSafe API Key' : 'AI Gateway API Key',
   keyPlaceholder: '粘贴 API Key',
-  modelNote: (provider: JevProvider) => `模型：${providerModels[provider]}（固定，不可修改）`,
+  modelNote: (model: string) => `模型：${model}（固定，不可修改）`,
   getKey: '打开官方控制台获取 Key',
   recipient: (provider: JevProvider) => provider === 'typesafe'
     ? '发送内容：当前输入原文、工作区日期，以及被点名或选中的目标标题/状态/位置；由 TypeSafe 处理。不发送说明、历史、回收站或整库。'
@@ -108,8 +114,7 @@ export const smartMessages = {
   switchTo: '切换到此服务',
   current: '当前',
   collapse: '收起',
-  privacyTitle: '隐私与私测',
-  privacy: 'Key 由系统钥匙串/凭据保护加密保存在本机，不进入工作区数据库、导出、备份或日志。只有智能输入窗口和你触发的连接测试会调用服务。',
   unsigned: '当前为未签名的私测版：更新应用后系统可能再次请求钥匙串授权，或需要重新填写 Key。',
   cooldown: (time: string) => `限流冷却中，${time} 后可再次自动整理`,
-}
+})
+export type SmartCatalog = typeof smartMessages

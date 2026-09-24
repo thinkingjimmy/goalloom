@@ -9,6 +9,8 @@ const environment = { ...process.env }
 delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2]
 const profile = await mkdtemp(join(tmpdir(), 'Goalloom 输入测试 '))
+// Assertions use Chinese copy; pin the device language instead of following the machine's system language.
+await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
 const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
 const application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 const tabSteps = {}
@@ -49,7 +51,7 @@ try {
   await page.getByText('未启用 · 全局＋保存为 Later').waitFor()
   await page.getByRole('dialog', { name: '设置与数据' }).getByRole('button', { name: '关闭', exact: true }).click()
   // --- 全局 composer 会话草稿：关闭保留，重新打开恢复，清空放弃。 ---
-  await page.getByRole('button', { name: '新建（⌘N）', exact: true }).click()
+  await page.getByRole('button', { name: '新建', exact: true }).click()
   const composer = page.getByRole('textbox', { name: '写下想法', exact: true })
   await composer.fill('本月发布内测版；本周完成登录功能；今天写文案')
   await page.getByText('全局＋用于收集或智能整理；列头＋仍在对应列快速录入。').waitFor()

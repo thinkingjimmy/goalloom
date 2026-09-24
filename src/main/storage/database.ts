@@ -5,6 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { DatabaseSync } from 'node:sqlite'
+import { serverText } from '../../shared/i18n/server'
 
 export function openDatabase(path: string): DatabaseSync {
   const db = new DatabaseSync(path, { enableForeignKeyConstraints: true })
@@ -33,9 +34,9 @@ export function transaction<T>(db: DatabaseSync, write: () => T): T {
 export function verifyDatabase(db: DatabaseSync): void {
   const integrity = db.prepare('PRAGMA integrity_check').all()
   if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') {
-    throw new Error('数据库完整性校验失败')
+    throw new Error(serverText().storage.integrityFailed)
   }
   if (db.prepare('PRAGMA foreign_key_check').all().length !== 0) {
-    throw new Error('数据库包含悬空引用')
+    throw new Error(serverText().storage.danglingReferences)
   }
 }

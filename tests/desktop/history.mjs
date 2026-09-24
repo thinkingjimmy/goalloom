@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -12,6 +12,8 @@ const profile = await mkdtemp(join(tmpdir(), 'Goalloom 历史测试 '))
 const seed = spawnSync(electronPath, ['output/tests/build/history/history-seed.cjs', profile], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
 assert.equal(seed.status, 0, seed.stderr)
 const fixture = JSON.parse(await readFile(join(profile, 'fixture.json'), 'utf8'))
+// Assertions use Chinese copy; pin the device language instead of following the machine's system language.
+await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2]
 const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
@@ -52,10 +54,10 @@ try {
   await month.getByRole('button', { name: '查看本月上一期' }).click()
   await month.getByText('这个周期没有安排过条目。').waitFor()
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
-  await page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '备份', exact: true }).click()
+  await page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '备份与恢复', exact: true }).click()
   await page.getByRole('button', { name: '立即备份', exact: true }).click()
   const manual = page.locator('.backup-record').filter({ hasText: '手动' }).first()
-  await manual.getByRole('button', { name: '预览恢复', exact: true }).click()
+  await manual.getByRole('button', { name: '用它恢复', exact: true }).click()
   await page.getByRole('button', { name: '创建保护备份并继续', exact: true }).click()
   await page.getByRole('checkbox', { name: '我已了解旧数据只能从保护备份恢复' }).check()
   await page.getByRole('button', { name: '确认恢复工作区', exact: true }).click()

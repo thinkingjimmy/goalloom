@@ -1,24 +1,25 @@
 /**
  * [INPUT]: 条目 ID、权威版本、流程视图、看板候选、受限提交和详情读取接口。
- * [OUTPUT]: 居中详情弹窗：页眉位置标签即移动、⋯ 收纳低频生命周期操作；标题行内流程标签；截止/上下级/拆解；说明草稿；折叠活动；仅在有修改时出现保存栏。
+ * [OUTPUT]: 居中详情弹窗：页眉位置标签即移动、⋯ 收纳低频生命周期操作；复选框旁流程色点；截止/上下级/拆解；说明草稿；折叠活动；仅在有修改时出现保存栏，保存/确认快捷键提交。
  * [POS]: 当前内容详情；草稿不随无关刷新丢失，业务校验仍由事务执行；仅正文滚动，页眉与保存栏固定。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ItemDetail as Detail } from '../../../shared/contracts/queries'
 import { horizons, type Item, type ItemHorizon } from '../../../shared/contracts/entities'
-import { statusNames, messages, horizonNames } from '../../i18n/messages'
+import { statusNames, messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
-import { flowRing } from '../../lib/colors'
+import { flowVars } from '../../lib/colors'
 import { Modal } from '../../components/Modal'
 import { Popover } from '../../components/Popover'
 import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
+import { formatCombo, matches, useShortcuts } from '../../state/shortcuts'
 import { Activity } from './Activity'
 import { DuePicker } from './DuePicker'
 import { RelationPicker } from './RelationPicker'
-import { FlowChip } from './FlowChip'
+import { FlowPicker } from './FlowPicker'
 
 const draftOf = (item: Item) => ({ title: item.title, description: item.description, dueDate: item.dueDate ?? '' })
 const nextHorizon: Record<ItemHorizon, ItemHorizon> = { later: 'later', cycle: 'month', month: 'week', week: 'day', day: 'day' }
@@ -29,6 +30,7 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
   locate?: (() => void) | undefined; flows: Flows; candidates: Item[]; today: string; split: (parent: { id: string; title: string }, horizon: ItemHorizon) => void
 }) {
   const [detail, setDetail] = useState<Detail | null>(null)
+  const { bindings } = useShortcuts()
   const [draft, setDraft] = useState({ title: '', description: '', dueDate: '' })
   const baseline = useRef(draft), draftRef = useRef(draft); draftRef.current = draft
   const [pop, setPop] = useState<Pop>(null), [error, setError] = useState('')
@@ -66,10 +68,10 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
   const parents = detail?.relations.filter(edge => edge.childId === itemId) ?? []
   const children = detail?.relations.filter(edge => edge.parentId === itemId) ?? []
   const done = item?.status === 'done'
-  const ring = item && !done ? flowRing(flows.colorsOf(itemId)) : undefined
+  const ring = item && !done ? flowVars(flows.colorsOf(itemId)) : undefined
   const context = item && `${horizonNames[item.placement.horizon]}${item.placement.periodId ? ` · ${item.placement.periodId.split(':').at(-1)}` : ''}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}${readOnly ? ` · ${messages.trash}` : ''}`
   const heading = item && (readOnly ? <p className="modal-context">{context}</p> : <div className="modal-context">
-    <Popover open={pop === 'move'} onClose={() => setPop(null)} anchor={<button type="button" className="placement-chip" aria-label={`${messages.moveTo}：${context}`} aria-expanded={pop === 'move'} onClick={() => toggle('move')}>
+    <Popover open={pop === 'move'} onClose={() => setPop(null)} anchor={<button type="button" className="placement-chip" aria-label={messages.labelled(messages.moveTo, context ?? '')} aria-expanded={pop === 'move'} onClick={() => toggle('move')}>
       <span className="placement-text">{context}</span><Icon name="expand" size={14} />
     </button>}>
       <div className="menu" role="menu" aria-label={messages.moveTo}>
@@ -97,16 +99,16 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
     {item && detail && <>
       <form className="detail-body" onSubmit={event => { event.preventDefault(); void save() }} onKeyDown={event => {
         if (event.nativeEvent.isComposing && event.key === 'Enter') event.preventDefault()
-        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void save() }
+        if (matches(event, bindings.submit)) { event.preventDefault(); void save() }
       }}>
         <div className="detail-title">
-          <button type="button" className="check large" data-checked={done} style={ring ? { '--flow-ring': ring } as CSSProperties : undefined} disabled={busy || readOnly || item.status === 'cancelled'}
+          <FlowPicker item={item} hasParents={parents.length > 0} flows={flows} busy={busy} readOnly={readOnly} open={pop === 'flow'} setOpen={open => setPop(open ? 'flow' : null)} submit={submit} />
+          <button type="button" className="check large" data-checked={done} style={ring} disabled={busy || readOnly || item.status === 'cancelled'}
             aria-label={done ? messages.reopenAction : messages.markDone} onClick={() => void submit({ type: 'status', itemId, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
             {done && <Icon name="check" size={14} strokeWidth={2.5} />}
           </button>
           <div className="title-line">
             <input className="title-input" aria-label={messages.title} value={draft.title} onChange={event => setField('title', event.target.value)} maxLength={500} required readOnly={readOnly} />
-            <FlowChip item={item} hasParents={parents.length > 0} flows={flows} busy={busy} readOnly={readOnly} open={pop === 'flow'} setOpen={open => setPop(open ? 'flow' : null)} submit={submit} />
           </div>
         </div>
         <div className="fields">
@@ -147,7 +149,7 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
         <span className="save-dot" aria-hidden="true" /><span className="save-note">{messages.unsavedChanges}</span>
         <span className="footer-spacer" />
         <button className="button quiet" disabled={busy} onClick={() => setDraft(baseline.current)}>{messages.discardChanges}</button>
-        <button className="button primary" disabled={busy || !draft.title.trim()} onClick={() => void save()}>{messages.save}<kbd>{messages.saveHint}</kbd></button>
+        <button className="button primary" disabled={busy || !draft.title.trim()} onClick={() => void save()}>{messages.save}{bindings.submit && <kbd>{formatCombo(bindings.submit)}</kbd>}</button>
       </footer>}
     </>}
   </Modal>

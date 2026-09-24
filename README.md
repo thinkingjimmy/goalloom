@@ -12,7 +12,7 @@ Later → 3个月 → 本月 → 本周 → 今天
 
 **技术栈：** Electron · React · TypeScript · Vite · shadcn/ui · Tailwind CSS · Hugeicons · SQLite · TypeSafe SDK（Jev，可选）。
 
-**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、极简五列看板、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、TypeSafe 原生 / Vercel AI Gateway 双渠道、可编辑预览与 `createPlan` 整批事务/同代次撤销、迁移前保护副本）；外观支持纸感/简约两种风格 × 明暗模式（schema v4）。智能输入的两渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中文与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
+**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、极简五列看板、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、TypeSafe 原生 / Vercel AI Gateway 双渠道、可编辑预览与 `createPlan` 整批事务/同代次撤销、迁移前保护副本）；外观支持纸感/简约两种风格 × 明暗模式（schema v4）。智能输入的两渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中/英/日/西/法五种界面语言（默认跟随系统，可在设置切换）与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。
 
 | 文档 | 用途 |
 | --- | --- |
@@ -35,6 +35,7 @@ pnpm test:ui              # 真实窗口业务闭环与 CSP/IPC/主题
 pnpm test:history         # 独立夹具的历史/往期/hold 窗口验证
 pnpm test:recovery        # 保护备份/维护/重置/SQLite 恢复与暂停
 pnpm test:composer        # 可跳过 Onboarding、全局 composer、列头＋键盘路径与 Tab 步数
+pnpm test:language        # 系统语言侦测、配置页/设置即时切换、main 与 worker 文案、重启保持、en/es/fr 无漏译
 pnpm test:performance     # 10,000 总条目/1,000 活跃与真实事件、启动/内存
 pnpm package:dir          # 当前平台本地目录包
 ```
@@ -43,7 +44,7 @@ pnpm package:dir          # 当前平台本地目录包
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与两渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
-`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。合入 `main` 前在本地运行 `pnpm verify`（单元/集成 → SQLite → 构建 → 看板/历史/恢复/composer 窗口测试）。GitHub Actions 仅手动触发（免费版无私有仓库托管分钟数）；Windows x64 与实机输入、安装/升级验收由负责人另行完成。
+`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。合入 `main` 前在本地运行 `pnpm verify`（单元/集成 → SQLite → 构建 → 看板/历史/恢复/composer/多语言窗口测试）。GitHub Actions 仅手动触发（免费版无私有仓库托管分钟数）；Windows x64 与实机输入、安装/升级验收由负责人另行完成。
 
 ## 代码地图
 
@@ -60,9 +61,11 @@ src/
 │   ├── features/       # shell（顶栏/搜索/设置）、board、items、setup、composer、smart 功能
 │   ├── components/     # 跨功能 UI 原语、Hugeicons 与 shadcn Button
 │   ├── state/          # 工作区快照、流程派生、会话撤销与提交协调
-│   ├── i18n/           # 中文文案与语言表契约
+│   ├── i18n/           # 五语言界面文案（locales/*）、即时切换视图与 Intl 格式
 │   └── lib/            # 色板、日期与样式纯工具
-└── shared/contracts/   # main/preload/renderer 共享 DTO 与运行时校验
+└── shared/
+    ├── contracts/      # main/preload/renderer 共享 DTO 与运行时校验
+    └── i18n/           # Locale 解析与 main/worker/domain 的服务端文案（catalogs/*）
 tests/                  # domain、main、renderer、integration 与 desktop
 scripts/                # 测试运行器与 build 构建工具
 .github/workflows/      # 私人仓库 macOS/Windows 托管 VM 验证配置

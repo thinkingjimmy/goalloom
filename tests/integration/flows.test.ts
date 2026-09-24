@@ -88,7 +88,7 @@ it('v1 数据库原子升级到当前版本，保留条目并启用流程约束'
   const kept = create('升级前的条目')
   // Rebuild the v1 shape in place: drop the v2 objects and column.
   repo.db.exec(`DROP INDEX unique_flow_color; DROP TRIGGER flow_root_color; DROP TRIGGER flow_root_edge_insert; DROP TRIGGER flow_root_edge_update;
-    ALTER TABLE items DROP COLUMN flowColor; ALTER TABLE workspace DROP COLUMN style; DELETE FROM schema_migrations WHERE version>=2; PRAGMA user_version = 1;`)
+    ALTER TABLE items DROP COLUMN flowColor; ALTER TABLE workspace DROP COLUMN checkStyle; ALTER TABLE workspace DROP COLUMN style; DELETE FROM schema_migrations WHERE version>=2; PRAGMA user_version = 1;`)
   migrate(repo.db)
   expect(Number(repo.db.prepare('PRAGMA user_version').get()!.user_version)).toBe(schemaVersion)
   expect(fresh(kept.id)).toMatchObject({ title: '升级前的条目', flowColor: null })

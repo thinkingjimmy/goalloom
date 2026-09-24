@@ -9,13 +9,14 @@ import { DomainError, type Command } from '../../shared/contracts/commands'
 import type { Effect } from '../../shared/contracts/effects'
 import type { Item, ItemHorizon, PlanningPeriod, Workspace } from '../../shared/contracts/entities'
 import type { Store } from '../storage/store'
+import { serverText } from '../../shared/i18n/server'
 
 export interface Context {
   store: Store; workspace: Workspace; command: Pick<Command, 'operationId' | 'generation'>; now: string;
   effects: Effect[]; warnings: string[]; itemId: string | null; label: string; itemIds?: string[]
   restoreSource?: string; outcome?: 'conflict_skipped'; undone?: { originalId: string; index: number }[]
 }
-export function assertAvailable(item: Item): void { if (item.deletedAt !== null) throw new DomainError('conflict', '条目已在回收站中') }
+export function assertAvailable(item: Item): void { if (item.deletedAt !== null) throw new DomainError('conflict', serverText().errors.inTrash) }
 export function hasActiveParent(context: Context, itemId: string): boolean {
   return !!context.store.db.prepare('SELECT 1 FROM item_relations WHERE childId=? AND invalidatedAt IS NULL LIMIT 1').get(itemId)
 }
@@ -25,11 +26,11 @@ export function flowColorOwner(context: Context, color: number, exceptId: string
 }
 export function assertFlowColorFree(context: Context, color: number, exceptId: string | null): void {
   const owner = flowColorOwner(context, color, exceptId)
-  if (owner !== null) throw new DomainError('conflict', `这个颜色已被「${owner}」使用`)
+  if (owner !== null) throw new DomainError('conflict', serverText().errors.colorTaken(owner))
 }
 export function targetPeriod(context: Context, horizon: ItemHorizon): PlanningPeriod | null {
   if (horizon === 'later') return null
-  if (!context.workspace.calendar) throw new DomainError('setup', '请先确认工作区配置')
+  if (!context.workspace.calendar) throw new DomainError('setup', serverText().errors.setupRequired)
   const period = currentPeriod(context.workspace.calendar, horizon, context.now)
   context.store.ensurePeriod(period)
   return period
@@ -43,7 +44,7 @@ export function touch(context: Context, item: Item): void {
 export function nextSortKey(context: Context, horizon: ItemHorizon, periodId: string | null, beforeId: string | null, excludedId?: string): number {
   const order = context.store.order(horizon, periodId).filter(item => item.id !== excludedId)
   const index = beforeId === null ? order.length : order.findIndex(item => item.id === beforeId)
-  if (index < 0) throw new DomainError('conflict', '排序目标已不在该列')
+  if (index < 0) throw new DomainError('conflict', serverText().errors.sortTargetGone)
   const calculate = (): number => {
     const previous = order[index - 1]?.placement.sortKey
     const next = order[index]?.placement.sortKey

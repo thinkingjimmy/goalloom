@@ -5,6 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { Temporal } from '@js-temporal/polyfill'
+import { serverText } from '../shared/i18n/server'
 
 export type Horizon = 'day' | 'week' | 'month' | 'cycle'
 export interface Clock { now(): string }
@@ -20,21 +21,21 @@ export interface Period {
 
 export function validateCalendar(calendar: Calendar): void {
   if (!calendar.id.trim() || !Number.isInteger(calendar.weekStart) || calendar.weekStart < 1 || calendar.weekStart > 7) {
-    throw new Error('周起始日必须为 1–7，日历 ID 不可为空')
+    throw new Error(serverText().calendar.invalidCalendar)
   }
-  if (!/^[A-Za-z][A-Za-z0-9_+\-/]*$/.test(calendar.timezone)) throw new Error('需要 IANA 时区')
+  if (!/^[A-Za-z][A-Za-z0-9_+\-/]*$/.test(calendar.timezone)) throw new Error(serverText().calendar.timezoneRequired)
   new Intl.DateTimeFormat('en', { timeZone: calendar.timezone }).format(0)
   if (calendar.cycleAnchor !== undefined) parseDate(calendar.cycleAnchor)
 }
 
 export function parseDate(value: string): Temporal.PlainDate {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('日期格式必须为 YYYY-MM-DD')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(serverText().calendar.dateFormat)
   return Temporal.PlainDate.from(value, { overflow: 'reject' })
 }
 
 export function cycleRange(anchor: string, today: Temporal.PlainDate): [Temporal.PlainDate, Temporal.PlainDate] {
   const origin = parseDate(anchor)
-  if (Temporal.PlainDate.compare(origin, today) > 0) throw new Error('周期起点不能晚于今天')
+  if (Temporal.PlainDate.compare(origin, today) > 0) throw new Error(serverText().calendar.anchorAfterToday)
   const months = (today.year - origin.year) * 12 + today.month - origin.month
   let index = Math.floor(months / 3)
   if (Temporal.PlainDate.compare(origin.add({ months: index * 3 }), today) > 0) index--
@@ -45,7 +46,7 @@ export function currentPeriod(calendar: Calendar, horizon: Horizon, observedAt: 
   validateCalendar(calendar)
   const today = Temporal.Instant.from(observedAt).toZonedDateTimeISO(calendar.timezone).toPlainDate()
   if (horizon === 'cycle') {
-    if (!calendar.cycleAnchor) throw new Error('缺少周期起点')
+    if (!calendar.cycleAnchor) throw new Error(serverText().calendar.anchorMissing)
     const [start, end] = cycleRange(calendar.cycleAnchor, today)
     return makePeriod(calendar, horizon, start, end)
   }

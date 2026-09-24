@@ -9,6 +9,8 @@ import { _electron as electron } from 'playwright'
 
 await build({ configFile: false, build: { outDir: 'output/tests/build/performance', emptyOutDir: false, lib: { entry: 'tests/desktop/fixtures/performance.ts', formats: ['cjs'], fileName: () => 'performance.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
 const profile = await mkdtemp(join(tmpdir(), 'Goalloom 性能验收 '))
+// Assertions use Chinese copy; pin the device language instead of following the machine's system language.
+await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
 let app
 try {
   await new Promise((resolve, reject) => {

@@ -9,6 +9,7 @@ import { planOrder } from '../plan'
 import { booleanState, certainChoice, checkBoolean, checkChoice, type CheckedChoice, type Precision } from './distribution'
 import { horizonOptions, layoutOptions, roleOptions, useOptions, type Pair, type QuestionPlan, type SmartContext } from './questions'
 import { titleLimit } from './segments'
+import { serverText } from '../../shared/i18n/server'
 
 export interface Round { answers: Record<string, unknown>; precision: Precision }
 const options = (criteria: Record<string, string>) => Object.keys(criteria)
@@ -36,7 +37,7 @@ export function buildPreview(context: SmartContext, plan: QuestionPlan, first: R
     const own = horizons[0]!
     const pick = certainChoice(own) && own.choice !== 'later' ? own : horizons.find(row => certainChoice(row) && !['later', 'unclear'].includes(row.choice)) ?? own
     const horizon = (pick.choice === 'unclear' ? 'later' : pick.choice) as HorizonChoice
-    if (horizon === 'future') warnings.push({ kind: 'future', draftId: slot.id, text: '写到了未来周期（如明天、下周），暂不支持提前排期：已放在 Later，请手动决定' })
+    if (horizon === 'future') warnings.push({ kind: 'future', draftId: slot.id, text: serverText().smart.futurePeriod })
     return {
       draftId: slot.id, source: slot.text, roleCertain: plan.slots[0]!.id === slot.id || certainChoice(role),
       title: overflow ? slot.text.slice(0, titleLimit) : slot.text,
@@ -52,19 +53,19 @@ export function buildPreview(context: SmartContext, plan: QuestionPlan, first: R
       if (!date) continue
       const use = choice(`use_${date.id}`, useOptions)
       if (use.choice !== 'deadline' && certainChoice(use)) continue
-      if (date.ambiguous) warnings.push({ kind: 'ambiguous_date', draftId: slotIds[0]!, text: `「${date.text}」未写年份或有歧义，暂按 ${date.value ?? '未知'}，请核对` })
+      if (date.ambiguous) warnings.push({ kind: 'ambiguous_date', draftId: slotIds[0]!, text: serverText().smart.ambiguousDate(date.text, date.value ?? null) })
       return suggestion(date.value, due, !!date.value && !date.ambiguous && certainChoice(due, ['none', 'unclear']) && certainChoice(use))
     }
     return { value: null, certain: true, metrics: null }
   }
-  if (!certainChoice(layout)) warnings.push({ kind: 'layout', draftId: null, text: '整体形式不太确定，请核对拆分结果' })
-  for (const [id, text] of [['reminder', '提醒'], ['repeat', '重复'], ['clock', '具体时刻']] as const) {
-    if (booleanState(checkBoolean(first.answers[id]), first.precision.decimals) !== 'no') warnings.push({ kind: id === 'clock' ? 'clock_time' : id, draftId: null, text: `原文可能包含${text}要求：暂不支持，已保留原文，不会建立${text}` })
+  if (!certainChoice(layout)) warnings.push({ kind: 'layout', draftId: null, text: serverText().smart.layoutUncertain })
+  for (const id of ['reminder', 'repeat', 'clock'] as const) {
+    if (booleanState(checkBoolean(first.answers[id]), first.precision.decimals) !== 'no') warnings.push({ kind: id === 'clock' ? 'clock_time' : id, draftId: null, text: serverText().smart.unsupportedRequest(serverText().smart.unsupported[id]) })
   }
   const distributions = plan.slots.flatMap(slot => [choice(`role_${slot.id}`, roleOptions), choice(`horizon_${slot.id}`, horizonOptions)]).map(row => row.distribution)
-  if (distributions.some(kind => kind !== 'valid')) warnings.push({ kind: 'precision', draftId: null, text: '部分答案缺少可核实的概率分布，相关字段未自动预填，请手动选择' })
+  if (distributions.some(kind => kind !== 'valid')) warnings.push({ kind: 'precision', draftId: null, text: serverText().smart.precision })
   const relations = relationsFor(context, plan, first, supplement, owner, tasks)
-  if (relations.some(row => row.state === 'not_evaluated')) warnings.push({ kind: 'relations_partial', draftId: null, text: '部分关系未自动评估，可手动补充上级' })
+  if (relations.some(row => row.state === 'not_evaluated')) warnings.push({ kind: 'relations_partial', draftId: null, text: serverText().smart.relationsPartial })
   const sent = new Set((plan.state.goals as { id: string }[]).map(goal => goal.id))
   return { layout: suggestion(layout.choice as SmartPreview['layout']['value'], layout, certainChoice(layout)), referenceDate: context.referenceDate, periods: context.periods,
     drafts, candidates: context.candidates.filter(candidate => sent.has(candidate.ref)), relations, warnings,

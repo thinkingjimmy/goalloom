@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { DomainError } from '../../shared/contracts/commands'
 import { workspaceSchema, type Item, type ItemRecord, type Placement, type PlanningPeriod, type Policy, type Relation, type Workspace } from '../../shared/contracts/entities'
 import { businessState, type ItemEvent, type Operation, type PositionEffect } from '../../shared/contracts/effects'
+import { serverText } from '../../shared/i18n/server'
 
 export class Store {
   constructor(readonly db: DatabaseSync) {}
@@ -16,17 +17,17 @@ export class Store {
     const row = this.db.prepare('SELECT * FROM workspace WHERE id=1').get()!
     return workspaceSchema.parse({ generation: row.generation, calendar: row.calendar ? JSON.parse(String(row.calendar)) : null,
       setupConfirmedAt: row.setupConfirmedAt, pausedAfterRestore: Boolean(row.pausedAfterRestore), revision: row.revision,
-      lastObservedAt: row.lastObservedAt, clockAnomaly: Boolean(row.clockAnomaly), theme: row.theme, style: row.style,
+      lastObservedAt: row.lastObservedAt, clockAnomaly: Boolean(row.clockAnomaly), theme: row.theme, style: row.style, checkStyle: row.checkStyle,
       backupEnabled: Boolean(row.backupEnabled), backupRetention: row.backupRetention })
   }
   saveWorkspace(workspace: Workspace): void {
-    this.db.prepare('UPDATE workspace SET generation=?,calendar=?,setupConfirmedAt=?,pausedAfterRestore=?,revision=?,lastObservedAt=?,clockAnomaly=?,theme=?,style=?,backupEnabled=?,backupRetention=? WHERE id=1')
-      .run(workspace.generation, workspace.calendar ? JSON.stringify(workspace.calendar) : null, workspace.setupConfirmedAt, Number(workspace.pausedAfterRestore), workspace.revision, workspace.lastObservedAt, Number(workspace.clockAnomaly), workspace.theme, workspace.style, Number(workspace.backupEnabled), workspace.backupRetention)
+    this.db.prepare('UPDATE workspace SET generation=?,calendar=?,setupConfirmedAt=?,pausedAfterRestore=?,revision=?,lastObservedAt=?,clockAnomaly=?,theme=?,style=?,checkStyle=?,backupEnabled=?,backupRetention=? WHERE id=1')
+      .run(workspace.generation, workspace.calendar ? JSON.stringify(workspace.calendar) : null, workspace.setupConfirmedAt, Number(workspace.pausedAfterRestore), workspace.revision, workspace.lastObservedAt, Number(workspace.clockAnomaly), workspace.theme, workspace.style, workspace.checkStyle, Number(workspace.backupEnabled), workspace.backupRetention)
   }
   item(id: string, expectedVersion?: number): Item {
     const row = this.db.prepare('SELECT * FROM items WHERE id=?').get(id) as unknown as ItemRecord | undefined
-    if (!row) throw new DomainError('invalid', '条目不存在')
-    if (expectedVersion !== undefined && row.version !== expectedVersion) throw new DomainError('stale', '条目已变化，请刷新后重试')
+    if (!row) throw new DomainError('invalid', serverText().errors.itemMissing)
+    if (expectedVersion !== undefined && row.version !== expectedVersion) throw new DomainError('stale', serverText().errors.itemChanged)
     const placement = this.db.prepare('SELECT * FROM item_placements WHERE itemId=?').get(id) as unknown as Placement
     return { ...row, placement }
   }
@@ -45,17 +46,17 @@ export class Store {
   saveItem(item: Item, previousVersion: number): void {
     const result = this.db.prepare('UPDATE items SET title=?,description=?,dueDate=?,status=?,completedAt=?,cancelledAt=?,archivedAt=?,deletedAt=?,deletedBy=?,updatedAt=?,version=?,flowColor=? WHERE id=? AND version=?')
       .run(item.title, item.description, item.dueDate, item.status, item.completedAt, item.cancelledAt, item.archivedAt, item.deletedAt, item.deletedBy, item.updatedAt, item.version, item.flowColor ?? null, item.id, previousVersion)
-    if (result.changes !== 1) throw new DomainError('stale', '写入竞争，请刷新后重试')
+    if (result.changes !== 1) throw new DomainError('stale', serverText().errors.writeRace)
   }
   savePlacement(placement: Placement, previousVersion: number): void {
     const result = this.db.prepare('UPDATE item_placements SET horizon=?,periodId=?,sortKey=?,version=?,holdPeriodId=? WHERE itemId=? AND version=?')
       .run(placement.horizon, placement.periodId, placement.sortKey, placement.version, placement.holdPeriodId, placement.itemId, previousVersion)
-    if (result.changes !== 1) throw new DomainError('stale', '位置已变化，请刷新后重试')
+    if (result.changes !== 1) throw new DomainError('stale', serverText().errors.placementChanged)
   }
   periods(): PlanningPeriod[] { return this.db.prepare('SELECT * FROM planning_periods ORDER BY startAt,id').all() as unknown as PlanningPeriod[] }
   period(id: string): PlanningPeriod {
     const row = this.db.prepare('SELECT * FROM planning_periods WHERE id=?').get(id) as unknown as PlanningPeriod | undefined
-    if (!row) throw new DomainError('invalid', '周期不存在')
+    if (!row) throw new DomainError('invalid', serverText().errors.periodMissing)
     return row
   }
   ensurePeriod(period: PlanningPeriod): void { this.db.prepare('INSERT OR IGNORE INTO planning_periods VALUES (?,?,?,?,?,?)').run(period.id, period.horizon, period.startDate, period.endDate, period.startAt, period.endAt) }

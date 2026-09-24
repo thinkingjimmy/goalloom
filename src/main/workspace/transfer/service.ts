@@ -12,6 +12,7 @@ import { BackupManager } from '../../storage/backup/manager'
 import { emptyDataset, readSqliteDataset, replaceDataset } from './dataset'
 import { reconcile } from '../reconcile'
 import type { Repository } from '../repository'
+import { serverText } from '../../../shared/i18n/server'
 
 interface Pending { preview: TransferPreview; source: Dataset | null; ready: boolean }
 export class WorkspaceService {
@@ -27,13 +28,13 @@ export class WorkspaceService {
   }
   previewImport(source: unknown, generation: string): DataReply {
     this.guard(generation)
-    if (this.repository.maintenance) throw new DomainError('maintenance', '请先完成或取消当前维护')
+    if (this.repository.maintenance) throw new DomainError('maintenance', serverText().errors.finishMaintenance)
     let data: Dataset
     try { data = validateImport(source, this.repository.clock.now()) }
-    catch (error) { throw new DomainError('invalid', `未导入：${error instanceof Error ? error.message.slice(0, 300) : '文件校验失败'}`) }
+    catch (error) { throw new DomainError('invalid', serverText().errors.notImported(error instanceof Error ? error.message.slice(0, 300) : serverText().errors.fileCheckFailed)) }
     const workspace = this.repository.store.workspace()
     const preview: TransferPreview = { token: randomUUID(), mode: 'restore', generation, revision: workspace.revision, items: data.items.length, relations: data.relations.length, periods: data.periods.length, events: data.events.length, operations: data.operations.length,
-      sourceCalendar: data.workspace.calendar, warnings: data.historyMode === 'baseline' ? ['源数据没有历史，将以实际恢复时刻建立历史起点；不会猜测过去状态或完成日期。缺少策略时从恢复当天开始采用默认策略，更早积压仍手动安排。'] : [], backup: null, backupPath: null }
+      sourceCalendar: data.workspace.calendar, warnings: data.historyMode === 'baseline' ? [serverText().warnings.baselineImport] : [], backup: null, backupPath: null }
     this.pending = { preview, source: data, ready: false }
     return { type: 'preview', preview }
   }
@@ -47,7 +48,7 @@ export class WorkspaceService {
     this.guard(action.generation)
     if (action.type === 'cancel') { this.match(action.token); this.release(); return { type: 'cancelled' } }
     if (action.type === 'commit') return this.commit(action.token)
-    if (this.repository.maintenance) throw new DomainError('maintenance', '请先完成或取消当前维护')
+    if (this.repository.maintenance) throw new DomainError('maintenance', serverText().errors.finishMaintenance)
     switch (action.type) {
       case 'createBackup': {
         await this.backups.create('manual', this.repository.store.workspace(), this.repository.clock.now())
@@ -56,19 +57,19 @@ export class WorkspaceService {
       case 'previewReset': return this.previewReset()
       case 'previewBackup': {
         const record = (await this.backups.records()).find(record => record.id === action.backupId)
-        if (!record) throw new DomainError('invalid', '备份回执不存在')
+        if (!record) throw new DomainError('invalid', serverText().errors.backupReceiptMissing)
         await this.backups.verify(record)
         return this.previewImport(await readSqliteDataset(this.backups.path(record.id), this.repository.clock.now()), action.generation)
       }
       case 'prepare': return this.prepare(action.token)
-      default: throw new DomainError('invalid', '导入文件必须由原生文件选择器选择')
+      default: throw new DomainError('invalid', serverText().errors.nativePickerOnly)
     }
   }
   private previewReset(): DataReply {
     const store = this.repository.store, workspace = store.workspace()
     const count = (table: string) => Number(store.db.prepare(`SELECT count(*) AS n FROM ${table}`).get()!.n)
     const preview: TransferPreview = { token: randomUUID(), mode: 'reset', generation: workspace.generation, revision: workspace.revision,
-      items: count('items'), relations: count('item_relations'), periods: count('planning_periods'), events: count('item_events'), operations: count('operations'), sourceCalendar: workspace.calendar, warnings: ['包括已归档和回收站内容；将替换全部周期、日历与工作区设置。现有备份文件保留。'], backup: null, backupPath: null }
+      items: count('items'), relations: count('item_relations'), periods: count('planning_periods'), events: count('item_events'), operations: count('operations'), sourceCalendar: workspace.calendar, warnings: [serverText().warnings.resetScope], backup: null, backupPath: null }
     this.pending = { preview, source: null, ready: false }
     return { type: 'preview', preview }
   }
@@ -94,9 +95,9 @@ export class WorkspaceService {
   }
   private async commit(token: string): Promise<DataReply> {
     const pending = this.match(token), current = this.repository.store.workspace()
-    if (!pending.ready || !this.repository.maintenance || !pending.preview.backup) throw new DomainError('maintenance', '请先创建并验证保护备份')
+    if (!pending.ready || !this.repository.maintenance || !pending.preview.backup) throw new DomainError('maintenance', serverText().errors.backupRequired)
     try {
-      if (current.revision !== pending.preview.revision || current.generation !== pending.preview.generation) throw new DomainError('conflict', '保护备份后的数据已变化，原工作区保留')
+      if (current.revision !== pending.preview.revision || current.generation !== pending.preview.generation) throw new DomainError('conflict', serverText().errors.changedAfterBackup)
       await this.backups.verify(pending.preview.backup)
       const now = this.repository.clock.now()
       const source = pending.source ?? emptyDataset(this.repository.store, now)
@@ -108,11 +109,11 @@ export class WorkspaceService {
     } catch (error) { this.release(); throw error }
   }
   private match(token: string): Pending {
-    if (!this.pending || this.pending.preview.token !== token) throw new DomainError('conflict', '预览已失效，请重新开始')
+    if (!this.pending || this.pending.preview.token !== token) throw new DomainError('conflict', serverText().errors.previewExpired)
     return this.pending
   }
   private guard(generation: string): void {
-    if (generation !== this.repository.store.workspace().generation) throw new DomainError('generation', '工作区已更换，请刷新')
+    if (generation !== this.repository.store.workspace().generation) throw new DomainError('generation', serverText().errors.workspaceReplacedShort)
   }
   private release(): void { this.pending = null; this.repository.maintenance = false }
 }

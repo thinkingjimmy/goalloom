@@ -7,10 +7,9 @@
 import { useEffect, useState } from 'react'
 import { horizons, type Item, type ItemHorizon, type PlanningPeriod } from '../../../shared/contracts/entities'
 import type { ParentKey } from '../../../shared/contracts/smart-input'
-import { horizonNames } from '../../i18n/messages'
-import { smartMessages as t } from '../../i18n/smart'
+import { horizonNames, messages, smartMessages as t } from '../../i18n'
 import { relationColors } from '../../lib/colors'
-import { longDate, shortDate } from '../../lib/dates'
+import { longDate, shortDate } from '../../i18n/format'
 import { desktopApi } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import { FlowMark } from '../../components/FlowMark'
@@ -79,7 +78,7 @@ export function DraftCard({ draft, drafts, parents, flows, usedColors, periods, 
           <label className="check-label"><input type="checkbox" checked={draft.flowColor !== null} disabled={disabled || (!free.some(index => !takenByDraft.includes(index)) && draft.flowColor === null)}
             onChange={event => change({ flowColor: event.target.checked ? free.find(index => !takenByDraft.includes(index)) ?? null : null }, 'flowColor')} />{t.newFlow}</label>
           {draft.flowColor !== null && <div className="swatches" role="radiogroup" aria-label={t.newFlowHint}>
-            {free.map(index => <button key={index} type="button" role="radio" aria-checked={draft.flowColor === index} aria-label={relationColors[index]!.name} title={relationColors[index]!.name} className="swatch" disabled={disabled || takenByDraft.includes(index)} onClick={() => change({ flowColor: index }, 'flowColor')}><FlowMark colors={[index]} /></button>)}
+            {free.map(index => <button key={index} type="button" role="radio" aria-checked={draft.flowColor === index} aria-label={messages.colorNames[index]!} title={messages.colorNames[index]!} className="swatch" disabled={disabled || takenByDraft.includes(index)} onClick={() => change({ flowColor: index }, 'flowColor')}><FlowMark colors={[index]} /></button>)}
           </div>}
           {!free.length && draft.flowColor === null && <small className="muted">{t.noFreeColor}</small>}
         </>}

@@ -12,6 +12,7 @@ import { validateImport } from '../../../domain/import-validation'
 import { Store } from '../../storage/store'
 import { transaction, verifyDatabase } from '../../storage/database'
 import { requiredTables, schemaVersion, supportedVersions, userVersion } from '../../storage/schema'
+import { serverText } from '../../../shared/i18n/server'
 
 // A source file keeps its own contract version: an old SQLite copy is validated as v1/v2, never relabelled as v3.
 export function exportDataset(store: Store, now: string, version: number = schemaVersion): Dataset {
@@ -24,14 +25,14 @@ export function exportDataset(store: Store, now: string, version: number = schem
     undoEffects: store.db.prepare('SELECT * FROM undo_effects').all() })
 }
 export async function readSqliteDataset(path: string, now: string): Promise<Dataset> {
-  if ((await stat(path)).size > 100 * 1024 * 1024) throw new Error('数据库超过 100 MB 导入限制')
+  if ((await stat(path)).size > 100 * 1024 * 1024) throw new Error(serverText().errors.fileTooLarge)
   const db = new DatabaseSync(path, { readOnly: true, allowExtension: false })
   try {
     db.exec('PRAGMA trusted_schema=OFF')
     const version = userVersion(db)
-    if (!supportedVersions.includes(version)) throw new Error('不支持的数据库版本')
+    if (!supportedVersions.includes(version)) throw new Error(serverText().errors.unsupportedDatabase)
     const tables = db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
-    if (tables.some(row => row.type === 'view') || requiredTables.some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new Error('数据库结构无效')
+    if (tables.some(row => row.type === 'view') || requiredTables.some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new Error(serverText().errors.invalidDatabase)
     verifyDatabase(db)
     return validateImport(exportDataset(new Store(db), now, version), now)
   } finally { db.close() }
@@ -43,8 +44,8 @@ export function emptyDataset(store: Store, now: string): Dataset {
     items: [], placements: [], periods: [], policies: [], relations: [], events: [], operations: [], undoEffects: [] }
 }
 export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 'restore', now: string): string {
-  const data = structuredClone(input), generation = randomUUID(), { theme, style } = store.workspace()
-  Object.assign(data.workspace, { generation, theme, style, pausedAfterRestore: mode === 'restore', revision: data.workspace.revision + 1 })
+  const data = structuredClone(input), generation = randomUUID(), { theme, style, checkStyle } = store.workspace()
+  Object.assign(data.workspace, { generation, theme, style, checkStyle, pausedAfterRestore: mode === 'restore', revision: data.workspace.revision + 1 })
   return transaction(store.db, () => {
     // --- 唯一连接中原子替换；任何约束/校验/磁盘错误全部回滚旧库。 ---
     store.db.exec('PRAGMA defer_foreign_keys=ON; DELETE FROM undo_effects; DELETE FROM item_events; DELETE FROM operations; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM planning_periods; DELETE FROM items; DELETE FROM sqlite_sequence WHERE name=\'item_events\';')
@@ -64,7 +65,7 @@ export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 're
 }
 function addBaseline(store: Store, now: string): void {
   const id = randomUUID(), generation = store.workspace().generation
-  const result = { operationId: id, generation, changed: true, undoable: false, outcome: 'committed' as const, itemId: null, label: '导入历史起点', warnings: [], restoreSource: null, originalOperationId: null }
+  const result = { operationId: id, generation, changed: true, undoable: false, outcome: 'committed' as const, itemId: null, label: serverText().labels.importBaseline, warnings: [], restoreSource: null, originalOperationId: null }
   store.saveOperation({ id, generation, requestHash: createHash('sha256').update(id).digest('hex'), kind: 'baseline', source: 'system', at: now, effectsVersion: 1, effects: [], result })
   for (const item of store.items('1')) {
     store.event(id, now, 'baseline', null, item)

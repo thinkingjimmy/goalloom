@@ -5,8 +5,9 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { useState } from 'react'
-import { messages } from '../../i18n/messages'
-import { addDays, longDate, monthEnd, weekday } from '../../lib/dates'
+import { messages } from '../../i18n'
+import { addDays, monthEnd, weekday } from '../../lib/dates'
+import { longDate } from '../../i18n/format'
 import { Popover } from '../../components/Popover'
 import { Icon } from '../../components/icons'
 
@@ -21,7 +22,7 @@ export function DuePicker({ value, today, readOnly, onChange }: { value: string;
   const overdue = !!value && value < today
   const choose = (next: string) => { onChange(next); setOpen(false) }
   return <Popover open={open} onClose={() => setOpen(false)} anchor={
-    <button type="button" className="field-button tabular" data-empty={!value} data-overdue={overdue} aria-label={`${messages.dueDate}：${value ? longDate(value) : messages.noDue}`} aria-expanded={open} disabled={readOnly} onClick={() => setOpen(!open)}>
+    <button type="button" className="field-button tabular" data-empty={!value} data-overdue={overdue} aria-label={messages.labelled(messages.dueDate, value ? longDate(value) : messages.noDue)} aria-expanded={open} disabled={readOnly} onClick={() => setOpen(!open)}>
       {value ? `${longDate(value)}${overdue ? messages.overdueSuffix : ''}` : <><Icon name="calendar" size={16} />{messages.addDue}</>}
     </button>
   }>

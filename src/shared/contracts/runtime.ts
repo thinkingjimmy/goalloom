@@ -1,10 +1,11 @@
 /**
  * [INPUT]: zod 的运行时校验；main 提供的最小诊断数据。
- * [OUTPUT]: RuntimeInfo DTO 与固定读写 GoalloomApi，不暴露通用 IPC。
+ * [OUTPUT]: RuntimeInfo 与 LanguageState DTO、固定读写 GoalloomApi（含语言偏好读写），不暴露通用 IPC。
  * [POS]: main/preload/renderer 共同边界；不暴露路径、SQL 或原始 IPC。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { z } from 'zod'
+import { languageSchema, locales, type Language } from '../i18n/locale'
 import type { CommandInput, CommandReply, CommandResult } from './commands'
 import type { ItemDetail, ItemPage, Query, Snapshot } from './queries'
 import type { Activity, HistoryPage } from './history'
@@ -21,8 +22,13 @@ export const runtimeInfoSchema = z.strictObject({
 })
 
 export type RuntimeInfo = z.infer<typeof runtimeInfoSchema>
+export const languageChannel = 'goalloom:language'
+export const languageStateSchema = z.strictObject({ language: languageSchema, locale: z.enum(locales), system: z.enum(locales) })
+export type LanguageState = z.infer<typeof languageStateSchema>
 export interface GoalloomApi {
   getRuntime(): Promise<RuntimeInfo>
+  getLanguage(): Promise<LanguageState>
+  setLanguage(language: Language): Promise<LanguageState>
   getSnapshot(): Promise<Snapshot>
   getItem(itemId: string): Promise<ItemDetail>
   listItems(query: Extract<Query, { type: 'list' }>): Promise<ItemPage>

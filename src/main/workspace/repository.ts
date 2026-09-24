@@ -18,6 +18,7 @@ import { undoOperation } from './commands/undo'
 import { arrangeBacklog } from './commands/backlog'
 import { createPlan } from './commands/plan'
 import { setPolicy, confirmClock, setBackupPreferences, confirmRollover, undoBatch } from './commands/settings'
+import { serverText } from '../../shared/i18n/server'
 
 export class Repository {
   readonly store: Store
@@ -25,19 +26,19 @@ export class Repository {
   constructor(readonly db: DatabaseSync, readonly clock: Clock) { this.store = new Store(db) }
   execute(input: unknown): CommandResult {
     const command = commandSchema.parse(input)
-    if (this.maintenance) throw new DomainError('maintenance', '正在保护工作区，请完成或取消当前操作')
+    if (this.maintenance) throw new DomainError('maintenance', serverText().errors.maintenance)
     return transaction(this.db, () => this.apply(command))
   }
   private apply(command: Command): CommandResult {
     const workspace = this.store.workspace()
-    if (workspace.generation !== command.generation) throw new DomainError('generation', '工作区已更换，请刷新后重试')
+    if (workspace.generation !== command.generation) throw new DomainError('generation', serverText().errors.workspaceReplaced)
     const hash = createHash('sha256').update(JSON.stringify(command)).digest('hex')
     const receipt = this.store.operation(command.operationId)
     if (receipt) {
-      if (receipt.requestHash !== hash) throw new DomainError('conflict', '操作标识已被其他请求使用')
+      if (receipt.requestHash !== hash) throw new DomainError('conflict', serverText().errors.operationIdReused)
       return receipt.result
     }
-    if (!workspace.setupConfirmedAt && !['confirmSetup', 'preferences'].includes(command.type)) throw new DomainError('setup', '请先确认工作区配置')
+    if (!workspace.setupConfirmedAt && !['confirmSetup', 'preferences'].includes(command.type)) throw new DomainError('setup', serverText().errors.setupRequired)
     const now = this.clock.now()
     const context: Context = { store: this.store, workspace, command, now, effects: [], warnings: [], itemId: null, label: '' }
     const changed = command.type === 'undo' ? this.undo(context, command) : this.dispatch(context, command)
@@ -91,13 +92,13 @@ export class Repository {
       case 'backupPreferences': return setBackupPreferences(context, command)
       case 'undoBatch': return undoBatch(context, command)
       case 'preferences': {
-        const theme = command.theme ?? context.workspace.theme, style = command.style ?? context.workspace.style
-        if (context.workspace.theme === theme && context.workspace.style === style) return false
-        context.label = context.workspace.style === style ? '主题' : '风格'
-        Object.assign(context.workspace, { theme, style })
+        const theme = command.theme ?? context.workspace.theme, style = command.style ?? context.workspace.style, checkStyle = command.checkStyle ?? context.workspace.checkStyle
+        if (context.workspace.theme === theme && context.workspace.style === style && context.workspace.checkStyle === checkStyle) return false
+        context.label = context.workspace.style !== style ? serverText().labels.style : context.workspace.checkStyle !== checkStyle ? serverText().labels.checkStyle : serverText().labels.theme
+        Object.assign(context.workspace, { theme, style, checkStyle })
         return true
       }
-      default: throw new DomainError('invalid', '该操作尚未开放')
+      default: throw new DomainError('invalid', serverText().errors.notAvailable)
     }
   }
   snapshot(): Snapshot {

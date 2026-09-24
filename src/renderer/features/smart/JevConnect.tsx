@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { jevProviders, type JevProvider, type TestOutcome } from '../../../shared/contracts/smart-input'
-import { providerNames, smartMessages as t } from '../../i18n/smart'
+import { providerModels, providerNames, smartMessages as t } from '../../i18n'
 import type { Smart } from '../../state/smart'
 
 export function JevConnect({ smart, preset, reuseSaved = false, hideUnsigned = false, done }: { smart: Smart; preset?: JevProvider; reuseSaved?: boolean; hideUnsigned?: boolean; done?: (outcome: TestOutcome) => void }) {
@@ -23,7 +23,7 @@ export function JevConnect({ smart, preset, reuseSaved = false, hideUnsigned = f
       const result = await smart.connect(provider, useSaved ? null : typed)
       setOutcome(result)
       if (result?.ok) done?.(result)
-    } catch { setOutcome({ ok: false, failure: { kind: 'unavailable', message: '暂时无法完成测试，可稍后重试或先跳过', status: null, retryAt: null }, sampleMatched: null }) }
+    } catch { setOutcome({ ok: false, failure: { kind: 'unavailable', message: t.testFailed, status: null, retryAt: null }, sampleMatched: null }) }
     finally { setWorking(false) }
   }
   return <form className="jev-connect" onSubmit={event => { event.preventDefault(); if (consent && (useSaved || key.trim().length >= 8) && !working) void test() }}>
@@ -33,7 +33,7 @@ export function JevConnect({ smart, preset, reuseSaved = false, hideUnsigned = f
     <label>{t.keyLabel(provider)}
       <input type="password" autoComplete="off" spellCheck={false} value={key} maxLength={512} placeholder={useSaved || saved ? t.savedKey(smart.status?.providers[provider].keyHint ?? null) : t.keyPlaceholder} disabled={working} onChange={event => setKey(event.target.value)} />
     </label>
-    <p className="field-note">{t.modelNote(provider)} · <button type="button" className="text-button small" onClick={() => smart.openConsole(provider)}>{t.getKey}</button></p>
+    <p className="field-note">{t.modelNote(providerModels[provider])} · <button type="button" className="text-button small" onClick={() => smart.openConsole(provider)}>{t.getKey}</button></p>
     <p className="field-note">{t.recipient(provider)}</p>
     <p className="field-note">{t.cost}</p>
     {smart.status?.unsignedBuild && !hideUnsigned && <p className="field-note">{t.unsigned}</p>}

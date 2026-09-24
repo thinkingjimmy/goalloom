@@ -4,13 +4,13 @@
  * [POS]: board 列内的单行视图；打开详情、切换完成，拖放由 Board 的 DndContext 处理。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import type { CSSProperties, KeyboardEventHandler, PointerEventHandler } from 'react'
+import type { KeyboardEventHandler, PointerEventHandler } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Item } from '../../../shared/contracts/entities'
-import { messages } from '../../i18n/messages'
-import { flowRing } from '../../lib/colors'
-import { longDate, shortDate } from '../../lib/dates'
+import { messages } from '../../i18n'
+import { flowVars } from '../../lib/colors'
+import { longDate, shortDate } from '../../i18n/format'
 import type { Flows } from '../../state/flows'
 import type { Action } from '../../state/use-workspace'
 import { Icon } from '../../components/icons'
@@ -21,13 +21,13 @@ export function TaskRow({ item, flows, today, rolloverFrom, selected, dimmed, di
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled })
   const done = item.status === 'done'
-  const ring = done ? undefined : flowRing(flows.colorsOf(item.id))
-  const owners = flows.of(item.id).map(flow => flow.title).join('、')
+  const ring = done ? undefined : flowVars(flows.colorsOf(item.id))
+  const owners = flows.of(item.id).map(flow => flow.title).join(messages.listJoin)
   const overdue = !done && item.dueDate !== null && item.dueDate < today
   return <article id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-highlighted={selected} data-dimmed={dimmed} data-done={done}
     style={{ transform: CSS.Transform.toString(transform), transition }} onPointerDown={listeners?.onPointerDown as PointerEventHandler | undefined}>
     <button className="drag-handle" {...attributes} onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined} aria-label={messages.dragItem(item.title)}><Icon name="drag" size={14} /></button>
-    <button className="check" data-checked={done} style={ring ? { '--flow-ring': ring } as CSSProperties : undefined} title={owners ? `${messages.flow}：${owners}` : undefined}
+    <button className="check" data-checked={done} style={ring} title={owners ? messages.labelled(messages.flow, owners) : undefined}
       aria-label={`${done ? messages.reopen : messages.complete} ${item.title}`} disabled={disabled}
       onClick={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
       {done && <Icon name="check" size={12} strokeWidth={2.5} />}

@@ -4,12 +4,12 @@
  * [POS]: board 的创建入口；加入流程即关联到流程根，新流程即设置唯一颜色，均由事务复核。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import { useRef, useState, type CSSProperties } from 'react'
+import { useRef, useState } from 'react'
 import type { ItemHorizon } from '../../../shared/contracts/entities'
-import { messages, horizonNames } from '../../i18n/messages'
+import { messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
-import { flowRing, relationColors } from '../../lib/colors'
+import { flowVars, relationColors } from '../../lib/colors'
 import { FlowMark } from '../../components/FlowMark'
 import { Popover } from '../../components/Popover'
 
@@ -21,12 +21,12 @@ export function QuickAdd({ horizon, flows, split, submit, busy, close }: { horiz
   const [choice, setChoice] = useState<Choice>(split ? { kind: 'split', parent: split } : { kind: 'none' })
   const [picking, setPicking] = useState(false)
   const input = useRef<HTMLInputElement>(null), root = useRef<HTMLDivElement>(null)
-  const joinable = flows.all.filter(flow => !flow.archived)
+  const joinable = flows.visible
   const free = relationColors.map((_, index) => index).filter(index => !flows.owner(index))
   const parentId = choice.kind === 'join' ? choice.id : choice.kind === 'split' ? choice.parent.id : null
   const colors = choice.kind === 'new' ? [choice.color] : parentId ? flows.colorsOf(parentId) : []
-  const ring = flowRing(colors)
-  const label = choice.kind === 'new' ? messages.newFlowName(relationColors[choice.color]!.name)
+  const ring = flowVars(colors)
+  const label = choice.kind === 'new' ? messages.newFlowName(messages.colorNames[choice.color]!)
     : choice.kind === 'join' ? messages.joinHint(flows.all.find(flow => flow.id === choice.id)?.title ?? '')
     : choice.kind === 'split' ? messages.splitHint(choice.parent.title) : messages.noFlow
   const pick = (next: Choice) => { setChoice(next); setPicking(false); input.current?.focus() }
@@ -47,7 +47,7 @@ export function QuickAdd({ horizon, flows, split, submit, busy, close }: { horiz
     if (!root.current?.contains(event.relatedTarget as Node | null) && !title.trim() && !picking) close()
   }}>
     <Popover open={picking} onClose={() => setPicking(false)} anchor={
-      <button type="button" className={`check ${ring ? '' : 'check-dashed'}`} style={ring ? { '--flow-ring': ring } as CSSProperties : undefined} aria-label={messages.chooseFlow(label)} aria-haspopup="listbox" aria-expanded={picking} onMouseDown={event => event.preventDefault()} onClick={() => setPicking(!picking)} />
+      <button type="button" className={`check ${ring ? '' : 'check-dashed'}`} style={ring} aria-label={messages.chooseFlow(label)} aria-haspopup="listbox" aria-expanded={picking} onMouseDown={event => event.preventDefault()} onClick={() => setPicking(!picking)} />
     }>
       <div className="menu flow-picker" role="listbox" aria-label={messages.flow}>
         {joinable.length > 0 && <p className="menu-heading">{messages.joinFlow}</p>}
@@ -58,7 +58,7 @@ export function QuickAdd({ horizon, flows, split, submit, busy, close }: { horiz
         <p className="menu-heading">{messages.newFlow}</p>
         <div className="swatches">
           <button role="option" aria-selected={choice.kind === 'none'} aria-label={messages.noFlow} title={messages.noFlow} className="swatch" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'none' })}><FlowMark colors={[]} dashed /></button>
-          {free.map(index => <button key={index} role="option" aria-selected={choice.kind === 'new' && choice.color === index} aria-label={messages.newFlowName(relationColors[index]!.name)} title={relationColors[index]!.name} className="swatch" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'new', color: index })}><FlowMark colors={[index]} /></button>)}
+          {free.map(index => <button key={index} role="option" aria-selected={choice.kind === 'new' && choice.color === index} aria-label={messages.newFlowName(messages.colorNames[index]!)} title={messages.colorNames[index]!} className="swatch" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'new', color: index })}><FlowMark colors={[index]} /></button>)}
         </div>
       </div>
     </Popover>

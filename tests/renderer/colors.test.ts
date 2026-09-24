@@ -1,5 +1,10 @@
 import { expect, it } from 'vitest'
 import { flowRing, relationColors } from '../../src/renderer/lib/colors'
+import { zh } from '../../src/renderer/i18n/locales/zh'
+import { en } from '../../src/renderer/i18n/locales/en'
+import { ja } from '../../src/renderer/i18n/locales/ja'
+import { es } from '../../src/renderer/i18n/locales/es'
+import { fr } from '../../src/renderer/i18n/locales/fr'
 
 function luminance(hex: string): number {
   const channels = [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16) / 255)
@@ -19,7 +24,7 @@ it('八组配对色文字至少 4.5:1，边框至少 3:1', () => {
   }
 })
 it('流程描边在浅/深复选框底色上至少 3:1，且色名唯一', () => {
-  expect(new Set(relationColors.map(palette => palette.name)).size).toBe(8)
+  for (const catalog of [zh, en, ja, es, fr]) expect(new Set(catalog.messages.colorNames).size).toBe(relationColors.length)
   for (const palette of relationColors) {
     expect(contrast('#e7e2db', palette.light[2])).toBeGreaterThanOrEqual(3)
     expect(contrast('#3a342e', palette.dark[2])).toBeGreaterThanOrEqual(3)

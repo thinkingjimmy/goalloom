@@ -4,7 +4,7 @@
 
 ```text
 renderer/
-├── App.tsx                  # 组合功能视图、快捷键、FAB/⌘N 全局 composer、可选 Jev 步骤和操作反馈
+├── App.tsx                  # 组合功能视图、全局快捷键分发（含按顶栏位置筛选流程）、FAB/新建快捷键全局 composer、可选 Jev 步骤和操作反馈
 ├── main.tsx                 # React 挂载
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
@@ -13,16 +13,17 @@ renderer/
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
 │   │   ├── TopBar.tsx       # 可拖动顶栏：流程筛选、搜索、列显示勾选浮层、设置
 │   │   ├── CommandPalette.tsx # 快捷搜索、命令、打开已完成/回收站与撤销入口
-│   │   └── settings/        # 左侧分类 + 右侧分组卡片的设置弹窗
-│   │       ├── Settings.tsx     # 容器：分类导航（设置 + 条目）、备份/批次读取、数据动作与预览状态
-│   │       ├── AppearancePane.tsx # 风格预览卡（纸感/简约）+ 明暗分段
-│   │       ├── SmartPane.tsx    # 智能输入：状态卡、按服务 Key 更换/删除（表单在行下展开）、隐私提示
-│   │       ├── CalendarPane.tsx # 只读日历、逐列顺延策略、可撤销的顺延记录
-│   │       ├── BackupPane.tsx   # 上次备份、每日开关、即时保存的保留份数、备份列表
-│   │       ├── DataPane.tsx     # 导出、JSON/SQLite 恢复入口、危险区重置
-│   │       ├── ItemsPane.tsx    # 条目：已完成/已取消/已归档/回收站的搜索、日期分组与行内还原
+│   │   └── settings/        # 左侧三组导航（偏好/工作区/条目）+ 页头说明 + 分组卡片的设置弹窗；外观含语言
+│   │       ├── Settings.tsx     # 容器：分组导航与状态提示、页头（说明/恢复默认/结束方式）、备份/批次/数量读取、数据动作与预览状态
+│   │       ├── AppearancePane.tsx # 风格/复选框/明暗三行分段（带色块示意）
+│   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
+│   │       ├── SmartPane.tsx    # 智能输入：状态卡、服务单选列表（Key 更换/删除，表单在行下展开）、隐私要点
+│   │       ├── CalendarPane.tsx # 三栏只读日历、逐列顺延策略（说明随选择变化）、可撤销的顺延记录
+│   │       ├── BackupPane.tsx   # 备份与恢复：状态/每日开关/保留份数、备份列表、导出与单一文件恢复、危险区重置
+│   │       ├── ItemsPane.tsx    # 条目：已完成/已取消/已归档/回收站的搜索、今天/昨天分组与行内还原
 │   │       ├── TransferReview.tsx # 三步进度与整库替换的两阶段确认
-│   │       └── parts.tsx        # 分组（标题与说明在卡外、卡片只装内容）/行/分段选择原语与工作区时区时间格式
+│   │       ├── parts.tsx        # 分组/行/分段选择（色块、数量）/开关原语，工作区时区时间与相对日期
+│   │       └── settings.css     # 设置弹窗专属样式（仅 token）
 │   ├── composer/            # 全局新建：普通单条 Later / Jev 可编辑预览
 │   │   ├── Composer.tsx     # 固定输入、防抖/IME、修订回声、失败降级、会话草稿与 createPlan 确认
 │   │   ├── DraftCard.tsx    # 预览项：执行列范围、截止、多上级、建议 chips、手动新流程
@@ -49,20 +50,25 @@ renderer/
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉
 │   ├── Popover.tsx          # 锚点浮层，外部按下/Esc 关闭且不关闭外层弹窗
 │   ├── FlowMark.tsx         # 与复选框同构的流程色块
+│   ├── Kbd.tsx              # 一键一帽的组合键展示（平台符号）
+│   ├── LanguageSelect.tsx   # 首次配置与设置外观共用的语言下拉（语言名用各自原文）
 │   ├── icons/index.tsx      # 唯一 Hugeicons 免费显式导入入口
 │   └── ui/                 # Radix/CVA Button 与 shadcn 原始 MIT 授权
 ├── state/
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
-│   ├── flows.ts            # 快照派生的流程列表、条目归属与颜色占用
+│   ├── flows.ts            # 快照派生的流程列表（含顶栏顺序的可见流程）、条目归属与颜色占用
 │   ├── columns.ts          # 本机列显示偏好（localStorage，至少一列，不入工作区）
+│   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
+│   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
 │   ├── smart.ts            # 设备侧智能输入状态与动作（代次变化即重读）
 │   └── use-workspace.ts    # 权威快照、幂等提交、未知结果同 ID 重试
 ├── i18n/
-│   ├── messages.ts          # 集中中文文案与同类型语言表契约
-│   └── smart.ts             # 智能输入分册文案
+│   ├── index.ts             # 唯一文案入口：当前语言的实时视图（原地替换，不重挂载）、setLocale/useLocale
+│   ├── format.ts            # 按当前语言的 Intl 日期/星期/时间/数字格式
+│   └── locales/             # zh 为源语言（messages/smart/settings/shortcuts 四分册 + index），en/ja/es/fr 同构，缺键即类型错误
 └── lib/
     ├── colors.ts            # 八组固定配对色板、色名与流程描边值
-    ├── dates.ts             # 纯日历日加减与中文日期格式
+    ├── dates.ts             # 纯日历日加减与月末（本地化格式在 i18n/format）
     ├── timezones.ts         # IANA 时区的 GMT 偏移标签
     └── utils.ts             # Tailwind class 合并
 ```

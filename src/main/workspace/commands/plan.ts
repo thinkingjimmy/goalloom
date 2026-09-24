@@ -11,6 +11,7 @@ import type { Item } from '../../../shared/contracts/entities'
 import { statusGroup } from '../../../shared/contracts/effects'
 import { assertAvailable, assertFlowColorFree, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { newRelation } from './items'
+import { serverText } from '../../../shared/i18n/server'
 
 export function createPlan(context: Context, command: CommandOf<'createPlan'>): boolean {
   const problem = planProblem(command.items)
@@ -25,7 +26,7 @@ export function createPlan(context: Context, command: CommandOf<'createPlan'>): 
   }
   for (const item of command.items) {
     const period = targetPeriod(context, item.horizon)
-    if ((period?.id ?? null) !== item.previewPeriodId) throw new DomainError('stale', '预览所在的周期已变化，请刷新预览后重新确认')
+    if ((period?.id ?? null) !== item.previewPeriodId) throw new DomainError('stale', serverText().errors.planPeriodChanged)
     if (item.flowColor !== null) assertFlowColorFree(context, item.flowColor, null)
   }
   const ids = new Map<string, string>()
@@ -46,6 +47,6 @@ export function createPlan(context: Context, command: CommandOf<'createPlan'>): 
   for (const parent of parents.values()) touch(context, context.store.item(parent.id))
   context.itemIds = context.effects.map(effect => effect.itemId)
   context.itemId = context.itemIds.length === 1 ? context.itemIds[0]! : null
-  context.label = context.itemIds.length === 1 ? '创建事项' : `创建 ${context.itemIds.length} 个事项`
+  context.label = serverText().labels.createPlan(context.itemIds.length)
   return true
 }

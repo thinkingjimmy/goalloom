@@ -9,6 +9,7 @@ import type { Answer, Precision } from '../../domain/smart/distribution'
 import { validDecimals } from '../../domain/smart/distribution'
 import type { Json, NeutralQuestion } from '../../domain/smart/questions'
 import type { Failure, FailureKind, JevProvider } from '../../shared/contracts/smart-input'
+import { serverText } from '../../shared/i18n/server'
 
 export const JEV_PROVIDERS = {
   typesafe: { protocol: 'typesafe-system-one', baseURL: 'https://api.typesafe.ai', model: 'jev-latest', console: 'https://typesafe.ai' },
@@ -32,23 +33,7 @@ type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 const names: Record<JevProvider, string> = { typesafe: 'TypeSafe', 'vercel-gateway': 'AI Gateway' }
 export function failure(kind: FailureKind, provider: JevProvider, status: number | null = null, retryAt: string | null = null): Failure {
   const name = names[provider]
-  const text: Record<FailureKind, string> = {
-    account_verification_required: `${name} 账户需要完成验证，请到该账户的官方控制台查看要求`,
-    rate_limited: '请求过于频繁，暂停自动判断一会儿；草稿已保留，可重试或先存到 Later',
-    quota_exhausted: `${name} 账户额度不足，请到官方控制台检查余额或用量；Goalloom 不会代为充值`,
-    payment_required: `${name} 要求在其官方页面处理付款方式；Goalloom 不收集银行卡资料`,
-    authentication_failed: `${name} 未通过密钥认证，请检查或更换 Key`,
-    permission_denied: `该 ${name} Key 没有调用 Jev 的权限，请在官方控制台检查`,
-    routing_policy: 'AI Gateway 未确认只由 TypeSafe 处理本请求，已停止发送',
-    unavailable: '暂时无法连接 Jev（网络、超时或服务繁忙），草稿已保留',
-    malformed_response: 'Jev 返回的结果不符合约定，未使用；草稿已保留',
-    request_failed: `调用未成功${status ? `（HTTP ${status}）` : ''}，这不代表 Key 失效`,
-    too_large: '内容超过本次可发送的大小，请缩短或分批整理',
-    credential_unreadable: '无法读取已保存的密钥：可能拒绝了系统钥匙串授权，或应用更新后身份变化。可重试授权或重新填写',
-    credential_unavailable: '系统凭据保护暂不可用，未保存或读取密钥；请稍后重试',
-    not_enabled: '智能输入未启用或配置已变化，本次内容没有发送',
-  }
-  return { kind, message: text[kind], status, retryAt }
+  return { kind, message: serverText().smart.failures[kind](name, status), status, retryAt }
 }
 
 // --- Specific account/quota/limit reasons win over generic auth; status alone never proves an invalid key. ---

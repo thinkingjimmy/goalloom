@@ -1,11 +1,10 @@
-import { messages } from '../../i18n/messages'
+import { messages, horizonNames } from '../../i18n'
 import { useEffect, useState } from 'react'
 import type { Item, ItemHorizon } from '../../../shared/contracts/entities'
 import type { ItemPage } from '../../../shared/contracts/queries'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
-import { horizonNames } from '../../i18n/messages'
 
 export function Backlog({ horizon, revision, submit, busy, close, select }: { horizon: ItemHorizon; revision: number; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void; select: (id: string) => void }) {
   const [page, setPage] = useState<ItemPage>({ items: [], total: 0 }), [offset, setOffset] = useState(0)

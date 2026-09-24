@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { useState } from 'react'
-import { smartMessages as t } from '../../i18n/smart'
+import { smartMessages as t } from '../../i18n'
 import type { Smart } from '../../state/smart'
 import { JevConnect } from './JevConnect'
 

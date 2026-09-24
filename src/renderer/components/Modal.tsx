@@ -4,7 +4,7 @@
  * [POS]: 通用 UI 原语；详情、设置、搜索、往期未完成共用同一弹窗外观。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import { messages } from '../i18n/messages'
+import { messages } from '../i18n'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Icon } from './icons'
 

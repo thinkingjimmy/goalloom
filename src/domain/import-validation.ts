@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 不可信 schema v1/v2/v3 数据集与显式导入观察时刻；v1 条目没有流程颜色，仅 v3 可含 createPlan。
+ * [INPUT]: 不可信 schema v1/v2/v3 数据集与显式导入观察时刻；v1 条目没有流程颜色，仅 v3 可含 createPlan；依赖 shared/i18n/server 的 serverText().import 文案。
  * [OUTPUT]: 严格实体/日期/引用/DAG/流程颜色/效果/业务事件链/计划多效果与整批撤销双射校验后的 Dataset。
  * [POS]: 纯导入入口，JSON 与 SQLite 恢复共用；不执行文件或数据库操作。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
@@ -11,23 +11,24 @@ import { compareInstants, currentPeriod, parseDate, workspaceDate } from './cale
 import { validateDag } from './relations'
 import { matchesStatus } from './status'
 import { planLimit } from '../shared/contracts/commands'
+import { serverText } from '../shared/i18n/server'
 
 function requireValid(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
 function unique<T>(rows: T[], identity: (row: T) => string | number, label: string): Map<string | number, T> {
   const map = new Map(rows.map(row => [identity(row), row]))
-  requireValid(map.size === rows.length, `${label}含重复身份`)
+  requireValid(map.size === rows.length, serverText().import.duplicateIdentity(label))
   return map
 }
 function sameBusiness(a: BusinessState, b: BusinessState): boolean {
   return matchesStatus(a, b) && a.horizon === b.horizon && a.periodId === b.periodId && a.archivedAt === b.archivedAt && a.deletedAt === b.deletedAt && a.deletedBy === b.deletedBy
 }
 function validState(state: Pick<BusinessState, 'status' | 'completedAt' | 'cancelledAt' | 'deletedAt' | 'deletedBy'>, unknownTime = false): void {
-  requireValid((state.deletedAt === null) === (state.deletedBy === null), '删除来源或日期不完整')
+  requireValid((state.deletedAt === null) === (state.deletedBy === null), serverText().import.deletionIncomplete)
   const valid = state.status === 'todo' ? state.completedAt === null && state.cancelledAt === null : state.status === 'done' ? state.cancelledAt === null && (unknownTime || state.completedAt !== null) : state.completedAt === null && (unknownTime || state.cancelledAt !== null)
-  requireValid(valid, '状态与完成/取消时间不一致')
+  requireValid(valid, serverText().import.statusTimeMismatch)
 }
 function placement(horizon: ItemHorizon, periodId: string | null, periods: Map<string | number, PlanningPeriod>): void {
-  requireValid(horizon === 'later' ? periodId === null : periodId !== null && periods.get(periodId)?.horizon === horizon, '位置引用或尺度不匹配')
+  requireValid(horizon === 'later' ? periodId === null : periodId !== null && periods.get(periodId)?.horizon === horizon, serverText().import.placementMismatch)
 }
 function edgeIdentity(a: Relation, b: Relation): boolean { return a.id === b.id && a.parentId === b.parentId && a.childId === b.childId && a.createdAt === b.createdAt }
 
@@ -41,52 +42,52 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
       data.policies.push({ horizon, mode: horizon === 'day' ? 'auto' : 'manual', version: 1, effectiveFromPeriodId: period.id })
     }
   }
-  const items = unique(data.items, row => row.id, '条目'), places = unique(data.placements, row => row.itemId, '位置')
-  const periods = unique(data.periods, row => row.id, '周期'), edges = unique(data.relations, row => row.id, '关联')
-  const operations = unique(data.operations, row => row.id, '操作'), policies = unique(data.policies, row => row.horizon, '策略')
+  const items = unique(data.items, row => row.id, serverText().import.labels.items), places = unique(data.placements, row => row.itemId, serverText().import.labels.placements)
+  const periods = unique(data.periods, row => row.id, serverText().import.labels.periods), edges = unique(data.relations, row => row.id, serverText().import.labels.relations)
+  const operations = unique(data.operations, row => row.id, serverText().import.labels.operations), policies = unique(data.policies, row => row.horizon, serverText().import.labels.policies)
   const eventsByOperation = new Map<string, ItemEvent[]>()
   for (const event of [...data.events].sort((a, b) => a.seq - b.seq)) {
     const group = eventsByOperation.get(event.operationId) ?? []
     group.push(event); eventsByOperation.set(event.operationId, group)
   }
-  unique(data.events, row => row.id, '事件'); unique(data.events, row => row.seq, '事件序列')
-  unique(data.events, row => `${row.operationId}:${row.eventIndex}`, '操作内事件')
-  unique(data.undoEffects, row => `${row.originalId}:${row.effectIndex}`, '撤销效果')
+  unique(data.events, row => row.id, serverText().import.labels.events); unique(data.events, row => row.seq, serverText().import.labels.eventSequence)
+  unique(data.events, row => `${row.operationId}:${row.eventIndex}`, serverText().import.labels.operationEvents)
+  unique(data.undoEffects, row => `${row.originalId}:${row.effectIndex}`, serverText().import.labels.undoEffects)
   const calendar = data.workspace.calendar
-  requireValid((calendar === null) === (data.workspace.setupConfirmedAt === null), '首次配置标记不完整')
-  requireValid(calendar || (!data.items.length && !data.periods.length && !data.policies.length && !data.events.length), '未确认配置的源工作区包含业务数据')
-  if (calendar) requireValid(calendar.cycleAnchor <= workspaceDate(calendar.timezone, observedAt), '源日历起点晚于今天，无法恢复')
+  requireValid((calendar === null) === (data.workspace.setupConfirmedAt === null), serverText().import.setupMarkerIncomplete)
+  requireValid(calendar || (!data.items.length && !data.periods.length && !data.policies.length && !data.events.length), serverText().import.unconfirmedWorkspaceHasData)
+  if (calendar) requireValid(calendar.cycleAnchor <= workspaceDate(calendar.timezone, observedAt), serverText().import.anchorAfterToday)
   for (const period of data.periods) {
-    requireValid(calendar, '周期缺少日历')
+    requireValid(calendar, serverText().import.periodWithoutCalendar)
     const expected = currentPeriod(calendar, period.horizon, parseDate(period.startDate).toZonedDateTime(calendar.timezone).toInstant().toString())
-    requireValid(JSON.stringify(period) === JSON.stringify(expected), '周期身份或固定日期边界与源日历不符')
+    requireValid(JSON.stringify(period) === JSON.stringify(expected), serverText().import.periodBoundaryMismatch)
   }
-  if (calendar) requireValid(policies.size === 4, '源工作区缺少顺延策略')
-  for (const policy of data.policies) requireValid(periods.get(policy.effectiveFromPeriodId)?.horizon === policy.horizon && (policy.horizon !== 'cycle' || policy.mode === 'manual'), '策略生效周期或3个月策略无效')
-  requireValid(items.size === places.size, '每个条目必须恰有一个位置')
+  if (calendar) requireValid(policies.size === 4, serverText().import.missingRolloverPolicies)
+  for (const policy of data.policies) requireValid(periods.get(policy.effectiveFromPeriodId)?.horizon === policy.horizon && (policy.horizon !== 'cycle' || policy.mode === 'manual'), serverText().import.invalidPolicy)
+  requireValid(items.size === places.size, serverText().import.itemPlacementCount)
   const baselines = new Set(data.events.filter(event => event.type === 'baseline').map(event => event.itemId))
   for (const item of data.items) {
-    const p = places.get(item.id); requireValid(p, '条目缺少位置')
+    const p = places.get(item.id); requireValid(p, serverText().import.itemMissingPlacement)
     placement(p.horizon, p.periodId, periods)
     validState(item, data.historyMode === 'baseline' || baselines.has(item.id))
     validateHold(p.horizon, p.periodId, p.holdPeriodId, periods)
   }
-  for (const p of data.placements) requireValid(items.has(p.itemId), '位置悬空')
+  for (const p of data.placements) requireValid(items.has(p.itemId), serverText().import.danglingPlacement)
   validateDag(new Set(data.items.map(item => item.id)), data.relations, new Set(data.items.filter(item => item.deletedAt).map(item => item.id)))
   const children = new Set(data.relations.filter(edge => edge.invalidatedAt === null).map(edge => edge.childId))
   const colours = data.items.filter(item => item.flowColor !== null && item.deletedAt === null).map(item => item.flowColor)
-  requireValid(new Set(colours).size === colours.length, '流程颜色重复')
-  requireValid(data.items.every(item => item.flowColor === null || !children.has(item.id)), '流程根不能有上级')
-  for (const edge of data.relations) requireValid((edge.invalidatedAt === null) === (edge.invalidatedBy === null) && (edge.invalidatedAt === null) === (edge.reason === null), '关联失效标记不完整')
+  requireValid(new Set(colours).size === colours.length, serverText().import.duplicateFlowColor)
+  requireValid(data.items.every(item => item.flowColor === null || !children.has(item.id)), serverText().import.flowRootHasParent)
+  for (const edge of data.relations) requireValid((edge.invalidatedAt === null) === (edge.invalidatedBy === null) && (edge.invalidatedAt === null) === (edge.reason === null), serverText().import.relationInvalidationIncomplete)
   if (data.historyMode === 'baseline') {
-    requireValid(!data.events.length && !data.operations.length && !data.undoEffects.length, '无历史模式不可混入部分事件或操作')
+    requireValid(!data.events.length && !data.operations.length && !data.undoEffects.length, serverText().import.baselineHasHistory)
     return data
   }
   for (const operation of data.operations) {
-    requireValid(operation.result.operationId === operation.id && operation.result.generation === operation.generation, '操作回执身份不一致')
-    requireValid(!operation.result.itemId || items.has(operation.result.itemId), '操作指向不存在条目')
-    requireValid(operation.result.undoable === (operation.source === 'user' && operation.effects.length > 0), '操作撤销标记与效果不一致')
-    requireValid(operation.result.outcome !== 'conflict_skipped' || (!operation.result.changed && !operation.effects.length && operation.kind === 'undo'), '冲突回执包含业务变化')
+    requireValid(operation.result.operationId === operation.id && operation.result.generation === operation.generation, serverText().import.receiptIdentityMismatch)
+    requireValid(!operation.result.itemId || items.has(operation.result.itemId), serverText().import.operationDanglingItem)
+    requireValid(operation.result.undoable === (operation.source === 'user' && operation.effects.length > 0), serverText().import.undoableFlagMismatch)
+    requireValid(operation.result.outcome !== 'conflict_skipped' || (!operation.result.changed && !operation.effects.length && operation.kind === 'undo'), serverText().import.conflictReceiptChanged)
     validateKind(operation, data.schemaVersion)
     for (const effect of operation.effects) validateEffect(effect, items, periods, edges)
     if (operation.kind === 'createPlan') validatePlan(operation, edges)
@@ -94,46 +95,46 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
   }
   for (const marker of data.undoEffects) {
     const original = operations.get(marker.originalId), inverse = operations.get(marker.undoId)
-    requireValid(original?.effects[marker.effectIndex] && inverse && inverse.result.changed && inverse.result.originalOperationId === original.id && ['undo', 'undoBatch'].includes(inverse.kind), '撤销标记悬空或回执不一致')
-    requireValid(original.id !== inverse.id, '操作不能撤销自己')
+    requireValid(original?.effects[marker.effectIndex] && inverse && inverse.result.changed && inverse.result.originalOperationId === original.id && ['undo', 'undoBatch'].includes(inverse.kind), serverText().import.undoMarkerDangling)
+    requireValid(original.id !== inverse.id, serverText().import.selfUndo)
     // A plan is reversed only as a whole: every original effect marked, all by one inverse operation.
-    if (original.kind === 'createPlan') requireValid(inverse.kind === 'undo' && original.effects.every((_, index) => data.undoEffects.some(row => row.originalId === original.id && row.effectIndex === index && row.undoId === inverse.id)), '计划撤销必须覆盖全部原效果')
+    if (original.kind === 'createPlan') requireValid(inverse.kind === 'undo' && original.effects.every((_, index) => data.undoEffects.some(row => row.originalId === original.id && row.effectIndex === index && row.undoId === inverse.id)), serverText().import.planUndoIncomplete)
   }
   const chains = new Map<string, ItemEvent[]>()
   for (const event of [...data.events].sort((a, b) => a.seq - b.seq)) {
     const operation = operations.get(event.operationId)
-    requireValid(items.has(event.itemId) && operation, '事件引用悬空')
-    requireValid(compareInstants(operation.at, event.at) === 0, '事件与操作实际时间不一致')
+    requireValid(items.has(event.itemId) && operation, serverText().import.danglingEventReference)
+    requireValid(compareInstants(operation.at, event.at) === 0, serverText().import.eventTimeMismatch)
     const chain = chains.get(event.itemId) ?? []
     const previous = chain.at(-1)
-    requireValid(previous ? event.before && sameBusiness(previous.after, event.before) && event.before.version >= previous.after.version : event.before === null && ['created', 'baseline'].includes(event.type), '业务事件链不连续或缺少明确起点')
+    requireValid(previous ? event.before && sameBusiness(previous.after, event.before) && event.before.version >= previous.after.version : event.before === null && ['created', 'baseline'].includes(event.type), serverText().import.brokenEventChain)
     for (const state of [event.before, event.after].filter(state => state !== null)) {
       placement(state.horizon, state.periodId, periods); validState(state, baselines.has(event.itemId)); validateHold(state.horizon, state.periodId, state.holdPeriodId, periods)
     }
-    if (event.before) requireValid(event.after.version > event.before.version, '事件版本没有递增')
-    if (previous && compareInstants(previous.at, event.at) > 0) requireValid(data.workspace.clockAnomaly || data.operations.some(operation => operation.kind === 'confirmClock'), '历史时钟回拨缺少异常标记或复核记录')
+    if (event.before) requireValid(event.after.version > event.before.version, serverText().import.eventVersionNotIncreasing)
+    if (previous && compareInstants(previous.at, event.at) > 0) requireValid(data.workspace.clockAnomaly || data.operations.some(operation => operation.kind === 'confirmClock'), serverText().import.clockRollbackUnconfirmed)
     validateEvent(event, operation, data, periods)
     chain.push(event); chains.set(event.itemId, chain)
   }
   for (const item of data.items) {
     const last = chains.get(item.id)?.at(-1), p = places.get(item.id)!
     const current: BusinessState = { ...item, horizon: p.horizon, periodId: p.periodId, sortKey: p.sortKey, holdPeriodId: p.holdPeriodId }
-    requireValid(last && sameBusiness(last.after, current) && item.version >= last.after.version, '事件末尾与当前表不一致')
+    requireValid(last && sameBusiness(last.after, current) && item.version >= last.after.version, serverText().import.eventTailMismatch)
   }
   for (const operation of data.operations) {
     const events = eventsByOperation.get(operation.id) ?? []
-    requireValid(events.every((event, index) => event.eventIndex === index), '操作内事件序号不连续')
-    if (operation.kind === 'createPlan') requireValid(events.length === operation.effects.length && events.every((event, index) => event.type === 'created' && event.itemId === operation.effects[index]?.itemId), '计划的 created 事件必须与效果逐项对应')
+    requireValid(events.every((event, index) => event.eventIndex === index), serverText().import.eventIndexGap)
+    if (operation.kind === 'createPlan') requireValid(events.length === operation.effects.length && events.every((event, index) => event.type === 'created' && event.itemId === operation.effects[index]?.itemId), serverText().import.planEventsMismatch)
     for (const effect of operation.effects) {
       const needsEvent = !['relations'].includes(effect.kind) && !(effect.kind === 'position' && effect.before.periodId === effect.after.periodId && effect.before.horizon === effect.after.horizon)
       if (needsEvent) {
         const event = events.find(event => event.itemId === effect.itemId)
-        requireValid(event, '业务效果缺少原子事件')
+        requireValid(event, serverText().import.effectMissingEvent)
         validateOwnedFields(effect, event)
       }
       if (effect.kind === 'relations' || effect.kind === 'visibility') for (const delta of effect.edges) {
-        if (['delete', 'unlink'].includes(operation.kind)) requireValid(delta.after.invalidatedBy === operation.id && delta.after.invalidatedAt === operation.at && delta.after.reason === (operation.kind === 'delete' ? 'delete' : 'unlink'), '关系失效来源与操作不一致')
-        if (['link', 'restoreItem'].includes(operation.kind)) requireValid(delta.after.invalidatedAt === null && delta.after.invalidatedBy === null && delta.after.reason === null, '关联/还原效果必须产生有效边')
+        if (['delete', 'unlink'].includes(operation.kind)) requireValid(delta.after.invalidatedBy === operation.id && delta.after.invalidatedAt === operation.at && delta.after.reason === (operation.kind === 'delete' ? 'delete' : 'unlink'), serverText().import.relationInvalidationSourceMismatch)
+        if (['link', 'restoreItem'].includes(operation.kind)) requireValid(delta.after.invalidatedAt === null && delta.after.invalidatedBy === null && delta.after.reason === null, serverText().import.linkEffectInvalidEdge)
       }
     }
   }
@@ -141,31 +142,31 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
 }
 function validateHold(horizon: ItemHorizon, periodId: string | null, hold: string | null, periods: Map<string | number, PlanningPeriod>): void {
   if (!hold) return
-  requireValid(periodId && periods.get(hold)?.horizon === horizon && compareInstants(periods.get(periodId)!.endAt, periods.get(hold)!.startAt) <= 0, 'hold 必须指向来源已结束后的同尺度周期')
+  requireValid(periodId && periods.get(hold)?.horizon === horizon && compareInstants(periods.get(periodId)!.endAt, periods.get(hold)!.startAt) <= 0, serverText().import.invalidHold)
 }
 function validateEffect(effect: Effect, items: Map<string | number, unknown>, periods: Map<string | number, PlanningPeriod>, edges: Map<string | number, Relation>): void {
-  requireValid(items.has(effect.itemId), '效果条目悬空')
-  if (effect.kind === 'create') { placement(effect.horizon, effect.periodId, periods); requireValid(effect.status.status === 'todo' && effect.initialRelations.every(id => { const edge = edges.get(id); return edge && (edge.parentId === effect.itemId || edge.childId === effect.itemId) }), '创建效果的状态或初始依赖不合法') }
+  requireValid(items.has(effect.itemId), serverText().import.danglingEffectItem)
+  if (effect.kind === 'create') { placement(effect.horizon, effect.periodId, periods); requireValid(effect.status.status === 'todo' && effect.initialRelations.every(id => { const edge = edges.get(id); return edge && (edge.parentId === effect.itemId || edge.childId === effect.itemId) }), serverText().import.invalidCreateEffect) }
   if (effect.kind === 'position') for (const p of [effect.before, effect.after]) {
     placement(p.horizon, p.periodId, periods)
-    requireValid([p.previousId, p.nextId].every(id => id === null || (id !== effect.itemId && items.has(id))) && (!p.previousId || p.previousId !== p.nextId), '排序依赖悬空或重复')
+    requireValid([p.previousId, p.nextId].every(id => id === null || (id !== effect.itemId && items.has(id))) && (!p.previousId || p.previousId !== p.nextId), serverText().import.invalidOrderNeighbors)
   }
   if (effect.kind === 'relations' || effect.kind === 'visibility') {
-    unique(effect.edges, edge => edge.after.id, '关系差量')
-    for (const delta of effect.edges) requireValid(edges.has(delta.after.id) && edgeIdentity(edges.get(delta.after.id)!, delta.after) && (!delta.before || edgeIdentity(delta.before, delta.after)), '关系效果身份不一致')
+    unique(effect.edges, edge => edge.after.id, serverText().import.labels.edgeDeltas)
+    for (const delta of effect.edges) requireValid(edges.has(delta.after.id) && edgeIdentity(edges.get(delta.after.id)!, delta.after) && (!delta.before || edgeIdentity(delta.before, delta.after)), serverText().import.relationEffectIdentityMismatch)
   }
 }
 function validateKind(operation: Dataset['operations'][number], version: Dataset['schemaVersion']): void {
-  requireValid(operation.kind !== 'createPlan' || version >= 3, '旧版本数据集不能包含批量计划')
+  requireValid(operation.kind !== 'createPlan' || version >= 3, serverText().import.legacyPlan)
   const allowed: Record<string, Effect['kind'][]> = { create: ['create'], createPlan: ['create'], edit: [], flowColor: [], move: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
-  requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), '操作类型或效果白名单不符')
-  requireValid(operation.source === (['rollover', 'baseline'].includes(operation.kind) ? 'system' : 'user'), '操作来源不符')
+  requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), serverText().import.effectKindNotAllowed)
+  requireValid(operation.source === (['rollover', 'baseline'].includes(operation.kind) ? 'system' : 'user'), serverText().import.operationSourceMismatch)
   const inverse = ['undo', 'undoBatch'].includes(operation.kind)
-  requireValid(inverse === (operation.result.originalOperationId !== null), '逆操作引用不符')
-  requireValid(operation.result.changed || !operation.effects.length, '无变化操作不能包含效果')
-  if (operation.result.changed && allowed[operation.kind]!.length) requireValid(operation.effects.length > 0, '可撤销业务操作缺少效果')
-  if (operation.kind === 'createPlan') requireValid(!operation.result.changed || (operation.effects.length >= 1 && operation.effects.length <= planLimit && new Set(operation.effects.map(effect => effect.itemId)).size === operation.effects.length), '计划必须为 1–8 个互不相同的新项')
-  else if (!['rollover', 'arrangeBacklog'].includes(operation.kind)) requireValid(operation.effects.length <= 1, '普通用户操作包含多余效果')
+  requireValid(inverse === (operation.result.originalOperationId !== null), serverText().import.inverseReferenceMismatch)
+  requireValid(operation.result.changed || !operation.effects.length, serverText().import.unchangedWithEffects)
+  if (operation.result.changed && allowed[operation.kind]!.length) requireValid(operation.effects.length > 0, serverText().import.changedWithoutEffects)
+  if (operation.kind === 'createPlan') requireValid(!operation.result.changed || (operation.effects.length >= 1 && operation.effects.length <= planLimit && new Set(operation.effects.map(effect => effect.itemId)).size === operation.effects.length), serverText().import.invalidPlanSize)
+  else if (!['rollover', 'arrangeBacklog'].includes(operation.kind)) requireValid(operation.effects.length <= 1, serverText().import.extraEffects)
 }
 // --- Creation-time ownership: each new edge is the child's incoming edge, its parent existing or an earlier new item. ---
 function validatePlan(operation: Dataset['operations'][number], edges: Map<string | number, Relation>): void {
@@ -174,9 +175,9 @@ function validatePlan(operation: Dataset['operations'][number], edges: Map<strin
     if (effect.kind !== 'create') return
     for (const id of effect.initialRelations) {
       const edge = edges.get(id)
-      requireValid(edge && edge.childId === effect.itemId && edge.createdAt === operation.at && !owned.has(id), '计划关联必须唯一归属下级且在创建时建立')
+      requireValid(edge && edge.childId === effect.itemId && edge.createdAt === operation.at && !owned.has(id), serverText().import.planRelationOwnership)
       const parentIndex = order.indexOf(edge.parentId)
-      requireValid(parentIndex < index, '计划中的新上级必须先于下级创建')
+      requireValid(parentIndex < index, serverText().import.planParentOrder)
       owned.add(id)
     }
   })
@@ -186,68 +187,68 @@ function validateItemIds(operation: Dataset['operations'][number], operations: M
   const original = operation.kind === 'undo' && operation.result.originalOperationId ? operations.get(operation.result.originalOperationId) : undefined
   if (operation.kind === 'createPlan' && operation.result.changed) {
     const expected = operation.effects.map(effect => effect.itemId)
-    requireValid(itemIds && JSON.stringify(itemIds) === JSON.stringify(expected) && itemId === (expected.length === 1 ? expected[0] : null), '计划回执的条目标识与效果不符')
+    requireValid(itemIds && JSON.stringify(itemIds) === JSON.stringify(expected) && itemId === (expected.length === 1 ? expected[0] : null), serverText().import.planReceiptItemsMismatch)
   } else if (original?.kind === 'createPlan') {
-    requireValid(itemIds && (operation.result.outcome === 'conflict_skipped' ? !itemIds.length && itemId === null && operation.result.restoreSource === null : JSON.stringify(itemIds) === JSON.stringify(original.result.itemIds) && itemId === original.result.itemId), '计划撤销回执的条目标识不符')
-  } else requireValid(itemIds === undefined, '非计划操作不能带多条目回执')
+    requireValid(itemIds && (operation.result.outcome === 'conflict_skipped' ? !itemIds.length && itemId === null && operation.result.restoreSource === null : JSON.stringify(itemIds) === JSON.stringify(original.result.itemIds) && itemId === original.result.itemId), serverText().import.planUndoReceiptItemsMismatch)
+  } else requireValid(itemIds === undefined, serverText().import.unexpectedItemIds)
 }
 function validateEvent(event: ItemEvent, operation: Dataset['operations'][number], data: Dataset, periods: Map<string | number, PlanningPeriod>): void {
   const a = event.before, b = event.after
   const types: Record<string, string[]> = { created: ['create', 'createPlan'], baseline: ['baseline'], moved: ['move', 'arrangeBacklog'], rolled_over: ['move', 'arrangeBacklog', 'rollover'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
-  requireValid(types[event.type]?.includes(operation.kind), '事件类型与操作不符')
-  if (event.type === 'baseline') { requireValid(!a && !event.undoOf, 'baseline 必须是明确起点'); return }
-  if (event.type === 'created') { requireValid(!a && b.status === 'todo' && !b.archivedAt && !b.deletedAt && !b.holdPeriodId, '创建事件初始状态无效'); return }
-  requireValid(a, '变化事件缺少前状态')
+  requireValid(types[event.type]?.includes(operation.kind), serverText().import.eventTypeMismatch)
+  if (event.type === 'baseline') { requireValid(!a && !event.undoOf, serverText().import.baselineNotOrigin); return }
+  if (event.type === 'created') { requireValid(!a && b.status === 'todo' && !b.archivedAt && !b.deletedAt && !b.holdPeriodId, serverText().import.invalidCreatedEvent); return }
+  requireValid(a, serverText().import.changeEventMissingBefore)
   if (event.type === 'undo') {
     const original = data.operations.find(row => row.id === event.undoOf)
-    requireValid(original && operation.result.originalOperationId === original.id, '反向事件引用无效')
+    requireValid(original && operation.result.originalOperationId === original.id, serverText().import.invalidInverseReference)
     const effects = original.effects.filter(effect => effect.itemId === event.itemId)
-    requireValid(effects.length === 1, '反向事件缺少唯一原效果')
+    requireValid(effects.length === 1, serverText().import.inverseMissingOriginalEffect)
     validateInverse(event, effects[0]!, operation.id)
-    requireValid(data.undoEffects.some(marker => marker.originalId === original.id && marker.undoId === operation.id && original.effects[marker.effectIndex]?.itemId === event.itemId), '反向事件缺少已逆转标记')
+    requireValid(data.undoEffects.some(marker => marker.originalId === original.id && marker.undoId === operation.id && original.effects[marker.effectIndex]?.itemId === event.itemId), serverText().import.inverseMissingMarker)
     return
   }
-  requireValid(!event.undoOf, '普通事件不能带撤销引用')
+  requireValid(!event.undoOf, serverText().import.ordinaryEventWithUndo)
   const expected = { ...a }
   if (['moved', 'rolled_over'].includes(event.type)) {
-    requireValid(a.horizon !== b.horizon || a.periodId !== b.periodId, '同期排序不应制造移动事件')
-    if (event.type === 'rolled_over') requireValid(a.periodId && b.periodId && a.horizon === b.horizon && compareInstants(periods.get(a.periodId)!.startAt, periods.get(b.periodId)!.startAt) < 0, '顺延方向不合法')
+    requireValid(a.horizon !== b.horizon || a.periodId !== b.periodId, serverText().import.reorderMadeMoveEvent)
+    if (event.type === 'rolled_over') requireValid(a.periodId && b.periodId && a.horizon === b.horizon && compareInstants(periods.get(a.periodId)!.startAt, periods.get(b.periodId)!.startAt) < 0, serverText().import.invalidRolloverDirection)
     Object.assign(expected, { horizon: b.horizon, periodId: b.periodId })
-    requireValid(b.holdPeriodId === null, '手动/自动移动必须清除 hold')
+    requireValid(b.holdPeriodId === null, serverText().import.moveKeepsHold)
   }
   if (event.type === 'status_changed') {
-    requireValid(a.status !== b.status && (b.status === 'todo' || compareInstants((b.status === 'done' ? b.completedAt : b.cancelledAt)!, event.at) === 0), '状态变化没有实际时间')
+    requireValid(a.status !== b.status && (b.status === 'todo' || compareInstants((b.status === 'done' ? b.completedAt : b.cancelledAt)!, event.at) === 0), serverText().import.statusChangeWithoutTime)
     Object.assign(expected, { status: b.status, completedAt: b.completedAt, cancelledAt: b.cancelledAt })
   }
-  if (event.type === 'archived' || event.type === 'unarchived') { requireValid(event.type === 'archived' ? a.archivedAt === null && b.archivedAt === event.at : a.archivedAt !== null && b.archivedAt === null, '归档事件无效'); expected.archivedAt = b.archivedAt }
+  if (event.type === 'archived' || event.type === 'unarchived') { requireValid(event.type === 'archived' ? a.archivedAt === null && b.archivedAt === event.at : a.archivedAt !== null && b.archivedAt === null, serverText().import.invalidArchiveEvent); expected.archivedAt = b.archivedAt }
   if (event.type === 'deleted' || event.type === 'item_restored') {
-    requireValid(event.type === 'deleted' ? a.deletedAt === null && b.deletedAt === event.at && b.deletedBy === operation.id : a.deletedAt !== null && b.deletedAt === null && b.deletedBy === null, '删除/还原事件无效')
+    requireValid(event.type === 'deleted' ? a.deletedAt === null && b.deletedAt === event.at && b.deletedBy === operation.id : a.deletedAt !== null && b.deletedAt === null && b.deletedBy === null, serverText().import.invalidDeleteRestoreEvent)
     Object.assign(expected, { deletedAt: b.deletedAt, deletedBy: b.deletedBy })
   }
-  requireValid(sameBusiness(expected, b), '事件修改了不属于该操作的业务字段')
+  requireValid(sameBusiness(expected, b), serverText().import.eventTouchedUnownedFields)
 }
 function validateInverse(event: ItemEvent, effect: Effect, inverseId: string): void {
   const expected = { ...event.before! }
-  if (effect.kind === 'status') requireValid(matchesStatus(expected, effect.after), '状态逆操作前值不匹配原效果')
-  if (effect.kind === 'position') requireValid(expected.horizon === effect.after.horizon && expected.periodId === effect.after.periodId, '位置逆操作前值不匹配原效果')
-  if (effect.kind === 'archive') requireValid(expected.archivedAt === effect.after, '归档逆操作前值不匹配原效果')
-  if (effect.kind === 'visibility') requireValid(expected.deletedAt === effect.after.deletedAt && expected.deletedBy === effect.after.deletedBy, '可见性逆操作前值不匹配原效果')
-  if (effect.kind === 'create') requireValid(matchesStatus(expected, effect.status) && expected.horizon === effect.horizon && expected.periodId === effect.periodId && !expected.archivedAt && !expected.deletedAt, '撤销创建前状态与初始效果不匹配')
+  if (effect.kind === 'status') requireValid(matchesStatus(expected, effect.after), serverText().import.statusInverseMismatch)
+  if (effect.kind === 'position') requireValid(expected.horizon === effect.after.horizon && expected.periodId === effect.after.periodId, serverText().import.positionInverseMismatch)
+  if (effect.kind === 'archive') requireValid(expected.archivedAt === effect.after, serverText().import.archiveInverseMismatch)
+  if (effect.kind === 'visibility') requireValid(expected.deletedAt === effect.after.deletedAt && expected.deletedBy === effect.after.deletedBy, serverText().import.visibilityInverseMismatch)
+  if (effect.kind === 'create') requireValid(matchesStatus(expected, effect.status) && expected.horizon === effect.horizon && expected.periodId === effect.periodId && !expected.archivedAt && !expected.deletedAt, serverText().import.createInverseMismatch)
   switch (effect.kind) {
     case 'create': Object.assign(expected, { deletedAt: event.at, deletedBy: inverseId }); break
     case 'status': Object.assign(expected, effect.before); break
     case 'position': Object.assign(expected, { horizon: effect.before.horizon, periodId: effect.before.periodId }); break
     case 'archive': expected.archivedAt = effect.before; break
     case 'visibility': Object.assign(expected, effect.before); break
-    case 'relations': throw new Error('纯关系逆转不应制造业务事件')
+    case 'relations': throw new Error(serverText().import.relationInverseMadeEvent)
   }
-  requireValid(sameBusiness(expected, event.after), '逆操作覆盖了无关字段或没有还原原效果')
+  requireValid(sameBusiness(expected, event.after), serverText().import.inverseOverwroteFields)
 }
 function validateOwnedFields(effect: Effect, event: ItemEvent): void {
   const a = event.before, b = event.after
-  if (effect.kind === 'create') requireValid(!a && matchesStatus(effect.status, b) && effect.horizon === b.horizon && effect.periodId === b.periodId, '创建回执与事件不一致')
-  if (effect.kind === 'status') requireValid(a && matchesStatus(effect.before, a) && matchesStatus(effect.after, b), '状态回执与事件不一致')
-  if (effect.kind === 'position') requireValid(a && effect.before.horizon === a.horizon && effect.before.periodId === a.periodId && effect.after.horizon === b.horizon && effect.after.periodId === b.periodId, '位置回执与事件不一致')
-  if (effect.kind === 'archive') requireValid(a && effect.before === a.archivedAt && effect.after === b.archivedAt, '归档回执与事件不一致')
-  if (effect.kind === 'visibility') requireValid(a && effect.before.deletedAt === a.deletedAt && effect.before.deletedBy === a.deletedBy && effect.after.deletedAt === b.deletedAt && effect.after.deletedBy === b.deletedBy, '可见性回执与事件不一致')
+  if (effect.kind === 'create') requireValid(!a && matchesStatus(effect.status, b) && effect.horizon === b.horizon && effect.periodId === b.periodId, serverText().import.createReceiptMismatch)
+  if (effect.kind === 'status') requireValid(a && matchesStatus(effect.before, a) && matchesStatus(effect.after, b), serverText().import.statusReceiptMismatch)
+  if (effect.kind === 'position') requireValid(a && effect.before.horizon === a.horizon && effect.before.periodId === a.periodId && effect.after.horizon === b.horizon && effect.after.periodId === b.periodId, serverText().import.positionReceiptMismatch)
+  if (effect.kind === 'archive') requireValid(a && effect.before === a.archivedAt && effect.after === b.archivedAt, serverText().import.archiveReceiptMismatch)
+  if (effect.kind === 'visibility') requireValid(a && effect.before.deletedAt === a.deletedAt && effect.before.deletedBy === a.deletedBy && effect.after.deletedAt === b.deletedAt && effect.after.deletedBy === b.deletedBy, serverText().import.visibilityReceiptMismatch)
 }

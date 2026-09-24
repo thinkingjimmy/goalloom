@@ -11,7 +11,7 @@ contracts/
 ├── transfer.ts   # v1/v2/v3 完整数据集、效果白名单、备份/恢复/重置确认 DTO
 ├── smart-input.ts # Jev 服务、设备状态、智能动作、修订回声的判断回复与预览 DTO
 ├── queries.ts    # 列表视图类型、分页查询、当前快照和详情 DTO
-└── runtime.ts    # 有限 preload API（含 smart）和运行时诊断
+└── runtime.ts    # 有限 preload API（含 smart 与语言偏好读写）、LanguageState 和运行时诊断
 ```
 
 Zod 在 main/worker 拒绝额外字段；preload 校验返回 DTO。renderer 不能传入 SQL、路径、时钟或任意撤销字段。

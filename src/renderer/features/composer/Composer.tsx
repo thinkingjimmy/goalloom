@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 权威快照/流程视图、智能输入状态、受限提交与最近错误、可选会话草稿与示例文本。
- * [OUTPUT]: 全局居中 composer：固定多行输入；未启用为单条 Later 普通预览；启用后 600ms 防抖、IME 不发送、按修订回声采纳 Jev 预览，手动优先编辑，失败可重试/冻结/先存 Later，Cmd/Ctrl+Enter 确认 createPlan。
+ * [OUTPUT]: 全局居中 composer：固定多行输入；未启用为单条 Later 普通预览；启用后 600ms 防抖、IME 不发送、按修订回声采纳 Jev 预览，手动优先编辑，失败可重试/冻结/先存 Later，保存/确认快捷键（默认 Cmd/Ctrl+Enter）确认 createPlan。
  * [POS]: FAB 与 Cmd/Ctrl+N 的唯一入口；不继承聚焦列/筛选/选中项；预览阶段不写业务库，关闭时把未保存内容交回会话草稿。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -8,12 +8,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { workspaceDate } from '../../../domain/calendar'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import type { AnalyzeReply, Failure, PreviewWarning } from '../../../shared/contracts/smart-input'
-import { smartMessages as t } from '../../i18n/smart'
+import { smartMessages as t } from '../../i18n'
+import { serverText } from '../../../shared/i18n/server'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import type { Smart } from '../../state/smart'
 import { Modal } from '../../components/Modal'
 import { Icon } from '../../components/icons'
+import { formatCombo, matches, useShortcuts } from '../../state/shortcuts'
 import { candidateInfo, draftProblem, edited, mergePreview, plainDraft, planItems, type EditableDraft, type Field, type ParentInfo } from './draft'
 import { DraftCard } from './DraftCard'
 import './composer.css'
@@ -30,6 +32,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, memory, 
   const status = smart.status
   const enabled = !!status?.enabled
   const [text, setText] = useState(memory?.text ?? '')
+  const { bindings } = useShortcuts()
   const [drafts, setDrafts] = useState<EditableDraft[]>(memory?.drafts ?? [])
   const [removed, setRemoved] = useState<string[]>(memory?.removed ?? [])
   const [parents, setParents] = useState(() => new Map(memory?.parents ?? []))
@@ -70,7 +73,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, memory, 
       const result = await desktopApi().smart({ type: 'analyze', request })
       if (result.type !== 'analysis') return
       reply = result.reply
-    } catch { setPhase({ kind: 'failed', failure: { kind: 'unavailable', message: '暂时无法连接 Jev，草稿已保留', status: null, retryAt: null } }); return }
+    } catch { setPhase({ kind: 'failed', failure: { kind: 'unavailable', message: t.analyzeFailed, status: null, retryAt: null } }); return }
     // --- Only an answer for this exact input, manual state, provider and context may touch the preview. ---
     if (reply.echo.inputRevision !== input.current || reply.echo.generation !== snapshot.workspace.generation || reply.echo.providerRevision !== smart.status?.providerRevision) return
     if (reply.status === 'cancelled') return
@@ -113,7 +116,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, memory, 
     if (result) finish()
   }
   // A day/week/month boundary passed since the preview: refresh dates rather than silently re-scheduling.
-  useEffect(() => { if (error?.includes('周期已变化')) { setPreviewText(null); setProblem(t.stalePeriod) } }, [error])
+  useEffect(() => { if (error?.includes(serverText().errors.planPeriodChanged)) { setPreviewText(null); setProblem(t.stalePeriod) } }, [error])
   // A failed refresh may still confirm the preview of this exact text (frozen as a manual draft); anything older may not.
   const canConfirm = smartMode && drafts.length > 0 && previewText !== null && current
   const primary = () => { if (!smartMode) void saveLater(); else if (canConfirm) void confirm() }
@@ -128,7 +131,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, memory, 
     {/* One tip at a time keeps the input calm; the settings hint only follows once the entry tip is gone. */}
     {!enabled && status?.dismissed.includes('globalEntry') && dismissible('smartSetup', t.setupTip, { label: t.openSettings, run: () => { close(); openSettings() } })}
     <div className="composer-body" onKeyDown={event => {
-      if (event.nativeEvent.isComposing || composing || event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return
+      if (composing || !matches(event, bindings.submit)) return
       event.preventDefault(); primary()
     }}>
     <textarea ref={field} className="composer-input" aria-label={t.inputLabel} placeholder={t.placeholder} autoFocus value={text} rows={4} maxLength={20_000}
@@ -162,7 +165,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, memory, 
       <span className="composer-spacer" />
       {smartMode && <button type="button" className="settings-button" disabled={busy || !plain} onClick={askFallback}>{t.laterFallback}</button>}
       <button type="button" className="settings-button primary" disabled={busy || !plain || (smartMode && !canConfirm)} onClick={primary}>
-        {smartMode ? t.confirm(drafts.length) : t.saveLater}<kbd>⌘↵</kbd>
+        {smartMode ? t.confirm(drafts.length) : t.saveLater}{bindings.submit && <kbd>{formatCombo(bindings.submit)}</kbd>}
       </button>
     </footer>
   </Modal>

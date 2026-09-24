@@ -9,6 +9,7 @@ main/
 ├── security.ts    # 本地协议白名单、生产 CSP、权限/导航/下载拒绝
 ├── window/
 │   ├── state.ts   # 工作区之外的窗口偏好，跨屏恢复不出界
+│   ├── language.ts # 设备语言偏好（preferences.json，跟随系统或指定），先于存储加载并设置 main 文案
 │   └── close.ts   # 未保存草稿确认，默认继续编辑；取消退出不关数据库
 ├── storage/       # SQLite、启动迁移保护、备份与文件适配器、worker 通道，见局部地图
 ├── smart/         # Jev 智能输入：双渠道 adapter、设备凭据、独立异步服务，见局部地图

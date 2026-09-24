@@ -9,6 +9,7 @@ import { plainLater } from '../../../domain/smart/segments'
 import type { ParentRef } from '../../../shared/contracts/commands'
 import type { ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Candidate, HorizonChoice, ParentKey, SmartPreview } from '../../../shared/contracts/smart-input'
+import { smartMessages } from '../../i18n'
 
 export type Field = 'title' | 'description' | 'horizon' | 'due' | 'parents' | 'flowColor'
 export interface ParentInfo { itemId: string; title: string; version: number; archived: boolean; flowColor: number | null; horizon: ItemHorizon }
@@ -81,10 +82,10 @@ export function planItems(drafts: EditableDraft[], parents: Map<string, ParentIn
   }))
 }
 export function draftProblem(drafts: EditableDraft[], parents: Map<string, ParentInfo>, usedColors: number[]): string | null {
-  if (!drafts.length) return '没有要创建的事项'
-  if (drafts.some(draft => !draft.title.trim())) return '每一项都需要标题'
-  if (drafts.some(draft => draft.parents.some(key => key.kind === 'existing' && !parents.has(key.itemId)))) return '有上级缺少预览依据，请重新选择'
-  if (drafts.some(draft => draft.flowColor !== null && usedColors.includes(draft.flowColor))) return '所选流程颜色已被占用，请换一个'
+  if (!drafts.length) return smartMessages.noDrafts
+  if (drafts.some(draft => !draft.title.trim())) return smartMessages.titleRequired
+  if (drafts.some(draft => draft.parents.some(key => key.kind === 'existing' && !parents.has(key.itemId)))) return smartMessages.parentMissing
+  if (drafts.some(draft => draft.flowColor !== null && usedColors.includes(draft.flowColor))) return smartMessages.colorTaken
   return planProblem(drafts.map(draft => ({ draftId: draft.id, flowColor: draft.flowColor, parentRefs: draft.parents.map((key): ParentRef => key.kind === 'draft' ? key : { kind: 'existing', itemId: key.itemId, expectedVersion: parents.get(key.itemId)?.version ?? 1 }) })))
 }
 export function edited(drafts: EditableDraft[]): number { return drafts.filter(draft => draft.manual.length > 0).length }

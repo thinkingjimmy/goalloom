@@ -4,7 +4,8 @@
  * [POS]: renderer/state 的共享状态入口；未知提交保留请求，不伪造失败或再次写入。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import { messages } from '../i18n/messages'
+import { messages } from '../i18n'
+import { serverText } from '../../shared/i18n/server'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CommandInput, CommandResult } from '../../shared/contracts/commands'
 import type { Snapshot } from '../../shared/contracts/queries'
@@ -45,12 +46,12 @@ export function useWorkspace() {
     await refresh()
     if (!session.current.accept(result)) return result
     setUndoCount(session.current.entries.length)
-    if (result.outcome === 'conflict_skipped') { setError(messages.undoConflict(result.warnings.join('；'))); return result }
-    if (result.warnings.length) setError(result.warnings.join('；'))
+    if (result.outcome === 'conflict_skipped') { setError(messages.undoConflict(result.warnings.join(messages.sentenceJoin))); return result }
+    if (result.warnings.length) setError(result.warnings.join(messages.sentenceJoin))
     const isUndo = result.originalOperationId !== null
-    if (result.changed && (isUndo || (result.undoable && ![messages.create, messages.decompose, messages.sort].includes(result.label)))) {
+    if (result.changed && (isUndo || (result.undoable && ![serverText().labels.create, serverText().labels.decompose, serverText().labels.sort].includes(result.label)))) {
       const detail = result.itemId ? await desktopApi().getItem(result.itemId).catch(() => null) : null
-      setFeedback({ result, text: `${isUndo ? messages.undoPrefix : messages.appliedPrefix}${result.label}${detail ? `「${detail.item.title}」` : ''}` })
+      setFeedback({ result, text: (isUndo ? messages.undone : messages.applied)(result.label, detail?.item.title ?? null) })
     }
     return result
   }, [refresh])

@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { messages } from '../../i18n/messages'
+import { messages } from '../../i18n'
 import { Popover } from '../../components/Popover'
 import { gmtOffset } from '../../lib/timezones'
 import { Icon } from '../../components/icons'

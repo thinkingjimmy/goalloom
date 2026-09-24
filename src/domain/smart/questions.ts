@@ -7,6 +7,7 @@
 import type { Candidate } from '../../shared/contracts/smart-input'
 import { dateCandidates, type DateCandidate } from './dates'
 import { segmentSlots, type Slot } from './segments'
+import { serverText } from '../../shared/i18n/server'
 
 export const questionBudget = 64
 export const textLimit = 4_000
@@ -50,11 +51,11 @@ function sizeOf(state: unknown, questions: unknown): { bytes: number; tokens: nu
 }
 
 export function planQuestions(context: SmartContext): QuestionPlan | PlanFailure {
-  if ([...context.text].length > textLimit) return { kind: 'too_large', message: `原文超过 ${textLimit} 字，请分批整理或先存到 Later` }
+  if ([...context.text].length > textLimit) return { kind: 'too_large', message: serverText().smart.textTooLong(textLimit) }
   const slots = segmentSlots(context.text)
-  if (slots === null) return { kind: 'too_large', message: '一次最多整理 8 项，请分批输入或先存到 Later' }
+  if (slots === null) return { kind: 'too_large', message: serverText().smart.tooManyItems }
   const dates = dateCandidates(context.text, context.referenceDate, context.weekStart).map((date, index) => ({ ...date, id: `d${index + 1}`, slotId: slots.find(slot => date.start >= slot.start && date.start < slot.end)?.id ?? slots[0]!.id }))
-  if (dates.length > dateLimit) return { kind: 'too_large', message: '日期表达超过 8 处，请分批或手动整理' }
+  if (dates.length > dateLimit) return { kind: 'too_large', message: serverText().smart.tooManyDates }
   let candidates = context.candidates
   for (;;) {
     const plan = assemble(context, slots, dates, candidates)
@@ -62,7 +63,7 @@ export function planQuestions(context: SmartContext): QuestionPlan | PlanFailure
     if (size.bytes <= payloadLimit && size.tokens <= tokenBudget) return { ...plan, estimatedTokens: size.tokens }
     // --- Trim order: unnamed candidates first (their pairs go with them); the original text is never cut. ---
     const drop = [...candidates].reverse().find(candidate => !candidate.named) ?? candidates.at(-1)
-    if (!drop) return { kind: 'too_large', message: '内容超过本次可发送的大小，请缩短或分批整理' }
+    if (!drop) return { kind: 'too_large', message: serverText().smart.failures.too_large() }
     candidates = candidates.filter(candidate => candidate !== drop)
   }
 }

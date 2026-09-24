@@ -12,6 +12,7 @@ import { targetPeriod, type Context } from './context'
 import { moveItem } from './commands/items'
 import { transaction } from '../storage/database'
 import type { Repository } from './repository'
+import { serverText } from '../../shared/i18n/server'
 
 export function reconcile(repository: Repository, now = repository.clock.now()): CommandResult | null {
   if (repository.maintenance) return null
@@ -37,7 +38,7 @@ export function reconcile(repository: Repository, now = repository.clock.now()):
     if (!context.effects.length) return null
     workspace.revision++
     store.saveWorkspace(workspace)
-    const result: CommandResult = { operationId, generation: workspace.generation, changed: true, undoable: false, outcome: 'committed', itemId: null, label: `自动顺延 ${context.effects.length} 项`, warnings: [], restoreSource: null, originalOperationId: null }
+    const result: CommandResult = { operationId, generation: workspace.generation, changed: true, undoable: false, outcome: 'committed', itemId: null, label: serverText().labels.autoRollover(context.effects.length), warnings: [], restoreSource: null, originalOperationId: null }
     store.saveOperation({ id: operationId, generation: workspace.generation, requestHash: createHash('sha256').update(`${workspace.generation}:${now}:${operationId}`).digest('hex'), kind: 'rollover', source: 'system', at: now, effectsVersion: 1, effects: context.effects, result })
     return result
   })

@@ -6,6 +6,7 @@
  */
 import { z } from 'zod'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, statusSchema, themeSchema } from './entities'
+import { serverText } from '../i18n/server'
 
 const envelope = { operationId: idSchema, generation: idSchema }
 const target = { itemId: idSchema, expectedVersion: z.number().int().positive() }
@@ -34,7 +35,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, ...target, type: z.literal('restoreItem'), deletionSource: idSchema.nullable().default(null) }),
   z.strictObject({ ...envelope, type: z.literal('unlink'), relationId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('undo'), originalOperationId: idSchema }),
-  z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: z.enum(['paper', 'minimal']).optional() }).refine(command => command.theme || command.style, '缺少外观偏好'),
+  z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: z.enum(['paper', 'minimal']).optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => serverText().calendar.missingPreference }),
   z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),
   z.strictObject({ ...envelope, type: z.literal('policy'), horizon: z.enum(['cycle', 'month', 'week', 'day']), mode: z.enum(['auto', 'manual']), expectedVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('confirmRollover'), confirmed: z.literal(true) }),

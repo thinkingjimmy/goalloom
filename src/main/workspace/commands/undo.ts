@@ -12,12 +12,13 @@ import type { Effect } from '../../../shared/contracts/effects'
 import type { Item, Relation } from '../../../shared/contracts/entities'
 import { flowColorOwner, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { invalidateEdges, writeEdges } from './lifecycle'
+import { serverText } from '../../../shared/i18n/server'
 
 function conflict(message: string): never { throw new DomainError('conflict', message) }
 export function undoOperation(context: Context, command: CommandOf<'undo'>): boolean {
   const original = context.store.operation(command.originalOperationId)
-  if (!original || original.generation !== command.generation || !original.result.undoable || original.source !== 'user') return conflict('原操作不可撤销')
-  if (context.store.db.prepare('SELECT 1 FROM undo_effects WHERE originalId=? LIMIT 1').get(original.id)) return conflict('原操作已撤销')
+  if (!original || original.generation !== command.generation || !original.result.undoable || original.source !== 'user') return conflict(serverText().undo.notUndoable)
+  if (context.store.db.prepare('SELECT 1 FROM undo_effects WHERE originalId=? LIMIT 1').get(original.id)) return conflict(serverText().undo.alreadyUndone)
   context.label = original.result.label
   context.itemId = original.result.itemId
   if (original.result.itemIds) context.itemIds = original.result.itemIds
@@ -44,8 +45,8 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
     }
     case 'visibility': {
       const edges = inverseEdges(effect.edges, context.command.operationId, context.now)
-      if (effect.before.deletedAt && allEdges.some(edge => !edge.invalidatedAt && (edge.parentId === item.id || edge.childId === item.id) && !edges.some(target => target.id === edge.id && target.invalidatedAt))) conflict('还原后新增了关联，不能安全撤销还原')
-      if (!effect.before.deletedAt && item.flowColor !== null && flowColorOwner(context, item.flowColor, item.id) !== null) conflict('流程颜色已被其他流程使用')
+      if (effect.before.deletedAt && allEdges.some(edge => !edge.invalidatedAt && (edge.parentId === item.id || edge.childId === item.id) && !edges.some(target => target.id === edge.id && target.invalidatedAt))) conflict(serverText().undo.relationsAdded)
+      if (!effect.before.deletedAt && item.flowColor !== null && flowColorOwner(context, item.flowColor, item.id) !== null) conflict(serverText().undo.colorTaken)
       Object.assign(item, effect.before)
       // 端点恢复先落盘，DAG 触发器才能接受其合法关系。
       touch(context, item)
@@ -73,12 +74,12 @@ function reverseRelations(context: Context, reversed: Relation[], item: Item): v
   const graph = context.store.relations(false).map(edge => replacements.get(edge.id) ?? edge)
   const items = context.store.items('1')
   try { validateDag(new Set(items.map(row => row.id)), graph, new Set(items.filter(row => row.deletedAt).map(row => row.id))) }
-  catch (error) { conflict(error instanceof Error ? error.message : '关联无法安全还原') }
+  catch (error) { conflict(error instanceof Error ? error.message : serverText().undo.relationUnsafe) }
   for (const edge of reversed) {
-    if (!edge.invalidatedAt && context.store.item(edge.childId).flowColor !== null) conflict('下级已设为流程，不能恢复这条关联')
+    if (!edge.invalidatedAt && context.store.item(edge.childId).flowColor !== null) conflict(serverText().undo.childIsFlow)
     if (context.store.item(edge.parentId).deletedAt || context.store.item(edge.childId).deletedAt) {
       // 撤销还原可以使本项回到回收站，但不得操作其他已删除端点。
-      if (!item.deletedAt || (edge.parentId !== item.id && edge.childId !== item.id) || !edge.invalidatedAt) conflict('关联端点已删除')
+      if (!item.deletedAt || (edge.parentId !== item.id && edge.childId !== item.id) || !edge.invalidatedAt) conflict(serverText().undo.endpointDeleted)
     }
   }
   writeEdges(context, reversed, item.id)
