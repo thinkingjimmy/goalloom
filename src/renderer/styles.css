@@ -325,6 +325,18 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .select-hint { flex-shrink: 0; font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; }
 .select-trigger svg { flex-shrink: 0; color: var(--secondary); transition: transform .15s ease-out; }
 .select-trigger[aria-expanded='true'] svg { transform: rotate(180deg); }
+.select-icon { display: flex; flex-shrink: 0; }
+/* shadcn Select list (Radix portal): same menu skin, at least as wide as its trigger. */
+.select-menu { z-index: 50; min-width: var(--radix-select-trigger-width); max-width: min(380px, calc(100vw - 16px)); max-height: min(320px, var(--radix-select-content-available-height)); overflow: hidden; transform-origin: var(--radix-select-content-transform-origin); }
+.select-menu[data-state='open'] { animation: select-in .12s ease-out; }
+@keyframes select-in { from { opacity: 0; transform: scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .select-menu[data-state='open'] { animation: none; } }
+.select-viewport { display: flex; flex-direction: column; }
+.select-item { flex-shrink: 0; cursor: default; outline: none; user-select: none; }
+.select-item[aria-selected='true']:not([data-highlighted]) { background: transparent; }
+.select-item[data-highlighted] { background: var(--hover); }
+.select-item[data-disabled] { opacity: .4; }
+.select-scroll { display: flex; justify-content: center; padding: 2px 0; color: var(--secondary); }
 .field > .popover-root { display: flex; }
 .timezone-popover { left: 0; right: 0; }
 .timezone-menu { max-width: none; }

@@ -63,7 +63,7 @@ renderer/
 │   ├── Kbd.tsx              # 一键一帽的组合键展示（平台符号）
 │   ├── LanguageSelect.tsx   # 首次配置与设置外观共用的语言下拉（语言名用各自原文）
 │   ├── icons/index.tsx      # 唯一 Hugeicons 免费显式导入入口
-│   └── ui/                 # Radix/CVA Button 与 shadcn 原始 MIT 授权
+│   └── ui/                 # shadcn Button（Radix Slot/CVA）、Select（Radix，替代原生 select，列表 portal 进所在 dialog）与 MIT 授权
 ├── state/
 │   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重

@@ -15,6 +15,7 @@ import type { Flows } from '../../state/flows'
 import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
 import { Popover } from '../../components/Popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { DuePicker } from '../items/DuePicker'
 import { sameParent, type EditableDraft, type Field, type ParentInfo } from './draft'
 
@@ -50,11 +51,10 @@ export function DraftCard({ draft, drafts, parents, flows, usedColors, periods, 
       ? <textarea className="draft-description" aria-label={t.descriptionLabel} value={draft.description} rows={3} autoFocus onBlur={() => setEditing(false)} onChange={event => change({ description: event.target.value }, 'description')} />
       : draft.description && <button type="button" className="draft-note" title={t.editDescription} onClick={() => setEditing(true)}>{draft.description}</button>}
     <div className="draft-fields">
-      <label className="draft-field"><span className="sr-only">{t.horizonLabel}</span>
-        <select value={draft.horizon} disabled={disabled} onChange={event => change({ horizon: event.target.value as ItemHorizon, horizonSuggestion: null }, 'horizon')}>
-          {[...horizons].reverse().map(horizon => <option key={horizon} value={horizon}>{horizon === 'later' ? t.laterUnscheduled : `${horizonNames[horizon]} · ${range(horizon)}`}</option>)}
-        </select>
-      </label>
+      <Select value={draft.horizon} disabled={disabled} onValueChange={value => change({ horizon: value as ItemHorizon, horizonSuggestion: null }, 'horizon')}>
+        <SelectTrigger className="draft-select" aria-label={t.horizonLabel}><SelectValue /></SelectTrigger>
+        <SelectContent>{[...horizons].reverse().map(horizon => <SelectItem key={horizon} value={horizon}>{horizon === 'later' ? t.laterUnscheduled : `${horizonNames[horizon]} · ${range(horizon)}`}</SelectItem>)}</SelectContent>
+      </Select>
       <DuePicker value={draft.due ?? ''} today={today} readOnly={disabled} onChange={value => change({ due: value || null, dueSuggestion: null }, 'due')} />
       {draft.horizonSuggestion && <button type="button" className="suggestion" onClick={() => change({ horizon: draft.horizonSuggestion!, horizonSuggestion: null }, 'horizon')}>{t.suggestHorizon(horizonNames[draft.horizonSuggestion])}</button>}
       {draft.dueSuggestion && <button type="button" className="suggestion" onClick={() => change({ due: draft.dueSuggestion, dueSuggestion: null }, 'due')}>{t.suggestDue(longDate(draft.dueSuggestion))}</button>}

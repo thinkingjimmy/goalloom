@@ -30,7 +30,8 @@ try {
   await page.getByRole('combobox', { name: '搜索城市或时区' }).fill('Asia/Shanghai')
   await page.keyboard.press('Enter')
   assert.match(await page.getByRole('button', { name: '工作区时区' }).innerText(), /Asia\/Shanghai/)
-  await page.getByLabel('三个月周期的起点', { exact: true }).selectOption('custom')
+  await page.getByRole('combobox', { name: '三个月周期的起点', exact: true }).click()
+  await page.getByRole('option', { name: '自选日期…', exact: true }).click()
   await page.getByLabel('自选起点日期', { exact: true }).fill('2026-01-31')
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
   // 可选 Jev 步骤：两个同样可见的按钮，跳过后直接进入看板，不生成任何任务。
