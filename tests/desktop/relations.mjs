@@ -31,7 +31,7 @@ try {
     const create = async (title, horizon, parentId = null, flowColor = null) => (await execute({ type: 'create', title, horizon, flowColor, parentId, expectedParentVersion: parentId ? await version(parentId) : null })).itemId
     const root = await create('副业收入', 'cycle', null, 1)
     const other = await create('自媒体运营', 'cycle', null, 2)
-    const b = await create('上线付费订阅', 'month', root), c = await create('接咨询客户', 'month', root)
+    const b = await create('上线付费订阅', 'month', root), c = await create('接咨询客户：整理报价单、约三次访谈，并沉淀成可复用的咨询方案模板、交付清单和复盘记录，再同步到官网案例页', 'month', root)
     await create('小红书粉丝', 'month', other)
     const d = await create('移动端开发', 'week', b), f = await create('咨询介绍页', 'week', c)
     const j = await create('开发日志', 'day', d)
@@ -65,9 +65,39 @@ try {
   assert.equal(await board.locator('[data-dimmed="true"]').count(), 5, '其他流程与无流程条目原位置灰，不隐藏')
   assert.equal(await board.locator('[data-lit="true"]').count(), 7, '本流程的行铺上流程底色')
   assert.equal(await board.getByRole('button', { name: '剪演示视频', exact: true }).isVisible(), true)
-  // Rows give way to a corridor and keep an opaque ground, so no curve crosses a title.
   const row = await page.locator(`#item-${ids.b}`).evaluate(node => { const style = getComputedStyle(node); return { margin: style.marginRight, ground: style.backgroundColor } })
-  assert.equal(row.margin, '24px'); assert.notEqual(row.ground, 'rgba(0, 0, 0, 0)')
+  // Rows keep their full width while lines are drawn; the opaque ground hides curves passing behind.
+  assert.equal(row.margin, '-8px'); assert.notEqual(row.ground, 'rgba(0, 0, 0, 0)')
+  // Long titles wrap to two lines at most; the checkbox and the line anchors stay on the first line.
+  const tall = await page.locator(`#item-${ids.c}`).evaluate(node => {
+    const r = node.getBoundingClientRect(), title = node.querySelector('.task-title > span'), board = node.closest('.board').getBoundingClientRect()
+    const anchor = r.top - board.top + 24
+    return { height: Math.round(r.height), lines: Math.round(title.getBoundingClientRect().height / 22), clipped: title.scrollHeight > title.clientHeight + 1,
+      check: Math.round(node.querySelector('.check').getBoundingClientRect().top - r.top - 2), anchored: [...document.querySelectorAll('.relation-port')].some(port => Math.abs(Number(port.getAttribute('cy')) - anchor) < 1) }
+  })
+  assert.deepEqual(tall, { height: 70, lines: 2, clipped: true, check: 13, anchored: true })
+  // Neighbouring tinted rows keep a clear band between their grounds instead of merging into one block.
+  const band = await page.evaluate(([upper, lower]) => {
+    const a = document.getElementById(`item-${upper}`), b = document.getElementById(`item-${lower}`)
+    const inset = node => parseFloat(getComputedStyle(node).borderTopWidth)
+    const groundEnd = a.getBoundingClientRect().bottom - inset(a), nextGround = b.getBoundingClientRect().top + inset(b)
+    const rule = a.querySelector('.task-line').getBoundingClientRect().bottom + 3
+    return { band: Math.round(nextGround - groundEnd), ruleInBand: rule > groundEnd && rule <= nextGround }
+  }, [ids.b, ids.c])
+  // The dashed rule lives in that band, so hover and tint never cover it.
+  assert.deepEqual(band, { band: 4, ruleInBand: true })
+  // Hover and tint paint only the ground, never the band, so the dashed rule above stays visible.
+  await page.locator(`#item-${ids.c} .task-title`).hover()
+  assert.deepEqual(await page.evaluate(ids => ids.map(id => getComputedStyle(document.getElementById(`item-${id}`)).backgroundClip), [ids.b, ids.c]), ['padding-box', 'padding-box'])
+  await page.mouse.move(5, 5)
+  // Columns keep a comfortable width, and a row's ground sits 8px from both column rules.
+  const inset = await page.locator(`#item-${ids.d}`).evaluate(node => {
+    const column = node.closest('.board-column').getBoundingClientRect(), r = node.getBoundingClientRect()
+    // The column draws its own 1px rule on the left; the right rule belongs to the next column.
+    return { width: Math.round(column.width), left: Math.round(r.left - column.left - 1), right: Math.round(column.right - r.right) }
+  })
+  assert.ok(inset.width >= 356, `column width ${inset.width}`)
+  assert.deepEqual([inset.left, inset.right], [8, 8])
   await page.waitForTimeout(1000)
   const dimmedTitle = await board.getByRole('button', { name: '剪演示视频', exact: true }).evaluate(node => getComputedStyle(node.closest('.task-line')).opacity)
   assert.equal(dimmedTitle, '0.28')
@@ -193,7 +223,9 @@ try {
   await settings.waitFor({ state: 'hidden' })
   assert.equal(await board.locator('.relation-lines').count(), 0)
   assert.equal(await page.getByRole('button', { name: '只看 副业收入', exact: true }).getAttribute('aria-pressed'), 'true', '筛选仍在，只是不画线')
-  assert.equal(await page.locator(`#item-${ids.b}`).evaluate(node => getComputedStyle(node).marginRight), '-8px', '关闭后不留走廊')
+  assert.equal(await page.locator(`#item-${ids.b}`).evaluate(node => getComputedStyle(node).marginRight), '-8px', '关闭后行宽不变')
+  const even = await page.locator(`#item-${ids.b}`).evaluate(node => { const column = node.closest('.board-column').getBoundingClientRect(), r = node.getBoundingClientRect(); return [Math.round(r.left - column.left - 1), Math.round(column.right - r.right)] })
+  assert.deepEqual(even, [8, 8], '行底色左右离两侧竖线对等')
   assert.equal(await page.evaluate(() => localStorage.getItem('goalloom.relationLines')), 'false')
   assert.equal(await page.getByRole('banner').getByText('关系线').count(), 0, '顶栏没有关系线入口')
   await page.reload()
