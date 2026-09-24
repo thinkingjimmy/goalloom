@@ -80,6 +80,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: default; }
+button:not(:disabled), summary, select:not(:disabled) { cursor: pointer; }
 button, a, input, select, textarea, summary, [role='dialog'] { -webkit-app-region: no-drag; }
 button:disabled { opacity: .4; }
 button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
@@ -162,7 +163,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .task-row[data-dimmed='true'] { opacity: .28; }
 .task-row.dragging { opacity: .3; }
 /* Rows open on click and drag on press: point on hover, grab on the handle, grabbing everywhere while a drag is live. */
-.task-row, .task-row button:not(:disabled) { cursor: pointer; }
+.task-row { cursor: pointer; }
 .task-row .drag-handle:not(:disabled) { cursor: grab; }
 :root[data-dragging='true'], :root[data-dragging='true'] * { cursor: grabbing !important; }
 .task-line { flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed var(--line); }
@@ -227,7 +228,6 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .menu-checkbox, .menu-checkbox-gap { width: 16px; height: 16px; flex-shrink: 0; }
 .menu-checkbox { display: grid; place-items: center; box-sizing: border-box; border-radius: 5px; border: 1.5px solid var(--faint); color: var(--bg); }
 [aria-checked='true'] > .menu-checkbox { border: 0; background: var(--fg); }
-.menu-item:disabled { cursor: default; }
 .menu-item:disabled > .menu-checkbox { opacity: .45; }
 .menu-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .menu-hint { flex-shrink: 0; font-size: 12px; color: var(--secondary); }
@@ -380,8 +380,6 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
 /* Inline padding keeps focus outlines from being clipped by the scroll container. */
 .setup-page { flex: 1; min-height: 0; overflow-y: auto; width: min(468px, calc(100% - 40px)); margin: 0 auto; padding: 8vh 4px 48px; }
 
-/* The app keeps native default cursors; the title bar is a link-like surface, so its controls point. */
-.titlebar button:not(:disabled) { cursor: pointer; }
 /* --- Shared settings-style buttons (settings, composer, Jev step); the settings dialog itself lives in features/shell/settings/settings.css. --- */
 .inline-link { color: var(--focus); font-size: inherit; }
 .inline-link:hover { text-decoration: underline; }

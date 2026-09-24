@@ -117,16 +117,13 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
     {!preview && section === 'done' && <Segmented label={messages.endingFilter} value={ending} onChange={setEnding}
       options={endings.map(value => ({ value, label: endingLabels()[value], count: counts?.[value] }))} />}
   </>
-  const actions = !preview && section === 'shortcuts'
-    ? <button type="button" className="settings-button" disabled={!shortcuts.customized} onClick={shortcuts.reset}>{shortcutMessages.restore}</button>
-    : undefined
   const items = section === 'done' ? ending : section === 'trash' ? 'trash' : null
   const status = <>
     {error && <p className="settings-alert" role="alert">{error}</p>}
     {working && <p className="settings-footnote" role="status">{messages.checkingData}</p>}
   </>
 
-  return <Modal title={messages.settings} heading={heading} actions={actions} close={() => void dismiss()} className="settings-modal">
+  return <Modal title={messages.settings} heading={heading} close={() => void dismiss()} className="settings-modal">
     <nav className="settings-nav" aria-label={messages.settingsSections} data-locked={!!preview}>
       <p className="settings-nav-title">{messages.settings}</p>
       {groups().map(group => <div key={group.label} className="settings-nav-group">
