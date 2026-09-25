@@ -5,6 +5,10 @@
 ```text
 scripts/
 ├── test.mjs                   # 用锁定 Electron 自带 Node 运行 Vitest
+├── eval/                      # 智能输入真实服务评测（需 .env.local 中的 OPENROUTER_API_KEY，不进 CI）
+│   ├── cases.ts               # 固定参考日的中文样例与期望预览
+│   ├── smart.ts               # 走产品真实 planQuestions/adapter/buildPreview，输出 output/eval 报告
+│   └── run.mjs                # esbuild 打包后运行；`pnpm eval:smart [case-id…]`
 └── build/
     ├── third-party-notices.mjs # 汇总安装依赖原始许可证，随离线包交付
     ├── check-production.mjs    # 无 HMR/测试入口/第二图标库，preload 只外部依赖 electron

@@ -67,6 +67,8 @@ export type RelationSuggestion = z.infer<typeof relationSuggestionSchema>
 export const previewDraftSchema = z.strictObject({
   draftId: idSchema, source: z.string(), title: z.string().max(500), description: z.string().max(100_000), roleCertain: z.boolean(),
   horizon: suggestion(horizonChoiceSchema), due: suggestion(dateSchema.nullable()),
+  // Jev's guess when the text states no execution time; never overrides a written one.
+  inferredHorizon: suggestion(horizonSchema).nullable(),
 })
 export type PreviewDraft = z.infer<typeof previewDraftSchema>
 export const warningSchema = z.strictObject({ kind: z.enum(['reminder', 'repeat', 'clock_time', 'future', 'ambiguous_date', 'relations_partial', 'precision', 'layout']), draftId: idSchema.nullable(), text: z.string().max(300) })
