@@ -46,6 +46,7 @@ const en = {
       m1: 'Finish the site & downloads', m2: 'Test both platform builds', m3: 'Run 25 km a week', m4: 'Cancel two unused subscriptions',
       w1: 'Write the site copy', w2: 'Record the demo video', w3: 'Test on Windows hardware', w4: 'Saturday long run, 12 km', w5: 'Call Mom and Dad',
       d1: 'Lock the homepage headline', d2: 'Cut a 30-second demo', d3: 'Morning run, 5 km', d4: 'Reply to the landlord', d5: 'Pay the utility bill',
+      q4: 'Read six books', m5: 'Book flights for the trip', w6: 'Compare flight prices', d6: 'Book a dentist visit',
       n1: 'Illustrate the site’s hero', n2: 'Lock the homepage headline',
     },
     complete: 'Complete: ',
@@ -82,6 +83,7 @@ const en = {
     em2: 'too little to hesitate',
     after: '.',
     author: 'Jimmy · maker of Goalloom',
+    authorUrl: 'https://x.com/hellojimmywong',
   },
   okr: {
     eyebrow: 'OKR · To-do',

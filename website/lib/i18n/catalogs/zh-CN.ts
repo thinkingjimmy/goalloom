@@ -46,6 +46,7 @@ const zhCN: SiteCatalog = {
       m1: '完成官网与下载页', m2: '双平台打包验收', m3: '每周跑量到 25 km', m4: '取消两个闲置订阅',
       w1: '写官网文案', w2: '录演示视频', w3: 'Windows 实机验收', w4: '周六长距离 12 km', w5: '给爸妈打个电话',
       d1: '定稿首页标题', d2: '剪 30 秒演示', d3: '晨跑 5 km', d4: '回复房东邮件', d5: '交水电费',
+      q4: '读完 6 本书', m5: '订好旅行机票', w6: '比较机票价格', d6: '预约牙医',
       n1: '给官网配一张首屏插画', n2: '把首页标题定下来',
     },
     complete: '完成：',
@@ -81,6 +82,7 @@ const zhCN: SiteCatalog = {
     em2: '低到不用犹豫',
     after: '。',
     author: 'Jimmy · Goalloom 作者',
+    authorUrl: 'https://x.com/thinkingjimmy',
   },
   okr: {
     eyebrow: 'OKR · Todo',

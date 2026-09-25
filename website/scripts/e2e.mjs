@@ -90,6 +90,9 @@ try {
   await page.goto(`${base}/zh-CN/`)
   await page.waitForLoadState('networkidle')
 
+  await check('maker note links the author on X (Chinese account)', async () => {
+    assert(await page.locator('.note-author').getAttribute('href') === 'https://x.com/thinkingjimmy', 'zh author link')
+  })
   await check('hero at rest: full-bleed desktop, header band hidden and inert', async () => {
     const state = await page.evaluate(() => {
       const stage = document.querySelector('.stage'), band = document.querySelector('.stage-band')
@@ -224,6 +227,11 @@ try {
   await check('no runtime errors on the desktop page', async () => assert(errors.length === 0, errors.join('\n')))
   await page.goto(`${base}/`)
   await shot(page, 'desktop-en-hero')
+  await check('maker note links the author on X (English account) with the avatar', async () => {
+    const author = page.locator('.note-author')
+    assert(await author.getAttribute('href') === 'https://x.com/hellojimmywong', 'author link')
+    assert(await author.locator('img.avatar').evaluate(img => img.complete && img.naturalWidth > 0), 'avatar not loaded')
+  })
   await check('language menu links every locale', async () => {
     const hrefs = await page.locator('.stage-head .menu-panel a').evaluateAll(links => links.map(link => link.getAttribute('href')))
     for (const [, path] of LOCALES) assert(hrefs.includes(path), `missing ${path}`)

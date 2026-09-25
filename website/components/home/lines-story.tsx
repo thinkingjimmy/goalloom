@@ -33,7 +33,8 @@ const CASES: { filter: FlowId | null; hover: ItemId | null; cursor?: { left: num
   { filter: 'a', hover: 'm1', cursor: { left: 176, top: 142 } },
   { filter: null, hover: null },
 ]
-const ITEMS = SEED.filter(item => SHOWN.includes(item.horizon) && item.id !== 'm4' && item.id !== 'd5')
+// The figure keeps a compact slice of the board; the hero shows the full, lived-in one.
+const ITEMS = SEED.filter(item => SHOWN.includes(item.horizon) && !['m4', 'm5', 'w6', 'd5', 'd6'].includes(item.id))
 
 function Chips({ copy, active, keys }: { copy: LinesCopy; active: FlowId | null; keys: boolean }) {
   return (

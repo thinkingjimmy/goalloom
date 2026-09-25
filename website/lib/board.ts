@@ -11,20 +11,21 @@ export const HORIZONS = ['cycle', 'month', 'week', 'day'] as const
 export type Horizon = (typeof HORIZONS)[number]
 export const FLOWS = ['a', 'b', 'c'] as const
 export type FlowId = (typeof FLOWS)[number]
-export type ItemId = 'q1' | 'q2' | 'q3' | 'm1' | 'm2' | 'm3' | 'm4' | 'w1' | 'w2' | 'w3' | 'w4' | 'w5' | 'd1' | 'd2' | 'd3' | 'd4' | 'd5' | 'n1' | 'n2'
+export type ItemId = 'q1' | 'q2' | 'q3' | 'm1' | 'm2' | 'm3' | 'm4' | 'w1' | 'w2' | 'w3' | 'w4' | 'w5' | 'd1' | 'd2' | 'd3' | 'd4' | 'd5' | 'q4' | 'm5' | 'w6' | 'd6' | 'n1' | 'n2'
 
 export type DemoItem = { id: ItemId; horizon: Horizon; flow?: FlowId; parents?: ItemId[]; done?: boolean }
 
 export const SEED: readonly DemoItem[] = [
-  { id: 'q1', horizon: 'cycle', flow: 'a' }, { id: 'q2', horizon: 'cycle', flow: 'b' }, { id: 'q3', horizon: 'cycle', flow: 'c' },
+  { id: 'q1', horizon: 'cycle', flow: 'a' }, { id: 'q2', horizon: 'cycle', flow: 'b' }, { id: 'q3', horizon: 'cycle', flow: 'c' }, { id: 'q4', horizon: 'cycle' },
   { id: 'm1', horizon: 'month', flow: 'a', parents: ['q1'] }, { id: 'm2', horizon: 'month', flow: 'a', parents: ['q1'] },
   { id: 'm3', horizon: 'month', flow: 'b', parents: ['q2'] }, { id: 'm4', horizon: 'month', flow: 'c', parents: ['q3'] },
+  { id: 'm5', horizon: 'month', flow: 'c', parents: ['q3'] },
   { id: 'w1', horizon: 'week', flow: 'a', parents: ['m1'] }, { id: 'w2', horizon: 'week', flow: 'a', parents: ['m1'] },
   { id: 'w3', horizon: 'week', flow: 'a', parents: ['m2'] }, { id: 'w4', horizon: 'week', flow: 'b', parents: ['m3'] },
-  { id: 'w5', horizon: 'week' },
+  { id: 'w6', horizon: 'week', flow: 'c', parents: ['m5'] }, { id: 'w5', horizon: 'week' },
   { id: 'd1', horizon: 'day', flow: 'a', parents: ['w1'] }, { id: 'd2', horizon: 'day', flow: 'a', parents: ['w2'] },
   // d3 skips the week on purpose: a relation may cross more than one horizon and then draws dashed.
-  { id: 'd3', horizon: 'day', flow: 'b', parents: ['m3'] }, { id: 'd4', horizon: 'day' }, { id: 'd5', horizon: 'day', done: true },
+  { id: 'd3', horizon: 'day', flow: 'b', parents: ['m3'] }, { id: 'd4', horizon: 'day' }, { id: 'd6', horizon: 'day' }, { id: 'd5', horizon: 'day', done: true },
 ]
 
 export type RowState = 'plain' | 'lit' | 'hot' | 'out' | 'dim'

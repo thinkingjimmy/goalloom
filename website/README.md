@@ -2,7 +2,7 @@
 
 Next.js 16 App Router · React 19 · TypeScript · 纯 CSS · Hugeicons · 静态导出（`output: 'export'`）
 
-> 父级：[../README.md](../README.md)。产品规则、工程契约、TODO 与验收的唯一来源：[docs/features/website.md](../docs/features/website.md)；本文件只做目录导航与命令。
+> 父级：[项目地图](../docs/development.md)。产品规则、工程契约、TODO 与验收的唯一来源：[docs/features/website.md](../docs/features/website.md)；本文件只做目录导航与命令。
 
 官网是营销页，不是第二份产品实现：演示复刻产品可见的规则与尺寸（纸感 token、48px 行、18px 复选框、关系线几何、composer 的单条建议句式），产品行为仍归 `src/`。
 

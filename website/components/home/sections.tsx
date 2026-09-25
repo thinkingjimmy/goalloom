@@ -55,7 +55,9 @@ export function MakerNote({ t }: Props) {
     <Reveal className="note" aria-label={t.note.eyebrow}>
       <p className="eyebrow">{t.note.eyebrow}</p>
       <p className="note-quote">{t.note.before}<em>{t.note.em1}</em>{t.note.middle}<em>{t.note.em2}</em>{t.note.after}</p>
-      <p className="note-author"><span className="avatar" aria-hidden="true">J</span>{t.note.author}</p>
+      <a className="note-author" href={t.note.authorUrl} target="_blank" rel="me noopener noreferrer">
+        <img className="avatar" src="/avatar.jpg" alt="" width={28} height={28} />{t.note.author}
+      </a>
     </Reveal>
   )
 }

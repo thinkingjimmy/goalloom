@@ -63,7 +63,7 @@ export function Board({ horizons, items, rows, edges, copy, interaction, newId, 
               <h3>{copy.horizons[horizon]}</h3>
               <span className="bmeta">{copy.meta[horizon]}</span>
               {headActions && <>
-                <span className="ib sm" aria-hidden="true"><Icon name="history" size={16} /></span>
+                <span className="ib sm ib-history" aria-hidden="true"><Icon name="history" size={16} /></span>
                 {interaction
                   ? <button type="button" className="ib sm" aria-label={copy.addIn + copy.horizons[horizon]} onClick={interaction.onAdd}><Icon name="add" size={16} /></button>
                   : <span className="ib sm" aria-hidden="true"><Icon name="add" size={16} /></span>}

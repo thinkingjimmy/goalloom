@@ -25,7 +25,9 @@ button.ib.sm:hover { color: var(--secondary); }
 /* --- Board --- */
 .board { position: relative; padding: 0 8px; font-size: 14px; }
 .board-grid { position: relative; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); }
-.bcol { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 4px 20px 0; border-left: 1px solid var(--hairline); }
+.bcol { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 4px 20px 0; border-left: 1px solid var(--hairline); container-type: inline-size; }
+/* A narrow column gives the period dates the room of the decorative history icon; the + stays. */
+@container (max-width: 236px) { .bhead .ib-history { display: none; } }
 .bcol:first-child { border-left: 0; }
 .bhead { height: 40px; display: flex; align-items: center; gap: 8px; }
 .bhead h3 { font-size: 15px; font-weight: 600; white-space: nowrap; }

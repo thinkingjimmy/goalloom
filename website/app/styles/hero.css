@@ -47,7 +47,10 @@
 .menubar .spacer { flex: 1; }
 .menubar .clock { font-variant-numeric: tabular-nums; }
 .window {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -46%); width: min(1100px, calc(100% - 96px)); height: min(560px, calc(100% - 200px));
+  /* A real Mac window is about 16:10. Height leads (it must clear the menu bar and the scene switcher), width follows,
+     and the side margins cap it on narrow desktops; the centre sits a little high to leave the switcher its own band. */
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, calc(-50% - 24px));
+  height: min(680px, calc(100% - 180px)); aspect-ratio: 16 / 10; max-width: calc(100% - 96px);
   border-radius: 12px; background: var(--bg); color: var(--fg); box-shadow: var(--shadow-win); overflow: hidden; display: flex; flex-direction: column;
 }
 .window .board { flex: 1; min-height: 0; }

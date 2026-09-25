@@ -46,6 +46,7 @@ const es: SiteCatalog = {
       m1: 'Terminar la web y las descargas', m2: 'Probar ambas versiones', m3: 'Correr 25 km por semana', m4: 'Cancelar dos suscripciones',
       w1: 'Escribir los textos de la web', w2: 'Grabar el vídeo demo', w3: 'Probar en un equipo Windows', w4: 'Tirada larga del sábado, 12 km', w5: 'Llamar a mis padres',
       d1: 'Cerrar el titular de la portada', d2: 'Editar una demo de 30 s', d3: 'Correr 5 km por la mañana', d4: 'Responder al casero', d5: 'Pagar la luz',
+      q4: 'Leer seis libros', m5: 'Reservar los vuelos del viaje', w6: 'Comparar precios de vuelos', d6: 'Pedir cita con el dentista',
       n1: 'Ilustrar la portada de la web', n2: 'Cerrar el titular de la portada',
     },
     complete: 'Completar: ',
@@ -81,6 +82,7 @@ const es: SiteCatalog = {
     em2: 'tan poco que no haya que dudar',
     after: '.',
     author: 'Jimmy · creador de Goalloom',
+    authorUrl: 'https://x.com/hellojimmywong',
   },
   okr: {
     eyebrow: 'OKR · Tareas',
