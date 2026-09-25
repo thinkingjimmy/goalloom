@@ -1,6 +1,6 @@
 # contracts/
 
-> 父级：[项目地图](../../../README.md)。不可信 IPC/导入的数据边界。
+> 父级：[项目地图](../../../docs/development.md)。不可信 IPC/导入的数据边界。
 
 ```text
 contracts/

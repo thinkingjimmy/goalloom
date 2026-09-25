@@ -1,6 +1,6 @@
 # domain/
 
-> 父级：[项目地图](../../README.md)。纯领域库，不依赖 Electron、SQLite 或全局时钟。
+> 父级：[项目地图](../../docs/development.md)。纯领域库，不依赖 Electron、SQLite 或全局时钟。
 
 ```text
 domain/

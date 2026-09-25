@@ -1,6 +1,6 @@
 # i18n/
 
-> L2 | 父级：[项目地图](../../../README.md)。main、存储 worker、domain 与 renderer 共用的语言边界。
+> L2 | 父级：[项目地图](../../../docs/development.md)。main、存储 worker、domain 与 renderer 共用的语言边界。
 
 ```text
 i18n/

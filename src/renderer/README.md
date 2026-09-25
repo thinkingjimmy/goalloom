@@ -1,6 +1,6 @@
 # renderer/
 
-> 父级：[项目地图](../../README.md)。只消费 `window.goalloom` 的 React 视图。
+> 父级：[项目地图](../../docs/development.md)。只消费 `window.goalloom` 的 React 视图。
 
 ```text
 renderer/

@@ -1,6 +1,6 @@
 # scripts/
 
-> 父级：[项目地图](../README.md)。运行器和构建工具，不进入正式包；测试场景归属 tests。
+> 父级：[项目地图](../docs/development.md)。运行器和构建工具，不进入正式包；测试场景归属 tests。
 
 ```text
 scripts/

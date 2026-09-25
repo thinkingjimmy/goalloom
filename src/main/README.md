@@ -1,6 +1,6 @@
 # main/
 
-> 父级：[项目地图](../../README.md)。Electron 组合与本地安全边界。
+> 父级：[项目地图](../../docs/development.md)。Electron 组合与本地安全边界。
 
 ```text
 main/
