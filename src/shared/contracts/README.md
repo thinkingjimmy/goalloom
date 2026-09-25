@@ -6,7 +6,6 @@
 contracts/
 ├── entities.ts   # 工作区、实体 summary/detail、唯一位置、DAG 边和周期 schema
 ├── wire-calendar.ts # Gregorian 日期与 IANA 时区的轻量边界校验，不引入 Temporal
-├── validation-metrics.ts # 默认关闭的 preload 日期校验数值计时
 ├── commands.ts   # 有限写命令（含 createPlan/ParentRef）、代次/版本、错误与操作结果（计划多 itemIds）
 ├── effects.ts    # 不可变效果描述和不含正文的历史事件
 ├── history.ts    # 严格事件、期末投影、后续活动和历史分页

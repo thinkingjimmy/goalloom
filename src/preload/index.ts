@@ -1,11 +1,10 @@
 /**
  * [INPUT]: Sandboxed Electron bridge and shared wire schemas.
- * [OUTPUT]: Fixed window.goalloom API with validated responses and optional numeric timings.
+ * [OUTPUT]: Fixed window.goalloom API with validated responses.
  * [POS]: Only renderer/main bridge; no Node capabilities, generic channels or file paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { z } from 'zod'
-import { beginValidationMetrics, endValidationMetrics } from '../shared/contracts/validation-metrics'
 import { contextBridge, ipcRenderer } from 'electron'
 import { languageChannel, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
 import { activitySummarySchema, backupSummarySchema, itemCountsSchema, detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
@@ -22,14 +21,7 @@ async function language(reply: Promise<unknown>) {
 }
 
 async function query<T>(input: unknown, schema: z.ZodType<T>): Promise<T> {
-  const start = performance.now()
-  const reply = await ipcRenderer.invoke('goalloom:query', input) as { value: unknown; trace: string | null }
-  const received = performance.now()
-  beginValidationMetrics(Boolean(reply.trace))
-  const value = schema.parse(reply.value)
-  const parsed = performance.now(), dates = endValidationMetrics()
-  if (reply.trace) console.debug('goalloom:performance', JSON.stringify({ stage: 'preload', trace: reply.trace, invokeMs: received - start, parseMs: parsed - received, ...dates }))
-  return value
+  return schema.parse(await ipcRenderer.invoke('goalloom:query', input))
 }
 
 const readQuery = query

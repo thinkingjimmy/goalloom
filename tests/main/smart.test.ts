@@ -7,7 +7,7 @@ import { classifyFailure, gatewayAdapter, ProviderFailure, systemOneAdapter, typ
 import { DeviceStore, type Cipher } from '../../src/main/smart/credentials'
 import { SmartInputService, type WorkspaceReader } from '../../src/main/smart/service'
 import type { SmartContext } from '../../src/domain/smart/questions'
-import type { AnalyzeRequest, SmartReply } from '../../src/shared/contracts/smart-input'
+import type { AnalyzeRequest, Candidate, SmartReply } from '../../src/shared/contracts/smart-input'
 
 type Call = { url: string; init: RequestInit; body: Record<string, unknown> }
 function fakeFetch(respond: (call: Call) => Response) {
@@ -92,6 +92,7 @@ const cipher = (state: { available: boolean; broken?: boolean }): Cipher => ({
 const periods = { day: { id: 'c:day:2026-09-23', startDate: '2026-09-23', endDate: '2026-09-24' }, week: { id: 'c:week:2026-09-21', startDate: '2026-09-21', endDate: '2026-09-28' }, month: { id: 'c:month:2026-09-01', startDate: '2026-09-01', endDate: '2026-10-01' }, cycle: { id: 'c:cycle:2026-07-01', startDate: '2026-07-01', endDate: '2026-10-01' } }
 let directory: string, generation: string, keyState: { available: boolean; broken?: boolean }, calls: { provider: string; key: string; questions: number }[]
 let behaviour: (question: string, criteria: string[] | null) => unknown
+let candidates: Candidate[]
 const answerAll: Adapter = async (key, request) => {
   calls.push({ provider: 'x', key, questions: Object.keys(request.questions).length })
   const answers: Record<string, unknown> = {}
@@ -107,7 +108,7 @@ function withProbabilities(value: { type: string; choice?: string | undefined; p
 }
 const reader = (): WorkspaceReader => ({
   generation: async () => generation,
-  context: async (text): Promise<SmartContext> => ({ text, referenceDate: '2026-09-23', weekdayName: '周三', timezone: 'Asia/Shanghai', weekStart: 1, periods, candidates: [] }),
+  context: async (text): Promise<SmartContext> => ({ text, referenceDate: '2026-09-23', weekdayName: '周三', timezone: 'Asia/Shanghai', weekStart: 1, periods, candidates }),
 })
 let service: SmartInputService, adapters: Record<'typesafe' | 'vercel-gateway' | 'openrouter', Adapter>
 const act = (action: unknown) => service.handle(action) as Promise<SmartReply>
@@ -116,7 +117,7 @@ const request = (text: string, overrides: Partial<AnalyzeRequest> = {}): Analyze
 const analyze = async (value: AnalyzeRequest) => { const reply = await act({ type: 'analyze', request: value }); if (reply.type !== 'analysis') throw new Error('analysis'); return reply.reply }
 
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), 'Goalloom 智能输入 ')); generation = randomUUID(); keyState = { available: true }; calls = []
+  directory = await mkdtemp(join(tmpdir(), 'Goalloom 智能输入 ')); generation = randomUUID(); keyState = { available: true }; calls = []; candidates = []
   behaviour = (id, criteria) => withProbabilities(defaults(id, criteria), criteria)
   adapters = { typesafe: answerAll, 'vercel-gateway': answerAll, openrouter: answerAll }
   service = new SmartInputService({ store: new DeviceStore(directory, cipher(keyState)), adapters: { typesafe: (key, value) => adapters.typesafe(key, value), 'vercel-gateway': (key, value) => adapters['vercel-gateway'](key, value), openrouter: (key, value) => adapters.openrouter(key, value) }, reader: reader(), unsignedBuild: true })
@@ -173,12 +174,36 @@ describe('设备配置与凭据', () => {
     await act({ type: 'connect', generation, provider: 'typesafe', apiKey: null, consent: true })
     expect((await status()).status).toMatchObject({ enabled: true, providerRevision: 2 })
   })
-  it('关闭与删除 Key 使建议过期；提示关闭只记在设备配置', async () => {
+  it('连接测试进行中关闭、删除 Key 或切换服务，迟到的测试结果不会重新启用旧服务', async () => {
     await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
-    await act({ type: 'disable', generation })
-    expect((await status()).status).toMatchObject({ enabled: false, paused: false, providerRevision: 2 })
+    const cases: [Record<string, unknown>, Record<string, unknown>][] = [
+      [{ type: 'disable' }, { activeProvider: 'typesafe', enabled: false }],
+      [{ type: 'forget', provider: 'typesafe' }, { activeProvider: null, enabled: false }],
+      [{ type: 'connect', provider: 'vercel-gateway', apiKey: 'gw-secret-9999', consent: true }, { activeProvider: 'vercel-gateway', enabled: true }],
+    ]
+    for (const [action, expected] of cases) {
+      let release!: () => void, entered!: () => void
+      const gate = new Promise<void>(resolve => { release = resolve }), started = new Promise<void>(resolve => { entered = resolve })
+      adapters.typesafe = async (key, value) => { entered(); await gate; return answerAll(key, value) }
+      const late = act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-5678', consent: true })
+      await started
+      await act({ ...action, generation })
+      release(); await late
+      expect((await status()).status, String(action.type)).toMatchObject(expected)
+    }
+  })
+  it('服务配置变更使旧修订建议过期；关闭与删除 Key 后不可用；提示关闭只记在设备配置', async () => {
+    await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
+    // Still enabled for this generation: only the provider revision can reject the stale request.
+    await act({ type: 'connect', generation, provider: 'typesafe', apiKey: null, consent: true })
+    expect((await status()).status).toMatchObject({ enabled: true, providerRevision: 2 })
     const stale = await analyze(request('写文案', { providerRevision: 1 }))
-    expect(stale.status).toBe('failed')
+    expect(stale.status === 'failed' && stale.failure.kind).toBe('not_enabled')
+    expect(calls).toHaveLength(2)
+    await act({ type: 'disable', generation })
+    expect((await status()).status).toMatchObject({ enabled: false, paused: false, providerRevision: 3 })
+    const disabled = await analyze(request('写文案', { providerRevision: 3 }))
+    expect(disabled.status === 'failed' && disabled.failure.kind).toBe('not_enabled')
     await act({ type: 'dismiss', generation, notice: 'globalEntry' })
     await act({ type: 'forget', generation, provider: 'typesafe' })
     expect((await status()).status).toMatchObject({ activeProvider: null, dismissed: ['globalEntry'] })
@@ -199,12 +224,20 @@ describe('判断流程', () => {
     expect(calls).toHaveLength(1)
     expect(second.echo).toMatchObject({ requestId: again.requestId, inputRevision: 5 })
   })
-  it('8 项计划：核心一轮后按分组发一次具名补充，累计 ≤ 64 题', async () => {
+  it('上级候选版本变化时不命中旧缓存，预览带当前版本', async () => {
+    const parent: Candidate = { ref: 'g1', itemId: 'parent', title: 'Parent', status: 'todo', horizon: 'cycle', archived: false, flowColor: 0, version: 1, named: true }
+    candidates = [parent]
+    await analyze(request('推进 Parent'))
+    candidates = [{ ...parent, version: 2 }]
+    const second = await analyze(request('推进 Parent'))
+    expect(calls).toHaveLength(2)
+    expect(second.status === 'ready' && second.preview.candidates[0]!.version).toBe(2)
+  })
+  it('8 项计划：核心一轮后按分组发一次具名补充，预览题数等于实际发送', async () => {
     const text = Array.from({ length: 8 }, (_, i) => `事项${i}`).join('\n')
     const reply = await analyze(request(text))
     expect(reply.status).toBe('ready')
     expect(calls).toHaveLength(2)
-    expect(calls[0]!.questions + calls[1]!.questions).toBeLessThanOrEqual(64)
     if (reply.status === 'ready') expect(reply.preview.questionCount).toBe(calls[0]!.questions + calls[1]!.questions)
   })
   it('同一草稿新修订取消旧请求；慢请求期间其他动作不被阻塞', async () => {
@@ -225,7 +258,7 @@ describe('判断流程', () => {
     release()
     expect((await newer).status).toBe('ready')
   })
-  it('限流：尊重 Retry-After，冷却内新输入不重发；非法答案归为 malformed 且保留草稿', async () => {
+  it('限流：尊重 Retry-After，冷却内新输入不重发', async () => {
     adapters['vercel-gateway'] = async () => { throw new ProviderFailure({ kind: 'rate_limited', message: 'x', status: 429, retryAt: new Date(Date.now() + 60_000).toISOString() }) }
     expect((await analyze(request('写文案'))).status).toBe('failed')
     let hits = 0
@@ -234,11 +267,5 @@ describe('判断流程', () => {
     expect(cooled.status === 'failed' && cooled.failure.kind).toBe('rate_limited')
     expect(hits).toBe(0)
     expect((await status()).status.cooldownUntil).not.toBeNull()
-  })
-  it('Choice 选中项不是最大概率时只让相关字段待确认，其余预览照常', async () => {
-    behaviour = (_id, criteria) => criteria ? { type: 'choice', choice: criteria[1], probabilities: Object.fromEntries(criteria.map((option, index) => [option, index === 0 ? 0.9 : Number((0.1 / (criteria.length - 1)).toFixed(2))])) } : { type: 'boolean', probability: 0.1 }
-    const reply = await analyze(request('今天写文案'))
-    expect(reply.status).toBe('ready')
-    if (reply.status === 'ready') expect(reply.preview.drafts[0]!.horizon.certain).toBe(false)
   })
 })

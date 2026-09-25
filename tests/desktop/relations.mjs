@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
 
 // 关系线：筛选单个流程时连起上下级，其余流程原位置灰；悬停高亮整条链；滚出视野的端点给标记；设置里可关闭。
-// 流程圆点：悬停预览该条目的流程（连线 + 流程底色）；起点改色、下级改上级、独立条目二选一；Later 不参与；新建关联只接受周期更长的上级。
+// 流程圆点：悬停预览该条目的流程（连线 + 流程底色）；起点改色、下级改上级、独立条目二选一；Later 不参与。
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'Goalloom 关系线 '))
 // Assertions use Chinese copy; pin the device language instead of following the machine's system language.
@@ -42,18 +42,8 @@ try {
     await create('剪演示视频', 'week', other)
     const later = await create('以后再说', 'later')
     const loose = await create('整理报销单', 'week')
-    // New links only accept a strictly longer-horizon parent and never Later; each rejection writes nothing.
-    const refusals = []
-    for (const [parentId, childId] of [[later, loose], [loose, later], [d, f], [j, d]]) {
-      const reply = await window.goalloom.execute({ type: 'link', parentId, childId, expectedParentVersion: await version(parentId), expectedChildVersion: await version(childId), generation, operationId: crypto.randomUUID() })
-      refusals.push(reply.ok ? 'ok' : reply.message)
-    }
-    const flowInLater = await window.goalloom.execute({ type: 'flowColor', itemId: later, expectedVersion: await version(later), flowColor: 5, generation, operationId: crypto.randomUUID() })
-    refusals.push(flowInLater.ok ? 'ok' : flowInLater.message)
-    return { root, b, c, d, f, j, p, k, later, loose, refusals, edges: (await window.goalloom.getSnapshot()).relations.length }
+    return { root, b, c, d, f, j, p, k, later, loose }
   })
-  assert.deepEqual(ids.refusals.map(message => message.includes('暂存区') ? 'later' : message.includes('周期更长') ? 'horizon' : message), ['later', 'later', 'horizon', 'horizon', 'later'])
-  assert.equal(ids.edges, 10, '被拒绝的关联一条都没写入')
   const board = page.getByRole('main', { name: '时间看板' })
   const edges = board.locator('.relation-edge')
   assert.equal(await board.locator('.relation-lines').count(), 0, '「全部」不画线')

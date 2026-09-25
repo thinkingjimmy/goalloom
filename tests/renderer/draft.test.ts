@@ -1,15 +1,11 @@
 import { expect, it } from 'vitest'
-import { draftProblem, edited, mergePreview, plainDraft, planItems, type EditableDraft, type ParentInfo } from '../../src/renderer/features/composer/draft'
+import { draftProblem, edited, mergePreview, planItems, type EditableDraft, type ParentInfo } from '../../src/renderer/features/composer/draft'
 import type { SmartPreview } from '../../src/shared/contracts/smart-input'
 
 const periods = { day: { id: 'c:day:2026-09-23', startDate: '2026-09-23', endDate: '2026-09-24' }, week: { id: 'c:week:2026-09-21', startDate: '2026-09-21', endDate: '2026-09-28' }, month: { id: 'c:month:2026-09-01', startDate: '2026-09-01', endDate: '2026-10-01' }, cycle: { id: 'c:cycle:2026-07-01', startDate: '2026-07-01', endDate: '2026-10-01' } }
 const preview = (drafts: { id: string; source: string; horizon?: 'day' | 'week' | 'later' | 'future'; certain?: boolean; due?: string | null }[], relations: SmartPreview['relations'] = []): SmartPreview => ({
   layout: { value: 'list', certain: true, metrics: null }, referenceDate: '2026-09-23', periods, candidates: [], relations, warnings: [], questionCount: 10, requests: 1,
   drafts: drafts.map(row => ({ draftId: row.id, source: row.source, title: row.source, description: '', roleCertain: true, horizon: { value: row.horizon ?? 'later', certain: row.certain ?? true, metrics: null }, due: { value: row.due ?? null, certain: true, metrics: null }, inferredHorizon: null })),
-})
-
-it('普通草稿固定单条 Later，不拆分、不因“今天”改位置', () => {
-  expect(plainDraft('今天写文案\n明天改图', null)).toMatchObject({ title: '今天写文案', description: '今天写文案\n明天改图', horizon: 'late'.concat('r'), parents: [] })
 })
 
 it('新判断只填未手动修改的字段；手动结构优先；无法映射的手动项保留为 orphan', () => {

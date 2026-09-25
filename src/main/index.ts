@@ -4,7 +4,6 @@
  * [POS]: Application composition root; migrations remain protected before window creation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { metric } from './storage/metrics'
 import { app, BrowserWindow, dialog, powerMonitor, protocol, screen, session } from 'electron'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,8 +18,6 @@ import { protectWindowClose } from './window/close'
 import { createSmartService } from './smart/electron'
 import { serverText } from '../shared/i18n/server'
 
-const mainStarted = performance.now()
-metric('main-start')
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
 const trustedUrl = developmentUrl ?? `${appOrigin}/index.html`
@@ -50,7 +47,7 @@ function visibleKey(meta: WorkspaceMetadata): string {
 function startInitialReconcile(): void {
   if (!firstSnapshotRead || !firstVisible || initialStarted) return
   initialStarted = true
-  void requestReconcile().finally(() => { metric('first-writable', { elapsedMs: performance.now() - mainStarted }); unlockFirstWrite() })
+  void requestReconcile().finally(unlockFirstWrite)
 }
 async function requestReconcile(notifyRevision = true): Promise<void> {
   if (!storage || !initialStarted || reconciling || quitting) return
@@ -113,7 +110,7 @@ async function createWindow(): Promise<void> {
   const changed = () => { if (saving) clearTimeout(saving); saving = setTimeout(persist, 200) }
   window.on('resize', changed); window.on('move', changed)
   window.on('close', persist)
-  window.once('ready-to-show', () => { window?.show(); firstVisible = true; metric('window-visible', { elapsedMs: performance.now() - mainStarted }); startInitialReconcile() })
+  window.once('ready-to-show', () => { window?.show(); firstVisible = true; startInitialReconcile() })
   window.on('focus', () => { void requestReconcile() })
   window.on('closed', () => { window = null })
   await window.loadURL(trustedUrl)

@@ -31,7 +31,7 @@ try {
   await app.evaluate(({ ipcMain }, fixture) => {
     ipcMain.removeHandler('goalloom:query')
     globalThis.wireFixture = fixture
-    ipcMain.handle('goalloom:query', (_, query) => ({ value: query.type === 'item' ? globalThis.wireFixture.detail : globalThis.wireFixture.snapshot, trace: null }))
+    ipcMain.handle('goalloom:query', (_, query) => (query.type === 'item' ? globalThis.wireFixture.detail : globalThis.wireFixture.snapshot))
   }, fixture)
   const valid = ['0000-02-29', '2000-02-29', '2024-02-29', '1900-02-28', '2026-12-31', '9999-12-31']
   const invalid = ['1900-02-29', '2026-02-29', '2026-04-31', '2026-00-01', '2026-13-01', '2026-01-00', '2026-01-32', '+002026-01-01', '26-01-01', '2026-1-01', '2026-01-01junk', '2026-01-01\n', '2026-01-01T00:00:00Z']

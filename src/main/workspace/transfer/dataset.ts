@@ -14,7 +14,6 @@ import { Store } from '../../storage/store'
 import { transaction, verifyDatabase } from '../../storage/database'
 import { requiredTables, schemaVersion, supportedVersions, userVersion } from '../../storage/schema'
 import { datasetHeader, datasetRows } from './rows'
-import { metric } from '../../storage/metrics'
 import { serverText } from '../../../shared/i18n/server'
 
 // Validate each source under its original schema version; only a new export uses the current version.
@@ -46,7 +45,6 @@ async function readSqlite(path: string, now: string, source: 'external' | 'backu
     if (tables.some(row => row.type === 'view') || requiredTables.some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
     verifyDatabase(db)
     const data = readDataset(new Store(db), now, version, keepDescriptions)
-    metric('sqlite-normalized', { items: data.items.length, events: data.events.length })
     return validateDataset(data, now)
   } finally { db.close() }
 }

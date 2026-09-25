@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { dateCandidates, weekDay } from '../../src/domain/smart/dates'
 import { plainLater, segmentSlots } from '../../src/domain/smart/segments'
 import { certainChoice, checkBoolean, checkChoice, ContractError, sumTolerance } from '../../src/domain/smart/distribution'
-import { planQuestions, questionBudget, relationRound, type QuestionPlan, type SmartContext } from '../../src/domain/smart/questions'
+import { estimateTokens, planQuestions, questionBudget, relationRound, type QuestionPlan, type SmartContext } from '../../src/domain/smart/questions'
 import { buildPreview, taskSlots, type Round } from '../../src/domain/smart/preview'
 import { planOrder, planProblem } from '../../src/domain/plan'
 import type { Candidate } from '../../src/shared/contracts/smart-input'
@@ -40,6 +40,21 @@ describe('工作区周与日期候选', () => {
       ['今天', '2026-09-23', false], ['明天', '2026-09-24', false], ['10月8日', '2026-10-08', false],
       ['3月1日', '2027-03-01', true], ['2027-01-05', '2027-01-05', false], ['月底', '2026-09-30', false],
     ])
+  })
+  it('整体日期表达不被截短：月底/大后天/上周五取绝对值，区间只给歧义，越界说法不产生缩短日期', () => {
+    const due = (text: string) => dateCandidates(`${text}前交稿`, '2026-09-24', 1)[0]
+    for (const [text, value] of [['下月底', '2026-10-31'], ['10月底', '2026-10-31'], ['十月底', '2026-10-31'], ['下个月底', '2026-10-31'], ['大后天', '2026-09-27'], ['上周五', '2026-09-18'], ['上星期五', '2026-09-18']]) expect(due(text!)?.value, text).toBe(value)
+    for (const text of ['本月月底', '这个月月底', '这月月末', '本月底', '这个月底', '月底', '下个月月底']) {
+      expect(due(text), text).toMatchObject({ text, value: text.startsWith('下') ? '2026-10-31' : '2026-09-30', ambiguous: false })
+    }
+    for (const text of ['9月24日至26日前交稿', '9月24日到26号交稿', '2026年9月24日—26日', '九月二十四日至二十六日', '9月24日至10月2日', '周四至周五']) {
+      const found = dateCandidates(text, '2026-09-24', 1)
+      expect(found.length, text).toBeGreaterThan(0)
+      expect(found.every(row => row.ambiguous || row.value === null), text).toBe(true)
+    }
+    for (const text of ['大大后天', '上上上周五', '13月底', '去年10月底', '2027年10月底']) {
+      expect(dateCandidates(text, '2026-09-24', 1).every(row => row.value === null || row.text === text), text).toBe(true)
+    }
   })
 })
 
@@ -104,6 +119,16 @@ describe('调度与预算', () => {
     // 轮转：被评估的对覆盖所有 8 个下级，而不是前几项耗光预算。
     expect(new Set(next.pairs.filter(pair => pair.key).map(pair => pair.childSlotId)).size).toBe(8)
     expect(next.pairs.filter(pair => !pair.key).length).toBe(120 - 20)
+  })
+  it('长文本 8 项的补充轮仍在 64 KiB 与 24k token 内，放不下的关系对留待确认', () => {
+    for (const length of [200, 300, 400]) {
+      const built = plan(planQuestions(context(Array.from({ length: 8 }, (_, i) => `事项${i}${'甲'.repeat(length)}`).join('\n'))))
+      const next = relationRound(built, built.slots.map(slot => slot.id), [], Object.keys(built.questions).length)!
+      const body = JSON.stringify({ state: next.state, questions: next.questions })
+      expect(Buffer.byteLength(body), `length=${length}`).toBeLessThanOrEqual(65536)
+      expect(estimateTokens(body), `length=${length}`).toBeLessThanOrEqual(24000)
+      expect(next.pairs.some(pair => pair.key === null)).toBe(true)
+    }
   })
   it('超长原文或超过 8 项明确要求分批，不截断', () => {
     expect(planQuestions(context('字'.repeat(4001)))).toMatchObject({ kind: 'too_large' })

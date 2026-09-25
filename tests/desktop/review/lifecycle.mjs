@@ -34,6 +34,7 @@ try {
   })
   await page.keyboard.press('Control+k')
   result.nativeControlK = await page.locator('#native-shortcut-probe').inputValue()
+  assert.equal(result.nativeControlK, 'Keep me')
   await page.evaluate(() => document.querySelector('#native-shortcut-probe').remove())
   await page.getByRole('button', { name: 'Add to Later', exact: true }).click()
   await page.locator('.quick-add input').fill('Keep me remove me')
@@ -55,6 +56,7 @@ try {
   await page.getByRole('button', { name: 'Create protective backup and continue', exact: true }).click()
   await page.locator('.settings-footer input[type=checkbox]').waitFor()
   result.prepared = await page.evaluate(async () => ({ maintenance: (await window.goalloom.getSnapshot()).maintenance, runtime: await window.goalloom.getRuntime(), confirmationVisible: Boolean(document.querySelector('.settings-footer input[type=checkbox]')) }))
+  assert.equal(result.prepared.maintenance, true)
   await page.screenshot({ path: join(root, 'output/tests/review-fixes/reload-prepared.png') })
   // Playwright keyboard injection did not activate the native menu accelerator
   // in the initial run. Invoke the observed Reload menu item itself instead.
@@ -74,11 +76,13 @@ try {
   assert.equal(result.reloaded.create.ok,true)
   assert.equal(result.reloaded.preview.type,'preview')
   for(const mode of ['close','crash']) {
-    await page.evaluate(async()=>{
+    const prepared=await page.evaluate(async()=>{
       const api=window.goalloom,generation=(await api.getSnapshot()).workspace.generation
       const preview=await api.data({type:'previewReset',generation})
       await api.data({type:'prepare',generation,token:preview.preview.token})
+      return (await api.getSnapshot()).maintenance
     })
+    assert.equal(prepared,true)
     if(mode==='close') {
       await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].destroy())
       const next=app.waitForEvent('window')

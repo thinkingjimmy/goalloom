@@ -10,7 +10,6 @@ storage/
 ├── database.ts     # node:sqlite 连接、外键/WAL、同步事务与完整性校验
 ├── schema.ts       # schema v5，DAG/唯一位置/历史/操作约束、界面与复选框风格，v1–v4→v5 原子升级
 ├── store.ts        # 有界语句缓存、摘要/详情读取、索引邻居、版本保护与事件/回执
-├── metrics.ts      # 显式启用的本机数值指标；不记录 SQL、参数或任务正文
 ├── atomic-json.ts  # 窗口偏好、分块导出、备份回执共用的 fsync/原子文件写入
 └── backup/
     ├── snapshot.ts # 在线一致性副本、校验/fsync/原子改名和失败清理

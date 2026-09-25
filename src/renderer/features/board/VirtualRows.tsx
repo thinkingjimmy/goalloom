@@ -90,7 +90,7 @@ export function VirtualRows({ items, dragging, highlighted, render }: { items: I
     previous = index + 1
   }
   if (previous < items.length) children.push(<div key="tail" aria-hidden="true" style={{ height: offsets.at(-1)! - offsets[previous]! }} />)
-  return <div ref={list} role="list" className="virtual-rows" data-total={items.length}
+  return <div ref={list} role="list" className="virtual-rows"
     onFocusCapture={event => { const id = (event.target as HTMLElement).closest<HTMLElement>('[data-item-id]')?.dataset.itemId; if (id) setFocused(id) }}
     onKeyDownCapture={event => {
       if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing || document.documentElement.dataset.dragging) return

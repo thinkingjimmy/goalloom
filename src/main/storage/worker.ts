@@ -1,10 +1,9 @@
 /**
  * [INPUT]: Main-owned file paths, locale, injected clock and narrow internal RPC.
- * [OUTPUT]: Serialized SQLite work, worker-local transfer, typed failures and optional numeric metrics.
+ * [OUTPUT]: Serialized SQLite work, worker-local transfer and typed failures.
  * [POS]: Storage composition root; protected migrations finish before requests and cloud work stays outside the queue.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { measuring, metric, observeDatabase, sqlCounters } from './metrics'
 import { parentPort, workerData } from 'node:worker_threads'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
@@ -30,8 +29,6 @@ let db: DatabaseSync, repository: Repository, service: WorkspaceService
 let startup: { ok: true; protectivePath: string | null } | { ok: false; message: string; backupPath: string | null; backupDirectory: string }
 const initialized = openWorkspace(workerData.databasePath, workerData.backupDirectory, clock.now).then(opened => {
   db = opened.db
-  observeDatabase(db)
-  metric('storage-ready', { migrationProtected: Boolean(opened.protective) })
   repository = new Repository(db, clock)
   service = new WorkspaceService(repository, workerData.backupDirectory)
   startup = { ok: true, protectivePath: opened.protective ? service.backups.path(opened.protective.id) : null }
@@ -77,16 +74,11 @@ function handle(method: string, argument: unknown): unknown {
   }
 }
 let queue: Promise<void> = initialized
-port.on('message', (request: { id: number; method: string; argument: unknown; trace: string | null }) => {
-  const received = performance.now()
+port.on('message', (request: { id: number; method: string; argument: unknown }) => {
   queue = queue.then(async () => {
-    const started = performance.now(); sqlCounters()
     try {
       const value = await handle(request.method, request.argument)
-      const executionMs = performance.now() - started
-      const metrics = measuring ? { queueMs: started - received, executionMs, ...sqlCounters(), bytes: request.method === 'query' ? Buffer.byteLength(JSON.stringify(value)) : 0 } : undefined
-      metric('worker', { id: request.id, trace: request.trace, method: request.method, query: request.method === 'query' ? String((request.argument as { type: string }).type) : '', ...metrics })
-      port.postMessage({ id: request.id, ok: true, value, metrics })
+      port.postMessage({ id: request.id, ok: true, value })
       if (request.method === 'close') port.close()
     }
     catch (error) {

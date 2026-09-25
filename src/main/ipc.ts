@@ -4,7 +4,6 @@
  * [POS]: Renderer permission boundary; paths never come from renderer input and stale sessions cannot resume maintenance.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { measuring } from './storage/metrics'
 import { dialog, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { extname } from 'node:path'
 import { commandSchema, DomainError, type CommandResult } from '../shared/contracts/commands'
@@ -39,14 +38,12 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     await storage.call('locale', state.locale)
     return state
   })
-  let querySequence = 0
   ipcMain.handle('goalloom:query', async (event, input: unknown) => {
     guard(event)
-    const trace = measuring ? `query:${++querySequence}` : null
     const query = querySchema.parse(input)
-    const value = await storage.call('query', query, trace)
+    const value = await storage.call('query', query)
     if (query.type === 'snapshot') snapshotRead(value as WorkspaceMetadata)
-    return { value, trace }
+    return value
   })
   ipcMain.handle('goalloom:command', async (event, input: unknown) => {
     guard(event)

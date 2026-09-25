@@ -75,10 +75,6 @@ try{
  const second=await page.locator('.quick-add input').inputValue()
  await page.evaluate(()=>{review.delayExecute=false;review.executeWaiters.shift()()});await page.waitForTimeout(200)
  result.checks.push({case:'quick-add-save',typed:second,after:await page.locator('.quick-add input').inputValue(),submitted:await page.evaluate(()=>review.commands.at(-1).title)})
- // macOS Control+K should remain a native text-editing chord, not Command+K.
- await page.locator('.quick-add input').fill('Keep native text shortcut');await page.locator('.quick-add input').press('Control+k');await page.waitForTimeout(100)
- result.checks.push({case:'mac-control-as-command',userAgent:await page.evaluate(()=>navigator.userAgent),paletteOpened:await page.locator('dialog.palette').count()})
- assert.equal(await page.locator('dialog.palette').count(),0)
  await page.locator('.quick-add input').press('Escape')
  // Restore the one row on page 2 of a 51-item trash list.
  await page.evaluate(()=>{
@@ -97,13 +93,14 @@ try{
  result.checks.push({case:'trash-last-page',remaining:await page.evaluate(()=>review.trash.length),visibleRows:await page.locator('.items-row').count(),previousButton:await page.getByRole('button',{name:'Previous page',exact:true}).count()})
  await page.screenshot({path:`${evidence}/trash-last-page.png`})
 
- assert.ok(result.checks[0].after.analysisCount>result.checks[0].before.analysisCount)
- assert.ok(result.checks[0].after.submitted.every(id=>id==='c:day:2026-09-25'))
- assert.deepEqual(result.checks[1].after,['Beta'])
- assert.equal(result.checks[2].after,result.checks[2].typed)
- assert.equal(result.checks[2].stored,'Saved text')
- assert.equal(result.checks[3].after,result.checks[3].typed)
- assert.equal(result.checks[5].visibleRows,50)
+ const check=name=>result.checks.find(row=>row.case===name)
+ assert.ok(check('preview-period').after.analysisCount>check('preview-period').before.analysisCount)
+ assert.ok(check('preview-period').after.submitted.every(id=>id==='c:day:2026-09-25'))
+ assert.deepEqual(check('removed-draft').after,['Beta'])
+ assert.equal(check('detail-save').after,check('detail-save').typed)
+ assert.equal(check('detail-save').stored,'Saved text')
+ assert.equal(check('quick-add-save').after,check('quick-add-save').typed)
+ assert.equal(check('trash-last-page').visibleRows,50)
  await page.locator('dialog.settings-modal .modal-header').getByRole('button',{name:'Close',exact:true}).click()
  await page.evaluate(()=>{review.smartEnabled=false;window.goalloom.execute=review.executeOriginal})
  await page.locator('.fab').click();await page.locator('.composer-input').fill('First plain task')

@@ -8,7 +8,6 @@ import { open } from 'node:fs/promises'
 import { DomainError } from '../../../shared/contracts/commands'
 import { serverText } from '../../../shared/i18n/server'
 import { atomicFile } from '../../storage/atomic-json'
-import { metric } from '../../storage/metrics'
 import { schemaVersion } from '../../storage/schema'
 import type { Store } from '../../storage/store'
 import { datasetHeader, datasetRows, datasetTables } from './rows'
@@ -34,15 +33,13 @@ export async function readJson(path: string): Promise<unknown> {
 }
 
 export async function writeDataset(store: Store, path: string, now: string): Promise<void> {
-  const started = performance.now()
-  let bytes = 0
   await atomicFile(path, async file => {
     store.db.exec('BEGIN')
     try {
       let pieces: string[] = [], size = 0
       const write = async (piece: string) => {
         pieces.push(piece); size += Buffer.byteLength(piece)
-        if (size >= 64 * 1024) { await file.writeFile(pieces.join('')); bytes += size; pieces = []; size = 0 }
+        if (size >= 64 * 1024) { await file.writeFile(pieces.join('')); pieces = []; size = 0 }
       }
       await write(JSON.stringify(datasetHeader(store, now, schemaVersion)).slice(0, -1))
       for (const table of datasetTables) {
@@ -52,9 +49,8 @@ export async function writeDataset(store: Store, path: string, now: string): Pro
         await write(']')
       }
       await write('}')
-      if (size) { await file.writeFile(pieces.join('')); bytes += size }
+      if (size) await file.writeFile(pieces.join(''))
       store.db.exec('COMMIT')
     } catch (error) { store.db.exec('ROLLBACK'); throw error }
   })
-  metric('export-file', { ms: performance.now() - started, bytes })
 }

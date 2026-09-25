@@ -5,7 +5,7 @@
  * [POS]: Main board view; authoritative transactions revalidate all position and state changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { closestCenter, DndContext, DragOverlay, KeyboardSensor, pointerWithin, PointerSensor, useDroppable, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type KeyboardCoordinateGetter } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'
@@ -34,14 +34,11 @@ const collision: CollisionDetection = args => {
   return rows.length ? closestCenter({ ...args, droppableContainers: args.droppableContainers.filter(container => rows.some(hit => hit.id === container.id)) }) : within
 }
 
-let boardCommits = 0
 export interface AddRequest { seq: number; horizon: ItemHorizon | null; split: SplitParent | null }
 interface BoardProps { snapshot: Snapshot; flows: Flows; filter: string | null; columns: ItemHorizon[]; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void }
 
 export const Board = memo(function Board({ snapshot, flows, filter, columns, highlighted, addRequest, submit, busy, select }: BoardProps) {
   useLocale()
-  const renderedAt = performance.now()
-  useLayoutEffect(() => { performance.clearMeasures('goalloom.board-commit'); performance.measure('goalloom.board-commit', { start: renderedAt, detail: { sequence: ++boardCommits } }) })
   useEffect(() => { if (highlighted) { const frame = requestAnimationFrame(() => revealRow(highlighted)); return () => cancelAnimationFrame(frame) } }, [highlighted])
   const byColumn = useMemo(() => new Map(horizons.map(horizon => [horizon, snapshot.items.filter(item => item.placement.horizon === horizon)])), [snapshot.items])
   const [focused, setFocused] = useState<ItemHorizon>('later')

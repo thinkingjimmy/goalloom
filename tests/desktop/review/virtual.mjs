@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron } from 'playwright'
 
-const trace = resolve('output/tests/review-fixes/virtual.jsonl')
-await mkdir(resolve('output/tests/review-fixes'), { recursive: true }); await writeFile(trace, '')
-const profile = await mkdtemp(join(tmpdir(), 'Goalloom virtual ')), environment = { ...process.env, GOALLOOM_PERF_LOG: trace }
+await mkdir(resolve('output/tests/review-fixes'), { recursive: true })
+const profile = await mkdtemp(join(tmpdir(), 'Goalloom virtual ')), environment = { ...process.env }
 delete environment.ELECTRON_RUN_AS_NODE
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'en' }))
 const app = await electron.launch(process.argv[2] ? { executablePath: resolve(process.argv[2]), args: [`--user-data-dir=${profile}`], env: environment } : { args: ['.', `--user-data-dir=${profile}`], env: environment })
@@ -40,7 +39,7 @@ try {
     return rows
   })
   const column = page.locator('[data-horizon="later"]'), scroller = column.locator('.column-content')
-  await page.waitForFunction(() => document.querySelector('[data-horizon="later"] [data-total="120"]'))
+  await page.waitForFunction(() => document.querySelector('[data-horizon="later"] [aria-setsize="120"]'))
   const snapshot = await page.evaluate(() => window.goalloom.getSnapshot())
   assert.equal(snapshot.items.length, 150)
   assert(snapshot.items.every(item => !('description' in item) && item.hasDescription))
@@ -105,11 +104,17 @@ try {
   await page.locator(`#item-${rows[2]}`).waitFor()
   await page.waitForFunction(id => document.activeElement?.closest('.task-row')?.getAttribute('data-item-id') === id, rows[2])
   checks.push('search locates an offscreen item and restores row focus')
-  const beforeFocus = await page.evaluate(() => performance.getEntriesByName('goalloom.board-commit').at(-1)?.detail.sequence)
+  // Count snapshot reads at the IPC boundary; the production handler still answers every call.
+  await app.evaluate(({ ipcMain }) => {
+    const original = ipcMain._invokeHandlers.get('goalloom:query')
+    globalThis.snapshotReads = 0
+    ipcMain.removeHandler('goalloom:query')
+    ipcMain.handle('goalloom:query', (event, query) => { if (query?.type === 'snapshot') globalThis.snapshotReads++; return original(event, query) })
+  })
+  const queryCount = () => app.evaluate(() => globalThis.snapshotReads)
   await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.blur(); window.focus() })
   await page.waitForTimeout(500)
-  assert.equal(await page.evaluate(() => performance.getEntriesByName('goalloom.board-commit').at(-1)?.detail.sequence), beforeFocus)
-  const queryCount = async () => (await readFile(trace, 'utf8')).trim().split('\n').map(line => JSON.parse(line)).filter(row => row.stage === 'worker' && row.query === 'snapshot').length
+  assert.equal(await queryCount(), 0)
   const beforeWrite = await queryCount()
   await page.locator('[data-horizon="day"] .column-header button').last().click()
   await page.locator('.quick-add input').fill('One authoritative refresh')
@@ -117,7 +122,7 @@ try {
   await page.getByRole('button', { name: 'One authoritative refresh', exact: true }).waitFor()
   await page.waitForFunction(() => document.querySelector('.quick-add input').value === '')
   assert.equal((await queryCount()) - beforeWrite, 1)
-  checks.push('unchanged focus reconciliation makes no board commit; one UI write requests one snapshot')
+  checks.push('unchanged focus reconciliation reads no snapshot; one UI write requests one snapshot')
   // Failure cases: logical keyboard targets bypass a history column's disabled
   // droppable; stale collision geometry overrides an empty keyboard destination;
   // a target that becomes historical during a drag still accepts it.

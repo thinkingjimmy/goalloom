@@ -4,7 +4,6 @@
  * [POS]: Workspace replacement service; cancellation, failure and renderer-session release drop pending data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { metric } from '../../storage/metrics'
 import { randomUUID } from 'node:crypto'
 import { validateDataset, validateImport } from '../../../domain/import-validation'
 import { DomainError, type CommandResult } from '../../../shared/contracts/commands'
@@ -24,9 +23,7 @@ export class WorkspaceService {
   async reconcile(): Promise<CommandResult | null> {
     if (this.repository.maintenance) return null
     const now = this.repository.clock.now(), workspace = this.repository.store.workspace()
-    const start = performance.now()
     try { await this.backups.daily(workspace, now) } catch { /* A failed daily attempt is visible but does not prevent editing. */ }
-    metric('daily-backup', { ms: performance.now() - start, failed: this.backups.lastError !== null })
     return reconcile(this.repository, now)
   }
   previewImport(source: unknown, generation: string): DataReply {

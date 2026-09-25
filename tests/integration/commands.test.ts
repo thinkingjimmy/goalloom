@@ -28,7 +28,7 @@ it('显式确认之前拒绝任何条目写入；确认后日历不可改', () =
   expect(repository.snapshot().periods.find(p => p.horizon === 'cycle')?.startDate).toBe('2026-07-31')
   expect(() => setup()).toThrow('日历已锁定')
 })
-it('多父 DAG 允许两个上级，拒绝自关联、重复关系和循环；状态不联动', () => {
+it('多父 DAG 允许两个上级，拒绝重复关系；自关联与反向关联先被周期规则拒绝；状态不联动', () => {
   setup()
   const a = create('A', 'cycle'), b = create('B', 'month'), c = create('C', 'day')
   link(a.id, c.id); link(b.id, c.id)

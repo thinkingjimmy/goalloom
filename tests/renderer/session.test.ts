@@ -18,7 +18,7 @@ it('非栈顶撤销仅移出对应项；冲突一次只移出当前项且不递�
   session.accept(result('undo-done', { originalOperationId: 'done', undoable: false, outcome: 'conflict_skipped', changed: false }))
   expect(session.entries.map(entry => entry.operationId)).toEqual(['create'])
 })
-it('未知结果未 accept 前保持成员；工作区更换清空并拒绝旧回执', () => {
+it('同一工作区重复 reset 保留成员；工作区更换清空并拒绝旧回执', () => {
   const session = new UndoSession(); session.reset('workspace'); session.accept(result('create'))
   expect(session.entries).toHaveLength(1)
   expect(session.reset('workspace')).toBe(false)

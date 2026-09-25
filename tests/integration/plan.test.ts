@@ -160,28 +160,29 @@ it('跨期或中途写入失败时整批回滚，含事件、回执与颜色占�
   expect(run(command).itemIds).toHaveLength(2)
 })
 
-it('导入拒绝伪造的计划：同项多效果/缺事件/错 IDs/重复归属/非拓扑/缺 marker/半撤销/旧版本', () => {
+it('导入拒绝伪造的计划：同项多效果/缺事件/错 IDs/重复归属/非拓扑/缺 marker/逆事件缺失或重复/旧版本', () => {
   const goal = create('目标', null, 'cycle')
   const created = diamond(goal), undone = undo(created)
   const source = exported()
   const op = (data: Dataset) => data.operations.find(row => row.id === created.operationId)!
-  const variants: [string, (data: Dataset) => void][] = [
-    ['dup-effect', data => { op(data).effects.push(structuredClone(op(data).effects[0]!)) }],
-    ['missing-event', data => { data.events = data.events.filter(event => !(event.operationId === created.operationId && event.eventIndex === 3)) }],
-    ['wrong-ids', data => { op(data).result.itemIds = [...op(data).result.itemIds!].reverse() }],
-    ['scalar-id', data => { op(data).result.itemId = op(data).result.itemIds![0]! }],
-    ['double-owned', data => { const effects = op(data).effects; if (effects[0]!.kind === 'create' && effects[1]!.kind === 'create') effects[0]!.initialRelations.push(effects[1]!.initialRelations[0]!) }],
-    ['non-topological', data => { op(data).effects.reverse(); op(data).result.itemIds!.reverse() }],
-    ['missing-marker', data => { data.undoEffects = data.undoEffects.filter(marker => !(marker.originalId === created.operationId && marker.effectIndex === 0)) }],
-    ['half-undo', data => { data.undoEffects = data.undoEffects.filter(marker => marker.originalId !== created.operationId || marker.effectIndex > 1) }],
-    ['undo-ids', data => { data.operations.find(row => row.id === undone.operationId)!.result.itemIds = [] }],
-    ['old-version', data => { data.schemaVersion = 2 }],
-    ['stray-ids', data => { data.operations.find(row => row.kind === 'confirmSetup')!.result.itemIds = [] }],
+  const variants: [string, string, (data: Dataset) => void][] = [
+    ['dup-effect', '互不相同的新项', data => { op(data).effects.push(structuredClone(op(data).effects[0]!)) }],
+    ['missing-event', '业务事件链不连续', data => { data.events = data.events.filter(event => !(event.operationId === created.operationId && event.eventIndex === 3)) }],
+    ['wrong-ids', '计划回执的条目标识', data => { op(data).result.itemIds = [...op(data).result.itemIds!].reverse() }],
+    ['scalar-id', '计划回执的条目标识', data => { op(data).result.itemId = op(data).result.itemIds![0]! }],
+    ['double-owned', '唯一归属下级', data => { const effect = op(data).effects.find(row => row.kind === 'create' && row.initialRelations.length > 0)!; if (effect.kind === 'create') effect.initialRelations.push(effect.initialRelations[0]!) }],
+    ['non-topological', '新上级必须先于下级', data => { op(data).effects.reverse(); op(data).result.itemIds!.reverse() }],
+    ['missing-marker', '覆盖全部原效果', data => { data.undoEffects = data.undoEffects.filter(marker => !(marker.originalId === created.operationId && marker.effectIndex === 0)) }],
+    ['missing-inverse', '业务效果缺少原子事件', data => { const id = op(data).result.itemIds![0]!; data.events = data.events.filter(event => !(event.operationId === undone.operationId && event.itemId === id)); Object.assign(data.items.find(item => item.id === id)!, { deletedAt: null, deletedBy: null }) }],
+    ['duplicate-inverse', '业务效果缺少原子事件', data => { const own = data.events.filter(row => row.operationId === undone.operationId); data.events.push({ ...own[0]!, id: randomUUID(), seq: Math.max(...data.events.map(row => row.seq)) + 1, eventIndex: own.length }) }],
+    ['undo-ids', '计划撤销回执', data => { data.operations.find(row => row.id === undone.operationId)!.result.itemIds = [] }],
+    ['old-version', '旧版本数据集', data => { data.schemaVersion = 2 }],
+    ['stray-ids', '非计划操作', data => { data.operations.find(row => row.kind === 'confirmSetup')!.result.itemIds = [] }],
   ]
   expect(() => validateImport(source, now)).not.toThrow()
-  for (const [name, mutate] of variants) {
+  for (const [name, expected, mutate] of variants) {
     const data = structuredClone(source); mutate(data)
-    expect(() => validateImport(data, now), name).toThrow()
+    expect(() => validateImport(data, now), name).toThrow(expected)
   }
 })
 

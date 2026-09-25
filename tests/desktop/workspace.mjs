@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
@@ -23,7 +23,7 @@ try {
   assert.equal(await page.evaluate(() => typeof window.process), 'undefined')
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
   assert.match(runtime.sqlite, /^3\./)
-  assert.equal(runtime.electron, '44.4.4')
+  assert.equal(runtime.electron, JSON.parse(await readFile('node_modules/electron/package.json', 'utf8')).version)
   // 不写方向也能继续：跳过后进入日历确认，看板保持为空。
   await page.getByRole('button', { name: '先跳过', exact: true }).click()
   await page.getByRole('button', { name: '工作区时区' }).click()
@@ -356,6 +356,6 @@ try {
     assert.equal(snapshot.workspace.style, 'minimal')
     assert.equal(snapshot.workspace.checkStyle, 'tint')
     await page.waitForFunction(() => document.documentElement.dataset.style === 'minimal')
-    console.log('真实进程重启：5 个条目、3 条关联、流程颜色、唯一位置和界面风格均保留。')
+    console.log('真实进程重启：6 个条目、3 条关联、流程颜色、唯一位置和界面风格均保留。')
   } finally { await reopened.close() }
 } finally { await rm(profile, { recursive: true, force: true }) }

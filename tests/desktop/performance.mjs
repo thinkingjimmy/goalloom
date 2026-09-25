@@ -12,8 +12,8 @@ const label = process.env.GOALLOOM_BENCH_LABEL ?? 'latest'
 assert(/^[a-z0-9-]+$/.test(label))
 const directory = resolve('output/tests/performance'), seed = join(directory, 'synthetic-seed')
 const samples = Number(process.env.GOALLOOM_BENCH_SAMPLES ?? 3)
-const log = join(directory, `${label}.jsonl`), execute = promisify(execFile)
-await mkdir(directory, { recursive: true }); await writeFile(log, '')
+const execute = promisify(execFile)
+await mkdir(directory, { recursive: true })
 await build({ configFile: false, build: { outDir: 'output/tests/build/performance', emptyOutDir: false, lib: { entry: 'tests/desktop/fixtures/performance.ts', formats: ['cjs'], fileName: () => 'performance.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
 async function fixture(args) {
   await new Promise((resolve, reject) => {
@@ -24,8 +24,8 @@ async function fixture(args) {
 if (!process.env.GOALLOOM_BENCH_REUSE || !await stat(join(seed, 'performance.json')).catch(() => null)) {
   await rm(seed, { recursive: true, force: true }); await mkdir(seed, { recursive: true }); await fixture([seed])
 }
-const report = { label, fixture: JSON.parse(await readFile(join(seed, 'performance.json'), 'utf8')), startup: [], snapshot: [], search: [], memory: [], transfers: [], preload: [], panels: [] }
-const environment = { ...process.env, GOALLOOM_PERF_LOG: log }; delete environment.ELECTRON_RUN_AS_NODE
+const report = { label, fixture: JSON.parse(await readFile(join(seed, 'performance.json'), 'utf8')), startup: [], snapshot: [], search: [], memory: [], transfers: [], panels: [] }
+const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2]
 const launch = profile => electron.launch(packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`], env: environment } : { args: [process.env.GOALLOOM_BENCH_ENTRY ?? '.', `--user-data-dir=${profile}`], env: environment })
 const nextFrame = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
@@ -45,7 +45,6 @@ try {
     await writeFile(join(activeProfile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
     await fixture([activeProfile, 'prepare', String(paused), String(daily)])
     const start = performance.now(); app = await launch(activeProfile); page = await app.firstWindow()
-    page.on('console', message => { const text = message.text(); if (text.startsWith('goalloom:performance ')) { try { report.preload.push(JSON.parse(text.slice('goalloom:performance '.length))) } catch {} } })
     await page.locator('.board').waitFor()
     await page.waitForFunction(() => document.querySelectorAll('.task-row').length > 0)
     await nextFrame(page)
@@ -63,13 +62,10 @@ try {
     const start = performance.now()
     await page.getByRole('textbox', { name: '搜索条目', exact: true }).fill(query)
     await page.waitForTimeout(250)
-    await page.waitForFunction(({ query, count }) => {
-      const result = document.querySelector('.command-results')
-      return (result?.getAttribute('data-query') === query || !result?.hasAttribute('data-query')) && result?.querySelectorAll('.menu-item').length === count
-    }, { query, count: query === '不存在' ? 0 : 20 })
-    await nextFrame(page); report.search.push({ query: query === '不存在' ? 'absent' : 'present', automationMs: performance.now() - start, page: await page.evaluate(() => performance.getEntriesByName('goalloom.search').at(-1)?.detail ?? null) })
+    // The fixed wait outlasts the 180 ms debounce, so the request for this query is already in flight.
+    await page.waitForFunction(count => document.querySelectorAll('.command-results .menu-item').length === count, query === '不存在' ? 0 : 20)
+    await nextFrame(page); report.search.push({ query: query === '不存在' ? 'absent' : 'present', automationMs: performance.now() - start })
   }
-  report.searchTiming = await page.evaluate(() => performance.getEntriesByName('goalloom.search').map(entry => entry.detail))
   await memory(app, page, 'search'); await page.keyboard.press('Escape')
   const first = report.fixture.firstId
   for (let i = 0; i < 110; i++) {
@@ -118,7 +114,6 @@ try {
   }
   await page.screenshot({ path: join(directory, `${label}.png`) })
   report.packaged = Boolean(packaged)
-  report.tracePath = log
   const quantiles = values => { const sorted = values.toSorted((a, b) => a - b); return { p50: sorted[Math.floor((sorted.length - 1) * .5)], p95: sorted[Math.ceil((sorted.length - 1) * .95)] } }
   report.summary = { snapshotMs: quantiles(report.snapshot.map(row => row.ms)), automationSearchMs: quantiles(report.search.map(row => row.automationMs)), visibleStartupMs: quantiles(report.startup.map(row => row.visibleMs)) }
   await writeFile(join(directory, `${label}.json`), JSON.stringify(report, null, 2))

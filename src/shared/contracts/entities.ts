@@ -4,13 +4,12 @@
  * [POS]: Persistence, IPC and import schemas without Electron dependencies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { measureDate } from './validation-metrics'
 import { z } from 'zod'
 import { validDate, validTimezone } from './wire-calendar'
 import { validationText } from '../i18n/validation'
 
 export const idSchema = z.string().min(1).max(180).regex(/^[a-zA-Z0-9:_-]+$/)
-export const dateSchema = z.string().refine(value => measureDate(() => validDate(value)), { error: () => validationText().invalidDate })
+export const dateSchema = z.string().refine(value => validDate(value), { error: () => validationText().invalidDate })
 export const instantSchema = z.iso.datetime({ offset: true })
 export const horizonSchema = z.enum(['later', 'cycle', 'month', 'week', 'day'])
 export const periodHorizonSchema = z.enum(['cycle', 'month', 'week', 'day'])
@@ -18,7 +17,7 @@ export const statusSchema = z.enum(['todo', 'done', 'cancelled'])
 // Fixed palette index owned by a flow root; schema v1 data has no field and reads as null.
 export const flowColorSchema = z.number().int().min(0).max(7)
 export const calendarSchema = z.strictObject({ id: idSchema, timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema })
-  .refine(value => measureDate(() => validTimezone(value.timezone)), { error: () => validationText().invalidCalendarConfig })
+  .refine(value => validTimezone(value.timezone), { error: () => validationText().invalidCalendarConfig })
 export const periodSchema = z.strictObject({
   id: idSchema, horizon: periodHorizonSchema, startDate: dateSchema, endDate: dateSchema,
   startAt: instantSchema, endAt: instantSchema,

@@ -14,7 +14,7 @@ desktop/
 ├── relations.mjs        # 关系线：单流程筛选画线/跨级虚线/其余置灰、悬停与聚焦链、滚出视野标记、设置开关持久化（截图 relation-lines*.png）
 ├── language.mjs         # 系统语言侦测、配置页/设置即时切换、main/worker 文案、重启保持与 en/es/fr 漏译检查（截图 language-*.png、output/tests/language.json）
 ├── dialogs.mjs          # 操控真实原生保存/打开对话框的验收入口，保存 JSON 证据和恢复后截图
-├── review/              # 已确认缺陷、输入/维护竞态、智能预算、长列、wire、增长曲线和大备份回归
+├── review/              # 已确认缺陷、输入/维护竞态、长列、wire、增长曲线和大备份回归
 └── fixtures/
     ├── sqlite-probe.ts  # Electron main 的驱动/事务/恢复探针
     ├── history-seed.ts  # 正式事务生成历史样本，无生产测试时钟
