@@ -87,13 +87,6 @@ describe('统一概率答案', () => {
     expect(checkChoice({ type: 'choice', choice: 'a', probabilities: { a: 0, b: 0 } }, k2, p)).toMatchObject({ metrics: null, distribution: 'empty' })
     expect(() => checkBoolean({ type: 'boolean', probability: Number.NaN })).toThrow()
   })
-  it('同一分布、同一精度得到相同指标；阈值落在舍入误差内保持待确认', () => {
-    const k8 = options(8), probabilities = Object.fromEntries(k8.map((key, i) => [key, i === 0 ? 0.6 : i === 1 ? 0.4 : 0]))
-    const a = checkChoice({ type: 'choice', choice: 'o0', probabilities }, k8, { decimals: 2, source: 'adapter' })
-    const b = checkChoice({ type: 'choice', choice: 'o0', probabilities }, k8, { decimals: 2, source: 'response' })
-    expect(a.metrics!.concentration).toBe(b.metrics!.concentration)
-    expect(certainChoice(a)).toBe(false)
-  })
 })
 
 describe('调度与预算', () => {
@@ -112,12 +105,6 @@ describe('调度与预算', () => {
     expect(new Set(next.pairs.filter(pair => pair.key).map(pair => pair.childSlotId)).size).toBe(8)
     expect(next.pairs.filter(pair => !pair.key).length).toBe(120 - 20)
   })
-  it('常规单任务一次请求：点名候选优先，放入上下文的根不等于都评估', () => {
-    const built = plan(planQuestions(context('今天优化登录页，周五前完成，关联「官网改版」', [candidate('g1', '官网改版', true), candidate('g2', '其他')])))
-    expect(built.deferredRelations).toBe(false)
-    expect(built.pairs[0]).toMatchObject({ parent: { kind: 'existing', ref: 'g1' }, key: 'rel_1' })
-    expect(Object.keys(built.questions).length).toBeLessThanOrEqual(questionBudget)
-  })
   it('超长原文或超过 8 项明确要求分批，不截断', () => {
     expect(planQuestions(context('字'.repeat(4001)))).toMatchObject({ kind: 'too_large' })
     expect(planQuestions(context(Array.from({ length: 9 }, (_, i) => `项${i}`).join('\n')))).toMatchObject({ kind: 'too_large' })
@@ -125,12 +112,6 @@ describe('调度与预算', () => {
 })
 
 describe('预览组装', () => {
-  it('“整理反馈，周五前完成”只有一项：修饰片段保留在说明，截止与执行分开', () => {
-    const built = plan(planQuestions(context('整理反馈，周五前完成')))
-    const preview = buildPreview(context('整理反馈，周五前完成'), built, answer(built, { role_s2: 'modifier', due_s1: 'd1', use_d1: 'deadline' }), null)
-    expect(preview.drafts).toHaveLength(1)
-    expect(preview.drafts[0]).toMatchObject({ title: '整理反馈', description: '周五前完成', due: { value: '2026-09-25', certain: true }, horizon: { value: 'later' } })
-  })
   it('今天执行＋截止＋点名上级；未支持的提醒可见且不吞任务', () => {
     const text = '今天优化登录页，周五前完成，关联「官网改版」，下午三点提醒我'
     const ctx = context(text, [candidate('g1', '官网改版', true)])

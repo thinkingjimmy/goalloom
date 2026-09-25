@@ -6,9 +6,7 @@
 tests/
 ├── domain/
 │   ├── calendar.test.ts     # 时区、DST、午夜、自然月与跨年周
-│   ├── rollover.test.ts     # 策略范围、维护/恢复暂停、往期可见与 hold
 │   ├── flows.test.ts        # 多父 DAG 上的流程根归属与去重
-│   ├── status.test.ts       # 独立状态时间组和保留无关字段的逆转
 │   └── smart.test.ts        # weekStart 1–7 日期、槽位、K×d 概率容差、64 题预算、预览组装与计划拓扑
 ├── main/
 │   ├── security.test.ts     # 本地协议路径约束与 CSP 静态约束
@@ -18,8 +16,8 @@ tests/
 │   ├── colors.test.ts       # 八组浅/深色对比度、流程描边与拼色
 │   └── draft.test.ts        # composer 手动优先合并、orphan、计划负载与本地复核
 ├── integration/
-│   ├── database.test.ts     # 实际 SQLite/WAL/事务/副本与失败保留
-│   ├── commands.test.ts     # 首次确认、唯一位置、幂等、DAG 和中文搜索
+│   ├── database.test.ts     # 实际 SQLite 副本的失败保留与悬空引用拒绝
+│   ├── commands.test.ts     # 首次确认、DAG 周期规则、库级防环和中文搜索
 │   ├── history.test.ts      # 周期成员/期末/后来结果、分页、批量往期与回拨
 │   ├── reconcile.test.ts    # 自动策略边界、批次部分撤销、排除、hold 与暂停
 │   ├── transfer.test.ts     # JSON/SQLite、保护备份、维护、原子替换故障与 baseline

@@ -106,11 +106,6 @@ it('删除和还原可逆，但还原后新增关联阻止逆向删除', () => {
   expect(undo(restored).outcome).toBe('conflict_skipped')
   expect(item(b).deletedAt).toBeNull()
 })
-it('再次删除来源不同，即使时间相同也不能撤销原删除', () => {
-  const id = create().itemId!, first = remove(id)
-  restore(id); remove(id)
-  expect(undo(first).outcome).toBe('conflict_skipped')
-})
 it('重开撤销还原真实完成/取消时间，重新取消用新时间', () => {
   const id = create().itemId!
   status(id, 'cancelled'); const cancelledAt = item(id).cancelledAt

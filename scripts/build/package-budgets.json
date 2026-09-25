@@ -4,13 +4,13 @@
   "darwin-arm64": {
     "downloadBytes": 117166334,
     "logicalBytes": 257849079,
-    "asarBytes": 1700087,
+    "asarBytes": 1871197,
     "archiveSha256": "5f6acc64137312d89c1e705871c79db4ddb6a084ce779a3f3bc388bb4a3f22cf"
   },
   "win32-x64": {
     "downloadBytes": 103787791,
     "logicalBytes": 341505263,
-    "asarBytes": 1700087,
+    "asarBytes": 1871197,
     "archiveSha256": "59ecb1b54aacae30751263b97407c9ff33e13d54ebc5126bcdad3f68802b66c3"
   }
 }

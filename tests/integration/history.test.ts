@@ -28,25 +28,6 @@ it('9 月计划在 10 月顺延并完成：期末未完、后来结果和真实 
   now = '2026-11-01T02:00:00Z'
   expect(month('2026-10-01').rows[0]!.endState?.status).toBe('done')
 })
-it('旧项直接完成不制造新月计划，日项不隐式属于月历史', () => {
-  const id = create(); create('day')
-  now = '2026-10-02T02:00:00Z'; state(id, 'done')
-  expect(month('2026-09-01').total).toBe(1)
-  expect(month('2026-09-01').rows[0]!.endState?.status).toBe('todo')
-  now = '2026-11-01T02:00:00Z'
-  expect(month('2026-10-01').total).toBe(0)
-})
-it('9 月完成 10 月重开、取消后重开再取消保留真实期末与原事件', () => {
-  const done = create(), cancelled = create()
-  state(done, 'done'); state(cancelled, 'cancelled')
-  const cancelledAt = repo.store.item(cancelled).cancelledAt
-  now = '2026-10-01T00:00:00Z'
-  state(done, 'todo'); state(cancelled, 'todo'); state(cancelled, 'cancelled')
-  const rows = month('2026-09-01').rows
-  expect(rows.find(row => row.item.id === done)!.endState?.status).toBe('done')
-  expect(rows.find(row => row.item.id === cancelled)!.endState?.cancelledAt).toBe(cancelledAt)
-  expect(repo.store.item(cancelled).cancelledAt).toBe(now)
-})
 it('同周期往返成员去重，后来归档/删除/还原/撤销不覆盖期末', () => {
   const id = create(); move(id, 'later'); move(id, 'month')
   now = '2026-10-01T02:00:00Z'

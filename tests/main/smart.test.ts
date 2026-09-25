@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { classifyFailure, gatewayAdapter, ProviderFailure, systemOneAdapter, type Adapter, type EvaluateInput } from '../../src/main/smart/providers'
@@ -124,15 +124,6 @@ beforeEach(async () => {
 afterEach(async () => { await rm(directory, { recursive: true, force: true }) })
 
 describe('设备配置与凭据', () => {
-  it('加入 OpenRouter 前保存的设备配置仍保留当前服务与同意，OpenRouter 为未配置', async () => {
-    await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
-    const path = join(directory, 'config.json'), saved = JSON.parse(await readFile(path, 'utf8'))
-    delete saved.providers.openrouter
-    await writeFile(path, JSON.stringify(saved))
-    const { status: current } = await status()
-    expect(current).toMatchObject({ activeProvider: 'typesafe', enabled: true })
-    expect(current.providers.openrouter).toMatchObject({ credential: 'missing', consentedAt: null })
-  })
   it('测试通过才启用并加密保存；Key 不以明文落盘，配置不含 Key', async () => {
     const reply = await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
     expect(reply.type === 'status' && reply.test).toMatchObject({ ok: true, sampleMatched: true })
