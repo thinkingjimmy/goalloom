@@ -32,7 +32,7 @@ scripts/        # audit-seo.mjs（构建门禁）、e2e.mjs（端到端验收与
 ## 发布
 
 - `lib/release.ts` 的 `RELEASE.published` 为 `false` 时下载按钮打开 GitHub Releases 页；公开发布后改为 `true` 并核对版本号与资产名（`Goalloom-<ver>-mac-arm64.zip`、`Goalloom-<ver>-win-x64.exe`）。
-- Vercel：新建项目指向本仓库，**Root Directory = `website`**，Framework = Next.js，其余默认。`website/` 自带 `pnpm-workspace.yaml`，依赖不会进入根目录 Electron 的 `node_modules`。上线后在 Search Console 提交 `https://goalloom.com/sitemap.xml`。
+- Vercel：新建项目指向本仓库，**Root Directory = `website`**，Framework = Next.js，其余默认。`website/` 自带 `pnpm-workspace.yaml`，依赖不会进入根目录 Electron 的 `node_modules`。生产域名是 `https://www.goalloom.com`（`goalloom.com` 由 Vercel 308 跳转过来）；站点地址只在 `lib/seo/site.ts`，两份脚本各保留一份同值常量，改域名时三处一起改。上线后在 Search Console 提交 `https://www.goalloom.com/sitemap.xml`。
 
 ## 命令
 

@@ -15,7 +15,7 @@ import { chromium } from 'playwright'
 const root = resolve(import.meta.dirname, '..')
 const out = join(root, 'out')
 const artifact = join(root, 'output', 'e2e')
-const SITE = 'https://goalloom.com'
+const SITE = 'https://www.goalloom.com'
 const LOCALES = [['en', '/'], ['zh-CN', '/zh-CN/'], ['ja', '/ja/'], ['es', '/es/'], ['fr', '/fr/']]
 const WINDOWS_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
 

@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const out = resolve(import.meta.dirname, '..', 'out')
-const SITE = 'https://goalloom.com'
+const SITE = 'https://www.goalloom.com'
 const PAGES = { en: '/', 'zh-CN': '/zh-CN/', ja: '/ja/', es: '/es/', fr: '/fr/' }
 const problems = []
 

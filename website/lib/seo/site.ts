@@ -5,7 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 
-export const SITE_URL = 'https://goalloom.com'
+export const SITE_URL = 'https://www.goalloom.com'
 export const SITE_NAME = 'Goalloom'
 
 export const SOCIAL_IMAGE = { url: '/og.png', width: 1200, height: 630 } as const
