@@ -244,9 +244,10 @@ describe('判断流程', () => {
     expect(hits).toBe(0)
     expect((await status()).status.cooldownUntil).not.toBeNull()
   })
-  it('Choice 选中项不是最大概率时拒绝整批答案', async () => {
+  it('Choice 选中项不是最大概率时只让相关字段待确认，其余预览照常', async () => {
     behaviour = (_id, criteria) => criteria ? { type: 'choice', choice: criteria[1], probabilities: Object.fromEntries(criteria.map((option, index) => [option, index === 0 ? 0.9 : Number((0.1 / (criteria.length - 1)).toFixed(2))])) } : { type: 'boolean', probability: 0.1 }
     const reply = await analyze(request('今天写文案'))
-    expect(reply.status === 'failed' && reply.failure.kind).toBe('malformed_response')
+    expect(reply.status).toBe('ready')
+    if (reply.status === 'ready') expect(reply.preview.drafts[0]!.horizon.certain).toBe(false)
   })
 })

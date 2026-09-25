@@ -7,6 +7,7 @@
 import type { Candidate } from '../../shared/contracts/smart-input'
 import { dateCandidates, type DateCandidate } from './dates'
 import { segmentSlots, type Slot } from './segments'
+import { sharedTermText } from './terms'
 import { serverText } from '../../shared/i18n/server'
 
 export const questionBudget = 64
@@ -35,10 +36,13 @@ export interface QuestionPlan {
 export type PlanFailure = { kind: 'too_large'; message: string }
 
 export const layoutOptions = { single: '只有一件事', list: '用户明确列出的多件并列事项', plan: '多件事项且原文写明了它们之间的目标/上下级关系', unclear: '无法判断' }
-export const roleOptions = { task: '一件独立要做的事项', modifier: '修饰或补充前面事项的说明（如截止、时间、关联）', not_independent: '不构成独立事项的连接词或语气', unclear: '无法判断' }
+export const roleOptions = { task: '一件独立要做的事项', part: '描述前面某件事项包含的内容、功能或要求（如“里面有…”“包括…”“能…”“还要支持…”），本身不是另外要去做的事', modifier: '修饰或补充前面事项的说明（如截止、时间、原因、目的或目标、关联）', not_independent: '不构成独立事项的连接词或语气', unclear: '无法判断' }
 export const horizonOptions = { day: '今天要做', week: '本周要做', month: '本月要做', cycle: '当前这一轮三个月内要做', later: '没有写执行时间', future: '写了明天、下周、下个月等未来周期才做', unclear: '无法判断' }
+export const inferOptions = { day: '适合今天就做（很小、紧急或马上要用）', week: '适合本周内完成', month: '适合本月内完成', cycle: '适合在这一轮三个月内推进', later: '没有时间压力，先放着以后再说' }
 export const useOptions = { deadline: '截止日期（在此之前完成）', execution: '执行日期（这一天去做）', other: '与事项时间无关的日期', unclear: '无法判断' }
 
+// Questions name a slot by id and quote at most 40 characters; the full wording is in state.slots once, not per question.
+const quote = (text: string) => { const chars = [...text]; return chars.length > 40 ? `${chars.slice(0, 40).join('')}…` : text }
 const periodText = (context: SmartContext) => Object.fromEntries(Object.entries(context.periods).map(([key, period]) => [key, `${period.startDate} 至 ${period.endDate}（不含结束日）`]))
 const weekNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
@@ -75,9 +79,10 @@ function assemble(context: SmartContext, slots: Slot[], dates: DateSlot[], candi
   const ask = (id: string, question: NeutralQuestion) => { questions[id] = question }
   ask('layout', { type: 'choice', instructions: '根据 state.text 原文，判断用户写下的内容整体属于哪种形式。只依据原文，不要推测用户没有写出的步骤。', criteria: layoutOptions })
   for (const slot of slots) {
-    const ref = `state.slots 中 id 为 ${slot.id} 的片段「${slot.text}」`
-    ask(`role_${slot.id}`, { type: 'choice', instructions: `结合 state.text 完整原文，判断${ref}的角色。该片段只是按标点切出的候选，尚未确定为事项。`, criteria: roleOptions })
+    const ref = `state.slots 中 id 为 ${slot.id} 的片段「${quote(slot.text)}」`
+    ask(`role_${slot.id}`, { type: 'choice', instructions: `结合 state.text 完整原文，判断${ref}的角色。该片段只是按标点切出的候选，尚未确定为事项；用户逐行或用列表写出的每一条，通常各自是独立事项（即使它们同属一个目标）；只有在一句话里描述前一件事内部内容的片段才属于组成部分。`, criteria: roleOptions })
     ask(`horizon_${slot.id}`, { type: 'choice', instructions: `结合 state.text 完整原文与 state.reference 参考日，判断${ref}所说事项打算在什么时间范围去做（执行时间，不是截止日）。只有明确写出“今天/本周/本月/这三个月”等执行时间才选对应范围；“周五前完成”是截止而非执行时间。state.periods 给出各范围的实际日期。`, criteria: horizonOptions })
+    ask(`infer_${slot.id}`, { type: 'choice', instructions: `假设${ref}所说事项在原文里没有写执行时间。结合它的工作量、紧迫程度，以及 state.goals 中它可能所属的目标所在的列（column），推测最合适的执行范围。所属目标在某列时，它通常安排在比该列更短的范围内；看不出时间压力就选 later。`, criteria: inferOptions })
     const due: Record<string, string> = Object.fromEntries(dates.map(date => [date.id, `state.dates 中 ${date.id}「${date.text}」${date.value ? `= ${date.value}` : ''}`]))
     ask(`due_${slot.id}`, { type: 'choice', instructions: `判断${ref}所说事项的截止日期来自原文中的哪个日期表达；没有写截止日选 none。`, criteria: { ...due, none: '没有截止日期', unclear: '无法判断' } })
   }
@@ -97,7 +102,7 @@ function assemble(context: SmartContext, slots: Slot[], dates: DateSlot[], candi
     periods: periodText(context),
     slots: slots.map(slot => ({ id: slot.id, text: slot.text })),
     dates: dates.map(date => ({ id: date.id, text: date.text, slot: date.slotId, date: date.value, ambiguous: date.ambiguous })),
-    goals: candidates.map(candidate => ({ id: candidate.ref, title: candidate.title, status: candidate.status, archived: candidate.archived, named: candidate.named })),
+    goals: candidates.map(candidate => ({ id: candidate.ref, title: candidate.title, status: candidate.status, archived: candidate.archived, named: candidate.named, sharedTerm: sharedTermText(context.text, candidate.title), column: candidate.horizon })),
   }
   return { slots, dates, state, questions, pairs, deferredRelations }
 }
@@ -126,9 +131,9 @@ export function relationPairs(slots: Slot[], candidates: Candidate[], allowedSlo
 export function relationQuestion(pair: Pair, slots: Slot[], candidates: Candidate[], source = 'state.slots'): NeutralQuestion {
   const child = slots.find(slot => slot.id === pair.childSlotId)!
   const parent = pair.parent.kind === 'existing'
-    ? `state.goals 中 id 为 ${pair.parent.ref} 的已有目标「${candidates.find(candidate => candidate.ref === (pair.parent as { ref: string }).ref)?.title ?? ''}」`
-    : `${source} 中 id 为 ${pair.parent.slotId} 的「${slots.find(slot => slot.id === (pair.parent as { slotId: string }).slotId)?.text ?? ''}」`
-  return { type: 'boolean', instructions: `根据 state.text 原文，${source} 中 id 为 ${child.id} 的「${child.text}」所说事项，是否是为了推进${parent}而做（后者是它的直接上级目标）？只有原文明确点名关联或写明“为了/属于”时才算；时间尺度不同本身不是依据。`, criteria: { true: '原文明确表明是它的上级目标', false: '原文没有这种依据' } }
+    ? `state.goals 中 id 为 ${pair.parent.ref} 的已有目标「${quote(candidates.find(candidate => candidate.ref === (pair.parent as { ref: string }).ref)?.title ?? '')}」`
+    : `${source} 中 id 为 ${pair.parent.slotId} 的「${quote(slots.find(slot => slot.id === (pair.parent as { slotId: string }).slotId)?.text ?? '')}」`
+  return { type: 'boolean', instructions: `根据 state.text 原文，${source} 中 id 为 ${child.id} 的「${quote(child.text)}」所说事项，是否是为了推进${parent}而做（后者是它的直接上级目标）？以下任一情况才算：原文明确点名关联或写明“为了/属于”；原文结构表明它是后者下面分解出的条目（如后者作为标题、下方用列表或冒号列出它）；它明确是后者所指的同一个项目/产品里的工作（如都提到同一个项目名，state.goals 的 sharedTerm 给出共同词），完成它能推进后者。只是话题相近或时间尺度不同不算。`, criteria: { true: '原文的措辞、列表结构或同一项目名表明是它的上级目标', false: '原文没有这种依据' } }
 }
 
 // --- Named supplement: only after round one fixes which slots are tasks; shares the cumulative 64-question budget. ---

@@ -7,7 +7,7 @@
 import type { HorizonChoice, PreviewDraft, PreviewWarning, RelationSuggestion, SmartPreview } from '../../shared/contracts/smart-input'
 import { planOrder } from '../plan'
 import { booleanState, certainChoice, checkBoolean, checkChoice, type CheckedChoice, type Precision } from './distribution'
-import { horizonOptions, layoutOptions, roleOptions, useOptions, type Pair, type QuestionPlan, type SmartContext } from './questions'
+import { horizonOptions, inferOptions, layoutOptions, roleOptions, useOptions, type Pair, type QuestionPlan, type SmartContext } from './questions'
 import { titleLimit } from './segments'
 import { serverText } from '../../shared/i18n/server'
 
@@ -30,7 +30,10 @@ export function buildPreview(context: SmartContext, plan: QuestionPlan, first: R
   for (const slot of plan.slots) { if (tasks.has(slot.id)) current = slot.id; owner.set(slot.id, current) }
   const drafts: PreviewDraft[] = plan.slots.filter(slot => tasks.has(slot.id)).map(slot => {
     const members = plan.slots.filter(row => owner.get(row.id) === slot.id)
-    const extra = members.filter(row => row.id !== slot.id).map(row => row.text)
+    // The description is the user's own wording after the title, punctuation intact, not fragments re-joined.
+    const last = members.at(-1)!, next = plan.slots[plan.slots.indexOf(last) + 1]
+    // Include the closing mark after the last fragment ("…判断。"), but not a separator leading into the next item.
+    const tail = context.text.slice(slot.end, next?.start ?? context.text.length).replace(/^[\s，,。；;、]+/, '').replace(/[\s，,；;、]+$/, '')
     const overflow = slot.text.length > titleLimit
     const role = choice(`role_${slot.id}`, roleOptions)
     const horizons = members.map(row => choice(`horizon_${row.id}`, horizonOptions))
@@ -41,29 +44,40 @@ export function buildPreview(context: SmartContext, plan: QuestionPlan, first: R
     return {
       draftId: slot.id, source: slot.text, roleCertain: plan.slots[0]!.id === slot.id || certainChoice(role),
       title: overflow ? slot.text.slice(0, titleLimit) : slot.text,
-      description: [overflow ? slot.text : '', ...extra].filter(Boolean).join('\n'),
+      description: [overflow ? slot.text : '', tail].filter(Boolean).join('\n'),
       horizon: suggestion(horizon, pick, certainChoice(pick) || pick.choice === 'later'),
       due: dueFor(members.map(row => row.id)),
+      inferredHorizon: inferFor(slot.id, horizon),
     }
   })
+  // --- The draft's deadline comes from its most confident fragment (often the "周五前完成" modifier), never just the first one. ---
+  // Only a text with no usable written time gets a guess; the guess is labelled, never passed off as written.
+  function inferFor(slotId: string, written: HorizonChoice): PreviewDraft['inferredHorizon'] {
+    if (written !== 'later') return null
+    const guess = choice(`infer_${slotId}`, inferOptions)
+    return guess.choice === 'later' ? null : suggestion(guess.choice as 'day' | 'week' | 'month' | 'cycle', guess, certainChoice(guess, []))
+  }
   function dueFor(slotIds: string[]): PreviewDraft['due'] {
-    for (const slotId of slotIds) {
+    const found = slotIds.flatMap(slotId => {
       const due = choice(`due_${slotId}`, { ...Object.fromEntries(plan.dates.map(date => [date.id, ''])), none: '', unclear: '' })
       const date = plan.dates.find(row => row.id === due.choice)
-      if (!date) continue
+      if (!date) return []
       const use = choice(`use_${date.id}`, useOptions)
-      if (use.choice !== 'deadline' && certainChoice(use)) continue
-      if (date.ambiguous) warnings.push({ kind: 'ambiguous_date', draftId: slotIds[0]!, text: serverText().smart.ambiguousDate(date.text, date.value ?? null) })
-      return suggestion(date.value, due, !!date.value && !date.ambiguous && certainChoice(due, ['none', 'unclear']) && certainChoice(use))
-    }
-    return { value: null, certain: true, metrics: null }
+      if (use.choice !== 'deadline') return []
+      return [{ date, due, certain: !!date.value && !date.ambiguous && certainChoice(due, ['none', 'unclear']) && certainChoice(use) }]
+    }).sort((a, b) => Number(b.certain) - Number(a.certain) || (b.due.metrics?.top ?? 0) - (a.due.metrics?.top ?? 0))
+    const best = found[0]
+    if (!best) return { value: null, certain: true, metrics: null }
+    if (best.date.ambiguous) warnings.push({ kind: 'ambiguous_date', draftId: slotIds[0]!, text: serverText().smart.ambiguousDate(best.date.text, best.date.value ?? null) })
+    return suggestion(best.date.value, best.due, best.certain)
   }
-  if (!certainChoice(layout)) warnings.push({ kind: 'layout', draftId: null, text: serverText().smart.layoutUncertain })
+  // The layout is only a label; its uncertainty matters to the user only when the text was split.
+  if (!certainChoice(layout) && drafts.length > 1) warnings.push({ kind: 'layout', draftId: null, text: serverText().smart.layoutUncertain })
   for (const id of ['reminder', 'repeat', 'clock'] as const) {
     if (booleanState(checkBoolean(first.answers[id]), first.precision.decimals) !== 'no') warnings.push({ kind: id === 'clock' ? 'clock_time' : id, draftId: null, text: serverText().smart.unsupportedRequest(serverText().smart.unsupported[id]) })
   }
   const distributions = plan.slots.flatMap(slot => [choice(`role_${slot.id}`, roleOptions), choice(`horizon_${slot.id}`, horizonOptions)]).map(row => row.distribution)
-  if (distributions.some(kind => kind !== 'valid')) warnings.push({ kind: 'precision', draftId: null, text: serverText().smart.precision })
+  if (distributions.some(kind => kind === 'missing' || kind === 'unconfirmed')) warnings.push({ kind: 'precision', draftId: null, text: serverText().smart.precision })
   const relations = relationsFor(context, plan, first, supplement, owner, tasks)
   if (relations.some(row => row.state === 'not_evaluated')) warnings.push({ kind: 'relations_partial', draftId: null, text: serverText().smart.relationsPartial })
   const sent = new Set((plan.state.goals as { id: string }[]).map(goal => goal.id))
@@ -87,6 +101,14 @@ function relationsFor(context: SmartContext, plan: QuestionPlan, first: Round, s
     const key = `${parent.kind}:${parent.kind === 'existing' ? parent.itemId : parent.draftId}>${child}`
     const previous = merged.get(key)
     if (!previous || rank[state] > rank[previous.state] || (state === previous.state && (probability ?? 0) > (previous.probability ?? 0))) merged.set(key, { parent, childDraftId: child, state, probability })
+  }
+  // --- "关联「官网改版」" naming an existing goal is the user's own choice, not a judgement to second-guess. ---
+  for (const candidate of context.candidates) {
+    const quoted = new RegExp(`(?:关联|属于|归入|归到|加入|挂到|放到|放进)\\s*[「『“"【]${candidate.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[」』”"】]`)
+    for (const slot of plan.slots.filter(row => quoted.test(row.text))) {
+      const child = owner.get(slot.id)!, key = `existing:${candidate.itemId}>${child}`
+      merged.set(key, { parent: { kind: 'existing', itemId: candidate.itemId }, childDraftId: child, state: 'yes', probability: merged.get(key)?.probability ?? null })
+    }
   }
   // --- Suggested batch edges must stay acyclic: drop the weakest suggestion in each cycle. ---
   const rows = [...merged.values()]

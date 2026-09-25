@@ -8,6 +8,7 @@ desktop/
 ├── workspace.mjs        # 看板业务、流程筛选快捷键与快捷键设置（截图 settings-shortcuts.png）、协议/CSP/IPC、主题与窄窗口
 ├── history.mjs          # 历史/往期/hold、恢复后的缓存与会话隔离
 ├── recovery.mjs         # 保护备份/维护/重置/SQLite 恢复与重启暂停
+├── composer-live.mjs    # 可选：真实 OpenRouter Jev（需 .env.local Key）连接、默认采用 Jev 的上级推荐、↵ 创建并核对看板/关联/说明，截图作证据；不进 verify
 ├── composer.mjs         # 首次流程、全局 composer 普通 Later/会话草稿与关闭后的真实保存回执、列头＋Enter/Space 与 Tab 步数、拆解
 ├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
 ├── relations.mjs        # 关系线：单流程筛选画线/跨级虚线/其余置灰、悬停与聚焦链、滚出视野标记、设置开关持久化（截图 relation-lines*.png）

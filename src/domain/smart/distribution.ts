@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 统一答案（Choice 的 choice/probabilities|null、boolean 的 probability）、请求选项与已核实的舍入精度来源。
- * [OUTPUT]: checkChoice/checkBoolean：契约校验（选项覆盖、有限 0–1、choice 为最大值）、按 K 与 d 的总和容差、topProbability/margin/熵集中度，及字段级确定性判定。
+ * [OUTPUT]: checkChoice/checkBoolean：契约校验（选项覆盖、有限 0–1；choice 非最大值只让该字段待确认）、按 K 与 d 的总和容差、topProbability/margin/熵集中度，及字段级确定性判定。
  * [POS]: 各渠道共用的判断策略；不读取供应商 confidence，不改写原分布，不把缺失分布补成概率 1。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -9,7 +9,7 @@ export interface ChoiceAnswer { type: 'choice'; choice: string; probabilities: R
 export interface BooleanAnswer { type: 'boolean'; probability: number }
 export type Answer = ChoiceAnswer | BooleanAnswer
 export interface Metrics { top: number; margin: number; concentration: number; decimals: number | null; source: Precision['source'] }
-export interface CheckedChoice { choice: string; metrics: Metrics | null; distribution: 'valid' | 'missing' | 'unconfirmed' | 'empty' }
+export interface CheckedChoice { choice: string; metrics: Metrics | null; distribution: 'valid' | 'missing' | 'unconfirmed' | 'empty' | 'inconsistent' }
 export class ContractError extends Error {}
 
 export const epsilon = 1e-6
@@ -27,7 +27,9 @@ export function checkChoice(answer: unknown, options: string[], precision: Preci
   if (keys.length !== options.length || options.some(option => !keys.includes(option)) || !keys.every(key => probability(p[key]))) throw new ContractError('概率分布键值不合法')
   const values = options.map(option => p[option]!)
   const top = Math.max(...values)
-  if (top - p[row.choice]! > epsilon) throw new ContractError('选中项不是概率最大值')
+  // Observed live on OpenRouter: near-ties like part 0.49 chosen over task 0.50. The answer stays as sent, but only as an
+  // unconfirmed suggestion; failing the whole response would discard every other valid field.
+  if (top - p[row.choice]! > epsilon) return { choice: row.choice, metrics: null, distribution: 'inconsistent' }
   const sum = values.reduce((total, value) => total + value, 0)
   if (sum <= 0) return { choice: row.choice, metrics: null, distribution: 'empty' }
   // Unknown precision gets only the numeric epsilon; it disables prefill instead of guessing d.

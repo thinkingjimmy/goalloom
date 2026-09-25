@@ -73,13 +73,14 @@ describe('统一概率答案', () => {
     expect(() => checkChoice({ type: 'choice', choice: 'o0', probabilities: rounded }, k32, { decimals: 3, source: 'response' })).toThrow(ContractError)
     expect(checkChoice({ type: 'choice', choice: 'o0', probabilities: rounded }, k32, { decimals: null, source: null }).distribution).toBe('unconfirmed')
   })
-  it('契约违规拒绝：未知选项、缺/多键、越界、choice 非最大值；缺分布与全零不补造概率', () => {
+  it('契约违规拒绝：未知选项、缺/多键、越界；choice 非最大值只让该字段待确认；缺分布与全零不补造概率', () => {
     const k2 = ['a', 'b'], p = { decimals: 2, source: 'adapter' as const }
     expect(() => checkChoice({ type: 'choice', choice: 'c', probabilities: null }, k2, p)).toThrow()
     expect(() => checkChoice({ type: 'choice', choice: 'a', probabilities: { a: 1 } }, k2, p)).toThrow()
     expect(() => checkChoice({ type: 'choice', choice: 'a', probabilities: { a: 1, b: 0, c: 0 } }, k2, p)).toThrow()
     expect(() => checkChoice({ type: 'choice', choice: 'a', probabilities: { a: 1.2, b: -0.2 } }, k2, p)).toThrow()
-    expect(() => checkChoice({ type: 'choice', choice: 'b', probabilities: { a: 0.6, b: 0.4 } }, k2, p)).toThrow('最大值')
+    const inconsistent = checkChoice({ type: 'choice', choice: 'b', probabilities: { a: 0.6, b: 0.4 } }, k2, p)
+    expect(inconsistent).toMatchObject({ choice: 'b', metrics: null, distribution: 'inconsistent' }); expect(certainChoice(inconsistent)).toBe(false)
     expect(checkChoice({ type: 'choice', choice: 'a', probabilities: { a: 0.5, b: 0.5 } }, k2, p).metrics!.margin).toBe(0)
     const missing = checkChoice({ type: 'choice', choice: 'a', probabilities: null }, k2, p)
     expect(missing).toMatchObject({ metrics: null, distribution: 'missing' }); expect(certainChoice(missing)).toBe(false)
@@ -96,20 +97,20 @@ describe('统一概率答案', () => {
 })
 
 describe('调度与预算', () => {
-  it('S=8/D=8/8 个已有根/本批 56 对：核心 36 题，关系延到补充轮且累计不超过 64', () => {
+  it('S=8/D=8/8 个已有根/本批 56 对：核心 44 题（含每项执行时间推测），关系延到补充轮且累计不超过 64', () => {
     const text = Array.from({ length: 8 }, (_, i) => `事项${i} ${i + 1}月${i + 2}日前完成`).join('\n')
     const built = plan(planQuestions(context(text, Array.from({ length: 8 }, (_, i) => candidate(`g${i + 1}`, `流程${i}`)))))
     expect(built.slots).toHaveLength(8); expect(built.dates).toHaveLength(8)
-    expect(Object.keys(built.questions)).toHaveLength(36)
+    expect(Object.keys(built.questions)).toHaveLength(44)
     expect(built.deferredRelations).toBe(true)
     expect(built.pairs.every(pair => pair.key === null)).toBe(true)
     const tasks = taskSlots(built, answer(built, {}))
-    const next = relationRound(built, tasks, built.state.goals ? Array.from({ length: 8 }, (_, i) => candidate(`g${i + 1}`, `流程${i}`)) : [], 36)!
-    expect(Object.keys(next.questions)).toHaveLength(28)
-    expect(36 + Object.keys(next.questions).length).toBeLessThanOrEqual(questionBudget)
+    const next = relationRound(built, tasks, built.state.goals ? Array.from({ length: 8 }, (_, i) => candidate(`g${i + 1}`, `流程${i}`)) : [], 44)!
+    expect(Object.keys(next.questions)).toHaveLength(20)
+    expect(44 + Object.keys(next.questions).length).toBeLessThanOrEqual(questionBudget)
     // 轮转：被评估的对覆盖所有 8 个下级，而不是前几项耗光预算。
     expect(new Set(next.pairs.filter(pair => pair.key).map(pair => pair.childSlotId)).size).toBe(8)
-    expect(next.pairs.filter(pair => !pair.key).length).toBe(120 - 28)
+    expect(next.pairs.filter(pair => !pair.key).length).toBe(120 - 20)
   })
   it('常规单任务一次请求：点名候选优先，放入上下文的根不等于都评估', () => {
     const built = plan(planQuestions(context('今天优化登录页，周五前完成，关联「官网改版」', [candidate('g1', '官网改版', true), candidate('g2', '其他')])))

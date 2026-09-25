@@ -1,47 +1,78 @@
-/* --- Global composer: one fixed input, a calm status line, editable preview cards. Tokens only. --- */
-.composer-modal { width: min(640px, calc(100vw - 40px)); }
-.composer-input { min-height: 104px; max-height: 240px; font-size: 15px; line-height: 1.7; resize: none; background: var(--raised); }
-.composer-status { display: flex; align-items: center; gap: 10px; min-height: 22px; margin: 10px 0 6px; font-size: 12.5px; color: var(--secondary); }
-.composer-status[data-failed='true'] { color: var(--danger); }
-.composer-spinner { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--line); border-top-color: var(--secondary); animation: composer-spin .8s linear infinite; flex-shrink: 0; }
-@keyframes composer-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .composer-spinner { animation: none; } }
-.composer-note, .composer-warning { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; font-size: 12px; line-height: 1.6; color: var(--backlog); }
-.composer-note { color: var(--secondary); }
-.composer-warning.inset { margin: -2px 0 8px 14px; }
-.composer-tip { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 6px 6px 6px 12px; border-radius: 10px; background: var(--hover); font-size: 12px; color: var(--fg-soft); }
-.composer-tip > span { flex: 1; line-height: 1.6; }
-.composer-preview { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-.composer-fallback { margin-top: 10px; padding: 14px 16px; border-radius: 12px; background: var(--raised); border: 1px solid var(--line); font-size: 13px; }
-.composer-fallback p { margin: 6px 0 12px; color: var(--secondary); line-height: 1.6; }
-.composer-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.composer-footer kbd { margin-left: 6px; }
-.composer-spacer { flex: 1; }
-.draft-card { padding: 10px 12px; border-radius: 12px; background: var(--raised); border: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 6px; }
-.draft-card[data-orphan='true'] { border-style: dashed; border-color: var(--line); }
-.draft-card.plain { gap: 4px; }
-.draft-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.draft-title { flex: 1; min-width: 0; height: 30px; padding: 0 6px; margin-left: -6px; border: 0; background: transparent; font-size: 14px; font-weight: 500; }
-.draft-title:hover { background: var(--hover); }
-.draft-title-text { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.draft-target { flex-shrink: 0; font-size: 12px; color: var(--secondary); }
-.draft-badge { flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: var(--hover); font-size: 11px; color: var(--secondary); }
-.draft-note { display: block; width: 100%; font-size: 12px; line-height: 1.6; color: var(--secondary); white-space: pre-wrap; text-align: left; border-radius: 6px; padding: 2px 6px; margin-left: -6px; }
-.draft-note:hover { background: var(--hover); }
-.draft-description { font-size: 12.5px; }
-.draft-fields, .draft-parents, .draft-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.select-trigger.draft-select { width: auto; height: 30px; gap: 6px; padding: 0 6px 0 8px; font-size: 13px; background: transparent; border-color: transparent; box-shadow: none; }
-.select-trigger.draft-select:hover:not(:disabled) { background: var(--hover); }
-.draft-fields .field-button { margin-left: 0; font-size: 13px; }
-.suggestion { height: 26px; padding: 0 10px; border-radius: 13px; border: 1px dashed var(--line); font-size: 12px; color: var(--secondary); }
-.suggestion:hover:not(:disabled) { color: var(--fg); border-color: var(--edit-line); }
-.parent-chip { height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 4px 0 8px; border-radius: 13px; background: var(--hover); font-size: 12px; max-width: 240px; }
-.parent-chip .chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.parent-chip button { width: 20px; height: 20px; border-radius: 10px; display: grid; place-items: center; color: var(--secondary); }
-.parent-chip button:hover { background: var(--pressed); color: var(--fg); }
-.draft-flow .check-label { margin: 0; font-size: 12.5px; gap: 8px; }
-.draft-flow .check-label input { width: 15px; height: 15px; }
-.draft-flow small { font-size: 12px; }
+/* --- Global composer: an input method — the text field, then one candidate strip (recommendation, adjust list or state). Tokens only. --- */
+/* Short by design (≤ 8 one-line drafts), so inline menus may overflow the dialog instead of being clipped. */
+.modal.palette.composer-modal { width: min(600px, calc(100vw - 40px)); max-height: none; overflow: visible; }
+.modal.palette.composer-modal .modal-header { position: static; height: auto; min-height: 56px; align-items: flex-start; gap: 4px; padding: 16px 10px 14px 18px; }
+.modal.palette.composer-modal .modal-header { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+.modal.palette.composer-modal .modal-header > .icon-button { margin-top: -6px; }
+.palette-search.composer-search { align-items: flex-start; }
+.composer-search > svg { margin-top: 3px; flex-shrink: 0; }
+.composer-input { flex: 1; min-width: 0; width: auto; field-sizing: content; min-height: 24px; max-height: 168px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 15px; line-height: 24px; resize: none; color: var(--fg); }
+.composer-input:focus-visible { outline: none; }
+.composer-body { display: flex; flex-direction: column; gap: 6px; }
+.composer-error { margin: 2px 10px 0; }
+.jev-badge { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px 0 5px; border-radius: 10px; flex-shrink: 0; background: color-mix(in oklab, var(--focus) 14%, transparent); color: var(--focus); font-size: 11.5px; font-weight: 600; }
+/* The strip: Jev tinted, red when the call failed, neutral without Jev. */
+.composer-cand { display: flex; flex-direction: column; gap: 10px; padding: 12px 12px 10px 14px; border-radius: 10px; background: color-mix(in oklab, var(--focus) 6%, transparent); }
+.composer-cand[data-tone='failed'] { background: color-mix(in oklab, var(--danger) 6%, transparent); }
+.composer-cand[data-tone='failed'] .jev-badge { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+.composer-cand[data-tone='plain'] { background: var(--hover); }
+.composer-cand[data-tone='stale'] .cand-text { opacity: .55; }
+.cand-line { display: flex; align-items: flex-start; gap: 10px; min-height: 30px; font-size: 14px; line-height: 22px; }
+.cand-line > .jev-badge { margin-top: 5px; }
+.cand-text { flex: 1; min-width: 0; padding-top: 4px; }
+.cand-link { align-self: center; flex: 1; text-align: left; font-size: 13px; color: var(--focus); }
+.cand-link:hover { text-decoration: underline; }
+.cand-state { align-self: center; flex-shrink: 0; font-size: 12.5px; color: var(--secondary); }
+.cand-pending { display: flex; gap: 6px; padding-top: 10px; }
+.cand-skeleton { width: 90px; height: 10px; border-radius: 5px; background: color-mix(in oklab, var(--focus) 16%, transparent); animation: cand-pulse 1.2s ease-in-out infinite alternate; }
+.cand-skeleton[data-long='true'] { width: 150px; }
+@keyframes cand-pulse { from { opacity: .45; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cand-skeleton { animation: none; } }
+.cand-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 12px; line-height: 1.6; color: var(--backlog); }
+.cand-hints { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; color: var(--secondary); }
+.composer-hint { display: inline-flex; align-items: center; gap: 5px; }
+.composer-hint .keycap, .composer-primary .keycap { min-width: 18px; height: 18px; }
+.composer-primary { flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px 0 12px; border-radius: 8px; background: var(--fg); color: var(--surface); font-size: 13px; font-weight: 600; }
+.composer-primary .keycap { background: color-mix(in oklab, var(--surface) 16%, transparent); border-color: transparent; color: inherit; }
+.composer-primary:hover:not(:disabled) { background: var(--fg-soft); }
+.composer-primary:disabled { opacity: .45; }
+/* Recommendation: a sentence for one draft, a line per draft otherwise; doubts stay a muted aside. */
+.composer-plan { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.plan-sentence { margin: 0; }
+.plan-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; line-height: 26px; }
+.plan-line[data-indent='true'] { padding-left: 18px; }
+.plan-line[data-indent='true']::before { content: '└'; margin-left: -16px; width: 10px; color: var(--faint); }
+.plan-line[data-orphan='true'] .plan-title { color: var(--secondary); }
+.plan-where { font-size: 13px; color: var(--secondary); }
+.plan-doubt { margin: 0; font-size: 12.5px; color: var(--secondary); }
+.plan-line .plan-doubt { flex-basis: 100%; }
+/* Adjust list: one line per draft; the selected one shows its T/D/P tokens inline. */
+.plan-list { display: flex; flex-direction: column; gap: 2px; margin: 0 -6px; }
+.plan-row { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 8px; border-radius: 8px; font-size: 14px; text-align: left; }
+button.plan-row:hover { background: var(--hover); }
+.plan-row[data-indent='true'] { padding-left: 26px; }
+.plan-row[data-orphan='true'] .plan-title { color: var(--secondary); }
+.plan-row[data-selected='true'] { flex-wrap: wrap; row-gap: 4px; padding-top: 4px; padding-bottom: 4px; background: var(--surface); box-shadow: 0 0 0 1px color-mix(in oklab, var(--focus) 40%, transparent); }
+.plan-row .plan-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-row .plan-where { flex-shrink: 0; }
+.plan-focus { font-weight: 600; text-align: left; border-radius: 4px; }
+/* The selected row's own outline already marks keyboard focus. */
+.plan-focus:focus-visible { outline: none; }
+.plan-tokens { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.plan-token { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 8px; border-radius: 6px; background: var(--hover); font-size: 12.5px; color: var(--fg-soft); white-space: nowrap; }
+.plan-token[data-empty='true'] { background: transparent; color: var(--secondary); box-shadow: inset 0 0 0 1px var(--line); }
+.plan-token[data-doubt='true'] { color: var(--focus); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--focus) 45%, transparent); }
+.plan-token:hover:not(:disabled), .plan-token[aria-expanded='true'] { background: var(--pressed); }
+.plan-key { font: inherit; font-size: 10px; font-weight: 600; color: var(--faint); }
+.plan-jev { display: inline-flex; color: var(--focus); }
+.plan-edit { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.plan-edit-title { height: 30px; font-size: 14px; font-weight: 500; }
+.plan-edit-note { font-size: 12.5px; }
+.key-menu { min-width: 240px; }
+.key-menu .menu-item .plan-key { width: 12px; }
+.key-menu .menu-item .jev-badge { margin-left: 4px; }
+.composer-tip { display: flex; align-items: center; gap: 8px; margin: 2px 6px 0; font-size: 12px; line-height: 1.6; color: var(--secondary); }
+.composer-tip > span { flex: 1; }
 /* --- Jev connect form shared by onboarding and settings. --- */
 .jev-connect { display: flex; flex-direction: column; gap: 4px; }
 .jev-connect .segmented { align-self: flex-start; margin-bottom: 4px; }
