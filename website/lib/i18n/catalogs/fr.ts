@@ -137,7 +137,7 @@ const fr: SiteCatalog = {
       { q: 'Où sont stockées mes données ?', a: 'Dans un espace de travail SQLite local sur votre ordinateur, avec des sauvegardes quotidiennes. Pas de compte, pas de synchronisation cloud, pas de télémétrie du contenu.' },
       { q: 'Quels systèmes sont pris en charge ?', a: 'macOS 14 ou ultérieur sur Apple Silicon, et Windows 11 x64. L’app parle chinois, anglais, japonais, espagnol et français.' },
       { q: 'Existe-t-il une app mobile ou une synchronisation ?', a: 'Pas encore. Goalloom est pour l’instant une app de bureau locale.' },
-      { q: 'macOS ne peut pas vérifier le développeur. Que faire ?', a: 'Les premières versions ne sont pas encore signées. Faites Contrôle-clic sur l’app et choisissez Ouvrir, ou autorisez-la dans Réglages Système → Confidentialité et sécurité.' },
+      { q: 'macOS dit que l’app est endommagée ou non vérifiée. Que faire ?', a: 'Les versions ne sont pas encore notariées par Apple. Après avoir glissé Goalloom dans Applications, lancez xattr -dr com.apple.quarantine /Applications/Goalloom.app dans le Terminal, puis ouvrez-la. Sous Windows, choisissez Informations complémentaires → Exécuter quand même dans SmartScreen.' },
     ],
   },
   footer: {

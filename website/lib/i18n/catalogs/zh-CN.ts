@@ -137,7 +137,7 @@ const zhCN: SiteCatalog = {
       { q: '我的数据存在哪里？', a: '存在你电脑上的本地 SQLite 工作区，并每日自动备份。没有账号、没有云同步，也没有内容遥测。' },
       { q: '支持哪些系统？', a: 'Apple Silicon 上的 macOS 14 及以上，以及 Windows 11 x64。界面支持中文、英文、日文、西班牙文和法文。' },
       { q: '有手机版或云同步吗？', a: '暂时没有。Goalloom 目前是一款本地桌面应用。' },
-      { q: '首次打开提示「无法验证开发者」怎么办？', a: '早期版本尚未签名。按住 Control 点按应用并选择「打开」，或在「系统设置 → 隐私与安全性」中允许打开。' },
+      { q: '首次打开提示「已损坏」或「无法验证开发者」怎么办？', a: '安装包尚未经过 Apple 公证。把 Goalloom 拖进「应用程序」后，在终端运行 xattr -dr com.apple.quarantine /Applications/Goalloom.app，再打开即可。Windows 上出现 SmartScreen 时，点「更多信息 → 仍要运行」。' },
     ],
   },
   footer: {

@@ -68,7 +68,7 @@ pnpm build:debug          # 正式构建 + 不入包的私有源码映射与逐�
 pnpm package:dir          # 当前平台本地目录包
 ```
 
-`package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/DMG 安装时间。产物位于 `release/Goalloom-0.1.0-mac-arm64.dmg` 与 `release/Goalloom-0.1.0-win-x64.exe`；前者为拖拽安装的磁盘映像，后者为中文 x64 安装器。macOS 包在本机有 Developer ID 证书时自动签名但未公证，Windows 包未签名，安装方式见[安装](#安装)；应用图标来自 `resources/icon.png`。自动更新与公开分发不在当前范围。
+`package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/DMG 安装时间。产物位于 `release/Goalloom-<版本>-mac-arm64.dmg` 与 `release/Goalloom-<版本>-win-x64.exe`；前者为拖拽安装的磁盘映像，后者为中文 x64 安装器。macOS 包在本机有 Developer ID 证书时自动签名但未公证，Windows 包未签名，安装方式见[安装](#安装)；应用图标来自 `resources/icon.png`。公开版本以 [GitHub Releases](https://github.com/thinkingjimmy/goalloom/releases) 分发（首个公开版本 1.0.0），官网下载按钮指向同一批资产；自动更新不在当前范围。许可证：[MIT](LICENSE)。
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 

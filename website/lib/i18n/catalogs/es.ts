@@ -137,7 +137,7 @@ const es: SiteCatalog = {
       { q: '¿Dónde se guardan mis datos?', a: 'En un espacio de trabajo SQLite local en tu ordenador, con copias de seguridad diarias. Sin cuenta, sin sincronización en la nube y sin telemetría de contenido.' },
       { q: '¿Qué sistemas son compatibles?', a: 'macOS 14 o posterior en Apple Silicon y Windows 11 x64. La app está en chino, inglés, japonés, español y francés.' },
       { q: '¿Hay app móvil o sincronización?', a: 'Todavía no. Por ahora Goalloom es una app de escritorio local.' },
-      { q: 'macOS dice que no puede verificar al desarrollador. ¿Qué hago?', a: 'Las primeras versiones aún no están firmadas. Haz clic con Control en la app y elige Abrir, o permítela en Ajustes del Sistema → Privacidad y seguridad.' },
+      { q: 'macOS dice que la app está dañada o que no puede verificarla. ¿Qué hago?', a: 'Las versiones aún no están notarizadas por Apple. Tras arrastrar Goalloom a Aplicaciones, ejecuta xattr -dr com.apple.quarantine /Applications/Goalloom.app en Terminal y ábrela. En Windows, elige Más información → Ejecutar de todas formas en SmartScreen.' },
     ],
   },
   footer: {

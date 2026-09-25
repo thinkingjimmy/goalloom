@@ -24,7 +24,7 @@ export function buildStructuredData(locale: Locale, catalog: SiteCatalog) {
       {
         '@type': 'SoftwareApplication', '@id': softwareId, name: SITE_NAME, url, description: catalog.meta.description,
         image: absoluteUrl('/app-icon.png'), applicationCategory: 'ProductivityApplication', operatingSystem: ['macOS 14', 'Windows 11'],
-        softwareVersion: RELEASE.version, downloadUrl: RELEASES_URL, sameAs: REPO, isAccessibleForFree: true,
+        softwareVersion: RELEASE.version, downloadUrl: RELEASES_URL, license: `${REPO}/blob/main/LICENSE`, sameAs: REPO, isAccessibleForFree: true,
         offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD', url: RELEASES_URL },
       },
     ],

@@ -141,7 +141,7 @@ const en = {
       { q: 'Where is my data stored?', a: 'In a local SQLite workspace on your computer, with daily backups. There is no account, no cloud sync and no content telemetry.' },
       { q: 'Which systems are supported?', a: 'macOS 14 or later on Apple Silicon, and Windows 11 x64. The app speaks Chinese, English, Japanese, Spanish and French.' },
       { q: 'Is there a mobile app or sync?', a: 'Not yet. Goalloom is a local desktop app for now.' },
-      { q: 'macOS says it can’t verify the developer. What now?', a: 'Early builds are not signed yet. Control-click the app and choose Open, or allow it under System Settings → Privacy & Security.' },
+      { q: 'macOS says the app is damaged or can’t be verified. What now?', a: 'Builds are not notarized by Apple yet. After dragging Goalloom to Applications, run xattr -dr com.apple.quarantine /Applications/Goalloom.app in Terminal, then open it. On Windows, choose More info → Run anyway in SmartScreen.' },
     ],
   },
   footer: {

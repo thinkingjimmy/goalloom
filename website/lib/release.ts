@@ -11,12 +11,12 @@ export const RELEASES_URL = `${REPO}/releases`
 export type Platform = 'mac' | 'windows'
 
 // Asset names carry the version (electron-builder artifactName), so GitHub's /releases/latest/download/<name>
-// shortcut cannot be used. Update this snapshot when a release is published; until then downloads open the
-// Releases page instead of a file that does not exist yet.
+// shortcut cannot be used. Update this snapshot with every published release; `published: false` falls back to the
+// Releases page while a new version is not yet uploaded.
 export const RELEASE = {
-  published: false,
-  version: '0.1.0',
-  assets: { mac: 'Goalloom-0.1.0-mac-arm64.zip', windows: 'Goalloom-0.1.0-win-x64.exe' },
+  published: true,
+  version: '1.0.0',
+  assets: { mac: 'Goalloom-1.0.0-mac-arm64.dmg', windows: 'Goalloom-1.0.0-win-x64.exe' },
 } satisfies { published: boolean; version: string; assets: Record<Platform, string> }
 
 export function downloadUrl(platform: Platform): string {
