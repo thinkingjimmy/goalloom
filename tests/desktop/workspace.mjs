@@ -145,7 +145,9 @@ try {
   await page.getByRole('button', { name: '测试行动', exact: true }).click()
   await page.getByLabel('说明', { exact: true }).fill('重启仍保留的说明')
   // 原生消息框的实际点击留给人工验收；只替换回答，窗口/退出/存储均是真实进程。
-  const interceptBeforeUnload = dialog => { void dialog.dismiss().catch(() => undefined) }
+  // The beforeunload event can reach Playwright after the quit attempt returns. It stays handled for the rest of the
+  // run: an unhandled one is auto-closed by Playwright after Electron already closed it, which crashes the runner.
+  const interceptBeforeUnload = dialog => { if (dialog.type() === 'beforeunload') void dialog.dismiss().catch(() => undefined) }
   page.on('dialog', interceptBeforeUnload)
   const prompted = await application.evaluate(async ({ app, dialog }) => {
     const original = dialog.showMessageBoxSync
@@ -157,7 +159,6 @@ try {
       return prompted
     } finally { dialog.showMessageBoxSync = original }
   })
-  page.off('dialog', interceptBeforeUnload)
   assert.equal(prompted, true)
   assert.equal(await page.getByLabel('说明', { exact: true }).inputValue(), '重启仍保留的说明')
   // 取消退出之后仍须能够提交，而不只是窗口尚在。

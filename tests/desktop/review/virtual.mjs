@@ -88,13 +88,19 @@ try {
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down()
   await page.mouse.move(from.x + from.width / 2 + 8, from.y + from.height / 2)
   await dragReady()
-  await page.mouse.move(to.x + to.width / 2, to.y + 140, { steps: 18 })
+  // Five columns overflow the 1600px window, so once the source row is in view only part of Today is visible.
+  // Aim inside that visible part, clear of the right edge: edge autoscroll only slides Today further under the pointer.
+  const viewport = page.viewportSize() ?? await page.evaluate(() => ({ width: innerWidth }))
+  const dropX = Math.max(to.x + 24, Math.min(to.x + to.width / 2, viewport.width - 40))
+  await page.mouse.move(dropX, to.y + 140, { steps: 18 })
   await page.waitForFunction(()=>document.querySelector('[data-horizon="day"]').classList.contains('drop-target'))
   await page.mouse.up()
   await target.locator(`#item-${rows[119]}`).waitFor()
   await page.waitForFunction(()=>!document.documentElement.dataset.dragging && !document.querySelector('.fab').disabled)
   assert.equal((await page.evaluate(id=>window.goalloom.getItem(id),rows[119])).item.placement.horizon,'day')
   checks.push('pointer cross-column drag into empty destination')
+  // dnd-kit swallows clicks for 50ms after a drop so the release never opens a row.
+  await page.waitForTimeout(100)
   await page.getByRole('button', { name: 'Search & commands', exact: true }).click()
   await page.getByRole('textbox', { name: 'Search items', exact: true }).fill('Synthetic row 002')
   await page.locator('.command-results .menu-item').first().click()
