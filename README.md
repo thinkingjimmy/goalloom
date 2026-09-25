@@ -99,6 +99,7 @@ scripts/                # 测试运行器与 build 构建工具
 resources/              # 打包资源：应用图标 icon.png（1024，macOS 圆角底板），electron-builder 生成 icns/ico
 .github/workflows/      # 私人仓库 macOS/Windows 托管 VM 验证配置
 docs/features/          # 按功能维护的单一规格（规则/契约/TODO/验收）
+website/                # 官网：独立 pnpm 根的 Next.js 静态导出，五语言、部署到 Vercel（见 website/README.md）
 out/                    # 忽略：生产编译产物
 release/                # 忽略：私人安装包与目录包
 output/tests/           # 忽略：测试夹具、截图、性能与安装包实验

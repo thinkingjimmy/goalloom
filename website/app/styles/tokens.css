@@ -1,0 +1,47 @@
+/**
+ * [INPUT]: None; <html data-theme> is set before first paint by components/boot.ts
+ * [OUTPUT]: Paper theme tokens (light and dark) and flow colours for the whole site
+ * [POS]: First layer of app/styles; values mirror src/renderer/styles.css (paper) and src/renderer/lib/colors.ts
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+
+:root {
+  color-scheme: light;
+  --bg: #f5f1eb; --surface: #fbf9f6; --raised: #fffdfa;
+  --fg: #2b2621; --fg-soft: #4a433c; --secondary: #6f665c; --muted: #8a8076; --faint: #b3a99e;
+  --line: rgba(90, 70, 50, .14); --line-strong: rgba(90, 70, 50, .2); --hairline: rgba(90, 70, 50, .08);
+  --hover: rgba(70, 50, 30, .06); --hover-half: rgba(70, 50, 30, .03); --pressed: rgba(70, 50, 30, .09);
+  --check-edge: rgba(90, 70, 50, .3); --checked: #a39a8f; --focus: #547aaa; --avatar: #e6ddcd;
+  --scrim: rgba(40, 25, 10, .16); --bar: rgba(245, 241, 235, .78); --sky: #efe6d7;
+  --shadow-lg: 0 0 0 .5px rgba(40, 25, 10, .14), 0 24px 64px rgba(60, 40, 20, .22);
+  --shadow-win: 0 0 0 .5px rgba(40, 25, 10, .22), 0 30px 80px rgba(60, 40, 20, .28);
+  --shadow-card: 0 0 0 .5px rgba(40, 25, 10, .18), 0 24px 60px rgba(60, 40, 20, .22);
+  --stroke-a: #547aaa; --tint-a: #e7eef8;
+  --stroke-b: #567a53; --tint-b: #e8f0e6;
+  --stroke-c: #a47743; --tint-c: #f7eadb;
+  --stroke-d: #9065a3;
+  --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Hiragino Sans', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --mono: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+  --edge: 120px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #1c1916; --surface: #24201c; --raised: #2b2621;
+  --fg: #ede7df; --fg-soft: #d6cec4; --secondary: #a89e93; --muted: #857b70; --faint: #6e655c;
+  --line: rgba(255, 240, 220, .13); --line-strong: rgba(255, 240, 220, .18); --hairline: rgba(255, 240, 220, .07);
+  --hover: rgba(255, 240, 220, .06); --hover-half: rgba(255, 240, 220, .03); --pressed: rgba(255, 240, 220, .1);
+  --check-edge: rgba(255, 240, 220, .28); --checked: #7d746a; --focus: #85a8d9; --avatar: #3a342e;
+  --scrim: rgba(0, 0, 0, .45); --bar: rgba(28, 25, 22, .78); --sky: #191613;
+  --shadow-lg: 0 0 0 .5px rgba(255, 240, 220, .12), 0 24px 64px rgba(0, 0, 0, .5);
+  --shadow-win: 0 0 0 .5px rgba(255, 240, 220, .14), 0 30px 80px rgba(0, 0, 0, .55);
+  --shadow-card: 0 0 0 .5px rgba(255, 240, 220, .14), 0 24px 60px rgba(0, 0, 0, .45);
+  --stroke-a: #85a8d9; --tint-a: #263449;
+  --stroke-b: #83af7b; --tint-b: #263927;
+  --stroke-c: #c4a06f; --tint-c: #403323;
+  --stroke-d: #bd91d2;
+}
+
+@media (max-width: 900px) {
+  :root { --edge: 16px; }
+}

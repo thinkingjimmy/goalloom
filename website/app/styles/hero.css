@@ -1,0 +1,78 @@
+/**
+ * [INPUT]: Depends on ./tokens.css and ./board.css; markup from components/site-header.tsx and components/home/hero.tsx
+ * [OUTPUT]: Site header (stage band, floating bar, narrow bar), the pinned shrinking stage, the macOS menu bar, the app
+ *           window and the scene switcher
+ * [POS]: app/styles' first screen. Scroll progress arrives as --st/--sx/--sb/--sr/--sp on .stage (hero.tsx), the
+ *        same contract as Bottega's hero; without JS the stage simply stays full-bleed
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+
+/* --- Site header: one markup, three placements --- */
+.site-header { display: flex; align-items: center; gap: 4px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; margin-right: auto; font-size: 18px; font-weight: 650; letter-spacing: -.025em; }
+.brand-tile { width: 30px; height: 30px; border-radius: 8px; background: var(--raised); color: var(--fg); display: grid; place-items: center; box-shadow: 0 0 0 1px var(--hairline), 0 1px 2px rgba(0, 0, 0, .1); }
+.site-nav { display: flex; align-items: center; gap: 2px; }
+.nav-link { height: 36px; padding: 0 12px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--fg-soft); white-space: nowrap; }
+.nav-link:hover { background: var(--hover); color: var(--fg); }
+.nav-icon { width: 36px; padding: 0; justify-content: center; }
+.nav-cta { height: 36px; margin-left: 8px; padding: 0 16px 0 14px; border-radius: 9px; display: inline-flex; align-items: center; gap: 8px; background: var(--fg); color: var(--bg); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.nav-cta:hover { background: var(--fg-soft); }
+/* Exactly one platform action is shown: <html data-platform> is set before paint (boot.ts). */
+:root:not([data-platform='windows']) [data-for='windows'], :root[data-platform='windows'] [data-for='mac'] { display: none !important; }
+.menu-pop { position: relative; }
+.menu-pop > summary { list-style: none; }
+.menu-pop > summary::-webkit-details-marker { display: none; }
+.menu-panel { position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; min-width: 180px; padding: 6px; border-radius: 12px; background: var(--raised); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
+.menu-panel a { height: 36px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--fg); }
+.menu-panel a:hover { background: var(--hover); }
+.menu-panel a[aria-current='page'] { font-weight: 600; }
+.mobile-only { display: none; }
+
+.stage-head { position: absolute; left: 0; right: 0; top: 0; z-index: 4; height: var(--st, 0px); padding: 0 calc(var(--sx, 0px) + 24px); overflow: hidden; opacity: var(--sp, 0); pointer-events: var(--spe, none); }
+.stage-head .menu-panel { position: fixed; top: 64px; right: 32px; }
+.float-head { position: fixed; left: 0; right: 0; top: 0; z-index: 50; transform: translateY(-100%); opacity: 0; transition: transform .32s cubic-bezier(.16, 1, .3, 1), opacity .2s ease-out; pointer-events: none; }
+.float-head[data-shown='true'] { transform: none; opacity: 1; pointer-events: auto; }
+.float-bar { height: 60px; padding: 0 48px; background: color-mix(in srgb, var(--bg) 84%, transparent); backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25); border-bottom: 1px solid var(--line); }
+
+/* --- Pinned stage: a desktop that shrinks into a framed card while the page scrolls --- */
+.hero-pin { position: relative; height: calc(100vh + 360px); min-height: 1080px; }
+.stage { position: sticky; top: 0; height: 100vh; min-height: 720px; padding: var(--st, 0px) var(--sx, 0px) var(--sb, 0px); will-change: padding; }
+.stage-frame { position: relative; height: 100%; overflow: hidden; border-radius: var(--sr, 0px); background: var(--sky); box-shadow: 0 0 0 .5px var(--line); }
+.wall { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity .4s; }
+.wall-dark { opacity: 0; }
+:root[data-theme='dark'] .wall-dark { opacity: 1; }
+.menubar { position: absolute; top: 0; left: 0; right: 0; z-index: 3; height: 30px; padding: 0 12px; display: flex; align-items: center; gap: 2px; background: var(--bar); box-shadow: 0 .5px 0 var(--line); font-size: 13px; color: var(--fg); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.menubar span { padding: 0 9px; white-space: nowrap; }
+.menubar .app-name { font-weight: 700; }
+.menubar .spacer { flex: 1; }
+.menubar .clock { font-variant-numeric: tabular-nums; }
+.window {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -46%); width: min(1100px, calc(100% - 96px)); height: min(560px, calc(100% - 200px));
+  border-radius: 12px; background: var(--bg); color: var(--fg); box-shadow: var(--shadow-win); overflow: hidden; display: flex; flex-direction: column;
+}
+.window .board { flex: 1; min-height: 0; }
+.tabs { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); z-index: 3; height: 44px; padding: 4px; border-radius: 22px; background: rgba(28, 25, 22, .86); display: flex; gap: 2px; box-shadow: 0 8px 24px rgba(20, 12, 5, .25); }
+.tab { height: 36px; padding: 0 16px; border-radius: 18px; font-size: 13px; color: rgba(245, 241, 235, .78); white-space: nowrap; }
+.tab[aria-selected='true'] { background: rgba(245, 241, 235, .16); color: #f5f1eb; }
+.tab:hover { color: #f5f1eb; }
+
+@media (max-width: 900px) {
+  .desktop-only { display: none !important; }
+  .mobile-only { display: revert; }
+  .menu-pop .nav-link > span { display: none; }
+  .site-header.stage-head { position: relative; height: 60px; opacity: 1; pointer-events: auto; padding: 0 8px 0 16px; overflow: visible; }
+  .stage-head .menu-panel { position: absolute; top: calc(100% + 6px); right: 0; }
+  .float-bar { padding: 0 8px 0 16px; }
+  .hero-pin { height: auto; min-height: 0; }
+  .stage { position: relative; height: auto; min-height: 0; padding: 0 12px 12px; }
+  .stage-frame { height: 588px; border-radius: 16px; }
+  .wall { object-position: 88% 50%; }
+  .menubar { height: 26px; font-size: 12px; }
+  .menubar .app-menu { display: none; }
+  .window { left: 10px; right: 10px; top: 48px; width: auto; height: 440px; transform: none; }
+  .window .board-grid { grid-template-columns: minmax(0, 1fr); }
+  .window .bcol:not(:last-child), .window .lines, .window .bar .ib, .window .lights { display: none; }
+  .window .bcol:last-child { border-left: 0; }
+  .tabs { bottom: 24px; }
+  .tab { padding: 0 14px; }
+}

@@ -1,0 +1,150 @@
+/**
+ * [INPUT]: Depends on ./en for the SiteCatalog shape
+ * [OUTPUT]: Exports the Simplified Chinese catalog
+ * [POS]: lib/i18n/catalogs' Chinese copy; app-facing words come from src/renderer/i18n/locales/zh
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+import type { SiteCatalog } from './en'
+
+const zhCN: SiteCatalog = {
+  meta: {
+    title: 'Goalloom — 以 OKR 理念驱动的 Todo，让目标每天都看得见',
+    description:
+      'Goalloom 把三个月的方向连接到今天的行动：五个时间列、目标关联与关系线，以及 Jev 智能输入。免费开源、本地优先，支持 macOS 与 Windows。',
+    socialAlt: '剪纸风景上的 Goalloom 目标看板',
+  },
+  nav: {
+    home: 'Goalloom 首页',
+    main: '主导航',
+    board: '目标看板',
+    jev: '智能输入',
+    releases: '版本发布',
+    github: 'GitHub',
+    download: '下载',
+    language: '语言',
+    menu: '菜单',
+    themeToDark: '切换到深色主题',
+    themeToLight: '切换到浅色主题',
+  },
+  hero: {
+    h1: 'Goalloom：以 OKR 理念驱动的本地 Todo',
+    menus: ['文件', '编辑', '显示', '窗口', '帮助'],
+    clock: '9月25日 周四 9:41',
+    scenes: '演示场景',
+    sceneBoard: '目标看板',
+    sceneJev: '智能输入',
+    sceneLines: '关系线',
+  },
+  demo: {
+    horizons: { cycle: '3个月', month: '本月', week: '本周', day: '今天' },
+    meta: { cycle: '9/25 – 12/24', month: '9月', week: '9/21 – 9/27', day: '9月25日' },
+    all: '全部',
+    onlyFlow: '只看',
+    flows: { a: '上线 Goalloom 1.0', b: '跑完第一个半马', c: '存下旅行基金' },
+    items: {
+      q1: '上线 Goalloom 1.0', q2: '跑完第一个半马', q3: '存下旅行基金',
+      m1: '完成官网与下载页', m2: '双平台打包验收', m3: '每周跑量到 25 km', m4: '取消两个闲置订阅',
+      w1: '写官网文案', w2: '录演示视频', w3: 'Windows 实机验收', w4: '周六长距离 12 km', w5: '给爸妈打个电话',
+      d1: '定稿首页标题', d2: '剪 30 秒演示', d3: '晨跑 5 km', d4: '回复房东邮件', d5: '交水电费',
+      n1: '给官网配一张首屏插画', n2: '把首页标题定下来',
+    },
+    complete: '完成：',
+    reopen: '标为未完成：',
+    search: '搜索与命令',
+    columns: '显示的列：Later 已隐藏',
+    settings: '设置',
+    history: '往期：',
+    addIn: '新建到',
+    newItem: '新建',
+    composer: {
+      placeholder: '写下想法，一行一件事也可以…',
+      heroText: '今天给官网配一张首屏插画',
+      pending: 'Jev 整理中…',
+      adjust: '调整',
+      keepAsLater: '原样存到 Later',
+      entryTip: '全局＋用于收集或智能整理；列头＋仍在对应列快速录入。',
+      clear: '清空草稿',
+      close: '关闭',
+    },
+    sentence: '放到今天，归到「完成官网与下载页」下',
+    createTo: '创建到今天',
+    created: '已创建事项',
+    undone: '已撤销',
+    undo: '撤销',
+    dismiss: '关闭',
+  },
+  note: {
+    eyebrow: '为什么做 Goalloom',
+    before: '我是一名 ADHD 患者，注意力很容易被急事带走。我做 Goalloom，是想让',
+    em1: '长期目标每天都出现在眼前',
+    middle: '，也让记下一件事的成本',
+    em2: '低到不用犹豫',
+    after: '。',
+    author: 'Jimmy · Goalloom 作者',
+  },
+  okr: {
+    eyebrow: 'OKR · Todo',
+    title: ['以 OKR 为核心的 Todo。', '重要的事，不再被急事淹没。'],
+    lead: '每天勾满的多是急事，年度目标却一再推迟。Goalloom 把年度目标拆成季度、月、周，再落到今天——每件 Todo 都知道自己为了哪个目标。',
+  },
+  lines: {
+    eyebrow: '01 / 关系线',
+    title: ['点开一个目标，', '整条链路就连起来。'],
+    body: '每件事都能挂在更长周期的目标下。关联只回答「为什么做」：不汇总进度，也不联动状态。',
+    casesLabel: '关系线的四种用法',
+    cases: [
+      { title: '一键筛选', desc: '点目标色块或按 ⌘2，它关联的所有 Todo 一次看全。' },
+      { title: '悬停看整条链路', desc: '指向任意一件事，从目标到今天一路亮起。' },
+      { title: '目标拆成多步', desc: '一个上级连着多件下级，一路拆到今天。' },
+      { title: '键盘友好', desc: '⌘1–⌘9 切换目标，⌘N 新建，⌘K 搜索，⌘Z 撤销。' },
+    ],
+    shortcuts: { newItem: '新建', search: '搜索与命令', undo: '撤销', switchGoal: '切换目标' },
+  },
+  jev: {
+    eyebrow: 'Smart input · Jev',
+    title: ['想到什么就写。', '剩下的交给 Jev。'],
+    lead: '为注意力容易分散的人设计：记下一件事的成本越低，越不会忘；目标越常出现在眼前，越不会被推迟。',
+    subEyebrow: '02 / 随手记下',
+    subTitle: ['一句话，', '放对列、挂对目标。'],
+    body: 'Jev 参考你的历史 Todo 和目标，读懂「今天」「这周」这样的说法，把事情放进合适的时间列，并推荐挂在哪个目标下面。一次写几行，也能一起整理。',
+    demoLabel: '演示：写下一件事，Jev 整理，创建到今天',
+    typed: '今天把首页标题定下来',
+    cards: [
+      { title: '⌘N 随处唤起', desc: '回车即建，创建几乎零成本。' },
+      { title: '先预览再创建', desc: '每条建议都能改，整批一步撤销。' },
+      { title: '快速自动生成', desc: '自动关联目标，放进合适的时间列。' },
+      { title: 'BYOK', desc: 'Bring your own key，存在系统钥匙串，不进备份。' },
+    ],
+  },
+  download: {
+    eyebrow: 'Download · FAQ',
+    title: ['开始把目标', '连到今天。'],
+    lead: '免费、开源。安装包由 GitHub Releases 提供。',
+    mac: { action: '下载 macOS 版', detail: 'macOS 14+ · Apple Silicon' },
+    windows: { action: '下载 Windows 版', detail: 'Windows 11 · x64' },
+    also: '也可下载',
+    phone: '在手机上？复制下载链接，稍后在电脑上打开',
+    copied: '链接已复制，到电脑上粘贴打开',
+    ask: '还有疑问？',
+    askLink: '在 GitHub 上提问',
+  },
+  faq: {
+    title: '常见问题',
+    items: [
+      { q: 'Goalloom 免费吗？', a: '免费，并且开源。智能输入使用你自己的 AI 服务密钥，按服务商的价格计费；不用它也能完整使用其他功能。' },
+      { q: '它和普通的 Todo 有什么不同？', a: '每件事都放在一个时间列里——Later、3个月、本月、本周、今天——并且能挂在更长周期的目标下。日常事务始终和季度目标连在一起，而不是把它淹没。' },
+      { q: '什么是 Jev？一定要用吗？', a: 'Jev 是可选的智能输入：参考你的目标和历史 Todo，帮新事项选好时间列并推荐上级。使用时你的文字会发送到你选择的服务商；不用它，看板也能完全离线工作。' },
+      { q: '我的数据存在哪里？', a: '存在你电脑上的本地 SQLite 工作区，并每日自动备份。没有账号、没有云同步，也没有内容遥测。' },
+      { q: '支持哪些系统？', a: 'Apple Silicon 上的 macOS 14 及以上，以及 Windows 11 x64。界面支持中文、英文、日文、西班牙文和法文。' },
+      { q: '有手机版或云同步吗？', a: '暂时没有。Goalloom 目前是一款本地桌面应用。' },
+      { q: '首次打开提示「无法验证开发者」怎么办？', a: '早期版本尚未签名。按住 Control 点按应用并选择「打开」，或在「系统设置 → 隐私与安全性」中允许打开。' },
+    ],
+  },
+  footer: {
+    rights: '© 2026 Goalloom',
+    links: '页脚',
+    feedback: '反馈',
+  },
+}
+
+export default zhCN

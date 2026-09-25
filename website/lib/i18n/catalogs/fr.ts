@@ -1,0 +1,150 @@
+/**
+ * [INPUT]: Depends on ./en for the SiteCatalog shape
+ * [OUTPUT]: Exports the French catalog
+ * [POS]: lib/i18n/catalogs' French copy; app-facing words come from src/renderer/i18n/locales/fr
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+import type { SiteCatalog } from './en'
+
+const fr: SiteCatalog = {
+  meta: {
+    title: 'Goalloom — des tâches guidées par les OKR, vos objectifs toujours en vue',
+    description:
+      'Goalloom relie les objectifs du trimestre aux tâches du jour : cinq colonnes de temps, liens et lignes de relation, et la saisie intelligente Jev. Gratuit, open source et local pour macOS et Windows.',
+    socialAlt: 'Le tableau d’objectifs de Goalloom sur un paysage en papier découpé',
+  },
+  nav: {
+    home: 'Accueil Goalloom',
+    main: 'Principal',
+    board: 'Tableau d’objectifs',
+    jev: 'Saisie intelligente',
+    releases: 'Versions',
+    github: 'GitHub',
+    download: 'Télécharger',
+    language: 'Langue',
+    menu: 'Menu',
+    themeToDark: 'Passer au thème sombre',
+    themeToLight: 'Passer au thème clair',
+  },
+  hero: {
+    h1: 'Goalloom : une app de tâches locale guidée par les OKR',
+    menus: ['Fichier', 'Édition', 'Présentation', 'Fenêtre', 'Aide'],
+    clock: 'jeu. 25 sept. 9:41',
+    scenes: 'Scènes de la démo',
+    sceneBoard: 'Tableau d’objectifs',
+    sceneJev: 'Saisie intelligente',
+    sceneLines: 'Lignes de relation',
+  },
+  demo: {
+    horizons: { cycle: '3 mois', month: 'Ce mois', week: 'Cette semaine', day: 'Aujourd’hui' },
+    meta: { cycle: '25/09 – 24/12', month: 'sept.', week: '21/09 – 27/09', day: '25 sept.' },
+    all: 'Tous',
+    onlyFlow: 'Afficher seulement ',
+    flows: { a: 'Lancer Goalloom 1.0', b: 'Courir un premier semi-marathon', c: 'Épargner pour un voyage' },
+    items: {
+      q1: 'Lancer Goalloom 1.0', q2: 'Courir un premier semi-marathon', q3: 'Épargner pour un voyage',
+      m1: 'Finir le site et les téléchargements', m2: 'Tester les deux versions', m3: 'Courir 25 km par semaine', m4: 'Résilier deux abonnements',
+      w1: 'Rédiger les textes du site', w2: 'Tourner la vidéo de démo', w3: 'Tester sur un PC Windows', w4: 'Sortie longue du samedi, 12 km', w5: 'Appeler mes parents',
+      d1: 'Arrêter le titre de l’accueil', d2: 'Monter une démo de 30 s', d3: 'Footing du matin, 5 km', d4: 'Répondre au propriétaire', d5: 'Payer l’électricité',
+      n1: 'Illustrer l’accueil du site', n2: 'Arrêter le titre de l’accueil',
+    },
+    complete: 'Terminer : ',
+    reopen: 'Marquer comme non terminé : ',
+    search: 'Recherche et commandes',
+    columns: 'Colonnes affichées : Later est masquée',
+    settings: 'Réglages',
+    history: 'Périodes passées : ',
+    addIn: 'Nouveau dans ',
+    newItem: 'Nouveau',
+    composer: {
+      placeholder: 'Notez une idée, une chose par ligne si vous voulez…',
+      heroText: 'Illustrer aujourd’hui l’accueil du site',
+      pending: 'Jev organise…',
+      adjust: 'Ajuster',
+      keepAsLater: 'Enregistrer tel quel dans Later',
+      entryTip: 'Le + global sert à noter ou organiser intelligemment ; le + d’une colonne ajoute toujours directement dans cette colonne.',
+      clear: 'Effacer le brouillon',
+      close: 'Fermer',
+    },
+    sentence: 'Dans Aujourd’hui, sous « Finir le site et les téléchargements »',
+    createTo: 'Créer dans Aujourd’hui',
+    created: 'Élément créé',
+    undone: 'Annulé',
+    undo: 'Annuler',
+    dismiss: 'Fermer',
+  },
+  note: {
+    eyebrow: 'Pourquoi Goalloom',
+    before: 'J’ai un TDAH, et l’urgence m’arrache facilement l’attention. J’ai créé Goalloom pour que ',
+    em1: 'les objectifs à long terme soient sous mes yeux chaque jour',
+    middle: ', et que noter quelque chose coûte ',
+    em2: 'trop peu pour hésiter',
+    after: '.',
+    author: 'Jimmy · créateur de Goalloom',
+  },
+  okr: {
+    eyebrow: 'OKR · Tâches',
+    title: ['Des tâches construites autour des OKR.', 'L’important ne se noie plus dans l’urgent.'],
+    lead: 'On coche surtout de l’urgent, et les objectifs de l’année glissent sans cesse. Goalloom découpe l’année en trimestres, mois et semaines, jusqu’à aujourd’hui : chaque tâche sait quel objectif elle sert.',
+  },
+  lines: {
+    eyebrow: '01 / Lignes de relation',
+    title: ['Ouvrez un objectif,', 'toute sa chaîne s’illumine.'],
+    body: 'Chaque élément peut se ranger sous un objectif d’un horizon plus long. Les liens répondent seulement au « pourquoi » : ils n’agrègent pas la progression et ne changent aucun statut.',
+    casesLabel: 'Quatre façons d’utiliser les lignes de relation',
+    cases: [
+      { title: 'Filtre en une touche', desc: 'Cliquez la couleur d’un objectif ou ⌘2 pour voir toutes ses tâches.' },
+      { title: 'Survolez la chaîne', desc: 'Pointez une tâche : son chemin de l’objectif à aujourd’hui s’allume.' },
+      { title: 'De l’objectif aux étapes', desc: 'Un parent relie plusieurs enfants, jusqu’à aujourd’hui.' },
+      { title: 'Pensé clavier', desc: '⌘1–⌘9 changent d’objectif, ⌘N crée, ⌘K cherche, ⌘Z annule.' },
+    ],
+    shortcuts: { newItem: 'Nouveau', search: 'Recherche et commandes', undo: 'Annuler', switchGoal: 'Changer d’objectif' },
+  },
+  jev: {
+    eyebrow: 'Smart input · Jev',
+    title: ['Écrivez ce qui vous vient.', 'Jev s’occupe du reste.'],
+    lead: 'Pensé pour les esprits vite distraits : moins noter coûte, moins on oublie ; plus les objectifs sont en vue, moins ils glissent.',
+    subEyebrow: '02 / Saisie rapide',
+    subTitle: ['Une phrase,', 'la bonne colonne, le bon objectif.'],
+    body: 'Jev s’appuie sur vos tâches passées et vos objectifs, comprend « aujourd’hui » ou « cette semaine », range la tâche dans la bonne colonne et suggère l’objectif dont elle dépend. Écrivez plusieurs lignes : il les organise ensemble.',
+    demoLabel: 'Démo : une tâche saisie, organisée par Jev, créée dans Aujourd’hui',
+    typed: 'Arrêter aujourd’hui le titre de l’accueil',
+    cards: [
+      { title: '⌘N partout', desc: 'Entrée pour créer. Noter ne coûte presque rien.' },
+      { title: 'Aperçu d’abord', desc: 'Chaque suggestion se modifie, et le lot s’annule d’un coup.' },
+      { title: 'Rangement automatique', desc: 'Relie le bon objectif et atterrit dans la bonne colonne.' },
+      { title: 'BYOK', desc: 'Bring your own key. Elle reste dans le trousseau du système, jamais dans les sauvegardes.' },
+    ],
+  },
+  download: {
+    eyebrow: 'Download · FAQ',
+    title: ['Reliez vos objectifs', 'à aujourd’hui.'],
+    lead: 'Gratuit et open source. Les installeurs sont publiés sur GitHub Releases.',
+    mac: { action: 'Télécharger pour macOS', detail: 'macOS 14+ · Apple Silicon' },
+    windows: { action: 'Télécharger pour Windows', detail: 'Windows 11 · x64' },
+    also: 'Aussi pour',
+    phone: 'Sur votre téléphone ? Copiez le lien pour votre ordinateur',
+    copied: 'Lien copié : ouvrez-le sur votre ordinateur',
+    ask: 'D’autres questions ?',
+    askLink: 'Demandez sur GitHub',
+  },
+  faq: {
+    title: 'Questions fréquentes',
+    items: [
+      { q: 'Goalloom est-il gratuit ?', a: 'Oui. Il est gratuit et open source. La saisie intelligente utilise la clé de votre propre fournisseur d’IA, facturée par celui-ci ; tout le reste fonctionne sans elle.' },
+      { q: 'En quoi est-ce différent d’une app de tâches classique ?', a: 'Chaque tâche vit dans une colonne de temps (Later, 3 mois, ce mois, cette semaine, aujourd’hui) et peut se relier à des objectifs d’horizons plus longs : le quotidien reste connecté aux objectifs du trimestre au lieu de les enterrer.' },
+      { q: 'Qu’est-ce que Jev, et est-il obligatoire ?', a: 'Jev est la saisie intelligente facultative : il lit vos objectifs et tâches passées pour ranger les nouvelles et suggérer un parent. Quand vous l’utilisez, votre texte part chez le fournisseur choisi ; sans lui, le tableau fonctionne entièrement hors ligne.' },
+      { q: 'Où sont stockées mes données ?', a: 'Dans un espace de travail SQLite local sur votre ordinateur, avec des sauvegardes quotidiennes. Pas de compte, pas de synchronisation cloud, pas de télémétrie du contenu.' },
+      { q: 'Quels systèmes sont pris en charge ?', a: 'macOS 14 ou ultérieur sur Apple Silicon, et Windows 11 x64. L’app parle chinois, anglais, japonais, espagnol et français.' },
+      { q: 'Existe-t-il une app mobile ou une synchronisation ?', a: 'Pas encore. Goalloom est pour l’instant une app de bureau locale.' },
+      { q: 'macOS ne peut pas vérifier le développeur. Que faire ?', a: 'Les premières versions ne sont pas encore signées. Faites Contrôle-clic sur l’app et choisissez Ouvrir, ou autorisez-la dans Réglages Système → Confidentialité et sécurité.' },
+    ],
+  },
+  footer: {
+    rights: '© 2026 Goalloom',
+    links: 'Pied de page',
+    feedback: 'Retours',
+  },
+}
+
+export default fr

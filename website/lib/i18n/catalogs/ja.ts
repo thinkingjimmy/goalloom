@@ -1,0 +1,150 @@
+/**
+ * [INPUT]: Depends on ./en for the SiteCatalog shape
+ * [OUTPUT]: Exports the Japanese catalog
+ * [POS]: lib/i18n/catalogs' Japanese copy; app-facing words come from src/renderer/i18n/locales/ja
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+import type { SiteCatalog } from './en'
+
+const ja: SiteCatalog = {
+  meta: {
+    title: 'Goalloom — OKR で動く、目標がいつも見える ToDo',
+    description:
+      'Goalloom は今期の目標を今日の ToDo につなぎます。5 つの時間列、目標のリンクと関係線、Jev のスマート入力。無料・オープンソース・ローカル優先。macOS と Windows に対応。',
+    socialAlt: '切り絵の風景に置かれた Goalloom の目標ボード',
+  },
+  nav: {
+    home: 'Goalloom ホーム',
+    main: 'メイン',
+    board: '目標ボード',
+    jev: 'スマート入力',
+    releases: 'リリース',
+    github: 'GitHub',
+    download: 'ダウンロード',
+    language: '言語',
+    menu: 'メニュー',
+    themeToDark: 'ダークテーマに切り替え',
+    themeToLight: 'ライトテーマに切り替え',
+  },
+  hero: {
+    h1: 'Goalloom：OKR で動く、ローカル優先の ToDo アプリ',
+    menus: ['ファイル', '編集', '表示', 'ウインドウ', 'ヘルプ'],
+    clock: '9月25日(木) 9:41',
+    scenes: 'デモの場面',
+    sceneBoard: '目標ボード',
+    sceneJev: 'スマート入力',
+    sceneLines: '関係線',
+  },
+  demo: {
+    horizons: { cycle: '3か月', month: '今月', week: '今週', day: '今日' },
+    meta: { cycle: '9/25 – 12/24', month: '9月', week: '9/21 – 9/27', day: '9月25日' },
+    all: 'すべて',
+    onlyFlow: '表示：',
+    flows: { a: 'Goalloom 1.0 を公開', b: '初めてのハーフマラソン完走', c: '旅行資金を貯める' },
+    items: {
+      q1: 'Goalloom 1.0 を公開', q2: '初めてのハーフマラソン完走', q3: '旅行資金を貯める',
+      m1: 'サイトとダウンロードを仕上げる', m2: '両プラットフォームのビルド検証', m3: '週 25 km 走る', m4: '使っていないサブスクを 2 つ解約',
+      w1: 'サイトの文章を書く', w2: 'デモ動画を撮る', w3: 'Windows 実機で確認', w4: '土曜のロング走 12 km', w5: '両親に電話する',
+      d1: 'トップの見出しを確定', d2: '30 秒デモを編集', d3: '朝ラン 5 km', d4: '大家さんに返信', d5: '光熱費を払う',
+      n1: 'サイトのヒーロー画像を描く', n2: 'トップの見出しを決める',
+    },
+    complete: '完了：',
+    reopen: '未完了に戻す：',
+    search: '検索とコマンド',
+    columns: '表示する列：Later は非表示',
+    settings: '設定',
+    history: '過去の期間：',
+    addIn: '新規作成：',
+    newItem: '新規',
+    composer: {
+      placeholder: '考えを書いてください。1 行に 1 件でもかまいません…',
+      heroText: '今日サイトのヒーロー画像を描く',
+      pending: 'Jev が整理中…',
+      adjust: '調整',
+      keepAsLater: 'そのまま Later に保存',
+      entryTip: '全体の＋は収集やスマート整理に、列見出しの＋はその列へのすばやい入力に使えます。',
+      clear: '下書きを消去',
+      close: '閉じる',
+    },
+    sentence: '今日に入れる、「サイトとダウンロードを仕上げる」の下',
+    createTo: '今日に作成',
+    created: '項目を作成しました',
+    undone: '取り消しました',
+    undo: '取り消し',
+    dismiss: '閉じる',
+  },
+  note: {
+    eyebrow: 'Goalloom をつくった理由',
+    before: '私は ADHD で、目の前の急ぎの用事に注意を持っていかれがちです。Goalloom をつくったのは、',
+    em1: '長期の目標が毎日目に入る',
+    middle: 'ようにし、何かを書き留める手間を',
+    em2: '迷わないほど小さく',
+    after: 'するためです。',
+    author: 'Jimmy · Goalloom 作者',
+  },
+  okr: {
+    eyebrow: 'OKR · ToDo',
+    title: ['OKR を軸にした ToDo。', '大事なことが、急ぎの用事に埋もれない。'],
+    lead: 'チェックが付くのはたいてい急ぎの用事で、年間目標は先送りされがちです。Goalloom は年間目標を四半期・月・週に分け、今日まで落とし込みます。どの ToDo も、どの目標のためにあるかを知っています。',
+  },
+  lines: {
+    eyebrow: '01 / 関係線',
+    title: ['目標をひとつ開くと、', 'つながりがすべて見える。'],
+    body: 'どの項目も、より長い期間の目標の下に置けます。リンクが答えるのは「なぜやるか」だけ。進捗を集計したり、状態を連動させたりはしません。',
+    casesLabel: '関係線の 4 つの使い方',
+    cases: [
+      { title: 'ワンキーで絞り込み', desc: '目標の色をクリックするか ⌘2 で、関連する ToDo をまとめて表示。' },
+      { title: 'ホバーで経路を表示', desc: '項目を指すと、目標から今日までの道筋が浮かび上がります。' },
+      { title: '目標を小さく分ける', desc: 'ひとつの上位から複数の下位へ、今日までつながります。' },
+      { title: 'キーボード中心', desc: '⌘1–⌘9 で目標を切り替え、⌘N 新規、⌘K 検索、⌘Z 取り消し。' },
+    ],
+    shortcuts: { newItem: '新規', search: '検索とコマンド', undo: '取り消し', switchGoal: '目標を切り替え' },
+  },
+  jev: {
+    eyebrow: 'Smart input · Jev',
+    title: ['思いついたら書くだけ。', 'あとは Jev におまかせ。'],
+    lead: '注意がそれやすい人のために。書き留める手間が小さいほど忘れにくく、目標が目に入るほど先送りしにくくなります。',
+    subEyebrow: '02 / さっとメモ',
+    subTitle: ['ひと言で、', 'ふさわしい列と目標へ。'],
+    body: 'Jev は過去の ToDo と目標を参考に「今日」「今週」といった言い方を読み取り、ふさわしい時間列に置いて、どの目標の下に入れるかを提案します。数行まとめて書けば、まとめて整理します。',
+    demoLabel: 'デモ：1 件書くと Jev が整理し、今日に作成',
+    typed: '今日トップの見出しを決める',
+    cards: [
+      { title: '⌘N でどこからでも', desc: 'Return で作成。書き留めるコストはほぼゼロ。' },
+      { title: 'まずプレビュー', desc: '提案はすべて編集でき、まとめて一度に取り消せます。' },
+      { title: 'すばやく自動配置', desc: '目標にリンクし、ふさわしい列に入れます。' },
+      { title: 'BYOK', desc: 'Bring your own key。キーはシステムのキーチェーンに保存され、バックアップに入りません。' },
+    ],
+  },
+  download: {
+    eyebrow: 'Download · FAQ',
+    title: ['目標を今日に', 'つなぎはじめよう。'],
+    lead: '無料・オープンソース。インストーラは GitHub Releases で公開しています。',
+    mac: { action: 'macOS 版をダウンロード', detail: 'macOS 14+ · Apple Silicon' },
+    windows: { action: 'Windows 版をダウンロード', detail: 'Windows 11 · x64' },
+    also: 'ほかの版：',
+    phone: 'スマートフォンですか？ パソコン用にリンクをコピー',
+    copied: 'リンクをコピーしました。パソコンで開いてください',
+    ask: 'ほかに質問があれば',
+    askLink: 'GitHub で質問する',
+  },
+  faq: {
+    title: 'よくある質問',
+    items: [
+      { q: 'Goalloom は無料ですか？', a: 'はい。無料でオープンソースです。スマート入力はご自身の AI プロバイダーのキーを使い、料金はそのプロバイダーの価格です。それ以外はキーなしで使えます。' },
+      { q: '普通の ToDo アプリと何が違いますか？', a: 'どの項目も時間列（Later・3か月・今月・今週・今日）に置かれ、より長い期間の目標にリンクできます。日々の作業が四半期の目標とつながったままになり、目標が埋もれません。' },
+      { q: 'Jev とは？ 使わなければいけませんか？', a: 'Jev は任意のスマート入力です。目標と過去の ToDo をもとに、新しい項目の列と上位を提案します。使うときは入力内容が選んだプロバイダーに送られます。使わなくてもボードは完全にオフラインで動きます。' },
+      { q: 'データはどこに保存されますか？', a: 'お使いのパソコンのローカル SQLite ワークスペースに保存され、毎日バックアップされます。アカウントもクラウド同期も、内容のテレメトリもありません。' },
+      { q: '対応している OS は？', a: 'Apple Silicon の macOS 14 以降と、Windows 11 x64 です。アプリは中国語・英語・日本語・スペイン語・フランス語に対応しています。' },
+      { q: 'モバイル版や同期はありますか？', a: 'まだありません。現在はローカルのデスクトップアプリです。' },
+      { q: '「開発元を検証できません」と表示されたら？', a: '初期のビルドはまだ署名されていません。Control キーを押しながらアプリをクリックして「開く」を選ぶか、「システム設定 → プライバシーとセキュリティ」で許可してください。' },
+    ],
+  },
+  footer: {
+    rights: '© 2026 Goalloom',
+    links: 'フッター',
+    feedback: 'フィードバック',
+  },
+}
+
+export default ja

@@ -1,0 +1,150 @@
+/**
+ * [INPUT]: Depends on ./en for the SiteCatalog shape
+ * [OUTPUT]: Exports the Spanish catalog
+ * [POS]: lib/i18n/catalogs' Spanish copy; app-facing words come from src/renderer/i18n/locales/es
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+import type { SiteCatalog } from './en'
+
+const es: SiteCatalog = {
+  meta: {
+    title: 'Goalloom — tareas guiadas por OKR que mantienen tus metas a la vista',
+    description:
+      'Goalloom conecta las metas del trimestre con las tareas de hoy: cinco columnas de tiempo, enlaces y líneas de relación, y la entrada inteligente de Jev. Gratis, de código abierto y local para macOS y Windows.',
+    socialAlt: 'El tablero de metas de Goalloom sobre un paisaje de papel recortado',
+  },
+  nav: {
+    home: 'Inicio de Goalloom',
+    main: 'Principal',
+    board: 'Tablero de metas',
+    jev: 'Entrada inteligente',
+    releases: 'Versiones',
+    github: 'GitHub',
+    download: 'Descargar',
+    language: 'Idioma',
+    menu: 'Menú',
+    themeToDark: 'Cambiar al tema oscuro',
+    themeToLight: 'Cambiar al tema claro',
+  },
+  hero: {
+    h1: 'Goalloom: una app de tareas local guiada por OKR',
+    menus: ['Archivo', 'Edición', 'Visualización', 'Ventana', 'Ayuda'],
+    clock: 'jue 25 sept 9:41',
+    scenes: 'Escenas de la demo',
+    sceneBoard: 'Tablero de metas',
+    sceneJev: 'Entrada inteligente',
+    sceneLines: 'Líneas de relación',
+  },
+  demo: {
+    horizons: { cycle: '3 meses', month: 'Este mes', week: 'Esta semana', day: 'Hoy' },
+    meta: { cycle: '25/9 – 24/12', month: 'sept', week: '21/9 – 27/9', day: '25 sept' },
+    all: 'Todos',
+    onlyFlow: 'Ver solo ',
+    flows: { a: 'Lanzar Goalloom 1.0', b: 'Correr mi primer medio maratón', c: 'Ahorrar para un viaje' },
+    items: {
+      q1: 'Lanzar Goalloom 1.0', q2: 'Correr mi primer medio maratón', q3: 'Ahorrar para un viaje',
+      m1: 'Terminar la web y las descargas', m2: 'Probar ambas versiones', m3: 'Correr 25 km por semana', m4: 'Cancelar dos suscripciones',
+      w1: 'Escribir los textos de la web', w2: 'Grabar el vídeo demo', w3: 'Probar en un equipo Windows', w4: 'Tirada larga del sábado, 12 km', w5: 'Llamar a mis padres',
+      d1: 'Cerrar el titular de la portada', d2: 'Editar una demo de 30 s', d3: 'Correr 5 km por la mañana', d4: 'Responder al casero', d5: 'Pagar la luz',
+      n1: 'Ilustrar la portada de la web', n2: 'Cerrar el titular de la portada',
+    },
+    complete: 'Completar: ',
+    reopen: 'Marcar como pendiente: ',
+    search: 'Buscar y comandos',
+    columns: 'Columnas visibles: Later está oculta',
+    settings: 'Ajustes',
+    history: 'Periodos anteriores: ',
+    addIn: 'Nuevo en ',
+    newItem: 'Nuevo',
+    composer: {
+      placeholder: 'Escribe una idea; también puedes poner una cosa por línea…',
+      heroText: 'Ilustrar hoy la portada de la web',
+      pending: 'Jev está organizando…',
+      adjust: 'Ajustar',
+      keepAsLater: 'Guardar tal cual en Later',
+      entryTip: 'El ＋ global sirve para anotar u organizar con Jev; el ＋ de cada columna sigue añadiendo rápido en esa columna.',
+      clear: 'Borrar borrador',
+      close: 'Cerrar',
+    },
+    sentence: 'En Hoy, bajo «Terminar la web y las descargas»',
+    createTo: 'Crear en Hoy',
+    created: 'Elemento creado',
+    undone: 'Deshecho',
+    undo: 'Deshacer',
+    dismiss: 'Cerrar',
+  },
+  note: {
+    eyebrow: 'Por qué Goalloom',
+    before: 'Tengo TDAH y lo urgente me roba la atención con facilidad. Hice Goalloom para que ',
+    em1: 'las metas a largo plazo aparezcan cada día',
+    middle: ' y anotar algo cueste ',
+    em2: 'tan poco que no haya que dudar',
+    after: '.',
+    author: 'Jimmy · creador de Goalloom',
+  },
+  okr: {
+    eyebrow: 'OKR · Tareas',
+    title: ['Tareas construidas alrededor de los OKR.', 'Lo importante ya no se ahoga en lo urgente.'],
+    lead: 'Casi todo lo que tachamos es urgente, y las metas del año se siguen aplazando. Goalloom divide el año en trimestres, meses y semanas, y lo aterriza en hoy: cada tarea sabe a qué meta sirve.',
+  },
+  lines: {
+    eyebrow: '01 / Líneas de relación',
+    title: ['Abre una meta', 'y toda su cadena se ilumina.'],
+    body: 'Cada elemento puede colgar de una meta de un horizonte más largo. Los enlaces solo responden al «por qué»: nunca suman progreso ni cambian estados.',
+    casesLabel: 'Cuatro formas de usar las líneas de relación',
+    cases: [
+      { title: 'Filtrar con una tecla', desc: 'Pulsa el color de una meta o ⌘2 y ve todas sus tareas a la vez.' },
+      { title: 'Pasa el cursor', desc: 'Señala cualquier tarea y su camino de la meta a hoy se ilumina.' },
+      { title: 'De meta a pasos', desc: 'Un superior enlaza varias subtareas, hasta llegar a hoy.' },
+      { title: 'Pensado para teclado', desc: '⌘1–⌘9 cambian de meta, ⌘N crea, ⌘K busca, ⌘Z deshace.' },
+    ],
+    shortcuts: { newItem: 'Nuevo', search: 'Buscar y comandos', undo: 'Deshacer', switchGoal: 'Cambiar de meta' },
+  },
+  jev: {
+    eyebrow: 'Smart input · Jev',
+    title: ['Escribe lo que se te ocurra.', 'Jev se encarga del resto.'],
+    lead: 'Pensado para mentes que se distraen: cuanto menos cuesta anotar algo, menos se olvida; cuanto más a la vista están las metas, menos se aplazan.',
+    subEyebrow: '02 / Captura rápida',
+    subTitle: ['Una frase,', 'la columna y la meta correctas.'],
+    body: 'Jev lee tus tareas anteriores y tus metas, entiende expresiones como «hoy» o «esta semana», coloca la tarea en la columna adecuada y sugiere la meta de la que cuelga. Escribe varias líneas y las ordena juntas.',
+    demoLabel: 'Demo: escribe una tarea, Jev la organiza y se crea en Hoy',
+    typed: 'Cerrar hoy el titular de la portada',
+    cards: [
+      { title: '⌘N desde cualquier lugar', desc: 'Pulsa Retorno para crear. Anotar no cuesta casi nada.' },
+      { title: 'Vista previa primero', desc: 'Cada sugerencia se puede editar y el lote se deshace de una vez.' },
+      { title: 'Ubicación automática', desc: 'Enlaza la meta adecuada y cae en la columna correcta.' },
+      { title: 'BYOK', desc: 'Bring your own key. Se guarda en el llavero del sistema, nunca en copias de seguridad.' },
+    ],
+  },
+  download: {
+    eyebrow: 'Download · FAQ',
+    title: ['Empieza a conectar', 'tus metas con hoy.'],
+    lead: 'Gratis y de código abierto. Los instaladores se publican en GitHub Releases.',
+    mac: { action: 'Descargar para macOS', detail: 'macOS 14+ · Apple Silicon' },
+    windows: { action: 'Descargar para Windows', detail: 'Windows 11 · x64' },
+    also: 'También para',
+    phone: '¿En el móvil? Copia el enlace para abrirlo en tu ordenador',
+    copied: 'Enlace copiado: ábrelo en tu ordenador',
+    ask: '¿Más preguntas?',
+    askLink: 'Pregunta en GitHub',
+  },
+  faq: {
+    title: 'Preguntas frecuentes',
+    items: [
+      { q: '¿Goalloom es gratis?', a: 'Sí. Es gratis y de código abierto. La entrada inteligente usa la clave de tu propio proveedor de IA y la factura ese proveedor; todo lo demás funciona sin ella.' },
+      { q: '¿En qué se diferencia de una app de tareas normal?', a: 'Cada tarea vive en una columna de tiempo (Later, 3 meses, este mes, esta semana, hoy) y puede enlazarse con metas de horizontes más largos, así el trabajo diario sigue conectado a las metas del trimestre en vez de enterrarlas.' },
+      { q: '¿Qué es Jev y lo necesito?', a: 'Jev es la entrada inteligente opcional: lee tus metas y tareas anteriores para colocar lo nuevo y sugerir un superior. Al usarlo, tu texto va al proveedor que elegiste; sin él, el tablero funciona totalmente sin conexión.' },
+      { q: '¿Dónde se guardan mis datos?', a: 'En un espacio de trabajo SQLite local en tu ordenador, con copias de seguridad diarias. Sin cuenta, sin sincronización en la nube y sin telemetría de contenido.' },
+      { q: '¿Qué sistemas son compatibles?', a: 'macOS 14 o posterior en Apple Silicon y Windows 11 x64. La app está en chino, inglés, japonés, español y francés.' },
+      { q: '¿Hay app móvil o sincronización?', a: 'Todavía no. Por ahora Goalloom es una app de escritorio local.' },
+      { q: 'macOS dice que no puede verificar al desarrollador. ¿Qué hago?', a: 'Las primeras versiones aún no están firmadas. Haz clic con Control en la app y elige Abrir, o permítela en Ajustes del Sistema → Privacidad y seguridad.' },
+    ],
+  },
+  footer: {
+    rights: '© 2026 Goalloom',
+    links: 'Pie de página',
+    feedback: 'Comentarios',
+  },
+}
+
+export default es

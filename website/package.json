@@ -1,0 +1,31 @@
+{
+  "name": "goalloom-website",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Marketing site for Goalloom — connect a quarter's direction to today's to-dos.",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build && node scripts/audit-seo.mjs",
+    "typecheck": "tsc --noEmit",
+    "audit:seo": "node scripts/audit-seo.mjs",
+    "test:e2e": "node scripts/e2e.mjs"
+  },
+  "dependencies": {
+    "@hugeicons/core-free-icons": "4.3.5",
+    "@hugeicons/react": "1.1.10",
+    "next": "16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "@types/react": "19.2.8",
+    "@types/react-dom": "19.2.3",
+    "playwright": "1.63.0",
+    "typescript": "5.9.3"
+  }
+}

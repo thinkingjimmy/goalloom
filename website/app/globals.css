@@ -1,0 +1,12 @@
+/**
+ * [INPUT]: Depends on ./styles/*
+ * [OUTPUT]: The whole site stylesheet, in cascade order
+ * [POS]: Imported once by both root layouts
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+@import './styles/tokens.css';
+@import './styles/base.css';
+@import './styles/board.css';
+@import './styles/hero.css';
+@import './styles/sections.css';
+@import './styles/motion.css';

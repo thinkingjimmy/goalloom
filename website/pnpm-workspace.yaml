@@ -1,0 +1,7 @@
+# The website is its own pnpm root: its Next.js dependencies must never hoist into the Electron app's node_modules,
+# which electron-builder and the package-size budgets read.
+packages:
+  - .
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
