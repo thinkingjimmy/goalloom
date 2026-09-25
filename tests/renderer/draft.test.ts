@@ -5,7 +5,7 @@ import type { SmartPreview } from '../../src/shared/contracts/smart-input'
 const periods = { day: { id: 'c:day:2026-09-23', startDate: '2026-09-23', endDate: '2026-09-24' }, week: { id: 'c:week:2026-09-21', startDate: '2026-09-21', endDate: '2026-09-28' }, month: { id: 'c:month:2026-09-01', startDate: '2026-09-01', endDate: '2026-10-01' }, cycle: { id: 'c:cycle:2026-07-01', startDate: '2026-07-01', endDate: '2026-10-01' } }
 const preview = (drafts: { id: string; source: string; horizon?: 'day' | 'week' | 'later' | 'future'; certain?: boolean; due?: string | null }[], relations: SmartPreview['relations'] = []): SmartPreview => ({
   layout: { value: 'list', certain: true, metrics: null }, referenceDate: '2026-09-23', periods, candidates: [], relations, warnings: [], questionCount: 10, requests: 1,
-  drafts: drafts.map(row => ({ draftId: row.id, source: row.source, title: row.source, description: '', roleCertain: true, horizon: { value: row.horizon ?? 'later', certain: row.certain ?? true, metrics: null }, due: { value: row.due ?? null, certain: true, metrics: null } })),
+  drafts: drafts.map(row => ({ draftId: row.id, source: row.source, title: row.source, description: '', roleCertain: true, horizon: { value: row.horizon ?? 'later', certain: row.certain ?? true, metrics: null }, due: { value: row.due ?? null, certain: true, metrics: null }, inferredHorizon: null })),
 })
 
 it('普通草稿固定单条 Later，不拆分、不因“今天”改位置', () => {
@@ -13,8 +13,13 @@ it('普通草稿固定单条 Later，不拆分、不因“今天”改位置', (
 })
 
 it('新判断只填未手动修改的字段；手动结构优先；无法映射的手动项保留为 orphan', () => {
-  const first = mergePreview(preview([{ id: 's1', source: '写文案', horizon: 'day' }, { id: 's2', source: '改图' }], [{ parent: { kind: 'draft', draftId: 's1' }, childDraftId: 's2', state: 'yes', probability: 0.9 }]), [], [])
+  const first = mergePreview(preview([{ id: 's1', source: '写文案', horizon: 'week' }, { id: 's2', source: '改图', horizon: 'day' }], [{ parent: { kind: 'draft', draftId: 's1' }, childDraftId: 's2', state: 'yes', probability: 0.9 }]), [], [])
   expect(first[1]!.parents).toEqual([{ kind: 'draft', draftId: first[0]!.id }])
+  // A judged parent the child's column cannot link to is adopted by moving the child under it; a manual column keeps it a suggestion.
+  const later = mergePreview(preview([{ id: 's1', source: '写文案', horizon: 'week' }, { id: 's2', source: '改图' }], [{ parent: { kind: 'draft', draftId: 's1' }, childDraftId: 's2', state: 'maybe', probability: 0.6 }]), [], [])
+  expect(later[1]).toMatchObject({ horizon: 'day', parents: [{ kind: 'draft', draftId: later[0]!.id }], parentSuggestions: [] })
+  const pinned = mergePreview(preview([{ id: 's1', source: '写文案', horizon: 'week' }, { id: 's2', source: '改图' }], [{ parent: { kind: 'draft', draftId: 's1' }, childDraftId: 's2', state: 'maybe', probability: 0.6 }]), [later[0]!, { ...later[1]!, horizon: 'later', manual: ['horizon'] }], [])
+  expect(pinned[1]).toMatchObject({ horizon: 'later', parents: [], parentSuggestions: [{ kind: 'draft', draftId: later[0]!.id }] })
   const manual: EditableDraft[] = first.map((row, index) => index === 0 ? { ...row, title: '写发布文案', horizon: 'week', manual: ['title', 'horizon'] } : row)
   const second = mergePreview(preview([{ id: 's1', source: '写文案', horizon: 'later' }, { id: 's2', source: '改图', horizon: 'day' }]), manual, [])
   expect(second[0]).toMatchObject({ id: first[0]!.id, title: '写发布文案', horizon: 'week' })
@@ -26,9 +31,9 @@ it('新判断只填未手动修改的字段；手动结构优先；无法映射�
   expect(mergePreview(preview([{ id: 's1', source: '改图' }]), [], ['改图'])).toHaveLength(0)
 })
 
-it('低确定性执行列只作建议；未来周期落 Later 并标记', () => {
+it('低确定性执行列默认采用并标为推测；未来周期落 Later 并标记', () => {
   const [unsure, future] = mergePreview(preview([{ id: 's1', source: '本周写周报', horizon: 'day', certain: false }, { id: 's2', source: '明天开会', horizon: 'future' }]), [], [])
-  expect(unsure).toMatchObject({ horizon: 'later', horizonSuggestion: 'day' })
+  expect(unsure).toMatchObject({ horizon: 'day', horizonSuggestion: null, horizonInferred: true })
   expect(future).toMatchObject({ horizon: 'later', future: true, horizonSuggestion: null })
 })
 

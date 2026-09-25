@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 草稿截止日（YYYY-MM-DD 或空）、工作区今天与变更回调。
- * [OUTPUT]: 截止日按钮与快捷选项/日期输入/清除浮层；只改草稿，由详情统一保存。
+ * [OUTPUT]: 截止日按钮与快捷选项/日期输入/清除浮层；只改草稿，由详情统一保存。dueOptions 供 composer 行内菜单复用。
  * [POS]: items 详情字段；截止日独立于所在列，不安排到未来周期。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -11,14 +11,19 @@ import { longDate } from '../../i18n/format'
 import { Popover } from '../../components/Popover'
 import { Icon } from '../../components/icons'
 
+// Quick deadlines relative to the workspace day; shared with the composer's inline menu.
+export function dueOptions(today: string): [string, string][] {
+  const day = weekday(today)
+  return [
+    [messages.dueToday, today], [messages.dueTomorrow, addDays(today, 1)],
+    ...(day >= 1 && day < 5 ? [[messages.dueFriday, addDays(today, 5 - day)] as [string, string]] : []),
+    [messages.dueNextMonday, addDays(today, ((8 - day) % 7) || 7)], [messages.dueMonthEnd, monthEnd(today)],
+  ]
+}
+
 export function DuePicker({ value, today, readOnly, onChange }: { value: string; today: string; readOnly: boolean; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false)
-  const day = weekday(today)
-  const options = [
-    [messages.dueToday, today], [messages.dueTomorrow, addDays(today, 1)],
-    ...(day >= 1 && day < 5 ? [[messages.dueFriday, addDays(today, 5 - day)]] : []),
-    [messages.dueNextMonday, addDays(today, ((8 - day) % 7) || 7)], [messages.dueMonthEnd, monthEnd(today)],
-  ] as [string, string][]
+  const options = dueOptions(today)
   const overdue = !!value && value < today
   const choose = (next: string) => { onChange(next); setOpen(false) }
   return <Popover open={open} onClose={() => setOpen(false)} anchor={

@@ -24,10 +24,13 @@ renderer/
 │   │       ├── TransferReview.tsx # 三步进度与整库替换的两阶段确认
 │   │       ├── parts.tsx        # 分组/行/分段选择（色块、数量）/开关原语，工作区时区时间与相对日期
 │   │       └── settings.css     # 设置弹窗专属样式（仅 token）
-│   ├── composer/            # 全局新建：普通单条 Later / Jev 可编辑预览
-│   │   ├── Composer.tsx     # 工作区生命周期内持有草稿/在途保存，弹窗关闭停止分析，回执按修订清理，createPlan 确认
-│   │   ├── DraftCard.tsx    # 预览项：执行列范围、截止、多上级、建议 chips、手动新流程
-│   │   ├── draft.ts         # 纯草稿模型：手动优先合并、orphan、计划负载与本地复核
+│   ├── composer/            # 全局新建：输入法式（输入 → 一条 Jev 推荐 → ↵ 创建 / Tab 调整 / ⌥↵ 原样存 Later）
+│   │   ├── Composer.tsx     # 输入/防抖/IME、修订回声、候选条各状态、↵/Tab/⌥↵ 与调整列表键位、失败降级、会话草稿与 createPlan 确认
+│   │   ├── Plan.tsx         # 推荐的只读呈现（单件一句话、多件一行一件）、拿不准的「可能…」旁注、Jev 标记
+│   │   ├── DraftRow.tsx     # 调整行：选中时行内 T/D/P 标签与菜单（列、截止、上级与新流程颜色）、M 合并、E 改标题说明
+│   │   ├── KeyMenu.tsx      # 行内菜单的键盘外壳：↑↓ 移动、数字直选，Esc 交给 Popover
+│   │   ├── suggestions.ts   # 纯函数：上级关联与移列规则、片段合并、Jev 拿不准的判断（doubts）
+│   │   ├── draft.ts         # 纯草稿模型：手动优先合并、推测列、orphan、计划负载与本地复核
 │   │   └── composer.css     # composer 与连接表单样式（仅 token）
 │   ├── smart/
 │   │   ├── JevConnect.tsx   # 服务单选、Key、同意、测试并启用（Onboarding/设置共用；提交按钮可渲染到底栏）

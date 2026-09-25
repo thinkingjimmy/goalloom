@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Smart preview, previous edits, original preview periods and flow constraints.
- * [OUTPUT]: Manual-priority draft merging, orphan handling, the new-link horizon rule and versioned createPlan payloads.
+ * [OUTPUT]: Manual-priority draft merging that adopts Jev's half-sure column and parent reads (moving a draft to childHorizon of its parent when the new-link rule needs it; manual fields or rule conflicts keep them as suggestions), orphan handling and versioned createPlan payloads.
  * [POS]: Pure composer state; preserves period identity instead of rebasing stale previews.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,7 +8,7 @@ import { planProblem } from '../../../domain/plan'
 import { mayParent } from '../../../domain/relations'
 import { plainLater } from '../../../domain/smart/segments'
 import type { ParentRef } from '../../../shared/contracts/commands'
-import type { ItemHorizon } from '../../../shared/contracts/entities'
+import { horizons, type ItemHorizon } from '../../../shared/contracts/entities'
 import type { Candidate, HorizonChoice, ParentKey, SmartPreview } from '../../../shared/contracts/smart-input'
 import { smartMessages } from '../../i18n'
 
@@ -16,7 +16,8 @@ export type Field = 'title' | 'description' | 'horizon' | 'due' | 'parents' | 'f
 export interface ParentInfo { itemId: string; title: string; version: number; archived: boolean; flowColor: number | null; horizon: ItemHorizon }
 export interface EditableDraft {
   id: string; source: string | null; title: string; description: string
-  horizon: ItemHorizon; horizonSuggestion: ItemHorizon | null; future: boolean
+  // horizonInferred: the column is Jev's guess (text named no time), shown with a label until the user touches it.
+  horizon: ItemHorizon; horizonSuggestion: ItemHorizon | null; horizonInferred: boolean; future: boolean
   due: string | null; dueSuggestion: string | null
   parents: ParentKey[]; parentSuggestions: ParentKey[]
   flowColor: number | null; manual: Field[]; roleCertain: boolean; orphan: boolean
@@ -32,7 +33,7 @@ export function plainDraft(text: string, previous: EditableDraft | null): Editab
   const plain = plainLater(text)
   if (!plain) return null
   const manual = previous?.manual.includes('title') ? previous.title : null
-  return { id: previous?.id ?? newId(), source: null, title: manual ?? plain.title, description: plain.description, horizon: 'later', horizonSuggestion: null, future: false,
+  return { id: previous?.id ?? newId(), source: null, title: manual ?? plain.title, description: plain.description, horizon: 'later', horizonSuggestion: null, horizonInferred: false, future: false,
     due: null, dueSuggestion: null, parents: [], parentSuggestions: [], flowColor: null, manual: manual ? ['title'] : [], roleCertain: true, orphan: false, periods: null }
 }
 
@@ -58,12 +59,40 @@ export function mergePreview(preview: SmartPreview, previous: EditableDraft[], r
     return {
       id, source: draft.source, roleCertain: draft.roleCertain, orphan: false, manual, periods: preview.periods,
       title: keep('title', draft.title, old?.title), description: keep('description', draft.description, old?.description),
-      horizon: keep('horizon', draft.horizon.certain ? horizon : 'later', old?.horizon), horizonSuggestion: draft.horizon.certain || horizon === 'later' ? null : horizon, future: draft.horizon.value === 'future',
+      ...scheduleFor(draft, horizon, manual.includes('horizon') ? old!.horizon : null), future: draft.horizon.value === 'future',
       due: keep('due', draft.due.certain ? draft.due.value : null, old?.due), dueSuggestion: draft.due.certain ? null : draft.due.value,
       parents: keep('parents', parents, old?.parents), parentSuggestions: suggestions,
       flowColor: keep('flowColor', null, old?.flowColor),
     }
   })
+  // --- A judged parent the draft's column cannot link to (e.g. a Later draft under a month goal) stays a one-click suggestion. ---
+  const parentHorizon = (key: ParentKey) => key.kind === 'existing' ? preview.candidates.find(row => row.itemId === key.itemId)?.horizon : merged.find(row => row.id === key.draftId)?.horizon
+  for (const row of merged) {
+    if (row.manual.includes('parents')) continue
+    const blocked = row.parents.filter(key => { const horizon = parentHorizon(key); return !!horizon && !mayParent(horizon, row.horizon) })
+    row.parents = row.parents.filter(key => !blocked.includes(key))
+    row.parentSuggestions = [...blocked, ...row.parentSuggestions.filter(key => !blocked.some(other => sameParent(other, key)))]
+  }
+  // --- Owner decision (2026-09-25): Jev's half-sure column and parent reads are adopted into the recommendation.
+  // The user still confirms with ↵ and can revert each in the adjust menus; a manual field or a move that would
+  // break the column rule (for the draft or its batch children) keeps the read as a suggestion instead. ---
+  const fits = (row: EditableDraft, horizon: ItemHorizon) => merged.every(child => !child.parents.some(key => key.kind === 'draft' && key.draftId === row.id) || mayParent(horizon, child.horizon))
+  for (const row of merged) {
+    if (row.manual.includes('horizon') || !row.horizonSuggestion || !fits(row, row.horizonSuggestion)) continue
+    Object.assign(row, { horizon: row.horizonSuggestion, horizonSuggestion: null, horizonInferred: true })
+  }
+  for (const row of merged) {
+    if (row.manual.includes('parents') || row.flowColor !== null) continue
+    for (const key of row.parentSuggestions) {
+      const horizon = parentHorizon(key)
+      if (!horizon) continue
+      const target = mayParent(horizon, row.horizon) ? row.horizon : row.manual.includes('horizon') ? null : childHorizon(horizon)
+      if (!target || !fits(row, target)) continue
+      row.horizon = target
+      row.parents = [...row.parents, key]
+      row.parentSuggestions = row.parentSuggestions.filter(other => !sameParent(other, key))
+    }
+  }
   // A manually shaped draft whose source no longer maps stays visible instead of being silently dropped.
   const orphans = pool.filter(row => row.manual.length && !removed.includes(row.source ?? '')).map(row => ({ ...row, orphan: true, periods: preview.periods }))
   const all = [...merged, ...orphans]
@@ -91,3 +120,15 @@ export function draftProblem(drafts: EditableDraft[], parents: Map<string, Paren
   return planProblem(drafts.map(draft => ({ draftId: draft.id, flowColor: draft.flowColor, parentRefs: draft.parents.map((key): ParentRef => key.kind === 'draft' ? key : { kind: 'existing', itemId: key.itemId, expectedVersion: parents.get(key.itemId)?.version ?? 1 }) })))
 }
 export function edited(drafts: EditableDraft[]): number { return drafts.filter(draft => draft.manual.length > 0).length }
+// The longest column a child of this parent may take; null when nothing is shorter (a Today parent).
+export function childHorizon(parent: ItemHorizon): ItemHorizon | null {
+  return parent === 'later' ? null : horizons[horizons.indexOf(parent) + 1] ?? null
+}
+// A written, certain column wins; otherwise a confident guess is prefilled (labelled), and a weak one is only offered.
+function scheduleFor(draft: SmartPreview['drafts'][number], written: ItemHorizon, manual: ItemHorizon | null): Pick<EditableDraft, 'horizon' | 'horizonSuggestion' | 'horizonInferred'> {
+  if (manual) return { horizon: manual, horizonSuggestion: null, horizonInferred: false }
+  if (draft.horizon.certain && written !== 'later') return { horizon: written, horizonSuggestion: null, horizonInferred: false }
+  const guess = draft.inferredHorizon
+  if (guess?.certain) return { horizon: guess.value, horizonSuggestion: null, horizonInferred: true }
+  return { horizon: 'later', horizonSuggestion: written !== 'later' ? written : guess?.value ?? null, horizonInferred: false }
+}
