@@ -112,8 +112,7 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
         if (matches(event, bindings.submit)) { event.preventDefault(); void save() }
       }}>
         <div className="detail-title">
-          {later ? <span className="flow-handle" aria-hidden="true" />
-            : <FlowPicker item={item} hasParents={parents.length > 0} flows={flows} busy={busy} readOnly={readOnly} open={pop === 'flow'} setOpen={open => setPop(open ? 'flow' : null)} submit={submit} />}
+          {!later && <FlowPicker item={item} hasParents={parents.length > 0} flows={flows} busy={busy} readOnly={readOnly} open={pop === 'flow'} setOpen={open => setPop(open ? 'flow' : null)} submit={submit} />}
           <button type="button" className="check large" data-checked={done} style={ring} disabled={busy || readOnly || item.status === 'cancelled'}
             aria-label={done ? messages.reopenAction : messages.markDone} onClick={() => void submit({ type: 'status', itemId, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
             {done && <Icon name="check" size={14} strokeWidth={2.5} />}

@@ -125,6 +125,8 @@ if (!app.requestSingleInstanceLock()) {
     window?.focus()
   })
   app.whenReady().then(async () => {
+    // Packaged builds take the icon from the bundle; the dev Electron binary would otherwise show its own.
+    if (!app.isPackaged) app.dock?.setIcon(join(directory, '../../resources/icon.png'))
     restrictSession(session.defaultSession)
     protocol.handle('goalloom', request => serveResource(join(directory, '../renderer'), request))
     // Before storage: startup-protection dialogs already speak the chosen language.

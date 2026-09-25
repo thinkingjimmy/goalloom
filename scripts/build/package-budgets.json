@@ -2,10 +2,10 @@
   "electron": "44.4.4",
   "thresholdPercent": 5,
   "darwin-arm64": {
-    "downloadBytes": 117166334,
-    "logicalBytes": 257849079,
-    "asarBytes": 1871197,
-    "archiveSha256": "5f6acc64137312d89c1e705871c79db4ddb6a084ce779a3f3bc388bb4a3f22cf"
+    "downloadBytes": 116387262,
+    "logicalBytes": 256963807,
+    "asarBytes": 1871268,
+    "archiveSha256": "23ab07681e1843f6dcc62581cb2472d6c1d69c6128614782cd4a8c59ef7caeed"
   },
   "win32-x64": {
     "downloadBytes": 103787791,

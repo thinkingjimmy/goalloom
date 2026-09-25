@@ -60,5 +60,5 @@ jobs:
           name: private-preview-${{ matrix.os }}-${{ matrix.arch }}
           retention-days: 3
           path: |
-            release/*.zip
+            release/*.dmg
             release/*.exe

@@ -2,6 +2,7 @@ appId: com.goalloom.desktop
 productName: Goalloom
 directories:
   output: release
+  buildResources: resources
 files:
   - out/**/*
   - package.json
@@ -49,8 +50,17 @@ mac:
   minimumSystemVersion: '14.0'
   category: public.app-category.productivity
   target:
-    - target: zip
+    - target: dmg
       arch: [arm64]
+dmg:
+  # No auto-update channel, so skip the blockmap.
+  writeUpdateInfo: false
+  # Drag-to-install window: app on the left, an Applications link on the right.
+  window: { width: 540, height: 380 }
+  iconSize: 96
+  contents:
+    - { x: 140, y: 180 }
+    - { x: 400, y: 180, type: link, path: /Applications }
 win:
   electronLanguages:
     - en-GB

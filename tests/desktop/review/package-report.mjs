@@ -32,10 +32,10 @@ try {
       const location=mac?join(app,`Contents/Frameworks/${locale}.lproj`):join(app,'locales')
       await mkdir(location,{recursive:true}); await writeFile(join(location,mac?'locale.pak':`${locale}.pak`),'fixture')
     }
-    const current=`Goalloom-${metadata.version}-${mac?'mac-arm64.zip':'win-x64.exe'}`
-    const bytes=Buffer.alloc(512); bytes.write(mac?'PK\x03\x04':'MZ')
+    const current=`Goalloom-${metadata.version}-${mac?'mac-arm64.dmg':'win-x64.exe'}`
+    const bytes=Buffer.alloc(512); bytes.write(mac?'koly':'MZ')
     if(!mac) { bytes.writeUInt32LE(0x80,0x3c); bytes.write('PE\x00\x00',0x80); bytes.writeUInt16LE(0x10b,0x98) }
-    await writeFile(join(root,'Goalloom-0.0.0-'+(mac?'mac-arm64.zip':'win-x64.exe')),bytes.subarray(0,24))
+    await writeFile(join(root,'Goalloom-0.0.0-'+(mac?'mac-arm64.dmg':'win-x64.exe')),bytes.subarray(0,24))
     await writeFile(join(root,current),bytes)
     const run=()=>spawnSync(process.execPath,[resolve('scripts/build/package-report.mjs'),root,'fixture',platform],{cwd:directory,encoding:'utf8'})
     const result=run(); assert.equal(result.status,0,result.stderr)

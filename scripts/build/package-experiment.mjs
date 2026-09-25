@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A private experiment label, compression mode and optional target platform.
- * [OUTPUT]: Unpublished packages, manifests, build timings and macOS extraction timings.
+ * [OUTPUT]: Unpublished packages, manifests, build timings and macOS DMG install timings (mount + copy the app).
  * [POS]: Repeatable local package comparison; Windows installation remains a Windows-machine check.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -28,11 +28,14 @@ for (const [platform, flags] of [['mac', ['--mac', '--arm64']], ['win', ['--win'
   const output = resolve(`output/tests/packages/${label}-${platform}`)
   const packageMs = run('pnpm', ['exec', 'electron-builder', ...flags, '--publish', 'never', `--config.directories.output=${output}`, `--config.compression=${compression}`])
   run(process.execPath, ['scripts/build/package-report.mjs', output, label])
-  const extractionMs = []
+  const installMs = []
   if (platform === 'mac') for (let sample = 0; sample < 3; sample++) {
-    const directory = await mkdtemp(join(tmpdir(), 'goalloom-package-extract-'))
-    try { extractionMs.push(run('ditto', ['-x', '-k', join(output, `Goalloom-${version}-mac-arm64.zip`), directory])) }
-    finally { await rm(directory, { recursive: true, force: true }) }
+    const directory = await mkdtemp(join(tmpdir(), 'goalloom-package-install-')), volume = join(directory, 'volume')
+    try {
+      const mountMs = run('hdiutil', ['attach', '-nobrowse', '-readonly', '-quiet', '-mountpoint', volume, join(output, `Goalloom-${version}-mac-arm64.dmg`)])
+      try { installMs.push(mountMs + run('ditto', [join(volume, 'Goalloom.app'), join(directory, 'Goalloom.app')])) }
+      finally { run('hdiutil', ['detach', '-quiet', volume]) }
+    } finally { await rm(directory, { recursive: true, force: true }) }
   }
-  await writeFile(`output/tests/packages/${label}-${platform}-timing.json`, JSON.stringify({ buildMs, packageMs, compression, extractionMs, windowsInstallation: 'Requires Windows 11 x64' }, null, 2))
+  await writeFile(`output/tests/packages/${label}-${platform}-timing.json`, JSON.stringify({ buildMs, packageMs, compression, installMs, windowsInstallation: 'Requires Windows 11 x64' }, null, 2))
 }

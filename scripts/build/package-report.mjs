@@ -37,7 +37,7 @@ const files = await walk(packageRoot), contents = listPackage(asar).map(path => 
 assert(contents.includes('/out/THIRD_PARTY_NOTICES.txt'))
 for (const path of contents) assert(!/(?:^|\/)(?:node_modules|tests|fixtures|screenshots|backups|exports|cache|private-debug|\.env(?:\.[^/]*)?)(?:\/|$)|\.(?:map|sqlite3?|db)(?:-wal|-shm)?$|\.(?:pem|key|p12|pfx)$/.test(path), `Private/development file in ASAR: ${path}`)
 const locales = [...new Set(files.flatMap(file => platform === 'darwin-arm64' ? file.path.match(/([^/]+)\.lproj\//)?.[1] ?? [] : file.path.match(/^locales\/([^/]+)\.pak$/)?.[1] ?? []))].sort()
-const archive = `Goalloom-${metadata.version}-${platform === 'darwin-arm64' ? 'mac-arm64.zip' : 'win-x64.exe'}`
+const archive = `Goalloom-${metadata.version}-${platform === 'darwin-arm64' ? 'mac-arm64.dmg' : 'win-x64.exe'}`
 const archivePath = join(root, archive), hash = createHash('sha256')
 assert(await lstat(archivePath).then(info => info.isFile()).catch(() => false), `Current download artifact missing: ${archive}`)
 for await (const chunk of createReadStream(archivePath)) hash.update(chunk)
