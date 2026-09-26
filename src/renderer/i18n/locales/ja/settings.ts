@@ -26,7 +26,10 @@ export const settingsMessages: SettingsCatalog = {
   relationLines: '関係線',
   relationLinesNote: 'フローを 1 つに絞り込むと、上位と下位を線でつなぎます',
   celebration: '完了時の紙吹雪',
-  celebrationNote: '完了すると左右の下隅から紙吹雪が舞います。列ごとに設定できます。',
+  celebrationNote: '選択した列で項目を完了すると、左右の下隅から紙吹雪が舞います。',
+  celebrationOff: 'オフです。いずれかの列を選ぶとオンになります。',
+  celebrationColumns: 'これらの列で完了したときに紙吹雪を表示',
+  celebrationTry: '試す',
   celebrationReducedMotion: 'システムの「視差効果を減らす」が有効な間、紙吹雪は表示されません。',
   // Smart input
   smartEnabledNote: '全体の＋で考えを書き、入力を止めると自動で整理します',

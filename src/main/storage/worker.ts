@@ -15,7 +15,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { openWorkspace, StartupError } from './startup'
 import { Repository } from '../workspace/repository'
 import { activitySummary, batchPage, batchSummaries, itemCounts } from '../workspace/queries'
-import { readActivity, readHistory } from '../workspace/history'
+import { readActivity, readHistory, readHistoryIndex } from '../workspace/history'
 import { WorkspaceService } from '../workspace/transfer/service'
 import { readJson, writeDataset } from '../workspace/transfer/files'
 import { serverText, setServerLocale } from '../../shared/i18n/server'
@@ -61,6 +61,7 @@ function handle(method: string, argument: unknown): unknown {
     case 'item': return repository.detail(query.itemId)
     case 'list': return repository.list(query)
     case 'history': return readHistory(repository.store, query, repository.clock.now())
+    case 'historyIndex': return readHistoryIndex(repository.store, query, repository.clock.now())
     case 'activity': return readActivity(repository.store, query)
     case 'batches': return batchSummaries(repository.store)
     case 'batchItems': return batchPage(repository.store, query.operationId, query.offset, query.limit)

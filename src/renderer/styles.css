@@ -153,18 +153,29 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .column-meta { font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .column-spacer { flex: 1; }
 .column-header > .icon-button:last-child { margin-right: -6px; }
-/* Preserve layout and Tab access; pointer focus must not leave actions visible after exiting a column. */
+/* Preserve layout and Tab access; pointer focus must not leave actions visible after exiting a column. History navigation stays visible. */
 @media (hover: hover) and (pointer: fine) {
-  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) > .icon-button { opacity: 0; }
+  .board-column:not(:hover):not([data-history='true']) > .column-header:not(:has(:focus-visible)) > .icon-button { opacity: 0; }
 }
-/* History mode: a badge beside the title, one return action, and a single period switcher bar. */
-.history-badge { height: 22px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; background: var(--hover); color: var(--secondary); font-size: 12px; font-weight: 500; }
-.history-return { height: 28px; padding: 0 8px 0 10px; display: inline-flex; align-items: center; gap: 2px; border-radius: 8px; background: var(--fg); color: var(--bg); font-size: 12px; font-weight: 500; transition: opacity .15s ease-out; }
-.history-return:hover { opacity: .88; }
-.period-navigation { flex-shrink: 0; height: 36px; margin: 4px 0 2px; padding: 0 4px; display: flex; align-items: center; border-radius: 10px; background: var(--hover); }
-.period-navigation .icon-button.small { color: var(--fg-soft); }
-.period-navigation .icon-button.small:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
-.period-label { flex: 1; text-align: center; font-size: 13px; font-weight: 500; }
+/* History mode: an archive ground marks the column read-only; the header becomes ‹ period › with a quiet way back. */
+.board-column[data-history='true'] { background: color-mix(in srgb, var(--hover) 80%, transparent); }
+.board, .period-menu { --history-done: color-mix(in oklab, #4f7a5a 72%, var(--bg)); --history-open: var(--checked); --history-moved: color-mix(in oklab, var(--focus) 60%, var(--bg)); --history-cancelled: var(--line); }
+.history-header { padding-left: 0; gap: 2px; }
+.history-header h2 { min-width: 0; display: flex; }
+.history-header .icon-button.small { color: var(--secondary); }
+.history-header .icon-button.small:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
+.period-title { max-width: 100%; height: 28px; padding: 0 6px 0 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: 7px; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.period-title > span { overflow: hidden; text-overflow: ellipsis; }
+.period-title > svg { flex-shrink: 0; color: var(--secondary); }
+.period-title:hover, .period-title[aria-expanded='true'] { background: var(--pressed); }
+.history-return { flex-shrink: 0; height: 28px; margin-right: -6px; padding: 0 5px 0 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg-soft); font-size: 12px; font-weight: 500; transition: background-color .15s ease-out, color .15s ease-out; }
+.history-return:hover { background: var(--pressed); color: var(--fg); }
+.history-return .keycap { min-width: 0; height: 18px; padding: 0 4px; border-radius: 4px; font-size: 10.5px; color: var(--secondary); }
+.period-menu { min-width: 272px; max-height: min(420px, 60vh); overflow-y: auto; }
+.period-menu .menu-item[aria-checked='true'] { background: var(--hover); font-weight: 600; }
+.period-option-label { width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.period-option-bar { flex: 1; height: 4px; display: flex; border-radius: 2px; background: var(--hover); overflow: hidden; }
+.period-option-bar > span { border-radius: 2px; background: var(--history-done); }
 /* The scroll box reaches 8px from both column rules so row grounds sit evenly between them. */
 .column-content { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -12px 0 -20px; padding: 0 8px 96px 20px; }
 .backlog-entry { flex-shrink: 0; height: 36px; margin-top: 2px; padding-left: var(--row-inset); display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--backlog); }
@@ -458,21 +469,37 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
 
 /* --- Lists, history, backlog --- */
 .pagination { display: flex; justify-content: center; align-items: center; gap: 16px; font-size: 12px; color: var(--secondary); margin: 20px 0; }
-.history-meta { margin: 2px 0 6px; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--faint); }
-.history-item { width: calc(100% + 20px); margin: 0 -8px 0 -12px; padding: 10px 8px 10px 22px; display: flex; align-items: flex-start; gap: 10px; border-radius: 8px; text-align: left; }
+.history-summary { flex-shrink: 0; margin: 4px 0 4px; padding-left: var(--row-inset); display: flex; flex-direction: column; gap: 8px; }
+.history-headline { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.history-headline strong { font-weight: 600; }
+.history-lock { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--secondary); }
+.history-bar { height: 4px; display: flex; gap: 2px; border-radius: 2px; overflow: hidden; }
+.history-legend { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--secondary); }
+.history-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.history-legend > span::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--dot); }
+.history-bar > span { background: var(--dot); }
+[data-outcome='done'] { --dot: var(--history-done); }
+[data-outcome='open'] { --dot: var(--history-open); }
+[data-outcome='moved'] { --dot: var(--history-moved); }
+[data-outcome='cancelled'] { --dot: var(--history-cancelled); }
+.history-group-title { height: 28px; margin: 10px 0 0; padding-left: var(--row-inset); display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: var(--secondary); }
+.history-item { width: calc(100% + 20px); margin: 0 -8px 0 -12px; padding: 8px 8px 8px 22px; display: flex; align-items: flex-start; gap: 10px; border-radius: 8px; text-align: left; }
 .history-item:hover { background: var(--hover); }
 .history-mark { width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; display: grid; place-items: center; box-sizing: border-box; border-radius: 5px; border: 1.5px dashed var(--faint); color: var(--bg); }
-.history-mark[data-status='done'] { border: 0; background: var(--checked); }
-.history-mark[data-status='cancelled'] { border: 0; background: var(--check-fill); color: var(--secondary); }
-.history-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.history-title { font-size: 14px; overflow-wrap: anywhere; }
-.history-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.history-tag { height: 20px; padding: 0 7px; display: inline-flex; align-items: center; border-radius: 5px; background: var(--hover); color: var(--fg-soft); font-size: 11px; font-weight: 500; }
-.history-tag[data-tone='done'] { background: color-mix(in oklab, #4f7a5a 14%, transparent); color: color-mix(in oklab, #4f7a5a 80%, var(--fg)); }
-.history-tag[data-tone='cancelled'] { color: var(--secondary); text-decoration: line-through; }
-.history-tag[data-tone='moved'] { background: color-mix(in oklab, var(--focus) 14%, transparent); color: var(--focus); }
-.history-tag[data-tone='warning'] { background: color-mix(in oklab, var(--backlog) 14%, transparent); color: var(--backlog); }
-.history-now { font-size: 12px; color: var(--faint); }
+.history-mark[data-outcome='done'] { border: 0; background: var(--checked); }
+.history-mark[data-outcome='open'] { border: 1.5px solid var(--check-edge); background: var(--check-fill); }
+.history-mark[data-outcome='moved'] { border-color: var(--checked); }
+.history-mark[data-outcome='cancelled'] { border: 0; background: var(--check-fill); color: var(--secondary); }
+.history-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.history-title { font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+.history-item[data-outcome='done'] .history-title { color: var(--secondary); }
+.history-item[data-outcome='cancelled'] .history-title { color: var(--secondary); text-decoration: line-through; }
+.history-notes { font-size: 12px; color: var(--secondary); }
+.history-to { flex-shrink: 0; height: 20px; display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--focus); white-space: nowrap; }
+.history-clock { flex-shrink: 0; height: 20px; display: inline-flex; align-items: center; color: var(--backlog); }
+.history-empty { padding-top: 18vh; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.history-empty p { margin: 0; max-width: 220px; font-size: 13px; line-height: 1.7; color: var(--secondary); }
+.history-end { margin: 16px 0 0; padding-left: var(--row-inset); font-size: 12px; color: var(--faint); }
 .backlog-row { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--line); }
 .backlog-row input { width: 18px; height: 18px; flex-shrink: 0; }
 .backlog-row button { text-align: left; font-size: 14px; }

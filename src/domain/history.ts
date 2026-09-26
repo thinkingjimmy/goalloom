@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Ordered item events and fixed period boundaries.
- * [OUTPUT]: End-of-period membership, bounded later details and total counts; unknown on missing or reversed history.
+ * [OUTPUT]: End-of-period membership, bounded later details and total counts; unknown on missing or reversed history; the period outcome of an end state.
  * [POS]: Streaming domain projection without storage access or inference from current state.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { compareInstants, type Period } from './calendar'
 import type { BusinessState, ItemEvent } from '../shared/contracts/effects'
+import type { HistoryOutcome } from '../shared/contracts/history'
 
 export function projectHistory(events: ItemEvent[], period: Period): { member: boolean; endState: BusinessState | null; later: ItemEvent[]; anomalous: boolean } {
   const { laterCount: _count, ...projection } = projectOrderedHistory([...events].sort((a, b) => a.seq - b.seq), period, Infinity)
@@ -24,4 +25,11 @@ export function projectOrderedHistory(events: Iterable<ItemEvent>, period: Perio
     else { laterCount++; later.push(event); if (later.length > limit) later.shift() }
   }
   return { member, endState: anomalous ? null : endState, later, laterCount, anomalous }
+}
+
+/** How an item left a period: placed elsewhere by its end, or its status at the end; unknown without a trustworthy end state. */
+export function historyOutcome(endState: BusinessState | null, period: Period): HistoryOutcome {
+  if (!endState) return 'unknown'
+  if (endState.periodId !== period.id) return 'moved'
+  return endState.status === 'todo' ? 'open' : endState.status
 }

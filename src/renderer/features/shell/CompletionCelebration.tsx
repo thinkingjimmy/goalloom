@@ -1,11 +1,11 @@
 /**
- * [INPUT]: Accepted completion identities, the current workspace generation and device-local motion preferences.
- * [OUTPUT]: A finite, noninteractive canvas celebration above board and native dialogs; no business writes.
+ * [INPUT]: Accepted completion identities, the current workspace generation, device-local motion preferences and the settings preview signal.
+ * [OUTPUT]: A broad fan of confetti from the exact viewport bottom corners, above board and native dialogs; no business writes.
  * [POS]: Renderer shell feedback, driven only by fresh authoritative completion events.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef } from 'react'
-import { useCelebration, useReducedMotion } from '../../state/celebration'
+import { onCelebrationPreview, useCelebration, useReducedMotion } from '../../state/celebration'
 import type { CompletionEvent } from '../../state/use-workspace'
 import './completion-celebration.css'
 
@@ -28,9 +28,10 @@ interface Particle {
 function particles(): Particle[] {
   return Array.from({ length: 180 }, (_, index) => ({
     side: index < 90 ? 1 : -1,
-    delay: Math.random() * 0.14,
-    velocityX: 0.25 + Math.random() * 0.6,
-    velocityY: 0.9 + Math.random() * 0.38,
+    delay: index % 90 === 0 ? 0 : Math.random() * 0.18,
+    // Stratify the fan so every burst has both near-vertical and far-reaching pieces.
+    velocityX: 0.12 + ((index % 90 + Math.random()) / 90) * 1.14,
+    velocityY: 0.8 + Math.random() * 0.68,
     width: 5 + Math.random() * 4,
     height: 8 + Math.random() * 6,
     rotation: Math.random() * Math.PI,
@@ -95,10 +96,12 @@ function celebrate(canvas: HTMLCanvasElement, operationId: string): () => void {
         for (const piece of pieces) {
           const time = seconds - piece.delay
           if (time < 0) continue
-          const travel = (1 - Math.exp(-1.1 * time)) / 1.1
-          const inward = width * (0.008 + piece.velocityX * travel)
-          const x = (piece.side === 1 ? inward : width - inward) + Math.sin(time * 4 + piece.flutter) * 8
-          const y = height * (1.015 - piece.velocityY * time + 0.47 * time * time)
+          const travel = (1 - Math.exp(-0.8 * time)) / 0.8
+          const inward = width * piece.velocityX * travel
+          // Flutter starts at zero: even the first visible pixels come from the viewport corner.
+          const flutter = (Math.sin(time * 4 + piece.flutter) - Math.sin(piece.flutter)) * 8
+          const x = (piece.side === 1 ? inward : width - inward) + flutter
+          const y = height * (1 - piece.velocityY * time + 0.58 * time * time)
           if (y > height + 20 || y < -20) continue
           context.save()
           context.translate(x, y)
@@ -113,7 +116,8 @@ function celebrate(canvas: HTMLCanvasElement, operationId: string): () => void {
       } catch { stop() }
     }
 
-    frame = requestAnimationFrame(draw)
+    // Draw the two corner seeds immediately, before the first advancing animation frame.
+    draw(started)
   } catch { stop() }
   return stop
 }
@@ -138,6 +142,13 @@ export function CompletionCelebration({ event, generation }: { event: Completion
     stop.current()
     stop.current = celebrate(canvas.current, event.operationId)
   }, [event, generation, enabled, reducedMotion])
+
+  // A settings preview is not a completion: it plays regardless of column switches but never under reduced motion.
+  useEffect(() => onCelebrationPreview(() => {
+    if (reducedMotion || document.hidden || !canvas.current) return
+    stop.current()
+    stop.current = celebrate(canvas.current, 'preview')
+  }), [reducedMotion])
 
   useEffect(() => {
     const onVisibilityChange = () => { if (document.hidden) stop.current() }

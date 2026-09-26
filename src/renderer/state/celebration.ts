@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Canonical planning horizons, device-local storage, system motion preference and React useSyncExternalStore.
- * [OUTPUT]: Shared per-column celebration controls, isCelebrationEnabled and a live useReducedMotion hook.
+ * [OUTPUT]: Shared per-column celebration controls, isCelebrationEnabled, a settings preview signal and a live useReducedMotion hook.
  * [POS]: Renderer display preferences outside workspace history, exports and backups; only overrides are persisted.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -44,6 +44,14 @@ export function isCelebrationEnabled(horizon: ItemHorizon): boolean { return ena
 
 export function useCelebration(): { enabled: Record<ItemHorizon, boolean>; setEnabled: (horizon: ItemHorizon, next: boolean) => void } {
   return { enabled: useSyncExternalStore(subscribe, () => enabled), setEnabled }
+}
+
+const previewListeners = new Set<() => void>()
+/** Plays one celebration now regardless of column settings; the player still honours reduced motion. */
+export function previewCelebration() { previewListeners.forEach(listener => listener()) }
+export function onCelebrationPreview(listener: () => void): () => void {
+  previewListeners.add(listener)
+  return () => { previewListeners.delete(listener) }
 }
 
 const motion = typeof window === 'undefined' ? undefined : window.matchMedia('(prefers-reduced-motion: reduce)')

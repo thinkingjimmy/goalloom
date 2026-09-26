@@ -13,19 +13,19 @@ renderer/
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
 │   │   ├── TopBar.tsx       # 可拖动顶栏：流程筛选、搜索、列显示勾选浮层、设置
 │   │   ├── CommandPalette.tsx # 快捷搜索、命令、打开已完成/回收站与撤销入口
-│   │   ├── CompletionCelebration.tsx # 已提交完成事件的双下角 Canvas 撒花；非模态 top layer、减少动态效果与代次清理
+│   │   ├── CompletionCelebration.tsx # Exact-corner Canvas bursts with a broad viewport-scaled fan; nonmodal top layer, reduced motion and generation cleanup
 │   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable Toast actions
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧三组导航（偏好/工作区/条目）+ 页头说明 + 分组卡片的设置弹窗；外观含语言
 │   │       ├── Settings.tsx     # 容器：分组导航与状态提示、页头（说明/恢复默认/结束方式）、备份/批次/数量读取、数据动作与预览状态
-│   │       ├── AppearancePane.tsx # 语言/风格/复选框/明暗分段、关系线与逐列完成撒花开关
+│   │       ├── AppearancePane.tsx # 语言/风格/复选框/明暗分段、关系线开关；完成撒花为一行：五列多选按钮 +「试一下」预览
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
 │   │       ├── SmartPane.tsx    # 智能输入：状态卡、服务单选列表（Key 更换/删除，表单在行下展开）、隐私要点
 │   │       ├── CalendarPane.tsx # 三栏只读日历、逐列顺延策略（说明随选择变化）、可撤销的顺延记录
 │   │       ├── BackupPane.tsx   # 备份与恢复：状态/每日开关/保留份数、备份列表、导出与单一文件恢复、危险区重置
 │   │       ├── ItemsPane.tsx    # 条目：已完成/已取消/已归档/回收站的搜索、今天/昨天分组与行内还原
 │   │       ├── TransferReview.tsx # 三步进度与整库替换的两阶段确认
-│   │       ├── parts.tsx        # 分组/行/分段选择（色块、数量）/开关原语，工作区时区时间与相对日期
+│   │       ├── parts.tsx        # 分组/行（可带整行下方控件）/分段选择（色块、数量）/多选按钮组/开关原语，工作区时区时间与相对日期
 │   │       └── settings.css     # 设置弹窗专属样式（仅 token）
 │   ├── composer/            # 全局新建：输入法式（输入 → 一条 Jev 推荐 → ↵ 创建 / Tab 调整 / ⌥↵ 原样存 Later）
 │   │   ├── Composer.tsx     # 输入/防抖/IME、修订回声、候选条各状态、↵/Tab/⌥↵ 与调整列表键位、失败降级、会话草稿与 createPlan 确认
@@ -40,14 +40,15 @@ renderer/
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── JevStep.tsx      # 首次流程第 3 步：先看示例，选择连接才填 Key，通过或跳过都进入看板
 │   ├── board/
-│   │   ├── Board.tsx        # 可见列/历史状态、键盘和指针共用可编辑落点、虚拟排序、列头与折叠
+│   │   ├── Board.tsx        # 可见列/历史状态（‹ 周期 › 列头、档案底色、Esc 返回并保留焦点）、键盘和指针共用可编辑落点、虚拟排序、列头与折叠
 │   │   ├── VirtualRows.tsx # 可测量行高、有界 DOM、逻辑 Tab/Home/End、拖动/焦点锁定与定位
 │   │   ├── visibility.ts  # Post-layout title visibility within the clipped board; ignores dialog coverage and flow dimming
 │   │   ├── TaskRow.tsx      # 单行卡片：流程圆点、流程描边复选框、标题与截止/说明/顺延提示，点亮时铺流程底色
 │   │   ├── FlowDot.tsx      # 复选框前的流程圆点：起点改色、下级改上级、独立条目二选一；悬停预览流程；Later 不显示
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
 │   │   ├── QuickAdd.tsx     # 列头＋/拆解的列内连续录入：加入（根在更长周期的）流程/新流程/拆解上级；Later 不选流程
-│   │   ├── HistoryColumn.tsx # 独立列只读历史：期末状态标记与标签、变化后的当前状态
+│   │   ├── HistoryColumn.tsx # 独立列只读历史：分页读取、完成摘要与分段条、按期末结果分组的行（去向/当前变化/时钟回拨）、周期标题选择浮层
+│   │   ├── period-labels.ts # 当前列头与往期标题的周期文案（看板与首次流程预览共用）
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
 │   │   ├── ItemDetail.tsx   # 居中详情：草稿/退出保护、流程颜色、生命周期、移动与拆解；Later 不设流程和关联
@@ -77,7 +78,7 @@ renderer/
 │   ├── flows.ts            # 快照派生的流程列表与颜色；只缓存有归属条目，独立条目共享空结果
 │   ├── columns.ts          # 本机列显示偏好（localStorage，至少一列，不入工作区）
 │   ├── relation-lines.ts   # 本机关系线开关（localStorage，默认开，只存关闭，不入工作区）
-│   ├── celebration.ts      # 本机逐列撒花偏好（默认周/月/3个月）与系统减少动态效果订阅
+│   ├── celebration.ts      # 本机逐列撒花偏好（默认周/月/3个月）、设置页预览信号与系统减少动态效果订阅
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
 │   ├── smart.ts            # 设备侧智能输入状态与动作（代次变化即重读）

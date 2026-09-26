@@ -53,6 +53,10 @@
 
 .settings-row { min-height: 56px; padding: 10px 16px 10px 18px; display: flex; align-items: center; gap: 16px; }
 .settings-row[data-dimmed='true'] { opacity: .45; }
+.settings-row-stacked { padding-top: 14px; padding-bottom: 14px; flex-direction: column; align-items: stretch; gap: 12px; }
+.settings-row-line { display: flex; align-items: center; gap: 16px; }
+.settings-row-status { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.5; color: var(--backlog); }
+.settings-row-status svg { flex-shrink: 0; }
 .settings-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
 .settings-row-text > span { font-weight: 500; }
 .settings-row-text small { font-size: 12px; line-height: 1.5; font-weight: 400; color: var(--secondary); }
@@ -100,6 +104,11 @@
 .segmented-swatch[data-swatch='theme-light'] { background: #fffdfa; border-color: rgba(90, 70, 50, .35); }
 .segmented-swatch[data-swatch='theme-dark'] { background: #2b2621; border-color: #2b2621; }
 
+.toggle-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.toggle-chip { height: 30px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; color: var(--secondary); transition: background-color .15s ease-out, color .15s ease-out, box-shadow .15s ease-out; }
+.toggle-chip:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+.toggle-chip[aria-pressed='true'] { background: var(--ok-tint); color: var(--ok); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ok-mark) 32%, transparent); }
+.toggle-chip[aria-pressed='true']:hover:not(:disabled) { background: color-mix(in oklab, var(--ok-tint) 80%, var(--ok-mark)); color: var(--ok); }
 .switch { flex-shrink: 0; width: 38px; height: 22px; padding: 2px; border-radius: 11px; display: flex; background: var(--pressed); transition: background-color .15s ease-out; }
 .switch span { width: 18px; height: 18px; border-radius: 9px; background: var(--raised); box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: transform .15s ease-out; }
 .switch[aria-checked='true'] { background: var(--ok-mark); }
@@ -226,3 +235,4 @@
 }
 
 .select-trigger.settings-select { width: auto; min-width: 180px; flex-shrink: 0; padding: 7px 8px 7px 10px; font-size: 13.5px; }
+.settings-row-line > .settings-button { display: inline-flex; align-items: center; gap: 6px; }

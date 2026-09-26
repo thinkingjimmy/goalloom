@@ -26,7 +26,10 @@ export const settingsMessages: SettingsCatalog = {
   relationLines: 'Lignes de relation',
   relationLinesNote: 'Quand un seul flux est filtré, des lignes relient ses parents et ses enfants',
   celebration: 'Confettis à la fin',
-  celebrationNote: 'Des confettis jaillissent des deux coins inférieurs quand un élément est terminé. Choisissez les colonnes concernées.',
+  celebrationNote: 'Des confettis jaillissent des deux coins inférieurs quand un élément est terminé dans une colonne choisie.',
+  celebrationOff: 'Désactivé. Choisissez une colonne pour l’activer.',
+  celebrationColumns: 'Célébrer les éléments terminés dans ces colonnes',
+  celebrationTry: 'Essayer',
   celebrationReducedMotion: 'Les confettis sont suspendus lorsque l’option de réduction des animations du système est activée.',
   // Smart input
   smartEnabledNote: 'Notez une idée avec le + global ; elle est organisée dès que vous arrêtez de taper',

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Body-free business events and current item summaries.
- * [OUTPUT]: Strict activity pages and read-only period history DTOs.
+ * [OUTPUT]: Strict activity pages, read-only period history DTOs with per-outcome summary, and the past-period index.
  * [POS]: History/import boundary separating historical state from current content.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,10 +18,16 @@ export const eventSchema = z.strictObject({
   before: businessStateSchema.nullable(), after: businessStateSchema, undoOf: idSchema.nullable(),
 })
 export const activitySchema = z.strictObject({ events: z.array(eventSchema), more: z.boolean() })
+const count = z.number().int().nonnegative()
+export const historyOutcomeSchema = z.enum(['done', 'open', 'moved', 'cancelled', 'unknown'])
 export const historyPageSchema = z.strictObject({
+  // previous is null once no earlier period of this scale was ever materialised in the workspace.
   period: periodSchema, previous: periodSchema.nullable(), next: periodSchema,
-  total: z.number().int().nonnegative(),
-  rows: z.array(z.strictObject({ item: itemSummarySchema, endState: businessStateSchema.nullable(), later: z.array(eventSchema), laterCount: z.number().int().nonnegative(), anomalous: z.boolean() })),
+  total: count, summary: z.record(historyOutcomeSchema, count),
+  rows: z.array(z.strictObject({ item: itemSummarySchema, endState: businessStateSchema.nullable(), outcome: historyOutcomeSchema, later: z.array(eventSchema), laterCount: count, anomalous: z.boolean() })),
 })
+export const historyIndexSchema = z.strictObject({ periods: z.array(z.strictObject({ period: periodSchema, total: count, done: count })) })
 export type HistoryPage = z.infer<typeof historyPageSchema>
+export type HistoryIndex = z.infer<typeof historyIndexSchema>
+export type HistoryOutcome = z.infer<typeof historyOutcomeSchema>
 export type Activity = z.infer<typeof activitySchema>

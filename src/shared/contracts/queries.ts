@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Finite queries and entity/operation schemas.
- * [OUTPUT]: Summary snapshots/lists, complete detail, topology, counts and activity/backup summaries.
+ * [OUTPUT]: Summary snapshots/lists, complete detail, topology, period history and its index, counts and activity/backup summaries.
  * [POS]: Read-only IPC contract; full descriptions are available only through item detail.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,6 +13,7 @@ export const querySchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('list'), view: z.enum(['search', 'done', 'cancelled', 'archived', 'trash', 'backlog']), query: z.string().max(500).default(''), horizon: horizonSchema.optional(), offset: z.number().int().min(0).max(100_000).default(0), limit: z.number().int().min(1).max(100).default(50) }),
   z.strictObject({ type: z.literal('receipt'), operationId: idSchema, generation: idSchema }),
   z.strictObject({ type: z.literal('history'), horizon: z.enum(['cycle', 'month', 'week', 'day']), startDate: dateSchema, offset: z.number().int().min(0).max(100_000).default(0), limit: z.number().int().min(1).max(100).default(50) }),
+  z.strictObject({ type: z.literal('historyIndex'), horizon: z.enum(['cycle', 'month', 'week', 'day']) }),
   z.strictObject({ type: z.literal('activity'), itemId: idSchema, beforeSeq: z.number().int().positive().optional(), limit: z.number().int().min(1).max(100).default(50) }),
   z.strictObject({ type: z.literal('batches') }),
   z.strictObject({ type: z.literal('batchItems'), operationId: idSchema, offset: z.number().int().min(0).max(100_000), limit: z.number().int().min(1).max(100) }),

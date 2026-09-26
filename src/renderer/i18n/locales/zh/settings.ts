@@ -25,7 +25,10 @@ export const settingsMessages = widen({
   relationLines: '关系线',
   relationLinesNote: '筛选单个流程时，用线连起它的上下级',
   celebration: '完成撒花',
-  celebrationNote: '完成时从左右下角撒花，按条目所在列分别设置。',
+  celebrationNote: '完成条目时从左右下角撒花，只在选中的列播放。',
+  celebrationOff: '已关闭。选中任一列即可开启。',
+  celebrationColumns: '在这些列完成时撒花',
+  celebrationTry: '试一下',
   celebrationReducedMotion: '系统已开启「减少动态效果」，撒花暂不播放。',
   // Smart input
   smartEnabledNote: '全局＋写下想法，停下输入后自动整理',

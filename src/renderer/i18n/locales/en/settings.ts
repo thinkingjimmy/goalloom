@@ -26,7 +26,10 @@ export const settingsMessages: SettingsCatalog = {
   relationLines: 'Relation lines',
   relationLinesNote: 'When one flow is filtered, lines connect its parents and children',
   celebration: 'Completion confetti',
-  celebrationNote: 'Celebrate from both bottom corners when an item is completed. Choose which columns celebrate.',
+  celebrationNote: 'Confetti bursts from both bottom corners when you complete an item in a selected column.',
+  celebrationOff: 'Off. Select any column to turn it on.',
+  celebrationColumns: 'Celebrate completions in these columns',
+  celebrationTry: 'Try it',
   celebrationReducedMotion: 'Confetti is paused while Reduce Motion is enabled in your system settings.',
   // Smart input
   smartEnabledNote: 'Write ideas with the global +; they’re organized once you stop typing',

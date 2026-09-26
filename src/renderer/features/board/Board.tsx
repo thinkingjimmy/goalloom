@@ -5,7 +5,7 @@
  * [POS]: Main board view; authoritative transactions revalidate all position and state changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { closestCenter, DndContext, DragOverlay, KeyboardSensor, pointerWithin, PointerSensor, useDroppable, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type KeyboardCoordinateGetter } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'
@@ -13,14 +13,13 @@ import { horizons } from '../../../shared/contracts/values'
 import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { messages, horizonNames, useLocale } from '../../i18n'
-import { longDate, monthDay, monthName, shortDate, yearMonth, yearOf } from '../../i18n/format'
-import { addDays } from '../../lib/dates'
 import type { Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import { useRelationLines } from '../../state/relation-lines'
 import { flowTint } from '../../lib/colors'
 import { Icon } from '../../components/icons'
-import { HistoryColumn } from './HistoryColumn'
+import { HistoryColumn, PeriodPicker, useHistoryPage } from './HistoryColumn'
+import { periodLabel } from './period-labels'
 import { Backlog } from './Backlog'
 import { QuickAdd, type SplitParent } from './QuickAdd'
 import { RelationLines } from './RelationLines'
@@ -145,6 +144,25 @@ const Column = memo(function Column({ horizon, items, snapshot, flows, active, l
   const period = history ?? current
   const calendar = snapshot.workspace.calendar!
   const previous = period ? precedingPeriod(calendar, period) : null
+  const page = useHistoryPage(history, snapshot.workspace.revision)
+  // The server knows where the workspace's history begins; until the page arrives, the calendar decides.
+  const earlier = history && (page.page ? page.page.previous !== null : previous !== null) ? previous : null
+  const name = horizonNames[horizon]
+  // Keep keyboard focus inside the column when its header swaps between current and history controls.
+  const section = useRef<HTMLElement | null>(null), refocus = useRef(false)
+  const switchTo = (next: PlanningPeriod | null) => {
+    refocus.current = !!section.current?.contains(document.activeElement)
+    if (next) { setAdding(false); focus(false) }
+    setHistory(next)
+  }
+  useEffect(() => {
+    if (!refocus.current) return
+    refocus.current = false
+    section.current?.querySelector<HTMLElement>(history ? '.period-title' : '[data-history-entry]')?.focus()
+  }, [history === null])
+  const leaveOnEscape = (event: KeyboardEvent) => {
+    if (history && event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) { event.preventDefault(); switchTo(null) }
+  }
   const todo = useMemo(() => items.filter(item => item.status === 'todo'), [items]), done = useMemo(() => items.filter(item => item.status === 'done'), [items])
   const row = (item: ItemSummary, index: number, total: number) => {
     // A row in an active flow takes that flow's tint while lines are drawn; the rest fade.
@@ -152,25 +170,24 @@ const Column = memo(function Column({ horizon, items, snapshot, flows, active, l
     return <TaskRow index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={snapshot.items} today={today} rolloverFrom={snapshot.rolloverSources[item.id]} selected={highlighted === item.id}
       dimmed={active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={busy} select={select} submit={submit} onPreview={onPreview} />
   }
-  return <section className={`board-column ${isOver ? 'drop-target' : ''}`} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(horizonNames[horizon])} ref={setNodeRef}>
-    <header className="column-header">
-      <h2>{horizonNames[horizon]}</h2>
-      {history ? <span className="history-badge"><Icon name="history" size={12} strokeWidth={1.8} />{messages.history}</span>
-        : <span className="column-meta">{horizon === 'later' ? todo.length : periodLabel(horizon, period!)}</span>}
+  return <section className={`board-column ${isOver ? 'drop-target' : ''}`} data-history={history !== null} onKeyDown={leaveOnEscape} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(name)} ref={node => { setNodeRef(node); section.current = node }}>
+    {history ? <header className="column-header history-header">
+      <button className="icon-button small" aria-label={messages.previousPeriod(name)} disabled={!earlier} onClick={() => earlier && switchTo(earlier)}><Icon name="previous" size={16} /></button>
+      <h2><PeriodPicker period={history} revision={snapshot.workspace.revision} onPick={switchTo} /></h2>
+      <button className="icon-button small" aria-label={messages.nextPeriod(name)} onClick={() => { const next = currentPeriod(calendar, history.horizon, history.endAt); switchTo(next.id === current?.id ? null : next) }}><Icon name="next" size={16} /></button>
       <span className="column-spacer" />
-      {history && <button className="history-return" onClick={() => setHistory(null)}>{messages.returnCurrent}<Icon name="next" size={12} strokeWidth={2} /></button>}
-      {period && !history && <button className="icon-button small" aria-label={messages.previousPeriod(horizonNames[horizon])} title={messages.columnHistory(horizonNames[horizon])} disabled={!previous} onClick={() => { setHistory(previous); setAdding(false); focus(false) }}><Icon name="history" size={16} /></button>}
-      {!history && <button className="icon-button small" aria-label={messages.newInColumn(horizonNames[horizon])} aria-pressed={!!adding} disabled={busy} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>}
-    </header>
-    {history && <div className="period-navigation">
-      <button className="icon-button small" aria-label={messages.previousPeriod(horizonNames[horizon])} disabled={!previous} onClick={() => setHistory(previous)}><Icon name="previous" size={16} /></button>
-      <span className="period-label tabular">{historyLabel(horizon, history)}</span>
-      <button className="icon-button small" aria-label={messages.nextPeriod(horizonNames[horizon])} onClick={() => { const next = currentPeriod(calendar, history.horizon, history.endAt); setHistory(next.id === current?.id ? null : next) }}><Icon name="next" size={16} /></button>
-    </div>}
+      <button className="history-return" onClick={() => switchTo(null)}>{messages.returnCurrent}<kbd className="keycap" aria-hidden="true">esc</kbd></button>
+    </header> : <header className="column-header">
+      <h2>{name}</h2>
+      <span className="column-meta">{horizon === 'later' ? todo.length : periodLabel(horizon, period!)}</span>
+      <span className="column-spacer" />
+      {period && <button className="icon-button small" data-history-entry aria-label={messages.historyButton(name)} title={previous ? messages.columnHistory(periodLabel(horizon, previous)) : undefined} disabled={!previous} onClick={() => switchTo(previous)}><Icon name="history" size={16} /></button>}
+      <button className="icon-button small" aria-label={messages.newInColumn(name)} aria-pressed={!!adding} disabled={busy} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>
+    </header>}
     {!history && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
     <div className="column-content">
-      {history ? <HistoryColumn key={history.id} period={history} revision={snapshot.workspace.revision} select={select} /> : <>
+      {history ? <HistoryColumn history={page} select={select} onEarlier={earlier && (() => switchTo(earlier))} /> : <>
         <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
           <VirtualRows items={todo} dragging={dragging} highlighted={highlighted} render={row} />
           {adding && <QuickAdd key={adding.key} horizon={horizon} flows={flows} items={snapshot.items} split={adding.split} submit={submit} busy={busy} close={() => setAdding(false)} />}
@@ -181,17 +198,3 @@ const Column = memo(function Column({ horizon, items, snapshot, flows, active, l
     </div>
   </section>
 })
-
-/** Past periods read as a single day, a named month or a range, never as the raw half-open date pair. */
-function historyLabel(horizon: ItemHorizon, period: PlanningPeriod): string {
-  if (horizon === 'day') return longDate(period.startDate)
-  if (horizon === 'month') return yearMonth(period.startDate)
-  return `${yearOf(period.startDate)} ${periodLabel(horizon, period)}`
-}
-
-/** Column-header label for a current period; shared with the onboarding board preview. */
-export function periodLabel(horizon: ItemHorizon, period: Pick<PlanningPeriod, 'startDate' | 'endDate'>): string {
-  if (horizon === 'day') return monthDay(period.startDate)
-  if (horizon === 'month') return monthName(period.startDate)
-  return `${shortDate(period.startDate)} – ${shortDate(addDays(period.endDate, -1))}`
-}

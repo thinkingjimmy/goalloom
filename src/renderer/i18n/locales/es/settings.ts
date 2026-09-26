@@ -26,7 +26,10 @@ export const settingsMessages: SettingsCatalog = {
   relationLines: 'Líneas de relación',
   relationLinesNote: 'Al filtrar un solo flujo, unas líneas unen sus elementos superiores e inferiores',
   celebration: 'Confeti al completar',
-  celebrationNote: 'Celebra con confeti desde las dos esquinas inferiores al completar un elemento. Elige en qué columnas.',
+  celebrationNote: 'Lanza confeti desde las dos esquinas inferiores al completar un elemento en las columnas elegidas.',
+  celebrationOff: 'Desactivado. Elige cualquier columna para activarlo.',
+  celebrationColumns: 'Celebrar al completar en estas columnas',
+  celebrationTry: 'Probar',
   celebrationReducedMotion: 'El confeti se pausa mientras esté activada la opción de reducir movimiento del sistema.',
   // Smart input
   smartEnabledNote: 'Escribe una idea con el ＋ global; se organiza cuando dejas de escribir',

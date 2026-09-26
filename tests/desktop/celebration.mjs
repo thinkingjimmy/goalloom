@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A source or packaged Electron executable, production IPC fixtures and real UI actions.
- * [OUTPUT]: Completion feedback, per-column preferences and canvas lifecycle acceptance with screenshots and JSON evidence.
+ * [OUTPUT]: Completion feedback, per-column preferences, exact rendered origins, viewport coverage and lifecycle evidence.
  * [POS]: Isolated desktop acceptance; no mocked receipts, synthetic completion events or real workspace data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -24,7 +24,7 @@ const checks = [], errors = []
 const report = {
   packaged: Boolean(packaged), runtime: null,
   environment: { platform: platform(), release: release(), version: version(), arch: arch(), cpu: cpus()[0]?.model, machineScope: process.env.GOALLOOM_TEST_MACHINE_SCOPE ?? 'Host OS reported; physical/VM status not independently verified' },
-  checks, screenshots: [], pixels: {},
+  checks, screenshots: [], pixels: {}, origins: {},
 }
 let application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 let applicationClosed = false
@@ -33,7 +33,7 @@ const canvas = () => page.locator('canvas.completion-celebration')
 const openCanvas = () => page.locator('canvas.completion-celebration:popover-open')
 const settings = () => page.getByRole('dialog', { name: '设置与数据', exact: true })
 const detail = () => page.getByRole('dialog', { name: '当前条目', exact: true })
-const setting = horizon => settings().getByRole('switch', { name: `${labels[horizon]} · 完成撒花`, exact: true })
+const setting = horizon => settings().getByRole('group', { name: '在这些列完成时撒花', exact: true }).getByRole('button', { name: labels[horizon], exact: true })
 const state = id => page.evaluate(async id => (await window.goalloom.getItem(id)).item, id)
 
 async function connectPage() {
@@ -44,7 +44,18 @@ async function connectPage() {
 }
 async function observe() {
   await page.evaluate(() => {
-    window.celebrationEvidence = { opened: 0, closed: 0 }
+    window.celebrationEvidence = { opened: 0, closed: 0, draws: {} }
+    const originalTranslate = CanvasRenderingContext2D.prototype.translate
+    CanvasRenderingContext2D.prototype.translate = function (x, y) {
+      // Observe the actual renderer without changing random particles, clocks, receipts or draw calls.
+      const operationId = this.canvas instanceof HTMLCanvasElement ? this.canvas.dataset.operationId : null
+      if (operationId && this.canvas.matches('.completion-celebration')) {
+        const evidence = window.celebrationEvidence.draws
+        evidence[operationId] ??= { started: performance.now(), origins: [], viewport: { width: innerWidth, height: innerHeight } }
+        if (evidence[operationId].origins.length < 2) evidence[operationId].origins.push({ x, y })
+      }
+      return originalTranslate.call(this, x, y)
+    }
     document.addEventListener('toggle', event => {
       if (event.target instanceof HTMLCanvasElement && event.target.matches('.completion-celebration')) {
         window.celebrationEvidence[event.newState === 'open' ? 'opened' : 'closed']++
@@ -55,7 +66,7 @@ async function observe() {
 async function openSettings() {
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
   await settings().getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '外观', exact: true }).click()
-  await settings().getByRole('heading', { name: '完成撒花', exact: true }).waitFor()
+  await settings().getByText('完成撒花', { exact: true }).waitFor()
 }
 async function closeSettings() {
   await settings().getByRole('button', { name: '关闭', exact: true }).click()
@@ -67,12 +78,12 @@ async function dismissFeedback() {
   assert.equal(await page.locator('.toast').count(), 0)
 }
 async function assertSettings(expected) {
-  for (const [horizon, enabled] of Object.entries(expected)) assert.equal(await setting(horizon).getAttribute('aria-checked'), String(enabled), `${horizon} setting`)
+  for (const [horizon, enabled] of Object.entries(expected)) assert.equal(await setting(horizon).getAttribute('aria-pressed'), String(enabled), `${horizon} setting`)
 }
 async function setSettings(expected) {
   for (const [horizon, enabled] of Object.entries(expected)) {
-    if ((await setting(horizon).getAttribute('aria-checked')) !== String(enabled)) await setting(horizon).click()
-    assert.equal(await setting(horizon).getAttribute('aria-checked'), String(enabled))
+    if ((await setting(horizon).getAttribute('aria-pressed')) !== String(enabled)) await setting(horizon).click()
+    assert.equal(await setting(horizon).getAttribute('aria-pressed'), String(enabled))
   }
 }
 async function shot(name) {
@@ -103,28 +114,58 @@ async function waitForCleanup(timeout = 4000) {
     return !canvas || (!canvas.matches(':popover-open') && canvas.width === 1 && canvas.height === 1 && !canvas.hasAttribute('data-operation-id'))
   }, null, { polling: 100, timeout })
 }
+async function waitForAnimationAge(milliseconds) {
+  const operationId = await canvas().getAttribute('data-operation-id')
+  assert(operationId)
+  await page.waitForFunction(({ operationId, milliseconds }) => {
+    const evidence = window.celebrationEvidence.draws[operationId]
+    return evidence && performance.now() - evidence.started >= milliseconds
+  }, { operationId, milliseconds }, { timeout: 2000 })
+}
+async function originEvidence() {
+  const operationId = await canvas().getAttribute('data-operation-id')
+  const evidence = await page.evaluate(operationId => window.celebrationEvidence.draws[operationId], operationId)
+  assert(evidence, 'A real completion must reach the canvas renderer')
+  assert.deepEqual(evidence.origins, [
+    { x: 0, y: evidence.viewport.height },
+    { x: evidence.viewport.width, y: evidence.viewport.height },
+  ], 'The first rendered particles originate exactly at the viewport bottom corners')
+  return { operationId, ...evidence }
+}
 async function pixelEvidence() {
-  await page.waitForFunction(() => {
-    const canvas = document.querySelector('canvas.completion-celebration:popover-open')
-    if (!canvas) return false
-    const context = canvas.getContext('2d'), pixels = context?.getImageData(0, 0, canvas.width, canvas.height).data
-    if (!pixels) return false
-    let left = 0, right = 0
-    for (let index = 3; index < pixels.length; index += 16) if (pixels[index]) {
-      if (Math.floor(index / 4) % canvas.width < canvas.width / 2) left++
-      else right++
-    }
-    return left > 10 && right > 10
-  }, null, { timeout: 1500 })
-  return canvas().evaluate(node => {
+  const evidence = await canvas().evaluate(node => {
     const pixels = node.getContext('2d').getImageData(0, 0, node.width, node.height).data
-    let left = 0, right = 0
+    const quartiles = [0, 0, 0, 0]
+    let minX = node.width, maxX = -1, minY = node.height, maxY = -1
     for (let index = 3; index < pixels.length; index += 16) if (pixels[index]) {
-      if (Math.floor(index / 4) % node.width < node.width / 2) left++
-      else right++
+      const point = Math.floor(index / 4), x = point % node.width, y = Math.floor(point / node.width)
+      quartiles[Math.min(3, Math.floor(x / node.width * 4))]++
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y)
     }
-    return { left, right, width: node.width, height: node.height, pointerEvents: getComputedStyle(node).pointerEvents, popover: node.popover }
+    return {
+      left: quartiles[0] + quartiles[1], right: quartiles[2] + quartiles[3], quartiles,
+      width: node.width, height: node.height,
+      bounds: { minX, maxX, minY, maxY },
+      coverage: { horizontal: (maxX - minX) / node.width, vertical: (maxY - minY) / node.height, top: minY / node.height },
+      canvasRect: node.getBoundingClientRect().toJSON(), viewport: { width: innerWidth, height: innerHeight, devicePixelRatio },
+      elapsedMs: performance.now() - window.celebrationEvidence.draws[node.dataset.operationId].started,
+      pointerEvents: getComputedStyle(node).pointerEvents, popover: node.popover,
+    }
   })
+  assert(evidence.left > 10 && evidence.right > 10, 'Both launchers render visible particles')
+  assert.deepEqual(
+    [evidence.canvasRect.x, evidence.canvasRect.y, evidence.canvasRect.width, evidence.canvasRect.height],
+    [0, 0, evidence.viewport.width, evidence.viewport.height],
+    'The canvas occupies the full viewport without a popover margin or offset',
+  )
+  return evidence
+}
+function assertWideCoverage(evidence) {
+  assert(evidence.quartiles.every(count => count > 10), 'Particles occupy all four horizontal quarters')
+  assert(evidence.coverage.horizontal >= 0.78, 'Particles cover at least 78% of viewport width')
+  assert(evidence.coverage.vertical >= 0.30, 'Particles cover at least 30% of viewport height')
+  assert(evidence.coverage.top <= 0.40, 'The burst reaches the upper 40% of the viewport')
 }
 
 try {
@@ -141,7 +182,7 @@ try {
     ['Move to week', 'day'], ['Move to day', 'week'], ['Drag move', 'day'],
     ['Detail completion', 'week'], ['Consecutive one', 'week'], ['Consecutive two', 'week'],
     ['Reduced motion', 'week'], ['Reduce during animation', 'week'],
-    ['Archived completion', 'week'], ['Replace during animation', 'week'],
+    ['Archived completion', 'week'], ['Compact viewport', 'week'], ['Replace during animation', 'week'],
   ]
   ids = await page.evaluate(async fixtures => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation
@@ -164,13 +205,24 @@ try {
   await assertSettings(defaults)
   await setting('day').scrollIntoViewIfNeeded()
   await shot('settings-completion-celebration')
+  // The preview plays over the settings dialog even for a column that is switched off, and writes nothing.
+  const previewRevision = (await page.evaluate(() => window.goalloom.getSnapshot())).workspace.revision
+  await settings().getByRole('button', { name: '试一下', exact: true }).click()
+  await openCanvas().waitFor()
+  await waitForCleanup(4000)
+  assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.revision, previewRevision)
   await closeSettings()
   for (const [horizon, enabled] of Object.entries(defaults)) {
     await assertSilentCompletion(`Default ${horizon}`, enabled)
     if (enabled) {
       if (horizon === 'week') {
-        await page.waitForTimeout(850)
+        report.origins.board = await originEvidence()
+        await waitForAnimationAge(80)
+        report.pixels.early = await pixelEvidence()
+        await shot('completion-celebration-origin')
+        await waitForAnimationAge(850)
         report.pixels.board = await pixelEvidence()
+        assertWideCoverage(report.pixels.board)
         assert.equal(report.pixels.board.pointerEvents, 'none')
         assert.equal(report.pixels.board.popover, 'manual')
         await shot('completion-celebration-corners')
@@ -178,7 +230,7 @@ try {
       await waitForCleanup()
     }
   }
-  checks.push('Five default settings and real board completions; both canvas halves render; no success toast')
+  checks.push('Five default column chips, a preview over settings without writes, and real board completions; exact viewport-corner origins and wide four-quarter coverage at 1880 × 1000; no success toast')
 
   // Completing again after undo gets a fresh receipt and celebrates again.
   await page.getByRole('button', { name: '设置与数据', exact: true }).focus()
@@ -223,8 +275,10 @@ try {
 
   await page.getByRole('button', { name: 'Detail completion', exact: true }).click()
   await assertSilentCompletion('Detail completion', true, true)
-  await page.waitForTimeout(850)
+  report.origins.detail = await originEvidence()
+  await waitForAnimationAge(850)
   report.pixels.detail = await pixelEvidence()
+  assertWideCoverage(report.pixels.detail)
   assert.equal(await canvas().evaluate(node => document.activeElement === node), false)
   assert.equal(await detail().evaluate(node => node.contains(document.activeElement)), true, 'Detail retains focus')
   const hit = await detail().getByRole('button', { name: '关闭', exact: true }).evaluate(node => {
@@ -279,6 +333,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await openSettings()
   await settings().getByRole('status').filter({ hasText: '系统已开启「减少动态效果」，撒花暂不播放。' }).waitFor()
+  assert.equal(await settings().getByRole('button', { name: '试一下', exact: true }).isDisabled(), true)
   await assertSettings(defaults)
   await closeSettings()
   await assertSilentCompletion('Reduced motion', false)
@@ -342,6 +397,17 @@ try {
   }
   await observe()
   checks.push('Malformed JSON and invalid preference shapes recover all defaults')
+
+  await page.setViewportSize({ width: 1280, height: 760 })
+  await assertSilentCompletion('Compact viewport', true)
+  report.origins.compact = await originEvidence()
+  await waitForAnimationAge(850)
+  report.pixels.compact = await pixelEvidence()
+  assertWideCoverage(report.pixels.compact)
+  await shot('completion-celebration-compact')
+  await waitForCleanup()
+  await page.setViewportSize({ width: 1880, height: 1000 })
+  checks.push('Exact corner origins, full-viewport canvas and broad particle coverage also hold at 1280 × 760')
 
   // A real protected reset changes the generation while the last UI completion is still animating.
   await assertSilentCompletion('Replace during animation', true)

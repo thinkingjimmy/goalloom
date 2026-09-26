@@ -1,10 +1,11 @@
 /**
  * [INPUT]: 分组标题/右侧说明或操作、行标题/说明与右侧控件、可选色块的分段选项；可选工作区时区。
- * [OUTPUT]: SettingsGroup（小标题在卡外、卡片只装内容）、SettingsRow 左文右控行、Segmented 分段选择（可带色块示意）、Switch 开关、stamp 本地时间格式。
+ * [OUTPUT]: SettingsGroup（小标题在卡外、卡片只装内容）、SettingsRow 左文右控行（可在下方放整行控件）、Segmented 分段选择（可带色块示意）、ToggleChips 多选按钮组、Switch 开关、stamp 本地时间格式。
  * [POS]: settings 各分类面板共用的版式原语，不持有状态、不提交命令。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { CSSProperties, ReactNode } from 'react'
+import { Icon } from '../../../components/icons'
 
 /** A group reads as a small heading (with an optional note or action on the right) above a card that holds only content. */
 export function SettingsGroup({ title, aside, danger = false, children }: { title?: string; aside?: ReactNode; danger?: boolean; children?: ReactNode }) {
@@ -14,11 +15,12 @@ export function SettingsGroup({ title, aside, danger = false, children }: { titl
   </section>
 }
 
-export function SettingsRow({ title, note, children, dimmed = false }: { title: ReactNode; note?: ReactNode; children?: ReactNode; dimmed?: boolean }) {
-  return <div className="settings-row" data-dimmed={dimmed}>
-    <div className="settings-row-text"><span>{title}</span>{note && <small>{note}</small>}</div>
-    {children}
-  </div>
+/** `below` holds a full-width control under the title line, for choices too wide to sit on the right. */
+export function SettingsRow({ title, note, children, below, dimmed = false }: { title: ReactNode; note?: ReactNode; children?: ReactNode; below?: ReactNode; dimmed?: boolean }) {
+  const line = <><div className="settings-row-text"><span>{title}</span>{note && <small>{note}</small>}</div>{children}</>
+  return below
+    ? <div className="settings-row settings-row-stacked" data-dimmed={dimmed}><div className="settings-row-line">{line}</div>{below}</div>
+    : <div className="settings-row" data-dimmed={dimmed}>{line}</div>
 }
 
 export interface SegmentOption<T extends string> { value: T; label: string; swatch?: string; swatchStyle?: CSSProperties | undefined; count?: number | undefined }
@@ -28,6 +30,15 @@ export function Segmented<T extends string>({ label, value, options, disabled, o
       {option.swatch && <span className="segmented-swatch" data-swatch={option.swatch} style={option.swatchStyle} aria-hidden="true" />}
       {option.label}
       {option.count !== undefined && <span className="segmented-count tabular" aria-hidden="true">{option.count}</span>}
+    </button>)}
+  </div>
+}
+
+/** Independent on/off choices shown as pressed buttons, unlike Segmented's single choice. */
+export function ToggleChips<T extends string>({ label, options, disabled, onToggle }: { label: string; options: readonly { value: T; label: string; pressed: boolean }[]; disabled?: boolean; onToggle: (value: T, pressed: boolean) => void }) {
+  return <div className="toggle-chips" role="group" aria-label={label}>
+    {options.map(option => <button key={option.value} type="button" className="toggle-chip" aria-pressed={option.pressed} disabled={disabled} onClick={() => onToggle(option.value, !option.pressed)}>
+      {option.pressed && <Icon name="check" size={12} strokeWidth={2.4} />}{option.label}
     </button>)}
   </div>
 }

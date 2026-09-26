@@ -23,13 +23,26 @@ try {
   const page = await app.firstWindow()
   const month = page.getByRole('region', { name: '本月列', exact: true })
   await month.getByRole('button', { name: '往期未完成 · 1' }).waitFor()
-  await month.getByRole('button', { name: '查看本月上一期' }).click()
+  await month.getByRole('button', { name: '本月历史记录' }).click()
   await month.getByText('这个周期没有安排过条目。').waitFor()
-  await month.getByRole('button', { name: '查看本月上一期' }).click()
+  assert.equal(await month.getAttribute('data-history'), 'true')
+  await month.getByRole('button', { name: '看更早一期' }).click()
   await month.getByRole('button', { name: /后来完成样本/ }).waitFor()
-  assert.match(await month.getByRole('button', { name: /后来完成样本/ }).innerText(), /未完成/)
+  // Rows sit under their end-of-period outcome; a later change shows as the current state beside the title.
+  await month.getByRole('region', { name: '未完成', exact: true }).getByRole('button', { name: /后来完成样本/ }).waitFor()
   assert.match(await month.getByRole('button', { name: /后来完成样本/ }).innerText(), /现在 已完成/)
+  assert.match(await month.locator('.history-headline').innerText(), /完成 \d+ \/ \d+/)
   assert.equal(await month.getByRole('button', { name: '在本月新建' }).count(), 0)
+  // The period title lists past periods with their completion and leads back to current.
+  const shown = await month.locator('.period-title').innerText()
+  await month.locator('.period-title').click()
+  const menu = page.getByRole('menu', { name: '选择本月的周期' })
+  assert.equal(await menu.getByRole('menuitemradio', { checked: true }).locator('.period-option-label').innerText(), shown)
+  await page.keyboard.press('Escape')
+  await menu.waitFor({ state: 'hidden' })
+  assert.equal(await month.getAttribute('data-history'), 'true', 'Escape closes the picker before leaving history')
+  await mkdir('output/tests/screenshots', { recursive: true })
+  await page.screenshot({ path: 'output/tests/screenshots/history-column.png' })
   assert.equal(await month.locator('.drag-handle').count(), 0)
   await month.getByRole('button', { name: '返回当前' }).focus()
   await page.keyboard.press('ControlOrMeta+n')
@@ -40,7 +53,11 @@ try {
   await page.getByRole('dialog', { name: '设置与数据' }).getByRole('button', { name: '已完成', exact: true }).click()
   await page.getByRole('dialog', { name: '设置与数据' }).getByRole('button', { name: '关闭', exact: true }).click()
   await month.getByRole('button', { name: /后来完成样本/ }).waitFor()
-  await month.getByRole('button', { name: '返回当前' }).click()
+  await month.getByRole('button', { name: /后来完成样本/ }).focus()
+  await page.keyboard.press('Escape')
+  await month.getByRole('button', { name: '往期未完成 · 1' }).waitFor()
+  assert.equal(await month.getAttribute('data-history'), 'false')
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), '本月历史记录', 'Leaving history keeps focus on the column entry')
   await month.getByRole('button', { name: '往期未完成 · 1' }).click()
   await page.getByRole('checkbox', { name: '选择 往期待办样本' }).check()
   await page.getByRole('button', { name: '安排到当前本月' }).click()
@@ -82,7 +99,7 @@ try {
   await settings.getByRole('button', { name: '关闭', exact: true }).click()
   if (await page.locator('.toast').count()) await page.getByRole('button', { name: '关闭操作提示', exact: true }).click()
   // 恢复一个仍含任务的工作区必须销毁旧代次的历史页和新建请求。
-  await month.getByRole('button', { name: '查看本月上一期' }).click()
+  await month.getByRole('button', { name: '本月历史记录' }).click()
   await month.getByText('这个周期没有安排过条目。').waitFor()
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
   await page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '备份与恢复', exact: true }).click()
@@ -100,8 +117,9 @@ try {
   const report = {
     passed: true, packaged: Boolean(packaged), runtime,
     environment: { platform: platform(), release: release(), version: version(), arch: arch(), cpu: cpus()[0]?.model, machineScope: process.env.GOALLOOM_TEST_MACHINE_SCOPE ?? 'Host OS reported; physical/VM status not independently verified' },
+    historyScreenshot: 'output/tests/screenshots/history-column.png',
     pastRestore: { destination, screenshot, periodId: restored.placement.periodId, status: restored.status },
-    checks: ['empty history', 'end state and later outcome', 'read-only history', 'session retains column history', 'backlog batch', 'undo returns old period with hold', 'past completed restore confirms original month and status', 'restore clears old history and pending create'],
+    checks: ['empty history', 'earlier-period step from an empty period', 'end state grouped by outcome with later outcome', 'completion summary and period picker', 'Escape closes picker then leaves history with focus kept', 'read-only history', 'session retains column history', 'backlog batch', 'undo returns old period with hold', 'past completed restore confirms original month and status', 'restore clears old history and pending create'],
   }
   await writeFile('output/tests/history.json', JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))

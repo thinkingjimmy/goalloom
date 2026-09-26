@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { languages, locales, type Language } from '../i18n/locale'
 import type { CommandInput, CommandReply, CommandResult } from './commands'
 import type { ItemDetail, ItemPage, Query, Snapshot, ActivitySummary, ItemCounts, BackupSummary } from './queries'
-import type { Activity, HistoryPage } from './history'
+import type { Activity, HistoryIndex, HistoryPage } from './history'
 import type { BatchSummary, BatchPage, DataAction, DataReply } from './transfer'
 import type { SmartAction, SmartReply } from './smart-input'
 
@@ -34,6 +34,7 @@ export interface GoalloomApi {
   getItem(itemId: string): Promise<ItemDetail>
   listItems(query: Extract<Query, { type: 'list' }>): Promise<ItemPage>
   getHistory(query: Extract<Query, { type: 'history' }>): Promise<HistoryPage>
+  getHistoryIndex(horizon: Extract<Query, { type: 'historyIndex' }>['horizon']): Promise<HistoryIndex>
   getActivity(query: Extract<Query, { type: 'activity' }>): Promise<Activity>
   getBatches(): Promise<BatchSummary[]>
   getBatchItems(query: Extract<Query, { type: 'batchItems' }>): Promise<BatchPage>

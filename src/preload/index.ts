@@ -9,7 +9,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { languageChannel, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
 import { activitySummarySchema, backupSummarySchema, itemCountsSchema, detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
 import { replySchema, resultSchema } from '../shared/contracts/commands'
-import { activitySchema, historyPageSchema } from '../shared/contracts/history'
+import { activitySchema, historyIndexSchema, historyPageSchema } from '../shared/contracts/history'
 import { batchPageSchema, batchSchema, dataReplySchema } from '../shared/contracts/transfer'
 import { smartChannel, smartReplySchema } from '../shared/contracts/smart-input'
 import { setValidationLocale } from '../shared/i18n/validation'
@@ -33,6 +33,7 @@ const api: GoalloomApi = {
   getItem: async itemId => query({ type: 'item', itemId }, detailSchema),
   listItems: async query => readQuery(query, itemPageSchema),
   getHistory: async query => readQuery(query, historyPageSchema),
+  getHistoryIndex: async horizon => query({ type: 'historyIndex', horizon }, historyIndexSchema),
   getActivity: async query => readQuery(query, activitySchema),
   getBatches: async () => query({ type: 'batches' }, batchSchema.array()),
   getBackupSummary: async () => query({ type: 'backupSummary' }, backupSummarySchema),
