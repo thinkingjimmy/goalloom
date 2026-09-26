@@ -1,10 +1,9 @@
 /**
- * [INPUT]: Lightweight storage metadata, bounded candidate queries, source text and reference time.
+ * [INPUT]: Workspace snapshot, bounded candidate queries, source text and reference time; calendar loads on use.
  * [OUTPUT]: Current generation and SmartContext with at most eight versioned parent candidates (named, user-picked, shared distinctive term, then flow roots).
  * [POS]: Only smart-service workspace reader; no descriptions, history or database ownership during HTTP waits.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { workspaceDate } from '../../domain/calendar'
 import type { SmartContext } from '../../domain/smart/questions'
 import type { ItemSummary } from '../../shared/contracts/entities'
 import type { ItemPage, Snapshot, WorkspaceMetadata } from '../../shared/contracts/queries'
@@ -22,6 +21,7 @@ export function storageReader(storage: () => StorageClient): WorkspaceReader {
   return {
     generation: async () => (await storage().call<WorkspaceMetadata>('metadata')).workspace.generation,
     async context(text, hints, referenceTime) {
+      const { workspaceDate } = await import('../../domain/calendar')
       const current = await snapshot()
       const calendar = current.workspace.calendar
       if (!calendar || !current.workspace.setupConfirmedAt) return null

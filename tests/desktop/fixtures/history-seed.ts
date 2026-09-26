@@ -2,9 +2,9 @@
  * [INPUT]: 测试 runner 创建的隔离 profile 路径；真实今天。
  * [OUTPUT]: 使用正式 Repository 和注入时钟创建的历史业务样本。
  * [POS]: 仅测试夹具，绝不进入应用或增加生产时钟控制口。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { Temporal } from '@js-temporal/polyfill'
+import { Temporal } from '../../../src/domain/temporal'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { writeFileSync } from 'node:fs'

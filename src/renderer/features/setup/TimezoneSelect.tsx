@@ -1,8 +1,8 @@
 /**
  * [INPUT]: 当前时区、候选 IANA 时区列表、选择回调与可选触发器样式；依赖 Popover 与 Icon。
- * [OUTPUT]: 只能从列表中选择的时区下拉：按钮触发、浮层内搜索、方向键/Enter 选择，附 GMT 偏移提示。
+ * [OUTPUT]: Searchable timezone selection; computes the full offset list only while the popover is open.
  * [POS]: setup 日历句中的时区胶囊，替代原生 datalist，避免输入任意文本和系统下拉样式。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { messages } from '../../i18n'
@@ -17,7 +17,7 @@ export function TimezoneSelect({ value, zones, onChange, labelId, describedBy, c
   const trigger = useRef<HTMLButtonElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const listId = useId()
-  const options = useMemo(() => zones.map(zone => ({ zone, offset: gmtOffset(zone), search: zone.replaceAll('_', ' ').toLowerCase() })), [zones])
+  const options = useMemo(() => open ? zones.map(zone => ({ zone, offset: gmtOffset(zone), search: zone.replaceAll('_', ' ').toLowerCase() })) : [], [zones, open])
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase().replaceAll('_', ' ')
     return needle ? options.filter(option => option.search.includes(needle) || option.offset.toLowerCase().includes(needle)) : options
@@ -27,7 +27,7 @@ export function TimezoneSelect({ value, zones, onChange, labelId, describedBy, c
 
   const show = () => {
     setQuery('')
-    setActive(Math.max(0, options.findIndex(option => option.zone === value)))
+    setActive(Math.max(0, zones.indexOf(value)))
     setOpen(true)
   }
   const close = () => { setOpen(false); trigger.current?.focus() }

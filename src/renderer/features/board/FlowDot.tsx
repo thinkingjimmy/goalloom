@@ -8,7 +8,8 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useMemo, useState, type CSSProperties } from 'react'
-import { horizons, type ItemSummary } from '../../../shared/contracts/entities'
+import { horizons } from '../../../shared/contracts/values'
+import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { mayParent } from '../../../domain/relations'
 import { horizonNames, messages } from '../../i18n'

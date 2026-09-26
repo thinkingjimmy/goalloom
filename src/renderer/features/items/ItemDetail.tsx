@@ -6,7 +6,8 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { ItemDetail as Detail } from '../../../shared/contracts/queries'
-import { horizons, type Item, type ItemSummary, type ItemHorizon } from '../../../shared/contracts/entities'
+import { horizons } from '../../../shared/contracts/values'
+import type { Item, ItemSummary, ItemHorizon } from '../../../shared/contracts/entities'
 import { statusNames, messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'

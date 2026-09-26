@@ -5,7 +5,8 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { horizons, type ItemSummary, type ItemHorizon, type PlanningPeriod } from '../../../shared/contracts/entities'
+import { horizons } from '../../../shared/contracts/values'
+import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { ParentKey } from '../../../shared/contracts/smart-input'
 import { horizonNames, messages, smartMessages as t } from '../../i18n'
 import { relationColors } from '../../lib/colors'

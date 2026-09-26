@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Source text, workspace periods and bounded existing-parent candidates.
+ * [INPUT]: Source text, workspace periods, bounded existing-parent candidates and shared payload budgets.
  * [OUTPUT]: Initial and supplemental questions within total question, payload and token budgets.
  * [POS]: Provider-neutral smart-input planning, without network calls or preliminary semantic classification.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -8,13 +8,9 @@ import type { Candidate } from '../../shared/contracts/smart-input'
 import { dateCandidates, type DateCandidate } from './dates'
 import { segmentSlots, type Slot } from './segments'
 import { sharedTermText } from './terms'
+import { dateLimit, payloadLimit, payloadSize, questionBudget, textLimit, tokenBudget } from './budget'
 import { serverText } from '../../shared/i18n/server'
 
-export const questionBudget = 64
-export const textLimit = 4_000
-export const dateLimit = 8
-export const payloadLimit = 64 * 1024
-export const tokenBudget = 24_000
 // Reserve space for the fixed provider/model envelope; adapters check the exact body too.
 const payloadHeadroom = 512, tokenHeadroom = 128
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
@@ -45,16 +41,6 @@ export const useOptions = { deadline: '截止日期（在此之前完成）', ex
 const quote = (text: string) => { const chars = [...text]; return chars.length > 40 ? `${chars.slice(0, 40).join('')}…` : text }
 const periodText = (context: SmartContext) => Object.fromEntries(Object.entries(context.periods).map(([key, period]) => [key, `${period.startDate} 至 ${period.endDate}（不含结束日）`]))
 const weekNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
-
-export function estimateTokens(text: string): number {
-  let ascii = 0, wide = 0
-  for (const char of text) { if (char.charCodeAt(0) < 0x80) ascii++; else wide++ }
-  return Math.ceil(wide + ascii / 4)
-}
-export function payloadSize(state: unknown, questions: unknown): { bytes: number; tokens: number } {
-  const body = JSON.stringify({ state, questions })
-  return { bytes: new TextEncoder().encode(body).length, tokens: estimateTokens(body) }
-}
 
 export function planQuestions(context: SmartContext): QuestionPlan | PlanFailure {
   if ([...context.text].length > textLimit) return { kind: 'too_large', message: serverText().smart.textTooLong(textLimit) }

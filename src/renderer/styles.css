@@ -128,8 +128,14 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .inline-error { color: var(--danger); font-size: 13px; margin: 0 0 12px; }
 .fab { position: fixed; right: 28px; bottom: 28px; width: 52px; height: 52px; border-radius: 26px; background: var(--raised); color: var(--fg); display: grid; place-items: center; box-shadow: 0 1px 2px rgba(60, 40, 20, .08), 0 6px 20px rgba(60, 40, 20, .12); z-index: 10; }
 .fab:hover { transform: translateY(-1px); }
-.toast { position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%); z-index: 40; min-height: 44px; max-width: calc(100vw - 48px); display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 18px; border-radius: 22px; background: var(--fg); color: var(--bg); font-size: 13px; box-shadow: 0 8px 24px rgba(40, 25, 10, .18); }
-.toast > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 420px; }
+.feedback-layer { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; overflow: visible; background: transparent; pointer-events: none; }
+.feedback-layer::backdrop { background: transparent; pointer-events: none; }
+.toast { position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%); z-index: 40; min-height: 44px; max-width: calc(100vw - 48px); display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 18px; border-radius: 22px; background: var(--fg); color: var(--bg); font-size: 13px; box-shadow: 0 8px 24px rgba(40, 25, 10, .18); pointer-events: auto; }
+.toast-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; max-width: 420px; padding: 4px 0; }
+.toast-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast-detail, .toast-warning { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.toast-detail { opacity: .8; }
+.toast-warning { max-height: 30vh; overflow-y: auto; }
 .toast-action { height: 32px; padding: 0 12px; border-radius: 16px; background: color-mix(in srgb, var(--bg) 14%, transparent); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .toast .icon-button.small { color: inherit; opacity: .7; }
 .toast .icon-button.small:hover { background: transparent; opacity: 1; }
@@ -146,6 +152,10 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .column-meta { font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .column-spacer { flex: 1; }
 .column-header > .icon-button:last-child { margin-right: -6px; }
+/* Preserve layout and Tab access; pointer focus must not leave actions visible after exiting a column. */
+@media (hover: hover) and (pointer: fine) {
+  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) > .icon-button { opacity: 0; }
+}
 /* History mode: a badge beside the title, one return action, and a single period switcher bar. */
 .history-badge { height: 22px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; background: var(--hover); color: var(--secondary); font-size: 12px; font-weight: 500; }
 .history-return { height: 28px; padding: 0 8px 0 10px; display: inline-flex; align-items: center; gap: 2px; border-radius: 8px; background: var(--fg); color: var(--bg); font-size: 12px; font-weight: 500; transition: opacity .15s ease-out; }

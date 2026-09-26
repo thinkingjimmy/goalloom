@@ -1,16 +1,19 @@
 /**
  * [INPUT]: Validated actions, DeviceStore, adapters, a workspace reader and injected clock.
- * [OUTPUT]: Revision-guarded configuration, cancellable analysis, cooldown and bounded generation-aware preview cache.
- * [POS]: Independent main-process service; HTTP never holds a storage transaction.
+ * [OUTPUT]: Revision-guarded configuration, cancellable analysis, cooldown and renderer-session preview cache.
+ * [POS]: Lightweight main-process service; analysis loads its planner on demand and HTTP never holds a storage transaction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createHash } from 'node:crypto'
 import { checkBoolean, checkChoice, ContractError } from '../../domain/smart/distribution'
-import { planQuestions, relationRound, payloadSize, payloadLimit, tokenBudget, questionBudget, type SmartContext } from '../../domain/smart/questions'
-import { buildPreview, taskSlots, type Round } from '../../domain/smart/preview'
-import { jevProviders, smartActionSchema, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type Failure, type JevProvider, type SmartReply, type SmartStatus, type TestOutcome } from '../../shared/contracts/smart-input'
+import { payloadSize, payloadLimit, tokenBudget, questionBudget, textLimit } from '../../domain/smart/budget'
+import type { SmartContext } from '../../domain/smart/questions'
+import type { Round } from '../../domain/smart/preview'
+import { jevProviders } from '../../shared/contracts/values'
+import { smartActionSchema, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type Failure, type JevProvider, type SmartReply, type SmartStatus, type TestOutcome } from '../../shared/contracts/smart-input'
 import type { DeviceConfig, DeviceStore } from './credentials'
 import { Aborted, failure, JEV_PROVIDERS, ProviderFailure, type Adapter, type EvaluateOutput } from './providers'
+import { serverText } from '../../shared/i18n/server'
 
 export interface WorkspaceReader {
   generation(): Promise<string>
@@ -92,6 +95,11 @@ export class SmartInputService {
     for (const chain of [...this.chains.values(), ...this.connections]) chain.abort()
     this.chains.clear(); this.connections.clear(); this.clearCache()
   }
+  releaseSession(): void {
+    this.configurationRevision++
+    this.abortAll()
+    this.cacheGeneration = null
+  }
 
   // --- Test first with the candidate key; only a verified judgement replaces the previous working setup. ---
   private async connect(generation: string, provider: JevProvider, apiKey: string | null): Promise<TestOutcome> {
@@ -113,6 +121,7 @@ export class SmartInputService {
       let output: EvaluateOutput
       try { output = await this.options.adapters[provider](key, { ...sample, signal: controller.signal }) }
       catch (error) {
+        if (!current()) return superseded()
         const outcome = error instanceof ProviderFailure ? error.failure : failure('unavailable', provider)
         if (outcome.kind === 'rate_limited') this.cooldownUntil = Date.parse(outcome.retryAt!)
         return { ok: false, failure: outcome, sampleMatched: null }
@@ -146,22 +155,31 @@ export class SmartInputService {
   async analyze(request: AnalyzeRequest): Promise<AnalyzeReply> {
     const revision = this.configurationRevision
     const echo: AnalyzeEcho = { requestId: request.requestId, draftSessionId: request.draftSessionId, inputRevision: request.inputRevision, manualRevision: request.manualRevision, generation: request.generation, providerRevision: request.providerRevision, contextRevision: request.contextRevision, referenceTime: request.referenceTime }
-    const config = await this.options.store.config()
-    const provider = config.activeProvider
     const failed = (value: Failure): AnalyzeReply => ({ status: 'failed', echo, failure: value })
-    if (!provider || !config.providers[provider].consentedAt || config.enabledForGeneration !== request.generation || config.providerRevision !== request.providerRevision || request.generation !== await this.options.reader.generation()) return failed(failure('not_enabled', provider ?? 'typesafe'))
-    if (this.cooldownUntil > this.now()) return failed(failure('rate_limited', provider, 429, new Date(this.cooldownUntil).toISOString()))
-    const read = await this.options.store.readKey(provider)
-    if (read.state !== 'saved') return failed(failure(read.state === 'unavailable' ? 'credential_unavailable' : read.state === 'unreadable' ? 'credential_unreadable' : 'not_enabled', provider))
-    // One live chain per draft: a newer revision cancels this application's use of the older answer.
+    // Register before file reads: cancel/release must also cover a request still in preflight.
     this.chains.get(request.draftSessionId)?.abort()
     const controller = new AbortController()
     this.chains.set(request.draftSessionId, controller)
+    let provider: JevProvider = 'typesafe'
     try {
       const checkCurrent = () => { if (revision !== this.configurationRevision || controller.signal.aborted) throw new Aborted() }
+      const config = await this.options.store.config()
       checkCurrent()
+      provider = config.activeProvider ?? 'typesafe'
+      if (!config.activeProvider || !config.providers[provider].consentedAt || config.enabledForGeneration !== request.generation || config.providerRevision !== request.providerRevision) return failed(failure('not_enabled', provider))
+      const generation = await this.options.reader.generation()
+      checkCurrent()
+      if (request.generation !== generation) return failed(failure('not_enabled', provider))
+      if (this.cooldownUntil > this.now()) return failed(failure('rate_limited', provider, 429, new Date(this.cooldownUntil).toISOString()))
+      const read = await this.options.store.readKey(provider)
+      checkCurrent()
+      if (read.state !== 'saved') return failed(failure(read.state === 'unavailable' ? 'credential_unavailable' : read.state === 'unreadable' ? 'credential_unreadable' : 'not_enabled', provider))
+      if ([...request.text].length > textLimit) return failed({ ...failure('too_large', provider), message: serverText().smart.textTooLong(textLimit) })
       const context = await this.options.reader.context(request.text, request.parentHints, request.referenceTime)
+      checkCurrent()
       if (!context) return failed(failure('not_enabled', provider))
+      const [{ planQuestions, relationRound }, { buildPreview, taskSlots }] = await Promise.all([import('../../domain/smart/questions'), import('../../domain/smart/preview')])
+      checkCurrent()
       const plan = planQuestions(context)
       if ('kind' in plan) return failed({ ...failure('too_large', provider), message: plan.message })
       checkCurrent()

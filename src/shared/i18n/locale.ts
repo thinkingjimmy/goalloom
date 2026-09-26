@@ -1,15 +1,13 @@
 /**
- * [INPUT]: zod；系统或浏览器给出的 BCP 47 语言列表。
- * [OUTPUT]: 支持的 Locale、语言偏好 schema（system | Locale）、按系统语言解析、原生语言名与 Intl 标签，以及把源语言文案放宽为可翻译类型的 widen。
- * [POS]: shared/i18n 的语言边界，main（偏好/对话框/错误）、worker 与 renderer 共用同一解析规则。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: System or browser BCP 47 language lists.
+ * [OUTPUT]: Locale/language values and types, system-language resolution, native names, Intl tags and catalog widening.
+ * [POS]: Lightweight language metadata shared by main, worker and renderer; validation belongs to contracts/runtime.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { z } from 'zod'
-
 export const locales = ['zh', 'en', 'ja', 'es', 'fr'] as const
 export type Locale = typeof locales[number]
-export const languageSchema = z.enum(['system', ...locales])
-export type Language = z.infer<typeof languageSchema>
+export const languages = ['system', ...locales] as const
+export type Language = typeof languages[number]
 
 // Always shown in their own language so a user can find theirs regardless of the current UI language.
 export const localeNames: Record<Locale, string> = { zh: '简体中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }

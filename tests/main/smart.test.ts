@@ -213,6 +213,66 @@ describe('设备配置与凭据', () => {
 
 describe('判断流程', () => {
   beforeEach(async () => { await act({ type: 'connect', generation, provider: 'vercel-gateway', apiKey: 'gw-secret-9999', consent: true }); calls = [] })
+  // Failure cases: oversized text reads every board item and searches quoted phrases before
+  // rejection; counting UTF-16 units instead of code points rejects valid emoji input early.
+  it('checks the text budget before workspace context reads using Unicode code points', async () => {
+    let reads = 0
+    const source = reader()
+    service = new SmartInputService({ store: new DeviceStore(directory, cipher(keyState)), adapters,
+      reader: { ...source, context: async (...args) => { reads++; return source.context(...args) } }, unsignedBuild: true })
+    const rejected = await analyze(request('😀'.repeat(4001)))
+    expect(rejected.status === 'failed' && rejected.failure.kind).toBe('too_large')
+    expect(reads).toBe(0)
+    expect(calls).toHaveLength(0)
+    expect((await analyze(request('😀'.repeat(4000)))).status).toBe('ready')
+    expect(reads).toBe(1)
+  })
+  // Failure cases: session release during credential reads starts a late cloud request;
+  // release during HTTP accepts a stale result; cached private previews survive a new renderer.
+  it('releasing a renderer session cancels preflight reads before any provider call', async () => {
+    const pending = analyze(request('Write a private draft'))
+    service.releaseSession()
+    expect((await pending).status).toBe('cancelled')
+    expect(calls).toHaveLength(0)
+    expect((await status()).status.enabled).toBe(true)
+  })
+  it('releasing a renderer session aborts pending analysis and drops cached previews', async () => {
+    expect((await analyze(request('Cached private draft'))).status).toBe('ready')
+    expect(calls).toHaveLength(1)
+    let started!: () => void, finish!: () => void, signal!: AbortSignal
+    const entered = new Promise<void>(resolve => { started = resolve })
+    const released = new Promise<void>(resolve => { finish = resolve })
+    adapters['vercel-gateway'] = async (key, value) => {
+      signal = value.signal; started(); await released
+      return answerAll(key, value)
+    }
+    const pending = analyze(request('Pending private draft'))
+    await entered
+    service.releaseSession()
+    expect(signal.aborted).toBe(true)
+    finish()
+    expect((await pending).status).toBe('cancelled')
+    adapters['vercel-gateway'] = answerAll
+    expect((await analyze(request('Cached private draft'))).status).toBe('ready')
+    expect(calls).toHaveLength(3)
+  })
+  it('releasing a renderer session prevents a late connection test from saving credentials', async () => {
+    let started!: () => void, finish!: () => void, signal!: AbortSignal
+    const entered = new Promise<void>(resolve => { started = resolve })
+    const released = new Promise<void>(resolve => { finish = resolve })
+    adapters.typesafe = async (key, value) => {
+      signal = value.signal; started(); await released
+      return answerAll(key, value)
+    }
+    const pending = act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-private-1234', consent: true })
+    await entered
+    service.releaseSession()
+    expect(signal.aborted).toBe(true)
+    finish(); await pending
+    const current = (await status()).status
+    expect(current).toMatchObject({ activeProvider: 'vercel-gateway', enabled: true })
+    expect(current.providers.typesafe.credential).toBe('missing')
+  })
   it('常规单任务一次请求；相同有效修订命中会话缓存，回声对应本次请求', async () => {
     const first = await analyze(request('今天写文案'))
     expect(first.status).toBe('ready')

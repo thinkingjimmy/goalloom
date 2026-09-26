@@ -1,14 +1,14 @@
 /**
- * [INPUT]: Provider-owned credentials, bounded question payloads, abort signals and controlled HTTP.
+ * [INPUT]: Provider-owned credentials, lightweight payload budgets, abort signals and controlled HTTP.
  * [OUTPUT]: Fixed System One (TypeSafe native / OpenRouter) and Gateway adapters, normalized distributions and typed failures.
  * [POS]: Provider boundary; no task-body or credential logging, and no alternate API protocols.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { APIConnectionError, APIError, APIUserAbortError, TypeSafeClient, type Questions } from '@typesafe-ai/sdk'
+import type { Questions } from '@typesafe-ai/sdk'
 import type { Answer, Precision } from '../../domain/smart/distribution'
 import { validDecimals } from '../../domain/smart/distribution'
 import type { Json, NeutralQuestion } from '../../domain/smart/questions'
-import { estimateTokens, payloadLimit, tokenBudget } from '../../domain/smart/questions'
+import { estimateTokens, payloadLimit, tokenBudget } from '../../domain/smart/budget'
 import type { Failure, FailureKind, JevProvider } from '../../shared/contracts/smart-input'
 import { serverText } from '../../shared/i18n/server'
 
@@ -80,6 +80,9 @@ function requestBody(value: unknown, provider: JevProvider): string {
 
 export function systemOneAdapter(provider: 'typesafe' | 'openrouter', fetch?: Fetch): Adapter {
   return async (apiKey, { state, questions, signal }) => {
+    if (signal.aborted) throw new Aborted()
+    const { APIConnectionError, APIError, APIUserAbortError, TypeSafeClient } = await import('@typesafe-ai/sdk')
+    if (signal.aborted) throw new Aborted()
     const preset = JEV_PROVIDERS[provider]
     const client = new TypeSafeClient({ apiKey, baseURL: preset.baseURL, defaultModel: preset.model, retry: { maxRetries: 0 }, timeout: requestTimeoutMs, logLevel: 'off', ...(fetch ? { fetch } : {}) })
     const native: Questions = Object.fromEntries(Object.entries(questions).map(([id, question]) => [id, question.type === 'choice'
@@ -103,13 +106,13 @@ export function systemOneAdapter(provider: 'typesafe' | 'openrouter', fetch?: Fe
   }
 }
 
-export function gatewayAdapter(fetch: Fetch = globalThis.fetch): Adapter {
+export function gatewayAdapter(fetch?: Fetch): Adapter {
   return async (apiKey, { state, questions, signal }) => {
     const preset = JEV_PROVIDERS['vercel-gateway']
     const body = requestBody({ model: preset.model, state, questions, providerOptions: preset.providerOptions }, 'vercel-gateway')
     let response: Response
     try {
-      response = await fetch(preset.endpoint, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body, signal: AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)]), redirect: 'error' })
+      response = await (fetch ?? globalThis.fetch)(preset.endpoint, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body, signal: AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)]), redirect: 'error' })
     } catch { if (signal.aborted) throw new Aborted(); throw new ProviderFailure(failure('unavailable', 'vercel-gateway')) }
     let data: Record<string, unknown>
     try { data = await response.json() as Record<string, unknown> }

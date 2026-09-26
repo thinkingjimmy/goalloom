@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Repository and one observation time after the daily-backup attempt.
- * [OUTPUT]: Revalidated rollover candidates, atomic system batches and clock-anomaly state.
+ * [OUTPUT]: Revalidated rollover candidates, indexed source-period reads, atomic system batches and clock-anomaly state.
  * [POS]: Common reconcile path for startup, focus, wake and time boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,6 +8,7 @@ import { randomUUID, createHash } from 'node:crypto'
 import { compareInstants } from '../../domain/calendar'
 import { canRollover } from '../../domain/rollover'
 import type { CommandResult } from '../../shared/contracts/commands'
+import type { PlanningPeriod } from '../../shared/contracts/entities'
 import { targetPeriod, type Context } from './context'
 import { moveItem } from './commands/items'
 import { transaction } from '../storage/database'
@@ -26,12 +27,14 @@ export function reconcile(repository: Repository, now = repository.clock.now()):
     if (workspace.clockAnomaly || workspace.pausedAfterRestore) return null
     const operationId = randomUUID()
     const context: Context = { store, workspace, command: { operationId, generation: workspace.generation }, now, effects: [], warnings: [], itemId: null, label: '' }
-    const periods = new Map(store.periods().map(period => [period.id, period]))
+    const periods = new Map<string, PlanningPeriod>()
     for (const policy of store.policies().filter(policy => policy.mode === 'auto')) {
       const current = targetPeriod(context, policy.horizon)!, effectiveFrom = store.period(policy.effectiveFromPeriodId)
       const candidates = store.summaries("i.status='todo' AND i.archivedAt IS NULL AND i.deletedAt IS NULL AND p.horizon=? AND p.periodId!=?", [policy.horizon, current.id], 'ORDER BY (SELECT julianday(startAt) FROM planning_periods WHERE id=p.periodId) DESC,p.sortKey,i.id')
       for (const item of candidates) {
-        const period = periods.get(item.placement.periodId!)!
+        const periodId = item.placement.periodId!
+        let period = periods.get(periodId)
+        if (!period) { period = store.period(periodId); periods.set(periodId, period) }
         if (!canRollover({ ...item, period, holdPeriodId: item.placement.holdPeriodId }, { clock: { now: () => now }, current, mode: policy.mode, effectiveFrom, setupConfirmed: true, maintenance: false, pausedAfterRestore: false })) continue
         moveItem(context, { type: 'move', operationId, generation: workspace.generation, itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon: policy.horizon, beforeId: null })
       }

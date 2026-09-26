@@ -1,11 +1,11 @@
 /**
- * [INPUT]: Zod and minimum runtime/language diagnostics.
- * [OUTPUT]: RuntimeInfo, LanguageState and the fixed GoalloomApi with bounded read methods.
+ * [INPUT]: Zod, lightweight locale/language values and minimum runtime diagnostics.
+ * [OUTPUT]: Language preference validation, RuntimeInfo, LanguageState and the fixed GoalloomApi with bounded read methods.
  * [POS]: Shared main/preload/renderer boundary without generic IPC, SQL or file access.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
-import { languageSchema, locales, type Language } from '../i18n/locale'
+import { languages, locales, type Language } from '../i18n/locale'
 import type { CommandInput, CommandReply, CommandResult } from './commands'
 import type { ItemDetail, ItemPage, Query, Snapshot, ActivitySummary, ItemCounts, BackupSummary } from './queries'
 import type { Activity, HistoryPage } from './history'
@@ -23,6 +23,7 @@ export const runtimeInfoSchema = z.strictObject({
 
 export type RuntimeInfo = z.infer<typeof runtimeInfoSchema>
 export const languageChannel = 'goalloom:language'
+export const languageSchema = z.enum(languages)
 export const languageStateSchema = z.strictObject({ language: languageSchema, locale: z.enum(locales), system: z.enum(locales) })
 export type LanguageState = z.infer<typeof languageStateSchema>
 export interface GoalloomApi {

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Active parent edges and uniquely colored flow roots.
- * [OUTPUT]: Stable, deduplicated root memberships with shared ancestor memoization.
- * [POS]: Pure flow resolution used by renderer projections; storage enforces root and color constraints.
+ * [OUTPUT]: Stable, deduplicated root memberships with ancestor memoization bounded by the current graph.
+ * [POS]: Pure flow resolution; unrelated item lookups share an empty result without retaining their identities.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export interface FlowEdge { parentId: string; childId: string }
@@ -14,8 +14,12 @@ export function flowIndex(edges: FlowEdge[], rootIds: Iterable<string>): (itemId
     list.push(edge.parentId); parents.set(edge.childId, list)
   }
   const memo = new Map<string, string[]>([...roots].map(id => [id, [id]]))
+  const empty: string[] = []
   // Resolve ancestors once in dependency order, retaining the original parent order.
   const resolve = (itemId: string): string[] => {
+    const cached = memo.get(itemId)
+    if (cached) return cached
+    if (!parents.has(itemId)) return empty
     const stack = [{ id: itemId, next: 0 }]
     while (stack.length) {
       const frame = stack.at(-1)!

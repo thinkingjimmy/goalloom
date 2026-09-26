@@ -5,8 +5,9 @@
 ```text
 domain/
 ├── calendar.ts   # 日/周/月/原锚点三个月区间、固定 IANA 边界
+├── temporal.ts   # 锁定 Electron 44 原生 Temporal 边界；polyfill 仅供开发期类型，不进入运行包
 ├── relations.ts  # 多父 DAG，线性整图拓扑校验与增量防环；新建关联的周期规则（上级周期更长、Later 不参与）
-├── flows.ts      # 流程归属：复用祖先缓存解析带颜色的流程根
+├── flows.ts      # 流程归属：图内祖先缓存解析流程根，图外条目共享空结果，不保留累计访问身份
 ├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断
 ├── undo.ts       # 效果字段/关系身份/语义顺序匹配，不依赖整体版本
 ├── history.ts    # 顺序流式投影期末与有界后续明细，缺失/回拨为 unknown
@@ -17,6 +18,7 @@ domain/
     ├── segments.ts     # 强/弱边界无损槽位（≤8）与普通模式单条 Later
     ├── dates.ts        # 工作区 weekStart 的星期、绝对/月底日期与完整/省略终点的范围歧义
     ├── questions.ts    # 原文直接作 state 的题单，Q=1+3S+D+3+R≤64，payload/token 预算与补充轮
+    ├── budget.ts       # 不依赖日期规划的 payload/token/题数上限与估算，题单和 provider 共用
     ├── distribution.ts # 统一 Choice/boolean 契约校验、K×d 总和容差、top/margin/集中度与确定性
     ├── preview.ts      # 答案组装为可编辑预览：角色归并（说明取原文原句）、执行/截止、多父建议去环、`关联「X」` 直接确认、警示
     └── terms.ts        # 共享专有词（拉丁词 ≥4 / 中文连续 ≥4 字），决定哪些看板目标可作为候选送给 Jev

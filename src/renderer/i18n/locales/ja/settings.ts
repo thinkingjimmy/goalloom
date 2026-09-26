@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 依赖 ../zh/settings 的 SettingsCatalog 类型；分类标识与界面参数。
- * [OUTPUT]: 日语的设置弹窗分册：分类分组与名称、每类页头说明、外观/日历/备份与恢复/条目文案。
- * [POS]: renderer/i18n/locales/ja 的设置分册，与 zh 同构；通用文案仍在 messages.ts。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
+ * [OUTPUT]: Japanese settings copy, including per-column completion-confetti and reduced-motion messages.
+ * [POS]: Japanese settings catalog matching the source; common actions remain in messages.ts.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { SettingsCatalog } from '../zh/settings'
 
@@ -25,6 +25,9 @@ export const settingsMessages: SettingsCatalog = {
   checkNotes: { outline: 'フローの色の枠線だけで、最も控えめ', paper: '白地でフローの色を引き立てる', tint: '同系色の淡い地で、グループが最も分かりやすい' },
   relationLines: '関係線',
   relationLinesNote: 'フローを 1 つに絞り込むと、上位と下位を線でつなぎます',
+  celebration: '完了時の紙吹雪',
+  celebrationNote: '完了すると左右の下隅から紙吹雪が舞います。列ごとに設定できます。',
+  celebrationReducedMotion: 'システムの「視差効果を減らす」が有効な間、紙吹雪は表示されません。',
   // Smart input
   smartEnabledNote: '全体の＋で考えを書き、入力を止めると自動で整理します',
   privacy: 'プライバシー',

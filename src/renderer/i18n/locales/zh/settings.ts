@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 分类标识与界面参数。
- * [OUTPUT]: 设置弹窗分册：分类分组与名称、每类一句页头说明、外观/日历/备份与恢复/条目的新版文案。
- * [POS]: renderer/i18n/locales/zh 的设置分册，与 messages.ts 同构；通用文案（按钮、确认流程）仍在 messages.ts。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Settings categories, display preferences and interpolation parameters.
+ * [OUTPUT]: Source settings catalog, including per-column completion-confetti and reduced-motion copy.
+ * [POS]: Chinese settings copy and shared SettingsCatalog shape; common actions remain in messages.ts.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { widen } from '../../../../shared/i18n/locale'
 export const settingsMessages = widen({
@@ -24,6 +24,9 @@ export const settingsMessages = widen({
   checkNotes: { outline: '只留流程色描边，最安静', paper: '白底衬出流程色', tint: '同色淡底，分组最明显' },
   relationLines: '关系线',
   relationLinesNote: '筛选单个流程时，用线连起它的上下级',
+  celebration: '完成撒花',
+  celebrationNote: '完成时从左右下角撒花，按条目所在列分别设置。',
+  celebrationReducedMotion: '系统已开启「减少动态效果」，撒花暂不播放。',
   // Smart input
   smartEnabledNote: '全局＋写下想法，停下输入后自动整理',
   privacy: '隐私',

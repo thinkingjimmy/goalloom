@@ -11,6 +11,7 @@
 | [智能输入功能规格](features/smart-input.md) | 全局输入、Jev 三渠道、Onboarding、计划创建/撤销、导出恢复与迁移保护的规则、工程契约、TODO 与验收 |
 | [关系线功能规格](features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [快捷键功能规格](features/shortcuts.md) | 默认键位、流程筛选位置键、改键与冲突规则、工程契约与验收 |
+| [完成反馈功能规格](features/completion-feedback.md) | 按可见性反馈去向、静默操作、逐列撒花、提示与动效生命周期及撤销验收 |
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
@@ -20,6 +21,8 @@
 
 Node >=22.12，包管理器为 pnpm 11.9.0（`packageManager` 锁定，Corepack 可自动启用）；`pnpm install --frozen-lockfile` 安装锁定依赖与 Electron。依赖构建脚本白名单与扁平 `node_modules` 设置见 `pnpm-workspace.yaml`。测试使用 Electron 自带 Node/SQLite，无外部数据库驱动。
 
+日历计算使用锁定 Electron 44.4.4 的原生 Temporal（main、worker 和 renderer）；`@js-temporal/polyfill` 仅提供开发期类型，不进入正式包。领域测试与智能输入评测都使用 Electron 自带 Node；升级 Electron 时须复核原生 Temporal、DST 和三个月锚点行为。
+
 ```sh
 pnpm dev                  # Electron 开发预览
 pnpm typecheck            # TypeScript strict
@@ -28,12 +31,14 @@ pnpm test:electron        # 真实 Electron main 的 SQLite 探针
 pnpm build                # 三入口与生产产物约束检查
 pnpm test:ui              # 真实窗口业务闭环与 CSP/IPC/主题
 pnpm test:history         # 独立夹具的历史/往期/hold 窗口验证
+pnpm test:feedback        # Contextual Toasts, modal recovery actions and feedback timing
 pnpm test:recovery        # 保护备份/维护/重置/SQLite 恢复与暂停
 pnpm test:composer        # 可跳过 Onboarding、全局 composer、列头＋键盘路径与 Tab 步数
 pnpm test:composer-live   # 可选：真实 OpenRouter Jev 下的新建全流程（Key 放 .env.local）
 pnpm eval:smart           # 真实 OpenRouter 评测智能输入（Key 放 .env.local），报告写入 output/eval/
 pnpm test:language        # 系统语言侦测、配置页/设置即时切换、main 与 worker 文案、重启保持、en/es/fr 无漏译
 pnpm test:relations       # 单流程筛选的关系线、悬停链、滚出视野标记与设置开关持久化
+pnpm test:celebration     # 逐列完成撒花、静默移动／完成、撤销、减少动态效果与重启偏好
 pnpm test:review          # Review 缺陷、长列键盘/拖放、真实 preload 边界回归
 pnpm test:performance     # 四组启动、页面搜索、110 次面板往返及传输峰值
 pnpm test:large-backup    # 360 条长说明、超过 100 MiB 备份的重置/完整恢复

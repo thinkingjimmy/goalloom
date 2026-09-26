@@ -2,10 +2,10 @@
  * [INPUT]: 流程列表、当前筛选、本机列显示偏好、快捷键绑定与流程筛选开关、命令/设置入口回调。
  * [OUTPUT]: 可拖动窗口的顶栏：流程快捷筛选（悬停提示与 aria-keyshortcuts 显示按位置的筛选快捷键）、搜索、列显示勾选浮层与设置。
  * [POS]: renderer 外壳；不读写业务数据，只切换本会话筛选与本机列显示。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useState } from 'react'
-import { horizons } from '../../../shared/contracts/entities'
+import { horizons } from '../../../shared/contracts/values'
 import { horizonNames, messages } from '../../i18n'
 import type { Flows } from '../../state/flows'
 import type { Columns } from '../../state/columns'

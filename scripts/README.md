@@ -8,7 +8,7 @@ scripts/
 ├── eval/                      # 智能输入真实服务评测（需 .env.local 中的 OPENROUTER_API_KEY，不进 CI）
 │   ├── cases.ts               # 固定参考日的中文样例与期望预览
 │   ├── smart.ts               # 走产品真实 planQuestions/adapter/buildPreview，输出 output/eval 报告
-│   └── run.mjs                # esbuild 打包后运行；`pnpm eval:smart [case-id…]`
+│   └── run.mjs                # esbuild 打包后用 Electron 自带 Node/native Temporal 运行；`pnpm eval:smart [case-id…]`
 └── build/
     ├── third-party-notices.mjs # 汇总安装依赖原始许可证，随离线包交付
     ├── check-production.mjs    # 无 HMR/测试入口/第二图标库，preload 只外部依赖 electron
@@ -22,5 +22,7 @@ scripts/
 通过仓库根目录的 npm scripts 调用；路径相对于项目根。真实 Electron 场景与夹具统一在 [tests/desktop](../tests/desktop/README.md)。构建工具源码位于 `scripts/build/`，根目录 `/build/` 的忽略规则不会屏蔽这些脚本。
 
 正式打包只纳入 `out/` 和 package 元数据，应用依赖已在构建时打包，不分发完整图标库或开发工具。
+
+Calendar code uses native Temporal from the pinned Electron runtime. The polyfill package supplies development types only; the build rejects its runtime and JSBI in all bundles, and rejects Zod in the renderer.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

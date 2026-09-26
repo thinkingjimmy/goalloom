@@ -8,7 +8,7 @@ workspace/
 ├── context.ts        # 事务上下文、当前周期和语义排序工具
 ├── queries.ts        # 轻量数量/活动/备份摘要及按页展开的批次成员
 ├── history.ts        # from/to 索引分页、批量摘要与流式历史投影
-├── reconcile.ts      # 自动候选重读、统一核对与原子系统顺延
+├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/
 │   ├── items.ts      # 首次确认、创建/编辑/移动/关联的字段差量
 │   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级

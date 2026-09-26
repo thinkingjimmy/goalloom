@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 当前界面参数；依赖 ../zh/messages 的 MessageCatalog 类型。
- * [OUTPUT]: 法语的通用文案与参数化消息（含流程色名、语言设置）。
- * [POS]: renderer/i18n/locales/fr 的通用分册，与 zh 同构；由 i18n/index 按当前语言装载，不读取工作区、不决定业务状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
+ * [OUTPUT]: French UI copy and parameterized messages, including feedback destinations and partial restores.
+ * [POS]: French message catalog loaded by i18n/index; no workspace access or business decisions.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { MessageCatalog } from '../zh/messages'
 
@@ -346,6 +346,11 @@ export const messages: MessageCatalog = {
   quote: (text: string) => `« ${text} »`,
   applied: (label: string, title: string | null) => `${label}${title ? ` · « ${title} »` : ''}`,
   undone: (label: string, title: string | null) => `Annulé · ${label}${title ? ` « ${title} »` : ''}`,
+  feedbackDestination: (column: string) => `Emplacement : ${column}`,
+  feedbackPast: 'Période passée',
+  feedbackHiddenColumn: 'Colonne masquée',
+  feedbackOutsideView: 'Hors de la vue actuelle',
+  feedbackPartialRestore: (title: string | null) => `${title ? `« ${title} » restauré` : 'Élément restauré'} ; certains détails n’ont pas pu être restaurés`,
   colorNames: ['Vert', 'Bleu', 'Violet', 'Rose', 'Ambre', 'Sarcelle', 'Olive', 'Ardoise'],
   language: "Langue",
   languageNote: "Selon le système : affiche la langue préférée de macOS / Windows",

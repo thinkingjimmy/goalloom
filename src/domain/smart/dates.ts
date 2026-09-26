@@ -1,10 +1,10 @@
 /**
- * [INPUT]: Chinese source fragments, a fixed workspace date and ISO week start.
+ * [INPUT]: Chinese source fragments, a fixed workspace date, ISO week start and native Temporal.
  * [OUTPUT]: Whole-expression date candidates, calculated dates and explicit ambiguity.
  * [POS]: Deterministic smart-input dates; the provider classifies purpose, never computes calendar values.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { Temporal } from '@js-temporal/polyfill'
+import { Temporal } from '../temporal'
 import { parseDate } from '../calendar'
 
 export interface DateCandidate { text: string; start: number; end: number; value: string | null; ambiguous: boolean }

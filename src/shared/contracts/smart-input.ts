@@ -1,16 +1,16 @@
 /**
- * [INPUT]: zod；实体 schema。
+ * [INPUT]: Zod, entity schemas and the lightweight supported-provider values.
  * [OUTPUT]: Jev 服务标识、设备侧智能输入状态、受限设置/判断动作、带修订回声的判断回复与可编辑预览 DTO。
  * [POS]: main 智能服务 ↔ preload ↔ renderer 的唯一契约；不含凭据明文，也不进入 workspace 表、导出或迁移。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { z } from 'zod'
+import { jevProviders } from './values'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, statusSchema } from './entities'
 
 export const smartChannel = 'goalloom:smart'
-export const jevProviderSchema = z.enum(['typesafe', 'vercel-gateway', 'openrouter'])
+export const jevProviderSchema = z.enum(jevProviders)
 export type JevProvider = z.infer<typeof jevProviderSchema>
-export const jevProviders: JevProvider[] = [...jevProviderSchema.options]
 
 // --- Normalised failure kinds: each maps to one user-facing remedy, never a guessed "invalid key". ---
 export const failureKindSchema = z.enum(['account_verification_required', 'rate_limited', 'quota_exhausted', 'payment_required', 'authentication_failed', 'permission_denied', 'routing_policy', 'unavailable', 'malformed_response', 'request_failed', 'too_large', 'credential_unreadable', 'credential_unavailable', 'not_enabled'])

@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 当前界面参数；依赖 ../zh/messages 的 MessageCatalog 类型。
- * [OUTPUT]: 西班牙语的语义键通用文案与参数化消息（含流程色名、语言设置）。
- * [POS]: renderer/i18n/locales/es 的通用分册，与 zh 同构，由 i18n/index 按当前语言装载；不读取工作区、不决定业务状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
+ * [OUTPUT]: Spanish UI copy and parameterized messages, including feedback destinations and partial restores.
+ * [POS]: Spanish message catalog loaded by i18n/index; no workspace access or business decisions.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { MessageCatalog } from '../zh/messages'
 
@@ -346,6 +346,11 @@ export const messages: MessageCatalog = {
   quote: (text: string) => `“${text}”`,
   applied: (label: string, title: string | null) => `${label}${title ? ` · “${title}”` : ''}`,
   undone: (label: string, title: string | null) => `Deshecho · ${label}${title ? ` “${title}”` : ''}`,
+  feedbackDestination: (column: string) => `Ubicación: ${column}`,
+  feedbackPast: 'Periodo anterior',
+  feedbackHiddenColumn: 'Columna oculta',
+  feedbackOutsideView: 'Fuera de la vista actual',
+  feedbackPartialRestore: (title: string | null) => `${title ? `“${title}” restaurado` : 'Elemento restaurado'}; algunos detalles no se pudieron restaurar`,
   colorNames: ['Verde', 'Azul', 'Morado', 'Rosa', 'Ámbar', 'Turquesa', 'Oliva', 'Pizarra'],
   language: "Idioma",
   languageNote: "Según el sistema sigue el idioma preferido de macOS / Windows",

@@ -1,17 +1,18 @@
 /**
- * [INPUT]: Zod and date/calendar wire validation.
+ * [INPUT]: Zod, ordered product horizons and date/calendar wire validation.
  * [OUTPUT]: Strict workspace, item summary/detail, placement, relation and period DTOs.
  * [POS]: Persistence, IPC and import schemas without Electron dependencies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
+import { horizons } from './values'
 import { validDate, validTimezone } from './wire-calendar'
 import { validationText } from '../i18n/validation'
 
 export const idSchema = z.string().min(1).max(180).regex(/^[a-zA-Z0-9:_-]+$/)
 export const dateSchema = z.string().refine(value => validDate(value), { error: () => validationText().invalidDate })
 export const instantSchema = z.iso.datetime({ offset: true })
-export const horizonSchema = z.enum(['later', 'cycle', 'month', 'week', 'day'])
+export const horizonSchema = z.enum(horizons)
 export const periodHorizonSchema = z.enum(['cycle', 'month', 'week', 'day'])
 export const statusSchema = z.enum(['todo', 'done', 'cancelled'])
 // Fixed palette index owned by a flow root; schema v1 data has no field and reads as null.
@@ -62,4 +63,3 @@ export type Relation = z.infer<typeof relationSchema>
 export type Workspace = z.infer<typeof workspaceSchema>
 export type Policy = z.infer<typeof policySchema>
 export type ItemHorizon = z.infer<typeof horizonSchema>
-export const horizons: ItemHorizon[] = ['later', 'cycle', 'month', 'week', 'day']

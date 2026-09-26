@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 当前界面参数；中文是源语言，其他语言实现同一 MessageCatalog。
- * [OUTPUT]: 有语义键的通用文案与参数化消息（含流程色名、语言设置）。
- * [POS]: renderer/i18n/locales/zh 的通用分册，由 i18n/index 按当前语言装载；不读取工作区、不决定业务状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: UI parameters; Chinese defines the MessageCatalog shared by every locale.
+ * [OUTPUT]: General UI copy and parameterized messages, including feedback destinations and partial restores.
+ * [POS]: Chinese message catalog loaded by i18n/index; no workspace access or business decisions.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { widen } from '../../../../shared/i18n/locale'
 
@@ -343,6 +343,11 @@ export const messages = widen({
   quote: (text: string) => `「${text}」`,
   applied: (label: string, title: string | null) => `已${label}${title ? `「${title}」` : ''}`,
   undone: (label: string, title: string | null) => `已撤销：${label}${title ? `「${title}」` : ''}`,
+  feedbackDestination: (column: string) => `位置：${column}`,
+  feedbackPast: '往期',
+  feedbackHiddenColumn: '列已隐藏',
+  feedbackOutsideView: '当前视图未显示',
+  feedbackPartialRestore: (title: string | null) => `已还原${title ? `「${title}」` : '条目'}，部分内容未恢复`,
   colorNames: ['绿', '蓝', '紫', '玫红', '琥珀', '青', '橄榄', '石板'],
   language: "语言",
   languageNote: "跟随系统时，按 macOS / Windows 的首选语言显示",

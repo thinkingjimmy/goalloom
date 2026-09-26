@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { build } from 'vite'
@@ -45,11 +45,41 @@ try {
   await page.getByRole('button', { name: '安排到当前本月' }).click()
   await page.getByRole('button', { name: '暂不处理' }).click()
   await month.getByRole('button', { name: '往期待办样本', exact: true }).waitFor()
-  await page.locator('.toast').getByRole('button', { name: /^撤销/ }).click()
+  assert.equal(await page.locator('.toast').count(), 0, 'Arranging backlog stays quiet')
+  await page.keyboard.press('ControlOrMeta+z')
   await month.getByRole('button', { name: '往期未完成 · 1' }).waitFor()
+  await page.locator('.toast [role="status"]').filter({ hasText: '已撤销' }).waitFor()
   const item = await page.evaluate(id => window.goalloom.getItem(id), fixture.waitingId)
   assert(item.item.placement.holdPeriodId)
   assert.equal(item.item.placement.periodId.split(':').at(-1), fixture.sourceDate)
+  // Restore a completed past-period item through the real trash UI without changing its placement or state.
+  if (await page.locator('.toast').count()) await page.getByRole('button', { name: '关闭操作提示', exact: true }).click()
+  const deleted = await page.evaluate(async id => {
+    const generation = (await window.goalloom.getSnapshot()).workspace.generation
+    const current = (await window.goalloom.getItem(id)).item
+    const reply = await window.goalloom.execute({ type: 'delete', itemId: id, expectedVersion: current.version, generation, operationId: crypto.randomUUID() })
+    return { reply, title: current.title, periodId: current.placement.periodId, status: current.status }
+  }, fixture.completedId)
+  assert.equal(deleted.reply.ok, true)
+  assert.equal(deleted.status, 'done')
+  await page.getByRole('button', { name: '设置与数据', exact: true }).click()
+  const settings = page.getByRole('dialog', { name: '设置与数据', exact: true })
+  await settings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '回收站', exact: true }).click()
+  await settings.locator('.items-row').filter({ hasText: deleted.title }).getByRole('button', { name: '还原', exact: true }).click()
+  await page.locator('.toast-detail').filter({ hasText: '往期' }).waitFor()
+  const destination = await page.locator('.toast-detail').innerText()
+  assert.match(destination, /本月/)
+  assert.match(destination, /往期/)
+  assert.match(destination, /已完成/)
+  await page.waitForFunction(async id => !(await window.goalloom.getItem(id)).item.deletedAt, fixture.completedId)
+  const restored = (await page.evaluate(id => window.goalloom.getItem(id), fixture.completedId)).item
+  assert.equal(restored.placement.periodId, deleted.periodId)
+  assert.equal(restored.status, deleted.status)
+  await mkdir('output/tests/screenshots', { recursive: true })
+  const screenshot = 'output/tests/screenshots/feedback-past-restore.png'
+  await page.screenshot({ path: screenshot })
+  await settings.getByRole('button', { name: '关闭', exact: true }).click()
+  if (await page.locator('.toast').count()) await page.getByRole('button', { name: '关闭操作提示', exact: true }).click()
   // 恢复一个仍含任务的工作区必须销毁旧代次的历史页和新建请求。
   await month.getByRole('button', { name: '查看本月上一期' }).click()
   await month.getByText('这个周期没有安排过条目。').waitFor()
@@ -66,5 +96,12 @@ try {
   assert.equal(await page.locator('.history-rows').count(), 0)
   assert.equal(await page.locator('.quick-add').count(), 0)
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
-  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['empty history', 'end state and later outcome', 'read-only history', 'session retains column history', 'backlog batch', 'undo returns old period with hold', 'restore clears old history and pending create'] }))
+  const report = {
+    passed: true, packaged: Boolean(packaged), runtime,
+    environment: { platform: platform(), release: release(), version: version(), arch: arch(), cpu: cpus()[0]?.model, machineScope: process.env.GOALLOOM_TEST_MACHINE_SCOPE ?? 'Host OS reported; physical/VM status not independently verified' },
+    pastRestore: { destination, screenshot, periodId: restored.placement.periodId, status: restored.status },
+    checks: ['empty history', 'end state and later outcome', 'read-only history', 'session retains column history', 'backlog batch', 'undo returns old period with hold', 'past completed restore confirms original month and status', 'restore clears old history and pending create'],
+  }
+  await writeFile('output/tests/history.json', JSON.stringify(report, null, 2))
+  console.log(JSON.stringify(report))
 } finally { await app.close(); await rm(profile, { recursive: true, force: true }) }

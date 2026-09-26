@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 分类标识与界面参数；依赖 ../zh/settings 的 SettingsCatalog 类型。
- * [OUTPUT]: 西班牙语的设置弹窗分册：分类分组与名称、页头说明、外观/日历/备份与恢复/条目文案。
- * [POS]: renderer/i18n/locales/es 的设置分册，与 zh 同构；通用文案仍在 messages.ts。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
+ * [OUTPUT]: Spanish settings copy, including per-column completion-confetti and reduced-motion messages.
+ * [POS]: Spanish settings catalog matching the source; common actions remain in messages.ts.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { SettingsCatalog } from '../zh/settings'
 
@@ -25,6 +25,9 @@ export const settingsMessages: SettingsCatalog = {
   checkNotes: { outline: 'Solo el contorno del color de flujo; el más discreto', paper: 'Fondo blanco que resalta el color de flujo', tint: 'Fondo del mismo color, suave; agrupa mejor' },
   relationLines: 'Líneas de relación',
   relationLinesNote: 'Al filtrar un solo flujo, unas líneas unen sus elementos superiores e inferiores',
+  celebration: 'Confeti al completar',
+  celebrationNote: 'Celebra con confeti desde las dos esquinas inferiores al completar un elemento. Elige en qué columnas.',
+  celebrationReducedMotion: 'El confeti se pausa mientras esté activada la opción de reducir movimiento del sistema.',
   // Smart input
   smartEnabledNote: 'Escribe una idea con el ＋ global; se organiza cuando dejas de escribir',
   privacy: 'Privacidad',

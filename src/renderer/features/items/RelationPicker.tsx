@@ -7,7 +7,8 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { horizons, type ItemHorizon, type ItemSummary } from '../../../shared/contracts/entities'
+import { horizons } from '../../../shared/contracts/values'
+import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { mayParent } from '../../../domain/relations'
 import { messages, horizonNames } from '../../i18n'

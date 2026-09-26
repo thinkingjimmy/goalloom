@@ -4,18 +4,21 @@
 
 ```text
 renderer/
-├── App.tsx                  # 组合功能视图、全局快捷键分发（含按顶栏位置筛选流程）、FAB/新建快捷键全局 composer、可选 Jev 步骤和操作反馈
+├── App.tsx                  # 首屏看板、按需加载配置/弹窗、全局快捷键与反馈；composer 首次打开后按工作区代次保留草稿
 ├── main.tsx                 # React 挂载
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
-├── styles.css               # Tailwind、深浅 token、极简看板/弹窗/菜单、细滚动条与可访问性
+├── styles.css               # Tailwind, theme tokens, board/dialog/menu layout, column action visibility, scrollbars and accessibility
 ├── features/                # 按用户功能聚合页面及其专属组件
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
 │   │   ├── TopBar.tsx       # 可拖动顶栏：流程筛选、搜索、列显示勾选浮层、设置
 │   │   ├── CommandPalette.tsx # 快捷搜索、命令、打开已完成/回收站与撤销入口
+│   │   ├── CompletionCelebration.tsx # 已提交完成事件的双下角 Canvas 撒花；非模态 top layer、减少动态效果与代次清理
+│   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable Toast actions
+│   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧三组导航（偏好/工作区/条目）+ 页头说明 + 分组卡片的设置弹窗；外观含语言
 │   │       ├── Settings.tsx     # 容器：分组导航与状态提示、页头（说明/恢复默认/结束方式）、备份/批次/数量读取、数据动作与预览状态
-│   │       ├── AppearancePane.tsx # 语言/风格/复选框/明暗分段（带色块示意）与关系线开关
+│   │       ├── AppearancePane.tsx # 语言/风格/复选框/明暗分段、关系线与逐列完成撒花开关
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
 │   │       ├── SmartPane.tsx    # 智能输入：状态卡、服务单选列表（Key 更换/删除，表单在行下展开）、隐私要点
 │   │       ├── CalendarPane.tsx # 三栏只读日历、逐列顺延策略（说明随选择变化）、可撤销的顺延记录
@@ -39,6 +42,7 @@ renderer/
 │   ├── board/
 │   │   ├── Board.tsx        # 可见列/历史状态、键盘和指针共用可编辑落点、虚拟排序、列头与折叠
 │   │   ├── VirtualRows.tsx # 可测量行高、有界 DOM、逻辑 Tab/Home/End、拖动/焦点锁定与定位
+│   │   ├── visibility.ts  # Post-layout title visibility within the clipped board; ignores dialog coverage and flow dimming
 │   │   ├── TaskRow.tsx      # 单行卡片：流程圆点、流程描边复选框、标题与截止/说明/顺延提示，点亮时铺流程底色
 │   │   ├── FlowDot.tsx      # 复选框前的流程圆点：起点改色、下级改上级、独立条目二选一；悬停预览流程；Later 不显示
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
@@ -57,7 +61,7 @@ renderer/
 │       ├── DirectionStep.tsx # 写下三个月的方向（示例可填入），确认前只存草稿
 │       ├── CalendarStep.tsx # 一句话三胶囊（时区/周起始/3个月起点）与剩余天数，显式确认锁定日历
 │       ├── BoardPreview.tsx # 真实列头与空状态的只读预览，方向以「待确认」行放进 3个月
-│       ├── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择、GMT 偏移
+│       ├── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择；展开时才计算完整 GMT 偏移列表
 │       └── onboarding.css   # 首次流程样式（仅 token）
 ├── components/              # 可跨功能使用的 UI 原语
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉
@@ -70,13 +74,15 @@ renderer/
 ├── state/
 │   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
-│   ├── flows.ts            # 快照派生的流程列表（含顶栏顺序的可见流程）、条目归属与颜色占用
+│   ├── flows.ts            # 快照派生的流程列表与颜色；只缓存有归属条目，独立条目共享空结果
 │   ├── columns.ts          # 本机列显示偏好（localStorage，至少一列，不入工作区）
 │   ├── relation-lines.ts   # 本机关系线开关（localStorage，默认开，只存关闭，不入工作区）
+│   ├── celebration.ts      # 本机逐列撒花偏好（默认周/月/3个月）与系统减少动态效果订阅
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
 │   ├── smart.ts            # 设备侧智能输入状态与动作（代次变化即重读）
-│   └── use-workspace.ts    # 合并刷新、稳定快照、类型化错误/反馈、幂等提交与未知结果重试
+│   ├── feedback.ts         # Command feedback policy, committed destinations, partial-restore warnings and reading durations
+│   └── use-workspace.ts    # Authoritative snapshots, post-layout feedback, completion events, session undo and receipt recovery
 ├── i18n/
 │   ├── index.ts             # 唯一文案入口：当前语言的实时视图（原地替换，不重挂载）、setLocale/useLocale
 │   ├── format.ts            # 按当前语言的 Intl 日期/星期/时间/数字格式
@@ -91,5 +97,7 @@ renderer/
 `App → features → components / state / i18n / lib`；跨功能数据类型来自 `shared/contracts`，不从另一个功能的组件反向导入。通用 UI 不依赖 features，业务规则属于 domain/main。仅一个功能使用的组件放在该功能内，多处复用时再提升到 components。
 
 取消/失败不乐观伪造业务结果。UndoSession 只保存已提交的用户操作 ID；历史与业务数据不复制进本地状态。未保存草稿保留到明确保存或放弃；整库代次更换销毁旧弹窗、Toast、栈与缓存。
+
+On hover-capable fine pointers, column-header history and add actions appear only while their column is hovered or a header control has visible keyboard focus. Hidden actions keep their layout space and Tab order. Non-hover inputs keep the actions visible; history navigation and return controls remain visible in history mode.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Bounded search API, navigation callbacks and local shortcut bindings.
- * [OUTPUT]: IME-aware debounced results keyed to the current query.
+ * [OUTPUT]: IME-aware debounced results and recoverable errors keyed to a nonempty query.
  * [POS]: Read-only global search; never presents a stale response as current.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,6 +18,8 @@ export function CommandPalette({ close, select, undo, canUndo, create, openSetti
   const [query, setQuery] = useState(''), [items, setItems] = useState<ItemSummary[]>([]), [error, setError] = useState('')
   const [composing, setComposing] = useState(false), [presented, setPresented] = useState('')
   useEffect(() => {
+    setError('')
+    if (!query.trim()) { setItems([]); setPresented(''); return }
     if (composing) return
     let active = true
     const timer = setTimeout(() => { void desktopApi().listItems({ type: 'list', view: 'search', query, offset: 0, limit: 20 }).then(page => { if (active) { setItems(page.items); setPresented(query) } }).catch(() => { if (active) setError(messages.searchFailed) }) }, 180)
@@ -41,7 +43,7 @@ export function CommandPalette({ close, select, undo, canUndo, create, openSetti
     <p className="menu-heading">{query.trim() ? messages.itemsHeading : messages.commandsHeading}</p>
     <div className="command-results">
       {entries.map(entry => <button key={entry.key} className="menu-item" disabled={entry.disabled} onClick={entry.run}><span className="menu-text">{entry.label}</span>{entry.hint && <span className="menu-hint">{entry.hint}</span>}</button>)}
-      {query.trim() && !items.length && <p className="menu-note">{messages.noResults}</p>}
+      {query.trim() && presented === query && !composing && !items.length && <p className="menu-note">{messages.noResults}</p>}
     </div>
   </Modal>
 }

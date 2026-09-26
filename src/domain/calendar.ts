@@ -1,10 +1,10 @@
 /**
- * [INPUT]: 显式观察时刻和固定 IANA 时区/周起始日；Temporal 日历运算。
+ * [INPUT]: Explicit observation time, fixed IANA timezone/week start and the native Temporal boundary.
  * [OUTPUT]: 日/周/月/三个月的排他区间及固定 UTC 边界，不读取系统时钟。
  * [POS]: 独立领域库；三个月按已确认 D07 从原锚点推导。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { Temporal } from '@js-temporal/polyfill'
+import { Temporal, type PlainDate } from './temporal'
 import { serverText } from '../shared/i18n/server'
 
 export type Horizon = 'day' | 'week' | 'month' | 'cycle'
@@ -28,12 +28,12 @@ export function validateCalendar(calendar: Calendar): void {
   if (calendar.cycleAnchor !== undefined) parseDate(calendar.cycleAnchor)
 }
 
-export function parseDate(value: string): Temporal.PlainDate {
+export function parseDate(value: string): PlainDate {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(serverText().calendar.dateFormat)
   return Temporal.PlainDate.from(value, { overflow: 'reject' })
 }
 
-export function cycleRange(anchor: string, today: Temporal.PlainDate): [Temporal.PlainDate, Temporal.PlainDate] {
+export function cycleRange(anchor: string, today: PlainDate): [PlainDate, PlainDate] {
   const origin = parseDate(anchor)
   if (Temporal.PlainDate.compare(origin, today) > 0) throw new Error(serverText().calendar.anchorAfterToday)
   const months = (today.year - origin.year) * 12 + today.month - origin.month
@@ -61,7 +61,7 @@ export function currentPeriod(calendar: Calendar, horizon: Horizon, observedAt: 
   return makePeriod(calendar, horizon, start, end)
 }
 
-export function makePeriod(calendar: Calendar, horizon: Horizon, start: Temporal.PlainDate, end: Temporal.PlainDate): Period {
+export function makePeriod(calendar: Calendar, horizon: Horizon, start: PlainDate, end: PlainDate): Period {
   return {
     id: `${calendar.id}:${horizon}:${start}`, horizon,
     startDate: start.toString(), endDate: end.toString(),

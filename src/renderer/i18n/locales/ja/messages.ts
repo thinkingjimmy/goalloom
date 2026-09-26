@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 依赖 ../zh/messages 的 MessageCatalog 类型；当前界面参数。
- * [OUTPUT]: 日语的通用文案与参数化消息（含流程色名、语言设置）。
- * [POS]: renderer/i18n/locales/ja 的通用分册，与 zh 同构，由 i18n/index 按当前语言装载；不读取工作区、不决定业务状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
+ * [OUTPUT]: Japanese UI copy and parameterized messages, including feedback destinations and partial restores.
+ * [POS]: Japanese message catalog loaded by i18n/index; no workspace access or business decisions.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { MessageCatalog } from '../zh/messages'
 
@@ -343,6 +343,11 @@ export const messages: MessageCatalog = {
   quote: (text: string) => `「${text}」`,
   applied: (label: string, title: string | null) => `${label}しました${title ? `：「${title}」` : ''}`,
   undone: (label: string, title: string | null) => `取り消しました：${label}${title ? `「${title}」` : ''}`,
+  feedbackDestination: (column: string) => `場所：${column}`,
+  feedbackPast: '過去の期間',
+  feedbackHiddenColumn: '列は非表示',
+  feedbackOutsideView: '現在の表示には含まれません',
+  feedbackPartialRestore: (title: string | null) => `${title ? `「${title}」` : '項目'}を復元しましたが、一部の内容は復元できませんでした`,
   colorNames: ['グリーン', 'ブルー', 'パープル', 'ローズ', 'アンバー', 'ティール', 'オリーブ', 'スレート'],
   language: "言語",
   languageNote: "「システムに合わせる」では、macOS / Windows の優先言語で表示します",

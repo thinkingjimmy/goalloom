@@ -2,10 +2,11 @@
  * [INPUT]: useSmart 状态与动作、可选预设服务、是否复用已存 Key、是否隐藏未签名提示（设置页已常驻显示）、成功回调、可选提交按钮渲染（onboarding 放进底栏）。
  * [OUTPUT]: 连接表单：TypeSafe 原生/AI Gateway/OpenRouter 单选、密码输入（提交即清空）、只读模型、官方控制台入口、接收方与费用说明、默认未勾选的发送同意、「测试并启用」及分类反馈。
  * [POS]: Onboarding 与「设置 → 智能输入」共用的唯一配置表单；测试通过前不标为已启用，失败始终可跳过。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useId, useState, type ReactNode } from 'react'
-import { jevProviders, type JevProvider, type TestOutcome } from '../../../shared/contracts/smart-input'
+import { jevProviders } from '../../../shared/contracts/values'
+import type { JevProvider, TestOutcome } from '../../../shared/contracts/smart-input'
 import { providerModels, providerNames, smartMessages as t } from '../../i18n'
 import type { Smart } from '../../state/smart'
 

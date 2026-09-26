@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Stable snapshot topology and all flow roots.
- * [OUTPUT]: Memoized memberships, colors and visible top-bar flow ordering.
- * [POS]: Renderer projection using shared domain ancestor memoization.
+ * [OUTPUT]: Nonempty membership/color caches and visible top-bar flow ordering.
+ * [POS]: Renderer projection bounded by current topology; unrelated items share empty results without per-item retention.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useMemo } from 'react'
@@ -26,13 +26,27 @@ export function useFlows(snapshot: Snapshot | null): Flows {
     const resolve = flowIndex(snapshot?.relations ?? [], byId.keys())
     const children = new Set((snapshot?.relations ?? []).map(edge => edge.childId))
     const resolved = new Map<string, Flow[]>(), colors = new Map<string, number[]>()
+    const emptyFlows: Flow[] = [], emptyColors: number[] = []
     const of = (itemId: string) => {
-      if (!resolved.has(itemId)) resolved.set(itemId, resolve(itemId).map(id => byId.get(id)!))
-      return resolved.get(itemId)!
+      const cached = resolved.get(itemId)
+      if (cached) return cached
+      const memberships = resolve(itemId)
+      if (!memberships.length) return emptyFlows
+      const flows = memberships.map(id => byId.get(id)!)
+      resolved.set(itemId, flows)
+      return flows
     }
     return {
       all, of, visible: visibleFlows(all),
-      colorsOf: itemId => { if (!colors.has(itemId)) colors.set(itemId, of(itemId).slice(0, 2).map(flow => flow.flowColor)); return colors.get(itemId)! },
+      colorsOf: itemId => {
+        const cached = colors.get(itemId)
+        if (cached) return cached
+        const memberships = of(itemId)
+        if (!memberships.length) return emptyColors
+        const values = memberships.slice(0, 2).map(flow => flow.flowColor)
+        colors.set(itemId, values)
+        return values
+      },
       owner: color => all.find(flow => flow.flowColor === color),
       isRoot: itemId => !children.has(itemId),
     }

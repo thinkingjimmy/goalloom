@@ -80,14 +80,18 @@ try {
   await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
   await page.getByRole('main', { name: ui.en.board }).waitFor()
 
-  // 3. Board, server-side operation label (toast) and worker error all speak English.
+  // 3. Completion stays quiet; its keyboard undo and the worker error both speak English.
   await page.getByRole('button', { name: 'Add to Later', exact: true }).click()
   const input = page.getByRole('textbox', { name: 'New item in Later', exact: true })
   await input.fill('Write report')
   await input.press('Enter')
   await input.press('Escape')
   await page.getByRole('button', { name: 'Complete Write report', exact: true }).click()
-  await page.locator('.toast [role="status"]').filter({ hasText: 'Complete · “Write report”' }).waitFor()
+  await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).items.find(item => item.title === 'Write report')?.status === 'done')
+  assert.equal(await page.locator('.toast').count(), 0)
+  await page.keyboard.press('ControlOrMeta+z')
+  await page.getByRole('button', { name: 'Complete Write report', exact: true }).waitFor()
+  await page.locator('.toast [role="status"]').filter({ hasText: 'Undone · Complete “Write report”' }).waitFor()
   assert.equal(await workerMessage(page), workerText.en)
   await assertTranslated(page, 'en board')
   await page.screenshot({ path: `${shots}/language-board-en.png` })

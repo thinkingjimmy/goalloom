@@ -44,6 +44,51 @@ await page.addInitScript(()=>{
 const result={scope:'Current source rendered in Chromium, mocked IPC, no production data or external service',checks:[]}
 try{
  await page.goto(server.resolvedUrls.local[0]);await page.getByRole('button',{name:'Original title',exact:true}).waitFor()
+ // Search failure modes: opening commands queries the whole workspace unnecessarily;
+ // a transient error survives a later successful query; a pending query says no results.
+ await page.evaluate(()=>{
+  review.originalListItems=window.goalloom.listItems;review.searches=[]
+  window.goalloom.listItems=async query=>{
+   review.searches.push(query.query)
+   if(query.query==='failure')throw Error('Synthetic search failure')
+   return {items:query.query==='recovered'?[review.snapshot.items[0]]:[],total:query.query==='recovered'?1:0}
+  }
+ })
+ await page.getByRole('button',{name:'Search & commands',exact:true}).click()
+ await page.locator('.palette').waitFor();await page.waitForTimeout(250)
+ assert.deepEqual(await page.evaluate(()=>review.searches),[])
+ await page.getByRole('textbox',{name:'Search items',exact:true}).fill('failure')
+ await page.getByRole('alert').filter({hasText:'Search failed'}).waitFor()
+ await page.getByRole('textbox',{name:'Search items',exact:true}).fill('recovered')
+ await page.locator('.command-results').getByRole('button',{name:'Original title',exact:false}).waitFor()
+ assert.equal(await page.locator('.palette [role="alert"]').count(),0)
+ result.checks.push({case:'search-recovery',queries:await page.evaluate(()=>review.searches)})
+ await page.keyboard.press('Escape')
+ await page.evaluate(()=>{window.goalloom.listItems=review.originalListItems})
+ // Loading a nested detail must not hide its already-open Settings dialog.
+ let releaseDetail, requestedDetail
+ const detailGate=new Promise(resolve=>releaseDetail=resolve)
+ const detailRequested=new Promise(resolve=>requestedDetail=resolve)
+ const detailPattern='**/features/items/ItemDetail.tsx*'
+ await page.route(detailPattern,async route=>{requestedDetail();await detailGate;await route.continue()})
+ try {
+  await page.evaluate(()=>{window.goalloom.listItems=async()=>({items:[review.snapshot.items[0]],total:1})})
+  await page.getByRole('button',{name:'Settings & data',exact:true}).click()
+  await page.getByRole('navigation',{name:'Settings sections'}).getByRole('button',{name:'Done',exact:true}).click()
+  await page.locator('.items-open').click()
+  await detailRequested
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))
+  assert(await page.locator('dialog.settings-modal').isVisible())
+  releaseDetail()
+  await page.locator('dialog.detail').waitFor()
+  await page.locator('dialog.detail .modal-header').getByRole('button',{name:'Close',exact:true}).click()
+  assert(await page.locator('dialog.settings-modal').isVisible())
+  await page.locator('dialog.settings-modal .modal-header').getByRole('button',{name:'Close',exact:true}).click()
+  result.checks.push({case:'nested-lazy-dialog',settingsRemainedVisible:true})
+ } finally {
+  releaseDetail();await page.unroute(detailPattern)
+  await page.evaluate(()=>{window.goalloom.listItems=review.originalListItems})
+ }
  // Period boundary.
  await page.locator('.fab').click();await page.locator('.composer-input').fill('Alpha\nBeta');await page.locator('.composer-plan').waitFor()
  const before=await page.evaluate(()=>({analysisCount:review.analyses.length,period:review.snapshot.periods.find(p=>p.horizon==='day').id}))

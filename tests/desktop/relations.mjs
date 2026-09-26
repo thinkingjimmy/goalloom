@@ -110,7 +110,6 @@ try {
 
   // Flow dot: under 全部, hovering a coloured dot previews that item's flows — lines ending on the dots, rows in the flow tinted.
   const relationCount = () => page.evaluate(async () => (await window.goalloom.getSnapshot()).relations.length)
-  const undoToast = page.locator('.toast').getByRole('button', { name: /撤销/ })
   await page.getByRole('button', { name: '只看 副业收入', exact: true }).click()
   await page.waitForFunction(() => !document.querySelector('.relation-lines'))
   assert.equal(await page.locator(`#item-${ids.later} .flow-dot-button`).count(), 0, 'Later 不显示圆点，不参与关联')
@@ -151,10 +150,13 @@ try {
   await page.screenshot({ path: `${shots}/flow-dot-parents.png` })
   await option('咨询介绍页').click()
   await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).relations.length === 9)
-  await undoToast.click()
-  await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).relations.length === 10)
   await page.keyboard.press('Escape')
   await parents.waitFor({ state: 'detached' })
+  assert.equal(await page.locator('.toast').count(), 0, 'Unlink is quiet')
+  await page.keyboard.press('ControlOrMeta+z')
+  await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).relations.length === 10)
+  await page.locator('.toast [role="status"]').filter({ hasText: '已撤销' }).waitFor()
+  await page.getByRole('button', { name: '关闭操作提示', exact: true }).click()
 
   // A loose item chooses: start a flow here or link to a longer-horizon parent, which puts it in that flow.
   await page.locator(`#item-${ids.loose} .task-title`).hover()
@@ -172,8 +174,11 @@ try {
   await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).relations.length === 11)
   await page.keyboard.press('Escape')
   await page.waitForFunction(id => document.querySelector(`#item-${id} .flow-dot-button`)?.dataset.role === 'child', ids.loose)
-  await undoToast.click()
+  assert.equal(await page.locator('.toast').count(), 0, 'Link is quiet')
+  await page.keyboard.press('ControlOrMeta+z')
   await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).relations.length === 10)
+  await page.locator('.toast [role="status"]').filter({ hasText: '已撤销' }).waitFor()
+  await page.getByRole('button', { name: '关闭操作提示', exact: true }).click()
   assert.equal(await relationCount(), 10)
   await page.getByRole('button', { name: '只看 副业收入', exact: true }).click()
   await page.waitForFunction(() => document.querySelectorAll('.relation-edge').length === 7)

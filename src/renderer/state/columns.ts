@@ -5,7 +5,8 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useMemo, useState } from 'react'
-import { horizons, type ItemHorizon } from '../../shared/contracts/entities'
+import { horizons } from '../../shared/contracts/values'
+import type { ItemHorizon } from '../../shared/contracts/entities'
 
 const key = 'goalloom.hiddenColumns'
 

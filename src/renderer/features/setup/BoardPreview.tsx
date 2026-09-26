@@ -2,9 +2,9 @@
  * [INPUT]: 各列的预览周期（domain/calendar 计算，未写库）、可选方向草稿；Board 的 periodLabel 与 horizonNames。
  * [OUTPUT]: BoardPreview：与真实看板同样的五列列头与空状态，方向草稿以虚线「待确认」行放在 3个月列。
  * [POS]: features/setup 日历步的只读预览，让用户在锁定日历前看到列头日期会怎样显示。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { horizons } from '../../../shared/contracts/entities'
+import { horizons } from '../../../shared/contracts/values'
 import type { Horizon, Period } from '../../../domain/calendar'
 import { horizonNames, messages } from '../../i18n'
 import { Icon } from '../../components/icons'

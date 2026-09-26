@@ -2,7 +2,7 @@
  * [INPUT]: 隔离临时 profile 路径、真实今天与正式 Repository 命令。
  * [OUTPUT]: 10,000 条目/1,000 活跃及真实事件量的可重复延迟和恢复测量。
  * [POS]: 测试专用性能夹具；不读取私人工作区，不进入生产包。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -10,7 +10,7 @@ import { writeFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { cpus, release } from 'node:os'
 import { join } from 'node:path'
-import { Temporal } from '@js-temporal/polyfill'
+import { Temporal } from '../../../src/domain/temporal'
 import { openDatabase } from '../../../src/main/storage/database'
 import { migrate } from '../../../src/main/storage/schema'
 import { Repository } from '../../../src/main/workspace/repository'

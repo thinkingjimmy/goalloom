@@ -9,7 +9,8 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { horizons, type ItemHorizon, type ItemSummary } from '../../../shared/contracts/entities'
+import { horizons } from '../../../shared/contracts/values'
+import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { messages } from '../../i18n'
 import { flowStroke } from '../../lib/colors'

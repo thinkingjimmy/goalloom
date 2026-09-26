@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 分类标识与界面参数；依赖 ../zh/settings 的 SettingsCatalog 类型。
- * [OUTPUT]: 法语设置弹窗分册：分类分组与名称、每类一句页头说明、外观/日历/备份与恢复/条目文案。
- * [POS]: renderer/i18n/locales/fr 的设置分册，与 zh 同构；通用文案仍在 messages.ts。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
+ * [OUTPUT]: French settings copy, including per-column completion-confetti and reduced-motion messages.
+ * [POS]: French settings catalog matching the source; common actions remain in messages.ts.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { SettingsCatalog } from '../zh/settings'
 
@@ -25,6 +25,9 @@ export const settingsMessages: SettingsCatalog = {
   checkNotes: { outline: 'Seul le contour à la couleur du flux, le plus discret', paper: 'Fond blanc qui fait ressortir la couleur du flux', tint: 'Fond teinté de la même couleur, groupes les plus visibles' },
   relationLines: 'Lignes de relation',
   relationLinesNote: 'Quand un seul flux est filtré, des lignes relient ses parents et ses enfants',
+  celebration: 'Confettis à la fin',
+  celebrationNote: 'Des confettis jaillissent des deux coins inférieurs quand un élément est terminé. Choisissez les colonnes concernées.',
+  celebrationReducedMotion: 'Les confettis sont suspendus lorsque l’option de réduction des animations du système est activée.',
   // Smart input
   smartEnabledNote: 'Notez une idée avec le + global ; elle est organisée dès que vous arrêtez de taper',
   privacy: 'Confidentialité',

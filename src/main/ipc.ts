@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Trusted window sender, strict DTOs and an internal StorageClient.
- * [OUTPUT]: Narrow commands/queries and native-picker transfers using worker-owned files.
+ * [OUTPUT]: Narrow commands/queries, native-picker transfers and smart-session cancellation on release/replacement.
  * [POS]: Renderer permission boundary; paths never come from renderer input and stale sessions cannot resume maintenance.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,12 +8,11 @@ import { dialog, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'el
 import { extname } from 'node:path'
 import { commandSchema, DomainError, type CommandResult } from '../shared/contracts/commands'
 import { querySchema, type WorkspaceMetadata } from '../shared/contracts/queries'
-import { languageChannel, runtimeChannel, runtimeInfoSchema } from '../shared/contracts/runtime'
-import { languageSchema } from '../shared/i18n/locale'
+import { languageChannel, languageSchema, runtimeChannel, runtimeInfoSchema } from '../shared/contracts/runtime'
 import type { LanguagePreference } from './window/language'
 import { isTrustedFrameUrl } from './security'
 import type { StorageClient } from './storage/client'
-import { dataActionSchema } from '../shared/contracts/transfer'
+import { dataActionSchema, type DataReply } from '../shared/contracts/transfer'
 import { smartChannel } from '../shared/contracts/smart-input'
 import type { SmartInputService } from './smart/service'
 import { serverText } from '../shared/i18n/server'
@@ -69,7 +68,11 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     guard(event)
     const action = dataActionSchema.parse(input)
     if (action.type !== 'backupStatus') await firstWrite
-    if (action.type !== 'chooseImport') return storage.call('data', action)
+    if (action.type !== 'chooseImport') {
+      const reply = await storage.call<DataReply>('data', action)
+      if (reply.type === 'replaced') smart.releaseSession()
+      return reply
+    }
     const session = rendererSession
     const choice = await dialog.showOpenDialog(window()!, { title: serverText().dialogs.importTitle, properties: ['openFile'], filters: [{ name: 'Goalloom JSON / SQLite', extensions: ['json', 'sqlite'] }] })
     const path = choice.filePaths[0]
@@ -81,6 +84,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
   })
   return () => {
     rendererSession++
+    smart.releaseSession()
     // Queued after accepted preparation/writes and before a replacement renderer's requests.
     void storage.call('releaseTransfer').catch(() => undefined)
   }

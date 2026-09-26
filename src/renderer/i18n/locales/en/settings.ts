@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 依赖 ../zh/settings 的 SettingsCatalog 类型；分类标识与界面参数。
- * [OUTPUT]: 与 zh 同构的英文设置弹窗分册：分类名称、页头说明、外观/日历/备份与恢复/条目文案。
- * [POS]: renderer/i18n/locales/en 的设置分册，与 zh 同构；通用文案仍在 messages.ts。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
+ * [OUTPUT]: English settings copy, including per-column completion-confetti and reduced-motion messages.
+ * [POS]: English settings catalog matching the source; common actions remain in messages.ts.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { SettingsCatalog } from '../zh/settings'
 
@@ -25,6 +25,9 @@ export const settingsMessages: SettingsCatalog = {
   checkNotes: { outline: 'Flow-color outline only, the quietest', paper: 'White fill sets off the flow color', tint: 'Tinted fill, clearest grouping' },
   relationLines: 'Relation lines',
   relationLinesNote: 'When one flow is filtered, lines connect its parents and children',
+  celebration: 'Completion confetti',
+  celebrationNote: 'Celebrate from both bottom corners when an item is completed. Choose which columns celebrate.',
+  celebrationReducedMotion: 'Confetti is paused while Reduce Motion is enabled in your system settings.',
   // Smart input
   smartEnabledNote: 'Write ideas with the global +; they’re organized once you stop typing',
   privacy: 'Privacy',
