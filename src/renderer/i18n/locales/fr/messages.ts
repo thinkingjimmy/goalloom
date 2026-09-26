@@ -7,6 +7,13 @@
 import type { MessageCatalog } from '../zh/messages'
 
 export const messages: MessageCatalog = {
+  linkPreviews: "Aperçus des liens",
+  linkPrevious: "Lien précédent",
+  linkNext: "Lien suivant",
+  linkLoading: "Chargement de l’aperçu…",
+  linkUnavailable: "Aperçu indisponible. Ouvrir la page",
+  linkOpenFailed: "Impossible d’ouvrir le navigateur. Réessayez",
+  linkPosition: (current: number, total: number) => `Lien ${current} sur ${total}`,
   home: "Accueil Goalloom",
   settings: "Réglages et données",
   commands: "Recherche et commandes",

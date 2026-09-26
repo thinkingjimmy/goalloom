@@ -1,9 +1,9 @@
 /**
  * [INPUT]: 过去周期、工作区修订号、详情打开回调；主进程只读历史分页（含期末结果汇总）与往期索引。
- * [OUTPUT]: useHistoryPage 按周期/修订号/页码读取分页；HistoryColumn 只读列（完成摘要与分段条、按期末结果分组的行、去向与当前变化、空期与最早一期）；
+ * [OUTPUT]: Read-only paged history with saved-text links, preview cards, outcome summaries and period navigation.
  *           PeriodPicker 列头周期标题与往期选择浮层。
  * [POS]: board 的历史视图，由 Board 列头的历史导航驱动；期末状态与当前内容分离，不提供编辑入口。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { horizonNames, statusNames, messages } from '../../i18n'
@@ -15,6 +15,9 @@ import { Button } from '../../components/ui/button'
 import { Icon } from '../../components/icons'
 import { Popover } from '../../components/Popover'
 import { historyLabel } from './period-labels'
+import { LinkTitle } from '../../components/links/LinkText'
+import { LinkPreviews } from '../../components/links/LinkPreviews'
+import { linkUrls } from '../../components/links/parse'
 
 type Row = HistoryPage['rows'][number]
 const pageSize = 50
@@ -53,6 +56,16 @@ function HistoryRow({ row, select }: { row: Row; select: (id: string) => void })
   const changed = !end || item.status !== end.status || !!item.deletedAt !== !!end.deletedAt
   const notes = [end?.archivedAt && messages.archivedTag, end?.deletedAt && messages.deletedTag,
     changed && `${messages.nowState}${statusNames[item.status]}${item.deletedAt ? messages.trashSuffix : ''}`].filter(Boolean)
+  if (linkUrls(item.title).length) return <article className="history-item history-item-links" data-outcome={outcome}>
+    <EndMark outcome={outcome} />
+    <div className="history-body">
+      <LinkTitle className="history-title" text={item.title} onOpen={() => select(item.id)} />
+      {notes.length > 0 && <span className="history-notes">{notes.join(' · ')}</span>}
+      <LinkPreviews text={item.title} />
+    </div>
+    {outcome === 'moved' && end && <span className="history-to" title={messages.movedTo(horizonNames[end.horizon])}><Icon name="forward" size={12} strokeWidth={2} />{horizonNames[end.horizon]}</span>}
+    {row.anomalous && <span className="history-clock" title={messages.clockTag}><Icon name="warning" size={14} /><span className="sr-only">{messages.clockTag}</span></span>}
+  </article>
   return <button className="history-item" data-outcome={outcome} onClick={() => select(item.id)}>
     <EndMark outcome={outcome} />
     <span className="history-body">

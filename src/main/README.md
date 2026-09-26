@@ -13,11 +13,12 @@ main/
 │   └── close.ts   # 未保存草稿确认，默认继续编辑；取消退出不关数据库
 ├── storage/       # SQLite、启动迁移保护、备份与文件适配器、worker 通道，见局部地图
 ├── smart/         # Jev 智能输入：三渠道 adapter、设备凭据、独立异步服务，见局部地图
+├── link-preview/  # Bounded public link metadata/image fetching and disposable device cache; separate from workspace writes
 └── workspace/     # 权威事务、业务命令、历史/顺延与整库服务，见局部地图
 ```
 
 `index.ts` 装配窗口、StorageClient（启动保护失败时显示副本位置与重试/退出）与 SmartInputService；`storage/worker.ts` 装配 SQLite 与 workspace 服务。业务规则由 `workspace → domain / shared/contracts` 消费，持久化通过 storage 落地。storage 的底层适配器不依赖 workspace；worker 是跨层组合入口。
 
-main 只接受唯一窗口主 frame 的已知请求。云端 HTTP 只在 main 的独立智能通道中发生，从不进入存储 worker 串行队列。renderer 无任意路径、SQL、shell 或原始 IPC。运行时诊断来自真实存储 worker，失败不回退浏览器 mock。`com.goalloom.desktop` 与默认 `appData/Goalloom` 是稳定身份/数据目录。
+main 只接受唯一窗口主 frame 的已知请求。网络 HTTP 只在 main 的独立智能/链接预览通道中发生，从不进入存储 worker 串行队列。链接通道只接收 HTTP(S) URL，预览返回惰性文本/受限图片，打开动作交给系统浏览器。renderer 无任意路径、SQL、shell 或原始 IPC。运行时诊断来自真实存储 worker，失败不回退浏览器 mock。`com.goalloom.desktop` 与默认 `appData/Goalloom` 是稳定身份/数据目录。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

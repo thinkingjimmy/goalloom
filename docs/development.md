@@ -12,6 +12,7 @@
 | [关系线功能规格](features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [快捷键功能规格](features/shortcuts.md) | 默认键位、流程筛选位置键、改键与冲突规则、工程契约与验收 |
 | [完成反馈功能规格](features/completion-feedback.md) | 按可见性反馈去向、静默操作、逐列撒花、提示与动效生命周期及撤销验收 |
+| [链接预览功能规格](features/link-previews.md) | 混排短链接、真实预览、多链接横滑、历史数据按需展示、网络/缓存边界及验收 |
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
@@ -31,6 +32,7 @@ pnpm test:electron        # 真实 Electron main 的 SQLite 探针
 pnpm build                # 三入口与生产产物约束检查
 pnpm test:ui              # 真实窗口业务闭环与 CSP/IPC/主题
 pnpm test:history         # 独立夹具的历史/往期/hold 窗口验证
+pnpm test:links           # Link previews, mixed text, carousel, browser opening, legacy data and offline cache
 pnpm test:feedback        # Contextual Toasts, modal recovery actions and feedback timing
 pnpm test:recovery        # 保护备份/维护/重置/SQLite 恢复与暂停
 pnpm test:composer        # 可跳过 Onboarding、全局 composer、列头＋键盘路径与 Tab 步数
@@ -59,6 +61,7 @@ pnpm package:dir          # 当前平台本地目录包
 | --- | --- |
 | 看板、条目详情、设置、主题、preload 暴露面、CSP / 窗口安全 | `pnpm test:ui` |
 | 历史、往期、活动记录 | `pnpm test:history` |
+| 链接解析、预览、横滑、外部浏览器与缓存 | `pnpm test:links`；公共服务实时可用性独立核验 |
 | 备份、JSON 导入导出、恢复、重置 | `pnpm test:recovery`；维护态与重载相关再跑 `node tests/desktop/review/run.mjs lifecycle` |
 | composer、智能输入、快捷新建 | `pnpm test:composer`；保存回执/草稿竞态再跑 `node tests/desktop/review/run.mjs renderer` |
 | 多语言文案、语言切换 | `pnpm test:language`；preload 校验文案再跑 `node tests/desktop/review/run.mjs wire` |
@@ -79,6 +82,7 @@ src/
 ├── main/               # Electron 生命周期、IPC 和安全边界
 │   ├── window/         # 窗口偏好与退出保护
 │   ├── smart/          # Jev 三渠道 adapter、设备凭据与独立异步智能服务
+│   ├── link-preview/   # Public URL metadata/image requests and disposable bounded device cache
 │   ├── storage/        # SQLite/启动迁移保护/备份/文件适配器与 worker 通道
 │   └── workspace/      # 业务事务、commands、历史/顺延与 transfer
 ├── preload/            # 沙箱 contextBridge，只暴露有限 API

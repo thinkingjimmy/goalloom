@@ -18,7 +18,7 @@ try {
   page.on('pageerror', error => console.error(error.message))
   await page.getByRole('textbox', { name: '三个月的方向', exact: true }).waitFor()
   console.log(await page.locator('body').ariaSnapshot())
-  assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getActivitySummary', 'getBackupSummary', 'getBatchItems', 'getBatches', 'getCounts', 'getHistory', 'getHistoryIndex', 'getItem', 'getLanguage', 'getReceipt', 'getRuntime', 'getSnapshot', 'listItems', 'onChanged', 'setLanguage', 'smart'])
+  assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getActivitySummary', 'getBackupSummary', 'getBatchItems', 'getBatches', 'getCounts', 'getHistory', 'getHistoryIndex', 'getItem', 'getLanguage', 'getLinkPreview', 'getReceipt', 'getRuntime', 'getSnapshot', 'listItems', 'onChanged', 'openExternal', 'setLanguage', 'smart'])
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
   assert.equal(await page.evaluate(() => typeof window.process), 'undefined')
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())

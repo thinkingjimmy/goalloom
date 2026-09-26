@@ -65,6 +65,7 @@ renderer/
 │       ├── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择；展开时才计算完整 GMT 偏移列表
 │       └── onboarding.css   # 首次流程样式（仅 token）
 ├── components/              # 可跨功能使用的 UI 原语
+│   ├── links/               # Saved-text link rendering, visible-only metadata requests, fixed-height preview cards and keyboard/swipe carousel
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉
 │   ├── Popover.tsx          # 锚点浮层，外部按下/Esc 关闭且不关闭外层弹窗；floating 经 portal 浮出滚动容器
 │   ├── FlowMark.tsx         # 与复选框同构的流程色块
@@ -97,7 +98,7 @@ renderer/
 
 `App → features → components / state / i18n / lib`；跨功能数据类型来自 `shared/contracts`，不从另一个功能的组件反向导入。通用 UI 不依赖 features，业务规则属于 domain/main。仅一个功能使用的组件放在该功能内，多处复用时再提升到 components。
 
-取消/失败不乐观伪造业务结果。UndoSession 只保存已提交的用户操作 ID；历史与业务数据不复制进本地状态。未保存草稿保留到明确保存或放弃；整库代次更换销毁旧弹窗、Toast、栈与缓存。
+取消/失败不乐观伪造业务结果。UndoSession 只保存已提交的用户操作 ID；历史与业务数据不复制进本地状态。未保存草稿保留到明确保存或放弃；整库代次更换销毁旧弹窗、Toast、栈与缓存。链接预览只派生显示，任务原文、版本、历史与编辑字段不受影响；卡片图片来自 main 返回的受限 raster data URL，renderer 不请求远程页面。
 
 On hover-capable fine pointers, column-header history and add actions appear only while their column is hovered or a header control has visible keyboard focus. Hidden actions keep their layout space and Tab order. Non-hover inputs keep the actions visible; history navigation and return controls remain visible in history mode.
 

@@ -7,6 +7,13 @@
 import { widen } from '../../../../shared/i18n/locale'
 
 export const messages = widen({
+  linkPreviews: "链接预览",
+  linkPrevious: "上一条链接",
+  linkNext: "下一条链接",
+  linkLoading: "正在加载预览…",
+  linkUnavailable: "暂时无法预览，点击打开网页",
+  linkOpenFailed: "无法打开浏览器，请重试",
+  linkPosition: (current: number, total: number) => `第 ${current} 条链接，共 ${total} 条`,
   home: "Goalloom 首页",
   settings: "设置与数据",
   commands: "搜索与命令",

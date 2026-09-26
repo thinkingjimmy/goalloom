@@ -12,6 +12,7 @@ contracts/
 ├── history.ts    # 严格事件、期末投影、后续活动和历史分页
 ├── transfer.ts   # v1–v5 完整数据集、效果白名单、备份/恢复/重置确认与批次分页 DTO
 ├── smart-input.ts # Jev 服务、设备状态、智能动作、修订回声的判断回复与预览 DTO
+├── link-preview.ts # Strict public link preview/open actions and bounded inert metadata; lightweight syntax lives in ../links.ts
 ├── queries.ts    # 摘要快照/列表、完整详情、拓扑、数量及活动/备份摘要 DTO
 └── runtime.ts    # 有限 preload API（含 smart 与语言偏好读写）、语言偏好 schema、LanguageState 和运行时诊断
 ```

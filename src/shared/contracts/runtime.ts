@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Zod, lightweight locale/language values and minimum runtime diagnostics.
- * [OUTPUT]: Language preference validation, RuntimeInfo, LanguageState and the fixed GoalloomApi with bounded read methods.
+ * [OUTPUT]: Language preference validation, runtime diagnostics and the fixed GoalloomApi including bounded link previews/browser opening.
  * [POS]: Shared main/preload/renderer boundary without generic IPC, SQL or file access.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,7 @@ import type { ItemDetail, ItemPage, Query, Snapshot, ActivitySummary, ItemCounts
 import type { Activity, HistoryIndex, HistoryPage } from './history'
 import type { BatchSummary, BatchPage, DataAction, DataReply } from './transfer'
 import type { SmartAction, SmartReply } from './smart-input'
+import type { LinkPreview } from './link-preview'
 
 export const runtimeChannel = 'goalloom:runtime'
 export const runtimeInfoSchema = z.strictObject({
@@ -47,4 +48,6 @@ export interface GoalloomApi {
   getReceipt(operationId: string, generation: string): Promise<CommandResult | null>
   exportWorkspace(): Promise<boolean>
   smart(action: SmartAction): Promise<SmartReply>
+  getLinkPreview(url: string): Promise<LinkPreview>
+  openExternal(url: string): Promise<boolean>
 }

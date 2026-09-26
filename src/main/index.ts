@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Electron lifecycle, security, storage and smart-input services.
+ * [INPUT]: Electron lifecycle, security, storage, smart-input and link-preview services.
  * [OUTPUT]: Single window, startup/write gates, visible-change notifications and renderer-session cleanup.
  * [POS]: Application composition root; migrations remain protected before window creation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -17,6 +17,7 @@ import { LanguagePreference } from './window/language'
 import { protectWindowClose } from './window/close'
 import { createSmartService } from './smart/electron'
 import { serverText } from '../shared/i18n/server'
+import { LinkPreviewService } from './link-preview/service'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -136,7 +137,8 @@ if (!app.requestSingleInstanceLock()) {
     if (!storage) { app.exit(0); return }
     const client = storage
     const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client)
-    releaseRenderer = registerIpc(() => window, trustedUrl, storage, smart, language, () => { void requestReconcile(false) }, firstWrite, meta => {
+    const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
+    releaseRenderer = registerIpc(() => window, trustedUrl, storage, smart, language, links, () => { void requestReconcile(false) }, firstWrite, meta => {
       if (firstSnapshotRead) return
       firstSnapshotRead = true; lastVisible = visibleKey(meta); lastRevision = meta.workspace.revision; startInitialReconcile()
     })

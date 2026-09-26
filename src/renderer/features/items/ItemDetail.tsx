@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Item ID, authoritative detail, flow views, summary candidates and actions.
- * [OUTPUT]: Editable details, lifecycle/relationship controls and revision-safe save feedback.
+ * [OUTPUT]: Editable raw details, saved-content link previews, lifecycle/relationship controls and revision-safe save feedback.
  * [POS]: Full-body detail boundary; refresh and save receipts preserve newer drafts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -21,6 +21,8 @@ import { Activity } from './Activity'
 import { DuePicker } from './DuePicker'
 import { RelationPicker } from './RelationPicker'
 import { FlowPicker } from './FlowPicker'
+import { LinkPreviews } from '../../components/links/LinkPreviews'
+import { linkUrls } from '../../components/links/parse'
 
 const draftOf = (item: Item) => ({ title: item.title, description: item.description, dueDate: item.dueDate ?? '' })
 const nextHorizon: Record<ItemHorizon, ItemHorizon> = { later: 'later', cycle: 'month', month: 'week', week: 'day', day: 'day' }
@@ -152,6 +154,7 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
         </div>
         <label className="field-label" htmlFor="item-description">{messages.description}</label>
         <textarea id="item-description" className="note-input" value={draft.description} onChange={event => setField('description', event.target.value)} rows={5} maxLength={100_000} placeholder={messages.descriptionPlaceholder} readOnly={readOnly} />
+        {linkUrls(`${item.title}\n${item.description}`).length > 0 && <div className="detail-saved-links"><LinkPreviews text={`${item.title}\n${item.description}`} /></div>}
         <Activity itemId={itemId} revision={revision} />
       </form>
       {readOnly ? <footer className="modal-footer">

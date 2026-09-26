@@ -7,6 +7,13 @@
 import type { MessageCatalog } from '../zh/messages'
 
 export const messages: MessageCatalog = {
+  linkPreviews: "リンクのプレビュー",
+  linkPrevious: "前のリンク",
+  linkNext: "次のリンク",
+  linkLoading: "プレビューを読み込み中…",
+  linkUnavailable: "プレビューできません。ページを開く",
+  linkOpenFailed: "ブラウザーを開けませんでした。再試行してください",
+  linkPosition: (current: number, total: number) => `${total} 件中 ${current} 件目のリンク`,
   home: "Goalloom ホーム",
   settings: "設定とデータ",
   commands: "検索とコマンド",

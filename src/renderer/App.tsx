@@ -1,11 +1,11 @@
 /**
  * [INPUT]: Workspace state, board visibility, undo session, stable flow views, device preferences and feature components.
- * [OUTPUT]: Board, on-demand dialogs, platform shortcuts, timed or persistent scoped feedback and nonblocking completion celebrations.
+ * [OUTPUT]: Board, dialogs, shortcuts, scoped feedback/celebrations and generation-scoped link-cache cleanup.
  * [POS]: Renderer composition root; composer loads on first use and then keeps its session until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { messages, smartMessages, useLocale } from './i18n'
-import { lazy, startTransition, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { workspaceDate } from '../domain/calendar'
 import type { ItemHorizon } from '../shared/contracts/entities'
 import { Icon } from './components/icons'
@@ -23,6 +23,7 @@ import { editingTarget } from './state/session'
 import { ariaKeys, filterSlot, formatCombo, parseEvent, useShortcuts } from './state/shortcuts'
 import type { Section } from './features/shell/settings/Settings'
 import { useSmart } from './state/smart'
+import { resetLinkPreviewCache } from './components/links/cache'
 
 const Setup = lazy(() => import('./features/setup/Setup').then(module => ({ default: module.Setup })))
 const ItemDetail = lazy(() => import('./features/items/ItemDetail').then(module => ({ default: module.ItemDetail })))
@@ -61,6 +62,7 @@ export function App() {
   const requestAdd = (horizon: ItemHorizon | null, split: AddRequest['split'] = null) => { setAddRequest(previous => ({ seq: (previous?.seq ?? 0) + 1, horizon, split })) }
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const ready = !!snapshot?.workspace.setupConfirmedAt
+  useLayoutEffect(() => { resetLinkPreviewCache() }, [snapshot?.workspace.generation])
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   useEffect(() => { document.documentElement.dataset.style = style }, [style])
   useEffect(() => { document.documentElement.dataset.check = checkStyle }, [checkStyle])

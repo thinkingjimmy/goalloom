@@ -15,6 +15,7 @@ desktop/
 ├── relations.mjs        # 关系线：单流程筛选画线/跨级虚线/其余置灰、悬停与聚焦链、滚出视野标记、设置开关持久化（截图 relation-lines*.png）
 ├── language.mjs         # 系统语言侦测、配置页/设置即时切换、main/worker 文案、重启保持与 en/es/fr 漏译检查（截图 language-*.png、output/tests/language.json）
 ├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and persistent partial-restore warnings; feedback.json and feedback-*.png
+├── link-previews.mjs    # Link text, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
 ├── dialogs.mjs          # 操控真实原生保存/打开对话框的验收入口，保存 JSON 证据和恢复后截图
 ├── review/              # 已确认缺陷、输入/维护竞态、长列、wire、增长曲线和大备份回归
@@ -22,6 +23,7 @@ desktop/
     ├── celebration-visibility.mjs # 原生窗口隐藏验证：独立 Electron + 无前台模拟的 CDP，确认真实 visibility 与动效释放
     ├── sqlite-probe.ts  # Electron main 的驱动/事务/恢复探针
     ├── history-seed.ts  # 正式事务生成历史样本，无生产测试时钟
+    ├── link-preview-cache.mjs # Fresh production preview-cache records and locally generated PNG; no renderer API replacement
     ├── poll.mjs         # pollPage：轮询 renderer 里的异步桥接读取（page.waitForFunction 会把 async 谓词的 Promise 当作真值立即返回）
     └── performance.ts   # 10,000 条目/1,000 活跃及真实历史，测恢复与延迟
 ```
@@ -39,5 +41,18 @@ Playwright 控制真实窗口，并关闭 CDP 默认的 unsafe-eval 绕过再验
 `celebration.mjs` observes the real canvas translate calls without replacing drawing, random values or clocks. It verifies exact viewport-corner origins and measures pixel bounds and all four horizontal quarters around 850 ms at 1880 × 1000 and 1280 × 760. Origin, spread and native-detail screenshots accompany the measured geometry in `celebration.json`.
 
 `feedback.mjs` uses actual UI actions and authoritative IPC fixtures. Its multi-item plan case calls the mounted Composer submit callback, preserving the real write and receipt path without a cloud provider; it does not claim Jev analysis acceptance.
+
+`pnpm test:links [packaged-executable]` runs focused link-preview acceptance in an isolated real Electron profile. It seeds the production preview cache with synthetic public-URL metadata and a tiny local PNG, then exercises the production preload/main/renderer path. Node DNS/HTTP(S) and the isolated provider session's fetch are denied in the test process. The external browser boundary is recorded by replacing Electron's `shell.openExternal`; no browser is launched. JSON and screenshots are written to `output/tests/link-previews/`. This verifies deterministic offline behavior, not live-provider availability.
+
+The link probe sizes and focuses the native Electron window before wheel input. CDP viewport emulation alone can put a visible screenshot target outside the native compositor's bounds; the report records both geometries, focus, wheel delivery and the resulting scroll offset.
+
+Failure scenarios specified before writing the probe:
+
+- Mixed Chinese prose, bare URLs and named Markdown links must preserve their order, custom labels and exact saved source; repeated references must produce one preview per unique URL.
+- Multi-link cards must show a stable-height horizontal strip with a next-card hint, accurate count, bounded previous/next buttons and keyboard/wheel navigation; gestures must not move a task or open a link.
+- Clicking an inline link or preview must cross the real external-opening IPC with the exact HTTP(S) URL; unsupported schemes and private-network preview requests must be rejected.
+- A missing image or unavailable preview must leave a usable link. Cached images must render offline, survive a restart and avoid mutating the task title, version or timestamps.
+- Opening old, completed or archived tasks must render their links without a migration or write. Editing must expose the raw URL/Markdown and save the user's text unchanged.
+- The five supported locales must translate preview controls, retain the same URLs and show no renderer exceptions. The report must distinguish source-Electron coverage from packaged-desktop acceptance.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

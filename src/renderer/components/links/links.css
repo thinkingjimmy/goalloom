@@ -1,0 +1,52 @@
+.link-title { position: relative; min-width: 0; flex: 1; font-size: 14px; line-height: 22px; }
+.link-title > .link-title-open { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border-radius: 4px; }
+.link-rich-text { position: relative; display: block; pointer-events: none; overflow-wrap: anywhere; white-space: pre-wrap; }
+.link-rich-text .link-inline { pointer-events: auto; }
+.link-inline { color: var(--focus); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--focus) 35%, transparent); text-underline-offset: 3px; overflow-wrap: anywhere; border-radius: 3px; }
+.link-inline:hover { text-decoration-color: currentColor; }
+.link-domain { display: inline-flex; align-items: center; max-width: min(100%, 30ch); padding: 1px 4px; margin-inline: 1px; background: color-mix(in srgb, var(--focus) 8%, transparent); text-decoration: none; font-size: .93em; line-height: 18px; white-space: nowrap; overflow-wrap: normal; }
+.link-domain-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.link-domain > .link-external-mark { flex-shrink: 0; }
+.link-external-mark { display: inline-flex; vertical-align: -2px; margin-left: 3px; transform: rotate(-45deg); }
+.task-content { flex: 1; min-width: 0; }
+.task-line > .link-title { padding: 7px 0; }
+.task-line > .link-title .link-rich-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.task-row[data-done='true'] .link-rich-text { color: var(--secondary); text-decoration: line-through; }
+.link-previews { min-width: 0; margin: 2px 0 9px; cursor: default; }
+.link-carousel-track { position: relative; display: flex; gap: 10px; padding: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; scroll-padding-inline: 2px; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+.link-carousel-track::-webkit-scrollbar { display: none; }
+.link-carousel-slide { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; scroll-snap-stop: always; }
+.link-previews[data-multiple='true'] .link-carousel-slide { flex-basis: calc(100% - 28px); }
+.link-previews[data-multiple='true'] .link-carousel-track::after { content: ''; flex: 0 0 18px; }
+.link-preview { display: flex; min-width: 0; height: 128px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); text-decoration: none; text-align: left; transition: border-color .14s ease-out, background-color .14s ease-out; }
+.link-preview:hover { border-color: var(--check-edge); background: var(--raised); }
+.link-preview-image { order: 1; flex: 0 0 88px; min-width: 0; display: grid; place-items: center; overflow: hidden; color: var(--faint); background: var(--hover); }
+.link-preview-image img { width: 100%; height: 100%; object-fit: cover; }
+.link-preview-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 11px 12px; }
+.link-preview-source { display: flex; align-items: center; gap: 2px; color: var(--secondary); font-size: 10px; line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.link-preview-source > .link-external-mark { margin-left: auto; flex-shrink: 0; }
+.link-preview-title { font-size: 13px; line-height: 19.5px; font-weight: 500; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.link-preview-description { color: var(--secondary); font-size: 11px; line-height: 15px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.link-preview[data-status='pending'] .link-preview-image { background: var(--hover); }
+.link-carousel-controls { display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin: 2px 2px 0; color: var(--secondary); }
+.link-carousel-count { margin-right: 6px; font-size: 11px; }
+.link-carousel-controls button { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.link-carousel-controls button:hover:not(:disabled) { background: var(--hover); }
+.link-carousel-controls button:disabled { opacity: .35; cursor: default; }
+.history-item-links { cursor: default; }
+.history-item-links .link-previews { margin-top: 7px; }
+.backlog-row-links { align-items: flex-start; }
+.backlog-row-links > input { margin-top: 2px; }
+.backlog-link-content { flex: 1; min-width: 0; }
+.backlog-link-content .link-previews { margin-top: 8px; }
+.items-row-links { align-items: flex-start; }
+.items-link-content { flex: 1; min-width: 0; padding: 8px 0 8px 18px; }
+.items-link-heading { display: flex; align-items: flex-start; gap: 12px; }
+.items-link-heading .items-mark { margin-top: 4px; }
+.items-link-heading .items-meta { margin-top: 2px; }
+.items-link-content .link-previews { margin-top: 8px; }
+.items-row-links > .settings-button { margin-top: 10px; }
+.detail-saved-links { margin: 16px 0 8px; }
+.detail-saved-links .link-previews { margin-bottom: 0; }
+@media (pointer: coarse) { .link-carousel-controls button { width: 44px; height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .link-preview { transition: none; } }

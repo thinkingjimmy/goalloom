@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Ordered summary identities, scroll viewport, render function, active drag and selection.
- * [OUTPUT]: Measured rows with bounded overscan, logical keyboard traversal and synchronous reveal.
+ * [OUTPUT]: Resize-observed rows with bounded overscan, logical button/link keyboard traversal and synchronous reveal.
  * [POS]: Board-only windowing. Focus and drag rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,7 @@ export function revealRow(id: string, focus: string | null = null): void {
   window.dispatchEvent(new CustomEvent<Reveal>(revealEvent, { detail: { id, focus } }))
 }
 const overscan = 5
+const controlSelector = 'button:not(:disabled), a[href], [tabindex="0"]'
 
 export function VirtualRows({ items, dragging, highlighted, render }: { items: ItemSummary[]; dragging: string | null; highlighted: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
   const list = useRef<HTMLDivElement>(null), heights = useRef(new Map<string, number>())
@@ -49,7 +50,8 @@ export function VirtualRows({ items, dragging, highlighted, render }: { items: I
     flushSync(() => { setFocused(id); update() })
     const row = document.getElementById(`item-${id}`)
     row?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-    if (focus) row?.querySelector<HTMLElement>(focus)?.focus({ preventScroll: true })
+    const control = focus === ':last-control' ? [...row?.querySelectorAll<HTMLElement>(controlSelector) ?? []].at(-1) : focus ? row?.querySelector<HTMLElement>(focus) : null
+    if (focus) (control ?? row?.querySelector<HTMLElement>('.task-title'))?.focus({ preventScroll: true })
   }
   const handler = useRef(reveal); handler.current = reveal
   useEffect(() => {
@@ -67,14 +69,20 @@ export function VirtualRows({ items, dragging, highlighted, render }: { items: I
     return () => { observer.disconnect(); root.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame) }
   }, [])
   useLayoutEffect(() => {
-    let changed = false
     const valid = new Set(items.map(item => item.id))
     for (const id of heights.current.keys()) if (!valid.has(id)) heights.current.delete(id)
-    for (const node of list.current?.querySelectorAll<HTMLElement>('[data-virtual-id]') ?? []) {
-      const id = node.dataset.virtualId!, height = node.getBoundingClientRect().height
-      if (height > 0 && heights.current.get(id) !== height) { heights.current.set(id, height); changed = true }
+    const measure = (nodes: HTMLElement[]) => {
+      let changed = false
+      for (const node of nodes) {
+        const id = node.dataset.virtualId!, height = node.getBoundingClientRect().height
+        if (height > 0 && heights.current.get(id) !== height) { heights.current.set(id, height); changed = true }
+      }
+      if (changed) setMeasured(value => value + 1)
     }
-    if (changed) setMeasured(value => value + 1)
+    const nodes = [...list.current?.querySelectorAll<HTMLElement>('[data-virtual-id]') ?? []]
+    const observer = new ResizeObserver(entries => measure(entries.map(entry => entry.target as HTMLElement)))
+    nodes.forEach(node => observer.observe(node)); measure(nodes); update()
+    return () => observer.disconnect()
   })
   const mounted = new Set<number>()
   if (windowed) {
@@ -96,12 +104,12 @@ export function VirtualRows({ items, dragging, highlighted, render }: { items: I
       if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing || document.documentElement.dataset.dragging) return
       const target = event.target as HTMLElement, row = target.closest<HTMLElement>('[data-item-id]'), index = row ? indexes.get(row.dataset.itemId!) : undefined
       if (index === undefined || !row) return
-      const controls = [...row.querySelectorAll<HTMLElement>('button:not(:disabled)')]
+      const controls = [...row.querySelectorAll<HTMLElement>(controlSelector)]
       let next: number | undefined, selector = `.${target.classList[0]}`
       if (event.key === 'Home') next = 0
       if (event.key === 'End') next = items.length - 1
-      if (event.key === 'Tab' && !event.shiftKey && target === controls.at(-1) && index + 1 < items.length) { next = index + 1; selector = 'button:not(:disabled)' }
-      if (event.key === 'Tab' && event.shiftKey && target === controls[0] && index > 0) { next = index - 1; selector = '.task-title' }
+      if (event.key === 'Tab' && !event.shiftKey && target === controls.at(-1) && index + 1 < items.length) { next = index + 1; selector = controlSelector }
+      if (event.key === 'Tab' && event.shiftKey && target === controls[0] && index > 0) { next = index - 1; selector = ':last-control' }
       if (next === undefined) return
       event.preventDefault(); reveal({ id: items[next]!.id, focus: selector })
     }}>{children}</div>

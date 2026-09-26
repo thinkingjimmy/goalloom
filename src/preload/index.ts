@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Sandboxed Electron bridge and shared wire schemas.
- * [OUTPUT]: Fixed window.goalloom API with validated responses.
+ * [OUTPUT]: Fixed window.goalloom API with validated responses, including inert link previews and explicit browser opening.
  * [POS]: Only renderer/main bridge; no Node capabilities, generic channels or file paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,6 +13,7 @@ import { activitySchema, historyIndexSchema, historyPageSchema } from '../shared
 import { batchPageSchema, batchSchema, dataReplySchema } from '../shared/contracts/transfer'
 import { smartChannel, smartReplySchema } from '../shared/contracts/smart-input'
 import { setValidationLocale } from '../shared/i18n/validation'
+import { linkChannel, linkPreviewSchema } from '../shared/contracts/link-preview'
 
 async function language(reply: Promise<unknown>) {
   const state = languageStateSchema.parse(await reply)
@@ -50,5 +51,7 @@ const api: GoalloomApi = {
   getReceipt: async (operationId, generation) => query({ type: 'receipt', operationId, generation }, resultSchema.nullable()),
   exportWorkspace: async () => Boolean(await ipcRenderer.invoke('goalloom:export')),
   smart: async action => smartReplySchema.parse(await ipcRenderer.invoke(smartChannel, action)),
+  getLinkPreview: async url => linkPreviewSchema.parse(await ipcRenderer.invoke(linkChannel, { type: 'preview', url })),
+  openExternal: async url => (await ipcRenderer.invoke(linkChannel, { type: 'open', url })) === true,
 }
 contextBridge.exposeInMainWorld('goalloom', Object.freeze(api))

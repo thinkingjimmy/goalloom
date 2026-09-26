@@ -1,6 +1,6 @@
 /**
  * [INPUT]: List view, workspace revision/date, navigation and guarded restore action.
- * [OUTPUT]: Searchable paged summaries with offset clamping after removal or restore.
+ * [OUTPUT]: Searchable saved-text links/previews and paged summaries with offset clamping after removal or restore.
  * [POS]: Settings item browser; restoreItem remains an authoritative command.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,6 +10,9 @@ import { horizonNames, messages, statusNames, settingsMessages } from '../../../
 import { desktopApi, type Action } from '../../../state/use-workspace'
 import { Icon } from '../../../components/icons'
 import { relativeDay } from './parts'
+import { LinkTitle } from '../../../components/links/LinkText'
+import { LinkPreviews } from '../../../components/links/LinkPreviews'
+import { linkUrls } from '../../../components/links/parse'
 
 export type ItemsView = Exclude<ListView, 'search'>
 const limit = 50
@@ -51,14 +54,23 @@ export function ItemsPane({ view, revision, timezone, today, disabled, select, s
     {[...groups].map(([heading, items]) => <section key={heading || view} className="items-group">
       {heading && <h3>{heading}</h3>}
       <div className="settings-card">
-        {items.map(item => <div key={item.id} className="items-row">
-          <button type="button" className="items-open" onClick={() => select(item.id)}>
+        {items.map(item => {
+          const hasLinks = linkUrls(item.title).length > 0
+          return <div key={item.id} className={`items-row${hasLinks ? ' items-row-links' : ''}`}>
+          {hasLinks ? <div className="items-link-content">
+            <div className="items-link-heading">
+              {view !== 'trash' && <span className="items-mark" data-status={item.status} aria-hidden="true">{item.status === 'done' && <Icon name="check" size={12} strokeWidth={2.6} />}</span>}
+              <LinkTitle className="items-title" text={item.title} onOpen={() => select(item.id)} />
+              <span className="items-meta">{meta(item)}</span>
+            </div>
+            <LinkPreviews text={item.title} />
+          </div> : <button type="button" className="items-open" onClick={() => select(item.id)}>
             {view !== 'trash' && <span className="items-mark" data-status={item.status} aria-hidden="true">{item.status === 'done' && <Icon name="check" size={12} strokeWidth={2.6} />}</span>}
             <span className="items-title">{item.title}</span>
             <span className="items-meta">{meta(item)}</span>
-          </button>
+          </button>}
           {view === 'trash' && <button type="button" className="settings-button" disabled={disabled} onClick={() => void submit({ type: 'restoreItem', itemId: item.id, expectedVersion: item.version })}><Icon name="refresh" size={14} />{messages.restoreItem}</button>}
-        </div>)}
+        </div>})}
       </div>
     </section>)}
     {page && !total && <p className="settings-empty">{query.trim() ? messages.noResults : messages.emptyList}</p>}

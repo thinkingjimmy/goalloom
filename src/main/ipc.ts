@@ -1,10 +1,10 @@
 /**
  * [INPUT]: Trusted window sender, strict DTOs and an internal StorageClient.
- * [OUTPUT]: Narrow commands/queries, native-picker transfers and smart-session cancellation on release/replacement.
+ * [OUTPUT]: Narrow commands/queries, native-picker transfers, validated link preview/browser actions and session cancellation.
  * [POS]: Renderer permission boundary; paths never come from renderer input and stale sessions cannot resume maintenance.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { dialog, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { extname } from 'node:path'
 import { commandSchema, DomainError, type CommandResult } from '../shared/contracts/commands'
 import { querySchema, type WorkspaceMetadata } from '../shared/contracts/queries'
@@ -16,8 +16,10 @@ import { dataActionSchema, type DataReply } from '../shared/contracts/transfer'
 import { smartChannel } from '../shared/contracts/smart-input'
 import type { SmartInputService } from './smart/service'
 import { serverText } from '../shared/i18n/server'
+import { linkActionSchema, linkChannel, linkPreviewSchema } from '../shared/contracts/link-preview'
+import type { LinkPreviewService } from './link-preview/service'
 
-export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
+export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, links: LinkPreviewService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
   let rendererSession = 0
   const guard = (event: IpcMainInvokeEvent) => {
     const current = window()
@@ -56,6 +58,13 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
   })
   // Separate async channel: cloud waits never enter the serial storage queue or hold a transaction.
   ipcMain.handle(smartChannel, async (event, input: unknown) => { guard(event); return smart.handle(input) })
+  ipcMain.handle(linkChannel, async (event, ...args: unknown[]) => {
+    guard(event)
+    if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
+    const action = linkActionSchema.parse(args[0])
+    if (action.type === 'preview') return linkPreviewSchema.parse(await links.get(action.url))
+    try { await shell.openExternal(action.url); return true } catch { return false }
+  })
   ipcMain.handle('goalloom:export', async event => {
     guard(event)
     const session = rendererSession
@@ -70,7 +79,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     if (action.type !== 'backupStatus') await firstWrite
     if (action.type !== 'chooseImport') {
       const reply = await storage.call<DataReply>('data', action)
-      if (reply.type === 'replaced') smart.releaseSession()
+      if (reply.type === 'replaced') { smart.releaseSession(); links.releaseSession() }
       return reply
     }
     const session = rendererSession
@@ -85,6 +94,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
   return () => {
     rendererSession++
     smart.releaseSession()
+    links.releaseSession()
     // Queued after accepted preparation/writes and before a replacement renderer's requests.
     void storage.call('releaseTransfer').catch(() => undefined)
   }
