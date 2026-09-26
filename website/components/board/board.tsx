@@ -3,7 +3,7 @@
  * [INPUT]: Depends on react, lib/board (DemoItem, deriveView output) and ../icons
  * [OUTPUT]: Exports Board (columns, rows and relation lines) and BoardCopy
  * [POS]: components/board's single renderer of the Goalloom board, used by the hero demo, the relation-line figures
- *        and the Jev demo. Geometry copies the app: 44px header band, 48px rows inset 8px from the column rules,
+ *        and the Jev demo. Geometry copies the app: 44px header band, 40px rows inset 8px from the column rules,
  *        flow dot 18px from the column edge; lines leave the parent's row edge, turn on the child's column rule and
  *        stop at the child's dot.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -24,7 +24,7 @@ export type BoardCopy = {
 
 type Interaction = { onHover: (id: ItemId | null) => void; onToggle: (id: ItemId) => void; onAdd: () => void }
 
-const HEAD = 44, ROW = 48
+const HEAD = 44, ROW = 40
 
 const flowVars = (item: DemoItem): CSSProperties | undefined =>
   item.flow ? ({ '--row-stroke': `var(--stroke-${item.flow})`, '--row-tint': `var(--tint-${item.flow})` } as CSSProperties) : undefined

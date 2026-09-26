@@ -22,7 +22,7 @@ export function VirtualRows({ items, dragging, highlighted, render }: { items: I
   const indexes = useMemo(() => new Map(items.map((item, index) => [item.id, index])), [items])
   const offsets = useMemo(() => {
     const values = [0]
-    for (const item of items) values.push(values.at(-1)! + (heights.current.get(item.id) ?? 49))
+    for (const item of items) values.push(values.at(-1)! + (heights.current.get(item.id) ?? 41))
     return values
   }, [items, measured])
   const windowed = items.length > 50
@@ -43,7 +43,7 @@ export function VirtualRows({ items, dragging, highlighted, render }: { items: I
     const index = latest.current.indexes.get(id), node = list.current, root = node?.closest('.column-content')
     if (index === undefined || !node || !(root instanceof HTMLElement)) return
     const top = node.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop + latest.current.offsets[index]!
-    const bottom = top + (heights.current.get(id) ?? 49)
+    const bottom = top + (heights.current.get(id) ?? 41)
     if (top < root.scrollTop) root.scrollTop = top
     else if (bottom > root.scrollTop + root.clientHeight) root.scrollTop = bottom - root.clientHeight
     flushSync(() => { setFocused(id); update() })

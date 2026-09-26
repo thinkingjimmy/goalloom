@@ -29,8 +29,8 @@ const ICONS: IconName[] = ['filter', 'cursor', 'split', 'keyboard']
 // filter · hover a mid chain · hover a parent fanning out · no filter (keyboard)
 const CASES: { filter: FlowId | null; hover: ItemId | null; cursor?: { left: number; top: number } }[] = [
   { filter: 'a', hover: null },
-  { filter: 'a', hover: 'w2', cursor: { left: 404, top: 190 } },
-  { filter: 'a', hover: 'm1', cursor: { left: 176, top: 142 } },
+  { filter: 'a', hover: 'w2', cursor: { left: 404, top: 178 } },
+  { filter: 'a', hover: 'm1', cursor: { left: 176, top: 138 } },
   { filter: null, hover: null },
 ]
 // The figure keeps a compact slice of the board; the hero shows the full, lived-in one.

@@ -61,22 +61,21 @@ try {
   // Long titles wrap to two lines at most; the checkbox and the line anchors stay on the first line.
   const tall = await page.locator(`#item-${ids.c}`).evaluate(node => {
     const r = node.getBoundingClientRect(), title = node.querySelector('.task-title > span'), board = node.closest('.board').getBoundingClientRect()
-    const anchor = r.top - board.top + 24
+    const anchor = r.top - board.top + 20
     return { height: Math.round(r.height), lines: Math.round(title.getBoundingClientRect().height / 22), clipped: title.scrollHeight > title.clientHeight + 1,
       check: Math.round(node.querySelector('.check').getBoundingClientRect().top - r.top - 2), anchored: [...document.querySelectorAll('.relation-port')].some(port => Math.abs(Number(port.getAttribute('cy')) - anchor) < 1) }
   })
-  assert.deepEqual(tall, { height: 70, lines: 2, clipped: true, check: 13, anchored: true })
+  assert.deepEqual(tall, { height: 62, lines: 2, clipped: true, check: 9, anchored: true })
   // Neighbouring tinted rows keep a clear band between their grounds instead of merging into one block.
   const band = await page.evaluate(([upper, lower]) => {
     const a = document.getElementById(`item-${upper}`), b = document.getElementById(`item-${lower}`)
     const inset = node => parseFloat(getComputedStyle(node).borderTopWidth)
     const groundEnd = a.getBoundingClientRect().bottom - inset(a), nextGround = b.getBoundingClientRect().top + inset(b)
-    const rule = a.querySelector('.task-line').getBoundingClientRect().bottom + 3
-    return { band: Math.round(nextGround - groundEnd), ruleInBand: rule > groundEnd && rule <= nextGround }
+    return { band: Math.round(nextGround - groundEnd), divider: getComputedStyle(a.querySelector('.task-line'), '::after').content }
   }, [ids.b, ids.c])
-  // The dashed rule lives in that band, so hover and tint never cover it.
-  assert.deepEqual(band, { band: 4, ruleInBand: true })
-  // Hover and tint paint only the ground, never the band, so the dashed rule above stays visible.
+  // Rows carry no divider: that band is the only separation.
+  assert.deepEqual(band, { band: 4, divider: 'none' })
+  // Hover and tint paint only the ground, never the band, so the separation stays visible.
   await page.locator(`#item-${ids.c} .task-title`).hover()
   assert.deepEqual(await page.evaluate(ids => ids.map(id => getComputedStyle(document.getElementById(`item-${id}`)).backgroundClip), [ids.b, ids.c]), ['padding-box', 'padding-box'])
   await page.mouse.move(5, 5)

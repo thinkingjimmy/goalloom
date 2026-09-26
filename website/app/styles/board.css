@@ -29,14 +29,15 @@ button.ib.sm:hover { color: var(--secondary); }
 /* A narrow column gives the period dates the room of the decorative history icon; the + stays. */
 @container (max-width: 236px) { .bhead .ib-history { display: none; } }
 .bcol:first-child { border-left: 0; }
-.bhead { height: 40px; display: flex; align-items: center; gap: 8px; }
+/* Header text lines up with the checkbox, which sits 10px in after the flow-dot gutter, as in the app. */
+.bhead { height: 40px; padding-left: 10px; display: flex; align-items: center; gap: 8px; }
 .bhead h3 { font-size: 15px; font-weight: 600; white-space: nowrap; }
 .bmeta { flex: 1; font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bhead .ib.sm:last-child { margin-right: -6px; }
 .rows { margin: 0 -12px 0 -20px; padding: 0 8px 0 20px; }
-/* A 2px clear band above and below keeps neighbouring grounds from merging, as in the app. */
+/* A 2px clear band above and below keeps neighbouring grounds from merging and is the only row separation, as in the app. */
 .trow {
-  position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 48px; margin: 0 -8px 0 -12px; padding: 0 8px 0 22px;
+  position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 40px; margin: 0 -8px 0 -12px; padding: 0 8px 0 22px;
   border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: background-color .18s ease-out;
 }
 .trow[data-interactive='true']:hover { background-color: var(--hover-half); }
@@ -45,15 +46,13 @@ button.ib.sm:hover { color: var(--secondary); }
 .trow[data-state='dim'] > :not(.fdot), .trow[data-state='out'] > :not(.fdot) { opacity: .28; }
 .trow[data-state='lit'] { background-color: color-mix(in srgb, var(--row-tint) 65%, var(--bg)); }
 .trow[data-state='hot'] { background-color: var(--row-tint); }
-.check { margin-top: 13px; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--row-stroke, var(--check-edge)); flex-shrink: 0; display: grid; place-items: center; color: #fff; }
+.check { margin-top: 9px; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--row-stroke, var(--check-edge)); flex-shrink: 0; display: grid; place-items: center; color: #fff; }
 button.check:hover { filter: brightness(.96); }
 .trow[data-done='true'] .check { background: var(--checked); border-color: var(--checked); }
 .tline { position: relative; flex: 1; min-width: 0; align-self: stretch; display: flex; }
-.tline::after { content: ''; position: absolute; left: 0; right: 0; bottom: -3px; border-bottom: 1px dashed var(--line); pointer-events: none; }
-.trow[data-done='true'] .tline::after { border-bottom-color: var(--hairline); }
-.ttitle { flex: 1; min-width: 0; padding: 11px 0; font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ttitle { flex: 1; min-width: 0; padding: 7px 0; font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trow[data-done='true'] .ttitle { color: var(--secondary); text-decoration: line-through; }
-.fdot { position: absolute; left: 1px; top: 13px; width: 18px; height: 18px; display: grid; place-items: center; opacity: 0; transition: opacity .12s ease-out; }
+.fdot { position: absolute; left: 1px; top: 9px; width: 18px; height: 18px; display: grid; place-items: center; opacity: 0; transition: opacity .12s ease-out; }
 .fdot > span { width: 8px; height: 8px; border-radius: 50%; background: var(--row-stroke); }
 .trow[data-interactive='true']:hover .fdot, .trow[data-state='lit'] .fdot, .trow[data-state='hot'] .fdot { opacity: 1; }
 .trow[data-state='out'] .fdot { opacity: .28; }

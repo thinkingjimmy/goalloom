@@ -170,9 +170,10 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .backlog-entry { flex-shrink: 0; height: 36px; margin-top: 2px; padding-left: var(--row-inset); display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--backlog); }
 .backlog-entry:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* The row ground holds the flow dot in its left padding; checkbox, dot and meta stay on the first title line. */
-/* A 2px clear band above and below keeps neighbouring grounds (hover, located, flow tint) from merging into one block.
+/* A 2px clear band above and below keeps neighbouring grounds (hover, located, flow tint) from merging into one block;
+   rows carry no divider, so that band is the only separation.
    Ground rules set background-color/-image only: the `background` shorthand would reset the clip and paint over the band. */
-.task-row { position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 48px; margin: 0 -8px 0 -12px; padding: 0 8px 0 22px; border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
+.task-row { position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 40px; margin: 0 -8px 0 -12px; padding: 0 8px 0 22px; border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
 .task-row[data-highlighted='true'] { background-color: var(--hover); }
 /* Pointer hover stays lighter than the located/highlighted row so the two remain distinguishable. */
 :root:not([data-dragging='true']) .task-row:not([data-highlighted='true']):hover { background-color: color-mix(in srgb, var(--hover) 50%, transparent); }
@@ -184,18 +185,15 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .task-row { cursor: pointer; }
 .task-row .drag-handle:not(:disabled) { cursor: grab; }
 :root[data-dragging='true'], :root[data-dragging='true'] * { cursor: grabbing !important; }
-.task-row > .check { margin-top: 13px; }
-/* The dashed rule sits in the clear band below the ground, so hover and tint never cover it. */
+.task-row > .check { margin-top: 9px; }
 .task-line { position: relative; flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: flex-start; gap: 8px; }
-.task-line::after { content: ''; position: absolute; left: 0; right: 0; bottom: -3px; border-bottom: 1px dashed var(--line); pointer-events: none; }
-.task-title { flex: 1; min-width: 0; padding: 11px 0; text-align: left; font-size: 14px; line-height: 22px; }
+.task-title { flex: 1; min-width: 0; padding: 7px 0; text-align: left; font-size: 14px; line-height: 22px; }
 .task-title > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 .task-row[data-done='true'] .task-title { color: var(--secondary); text-decoration: line-through; }
-.task-row[data-done='true'] .task-line::after { border-bottom-color: var(--hairline); }
-.row-meta { flex-shrink: 0; height: 44px; display: flex; align-items: center; font-size: 12px; color: var(--secondary); }
-.row-icon { flex-shrink: 0; height: 44px; display: flex; align-items: center; color: var(--faint); }
+.row-meta { flex-shrink: 0; height: 36px; display: flex; align-items: center; font-size: 12px; color: var(--secondary); }
+.row-icon { flex-shrink: 0; height: 36px; display: flex; align-items: center; color: var(--faint); }
 .row-icon.overdue { color: var(--danger); }
-.drag-handle { position: absolute; left: 2px; top: 8px; width: 16px; height: 28px; display: grid; place-items: center; color: var(--secondary); opacity: 0; pointer-events: none; }
+.drag-handle { position: absolute; left: 2px; top: 4px; width: 16px; height: 28px; display: grid; place-items: center; color: var(--secondary); opacity: 0; pointer-events: none; }
 .drag-handle:focus-visible { opacity: 1; }
 .drag-overlay { background: var(--raised); padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); font-size: 14px; max-width: 320px; }
 .completed-fold { margin-top: 6px; }
@@ -243,7 +241,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 
 /* --- Flow dot: sits in the gutter before a row's checkbox. Shown on row hover/focus, while its menu is open and on every
    row of an active flow, where forward relation lines end on it. Later rows have none. --- */
-.flow-dot-slot { position: absolute; left: 1px; top: 13px; z-index: 1; }
+.flow-dot-slot { position: absolute; left: 1px; top: 9px; z-index: 1; }
 .flow-dot-slot > .popover-root { display: block; }
 .flow-dot-button { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: var(--fg-soft); opacity: 0; transition: opacity .12s ease-out, background-color .12s ease-out; }
 .flow-dot-button > * { grid-area: 1 / 1; }
@@ -295,8 +293,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .swatch:disabled { opacity: .3; }
 
 /* --- Quick add --- */
-.quick-add { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; padding-left: var(--row-inset); }
-.quick-add > input { flex: 1; min-width: 0; height: 47px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 14px; width: auto; }
+.quick-add { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding-left: var(--row-inset); }
+.quick-add > input { flex: 1; min-width: 0; height: 39px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 14px; width: auto; }
 .quick-add > input:focus-visible { outline: none; }
 .quick-add-hint { flex-shrink: 0; max-width: 140px; font-size: 12px; color: var(--secondary); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 

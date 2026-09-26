@@ -27,7 +27,7 @@ const empty: Geometry = { width: 0, height: 0, paths: [], ports: [], markers: []
 // Off-screen endpoints park this far inside the column edge, where their marker sits.
 const inset = 14
 // Rows grow to two title lines; anchors stay level with the first line, where the dot and checkbox sit.
-const firstLine = 48
+const firstLine = 40
 // A connector's vertical bus runs this far outside the row edge; a forward line stops at the flow dot's left edge.
 const busGap = 6, dotEdge = 6
 
