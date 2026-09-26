@@ -51,7 +51,25 @@ pnpm package:dir          # 当前平台本地目录包
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
-`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。合入 `main` 前在本地运行 `pnpm verify`（单元/集成 → SQLite → 构建 → 看板/历史/恢复/composer/多语言与 Review 回归窗口测试）。GitHub Actions 仅手动触发（免费版无私有仓库托管分钟数）；Windows x64 与实机输入、安装/升级验收由负责人另行完成。
+`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。完整 `pnpm verify`（单元/集成 → SQLite → 构建 → 看板/历史/恢复/composer/多语言与 Review 回归窗口测试）只在发布版本前运行；push 或合入 `main` 不要求。
+
+日常改完一个功能：`pnpm typecheck && pnpm test`，再按改动模块只跑对应的桌面脚本（先 `pnpm build`；跨多个模块就各跑各的）：
+
+| 改动位置 | 桌面脚本 |
+| --- | --- |
+| 看板、条目详情、设置、主题、preload 暴露面、CSP / 窗口安全 | `pnpm test:ui` |
+| 历史、往期、活动记录 | `pnpm test:history` |
+| 备份、JSON 导入导出、恢复、重置 | `pnpm test:recovery`；维护态与重载相关再跑 `node tests/desktop/review/run.mjs lifecycle` |
+| composer、智能输入、快捷新建 | `pnpm test:composer`；保存回执/草稿竞态再跑 `node tests/desktop/review/run.mjs renderer` |
+| 多语言文案、语言切换 | `pnpm test:language`；preload 校验文案再跑 `node tests/desktop/review/run.mjs wire` |
+| 关联、流程颜色、关系线 | `pnpm test:relations` |
+| 完成反馈、撒花 | `pnpm test:celebration` / `pnpm test:feedback` |
+| 长列、虚拟滚动、拖放、键盘移动 | `node tests/desktop/review/run.mjs virtual` |
+| SQLite 驱动、存储 worker、迁移 | `pnpm test:electron`；大数据量再跑 `node tests/desktop/review/run.mjs large-workspace` |
+| 打包脚本、包体报告 | `node tests/desktop/review/run.mjs package-report` |
+| 只改 `src/domain` / 纯文档 | 无需桌面脚本 |
+
+GitHub Actions 仅手动触发（免费版无私有仓库托管分钟数）；Windows x64 与实机输入、安装/升级验收由负责人另行完成。
 
 ## 代码地图
 
