@@ -52,7 +52,7 @@ button.check:hover { filter: brightness(.96); }
 .tline { position: relative; flex: 1; min-width: 0; align-self: stretch; display: flex; }
 .ttitle { flex: 1; min-width: 0; padding: 7px 0; font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trow[data-done='true'] .ttitle { color: var(--secondary); text-decoration: line-through; }
-.fdot { position: absolute; left: 1px; top: 9px; width: 18px; height: 18px; display: grid; place-items: center; opacity: 0; transition: opacity .12s ease-out; }
+.fdot { position: absolute; left: 2px; top: 9px; width: 18px; height: 18px; display: grid; place-items: center; opacity: 0; transition: opacity .12s ease-out; }
 .fdot > span { width: 8px; height: 8px; border-radius: 50%; background: var(--row-stroke); }
 .trow[data-interactive='true']:hover .fdot, .trow[data-state='lit'] .fdot, .trow[data-state='hot'] .fdot { opacity: 1; }
 .trow[data-state='out'] .fdot { opacity: .28; }

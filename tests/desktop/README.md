@@ -22,6 +22,7 @@ desktop/
     ├── celebration-visibility.mjs # 原生窗口隐藏验证：独立 Electron + 无前台模拟的 CDP，确认真实 visibility 与动效释放
     ├── sqlite-probe.ts  # Electron main 的驱动/事务/恢复探针
     ├── history-seed.ts  # 正式事务生成历史样本，无生产测试时钟
+    ├── poll.mjs         # pollPage：轮询 renderer 里的异步桥接读取（page.waitForFunction 会把 async 谓词的 Promise 当作真值立即返回）
     └── performance.ts   # 10,000 条目/1,000 活跃及真实历史，测恢复与延迟
 ```
 

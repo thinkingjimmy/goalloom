@@ -34,7 +34,7 @@ const JevStep = lazy(() => import('./features/smart/JevStep').then(module => ({ 
 export function App() {
   // Re-render the whole tree on a language switch; state (drafts, undo stack, open dialogs) is kept.
   useLocale()
-  const { snapshot, error, errorCode, setError, busy, submit, feedback, setFeedback, completion, undo, undoCount, pending, retry, refresh } = useWorkspace(boardItemVisibility)
+  const { snapshot, error, errorCode, setError, busy, submit, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(boardItemVisibility)
   const flows = useFlows(snapshot)
   const smart = useSmart(snapshot?.workspace.generation)
   const [composing, setComposing] = useState(false), [onboarding, setOnboarding] = useState(false)
@@ -80,7 +80,7 @@ export function App() {
       const combo = event.isComposing ? null : parseEvent(event)
       if (!combo) return
       const editing = editingTarget(event.target)
-      if (combo === bindings.undo && !editing) { event.preventDefault(); if (!busy) void undo() }
+      if (combo === bindings.undo && !editing) { event.preventDefault(); if (!pending && !snapshot?.maintenance) requestUndo() }
       if (!ready || onboarding || selected || settings || composing || palette) return
       if (combo === bindings.palette) { event.preventDefault(); openPalette() }
       if (editing) return
@@ -93,7 +93,7 @@ export function App() {
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [undo, busy, selected, settings, ready, onboarding, composing, palette, bindings, filterKeys, flows])
+  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, ready, onboarding, composing, palette, bindings, filterKeys, flows])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
   return <div className="app-shell">
     <TopBar ready={ready && !onboarding} flows={flows} filter={filter} setFilter={setFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
+import { pollPage } from './fixtures/poll.mjs'
 
 // Multi-language acceptance in a real window: system detection, setup and settings switching without remounting,
 // main/worker messages following the choice, persistence across relaunch, and no untranslated Chinese in en/es/fr.
@@ -87,7 +88,7 @@ try {
   await input.press('Enter')
   await input.press('Escape')
   await page.getByRole('button', { name: 'Complete Write report', exact: true }).click()
-  await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).items.find(item => item.title === 'Write report')?.status === 'done')
+  await pollPage(page, async () => (await window.goalloom.getSnapshot()).items.find(item => item.title === 'Write report')?.status === 'done')
   assert.equal(await page.locator('.toast').count(), 0)
   await page.keyboard.press('ControlOrMeta+z')
   await page.getByRole('button', { name: 'Complete Write report', exact: true }).waitFor()

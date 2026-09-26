@@ -1,6 +1,7 @@
 /**
  * [INPUT]: Finite preload API, user commands, UndoSession and post-layout board visibility.
- * [OUTPUT]: Authoritative snapshots, visibility-aware success/undo feedback and deduplicated completion events after committed writes.
+ * [OUTPUT]: Authoritative snapshots, visibility-aware success/undo feedback, deduplicated completion events after committed writes and a
+ *           keyboard undo request that waits for an in-flight own write instead of being dropped.
  * [POS]: Renderer state boundary; preserves unknown receipts and avoids redundant own-write refreshes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -34,12 +35,13 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
   const locked = useRef(false), current = useRef(snapshot)
   const epoch = useRef(0), flight = useRef<{ epoch: number; promise: Promise<Snapshot> } | null>(null)
   const delayed = useRef<(CommandResult | null)[]>([])
+  const deferredUndo = useRef(false), latestUndo = useRef<() => Promise<CommandResult | null>>(() => Promise.resolve(null))
   const refresh = useCallback((): Promise<Snapshot> => {
     if (flight.current) return flight.current.epoch === epoch.current ? flight.current.promise : flight.current.promise.then(refresh)
     const version = epoch.current
     const promise = desktopApi().getSnapshot().then(next => {
       if (version !== epoch.current) return next
-      if (session.current.reset(next.workspace.generation)) { setFeedback(null); setCandidate(null); setCompletion(null); setUndoCount(0); setPending(null) }
+      if (session.current.reset(next.workspace.generation)) { setFeedback(null); setCandidate(null); setCompletion(null); setUndoCount(0); setPending(null); deferredUndo.current = false }
       const key = (value: Snapshot) => {
         const { lastObservedAt: _observed, ...workspace } = value.workspace
         return JSON.stringify([workspace, value.periods, value.maintenance, value.backupError])
@@ -113,7 +115,11 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
       } catch { /* 存储恢复后用原操作 ID 重试。 */ }
       setPending(command); setError(messages.saveUnknown)
       return null
-    } finally { locked.current = false; setBusy(false); if (delayed.current.length) { const notifications = delayed.current.splice(0); void refresh().then(() => { for (const result of notifications) if (result?.changed && session.current.accept(result)) setFeedback(systemFeedback(result)) }).catch(() => setError(messages.refreshFailed)) } }
+    } finally {
+      locked.current = false; setBusy(false)
+      if (deferredUndo.current) { deferredUndo.current = false; setTimeout(() => void latestUndo.current()) }
+      if (delayed.current.length) { const notifications = delayed.current.splice(0); void refresh().then(() => { for (const result of notifications) if (result?.changed && session.current.accept(result)) setFeedback(systemFeedback(result)) }).catch(() => setError(messages.refreshFailed)) }
+    }
   }, [refresh, accept])
   const submit = useCallback(async (action: Action) => {
     if (!current.current || pending) return null
@@ -123,6 +129,12 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
     const id = operationId ?? session.current.entries.at(-1)?.operationId
     return id ? submit({ type: 'undo', originalOperationId: id }) : Promise.resolve(null)
   }, [submit])
+  latestUndo.current = undo
+  // A keyboard undo pressed while an own write is still settling targets that write, so it runs (once) when it lands.
+  const requestUndo = useCallback(() => {
+    if (locked.current) deferredUndo.current = true
+    else void undo()
+  }, [undo])
   const retry = () => pending ? perform(pending) : Promise.resolve(null)
-  return { snapshot, error, errorCode, setError, busy: busy || pending !== null || !!snapshot?.maintenance, submit, refresh, feedback, setFeedback, completion, undo, undoCount, pending, retry }
+  return { snapshot, error, errorCode, setError, busy: busy || pending !== null || !!snapshot?.maintenance, submit, refresh, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry }
 }

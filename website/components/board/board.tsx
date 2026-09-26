@@ -95,7 +95,7 @@ export function Board({ horizons, items, rows, edges, copy, interaction, newId, 
               const a = place.get(edge.from), b = place.get(edge.to)
               if (!a || !b) return null
               const x1 = (a.c + 1) * colW - 8, y1 = HEAD + ROW / 2 + a.r * ROW
-              const xm = b.c * colW, x2 = b.c * colW + 14, y2 = HEAD + ROW / 2 + b.r * ROW
+              const xm = b.c * colW, x2 = b.c * colW + 15, y2 = HEAD + ROW / 2 + b.r * ROW
               return (
                 <g key={`${edge.from}-${edge.to}`}>
                   <path className="edge" data-state={edge.state} data-skip={edge.skip} d={`M${x1} ${y1}H${xm}V${y2}H${x2}`} />

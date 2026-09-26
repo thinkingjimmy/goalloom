@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
+import { pollPage } from './fixtures/poll.mjs'
 
 // 关系线：筛选单个流程时连起上下级，其余流程原位置灰；悬停高亮整条链；滚出视野的端点给标记；设置里可关闭。
 // 流程圆点：悬停预览该条目的流程（连线 + 流程底色）；起点改色、下级改上级、独立条目二选一；Later 不参与。
@@ -148,12 +149,12 @@ try {
   assert.equal(await option('联系潜在客户').count(), 0, '同列不作为上级候选')
   await page.screenshot({ path: `${shots}/flow-dot-parents.png` })
   await option('咨询介绍页').click()
-  await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).relations.length === 9)
+  await pollPage(page, async () => (await window.goalloom.getSnapshot()).relations.length === 9)
   await page.keyboard.press('Escape')
   await parents.waitFor({ state: 'detached' })
   assert.equal(await page.locator('.toast').count(), 0, 'Unlink is quiet')
   await page.keyboard.press('ControlOrMeta+z')
-  await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).relations.length === 10)
+  await pollPage(page, async () => (await window.goalloom.getSnapshot()).relations.length === 10)
   await page.locator('.toast [role="status"]').filter({ hasText: '已撤销' }).waitFor()
   await page.getByRole('button', { name: '关闭操作提示', exact: true }).click()
 
@@ -170,12 +171,12 @@ try {
   await parents.waitFor()
   assert.equal(await option('以后再说').count(), 0)
   await option('上线付费订阅').click()
-  await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).relations.length === 11)
+  await pollPage(page, async () => (await window.goalloom.getSnapshot()).relations.length === 11)
   await page.keyboard.press('Escape')
   await page.waitForFunction(id => document.querySelector(`#item-${id} .flow-dot-button`)?.dataset.role === 'child', ids.loose)
   assert.equal(await page.locator('.toast').count(), 0, 'Link is quiet')
   await page.keyboard.press('ControlOrMeta+z')
-  await page.waitForFunction(async () => (await window.goalloom.getSnapshot()).relations.length === 10)
+  await pollPage(page, async () => (await window.goalloom.getSnapshot()).relations.length === 10)
   await page.locator('.toast [role="status"]').filter({ hasText: '已撤销' }).waitFor()
   await page.getByRole('button', { name: '关闭操作提示', exact: true }).click()
   assert.equal(await relationCount(), 10)

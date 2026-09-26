@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { build } from 'vite'
 import electronPath from 'electron'
 import { _electron as electron } from 'playwright'
+import { pollPage } from './fixtures/poll.mjs'
 
 await build({ configFile: false, build: { outDir: 'output/tests/build/history', emptyOutDir: false, lib: { entry: 'tests/desktop/fixtures/history-seed.ts', formats: ['cjs'], fileName: () => 'history-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
 const profile = await mkdtemp(join(tmpdir(), 'Goalloom 历史测试 '))
@@ -71,7 +72,7 @@ try {
   assert.match(destination, /本月/)
   assert.match(destination, /往期/)
   assert.match(destination, /已完成/)
-  await page.waitForFunction(async id => !(await window.goalloom.getItem(id)).item.deletedAt, fixture.completedId)
+  await pollPage(page, async id => !(await window.goalloom.getItem(id)).item.deletedAt, fixture.completedId)
   const restored = (await page.evaluate(id => window.goalloom.getItem(id), fixture.completedId)).item
   assert.equal(restored.placement.periodId, deleted.periodId)
   assert.equal(restored.status, deleted.status)

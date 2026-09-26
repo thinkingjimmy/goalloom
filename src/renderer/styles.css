@@ -241,7 +241,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 
 /* --- Flow dot: sits in the gutter before a row's checkbox. Shown on row hover/focus, while its menu is open and on every
    row of an active flow, where forward relation lines end on it. Later rows have none. --- */
-.flow-dot-slot { position: absolute; left: 1px; top: 9px; z-index: 1; }
+/* The 8px dot sits 7px from the ground's left edge and 7px from the checkbox. */
+.flow-dot-slot { position: absolute; left: 2px; top: 9px; z-index: 1; }
 .flow-dot-slot > .popover-root { display: block; }
 .flow-dot-button { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: var(--fg-soft); opacity: 0; transition: opacity .12s ease-out, background-color .12s ease-out; }
 .flow-dot-button > * { grid-area: 1 / 1; }

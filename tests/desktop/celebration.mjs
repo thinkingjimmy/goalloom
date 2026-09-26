@@ -9,6 +9,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron } from 'playwright'
+import { pollPage } from './fixtures/poll.mjs'
 import { verifyNativeCelebrationVisibility } from './fixtures/celebration-visibility.mjs'
 
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
@@ -84,7 +85,7 @@ async function assertSilentCompletion(title, enabled, fromDetail = false) {
   const before = await page.evaluate(() => window.celebrationEvidence.opened)
   const button = fromDetail ? detail().getByRole('button', { name: '标记完成', exact: true }) : page.getByRole('button', { name: `完成 ${title}`, exact: true })
   await button.click()
-  await page.waitForFunction(async id => (await window.goalloom.getItem(id)).item.status === 'done', ids[title])
+  await pollPage(page, async id => (await window.goalloom.getItem(id)).item.status === 'done', ids[title])
   if (enabled) await openCanvas().waitFor({ state: 'visible', timeout: 3000 })
   else {
     // The snapshot may precede the accepted receipt by one render; observe through that boundary.
@@ -199,7 +200,7 @@ try {
     await page.getByRole('button', { name: title, exact: true }).click()
     await detail().getByRole('button', { name: /^移动到：/ }).click()
     await page.getByRole('menuitemradio', { name: labels[horizon], exact: true }).click()
-    await page.waitForFunction(async ({ id, horizon }) => (await window.goalloom.getItem(id)).item.placement.horizon === horizon, { id: ids[title], horizon })
+    await pollPage(page, async ({ id, horizon }) => (await window.goalloom.getItem(id)).item.placement.horizon === horizon, { id: ids[title], horizon })
     assert.equal(await page.locator('.toast').count(), 0)
     await detail().getByRole('button', { name: '关闭', exact: true }).click()
     await assertSilentCompletion(title, enabled)

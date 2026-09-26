@@ -29,7 +29,7 @@ const inset = 14
 // Rows grow to two title lines; anchors stay level with the first line, where the dot and checkbox sit.
 const firstLine = 40
 // A connector's vertical bus runs this far outside the row edge; a forward line stops at the flow dot's left edge.
-const busGap = 6, dotEdge = 6
+const busGap = 6, dotEdge = 7
 
 /** Horizontal–vertical path from (x, y) through a vertical bus at each turn's x (reaching that turn's y), ending
  *  horizontally at x2. Corners are rounded to fit the shortest adjoining segment. */

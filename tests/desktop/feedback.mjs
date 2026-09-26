@@ -9,6 +9,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron } from 'playwright'
+import { pollPage } from './fixtures/poll.mjs'
 
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'goalloom-feedback-'))
@@ -80,7 +81,7 @@ try {
   await page.waitForTimeout(6200)
   assert.equal(await toast.count(), 1, 'Keyboard focus keeps the restore action available')
   await toast.getByRole('button', { name: '还原', exact: true }).click()
-  await page.waitForFunction(async id => !(await window.goalloom.getItem(id)).item.deletedAt, visible)
+  await pollPage(page, async id => !(await window.goalloom.getItem(id)).item.deletedAt, visible)
   await toast.filter({ hasText: 'Later' }).waitFor()
   await page.getByRole('button', { name: '新建', exact: true }).focus()
   await page.mouse.move(5, 5)
@@ -148,7 +149,7 @@ try {
   for (const [title, id, visible] of [['Visible reopening', ids.reopenVisible, true], ['Hidden reopening', ids.reopenHidden, false]]) {
     await openStored(title, 'done')
     await detail().getByRole('button', { name: '重新打开', exact: true }).click()
-    await page.waitForFunction(async id => (await window.goalloom.getItem(id)).item.status === 'todo', id)
+    await pollPage(page, async id => (await window.goalloom.getItem(id)).item.status === 'todo', id)
     if (visible) await silent('Reopened item visible underneath the modal needs no Toast')
     else await toast.filter({ hasText: 'Later' }).waitFor()
     await closePanels(); await dismiss()
@@ -157,7 +158,7 @@ try {
   for (const [title, id, visible] of [['Visible unarchive', ids.unarchiveVisible, true], ['Hidden unarchive', ids.unarchiveHidden, false]]) {
     await openStored(title, 'archived')
     await more('解除归档')
-    await page.waitForFunction(async id => !(await window.goalloom.getItem(id)).item.archivedAt, id)
+    await pollPage(page, async id => !(await window.goalloom.getItem(id)).item.archivedAt, id)
     if (visible) await silent('Unarchive into a visible row stays quiet')
     else await toast.filter({ hasText: 'Later' }).waitFor()
     await closePanels(); await dismiss()
@@ -221,7 +222,7 @@ try {
   assert.equal(await toast.count(), 1, 'Partial restore warnings stay until dismissed')
   await shot('feedback-partial-restore')
   await toast.getByRole('button', { name: /撤销/ }).click()
-  await page.waitForFunction(async id => !!(await window.goalloom.getItem(id)).item.deletedAt, ids.warning)
+  await pollPage(page, async id => !!(await window.goalloom.getItem(id)).item.deletedAt, ids.warning)
   await toast.filter({ hasText: '已撤销' }).waitFor()
   assert.equal(await settings().isVisible(), true, 'Toast undo works while Settings stays open')
   await dismiss()
