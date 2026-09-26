@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Accepted completion identities, the current workspace generation, device-local motion preferences and the settings preview signal.
- * [OUTPUT]: A broad fan of confetti from the exact viewport bottom corners, above board and native dialogs; no business writes.
+ * [OUTPUT]: Two confetti cannons anchored at the exact viewport bottom corners, above board and native dialogs; no business writes.
  * [POS]: Renderer shell feedback, driven only by fresh authoritative completion events.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,16 @@ import './completion-celebration.css'
 
 const duration = 2500
 const colors = ['#F5BA35', '#EE715B', '#E16EAA', '#8874DE', '#55A9E3', '#46B8A0', '#F2D77B']
+
+// Cannon model in viewport units: linear drag settles every piece towards its own reach while gravity takes over,
+// so slow pieces spill beside the corner, fast ones cross the centre and the cone stays anchored where it was born.
+const drag = 1.6
+const gravity = 0.65
+const reach = 2
+const lift = 2.1
+const angleMin = 22 * Math.PI / 180
+const angleMax = 82 * Math.PI / 180
+const perSide = 90
 
 interface Particle {
   side: number
@@ -26,19 +36,24 @@ interface Particle {
 }
 
 function particles(): Particle[] {
-  return Array.from({ length: 180 }, (_, index) => ({
-    side: index < 90 ? 1 : -1,
-    delay: index % 90 === 0 ? 0 : Math.random() * 0.18,
-    // Stratify the fan so every burst has both near-vertical and far-reaching pieces.
-    velocityX: 0.12 + ((index % 90 + Math.random()) / 90) * 1.14,
-    velocityY: 0.8 + Math.random() * 0.68,
-    width: 5 + Math.random() * 4,
-    height: 8 + Math.random() * 6,
-    rotation: Math.random() * Math.PI,
-    spin: (3 + Math.random() * 6) * (Math.random() < 0.5 ? -1 : 1),
-    flutter: Math.random() * Math.PI * 2,
-    color: colors[index % colors.length]!,
-  }))
+  return Array.from({ length: perSide * 2 }, (_, index) => {
+    // Stratify launch angle and speed independently so every burst has steep, flat, slow and far-reaching pieces.
+    const angle = angleMin + (angleMax - angleMin) * ((index % perSide + Math.random()) / perSide)
+    const speed = 0.14 + 0.86 * (((index * 37) % perSide + Math.random()) / perSide)
+    return {
+      side: index < perSide ? 1 : -1,
+      // One seed per side leaves on the first frame; the rest form a dense burst with a tail streaming until ~450 ms.
+      delay: index % perSide === 0 ? 0 : 0.005 + 0.45 * Math.random() ** 3,
+      velocityX: speed * Math.cos(angle) * reach,
+      velocityY: speed * Math.sin(angle) * lift,
+      width: 5 + Math.random() * 4,
+      height: 8 + Math.random() * 6,
+      rotation: Math.random() * Math.PI,
+      spin: (3 + Math.random() * 6) * (Math.random() < 0.5 ? -1 : 1),
+      flutter: Math.random() * Math.PI * 2,
+      color: colors[index % colors.length]!,
+    }
+  })
 }
 
 function celebrate(canvas: HTMLCanvasElement, operationId: string): () => void {
@@ -96,12 +111,13 @@ function celebrate(canvas: HTMLCanvasElement, operationId: string): () => void {
         for (const piece of pieces) {
           const time = seconds - piece.delay
           if (time < 0) continue
-          const travel = (1 - Math.exp(-0.8 * time)) / 0.8
-          const inward = width * piece.velocityX * travel
+          // Closed-form motion under linear drag: settle is the decayed travel time, and gravity acts through the same drag.
+          const settle = (1 - Math.exp(-drag * time)) / drag
+          const inward = width * piece.velocityX * settle
           // Flutter starts at zero: even the first visible pixels come from the viewport corner.
           const flutter = (Math.sin(time * 4 + piece.flutter) - Math.sin(piece.flutter)) * 8
           const x = (piece.side === 1 ? inward : width - inward) + flutter
-          const y = height * (1 - piece.velocityY * time + 0.58 * time * time)
+          const y = height - height * (piece.velocityY * settle - gravity * (time - settle) / drag)
           if (y > height + 20 || y < -20) continue
           context.save()
           context.translate(x, y)
