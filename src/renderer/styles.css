@@ -144,10 +144,11 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .board-host { display: flex; flex: 1; min-height: 0; }
 .board { position: relative; flex: 1; display: flex; min-height: 0; padding: 0 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
 /* 356px keeps a 316px row with two-line titles readable; the cap stops wide screens from stretching lines apart. */
-.board-column { position: relative; flex: 1 0 356px; min-width: 356px; max-width: 440px; display: flex; flex-direction: column; padding: 4px 20px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
+/* --row-inset is where a row's checkbox lands after the flow-dot gutter; column text chrome aligns to it. */
+.board-column { --row-inset: 10px; position: relative; flex: 1 0 356px; min-width: 356px; max-width: 440px; display: flex; flex-direction: column; padding: 4px 20px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
 .board-column:first-child { border-left: 0; }
 .board-column.drop-target { background: var(--hover); }
-.column-header { height: 40px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+.column-header { height: 40px; flex-shrink: 0; padding-left: var(--row-inset); display: flex; align-items: center; gap: 8px; }
 .column-header h2 { font-size: 15px; }
 .column-meta { font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .column-spacer { flex: 1; }
@@ -166,7 +167,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .period-label { flex: 1; text-align: center; font-size: 13px; font-weight: 500; }
 /* The scroll box reaches 8px from both column rules so row grounds sit evenly between them. */
 .column-content { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -12px 0 -20px; padding: 0 8px 96px 20px; }
-.backlog-entry { flex-shrink: 0; height: 36px; margin-top: 2px; display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--backlog); }
+.backlog-entry { flex-shrink: 0; height: 36px; margin-top: 2px; padding-left: var(--row-inset); display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--backlog); }
 .backlog-entry:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* The row ground holds the flow dot in its left padding; checkbox, dot and meta stay on the first title line. */
 /* A 2px clear band above and below keeps neighbouring grounds (hover, located, flow tint) from merging into one block.
@@ -198,7 +199,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .drag-handle:focus-visible { opacity: 1; }
 .drag-overlay { background: var(--raised); padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); font-size: 14px; max-width: 320px; }
 .completed-fold { margin-top: 6px; }
-.completed-fold > summary { list-style: none; height: 40px; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--secondary); }
+.completed-fold > summary { list-style: none; height: 40px; padding-left: var(--row-inset); display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--secondary); }
 .completed-fold > summary::-webkit-details-marker { display: none; }
 .completed-fold > summary svg { transition: transform .16s ease-out; }
 .completed-fold[open] > summary svg { transform: rotate(90deg); }
@@ -294,7 +295,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .swatch:disabled { opacity: .3; }
 
 /* --- Quick add --- */
-.quick-add { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; padding-left: 10px; }
+.quick-add { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; padding-left: var(--row-inset); }
 .quick-add > input { flex: 1; min-width: 0; height: 47px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 14px; width: auto; }
 .quick-add > input:focus-visible { outline: none; }
 .quick-add-hint { flex-shrink: 0; max-width: 140px; font-size: 12px; color: var(--secondary); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -540,7 +541,7 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
   .segmented { border-radius: 8px; }
   .segmented button { border-radius: 5px; }
   .segmented button[aria-checked='true'] { background: var(--surface); box-shadow: var(--shadow-xs), 0 0 0 1px var(--line); }
-  .backlog-entry { align-self: flex-start; height: 24px; margin-top: 10px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 500;
+  .backlog-entry { align-self: flex-start; height: 24px; margin: 10px 0 0 var(--row-inset); padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 500;
     border: 1px solid color-mix(in oklab, var(--backlog) 30%, transparent); background: color-mix(in oklab, var(--backlog) 8%, transparent); }
   .backlog-entry:hover { text-decoration: none; background: color-mix(in oklab, var(--backlog) 14%, transparent); }
   .toast { border-radius: 10px; background: var(--raised); color: var(--fg); box-shadow: var(--shadow-lg); padding-left: 16px; }
