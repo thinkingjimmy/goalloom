@@ -69,12 +69,12 @@
 - [x] 官网首版：五语言静态站、可操作首屏、关系线轮播、Jev 动图、明暗主题、平台感知下载、窄屏布局、滚动动效。
 - [x] 部署 Vercel 并绑定 www.goalloom.com；Search Console 提交 `https://www.goalloom.com/sitemap.xml`。
 - [ ] 首屏壁纸补 2880px 宽的高清版本（现为 1586px）。
-- [x] 发布公开 Release 1.0.0 并更新 `website/lib/release.ts`（版本、资产名、`published: true`）。
+- [x] 发布公开 Release 1.1.0 并更新 `website/lib/release.ts`（版本、资产名、`published: true`）。
 
 ## 验收
 
 - [x] `cd website && pnpm typecheck` 通过。
 - [x] `cd website && pnpm build`：五语言页面、sitemap、robots 静态导出，SEO 审计通过；Vercel 线上构建同样通过。
-- [x] `cd website && pnpm test:e2e`（Playwright Chromium 驱动本地静态服务）25/25：五语言 SEO 标签、首屏收缩与浮动 header、看板筛选/悬停链/新建与撤销/Esc/完成/场景切换、关系线轮播自动播放与点选即停、Jev 动图落入今天、明暗切换与持久化、macOS/Windows 访客下载、窄屏无横向溢出与单列、减少动效。报告与截图写入 `website/output/e2e/`。
+- [x] `cd website && pnpm test:e2e`（Playwright Chromium 驱动本地静态服务）27/27：五语言 SEO 标签、首屏收缩与浮动 header、看板筛选/悬停链/新建与撤销/Esc/完成/场景切换、关系线轮播自动播放与点选即停、Jev 动图落入今天、明暗切换与持久化、macOS/Windows 访客下载、作者链接、窄屏无横向溢出与单列、减少动效。报告与截图写入 `website/output/e2e/`。
 - [x] 线上 https://www.goalloom.com：五语言页面、sitemap、robots、社交图 200；canonical/hreflang/og 为 www。
 - [ ] Windows 11 真机浏览与 Safari/Firefox 浏览器目测由所有者人工验收。
