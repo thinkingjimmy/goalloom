@@ -13,7 +13,11 @@ export const settingsMessages: SettingsCatalog = {
   backupSection: 'Sauvegardes',
   openAnytime: 'Ouvrir les réglages à tout moment',
   enabledMeta: 'Activé',
+  board: "Tableau",
+  parentOrder: "Trier selon les parents",
+  parentOrderNote: "Le mois, la semaine, le jour et les périodes futures suivent leurs parents les plus proches. Déplacez les éléments dans leur groupe. Désactiver conserve l’ordre actuel.",
   subtitles: {
+    board: "Ordre et retours de fin, enregistrés sur cet appareil",
     insight: 'Ruptures, bilans et comment la rédaction vous comprend',
     appearance: 'Ne concerne que l’affichage sur cet appareil, sans entrer dans l’historique de l’espace de travail',
     smart: 'Jev transforme une phrase en aperçu d’actions modifiable ; rien n’est écrit avant votre confirmation',

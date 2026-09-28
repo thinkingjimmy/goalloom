@@ -12,7 +12,11 @@ export const settingsMessages = widen({
   backupSection: '备份与恢复',
   openAnytime: '随时打开设置',
   enabledMeta: '已启用',
+  board: "看板",
+  parentOrder: "按上级自动排序",
+  parentOrderNote: "本月、本周、今天及未来周期跟随最近一级上级顺序，同组可拖动。关闭后保留当前排列。",
   subtitles: {
+    board: "排序与完成反馈，偏好仅保存在这台设备",
     insight: '断点、复盘，以及起草时怎样理解你',
     appearance: '只影响这台设备的显示，不写入工作区历史',
     smart: 'Jev 把一句话整理成可编辑的行动预览，你确认后才会写入',

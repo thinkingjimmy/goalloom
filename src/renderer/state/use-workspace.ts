@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Finite preload API, user commands, UndoSession and post-refresh current/future board visibility.
+ * [INPUT]: Finite preload API, user commands, UndoSession and post-refresh live board visibility across all periods.
  * [OUTPUT]: Authoritative snapshots, visibility-aware success/undo feedback, deduplicated completion events after committed writes and a
- *           keyboard undo request that waits for an in-flight own write instead of being dropped.
+ *           keyboard undo request that waits for an in-flight own write; confirmed materialization switches the device order preference.
  * [POS]: Renderer state boundary; preserves unknown receipts and avoids redundant own-write refreshes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,7 @@ import type { CommandInput, CommandResult } from '../../shared/contracts/command
 import type { ItemHorizon } from '../../shared/contracts/entities'
 import type { Snapshot } from '../../shared/contracts/queries'
 import { shareSnapshot } from './snapshot'
+import { parentOrderMaterialized } from './parent-order'
 import { UndoSession } from './session'
 import { feedbackKind, resolveFeedback, systemFeedback, type Feedback, type FeedbackCandidate, type FeedbackItem, type ItemVisibility } from './feedback'
 
@@ -62,12 +63,26 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
   useEffect(() => { void refresh().catch(error => setError(String(error))) }, [refresh])
   useLayoutEffect(() => {
     if (!candidate || !snapshot || candidate.result.generation !== snapshot.workspace.generation || snapshot.workspace.revision < candidate.revision) return
-    let visibility: ItemVisibility = 'outside-view'
-    try { if (candidate.item) visibility = itemVisibility(candidate.item) } catch { /* Saved results do not depend on view measurement. */ }
-    if (visibility === 'pending') return
-    const next = resolveFeedback(candidate, snapshot, visibility)
-    if (next) setFeedback(next)
-    setCandidate(null)
+    let observer: MutationObserver | null = null, resolved = false
+    const resolve = () => {
+      if (resolved) return true
+      let visibility: ItemVisibility = 'outside-view'
+      try { if (candidate.item) visibility = itemVisibility(candidate.item) } catch { /* Saved results do not depend on view measurement. */ }
+      if (visibility === 'pending') return false
+      resolved = true; observer?.disconnect()
+      const next = resolveFeedback(candidate, snapshot, visibility)
+      if (next) setFeedback(next)
+      setCandidate(null)
+      return true
+    }
+    if (resolve()) return
+    // Past-period pages settle inside the column without rerendering this parent hook.
+    const board = document.querySelector('.board')
+    if (board) {
+      observer = new MutationObserver(resolve)
+      observer.observe(board, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-busy'] })
+    }
+    return () => observer?.disconnect()
   }, [candidate, snapshot, itemVisibility])
   useEffect(() => {
     if (!window.goalloom) return
@@ -79,6 +94,7 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
     const next = await refresh()
     for (const notification of delayed.current.splice(0)) if (notification?.changed && session.current.accept(notification)) setFeedback(systemFeedback(notification))
     if (!session.current.accept(result)) return result
+    if (command.type === 'materializeParentOrder' && result.outcome === 'committed') parentOrderMaterialized(result.generation, next.workspace.revision)
     setUndoCount(session.current.entries.length)
     if (result.outcome === 'conflict_skipped') { setError(messages.undoConflict(result.warnings.join(messages.sentenceJoin))); return result }
     const kind = feedbackKind(command, result)

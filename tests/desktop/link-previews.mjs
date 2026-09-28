@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Real Electron, a fresh profile, a seeded production preview cache and authoritative IPC fixtures.
  * [OUTPUT]: Repeatable link rendering, cache remount, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
- * [POS]: Focused desktop acceptance. Only transport and external-browser boundaries are disabled in the test process.
+ * [POS]: Focused desktop acceptance with native sizing only; transport and external-browser boundaries are disabled in the test process.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
@@ -54,12 +54,8 @@ async function launch() {
   page = await application.firstWindow()
   page.on('pageerror', error => errors.push(error.message))
   // Native wheel hit testing uses the real window bounds, not only CDP's emulated viewport.
-  await application.evaluate(({ BrowserWindow, app }) => {
-    const window = BrowserWindow.getAllWindows()[0]
-    window.setContentSize(1880, 1000); window.show(); window.focus(); app.focus({ steal: true })
-  })
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1880, 1000))
   await page.setViewportSize({ width: 1880, height: 1000 })
-  await page.bringToFront()
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const session = await page.context().newCDPSession(page)
   await session.send('Page.setBypassCSP', { enabled: false })

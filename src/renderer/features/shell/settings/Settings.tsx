@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace, narrow data/actions API and device preferences.
- * [OUTPUT]: Settings navigation (including the device-only 洞察 pane), lightweight counts and section-scoped backup/batch reads.
+ * [OUTPUT]: Settings navigation (including device-local board ordering, celebration and insight panes), lightweight counts and section-scoped backup/batch reads.
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,6 +16,7 @@ import { Modal } from '../../../components/Modal'
 import { Kbd } from '../../../components/Kbd'
 import { Icon, type IconName } from '../../../components/icons'
 import { AppearancePane } from './AppearancePane'
+import { BoardPane } from './BoardPane'
 import { CalendarPane } from './CalendarPane'
 import { BackupPane } from './BackupPane'
 import { SmartPane } from './SmartPane'
@@ -26,7 +27,7 @@ import { Segmented, relativeDay } from './parts'
 import { TransferReview, TransferSteps } from './TransferReview'
 import './settings.css'
 
-export type Section = 'appearance' | 'shortcuts' | 'smart' | 'insight' | 'calendar' | 'backup' | 'done' | 'trash'
+export type Section = 'appearance' | 'board' | 'shortcuts' | 'smart' | 'insight' | 'calendar' | 'backup' | 'done' | 'trash'
 interface Entry { id: Section; label: string; icon: IconName }
 // Built per render so every label follows the current language.
 const groups = (): { label: string; entries: Entry[] }[] => [
@@ -37,6 +38,7 @@ const groups = (): { label: string; entries: Entry[] }[] => [
     { id: 'insight', label: insightMessages.settingsSection, icon: 'split' },
   ] },
   { label: s.workspace, entries: [
+    { id: 'board', label: s.board, icon: 'views' },
     { id: 'calendar', label: messages.calendarSection, icon: 'calendar' },
     { id: 'backup', label: s.backupSection, icon: 'backup' },
   ] },
@@ -145,6 +147,7 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
       : <div className="settings-body">
         {status}
         {section === 'appearance' && <AppearancePane workspace={snapshot.workspace} disabled={disabled} submit={submit} />}
+        {section === 'board' && <BoardPane disabled={disabled} submit={submit} />}
         {section === 'shortcuts' && <ShortcutsPane />}
         {section === 'smart' && <SmartPane smart={smart} />}
         {section === 'insight' && <InsightPane snapshot={snapshot} status={smart.status} openSmart={() => setSection('smart')} />}

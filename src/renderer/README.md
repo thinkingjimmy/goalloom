@@ -18,7 +18,8 @@ renderer/
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧三组导航（偏好/工作区/条目）+ 页头说明 + 分组卡片的设置弹窗；外观含语言
 │   │       ├── Settings.tsx     # 容器：分组导航与状态提示、页头（说明/恢复默认/结束方式）、备份/批次/数量读取、数据动作与预览状态
-│   │       ├── AppearancePane.tsx # 语言/风格/复选框/明暗分段、关系线开关；完成撒花为一行：五列多选按钮 +「试一下」预览
+│   │       ├── AppearancePane.tsx # Language, visual styles, theme and device relation-line switch
+│   │       ├── BoardPane.tsx      # Device parent-order switch, atomic disable/materialization and per-column completion-confetti preview
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
 │   │       ├── SmartPane.tsx    # 智能输入：状态卡、服务单选列表（Key 更换/删除，表单在行下展开）、隐私要点
 │   │       ├── InsightPane.tsx  # 洞察：断点/复盘开关与引导重看、关于我（本机）、拆解步长与补充、复盘语气与关注、试一试（不写入）与只读完整提示词
@@ -43,28 +44,32 @@ renderer/
 │   │   ├── decompose.ts     # 「拆下一步」唯一写入路径：模型起草后 create / insertBetween，⇧ 或无模型时打开预填新建（断点与右键共用）
 │   │   ├── EmptyCard.tsx    # 空列卡：为上一列各起一步（批量预填）或自己写
 │   │   ├── review.ts        # 复盘纯规则：入口（最后一天 / 次日一次，周月同日合并）、目标×周期、信号、排下一期候选
-│   │   ├── ReviewDrawer.tsx # Review → wrap up → plan month/week → finish; one summary request across effect replay, live subscription guards and period-scoped writes
+│   │   ├── ReviewDrawer.tsx # Review → wrap up → plan month/week → finish; period-scoped writes and a cached summary card
+│   │   ├── ReviewSummary.tsx # Context-aware summary loading, manual refresh, retained results on failure and retry feedback
 │   │   └── insight.css      # 断点、引导、空列卡、复盘入口与抽屉样式（仅 token）
 │   ├── smart/
 │   │   ├── JevConnect.tsx   # 服务单选、Key、同意、测试并启用（Onboarding/设置共用；提交按钮可渲染到底栏）
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── JevStep.tsx      # 首次流程第 3 步：先看示例，选择连接才填 Key，通过或跳过都进入看板
 │   ├── board/
-│   │   ├── Board.tsx        # Current/future editing, read-only history, period-bound drafts/drop targets and focus-preserving navigation
+│   │   ├── Board.tsx        # Unified past/current/future navigation, period-bound drafts/drop targets and preserved navigation focus
+│   │   ├── useBoardDrag.ts # Group-bounded drag and pending-drop placement projection
+│   │   ├── usePeriodMotion.ts # Cancellable directional content entry after data readiness; reduced-motion/visibility cleanup and overlay synchronization
+│   │   ├── RowMotion.tsx  # Interruptible outer-row FLIP and finite overlay geometry updates
 │   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, logical keyboard traversal and focus/drag/menu pinning
-│   │   ├── visibility.ts  # Post-layout title visibility within the clipped board; ignores dialog coverage and flow dimming
-│   │   ├── TaskRow.tsx      # 单行卡片：流程圆点、流程描边复选框、标题与截止/说明/顺延提示，点亮时铺流程底色
+│   │   ├── visibility.ts  # Post-layout title visibility in the selected current/future/past period, with pending reads and offscreen destination feedback
+│   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, titles, due/description indicators and flow-tinted highlights
 │   │   ├── TaskMenu.tsx     # Grouped TODO context menu: next period / move to… (upcoming periods), next step / link a parent, complete / delete; keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # 复选框前的流程圆点：起点改色、下级改上级、独立条目二选一；悬停预览流程；Later 不显示
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
 │   │   ├── QuickAdd.tsx     # Explicit-period creation, per-period drafts, expired-input recovery and horizon-valid flow choices
-│   │   ├── HistoryColumn.tsx # 独立列只读历史：分页读取、完成摘要与分段条、按期末结果分组的行（去向/当前变化/时钟回拨）、周期标题选择浮层
-│   │   ├── period-labels.ts # 当前列头与往期标题的周期文案（看板与首次流程预览共用）
+│   │   ├── PastPeriod.tsx   # Live past-task groups, completion/reopening/restore, guarded paging and focus retention
+│   │   ├── period-labels.ts # Relative adjacent headings, date-only distant/cycle headings and year-free dates shared with setup
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
-│   │   ├── ItemDetail.tsx   # Draft-safe details, actual-period labels/locating, lifecycle/relations and moves back to current
+│   │   ├── ItemDetail.tsx   # Draft-safe details, focus-preserving completion, actual-period locating, lifecycle/relations and moves back to current
 │   │   ├── DuePicker.tsx    # 截止日快捷选项与日期输入
-│   │   ├── RelationPicker.tsx # 上级/下级勾选列表（详情与看板圆点共用）：只列周期合规的候选，流程根不能作下级
+│   │   ├── RelationPicker.tsx # Board-ordered parent/child candidates and search matches shared by detail/flow-dot menus; longer-horizon guards and linked-first priority
 │   │   ├── FlowPicker.tsx   # 详情标题前的流程色点；FlowColorMenu 为色板本体，看板圆点复用
 │   │   └── Activity.tsx     # 按真实事件序列分页查看活动
 │   └── setup/
@@ -86,16 +91,18 @@ renderer/
 │   └── ui/                 # shadcn Button, Radix Select and Context Menu; shared menu tokens and MIT attribution
 ├── state/
 │   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
-│   ├── board-periods.ts    # Generation/selection/revision-isolated future reads, live-calendar normalization and shared visible candidates
+│   ├── board-periods.ts    # Generation/selection/revision-isolated future reads, atomic return from history, transitive parent ordering and shared visible candidates
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
-│   ├── flows.ts            # 快照派生的流程列表与颜色；只缓存有归属条目，独立条目共享空结果
+│   ├── flows.ts            # Board-ordered flow filters and shortcuts; topology/color caches survive row reordering, unrelated items share empty results
 │   ├── columns.ts          # 本机列显示偏好（localStorage，至少一列，不入工作区）
 │   ├── relation-lines.ts   # 本机关系线开关（localStorage，默认开，只存关闭，不入工作区）
+│   ├── parent-order.ts    # Device-only preference and generation/revision-bound completion of materialization
 │   ├── celebration.ts      # 本机逐列撒花偏好（默认周/月/3个月）、设置页预览信号与系统减少动态效果订阅
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
 │   ├── smart.ts            # 设备侧智能输入状态与动作（代次变化即重读）
 │   ├── insight.ts          # 本机流程洞察偏好（localStorage，不入工作区）：关于我/步长/语气/关注、断点与复盘开关、引导与已复盘标记；draft/review 请求
+│   ├── review-summary.ts   # Up to 24 device-local period summaries, exact-prompt fingerprints, shared requests and generation invalidation
 │   ├── feedback.ts         # Command feedback policy, committed destinations, partial-restore warnings and reading durations
 │   └── use-workspace.ts    # Authoritative snapshots, post-layout feedback, completion events, session undo and receipt recovery
 ├── i18n/
@@ -105,7 +112,7 @@ renderer/
 └── lib/
     ├── colors.ts            # 八组固定配对色板、色名与流程描边值
     ├── dates.ts             # 纯日历日加减与月末（本地化格式在 i18n/format）
-    ├── periods.ts           # Current/next/concrete destination names and absolute date ranges shared by board, search, details and feedback
+    ├── periods.ts           # Previous/current/next/concrete destination names and absolute date ranges shared by board, search, details and feedback
     ├── timezones.ts         # IANA 时区的 GMT 偏移标签
     └── utils.ts             # Tailwind class 合并
 ```
@@ -114,9 +121,11 @@ renderer/
 
 取消/失败不乐观伪造业务结果。UndoSession 只保存已提交的用户操作 ID；历史与业务数据不复制进本地状态。未保存草稿保留到明确保存或放弃；整库代次更换销毁旧弹窗、Toast、栈与缓存。链接预览只派生显示，任务原文、版本、历史与编辑字段不受影响；卡片图片来自 main 返回的受限 raster data URL，renderer 不请求远程页面。
 
-On hover-capable fine pointers, current-column history, next-period and add actions appear only while their column is hovered or a header control has visible keyboard focus. Hidden actions keep their layout space and Tab order. Non-hover inputs keep the actions visible; future/history navigation and return controls remain visible.
+Each time column keeps dates and a contextual return/review action inline between compact arrows. Header dates omit years, with absolute dates in tooltips; distant periods and non-current three-month cycles use the date itself as the heading. Navigation and quick add appear on column hover or header keyboard focus without layout shift; touch controls remain visible. Pointer navigation brings ready content in from the time direction over 220ms, cancelling superseded motion and synchronizing overlays. Keyboard navigation and reduced motion remain immediate. Past rows use live unfinished/completed/deleted tasks still placed in that period; completion/reopening and restore update groups without rewriting period-end history. Paging is filtered before totals and recovers from an emptied last page. Keyboard focus follows navigation and direct state changes.
 
-`useBoardPeriods` keeps the global current snapshot separate from at most one selected future period per visible horizon. Responses are isolated by workspace generation, selection and revision; stale rows stay disabled until refreshed. Writes bind the displayed start date, and visibility feedback waits for this refresh. Period selections and drafts are session-only and reset with the workspace generation. Product rules and failure scenarios live in [period planning](../../docs/features/period-planning.md).
+`useBoardPeriods` keeps the global current snapshot separate from at most one selected future period per visible horizon. Explicit top-bar filter choices and valid filter shortcuts return all past selections to current, including repeated selections, while keeping future periods and drafts. The shortcut resolves the flow identity before navigation changes its position. Period changes reset column scroll. Responses are isolated by workspace generation, selection and revision; stale rows stay disabled until refreshed. Writes bind the displayed start date, and visibility feedback waits for this refresh. Period selections and drafts are session-only and reset with the workspace generation. Product rules and failure scenarios live in [period planning](../../docs/features/period-planning.md).
+
+Column scrollbars sit at the right column boundary and appear only while that column, including its header, is hovered. Retained task focus does not keep them visible. Compensating content padding preserves task widths, wrapping and row alignment.
 
 Under a selected flow, cycle TODO rows show their flow dot only on row hover, keyboard focus or while its menu is open. Checkbox alignment, other columns, completed rows and unfiltered flow previews keep their existing behavior.
 

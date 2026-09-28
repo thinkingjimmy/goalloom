@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Sandboxed Electron bridge and shared wire schemas.
- * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, actual-period details and bounded link responses.
+ * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, live past-period pages, actual-period details and bounded link responses.
  * [POS]: Only renderer/main bridge; no Node capabilities, generic channels or file paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,7 +9,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { languageChannel, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
 import { activitySummarySchema, backupSummarySchema, boardPeriodsSchema, itemCountsSchema, detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
 import { replySchema, resultSchema } from '../shared/contracts/commands'
-import { activitySchema, historyIndexSchema, historyPageSchema } from '../shared/contracts/history'
+import { activitySchema, historyIndexSchema, historyPageSchema, pastPeriodPageSchema } from '../shared/contracts/history'
 import { batchPageSchema, batchSchema, dataReplySchema } from '../shared/contracts/transfer'
 import { smartChannel, smartReplySchema } from '../shared/contracts/smart-input'
 import { setValidationLocale } from '../shared/i18n/validation'
@@ -35,6 +35,7 @@ const api: GoalloomApi = {
   getItem: async itemId => query({ type: 'item', itemId }, detailSchema),
   listItems: async query => readQuery(query, itemPageSchema),
   getHistory: async query => readQuery(query, historyPageSchema),
+  getPastPeriod: async query => readQuery(query, pastPeriodPageSchema),
   getHistoryIndex: async horizon => query({ type: 'historyIndex', horizon }, historyIndexSchema),
   getActivity: async query => readQuery(query, activitySchema),
   getBatches: async () => query({ type: 'batches' }, batchSchema.array()),

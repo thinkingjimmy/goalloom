@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Authoritative current snapshot, visible columns and explicit period selections.
- * [OUTPUT]: Generation-scoped planning views, refreshed future summaries, shared candidates and locate requests.
+ * [OUTPUT]: Generation-scoped planning views, atomic return from past selections, parent-order projections, revision-bound materialization and shared candidates/locate requests.
  * [POS]: Board view state; current snapshots and closed-period history keep their independent read paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,13 +9,16 @@ import { compareInstants } from '../../domain/calendar'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../shared/contracts/entities'
 import type { BoardPeriods, Snapshot } from '../../shared/contracts/queries'
 import { desktopApi } from './use-workspace'
+import { buildParentOrder } from '../../domain/parent-order'
+import { finishParentOrder, useParentOrder } from './parent-order'
 
 type Selection = Partial<Record<ItemHorizon, PlanningPeriod>>
 const empty: Selection = {}
 export type PeriodMode = 'current' | 'future' | 'history'
 
 export function useBoardPeriods(snapshot: Snapshot | null, columns: ItemHorizon[]) {
-  const generation = snapshot?.workspace.generation ?? '', revision = snapshot?.workspace.revision ?? 0
+  const ordering = useParentOrder()
+  const generation = snapshot?.workspace.generation ?? '', revision = snapshot?.workspace.revision ?? 0, observedAt = snapshot?.observedAt
   const [selected, setSelected] = useState<{ generation: string; periods: Selection }>({ generation, periods: {} })
   const selection = selected.generation === generation ? selected.periods : empty
   const [loaded, setLoaded] = useState<{ key: string; selectionKey: string; data: BoardPeriods | null; failed: boolean }>({ key: '', selectionKey: '', data: null, failed: false })
@@ -53,14 +56,24 @@ export function useBoardPeriods(snapshot: Snapshot | null, columns: ItemHorizon[
   const failed = fresh && loaded.failed
   const data = loaded.selectionKey === selectionKey ? loaded.data : null
   const loading = (horizon: ItemHorizon) => mode(horizon) === 'future' && columns.includes(horizon) && !fresh
-  const items = useMemo(() => {
+  const rawItems = useMemo(() => {
     const current = (snapshot?.items ?? []).filter(item => !selection[item.placement.horizon] || selection[item.placement.horizon]?.id === item.placement.periodId)
     const live = new Map((snapshot?.items ?? []).map(item => [item.id, item]))
     const future = (data?.items ?? []).filter(item => periods[item.placement.horizon]?.id === item.placement.periodId && !live.has(item.id))
     return [...current, ...future]
   }, [snapshot?.items, selection, periods, data])
-  const candidates = useMemo(() => [...new Map([...(snapshot?.items ?? []), ...items].map(item => [item.id, item])).values()], [snapshot?.items, items])
-  const rolloverSources = useMemo(() => ({ ...snapshot?.rolloverSources, ...data?.rolloverSources }), [snapshot?.rolloverSources, data])
+  const orderNodes = useMemo(() => {
+    const sources = data && data.revision > revision ? [snapshot?.orderNodes ?? [], data.orderNodes] : [data?.orderNodes ?? [], snapshot?.orderNodes ?? []]
+    return [...new Map(sources.flat().map(node => [node.id, node])).values()]
+  }, [snapshot?.orderNodes, data, revision])
+  const order = useMemo(() => buildParentOrder(orderNodes, snapshot?.relations ?? [], snapshot?.observedAt ?? ''), [orderNodes, snapshot?.relations, snapshot?.observedAt])
+  const parentOrder = ordering.enabled || ordering.pending?.generation === generation
+  const items = useMemo(() => parentOrder ? order.sort(rawItems) : rawItems, [rawItems, order, parentOrder])
+  useEffect(() => { finishParentOrder(generation, revision, requested.length === 0 || fresh && !failed) }, [generation, revision, fresh, failed, requestJson, ordering.pending])
+  const candidates = useMemo(() => {
+    const combined = [...new Map([...(snapshot?.items ?? []), ...items].map(item => [item.id, item])).values()]
+    return parentOrder ? order.sort(combined) : combined
+  }, [snapshot?.items, items, parentOrder, order])
   const choose = useCallback((horizon: ItemHorizon, period: PlanningPeriod | null) => {
     setSelected(previous => {
       const next = previous.generation === generation ? { ...previous.periods } : {}
@@ -68,13 +81,26 @@ export function useBoardPeriods(snapshot: Snapshot | null, columns: ItemHorizon[
       return { generation, periods: next }
     })
   }, [generation])
+  const returnPastToCurrent = useCallback(() => {
+    if (!observedAt) return
+    setSelected(previous => {
+      if (previous.generation !== generation) return previous
+      const next = { ...previous.periods }
+      let changed = false
+      for (const period of Object.values(next)) if (compareInstants(period.endAt, observedAt) <= 0) {
+        delete next[period.horizon]
+        changed = true
+      }
+      return changed ? { generation, periods: next } : previous
+    })
+  }, [generation, observedAt])
   const locate = (item: Pick<ItemSummary, 'id' | 'placement'>, period: PlanningPeriod | null) => {
     const current = snapshot?.periods.find(value => value.horizon === item.placement.horizon)
     choose(item.placement.horizon, period?.id === current?.id ? null : period)
     setLocating(previous => ({ generation, id: item.id, seq: (previous?.seq ?? 0) + 1 }))
   }
   const finishLocate = useCallback((seq: number) => setLocating(previous => previous?.seq === seq ? null : previous), [])
-  return { periods, mode, items, candidates, rolloverSources, loading, failed, retry: () => setAttempt(value => value + 1), choose, locate, finishLocate, locating: locating?.generation === generation ? locating : null }
+  return { periods, mode, items, rawItems, order, orderNodes, parentOrder, candidates, loading, failed, retry: () => setAttempt(value => value + 1), choose, returnPastToCurrent, locate, finishLocate, locating: locating?.generation === generation ? locating : null }
 }
 
 export type BoardView = ReturnType<typeof useBoardPeriods>

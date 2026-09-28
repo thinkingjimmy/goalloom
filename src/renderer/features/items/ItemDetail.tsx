@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Item ID, authoritative detail/period, workspace clock, visible candidates, flow views and actions.
- * [OUTPUT]: Editable details, real-period location/move controls, saved links and revision-safe save feedback.
+ * [OUTPUT]: Editable details, focus-preserving completion, real-period location/move controls, saved links and revision-safe save feedback.
  * [POS]: Full-body detail boundary; refresh and save receipts preserve newer drafts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -120,8 +120,9 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
       }}>
         <div className="detail-title">
           {!later && <FlowPicker item={item} hasParents={parents.length > 0} flows={flows} busy={busy} readOnly={readOnly} open={pop === 'flow'} setOpen={open => setPop(open ? 'flow' : null)} submit={submit} />}
-          <button type="button" className="check large" data-checked={done} style={ring} disabled={busy || readOnly || item.status === 'cancelled'}
-            aria-label={done ? messages.reopenAction : messages.markDone} onClick={() => void submit({ type: 'status', itemId, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
+          {/* Native disabling during save would move keyboard focus out of the dialog. */}
+          <button type="button" className="check large" data-checked={done} style={ring} disabled={readOnly || item.status === 'cancelled'} aria-disabled={busy || readOnly || item.status === 'cancelled'}
+            aria-label={done ? messages.reopenAction : messages.markDone} onClick={() => { if (!busy) void submit({ type: 'status', itemId, expectedVersion: item.version, status: done ? 'todo' : 'done' }) }}>
             {done && <Icon name="check" size={14} strokeWidth={2.5} />}
           </button>
           <div className="title-line">

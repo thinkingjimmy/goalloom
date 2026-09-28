@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Production Electron build and an isolated Repository/SQLite planning fixture.
  * [OUTPUT]: Repeatable UI assertions, screenshots and environment/boundary JSON in output/tests/periods.
- * [POS]: Focused desktop acceptance; no renderer API replacement or production test clock.
+ * [POS]: Focused desktop acceptance; fixture refresh emits a main-process notification without native activation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
@@ -13,13 +13,17 @@ import { build } from 'vite'
 import electronPath from 'electron'
 import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
+import { verifyPeriodNavigation } from './fixtures/period-navigation.mjs'
 
 const evidence = resolve('output/tests/periods')
+const navigationOnly = process.argv.includes('--navigation')
+const packaged = process.argv.slice(2).find(argument => !argument.startsWith('--'))
+const reportName = navigationOnly ? 'navigation-report.json' : 'report.json'
 await mkdir(evidence, { recursive: true })
 await build({ configFile: false, build: { outDir: 'output/tests/build/periods', emptyOutDir: false, lib: { entry: 'tests/desktop/fixtures/periods-seed.ts', formats: ['cjs'], fileName: () => 'periods-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
 const profile = await mkdtemp(join(tmpdir(), 'goalloom-periods-'))
 const checks = [], screenshots = [], errors = []
-const report = { packaged: Boolean(process.argv[2]), checks, screenshots, os: { version: version(), release: release(), arch: arch(), cpu: cpus()[0]?.model, machineScope: 'Host OS reported; physical/VM status not independently verified' }, scope: 'Production bridge and isolated database; packaged/Windows acceptance only when explicitly run there. Calendar boundaries use the Repository fixture clock.', passed: false }
+const report = { packaged: Boolean(packaged), navigationOnly, checks, screenshots, os: { version: version(), release: release(), arch: arch(), cpu: cpus()[0]?.model, machineScope: 'Host OS reported; physical/VM status not independently verified' }, scope: 'Production bridge and isolated database; packaged/Windows acceptance only when explicitly run there. Calendar boundaries use the Repository fixture clock.', passed: false }
 let application
 try {
   const seed = spawnSync(electronPath, ['output/tests/build/periods/periods-seed.cjs', profile, join(evidence, 'boundaries.json')], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
@@ -28,14 +32,14 @@ try {
   const { ids, current, next } = fixture
   await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
   const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
-  const options = process.argv[2] ? { executablePath: resolve(process.argv[2]), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
+  const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
   const launch = () => electron.launch({ ...options, env: environment })
   application = await launch()
   let page = await application.firstWindow()
   page.setDefaultTimeout(12000)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   page.on('pageerror', error => errors.push(error.message))
-  await application.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.setSize(1880, 1000); window.show(); window.focus() })
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1880, 1000))
   await page.locator('.board').waitFor()
   await application.evaluate(({ shell }) => {
     globalThis.periodExternalCalls = []
@@ -71,6 +75,10 @@ try {
     return before
   }
 
+  report.navigation = await verifyPeriodNavigation(page, column, evidence)
+  checks.push('Inline dates, contextual return buttons, directional content motion, rapid reversal, keyboard and reduced-motion behavior')
+
+  if (!navigationOnly) {
   await row(ids.later).locator('.task-title').click({ button: 'right' })
   assert.equal(await page.locator('.context-menu').count(), 0)
   await column('week').locator('summary').click()
@@ -134,6 +142,16 @@ try {
   await column('week').locator('.quick-add input').fill('Future draft kept')
   await moveNext('week')
   await column('week').getByRole('button', { name: '查看本周上一期', exact: true }).click(); await settled('week')
+  await column('week').locator('[data-add-item]').click()
+  assert.equal(await column('week').locator('.quick-add input').inputValue(), 'Future draft kept')
+  await page.keyboard.press('Escape')
+  await column('week').locator('[data-return-current]').click()
+  await column('week').locator('[data-previous-period]').click()
+  await page.waitForFunction(() => document.querySelector('[data-horizon="week"]')?.getAttribute('aria-busy') === 'false')
+  assert.equal(await column('week').getAttribute('data-period-mode'), 'history')
+  await column('week').locator('[data-next-period]').click()
+  assert.equal(await column('week').getAttribute('data-period-mode'), 'current')
+  await moveNext('week')
   await column('week').locator('[data-add-item]').click()
   assert.equal(await column('week').locator('.quick-add input').inputValue(), 'Future draft kept')
   await page.keyboard.press('Escape')
@@ -205,7 +223,7 @@ try {
   await thisWeek.click()
   await pollPage(page, async ({ id, period }) => (await window.goalloom.getItem(id)).item.placement.periodId === period, { id: ids.week, period: current.find(period => period.horizon === 'week').id })
   await page.locator('dialog.detail').getByRole('button', { name: '关闭', exact: true }).click()
-  await column('week').getByRole('button', { name: '返回本期', exact: true }).click()
+  await column('week').getByRole('button', { name: '回到本周', exact: true }).click()
   await row(ids.week).waitFor()
   await page.keyboard.press('ControlOrMeta+z')
   await pollPage(page, async ({ id, period }) => (await window.goalloom.getItem(id)).item.placement.periodId === period, { id: ids.week, period: further.id })
@@ -260,6 +278,28 @@ try {
     const text = await page.locator('.context-menu').innerText()
     if (['en', 'es', 'fr'].includes(locale)) assert(!/[一-鿿]/.test(text), `${locale} context menu must be translated`)
     await shot(`context-menu-${locale}`); await page.keyboard.press('Escape')
+    for (const horizon of ['cycle', 'month', 'week', 'day']) {
+      const header = column(horizon).locator('.column-header')
+      assert.equal(await header.locator('[data-previous-period]').count(), 1)
+      assert.equal(await header.locator('[data-next-period]').count(), 1)
+      assert(await header.locator('[data-previous-period]').getAttribute('aria-label'))
+      const navigation = await header.locator('.period-nav').boundingBox()
+      const previousButton = await header.locator('[data-previous-period]').boundingBox()
+      const nextButton = await header.locator('[data-next-period]').boundingBox()
+      const heading = await header.locator('.period-heading').boundingBox()
+      const action = header.locator('[data-review], [data-return-current]')
+      const content = await action.count() ? await action.boundingBox() : heading
+      assert(previousButton.x >= navigation.x && nextButton.x + nextButton.width <= navigation.x + navigation.width + 1, `${locale} period controls fit their column`)
+      assert(heading.x - previousButton.x - previousButton.width <= 8 && nextButton.x - content.x - content.width <= 8, `${locale} arrows hug the header content`)
+      const add = await header.locator('.column-add-slot').boundingBox()
+      assert(nextButton.x + nextButton.width <= add.x, `${locale} navigation leaves room for quick add`)
+      assert.equal(await header.locator('.period-heading .column-meta').count(), horizon === 'week' || horizon === 'cycle' ? 0 : 1, `${locale} distant dates and non-current cycles are the heading`)
+      assert(!/\b20\d{2}\b/.test(await header.locator('.period-heading').innerText()), `${locale} header dates omit years`)
+      const currentLabels = { en: ['Back to current period', 'Back to this month', 'Back to this week', 'Back to today'], ja: ['今期に戻る', '今月に戻る', '今週に戻る', '今日に戻る'], es: ['Volver al período actual', 'Volver a este mes', 'Volver a esta semana', 'Volver a hoy'], fr: ['Revenir à la période actuelle', 'Revenir à ce mois', 'Revenir à cette semaine', 'Revenir à aujourd’hui'], zh: ['回到当期', '回到本月', '回到本周', '回到今日'] }
+      if (await header.locator('[data-return-current]').count()) assert.equal(await header.locator('[data-return-current]').innerText(), currentLabels[locale][['cycle', 'month', 'week', 'day'].indexOf(horizon)])
+      if (['en', 'es', 'fr'].includes(locale)) assert(!/[一-鿿]/.test(await header.innerText()), `${locale} period header must be translated`)
+    }
+    await shot(`timeline-${locale}`)
   }
   checks.push('Five translated menus, dark theme and context-menu row pinning in a 91-item virtual future column')
   assert.deepEqual(errors, [])
@@ -277,8 +317,8 @@ try {
   const generation = (await page.evaluate(() => window.goalloom.getSnapshot())).workspace.generation
   const data = async action => {
     const reply = await page.evaluate(action => window.goalloom.data(action), { ...action, generation })
-    // Raw transfer IPC does not refresh React like Settings does; native refocus runs the production reconciliation path.
-    await application.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.blur(); window.focus() })
+    // Raw transfer IPC bypasses Settings refresh; notify the production handler without activating the window.
+    await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit('focus'))
     return reply
   }
   const backup = await data({ type: 'createBackup' })
@@ -309,9 +349,10 @@ try {
   assert.equal((await item(ids.week)).period.id, further.id)
   await shot('future-after-restore')
   checks.push('Maintenance blocks repeated writes, cancellation preserves the draft, workspace restore clears period selections/drafts/feedback and rejects the old generation')
+  }
   assert.deepEqual(errors, [])
   report.rendererErrors = errors; report.passed = true
-  await writeFile(join(evidence, 'report.json'), JSON.stringify(report, null, 2))
+  await writeFile(join(evidence, reportName), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
 } catch (error) {
   report.error = String(error)
@@ -320,7 +361,7 @@ try {
     await page?.screenshot({ path: join(evidence, 'failure.png') }).catch(() => undefined)
     if (page) await writeFile(join(evidence, 'failure.txt'), await page.locator('body').ariaSnapshot().catch(() => 'Unavailable'))
   }
-  await writeFile(join(evidence, 'report.json'), JSON.stringify(report, null, 2))
+  await writeFile(join(evidence, reportName), JSON.stringify(report, null, 2))
   throw error
 } finally {
   await application?.close()

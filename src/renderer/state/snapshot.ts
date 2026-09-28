@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Consecutive authoritative snapshots from one workspace generation.
- * [OUTPUT]: Shared references for unchanged summaries, periods, topology, and flow roots.
+ * [OUTPUT]: Shared references for unchanged summaries, ancestor order nodes, periods, topology and flow roots.
  * [POS]: Renderer read-model reconciliation; never changes versions or business data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,5 +22,6 @@ export function shareSnapshot(previous: Snapshot | null, next: Snapshot): Snapsh
     relations: share(previous.relations, next.relations, row => row.id),
     flows: share(previous.flows, next.flows, row => row.id),
     policies: share(previous.policies, next.policies, row => row.horizon),
+    orderNodes: share(previous.orderNodes, next.orderNodes, row => row.id),
   }
 }

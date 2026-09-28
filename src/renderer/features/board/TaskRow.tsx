@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Visible summary/period, flow colors, topology/candidates, status indicators, upcoming destinations, an optional decompose action and guarded actions.
- * [OUTPUT]: Accessible task row with saved links, flow dot, pointer/keyboard drag and TODO context menu; lit rows carry `data-lit` and `--row-tint`.
+ * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
+ * [OUTPUT]: Accessible task row with saved links, due/description indicators, flow dot, pointer/keyboard drag and TODO context menu; lit rows carry `data-lit` and `--row-tint`.
  * [POS]: One virtual board row; Board owns placement, preview and dimming, detail loading owns description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -21,14 +21,14 @@ import { LinkPreviews } from '../../components/links/LinkPreviews'
 import { linkUrls } from '../../components/links/parse'
 import { TaskMenu, type Upcoming } from './TaskMenu'
 
-export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, rolloverFrom, selected, dimmed, tint, disabled, select, submit, onPreview, upcoming, decompose, onMenu, onMoved }: {
-  index: number; total: number; item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]; today: string; rolloverFrom: string | undefined
+export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, select, submit, onPreview, upcoming, decompose, onMenu, onMoved }: {
+  index: number; total: number; item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]; today: string
   selected: boolean; dimmed: boolean; tint: string | undefined; disabled: boolean
   select: (id: string) => void; submit: (action: Action) => Promise<unknown>; onPreview: (itemId: string | null) => void
   upcoming: Upcoming[] | null; decompose: ((item: ItemSummary) => void) | null; onMenu: (id: string | null) => void; onMoved: (id: string) => void
 }) {
   useLocale()
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled, animateLayoutChanges: () => false })
   const done = item.status === 'done'
   const ring = done ? undefined : flowVars(flows.colorsOf(item.id))
   const owners = flows.of(item.id).map(flow => flow.title).join(messages.listJoin)
@@ -36,7 +36,6 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
   const hasLinks = useMemo(() => linkUrls(item.title).length > 0, [item.title])
   const line = <div className="task-line">
     {hasLinks ? <LinkTitle text={item.title} onOpen={() => select(item.id)} /> : <button className="task-title" title={item.title} onClick={() => select(item.id)}><span>{item.title}</span></button>}
-    {rolloverFrom && <span className="row-meta" title={messages.rolloverTitle(rolloverFrom)}>{messages.rolloverMark}</span>}
     {item.dueDate && !overdue && !done && <span className="row-meta tabular" title={`${messages.dueDate} ${longDate(item.dueDate)}`}>{shortDate(item.dueDate)}</span>}
     {overdue && <span className="row-icon overdue" role="img" aria-label={messages.dueOverdue(longDate(item.dueDate!))} title={messages.dueOverdue(longDate(item.dueDate!))}><Icon name="overdue" size={16} /></span>}
     {item.hasDescription && !done && <span className="row-icon" role="img" aria-label={messages.noteMark} title={messages.noteMark}><Icon name="note" size={16} /></span>}

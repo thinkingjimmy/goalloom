@@ -33,8 +33,6 @@
 .link-carousel-controls button { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
 .link-carousel-controls button:hover:not(:disabled) { background: var(--hover); }
 .link-carousel-controls button:disabled { opacity: .35; cursor: default; }
-.history-item-links { cursor: default; }
-.history-item-links .link-previews { margin-top: 7px; }
 .backlog-row-links { align-items: flex-start; }
 .backlog-row-links > input { margin-top: 2px; }
 .backlog-link-content { flex: 1; min-width: 0; }

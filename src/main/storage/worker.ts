@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Main-owned file paths, locale, injected clock and narrow internal RPC.
- * [OUTPUT]: Serialized SQLite commands, current/selected-period reads, worker-local transfer and typed failures.
+ * [OUTPUT]: Serialized SQLite commands, current/future/live-past reads, immutable history, worker-local transfer and typed failures.
  * [POS]: Storage composition root; protected migrations finish before requests and cloud work stays outside the queue.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,7 +15,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { openWorkspace, StartupError } from './startup'
 import { Repository } from '../workspace/repository'
 import { activitySummary, batchPage, batchSummaries, itemCounts } from '../workspace/queries'
-import { readActivity, readHistory, readHistoryIndex } from '../workspace/history'
+import { readActivity, readHistory, readHistoryIndex, readPastPeriod } from '../workspace/history'
 import { readBoardPeriods } from '../workspace/periods'
 import { WorkspaceService } from '../workspace/transfer/service'
 import { readJson, writeDataset } from '../workspace/transfer/files'
@@ -63,6 +63,7 @@ function handle(method: string, argument: unknown): unknown {
     case 'item': return repository.detail(query.itemId)
     case 'list': return repository.list(query)
     case 'history': return readHistory(repository.store, query, repository.clock.now())
+    case 'pastPeriod': return readPastPeriod(repository.store, query, repository.clock.now())
     case 'historyIndex': return readHistoryIndex(repository.store, query, repository.clock.now())
     case 'activity': return readActivity(repository.store, query)
     case 'batches': return batchSummaries(repository.store)

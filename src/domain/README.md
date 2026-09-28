@@ -7,6 +7,7 @@ domain/
 ├── calendar.ts   # 日/周/月/原锚点三个月区间、固定 IANA 边界
 ├── temporal.ts   # 锁定 Electron 44 原生 Temporal 边界；polyfill 仅供开发期类型，不进入运行包
 ├── relations.ts  # 多父 DAG，线性整图拓扑校验与增量防环；新建关联的周期规则（上级周期更长、Later 不参与）
+├── parent-order.ts # Deterministic nearest-parent ordering, historical/manual boundaries and stable transitive groups
 ├── flows.ts      # 流程归属：图内祖先缓存解析流程根，图外条目共享空结果，不保留累计访问身份
 ├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断
 ├── undo.ts       # 效果字段/关系身份/语义顺序匹配，不依赖整体版本

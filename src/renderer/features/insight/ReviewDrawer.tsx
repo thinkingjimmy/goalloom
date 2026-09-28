@@ -2,7 +2,7 @@
  * [INPUT]: The open ReviewDue (week, month or both), snapshot, flows, board view, insight readiness, guarded submission and a flow-filter setter.
  * [OUTPUT]: A right-side review drawer: look back (model summary + goal×period matrix or 3-month progress) → wrap up (push / postpone / archive)
  *           → plan the next month and/or week (drafted steps, editable, checked; createPlan into the next period) → done (result list, open next period).
- *           Finishing or skipping marks the reviewed periods on this device; effect replay shares one summary request and ignores disposed subscriptions.
+ *           Finishing or skipping marks the reviewed periods on this device; ReviewSummary owns persistent summaries and refresh feedback.
  * [POS]: features/insight 的复盘流程；每个写入仍是独立命令（顺延/归档/createPlan），可按原有会话撤销。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,17 +10,17 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import type { CommandResult } from '../../../shared/contracts/commands'
-import type { ReviewText } from '../../../shared/contracts/smart-input'
 import { horizonNames, insightMessages as t, messages } from '../../i18n'
 import type { Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import type { BoardView } from '../../state/board-periods'
-import { markReviewed, requestDraft, requestReview } from '../../state/insight'
+import { markReviewed, requestDraft } from '../../state/insight'
 import { flowStroke } from '../../lib/colors'
 import { periodDates, planningLabel } from '../../lib/periods'
 import { Icon } from '../../components/icons'
 import { boardDigest, periodText, type Planned } from './signals'
-import { goalRows, planCandidates, reviewedOpen, reviewSignals, type ReviewDue, type ReviewHorizon } from './review'
+import { goalRows, planCandidates, reviewedOpen, type ReviewDue, type ReviewHorizon } from './review'
+import { ReviewSummary } from './ReviewSummary'
 import './insight.css'
 import '../composer/composer.css'
 
@@ -35,14 +35,12 @@ export function ReviewDrawer({ due, snapshot, flows, view, ready, submit, busy, 
 }) {
   const steps = useMemo<Step[]>(() => due.scope === 'both' ? ['review', 'close', 'planMonth', 'planWeek', 'done'] : ['review', 'close', due.scope === 'week' ? 'planWeek' : 'planMonth', 'done'], [due.scope])
   const [step, setStep] = useState<Step>('review')
-  const [summary, setSummary] = useState<ReviewText | 'pending' | null>(ready ? 'pending' : null)
   const [decisions, setDecisions] = useState(new Map<string, Decision>())
   const [plans, setPlans] = useState<Record<ReviewHorizon, PlanRow[] | null>>({ week: null, month: null })
   const [drafting, setDrafting] = useState(false)
   const [fresh, setFresh] = useState<ItemSummary[]>([])
   const [result, setResult] = useState({ kept: 0, deferred: 0, archived: 0, planned: { week: 0, month: 0 } })
   const alive = useRef(true), working = useRef(false)
-  const pendingReview = useRef<ReturnType<typeof requestReview> | null>(null)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const calendar = snapshot.workspace.calendar!
   const target = due.month ?? due.week!
@@ -51,14 +49,6 @@ export function ReviewDrawer({ due, snapshot, flows, view, ready, submit, busy, 
   const primaryTarget = (horizon: ReviewHorizon) => due[horizon]!
   const stepName = (value: Step) => value === 'review' ? t.stepReview : value === 'close' ? (due.scope === 'both' ? t.stepCloseBoth : t.stepClose(horizonNames[target.horizon]))
     : value === 'planMonth' ? t.stepPlan(messages.nextPeriodNames.month) : value === 'planWeek' ? t.stepPlan(messages.nextPeriodNames.week) : t.stepDone
-
-  useEffect(() => {
-    if (!ready) return
-    let active = true
-    pendingReview.current ??= requestReview({ generation: snapshot.workspace.generation, scope: due.scope, board: boardDigest(snapshot, flows), signals: reviewSignals(snapshot, flows, due) })
-    void pendingReview.current.then(reply => { if (active) setSummary(reply.ok ? reply.value : null) })
-    return () => { active = false }
-  }, [])
 
   // --- Planning rows: drafted once per step; typed titles always win over a late draft. ---
   const openPlan = (horizon: ReviewHorizon) => {
@@ -139,7 +129,7 @@ export function ReviewDrawer({ due, snapshot, flows, view, ready, submit, busy, 
     <ol className="review-steps">{steps.map(value => <li key={value} aria-current={value === step ? 'step' : undefined}>{stepName(value)}</li>)}</ol>
     <div className="review-body">
       {step === 'review' && <>
-        {summary && <div className="review-summary" aria-live="polite"><Icon name="smart" size={16} />{summary === 'pending' ? <p>{t.summaryPending}</p> : <div><p className="review-headline">{summary.headline}</p>{summary.advice && <p>{summary.advice}</p>}</div>}</div>}
+        <ReviewSummary due={due} snapshot={snapshot} flows={flows} ready={ready} />
         {due.month && <section className="review-section"><h3>{t.goals(periodDates(snapshot.periods.find(period => period.horizon === 'cycle')!))}</h3>
           {goals.map(goal => <button key={goal.id} className="review-goal" onClick={() => setFilter(goal.id)}>
             <span className="review-mark" style={{ borderColor: flowStroke(goal.flowColor) }} /><span className="review-goal-title">{goal.title}</span>

@@ -10,7 +10,7 @@
 - 新建关联（关联上级、带上级新建、计划/拆解）要求上级在**周期严格更长**的计划列：3个月 → 本月 → 本周 → 今天。同列、反向和任一端在 Later 都拒绝，且不写入。
 - 详情「拆解下一步」把下级建到下一列；今天已是最短周期，与 Later 一样不提供拆解。
 - 只约束新建：移动、顺延、撤销、还原和导入保留已有关联；反向或跨 Later 的旧线照常显示，可在选择器里解除。
-- 选择器只列周期合规的候选（已关联的始终列出以便解除），最近的一列排前；详情与看板圆点共用同一选择器。
+- 选择器只列周期合规的候选（已关联的始终列出以便解除），最近的一列排前；开启[按上级自动排序](board-ordering.md)时，同列候选跟随看板顺序。详情与看板圆点共用同一选择器。
 
 ### 流程圆点
 
@@ -24,7 +24,7 @@
 
 ### 行与列
 
-- 列宽至少 356px、至多 440px；行底色离左右两侧竖线各 8px。
+- 列宽至少 356px、至多 440px；行底色离左右两侧竖线各 8px。滚动条贴近列的右侧分隔线，仅鼠标悬停该列（含列头）时显示，移出即隐藏，保留的任务焦点不使其常显；内容宽度、换行及行对齐保持不变。
 - 标题最多两行，超出以「…」截断，悬停显示全文；圆点、复选框、日期/图标与连线接点都对齐第一行。
 - 单行行高 40px，行间不画分隔线；行底色上下各留 2px，相邻两行的悬停/定位/流程底色之间的 4px 空隙就是唯一的分隔。
 
@@ -38,7 +38,7 @@
 - 多个上级各一条线，等重汇到同一入口圆点。
 - 悬停或键盘聚焦本流程的某项：它的全部祖先与后代链 100%、2px，其余线 12%；圆点预览时以该条目为链心。
 - 端点滚出本列视野：线停在列顶/列底，挂「↑/↓ N」标记（读屏：「上方还有 N 项相关」）；点击滚动到最近的那一项。未挂载的行（折叠的已完成、虚拟窗口外、历史模式列）不画线。已完成项展开时线降到 30%。
-- 切换筛选流程时线按列依次画出（每条 500ms，列间 70ms）；减少动态效果时直接显示。拖动时线与圆点隐藏，放下后按新位置重画。
+- 切换筛选流程时线按列依次画出（每条 500ms，列间 70ms）；减少动态效果时直接显示。拖动时线与圆点隐藏，放下后的重排过程中跟随卡片位置；[按上级自动排序](board-ordering.md)的连续重排也保持贴合。
 - 顶栏不放任何关系线入口。
 
 ## 工程契约
@@ -47,8 +47,8 @@
 - `src/renderer/state/relation-lines.ts`：`useRelationLines` 外部存储，localStorage `goalloom.relationLines`，只在关闭时存 `'false'`；不进入工作区数据、历史、导出或备份。
 - `src/renderer/features/board/Board.tsx`：持有圆点预览（120ms 离开缓冲），活跃流程 = 预览条目的流程，否则为筛选流程；据此给行 `dimmed` 与 `tint`（`flowTint`），并在「活跃 + 开关开」时挂载关系线（键为 `lines:<flow id>` 或 `lines:preview`，仅筛选时画入）。断点层使用独立的 `breakpoints:<flow id>` 键，避免同级键冲突使旧连线残留。`data-filtered` 区分顶栏筛选与临时预览，供 CSS 控制 3个月待办圆点的静止态显示。
 - `src/renderer/features/board/FlowDot.tsx`：行内圆点与浮层（`Popover floating` 经 portal 浮出列滚动区），复用 `FlowColorMenu` 与 `RelationPicker`；指针悬停与键盘 `:focus-visible` 触发预览，鼠标点击的焦点不触发。
-- `src/renderer/features/board/RelationLines.tsx`：从快照 `relations` 与 `flows.of` 求活跃流程内的边及颜色；几何读取已挂载行的 DOM 位置，经 MutationObserver（忽略自身）、ResizeObserver、捕获阶段 scroll 与 transitionend 以 rAF 合并重算。锚点取行首行（顶部 40px）的中线；路径由 `orthogonal()` 生成（经列间留白的竖直走线、圆角转折）；向前的边终点在下级流程圆点左边缘且不画端点；线层 `z-index` 在行之上；链高亮通过行上的 `data-chain-out`，活跃流程变化或卸载时清除。
-- 样式在 `styles.css` 的 Relation lines 与 Flow dot 段：`.column-content` 左右各延伸到离竖线 8px，行左内边距容纳圆点；行用透明上下边框 + `background-clip: padding-box` 留出 2px 空隙，行间无分隔线；`data-dimmed` / `data-chain-out` 只淡化行内容（不含拖动柄），`data-lit` + `--row-tint` 铺流程底色。
+- `src/renderer/features/board/RelationLines.tsx`：从快照 `relations` 与 `flows.of` 求活跃流程内的边及颜色；几何读取已挂载行的 DOM 位置，经 MutationObserver（忽略自身）、ResizeObserver、捕获阶段 scroll 与 transitionend 以 rAF 合并重算。共享 `RowMotion` 的有限动效帧信号直接更新路径和标记，结束即停止；React 提交后在布局阶段校准首帧。锚点取行首行（顶部 40px）的中线；路径由 `orthogonal()` 生成（经列间留白的竖直走线、圆角转折）；向前的边终点在下级流程圆点左边缘且不画端点；线层 `z-index` 在行之上；链高亮通过行上的 `data-chain-out`，活跃流程变化或卸载时清除。
+- 样式在 `styles.css` 的 Relation lines 与 Flow dot 段：`.column-content` 延伸到右侧列边界，以等量右内边距补偿保持内容宽度，行左内边距容纳圆点；行用透明上下边框 + `background-clip: padding-box` 留出 2px 空隙，行间无分隔线；`data-dimmed` / `data-chain-out` 只淡化行内容（不含拖动柄），`data-lit` + `--row-tint` 铺流程底色。
 
 ## 验收
 

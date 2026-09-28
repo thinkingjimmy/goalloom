@@ -105,7 +105,7 @@ export class Store {
     if (!next) throw new DomainError('conflict', serverText().errors.sortTargetGone)
     return { previous: this.neighbor(next, 'before', excludedId), next }
   }
-  position(item: Item): PositionEffect {
+  position(item: Pick<Item, 'placement'>): PositionEffect {
     return { horizon: item.placement.horizon, periodId: item.placement.periodId, previousId: this.neighbor(item.placement, 'before')?.itemId ?? null, nextId: this.neighbor(item.placement, 'after')?.itemId ?? null }
   }
   operation(id: string): Operation | null {

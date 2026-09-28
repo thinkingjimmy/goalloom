@@ -1,7 +1,13 @@
+/**
+ * [INPUT]: Real Electron, an isolated profile, production IPC fixtures and board interactions.
+ * [OUTPUT]: Relation-line/flow-dot assertions, board-ordered filter evidence and app-local failure diagnostics in JSON and screenshots.
+ * [POS]: Desktop flow acceptance; exercises live snapshots, keyboard moves and positional filter shortcuts.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
+import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
 import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
 
@@ -14,11 +20,12 @@ await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'z
 const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
 const application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 const shots = 'output/tests/screenshots'
+const errors = []
 try {
   const page = await application.firstWindow()
-  const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.setViewportSize({ width: 1600, height: 900 })
+  // Use the actual native viewport, including the host's screen-size constraints.
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1600, 900))
   await page.getByRole('button', { name: '先跳过', exact: true }).click()
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
   await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
@@ -43,9 +50,11 @@ try {
     await create('剪演示视频', 'week', other)
     const later = await create('以后再说', 'later')
     const loose = await create('整理报销单', 'week')
-    return { root, b, c, d, f, j, p, k, later, loose }
+    return { root, other, b, c, d, f, j, p, k, later, loose }
   })
   const board = page.getByRole('main', { name: '时间看板' })
+  // The draggable titlebar corner does not provide a reliable DOM pointer target.
+  const leaveBoard = () => page.getByRole('button', { name: '全部', exact: true }).hover()
   const edges = board.locator('.relation-edge')
   const dot = id => page.locator(`#item-${id} .flow-dot-button`)
   const waitForDotOpacity = (id, opacity) => page.waitForFunction(({ id, opacity }) => {
@@ -84,7 +93,7 @@ try {
   // Hover and tint paint only the ground, never the band, so the separation stays visible.
   await page.locator(`#item-${ids.c} .task-title`).hover()
   assert.deepEqual(await page.evaluate(ids => ids.map(id => getComputedStyle(document.getElementById(`item-${id}`)).backgroundClip), [ids.b, ids.c]), ['padding-box', 'padding-box'])
-  await page.mouse.move(5, 5)
+  await leaveBoard()
   // Columns keep a comfortable width, and a row's ground sits 8px from both column rules.
   const inset = await page.locator(`#item-${ids.d}`).evaluate(node => {
     const column = node.closest('.board-column').getBoundingClientRect(), r = node.getBoundingClientRect()
@@ -103,10 +112,15 @@ try {
 
   // Filtering hides the cycle TODO dot at rest, while hover, keyboard focus and the open menu keep it usable.
   const rootCheckbox = page.locator(`#item-${ids.root} .check`)
-  const checkboxBounds = await rootCheckbox.boundingBox()
+  // Hover may scroll the overflowing board; compare the checkbox's position inside its row.
+  const checkboxPosition = () => rootCheckbox.evaluate(node => {
+    const rect = node.getBoundingClientRect(), row = node.closest('.task-row').getBoundingClientRect()
+    return { x: rect.x - row.x, y: rect.y - row.y, width: rect.width, height: rect.height }
+  })
+  const checkboxBounds = await checkboxPosition()
   await page.locator(`#item-${ids.root} .task-title`).hover()
   await waitForDotOpacity(ids.root, '1')
-  assert.deepEqual(await rootCheckbox.boundingBox(), checkboxBounds, 'Revealing the dot keeps the checkbox in place')
+  assert.deepEqual(await checkboxPosition(), checkboxBounds, 'Revealing the dot keeps the checkbox in place')
   await board.screenshot({ path: `${shots}/flow-dot-filtered-hover.png` })
   await dot(ids.root).click()
   const filteredMenu = page.locator('.popover-floating .flow-menu')
@@ -117,7 +131,7 @@ try {
   await filteredMenu.waitFor({ state: 'detached' })
   // Escape leaves visible keyboard focus on the trigger; clear it before checking the idle state.
   await dot(ids.root).blur()
-  await page.mouse.move(5, 5)
+  await leaveBoard()
   await waitForDotOpacity(ids.root, '0')
   await page.locator(`#item-${ids.root} .drag-handle`).focus()
   await page.keyboard.press('Shift+Tab')
@@ -132,7 +146,7 @@ try {
   assert.equal(await board.locator('.relation-edge[data-state="faded"]').count(), 1)
   assert.equal(await board.locator('[data-chain-out="true"]').count(), 1, '只有「联系潜在客户」不在链上')
   await board.screenshot({ path: `${shots}/relation-lines-hover.png` })
-  await page.mouse.move(5, 5)
+  await leaveBoard()
   await page.waitForFunction(() => !document.querySelector('.relation-edge[data-state="hot"], [data-chain-out]'))
 
   // Keyboard focus lights the chain too.
@@ -154,7 +168,7 @@ try {
   assert.notEqual(tinted, ground)
   await page.waitForTimeout(300)
   await board.screenshot({ path: `${shots}/flow-dot-preview.png` })
-  await page.mouse.move(5, 5)
+  await leaveBoard()
   await page.waitForFunction(() => !document.querySelector('.relation-lines'), null, { timeout: 2000 })
 
   // A flow root's dot edits its colour and spells out how far the change reaches.
@@ -260,8 +274,140 @@ try {
   await page.getByRole('button', { name: '只看 副业收入', exact: true }).click()
   assert.equal(await board.locator('.relation-lines').count(), 0, '重启窗口后保持关闭')
   await page.evaluate(() => localStorage.removeItem('goalloom.relationLines'))
+
+  // Palette order intentionally disagrees with both the column order and each column's row order.
+  await page.getByRole('button', { name: '全部', exact: true }).click()
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1880, 1000))
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  const roots = await page.evaluate(async () => {
+    const generation = (await window.goalloom.getSnapshot()).workspace.generation
+    const create = async (title, horizon, flowColor) => {
+      const reply = await window.goalloom.execute({ type: 'create', title, horizon, flowColor, generation, operationId: crypto.randomUUID() })
+      if (!reply.ok) throw new Error(reply.message)
+      return reply.result.itemId
+    }
+    return {
+      day: await create('Daily direction', 'day', 0),
+      month: await create('Monthly direction A', 'month', 7),
+      nextMonth: await create('Monthly direction B', 'month', 4),
+      week: await create('Weekly direction', 'week', 3),
+      cycle: await create('Fitness direction', 'cycle', 6),
+    }
+  })
+  const rootNames = new Map([[ids.root, '副业收入'], [ids.other, '自媒体运营'], [roots.cycle, 'Fitness direction'],
+    [roots.month, 'Monthly direction A'], [roots.nextMonth, 'Monthly direction B'], [roots.week, 'Weekly direction'], [roots.day, 'Daily direction']])
+  const checkpoints = []
+  const filterOrder = async (expected, label, displayed = expected) => {
+    const names = expected.map(id => rootNames.get(id))
+    await page.waitForFunction(names => JSON.stringify([...document.querySelectorAll('.flow-filter .chip[aria-label]')].map(node => node.getAttribute('aria-label'))) === JSON.stringify(names.map(name => `只看 ${name}`)), names)
+    await page.waitForFunction(({ expected, displayed }) => JSON.stringify([...document.querySelectorAll('.board .task-row')].map(row => row.dataset.itemId).filter(id => expected.includes(id))) === JSON.stringify(displayed), { expected, displayed })
+    const actual = await board.locator('.task-row').evaluateAll((rows, rootIds) => rows.map(row => row.dataset.itemId).filter(id => rootIds.includes(id)), expected)
+    assert.deepEqual(actual, displayed, `${label}: filters follow the board's column/row order`)
+    checkpoints.push({ label, order: names, shortcuts: await page.locator('.flow-filter .chip[aria-label]').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-keyshortcuts'))) })
+  }
+  const drag = async (id, direction) => {
+    await page.locator(`#item-${id} .drag-handle`).focus()
+    await page.keyboard.press('Space')
+    await page.waitForFunction(() => document.documentElement.dataset.dragging === 'true')
+    await page.keyboard.press(direction)
+    await page.keyboard.press('Space')
+    await page.waitForFunction(() => !document.documentElement.dataset.dragging)
+  }
+  let order = [ids.root, ids.other, roots.cycle, roots.month, roots.nextMonth, roots.week, roots.day]
+  await filterOrder(order, 'Initial order across all planning columns')
+  await page.getByRole('button', { name: '只看 自媒体运营', exact: true }).click()
+  await drag(ids.other, 'ArrowUp')
+  order = [ids.other, ids.root, roots.cycle, roots.month, roots.nextMonth, roots.week, roots.day]
+  await filterOrder(order, 'Cycle reordering updates filters without changing flow metadata')
+  assert.equal(await page.getByRole('button', { name: '只看 自媒体运营', exact: true }).getAttribute('aria-pressed'), 'true')
+  await drag(roots.nextMonth, 'ArrowUp')
+  order = [ids.other, ids.root, roots.cycle, roots.nextMonth, roots.month, roots.week, roots.day]
+  await filterOrder(order, 'Same-column order takes priority over palette order')
+  for (let index = 0; index < order.length; index++) {
+    await page.keyboard.press(`ControlOrMeta+${index + 2}`)
+    await page.getByRole('button', { name: `只看 ${rootNames.get(order[index])}`, exact: true, pressed: true }).waitFor()
+  }
+  await page.keyboard.press('ControlOrMeta+2')
+  await drag(ids.other, 'ArrowRight')
+  await filterOrder([ids.root, roots.cycle, ids.other, roots.nextMonth, roots.month, roots.week, roots.day], 'Cross-column move follows the destination column')
+  assert.equal(await page.getByRole('button', { name: '只看 自媒体运营', exact: true }).getAttribute('aria-pressed'), 'true')
+  await page.keyboard.press('ControlOrMeta+z')
+  await filterOrder(order, 'Undo restores the original filter order')
+  await page.getByRole('button', { name: '关闭操作提示', exact: true }).click()
+
+  await page.locator(`#item-${ids.other} .check`).click()
+  await page.locator('[data-horizon="cycle"] .completed-fold summary').click()
+  await filterOrder([ids.root, roots.cycle, ids.other, roots.nextMonth, roots.month, roots.week, roots.day], 'Completed roots follow TODO roots within the same column')
+  await page.keyboard.press('ControlOrMeta+z')
+  await filterOrder(order, 'Undo completion restores row and filter order')
+  await page.getByRole('button', { name: '关闭操作提示', exact: true }).click()
+
+  const changeRoot = async (itemId, fields) => page.evaluate(async ({ itemId, fields }) => {
+    const snapshot = await window.goalloom.getSnapshot(), { item } = await window.goalloom.getItem(itemId)
+    const reply = await window.goalloom.execute({ ...fields, itemId, expectedVersion: item.version, generation: snapshot.workspace.generation, operationId: crypto.randomUUID() })
+    if (!reply.ok) throw new Error(reply.message)
+  }, { itemId, fields })
+  await changeRoot(roots.month, { type: 'flowColor', flowColor: 5 })
+  await filterOrder(order, 'Changing a color preserves placement-based order')
+  await changeRoot(roots.nextMonth, { type: 'archive', archived: true })
+  await filterOrder(order.filter(id => id !== roots.nextMonth), 'Archived roots are omitted')
+  await changeRoot(roots.nextMonth, { type: 'archive', archived: false })
+  await filterOrder(order, 'Restored roots return to their board position')
+
+  const toggleCycle = async () => {
+    await page.getByRole('button', { name: '显示的列', exact: true }).click()
+    await page.getByRole('menuitemcheckbox', { name: '3个月', exact: true }).click()
+    await page.keyboard.press('Escape')
+  }
+  await toggleCycle()
+  await filterOrder(order, 'Hidden columns keep their filters and shortcut positions', [roots.nextMonth, roots.month, roots.week, roots.day])
+  await toggleCycle()
+  await filterOrder(order, 'Showing a column preserves the same filter order')
+
+  const monthColumn = page.locator('[data-horizon="month"]')
+  await page.locator(`#item-${roots.nextMonth}`).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: /移到下月/ }).click()
+  const outside = [...order.filter(id => id !== roots.nextMonth), roots.nextMonth]
+  await filterOrder(outside, 'Off-board roots stay available after visible roots', outside.filter(id => id !== roots.nextMonth))
+  await monthColumn.locator('[data-next-period]').click()
+  const future = [ids.other, ids.root, roots.cycle, roots.nextMonth, roots.week, roots.day, roots.month]
+  await filterOrder(future, 'Future-period roots use their displayed column position', future.filter(id => id !== roots.month))
+  await monthColumn.locator('[data-return-current]').click()
+  await filterOrder(outside, 'Returning to the current period restores its ordering', outside.filter(id => id !== roots.nextMonth))
+  await page.keyboard.press('ControlOrMeta+z')
+  await filterOrder(order, 'Undo future move restores the current row and filter')
+  await page.reload()
+  await board.waitFor()
+  await filterOrder(order, 'Reload derives the same order from persisted placements')
+  await page.locator(`#item-${roots.week}`).scrollIntoViewIfNeeded()
+  await leaveBoard()
+  const screenshot = `${shots}/flow-filter-order.png`
+  await page.screenshot({ path: screenshot })
+  const report = {
+    ok: true, packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()),
+    environment: { platform: platform(), release: release(), version: version(), arch: arch(), cpu: cpus()[0]?.model, machineScope: process.env.GOALLOOM_TEST_MACHINE_SCOPE ?? 'Host OS reported; physical/VM status not independently verified' },
+    scope: 'Real Electron with production IPC and keyboard dragging in an isolated profile. Source runs do not verify packaged or Windows acceptance.',
+    checkpoints, screenshot,
+  }
+  await writeFile('output/tests/flow-filter-order.json', JSON.stringify(report, null, 2))
   assert.deepEqual(errors, [])
+  console.log(`flow filter order: ${checkpoints.length} checkpoints; output/tests/flow-filter-order.json`)
   console.log('relation lines: 7 edges, 1 skip, hover chain 6/1, marker reveal, settings switch persisted; flow dot: filtered cycle TODO visibility, hover/focus/menu access, unfiltered preview + tint, root colour, child parents, loose join, horizon rule')
+} catch (error) {
+  const page = await application.firstWindow()
+  await mkdir(shots, { recursive: true })
+  const diagnostics = {
+    error: String(error), errors, url: page.url(),
+    native: await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getBounds(), contentBounds: window.getContentBounds() }))),
+    renderer: await page.evaluate(() => {
+      const describe = node => node ? { tag: node.tagName, id: node.id, className: node.getAttribute('class'), label: node.getAttribute('aria-label') } : null
+      return { focused: document.hasFocus(), visibility: document.visibilityState, viewport: { width: innerWidth, height: innerHeight }, active: describe(document.activeElement), hovered: [...document.querySelectorAll(':hover')].map(describe), hotEdges: document.querySelectorAll('.relation-edge[data-state="hot"]').length }
+    }),
+  }
+  await writeFile('output/tests/relations-failure.json', JSON.stringify(diagnostics, null, 2))
+  await page.screenshot({ path: `${shots}/relations-failure.png` })
+  console.error({ errors, url: page.url(), body: await page.locator('body').innerText() })
+  throw error
 } finally {
   await application.close()
   await rm(profile, { recursive: true, force: true })

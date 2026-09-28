@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Strict commands, finite queries, injected clock and SQLite Store.
- * [OUTPUT]: Authoritative writes, idempotent receipts, current summaries and actual-period detail/search projections.
+ * [OUTPUT]: Authoritative writes, order materialization, idempotent receipts, current/ancestor summaries and actual-period detail/search projections.
  * [POS]: Sole workspace command transaction boundary, called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -20,6 +20,8 @@ import { createPlan } from './commands/plan'
 import { insertBetween } from './commands/bridge'
 import { setPolicy, confirmClock, setBackupPreferences, confirmRollover, undoBatch } from './commands/settings'
 import { serverText } from '../../shared/i18n/server'
+import { orderNodes } from './ordering'
+import { materializeParentOrder } from './commands/ordering'
 
 export class Repository {
   readonly store: Store
@@ -81,6 +83,7 @@ export class Repository {
       case 'edit': return editItem(context, command)
       case 'flowColor': return setFlowColor(context, command)
       case 'move': return moveItem(context, command)
+      case 'materializeParentOrder': return materializeParentOrder(context)
       case 'link': return linkItems(context, command)
       case 'status': return setStatus(context, command)
       case 'archive': return setArchive(context, command)
@@ -126,7 +129,7 @@ export class Repository {
     const rolloverSources = Object.fromEntries(sources.map(row => [String(row.itemId), String(row.startDate)]))
     const flows = this.db.prepare('SELECT id,title,flowColor,archivedAt FROM items WHERE flowColor IS NOT NULL AND deletedAt IS NULL ORDER BY flowColor').all()
       .map(row => ({ id: String(row.id), title: String(row.title), flowColor: Number(row.flowColor), archived: row.archivedAt !== null }))
-    return { workspace, periods, items, relations: this.db.prepare('SELECT id,parentId,childId FROM item_relations WHERE invalidatedAt IS NULL ORDER BY createdAt,id').all() as Snapshot['relations'], policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance, backupError: null, rolloverSources, flows }
+    return { workspace, periods, items, orderNodes: orderNodes(this.store, items.map(item => item.id)), relations: this.db.prepare('SELECT id,parentId,childId FROM item_relations WHERE invalidatedAt IS NULL ORDER BY createdAt,id').all() as Snapshot['relations'], policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance, backupError: null, rolloverSources, flows }
   }
   relationViews(itemId: string): ItemDetail['relations'] {
     return this.db.prepare('SELECT r.*,p.title AS parentTitle,c.title AS childTitle,p.archivedAt AS parentArchived,c.archivedAt AS childArchived FROM item_relations r JOIN items p ON p.id=r.parentId JOIN items c ON c.id=r.childId WHERE r.invalidatedAt IS NULL AND (r.parentId=? OR r.childId=?) ORDER BY r.createdAt,r.id').all(itemId, itemId)

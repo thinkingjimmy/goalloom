@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Body-free business events and current item summaries.
- * [OUTPUT]: Strict activity pages, read-only period history DTOs with per-outcome summary, and the past-period index.
- * [POS]: History/import boundary separating historical state from current content.
+ * [OUTPUT]: Activity and period-end history DTOs, the past-period index and revision-bound pages of live past-period tasks.
+ * [POS]: History/import boundary keeping immutable projections separate from editable task summaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
@@ -19,6 +19,11 @@ export const eventSchema = z.strictObject({
 })
 export const activitySchema = z.strictObject({ events: z.array(eventSchema), more: z.boolean() })
 const count = z.number().int().nonnegative()
+export const pastPeriodPageSchema = z.strictObject({
+  generation: idSchema, revision: count, period: periodSchema, previous: periodSchema.nullable(), next: periodSchema,
+  items: z.array(itemSummarySchema), total: count, offset: count,
+})
+export type PastPeriodPage = z.infer<typeof pastPeriodPageSchema>
 export const historyOutcomeSchema = z.enum(['done', 'open', 'moved', 'cancelled', 'unknown'])
 export const historyPageSchema = z.strictObject({
   // previous is null once no earlier period of this scale was ever materialised in the workspace.

@@ -21,9 +21,11 @@
 ### 复盘
 
 - 周复盘入口在本周列头：本周最后一天出现「今天结束 · 复盘」，下一周第一天出现「上周复盘」；最后一天已复盘或点了「这周跳过」，次日不再出现（最多连续两天）。月复盘同理在本月列头。
+- 复盘入口与日期同排，紧邻日期右侧并位于左右翻页箭头之间；入口持续可见，翻页箭头跟随整列悬停或列头键盘焦点显示。较长文案省略显示，悬停可读完整标题。
 - 周与月同一天结束时只出一个入口（本月列头「本周 + 本月 · 复盘」），步骤合并。
 - 周复盘：回顾（模型小结 + 目标×周期矩阵）→ 本周收尾（今天冲刺 / 顺延下周 / 归档）→ 排下周（为断链起草，可改、可取消）→ 完成（抽屉内结果清单，列头标「已复盘」）。月复盘：回顾（3 个月目标进度）→ 本月收尾 → 排下月（每个 3 个月目标至少一项）。合并：回顾 → 收尾 → 排下月 → 排下周。
 - 没有可用模型时：回顾无小结只留矩阵；排下周/下月为每条断链给空位，写了才创建。
+- 复盘小结按工作区、复盘周期与实际模型输入保存在本机，关闭重开、切换步骤和重启后复用；再次进入「回顾」时，若看板事实、日期上下文或复盘偏好变化则更新。编辑设置不会逐字触发生成；拆解偏好、界面样式与普通刷新不触发新请求。小结提供「重新生成」，按最新上下文刷新；刷新期间保留上次内容，失败时提示并允许重试。缓存不进入工作区导出与备份，整库替换后清空。
 
 ### 右键菜单（CM2）
 
@@ -48,6 +50,8 @@
 - `insertBetween` 命令：在一个事务内创建里程碑（挂在原上级下）、把指定下级改挂到里程碑、解除它们与原上级的边；周期规则与 DAG 校验复核；一次撤销。
 - `createPlan` 条目可带 `period`（`current` / `date`），用于复盘写入下一周期。
 - renderer：`state/insight.ts` 本机偏好（localStorage `goalloom.insight`），`features/insight/` 断点层、空列卡、复盘抽屉；新建窗口接受预填（上级、周期、草稿列表）。
+- `state/review-summary.ts`: device-only `goalloom.review-summaries` cache, scoped by workspace generation and reviewed week/month keys, with one successful result per period and at most 24 entries. SHA-256 covers the actual review prompt (including review preferences, excluding draft-only preferences); only hashes and sanitised results persist. Concurrent identical requests share one promise, refresh failures preserve the previous entry, malformed/unavailable storage degrades to a session cache, and App invalidates both persisted and pending ownership on workspace replacement. Settings trials and drafting remain uncached.
+- `features/insight/ReviewSummary.tsx`: revalidates actual context on drawer/step entry, not while editing preferences behind another dialog; manual refresh uses the latest context, guards stale subscriptions, and keeps successful text visible during refresh or failure. The explicit refresh control and failure copy ship in all five locales.
 - Draft and review mount effects share one pending request across StrictMode replay; each subscription ignores responses after its cleanup. Draft failures always end loading and leave editable rows with visible feedback. `pnpm dev` watches main/preload so generation actions and renderer callers remain on the same contract; previously started non-watching processes require a restart.
 
 ## 实现前失败场景
@@ -58,6 +62,7 @@
 - 复盘：入口在第三天仍出现；跳过后次日仍出现；周月同日出两个入口；收尾写入已结束周期；排下周写入当前周期。
 - 隐私：正文进入日志；关于我进入工作区/导出。
 - Development regression: StrictMode replays mount effects, losing draft/review results or sending duplicate requests; a late response overwrites typed text or a reopened composer; failures leave loading active or hide the manual fallback; Settings generation changes workspace data; a renderer update calls an older main/preload contract when the development process is not watching those builds.
+- Summary cache failure scenarios: closing while pending starts duplicate requests; reopening, step navigation or process restart discards a successful summary; changed board facts, review preferences or period reuse stale text; unrelated draft preferences or renderer revisions trigger regeneration; refresh failure deletes the last successful result; failed initial requests become cached; corrupt/full storage prevents generation; a late result repopulates cache after workspace replacement; saved entries contain prompts, credentials or grow without a bound; Settings trials accidentally reuse review cache.
 
 ## TODO
 
@@ -67,6 +72,7 @@
 - [x] M4 右键菜单 CM2（「选择日期…」除外）
 - [x] M5 周 / 月 / 合并复盘（合并与月复盘仅按规则实现，桌面脚本在复盘日才覆盖对应分支）
 - [x] M6 设置 › 洞察
+- [x] 复盘小结本机缓存、按实际上下文失效、手动重新生成与失败保留；重启与工作区替换回归
 - [x] 五语言文案
 - [ ] 月复盘与周月合并复盘的真实日期桌面验收（生产无测试时钟；需在月末当天运行 `pnpm test:insight`）
 - [ ] Windows 11 人工验收由所有者执行
@@ -74,6 +80,7 @@
 ## 验收
 
 - [x] `pnpm test:insight-generation`: development and production renderer lifecycle, seven-item drafting, manual edits, close/reopen isolation, visible failure fallback, Settings retry without writes and review completion; repeatable reports/screenshots under `output/tests/insight/generation/`.
+- [x] Summary-cache regression: pending-request reuse, close/reopen, step navigation, full Electron restart, explicit refresh, offline reuse, relevant preference/board invalidation, no regeneration while editing preferences, failed-request retry, corrupted/full storage, late-response isolation and verified workspace reset. The initial calendar chooses today as week start through the real setup UI so the weekly review is exercised on every run without a test clock.
 - [x] `pnpm typecheck`、`pnpm test`（17 文件 / 120 例）。
 - [x] `pnpm test:insight`（2026-09-27 周日，本周最后一天，macOS 26.4 arm64、Electron 44.4.4 源码运行）：空列卡批量/自己写、断点 ＋ 位置与一次性引导（重载后不再出现）、预填新建（最后一天写入下周并留去向标记）、跳级 insertBetween 与一次撤销、周复盘四步并排入下周、设置 › 洞察；报告与截图 `output/tests/insight/`。
 - [x] `pnpm test:insight-live`（真实 OpenRouter）：批量起草 1.8s、断点单击直接创建 0.6s、复盘小结 1.8s；`output/tests/insight/live-report.json`。

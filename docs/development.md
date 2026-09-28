@@ -4,15 +4,16 @@
 
 **技术栈：** Electron · React · TypeScript · Vite · shadcn/ui · Tailwind CSS · Hugeicons · SQLite · TypeSafe SDK（Jev，可选）。
 
-**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、极简五列看板、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；只读历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、TypeSafe 原生 / Vercel AI Gateway / OpenRouter 三渠道、可编辑预览与 `createPlan` 整批事务/同代次撤销、迁移前保护副本）；外观支持纸感/简约两种风格 × 明暗模式与三种复选框样式（schema v5）。智能输入的各渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中/英/日/西/法五种界面语言（默认跟随系统，可在设置切换）与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。首个公开版本 1.0.0 已在 GitHub Releases 发布（MIT 许可证），官网为 https://www.goalloom.com 。
+**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、极简五列看板、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；往期任务编辑、不可变历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、TypeSafe 原生 / Vercel AI Gateway / OpenRouter 三渠道、可编辑预览与 `createPlan` 整批事务/同代次撤销、迁移前保护副本）；外观支持纸感/简约两种风格 × 明暗模式与三种复选框样式（schema v5）。智能输入的各渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中/英/日/西/法五种界面语言（默认跟随系统，可在设置切换）与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。首个公开版本 1.0.0 已在 GitHub Releases 发布（MIT 许可证），官网为 https://www.goalloom.com 。
 
 | 文档 | 用途 |
 | --- | --- |
 | [智能输入功能规格](features/smart-input.md) | 全局输入、Jev 三渠道、Onboarding、计划创建/撤销、导出恢复与迁移保护的规则、工程契约、TODO 与验收 |
 | [关系线功能规格](features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [快捷键功能规格](features/shortcuts.md) | 默认键位、流程筛选位置键、改键与冲突规则、工程契约与验收 |
+| [自动排序功能规格](features/board-ordering.md) | 最近一级上级排序、本机开关、关闭保存、拖动与连续重排动效及验收 |
 | [完成反馈功能规格](features/completion-feedback.md) | 按可见性反馈去向、静默操作、逐列撒花、提示与动效生命周期及撤销验收 |
-| [周期规划功能规格](features/period-planning.md) | 待办右键顺延、未来周期浏览与编辑、按周期草稿、事务和查询边界及验收 |
+| [周期规划功能规格](features/period-planning.md) | 待办右键顺延、统一前后周期浏览、往期任务编辑与未来规划、按周期草稿、事务和查询边界及验收 |
 | [流程洞察功能规格](features/flow-insight.md) | 单流程断点 ＋ 与跳级补里程碑、空列卡、周/月/合并复盘、分组右键菜单、设置 › 洞察与 DeepSeek Flash 起草通道 |
 | [链接预览功能规格](features/link-previews.md) | 混排短链接、真实预览、多链接横滑、历史数据按需展示、网络/缓存边界及验收 |
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
@@ -34,9 +35,10 @@ pnpm test:electron        # 真实 Electron main 的 SQLite 探针
 pnpm build                # 三入口与生产产物约束检查
 pnpm test:ui              # 真实窗口业务闭环与 CSP/IPC/主题
 pnpm test:history         # 独立夹具的历史/往期/hold 窗口验证
+pnpm test:ordering        # Parent ordering, atomic materialization/undo, group drag and measured motion
 pnpm test:periods         # Context menus, future periods, drafts, sorting, undo, clock boundaries and restart
 pnpm test:insight         # 流程洞察：断点、空列卡、预填新建、跳级、复盘与设置（无模型路径）
-pnpm test:insight-generation # Development/production generation, failure recovery and Settings trials with synthetic HTTP
+pnpm test:insight-generation # Development/production generation, summary cache/restart/refresh/recovery and Settings trials with synthetic HTTP
 pnpm test:insight-live    # 可选：真实 OpenRouter（.env.local Key）下的起草与复盘小结
 pnpm test:links           # Link previews, mixed text, carousel, browser opening, legacy data and offline cache
 pnpm test:feedback        # Contextual Toasts, modal recovery actions and feedback timing
@@ -59,26 +61,51 @@ pnpm package:dir          # 当前平台本地目录包
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
-`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。完整 `pnpm verify`（单元/集成 → SQLite → 构建 → 看板/历史/恢复/composer/多语言与 Review、周期规划、洞察及生成生命周期回归窗口测试）只在发布版本前运行；push 或合入 `main` 不要求。
+`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。
 
-日常改完一个功能：`pnpm typecheck && pnpm test`，再按改动模块只跑对应的桌面脚本（先 `pnpm build`；跨多个模块就各跑各的）：
+## 测试范围
 
-| 改动位置 | 桌面脚本 |
+日常功能验收范围 = **本次新增／修改场景的 E2E ＋ 所属功能的全部 E2E**。不要求运行其他功能，也不以仓库全量通过作为功能完成、提交、push 或合入 `main` 的条件。执行规则以 [AGENTS.md](../AGENTS.md#validation-scope) 为准，下表维护功能与现有脚本的映射。
+
+- 开发中只跑当前需要验证的场景；完成后跑齐受影响功能。新增／修改场景若已在该功能脚本中通过，无需重复跑；多个功能共用的命令只执行一次。通过后仅在相关代码变化或出现失败时重跑。
+- 运行前简述受影响功能、所选命令及理由。按用户行为和共享契约判断影响，不按改动文件数量扩大范围；共用组件、状态、IPC、存储只追加实际受影响的功能。其他脚本仅把某功能作为初始化步骤，不算该功能的专门覆盖。
+- 优先使用脚本实际支持的场景／分组入口，例如 `node tests/desktop/review/run.mjs virtual`；不要默认执行整个 `test:review`。没有筛选能力的混合脚本按完整脚本运行，并说明粒度限制，不因此追加其他套件。新增或迁移用例时同步更新下表。
+- 桌面代码改动保留快速检查 `pnpm typecheck`、`pnpm test`（全部 Vitest）；源码桌面 E2E 前先 `pnpm build`。纯文档、规则或不影响行为的注释修改只检查 diff、链接和命令，无需类型检查、Vitest、构建或 E2E。
+
+| 受影响功能／行为 | 对应脚本与追加条件 |
 | --- | --- |
-| 看板、条目详情、设置、主题、preload 暴露面、CSP / 窗口安全 | `pnpm test:ui` |
+| Onboarding／首次配置：方向输入、日历确认、Jev 连接／跳过、首次语言选择 | `pnpm test:ui` ＋ `pnpm test:composer` ＋ `pnpm test:language`；仅当重置后重新进入向导的逻辑也受影响时追加 `pnpm test:recovery` |
+| 看板、条目详情、设置框架、主题、preload 暴露面、CSP / 窗口安全 | `pnpm test:ui`；设置内的具体功能按所属行选择，不能因入口都在设置就追加全部功能 |
 | 历史、往期、活动记录 | `pnpm test:history` |
-| 右键顺延、未来周期、显式周期写入和查询 | `pnpm test:periods`；JSON 边界／环境报告及截图位于 `output/tests/periods/` |
-| 断点 ＋、空列卡、复盘、右键菜单、设置 › 洞察、draft/review 通道 | `pnpm test:insight`；生成与生命周期另跑 `pnpm test:insight-generation`；右键再跑 `pnpm test:periods`；模型通道可选 `pnpm test:insight-live` |
+| 右键顺延、周期浏览、显式周期写入和查询 | `pnpm test:periods`（含列头与动效）；开发中可用 `pnpm test:periods --navigation` 单独反馈，功能完成运行整个脚本；影响往期浏览时追加 `pnpm test:history`；报告及截图位于 `output/tests/periods/` |
+| 流程洞察：断点 ＋、空列卡、复盘、设置 › 洞察、draft/review 通道 | `pnpm test:insight` ＋ `pnpm test:insight-generation`；影响共用的周期右键菜单时追加 `pnpm test:periods`；真实模型联调另用 `pnpm test:insight-live` |
 | 链接解析、预览、横滑、外部浏览器与缓存 | `pnpm test:links`；公共服务实时可用性独立核验 |
 | 备份、JSON 导入导出、恢复、重置 | `pnpm test:recovery`；维护态与重载相关再跑 `node tests/desktop/review/run.mjs lifecycle` |
 | composer、智能输入、快捷新建 | `pnpm test:composer`；保存回执/草稿竞态再跑 `node tests/desktop/review/run.mjs renderer` |
 | 多语言文案、语言切换 | `pnpm test:language`；preload 校验文案再跑 `node tests/desktop/review/run.mjs wire` |
+| 自动排序、分组拖动、重排动效 | `pnpm test:ordering`；私有报告、截图与录像位于 `output/tests/ordering/` |
 | 关联、流程颜色、关系线 | `pnpm test:relations` |
-| 完成反馈、撒花 | `pnpm test:celebration` / `pnpm test:feedback` |
+| 顶栏流程筛选、数字快捷键及启停 | `pnpm test:ui` ＋ `pnpm test:relations` ＋ `pnpm test:history`（从往期返回当期、重复选择、输入保护与未来草稿）；周期选择逻辑受影响时追加 `pnpm test:periods` |
+| 完成反馈、撒花 | `pnpm test:celebration` ＋ `pnpm test:feedback`；影响往期还原反馈时追加 `pnpm test:history` |
 | 长列、虚拟滚动、拖放、键盘移动 | `node tests/desktop/review/run.mjs virtual` |
-| SQLite 驱动、存储 worker、迁移 | `pnpm test:electron`；大数据量再跑 `node tests/desktop/review/run.mjs large-workspace` |
+| SQLite 驱动、存储 worker、迁移 | `pnpm test:electron` ＋ 实际受影响功能的脚本；大数据量相关再跑 `node tests/desktop/review/run.mjs large-workspace` |
 | 打包脚本、包体报告 | `node tests/desktop/review/run.mjs package-report` |
-| 只改 `src/domain` / 纯文档 | 无需桌面脚本 |
+| `src/domain` 领域规则 | 改变用户可见行为时按所属功能选 E2E；不影响行为的内部调整保留快速检查，无需桌面脚本 |
+| 官网 `website/` | 在该目录运行 `pnpm typecheck`、`pnpm test:e2e`（包含构建）；不跑桌面 E2E，细节见 [官网 README](../website/README.md) |
+| 纯文档、规则、不影响行为的注释 | diff、链接和命令检查；无需应用测试或构建 |
+
+**例：只改 Onboarding。** 先完成快速检查与构建，再运行 `pnpm test:ui`、`pnpm test:composer`、`pnpm test:language`，包括本次修改的场景。这三个脚本分别覆盖跳过方向／日历配置、方向保存／Jev 可跳过流程、首次语言切换；目前没有 Onboarding 专用筛选入口，因此以包含这些断言的脚本为最小可运行范围。无需追加历史、恢复、关系线、撒花、洞察等独立套件；只有其行为实际受影响时才追加。其他套件启动时经过向导不构成追加理由。
+
+完整 `pnpm verify` 仅在发布新版本前或负责人明确要求全量验证时运行。性能、增长曲线、大备份、真实服务联调按改动需要或明确要求单独执行，不作为每个功能的固定门槛。功能规格里已勾选的全量验收是历史记录，不要求后续每次修改重跑全量。
+
+交付时记录测试范围、实际命令、结果和可重复验证的报告／截图路径（忽略的 `output/tests/`）；执行桌面测试时同时记录 Electron / Node / SQLite 版本和 OS / CPU / VM／实机范围。未运行的无关套件属于范围外，需运行但失败或受阻的用例如实标明，不能将局部通过表述为全量或安装包验收通过。
+
+### 桌面测试干扰
+
+- 同机操作导致的意外失焦、遮挡或输入干扰，先作为测试环境问题排查；单次超时既不能证明产品缺陷，也不能直接归咎于用户操作。区分系统窗口失焦与应用内部焦点丢失，保留功能规格要求的重排焦点保持、菜单关闭焦点恢复、隐藏窗口停止动效等用例。
+- 新增焦点／可见性回归必须对应明确的产品契约，或在受控环境中可复现的用户可见缺陷，并记录需求／复现步骤、预期和实际结果；优先补充所属功能的现有场景。不得仅为应对测试期间使用电脑，就新增场景、修改产品行为、扩大超时、叠加固定等待或抢焦点／重试循环。
+- 失败时先看应用自身的焦点／可见性、活动元素、输入目标及已有截图／日志，不采集其他应用的屏幕内容。有证据确认环境干扰且消除原因后，只补跑受影响场景一次；不支持单场景入口时跑最小包含脚本，使用全新隔离测试数据，不重跑其他已通过的功能。
+- 环境仍不满足前提时，将相应用例明确标为“环境干扰，尚未验证”；原因不明则保留待排查，不能直接跳过、标为通过或认定产品缺陷。依赖前台的测试优先放到隔离桌面运行，不靠反复抢焦点或要求负责人停止使用电脑维持测试；其他独立工作继续推进。
 
 GitHub Actions 仅手动触发（免费版无私有仓库托管分钟数）；Windows x64 与实机输入、安装/升级验收由负责人另行完成。
 

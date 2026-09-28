@@ -3,7 +3,7 @@
  * [OUTPUT]: The breakpoint layer inside `.board`: a ＋ on the column rule beside each gap parent (flow colour) and skip parent (amber);
  *           click drafts one title and creates it (create / insertBetween), ⇧-click or no model opens the prefilled composer;
  *           a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
- * [POS]: features/insight overlay mounted by Board only under a single-flow filter; geometry is read from rendered rows like RelationLines.
+ * [POS]: features/insight overlay mounted by Board only under a single-flow filter; shares the finite row-motion pulse with RelationLines.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
@@ -20,6 +20,7 @@ import { Icon } from '../../components/icons'
 import { breakpoints, type ChildHorizon } from './signals'
 import { decompose, type Seed } from './decompose'
 import './insight.css'
+import { boardIsMoving, boardMotionEvent } from '../board/RowMotion'
 
 interface Spot { key: string; kind: 'gap' | 'skip'; parent: ItemSummary; target: ChildHorizon; children: ItemSummary[]; color: string }
 interface Place { x: number; y: number }
@@ -44,7 +45,7 @@ export function Breakpoints({ snapshot, view, flows, filter, columns, ready, sub
   }, [snapshot, flows, filter, columns, view.mode, flow])
   const latest = useRef(spots); latest.current = spots
 
-  const measure = () => {
+  const measure = (moving = false) => {
     const overlay = root.current, board = overlay?.parentElement
     if (!overlay || !board) return
     const origin = board.getBoundingClientRect(), dx = board.scrollLeft - origin.left, dy = -origin.top
@@ -57,24 +58,39 @@ export function Breakpoints({ snapshot, view, flows, filter, columns, ready, sub
       // Rows sit 8px inside the column rule; the ＋ rides on the rule so it never covers the next column's rows.
       next.set(spot.key, { x: r.right + 8 + dx, y: mid + dy })
     }
-    setPlaces(previous => JSON.stringify([...previous]) === JSON.stringify([...next]) ? previous : next)
+    for (const node of root.current?.querySelectorAll<HTMLElement>('[data-spot-key]') ?? []) {
+      const place = next.get(node.dataset.spotKey!)
+      node.style.visibility = place ? '' : 'hidden'
+      if (place) {
+        const guide = node.classList.contains('breakpoint-guide')
+        node.style.left = `${place.x - (guide ? 12 : 9)}px`
+        node.style.top = `${place.y + (guide ? 20 : node.classList.contains('breakpoint-away') ? -12 : -9)}px`
+      }
+    }
+    if (!moving) setPlaces(previous => JSON.stringify([...previous]) === JSON.stringify([...next]) ? previous : next)
   }
   const measureRef = useRef(measure); measureRef.current = measure
   useLayoutEffect(() => {
     const overlay = root.current, board = overlay?.parentElement
     if (!overlay || !board) return
     let frame = 0
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measureRef.current() }) }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measureRef.current(boardIsMoving(board)) }) }
     const mutations = new MutationObserver(records => { if (records.some(record => !overlay.contains(record.target))) schedule() })
     mutations.observe(board, { childList: true, subtree: true })
     const resize = new ResizeObserver(schedule)
     resize.observe(board)
     board.addEventListener('scroll', schedule, { capture: true, passive: true })
     board.addEventListener('transitionend', schedule)
+    const motion = () => measureRef.current(boardIsMoving(board))
+    board.addEventListener(boardMotionEvent, motion)
     measureRef.current()
-    return () => { cancelAnimationFrame(frame); mutations.disconnect(); resize.disconnect(); board.removeEventListener('scroll', schedule, { capture: true }); board.removeEventListener('transitionend', schedule) }
+    return () => { cancelAnimationFrame(frame); mutations.disconnect(); resize.disconnect(); board.removeEventListener('scroll', schedule, { capture: true }); board.removeEventListener('transitionend', schedule); board.removeEventListener(boardMotionEvent, motion) }
   }, [])
-  useLayoutEffect(measure, [spots])
+  // React may commit an earlier geometry read after FLIP has installed its inverse transform.
+  useLayoutEffect(() => {
+    const board = root.current?.parentElement
+    measureRef.current(!!board && boardIsMoving(board))
+  })
 
   const open = async (spot: Spot, event: MouseEvent) => {
     if (pending) return
@@ -92,17 +108,17 @@ export function Breakpoints({ snapshot, view, flows, filter, columns, ready, sub
       const place = places.get(spot.key)
       if (!place) return null
       const away = spot.kind === 'gap' ? sent.get(spot.parent.id) : undefined
-      if (away) return <button key={spot.key} type="button" className="breakpoint-away" style={{ left: place.x - 9, top: place.y - 12, '--node': spot.color } as CSSProperties}
+      if (away) return <button key={spot.key} data-spot-key={spot.key} type="button" className="breakpoint-away" style={{ left: place.x - 9, top: place.y - 12, '--node': spot.color } as CSSProperties}
         aria-label={t.openDestination(planningLabel(away.period, snapshot.workspace.calendar!, snapshot.observedAt))}
         onClick={() => view.choose(away.horizon, away.period)}>{t.destination(planningLabel(away.period, snapshot.workspace.calendar!, snapshot.observedAt), away.title)}<Icon name="next" size={12} /></button>
       const label = spot.kind === 'skip' ? t.bridgeLabel(spot.parent.title, spot.children.length) : t.nodeLabel(spot.parent.title)
-      return <button key={spot.key} type="button" className="breakpoint" data-kind={spot.kind} data-pending={pending === spot.key} data-guided={guide?.key === spot.key}
+      return <button key={spot.key} data-spot-key={spot.key} type="button" className="breakpoint" data-kind={spot.kind} data-pending={pending === spot.key} data-guided={guide?.key === spot.key}
         style={{ left: place.x - 9, top: place.y - 9, '--node': spot.color } as CSSProperties} aria-label={label} title={`${label}\n${t.nodeTip}`}
         disabled={!!pending} onClick={event => void open(spot, event)}>
         <Icon name="add" size={12} strokeWidth={2.2} />
       </button>
     })}
-    {guide && places.get(guide.key) && <div className="breakpoint-guide" role="note" style={{ left: places.get(guide.key)!.x - 12, top: places.get(guide.key)!.y + 20 }}>
+    {guide && places.get(guide.key) && <div data-spot-key={guide.key} className="breakpoint-guide" role="note" style={{ left: places.get(guide.key)!.x - 12, top: places.get(guide.key)!.y + 20 }}>
       <p className="breakpoint-guide-kicker">{t.onboardKicker}</p>
       <p className="breakpoint-guide-title">{t.onboardTitle}</p>
       <p>{t.onboardBody}</p>

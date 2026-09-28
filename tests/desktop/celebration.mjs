@@ -65,7 +65,7 @@ async function observe() {
 }
 async function openSettings() {
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
-  await settings().getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '外观', exact: true }).click()
+  await settings().getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '看板', exact: true }).click()
   await settings().getByText('完成撒花', { exact: true }).waitFor()
 }
 async function closeSettings() {
@@ -280,7 +280,7 @@ try {
   report.pixels.detail = await pixelEvidence()
   assertWideCoverage(report.pixels.detail)
   assert.equal(await canvas().evaluate(node => document.activeElement === node), false)
-  assert.equal(await detail().evaluate(node => node.contains(document.activeElement)), true, 'Detail retains focus')
+  assert.equal(await detail().evaluate(node => node.contains(document.activeElement)), true, `Detail retains focus: ${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 500))}`)
   const hit = await detail().getByRole('button', { name: '关闭', exact: true }).evaluate(node => {
     const rect = node.getBoundingClientRect()
     return node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))

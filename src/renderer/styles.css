@@ -152,40 +152,35 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .column-header h2 { font-size: 15px; white-space: nowrap; }
 .column-meta { font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .column-spacer { flex: 1; }
-.column-header > .icon-button:last-child { margin-right: -6px; }
-/* Preserve layout and Tab access; pointer focus must not leave actions visible after exiting a column. History navigation stays visible. */
+.column-add-slot { display: flex; flex: 0 0 28px; margin-left: auto; margin-right: -6px; }
+/* Keep the header geometry stable while mouse-only controls recede on idle. */
 @media (hover: hover) and (pointer: fine) {
-  .board-column:not(:hover):not([data-history='true']):not([data-period-mode='future']) > .column-header:not(:has(:focus-visible)) > .icon-button { opacity: 0; }
+  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) :is([data-add-item], [data-previous-period], [data-next-period]) { opacity: 0; }
+  .period-nav .icon-button:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
 }
-/* History mode: an archive ground marks the column read-only; the header becomes ‹ period › with a quiet way back. */
-.board-column[data-history='true'] { background: color-mix(in srgb, var(--hover) 80%, transparent); }
-.board, .period-menu { --history-done: color-mix(in oklab, #4f7a5a 72%, var(--bg)); --history-open: var(--checked); --history-moved: color-mix(in oklab, var(--focus) 60%, var(--bg)); --history-cancelled: var(--line); }
-.history-header { padding-left: 0; gap: 2px; }
-.history-header h2 { min-width: 0; display: flex; }
-.history-header .icon-button.small { color: var(--secondary); }
-.history-header .icon-button.small:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
-.period-title { max-width: 100%; height: 28px; padding: 0 6px 0 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: 7px; font-size: 15px; font-weight: 600; white-space: nowrap; }
-.period-title > span { overflow: hidden; text-overflow: ellipsis; }
-.period-title > svg { flex-shrink: 0; color: var(--secondary); }
-.period-title:hover, .period-title[aria-expanded='true'] { background: var(--pressed); }
-.history-return { flex-shrink: 0; height: 28px; margin-right: -6px; padding: 0 5px 0 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg-soft); font-size: 12px; font-weight: 500; transition: background-color .15s ease-out, color .15s ease-out; }
-.history-return:hover { background: var(--pressed); color: var(--fg); }
-.history-return .keycap { min-width: 0; height: 18px; padding: 0 4px; border-radius: 4px; font-size: 10.5px; color: var(--secondary); }
-.future-header { padding-left: 0; gap: 2px; }
-.future-header h2 { min-width: 0; overflow: hidden; }
-.future-header .period-title { display: block; line-height: 28px; overflow: hidden; text-overflow: ellipsis; }
-.future-period-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 8px var(--row-inset); font-size: 12px; color: var(--secondary); }
-.future-period-meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.future-period-meta > button { flex-shrink: 0; }
+.period-header { padding-left: 0; gap: 6px; }
+.period-nav { display: flex; align-items: center; gap: 2px; flex: 0 1 auto; min-width: 0; }
+.period-nav .icon-button.small { color: var(--secondary); }
+.period-nav .icon-button:disabled { opacity: 1; color: var(--faint); cursor: default; }
+.period-nav .icon-button:active:not(:disabled) { background: var(--pressed); }
+.period-heading { display: flex; align-items: baseline; gap: 8px; flex: 0 1 auto; min-width: 0; padding: 0 4px; }
+.period-nav :is(.review-entry, .period-return) { margin-inline: 4px; }
+.period-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.period-title:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.period-heading .column-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.period-return { display: inline-flex; align-items: center; min-width: 0; height: 26px; padding: 0 10px; border-radius: 13px; background: var(--hover); color: var(--secondary); font-size: 12px; white-space: nowrap; }
+.period-return > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.period-return:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
+.period-nav button { touch-action: manipulation; }
+@media (pointer: coarse) {
+  .period-header { height: 48px; }
+  .period-nav .icon-button.small { width: 44px; height: 44px; }
+  .period-return { min-height: 44px; }
+}
 .period-loading { padding: 14px var(--row-inset); color: var(--secondary); font-size: 13px; }
 .quick-add-expired { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--danger); }
-.period-menu { min-width: 272px; max-height: min(420px, 60vh); overflow-y: auto; }
-.period-menu .menu-item[aria-checked='true'] { background: var(--hover); font-weight: 600; }
-.period-option-label { width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.period-option-bar { flex: 1; height: 4px; display: flex; border-radius: 2px; background: var(--hover); overflow: hidden; }
-.period-option-bar > span { border-radius: 2px; background: var(--history-done); }
-/* The scroll box reaches 8px from both column rules so row grounds sit evenly between them. */
-.column-content { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -12px 0 -20px; padding: 0 8px 96px 20px; }
+/* Reach the right column rule with the scrollbar; matching padding preserves row width and alignment. */
+.column-content { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; margin: 0 -20px 0 -20px; padding: 0 16px 96px 20px; }
 .backlog-entry { flex-shrink: 0; height: 36px; margin-top: 2px; padding-left: var(--row-inset); display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--backlog); }
 .backlog-entry:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* The row ground holds the flow dot in its left padding; checkbox, dot and meta stay on the first title line. */
@@ -488,37 +483,14 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
 
 /* --- Lists, history, backlog --- */
 .pagination { display: flex; justify-content: center; align-items: center; gap: 16px; font-size: 12px; color: var(--secondary); margin: 20px 0; }
-.history-summary { flex-shrink: 0; margin: 4px 0 4px; padding-left: var(--row-inset); display: flex; flex-direction: column; gap: 8px; }
-.history-headline { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.history-headline strong { font-weight: 600; }
-.history-lock { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--secondary); }
-.history-bar { height: 4px; display: flex; gap: 2px; border-radius: 2px; overflow: hidden; }
-.history-legend { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--secondary); }
-.history-legend > span { display: inline-flex; align-items: center; gap: 5px; }
-.history-legend > span::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--dot); }
-.history-bar > span { background: var(--dot); }
-[data-outcome='done'] { --dot: var(--history-done); }
-[data-outcome='open'] { --dot: var(--history-open); }
-[data-outcome='moved'] { --dot: var(--history-moved); }
-[data-outcome='cancelled'] { --dot: var(--history-cancelled); }
-.history-group-title { height: 28px; margin: 10px 0 0; padding-left: var(--row-inset); display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: var(--secondary); }
-.history-item { width: calc(100% + 20px); margin: 0 -8px 0 -12px; padding: 8px 8px 8px 22px; display: flex; align-items: flex-start; gap: 10px; border-radius: 8px; text-align: left; }
-.history-item:hover { background: var(--hover); }
-.history-mark { width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; display: grid; place-items: center; box-sizing: border-box; border-radius: 5px; border: 1.5px dashed var(--faint); color: var(--bg); }
-.history-mark[data-outcome='done'] { border: 0; background: var(--checked); }
-.history-mark[data-outcome='open'] { border: 1.5px solid var(--check-edge); background: var(--check-fill); }
-.history-mark[data-outcome='moved'] { border-color: var(--checked); }
-.history-mark[data-outcome='cancelled'] { border: 0; background: var(--check-fill); color: var(--secondary); }
-.history-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.history-title { font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
-.history-item[data-outcome='done'] .history-title { color: var(--secondary); }
-.history-item[data-outcome='cancelled'] .history-title { color: var(--secondary); text-decoration: line-through; }
-.history-notes { font-size: 12px; color: var(--secondary); }
-.history-to { flex-shrink: 0; height: 20px; display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--focus); white-space: nowrap; }
-.history-clock { flex-shrink: 0; height: 20px; display: inline-flex; align-items: center; color: var(--backlog); }
-.history-empty { padding-top: 18vh; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
-.history-empty p { margin: 0; max-width: 220px; font-size: 13px; line-height: 1.7; color: var(--secondary); }
-.history-end { margin: 16px 0 0; padding-left: var(--row-inset); font-size: 12px; color: var(--faint); }
+.past-period-row > span.check { cursor: default; }
+.past-period-restore { flex-shrink: 0; align-self: flex-start; min-height: 36px; padding: 0 4px; font-size: 12px; white-space: nowrap; }
+.past-period-row [aria-disabled='true'] { opacity: .4; cursor: default; }
+.past-period-row[data-outcome='deleted'] > .check { color: var(--secondary); }
+.past-period-row[data-outcome='deleted'] .task-title { color: var(--secondary); text-decoration: line-through; }
+.past-period-group + .past-period-group { margin-top: 12px; }
+.past-period-group > h3 { margin: 0; padding: 8px var(--row-inset) 2px; font-size: 12px; line-height: 20px; font-weight: 500; color: var(--secondary); }
+.past-period-group > h3 > span { font-variant-numeric: tabular-nums; }
 .backlog-row { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--line); }
 .backlog-row input { width: 18px; height: 18px; flex-shrink: 0; }
 .backlog-row button { text-align: left; font-size: 14px; }
@@ -603,6 +575,11 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
 :hover::-webkit-scrollbar-thumb, :focus-within::-webkit-scrollbar-thumb { background-color: var(--scrollbar); }
 ::-webkit-scrollbar-thumb:hover, ::-webkit-scrollbar-thumb:active { background-color: var(--scrollbar-hover); }
 ::-webkit-scrollbar-button { display: none; }
+/* Column hover owns visibility, including the header; retained task focus must not keep a thumb visible. */
+.column-content::-webkit-scrollbar-thumb { background-color: transparent; }
+.board-column:hover > .column-content::-webkit-scrollbar-thumb { background-color: var(--scrollbar); }
+.board-column:hover > .column-content::-webkit-scrollbar-thumb:hover,
+.board-column:hover > .column-content::-webkit-scrollbar-thumb:active { background-color: var(--scrollbar-hover); }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 @media (forced-colors: active) {

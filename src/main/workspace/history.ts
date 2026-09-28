@@ -1,14 +1,14 @@
 /**
  * [INPUT]: Validated history/activity queries, Store and observation time.
- * [OUTPUT]: Period pages (members grouped by outcome, per-outcome summary, earliest-period stop), the recent past-period index and paged activity.
- * [POS]: Read-only history adapter; filters ended periods before limiting the index, never materializes periods or events.
+ * [OUTPUT]: Immutable period projections and activity, plus paged live tasks still placed in a closed period with generation/revision guards.
+ * [POS]: Read-only past-period adapter; live placement queries never rewrite history or materialize periods.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { compareInstants, currentPeriod, parseDate, precedingPeriod, type Period } from '../../domain/calendar'
 import { historyOutcome, projectOrderedHistory } from '../../domain/history'
 import { DomainError } from '../../shared/contracts/commands'
 import type { Query } from '../../shared/contracts/queries'
-import type { HistoryIndex, HistoryOutcome, HistoryPage, Activity } from '../../shared/contracts/history'
+import type { HistoryIndex, HistoryOutcome, HistoryPage, Activity, PastPeriodPage } from '../../shared/contracts/history'
 import type { Store } from '../storage/store'
 import { serverText } from '../../shared/i18n/server'
 
@@ -45,7 +45,6 @@ function closedPeriod(store: Store, horizon: Extract<Query, { type: 'history' }>
 }
 
 export function readHistory(store: Store, query: Extract<Query, { type: 'history' }>, now: string): HistoryPage {
-  const calendar = store.workspace().calendar!
   const period = closedPeriod(store, query.horizon, query.startDate, now)
   const projections = projectPeriod(store, period)
   const summary = { done: 0, open: 0, moved: 0, cancelled: 0, unknown: 0 }
@@ -54,9 +53,26 @@ export function readHistory(store: Store, query: Extract<Query, { type: 'history
   const keys = page.map(projection => projection.id), placeholders = keys.map(() => '?').join(',') || 'NULL'
   const items = new Map(store.summaries(`i.id IN (${placeholders})`, keys).map(item => [item.id, item]))
   const rows = page.map(({ id, endState, outcome, later, laterCount, anomalous }) => ({ item: items.get(id)!, endState, outcome, later, laterCount, anomalous })) as HistoryPage['rows']
-  // Stepping back ends at the earliest period of this scale the workspace ever materialised.
+  return { ...periodNavigation(store, period), rows, total: projections.length, summary }
+}
+
+export function readPastPeriod(store: Store, query: Extract<Query, { type: 'pastPeriod' }>, now: string): PastPeriodPage {
+  const workspace = store.workspace()
+  if (workspace.generation !== query.generation) throw new DomainError('generation', serverText().errors.workspaceReplaced)
+  const period = closedPeriod(store, query.horizon, query.startDate, now)
+  const where = "p.periodId=? AND (i.deletedAt IS NOT NULL OR i.archivedAt IS NULL AND i.status IN ('todo','done'))"
+  const total = Number(store.prepare(`SELECT count(*) AS total FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where}`).get(period.id)!.total)
+  const offset = Math.min(query.offset, Math.max(0, Math.ceil(total / query.limit) - 1) * query.limit)
+  const items = store.summaries(where, [period.id, query.limit, offset],
+    "ORDER BY CASE WHEN i.deletedAt IS NOT NULL THEN 2 WHEN i.status='done' THEN 1 ELSE 0 END,p.sortKey,i.id LIMIT ? OFFSET ?")
+  return { ...periodNavigation(store, period), generation: workspace.generation, revision: workspace.revision, items, total, offset }
+}
+
+function periodNavigation(store: Store, period: Period) {
+  const calendar = store.workspace().calendar!
+  // Empty periods remain navigable until the earliest materialized period of this scale.
   const earlier = store.prepare('SELECT 1 FROM planning_periods WHERE horizon=? AND startDate<? LIMIT 1').get(period.horizon, period.startDate)
-  return { period, previous: earlier ? precedingPeriod(calendar, period) : null, next: currentPeriod(calendar, period.horizon, period.endAt), rows, total: projections.length, summary }
+  return { period, previous: earlier ? precedingPeriod(calendar, period) : null, next: currentPeriod(calendar, period.horizon, period.endAt) }
 }
 
 /** Recent closed periods of one scale that had members, newest first, with their completion counts for the period picker. */

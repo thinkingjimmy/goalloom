@@ -1,12 +1,13 @@
 /**
  * [INPUT]: Ordered summary identities, scroll viewport, render function, active drag, selection and menu pin.
- * [OUTPUT]: Resize-observed rows with bounded overscan, logical button/link keyboard traversal and synchronous reveal.
+ * [OUTPUT]: Resize-observed rows with bounded motion retention, FLIP, logical keyboard traversal and synchronous reveal.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import type { ItemSummary } from '../../../shared/contracts/entities'
+import { RowMotion } from './RowMotion'
 
 const revealEvent = 'goalloom:reveal-row'
 interface Reveal { id: string; focus: string | null }
@@ -16,7 +17,7 @@ export function revealRow(id: string, focus: string | null = null): void {
 const overscan = 5
 const controlSelector = 'button:not(:disabled), a[href], [tabindex="0"]'
 
-export function VirtualRows({ items, dragging, highlighted, pinned = null, render }: { items: ItemSummary[]; dragging: string | null; highlighted: string | null; pinned?: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
+export function VirtualRows({ scope = 'board', items, dragging, highlighted, pinned = null, render }: { scope?: string; items: ItemSummary[]; dragging: string | null; highlighted: string | null; pinned?: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
   const list = useRef<HTMLDivElement>(null), heights = useRef(new Map<string, number>())
   const [measured, setMeasured] = useState(0), [focused, setFocused] = useState<string | null>(null)
   const [range, setRange] = useState({ start: 0, end: 20 })
@@ -26,6 +27,17 @@ export function VirtualRows({ items, dragging, highlighted, pinned = null, rende
     for (const item of items) values.push(values.at(-1)! + (heights.current.get(item.id) ?? 41))
     return values
   }, [items, measured])
+  const motionOffsets = useMemo(() => new Map(items.map((item, index) => [item.id, offsets[index]!])), [items, offsets])
+  const orderKey = items.map(item => item.id).join('|')
+  const previousWindow = useRef<string[]>([])
+  const [retained, setRetained] = useState({ key: orderKey, scope, ids: [] as string[] })
+  if (retained.key !== orderKey || retained.scope !== scope) setRetained({ key: orderKey, scope, ids: retained.scope === scope ? previousWindow.current : [] })
+  useEffect(() => {
+    if (!retained.ids.length) return
+    const timer = setTimeout(() => setRetained(current => current === retained ? { ...current, ids: [] } : current), 260)
+    return () => clearTimeout(timer)
+  }, [retained])
+  useLayoutEffect(() => { previousWindow.current = items.slice(range.start, range.end).map(item => item.id) })
   const windowed = items.length > 50
   const latest = useRef({ items, indexes, offsets, windowed })
   latest.current = { items, indexes, offsets, windowed }
@@ -87,7 +99,7 @@ export function VirtualRows({ items, dragging, highlighted, pinned = null, rende
   const mounted = new Set<number>()
   if (windowed) {
     for (let index = range.start; index < range.end; index++) mounted.add(index)
-    for (const id of [focused, dragging, highlighted, pinned]) { const index = id ? indexes.get(id) : undefined; if (index !== undefined) mounted.add(index) }
+    for (const id of [focused, dragging, highlighted, pinned, ...retained.ids]) { const index = id ? indexes.get(id) : undefined; if (index !== undefined) mounted.add(index) }
   } else items.forEach((_item, index) => mounted.add(index))
   const children: ReactNode[] = []
   let previous = 0
@@ -98,7 +110,7 @@ export function VirtualRows({ items, dragging, highlighted, pinned = null, rende
     previous = index + 1
   }
   if (previous < items.length) children.push(<div key="tail" aria-hidden="true" style={{ height: offsets.at(-1)! - offsets[previous]! }} />)
-  return <div ref={list} role="list" className="virtual-rows"
+  return <RowMotion scope={scope} orderKey={orderKey} offsets={motionOffsets} dragging={!!dragging}><div ref={list} role="list" className="virtual-rows"
     onFocusCapture={event => { const id = (event.target as HTMLElement).closest<HTMLElement>('[data-item-id]')?.dataset.itemId; if (id) setFocused(id) }}
     onKeyDownCapture={event => {
       if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing || document.documentElement.dataset.dragging) return
@@ -112,5 +124,5 @@ export function VirtualRows({ items, dragging, highlighted, pinned = null, rende
       if (event.key === 'Tab' && event.shiftKey && target === controls[0] && index > 0) { next = index - 1; selector = ':last-control' }
       if (next === undefined) return
       event.preventDefault(); reveal({ id: items[next]!.id, focus: selector })
-    }}>{children}</div>
+    }}>{children}</div></RowMotion>
 }

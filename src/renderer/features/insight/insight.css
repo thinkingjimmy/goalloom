@@ -34,7 +34,8 @@
 /* --- Review: a column-header entry on the period's last day (and the day after), then a right-side drawer. --- */
 .review-entry { min-width: 0; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: 13px; background: color-mix(in srgb, var(--insight-skip) 16%, var(--bg)); color: color-mix(in srgb, var(--insight-skip) 70%, var(--fg)); font-size: 12px; white-space: nowrap; }
 .review-entry:hover:not(:disabled) { background: color-mix(in srgb, var(--insight-skip) 24%, var(--bg)); }
-.review-entry-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--insight-skip); }
+.review-entry-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--insight-skip); }
+.review-entry-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .review-drawer { --insight-skip: light-dark(#b8732c, #d9a760); position: fixed; top: 64px; right: 12px; bottom: 12px; z-index: 40; width: min(420px, calc(100vw - 24px)); display: flex; flex-direction: column;
   border-radius: 14px; background: var(--raised); box-shadow: var(--shadow-lg); overflow: hidden; animation: review-in .18s cubic-bezier(.2, .8, .2, 1); }
 @keyframes review-in { from { opacity: 0; transform: translateX(12px); } }
@@ -51,6 +52,13 @@
 .review-summary { margin: 0 22px 14px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; border-radius: 10px; background: color-mix(in oklab, var(--focus) 8%, transparent); color: var(--focus); }
 .review-summary p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--fg); }
 .review-summary .review-headline { font-weight: 600; }
+.review-summary > svg { flex-shrink: 0; }
+.review-summary-content { flex: 1; min-width: 0; }
+.review-summary-refresh { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; margin-top: 5px; padding: 2px 5px; border-radius: 5px; color: var(--secondary); font-size: 12px; }
+.review-summary-refresh:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+.review-summary-refresh:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.review-summary-refresh:disabled { cursor: default; opacity: .6; }
+.review-summary .review-summary-error { margin-top: 5px; color: var(--danger, var(--fg-soft)); font-size: 12px; }
 .review-section { padding: 14px 22px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--hairline); }
 .review-section h3 { margin: 0; font-size: 14px; font-weight: 600; }
 .review-note { margin: 0; font-size: 12px; line-height: 1.6; color: var(--secondary); }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated period selections, workspace calendar, observation time and Store.
- * [OUTPUT]: Read-only current/future period resolution and board summaries with generation/revision guards.
+ * [OUTPUT]: Read-only current/future resolution and board/ancestor summaries with generation/revision guards.
  * [POS]: Planning read boundary shared by explicit placement writes; reads never materialize periods.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,6 +9,7 @@ import { DomainError } from '../../shared/contracts/commands'
 import type { BoardPeriods, Query } from '../../shared/contracts/queries'
 import { serverText } from '../../shared/i18n/server'
 import type { Store } from '../storage/store'
+import { orderNodes } from './ordering'
 
 export function readPlanningPeriod(store: Store, horizon: Horizon, startDate: string, now: string): Period {
   const calendar = store.workspace().calendar
@@ -39,5 +40,5 @@ export function readBoardPeriods(store: Store, query: Extract<Query, { type: 'bo
   const periods = query.periods.map(({ horizon, startDate }) => readPlanningPeriod(store, horizon, startDate, now))
   const ids = periods.map(period => period.id)
   const items = store.summaries(`i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status!='cancelled' AND p.periodId IN (${ids.map(() => '?').join(',')})`, ids)
-  return { generation: workspace.generation, revision: workspace.revision, periods, items, rolloverSources: periodRolloverSources(store, ids) }
+  return { generation: workspace.generation, revision: workspace.revision, periods, items, orderNodes: orderNodes(store, items.map(item => item.id)), rolloverSources: periodRolloverSources(store, ids) }
 }

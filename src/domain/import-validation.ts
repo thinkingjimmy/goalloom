@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted v1-v5 datasets or exclusively owned normalized rows, plus an observation time.
- * [OUTPUT]: Entity, date, DAG, effect, marker/inverse and event-chain integrity validation.
+ * [OUTPUT]: Entity, date, DAG, effect (including bulk order receipts), marker/inverse and event-chain integrity validation.
  * [POS]: Shared JSON/SQLite import rules; indexed references and one event ordering, without IO.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -191,7 +191,7 @@ function validateEffect(effect: Effect, items: Map<string | number, unknown>, pe
 }
 function validateKind(operation: Dataset['operations'][number], version: Dataset['schemaVersion']): void {
   requireValid(operation.kind !== 'createPlan' || version >= 3, serverText().import.legacyPlan)
-  const allowed: Record<string, Effect['kind'][]> = { create: ['create'], createPlan: ['create'], insertBetween: ['create', 'relations'], edit: [], flowColor: [], move: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
+  const allowed: Record<string, Effect['kind'][]> = { create: ['create'], createPlan: ['create'], insertBetween: ['create', 'relations'], edit: [], flowColor: [], move: ['position'], materializeParentOrder: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
   requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), serverText().import.effectKindNotAllowed)
   requireValid(operation.source === (['rollover', 'baseline'].includes(operation.kind) ? 'system' : 'user'), serverText().import.operationSourceMismatch)
   const inverse = ['undo', 'undoBatch'].includes(operation.kind)
@@ -199,7 +199,7 @@ function validateKind(operation: Dataset['operations'][number], version: Dataset
   requireValid(operation.result.changed || !operation.effects.length, serverText().import.unchangedWithEffects)
   if (operation.result.changed && allowed[operation.kind]!.length) requireValid(operation.effects.length > 0, serverText().import.changedWithoutEffects)
   if (operation.kind === 'createPlan') requireValid(!operation.result.changed || (operation.effects.length >= 1 && operation.effects.length <= planLimit && new Set(operation.effects.map(effect => effect.itemId)).size === operation.effects.length), serverText().import.invalidPlanSize)
-  else if (!['rollover', 'arrangeBacklog'].includes(operation.kind)) requireValid(operation.effects.length <= 1, serverText().import.extraEffects)
+  else if (!['rollover', 'arrangeBacklog', 'materializeParentOrder'].includes(operation.kind)) requireValid(operation.effects.length <= 1, serverText().import.extraEffects)
 }
 // --- Creation-time ownership: each new edge is the child's incoming edge, its parent existing or an earlier new item. ---
 function validatePlan(operation: Dataset['operations'][number], edges: Map<string | number, Relation>): void {

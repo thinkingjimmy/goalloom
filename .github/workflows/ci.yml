@@ -1,7 +1,8 @@
 name: Private desktop checks
 
 # Manual only: the free plan has no Actions minutes for private macOS/Windows runners.
-# Merges are gated by a local `pnpm verify` instead (see AGENTS.md).
+# Routine changes use local fast checks and E2E for affected features (see AGENTS.md).
+# Full `pnpm verify` is for releases or explicit owner requests, not a merge gate.
 on:
   workflow_dispatch:
 

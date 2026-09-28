@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A committed item identity/column and the current board DOM after React layout.
- * [OUTPUT]: Readable/hidden title state, or pending while selected-period summaries refresh; never changes the view.
+ * [OUTPUT]: Readable/hidden title state for the item's selected period; independent past/future reads remain pending until ready.
  * [POS]: Board projection consumed by feedback; dialog coverage and flow dimming do not hide the underlying result.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,6 +9,7 @@ import type { FeedbackItem, ItemVisibility } from '../../state/feedback'
 export function boardItemVisibility(item: FeedbackItem): ItemVisibility {
   const column = document.querySelector(`.board-column[data-horizon="${item.placement.horizon}"]`)
   if (!column) return 'hidden-column'
+  if (item.placement.periodId && column.getAttribute('data-period-id') !== item.placement.periodId) return 'outside-view'
   if (column.getAttribute('aria-busy') === 'true') return 'pending'
   const row = document.getElementById(`item-${item.id}`)
   const title = row?.querySelector('.task-title'), content = row?.closest('.column-content'), board = column.closest('.board')

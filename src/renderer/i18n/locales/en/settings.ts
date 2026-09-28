@@ -13,7 +13,11 @@ export const settingsMessages: SettingsCatalog = {
   backupSection: 'Backup & restore',
   openAnytime: 'Open settings anytime',
   enabledMeta: 'On',
+  board: "Board",
+  parentOrder: "Sort by parent",
+  parentOrderNote: "Month, week, day and future periods follow their nearest parents. Drag within a group. Turning this off keeps the current order.",
   subtitles: {
+    board: "Ordering and completion feedback, saved on this device",
     insight: 'Breakpoints, reviews, and how drafting understands you',
     appearance: 'Only affects this device’s display; not recorded in workspace history',
     smart: 'Jev turns a sentence into an editable action preview; nothing is written until you confirm',

@@ -22,7 +22,7 @@ export function feedbackKind(command: CommandInput, result: CommandResult): Feed
   if (!result.undoable) return null
   switch (command.type) {
     case 'move': return command.period?.kind === 'next' ? 'advance' : null
-    case 'create': case 'insertBetween': case 'arrangeBacklog': case 'link': case 'unlink': return null
+    case 'create': case 'insertBetween': case 'arrangeBacklog': case 'link': case 'unlink': case 'materializeParentOrder': return null
     case 'status': return command.status === 'done' ? null : command.status === 'todo' ? 'conditional' : 'standard'
     case 'archive': return command.archived ? 'standard' : 'conditional'
     case 'createPlan': return command.items.length === 1 ? 'conditional' : 'standard'

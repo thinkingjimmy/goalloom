@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted command input and entity schemas.
- * [OUTPUT]: Finite commands with current/date/next placement targets (plan items included), an atomic insertBetween, version/generation guards, receipts and stable errors.
+ * [OUTPUT]: Finite commands with parent-group-aware moves, atomic order materialization, planning targets, generation/version guards and receipts.
  * [POS]: Write boundary; accepts neither SQL nor caller-defined effects.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -41,7 +41,8 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('insertBetween'), title: z.string().trim().min(1).max(500), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema, expectedParentVersion: z.number().int().positive(), children: z.array(z.strictObject(target)).min(1).max(planLimit) }),
   z.strictObject({ ...envelope, ...target, type: z.literal('edit'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000), dueDate: dateSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
-  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), parentOrder: z.boolean().optional() }),
+  z.strictObject({ ...envelope, type: z.literal('materializeParentOrder') }),
   z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('status'), status: statusSchema }),
   z.strictObject({ ...envelope, ...target, type: z.literal('archive'), archived: z.boolean() }),

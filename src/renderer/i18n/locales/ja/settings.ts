@@ -13,7 +13,11 @@ export const settingsMessages: SettingsCatalog = {
   backupSection: 'バックアップと復元',
   openAnytime: 'いつでも設定を開く',
   enabledMeta: '有効',
+  board: "ボード",
+  parentOrder: "親項目の順に並べる",
+  parentOrderNote: "月・週・今日と今後の期間を、最も近い階層の親の順に並べます。同じグループ内で移動できます。オフにしても現在の順序を保持します。",
   subtitles: {
+    board: "並び順と完了時の表示。この端末に保存されます",
     insight: '途切れ、振り返り、そして下書きがあなたをどう理解するか',
     appearance: 'このデバイスの表示にのみ影響し、ワークスペースの履歴には書き込みません',
     smart: 'Jev が一文を編集できる行動プレビューに整理します。確認するまで書き込まれません',

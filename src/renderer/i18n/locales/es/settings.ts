@@ -13,7 +13,11 @@ export const settingsMessages: SettingsCatalog = {
   backupSection: 'Copias y restauración',
   openAnytime: 'Abrir ajustes en cualquier momento',
   enabledMeta: 'Activada',
+  board: "Tablero",
+  parentOrder: "Ordenar por elemento superior",
+  parentOrderNote: "El mes, la semana, el día y los periodos futuros siguen a su superior más cercano. Arrastra dentro de cada grupo. Al desactivar, se conserva el orden actual.",
   subtitles: {
+    board: "Orden y avisos al completar, guardados en este dispositivo",
     insight: 'Cortes, repasos y cómo te entiende el borrador',
     appearance: 'Solo afecta a la visualización en este dispositivo; no se guarda en el historial del espacio de trabajo',
     smart: 'Jev convierte una frase en una vista previa de acciones editable; solo se guarda cuando confirmas',

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated commands, current transaction context and explicit current/date/next targets.
- * [OUTPUT]: Atomic setup, item, placement and relationship changes with actual history and effect receipts.
+ * [OUTPUT]: Atomic setup, group-checked placement and relationship changes with history and effect receipts.
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,6 +12,7 @@ import { calendarSchema, type Item, type Relation } from '../../../shared/contra
 import { statusGroup } from '../../../shared/contracts/effects'
 import { assertAvailable, assertFlowColorFree, hasActiveParent, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { serverText } from '../../../shared/i18n/server'
+import { assertParentOrderTarget } from './ordering'
 
 export function confirmSetup(context: Context, command: CommandOf<'confirmSetup'>): boolean {
   if (context.workspace.setupConfirmedAt) throw new DomainError('setup', serverText().errors.calendarLocked)
@@ -99,6 +100,7 @@ export function moveItem(context: Context, command: CommandOf<'move'>): boolean 
   const target = targetPeriod(context, command.horizon, destination)
   const periodId = target?.id ?? null
   if (command.beforeId === item.id) return false
+  if (command.parentOrder) assertParentOrderTarget(context, item, command.horizon, target, command.beforeId)
   if (item.placement.horizon === command.horizon && item.placement.periodId === periodId && previous.nextId === command.beforeId) return false
   const key = nextSortKey(context, command.horizon, periodId, command.beforeId, item.id)
   const priorVersion = item.placement.version

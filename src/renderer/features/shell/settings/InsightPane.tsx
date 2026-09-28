@@ -21,7 +21,7 @@ const focusKeys = ['gap', 'overload', 'skip', 'vague'] as const
 
 export function InsightPane({ snapshot, status, openSmart }: { snapshot: Snapshot; status: SmartStatus | null; openSmart: () => void }) {
   const settings = useInsightSettings(), prefs = settings.prefs
-  const flows = useFlows(snapshot)
+  const flows = useFlows(snapshot, snapshot.items)
   const ready = insightReady(status)
   const [trial, setTrial] = useState<{ parent: string; target: string; draft: DraftTitle | null; review: ReviewText | null; error: string | null } | 'pending' | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)

@@ -255,7 +255,8 @@ try {
   checks.push('Real renderer createPlan batch keeps one count summary; keyboard undo deletes the whole batch and offers trash navigation')
 
   await page.getByRole('region', { name: '本周列', exact: true }).hover()
-  await page.getByRole('region', { name: '本周列', exact: true }).locator('[data-history-entry]').click()
+  await page.getByRole('region', { name: '本周列', exact: true }).locator('[data-previous-period]').click()
+  assert.equal(await page.locator('[data-horizon="week"]').getAttribute('data-period-mode'), 'history')
   await openStored('History-view reopening', 'done')
   await detail().getByRole('button', { name: '重新打开', exact: true }).click()
   await toast.filter({ hasText: '本周' }).waitFor()
@@ -290,6 +291,12 @@ try {
   report.passed = true
   await writeFile('output/tests/feedback.json', JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
+} catch (error) {
+  report.passed = false; report.failure = String(error)
+  const page = await application.firstWindow().catch(() => null)
+  await page?.screenshot({ path: 'output/tests/screenshots/feedback-failure.png' }).catch(() => undefined)
+  await writeFile('output/tests/feedback.json', JSON.stringify(report, null, 2))
+  throw error
 } finally {
   await application.close()
   await rm(profile, { recursive: true, force: true })

@@ -3,7 +3,7 @@
  *          preview), whether to draw in, and visible columns; reads mounted row geometry from the enclosing `.board`.
  * [OUTPUT]: Read-only overlay: parent→child curves between rendered rows sharing an active flow, each in that flow's colour (dashed across
  *           skipped horizons), meeting the child's row beside its flow dot, anchored on the first title line; hover/focus chain highlighting (other rows faded via `data-chain-out`) and
- *           edge markers that reveal an off-screen related row.
+ *           edge markers that reveal an off-screen related row; a finite motion pulse anchors paths throughout row translations.
  * [POS]: Board decoration mounted while one flow is filtered or a flow dot is previewed, with the device preference on; never writes
  *        workspace data or undo state.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -17,6 +17,7 @@ import { flowStroke } from '../../lib/colors'
 import type { Flows } from '../../state/flows'
 import { Icon } from '../../components/icons'
 import { revealRow } from './VirtualRows'
+import { boardIsMoving, boardMotionEvent } from './RowMotion'
 
 interface Anchor { left: number; right: number; y: number; mid: number; off: 'up' | 'down' | null; done: boolean; content: Element }
 interface Path { id: string; d: string; skip: boolean; done: boolean; delay: number; parentId: string; childId: string; color: string }
@@ -90,7 +91,7 @@ export function RelationLines({ items, relations, flows, flowIds, focus, animate
   const root = useRef<HTMLDivElement>(null)
   const latest = useRef({ edges, members, horizonOf, chain, columns })
   latest.current = { edges, members, horizonOf, chain, columns }
-  const measure = () => {
+  const measure = (moving = false) => {
     const board = root.current?.parentElement
     if (!board) return
     const { edges, members, horizonOf, chain, columns } = latest.current
@@ -146,7 +147,23 @@ export function RelationLines({ items, relations, flows, flowIds, focus, animate
     }
     for (const marker of markers.values()) marker.ids.sort((a, b) => anchors.get(a)!.mid - anchors.get(b)!.mid)
     const next: Geometry = { width: board.scrollWidth, height: board.clientHeight, paths, ports: [...ports.values()], markers: [...markers.values()] }
-    setGeometry(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next)
+    const pathMap = new Map(paths.map(path => [path.id, path]))
+    for (const node of root.current?.querySelectorAll<SVGPathElement>('[data-edge-id]') ?? []) {
+      const path = pathMap.get(node.dataset.edgeId!)
+      node.style.visibility = path ? '' : 'hidden'
+      if (path) node.setAttribute('d', path.d)
+    }
+    for (const node of root.current?.querySelectorAll<SVGCircleElement>('[data-port-key]') ?? []) {
+      const point = ports.get(node.dataset.portKey!)
+      node.style.visibility = point ? '' : 'hidden'
+      if (point) { node.setAttribute('cx', String(point.x)); node.setAttribute('cy', String(point.y)) }
+    }
+    for (const node of root.current?.querySelectorAll<HTMLElement>('[data-marker-key]') ?? []) {
+      const marker = markers.get(node.dataset.markerKey!)
+      node.style.visibility = marker ? '' : 'hidden'
+      if (marker) { node.style.left = `${marker.x}px`; node.style.top = `${marker.y}px` }
+    }
+    if (!moving) setGeometry(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next)
   }
   const measureRef = useRef(measure); measureRef.current = measure
 
@@ -154,7 +171,7 @@ export function RelationLines({ items, relations, flows, flowIds, focus, animate
     const overlay = root.current, board = overlay?.parentElement
     if (!overlay || !board) return
     let frame = 0
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measureRef.current() }) }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measureRef.current(boardIsMoving(board)) }) }
     // Rows mount and unmount with virtual windowing, folds and refreshes; the overlay's own renders are ignored.
     const mutations = new MutationObserver(records => { if (records.some(record => !overlay.contains(record.target))) schedule() })
     mutations.observe(board, { childList: true, subtree: true })
@@ -162,6 +179,8 @@ export function RelationLines({ items, relations, flows, flowIds, focus, animate
     resize.observe(board)
     board.addEventListener('scroll', schedule, { capture: true, passive: true })
     board.addEventListener('transitionend', schedule)
+    const motion = () => measureRef.current(boardIsMoving(board))
+    board.addEventListener(boardMotionEvent, motion)
     let timer = 0
     const enter = (target: EventTarget | null) => {
       const id = (target as HTMLElement | null)?.closest<HTMLElement>('.task-row')?.dataset.itemId
@@ -179,24 +198,29 @@ export function RelationLines({ items, relations, flows, flowIds, focus, animate
       cancelAnimationFrame(frame); clearTimeout(timer); mutations.disconnect(); resize.disconnect()
       board.removeEventListener('scroll', schedule, { capture: true })
       board.removeEventListener('transitionend', schedule)
+      board.removeEventListener(boardMotionEvent, motion)
       board.removeEventListener('pointerover', over); board.removeEventListener('focusin', focus)
       board.removeEventListener('pointerleave', leave); board.removeEventListener('focusout', leave)
       for (const row of board.querySelectorAll<HTMLElement>('[data-chain-out]')) delete row.dataset.chainOut
     }
   }, [])
-  useLayoutEffect(measure, [edges, chain, columns])
+  // React may commit an earlier geometry read after FLIP has installed its inverse transform.
+  useLayoutEffect(() => {
+    const board = root.current?.parentElement
+    measureRef.current(!!board && boardIsMoving(board))
+  })
 
   const state = (path: Path) => !chain ? (path.done ? 'done' : undefined) : chain.has(path.parentId) && chain.has(path.childId) ? 'hot' : 'faded'
   return <div ref={root} className="relation-lines" data-entering={entering} aria-hidden={geometry.markers.length ? undefined : true} style={{ width: geometry.width, height: geometry.height }}>
     <svg width={geometry.width} height={geometry.height} aria-hidden="true">
-      {geometry.paths.map(path => <path key={path.id} className="relation-edge" d={path.d} pathLength={path.skip ? undefined : 1} data-skip={path.skip || undefined} data-state={state(path)} style={{ color: path.color, animationDelay: `${path.delay}ms` }} />)}
-      {geometry.ports.map(port => <circle key={port.key} className="relation-port" cx={port.x} cy={port.y} r={3} style={{ color: port.color }} data-state={chain ? (chain.has(port.itemId) ? 'hot' : 'faded') : undefined} />)}
+      {geometry.paths.map(path => <path key={path.id} data-edge-id={path.id} className="relation-edge" d={path.d} pathLength={path.skip ? undefined : 1} data-skip={path.skip || undefined} data-state={state(path)} style={{ color: path.color, animationDelay: `${path.delay}ms` }} />)}
+      {geometry.ports.map(port => <circle key={port.key} data-port-key={port.key} className="relation-port" cx={port.x} cy={port.y} r={3} style={{ color: port.color }} data-state={chain ? (chain.has(port.itemId) ? 'hot' : 'faded') : undefined} />)}
     </svg>
     {geometry.markers.map(marker => {
       // Reveal the nearest hidden row in that direction; the rest follow on later clicks.
       const target = marker.ids.at(marker.dir === 'up' ? -1 : 0)!
       const label = marker.dir === 'up' ? messages.relationsAbove(marker.ids.length) : messages.relationsBelow(marker.ids.length)
-      return <button key={marker.key} className="relation-marker" data-align={marker.align} style={{ left: marker.x, top: marker.y, color: marker.color }} aria-label={label} title={label} onClick={() => revealRow(target)}>
+      return <button key={marker.key} data-marker-key={marker.key} className="relation-marker" data-align={marker.align} style={{ left: marker.x, top: marker.y, color: marker.color }} aria-label={label} title={label} onClick={() => revealRow(target)}>
         <Icon name={marker.dir === 'up' ? 'up' : 'expand'} size={12} strokeWidth={2} />{marker.ids.length}
       </button>
     })}

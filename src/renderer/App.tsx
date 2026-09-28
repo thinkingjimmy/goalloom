@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Unified visible candidates/locating, board/dialogs, menu-aware shortcuts and generation-scoped feedback/caches; flow-insight composer seeds and the review drawer.
+ * [OUTPUT]: Unified visible candidates/locating, board-ordered flow filters returning past columns to current, board/dialogs, menu-aware shortcuts and generation-scoped feedback/caches; flow-insight composer seeds and the review drawer.
  * [POS]: Renderer composition root; composer loads on first use and then keeps its session until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,7 @@ import { revealRow } from './features/board/VirtualRows'
 import { Board, type AddRequest, type BoardInsight } from './features/board/Board'
 import type { ComposerSeed } from './features/composer/Seeded'
 import { insightReady, useInsightSettings } from './state/insight'
+import { syncReviewSummaryGeneration } from './state/review-summary'
 import { reviewDue, type ReviewDue } from './features/insight/review'
 import { boardItemVisibility } from './features/board/visibility'
 import { TopBar } from './features/shell/TopBar'
@@ -42,12 +43,12 @@ export function App() {
   // Re-render the whole tree on a language switch; state (drafts, undo stack, open dialogs) is kept.
   useLocale()
   const { snapshot, error, errorCode, setError, busy, submit, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(item => boardItemVisibility(item))
-  const flows = useFlows(snapshot)
   const smart = useSmart(snapshot?.workspace.generation)
   const [composing, setComposing] = useState(false), [onboarding, setOnboarding] = useState(false)
   const [composerGeneration, setComposerGeneration] = useState<string | null>(null)
   const columns = useColumns()
   const boardView = useBoardPeriods(snapshot, columns.visible)
+  const flows = useFlows(snapshot, boardView.items)
   const { bindings, filters: filterKeys } = useShortcuts()
   // Keep the current view responsive while a local dialog chunk loads, without a timed fallback flash.
   const compose = () => startTransition(() => { setComposerGeneration(snapshot?.workspace.generation ?? null); setComposing(true) })
@@ -56,6 +57,10 @@ export function App() {
   const [palette, setPalette] = useState(false)
   const openPalette = () => startTransition(() => setPalette(true))
   const [filter, setFilter] = useState<string | null>(null)
+  const selectFilter = useCallback((id: string | null) => {
+    boardView.returnPastToCurrent()
+    setFilter(id)
+  }, [boardView.returnPastToCurrent])
   const [seed, setSeed] = useState<ComposerSeed | null>(null)
   const ready = insightReady(smart.status)
   const insightSettings = useInsightSettings()
@@ -77,6 +82,7 @@ export function App() {
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const setupReady = !!snapshot?.workspace.setupConfirmedAt
   useLayoutEffect(() => { resetLinkPreviewCache() }, [snapshot?.workspace.generation])
+  useLayoutEffect(() => { if (snapshot?.workspace.generation) syncReviewSummaryGeneration(snapshot.workspace.generation) }, [snapshot?.workspace.generation])
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   useEffect(() => { document.documentElement.dataset.style = style }, [style])
   useEffect(() => { document.documentElement.dataset.check = checkStyle }, [checkStyle])
@@ -105,15 +111,15 @@ export function App() {
       if (combo === bindings.settings) { event.preventDefault(); openSettings() }
       // Chip position like browser tabs: the first is 全部, then flows in top-bar order; a missing slot does nothing.
       const slot = filterSlot(filterKeys, combo)
-      if (slot === 0) { event.preventDefault(); setFilter(null) }
-      if (slot > 0) { event.preventDefault(); const flow = flows.visible[slot - 1]; if (flow) setFilter(flow.id) }
+      if (slot === 0) { event.preventDefault(); selectFilter(null) }
+      if (slot > 0) { event.preventDefault(); const flow = flows.visible[slot - 1]; if (flow) selectFilter(flow.id) }
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, bindings, filterKeys, flows])
+  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, bindings, filterKeys, flows, selectFilter])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
   return <div className="app-shell">
-    <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={setFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
+    <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
       openSearch={openPalette} openSettings={() => openSettings()} />
     {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</button></div>}
     {snapshot?.workspace.calendar && Intl.DateTimeFormat().resolvedOptions().timeZone !== snapshot.workspace.calendar.timezone && <div className="notice-banner">{messages.timezoneMismatch} {snapshot.workspace.calendar.timezone}。</div>}

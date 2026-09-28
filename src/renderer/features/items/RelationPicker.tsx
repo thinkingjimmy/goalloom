@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Current item id and horizon, its incident edges, flow view, summary candidates and actions.
+ * [INPUT]: Current item id and horizon, incident edges, flow view, ordered summary candidates, local order mode and actions.
  * [OUTPUT]: Searchable relationship controls offering only horizon-valid endpoints (existing links stay listed for removal),
- *           with local hints and authoritative error feedback.
+ *           with board-consistent candidate/search ordering, local hints and authoritative error feedback.
  * [POS]: Relationship entry shared by the detail dialog and the board flow dot; storage rejects self-links, duplicates,
  *        cycles, invalid roots and horizon violations.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -14,6 +14,7 @@ import { mayParent } from '../../../domain/relations'
 import { messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
+import { useParentOrder } from '../../state/parent-order'
 import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
 
@@ -22,6 +23,7 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
   submit: (action: Action) => Promise<unknown>; onError: (message: string) => void; note?: ReactNode
 }) {
   const [query, setQuery] = useState(''), [results, setResults] = useState<ItemSummary[]>([])
+  const ordering = useParentOrder()
   useEffect(() => {
     if (!query.trim()) return
     let active = true
@@ -47,9 +49,12 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
   // A parent is a bigger goal in a longer horizon; Later never links. Nearest horizon first, current links on top.
   const eligible = (item: ItemSummary) => side === 'parent' ? mayParent(item.placement.horizon, self.horizon) : mayParent(self.horizon, item.placement.horizon)
   const distance = (item: ItemSummary) => Math.abs(horizons.indexOf(item.placement.horizon) - horizons.indexOf(self.horizon))
+  const indexes = new Map(candidates.map((item, index) => [item.id, index]))
+  const boardOrder = (a: ItemSummary, b: ItemSummary) => ordering.enabled || ordering.pending
+    ? (indexes.get(a.id) ?? candidates.length) - (indexes.get(b.id) ?? candidates.length) : 0
   const rows = (query.trim() ? results : candidates)
     .filter(item => item.id !== self.id && item.status !== 'cancelled' && (!!edgeFor(item.id) || eligible(item)))
-    .sort((a, b) => Number(!!edgeFor(b.id)) - Number(!!edgeFor(a.id)) || distance(a) - distance(b))
+    .sort((a, b) => Number(!!edgeFor(b.id)) - Number(!!edgeFor(a.id)) || distance(a) - distance(b) || boardOrder(a, b))
     .slice(0, 8)
   return <div className="menu relation-picker" role="dialog" aria-label={side === 'parent' ? messages.linkParent : messages.linkChild}>
     <input className="menu-search" autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder={messages.searchItems} aria-label={side === 'parent' ? messages.searchParents : messages.searchChildren} />

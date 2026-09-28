@@ -7,8 +7,9 @@ workspace/
 ├── repository.ts     # 用户命令唯一事务入口，复核幂等/代次/版本与配置；摘要快照与按当前周期连接的有界参数查询
 ├── context.ts        # Transaction context, validated current/explicit periods and semantic ordering
 ├── periods.ts        # Read-only selected-period summaries, generation/revision guards and rollover sources; no period materialization
+├── ordering.ts       # Body-free ancestor placement metadata shared by board reads and guarded ordering commands
 ├── queries.ts        # 轻量数量/活动/备份摘要及按页展开的批次成员
-├── history.ts        # from/to 索引分页、批量摘要与流式历史投影
+├── history.ts        # Immutable period-end projections and activity; separate generation-guarded live past-task pages filtered by current placement
 ├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/
 │   ├── items.ts      # Atomic setup/create/edit/move/link effects; next resolves from the original placement
@@ -17,6 +18,7 @@ workspace/
 │   ├── lifecycle.ts  # 独立状态、归档、软删除、还原和解除关联
 │   ├── undo.ts       # 效果字段逆转（计划按逆拓扑整体）、依赖保护、实际反向事件和 hold
 │   ├── backlog.ts    # 往期候选复核与批量安排，一个原子用户操作
+│   ├── ordering.ts   # Group-checked moves and atomic, reversible current/future order materialization
 │   └── settings.ts   # 策略生效边界、暂停确认与独立批次撤销
 └── transfer/
     ├── dataset.ts    # v1–v5 逐行规范化、保护验证释放正文、无历史 baseline、单事务替换
