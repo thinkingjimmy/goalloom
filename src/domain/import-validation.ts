@@ -163,6 +163,7 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
       }
       if (effect.kind === 'relations' || effect.kind === 'visibility') for (const delta of effect.edges) {
         if (['delete', 'unlink'].includes(operation.kind)) requireValid(delta.after.invalidatedBy === operation.id && delta.after.invalidatedAt === operation.at && delta.after.reason === (operation.kind === 'delete' ? 'delete' : 'unlink'), serverText().import.relationInvalidationSourceMismatch)
+        if (operation.kind === 'insertBetween') requireValid(delta.before === null ? delta.after.invalidatedAt === null && delta.after.reason === null : delta.after.invalidatedBy === operation.id && delta.after.invalidatedAt === operation.at && delta.after.reason === 'unlink', serverText().import.relationInvalidationSourceMismatch)
         if (['link', 'restoreItem'].includes(operation.kind)) requireValid(delta.after.invalidatedAt === null && delta.after.invalidatedBy === null && delta.after.reason === null, serverText().import.linkEffectInvalidEdge)
       }
     }
@@ -190,7 +191,7 @@ function validateEffect(effect: Effect, items: Map<string | number, unknown>, pe
 }
 function validateKind(operation: Dataset['operations'][number], version: Dataset['schemaVersion']): void {
   requireValid(operation.kind !== 'createPlan' || version >= 3, serverText().import.legacyPlan)
-  const allowed: Record<string, Effect['kind'][]> = { create: ['create'], createPlan: ['create'], edit: [], flowColor: [], move: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
+  const allowed: Record<string, Effect['kind'][]> = { create: ['create'], createPlan: ['create'], insertBetween: ['create', 'relations'], edit: [], flowColor: [], move: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
   requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), serverText().import.effectKindNotAllowed)
   requireValid(operation.source === (['rollover', 'baseline'].includes(operation.kind) ? 'system' : 'user'), serverText().import.operationSourceMismatch)
   const inverse = ['undo', 'undoBatch'].includes(operation.kind)
@@ -226,7 +227,7 @@ function validateItemIds(operation: Dataset['operations'][number], operations: M
 }
 function validateEvent(event: ItemEvent, operation: Dataset['operations'][number], effectsByItem: Map<string, Map<string, Array<{ effect: Effect; index: number }>>>, markers: Map<string | number, Dataset['undoEffects'][number]>, periods: Map<string | number, PlanningPeriod>): void {
   const a = event.before, b = event.after
-  const types: Record<string, string[]> = { created: ['create', 'createPlan'], baseline: ['baseline'], moved: ['move', 'arrangeBacklog'], rolled_over: ['move', 'arrangeBacklog', 'rollover'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
+  const types: Record<string, string[]> = { created: ['create', 'createPlan', 'insertBetween'], baseline: ['baseline'], moved: ['move', 'arrangeBacklog'], rolled_over: ['move', 'arrangeBacklog', 'rollover'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
   requireValid(types[event.type]?.includes(operation.kind), serverText().import.eventTypeMismatch)
   if (event.type === 'baseline') { requireValid(!a && !event.undoOf, serverText().import.baselineNotOrigin); return }
   if (event.type === 'created') { requireValid(!a && b.status === 'todo' && !b.archivedAt && !b.deletedAt && !b.holdPeriodId, serverText().import.invalidCreatedEvent); return }

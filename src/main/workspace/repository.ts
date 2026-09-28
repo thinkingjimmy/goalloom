@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Strict commands, finite queries, injected clock and SQLite Store.
- * [OUTPUT]: Authoritative writes, idempotent receipts and summary/detail projections with bounded SQL parameters.
+ * [OUTPUT]: Authoritative writes, idempotent receipts, current summaries and actual-period detail/search projections.
  * [POS]: Sole workspace command transaction boundary, called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,6 +17,7 @@ import { deleteItem, restoreItem, setArchive, setStatus, unlinkItems } from './c
 import { undoOperation } from './commands/undo'
 import { arrangeBacklog } from './commands/backlog'
 import { createPlan } from './commands/plan'
+import { insertBetween } from './commands/bridge'
 import { setPolicy, confirmClock, setBackupPreferences, confirmRollover, undoBatch } from './commands/settings'
 import { serverText } from '../../shared/i18n/server'
 
@@ -76,6 +77,7 @@ export class Repository {
       case 'confirmSetup': return confirmSetup(context, command)
       case 'create': return createItem(context, command)
       case 'createPlan': return createPlan(context, command)
+      case 'insertBetween': return insertBetween(context, command)
       case 'edit': return editItem(context, command)
       case 'flowColor': return setFlowColor(context, command)
       case 'move': return moveItem(context, command)
@@ -130,7 +132,10 @@ export class Repository {
     return this.db.prepare('SELECT r.*,p.title AS parentTitle,c.title AS childTitle,p.archivedAt AS parentArchived,c.archivedAt AS childArchived FROM item_relations r JOIN items p ON p.id=r.parentId JOIN items c ON c.id=r.childId WHERE r.invalidatedAt IS NULL AND (r.parentId=? OR r.childId=?) ORDER BY r.createdAt,r.id').all(itemId, itemId)
       .map(row => ({ ...row, parentArchived: row.parentArchived !== null, childArchived: row.childArchived !== null })) as unknown as ItemDetail['relations']
   }
-  detail(itemId: string): ItemDetail { return { item: this.store.item(itemId), relations: this.relationViews(itemId) } }
+  detail(itemId: string): ItemDetail {
+    const item = this.store.item(itemId)
+    return { item, period: item.placement.periodId ? this.store.period(item.placement.periodId) : null, relations: this.relationViews(itemId) }
+  }
   list(query: Extract<Query, { type: 'list' }>): ItemPage {
     const conditions = [query.view === 'trash' ? 'i.deletedAt IS NOT NULL' : 'i.deletedAt IS NULL']
     const parameters: (string | number)[] = []
@@ -150,6 +155,8 @@ export class Repository {
     const where = conditions.join(' AND ')
     const total = Number(this.db.prepare(`SELECT count(*) AS n FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where}`).get(...parameters)!.n)
     const sort = { done: 'i.completedAt DESC,i.id', cancelled: 'i.cancelledAt DESC,i.id', archived: 'i.archivedAt DESC,i.id', trash: 'i.deletedAt DESC,i.id', search: 'i.updatedAt DESC,i.id', backlog: 'p.periodId DESC,p.sortKey,i.id' }[query.view]
-    return { items: this.store.summaries(where, [...parameters, query.limit, query.offset], `ORDER BY ${sort} LIMIT ? OFFSET ?`), total }
+    const items = this.store.summaries(where, [...parameters, query.limit, query.offset], `ORDER BY ${sort} LIMIT ? OFFSET ?`)
+    const periods = query.view === 'search' ? [...new Set(items.flatMap(item => item.placement.periodId ? [item.placement.periodId] : []))].map(id => this.store.period(id)) : undefined
+    return { items, total, ...(periods ? { periods } : {}) }
   }
 }

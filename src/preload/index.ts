@@ -1,13 +1,13 @@
 /**
  * [INPUT]: Sandboxed Electron bridge and shared wire schemas.
- * [OUTPUT]: Fixed window.goalloom API with validated responses, including inert link previews and explicit browser opening.
+ * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, actual-period details and bounded link responses.
  * [POS]: Only renderer/main bridge; no Node capabilities, generic channels or file paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { z } from 'zod'
 import { contextBridge, ipcRenderer } from 'electron'
 import { languageChannel, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
-import { activitySummarySchema, backupSummarySchema, itemCountsSchema, detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
+import { activitySummarySchema, backupSummarySchema, boardPeriodsSchema, itemCountsSchema, detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
 import { replySchema, resultSchema } from '../shared/contracts/commands'
 import { activitySchema, historyIndexSchema, historyPageSchema } from '../shared/contracts/history'
 import { batchPageSchema, batchSchema, dataReplySchema } from '../shared/contracts/transfer'
@@ -31,6 +31,7 @@ const api: GoalloomApi = {
   getLanguage: () => language(ipcRenderer.invoke(languageChannel)),
   setLanguage: input => language(ipcRenderer.invoke(languageChannel, input)),
   getSnapshot: async () => query({ type: 'snapshot' }, snapshotSchema),
+  getBoardPeriods: async query => readQuery(query, boardPeriodsSchema),
   getItem: async itemId => query({ type: 'item', itemId }, detailSchema),
   listItems: async query => readQuery(query, itemPageSchema),
   getHistory: async query => readQuery(query, historyPageSchema),

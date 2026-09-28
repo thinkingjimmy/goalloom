@@ -14,6 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   openAnytime: 'Abrir ajustes en cualquier momento',
   enabledMeta: 'Activada',
   subtitles: {
+    insight: 'Cortes, repasos y cómo te entiende el borrador',
     appearance: 'Solo afecta a la visualización en este dispositivo; no se guarda en el historial del espacio de trabajo',
     smart: 'Jev convierte una frase en una vista previa de acciones editable; solo se guarda cuando confirmas',
     calendar: 'El calendario se bloquea tras la primera confirmación; cada columna decide qué hacer con lo pendiente al terminar el periodo',

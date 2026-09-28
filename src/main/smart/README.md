@@ -7,6 +7,7 @@ smart/
 ├── providers.ts    # 固定预设与错误归一化；System One 使用时才加载 SDK，Gateway 请求时才取 fetch
 ├── credentials.ts  # DeviceStore：OS 保护加密 Key、设备配置（activeProvider/providerRevision/enabledForGeneration）
 ├── service.ts      # 轻量状态/配置、按需加载题单/预览；覆盖异步预检的取消、冷却、32 项/512 KiB 缓存，会话释放清空
+├── insight.ts      # 流程洞察：OpenRouter chat completions（固定 flash 模型、关推理、JSON），复用已同意的 OpenRouter Key
 ├── context.ts      # 经 StorageClient 短只读查询构造 SmartContext（日期/周期/≤8 候选）
 └── electron.ts     # safeStorage/shell 组合点，装配服务
 ```

@@ -1,0 +1,257 @@
+import assert from 'node:assert/strict'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { _electron as electron } from 'playwright'
+import { pollPage } from './fixtures/poll.mjs'
+
+// 流程洞察（无模型路径）：空列卡 → 批量起草 / 自己写；单流程筛选的断点 ＋ 与首次引导（只一次，重载后不再出现）；
+// 单击断点在未连接模型时打开预填新建；跳级 ＋ 以 insertBetween 一次补上里程碑并改挂，一次撤销完整还原；「全部」不出 ＋。
+// Artifacts: output/tests/insight/report.json and output/tests/insight/*.png.
+const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
+const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'Goalloom 洞察 '))
+await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
+const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
+const out = 'output/tests/insight'
+await mkdir(out, { recursive: true })
+const application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
+const checks = []
+const check = label => { checks.push(label); console.log(`✓ ${label}`) }
+try {
+  const page = await application.firstWindow()
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await page.getByRole('button', { name: '先跳过', exact: true }).click()
+  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
+  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  const board = page.getByRole('main', { name: '时间看板' })
+  await board.waitFor()
+  const shot = name => page.screenshot({ path: `${out}/${name}.png` })
+  const snapshot = () => page.evaluate(() => window.goalloom.getSnapshot())
+  // Creates rows in order; `parent` names an earlier key or an existing id. Returns key → item id.
+  const seedRows = (specs, known = {}) => page.evaluate(async ([specs, known]) => {
+    const generation = (await window.goalloom.getSnapshot()).workspace.generation
+    const ids = { ...known }
+    for (const spec of specs) {
+      const parentId = spec.parent ? ids[spec.parent] : null
+      const expectedParentVersion = parentId ? (await window.goalloom.getSnapshot()).items.find(item => item.id === parentId).version : null
+      const reply = await window.goalloom.execute({ type: 'create', title: spec.title, horizon: spec.horizon, flowColor: spec.color ?? null, parentId, expectedParentVersion, generation, operationId: crypto.randomUUID() })
+      if (!reply.ok) throw new Error(reply.message)
+      ids[spec.key] = reply.result.itemId
+    }
+    return ids
+  }, [specs, known])
+
+  // Two flows with month plans only: 本周 and 今天 start empty.
+  const ids = await seedRows([
+    { key: 'fans', title: '全网粉丝达到 5w+', horizon: 'cycle', color: 0 }, { key: 'side', title: '副业收入提升到 $5k', horizon: 'cycle', color: 1 },
+    { key: 'video', title: '发布小米 Fold 18 评测视频', horizon: 'month', parent: 'fans' }, { key: 'wechat', title: '发 2 篇公众号（X 长文）', horizon: 'month', parent: 'fans' },
+    { key: 'bottega', title: 'Bottega 正式对外，同时开启商业化', horizon: 'month', parent: 'side' }, { key: 'todo', title: '开发一款自用 Todo 工具', horizon: 'month', parent: 'side' },
+  ])
+
+  // --- 空列：本周整列为空、本月有 4 项 → 卡片；今天的上一列也空 → 仍是普通空状态。 ---
+  const weekColumn = board.locator('[data-horizon="week"]'), dayColumn = board.locator('[data-horizon="day"]')
+  await weekColumn.getByText('本周还是空的').waitFor()
+  assert.equal(await dayColumn.locator('.insight-empty').count(), 0, '今天的上一列（本周）为空，不出卡片')
+  assert.equal(await board.locator('.breakpoint').count(), 0, '「全部」不出断点 ＋')
+  await shot('1-empty-week')
+  check('empty week column shows the insight card; 全部 shows no breakpoint ＋')
+
+  await weekColumn.getByRole('button', { name: '为 4 项各起一步' }).click()
+  const dialog = page.getByRole('dialog', { name: '新建' })
+  await dialog.waitFor()
+  const rows = dialog.locator('.seed-row')
+  assert.equal(await rows.count(), 4)
+  // Without a model the titles stay empty for the user to write; unchecked rows are skipped.
+  const titles = { [ids.bottega]: '给 Bottega 的 Artifact 功能增加此能力', [ids.todo]: '列出 Todo 工具的核心功能' }
+  for (let index = 0; index < 4; index++) {
+    const label = await rows.nth(index).locator('.seed-parent').innerText()
+    const parent = Object.entries({ [ids.bottega]: 'Bottega', [ids.todo]: 'Todo' }).find(([, text]) => label.includes(text))?.[0]
+    if (parent) await rows.nth(index).locator('.seed-title').fill(titles[parent])
+    else await rows.nth(index).getByRole('checkbox').uncheck()
+  }
+  await shot('2-batch-composer')
+  await dialog.getByRole('button', { name: /创建 2 项/ }).click()
+  await dialog.waitFor({ state: 'hidden' })
+  let state = await snapshot()
+  const week = state.periods.find(period => period.horizon === 'week')
+  for (const [parent, title] of Object.entries(titles)) {
+    const item = state.items.find(row => row.title === title)
+    assert.equal(item?.placement.horizon, 'week'); assert.equal(item.placement.periodId, week.id)
+    assert(state.relations.some(edge => edge.parentId === parent && edge.childId === item.id), `${title} 挂在上级下`)
+  }
+  check('batch card creates only the checked, titled rows in 本周 under their parents (createPlan)')
+
+  // 今天 is now empty under a non-empty 本周: its card offers the free composer with the period prefilled.
+  await dayColumn.getByText('今天还是空的').waitFor()
+  await dayColumn.getByRole('button', { name: '自己写' }).click()
+  await dialog.waitFor()
+  await dialog.getByRole('textbox').fill('随手记一件事')
+  await dialog.getByRole('textbox').press('Enter')
+  await dialog.waitFor({ state: 'hidden' })
+  state = await snapshot()
+  assert.equal(state.items.find(row => row.title === '随手记一件事')?.placement.horizon, 'day')
+  check('「自己写」opens the composer with only the period prefilled and creates in 今天')
+
+  // --- 断点：筛选「全网粉丝」→ 两个本月计划都没有本周下级，各一个 ＋；首次引导只出现一次。 ---
+  await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
+  await board.locator('.breakpoint[data-kind="gap"]').first().waitFor()
+  assert.equal(await board.locator('.breakpoint[data-kind="gap"]').count(), 2)
+  assert.equal(await board.locator('.breakpoint-guide').count(), 1, '首次出现断点给一次引导')
+  await shot('3-breakpoints-guide')
+  const place = await page.evaluate(id => {
+    const row = document.getElementById(`item-${id}`).getBoundingClientRect(), node = document.querySelector(`.breakpoint[aria-label*="发布小米"]`).getBoundingClientRect()
+    return { gap: Math.round(node.left + 9 - row.right), mid: Math.abs(node.top + node.height / 2 - (row.top + Math.min(row.height, 40) / 2)) < 2 }
+  }, ids.video)
+  assert.deepEqual(place, { gap: 8, mid: true }, '＋ 骑在列分隔线上，对齐行首行中线')
+  await board.getByRole('button', { name: '知道了' }).click()
+  assert.equal(await board.locator('.breakpoint-guide').count(), 0)
+  await page.reload()
+  await board.waitFor()
+  await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
+  await board.locator('.breakpoint[data-kind="gap"]').first().waitFor()
+  assert.equal(await board.locator('.breakpoint-guide').count(), 0, '引导状态存本机，重载后不再出现')
+  check('filtered flow shows one ＋ per gap on the column rule; the guide shows once and stays dismissed after reload')
+
+  // No model connected: a click opens the prefilled composer (parent + target period), ↵ creates the child.
+  await board.getByRole('button', { name: '给「发布小米 Fold 18 评测视频」拆下一步' }).click()
+  await dialog.waitFor()
+  assert(await dialog.locator('.seed-chip').filter({ hasText: '↳ 发布小米 Fold 18 评测视频' }).count())
+  const target = await page.evaluate(async () => {
+    const s = await window.goalloom.getSnapshot(), current = s.periods.find(period => period.horizon === 'week')
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: s.workspace.calendar.timezone }).format(new Date(s.observedAt))
+    const last = new Date(`${current.endDate}T00:00:00Z`); last.setUTCDate(last.getUTCDate() - 1)
+    return { lastDay: last.toISOString().slice(0, 10) === today, current: current.id }
+  })
+  await shot('4-seeded-next')
+  await dialog.getByRole('textbox').fill('写评测脚本')
+  await dialog.getByRole('textbox').press('Enter')
+  await dialog.waitFor({ state: 'hidden' })
+  state = await snapshot()
+  const edge = state.relations.find(row => row.parentId === ids.video)
+  assert(edge, '新步骤挂在「发布小米」下')
+  if (target.lastDay) {
+    await board.locator('.breakpoint-away').filter({ hasText: '写评测脚本' }).waitFor()
+    check('last day of the week: the step goes to next week and the ＋ becomes a destination pill')
+  } else {
+    assert.equal(state.items.find(row => row.id === edge.childId)?.placement.periodId, target.current)
+    // The new week step may itself need a day step; only the original parent's gap must disappear.
+    await board.getByRole('button', { name: '给「发布小米 Fold 18 评测视频」拆下一步', exact: true }).waitFor({ state: 'detached' })
+    check('mid-week: the step lands in 本周 and its ＋ disappears')
+  }
+  await shot('5-after-create')
+
+  // --- 跳级：今天两项直接挂在月计划 Bottega 下 → 橙色 ＋；预填新建以 insertBetween 一次补上并改挂。 ---
+  const skip = await seedRows([{ key: 'a', title: 'Bottega 远端控制功能完成验收', horizon: 'day', parent: 'bottega' }, { key: 'b', title: '完成 Bottega 09-24 开发任务', horizon: 'day', parent: 'bottega' }], { bottega: ids.bottega })
+  await page.getByRole('button', { name: '只看 副业收入提升到 $5k', exact: true }).click()
+  const amber = board.locator('.breakpoint[data-kind="skip"]')
+  await amber.waitFor()
+  assert.equal(await amber.count(), 1)
+  assert.equal(await page.locator(`#item-${ids.bottega}`).getAttribute('data-dimmed'), 'false', '筛选流程内的行不置灰')
+  await page.waitForTimeout(700)
+  await shot('6-skip')
+  await amber.click({ modifiers: ['Shift'] })
+  await dialog.waitFor()
+  assert(await dialog.locator('.seed-chip').filter({ hasText: '下级：今天 2 项' }).count())
+  await dialog.getByRole('textbox').fill('Bottega 远端控制功能完成验收（本周）')
+  await dialog.getByRole('textbox').press('Enter')
+  await dialog.waitFor({ state: 'hidden' })
+  state = await snapshot()
+  const milestone = state.items.find(row => row.title === 'Bottega 远端控制功能完成验收（本周）')
+  assert.equal(milestone?.placement.horizon, 'week')
+  const has = (parent, child) => state.relations.some(row => row.parentId === parent && row.childId === child)
+  assert(has(ids.bottega, milestone.id) && has(milestone.id, skip.a) && has(milestone.id, skip.b), '里程碑挂在 Bottega 下，今天两项改挂到里程碑')
+  assert(!has(ids.bottega, skip.a) && !has(ids.bottega, skip.b), '解除今天两项与月计划的直接关联')
+  await pollPage(page, () => document.querySelectorAll('.breakpoint[data-kind="skip"]').length === 0)
+  check('skip ＋ inserts a week milestone and re-links today\'s children in one insertBetween')
+
+  await page.keyboard.press('ControlOrMeta+z')
+  await pollPage(page, ids => window.goalloom.getSnapshot().then(s => !s.items.some(row => row.title === 'Bottega 远端控制功能完成验收（本周）')
+    && s.relations.some(row => row.parentId === ids.bottega && row.childId === ids.a) && s.relations.some(row => row.parentId === ids.bottega && row.childId === ids.b)), { ...skip, bottega: ids.bottega })
+  await amber.waitFor()
+  check('one undo removes the milestone and restores both direct edges')
+  await shot('7-undo')
+
+  // --- 复盘：本周最后一天（或下周第一天）列头出现入口；回顾 → 收尾 → 排下周 → 完成；完成后入口消失且重载后不再出现。 ---
+  const entry = board.locator('[data-review]')
+  const reviewDay = await entry.count() > 0
+  if (reviewDay) {
+    const scope = await entry.getAttribute('data-review')
+    await entry.click()
+    const drawer = page.getByRole('dialog', { name: scope === 'week' ? '本周复盘' : /复盘/ })
+    await drawer.waitFor()
+    await page.waitForTimeout(250)
+    await shot('8-review-lookback')
+    if (scope === 'week') assert.equal(await drawer.locator('.review-matrix [role="row"]').count(), 3, '表头 + 两条流程')
+    await drawer.getByRole('button', { name: /下一步/ }).click()
+    const closeRows = drawer.locator('.review-close-row')
+    const open = await closeRows.count()
+    if (open >= 2) {
+      await closeRows.nth(0).getByRole('radio', { name: '顺延' }).click()
+      await closeRows.nth(1).getByRole('radio', { name: '归档' }).click()
+    }
+    await shot('9-review-close')
+    await drawer.getByRole('button', { name: /下一步/ }).click()
+    const plan = drawer.locator('.review-plan-row')
+    await drawer.getByText(/每个缺口|为缺口起一步|没有需要补/).waitFor()
+    const rowsToPlan = await plan.count()
+    if (rowsToPlan) await plan.first().locator('.seed-title').fill('定两篇公众号选题')
+    await shot('10-review-plan')
+    await drawer.getByRole('button', { name: rowsToPlan ? /排入 1 项/ : /下一步/ }).click()
+    await drawer.getByText('复盘完成').waitFor()
+    if (rowsToPlan) {
+      const planned = await page.evaluate(async id => {
+        const s = await window.goalloom.getSnapshot(), edge = s.relations.find(row => row.parentId === id)
+        const detail = edge && await window.goalloom.getItem(edge.childId)
+        return detail && { title: detail.item.title, horizon: detail.item.placement.horizon, start: detail.period?.startDate, current: s.periods.find(period => period.horizon === 'week').startDate }
+      }, ids.wechat)
+      assert.equal(planned?.title, '定两篇公众号选题'); assert.equal(planned.horizon, 'week')
+      if (target.lastDay) assert.notEqual(planned.start, planned.current, 'Last-day review plans into the following week')
+      else assert.equal(planned.start, planned.current, 'Previous-week review on Monday plans into the current week')
+    }
+    await shot('11-review-done')
+    await drawer.getByRole('button', { name: '关闭', exact: true }).last().click()
+    await entry.waitFor({ state: 'detached' })
+    await page.reload(); await board.waitFor()
+    assert.equal(await board.locator('[data-review]').count(), 0, '复盘状态存本机，重载后入口不再出现')
+    check(`review (${scope}): look back → wrap up (${open} open) → plan (${rowsToPlan} candidate${rowsToPlan === 1 ? '' : 's'}) → done; the entry stays gone after reload`)
+  } else check('not a review day (neither the last nor the first day of a week/month): review checks skipped')
+
+  // --- 设置 › 洞察：关断点后筛选不出 ＋；关于我只存本机、重载保留；「再看一次」恢复引导。 ---
+  const openInsight = async () => {
+    await page.keyboard.press('ControlOrMeta+,')
+    const dialogSettings = page.locator('dialog.settings-modal')
+    await dialogSettings.getByRole('button', { name: '洞察' }).click()
+    return dialogSettings
+  }
+  let pane = await openInsight()
+  await pane.getByRole('textbox', { name: '你是谁、在做什么' }).fill('独立开发者兼内容创作者')
+  await pane.getByRole('radio', { name: '最小一步' }).click()
+  await pane.getByRole('button', { name: '查看' }).click()
+  assert.match(await pane.locator('.insight-prompt pre[data-user]').innerText(), /独立开发者兼内容创作者[\s\S]*十几分钟/)
+  await shot('12-settings-insight')
+  await pane.getByRole('switch', { name: '断点 ＋' }).click()
+  await page.keyboard.press('Escape'); await pane.waitFor({ state: 'detached' })
+  await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
+  await page.waitForTimeout(300)
+  assert.equal(await board.locator('.breakpoint').count(), 0, '关闭断点后筛选不出 ＋')
+  await page.reload(); await board.waitFor()
+  pane = await openInsight()
+  assert.equal(await pane.getByRole('textbox', { name: '你是谁、在做什么' }).inputValue(), '独立开发者兼内容创作者', '关于我重载后保留')
+  assert.equal(await pane.getByRole('switch', { name: '断点 ＋' }).getAttribute('aria-checked'), 'false')
+  await pane.getByRole('switch', { name: '断点 ＋' }).click()
+  await pane.getByRole('button', { name: '再看一次' }).click()
+  await page.keyboard.press('Escape'); await pane.waitFor({ state: 'detached' })
+  // The review emptied 本周; one week step brings gaps back so the replayed guide has a ＋ to point at.
+  await seedRows([{ key: 'teaser', title: '剪一版预告', horizon: 'week', parent: 'video' }], { video: ids.video })
+  await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
+  await board.locator('.breakpoint-guide').waitFor()
+  check('settings › 洞察: breakpoints switch, about-me persisted on the device, prompt preview carries preferences, guide replay')
+
+  assert.deepEqual(errors, [])
+  await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, lastDayOfWeek: target.lastDay, reviewDay, checks, electron: process.versions.electron ?? null, platform: `${process.platform}-${process.arch}` }, null, 2))
+} finally {
+  await application.close()
+  await rm(profile, { recursive: true, force: true })
+}

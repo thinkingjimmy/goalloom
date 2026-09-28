@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 工作区当地日期 YYYY-MM-DD 或本机时刻；i18n/index 的当前语言。
- * [OUTPUT]: 按当前语言的 Intl 日期/星期/时间/数字格式（短/长日期、月份、年月、年份、星期名、活动时间戳）。
- * [POS]: renderer 的本地化格式层；日历日均按 UTC 解释，不做时区换算，纯日期运算仍在 lib/dates。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Workspace date strings or timestamps and the active renderer locale.
+ * [OUTPUT]: Intl date/time/number formats, including year-inclusive planning destinations.
+ * [POS]: Presentation-only formatting; date strings use UTC without timezone shifts, date arithmetic stays in lib/dates.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { intlTags } from '../../shared/i18n/locale'
 import { currentLocale } from './index'
@@ -20,6 +20,7 @@ const day = (date: string) => new Date(`${date}T00:00:00Z`)
 export function shortDate(date: string): string { return format({ month: 'numeric', day: 'numeric' }).format(day(date)) }
 export function monthDay(date: string): string { return format({ month: 'short', day: 'numeric' }).format(day(date)) }
 export function longDate(date: string): string { return format({ month: 'short', day: 'numeric', weekday: 'short' }).format(day(date)) }
+export function fullDate(date: string): string { return format({ year: 'numeric', month: 'short', day: 'numeric' }).format(day(date)) }
 export function monthName(date: string): string { return format({ month: 'short' }).format(day(date)) }
 export function yearMonth(date: string): string { return format({ year: 'numeric', month: 'short' }).format(day(date)) }
 export function yearOf(date: string): string { return format({ year: 'numeric' }).format(day(date)) }

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Validated history/activity queries, Store and observation time.
  * [OUTPUT]: Period pages (members grouped by outcome, per-outcome summary, earliest-period stop), the recent past-period index and paged activity.
- * [POS]: Read-only history adapter; never creates periods or synthesizes events.
+ * [POS]: Read-only history adapter; filters ended periods before limiting the index, never materializes periods or events.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { compareInstants, currentPeriod, parseDate, precedingPeriod, type Period } from '../../domain/calendar'
@@ -62,7 +62,7 @@ export function readHistory(store: Store, query: Extract<Query, { type: 'history
 /** Recent closed periods of one scale that had members, newest first, with their completion counts for the period picker. */
 export function readHistoryIndex(store: Store, query: Extract<Query, { type: 'historyIndex' }>, now: string): HistoryIndex {
   if (!store.workspace().calendar) throw new DomainError('setup', serverText().errors.setupRequired)
-  const recent = store.prepare('SELECT * FROM planning_periods WHERE horizon=? ORDER BY startAt DESC LIMIT ?').all(query.horizon, indexLimit + 1) as unknown as Period[]
+  const recent = store.prepare('SELECT * FROM planning_periods WHERE horizon=? AND julianday(endAt)<=julianday(?) ORDER BY startAt DESC LIMIT ?').all(query.horizon, now, indexLimit) as unknown as Period[]
   return {
     periods: recent.filter(period => compareInstants(period.endAt, now) <= 0).slice(0, indexLimit).flatMap(period => {
       const projections = projectPeriod(store, period)

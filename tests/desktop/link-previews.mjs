@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Real Electron, a fresh profile, a seeded production preview cache and authoritative IPC fixtures.
- * [OUTPUT]: Repeatable link rendering, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
+ * [OUTPUT]: Repeatable link rendering, cache remount, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
  * [POS]: Focused desktop acceptance. Only transport and external-browser boundaries are disabled in the test process.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -86,6 +86,46 @@ async function openStored(title, archived = false) {
   return settings
 }
 
+async function openCachedDetail() {
+  const before = await probe()
+  await page.evaluate(() => {
+    const states = [], seen = new WeakSet()
+    const record = (element, kind, previous = null) => {
+      if (!element.matches('.detail-saved-links .link-preview')) return
+      if (kind === 'insert' && seen.has(element)) return
+      seen.add(element)
+      states.push({ kind, previous, status: element.dataset.status, title: element.querySelector('.link-preview-title')?.textContent, hasImage: !!element.querySelector('img') })
+    }
+    const observer = new MutationObserver(records => {
+      for (const mutation of records) {
+        if (mutation.type === 'attributes') record(mutation.target, 'status', mutation.oldValue)
+        for (const node of mutation.addedNodes) {
+          if (!(node instanceof Element)) continue
+          record(node, 'insert')
+          node.querySelectorAll('.link-preview').forEach(element => record(element, 'insert'))
+        }
+      }
+    })
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-status'], attributeOldValue: true })
+    window.linkPreviewRemount = { states, observer }
+  })
+  await row(ids.mixed).locator('.task-title').press('Enter')
+  await waitReady(detail(), 1)
+  const states = await page.evaluate(async () => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    window.linkPreviewRemount.observer.disconnect()
+    return window.linkPreviewRemount.states
+  })
+  assert.equal(states[0]?.kind, 'insert', 'The probe observes the first saved-detail card insertion')
+  assert.equal(states[0]?.status, 'ready', 'A cached preview is ready in its first DOM insertion')
+  assert.equal(states[0]?.title, 'Fixture X post')
+  assert.equal(states[0]?.hasImage, true, 'A cached image is present in the first DOM insertion')
+  assert(states.every(state => state.status === 'ready' && state.previous !== 'pending'), 'A cached preview never flashes pending while remounting or refreshing')
+  const after = await probe()
+  for (const key of ['requests', 'lookups', 'providerFetches']) assert.deepEqual(after[key], before[key], `Cached detail remount does not repeat ${key}`)
+  return { states, networkBefore: before, networkAfter: after }
+}
+
 try {
   await launch()
   await page.getByRole('button', { name: '先跳过', exact: true }).click()
@@ -132,7 +172,7 @@ try {
   await waitReady(row(ids.repeated), 1)
   assert.deepEqual(await row(ids.repeated).locator('.link-inline').allTextContents(), ['这篇帖子', '原帖'])
   await waitReady(row(ids.multiple), 3, 1)
-  assert.equal(await row(ids.multiple).locator('.link-preview').nth(2).getAttribute('data-status'), 'pending', 'An offscreen third card is not fetched eagerly')
+  assert.equal(await row(ids.multiple).locator('.link-preview').nth(2).getAttribute('data-status'), 'ready', 'An offscreen reference reuses the X metadata already cached by a visible card')
   assert.equal(await row(ids.multiple).locator('.link-inline').first().innerText(), '这支动画')
   assert.equal(await row(ids.multiple).locator('.link-inline').first().getAttribute('href'), urls.youtube)
   await pollPage(page, id => document.querySelector(`#item-${id} .link-preview img`)?.naturalWidth === 96, ids.mixed)
@@ -245,7 +285,16 @@ try {
   checks.push('A real uncached lookup denied by the offline transport produces a usable HTTP(S) fallback')
 
   for (const [key, id] of Object.entries(ids)) assert.deepEqual(await storedItem(id), saved[key], `${key}: preview reads must not change any item fields`)
-  await row(ids.mixed).locator('.task-title').press('Enter')
+  report.cacheRemount = { fresh: await openCachedDetail() }
+  await shot('warm-cache-detail')
+  await closeDetail()
+  // Advance only renderer Date; main-process metadata stays fresh and real timers keep running.
+  await page.clock.setSystemTime(Date.now() + 360_000)
+  try {
+    report.cacheRemount.expired = await openCachedDetail()
+    await shot('expired-cache-detail')
+  } finally { await page.clock.setSystemTime(Date.now()) }
+  checks.push('Fresh and expired successful renderer metadata render immediately when saved details mount; DOM insertion/status observations show no pending flash or repeated network work')
   assert.equal(await detail().locator('.title-input').inputValue(), titles.mixed)
   await waitReady(detail(), 1)
   const edited = `${titles.mixed}，保留原链接。`

@@ -51,6 +51,9 @@ export const appMessages: typeof source = {
     danglingReferences: 'The database contains dangling references',
   },
   errors: {
+    invalidPlanningPeriod: "Choose a valid planning period",
+    planningPeriodExpired: "This period has ended. Your input is kept; choose a new period.",
+    cannotAdvancePeriod: "Only active to-dos in a planning period can move to the next period",
     setupRequired: 'Confirm the workspace setup first',
     closedPeriodOnly: 'Only valid periods that have ended can be viewed',
     maintenance: 'Protecting the workspace. Finish or cancel the current operation.',

@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 已校验命令与最新事务 Context。
- * [OUTPUT]: 首次确认、创建、编辑、流程颜色、移动和关联的原子字段/边差量及真实事件。
- * [POS]: workspace 的条目与首次配置命令库；关系为多父 DAG，流程根颜色唯一且无上级，各条目状态/位置独立。新建关联（link/带上级新建）须上级周期更长且不含 Later；Later 条目不能设流程色。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Validated commands, current transaction context and explicit current/date/next targets.
+ * [OUTPUT]: Atomic setup, item, placement and relationship changes with actual history and effect receipts.
+ * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import { currentPeriod, workspaceDate } from '../../../domain/calendar'
@@ -38,7 +38,7 @@ export function createItem(context: Context, command: CommandOf<'create'>): bool
     assertFlowColorFree(context, command.flowColor, null)
   }
   const id = randomUUID()
-  const period = targetPeriod(context, command.horizon)
+  const period = targetPeriod(context, command.horizon, command.period)
   const item: Item = { id, title: command.title, description: command.description, dueDate: command.dueDate,
     status: 'todo', completedAt: null, cancelledAt: null, archivedAt: null, deletedAt: null, deletedBy: null,
     createdAt: context.now, updatedAt: context.now, version: 1, flowColor: command.flowColor,
@@ -87,7 +87,16 @@ export function moveItem(context: Context, command: CommandOf<'move'>): boolean 
   if (item.placement.version !== command.expectedPlacementVersion) throw new DomainError('stale', serverText().errors.placementChanged)
   const before = structuredClone(item)
   const previous = context.store.position(item)
-  const target = targetPeriod(context, command.horizon)
+  let destination = command.period
+  if (destination?.kind === 'next') {
+    if (item.status !== 'todo' || item.archivedAt || item.placement.horizon === 'later' || item.placement.horizon !== command.horizon || !item.placement.periodId || command.beforeId !== null) {
+      throw new DomainError('conflict', serverText().errors.cannotAdvancePeriod)
+    }
+    const source = context.store.period(item.placement.periodId)
+    const next = currentPeriod(context.workspace.calendar!, source.horizon, source.endAt)
+    destination = { kind: 'date', startDate: next.startDate }
+  }
+  const target = targetPeriod(context, command.horizon, destination)
   const periodId = target?.id ?? null
   if (command.beforeId === item.id) return false
   if (item.placement.horizon === command.horizon && item.placement.periodId === periodId && previous.nextId === command.beforeId) return false

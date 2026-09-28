@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Authoritative workspace, command, injected observation time and Store.
- * [OUTPUT]: Shared period, color and indexed ordering primitives; lightweight rebalancing only when needed.
+ * [OUTPUT]: Validated current/explicit planning periods, color and indexed ordering primitives.
  * [POS]: Command context with transaction-local calculations and rollback-safe period insertion.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { currentPeriod } from '../../domain/calendar'
-import { DomainError, type Command } from '../../shared/contracts/commands'
+import { DomainError, type Command, type CreatePeriodTarget } from '../../shared/contracts/commands'
+import { readPlanningPeriod } from './periods'
 import type { Effect } from '../../shared/contracts/effects'
 import type { Item, ItemHorizon, PlanningPeriod, Workspace } from '../../shared/contracts/entities'
 import type { Store } from '../storage/store'
@@ -29,13 +30,17 @@ export function assertFlowColorFree(context: Context, color: number, exceptId: s
   const owner = flowColorOwner(context, color, exceptId)
   if (owner !== null) throw new DomainError('conflict', serverText().errors.colorTaken(owner))
 }
-export function targetPeriod(context: Context, horizon: ItemHorizon): PlanningPeriod | null {
-  if (horizon === 'later') return null
+export function targetPeriod(context: Context, horizon: ItemHorizon, target?: CreatePeriodTarget): PlanningPeriod | null {
+  if (horizon === 'later') {
+    if (target?.kind === 'date') throw new DomainError('invalid', serverText().errors.invalidPlanningPeriod)
+    return null
+  }
   if (!context.workspace.calendar) throw new DomainError('setup', serverText().errors.setupRequired)
-  const period = context.periods?.get(horizon) ?? currentPeriod(context.workspace.calendar, horizon, context.now)
+  const period = target?.kind === 'date' ? readPlanningPeriod(context.store, horizon, target.startDate, context.now)
+    : context.periods?.get(horizon) ?? currentPeriod(context.workspace.calendar, horizon, context.now)
   // Cache only the calculation: a previous SAVEPOINT may have rolled back the insertion.
   context.store.ensurePeriod(period)
-  context.periods ??= new Map(); context.periods.set(horizon, period)
+  if (target?.kind !== 'date') { context.periods ??= new Map(); context.periods.set(horizon, period) }
   return period
 }
 export function touch(context: Context, item: Item): void {

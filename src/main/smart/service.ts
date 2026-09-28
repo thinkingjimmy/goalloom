@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated actions, DeviceStore, adapters, a workspace reader and injected clock.
- * [OUTPUT]: Revision-guarded configuration, cancellable analysis, cooldown and renderer-session preview cache.
+ * [OUTPUT]: Revision-guarded configuration, cancellable analysis, cooldown, renderer-session preview cache and uncached flow-insight draft/review calls on the saved OpenRouter key.
  * [POS]: Lightweight main-process service; analysis loads its planner on demand and HTTP never holds a storage transaction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,7 +10,9 @@ import { payloadSize, payloadLimit, tokenBudget, questionBudget, textLimit } fro
 import type { SmartContext } from '../../domain/smart/questions'
 import type { Round } from '../../domain/smart/preview'
 import { jevProviders } from '../../shared/contracts/values'
-import { smartActionSchema, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type Failure, type JevProvider, type SmartReply, type SmartStatus, type TestOutcome } from '../../shared/contracts/smart-input'
+import { smartActionSchema, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type DraftRequest, type Failure, type JevProvider, type ReviewRequest, type SmartReply, type SmartStatus, type TestOutcome } from '../../shared/contracts/smart-input'
+import type { ChatPrompt } from '../../domain/smart/insight'
+import type { ChatAdapter } from './insight'
 import type { DeviceConfig, DeviceStore } from './credentials'
 import { Aborted, failure, JEV_PROVIDERS, ProviderFailure, type Adapter, type EvaluateOutput } from './providers'
 import { serverText } from '../../shared/i18n/server'
@@ -19,7 +21,7 @@ export interface WorkspaceReader {
   generation(): Promise<string>
   context(text: string, hints: string[], referenceTime: string): Promise<SmartContext | null>
 }
-export interface ServiceOptions { store: DeviceStore; adapters: Record<JevProvider, Adapter>; reader: WorkspaceReader; now?: () => number; unsignedBuild: boolean; openExternal?: (url: string) => void }
+export interface ServiceOptions { store: DeviceStore; adapters: Record<JevProvider, Adapter>; chat?: ChatAdapter; reader: WorkspaceReader; now?: () => number; unsignedBuild: boolean; openExternal?: (url: string) => void }
 
 // Fixed, non-private sample: a real judgement plus schema check, so a key string alone never counts as connected.
 const sample = {
@@ -63,6 +65,14 @@ export class SmartInputService {
       case 'openConsole': this.options.openExternal?.(JEV_PROVIDERS[action.provider].console); return { type: 'cancelled' }
       case 'analyze': return { type: 'analysis', reply: await this.analyze(action.request) }
       case 'cancel': this.chains.get(action.draftSessionId)?.abort(); this.chains.delete(action.draftSessionId); return { type: 'cancelled' }
+      case 'draft': return { type: 'draft', reply: await this.insight(action.request, async request => {
+        const { draftPrompt, parseDraft } = await import('../../domain/smart/insight')
+        return { prompt: draftPrompt(request), parse: (content: string) => parseDraft(content, request) }
+      }) }
+      case 'review': return { type: 'review', reply: await this.insight(action.request, async request => {
+        const { reviewPrompt, parseReview } = await import('../../domain/smart/insight')
+        return { prompt: reviewPrompt(request), parse: parseReview }
+      }) }
     }
   }
 
@@ -220,5 +230,33 @@ export class SmartInputService {
       }
       return failed(failure('unavailable', provider))
     } finally { if (this.chains.get(request.draftSessionId) === controller) this.chains.delete(request.draftSessionId) }
+  }
+
+  // --- Flow insight: one chat call per request; gated like analysis but on the saved OpenRouter key, never cached or logged. ---
+  private async insight<R extends DraftRequest | ReviewRequest, T>(request: R, build: (request: R) => Promise<{ prompt: ChatPrompt; parse: (content: string) => T }>):
+    Promise<{ status: 'ready'; requestId: string; value: T } | { status: 'failed'; requestId: string; failure: Failure }> {
+    const failed = (value: Failure) => ({ status: 'failed' as const, requestId: request.requestId, failure: value })
+    const revision = this.configurationRevision
+    const controller = new AbortController()
+    this.connections.add(controller)
+    try {
+      const config = await this.options.store.config()
+      if (!this.options.chat || config.enabledForGeneration !== request.generation || !config.providers.openrouter.consentedAt) return failed(failure('not_enabled', 'openrouter'))
+      if (request.generation !== await this.options.reader.generation()) return failed(failure('not_enabled', 'openrouter'))
+      if (this.cooldownUntil > this.now()) return failed(failure('rate_limited', 'openrouter', 429, new Date(this.cooldownUntil).toISOString()))
+      const read = await this.options.store.readKey('openrouter')
+      if (read.state !== 'saved') return failed(failure(read.state === 'unavailable' ? 'credential_unavailable' : read.state === 'unreadable' ? 'credential_unreadable' : 'not_enabled', 'openrouter'))
+      const { prompt, parse } = await build(request)
+      const content = await this.options.chat(read.key, prompt, controller.signal)
+      if (revision !== this.configurationRevision) return failed(failure('not_enabled', 'openrouter'))
+      try { return { status: 'ready' as const, requestId: request.requestId, value: parse(content) } }
+      catch { return failed(failure('malformed_response', 'openrouter')) }
+    } catch (error) {
+      if (error instanceof ProviderFailure) {
+        if (error.failure.kind === 'rate_limited') this.cooldownUntil = Date.parse(error.failure.retryAt!)
+        return failed(error.failure)
+      }
+      return failed(failure(error instanceof Aborted || controller.signal.aborted ? 'not_enabled' : 'unavailable', 'openrouter'))
+    } finally { this.connections.delete(controller) }
   }
 }

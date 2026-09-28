@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Zod, entity schemas and the lightweight supported-provider values.
- * [OUTPUT]: Jev 服务标识、设备侧智能输入状态、受限设置/判断动作、带修订回声的判断回复与可编辑预览 DTO。
+ * [OUTPUT]: Jev 服务标识、设备侧智能输入状态、受限设置/判断动作、带修订回声的判断回复与可编辑预览 DTO；流程洞察的起草/复盘请求（有界看板文本、代码算出的信号、本机偏好）与回复。
  * [POS]: main 智能服务 ↔ preload ↔ renderer 的唯一契约；不含凭据明文，也不进入 workspace 表、导出或迁移。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -41,7 +41,43 @@ export const analyzeRequestSchema = z.strictObject({
 })
 export type AnalyzeRequest = z.infer<typeof analyzeRequestSchema>
 
+// --- Flow insight: renderer-built, bounded text context; code computes the signals, the model only words them. ---
+export const insightPrefsSchema = z.strictObject({
+  about: z.string().max(1000), stepSize: z.enum(['smallest', 'hour', 'halfDay']), stepNotes: z.string().max(500),
+  tone: z.enum(['direct', 'gentle', 'questions']), focus: z.array(z.enum(['gap', 'overload', 'skip', 'vague'])).max(4),
+})
+export type InsightPrefs = z.infer<typeof insightPrefsSchema>
+const line = z.string().max(500)
+export const draftTaskSchema = z.strictObject({
+  id: z.string().min(1).max(64), kind: z.enum(['next', 'bridge']), parent: line, goal: line.nullable(),
+  target: z.string().max(120), targetHorizon: z.enum(['month', 'week', 'day']),
+  siblings: z.array(line).max(20), children: z.array(line).max(8),
+})
+export type DraftTask = z.infer<typeof draftTaskSchema>
+export const insightBoardSchema = z.strictObject({
+  today: dateSchema, periods: z.partialRecord(z.enum(['cycle', 'month', 'week', 'day']), z.string().max(80)),
+  goals: z.array(z.strictObject({ title: line, month: z.array(line).max(24), week: z.array(line).max(24), day: z.array(line).max(24) })).max(12),
+  unlinked: z.strictObject({ month: z.array(line).max(24), week: z.array(line).max(24), day: z.array(line).max(24) }),
+})
+export type InsightBoard = z.infer<typeof insightBoardSchema>
+export const insightSignalSchema = z.strictObject({ kind: z.enum(['gap', 'skip', 'pace', 'overload', 'vague']), goal: line, detail: z.string().max(300) })
+export type InsightSignal = z.infer<typeof insightSignalSchema>
+export const draftRequestSchema = z.strictObject({ requestId: z.uuid(), generation: idSchema, board: insightBoardSchema, tasks: z.array(draftTaskSchema).min(1).max(8), prefs: insightPrefsSchema })
+export type DraftRequest = z.infer<typeof draftRequestSchema>
+export const reviewRequestSchema = z.strictObject({ requestId: z.uuid(), generation: idSchema, scope: z.enum(['week', 'month', 'both']), board: insightBoardSchema, signals: z.array(insightSignalSchema).max(16), prefs: insightPrefsSchema })
+export type ReviewRequest = z.infer<typeof reviewRequestSchema>
+export const draftTitleSchema = z.strictObject({ id: z.string().max(64), title: z.string().min(1).max(60), why: z.string().max(80) })
+export type DraftTitle = z.infer<typeof draftTitleSchema>
+export const reviewTextSchema = z.strictObject({ headline: z.string().max(80), advice: z.string().max(100), flags: z.array(z.strictObject({ goal: line, kind: z.string().max(20), note: z.string().max(60) })).max(3) })
+export type ReviewText = z.infer<typeof reviewTextSchema>
+export const insightReplySchema = <T extends z.ZodType>(value: T) => z.discriminatedUnion('status', [
+  z.strictObject({ status: z.literal('ready'), requestId: z.uuid(), value }),
+  z.strictObject({ status: z.literal('failed'), requestId: z.uuid(), failure: failureSchema }),
+])
+
 export const smartActionSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('draft'), request: draftRequestSchema }),
+  z.strictObject({ type: z.literal('review'), request: reviewRequestSchema }),
   z.strictObject({ type: z.literal('status'), generation: idSchema }),
   z.strictObject({ type: z.literal('connect'), generation: idSchema, provider: jevProviderSchema, apiKey: z.string().trim().min(8).max(512).nullable(), consent: z.literal(true) }),
   z.strictObject({ type: z.literal('disable'), generation: idSchema }),
@@ -95,5 +131,7 @@ export const smartReplySchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('status'), status: smartStatusSchema, test: testOutcomeSchema.nullable() }),
   z.strictObject({ type: z.literal('analysis'), reply: analyzeReplySchema }),
   z.strictObject({ type: z.literal('cancelled') }),
+  z.strictObject({ type: z.literal('draft'), reply: insightReplySchema(z.array(draftTitleSchema).min(1).max(8)) }),
+  z.strictObject({ type: z.literal('review'), reply: insightReplySchema(reviewTextSchema) }),
 ])
 export type SmartReply = z.infer<typeof smartReplySchema>

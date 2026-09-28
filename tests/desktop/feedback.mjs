@@ -255,7 +255,7 @@ try {
   checks.push('Real renderer createPlan batch keeps one count summary; keyboard undo deletes the whole batch and offers trash navigation')
 
   await page.getByRole('region', { name: '本周列', exact: true }).hover()
-  await page.getByRole('button', { name: '查看本周上一期', exact: true }).click()
+  await page.getByRole('region', { name: '本周列', exact: true }).locator('[data-history-entry]').click()
   await openStored('History-view reopening', 'done')
   await detail().getByRole('button', { name: '重新打开', exact: true }).click()
   await toast.filter({ hasText: '本周' }).waitFor()

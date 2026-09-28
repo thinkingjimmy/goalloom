@@ -51,6 +51,9 @@ export const appMessages: typeof source = {
     danglingReferences: 'データベースに参照先のない参照があります',
   },
   errors: {
+    invalidPlanningPeriod: "有効な計画期間を選択してください",
+    planningPeriodExpired: "この期間は終了しました。入力は保持されています。別の期間を選んでください。",
+    cannotAdvancePeriod: "次の期間に移せるのは、計画期間内の未完了・未アーカイブの項目のみです",
     setupRequired: '先にワークスペースの設定を確定してください',
     closedPeriodOnly: '終了済みの有効な期間のみ表示できます',
     maintenance: 'ワークスペースを保護中です。現在の操作を完了するかキャンセルしてください',

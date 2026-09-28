@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Main-owned file paths, locale, injected clock and narrow internal RPC.
- * [OUTPUT]: Serialized SQLite work, worker-local transfer and typed failures.
+ * [OUTPUT]: Serialized SQLite commands, current/selected-period reads, worker-local transfer and typed failures.
  * [POS]: Storage composition root; protected migrations finish before requests and cloud work stays outside the queue.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,6 +16,7 @@ import { openWorkspace, StartupError } from './startup'
 import { Repository } from '../workspace/repository'
 import { activitySummary, batchPage, batchSummaries, itemCounts } from '../workspace/queries'
 import { readActivity, readHistory, readHistoryIndex } from '../workspace/history'
+import { readBoardPeriods } from '../workspace/periods'
 import { WorkspaceService } from '../workspace/transfer/service'
 import { readJson, writeDataset } from '../workspace/transfer/files'
 import { serverText, setServerLocale } from '../../shared/i18n/server'
@@ -58,6 +59,7 @@ function handle(method: string, argument: unknown): unknown {
   const query = querySchema.parse(argument)
   switch (query.type) {
     case 'snapshot': return { ...repository.snapshot(), backupError: service.backups.lastError }
+    case 'boardPeriods': return readBoardPeriods(repository.store, query, repository.clock.now())
     case 'item': return repository.detail(query.itemId)
     case 'list': return repository.list(query)
     case 'history': return readHistory(repository.store, query, repository.clock.now())

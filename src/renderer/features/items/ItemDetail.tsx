@@ -1,13 +1,15 @@
 /**
- * [INPUT]: Item ID, authoritative detail, flow views, summary candidates and actions.
- * [OUTPUT]: Editable raw details, saved-content link previews, lifecycle/relationship controls and revision-safe save feedback.
+ * [INPUT]: Item ID, authoritative detail/period, workspace clock, visible candidates, flow views and actions.
+ * [OUTPUT]: Editable details, real-period location/move controls, saved links and revision-safe save feedback.
  * [POS]: Full-body detail boundary; refresh and save receipts preserve newer drafts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { ItemDetail as Detail } from '../../../shared/contracts/queries'
 import { horizons } from '../../../shared/contracts/values'
-import type { Item, ItemSummary, ItemHorizon } from '../../../shared/contracts/entities'
+import type { CalendarConfig, Item, ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
+import { compareInstants } from '../../../domain/calendar'
+import { periodDates, planningLabel } from '../../lib/periods'
 import { statusNames, messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
@@ -28,9 +30,9 @@ const draftOf = (item: Item) => ({ title: item.title, description: item.descript
 const nextHorizon: Record<ItemHorizon, ItemHorizon> = { later: 'later', cycle: 'month', month: 'week', week: 'day', day: 'day' }
 type Pop = 'parent' | 'child' | 'move' | 'more' | 'flow' | null
 
-export function ItemDetail({ itemId, close, select, submit, revision, busy, locate, flows, candidates, today, split }: {
+export function ItemDetail({ itemId, close, select, submit, revision, busy, locate, flows, candidates, today, calendar, observedAt, split }: {
   itemId: string; close: () => void; select: (id: string) => void; submit: (action: Action) => Promise<unknown>; revision: number; busy: boolean
-  locate?: (() => void) | undefined; flows: Flows; candidates: ItemSummary[]; today: string; split: (parent: { id: string; title: string }, horizon: ItemHorizon) => void
+  locate?: ((item: Item, period: PlanningPeriod | null) => void) | undefined; flows: Flows; candidates: ItemSummary[]; today: string; calendar: CalendarConfig; observedAt: string; split: (parent: { id: string; title: string }, horizon: ItemHorizon) => void
 }) {
   const [detail, setDetail] = useState<Detail | null>(null)
   const { bindings } = useShortcuts()
@@ -82,22 +84,24 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
   // Later is a parking lot: no flow colour and no links; existing edges still show and open. 今天 is the shortest horizon, so it has nothing to split into.
   const later = item?.placement.horizon === 'later'
   const ring = item && !done ? flowVars(flows.colorsOf(itemId)) : undefined
-  const context = item && `${horizonNames[item.placement.horizon]}${item.placement.periodId ? ` · ${item.placement.periodId.split(':').at(-1)}` : ''}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}${readOnly ? ` · ${messages.trash}` : ''}`
+  const inCurrent = (horizon: ItemHorizon) => !!item && item.placement.horizon === horizon && (horizon === 'later' || !!detail?.period && compareInstants(detail.period.startAt, observedAt) <= 0 && compareInstants(detail.period.endAt, observedAt) > 0)
+  const canLocate = item && !item.deletedAt && !item.archivedAt && item.status !== 'cancelled' && (!detail?.period || compareInstants(detail.period.endAt, observedAt) > 0)
+  const context = item && `${detail?.period ? `${planningLabel(detail.period, calendar, observedAt)} · ${periodDates(detail.period)}` : horizonNames[item.placement.horizon]}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}${readOnly ? ` · ${messages.trash}` : ''}`
   const heading = item && (readOnly ? <p className="modal-context">{context}</p> : <div className="modal-context">
     <Popover open={pop === 'move'} onClose={() => setPop(null)} anchor={<button type="button" className="placement-chip" aria-label={messages.labelled(messages.moveTo, context ?? '')} aria-expanded={pop === 'move'} onClick={() => toggle('move')}>
       <span className="placement-text">{context}</span><Icon name="expand" size={14} />
     </button>}>
       <div className="menu" role="menu" aria-label={messages.moveTo}>
-        {horizons.map(horizon => <button key={horizon} role="menuitemradio" aria-checked={item.placement.horizon === horizon} className="menu-item" disabled={busy} onClick={() => {
+        {horizons.map(horizon => <button key={horizon} role="menuitemradio" aria-checked={inCurrent(horizon)} className="menu-item" disabled={busy} onClick={() => {
           setPop(null)
-          if (item.placement.horizon !== horizon) void submit({ type: 'move', itemId, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon })
-        }}><span className="menu-check">{item.placement.horizon === horizon && <Icon name="check" size={14} strokeWidth={2} />}</span>{horizonNames[horizon]}</button>)}
+          if (!inCurrent(horizon)) void submit({ type: 'move', itemId, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon })
+        }}><span className="menu-check">{inCurrent(horizon) && <Icon name="check" size={14} strokeWidth={2} />}</span>{horizonNames[horizon]}</button>)}
       </div>
     </Popover>
   </div>)
   const actions = item && detail && !readOnly && <Popover open={pop === 'more'} onClose={() => setPop(null)} align="end" anchor={<button className="icon-button" aria-label={messages.moreActions} aria-expanded={pop === 'more'} onClick={() => toggle('more')}><Icon name="more" size={18} /></button>}>
     <div className="menu" role="menu" aria-label={messages.moreActions}>
-      {locate && <button role="menuitem" className="menu-item" onClick={() => { setPop(null); if (mayLeave()) locate() }}>{messages.locate}</button>}
+      {locate && canLocate && <button role="menuitem" className="menu-item" onClick={() => { setPop(null); if (mayLeave()) locate(item, detail.period) }}>{messages.locate}</button>}
       <button role="menuitem" className="menu-item" disabled={busy} onClick={() => { setPop(null); void submit({ type: 'status', itemId, expectedVersion: item.version, status: item.status === 'cancelled' ? 'todo' : 'cancelled' }) }}>{item.status === 'cancelled' ? messages.restoreTodo : messages.cancelItem}</button>
       <button role="menuitem" className="menu-item" disabled={busy} onClick={() => { setPop(null); void submit({ type: 'archive', itemId, expectedVersion: item.version, archived: !item.archivedAt }) }}>{item.archivedAt ? messages.unarchive : messages.archiveItem}</button>
       <div className="menu-separator" />

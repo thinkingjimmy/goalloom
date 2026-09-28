@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Finite preload API, user commands, UndoSession and post-layout board visibility.
+ * [INPUT]: Finite preload API, user commands, UndoSession and post-refresh current/future board visibility.
  * [OUTPUT]: Authoritative snapshots, visibility-aware success/undo feedback, deduplicated completion events after committed writes and a
  *           keyboard undo request that waits for an in-flight own write instead of being dropped.
  * [POS]: Renderer state boundary; preserves unknown receipts and avoids redundant own-write refreshes.
@@ -64,6 +64,7 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
     if (!candidate || !snapshot || candidate.result.generation !== snapshot.workspace.generation || snapshot.workspace.revision < candidate.revision) return
     let visibility: ItemVisibility = 'outside-view'
     try { if (candidate.item) visibility = itemVisibility(candidate.item) } catch { /* Saved results do not depend on view measurement. */ }
+    if (visibility === 'pending') return
     const next = resolveFeedback(candidate, snapshot, visibility)
     if (next) setFeedback(next)
     setCandidate(null)
@@ -93,8 +94,10 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
       }
     }
     if (kind) {
-      const item = next.items.find(item => item.id === result.itemId)
-        ?? (result.itemId ? (await desktopApi().getItem(result.itemId).catch(() => null))?.item : null)
+      const summary = next.items.find(item => item.id === result.itemId)
+      const detail = !summary && result.itemId ? await desktopApi().getItem(result.itemId).catch(() => null) : null
+      const item = summary ? { ...summary, period: next.periods.find(period => period.id === summary.placement.periodId) ?? null }
+        : detail ? { ...detail.item, period: detail.period } : null
       if (current.current?.workspace.generation === result.generation) setCandidate({ result, kind, item: item ?? null, revision: next.workspace.revision })
     }
     return result

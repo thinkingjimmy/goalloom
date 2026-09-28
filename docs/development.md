@@ -12,6 +12,8 @@
 | [关系线功能规格](features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [快捷键功能规格](features/shortcuts.md) | 默认键位、流程筛选位置键、改键与冲突规则、工程契约与验收 |
 | [完成反馈功能规格](features/completion-feedback.md) | 按可见性反馈去向、静默操作、逐列撒花、提示与动效生命周期及撤销验收 |
+| [周期规划功能规格](features/period-planning.md) | 待办右键顺延、未来周期浏览与编辑、按周期草稿、事务和查询边界及验收 |
+| [流程洞察功能规格](features/flow-insight.md) | 单流程断点 ＋ 与跳级补里程碑、空列卡、周/月/合并复盘、分组右键菜单、设置 › 洞察与 DeepSeek Flash 起草通道 |
 | [链接预览功能规格](features/link-previews.md) | 混排短链接、真实预览、多链接横滑、历史数据按需展示、网络/缓存边界及验收 |
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
@@ -25,13 +27,17 @@ Node >=22.12，包管理器为 pnpm 11.9.0（`packageManager` 锁定，Corepack 
 日历计算使用锁定 Electron 44.4.4 的原生 Temporal（main、worker 和 renderer）；`@js-temporal/polyfill` 仅提供开发期类型，不进入正式包。领域测试与智能输入评测都使用 Electron 自带 Node；升级 Electron 时须复核原生 Temporal、DST 和三个月锚点行为。
 
 ```sh
-pnpm dev                  # Electron 开发预览
+pnpm dev                  # Electron preview; watches main/preload and hot-reloads the renderer
 pnpm typecheck            # TypeScript strict
 pnpm test                 # 领域 / SQLite 集成 / 主进程 / 前端库
 pnpm test:electron        # 真实 Electron main 的 SQLite 探针
 pnpm build                # 三入口与生产产物约束检查
 pnpm test:ui              # 真实窗口业务闭环与 CSP/IPC/主题
 pnpm test:history         # 独立夹具的历史/往期/hold 窗口验证
+pnpm test:periods         # Context menus, future periods, drafts, sorting, undo, clock boundaries and restart
+pnpm test:insight         # 流程洞察：断点、空列卡、预填新建、跳级、复盘与设置（无模型路径）
+pnpm test:insight-generation # Development/production generation, failure recovery and Settings trials with synthetic HTTP
+pnpm test:insight-live    # 可选：真实 OpenRouter（.env.local Key）下的起草与复盘小结
 pnpm test:links           # Link previews, mixed text, carousel, browser opening, legacy data and offline cache
 pnpm test:feedback        # Contextual Toasts, modal recovery actions and feedback timing
 pnpm test:recovery        # 保护备份/维护/重置/SQLite 恢复与暂停
@@ -53,7 +59,7 @@ pnpm package:dir          # 当前平台本地目录包
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
-`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。完整 `pnpm verify`（单元/集成 → SQLite → 构建 → 看板/历史/恢复/composer/多语言与 Review 回归窗口测试）只在发布版本前运行；push 或合入 `main` 不要求。
+`pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。测试截图只写入忽略的 `output/tests/screenshots/`；许可证自动汇总到包内 `out/THIRD_PARTY_NOTICES.txt`。完整 `pnpm verify`（单元/集成 → SQLite → 构建 → 看板/历史/恢复/composer/多语言与 Review、周期规划、洞察及生成生命周期回归窗口测试）只在发布版本前运行；push 或合入 `main` 不要求。
 
 日常改完一个功能：`pnpm typecheck && pnpm test`，再按改动模块只跑对应的桌面脚本（先 `pnpm build`；跨多个模块就各跑各的）：
 
@@ -61,6 +67,8 @@ pnpm package:dir          # 当前平台本地目录包
 | --- | --- |
 | 看板、条目详情、设置、主题、preload 暴露面、CSP / 窗口安全 | `pnpm test:ui` |
 | 历史、往期、活动记录 | `pnpm test:history` |
+| 右键顺延、未来周期、显式周期写入和查询 | `pnpm test:periods`；JSON 边界／环境报告及截图位于 `output/tests/periods/` |
+| 断点 ＋、空列卡、复盘、右键菜单、设置 › 洞察、draft/review 通道 | `pnpm test:insight`；生成与生命周期另跑 `pnpm test:insight-generation`；右键再跑 `pnpm test:periods`；模型通道可选 `pnpm test:insight-live` |
 | 链接解析、预览、横滑、外部浏览器与缓存 | `pnpm test:links`；公共服务实时可用性独立核验 |
 | 备份、JSON 导入导出、恢复、重置 | `pnpm test:recovery`；维护态与重载相关再跑 `node tests/desktop/review/run.mjs lifecycle` |
 | composer、智能输入、快捷新建 | `pnpm test:composer`；保存回执/草稿竞态再跑 `node tests/desktop/review/run.mjs renderer` |

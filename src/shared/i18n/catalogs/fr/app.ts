@@ -51,6 +51,9 @@ export const appMessages: typeof source = {
     danglingReferences: 'La base de données contient des références orphelines',
   },
   errors: {
+    invalidPlanningPeriod: "Choisissez une période de planification valide",
+    planningPeriodExpired: "Cette période est terminée. Votre saisie est conservée ; choisissez une autre période.",
+    cannotAdvancePeriod: "Seules les tâches à faire non archivées peuvent passer à la période suivante",
     setupRequired: 'Confirmez d’abord la configuration de l’espace de travail',
     closedPeriodOnly: 'Seules les périodes valides déjà terminées peuvent être consultées',
     maintenance: 'Protection de l’espace de travail en cours. Terminez ou annulez l’opération en cours',

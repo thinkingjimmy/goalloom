@@ -5,13 +5,15 @@
 ```text
 workspace/
 ├── repository.ts     # 用户命令唯一事务入口，复核幂等/代次/版本与配置；摘要快照与按当前周期连接的有界参数查询
-├── context.ts        # 事务上下文、当前周期和语义排序工具
+├── context.ts        # Transaction context, validated current/explicit periods and semantic ordering
+├── periods.ts        # Read-only selected-period summaries, generation/revision guards and rollover sources; no period materialization
 ├── queries.ts        # 轻量数量/活动/备份摘要及按页展开的批次成员
 ├── history.ts        # from/to 索引分页、批量摘要与流式历史投影
 ├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/
-│   ├── items.ts      # 首次确认、创建/编辑/移动/关联的字段差量
-│   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级
+│   ├── items.ts      # Atomic setup/create/edit/move/link effects; next resolves from the original placement
+│   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
+│   ├── bridge.ts     # insertBetween：一次事务在上级与下级之间插入里程碑（新建 + 改挂 + 解除直连），一次撤销
 │   ├── lifecycle.ts  # 独立状态、归档、软删除、还原和解除关联
 │   ├── undo.ts       # 效果字段逆转（计划按逆拓扑整体）、依赖保护、实际反向事件和 hold
 │   ├── backlog.ts    # 往期候选复核与批量安排，一个原子用户操作

@@ -1,13 +1,13 @@
 /**
  * [INPUT]: Zod, lightweight locale/language values and minimum runtime diagnostics.
- * [OUTPUT]: Language preference validation, runtime diagnostics and the fixed GoalloomApi including bounded link previews/browser opening.
+ * [OUTPUT]: Fixed GoalloomApi for selected-period reads, language preferences, diagnostics and bounded links/browser opening.
  * [POS]: Shared main/preload/renderer boundary without generic IPC, SQL or file access.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { languages, locales, type Language } from '../i18n/locale'
 import type { CommandInput, CommandReply, CommandResult } from './commands'
-import type { ItemDetail, ItemPage, Query, Snapshot, ActivitySummary, ItemCounts, BackupSummary } from './queries'
+import type { ItemDetail, ItemPage, Query, Snapshot, BoardPeriods, ActivitySummary, ItemCounts, BackupSummary } from './queries'
 import type { Activity, HistoryIndex, HistoryPage } from './history'
 import type { BatchSummary, BatchPage, DataAction, DataReply } from './transfer'
 import type { SmartAction, SmartReply } from './smart-input'
@@ -32,6 +32,7 @@ export interface GoalloomApi {
   getLanguage(): Promise<LanguageState>
   setLanguage(language: Language): Promise<LanguageState>
   getSnapshot(): Promise<Snapshot>
+  getBoardPeriods(query: Extract<Query, { type: 'boardPeriods' }>): Promise<BoardPeriods>
   getItem(itemId: string): Promise<ItemDetail>
   listItems(query: Extract<Query, { type: 'list' }>): Promise<ItemPage>
   getHistory(query: Extract<Query, { type: 'history' }>): Promise<HistoryPage>

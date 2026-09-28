@@ -8,6 +8,7 @@ import { messages } from './messages'
 import { providerNames, smartMessages } from './smart'
 import { settingsMessages } from './settings'
 import { shortcutMessages, shortcutNames, shortcutNotes } from './shortcuts'
+import { insightMessages } from './insight'
 
-export const zh = { messages, smart: smartMessages, providers: providerNames, settings: settingsMessages, shortcuts: shortcutMessages, shortcutNames, shortcutNotes }
+export const zh = { messages, smart: smartMessages, providers: providerNames, settings: settingsMessages, shortcuts: shortcutMessages, shortcutNames, shortcutNotes, insight: insightMessages }
 export type Catalog = typeof zh

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: shared/i18n 的 Locale 与服务端文案切换；locales/* 五种语言的完整 Catalog；React useSyncExternalStore。
- * [OUTPUT]: 当前语言的实时文案视图（messages、smartMessages、settingsMessages、shortcut*、providerNames、horizon/activity/status 名称）、setLocale/currentLocale/useLocale 与固定模型名。
+ * [OUTPUT]: 当前语言的实时文案视图（messages、smartMessages、settingsMessages、shortcut*、insightMessages、providerNames、horizon/activity/status 名称）、setLocale/currentLocale/useLocale 与固定模型名。
  * [POS]: renderer 唯一文案入口；原地替换视图内容实现即时切换，不重挂载组件，草稿、撤销栈与打开的弹窗保留。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -25,6 +25,7 @@ export const settingsMessages = { ...zh.settings }
 export const shortcutMessages = { ...zh.shortcuts }
 export const shortcutNames = { ...zh.shortcutNames }
 export const shortcutNotes: Catalog['shortcutNotes'] = { ...zh.shortcutNotes }
+export const insightMessages = { ...zh.insight }
 export const horizonNames = {} as Record<ItemHorizon, string>
 export const activityNames: Record<string, string> = {}
 export const statusNames = {} as Record<'todo' | 'done' | 'cancelled', string>
@@ -41,7 +42,7 @@ function replace<T extends object>(target: T, source: T): void {
 function apply(catalog: Catalog): void {
   replace(messages, catalog.messages); replace(smartMessages, catalog.smart); replace(providerNames, catalog.providers)
   replace(settingsMessages, catalog.settings); replace(shortcutMessages, catalog.shortcuts)
-  replace(shortcutNames, catalog.shortcutNames); replace(shortcutNotes, catalog.shortcutNotes)
+  replace(shortcutNames, catalog.shortcutNames); replace(shortcutNotes, catalog.shortcutNotes); replace(insightMessages, catalog.insight)
   const m = catalog.messages
   Object.assign(horizonNames, { later: 'Later', cycle: m.cycle, month: m.month, week: m.week, day: m.day })
   Object.assign(activityNames, { created: m.create, baseline: m.baseline, moved: m.move, rolled_over: m.rollover, status_changed: m.statusChanged, archived: m.archive, unarchived: m.unarchive, deleted: m.delete, item_restored: m.restoreItem, undo: m.undo })

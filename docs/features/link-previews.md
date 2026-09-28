@@ -11,6 +11,7 @@ Approved on 2026-09-26 from the Goalloom-styled interactive demo.
 - Existing, completed, archived and past-period tasks receive the same presentation when viewed. No migration or save is required. Metadata never changes task versions, timestamps, status, history or undo receipts.
 - Input remains plain text. Fetch starts only for saved content that becomes visible; preview work never delays creation. Item detail retains raw editable fields and previews saved title/description links.
 - Card geometry is reserved during loading and failure. Single cards have no carousel controls. Keyboard focus, reduced motion, all five locales, light/dark and paper/minimal themes remain supported.
+- Reopening a card with a successful renderer cache entry displays it on the first render, including stale content during background refresh. A cold application start reads its persisted cache asynchronously; a loading indicator alone does not imply a network request.
 
 ## Engineering contract
 

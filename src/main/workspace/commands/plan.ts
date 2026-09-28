@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated createPlan entries, versioned parent references and current transaction context.
- * [OUTPUT]: Revalidated periods/parents/colors and the new-link horizon rule, topological creation effects, events and ordered item IDs.
+ * [OUTPUT]: Revalidated periods (current or an explicit date target)/parents/colors and the new-link horizon rule, topological creation effects, events and ordered item IDs.
  * [POS]: Atomic batch creation sharing single-item primitives; stale previews have a stable error code.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -33,7 +33,7 @@ export function createPlan(context: Context, command: CommandOf<'createPlan'>): 
     if (issue) throw new DomainError('conflict', issue)
   }
   for (const item of command.items) {
-    const period = targetPeriod(context, item.horizon)
+    const period = targetPeriod(context, item.horizon, item.period)
     if ((period?.id ?? null) !== item.previewPeriodId) throw new DomainError('stale_preview', serverText().errors.planPeriodChanged)
     if (item.flowColor !== null) assertFlowColorFree(context, item.flowColor, null)
   }
@@ -41,7 +41,7 @@ export function createPlan(context: Context, command: CommandOf<'createPlan'>): 
   for (const draft of planOrder(command.items)!) {
     const id = randomUUID()
     ids.set(draft.draftId, id)
-    const period = targetPeriod(context, draft.horizon)
+    const period = targetPeriod(context, draft.horizon, draft.period)
     const item: Item = { id, title: draft.title, description: draft.description, dueDate: draft.dueDate,
       status: 'todo', completedAt: null, cancelledAt: null, archivedAt: null, deletedAt: null, deletedBy: null,
       createdAt: context.now, updatedAt: context.now, version: 1, flowColor: draft.flowColor,

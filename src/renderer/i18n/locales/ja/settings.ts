@@ -14,6 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   openAnytime: 'いつでも設定を開く',
   enabledMeta: '有効',
   subtitles: {
+    insight: '途切れ、振り返り、そして下書きがあなたをどう理解するか',
     appearance: 'このデバイスの表示にのみ影響し、ワークスペースの履歴には書き込みません',
     smart: 'Jev が一文を編集できる行動プレビューに整理します。確認するまで書き込まれません',
     calendar: 'カレンダーは初回の確定後に固定されます。期限を過ぎた未完了の項目の扱いは列ごとに決まります',

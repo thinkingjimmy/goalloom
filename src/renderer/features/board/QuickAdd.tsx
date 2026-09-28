@@ -1,14 +1,14 @@
 /**
- * [INPUT]: Target column, flow view, board items (flow-root horizons), optional parent and guarded submission.
- * [OUTPUT]: Continuous inline creation preserving input typed during save or refresh; offers only flows whose root is in a longer
+ * [INPUT]: Explicit displayed period, period-keyed drafts, flow views, visible candidates, optional parent and guarded submission.
+ * [OUTPUT]: Continuous inline creation preserving input across navigation/save and expired-period recovery; offers only flows whose root is in a longer
  *           horizon, and no flow choice at all in Later.
  * [POS]: Board creation entry; input revision controls clearing, storage owns relationship constraints.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useRef, useState } from 'react'
-import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
+import { useLayoutEffect, useRef, useState } from 'react'
+import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import { mayParent } from '../../../domain/relations'
-import { messages, horizonNames } from '../../i18n'
+import { messages } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import { flowVars, relationColors } from '../../lib/colors'
@@ -17,10 +17,13 @@ import { Popover } from '../../components/Popover'
 
 export interface SplitParent { id: string; title: string }
 type Choice = { kind: 'none' } | { kind: 'join'; id: string } | { kind: 'new'; color: number } | { kind: 'split'; parent: SplitParent }
+export interface QuickAddDraft { title: string; choice: Choice }
 
-export function QuickAdd({ horizon, flows, items, split, submit, busy, close }: { horizon: ItemHorizon; flows: Flows; items: ItemSummary[]; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void }) {
-  const [title, setTitle] = useState('')
-  const [choice, setChoice] = useState<Choice>(split ? { kind: 'split', parent: split } : { kind: 'none' })
+export function QuickAdd({ horizon, period, periodName, expired, retarget, drafts, flows, items, split, submit, busy, close }: { horizon: ItemHorizon; period: PlanningPeriod | null; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void }) {
+  const draftKey = period?.id ?? 'later'
+  const [title, setTitle] = useState(() => drafts.get(draftKey)?.title ?? '')
+  const [choice, setChoice] = useState<Choice>(() => split ? { kind: 'split', parent: split } : drafts.get(draftKey)?.choice ?? { kind: 'none' })
+  useLayoutEffect(() => { drafts.set(draftKey, { title, choice }) }, [drafts, draftKey, title, choice])
   const [picking, setPicking] = useState(false)
   const input = useRef<HTMLInputElement>(null), root = useRef<HTMLDivElement>(null)
   const revision = useRef(0), saving = useRef(false), choiceRef = useRef(choice)
@@ -44,7 +47,7 @@ export function QuickAdd({ horizon, flows, items, split, submit, busy, close }: 
     try {
       const expectedParentVersion = parentId ? (await desktopApi().getItem(parentId).catch(() => null))?.item.version ?? null : null
       if (parentId && expectedParentVersion === null) return
-      const result = await submit({ type: 'create', title: text, horizon, parentId, expectedParentVersion, flowColor: choice.kind === 'new' ? choice.color : null })
+      const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), parentId, expectedParentVersion, flowColor: choice.kind === 'new' ? choice.color : null })
       if (!result) return
       if (revision.current === submittedRevision) setTitle('')
       // The new item now owns the colour, so following entries join that flow.
@@ -72,13 +75,14 @@ export function QuickAdd({ horizon, flows, items, split, submit, busy, close }: 
         </div>
       </div>
     </Popover>}
-    <input ref={input} aria-label={messages.newToColumn(horizonNames[horizon])} placeholder={messages.titlePlaceholder} autoFocus value={title} maxLength={500}
+    <input ref={input} aria-label={messages.newToColumn(periodName)} placeholder={messages.titlePlaceholder} autoFocus value={title} maxLength={500}
       onChange={event => { revision.current++; setTitle(event.target.value) }}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return
         if (event.key === 'Enter') { event.preventDefault(); void create() }
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close() }
       }} />
-    <span className="quick-add-hint" aria-hidden="true">{choice.kind === 'none' ? messages.addHint : label}</span>
+    {expired ? <span className="quick-add-expired" role="status">{messages.expiredDraft}<button type="button" className="text-button" disabled={busy} onClick={retarget}>{messages.useDisplayedPeriod}</button></span>
+      : <span className="quick-add-hint" aria-hidden="true">{choice.kind === 'none' ? messages.addHint : label}</span>}
   </div>
 }

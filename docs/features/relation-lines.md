@@ -14,7 +14,7 @@
 
 ### 流程圆点
 
-- 悬停或键盘聚焦一行，复选框前出现圆点，包在行底色之内；悬停圆点时是紧贴圆点的圆形光晕，不另起一块底色。流程中的行在画线时常显圆点。
+- 悬停或键盘聚焦一行，复选框前出现圆点，包在行底色之内；悬停圆点时是紧贴圆点的圆形光晕，不另起一块底色。流程中的行在画线时常显圆点；顶栏筛选单个流程时，3个月列的待办行默认隐藏圆点，悬停行、键盘聚焦圆点或打开圆点菜单时仍显示，复选框位置不变。「全部」下的悬停预览、其他列和已完成行保持原有规则。
 - 一个圆点只做一件事，按条目身份区分：
   - **流程起点**（有流程色、无上级）：点开 4×2 流程色板，改色或「不设流程」；提示写明影响范围（「影响它和下面 N 项」「不设流程（共 N 项）」）。
   - **下级**（有上级）：点开「上级」选择器，勾选/取消上级；所属流程与颜色随关联自动变化，这里不出现色板。
@@ -45,7 +45,7 @@
 
 - `src/domain/relations.ts`：`mayParent(parent, child)` / `horizonProblem(parent, child)` 是新建关联的周期规则，`link`、`create`（带上级）与 `createPlan` 在权威事务内复核；`create`/`createPlan`/`flowColor` 拒绝 Later 流程色。renderer 的选择器、QuickAdd 与 composer 草稿复用 `mayParent` 做同一过滤。DAG/防环校验不变，撤销、还原和导入不套用周期规则。
 - `src/renderer/state/relation-lines.ts`：`useRelationLines` 外部存储，localStorage `goalloom.relationLines`，只在关闭时存 `'false'`；不进入工作区数据、历史、导出或备份。
-- `src/renderer/features/board/Board.tsx`：持有圆点预览（120ms 离开缓冲），活跃流程 = 预览条目的流程，否则为筛选流程；据此给行 `dimmed` 与 `tint`（`flowTint`），并在「活跃 + 开关开」时挂载关系线（键为筛选流程 id 或 `preview`，仅筛选时画入）。
+- `src/renderer/features/board/Board.tsx`：持有圆点预览（120ms 离开缓冲），活跃流程 = 预览条目的流程，否则为筛选流程；据此给行 `dimmed` 与 `tint`（`flowTint`），并在「活跃 + 开关开」时挂载关系线（键为 `lines:<flow id>` 或 `lines:preview`，仅筛选时画入）。断点层使用独立的 `breakpoints:<flow id>` 键，避免同级键冲突使旧连线残留。`data-filtered` 区分顶栏筛选与临时预览，供 CSS 控制 3个月待办圆点的静止态显示。
 - `src/renderer/features/board/FlowDot.tsx`：行内圆点与浮层（`Popover floating` 经 portal 浮出列滚动区），复用 `FlowColorMenu` 与 `RelationPicker`；指针悬停与键盘 `:focus-visible` 触发预览，鼠标点击的焦点不触发。
 - `src/renderer/features/board/RelationLines.tsx`：从快照 `relations` 与 `flows.of` 求活跃流程内的边及颜色；几何读取已挂载行的 DOM 位置，经 MutationObserver（忽略自身）、ResizeObserver、捕获阶段 scroll 与 transitionend 以 rAF 合并重算。锚点取行首行（顶部 40px）的中线；路径由 `orthogonal()` 生成（经列间留白的竖直走线、圆角转折）；向前的边终点在下级流程圆点左边缘且不画端点；线层 `z-index` 在行之上；链高亮通过行上的 `data-chain-out`，活跃流程变化或卸载时清除。
 - 样式在 `styles.css` 的 Relation lines 与 Flow dot 段：`.column-content` 左右各延伸到离竖线 8px，行左内边距容纳圆点；行用透明上下边框 + `background-clip: padding-box` 留出 2px 空隙，行间无分隔线；`data-dimmed` / `data-chain-out` 只淡化行内容（不含拖动柄），`data-lit` + `--row-tint` 铺流程底色。
@@ -57,7 +57,7 @@
   - 筛选：3个月 → 今天一个流程（含两个上级、本月 → 今天跨级、已完成叶子）画 7 条线、1 条虚线；其他流程与无流程的 5 行原位置灰；本流程 7 行铺流程底色；画线时行宽不变、底色不透明。
   - 行与列：长标题两行截断（行高 62px），复选框与连线接点对齐第一行；列宽 ≥ 356px，行底色离两侧竖线各 8px；相邻底色间留 4px，行间无分隔线。
   - 悬停两上级项 6 条高亮 1 条淡化、1 行链外；键盘聚焦同样高亮；本周滚动后出现「上方还有 2 项相关」并点击定位。
-  - 流程圆点：Later 无圆点；「全部」下悬停下级圆点预览连线与底色；起点圆点色板写明「影响它和下面 7 项」「不设流程（共 8 项）」；下级圆点只列周期更长的候选、取消上级后撤销恢复；独立条目「加入流程」二选一并关联上级、撤销恢复。
+  - 流程圆点：筛选时 3个月待办圆点默认隐藏，悬停/键盘聚焦/菜单打开时显示且复选框不移位，其他列圆点仍常显；Later 无圆点；「全部」下悬停下级圆点预览连线与底色，3个月圆点仍常显；起点圆点色板写明「影响它和下面 7 项」「不设流程（共 8 项）」；下级圆点只列周期更长的候选、取消上级后撤销恢复；独立条目「加入流程」二选一并关联上级、撤销恢复。
   - 设置外观开关关闭后不画线、行宽不变、存储为 `false`、刷新后保持，顶栏无入口。
   - 截图 `output/tests/screenshots/relation-lines*.png`、`flow-dot-*.png`、`settings-relation-lines.png`。
 - [x] `pnpm test`：`tests/integration` 覆盖 `link`、带上级新建、`flowColor` 与 `createPlan` 的周期规则及拒绝不写入；`tests/renderer/draft.test.ts` 覆盖 composer 本地复核。

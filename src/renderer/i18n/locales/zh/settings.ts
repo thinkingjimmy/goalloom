@@ -13,6 +13,7 @@ export const settingsMessages = widen({
   openAnytime: '随时打开设置',
   enabledMeta: '已启用',
   subtitles: {
+    insight: '断点、复盘，以及起草时怎样理解你',
     appearance: '只影响这台设备的显示，不写入工作区历史',
     smart: 'Jev 把一句话整理成可编辑的行动预览，你确认后才会写入',
     calendar: '日历在首次确认后锁定；各列决定到期未完成的事项怎么处理',

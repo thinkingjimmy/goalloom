@@ -21,6 +21,7 @@ domain/
     ├── budget.ts       # 不依赖日期规划的 payload/token/题数上限与估算，题单和 provider 共用
     ├── distribution.ts # 统一 Choice/boolean 契约校验、K×d 总和容差、top/margin/集中度与确定性
     ├── preview.ts      # 答案组装为可编辑预览：角色归并（说明取原文原句）、执行/截止、多父建议去环、`关联「X」` 直接确认、警示
+    ├── insight.ts      # 流程洞察提示词（中文、用户偏好追加末尾）与起草/复盘输出清洗、按任务 id 对齐
     └── terms.ts        # 共享专有词（拉丁词 ≥4 / 中文连续 ≥4 字），决定哪些看板目标可作为候选送给 Jev
 ```
 

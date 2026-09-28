@@ -14,6 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   openAnytime: 'Ouvrir les réglages à tout moment',
   enabledMeta: 'Activé',
   subtitles: {
+    insight: 'Ruptures, bilans et comment la rédaction vous comprend',
     appearance: 'Ne concerne que l’affichage sur cet appareil, sans entrer dans l’historique de l’espace de travail',
     smart: 'Jev transforme une phrase en aperçu d’actions modifiable ; rien n’est écrit avant votre confirmation',
     calendar: 'Le calendrier est verrouillé après la première confirmation ; chaque colonne décide du sort des éléments non terminés à échéance',

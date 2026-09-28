@@ -1,14 +1,15 @@
 /**
  * [INPUT]: Finite queries and entity/operation schemas.
- * [OUTPUT]: Summary snapshots/lists, complete detail, topology, period history and its index, counts and activity/backup summaries.
+ * [OUTPUT]: Current snapshots, selected-period summaries with generation/revision, actual-period detail/search, history and lightweight counts.
  * [POS]: Read-only IPC contract; full descriptions are available only through item detail.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
-import { dateSchema, flowColorSchema, horizonSchema, idSchema, itemSchema, itemSummarySchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
+import { dateSchema, flowColorSchema, horizonSchema, idSchema, itemSchema, itemSummarySchema, periodHorizonSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 
 export const querySchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('snapshot') }),
+  z.strictObject({ type: z.literal('boardPeriods'), generation: idSchema, periods: z.array(z.strictObject({ horizon: periodHorizonSchema, startDate: dateSchema })).min(1).max(4) }),
   z.strictObject({ type: z.literal('item'), itemId: idSchema }),
   z.strictObject({ type: z.literal('list'), view: z.enum(['search', 'done', 'cancelled', 'archived', 'trash', 'backlog']), query: z.string().max(500).default(''), horizon: horizonSchema.optional(), offset: z.number().int().min(0).max(100_000).default(0), limit: z.number().int().min(1).max(100).default(50) }),
   z.strictObject({ type: z.literal('receipt'), operationId: idSchema, generation: idSchema }),
@@ -31,8 +32,10 @@ export const snapshotSchema = z.strictObject({
   backlog: z.record(z.string(), z.number().int().nonnegative()), observedAt: z.string(), maintenance: z.boolean(), backupError: z.string().nullable(),
   rolloverSources: z.record(idSchema, dateSchema), flows: z.array(flowSchema),
 })
-export const itemPageSchema = z.strictObject({ items: z.array(itemSummarySchema), total: z.number().int().nonnegative() })
-export const detailSchema = z.strictObject({ item: itemSchema, relations: z.array(relationViewSchema) })
+export const itemPageSchema = z.strictObject({ items: z.array(itemSummarySchema), total: z.number().int().nonnegative(), periods: z.array(periodSchema).optional() })
+export const boardPeriodsSchema = snapshotSchema.pick({ periods: true, items: true, rolloverSources: true }).extend({ generation: idSchema, revision: z.number().int().nonnegative() })
+export type BoardPeriods = z.infer<typeof boardPeriodsSchema>
+export const detailSchema = z.strictObject({ item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema) })
 export type Snapshot = z.infer<typeof snapshotSchema>
 export type Flow = z.infer<typeof flowSchema>
 export type ItemPage = z.infer<typeof itemPageSchema>

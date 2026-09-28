@@ -14,6 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   openAnytime: 'Open settings anytime',
   enabledMeta: 'On',
   subtitles: {
+    insight: 'Breakpoints, reviews, and how drafting understands you',
     appearance: 'Only affects this device’s display; not recorded in workspace history',
     smart: 'Jev turns a sentence into an editable action preview; nothing is written until you confirm',
     calendar: 'The calendar locks after initial setup; each column decides what happens to overdue unfinished items',

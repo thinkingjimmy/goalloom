@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Ordered summary identities, scroll viewport, render function, active drag and selection.
+ * [INPUT]: Ordered summary identities, scroll viewport, render function, active drag, selection and menu pin.
  * [OUTPUT]: Resize-observed rows with bounded overscan, logical button/link keyboard traversal and synchronous reveal.
- * [POS]: Board-only windowing. Focus and drag rows remain mounted; persisted order stays authoritative.
+ * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -16,7 +16,7 @@ export function revealRow(id: string, focus: string | null = null): void {
 const overscan = 5
 const controlSelector = 'button:not(:disabled), a[href], [tabindex="0"]'
 
-export function VirtualRows({ items, dragging, highlighted, render }: { items: ItemSummary[]; dragging: string | null; highlighted: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
+export function VirtualRows({ items, dragging, highlighted, pinned = null, render }: { items: ItemSummary[]; dragging: string | null; highlighted: string | null; pinned?: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
   const list = useRef<HTMLDivElement>(null), heights = useRef(new Map<string, number>())
   const [measured, setMeasured] = useState(0), [focused, setFocused] = useState<string | null>(null)
   const [range, setRange] = useState({ start: 0, end: 20 })
@@ -87,7 +87,7 @@ export function VirtualRows({ items, dragging, highlighted, render }: { items: I
   const mounted = new Set<number>()
   if (windowed) {
     for (let index = range.start; index < range.end; index++) mounted.add(index)
-    for (const id of [focused, dragging, highlighted]) { const index = id ? indexes.get(id) : undefined; if (index !== undefined) mounted.add(index) }
+    for (const id of [focused, dragging, highlighted, pinned]) { const index = id ? indexes.get(id) : undefined; if (index !== undefined) mounted.add(index) }
   } else items.forEach((_item, index) => mounted.add(index))
   const children: ReactNode[] = []
   let previous = 0

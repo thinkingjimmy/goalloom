@@ -51,6 +51,9 @@ export const appMessages: typeof source = {
     danglingReferences: 'La base de datos contiene referencias huérfanas',
   },
   errors: {
+    invalidPlanningPeriod: "Elige un periodo de planificación válido",
+    planningPeriodExpired: "Este periodo ha terminado. Conservamos tu texto; elige otro periodo.",
+    cannotAdvancePeriod: "Solo las tareas pendientes y no archivadas de un periodo pueden pasar al siguiente",
     setupRequired: 'Primero confirma la configuración del espacio de trabajo',
     closedPeriodOnly: 'Solo se pueden consultar periodos válidos ya terminados',
     maintenance: 'Se está protegiendo el espacio de trabajo. Completa o cancela la operación actual',

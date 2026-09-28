@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted command input and entity schemas.
- * [OUTPUT]: Finite commands, versioned parent references, generation guards, receipts and stable error codes.
+ * [OUTPUT]: Finite commands with current/date/next placement targets (plan items included), an atomic insertBetween, version/generation guards, receipts and stable errors.
  * [POS]: Write boundary; accepts neither SQL nor caller-defined effects.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,6 +10,16 @@ import { validationText } from '../i18n/validation'
 
 const envelope = { operationId: idSchema, generation: idSchema }
 const target = { itemId: idSchema, expectedVersion: z.number().int().positive() }
+export const createPeriodTargetSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('current') }),
+  z.strictObject({ kind: z.literal('date'), startDate: dateSchema }),
+])
+export const movePeriodTargetSchema = z.discriminatedUnion('kind', [
+  ...createPeriodTargetSchema.options,
+  z.strictObject({ kind: z.literal('next') }),
+])
+export type CreatePeriodTarget = z.infer<typeof createPeriodTargetSchema>
+export type MovePeriodTarget = z.infer<typeof movePeriodTargetSchema>
 // Existing parents carry the version confirmed in the preview; draft parents only reference this batch.
 export const parentRefSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('existing'), itemId: idSchema, expectedVersion: z.number().int().positive() }),
@@ -19,15 +29,19 @@ export type ParentRef = z.infer<typeof parentRefSchema>
 export const planItemSchema = z.strictObject({
   draftId: idSchema, title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null),
   horizon: horizonSchema, previewPeriodId: idSchema.nullable(), parentRefs: z.array(parentRefSchema).max(16).default([]), flowColor: flowColorSchema.nullable().default(null),
+  // Absent = the current period; a date target lets a review write straight into the next week or month.
+  period: createPeriodTargetSchema.optional(),
 })
 export const planLimit = 8
 export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('confirmSetup'), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema, confirmed: z.literal(true) }),
-  z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null) }),
+  z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null) }),
   z.strictObject({ ...envelope, type: z.literal('createPlan'), items: z.array(planItemSchema).min(1).max(planLimit) }),
+  // A milestone between a parent and some of its children in one transaction: create under the parent, re-link the children to it and drop their direct edges.
+  z.strictObject({ ...envelope, type: z.literal('insertBetween'), title: z.string().trim().min(1).max(500), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema, expectedParentVersion: z.number().int().positive(), children: z.array(z.strictObject(target)).min(1).max(planLimit) }),
   z.strictObject({ ...envelope, ...target, type: z.literal('edit'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000), dueDate: dateSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
-  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('status'), status: statusSchema }),
   z.strictObject({ ...envelope, ...target, type: z.literal('archive'), archived: z.boolean() }),

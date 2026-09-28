@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace, narrow data/actions API and device preferences.
- * [OUTPUT]: Settings navigation, lightweight counts and section-scoped backup/batch reads.
+ * [OUTPUT]: Settings navigation (including the device-only 洞察 pane), lightweight counts and section-scoped backup/batch reads.
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import type { Snapshot } from '../../../../shared/contracts/queries'
 import type { BackupStatus, BatchSummary, DataAction, TransferPreview } from '../../../../shared/contracts/transfer'
 import { workspaceDate } from '../../../../domain/calendar'
-import { messages, settingsMessages as s, shortcutMessages, smartMessages } from '../../../i18n'
+import { insightMessages, messages, settingsMessages as s, shortcutMessages, smartMessages } from '../../../i18n'
 import { useShortcuts } from '../../../state/shortcuts'
 import { desktopApi, type Action } from '../../../state/use-workspace'
 import type { Smart } from '../../../state/smart'
@@ -19,13 +19,14 @@ import { AppearancePane } from './AppearancePane'
 import { CalendarPane } from './CalendarPane'
 import { BackupPane } from './BackupPane'
 import { SmartPane } from './SmartPane'
+import { InsightPane } from './InsightPane'
 import { ShortcutsPane } from './ShortcutsPane'
 import { ItemsPane, type ItemsView } from './ItemsPane'
 import { Segmented, relativeDay } from './parts'
 import { TransferReview, TransferSteps } from './TransferReview'
 import './settings.css'
 
-export type Section = 'appearance' | 'shortcuts' | 'smart' | 'calendar' | 'backup' | 'done' | 'trash'
+export type Section = 'appearance' | 'shortcuts' | 'smart' | 'insight' | 'calendar' | 'backup' | 'done' | 'trash'
 interface Entry { id: Section; label: string; icon: IconName }
 // Built per render so every label follows the current language.
 const groups = (): { label: string; entries: Entry[] }[] => [
@@ -33,6 +34,7 @@ const groups = (): { label: string; entries: Entry[] }[] => [
     { id: 'appearance', label: messages.appearance, icon: 'appearance' },
     { id: 'shortcuts', label: shortcutMessages.section, icon: 'keyboard' },
     { id: 'smart', label: smartMessages.sectionTitle, icon: 'smart' },
+    { id: 'insight', label: insightMessages.settingsSection, icon: 'split' },
   ] },
   { label: s.workspace, entries: [
     { id: 'calendar', label: messages.calendarSection, icon: 'calendar' },
@@ -145,6 +147,7 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
         {section === 'appearance' && <AppearancePane workspace={snapshot.workspace} disabled={disabled} submit={submit} />}
         {section === 'shortcuts' && <ShortcutsPane />}
         {section === 'smart' && <SmartPane smart={smart} />}
+        {section === 'insight' && <InsightPane snapshot={snapshot} status={smart.status} openSmart={() => setSection('smart')} />}
         {section === 'calendar' && (calendar
           ? <CalendarPane calendar={calendar} policies={snapshot.policies} batches={batches} today={today} disabled={disabled} submit={submit} goReset={() => setSection('backup')} />
           : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}

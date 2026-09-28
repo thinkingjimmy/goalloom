@@ -149,13 +149,13 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .board-column:first-child { border-left: 0; }
 .board-column.drop-target { background: var(--hover); }
 .column-header { height: 40px; flex-shrink: 0; padding-left: var(--row-inset); display: flex; align-items: center; gap: 8px; }
-.column-header h2 { font-size: 15px; }
+.column-header h2 { font-size: 15px; white-space: nowrap; }
 .column-meta { font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .column-spacer { flex: 1; }
 .column-header > .icon-button:last-child { margin-right: -6px; }
 /* Preserve layout and Tab access; pointer focus must not leave actions visible after exiting a column. History navigation stays visible. */
 @media (hover: hover) and (pointer: fine) {
-  .board-column:not(:hover):not([data-history='true']) > .column-header:not(:has(:focus-visible)) > .icon-button { opacity: 0; }
+  .board-column:not(:hover):not([data-history='true']):not([data-period-mode='future']) > .column-header:not(:has(:focus-visible)) > .icon-button { opacity: 0; }
 }
 /* History mode: an archive ground marks the column read-only; the header becomes ‹ period › with a quiet way back. */
 .board-column[data-history='true'] { background: color-mix(in srgb, var(--hover) 80%, transparent); }
@@ -171,6 +171,14 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .history-return { flex-shrink: 0; height: 28px; margin-right: -6px; padding: 0 5px 0 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg-soft); font-size: 12px; font-weight: 500; transition: background-color .15s ease-out, color .15s ease-out; }
 .history-return:hover { background: var(--pressed); color: var(--fg); }
 .history-return .keycap { min-width: 0; height: 18px; padding: 0 4px; border-radius: 4px; font-size: 10.5px; color: var(--secondary); }
+.future-header { padding-left: 0; gap: 2px; }
+.future-header h2 { min-width: 0; overflow: hidden; }
+.future-header .period-title { display: block; line-height: 28px; overflow: hidden; text-overflow: ellipsis; }
+.future-period-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 8px var(--row-inset); font-size: 12px; color: var(--secondary); }
+.future-period-meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.future-period-meta > button { flex-shrink: 0; }
+.period-loading { padding: 14px var(--row-inset); color: var(--secondary); font-size: 13px; }
+.quick-add-expired { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--danger); }
 .period-menu { min-width: 272px; max-height: min(420px, 60vh); overflow-y: auto; }
 .period-menu .menu-item[aria-checked='true'] { background: var(--hover); font-weight: 600; }
 .period-option-label { width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -251,7 +259,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .relation-marker:hover { background: linear-gradient(var(--hover), var(--hover)) var(--raised); }
 
 /* --- Flow dot: sits in the gutter before a row's checkbox. Shown on row hover/focus, while its menu is open and on every
-   row of an active flow, where forward relation lines end on it. Later rows have none. --- */
+   row of an active flow, where forward relation lines end on it. Filtered cycle TODO rows keep the dot hidden at rest.
+   Later rows have none. --- */
 /* The 8px dot sits 7px from the ground's left edge and 7px from the checkbox. */
 .flow-dot-slot { position: absolute; left: 2px; top: 9px; z-index: 1; }
 .flow-dot-slot > .popover-root { display: block; }
@@ -259,6 +268,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .flow-dot-button > * { grid-area: 1 / 1; }
 .task-row:hover .flow-dot-button, .flow-dot-button:focus-visible, .flow-dot-button[aria-expanded='true'],
 .board[data-lines='true'] .task-row[data-lit='true'] .flow-dot-button { opacity: 1; }
+.board[data-filtered='true'] [data-horizon='cycle'] .task-row[data-done='false']:not(:hover) .flow-dot-button:not(:focus-visible, [aria-expanded='true']) { opacity: 0; }
 :root[data-dragging='true'] .flow-dot-button, .task-row:has(.drag-handle:focus-visible) .flow-dot-button { opacity: 0; }
 /* A round halo on the dot itself, inside the row ground, never a separate patch. */
 .flow-dot-button:hover, .flow-dot-button[aria-expanded='true'] { background: var(--pressed); }
@@ -331,6 +341,15 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .menu-hint { flex-shrink: 0; font-size: 12px; color: var(--secondary); }
 .menu-heading { margin: 0; padding: 6px 10px 4px; font-size: 12px; color: var(--secondary); }
 .menu-separator { height: 1px; margin: 6px 4px; background: var(--hairline); }
+.context-menu { z-index: 60; max-width: min(380px, calc(100vw - 16px)); outline: none; }
+.context-menu { min-width: 240px; }
+.context-menu-item { cursor: default; outline: none; user-select: none; }
+.context-menu-item[data-highlighted], .context-menu-item[data-state='open'] { background: var(--hover); }
+.context-menu-item[data-disabled] { opacity: .4; pointer-events: none; }
+.context-menu-item.danger { color: var(--danger); }
+.context-menu-label { flex: 1; min-width: 0; white-space: nowrap; }
+.context-menu-item .menu-hint { flex-shrink: 0; font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.context-menu-separator { height: 1px; margin: 4px 6px; background: var(--hairline); }
 .menu-note { margin: 0; padding: 8px 10px; font-size: 12px; line-height: 1.6; color: var(--secondary); max-width: 300px; }
 .relation-rule { padding: 0 10px 4px; color: var(--faint); }
 .menu-field { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0 10px; min-height: 34px; font-size: 13px; font-weight: 400; color: var(--secondary); }
