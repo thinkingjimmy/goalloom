@@ -1,3 +1,9 @@
+/**
+ * [INPUT]: Built Electron, isolated profiles and the five supported locale catalogs.
+ * [OUTPUT]: Language-switching acceptance and repeatable settings screenshots, including the calendar pane in every locale.
+ * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -116,6 +122,7 @@ try {
     for (let index = 0; index < panes; index++) {
       await dialog.locator('.settings-nav button').nth(index).click()
       if (['en', 'es', 'fr'].includes(code)) await assertTranslated(page, `${code} settings pane ${index + 1}`)
+      if (await dialog.locator('.calendar-facts').count()) await dialog.screenshot({ path: `${shots}/language-calendar-${code}.png` })
     }
     await dialog.locator('.settings-nav button').first().click()
     await page.screenshot({ path: `${shots}/language-settings-${code}.png` })

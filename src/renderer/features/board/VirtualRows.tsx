@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Ordered summary identities, scroll viewport, render function, active drag, selection and menu pin.
- * [OUTPUT]: Resize-observed rows with bounded motion retention, FLIP, logical keyboard traversal and synchronous reveal.
+ * [OUTPUT]: Resize-observed rows with bounded motion retention, FLIP, keyboard traversal and synchronous reveal; inert panels retain their scroll and ignore reveal requests.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,7 @@ export function revealRow(id: string, focus: string | null = null): void {
   window.dispatchEvent(new CustomEvent<Reveal>(revealEvent, { detail: { id, focus } }))
 }
 const overscan = 5
+const estimatedRowHeight = 32
 const controlSelector = 'button:not(:disabled), a[href], [tabindex="0"]'
 
 export function VirtualRows({ scope = 'board', items, dragging, highlighted, pinned = null, render }: { scope?: string; items: ItemSummary[]; dragging: string | null; highlighted: string | null; pinned?: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
@@ -24,7 +25,7 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
   const indexes = useMemo(() => new Map(items.map((item, index) => [item.id, index])), [items])
   const offsets = useMemo(() => {
     const values = [0]
-    for (const item of items) values.push(values.at(-1)! + (heights.current.get(item.id) ?? 41))
+    for (const item of items) values.push(values.at(-1)! + (heights.current.get(item.id) ?? estimatedRowHeight))
     return values
   }, [items, measured])
   const motionOffsets = useMemo(() => new Map(items.map((item, index) => [item.id, offsets[index]!])), [items, offsets])
@@ -43,7 +44,7 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
   latest.current = { items, indexes, offsets, windowed }
   const update = () => {
     const node = list.current, root = node?.closest('.column-content')
-    if (!node || !(root instanceof HTMLElement)) return
+    if (!node || !(root instanceof HTMLElement) || node.closest('[inert]')) return
     const { offsets, items } = latest.current
     const top = root.getBoundingClientRect().top - node.getBoundingClientRect().top
     const first = offsets.findIndex(value => value >= top)
@@ -54,9 +55,9 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
   }
   const reveal = ({ id, focus }: Reveal) => {
     const index = latest.current.indexes.get(id), node = list.current, root = node?.closest('.column-content')
-    if (index === undefined || !node || !(root instanceof HTMLElement)) return
+    if (index === undefined || !node || !(root instanceof HTMLElement) || node.closest('[inert]')) return
     const top = node.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop + latest.current.offsets[index]!
-    const bottom = top + (heights.current.get(id) ?? 41)
+    const bottom = top + (heights.current.get(id) ?? estimatedRowHeight)
     if (top < root.scrollTop) root.scrollTop = top
     else if (bottom > root.scrollTop + root.clientHeight) root.scrollTop = bottom - root.clientHeight
     flushSync(() => { setFocused(id); update() })

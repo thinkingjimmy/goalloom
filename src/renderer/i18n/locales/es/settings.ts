@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: Spanish settings copy, including per-column completion-confetti and reduced-motion messages.
+ * [OUTPUT]: Spanish settings copy, including calendar grouping, per-column completion-confetti and reduced-motion messages.
  * [POS]: Spanish settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -45,7 +45,7 @@ export const settingsMessages: SettingsCatalog = {
     'La Key se guarda cifrada en este equipo y no entra en los datos, copias ni exportaciones del espacio de trabajo',
   ],
   // Calendar
-  lockedNote: 'Bloqueado · Para reconfigurarlo, crea una copia de protección y restablece el espacio de trabajo',
+  calendarSettings: 'Configuración del calendario',
   nextCycle: (date: string) => `Siguiente ciclo: ${date}`,
   overdue: 'Pendiente al terminar',
   policyNotes: {
@@ -53,7 +53,6 @@ export const settingsMessages: SettingsCatalog = {
     week: { auto: 'Al terminar la semana pasa sola a la siguiente', manual: 'Al terminar la semana queda en periodos anteriores hasta que lo organices' },
     day: { auto: 'A medianoche pasa solo al nuevo hoy', manual: 'A medianoche queda en periodos anteriores hasta que lo organices' },
   },
-  undoRollover: 'Deshacer este traspaso',
   // Backup & restore
   backedUpAt: (when: string) => `Copia hecha ${when}`,
   backupSummary: (count: number) => `${count === 1 ? '1 copia' : `${count} copias`} · En el mismo disco que el espacio de trabajo; no protege contra el fallo de todo el disco`,

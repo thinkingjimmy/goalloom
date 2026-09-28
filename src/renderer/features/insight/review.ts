@@ -60,7 +60,7 @@ export function goalRows(snapshot: Snapshot, flows: Flows): GoalRow[] {
       counts[horizon]++
       if (item.status === 'done') done[horizon]++
     }
-    const skip = breakpoints(snapshot, flows, flow.id, ['cycle', 'month', 'week', 'day'], () => 'current').skips.length > 0
+    const skip = breakpoints(snapshot, flows, [flow.id], ['cycle', 'month', 'week', 'day'], () => 'current').skips.length > 0
     return { id: flow.id, title: flow.title, flowColor: flow.flowColor, counts, done, skip }
   })
 }
@@ -69,7 +69,7 @@ export function reviewSignals(snapshot: Snapshot, flows: Flows, due: ReviewDue):
   const signals: InsightSignal[] = []
   const names: Record<Planned, string> = { cycle: '3个月', month: '本月', week: '本周', day: '今天' }
   for (const flow of flows.all.filter(value => !value.archived).slice(0, 12)) {
-    const found = breakpoints(snapshot, flows, flow.id, ['cycle', 'month', 'week', 'day'], () => 'current')
+    const found = breakpoints(snapshot, flows, [flow.id], ['cycle', 'month', 'week', 'day'], () => 'current')
     const byLevel = new Map<string, string[]>()
     for (const gap of found.gaps) byLevel.set(gap.target, [...byLevel.get(gap.target) ?? [], gap.parent.title])
     for (const [target, titles] of byLevel) signals.push({ kind: 'gap', goal: flow.title, detail: `${titles.slice(0, 3).join('、')}${titles.length > 3 ? ` 等 ${titles.length} 项` : ''}在${names[target as Planned]}没有下级` })

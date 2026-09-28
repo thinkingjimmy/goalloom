@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: English flow-insight copy: breakpoint ＋, first-run guide, prefilled composer, empty-column card.
+ * [OUTPUT]: English flow-insight copy: breakpoints, onboarding, drafting, reviews, matrix legends and settings.
  * [POS]: English insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -60,7 +60,9 @@ export const insightMessages: InsightCatalog = {
   summaryFailed: 'Could not generate a summary. Try again.',
   summaryRefreshFailed: 'Could not update. Your previous summary is still here.',
   matrix: 'Goals × periods',
-  matrixNote: 'Dashed cell: nothing at this level; orange outline: something skips a level. Click a goal to filter it.',
+  matrixLegendEmpty: 'No actions at this level',
+  matrixLegendSkip: 'Tasks skip this level',
+  matrixFilterHint: 'Click a goal to focus its flow',
   matrixEmpty: '—',
   goals: range => `3-month goals · ${range}`,
   goalCount: (count, done) => `${count} this month · ${done} done`,
@@ -90,13 +92,9 @@ export const insightMessages: InsightCatalog = {
   settingsSection: 'Insight',
   settingsHints: 'Hints',
   settingsBreakpoints: 'Breakpoint ＋',
-  settingsBreakpointsNote: 'With one flow filtered, a ＋ appears where the next level has no action, to draft the next step',
+  settingsBreakpointsNote: 'Filter a flow or hover its dot to show a ＋ on tasks without a next step',
   settingsReviews: 'Weekly · monthly review',
   settingsReviewsNote: 'Shows in the column header on a period’s last day and the next period’s first day, at most two days',
-  settingsGuide: 'Breakpoint guide',
-  settingsGuideSeen: 'Seen',
-  settingsGuidePending: 'Shows the next time a breakpoint appears',
-  settingsGuideAgain: 'Show again',
   settingsAbout: 'About me',
   settingsLocalOnly: 'Stays on this device',
   settingsAboutTitle: 'Who you are and what you’re doing',
@@ -117,7 +115,6 @@ export const insightMessages: InsightCatalog = {
   toneQuestions: 'Questions',
   settingsFocus: 'Focus on',
   settingsTry: 'Try it',
-  settingsModelName: 'DeepSeek Flash · about 1–2 s',
   settingsTryReview: 'Review advice',
   settingsTryFailed: 'Couldn’t generate; try again later',
   settingsTryTitle: 'Try on the current board',

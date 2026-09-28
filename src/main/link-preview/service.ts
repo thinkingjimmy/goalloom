@@ -1,12 +1,12 @@
 /**
  * [INPUT]: Public URL-only requests and a device cache directory outside the workspace.
- * [OUTPUT]: Bounded metadata replies, offline cache reuse and session-scoped cancellation.
+ * [OUTPUT]: Bounded metadata replies, cached-icon enrichment, offline reuse and session-scoped cancellation.
  * [POS]: Main preview service; independent of storage transactions, task text and business history.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { LinkPreview } from '../../shared/contracts/link-preview'
 import { PreviewCache, type CachedPreview } from './cache'
-import { loadMetadata, unavailable } from './metadata'
+import { loadCachedFavicon, loadMetadata, unavailable } from './metadata'
 import { publicUrl } from './transport'
 
 const freshDuration = 7 * 24 * 60 * 60 * 1000
@@ -15,7 +15,7 @@ const failureDuration = 30 * 1000
 const memoryLimit = 16 * 1024 * 1024
 const concurrency = 3
 const queueLimit = 48
-interface Job { url: string; generation: number; resolve: (value: LinkPreview) => void }
+interface Job { url: string; generation: number; cached: CachedPreview | undefined; resolve: (value: LinkPreview) => void }
 
 export class LinkPreviewService {
   private readonly cache: PreviewCache
@@ -60,9 +60,12 @@ export class LinkPreviewService {
     const cached = await this.cache.read(url)
     if (generation !== this.generation) return unavailable(url)
     if (cached) {
+      // Legacy and failed icons have their own retry time, independent of a cover's seven-day TTL.
+      if (!cached.preview.favicon && (cached.faviconCheckedAt ?? 0) + textOnlyDuration < Date.now()) {
+        return this.enqueue(url, generation, cached)
+      }
       const freshness = cached.preview.image ? freshDuration : textOnlyDuration
-      const expiresAt = cached.fetchedAt + freshness
-      this.remember(cached.preview, expiresAt > Date.now() ? expiresAt : Date.now() + failureDuration)
+      this.rememberRecord(cached)
       if (cached.fetchedAt + freshness < Date.now() && !this.refreshes.has(url)) {
         this.refreshes.add(url)
         void this.enqueue(url, generation).finally(() => { if (generation === this.generation) this.refreshes.delete(url) })
@@ -72,9 +75,10 @@ export class LinkPreviewService {
     return this.enqueue(url, generation)
   }
 
-  private enqueue(url: string, generation: number): Promise<LinkPreview> {
-    if (generation !== this.generation || this.queue.length >= queueLimit) return Promise.resolve(unavailable(url))
-    const pending = new Promise<LinkPreview>(resolve => this.queue.push({ url, generation, resolve }))
+  private enqueue(url: string, generation: number, cached?: CachedPreview): Promise<LinkPreview> {
+    if (generation !== this.generation) return Promise.resolve(unavailable(url))
+    if (this.queue.length >= queueLimit) return Promise.resolve(cached?.preview ?? unavailable(url))
+    const pending = new Promise<LinkPreview>(resolve => this.queue.push({ url, generation, cached, resolve }))
     this.drain()
     return pending
   }
@@ -94,19 +98,27 @@ export class LinkPreviewService {
     const timeout = setTimeout(() => controller.abort(), 18_000)
     const current = () => job.generation === this.generation
     try {
-      const preview = await loadMetadata(job.url, controller.signal).catch(() => unavailable(job.url))
+      const preview = job.cached
+        ? { ...job.cached.preview, favicon: await loadCachedFavicon(job.url, controller.signal).catch(() => null) }
+        : await loadMetadata(job.url, controller.signal).catch(() => unavailable(job.url))
       if (!current()) { job.resolve(unavailable(job.url)); return }
       // A transient refresh failure must not replace a usable offline preview.
-      if (preview.status === 'ready' || !this.memory.has(job.url)) {
-        this.remember(preview, Date.now() + (preview.status === 'ready' ? preview.image ? freshDuration : textOnlyDuration : failureDuration))
-      }
       if (preview.status === 'ready') {
-        const record: CachedPreview = { version: 1, fetchedAt: Date.now(), preview }
+        const record: CachedPreview = { version: 1, fetchedAt: job.cached?.fetchedAt ?? Date.now(), faviconCheckedAt: Date.now(), preview }
+        this.rememberRecord(record)
         await this.cache.write(record, current)
+      } else if (!this.memory.has(job.url)) {
+        this.remember(preview, Date.now() + failureDuration)
       }
       job.resolve(current() ? preview : unavailable(job.url))
     } catch { job.resolve(unavailable(job.url)) }
     finally { clearTimeout(timeout); this.controllers.delete(controller) }
+  }
+
+  private rememberRecord(record: CachedPreview): void {
+    const metadataExpires = record.fetchedAt + (record.preview.image ? freshDuration : textOnlyDuration)
+    const iconExpires = record.preview.favicon ? Infinity : (record.faviconCheckedAt ?? 0) + textOnlyDuration
+    this.remember(record.preview, Math.max(Math.min(metadataExpires, iconExpires), Date.now() + failureDuration))
   }
 
   private remember(preview: LinkPreview, expiresAt: number): void {

@@ -2,17 +2,22 @@
 .link-title > .link-title-open { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border-radius: 4px; }
 .link-rich-text { position: relative; display: block; pointer-events: none; overflow-wrap: anywhere; white-space: pre-wrap; }
 .link-rich-text .link-inline { pointer-events: auto; }
-.link-inline { color: var(--focus); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--focus) 35%, transparent); text-underline-offset: 3px; overflow-wrap: anywhere; border-radius: 3px; }
+.link-inline { display: inline; color: var(--focus); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--focus) 35%, transparent); text-underline-offset: 3px; overflow-wrap: anywhere; white-space: normal; border-radius: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .link-inline:hover { text-decoration-color: currentColor; }
-.link-domain { display: inline-flex; align-items: center; max-width: min(100%, 30ch); padding: 1px 4px; margin-inline: 1px; background: color-mix(in srgb, var(--focus) 8%, transparent); text-decoration: none; font-size: .93em; line-height: 18px; white-space: nowrap; overflow-wrap: normal; }
-.link-domain-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.link-domain > .link-external-mark { flex-shrink: 0; }
+.link-domain { padding: 1px 4px; margin-inline: 1px; background: color-mix(in srgb, var(--focus) 8%, transparent); text-decoration: none; font-size: .93em; }
+.link-favicon { margin-inline-end: 4px; }
+/* Keep the icon with its first character without making the entire label an unbreakable box. */
+.link-favicon::after { content: '\2060'; }
+.link-favicon :is(img, svg) { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; object-fit: contain; }
 .link-external-mark { display: inline-flex; vertical-align: -2px; margin-left: 3px; transform: rotate(-45deg); }
 .task-content { flex: 1; min-width: 0; }
-.task-line > .link-title { padding: 7px 0; }
-.task-line > .link-title .link-rich-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.task-line > .link-title { padding: 3px 0; }
+.task-line > .link-title .link-rich-text { text-indent: var(--check-space); }
+.task-content > .task-line > :is(.row-meta, .row-icon) { height: 28px; }
 .task-row[data-done='true'] .link-rich-text { color: var(--secondary); text-decoration: line-through; }
 .link-previews { min-width: 0; margin: 2px 0 9px; cursor: default; }
+/* Align cards with the checkbox across its 18px width, the 12px row gap and the 2px track gutter. */
+.task-content > .link-previews { margin-top: 0; margin-left: -32px; }
 .link-carousel-track { position: relative; display: flex; gap: 10px; padding: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; scroll-padding-inline: 2px; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
 .link-carousel-track::-webkit-scrollbar { display: none; }
 .link-carousel-slide { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; scroll-snap-stop: always; }

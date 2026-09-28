@@ -2,10 +2,12 @@
 
 > Parent: [main](../README.md). Public URL metadata; never workspace mutations.
 
-- `service.ts`: bounded queue, in-flight deduplication, session cancellation and offline cache orchestration.
+- `service.ts`: bounded queue, in-flight deduplication, missing-icon enrichment, session cancellation and offline cache orchestration.
 - `transport.ts`: credential-free HTTP(S), public-address validation, pinned DNS, redirect and response limits.
-- `providers.ts`: isolated Electron session for fixed HTTPS X/YouTube endpoints and their known image paths, with no redirects or credentials.
-- `metadata.ts`: inert OG/title parsing, YouTube oEmbed and X public embed metadata; raster image validation.
+- `providers.ts`: isolated Electron session for fixed HTTPS X/YouTube metadata, image paths and official favicon endpoints, with no redirects or credentials.
+- `metadata.ts`: inert OG/title parsing, YouTube oEmbed and X public embed metadata; optional cover/favicon enrichment.
+- `images.ts`: shared PNG/JPEG/WebP signature and dimension limits for covers and icons.
+- `favicon.ts`: declared icon discovery, origin fallback, bounded raster/ICO validation and optional data URLs.
 - `cache.ts`: bounded device-local JSON cache, independent of workspace backups and history.
 
 ## Failure scenarios recorded before implementation
@@ -24,10 +26,12 @@ The service API is `new LinkPreviewService(cacheDirectory)`, `get(url)` and `rel
 
 Network work is limited to three active jobs plus 48 queued jobs, 18 seconds per job, three redirects, and 1 MiB per response. Only default HTTP(S) ports are fetched; credentials, non-public DNS answers, downgrade redirects and non-public sockets are rejected. PNG/JPEG/WebP images have checked signatures and dimensions (8192 px per side, 20 megapixels total); missing images preserve useful text.
 
-Cache files use SHA-256 of the canonical URL without its fragment. JSON contains `{version: 1, fetchedAt, preview}`. Successful entries expire for refresh after seven days (15 minutes without a cover), but stale results return immediately and refresh in the background. Transient failures remain only in memory for 30 seconds. Memory is limited to 64 entries / 16 MiB; disk to 128 entries / 64 MiB. Writes are atomic and private to the device.
+Generic favicons use the same pinned public transport: up to three declared icons plus `/favicon.ico` on the final page origin, a shared four-second budget, 256 KiB per response, and a 512px raster limit. X/YouTube adapters use the isolated provider session for exactly `https://x.com/favicon.ico` and `https://www.youtube.com/favicon.ico`, retaining system proxy support without admitting arbitrary icon hosts. All paths share raster validation; ICO directories/frames have a 256px frame limit. SVG and third-party favicon services are excluded. Icon failures retain titles and covers. The nullable `favicon` field crosses IPC as a bounded data URL. Cache files are limited to 1,850,000 bytes.
+
+Cache files use SHA-256 of the canonical URL without its fragment. JSON contains `{version: 1, fetchedAt, faviconCheckedAt?, preview}`. Missing icons are checked independently of metadata freshness: legacy records without a check time are enriched on their next visible request, and failed icons retry no sooner than 15 minutes. This bounded four-second enrichment shares the normal queue/deduplication and returns the original title/cover on failure; its atomic cache write never advances `fetchedAt`. Successful metadata expires for refresh after seven days (15 minutes without a cover); otherwise stale results return immediately and refresh in the background. Transient metadata failures remain only in memory for 30 seconds. Memory is limited to 64 entries / 16 MiB; disk to 128 entries / 64 MiB. Writes are atomic and private to the device.
 
 Serving an expired disk record gives it only a 30-second refresh retry window, never a new full freshness period. A failed refresh preserves the usable cached content while allowing a later visible request to try again.
 
-Generic page/image DNS must resolve to public routable addresses. Networks that replace arbitrary hosts with private/reserved proxy addresses receive the unavailable fallback for those pages. X/YouTube adapters instead use exact trusted HTTPS metadata endpoints and CDN image paths through an isolated in-memory Electron session, retaining system network/proxy support and normal TLS checks. That transport omits credentials, refuses every redirect, bypasses custom protocol handlers and bounds decoded response bytes; it is never selected for arbitrary page metadata or arbitrary OG images.
+Generic page/image DNS must resolve to public routable addresses. Networks that replace arbitrary hosts with private/reserved proxy addresses receive the unavailable fallback for those pages. X/YouTube adapters instead use exact trusted HTTPS metadata endpoints, CDN image paths and official favicon endpoints through an isolated in-memory Electron session, retaining system network/proxy support and normal TLS checks. That transport omits credentials, refuses every redirect, bypasses custom protocol handlers and bounds decoded response bytes; it is never selected for arbitrary page metadata, OG images or favicons.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

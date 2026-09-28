@@ -19,6 +19,7 @@ export const linkPreviewSchema = z.strictObject({
   title: z.string().max(1000),
   siteName: z.string().max(200),
   description: z.string().max(2000),
+  favicon: z.string().max(350_000).regex(/^data:image\/(?:png|jpeg|webp|x-icon);base64,[A-Za-z0-9+/]+={0,2}$/).nullable(),
   image: z.string().max(1_500_000).regex(/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/).nullable(),
 })
 export type LinkPreview = z.infer<typeof linkPreviewSchema>

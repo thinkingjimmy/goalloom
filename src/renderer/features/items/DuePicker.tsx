@@ -1,44 +1,30 @@
 /**
- * [INPUT]: 草稿截止日（YYYY-MM-DD 或空）、工作区今天与变更回调。
- * [OUTPUT]: 截止日按钮与快捷选项/日期输入/清除浮层；只改草稿，由详情统一保存。dueOptions 供 composer 行内菜单复用。
- * [POS]: items 详情字段；截止日独立于所在列，不安排到未来周期。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Draft ISO deadline, workspace today/week start, read-only state and draft callback.
+ * [OUTPUT]: Deadline trigger and floating calendar panel with focus restoration; re-exported dueOptions presets.
+ * [POS]: Detail field; shared calendar content stays in components/due-date and saving stays in ItemDetail.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { messages } from '../../i18n'
-import { addDays, monthEnd, weekday } from '../../lib/dates'
 import { longDate } from '../../i18n/format'
 import { Popover } from '../../components/Popover'
 import { Icon } from '../../components/icons'
+import { DueDatePanel } from '../../components/due-date/DueDatePanel'
 
-// Quick deadlines relative to the workspace day; shared with the composer's inline menu.
-export function dueOptions(today: string): [string, string][] {
-  const day = weekday(today)
-  return [
-    [messages.dueToday, today], [messages.dueTomorrow, addDays(today, 1)],
-    ...(day >= 1 && day < 5 ? [[messages.dueFriday, addDays(today, 5 - day)] as [string, string]] : []),
-    [messages.dueNextMonday, addDays(today, ((8 - day) % 7) || 7)], [messages.dueMonthEnd, monthEnd(today)],
-  ]
-}
+export { dueOptions } from '../../components/due-date/DueDatePanel'
 
-export function DuePicker({ value, today, readOnly, onChange }: { value: string; today: string; readOnly: boolean; onChange: (value: string) => void }) {
+export function DuePicker({ value, today, weekStart = 1, readOnly, onChange }: { value: string; today: string; weekStart?: number; readOnly: boolean; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false)
-  const options = dueOptions(today)
+  const trigger = useRef<HTMLButtonElement>(null), id = useId()
   const overdue = !!value && value < today
-  const choose = (next: string) => { onChange(next); setOpen(false) }
-  return <Popover open={open} onClose={() => setOpen(false)} anchor={
-    <button type="button" className="field-button tabular" data-empty={!value} data-overdue={overdue} aria-label={messages.labelled(messages.dueDate, value ? longDate(value) : messages.noDue)} aria-expanded={open} disabled={readOnly} onClick={() => setOpen(!open)}>
-      {value ? `${longDate(value)}${overdue ? messages.overdueSuffix : ''}` : <><Icon name="calendar" size={16} />{messages.addDue}</>}
+  const close = () => { setOpen(false); trigger.current?.focus({ preventScroll: true }) }
+  const choose = (next: string) => { onChange(next); close() }
+  return <Popover floating open={open} onClose={close} anchor={
+    <button type="button" ref={trigger} className="field-button tabular" data-empty={!value} data-overdue={overdue} aria-label={messages.labelled(messages.dueDate, value ? longDate(value) : messages.noDue)}
+      aria-haspopup="dialog" aria-controls={open ? id : undefined} aria-expanded={open} disabled={readOnly} onClick={() => setOpen(!open)}>
+      <Icon name="calendar" size={16} />{value ? `${longDate(value)}${overdue ? messages.overdueSuffix : ''}` : messages.addDue}
     </button>
   }>
-    <div className="menu" role="menu" aria-label={messages.dueDate}>
-      {options.map(([label, date]) => <button key={label} type="button" role="menuitemradio" aria-checked={value === date} className="menu-item" onClick={() => choose(date)}>
-        <span className="menu-text">{label}</span><span className="menu-hint tabular">{longDate(date)}</span>
-      </button>)}
-      <div className="menu-separator" />
-      <label className="menu-field">{messages.pickDate}<input type="date" value={value} onChange={event => { if (event.target.value) choose(event.target.value) }} /></label>
-      {value && <button type="button" role="menuitem" className="menu-item danger" onClick={() => choose('')}>{messages.clearDue}</button>}
-      <p className="menu-note">{messages.dueDateNote}</p>
-    </div>
+    <DueDatePanel id={id} value={value} today={today} weekStart={weekStart} onSelect={choose} />
   </Popover>
 }

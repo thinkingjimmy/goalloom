@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Settings categories, display preferences and interpolation parameters.
- * [OUTPUT]: Source settings catalog, including per-column completion-confetti and reduced-motion copy.
+ * [OUTPUT]: Source settings catalog, including calendar grouping, per-column completion-confetti and reduced-motion copy.
  * [POS]: Chinese settings copy and shared SettingsCatalog shape; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -44,7 +44,7 @@ export const settingsMessages = widen({
     'Key 加密保存在本机，不进入工作区数据、备份或导出',
   ],
   // Calendar
-  lockedNote: '已锁定 · 重新配置需先创建保护备份并重置工作区',
+  calendarSettings: '日历设置',
   nextCycle: (date: string) => `下一周期 ${date}`,
   overdue: '到期未完成',
   policyNotes: {
@@ -52,7 +52,6 @@ export const settingsMessages = widen({
     week: { auto: '周末结束后自动移入下周', manual: '周末留在往期，等你安排' },
     day: { auto: '零点自动移到新的今天', manual: '零点留在往期，等你安排' },
   },
-  undoRollover: '撤销这次顺延',
   // Backup & restore
   backedUpAt: (when: string) => `${when} 已备份`,
   backupSummary: (count: number) => `共 ${count} 份 · 与工作区在同一块磁盘，无法防止整块磁盘损坏`,

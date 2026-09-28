@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Unified visible candidates/locating, board-ordered flow filters returning past columns to current, board/dialogs, menu-aware shortcuts and generation-scoped feedback/caches; flow-insight composer seeds and the review drawer.
+ * [OUTPUT]: Unified candidates/locating, independent Later visibility/count, board-ordered flow filters, board/dialogs, menu-aware shortcuts and generation-scoped feedback/caches; flow-insight composer seeds and the review drawer.
  * [POS]: Renderer composition root; composer loads on first use and then keeps its session until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -120,6 +120,7 @@ export function App() {
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
   return <div className="app-shell">
     <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
+      laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
       openSearch={openPalette} openSettings={() => openSettings()} />
     {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</button></div>}
     {snapshot?.workspace.calendar && Intl.DateTimeFormat().resolvedOptions().timeZone !== snapshot.workspace.calendar.timezone && <div className="notice-banner">{messages.timezoneMismatch} {snapshot.workspace.calendar.timezone}。</div>}
@@ -151,7 +152,11 @@ export function App() {
     <Suspense fallback={null}>
     {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={closeDetail} submit={submit} revision={snapshot.workspace.revision} busy={busy}
       flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} split={(parent, horizon) => { setSelected(null); setSettings(false); requestAdd(horizon, parent) }}
-      locate={(item, period) => { if (!columns.visible.includes(item.placement.horizon)) columns.toggle(item.placement.horizon); boardView.locate(item, period); setSettings(false); setSelected(null) }} />}
+      locate={(item, period) => {
+        const horizon = item.placement.horizon
+        if (horizon === 'later') columns.setLaterOpen(true)
+        boardView.locate(item, period); setSettings(false); setSelected(null)
+      }} />}
     </Suspense>
     {feedback && <FeedbackLayer><div ref={toastRef} className="toast" key={feedback.result.operationId} data-warning={!!feedback.warning}
       onMouseEnter={() => setToastHeld(true)} onMouseLeave={event => setToastHeld(event.currentTarget.contains(document.activeElement))}

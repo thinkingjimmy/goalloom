@@ -358,9 +358,7 @@ try {
   checks.push('Archived detail outside the current snapshot uses its actual horizon and stays archived')
 
   // Every preference remains available when its column is hidden and changes no workspace revision.
-  await page.getByRole('button', { name: '显示的列', exact: true }).click()
-  await page.getByRole('menuitemcheckbox', { name: 'Later', exact: true }).click()
-  await page.keyboard.press('Escape')
+  await page.locator('#later-toggle').click()
   assert.equal(await page.getByRole('region', { name: 'Later列', exact: true }).count(), 0)
   const revision = (await page.evaluate(() => window.goalloom.getSnapshot())).workspace.revision
   await openSettings()
@@ -377,9 +375,7 @@ try {
   await openSettings()
   await assertSettings(inverted)
   await closeSettings()
-  await page.getByRole('button', { name: '显示的列', exact: true }).click()
-  await page.getByRole('menuitemcheckbox', { name: 'Later', exact: true }).click()
-  await page.keyboard.press('Escape')
+  await page.locator('#later-toggle').click()
   for (const [horizon, enabled] of Object.entries(inverted)) {
     await assertSilentCompletion(`Override ${horizon}`, enabled)
     if (enabled) await waitForCleanup()

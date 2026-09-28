@@ -50,9 +50,8 @@ try {
     await page.getByRole('menuitem', { name, exact: true }).click()
   }
   const toggleLater = async () => {
-    await page.getByRole('button', { name: '显示的列', exact: true }).click()
-    await page.getByRole('menuitemcheckbox', { name: 'Later', exact: true }).click()
-    await page.keyboard.press('Escape')
+    await page.locator('#later-toggle').click()
+    await page.waitForFunction(() => document.querySelector('.board-later').getAnimations().length === 0)
   }
   const createSingle = async title => {
     await page.getByRole('button', { name: '新建', exact: true }).click()
@@ -67,7 +66,7 @@ try {
     await settings().getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: kind === 'trash' ? '回收站' : '已完成', exact: true }).click()
     if (kind === 'archived') await settings().getByRole('radio', { name: /^归档/ }).click()
     await settings().locator('.items-open').filter({ hasText: title }).click()
-    await detail().getByRole('textbox', { name: '标题', exact: true }).waitFor()
+    await detail().locator('.detail-title-display').waitFor()
   }
 
   const visible = await createSingle('Visible single creation')
@@ -106,7 +105,7 @@ try {
   const hidden = await createSingle('Hidden single creation')
   await toast.filter({ hasText: 'Later' }).waitFor()
   await toast.getByRole('button', { name: /撤销/ }).waitFor()
-  assert.equal(await page.locator(`#item-${hidden}`).count(), 0)
+  assert.equal(await page.locator(`#item-${hidden}`).isVisible(), false)
   await shot('feedback-hidden-destination')
   await page.keyboard.press('ControlOrMeta+z')
   await toast.getByRole('button', { name: '还原', exact: true }).waitFor()

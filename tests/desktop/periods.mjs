@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build and an isolated Repository/SQLite planning fixture.
- * [OUTPUT]: Repeatable UI assertions, screenshots and environment/boundary JSON in output/tests/periods.
+ * [OUTPUT]: Period interactions, compact menu/source-row activation assertions, screenshots and environment/boundary JSON in output/tests/periods.
  * [POS]: Focused desktop acceptance; fixture refresh emits a main-process notification without native activation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -103,6 +103,37 @@ try {
   assert.equal(await page.locator('dialog.detail').count(), 0)
   assert.notEqual(await page.evaluate(() => document.documentElement.dataset.dragging), 'true')
   checks.push('Later/done exclusions, both keyboard menu keys, Escape/focus and no checkbox/link/drag side effects')
+
+  const originalMonth = await item(ids.month)
+  const idleGround = await row(ids.month).evaluate(node => getComputedStyle(node).backgroundColor)
+  await rightClick(ids.month)
+  const menu = page.locator('.context-menu:not(.context-submenu)'), submenu = page.locator('.context-submenu')
+  await menu.locator('[aria-haspopup="menu"]').hover()
+  await submenu.waitFor()
+  await submenu.getByRole('menuitem').last().hover()
+  await page.waitForFunction(id => getComputedStyle(document.querySelector(`#item-${id} .flow-dot-button`)).opacity === '1', ids.month)
+  const activeRow = await row(ids.month).evaluate(node => ({ state: node.dataset.state, hovered: node.matches(':hover'), ground: getComputedStyle(node).backgroundColor }))
+  assert.equal(activeRow.state, 'open')
+  assert.equal(activeRow.hovered, false, 'The source stays active while the pointer is inside its submenu')
+  assert.notEqual(activeRow.ground, idleGround)
+  const menus = await page.locator('.context-menu').evaluateAll(nodes => nodes.map(node => ({
+    width: node.getBoundingClientRect().width,
+    hints: [...node.querySelectorAll('.menu-hint')].map(hint => hint.textContent),
+    cursors: [...node.querySelectorAll('[role="menuitem"]:not([data-disabled])')].map(item => getComputedStyle(item).cursor),
+  })))
+  assert(menus[0].width <= 220 && menus[1].width <= 180, 'Month menus fit their short content')
+  assert(menus.every(menu => menu.cursors.every(cursor => cursor === 'pointer')))
+  assert(menus.every(menu => menu.hints.every(hint => !/\d{4}/.test(hint))))
+  assert.equal(menus[1].hints.length, 1, 'Concrete month labels do not repeat the same date')
+  await shot('context-menu-month-compact')
+  await page.keyboard.press('Escape'); await submenu.waitFor({ state: 'detached' })
+  if (await menu.count()) await page.keyboard.press('Escape')
+  await menu.waitFor({ state: 'detached' })
+  assert.equal(await row(ids.month).getAttribute('data-state'), 'closed')
+  await page.waitForFunction(({ id, ground }) => getComputedStyle(document.getElementById(`item-${id}`)).backgroundColor === ground, { id: ids.month, ground: idleGround })
+  assert.deepEqual(await item(ids.month), originalMonth)
+  report.contextMenu = { menus, activeRow, clearedOnClose: true, unchangedItem: true }
+  checks.push('Compact yearless month/submenus, no repeated concrete dates, pointer cursors and persistent source activation until close')
 
   const labels = { day: '移到明天', week: '移到下周', month: '移到下月', cycle: '移到下个周期' }
   for (const horizon of ['day', 'week', 'month', 'cycle']) {
@@ -213,6 +244,7 @@ try {
   await moveNext('week'); await row(ids.week).waitFor()
   assert.equal((await item(ids.week)).period.id, further.id)
   await row(ids.week).locator('.task-title').click()
+  await page.locator('dialog.detail').getByRole('button', { name: '编辑标题', exact: true }).click()
   await page.locator('dialog.detail .title-input').fill('Edited future task')
   await page.locator('dialog.detail').getByRole('button', { name: /^保存/ }).click()
   await pollPage(page, async id => (await window.goalloom.getItem(id)).item.title === 'Edited future task', ids.week)
@@ -284,12 +316,13 @@ try {
       assert.equal(await header.locator('[data-next-period]').count(), 1)
       assert(await header.locator('[data-previous-period]').getAttribute('aria-label'))
       const navigation = await header.locator('.period-nav').boundingBox()
+      const bounds = await column(horizon).boundingBox()
       const previousButton = await header.locator('[data-previous-period]').boundingBox()
       const nextButton = await header.locator('[data-next-period]').boundingBox()
       const heading = await header.locator('.period-heading').boundingBox()
       const action = header.locator('[data-review], [data-return-current]')
       const content = await action.count() ? await action.boundingBox() : heading
-      assert(previousButton.x >= navigation.x && nextButton.x + nextButton.width <= navigation.x + navigation.width + 1, `${locale} period controls fit their column`)
+      assert(previousButton.x >= bounds.x && nextButton.x + nextButton.width <= navigation.x + navigation.width + 1, `${locale} period controls fit their column`)
       assert(heading.x - previousButton.x - previousButton.width <= 8 && nextButton.x - content.x - content.width <= 8, `${locale} arrows hug the header content`)
       const add = await header.locator('.column-add-slot').boundingBox()
       assert(nextButton.x + nextButton.width <= add.x, `${locale} navigation leaves room for quick add`)

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A device-local directory and public URL preview metadata.
- * [OUTPUT]: Bounded cached previews with atomic writes; cache failures never escape to workspace operations.
+ * [OUTPUT]: Bounded cached previews with independent favicon check times and atomic, best-effort writes.
  * [POS]: Disposable preview cache outside the workspace database, exports and history.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,8 +9,8 @@ import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:
 import { join } from 'node:path'
 import type { LinkPreview } from '../../shared/contracts/link-preview'
 
-export interface CachedPreview { version: 1; fetchedAt: number; preview: LinkPreview }
-const fileLimit = 1_500_000
+export interface CachedPreview { version: 1; fetchedAt: number; faviconCheckedAt?: number; preview: LinkPreview }
+const fileLimit = 1_850_000
 const diskLimit = 64 * 1024 * 1024
 const entryLimit = 128
 
@@ -19,10 +19,12 @@ function valid(value: unknown, url: string): value is CachedPreview {
   const record = value as CachedPreview
   const preview = record.preview
   return record.version === 1 && Number.isFinite(record.fetchedAt) && record.fetchedAt > 0
+    && (record.faviconCheckedAt === undefined || Number.isFinite(record.faviconCheckedAt) && record.faviconCheckedAt > 0)
     && !!preview && preview.url === url && preview.status === 'ready'
     && typeof preview.title === 'string' && preview.title.length > 0 && preview.title.length <= 1000
     && typeof preview.siteName === 'string' && preview.siteName.length <= 200
     && typeof preview.description === 'string' && preview.description.length <= 2000
+    && (preview.favicon == null || typeof preview.favicon === 'string' && preview.favicon.length <= 350_000 && /^data:image\/(?:png|jpeg|webp|x-icon);base64,[A-Za-z0-9+/]+=*$/.test(preview.favicon))
     && (preview.image === null || typeof preview.image === 'string' && preview.image.length <= 1_400_000 && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(preview.image))
 }
 
@@ -37,7 +39,7 @@ export class PreviewCache {
       const path = this.path(url)
       if ((await stat(path)).size > fileLimit) return null
       const record: unknown = JSON.parse(await readFile(path, 'utf8'))
-      return valid(record, url) ? record : null
+      return valid(record, url) ? { ...record, preview: { ...record.preview, favicon: record.preview.favicon ?? null } } : null
     } catch { return null }
   }
 

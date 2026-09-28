@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Editable draft, peer drafts, parent metadata, periods, flows, selection/menu/editing state and change callbacks.
+ * [INPUT]: Editable draft, peer drafts, parent metadata, periods, workspace calendar, flows, selection/menu/editing state and change callbacks.
  * [OUTPUT]: One adjust-mode row: a single line (title + where) that, when selected, shows inline T/D/P tokens (column, deadline, parent) opening keyboard menus, an M token for an uncertain split, and E-mode title/description editing. Jev's values and doubts carry the Jev mark.
  * [POS]: Composer adjust list row; Composer owns selection and letter shortcuts, transaction validation stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -16,7 +16,7 @@ import type { Flows } from '../../state/flows'
 import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
 import { Popover } from '../../components/Popover'
-import { dueOptions } from '../items/DuePicker'
+import { DueDatePanel } from '../../components/due-date/DueDatePanel'
 import { sameParent, type EditableDraft, type Field, type ParentInfo } from './draft'
 import { KeyMenu } from './KeyMenu'
 import { column, JevBadge, where } from './Plan'
@@ -25,13 +25,13 @@ import { doubts, linkParent, parentTitle } from './suggestions'
 export type RowMenu = 'horizon' | 'due' | 'parent'
 interface Props {
   draft: EditableDraft; drafts: EditableDraft[]; parents: Map<string, ParentInfo>; flows: Flows; usedColors: number[]
-  periods: PlanningPeriod[]; today: string; disabled: boolean
+  periods: PlanningPeriod[]; today: string; weekStart: number; disabled: boolean
   selected: boolean; menu: RowMenu | null; editing: boolean
   select: () => void; openMenu: (menu: RowMenu | null) => void; stopEditing: () => void
   change: (patch: Partial<EditableDraft>, ...fields: Field[]) => void; replace: (next: EditableDraft) => void; remember: (info: ParentInfo) => void; merge: () => void
 }
 
-export function DraftRow({ draft, drafts, parents, flows, usedColors, periods, today, disabled, selected, menu, editing, select, openMenu, stopEditing, change, replace, remember, merge }: Props) {
+export function DraftRow({ draft, drafts, parents, flows, usedColors, periods, today, weekStart, disabled, selected, menu, editing, select, openMenu, stopEditing, change, replace, remember, merge }: Props) {
   const indent = draft.parents.some(key => key.kind === 'draft')
   const title = draft.title || t.titleRequired
   if (!selected) return <button type="button" role="option" aria-selected="false" tabIndex={-1} className="plan-row" data-indent={indent} data-orphan={draft.orphan} onClick={select}>
@@ -45,7 +45,7 @@ export function DraftRow({ draft, drafts, parents, flows, usedColors, periods, t
   const toggle = (next: RowMenu) => openMenu(menu === next ? null : next)
   const labels = draft.parents.map(key => parentTitle(key, drafts, parents))
   const token = (key: string, kind: RowMenu, label: ReactNode, empty: boolean, jev: boolean) =>
-    <button type="button" className="plan-token" data-empty={empty} data-doubt={doubtOf(kind)} aria-expanded={menu === kind} aria-keyshortcuts={key} disabled={disabled} onClick={() => toggle(kind)}>
+    <button type="button" className="plan-token" data-empty={empty} data-doubt={doubtOf(kind)} aria-haspopup={kind === 'due' ? 'dialog' : 'menu'} aria-expanded={menu === kind} aria-keyshortcuts={key} disabled={disabled} onClick={() => toggle(kind)}>
       <kbd className="plan-key">{key}</kbd>{label}{jev && <span className="plan-jev" aria-label={t.fromJev}><Icon name="smart" size={12} /></span>}
     </button>
 
@@ -57,8 +57,10 @@ export function DraftRow({ draft, drafts, parents, flows, usedColors, periods, t
         <Popover open={menu === 'horizon'} onClose={close} align="end" anchor={token('T', 'horizon', column(draft.horizon), false, fromJev('horizon') && draft.horizon !== 'later')}>
           <HorizonMenu draft={draft} periods={periods} pick={horizon => { change({ horizon, horizonSuggestion: null, horizonInferred: false }, 'horizon'); close() }} />
         </Popover>
-        <Popover open={menu === 'due'} onClose={close} align="end" anchor={token('D', 'due', draft.due ? shortDate(draft.due) : t.dueToken, !draft.due, fromJev('due') && !!draft.due)}>
-          <DueMenu draft={draft} today={today} pick={due => { change({ due, dueSuggestion: null }, 'due'); close() }} />
+        <Popover floating open={menu === 'due'} onClose={close} align="end" anchor={token('D', 'due', draft.due ? shortDate(draft.due) : t.dueToken, !draft.due, fromJev('due') && !!draft.due)}>
+          <DueDatePanel value={draft.due ?? ''} today={today} weekStart={weekStart} numericShortcuts
+            suggestion={draft.dueSuggestion ? { date: draft.dueSuggestion, label: t.fromJev } : undefined}
+            onSelect={due => { change({ due: due || null, dueSuggestion: null }, 'due'); close() }} />
         </Popover>
         <Popover open={menu === 'parent'} onClose={close} align="end" anchor={token('P', 'parent', labels.length ? `↑ ${labels.join(t.comma)}` : t.parentToken, !labels.length, fromJev('parents') && labels.length > 0)}>
           <ParentMenu draft={draft} drafts={drafts} parents={parents} flows={flows} usedColors={usedColors} disabled={disabled} close={close}
@@ -83,22 +85,6 @@ function HorizonMenu({ draft, periods, pick }: { draft: EditableDraft; periods: 
       {draft.horizonSuggestion === horizon && <JevBadge />}
       <span className="menu-hint">{range(horizon)}</span>
     </button>)}
-  </KeyMenu>
-}
-
-function DueMenu({ draft, today, pick }: { draft: EditableDraft; today: string; pick: (due: string | null) => void }) {
-  const options = dueOptions(today)
-  const offset = draft.dueSuggestion ? 1 : 0
-  return <KeyMenu label={messages.dueDate}>
-    {draft.dueSuggestion && <button type="button" role="menuitemradio" aria-checked={false} data-key="1" className="menu-item" onClick={() => pick(draft.dueSuggestion)}>
-      <kbd className="plan-key">1</kbd><span className="menu-text">{longDate(draft.dueSuggestion)}</span><JevBadge />
-    </button>}
-    {options.map(([label, date], index) => <button key={label} type="button" role="menuitemradio" aria-checked={draft.due === date} data-key={index + 1 + offset} className="menu-item" onClick={() => pick(date)}>
-      <kbd className="plan-key">{index + 1 + offset}</kbd><span className="menu-text">{label}</span><span className="menu-hint tabular">{longDate(date)}</span>
-    </button>)}
-    <div className="menu-separator" />
-    <label className="menu-field">{messages.pickDate}<input type="date" value={draft.due ?? ''} onChange={event => { if (event.target.value) pick(event.target.value) }} /></label>
-    {draft.due && <button type="button" role="menuitem" className="menu-item danger" onClick={() => pick(null)}>{messages.clearDue}</button>}
   </KeyMenu>
 }
 

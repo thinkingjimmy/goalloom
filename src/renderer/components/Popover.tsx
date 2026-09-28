@@ -1,8 +1,9 @@
 /**
- * [INPUT]: 受控开关、锚点内容与浮层内容；floating 时读取锚点的视口位置。
- * [OUTPUT]: 锚点相对定位的轻量浮层；floating 时经 portal 以 fixed 定位浮出滚动容器并随滚动/缩放跟随锚点。外部按下或 Esc 关闭，Esc 不冒泡到外层 dialog。
- * [POS]: 通用 UI 原语，供筛选、列显示、截止日、关联选择器、流程选择器和看板流程圆点复用。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Controlled visibility, anchor and panel content; floating mode measures their bounds and observes size changes.
+ * [OUTPUT]: Anchored popovers; floating panels escape scroll clipping via the nearest native dialog or document body,
+ *           updating placement when content, anchor size, scrolling or viewport size changes. Outside presses/Escape dismiss only the popover.
+ * [POS]: Shared UI primitive for filters, deadlines, relationships, flow selection and board flow dots.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -29,19 +30,24 @@ export function Popover({ open, onClose, anchor, children, align = 'start', side
       const below = anchorRect.bottom + 6, above = anchorRect.top - 6 - height
       const top = side === 'top' || below + height > window.innerHeight - margin ? Math.max(margin, above) : below
       const left = align === 'end' ? anchorRect.right - width : anchorRect.left - 6
-      setPosition({ top, left: Math.max(margin, Math.min(left, window.innerWidth - width - margin)) })
+      const next = { top, left: Math.max(margin, Math.min(left, window.innerWidth - width - margin)) }
+      setPosition(current => current?.top === next.top && current.left === next.left ? current : next)
     }
     place()
     const frame = requestAnimationFrame(place)
+    // Menu switches and async search results can outgrow the space that fit the previous content.
+    const observer = new ResizeObserver(place)
+    if (root.current) observer.observe(root.current)
+    if (panel.current) observer.observe(panel.current)
     window.addEventListener('resize', place); window.addEventListener('scroll', place, true)
-    return () => { cancelAnimationFrame(frame); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
   }, [open, floating, side, align])
   const escape = (event: KeyboardEvent) => {
     if (open && event.key === 'Escape' && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); onClose() }
   }
   const content = open && (floating
     // React events still bubble through the portal to the anchor's ancestors; keep presses away from row drag sensors.
-    ? createPortal(<div ref={panel} className={`popover popover-floating ${className}`} onKeyDown={escape} onPointerDown={event => event.stopPropagation()} style={{ top: position?.top ?? 0, left: position?.left ?? 0, visibility: position ? 'visible' : 'hidden' }}>{children}</div>, document.body)
+    ? createPortal(<div ref={panel} className={`popover popover-floating ${className}`} onKeyDown={escape} onPointerDown={event => event.stopPropagation()} style={{ top: position?.top ?? 0, left: position?.left ?? 0, visibility: position ? 'visible' : 'hidden' }}>{children}</div>, root.current?.closest('dialog') ?? document.body)
     : <div ref={panel} className={`popover popover-${side} popover-${align} ${className}`}>{children}</div>)
   return <div className="popover-root" ref={root} onKeyDown={escape}>
     {anchor}

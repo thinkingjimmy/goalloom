@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Current snapshot items/relations/periods, flow membership, visible columns and their period modes.
- * [OUTPUT]: breakpoints (gaps and skips of one filtered flow), emptyColumns (current columns with no items under a non-empty previous column), draftTarget (current or next period for a new child), boardDigest / periodText (the bounded Chinese text context sent to the model).
+ * [INPUT]: Current snapshot items/relations/periods, active flow membership, visible columns, period modes and explicit preview intent.
+ * [OUTPUT]: breakpoints (unique gaps/skips across active flows, allowing empty current targets during preview), emptyColumns, draftTarget and bounded model context via boardDigest / periodText.
  * [POS]: features/insight 的纯信号计算；与 domain/relations 的周期规则一致，不做网络与写入。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -32,17 +32,17 @@ function inCurrent(item: ItemSummary, current: Map<string, string>): boolean {
 }
 
 // --- A gap asks only for the nearest missing level: a month plan without week children, never also a day node for it. ---
-export function breakpoints(snapshot: Snapshot, flows: Flows, flowId: string, columns: ItemHorizon[], mode: Mode): Breakpoints {
+export function breakpoints(snapshot: Snapshot, flows: Flows, flowIds: string[], columns: ItemHorizon[], mode: Mode, preview = false): Breakpoints {
   const current = currentIds(snapshot)
   const byId = new Map(snapshot.items.map(item => [item.id, item]))
-  const member = (item: ItemSummary) => flows.of(item.id).some(flow => flow.id === flowId)
+  const member = (item: ItemSummary) => flows.of(item.id).some(flow => flowIds.includes(flow.id))
   const shown = (horizon: ItemHorizon) => columns.includes(horizon) && mode(horizon) === 'current'
   const children = new Map<string, ItemSummary[]>()
   for (const edge of snapshot.relations) {
     const child = byId.get(edge.childId)
     if (child && live(child) && inCurrent(child, current)) children.set(edge.parentId, [...children.get(edge.parentId) ?? [], child])
   }
-  // An empty target column shows its own card instead of one ＋ per parent.
+  // An overview defers to the empty-column card; an intentional preview keeps the local next-step action.
   const filled = new Set(snapshot.items.filter(item => live(item) && inCurrent(item, current)).map(item => item.placement.horizon))
   const gaps: Gap[] = [], skips: Skip[] = []
   for (const parent of snapshot.items) {
@@ -50,7 +50,7 @@ export function breakpoints(snapshot: Snapshot, flows: Flows, flowId: string, co
     const target = shorter(parent.placement.horizon)
     if (!target) continue
     const kids = children.get(parent.id) ?? []
-    if (!kids.length && shown(target) && filled.has(target)) gaps.push({ parent, target })
+    if (!kids.length && mode(target) === 'current' && (preview || shown(target) && filled.has(target))) gaps.push({ parent, target })
     if (parent.placement.horizon === 'month' && shown('week') && shown('day')) {
       const skipped = kids.filter(child => child.placement.horizon === 'day' && open(child) && member(child))
       if (skipped.length) skips.push({ parent, children: skipped.slice(0, 8) })

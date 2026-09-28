@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: Spanish flow-insight copy: breakpoint ＋, first-run guide, prefilled composer, empty-column card.
+ * [OUTPUT]: Spanish flow-insight copy: breakpoints, onboarding, drafting, reviews, matrix legends and settings.
  * [POS]: Spanish insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -60,7 +60,9 @@ export const insightMessages: InsightCatalog = {
   summaryFailed: 'No se pudo generar el resumen. Inténtalo de nuevo.',
   summaryRefreshFailed: 'No se pudo actualizar. Se conserva el resumen anterior.',
   matrix: 'Objetivos × periodos',
-  matrixNote: 'Celda discontinua: nada en este nivel; borde naranja: algo se salta un nivel. Clic en un objetivo para filtrarlo.',
+  matrixLegendEmpty: 'Sin acciones en este nivel',
+  matrixLegendSkip: 'Hay tareas que saltan este nivel',
+  matrixFilterHint: 'Clic en un objetivo para ver solo su flujo',
   matrixEmpty: '—',
   goals: range => `Objetivos a 3 meses · ${range}`,
   goalCount: (count, done) => `${count} este mes · ${done} hechas`,
@@ -90,13 +92,9 @@ export const insightMessages: InsightCatalog = {
   settingsSection: 'Perspectiva',
   settingsHints: 'Avisos',
   settingsBreakpoints: '＋ de corte',
-  settingsBreakpointsNote: 'Con un flujo filtrado, aparece un ＋ donde el siguiente nivel no tiene acción, para redactar el siguiente paso',
+  settingsBreakpointsNote: 'Filtra un flujo o pasa el cursor sobre su punto para mostrar un ＋ en las tareas sin un siguiente paso',
   settingsReviews: 'Repaso semanal · mensual',
   settingsReviewsNote: 'Aparece en el encabezado el último día del periodo y el primero del siguiente, dos días como máximo',
-  settingsGuide: 'Guía de cortes',
-  settingsGuideSeen: 'Vista',
-  settingsGuidePending: 'Se mostrará la próxima vez que haya un corte',
-  settingsGuideAgain: 'Mostrar de nuevo',
   settingsAbout: 'Sobre mí',
   settingsLocalOnly: 'Solo en este dispositivo',
   settingsAboutTitle: 'Quién eres y en qué estás',
@@ -117,7 +115,6 @@ export const insightMessages: InsightCatalog = {
   toneQuestions: 'Preguntas',
   settingsFocus: 'Prioridad',
   settingsTry: 'Pruébalo',
-  settingsModelName: 'DeepSeek Flash · 1–2 s aprox.',
   settingsTryReview: 'Consejo del repaso',
   settingsTryFailed: 'No se pudo generar; inténtalo más tarde',
   settingsTryTitle: 'Probar con el tablero actual',

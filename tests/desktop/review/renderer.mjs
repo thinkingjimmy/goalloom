@@ -3,6 +3,12 @@
 // delayed save loses newer text; (4) deleting the last row of the last page hides
 // pagination while earlier rows still exist. This is a temporary browser harness,
 // not packaged-desktop acceptance. All regressions assert the repaired behavior.
+/**
+ * [INPUT]: Current renderer, deterministic browser IPC fixtures and synthetic composer analysis.
+ * [OUTPUT]: Review regression report/screenshots, including the shared composer deadline calendar's draft boundary.
+ * [POS]: Browser interaction acceptance; native deadline persistence is covered by desktop/due-dates.mjs.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
 import { createRequire } from 'node:module'
@@ -15,7 +21,7 @@ const {createServer}=await import(require.resolve('vite'))
 const react=(await import(require.resolve('@vitejs/plugin-react'))).default
 const tailwind=(await import(require.resolve('@tailwindcss/vite'))).default
 const {chromium}=require('playwright')
-const server=await createServer({root:`${repo}/src/renderer`,configFile:false,plugins:[react(),tailwind()],server:{host:'127.0.0.1',port:0,fs:{allow:[repo]}}})
+const server=await createServer({root:`${repo}/src/renderer`,configFile:false,cacheDir:`${repo}/node_modules/.vite-review`,plugins:[react(),tailwind()],server:{host:'127.0.0.1',port:0,fs:{allow:[repo]}}})
 await server.listen()
 const browser=await chromium.launch({headless:true})
 const page=await browser.newPage({viewport:{width:1280,height:840}})
@@ -26,7 +32,7 @@ await page.addInitScript(()=>{
  const period=(horizon,startDate,endDate)=>({id:`c:${horizon}:${startDate}`,horizon,startDate,endDate,startAt:`${startDate}T00:00:00.000Z`,endAt:`${endDate}T00:00:00.000Z`})
  const now='2026-09-24T12:00:00.000Z'
  const item={id:'item-a',title:'Original title',description:'',dueDate:null,status:'todo',completedAt:null,cancelledAt:null,archivedAt:null,deletedAt:null,deletedBy:null,createdAt:now,updatedAt:now,version:1,flowColor:null,placement:{itemId:'item-a',horizon:'later',periodId:null,sortKey:1,version:1,holdPeriodId:null}}
- window.review={snapshot:{workspace:{generation:'test-generation',calendar:{id:'c',timezone:'UTC',weekStart:1,cycleAnchor:'2026-07-01'},setupConfirmedAt:now,pausedAfterRestore:false,revision:1,lastObservedAt:now,clockAnomaly:false,theme:'light',style:'paper',checkStyle:'outline',backupEnabled:true,backupRetention:7},periods:[period('cycle','2026-07-01','2026-10-01'),period('month','2026-09-01','2026-10-01'),period('week','2026-09-21','2026-09-28'),period('day','2026-09-24','2026-09-25')],items:[item],relations:[],policies:[],backlog:{},observedAt:now,maintenance:false,backupError:null,rolloverSources:{},flows:[]},listeners:[],commands:[],analyses:[],delayAnalysis:false,waiters:[],delayExecute:false,executeWaiters:[],smartEnabled:true}
+ window.review={snapshot:{workspace:{generation:'test-generation',calendar:{id:'c',timezone:'UTC',weekStart:1,cycleAnchor:'2026-07-01'},setupConfirmedAt:now,pausedAfterRestore:false,revision:1,lastObservedAt:now,clockAnomaly:false,theme:'light',style:'paper',checkStyle:'outline',backupEnabled:true,backupRetention:7},periods:[period('cycle','2026-07-01','2026-10-01'),period('month','2026-09-01','2026-10-01'),period('week','2026-09-21','2026-09-28'),period('day','2026-09-24','2026-09-25')],items:[item],relations:[],policies:[],backlog:{},observedAt:now,maintenance:false,backupError:null,rolloverSources:{},flows:[],orderNodes:[]},listeners:[],commands:[],analyses:[],delayAnalysis:false,waiters:[],delayExecute:false,executeWaiters:[],smartEnabled:true}
  const r=window.review
  r.smartEnabled = !location.search.includes('plain')
  const status=()=>({activeProvider:'typesafe',providerRevision:1,enabled:r.smartEnabled,paused:false,providers:{typesafe:{credential:'saved',keyHint:'abc',consentedAt:now,verifiedAt:now},'vercel-gateway':{credential:'missing',keyHint:null,consentedAt:null,verifiedAt:null},openrouter:{credential:'missing',keyHint:null,consentedAt:null,verifiedAt:null}},lastFailure:null,cooldownUntil:null,dismissed:['globalEntry','smartSetup'],unsignedBuild:false})
@@ -42,7 +48,9 @@ await page.addInitScript(()=>{
  },execute:async command=>{r.commands.push(command);if(r.delayExecute)await new Promise(resolve=>r.executeWaiters.push(resolve));if(r.failExecute)return {ok:false,code:'invalid',message:'Synthetic save failure'};if(command.type==='edit'){Object.assign(r.snapshot.items[0],{title:command.title,description:command.description,dueDate:command.dueDate,version:r.snapshot.items[0].version+1})};r.snapshot.workspace.revision++;return {ok:true,result:{operationId:command.operationId,generation:command.generation,changed:true,undoable:false,outcome:'committed',itemId:command.type==='edit'?'item-a':null,itemIds:[],label:'Saved',warnings:[],restoreSource:null,originalOperationId:null}}},getReceipt:async()=>null}
 })
 const result={scope:'Current source rendered in Chromium, mocked IPC, no production data or external service',checks:[]}
+const calendarOnly=process.argv.includes('--calendar')
 try{
+ if(!calendarOnly){
  await page.goto(server.resolvedUrls.local[0]);await page.getByRole('button',{name:'Original title',exact:true}).waitFor()
  // Search failure modes: opening commands queries the whole workspace unnecessarily;
  // a transient error survives a later successful query; a pending query says no results.
@@ -104,8 +112,9 @@ try{
  await page.screenshot({path:`${evidence}/removed-draft.png`})
  await page.getByRole('button',{name:'Clear draft',exact:true}).click()
  // Async detail save.
- await page.getByRole('button',{name:'Original title',exact:true}).click();await page.locator('.title-input').fill('Saved text');await page.evaluate(()=>review.delayExecute=true)
+ await page.getByRole('button',{name:'Original title',exact:true}).click();await page.getByRole('button',{name:'Edit title',exact:true}).click();await page.locator('.title-input').fill('Saved text');await page.evaluate(()=>review.delayExecute=true)
  await page.locator('.save-bar .primary').click();await page.waitForFunction(()=>review.executeWaiters.length===1)
+ await page.getByRole('button',{name:'Edit title',exact:true}).click()
  await page.locator('.title-input').fill('New unsaved text entered during save')
  const typed=await page.locator('.title-input').inputValue()
  await page.evaluate(()=>{review.delayExecute=false;review.executeWaiters.shift()()});await page.waitForTimeout(300)
@@ -159,7 +168,7 @@ try{
  await page.getByRole('button',{name:'Clear draft',exact:true}).click()
  // Acceptance also waits for a snapshot. Typing in that second window must survive.
  for(const kind of ['detail','quick-add','composer']) {
-  if(kind==='detail') await page.getByRole('button',{name:'Saved text',exact:true}).click()
+  if(kind==='detail') { await page.getByRole('button',{name:'Saved text',exact:true}).click();await page.getByRole('button',{name:'Edit title',exact:true}).click() }
   else if(kind==='quick-add') await page.getByRole('button',{name:'Add to Later',exact:true}).click()
   else await page.locator('.fab').click()
   const field=page.locator(kind==='detail'?'.title-input':kind==='quick-add'?'.quick-add input':'.composer-input')
@@ -169,6 +178,7 @@ try{
   else if(kind==='quick-add') await field.press('Enter')
   else await page.locator('.composer-primary').click()
   await page.waitForFunction(()=>Boolean(review.snapshotWaiter))
+  if(kind==='detail') await page.getByRole('button',{name:'Edit title',exact:true}).click()
   await field.fill(`${kind} typed during snapshot refresh`)
   await page.evaluate(()=>{review.snapshotWaiter();review.snapshotWaiter=null})
   await page.waitForTimeout(200)
@@ -219,7 +229,46 @@ try{
   assert.equal(await page.evaluate(()=>review.commands.length),1)
   result.checks.push({case:`composer-close-${mode}-${outcome}`,text:await page.locator('.composer-input').inputValue()})
  }
+ }
+ // Calendar selection must remain inside the draft until explicit composer confirmation.
+ await page.goto(`${server.resolvedUrls.local[0]}?smart`)
+ await page.getByRole('button',{name:'Original title',exact:true}).waitFor()
+ await page.locator('.fab').click();await page.locator('.composer-input').fill('Alpha\nBeta')
+ await page.locator('.composer-plan').waitFor()
+ await page.locator('.composer-input').press('Tab')
+ await page.keyboard.press('d')
+ const calendar=page.locator('.composer-modal .due-panel')
+ await calendar.getByRole('grid').waitFor()
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('data-date')==='2026-09-24')
+ await page.keyboard.press('2')
+ await calendar.waitFor({state:'detached'})
+ assert.match(await page.locator('.plan-token[aria-keyshortcuts="D"]').innerText(),/9\/25/)
+ await page.keyboard.press('d')
+ await calendar.locator('[data-date="2026-09-25"]').press('ArrowRight')
+ await page.keyboard.press('Enter')
+ await calendar.waitFor({state:'detached'})
+ assert.equal(await page.evaluate(()=>review.commands.length),0)
+ assert.equal(await page.locator('.plan-focus').evaluate(node=>node===document.activeElement),true)
+ await page.keyboard.press('d')
+ await calendar.getByRole('button',{name:'Clear due date',exact:true}).click()
+ await page.keyboard.press('d')
+ await calendar.locator('[data-date="2026-09-24"]').press('PageDown')
+ await page.keyboard.press('Enter')
+ await calendar.waitFor({state:'detached'})
+ await page.keyboard.press('d')
+ await calendar.screenshot({path:`${evidence}/composer-deadline-calendar.png`})
+ await page.keyboard.press('Escape')
+ assert.equal(await page.locator('.composer-modal').count(),1)
+ await page.locator('.composer-primary').click()
+ await page.waitForFunction(()=>review.commands.length===1)
+ const calendarDraft=await page.evaluate(()=>review.commands[0].items[0])
+ assert.deepEqual([calendarDraft.dueDate,calendarDraft.horizon],['2026-10-24','day'])
+ result.checks.push({case:'composer-deadline-calendar',dueDate:calendarDraft.dueDate,horizon:calendarDraft.horizon,numericShortcut:true,clear:true,noEarlyWrite:true})
  assert.deepEqual(errors,[])
- await writeFile(`${evidence}/renderer.json`,JSON.stringify(result,null,2))
- console.log('Renderer review regressions passed')
+ await writeFile(`${evidence}/${calendarOnly?'calendar':'renderer'}.json`,JSON.stringify(result,null,2))
+ console.log(calendarOnly?'Composer calendar checks passed':'Renderer review regressions passed')
+}catch(error){
+ await page.screenshot({path:`${evidence}/${calendarOnly?'calendar':'renderer'}-failure.png`}).catch(()=>undefined)
+ await writeFile(`${evidence}/${calendarOnly?'calendar':'renderer'}-failure.json`,JSON.stringify({error:String(error),errors,state:await page.evaluate(()=>({commands:review.commands,analyses:review.analyses.length,active:document.activeElement?.outerHTML.slice(0,500),focused:document.hasFocus(),visibility:document.visibilityState,content:document.querySelector('.composer-modal')?.textContent}))},null,2))
+ throw error
 }finally{await browser.close();await server.close()}

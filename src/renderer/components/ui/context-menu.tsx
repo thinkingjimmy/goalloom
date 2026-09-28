@@ -19,7 +19,7 @@ export function ContextMenuSubTrigger({ className, ...props }: ComponentProps<ty
   return <ContextMenuPrimitive.SubTrigger className={cn('menu-item context-menu-item', className)} {...props} />
 }
 export function ContextMenuSubContent({ className, ...props }: ComponentProps<typeof ContextMenuPrimitive.SubContent>) {
-  return <ContextMenuPrimitive.Portal><ContextMenuPrimitive.SubContent collisionPadding={8} sideOffset={4} className={cn('menu context-menu', className)} {...props} /></ContextMenuPrimitive.Portal>
+  return <ContextMenuPrimitive.Portal><ContextMenuPrimitive.SubContent collisionPadding={8} sideOffset={4} className={cn('menu context-menu context-submenu', className)} {...props} /></ContextMenuPrimitive.Portal>
 }
 export function ContextMenuSeparator({ className, ...props }: ComponentProps<typeof ContextMenuPrimitive.Separator>) {
   return <ContextMenuPrimitive.Separator className={cn('context-menu-separator', className)} {...props} />

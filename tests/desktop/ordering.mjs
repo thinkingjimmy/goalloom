@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build and an isolated Repository/SQLite ordering fixture.
- * [OUTPUT]: Repeatable ordering/motion assertions, a video, screenshots and runtime/transaction JSON.
+ * [OUTPUT]: Repeatable ordering/motion assertions with row-endpoint alignment, a video, screenshots and runtime/transaction JSON.
  * [POS]: Focused desktop acceptance; observes real animation and IPC, with native sizing only during setup.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -54,7 +54,7 @@ try {
           const lines = [...document.querySelectorAll('.relation-edge')].filter(path => getComputedStyle(path).visibility !== 'hidden').map(path => ({ id: path.dataset.edgeId, start: path.getPointAtLength(0), end: path.getPointAtLength(path.getTotalLength()) }))
           const spots = [...document.querySelectorAll('.breakpoint')].filter(node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden').map(node => {
             const row = document.getElementById(`item-${node.dataset.spotKey.slice(node.dataset.spotKey.indexOf(':') + 1)}`)?.getBoundingClientRect(), point = node.getBoundingClientRect()
-            return { key: node.dataset.spotKey, error: row ? Math.abs(point.top + point.height / 2 - row.top - 20) : null }
+            return { key: node.dataset.spotKey, error: row ? Math.max(Math.abs(point.left + point.width / 2 - row.right), Math.abs(point.top + point.height / 2 - row.top - 16)) : null }
           })
           window.motionFrames.push({ at: performance.now(), rows, spots, lines: lines.map(line => ({ id: line.id, startY: line.start.y + origin.top, endY: line.end.y + origin.top })) })
         }
@@ -153,7 +153,7 @@ try {
   let maxError = 0
   for (const frame of dragFrames) for (const line of frame.lines) {
     const edge = relations.find(edge => edge.id === line.id)
-    if (edge && frame.rows[edge.childId] !== undefined && frame.rows[edge.childId] !== null) maxError = Math.max(maxError, Math.abs(line.endY - (frame.rows[edge.childId] + 20)))
+    if (edge && frame.rows[edge.childId] !== undefined && frame.rows[edge.childId] !== null) maxError = Math.max(maxError, Math.abs(line.endY - (frame.rows[edge.childId] + 16)))
   }
   assert(maxError < 12, `Relation endpoints stay with moving rows (max ${maxError}px)`)
   report.lineMaxError = maxError
@@ -209,19 +209,12 @@ try {
   await open(); assert.equal(await toggle().getAttribute('aria-checked'), 'true'); await close()
   report.checks.push('Both enabled and disabled device preferences survive a real Electron restart')
 
-  await page.getByRole('button', { name: '显示的列', exact: true }).click()
-  await page.getByRole('menuitemcheckbox', { name: '3个月', exact: true }).click()
-  await page.keyboard.press('Escape')
   await move(ids.C, ids.A); await ordered('month', ['C1', 'A2', 'A1', 'B1', 'Unlinked'])
-  assert.equal(await column('cycle').count(), 0)
-  await page.getByRole('button', { name: '显示的列', exact: true }).click()
-  await page.getByRole('menuitemcheckbox', { name: '3个月', exact: true }).click()
-  await page.keyboard.press('Escape')
   await dragKeys(ids.A2, ['ArrowRight'])
   await ordered('week', ['Cw', 'Aw', 'Bw', 'A2'])
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z')
   await ordered('month', ['C1', 'A2', 'A1', 'B1', 'Unlinked'])
-  report.checks.push('Hidden parent columns still determine order; keyboard cross-column move regroups at its new nearest parent and undo restores it')
+  report.checks.push('Parent moves determine child order; keyboard cross-column move regroups at its new nearest parent and undo restores it')
 
   const itemAction = async (id, action) => {
     const item = await page.evaluate(async id => (await window.goalloom.getItem(id)).item, id)

@@ -1,12 +1,12 @@
 /**
  * [INPUT]: Workspace, narrow data/actions API and device preferences.
- * [OUTPUT]: Settings navigation (including device-local board ordering, celebration and insight panes), lightweight counts and section-scoped backup/batch reads.
+ * [OUTPUT]: Settings navigation and section headings (including shortcut guidance), lightweight counts and section-scoped backup reads.
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState } from 'react'
 import type { Snapshot } from '../../../../shared/contracts/queries'
-import type { BackupStatus, BatchSummary, DataAction, TransferPreview } from '../../../../shared/contracts/transfer'
+import type { BackupStatus, DataAction, TransferPreview } from '../../../../shared/contracts/transfer'
 import { workspaceDate } from '../../../../domain/calendar'
 import { insightMessages, messages, settingsMessages as s, shortcutMessages, smartMessages } from '../../../i18n'
 import { useShortcuts } from '../../../state/shortcuts'
@@ -54,7 +54,7 @@ type Counts = Record<Ending | 'trash', number>
 
 export function Settings({ snapshot, smart, initial = 'appearance', submit, refresh, busy, select, close }: { snapshot: Snapshot; smart: Smart; initial?: Section; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; select: (id: string) => void; close: () => void }) {
   const [section, setSection] = useState<Section>(initial), [ending, setEnding] = useState<Ending>('done')
-  const [backups, setBackups] = useState<BackupStatus | null>(null), [batches, setBatches] = useState<BatchSummary[]>([])
+  const [backups, setBackups] = useState<BackupStatus | null>(null)
   const [latest, setLatest] = useState<string | null>(null)
   const [counts, setCounts] = useState<Counts | null>(null)
   const [preview, setPreview] = useState<TransferPreview | null>(null), [acknowledged, setAcknowledged] = useState(false)
@@ -70,10 +70,6 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
     if (section === 'backup') {
       const reply = await desktopApi().data({ type: 'backupStatus' })
       if (active() && reply.type === 'status') setBackups(reply.status)
-    }
-    if (section === 'calendar') {
-      const next = await desktopApi().getBatches()
-      if (active()) setBatches(next)
     }
   }
   useEffect(() => {
@@ -116,7 +112,10 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
   const title = preview ? (preview.mode === 'reset' ? messages.resetWorkspace : messages.restoreWorkspace) : groups().flatMap(group => group.entries).find(entry => entry.id === section)!.label
   const subtitle = preview ? '' : section === 'shortcuts' ? shortcutMessages.subtitle : section === 'done' ? '' : s.subtitles[section]
   const heading = <>
-    <div className="settings-heading"><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
+    <div className="settings-heading">
+      <h2>{title}</h2>{subtitle && <p>{subtitle}</p>}
+      {!preview && section === 'shortcuts' && <p className="settings-shortcut-note">{shortcutMessages.conflictNote}</p>}
+    </div>
     {preview && <TransferSteps backedUp={!!preview.backup} />}
     {!preview && section === 'done' && <Segmented label={messages.endingFilter} value={ending} onChange={setEnding}
       options={endings.map(value => ({ value, label: endingLabels()[value], count: counts?.[value] }))} />}
@@ -152,7 +151,7 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
         {section === 'smart' && <SmartPane smart={smart} />}
         {section === 'insight' && <InsightPane snapshot={snapshot} status={smart.status} openSmart={() => setSection('smart')} />}
         {section === 'calendar' && (calendar
-          ? <CalendarPane calendar={calendar} policies={snapshot.policies} batches={batches} today={today} disabled={disabled} submit={submit} goReset={() => setSection('backup')} />
+          ? <CalendarPane calendar={calendar} policies={snapshot.policies} today={today} disabled={disabled} submit={submit} goReset={() => setSection('backup')} />
           : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}
         {section === 'backup' && <BackupPane status={backups} enabled={snapshot.workspace.backupEnabled} retention={snapshot.workspace.backupRetention} timezone={timezone} today={today} generation={generation} configured={!!calendar} disabled={disabled} submit={submit} data={data}
           exportJson={() => void desktopApi().exportWorkspace().catch(() => setError(messages.exportUnknown))} />}

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Canonical column order and device-local storage.
- * [OUTPUT]: Stable visible-column identities and controls that retain at least one column.
+ * [OUTPUT]: Persisted Later visibility with all four planning columns always shown.
  * [POS]: Local renderer preference outside workspace history, exports and backups.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,29 +10,24 @@ import type { ItemHorizon } from '../../shared/contracts/entities'
 
 const key = 'goalloom.hiddenColumns'
 
-function load(): ItemHorizon[] {
+function load(): boolean {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(key) ?? '[]')
-    const hidden = Array.isArray(value) ? horizons.filter(horizon => value.includes(horizon)) : []
-    return hidden.length < horizons.length ? hidden : []
-  } catch { return [] }
+    return !Array.isArray(value) || !value.includes('later')
+  } catch { return true }
 }
 
-export interface Columns { visible: ItemHorizon[]; hiddenCount: number; toggle: (horizon: ItemHorizon) => void; showAll: () => void }
+export interface Columns {
+  visible: ItemHorizon[]; laterOpen: boolean
+  setLaterOpen: (open: boolean) => void
+}
 
 export function useColumns(): Columns {
-  const [hidden, setHidden] = useState(load)
-  const save = (next: ItemHorizon[]) => {
-    setHidden(next)
-    try { localStorage.setItem(key, JSON.stringify(next)) } catch { /* Display preference only; the session keeps working without persistence. */ }
+  const [laterOpen, setOpen] = useState(load)
+  const setLaterOpen = (open: boolean) => {
+    setOpen(open)
+    try { localStorage.setItem(key, JSON.stringify(open ? [] : ['later'])) } catch { /* Display preference only; the session keeps working without persistence. */ }
   }
-  const visible = useMemo(() => horizons.filter(horizon => !hidden.includes(horizon)), [hidden])
-  return {
-    visible, hiddenCount: hidden.length,
-    toggle: horizon => {
-      if (hidden.includes(horizon)) save(hidden.filter(entry => entry !== horizon))
-      else if (visible.length > 1) save([...hidden, horizon])
-    },
-    showAll: () => save([]),
-  }
+  const visible = useMemo(() => horizons.filter(horizon => horizon !== 'later' || laterOpen), [laterOpen])
+  return { visible, laterOpen, setLaterOpen }
 }

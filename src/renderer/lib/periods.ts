@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace calendar, observation time and authoritative planning periods.
- * [OUTPUT]: Locale-aware absolute ranges and unambiguous previous/current/next/distant destination names.
+ * [OUTPUT]: Locale-aware absolute or yearless ranges and unambiguous previous/current/next/distant destination names.
  * [POS]: Shared presentation helpers for board, details and feedback; no view state or persistence.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,11 +10,12 @@ import { horizonNames, messages } from '../i18n'
 import { fullDate, monthDay, monthName, shortDate, yearMonth } from '../i18n/format'
 import { addDays } from './dates'
 
-/** Absolute destinations always include their year; ranges show the inclusive final day. */
-export function periodDates(period: PlanningPeriod): string {
-  if (period.horizon === 'day') return fullDate(period.startDate)
-  if (period.horizon === 'month') return yearMonth(period.startDate)
-  return `${fullDate(period.startDate)} – ${fullDate(addDays(period.endDate, -1))}`
+/** Ranges show the inclusive final day; compact menu hints can omit the year. */
+export function periodDates(period: PlanningPeriod, includeYear = true): string {
+  const date = includeYear ? fullDate : monthDay
+  if (period.horizon === 'day') return date(period.startDate)
+  if (period.horizon === 'month') return (includeYear ? yearMonth : monthName)(period.startDate)
+  return `${date(period.startDate)} – ${date(addDays(period.endDate, -1))}`
 }
 
 /** Relative names are tied to workspace today, never to whichever column the user has opened. */

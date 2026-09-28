@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Workspace snapshot, device insight settings, smart status and a way to open the 智能输入 section.
- * [OUTPUT]: Settings › 洞察: breakpoint / review switches and guide replay; about-me, step size and extra notes for drafting; review tone and focus;
- *           a try-it panel that drafts one step and one review line from the current board without writing; the model row and the read-only prompt with the user's preferences appended.
+ * [OUTPUT]: Settings › 洞察: breakpoint / review switches; about-me, step size and extra notes for drafting; review tone and focus;
+ *           a try-it panel with an inline generation action that drafts one step and one review line from the current board without writing; the read-only prompt with the user's preferences appended.
  * [POS]: settings 的流程洞察面板；偏好只存本机（state/insight），试一试不产生任何写入。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -30,7 +30,7 @@ export function InsightPane({ snapshot, status, openSmart }: { snapshot: Snapsho
   // The try-it sample: the first gap of any flow, else the first open plan with a shorter column.
   const sample = useMemo(() => {
     for (const flow of flows.visible) {
-      const gap = breakpoints(snapshot, flows, flow.id, ['cycle', 'month', 'week', 'day'], () => 'current').gaps[0]
+      const gap = breakpoints(snapshot, flows, [flow.id], ['cycle', 'month', 'week', 'day'], () => 'current').gaps[0]
       if (gap) return { parent: gap.parent, target: gap.target }
     }
     const parent = snapshot.items.find(item => item.status === 'todo' && !item.archivedAt && shorter(item.placement.horizon))
@@ -57,9 +57,6 @@ export function InsightPane({ snapshot, status, openSmart }: { snapshot: Snapsho
     <SettingsGroup title={t.settingsHints}>
       <SettingsRow title={t.settingsBreakpoints} note={t.settingsBreakpointsNote}><Switch label={t.settingsBreakpoints} checked={settings.breakpoints} onChange={value => updateInsight(current => ({ ...current, breakpoints: value }))} /></SettingsRow>
       <SettingsRow title={t.settingsReviews} note={t.settingsReviewsNote}><Switch label={t.settingsReviews} checked={settings.reviews} onChange={value => updateInsight(current => ({ ...current, reviews: value }))} /></SettingsRow>
-      <SettingsRow title={t.settingsGuide} note={settings.onboarded ? t.settingsGuideSeen : t.settingsGuidePending}>
-        <button type="button" className="settings-button subtle" disabled={!settings.onboarded} onClick={() => updateInsight(current => ({ ...current, onboarded: false }))}>{t.settingsGuideAgain}</button>
-      </SettingsRow>
     </SettingsGroup>
     <SettingsGroup title={t.settingsAbout} aside={<small className="settings-group-note">{t.settingsLocalOnly}</small>}>
       <SettingsRow title={t.settingsAboutTitle} note={t.settingsAboutNote} below={<textarea className="insight-textarea" aria-label={t.settingsAboutTitle} rows={3} maxLength={1000}
@@ -81,14 +78,14 @@ export function InsightPane({ snapshot, status, openSmart }: { snapshot: Snapsho
       <SettingsRow title={t.settingsFocus} below={<ToggleChips label={t.settingsFocus} options={focusKeys.map(value => ({ value, label: t.focusNames[value], pressed: prefs.focus.includes(value) }))}
         onToggle={(value, pressed) => setPrefs({ focus: pressed ? [...prefs.focus, value] : prefs.focus.filter(key => key !== value) })} />} />
     </SettingsGroup>
-    <SettingsGroup title={t.settingsTry} aside={<small className="settings-group-note">{t.settingsModelName}</small>}>
+    <SettingsGroup title={t.settingsTry}>
       {trial && trial !== 'pending' && <div className="insight-trial" aria-live="polite">
         {trial.draft && <p><small>{t.settingsTryDraft(trial.parent, trial.target)}</small><span>{trial.draft.title}</span>{trial.draft.why && <small>{trial.draft.why}</small>}</p>}
         {trial.review && <p><small>{t.settingsTryReview}</small><span>{trial.review.advice || trial.review.headline}</span></p>}
         {trial.error && <p className="settings-alert" role="alert">{trial.error}</p>}
       </div>}
       <SettingsRow title={t.settingsTryTitle} note={ready ? t.settingsTryNote : t.settingsNeedsKey}>
-        {ready ? <button type="button" className="settings-button subtle" disabled={!task || trial === 'pending'} onClick={() => void tryIt()}><Icon name="smart" size={14} />{trial === 'pending' ? t.generating : t.settingsTryRun}</button>
+        {ready ? <button type="button" className="settings-button subtle insight-try-button" disabled={!task || trial === 'pending'} onClick={() => void tryIt()}><Icon name="smart" size={14} />{trial === 'pending' ? t.generating : t.settingsTryRun}</button>
           : <button type="button" className="settings-button subtle" onClick={openSmart}>{t.settingsConnect}</button>}
       </SettingsRow>
       <SettingsRow title={t.settingsPrompt} note={t.settingsPromptNote} below={showPrompt ? <div className="insight-prompt">

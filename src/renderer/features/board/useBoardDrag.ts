@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current/planning views, authoritative submissions and device ordering mode.
- * [OUTPUT]: Group-bounded pointer/keyboard drops and an optimistic placement projection until reads settle.
+ * [OUTPUT]: Viewport-clipped, group-bounded pointer/keyboard drops and an optimistic placement projection until reads settle.
  * [POS]: Board drag coordinator; transactions remain authoritative and failed drops animate back.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,7 @@ import type { BoardView } from '../../state/board-periods'
 import type { Action } from '../../state/use-workspace'
 import { revealRow } from './VirtualRows'
 import { beginBoardMotion, captureDropPosition } from './RowMotion'
+import { dropViewport, intersectRect } from './geometry'
 
 interface Input { snapshot: Snapshot; view: BoardView; columns: ItemHorizon[]; busy: boolean; submit: (action: Action) => Promise<unknown> }
 interface Preview { generation: string; selection: string; items: ItemSummary[]; settled: boolean; success: boolean; focus: string | null }
@@ -50,7 +51,17 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
   const rowsIn = (horizon: ItemHorizon, active: ItemSummary) => view.items.filter(row => row.placement.horizon === horizon && row.status === active.status
     && (!orders.get(horizon) || orders.get(horizon)!.group(row.id) === orders.get(horizon)!.group(active.id)))
   const collision: CollisionDetection = args => {
-    const within = pointerWithin(args), hits = within.length ? within : closestCenter(args)
+    // Scrolled timeline rows can overlap Later geometrically while their pixels are clipped.
+    const rects = new Map(args.droppableRects)
+    const containers = args.droppableContainers.filter(container => {
+      const node = container.node.current, rect = rects.get(container.id), viewport = node && dropViewport(node)
+      const clipped = rect && viewport && intersectRect(rect as DOMRectReadOnly, viewport)
+      if (!clipped) return false
+      rects.set(container.id, clipped)
+      return true
+    })
+    args = { ...args, droppableContainers: containers, droppableRects: rects }
+    const hits = args.pointerCoordinates ? pointerWithin(args) : closestCenter(args)
     const rows = hits.filter(hit => !String(hit.id).startsWith('column:'))
     const raw = rows.length ? closestCenter({ ...args, droppableContainers: args.droppableContainers.filter(container => rows.some(hit => hit.id === container.id)) }) : hits
     const target = view.items.find(row => row.id === raw[0]?.id)

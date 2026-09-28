@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: French settings copy, including per-column completion-confetti and reduced-motion messages.
+ * [OUTPUT]: French settings copy, including calendar grouping, per-column completion-confetti and reduced-motion messages.
  * [POS]: French settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -45,7 +45,7 @@ export const settingsMessages: SettingsCatalog = {
     'La Key est chiffrée sur cet appareil et n’entre ni dans les données de l’espace de travail, ni dans les sauvegardes ou exports',
   ],
   // Calendar
-  lockedNote: 'Verrouillé · pour reconfigurer, créez une sauvegarde de protection puis réinitialisez l’espace de travail',
+  calendarSettings: 'Réglages du calendrier',
   nextCycle: (date: string) => `Prochain cycle le ${date}`,
   overdue: 'Non terminés à échéance',
   policyNotes: {
@@ -53,7 +53,6 @@ export const settingsMessages: SettingsCatalog = {
     week: { auto: 'Passent à la semaine suivante en fin de semaine', manual: 'Restent dans les périodes passées en fin de semaine, à organiser' },
     day: { auto: 'Passent au nouvel aujourd’hui à minuit', manual: 'Restent dans les périodes passées à minuit, à organiser' },
   },
-  undoRollover: 'Annuler ce report',
   // Backup & restore
   backedUpAt: (when: string) => `Sauvegardé ${when}`,
   backupSummary: (count: number) => `${count} ${count > 1 ? 'copies' : 'copie'} · sur le même disque que l’espace de travail, sans protection contre une panne du disque entier`,

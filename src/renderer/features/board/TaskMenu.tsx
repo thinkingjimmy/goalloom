@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A live TODO, its upcoming periods with localized names, guarded submission, detail opening and an optional decompose action.
- * [OUTPUT]: Grouped pointer/keyboard context menu — move to next period / move to… (upcoming periods); next step / link a parent; complete / delete — with virtual-row pinning and deterministic focus restoration.
+ * [OUTPUT]: Compact pointer/keyboard context menu with non-redundant yearless date hints, persistent source-row activation, virtual-row pinning and deterministic focus restoration.
  * [POS]: Board-only action wrapper; the main process resolves and validates the actual next period.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,8 @@ import { periodDates } from '../../lib/periods'
 import { revealRow } from './VirtualRows'
 
 export interface Upcoming { period: PlanningPeriod; label: string }
+const hasRelativeLabel = ({ period, label }: Upcoming) => label === messages.nextPeriodNames[period.horizon]
+
 export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, onMenu, onMoved, children }: {
   item: ItemSummary; upcoming: Upcoming[]; relations: number; disabled: boolean; children: ReactElement
   submit: (action: Action) => Promise<unknown>; select: (id: string) => void; decompose: (() => void) | null
@@ -54,13 +56,13 @@ export function TaskMenu({ item, upcoming, relations, disabled, submit, select, 
         onMenu(null)
       }}>
       <ContextMenuItem disabled={disabled} onSelect={() => move({ kind: 'next' })}>
-        <Icon name="forward" size={16} /><span className="context-menu-label">{messages.moveToPeriod(next.label)}</span><span className="menu-hint">{periodDates(next.period)}</span>
+        <Icon name="forward" size={16} /><span className="context-menu-label">{messages.moveToPeriod(next.label)}</span>{hasRelativeLabel(next) && <span className="menu-hint">{periodDates(next.period, false)}</span>}
       </ContextMenuItem>
       <ContextMenuSub>
         <ContextMenuSubTrigger disabled={disabled}><Icon name="calendar" size={16} /><span className="context-menu-label">{t.menuMoveTo}</span><Icon name="next" size={14} /></ContextMenuSubTrigger>
         <ContextMenuSubContent onKeyDown={event => event.stopPropagation()}>
           {upcoming.map(value => <ContextMenuItem key={value.period.id} disabled={disabled} onSelect={() => move({ kind: 'date', startDate: value.period.startDate })}>
-            <span className="context-menu-label">{value.label}</span><span className="menu-hint">{periodDates(value.period)}</span>
+            <span className="context-menu-label">{value.label}</span>{hasRelativeLabel(value) && <span className="menu-hint">{periodDates(value.period, false)}</span>}
           </ContextMenuItem>)}
         </ContextMenuSubContent>
       </ContextMenuSub>

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 列名与条目标题等插值参数。
- * [OUTPUT]: 流程洞察分册：断点 ＋、首次引导、预填新建、空列卡的文案与 InsightCatalog 类型。
+ * [OUTPUT]: Flow-insight copy and InsightCatalog: breakpoints, onboarding, drafting, reviews, matrix legends and settings.
  * [POS]: renderer/i18n/locales/zh 的洞察分册，与 messages.ts 同构；发给模型的提示词不在此处（固定中文）。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -59,7 +59,9 @@ export const insightMessages = widen({
   summaryFailed: '没能生成小结，请重试',
   summaryRefreshFailed: '没能更新，已保留上次的小结',
   matrix: '目标 × 周期',
-  matrixNote: '虚线格：这一级没有行动；橙框：有任务跳过这一级。点目标只看这条流程。',
+  matrixLegendEmpty: '这一级暂无行动',
+  matrixLegendSkip: '有任务跳过这一级',
+  matrixFilterHint: '点击目标，只看这条流程',
   matrixEmpty: '空',
   goals: (range: string) => `3 个月目标 · ${range}`,
   goalCount: (count: number, done: number) => `本月 ${count} 项 · 完成 ${done}`,
@@ -89,13 +91,9 @@ export const insightMessages = widen({
   settingsSection: '洞察',
   settingsHints: '提示',
   settingsBreakpoints: '断点 ＋',
-  settingsBreakpointsNote: '筛选单个流程时，下一级没有行动的地方出现 ＋，可一键拆下一步',
+  settingsBreakpointsNote: '筛选流程或悬停流程圆点时，无下级的待办末尾出现 ＋，可一键拆下一步',
   settingsReviews: '周复盘 · 月复盘',
   settingsReviewsNote: '周期最后一天与下一周期第一天在列头出现，最多两天',
-  settingsGuide: '断点引导',
-  settingsGuideSeen: '已看过',
-  settingsGuidePending: '下次出现断点时显示',
-  settingsGuideAgain: '再看一次',
   settingsAbout: '关于我',
   settingsLocalOnly: '只存在这台设备',
   settingsAboutTitle: '你是谁、在做什么',
@@ -116,7 +114,6 @@ export const insightMessages = widen({
   toneQuestions: '提问式',
   settingsFocus: '优先关注',
   settingsTry: '试一试',
-  settingsModelName: 'DeepSeek Flash · 约 1–2 秒',
   settingsTryReview: '复盘建议',
   settingsTryFailed: '没能生成，请稍后再试',
   settingsTryTitle: '用当前看板试一次',

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Real Electron, an isolated profile, production IPC fixtures and board interactions.
- * [OUTPUT]: Relation-line/flow-dot assertions, board-ordered filter evidence and app-local failure diagnostics in JSON and screenshots.
+ * [OUTPUT]: Relation-line/flow-dot assertions, full-title geometry, endpoint dimensions, dynamic popover bounds, board-ordered filter evidence and app-local failure diagnostics in JSON and screenshots.
  * [POS]: Desktop flow acceptance; exercises live snapshots, keyboard moves and positional filter shortcuts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
 import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
+import { verifyFlowDotPosition } from './fixtures/flow-dot-position.mjs'
 
 // 关系线：筛选单个流程时连起上下级，其余流程原位置灰；悬停高亮整条链；滚出视野的端点给标记；设置里可关闭。
 // 流程圆点：悬停预览该条目的流程（连线 + 流程底色）；起点改色、下级改上级、独立条目二选一；Later 不参与。
@@ -61,11 +62,38 @@ try {
     const button = document.querySelector(`#item-${id} .flow-dot-button`)
     return button && getComputedStyle(button).opacity === opacity
   }, { id, opacity })
+  const endpointMeasurements = []
+  const measureEndpoints = async state => {
+    const endpoints = await page.evaluate(async () => {
+      const { relations } = await window.goalloom.getSnapshot()
+      return [...document.querySelectorAll('.relation-edge')].map(path => {
+        const edge = relations.find(edge => edge.id === path.dataset.edgeId)
+        const parent = document.getElementById(`item-${edge.parentId}`).getBoundingClientRect()
+        const button = document.querySelector(`#item-${edge.childId} .flow-dot-button`)
+        const dot = button.querySelector('.flow-dot').getBoundingClientRect(), hit = button.getBoundingClientRect()
+        const port = document.querySelector(`[data-port-key^="${edge.parentId}:"]`).getBoundingClientRect()
+        const end = path.getPointAtLength(path.getTotalLength()).matrixTransform(path.getScreenCTM())
+        return { edgeId: edge.id, dot: [dot.width, dot.height], port: [port.width, port.height], hit: [hit.width, hit.height],
+          portError: Math.abs(port.left + port.width / 2 - parent.right),
+          connectionError: Math.hypot(end.x - dot.left, end.y - dot.top - dot.height / 2) }
+      })
+    })
+    assert.equal(endpoints.length, 7)
+    for (const endpoint of endpoints) {
+      assert.deepEqual(endpoint.dot, [6, 6], 'Incoming dots match the 6px outgoing ports, including hover')
+      assert.deepEqual(endpoint.port, endpoint.dot)
+      assert.deepEqual(endpoint.hit, [18, 18], 'The smaller dot keeps its existing hit target')
+      assert(endpoint.portError < 0.5 && endpoint.connectionError < 0.5, 'Lines meet the row edge and the incoming dot')
+    }
+    endpointMeasurements.push({ state, endpoints })
+  }
   assert.equal(await board.locator('.relation-lines').count(), 0, '「全部」不画线')
 
   await page.getByRole('button', { name: '只看 副业收入', exact: true }).click()
   // root→b, root→c, b→d, c→f, d→j, f→j, c→p; the done leaf stays folded, so j→k is not drawn.
   await page.waitForFunction(() => document.querySelectorAll('.relation-edge').length === 7)
+  // Insight owns the guide's acceptance; complete it before exercising the underlying flow menus.
+  await board.locator('.breakpoint-guide').getByRole('button', { name: '知道了', exact: true }).click()
   assert.equal(await board.locator('.relation-edge[data-skip]').count(), 1, '本月 → 今天 按跨级虚线')
   assert.equal(await board.locator('[data-dimmed="true"]').count(), 5, '其他流程与无流程条目原位置灰，不隐藏')
   assert.equal(await board.locator('[data-lit="true"]').count(), 7, '本流程的行铺上流程底色')
@@ -73,14 +101,23 @@ try {
   const row = await page.locator(`#item-${ids.b}`).evaluate(node => { const style = getComputedStyle(node); return { margin: style.marginRight, ground: style.backgroundColor } })
   // Rows keep their full width while lines are drawn; the opaque ground hides curves passing behind.
   assert.equal(row.margin, '-8px'); assert.notEqual(row.ground, 'rgba(0, 0, 0, 0)')
-  // Long titles wrap to two lines at most; the checkbox and the line anchors stay on the first line.
+  // Long titles show every line; the checkbox and the line anchors stay on the first line.
   const tall = await page.locator(`#item-${ids.c}`).evaluate(node => {
     const r = node.getBoundingClientRect(), title = node.querySelector('.task-title > span'), board = node.closest('.board').getBoundingClientRect()
-    const anchor = r.top - board.top + 20
+    const anchor = r.top - board.top + 16
+    const add = document.querySelector(`.breakpoint[data-spot-key="skip:${node.dataset.itemId}"]`)?.getBoundingClientRect()
+    const checkbox = node.querySelector('.check'), check = checkbox.getBoundingClientRect()
+    const text = document.createRange(); text.selectNodeContents(title)
+    const fragments = [...text.getClientRects()]
     return { height: Math.round(r.height), lines: Math.round(title.getBoundingClientRect().height / 22), clipped: title.scrollHeight > title.clientHeight + 1,
+      firstLineAligned: Math.abs(fragments[0].left - check.right - 12) < 0.5,
+      continuationAligned: fragments.slice(1).every(fragment => Math.abs(fragment.left - check.left) < 0.5),
+      checkClickable: document.elementFromPoint(check.left + check.width / 2, check.top + check.height / 2)?.closest('.check') === checkbox,
+      addAligned: !!add && Math.abs(add.left + add.width / 2 - r.right) < 0.5 && Math.abs(add.top + add.height / 2 - r.top - 16) < 0.5,
       check: Math.round(node.querySelector('.check').getBoundingClientRect().top - r.top - 2), anchored: [...document.querySelectorAll('.relation-port')].some(port => Math.abs(Number(port.getAttribute('cy')) - anchor) < 1) }
   })
-  assert.deepEqual(tall, { height: 62, lines: 2, clipped: true, check: 9, anchored: true })
+  assert(tall.lines > 2, 'A long task title grows beyond two lines')
+  assert.deepEqual(tall, { height: tall.lines * 22 + 10, lines: tall.lines, clipped: false, firstLineAligned: true, continuationAligned: true, checkClickable: true, addAligned: true, check: 5, anchored: true })
   // Neighbouring tinted rows keep a clear band between their grounds instead of merging into one block.
   const band = await page.evaluate(([upper, lower]) => {
     const a = document.getElementById(`item-${upper}`), b = document.getElementById(`item-${lower}`)
@@ -107,6 +144,7 @@ try {
   assert.equal(dimmedTitle, '0.28')
   await waitForDotOpacity(ids.root, '0')
   await waitForDotOpacity(ids.b, '1')
+  await measureEndpoints('filtered')
   await mkdir(shots, { recursive: true })
   await board.screenshot({ path: `${shots}/relation-lines.png` })
 
@@ -167,6 +205,7 @@ try {
   const [tinted, ground] = await Promise.all([ids.b, ids.loose].map(id => page.locator(`#item-${id}`).evaluate(node => getComputedStyle(node).backgroundColor)))
   assert.notEqual(tinted, ground)
   await page.waitForTimeout(300)
+  await measureEndpoints('hover-preview')
   await board.screenshot({ path: `${shots}/flow-dot-preview.png` })
   await leaveBoard()
   await page.waitForFunction(() => !document.querySelector('.relation-lines'), null, { timeout: 2000 })
@@ -354,15 +393,10 @@ try {
   await changeRoot(roots.nextMonth, { type: 'archive', archived: false })
   await filterOrder(order, 'Restored roots return to their board position')
 
-  const toggleCycle = async () => {
-    await page.getByRole('button', { name: '显示的列', exact: true }).click()
-    await page.getByRole('menuitemcheckbox', { name: '3个月', exact: true }).click()
-    await page.keyboard.press('Escape')
-  }
-  await toggleCycle()
-  await filterOrder(order, 'Hidden columns keep their filters and shortcut positions', [roots.nextMonth, roots.month, roots.week, roots.day])
-  await toggleCycle()
-  await filterOrder(order, 'Showing a column preserves the same filter order')
+  await page.locator('#later-toggle').click()
+  await filterOrder(order, 'Collapsing Later keeps the fixed planning columns, filters and shortcut positions')
+  await page.locator('#later-toggle').click()
+  await filterOrder(order, 'Expanding Later preserves the same filter order')
 
   const monthColumn = page.locator('[data-horizon="month"]')
   await page.locator(`#item-${roots.nextMonth}`).click({ button: 'right' })
@@ -383,6 +417,7 @@ try {
   await leaveBoard()
   const screenshot = `${shots}/flow-filter-order.png`
   await page.screenshot({ path: screenshot })
+  const positioning = await verifyFlowDotPosition(application, page, shots)
   const report = {
     ok: true, packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()),
     environment: { platform: platform(), release: release(), version: version(), arch: arch(), cpu: cpus()[0]?.model, machineScope: process.env.GOALLOOM_TEST_MACHINE_SCOPE ?? 'Host OS reported; physical/VM status not independently verified' },
@@ -390,6 +425,8 @@ try {
     checkpoints, screenshot,
   }
   await writeFile('output/tests/flow-filter-order.json', JSON.stringify(report, null, 2))
+  await writeFile('output/tests/flow-dot-position.json', JSON.stringify({ ok: true, runtime: report.runtime, environment: report.environment, scope: report.scope, ...positioning }, null, 2))
+  await writeFile('output/tests/relation-endpoints.json', JSON.stringify({ ok: true, runtime: report.runtime, environment: report.environment, scope: report.scope, fullTitle: tall, measurements: endpointMeasurements }, null, 2))
   assert.deepEqual(errors, [])
   console.log(`flow filter order: ${checkpoints.length} checkpoints; output/tests/flow-filter-order.json`)
   console.log('relation lines: 7 edges, 1 skip, hover chain 6/1, marker reveal, settings switch persisted; flow dot: filtered cycle TODO visibility, hover/focus/menu access, unfiltered preview + tint, root colour, child parents, loose join, horizon rule')

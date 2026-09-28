@@ -2,7 +2,7 @@
  * [INPUT]: One board item, stable flow views, snapshot topology and candidates, guarded actions and the board's preview callback.
  * [OUTPUT]: The hover dot left of a row's checkbox. One job per role: a flow root edits its colour, an item with parents edits
  *           its parents (flow follows the links), a loose item chooses between starting a flow and linking to a parent.
- *           Hovering or keyboard-focusing a coloured dot asks the board to preview that item's flows and chain.
+ *           Hovering or keyboard-focusing a coloured dot starts its flow preview; Board retains it across flow rows and breakpoint controls.
  * [POS]: board row decoration; writes only through flowColor/link/unlink actions, so undo toasts and revalidation stay authoritative.
  *        Later items render nothing: the parking lot takes no part in flows or links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -50,7 +50,7 @@ export function FlowDot({ item, flows, relations, candidates, submit, onPreview 
     : role === 'child' ? (names ? messages.labelled(messages.parentsAndFlow, names) : messages.parentsAndFlow) : messages.joinFlow
   const topmost = !horizons.some(horizon => mayParent(horizon, item.placement.horizon))
   const close = () => { setMode(null); setError('') }
-  // Pointer hover and keyboard focus preview; a mouse click's focus does not, so a closed menu leaves no lingering preview.
+  // Board owns leaving the preview, so the pointer can cross this row to its trailing add button.
   const preview = () => { if (colors.length) onPreview(item.id) }
   const chooseColor = (index: number | null) => {
     close()
@@ -60,7 +60,7 @@ export function FlowDot({ item, flows, relations, candidates, submit, onPreview 
     <Popover floating open={open} onClose={close} anchor={
       <button type="button" className="flow-dot-button" data-role={role} aria-haspopup="dialog" aria-expanded={open} aria-label={label} title={colors.length > 2 ? `${label} · ${messages.multiFlow(colors.length)}` : label}
         onPointerDown={event => event.stopPropagation()} onClick={() => open ? close() : setMode(role === 'root' ? 'color' : role === 'child' ? 'relation' : 'choose')}
-        onPointerEnter={preview} onPointerLeave={() => onPreview(null)} onFocus={event => { if (event.currentTarget.matches(':focus-visible')) preview() }} onBlur={() => onPreview(null)}>
+        onPointerEnter={preview} onFocus={event => { if (event.currentTarget.matches(':focus-visible')) preview() }}>
         {colors.length > 2 ? <span className="flow-dot-count">{colors.length}</span>
           : <span className="flow-dot" data-empty={!colors.length} style={colors.length ? { '--flow-ring': flowRing(colors) } as CSSProperties : undefined} />}
         {role === 'loose' && <Icon name="add" size={12} strokeWidth={2} />}

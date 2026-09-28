@@ -1,8 +1,8 @@
 /**
  * [INPUT]: state/shortcuts 的本机绑定、流程筛选开关与改键动作。
  * [OUTPUT]: 快捷键分类：通用组每行点击键帽进入录制（Esc 或点击别处取消，非法组合行内提示）、冲突警告与清除；流程筛选组为一个开关加顶栏位置示意与图例。
- * [POS]: settings 的快捷键分类；只写本机偏好，不提交工作区命令。「恢复默认」在通用组标题右侧。录制期间在捕获阶段吞掉按键，避免触发全局快捷键或关闭弹窗。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [POS]: Settings shortcut controls; shared guidance lives in the Settings header. Writes device preferences only, restores defaults in the general group, and captures recording keys before global handlers.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef, useState } from 'react'
 import { shortcutMessages as t, shortcutNames, shortcutNotes } from '../../../i18n'
@@ -81,6 +81,5 @@ export function ShortcutsPane() {
         </dl>
       </div>
     </SettingsGroup>
-    <p className="settings-footnote">{t.conflictNote}</p>
   </>
 }

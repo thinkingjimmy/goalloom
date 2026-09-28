@@ -68,8 +68,9 @@ export async function verifyPastEditing(page, column, fixture) {
   assert.equal(await page.locator('.toast').count(), 0, 'Reopening a visible past task stays quiet')
 
   await row(fixture.finishedId).locator('.task-title').click()
+  await detail(page).getByRole('button', { name: '编辑标题', exact: true }).click()
   await detail(page).getByRole('textbox', { name: '标题', exact: true }).fill('Edited past task')
-  await detail(page).locator('.note-input').fill('Saved after the original period ended.')
+  await detail(page).getByRole('textbox', { name: '说明', exact: true }).fill('Saved after the original period ended.')
   await detail(page).getByRole('button', { name: /^保存/ }).click()
   await pollPage(page, async id => (await window.goalloom.getItem(id)).item.title === 'Edited past task', fixture.finishedId)
   await closeDetail(page)

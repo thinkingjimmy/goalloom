@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: French flow-insight copy: breakpoint ＋, first-run guide, prefilled composer, empty-column card.
+ * [OUTPUT]: French flow-insight copy: breakpoints, onboarding, drafting, reviews, matrix legends and settings.
  * [POS]: French insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -60,7 +60,9 @@ export const insightMessages: InsightCatalog = {
   summaryFailed: 'Impossible de générer le résumé. Réessayez.',
   summaryRefreshFailed: 'La mise à jour a échoué. Le résumé précédent est conservé.',
   matrix: 'Objectifs × périodes',
-  matrixNote: 'Case en pointillé : rien à ce niveau ; bord orange : un niveau est sauté. Cliquez un objectif pour le filtrer.',
+  matrixLegendEmpty: 'Aucune action à ce niveau',
+  matrixLegendSkip: 'Des tâches sautent ce niveau',
+  matrixFilterHint: 'Cliquez sur un objectif pour isoler son flux',
   matrixEmpty: '—',
   goals: range => `Objectifs à 3 mois · ${range}`,
   goalCount: (count, done) => `${count} ce mois · ${done} faits`,
@@ -90,13 +92,9 @@ export const insightMessages: InsightCatalog = {
   settingsSection: 'Aperçus',
   settingsHints: 'Indications',
   settingsBreakpoints: '＋ de rupture',
-  settingsBreakpointsNote: 'Avec un flux filtré, un ＋ apparaît là où le niveau suivant n’a pas d’action, pour rédiger l’étape suivante',
+  settingsBreakpointsNote: 'Filtrez un flux ou survolez son point pour afficher un ＋ au bout des tâches sans étape suivante',
   settingsReviews: 'Bilan hebdo · mensuel',
   settingsReviewsNote: 'Apparaît dans l’en-tête le dernier jour d’une période et le premier de la suivante, deux jours au plus',
-  settingsGuide: 'Guide des ruptures',
-  settingsGuideSeen: 'Vu',
-  settingsGuidePending: 'S’affichera à la prochaine rupture',
-  settingsGuideAgain: 'Revoir',
   settingsAbout: 'À propos de moi',
   settingsLocalOnly: 'Reste sur cet appareil',
   settingsAboutTitle: 'Qui vous êtes et ce que vous faites',
@@ -117,7 +115,6 @@ export const insightMessages: InsightCatalog = {
   toneQuestions: 'Questions',
   settingsFocus: 'Priorités',
   settingsTry: 'Essayer',
-  settingsModelName: 'DeepSeek Flash · env. 1–2 s',
   settingsTryReview: 'Conseil du bilan',
   settingsTryFailed: 'Génération impossible ; réessayez plus tard',
   settingsTryTitle: 'Essayer sur le tableau actuel',

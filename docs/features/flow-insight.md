@@ -1,17 +1,18 @@
 # 流程洞察：断点、空列、复盘与右键菜单
 
-> 顶部筛选不只是过滤：单流程筛选时在断链处给 ＋，一键补下一步；空列给一张起草卡；周期末在列头提供周/月复盘；待办右键菜单分组；设置 › 洞察可自定义起草与复盘的偏好。设计稿：Design 画布「目标聚焦 Insight 方案」（负责人 2026-09-27 确认）。
+> 顶部筛选与圆点预览都能在断链处给 ＋，一键补下一步；空列给一张起草卡；周期末在列头提供周/月复盘；待办右键菜单分组；设置 › 洞察可自定义起草与复盘的偏好。设计稿：Design 画布「目标聚焦 Insight 方案」（负责人 2026-09-27 确认）。
 
 ## 产品规则
 
-### 断点 ＋（仅顶部筛选单个流程时）
+### 断点 ＋（流程筛选与圆点预览）
 
-- 「全部」视图不出 ＋；筛选某条流程时，本流程中「当前周期、未完成、未归档」的条目，若在当前周期没有任何活跃下级，在它右侧的列分隔线上出一个流程色 ＋（与行首行中线对齐，不压下一列内容）。只提示最近一级：本周还没有下级时，今天列不为它出 ＋。Later 与今天列条目不出 ＋；目标列整列为空时不出逐项 ＋，由空列卡代替。
-- 跳级：本流程中直接挂在「本月」下的「今天」条目（跨过本周）按同一上级分组，在该月计划右侧的列分隔线上出一个橙色 ＋（跨列虚线本身不变）。
+- 「全部」静止时不出 ＋；筛选某条流程时，本流程中「当前周期、未完成、未归档」的条目，若在当前周期没有任何活跃下级，在它右侧行边缘出一个流程色 ＋（中心与已连接 todo 的尾部接点共用位置，对齐首行中线）。只提示最近一级：本周还没有下级时，今天列不为它出 ＋。Later 与今天列条目不出 ＋；目标列整列为空时不出逐项 ＋，由空列卡代替。
+- 悬停或键盘聚焦有色流程圆点时，高亮链中每个缺少下级的待办末尾都显示同款 ＋；高亮范围包含该条目及其祖先、后代，淡化的旁支不显示。切换圆点时按钮跟随高亮链切换。下一列为空时仍可添加；源条目与目标周期必须是当期，Later 与今天条目不出 ＋。多流程归属只显示一个按钮，预览中的跳级 ＋ 也只属于高亮链内的任务。鼠标或焦点经过流程内任务及 ＋／引导时保持预览，离开后按原有 120ms 缓冲收起；纯悬停普通任务不启动预览。
+- 跳级：本流程中直接挂在「本月」下的「今天」条目（跨过本周）按同一上级分组，在该月计划右侧的尾部接点处出一个橙色 ＋（跨列虚线本身不变）。
 - 单击 ＋：由模型起草一条标题并直接创建，与普通待办无异，不二次确认、无 Toast；上级已关联，目标周期为下一列的当前周期；若当前周（或月）今天结束，则写入下一周期，＋ 变为「下周 · 标题 →」去向标记，点击跳转查看。
 - 单击跳级 ＋：起草一个本周里程碑并在一个事务内创建，今天的这几项改挂到它下面（解除与月计划的直接关联），一次撤销完整还原。
 - ⇧ 单击，或未连接可用的模型：打开全局新建窗口（⌘N），只预填上级与周期，其余与平常新建一致；跳级另预填「下级：今天 N 项」。
-- 首次出现断点时给一次引导（第一个 ＋ 加重 + 说明卡），点「知道了」或点任一 ＋ 后不再出现；引导状态只存本机，可在设置 › 洞察「再看一次」。
+- 首次出现断点时给一次引导（第一个 ＋ 加重 + 说明卡），点「知道了」或点任一 ＋ 后不再出现；引导状态只存本机。
 
 ### 空列
 
@@ -21,11 +22,13 @@
 ### 复盘
 
 - 周复盘入口在本周列头：本周最后一天出现「今天结束 · 复盘」，下一周第一天出现「上周复盘」；最后一天已复盘或点了「这周跳过」，次日不再出现（最多连续两天）。月复盘同理在本月列头。
+- 弹窗标题使用实际复盘周期：周期末显示「本周／本月复盘」，下一周期首日显示「上周／上月复盘」；合并复盘同时列出周与月，复用各语言的周期名称与复盘文案。
 - 复盘入口与日期同排，紧邻日期右侧并位于左右翻页箭头之间；入口持续可见，翻页箭头跟随整列悬停或列头键盘焦点显示。较长文案省略显示，悬停可读完整标题。
 - 周与月同一天结束时只出一个入口（本月列头「本周 + 本月 · 复盘」），步骤合并。
 - 周复盘：回顾（模型小结 + 目标×周期矩阵）→ 本周收尾（今天冲刺 / 顺延下周 / 归档）→ 排下周（为断链起草，可改、可取消）→ 完成（抽屉内结果清单，列头标「已复盘」）。月复盘：回顾（3 个月目标进度）→ 本月收尾 → 排下月（每个 3 个月目标至少一项）。合并：回顾 → 收尾 → 排下月 → 排下周。
 - 没有可用模型时：回顾无小结只留矩阵；排下周/下月为每条断链给空位，写了才创建。
-- 复盘小结按工作区、复盘周期与实际模型输入保存在本机，关闭重开、切换步骤和重启后复用；再次进入「回顾」时，若看板事实、日期上下文或复盘偏好变化则更新。编辑设置不会逐字触发生成；拆解偏好、界面样式与普通刷新不触发新请求。小结提供「重新生成」，按最新上下文刷新；刷新期间保留上次内容，失败时提示并允许重试。缓存不进入工作区导出与备份，整库替换后清空。
+- 复盘抽屉最大宽度 640px，并随窗口收窄；目标×周期矩阵优先为目标标题留空间，长标题可换行。底部用同款虚线空格、橙色边框配简短说明标识无行动和跳级，另保留点击目标筛选流程的提示；图例文案覆盖五种语言。
+- 复盘小结按工作区、复盘周期与实际模型输入保存在本机，关闭重开、切换步骤和重启后复用；再次进入「回顾」时，若看板事实、日期上下文或复盘偏好变化则更新。编辑设置不会逐字触发生成；拆解偏好、界面样式与普通刷新不触发新请求。小结卡片右下角提供「重新生成」，按最新上下文刷新；刷新期间保留上次内容，失败时提示并允许重试。缓存不进入工作区导出与备份，整库替换后清空。
 
 ### 右键菜单（CM2）
 
@@ -33,8 +36,9 @@
 
 ### 设置 › 洞察
 
-- 开关：断点 ＋、周复盘 · 月复盘；断点引导「再看一次」。
+- 开关：断点 ＋、周复盘 · 月复盘。
 - 关于我（只存本机）、拆解「一步有多大」（最小一步 / 1 小时内 / 半天）与补充要求、复盘语气（直接 / 温和 / 提问式）与优先关注（断链 / 过载 / 跳级 / 模糊目标）、「试一试」即时生成（不写入）、查看完整提示词（系统规则只读，用户偏好以「用户偏好」追加）。
+- 「试一试」不展示模型名称或耗时预估；「生成」按钮的图标与文字始终同排居中，包括生成中状态。
 
 ## 模型
 
@@ -49,6 +53,7 @@
 - `SmartInputService.handle` 新增 `draft` / `review` 动作（`smartActionSchema`），回复 `draft` / `review`（`smartReplySchema`）；门控 = 智能输入已对当前 generation 启用 + OpenRouter Key 已保存且同意；共享 429 冷却；不缓存、不落盘、不记录正文。
 - `insertBetween` 命令：在一个事务内创建里程碑（挂在原上级下）、把指定下级改挂到里程碑、解除它们与原上级的边；周期规则与 DAG 校验复核；一次撤销。
 - `createPlan` 条目可带 `period`（`current` / `date`），用于复盘写入下一周期。
+- `features/insight/Breakpoints.tsx`: one stable layer per workspace generation handles all active flows, deduplicating shared parents and preserving pending actions across preview exits. Board supplies the preview chain from `state/flows.ts`, using the same active graph and ancestor/descendant traversal as relation-line highlighting. Gap and skip controls stay within that chain; filtered overview remains flow-wide. Gap and skip buttons share the outgoing row endpoint, including row-motion updates; geometry observers run only while flows are active. Native preview and geometry evidence is recorded in `output/tests/insight/report.json` and `output/tests/ordering/report.json`.
 - renderer：`state/insight.ts` 本机偏好（localStorage `goalloom.insight`），`features/insight/` 断点层、空列卡、复盘抽屉；新建窗口接受预填（上级、周期、草稿列表）。
 - `state/review-summary.ts`: device-only `goalloom.review-summaries` cache, scoped by workspace generation and reviewed week/month keys, with one successful result per period and at most 24 entries. SHA-256 covers the actual review prompt (including review preferences, excluding draft-only preferences); only hashes and sanitised results persist. Concurrent identical requests share one promise, refresh failures preserve the previous entry, malformed/unavailable storage degrades to a session cache, and App invalidates both persisted and pending ownership on workspace replacement. Settings trials and drafting remain uncached.
 - `features/insight/ReviewSummary.tsx`: revalidates actual context on drawer/step entry, not while editing preferences behind another dialog; manual refresh uses the latest context, guards stale subscriptions, and keeps successful text visible during refresh or failure. The explicit refresh control and failure copy ship in all five locales.
@@ -56,7 +61,9 @@
 
 ## 实现前失败场景
 
-- 信号：未来/历史周期视图误出 ＋；已完成/归档/删除条目出 ＋；多父条目重复出 ＋；Later 参与；隐藏列导致 ＋ 落到错误列；虚拟行未挂载时锚点丢失。
+- Hover-preview acceptance: highlighted descendants with no children lack add buttons; multiple highlighted leaves show only one action; faded sibling branches show actions; switching dots leaves stale actions; an empty current target suppresses the local add action; the button disappears while crossing its source row; focus cannot reach the action; multi-flow membership duplicates buttons; leaving the preview leaves stale controls; completed/terminal/non-current items offer writes; clicking a descendant action chooses the hovered ancestor instead of that descendant or the wrong period; leaving and re-entering while generation is pending starts a second request.
+
+- 信号：未来/历史周期视图误出 ＋；已完成/归档/删除条目出 ＋；多父条目重复出 ＋；Later 参与；横向滚动后 ＋ 落到错误列；虚拟行未挂载时锚点丢失。
 - 写入：连点生成两条；生成期间版本变化（上级被编辑/删除）；周期在生成中翻过；跳级事务部分成功；撤销不完整或误删用户后续编辑。
 - 模型：Key 缺失/未同意/智能关闭时仍请求；推理开启导致空输出；返回非 JSON、空标题、超长、重复同级、带 emoji；429 后连续请求；超时无反馈；workspace 替换后旧请求写入。
 - 复盘：入口在第三天仍出现；跳过后次日仍出现；周月同日出两个入口；收尾写入已结束周期；排下周写入当前周期。
@@ -79,6 +86,7 @@
 
 ## 验收
 
+- [x] `pnpm test:insight`: hovering a monthly ancestor exposes its weekly leaf action; every highlighted leaf gets one action, including mixed month/week leaves and shared multi-flow descendants. Faded siblings stay quiet, and a descendant action creates under that descendant in today's period. Assertions and screenshots are in `output/tests/insight/report.json` and `hover-preview-*-chain.png` / `hover-preview-*-leaves.png` / `hover-preview-mixed-horizons.png`.
 - [x] `pnpm test:insight-generation`: development and production renderer lifecycle, seven-item drafting, manual edits, close/reopen isolation, visible failure fallback, Settings retry without writes and review completion; repeatable reports/screenshots under `output/tests/insight/generation/`.
 - [x] Summary-cache regression: pending-request reuse, close/reopen, step navigation, full Electron restart, explicit refresh, offline reuse, relevant preference/board invalidation, no regeneration while editing preferences, failed-request retry, corrupted/full storage, late-response isolation and verified workspace reset. The initial calendar chooses today as week start through the real setup UI so the weekly review is exercised on every run without a test clock.
 - [x] `pnpm typecheck`、`pnpm test`（17 文件 / 120 例）。
@@ -86,5 +94,11 @@
 - [x] `pnpm test:insight-live`（真实 OpenRouter）：批量起草 1.8s、断点单击直接创建 0.6s、复盘小结 1.8s；`output/tests/insight/live-report.json`。
 - [x] 回归：`pnpm test:periods`（右键首项仍为顺延）、`pnpm test:composer`、`pnpm test:language`（设置 8 个面板无漏译）、`pnpm test:ui`、`pnpm test:feedback` 通过。
 - [x] `pnpm test:relations`: relation and breakpoint overlays use distinct React keys; returning to all flows removes the old lines, and hover/focus previews and relationship editing pass.
+
+## Private review-entry exploration
+
+On 2026-09-28 the owner requested alternatives to the orange review pill because its visual treatment feels disconnected from the board. The isolated comparison at `http://127.0.0.1:5178/review-entry/?v=1` keeps the current entry as the baseline and explores inline text, a neutral outlined button and a below-header action row. The latter deliberately explores a placement change; it is not an accepted change to the current same-row contract. No direction is selected or integrated.
+
+Start with `node output/prototypes/descriptions/serve.mjs`. Reproduce browser checks with `node output/prototypes/descriptions/review-entry/verify.mjs`; `--compact` selects compact/touch coverage. Synthetic local data and a destination preview exercise opening, closing, completion and dismissal without production writes or model requests. Evidence is in `output/tests/review-entry-prototypes/`. These checks do not replace the desktop acceptance above.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

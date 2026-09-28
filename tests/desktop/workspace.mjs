@@ -1,3 +1,9 @@
+/**
+ * [INPUT]: Built Electron, an isolated device profile and production workspace controls.
+ * [OUTPUT]: Board, fixed planning columns, Later toggle, settings, shortcut and security assertions with screenshots.
+ * [POS]: Desktop workspace acceptance; uses the real preload, main and SQLite without production test hooks.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -160,7 +166,7 @@ try {
     } finally { dialog.showMessageBoxSync = original }
   })
   assert.equal(prompted, true)
-  assert.equal(await page.getByLabel('说明', { exact: true }).inputValue(), '重启仍保留的说明')
+  assert.equal(await page.getByLabel('说明', { exact: true }).innerText(), '重启仍保留的说明')
   // 取消退出之后仍须能够提交，而不只是窗口尚在。
   await page.getByRole('button', { name: /^保存/ }).click()
   await page.getByRole('button', { name: /^保存/ }).waitFor({ state: 'hidden' })
@@ -236,7 +242,7 @@ try {
   await settingsDialog.getByRole('button', { name: '已完成', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later', exact: true }).click()
   await detail.waitFor()
-  try { assert.equal(await detail.getByLabel('说明', { exact: true }).inputValue({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
+  try { assert.equal(await detail.getByLabel('说明', { exact: true }).innerText({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
   // 取消事项是低频操作，收在 ⋯ 菜单。
   await detail.getByRole('button', { name: '更多操作', exact: true }).click()
   await page.getByRole('menuitem', { name: '取消事项', exact: true }).click()
@@ -250,19 +256,18 @@ try {
   await settingsDialog.getByRole('button', { name: '回收站', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later · 已取消', exact: true }).click()
   const trashed = page.getByRole('dialog', { name: '回收站条目' })
-  try { assert.equal(await trashed.getByLabel('说明', { exact: true }).inputValue({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
+  try { assert.equal(await trashed.getByLabel('说明', { exact: true }).innerText({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
   await trashed.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.waitFor({ state: 'hidden' })
-  // 列显示只影响本机显示：隐藏 Later 后看板少一列，至少保留一列，全部显示恢复。
-  await page.getByRole('button', { name: '显示的列', exact: true }).click()
-  await page.getByRole('menuitemcheckbox', { name: 'Later', exact: true }).click()
+  // The four planning columns remain fixed while Later can collapse independently.
+  assert.equal(await page.getByRole('button', { name: '显示的列', exact: true }).count(), 0)
+  await page.locator('#later-toggle').click()
   assert.equal(await page.getByRole('region', { name: 'Later列', exact: true }).count(), 0)
-  for (const column of ['3个月', '本月', '本周']) await page.getByRole('menuitemcheckbox', { name: column, exact: true }).click()
-  assert.equal(await page.getByRole('menuitemcheckbox', { name: '今天', exact: true }).isDisabled(), true, '最后一列不可隐藏')
-  await page.getByRole('menuitem', { name: '全部显示', exact: true }).click()
-  assert.equal(await page.locator('.board-column').count(), 5)
-  await page.keyboard.press('Escape')
+  assert.equal(await page.locator('.board-timeline .board-column').count(), 4)
+  assert.equal(await page.locator('#later-toggle').getAttribute('aria-expanded'), 'false')
+  await page.locator('#later-toggle').click()
+  assert.equal(await page.locator('.board-timeline .board-column').count(), 4)
   assert.equal(await page.evaluate(() => {
     const script = document.createElement('script')
     script.textContent = 'window.__unsafeInline = true'

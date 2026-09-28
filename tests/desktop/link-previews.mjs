@@ -10,10 +10,15 @@ import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
+import { verifyFaviconTransport } from './fixtures/favicon-transport.mjs'
+import { verifyInlineRegressions, verifyInlineRestart } from './fixtures/inline-link-regressions.mjs'
+import { verifyDetailTitles } from './fixtures/detail-titles.mjs'
 import { seedPreviewCache, titles, urls } from './fixtures/link-preview-cache.mjs'
 
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
-const packaged = process.argv[2], output = 'output/tests/link-previews'
+const inlineOnly = process.argv.includes('--inline')
+const titlesOnly = process.argv.includes('--titles')
+const packaged = process.argv.slice(2).find(argument => !argument.startsWith('--')), output = titlesOnly ? 'output/tests/link-previews/titles' : inlineOnly ? 'output/tests/link-previews/inline' : 'output/tests/link-previews'
 const profile = await mkdtemp(join(tmpdir(), 'goalloom-link-previews-'))
 await mkdir(output, { recursive: true })
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
@@ -78,7 +83,7 @@ async function openStored(title, archived = false) {
   await settings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '已完成', exact: true }).click()
   if (archived) await settings.getByRole('radio', { name: /^归档/ }).click()
   await settings.getByRole('button', { name: title, exact: true }).press('Enter')
-  await detail().locator('.title-input').waitFor()
+  await detail().locator('.detail-title-display').waitFor()
   return settings
 }
 
@@ -87,10 +92,10 @@ async function openCachedDetail() {
   await page.evaluate(() => {
     const states = [], seen = new WeakSet()
     const record = (element, kind, previous = null) => {
-      if (!element.matches('.detail-saved-links .link-preview')) return
+      if (!element.matches('.description-content .link-inline')) return
       if (kind === 'insert' && seen.has(element)) return
       seen.add(element)
-      states.push({ kind, previous, status: element.dataset.status, title: element.querySelector('.link-preview-title')?.textContent, hasImage: !!element.querySelector('img') })
+      states.push({ kind, previous, status: element.dataset.status, title: element.querySelector('.link-domain-label')?.textContent, hasImage: !!element.querySelector('img') })
     }
     const observer = new MutationObserver(records => {
       for (const mutation of records) {
@@ -98,7 +103,7 @@ async function openCachedDetail() {
         for (const node of mutation.addedNodes) {
           if (!(node instanceof Element)) continue
           record(node, 'insert')
-          node.querySelectorAll('.link-preview').forEach(element => record(element, 'insert'))
+          node.querySelectorAll('.link-inline').forEach(element => record(element, 'insert'))
         }
       }
     })
@@ -106,16 +111,17 @@ async function openCachedDetail() {
     window.linkPreviewRemount = { states, observer }
   })
   await row(ids.mixed).locator('.task-title').press('Enter')
-  await waitReady(detail(), 1)
+  await detail().locator('.description-content .link-inline[data-status="ready"]').waitFor()
+  assert.equal(await detail().locator('.link-preview').count(), 0)
   const states = await page.evaluate(async () => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     window.linkPreviewRemount.observer.disconnect()
     return window.linkPreviewRemount.states
   })
-  assert.equal(states[0]?.kind, 'insert', 'The probe observes the first saved-detail card insertion')
+  assert.equal(states[0]?.kind, 'insert', 'The probe observes the first saved-detail inline link insertion')
   assert.equal(states[0]?.status, 'ready', 'A cached preview is ready in its first DOM insertion')
   assert.equal(states[0]?.title, 'Fixture X post')
-  assert.equal(states[0]?.hasImage, true, 'A cached image is present in the first DOM insertion')
+  assert.equal(states[0]?.hasImage, true, 'A cached favicon is present in the first DOM insertion')
   assert(states.every(state => state.status === 'ready' && state.previous !== 'pending'), 'A cached preview never flashes pending while remounting or refreshing')
   const after = await probe()
   for (const key of ['requests', 'lookups', 'providerFetches']) assert.deepEqual(after[key], before[key], `Cached detail remount does not repeat ${key}`)
@@ -129,6 +135,23 @@ try {
   await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+
+  if (titlesOnly) {
+    report.titles = await verifyDetailTitles(application, page, cache.directory, output)
+    checks.push(...report.titles.checks)
+    assert.deepEqual(errors, [])
+    report.result = 'passed'
+  } else if (inlineOnly) {
+    report.inline = await verifyInlineRegressions(application, page, cache.directory, output)
+    await application.close(); application = null
+    await launch()
+    report.inlineRestart = await verifyInlineRestart(page, report.inline.itemId)
+    assert.deepEqual((await probe()).providerFetches, [])
+    assert.deepEqual((await probe()).requests, [])
+    assert.deepEqual((await probe()).lookups, [])
+    assert.deepEqual(errors, [])
+    report.result = 'passed'
+  } else {
 
   // One new item follows the visible composer path; other records use the authoritative write boundary.
   await page.getByRole('button', { name: '在3个月新建', exact: true }).click()
@@ -145,8 +168,10 @@ try {
       return reply.result
     }
     const output = { mixed: snapshot.items.find(item => item.title === source.mixed).id }
+    const mixed = (await window.goalloom.getItem(output.mixed)).item
+    await execute({ type: 'edit', itemId: mixed.id, expectedVersion: mixed.version, title: mixed.title, description: 'https://x.com/trq212/status/2103576349499855160', dueDate: null })
     for (const [name, horizon] of [['multiple', 'week'], ['repeated', 'month'], ['completed', 'later'], ['archived', 'later']]) {
-      const result = await execute({ type: 'create', title: source[name], horizon }); output[name] = result.itemId
+      const result = await execute({ type: 'create', title: source[name], horizon, description: ['completed', 'archived'].includes(name) ? 'https://x.com/trq212/status/2103576349499855160' : '' }); output[name] = result.itemId
       if (name === 'completed' || name === 'archived') {
         let item = (await window.goalloom.getItem(result.itemId)).item
         await execute({ type: 'status', itemId: item.id, expectedVersion: item.version, status: 'done' })
@@ -210,7 +235,7 @@ try {
   })
   const wheelState = () => track.evaluate(element => {
     const rect = element.getBoundingClientRect(), hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
-    return { rect: rect.toJSON(), scrollLeft: element.scrollLeft, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, documentFocus: document.hasFocus(), hit: hit?.className, boardScrollLeft: document.querySelector('.board')?.scrollLeft, events: window.linkPreviewWheelEvents }
+    return { rect: rect.toJSON(), scrollLeft: element.scrollLeft, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, documentFocus: document.hasFocus(), hit: hit?.className, boardScrollLeft: document.querySelector('.board-timeline')?.scrollLeft, events: window.linkPreviewWheelEvents }
   })
   report.wheel = { before: await wheelState(), native: await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), bounds: window.getBounds(), contentBounds: window.getContentBounds() }))) }
   await page.mouse.wheel(360, 0)
@@ -291,8 +316,10 @@ try {
     await shot('expired-cache-detail')
   } finally { await page.clock.setSystemTime(Date.now()) }
   checks.push('Fresh and expired successful renderer metadata render immediately when saved details mount; DOM insertion/status observations show no pending flash or repeated network work')
+  await detail().getByRole('button', { name: '编辑标题', exact: true }).click()
   assert.equal(await detail().locator('.title-input').inputValue(), titles.mixed)
-  await waitReady(detail(), 1)
+  await detail().locator('.description-content .link-inline[data-status="ready"]').waitFor()
+  assert.equal(await detail().locator('.link-preview').count(), 0)
   const edited = `${titles.mixed}，保留原链接。`
   await detail().locator('.title-input').fill(edited)
   await detail().getByRole('button', { name: /^保存/ }).click()
@@ -304,8 +331,10 @@ try {
 
   for (const [key, archived] of [['completed', false], ['archived', true]]) {
     const settings = await openStored(titles[key], archived)
+    await detail().getByRole('button', { name: '编辑标题', exact: true }).click()
     assert.equal(await detail().locator('.title-input').inputValue(), titles[key])
-    await waitReady(detail(), 1)
+    await detail().locator('.description-content .link-inline[data-status="ready"]').waitFor()
+  assert.equal(await detail().locator('.link-preview').count(), 0)
     assert.deepEqual(await storedItem(ids[key]), saved[key])
     await shot(`legacy-${key}`)
     await closeDetail(); await settings.getByRole('button', { name: '关闭', exact: true }).click()
@@ -328,7 +357,11 @@ try {
   assert.equal(new Set(Object.values(localeEvidence).map(value => value.controls.join('|'))).size, 5, 'Every supported locale supplies its own controls')
   report.locales = localeEvidence
   await page.evaluate(() => window.goalloom.setLanguage('zh'))
+  await page.reload()
   checks.push('All five locales provide accessible translated preview controls without changing link destinations')
+  report.titles = await verifyDetailTitles(application, page, cache.directory, output)
+  checks.push(...report.titles.checks)
+  report.inline = await verifyInlineRegressions(application, page, cache.directory, output)
   report.firstLaunch = await probe()
   await application.close(); application = null
 
@@ -337,6 +370,7 @@ try {
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   await waitReady(row(ids.mixed), 1)
   await waitReady(row(ids.multiple), 3, 1)
+  report.inlineRestart = await verifyInlineRestart(page, report.inline.itemId)
   await pollPage(page, id => document.querySelector(`#item-${id} .link-preview img`)?.naturalWidth === 96, ids.mixed)
   assert.equal(await row(ids.mixed).locator('.link-preview img').evaluate(image => image.complete && image.naturalWidth === 96), true)
   for (const [key, id] of Object.entries(ids)) assert.deepEqual(await storedItem(id), saved[key], `${key}: restart must not migrate or rewrite link text`)
@@ -356,12 +390,17 @@ try {
   await shot('offline-restart')
   checks.push('A cold renderer restart renders existing raw-link records and disk-cached images with HTTP(S) transport disabled, without an item migration or write')
   assert.deepEqual(errors, [])
+  report.favicons = await verifyFaviconTransport(application, page)
+  checks.push('Production metadata and IPC accept declared PNG and ICO/fallback icons while retaining page titles after private, SVG, oversized, redirect and malformed icon failures')
   report.result = 'passed'
+  }
 } catch (error) {
   report.result = 'failed'; report.failure = error.stack ?? String(error)
   if (page && !page.isClosed()) await shot('failure').catch(() => {})
   throw error
 } finally {
+  // Failed draft scenarios still need to write evidence and remove their isolated profile.
+  if (application && report.result === 'failed') await application.evaluate(({ dialog }) => { dialog.showMessageBoxSync = () => 1 }).catch(() => {})
   if (application) await application.close().catch(() => {})
   await writeFile(`${output}/report.json`, JSON.stringify(report, null, 2))
   await rm(profile, { recursive: true, force: true })

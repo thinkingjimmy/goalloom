@@ -33,7 +33,7 @@ function cachedPreview(url: string): LinkPreview | null {
 }
 
 function unavailable(url: string): LinkPreview {
-  return { url, status: 'unavailable', title: linkSource(url), siteName: linkSource(url), description: '', image: null }
+  return { url, status: 'unavailable', title: linkSource(url), siteName: linkSource(url), description: '', image: null, favicon: null }
 }
 
 function request(url: string): Promise<LinkPreview> {
@@ -65,22 +65,22 @@ function request(url: string): Promise<LinkPreview> {
   return promise
 }
 
-export function useLinkPreview(url: string) {
+export function useLinkPreview(url: string, enabled = true) {
   const owner = useSyncExternalStore(subscribeGeneration, currentGeneration)
   const [node, setNode] = useState<HTMLAnchorElement | null>(null)
   const [visible, setVisible] = useState('')
   const [retry, setRetry] = useState(0)
   const [result, setResult] = useState<{ url: string; preview: LinkPreview; generation: number } | null>(null)
   useEffect(() => {
-    if (!node) return
+    if (!node || !enabled) return
     const observer = new IntersectionObserver(entries => {
       setVisible(entries.some(entry => entry.isIntersecting && entry.intersectionRatio > 0) ? url : '')
     })
     observer.observe(node)
     return () => observer.disconnect()
-  }, [node, url])
+  }, [node, url, enabled])
   useEffect(() => {
-    if (visible !== url) return
+    if (!enabled || visible !== url) return
     const online = () => {
       const hit = cache.get(url)
       if (hit?.preview.status === 'unavailable') { cacheBytes -= hit.bytes; cache.delete(url) }
@@ -88,12 +88,12 @@ export function useLinkPreview(url: string) {
     }
     window.addEventListener('online', online)
     return () => window.removeEventListener('online', online)
-  }, [url, visible])
+  }, [url, visible, enabled])
   useEffect(() => {
-    if (visible !== url) return
+    if (!enabled || visible !== url) return
     let active = true
     void request(url).then(preview => { if (active) setResult({ url, preview, generation: owner }) })
     return () => { active = false }
-  }, [url, visible, retry, owner])
+  }, [url, visible, retry, owner, enabled])
   return { ref: setNode, preview: cachedPreview(url) ?? (result?.url === url && result.generation === owner ? result.preview : null) }
 }

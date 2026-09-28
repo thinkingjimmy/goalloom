@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Workspace snapshot, visibility, smart-input state and guarded submission.
+ * [INPUT]: Workspace snapshot/calendar, visibility, smart-input state and guarded submission.
  * [OUTPUT]: An input-method shaped composer: the text field, then one candidate strip — Jev's recommendation (↵ creates it), Tab to adjust drafts inline (T/D/P/E/M/⌫), ⌥↵ to keep the text as one Later; revision-aware previews and saves whose receipts survive closing the dialog.
  * [POS]: Workspace-scoped composer session; its modal unmounts while draft and in-flight save state remain owned here. Half-sure column and parent reads arrive already adopted (draft.ts); the rest stay doubts until chosen.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -242,7 +242,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
   else if (hasPlan && adjusting) content = strip('jev', <><JevBadge /><span className="cand-text">{t.adjustHeading}</span>{primaryButton}</>,
     <>{hint('↑↓', t.hintSelect)}{hint('T D P', t.hintFields)}{hint('E', t.hintEdit)}{hint(formatCombo('Backspace'), t.hintRemove)}{hint('Esc', t.back)}</>,
     <div ref={list} className="plan-list" role="listbox" aria-label={t.adjustHeading} onKeyDown={listKeys}>
-      {drafts.map(draft => <DraftRow key={draft.id} draft={draft} drafts={drafts} parents={parents} flows={flows} usedColors={usedColors} periods={snapshot.periods} today={today} disabled={busy}
+      {drafts.map(draft => <DraftRow key={draft.id} draft={draft} drafts={drafts} parents={parents} flows={flows} usedColors={usedColors} periods={snapshot.periods} today={today} weekStart={snapshot.workspace.calendar!.weekStart} disabled={busy}
         selected={draft.id === selected} menu={draft.id === selected ? menu : null} editing={draft.id === selected && editing}
         select={() => { setSelected(draft.id); setMenu(null); setEditing(false) }} openMenu={setMenu} stopEditing={() => setEditing(false)}
         change={(patch, ...fields) => change(draft.id, patch, ...fields)} replace={replace} remember={info => setParents(previous => new Map(previous).set(info.itemId, info))} merge={() => merge(draft.id)} />)}

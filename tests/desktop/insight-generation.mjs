@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron main/preload, development or built renderer, isolated profiles, an explicit week-start choice and synthetic provider responses.
- * [OUTPUT]: Repeatable generation regression reports and screenshots in output/tests/insight/generation/.
+ * [OUTPUT]: Repeatable generation reports and screenshots, including the complete trial action before generation, in output/tests/insight/generation/.
  * [POS]: Desktop acceptance of drafting, Settings and review persistence/refresh/restart/replacement through real IPC/storage; provider transport is controlled.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -69,11 +69,14 @@ async function run(mode) {
     const settings = page.locator('dialog.settings-modal')
     await settings.getByRole('button', { name: '洞察', exact: true }).click()
     const trial = settings.locator('.insight-trial'), generate = settings.getByRole('button', { name: '生成', exact: true })
+    const trialGroup = settings.locator('.settings-group:has(.insight-try-button)')
+    await trialGroup.screenshot({ path: `${out}/${mode}-settings-trial.png` })
     await generate.click()
     await trial.getByText('Review one open plan', { exact: true }).waitFor()
     assert.equal(await trial.locator('[role="alert"]').count(), 0)
     assert.equal(await revision(), beforeTrial)
     assert.deepEqual((await calls()).map(call => call.kind).sort(), ['draft', 'review'])
+    await trialGroup.scrollIntoViewIfNeeded()
     await page.screenshot({ path: `${out}/${mode}-settings.png` })
     check('Settings generates both results once without workspace writes')
     await setMode('unavailable')

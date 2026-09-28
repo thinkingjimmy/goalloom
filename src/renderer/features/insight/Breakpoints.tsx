@@ -1,9 +1,9 @@
 /**
- * [INPUT]: Snapshot, board view, flows, the filtered flow, visible columns, insight readiness, guarded submission and a composer-seed opener.
- * [OUTPUT]: The breakpoint layer inside `.board`: a ＋ on the column rule beside each gap parent (flow colour) and skip parent (amber);
+ * [INPUT]: Snapshot, board view, active flows, the optional highlighted preview chain, visible columns, insight readiness, guarded submission and a composer-seed opener.
+ * [OUTPUT]: The breakpoint layer inside `.board`: a ＋ at the outgoing endpoint of each gap parent (flow colour) and skip parent (amber);
  *           click drafts one title and creates it (create / insertBetween), ⇧-click or no model opens the prefilled composer;
- *           a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
- * [POS]: features/insight overlay mounted by Board only under a single-flow filter; shares the finite row-motion pulse with RelationLines.
+ *           preview limits controls to its highlighted chain; a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
+ * [POS]: Board's stable insight overlay clipped to the planning viewport; pending actions survive hover exits, with finite row/layout-motion tracking only while active.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
@@ -21,13 +21,14 @@ import { breakpoints, type ChildHorizon } from './signals'
 import { decompose, type Seed } from './decompose'
 import './insight.css'
 import { boardIsMoving, boardMotionEvent } from '../board/RowMotion'
+import { panelViewport } from '../board/geometry'
 
 interface Spot { key: string; kind: 'gap' | 'skip'; parent: ItemSummary; target: ChildHorizon; children: ItemSummary[]; color: string }
 interface Place { x: number; y: number }
-const firstLine = 40
+const firstLine = 32
 
-export function Breakpoints({ snapshot, view, flows, filter, columns, ready, submit, seed }: {
-  snapshot: Snapshot; view: BoardView; flows: Flows; filter: string; columns: ItemHorizon[]; ready: boolean
+export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, columns, ready, submit, seed }: {
+  snapshot: Snapshot; view: BoardView; flows: Flows; flowIds: string[]; previewChain: ReadonlySet<string> | null; columns: ItemHorizon[]; ready: boolean
   submit: (action: Action) => Promise<unknown>; seed: (seed: Seed) => void
 }) {
   const settings = useInsightSettings()
@@ -36,27 +37,29 @@ export function Breakpoints({ snapshot, view, flows, filter, columns, ready, sub
   const [pending, setPending] = useState<string | null>(null)
   // Session-only: a step created into the next period is not in this column, so the gap keeps a pointer to it.
   const [sent, setSent] = useState<Map<string, { title: string; period: PlanningPeriod; horizon: ChildHorizon }>>(new Map())
-  const flow = flows.all.find(value => value.id === filter)
+  const active = flowIds.length > 0
   const spots = useMemo<Spot[]>(() => {
-    const found = breakpoints(snapshot, flows, filter, columns, view.mode)
-    const color = flow ? flowStroke(flow.flowColor) : 'currentColor'
-    return [...found.gaps.map(gap => ({ key: `gap:${gap.parent.id}`, kind: 'gap' as const, parent: gap.parent, target: gap.target, children: [], color })),
+    if (!active) return []
+    const found = breakpoints(snapshot, flows, flowIds, columns, view.mode, previewChain !== null)
+    return [...found.gaps.map(gap => ({ key: `gap:${gap.parent.id}`, kind: 'gap' as const, parent: gap.parent, target: gap.target, children: [],
+      color: flowStroke(flows.of(gap.parent.id).find(flow => flowIds.includes(flow.id))!.flowColor) })),
       ...found.skips.map(skip => ({ key: `skip:${skip.parent.id}`, kind: 'skip' as const, parent: skip.parent, target: 'week' as const, children: skip.children, color: 'var(--insight-skip)' }))]
-  }, [snapshot, flows, filter, columns, view.mode, flow])
+      .filter(spot => previewChain === null || previewChain.has(spot.parent.id))
+  }, [snapshot, flows, flowIds, previewChain, columns, view.mode, active])
   const latest = useRef(spots); latest.current = spots
 
   const measure = (moving = false) => {
     const overlay = root.current, board = overlay?.parentElement
-    if (!overlay || !board) return
-    const origin = board.getBoundingClientRect(), dx = board.scrollLeft - origin.left, dy = -origin.top
+    if (!overlay || !board || !latest.current.length) return
+    const origin = board.getBoundingClientRect(), dx = -origin.left, dy = -origin.top
     const next = new Map<string, Place>()
     for (const spot of latest.current) {
       const row = document.getElementById(`item-${spot.parent.id}`), content = row?.closest('.column-content')
       if (!row || !content || !board.contains(row)) continue
-      const r = row.getBoundingClientRect(), c = content.getBoundingClientRect(), mid = r.top + Math.min(r.height, firstLine) / 2
-      if (mid < c.top || mid > c.bottom) continue
-      // Rows sit 8px inside the column rule; the ＋ rides on the rule so it never covers the next column's rows.
-      next.set(spot.key, { x: r.right + 8 + dx, y: mid + dy })
+      const r = row.getBoundingClientRect(), c = content.getBoundingClientRect(), viewport = panelViewport(row), mid = r.top + Math.min(r.height, firstLine) / 2
+      if (!viewport || r.right - 9 < viewport.left || r.right + 9 > viewport.right || mid < c.top || mid > c.bottom) continue
+      // Match the outgoing relation port, so an empty connection and a connected one share an anchor.
+      next.set(spot.key, { x: r.right + dx, y: mid + dy })
     }
     for (const node of root.current?.querySelectorAll<HTMLElement>('[data-spot-key]') ?? []) {
       const place = next.get(node.dataset.spotKey!)
@@ -72,7 +75,7 @@ export function Breakpoints({ snapshot, view, flows, filter, columns, ready, sub
   const measureRef = useRef(measure); measureRef.current = measure
   useLayoutEffect(() => {
     const overlay = root.current, board = overlay?.parentElement
-    if (!overlay || !board) return
+    if (!overlay || !board || !active) return
     let frame = 0
     const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measureRef.current(boardIsMoving(board)) }) }
     const mutations = new MutationObserver(records => { if (records.some(record => !overlay.contains(record.target))) schedule() })
@@ -85,7 +88,7 @@ export function Breakpoints({ snapshot, view, flows, filter, columns, ready, sub
     board.addEventListener(boardMotionEvent, motion)
     measureRef.current()
     return () => { cancelAnimationFrame(frame); mutations.disconnect(); resize.disconnect(); board.removeEventListener('scroll', schedule, { capture: true }); board.removeEventListener('transitionend', schedule); board.removeEventListener(boardMotionEvent, motion) }
-  }, [])
+  }, [active])
   // React may commit an earlier geometry read after FLIP has installed its inverse transform.
   useLayoutEffect(() => {
     const board = root.current?.parentElement

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: English settings copy, including per-column completion-confetti and reduced-motion messages.
+ * [OUTPUT]: English settings copy, including calendar grouping, per-column completion-confetti and reduced-motion messages.
  * [POS]: English settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -45,7 +45,7 @@ export const settingsMessages: SettingsCatalog = {
     'The key is stored encrypted on this device and never enters workspace data, backups or exports',
   ],
   // Calendar
-  lockedNote: 'Locked · To reconfigure, create a protective backup and reset the workspace',
+  calendarSettings: 'Calendar settings',
   nextCycle: (date: string) => `Next cycle ${date}`,
   overdue: 'Overdue and unfinished',
   policyNotes: {
@@ -53,7 +53,6 @@ export const settingsMessages: SettingsCatalog = {
     week: { auto: 'Moves to next week when the week ends', manual: 'Stays in past periods when the week ends for you to arrange' },
     day: { auto: 'Moves to the new today at midnight', manual: 'Stays in past periods at midnight for you to arrange' },
   },
-  undoRollover: 'Undo this roll-over',
   // Backup & restore
   backedUpAt: (when: string) => `Backed up ${when}`,
   backupSummary: (count: number) => `${count === 1 ? '1 copy' : `${count} copies`} · On the same disk as the workspace, so they won’t survive a whole-disk failure`,

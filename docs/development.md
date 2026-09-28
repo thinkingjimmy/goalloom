@@ -16,6 +16,7 @@
 | [周期规划功能规格](features/period-planning.md) | 待办右键顺延、统一前后周期浏览、往期任务编辑与未来规划、按周期草稿、事务和查询边界及验收 |
 | [流程洞察功能规格](features/flow-insight.md) | 单流程断点 ＋ 与跳级补里程碑、空列卡、周/月/合并复盘、分组右键菜单、设置 › 洞察与 DeepSeek Flash 起草通道 |
 | [链接预览功能规格](features/link-previews.md) | 混排短链接、真实预览、多链接横滑、历史数据按需展示、网络/缓存边界及验收 |
+| [Task descriptions](features/task-descriptions.md) | In-place Markdown, inline page titles/favicons, source preservation and isolated homepage prototypes |
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
@@ -34,6 +35,7 @@ pnpm test                 # 领域 / SQLite 集成 / 主进程 / 前端库
 pnpm test:electron        # 真实 Electron main 的 SQLite 探针
 pnpm build                # 三入口与生产产物约束检查
 pnpm test:ui              # 真实窗口业务闭环与 CSP/IPC/主题
+pnpm test:later           # 固定时间列、Later 侧栏、独立滚动、拖放、动效及本机展开偏好
 pnpm test:history         # 独立夹具的历史/往期/hold 窗口验证
 pnpm test:ordering        # Parent ordering, atomic materialization/undo, group drag and measured motion
 pnpm test:periods         # Context menus, future periods, drafts, sorting, undo, clock boundaries and restart
@@ -41,9 +43,11 @@ pnpm test:insight         # 流程洞察：断点、空列卡、预填新建、�
 pnpm test:insight-generation # Development/production generation, summary cache/restart/refresh/recovery and Settings trials with synthetic HTTP
 pnpm test:insight-live    # 可选：真实 OpenRouter（.env.local Key）下的起草与复盘小结
 pnpm test:links           # Link previews, mixed text, carousel, browser opening, legacy data and offline cache
+pnpm test:descriptions    # Rich Markdown editing, semantic links, clipboard, save races and length guards
 pnpm test:feedback        # Contextual Toasts, modal recovery actions and feedback timing
 pnpm test:recovery        # 保护备份/维护/重置/SQLite 恢复与暂停
 pnpm test:composer        # 可跳过 Onboarding、全局 composer、列头＋键盘路径与 Tab 步数
+pnpm test:due-dates       # Shared deadline calendar, keyboard/month boundaries, draft-only saves, themes and locale screenshots
 pnpm test:composer-live   # 可选：真实 OpenRouter Jev 下的新建全流程（Key 放 .env.local）
 pnpm eval:smart           # 真实 OpenRouter 评测智能输入（Key 放 .env.local），报告写入 output/eval/
 pnpm test:language        # 系统语言侦测、配置页/设置即时切换、main 与 worker 文案、重启保持、en/es/fr 无漏译
@@ -76,15 +80,19 @@ pnpm package:dir          # 当前平台本地目录包
 | --- | --- |
 | Onboarding／首次配置：方向输入、日历确认、Jev 连接／跳过、首次语言选择 | `pnpm test:ui` ＋ `pnpm test:composer` ＋ `pnpm test:language`；仅当重置后重新进入向导的逻辑也受影响时追加 `pnpm test:recovery` |
 | 看板、条目详情、设置框架、主题、preload 暴露面、CSP / 窗口安全 | `pnpm test:ui`；设置内的具体功能按所属行选择，不能因入口都在设置就追加全部功能 |
+| [Later 固定侧栏](features/later-sidebar.md)：固定时间列、旧显隐偏好处理、Later 数量与开关、滚动隔离、草稿／焦点、动效与定位 | `pnpm test:later` ＋ `pnpm test:ui`；共享拖放／视口边界改变时，追加 `test:composer`、`test:language`、`test:ordering`、`test:periods`、`test:relations`、`test:insight`、`test:insight-generation`、`test:links`、`test:feedback`、`test:celebration` 及 `node tests/desktop/review/run.mjs virtual`，按下方各功能映射去重 |
+| [Deadline calendar](features/due-dates.md): detail/composer date selection, presets, focus and localization | `pnpm test:due-dates` + `pnpm test:ui` + `pnpm test:composer` + `pnpm test:language`; composer adjustment uses `node tests/desktop/review/renderer.mjs --calendar` with mocked IPC |
 | 历史、往期、活动记录 | `pnpm test:history` |
 | 右键顺延、周期浏览、显式周期写入和查询 | `pnpm test:periods`（含列头与动效）；开发中可用 `pnpm test:periods --navigation` 单独反馈，功能完成运行整个脚本；影响往期浏览时追加 `pnpm test:history`；报告及截图位于 `output/tests/periods/` |
-| 流程洞察：断点 ＋、空列卡、复盘、设置 › 洞察、draft/review 通道 | `pnpm test:insight` ＋ `pnpm test:insight-generation`；影响共用的周期右键菜单时追加 `pnpm test:periods`；真实模型联调另用 `pnpm test:insight-live` |
-| 链接解析、预览、横滑、外部浏览器与缓存 | `pnpm test:links`；公共服务实时可用性独立核验 |
+| 流程洞察：筛选／圆点预览断点 ＋（含 `fixtures/preview-breakpoints.mjs`）、空列卡、复盘、设置 › 洞察、draft/review 通道 | `pnpm test:insight` ＋ `pnpm test:insight-generation`；影响共用的周期右键菜单时追加 `pnpm test:periods`；真实模型联调另用 `pnpm test:insight-live` |
+| 链接解析、预览、横滑、外部浏览器与缓存 | `pnpm test:links`（含旧缓存补 favicon、官方图标传输、长链接自然换行与离线重启）；开发时可用 `node tests/desktop/link-previews.mjs --inline`；公共服务实时可用性独立核验 |
+| Detail titles: complete rich reading, raw editing, saved-only links and focus/save guards | `pnpm test:links` + `pnpm test:ui` + `pnpm test:language` + `node tests/desktop/review/run.mjs renderer`; development selector: `node tests/desktop/link-previews.mjs --titles`. Editing integration is also owned by `test:descriptions`, `test:history` and `test:periods`. |
+| [Task descriptions](features/task-descriptions.md): rich editing/task lists, selection-tool placement, source/clipboard semantics, saved-only enrichment and inline titles/icons | `pnpm test:descriptions` + `pnpm test:ui` + `pnpm test:links` + `pnpm test:language` + `node tests/desktop/review/run.mjs renderer virtual`; development selectors: `node tests/desktop/descriptions.mjs --checklists` or `--selection-tools`. Prototypes are a separate browser comparison, not desktop acceptance. |
 | 备份、JSON 导入导出、恢复、重置 | `pnpm test:recovery`；维护态与重载相关再跑 `node tests/desktop/review/run.mjs lifecycle` |
 | composer、智能输入、快捷新建 | `pnpm test:composer`；保存回执/草稿竞态再跑 `node tests/desktop/review/run.mjs renderer` |
 | 多语言文案、语言切换 | `pnpm test:language`；preload 校验文案再跑 `node tests/desktop/review/run.mjs wire` |
 | 自动排序、分组拖动、重排动效 | `pnpm test:ordering`；私有报告、截图与录像位于 `output/tests/ordering/` |
-| 关联、流程颜色、关系线 | `pnpm test:relations` |
+| 关联、流程颜色、关系线、圆点浮层定位 | `pnpm test:relations`；底部展开与动态尺寸证据位于 `output/tests/flow-dot-position.json` 和 `output/tests/screenshots/flow-dot-position-*.png` |
 | 顶栏流程筛选、数字快捷键及启停 | `pnpm test:ui` ＋ `pnpm test:relations` ＋ `pnpm test:history`（从往期返回当期、重复选择、输入保护与未来草稿）；周期选择逻辑受影响时追加 `pnpm test:periods` |
 | 完成反馈、撒花 | `pnpm test:celebration` ＋ `pnpm test:feedback`；影响往期还原反馈时追加 `pnpm test:history` |
 | 长列、虚拟滚动、拖放、键盘移动 | `node tests/desktop/review/run.mjs virtual` |

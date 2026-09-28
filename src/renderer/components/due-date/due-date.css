@@ -1,0 +1,42 @@
+.due-panel { width: min(302px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow-y: auto; padding: 8px 10px 7px; border-radius: 13px; background: var(--raised); box-shadow: var(--shadow); color: var(--fg); }
+.due-panel-heading { min-height: 32px; display: flex; align-items: center; gap: 3px; padding: 0 3px 4px 5px; color: var(--secondary); font-size: 11px; }
+.due-panel-heading > span:first-child { flex: 1; }
+.due-icon { width: 28px; height: 28px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--secondary); }
+.due-info { display: inline-flex; position: relative; }
+.due-tooltip { position: absolute; z-index: 2; top: calc(100% + 5px); right: 0; width: 238px; max-width: calc(100vw - 44px); border-radius: 8px; padding: 10px 12px; background: var(--fg); color: var(--bg); box-shadow: 0 4px 16px var(--line); font-size: 12px; font-weight: 400; line-height: 1.75; }
+.due-panel button { touch-action: manipulation; }
+.due-panel button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.due-separator { height: 1px; margin: 7px 6px 5px; background: var(--hairline); }
+.due-month-nav { display: flex; align-items: center; justify-content: space-between; min-height: 39px; padding: 0 1px 5px 0; }
+.due-month-title { display: flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 5px; font-size: 13px; font-weight: 550; border-radius: 6px; }
+.due-month-title > svg { color: var(--secondary); }
+.due-month-arrows { display: flex; gap: 2px; }
+.due-weekdays, .due-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; }
+.due-weekdays { margin-bottom: 2px; color: var(--secondary); font-size: 11px; line-height: 25px; }
+.due-week > span { display: grid; place-items: center; height: 37px; }
+.due-day { position: relative; width: 33px; max-width: 100%; height: 33px; display: grid; place-items: center; border-radius: 8px; font-size: 13px; }
+.due-day[data-outside='true'] { color: var(--faint); }
+.due-day[data-today='true'] { box-shadow: inset 0 0 0 1px var(--line); font-weight: 600; }
+.due-day[data-selected='true'] { color: var(--bg); background: var(--fg); box-shadow: none; }
+.due-calendar-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--hairline); margin: 6px 3px 0; padding-top: 5px; }
+.due-calendar-footer button { padding: 5px 4px; min-height: 29px; border-radius: 5px; font-size: 11px; color: var(--secondary); }
+.due-calendar-footer button:disabled { color: var(--faint); opacity: 1; }
+.due-month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 9px 2px; min-height: 249px; }
+.due-month-grid > button { border-radius: 8px; font-size: 13px; }
+.due-month-grid > button[aria-pressed='true'] { color: var(--bg); background: var(--fg); }
+.due-shortcuts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 1px 1px 3px; }
+.due-shortcuts > button { flex: 1 0 auto; min-height: 29px; padding: 0 6px; border-radius: 6px; font-size: 11px; white-space: nowrap; background: var(--hover); color: var(--fg-soft); }
+.due-shortcuts > button[aria-pressed='true'] { color: var(--bg); background: var(--fg); }
+.due-suggestion { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; padding: 0 5px; margin-bottom: 5px; border-radius: 6px; font-size: 12px; }
+.due-suggestion > small { margin-left: auto; color: var(--secondary); }
+@media (hover: hover) and (pointer: fine) {
+  .due-icon:hover:not(:disabled), .due-calendar-footer button:hover:not(:disabled), .due-month-title:hover, .due-suggestion:hover { color: var(--fg); background: var(--hover); }
+  .due-month-grid > button:hover:not([aria-pressed='true']), .due-day:hover:not([data-selected='true']) { color: var(--fg); background: var(--hover); }
+  .due-shortcuts > button:hover:not([aria-pressed='true']) { background: var(--pressed); }
+}
+@media (pointer: coarse) {
+  .due-icon, .due-month-title { min-width: 44px; min-height: 44px; }
+  .due-calendar-footer button, .due-shortcuts > button, .due-suggestion { min-height: 44px; }
+  .due-week > span { height: 44px; }
+  .due-day { height: 44px; width: 100%; }
+}

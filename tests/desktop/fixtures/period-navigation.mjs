@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Native Electron page, isolated period fixture and the owning period suite's artifact directory.
- * [OUTPUT]: Inline-header and directional-motion assertions, sampled keyframes and repeatable screenshots.
+ * [OUTPUT]: Title/checkbox and arrow/flow-dot alignment, stable headers, inline dates and directional-motion assertions with repeatable screenshots.
  * [POS]: Period-navigation scenarios shared by the focused selector and full period acceptance; no production API replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,7 +10,7 @@ import { join } from 'node:path'
 export async function verifyPeriodNavigation(page, column, evidence) {
   const week = column('week'), body = week.locator('.period-body')
   const origin = await week.getAttribute('data-period-id')
-  const result = { frames: [], screenshots: [] }
+  const result = { alignment: [], frames: [], screenshots: [] }
   const settled = () => page.waitForFunction(() => document.querySelector('[data-horizon="week"]')?.getAttribute('aria-busy') === 'false')
   const date = async () => {
     const geometry = await week.locator('.column-header').evaluate(header => {
@@ -67,6 +67,50 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     await week.screenshot({ path: screenshot, animations: 'allow' })
     result.frames.push({ name, direction, ...sample }); result.screenshots.push(screenshot)
     if (!keep) await finish()
+  }
+
+  const leaveBoard = () => page.getByRole('button', { name: '全部', exact: true }).hover()
+  for (const horizon of ['cycle', 'month', 'week', 'day']) {
+    const target = column(horizon), previous = target.locator('[data-previous-period]')
+    await target.scrollIntoViewIfNeeded()
+    await page.getByRole('button', { name: '全部', exact: true }).focus()
+    await leaveBoard()
+    const measure = () => target.evaluate(node => {
+      const left = node.getBoundingClientRect().left
+      const rect = selector => {
+        const box = node.querySelector(selector).getBoundingClientRect()
+        return { left: box.left - left, right: box.right - left, top: box.top, height: box.height }
+      }
+      return { title: rect('.period-title'), checkbox: rect('.task-row > .check'), dot: rect('.task-row .flow-dot-button'), previous: rect('[data-previous-period]'), next: rect('[data-next-period]') }
+    })
+    const idle = await measure()
+    assert(Math.abs(idle.title.left - idle.checkbox.left) < .5, `${horizon} title aligns with its checkboxes`)
+    assert(Math.abs((idle.previous.left + idle.previous.right) - (idle.dot.left + idle.dot.right)) < 1, `${horizon} previous arrow aligns vertically with flow dots`)
+    assert(idle.previous.left >= 0 && idle.previous.right <= idle.title.left, 'Previous stays inside the column without covering the title')
+    assert.equal(await previous.evaluate(node => getComputedStyle(node).opacity), '0')
+    if (horizon === 'month') {
+      const screenshot = join(evidence, 'header-alignment-idle.png')
+      await page.screenshot({ path: screenshot, clip: { ...await target.boundingBox(), height: 180 } }); result.screenshots.push(screenshot)
+    }
+    await target.locator('.task-row .task-title').first().hover()
+    const hoverState = await target.evaluate(node => ({
+      columnHovered: node.matches(':hover'),
+      hoveredHorizons: [...document.querySelectorAll('[data-horizon]:hover')].map(column => column.dataset.horizon),
+      documentFocused: document.hasFocus(), visibility: document.visibilityState,
+      previousOpacity: getComputedStyle(node.querySelector('[data-previous-period]')).opacity,
+    }))
+    assert.equal(hoverState.previousOpacity, '1', `${horizon} row hover reveals navigation: ${JSON.stringify(hoverState)}`)
+    assert.deepEqual(await measure(), idle, 'Hover reveals navigation without moving the title or rows')
+    if (horizon === 'month') {
+      const screenshot = join(evidence, 'header-alignment-hover.png')
+      await page.screenshot({ path: screenshot, clip: { ...await target.boundingBox(), height: 180 } }); result.screenshots.push(screenshot)
+    }
+    await previous.focus()
+    await page.keyboard.press('Tab')
+    await leaveBoard()
+    assert.equal(await previous.evaluate(node => getComputedStyle(node).opacity), '1')
+    assert.deepEqual(await measure(), idle, 'Keyboard navigation preserves header alignment')
+    result.alignment.push({ horizon, idle, hoverUnchanged: true, keyboardUnchanged: true })
   }
 
   assert.equal(await body.evaluate(node => node.getAnimations().length), 0, 'Initial render is static')

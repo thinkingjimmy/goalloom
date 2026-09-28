@@ -63,7 +63,7 @@ export async function seedPreviewCache(profile) {
   for (const preview of previews) {
     const canonical = new URL(preview.url); canonical.hash = ''
     const filename = `${createHash('sha256').update(canonical.href).digest('hex')}.json`
-    await writeFile(join(directory, filename), JSON.stringify({ version: 1, fetchedAt: Date.now(), preview: { ...preview, url: canonical.href, status: 'ready' } }))
+    await writeFile(join(directory, filename), JSON.stringify({ version: 1, fetchedAt: Date.now(), faviconCheckedAt: Date.now(), preview: { ...preview, url: canonical.href, status: 'ready', favicon: preview.url === urls.x ? image : null } }))
   }
   return { directory, entries: previews.length, imageSize: png().length }
 }

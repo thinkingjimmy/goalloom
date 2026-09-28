@@ -4,22 +4,25 @@
 
 ```text
 desktop/
+├── later-sidebar.mjs    # Fixed planning columns, legacy preference handling, Later count, independent scrolling, drag/undo, preserved drafts, motion, themes/locales and restart; output/tests/later-sidebar
 ├── sqlite.mjs           # 单独构建/启动真实 main 的内置 SQLite 探针
 ├── workspace.mjs        # 看板业务、流程筛选快捷键与快捷键设置（截图 settings-shortcuts.png）、协议/CSP/IPC、主题与窄窗口
 ├── history.mjs          # Live past-task editing/groups, filter return to current, paging recovery, focus/feedback, immutable history, backlog/hold and replacement isolation; history.json and history/past-task screenshots
-├── periods.mjs          # Native TODO menus, unified period navigation, editable future periods, cross-period drafts, sorting, undo, locating, five-language header geometry and restart; output/tests/periods
-├── insight.mjs          # 流程洞察（无模型路径）：空列卡批量/自己写、单流程断点 ＋ 与一次性引导、预填新建、跳级 insertBetween 与一次撤销、复盘入口与四步（复盘日才跑）、设置 › 洞察；output/tests/insight
-├── insight-generation.mjs # Development/production Electron: inline review header, drafting, Settings, summary persistence/restart/refresh/invalidation/failures/reset; real bridge/storage and synthetic HTTP; reports/screenshots in output/tests/insight/generation/
+├── periods.mjs          # Compact TODO menus with source-row activation/cursors, unified period navigation, editable future periods, cross-period drafts, sorting, undo, locating, five-language header geometry and restart; output/tests/periods
+├── insight.mjs          # 流程洞察（无模型路径）：空列卡批量/自己写、筛选／悬停预览断点 ＋ 的可达性、创建与撤销、尾部接点对齐及一次性引导、预填新建、跳级 insertBetween 与一次撤销、复盘入口与四步（复盘日才跑）、设置 › 洞察；output/tests/insight
+├── insight-generation.mjs # Development/production Electron: review header, drafting, Settings with complete trial-action captures, summary persistence/restart/refresh/invalidation/failures/reset; real bridge/storage and synthetic HTTP; output/tests/insight/generation/
 ├── insight-live.mjs     # Optional real OpenRouter: Settings trial/no writes, seven drafts, direct creation and review summary; titles, latency and runtime evidence; outside verify
 ├── recovery.mjs         # 保护备份/维护/重置/SQLite 恢复与重启暂停
 ├── composer-live.mjs    # 可选：真实 OpenRouter Jev（需 .env.local Key）连接、默认采用 Jev 的上级推荐、↵ 创建并核对看板/关联/说明，截图作证据；不进 verify
 ├── composer.mjs         # 首次流程、全局 composer 普通 Later/会话草稿与关闭后的真实保存回执、列头＋Enter/Space 与 Tab 步数、拆解
+├── due-dates.mjs        # Deadline calendar: real Electron draft/save boundaries, leap/month/week keyboard navigation, focus/info layers, five locales and four themes; output/tests/due-calendar/
 ├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
-├── relations.mjs        # Relation lines/dots and board-ordered flow filters; row/column moves, undo, positional shortcuts and reload; app-local failure diagnostics (relation-lines*.png, flow-dot-*.png, flow-filter-order.png/.json)
-├── language.mjs         # 系统语言侦测、配置页/设置即时切换、main/worker 文案、重启保持与 en/es/fr 漏译检查（截图 language-*.png、output/tests/language.json）
+├── relations.mjs        # Relation lines/dots with full task titles, matching endpoint sizes, dynamic popover positioning and board-ordered flow filters; row/column moves, undo, shortcuts and reload; relation-endpoints.json, flow-dot-position.json/screenshots and app-local failure diagnostics
+├── language.mjs         # System language, setup/settings switching, main/worker copy, persistence and translation checks; five-locale calendar screenshots, language-*.png and output/tests/language.json
 ├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and persistent partial-restore warnings; feedback.json and feedback-*.png
 ├── link-previews.mjs    # Link text, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
+├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
 ├── ordering.mjs         # Parent ordering, group-aware drag, future materialization/undo, local preference restart and measured motion (output/tests/ordering)
 ├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
 ├── dialogs.mjs          # 操控真实原生保存/打开对话框的验收入口，保存 JSON 证据和恢复后截图
@@ -31,9 +34,12 @@ desktop/
     ├── past-period-editing.mjs # Native past-task editing, completion/reopening, restore, move/undo, focus, query guards and last-page recovery
     ├── filter-navigation.mjs # Top-bar/shortcut return from history, flow identity, input guards, scroll reset and future-draft retention
     ├── periods-seed.ts  # Production Repository/SQLite clock-boundary, atomicity and recovery assertions plus the planning UI fixture
-    ├── period-navigation.mjs # Inline/date-only headings, contextual return labels, paused motion frames, reversal and reduced-motion acceptance
+    ├── period-navigation.mjs # Title/checkbox and arrow/flow-dot alignment across idle/hover/focus, inline/date-only dates, contextual return labels, paused motion frames and reduced-motion acceptance
     ├── link-preview-cache.mjs # Fresh production preview-cache records and locally generated PNG; no renderer API replacement
+    ├── favicon-transport.mjs # Real preview IPC with deterministic HTTP/DNS fixtures: declared/fallback raster/ICO icons and unsafe/oversized/malformed responses
     ├── poll.mjs         # pollPage：轮询 renderer 里的异步桥接读取（page.waitForFunction 会把 async 谓词的 Promise 当作真值立即返回）
+    ├── preview-breakpoints.mjs # Highlighted-chain actions, ancestor/sibling switching, multiple and mixed-horizon leaves, hover/focus retention, empty targets, multi-flow deduplication, descendant-linked creation and undo; called by insight.mjs
+    ├── flow-dot-position.mjs # Bottom-edge menus, mode/search size changes, direct parent opening and scroll/resize geometry; real Electron/IPC and flow-dot-position-*.png
     └── performance.ts   # 10,000 条目/1,000 活跃及真实历史，测恢复与延迟
 ```
 
@@ -59,7 +65,17 @@ Playwright 控制真实窗口，并关闭 CDP 默认的 unsafe-eval 绕过再验
 
 `feedback.mjs` uses actual UI actions and authoritative IPC fixtures. Its multi-item plan case calls the mounted Composer submit callback, preserving the real write and receipt path without a cloud provider; it does not claim Jev analysis acceptance.
 
-`pnpm test:links [packaged-executable]` runs focused link-preview acceptance in an isolated real Electron profile. It seeds the production preview cache with synthetic public-URL metadata and a tiny local PNG, then exercises the production preload/main/renderer path. Node DNS/HTTP(S) and the isolated provider session's fetch are denied in the test process. The external browser boundary is recorded by replacing Electron's `shell.openExternal`; no browser is launched. JSON and screenshots are written to `output/tests/link-previews/`. This verifies deterministic offline behavior, not live-provider availability.
+`pnpm test:links [packaged-executable]` runs focused link-preview acceptance in an isolated real Electron profile. It seeds the production preview cache with synthetic public-URL metadata and a tiny local PNG, then exercises the production preload/main/renderer path. Node DNS/HTTP(S) and the isolated provider session's fetch are denied for offline checks; the final favicon group substitutes deterministic DNS/HTTP responses at the transport boundary without live network access. The external browser boundary records Electron's `shell.openExternal`; no browser is launched. JSON and screenshots are written to `output/tests/link-previews/`. This verifies deterministic offline behavior, not live-provider availability.
+
+`fixtures/inline-link-regressions.mjs` adds legacy/null-icon cache enrichment, exact official provider PNG/ICO responses, failed/SVG/oversized icon fallback, request deduplication, unchanged metadata timestamps, natural Chinese-title/named-link wrapping and offline restart. `node tests/desktop/link-previews.mjs --inline` selects this regression during development, with evidence in `output/tests/link-previews/inline/`; the full links command includes it at completion. Provider responses are controlled at Electron's isolated session boundary; the production parser, byte validation, IPC, cache and renderer remain active.
+
+`fixtures/detail-titles.mjs` covers complete rich detail headings, first-line control alignment, title/link action separation, growing raw editing, composition/Escape/Enter, Save/Discard, saved-only metadata, authored labels, URL-only titles and deleted-item reading. `node tests/desktop/link-previews.mjs --titles` selects it with reports/screenshots in `output/tests/link-previews/titles/`; `pnpm test:links` includes it. Description, renderer-race, past/future-editing and feedback fixtures enter through the visible edit action or wait for the rendered title.
+
+`fixtures/description-checklists.mjs` covers checked/unchecked/uppercase/nested Markdown tasks, literal code, pointer/keyboard toggles, local undo/redo, draft-only changes, raw clipboard and persistence, list input/continuation/exit, themes and deleted-item reading. `node tests/desktop/descriptions.mjs --checklists` selects it under `output/tests/descriptions/checklists/`; the full `pnpm test:descriptions` includes it.
+
+`fixtures/description-selection.mjs` measures actual selected text and floating tools for first-line selection, scroll boundaries, off-screen anchors, window resizing and expanded link editing. It also checks Bold/undo, Escape and unchanged source. `node tests/desktop/descriptions.mjs --selection-tools` selects it under `output/tests/descriptions/selection-tools/`; the full description suite includes it. Geometry is measured in the production renderer inside native Electron, with no positioning mock.
+
+`pnpm test:descriptions` uses a fresh English-language native Electron profile with the production preload, main and SQLite. It covers Markdown shortcuts/nesting/exit, safe whole-document paste, preserved source, metadata without writes, formatting/link editing, clipboard source semantics, local undo, discard, composition-Enter protection, an authoritative save-receipt gate and the 100,000-character limit. Reports/screenshots live in `output/tests/descriptions/`. Composition events are synthesized; a physical OS input-method session and Windows/package acceptance are not claimed. Homepage browser prototypes have separate evidence in `output/tests/description-prototypes/`.
 
 The link probe sizes the native Electron window before wheel input without forcing activation. CDP viewport emulation alone can put a visible screenshot target outside the native compositor's bounds; the report records both geometries, focus, wheel delivery and the resulting scroll offset.
 
@@ -75,4 +91,4 @@ Failure scenarios specified before writing the probe:
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
-`pnpm build` followed by `pnpm test:ordering [packaged-executable]` runs the production Repository/SQLite boundary fixture and real Electron ordering journey, including relation-picker ordering, rejected saves, lost receipts, protected replacement with a delayed future response and a 129-row focus/draft/scroll check. It records transaction checks, observed WAAPI frames, relation/breakpoint error, screenshots, video and Electron/Node/SQLite/OS/CPU in `output/tests/ordering/`. Only isolated synthetic data is used.
+`pnpm build` followed by `pnpm test:ordering [packaged-executable]` runs the production Repository/SQLite boundary fixture and real Electron ordering journey, including relation-picker ordering, rejected saves, lost receipts, protected replacement with a delayed future response and a 129-row focus/draft/scroll check. It records transaction checks, observed WAAPI frames, relation endpoint error and both-axis breakpoint alignment, screenshots, video and Electron/Node/SQLite/OS/CPU in `output/tests/ordering/`. Only isolated synthetic data is used.

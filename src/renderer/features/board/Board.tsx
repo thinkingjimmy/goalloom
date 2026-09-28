@@ -1,9 +1,9 @@
 /**
- * [INPUT]: Current snapshot, selected planning views, stable flows, visible columns, guarded actions and the flow-insight hooks (readiness, composer seeds, open review).
+ * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later visibility and fixed planning columns, guarded actions and flow-insight hooks.
  * [OUTPUT]: One inline bidirectional period header, directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Exposes `data-filtered` so cycle TODO dots remain hover/focus controls under a selected flow.
- *           Flow insight: an independently keyed breakpoint layer under a single-flow filter, empty-column cards, review prompts beside dates within week/month navigation and per-row upcoming periods / next step for the context menu.
+ *           Flow insight: one breakpoint layer for filtered flows or the highlighted preview chain, retained pending actions across hover exits, empty-column cards, review prompts beside dates and per-row next steps.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,7 +16,7 @@ import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/c
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { messages, horizonNames, insightMessages, useLocale } from '../../i18n'
 import type { Action } from '../../state/use-workspace'
-import type { Flows } from '../../state/flows'
+import { activeFlowGraph, flowChain, type Flows } from '../../state/flows'
 import type { BoardView } from '../../state/board-periods'
 import { useRelationLines } from '../../state/relation-lines'
 import { flowTint } from '../../lib/colors'
@@ -30,6 +30,7 @@ import { RelationLines } from './RelationLines'
 import { TaskRow } from './TaskRow'
 import { VirtualRows, revealRow } from './VirtualRows'
 import { useBoardDrag } from './useBoardDrag'
+import { BoardLayout } from './BoardLayout'
 import { usePeriodMotion } from './usePeriodMotion'
 import { Breakpoints } from '../insight/Breakpoints'
 import { EmptyCard } from '../insight/EmptyCard'
@@ -73,7 +74,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const onAdding = useCallback((horizon: ItemHorizon, open: boolean) => setAdding(open ? { horizon, period: view.periods[horizon] ?? null, split: null, key: Date.now() } : null), [view.periods])
   const onFocus = useCallback((horizon: ItemHorizon, editable: boolean) => setFocused(editable ? horizon : 'later'), [])
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
-  // Hovering or focusing a coloured flow dot previews that item's flows, even under 全部; leaving waits 120ms so crossing rows never flickers.
+  // A dot starts the preview; its flow rows and breakpoint controls keep it reachable until pointer/focus leaves.
   const [preview, setPreview] = useState<string | null>(null)
   const previewTimer = useRef(0)
   const onPreview = useCallback((itemId: string | null) => {
@@ -84,27 +85,41 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const enabled = useRelationLines().enabled
   const previewKey = enabled && preview ? flows.of(preview).map(flow => flow.id).join(' ') : ''
   const active = useMemo(() => previewKey ? previewKey.split(' ') : filter ? [filter] : [], [previewKey, filter])
+  const graph = useMemo(() => activeFlowGraph(items, snapshot.relations, flows, active), [items, snapshot.relations, flows, active])
+  const previewChain = useMemo(() => flowChain(graph, previewKey ? preview : null), [graph, previewKey, preview])
   const lines = enabled && active.length > 0
+  const inPreview = (target: EventTarget | null) => {
+    if (!previewKey || !(target instanceof Element)) return false
+    if (target.closest('.breakpoints')) return true
+    const id = target.closest<HTMLElement>('.task-row')?.dataset.itemId
+    return !!id && flows.of(id).some(flow => active.includes(flow.id))
+  }
+  const holdPreview = (event: { target: EventTarget }) => { if (inPreview(event.target)) clearTimeout(previewTimer.current) }
+  const leavePreview = (event: { relatedTarget: EventTarget | null }) => { if (preview && !inPreview(event.relatedTarget)) onPreview(null) }
   const insightSettings = useInsightSettings()
   const empty = useMemo(() => emptyColumns(snapshot, columns, view.mode), [snapshot, columns, view.mode])
+  const column = (horizon: ItemHorizon) => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!} visible={columns.includes(horizon)}
+    snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
+    dragging={dragging} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? empty.get(horizon as never) ?? null : null} />
   return <DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
-    <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null}>
+    <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null}
+      onPointerOver={holdPreview} onPointerOut={leavePreview} onFocus={holdPreview} onBlur={leavePreview}>
       {/* Keyed by the filtered flow so switching flows replays the draw-in; a hover preview never animates in. */}
-      {lines && <RelationLines key={`lines:${filter ?? 'preview'}`} items={items} relations={snapshot.relations} flows={flows} flowIds={active} focus={previewKey ? preview : null} animate={filter !== null} columns={columns} />}
-      {filter && insightSettings.breakpoints && <Breakpoints key={`breakpoints:${filter}`} snapshot={snapshot} view={view} flows={flows} filter={filter} columns={columns} ready={insight.ready} submit={submit} seed={insight.seed} />}
-      {columns.map(horizon => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!}
-        snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
-        dragging={dragging} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? empty.get(horizon as never) ?? null : null} />)}
+      {lines && <RelationLines key={`lines:${filter ?? 'preview'}`} items={items} graph={graph} flows={flows} focus={previewKey ? preview : null} animate={filter !== null} columns={columns} />}
+      {insightSettings.breakpoints && <Breakpoints key={`breakpoints:${snapshot.workspace.generation}`} snapshot={snapshot} view={view} flows={flows} flowIds={active} previewChain={previewChain} columns={columns} ready={insight.ready} submit={submit} seed={insight.seed} />}
+      <BoardLayout open={columns.includes('later')} sidebar={column('later')}>
+        {columns.filter(horizon => horizon !== 'later').map(column)}
+      </BoardLayout>
     </main>
     {/* The placement preview owns the drop; outer rows animate from the release position. */}
     <DragOverlay dropAnimation={null}>{dragging ? <div className="drag-overlay">{items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
   </DndContext>
 })
 
-const Column = memo(function Column({ horizon, items, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, insight, sources }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter'> & {
+const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, insight, sources }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter'> & {
   sources: ItemSummary[] | null
   active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
-  horizon: ItemHorizon; items: ItemSummary[]; today: string
+  horizon: ItemHorizon; items: ItemSummary[]; today: string; visible: boolean
   adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number } | null
   dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean) => void
   onFocus: (horizon: ItemHorizon, editable: boolean) => void
@@ -118,7 +133,7 @@ const Column = memo(function Column({ horizon, items, snapshot, view, flows, act
   const period = view.periods[horizon] ?? null, mode = view.mode(horizon)
   const history = mode === 'history' ? period : null, future = mode === 'future'
   const loading = view.loading(horizon), failed = future && view.failed
-  const disabled = busy || loading || failed
+  const disabled = busy || loading || failed || !visible
   const { setNodeRef, isOver } = useDroppable({ id: `column:${horizon}`, disabled: !!history || disabled })
   const calendar = snapshot.workspace.calendar!
   const previous = period ? precedingPeriod(calendar, period) : null
@@ -206,7 +221,7 @@ const Column = memo(function Column({ horizon, items, snapshot, view, flows, act
         </div>
         {mode === 'current' ? reviewButton : <button className="period-return" data-return-current title={returnLabel} disabled={busy} onClick={event => switchTo(null, event.detail > 0)}><span>{returnLabel}</span></button>}
         <button className="icon-button small" data-next-period aria-label={messages.nextPeriod(name)} title={next ? periodDates(next) : undefined} disabled={busy} onClick={event => switchTo(next, event.detail > 0)}><Icon name="next" size={16} /></button>
-      </div> : <><h2>{name}</h2><span className="column-meta">{todo.length}</span><span className="column-spacer" /></>}
+      </div> : <><h2>{name}</h2><span className="column-spacer" /></>}
       <span className="column-add-slot">{!history && addButton}</span>
     </header>
     {mode === 'current' && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}

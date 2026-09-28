@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: Japanese settings copy, including per-column completion-confetti and reduced-motion messages.
+ * [OUTPUT]: Japanese settings copy, including calendar grouping, per-column completion-confetti and reduced-motion messages.
  * [POS]: Japanese settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -45,7 +45,7 @@ export const settingsMessages: SettingsCatalog = {
     'Key はこの PC に暗号化して保存され、ワークスペースのデータ、バックアップ、書き出しには含まれません',
   ],
   // Calendar
-  lockedNote: '固定済み · 設定し直すには保護バックアップを作成してワークスペースをリセットしてください',
+  calendarSettings: 'カレンダー設定',
   nextCycle: (date: string) => `次の期間 ${date}`,
   overdue: '期限切れの未完了',
   policyNotes: {
@@ -53,7 +53,6 @@ export const settingsMessages: SettingsCatalog = {
     week: { auto: '週の終わりに自動で翌週へ移動', manual: '週の終わりに過去の期間に残し、整理を待つ' },
     day: { auto: '0 時に自動で新しい今日へ移動', manual: '0 時に過去の期間に残し、整理を待つ' },
   },
-  undoRollover: 'この繰り越しを取り消す',
   // Backup & restore
   backedUpAt: (when: string) => `${when} にバックアップ済み`,
   backupSummary: (count: number) => `計 ${count} 件 · ワークスペースと同じディスクにあるため、ディスク全体の故障は防げません`,

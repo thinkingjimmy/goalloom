@@ -1,10 +1,10 @@
 /**
  * [INPUT]: Item ID, authoritative detail/period, workspace clock, visible candidates, flow views and actions.
- * [OUTPUT]: Editable details, focus-preserving completion, real-period location/move controls, saved links and revision-safe save feedback.
+ * [OUTPUT]: Editable details with complete rich titles, a workspace-aware deadline calendar, focus-preserving completion, real-period controls, Markdown descriptions and revision-safe saves.
  * [POS]: Full-body detail boundary; refresh and save receipts preserve newer drafts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ItemDetail as Detail } from '../../../shared/contracts/queries'
 import { horizons } from '../../../shared/contracts/values'
 import type { CalendarConfig, Item, ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
@@ -21,9 +21,10 @@ import { Icon } from '../../components/icons'
 import { formatCombo, matches, useShortcuts } from '../../state/shortcuts'
 import { Activity } from './Activity'
 import { DuePicker } from './DuePicker'
+import { DetailTitle } from './DetailTitle'
 import { RelationPicker } from './RelationPicker'
 import { FlowPicker } from './FlowPicker'
-import { LinkPreviews } from '../../components/links/LinkPreviews'
+import { DescriptionEditor } from '../../components/description/DescriptionEditor'
 import { linkUrls } from '../../components/links/parse'
 
 const draftOf = (item: Item) => ({ title: item.title, description: item.description, dueDate: item.dueDate ?? '' })
@@ -63,7 +64,7 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
   const dismiss = () => { if (mayLeave()) close() }
   const navigate = (id: string) => { if (mayLeave()) select(id) }
   const save = async () => {
-    if (!detail || !dirty || !draft.title.trim() || busy || saving.current) return
+    if (!detail || !dirty || !draft.title.trim() || draft.description.length > 100_000 || busy || saving.current) return
     const submitted = { ...draft, title: draft.title.trim() }, revision = inputRevision.current
     saving.current = true
     try {
@@ -77,6 +78,7 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
   const setField = (name: keyof typeof draft, value: string) => { inputRevision.current++; setDraft(previous => ({ ...previous, [name]: value })) }
   const toggle = (next: Pop) => setPop(pop === next ? null : next)
   const item = detail?.item
+  const savedUrls = useMemo(() => new Set(linkUrls(item?.description ?? '')), [item?.description])
   const readOnly = !!item?.deletedAt
   const parents = detail?.relations.filter(edge => edge.childId === itemId) ?? []
   const children = detail?.relations.filter(edge => edge.parentId === itemId) ?? []
@@ -115,7 +117,7 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
     {error && <p className="inline-error" role="alert">{error}</p>}
     {item && detail && <>
       <form className="detail-body" onSubmit={event => { event.preventDefault(); void save() }} onKeyDown={event => {
-        if (event.nativeEvent.isComposing && event.key === 'Enter') event.preventDefault()
+        if (event.nativeEvent.isComposing) return
         if (matches(event, bindings.submit)) { event.preventDefault(); void save() }
       }}>
         <div className="detail-title">
@@ -125,13 +127,11 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
             aria-label={done ? messages.reopenAction : messages.markDone} onClick={() => { if (!busy) void submit({ type: 'status', itemId, expectedVersion: item.version, status: done ? 'todo' : 'done' }) }}>
             {done && <Icon name="check" size={14} strokeWidth={2.5} />}
           </button>
-          <div className="title-line">
-            <input className="title-input" aria-label={messages.title} value={draft.title} onChange={event => setField('title', event.target.value)} maxLength={500} required readOnly={readOnly} />
-          </div>
+          <DetailTitle key={itemId} value={draft.title} savedValue={item.title} onChange={value => setField('title', value)} readOnly={readOnly} />
         </div>
         <div className="fields">
           <span className="field-label">{messages.dueShort}</span>
-          <div className="field-value"><DuePicker value={draft.dueDate} today={today} readOnly={readOnly} onChange={value => setField('dueDate', value)} /></div>
+          <div className="field-value"><DuePicker value={draft.dueDate} today={today} weekStart={calendar.weekStart} readOnly={readOnly} onChange={value => setField('dueDate', value)} /></div>
 
           {(['parent', 'child'] as const).map(side => {
             const edges = side === 'parent' ? parents : children
@@ -157,9 +157,8 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
               </div>]
           })}
         </div>
-        <label className="field-label" htmlFor="item-description">{messages.description}</label>
-        <textarea id="item-description" className="note-input" value={draft.description} onChange={event => setField('description', event.target.value)} rows={5} maxLength={100_000} placeholder={messages.descriptionPlaceholder} readOnly={readOnly} />
-        {linkUrls(`${item.title}\n${item.description}`).length > 0 && <div className="detail-saved-links"><LinkPreviews text={`${item.title}\n${item.description}`} /></div>}
+        <label className="field-label" htmlFor="item-description" onClick={() => document.getElementById('item-description')?.focus()}>{messages.description}</label>
+        <DescriptionEditor key={itemId} value={draft.description} savedValue={item.description} savedUrls={savedUrls} onChange={value => setField('description', value)} readOnly={readOnly} />
         <Activity itemId={itemId} revision={revision} />
       </form>
       {readOnly ? <footer className="modal-footer">
@@ -169,7 +168,7 @@ export function ItemDetail({ itemId, close, select, submit, revision, busy, loca
         <span className="save-dot" aria-hidden="true" /><span className="save-note">{messages.unsavedChanges}</span>
         <span className="footer-spacer" />
         <button className="button quiet" disabled={busy} onClick={() => setDraft(baseline.current)}>{messages.discardChanges}</button>
-        <button className="button primary" disabled={busy || !draft.title.trim()} onClick={() => void save()}>{messages.save}{bindings.submit && <kbd>{formatCombo(bindings.submit)}</kbd>}</button>
+        <button className="button primary" disabled={busy || !draft.title.trim() || draft.description.length > 100_000} onClick={() => void save()}>{messages.save}{bindings.submit && <kbd>{formatCombo(bindings.submit)}</kbd>}</button>
       </footer>}
     </>}
   </Modal>

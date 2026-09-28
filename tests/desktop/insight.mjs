@@ -1,12 +1,19 @@
+/**
+ * [INPUT]: Built Electron, isolated workspace data and the actual workspace calendar.
+ * [OUTPUT]: Flow-insight acceptance, including reachable hover-preview additions, endpoint alignment, period-aware review titles and settings captures under output/tests/insight/.
+ * [POS]: Desktop acceptance of empty columns, breakpoints, reviews and local insight preferences without a live model.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
+import { verifyPreviewBreakpoints } from './fixtures/preview-breakpoints.mjs'
 
 // 流程洞察（无模型路径）：空列卡 → 批量起草 / 自己写；单流程筛选的断点 ＋ 与首次引导（只一次，重载后不再出现）；
-// 单击断点在未连接模型时打开预填新建；跳级 ＋ 以 insertBetween 一次补上里程碑并改挂，一次撤销完整还原；「全部」不出 ＋。
+// Breakpoint clicks without a model open the seeded composer; previews offer local next steps, while All stays clear at rest.
 // Artifacts: output/tests/insight/report.json and output/tests/insight/*.png.
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'Goalloom 洞察 '))
@@ -83,6 +90,12 @@ try {
   }
   check('batch card creates only the checked, titled rows in 本周 under their parents (createPlan)')
 
+  const preview = await verifyPreviewBreakpoints(page, out, {
+    week: state.items.find(item => item.title === titles[ids.bottega]).id, sibling: state.items.find(item => item.title === titles[ids.todo]).id,
+    weekTitle: titles[ids.bottega], month: ids.bottega, root: ids.side, otherMonth: ids.video, otherSiblingMonth: ids.wechat, otherRoot: ids.fans,
+  })
+  check('dot previews expose every highlighted chain gap, exclude faded branches and deduplicate multi-flow leaves; ancestor previews, empty targets, keyboard use, creation and undo preserve the correct parent and period')
+
   // 今天 is now empty under a non-empty 本周: its card offers the free composer with the period prefilled.
   await dayColumn.getByText('今天还是空的').waitFor()
   await dayColumn.getByRole('button', { name: '自己写' }).click()
@@ -98,21 +111,19 @@ try {
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
   await board.locator('.breakpoint[data-kind="gap"]').first().waitFor()
   assert.equal(await board.locator('.breakpoint[data-kind="gap"]').count(), 2)
-  assert.equal(await board.locator('.breakpoint-guide').count(), 1, '首次出现断点给一次引导')
-  await shot('3-breakpoints-guide')
+  assert.equal(await board.locator('.breakpoint-guide').count(), 0, 'The guide dismissed during preview stays dismissed when filtering')
+  await shot('3-breakpoints')
   const place = await page.evaluate(id => {
     const row = document.getElementById(`item-${id}`).getBoundingClientRect(), node = document.querySelector(`.breakpoint[aria-label*="发布小米"]`).getBoundingClientRect()
-    return { gap: Math.round(node.left + 9 - row.right), mid: Math.abs(node.top + node.height / 2 - (row.top + Math.min(row.height, 40) / 2)) < 2 }
+    return { gap: Math.round(node.left + node.width / 2 - row.right), mid: Math.abs(node.top + node.height / 2 - (row.top + Math.min(row.height, 32) / 2)) < 2 }
   }, ids.video)
-  assert.deepEqual(place, { gap: 8, mid: true }, '＋ 骑在列分隔线上，对齐行首行中线')
-  await board.getByRole('button', { name: '知道了' }).click()
-  assert.equal(await board.locator('.breakpoint-guide').count(), 0)
+  assert.deepEqual(place, { gap: 0, mid: true }, 'The plus is centered on the outgoing row endpoint and first title line')
   await page.reload()
   await board.waitFor()
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
   await board.locator('.breakpoint[data-kind="gap"]').first().waitFor()
   assert.equal(await board.locator('.breakpoint-guide').count(), 0, '引导状态存本机，重载后不再出现')
-  check('filtered flow shows one ＋ per gap on the column rule; the guide shows once and stays dismissed after reload')
+  check('filtered flow shows one ＋ per gap at the outgoing row endpoint; the guide shows once and stays dismissed after reload')
 
   // No model connected: a click opens the prefilled composer (parent + target period), ↵ creates the child.
   await board.getByRole('button', { name: '给「发布小米 Fold 18 评测视频」拆下一步' }).click()
@@ -150,6 +161,13 @@ try {
   assert.equal(await amber.count(), 1)
   assert.equal(await page.locator(`#item-${ids.bottega}`).getAttribute('data-dimmed'), 'false', '筛选流程内的行不置灰')
   await page.waitForTimeout(700)
+  const skipPlace = await amber.evaluate(node => {
+    const id = node.dataset.spotKey.slice('skip:'.length), button = node.getBoundingClientRect()
+    const port = document.querySelector(`[data-port-key^="${id}:"]`).getBoundingClientRect()
+    return { xError: Math.abs(button.left + button.width / 2 - port.left - port.width / 2),
+      yError: Math.abs(button.top + button.height / 2 - port.top - port.height / 2) }
+  })
+  assert(skipPlace.xError < 0.5 && skipPlace.yError < 0.5, 'The skip plus shares the connected task endpoint')
   await shot('6-skip')
   await amber.click({ modifiers: ['Shift'] })
   await dialog.waitFor()
@@ -178,8 +196,9 @@ try {
   const reviewDay = await entry.count() > 0
   if (reviewDay) {
     const scope = await entry.getAttribute('data-review')
+    const entryLabel = (await entry.innerText()).trim()
     await entry.click()
-    const drawer = page.getByRole('dialog', { name: scope === 'week' ? '本周复盘' : /复盘/ })
+    const drawer = page.getByRole('dialog', { name: scope === 'week' ? entryLabel === '上周复盘' ? '上周复盘' : '本周复盘' : /复盘/ })
     await drawer.waitFor()
     await page.waitForTimeout(250)
     await shot('8-review-lookback')
@@ -218,7 +237,7 @@ try {
     check(`review (${scope}): look back → wrap up (${open} open) → plan (${rowsToPlan} candidate${rowsToPlan === 1 ? '' : 's'}) → done; the entry stays gone after reload`)
   } else check('not a review day (neither the last nor the first day of a week/month): review checks skipped')
 
-  // --- 设置 › 洞察：关断点后筛选不出 ＋；关于我只存本机、重载保留；「再看一次」恢复引导。 ---
+  // Settings: breakpoint visibility and device-only preferences survive reload.
   const openInsight = async () => {
     await page.keyboard.press('ControlOrMeta+,')
     const dialogSettings = page.locator('dialog.settings-modal')
@@ -226,6 +245,7 @@ try {
     return dialogSettings
   }
   let pane = await openInsight()
+  await pane.locator('.settings-group').first().screenshot({ path: `${out}/12-settings-hints.png` })
   await pane.getByRole('textbox', { name: '你是谁、在做什么' }).fill('独立开发者兼内容创作者')
   await pane.getByRole('radio', { name: '最小一步' }).click()
   await pane.getByRole('button', { name: '查看' }).click()
@@ -241,16 +261,11 @@ try {
   assert.equal(await pane.getByRole('textbox', { name: '你是谁、在做什么' }).inputValue(), '独立开发者兼内容创作者', '关于我重载后保留')
   assert.equal(await pane.getByRole('switch', { name: '断点 ＋' }).getAttribute('aria-checked'), 'false')
   await pane.getByRole('switch', { name: '断点 ＋' }).click()
-  await pane.getByRole('button', { name: '再看一次' }).click()
   await page.keyboard.press('Escape'); await pane.waitFor({ state: 'detached' })
-  // The review emptied 本周; one week step brings gaps back so the replayed guide has a ＋ to point at.
-  await seedRows([{ key: 'teaser', title: '剪一版预告', horizon: 'week', parent: 'video' }], { video: ids.video })
-  await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
-  await board.locator('.breakpoint-guide').waitFor()
-  check('settings › 洞察: breakpoints switch, about-me persisted on the device, prompt preview carries preferences, guide replay')
+  check('settings › 洞察: breakpoints switch, about-me persisted on the device, prompt preview carries preferences')
 
   assert.deepEqual(errors, [])
-  await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, lastDayOfWeek: target.lastDay, reviewDay, checks, electron: process.versions.electron ?? null, platform: `${process.platform}-${process.arch}` }, null, 2))
+  await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, lastDayOfWeek: target.lastDay, reviewDay, checks, preview, breakpointGeometry: { gap: place, skip: skipPlace }, runtime: await page.evaluate(() => window.goalloom.getRuntime()), platform: `${process.platform}-${process.arch}` }, null, 2))
 } finally {
   await application.close()
   await rm(profile, { recursive: true, force: true })

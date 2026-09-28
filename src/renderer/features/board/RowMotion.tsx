@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Stable virtual-row identities, period scope and dnd ownership.
+ * [INPUT]: Stable virtual-row identities, period scope, panel visibility and dnd ownership.
  * [OUTPUT]: Interruptible 240 ms FLIP translations and a finite shared geometry pulse for board overlays.
  * [POS]: Outer-row motion boundary; dnd-kit keeps ownership of the inner article transform.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -55,7 +55,7 @@ export class RowMotion extends Component<Props, Record<string, never>, Positions
   }
   componentWillUnmount() { this.clear(); this.media?.removeEventListener('change', this.reduced) }
   getSnapshotBeforeUpdate(previous: Props): Positions | null {
-    if (previous.scope !== this.props.scope || this.props.dragging || this.media?.matches) { this.clear(); return null }
+    if (previous.scope !== this.props.scope || this.props.dragging || this.media?.matches || this.root.current?.closest('[inert]')) { this.clear(); return null }
     if (previous.orderKey === this.props.orderKey) return null
     const mounted = new Map<string, Point>(), origin = this.root.current?.getBoundingClientRect() ?? { left: 0, top: 0 }
     for (const node of this.root.current?.querySelectorAll<HTMLElement>('[data-virtual-id]') ?? []) {

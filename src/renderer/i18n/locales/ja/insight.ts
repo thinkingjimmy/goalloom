@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: Japanese flow-insight copy: breakpoint ＋, first-run guide, prefilled composer, empty-column card.
+ * [OUTPUT]: Japanese flow-insight copy: breakpoints, onboarding, drafting, reviews, matrix legends and settings.
  * [POS]: Japanese insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -60,7 +60,9 @@ export const insightMessages: InsightCatalog = {
   summaryFailed: 'まとめを生成できませんでした。もう一度お試しください。',
   summaryRefreshFailed: '更新できませんでした。前回のまとめを表示しています。',
   matrix: '目標 × 期間',
-  matrixNote: '破線のマス：この段階に行動なし。オレンジ枠：段階を飛ばしている。目標をクリックで絞り込み。',
+  matrixLegendEmpty: 'この段階に行動なし',
+  matrixLegendSkip: 'この段階を飛ばすタスクあり',
+  matrixFilterHint: '目標をクリックしてフローを絞り込み',
   matrixEmpty: '空',
   goals: range => `3か月の目標 · ${range}`,
   goalCount: (count, done) => `今月 ${count} 件 · 完了 ${done}`,
@@ -90,13 +92,9 @@ export const insightMessages: InsightCatalog = {
   settingsSection: 'インサイト',
   settingsHints: 'ヒント',
   settingsBreakpoints: '途切れの ＋',
-  settingsBreakpointsNote: 'フローを1つに絞ると、次の段階に行動がない所に ＋ が出て、次の一歩を作れます',
+  settingsBreakpointsNote: 'フローを絞るかドットにカーソルを合わせると、下位タスクのない項目の末尾に ＋ が表示されます',
   settingsReviews: '週・月の振り返り',
   settingsReviewsNote: '期間の最終日と次の期間の初日に列見出しに表示（最大2日）',
-  settingsGuide: '途切れのガイド',
-  settingsGuideSeen: '表示済み',
-  settingsGuidePending: '次に途切れが出たときに表示',
-  settingsGuideAgain: 'もう一度表示',
   settingsAbout: '自分について',
   settingsLocalOnly: 'この端末にのみ保存',
   settingsAboutTitle: 'あなたは誰で、何をしているか',
@@ -117,7 +115,6 @@ export const insightMessages: InsightCatalog = {
   toneQuestions: '問いかけ',
   settingsFocus: '重視する点',
   settingsTry: '試す',
-  settingsModelName: 'DeepSeek Flash · 約 1–2 秒',
   settingsTryReview: '振り返りの提案',
   settingsTryFailed: '生成できませんでした。後でもう一度お試しください',
   settingsTryTitle: '今のボードで試す',

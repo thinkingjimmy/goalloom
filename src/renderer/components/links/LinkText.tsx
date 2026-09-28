@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Saved text, the display parser, localized copy and external-browser IPC.
- * [OUTPUT]: Safe inline links and a detail-opening title with sibling link controls.
+ * [INPUT]: Display text, optional saved URL membership, localized copy and external-browser IPC.
+ * [OUTPUT]: Shared favicon/page-title links, authored labels and an actionable title with sibling link controls.
  * [POS]: Shared text rendering for current, historical and archived item surfaces.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,6 +9,7 @@ import { messages, useLocale } from '../../i18n'
 import { desktopApi } from '../../state/use-workspace'
 import { Icon } from '../icons'
 import { linkSource, parseLinks } from './parse'
+import { useLinkPreview } from './cache'
 import './links.css'
 
 export const ExternalLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement> & { url: string }>(function ExternalLink({ url, children, onClick, onAuxClick, ...props }, ref) {
@@ -27,11 +28,19 @@ export const ExternalLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<H
   </a>
 })
 
-export const LinkText = memo(function LinkText({ text }: { text: string }) {
+export function InlineLink({ url, label, named = false, enabled = true }: { url: string; label?: string; named?: boolean; enabled?: boolean }) {
+  const { ref, preview } = useLinkPreview(url, enabled)
+  const [failedIcon, setFailedIcon] = useState<string | null>(null)
+  const icon = preview?.favicon
+  return <ExternalLink ref={ref} className={`link-inline${named ? '' : ' link-domain'}`} url={url} data-status={preview?.status ?? 'pending'}>
+    <span className="link-favicon" aria-hidden="true">{icon && failedIcon !== icon ? <img src={icon} alt="" width="14" height="14" onError={() => setFailedIcon(icon)} /> : <Icon name="link" size={14} />}</span>
+    <span className="link-domain-label">{named ? label : preview?.title || linkSource(url)}</span>
+  </ExternalLink>
+}
+
+export const LinkText = memo(function LinkText({ text, savedUrls }: { text: string; savedUrls?: ReadonlySet<string> | undefined }) {
   const tokens = useMemo(() => parseLinks(text), [text])
-  return <>{tokens.map((token, index) => 'text' in token ? token.text : <ExternalLink key={index} className={`link-inline${token.named ? '' : ' link-domain'}`} url={token.url}>
-    {token.named ? token.label : <span className="link-domain-label">{linkSource(token.url)}</span>}{!token.named && <span className="link-external-mark"><Icon name="forward" size={12} /></span>}
-  </ExternalLink>)}</>
+  return <>{tokens.map((token, index) => 'text' in token ? token.text : <InlineLink key={index} url={token.url} label={token.label} named={token.named} enabled={!savedUrls || savedUrls.has(token.url)} />)}</>
 })
 
 export function LinkTitle({ text, onOpen, className = '' }: { text: string; onOpen: () => void; className?: string }) {

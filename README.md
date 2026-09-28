@@ -35,7 +35,7 @@
 
 # Key features
 
-- **Goals and today on one board.** Five time columns—Later, 3 months, this month, this week, today—put the quarter's goals right next to what you do today.
+- **Goals and today on one board.** Four time columns—3 months, this month, this week, today—put the quarter's goals beside today's work. A collapsible Later sidebar keeps unplanned ideas close at hand.
 - **Every to-do knows why.** Link an item to goals in longer horizons. Filter one goal (⌘1–⌘9) and relation lines draw its whole chain; hover any row to light its path. Links explain, they never roll up progress.
 - **Write it down; Jev places it.** Optional smart input reads your goals and past to-dos, puts each new item in the right column and suggests the goal it belongs under. Preview and edit before creating, and undo a whole batch in one step. Bring your own key.
 - **Nothing slips quietly.** Unfinished items roll over to the next period, and past periods stay readable and can be cleared in batches.

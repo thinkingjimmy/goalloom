@@ -1,8 +1,9 @@
 /**
  * [INPUT]: The open ReviewDue (week, month or both), snapshot, flows, board view, insight readiness, guarded submission and a flow-filter setter.
- * [OUTPUT]: A right-side review drawer: look back (model summary + goal×period matrix or 3-month progress) → wrap up (push / postpone / archive)
+ * [OUTPUT]: A right-side review drawer with a period-aware title: look back (model summary + goal×period matrix or 3-month progress) → wrap up (push / postpone / archive)
  *           → plan the next month and/or week (drafted steps, editable, checked; createPlan into the next period) → done (result list, open next period).
- *           Finishing or skipping marks the reviewed periods on this device; ReviewSummary owns persistent summaries and refresh feedback.
+ *           The matrix prioritizes readable goal titles and explains its cells with a visual legend. Finishing or skipping marks the reviewed periods on this device;
+ *           ReviewSummary owns persistent summaries and refresh feedback.
  * [POS]: features/insight 的复盘流程；每个写入仍是独立命令（顺延/归档/createPlan），可按原有会话撤销。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -44,7 +45,9 @@ export function ReviewDrawer({ due, snapshot, flows, view, ready, submit, busy, 
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const calendar = snapshot.workspace.calendar!
   const target = due.month ?? due.week!
-  const title = t.reviewTitle(due.scope)
+  const title = target.lastDay ? t.reviewTitle(due.scope) : t.reviewEntryAfter(
+    [due.week, due.month].flatMap(value => value ? [planningLabel(value.period, calendar, snapshot.observedAt)] : []).join(' + '),
+  )
   const range = due.scope === 'week' ? periodDates(due.week!.period) : periodDates(due.month!.period)
   const primaryTarget = (horizon: ReviewHorizon) => due[horizon]!
   const stepName = (value: Step) => value === 'review' ? t.stepReview : value === 'close' ? (due.scope === 'both' ? t.stepCloseBoth : t.stepClose(horizonNames[target.horizon]))
@@ -140,11 +143,15 @@ export function ReviewDrawer({ due, snapshot, flows, view, ready, submit, busy, 
           <div className="review-matrix" role="table">
             <div role="row"><span role="columnheader" />{columns.map(horizon => <span key={horizon} role="columnheader">{horizonNames[horizon]}</span>)}</div>
             {goals.map(goal => <div key={goal.id} role="row">
-              <button role="rowheader" className="review-goal-title" onClick={() => setFilter(goal.id)}><span className="review-mark" style={{ borderColor: flowStroke(goal.flowColor) }} />{goal.title}</button>
-              {columns.map(horizon => <span key={horizon} role="cell" data-empty={!goal.counts[horizon]} data-skip={horizon === 'week' && goal.skip}>{goal.counts[horizon] || t.matrixEmpty}</span>)}
+              <button role="rowheader" className="review-goal-title" onClick={() => setFilter(goal.id)}><span className="review-mark" style={{ borderColor: flowStroke(goal.flowColor) }} /><span>{goal.title}</span></button>
+              {columns.map(horizon => <span key={horizon} role="cell" className="review-matrix-cell" data-empty={!goal.counts[horizon]} data-skip={horizon === 'week' && goal.skip}>{goal.counts[horizon] || t.matrixEmpty}</span>)}
             </div>)}
           </div>
-          <p className="review-note">{t.matrixNote}</p>
+          <ul className="review-matrix-legend">
+            <li><span className="review-matrix-cell" data-empty="true" aria-hidden="true">{t.matrixEmpty}</span><span>{t.matrixLegendEmpty}</span></li>
+            <li><span className="review-matrix-cell" data-skip="true" aria-hidden="true" /><span>{t.matrixLegendSkip}</span></li>
+            <li><Icon name="info" size={14} /><span>{t.matrixFilterHint}</span></li>
+          </ul>
         </section>}
       </>}
       {step === 'close' && <section className="review-section">
