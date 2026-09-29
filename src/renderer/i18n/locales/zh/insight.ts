@@ -9,6 +9,8 @@ export const insightMessages = widen({
   nodeLabel: (title: string) => `给「${title}」拆下一步`,
   bridgeLabel: (title: string, count: number) => `在「${title}」下补一个里程碑，今天 ${count} 项改挂到它下面`,
   nodeTip: '点击直接生成 · ⇧ 点击自己写',
+  nodeShort: '下一步',
+  bridgeShort: '补一级',
   generating: '生成中…',
   destination: (period: string, title: string) => `${period} · ${title}`,
   openDestination: (period: string) => `查看${period}`,

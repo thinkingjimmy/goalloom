@@ -115,9 +115,9 @@ try {
   await shot('3-breakpoints')
   const place = await page.evaluate(id => {
     const row = document.getElementById(`item-${id}`).getBoundingClientRect(), node = document.querySelector(`.breakpoint[aria-label*="发布小米"]`).getBoundingClientRect()
-    return { gap: Math.round(node.left + node.width / 2 - row.right), mid: Math.abs(node.top + node.height / 2 - (row.top + Math.min(row.height, 32) / 2)) < 2 }
+    return { gap: Math.round(row.right - node.right), mid: Math.abs(node.top + node.height / 2 - (row.top + Math.min(row.height, 32) / 2)) < 2 }
   }, ids.video)
-  assert.deepEqual(place, { gap: 0, mid: true }, 'The plus is centered on the outgoing row endpoint and first title line')
+  assert.deepEqual(place, { gap: 6, mid: true }, 'The entry sits 6px inside the row edge on the first title line, clear of the column rule')
   await page.reload()
   await board.waitFor()
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
@@ -164,10 +164,10 @@ try {
   const skipPlace = await amber.evaluate(node => {
     const id = node.dataset.spotKey.slice('skip:'.length), button = node.getBoundingClientRect()
     const port = document.querySelector(`[data-port-key^="${id}:"]`).getBoundingClientRect()
-    return { xError: Math.abs(button.left + button.width / 2 - port.left - port.width / 2),
+    return { xError: Math.abs(port.left + port.width / 2 - 6 - button.right), clear: button.right <= port.left,
       yError: Math.abs(button.top + button.height / 2 - port.top - port.height / 2) }
   })
-  assert(skipPlace.xError < 0.5 && skipPlace.yError < 0.5, 'The skip plus shares the connected task endpoint')
+  assert(skipPlace.xError < 0.5 && skipPlace.clear && skipPlace.yError < 0.5, 'The skip entry sits inside the row, level with its connected port but never covering it')
   await shot('6-skip')
   await amber.click({ modifiers: ['Shift'] })
   await dialog.waitFor()

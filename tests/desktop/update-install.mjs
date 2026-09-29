@@ -78,7 +78,7 @@ try {
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '设置与数据', exact: true })
   await dialog.getByRole('button', { name: /^关于/ }).click()
-  assert.equal(await dialog.locator('.about-version').textContent(), `版本 ${oldVersion}`)
+  assert.equal(await dialog.locator('.about-version').textContent(), oldVersion)
   started = Date.now()
   await dialog.getByRole('button', { name: '检查更新', exact: true }).click()
   await dialog.getByRole('button', { name: '重启并更新', exact: true }).waitFor({ timeout: 60_000 })

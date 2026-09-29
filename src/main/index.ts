@@ -26,6 +26,8 @@ const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
 const trustedUrl = developmentUrl ?? `${appOrigin}/index.html`
 app.setName('Goalloom')
+// The native macOS About panel (reachable outside our menu) must name Goalloom, not the development Electron binary.
+app.setAboutPanelOptions({ applicationName: 'Goalloom', applicationVersion: app.getVersion(), version: '' })
 app.setAppUserModelId('com.goalloom.desktop')
 // --- 默认身份稳定；标准 Chromium profile 参数用于隔离运行，不通过 IPC 暴露。 ---
 const profile = app.commandLine.getSwitchValue('user-data-dir')

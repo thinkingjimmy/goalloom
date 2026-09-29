@@ -10,6 +10,8 @@ export const insightMessages: InsightCatalog = {
   nodeLabel: title => `「${title}」の次の一歩`,
   bridgeLabel: (title, count) => `「${title}」の下にマイルストーンを追加し、今日の ${count} 件をその下へ`,
   nodeTip: 'クリックで作成・⇧ クリックで自分で書く',
+  nodeShort: '次の一歩',
+  bridgeShort: '一段補う',
   generating: '作成中…',
   destination: (period, title) => `${period} · ${title}`,
   openDestination: period => `${period}を表示`,

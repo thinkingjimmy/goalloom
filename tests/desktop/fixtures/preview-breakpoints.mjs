@@ -48,7 +48,7 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
   assert.equal(await board.locator(`[data-spot-key="gap:${ids.otherMonth}"]`).count(), 0, 'Unrelated flows do not get preview controls')
   const geometry = await plus.evaluate(node => {
     const row = document.getElementById(`item-${node.dataset.spotKey.slice(4)}`).getBoundingClientRect(), button = node.getBoundingClientRect()
-    return { xError: Math.abs(button.left + button.width / 2 - row.right), yError: Math.abs(button.top + button.height / 2 - row.top - 16) }
+    return { xError: Math.abs(button.right - (row.right - 6)), yError: Math.abs(button.top + button.height / 2 - row.top - 16) }
   })
   assert(geometry.xError < 0.5 && geometry.yError < 0.5)
   await row.locator('.task-title').hover()

@@ -1,12 +1,13 @@
 /**
  * [INPUT]: Snapshot, board view, active flows, the optional highlighted preview chain, visible columns, insight readiness, guarded submission and a composer-seed opener.
- * [OUTPUT]: The breakpoint layer inside `.board`: a ＋ at the outgoing endpoint of each gap parent (flow colour) and skip parent (amber);
+ * [OUTPUT]: The breakpoint layer inside `.board`: an entry right-aligned inside each gap parent's row (flow colour) and skip parent's row (amber), never crossing
+ *           the column rule where connector buses run — a thin ring at rest that becomes a labelled pill while its row is hovered, focused or pending;
  *           click drafts one title and creates it (create / insertBetween), ⇧-click or no model opens the prefilled composer;
  *           preview limits controls to its highlighted chain; a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
  * [POS]: Board's stable insight overlay clipped to the planning viewport; pending actions survive hover exits, with finite row/layout-motion tracking only while active.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { insightMessages as t } from '../../i18n'
@@ -26,6 +27,8 @@ import { panelViewport } from '../board/geometry'
 interface Spot { key: string; kind: 'gap' | 'skip'; parent: ItemSummary; target: ChildHorizon; children: ItemSummary[]; color: string }
 interface Place { x: number; y: number }
 const firstLine = 32
+// The entry sits this far inside its row's right edge; its own width grows leftwards.
+const inset = 6
 
 export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, columns, ready, submit, seed }: {
   snapshot: Snapshot; view: BoardView; flows: Flows; flowIds: string[]; previewChain: ReadonlySet<string> | null; columns: ItemHorizon[]; ready: boolean
@@ -57,17 +60,17 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
       const row = document.getElementById(`item-${spot.parent.id}`), content = row?.closest('.column-content')
       if (!row || !content || !board.contains(row)) continue
       const r = row.getBoundingClientRect(), c = content.getBoundingClientRect(), viewport = panelViewport(row), mid = r.top + Math.min(r.height, firstLine) / 2
-      if (!viewport || r.right - 9 < viewport.left || r.right + 9 > viewport.right || mid < c.top || mid > c.bottom) continue
-      // Match the outgoing relation port, so an empty connection and a connected one share an anchor.
-      next.set(spot.key, { x: r.right + dx, y: mid + dy })
+      if (!viewport || r.right - inset - 24 < viewport.left || r.right - inset > viewport.right || mid < c.top || mid > c.bottom) continue
+      // Anchored inside the row's right edge (level with the first line), so it never covers the connector bus on the column rule.
+      next.set(spot.key, { x: r.right - inset + dx, y: mid + dy })
     }
     for (const node of root.current?.querySelectorAll<HTMLElement>('[data-spot-key]') ?? []) {
       const place = next.get(node.dataset.spotKey!)
       node.style.visibility = place ? '' : 'hidden'
       if (place) {
         const guide = node.classList.contains('breakpoint-guide')
-        node.style.left = `${place.x - (guide ? 12 : 9)}px`
-        node.style.top = `${place.y + (guide ? 20 : node.classList.contains('breakpoint-away') ? -12 : -9)}px`
+        node.style.left = `${guide ? place.x - 24 : place.x}px`
+        node.style.top = `${guide ? place.y + 20 : place.y}px`
       }
     }
     if (!moving) setPlaces(previous => JSON.stringify([...previous]) === JSON.stringify([...next]) ? previous : next)
@@ -95,6 +98,20 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
     measureRef.current(!!board && boardIsMoving(board))
   })
 
+  // Rows live outside this layer, so the hovered row is tracked here to expand its entry into a labelled pill.
+  const [hovered, setHovered] = useState<string | null>(null)
+  useEffect(() => {
+    const board = root.current?.parentElement
+    if (!board || !active) return
+    const over = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null
+      if (!target || target.closest('.breakpoints')) return
+      setHovered(target.closest('.task-row')?.getAttribute('data-item-id') ?? null)
+    }
+    const leave = () => setHovered(null)
+    board.addEventListener('pointerover', over); board.addEventListener('pointerleave', leave)
+    return () => { board.removeEventListener('pointerover', over); board.removeEventListener('pointerleave', leave) }
+  }, [active])
   const open = async (spot: Spot, event: MouseEvent) => {
     if (pending) return
     if (!settings.onboarded) updateInsight(value => ({ ...value, onboarded: true }))
@@ -111,17 +128,18 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
       const place = places.get(spot.key)
       if (!place) return null
       const away = spot.kind === 'gap' ? sent.get(spot.parent.id) : undefined
-      if (away) return <button key={spot.key} data-spot-key={spot.key} type="button" className="breakpoint-away" style={{ left: place.x - 9, top: place.y - 12, '--node': spot.color } as CSSProperties}
+      if (away) return <button key={spot.key} data-spot-key={spot.key} type="button" className="breakpoint-away" style={{ left: place.x, top: place.y, '--node': spot.color } as CSSProperties}
         aria-label={t.openDestination(planningLabel(away.period, snapshot.workspace.calendar!, snapshot.observedAt))}
         onClick={() => view.choose(away.horizon, away.period)}>{t.destination(planningLabel(away.period, snapshot.workspace.calendar!, snapshot.observedAt), away.title)}<Icon name="next" size={12} /></button>
       const label = spot.kind === 'skip' ? t.bridgeLabel(spot.parent.title, spot.children.length) : t.nodeLabel(spot.parent.title)
       return <button key={spot.key} data-spot-key={spot.key} type="button" className="breakpoint" data-kind={spot.kind} data-pending={pending === spot.key} data-guided={guide?.key === spot.key}
-        style={{ left: place.x - 9, top: place.y - 9, '--node': spot.color } as CSSProperties} aria-label={label} title={`${label}\n${t.nodeTip}`}
+        data-expanded={hovered === spot.parent.id || pending === spot.key || guide?.key === spot.key}
+        style={{ left: place.x, top: place.y, '--node': spot.color } as CSSProperties} aria-label={label} title={`${label}\n${t.nodeTip}`}
         disabled={!!pending} onClick={event => void open(spot, event)}>
-        <Icon name="add" size={12} strokeWidth={2.2} />
+        <Icon name="add" size={12} strokeWidth={2.4} /><span className="breakpoint-label" aria-hidden="true">{spot.kind === 'skip' ? t.bridgeShort : t.nodeShort}</span>
       </button>
     })}
-    {guide && places.get(guide.key) && <div data-spot-key={guide.key} className="breakpoint-guide" role="note" style={{ left: places.get(guide.key)!.x - 12, top: places.get(guide.key)!.y + 20 }}>
+    {guide && places.get(guide.key) && <div data-spot-key={guide.key} className="breakpoint-guide" role="note" style={{ left: places.get(guide.key)!.x - 24, top: places.get(guide.key)!.y + 20 }}>
       <p className="breakpoint-guide-kicker">{t.onboardKicker}</p>
       <p className="breakpoint-guide-title">{t.onboardTitle}</p>
       <p>{t.onboardBody}</p>

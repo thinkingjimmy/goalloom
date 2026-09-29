@@ -115,7 +115,7 @@ try {
       firstLineAligned: Math.abs(fragments[0].left - check.right - 12) < 0.5,
       continuationAligned: fragments.slice(1).every(fragment => Math.abs(fragment.left - check.left) < 0.5),
       checkClickable: document.elementFromPoint(check.left + check.width / 2, check.top + check.height / 2)?.closest('.check') === checkbox,
-      addAligned: !!add && Math.abs(add.left + add.width / 2 - r.right) < 0.5 && Math.abs(add.top + add.height / 2 - r.top - 16) < 0.5,
+      addAligned: !!add && Math.abs(add.right - (r.right - 6)) < 0.5 && Math.abs(add.top + add.height / 2 - r.top - 16) < 0.5,
       check: Math.round(node.querySelector('.check').getBoundingClientRect().top - r.top - 2), anchored: [...document.querySelectorAll('.relation-port')].some(port => Math.abs(Number(port.getAttribute('cy')) - anchor) < 1) }
   })
   assert(tall.lines > 2, 'A long task title grows beyond two lines')

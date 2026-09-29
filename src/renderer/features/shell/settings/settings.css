@@ -261,13 +261,24 @@
 .insight-prompt pre[data-user] { border-top: 1px solid var(--line); background: color-mix(in oklab, var(--focus) 6%, transparent); color: var(--focus); }
 
 /* About: app identity above a single software-update row. */
-.about-hero { display: flex; align-items: center; gap: 18px; padding: 4px 2px 6px; }
-.about-hero img { width: 72px; height: 72px; flex-shrink: 0; user-select: none; }
+.about-hero { display: flex; align-items: center; gap: 16px; padding: 4px 2px 6px; }
+/* The PNG's icon body spans 80% of the canvas (26–230 of 256px); an 80px image inside a 64px frame shows only the body. */
+.about-icon { position: relative; width: 64px; height: 64px; flex-shrink: 0; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 .5px var(--edge), 0 1px 2px color-mix(in srgb, var(--fg) 6%, transparent); }
+.about-icon img { position: absolute; left: -8px; top: -8px; width: 80px; max-width: none; height: 80px; user-select: none; }
+.about-name { display: flex; align-items: center; gap: 8px; }
 .about-hero h3 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em; color: var(--fg); }
 .about-hero p { margin: 4px 0 0; font-size: 13px; line-height: 1.5; color: var(--fg-soft); }
-.about-hero .about-version { font-size: 12px; color: var(--secondary); }
+.about-version { height: 20px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 10px; background: var(--hover); font-size: 11.5px; color: var(--secondary); }
+.about-update { gap: 12px; }
+.about-status { --about-ok: light-dark(#3f7a4a, #86c294); width: 28px; height: 28px; flex-shrink: 0; display: grid; place-items: center; border-radius: 8px; background: var(--hover); color: var(--secondary); }
+.about-status[data-phase='latest'] { background: color-mix(in srgb, var(--about-ok) 14%, transparent); color: var(--about-ok); }
+.about-status:is([data-phase='downloading'], [data-phase='ready'], [data-phase='checking']) { background: color-mix(in srgb, var(--focus) 12%, transparent); color: var(--focus); }
+.about-status[data-phase='failed'] { background: var(--danger-tint); color: var(--danger); }
+.about-update small[data-phase='failed'] { color: var(--danger); }
 .about-refresh { display: inline-grid; place-items: center; }
 .about-refresh[data-spinning='true'] { animation: about-spin 1s linear infinite; }
 @keyframes about-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .about-refresh[data-spinning='true'] { animation: none; } }
 .about-links { margin: 0; display: flex; gap: 4px; margin-left: -10px; }
+.about-links .settings-button { display: inline-flex; align-items: center; gap: 2px; }
+.about-external { display: inline-flex; transform: rotate(-45deg); }

@@ -1,18 +1,21 @@
-/* --- Flow insight: breakpoint ＋ at the outgoing row endpoint, destination pill, one-time guide and the empty-column card. Tokens only. --- */
+/* --- Flow insight: breakpoint entry inside the gap row's right edge, destination pill, one-time guide and the empty-column card. Tokens only. --- */
 .board { --insight-skip: light-dark(#b8732c, #d9a760); }
 .breakpoints { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; }
 :root[data-dragging='true'] .breakpoints { display: none; }
-.breakpoint { position: absolute; min-width: 18px; height: 18px; padding: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-  border-radius: 9px; border: 1.5px dashed var(--node); background: var(--bg); color: var(--node); font-size: 12px; white-space: nowrap;
-  transition: background-color .15s ease-out, color .15s ease-out, box-shadow .15s ease-out; }
-.breakpoint:hover:not(:disabled), .breakpoint:focus-visible { border-style: solid; background: var(--node); color: var(--bg); box-shadow: 0 0 0 4px color-mix(in srgb, var(--node) 20%, transparent); }
-.breakpoint:focus-visible { outline: none; }
-.breakpoint[data-guided='true'] { border-style: solid; box-shadow: 0 0 0 4px color-mix(in srgb, var(--node) 20%, transparent); }
-.breakpoint[data-pending='true'] { border-style: solid; animation: breakpoint-pulse 1s ease-in-out infinite alternate; }
+.breakpoint { position: absolute; transform: translate(-100%, -50%); width: 16px; height: 16px; padding: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden;
+  border-radius: 8px; background: var(--raised); box-shadow: inset 0 0 0 1.3px color-mix(in srgb, var(--node) 55%, transparent); color: var(--node); font-size: 12px; font-weight: 500; white-space: nowrap;
+  transition: background-color .15s ease-out, color .15s ease-out; }
+/* At rest only the ring shows; the row's hover, keyboard focus, the guide or a pending draft expands it into「＋ 下一步」. */
+.breakpoint > svg, .breakpoint-label { display: none; }
+.breakpoint:is([data-expanded='true'], :hover, :focus-visible) { width: auto; height: 24px; padding: 0 9px 0 7px; border-radius: 12px; background: var(--node); color: var(--bg); box-shadow: none; }
+.breakpoint:is([data-expanded='true'], :hover, :focus-visible) > svg, .breakpoint:is([data-expanded='true'], :hover, :focus-visible) > .breakpoint-label { display: inline-flex; }
+.breakpoint:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.breakpoint[data-pending='true'] { animation: breakpoint-pulse 1s ease-in-out infinite alternate; }
+@media (pointer: coarse) { .breakpoint { width: auto; height: 24px; padding: 0 9px 0 7px; border-radius: 12px; } .breakpoint > svg, .breakpoint-label { display: inline-flex; } }
 .breakpoint:disabled:not([data-pending='true']) { opacity: .5; }
 @keyframes breakpoint-pulse { from { opacity: .45; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .breakpoint[data-pending='true'] { animation: none; } }
-.breakpoint-away { position: absolute; height: 24px; max-width: 300px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: 12px;
+.breakpoint-away { position: absolute; transform: translate(-100%, -50%); height: 24px; max-width: 300px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: 12px;
   background: color-mix(in srgb, var(--node) 16%, var(--bg)); color: var(--fg-soft); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .breakpoint-away:hover { background: color-mix(in srgb, var(--node) 26%, var(--bg)); }
 .breakpoint-guide { position: absolute; width: 300px; padding: 14px 16px; border-radius: 12px; background: var(--raised); box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; }

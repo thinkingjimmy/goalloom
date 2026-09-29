@@ -10,6 +10,8 @@ export const insightMessages: InsightCatalog = {
   nodeLabel: title => `Siguiente paso de «${title}»`,
   bridgeLabel: (title, count) => `Añadir un hito bajo «${title}» y mover ahí las ${count} de hoy`,
   nodeTip: 'Clic para crear · ⇧ clic para escribirlo tú',
+  nodeShort: 'Siguiente paso',
+  bridgeShort: 'Puente',
   generating: 'Redactando…',
   destination: (period, title) => `${period} · ${title}`,
   openDestination: period => `Ver ${period}`,

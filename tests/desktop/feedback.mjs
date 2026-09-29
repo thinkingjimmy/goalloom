@@ -240,7 +240,8 @@ try {
     const node = document.querySelector('.composer-modal')
     const key = Object.keys(node).find(key => key.startsWith('__reactFiber$'))
     let fiber = key && node[key]
-    while (fiber && !(fiber.memoizedProps?.submit && fiber.memoizedProps?.smart)) fiber = fiber.return
+    // The mounted Composer is the fiber that owns both the guarded submit and the AI feature state.
+    while (fiber && !(fiber.memoizedProps?.submit && fiber.memoizedProps?.ai)) fiber = fiber.return
     if (!fiber) throw new Error('Mounted Composer submit unavailable')
     return fiber.memoizedProps.submit({ type: 'createPlan', items: ['Batch feedback one', 'Batch feedback two'].map((title, index) => ({ draftId: `batch-${index}`, title, horizon: 'later', previewPeriodId: null, parentRefs: [], flowColor: null })) })
   })
