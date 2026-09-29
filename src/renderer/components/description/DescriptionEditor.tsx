@@ -1,11 +1,11 @@
 /**
- * [INPUT]: Markdown draft/saved source, saved URL membership, read-only state, an optional DOM id (a board peek must not reuse the detail id) and the change callback.
- * [OUTPUT]: In-place rich editing with draft-only task-list controls, source-preserving Markdown and local undo.
+ * [INPUT]: Markdown draft source, saved URL membership, read-only state, an optional DOM id (a board peek must not reuse the detail id) and the change callback.
+ * [OUTPUT]: In-place rich editing with immediately persisted task-list changes, source-preserving Markdown and local undo.
  * [POS]: Lazy detail presentation; persistence and revision ownership remain in ItemDetail.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react'
-import { $addUpdateTag, $getRoot, $getSelection, $isRangeSelection, $setSelection, BLUR_COMMAND, CLEAR_HISTORY_COMMAND, COMMAND_PRIORITY_HIGH, COPY_COMMAND, CUT_COMMAND, CUT_TAG, DROP_COMMAND, HISTORY_PUSH_TAG, KEY_ENTER_COMMAND, KEY_TAB_COMMAND, PASTE_COMMAND, PASTE_TAG, RootNode, defineExtension } from 'lexical'
+import { $addUpdateTag, $getNodeByKey, $getRoot, $getSelection, $isRangeSelection, $setSelection, BLUR_COMMAND, CLEAR_HISTORY_COMMAND, COMMAND_PRIORITY_HIGH, COPY_COMMAND, CUT_COMMAND, CUT_TAG, DROP_COMMAND, HISTORY_PUSH_TAG, KEY_ENTER_COMMAND, KEY_TAB_COMMAND, PASTE_COMMAND, PASTE_TAG, RootNode, defineExtension } from 'lexical'
 import { $convertFromMarkdownString, $convertSelectionToMarkdownString, $convertToMarkdownString, $generateNodesFromMarkdownString, registerMarkdownShortcuts } from '@lexical/markdown'
 import { RichTextExtension } from '@lexical/rich-text'
 import { $isListItemNode, CheckListExtension } from '@lexical/list'
@@ -25,20 +25,26 @@ import './description.css'
 
 const serialize = () => $convertToMarkdownString(descriptionTransformers, undefined, true)
 
-function Bridge({ value, savedValue, readOnly, onChange }: { value: string; savedValue: string | undefined; readOnly: boolean; onChange: (value: string) => void }) {
+function Bridge({ value, readOnly, onChange }: { value: string; readOnly: boolean; onChange: (value: string, immediate?: boolean) => void }) {
   const [editor] = useLexicalComposerContext()
   const callback = useRef(onChange); callback.current = onChange
   const source = useRef({ raw: value, canonical: '', sent: value })
   const historyBoundary = useRef(false)
   const { bindings } = useShortcuts(), submitCombo = useRef(bindings.submit); submitCombo.current = bindings.submit
-  useEffect(() => { editor.update($linkifyDescription); historyBoundary.current = true }, [editor, savedValue])
   useLayoutEffect(() => {
     source.current.canonical = editor.getEditorState().read(serialize)
-    return editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves, tags }) => {
+    return editor.registerUpdateListener(({ editorState, prevEditorState, dirtyElements, dirtyLeaves, tags }) => {
       if (tags.has('description-sync') || (!dirtyElements.size && !dirtyLeaves.size)) return
       const canonical = editorState.read(serialize)
       const next = canonical === source.current.canonical ? source.current.raw : canonical
-      if (next !== source.current.sent) { source.current.sent = next; callback.current(next) }
+      if (next !== source.current.sent) {
+        const toggled = [...dirtyElements.keys()].some(key => {
+          const checked = () => { const node = $getNodeByKey(key); return $isListItemNode(node) ? node.getChecked() : undefined }
+          const before = prevEditorState.read(checked), after = editorState.read(checked)
+          return before !== undefined && after !== undefined && before !== after
+        })
+        source.current.sent = next; callback.current(next, toggled)
+      }
     })
   }, [editor])
   useEffect(() => {
@@ -110,7 +116,7 @@ function Bridge({ value, savedValue, readOnly, onChange }: { value: string; save
   return null
 }
 
-export function DescriptionEditor({ value, savedValue, savedUrls, onChange, readOnly = false, id = 'item-description' }: { value: string; savedValue?: string; savedUrls: ReadonlySet<string>; onChange: (value: string) => void; readOnly?: boolean; id?: string }) {
+export function DescriptionEditor({ value, savedUrls, onChange, readOnly = false, id = 'item-description' }: { value: string; savedUrls: ReadonlySet<string>; onChange: (value: string, immediate?: boolean) => void; readOnly?: boolean; id?: string }) {
   useLocale()
   const initial = useRef(value)
   const extension = useMemo(() => defineExtension({
@@ -124,9 +130,8 @@ export function DescriptionEditor({ value, savedValue, savedUrls, onChange, read
     <LexicalExtensionComposer extension={extension} contentEditable={null}>
       <ContentEditable id={id} className="note-input description-content" aria-label={messages.description} aria-multiline="true" aria-readonly={readOnly}
         aria-placeholder={messages.descriptionPlaceholder} placeholder={<span className="description-placeholder">{messages.descriptionPlaceholder}</span>} spellCheck />
-      <Bridge value={value} savedValue={savedValue} readOnly={readOnly} onChange={onChange} />
+      <Bridge value={value} readOnly={readOnly} onChange={onChange} />
       {!readOnly && <SelectionTools />}
     </LexicalExtensionComposer>
-    {value.length > 100_000 && <p className="inline-error" role="alert">{messages.descriptionTooLong}</p>}
   </div></SavedLinks.Provider>
 }

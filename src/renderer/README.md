@@ -55,10 +55,12 @@ renderer/
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
-│   │   ├── Board.tsx        # Unified past/current/future navigation, period-bound drafts/drop targets and preserved navigation focus
+│   │   ├── Board.tsx        # Unified period navigation, independent placement/relation gestures, virtual source pinning and preserved focus
 │   │   ├── BoardLayout.tsx # Persistent 300px Later sidebar, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
 │   │   ├── useBoardDrag.ts # Group-bounded drag and pending-drop placement projection
+│   │   ├── RelationDrag.tsx # Independent pointer linking, clipped targeting/autoscroll, virtual source pinning and prepared keyboard-menu adoption
+│   │   ├── relation-drag.css # Transient arrow, target outline and localized hints using shared theme tokens
 │   │   ├── usePeriodMotion.ts # Cancellable directional content entry after data readiness; reduced-motion/visibility cleanup and overlay synchronization
 │   │   ├── RowMotion.tsx  # Interruptible outer-row FLIP and finite overlay geometry updates
 │   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, logical keyboard traversal and focus/drag/menu pinning
@@ -67,16 +69,17 @@ renderer/
 │   │   ├── PeriodPicker.tsx # Header B period panel: quick previous/current/next, week-row/day/month/cycle selection, recorded-history bound, footer steps
 │   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body loaded on open)
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
-│   │   ├── FlowDot.tsx      # 复选框前的流程圆点：起点改色、下级改上级、独立条目二选一；悬停预览流程；Later 不显示
+│   │   ├── FlowDot.tsx      # Role-aware flow menus, pointer linking, keyboard root adoption and hover previews; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
 │   │   ├── QuickAdd.tsx     # Explicit-period creation, per-period drafts, expired-input recovery and horizon-valid flow choices
 │   │   ├── PastPeriod.tsx   # Live past-task groups, completion/reopening/restore, guarded paging and focus retention
 │   │   ├── period-labels.ts # Relative adjacent headings, date-only distant/cycle headings and year-free dates shared with setup
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
+│   │   ├── use-item-autosave.ts # Serialized silent saves, source/receipt guards, retry and close-time draining
 │   │   ├── ItemDetail.tsx   # Draft-safe details: aligned checkbox + rich title, one chip row (deadline/flow/上级/下级/拆解), full-height Markdown description, header activity drawer
 │   │   ├── DetailTitle.tsx  # Unclipped shared link display, growing raw-title editor, saved-only metadata and keyboard focus handoff
-│   │   ├── DuePicker.tsx    # Detail deadline trigger, shared calendar panel and focus restoration; selection only edits the draft
+│   │   ├── DuePicker.tsx    # Detail deadline trigger, shared calendar panel and focus restoration; selection/clear immediately autosaves
 │   │   ├── RelationPicker.tsx # Board-ordered parent/child candidates and search matches shared by detail/flow-dot menus; longer-horizon guards and linked-first priority
 │   │   ├── FlowPicker.tsx   # 详情属性行的流程标签；FlowColorMenu 为色板本体，看板圆点复用
 │   │   ├── RelationChip.tsx # 详情「上级／下级」标签：弹层列出关联条目可跳转，并转入 RelationPicker
@@ -115,8 +118,8 @@ renderer/
 │   ├── ai.ts               # 设备侧 AI 服务状态（每服务凭据/能力/失败，每功能服务与开关）与动作（代次变化即重读）
 │   ├── insight.ts          # 本机流程洞察偏好（localStorage，不入工作区）：关于我/步长/语气/关注、断点与复盘开关、引导与已复盘标记；draft/review 请求
 │   ├── review-summary.ts   # Up to 24 device-local period summaries, exact-prompt fingerprints, shared requests and generation invalidation
-│   ├── feedback.ts         # Command feedback policy, committed destinations, partial-restore warnings and reading durations
-│   └── use-workspace.ts    # Authoritative snapshots, post-layout feedback, completion events, session undo and receipt recovery
+│   ├── feedback.ts         # Command feedback policy (moves/advances are silent), committed destinations, partial-restore warnings and reading durations
+│   └── use-workspace.ts    # Authoritative snapshots, post-layout feedback, completion events, session undo, reserved detail writes and receipt recovery
 ├── i18n/
 │   ├── index.ts             # 唯一文案入口：当前语言的实时视图（原地替换，不重挂载）、setLocale/useLocale
 │   ├── format.ts            # 按当前语言的 Intl 日期/星期/时间/数字格式
@@ -131,11 +134,11 @@ renderer/
 
 `App → features → components / state / i18n / lib`；跨功能数据类型来自 `shared/contracts`，不从另一个功能的组件反向导入。通用 UI 不依赖 features，业务规则属于 domain/main。仅一个功能使用的组件放在该功能内，多处复用时再提升到 components。
 
-取消/失败不乐观伪造业务结果。UndoSession 只保存已提交的用户操作 ID；历史与业务数据不复制进本地状态。未保存草稿保留到明确保存或放弃；整库代次更换销毁旧弹窗、Toast、栈与缓存。链接预览只派生显示，任务原文、版本、历史与编辑字段不受影响；卡片图片来自 main 返回的受限 raster data URL，renderer 不请求远程页面。
+取消/失败不乐观伪造业务结果。UndoSession 只保存已提交的用户操作 ID；历史与业务数据不复制进本地状态。详情草稿静默自动保存，失败时保留并重试；新建草稿仍需明确确认或放弃；整库代次更换销毁旧弹窗、Toast、栈与缓存。链接预览只派生显示，任务原文、版本、历史与编辑字段不受影响；卡片图片来自 main 返回的受限 raster data URL，renderer 不请求远程页面。
 
 Descriptions keep Markdown strings in SQLite and load Lexical with the detail chunk. The editor preserves untouched source, owns local text undo, imports plain clipboard Markdown, and renders unsupported syntax inertly. Save receipts never replace newer input. Shared inline links display favicon/page-title metadata only for saved destinations; metadata never enters the document. Details omit separate link cards while board/list/history cards remain. Homepage description comparisons live only in ignored `output/prototypes/descriptions/`; production summaries still expose `hasDescription` without loading full bodies.
 
-Detail titles read as complete, naturally wrapping rich text, matching the full-text presentation on the board. Clicking title text or its edit affordance focuses a growing raw-text field; links remain separate external actions. Editing retains authored URLs/labels, the 500-character limit, composition protection and the detail's existing Save/Discard/receipt guards. Deleted titles are read-only. `DetailTitle` controls presentation/focus only; `ItemDetail` still owns the draft and persistence.
+Detail titles read as complete, naturally wrapping rich text, matching the full-text presentation on the board. Clicking title text or its edit affordance focuses a growing raw-text field; links remain separate external actions. Editing retains authored URLs/labels, the 500-character limit, composition protection and the detail's autosave/receipt guards. Deleted titles are read-only. `DetailTitle` controls presentation/focus only; `use-item-autosave` owns draft persistence and close-time draining.
 
 Each time column keeps dates and a contextual return/review action inline between compact arrows. Desktop titles align with row checkboxes; the previous arrow shares the flow dots' center line within the column's left gutter, with an extended hit area that avoids the title. Headings stay fixed on hover and keyboard focus. Header dates omit years, with absolute dates in tooltips; distant periods and non-current three-month cycles use the date itself as the heading. Navigation and quick add appear on column hover or header keyboard focus without layout shift; touch controls remain visible. Pointer navigation brings ready content in from the time direction over 220ms, cancelling superseded motion and synchronizing overlays. Keyboard navigation and reduced motion remain immediate. Past rows use live unfinished/completed/deleted tasks still placed in that period; completion/reopening and restore update groups without rewriting period-end history. Paging is filtered before totals and recovers from an emptied last page. Keyboard focus follows navigation and direct state changes.
 

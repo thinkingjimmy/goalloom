@@ -1,8 +1,8 @@
 /**
  * [INPUT]: 当前条目/关系/语义位置，以及不可变操作效果。
- * [OUTPUT]: 只检查本次效果字段和依赖的冲突原因、关系逆向差量。
+ * [OUTPUT]: Owned-field conflicts, including relation-owned color changes, and inverse edge deltas.
  * [POS]: 纯撤销规则库；事务层负责生命周期、DAG 和原子提交。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Effect, EdgeDelta, PositionEffect } from '../shared/contracts/effects'
 import type { Item, Relation } from '../shared/contracts/entities'
@@ -25,6 +25,7 @@ export function effectProblem(effect: Effect, item: Item, edges: Relation[], pos
   if (effect.kind === 'relations' || effect.kind === 'visibility') {
     if (effect.edges.some(delta => !sameEdge(edges.find(edge => edge.id === delta.after.id), delta.after))) return serverText().undo.relationsChanged
   }
+  if (effect.kind === 'relations' && effect.flowColor && item.flowColor !== effect.flowColor.after) return serverText().undo.flowColorChanged
   if (effect.kind === 'create') {
     if (item.archivedAt || !matchesStatus(item, effect.status) || item.placement.horizon !== effect.horizon || item.placement.periodId !== effect.periodId) return serverText().undo.createdChanged
     const incident = edges.filter(edge => !edge.invalidatedAt && (edge.parentId === item.id || edge.childId === item.id))

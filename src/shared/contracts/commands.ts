@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted command input and entity schemas.
- * [OUTPUT]: Finite commands with parent-group-aware moves, atomic order materialization, planning targets, generation/version guards and receipts.
+ * [OUTPUT]: Finite commands, opt-in atomic flow adoption, planning/order operations, generation/version guards and receipts.
  * [POS]: Write boundary; accepts neither SQL nor caller-defined effects.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -43,7 +43,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), parentOrder: z.boolean().optional() }),
   z.strictObject({ ...envelope, type: z.literal('materializeParentOrder') }),
-  z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive() }),
+  z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), adoptParentFlow: z.literal(true).optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('status'), status: statusSchema }),
   z.strictObject({ ...envelope, ...target, type: z.literal('archive'), archived: z.boolean() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('delete') }),

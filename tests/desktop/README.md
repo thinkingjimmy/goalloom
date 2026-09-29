@@ -19,11 +19,12 @@ desktop/
 ├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
 ├── relations.mjs        # Relation lines/dots with full task titles, matching endpoint sizes, dynamic popover positioning and board-ordered flow filters; row/column moves, undo, shortcuts and reload; relation-endpoints.json, flow-dot-position.json/screenshots and app-local failure diagnostics
+├── relation-drag.mjs    # Native relation dragging, atomic adoption/undo, receipt recovery, automatic order, cancellation, clipped autoscroll, future/done targets and five locales; output/tests/relation-drag
 ├── language.mjs         # System language, setup/settings switching, main/worker copy, persistence and translation checks; five-locale calendar screenshots, language-*.png and output/tests/language.json
 ├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and persistent partial-restore warnings; feedback.json and feedback-*.png
 ├── link-previews.mjs    # Link text, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
-├── ordering.mjs         # Parent ordering, group-aware drag, future materialization/undo, local preference restart and measured motion (output/tests/ordering)
+├── ordering.mjs         # Parent ordering, group-aware drag, future materialization/undo, receipt-first recovery, local preference restart and measured motion (output/tests/ordering)
 ├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
 ├── updates.mjs        # Settings › About: menu routing/re-targeting, real version and icon, update phases via the production event, top-bar/nav dots, menu relabelling; output/tests/updates/
 ├── update-install.mjs # Optional macOS: signed 90.0.0 app + 90.0.1 zip/latest-mac.yml on a 127.0.0.1 feed; UI check → download → install on quit; outside verify
@@ -42,6 +43,8 @@ desktop/
     ├── poll.mjs         # pollPage：轮询 renderer 里的异步桥接读取（page.waitForFunction 会把 async 谓词的 Promise 当作真值立即返回）
     ├── preview-breakpoints.mjs # Highlighted-chain actions, ancestor/sibling switching, multiple and mixed-horizon leaves, hover/focus retention, empty targets, multi-flow deduplication, descendant-linked creation and undo; called by insight.mjs
     ├── flow-dot-position.mjs # Bottom-edge menus, mode/search size changes, direct parent opening and scroll/resize geometry; real Electron/IPC and flow-dot-position-*.png
+    ├── relation-drag-data.ts # Production Repository/SQLite adoption rollback, receipts, conflict-safe undo and JSON/SQLite transfer validation under Electron
+    ├── relation-visibility.mjs # Raw Electron/CDP native hide/show cancellation without foreground emulation; called by relation-drag.mjs
     └── performance.ts   # 10,000 条目/1,000 活跃及真实历史，测恢复与延迟
 ```
 
@@ -71,13 +74,17 @@ Playwright 控制真实窗口，并关闭 CDP 默认的 unsafe-eval 绕过再验
 
 `fixtures/inline-link-regressions.mjs` adds legacy/null-icon cache enrichment, exact official provider PNG/ICO responses, failed/SVG/oversized icon fallback, request deduplication, unchanged metadata timestamps, natural Chinese-title/named-link wrapping and offline restart. `node tests/desktop/link-previews.mjs --inline` selects this regression during development, with evidence in `output/tests/link-previews/inline/`; the full links command includes it at completion. Provider responses are controlled at Electron's isolated session boundary; the production parser, byte validation, IPC, cache and renderer remain active.
 
-`fixtures/detail-titles.mjs` covers complete rich detail headings, first-line control alignment, title/link action separation, growing raw editing, composition/Escape/Enter, Save/Discard, saved-only metadata, authored labels, URL-only titles and deleted-item reading. `node tests/desktop/link-previews.mjs --titles` selects it with reports/screenshots in `output/tests/link-previews/titles/`; `pnpm test:links` includes it. Description, renderer-race, past/future-editing and feedback fixtures enter through the visible edit action or wait for the rendered title.
+`fixtures/detail-titles.mjs` covers complete rich detail headings, first-line control alignment, title/link action separation, growing raw editing, composition/Escape/Enter, autosave, saved-only metadata, authored labels, URL-only titles and deleted-item reading. `node tests/desktop/link-previews.mjs --titles` selects it with reports/screenshots in `output/tests/link-previews/titles/`; `pnpm test:links` includes it. Description, renderer-race, past/future-editing and feedback fixtures enter through the visible edit action or wait for the rendered title.
 
-`fixtures/description-checklists.mjs` covers checked/unchecked/uppercase/nested Markdown tasks, literal code, pointer/keyboard toggles, local undo/redo, draft-only changes, raw clipboard and persistence, list input/continuation/exit, themes and deleted-item reading. `node tests/desktop/descriptions.mjs --checklists` selects it under `output/tests/descriptions/checklists/`; the full `pnpm test:descriptions` includes it.
+`fixtures/description-checklists.mjs` covers checked/unchecked/uppercase/nested Markdown tasks, literal code, pointer/keyboard toggles, local undo/redo, immediate autosave, raw clipboard and persistence, list input/continuation/exit, themes and deleted-item reading. `node tests/desktop/descriptions.mjs --checklists` selects it under `output/tests/descriptions/checklists/`; the full `pnpm test:descriptions` includes it.
 
 `fixtures/description-selection.mjs` measures actual selected text and floating tools for first-line selection, scroll boundaries, off-screen anchors, window resizing and expanded link editing. It also checks Bold/undo, Escape and unchanged source. `node tests/desktop/descriptions.mjs --selection-tools` selects it under `output/tests/descriptions/selection-tools/`; the full description suite includes it. Geometry is measured in the production renderer inside native Electron, with no positioning mock.
 
-`pnpm test:descriptions` uses a fresh English-language native Electron profile with the production preload, main and SQLite. It covers Markdown shortcuts/nesting/exit, safe whole-document paste, preserved source, metadata without writes, formatting/link editing, clipboard source semantics, local undo, discard, composition-Enter protection, an authoritative save-receipt gate and the 100,000-character limit. Reports/screenshots live in `output/tests/descriptions/`. Composition events are synthesized; a physical OS input-method session and Windows/package acceptance are not claimed. Homepage browser prototypes have separate evidence in `output/tests/description-prototypes/`.
+`pnpm test:descriptions` uses a fresh English-language native Electron profile with the production preload, main and SQLite. It covers Markdown shortcuts/nesting/exit, safe whole-document paste, preserved source, metadata without writes, formatting/link editing, clipboard source semantics, local undo, autosave, composition-Enter protection, an authoritative save-receipt gate and the 100,000-character limit. `--editing` selects the base editing journey; reports/screenshots live in `output/tests/descriptions/` (or its `editing/` subdirectory). Composition events are synthesized; a physical OS input-method session and Windows/package acceptance are not claimed. Homepage browser prototypes have separate evidence in `output/tests/description-prototypes/`.
+
+`autosave.mjs`: Real Electron/SQLite autosave, delayed and unknown receipts, invalid input, property actions, native close/reopen, composer quit cancellation and application restart. Synthetic data only; repeatable evidence in `output/tests/autosave/`. `fixtures/detail-save.mjs` waits for committed detail state without an obsolete Save button; its finish helper also blurs the editor.
+
+`relation-drag.mjs` uses `fixtures/relation-visibility.mjs` for its explicit native hide/show contract: raw Electron and CDP `noDefaults` preserve actual `document.visibilityState`. Relation fault injection wraps main IPC while retaining production transactions and receipts; it never replaces the renderer bridge.
 
 The link probe sizes the native Electron window before wheel input without forcing activation. CDP viewport emulation alone can put a visible screenshot target outside the native compositor's bounds; the report records both geometries, focus, wheel delivery and the resulting scroll offset.
 

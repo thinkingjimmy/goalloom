@@ -4,6 +4,7 @@
  * [POS]: Description-feature acceptance; checklist state belongs only to the saved Markdown.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { waitForDetailSave } from './detail-save.mjs'
 import assert from 'node:assert/strict'
 import { urls } from './link-preview-cache.mjs'
 import { pollPage } from './poll.mjs'
@@ -31,13 +32,14 @@ export async function verifyDescriptionChecklists({ app, page, create, open, clo
   const before = await stored(id)
   await first().click({ position: { x: 8, y: 12 } })
   assert.equal(await first().getAttribute('aria-checked'), 'true')
-  assert.deepEqual(await stored(id), before, 'Toggling only changes the description draft')
+  await waitForDetailSave(page)
+  assert.match((await stored(id)).description, /- \[x\] Read/)
   await page.keyboard.press('ControlOrMeta+z')
   await pollPage(page, () => document.querySelector('.description-content [role="checkbox"]')?.getAttribute('aria-checked') === 'false')
   assert.equal(await detail().locator('.save-bar').count(), 0)
   await page.keyboard.press('ControlOrMeta+Shift+z')
   await pollPage(page, () => document.querySelector('.description-content [role="checkbox"]')?.getAttribute('aria-checked') === 'true')
-  await detail().getByRole('button', { name: 'Discard', exact: true }).click()
+  await first().press('ControlOrMeta+z'); await save()
   assert.equal(await first().getAttribute('aria-checked'), 'false')
   await first().press('Space')
   assert.equal(await first().getAttribute('aria-checked'), 'true', 'Space toggles a focused checklist marker')
@@ -65,7 +67,7 @@ export async function verifyDescriptionChecklists({ app, page, create, open, clo
   await first().locator('strong').click()
   assert.equal(await first().getAttribute('aria-checked'), 'true', 'Editing text does not toggle its checkbox')
   checks.push('Existing/nested/uppercase checklists render without writes; code stays literal and title-only saves retain original source')
-  checks.push('Pointer/Space, undo/redo, Discard, Save/reopen and Markdown copy retain state, formatting and original URLs without completing the parent')
+  checks.push('Pointer/Space, undo/redo, autosave/reopen and Markdown copy retain state, formatting and original URLs without completing the parent')
 
   const execute = action => page.evaluate(async action => {
     const { workspace } = await window.goalloom.getSnapshot()

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted v1-v5 datasets or exclusively owned normalized rows, plus an observation time.
- * [OUTPUT]: Entity, date, DAG, effect (including bulk order receipts), marker/inverse and event-chain integrity validation.
+ * [OUTPUT]: Entity, date, DAG, effect (including relation-owned adoption colors and bulk order receipts), marker/inverse and event-chain integrity validation.
  * [POS]: Shared JSON/SQLite import rules; indexed references and one event ordering, without IO.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -190,6 +190,12 @@ function validateEffect(effect: Effect, items: Map<string | number, unknown>, pe
   }
 }
 function validateKind(operation: Dataset['operations'][number], version: Dataset['schemaVersion']): void {
+  for (const effect of operation.effects) if (effect.kind === 'relations' && effect.flowColor) {
+    const edge = effect.edges[0]
+    requireValid(operation.kind === 'link' && operation.effects.length === 1 && effect.edges.length === 1 && edge?.before === null
+      && edge.after.childId === effect.itemId && edge.after.createdAt === operation.at && edge.after.invalidatedAt === null,
+    serverText().import.effectKindNotAllowed)
+  }
   requireValid(operation.kind !== 'createPlan' || version >= 3, serverText().import.legacyPlan)
   const allowed: Record<string, Effect['kind'][]> = { create: ['create'], createPlan: ['create'], insertBetween: ['create', 'relations'], edit: [], flowColor: [], move: ['position'], materializeParentOrder: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
   requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), serverText().import.effectKindNotAllowed)

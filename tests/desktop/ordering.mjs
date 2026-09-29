@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build and an isolated Repository/SQLite ordering fixture.
- * [OUTPUT]: Repeatable ordering/motion assertions with row-endpoint alignment, a video, screenshots and runtime/transaction JSON.
+ * [OUTPUT]: Ordering/motion and receipt-first recovery assertions with endpoint alignment, video, screenshots and runtime/transaction JSON.
  * [POS]: Focused desktop acceptance; observes real animation and IPC, with native sizing only during setup.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -290,7 +290,7 @@ try {
   const beforeFailure = await raw('month')
   await application.evaluate(({ ipcMain }) => {
     const command = ipcMain._invokeHandlers.get('goalloom:command'), query = ipcMain._invokeHandlers.get('goalloom:query')
-    globalThis.orderingFault = { mode: 'reject', commands: [], receiptFailed: false }
+    globalThis.orderingFault = { mode: 'reject', commands: [], receipts: [], receiptFailed: false }
     ipcMain.removeHandler('goalloom:command'); ipcMain.removeHandler('goalloom:query')
     ipcMain.handle('goalloom:command', async (event, input) => {
       const fault = globalThis.orderingFault
@@ -303,6 +303,7 @@ try {
     })
     ipcMain.handle('goalloom:query', (event, input) => {
       const fault = globalThis.orderingFault
+      if (input.type === 'receipt') fault.receipts.push(input.operationId)
       if (input.type === 'receipt' && fault.mode === 'receipt') { fault.mode = 'none'; fault.receiptFailed = true; throw new Error('Injected temporarily unavailable receipt') }
       return query(event, input)
     })
@@ -312,7 +313,7 @@ try {
   assert.equal(await toggle().getAttribute('aria-checked'), 'true')
   assert.equal(await page.evaluate(() => localStorage.getItem('goalloom.parent-order')), 'true')
   assert.deepEqual(await raw('month'), beforeFailure)
-  await application.evaluate(() => { globalThis.orderingFault.mode = 'unknown'; globalThis.orderingFault.commands = [] })
+  await application.evaluate(() => { globalThis.orderingFault.mode = 'unknown'; globalThis.orderingFault.commands = []; globalThis.orderingFault.receipts = [] })
   await toggle().click()
   await page.getByRole('alert').filter({ hasText: '尚未确认保存结果' }).waitFor()
   assert.equal(await toggle().getAttribute('aria-checked'), 'true')
@@ -322,7 +323,8 @@ try {
   await page.waitForFunction(() => localStorage.getItem('goalloom.parent-order') === 'false')
   await ordered('month', ['C1', 'A2', 'A1', 'B1', 'Unlinked'])
   const fault = await application.evaluate(() => globalThis.orderingFault)
-  assert.equal(fault.receiptFailed, true); assert.equal(fault.commands.length, 2); assert.equal(fault.commands[0], fault.commands[1])
+  assert.equal(fault.receiptFailed, true); assert.equal(fault.commands.length, 1)
+  assert.deepEqual(fault.receipts, [fault.commands[0], fault.commands[0]], 'Recovery queries the original receipt without resubmitting the committed write')
   await open(); assert.equal(await toggle().getAttribute('aria-checked'), 'false'); await close()
   report.checks.push('Rejected saving leaves auto order enabled; a lost committed response and unavailable receipt keep writes locked until the same operation is recovered without duplicate writes')
 

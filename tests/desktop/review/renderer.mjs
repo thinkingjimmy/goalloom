@@ -37,7 +37,7 @@ await page.addInitScript(()=>{
  r.smartEnabled = !location.search.includes('plain')
  const blank={credential:'missing',keyHint:null,consentedAt:null,verifiedAt:null,capabilities:{jev:null,chat:null},lastFailure:null,cooldownUntil:null}; const status=()=>({providers:{typesafe:{...blank,credential:'saved',keyHint:'abc',consentedAt:now,verifiedAt:now,capabilities:{jev:now,chat:null}},'vercel-gateway':blank,openrouter:blank},features:{smart:{provider:'typesafe',revision:1,enabled:r.smartEnabled,paused:false},insight:{provider:null,revision:0,enabled:false,paused:false}},dismissed:['globalEntry','smartSetup'],unsignedBuild:false})
  r.advance=()=>{r.snapshot.observedAt='2026-09-25T12:00:00.000Z';r.snapshot.workspace.revision++;r.snapshot.periods=r.snapshot.periods.map(p=>p.horizon==='day'?period('day','2026-09-25','2026-09-26'):p);r.listeners.forEach(f=>f(null))}
- window.goalloom={getLanguage:async()=>({language:'en',locale:'en',system:'en'}),getSnapshot:async()=>{if(r.delaySnapshot){r.delaySnapshot=false;await new Promise(resolve=>r.snapshotWaiter=resolve)}return structuredClone(r.snapshot)},onChanged:listener=>{r.listeners.push(listener);return()=>{r.listeners=r.listeners.filter(f=>f!==listener)}},getItem:async id=>({item:structuredClone(r.snapshot.items.find(i=>i.id===id)),relations:[]}),getActivitySummary:async()=>({total:0,latest:null}),getCounts:async()=>({done:0,cancelled:0,archived:0,trash:0}),getBackupSummary:async()=>({latest:null,total:0}),getActivity:async()=>({events:[],more:false}),listItems:async()=>({items:[],total:0}),smart:async action=>{
+ window.goalloom={onBeforeClose:()=>()=>{},getLanguage:async()=>({language:'en',locale:'en',system:'en'}),getSnapshot:async()=>{if(r.delaySnapshot){r.delaySnapshot=false;await new Promise(resolve=>r.snapshotWaiter=resolve)}return structuredClone(r.snapshot)},onChanged:listener=>{r.listeners.push(listener);return()=>{r.listeners=r.listeners.filter(f=>f!==listener)}},getItem:async id=>({item:structuredClone(r.snapshot.items.find(i=>i.id===id)),relations:[]}),getActivitySummary:async()=>({total:0,latest:null}),getCounts:async()=>({done:0,cancelled:0,archived:0,trash:0}),getBackupSummary:async()=>({latest:null,total:0}),getActivity:async()=>({events:[],more:false}),listItems:async()=>({items:[],total:0}),smart:async action=>{
   if(action.type==='status')return {type:'status',status:status(),test:null}
   if(action.type!=='analyze')return {type:'cancelled'}
   r.analyses.push(action.request)
@@ -113,15 +113,20 @@ try{
  await page.getByRole('button',{name:'Clear draft',exact:true}).click()
  // Async detail save.
  await page.getByRole('button',{name:'Original title',exact:true}).click();await page.getByRole('button',{name:'Edit title',exact:true}).click();await page.locator('.title-input').fill('Saved text');await page.evaluate(()=>review.delayExecute=true)
- await page.locator('.save-bar .primary').click();await page.waitForFunction(()=>review.executeWaiters.length===1)
- await page.getByRole('button',{name:'Edit title',exact:true}).click()
+ await page.waitForFunction(()=>review.executeWaiters.length===1)
  await page.locator('.title-input').fill('New unsaved text entered during save')
  const typed=await page.locator('.title-input').inputValue()
- await page.evaluate(()=>{review.delayExecute=false;review.executeWaiters.shift()()});await page.waitForTimeout(300)
+ await page.evaluate(()=>{review.delayExecute=false;review.executeWaiters.shift()()});await page.locator('dialog.detail .detail-body[data-save-state="saved"]').waitFor()
  result.checks.push({case:'detail-save',typed,after:await page.locator('.title-input').inputValue(),stored:await page.evaluate(()=>review.snapshot.items[0].title)})
  await page.screenshot({path:`${evidence}/detail-save.png`})
+ // A workspace replacement invalidates a pending detail debounce.
+ await page.locator('.title-input').fill('Must not enter the replacement workspace')
+ await page.evaluate(()=>{review.snapshot.workspace.generation='replacement-generation';review.snapshot.workspace.revision++;review.listeners.forEach(listener=>listener(null))})
+ await page.locator('dialog.detail').waitFor({state:'hidden'})
+ await page.waitForTimeout(550)
+ assert(!await page.evaluate(()=>review.commands.some(command=>command.title==='Must not enter the replacement workspace')))
+ result.checks.push({case:'detail-generation',staleDraftSubmitted:false})
  // QuickAdd continuous entry while a save is pending.
- await page.locator('dialog.detail .modal-header').getByRole('button',{name:'Close',exact:true}).click()
  await page.getByRole('button',{name:'Add to Later',exact:true}).click()
  await page.locator('.quick-add input').fill('First task');await page.evaluate(()=>review.delayExecute=true)
  await page.locator('.quick-add input').press('Enter');await page.waitForFunction(()=>review.executeWaiters.length===1)
@@ -152,7 +157,7 @@ try{
  assert.ok(check('preview-period').after.submitted.every(id=>id==='c:day:2026-09-25'))
  assert.deepEqual(check('removed-draft').after,['Beta'])
  assert.equal(check('detail-save').after,check('detail-save').typed)
- assert.equal(check('detail-save').stored,'Saved text')
+ assert.equal(check('detail-save').stored,check('detail-save').typed)
  assert.equal(check('quick-add-save').after,check('quick-add-save').typed)
  assert.equal(check('trash-last-page').visibleRows,50)
  await page.locator('dialog.settings-modal .modal-header').getByRole('button',{name:'Close',exact:true}).click()
@@ -168,17 +173,15 @@ try{
  await page.getByRole('button',{name:'Clear draft',exact:true}).click()
  // Acceptance also waits for a snapshot. Typing in that second window must survive.
  for(const kind of ['detail','quick-add','composer']) {
-  if(kind==='detail') { await page.getByRole('button',{name:'Saved text',exact:true}).click();await page.getByRole('button',{name:'Edit title',exact:true}).click() }
+  if(kind==='detail') { await page.getByRole('button',{name:'New unsaved text entered during save',exact:true}).click();await page.getByRole('button',{name:'Edit title',exact:true}).click() }
   else if(kind==='quick-add') await page.getByRole('button',{name:'Add to Later',exact:true}).click()
   else await page.locator('.fab').click()
   const field=page.locator(kind==='detail'?'.title-input':kind==='quick-add'?'.quick-add input':'.composer-input')
   await field.fill(`${kind} submitted`)
   await page.evaluate(()=>review.delaySnapshot=true)
-  if(kind==='detail') await page.locator('.save-bar .primary').click()
-  else if(kind==='quick-add') await field.press('Enter')
-  else await page.locator('.composer-primary').click()
+  if(kind==='quick-add') await field.press('Enter')
+  else if(kind==='composer') await page.locator('.composer-primary').click()
   await page.waitForFunction(()=>Boolean(review.snapshotWaiter))
-  if(kind==='detail') await page.getByRole('button',{name:'Edit title',exact:true}).click()
   await field.fill(`${kind} typed during snapshot refresh`)
   await page.evaluate(()=>{review.snapshotWaiter();review.snapshotWaiter=null})
   await page.waitForTimeout(200)

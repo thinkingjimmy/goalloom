@@ -115,7 +115,7 @@ async function createWindow(): Promise<void> {
     },
   })
   restrictWindow(window)
-  protectWindowClose(window)
+  protectWindowClose(window, trustedUrl)
   window.webContents.on('did-start-navigation', details => { if (details.isMainFrame && !details.isSameDocument) releaseRenderer?.() })
   window.webContents.on('render-process-gone', () => releaseRenderer?.())
   window.webContents.on('destroyed', () => releaseRenderer?.())

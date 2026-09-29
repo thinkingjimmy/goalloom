@@ -2,7 +2,7 @@
  * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later visibility and fixed planning columns, guarded actions and flow-insight hooks.
  * [OUTPUT]: A title-as-switcher period header (header B: period panel, ←/→ stepping), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
- *           Exposes `data-filtered` so cycle TODO dots remain hover/focus controls under a selected flow.
+ *           Owns independent relation dragging/prepared writes and virtual source pinning; exposes filter/linking states for row styling.
  *           Flow insight: one breakpoint layer for filtered flows or the highlighted preview chain, retained pending actions across hover exits, empty-column cards, quiet review prompts under column headers and per-row next steps.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -15,7 +15,7 @@ import { horizons } from '../../../shared/contracts/values'
 import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { messages, horizonNames, insightMessages, useLocale } from '../../i18n'
-import type { Action } from '../../state/use-workspace'
+import type { Action, PreparedWrite } from '../../state/use-workspace'
 import { activeFlowGraph, flowChain, type Flows } from '../../state/flows'
 import type { BoardView } from '../../state/board-periods'
 import { useRelationLines } from '../../state/relation-lines'
@@ -30,6 +30,7 @@ import { RelationLines } from './RelationLines'
 import { TaskRow } from './TaskRow'
 import { VirtualRows, revealRow } from './VirtualRows'
 import { useBoardDrag } from './useBoardDrag'
+import { RelationDragContext, RelationDragOverlay, useRelationDrag } from './RelationDrag'
 import { BoardLayout } from './BoardLayout'
 import { usePeriodMotion } from './usePeriodMotion'
 import { PeriodPicker } from './PeriodPicker'
@@ -43,13 +44,14 @@ import type { ComposerSeed } from '../composer/Seeded'
 
 export interface AddRequest { seq: number; horizon: ItemHorizon | null; split: SplitParent | null }
 export interface BoardInsight { ready: boolean; seed: (seed: Omit<ComposerSeed, 'key'>) => void; due: ReviewDue | null; review: (due: ReviewDue) => void }
-interface BoardProps { snapshot: Snapshot; view: BoardView; flows: Flows; filter: string | null; columns: ItemHorizon[]; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void; insight: BoardInsight }
+interface BoardProps { snapshot: Snapshot; view: BoardView; flows: Flows; filter: string | null; columns: ItemHorizon[]; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void; insight: BoardInsight; write: PreparedWrite; relationBlocked: boolean; onError: (message: string) => void }
 
-export const Board = memo(function Board({ snapshot, view, flows, filter, columns, highlighted, addRequest, submit, busy, select, insight }: BoardProps) {
+export const Board = memo(function Board({ snapshot, view, flows, filter, columns, highlighted, addRequest, submit, busy, select, insight, write, relationBlocked, onError }: BoardProps) {
   useLocale()
   useEffect(() => { if (highlighted) { const frame = requestAnimationFrame(() => revealRow(highlighted)); return () => cancelAnimationFrame(frame) } }, [highlighted])
   const drag = useBoardDrag({ snapshot, view, columns, busy, submit })
   const { items, dragging } = drag
+  const relationDrag = useRelationDrag({ snapshot, view, blocked: relationBlocked || !!dragging, write, onError })
   const byColumn = useMemo(() => new Map(horizons.map(horizon => [horizon, items.filter(item => item.placement.horizon === horizon)])), [items])
   useEffect(() => {
     const request = view.locating, item = request && items.find(item => item.id === request.id)
@@ -101,9 +103,9 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const empty = useMemo(() => emptyColumns(snapshot, columns, view.mode), [snapshot, columns, view.mode])
   const column = (horizon: ItemHorizon) => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!} visible={columns.includes(horizon)}
     snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
-    dragging={dragging} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? empty.get(horizon as never) ?? null : null} />
-  return <DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
-    <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null}
+    dragging={dragging} relationSource={relationDrag.sourceId} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? empty.get(horizon as never) ?? null : null} />
+  return <RelationDragContext.Provider value={relationDrag.actions}><DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
+    <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null} data-linking={relationDrag.sourceId ? 'true' : undefined}
       onPointerOver={holdPreview} onPointerOut={leavePreview} onFocus={holdPreview} onBlur={leavePreview}>
       {/* Keyed by the filtered flow so switching flows replays the draw-in; a hover preview never animates in. */}
       {lines && <RelationLines key={`lines:${filter ?? 'preview'}`} items={items} graph={graph} flows={flows} focus={previewKey ? preview : null} animate={filter !== null} columns={columns} />}
@@ -111,18 +113,20 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
       <BoardLayout open={columns.includes('later')} sidebar={column('later')}>
         {columns.filter(horizon => horizon !== 'later').map(column)}
       </BoardLayout>
+      <RelationDragOverlay drag={relationDrag} />
     </main>
     {/* The placement preview owns the drop; outer rows animate from the release position. */}
     <DragOverlay dropAnimation={null}>{dragging ? <div className="drag-overlay">{items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
-  </DndContext>
+  </DndContext></RelationDragContext.Provider>
 })
 
-const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, insight, sources }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter'> & {
+const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, relationSource, insight, sources }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
   sources: ItemSummary[] | null
   active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
   horizon: ItemHorizon; items: ItemSummary[]; today: string; visible: boolean
   adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number } | null
   dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean) => void
+  relationSource: string | null
   onFocus: (horizon: ItemHorizon, editable: boolean) => void
 }) {
   useLocale()
@@ -253,14 +257,14 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
         {loading && items.length === 0 && <p className="period-loading" role="status">{messages.loadingPeriod}</p>}
         {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <button className="text-button" onClick={view.retry}>{messages.retryPeriod}</button></p>}
         <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
-          <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:todo`} items={todo} dragging={dragging} highlighted={highlighted} pinned={menuItem} render={row} />
+          <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:todo`} items={todo} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} render={row} />
           {adding && <QuickAdd key={`${adding.period?.id ?? 'later'}:${adding.key}`} horizon={horizon} period={adding.period} periodName={adding.period ? planningLabel(adding.period, calendar, snapshot.observedAt) : name}
             expired={!!adding.period && compareInstants(adding.period.endAt, snapshot.observedAt) <= 0} drafts={drafts.current} retarget={() => {
               const draft = drafts.current.get(adding.period?.id ?? 'later')
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
               setAdding(true)
             }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} />}
-          {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} render={row} />}</details>}
+          {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} render={row} />}</details>}
         </SortableContext>
         {items.length === 0 && !adding && !loading && !failed && sources && <EmptyCard horizon={horizon as 'month' | 'week' | 'day'} sources={sources} period={current!} insight={insight} disabled={disabled} />}
         {items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}

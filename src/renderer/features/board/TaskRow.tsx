@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
- * [OUTPUT]: Accessible task row with saved links, a due indicator, a description signal/peek between title and link cards, flow dot, pointer/keyboard drag and TODO context menu; lit rows carry `data-lit` and `--row-tint`.
+ * [OUTPUT]: Accessible task row with saved links, a due indicator, a description signal/peek between title and link cards, flow dot with independent relation dragging, pointer/keyboard placement drag and TODO context menu; lit rows carry `data-lit` and `--row-tint`.
  * [POS]: One virtual board row; Board owns placement, preview and dimming; the peek and detail own description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -42,7 +42,7 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
   </div>
   const row = <article role="listitem" aria-posinset={index + 1} aria-setsize={total} id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-highlighted={selected} data-dimmed={dimmed} data-done={done} data-lit={!!tint || undefined}
     style={{ transform: CSS.Transform.toString(transform), transition, '--row-tint': tint } as CSSProperties} onPointerDown={event => { if (event.button === 0 && !event.ctrlKey) (listeners?.onPointerDown as PointerEventHandler | undefined)?.(event) }}>
-    <FlowDot item={item} flows={flows} relations={relations} candidates={candidates} submit={submit} onPreview={onPreview} />
+    <FlowDot item={item} flows={flows} relations={relations} candidates={candidates} disabled={disabled} submit={submit} onPreview={onPreview} />
     <button className="drag-handle" {...attributes} onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined} aria-label={messages.dragItem(item.title)}><Icon name="drag" size={14} /></button>
     <button className="check" data-checked={done} style={ring} title={owners ? messages.labelled(messages.flow, owners) : undefined}
       aria-label={`${done ? messages.reopen : messages.complete} ${item.title}`} disabled={disabled}

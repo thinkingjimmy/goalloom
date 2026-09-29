@@ -155,6 +155,8 @@ export const appMessages: typeof source = {
     archiveChanged: 'L’état d’archivage a changé depuis',
     positionChanged: 'L’emplacement ou l’ordre des voisins a changé',
     visibilityChanged: 'La suppression ou la restauration a changé depuis',
+    flowColorChanged: "La couleur du flux a changé ; la fusion ne peut pas être annulée sans risque",
+    adoptionParentsChanged: "Des parents ont été ajoutés après la fusion ; le flux indépendant ne peut pas être restauré sans risque",
     relationsChanged: 'Ce lien a changé depuis',
     createdChanged: 'L’état ou la planification du nouvel élément a changé',
     createdRelationsChanged: 'Les liens du nouvel élément ont changé',

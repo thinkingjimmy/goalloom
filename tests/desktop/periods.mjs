@@ -4,6 +4,7 @@
  * [POS]: Focused desktop acceptance; fixture refresh emits a main-process notification without native activation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishDetailEditing } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { stepPeriod } from './fixtures/period-step.mjs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -71,8 +72,7 @@ try {
     await action.click()
     await pollPage(page, async ({ id, period }) => (await window.goalloom.getItem(id)).item.placement.periodId !== period, { id, period: before.item.placement.periodId })
     await row(id).waitFor({ state: 'detached' })
-    await page.locator('.toast').filter({ hasText: '已移到' }).waitFor()
-    assert(!/往期/.test(await page.locator('.toast').innerText()))
+    assert.equal(await page.locator('.toast').count(), 0, 'Advance is silent')
     return before
   }
 
@@ -237,7 +237,7 @@ try {
 
   await advance(ids.week, null, 'context-menu-further-period')
   const further = (await item(ids.week)).period
-  await page.locator('.toast').getByRole('button', { name: /撤销/ }).click()
+  await page.keyboard.press('ControlOrMeta+z')
   await row(ids.week).waitFor()
   assert.equal((await item(ids.week)).period.id, next.find(period => period.horizon === 'week').id)
   await dismissToast()
@@ -247,7 +247,7 @@ try {
   await row(ids.week).locator('.task-title').click()
   await page.locator('dialog.detail').getByRole('button', { name: '编辑标题', exact: true }).click()
   await page.locator('dialog.detail .title-input').fill('Edited future task')
-  await page.locator('dialog.detail').getByRole('button', { name: /^保存/ }).click()
+  await finishDetailEditing(page)
   await pollPage(page, async id => (await window.goalloom.getItem(id)).item.title === 'Edited future task', ids.week)
   assert.match(await page.locator('dialog.detail .placement-chip').innerText(), new RegExp(further.startDate.slice(0, 4)))
   await page.locator('dialog.detail .placement-chip').click()
@@ -272,7 +272,7 @@ try {
   await row(ids.week).waitFor()
   assert.equal(await column('week').getAttribute('data-period-id'), further.id)
   await shot('future-board')
-  checks.push('Continuous postponement, Toast undo, future editing, move back to this week, effect-scoped undo and search/detail locate')
+  checks.push('Silent continuous postponement, keyboard undo, future editing, move back to this week, effect-scoped undo and search/detail locate')
 
   const virtualIds = await page.evaluate(async startDate => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation

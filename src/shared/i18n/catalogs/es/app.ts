@@ -154,6 +154,8 @@ export const appMessages: typeof source = {
     archiveChanged: 'El estado de archivo cambió después',
     positionChanged: 'La ubicación o el orden de sus vecinos cambió',
     visibilityChanged: 'La eliminación o recuperación cambió después',
+    flowColorChanged: "El color del flujo ha cambiado y no se puede deshacer la unión con seguridad",
+    adoptionParentsChanged: "Se añadieron superiores después de la unión y no se puede restaurar el flujo independiente con seguridad",
     relationsChanged: 'Este vínculo cambió después',
     createdChanged: 'El elemento creado ya cambió de estado o de plan',
     createdRelationsChanged: 'Cambiaron los vínculos de los que depende el elemento creado',

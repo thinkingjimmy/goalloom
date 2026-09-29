@@ -1,9 +1,10 @@
 /**
  * [INPUT]: Built Electron, isolated profiles, real workspace dates and production IPC/storage.
  * [OUTPUT]: Deadline-calendar interaction reports and localized/theme screenshots under output/tests/due-calendar/.
- * [POS]: Native desktop acceptance of draft-only date selection, keyboard navigation, focus, clipping and persistence.
+ * [POS]: Native desktop acceptance of immediate detail date persistence, keyboard navigation, focus, clipping and persistence.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { waitForDetailSave } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -80,17 +81,25 @@ for (const weekStart of [1, 7]) {
     await page.keyboard.press('Enter')
     await panel.waitFor({ state: 'detached' })
     assert.equal(await trigger.evaluate(node => node === document.activeElement), true)
-    assert.equal((await stored()).dueDate, '2028-01-31', 'selection must not write before Save')
-    await detail.locator('.save-bar .primary').click()
+    await waitForDetailSave(page)
     await pollPage(page, async id => (await window.goalloom.getItem(id)).item.dueDate === '2028-02-29', itemId)
     assert.deepEqual((await stored()).placement, placement)
-    check('month/year keys clamp at leap boundaries; Enter edits only the draft and Save preserves placement')
+    check('month/year keys clamp at leap boundaries; Enter autosaves the selected date and preserves placement')
 
     await trigger.click()
+    await panel.evaluate(element => {
+      const events = window.dueHintTrace = []
+      const record = (kind, event) => events.push({ kind, key: event?.key, focused: document.hasFocus(), tooltip: !!element.querySelector('[role=tooltip]'), active: document.activeElement?.className, at: performance.now() })
+      const info = element.querySelector('.due-info')
+      for (const kind of ['pointerenter', 'pointerleave']) info.addEventListener(kind, event => record(kind, event))
+      element.addEventListener('keydown', event => record('keydown', event), true)
+      new MutationObserver(() => record('mutation')).observe(info, { childList: true, subtree: true })
+    })
     await panel.getByRole('button', { name: '关于截止日期' }).hover()
     await panel.getByRole('tooltip').waitFor()
     assert.match(await panel.getByRole('tooltip').innerText(), /不会移动任务/)
-    await panel.screenshot({ path: `${out}/info-hover.png` })
+    // Element screenshots may scroll the floating panel and end hover before Escape; capture without moving its viewport.
+    await page.screenshot({ path: `${out}/info-hover.png` })
     await page.keyboard.press('Escape')
     assert.equal(await panel.getByRole('tooltip').count(), 0)
     assert.equal(await panel.count(), 1)
@@ -116,16 +125,15 @@ for (const weekStart of [1, 7]) {
     assert.equal(await focusedDate(), today)
     assert.equal((await stored()).dueDate, '2028-02-29')
     await panel.getByRole('button', { name: '清除截止日期', exact: true }).click()
-    assert.equal((await stored()).dueDate, '2028-02-29')
-    await detail.locator('.save-bar .primary').click()
+    await waitForDetailSave(page)
     await pollPage(page, async id => (await window.goalloom.getItem(id)).item.dueDate === null, itemId)
     await trigger.click()
     assert.equal(await panel.getByRole('button', { name: '清除截止日期', exact: true }).isDisabled(), true)
     await panel.getByRole('button', { name: /^明天 ·/ }).click()
-    await detail.locator('.save-bar .primary').click()
+    await waitForDetailSave(page)
     await pollPage(page, async ([id, date]) => (await window.goalloom.getItem(id)).item.dueDate === date, [itemId, shift(today, 1)])
     assert.deepEqual((await stored()).placement, placement)
-    check('month chooser, return to today, clear and compact presets preserve explicit saving and placement')
+    check('month chooser, return to today, clear and compact presets preserve immediate detail saving and placement')
 
     await trigger.click()
     const description = detail.getByRole('textbox', { name: '说明', exact: true })
@@ -184,7 +192,7 @@ for (const weekStart of [1, 7]) {
   } catch (error) {
     if (page) {
       await page.screenshot({ path: `${out}/failure.png` }).catch(() => undefined)
-      report.failure = { message: String(error), focus: await page.evaluate(() => ({ active: document.activeElement?.outerHTML, focused: document.hasFocus(), visibility: document.visibilityState })).catch(() => null) }
+      report.failure = { message: String(error), hintTrace: await page.evaluate(() => window.dueHintTrace ?? null).catch(() => null), focus: await page.evaluate(() => ({ active: document.activeElement?.outerHTML, focused: document.hasFocus(), visibility: document.visibilityState })).catch(() => null) }
       await writeFile(`${out}/failure.json`, JSON.stringify(report, null, 2))
     }
     throw error

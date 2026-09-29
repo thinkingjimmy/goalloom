@@ -4,6 +4,7 @@
  * [POS]: History acceptance scenarios using real UI commands and the validated production bridge.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishDetailEditing } from './detail-save.mjs'
 import assert from 'node:assert/strict'
 import { pollPage } from './poll.mjs'
 
@@ -71,7 +72,7 @@ export async function verifyPastEditing(page, column, fixture) {
   await detail(page).getByRole('button', { name: '编辑标题', exact: true }).click()
   await detail(page).getByRole('textbox', { name: '标题', exact: true }).fill('Edited past task')
   await detail(page).getByRole('textbox', { name: '说明', exact: true }).fill('Saved after the original period ended.')
-  await detail(page).getByRole('button', { name: /^保存/ }).click()
+  await finishDetailEditing(page)
   await pollPage(page, async id => (await window.goalloom.getItem(id)).item.title === 'Edited past task', fixture.finishedId)
   await closeDetail(page)
   await row(fixture.finishedId).getByRole('button', { name: 'Edited past task', exact: true }).waitFor()

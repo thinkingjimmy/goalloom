@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Zod, lightweight locale/language values and minimum runtime diagnostics.
- * [OUTPUT]: Fixed GoalloomApi for selected-period reads, editable past-task pages, immutable history, language preferences, bounded links/browser opening and software updates.
+ * [OUTPUT]: Fixed GoalloomApi for selected-period reads, editable past-task pages, immutable history, language preferences, bounded links/browser opening, software updates and a close-time drain callback.
  * [POS]: Shared main/preload/renderer boundary without generic IPC, SQL or file access.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -56,4 +56,5 @@ export interface GoalloomApi {
   update(action: UpdateAction): Promise<UpdateInfo>
   onUpdate(listener: (info: UpdateInfo) => void): () => void
   onOpenAbout(listener: () => void): () => void
+  onBeforeClose(listener: () => Promise<boolean>): () => void
 }

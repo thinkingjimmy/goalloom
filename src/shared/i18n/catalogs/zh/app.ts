@@ -153,6 +153,8 @@ export const appMessages = widen({
     archiveChanged: '归档状态已发生后续变化',
     positionChanged: '位置或依赖的相邻顺序已变化',
     visibilityChanged: '删除或还原已发生后续变化',
+    flowColorChanged: "流程颜色已改变，不能安全撤销合并",
+    adoptionParentsChanged: "合并后新增了上级，不能安全恢复独立流程",
     relationsChanged: '这次关系已经发生后续变化',
     createdChanged: '新建条目已有状态或计划变化',
     createdRelationsChanged: '新建条目的关联依赖已变化',

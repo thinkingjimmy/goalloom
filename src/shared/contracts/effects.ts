@@ -1,8 +1,8 @@
 /**
  * [INPUT]: 权威事务中的业务状态，不含正文。
- * [OUTPUT]: 版本化效果回执、事件和导入链字段；原回执不可变。
+ * [OUTPUT]: Immutable effects, including a relation-owned color delta for atomic flow adoption, and history events.
  * [POS]: domain 与 storage 共用的撤销/历史契约，renderer 不能提交这些类型。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { StatusGroup } from '../../domain/status'
 import type { Item, ItemHorizon, Relation } from './entities'
@@ -16,7 +16,7 @@ export type Effect =
   | { kind: 'position'; itemId: string; before: PositionEffect; after: PositionEffect }
   | { kind: 'archive'; itemId: string; before: string | null; after: string | null }
   | { kind: 'visibility'; itemId: string; before: { deletedAt: string | null; deletedBy: string | null }; after: { deletedAt: string | null; deletedBy: string | null }; edges: EdgeDelta[] }
-  | { kind: 'relations'; itemId: string; edges: EdgeDelta[] }
+  | { kind: 'relations'; itemId: string; edges: EdgeDelta[]; flowColor?: { before: number; after: null } | undefined }
 
 export interface BusinessState extends StatusGroup {
   horizon: ItemHorizon; periodId: string | null; archivedAt: string | null; deletedAt: string | null;

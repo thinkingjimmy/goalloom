@@ -154,6 +154,8 @@ export const appMessages: typeof source = {
     archiveChanged: 'The archive state has changed since',
     positionChanged: 'The position or neighboring order has changed',
     visibilityChanged: 'The deletion or restore has changed since',
+    flowColorChanged: "The flow color changed, so the merge cannot be safely undone",
+    adoptionParentsChanged: "Parents were added after merging, so the independent flow cannot be safely restored",
     relationsChanged: 'These links have changed since',
     createdChanged: 'The new item’s status or plan has changed',
     createdRelationsChanged: 'The new item’s link dependencies have changed',

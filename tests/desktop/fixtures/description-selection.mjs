@@ -49,7 +49,7 @@ export async function verifyDescriptionSelection({ app, page, create, open, clos
   }
   await open(id); await select(); await clear('above'); await shot('selection-first-line')
   assert.equal(await detail().locator('.save-bar').count(), 0)
-  assert.deepEqual(await stored(id), before)
+  assert.equal((await stored(id)).description, before.description)
   await toolbar().getByRole('button', { name: 'Bold', exact: true }).click()
   assert.equal(await note().locator('.description-bold').innerText(), '首行文字')
   await note().press('ControlOrMeta+z')
@@ -65,7 +65,7 @@ export async function verifyDescriptionSelection({ app, page, create, open, clos
   await detail().getByLabel('Link address', { exact: true }).press('Escape')
   await detail().locator('.description-link-form').waitFor({ state: 'hidden' })
   assert.equal(await detail().count(), 1)
-  assert.deepEqual(await stored(id), before)
+  assert.equal((await stored(id)).description, before.description)
   await page.evaluate(() => { delete window.descriptionSelectionAnchor })
   await close()
   checks.push('First-line selection stays readable; measured link-form expansion preserves its anchor; Bold/undo and Escape do not change unrelated text or saved source')

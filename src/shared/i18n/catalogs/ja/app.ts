@@ -154,6 +154,8 @@ export const appMessages: typeof source = {
     archiveChanged: 'アーカイブ状態がその後変更されています',
     positionChanged: '配置または依存する前後の順序が変更されています',
     visibilityChanged: '削除または復元がその後変更されています',
+    flowColorChanged: "フローの色が変更されたため、安全に統合を取り消せません",
+    adoptionParentsChanged: "統合後に親が追加されたため、独立したフローを安全に復元できません",
     relationsChanged: 'このリンクはその後変更されています',
     createdChanged: '新しく作成した項目の状態または計画が変更されています',
     createdRelationsChanged: '新しく作成した項目のリンクの依存関係が変更されています',

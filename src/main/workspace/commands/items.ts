@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated commands, current transaction context and explicit current/date/next targets.
- * [OUTPUT]: Atomic setup, group-checked placement and relationship changes with history and effect receipts.
+ * [OUTPUT]: Atomic setup, group-checked placement and relationship changes, including opt-in flow adoption with one undo effect.
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -124,13 +124,17 @@ export function linkItems(context: Context, command: CommandOf<'link'>): boolean
   const parent = context.store.item(command.parentId, command.expectedParentVersion)
   const child = context.store.item(command.childId, command.expectedChildVersion)
   assertAvailable(parent); assertAvailable(child)
-  if (child.flowColor !== null) throw new DomainError('conflict', serverText().errors.childIsFlow(child.title))
+  if (child.flowColor !== null && !command.adoptParentFlow) throw new DomainError('conflict', serverText().errors.childIsFlow(child.title))
   const problem = horizonProblem(parent.placement.horizon, child.placement.horizon) ?? relationProblem(parent.id, child.id, context.store.relations())
   if (problem) throw new DomainError('conflict', problem)
+  const flowColor = child.flowColor === null ? undefined : { before: child.flowColor, after: null }
+  // Persist the cleared color before adding an incoming edge so the root trigger stays authoritative.
+  child.flowColor = null
+  touch(context, child)
   const relation = newRelation(parent.id, child.id, context.now)
   context.store.saveRelation(relation)
-  touch(context, parent); touch(context, child)
-  context.effects.push({ kind: 'relations', itemId: child.id, edges: [{ before: null, after: relation }] })
+  touch(context, parent)
+  context.effects.push({ kind: 'relations', itemId: child.id, edges: [{ before: null, after: relation }], ...(flowColor ? { flowColor } : {}) })
   context.itemId = child.id
   context.label = serverText().labels.link
   return true

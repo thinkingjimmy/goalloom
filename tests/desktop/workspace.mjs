@@ -4,6 +4,7 @@
  * [POS]: Desktop workspace acceptance; uses the real preload, main and SQLite without production test hooks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishDetailEditing, waitForDetailSave } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -24,7 +25,7 @@ try {
   page.on('pageerror', error => console.error(error.message))
   await page.getByRole('textbox', { name: '三个月的方向', exact: true }).waitFor()
   console.log(await page.locator('body').ariaSnapshot())
-  assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getActivitySummary', 'getBackupSummary', 'getBatchItems', 'getBatches', 'getBoardPeriods', 'getCounts', 'getHistory', 'getHistoryIndex', 'getItem', 'getLanguage', 'getLinkPreview', 'getPastPeriod', 'getReceipt', 'getRuntime', 'getSnapshot', 'listItems', 'onChanged', 'onOpenAbout', 'onUpdate', 'openExternal', 'setLanguage', 'smart', 'update'])
+  assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getActivitySummary', 'getBackupSummary', 'getBatchItems', 'getBatches', 'getBoardPeriods', 'getCounts', 'getHistory', 'getHistoryIndex', 'getItem', 'getLanguage', 'getLinkPreview', 'getPastPeriod', 'getReceipt', 'getRuntime', 'getSnapshot', 'listItems', 'onBeforeClose', 'onChanged', 'onOpenAbout', 'onUpdate', 'openExternal', 'setLanguage', 'smart', 'update'])
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
   assert.equal(await page.evaluate(() => typeof window.process), 'undefined')
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
@@ -150,26 +151,7 @@ try {
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await page.getByRole('button', { name: '测试行动', exact: true }).click()
   await page.getByLabel('说明', { exact: true }).fill('重启仍保留的说明')
-  // 原生消息框的实际点击留给人工验收；只替换回答，窗口/退出/存储均是真实进程。
-  // The beforeunload event can reach Playwright after the quit attempt returns. It stays handled for the rest of the
-  // run: an unhandled one is auto-closed by Playwright after Electron already closed it, which crashes the runner.
-  const interceptBeforeUnload = dialog => { if (dialog.type() === 'beforeunload') void dialog.dismiss().catch(() => undefined) }
-  page.on('dialog', interceptBeforeUnload)
-  const prompted = await application.evaluate(async ({ app, dialog }) => {
-    const original = dialog.showMessageBoxSync
-    let prompted = false
-    dialog.showMessageBoxSync = () => { prompted = true; return 0 }
-    try {
-      app.quit()
-      for (let attempt = 0; attempt < 50 && !prompted; attempt++) await new Promise(resolve => setTimeout(resolve, 10))
-      return prompted
-    } finally { dialog.showMessageBoxSync = original }
-  })
-  assert.equal(prompted, true)
-  assert.equal(await page.getByLabel('说明', { exact: true }).innerText(), '重启仍保留的说明')
-  // 取消退出之后仍须能够提交，而不只是窗口尚在。
-  await page.getByRole('button', { name: /^保存/ }).click()
-  await page.getByRole('button', { name: /^保存/ }).waitFor({ state: 'hidden' })
+  await waitForDetailSave(page)
   // The 上级 chip opens the picker directly while empty; once linked it lists parents first and hands off via 「关联到…」.
   const parentChip = page.locator('.detail-props .detail-chip', { hasText: '上级' })
   for (const title of ['测试上级 A', '测试上级 B']) {
@@ -237,7 +219,7 @@ try {
   await later.press('Escape')
   await page.getByRole('button', { name: '撤销内容保留', exact: true }).click()
   await page.getByLabel('说明', { exact: true }).fill('撤销创建后必须保留的文本')
-  await page.getByRole('button', { name: /^保存/ }).click()
+  await finishDetailEditing(page)
   await page.locator('.sr-only[role="status"]', { hasText: '已连接本地工作区' }).waitFor({ state: 'attached' })
   assert.equal(await page.evaluate(async () => { const item = (await window.goalloom.listItems({ type: 'list', view: 'search', query: '撤销内容保留', offset: 0, limit: 50 })).items[0]; return (await window.goalloom.getItem(item.id)).item.description }), '撤销创建后必须保留的文本')
   await page.getByRole('button', { name: '关闭', exact: true }).focus()
@@ -367,7 +349,7 @@ try {
   assert.equal(rejectsOtherWindow, true, 'IPC 必须拒绝非主窗口的请求，即使 URL 与 preload 相同')
   await mkdir('output/tests/screenshots', { recursive: true })
   await page.screenshot({ path: 'output/tests/screenshots/electron-foundation.png', fullPage: true })
-  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['cancel unsaved quit keeps storage available (native answer stub)', 'preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', 'style', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
+  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['detail autosave (native close coverage in autosave.mjs)', 'preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', 'style', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
 } finally {
   await application.close()
 }

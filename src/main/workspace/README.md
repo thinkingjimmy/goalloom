@@ -12,11 +12,11 @@ workspace/
 ├── history.ts        # Immutable period-end projections and activity; separate generation-guarded live past-task pages filtered by current placement
 ├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/
-│   ├── items.ts      # Atomic setup/create/edit/move/link effects; next resolves from the original placement
+│   ├── items.ts      # Atomic setup/create/edit/move/link effects and opt-in flow adoption; next resolves from the original placement
 │   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
 │   ├── bridge.ts     # insertBetween：一次事务在上级与下级之间插入里程碑（新建 + 改挂 + 解除直连），一次撤销
 │   ├── lifecycle.ts  # 独立状态、归档、软删除、还原和解除关联
-│   ├── undo.ts       # 效果字段逆转（计划按逆拓扑整体）、依赖保护、实际反向事件和 hold
+│   ├── undo.ts       # Owned-field inverses including atomic relation/color adoption, dependency guards, reverse events and holds
 │   ├── backlog.ts    # 往期候选复核与批量安排，一个原子用户操作
 │   ├── ordering.ts   # Group-checked moves and atomic, reversible current/future order materialization
 │   └── settings.ts   # 策略生效边界、暂停确认与独立批次撤销

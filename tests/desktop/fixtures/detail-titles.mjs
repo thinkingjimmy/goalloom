@@ -4,6 +4,7 @@
  * [POS]: Link-feature desktop acceptance; composes with the existing offline preview runner.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishDetailEditing } from './detail-save.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -56,31 +57,33 @@ export async function verifyDetailTitles(app, page, directory, output) {
   await edit().press('Enter')
   assert.equal(await field.inputValue(), original)
   const long = '用一段完整的任务标题验证编辑时的自动换行与阅读体验。'.repeat(10)
+  await field.evaluate(element => element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true })))
   await field.fill(long)
   const editor = await field.evaluate(element => ({ tag: element.tagName, height: element.clientHeight, scrollHeight: element.scrollHeight, maxLength: element.maxLength }))
   assert.equal(editor.tag, 'TEXTAREA'); assert(editor.height > 56); assert(editor.scrollHeight <= editor.height + 1); assert.equal(editor.maxLength, 500)
   await shot('detail-title-editing')
   await field.evaluate(element => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true, bubbles: true, cancelable: true })))
   assert.equal(await field.count(), 1); assert.equal((await stored(id)).title, original)
+  await field.evaluate(element => element.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true })))
   await field.press('Escape')
   assert.equal(await dialog.count(), 1); assert.equal(await field.count(), 0)
   assert.equal(await display.locator('.link-rich-text').innerText(), long)
   assert(await edit().evaluate(element => document.activeElement === element))
-  await dialog.getByRole('button', { name: '放弃', exact: true }).click()
+  await edit().click(); await field.fill(original); await finishDetailEditing(page)
   await display.locator('.link-inline[data-status="ready"]').waitFor()
   assert.equal(await dialog.locator('.save-bar').count(), 0)
 
   const networkBefore = await app.evaluate(() => ({ lookups: globalThis.linkPreviewProbe.lookups.length, requests: globalThis.linkPreviewProbe.requests.length, providers: globalThis.linkPreviewProbe.providerFetches.length }))
-  await edit().click(); await field.fill('稍后阅读 https://unsaved-title.example.com/reference')
+  await edit().click(); await field.evaluate(element => element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))); await field.fill('稍后阅读 https://unsaved-title.example.com/reference')
   await field.press('Tab')
   await display.waitFor()
   assert.equal(await display.getByRole('link').innerText(), 'unsaved-title.example.com')
   assert.deepEqual(await app.evaluate(() => ({ lookups: globalThis.linkPreviewProbe.lookups.length, requests: globalThis.linkPreviewProbe.requests.length, providers: globalThis.linkPreviewProbe.providerFetches.length })), networkBefore)
-  await dialog.getByRole('button', { name: '放弃', exact: true }).click()
+  await edit().click(); await field.fill(original); await field.evaluate(element => element.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))); await finishDetailEditing(page)
 
   const edited = `完整参考 [保留自定义文字](${url}) ${urls.x}`
   await edit().click(); await field.fill(edited)
-  await dialog.getByRole('button', { name: /^保存/ }).click()
+  await finishDetailEditing(page)
   await pollPage(page, async ({ id, edited }) => (await window.goalloom.getItem(id)).item.title === edited, { id, edited })
   await display.locator('.link-inline[data-status="ready"]').nth(1).waitFor()
   assert.equal(await display.getByRole('link').first().innerText(), '保留自定义文字')
@@ -101,5 +104,5 @@ export async function verifyDetailTitles(app, page, directory, output) {
   assert.equal(await edit().count(), 0); assert.equal(await field.count(), 0)
   assert.equal(await display.getByRole('link').innerText(), title)
   await dialog.locator('.modal-header').getByRole('button', { name: '关闭', exact: true }).click()
-  return { bounds, editor, screenshots: shots, checks: ['Complete rich-title display and first-line controls', 'Links and raw title editing have independent pointer/keyboard actions', 'Growing editor, composition, Escape, Enter, Save and Discard preserve source', 'Draft URLs make no network requests', 'Custom/URL-only titles, dark/minimal theme and read-only deleted items'] }
+  return { bounds, editor, screenshots: shots, checks: ['Complete rich-title display and first-line controls', 'Links and raw title editing have independent pointer/keyboard actions', 'Growing editor, composition, Escape, Enter and autosave preserve source', 'Draft URLs make no network requests', 'Custom/URL-only titles, dark/minimal theme and read-only deleted items'] }
 }

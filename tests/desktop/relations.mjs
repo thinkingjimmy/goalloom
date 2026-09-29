@@ -451,3 +451,5 @@ try {
   await application.close()
   await rm(profile, { recursive: true, force: true })
 }
+// Keep the gesture journey isolated from the existing geometry/color fixture, with the same packaged argument.
+await import('./relation-drag.mjs')

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Draft ISO deadline, workspace today/week start, read-only state and draft callback.
+ * [INPUT]: ISO deadline, workspace today/week start, read-only state and the immediate autosave callback.
  * [OUTPUT]: Deadline trigger and floating calendar panel with focus restoration; re-exported dueOptions presets.
- * [POS]: Detail field; shared calendar content stays in components/due-date and saving stays in ItemDetail.
+ * [POS]: Detail field; shared calendar content stays in components/due-date and persistence stays in the detail autosave boundary.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useId, useRef, useState } from 'react'

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Sandboxed Electron bridge and shared wire schemas.
- * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, live past-period pages, actual-period details, bounded link responses and update state/events.
+ * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, live past-period pages, actual-period details, bounded link responses, update state/events and token-bound close draining.
  * [POS]: Only renderer/main bridge; no Node capabilities, generic channels or file paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,15 @@ import { smartChannel, smartReplySchema } from '../shared/contracts/smart-input'
 import { setValidationLocale } from '../shared/i18n/validation'
 import { linkChannel, linkPreviewSchema } from '../shared/contracts/link-preview'
 import { openAboutEvent, updateChannel, updateEvent, updateInfoSchema } from '../shared/contracts/update'
+import { closeRequestEvent, closeReplyEvent, closeRequestSchema } from '../shared/contracts/window-close'
+
+const closeGuards = new Set<() => Promise<boolean>>()
+ipcRenderer.on(closeRequestEvent, (_event, input: unknown) => {
+  const parsed = closeRequestSchema.safeParse(input)
+  if (!parsed.success) return
+  void Promise.all([...closeGuards].map(guard => Promise.resolve().then(guard).catch(() => false)))
+    .then(results => ipcRenderer.send(closeReplyEvent, { token: parsed.data.token, ready: results.every(result => result === true) }))
+})
 
 async function language(reply: Promise<unknown>) {
   const state = languageStateSchema.parse(await reply)
@@ -28,6 +37,7 @@ async function query<T>(input: unknown, schema: z.ZodType<T>): Promise<T> {
 
 const readQuery = query
 const api: GoalloomApi = {
+  onBeforeClose: listener => { closeGuards.add(listener); return () => { closeGuards.delete(listener) } },
   getRuntime: async () => runtimeInfoSchema.parse(await ipcRenderer.invoke(runtimeChannel)),
   getLanguage: () => language(ipcRenderer.invoke(languageChannel)),
   setLanguage: input => language(ipcRenderer.invoke(languageChannel, input)),

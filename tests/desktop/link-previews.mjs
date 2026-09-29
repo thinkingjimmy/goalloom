@@ -4,6 +4,7 @@
  * [POS]: Focused desktop acceptance with native sizing only; transport and external-browser boundaries are disabled in the test process.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishDetailEditing } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
@@ -322,7 +323,7 @@ try {
   assert.equal(await detail().locator('.link-preview').count(), 0)
   const edited = `${titles.mixed}，保留原链接。`
   await detail().locator('.title-input').fill(edited)
-  await detail().getByRole('button', { name: /^保存/ }).click()
+  await finishDetailEditing(page)
   await pollPage(page, async ({ id, title }) => (await window.goalloom.getItem(id)).item.title === title, { id: ids.mixed, title: edited })
   await closeDetail()
   assert.equal((await storedItem(ids.mixed)).title, edited)

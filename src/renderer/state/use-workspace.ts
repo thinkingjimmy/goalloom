@@ -1,8 +1,8 @@
 /**
  * [INPUT]: Finite preload API, user commands, UndoSession and post-refresh live board visibility across all periods.
- * [OUTPUT]: Authoritative snapshots, visibility-aware success/undo feedback, deduplicated completion events after committed writes and a
+ * [OUTPUT]: Authoritative snapshots, typed prepared-write outcomes, visibility-aware success/undo feedback, deduplicated completion events after committed writes and a
  *           keyboard undo request that waits for an in-flight own write; confirmed materialization switches the device order preference.
- * [POS]: Renderer state boundary; preserves unknown receipts and avoids redundant own-write refreshes.
+ * [POS]: Renderer state boundary; reserves prepared detail writes before version reads, returns typed outcomes and preserves unknown receipts without redundant refreshes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { messages } from '../i18n'
@@ -17,6 +17,8 @@ import { feedbackKind, resolveFeedback, systemFeedback, type Feedback, type Feed
 
 type WithoutEnvelope<T> = T extends unknown ? Omit<T, 'generation' | 'operationId'> : never
 export type Action = WithoutEnvelope<CommandInput>
+export type WriteResult = { ok: true; result: CommandResult | null } | { ok: false; code: string; message: string; pending: boolean }
+export type PreparedWrite = (prepare: () => Promise<Action | null>, generation: string) => Promise<WriteResult>
 export interface CompletionEvent { operationId: string; generation: string; horizon: ItemHorizon }
 export function desktopApi() {
   if (!window.goalloom) throw new Error(messages.missingBridge)
@@ -34,6 +36,7 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
   const [undoCount, setUndoCount] = useState(0)
   const session = useRef(new UndoSession())
   const locked = useRef(false), current = useRef(snapshot)
+  const pendingRef = useRef<CommandInput | null>(null), idle = useRef(Promise.resolve())
   const epoch = useRef(0), flight = useRef<{ epoch: number; promise: Promise<Snapshot> } | null>(null)
   const delayed = useRef<(CommandResult | null)[]>([])
   const deferredUndo = useRef(false), latestUndo = useRef<() => Promise<CommandResult | null>>(() => Promise.resolve(null))
@@ -42,7 +45,7 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
     const version = epoch.current
     const promise = desktopApi().getSnapshot().then(next => {
       if (version !== epoch.current) return next
-      if (session.current.reset(next.workspace.generation)) { setFeedback(null); setCandidate(null); setCompletion(null); setUndoCount(0); setPending(null); deferredUndo.current = false }
+      if (session.current.reset(next.workspace.generation)) { setFeedback(null); setCandidate(null); setCompletion(null); setUndoCount(0); setPending(null); pendingRef.current = null; deferredUndo.current = false }
       const key = (value: Snapshot) => {
         const { lastObservedAt: _observed, ...workspace } = value.workspace
         return JSON.stringify([workspace, value.periods, value.maintenance, value.backupError])
@@ -118,32 +121,70 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
     }
     return result
   }, [refresh])
-  const perform = useCallback(async (command: CommandInput): Promise<CommandResult | null> => {
-    if (locked.current) return null
+  const perform = useCallback(async (input: CommandInput | (() => Promise<Action | null>), generation?: string): Promise<WriteResult> => {
+    const inline = typeof input === 'function' || generation !== undefined
+    const fail = (code: string, message: string, pending = false): WriteResult => {
+      if (!inline) { setError(message); setErrorCode(code) }
+      return { ok: false, code, message, pending }
+    }
+    if (locked.current) return { ok: false, code: 'busy', message: messages.autosaveFailed, pending: false }
+    let unlock!: () => void
+    idle.current = new Promise(resolve => { unlock = resolve })
     locked.current = true; epoch.current++; setBusy(true); setError(null); setErrorCode(null)
+    let command: CommandInput | null = typeof input === 'function' ? null : input
     try {
+      if (typeof input === 'function') {
+        const action = await input()
+        if (!action) return { ok: true, result: null }
+        if (current.current?.workspace.generation !== generation) return fail('generation', messages.autosaveFailed)
+        command = { ...action, operationId: crypto.randomUUID(), generation } as CommandInput
+      }
+      if (!command) return { ok: true, result: null }
+      if (inline && pendingRef.current?.operationId === command.operationId) {
+        const receipt = await desktopApi().getReceipt(command.operationId, command.generation)
+        if (receipt) {
+          setPending(null); pendingRef.current = null
+          return { ok: true, result: await accept(receipt, command) }
+        }
+      }
       const reply = await desktopApi().execute(command)
-      setPending(null)
-      if (!reply.ok) { setError(reply.message); setErrorCode(reply.code); await refresh(); return null }
-      return await accept(reply.result, command)
+      setPending(null); pendingRef.current = null
+      if (!reply.ok) { await refresh(); return fail(reply.code, reply.message) }
+      return { ok: true, result: await accept(reply.result, command) }
     } catch {
+      if (!command) return fail('read', messages.autosaveFailed)
+      if (current.current?.workspace.generation !== command.generation) return fail('generation', messages.autosaveFailed)
       // --- 未知结果保留同一请求，后续先查回执；不会丢弃撤销栈项。 ---
       try {
         const receipt = await desktopApi().getReceipt(command.operationId, command.generation)
-        if (receipt) { setPending(null); return await accept(receipt, command) }
+        if (receipt) { setPending(null); pendingRef.current = null; return { ok: true, result: await accept(receipt, command) } }
       } catch { /* 存储恢复后用原操作 ID 重试。 */ }
-      setPending(command); setError(messages.saveUnknown)
-      return null
+      setPending(command); pendingRef.current = command
+      return fail('unknown', messages.saveUnknown, true)
     } finally {
-      locked.current = false; setBusy(false)
+      locked.current = false; setBusy(false); unlock()
       if (deferredUndo.current) { deferredUndo.current = false; setTimeout(() => void latestUndo.current()) }
       if (delayed.current.length) { const notifications = delayed.current.splice(0); void refresh().then(() => { for (const result of notifications) if (result?.changed && session.current.accept(result)) setFeedback(systemFeedback(result)) }).catch(() => setError(messages.refreshFailed)) }
     }
   }, [refresh, accept])
   const submit = useCallback(async (action: Action) => {
-    if (!current.current || pending) return null
-    return perform({ ...action, operationId: crypto.randomUUID(), generation: current.current.workspace.generation } as CommandInput)
-  }, [perform, pending])
+    if (!current.current || pendingRef.current) return null
+    const reply = await perform({ ...action, operationId: crypto.randomUUID(), generation: current.current.workspace.generation } as CommandInput)
+    return reply.ok ? reply.result : null
+  }, [perform])
+  // Reserve the writer before reading versions. Detail autosaves and property actions share this boundary.
+  const write: PreparedWrite = useCallback(async (prepare, generation) => {
+    while (locked.current) await idle.current
+    if (pendingRef.current) return { ok: false, code: 'unknown', message: messages.saveUnknown, pending: true }
+    if (current.current?.workspace.generation !== generation || current.current.maintenance) return { ok: false, code: 'blocked', message: messages.autosaveFailed, pending: false }
+    return perform(prepare, generation)
+  }, [perform])
+  const retryWrite = useCallback(async (generation: string): Promise<WriteResult> => {
+    while (locked.current) await idle.current
+    if (current.current?.workspace.generation !== generation) return { ok: false, code: 'generation', message: messages.autosaveFailed, pending: false }
+    const command = pendingRef.current
+    return command ? perform(command, generation) : { ok: true, result: null }
+  }, [perform])
   const undo = useCallback((operationId?: string) => {
     const id = operationId ?? session.current.entries.at(-1)?.operationId
     return id ? submit({ type: 'undo', originalOperationId: id }) : Promise.resolve(null)
@@ -154,6 +195,10 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
     if (locked.current) deferredUndo.current = true
     else void undo()
   }, [undo])
-  const retry = () => pending ? perform(pending) : Promise.resolve(null)
-  return { snapshot, error, errorCode, setError, busy: busy || pending !== null || !!snapshot?.maintenance, submit, refresh, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry }
+  const retry = async () => {
+    const reply = current.current && await retryWrite(current.current.workspace.generation)
+    if (reply && !reply.ok) { setError(reply.message); setErrorCode(reply.code) }
+    return reply?.ok ? reply.result : null
+  }
+  return { snapshot, error, errorCode, setError, busy: busy || pending !== null || !!snapshot?.maintenance, submit, write, retryWrite, refresh, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry }
 }

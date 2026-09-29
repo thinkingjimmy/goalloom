@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Workspace/current-period state, selected board periods, undo session, flows, preferences and features.
+ * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
  * [OUTPUT]: Unified candidates/locating, independent Later visibility/count, board-ordered flow filters, board/dialogs, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and the review drawer.
- * [POS]: Renderer composition root; composer loads on first use and then keeps its session until the workspace generation changes.
+ * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { messages, smartMessages, useLocale } from './i18n'
@@ -43,7 +43,7 @@ const AiStep = lazy(() => import('./features/smart/AiStep').then(module => ({ de
 export function App() {
   // Re-render the whole tree on a language switch; state (drafts, undo stack, open dialogs) is kept.
   useLocale()
-  const { snapshot, error, errorCode, setError, busy, submit, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(item => boardItemVisibility(item))
+  const { snapshot, error, errorCode, setError, busy, submit, write, retryWrite, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(item => boardItemVisibility(item))
   const ai = useAi(snapshot?.workspace.generation)
   const [composing, setComposing] = useState(false), [onboarding, setOnboarding] = useState(false)
   const [composerGeneration, setComposerGeneration] = useState<string | null>(null)
@@ -139,7 +139,8 @@ export function App() {
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <Setup confirm={(calendar, direction) => void confirmSetup(calendar, direction)} busy={busy} />
       : onboarding ? <AiStep ai={ai} finish={() => setOnboarding(false)} /> : <>
-      <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={addRequest} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight} /></div>
+      <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={addRequest} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight}
+        write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || !!reviewing} /></div>
       <button className="fab" aria-label={messages.newItem} title={[messages.newItem, formatCombo(bindings.compose)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.compose)} disabled={busy} onClick={compose}><Icon name="add" size={24} strokeWidth={1.8} /></button>
     </>}
     </Suspense>
@@ -159,7 +160,7 @@ export function App() {
     {seed && snapshot && setupReady && <Seeded key={seed.key} seed={seed} snapshot={snapshot} flows={flows} submit={submit} busy={busy} error={error} close={() => setSeed(null)} />}
     </Suspense>
     <Suspense fallback={null}>
-    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={closeDetail} submit={submit} revision={snapshot.workspace.revision} busy={busy}
+    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={closeDetail} generation={snapshot.workspace.generation} write={write} retryWrite={retryWrite} revision={snapshot.workspace.revision} blocked={!!pending || !!snapshot.maintenance}
       flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} split={(parent, horizon) => { setSelected(null); setSettings(false); requestAdd(horizon, parent) }}
       locate={(item, period) => {
         const horizon = item.placement.horizon

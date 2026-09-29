@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Immutable original effects, current state, indexed neighbors and injected time.
- * [OUTPUT]: Atomic owned-field inverses, reverse events, dependency guards and persisted expiry holds.
+ * [OUTPUT]: Atomic owned-field inverses, relation/color adoption reversal, dependency guards and persisted expiry holds.
  * [POS]: Undo transaction rules; Repository handles SAVEPOINT conflict rollback.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,7 +10,7 @@ import { validateDag } from '../../../domain/relations'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import type { Effect } from '../../../shared/contracts/effects'
 import type { Item, Relation } from '../../../shared/contracts/entities'
-import { flowColorOwner, nextSortKey, targetPeriod, touch, type Context } from '../context'
+import { flowColorOwner, hasActiveParent, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { invalidateEdges, writeEdges } from './lifecycle'
 import { serverText } from '../../../shared/i18n/server'
 
@@ -53,7 +53,15 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
       reverseRelations(context, edges, item)
       break
     }
-    case 'relations': reverseRelations(context, inverseEdges(effect.edges, context.command.operationId, context.now), item); break
+    case 'relations': {
+      reverseRelations(context, inverseEdges(effect.edges, context.command.operationId, context.now), item)
+      if (effect.flowColor) {
+        if (hasActiveParent(context, item.id)) conflict(serverText().undo.adoptionParentsChanged)
+        if (flowColorOwner(context, effect.flowColor.before, item.id) !== null) conflict(serverText().undo.colorTaken)
+        item.flowColor = effect.flowColor.before
+      }
+      break
+    }
   }
   applyHold(context, item)
   touch(context, item)

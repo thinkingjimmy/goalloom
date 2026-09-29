@@ -8,7 +8,7 @@ The owner selected the calendar-first prototype on 2026-09-28. Item details and 
 - Use existing paper/minimal and light/dark tokens. Distinguish today, selected dates and adjacent-month dates. Localize labels, month names, weekdays and accessible date names in all five locales. Weekday order follows the workspace's ISO week start.
 - The info icon reveals a short explanation on hover, focus or activation. It explains that deadlines do not move tasks between columns. Escape first dismisses an open explanation or month chooser, then the calendar, then the surrounding dialog.
 - Arrow keys move by day/week; Home/End use the workspace week; Page Up/Down move by month and Shift adds a year, clamping at month end. Only one day is in the Tab order. Enter/Space select; opening and closing preserve usable keyboard focus.
-- Selection changes only the caller's draft. Detail Save and composer confirmation keep ownership of writes. A future deadline never changes placement, period, parents or status. Existing composer numeric preset shortcuts and explicit Jev suggestions remain available.
+- The panel changes only the caller's draft. Detail selection/clear immediately autosaves; composer confirmation retains ownership of its writes. A future deadline never changes placement, period, parents or status. Existing composer numeric preset shortcuts and explicit Jev suggestions remain available.
 - Floating calendars stay inside their native dialog's focus boundary, escape scrolling content and remain within the window.
 
 ## Engineering contract
@@ -21,7 +21,7 @@ The owner selected the calendar-first prototype on 2026-09-28. Item details and 
 ## Failure scenarios and acceptance
 
 - A selected January 31 skips February or keyboard navigation picks the wrong leap-day date; a Sunday-start workspace silently uses Monday columns.
-- Return to today commits a date, clearing writes before Save, or choosing a future deadline changes placement.
+- Return to today commits a date, clearing fails to autosave in detail or prematurely creates a composer draft, or choosing a future deadline changes placement.
 - A calendar press submits the enclosing form or composer; Escape closes multiple layers; closing leaves focus on a removed day.
 - Dialog clipping, window resizing or translated preset widths make controls unreachable; paper/minimal dark themes retain native white styling.
 - The info hint is always visible, unavailable from a keyboard, or cannot be dismissed independently.

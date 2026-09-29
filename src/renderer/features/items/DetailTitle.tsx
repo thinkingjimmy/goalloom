@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Draft/saved title strings, editability and the detail draft callback.
  * [OUTPUT]: Complete rich title display and a growing raw-text editor; metadata never changes the draft.
- * [POS]: ItemDetail's title interaction, sharing the board's links and the detail form's save/leave guards.
+ * [POS]: ItemDetail's title interaction, sharing the board's links and the detail form's autosave boundary.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -24,7 +24,7 @@ export function DetailTitle({ value, savedValue, onChange, readOnly }: { value: 
       pointerDown.current = false
       if (!pendingBlur.current) return
       // A title's resolved height can differ from its source. Finish the pointer
-      // click before changing layout, so Save/Discard cannot move under the pointer.
+      // click before changing layout, so property controls cannot move under the pointer.
       frame = requestAnimationFrame(() => {
         pendingBlur.current = false
         if (document.activeElement !== input.current) setEditing(false)

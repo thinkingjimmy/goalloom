@@ -4,6 +4,7 @@
  * [POS]: Focused desktop acceptance; external network and browser opening are intercepted.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishDetailEditing, waitForDetailSave } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -18,8 +19,9 @@ import { verifyDescriptionSignals } from './fixtures/description-signals.mjs'
 const checklistsOnly = process.argv.includes('--checklists')
 const selectionOnly = process.argv.includes('--selection-tools')
 const signalsOnly = process.argv.includes('--signals')
-const only = checklistsOnly || selectionOnly || signalsOnly
-const output = `output/tests/descriptions${checklistsOnly ? '/checklists' : selectionOnly ? '/selection-tools' : signalsOnly ? '/signals' : ''}`, profile = await mkdtemp(join(tmpdir(), 'goalloom-descriptions-'))
+const editingOnly = process.argv.includes('--editing')
+const only = checklistsOnly || selectionOnly || signalsOnly || editingOnly
+const output = `output/tests/descriptions${checklistsOnly ? '/checklists' : selectionOnly ? '/selection-tools' : signalsOnly ? '/signals' : editingOnly ? '/editing' : ''}`, profile = await mkdtemp(join(tmpdir(), 'goalloom-descriptions-'))
 await mkdir(output, { recursive: true })
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'en' }))
 await seedPreviewCache(profile)
@@ -40,8 +42,8 @@ async function create(title, description = '') {
   }, { title, description })
 }
 const open = async id => { await page.locator(`#item-${id} .task-title`).press('Enter'); await note().waitFor() }
-const close = () => detail().locator('.modal-header').getByRole('button', { name: 'Close', exact: true }).click()
-const save = async () => { await detail().locator('.save-bar').getByRole('button', { name: /^Save/ }).click(); await detail().locator('.save-bar').waitFor({ state: 'hidden' }) }
+const close = async () => { await detail().locator('.modal-header').getByRole('button', { name: 'Close', exact: true }).click(); await detail().waitFor({ state: 'hidden' }) }
+const save = () => finishDetailEditing(page)
 async function paste(text) {
   await note().focus()
   await note().evaluate((element, text) => {
@@ -62,6 +64,13 @@ try {
     process.getBuiltinModule('module').syncBuiltinESMExports()
   })
   page = await app.firstWindow(); await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 920)); page.on('pageerror', error => errors.push(error.message)); page.on('dialog', dialog => dialog.accept().catch(() => {}))
+  await page.evaluate(() => {
+    window.descriptionPointerTrace = []
+    for (const type of ['pointerover', 'pointerout', 'pointerdown', 'focus', 'blur']) document.addEventListener(type, event => {
+      window.descriptionPointerTrace.push({ event: type, time: performance.now(), target: event.target?.className, related: event.relatedTarget?.className, x: event.clientX, y: event.clientY, focused: document.hasFocus(), peek: !!document.querySelector('.note-peek-panel') })
+      if (window.descriptionPointerTrace.length > 80) window.descriptionPointerTrace.shift()
+    }, true)
+  })
   await page.getByRole('button', { name: 'Skip', exact: true }).first().click()
   await page.getByRole('button', { name: 'Confirm and start', exact: true }).click()
   await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
@@ -72,7 +81,7 @@ try {
   if (!only || checklistsOnly) report.checks.push(...await verifyDescriptionChecklists({ app, page, create, open, close, save, paste, stored, detail, note, shot }))
   if (!only || selectionOnly) report.checks.push(...await verifyDescriptionSelection({ app, page, create, open, close, stored, detail, note, shot }))
   await app.evaluate(() => { globalThis.descriptionProbe.external = [] })
-  if (!only) {
+  if (!only || editingOnly) {
     const source = `# A small next step\n\n- Read **the brief**\n- Compare [the reference](${urls.youtube})\n\n${urls.x}\n\n> Keep it simple\n\n\`https://example.com/literal\`\n\n\`\`\`text\nhttps://example.com/code\n\`\`\`\n\n| Unsupported | table |\n<script>window.unsafeNote=true</script>`
     const id = await create(`Description fixture ${urls.x}`, source), before = await stored(id)
     await open(id)
@@ -102,7 +111,7 @@ try {
     report.checks.push('Editing nearby text preserves unsupported syntax, HTML text and code URLs in the saved Markdown')
     await note().press('ControlOrMeta+End'); await page.keyboard.type(' quick save')
     await page.keyboard.press('ControlOrMeta+Enter')
-    await detail().locator('.save-bar').waitFor({ state: 'hidden' })
+    await waitForDetailSave(page)
     const quick = (await stored(id)).description
     assert(quick.includes(' quick save') && !quick.endsWith('\n'), 'Mod+Enter saves without inserting a line')
     assert.equal(await note().evaluate(node => node.contains(document.activeElement)), false, 'Mod+Enter leaves the editor')
@@ -124,12 +133,12 @@ try {
     const committed = await stored(typed)
     await note().press('ControlOrMeta+End'); await page.keyboard.type(' temporary')
     await page.keyboard.press('ControlOrMeta+z')
-    await pollPage(page, () => !document.querySelector('.save-bar'))
+    await waitForDetailSave(page)
     assert.deepEqual(await stored(typed), committed)
     report.checks.push('List input shortcut, continuation, nesting/outdent and exit work; local undo restores clean state without workspace changes')
 
-    await note().fill('A draft to discard')
-    await detail().getByRole('button', { name: 'Discard', exact: true }).click()
+    await note().fill('A change to undo')
+    await note().press('ControlOrMeta+z'); await save()
     assert.match(await note().innerText(), /First step/)
     assert.equal(await detail().locator('.save-bar').count(), 0)
     await note().press('ControlOrMeta+a'); await paste(`## Pasted heading\n\n1. One\n2. Two\n\n${urls.article}`)
@@ -140,8 +149,14 @@ try {
     await save()
     await pollPage(page, () => document.querySelector('.description-content .link-inline')?.textContent.includes('Fixture article'))
     await shot('pasted-markdown')
-    report.checks.push('Discard restores editor state; Markdown paste is parsed without executing HTML; new URLs enrich only after Save')
+    report.checks.push('Local undo restores editor state; Markdown paste is parsed without executing HTML; new URLs enrich only after autosave')
 
+    await note().evaluate(element => {
+      window.descriptionEditingTrace = []
+      const record = event => window.descriptionEditingTrace.push({ event, time: performance.now(), text: element.innerText.slice(0, 300), save: document.querySelector('.detail-body')?.dataset.saveState, selection: window.getSelection()?.toString().slice(0, 300) })
+      for (const name of ['beforeinput', 'input', 'keydown', 'compositionstart', 'compositionend', 'blur', 'focus']) element.addEventListener(name, event => record(`${name}:${event.key ?? event.inputType ?? ''}`))
+      new MutationObserver(() => record('mutation')).observe(element, { subtree: true, characterData: true, childList: true })
+    })
     await note().fill('Composition draft')
     const version = (await stored(typed)).version
     await note().evaluate(element => {
@@ -150,7 +165,7 @@ try {
       element.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '中文' }))
     })
     assert.equal((await stored(typed)).version, version)
-    await detail().getByRole('button', { name: 'Discard', exact: true }).click()
+    await note().press('ControlOrMeta+z'); await save()
     report.checks.push('Composition Enter never submits the draft')
     await note().press('ControlOrMeta+a')
     await note().evaluate(element => {
@@ -188,7 +203,7 @@ try {
     await note().getByRole('link', { name: 'My [reference]', exact: true }).waitFor()
     await note().press('ControlOrMeta+Shift+z')
     assert.equal(await note().getByRole('link').count(), 0)
-    await detail().getByRole('button', { name: 'Discard', exact: true }).click()
+    await note().press('ControlOrMeta+z'); await save()
     report.checks.push('Selection toolbar formats and edits links with authored labels; dangerous schemes are rejected without changing the document')
 
     await note().fill(''); await note().pressSequentially(`${urls.x} `)
@@ -206,22 +221,22 @@ try {
         return reply
       })
     })
-    await detail().locator('.save-bar').getByRole('button', { name: /^Save/ }).click()
+    await note().evaluate(element => element.blur())
     await pollPage(page, async id => (await window.goalloom.getItem(id)).item.description === 'Submitted note', typed)
     await note().fill('New typing while the receipt is pending')
     await app.evaluate(() => { globalThis.descriptionSaveGate.release(); globalThis.descriptionSaveGate.restore() })
-    await pollPage(page, () => document.querySelector('.save-bar .primary')?.disabled === false)
+    await waitForDetailSave(page)
     assert.equal(await note().innerText(), 'New typing while the receipt is pending')
-    assert.equal((await stored(typed)).description, 'Submitted note')
+    assert.equal((await stored(typed)).description, 'New typing while the receipt is pending')
     await save()
     await shot('saved-receipt-retains-new-input')
     report.checks.push('Typed bare URLs become semantic links; a delayed authoritative save receipt preserves subsequent rich-editor input')
 
     await note().fill('x'.repeat(100_001))
     await detail().getByRole('alert').waitFor()
-    assert.equal(await detail().locator('.save-bar .primary').isDisabled(), true)
-    await detail().getByRole('button', { name: 'Discard', exact: true }).click()
-    report.checks.push('The 100,000-character serialization limit blocks Save and Discard restores the committed content')
+    assert.equal(await detail().locator('.save-bar').count(), 0)
+    await note().press('ControlOrMeta+z'); await save()
+    report.checks.push('The 100,000-character serialization limit blocks autosave and local undo restores the committed content')
     await close(); await open(typed)
     assert.equal(await note().innerText(), 'New typing while the receipt is pending'); assert.equal(await detail().locator('.save-bar').count(), 0)
     await close()
@@ -232,6 +247,8 @@ try {
 } catch (error) {
   report.result = 'failed'; report.failure = error.stack ?? String(error); report.errors = errors
   if (page && !page.isClosed()) {
+    report.editingTrace = await page.evaluate(() => window.descriptionEditingTrace).catch(() => null)
+    report.pointerTrace = await page.evaluate(() => window.descriptionPointerTrace).catch(() => null)
     report.focus = await page.evaluate(() => ({ focused: document.hasFocus(), active: document.activeElement?.outerHTML.slice(0, 600) })).catch(() => null)
     await shot('failure').catch(() => {})
   }

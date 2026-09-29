@@ -1,13 +1,11 @@
 /**
- * [INPUT]: One board item, stable flow views, snapshot topology and candidates, guarded actions and the board's preview callback.
- * [OUTPUT]: The hover dot left of a row's checkbox. One job per role: a flow root edits its colour, an item with parents edits
- *           its parents (flow follows the links), a loose item chooses between starting a flow and linking to a parent.
- *           Hovering or keyboard-focusing a coloured dot starts its flow preview; Board retains it across flow rows and breakpoint controls.
+ * [INPUT]: One board item, flow/topology/candidate views, guarded actions, RelationDragContext and the board's preview callback.
+ * [OUTPUT]: Role-aware flow menus, pointer linking and keyboard adoption for roots; hover/focus previews stay active across flow rows and breakpoint controls.
  * [POS]: board row decoration; writes only through flowColor/link/unlink actions, so undo toasts and revalidation stay authoritative.
  *        Later items render nothing: the parking lot takes no part in flows or links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useContext, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { horizons } from '../../../shared/contracts/values'
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
@@ -20,15 +18,18 @@ import { Popover } from '../../components/Popover'
 import { Icon } from '../../components/icons'
 import { FlowColorMenu } from '../items/FlowPicker'
 import { RelationPicker } from '../items/RelationPicker'
+import { RelationDragContext } from './RelationDrag'
 
 type Mode = 'color' | 'relation' | 'choose'
 
-export function FlowDot({ item, flows, relations, candidates, submit, onPreview }: {
+export function FlowDot({ item, flows, relations, candidates, disabled, submit, onPreview }: {
   item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]
-  submit: (action: Action) => Promise<unknown>; onPreview: (itemId: string | null) => void
+  disabled: boolean; submit: (action: Action) => Promise<unknown>; onPreview: (itemId: string | null) => void
 }) {
   const [mode, setMode] = useState<Mode | null>(null)
   const [error, setError] = useState('')
+  const linking = useContext(RelationDragContext)
+  const trigger = useRef<HTMLButtonElement>(null)
   const open = mode !== null
   const hasParents = relations.some(edge => edge.childId === item.id)
   const role = hasParents ? 'child' : item.flowColor !== null ? 'root' : 'loose'
@@ -58,18 +59,24 @@ export function FlowDot({ item, flows, relations, candidates, submit, onPreview 
   }
   return <div className="flow-dot-slot">
     <Popover floating open={open} onClose={close} anchor={
-      <button type="button" className="flow-dot-button" data-role={role} aria-haspopup="dialog" aria-expanded={open} aria-label={label} title={colors.length > 2 ? `${label} · ${messages.multiFlow(colors.length)}` : label}
-        onPointerDown={event => event.stopPropagation()} onClick={() => open ? close() : setMode(role === 'root' ? 'color' : role === 'child' ? 'relation' : 'choose')}
+      <button ref={trigger} type="button" className="flow-dot-button" data-role={role} aria-haspopup="dialog" aria-expanded={open} aria-label={label} disabled={disabled}
+        aria-description={!topmost ? messages.dragRelationHint : undefined} title={`${colors.length > 2 ? `${label} · ${messages.multiFlow(colors.length)}` : label}${topmost ? '' : ` · ${messages.dragRelationHint}`}`}
+        onPointerDown={event => { event.stopPropagation(); if (!disabled) linking?.begin(event, item, close) }} onClick={() => open ? close() : setMode(role === 'root' ? 'color' : role === 'child' ? 'relation' : 'choose')}
         onPointerEnter={preview} onFocus={event => { if (event.currentTarget.matches(':focus-visible')) preview() }}>
         {colors.length > 2 ? <span className="flow-dot-count">{colors.length}</span>
           : <span className="flow-dot" data-empty={!colors.length} style={colors.length ? { '--flow-ring': flowRing(colors) } as CSSProperties : undefined} />}
         {role === 'loose' && <Icon name="add" size={12} strokeWidth={2} />}
       </button>
     }>
-      {mode === 'color' && <FlowColorMenu itemId={item.id} color={item.flowColor} flows={flows} busy={false} impact={impact} onChoose={chooseColor} />}
+      {mode === 'color' && <><FlowColorMenu itemId={item.id} color={item.flowColor} flows={flows} busy={disabled} impact={impact} onChoose={chooseColor} />
+        {role === 'root' && !topmost && linking && <div className="flow-adoption-entry"><button type="button" role="menuitem" className="menu-item" disabled={disabled} onClick={() => setMode('relation')}>
+          <Icon name="link" size={14} /><span className="menu-rich"><span>{messages.linkToParent}</span><small>{messages.adoptParentFlowHint}</small></span>
+        </button></div>}
+      </>}
       {mode === 'relation' && <div className="flow-dot-relations">
         <RelationPicker side="parent" self={{ id: item.id, horizon: item.placement.horizon }} edges={relations} flows={flows} candidates={candidates} submit={submit} onError={setError}
-          note={<span className="flow-dot-owners">{messages.flowFromParents}{member.length ? member.map(flow => <span key={flow.id}><span className="flow-dot" style={{ '--flow-ring': flowRing([flow.flowColor]) } as CSSProperties} />{flow.title}</span>) : <span>{messages.flowUnset}</span>}</span>} />
+          linkParent={linking ? async parent => { const saved = await linking.connect(parent, item); if (saved && role === 'root') { close(); requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })) } } : undefined}
+          note={role === 'root' ? <span>{messages.adoptParentFlowHint}</span> : <span className="flow-dot-owners">{messages.flowFromParents}{member.length ? member.map(flow => <span key={flow.id}><span className="flow-dot" style={{ '--flow-ring': flowRing([flow.flowColor]) } as CSSProperties} />{flow.title}</span>) : <span>{messages.flowUnset}</span>}</span>} />
         {error && <p className="inline-error" role="alert">{error}</p>}
       </div>}
       {mode === 'choose' && <div className="menu flow-choose" role="menu" aria-label={messages.joinFlow}>

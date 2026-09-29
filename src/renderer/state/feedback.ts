@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Accepted receipts, committed placement/period and post-refresh board visibility.
- * [OUTPUT]: Success/advance feedback, actual future/past destinations and reading durations; no undo membership changes.
+ * [OUTPUT]: Success feedback, actual future/past destinations and reading durations; no undo membership changes.
  * [POS]: Renderer feedback projection, shared by useWorkspace and the application shell.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,11 +8,11 @@ import type { CommandInput, CommandResult } from '../../shared/contracts/command
 import type { Item, PlanningPeriod } from '../../shared/contracts/entities'
 import type { Snapshot } from '../../shared/contracts/queries'
 import { horizonNames, messages, statusNames } from '../i18n'
-import { periodDates, planningLabel } from '../lib/periods'
+import { periodDates } from '../lib/periods'
 
 export type FeedbackItem = Pick<Item, 'id' | 'title' | 'status' | 'archivedAt' | 'placement'> & { period?: PlanningPeriod | null }
 export type ItemVisibility = 'visible' | 'hidden-column' | 'outside-view' | 'pending'
-export type FeedbackKind = 'standard' | 'conditional' | 'restore' | 'undo' | 'undoBatch' | 'advance'
+export type FeedbackKind = 'standard' | 'conditional' | 'restore' | 'undo' | 'undoBatch'
 export interface Feedback { result: CommandResult; text: string; detail: string | null; warning: string | null; durationMs: number | null }
 export interface FeedbackCandidate { result: CommandResult; kind: FeedbackKind; item: FeedbackItem | null; revision: number }
 
@@ -21,7 +21,7 @@ export function feedbackKind(command: CommandInput, result: CommandResult): Feed
   if (result.originalOperationId) return command.type === 'undoBatch' ? 'undoBatch' : 'undo'
   if (!result.undoable) return null
   switch (command.type) {
-    case 'move': return command.period?.kind === 'next' ? 'advance' : null
+    case 'move': return null
     case 'create': case 'insertBetween': case 'arrangeBacklog': case 'link': case 'unlink': case 'materializeParentOrder': return null
     case 'status': return command.status === 'done' ? null : command.status === 'todo' ? 'conditional' : 'standard'
     case 'archive': return command.archived ? 'standard' : 'conditional'
@@ -40,10 +40,9 @@ export function resolveFeedback(candidate: FeedbackCandidate, snapshot: Snapshot
   if (kind === 'conditional' && visibility === 'visible') return null
   const isUndo = result.originalOperationId !== null
   const warning = kind === 'restore' && result.warnings.length ? result.warnings.join(messages.sentenceJoin) : null
-  const text = kind === 'advance' && item?.period && snapshot.workspace.calendar ? messages.movedToPeriod(planningLabel(item.period, snapshot.workspace.calendar, snapshot.observedAt))
-    : warning ? messages.feedbackPartialRestore(item?.title ?? null)
+  const text = warning ? messages.feedbackPartialRestore(item?.title ?? null)
     : (isUndo ? messages.undone : messages.applied)(result.label, item?.title ?? null)
-  let detail: string | null = kind === 'advance' && item ? `${messages.quote(item.title)}${item.period ? ` · ${periodDates(item.period)}` : ''}` : null
+  let detail: string | null = null
   if (item && (kind === 'conditional' || kind === 'restore')) {
     const { horizon, periodId } = item.placement
     const location = [horizonNames[horizon]]

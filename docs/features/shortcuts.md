@@ -19,7 +19,7 @@
 ## 工程契约
 
 - `src/renderer/state/shortcuts.ts` 是唯一来源：定义表、按位置的 `filterCombo`/`filterSlot`、解析/校验/格式化、`useShortcuts` 外部存储。只保存与默认不同的项到 localStorage `goalloom.shortcuts`（改过的通用键，及关闭筛选时的 `filters: false`）；非法或未知项在读取时丢弃并回退默认。键位不进入工作区数据、历史、导出或备份。
-- `App.tsx` 统一分发全局快捷键；顶栏与筛选快捷键共用主动选择入口，调用 `useBoardPeriods.returnPastToCurrent` 原子清除往期选择，内部筛选清理不触发导航。composer 与详情的保存/确认读取同一绑定；顶栏、FAB、Toast、命令面板的快捷键提示随绑定变化，`aria-keyshortcuts` 同步。
+- `App.tsx` 统一分发全局快捷键；顶栏与筛选快捷键共用主动选择入口，调用 `useBoardPeriods.returnPastToCurrent` 原子清除往期选择，内部筛选清理不触发导航。composer 的确认与详情的立即保存并结束编辑读取同一绑定；详情平时自动保存，无需按快捷键；顶栏、FAB、Toast、命令面板的快捷键提示随绑定变化，`aria-keyshortcuts` 同步。
 - `state/flows.ts` 从 `useBoardPeriods.items` 派生 `visible`：复用看板摘要顺序、固定列序与待办/完成分组；顶栏与快捷键共用同一列表。位置变化只重算展示顺序，不重建图归属与颜色缓存，不额外保存筛选顺序。
 
 ## 验收
