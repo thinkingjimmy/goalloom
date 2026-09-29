@@ -70,6 +70,7 @@
 - [x] 部署 Vercel 并绑定 www.goalloom.com；Search Console 提交 `https://www.goalloom.com/sitemap.xml`。
 - [ ] 首屏壁纸补 2880px 宽的高清版本（现为 1586px）。
 - [x] 发布公开 Release 1.1.0 并更新 `website/lib/release.ts`（版本、资产名、`published: true`）。
+- [x] 发布公开 Release 1.2.0 并将 `website/lib/release.ts` 指向 1.2.0 资产。
 
 ## 验收
 

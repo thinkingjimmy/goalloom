@@ -24,7 +24,7 @@
 
 - [x] 设置 › 关于、真实版本与图标、macOS 菜单改道、五语言文案。
 - [x] electron-updater + GitHub Releases、后台检查/下载、手动检查、重启更新、顶栏与导航红点。
-- [ ] 首个带更新器的版本（1.1.0 之后的下一版）需用户手动安装一次，此后才能自动更新。
+- [x] 首个带更新器的版本 1.2.0 已发布（含 dmg / zip / blockmap / latest-mac.yml / exe / blockmap / latest.yml）；用户手动安装 1.2.0 一次后，之后的版本自动更新。
 - [ ] Windows 11 真机：NSIS 静默更新与重启（负责人手动）。
 
 ## 验收
