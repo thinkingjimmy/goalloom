@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Workspace snapshot/calendar, visibility, smart-input state and guarded submission.
+ * [INPUT]: Workspace snapshot/calendar, visibility, the smart-input feature of useAi (switch, provider, revision, cooldown) and guarded submission.
  * [OUTPUT]: An input-method shaped composer: the text field, then one candidate strip — Jev's recommendation (↵ creates it), Tab to adjust drafts inline (T/D/P/E/M/⌫), ⌥↵ to keep the text as one Later; revision-aware previews and saves whose receipts survive closing the dialog.
  * [POS]: Workspace-scoped composer session; its modal unmounts while draft and in-flight save state remain owned here. Half-sure column and parent reads arrive already adopted (draft.ts); the rest stay doubts until chosen.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -11,7 +11,7 @@ import type { AnalyzeReply, Failure, PreviewWarning } from '../../../shared/cont
 import { horizonNames, smartMessages as t } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
-import type { Smart } from '../../state/smart'
+import type { Ai } from '../../state/ai'
 import { Modal } from '../../components/Modal'
 import { Icon } from '../../components/icons'
 import { formatCombo, matches, useShortcuts } from '../../state/shortcuts'
@@ -22,7 +22,7 @@ import { doubts, mergeIntoPrevious } from './suggestions'
 import './composer.css'
 
 interface Props {
-  snapshot: Snapshot; flows: Flows; smart: Smart; submit: (action: Action) => Promise<unknown>; busy: boolean; error: string | null; errorCode: string | null
+  snapshot: Snapshot; flows: Flows; ai: Ai; submit: (action: Action) => Promise<unknown>; busy: boolean; error: string | null; errorCode: string | null
   open: boolean; close: () => void; openSettings: () => void
 }
 type Phase = { kind: 'idle' } | { kind: 'pending' } | { kind: 'ready' } | { kind: 'failed'; failure: Failure }
@@ -30,8 +30,8 @@ const debounceMs = 600
 const consoleFailures = ['account_verification_required', 'quota_exhausted', 'payment_required', 'permission_denied']
 const rowKeys: Record<string, RowMenu> = { KeyT: 'horizon', KeyD: 'due', KeyP: 'parent' }
 
-export function Composer({ snapshot, flows, smart, submit, busy, error, errorCode, open, close, openSettings }: Props) {
-  const status = smart.status
+export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, open, close, openSettings }: Props) {
+  const status = ai.status?.features.smart, provider = status?.provider ?? null
   const enabled = !!status?.enabled
   const [text, setText] = useState('')
   const { bindings } = useShortcuts()
@@ -42,7 +42,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
   const [previewText, setPreviewText] = useState<string | null>(null)
   const [previewContext, setPreviewContext] = useState<string | null>(null)
   // A draft typed before (re)enabling or under another provider is never forwarded until the user asks.
-  const [consentRevision, setConsentRevision] = useState<number | null>(enabled ? status!.providerRevision : null)
+  const [consentRevision, setConsentRevision] = useState<number | null>(enabled ? status!.revision : null)
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const [fallback, setFallback] = useState(false), [composing, setComposing] = useState(false), [problem, setProblem] = useState<string | null>(null)
   // Adjust mode: one selected draft line, at most one open inline menu or title editor.
@@ -51,9 +51,9 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
   const session = useRef(crypto.randomUUID()), input = useRef(0), manual = useRef(0), field = useRef<HTMLTextAreaElement>(null), list = useRef<HTMLDivElement>(null)
   const latestRequest = useRef<string | null>(null), alive = useRef(true), saving = useRef(false)
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
-  const smartMode = enabled && consentRevision === status?.providerRevision
+  const smartMode = enabled && consentRevision === status?.revision
   const plain = useMemo(() => plainDraft(text, null), [text])
-  const contextKey = JSON.stringify([snapshot.workspace.generation, snapshot.workspace.revision, status?.providerRevision, today, snapshot.periods.map(period => period.id)])
+  const contextKey = JSON.stringify([snapshot.workspace.generation, snapshot.workspace.revision, status?.revision, today, snapshot.periods.map(period => period.id)])
   const current = previewText === text.trim() && previewContext === contextKey
   const usedColors = flows.all.map(flow => flow.flowColor)
   const stateRef = useRef({ text, drafts, removed, parents, warnings, previewText, previewContext, consentRevision })
@@ -81,7 +81,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
     const value = text.trim()
     if (!open || !status || !smartMode || !value) return
     const request = { requestId: crypto.randomUUID(), draftSessionId: session.current, inputRevision: input.current, manualRevision: manual.current, generation: snapshot.workspace.generation,
-      providerRevision: status.providerRevision, contextRevision: snapshot.workspace.revision, referenceTime: snapshot.observedAt, text: value, parentHints: [] }
+      providerRevision: status.revision, contextRevision: snapshot.workspace.revision, referenceTime: snapshot.observedAt, text: value, parentHints: [] }
     latestRequest.current = request.requestId
     const applicable = () => alive.current && contextRef.current.open && latestRequest.current === request.requestId && input.current === request.inputRevision && contextRef.current.contextKey === contextKey && contextRef.current.smartMode
     setPhase({ kind: 'pending' })
@@ -95,7 +95,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
     if (!applicable() || reply.echo.requestId !== request.requestId || reply.echo.inputRevision !== input.current || reply.echo.contextRevision !== request.contextRevision || reply.echo.generation !== request.generation || reply.echo.providerRevision !== request.providerRevision) return
     if (reply.status === 'cancelled') return
     if (reply.echo.manualRevision !== manual.current) { void analyzeRef.current(); return }
-    if (reply.status === 'failed') { setPhase({ kind: 'failed', failure: reply.failure }); if (reply.failure.kind === 'rate_limited') void smart.refresh(); return }
+    if (reply.status === 'failed') { setPhase({ kind: 'failed', failure: reply.failure }); if (reply.failure.kind === 'rate_limited') void ai.refresh(); return }
     if (reply.preview.referenceDate !== today || snapshot.periods.some(period => reply.preview.periods[period.horizon]?.id !== period.id)) { setProblem(t.stalePeriod); setPhase({ kind: 'idle' }); return }
     const merged = mergePreview(reply.preview, stateRef.current.drafts, stateRef.current.removed)
     setDrafts(merged)
@@ -107,12 +107,13 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
   analyzeRef.current = analyze
   useEffect(() => {
     if (!open || !smartMode || composing || !text.trim() || current) return
-    const cooldown = status?.cooldownUntil ? Date.parse(status.cooldownUntil) - Date.now() : 0
+    const until = provider ? ai.status?.providers[provider].cooldownUntil : null
+    const cooldown = until ? Date.parse(until) - Date.now() : 0
     const timer = setTimeout(() => void analyze(), Math.max(debounceMs, cooldown))
     return () => clearTimeout(timer)
   }, [open, text, smartMode, composing, current, contextKey])
   // Status may arrive after opening: an empty composer adopts the current provider; typed text still waits for an explicit resend.
-  useEffect(() => { if (!stateRef.current.text.trim()) setConsentRevision(enabled ? status!.providerRevision : null) }, [enabled, status?.providerRevision, text])
+  useEffect(() => { if (!stateRef.current.text.trim()) setConsentRevision(enabled ? status!.revision : null) }, [enabled, status?.revision, text])
 
   const changeText = (value: string) => { input.current++; setText(value); setProblem(null); setAdjusting(false); if (phase.kind === 'failed') setPhase({ kind: 'idle' }) }
   const change = (id: string, patch: Partial<EditableDraft>, ...keys: Field[]) => {
@@ -140,7 +141,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
     setText(''); stateRef.current.text = ''; setDrafts([]); setRemoved([]); setParents(new Map()); setWarnings([])
     setPreviewText(null); setPreviewContext(null); setPhase({ kind: 'idle' }); setFallback(false); setProblem(null)
     setAdjusting(false); setSelected(null); setMenu(null); setEditing(false)
-    setConsentRevision(enabled ? status!.providerRevision : null)
+    setConsentRevision(enabled ? status!.revision : null)
     close()
   }
   const saveLater = async () => {
@@ -171,7 +172,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
   const hasPlan = smartMode && drafts.length > 0 && previewText !== null
   const canConfirm = hasPlan && current
   const failed = smartMode && phase.kind === 'failed' ? phase.failure : null
-  const resend = () => { setConsentRevision(status!.providerRevision); setPreviewText(null) }
+  const resend = () => { setConsentRevision(status!.revision); setPreviewText(null) }
   const total = drafts.length, lands = total === 1 ? drafts[0]!.horizon : null
   const primary: { label: string; run: () => void; ready: boolean } = fallback ? { label: t.fallbackConfirm, run: () => void saveLater(), ready: !!plain }
     : !smartMode ? enabled ? { label: t.resend, run: resend, ready: !!plain } : { label: t.saveLater, run: () => void saveLater(), ready: !!plain }
@@ -238,7 +239,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
     null, plain?.description ? <p className="cand-note">{t.descriptionKept}</p> : undefined)
   else if (!smartMode) content = strip('plain', <><span className="cand-text" role="status">{t.providerChanged}</span>{primaryButton}</>, keepHint)
   else if (failed && !canConfirm) content = strip('failed', <><JevBadge /><span className="cand-text" role="alert">{failed.message}</span>
-    {consoleFailures.includes(failed.kind) && status?.activeProvider && <button type="button" className="cand-link" onClick={() => smart.openConsole(status.activeProvider!)}>{t.getKey}</button>}{primaryButton}</>, keepHint)
+    {consoleFailures.includes(failed.kind) && provider && <button type="button" className="cand-link" onClick={() => ai.openConsole(provider)}>{t.getKey}</button>}{primaryButton}</>, keepHint)
   else if (hasPlan && adjusting) content = strip('jev', <><JevBadge /><span className="cand-text">{t.adjustHeading}</span>{primaryButton}</>,
     <>{hint('↑↓', t.hintSelect)}{hint('T D P', t.hintFields)}{hint('E', t.hintEdit)}{hint(formatCombo('Backspace'), t.hintRemove)}{hint('Esc', t.back)}</>,
     <div ref={list} className="plan-list" role="listbox" aria-label={t.adjustHeading} onKeyDown={listKeys}>
@@ -262,7 +263,7 @@ export function Composer({ snapshot, flows, smart, submit, busy, error, errorCod
     <div className="composer-body">
       {(error || problem) && <p className="inline-error composer-error" role="alert">{problem ?? error}</p>}
       {content}
-      {status && !status.dismissed.includes('globalEntry') && <p className="composer-tip"><span>{t.entryTip}</span><button type="button" className="icon-button small" aria-label={t.dismiss} onClick={() => void smart.dismiss('globalEntry')}><Icon name="close" size={12} /></button></p>}
+      {ai.status && !ai.status.dismissed.includes('globalEntry') && <p className="composer-tip"><span>{t.entryTip}</span><button type="button" className="icon-button small" aria-label={t.dismiss} onClick={() => void ai.dismiss('globalEntry')}><Icon name="close" size={12} /></button></p>}
     </div>
   </Modal>
 }

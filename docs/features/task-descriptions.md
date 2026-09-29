@@ -7,7 +7,10 @@
 - Keep explicit Save/Discard and the existing draft/receipt guards. Editor undo owns text while focused. Composition never submits. Deleted items render read-only. Serialized Markdown is limited to 100,000 characters.
 - Bare links display cached page titles and favicons; named links retain authored labels. Code stays literal. New destinations request metadata only after saving. Metadata is presentation, never document content.
 - Inline titles and named links wrap within the surrounding paragraph; the link itself never applies a width cap or ellipsis. Missing legacy icons are enriched without changing Markdown or editor history.
-- Details have no separate preview cards. Existing board cards remain. Homepage description alternatives are private, isolated prototypes until a design is selected.
+- Details have no separate preview cards. Existing board cards remain.
+- Board rows use the selected "signal + peek" presentation (D5). A row with a non-blank description shows one quiet line under its title, before any title link cards: checklist progress with the first open item, otherwise the first plain line; plus the first link host and `+N` for further links. Code spans and fenced blocks never count as checklist items or links. Rows without a description keep their height. Completed rows show the signal faded.
+- Hovering the signal for 300ms, focusing it or pressing it opens a floating, read-only peek beside the row with the full Markdown note and its link cards. Peek checklist markers never write; editing and Save/Discard stay in the detail. Leaving the signal and peek, Escape or an outside press closes it. Pressing the signal never drags the row or opens the detail.
+- Item summaries carry only the bounded digest (`note`: tasks done/total, next item ≤120 chars, up to three link URLs with a total, excerpt ≤120 chars), computed in storage; the description body loads only when a peek or detail opens.
 - The surrounding detail title reads as complete rich text and switches to growing raw-text editing on demand; its shared link/source and draft rules are defined in [link previews](link-previews.md).
 - Selection tools stay clear of the selected text, prefer the space above it and flip below when needed. Placement uses the measured toolbar/link-form size and tracks scrolling and resizing within the visible detail area.
 

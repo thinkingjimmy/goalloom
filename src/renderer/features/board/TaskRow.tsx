@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
- * [OUTPUT]: Accessible task row with saved links, due/description indicators, flow dot, pointer/keyboard drag and TODO context menu; lit rows carry `data-lit` and `--row-tint`.
- * [POS]: One virtual board row; Board owns placement, preview and dimming, detail loading owns description bodies.
+ * [OUTPUT]: Accessible task row with saved links, a due indicator, a description signal/peek between title and link cards, flow dot, pointer/keyboard drag and TODO context menu; lit rows carry `data-lit` and `--row-tint`.
+ * [POS]: One virtual board row; Board owns placement, preview and dimming; the peek and detail own description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { memo, useMemo, type CSSProperties, type KeyboardEventHandler, type PointerEventHandler } from 'react'
@@ -16,6 +16,7 @@ import type { Flows } from '../../state/flows'
 import type { Action } from '../../state/use-workspace'
 import { Icon } from '../../components/icons'
 import { FlowDot } from './FlowDot'
+import { NoteSignal } from './NoteSignal'
 import { LinkTitle } from '../../components/links/LinkText'
 import { LinkPreviews } from '../../components/links/LinkPreviews'
 import { linkUrls } from '../../components/links/parse'
@@ -38,7 +39,6 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
     {hasLinks ? <LinkTitle text={item.title} onOpen={() => select(item.id)} /> : <button className="task-title" title={item.title} onClick={() => select(item.id)}><span>{item.title}</span></button>}
     {item.dueDate && !overdue && !done && <span className="row-meta tabular" title={`${messages.dueDate} ${longDate(item.dueDate)}`}>{shortDate(item.dueDate)}</span>}
     {overdue && <span className="row-icon overdue" role="img" aria-label={messages.dueOverdue(longDate(item.dueDate!))} title={messages.dueOverdue(longDate(item.dueDate!))}><Icon name="overdue" size={16} /></span>}
-    {item.hasDescription && !done && <span className="row-icon" role="img" aria-label={messages.noteMark} title={messages.noteMark}><Icon name="note" size={16} /></span>}
   </div>
   const row = <article role="listitem" aria-posinset={index + 1} aria-setsize={total} id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-highlighted={selected} data-dimmed={dimmed} data-done={done} data-lit={!!tint || undefined}
     style={{ transform: CSS.Transform.toString(transform), transition, '--row-tint': tint } as CSSProperties} onPointerDown={event => { if (event.button === 0 && !event.ctrlKey) (listeners?.onPointerDown as PointerEventHandler | undefined)?.(event) }}>
@@ -49,7 +49,7 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
       onClick={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
       {done && <Icon name="check" size={12} strokeWidth={2.5} />}
     </button>
-    {hasLinks ? <div className="task-content">{line}<LinkPreviews text={item.title} /></div> : line}
+    {hasLinks || item.note ? <div className="task-content">{line}{item.note && <NoteSignal itemId={item.id} title={item.title} note={item.note} />}{hasLinks && <LinkPreviews text={item.title} />}</div> : line}
   </article>
   const links = relations.filter(edge => edge.parentId === item.id || edge.childId === item.id).length
   return upcoming && item.status === 'todo' ? <TaskMenu item={item} upcoming={upcoming} relations={links} disabled={disabled || isDragging} submit={submit} select={select}

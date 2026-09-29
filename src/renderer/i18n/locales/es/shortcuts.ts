@@ -7,7 +7,7 @@
 import type { ShortcutCatalog, shortcutNames as sourceNames, shortcutNotes as sourceNotes } from '../zh/shortcuts'
 
 export const shortcutNames: typeof sourceNames = {
-  palette: 'Abrir búsqueda y comandos', compose: 'Nuevo', settings: 'Abrir ajustes', undo: 'Deshacer', submit: 'Guardar / confirmar', filters: 'Filtro de flujo',
+  palette: 'Abrir búsqueda y comandos', compose: 'Nuevo', settings: 'Abrir ajustes', undo: 'Deshacer', submit: 'Guardar / confirmar', filters: 'Números de la barra superior',
 }
 export const shortcutNotes: typeof sourceNotes = {
   undo: 'Funciona en cualquier lugar fuera de un campo de texto',
@@ -17,8 +17,8 @@ export const shortcutMessages: ShortcutCatalog = {
   section: 'Atajos de teclado',
   subtitle: 'Haz clic en una tecla y pulsa la nueva combinación; Esc cancela. Debe incluir ⌘/Ctrl o ⌥/Alt',
   general: 'General',
-  filters: 'Filtro de flujo',
-  filtersToggle: (mod: string) => `Cambiar el filtro de la barra superior con ${mod} + número`,
+  filters: 'Números de la barra superior',
+  filtersToggle: (mod: string) => `Usar ${mod} + número para Later y los filtros de la barra superior`,
   filtersNote: 'El número es la posición en la barra superior contando desde la izquierda, como al cambiar de pestaña en el navegador',
   diagram: 'Esquema: posiciones de la barra superior y sus atajos',
   diagramTag: 'Esquema',

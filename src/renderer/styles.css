@@ -114,10 +114,10 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 :root[data-platform='mac'] .titlebar { padding-left: 88px; }
 .titlebar-spacer { flex: 1; align-self: stretch; }
 .flow-filter { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
-.later-toggle { height: 32px; min-width: 32px; padding: 0 8px; margin-right: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; border-radius: 8px; color: var(--secondary); }
+.later-toggle { height: 32px; padding: 0 10px 0 8px; margin-right: 6px; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; border-radius: 8px; font-size: 13px; color: var(--fg-soft); box-shadow: inset 0 0 0 1px var(--line); }
 .later-toggle:hover { background: var(--hover); color: var(--fg); }
-.later-toggle[aria-expanded='true'] { background: var(--pressed); color: var(--fg); }
-.later-count { font-size: 12px; font-variant-numeric: tabular-nums; }
+.later-toggle[aria-expanded='true'] { background: var(--pressed); box-shadow: none; color: var(--fg); font-weight: 500; }
+.later-count { font-size: 12px; font-weight: 400; color: var(--secondary); font-variant-numeric: tabular-nums; }
 .chip { height: 30px; min-width: 30px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; flex-shrink: 0; }
 .chip:hover { background: var(--hover); }
 .chip[aria-pressed='true'] { background: var(--pressed); }
@@ -150,14 +150,17 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 /* --- Board --- */
 .board-host { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .board { position: relative; flex: 1; display: flex; min-width: 0; min-height: 0; overflow: clip; }
-.board-panels { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
-.board-later { width: 300px; flex: 0 0 300px; min-height: 0; display: flex; border-right: 1px solid var(--hairline); background: var(--bg); }
-.board-later > .board-column { flex: 1; min-width: 0; max-width: none; }
+.board-panels { --column-min: 320px; position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+/* Later is a docked sheet: its own raised ground keeps it from reading as a fifth timeline column. */
+/* Later's sheet matches a time column: five equal shares of the board after the timeline's 16px padding and Later's 12px inset. */
+.board-later { width: calc(max(var(--column-min), (100% - 28px) / 5) + 12px); flex: 0 0 auto; min-height: 0; display: flex; padding: 0 0 12px 12px; background: var(--bg); }
+.board-later > .board-column { --ground: var(--raised); flex: 1; min-width: 0; border-left: 0; transition: none; border-radius: 14px; background: var(--raised); box-shadow: 0 0 0 .5px var(--edge), 0 6px 20px color-mix(in srgb, var(--fg) 6%, transparent); }
+.board-later > .board-column > .column-content { border-radius: 0 0 14px 14px; }
 .board-panels[data-later-open='false'] > .board-later { position: absolute; inset: 0 auto 0 0; visibility: hidden; transform: translateX(-100%); }
 .board-timeline { display: flex; flex: 1; min-width: 0; min-height: 0; padding: 0 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
-/* 356px keeps a 316px row readable; the cap stops wide screens from stretching lines apart. */
+/* Time columns share the width equally; below 320px each the timeline scrolls instead of squeezing rows. */
 /* --row-inset is where a row's checkbox lands after the flow-dot gutter; column text chrome aligns to it. */
-.board-column { --row-inset: 10px; position: relative; flex: 1 0 356px; min-width: 356px; max-width: 440px; display: flex; flex-direction: column; padding: 4px 20px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
+.board-column { --row-inset: 9px; --ground: var(--bg); position: relative; flex: 1 1 0; min-width: var(--column-min); display: flex; flex-direction: column; padding: 4px 14px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
 .board-column:first-child { border-left: 0; }
 .board-column.drop-target { background: var(--hover); }
 .column-header { height: 40px; flex-shrink: 0; padding-left: var(--row-inset); display: flex; align-items: center; gap: 8px; }
@@ -165,47 +168,37 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .column-meta { font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .column-spacer { flex: 1; }
 .column-add-slot { display: flex; flex: 0 0 28px; margin-left: auto; margin-right: -6px; }
-.period-header { padding-left: 0; gap: 6px; }
-.period-nav { display: flex; align-items: center; gap: 2px; flex: 0 1 auto; min-width: 0; }
-.period-nav .icon-button.small { color: var(--secondary); }
-.period-nav .icon-button:disabled { opacity: 1; color: var(--faint); cursor: default; }
-.period-nav .icon-button:active:not(:disabled) { background: var(--pressed); }
-.period-heading { display: flex; align-items: baseline; gap: 8px; flex: 0 1 auto; min-width: 0; padding: 0 4px; }
-.period-nav :is(.review-entry, .period-return) { margin-inline: 4px; }
+/* Header B: the title is the period switcher; it keeps its full width and aligns with the row checkboxes. */
+.period-header { padding-left: var(--row-inset); gap: 6px; }
+.period-nav { display: flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; }
+/* The heading keeps its width; a long return label truncates first (its full text stays in the tooltip). */
+.period-nav > .popover-root { flex: 0 0 auto; }
+.period-heading { display: flex; min-width: 0; margin: 0; font-size: inherit; font-weight: inherit; }
 .period-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.period-heading .column-meta { flex-shrink: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .period-title:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
-.period-heading .column-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .period-return { display: inline-flex; align-items: center; min-width: 0; height: 26px; padding: 0 10px; border-radius: 13px; background: var(--hover); color: var(--secondary); font-size: 12px; white-space: nowrap; }
 .period-return > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .period-return:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
 .period-nav button { touch-action: manipulation; }
-/* Put desktop navigation in the left gutter so idle titles align with row checkboxes. */
 @media (hover: hover) and (pointer: fine) {
-  .period-header { padding-left: var(--row-inset); }
-  .period-nav { position: relative; }
-  .period-nav > [data-previous-period] { position: absolute; inset-inline-end: calc(100% + 2px); width: 18px; }
-  /* Match the flow-dot width; extend the hit area into the remaining gutter without covering the title. */
-  .period-nav > [data-previous-period]::before { content: ''; position: absolute; inset: -6px 0 -6px -10px; }
-  .period-heading { padding-inline: 0; }
-  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) :is([data-add-item], [data-previous-period], [data-next-period]) { opacity: 0; }
-  .period-nav .icon-button:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
+  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) [data-add-item] { opacity: 0; }
 }
 @media (pointer: coarse) {
   .period-header { height: 48px; }
-  .period-nav .icon-button.small { width: 44px; height: 44px; }
-  .period-return { min-height: 44px; }
+  .period-switch, .period-return { min-height: 44px; }
 }
 .period-loading { padding: 14px var(--row-inset); color: var(--secondary); font-size: 13px; }
 .quick-add-expired { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--danger); }
 /* Reach the right column rule with the scrollbar; matching padding preserves row width and alignment. */
-.column-content { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; margin: 0 -20px 0 -20px; padding: 0 16px 96px 20px; }
+.column-content { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; margin: 0 -14px; padding: 0 10px 96px 14px; }
 .backlog-entry { flex-shrink: 0; height: 36px; margin-top: 2px; padding-left: var(--row-inset); display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--backlog); }
 .backlog-entry:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* The row ground holds the flow dot in its left padding; checkbox, dot and meta stay on the first title line. */
 /* A 2px clear band above and below keeps neighbouring grounds (hover, located, flow tint) from merging into one block;
    rows carry no divider, so that band is the only separation.
    Ground rules set background-color/-image only: the `background` shorthand would reset the clip and paint over the band. */
-.task-row { --check-space: 30px; position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 32px; margin: 0 -8px 0 -12px; padding: 0 8px 0 22px; border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
+.task-row { --check-space: 30px; position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 32px; margin: 0 -7px 0 -11px; padding: 0 6px 0 20px; border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
 .task-row:is([data-highlighted='true'], [data-state='open']) { background-color: var(--hover); }
 /* Pointer hover stays lighter than the located/highlighted row so the two remain distinguishable. */
 :root:not([data-dragging='true']) .task-row:not([data-highlighted='true'], [data-state='open']):hover { background-color: color-mix(in srgb, var(--hover) 50%, transparent); }
@@ -239,18 +232,18 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 
 /* --- Relation lines: an overlay while a flow is filtered or previewed. Rows keep their full width and an opaque ground;
    right-angle connectors run in the gaps between columns and along the bands between rows. --- */
-.board[data-lines='true'] .task-row { background-color: var(--bg); }
-.board[data-lines='true'] .task-row:is([data-highlighted='true'], [data-state='open']) { background-color: var(--bg); background-image: linear-gradient(var(--hover), var(--hover)); }
-:root:not([data-dragging='true']) .board[data-lines='true'] .task-row:not([data-highlighted='true'], [data-state='open']):hover { background-color: var(--bg); background-image: linear-gradient(color-mix(in srgb, var(--hover) 50%, transparent), color-mix(in srgb, var(--hover) 50%, transparent)); }
+.board[data-lines='true'] .task-row { background-color: var(--ground); }
+.board[data-lines='true'] .task-row:is([data-highlighted='true'], [data-state='open']) { background-color: var(--ground); background-image: linear-gradient(var(--hover), var(--hover)); }
+:root:not([data-dragging='true']) .board[data-lines='true'] .task-row:not([data-highlighted='true'], [data-state='open']):hover { background-color: var(--ground); background-image: linear-gradient(color-mix(in srgb, var(--hover) 50%, transparent), color-mix(in srgb, var(--hover) 50%, transparent)); }
 /* Lines sit above the rows: they only travel through column gaps and the clear bands between rows, never over text,
    so exit ports stay whole and a line reaches its child's flow dot (which, later in the DOM, still paints above it). */
 .relation-lines { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; transition: opacity .15s ease-out; }
 /* Rows of an active flow take its tint; hovering the row or its dot deepens it, rows outside the hovered chain return to the ground. */
-.board[data-lines='true'] .task-row[data-lit='true'] { background-color: color-mix(in srgb, var(--row-tint) 65%, var(--bg)); background-image: none; }
+.board[data-lines='true'] .task-row[data-lit='true'] { background-color: color-mix(in srgb, var(--row-tint) 65%, var(--ground)); background-image: none; }
 :root:not([data-dragging='true']) .board[data-lines='true'] .task-row[data-lit='true']:not([data-highlighted='true']):hover,
 .board[data-lines='true'] .task-row[data-lit='true'][data-state='open'],
 .board[data-lines='true'] .task-row[data-lit='true']:has(.flow-dot-button:is(:hover, :focus-visible, [aria-expanded='true'])) { background-color: var(--row-tint); background-image: none; }
-.board[data-lines='true'] .task-row[data-lit='true'][data-chain-out='true']:not([data-state='open']) { background-color: var(--bg); background-image: none; }
+.board[data-lines='true'] .task-row[data-lit='true'][data-chain-out='true']:not([data-state='open']) { background-color: var(--ground); background-image: none; }
 :root[data-dragging='true'] .relation-lines { opacity: 0; }
 .relation-lines svg { display: block; overflow: visible; }
 .relation-edge { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-opacity: .6; stroke-linecap: round; transition: stroke-opacity .15s ease-out, stroke-width .15s ease-out; }
@@ -269,15 +262,16 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 }
 /* Marks where a related row sits beyond the column's scroll edge; clicking reveals the nearest one. */
 .relation-marker { position: absolute; z-index: 2; pointer-events: auto; height: 20px; margin-top: -10px; padding: 0 7px 0 5px; display: inline-flex; align-items: center; gap: 2px; border-radius: 10px; background: var(--raised); box-shadow: 0 0 0 .5px var(--edge), 0 1px 2px rgba(60, 40, 20, .08); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.relation-marker[data-align='start'] { transform: translateX(4px); }
+/* Rows start 4px past the column rule and their dot/checkbox paint above the lines layer, so a start marker straddles the rule instead. */
+.relation-marker[data-align='start'] { transform: translateX(calc(-50% - 4px)); }
 .relation-marker[data-align='end'] { transform: translateX(calc(-100% - 4px)); }
 .relation-marker:hover { background: linear-gradient(var(--hover), var(--hover)) var(--raised); }
 
 /* --- Flow dot: sits in the gutter before a row's checkbox. Shown on row hover/focus, while its menu is open and on every
    row of an active flow, where forward relation lines end on it. Filtered cycle TODO rows keep the dot hidden at rest.
    Later rows have none. --- */
-/* The 6px dot matches the outgoing port, with 8px on each side before the ground edge and checkbox. */
-.flow-dot-slot { position: absolute; left: 2px; top: 5px; z-index: 1; }
+/* The 18px dot button fills the row's left padding and stops 2px before the checkbox, keeping the gutter at 23px. */
+.flow-dot-slot { position: absolute; left: 0; top: 5px; z-index: 1; }
 .flow-dot-slot > .popover-root { display: block; }
 .flow-dot-button { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: var(--fg-soft); opacity: 0; transition: opacity .12s ease-out, background-color .12s ease-out; }
 .flow-dot-button > * { grid-area: 1 / 1; }
@@ -421,8 +415,10 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .segmented button[aria-checked='true'] { background: var(--raised); color: var(--fg); box-shadow: 0 1px 2px rgba(60, 40, 20, .1); }
 
 /* --- Detail: only the body scrolls, so the scrollbar stays inside the rounded frame. --- */
-.modal.detail[open] { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-.detail .modal-header { position: static; flex-shrink: 0; margin: 0; height: 56px; padding: 0 14px 0 20px; gap: 2px; }
+/* The dialog is always a two-column grid; the activity column is 0px until opened. Width and that column animate together,
+   so the body column keeps its width while the dialog widens and the drawer is revealed from the right edge. */
+.modal.detail[open] { display: grid; grid-template-columns: minmax(0, 1fr) 0px; grid-template-rows: auto auto minmax(0, 1fr); padding: 0; overflow: hidden; }
+.detail .modal-header { position: static; flex-shrink: 0; margin: 0; height: 56px; padding: 0 58px 0 20px; gap: 2px; transition: padding-right .26s cubic-bezier(.32, .72, 0, 1); }
 /* The placement menu drops out of the header, so let it overflow; the chip text truncates itself. */
 .detail .modal-context { display: flex; min-width: 0; overflow: visible; }
 .detail .modal-context > .popover-root { min-width: 0; }
@@ -430,8 +426,21 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .placement-chip { max-width: 100%; height: 32px; padding: 0 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; }
 .placement-chip:hover, .placement-chip[aria-expanded='true'] { background: var(--hover); color: var(--fg); }
 .placement-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.detail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 28px 20px; }
-.detail-title { display: flex; align-items: flex-start; gap: 14px; }
+/* The body and the activity drawer sit side by side under the shared header; opening the drawer widens the dialog. */
+/* A steady minimum height keeps short items from turning into a wide, flat strip; the description fills the rest. */
+.modal.detail { width: min(720px, calc(100vw - 40px)); min-height: min(560px, calc(100vh - 80px)); transition: width .26s cubic-bezier(.32, .72, 0, 1), grid-template-columns .26s cubic-bezier(.32, .72, 0, 1); }
+.modal.detail.with-activity { width: min(1020px, calc(100vw - 40px)); grid-template-columns: minmax(0, 1fr) 300px; }
+.modal.detail > :not(.detail-layout) { grid-column: 1; }
+.modal.detail > .detail-layout { display: contents; }
+.modal.detail .detail-main { grid-column: 1; grid-row: 3; min-height: 0; }
+.modal.detail .activity-drawer { grid-column: 2; grid-row: 1 / -1; }
+/* Close sits in the dialog's top-right corner in both states, gliding with the edge; the header reserves its space only while the drawer is shut. */
+.modal.detail .modal-header > .icon-button:last-child { position: absolute; top: 10px; right: 12px; z-index: 4; }
+.modal.detail.with-activity .modal-header { padding-right: 14px; }
+@media (prefers-reduced-motion: reduce) { .modal.detail, .detail .modal-header { transition: none; } }
+.detail-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.detail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 28px 20px; display: flex; flex-direction: column; }
+.detail-title { display: flex; align-items: flex-start; gap: 12px; }
 .detail-title .check.large { margin-top: 3px; }
 .title-line { position: relative; flex: 1; min-width: 0; font-size: 20px; line-height: 28px; font-weight: 600; }
 .title-line .detail-title-display { min-height: 28px; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -443,11 +452,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .title-input { display: block; field-sizing: content; width: 100%; min-width: 0; min-height: 28px; max-width: 100%; padding: 0 0 2px; border: 0; border-radius: 0; background: transparent; font: inherit; resize: none; overflow: hidden; overflow-wrap: anywhere; }
 .title-input:focus-visible { outline: none; box-shadow: 0 1px 0 var(--edit-line); }
 @media (pointer: coarse) { .detail-title-edit { opacity: 1; width: 44px; height: 44px; top: -8px; right: -8px; } .detail-title-display[data-editable='true'] { padding-right: 36px; } }
-.flow-handle { width: 24px; height: 28px; margin: 0 -12px 0 -6px; flex-shrink: 0; border-radius: 6px; display: grid; place-items: center; }
-button.flow-handle:hover:not(:disabled), .flow-handle[aria-expanded='true'] { background: var(--hover); }
 .flow-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--flow-ring); }
 .flow-dot[data-empty='true'] { background: transparent; border: 1.5px dashed var(--faint); }
-button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-color: var(--secondary); }
 .flow-menu { width: 300px; }
 .flow-menu-header { padding: 6px 10px 8px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; font-weight: 500; }
 .flow-menu-header p { margin: 0; font-size: 12px; font-weight: 400; line-height: 1.5; color: var(--secondary); }
@@ -462,37 +468,45 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
 .flow-swatch-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 1.2; color: var(--secondary); }
 .flow-swatch[aria-checked='true'] .flow-swatch-label { color: var(--fg); font-weight: 500; }
 .flow-swatch:disabled .flow-swatch-label { color: var(--faint); }
-.fields { display: grid; grid-template-columns: 64px minmax(0, 1fr); row-gap: 12px; column-gap: 12px; margin: 24px 0 20px; align-items: start; font-size: 14px; }
-.field-label { display: block; margin: 0; font-size: 13px; font-weight: 400; line-height: 30px; color: var(--secondary); }
-.field-value { min-height: 30px; min-width: 0; display: flex; align-items: center; }
+/* Properties, description and the latest event share the body's left edge; the dialog is wide enough for one chip row. */
+.detail-props { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 14px 0 0; }
+.detail-props > .popover-root { display: flex; }
+.detail-chip, .detail-props .field-button { height: 28px; margin: 0; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-soft); box-shadow: inset 0 0 0 1px var(--line); white-space: nowrap; }
+.detail-chip:is(button):hover:not(:disabled), .detail-chip[aria-expanded='true'], .detail-props .field-button:hover:not(:disabled), .detail-props .field-button[aria-expanded='true'] { background: var(--hover); color: var(--fg); }
+.detail-chip[data-empty='true'], .detail-props .field-button[data-empty='true'] { color: var(--secondary); }
+.detail-chip[data-ghost='true'] { box-shadow: none; color: var(--secondary); }
+.detail-props .field-button[data-overdue='true'] { color: var(--danger); }
+.detail-chip[data-static='true'] { max-width: 240px; cursor: default; }
+.detail-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.detail-chip-count { color: var(--secondary); font-variant-numeric: tabular-nums; }
+.relation-menu { max-width: 320px; }
+.detail-body > .description-editor { flex: 1; display: flex; flex-direction: column; margin: 16px 0 0; }
+.detail-body .description-content { flex: 1; min-height: 160px; }
+.detail-body .description-content:focus-visible { outline: none; }
+.detail-latest { align-self: flex-start; margin: 12px 0 0; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.detail-latest:hover { color: var(--secondary); text-decoration: underline; text-underline-offset: 3px; }
 .field-button { height: 30px; margin-left: -8px; padding: 0 8px; border-radius: 7px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .field-button:hover:not(:disabled), .field-button[aria-expanded='true'] { background: var(--hover); }
 .field-button[data-empty='true'] { color: var(--secondary); }
 .field-button[data-overdue='true'] { color: var(--danger); }
-.field-hint { display: inline-flex; align-items: center; gap: 6px; line-height: 30px; color: var(--faint); cursor: help; }
-.relation-list { flex-direction: column; align-items: flex-start; gap: 8px; padding-top: 4px; }
-.relation-link { display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 22px; text-align: left; }
-.relation-link:hover span { text-decoration: underline; text-underline-offset: 3px; }
-.relation-list > .relation-actions:first-child > .popover-root > .field-button { margin-top: -4px; }
-.relation-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip-button { height: 30px; padding: 0 10px 0 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-soft); background: var(--hover); }
-.chip-button:hover:not(:disabled), .chip-button[aria-expanded='true'] { background: var(--pressed); color: var(--fg); }
 .note-input { display: block; width: calc(100% + 16px); margin: 4px -8px 0; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; resize: none; font-size: 14px; line-height: 23px; color: var(--fg-soft); }
 .note-input:focus-visible { outline: none; background: var(--hover); }
-.activity-section { margin: 16px -8px 0; padding-top: 12px; border-top: 1px dashed var(--line); }
-.activity-toggle { width: 100%; height: 34px; padding: 0 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--secondary); }
-.activity-toggle:hover, .activity-toggle[aria-expanded='true'] { background: var(--hover); color: var(--fg-soft); }
-.activity-count { color: var(--faint); font-variant-numeric: tabular-nums; }
-.activity-latest { flex: 1; min-width: 0; text-align: right; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.activity-section .activity-list { padding: 10px 8px 4px 32px; }
+.activity-drawer { width: 300px; flex-shrink: 0; min-height: 0; overflow-y: auto; padding: 0 20px 20px; border-left: 1px solid var(--hairline); background: var(--bg); animation: activity-in .26s cubic-bezier(.32, .72, 0, 1); }
+.activity-drawer-title { height: 56px; display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--fg); }
+.activity-count { font-weight: 400; color: var(--secondary); font-variant-numeric: tabular-nums; }
+@keyframes activity-in { from { opacity: 0; transform: translateX(24px); } }
+@media (prefers-reduced-motion: reduce) { .activity-drawer { animation: none; } }
 .detail .modal-footer { position: static; flex-shrink: 0; margin: 0; padding: 12px 16px 12px 28px; }
 .save-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--backlog); }
 .save-note { font-size: 13px; color: var(--secondary); }
-.activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.activity-list li { display: grid; grid-template-columns: 96px minmax(0, 1fr); column-gap: 12px; font-size: 13px; }
-.activity-list strong { grid-column: 2; font-weight: 400; color: var(--fg-soft); }
-.activity-list time { grid-column: 1; grid-row: 1 / span 2; font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; }
-.activity-list span { grid-column: 2; font-size: 12px; color: var(--secondary); }
+/* A dotted timeline: each event's dot sits beside its title, joined to the next by a hairline. */
+.activity-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.activity-list li { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 0 0 18px 20px; }
+.activity-list li::before { content: ''; position: absolute; left: 3px; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.activity-list li::after { content: ''; position: absolute; left: 6px; top: 18px; bottom: 0; width: 1px; background: var(--line); }
+.activity-list li:last-child::after { display: none; }
+.activity-list strong { font-size: 13px; font-weight: 500; color: var(--fg); }
+.activity-list span { font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; }
 
 /* --- Command palette --- */
 .modal.palette { width: min(560px, calc(100vw - 40px)); margin: 12vh auto auto; padding: 0 8px 8px; }
@@ -551,9 +565,10 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
 .jev-connect .check-label { margin: 4px 0 0; font-size: 13px; }
 .jev-connect .check-label input { width: 16px; height: 16px; }
 .jev-actions { display: flex; gap: 8px; }
-.jev-result { margin: 0; font-size: 12px; line-height: 1.6; color: var(--danger); }
+.jev-result { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; line-height: 1.6; }
+.jev-result p { margin: 0; color: var(--danger); }
+.jev-result p[data-ok="true"] { color: var(--ok, var(--secondary)); }
 .jev-result:empty { display: none; }
-.jev-result[data-ok='true'] { color: var(--secondary); }
 
 /* --- Minimal style component skin: same layout, shadcn-like controls. --- */
 :root[data-style='minimal'] {
@@ -568,7 +583,6 @@ button.flow-handle:hover:not(:disabled) .flow-dot[data-empty='true'] { border-co
   .modal { border-radius: 12px; }
   .task-row { border-radius: 6px; }
   .task-line::after, .backlog-row { border-bottom-style: solid; border-bottom-color: var(--hairline); }
-  .activity-section { border-top-style: solid; }
   .check { width: 16px; height: 16px; border-radius: 4px; box-shadow: var(--shadow-xs); }
   .check-dashed, .flow-mark-dashed { box-shadow: none; }
   .check.large { width: 20px; height: 20px; border-radius: 5px; }

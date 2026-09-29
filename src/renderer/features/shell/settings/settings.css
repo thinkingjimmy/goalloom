@@ -23,7 +23,8 @@
 .settings-nav button:disabled { opacity: .45; }
 .settings-nav-label { flex: 1; min-width: 0; }
 .settings-nav-meta { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 400; color: var(--secondary); font-variant-numeric: tabular-nums; }
-.settings-nav-meta[data-dot='true']::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--ok-mark); }
+.settings-nav-meta[data-dot='true']::before, .settings-nav-meta[data-dot='warn']::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--ok-mark); }
+.settings-nav-meta[data-dot='warn']::before { background: var(--backlog); }
 .settings-nav-hint, .settings-nav-note { margin: auto 0 0; padding: 0 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--secondary); }
 .settings-nav-hint .keycap { min-width: 20px; height: 20px; font-size: 11px; border-radius: 5px; }
 .settings-nav-note { padding: 10px; align-items: flex-start; border-radius: 8px; background: var(--hover); line-height: 1.5; color: var(--fg-soft); }
@@ -84,6 +85,8 @@
 .settings-hero-icon { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 10px; background: var(--raised); color: var(--secondary); box-shadow: 0 0 0 .5px var(--edge); }
 .settings-hero[data-state='enabled'] .settings-hero-icon, .settings-hero-icon[data-state='enabled'] { color: var(--ok); }
 .settings-hero[data-state='paused'] .settings-hero-icon { color: var(--backlog); }
+.settings-hero[data-state='paused'] { background: color-mix(in oklab, var(--backlog) 8%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--backlog) 22%, transparent); }
+.settings-hero[data-state='paused'] .settings-row-text > span { color: var(--backlog); }
 .settings-card > .settings-hero .settings-hero-icon, .receipt-row .settings-hero-icon { border-radius: 18px; box-shadow: none; background: var(--hover); }
 .settings-card > .settings-hero[data-state='enabled'] .settings-hero-icon, .receipt-row .settings-hero-icon { background: var(--ok-tint); color: var(--ok); }
 .settings-radio { width: 18px; height: 18px; flex-shrink: 0; box-sizing: border-box; border-radius: 9px; border: 1.5px solid var(--check-edge); background: var(--raised); }
@@ -169,8 +172,23 @@
 .backup-kind[data-kind='manual'] { background: color-mix(in oklab, var(--focus) 16%, transparent); color: var(--focus); }
 .backup-kind[data-kind='protective'] { background: color-mix(in oklab, var(--backlog) 16%, transparent); color: var(--backlog); }
 
-/* Smart input providers. */
-.smart-provider-form { padding: 4px 16px 16px 50px; }
+/* AI services: provider rows with capability chips; the connect form opens under its row. */
+.smart-provider > * + * { border-top: 1px solid var(--hairline); }
+.smart-provider-form { padding: 4px 16px 16px 62px; background: color-mix(in oklab, var(--hover) 45%, transparent); }
+.provider-mark { width: 30px; height: 30px; flex-shrink: 0; display: grid; place-items: center; border-radius: 8px; background: var(--hover); font-size: 11px; font-weight: 700; letter-spacing: .02em; color: var(--fg-soft); }
+.provider-name { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.capability-chip { height: 20px; padding: 0 7px; display: inline-flex; align-items: center; border-radius: 6px; font-size: 11.5px; font-weight: 500; background: var(--ok-tint); color: var(--ok); }
+.capability-chip[data-state='pending'] { background: var(--hover); color: var(--fg-soft); }
+.capability-chip[data-state='issue'] { background: color-mix(in oklab, var(--backlog) 14%, transparent); color: var(--backlog); }
+.capability-chip[data-state='unsupported'] { background: transparent; color: var(--secondary); box-shadow: inset 0 0 0 1px var(--line); }
+.settings-row-text small[data-issue='true'] { color: var(--backlog); }
+.settings-row.provider-remove { min-height: 48px; padding-left: 62px; gap: 8px; font-size: 12.5px; color: var(--fg-soft); background: color-mix(in oklab, var(--danger-tint) 55%, transparent); }
+.provider-remove > span { flex: 1; min-width: 0; }
+/* Feature panes: the provider a feature uses, chosen from those that can run its model. */
+.provider-choices > * + * { border-top: 1px solid var(--hairline); }
+.provider-choice > button[role='radio'] { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; text-align: left; }
+.provider-choice[data-ready='false'] > button[role='radio'] { opacity: .5; }
+.settings-hero .text-button.small { color: var(--focus); }
 
 /* Items (done / cancelled / archived / trash). */
 .items-search { flex-shrink: 0; height: 36px; margin: 0; padding: 0 12px; display: flex; align-items: center; gap: 8px; border-radius: 9px; background: var(--raised); box-shadow: 0 0 0 .5px var(--edge); color: var(--secondary); font-size: 13px; font-weight: 400; }
@@ -227,14 +245,15 @@
 .select-trigger.settings-select { width: auto; min-width: 180px; flex-shrink: 0; padding: 7px 8px 7px 10px; font-size: 13.5px; }
 .settings-row-line > .settings-button { display: inline-flex; align-items: center; gap: 6px; }
 
-/* Insight pane: free-text preferences, the try-it result and the read-only prompt. */
+/* Insight pane: personalization tabs with free-text preferences and the read-only prompt. */
 .insight-textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font: inherit; font-size: 13px; line-height: 1.6; color: var(--fg); resize: vertical; }
 .insight-textarea:focus-visible { outline: none; border-color: color-mix(in oklab, var(--focus) 55%, transparent); }
 .settings-group-note { font-size: 12px; color: var(--secondary); }
-.insight-try-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.insight-trial { padding: 12px 16px 0; display: flex; flex-direction: column; gap: 10px; }
-.insight-trial p { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
-.insight-trial small { font-size: 12px; color: var(--secondary); }
+.insight-tabs { padding: 0 16px 0 18px; display: flex; gap: 22px; }
+.insight-tabs button { height: 44px; padding: 0; font-size: 13.5px; color: var(--secondary); box-shadow: inset 0 -2px 0 transparent; transition: color .15s ease-out, box-shadow .15s ease-out; }
+.insight-tabs button:hover { color: var(--fg); }
+.insight-tabs button[aria-selected='true'] { color: var(--fg); font-weight: 500; box-shadow: inset 0 -2px 0 var(--fg); }
+.insight-tab-panel > * + * { border-top: 1px solid var(--hairline); }
 .insight-prompt { display: flex; flex-direction: column; border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
 .insight-prompt pre { margin: 0; padding: 10px 12px; max-height: 220px; overflow: auto; white-space: pre-wrap; font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg-soft); }
 .insight-prompt pre[data-user] { border-top: 1px solid var(--line); background: color-mix(in oklab, var(--focus) 6%, transparent); color: var(--focus); }

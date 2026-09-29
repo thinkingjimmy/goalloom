@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { stepPeriod } from './fixtures/period-step.mjs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir, cpus, release, version, arch } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -57,7 +58,7 @@ try {
     // dnd-kit attaches keyboard listeners after activation and measures targets on the next frame.
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
   }
-  const moveNext = async horizon => { await column(horizon).locator('[data-next-period]').click(); await settled(horizon) }
+  const moveNext = async horizon => { await stepPeriod(column(horizon), 'next'); await settled(horizon) }
   const dismissToast = async () => { if (await page.locator('.toast').count()) await page.locator('.toast').getByRole('button', { name: '关闭操作提示', exact: true }).click() }
   const rightClick = async id => { await row(id).locator('.task-title').click({ button: 'right' }); await page.locator('.context-menu').waitFor() }
   const advance = async (id, expectedLabel, screenshot) => {
@@ -172,15 +173,15 @@ try {
   const alpha = await add('Future alpha'), beta = await add('Future beta')
   await column('week').locator('.quick-add input').fill('Future draft kept')
   await moveNext('week')
-  await column('week').getByRole('button', { name: '查看本周上一期', exact: true }).click(); await settled('week')
+  await stepPeriod(column('week'), 'previous'); await settled('week')
   await column('week').locator('[data-add-item]').click()
   assert.equal(await column('week').locator('.quick-add input').inputValue(), 'Future draft kept')
   await page.keyboard.press('Escape')
   await column('week').locator('[data-return-current]').click()
-  await column('week').locator('[data-previous-period]').click()
+  await stepPeriod(column('week'), 'previous')
   await page.waitForFunction(() => document.querySelector('[data-horizon="week"]')?.getAttribute('aria-busy') === 'false')
   assert.equal(await column('week').getAttribute('data-period-mode'), 'history')
-  await column('week').locator('[data-next-period]').click()
+  await stepPeriod(column('week'), 'next')
   assert.equal(await column('week').getAttribute('data-period-mode'), 'current')
   await moveNext('week')
   await column('week').locator('[data-add-item]').click()
@@ -312,20 +313,19 @@ try {
     await shot(`context-menu-${locale}`); await page.keyboard.press('Escape')
     for (const horizon of ['cycle', 'month', 'week', 'day']) {
       const header = column(horizon).locator('.column-header')
-      assert.equal(await header.locator('[data-previous-period]').count(), 1)
-      assert.equal(await header.locator('[data-next-period]').count(), 1)
-      assert(await header.locator('[data-previous-period]').getAttribute('aria-label'))
-      const navigation = await header.locator('.period-nav').boundingBox()
-      const bounds = await column(horizon).boundingBox()
-      const previousButton = await header.locator('[data-previous-period]').boundingBox()
-      const nextButton = await header.locator('[data-next-period]').boundingBox()
-      const heading = await header.locator('.period-heading').boundingBox()
-      const action = header.locator('[data-review], [data-return-current]')
-      const content = await action.count() ? await action.boundingBox() : heading
-      assert(previousButton.x >= bounds.x && nextButton.x + nextButton.width <= navigation.x + navigation.width + 1, `${locale} period controls fit their column`)
-      assert(heading.x - previousButton.x - previousButton.width <= 8 && nextButton.x - content.x - content.width <= 8, `${locale} arrows hug the header content`)
+      // Header B: no header arrows; the switch carries the title and date and opens a panel with localized steps.
+      assert.equal(await header.locator('[data-previous-period], [data-next-period]').count(), 0)
+      const bounds = await column(horizon).boundingBox(), heading = await header.locator('[data-period-switch]').boundingBox()
       const add = await header.locator('.column-add-slot').boundingBox()
-      assert(nextButton.x + nextButton.width <= add.x, `${locale} navigation leaves room for quick add`)
+      assert(heading.x >= bounds.x && heading.x + heading.width <= add.x, `${locale} the heading fits beside quick add`)
+      const titleFit = await header.locator('.period-title').evaluate(node => ({ scroll: node.scrollWidth, client: node.clientWidth, text: node.textContent, header: node.closest('.column-header').clientWidth, nav: node.closest('.period-nav').clientWidth }))
+      assert(titleFit.scroll <= titleFit.client + 1, `${locale} ${horizon} the title is not truncated: ${JSON.stringify(titleFit)}`)
+      await header.locator('[data-period-switch]').click()
+      const panel = column(horizon).locator('.period-picker')
+      assert(await panel.locator('[data-previous-period]').getAttribute('aria-label'))
+      assert(await panel.evaluate(node => node.scrollWidth <= node.clientWidth + 1), `${locale} the period panel has no horizontal overflow`)
+      await header.locator('[data-period-switch]').click()
+      await panel.waitFor({ state: 'detached' })
       assert.equal(await header.locator('.period-heading .column-meta').count(), horizon === 'week' || horizon === 'cycle' ? 0 : 1, `${locale} distant dates and non-current cycles are the heading`)
       assert(!/\b20\d{2}\b/.test(await header.locator('.period-heading').innerText()), `${locale} header dates omit years`)
       const currentLabels = { en: ['Back to current period', 'Back to this month', 'Back to this week', 'Back to today'], ja: ['今期に戻る', '今月に戻る', '今週に戻る', '今日に戻る'], es: ['Volver al período actual', 'Volver a este mes', 'Volver a esta semana', 'Volver a hoy'], fr: ['Revenir à la période actuelle', 'Revenir à ce mois', 'Revenir à cette semaine', 'Revenir à aujourd’hui'], zh: ['回到当期', '回到本月', '回到本周', '回到今日'] }

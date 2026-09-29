@@ -7,7 +7,7 @@
 import type { ShortcutCatalog, shortcutNames as sourceNames, shortcutNotes as sourceNotes } from '../zh/shortcuts'
 
 export const shortcutNames: typeof sourceNames = {
-  palette: '検索とコマンドを開く', compose: '新規', settings: '設定を開く', undo: '取り消し', submit: '保存 / 確定', filters: 'フローで絞り込み',
+  palette: '検索とコマンドを開く', compose: '新規', settings: '設定を開く', undo: '取り消し', submit: '保存 / 確定', filters: 'トップバーの数字キー',
 }
 export const shortcutNotes: typeof sourceNotes = {
   undo: '入力欄の外ならどこでも使えます',
@@ -17,8 +17,8 @@ export const shortcutMessages: ShortcutCatalog = {
   section: 'ショートカット',
   subtitle: 'キーをクリックして新しい組み合わせを押します。Esc でキャンセル。⌘/Ctrl または ⌥/Alt を含めてください',
   general: '一般',
-  filters: 'フローで絞り込み',
-  filtersToggle: (mod: string) => `${mod} + 数字でトップバーの絞り込みを切り替え`,
+  filters: 'トップバーの数字キー',
+  filtersToggle: (mod: string) => `${mod} + 数字で Later とトップバーの絞り込みを切り替え`,
   filtersNote: '数字はトップバーの左からの位置です。ブラウザのタブ切り替えと同じです',
   diagram: '図：トップバーの位置とショートカットの対応',
   diagramTag: '図',

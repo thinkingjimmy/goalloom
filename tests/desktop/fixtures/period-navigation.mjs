@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Native Electron page, isolated period fixture and the owning period suite's artifact directory.
- * [OUTPUT]: Title/checkbox and arrow/flow-dot alignment, stable headers, inline dates and directional-motion assertions with repeatable screenshots.
+ * [OUTPUT]: Header-B title/checkbox alignment, chevron reveal without movement, inline dates, panel steps and directional-motion assertions with repeatable screenshots.
  * [POS]: Period-navigation scenarios shared by the focused selector and full period acceptance; no production API replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
+import { closePeriodPanel, openPeriodPanel, stepPeriod } from './period-step.mjs'
 
 export async function verifyPeriodNavigation(page, column, evidence) {
   const week = column('week'), body = week.locator('.period-body')
@@ -15,11 +16,11 @@ export async function verifyPeriodNavigation(page, column, evidence) {
   const date = async () => {
     const geometry = await week.locator('.column-header').evaluate(header => {
       const rect = selector => { const box = header.querySelector(selector).getBoundingClientRect(); return { left: box.left, right: box.right, center: box.top + box.height / 2 } }
-      return { title: rect('.period-title'), date: rect('.column-meta'), action: rect('[data-return-current]'), next: rect('[data-next-period]'), text: header.querySelector('.column-meta').textContent }
+      return { title: rect('.period-title'), date: rect('.column-meta'), action: rect('[data-return-current]'), text: header.querySelector('.column-meta').textContent }
     })
     assert(geometry.date.left >= geometry.title.right && Math.abs(geometry.date.center - geometry.title.center) <= 3)
-    assert(geometry.date.right <= geometry.action.left && geometry.action.right <= geometry.next.left)
-    assert(Math.abs(geometry.action.center - geometry.next.center) < 1)
+    assert(geometry.date.right <= geometry.action.left && geometry.action.left - geometry.date.right <= 32, 'Return follows the date closely')
+    assert(Math.abs(geometry.action.center - geometry.title.center) <= 3)
     assert.equal(await week.locator('[data-return-current]').innerText(), '回到本周')
     assert.equal(await week.locator('.period-meta').count(), 0)
     return geometry
@@ -32,6 +33,8 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     })
   }
   const slide = async (selector, direction, name, keep = false) => {
+    const step = selector !== '[data-return-current]'
+    if (step) await openPeriodPanel(week)
     const previous = await week.getAttribute('data-period-id')
     const capture = page.waitForFunction(previous => {
       const column = document.querySelector('[data-horizon="week"]')
@@ -66,12 +69,13 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     const screenshot = join(evidence, `navigation-${name}.png`)
     await week.screenshot({ path: screenshot, animations: 'allow' })
     result.frames.push({ name, direction, ...sample }); result.screenshots.push(screenshot)
+    if (step) await closePeriodPanel(week)
     if (!keep) await finish()
   }
 
   const leaveBoard = () => page.getByRole('button', { name: '全部', exact: true }).hover()
   for (const horizon of ['cycle', 'month', 'week', 'day']) {
-    const target = column(horizon), previous = target.locator('[data-previous-period]')
+    const target = column(horizon), chevron = target.locator('.period-chevron')
     await target.scrollIntoViewIfNeeded()
     await page.getByRole('button', { name: '全部', exact: true }).focus()
     await leaveBoard()
@@ -81,35 +85,33 @@ export async function verifyPeriodNavigation(page, column, evidence) {
         const box = node.querySelector(selector).getBoundingClientRect()
         return { left: box.left - left, right: box.right - left, top: box.top, height: box.height }
       }
-      return { title: rect('.period-title'), checkbox: rect('.task-row > .check'), dot: rect('.task-row .flow-dot-button'), previous: rect('[data-previous-period]'), next: rect('[data-next-period]') }
+      return { title: rect('.period-title'), checkbox: rect('.task-row > .check'), dot: rect('.task-row .flow-dot-button') }
     })
     const idle = await measure()
     assert(Math.abs(idle.title.left - idle.checkbox.left) < .5, `${horizon} title aligns with its checkboxes`)
-    assert(Math.abs((idle.previous.left + idle.previous.right) - (idle.dot.left + idle.dot.right)) < 1, `${horizon} previous arrow aligns vertically with flow dots`)
-    assert(idle.previous.left >= 0 && idle.previous.right <= idle.title.left, 'Previous stays inside the column without covering the title')
-    assert.equal(await previous.evaluate(node => getComputedStyle(node).opacity), '0')
+    assert.equal(await target.locator('.column-header [data-previous-period], .column-header [data-next-period]').count(), 0, 'Header B has no arrows')
+    assert.equal(await chevron.evaluate(node => getComputedStyle(node).opacity), '0')
     if (horizon === 'month') {
       const screenshot = join(evidence, 'header-alignment-idle.png')
       await page.screenshot({ path: screenshot, clip: { ...await target.boundingBox(), height: 180 } }); result.screenshots.push(screenshot)
     }
     await target.locator('.task-row .task-title').first().hover()
-    const hoverState = await target.evaluate(node => ({
-      columnHovered: node.matches(':hover'),
-      hoveredHorizons: [...document.querySelectorAll('[data-horizon]:hover')].map(column => column.dataset.horizon),
-      documentFocused: document.hasFocus(), visibility: document.visibilityState,
-      previousOpacity: getComputedStyle(node.querySelector('[data-previous-period]')).opacity,
-    }))
-    assert.equal(hoverState.previousOpacity, '1', `${horizon} row hover reveals navigation: ${JSON.stringify(hoverState)}`)
-    assert.deepEqual(await measure(), idle, 'Hover reveals navigation without moving the title or rows')
+    await page.waitForFunction(horizon => getComputedStyle(document.querySelector(`[data-horizon="${horizon}"] .period-chevron`)).opacity === '1', horizon)
+    assert.deepEqual(await measure(), idle, 'Hover reveals the chevron without moving the title or rows')
     if (horizon === 'month') {
       const screenshot = join(evidence, 'header-alignment-hover.png')
       await page.screenshot({ path: screenshot, clip: { ...await target.boundingBox(), height: 180 } }); result.screenshots.push(screenshot)
+      await openPeriodPanel(target)
+      const panel = join(evidence, 'header-period-panel.png')
+      await page.screenshot({ path: panel, clip: { ...await target.boundingBox(), height: 520 } }); result.screenshots.push(panel)
+      await closePeriodPanel(target)
     }
-    await previous.focus()
-    await page.keyboard.press('Tab')
+    // Reach the switch by keyboard so it is :focus-visible, as for a real Tab user.
+    await target.locator('[data-period-switch]').focus()
+    await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Tab')
     await leaveBoard()
-    assert.equal(await previous.evaluate(node => getComputedStyle(node).opacity), '1')
-    assert.deepEqual(await measure(), idle, 'Keyboard navigation preserves header alignment')
+    assert.equal(await chevron.evaluate(node => getComputedStyle(node).opacity), '1')
+    assert.deepEqual(await measure(), idle, 'Keyboard focus preserves header alignment')
     result.alignment.push({ horizon, idle, hoverUnchanged: true, keyboardUnchanged: true })
   }
 
@@ -131,8 +133,8 @@ export async function verifyPeriodNavigation(page, column, evidence) {
   assert.equal(await page.evaluate(() => window.interruptedPeriodAnimation.playState), 'idle')
   assert.equal(await week.getAttribute('data-period-id'), origin)
 
-  await week.locator('[data-next-period]').focus()
-  await page.keyboard.press('Enter'); await settled()
+  await week.locator('[data-period-switch]').focus()
+  await page.keyboard.press('ArrowRight'); await settled()
   assert.equal(await body.evaluate(node => node.getAnimations().length), 0, 'Keyboard changes are immediate')
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await week.locator('[data-return-current]').click(); await settled()
@@ -146,7 +148,7 @@ export async function verifyPeriodNavigation(page, column, evidence) {
   for (const [horizon, steps, label] of [['week', 2, '回到本周'], ['day', 2, '回到今日'], ['cycle', 1, '回到当期']]) {
     const target = column(horizon)
     for (let index = 0; index < steps; index++) {
-      await target.locator('[data-next-period]').click()
+      await stepPeriod(target, 'next')
       await page.waitForFunction(horizon => document.querySelector(`[data-horizon="${horizon}"]`)?.getAttribute('aria-busy') === 'false', horizon)
     }
     const header = target.locator('.column-header')

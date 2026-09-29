@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { stepPeriod } from './fixtures/period-step.mjs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -96,8 +97,8 @@ try {
   })
   await page.getByRole('button', { name: '只看 Feedback flow', exact: true }).click()
   const dimmed = await createSingle('Dimmed single creation')
-  await silent('A flow filter dims unrelated rows without hiding their visible result')
-  assert.equal(await page.locator(`#item-${dimmed}`).getAttribute('data-dimmed'), 'true')
+  await silent('A flow filter keeps a new Later row visible and undimmed; Later never joins flows')
+  assert.equal(await page.locator(`#item-${dimmed}`).getAttribute('data-dimmed'), 'false')
   await page.getByRole('button', { name: '只看 Feedback flow', exact: true }).click()
   checks.push('Dimmed rows under a flow filter still count as visible and need no success Toast')
 
@@ -254,7 +255,7 @@ try {
   checks.push('Real renderer createPlan batch keeps one count summary; keyboard undo deletes the whole batch and offers trash navigation')
 
   await page.getByRole('region', { name: '本周列', exact: true }).hover()
-  await page.getByRole('region', { name: '本周列', exact: true }).locator('[data-previous-period]').click()
+  await stepPeriod(page.getByRole('region', { name: '本周列', exact: true }), 'previous')
   assert.equal(await page.locator('[data-horizon="week"]').getAttribute('data-period-mode'), 'history')
   await openStored('History-view reopening', 'done')
   await detail().getByRole('button', { name: '重新打开', exact: true }).click()

@@ -21,8 +21,10 @@ renderer/
 │   │       ├── AppearancePane.tsx # Language, visual styles, theme and device relation-line switch
 │   │       ├── BoardPane.tsx      # Device parent-order switch, atomic disable/materialization and per-column completion-confetti preview
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
-│   │       ├── SmartPane.tsx    # 智能输入：状态卡、服务单选列表（Key 更换/删除，表单在行下展开）、隐私要点
-│   │       ├── InsightPane.tsx  # Insight switches, device-only preferences, draft/review trials without writes and read-only prompt preview
+│   │       ├── AiPane.tsx       # AI 服务：已连接/可添加服务、能力标签、Key 遮罩与测试日期、账户问题与重测、移除前说明、隐私要点
+│   │       ├── FeatureControls.tsx # 智能输入/洞察共用：功能总开关状态卡与处理服务单选（只列能运行该模型的服务）
+│   │       ├── SmartPane.tsx    # 智能输入：总开关 + 处理服务（Jev）
+│   │       ├── InsightPane.tsx  # Insight: switch + DeepSeek provider, breakpoint/review switches, personalization tabs (about me / drafting / review / read-only prompt)
 │   │       ├── CalendarPane.tsx # Read-only calendar with reset navigation beside the section title and per-column rollover policies
 │   │       ├── BackupPane.tsx   # 备份与恢复：状态/每日开关/保留份数、备份列表、导出与单一文件恢复、危险区重置
 │   │       ├── ItemsPane.tsx    # 条目：已完成/已取消/已归档/回收站的搜索、今天/昨天分组与行内还原
@@ -48,9 +50,9 @@ renderer/
 │   │   ├── ReviewSummary.tsx # Context-aware summary loading, manual refresh, retained results on failure and retry feedback
 │   │   └── insight.css      # 断点、引导、空列卡、复盘入口与抽屉样式（仅 token）
 │   ├── smart/
-│   │   ├── JevConnect.tsx   # 服务单选、Key、同意、测试并启用（Onboarding/设置共用；提交按钮可渲染到底栏）
+│   │   ├── ProviderConnect.tsx # 单个服务的 Key、只读模型、同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底栏）
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
-│   │   └── JevStep.tsx      # 首次流程第 3 步：先看示例，选择连接才填 Key，通过或跳过都进入看板
+│   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
 │   │   ├── Board.tsx        # Unified past/current/future navigation, period-bound drafts/drop targets and preserved navigation focus
 │   │   ├── BoardLayout.tsx # Persistent 300px Later sidebar, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
@@ -60,7 +62,9 @@ renderer/
 │   │   ├── RowMotion.tsx  # Interruptible outer-row FLIP and finite overlay geometry updates
 │   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, logical keyboard traversal and focus/drag/menu pinning
 │   │   ├── visibility.ts  # Post-layout title visibility in the selected current/future/past period, with pending reads and offscreen destination feedback
-│   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, titles, due/description indicators and flow-tinted highlights
+│   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, titles, due indicators, description signals and flow-tinted highlights
+│   │   ├── PeriodPicker.tsx # Header B period panel: quick previous/current/next, week-row/day/month/cycle selection, recorded-history bound, footer steps
+│   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body loaded on open)
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # 复选框前的流程圆点：起点改色、下级改上级、独立条目二选一；悬停预览流程；Later 不显示
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
@@ -69,12 +73,13 @@ renderer/
 │   │   ├── period-labels.ts # Relative adjacent headings, date-only distant/cycle headings and year-free dates shared with setup
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
-│   │   ├── ItemDetail.tsx   # Draft-safe details, complete rich titles, lazy Markdown editing, focus-preserving completion, actual-period locating and lifecycle/relations
+│   │   ├── ItemDetail.tsx   # Draft-safe details: aligned checkbox + rich title, one chip row (deadline/flow/上级/下级/拆解), full-height Markdown description, header activity drawer
 │   │   ├── DetailTitle.tsx  # Unclipped shared link display, growing raw-title editor, saved-only metadata and keyboard focus handoff
 │   │   ├── DuePicker.tsx    # Detail deadline trigger, shared calendar panel and focus restoration; selection only edits the draft
 │   │   ├── RelationPicker.tsx # Board-ordered parent/child candidates and search matches shared by detail/flow-dot menus; longer-horizon guards and linked-first priority
-│   │   ├── FlowPicker.tsx   # 详情标题前的流程色点；FlowColorMenu 为色板本体，看板圆点复用
-│   │   └── Activity.tsx     # 按真实事件序列分页查看活动
+│   │   ├── FlowPicker.tsx   # 详情属性行的流程标签；FlowColorMenu 为色板本体，看板圆点复用
+│   │   ├── RelationChip.tsx # 详情「上级／下级」标签：弹层列出关联条目可跳转，并转入 RelationPicker
+│   │   └── Activity.tsx     # 活动摘要 hook 与右侧横向抽屉，打开时才分页读取事件
 │   └── setup/
 │       ├── Setup.tsx        # 首次流程前两步的状态：方向草稿 → 日历确认
 │       ├── OnboardingFrame.tsx # 三步进度、语言、固定底栏（主按钮统一在右下）
@@ -105,7 +110,7 @@ renderer/
 │   ├── celebration.ts      # 本机逐列撒花偏好（默认周/月/3个月）、设置页预览信号与系统减少动态效果订阅
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
-│   ├── smart.ts            # 设备侧智能输入状态与动作（代次变化即重读）
+│   ├── ai.ts               # 设备侧 AI 服务状态（每服务凭据/能力/失败，每功能服务与开关）与动作（代次变化即重读）
 │   ├── insight.ts          # 本机流程洞察偏好（localStorage，不入工作区）：关于我/步长/语气/关注、断点与复盘开关、引导与已复盘标记；draft/review 请求
 │   ├── review-summary.ts   # Up to 24 device-local period summaries, exact-prompt fingerprints, shared requests and generation invalidation
 │   ├── feedback.ts         # Command feedback policy, committed destinations, partial-restore warnings and reading durations

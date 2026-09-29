@@ -23,7 +23,7 @@
 
 - 周复盘入口在本周列头：本周最后一天出现「今天结束 · 复盘」，下一周第一天出现「上周复盘」；最后一天已复盘或点了「这周跳过」，次日不再出现（最多连续两天）。月复盘同理在本月列头。
 - 弹窗标题使用实际复盘周期：周期末显示「本周／本月复盘」，下一周期首日显示「上周／上月复盘」；合并复盘同时列出周与月，复用各语言的周期名称与复盘文案。
-- 复盘入口与日期同排，紧邻日期右侧并位于左右翻页箭头之间；入口持续可见，翻页箭头跟随整列悬停或列头键盘焦点显示。较长文案省略显示，悬停可读完整标题。
+- 复盘入口是列头下方、与复选框左缘对齐的一行安静文字提示（琥珀小圆点 + 文案 + ›，无底色，悬停下划线），不再挤占列头；入口持续可见；「上一期」待复盘时，周期面板的常用按钮同样带琥珀点。较长文案省略显示，悬停可读完整标题。
 - 周与月同一天结束时只出一个入口（本月列头「本周 + 本月 · 复盘」），步骤合并。
 - 周复盘：回顾（模型小结 + 目标×周期矩阵）→ 本周收尾（今天冲刺 / 顺延下周 / 归档）→ 排下周（为断链起草，可改、可取消）→ 完成（抽屉内结果清单，列头标「已复盘」）。月复盘：回顾（3 个月目标进度）→ 本月收尾 → 排下月（每个 3 个月目标至少一项）。合并：回顾 → 收尾 → 排下月 → 排下周。
 - 没有可用模型时：回顾无小结只留矩阵；排下周/下月为每条断链给空位，写了才创建。
@@ -36,26 +36,27 @@
 
 ### 设置 › 洞察
 
-- 开关：断点 ＋、周复盘 · 月复盘。
-- 关于我（只存本机）、拆解「一步有多大」（最小一步 / 1 小时内 / 半天）与补充要求、复盘语气（直接 / 温和 / 提问式）与优先关注（断链 / 过载 / 跳级 / 模糊目标）、「试一试」即时生成（不写入）、查看完整提示词（系统规则只读，用户偏好以「用户偏好」追加）。
-- 「试一试」不展示模型名称或耗时预估；「生成」按钮的图标与文字始终同排居中，包括生成中状态。
+- 顶部与「设置 › 智能输入」同构：洞察总开关状态卡（控制是否调用模型起草；关闭后断点与复盘照常显示，只是不起草文字）与处理服务单选（只列能运行 DeepSeek 的 OpenRouter / AI Gateway；Key 在「设置 › AI 服务」管理）。
+- 提示：断点 ＋、周复盘 · 月复盘两个开关，与模型开关互不影响。
+- 个性化（只存本机）为四个标签页，默认「拆解」：关于我；拆解「一步有多大」（最小一步 / 1 小时内 / 半天）与补充要求；复盘语气（直接 / 温和 / 提问式）与优先关注（断链 / 过载 / 跳级 / 模糊目标）；完整提示词（系统规则只读，用户偏好以「用户偏好」追加）。左右方向键切换标签。
+- 设置页不提供「试一试」生成：偏好在下一次拆解或复盘时生效，设置页不产生任何模型调用或工作区写入。
 
 ## 模型
 
-- Jev（TypeSafe System One）只做选择/判断，不能写标题。起草与复盘小结走 OpenRouter chat completions，模型 `~deepseek/deepseek-flash-latest`，必须关闭推理（`reasoning.enabled: false`）并要求 JSON；复用「智能输入」里保存并同意的 OpenRouter Key，智能输入需对当前工作区启用。
+- Jev（TypeSafe System One）只做选择/判断，不能写标题。起草与复盘小结走洞察所选服务的 chat completions：OpenRouter 用 `~deepseek/deepseek-flash-latest`；Vercel AI Gateway 用 `deepseek/deepseek-v4.1-flash`（2026-09-29 OpenRouter flash 别名指向的同一模型）并以 `providerOptions.gateway.only: ['deepseek']` 只路由到 DeepSeek。两者都必须关闭推理（`reasoning.enabled: false`）并要求 JSON。洞察有独立的开关与服务，不再依赖智能输入是否启用。Gateway 通道尚未用真实 Key 验证 DeepSeek 是否遵守关闭推理与 `json_object`。
 - 断层 / 跳级 / 临期 / 过载等信号由代码计算，模型只负责措辞；提示词中文，用户偏好追加在末尾。
 - 实测（2026-09-27，本机 key）：关推理后标题 0.8–2.6s、复盘 1.2–2s，偶发 10s；开推理时 9/12 空输出。
 
 ## 工程契约
 
 - `src/domain/smart/insight.ts`：纯函数。`draftPrompt` / `reviewPrompt` 组装 system + user，`parseDraft` / `parseReview` 校验并清洗模型输出（标题去首尾标点、≤40 字、按任务 id 对齐），`gaps` 等信号计算供 renderer 与 prompt 共用。
-- `src/main/smart/insight.ts`：`chatAdapter(fetch?)`，POST `https://openrouter.ai/api/v1/chat/completions`，超时 15s，错误复用 `classifyFailure('openrouter', …)`。
-- `SmartInputService.handle` 新增 `draft` / `review` 动作（`smartActionSchema`），回复 `draft` / `review`（`smartReplySchema`）；门控 = 智能输入已对当前 generation 启用 + OpenRouter Key 已保存且同意；共享 429 冷却；不缓存、不落盘、不记录正文。
+- `src/main/smart/insight.ts`：`chatAdapter(provider, fetch?)`，POST OpenRouter `https://openrouter.ai/api/v1/chat/completions` 或 Gateway `https://ai-gateway.vercel.sh/v1/chat/completions`，超时 15s，错误复用 `classifyFailure(provider, …)`；`chatSample` 为连接测试的固定能力样例（要求回 `{"ok":true}`）。
+- `SmartInputService.handle` 新增 `draft` / `review` 动作（`smartActionSchema`），回复 `draft` / `review`（`smartReplySchema`）；门控 = 洞察功能已对当前 generation 启用，所选服务 Key 可读、已同意且 DeepSeek 能力已验证；按服务冷却；账户级失败记到该服务；不缓存、不落盘、不记录正文。
 - `insertBetween` 命令：在一个事务内创建里程碑（挂在原上级下）、把指定下级改挂到里程碑、解除它们与原上级的边；周期规则与 DAG 校验复核；一次撤销。
 - `createPlan` 条目可带 `period`（`current` / `date`），用于复盘写入下一周期。
 - `features/insight/Breakpoints.tsx`: one stable layer per workspace generation handles all active flows, deduplicating shared parents and preserving pending actions across preview exits. Board supplies the preview chain from `state/flows.ts`, using the same active graph and ancestor/descendant traversal as relation-line highlighting. Gap and skip controls stay within that chain; filtered overview remains flow-wide. Gap and skip buttons share the outgoing row endpoint, including row-motion updates; geometry observers run only while flows are active. Native preview and geometry evidence is recorded in `output/tests/insight/report.json` and `output/tests/ordering/report.json`.
 - renderer：`state/insight.ts` 本机偏好（localStorage `goalloom.insight`），`features/insight/` 断点层、空列卡、复盘抽屉；新建窗口接受预填（上级、周期、草稿列表）。
-- `state/review-summary.ts`: device-only `goalloom.review-summaries` cache, scoped by workspace generation and reviewed week/month keys, with one successful result per period and at most 24 entries. SHA-256 covers the actual review prompt (including review preferences, excluding draft-only preferences); only hashes and sanitised results persist. Concurrent identical requests share one promise, refresh failures preserve the previous entry, malformed/unavailable storage degrades to a session cache, and App invalidates both persisted and pending ownership on workspace replacement. Settings trials and drafting remain uncached.
+- `state/review-summary.ts`: device-only `goalloom.review-summaries` cache, scoped by workspace generation and reviewed week/month keys, with one successful result per period and at most 24 entries. SHA-256 covers the actual review prompt (including review preferences, excluding draft-only preferences); only hashes and sanitised results persist. Concurrent identical requests share one promise, refresh failures preserve the previous entry, malformed/unavailable storage degrades to a session cache, and App invalidates both persisted and pending ownership on workspace replacement. Drafting remains uncached.
 - `features/insight/ReviewSummary.tsx`: revalidates actual context on drawer/step entry, not while editing preferences behind another dialog; manual refresh uses the latest context, guards stale subscriptions, and keeps successful text visible during refresh or failure. The explicit refresh control and failure copy ship in all five locales.
 - Draft and review mount effects share one pending request across StrictMode replay; each subscription ignores responses after its cleanup. Draft failures always end loading and leave editable rows with visible feedback. `pnpm dev` watches main/preload so generation actions and renderer callers remain on the same contract; previously started non-watching processes require a restart.
 

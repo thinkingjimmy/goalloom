@@ -35,7 +35,13 @@ export const placementSchema = z.strictObject({
   version: z.number().int().positive(), holdPeriodId: idSchema.nullable(),
 })
 export const itemSchema = itemRecordSchema.extend({ placement: placementSchema })
-export const itemSummarySchema = itemRecordSchema.omit({ description: true }).extend({ hasDescription: z.boolean(), placement: placementSchema })
+// A bounded description digest for board rows (see shared/notes.ts); summaries never carry the description body.
+export const noteSignalSchema = z.strictObject({
+  tasks: z.strictObject({ done: z.number().int().nonnegative(), total: z.number().int().positive() }).nullable(),
+  next: z.string().max(120).nullable(), links: z.array(z.string().max(4096)).max(3), linkCount: z.number().int().nonnegative(), excerpt: z.string().max(120),
+})
+export type NoteSignal = z.infer<typeof noteSignalSchema>
+export const itemSummarySchema = itemRecordSchema.omit({ description: true }).extend({ note: noteSignalSchema.nullable(), placement: placementSchema })
 export type ItemSummary = z.infer<typeof itemSummarySchema>
 export const relationSchema = z.strictObject({
   id: idSchema, parentId: idSchema, childId: idSchema, invalidatedAt: instantSchema.nullable(),

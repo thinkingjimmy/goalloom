@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Device-local storage, React useSyncExternalStore, the preload smart API and the current SmartStatus.
- * [OUTPUT]: useInsightSettings (preferences, toggles, onboarding/review marks), insightReady(status), requestDraft / requestReview.
+ * [OUTPUT]: useInsightSettings (preferences, toggles, onboarding/review marks), insightReady(status) from the insight feature switch, requestDraft / requestReview.
  * [POS]: renderer/state 的流程洞察入口；偏好只存本机（不进工作区、导出或备份），模型调用经 main 的 smart 通道。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -43,9 +43,9 @@ export function markReviewed(periodKey: string): void {
   updateInsight(value => value.reviewed.includes(periodKey) ? value : { ...value, reviewed: [...value.reviewed, periodKey].slice(-24) })
 }
 
-// The flash model needs the OpenRouter key; Jev on another provider does not make drafting available.
+// Drafting follows the insight feature's own switch and provider, independent of smart input.
 export function insightReady(status: SmartStatus | null): boolean {
-  return !!status?.enabled && status.providers.openrouter.credential === 'saved' && !!status.providers.openrouter.consentedAt
+  return !!status?.features.insight.enabled
 }
 
 export type InsightResult<T> = { ok: true; value: T } | { ok: false; failure: Failure | null }

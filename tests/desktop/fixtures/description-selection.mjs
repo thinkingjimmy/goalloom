@@ -70,7 +70,7 @@ export async function verifyDescriptionSelection({ app, page, create, open, clos
   await close()
   checks.push('First-line selection stays readable; measured link-form expansion preserves its anchor; Bold/undo and Escape do not change unrelated text or saved source')
 
-  const longSource = Array.from({ length: 32 }, (_, index) => `Paragraph ${index + 1}: select words near the visible boundary without covering the text being edited.`).join('\n\n')
+  const longSource = Array.from({ length: 32 }, (_, index) => `Paragraph ${index + 1}: select words near the visible boundary without covering the text being edited, even when the dialog is wide enough to keep the chip row on one line.`).join('\n\n')
   const longId = await create('Scrolled selection fixture', longSource)
   await open(longId); await select(0, 0, 200); await clear('above')
   assert(new Set((await geometry()).rects.filter(rect => rect.width > 0).map(rect => rect.top)).size > 1)

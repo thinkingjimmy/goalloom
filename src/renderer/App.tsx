@@ -27,7 +27,7 @@ import { useBoardPeriods } from './state/board-periods'
 import { editingTarget } from './state/session'
 import { ariaKeys, filterSlot, formatCombo, parseEvent, useShortcuts } from './state/shortcuts'
 import type { Section } from './features/shell/settings/Settings'
-import { useSmart } from './state/smart'
+import { useAi } from './state/ai'
 import { resetLinkPreviewCache } from './components/links/cache'
 
 const Setup = lazy(() => import('./features/setup/Setup').then(module => ({ default: module.Setup })))
@@ -37,13 +37,13 @@ const CommandPalette = lazy(() => import('./features/shell/CommandPalette').then
 const Composer = lazy(() => import('./features/composer/Composer').then(module => ({ default: module.Composer })))
 const Seeded = lazy(() => import('./features/composer/Seeded').then(module => ({ default: module.Seeded })))
 const ReviewDrawer = lazy(() => import('./features/insight/ReviewDrawer').then(module => ({ default: module.ReviewDrawer })))
-const JevStep = lazy(() => import('./features/smart/JevStep').then(module => ({ default: module.JevStep })))
+const AiStep = lazy(() => import('./features/smart/AiStep').then(module => ({ default: module.AiStep })))
 
 export function App() {
   // Re-render the whole tree on a language switch; state (drafts, undo stack, open dialogs) is kept.
   useLocale()
   const { snapshot, error, errorCode, setError, busy, submit, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(item => boardItemVisibility(item))
-  const smart = useSmart(snapshot?.workspace.generation)
+  const ai = useAi(snapshot?.workspace.generation)
   const [composing, setComposing] = useState(false), [onboarding, setOnboarding] = useState(false)
   const [composerGeneration, setComposerGeneration] = useState<string | null>(null)
   const columns = useColumns()
@@ -62,7 +62,7 @@ export function App() {
     setFilter(id)
   }, [boardView.returnPastToCurrent])
   const [seed, setSeed] = useState<ComposerSeed | null>(null)
-  const ready = insightReady(smart.status)
+  const ready = insightReady(ai.status)
   const insightSettings = useInsightSettings()
   const [reviewing, setReviewing] = useState<ReviewDue | null>(null)
   const due = useMemo(() => snapshot?.workspace.calendar && insightSettings.reviews ? reviewDue(snapshot, insightSettings.reviewed) : null, [snapshot, insightSettings.reviews, insightSettings.reviewed])
@@ -109,14 +109,15 @@ export function App() {
       if (editing) return
       if (combo === bindings.compose) { event.preventDefault(); compose() }
       if (combo === bindings.settings) { event.preventDefault(); openSettings() }
-      // Chip position like browser tabs: the first is 全部, then flows in top-bar order; a missing slot does nothing.
+      // Top-bar position like browser tabs: Later, then 全部, then flows in bar order; a missing slot does nothing.
       const slot = filterSlot(filterKeys, combo)
-      if (slot === 0) { event.preventDefault(); selectFilter(null) }
-      if (slot > 0) { event.preventDefault(); const flow = flows.visible[slot - 1]; if (flow) selectFilter(flow.id) }
+      if (slot === 0) { event.preventDefault(); columns.setLaterOpen(!columns.laterOpen) }
+      if (slot === 1) { event.preventDefault(); selectFilter(null) }
+      if (slot > 1) { event.preventDefault(); const flow = flows.visible[slot - 2]; if (flow) selectFilter(flow.id) }
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, bindings, filterKeys, flows, selectFilter])
+  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, bindings, filterKeys, flows, selectFilter, columns])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
   return <div className="app-shell">
     <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
@@ -129,19 +130,19 @@ export function App() {
     {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <button className="text-button" onClick={() => void retry()}>{messages.retry}</button>}<button className="icon-button small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <Setup confirm={(calendar, direction) => void confirmSetup(calendar, direction)} busy={busy} />
-      : onboarding ? <JevStep smart={smart} finish={() => setOnboarding(false)} /> : <>
+      : onboarding ? <AiStep ai={ai} finish={() => setOnboarding(false)} /> : <>
       <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={addRequest} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight} /></div>
       <button className="fab" aria-label={messages.newItem} title={[messages.newItem, formatCombo(bindings.compose)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.compose)} disabled={busy} onClick={compose}><Icon name="add" size={24} strokeWidth={1.8} /></button>
     </>}
     </Suspense>
     <Suspense fallback={null}>
-    {settings && snapshot && <Settings snapshot={snapshot} smart={smart} initial={settingsSection} submit={submit} refresh={refresh} busy={busy} select={select} close={() => setSettings(false)} />}
+    {settings && snapshot && <Settings snapshot={snapshot} ai={ai} initial={settingsSection} submit={submit} refresh={refresh} busy={busy} select={select} close={() => setSettings(false)} />}
     </Suspense>
     <Suspense fallback={null}>
     {palette && <CommandPalette close={() => setPalette(false)} select={select} undo={() => void undo()} canUndo={!busy && undoCount > 0} create={compose} openSettings={openSettings} bindings={bindings} calendar={snapshot?.workspace.calendar ?? null} observedAt={snapshot?.observedAt ?? ''} />}
     </Suspense>
     <Suspense fallback={null}>
-    {snapshot && setupReady && composerGeneration === snapshot.workspace.generation && <Composer key={snapshot.workspace.generation} open={composing} snapshot={snapshot} flows={flows} smart={smart} submit={submit} busy={busy} error={error} errorCode={errorCode} close={() => setComposing(false)} openSettings={() => openSettings('smart')} />}
+    {snapshot && setupReady && composerGeneration === snapshot.workspace.generation && <Composer key={snapshot.workspace.generation} open={composing} snapshot={snapshot} flows={flows} ai={ai} submit={submit} busy={busy} error={error} errorCode={errorCode} close={() => setComposing(false)} openSettings={() => openSettings('smart')} />}
     </Suspense>
     <Suspense fallback={null}>
     {reviewing && snapshot && setupReady && <ReviewDrawer due={reviewing} snapshot={snapshot} flows={flows} view={boardView} ready={ready} submit={submit} busy={busy} setFilter={setFilter} close={() => setReviewing(null)} />}

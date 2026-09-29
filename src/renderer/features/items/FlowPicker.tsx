@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 当前条目、是否有上级、流程视图、忙碌/只读状态与受限提交。
- * [OUTPUT]: 复选框左侧的流程色点：流程根点开 4×2 命名色板改色或不设流程；有上级时只读显示继承的流程色。FlowColorMenu 为色板本体，看板流程圆点复用。
- * [POS]: items 详情标题行的前置控件，紧贴复选框（其描边即流程色）；改色仍由事务校验。
+ * [OUTPUT]: 详情属性行的流程标签：流程根点开 4×2 命名色板改色或不设流程；有上级时只读显示继承的流程。FlowColorMenu 为色板本体，看板流程圆点复用。
+ * [POS]: items 详情属性行的首个流程控件，与截止、上下级标签并排；复选框描边仍为流程色，改色由事务校验。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { CSSProperties } from 'react'
@@ -23,11 +23,12 @@ export function FlowPicker({ item, hasParents, flows, busy, readOnly, open, setO
   item: Item; hasParents: boolean; flows: Flows; busy: boolean; readOnly: boolean; open: boolean; setOpen: (open: boolean) => void; submit: (action: Action) => Promise<unknown>
 }) {
   if (hasParents) {
-    // Children inherit colour through the DAG; the empty slot keeps the title aligned with flow roots.
+    // Children inherit colour through the DAG, so the chip is read-only and names the owning flows.
     const inherited = flows.of(item.id)
-    if (!inherited.length) return <span className="flow-handle" aria-hidden="true" />
-    const label = `${messages.labelled(messages.flow, inherited.map(flow => flow.title).join(messages.listJoin))}${messages.paren(messages.followParent)}`
-    return <span className="flow-handle" role="img" aria-label={label} title={label}><FlowDot colors={inherited.map(flow => flow.flowColor)} /></span>
+    if (!inherited.length) return null
+    const names = inherited.map(flow => flow.title).join(messages.listJoin)
+    const label = `${messages.labelled(messages.flow, names)}${messages.paren(messages.followParent)}`
+    return <span className="detail-chip" data-static="true" role="img" aria-label={label} title={label}><FlowDot colors={inherited.map(flow => flow.flowColor)} /><span className="detail-chip-text">{names}</span></span>
   }
   const color = item.flowColor ?? null
   const label = messages.labelled(messages.flowColor, color === null ? messages.flowUnset : messages.colorNames[color]!)
@@ -36,8 +37,8 @@ export function FlowPicker({ item, hasParents, flows, busy, readOnly, open, setO
     if (index !== color) void submit({ type: 'flowColor', itemId: item.id, expectedVersion: item.version, flowColor: index })
   }
   return <Popover open={open} onClose={() => setOpen(false)} anchor={
-    <button type="button" className="flow-handle" aria-haspopup="true" aria-expanded={open} aria-label={label} title={label} disabled={readOnly} onClick={() => setOpen(!open)}>
-      <FlowDot colors={color === null ? [] : [color]} />
+    <button type="button" className="detail-chip" data-empty={color === null} aria-haspopup="true" aria-expanded={open} aria-label={label} title={label} disabled={readOnly} onClick={() => setOpen(!open)}>
+      <FlowDot colors={color === null ? [] : [color]} />{color === null ? messages.flow : messages.colorNames[color]}
     </button>
   }><FlowColorMenu itemId={item.id} color={color} flows={flows} busy={busy} onChoose={choose} /></Popover>
 }

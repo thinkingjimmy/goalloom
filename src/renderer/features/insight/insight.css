@@ -31,9 +31,9 @@
 .insight-empty-actions { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 8px; }
 .insight-empty-actions .settings-button { display: inline-flex; align-items: center; gap: 6px; }
 
-/* --- Review: a column-header entry on the period's last day (and the day after), then a right-side drawer. --- */
-.review-entry { min-width: 0; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: 13px; background: color-mix(in srgb, var(--insight-skip) 16%, var(--bg)); color: color-mix(in srgb, var(--insight-skip) 70%, var(--fg)); font-size: 12px; white-space: nowrap; }
-.review-entry:hover:not(:disabled) { background: color-mix(in srgb, var(--insight-skip) 24%, var(--bg)); }
+/* --- Review: a quiet line under the column header on the period's last day (and the day after), then a right-side drawer. --- */
+.review-entry { align-self: flex-start; flex-shrink: 0; max-width: 100%; height: 28px; margin-top: -4px; padding-left: var(--row-inset); display: inline-flex; align-items: center; gap: 6px; color: color-mix(in srgb, var(--insight-skip) 78%, var(--fg)); font-size: 12px; white-space: nowrap; }
+.review-entry:hover:not(:disabled) .review-entry-label { text-decoration: underline; text-underline-offset: 3px; }
 .review-entry-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--insight-skip); }
 .review-entry-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .review-drawer { --insight-skip: light-dark(#b8732c, #d9a760); position: fixed; top: 64px; right: 12px; bottom: 12px; z-index: 40; width: min(640px, calc(100vw - 24px)); display: flex; flex-direction: column;

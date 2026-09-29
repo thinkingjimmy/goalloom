@@ -58,7 +58,7 @@ export function Seeded({ seed, snapshot, flows, submit, busy, error, close }: { 
     void pendingDraft.current.then(result => {
       if (!active) return
       setDrafting(false)
-      if (!result.ok) { setNote(result.failure ? t.seedDraftFailed(result.failure.message) : t.settingsTryFailed); return }
+      if (!result.ok) { setNote(result.failure ? t.seedDraftFailed(result.failure.message) : t.generateFailed); return }
       const titles = new Map(result.value.map(value => [value.id, value.title]))
       setRows(previous => previous.map(row => row.typed ? row : { ...row, title: titles.get(row.parent.id) ?? row.title }))
     })

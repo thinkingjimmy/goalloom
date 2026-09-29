@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { stepPeriod } from './period-step.mjs'
 
 export async function verifyFilterNavigation(page) {
   const created = await page.evaluate(async () => {
@@ -25,7 +26,7 @@ export async function verifyFilterNavigation(page) {
   const currentIds = Object.fromEntries(snapshot.periods.map(period => [period.horizon, period.id]))
   const column = horizon => page.locator(`.board-column[data-horizon="${horizon}"]`)
   const past = async horizon => {
-    await column(horizon).locator('[data-previous-period]').click()
+    await stepPeriod(column(horizon), 'previous')
     await page.waitForFunction(horizon => {
       const root = document.querySelector(`.board-column[data-horizon="${horizon}"]`)
       return root?.dataset.periodMode === 'history' && root.getAttribute('aria-busy') === 'false'
@@ -45,7 +46,7 @@ export async function verifyFilterNavigation(page) {
   const selectedAtPress = await page.locator('.flow-filter .chip[aria-label]').first().getAttribute('aria-label')
   const beforeScreenshot = 'output/tests/screenshots/filter-from-history.png'
   await page.screenshot({ path: beforeScreenshot })
-  await page.keyboard.press('ControlOrMeta+2')
+  await page.keyboard.press('ControlOrMeta+3')
   await returned()
   await page.getByRole('button', { name: selectedAtPress, exact: true, pressed: true }).waitFor()
   assert.equal(await column('day').locator('.column-content').evaluate(node => node.scrollTop), 0)
@@ -56,14 +57,14 @@ export async function verifyFilterNavigation(page) {
   await all.click()
   await past('month')
   assert.equal(await page.locator('.flow-filter .chip[aria-label]').first().getAttribute('aria-label'), '只看 Filter day flow')
-  await page.keyboard.press('ControlOrMeta+2')
+  await page.keyboard.press('ControlOrMeta+3')
   await returned()
   assert.equal(await dayFlow.getAttribute('aria-pressed'), 'true')
   assert.equal(await page.locator('.flow-filter .chip[aria-label]').first().getAttribute('aria-label'), '只看 Filter month flow')
   checks.push('Shortcut chooses the flow at the original slot, retaining identity after current-period reordering')
 
   await past('week')
-  await page.keyboard.press('ControlOrMeta+3')
+  await page.keyboard.press('ControlOrMeta+4')
   await returned()
   assert.equal(await dayFlow.getAttribute('aria-pressed'), 'true')
   checks.push('Repeated shortcut returns to current while keeping the selected flow')
@@ -77,26 +78,26 @@ export async function verifyFilterNavigation(page) {
     await settings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '快捷键', exact: true }).click()
   }
   await openShortcuts()
-  await page.keyboard.press('ControlOrMeta+2')
+  await page.keyboard.press('ControlOrMeta+3')
   assert.equal(await column('day').getAttribute('data-period-mode'), 'history')
-  await settings.getByRole('switch', { name: /\+ 数字切换顶栏筛选$/ }).click()
+  await settings.getByRole('switch', { name: /\+ 数字切换 Later 与顶栏筛选$/ }).click()
   await settings.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.keyboard.press('ControlOrMeta+2')
+  await page.keyboard.press('ControlOrMeta+3')
   assert.equal(await column('day').getAttribute('data-period-mode'), 'history')
   assert.equal(await dayFlow.getAttribute('aria-pressed'), 'true')
   await openShortcuts()
-  await settings.getByRole('switch', { name: /\+ 数字切换顶栏筛选$/ }).click()
+  await settings.getByRole('switch', { name: /\+ 数字切换 Later 与顶栏筛选$/ }).click()
   await settings.getByRole('button', { name: '关闭', exact: true }).click()
   checks.push('Missing slots, open dialogs and disabled filter shortcuts preserve history')
 
-  await column('week').locator('[data-next-period]').click()
+  await stepPeriod(column('week'), 'next')
   await page.waitForFunction(() => document.querySelector('[data-horizon="week"]')?.getAttribute('aria-busy') === 'false')
   const futureId = await column('week').getAttribute('data-period-id')
   assert.notEqual(futureId, currentIds.week)
   await column('week').locator('[data-add-item]').click()
   const draft = column('week').getByRole('textbox')
   await draft.fill('Keep this future draft')
-  await page.keyboard.press('ControlOrMeta+2')
+  await page.keyboard.press('ControlOrMeta+3')
   assert.equal(await column('day').getAttribute('data-period-mode'), 'history')
   assert.equal(await dayFlow.getAttribute('aria-pressed'), 'true')
   await monthFlow.click()
@@ -118,7 +119,7 @@ export async function verifyFilterNavigation(page) {
   await all.click()
   await returned()
   await past('day')
-  await page.keyboard.press('ControlOrMeta+1')
+  await page.keyboard.press('ControlOrMeta+2')
   await returned()
   assert.equal(await all.getAttribute('aria-pressed'), 'true')
   checks.push('Clicking the selected flow, All and repeated Cmd/Ctrl+1 each returns to current')

@@ -1,16 +1,16 @@
 /**
  * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later visibility and fixed planning columns, guarded actions and flow-insight hooks.
- * [OUTPUT]: One inline bidirectional period header, directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
+ * [OUTPUT]: A title-as-switcher period header (header B: period panel, ←/→ stepping), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Exposes `data-filtered` so cycle TODO dots remain hover/focus controls under a selected flow.
- *           Flow insight: one breakpoint layer for filtered flows or the highlighted preview chain, retained pending actions across hover exits, empty-column cards, review prompts beside dates and per-row next steps.
+ *           Flow insight: one breakpoint layer for filtered flows or the highlighted preview chain, retained pending actions across hover exits, empty-column cards, quiet review prompts under column headers and per-row next steps.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { compareInstants, currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'
+import { compareInstants, currentPeriod, precedingPeriod, workspaceDate, type Horizon } from '../../../domain/calendar'
 import { horizons } from '../../../shared/contracts/values'
 import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
@@ -32,6 +32,7 @@ import { VirtualRows, revealRow } from './VirtualRows'
 import { useBoardDrag } from './useBoardDrag'
 import { BoardLayout } from './BoardLayout'
 import { usePeriodMotion } from './usePeriodMotion'
+import { PeriodPicker } from './PeriodPicker'
 import { Breakpoints } from '../insight/Breakpoints'
 import { EmptyCard } from '../insight/EmptyCard'
 import { emptyColumns, shorter } from '../insight/signals'
@@ -159,9 +160,23 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     const destination = target ?? current
     if (destination && period && destination.id !== period.id) prepareMotion(destination.id, destination.startDate > period.startDate ? 1 : -1, animate)
     const active = document.activeElement
-    refocus.current = section.current?.contains(active) ? active?.hasAttribute('data-next-period') ? '[data-next-period]' : '[data-previous-period]' : null
+    refocus.current = !section.current?.contains(active) ? null : active?.hasAttribute('data-next-period') ? '[data-next-period]' : active?.hasAttribute('data-previous-period') ? '[data-previous-period]' : '[data-period-switch]'
     setAdding(false); setMenuItem(null)
     view.choose(horizon, target?.id === current?.id ? null : target)
+  }
+  // Header B: the title opens the period panel; ←/→ on it steps one period without motion, like other keyboard paging.
+  const [picking, setPickingState] = useState(false)
+  const setPicking = (open: boolean) => {
+    const inside = section.current?.querySelector('.period-picker')?.contains(document.activeElement)
+    setPickingState(open)
+    if (!open && inside) requestAnimationFrame(() => section.current?.querySelector<HTMLElement>('[data-period-switch]')?.focus({ preventScroll: true }))
+  }
+  const choosePeriod = (target: PlanningPeriod, pointer: boolean, keepOpen = false) => { switchTo(target, pointer); if (!keepOpen) setPicking(false) }
+  const stepKeys = (event: KeyboardEvent) => {
+    if (busy || event.nativeEvent.isComposing) return
+    if (event.key === 'ArrowLeft' && back) { event.preventDefault(); switchTo(back) }
+    else if (event.key === 'ArrowRight' && next) { event.preventDefault(); switchTo(next) }
+    else if (event.key === 'ArrowDown') { event.preventDefault(); setPicking(true) }
   }
   useEffect(() => { section.current?.querySelector('.column-content')?.scrollTo({ top: 0 }) }, [period?.id])
   useEffect(() => {
@@ -169,7 +184,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     const target = section.current?.querySelector<HTMLButtonElement>(refocus.current)
     if (section.current?.contains(document.activeElement) || document.activeElement === document.body) {
       if (target && !target.disabled) target.focus()
-      else section.current?.querySelector<HTMLElement>('.period-title')?.focus()
+      else section.current?.querySelector<HTMLElement>('[data-period-switch]')?.focus()
     }
     refocus.current = null
   }, [period?.id, mode, history ? page.loading : false])
@@ -195,7 +210,8 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const row = (item: ItemSummary, index: number, total: number) => {
     const lit = active.length ? flows.of(item.id).find(flow => active.includes(flow.id)) : undefined
     return <TaskRow index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
-      dimmed={active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} select={select} submit={submit} onPreview={onPreview}
+      // Later never joins flows, so a flow filter leaves the parking lot readable instead of greying it out.
+      dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} select={select} submit={submit} onPreview={onPreview}
       upcoming={upcoming} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} />
   }
   const due = insight.due, review = mode !== 'current' || !due ? null
@@ -203,7 +219,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     : horizon === 'week' && due.scope === 'week' ? due.week! : null
   const reviewLabel = review ? review.lastDay ? due!.scope === 'both' ? insightMessages.reviewEntryBoth : insightMessages.reviewEntry : insightMessages.reviewEntryAfter(planningLabel(review.period, calendar, snapshot.observedAt)) : undefined
   const reviewButton = review && <button className="review-entry" data-review={horizon} title={reviewLabel} disabled={busy} onClick={() => insight.review(due!)}>
-    <span className="review-entry-dot" /><span className="review-entry-label">{reviewLabel}</span>
+    <span className="review-entry-dot" /><span className="review-entry-label">{reviewLabel}</span><Icon name="next" size={12} strokeWidth={2} />
   </button>
   const addButton = <button className="icon-button small" data-add-item aria-label={messages.newInColumn(displayName)} aria-pressed={!!adding} disabled={disabled} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>
   const back = history ? earlier : previous
@@ -213,17 +229,22 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   return <section className={`board-column ${isOver ? 'drop-target' : ''}`} data-history={!!history} data-period-mode={mode} data-period-id={period?.id} aria-busy={loading || page.loading}
     onKeyDown={leaveOnEscape} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(name)} ref={node => { setNodeRef(node); section.current = node }}>
     <header className={`column-header ${period ? 'period-header' : ''}`}>
-      {period ? <div className="period-nav">
-        <button className="icon-button small" data-previous-period aria-label={messages.previousPeriod(name)} title={back ? periodDates(back) : undefined} disabled={!back || busy} onClick={event => switchTo(back, event.detail > 0)}><Icon name="previous" size={16} /></button>
-        <div className="period-heading" aria-live="polite" aria-atomic="true">
-          <h2 className="period-title" tabIndex={-1} title={periodDates(period)}>{heading ?? date}</h2>
-          {heading && <span className="column-meta" title={periodDates(period)}>{date}</span>}
-        </div>
-        {mode === 'current' ? reviewButton : <button className="period-return" data-return-current title={returnLabel} disabled={busy} onClick={event => switchTo(null, event.detail > 0)}><span>{returnLabel}</span></button>}
-        <button className="icon-button small" data-next-period aria-label={messages.nextPeriod(name)} title={next ? periodDates(next) : undefined} disabled={busy} onClick={event => switchTo(next, event.detail > 0)}><Icon name="next" size={16} /></button>
+      {period && current ? <div className="period-nav">
+        <PeriodPicker horizon={horizon as Horizon} name={name} period={period} current={current} calendar={calendar} today={today} back={back} next={next!} busy={busy}
+          review={review?.period.id ?? null} open={picking} setOpen={setPicking} choose={choosePeriod} anchor={
+            <h2 className="period-heading" aria-live="polite" aria-atomic="true">
+              <button type="button" className="period-switch" data-period-switch aria-haspopup="dialog" aria-expanded={picking} onClick={() => setPicking(!picking)} onKeyDown={stepKeys}>
+                <span className="period-title" title={periodDates(period)}>{heading ?? date}</span>
+                {heading && <span className="column-meta" title={periodDates(period)}>{date}</span>}
+                <span className="period-chevron" aria-hidden="true"><Icon name="expand" size={12} strokeWidth={2} /></span>
+              </button>
+            </h2>
+          } />
+        {mode !== 'current' && <button className="period-return" data-return-current title={returnLabel} disabled={busy} onClick={event => switchTo(null, event.detail > 0)}><span>{returnLabel}</span></button>}
       </div> : <><h2>{name}</h2><span className="column-spacer" /></>}
       <span className="column-add-slot">{!history && addButton}</span>
     </header>
+    {reviewButton}
     {mode === 'current' && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
     <div className="column-content">

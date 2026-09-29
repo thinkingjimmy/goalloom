@@ -7,7 +7,7 @@
 import type { ShortcutCatalog, shortcutNames as names, shortcutNotes as notes } from '../zh/shortcuts'
 
 export const shortcutNames: typeof names = {
-  palette: 'Open search & commands', compose: 'New', settings: 'Open settings', undo: 'Undo', submit: 'Save / confirm', filters: 'Flow filter',
+  palette: 'Open search & commands', compose: 'New', settings: 'Open settings', undo: 'Undo', submit: 'Save / confirm', filters: 'Top bar numbers',
 }
 export const shortcutNotes: typeof notes = {
   undo: 'Works anywhere outside text fields',
@@ -17,8 +17,8 @@ export const shortcutMessages: ShortcutCatalog = {
   section: 'Shortcuts',
   subtitle: 'Click a key, then press a new combination; Esc cancels. Combinations must include ⌘/Ctrl or ⌥/Alt.',
   general: 'General',
-  filters: 'Flow filter',
-  filtersToggle: (mod: string) => `Use ${mod} + number to switch top bar filters`,
+  filters: 'Top bar numbers',
+  filtersToggle: (mod: string) => `Use ${mod} + number for Later and top bar filters`,
   filtersNote: 'The number is the position from the left in the top bar, like switching browser tabs',
   diagram: 'Diagram: how top bar positions map to shortcuts',
   diagramTag: 'Diagram',

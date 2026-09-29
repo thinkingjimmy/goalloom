@@ -1,11 +1,11 @@
 /**
- * [INPUT]: Markdown draft/saved source, saved URL membership, read-only state and the detail's change callback.
+ * [INPUT]: Markdown draft/saved source, saved URL membership, read-only state, an optional DOM id (a board peek must not reuse the detail id) and the change callback.
  * [OUTPUT]: In-place rich editing with draft-only task-list controls, source-preserving Markdown and local undo.
  * [POS]: Lazy detail presentation; persistence and revision ownership remain in ItemDetail.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react'
-import { $addUpdateTag, $getRoot, $getSelection, $isRangeSelection, $setSelection, BLUR_COMMAND, CLEAR_HISTORY_COMMAND, COMMAND_PRIORITY_HIGH, COPY_COMMAND, CUT_COMMAND, CUT_TAG, DROP_COMMAND, HISTORY_PUSH_TAG, KEY_TAB_COMMAND, PASTE_COMMAND, PASTE_TAG, RootNode, defineExtension } from 'lexical'
+import { $addUpdateTag, $getRoot, $getSelection, $isRangeSelection, $setSelection, BLUR_COMMAND, CLEAR_HISTORY_COMMAND, COMMAND_PRIORITY_HIGH, COPY_COMMAND, CUT_COMMAND, CUT_TAG, DROP_COMMAND, HISTORY_PUSH_TAG, KEY_ENTER_COMMAND, KEY_TAB_COMMAND, PASTE_COMMAND, PASTE_TAG, RootNode, defineExtension } from 'lexical'
 import { $convertFromMarkdownString, $convertSelectionToMarkdownString, $convertToMarkdownString, $generateNodesFromMarkdownString, registerMarkdownShortcuts } from '@lexical/markdown'
 import { RichTextExtension } from '@lexical/rich-text'
 import { $isListItemNode, CheckListExtension } from '@lexical/list'
@@ -16,6 +16,7 @@ import { LexicalExtensionComposer } from '@lexical/react/LexicalExtensionCompose
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { messages, useLocale } from '../../i18n'
+import { matches, useShortcuts } from '../../state/shortcuts'
 import { checkmarkMask } from '../icons'
 import { DescriptionLinkNode, SavedLinks } from './DescriptionLink'
 import { $linkifyDescription, descriptionTransformers } from './markdown'
@@ -29,6 +30,7 @@ function Bridge({ value, savedValue, readOnly, onChange }: { value: string; save
   const callback = useRef(onChange); callback.current = onChange
   const source = useRef({ raw: value, canonical: '', sent: value })
   const historyBoundary = useRef(false)
+  const { bindings } = useShortcuts(), submitCombo = useRef(bindings.submit); submitCombo.current = bindings.submit
   useEffect(() => { editor.update($linkifyDescription); historyBoundary.current = true }, [editor, savedValue])
   useLayoutEffect(() => {
     source.current.canonical = editor.getEditorState().read(serialize)
@@ -67,6 +69,8 @@ function Bridge({ value, savedValue, readOnly, onChange }: { value: string; save
       editor.registerNodeTransform(RootNode, () => {
         if (historyBoundary.current) { $addUpdateTag(HISTORY_PUSH_TAG); historyBoundary.current = false }
       }),
+      // The detail's save combo (⌘↵ by default) belongs to the form: no paragraph is inserted and the keydown still bubbles to it.
+      editor.registerCommand(KEY_ENTER_COMMAND, event => { if (!event || !matches(event, submitCombo.current)) return false; event.preventDefault(); return true }, COMMAND_PRIORITY_HIGH),
       editor.registerCommand(BLUR_COMMAND, () => { if (!readOnly) $linkifyDescription(); historyBoundary.current = true; return false }, COMMAND_PRIORITY_HIGH),
       editor.registerCommand(KEY_TAB_COMMAND, event => {
         if (readOnly) return false
@@ -106,7 +110,7 @@ function Bridge({ value, savedValue, readOnly, onChange }: { value: string; save
   return null
 }
 
-export function DescriptionEditor({ value, savedValue, savedUrls, onChange, readOnly = false }: { value: string; savedValue?: string; savedUrls: ReadonlySet<string>; onChange: (value: string) => void; readOnly?: boolean }) {
+export function DescriptionEditor({ value, savedValue, savedUrls, onChange, readOnly = false, id = 'item-description' }: { value: string; savedValue?: string; savedUrls: ReadonlySet<string>; onChange: (value: string) => void; readOnly?: boolean; id?: string }) {
   useLocale()
   const initial = useRef(value)
   const extension = useMemo(() => defineExtension({
@@ -118,7 +122,7 @@ export function DescriptionEditor({ value, savedValue, savedUrls, onChange, read
   }), [])
   return <SavedLinks.Provider value={savedUrls}><div className="description-editor" data-readonly={readOnly} style={{ '--description-checkmark': checkmarkMask } as CSSProperties}>
     <LexicalExtensionComposer extension={extension} contentEditable={null}>
-      <ContentEditable id="item-description" className="note-input description-content" aria-label={messages.description} aria-multiline="true" aria-readonly={readOnly}
+      <ContentEditable id={id} className="note-input description-content" aria-label={messages.description} aria-multiline="true" aria-readonly={readOnly}
         aria-placeholder={messages.descriptionPlaceholder} placeholder={<span className="description-placeholder">{messages.descriptionPlaceholder}</span>} spellCheck />
       <Bridge value={value} savedValue={savedValue} readOnly={readOnly} onChange={onChange} />
       {!readOnly && <SelectionTools />}

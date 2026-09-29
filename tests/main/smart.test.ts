@@ -93,6 +93,8 @@ const periods = { day: { id: 'c:day:2026-09-23', startDate: '2026-09-23', endDat
 let directory: string, generation: string, keyState: { available: boolean; broken?: boolean }, calls: { provider: string; key: string; questions: number }[]
 let behaviour: (question: string, criteria: string[] | null) => unknown
 let candidates: Candidate[]
+let chatReply = async (): Promise<string> => '{"ok":true}'
+const chatAll = () => chatReply()
 const answerAll: Adapter = async (key, request) => {
   calls.push({ provider: 'x', key, questions: Object.keys(request.questions).length })
   const answers: Record<string, unknown> = {}
@@ -120,7 +122,8 @@ beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'Goalloom 智能输入 ')); generation = randomUUID(); keyState = { available: true }; calls = []; candidates = []
   behaviour = (id, criteria) => withProbabilities(defaults(id, criteria), criteria)
   adapters = { typesafe: answerAll, 'vercel-gateway': answerAll, openrouter: answerAll }
-  service = new SmartInputService({ store: new DeviceStore(directory, cipher(keyState)), adapters: { typesafe: (key, value) => adapters.typesafe(key, value), 'vercel-gateway': (key, value) => adapters['vercel-gateway'](key, value), openrouter: (key, value) => adapters.openrouter(key, value) }, reader: reader(), unsignedBuild: true })
+  chatReply = async () => '{"ok":true}'
+  service = new SmartInputService({ store: new DeviceStore(directory, cipher(keyState)), adapters: { typesafe: (key, value) => adapters.typesafe(key, value), 'vercel-gateway': (key, value) => adapters['vercel-gateway'](key, value), openrouter: (key, value) => adapters.openrouter(key, value) }, chat: { openrouter: chatAll, 'vercel-gateway': chatAll }, reader: reader(), unsignedBuild: true })
 })
 afterEach(async () => { await rm(directory, { recursive: true, force: true }) })
 
@@ -129,18 +132,20 @@ describe('设备配置与凭据', () => {
     const reply = await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
     expect(reply.type === 'status' && reply.test).toMatchObject({ ok: true, sampleMatched: true })
     const { status: current } = await status()
-    expect(current).toMatchObject({ activeProvider: 'typesafe', enabled: true, paused: false, providerRevision: 1 })
+    expect(current.features.smart).toMatchObject({ provider: 'typesafe', enabled: true, paused: false, revision: 1 })
+    expect(current.features.insight).toMatchObject({ provider: null, enabled: false })
     expect(current.providers.typesafe).toMatchObject({ credential: 'saved', keyHint: '••••1234' })
     expect(current.providers['vercel-gateway'].credential).toBe('missing')
     for (const name of await readdir(join(directory))) expect(await readFile(join(directory, name), 'utf8')).not.toContain('ts-secret-1234')
   })
   it('新凭据测试失败时旧可用配置不变；一个服务的 Key 不发给另一服务', async () => {
     await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
-    adapters['vercel-gateway'] = async () => { throw new ProviderFailure({ kind: 'authentication_failed', message: 'x', status: 401, retryAt: null }) }
+    const rejected = async (): Promise<never> => { throw new ProviderFailure({ kind: 'authentication_failed', message: 'x', status: 401, retryAt: null }) }
+    adapters['vercel-gateway'] = rejected; chatReply = rejected
     const reply = await act({ type: 'connect', generation, provider: 'vercel-gateway', apiKey: 'gw-secret-9999', consent: true })
     expect(reply.type === 'status' && reply.test?.failure?.kind).toBe('authentication_failed')
     const { status: current } = await status()
-    expect(current).toMatchObject({ activeProvider: 'typesafe', enabled: true })
+    expect(current.features.smart).toMatchObject({ provider: 'typesafe', enabled: true })
     expect(current.providers['vercel-gateway'].credential).toBe('missing')
     await analyze(request('今天写文案'))
     expect(calls.map(call => call.key)).toEqual(['ts-secret-1234', 'ts-secret-1234'])
@@ -149,14 +154,14 @@ describe('设备配置与凭据', () => {
     keyState.available = false
     const reply = await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
     expect(reply.type === 'status' && reply.test?.failure?.kind).toBe('credential_unavailable')
-    expect((await status()).status.activeProvider).toBeNull()
+    expect((await status()).status.features.smart.provider).toBeNull()
     expect(await readdir(directory).catch(() => [])).not.toContain('typesafe.key')
     keyState.available = true
     await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
     keyState.broken = true
     const { status: current } = await status()
     expect(current.providers.typesafe.credential).toBe('unreadable')
-    expect(current.enabled).toBe(false)
+    expect(current.features.smart.enabled).toBe(false)
     expect(await readdir(directory)).toContain('typesafe.key')
     const failed = await analyze(request('写文案'))
     expect(failed.status === 'failed' && failed.failure.kind).toBe('credential_unreadable')
@@ -166,20 +171,20 @@ describe('设备配置与凭据', () => {
     const old = generation
     generation = randomUUID()
     const { status: current } = await status()
-    expect(current).toMatchObject({ enabled: false, paused: true })
+    expect(current.features.smart).toMatchObject({ enabled: false, paused: true })
     expect(current.providers.typesafe.credential).toBe('saved')
     const blocked = await analyze(request('写文案', { generation: old }))
     expect(blocked.status === 'failed' && blocked.failure.kind).toBe('not_enabled')
     expect(calls).toHaveLength(1)
-    await act({ type: 'connect', generation, provider: 'typesafe', apiKey: null, consent: true })
-    expect((await status()).status).toMatchObject({ enabled: true, providerRevision: 2 })
+    await act({ type: 'feature', generation, feature: 'smart', provider: 'typesafe', enabled: true })
+    expect((await status()).status.features.smart).toMatchObject({ enabled: true, revision: 2 })
   })
   it('连接测试进行中关闭、删除 Key 或切换服务，迟到的测试结果不会重新启用旧服务', async () => {
     await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
     const cases: [Record<string, unknown>, Record<string, unknown>][] = [
-      [{ type: 'disable' }, { activeProvider: 'typesafe', enabled: false }],
-      [{ type: 'forget', provider: 'typesafe' }, { activeProvider: null, enabled: false }],
-      [{ type: 'connect', provider: 'vercel-gateway', apiKey: 'gw-secret-9999', consent: true }, { activeProvider: 'vercel-gateway', enabled: true }],
+      [{ type: 'feature', feature: 'smart', provider: 'typesafe', enabled: false }, { provider: 'typesafe', enabled: false }],
+      [{ type: 'forget', provider: 'typesafe' }, { provider: null, enabled: false }],
+      [{ type: 'connect', provider: 'vercel-gateway', apiKey: 'gw-secret-9999', consent: true }, { provider: 'vercel-gateway', enabled: true }],
     ]
     for (const [action, expected] of cases) {
       let release!: () => void, entered!: () => void
@@ -189,24 +194,27 @@ describe('设备配置与凭据', () => {
       await started
       await act({ ...action, generation })
       release(); await late
-      expect((await status()).status, String(action.type)).toMatchObject(expected)
+      expect((await status()).status.features.smart, String(action.type)).toMatchObject(expected)
     }
   })
   it('服务配置变更使旧修订建议过期；关闭与删除 Key 后不可用；提示关闭只记在设备配置', async () => {
     await act({ type: 'connect', generation, provider: 'typesafe', apiKey: 'ts-secret-1234', consent: true })
-    // Still enabled for this generation: only the provider revision can reject the stale request.
+    // Re-testing the provider in use keeps the feature's revision; switching it off and on again does not.
     await act({ type: 'connect', generation, provider: 'typesafe', apiKey: null, consent: true })
-    expect((await status()).status).toMatchObject({ enabled: true, providerRevision: 2 })
+    expect((await status()).status.features.smart).toMatchObject({ enabled: true, revision: 1 })
+    await act({ type: 'feature', generation, feature: 'smart', provider: 'typesafe', enabled: false })
+    await act({ type: 'feature', generation, feature: 'smart', provider: 'typesafe', enabled: true })
+    expect((await status()).status.features.smart).toMatchObject({ enabled: true, revision: 3 })
     const stale = await analyze(request('写文案', { providerRevision: 1 }))
     expect(stale.status === 'failed' && stale.failure.kind).toBe('not_enabled')
     expect(calls).toHaveLength(2)
-    await act({ type: 'disable', generation })
-    expect((await status()).status).toMatchObject({ enabled: false, paused: false, providerRevision: 3 })
-    const disabled = await analyze(request('写文案', { providerRevision: 3 }))
+    await act({ type: 'feature', generation, feature: 'smart', provider: 'typesafe', enabled: false })
+    expect((await status()).status.features.smart).toMatchObject({ enabled: false, paused: false, revision: 4 })
+    const disabled = await analyze(request('写文案', { providerRevision: 4 }))
     expect(disabled.status === 'failed' && disabled.failure.kind).toBe('not_enabled')
     await act({ type: 'dismiss', generation, notice: 'globalEntry' })
     await act({ type: 'forget', generation, provider: 'typesafe' })
-    expect((await status()).status).toMatchObject({ activeProvider: null, dismissed: ['globalEntry'] })
+    expect((await status()).status).toMatchObject({ features: { smart: { provider: null } }, dismissed: ['globalEntry'] })
     expect((await status()).status.providers.typesafe.credential).toBe('missing')
   })
 })
@@ -234,7 +242,7 @@ describe('判断流程', () => {
     service.releaseSession()
     expect((await pending).status).toBe('cancelled')
     expect(calls).toHaveLength(0)
-    expect((await status()).status.enabled).toBe(true)
+    expect((await status()).status.features.smart.enabled).toBe(true)
   })
   it('releasing a renderer session aborts pending analysis and drops cached previews', async () => {
     expect((await analyze(request('Cached private draft'))).status).toBe('ready')
@@ -270,7 +278,7 @@ describe('判断流程', () => {
     expect(signal.aborted).toBe(true)
     finish(); await pending
     const current = (await status()).status
-    expect(current).toMatchObject({ activeProvider: 'vercel-gateway', enabled: true })
+    expect(current.features.smart).toMatchObject({ provider: 'vercel-gateway', enabled: true })
     expect(current.providers.typesafe.credential).toBe('missing')
   })
   it('常规单任务一次请求；相同有效修订命中会话缓存，回声对应本次请求', async () => {
@@ -310,7 +318,7 @@ describe('判断流程', () => {
     const slow = analyze(request('写文案', { draftSessionId: session }))
     await new Promise(resolve => setTimeout(resolve, 10))
     const started = Date.now()
-    expect((await status()).status.enabled).toBe(true)
+    expect((await status()).status.features.smart.enabled).toBe(true)
     expect(Date.now() - started).toBeLessThan(500)
     const newer = analyze(request('写文案，补充', { draftSessionId: session, inputRevision: 2 }))
     expect((await slow).status).toBe('cancelled')
@@ -326,6 +334,6 @@ describe('判断流程', () => {
     const cooled = await analyze(request('另一件事'))
     expect(cooled.status === 'failed' && cooled.failure.kind).toBe('rate_limited')
     expect(hits).toBe(0)
-    expect((await status()).status.cooldownUntil).not.toBeNull()
+    expect((await status()).status.providers['vercel-gateway'].cooldownUntil).not.toBeNull()
   })
 })

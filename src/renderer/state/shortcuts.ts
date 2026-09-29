@@ -13,10 +13,10 @@ export type Bindings = Record<ShortcutId, string | null>
 
 export const defaultBindings: Bindings = { palette: 'Mod+K', compose: 'Mod+N', settings: 'Mod+,', undo: 'Mod+Z', submit: 'Mod+Enter' }
 
-// Filters follow chip position like browser tabs: ⌘1 is 全部, ⌘2…⌘9 the visible flows in bar order. One switch, no per-slot keys.
+// Top-bar buttons follow position like browser tabs: ⌘1 is Later, ⌘2 is 全部, ⌘3…⌘9 the visible flows in bar order. One switch, no per-slot keys.
 export const filterSlots = 9
 export const filterCombo = (enabled: boolean, index: number): string | null => enabled && index >= 0 && index < filterSlots ? `Mod+${index + 1}` : null
-/** Chip index for a pressed combo, or -1 when filters are off or the combo is not ⌘1…⌘9. */
+/** Top-bar slot for a pressed combo (0 Later, 1 全部, 2+ flows), or -1 when the number keys are off or the combo is not ⌘1…⌘9. */
 export function filterSlot(enabled: boolean, combo: string): number {
   const digit = enabled ? /^Mod\+([1-9])$/.exec(combo) : null
   return digit ? Number(digit[1]) - 1 : -1

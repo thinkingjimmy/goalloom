@@ -7,7 +7,7 @@
 import type { ShortcutCatalog, shortcutNames as names, shortcutNotes as notes } from '../zh/shortcuts'
 
 export const shortcutNames: typeof names = {
-  palette: 'Recherche et commandes', compose: 'Nouveau', settings: 'Ouvrir les réglages', undo: 'Annuler', submit: 'Enregistrer / confirmer', filters: 'Filtre de flux',
+  palette: 'Recherche et commandes', compose: 'Nouveau', settings: 'Ouvrir les réglages', undo: 'Annuler', submit: 'Enregistrer / confirmer', filters: 'Chiffres de la barre du haut',
 }
 export const shortcutNotes: typeof notes = {
   undo: 'Disponible partout hors des champs de saisie',
@@ -17,8 +17,8 @@ export const shortcutMessages: ShortcutCatalog = {
   section: 'Raccourcis clavier',
   subtitle: 'Cliquez sur une touche puis tapez la nouvelle combinaison, Esc pour annuler ; elle doit inclure ⌘/Ctrl ou ⌥/Alt',
   general: 'Général',
-  filters: 'Filtre de flux',
-  filtersToggle: (mod: string) => `${mod} + chiffre pour changer de filtre dans la barre du haut`,
+  filters: 'Chiffres de la barre du haut',
+  filtersToggle: (mod: string) => `${mod} + chiffre pour Later et les filtres de la barre du haut`,
   filtersNote: 'Le chiffre correspond à la position dans la barre du haut en partant de la gauche, comme pour changer d’onglet dans un navigateur',
   diagram: 'Schéma : correspondance entre positions de la barre du haut et raccourcis',
   diagramTag: 'Schéma',

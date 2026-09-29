@@ -5,7 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef, useState } from 'react'
-import { shortcutMessages as t, shortcutNames, shortcutNotes } from '../../../i18n'
+import { horizonNames, shortcutMessages as t, shortcutNames, shortcutNotes } from '../../../i18n'
 import { conflictsOf, filterCombo, formatCombo, formatKeys, parseEvent, shortcutIds, useShortcuts, validate, type ShortcutId } from '../../../state/shortcuts'
 import { Icon } from '../../../components/icons'
 import { FlowMark } from '../../../components/FlowMark'
@@ -13,7 +13,7 @@ import { Kbd } from '../../../components/Kbd'
 import { SettingsGroup, Switch } from './parts'
 
 // Abstract chips: 全部 plus three flows without names, so the diagram never reads as the user's own top bar.
-const diagramFlows = [0, 1, 2]
+const diagramFlows = [0, 1]
 
 export function ShortcutsPane() {
   const shortcuts = useShortcuts()
@@ -65,10 +65,10 @@ export function ShortcutsPane() {
         <figure className="filter-diagram" aria-label={t.diagram}>
           <figcaption><span className="settings-tag">{t.diagramTag}</span>{t.diagramCaption}</figcaption>
           <div className="filter-diagram-slots" aria-hidden="true">
-            {[null, ...diagramFlows].map((flow, index) => <div key={index} className="filter-diagram-slot">
-              <span className="filter-diagram-chip" data-first={flow === null}>
-                <FlowMark colors={flow === null ? [] : [flow]} />
-                {flow === null ? <span>{t.legendAll}</span> : <i />}
+            {(['later', 'all', ...diagramFlows] as const).map((slot, index) => <div key={index} className="filter-diagram-slot">
+              <span className="filter-diagram-chip" data-first={typeof slot === 'string'}>
+                {slot === 'later' ? <Icon name="later" size={12} strokeWidth={1.8} /> : <FlowMark colors={slot === 'all' ? [] : [slot]} />}
+                {slot === 'later' ? <span>{horizonNames.later}</span> : slot === 'all' ? <span>{t.legendAll}</span> : <i />}
               </span>
               <Kbd combo={filterCombo(true, index)!} />
             </div>)}
@@ -76,8 +76,9 @@ export function ShortcutsPane() {
           </div>
         </figure>
         <dl className="filter-keys">
-          <dt><kbd className="keycap">{formatCombo('Mod+1')}</kbd></dt><dd>{t.legendAll}</dd>
-          <dt><kbd className="keycap">{formatCombo('Mod+2')} – 9</kbd></dt><dd>{t.legendFlows}</dd>
+          <dt><kbd className="keycap">{formatCombo('Mod+1')}</kbd></dt><dd>{horizonNames.later}</dd>
+          <dt><kbd className="keycap">{formatCombo('Mod+2')}</kbd></dt><dd>{t.legendAll}</dd>
+          <dt><kbd className="keycap">{formatCombo('Mod+3')} – 9</kbd></dt><dd>{t.legendFlows}</dd>
         </dl>
       </div>
     </SettingsGroup>

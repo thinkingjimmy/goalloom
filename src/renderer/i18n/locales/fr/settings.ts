@@ -17,6 +17,7 @@ export const settingsMessages: SettingsCatalog = {
   parentOrder: "Trier selon les parents",
   parentOrderNote: "Le mois, la semaine, le jour et les périodes futures suivent leurs parents les plus proches. Déplacez les éléments dans leur groupe. Désactiver conserve l’ordre actuel.",
   subtitles: {
+    ai: 'Ajoutez une clé une fois, puis la saisie intelligente et les Aperçus choisissent chacun leur service ; les clés restent chiffrées dans le trousseau de cet appareil et ne vont qu’au service choisi',
     board: "Ordre et retours de fin, enregistrés sur cet appareil",
     insight: 'Ruptures, bilans et comment la rédaction vous comprend',
     appearance: 'Ne concerne que l’affichage sur cet appareil, sans entrer dans l’historique de l’espace de travail',
@@ -37,12 +38,11 @@ export const settingsMessages: SettingsCatalog = {
   celebrationTry: 'Essayer',
   celebrationReducedMotion: 'Les confettis sont suspendus lorsque l’option de réduction des animations du système est activée.',
   // Smart input
-  smartEnabledNote: 'Notez une idée avec le + global ; elle est organisée dès que vous arrêtez de taper',
   privacy: 'Confidentialité',
   privacyPoints: [
-    'Seuls sont envoyés le texte saisi, la date de l’espace de travail, et le titre, l’état et l’emplacement des objectifs que vous mentionnez ou sélectionnez',
-    'Les descriptions, l’historique et la corbeille ne sont pas envoyés, ni l’espace de travail entier',
-    'La Key est chiffrée sur cet appareil et n’entre ni dans les données de l’espace de travail, ni dans les sauvegardes ou exports',
+    'Seul le service utilisé par une fonction reçoit du contenu ; une fonction désactivée n’envoie rien',
+    'La saisie intelligente n’envoie que le texte saisi, la date de l’espace de travail et les objectifs mentionnés ou sélectionnés ; les Aperçus n’envoient qu’un résumé du tableau et vos préférences',
+    'Les descriptions, l’historique et la corbeille ne sont jamais envoyés ; les clés restent chiffrées sur cet appareil, hors des données, sauvegardes et exports',
   ],
   // Calendar
   calendarSettings: 'Réglages du calendrier',

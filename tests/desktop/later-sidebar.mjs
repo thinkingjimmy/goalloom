@@ -80,7 +80,9 @@ try {
 
   assert.equal(await toggle().getAttribute('aria-expanded'), 'true')
   await count(0)
-  assert.equal(Math.round((await later().boundingBox()).width), 300)
+  // Later's sheet is exactly as wide as a time column.
+  const widths = await page.evaluate(() => [document.querySelector('.board-later > .board-column'), document.querySelector('.board-timeline > .board-column')].map(node => node.getBoundingClientRect().width))
+  assert(Math.abs(widths[0] - widths[1]) <= 1 && widths[1] >= 320, `Later ${widths[0]} vs column ${widths[1]}`)
   const first = await create('Later first'), second = await create('Later second'), done = await create('Later finished')
   await execute({ type: 'status', itemId: done, expectedVersion: 1, status: 'done' })
   const goal = await create('Sidebar flow', 'cycle', { flowColor: 0 })
@@ -122,15 +124,15 @@ try {
             const edge = edges.find(edge => edge.id === path.dataset.edgeId)
             const parent = document.getElementById(`item-${edge.parentId}`).getBoundingClientRect(), child = document.getElementById(`item-${edge.childId}`).getBoundingClientRect()
             const start = path.getPointAtLength(0), end = path.getPointAtLength(path.getTotalLength())
-            const x1 = child.right <= parent.left ? parent.left : parent.right, x2 = parent.right <= child.left ? child.left + 8 : child.right
+            const x1 = child.right <= parent.left ? parent.left : parent.right, x2 = parent.right <= child.left ? child.left + 6 : child.right
             return { id: edge.id, startError: Math.hypot(start.x + origin.left - x1, start.y + origin.top - parent.top - 16), endError: Math.hypot(end.x + origin.left - x2, end.y + origin.top - child.top - 16) }
           })
           resolve({ wanted, anchors, sidebar: nodes[0].getBoundingClientRect().toJSON(), timeline: nodes[1].getBoundingClientRect().toJSON(), durations: nodes.flatMap(node => node.getAnimations().map(animation => animation.effect.getTiming().duration)) })
         })
       }))
     }, { wanted, edges })
-    assert(sample.sidebar.x > -300 && sample.sidebar.x < 0, 'Sidebar has a real intermediate frame')
-    assert(sample.timeline.x > 0 && sample.timeline.x < 300, 'Timeline follows without scaling text')
+    assert(sample.sidebar.x > -sample.sidebar.width && sample.sidebar.x < 0, `Sidebar has a real intermediate frame: ${JSON.stringify(sample.sidebar)}`)
+    assert(sample.timeline.x > 0 && sample.timeline.x < sample.sidebar.width, `Timeline follows without scaling text: ${JSON.stringify(sample.timeline)}`)
     assert(sample.anchors.length > 0 && sample.anchors.every(anchor => anchor.startError < 1 && anchor.endError < 1), 'Relation lines follow moving panel endpoints')
     report.motion.push(sample)
     await shot(wanted ? 'opening-midpoint' : 'closing-midpoint')
@@ -198,7 +200,9 @@ try {
 
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(720, 640))
   await page.waitForFunction(() => innerWidth === 720)
-  assert.equal(Math.round((await page.locator('.board-timeline').boundingBox()).width), 420)
+  // At the minimum window the sheet keeps the 320px column minimum and the timeline takes the rest.
+  assert.equal(Math.round((await page.locator('.board-later > .board-column').boundingBox()).width), 320)
+  assert.equal(Math.round((await page.locator('.board-later').boundingBox()).width + (await page.locator('.board-timeline').boundingBox()).width), 720)
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
   await shot('narrow-open')
   await page.emulateMedia({ reducedMotion: 'reduce' })

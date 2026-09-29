@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Built Electron main/preload, development or built renderer, isolated profiles, an explicit week-start choice and synthetic provider responses.
- * [OUTPUT]: Repeatable generation reports and screenshots, including the complete trial action before generation, in output/tests/insight/generation/.
- * [POS]: Desktop acceptance of drafting, Settings and review persistence/refresh/restart/replacement through real IPC/storage; provider transport is controlled.
+ * [OUTPUT]: Repeatable generation reports and screenshots (onboarding connection, Settings › AI services and its failure state, drafting, reviews) in output/tests/insight/generation/.
+ * [POS]: Desktop acceptance of the AI-service onboarding path, per-feature switches, drafting and review persistence/refresh/restart/replacement through real IPC/storage; provider transport is controlled.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
@@ -46,14 +46,22 @@ async function run(mode) {
     await page.getByRole('combobox', { name: '一周从哪天开始', exact: true }).click()
     await page.getByRole('option').nth(weekStart - 1).click()
     await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-    await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+    // Onboarding step 3 through the real UI: one OpenRouter key is tested per capability and turns on both features.
+    await page.getByRole('button', { name: '连接 AI 服务', exact: true }).click()
+    await page.getByLabel('OpenRouter API Key').fill('synthetic-key-only')
+    await page.getByRole('checkbox', { name: '我同意把智能输入和洞察需要的内容发送给这个服务' }).check()
+    await page.getByRole('button', { name: '测试并开启', exact: true }).click()
+    await page.getByRole('heading', { name: '已连接 OpenRouter', exact: true }).waitFor()
+    await page.getByText('智能输入已开启', { exact: true }).waitFor()
+    await page.getByText('洞察已开启', { exact: true }).waitFor()
+    await page.screenshot({ path: `${out}/${mode}-onboarding-connected.png` })
+    check('onboarding tests one OpenRouter key per capability and turns on smart input and insight')
+    await page.getByRole('button', { name: '进入看板', exact: true }).click()
     const board = page.getByRole('main', { name: '时间看板' })
     await board.waitFor()
     report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
     await page.evaluate(async () => {
       const generation = (await window.goalloom.getSnapshot()).workspace.generation
-      const connected = await window.goalloom.smart({ type: 'connect', generation, provider: 'openrouter', apiKey: 'synthetic-key-only', consent: true })
-      if (connected.type !== 'status' || !connected.test?.ok) throw Error('Synthetic provider connection failed')
       for (let index = 1; index <= 7; index++) {
         const reply = await window.goalloom.execute({ type: 'create', title: `Synthetic plan ${index}`, horizon: 'month', generation, operationId: crypto.randomUUID() })
         if (!reply.ok) throw Error(reply.message)
@@ -64,31 +72,37 @@ async function run(mode) {
     const setMode = value => application.evaluate((_, value) => { globalThis.generationFixture.mode = value }, value)
     const calls = () => application.evaluate(() => globalThis.generationFixture.calls)
     const revision = () => page.evaluate(async () => (await window.goalloom.getSnapshot()).workspace.revision)
-    const beforeTrial = await revision()
+    const beforeSettings = await revision()
     await page.keyboard.press('ControlOrMeta+,')
     const settings = page.locator('dialog.settings-modal')
-    await settings.getByRole('button', { name: '洞察', exact: true }).click()
-    const trial = settings.locator('.insight-trial'), generate = settings.getByRole('button', { name: '生成', exact: true })
-    const trialGroup = settings.locator('.settings-group:has(.insight-try-button)')
-    await trialGroup.screenshot({ path: `${out}/${mode}-settings-trial.png` })
-    await generate.click()
-    await trial.getByText('Review one open plan', { exact: true }).waitFor()
-    assert.equal(await trial.locator('[role="alert"]').count(), 0)
-    assert.equal(await revision(), beforeTrial)
-    assert.deepEqual((await calls()).map(call => call.kind).sort(), ['draft', 'review'])
-    await trialGroup.scrollIntoViewIfNeeded()
+    const nav = settings.getByRole('navigation', { name: '设置分类' })
+    await nav.getByRole('button', { name: 'AI 服务', exact: true }).click()
+    const openrouter = settings.locator('.smart-provider').filter({ hasText: 'OpenRouter' })
+    await openrouter.getByText('✓ Jev', { exact: true }).waitFor()
+    await openrouter.getByText('✓ DeepSeek', { exact: true }).waitFor()
+    await openrouter.getByText(/智能输入、洞察正在使用/).waitFor()
+    assert.match(await nav.getByRole('button', { name: 'AI 服务', exact: true }).innerText(), /1 个已连接/)
+    await page.screenshot({ path: `${out}/${mode}-settings-ai.png` })
+    await nav.getByRole('button', { name: '洞察', exact: true }).click()
+    await settings.getByText('已启用 · 由 OpenRouter 处理', { exact: true }).waitFor()
+    assert.equal(await settings.getByRole('radio', { name: /^OpenRouter/ }).getAttribute('aria-checked'), 'true')
     await page.screenshot({ path: `${out}/${mode}-settings.png` })
-    check('Settings generates both results once without workspace writes')
-    await setMode('unavailable')
-    await generate.click()
-    await trial.getByRole('alert').waitFor()
-    await generate.waitFor({ state: 'visible' })
-    await setMode('ready')
-    await generate.click()
-    await trial.getByText('Review one open plan', { exact: true }).waitFor()
-    assert.equal(await trial.locator('[role="alert"]').count(), 0)
-    assert.equal(await revision(), beforeTrial)
-    check('Settings leaves loading on failure and succeeds on retry')
+    const insightSwitch = settings.getByRole('switch', { name: '洞察', exact: true })
+    await insightSwitch.click()
+    await settings.getByText('未启用 · 断点和复盘照常显示，只是不起草文字', { exact: true }).waitFor()
+    const features = () => page.evaluate(async () => {
+      const reply = await window.goalloom.smart({ type: 'status', generation: (await window.goalloom.getSnapshot()).workspace.generation })
+      return reply.type === 'status' ? { smart: reply.status.features.smart.enabled, insight: reply.status.features.insight.enabled } : null
+    })
+    assert.deepEqual(await features(), { smart: true, insight: false }, 'insight switches off without touching smart input')
+    await insightSwitch.click()
+    await settings.getByText('已启用 · 由 OpenRouter 处理', { exact: true }).waitFor()
+    await nav.getByRole('button', { name: '智能输入', exact: true }).click()
+    await settings.getByText('已启用 · 由 OpenRouter 处理', { exact: true }).waitFor()
+    assert.deepEqual(await features(), { smart: true, insight: true })
+    assert.equal(await revision(), beforeSettings)
+    assert.equal((await calls()).length, 0, 'capability tests are not drafting calls')
+    check('Settings › AI services shows the key per capability; insight switches off and on independently without workspace writes')
     await page.keyboard.press('Escape')
     await settings.waitFor({ state: 'detached' })
 
@@ -121,6 +135,28 @@ async function run(mode) {
       await dialog.waitFor({ state: 'detached' })
     }
     check('provider, malformed-response and bridge failures show feedback and allow manual entry')
+    await setMode('payment')
+    await draftButton.click()
+    await settled()
+    await dialog.getByRole('alert').waitFor()
+    await page.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'detached' })
+    await setMode('ready')
+    await page.keyboard.press('ControlOrMeta+,')
+    const issueSettings = page.locator('dialog.settings-modal'), issueNav = issueSettings.getByRole('navigation', { name: '设置分类' })
+    await issueNav.getByRole('button', { name: 'AI 服务', exact: true }).getByText('需处理', { exact: true }).waitFor()
+    await issueNav.getByRole('button', { name: '洞察', exact: true }).click()
+    await issueSettings.getByText('暂停发送 · OpenRouter 需要处理', { exact: true }).waitFor()
+    await issueSettings.getByRole('button', { name: '去 AI 服务处理 →', exact: true }).click()
+    const issueRow = issueSettings.locator('.smart-provider').filter({ hasText: 'OpenRouter' })
+    await issueRow.getByText(/OpenRouter 要求在其官方页面处理付款方式/).waitFor()
+    await page.screenshot({ path: `${out}/${mode}-settings-ai-issue.png` })
+    await issueRow.getByRole('button', { name: '重新测试', exact: true }).click()
+    await issueRow.getByText(/智能输入、洞察正在使用/).waitFor()
+    assert.doesNotMatch(await issueNav.getByRole('button', { name: 'AI 服务', exact: true }).innerText(), /需处理/)
+    check('an account-level failure shows on the provider and the feature header until a retest clears it')
+    await page.keyboard.press('Escape')
+    await issueSettings.waitFor({ state: 'detached' })
     await setMode('ready')
     await draftButton.click()
     await dialog.locator('.seed-title').first().waitFor()
@@ -156,20 +192,21 @@ async function run(mode) {
     const cacheRevision = await revision()
     before = await reviewCount()
     assert.equal(await page.locator('[data-review]').count(), 1, 'calendar makes the review available on every test date')
-    const reviewHeader = page.locator('.column-header').filter({ has: page.locator('[data-review]') })
-    await reviewHeader.scrollIntoViewIfNeeded()
+    const reviewColumn = page.locator('.board-column').filter({ has: page.locator('[data-review]') })
+    await reviewColumn.scrollIntoViewIfNeeded()
     await page.mouse.move(1, 1)
-    const reviewGeometry = await reviewHeader.evaluate(header => {
-      const rect = selector => { const box = header.querySelector(selector).getBoundingClientRect(); return { left: box.left, right: box.right, centerY: box.top + box.height / 2 } }
-      return { previous: rect('[data-previous-period]'), date: rect('.column-meta'), review: rect('[data-review]'), next: rect('[data-next-period]'), opacity: getComputedStyle(header.querySelector('[data-review]')).opacity }
+    const reviewGeometry = await reviewColumn.evaluate(column => {
+      const box = node => { const r = node.getBoundingClientRect(); return { left: r.left, top: r.top, bottom: r.bottom } }
+      const review = column.querySelector('[data-review]'), header = column.querySelector('.column-header'), title = column.querySelector('.period-title')
+      return { header: box(header), title: box(title), review: box(review.querySelector('.review-entry-dot')), opacity: getComputedStyle(review).opacity, background: getComputedStyle(review).backgroundColor }
     })
-    assert(reviewGeometry.previous.right <= reviewGeometry.date.left && reviewGeometry.date.right <= reviewGeometry.review.left && reviewGeometry.review.right <= reviewGeometry.next.left, 'Review follows the date inside both arrows')
-    assert(reviewGeometry.review.left - reviewGeometry.date.right <= 12 && reviewGeometry.next.left - reviewGeometry.review.right <= 8, 'Review and next arrow stay beside the date')
-    assert(Math.abs(reviewGeometry.review.centerY - reviewGeometry.next.centerY) < 1, 'Review stays on the header line')
+    assert(reviewGeometry.review.top >= reviewGeometry.header.bottom - 1, 'Review is a line under the column header')
+    assert(Math.abs(reviewGeometry.review.left - reviewGeometry.title.left) < 1, 'Review aligns with the column title and row checkboxes')
+    assert.equal(reviewGeometry.background, 'rgba(0, 0, 0, 0)', 'Review is quiet text, not a filled pill')
     assert.equal(reviewGeometry.opacity, '1', 'Review remains visible when navigation recedes')
-    await reviewHeader.screenshot({ path: `${out}/${mode}-review-header-idle.png` })
+    await reviewColumn.locator('.column-header').screenshot({ path: `${out}/${mode}-review-header-idle.png` })
     report.reviewHeader = reviewGeometry
-    check('review sits beside the date inside compact navigation and remains visible on idle')
+    check('review is a quiet line under the header, aligned with the title, and remains visible on idle')
     await page.locator('[data-review]').click()
     await drawer().locator('.review-summary').waitFor()
     await closeReview()
@@ -221,19 +258,20 @@ async function run(mode) {
     await closeReview()
     check('successful summary survives a full Electron process restart')
 
-    const changePreference = async name => {
+    const changePreference = async (name, tab) => {
       await page.keyboard.press('ControlOrMeta+,')
       const pane = page.locator('dialog.settings-modal')
       await pane.getByRole('button', { name: '洞察', exact: true }).click()
+      await pane.getByRole('tab', { name: tab, exact: true }).click()
       await pane.getByRole('radio', { name, exact: true }).click()
       await page.keyboard.press('Escape')
       await pane.waitFor({ state: 'detached' })
     }
-    await changePreference('半天')
+    await changePreference('半天', '拆解')
     await openReview()
     assert.equal(await headline(), refreshedSummary)
     assert.equal(await reviewCount(), before + 3, 'draft-only preferences do not invalidate a review')
-    await changePreference('温和')
+    await changePreference('温和', '复盘')
     assert.equal(await reviewCount(), before + 3, 'editing preferences behind the drawer does not generate on each change')
     await closeReview()
     await openReview()
@@ -294,7 +332,7 @@ async function run(mode) {
     }, beforeRace + 1)
     await closeReview()
     await setMode('ready')
-    await changePreference('直接')
+    await changePreference('直接', '复盘')
     await openReview()
     const latestSummary = await headline()
     await application.evaluate(async () => {
@@ -383,12 +421,15 @@ async function installFixture(application, previousCalls = []) {
       }, usage: { input_tokens: 120, output_tokens: 3 } })
       if (url !== 'https://openrouter.ai/api/v1/chat/completions') throw Error('Unexpected network request')
       const fixture = globalThis.generationFixture, body = JSON.parse(init.body), input = JSON.parse(body.messages[1].content)
+      // The connection test's fixed capability sample is not a drafting call.
+      if (input.check) return Response.json({ choices: [{ message: { content: '{"ok":true}' } }] })
       const sequence = ++fixture.sequence, responseMode = fixture.mode
       const call = { sequence, kind: input.tasks ? 'draft' : 'review', count: input.tasks?.length ?? 0, reasoning: body.reasoning, format: body.response_format, settled: false }
       fixture.calls.push(call)
       await new Promise(resolve => setTimeout(resolve, responseMode === 'slow' ? 4000 : 700))
       call.settled = true
       if (responseMode === 'unavailable') return Response.json({ error: { code: 503 } }, { status: 503 })
+      if (responseMode === 'payment') return Response.json({ error: { code: 402, message: 'Insufficient credits' } }, { status: 402 })
       const value = input.tasks ? { items: input.tasks.map((task, index) => ({ id: task.id, title: `Draft ${sequence} step ${index + 1}`, why: 'Synthetic next step' })) }
         : { headline: `Synthetic review summary ${sequence}`, advice: 'Review one open plan', flags: [] }
       return Response.json({ choices: [{ message: { content: responseMode === 'malformed' ? 'Invalid JSON' : JSON.stringify(value) } }] })

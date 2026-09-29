@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { stepPeriod } from './fixtures/period-step.mjs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir, cpus, release, version, arch } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -129,7 +130,8 @@ try {
   assert.deepEqual(await pickerTitles(), ['A1', 'B1', 'C1'])
   await page.keyboard.press('Escape')
   await page.locator(`#item-${ids.Aw} .task-title`).click()
-  await page.getByRole('dialog', { name: '当前条目', exact: true }).getByRole('button', { name: '关联到…', exact: true }).click()
+  await page.getByRole('dialog', { name: '当前条目', exact: true }).locator('.detail-props .detail-chip', { hasText: '上级' }).click()
+  if (await page.getByRole('menuitem', { name: '关联到…', exact: true }).count()) await page.getByRole('menuitem', { name: '关联到…', exact: true }).click()
   assert.deepEqual(await pickerTitles(), ['A1', 'A2', 'B1', 'C1', 'Unlinked', 'A', 'B', 'C'])
   await page.keyboard.press('Escape'); await page.keyboard.press('Escape')
   report.checks.push('Board and detail relation pickers, including searched board candidates, follow automatic order while keeping linked and nearest-horizon priorities')
@@ -180,7 +182,7 @@ try {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   report.checks.push('Interrupted motion settles without leftover animations; reduced motion produces no row animations')
 
-  await column('month').locator('[data-next-period]').click()
+  await stepPeriod(column('month'), 'next')
   await ordered('month', ['Future A', 'Future C'])
   await move(ids.C, ids.A); await ordered('month', ['Future C', 'Future A'])
   const beforeMaterialize = await raw('month')
@@ -197,7 +199,7 @@ try {
   await page.waitForFunction(() => document.querySelector('[role="switch"][aria-label="按上级自动排序"]')?.getAttribute('aria-checked') === 'false')
   await close(); await move(ids.C, null)
   await ordered('month', ['Future C', 'Future A'])
-  await column('month').locator('[data-previous-period]').click()
+  await stepPeriod(column('month'), 'previous')
   await ordered('month', ['C1', 'A2', 'A1', 'B1', 'Unlinked'])
   report.checks.push('Future ordering follows current ancestors; disabling materializes all periods without a jump; one undo restores saved manual order and keeps the local switch off')
 
@@ -326,7 +328,7 @@ try {
 
   await open(); await toggle().click(); await close()
   await move(ids.C, null)
-  await column('month').locator('[data-next-period]').click()
+  await stepPeriod(column('month'), 'next')
   await ordered('month', ['Future A', 'Future C'])
   await application.evaluate(({ ipcMain }) => {
     const original = ipcMain._invokeHandlers.get('goalloom:query')

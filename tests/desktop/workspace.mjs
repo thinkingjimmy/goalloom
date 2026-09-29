@@ -40,8 +40,8 @@ try {
   await page.getByRole('option', { name: '自选日期…', exact: true }).click()
   await page.getByLabel('自选起点日期', { exact: true }).fill('2026-01-31')
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  // 可选 Jev 步骤：两个同样可见的按钮，跳过后直接进入看板，不生成任何任务。
-  await page.getByRole('button', { name: '连接 Jev', exact: true }).waitFor()
+  // 可选 AI 助手步骤：两个同样可见的按钮，跳过后直接进入看板，不生成任何任务。
+  await page.getByRole('button', { name: '连接 AI 服务', exact: true }).waitFor()
   await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).items.length, 0)
@@ -79,14 +79,14 @@ try {
   await page.getByRole('button', { name: '只看 测试流程', exact: true }).click()
   assert.equal(await page.locator('[data-dimmed="true"]').count(), 3)
   await page.getByRole('button', { name: '全部', exact: true }).click()
-  // 筛选快捷键按顶栏位置：⌘1 为全部，⌘2 起依次为流程；没有流程的位置不响应。
+  // 顶栏数字键按位置：⌘1 为 Later，⌘2 为全部，⌘3 起依次为流程；没有流程的位置不响应。
   const onlyFlow = page.getByRole('button', { name: '只看 测试流程', exact: true })
-  await page.keyboard.press('ControlOrMeta+2')
+  await page.keyboard.press('ControlOrMeta+3')
   await page.getByRole('button', { name: '只看 测试流程', exact: true, pressed: true }).waitFor()
   assert.equal(await page.locator('[data-dimmed="true"]').count(), 3)
-  await page.keyboard.press('ControlOrMeta+3')
+  await page.keyboard.press('ControlOrMeta+4')
   assert.equal(await onlyFlow.getAttribute('aria-pressed'), 'true')
-  await page.keyboard.press('ControlOrMeta+1')
+  await page.keyboard.press('ControlOrMeta+2')
   await page.getByRole('button', { name: '全部', exact: true, pressed: true }).waitFor()
   assert.equal(await page.locator('[data-dimmed="true"]').count(), 0)
   // 快捷键设置：录制改键、冲突警告、Esc 只取消录制，改键后全局生效，恢复默认。
@@ -94,14 +94,14 @@ try {
   const shortcutSettings = page.getByRole('dialog', { name: '设置与数据' })
   await shortcutSettings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '快捷键', exact: true }).click()
   // 流程筛选只有一个开关：关闭后 ⌘2 不再切换，打开后恢复；示意图不显示真实流程名。
-  const filterSwitch = shortcutSettings.getByRole('switch', { name: /\+ 数字切换顶栏筛选$/ })
+  const filterSwitch = shortcutSettings.getByRole('switch', { name: /\+ 数字切换 Later 与顶栏筛选$/ })
   assert.equal(await filterSwitch.getAttribute('aria-checked'), 'true')
   assert.equal(await shortcutSettings.getByRole('figure', { name: '示意：顶栏位置与快捷键的对应关系' }).getByText('测试流程').count(), 0)
   await filterSwitch.click()
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.shortcuts'))), { filters: false })
   await shortcutSettings.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.keyboard.press('ControlOrMeta+2')
-  assert.equal(await onlyFlow.getAttribute('aria-pressed'), 'false', '关闭流程筛选快捷键后 ⌘2 不响应')
+  await page.keyboard.press('ControlOrMeta+3')
+  assert.equal(await onlyFlow.getAttribute('aria-pressed'), 'false', '关闭顶栏数字键后 ⌘3 不响应')
   await page.keyboard.press('ControlOrMeta+Comma')
   await shortcutSettings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '快捷键', exact: true }).click()
   await filterSwitch.click()
@@ -170,13 +170,17 @@ try {
   // 取消退出之后仍须能够提交，而不只是窗口尚在。
   await page.getByRole('button', { name: /^保存/ }).click()
   await page.getByRole('button', { name: /^保存/ }).waitFor({ state: 'hidden' })
+  // The 上级 chip opens the picker directly while empty; once linked it lists parents first and hands off via 「关联到…」.
+  const parentChip = page.locator('.detail-props .detail-chip', { hasText: '上级' })
   for (const title of ['测试上级 A', '测试上级 B']) {
-    await page.getByRole('button', { name: '关联到…', exact: true }).click()
+    await parentChip.click()
+    const handoff = page.getByRole('menuitem', { name: '关联到…', exact: true })
+    if (await handoff.count()) await handoff.click()
     await page.getByLabel('搜索上级条目', { exact: true }).fill(title)
     const option = page.locator('.relation-picker').getByRole('menuitemcheckbox', { name: title })
     await option.click()
     await page.locator('.relation-picker').getByRole('menuitemcheckbox', { name: title, checked: true }).waitFor()
-    await page.getByRole('button', { name: '关联到…', exact: true }).click()
+    await parentChip.click()
     await page.getByLabel('搜索上级条目', { exact: true }).waitFor({ state: 'hidden' })
   }
   await page.getByRole('button', { name: '关闭', exact: true }).click()
@@ -200,6 +204,16 @@ try {
   assert.equal(await page.getByRole('dialog', { name: '当前条目' }).locator('.modal-footer').count(), 0)
   await mkdir('output/tests/screenshots', { recursive: true })
   await page.getByRole('dialog', { name: '当前条目' }).screenshot({ path: 'output/tests/screenshots/item-detail.png' })
+  // 页眉顺序：更多操作 → 活动 → 关闭；活动从右侧横向展开，弹窗加宽而不是向下堆叠。
+  const detailDialog = page.getByRole('dialog', { name: '当前条目' })
+  const headerActions = await detailDialog.locator('.modal-header .icon-button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))
+  assert.deepEqual(headerActions.slice(-3).map(label => label.replace(/ \d+$/, '')), ['更多操作', '活动', '关闭'])
+  const narrow = (await detailDialog.boundingBox()).width
+  await detailDialog.getByRole('button', { name: /^活动 \d+$/ }).click()
+  await detailDialog.locator('.activity-drawer li').first().waitFor()
+  await detailDialog.evaluate(node => Promise.all(node.getAnimations({ subtree: true }).map(animation => animation.finished)))
+  assert.ok((await detailDialog.boundingBox()).width > narrow + 200, 'Activity drawer widens the dialog')
+  await detailDialog.screenshot({ path: 'output/tests/screenshots/item-detail-activity.png' })
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await page.getByRole('button', { name: '设置与数据', exact: true }).focus()
   // 全局 Cmd/Ctrl+N 打开 composer；未配置 Jev 时确认后只保存 1 条 Later，不拆分、不因“今天”换列。
@@ -268,6 +282,14 @@ try {
   assert.equal(await page.locator('#later-toggle').getAttribute('aria-expanded'), 'false')
   await page.locator('#later-toggle').click()
   assert.equal(await page.locator('.board-timeline .board-column').count(), 4)
+  // ⌘1 / Ctrl+1 is the leftmost top-bar slot: it toggles Later and is advertised on the button.
+  await page.getByRole('button', { name: '全部', exact: true }).focus()
+  await page.keyboard.press('ControlOrMeta+1')
+  assert.equal(await page.locator('#later-toggle').getAttribute('aria-expanded'), 'false')
+  await page.keyboard.press('ControlOrMeta+1')
+  assert.equal(await page.locator('#later-toggle').getAttribute('aria-expanded'), 'true')
+  assert.match(await page.locator('#later-toggle').getAttribute('aria-keyshortcuts'), /\+1$/)
+  assert.match(await page.getByRole('button', { name: '全部', exact: true }).getAttribute('aria-keyshortcuts'), /\+2$/)
   assert.equal(await page.evaluate(() => {
     const script = document.createElement('script')
     script.textContent = 'window.__unsafeInline = true'

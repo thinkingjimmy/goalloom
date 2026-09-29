@@ -9,7 +9,7 @@ storage/
 ├── startup.ts      # 只读探测 user_version/schema → 现有 BackupManager 创建并校验 protective 副本 → 复核后原子迁移
 ├── database.ts     # node:sqlite 连接、外键/WAL、同步事务与完整性校验
 ├── schema.ts       # schema v5，DAG/唯一位置/历史/操作约束、界面与复选框风格，v1–v4→v5 原子升级
-├── store.ts        # 有界语句缓存、摘要/详情读取、索引邻居、版本保护与事件/回执
+├── store.ts        # 有界语句缓存、摘要（含 SQLite 内计算的说明信号 note_signal）/详情读取、索引邻居、版本保护与事件/回执
 ├── atomic-json.ts  # 窗口偏好、分块导出、备份回执共用的 fsync/原子文件写入
 └── backup/
     ├── snapshot.ts # 在线一致性副本、校验/fsync/原子改名和失败清理

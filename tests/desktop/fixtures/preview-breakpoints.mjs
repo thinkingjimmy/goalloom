@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { stepPeriod } from './period-step.mjs'
 import { join } from 'node:path'
 import { pollPage } from './poll.mjs'
 
@@ -101,7 +102,7 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
   await link(true)
 
   const today = board.locator('[data-horizon="day"]')
-  await today.locator('[data-next-period]').click()
+  await stepPeriod(today, 'next')
   await dot.hover()
   assert.equal(await plus.count(), 0, 'A future destination does not offer a current-period shortcut')
   await all.hover()

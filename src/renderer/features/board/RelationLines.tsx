@@ -32,8 +32,9 @@ const empty: Geometry = { width: 0, height: 0, paths: [], ports: [], markers: []
 const inset = 14
 // Titles grow freely; anchors stay level with the first line, where the dot and checkbox sit.
 const firstLine = 32
-// A connector's vertical bus runs this far outside the row edge; a forward line stops at the flow dot's left edge.
-const busGap = 6, dotEdge = 8
+// Rows sit 3px inside each column rule, so a connector's vertical bus runs on the rule itself; a forward line stops at
+// the flow dot's left edge (the 18px dot button starts at the row edge and centres a 6px dot).
+const busGap = 3, dotEdge = 6
 
 /** Horizontal–vertical path from (x, y) through a vertical bus at each turn's x (reaching that turn's y), ending
  *  horizontally at x2. Corners are rounded to fit the shortest adjoining segment. */
@@ -126,7 +127,7 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
       // Existing cross-Later edges survive, but an obscured timeline endpoint must not land in Later.
       if (parent.panel !== child.panel && (x1 < parent.clip.x || x1 > parent.clip.x + parent.clip.width || x2 < child.clip.x || x2 > child.clip.x + child.clip.width)) continue
       const exitBus = x1 + side * busGap
-      const entryBus = forward ? child.left - busGap - 5 : backward ? child.right + busGap + 5 : Math.max(parent.right, child.right) + busGap
+      const entryBus = forward ? child.left - busGap - 1 : backward ? child.right + busGap + 1 : Math.max(parent.right, child.right) + busGap
       // A skip-level line crosses the columns in between along a row boundary, where the clear band between grounds shows it.
       const turns: [number, number][] = skip && (forward || backward)
         ? [[exitBus, lane(Math.min(x1, x2), Math.max(x1, x2), (parent.y + child.y) / 2)], [entryBus, child.y]]

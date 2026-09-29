@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace, narrow data/actions API and device preferences.
- * [OUTPUT]: Settings navigation and section headings (including shortcut guidance), lightweight counts and section-scoped backup reads.
+ * [OUTPUT]: Settings navigation (preferences / AI / workspace / items) with glanceable status, section headings (including shortcut guidance), lightweight counts, section-scoped backup reads and AI status refresh.
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,7 +11,7 @@ import { workspaceDate } from '../../../../domain/calendar'
 import { insightMessages, messages, settingsMessages as s, shortcutMessages, smartMessages } from '../../../i18n'
 import { useShortcuts } from '../../../state/shortcuts'
 import { desktopApi, type Action } from '../../../state/use-workspace'
-import type { Smart } from '../../../state/smart'
+import { connectedProviders, providerIssue, type Ai } from '../../../state/ai'
 import { Modal } from '../../../components/Modal'
 import { Kbd } from '../../../components/Kbd'
 import { Icon, type IconName } from '../../../components/icons'
@@ -19,6 +19,7 @@ import { AppearancePane } from './AppearancePane'
 import { BoardPane } from './BoardPane'
 import { CalendarPane } from './CalendarPane'
 import { BackupPane } from './BackupPane'
+import { AiPane } from './AiPane'
 import { SmartPane } from './SmartPane'
 import { InsightPane } from './InsightPane'
 import { ShortcutsPane } from './ShortcutsPane'
@@ -27,13 +28,16 @@ import { Segmented, relativeDay } from './parts'
 import { TransferReview, TransferSteps } from './TransferReview'
 import './settings.css'
 
-export type Section = 'appearance' | 'board' | 'shortcuts' | 'smart' | 'insight' | 'calendar' | 'backup' | 'done' | 'trash'
+export type Section = 'appearance' | 'board' | 'shortcuts' | 'ai' | 'smart' | 'insight' | 'calendar' | 'backup' | 'done' | 'trash'
 interface Entry { id: Section; label: string; icon: IconName }
 // Built per render so every label follows the current language.
 const groups = (): { label: string; entries: Entry[] }[] => [
   { label: s.preferences, entries: [
     { id: 'appearance', label: messages.appearance, icon: 'appearance' },
     { id: 'shortcuts', label: shortcutMessages.section, icon: 'keyboard' },
+  ] },
+  { label: smartMessages.aiGroup, entries: [
+    { id: 'ai', label: smartMessages.aiSection, icon: 'key' },
     { id: 'smart', label: smartMessages.sectionTitle, icon: 'smart' },
     { id: 'insight', label: insightMessages.settingsSection, icon: 'split' },
   ] },
@@ -52,7 +56,7 @@ type Ending = typeof endings[number]
 const endingLabels = (): Record<Ending, string> => ({ done: messages.doneShort, cancelled: messages.cancelledShort, archived: messages.archive })
 type Counts = Record<Ending | 'trash', number>
 
-export function Settings({ snapshot, smart, initial = 'appearance', submit, refresh, busy, select, close }: { snapshot: Snapshot; smart: Smart; initial?: Section; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; select: (id: string) => void; close: () => void }) {
+export function Settings({ snapshot, ai, initial = 'appearance', submit, refresh, busy, select, close }: { snapshot: Snapshot; ai: Ai; initial?: Section; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; select: (id: string) => void; close: () => void }) {
   const [section, setSection] = useState<Section>(initial), [ending, setEnding] = useState<Ending>('done')
   const [backups, setBackups] = useState<BackupStatus | null>(null)
   const [latest, setLatest] = useState<string | null>(null)
@@ -72,6 +76,9 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
       if (active() && reply.type === 'status') setBackups(reply.status)
     }
   }
+  // Provider failures are recorded in main while Settings is closed; re-read them whenever an AI section opens.
+  const aiSection = section === 'ai' || section === 'smart' || section === 'insight'
+  useEffect(() => { void ai.refresh() }, [aiSection])
   useEffect(() => {
     let active = true
     void reload(() => active).catch(() => { if (active) setError(messages.backupStatusFailed) })
@@ -104,8 +111,12 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
     close()
   }
   const disabled = busy || working
-  const meta: Partial<Record<Section, { text: string; dot?: boolean }>> = {
-    ...(smart.status?.enabled && { smart: { text: s.enabledMeta, dot: true } }),
+  const aiStatus = ai.status, connected = aiStatus ? connectedProviders(aiStatus) : []
+  const featureMeta = (feature: 'smart' | 'insight') => aiStatus?.features[feature].enabled ? { text: s.enabledMeta, dot: true as const } : aiStatus?.features[feature].paused ? { text: smartMessages.pausedMeta, dot: 'warn' as const } : null
+  const meta: Partial<Record<Section, { text: string; dot?: boolean | 'warn' }>> = {
+    ...(connected.length && { ai: connected.some(provider => providerIssue(aiStatus!, provider)) ? { text: smartMessages.needsAttention, dot: 'warn' as const } : { text: smartMessages.connectedCount(connected.length) } }),
+    ...(featureMeta('smart') && { smart: featureMeta('smart')! }),
+    ...(featureMeta('insight') && { insight: featureMeta('insight')! }),
     ...(latest && today && { backup: { text: relativeDay(latest, today, timezone, s) } }),
     ...(counts?.trash && { trash: { text: String(counts.trash) } }),
   }
@@ -134,7 +145,7 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
         {group.entries.map(entry => <button key={entry.id} type="button" aria-current={!preview && section === entry.id ? 'page' : undefined} disabled={!!preview} onClick={() => setSection(entry.id)}>
           <Icon name={entry.icon} size={16} /><span className="settings-nav-label">{entry.label}</span>
           {/* Glanceable status only; the section name stays the button's accessible name. */}
-          {meta[entry.id] && <span className="settings-nav-meta" data-dot={!!meta[entry.id]!.dot} aria-hidden="true">{meta[entry.id]!.text}</span>}
+          {meta[entry.id] && <span className="settings-nav-meta" data-dot={meta[entry.id]!.dot ?? false} aria-hidden="true">{meta[entry.id]!.text}</span>}
         </button>)}
       </div>)}
       {preview
@@ -148,8 +159,9 @@ export function Settings({ snapshot, smart, initial = 'appearance', submit, refr
         {section === 'appearance' && <AppearancePane workspace={snapshot.workspace} disabled={disabled} submit={submit} />}
         {section === 'board' && <BoardPane disabled={disabled} submit={submit} />}
         {section === 'shortcuts' && <ShortcutsPane />}
-        {section === 'smart' && <SmartPane smart={smart} />}
-        {section === 'insight' && <InsightPane snapshot={snapshot} status={smart.status} openSmart={() => setSection('smart')} />}
+        {section === 'ai' && <AiPane ai={ai} />}
+        {section === 'smart' && <SmartPane ai={ai} goto={setSection} />}
+        {section === 'insight' && <InsightPane snapshot={snapshot} ai={ai} goto={setSection} />}
         {section === 'calendar' && (calendar
           ? <CalendarPane calendar={calendar} policies={snapshot.policies} today={today} disabled={disabled} submit={submit} goReset={() => setSection('backup')} />
           : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}

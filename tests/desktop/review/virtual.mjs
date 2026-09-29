@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { stepPeriod } from '../fixtures/period-step.mjs'
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -42,7 +43,7 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-horizon="later"] [aria-setsize="120"]'))
   const snapshot = await page.evaluate(() => window.goalloom.getSnapshot())
   assert.equal(snapshot.items.length, 150)
-  assert(snapshot.items.every(item => !('description' in item) && item.hasDescription))
+  assert(snapshot.items.every(item => !('description' in item) && item.note !== null && item.note.excerpt.length <= 120))
   assert.equal(await page.locator('.task-row[data-done="true"]').count(), 0)
   assert(await page.locator('.task-row').count() < 45)
   checks.push('summary DTOs, logical counts, bounded mounted rows, collapsed done unmounted')
@@ -56,7 +57,8 @@ try {
   await page.getByRole('button', { name: 'Synthetic row 119', exact: true }).focus()
   await page.keyboard.press('Home')
   assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Synthetic row 000')
-  for (let i = 0; i < 70; i++) { await page.keyboard.press('Tab'); await page.keyboard.press('Tab'); await page.keyboard.press('Tab') }
+  // Each row with a note has four stops: drag handle, checkbox, title and its description signal.
+  for (let i = 0; i < 70; i++) for (let stop = 0; stop < 4; stop++) await page.keyboard.press('Tab')
   assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Synthetic row 070')
   await page.keyboard.press('End')
   assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Synthetic row 119')
@@ -141,7 +143,7 @@ try {
   const cycle = page.locator('[data-horizon="cycle"]')
   await cycle.getByRole('button',{name:'Current cycle destination',exact:true}).waitFor()
   assert.equal((await page.evaluate(id=>window.goalloom.getItem(id),rows[0])).item.placement.horizon,'later')
-  await cycle.locator('.column-header button').first().click()
+  await stepPeriod(cycle, 'previous')
   await cycle.locator('.past-period-rows').waitFor()
   await scroller.evaluate(element => { element.scrollTop=0 })
   const sourceHandle = page.locator(`#item-${rows[0]} .drag-handle`)
@@ -160,7 +162,8 @@ try {
   await secondHandle.focus(); await page.keyboard.press('Space')
   await dragReady()
   await page.keyboard.press('ArrowRight')
-  await cycle.locator('.column-header button').first().evaluate(button=>button.click())
+  // Step back without moving focus off the keyboard drag: ← on the header switch pages one period.
+  await cycle.locator('[data-period-switch]').evaluate(button=>button.dispatchEvent(new KeyboardEvent('keydown',{ key:'ArrowLeft', bubbles:true, cancelable:true })))
   await cycle.locator('.past-period-rows').waitFor()
   await page.keyboard.press('Space')
   await page.waitForFunction(()=>!document.documentElement.dataset.dragging && !document.querySelector('.fab').disabled)

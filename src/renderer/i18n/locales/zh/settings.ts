@@ -16,6 +16,7 @@ export const settingsMessages = widen({
   parentOrder: "按上级自动排序",
   parentOrderNote: "本月、本周、今天及未来周期跟随最近一级上级顺序，同组可拖动。关闭后保留当前排列。",
   subtitles: {
+    ai: '添加一次 Key，智能输入和洞察各自选用；Key 加密保存在本机钥匙串，只发给你选中的服务',
     board: "排序与完成反馈，偏好仅保存在这台设备",
     insight: '断点、复盘，以及起草时怎样理解你',
     appearance: '只影响这台设备的显示，不写入工作区历史',
@@ -36,12 +37,11 @@ export const settingsMessages = widen({
   celebrationTry: '试一下',
   celebrationReducedMotion: '系统已开启「减少动态效果」，撒花暂不播放。',
   // Smart input
-  smartEnabledNote: '全局＋写下想法，停下输入后自动整理',
   privacy: '隐私',
   privacyPoints: [
-    '只发送当前输入的原文、工作区日期，以及你点名或选中的目标的标题、状态和位置',
-    '不发送说明、历史、回收站，也不会上传整个工作区',
-    'Key 加密保存在本机，不进入工作区数据、备份或导出',
+    '只有功能正在使用的服务会收到内容；关闭的功能不发送任何内容',
+    '智能输入只发送当前输入的原文、工作区日期与你点名或选中的目标；洞察只发送看板摘要与你的偏好',
+    '不发送说明、历史、回收站；Key 加密保存在本机，不进入工作区数据、备份或导出',
   ],
   // Calendar
   calendarSettings: '日历设置',

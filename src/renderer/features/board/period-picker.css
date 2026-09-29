@@ -1,0 +1,42 @@
+/* --- Header B: the column title opens a period panel styled like the deadline panel. Tokens only. --- */
+.period-switch { height: 30px; min-width: 0; margin-left: -6px; padding: 0 6px; display: inline-flex; align-items: baseline; gap: 8px; border-radius: 8px; line-height: 30px; text-align: left; }
+.period-switch:hover, .period-switch[aria-expanded='true'] { background: var(--hover); }
+.period-switch > .period-chevron { align-self: center; display: inline-flex; color: var(--secondary); opacity: 0; transition: opacity .12s ease-out; }
+.board-column:hover .period-switch > .period-chevron, .period-switch:focus-visible > .period-chevron, .period-switch[aria-expanded='true'] > .period-chevron { opacity: 1; }
+@media (hover: none) { .period-switch > .period-chevron { opacity: 1; } }
+
+.period-picker-popover { z-index: 32; }
+.period-picker { width: 300px; padding: 10px 10px 6px; border-radius: 13px; background: var(--raised); box-shadow: var(--shadow); color: var(--fg); font-size: 13px; font-weight: 400; }
+.period-picker-quick { display: grid; gap: 6px; }
+.period-picker-quick button { position: relative; height: 32px; border-radius: 8px; background: var(--hover); color: var(--fg-soft); }
+.period-picker-quick button:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
+.period-picker-quick button[aria-pressed='true'] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.period-picker-review { position: absolute; top: 6px; right: 6px; width: 5px; height: 5px; border-radius: 50%; background: var(--insight-skip, var(--backlog)); }
+.period-picker-body { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.period-picker-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 4px 6px; }
+.period-picker-nav strong { font-size: 14px; font-weight: 600; }
+.period-picker-nav > span { display: flex; gap: 2px; }
+.period-picker-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; color: var(--secondary); }
+.period-picker-icon:hover { background: var(--hover); color: var(--fg); }
+.period-picker-weekdays, .period-picker-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; }
+.period-picker-weekdays { padding: 4px 0; font-size: 11px; color: var(--secondary); }
+.period-picker-week { width: 100%; height: 34px; align-items: center; border-radius: 9px; font-variant-numeric: tabular-nums; }
+.period-picker-week > button { height: 32px; border-radius: 8px; }
+:is(button.period-picker-week, .period-picker-week > button, .period-picker-months > button, .period-picker-row):hover:not(:disabled) { background: var(--hover); }
+:is(button.period-picker-week, .period-picker-week > button, .period-picker-months > button, .period-picker-row)[data-selected='true'] {
+  background: color-mix(in srgb, var(--focus) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--focus) 55%, transparent); color: var(--fg); font-weight: 500; }
+:is(button.period-picker-week, .period-picker-week > button, .period-picker-months > button, .period-picker-row)[data-past='true'] { color: var(--secondary); }
+:is(button.period-picker-week, .period-picker-week > button, .period-picker-months > button, .period-picker-row):disabled { opacity: 1; color: var(--faint); cursor: default; }
+.period-picker-day.outside { color: var(--faint); }
+.period-picker-day.today { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 12px; box-shadow: inset 0 0 0 1.2px currentColor; }
+.period-picker-months { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.period-picker-months > button, .period-picker-row { min-height: 44px; border-radius: 9px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.period-picker-months > button { flex-direction: column; gap: 1px; }
+.period-picker-months small, .period-picker-row small { font-size: 10px; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.period-picker-list { display: flex; flex-direction: column; gap: 2px; }
+.period-picker-row { min-height: 36px; justify-content: space-between; padding: 0 10px; font-variant-numeric: tabular-nums; }
+.period-picker-steps { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--hairline); }
+.period-picker-steps button { min-width: 0; height: 30px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: 7px; font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.period-picker-steps button:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+.period-picker-steps button:disabled { opacity: 1; color: var(--faint); cursor: default; }
+@media (pointer: coarse) { .period-picker-steps button, .period-picker-quick button { min-height: 44px; } }

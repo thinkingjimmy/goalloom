@@ -17,6 +17,7 @@ export const settingsMessages: SettingsCatalog = {
   parentOrder: "Sort by parent",
   parentOrderNote: "Month, week, day and future periods follow their nearest parents. Drag within a group. Turning this off keeps the current order.",
   subtitles: {
+    ai: 'Add a key once and let smart input and insight each pick a service; keys stay encrypted in this device’s keychain and go only to the service you choose',
     board: "Ordering and completion feedback, saved on this device",
     insight: 'Breakpoints, reviews, and how drafting understands you',
     appearance: 'Only affects this device’s display; not recorded in workspace history',
@@ -37,12 +38,11 @@ export const settingsMessages: SettingsCatalog = {
   celebrationTry: 'Try it',
   celebrationReducedMotion: 'Confetti is paused while Reduce Motion is enabled in your system settings.',
   // Smart input
-  smartEnabledNote: 'Write ideas with the global +; they’re organized once you stop typing',
   privacy: 'Privacy',
   privacyPoints: [
-    'Only sends the current input text, the workspace date, and the title, status and position of goals you mention or select',
-    'Never sends descriptions, history or trash, and never uploads the whole workspace',
-    'The key is stored encrypted on this device and never enters workspace data, backups or exports',
+    'Only the service a feature is using receives content; features that are off send nothing',
+    'Smart input sends only the current input text, the workspace date and goals you mention or select; insight sends only a board summary and your preferences',
+    'Descriptions, history and trash are never sent; keys stay encrypted on this device, outside workspace data, backups and exports',
   ],
   // Calendar
   calendarSettings: 'Calendar settings',

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Controlled SQLite connection, validated DTOs and authoritative current versions.
- * [OUTPUT]: Bounded prepared statements, summary/detail reads, indexed neighbors and versioned writes/events/receipts.
+ * [OUTPUT]: Bounded prepared statements, summary reads with a digested description signal, detail reads, indexed neighbors and versioned writes/events/receipts.
  * [POS]: Persistence adapter; Repository owns transactions and business policy.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,10 +10,17 @@ import { DomainError } from '../../shared/contracts/commands'
 import { workspaceSchema, type Item, type ItemSummary, type ItemRecord, type Placement, type PlanningPeriod, type Policy, type Relation, type Workspace } from '../../shared/contracts/entities'
 import { businessState, type ItemEvent, type Operation, type PositionEffect } from '../../shared/contracts/effects'
 import { serverText } from '../../shared/i18n/server'
+import { noteSignal } from '../../shared/notes'
 
 export class Store {
   private statements = new Map<string, StatementSync>()
-  constructor(readonly db: DatabaseSync) {}
+  constructor(readonly db: DatabaseSync) {
+    // Summaries digest each description inside SQLite, so only the bounded signal leaves the worker's query.
+    db.function('note_signal', { deterministic: true }, (text: unknown) => {
+      const signal = noteSignal(typeof text === 'string' ? text : '')
+      return signal ? JSON.stringify(signal) : null
+    })
+  }
   prepare(sql: string): StatementSync {
     let statement = this.statements.get(sql)
     if (!statement) {
@@ -48,14 +55,12 @@ export class Store {
     })
   }
   summaries(where: string, parameters: SQLInputValue[] = [], suffix = 'ORDER BY p.sortKey,i.id'): ItemSummary[] {
-    // Match JavaScript trim without transferring the description or retaining a second body in the worker.
-    const whitespace = 'char(9,10,11,12,13,32,160,5760,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8232,8233,8239,8287,12288,65279)'
     const rows = this.prepare(`SELECT i.id,i.title,i.dueDate,i.status,i.completedAt,i.cancelledAt,i.archivedAt,i.deletedAt,i.deletedBy,i.createdAt,i.updatedAt,i.version,i.flowColor,
-      length(trim(i.description,${whitespace}))>0 AS hasDescription,p.horizon,p.periodId,p.sortKey,p.version AS placementVersion,p.holdPeriodId
+      note_signal(i.description) AS note,p.horizon,p.periodId,p.sortKey,p.version AS placementVersion,p.holdPeriodId
       FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where} ${suffix}`).all(...parameters)
     return rows.map(row => {
-      const { horizon, periodId, sortKey, placementVersion, holdPeriodId, hasDescription, ...item } = row
-      return { ...item, hasDescription: Boolean(hasDescription), placement: { itemId: item.id, horizon, periodId, sortKey, version: placementVersion, holdPeriodId } } as ItemSummary
+      const { horizon, periodId, sortKey, placementVersion, holdPeriodId, note, ...item } = row
+      return { ...item, note: typeof note === 'string' ? JSON.parse(note) : null, placement: { itemId: item.id, horizon, periodId, sortKey, version: placementVersion, holdPeriodId } } as ItemSummary
     })
   }
   insertItem(item: Item): void {

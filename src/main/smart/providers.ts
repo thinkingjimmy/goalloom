@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Provider-owned credentials, lightweight payload budgets, abort signals and controlled HTTP.
- * [OUTPUT]: Fixed System One (TypeSafe native / OpenRouter) and Gateway adapters, normalized distributions and typed failures.
+ * [OUTPUT]: Fixed Jev presets and adapters (System One on TypeSafe native / OpenRouter, Gateway evaluate), normalized distributions and typed failures.
  * [POS]: Provider boundary; no task-body or credential logging, and no alternate API protocols.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,14 +9,15 @@ import type { Answer, Precision } from '../../domain/smart/distribution'
 import { validDecimals } from '../../domain/smart/distribution'
 import type { Json, NeutralQuestion } from '../../domain/smart/questions'
 import { estimateTokens, payloadLimit, tokenBudget } from '../../domain/smart/budget'
-import type { Failure, FailureKind, JevProvider } from '../../shared/contracts/smart-input'
+import type { Failure, FailureKind, AiProvider } from '../../shared/contracts/smart-input'
 import { serverText } from '../../shared/i18n/server'
+import { providerModels } from '../../shared/contracts/values'
 
 export const JEV_PROVIDERS = {
-  typesafe: { protocol: 'typesafe-system-one', baseURL: 'https://api.typesafe.ai', model: 'jev-latest', console: 'https://typesafe.ai' },
+  typesafe: { protocol: 'typesafe-system-one', baseURL: 'https://api.typesafe.ai', model: providerModels.typesafe.jev, console: 'https://typesafe.ai' },
   // OpenRouter serves TypeSafe's System One shapes at /api/v1/systemone; the SDK appends /v1/systemone to this base.
-  openrouter: { protocol: 'typesafe-system-one', baseURL: 'https://openrouter.ai/api', model: 'typesafe/jev-1.13', console: 'https://openrouter.ai/settings/keys' },
-  'vercel-gateway': { protocol: 'gateway-evaluate', endpoint: 'https://ai-gateway.vercel.sh/v1/evaluate', model: 'typesafe-ai/jev', providerOptions: { gateway: { only: ['typesafe-ai'] } }, console: 'https://vercel.com/dashboard' },
+  openrouter: { protocol: 'typesafe-system-one', baseURL: 'https://openrouter.ai/api', model: providerModels.openrouter.jev, console: 'https://openrouter.ai/settings/keys' },
+  'vercel-gateway': { protocol: 'gateway-evaluate', endpoint: 'https://ai-gateway.vercel.sh/v1/evaluate', model: providerModels['vercel-gateway'].jev, providerOptions: { gateway: { only: ['typesafe-ai'] } }, console: 'https://vercel.com/dashboard' },
 } as const
 export const requestTimeoutMs = 8_000
 export const cooldownMs = 30_000
@@ -33,14 +34,14 @@ export class Aborted extends Error {}
 export type Adapter = (apiKey: string, input: EvaluateInput) => Promise<EvaluateOutput>
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 
-const names: Record<JevProvider, string> = { typesafe: 'TypeSafe', 'vercel-gateway': 'AI Gateway', openrouter: 'OpenRouter' }
-export function failure(kind: FailureKind, provider: JevProvider, status: number | null = null, retryAt: string | null = null): Failure {
+const names: Record<AiProvider, string> = { typesafe: 'TypeSafe', 'vercel-gateway': 'AI Gateway', openrouter: 'OpenRouter' }
+export function failure(kind: FailureKind, provider: AiProvider, status: number | null = null, retryAt: string | null = null): Failure {
   const name = names[provider]
   return { kind, message: serverText().smart.failures[kind](name, status), status, retryAt }
 }
 
 // --- Specific account/quota/limit reasons win over generic auth; status alone never proves an invalid key. ---
-export function classifyFailure(provider: JevProvider, status: number, body: unknown, headers: Headers, now: number): Failure {
+export function classifyFailure(provider: AiProvider, status: number, body: unknown, headers: Headers, now: number): Failure {
   const error = typeof body === 'object' && body !== null ? ((body as { error?: unknown }).error ?? body) as Record<string, unknown> : {}
   const tag = [error.type, error.code].filter(value => typeof value === 'string' || typeof value === 'number').join(' ').toLowerCase()
   if (/customer_verification_required|verification_required/.test(tag)) return failure('account_verification_required', provider, status)
@@ -58,7 +59,7 @@ export function retryAfter(headers: Headers, now: number): string {
   return new Date(now + Math.min(Math.max(delay, 1_000), 3_600_000)).toISOString()
 }
 
-function unify(answers: unknown, questions: Record<string, NeutralQuestion>, provider: JevProvider): Record<string, Answer> {
+function unify(answers: unknown, questions: Record<string, NeutralQuestion>, provider: AiProvider): Record<string, Answer> {
   if (typeof answers !== 'object' || answers === null) throw new ProviderFailure(failure('malformed_response', provider))
   const keys = Object.keys(answers)
   if (keys.length !== Object.keys(questions).length || keys.some(key => !questions[key])) throw new ProviderFailure(failure('malformed_response', provider))
@@ -72,7 +73,7 @@ function unify(answers: unknown, questions: Record<string, NeutralQuestion>, pro
   return out
 }
 const numberOrNull = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
-function requestBody(value: unknown, provider: JevProvider): string {
+function requestBody(value: unknown, provider: AiProvider): string {
   const body = JSON.stringify(value)
   if (Buffer.byteLength(body) > payloadLimit || estimateTokens(body) > tokenBudget) throw new ProviderFailure(failure('too_large', provider))
   return body

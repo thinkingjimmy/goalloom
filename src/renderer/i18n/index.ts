@@ -1,12 +1,11 @@
 /**
  * [INPUT]: shared/i18n 的 Locale 与服务端文案切换；locales/* 五种语言的完整 Catalog；React useSyncExternalStore。
- * [OUTPUT]: 当前语言的实时文案视图（messages、smartMessages、settingsMessages、shortcut*、insightMessages、providerNames、horizon/activity/status 名称）、setLocale/currentLocale/useLocale 与固定模型名。
+ * [OUTPUT]: 当前语言的实时文案视图（messages、smartMessages、settingsMessages、shortcut*、insightMessages、providerNames、horizon/activity/status 名称）、setLocale/currentLocale/useLocale。
  * [POS]: renderer 唯一文案入口；原地替换视图内容实现即时切换，不重挂载组件，草稿、撤销栈与打开的弹窗保留。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { useSyncExternalStore } from 'react'
 import type { ItemHorizon } from '../../shared/contracts/entities'
-import type { JevProvider } from '../../shared/contracts/smart-input'
 import { intlTags, type Locale } from '../../shared/i18n/locale'
 import { setServerLocale } from '../../shared/i18n/server'
 import { zh, type Catalog } from './locales/zh'
@@ -29,7 +28,6 @@ export const insightMessages = { ...zh.insight }
 export const horizonNames = {} as Record<ItemHorizon, string>
 export const activityNames: Record<string, string> = {}
 export const statusNames = {} as Record<'todo' | 'done' | 'cancelled', string>
-export const providerModels: Record<JevProvider, string> = { typesafe: 'jev-latest', 'vercel-gateway': 'typesafe-ai/jev', openrouter: 'typesafe/jev-1.13' }
 export type MessageCatalog = Catalog['messages']
 
 let locale: Locale = 'zh'

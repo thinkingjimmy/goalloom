@@ -17,6 +17,7 @@ export const settingsMessages: SettingsCatalog = {
   parentOrder: "Ordenar por elemento superior",
   parentOrderNote: "El mes, la semana, el día y los periodos futuros siguen a su superior más cercano. Arrastra dentro de cada grupo. Al desactivar, se conserva el orden actual.",
   subtitles: {
+    ai: 'Añade una clave una vez y deja que la entrada inteligente y Perspectiva elijan servicio; las claves se guardan cifradas en el llavero de este equipo y solo van al servicio que elijas',
     board: "Orden y avisos al completar, guardados en este dispositivo",
     insight: 'Cortes, repasos y cómo te entiende el borrador',
     appearance: 'Solo afecta a la visualización en este dispositivo; no se guarda en el historial del espacio de trabajo',
@@ -37,12 +38,11 @@ export const settingsMessages: SettingsCatalog = {
   celebrationTry: 'Probar',
   celebrationReducedMotion: 'El confeti se pausa mientras esté activada la opción de reducir movimiento del sistema.',
   // Smart input
-  smartEnabledNote: 'Escribe una idea con el ＋ global; se organiza cuando dejas de escribir',
   privacy: 'Privacidad',
   privacyPoints: [
-    'Solo se envía el texto que escribes, la fecha del espacio de trabajo y el título, estado y ubicación de los objetivos que menciones o elijas',
-    'No se envían descripciones, historial ni papelera, ni se sube el espacio de trabajo completo',
-    'La Key se guarda cifrada en este equipo y no entra en los datos, copias ni exportaciones del espacio de trabajo',
+    'Solo recibe contenido el servicio que usa cada función; las funciones desactivadas no envían nada',
+    'La entrada inteligente solo envía el texto actual, la fecha del espacio de trabajo y los objetivos que menciones o elijas; Perspectiva solo envía un resumen del tablero y tus preferencias',
+    'No se envían descripciones, historial ni papelera; las claves se guardan cifradas en este equipo, fuera de los datos, copias y exportaciones',
   ],
   // Calendar
   calendarSettings: 'Configuración del calendario',

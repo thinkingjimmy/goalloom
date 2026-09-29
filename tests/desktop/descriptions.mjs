@@ -13,10 +13,13 @@ import { seedPreviewCache, urls } from './fixtures/link-preview-cache.mjs'
 import { pollPage } from './fixtures/poll.mjs'
 import { verifyDescriptionChecklists } from './fixtures/description-checklists.mjs'
 import { verifyDescriptionSelection } from './fixtures/description-selection.mjs'
+import { verifyDescriptionSignals } from './fixtures/description-signals.mjs'
 
 const checklistsOnly = process.argv.includes('--checklists')
 const selectionOnly = process.argv.includes('--selection-tools')
-const output = `output/tests/descriptions${checklistsOnly ? '/checklists' : selectionOnly ? '/selection-tools' : ''}`, profile = await mkdtemp(join(tmpdir(), 'goalloom-descriptions-'))
+const signalsOnly = process.argv.includes('--signals')
+const only = checklistsOnly || selectionOnly || signalsOnly
+const output = `output/tests/descriptions${checklistsOnly ? '/checklists' : selectionOnly ? '/selection-tools' : signalsOnly ? '/signals' : ''}`, profile = await mkdtemp(join(tmpdir(), 'goalloom-descriptions-'))
 await mkdir(output, { recursive: true })
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'en' }))
 await seedPreviewCache(profile)
@@ -65,10 +68,11 @@ try {
   await page.locator('main.board').waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
 
-  if (!selectionOnly) report.checks.push(...await verifyDescriptionChecklists({ app, page, create, open, close, save, paste, stored, detail, note, shot }))
-  if (!checklistsOnly) report.checks.push(...await verifyDescriptionSelection({ app, page, create, open, close, stored, detail, note, shot }))
+  if (!only || signalsOnly) report.checks.push(...await verifyDescriptionSignals({ page, create, stored, detail, shot }))
+  if (!only || checklistsOnly) report.checks.push(...await verifyDescriptionChecklists({ app, page, create, open, close, save, paste, stored, detail, note, shot }))
+  if (!only || selectionOnly) report.checks.push(...await verifyDescriptionSelection({ app, page, create, open, close, stored, detail, note, shot }))
   await app.evaluate(() => { globalThis.descriptionProbe.external = [] })
-  if (!checklistsOnly && !selectionOnly) {
+  if (!only) {
     const source = `# A small next step\n\n- Read **the brief**\n- Compare [the reference](${urls.youtube})\n\n${urls.x}\n\n> Keep it simple\n\n\`https://example.com/literal\`\n\n\`\`\`text\nhttps://example.com/code\n\`\`\`\n\n| Unsupported | table |\n<script>window.unsafeNote=true</script>`
     const id = await create(`Description fixture ${urls.x}`, source), before = await stored(id)
     await open(id)
@@ -96,11 +100,18 @@ try {
     const editedSource = (await stored(id)).description
     for (const literal of ['| Unsupported | table |', '<script>window.unsafeNote=true</script>', '`https://example.com/literal`', 'https://example.com/code']) assert(editedSource.includes(literal))
     report.checks.push('Editing nearby text preserves unsupported syntax, HTML text and code URLs in the saved Markdown')
+    await note().press('ControlOrMeta+End'); await page.keyboard.type(' quick save')
+    await page.keyboard.press('ControlOrMeta+Enter')
+    await detail().locator('.save-bar').waitFor({ state: 'hidden' })
+    const quick = (await stored(id)).description
+    assert(quick.includes(' quick save') && !quick.endsWith('\n'), 'Mod+Enter saves without inserting a line')
+    assert.equal(await note().evaluate(node => node.contains(document.activeElement)), false, 'Mod+Enter leaves the editor')
+    report.checks.push('Mod+Enter in the description saves without a new line and ends editing')
     await close()
 
     const typed = await create('Typed list fixture')
     await open(typed)
-    await detail().locator('label[for="item-description"]').click()
+    await note().click()
     assert.equal(await note().evaluate(element => element === document.activeElement), true)
     await note().pressSequentially('- ')
     await note().locator('ul li').waitFor()

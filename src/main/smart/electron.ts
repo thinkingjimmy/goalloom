@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Electron safeStorage/shell、main 固定的设备目录与 StorageClient。
- * [OUTPUT]: createSmartService：以 OS 保护 Cipher（Linux basic_text 视为不可用）、三个固定 adapter、流程洞察 chatAdapter 和只读存储读取装配 SmartInputService。
+ * [OUTPUT]: createSmartService：以 OS 保护 Cipher（Linux basic_text 视为不可用）、三个固定 Jev adapter、两个流程洞察 chatAdapter（OpenRouter / AI Gateway）和只读存储读取装配 SmartInputService。
  * [POS]: 智能输入在 Electron 中的组合点；只打开预设官方控制台链接，不跟随错误 body 中的任意 URL。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -20,7 +20,7 @@ const cipher: Cipher = {
 export function createSmartService(directory: string, storage: () => StorageClient): SmartInputService {
   return new SmartInputService({
     store: new DeviceStore(directory, cipher), reader: storageReader(storage),
-    adapters: { typesafe: systemOneAdapter('typesafe'), 'vercel-gateway': gatewayAdapter(), openrouter: systemOneAdapter('openrouter') }, chat: chatAdapter(),
+    adapters: { typesafe: systemOneAdapter('typesafe'), 'vercel-gateway': gatewayAdapter(), openrouter: systemOneAdapter('openrouter') }, chat: { openrouter: chatAdapter('openrouter'), 'vercel-gateway': chatAdapter('vercel-gateway') },
     unsignedBuild: process.platform === 'darwin', openExternal: url => { void shell.openExternal(url) },
   })
 }

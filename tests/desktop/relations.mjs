@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { stepPeriod } from './fixtures/period-step.mjs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
@@ -95,12 +96,13 @@ try {
   // Insight owns the guide's acceptance; complete it before exercising the underlying flow menus.
   await board.locator('.breakpoint-guide').getByRole('button', { name: '知道了', exact: true }).click()
   assert.equal(await board.locator('.relation-edge[data-skip]').count(), 1, '本月 → 今天 按跨级虚线')
-  assert.equal(await board.locator('[data-dimmed="true"]').count(), 5, '其他流程与无流程条目原位置灰，不隐藏')
+  assert.equal(await board.locator('[data-dimmed="true"]').count(), 4, '其他流程与无流程的时间列条目原位置灰，不隐藏（Later 除外）')
+  assert.equal(await page.locator(`#item-${ids.later}`).getAttribute('data-dimmed'), 'false', 'Later 不参与流程，筛选时不置灰')
   assert.equal(await board.locator('[data-lit="true"]').count(), 7, '本流程的行铺上流程底色')
   assert.equal(await board.getByRole('button', { name: '剪演示视频', exact: true }).isVisible(), true)
   const row = await page.locator(`#item-${ids.b}`).evaluate(node => { const style = getComputedStyle(node); return { margin: style.marginRight, ground: style.backgroundColor } })
   // Rows keep their full width while lines are drawn; the opaque ground hides curves passing behind.
-  assert.equal(row.margin, '-8px'); assert.notEqual(row.ground, 'rgba(0, 0, 0, 0)')
+  assert.equal(row.margin, '-7px'); assert.notEqual(row.ground, 'rgba(0, 0, 0, 0)')
   // Long titles show every line; the checkbox and the line anchors stay on the first line.
   const tall = await page.locator(`#item-${ids.c}`).evaluate(node => {
     const r = node.getBoundingClientRect(), title = node.querySelector('.task-title > span'), board = node.closest('.board').getBoundingClientRect()
@@ -131,14 +133,14 @@ try {
   await page.locator(`#item-${ids.c} .task-title`).hover()
   assert.deepEqual(await page.evaluate(ids => ids.map(id => getComputedStyle(document.getElementById(`item-${id}`)).backgroundClip), [ids.b, ids.c]), ['padding-box', 'padding-box'])
   await leaveBoard()
-  // Columns keep a comfortable width, and a row's ground sits 8px from both column rules.
+  // Columns keep a readable width, and a row's ground sits 3px from both column rules (the flow dot fills the 23px gutter).
   const inset = await page.locator(`#item-${ids.d}`).evaluate(node => {
     const column = node.closest('.board-column').getBoundingClientRect(), r = node.getBoundingClientRect()
     // The column draws its own 1px rule on the left; the right rule belongs to the next column.
     return { width: Math.round(column.width), left: Math.round(r.left - column.left - 1), right: Math.round(column.right - r.right) }
   })
-  assert.ok(inset.width >= 356, `column width ${inset.width}`)
-  assert.deepEqual([inset.left, inset.right], [8, 8])
+  assert.ok(inset.width >= 320, `column width ${inset.width}`)
+  assert.deepEqual([inset.left, inset.right], [3, 3])
   await page.waitForTimeout(1000)
   const dimmedTitle = await board.getByRole('button', { name: '剪演示视频', exact: true }).evaluate(node => getComputedStyle(node.closest('.task-line')).opacity)
   assert.equal(dimmedTitle, '0.28')
@@ -303,9 +305,9 @@ try {
   await settings.waitFor({ state: 'hidden' })
   assert.equal(await board.locator('.relation-lines').count(), 0)
   assert.equal(await page.getByRole('button', { name: '只看 副业收入', exact: true }).getAttribute('aria-pressed'), 'true', '筛选仍在，只是不画线')
-  assert.equal(await page.locator(`#item-${ids.b}`).evaluate(node => getComputedStyle(node).marginRight), '-8px', '关闭后行宽不变')
+  assert.equal(await page.locator(`#item-${ids.b}`).evaluate(node => getComputedStyle(node).marginRight), '-7px', '关闭后行宽不变')
   const even = await page.locator(`#item-${ids.b}`).evaluate(node => { const column = node.closest('.board-column').getBoundingClientRect(), r = node.getBoundingClientRect(); return [Math.round(r.left - column.left - 1), Math.round(column.right - r.right)] })
-  assert.deepEqual(even, [8, 8], '行底色左右离两侧竖线对等')
+  assert.deepEqual(even, [3, 3], '行底色左右离两侧竖线对等')
   assert.equal(await page.evaluate(() => localStorage.getItem('goalloom.relationLines')), 'false')
   assert.equal(await page.getByRole('banner').getByText('关系线').count(), 0, '顶栏没有关系线入口')
   await page.reload()
@@ -363,10 +365,10 @@ try {
   order = [ids.other, ids.root, roots.cycle, roots.nextMonth, roots.month, roots.week, roots.day]
   await filterOrder(order, 'Same-column order takes priority over palette order')
   for (let index = 0; index < order.length; index++) {
-    await page.keyboard.press(`ControlOrMeta+${index + 2}`)
+    await page.keyboard.press(`ControlOrMeta+${index + 3}`)
     await page.getByRole('button', { name: `只看 ${rootNames.get(order[index])}`, exact: true, pressed: true }).waitFor()
   }
-  await page.keyboard.press('ControlOrMeta+2')
+  await page.keyboard.press('ControlOrMeta+3')
   await drag(ids.other, 'ArrowRight')
   await filterOrder([ids.root, roots.cycle, ids.other, roots.nextMonth, roots.month, roots.week, roots.day], 'Cross-column move follows the destination column')
   assert.equal(await page.getByRole('button', { name: '只看 自媒体运营', exact: true }).getAttribute('aria-pressed'), 'true')
@@ -403,7 +405,7 @@ try {
   await page.getByRole('menuitem', { name: /移到下月/ }).click()
   const outside = [...order.filter(id => id !== roots.nextMonth), roots.nextMonth]
   await filterOrder(outside, 'Off-board roots stay available after visible roots', outside.filter(id => id !== roots.nextMonth))
-  await monthColumn.locator('[data-next-period]').click()
+  await stepPeriod(monthColumn, 'next')
   const future = [ids.other, ids.root, roots.cycle, roots.nextMonth, roots.week, roots.day, roots.month]
   await filterOrder(future, 'Future-period roots use their displayed column position', future.filter(id => id !== roots.month))
   await monthColumn.locator('[data-return-current]').click()
