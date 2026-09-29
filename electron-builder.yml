@@ -52,8 +52,11 @@ mac:
   target:
     - target: dmg
       arch: [arm64]
+    # The zip is the auto-update payload (Squirrel.Mac); people still download the DMG.
+    - target: zip
+      arch: [arm64]
 dmg:
-  # No auto-update channel, so skip the blockmap.
+  # Updates ship through the zip, so the DMG needs no blockmap.
   writeUpdateInfo: false
   # Drag-to-install window: app on the left, an Applications link on the right.
   window: { width: 540, height: 380 }
@@ -80,4 +83,10 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
-publish: null
+# Bakes app-update.yml into the package and writes latest*.yml next to the installers.
+# Scripts still pass --publish never; release assets are uploaded by hand (see docs/development.md).
+publish:
+  provider: github
+  owner: thinkingjimmy
+  repo: goalloom
+  releaseType: release

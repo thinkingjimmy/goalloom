@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Shared wire-validation messages and typed localized server copy.
- * [OUTPUT]: ja appMessages for native dialogs, storage, commands, calendar and smart-input feedback.
+ * [OUTPUT]: ja appMessages for native dialogs, the macOS app menu, storage, commands, calendar and smart-input feedback.
  * [POS]: Server catalog composed by serverText; wire errors are shared with preload without importing this module.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,6 +22,15 @@ export const appMessages: typeof source = {
     unsavedMessage: 'メモまたはタイトルが保存されていません。変更を破棄して閉じますか？',
     keepEditing: '編集を続ける',
     discardAndClose: '破棄して閉じる',
+  },
+  menu: {
+    about: 'Goalloom について',
+    checkUpdates: 'アップデートを確認…',
+    services: 'サービス',
+    hide: 'Goalloom を隠す',
+    hideOthers: 'ほかを隠す',
+    showAll: 'すべてを表示',
+    quit: 'Goalloom を終了',
   },
   storage: {
     invalidSource: 'リクエスト元が無効です',

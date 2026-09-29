@@ -7,7 +7,9 @@ main/
 ├── index.ts       # 单实例、先展示后日常备份/核对、首次写入门控、renderer 会话释放与退出排空
 ├── ipc.ts         # 固定读写入口、来源/会话检查、会话释放取消智能请求/缓存、原生选择后仅向 worker 传受控路径
 ├── security.ts    # 本地协议白名单、生产 CSP、权限/导航/下载拒绝
+├── update.ts      # electron-updater（GitHub Releases）：定时后台检查/下载、手动检查、重启安装；开发版 unsupported
 ├── window/
+│   ├── menu.ts    # 仅 macOS 应用菜单：关于/检查更新打开设置 › 关于，随语言重建
 │   ├── state.ts   # 工作区之外的窗口偏好，跨屏恢复不出界
 │   ├── language.ts # 设备语言偏好（preferences.json，跟随系统或指定），先于存储加载并设置 main 文案
 │   └── close.ts   # 未保存草稿确认，默认继续编辑；取消退出不关数据库
@@ -19,6 +21,6 @@ main/
 
 `index.ts` 装配窗口、StorageClient（启动保护失败时显示副本位置与重试/退出）与 SmartInputService；`storage/worker.ts` 装配 SQLite 与 workspace 服务。业务规则由 `workspace → domain / shared/contracts` 消费，持久化通过 storage 落地。storage 的底层适配器不依赖 workspace；worker 是跨层组合入口。
 
-main 只接受唯一窗口主 frame 的已知请求。网络 HTTP 只在 main 的独立智能/链接预览通道中发生，从不进入存储 worker 串行队列。链接通道只接收 HTTP(S) URL，预览返回惰性文本/受限图片，打开动作交给系统浏览器。renderer 无任意路径、SQL、shell 或原始 IPC。运行时诊断来自真实存储 worker，失败不回退浏览器 mock。`com.goalloom.desktop` 与默认 `appData/Goalloom` 是稳定身份/数据目录。
+main 只接受唯一窗口主 frame 的已知请求。网络 HTTP 只在 main 的独立智能/链接预览通道与软件更新服务中发生，从不进入存储 worker 串行队列。链接通道只接收 HTTP(S) URL，预览返回惰性文本/受限图片，打开动作交给系统浏览器。renderer 无任意路径、SQL、shell 或原始 IPC。运行时诊断来自真实存储 worker，失败不回退浏览器 mock。`com.goalloom.desktop` 与默认 `appData/Goalloom` 是稳定身份/数据目录。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

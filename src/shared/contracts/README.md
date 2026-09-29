@@ -14,7 +14,8 @@ contracts/
 ├── smart-input.ts # Jev 服务、设备状态、智能动作、修订回声的判断回复与预览 DTO
 ├── link-preview.ts # Strict public link preview/open actions and bounded inert metadata; lightweight syntax lives in ../links.ts
 ├── queries.ts    # Current/future summaries with ancestor metadata, generation-guarded pastPeriod pages, details/search, immutable history and counts
-└── runtime.ts    # Fixed preload API including getBoardPeriods/getPastPeriod, smart input, language preferences and runtime diagnostics
+├── update.ts     # Fixed update actions (status/check/install), app version + updater phase DTO and About event names
+└── runtime.ts    # Fixed preload API including getBoardPeriods/getPastPeriod, smart input, language preferences, software updates and runtime diagnostics
 ```
 
 Zod 在 main/worker 拒绝额外字段；preload 校验返回 DTO。renderer 只导入轻量 values 和类型，不构造 schema；构建门槛拒绝 renderer 引入 Zod。renderer 不能传入 SQL、路径、时钟或任意撤销字段。

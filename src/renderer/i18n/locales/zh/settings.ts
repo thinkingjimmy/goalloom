@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Settings categories, display preferences and interpolation parameters.
- * [OUTPUT]: Source settings catalog, including calendar grouping, per-column completion-confetti and reduced-motion copy.
+ * [OUTPUT]: Source settings catalog, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update copy.
  * [POS]: Chinese settings copy and shared SettingsCatalog shape; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -24,6 +24,7 @@ export const settingsMessages = widen({
     calendar: '日历在首次确认后锁定；各列决定到期未完成的事项怎么处理',
     backup: '备份存在这台电脑上；恢复会整库替换，不合并',
     trash: '还原回到原状态和位置，并尝试找回删除时断开的关联',
+    about: '版本信息与软件更新',
   },
   // Appearance
   styleNotes: { paper: '暖色纸面，虚线分隔，柔和投影', minimal: '中性灰阶，实线细描边' },
@@ -74,6 +75,26 @@ export const settingsMessages = widen({
   reset: '重置',
   today: '今天',
   yesterday: '昨天',
+  // About
+  about: {
+    section: '关于',
+    navMeta: '新版本',
+    tagline: '把三个月的方向，连接到今天的行动',
+    version: (version: string) => `版本 ${version}`,
+    updates: '软件更新',
+    unsupported: '开发版本不检查更新',
+    idle: '新版本会在后台自动下载，重启后生效',
+    checking: '正在检查更新…',
+    latest: (time: string) => `已是最新版本 · ${time} 检查`,
+    downloading: (version: string, percent: number) => `正在下载 ${version} · ${percent}%`,
+    ready: (version: string) => `${version} 已下载，重启即可完成更新`,
+    failed: '检查更新失败，请确认网络后重试',
+    check: '检查更新',
+    restart: '重启并更新',
+    website: '官网',
+    releaseNotes: '更新日志',
+    settingsWithUpdate: (settings: string) => `${settings}（有新版本）`,
+  },
   // Items
   trashNote: '回收站不会自动清空；删除的条目会一直留在这里，直到你还原。',
 })

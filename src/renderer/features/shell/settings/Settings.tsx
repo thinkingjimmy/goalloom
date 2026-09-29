@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace, narrow data/actions API and device preferences.
- * [OUTPUT]: Settings navigation (preferences / AI / workspace / items) with glanceable status, section headings (including shortcut guidance), lightweight counts, section-scoped backup reads and AI status refresh.
+ * [OUTPUT]: Settings navigation (preferences / AI / workspace / items / About) with glanceable status (including a new-version dot), section headings (including shortcut guidance), lightweight counts, section-scoped backup reads and AI status refresh.
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -24,11 +24,13 @@ import { SmartPane } from './SmartPane'
 import { InsightPane } from './InsightPane'
 import { ShortcutsPane } from './ShortcutsPane'
 import { ItemsPane, type ItemsView } from './ItemsPane'
+import { AboutPane } from './AboutPane'
+import { hasUpdate, useUpdate } from '../../../state/update'
 import { Segmented, relativeDay } from './parts'
 import { TransferReview, TransferSteps } from './TransferReview'
 import './settings.css'
 
-export type Section = 'appearance' | 'board' | 'shortcuts' | 'ai' | 'smart' | 'insight' | 'calendar' | 'backup' | 'done' | 'trash'
+export type Section = 'appearance' | 'board' | 'shortcuts' | 'ai' | 'smart' | 'insight' | 'calendar' | 'backup' | 'done' | 'trash' | 'about'
 interface Entry { id: Section; label: string; icon: IconName }
 // Built per render so every label follows the current language.
 const groups = (): { label: string; entries: Entry[] }[] => [
@@ -50,13 +52,17 @@ const groups = (): { label: string; entries: Entry[] }[] => [
     { id: 'done', label: messages.done, icon: 'check' },
     { id: 'trash', label: messages.trash, icon: 'delete' },
   ] },
+  // The product name needs no translation, so it doubles as the group label.
+  { label: 'Goalloom', entries: [
+    { id: 'about', label: s.about.section, icon: 'info' },
+  ] },
 ]
 const endings = ['done', 'cancelled', 'archived'] as const
 type Ending = typeof endings[number]
 const endingLabels = (): Record<Ending, string> => ({ done: messages.doneShort, cancelled: messages.cancelledShort, archived: messages.archive })
 type Counts = Record<Ending | 'trash', number>
 
-export function Settings({ snapshot, ai, initial = 'appearance', submit, refresh, busy, select, close }: { snapshot: Snapshot; ai: Ai; initial?: Section; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; select: (id: string) => void; close: () => void }) {
+export function Settings({ snapshot, ai, initial = 'appearance', request = 0, submit, refresh, busy, select, close }: { snapshot: Snapshot; ai: Ai; initial?: Section; request?: number; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; select: (id: string) => void; close: () => void }) {
   const [section, setSection] = useState<Section>(initial), [ending, setEnding] = useState<Ending>('done')
   const [backups, setBackups] = useState<BackupStatus | null>(null)
   const [latest, setLatest] = useState<string | null>(null)
@@ -64,6 +70,9 @@ export function Settings({ snapshot, ai, initial = 'appearance', submit, refresh
   const [preview, setPreview] = useState<TransferPreview | null>(null), [acknowledged, setAcknowledged] = useState(false)
   const [working, setWorking] = useState(false), [error, setError] = useState('')
   const shortcuts = useShortcuts()
+  // A new request (e.g. the app menu's About) re-targets an open dialog, except while a transfer review locks navigation.
+  useEffect(() => { if (!preview) setSection(initial) }, [request])
+  const update = useUpdate()
   const { generation, calendar, revision } = snapshot.workspace
   const timezone = calendar?.timezone
   const today = calendar ? workspaceDate(calendar.timezone, snapshot.observedAt) : ''
@@ -113,12 +122,13 @@ export function Settings({ snapshot, ai, initial = 'appearance', submit, refresh
   const disabled = busy || working
   const aiStatus = ai.status, connected = aiStatus ? connectedProviders(aiStatus) : []
   const featureMeta = (feature: 'smart' | 'insight') => aiStatus?.features[feature].enabled ? { text: s.enabledMeta, dot: true as const } : aiStatus?.features[feature].paused ? { text: smartMessages.pausedMeta, dot: 'warn' as const } : null
-  const meta: Partial<Record<Section, { text: string; dot?: boolean | 'warn' }>> = {
+  const meta: Partial<Record<Section, { text: string; dot?: boolean | 'warn' | 'update' }>> = {
     ...(connected.length && { ai: connected.some(provider => providerIssue(aiStatus!, provider)) ? { text: smartMessages.needsAttention, dot: 'warn' as const } : { text: smartMessages.connectedCount(connected.length) } }),
     ...(featureMeta('smart') && { smart: featureMeta('smart')! }),
     ...(featureMeta('insight') && { insight: featureMeta('insight')! }),
     ...(latest && today && { backup: { text: relativeDay(latest, today, timezone, s) } }),
     ...(counts?.trash && { trash: { text: String(counts.trash) } }),
+    ...(hasUpdate(update) && { about: { text: s.about.navMeta, dot: 'update' as const } }),
   }
   const title = preview ? (preview.mode === 'reset' ? messages.resetWorkspace : messages.restoreWorkspace) : groups().flatMap(group => group.entries).find(entry => entry.id === section)!.label
   const subtitle = preview ? '' : section === 'shortcuts' ? shortcutMessages.subtitle : section === 'done' ? '' : s.subtitles[section]
@@ -167,6 +177,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', submit, refresh
           : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}
         {section === 'backup' && <BackupPane status={backups} enabled={snapshot.workspace.backupEnabled} retention={snapshot.workspace.backupRetention} timezone={timezone} today={today} generation={generation} configured={!!calendar} disabled={disabled} submit={submit} data={data}
           exportJson={() => void desktopApi().exportWorkspace().catch(() => setError(messages.exportUnknown))} />}
+        {section === 'about' && <AboutPane info={update} />}
         {items && calendar && <ItemsPane key={items} view={items as ItemsView} revision={revision} timezone={calendar.timezone} today={today} disabled={disabled} select={select} submit={submit} />}
       </div>}
   </Modal>

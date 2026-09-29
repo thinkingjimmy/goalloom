@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Sandboxed Electron bridge and shared wire schemas.
- * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, live past-period pages, actual-period details and bounded link responses.
+ * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, live past-period pages, actual-period details, bounded link responses and update state/events.
  * [POS]: Only renderer/main bridge; no Node capabilities, generic channels or file paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,7 @@ import { batchPageSchema, batchSchema, dataReplySchema } from '../shared/contrac
 import { smartChannel, smartReplySchema } from '../shared/contracts/smart-input'
 import { setValidationLocale } from '../shared/i18n/validation'
 import { linkChannel, linkPreviewSchema } from '../shared/contracts/link-preview'
+import { openAboutEvent, updateChannel, updateEvent, updateInfoSchema } from '../shared/contracts/update'
 
 async function language(reply: Promise<unknown>) {
   const state = languageStateSchema.parse(await reply)
@@ -55,5 +56,16 @@ const api: GoalloomApi = {
   smart: async action => smartReplySchema.parse(await ipcRenderer.invoke(smartChannel, action)),
   getLinkPreview: async url => linkPreviewSchema.parse(await ipcRenderer.invoke(linkChannel, { type: 'preview', url })),
   openExternal: async url => (await ipcRenderer.invoke(linkChannel, { type: 'open', url })) === true,
+  update: async action => updateInfoSchema.parse(await ipcRenderer.invoke(updateChannel, action)),
+  onUpdate: listener => {
+    const receive = (_event: unknown, value: unknown) => { const parsed = updateInfoSchema.safeParse(value); if (parsed.success) listener(parsed.data) }
+    ipcRenderer.on(updateEvent, receive)
+    return () => { ipcRenderer.removeListener(updateEvent, receive) }
+  },
+  onOpenAbout: listener => {
+    const receive = () => listener()
+    ipcRenderer.on(openAboutEvent, receive)
+    return () => { ipcRenderer.removeListener(openAboutEvent, receive) }
+  },
 }
 contextBridge.exposeInMainWorld('goalloom', Object.freeze(api))

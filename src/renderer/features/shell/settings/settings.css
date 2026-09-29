@@ -25,6 +25,8 @@
 .settings-nav-meta { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 400; color: var(--secondary); font-variant-numeric: tabular-nums; }
 .settings-nav-meta[data-dot='true']::before, .settings-nav-meta[data-dot='warn']::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--ok-mark); }
 .settings-nav-meta[data-dot='warn']::before { background: var(--backlog); }
+.settings-nav-meta[data-dot='update'] { color: var(--danger); }
+.settings-nav-meta[data-dot='update']::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--danger); }
 .settings-nav-hint, .settings-nav-note { margin: auto 0 0; padding: 0 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--secondary); }
 .settings-nav-hint .keycap { min-width: 20px; height: 20px; font-size: 11px; border-radius: 5px; }
 .settings-nav-note { padding: 10px; align-items: flex-start; border-radius: 8px; background: var(--hover); line-height: 1.5; color: var(--fg-soft); }
@@ -257,3 +259,15 @@
 .insight-prompt { display: flex; flex-direction: column; border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
 .insight-prompt pre { margin: 0; padding: 10px 12px; max-height: 220px; overflow: auto; white-space: pre-wrap; font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg-soft); }
 .insight-prompt pre[data-user] { border-top: 1px solid var(--line); background: color-mix(in oklab, var(--focus) 6%, transparent); color: var(--focus); }
+
+/* About: app identity above a single software-update row. */
+.about-hero { display: flex; align-items: center; gap: 18px; padding: 4px 2px 6px; }
+.about-hero img { width: 72px; height: 72px; flex-shrink: 0; user-select: none; }
+.about-hero h3 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em; color: var(--fg); }
+.about-hero p { margin: 4px 0 0; font-size: 13px; line-height: 1.5; color: var(--fg-soft); }
+.about-hero .about-version { font-size: 12px; color: var(--secondary); }
+.about-refresh { display: inline-grid; place-items: center; }
+.about-refresh[data-spinning='true'] { animation: about-spin 1s linear infinite; }
+@keyframes about-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .about-refresh[data-spinning='true'] { animation: none; } }
+.about-links { margin: 0; display: flex; gap: 4px; margin-left: -10px; }

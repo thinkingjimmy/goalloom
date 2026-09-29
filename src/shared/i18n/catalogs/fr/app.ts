@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Shared wire-validation messages and typed localized server copy.
- * [OUTPUT]: fr appMessages for native dialogs, storage, commands, calendar and smart-input feedback.
+ * [OUTPUT]: fr appMessages for native dialogs, the macOS app menu, storage, commands, calendar and smart-input feedback.
  * [POS]: Server catalog composed by serverText; wire errors are shared with preload without importing this module.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,6 +22,15 @@ export const appMessages: typeof source = {
     unsavedMessage: 'La description ou le titre n’est pas enregistré. Abandonner les modifications et fermer ?',
     keepEditing: 'Continuer la modification',
     discardAndClose: 'Abandonner et fermer',
+  },
+  menu: {
+    about: 'À propos de Goalloom',
+    checkUpdates: 'Rechercher des mises à jour…',
+    services: 'Services',
+    hide: 'Masquer Goalloom',
+    hideOthers: 'Masquer les autres',
+    showAll: 'Tout afficher',
+    quit: 'Quitter Goalloom',
   },
   storage: {
     invalidSource: 'Origine de la requête non valide',

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Shared wire-validation messages and typed localized server copy.
- * [OUTPUT]: zh appMessages for native dialogs, storage, commands, calendar and smart-input feedback.
+ * [OUTPUT]: zh appMessages for native dialogs, the macOS app menu, storage, commands, calendar and smart-input feedback.
  * [POS]: Server catalog composed by serverText; wire errors are shared with preload without importing this module.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -21,6 +21,15 @@ export const appMessages = widen({
     unsavedMessage: '说明或标题尚未保存，是否放弃修改并关闭？',
     keepEditing: '继续编辑',
     discardAndClose: '放弃修改并关闭',
+  },
+  menu: {
+    about: '关于 Goalloom',
+    checkUpdates: '检查更新…',
+    services: '服务',
+    hide: '隐藏 Goalloom',
+    hideOthers: '隐藏其他',
+    showAll: '全部显示',
+    quit: '退出 Goalloom',
   },
   storage: {
     invalidSource: '请求来源无效',

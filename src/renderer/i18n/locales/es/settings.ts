@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: Spanish settings copy, including calendar grouping, per-column completion-confetti and reduced-motion messages.
+ * [OUTPUT]: Spanish settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages.
  * [POS]: Spanish settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -25,6 +25,7 @@ export const settingsMessages: SettingsCatalog = {
     calendar: 'El calendario se bloquea tras la primera confirmación; cada columna decide qué hacer con lo pendiente al terminar el periodo',
     backup: 'Las copias se guardan en este ordenador; restaurar reemplaza todo, sin combinar',
     trash: 'Recuperar devuelve el elemento a su estado y ubicación, e intenta restaurar los vínculos rotos al eliminarlo',
+    about: 'Versión y actualizaciones de software',
   },
   // Appearance
   styleNotes: { paper: 'Papel cálido, separadores punteados, sombras suaves', minimal: 'Grises neutros, bordes finos continuos' },
@@ -75,6 +76,26 @@ export const settingsMessages: SettingsCatalog = {
   reset: 'Restablecer',
   today: 'hoy',
   yesterday: 'ayer',
+  // About
+  about: {
+    section: 'Acerca de',
+    navMeta: 'Nueva versión',
+    tagline: 'Conecta las metas del trimestre con las tareas de hoy',
+    version: (version: string) => `Versión ${version}`,
+    updates: 'Actualización de software',
+    unsupported: 'Las versiones de desarrollo no buscan actualizaciones',
+    idle: 'Las nuevas versiones se descargan en segundo plano y se aplican al reiniciar',
+    checking: 'Buscando actualizaciones…',
+    latest: (time: string) => `Todo al día · comprobado a las ${time}`,
+    downloading: (version: string, percent: number) => `Descargando ${version} · ${percent}%`,
+    ready: (version: string) => `${version} está lista: reinicia para terminar de actualizar`,
+    failed: 'No se pudo buscar actualizaciones. Revisa tu conexión e inténtalo de nuevo.',
+    check: 'Buscar actualizaciones',
+    restart: 'Reiniciar y actualizar',
+    website: 'Sitio web',
+    releaseNotes: 'Notas de la versión',
+    settingsWithUpdate: (settings: string) => `${settings} (actualización disponible)`,
+  },
   // Items
   trashNote: 'La papelera no se vacía sola; los elementos eliminados se quedan aquí hasta que los recuperes.',
 }

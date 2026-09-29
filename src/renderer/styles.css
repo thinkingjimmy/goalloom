@@ -125,6 +125,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .icon-button { width: 36px; height: 36px; border-radius: 8px; display: inline-grid; place-items: center; color: var(--secondary); flex-shrink: 0; }
 .icon-button:hover { background: var(--hover); color: var(--fg); }
 .icon-button[aria-pressed='true'], .icon-button[aria-expanded='true'] { background: var(--pressed); color: var(--fg); }
+/* New-version dot: sits on the gear's upper-right, ringed with the bar colour so it reads on hover/pressed backgrounds too. */
+.settings-toggle { position: relative; }
+.update-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 0 2px var(--bg); pointer-events: none; }
 .icon-button.small { width: 28px; height: 28px; border-radius: 7px; color: var(--faint); }
 .icon-button.small:hover { color: var(--secondary); }
 .text-button { font-size: 13px; color: var(--secondary); line-height: 22px; text-align: left; }

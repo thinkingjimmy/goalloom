@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: Japanese settings copy, including calendar grouping, per-column completion-confetti and reduced-motion messages.
+ * [OUTPUT]: Japanese settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages.
  * [POS]: Japanese settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -25,6 +25,7 @@ export const settingsMessages: SettingsCatalog = {
     calendar: 'カレンダーは初回の確定後に固定されます。期限を過ぎた未完了の項目の扱いは列ごとに決まります',
     backup: 'バックアップはこのコンピュータに保存されます。復元はデータ全体を置き換え、統合しません',
     trash: '復元すると元の状態と配置に戻り、削除時に外れたリンクの復元も試みます',
+    about: 'バージョン情報とソフトウェアアップデート',
   },
   // Appearance
   styleNotes: { paper: '温かみのある紙面、点線の区切り、やわらかな影', minimal: 'ニュートラルなグレー、細い実線の枠' },
@@ -75,6 +76,26 @@ export const settingsMessages: SettingsCatalog = {
   reset: 'リセット',
   today: '今日',
   yesterday: '昨日',
+  // About
+  about: {
+    section: 'このアプリについて',
+    navMeta: '新バージョン',
+    tagline: '今期の目標を、今日の ToDo へ',
+    version: (version: string) => `バージョン ${version}`,
+    updates: 'ソフトウェアアップデート',
+    unsupported: '開発版ではアップデートを確認しません',
+    idle: '新しいバージョンはバックグラウンドでダウンロードされ、再起動で適用されます',
+    checking: 'アップデートを確認中…',
+    latest: (time: string) => `最新バージョンです · ${time} に確認`,
+    downloading: (version: string, percent: number) => `${version} をダウンロード中 · ${percent}%`,
+    ready: (version: string) => `${version} の準備ができました。再起動するとアップデートが完了します`,
+    failed: 'アップデートを確認できませんでした。接続を確かめてもう一度お試しください。',
+    check: 'アップデートを確認',
+    restart: '再起動してアップデート',
+    website: '公式サイト',
+    releaseNotes: 'リリースノート',
+    settingsWithUpdate: (settings: string) => `${settings}（新しいバージョンあり）`,
+  },
   // Items
   trashNote: 'ゴミ箱は自動で空になりません。削除した項目は復元するまでここに残ります。',
 }

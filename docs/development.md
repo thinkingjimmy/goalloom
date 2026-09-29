@@ -17,6 +17,7 @@
 | [流程洞察功能规格](features/flow-insight.md) | 单流程断点 ＋ 与跳级补里程碑、空列卡、周/月/合并复盘、分组右键菜单、设置 › 洞察与 DeepSeek Flash 起草通道 |
 | [链接预览功能规格](features/link-previews.md) | 混排短链接、真实预览、多链接横滑、历史数据按需展示、网络/缓存边界及验收 |
 | [Task descriptions](features/task-descriptions.md) | In-place Markdown, inline page titles/favicons, source preservation and the board signal + read-only peek |
+| [关于与软件更新](features/updates.md) | 设置 › 关于、真实版本与图标、macOS 应用菜单、GitHub Releases 自动更新、红点提示与发布资产清单 |
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
@@ -61,7 +62,7 @@ pnpm build:debug          # 正式构建 + 不入包的私有源码映射与逐�
 pnpm package:dir          # 当前平台本地目录包
 ```
 
-`package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/DMG 安装时间。产物位于 `release/Goalloom-<版本>-mac-arm64.dmg` 与 `release/Goalloom-<版本>-win-x64.exe`；前者为拖拽安装的磁盘映像，后者为中文 x64 安装器。macOS 包在本机有 Developer ID 证书时自动签名但未公证，Windows 包未签名，安装方式见[中文 README 的「首次打开」](README.zh-CN.md#首次打开)；应用图标来自 `resources/icon.png`。公开版本以 [GitHub Releases](https://github.com/thinkingjimmy/goalloom/releases) 分发（首个公开版本 1.0.0），官网下载按钮指向同一批资产；自动更新不在当前范围。许可证：[MIT](../LICENSE)。
+`package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/DMG 安装时间。产物位于 `release/Goalloom-<版本>-mac-arm64.dmg` 与 `release/Goalloom-<版本>-win-x64.exe`；前者为拖拽安装的磁盘映像，后者为中文 x64 安装器。macOS 包在本机有 Developer ID 证书时自动签名但未公证，Windows 包未签名，安装方式见[中文 README 的「首次打开」](README.zh-CN.md#首次打开)；应用图标来自 `resources/icon.png`。公开版本以 [GitHub Releases](https://github.com/thinkingjimmy/goalloom/releases) 分发（首个公开版本 1.0.0），官网下载按钮指向同一批资产。正式包经 electron-updater 从 GitHub Releases 自动更新：打包同时生成 macOS zip 与 `latest-mac.yml` / `latest.yml`，发布时须随安装包一起上传，清单见[关于与软件更新](features/updates.md#工程契约)。许可证：[MIT](../LICENSE)。
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
@@ -80,6 +81,7 @@ pnpm package:dir          # 当前平台本地目录包
 | --- | --- |
 | Onboarding／首次配置：方向输入、日历确认、AI 服务连接／跳过、首次语言选择 | `pnpm test:ui` ＋ `pnpm test:composer` ＋ `pnpm test:language`；仅当重置后重新进入向导的逻辑也受影响时追加 `pnpm test:recovery` |
 | 看板、条目详情、设置框架、主题、preload 暴露面、CSP / 窗口安全 | `pnpm test:ui`；设置内的具体功能按所属行选择，不能因入口都在设置就追加全部功能 |
+| [关于与软件更新](features/updates.md)：设置 › 关于、macOS 应用菜单、更新阶段、顶栏／导航红点 | `pnpm test:updates`；改动 `main/update.ts`、打包 `publish`／mac zip 目标或发布资产时，在 macOS 追加可选的 `pnpm test:update-install`（需 Developer ID，真实签名包 + 本地更新源） |
 | [Later 固定侧栏](features/later-sidebar.md)：固定时间列、旧显隐偏好处理、Later 数量与开关、滚动隔离、草稿／焦点、动效与定位 | `pnpm test:later` ＋ `pnpm test:ui`；共享拖放／视口边界改变时，追加 `test:composer`、`test:language`、`test:ordering`、`test:periods`、`test:relations`、`test:insight`、`test:insight-generation`、`test:links`、`test:feedback`、`test:celebration` 及 `node tests/desktop/review/run.mjs virtual`，按下方各功能映射去重 |
 | [Deadline calendar](features/due-dates.md): detail/composer date selection, presets, focus and localization | `pnpm test:due-dates` + `pnpm test:ui` + `pnpm test:composer` + `pnpm test:language`; composer adjustment uses `node tests/desktop/review/renderer.mjs --calendar` with mocked IPC |
 | 历史、往期、活动记录 | `pnpm test:history` |
@@ -123,7 +125,8 @@ GitHub Actions 仅手动触发（免费版无私有仓库托管分钟数）；Wi
 src/
 ├── domain/             # 独立纯函数库：日历、DAG、流程归属、候选、历史、效果字段撤销、计划拓扑与 smart/ 智能输入规则
 ├── main/               # Electron 生命周期、IPC 和安全边界
-│   ├── window/         # 窗口偏好与退出保护
+│   ├── update.ts       # electron-updater（GitHub Releases）检查/下载/重启安装与阶段推送
+│   ├── window/         # 窗口偏好、退出保护与 macOS 应用菜单
 │   ├── smart/          # AI 服务：Jev 三渠道与 DeepSeek 两渠道 adapter、设备凭据与独立异步服务
 │   ├── link-preview/   # Public URL metadata/image requests and disposable bounded device cache
 │   ├── storage/        # SQLite/启动迁移保护/备份/文件适配器与 worker 通道

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Zod, lightweight locale/language values and minimum runtime diagnostics.
- * [OUTPUT]: Fixed GoalloomApi for selected-period reads, editable past-task pages, immutable history, language preferences and bounded links/browser opening.
+ * [OUTPUT]: Fixed GoalloomApi for selected-period reads, editable past-task pages, immutable history, language preferences, bounded links/browser opening and software updates.
  * [POS]: Shared main/preload/renderer boundary without generic IPC, SQL or file access.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,6 +12,7 @@ import type { Activity, HistoryIndex, HistoryPage, PastPeriodPage } from './hist
 import type { BatchSummary, BatchPage, DataAction, DataReply } from './transfer'
 import type { SmartAction, SmartReply } from './smart-input'
 import type { LinkPreview } from './link-preview'
+import type { UpdateAction, UpdateInfo } from './update'
 
 export const runtimeChannel = 'goalloom:runtime'
 export const runtimeInfoSchema = z.strictObject({
@@ -52,4 +53,7 @@ export interface GoalloomApi {
   smart(action: SmartAction): Promise<SmartReply>
   getLinkPreview(url: string): Promise<LinkPreview>
   openExternal(url: string): Promise<boolean>
+  update(action: UpdateAction): Promise<UpdateInfo>
+  onUpdate(listener: (info: UpdateInfo) => void): () => void
+  onOpenAbout(listener: () => void): () => void
 }

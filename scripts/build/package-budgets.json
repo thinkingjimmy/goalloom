@@ -2,15 +2,15 @@
   "electron": "44.4.4",
   "thresholdPercent": 5,
   "darwin-arm64": {
-    "downloadBytes": 116387262,
-    "logicalBytes": 256963807,
-    "asarBytes": 1871268,
-    "archiveSha256": "23ab07681e1843f6dcc62581cb2472d6c1d69c6128614782cd4a8c59ef7caeed"
+    "downloadBytes": 116612529,
+    "logicalBytes": 257543163,
+    "asarBytes": 2450278,
+    "archiveSha256": "fd3c1f0fd13cdb256f3bc2ee853da18bc801c420480392d9f72adbf5940a5305"
   },
   "win32-x64": {
-    "downloadBytes": 103787791,
-    "logicalBytes": 341505263,
-    "asarBytes": 1871197,
-    "archiveSha256": "59ecb1b54aacae30751263b97407c9ff33e13d54ebc5126bcdad3f68802b66c3"
+    "downloadBytes": 104084380,
+    "logicalBytes": 342255566,
+    "asarBytes": 2450278,
+    "archiveSha256": "b0a1ff31b54938eb59041cbeb526c458cbd2a075239e15ced1aa894fc8846cba"
   }
 }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Trusted window sender, strict DTOs and an internal StorageClient.
- * [OUTPUT]: Narrow commands/queries, native-picker transfers, validated link preview/browser actions and session cancellation.
+ * [OUTPUT]: Narrow commands/queries, native-picker transfers, validated link preview/browser actions, fixed update actions and session cancellation.
  * [POS]: Renderer permission boundary; paths never come from renderer input and stale sessions cannot resume maintenance.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,8 +18,10 @@ import type { SmartInputService } from './smart/service'
 import { serverText } from '../shared/i18n/server'
 import { linkActionSchema, linkChannel, linkPreviewSchema } from '../shared/contracts/link-preview'
 import type { LinkPreviewService } from './link-preview/service'
+import { updateActionSchema, updateChannel, updateInfoSchema } from '../shared/contracts/update'
+import type { UpdateService } from './update'
 
-export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, links: LinkPreviewService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
+export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, links: LinkPreviewService, updates: UpdateService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
   let rendererSession = 0
   const guard = (event: IpcMainInvokeEvent) => {
     const current = window()
@@ -64,6 +66,13 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     const action = linkActionSchema.parse(args[0])
     if (action.type === 'preview') return linkPreviewSchema.parse(await links.get(action.url))
     try { await shell.openExternal(action.url); return true } catch { return false }
+  })
+  ipcMain.handle(updateChannel, async (event, ...args: unknown[]) => {
+    guard(event)
+    if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
+    const action = updateActionSchema.parse(args[0])
+    if (action === 'install') updates.install()
+    return updateInfoSchema.parse(action === 'check' ? await updates.check(true) : updates.info)
   })
   ipcMain.handle('goalloom:export', async event => {
     guard(event)

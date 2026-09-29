@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Electron lifecycle, security, storage, smart-input and link-preview services.
- * [OUTPUT]: Single window, startup/write gates, visible-change notifications and renderer-session cleanup.
+ * [INPUT]: Electron lifecycle, security, storage, smart-input, link-preview and software-update services.
+ * [OUTPUT]: Single window, startup/write gates, visible-change notifications, macOS app menu, update notifications and renderer-session cleanup.
  * [POS]: Application composition root; migrations remain protected before window creation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,6 +18,9 @@ import { protectWindowClose } from './window/close'
 import { createSmartService } from './smart/electron'
 import { serverText } from '../shared/i18n/server'
 import { LinkPreviewService } from './link-preview/service'
+import { UpdateService } from './update'
+import { installMenu } from './window/menu'
+import { openAboutEvent, updateEvent } from '../shared/contracts/update'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -32,6 +35,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'goalloom', privileges: { standa
 let window: BrowserWindow | null = null
 let language: LanguagePreference
 let releaseRenderer: (() => void) | undefined
+let updates: UpdateService
 
 let storage: StorageClient | null = null
 let reconciling = false
@@ -81,6 +85,17 @@ async function openStorage(): Promise<StorageClient | null> {
     const choice = await dialog.showMessageBox({ type: 'error', title: serverText().dialogs.startupTitle, message: status.message, detail, buttons: [serverText().dialogs.retry, serverText().dialogs.quit], defaultId: 0, cancelId: 1, noLink: true })
     if (choice.response !== 0) return null
   }
+}
+
+function send(channel: string, value: unknown): void {
+  if (window && !window.isDestroyed()) window.webContents.send(channel, value)
+}
+function openAbout(check: boolean): void {
+  if (!window) { void createWindow(); return }
+  if (window.isMinimized()) window.restore()
+  window.show(); window.focus()
+  send(openAboutEvent, null)
+  if (check) void updates.check(true)
 }
 
 async function createWindow(): Promise<void> {
@@ -133,16 +148,20 @@ if (!app.requestSingleInstanceLock()) {
     // Before storage: startup-protection dialogs already speak the chosen language.
     language = new LanguagePreference(join(app.getPath('userData'), 'preferences.json'), () => app.getPreferredSystemLanguages())
     await language.load()
+    installMenu(openAbout)
+    language.onChange(() => installMenu(openAbout))
+    updates = new UpdateService(info => send(updateEvent, info))
     storage = await openStorage()
     if (!storage) { app.exit(0); return }
     const client = storage
     const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client)
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
-    releaseRenderer = registerIpc(() => window, trustedUrl, storage, smart, language, links, () => { void requestReconcile(false) }, firstWrite, meta => {
+    releaseRenderer = registerIpc(() => window, trustedUrl, storage, smart, language, links, updates, () => { void requestReconcile(false) }, firstWrite, meta => {
       if (firstSnapshotRead) return
       firstSnapshotRead = true; lastVisible = visibleKey(meta); lastRevision = meta.workspace.revision; startInitialReconcile()
     })
     await createWindow()
+    updates.start()
     powerMonitor.on('resume', () => { void requestReconcile() })
     const timer = setInterval(() => { void requestReconcile() }, 30_000)
     timer.unref()

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: French settings copy, including calendar grouping, per-column completion-confetti and reduced-motion messages.
+ * [OUTPUT]: French settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages.
  * [POS]: French settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -25,6 +25,7 @@ export const settingsMessages: SettingsCatalog = {
     calendar: 'Le calendrier est verrouillé après la première confirmation ; chaque colonne décide du sort des éléments non terminés à échéance',
     backup: 'Les sauvegardes restent sur cet ordinateur ; une restauration remplace toute la base, sans fusion',
     trash: 'La restauration rétablit l’état et l’emplacement d’origine, et tente de retrouver les liens rompus à la suppression',
+    about: 'Version et mises à jour du logiciel',
   },
   // Appearance
   styleNotes: { paper: 'Papier chaud, séparateurs pointillés, ombres douces', minimal: 'Gris neutres, contours fins et pleins' },
@@ -75,6 +76,26 @@ export const settingsMessages: SettingsCatalog = {
   reset: 'Réinitialiser',
   today: 'aujourd’hui',
   yesterday: 'hier',
+  // About
+  about: {
+    section: 'À propos',
+    navMeta: 'Nouvelle version',
+    tagline: 'Reliez les objectifs du trimestre aux tâches du jour',
+    version: (version: string) => `Version ${version}`,
+    updates: 'Mise à jour du logiciel',
+    unsupported: 'Les versions de développement ne recherchent pas de mises à jour',
+    idle: 'Les nouvelles versions se téléchargent en arrière-plan et s’appliquent au redémarrage',
+    checking: 'Recherche de mises à jour…',
+    latest: (time: string) => `À jour · vérifié à ${time}`,
+    downloading: (version: string, percent: number) => `Téléchargement de ${version} · ${percent} %`,
+    ready: (version: string) => `${version} est prête : redémarrez pour terminer la mise à jour`,
+    failed: 'Impossible de rechercher des mises à jour. Vérifiez votre connexion et réessayez.',
+    check: 'Rechercher des mises à jour',
+    restart: 'Redémarrer pour mettre à jour',
+    website: 'Site web',
+    releaseNotes: 'Notes de version',
+    settingsWithUpdate: (settings: string) => `${settings} (mise à jour disponible)`,
+  },
   // Items
   trashNote: 'La corbeille ne se vide jamais automatiquement ; les éléments supprimés y restent jusqu’à ce que vous les restauriez.',
 }

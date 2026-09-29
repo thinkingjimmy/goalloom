@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Unified candidates/locating, independent Later visibility/count, board-ordered flow filters, board/dialogs, menu-aware shortcuts and generation-scoped feedback/caches; flow-insight composer seeds and the review drawer.
+ * [OUTPUT]: Unified candidates/locating, independent Later visibility/count, board-ordered flow filters, board/dialogs, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and the review drawer.
  * [POS]: Renderer composition root; composer loads on first use and then keeps its session until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -28,6 +28,7 @@ import { editingTarget } from './state/session'
 import { ariaKeys, filterSlot, formatCombo, parseEvent, useShortcuts } from './state/shortcuts'
 import type { Section } from './features/shell/settings/Settings'
 import { useAi } from './state/ai'
+import { hasUpdate, useUpdate } from './state/update'
 import { resetLinkPreviewCache } from './components/links/cache'
 
 const Setup = lazy(() => import('./features/setup/Setup').then(module => ({ default: module.Setup })))
@@ -52,7 +53,9 @@ export function App() {
   const { bindings, filters: filterKeys } = useShortcuts()
   // Keep the current view responsive while a local dialog chunk loads, without a timed fallback flash.
   const compose = () => startTransition(() => { setComposerGeneration(snapshot?.workspace.generation ?? null); setComposing(true) })
-  const [settings, setSettings] = useState(false), [settingsSection, setSettingsSection] = useState<Section>('appearance')
+  // `at` re-targets an already open Settings when a caller (e.g. the app menu's About) names a section.
+  const [settings, setSettings] = useState(false), [settingsRequest, setSettingsRequest] = useState<{ section: Section; at: number }>({ section: 'appearance', at: 0 })
+  const update = useUpdate()
   const [selected, setSelected] = useState<string | null>(null)
   const [palette, setPalette] = useState(false)
   const openPalette = () => startTransition(() => setPalette(true))
@@ -90,7 +93,12 @@ export function App() {
   useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null) }, [snapshot?.workspace.generation])
   // A filter pointing at a flow that no longer exists falls back to showing everything.
   useEffect(() => { if (filter && !flows.visible.some(flow => flow.id === filter)) setFilter(null) }, [flows, filter])
-  const openSettings = (section: Section = 'appearance') => startTransition(() => { setSettingsSection(section); setSettings(true) })
+  const openSettings = (section?: Section) => startTransition(() => {
+    if (section || !settings) setSettingsRequest(previous => ({ section: section ?? 'appearance', at: previous.at + 1 }))
+    setSettings(true)
+  })
+  const openAbout = useCallback(() => openSettings('about'), [settings])
+  useEffect(() => { try { return desktopApi().onOpenAbout(openAbout) } catch { return undefined } }, [openAbout])
   // The calendar is confirmed first (it gates every item write); the onboarding direction then becomes an ordinary, undoable 3-month flow root.
   const confirmSetup = async (calendar: CalendarChoice, direction: string) => {
     if (!await submit({ type: 'confirmSetup', ...calendar, confirmed: true })) return
@@ -122,7 +130,7 @@ export function App() {
   return <div className="app-shell">
     <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
       laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
-      openSearch={openPalette} openSettings={() => openSettings()} />
+      updateAvailable={hasUpdate(update)} openSearch={openPalette} openSettings={() => openSettings()} />
     {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</button></div>}
     {snapshot?.workspace.calendar && Intl.DateTimeFormat().resolvedOptions().timeZone !== snapshot.workspace.calendar.timezone && <div className="notice-banner">{messages.timezoneMismatch} {snapshot.workspace.calendar.timezone}。</div>}
     {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">{messages.restorePaused}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>{messages.confirmRollover}</button></div>}
@@ -136,7 +144,7 @@ export function App() {
     </>}
     </Suspense>
     <Suspense fallback={null}>
-    {settings && snapshot && <Settings snapshot={snapshot} ai={ai} initial={settingsSection} submit={submit} refresh={refresh} busy={busy} select={select} close={() => setSettings(false)} />}
+    {settings && snapshot && <Settings snapshot={snapshot} ai={ai} initial={settingsRequest.section} request={settingsRequest.at} submit={submit} refresh={refresh} busy={busy} select={select} close={() => setSettings(false)} />}
     </Suspense>
     <Suspense fallback={null}>
     {palette && <CommandPalette close={() => setPalette(false)} select={select} undo={() => void undo()} canUndo={!busy && undoCount > 0} create={compose} openSettings={openSettings} bindings={bindings} calendar={snapshot?.workspace.calendar ?? null} observedAt={snapshot?.observedAt ?? ''} />}

@@ -9,6 +9,7 @@ renderer/
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
 ├── styles.css               # Tailwind, theme tokens, board/dialog/menu layout, column action visibility, scrollbars and accessibility
+├── assets/app-icon.png      # 关于页的应用图标（resources/icon.png 的 256px 版本）
 ├── features/                # 按用户功能聚合页面及其专属组件
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
 │   │   ├── TopBar.tsx       # Draggable titlebar: independent Later/count toggle, flow filters, search and settings
@@ -16,7 +17,7 @@ renderer/
 │   │   ├── CompletionCelebration.tsx # Exact-corner Canvas bursts with a broad viewport-scaled fan; nonmodal top layer, reduced motion and generation cleanup
 │   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable Toast actions
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
-│   │   └── settings/        # 左侧三组导航（偏好/工作区/条目）+ 页头说明 + 分组卡片的设置弹窗；外观含语言
+│   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation, section headings with shortcut guidance, backup/count reads, data actions and transfer previews
 │   │       ├── AppearancePane.tsx # Language, visual styles, theme and device relation-line switch
 │   │       ├── BoardPane.tsx      # Device parent-order switch, atomic disable/materialization and per-column completion-confetti preview
@@ -110,6 +111,7 @@ renderer/
 │   ├── celebration.ts      # 本机逐列撒花偏好（默认周/月/3个月）、设置页预览信号与系统减少动态效果订阅
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
+│   ├── update.ts           # 软件更新单一 store：版本 + 阶段（首次订阅读取并监听推送，不轮询）、手动检查／重启更新、hasUpdate 红点判定
 │   ├── ai.ts               # 设备侧 AI 服务状态（每服务凭据/能力/失败，每功能服务与开关）与动作（代次变化即重读）
 │   ├── insight.ts          # 本机流程洞察偏好（localStorage，不入工作区）：关于我/步长/语气/关注、断点与复盘开关、引导与已复盘标记；draft/review 请求
 │   ├── review-summary.ts   # Up to 24 device-local period summaries, exact-prompt fingerprints, shared requests and generation invalidation

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: English settings copy, including calendar grouping, per-column completion-confetti and reduced-motion messages.
+ * [OUTPUT]: English settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages.
  * [POS]: English settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -25,6 +25,7 @@ export const settingsMessages: SettingsCatalog = {
     calendar: 'The calendar locks after initial setup; each column decides what happens to overdue unfinished items',
     backup: 'Backups are stored on this computer; restoring replaces the whole workspace without merging',
     trash: 'Restoring returns an item to its original state and position, and tries to recover links broken on deletion',
+    about: 'Version and software updates',
   },
   // Appearance
   styleNotes: { paper: 'Warm paper, dashed dividers, soft shadows', minimal: 'Neutral grays, thin solid borders' },
@@ -75,6 +76,26 @@ export const settingsMessages: SettingsCatalog = {
   reset: 'Reset',
   today: 'Today',
   yesterday: 'Yesterday',
+  // About
+  about: {
+    section: 'About',
+    navMeta: 'Update',
+    tagline: 'Connect this quarter’s goals to today’s to-dos',
+    version: (version: string) => `Version ${version}`,
+    updates: 'Software update',
+    unsupported: 'Development builds don’t check for updates',
+    idle: 'New versions download in the background and apply on restart',
+    checking: 'Checking for updates…',
+    latest: (time: string) => `Up to date · checked at ${time}`,
+    downloading: (version: string, percent: number) => `Downloading ${version} · ${percent}%`,
+    ready: (version: string) => `${version} is ready — restart to finish updating`,
+    failed: 'Couldn’t check for updates. Check your connection and try again.',
+    check: 'Check for updates',
+    restart: 'Restart to update',
+    website: 'Website',
+    releaseNotes: 'Release notes',
+    settingsWithUpdate: (settings: string) => `${settings} (update available)`,
+  },
   // Items
   trashNote: 'The trash is never emptied automatically; deleted items stay here until you restore them.',
 }
