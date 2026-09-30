@@ -17,7 +17,7 @@ import { flowChain, type FlowGraph, type Flows } from '../../state/flows'
 import { Icon } from '../../components/icons'
 import { revealRow } from './VirtualRows'
 import { boardIsMoving, boardMotionEvent } from './RowMotion'
-import { busGap, dotEdge, firstLine, orthogonal, panelViewport } from './geometry'
+import { busGap, dotCenter, dotEdge, firstLine, orthogonal, panelViewport } from './geometry'
 
 type Panel = 'later' | 'timeline'
 interface Clip { x: number; y: number; width: number; height: number }
@@ -100,11 +100,11 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
       // Right-angle connectors: leave the side facing the other row, run down a bus in the gap beside the column rule,
       // and turn into the child. A forward line stops at the child's flow dot; loops and backward lines end on a port.
       const forward = parent.right <= child.left, backward = child.right <= parent.left, side = backward ? -1 : 1
-      const x1 = backward ? parent.left : parent.right
-      const x2 = forward ? child.left + dotEdge : child.right
+      const x1 = backward ? parent.left : parent.right - dotCenter
+      const x2 = forward ? child.left + dotEdge : child.right - dotCenter
       // Existing cross-Later edges survive, but an obscured timeline endpoint must not land in Later.
       if (parent.panel !== child.panel && (x1 < parent.clip.x || x1 > parent.clip.x + parent.clip.width || x2 < child.clip.x || x2 > child.clip.x + child.clip.width)) continue
-      const exitBus = x1 + side * busGap
+      const exitBus = (backward ? parent.left : parent.right) + side * busGap
       const entryBus = forward ? child.left - busGap - 1 : backward ? child.right + busGap + 1 : Math.max(parent.right, child.right) + busGap
       // A skip-level line crosses the columns in between along a row boundary, where the clear band between grounds shows it.
       const turns: [number, number][] = skip && (forward || backward)

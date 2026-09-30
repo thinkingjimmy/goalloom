@@ -26,8 +26,9 @@ export function dropViewport(node: Element): DOMRect | null {
 // Titles grow freely; anchors stay level with the first line, where the dot and checkbox sit.
 export const firstLine = 32
 // Rows sit 3px inside each column rule, so a connector's vertical bus runs on the rule itself; a forward line stops at
-// the flow dot's left edge (the 18px dot button starts at the row edge and centres a 6px dot).
-export const busGap = 3, dotEdge = 6
+// the flow dot's left edge (the 18px dot button starts at the row edge and centres a 6px dot). A right-side port mirrors
+// that dot inside the row's right gutter, so both ends sit on the row's ground.
+export const busGap = 3, dotEdge = 6, dotCenter = 9
 
 /** Horizontal–vertical path from (x, y) through a vertical bus at each turn's x (reaching that turn's y), ending
  *  horizontally at x2. Corners are rounded to fit the shortest adjoining segment. */

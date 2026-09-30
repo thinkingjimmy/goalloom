@@ -23,7 +23,7 @@
 .board[data-linking='true'] .task-row > :not(.drag-handle) { opacity: .28; }
 .board[data-linking='true'] .task-row:is([data-relation-eligible], [data-relation-source]) > :not(.drag-handle) { opacity: 1; }
 .board[data-linking='true'] .task-row:is([data-relation-source], [data-relation-target]) .flow-dot-button { opacity: 1; }
-.board[data-linking='true'] .task-row[data-relation-eligible]:not([data-relation-target])::after { content: ''; position: absolute; right: 0; top: 10px; width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid var(--check-edge); background: var(--ground); pointer-events: none; }
+.board[data-linking='true'] .task-row[data-relation-eligible]:not([data-relation-target])::after { content: ''; position: absolute; right: 5px; top: 10px; width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid var(--check-edge); background: var(--ground); pointer-events: none; }
 /* The snapped target takes the parent's flow tint, like a lit chain row; !important outlasts hover and lit row grounds. */
 .board[data-linking='true'] .task-row[data-relation-target] { background: var(--relation-tint, color-mix(in srgb, var(--focus) 12%, var(--ground))) !important; }
 .flow-adoption-entry { border-top: 1px solid var(--line); padding-top: 4px; }

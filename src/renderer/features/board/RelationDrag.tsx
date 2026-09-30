@@ -17,7 +17,7 @@ import { flowStroke, flowTint } from '../../lib/colors'
 import type { BoardView } from '../../state/board-periods'
 import type { Flows } from '../../state/flows'
 import { desktopApi, type PreparedWrite } from '../../state/use-workspace'
-import { busGap, dotEdge, dropViewport, firstLine, intersectRect, orthogonal, panelViewport } from './geometry'
+import { busGap, dotCenter, dotEdge, dropViewport, firstLine, intersectRect, orthogonal, panelViewport } from './geometry'
 import { boardMotionEvent } from './RowMotion'
 import './relation-drag.css'
 
@@ -28,8 +28,6 @@ interface Actions {
 export const RelationDragContext = createContext<Actions | null>(null)
 interface Point { x: number; y: number }
 interface Preview { d: string; port: Point | null; color: string | null; adopt: { x: number; y: number; from: string; to: string | null } | null; clip: { x: number; y: number; width: number; height: number } }
-// Eligible rows show a hollow port this far inside their right edge (see relation-drag.css); the connector lands on it.
-const portInset = 4
 function previewStore() {
   let value: Preview | null = null
   const listeners = new Set<() => void>()
@@ -134,7 +132,7 @@ export function useRelationDrag(input: { snapshot: Snapshot; view: BoardView; fl
       const x2 = clamp(from.left + dotEdge, viewport.left, viewport.right), y2 = clamp(from.top + Math.min(from.height, firstLine) / 2, sourceViewport.top, sourceViewport.bottom)
       let x1 = point.x, y1 = point.y, bus = from.left - busGap - 1
       if (target && to && toViewport) {
-        x1 = Math.min(to.right - portInset, viewport.right); y1 = clamp(to.top + Math.min(to.height, firstLine) / 2, toViewport.top, toViewport.bottom)
+        x1 = Math.min(to.right - dotCenter, viewport.right); y1 = clamp(to.top + Math.min(to.height, firstLine) / 2, toViewport.top, toViewport.bottom)
         // Adjacent horizons share the drawn line's bus beside the parent column's rule; skipped ones turn beside the child.
         if (Math.abs(horizons.indexOf(target.placement.horizon) - horizons.indexOf(source.placement.horizon)) === 1) bus = to.right + busGap
       }
@@ -226,7 +224,7 @@ export function RelationDragOverlay({ drag }: { drag: ReturnType<typeof useRelat
   const { d, port, color, adopt, clip } = value
   return <div className="relation-drag" data-valid={!!port} style={color ? { color } : undefined}>
     <svg aria-hidden="true"><defs><clipPath id={`${id}-clip`}><rect {...clip} /></clipPath></defs>
-      <g clipPath={`url(#${id}-clip)`}><path className="relation-drag-path" d={d} />{port && <circle className="relation-drag-port" cx={port.x} cy={port.y} r={3.5} />}</g>
+      <g clipPath={`url(#${id}-clip)`}><path className="relation-drag-path" d={d} />{port && <circle className="relation-drag-port" cx={port.x} cy={port.y} r={3} />}</g>
     </svg>
     {adopt && <span className="relation-drag-adopt" aria-hidden="true" style={{ left: adopt.x, top: adopt.y }}>
       <span style={{ background: adopt.from }} /><Icon name="forward" size={12} strokeWidth={2} /><span style={adopt.to ? { background: adopt.to } : undefined} data-empty={!adopt.to || undefined} />

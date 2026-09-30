@@ -201,7 +201,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 /* A 2px clear band above and below keeps neighbouring grounds (hover, located, flow tint) from merging into one block;
    rows carry no divider, so that band is the only separation.
    Ground rules set background-color/-image only: the `background` shorthand would reset the clip and paint over the band. */
-.task-row { --check-space: 30px; position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 32px; margin: 0 -7px 0 -11px; padding: 0 6px 0 20px; border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
+.task-row { --check-space: 30px; position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 32px; margin: 0 -7px 0 -11px; padding: 0 18px 0 20px; border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
 .task-row:is([data-highlighted='true'], [data-state='open']) { background-color: var(--hover); }
 /* Pointer hover stays lighter than the located/highlighted row so the two remain distinguishable. */
 :root:not([data-dragging='true']) .task-row:not([data-highlighted='true'], [data-state='open']):hover { background-color: color-mix(in srgb, var(--hover) 50%, transparent); }
