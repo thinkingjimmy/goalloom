@@ -267,8 +267,6 @@ export const messages: MessageCatalog = {
   startFlowHint: "色を選ぶと、この項目が新しいフローの起点になります。",
   linkToParent: "上位に関連付け…",
   dragRelationHint: "長い期間の項目へドラッグして関連付け。クリックでメニューを開きます",
-  dragRelationChoose: "長い期間の項目へドラッグし、離すと関連付けます",
-  dragRelationDrop: (title: string) => `離すと「${title}」に関連付けます`,
   adoptParentFlowHint: "関連付けると独自の色を解除し、親のフローに従います",
   relationTargetChanged: "項目が変更されました。もう一度関連付けてください。",
   relationLinkFailed: "関連付けできませんでした。もう一度お試しください。",

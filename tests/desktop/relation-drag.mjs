@@ -105,7 +105,7 @@ try {
   checks.push('Duplicate, self, peer, empty drop and Escape make no writes and remove transient state')
 
   await page.getByRole('button', { name: '只看 Merge root', exact: true }).click()
-  await start(ids.root); await aim(ids.p); await page.getByText('关联后取消独立颜色并跟随上级', { exact: true }).waitFor(); await shot('root-adoption')
+  await start(ids.root); await aim(ids.p); await page.locator('.relation-drag-adopt').waitFor(); await shot('root-adoption')
   await page.mouse.up(); await linked(ids.p, ids.root); await settled()
   assert.equal((await item(ids.root)).item.flowColor, null)
   await page.getByRole('button', { name: '全部', exact: true }).locator(':scope[aria-pressed="true"]').waitFor()
@@ -122,7 +122,7 @@ try {
   const parentChoice = page.locator('.relation-picker').getByRole('menuitemcheckbox', { name: /Second parent/ })
   await parentChoice.focus(); await page.keyboard.press('Enter'); await linked(ids.w2, ids.keyboard); await settled(); await page.keyboard.press('Escape')
   assert.equal((await item(ids.keyboard)).item.flowColor, null)
-  checks.push('Root adoption hint, descendants, invalid filter fallback, atomic keyboard undo and keyboard adoption into an uncolored parent')
+  checks.push('Root adoption colour chip, descendants, invalid filter fallback, atomic keyboard undo and keyboard adoption into an uncolored parent')
 
   await column('week').locator('summary').click(); await drag(ids.peer, ids.done)
   await page.evaluate(() => { localStorage.setItem('goalloom.relationLines', 'false') }); await page.reload(); await page.locator('.board').waitFor()
@@ -131,7 +131,7 @@ try {
   for (const locale of ['zh', 'en', 'ja', 'es', 'fr']) {
     await page.evaluate(locale => window.goalloom.setLanguage(locale), locale)
     await start(ids.peer); await aim(ids.p)
-    assert((await page.locator('.relation-drag-hint').innerText()).trim())
+    await row(ids.p).locator(':scope[data-relation-target="true"]').waitFor()
     await shot(`locale-${locale}`); await page.keyboard.press('Escape'); await page.mouse.up()
   }
   await page.evaluate(() => window.goalloom.setLanguage('zh'))
@@ -140,7 +140,7 @@ try {
     await window.goalloom.execute({ type: 'preferences', theme: 'dark', generation: s.workspace.generation, operationId: crypto.randomUUID() })
   })
   await start(ids.peer); await aim(ids.p); await shot('dark'); await page.keyboard.press('Escape'); await page.mouse.up()
-  checks.push('Five localized drag hints and dark theme')
+  checks.push('Copy-free drag preview across five locales and dark theme')
   await start(ids.peer); await page.evaluate(() => window.dispatchEvent(new Event('blur'))); await page.locator('.relation-drag').waitFor({ state: 'detached' }); await page.mouse.up()
   await start(ids.peer); await dot(ids.peer).dispatchEvent('pointercancel', { pointerId: 1 }); await page.locator('.relation-drag').waitFor({ state: 'detached' }); await page.mouse.up()
   await start(ids.peer); await column('day').locator('[data-period-switch]').focus(); await page.keyboard.press('ArrowRight')

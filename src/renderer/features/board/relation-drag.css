@@ -1,21 +1,29 @@
 /**
  * [INPUT]: Board linking state, clipped SVG geometry and shared theme tokens.
- * [OUTPUT]: Transient arrows, visible source/target controls and non-interactive localized hints.
+ * [OUTPUT]: Copy-free linking preview: dotted/snapped connector, target port and flow tint, eligible-row ports and fading, adoption chip.
  * [POS]: Relation gesture styling; layout and ordinary placement drag styling remain independent.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .relation-drag { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; color: var(--secondary); }
 .relation-drag[data-valid='true'] { color: var(--focus); }
 .relation-drag svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.relation-drag-path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-.relation-drag-hint { position: absolute; max-width: 260px; padding: 8px 12px; border-radius: 10px; background: var(--raised); color: var(--fg); box-shadow: var(--shadow); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.relation-drag-hint small { display: block; margin-top: 4px; color: var(--secondary); font-size: 11px; }
+.relation-drag-path { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 5; }
+.relation-drag[data-valid='true'] .relation-drag-path { stroke-width: 2; stroke-dasharray: none; }
+.relation-drag-port { fill: currentColor; }
+/* An adopting flow root trades its own colour for the parent's: old dot → new dot beside the source row. */
+.relation-drag-adopt { position: absolute; transform: translate(-100%, -50%); height: 18px; padding: 0 6px; display: inline-flex; align-items: center; gap: 3px; border-radius: 9px; background: var(--raised); box-shadow: 0 0 0 .5px var(--edge), 0 1px 2px rgba(60, 40, 20, .08); color: var(--secondary); }
+.relation-drag-adopt > span { width: 7px; height: 7px; box-sizing: border-box; border-radius: 50%; }
+.relation-drag-adopt > span[data-empty] { border: 1.5px solid var(--check-edge); }
 .board[data-linking='true'] { user-select: none; }
 .board[data-linking='true'], .board[data-linking='true'] * { cursor: crosshair !important; }
 .board[data-linking='true'] .breakpoints { visibility: hidden; }
 .board[data-linking='true'] .relation-lines { opacity: .15; }
 .board[data-linking='true'] .relation-marker { pointer-events: none; }
-.board[data-linking='true'] .task-row > :not(.drag-handle) { opacity: 1; }
+/* Rows that cannot become the parent fade; eligible ones stay lit and offer a hollow port where the connector lands. */
+.board[data-linking='true'] .task-row > :not(.drag-handle) { opacity: .28; }
+.board[data-linking='true'] .task-row:is([data-relation-eligible], [data-relation-source]) > :not(.drag-handle) { opacity: 1; }
 .board[data-linking='true'] .task-row:is([data-relation-source], [data-relation-target]) .flow-dot-button { opacity: 1; }
-.board[data-linking='true'] .task-row[data-relation-target] { box-shadow: inset 0 0 0 2px var(--focus); }
+.board[data-linking='true'] .task-row[data-relation-eligible]:not([data-relation-target])::after { content: ''; position: absolute; right: 0; top: 10px; width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid var(--check-edge); background: var(--ground); pointer-events: none; }
+/* The snapped target takes the parent's flow tint, like a lit chain row; !important outlasts hover and lit row grounds. */
+.board[data-linking='true'] .task-row[data-relation-target] { background: var(--relation-tint, color-mix(in srgb, var(--focus) 12%, var(--ground))) !important; }
 .flow-adoption-entry { border-top: 1px solid var(--line); padding-top: 4px; }

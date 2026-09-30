@@ -17,7 +17,7 @@ import { flowChain, type FlowGraph, type Flows } from '../../state/flows'
 import { Icon } from '../../components/icons'
 import { revealRow } from './VirtualRows'
 import { boardIsMoving, boardMotionEvent } from './RowMotion'
-import { panelViewport } from './geometry'
+import { busGap, dotEdge, firstLine, orthogonal, panelViewport } from './geometry'
 
 type Panel = 'later' | 'timeline'
 interface Clip { x: number; y: number; width: number; height: number }
@@ -30,28 +30,6 @@ const noClip: Clip = { x: 0, y: 0, width: 0, height: 0 }
 const empty: Geometry = { width: 0, height: 0, paths: [], ports: [], markers: [], clips: { later: noClip, timeline: noClip } }
 // Off-screen endpoints park this far inside the column edge, where their marker sits.
 const inset = 14
-// Titles grow freely; anchors stay level with the first line, where the dot and checkbox sit.
-const firstLine = 32
-// Rows sit 3px inside each column rule, so a connector's vertical bus runs on the rule itself; a forward line stops at
-// the flow dot's left edge (the 18px dot button starts at the row edge and centres a 6px dot).
-const busGap = 3, dotEdge = 6
-
-/** Horizontal–vertical path from (x, y) through a vertical bus at each turn's x (reaching that turn's y), ending
- *  horizontally at x2. Corners are rounded to fit the shortest adjoining segment. */
-function orthogonal(x: number, y: number, turns: [number, number][], x2: number): string {
-  let d = `M${x} ${y}`
-  turns.forEach(([bus, to], index) => {
-    const next = turns[index + 1]?.[0] ?? x2
-    const r = Math.min(5, Math.abs(to - y) / 2, Math.abs(bus - x), Math.abs(next - bus))
-    if (r < .5) d += `H${bus}V${to}`
-    else {
-      const dy = Math.sign(to - y), dx = Math.sign(next - bus)
-      d += `H${bus - Math.sign(bus - x) * r}Q${bus} ${y} ${bus} ${y + dy * r}V${to - dy * r}Q${bus} ${to} ${bus + dx * r} ${to}`
-    }
-    x = r < .5 ? bus : bus + Math.sign(next - bus) * r; y = to
-  })
-  return `${d}H${x2}`
-}
 
 export function RelationLines({ items, graph, flows, focus, animate, columns }: {
   items: ItemSummary[]; graph: FlowGraph; flows: Flows; focus: string | null; animate: boolean; columns: ItemHorizon[]

@@ -267,8 +267,6 @@ export const messages: MessageCatalog = {
   startFlowHint: "Choisissez une couleur pour que cet élément démarre un nouveau flux.",
   linkToParent: "Lier à un parent…",
   dragRelationHint: "Faites glisser vers une tâche à plus long terme pour la lier ; cliquez pour ouvrir le menu",
-  dragRelationChoose: "Faites glisser vers une tâche à plus long terme, puis relâchez pour la lier",
-  dragRelationDrop: (title: string) => `Relâchez pour lier à « ${title} »`,
   adoptParentFlowHint: "La liaison retire la couleur propre et suit le flux du parent",
   relationTargetChanged: "La tâche a changé. Recommencez la liaison.",
   relationLinkFailed: "Impossible de lier les tâches. Réessayez.",

@@ -267,8 +267,6 @@ export const messages = widen({
   startFlowHint: "选一个颜色，这一项开启一条新流程。",
   linkToParent: "关联到上级…",
   dragRelationHint: "按住拖到更长周期的任务以关联；点击打开菜单",
-  dragRelationChoose: "拖到更长周期的任务，松开关联",
-  dragRelationDrop: (title: string) => `松开关联到「${title}」`,
   adoptParentFlowHint: "关联后取消独立颜色并跟随上级",
   relationTargetChanged: "任务已变化，请重新关联",
   relationLinkFailed: "暂时无法建立关联，请重试",

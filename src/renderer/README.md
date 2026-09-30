@@ -60,7 +60,7 @@ renderer/
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
 │   │   ├── useBoardDrag.ts # Group-bounded drag and pending-drop placement projection
 │   │   ├── RelationDrag.tsx # Independent pointer linking, clipped targeting/autoscroll, virtual source pinning and prepared keyboard-menu adoption
-│   │   ├── relation-drag.css # Transient arrow, target outline and localized hints using shared theme tokens
+│   │   ├── relation-drag.css # Copy-free linking preview: connector, ports, eligible-row fading, target flow tint and adoption chip
 │   │   ├── usePeriodMotion.ts # Cancellable directional content entry after data readiness; reduced-motion/visibility cleanup and overlay synchronization
 │   │   ├── RowMotion.tsx  # Interruptible outer-row FLIP and finite overlay geometry updates
 │   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, logical keyboard traversal and focus/drag/menu pinning

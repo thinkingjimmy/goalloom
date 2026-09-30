@@ -267,8 +267,6 @@ export const messages: MessageCatalog = {
   startFlowHint: "Elige un color para que este elemento inicie un flujo nuevo.",
   linkToParent: "Vincular a un superior…",
   dragRelationHint: "Arrastra a una tarea de un horizonte más largo para vincular; haz clic para abrir el menú",
-  dragRelationChoose: "Arrastra a una tarea de un horizonte más largo y suelta para vincular",
-  dragRelationDrop: (title: string) => `Suelta para vincular con «${title}»`,
   adoptParentFlowHint: "Al vincular, se elimina el color propio y se sigue el flujo del superior",
   relationTargetChanged: "La tarea ha cambiado. Vuelve a iniciar el vínculo.",
   relationLinkFailed: "No se pudieron vincular las tareas. Inténtalo de nuevo.",

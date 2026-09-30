@@ -267,8 +267,6 @@ export const messages: MessageCatalog = {
   startFlowHint: "Pick a colour to make this item the start of a new flow.",
   linkToParent: "Link to a parent…",
   dragRelationHint: "Drag to an item in a longer horizon to link; click to open the menu",
-  dragRelationChoose: "Drag to an item in a longer horizon and release to link",
-  dragRelationDrop: (title: string) => `Release to link to “${title}”`,
   adoptParentFlowHint: "Linking removes the independent color and follows the parent",
   relationTargetChanged: "The item changed. Start linking again.",
   relationLinkFailed: "Could not link the items. Please try again.",

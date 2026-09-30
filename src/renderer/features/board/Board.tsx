@@ -51,7 +51,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   useEffect(() => { if (highlighted) { const frame = requestAnimationFrame(() => revealRow(highlighted)); return () => cancelAnimationFrame(frame) } }, [highlighted])
   const drag = useBoardDrag({ snapshot, view, columns, busy, submit })
   const { items, dragging } = drag
-  const relationDrag = useRelationDrag({ snapshot, view, blocked: relationBlocked || !!dragging, write, onError })
+  const relationDrag = useRelationDrag({ snapshot, view, flows, blocked: relationBlocked || !!dragging, write, onError })
   const byColumn = useMemo(() => new Map(horizons.map(horizon => [horizon, items.filter(item => item.placement.horizon === horizon)])), [items])
   useEffect(() => {
     const request = view.locating, item = request && items.find(item => item.id === request.id)
