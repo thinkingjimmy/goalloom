@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated history/activity queries, Store and observation time.
- * [OUTPUT]: Immutable period projections and activity, plus paged live tasks still placed in a closed period with generation/revision guards.
+ * [OUTPUT]: Reusable period projections and activity, plus paged live tasks still placed in a closed period with generation/revision guards.
  * [POS]: Read-only past-period adapter; live placement queries never rewrite history or materialize periods.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,7 +17,7 @@ const order: Record<HistoryOutcome, number> = { done: 0, open: 1, moved: 2, canc
 const membership = 'SELECT itemId FROM item_events WHERE fromPeriodId=? UNION SELECT itemId FROM item_events WHERE toPeriodId=?'
 
 /** Every member's end-of-period projection in one ordered event stream, grouped by outcome then end-state order. */
-function projectPeriod(store: Store, period: Period) {
+export function projectPeriod(store: Store, period: Period) {
   const stream = store.prepare(`SELECT * FROM item_events WHERE itemId IN (${membership}) ORDER BY itemId,seq`).iterate(period.id, period.id)
   let current = stream.next()
   const projections = []

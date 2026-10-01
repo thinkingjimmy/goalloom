@@ -1,4 +1,10 @@
-/** Failure matrix, written before changing wire validation:
+/**
+ * [INPUT]: Real sandboxed preload and controlled IPC replies.
+ * [OUTPUT]: Strict date, timezone and review-context response validation with repeatable wire.json evidence.
+ * [POS]: Desktop wire boundary regression; no production bridge replacement.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ *
+ * Failure matrix, written before changing wire validation:
  * Invalid leap days, month/day overflow, signed years, trailing text and offset/unknown zones must fail.
  * Year zero, Gregorian leap rules, UTC and IANA aliases must retain their existing acceptance.
  * The real sandboxed preload must reject malformed output in all five languages and extra fields.
@@ -26,13 +32,22 @@ try {
     if (!configured.ok) throw Error(configured.message)
     const created = await run({ type: 'create', title: 'Wire validation fixture', description: '', horizon: 'later' })
     if (!created.ok) throw Error(created.message)
-    return { detail: await window.goalloom.getItem(created.result.itemId), snapshot: await window.goalloom.getSnapshot() }
+    const current = await window.goalloom.getSnapshot()
+    const review = await window.goalloom.getReviewContext({ type: 'reviewContext', generation, periods: [{ horizon: 'month', startDate: current.periods.find(period => period.horizon === 'month').startDate }] })
+    return { detail: await window.goalloom.getItem(created.result.itemId), snapshot: current, review }
   })
   await app.evaluate(({ ipcMain }, fixture) => {
     ipcMain.removeHandler('goalloom:query')
     globalThis.wireFixture = fixture
-    ipcMain.handle('goalloom:query', (_, query) => (query.type === 'item' ? globalThis.wireFixture.detail : globalThis.wireFixture.snapshot))
+    ipcMain.handle('goalloom:query', (_, query) => (query.type === 'item' ? globalThis.wireFixture.detail : query.type === 'reviewContext' ? globalThis.wireFixture.review : globalThis.wireFixture.snapshot))
   }, fixture)
+  const reviewQuery = { type: 'reviewContext', generation: fixture.snapshot.workspace.generation, periods: [{ horizon: 'month', startDate: fixture.snapshot.periods.find(period => period.horizon === 'month').startDate }] }
+  assert.equal(await page.evaluate(query => window.goalloom.getReviewContext(query).then(value => value.unknown), reviewQuery), 0)
+  await app.evaluate(() => { globalThis.wireFixture.review.unknown = -1 })
+  assert.equal(await page.evaluate(async query => { try { await window.goalloom.getReviewContext(query); return true } catch { return false } }, reviewQuery), false)
+  await app.evaluate(() => { globalThis.wireFixture.review.unknown = 0; globalThis.wireFixture.review.extra = true })
+  assert.equal(await page.evaluate(async query => { try { await window.goalloom.getReviewContext(query); return true } catch { return false } }, reviewQuery), false)
+  checks.push('review context validates nested period summaries, nonnegative counts and strict output fields')
   const valid = ['0000-02-29', '2000-02-29', '2024-02-29', '1900-02-28', '2026-12-31', '9999-12-31']
   const invalid = ['1900-02-29', '2026-02-29', '2026-04-31', '2026-00-01', '2026-13-01', '2026-01-00', '2026-01-32', '+002026-01-01', '26-01-01', '2026-1-01', '2026-01-01junk', '2026-01-01\n', '2026-01-01T00:00:00Z']
   const messages = { zh: '日期无效', en: 'Invalid date', ja: '日付が無効です', es: 'Fecha no válida', fr: 'Date non valide' }

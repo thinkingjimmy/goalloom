@@ -3,7 +3,7 @@
 > Parent: [renderer](../../README.md). Saved-content presentation shared across item views.
 
 - `parse.ts`: Lossless text and Markdown-link tokenization; shared URL validation, punctuation handling and ordered deduplication.
-- `LinkText.tsx`: Shared favicon/page-title inline links, optional saved URL membership, safe external opening and a sibling detail button without nested interactive elements.
+- `LinkText.tsx`: Shared favicon/page-title inline links, optional saved URL membership, safe external opening and an accessible sibling detail button without a duplicate-title tooltip or nested interactive elements.
 - `cache.ts`: Synchronous warm-cache presentation, visible-only IPC refresh, request deduplication and bounded metadata caching.
 - `LinkPreviews.tsx`: Fixed 128px cards and native horizontal snapping with localized keyboard and button controls.
 - `links.css`: Naturally wrapping inline labels, product-token styling, clipped card images, carousel peek and checkbox-aligned previews with a compact title gap in current/past task rows.

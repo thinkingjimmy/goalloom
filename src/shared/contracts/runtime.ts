@@ -1,13 +1,13 @@
 /**
  * [INPUT]: Zod, lightweight locale/language values and minimum runtime diagnostics.
- * [OUTPUT]: Fixed GoalloomApi for selected-period reads, editable past-task pages, immutable history, language preferences, bounded links/browser opening, software updates and a close-time drain callback.
+ * [OUTPUT]: Fixed GoalloomApi for selected-period reads, historical review contexts, editable past-task pages, immutable history, language preferences, bounded links/browser opening, software updates and a close-time drain callback.
  * [POS]: Shared main/preload/renderer boundary without generic IPC, SQL or file access.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { languages, locales, type Language } from '../i18n/locale'
 import type { CommandInput, CommandReply, CommandResult } from './commands'
-import type { ItemDetail, ItemPage, Query, Snapshot, BoardPeriods, ActivitySummary, ItemCounts, BackupSummary } from './queries'
+import type { ItemDetail, ItemPage, Query, Snapshot, BoardPeriods, ReviewContext, ActivitySummary, ItemCounts, BackupSummary } from './queries'
 import type { Activity, HistoryIndex, HistoryPage, PastPeriodPage } from './history'
 import type { BatchSummary, BatchPage, DataAction, DataReply } from './transfer'
 import type { SmartAction, SmartReply } from './smart-input'
@@ -33,6 +33,7 @@ export interface GoalloomApi {
   getLanguage(): Promise<LanguageState>
   setLanguage(language: Language): Promise<LanguageState>
   getSnapshot(): Promise<Snapshot>
+  getReviewContext(query: Extract<Query, { type: 'reviewContext' }>): Promise<ReviewContext>
   getBoardPeriods(query: Extract<Query, { type: 'boardPeriods' }>): Promise<BoardPeriods>
   getItem(itemId: string): Promise<ItemDetail>
   listItems(query: Extract<Query, { type: 'list' }>): Promise<ItemPage>

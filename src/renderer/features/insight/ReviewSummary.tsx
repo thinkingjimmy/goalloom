@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Review periods, current board facts, device review preferences and provider readiness.
+ * [INPUT]: Review periods, historical period-scoped facts, device review preferences and provider readiness.
  * [OUTPUT]: An entry-time cached summary with explicit refresh, retained text on refresh failure and retry feedback.
  * [POS]: The review drawer's summary card; shared persistence and request ownership live in state/review-summary.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -12,12 +12,11 @@ import { insightMessages as t } from '../../i18n'
 import type { Flows } from '../../state/flows'
 import { useInsightSettings } from '../../state/insight'
 import { loadReviewSummary, prepareReviewSummary } from '../../state/review-summary'
-import { boardDigest } from './signals'
-import { reviewSignals, type ReviewDue } from './review'
+import { reviewDigest, reviewSignals, type ReviewDue } from './review'
 
 export function ReviewSummary({ due, snapshot, flows, ready }: { due: ReviewDue; snapshot: Snapshot; flows: Flows; ready: boolean }) {
   const { prefs } = useInsightSettings()
-  const prepared = prepareReviewSummary({ generation: snapshot.workspace.generation, scope: due.scope, board: boardDigest(snapshot, flows), signals: reviewSignals(snapshot, flows, due) },
+  const prepared = prepareReviewSummary({ generation: snapshot.workspace.generation, scope: due.scope, board: reviewDigest(snapshot, flows), signals: reviewSignals(snapshot, flows, due) },
     [due.week?.key, due.month?.key].filter((key): key is string => !!key), prefs)
   const [state, setState] = useState<{ value: ReviewText | null; pending: boolean; error: boolean }>({ value: null, pending: ready, error: false })
   const sequence = useRef(0), working = useRef(false)

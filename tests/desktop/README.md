@@ -8,8 +8,9 @@ desktop/
 ├── sqlite.mjs           # 单独构建/启动真实 main 的内置 SQLite 探针
 ├── workspace.mjs        # 看板业务、流程筛选快捷键与快捷键设置（截图 settings-shortcuts.png）、协议/CSP/IPC、主题与窄窗口
 ├── history.mjs          # Live past-task editing/groups, filter return to current, paging recovery, focus/feedback, immutable history, backlog/hold and replacement isolation; history.json and history/past-task screenshots
-├── periods.mjs          # Compact TODO menus with source-row activation/cursors, unified period navigation, editable future periods, cross-period drafts, sorting, undo, locating, five-language header geometry and restart; output/tests/periods
-├── insight.mjs          # 流程洞察（无模型路径）：空列卡批量/自己写、筛选／悬停预览断点 ＋ 的可达性、创建与撤销、尾部接点对齐及一次性引导、预填新建、跳级 insertBetween 与一次撤销、复盘入口与四步（复盘日才跑）、设置 › 洞察；output/tests/insight
+├── periods.mjs          # Compact TODO menus with source-row activation/cursors, unified period navigation, editable future periods, cross-period drafts, sorting, undo, locating, five-language header geometry and restart; app-local input/focus failure diagnostics in output/tests/periods
+├── month-review.mjs    # Period-end records, live closing, unified guide, resume and exact planning destinations, partial failures and receipt recovery; --combined adds fresh month → week planning; output/tests/insight/{month-review,combined-review}/
+├── insight.mjs          # 流程洞察（无模型路径）：空列卡批量/自己写、筛选／悬停预览断点 ＋ 的可达性、创建与撤销、尾部接点对齐及一次性引导、预填新建、跳级 insertBetween 与一次撤销、标明周期的复盘入口／标题与四步（复盘日才跑）、设置 › 洞察；output/tests/insight
 ├── insight-generation.mjs # Development/production Electron: review header, drafting, Settings with complete trial-action captures, summary persistence/restart/refresh/invalidation/failures/reset; real bridge/storage and synthetic HTTP; output/tests/insight/generation/
 ├── insight-live.mjs     # Optional real OpenRouter: Settings trial/no writes, seven drafts, direct creation and review summary; titles, latency and runtime evidence; outside verify
 ├── recovery.mjs         # 保护备份/维护/重置/SQLite 恢复与重启暂停
@@ -20,7 +21,7 @@ desktop/
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
 ├── relations.mjs        # Relation lines/dots with full task titles, matching endpoint sizes, dynamic popover positioning and board-ordered flow filters; row/column moves, undo, shortcuts and reload; relation-endpoints.json, flow-dot-position.json/screenshots and app-local failure diagnostics
 ├── relation-drag.mjs    # Native relation dragging, atomic adoption/undo, receipt recovery, automatic order, cancellation, clipped autoscroll, future/done targets and five locales; output/tests/relation-drag
-├── language.mjs         # System language, setup/settings switching, main/worker copy, persistence and translation checks; five-locale calendar screenshots, language-*.png and output/tests/language.json
+├── language.mjs         # System language, setup/settings switching, main/worker copy, persistence, period-named review entries/drawers and translation checks; five-locale screenshots, language-*.png and output/tests/language.json
 ├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and persistent partial-restore warnings; feedback.json and feedback-*.png
 ├── link-previews.mjs    # Link text, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
@@ -33,6 +34,7 @@ desktop/
 └── fixtures/
     ├── celebration-visibility.mjs # 原生窗口隐藏验证：独立 Electron + 无前台模拟的 CDP，确认真实 visibility 与动效释放
     ├── sqlite-probe.ts  # Electron main 的驱动/事务/恢复探针
+    ├── review-seed.ts   # Injected-clock previous-month/week fixtures for review and provider-cache acceptance
     ├── history-seed.ts  # 正式事务生成历史样本，无生产测试时钟
     ├── past-period-editing.mjs # Native past-task editing, completion/reopening, restore, move/undo, focus, query guards and last-page recovery
     ├── filter-navigation.mjs # Top-bar/shortcut return from history, flow identity, input guards, scroll reset and future-draft retention

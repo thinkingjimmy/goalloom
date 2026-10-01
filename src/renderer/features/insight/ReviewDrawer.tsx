@@ -1,69 +1,99 @@
 /**
- * [INPUT]: The open ReviewDue (week, month or both), snapshot, flows, board view, insight readiness, guarded submission and a flow-filter setter.
- * [OUTPUT]: A right-side review drawer with a period-aware title: look back (model summary + goal×period matrix or 3-month progress) → wrap up (push / postpone / archive)
- *           → plan the next month and/or week (drafted steps, editable, checked; createPlan into the next period) → done (result list, open next period).
- *           The matrix prioritizes readable goal titles and explains its cells with a visual legend. Finishing or skipping marks the reviewed periods on this device;
- *           ReviewSummary owns persistent summaries and refresh feedback.
- * [POS]: features/insight 的复盘流程；每个写入仍是独立命令（顺延/归档/createPlan），可按原有会话撤销。
+ * [INPUT]: Review selection, current generation/revision, provider readiness and guarded workspace actions.
+ * [OUTPUT]: Resumable modal review: historical progress, live unfinished items, destination plans and confirmed results.
+ * [POS]: Review session owner; read contexts separate historical facts from current command versions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ItemSummary } from '../../../shared/contracts/entities'
-import type { Snapshot } from '../../../shared/contracts/queries'
-import type { CommandResult } from '../../../shared/contracts/commands'
-import { horizonNames, insightMessages as t, messages } from '../../i18n'
-import type { Action } from '../../state/use-workspace'
-import type { Flows } from '../../state/flows'
-import type { BoardView } from '../../state/board-periods'
+import type { ReviewContext, Snapshot } from '../../../shared/contracts/queries'
+import { insightMessages as t, messages } from '../../i18n'
+import { desktopApi, type Action, type PreparedWrite, type WriteResult } from '../../state/use-workspace'
+import { useFlows } from '../../state/flows'
 import { markReviewed, requestDraft } from '../../state/insight'
-import { flowStroke } from '../../lib/colors'
 import { periodDates, planningLabel } from '../../lib/periods'
 import { Icon } from '../../components/icons'
-import { boardDigest, periodText, type Planned } from './signals'
-import { goalRows, planCandidates, reviewedOpen, type ReviewDue, type ReviewHorizon } from './review'
-import { ReviewSummary } from './ReviewSummary'
+import { boardDigest, periodText } from './signals'
+import { planCandidates, type ReviewDue, type ReviewHorizon } from './review'
+import { ReviewOverview } from './ReviewOverview'
 import './insight.css'
+import './review.css'
 import '../composer/composer.css'
 
 type Step = 'review' | 'close' | 'planMonth' | 'planWeek' | 'done'
 type Decision = 'keep' | 'defer' | 'archive'
-interface PlanRow { parent: ItemSummary; title: string; on: boolean; typed: boolean; fresh: boolean }
-const columns: Planned[] = ['cycle', 'month', 'week', 'day']
+interface PlanRow { parent: ItemSummary; title: string; on: boolean; typed: boolean }
 
-export function ReviewDrawer({ due, snapshot, flows, view, ready, submit, busy, setFilter, close }: {
-  due: ReviewDue; snapshot: Snapshot; flows: Flows; view: BoardView; ready: boolean
-  submit: (action: Action) => Promise<unknown>; busy: boolean; setFilter: (id: string) => void; close: () => void
+export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, busy, setFilter, close }: {
+  due: ReviewDue; snapshot: Snapshot; open: boolean; ready: boolean
+  write: PreparedWrite; retryWrite: (generation: string) => Promise<WriteResult>; busy: boolean; setFilter: (id: string) => void; close: () => void
 }) {
-  const steps = useMemo<Step[]>(() => due.scope === 'both' ? ['review', 'close', 'planMonth', 'planWeek', 'done'] : ['review', 'close', due.scope === 'week' ? 'planWeek' : 'planMonth', 'done'], [due.scope])
-  const [step, setStep] = useState<Step>('review')
+  const [context, setContext] = useState<ReviewContext | null>(null)
+  const [contextReady, setContextReady] = useState(false)
+  const [loadError, setLoadError] = useState(false), [saveError, setSaveError] = useState(false)
+  const [step, setStep] = useState<Step>('review'), [started, setStarted] = useState(false)
   const [decisions, setDecisions] = useState(new Map<string, Decision>())
   const [plans, setPlans] = useState<Record<ReviewHorizon, PlanRow[] | null>>({ week: null, month: null })
-  const [drafting, setDrafting] = useState(false)
-  const [fresh, setFresh] = useState<ItemSummary[]>([])
+  const [drafting, setDrafting] = useState(false), [working, setWorking] = useState(false)
   const [result, setResult] = useState({ kept: 0, deferred: 0, archived: 0, planned: { week: 0, month: 0 } })
-  const alive = useRef(true), working = useRef(false)
-  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
-  const calendar = snapshot.workspace.calendar!
-  const target = due.month ?? due.week!
-  const title = target.lastDay ? t.reviewTitle(due.scope) : t.reviewEntryAfter(
-    [due.week, due.month].flatMap(value => value ? [planningLabel(value.period, calendar, snapshot.observedAt)] : []).join(' + '),
-  )
-  const range = due.scope === 'week' ? periodDates(due.week!.period) : periodDates(due.month!.period)
-  const primaryTarget = (horizon: ReviewHorizon) => due[horizon]!
-  const stepName = (value: Step) => value === 'review' ? t.stepReview : value === 'close' ? (due.scope === 'both' ? t.stepCloseBoth : t.stepClose(horizonNames[target.horizon]))
-    : value === 'planMonth' ? t.stepPlan(messages.nextPeriodNames.month) : value === 'planWeek' ? t.stepPlan(messages.nextPeriodNames.week) : t.stepDone
+  const [pendingWrite, setPendingWrite] = useState(false)
+  const pendingCommit = useRef<(() => void) | null>(null)
+  const dialog = useRef<HTMLDialogElement>(null), body = useRef<HTMLDivElement>(null)
+  const alive = useRef(true), reading = useRef(0), writing = useRef(false), processed = useRef(new Set<string>())
+  useEffect(() => { alive.current = true; return () => { alive.current = false; reading.current++ } }, [])
+  const generation = snapshot.workspace.generation
+  const target = due.month ?? due.week!, targets = [due.month, due.week].flatMap(value => value ? [value] : [])
+  const periodName = (horizon: ReviewHorizon, next = false) => {
+    const period = next ? due[horizon]!.next : due[horizon]!.period
+    return horizon === 'month' ? periodDates(period, period.startDate.slice(0, 4) !== snapshot.observedAt.slice(0, 4)) : planningLabel(period, snapshot.workspace.calendar!, snapshot.observedAt)
+  }
+  const title = due.scope === 'both' ? t.reviewEntryAfter(`${periodName('week')} + ${periodName('month')}`)
+    : due.month ? t.reviewEntryAfter(periodName('month')) : target.lastDay ? t.reviewTitle('week') : t.reviewEntryAfter(periodName('week'))
+  const load = useCallback(async () => {
+    const attempt = ++reading.current
+    setLoadError(false)
+    try {
+      const value = await desktopApi().getReviewContext({ type: 'reviewContext', generation,
+        periods: [due.month, due.week].flatMap(value => value ? [{ horizon: value.horizon, startDate: value.period.startDate }] : []) })
+      if (!alive.current || attempt !== reading.current || value.board.workspace.generation !== generation) return null
+      setContext(value); setContextReady(true)
+      return value
+    } catch { if (alive.current && attempt === reading.current) setLoadError(true); return null }
+  }, [generation, due])
+  useEffect(() => { if (open && !writing.current) void load(); if (!open) setContextReady(false) }, [open, snapshot.workspace.revision, load])
+  useEffect(() => {
+    const node = dialog.current!
+    if (open && !node.open) node.showModal()
+    if (!open && node.open) node.close()
+  }, [open])
+  useEffect(() => { if (body.current) body.current.scrollTop = 0 }, [step])
+  const planning = context?.planning ?? null
+  const flows = useFlows(planning, planning?.items ?? [])
+  const historyAtEntry = useRef<boolean | null>(null)
+  if (context && historyAtEntry.current === null) historyAtEntry.current = context.unknown > 0 || context.board.items.some(item => targets.some(value => item.placement.periodId === value.period.id))
+  const hasHistory = historyAtEntry.current === true
+  const hasClosing = !!context?.closing.length || processed.current.size > 0
+  const steps: Step[] = [...(hasHistory ? ['review' as const] : []), ...(hasClosing ? ['close' as const] : []), ...(due.month ? ['planMonth' as const] : []), ...(due.week ? ['planWeek' as const] : []), 'done']
+  useEffect(() => {
+    if (!context || started) return
+    setStarted(true)
+    setStep(steps[0]!)
+  }, [context, started])
+  const stepName = (value: Step) => value === 'review' ? t.reviewLookBack(periodName(target.horizon)) : value === 'close' ? t.reviewHandle
+    : value === 'planMonth' ? t.reviewArrange(periodName('month', true)) : value === 'planWeek' ? t.reviewArrange(periodName('week', true)) : t.stepDone
 
-  // --- Planning rows: drafted once per step; typed titles always win over a late draft. ---
-  const openPlan = (horizon: ReviewHorizon) => {
+  // Initialize once per destination. Late model replies merge only into untouched titles.
+  useEffect(() => {
+    if (!open || !planning || !step.startsWith('plan')) return
+    const horizon = step === 'planMonth' ? 'month' : 'week'
     if (plans[horizon]) return
-    const next = primaryTarget(horizon).next
-    const parents = [...(horizon === 'week' ? fresh : []), ...planCandidates(snapshot, horizon)].slice(0, 8)
-    const rows = parents.map(parent => ({ parent, title: '', on: true, typed: false, fresh: fresh.includes(parent) }))
+    const parents = planCandidates(planning, horizon), next = due[horizon]!.next
+    const rows = parents.map(parent => ({ parent, title: '', on: true, typed: false }))
     setPlans(previous => ({ ...previous, [horizon]: rows }))
     if (!ready || !rows.length) return
     setDrafting(true)
-    void requestDraft({ generation: snapshot.workspace.generation, board: boardDigest(snapshot, flows), tasks: parents.map(parent => ({
-      id: parent.id, kind: 'next' as const, parent: parent.title, goal: flows.of(parent.id).find(flow => flow.id !== parent.id)?.title ?? null,
+    void requestDraft({ generation, board: boardDigest(planning, flows), tasks: parents.map(parent => ({ id: parent.id, kind: 'next' as const,
+      parent: parent.title, goal: flows.of(parent.id).find(flow => flow.id !== parent.id)?.title ?? null,
       target: periodText(next, next.id !== snapshot.periods.find(period => period.horizon === horizon)?.id), targetHorizon: horizon, siblings: [], children: [] })) })
       .then(reply => {
         if (!alive.current) return
@@ -72,127 +102,144 @@ export function ReviewDrawer({ due, snapshot, flows, view, ready, submit, busy, 
         const titles = new Map(reply.value.map(value => [value.id, value.title]))
         setPlans(previous => ({ ...previous, [horizon]: previous[horizon]!.map(row => row.typed ? row : { ...row, title: titles.get(row.parent.id) ?? row.title }) }))
       })
-  }
-  const go = (next: Step) => {
-    setStep(next)
-    if (next === 'planMonth') openPlan('month')
-    if (next === 'planWeek') openPlan('week')
-    if (next === 'done') { if (due.week) markReviewed(due.week.key); if (due.month) markReviewed(due.month.key) }
-  }
-  const advance = () => go(steps[steps.indexOf(step) + 1]!)
+  }, [open, step, planning, plans, ready, generation, due, flows])
 
-  const closing = [due.week, due.month].filter(value => value?.lastDay).flatMap(value => reviewedOpen(snapshot, value!.period))
-  const applyClose = async () => {
-    const counts = { kept: 0, deferred: 0, archived: 0 }
-    for (const item of closing) {
-      const choice = decisions.get(item.id) ?? 'keep'
-      counts[choice === 'keep' ? 'kept' : choice === 'defer' ? 'deferred' : 'archived']++
-      if (choice === 'defer') await submit({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon: item.placement.horizon, period: { kind: 'next' } })
-      if (choice === 'archive') await submit({ type: 'archive', itemId: item.id, expectedVersion: item.version, archived: true })
-    }
-    setResult(previous => ({ ...previous, ...counts }))
+  const commit = async (action: Action | (() => Promise<Action | null>), confirmed: () => void) => {
+    const reply = await write(typeof action === 'function' ? action : async () => action, generation)
+    if (!alive.current) return false
+    if (reply.ok) { confirmed(); return true }
+    if (reply.pending) { pendingCommit.current = confirmed; setPendingWrite(true) }
+    setSaveError(true)
+    return false
   }
-  const applyPlan = async (horizon: ReviewHorizon) => {
-    const next = primaryTarget(horizon).next
-    const rows = (plans[horizon] ?? []).filter(row => row.on && row.title.trim())
-    if (!rows.length) return
-    const future = next.id !== snapshot.periods.find(period => period.horizon === horizon)?.id
-    const reply = await submit({ type: 'createPlan', items: rows.map((row, index) => ({ draftId: `review-${horizon}-${index}`, title: row.title.trim(), description: '', dueDate: null, horizon, previewPeriodId: next.id, flowColor: null,
-      ...(future ? { period: { kind: 'date' as const, startDate: next.startDate } } : {}), parentRefs: [{ kind: 'existing' as const, itemId: row.parent.id, expectedVersion: row.parent.version }] })) }) as CommandResult | null
-    if (!reply) return
-    setResult(previous => ({ ...previous, planned: { ...previous.planned, [horizon]: rows.length } }))
-    // A month plan written into next month is not in this snapshot; the week step still offers it a first step.
-    if (horizon === 'month' && reply.itemIds) setFresh(reply.itemIds.map((id, index) => ({ ...rows[index]!.parent, id, title: rows[index]!.title.trim(), version: 1, flowColor: null,
-      placement: { itemId: id, horizon: 'month', periodId: next.id, sortKey: 0, version: 1, holdPeriodId: null } })))
-  }
+  const finish = () => { targets.forEach(value => markReviewed(value.key)); setStep('done') }
   const primary = async () => {
-    if (working.current || busy) return
-    working.current = true
+    if (!context || writing.current || busy) return
+    writing.current = true; setWorking(true); setSaveError(false)
     try {
-      if (step === 'close') await applyClose()
-      if (step === 'planMonth') await applyPlan('month')
-      if (step === 'planWeek') await applyPlan('week')
-      if (alive.current) advance()
-    } finally { working.current = false }
+      if (pendingCommit.current) {
+        const reply = await retryWrite(generation)
+        if (!alive.current) return
+        if (!reply.ok) {
+          if (!reply.pending) { pendingCommit.current = null; setPendingWrite(false) }
+          setSaveError(true); return
+        }
+        pendingCommit.current(); pendingCommit.current = null; setPendingWrite(false)
+        await load()
+        return
+      }
+      if (step === 'close') {
+        for (const item of context.closing) {
+          if (!alive.current) return
+          if (processed.current.has(item.id)) continue
+          const { item: live } = await desktopApi().getItem(item.id)
+          if (!alive.current) return
+          // A rollover or another edit can win while this drawer is open.
+          if (live.status !== 'todo' || live.archivedAt || live.deletedAt || live.placement.periodId !== item.placement.periodId) { processed.current.add(item.id); continue }
+          const choice = decisions.get(item.id) ?? 'keep'
+          const destination = due[live.placement.horizon as ReviewHorizon]!.next
+          const confirmed = () => {
+            processed.current.add(item.id)
+            const count = choice === 'keep' ? 'kept' : choice === 'defer' ? 'deferred' : 'archived'
+            setResult(previous => ({ ...previous, [count]: previous[count] + 1 }))
+          }
+          if (choice === 'keep') confirmed()
+          else if (!await commit(choice === 'defer'
+            ? { type: 'move', itemId: live.id, expectedVersion: live.version, expectedPlacementVersion: live.placement.version, horizon: live.placement.horizon, period: { kind: 'date', startDate: destination.startDate } }
+            : { type: 'archive', itemId: live.id, expectedVersion: live.version, archived: true }, confirmed)) return
+        }
+      }
+      if (step.startsWith('plan')) {
+        const horizon = step === 'planMonth' ? 'month' : 'week', next = due[horizon]!.next
+        const rows = (plans[horizon] ?? []).filter(row => row.on && row.title.trim())
+        if (rows.length) {
+          let plannedCount = 0
+          const saved = await commit(async () => {
+            const latest = await load()
+            if (!latest) throw new Error('Review context unavailable')
+            const candidates = new Map(planCandidates(latest.planning, horizon).map(parent => [parent.id, parent]))
+            const selected = rows.filter(row => candidates.has(row.parent.id))
+            plannedCount = selected.length
+            if (!selected.length) return null
+            return { type: 'createPlan', items: selected.map((row, index) => ({ draftId: `review-${horizon}-${index}`,
+              title: row.title.trim(), description: '', dueDate: null, horizon, previewPeriodId: next.id, flowColor: null,
+              period: { kind: 'date' as const, startDate: next.startDate }, parentRefs: [{ kind: 'existing' as const, itemId: row.parent.id, expectedVersion: candidates.get(row.parent.id)!.version }] })) }
+          }, () => {
+            setResult(previous => ({ ...previous, planned: { ...previous.planned, [horizon]: previous.planned[horizon] + plannedCount } }))
+            setPlans(previous => ({ ...previous, [horizon]: [] }))
+          })
+          if (!saved) return
+        }
+      }
+      if (!alive.current) return
+      const refreshed = step === 'review' ? context : await load()
+      if (!refreshed) return
+      const next = steps[steps.indexOf(step) + 1]!
+      if (next === 'done') finish(); else setStep(next)
+    } catch { if (alive.current) setSaveError(true) }
+    finally { writing.current = false; if (alive.current) setWorking(false) }
   }
-  const skip = () => { if (due.week) markReviewed(due.week.key); if (due.month) markReviewed(due.month.key); close() }
-
   const rows = step === 'planMonth' ? plans.month : step === 'planWeek' ? plans.week : null
   const planHorizon: ReviewHorizon = step === 'planMonth' ? 'month' : 'week'
   const count = rows?.filter(row => row.on && row.title.trim()).length ?? 0
-  const primaryLabel = step === 'done' ? null : step.startsWith('plan') ? t.planConfirm(count) : t.nextStep(stepName(steps[steps.indexOf(step) + 1]!))
+  const existing = planning?.items.filter(item => item.placement.periodId === due[planHorizon]?.next.id) ?? []
+  const disabled = busy || working
   const setRow = (index: number, patch: Partial<PlanRow>) => setPlans(previous => ({ ...previous, [planHorizon]: previous[planHorizon]!.map((row, at) => at === index ? { ...row, ...patch } : row) }))
-  const goals = goalRows(snapshot, flows)
+  const nextStep = steps[steps.indexOf(step) + 1]
+  const label = step.startsWith('plan') ? count ? t.planConfirm(count) : nextStep === 'done' ? t.reviewFinish : t.nextStep(stepName(nextStep!)) : t.nextStep(stepName(nextStep ?? 'done'))
 
-  return <aside className="review-drawer" role="dialog" aria-label={title} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close() } }}>
-    <header className="review-head">
-      <div><h2>{title}</h2><p>{target.lastDay ? t.reviewEnds(range) : t.reviewEnded(range)}</p></div>
-      <button className="icon-button" aria-label={t.closeReview} onClick={close}><Icon name="close" size={16} /></button>
-    </header>
-    <ol className="review-steps">{steps.map(value => <li key={value} aria-current={value === step ? 'step' : undefined}>{stepName(value)}</li>)}</ol>
-    <div className="review-body">
-      {step === 'review' && <>
-        <ReviewSummary due={due} snapshot={snapshot} flows={flows} ready={ready} />
-        {due.month && <section className="review-section"><h3>{t.goals(periodDates(snapshot.periods.find(period => period.horizon === 'cycle')!))}</h3>
-          {goals.map(goal => <button key={goal.id} className="review-goal" onClick={() => setFilter(goal.id)}>
-            <span className="review-mark" style={{ borderColor: flowStroke(goal.flowColor) }} /><span className="review-goal-title">{goal.title}</span>
-            {goal.counts.month ? <span>{t.goalCount(goal.counts.month, goal.done.month)}</span> : <span className="review-empty-tag">{t.goalNone}</span>}
-          </button>)}
-        </section>}
-        {due.week && <section className="review-section"><h3>{t.matrix}</h3>
-          <div className="review-matrix" role="table">
-            <div role="row"><span role="columnheader" />{columns.map(horizon => <span key={horizon} role="columnheader">{horizonNames[horizon]}</span>)}</div>
-            {goals.map(goal => <div key={goal.id} role="row">
-              <button role="rowheader" className="review-goal-title" onClick={() => setFilter(goal.id)}><span className="review-mark" style={{ borderColor: flowStroke(goal.flowColor) }} /><span>{goal.title}</span></button>
-              {columns.map(horizon => <span key={horizon} role="cell" className="review-matrix-cell" data-empty={!goal.counts[horizon]} data-skip={horizon === 'week' && goal.skip}>{goal.counts[horizon] || t.matrixEmpty}</span>)}
+  return <dialog ref={dialog} className="review-drawer" aria-labelledby="review-title" onCancel={event => { event.preventDefault(); if (!working && !pendingWrite) close() }}>
+    <div className="review-layout">
+      <header className="review-head"><div><h2 id="review-title">{started && !hasHistory ? t.reviewArrange(periodName(target.horizon, true)) : title}</h2>
+        <p>{started && !hasHistory ? periodDates(target.next) : target.lastDay ? t.reviewEnds(periodDates(target.period)) : t.reviewEnded(periodDates(target.period))}</p></div>
+        <button className="icon-button" aria-label={t.closeReview} disabled={working || pendingWrite} onClick={close}><Icon name="close" size={18} /></button>
+      </header>
+      <ol className="review-steps">{steps.filter(value => value !== 'done').map((value, index) => <li key={value} aria-current={value === step ? 'step' : undefined} data-done={steps.indexOf(value) < steps.indexOf(step)}><span className="review-step-number">{index + 1}</span><span>{stepName(value)}</span></li>)}</ol>
+      <div className="review-body" ref={body} aria-busy={!contextReady}>
+        {loadError && <p className="review-note" role="alert">{t.reviewLoadFailed} <button className="text-button" onClick={() => void load()}>{messages.retry}</button></p>}
+        {!contextReady && !loadError && <p className="review-note" role="status">{messages.opening}</p>}
+        {context && started && <>
+          {step === 'review' && open && contextReady && <ReviewOverview due={due} context={context} ready={ready} setFilter={id => { setFilter(id); close() }} />}
+          {step === 'close' && <section className="review-section">
+            <h3 className="review-intro">{t.reviewHandle}</h3><p className="review-note">{target.lastDay ? t.reviewKeepCurrentNote : t.reviewKeepNote}</p>
+            {targets.map(value => <div className="review-close-group" key={value.horizon}>
+              <button className="text-button review-bulk" disabled={disabled} onClick={() => setDecisions(previous => new Map([...previous, ...context.closing.filter(item => item.placement.horizon === value.horizon).map(item => [item.id, 'defer'] as const)]))}>{t.reviewMoveAll(periodName(value.horizon, true))}</button>
+              {context.closing.filter(item => item.placement.horizon === value.horizon && !processed.current.has(item.id)).map(item => {
+                const source = context.sourcePeriods.find(period => period.id === item.placement.periodId)!
+                return <div key={item.id} className="review-close-row" data-choice={decisions.get(item.id) ?? 'keep'}>
+                  <label htmlFor={`review-choice-${item.id}`} className="review-goal-title">{item.title}<small>{source.id === value.period.id ? periodDates(source) : t.reviewEarlier(periodDates(source))}</small></label>
+                  <select id={`review-choice-${item.id}`} disabled={disabled} value={decisions.get(item.id) ?? 'keep'} onChange={event => setDecisions(previous => new Map(previous).set(item.id, event.target.value as Decision))}>
+                    <option value="keep">{t.reviewKeep}</option><option value="defer">{t.reviewMove(periodName(value.horizon, true))}</option><option value="archive">{t.archive}</option>
+                  </select>
+                </div>
+              })}
             </div>)}
-          </div>
-          <ul className="review-matrix-legend">
-            <li><span className="review-matrix-cell" data-empty="true" aria-hidden="true">{t.matrixEmpty}</span><span>{t.matrixLegendEmpty}</span></li>
-            <li><span className="review-matrix-cell" data-skip="true" aria-hidden="true" /><span>{t.matrixLegendSkip}</span></li>
-            <li><Icon name="info" size={14} /><span>{t.matrixFilterHint}</span></li>
-          </ul>
-        </section>}
-      </>}
-      {step === 'close' && <section className="review-section">
-        {closing.length ? <>
-          <h3>{t.closeLeft(horizonNames[target.horizon], closing.length)}</h3>
-          {closing.map(item => <div key={item.id} className="review-close-row">
-            <span className="review-goal-title">{item.title}</span>
-            <div className="segmented small" role="radiogroup" aria-label={item.title}>
-              {(['keep', 'defer', 'archive'] as const).map(choice => <button key={choice} role="radio" aria-checked={(decisions.get(item.id) ?? 'keep') === choice}
-                onClick={() => setDecisions(previous => new Map(previous).set(item.id, choice))}>{t[choice]}</button>)}
-            </div>
-          </div>)}
-          <p className="review-note">{t.closeNote}</p>
-        </> : <p className="review-note">{[due.week, due.month].some(value => value && !value.lastDay) ? t.closePast : t.closeNone}</p>}
-      </section>}
-      {rows && <section className="review-section">
-        <h3>{t.planHeading(planningLabel(primaryTarget(planHorizon).next, calendar, snapshot.observedAt), periodDates(primaryTarget(planHorizon).next))}</h3>
-        <p className="review-note">{rows.length ? ready ? t.planNote : t.planManual : t.planNone}</p>
-        {rows.map((row, index) => <div key={row.parent.id} className="seed-row review-plan-row" data-on={row.on}>
-          <input type="checkbox" aria-label={row.parent.title} checked={row.on} onChange={event => setRow(index, { on: event.target.checked })} />
-          <div className="review-plan-text">
-            <input className="seed-title" aria-label={row.parent.title} value={row.title} maxLength={500} placeholder={drafting ? t.seedBatchPending : t.seedPlaceholder} onChange={event => setRow(index, { title: event.target.value, typed: true })} />
-            <span className="seed-parent">{t.seedParent(row.parent.title)}{row.fresh && <em>{t.fresh}</em>}</span>
-          </div>
-        </div>)}
-      </section>}
-      {step === 'done' && <section className="review-section review-done">
-        <span className="review-check"><Icon name="check" size={20} strokeWidth={2.2} /></span>
-        <h3>{t.doneTitle}</h3>
-        {closing.length > 0 && <p>{t.doneClosed(result.kept, result.deferred, result.archived)}</p>}
-        {(['month', 'week'] as const).filter(horizon => result.planned[horizon]).map(horizon => <p key={horizon}>{t.donePlanned(planningLabel(primaryTarget(horizon).next, calendar, snapshot.observedAt), result.planned[horizon])}</p>)}
-      </section>}
+          </section>}
+          {step.startsWith('plan') && <section className="review-section">
+            <h3 className="review-intro">{t.reviewArrange(periodName(planHorizon, true))}</h3>
+            {!hasHistory && <p className="review-note">{t.reviewNoHistory}</p>}
+            {existing.length > 0 && <div className="review-existing"><h3>{t.reviewExisting(periodName(planHorizon, true), existing.length)}</h3>{existing.map(item => <div key={item.id}><Icon name="check" size={14} /><span>{item.title}</span></div>)}</div>}
+            {!!rows?.length && <h3>{t.reviewNewPlans}</h3>}
+            <p className="review-note">{rows?.length ? ready ? t.planNote : t.planManual : t.planNone}</p>
+            {rows?.map((row, index) => <div key={row.parent.id} className="review-plan-row" data-on={row.on}>
+              <label><input type="checkbox" disabled={disabled} checked={row.on} onChange={event => setRow(index, { on: event.target.checked })} />{row.parent.title}</label>
+              <input className="seed-title" disabled={disabled} aria-label={row.parent.title} value={row.title} maxLength={500} placeholder={drafting ? t.seedBatchPending : t.seedPlaceholder} onChange={event => setRow(index, { title: event.target.value, typed: true })} />
+            </div>)}
+          </section>}
+          {step === 'done' && <section className="review-section review-done"><span className="review-check"><Icon name="check" size={24} /></span><h3>{t.doneTitle}</h3>
+            {(result.kept + result.deferred + result.archived) > 0 && <p>{t.reviewSaved(result.kept, result.deferred, result.archived)}</p>}
+            {(['month', 'week'] as const).filter(horizon => result.planned[horizon]).map(horizon => <p key={horizon}>{t.donePlanned(periodName(horizon, true), result.planned[horizon])}</p>)}
+          </section>}
+        </>}
+        {saveError && <p className="review-note review-error" role="alert">{t.reviewSaveFailed}</p>}
+      </div>
+      <footer className="review-foot">
+        {step !== 'done' && (steps.indexOf(step) > 0 ? <button className="settings-button subtle" disabled={disabled || pendingWrite} onClick={() => setStep(steps[steps.indexOf(step) - 1]!)}>{t.back}</button>
+          : <button className="settings-button subtle" disabled={working || pendingWrite} onClick={close}>{t.later}</button>)}
+        <span className="column-spacer" />
+        {step === 'done' ? <button className="settings-button primary" onClick={close}>{t.reviewBackBoard}</button>
+          : <button className="settings-button primary" disabled={disabled || !started || !contextReady || loadError || drafting} onClick={() => void primary()}>{pendingWrite ? messages.retry : label}</button>}
+      </footer>
     </div>
-    <footer className="review-foot">
-      {step === 'review' ? <button className="settings-button subtle" onClick={skip}>{t.skipReview}</button>
-        : step !== 'done' && <button className="settings-button subtle" onClick={() => setStep(steps[steps.indexOf(step) - 1]!)}>{t.back}</button>}
-      <span className="column-spacer" />
-      {step === 'done' ? <>
-        {(result.planned.week > 0 && due.week && due.week.next.id !== snapshot.periods.find(period => period.horizon === 'week')?.id) && <button className="settings-button" onClick={() => { view.choose('week', due.week!.next); close() }}>{t.viewPeriod(planningLabel(due.week.next, calendar, snapshot.observedAt))}</button>}
-        <button className="settings-button primary" onClick={close}>{t.closeReview}</button>
-      </> : <button className="settings-button primary" disabled={busy || (step.startsWith('plan') && drafting)} onClick={() => void primary()}>{primaryLabel}</button>}
-    </footer>
-  </aside>
+  </dialog>
 }

@@ -5,7 +5,7 @@
 ```text
 storage/
 ├── client.ts       # main 的请求关联、worker 故障隔离与退出排空
-├── worker.ts       # Serial RPC root for commands, current/future/live-past reads, immutable history and transfer after guarded startup
+├── worker.ts       # Serial RPC root for commands, current/future/live-past reads, immutable history, period-scoped reviews and transfer after guarded startup
 ├── startup.ts      # 只读探测 user_version/schema → 现有 BackupManager 创建并校验 protective 副本 → 复核后原子迁移
 ├── database.ts     # node:sqlite 连接、外键/WAL、同步事务与完整性校验
 ├── schema.ts       # schema v5，DAG/唯一位置/历史/操作约束、界面与复选框风格，v1–v4→v5 原子升级

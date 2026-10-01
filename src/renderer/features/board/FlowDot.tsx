@@ -1,6 +1,6 @@
 /**
  * [INPUT]: One board item, flow/topology/candidate views, guarded actions, RelationDragContext and the board's preview callback.
- * [OUTPUT]: Role-aware flow menus, pointer linking and keyboard adoption for roots; hover/focus previews stay active across flow rows and breakpoint controls.
+ * [OUTPUT]: Role-aware flow menus, pointer linking and keyboard adoption for roots; hover/focus previews stay active across flow rows and breakpoint controls without a native tooltip.
  * [POS]: board row decoration; writes only through flowColor/link/unlink actions, so undo toasts and revalidation stay authoritative.
  *        Later items render nothing: the parking lot takes no part in flows or links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -60,7 +60,7 @@ export function FlowDot({ item, flows, relations, candidates, disabled, submit, 
   return <div className="flow-dot-slot">
     <Popover floating open={open} onClose={close} anchor={
       <button ref={trigger} type="button" className="flow-dot-button" data-role={role} aria-haspopup="dialog" aria-expanded={open} aria-label={label} disabled={disabled}
-        aria-description={!topmost ? messages.dragRelationHint : undefined} title={`${colors.length > 2 ? `${label} · ${messages.multiFlow(colors.length)}` : label}${topmost ? '' : ` · ${messages.dragRelationHint}`}`}
+        aria-description={!topmost ? messages.dragRelationHint : undefined}
         onPointerDown={event => { event.stopPropagation(); if (!disabled) linking?.begin(event, item, close) }} onClick={() => open ? close() : setMode(role === 'root' ? 'color' : role === 'child' ? 'relation' : 'choose')}
         onPointerEnter={preview} onFocus={event => { if (event.currentTarget.matches(':focus-visible')) preview() }}>
         {colors.length > 2 ? <span className="flow-dot-count">{colors.length}</span>

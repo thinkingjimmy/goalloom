@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Display text, optional saved URL membership, localized copy and external-browser IPC.
- * [OUTPUT]: Shared favicon/page-title links, authored labels and an actionable title with sibling link controls.
+ * [OUTPUT]: Shared favicon/page-title links, authored labels and an actionable title without a native tooltip, with sibling link controls.
  * [POS]: Shared text rendering for current, historical and archived item surfaces.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -45,7 +45,7 @@ export const LinkText = memo(function LinkText({ text, savedUrls }: { text: stri
 
 export function LinkTitle({ text, onOpen, className = '' }: { text: string; onOpen: () => void; className?: string }) {
   return <div className={`link-title ${className}`}>
-    <button type="button" className="task-title link-title-open" title={text} aria-label={text} onClick={onOpen} />
+    <button type="button" className="task-title link-title-open" aria-label={text} onClick={onOpen} />
     <span className="link-rich-text"><LinkText text={text} /></span>
   </div>
 }

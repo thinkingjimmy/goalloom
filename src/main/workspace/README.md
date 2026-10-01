@@ -9,6 +9,7 @@ workspace/
 ├── periods.ts        # Read-only selected-period summaries, generation/revision guards and rollover sources; no period materialization
 ├── ordering.ts       # Body-free ancestor placement metadata shared by board reads and guarded ordering commands
 ├── queries.ts        # 轻量数量/活动/备份摘要及按页展开的批次成员
+├── review.ts         # Generation-bound period-end review facts, live unfinished placements and exact destination plans
 ├── history.ts        # Immutable period-end projections and activity; separate generation-guarded live past-task pages filtered by current placement
 ├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/

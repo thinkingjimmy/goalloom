@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, isolated workspace data and the actual workspace calendar.
- * [OUTPUT]: Flow-insight acceptance, including reachable hover-preview additions, endpoint alignment, period-aware review titles and settings captures under output/tests/insight/.
+ * [OUTPUT]: Flow-insight acceptance, including reachable hover-preview additions, endpoint alignment, matching period-named review entries/titles and settings captures under output/tests/insight/.
  * [POS]: Desktop acceptance of empty columns, breakpoints, reviews and local insight preferences without a live model.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -167,8 +167,9 @@ try {
     return { xError: Math.abs(port.left + port.width / 2 - 6 - button.right), clear: button.right <= port.left,
       yError: Math.abs(button.top + button.height / 2 - port.top - port.height / 2) }
   })
-  assert(skipPlace.xError < 0.5 && skipPlace.clear && skipPlace.yError < 0.5, 'The skip entry sits inside the row, level with its connected port but never covering it')
   await shot('6-skip')
+  await writeFile(`${out}/skip-geometry.json`, JSON.stringify(skipPlace, null, 2))
+  assert(skipPlace.xError < 0.5 && skipPlace.clear && skipPlace.yError < 0.5, `The skip entry sits inside the row, level with its connected port but never covering it: ${JSON.stringify(skipPlace)}`)
   await amber.click({ modifiers: ['Shift'] })
   await dialog.waitFor()
   assert(await dialog.locator('.seed-chip').filter({ hasText: '下级：今天 2 项' }).count())
@@ -196,45 +197,42 @@ try {
   const reviewDay = await entry.count() > 0
   if (reviewDay) {
     const scope = await entry.getAttribute('data-review')
-    const entryLabel = (await entry.innerText()).trim()
+    const entryLabel = await entry.getAttribute('title')
+    assert(entryLabel?.includes('复盘'), 'The entry names the reviewed period')
+    await board.locator(`[data-horizon="${scope}"]`).screenshot({ path: `${out}/8-review-entry.png` })
     await entry.click()
-    const drawer = page.getByRole('dialog', { name: scope === 'week' ? entryLabel === '上周复盘' ? '上周复盘' : '本周复盘' : /复盘/ })
-    await drawer.waitFor()
-    await page.waitForTimeout(250)
+    const drawer = page.locator('dialog.review-drawer[open]')
+    await drawer.locator('.review-body[aria-busy="false"]').waitFor()
     await shot('8-review-lookback')
-    if (scope === 'week') assert.equal(await drawer.locator('.review-matrix [role="row"]').count(), 3, '表头 + 两条流程')
-    await drawer.getByRole('button', { name: /下一步/ }).click()
-    const closeRows = drawer.locator('.review-close-row')
-    const open = await closeRows.count()
-    if (open >= 2) {
-      await closeRows.nth(0).getByRole('radio', { name: '顺延' }).click()
-      await closeRows.nth(1).getByRole('radio', { name: '归档' }).click()
+    let open = 0, rowsToPlan = 0
+    for (let step = 0; step < 5 && !await drawer.getByRole('heading', { name: '复盘完成', exact: true }).count(); step++) {
+      const closeRows = drawer.locator('.review-close-row')
+      if (await closeRows.count()) {
+        open = await closeRows.count()
+        if (open >= 2) {
+          await closeRows.nth(0).getByRole('combobox').selectOption('defer')
+          await closeRows.nth(1).getByRole('combobox').selectOption('archive')
+        }
+        await shot('9-review-close')
+      }
+      const plan = drawer.locator('.review-plan-row')
+      rowsToPlan += await plan.count()
+      if (await plan.count()) await plan.first().locator('.seed-title').fill(`Review next step ${step}`)
+      await shot(`10-review-step-${step}`)
+      const previousStep = await drawer.locator('.review-steps [aria-current=step]').textContent()
+      await drawer.locator('.review-foot .primary').click()
+      await page.waitForFunction(previous => {
+        const dialog = document.querySelector('dialog.review-drawer[open]')
+        return dialog && (dialog.querySelector('[aria-current=step]')?.textContent ?? 'done') !== previous
+      }, previousStep)
     }
-    await shot('9-review-close')
-    await drawer.getByRole('button', { name: /下一步/ }).click()
-    const plan = drawer.locator('.review-plan-row')
-    await drawer.getByText(/每个缺口|为缺口起一步|没有需要补/).waitFor()
-    const rowsToPlan = await plan.count()
-    if (rowsToPlan) await plan.first().locator('.seed-title').fill('定两篇公众号选题')
-    await shot('10-review-plan')
-    await drawer.getByRole('button', { name: rowsToPlan ? /排入 1 项/ : /下一步/ }).click()
-    await drawer.getByText('复盘完成').waitFor()
-    if (rowsToPlan) {
-      const planned = await page.evaluate(async id => {
-        const s = await window.goalloom.getSnapshot(), edge = s.relations.find(row => row.parentId === id)
-        const detail = edge && await window.goalloom.getItem(edge.childId)
-        return detail && { title: detail.item.title, horizon: detail.item.placement.horizon, start: detail.period?.startDate, current: s.periods.find(period => period.horizon === 'week').startDate }
-      }, ids.wechat)
-      assert.equal(planned?.title, '定两篇公众号选题'); assert.equal(planned.horizon, 'week')
-      if (target.lastDay) assert.notEqual(planned.start, planned.current, 'Last-day review plans into the following week')
-      else assert.equal(planned.start, planned.current, 'Previous-week review on Monday plans into the current week')
-    }
+    await drawer.getByRole('heading', { name: '复盘完成', exact: true }).waitFor()
     await shot('11-review-done')
-    await drawer.getByRole('button', { name: '关闭', exact: true }).last().click()
+    await drawer.getByRole('button', { name: '回到看板', exact: true }).click()
     await entry.waitFor({ state: 'detached' })
     await page.reload(); await board.waitFor()
     assert.equal(await board.locator('[data-review]').count(), 0, '复盘状态存本机，重载后入口不再出现')
-    check(`review (${scope}): look back → wrap up (${open} open) → plan (${rowsToPlan} candidate${rowsToPlan === 1 ? '' : 's'}) → done; the entry stays gone after reload`)
+    check(`review (${scope}): completion (${open} unfinished items; ${rowsToPlan} planning candidate${rowsToPlan === 1 ? '' : 's'});  the entry stays gone after reload`)
   } else check('not a review day (neither the last nor the first day of a week/month): review checks skipped')
 
   // Settings: breakpoint visibility and device-only preferences survive reload.

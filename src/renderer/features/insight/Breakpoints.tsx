@@ -22,12 +22,11 @@ import { breakpoints, type ChildHorizon } from './signals'
 import { decompose, type Seed } from './decompose'
 import './insight.css'
 import { boardIsMoving, boardMotionEvent } from '../board/RowMotion'
-import { panelViewport } from '../board/geometry'
+import { dotCenter, firstLine, panelViewport } from '../board/geometry'
 
 interface Spot { key: string; kind: 'gap' | 'skip'; parent: ItemSummary; target: ChildHorizon; children: ItemSummary[]; color: string }
 interface Place { x: number; y: number }
-const firstLine = 32
-// The entry sits this far inside its row's right edge; its own width grows leftwards.
+// Gap entries sit this far inside the row's right edge; skip entries also clear the shared relation-port anchor.
 const inset = 6
 
 export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, columns, ready, submit, seed }: {
@@ -59,10 +58,11 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
     for (const spot of latest.current) {
       const row = document.getElementById(`item-${spot.parent.id}`), content = row?.closest('.column-content')
       if (!row || !content || !board.contains(row)) continue
+      const offset = inset + (spot.kind === 'skip' ? dotCenter : 0)
       const r = row.getBoundingClientRect(), c = content.getBoundingClientRect(), viewport = panelViewport(row), mid = r.top + Math.min(r.height, firstLine) / 2
-      if (!viewport || r.right - inset - 24 < viewport.left || r.right - inset > viewport.right || mid < c.top || mid > c.bottom) continue
+      if (!viewport || r.right - offset - 24 < viewport.left || r.right - offset > viewport.right || mid < c.top || mid > c.bottom) continue
       // Anchored inside the row's right edge (level with the first line), so it never covers the connector bus on the column rule.
-      next.set(spot.key, { x: r.right - inset + dx, y: mid + dy })
+      next.set(spot.key, { x: r.right - offset + dx, y: mid + dy })
     }
     for (const node of root.current?.querySelectorAll<HTMLElement>('[data-spot-key]') ?? []) {
       const place = next.get(node.dataset.spotKey!)

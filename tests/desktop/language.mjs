@@ -1,13 +1,13 @@
 /**
- * [INPUT]: Built Electron, isolated profiles and the five supported locale catalogs.
- * [OUTPUT]: Language-switching acceptance and repeatable settings screenshots, including the calendar pane in every locale.
+ * [INPUT]: Built Electron, isolated profiles, an explicit week-start choice and the five supported locale catalogs.
+ * [OUTPUT]: Language-switching acceptance and repeatable screenshots of settings/calendar and period-named review entries/drawers in every locale.
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
+import { cpus, release, tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
 
@@ -21,7 +21,7 @@ const profile = await mkdtemp(join(tmpdir(), 'goalloom-language-'))
 const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
 const tags = { zh: 'zh-CN', en: 'en', ja: 'ja-JP', es: 'es', fr: 'fr-FR' }
 const shots = 'output/tests/screenshots'
-const report = { packaged: Boolean(packaged), system: null, detected: null, locales: {}, relaunch: null }
+const report = { packaged: Boolean(packaged), host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model }, system: null, detected: null, locales: {}, relaunch: null }
 await mkdir(shots, { recursive: true })
 
 const han = /[一-鿿]/
@@ -56,6 +56,13 @@ const ui = {
   fr: { settings: 'Réglages et données', board: 'Tableau', smart: 'Saisie intelligente', day: 'Aujourd’hui' },
   zh: { settings: '设置与数据', board: '时间看板', smart: '智能输入', day: '今天' },
 }
+const reviewTitles = {
+  zh: { week: '本周复盘', both: '本周 + 本月复盘', previousMonth: '上月复盘' },
+  en: { week: 'Weekly review', both: 'Week + month review', previousMonth: 'Review Last month' },
+  ja: { week: '週の振り返り', both: '週 + 月の振り返り', previousMonth: '先月の振り返り' },
+  es: { week: 'Repaso semanal', both: 'Repaso de semana y mes', previousMonth: 'Repaso de El mes pasado' },
+  fr: { week: 'Bilan de la semaine', both: 'Bilan semaine + mois', previousMonth: 'Bilan de Le mois dernier' },
+}
 
 let application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 try {
@@ -81,6 +88,10 @@ try {
   await page.getByRole('button', { name: 'Skip', exact: true }).click()
   await page.getByRole('button', { name: 'Confirm and start', exact: true }).waitFor()
   await assertTranslated(page, 'en calendar step')
+  // Tomorrow as week start makes the current week's review available without replacing the clock.
+  const weekStart = await page.evaluate(() => (new Date().getDay() + 1) % 7 || 7)
+  await page.getByRole('combobox', { name: 'Week starts on', exact: true }).click()
+  await page.getByRole('option').nth(weekStart - 1).click()
   await page.getByRole('button', { name: 'Confirm and start', exact: true }).click()
   await page.getByRole('button', { name: 'Connect an AI service', exact: true }).click()
   await page.getByLabel('OpenRouter API Key').waitFor()
@@ -92,6 +103,16 @@ try {
   await assertTranslated(page, 'en AI example step')
   await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
   await page.getByRole('main', { name: ui.en.board }).waitFor()
+  report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+  report.reviewScope = await page.evaluate(async () => {
+    const snapshot = await window.goalloom.getSnapshot()
+    const today = snapshot.periods.find(period => period.horizon === 'day').startDate
+    const month = snapshot.periods.find(period => period.horizon === 'month')
+    if (today === month.startDate) return 'previousMonth'
+    const tomorrow = new Date(`${today}T00:00:00Z`)
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
+    return tomorrow.toISOString().slice(0, 10) === month.endDate ? 'both' : 'week'
+  })
 
   // 3. Completion stays quiet; its keyboard undo and the worker error both speak English.
   await page.getByRole('button', { name: 'Add to Later', exact: true }).click()
@@ -132,7 +153,33 @@ try {
     }
     await dialog.locator('.settings-nav button').first().click()
     await page.screenshot({ path: `${shots}/language-settings-${code}.png` })
-    report.locales[code] = { lang: tags[code], panes, worker: 'ok', untranslatedCheck: ['en', 'es', 'fr'].includes(code) }
+    await page.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'detached' })
+    const entry = page.locator('[data-review]'), expectedWeekTitle = reviewTitles[code].week
+    assert.equal(await entry.count(), 1, 'Combined reviews have a single entry')
+    if (report.reviewScope === 'week') assert.equal((await entry.innerText()).trim(), expectedWeekTitle)
+    const entryTitle = await entry.getAttribute('title')
+    assert(entryTitle)
+    if (report.reviewScope !== 'week') {
+      const start = await page.evaluate(() => window.goalloom.getSnapshot().then(snapshot => snapshot.periods.find(period => period.horizon === 'month').startDate))
+      const [year, month] = start.split('-').map(Number)
+      const date = new Date(Date.UTC(year, month - (report.reviewScope === 'previousMonth' ? 2 : 1), 1))
+      assert(entryTitle.includes(new Intl.DateTimeFormat(tags[code], { month: 'short', timeZone: 'UTC' }).format(date)), 'Monthly review names its actual month')
+    }
+    await page.screenshot({ path: `${shots}/language-review-entry-${code}.png` })
+    await entry.click()
+    const review = page.locator('dialog.review-drawer[open]')
+    await review.locator('.review-body[aria-busy="false"]').waitFor()
+    if (['en', 'es', 'fr'].includes(code)) assert(!/[\u4e00-\u9fff]/u.test(await review.innerText()), 'Review controls are translated')
+    await review.locator('.review-foot .primary:not(:disabled)').waitFor()
+    const reviewTitle = await review.locator('.review-head h2').innerText()
+    await review.screenshot({ path: `${shots}/language-review-drawer-${code}.png` })
+    await review.locator('.review-head .icon-button').click()
+    await review.waitFor({ state: 'hidden' })
+    report.locales[code] = { lang: tags[code], panes, worker: 'ok', untranslatedCheck: ['en', 'es', 'fr'].includes(code), entryTitle, reviewTitle }
+    await page.getByRole('button', { name: ui[code].settings, exact: true }).click()
+    dialog = settingsDialog(page, ui[code].settings)
+    await dialog.waitFor()
   }
 
   // 5. Choose French and quit: the preference lives outside the workspace and is read before storage starts.

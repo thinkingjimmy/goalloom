@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Finite queries and entity/operation schemas.
- * [OUTPUT]: Current/planning summaries with ancestor order nodes, generation/revision guards, live past-period pages, historical projections and counts.
+ * [OUTPUT]: Current/planning summaries with ancestor order nodes, generation/revision guards, review contexts, live past-period pages, historical projections and counts.
  * [POS]: Read-only IPC contract; full descriptions are available only through item detail.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,6 +9,7 @@ import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, it
 
 export const querySchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('snapshot') }),
+  z.strictObject({ type: z.literal('reviewContext'), generation: idSchema, periods: z.array(z.strictObject({ horizon: z.enum(['week', 'month']), startDate: dateSchema })).min(1).max(2) }),
   z.strictObject({ type: z.literal('boardPeriods'), generation: idSchema, periods: z.array(z.strictObject({ horizon: periodHorizonSchema, startDate: dateSchema })).min(1).max(4) }),
   z.strictObject({ type: z.literal('item'), itemId: idSchema }),
   z.strictObject({ type: z.literal('list'), view: z.enum(['search', 'done', 'cancelled', 'archived', 'trash', 'backlog']), query: z.string().max(500).default(''), horizon: horizonSchema.optional(), offset: z.number().int().min(0).max(100_000).default(0), limit: z.number().int().min(1).max(100).default(50) }),
@@ -40,6 +41,10 @@ export const boardPeriodsSchema = snapshotSchema.pick({ periods: true, items: tr
 export type BoardPeriods = z.infer<typeof boardPeriodsSchema>
 export const detailSchema = z.strictObject({ item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema) })
 export type Snapshot = z.infer<typeof snapshotSchema>
+export const reviewContextSchema = z.strictObject({
+  board: snapshotSchema, planning: snapshotSchema, closing: z.array(itemSummarySchema), sourcePeriods: z.array(periodSchema), unknown: z.number().int().nonnegative(),
+})
+export type ReviewContext = z.infer<typeof reviewContextSchema>
 export type Flow = z.infer<typeof flowSchema>
 export type ItemPage = z.infer<typeof itemPageSchema>
 export type ItemDetail = z.infer<typeof detailSchema>

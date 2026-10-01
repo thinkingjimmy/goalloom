@@ -9,13 +9,17 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { cpus, release, tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
-import { createServer } from 'vite'
+import { createServer, build } from 'vite'
+import { spawnSync } from 'node:child_process'
+import electronPath from 'electron'
 import react from '@vitejs/plugin-react'
 import tailwind from '@tailwindcss/vite'
 import { pollPage } from './fixtures/poll.mjs'
 
 const out = resolve('output/tests/insight/generation')
 await mkdir(out, { recursive: true })
+await build({ configFile: false, build: { outDir: 'output/tests/build/review', emptyOutDir: false,
+  lib: { entry: 'tests/desktop/fixtures/review-seed.ts', formats: ['cjs'], fileName: () => 'review-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
 const modes = process.argv.includes('--development') ? ['development'] : ['development', 'production']
 for (const mode of modes) await run(mode)
 
@@ -177,15 +181,27 @@ async function run(mode) {
     assert.deepEqual(written, { items: 7, relations: 7 })
     check('reopened composer ignores old results and commits seven linked steps')
 
+    const beforeHistoryCalls = await calls()
+    await application.close()
+    const historySeed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, 'cache'], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
+    assert.equal(historySeed.status, 0, historySeed.stderr)
+    application = await electron.launch({ args: ['.', `--user-data-dir=${profile}`], env })
+    page = await application.firstWindow()
+    await installFixture(application, beforeHistoryCalls)
+    page.on('pageerror', error => errors.push(error.message))
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.locator('.board').waitFor()
+
     const reviewCount = async () => (await calls()).filter(call => call.kind === 'review').length
-    const drawer = () => page.locator('.review-drawer')
+    const drawer = () => page.locator('.review-drawer[open]')
     const openReview = async () => {
       await page.locator('[data-review]').click()
       await drawer().locator('.review-summary[aria-busy="false"]').waitFor()
     }
     const closeReview = async () => {
+      if (!await drawer().count()) return
       await drawer().locator('.review-head').getByRole('button', { name: '关闭', exact: true }).click()
-      await drawer().waitFor({ state: 'detached' })
+      await drawer().waitFor({ state: 'hidden' })
     }
     const headline = () => drawer().locator('.review-headline').innerText()
     const refreshSummary = () => drawer().getByRole('button', { name: '重新生成', exact: true }).click()
@@ -198,15 +214,15 @@ async function run(mode) {
     const reviewGeometry = await reviewColumn.evaluate(column => {
       const box = node => { const r = node.getBoundingClientRect(); return { left: r.left, top: r.top, bottom: r.bottom } }
       const review = column.querySelector('[data-review]'), header = column.querySelector('.column-header'), title = column.querySelector('.period-title')
-      return { header: box(header), title: box(title), review: box(review.querySelector('.review-entry-dot')), opacity: getComputedStyle(review).opacity, background: getComputedStyle(review).backgroundColor }
+      return { header: box(header), title: box(title), review: box(review.querySelector('.review-entry-dot') ?? review), monthly: !!column.querySelector('.review-guide'), opacity: getComputedStyle(review).opacity, background: getComputedStyle(review).backgroundColor }
     })
     assert(reviewGeometry.review.top >= reviewGeometry.header.bottom - 1, 'Review is a line under the column header')
-    assert(Math.abs(reviewGeometry.review.left - reviewGeometry.title.left) < 1, 'Review aligns with the column title and row checkboxes')
-    assert.equal(reviewGeometry.background, 'rgba(0, 0, 0, 0)', 'Review is quiet text, not a filled pill')
+    if (!reviewGeometry.monthly) assert(Math.abs(reviewGeometry.review.left - reviewGeometry.title.left) < 1, 'Review aligns with the column title and row checkboxes')
+    if (!reviewGeometry.monthly) assert.equal(reviewGeometry.background, 'rgba(0, 0, 0, 0)', 'Review is quiet text, not a filled pill')
     assert.equal(reviewGeometry.opacity, '1', 'Review remains visible when navigation recedes')
     await reviewColumn.locator('.column-header').screenshot({ path: `${out}/${mode}-review-header-idle.png` })
     report.reviewHeader = reviewGeometry
-    check('review is a quiet line under the header, aligned with the title, and remains visible on idle')
+    check('review remains visible below the header, with one monthly guide or a quiet weekly entry')
     await page.locator('[data-review]').click()
     await drawer().locator('.review-summary').waitFor()
     await closeReview()
@@ -259,6 +275,7 @@ async function run(mode) {
     check('successful summary survives a full Electron process restart')
 
     const changePreference = async (name, tab) => {
+      if (await drawer().count()) await closeReview()
       await page.keyboard.press('ControlOrMeta+,')
       const pane = page.locator('dialog.settings-modal')
       await pane.getByRole('button', { name: '洞察', exact: true }).click()
@@ -283,9 +300,11 @@ async function run(mode) {
 
     const editPlan = async title => {
       await page.evaluate(async title => {
-        const snapshot = await window.goalloom.getSnapshot(), item = snapshot.items.find(item => item.placement.horizon === 'month')
+        const snapshot = await window.goalloom.getSnapshot()
+        const records = await window.goalloom.listItems({ type: 'list', view: 'search', query: 'Historical', offset: 0, limit: 100 })
+        const item = records.items.find(item => item.placement.horizon === (new Date().getDate() === 1 ? 'month' : 'week')) ?? records.items[0]
         const reply = await window.goalloom.execute({ type: 'edit', generation: snapshot.workspace.generation, operationId: crypto.randomUUID(), itemId: item.id,
-          expectedVersion: item.version, title, description: '', dueDate: null })
+          expectedVersion: item.version, title: `Historical ${title}`, description: '', dueDate: null })
         if (!reply.ok) throw Error(reply.message)
       }, title)
       await page.reload()
@@ -364,9 +383,11 @@ async function run(mode) {
     await page.evaluate(() => globalThis.restoreSummaryStorage())
     check('full local storage keeps generation and session reuse working')
 
-    await drawer().getByRole('button', { name: /下一步/ }).click()
-    await drawer().getByRole('button', { name: /下一步/ }).click()
-    while (await drawer().getByRole('button', { name: /下一步|排入/ }).count()) await drawer().getByRole('button', { name: /下一步|排入/ }).click()
+    while (!await drawer().getByRole('heading', { name: '复盘完成', exact: true }).count()) {
+      const previousStep = await drawer().locator('.review-steps [aria-current=step]').textContent()
+      await drawer().locator('.review-foot .primary').click()
+      await page.waitForFunction(previous => (document.querySelector('dialog.review-drawer[open] [aria-current=step]')?.textContent ?? 'done') !== previous, previousStep)
+    }
     await drawer().getByText('复盘完成', { exact: true }).waitFor()
     await page.screenshot({ path: `${out}/${mode}-review.png` })
     await closeReview()

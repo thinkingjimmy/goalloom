@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build and an isolated Repository/SQLite planning fixture.
- * [OUTPUT]: Period interactions, compact menu/source-row activation assertions, screenshots and environment/boundary JSON in output/tests/periods.
+ * [OUTPUT]: Period interactions, compact menu/source-row activation assertions, screenshots, environment/boundary JSON and app-local failure diagnostics in output/tests/periods.
  * [POS]: Focused desktop acceptance; fixture refresh emits a main-process notification without native activation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -39,6 +39,15 @@ try {
   application = await launch()
   let page = await application.firstWindow()
   page.setDefaultTimeout(12000)
+  await page.evaluate(() => {
+    window.periodTestInputs = []
+    for (const type of ['pointerdown', 'click', 'keydown']) document.addEventListener(type, event => {
+      const target = event.target instanceof Element ? event.target : null
+      window.periodTestInputs.push({ type, key: event.key, detail: event.detail, trusted: event.isTrusted, at: performance.now(),
+        target: target?.closest('button, input, select')?.outerHTML.slice(0, 300), horizon: target?.closest('[data-horizon]')?.getAttribute('data-horizon') })
+      if (window.periodTestInputs.length > 50) window.periodTestInputs.shift()
+    }, true)
+  })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   page.on('pageerror', error => errors.push(error.message))
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1880, 1000))
@@ -391,6 +400,10 @@ try {
   report.error = String(error)
   if (application) {
     const page = await application.firstWindow().catch(() => null)
+    report.failureContext = {
+      native: await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getBounds() }))).catch(() => null),
+      renderer: await page?.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML.slice(0, 500), inputs: window.periodTestInputs, dialogs: [...document.querySelectorAll('dialog[open]')].map(node => node.className) })).catch(() => null),
+    }
     await page?.screenshot({ path: join(evidence, 'failure.png') }).catch(() => undefined)
     if (page) await writeFile(join(evidence, 'failure.txt'), await page.locator('body').ariaSnapshot().catch(() => 'Unavailable'))
   }

@@ -6,7 +6,7 @@
 - `renderer.mjs`: current-source Chromium with delayed IPC/imports; input/save revisions, late previews, pagination, search recovery, nested lazy-dialog visibility and draft-only composer calendar selection. `node tests/desktop/review/renderer.mjs --calendar` selects calendar interactions only and writes `calendar.json`.
 - `lifecycle.mjs`: real Electron reload, close/reopen and crash maintenance release.
 - `virtual.mjs`: real Electron long columns; bounded DOM, keyboard/pointer drag, read-only history targets, logical focus, folds and refresh counts.
-- `wire.mjs`: real sandboxed preload rejects invalid dates/zones/extra fields in five languages; accepts an optional packaged executable.
+- `wire.mjs`: real sandboxed preload rejects invalid dates/zones/extra fields in five languages and validates nested review contexts; accepts an optional packaged executable.
 - `scaling.mjs`: three samples each at 200/400/800 items; rollover/undo integrity, SQL plans and growth curves.
 - `large-backup.mjs`: production storage worker; 360 long descriptions, protective reset and complete recovery above 100 MiB.
 - `large-workspace.mjs`: production commands and worker snapshots above SQLite's variable limit and at 100,000 items; latest-move and archive semantics.

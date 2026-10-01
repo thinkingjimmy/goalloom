@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Selected closed period, workspace generation/revision, live task pages and guarded item actions.
- * [OUTPUT]: Always-expanded live groups with completion/reopening, restore, detail editing, focus retention and bounded paging.
+ * [OUTPUT]: Always-expanded live groups with completion/reopening, restore, detail editing, focus retention and bounded paging; task titles have no native tooltip.
  * [POS]: Past-period task view; edits real items through existing commands while history projections remain immutable.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -61,7 +61,7 @@ function PastRow({ item, outcome, disabled, select, act }: { item: ItemSummary; 
     </button>}
     <div className="task-content">
       <div className="task-line">
-        {hasLinks ? <LinkTitle text={item.title} onOpen={() => select(item.id)} /> : <button className="task-title" title={item.title} onClick={() => select(item.id)}><span>{item.title}</span></button>}
+        {hasLinks ? <LinkTitle text={item.title} onOpen={() => select(item.id)} /> : <button className="task-title" onClick={() => select(item.id)}><span>{item.title}</span></button>}
       </div>
       {hasLinks && <LinkPreviews text={item.title} />}
     </div>

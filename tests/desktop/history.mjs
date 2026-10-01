@@ -53,6 +53,18 @@ try {
     return geometry
   }
   const controlOpacity = column => column.locator('.period-chevron, [data-add-item]').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).opacity))
+  await month.waitFor()
+  if (await month.locator('.review-guide').count()) {
+    await month.locator('.review-guide [data-review]').click()
+    const review = page.locator('dialog.review-drawer[open]')
+    await review.locator('.review-body[aria-busy="false"]').waitFor()
+    while (!await review.getByRole('heading', { name: '复盘完成', exact: true }).count()) {
+      const previousStep = await review.locator('.review-steps [aria-current=step]').textContent()
+      await review.locator('.review-foot .primary').click()
+      await page.waitForFunction(previous => (document.querySelector('dialog.review-drawer[open] [aria-current=step]')?.textContent ?? 'done') !== previous, previousStep)
+    }
+    await review.getByRole('button', { name: '回到看板', exact: true }).click()
+  }
   await month.getByRole('button', { name: '往期未完成 · 1' }).waitFor()
   const original = await page.evaluate(() => window.goalloom.getSnapshot())
   const monthId = await month.getAttribute('data-period-id')
@@ -165,6 +177,18 @@ try {
   await month.getByRole('button', { name: '后来完成样本', exact: true }).waitFor()
   await month.getByRole('button', { name: '后来完成样本', exact: true }).focus()
   await page.keyboard.press('Escape')
+  await month.waitFor()
+  if (await month.locator('.review-guide').count()) {
+    await month.locator('.review-guide [data-review]').click()
+    const review = page.locator('dialog.review-drawer[open]')
+    await review.locator('.review-body[aria-busy="false"]').waitFor()
+    while (!await review.getByRole('heading', { name: '复盘完成', exact: true }).count()) {
+      const previousStep = await review.locator('.review-steps [aria-current=step]').textContent()
+      await review.locator('.review-foot .primary').click()
+      await page.waitForFunction(previous => (document.querySelector('dialog.review-drawer[open] [aria-current=step]')?.textContent ?? 'done') !== previous, previousStep)
+    }
+    await review.getByRole('button', { name: '回到看板', exact: true }).click()
+  }
   await month.getByRole('button', { name: '往期未完成 · 1' }).waitFor()
   assert.equal(await month.getAttribute('data-history'), 'false')
   assert.equal(await page.evaluate(() => document.activeElement === document.querySelector('[data-horizon="month"] [data-period-switch]')), true, 'Leaving the past returns focus to the column heading')
@@ -176,6 +200,18 @@ try {
   await month.getByRole('button', { name: '往期待办样本', exact: true }).waitFor()
   assert.equal(await page.locator('.toast').count(), 0, 'Arranging backlog stays quiet')
   await page.keyboard.press('ControlOrMeta+z')
+  await month.waitFor()
+  if (await month.locator('.review-guide').count()) {
+    await month.locator('.review-guide [data-review]').click()
+    const review = page.locator('dialog.review-drawer[open]')
+    await review.locator('.review-body[aria-busy="false"]').waitFor()
+    while (!await review.getByRole('heading', { name: '复盘完成', exact: true }).count()) {
+      const previousStep = await review.locator('.review-steps [aria-current=step]').textContent()
+      await review.locator('.review-foot .primary').click()
+      await page.waitForFunction(previous => (document.querySelector('dialog.review-drawer[open] [aria-current=step]')?.textContent ?? 'done') !== previous, previousStep)
+    }
+    await review.getByRole('button', { name: '回到看板', exact: true }).click()
+  }
   await month.getByRole('button', { name: '往期未完成 · 1' }).waitFor()
   await page.locator('.toast [role="status"]').filter({ hasText: '已撤销' }).waitFor()
   const item = await page.evaluate(id => window.goalloom.getItem(id), fixture.waitingId)

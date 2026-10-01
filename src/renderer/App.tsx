@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Unified candidates/locating, independent Later visibility/count, board-ordered flow filters, board/dialogs, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and the review drawer.
+ * [OUTPUT]: Unified candidates/locating, independent Later visibility/count, board-ordered flow filters, board/dialogs, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and a generation-bound resumable review modal.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -68,9 +68,12 @@ export function App() {
   const ready = insightReady(ai.status)
   const insightSettings = useInsightSettings()
   const [reviewing, setReviewing] = useState<ReviewDue | null>(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
   const due = useMemo(() => snapshot?.workspace.calendar && insightSettings.reviews ? reviewDue(snapshot, insightSettings.reviewed) : null, [snapshot, insightSettings.reviews, insightSettings.reviewed])
-  const insight = useMemo<BoardInsight>(() => ({ ready, due, review: value => startTransition(() => setReviewing(value)),
-    seed: value => startTransition(() => setSeed(previous => ({ ...value, key: (previous?.key ?? 0) + 1 }))) }), [ready, due])
+  const insight = useMemo<BoardInsight>(() => ({ ready, due, started: reviewing, reviewed: insightSettings.reviewed, review: value => startTransition(() => {
+    setReviewing(previous => previous?.month?.key === value.month?.key && previous?.week?.key === value.week?.key ? previous : value); setReviewOpen(true)
+  }),
+    seed: value => startTransition(() => setSeed(previous => ({ ...value, key: (previous?.key ?? 0) + 1 }))) }), [ready, due, reviewing, insightSettings.reviewed])
   const [addRequest, setAddRequest] = useState<AddRequest | null>(null)
   const [toastHeld, setToastHeld] = useState(false)
   const toastRef = useCallback((node: HTMLDivElement | null) => { setToastHeld(!!node && (node.matches(':hover') || node.contains(document.activeElement))) }, [])
@@ -90,7 +93,7 @@ export function App() {
   useEffect(() => { document.documentElement.dataset.style = style }, [style])
   useEffect(() => { document.documentElement.dataset.check = checkStyle }, [checkStyle])
   useEffect(() => { document.documentElement.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other' }, [])
-  useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null) }, [snapshot?.workspace.generation])
+  useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null); setReviewOpen(false) }, [snapshot?.workspace.generation])
   // A filter pointing at a flow that no longer exists falls back to showing everything.
   useEffect(() => { if (filter && !flows.visible.some(flow => flow.id === filter)) setFilter(null) }, [flows, filter])
   const openSettings = (section?: Section) => startTransition(() => {
@@ -111,6 +114,7 @@ export function App() {
       const combo = event.isComposing ? null : parseEvent(event)
       if (!combo) return
       const editing = editingTarget(event.target)
+      if (reviewOpen) return
       if (combo === bindings.undo && !editing) { event.preventDefault(); if (!pending && !snapshot?.maintenance) requestUndo() }
       if (!setupReady || onboarding || selected || settings || composing || palette || seed) return
       if (combo === bindings.palette) { event.preventDefault(); openPalette() }
@@ -125,7 +129,7 @@ export function App() {
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, bindings, filterKeys, flows, selectFilter, columns])
+  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, reviewOpen, bindings, filterKeys, flows, selectFilter, columns])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
   return <div className="app-shell">
     <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
@@ -140,7 +144,7 @@ export function App() {
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <Setup confirm={(calendar, direction) => void confirmSetup(calendar, direction)} busy={busy} />
       : onboarding ? <AiStep ai={ai} finish={() => setOnboarding(false)} /> : <>
       <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={addRequest} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight}
-        write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || !!reviewing} /></div>
+        write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || reviewOpen} /></div>
       <button className="fab" aria-label={messages.newItem} title={[messages.newItem, formatCombo(bindings.compose)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.compose)} disabled={busy} onClick={compose}><Icon name="add" size={24} strokeWidth={1.8} /></button>
     </>}
     </Suspense>
@@ -154,7 +158,7 @@ export function App() {
     {snapshot && setupReady && composerGeneration === snapshot.workspace.generation && <Composer key={snapshot.workspace.generation} open={composing} snapshot={snapshot} flows={flows} ai={ai} submit={submit} busy={busy} error={error} errorCode={errorCode} close={() => setComposing(false)} openSettings={() => openSettings('smart')} />}
     </Suspense>
     <Suspense fallback={null}>
-    {reviewing && snapshot && setupReady && <ReviewDrawer due={reviewing} snapshot={snapshot} flows={flows} view={boardView} ready={ready} submit={submit} busy={busy} setFilter={setFilter} close={() => setReviewing(null)} />}
+    {reviewing && snapshot && setupReady && <ReviewDrawer key={`${snapshot.workspace.generation}:${reviewing.month?.key}:${reviewing.week?.key}`} due={reviewing} snapshot={snapshot} open={reviewOpen} ready={ready} write={write} retryWrite={retryWrite} busy={busy && !pending} setFilter={setFilter} close={() => setReviewOpen(false)} />}
     </Suspense>
     <Suspense fallback={null}>
     {seed && snapshot && setupReady && <Seeded key={seed.key} seed={seed} snapshot={snapshot} flows={flows} submit={submit} busy={busy} error={error} close={() => setSeed(null)} />}

@@ -48,14 +48,16 @@ renderer/
 │   │   ├── EmptyCard.tsx    # 空列卡：为上一列各起一步（批量预填）或自己写
 │   │   ├── review.ts        # 复盘纯规则：入口（最后一天 / 次日一次，周月同日合并）、目标×周期、信号、排下一期候选
 │   │   ├── ReviewDrawer.tsx # Review → wrap up → plan month/week → finish; period-aware titles, readable goal matrix with visual legends, period-scoped writes and a cached summary card
+│   │   ├── ReviewOverview.tsx # Independent historical totals, expandable month records and weekly flow matrix
 │   │   ├── ReviewSummary.tsx # Context-aware summary loading, manual refresh, retained results on failure and retry feedback
-│   │   └── insight.css      # 断点、引导、空列卡、复盘入口与抽屉样式（仅 token）
+│   │   ├── review.css       # Unified monthly guide and responsive native review modal, using shared tokens
+│   │   └── insight.css      # Breakpoints, hints, empty-column cards and weekly review entry
 │   ├── smart/
 │   │   ├── ProviderConnect.tsx # 单个服务的 Key、只读模型、同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底栏）
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
-│   │   ├── Board.tsx        # Unified period navigation, independent placement/relation gestures, virtual source pinning and preserved focus
+│   │   ├── Board.tsx        # Unified period navigation, period-named review entries, independent placement/relation gestures, virtual source pinning and preserved focus
 │   │   ├── BoardLayout.tsx # Persistent 300px Later sidebar, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
 │   │   ├── useBoardDrag.ts # Group-bounded drag and pending-drop placement projection
@@ -65,14 +67,14 @@ renderer/
 │   │   ├── RowMotion.tsx  # Interruptible outer-row FLIP and finite overlay geometry updates
 │   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, logical keyboard traversal and focus/drag/menu pinning
 │   │   ├── visibility.ts  # Post-layout title visibility in the selected current/future/past period, with pending reads and offscreen destination feedback
-│   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, titles, due indicators, description signals and flow-tinted highlights
+│   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, tooltip-free titles, due indicators, description signals and flow-tinted highlights
 │   │   ├── PeriodPicker.tsx # Header B period panel: quick previous/current/next, week-row/day/month/cycle selection, recorded-history bound, footer steps
 │   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body loaded on open)
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
-│   │   ├── FlowDot.tsx      # Role-aware flow menus, pointer linking, keyboard root adoption and hover previews; absent in Later
+│   │   ├── FlowDot.tsx      # Role-aware flow menus, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
 │   │   ├── QuickAdd.tsx     # Explicit-period creation, per-period drafts, expired-input recovery and horizon-valid flow choices
-│   │   ├── PastPeriod.tsx   # Live past-task groups, completion/reopening/restore, guarded paging and focus retention
+│   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
 │   │   ├── period-labels.ts # Relative adjacent headings, date-only distant/cycle headings and year-free dates shared with setup
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
@@ -151,5 +153,7 @@ Task action menus size to content with a narrower destination submenu and pointe
 Column scrollbars sit at the right column boundary and appear only while that column, including its header, is hovered. Retained task focus does not keep them visible. Compensating content padding preserves task widths, wrapping and row alignment.
 
 Under a selected flow, cycle TODO rows show their flow dot only on row hover, keyboard focus or while its menu is open. Checkbox alignment, other columns, completed rows and unfiltered flow previews keep their existing behavior.
+
+Monthly review uses one board guide and a resumable native modal. `ReviewOverview` reads period-end facts, while `ReviewDrawer` owns live decisions, destination drafts and guarded writes; `review.css` shares board tokens.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

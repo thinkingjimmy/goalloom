@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
- * [OUTPUT]: Accessible task row with saved links, a due indicator, a description signal/peek between title and link cards, flow dot with independent relation dragging, pointer/keyboard placement drag and TODO context menu; lit rows carry `data-lit` and `--row-tint`.
+ * [OUTPUT]: Accessible task row with saved links, a due indicator, a description signal/peek between title and link cards, flow dot with independent relation dragging, pointer/keyboard placement drag and TODO context menu; task titles have no native tooltip, and lit rows carry `data-lit` and `--row-tint`.
  * [POS]: One virtual board row; Board owns placement, preview and dimming; the peek and detail own description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -36,7 +36,7 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
   const overdue = !done && item.dueDate !== null && item.dueDate < today
   const hasLinks = useMemo(() => linkUrls(item.title).length > 0, [item.title])
   const line = <div className="task-line">
-    {hasLinks ? <LinkTitle text={item.title} onOpen={() => select(item.id)} /> : <button className="task-title" title={item.title} onClick={() => select(item.id)}><span>{item.title}</span></button>}
+    {hasLinks ? <LinkTitle text={item.title} onOpen={() => select(item.id)} /> : <button className="task-title" onClick={() => select(item.id)}><span>{item.title}</span></button>}
     {item.dueDate && !overdue && !done && <span className="row-meta tabular" title={`${messages.dueDate} ${longDate(item.dueDate)}`}>{shortDate(item.dueDate)}</span>}
     {overdue && <span className="row-icon overdue" role="img" aria-label={messages.dueOverdue(longDate(item.dueDate!))} title={messages.dueOverdue(longDate(item.dueDate!))}><Icon name="overdue" size={16} /></span>}
   </div>
