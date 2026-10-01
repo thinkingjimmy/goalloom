@@ -86,6 +86,7 @@ export const insightMessages = widen({
   stepCloseBoth: '收尾',
   stepPlan: (period: string) => `排${period}`,
   stepDone: '完成',
+  summaryTitle: '复盘小结',
   summaryPending: '正在写小结…',
   summaryRefresh: '重新生成',
   summaryFailed: '没能生成小结，请重试',

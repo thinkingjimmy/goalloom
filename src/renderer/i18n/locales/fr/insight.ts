@@ -87,6 +87,7 @@ export const insightMessages: InsightCatalog = {
   stepCloseBoth: 'Clôturer',
   stepPlan: period => `Planifier ${period}`,
   stepDone: 'Terminé',
+  summaryTitle: 'Résumé du bilan',
   summaryPending: 'Rédaction d’un résumé…',
   summaryRefresh: 'Régénérer',
   summaryFailed: 'Impossible de générer le résumé. Réessayez.',

@@ -87,6 +87,7 @@ export const insightMessages: InsightCatalog = {
   stepCloseBoth: '締め',
   stepPlan: period => `${period}を計画`,
   stepDone: '完了',
+  summaryTitle: '振り返りのまとめ',
   summaryPending: 'まとめを作成中…',
   summaryRefresh: '再生成',
   summaryFailed: 'まとめを生成できませんでした。もう一度お試しください。',

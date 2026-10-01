@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Review periods, historical period-scoped facts, device review preferences and provider readiness.
- * [OUTPUT]: An entry-time cached summary with explicit refresh, retained text on refresh failure and retry feedback.
- * [POS]: The review drawer's summary card; shared persistence and request ownership live in state/review-summary.
+ * [OUTPUT]: Persistent review heading, optional cached AI content and accessible refresh with retained text on failure.
+ * [POS]: Summary-first review brief header/content; persistence and request ownership live in state/review-summary.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -35,18 +35,17 @@ export function ReviewSummary({ due, snapshot, flows, ready }: { due: ReviewDue;
     if (ready) load()
     return () => { sequence.current++; working.current = false }
   }, [ready])
-  if (!ready) return null
   const { value, pending, error } = state
-  return <div className="review-summary" aria-busy={pending}>
-    <Icon name="smart" size={16} />
-    <div className="review-summary-content">
-      <div aria-live="polite">
-        {value ? <><p className="review-headline">{value.headline}</p>{value.advice && <p>{value.advice}</p>}</> : pending && <p>{t.summaryPending}</p>}
-        {error && <p className="review-summary-error" role="alert">{value ? t.summaryRefreshFailed : t.summaryFailed}</p>}
-      </div>
-      {(value || error) && <button type="button" className="review-summary-refresh" disabled={pending} onClick={() => { if (!working.current) load(true) }}>
-        <Icon name="refresh" size={14} />{pending ? t.summaryPending : t.summaryRefresh}
-      </button>}
+  return <div className="review-summary" aria-busy={ready && pending}>
+    <div className="review-summary-header">
+      <h3><Icon name="smart" size={14} />{t.summaryTitle}</h3>
+      {ready && <button type="button" className="review-summary-refresh" disabled={pending}
+        aria-label={pending ? t.summaryPending : t.summaryRefresh} title={pending ? t.summaryPending : t.summaryRefresh}
+        onClick={() => { if (!working.current) load(true) }}><Icon name="refresh" size={14} /></button>}
     </div>
+    {ready && <div className="review-summary-content" aria-live="polite">
+      {value ? <><p className="review-headline">{value.headline}</p>{value.advice && <p className="review-advice">{value.advice}</p>}</> : pending && <p>{t.summaryPending}</p>}
+      {error && <p className="review-summary-error" role="alert"><Icon name="warning" size={14} />{value ? t.summaryRefreshFailed : t.summaryFailed}</p>}
+    </div>}
   </div>
 }

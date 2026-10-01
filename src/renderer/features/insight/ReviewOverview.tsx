@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Period-scoped historical summaries, matching flow topology and the selected review periods.
- * [OUTPUT]: Independent task totals, expandable monthly records and the weekly goal matrix.
+ * [OUTPUT]: Summary-first review brief with inline progress counts, expandable monthly records and the weekly goal matrix.
  * [POS]: Read-only review presentation; no historical versions are submitted as commands.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -29,12 +29,13 @@ export function ReviewOverview({ due, context, ready, setFilter }: { due: Review
   const loose = monthRecords.filter(item => !flows.of(item.id).length)
   const cycle = board.periods.find(period => period.horizon === 'cycle')
   return <>
-    <h3 className="review-intro">{t.reviewProgress}</h3>
-    <dl className="review-metrics">
-      {[[completed, t.reviewDoneCount], [records.length - completed, t.reviewOpenCount], [related, t.reviewGoalCount]].map(([value, label]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
-    </dl>
-    {!!unknown && <p className="review-note" role="status">{t.reviewUnknown(unknown)}</p>}
-    <ReviewSummary due={due} snapshot={board} flows={flows} ready={ready} />
+    <section className="review-progress" aria-label={t.reviewProgress}>
+      <ReviewSummary due={due} snapshot={board} flows={flows} ready={ready} />
+      <dl className="review-metrics">
+        {[[completed, t.reviewDoneCount], [records.length - completed, t.reviewOpenCount], [related, t.reviewGoalCount]].map(([value, label]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+      </dl>
+      {!!unknown && <p className="review-note" role="status">{t.reviewUnknown(unknown)}</p>}
+    </section>
     {due.month && <section className="review-section">
       <h3>{cycle ? t.goals(periodDates(cycle)) : t.reviewRecords(periodDates(due.month.period))}</h3>
       {goals.map(goal => {

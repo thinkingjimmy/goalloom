@@ -234,8 +234,8 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
         {saveError && <p className="review-note review-error" role="alert">{t.reviewSaveFailed}</p>}
       </div>
       <footer className="review-foot">
-        {step !== 'done' && (steps.indexOf(step) > 0 ? <button className="settings-button subtle" disabled={disabled || pendingWrite} onClick={() => setStep(steps[steps.indexOf(step) - 1]!)}>{t.back}</button>
-          : <button className="settings-button subtle" disabled={working || pendingWrite} onClick={close}>{t.later}</button>)}
+        {step !== 'done' && (steps.indexOf(step) > 0 ? <button className="settings-button review-text-button" disabled={disabled || pendingWrite} onClick={() => setStep(steps[steps.indexOf(step) - 1]!)}>{t.back}</button>
+          : <button className="settings-button review-text-button" disabled={working || pendingWrite} onClick={close}>{t.later}</button>)}
         <span className="column-spacer" />
         {step === 'done' ? <button className="settings-button primary" onClick={close}>{t.reviewBackBoard}</button>
           : <button className="settings-button primary" disabled={disabled || !started || !contextReady || loadError || drafting} onClick={() => void primary()}>{pendingWrite ? messages.retry : label}</button>}

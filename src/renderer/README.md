@@ -47,10 +47,10 @@ renderer/
 │   │   ├── decompose.ts     # 「拆下一步」唯一写入路径：模型起草后 create / insertBetween，⇧ 或无模型时打开预填新建（断点与右键共用）
 │   │   ├── EmptyCard.tsx    # 空列卡：为上一列各起一步（批量预填）或自己写
 │   │   ├── review.ts        # 复盘纯规则：入口（最后一天 / 次日一次，周月同日合并）、目标×周期、信号、排下一期候选
-│   │   ├── ReviewDrawer.tsx # Review → wrap up → plan month/week → finish; period-aware titles, readable goal matrix with visual legends, period-scoped writes and a cached summary card
-│   │   ├── ReviewOverview.tsx # Independent historical totals, expandable month records and weekly flow matrix
-│   │   ├── ReviewSummary.tsx # Context-aware summary loading, manual refresh, retained results on failure and retry feedback
-│   │   ├── review.css       # Unified monthly guide and responsive native review modal, using shared tokens
+│   │   ├── ReviewDrawer.tsx # Review → wrap up → plan month/week → finish; period-aware titles, readable goal matrix with visual legends, period-scoped writes and a cached summary brief
+│   │   ├── ReviewOverview.tsx # Summary-first brief with inline counts, expandable month records and weekly flow matrix
+│   │   ├── ReviewSummary.tsx # Persistent localized icon heading, optional cached AI content, header refresh and retained results on failure
+│   │   ├── review.css       # Todo-scale monthly guide, unfilled review brief, text footer actions and responsive native modal using shared tokens
 │   │   └── insight.css      # Breakpoints, hints, empty-column cards and weekly review entry
 │   ├── smart/
 │   │   ├── ProviderConnect.tsx # 单个服务的 Key、只读模型、同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底栏）
@@ -154,6 +154,6 @@ Column scrollbars sit at the right column boundary and appear only while that co
 
 Under a selected flow, cycle TODO rows show their flow dot only on row hover, keyboard focus or while its menu is open. Checkbox alignment, other columns, completed rows and unfiltered flow previews keep their existing behavior.
 
-Monthly review uses one board guide and a resumable native modal. `ReviewOverview` reads period-end facts, while `ReviewDrawer` owns live decisions, destination drafts and guarded writes; `review.css` shares board tokens.
+Monthly review uses a todo-scale board guide and a resumable native modal with connected steps and text footer actions. `ReviewOverview` places the summary before inline period-end totals in an unfilled brief; the localized icon heading remains visible without AI. Expandable goal rows highlight on hover/focus and align markers with the title's first line. `ReviewDrawer` owns live decisions, destination drafts and guarded writes; `review.css` shares board tokens.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

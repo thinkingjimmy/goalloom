@@ -236,11 +236,11 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const reviewMonthName = review ? periodDates(review.period, review.period.startDate.slice(0, 4) !== today.slice(0, 4)) : ''
   const nextMonthName = review ? periodDates(review.next, review.next.startDate.slice(0, 4) !== today.slice(0, 4)) : ''
   const guide = monthlyGuide && <div className="review-guide">
-    <span className="review-guide-meta"><Icon name="calendar" size={16} />{periodDates(review!.period)}</span>
+    <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(review!.period)}</span>
     <h3>{insightMessages.reviewGuide(reviewMonthName, nextMonthName)}</h3>
     {pendingCount > 0 && <p>{insightMessages.reviewGuidePending(pendingCount)}</p>}
     <button className="settings-button primary review-guide-action" data-review={horizon} title={insightMessages.reviewEntryAfter(reviewMonthName)} disabled={busy} onClick={() => insight.review(due!)}>
-      <span>{insight.started?.month?.key === review!.key ? insightMessages.reviewContinue : insightMessages.reviewStart(reviewMonthName)}</span><Icon name="next" size={16} />
+      <span>{insight.started?.month?.key === review!.key ? insightMessages.reviewContinue : insightMessages.reviewStart(reviewMonthName)}</span><Icon name="next" size={14} />
     </button>
   </div>
   const addButton = <button className="icon-button small" data-add-item aria-label={messages.newInColumn(displayName)} aria-pressed={!!adding} disabled={disabled} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>
