@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Native Electron page, isolated period fixture and the owning period suite's artifact directory.
- * [OUTPUT]: Header-B title/checkbox alignment, chevron reveal without movement, inline dates, panel steps and directional-motion assertions with repeatable screenshots.
+ * [OUTPUT]: Header-B title/checkbox alignment, chevron reveal without movement, inline dates, week-row selection and directional-motion assertions with repeatable screenshots.
  * [POS]: Period-navigation scenarios shared by the focused selector and full period acceptance; no production API replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -32,9 +32,8 @@ export async function verifyPeriodNavigation(page, column, evidence) {
       return node.getAnimations().length === 0 && node.style.willChange === ''
     })
   }
-  const slide = async (selector, direction, name, keep = false) => {
-    const step = selector !== '[data-return-current]'
-    if (step) await openPeriodPanel(week)
+  const slide = async (name, direction, { keep = false, returning = false } = {}) => {
+    if (!returning) await openPeriodPanel(week)
     const previous = await week.getAttribute('data-period-id')
     const capture = page.waitForFunction(previous => {
       const column = document.querySelector('[data-horizon="week"]')
@@ -44,7 +43,14 @@ export async function verifyPeriodNavigation(page, column, evidence) {
       animation.pause()
       return true
     }, previous)
-    await week.locator(selector).click()
+    if (returning) await week.locator('[data-return-current]').click()
+    else {
+      const rows = week.locator('button.period-picker-week')
+      const index = await rows.evaluateAll(nodes => nodes.findIndex(node => node.getAttribute('aria-pressed') === 'true'))
+      const target = index + direction
+      if (index < 0 || target < 0 || target >= await rows.count()) throw new Error(`Week ${direction > 0 ? 'after' : 'before'} the displayed one is not on this month`)
+      await rows.nth(target).click()
+    }
     await capture
     await settled()
     const sample = await body.evaluate(node => {
@@ -69,7 +75,7 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     const screenshot = join(evidence, `navigation-${name}.png`)
     await week.screenshot({ path: screenshot, animations: 'allow' })
     result.frames.push({ name, direction, ...sample }); result.screenshots.push(screenshot)
-    if (step) await closePeriodPanel(week)
+    if (!returning) await closePeriodPanel(week)
     if (!keep) await finish()
   }
 
@@ -89,6 +95,7 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     })
     const idle = await measure()
     assert(Math.abs(idle.title.left - idle.checkbox.left) < .5, `${horizon} title aligns with its checkboxes`)
+    if (horizon === 'cycle') assert.equal(await target.locator('.period-title').innerText(), '3个月')
     assert.equal(await target.locator('.column-header [data-previous-period], .column-header [data-next-period]').count(), 0, 'Header B has no arrows')
     assert.equal(await chevron.evaluate(node => getComputedStyle(node).opacity), '0')
     if (horizon === 'month') {
@@ -106,6 +113,12 @@ export async function verifyPeriodNavigation(page, column, evidence) {
       await page.screenshot({ path: panel, clip: { ...await target.boundingBox(), height: 520 } }); result.screenshots.push(panel)
       await closePeriodPanel(target)
     }
+    if (horizon !== 'month') {
+      await openPeriodPanel(target)
+      const panel = join(evidence, `header-period-panel-${horizon}.png`)
+      await page.screenshot({ path: panel, clip: { ...await target.boundingBox(), height: 560 } }); result.screenshots.push(panel)
+      await closePeriodPanel(target)
+    }
     // Reach the switch by keyboard so it is :focus-visible, as for a real Tab user.
     await target.locator('[data-period-switch]').focus()
     await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Tab')
@@ -117,19 +130,19 @@ export async function verifyPeriodNavigation(page, column, evidence) {
 
   assert.equal(await body.evaluate(node => node.getAnimations().length), 0, 'Initial render is static')
   await page.emulateMedia({ reducedMotion: 'no-preference' })
-  await slide('[data-next-period]', 1, 'next-week')
+  await slide('next-week', 1)
   result.future = await date()
   await week.locator('.column-header').screenshot({ path: join(evidence, 'header-next-week.png') })
-  await slide('[data-return-current]', -1, 'return-from-future')
+  await slide('return-from-future', -1, { returning: true })
   assert.equal(await week.getAttribute('data-period-id'), origin)
-  await slide('[data-previous-period]', -1, 'previous-week')
+  await slide('previous-week', -1)
   result.past = await date()
   await week.locator('.column-header').screenshot({ path: join(evidence, 'header-previous-week.png') })
-  await slide('[data-return-current]', 1, 'return-from-past')
+  await slide('return-from-past', 1, { returning: true })
 
-  await slide('[data-next-period]', 1, 'interrupted-next', true)
+  await slide('interrupted-next', 1, { keep: true })
   await body.evaluate(node => { window.interruptedPeriodAnimation = node.getAnimations()[0] })
-  await slide('[data-previous-period]', -1, 'rapid-reversal')
+  await slide('rapid-reversal', -1)
   assert.equal(await page.evaluate(() => window.interruptedPeriodAnimation.playState), 'idle')
   assert.equal(await week.getAttribute('data-period-id'), origin)
 
@@ -140,7 +153,7 @@ export async function verifyPeriodNavigation(page, column, evidence) {
   await week.locator('[data-return-current]').click(); await settled()
   assert.equal(await body.evaluate(node => node.getAnimations().length), 0, 'Reduced-motion pointer changes are immediate')
   await page.emulateMedia({ reducedMotion: 'no-preference' })
-  await slide('[data-next-period]', 1, 'reduced-mid-flight', true)
+  await slide('reduced-mid-flight', 1, { keep: true })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.waitForFunction(() => document.querySelector('[data-horizon="week"] .period-body').getAnimations().length === 0)
   await week.locator('[data-return-current]').click(); await settled()

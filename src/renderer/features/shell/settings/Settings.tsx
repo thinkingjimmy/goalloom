@@ -9,11 +9,9 @@ import type { Snapshot } from '../../../../shared/contracts/queries'
 import type { BackupStatus, DataAction, TransferPreview } from '../../../../shared/contracts/transfer'
 import { workspaceDate } from '../../../../domain/calendar'
 import { insightMessages, messages, settingsMessages as s, shortcutMessages, smartMessages } from '../../../i18n'
-import { useShortcuts } from '../../../state/shortcuts'
 import { desktopApi, type Action } from '../../../state/use-workspace'
 import { connectedProviders, providerIssue, type Ai } from '../../../state/ai'
 import { Modal } from '../../../components/Modal'
-import { Kbd } from '../../../components/Kbd'
 import { Icon, type IconName } from '../../../components/icons'
 import { AppearancePane } from './AppearancePane'
 import { BoardPane } from './BoardPane'
@@ -69,7 +67,6 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
   const [counts, setCounts] = useState<Counts | null>(null)
   const [preview, setPreview] = useState<TransferPreview | null>(null), [acknowledged, setAcknowledged] = useState(false)
   const [working, setWorking] = useState(false), [error, setError] = useState('')
-  const shortcuts = useShortcuts()
   // A new request (e.g. the app menu's About) re-targets an open dialog, except while a transfer review locks navigation.
   useEffect(() => { if (!preview) setSection(initial) }, [request])
   const update = useUpdate()
@@ -158,9 +155,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
           {meta[entry.id] && <span className="settings-nav-meta" data-dot={meta[entry.id]!.dot ?? false} aria-hidden="true">{meta[entry.id]!.text}</span>}
         </button>)}
       </div>)}
-      {preview
-        ? <p className="settings-nav-note"><Icon name="lock" size={14} /><span>{messages.maintenanceNav}</span></p>
-        : shortcuts.bindings.settings && <p className="settings-nav-hint"><Kbd combo={shortcuts.bindings.settings} /><span>{s.openAnytime}</span></p>}
+      {preview && <p className="settings-nav-note"><Icon name="lock" size={14} /><span>{messages.maintenanceNav}</span></p>}
     </nav>
     {preview
       ? <TransferReview preview={preview} working={working} acknowledged={acknowledged} acknowledge={setAcknowledged} timezone={timezone} generation={generation} data={data}>{status}</TransferReview>

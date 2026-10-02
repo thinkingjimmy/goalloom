@@ -68,14 +68,14 @@ renderer/
 │   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, logical keyboard traversal and focus/drag/menu pinning
 │   │   ├── visibility.ts  # Post-layout title visibility in the selected current/future/past period, with pending reads and offscreen destination feedback
 │   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, tooltip-free titles, due indicators, description signals and flow-tinted highlights
-│   │   ├── PeriodPicker.tsx # Header B period panel: quick previous/current/next, week-row/day/month/cycle selection, recorded-history bound, footer steps
+│   │   ├── PeriodPicker.tsx # Header B period panel: quick previous/current/next, week-row/day/month selection, six cycles, recorded-history bound, no footer pager
 │   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body loaded on open)
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # Role-aware flow menus, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
 │   │   ├── QuickAdd.tsx     # Explicit-period creation, per-period drafts, expired-input recovery and horizon-valid flow choices
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
-│   │   ├── period-labels.ts # Relative adjacent headings, date-only distant/cycle headings and year-free dates shared with setup
+│   │   ├── period-labels.ts # Relative adjacent headings, date-only distant/cycle headings, year-free dates and cross-year cycle rows
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
 │   │   ├── use-item-autosave.ts # Serialized silent saves, source/receipt guards, retry and close-time draining

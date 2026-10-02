@@ -77,7 +77,7 @@ export async function verifyInlineRegressions(app, page, directory, output) {
     assert(Math.abs(geometry.words[0].top - geometry.prefix.top) <= 3, 'The link starts in the remaining first-line space')
     assert(geometry.words.length > 1, 'A long fetched title wraps instead of truncating inside a chip')
     assert(geometry.bounds.height > 44.5, 'Board link titles grow beyond two lines')
-    assert(Math.abs(geometry.prefix.left - geometry.checkbox.right - 12) < 0.5, 'The first title line starts after the checkbox')
+    assert(Math.abs(geometry.prefix.left - geometry.checkbox.right - 7.2) < 0.5, 'The first title line starts after the checkbox')
     assert(geometry.fragments.slice(1).every(rect => Math.abs(rect.left - geometry.checkbox.left) < 1.5), 'Continuation lines reclaim the checkbox space')
     assert(geometry.words.every(rect => rect.right <= geometry.bounds.right + 1 && rect.left >= geometry.bounds.left - 1 && rect.bottom <= geometry.bounds.bottom + 1), 'Every wrapped link fragment remains fully visible within the title')
     const persisted = JSON.parse(await readFile(filename(directory, legacyUrl), 'utf8'))

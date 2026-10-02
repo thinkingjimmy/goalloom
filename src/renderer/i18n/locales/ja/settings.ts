@@ -11,7 +11,6 @@ export const settingsMessages: SettingsCatalog = {
   workspace: 'ワークスペース',
   items: '項目',
   backupSection: 'バックアップと復元',
-  openAnytime: 'いつでも設定を開く',
   enabledMeta: '有効',
   board: "ボード",
   parentOrder: "親項目の順に並べる",

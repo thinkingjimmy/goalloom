@@ -112,7 +112,7 @@ try {
     const text = document.createRange(); text.selectNodeContents(title)
     const fragments = [...text.getClientRects()]
     return { height: Math.round(r.height), lines: Math.round(title.getBoundingClientRect().height / 22), clipped: title.scrollHeight > title.clientHeight + 1,
-      firstLineAligned: Math.abs(fragments[0].left - check.right - 12) < 0.5,
+      firstLineAligned: Math.abs(fragments[0].left - check.right - 7.2) < 0.5,
       continuationAligned: fragments.slice(1).every(fragment => Math.abs(fragment.left - check.left) < 0.5),
       checkClickable: document.elementFromPoint(check.left + check.width / 2, check.top + check.height / 2)?.closest('.check') === checkbox,
       addAligned: !!add && Math.abs(add.right - (r.right - 6)) < 0.5 && Math.abs(add.top + add.height / 2 - r.top - 16) < 0.5,

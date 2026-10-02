@@ -11,7 +11,6 @@ export const settingsMessages: SettingsCatalog = {
   workspace: 'Espacio de trabajo',
   items: 'Elementos',
   backupSection: 'Copias y restauración',
-  openAnytime: 'Abrir ajustes en cualquier momento',
   enabledMeta: 'Activada',
   board: "Tablero",
   parentOrder: "Ordenar por elemento superior",

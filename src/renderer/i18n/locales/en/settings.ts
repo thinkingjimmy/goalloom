@@ -11,7 +11,6 @@ export const settingsMessages: SettingsCatalog = {
   workspace: 'Workspace',
   items: 'Items',
   backupSection: 'Backup & restore',
-  openAnytime: 'Open settings anytime',
   enabledMeta: 'On',
   board: "Board",
   parentOrder: "Sort by parent",

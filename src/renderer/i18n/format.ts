@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace date strings or timestamps and the active renderer locale.
- * [OUTPUT]: Intl date/time/number formats, including year-inclusive planning destinations and accessible calendar labels.
+ * [OUTPUT]: Intl date/time/number formats, including year-inclusive planning destinations, 2-digit cycle ends and accessible calendar labels.
  * [POS]: Presentation-only formatting; date strings use UTC without timezone shifts, date arithmetic stays in lib/dates.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,6 +18,7 @@ function format(options: Intl.DateTimeFormatOptions, calendarDay = true): Intl.D
 const day = (date: string) => new Date(`${date}T00:00:00Z`)
 
 export function shortDate(date: string): string { return format({ month: 'numeric', day: 'numeric' }).format(day(date)) }
+export function shortYearDate(date: string): string { return format({ year: '2-digit', month: 'numeric', day: 'numeric' }).format(day(date)) }
 export function monthDay(date: string): string { return format({ month: 'short', day: 'numeric' }).format(day(date)) }
 export function longDate(date: string): string { return format({ month: 'short', day: 'numeric', weekday: 'short' }).format(day(date)) }
 export function fullDate(date: string): string { return format({ year: 'numeric', month: 'short', day: 'numeric' }).format(day(date)) }

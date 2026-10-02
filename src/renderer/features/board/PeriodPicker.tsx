@@ -1,10 +1,9 @@
 /**
- * [INPUT]: Column horizon/name, the displayed and current periods, workspace calendar/today, step targets, the recorded
- *          history index (loaded while open), a pending-review period and the column's choose callback.
- * [OUTPUT]: Header-B period panel under the column title: quick buttons for the previous/current/next period, a body per
- *           scale (week rows or day cells on a month calendar, a year of months, or the anchored cycle list) and footer
- *           steps from the displayed period (`data-previous-period` / `data-next-period`, kept open for browsing).
- *           Past periods older than the earliest recorded history are disabled; stepping remains available.
+ * [INPUT]: Column horizon/name, the displayed and current periods, workspace calendar/today, the immediate earlier period
+ *          that stays selectable, the recorded history index (loaded while open), a pending-review period and the column's choose callback.
+ * [OUTPUT]: Header-B period panel under the column title: quick buttons for the previous/current/next period, then week
+ *           rows, day cells, a year of months, or six anchored cycles. Past periods older than the earliest recorded
+ *           history are disabled. There is no footer pager.
  * [POS]: Board column header switcher; Column owns switching, directional motion, focus return and Esc-to-current.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -19,15 +18,15 @@ import { periodDates } from '../../lib/periods'
 import { desktopApi } from '../../state/use-workspace'
 import { Popover } from '../../components/Popover'
 import { Icon } from '../../components/icons'
-import { periodLabel } from './period-labels'
+import { cycleOptionLabel } from './period-labels'
 import './period-picker.css'
 
 type Choose = (target: PlanningPeriod, pointer: boolean, keepOpen?: boolean) => void
 const monthStart = (date: string) => `${date.slice(0, 7)}-01`
 
-export function PeriodPicker({ horizon, name, period, current, calendar, today, back, next, busy, review, open, setOpen, choose, anchor }: {
+export function PeriodPicker({ horizon, name, period, current, calendar, today, back, busy, review, open, setOpen, choose, anchor }: {
   horizon: Horizon; name: string; period: PlanningPeriod; current: PlanningPeriod; calendar: CalendarConfig; today: string
-  back: PlanningPeriod | null; next: PlanningPeriod; busy: boolean; review: string | null
+  back: PlanningPeriod | null; busy: boolean; review: string | null
   open: boolean; setOpen: (open: boolean) => void; choose: Choose; anchor: ReactNode
 }) {
   const [index, setIndex] = useState<HistoryIndex['periods']>([])
@@ -51,7 +50,7 @@ export function PeriodPicker({ horizon, name, period, current, calendar, today, 
   const previousOfCurrent = precedingPeriod(calendar, current) as PlanningPeriod | null
   const quick = [
     previousOfCurrent && { target: previousOfCurrent, label: messages.previousPeriodNames[horizon] },
-    { target: current, label: horizonNames[horizon] },
+    { target: current, label: horizon === 'cycle' ? messages.currentCycle : horizonNames[horizon] },
     { target: currentPeriod(calendar, horizon, current.endAt) as PlanningPeriod, label: messages.nextPeriodNames[horizon] },
   ].filter(value => !!value)
   const state = (target: PlanningPeriod) => ({ 'data-selected': target.id === period.id, 'data-current': target.id === current.id, 'data-past': target.startDate < current.startDate })
@@ -60,14 +59,19 @@ export function PeriodPicker({ horizon, name, period, current, calendar, today, 
     <button type="button" className="period-picker-icon" aria-label={label} onClick={() => setPage(addMonths(page, step))}><Icon name={icon} size={16} /></button>
   const body = () => {
     if (horizon === 'cycle') {
+      // Six cycles around today: at most two earlier ones, then later cycles until the list is full.
       const list: PlanningPeriod[] = []
-      for (let cursor: PlanningPeriod | null = current, steps = 0; cursor && steps < 3; cursor = precedingPeriod(calendar, cursor) as PlanningPeriod | null, steps++) list.unshift(cursor)
-      list.push(currentPeriod(calendar, horizon, current.endAt) as PlanningPeriod)
-      list.push(currentPeriod(calendar, horizon, list.at(-1)!.endAt) as PlanningPeriod)
+      for (let cursor = precedingPeriod(calendar, current) as PlanningPeriod | null, steps = 0; cursor && steps < 2; cursor = precedingPeriod(calendar, cursor) as PlanningPeriod | null, steps++) list.unshift(cursor)
+      list.push(current)
+      let cursor = current
+      while (list.length < 6) {
+        cursor = currentPeriod(calendar, horizon, cursor.endAt) as PlanningPeriod
+        list.push(cursor)
+      }
       return <div className="period-picker-list" role="group" aria-label={name}>
         {list.map(target => { const recorded = stats(target); return <button type="button" key={target.id} className="period-picker-row" {...state(target)} aria-pressed={target.id === period.id}
           disabled={!allowed(target)} title={periodDates(target)} onClick={event => pick(target, event.detail > 0)}>
-          <span>{periodLabel(horizon, target)}</span><small>{recorded ? `${recorded.done}/${recorded.total}` : ''}</small>
+          <span>{cycleOptionLabel(target)}</span><small>{recorded ? `${recorded.done}/${recorded.total}` : ''}</small>
         </button> })}
       </div>
     }
@@ -108,12 +112,6 @@ export function PeriodPicker({ horizon, name, period, current, calendar, today, 
           onClick={event => pick(target, event.detail > 0)}>{label}{review === target.id && <span className="period-picker-review" aria-hidden="true" />}</button>)}
       </div>
       <div className="period-picker-body">{body()}</div>
-      <div className="period-picker-steps">
-        <button type="button" data-previous-period aria-label={messages.previousPeriod(name)} title={back ? periodDates(back) : undefined} disabled={!back || busy}
-          onClick={event => back && choose(back, event.detail > 0, true)}><Icon name="previous" size={14} />{back && periodLabel(horizon, back)}</button>
-        <button type="button" data-next-period aria-label={messages.nextPeriod(name)} title={periodDates(next)} disabled={busy}
-          onClick={event => choose(next, event.detail > 0, true)}>{periodLabel(horizon, next)}<Icon name="next" size={14} /></button>
-      </div>
     </div>
   </Popover>
 }

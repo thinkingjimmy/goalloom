@@ -165,7 +165,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     const destination = target ?? current
     if (destination && period && destination.id !== period.id) prepareMotion(destination.id, destination.startDate > period.startDate ? 1 : -1, animate)
     const active = document.activeElement
-    refocus.current = !section.current?.contains(active) ? null : active?.hasAttribute('data-next-period') ? '[data-next-period]' : active?.hasAttribute('data-previous-period') ? '[data-previous-period]' : '[data-period-switch]'
+    refocus.current = !section.current?.contains(active) ? null : '[data-period-switch]'
     setAdding(false); setMenuItem(null)
     view.choose(horizon, target?.id === current?.id ? null : target)
   }
@@ -252,7 +252,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     onKeyDown={leaveOnEscape} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(name)} ref={node => { setNodeRef(node); section.current = node }}>
     <header className={`column-header ${period ? 'period-header' : ''}`}>
       {period && current ? <div className="period-nav">
-        <PeriodPicker horizon={horizon as Horizon} name={name} period={period} current={current} calendar={calendar} today={today} back={back} next={next!} busy={busy}
+        <PeriodPicker horizon={horizon as Horizon} name={name} period={period} current={current} calendar={calendar} today={today} back={back} busy={busy}
           review={review?.period.id ?? null} open={picking} setOpen={setPicking} choose={choosePeriod} anchor={
             <h2 className="period-heading" aria-live="polite" aria-atomic="true">
               <button type="button" className="period-switch" data-period-switch aria-haspopup="dialog" aria-expanded={picking} onClick={() => setPicking(!picking)} onKeyDown={stepKeys}>

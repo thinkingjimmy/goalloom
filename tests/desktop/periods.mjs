@@ -322,7 +322,7 @@ try {
     await shot(`context-menu-${locale}`); await page.keyboard.press('Escape')
     for (const horizon of ['cycle', 'month', 'week', 'day']) {
       const header = column(horizon).locator('.column-header')
-      // Header B: no header arrows; the switch carries the title and date and opens a panel with localized steps.
+      // Header B: no header arrows; the switch carries the title and date and opens a panel without a footer pager.
       assert.equal(await header.locator('[data-previous-period], [data-next-period]').count(), 0)
       const bounds = await column(horizon).boundingBox(), heading = await header.locator('[data-period-switch]').boundingBox()
       const add = await header.locator('.column-add-slot').boundingBox()
@@ -331,7 +331,19 @@ try {
       assert(titleFit.scroll <= titleFit.client + 1, `${locale} ${horizon} the title is not truncated: ${JSON.stringify(titleFit)}`)
       await header.locator('[data-period-switch]').click()
       const panel = column(horizon).locator('.period-picker')
-      assert(await panel.locator('[data-previous-period]').getAttribute('aria-label'))
+      assert.equal(await panel.locator('[data-previous-period], [data-next-period]').count(), 0, `${locale} the period panel has no pager`)
+      if (horizon === 'cycle') {
+        const currentLabels = { en: 'This period', ja: '今期', es: 'Este periodo', fr: 'Cette période', zh: '本周期' }
+        assert((await panel.locator('.period-picker-quick').innerText()).includes(currentLabels[locale]), `${locale} the current cycle is named as this period`)
+        const rows = await panel.locator('.period-picker-row').evaluateAll(nodes => nodes.map(node => ({ text: node.querySelector('span')?.textContent ?? '', title: node.getAttribute('title') ?? '' })))
+        assert.equal(rows.length, 6, `${locale} the cycle panel lists six periods`)
+        const crossed = rows.filter(row => new Set(row.title.match(/\b20\d{2}\b/g)).size > 1)
+        assert(crossed.length > 0, `${locale} the six cycles include a year boundary`)
+        for (const row of crossed) {
+          const endYear = row.title.match(/\b20\d{2}\b/g).at(-1).slice(2)
+          assert(row.text.includes(`${endYear}/`) || row.text.includes(`/${endYear}`), `${locale} a cross-year cycle shows the end year: ${row.text} (${row.title})`)
+        }
+      }
       assert(await panel.evaluate(node => node.scrollWidth <= node.clientWidth + 1), `${locale} the period panel has no horizontal overflow`)
       await header.locator('[data-period-switch]').click()
       await panel.waitFor({ state: 'detached' })

@@ -10,7 +10,6 @@ export const settingsMessages = widen({
   workspace: '工作区',
   items: '条目',
   backupSection: '备份与恢复',
-  openAnytime: '随时打开设置',
   enabledMeta: '已启用',
   board: "看板",
   parentOrder: "按上级自动排序",

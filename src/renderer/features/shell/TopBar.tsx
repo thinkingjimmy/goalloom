@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Flows, unfiltered Later TODO count, device sidebar preference and shortcut/navigation controls.
- * [OUTPUT]: Labelled Later tray toggle with its remaining count, unchanged flow filter slots, search and settings (with a new-version dot).
+ * [OUTPUT]: Labelled Later tray toggle with its remaining count, a hairline before the flow filter, unchanged filter slots, search and settings (with a new-version dot).
  * [POS]: Renderer shell; controls presentation without writing workspace data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,10 +22,11 @@ export function TopBar({ ready, flows, filter, setFilter, columns, laterTodoCoun
       aria-expanded={columns.laterOpen} aria-controls="later-sidebar" onClick={() => columns.setLaterOpen(!columns.laterOpen)}>
       <Icon name="later" size={16} strokeWidth={1.7} /><span aria-hidden="true">{horizonNames.later}</span><span className="later-count" hidden={laterTodoCount === 0} aria-hidden="true">{laterTodoCount}</span>
     </button>}
+    {ready && <span className="titlebar-rule" aria-hidden="true" />}
     {ready && <nav className="flow-filter" aria-label={messages.flowFilter}>
       <button className="chip" aria-pressed={filter === null} title={hint(messages.allFlows, 1)} aria-keyshortcuts={ariaKeys(combo(1))} onClick={() => setFilter(null)}><Icon name="all" size={14} strokeWidth={1.8} />{messages.allFlows}</button>
       {flows.visible.map((flow, index) => <button key={flow.id} className="chip" aria-pressed={filter === flow.id} aria-label={messages.onlyFlow(flow.title)} title={hint(flow.title, index + 2)} aria-keyshortcuts={ariaKeys(combo(index + 2))} onClick={() => setFilter(filter === flow.id ? null : flow.id)}>
-        <FlowMark colors={[flow.flowColor]} />{filter === flow.id && <span className="chip-label">{flow.title}</span>}
+        <FlowMark colors={[flow.flowColor]} /><span className="chip-label" aria-hidden="true"><span><span>{flow.title}</span></span></span>
       </button>)}
     </nav>}
     <div className="titlebar-spacer" />
