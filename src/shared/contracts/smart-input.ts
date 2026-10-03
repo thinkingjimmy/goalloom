@@ -35,7 +35,7 @@ export type FeatureStatus = z.infer<typeof featureStatusSchema>
 export const noticeSchema = z.enum(['globalEntry', 'smartSetup'])
 export type Notice = z.infer<typeof noticeSchema>
 export const smartStatusSchema = z.strictObject({
-  providers: z.strictObject({ openrouter: providerStatusSchema, 'vercel-gateway': providerStatusSchema, typesafe: providerStatusSchema }),
+  providers: z.strictObject({ openrouter: providerStatusSchema, 'vercel-gateway': providerStatusSchema }),
   features: z.strictObject({ smart: featureStatusSchema, insight: featureStatusSchema }),
   dismissed: z.array(noticeSchema), unsignedBuild: z.boolean(),
 })

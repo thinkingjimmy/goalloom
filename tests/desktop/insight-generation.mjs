@@ -51,7 +51,7 @@ async function run(mode) {
     // Onboarding step 3 through the real UI: one OpenRouter key is tested per capability and turns on both features.
     await page.getByRole('button', { name: '连接 AI 服务', exact: true }).click()
     await page.getByLabel('OpenRouter API Key').fill('synthetic-key-only')
-    await page.getByRole('checkbox', { name: '我同意把智能输入和洞察需要的内容发送给这个服务' }).check()
+    await page.getByRole('checkbox', { name: '我同意把智能输入和洞察需要的内容发送给 OpenRouter' }).check()
     await page.getByRole('button', { name: '测试并开启', exact: true }).click()
     await page.getByRole('heading', { name: '已连接 OpenRouter', exact: true }).waitFor()
     await page.getByText('智能输入已开启', { exact: true }).waitFor()

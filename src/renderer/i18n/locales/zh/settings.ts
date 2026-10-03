@@ -45,7 +45,6 @@ export const settingsMessages = widen({
   ],
   // Calendar
   calendarSettings: '日历设置',
-  nextCycle: (date: string) => `下一周期 ${date}`,
   overdue: '到期未完成',
   policyNotes: {
     month: { auto: '月底自动移入下月', manual: '月底留在往期，等你安排' },

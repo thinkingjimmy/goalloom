@@ -1,6 +1,6 @@
 /**
  * [INPUT]: AI configuration, direction-write pending state, onboarding frame and provider connection forms.
- * [OUTPUT]: Optional third setup step with provider capabilities, explicit connection and a guarded board entry.
+ * [OUTPUT]: Optional third setup step laid out like the others (title block on top, explanation beside the demo or provider cards), explicit connection and a guarded board entry.
  * [POS]: Follows calendar confirmation; the local demo creates no tasks and needs no service.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -28,24 +28,22 @@ export function AiStep({ ai, finish, busy = false }: { ai: Ai; finish: () => voi
   const skip = <Button type="button" variant="ghost" disabled={busy} onClick={finish}>{t.skip}</Button>
 
   if (view === 'done' && outcome) return <OnboardingFrame step={2} label={messages.stepAi} note={t.doneFootnote} actions={<Button type="button" disabled={busy} onClick={finish}>{t.enterBoard}</Button>}>
-    <div className="onboarding-split">
-      <section className="onboarding-lead">
-        <p className="onboarding-eyebrow">{t.aiEyebrow}</p>
-        <h1 className="onboarding-title small">{t.doneTitle(providerNames[provider])}</h1>
-        <p className="onboarding-body">{t.doneBody}</p>
-      </section>
-      <ul className="ai-results" aria-label={t.aiSection}>
-        {aiFeatures.map(feature => {
-          const on = outcome.enabled.includes(feature) || ai.status?.features[feature].enabled, capability = featureCapability[feature]
-          const reason = !serves(provider, feature) ? t.insightNeedsChat : outcome.results[capability]?.failure?.message ?? null
-          return <li key={feature} data-on={!!on}>
-            <span className="ai-result-mark" aria-hidden="true">{on && <Icon name="check" size={14} strokeWidth={2.4} />}</span>
-            <div><b>{on ? t.featureOn(names[feature]) : t.featureOff(names[feature])}</b>
-              <small>{on ? `${t.capabilityNames[capability]} · ${(providerModels[provider] as Record<string, string>)[capability]}` : reason}</small></div>
-          </li>
-        })}
-      </ul>
-    </div>
+    <header className="onboarding-intro">
+      <p className="onboarding-eyebrow">{t.aiEyebrow}</p>
+      <h1 className="onboarding-title">{t.doneTitle(providerNames[provider])}</h1>
+      <p className="onboarding-subtitle">{t.doneBody}</p>
+    </header>
+    <ul className="ai-results" aria-label={t.aiSection}>
+      {aiFeatures.map(feature => {
+        const on = outcome.enabled.includes(feature) || ai.status?.features[feature].enabled, capability = featureCapability[feature]
+        const reason = !serves(provider, feature) ? t.insightNeedsChat : outcome.results[capability]?.failure?.message ?? null
+        return <li key={feature} data-on={!!on}>
+          <span className="ai-result-mark" aria-hidden="true">{on && <Icon name="check" size={14} strokeWidth={2.4} />}</span>
+          <div><b>{on ? t.featureOn(names[feature]) : t.featureOff(names[feature])}</b>
+            <small>{on ? `${t.capabilityNames[capability]} · ${(providerModels[provider] as Record<string, string>)[capability]}` : reason}</small></div>
+        </li>
+      })}
+    </ul>
   </OnboardingFrame>
 
   const connecting = view === 'connect'
@@ -54,20 +52,17 @@ export function AiStep({ ai, finish, busy = false }: { ai: Ai; finish: () => voi
     actions={connecting
       ? <><Button type="button" variant="ghost" onClick={() => setView('demo')}>{t.backToDemo}</Button>{skip}</>
       : <>{skip}<Button type="button" onClick={() => setView('connect')}>{t.connect}</Button></>}>
+    <header className="onboarding-intro">
+      <p className="onboarding-eyebrow">{connecting ? t.aiEyebrow : t.sectionTitle}</p>
+      <h1 className="onboarding-title">{connecting ? t.connectTitle : t.introTitle}</h1>
+      <p className="onboarding-subtitle">{connecting ? t.connectBody : t.demoNote}</p>
+    </header>
     <div className="onboarding-split">
-      <section className="onboarding-lead">
-        <p className="onboarding-eyebrow">{connecting ? t.aiEyebrow : t.sectionTitle}</p>
-        <h1 className="onboarding-title small">{connecting ? t.connectTitle : t.introTitle}</h1>
-        {connecting ? <>
-          <p className="onboarding-body">{t.connectBody}</p>
-          <ul className="ai-capabilities">
-            {aiFeatures.map(feature => <li key={feature}><span aria-hidden="true"><Icon name={feature === 'smart' ? 'smart' : 'split'} size={16} /></span><div><b>{names[feature]}</b><small>{t.capabilityPitch[feature]}</small></div></li>)}
-          </ul>
-        </> : <>
-          <ol className="jev-points">{t.demoPoints.map(point => <li key={point}>{point}</li>)}</ol>
-          <p className="onboarding-hint">{t.demoNote}</p>
-        </>}
-      </section>
+      {connecting
+        ? <ul className="ai-capabilities">
+          {aiFeatures.map(feature => <li key={feature}><span aria-hidden="true"><Icon name={feature === 'smart' ? 'smart' : 'split'} size={16} /></span><div><b>{names[feature]}</b><small>{t.capabilityPitch[feature]}</small></div></li>)}
+        </ul>
+        : <ol className="jev-points">{t.demoPoints.map((point, index) => <li key={point}><span className="jev-point-mark" aria-hidden="true">{index + 1}</span>{point}</li>)}</ol>}
       {connecting
         ? <div className="ai-options" role="radiogroup" aria-label={t.providerLabel}>
           {aiProviders.map(value => {

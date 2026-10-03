@@ -46,7 +46,6 @@ export const settingsMessages: SettingsCatalog = {
   ],
   // Calendar
   calendarSettings: 'Configuración del calendario',
-  nextCycle: (date: string) => `Siguiente ciclo: ${date}`,
   overdue: 'Pendiente al terminar',
   policyNotes: {
     month: { auto: 'A fin de mes pasa solo al mes siguiente', manual: 'A fin de mes queda en periodos anteriores hasta que lo organices' },

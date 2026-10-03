@@ -228,13 +228,13 @@ export class SmartInputService {
     this.chains.get(request.draftSessionId)?.abort()
     const controller = new AbortController()
     this.chains.set(request.draftSessionId, controller)
-    let provider: AiProvider = 'typesafe'
+    let provider: AiProvider = 'openrouter'
     try {
       const checkCurrent = () => { if (revision !== this.configurationRevision || controller.signal.aborted) throw new Aborted() }
       const config = await this.options.store.config()
       checkCurrent()
       const setting = config.features.smart
-      provider = setting.provider ?? 'typesafe'
+      provider = setting.provider ?? 'openrouter'
       if (!usable(config, 'smart', setting.provider) || setting.enabledForGeneration !== request.generation || setting.revision !== request.providerRevision) return failed(failure('not_enabled', provider))
       const generation = await this.options.reader.generation()
       checkCurrent()

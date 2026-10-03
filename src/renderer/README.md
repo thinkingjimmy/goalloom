@@ -26,8 +26,8 @@ renderer/
 │   │       ├── FeatureControls.tsx # 智能输入/洞察共用：功能总开关状态卡与处理服务单选（只列能运行该模型的服务）
 │   │       ├── SmartPane.tsx    # 智能输入：总开关 + 处理服务（Jev）
 │   │       ├── InsightPane.tsx  # Insight: switch + DeepSeek provider, breakpoint/review switches, personalization tabs (about me / drafting / review / read-only prompt)
-│   │       ├── CalendarPane.tsx # Locked mode/anchor and next year/half starts, manual year/half rows and four rollover policies
-│   │       ├── BackupPane.tsx   # 备份与恢复：状态/每日开关/保留份数、备份列表、导出与单一文件恢复、危险区重置
+│   │       ├── CalendarPane.tsx # Locked summary, current-year timeline with next year/half/3-month starts, a change-calendar row into the reset, aligned rollover rows
+│   │       ├── BackupPane.tsx   # 备份与恢复：状态/每日开关/保留份数、备份列表、导出与单一文件恢复、危险区重置（从日历「更换日历」进入时定位并聚焦）
 │   │       ├── ItemsPane.tsx    # 条目：已完成/已取消/已归档/回收站的搜索、今天/昨天分组与行内还原
 │   │       ├── TransferReview.tsx # 来源日历模式预览、三步进度与整库替换的两阶段确认
 │   │       ├── parts.tsx        # 分组/行（可带整行下方控件）/分段选择（色块、数量）/多选按钮组/开关原语，工作区时区时间与相对日期
@@ -53,7 +53,7 @@ renderer/
 │   │   ├── review.css       # Todo-scale monthly guide, unfilled review brief, text footer actions and responsive native modal using shared tokens
 │   │   └── insight.css      # Breakpoints, hints, empty-column cards and weekly review entry
 │   ├── smart/
-│   │   ├── ProviderConnect.tsx # 单个服务的 Key、只读模型、同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底栏）
+│   │   ├── ProviderConnect.tsx # 单个服务的 Key（标签旁官方控制台入口）、点名该服务的同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底部按钮行）
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
@@ -88,11 +88,10 @@ renderer/
 │   │   └── Activity.tsx     # 活动摘要 hook 与右侧横向抽屉，打开时才分页读取事件
 │   └── setup/
 │       ├── Setup.tsx        # 日历 → 年方向与确认的草稿；返回、语言变化与日期过期均保留输入
-│       ├── OnboardingFrame.tsx # 三步进度、语言、固定底栏（主按钮统一在右下）
-│       ├── DirectionStep.tsx # 年尺度方向、列头预览与显式锁定；不足 14 天默认下一年，Enter 只移焦点
-│       ├── CalendarStep.tsx # Rolling/natural mode cards with live dates, timezone/week-start and optional original anchor
+│       ├── OnboardingFrame.tsx # 左上三步进度、右上语言、居中内容列（各步标题位置一致），底部固定、无底栏样式的说明与按钮行
+│       ├── DirectionStep.tsx # 年尺度方向、剩余天数/下一年提示行与两行锁定摘要；不足 14 天默认下一年，Enter 只移焦点
+│       ├── CalendarStep.tsx # Welcome intro, rolling/natural cards with live dates and a year timeline, the in-card start date and a timezone/week-start sentence
 │       ├── use-setup-calendar.ts # Workspace-timezone midnight/focus/wake refresh and pure calendar/year-target derivation
-│       ├── BoardPreview.tsx # 六尺度只读列头与空状态，年方向目标与对应半年同步预览
 │       ├── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择；展开时才计算完整 GMT 偏移列表
 │       └── onboarding.css   # 首次流程样式（仅 token）
 ├── components/              # 可跨功能使用的 UI 原语
@@ -104,6 +103,7 @@ renderer/
 │   ├── FlowMark.tsx         # 与复选框同构的流程色块
 │   ├── Kbd.tsx              # 一键一帽的组合键展示（平台符号）
 │   ├── LanguageSelect.tsx   # 首次配置与设置外观共用的语言下拉（语言名用各自原文）
+│   ├── YearTimeline.tsx     # 当前一年的四段 3个月 / 两个半年时间轴与今天标记（首次配置模式卡与设置 › 日历共用，year-timeline.css）
 │   ├── icons/index.tsx      # Explicit free Hugeicons entry, shared React icons and checklist CSS checkmark mask
 │   └── ui/                 # shadcn Button, Radix Select and Context Menu; shared menu tokens and MIT attribution
 ├── state/

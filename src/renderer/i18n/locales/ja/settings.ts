@@ -46,7 +46,6 @@ export const settingsMessages: SettingsCatalog = {
   ],
   // Calendar
   calendarSettings: 'カレンダー設定',
-  nextCycle: (date: string) => `次の期間 ${date}`,
   overdue: '期限切れの未完了',
   policyNotes: {
     month: { auto: '月末に自動で翌月へ移動', manual: '月末に過去の期間に残し、整理を待つ' },

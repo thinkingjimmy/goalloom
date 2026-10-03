@@ -7,7 +7,7 @@
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import { widen } from '../../../../shared/i18n/locale'
 
-export const providerNames: Record<AiProvider, string> = { typesafe: 'TypeSafe 原生', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
+export const providerNames: Record<AiProvider, string> = { 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages = widen({
   composer: '新建',
   inputLabel: '写下想法',
@@ -104,7 +104,7 @@ export const smartMessages = widen({
   connectFootnote: '不连接也能完整使用看板和日历。测试会分别检查每项能力。',
   backToDemo: '返回示例',
   providerLabel: 'AI 服务',
-  providerPitch: (provider: AiProvider) => ({ openrouter: '按量付费，一个账户用多家模型', 'vercel-gateway': '已有 Vercel 账户时最省事', typesafe: 'Jev 官方直连' })[provider],
+  providerPitch: (provider: AiProvider) => ({ openrouter: '按量付费，一个账户用多家模型', 'vercel-gateway': '已有 Vercel 账户时最省事' })[provider],
   recommended: '推荐',
   testEnable: '测试并开启',
   doneTitle: (name: string) => `已连接 ${name}`,
@@ -115,17 +115,10 @@ export const smartMessages = widen({
   doneFootnote: 'Key 已加密保存在本机，不进入工作区备份。',
   enterBoard: '进入看板',
   // --- Connect form (onboarding and Settings › AI services) ---
-  keyLabel: (provider: AiProvider) => ({ typesafe: 'TypeSafe API Key', 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
+  keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: '粘贴 API Key',
-  modelNote: (models: string) => `模型由应用固定：${models}`,
   getKey: '打开官方控制台获取 Key',
-  recipient: (provider: AiProvider) => ({
-    typesafe: '发送内容：智能输入的原文、工作区日期，以及被点名或选中的目标标题/状态/位置；由 TypeSafe 处理。不发送说明、历史、回收站或整库。',
-    'vercel-gateway': '发送内容：智能输入的原文与相关目标，洞察的看板摘要与你的偏好；经 Vercel AI Gateway 只路由到 TypeSafe（Jev）和 DeepSeek。不发送说明、历史、回收站或整库。',
-    openrouter: '发送内容：智能输入的原文与相关目标，洞察的看板摘要与你的偏好；经 OpenRouter 转发给 TypeSafe（Jev）和 DeepSeek。不发送说明、历史、回收站或整库。',
-  })[provider],
-  cost: '调用按你账户的计费与额度执行；Goalloom 不代为购买或充值，也不承诺零数据保留。',
-  consent: '我同意把智能输入和洞察需要的内容发送给这个服务',
+  consent: (name: string) => `我同意把智能输入和洞察需要的内容发送给 ${name}`,
   testSave: '测试并保存',
   testing: '正在用固定样例测试…',
   testOk: '测试通过，已保存',
@@ -169,11 +162,11 @@ export const smartMessages = widen({
   disabled: '未启用 · 全局＋保存为 Later',
   insightOff: '未启用 · 断点和复盘照常显示，只是不起草文字',
   offNote: '打开开关即可启用。',
-  needService: (feature: AiFeature) => ({ smart: '需要一个能运行 Jev 的服务：OpenRouter、Vercel AI Gateway 或 TypeSafe 原生。', insight: '需要一个能运行 DeepSeek 的服务：OpenRouter 或 Vercel AI Gateway。' })[feature],
+  needService: (feature: AiFeature) => ({ smart: '需要一个能运行 Jev 的服务：OpenRouter 或 Vercel AI Gateway。', insight: '需要一个能运行 DeepSeek 的服务：OpenRouter 或 Vercel AI Gateway。' })[feature],
   addService: '添加服务',
   blocked: (name: string) => `暂停发送 · ${name} 需要处理`,
   resolve: '去 AI 服务处理 →',
-  onlyCapable: (feature: AiFeature) => ({ smart: '只列出能运行 Jev 的服务。切换后，正在整理的草稿不会自动发给新服务。', insight: '只列出能运行 DeepSeek 的服务。TypeSafe 原生只提供 Jev，不在此列。' })[feature],
+  onlyCapable: (feature: AiFeature) => ({ smart: '只列出能运行 Jev 的服务。切换后，正在整理的草稿不会自动发给新服务。', insight: '只列出能运行 DeepSeek 的服务。' })[feature],
   current: '当前',
   cooldown: (time: string) => `限流冷却中，${time} 后可再次自动整理`,
 })

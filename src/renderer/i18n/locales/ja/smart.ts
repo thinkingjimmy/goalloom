@@ -7,7 +7,7 @@
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
-export const providerNames: typeof source = { typesafe: 'TypeSafe ネイティブ', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
+export const providerNames: typeof source = { 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
   composer: '新規',
   inputLabel: '考えを書く',
@@ -104,7 +104,7 @@ export const smartMessages: SmartCatalog = {
   connectFootnote: '接続しなくてもボードとカレンダーはすべて使えます。テストは機能ごとに確認します。',
   backToDemo: '例に戻る',
   providerLabel: 'AI サービス',
-  providerPitch: (provider: AiProvider) => ({ openrouter: '従量課金、1 つのアカウントで多くのモデル', 'vercel-gateway': 'Vercel をすでに使っているなら最も手軽', typesafe: 'TypeSafe 公式の Jev に直接接続' })[provider],
+  providerPitch: (provider: AiProvider) => ({ openrouter: '従量課金、1 つのアカウントで多くのモデル', 'vercel-gateway': 'Vercel をすでに使っているなら最も手軽' })[provider],
   recommended: 'おすすめ',
   testEnable: 'テストしてオンにする',
   doneTitle: (name: string) => `${name} に接続しました`,
@@ -115,17 +115,10 @@ export const smartMessages: SmartCatalog = {
   doneFootnote: 'キーはこのコンピュータに暗号化して保存され、ワークスペースのバックアップには入りません。',
   enterBoard: 'ボードへ',
   // --- Connect form (onboarding and Settings › AI services) ---
-  keyLabel: (provider: AiProvider) => ({ typesafe: 'TypeSafe API Key', 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
+  keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: 'API Key を貼り付け',
-  modelNote: (models: string) => `モデルはアプリで固定：${models}`,
   getKey: '公式コンソールでキーを取得',
-  recipient: (provider: AiProvider) => ({
-    typesafe: '送信内容：スマート入力の原文、ワークスペースの日付、言及または選択した目標のタイトル・状態・位置。TypeSafe が処理します。説明、履歴、ゴミ箱、ワークスペース全体は送信しません。',
-    'vercel-gateway': '送信内容：スマート入力の原文と関連する目標、インサイトのボード要約とあなたの設定。Vercel AI Gateway を経由し、TypeSafe（Jev）と DeepSeek にのみ送られます。説明、履歴、ゴミ箱、ワークスペース全体は送信しません。',
-    openrouter: '送信内容：スマート入力の原文と関連する目標、インサイトのボード要約とあなたの設定。OpenRouter を経由して TypeSafe（Jev）と DeepSeek に送られます。説明、履歴、ゴミ箱、ワークスペース全体は送信しません。',
-  })[provider],
-  cost: '利用料金はあなたのアカウントの料金体系と上限に従います。Goalloom がクレジットを購入・チャージすることはなく、データのゼロ保持も約束しません。',
-  consent: 'スマート入力とインサイトに必要な内容をこのサービスに送ることに同意します',
+  consent: (name: string) => `スマート入力とインサイトに必要な内容を ${name} に送ることに同意します`,
   testSave: 'テストして保存',
   testing: '固定サンプルでテスト中…',
   testOk: 'テストに合格し、保存しました',
@@ -169,11 +162,11 @@ export const smartMessages: SmartCatalog = {
   disabled: 'オフ · グローバル＋は Later に保存',
   insightOff: 'オフ · 途切れと振り返りは表示されますが、文章は下書きしません',
   offNote: 'スイッチをオンにすると有効になります。',
-  needService: (feature: AiFeature) => ({ smart: 'Jev を実行できるサービスが必要です：OpenRouter、Vercel AI Gateway、TypeSafe ネイティブ。', insight: 'DeepSeek を実行できるサービスが必要です：OpenRouter または Vercel AI Gateway。' })[feature],
+  needService: (feature: AiFeature) => ({ smart: 'Jev を実行できるサービスが必要です：OpenRouter または Vercel AI Gateway。', insight: 'DeepSeek を実行できるサービスが必要です：OpenRouter または Vercel AI Gateway。' })[feature],
   addService: 'サービスを追加',
   blocked: (name: string) => `送信を停止中 · ${name} に対応が必要です`,
   resolve: 'AI サービスで対応 →',
-  onlyCapable: (feature: AiFeature) => ({ smart: 'Jev を実行できるサービスだけを表示します。切り替えても、整理中の下書きは新しいサービスに自動送信されません。', insight: 'DeepSeek を実行できるサービスだけを表示します。TypeSafe ネイティブは Jev のみです。' })[feature],
+  onlyCapable: (feature: AiFeature) => ({ smart: 'Jev を実行できるサービスだけを表示します。切り替えても、整理中の下書きは新しいサービスに自動送信されません。', insight: 'DeepSeek を実行できるサービスだけを表示します。' })[feature],
   current: '使用中',
   cooldown: (time: string) => `レート制限の待機中です。${time} 後に自動整理を再開できます`,
 }

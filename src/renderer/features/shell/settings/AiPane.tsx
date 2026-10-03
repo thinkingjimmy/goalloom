@@ -15,7 +15,7 @@ import { ProviderConnect } from '../../smart/ProviderConnect'
 import { SettingsGroup } from './parts'
 import { issueText } from './FeatureControls'
 
-const marks: Record<AiProvider, string> = { openrouter: 'OR', 'vercel-gateway': 'V', typesafe: 'TS' }
+const marks: Record<AiProvider, string> = { openrouter: 'OR', 'vercel-gateway': 'V' }
 
 export function AiPane({ ai }: { ai: Ai }) {
   const [open, setOpen] = useState<AiProvider | null>(null), [removing, setRemoving] = useState<AiProvider | null>(null)
@@ -56,7 +56,7 @@ export function AiPane({ ai }: { ai: Ai }) {
       {removing === provider && <div className="settings-row provider-remove" role="alert"><span>{t.removeWarning(t.joinNames(users))}</span>
         <button type="button" className="settings-button" onClick={() => setRemoving(null)}>{t.keepIt}</button>
         <button type="button" className="settings-button danger" onClick={remove}>{t.confirmRemove}</button></div>}
-      {expanded && <div className="smart-provider-form"><ProviderConnect key={provider} ai={ai} provider={provider} hideUnsigned done={() => setOpen(null)} /></div>}
+      {expanded && <div className="smart-provider-form"><ProviderConnect key={provider} ai={ai} provider={provider} done={() => setOpen(null)} /></div>}
     </div>
   }
   return <>

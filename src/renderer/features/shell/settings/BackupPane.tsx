@@ -1,10 +1,10 @@
 /**
- * [INPUT]: 备份状态、工作区备份偏好、工作区时区与今天、受限提交、数据动作与导出回调。
- * [OUTPUT]: 「备份与恢复」：状态卡（上次备份、立即备份、每日开关、保留份数）、按时间倒序的备份列表（默认 3 份可展开，逐份预览恢复）、导出 JSON 与单一文件选择恢复（JSON/SQLite）、危险区重置入口。
+ * [INPUT]: 备份状态、工作区备份偏好、工作区时区与今天、受限提交、数据动作与导出回调；从日历「更换日历」进入时的定位标记。
+ * [OUTPUT]: 「备份与恢复」：状态卡（上次备份、立即备份、每日开关、保留份数）、按时间倒序的备份列表（默认 3 份可展开，逐份预览恢复）、导出 JSON 与单一文件选择恢复（JSON/SQLite）、危险区重置入口（定位进入时滚入视口、聚焦并短暂高亮）。
  * [POS]: settings 的备份与恢复分类；备份、导入与重置都经 Settings 的 data 动作进入主进程，整库替换统一进入 TransferReview 两阶段确认。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BackupStatus, DataAction } from '../../../../shared/contracts/transfer'
 import { messages, settingsMessages as s } from '../../../i18n'
 import type { Action } from '../../../state/use-workspace'
@@ -14,11 +14,17 @@ import { SettingsGroup, SettingsRow, Switch, relativeDay, stamp } from './parts'
 const kinds = () => ({ daily: messages.daily, protective: messages.protective, manual: messages.manual })
 const collapsed = 3
 
-export function BackupPane({ status, enabled, retention, timezone, today, generation, configured, disabled, submit, data, exportJson }: {
+export function BackupPane({ status, enabled, retention, timezone, today, generation, configured, disabled, submit, data, exportJson, revealReset = false }: {
   status: BackupStatus | null; enabled: boolean; retention: number; timezone: string | undefined; today: string; generation: string; configured: boolean; disabled: boolean
-  submit: (action: Action) => Promise<unknown>; data: (action: DataAction) => Promise<void>; exportJson: () => void
+  submit: (action: Action) => Promise<unknown>; data: (action: DataAction) => Promise<void>; exportJson: () => void; revealReset?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
+  const reset = useRef<HTMLElement>(null)
+  useEffect(() => { if (revealReset) reset.current?.querySelector('button')?.focus({ preventScroll: true }) }, [])
+  // Re-run once the list loads: rows arriving above would otherwise push the reset entry back out of view.
+  useEffect(() => {
+    if (revealReset) reset.current?.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  }, [revealReset, status])
   const records = [...(status?.records ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const latest = records[0]
   const shown = expanded ? records : records.slice(0, collapsed)
@@ -68,7 +74,7 @@ export function BackupPane({ status, enabled, retention, timezone, today, genera
         <button type="button" className="settings-button" disabled={disabled} onClick={() => void data({ type: 'chooseImport', generation })}>{s.chooseFile}</button>
       </SettingsRow>
     </SettingsGroup>
-    <SettingsGroup danger>
+    <SettingsGroup danger reveal={revealReset} ref={reset}>
       <SettingsRow title={messages.resetWorkspace} note={s.resetNote}>
         <button type="button" className="settings-button danger" disabled={disabled} onClick={() => void data({ type: 'previewReset', generation })}>{s.reset}</button>
       </SettingsRow>

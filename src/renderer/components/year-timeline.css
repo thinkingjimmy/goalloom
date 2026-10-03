@@ -1,0 +1,9 @@
+/* --- Year timeline: four 3-month segments, a wider gap between halves, elapsed tint and a today marker. Tokens only. --- */
+.year-timeline { --past: 0%; padding-top: 20px; }
+.year-timeline-track { position: relative; height: 10px; display: flex; gap: 3px; }
+.year-timeline-segment { position: relative; flex-basis: 0; min-width: 0; border-radius: 3px;
+  background: linear-gradient(to right, var(--timeline-past, var(--checked)) var(--past), var(--timeline-ahead, var(--pressed)) var(--past)); }
+.year-timeline-segment[data-half] { margin-right: 5px; }
+.year-timeline-marker { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--fg); box-shadow: 0 0 0 1.5px var(--timeline-ground, var(--raised)); }
+/* Anchoring the label by its own width keeps it inside the track at either end. */
+.year-timeline-today { position: absolute; bottom: calc(100% + 6px); left: var(--at); transform: translateX(calc(var(--at) * -1)); font-size: 11px; line-height: 14px; font-weight: 500; color: var(--fg-soft); white-space: nowrap; }

@@ -1,15 +1,15 @@
 /**
  * [INPUT]: 分组标题/右侧说明或操作、行标题/说明与右侧控件、可选色块的分段选项；可选工作区时区。
- * [OUTPUT]: SettingsGroup（小标题在卡外、卡片只装内容）、SettingsRow 左文右控行（可在下方放整行控件）、Segmented 分段选择（可带色块示意）、ToggleChips 多选按钮组、Switch 开关、stamp 本地时间格式。
+ * [OUTPUT]: SettingsGroup（小标题在卡外、卡片只装内容，可标记为跳转目标并转发 ref）、SettingsRow 左文右控行（可在下方放整行控件）、Segmented 分段选择（可带色块示意）、ToggleChips 多选按钮组、Switch 开关、stamp 本地时间格式。
  * [POS]: settings 各分类面板共用的版式原语，不持有状态、不提交命令。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, ReactNode, Ref } from 'react'
 import { Icon } from '../../../components/icons'
 
 /** A group reads as a small heading (with an optional note or action on the right) above a card that holds only content. */
-export function SettingsGroup({ title, aside, danger = false, children }: { title?: string; aside?: ReactNode; danger?: boolean; children?: ReactNode }) {
-  return <section className="settings-group" data-danger={danger}>
+export function SettingsGroup({ title, aside, danger = false, reveal = false, ref, children }: { title?: string; aside?: ReactNode; danger?: boolean; reveal?: boolean; ref?: Ref<HTMLElement>; children?: ReactNode }) {
+  return <section ref={ref} className="settings-group" data-danger={danger} data-reveal={reveal || undefined}>
     {(title || aside) && <header className="settings-group-header">{title && <h3>{title}</h3>}{aside}</header>}
     <div className="settings-card">{children}</div>
   </section>

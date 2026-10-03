@@ -4,8 +4,8 @@
 
 ```text
 smart/
-├── providers.ts    # Jev 固定预设与错误归一化；System One 使用时才加载 SDK，Gateway 请求时才取 fetch
-├── credentials.ts  # DeviceStore：OS 保护加密 Key、设备配置 v2（每服务同意/能力验证/账户失败，每功能服务/修订/绑定代次），读取时升级 v1
+├── providers.ts    # Jev 固定预设（OpenRouter System One、Gateway evaluate）与错误归一化；System One 使用时才加载 SDK，Gateway 请求时才取 fetch
+├── credentials.ts  # DeviceStore：OS 保护加密 Key、设备配置 v2（每服务同意/能力验证/账户失败，每功能服务/修订/绑定代次），读取时升级 v1，并移除已下线的 TypeSafe 原生条目（绑定的功能关闭、删除其 Key 文件）
 ├── service.ts      # 状态/配置、逐能力连接测试（任一通过即保存，自动开启尚无服务的功能）、按需加载题单/预览；取消、按服务冷却、32 项/512 KiB 缓存，会话释放清空
 ├── insight.ts      # 流程洞察：OpenRouter / AI Gateway chat completions（固定 DeepSeek flash、关推理、JSON、Gateway 只路由到 DeepSeek）与能力样例
 ├── context.ts      # 经 StorageClient 短只读查询构造 SmartContext（模式、起点、六尺度日期/周期、≤8 候选）

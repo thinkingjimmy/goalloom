@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Provider-owned credentials, lightweight payload budgets, abort signals and controlled HTTP.
- * [OUTPUT]: Fixed Jev presets and adapters (System One on TypeSafe native / OpenRouter, Gateway evaluate), normalized distributions and typed failures.
+ * [OUTPUT]: Fixed Jev presets and adapters (System One via OpenRouter, Gateway evaluate), normalized distributions and typed failures.
  * [POS]: Provider boundary; no task-body or credential logging, and no alternate API protocols.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,7 +14,6 @@ import { serverText } from '../../shared/i18n/server'
 import { providerModels } from '../../shared/contracts/values'
 
 export const JEV_PROVIDERS = {
-  typesafe: { protocol: 'typesafe-system-one', baseURL: 'https://api.typesafe.ai', model: providerModels.typesafe.jev, console: 'https://typesafe.ai' },
   // OpenRouter serves TypeSafe's System One shapes at /api/v1/systemone; the SDK appends /v1/systemone to this base.
   openrouter: { protocol: 'typesafe-system-one', baseURL: 'https://openrouter.ai/api', model: providerModels.openrouter.jev, console: 'https://openrouter.ai/settings/keys' },
   'vercel-gateway': { protocol: 'gateway-evaluate', endpoint: 'https://ai-gateway.vercel.sh/v1/evaluate', model: providerModels['vercel-gateway'].jev, providerOptions: { gateway: { only: ['typesafe-ai'] } }, console: 'https://vercel.com/dashboard' },
@@ -34,7 +33,7 @@ export class Aborted extends Error {}
 export type Adapter = (apiKey: string, input: EvaluateInput) => Promise<EvaluateOutput>
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 
-const names: Record<AiProvider, string> = { typesafe: 'TypeSafe', 'vercel-gateway': 'AI Gateway', openrouter: 'OpenRouter' }
+const names: Record<AiProvider, string> = { 'vercel-gateway': 'AI Gateway', openrouter: 'OpenRouter' }
 export function failure(kind: FailureKind, provider: AiProvider, status: number | null = null, retryAt: string | null = null): Failure {
   const name = names[provider]
   return { kind, message: serverText().smart.failures[kind](name, status), status, retryAt }
@@ -79,7 +78,7 @@ function requestBody(value: unknown, provider: AiProvider): string {
   return body
 }
 
-export function systemOneAdapter(provider: 'typesafe' | 'openrouter', fetch?: Fetch): Adapter {
+export function systemOneAdapter(provider: 'openrouter', fetch?: Fetch): Adapter {
   return async (apiKey, { state, questions, signal }) => {
     if (signal.aborted) throw new Aborted()
     const { APIConnectionError, APIError, APIUserAbortError, TypeSafeClient } = await import('@typesafe-ai/sdk')

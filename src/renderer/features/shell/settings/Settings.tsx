@@ -62,13 +62,16 @@ type Counts = Record<Ending | 'trash', number>
 
 export function Settings({ snapshot, ai, initial = 'appearance', request = 0, submit, refresh, busy, select, close }: { snapshot: Snapshot; ai: Ai; initial?: Section; request?: number; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; select: (id: string) => void; close: () => void }) {
   const [section, setSection] = useState<Section>(initial), [ending, setEnding] = useState<Ending>('done')
+  // Set only by the calendar pane's change row so Backup opens on its reset entry; any other navigation clears it.
+  const [revealReset, setRevealReset] = useState(false)
+  const navigate = (next: Section, reset = false) => { setSection(next); setRevealReset(reset) }
   const [backups, setBackups] = useState<BackupStatus | null>(null)
   const [latest, setLatest] = useState<string | null>(null)
   const [counts, setCounts] = useState<Counts | null>(null)
   const [preview, setPreview] = useState<TransferPreview | null>(null), [acknowledged, setAcknowledged] = useState(false)
   const [working, setWorking] = useState(false), [error, setError] = useState('')
   // A new request (e.g. the app menu's About) re-targets an open dialog, except while a transfer review locks navigation.
-  useEffect(() => { if (!preview) setSection(initial) }, [request])
+  useEffect(() => { if (!preview) navigate(initial) }, [request])
   const update = useUpdate()
   const { generation, calendar, revision } = snapshot.workspace
   const timezone = calendar?.timezone
@@ -149,7 +152,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
       <p className="settings-nav-title">{messages.settings}</p>
       {groups().map(group => <div key={group.label} className="settings-nav-group">
         <p>{group.label}</p>
-        {group.entries.map(entry => <button key={entry.id} type="button" aria-current={!preview && section === entry.id ? 'page' : undefined} disabled={!!preview} onClick={() => setSection(entry.id)}>
+        {group.entries.map(entry => <button key={entry.id} type="button" aria-current={!preview && section === entry.id ? 'page' : undefined} disabled={!!preview} onClick={() => navigate(entry.id)}>
           <Icon name={entry.icon} size={16} /><span className="settings-nav-label">{entry.label}</span>
           {/* Glanceable status only; the section name stays the button's accessible name. */}
           {meta[entry.id] && <span className="settings-nav-meta" data-dot={meta[entry.id]!.dot ?? false} aria-hidden="true">{meta[entry.id]!.text}</span>}
@@ -165,12 +168,12 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
         {section === 'board' && <BoardPane disabled={disabled} submit={submit} />}
         {section === 'shortcuts' && <ShortcutsPane />}
         {section === 'ai' && <AiPane ai={ai} />}
-        {section === 'smart' && <SmartPane ai={ai} goto={setSection} />}
-        {section === 'insight' && <InsightPane snapshot={snapshot} ai={ai} goto={setSection} />}
+        {section === 'smart' && <SmartPane ai={ai} goto={next => navigate(next)} />}
+        {section === 'insight' && <InsightPane snapshot={snapshot} ai={ai} goto={next => navigate(next)} />}
         {section === 'calendar' && (calendar
-          ? <CalendarPane calendar={calendar} policies={snapshot.policies} today={today} disabled={disabled} submit={submit} goReset={() => setSection('backup')} />
+          ? <CalendarPane calendar={calendar} policies={snapshot.policies} observedAt={snapshot.observedAt} today={today} disabled={disabled} submit={submit} goReset={() => navigate('backup', true)} />
           : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}
-        {section === 'backup' && <BackupPane status={backups} enabled={snapshot.workspace.backupEnabled} retention={snapshot.workspace.backupRetention} timezone={timezone} today={today} generation={generation} configured={!!calendar} disabled={disabled} submit={submit} data={data}
+        {section === 'backup' && <BackupPane status={backups} enabled={snapshot.workspace.backupEnabled} retention={snapshot.workspace.backupRetention} timezone={timezone} today={today} generation={generation} configured={!!calendar} disabled={disabled} submit={submit} data={data} revealReset={revealReset}
           exportJson={() => void desktopApi().exportWorkspace().catch(() => setError(messages.exportUnknown))} />}
         {section === 'about' && <AboutPane info={update} />}
         {items && calendar && <ItemsPane key={items} view={items as ItemsView} revision={revision} timezone={calendar.timezone} today={today} disabled={disabled} select={select} submit={submit} />}

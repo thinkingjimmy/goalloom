@@ -7,7 +7,7 @@
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
-export const providerNames: typeof source = { typesafe: 'TypeSafe natif', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
+export const providerNames: typeof source = { 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
   composer: 'Nouveau',
   inputLabel: 'Notez une idée',
@@ -106,7 +106,7 @@ export const smartMessages: SmartCatalog = {
   connectFootnote: 'Le tableau et le calendrier fonctionnent entièrement sans connexion. Le test vérifie chaque capacité séparément.',
   backToDemo: 'Revenir à l’exemple',
   providerLabel: 'Service d’IA',
-  providerPitch: (provider: AiProvider) => ({ openrouter: 'Paiement à l’usage, de nombreux modèles sur un seul compte', 'vercel-gateway': 'Le plus simple si vous utilisez déjà Vercel', typesafe: 'Jev en direct chez TypeSafe' })[provider],
+  providerPitch: (provider: AiProvider) => ({ openrouter: 'Paiement à l’usage, de nombreux modèles sur un seul compte', 'vercel-gateway': 'Le plus simple si vous utilisez déjà Vercel' })[provider],
   recommended: 'Recommandé',
   testEnable: 'Tester et activer',
   doneTitle: (name: string) => `Connecté à ${name}`,
@@ -117,17 +117,10 @@ export const smartMessages: SmartCatalog = {
   doneFootnote: 'La clé est stockée chiffrée sur cet ordinateur et n’entre jamais dans les sauvegardes de l’espace de travail.',
   enterBoard: 'Aller au tableau',
   // --- Connect form (onboarding and Settings › AI services) ---
-  keyLabel: (provider: AiProvider) => ({ typesafe: 'TypeSafe API Key', 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
+  keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: 'Collez l’API Key',
-  modelNote: (models: string) => `Modèles fixés par l’app : ${models}`,
   getKey: 'Obtenir une clé dans la console officielle',
-  recipient: (provider: AiProvider) => ({
-    typesafe: 'Ce qui est envoyé : le texte de la saisie intelligente, la date de l’espace de travail et le titre/statut/position des objectifs mentionnés ou sélectionnés ; traité par TypeSafe. Les descriptions, l’historique, la corbeille et l’espace complet ne sont jamais envoyés.',
-    'vercel-gateway': 'Ce qui est envoyé : le texte de la saisie intelligente avec ses objectifs liés, et le résumé du tableau des Aperçus avec vos préférences ; transmis par Vercel AI Gateway et routé uniquement vers TypeSafe (Jev) et DeepSeek. Les descriptions, l’historique, la corbeille et l’espace complet ne sont jamais envoyés.',
-    openrouter: 'Ce qui est envoyé : le texte de la saisie intelligente avec ses objectifs liés, et le résumé du tableau des Aperçus avec vos préférences ; transmis par OpenRouter à TypeSafe (Jev) et DeepSeek. Les descriptions, l’historique, la corbeille et l’espace complet ne sont jamais envoyés.',
-  })[provider],
-  cost: 'L’usage est facturé sur votre compte selon ses tarifs et quotas. Goalloom n’achète ni ne recharge de crédits pour vous, et ne promet pas de conservation zéro des données.',
-  consent: 'J’accepte d’envoyer à ce service ce dont la saisie intelligente et les Aperçus ont besoin',
+  consent: (name: string) => `J’accepte d’envoyer à ${name} ce dont la saisie intelligente et les Aperçus ont besoin`,
   testSave: 'Tester et enregistrer',
   testing: 'Test avec un exemple fixe…',
   testOk: 'Test réussi. Enregistré.',
@@ -171,11 +164,11 @@ export const smartMessages: SmartCatalog = {
   disabled: 'Désactivé · Le + global enregistre dans Later',
   insightOff: 'Désactivé · Ruptures et bilans restent affichés, sans texte rédigé',
   offNote: 'Activez l’interrupteur pour l’activer.',
-  needService: (feature: AiFeature) => ({ smart: 'Nécessite un service qui exécute Jev : OpenRouter, Vercel AI Gateway ou TypeSafe natif.', insight: 'Nécessite un service qui exécute DeepSeek : OpenRouter ou Vercel AI Gateway.' })[feature],
+  needService: (feature: AiFeature) => ({ smart: 'Nécessite un service qui exécute Jev : OpenRouter ou Vercel AI Gateway.', insight: 'Nécessite un service qui exécute DeepSeek : OpenRouter ou Vercel AI Gateway.' })[feature],
   addService: 'Ajouter un service',
   blocked: (name: string) => `Envoi en pause · ${name} demande une action`,
   resolve: 'Régler dans Services d’IA →',
-  onlyCapable: (feature: AiFeature) => ({ smart: 'Seuls les services qui exécutent Jev sont listés. Après un changement, un brouillon en cours n’est pas envoyé automatiquement au nouveau service.', insight: 'Seuls les services qui exécutent DeepSeek sont listés. TypeSafe natif n’offre que Jev.' })[feature],
+  onlyCapable: (feature: AiFeature) => ({ smart: 'Seuls les services qui exécutent Jev sont listés. Après un changement, un brouillon en cours n’est pas envoyé automatiquement au nouveau service.', insight: 'Seuls les services qui exécutent DeepSeek sont listés.' })[feature],
   current: 'Actuel',
   cooldown: (time: string) => `Limite de requêtes atteinte. L’organisation automatique reprend dans ${time}`,
 }

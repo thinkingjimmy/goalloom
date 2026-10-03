@@ -20,7 +20,7 @@ const cipher: Cipher = {
 export function createSmartService(directory: string, storage: () => StorageClient): SmartInputService {
   return new SmartInputService({
     store: new DeviceStore(directory, cipher), reader: storageReader(storage),
-    adapters: { typesafe: systemOneAdapter('typesafe'), 'vercel-gateway': gatewayAdapter(), openrouter: systemOneAdapter('openrouter') }, chat: { openrouter: chatAdapter('openrouter'), 'vercel-gateway': chatAdapter('vercel-gateway') },
+    adapters: { 'vercel-gateway': gatewayAdapter(), openrouter: systemOneAdapter('openrouter') }, chat: { openrouter: chatAdapter('openrouter'), 'vercel-gateway': chatAdapter('vercel-gateway') },
     unsignedBuild: process.platform === 'darwin', openExternal: url => { void shell.openExternal(url) },
   })
 }

@@ -7,7 +7,7 @@
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
-export const providerNames: typeof source = { typesafe: 'TypeSafe native', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
+export const providerNames: typeof source = { 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
   composer: 'New',
   inputLabel: 'Write down an idea',
@@ -104,7 +104,7 @@ export const smartMessages: SmartCatalog = {
   connectFootnote: 'The board and calendar work fully without connecting. The test checks each capability separately.',
   backToDemo: 'Back to example',
   providerLabel: 'AI service',
-  providerPitch: (provider: AiProvider) => ({ openrouter: 'Pay as you go, many models on one account', 'vercel-gateway': 'Easiest if you already use Vercel', typesafe: 'Jev direct from TypeSafe' })[provider],
+  providerPitch: (provider: AiProvider) => ({ openrouter: 'Pay as you go, many models on one account', 'vercel-gateway': 'Easiest if you already use Vercel' })[provider],
   recommended: 'Recommended',
   testEnable: 'Test and turn on',
   doneTitle: (name: string) => `Connected to ${name}`,
@@ -115,17 +115,10 @@ export const smartMessages: SmartCatalog = {
   doneFootnote: 'The key is stored encrypted on this computer and never goes into workspace backups.',
   enterBoard: 'Go to board',
   // --- Connect form (onboarding and Settings › AI services) ---
-  keyLabel: (provider: AiProvider) => ({ typesafe: 'TypeSafe API Key', 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
+  keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: 'Paste API Key',
-  modelNote: (models: string) => `Models are fixed by the app: ${models}`,
   getKey: 'Get a key in the official console',
-  recipient: (provider: AiProvider) => ({
-    typesafe: 'What’s sent: the smart input text, the workspace date, and the title/status/position of goals you mention or select; processed by TypeSafe. Descriptions, history, trash and the full workspace are never sent.',
-    'vercel-gateway': 'What’s sent: smart input text with related goals, and insight’s board summary with your preferences; passed through Vercel AI Gateway and routed only to TypeSafe (Jev) and DeepSeek. Descriptions, history, trash and the full workspace are never sent.',
-    openrouter: 'What’s sent: smart input text with related goals, and insight’s board summary with your preferences; passed through OpenRouter to TypeSafe (Jev) and DeepSeek. Descriptions, history, trash and the full workspace are never sent.',
-  })[provider],
-  cost: 'Usage is billed to your account under its pricing and quota. Goalloom doesn’t buy or top up credits for you, and doesn’t promise zero data retention.',
-  consent: 'I agree to send what smart input and insight need to this service',
+  consent: (name: string) => `I agree to send what smart input and insight need to ${name}`,
   testSave: 'Test and save',
   testing: 'Testing with a fixed sample…',
   testOk: 'Test passed. Saved.',
@@ -169,11 +162,11 @@ export const smartMessages: SmartCatalog = {
   disabled: 'Off · The global + saves to Later',
   insightOff: 'Off · Breakpoints and reviews still show, without drafted text',
   offNote: 'Turn the switch on to enable it.',
-  needService: (feature: AiFeature) => ({ smart: 'Needs a service that runs Jev: OpenRouter, Vercel AI Gateway or TypeSafe native.', insight: 'Needs a service that runs DeepSeek: OpenRouter or Vercel AI Gateway.' })[feature],
+  needService: (feature: AiFeature) => ({ smart: 'Needs a service that runs Jev: OpenRouter or Vercel AI Gateway.', insight: 'Needs a service that runs DeepSeek: OpenRouter or Vercel AI Gateway.' })[feature],
   addService: 'Add a service',
   blocked: (name: string) => `Sending paused · ${name} needs attention`,
   resolve: 'Fix in AI services →',
-  onlyCapable: (feature: AiFeature) => ({ smart: 'Only services that run Jev are listed. After switching, a draft being organized isn’t sent to the new service automatically.', insight: 'Only services that run DeepSeek are listed. TypeSafe native offers Jev only.' })[feature],
+  onlyCapable: (feature: AiFeature) => ({ smart: 'Only services that run Jev are listed. After switching, a draft being organized isn’t sent to the new service automatically.', insight: 'Only services that run DeepSeek are listed.' })[feature],
   current: 'Current',
   cooldown: (time: string) => `Rate-limited. Automatic organizing resumes in ${time}`,
 }

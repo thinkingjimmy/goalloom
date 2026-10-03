@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Step, content, footer actions, shared language control and optional portal action ref.
- * [OUTPUT]: Three-step calendar/direction/AI frame with scrollable content and fixed footer actions.
+ * [INPUT]: Step, content, note/actions, shared language control and optional portal action ref.
+ * [OUTPUT]: Three-step calendar/direction/AI frame: progress at the top left, one centred scrolling content column (titles stay put between steps) and a note/actions row pinned to the bottom without a bar.
  * [POS]: Shared setup layout; keeps confirmation controls in a stable position.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -23,9 +23,9 @@ export function OnboardingFrame({ step, label, children, note, lock = false, act
       </ol>
       <LanguageSelect id="setup-language" className="onboarding-language" />
     </header>
-    <main className="onboarding-main" aria-label={label}>{children}</main>
+    <main className="onboarding-main" aria-label={label}><div className="onboarding-content">{children}</div></main>
     <footer className="onboarding-footer">
-      {lock && <Icon name="lock" size={18} />}
+      {lock && <span className="onboarding-lock" aria-hidden="true"><Icon name="lock" size={16} /></span>}
       <p className="onboarding-note">{note}</p>
       <div className="onboarding-actions" ref={actionsRef}>{actions}</div>
     </footer>

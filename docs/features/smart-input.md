@@ -26,7 +26,7 @@
 | --- | --- |
 | 未配置或关闭 Jev → Later | 不增加离线分类器；不解析时间、不拆分、不自动关联；默认只创建一个 Later 条目 |
 | Onboarding 可以配置 Jev | 保留可跳过的配置机会；不是必填 Key 才能进入产品 |
-| TypeSafe 原生 + Vercel AI Gateway + OpenRouter | 三个服务并列，分别使用自己的 Key，一次启用一个服务（OpenRouter 于 2026-09-25 按负责人要求加入） |
+| OpenRouter + Vercel AI Gateway | 两个服务并列，分别使用自己的 Key，各功能各选一个服务（OpenRouter 于 2026-09-25 按负责人要求加入；TypeSafe 原生因不提供洞察所需的写作模型，于 2026-10-03 按负责人要求整体下线，见 §6.1） |
 | 原文直接交给 Jev | 不先用关键词/其他模型理解一次，不固定「先分类再填字段」两轮 |
 | 预览可编辑、确认后才写入 | 不在输入或判断阶段修改条目、关系、历史 |
 | 多父 DAG、单一主位置、现有流程 | 不为减少请求而把持久化或手动关联能力改为单父 |
@@ -60,13 +60,13 @@
 
 ### 3.1 新用户和已有用户
 
-首次流程为：**选择日历 → 写下一年的方向并确认 → 可选连接 AI 服务 → 看板**。三步共用同一外框：顶部显示进度与语言，底栏左侧为说明，按钮统一在右下。
+首次流程为：**选择日历 → 写下一年的方向并确认 → 可选连接 AI 服务 → 看板**。三步共用同一外框：进度在左上、语言在右上（与内容列对齐），向导期间顶栏不显示设置按钮；内容在同一居中列内顶部对齐，各步标题位置不跳动；说明与按钮固定在窗口底部（按钮在右侧），与内容列对齐，不画底栏的边框和底色。
 
-1. **日历**：选择 365 天（默认）或自然年，实时预览年 / 半年 / 3个月日期；时区与周起始可改。365 天起点选今天 / 本月 1 日 / 过去自选日期，自然年固定当年 1 月 1 日。此步不锁定。
-2. **方向与确认**：写下这一年的方向，列头条显示七栏与待确认方向，摘要注明确认后不可修改。「修改」回到日历并保留草稿。输入框 Enter 只聚焦确认按钮；显式「确认并开始」在事务内解析起点，与预览不一致则以 stale_preview 拒绝并刷新、保留草稿。方向作为独立可撤销流程根写入年列，当期不足 14 天默认写入下一年；完成向导时定位到该年及同日起的半年。所选时区午夜、窗口获焦与唤醒刷新所有日期。详见 [双日历模式](calendar-modes.md#44-onboarding三步d9-已确认)。
-3. **AI 助手（可选）**：先展示不调用服务的预设示例动画与「暂时跳过」「连接 AI 服务」；选择连接后每个服务一张卡片（OpenRouter 标为推荐，并标出能开启智能输入 / 洞察中的哪些），选中的卡片内展开 Key 表单，「测试并开启」放在底栏右下。测试通过后显示实际开启的功能（例如 TypeSafe 原生只开智能输入并说明洞察需另加服务），再「进入看板」；任何时候都可跳过。不强制注册、跳出购买或填写 Key，不改变日历确认及锁定语义。
+1. **日历**：选择 365 天（默认）或自然年，每张卡片实时预览年 / 半年 / 3个月日期，并用时间轴显示今天在这一年中的位置；时区与周起始在卡片下方的一句话里修改。365 天起点（今天 / 本月 1 日 / 过去自选日期）折叠在 365 天卡片内，自然年固定当年 1 月 1 日。此步不锁定。
+2. **方向与确认**：写下这一年的方向，摘要注明确认后不可修改。「修改」回到日历并保留草稿。输入框 Enter 只聚焦确认按钮；显式「确认并开始」在事务内解析起点，与预览不一致则以 stale_preview 拒绝并刷新、保留草稿。方向作为独立可撤销流程根写入年列，当期不足 14 天默认写入下一年；完成向导时定位到该年及同日起的半年。所选时区午夜、窗口获焦与唤醒刷新所有日期。详见 [双日历模式](calendar-modes.md#44-onboarding三步d9-已确认)。
+3. **AI 助手（可选）**：先展示不调用服务的预设示例动画与「暂时跳过」「连接 AI 服务」；选择连接后每个服务一张卡片（OpenRouter 标为推荐，并标出能开启智能输入 / 洞察中的哪些），选中的卡片内展开 Key 表单，「测试并开启」放在底部按钮行右侧。测试通过后显示实际开启的功能，再「进入看板」；任何时候都可跳过。不强制注册、跳出购买或填写 Key，不改变日历确认及锁定语义。
 
-连接表单（Onboarding 与「设置 › AI 服务」共用）针对一个服务：密码输入框、只读模型说明（每项能力一个固定模型）、官方密钥入口、数据接收方与费用说明、默认未勾选的发送同意，以及测试按钮（Onboarding「测试并开启」，设置「测试并保存」）。Gateway 只需 Gateway Key，不要求 TypeSafe Key 或部署 Vercel 网站；OpenRouter 同理只需 OpenRouter Key。[R3][R4][R13]
+连接表单（Onboarding 与「设置 › AI 服务」共用）针对一个服务，只有三部分：Key 标签（右侧是「打开官方控制台获取 Key」入口）与密码输入框、点名该服务且默认未勾选的发送同意（「我同意把智能输入和洞察需要的内容发送给 OpenRouter / Vercel AI Gateway」），以及测试按钮（Onboarding「测试并开启」，设置「测试并保存」）。2026-10-03 起表单不再展开固定模型、发送内容、计费和未签名说明；发送范围见「设置 › AI 服务」的隐私要点，未签名提示仍常驻该页。Gateway 只需 Gateway Key，不要求 TypeSafe Key 或部署 Vercel 网站；OpenRouter 同理只需 OpenRouter Key。[R3][R4][R13]
 
 测试逐项检查该服务提供的能力：Jev（智能输入）与 DeepSeek（洞察，仅 OpenRouter / AI Gateway 提供），每项单独显示结果；任一项通过即保存 Key，并为尚未选择服务的功能自动选用它并开启。
 
@@ -145,7 +145,7 @@ Enter 像输入法上屏一样执行当前主操作（Cmd/Ctrl+Enter 同义）�
 
 「＋」已表示创建，不再先识别创建/修改/删除。原文直接作为 state；辅助代码可枚举无损片段、日期值或读取候选，但不先断定它们的业务意图。每题 instructions 明确引用 state 的字段和假设，同轮问题互相看不到答案；已知候选的问题可同轮询问，代码只消费实际适用分支。[R1][R2]
 
-Choice 用于布局、位置、片段角色、日期用途等单选；Noul 用于**每一对上级→下级关系**的独立判断。Choice 的次高概率不是额外上级。Score 非首版必需，不能拿来生成任意数量任务或日期。两渠道的UI与判断策略只依赖统一的概率数据，不读取供应商独立的 `confidence`。TypeSafe 原生会返回该字段，而Gateway evaluation的Choice答案不以它为契约；不能补造一个同名字段。[R1][R7]
+Choice 用于布局、位置、片段角色、日期用途等单选；Noul 用于**每一对上级→下级关系**的独立判断。Choice 的次高概率不是额外上级。Score 非首版必需，不能拿来生成任意数量任务或日期。两渠道的UI与判断策略只依赖统一的概率数据，不读取供应商独立的 `confidence`。OpenRouter 转发的 System One 响应会返回该字段，而Gateway evaluation的Choice答案不以它为契约；不能补造一个同名字段。[R1][R7]
 
 **统一判断指标：** 对有效Choice分布在代码中计算最大选项概率、前两名差值和归一化熵集中度，算法见§6.1。这些是分布描述，不是正确率，也不宣称等于TypeSafe的confidence公式。Noul/boolean保留“是”的概率，接近0.5表示是非难分。按字段、问题版本和渠道分别评估阈值；低支持或缺分布只影响相关字段，不让无关分支阻断整个草稿。
 
@@ -185,27 +185,29 @@ Choice 用于布局、位置、片段角色、日期用途等单选；Noul 用�
 
 语义问题定义只有一份，两个小型adapter转换各自请求/响应；不为统一接口假设供应商字段相同。
 
-| 配置 | TypeSafe 原生 | Vercel AI Gateway |
+| 配置 | OpenRouter | Vercel AI Gateway |
 | --- | --- | --- |
-| 凭据 | TypeSafe API Key | AI Gateway API Key |
+| 凭据 | OpenRouter API Key | AI Gateway API Key |
 | 协议 | `@typesafe-ai/sdk` 的 systemOne | HTTPS `POST /v1/evaluate` |
-| 固定地址 | `https://api.typesafe.ai` | `https://ai-gateway.vercel.sh/v1/evaluate` |
-| 显式requestedModel | `jev-latest` | `typesafe-ai/jev` |
-| Choice数据 | `choice`、`probabilities`；原生额外confidence不进入统一业务答案 | `choice`、`probabilities`；不读取或要求confidence |
+| 固定地址 | `https://openrouter.ai/api`（SDK 追加 `/v1/systemone`） | `https://ai-gateway.vercel.sh/v1/evaluate` |
+| 显式requestedModel | `typesafe/jev-1.13` | `typesafe-ai/jev` |
+| Choice数据 | `choice`、`probabilities`；额外confidence不进入统一业务答案 | `choice`、`probabilities`；不读取或要求confidence |
 | 是非数据 | `noul`概率 | `probability`概率，问题类型为boolean |
 | 输入用量 | `usage.input_tokens` | `usage.inputTokens` |
 | 模型元数据 | 响应model | 文档定义的routing元数据中的canonicalSlug；不是模型发布版本 |
 
-**OpenRouter 渠道：** 复用原生 adapter 与 `@typesafe-ai/sdk` 的 systemOne，仅把 baseURL 换成 `https://openrouter.ai/api`（SDK 追加 `/v1/systemone`）、凭据换成 OpenRouter API Key，requestedModel 固定 `typesafe/jev-1.13`（带作者前缀原样使用，不随 `~typesafe/jev-latest` 漂移）。请求/响应沿用 TypeSafe 形状（choice/probabilities、noul、`usage.input_tokens`）；响应 `model` 记为 modelVersion，响应体 `id` 作为 requestId，额外的 `provider`、`usage.cost` 不进入统一答案。精度沿用原生 adapter d=2（OpenRouter 直接转发 TypeSafe 答案），A02 真实 Key 联调时核对。控制台入口 `https://openrouter.ai/settings/keys`。[R13]
+**TypeSafe 原生已下线（2026-10-03，负责人决定）：** 它只提供 Jev、不能运行洞察，`api.typesafe.ai` 渠道连同设置入口一并移除。旧设备配置读取时丢弃该服务条目，绑定它的功能关闭并递增修订（用户需在 OpenRouter 或 Gateway 重新连接），其加密 Key 文件删除。
+
+**OpenRouter 渠道：** 使用 `@typesafe-ai/sdk` 的 systemOne，baseURL 为 `https://openrouter.ai/api`（SDK 追加 `/v1/systemone`）、凭据为 OpenRouter API Key，requestedModel 固定 `typesafe/jev-1.13`（带作者前缀原样使用，不随 `~typesafe/jev-latest` 漂移）。请求/响应沿用 TypeSafe 形状（choice/probabilities、noul、`usage.input_tokens`）；响应 `model` 记为 modelVersion，响应体 `id` 作为 requestId，额外的 `provider`、`usage.cost` 不进入统一答案。精度沿用原生 adapter d=2（OpenRouter 直接转发 TypeSafe 答案），A02 真实 Key 联调时核对。控制台入口 `https://openrouter.ai/settings/keys`。[R13]
 
 provider、protocol、endpoint和requestedModel是应用预设，不允许用户任填，不跨服务复用Key，不改成chat/completions。兼容路径地位见§6.2。[R1][R3][R7]
 
 ```ts
 export const JEV_PROVIDERS = {
-  typesafe: {
+  openrouter: {
     protocol: 'typesafe-system-one',
-    baseURL: 'https://api.typesafe.ai',
-    model: 'jev-latest',
+    baseURL: 'https://openrouter.ai/api',
+    model: 'typesafe/jev-1.13',
   },
   'vercel-gateway': {
     protocol: 'gateway-evaluate',
@@ -546,7 +548,7 @@ type ParentRef =
 
 - **不连接也能用：** 全局「＋」/Cmd/Ctrl+N 在未配置或关闭 Jev 时只保存 1 条 Later（第一非空行为标题，全文进说明）；列头「＋」仍在对应列连续录入。
 - **Onboarding 可跳过：** 日历确认后出现可选 AI 助手步骤，「暂时跳过」不影响日历与数据；之后在「设置 › AI 服务」添加 Key、在「设置 › 智能输入」开启。
-- **在线接收方与 BYOK：** 由用户自带 Key。TypeSafe 原生路径由 TypeSafe 处理；AI Gateway 路径先经 Vercel，再仅路由到 TypeSafe 的 Jev。只发送当前原文、工作区日期及被点名/选中的目标标题/状态/位置，不发送说明、历史、回收站或整库；费用与额度按用户账户，Goalloom 不代购、不承诺零数据保留。
+- **在线接收方与 BYOK：** 由用户自带 Key。OpenRouter 路径经 OpenRouter 转发给 TypeSafe 的 Jev；AI Gateway 路径先经 Vercel，再仅路由到 TypeSafe 的 Jev。只发送当前原文、工作区日期及被点名/选中的目标标题/状态/位置，不发送说明、历史、回收站或整库；费用与额度按用户账户，Goalloom 不代购、不承诺零数据保留。
 - **未签名私测局限：** macOS 包未签名/未公证，升级后可能再次请求钥匙串授权或需重新填写 Key；Key 不会明文回退，读取失败保留加密副本。
 - **当前数据版本 v6（计划事务始于 v3）：** 不再原地升级。直接打开 v1–v5 工作区会明确拒绝，原文件不改动、不创建副本；先在旧版导出，再按 [手动升级步骤](calendar-modes.md#63-存储不做原地迁移d10srcmainstorage) 在新版恢复。旧 JSON、SQLite 和备份仍可导入，沿用原起点和 365 天模式。**旧版本不能打开 v6 工作区**；需要退回时使用保留的旧数据库。
 - **待验项：** 两渠道真实联调、标注样例评估、Windows 安装包与真实 IME/凭据授权仍在验收中（§14.2）。

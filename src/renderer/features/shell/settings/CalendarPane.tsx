@@ -1,47 +1,72 @@
 /**
- * [INPUT]: Workspace calendar, policies and guarded actions.
- * [OUTPUT]: Locked mode/anchor, next annual/half starts, static manual year/half rows and four editable rollover policies.
+ * [INPUT]: Workspace calendar, observation time, policies, guarded actions and the reset navigation.
+ * [OUTPUT]: Locked calendar summary, current-year timeline with next year/half/3-month starts, a change-calendar row that opens the reset, and rollover policies.
  * [POS]: Calendar settings; policy changes are revalidated in storage.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { CalendarConfig, Policy } from '../../../../shared/contracts/entities'
 import { calendarMessages as c, messages, settingsMessages as s } from '../../../i18n'
 import { horizonName } from '../../../lib/periods'
-import { weekdayName } from '../../../i18n/format'
+import { fullDate, weekdayName } from '../../../i18n/format'
 import type { Action } from '../../../state/use-workspace'
 import { gmtOffset } from '../../../lib/timezones'
-import { anchoredRange, parseDate } from '../../../../domain/calendar'
+import { addDays } from '../../../lib/dates'
+import { parseDate } from '../../../../domain/calendar'
+import { Icon } from '../../../components/icons'
+import { YearTimeline, yearProgress } from '../../../components/YearTimeline'
 import { SettingsGroup, Segmented } from './parts'
 
 const modes = () => [{ value: 'manual', label: messages.manualShort }, { value: 'auto', label: messages.autoMode }] as const
 
-export function CalendarPane({ calendar, policies, today, disabled, submit, goReset }: { calendar: CalendarConfig; policies: Policy[]; today: string; disabled: boolean; submit: (action: Action) => Promise<unknown>; goReset: () => void }) {
-  const observed = parseDate(today < calendar.cycleAnchor ? calendar.cycleAnchor : today)
-  const next = (months: number) => anchoredRange(calendar.cycleAnchor, observed, months)[1].toString()
+export function CalendarPane({ calendar, policies, observedAt, today, disabled, submit, goReset }: { calendar: CalendarConfig; policies: Policy[]; observedAt: string; today: string; disabled: boolean; submit: (action: Action) => Promise<unknown>; goReset: () => void }) {
+  const natural = calendar.mode === 'natural'
+  // A clock set before the anchor still shows the first year rather than failing.
+  const progress = yearProgress(calendar, today < calendar.cycleAnchor ? parseDate(calendar.cycleAnchor).toZonedDateTime(calendar.timezone).toInstant().toString() : observedAt)
+  const next = progress && (() => {
+    const { year, cycles, today } = progress, half = cycles[2]!.startDate
+    return { year: year.endDate, half: today < half ? half : year.endDate, cycle: cycles.find(cycle => cycle.startDate > today)?.startDate ?? year.endDate }
+  })()
   return <>
-    <SettingsGroup title={s.calendarSettings} aside={<button type="button" className="settings-button" onClick={goReset}>{messages.goReset}</button>}>
-      <dl className="calendar-facts">
-        <div><dt>{c.calendarMode}</dt><dd>{calendar.mode === 'natural' ? c.naturalMode : c.rollingMode}</dd></div>
-        <div><dt>{messages.timezone}</dt><dd>{calendar.timezone}</dd><dd className="tabular">{gmtOffset(calendar.timezone)}</dd></div>
-        <div><dt>{messages.weekStartRow}</dt><dd>{weekdayName(calendar.weekStart)}</dd></div>
-        <div><dt>{c.anchorLabel}</dt><dd className="tabular">{calendar.cycleAnchor}</dd><dd className="tabular">{s.nextCycle(next(3))}</dd></div>
-        <div><dt>{c.nextYearStart}</dt><dd className="tabular">{next(12)}</dd></div>
-        <div><dt>{c.nextHalfStart}</dt><dd className="tabular">{next(6)}</dd></div>
-      </dl>
+    <SettingsGroup title={s.calendarSettings}>
+      <div className="settings-hero calendar-summary">
+        <span className="settings-hero-icon" aria-hidden="true"><Icon name="calendar" size={18} /></span>
+        <div className="settings-row-text">
+          <span>{natural ? c.naturalMode : c.rollingMode}</span>
+          <small>{natural ? c.naturalDescription : c.rollingSince(fullDate(calendar.cycleAnchor))}</small>
+          <small>{c.zoneAndWeek(calendar.timezone, gmtOffset(calendar.timezone), weekdayName(calendar.weekStart))}</small>
+        </div>
+        <span className="calendar-lock"><Icon name="lock" size={14} />{c.locked}</span>
+      </div>
+      {progress && next && <div className="calendar-year">
+        <div className="calendar-year-head">
+          <span>{horizonName('year', calendar)}<span className="tabular">{fullDate(progress.year.startDate)} – {fullDate(addDays(progress.year.endDate, -1))}</span></span>
+          <span className="tabular">{c.daysLeft(progress.total - progress.elapsed)}</span>
+        </div>
+        <YearTimeline progress={progress} />
+        <dl className="calendar-facts">
+          <div><dt>{c.nextYearStart}</dt><dd className="tabular">{fullDate(next.year)}</dd></div>
+          <div><dt>{c.nextHalfStart}</dt><dd className="tabular">{fullDate(next.half)}</dd></div>
+          <div><dt>{natural ? c.nextQuarterStart : c.nextCycleStart}</dt><dd className="tabular">{fullDate(next.cycle)}</dd></div>
+        </dl>
+      </div>}
+      <button type="button" className="settings-row calendar-change" onClick={goReset}>
+        <span className="settings-row-text"><span>{c.changeCalendar}</span><small>{c.changeCalendarNote}</small></span>
+        <span className="calendar-change-target">{s.backupSection}<Icon name="next" size={16} /></span>
+      </button>
     </SettingsGroup>
     <SettingsGroup title={s.overdue} aside={<small>{messages.policyFootnote}</small>}>
-      {(['year', 'half'] as const).map(horizon => <div key={horizon} className="settings-row policy-row">
-        <span className="policy-name">{horizonName(horizon, calendar)}</span><span className="settings-hint">{c.manualAlways}</span>
+      {(['year', 'half', 'cycle'] as const).map(horizon => <div key={horizon} className="settings-row policy-row">
+        <span className="policy-name">{horizonName(horizon, calendar)}</span>
+        <span className="settings-hint policy-note">{messages.cyclePolicyNote}</span><span className="settings-hint">{c.manualAlways}</span>
       </div>)}
-      {policies.map(policy => {
+      {policies.flatMap(policy => {
+        if (policy.horizon === 'cycle') return []
         const name = horizonName(policy.horizon, calendar)
         return <div key={policy.horizon} className="settings-row policy-row">
           <span className="policy-name">{name}</span>
-          {policy.horizon === 'cycle'
-            ? <><span className="settings-hint policy-note">{messages.cyclePolicyNote}</span><span className="settings-hint">{messages.cycleAlwaysManual}</span></>
-            : <><span className="settings-hint policy-note">{s.policyNotes[policy.horizon][policy.mode]}</span>
-              <Segmented label={name} value={policy.mode} options={modes()} disabled={disabled}
-                onChange={mode => void submit({ type: 'policy', horizon: policy.horizon, mode, expectedVersion: policy.version })} /></>}
+          <span className="settings-hint policy-note">{s.policyNotes[policy.horizon][policy.mode]}</span>
+          <Segmented label={name} value={policy.mode} options={modes()} disabled={disabled}
+            onChange={mode => void submit({ type: 'policy', horizon: policy.horizon, mode, expectedVersion: policy.version })} />
         </div>
       })}
     </SettingsGroup>

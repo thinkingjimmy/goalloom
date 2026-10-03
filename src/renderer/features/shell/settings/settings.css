@@ -154,16 +154,34 @@
 .filter-keys dd { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .filter-keys .keycap { padding: 0 7px; letter-spacing: .04em; white-space: nowrap; }
 
-/* Calendar: three locked facts side by side, then per-column rollover rows. */
-.calendar-facts { margin: 0; padding: 16px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.calendar-facts > div { min-width: 0; padding: 0 18px; display: flex; flex-direction: column; gap: 4px; }
-.calendar-facts > div + div { border-left: 1px solid var(--hairline); }
-.calendar-facts dt { font-size: 12px; color: var(--secondary); }
-.calendar-facts dd { margin: 0; font-size: 14px; font-weight: 500; }
-.calendar-facts dd + dd { font-size: 12px; font-weight: 400; color: var(--secondary); }
-.policy-row { min-height: 48px; padding: 8px 12px 8px 18px; }
-.policy-name { width: 52px; flex-shrink: 0; font-size: 14px; font-weight: 500; }
-.policy-note { flex: 1; min-width: 0; }
+/* Calendar: locked summary, this year's timeline with the next starts, a row that leads to the reset, then per-column rollover rows. */
+.calendar-summary { align-items: flex-start; }
+.calendar-summary .settings-row-text { gap: 2px; }
+.calendar-summary .settings-row-text > span { margin-bottom: 2px; }
+.calendar-lock { flex-shrink: 0; height: 24px; margin-top: 6px; padding: 0 9px 0 7px; display: inline-flex; align-items: center; gap: 5px; border-radius: 12px; background: var(--hover); color: var(--fg-soft); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.calendar-year { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 4px; }
+.calendar-year-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 500; }
+.calendar-year-head > span:first-child { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 10px; }
+.calendar-year-head .tabular { font-size: 12px; font-weight: 400; color: var(--secondary); }
+.calendar-year .year-timeline { padding-top: 24px; }
+.calendar-facts { margin: 10px 0 0; padding-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; border-top: 1px solid var(--hairline); }
+.calendar-facts > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.calendar-facts dt { font-size: 12px; line-height: 1.4; color: var(--secondary); }
+.calendar-facts dd { margin: 0; font-size: 13.5px; font-weight: 500; }
+.settings-row.calendar-change { width: 100%; text-align: left; border-radius: 0 0 12px 12px; transition: background-color .15s ease-out; }
+.calendar-change:hover { background: var(--hover); }
+.calendar-change:focus-visible { outline-offset: -2px; border-radius: 0 0 12px 12px; }
+.calendar-change-target { flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px; font-size: 12.5px; color: var(--secondary); transition: color .15s ease-out; }
+.calendar-change:hover .calendar-change-target { color: var(--fg); }
+/* Arriving from the calendar's change row: the reset card rings once so the destination is unmistakable. */
+.settings-group[data-reveal] .settings-card { animation: settings-reveal 1.8s ease-out; }
+@keyframes settings-reveal { 0%, 40% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--danger) 18%, transparent), inset 0 0 0 1px color-mix(in oklab, var(--danger) 50%, transparent); } }
+/* Names share the longest name's width so every note starts on the same line, in any language. */
+.settings-card:has(> .policy-row) { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; }
+.settings-card > .policy-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; column-gap: 16px; min-height: 48px; padding: 8px 12px 8px 18px; }
+.policy-row > :last-child { justify-self: end; }
+.policy-name { min-width: 40px; font-size: 14px; font-weight: 500; white-space: nowrap; }
+.policy-note { min-width: 0; }
 
 /* Backup & restore. */
 .backup-record { min-height: 42px; padding: 4px 10px 4px 18px; gap: 14px; }
@@ -238,6 +256,7 @@
   .settings-nav { background: var(--nav); border-right-color: var(--line); }
   .settings-nav button[aria-current='page'] { background: var(--hover); box-shadow: none; }
   .settings-hero { border-radius: 10px; background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+  .settings-card > .settings-hero { border-radius: 0; box-shadow: none; }
   .settings-hero-icon { border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line); }
   .filter-diagram { border-radius: 8px; }
 }

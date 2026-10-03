@@ -4,11 +4,11 @@
 
 **技术栈：** Electron · React · TypeScript · Vite · shadcn/ui · Tailwind CSS · Hugeicons · SQLite · TypeSafe SDK（Jev，可选）。
 
-**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、Later 与六个固定时间列、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；往期任务编辑、不可变历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、TypeSafe 原生 / Vercel AI Gateway / OpenRouter 三渠道、可编辑预览与 `createPlan` 整批事务/同代次撤销、v6 起不再原地升级，旧数据经导入恢复）；外观支持纸感/简约两种风格 × 明暗模式与三种复选框样式（schema v6）。智能输入的各渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、年 / 半年 / 3个月按 12 / 6 / 3 日历月从原始起点推导的双日历模式、macOS 14+ Apple Silicon / Windows 11 x64、中/英/日/西/法五种界面语言（默认跟随系统，可在设置切换）与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。首个公开版本 1.0.0 已在 GitHub Releases 发布（MIT 许可证），官网为 https://www.goalloom.com 。
+**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、Later 与六个固定时间列、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；往期任务编辑、不可变历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、OpenRouter / Vercel AI Gateway 两渠道（TypeSafe 原生已于 2026-10-03 下线）、可编辑预览与 `createPlan` 整批事务/同代次撤销、v6 起不再原地升级，旧数据经导入恢复）；外观支持纸感/简约两种风格 × 明暗模式与三种复选框样式（schema v6）。智能输入的各渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、年 / 半年 / 3个月按 12 / 6 / 3 日历月从原始起点推导的双日历模式、macOS 14+ Apple Silicon / Windows 11 x64、中/英/日/西/法五种界面语言（默认跟随系统，可在设置切换）与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。首个公开版本 1.0.0 已在 GitHub Releases 发布（MIT 许可证），官网为 https://www.goalloom.com 。
 
 | 文档 | 用途 |
 | --- | --- |
-| [智能输入功能规格](features/smart-input.md) | 全局输入、Jev 三渠道、Onboarding、计划创建/撤销与旧版导入恢复的规则、工程契约、TODO 与验收 |
+| [智能输入功能规格](features/smart-input.md) | 全局输入、Jev 两渠道、Onboarding、计划创建/撤销与旧版导入恢复的规则、工程契约、TODO 与验收 |
 | [关系线功能规格](features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [快捷键功能规格](features/shortcuts.md) | 默认键位、流程筛选位置键、改键与冲突规则、工程契约与验收 |
 | [自动排序功能规格](features/board-ordering.md) | 最近一级上级排序、本机开关、关闭保存、拖动与连续重排动效及验收 |
@@ -133,7 +133,7 @@ src/
 ├── main/               # Electron 生命周期、IPC 和安全边界
 │   ├── update.ts       # electron-updater（GitHub Releases）检查/下载/重启安装与阶段推送
 │   ├── window/         # 窗口偏好、退出保护与 macOS 应用菜单
-│   ├── smart/          # AI 服务：Jev 三渠道与 DeepSeek 两渠道 adapter、设备凭据与独立异步服务
+│   ├── smart/          # AI 服务：Jev 与 DeepSeek 的 OpenRouter / Gateway 两渠道 adapter、设备凭据与独立异步服务
 │   ├── link-preview/   # Public URL metadata/image requests and disposable bounded device cache
 │   ├── storage/        # SQLite/v6 新库与旧库只读拒绝/备份/文件适配器与 worker 通道
 │   └── workspace/      # 业务事务、commands、历史/顺延与 transfer

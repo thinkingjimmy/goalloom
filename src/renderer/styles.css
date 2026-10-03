@@ -589,7 +589,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .settings-button.subtle-danger:hover:not(:disabled) { background: var(--danger-tint); color: var(--danger); }
 /* The shared connect form: compact in settings rows, same structure in onboarding. */
 .jev-connect { display: flex; flex-direction: column; gap: 10px; }
-.jev-connect > label:not(.check-label) { margin: 0; gap: 6px; font-size: 12px; color: var(--secondary); }
+.jev-key-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--secondary); }
+.jev-key-head > label { margin: 0; font-size: inherit; font-weight: 500; }
 .jev-connect .field-note { margin: 0; }
 .jev-connect .text-button { font-size: inherit; line-height: inherit; color: var(--focus); }
 .jev-connect .text-button:hover:not(:disabled) { color: var(--focus); text-decoration: underline; }
