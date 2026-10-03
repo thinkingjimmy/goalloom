@@ -71,6 +71,7 @@
 - [ ] 首屏壁纸补 2880px 宽的高清版本（现为 1586px）。
 - [x] 发布公开 Release 1.1.0 并更新 `website/lib/release.ts`（版本、资产名、`published: true`）。
 - [x] 发布公开 Release 1.2.0 并将 `website/lib/release.ts` 指向 1.2.0 资产。
+- [x] 发布公开 Release 1.3.0 并将 `website/lib/release.ts` 指向 1.3.0 资产。
 
 ## 验收
 
