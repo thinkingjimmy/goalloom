@@ -91,6 +91,8 @@ Playwright 控制真实窗口，并关闭 CDP 默认的 unsafe-eval 绕过再验
 
 `autosave.mjs`: Real Electron/SQLite autosave, delayed and unknown receipts, invalid input, property actions, native close/reopen, composer quit cancellation and application restart. Synthetic data only; repeatable evidence in `output/tests/autosave/`. `fixtures/detail-save.mjs` waits for committed detail state without an obsolete Save button; its finish helper also blurs the editor.
 
+`recovery.mjs`: Protective reset, maintenance, generation guards, SQLite restore, restart and rollover pause. After reset it completes the empty-workspace setup before opening Settings to restore, matching the onboarding and upgrade contract. Reports and screenshots are written to `output/tests/recovery/`; an optional executable argument verifies the packaged app.
+
 `relation-drag.mjs` uses `fixtures/relation-visibility.mjs` for its explicit native hide/show contract: raw Electron and CDP `noDefaults` preserve actual `document.visibilityState`. Relation fault injection wraps main IPC while retaining production transactions and receipts; it never replaces the renderer bridge.
 
 The link probe sizes the native Electron window before wheel input without forcing activation. CDP viewport emulation alone can put a visible screenshot target outside the native compositor's bounds; the report records both geometries, focus, wheel delivery and the resulting scroll offset.
@@ -107,4 +109,4 @@ Failure scenarios specified before writing the probe:
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
-`pnpm build` followed by `pnpm test:ordering [packaged-executable]` runs the production Repository/SQLite boundary fixture and real Electron ordering journey, including relation-picker ordering, rejected saves, lost receipts, protected replacement with a delayed future response and a 129-row focus/draft/scroll check. It records transaction checks, observed WAAPI frames, relation endpoint error and both-axis breakpoint alignment, screenshots, video and Electron/Node/SQLite/OS/CPU in `output/tests/ordering/`. Only isolated synthetic data is used.
+`pnpm build` followed by `pnpm test:ordering [packaged-executable]` runs the production Repository/SQLite boundary fixture and real Electron ordering journey, including relation-picker ordering, rejected saves, lost receipts, protected replacement with a delayed future response and a 129-row focus/draft/scroll check. After reset, the scenario completes empty-workspace setup before checking the retained device preference in Settings. It records transaction checks, observed WAAPI frames, relation endpoint error and both-axis breakpoint alignment, screenshots, video and Electron/Node/SQLite/OS/CPU in `output/tests/ordering/`. Only isolated synthetic data is used.

@@ -1,8 +1,14 @@
+/**
+ * [INPUT]: Built Electron or a packaged executable, an isolated profile and production recovery controls.
+ * [OUTPUT]: Reset, maintenance, generation, SQLite restore and rollover-pause assertions; recovery report and screenshots.
+ * [POS]: Desktop recovery acceptance, including explicit empty-workspace setup before restoring after reset.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
+import { cpus, release, tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'Goalloom 整库窗口 '))
@@ -48,6 +54,12 @@ try {
   assert.equal(reset.items.length, 0)
   const stale = await page.evaluate(async generation => window.goalloom.execute({ type: 'create', title: '过期请求', horizon: 'later', generation, operationId: crypto.randomUUID() }), seed.generation)
   assert.equal(stale.ok, false); assert.equal(stale.code, 'generation')
+  const out = 'output/tests/recovery'
+  await mkdir(out, { recursive: true })
+  assert.equal(await page.getByRole('button', { name: '设置与数据', exact: true }).count(), 0)
+  await page.screenshot({ path: `${out}/reset-onboarding.png` })
+  await finishSetup(page)
+  assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).items.length, 0)
   settings = await openSettings()
   await settings.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: '备份与恢复', exact: true }).click()
   // The list shows the latest three; the protective copy made before reset may sit further down.
@@ -90,5 +102,8 @@ try {
   assert.equal(restored.items.length, 3)
   const status = await page.evaluate(() => window.goalloom.data({ type: 'backupStatus' }))
   assert(status.status.records.filter(record => record.kind === 'protective').length >= 3)
-  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()), checks: ['reset protective preview', 'unchecked final confirmation', 'maintenance UI/IPC', 'cancel preserves', 'new generation rejects old write', 'SQLite restore', 'restore pause survives restart', 'item restore keeps pause', 'explicit resume', 'backup receipts survive replacement'] }))
+  await page.screenshot({ path: `${out}/restored-workspace.png` })
+  const report = { ok: true, packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()), environment: { platform: process.platform, os: release(), arch: process.arch, cpu: cpus()[0]?.model }, checks: ['reset protective preview', 'unchecked final confirmation', 'maintenance UI/IPC', 'cancel preserves', 'new generation rejects old write', 'explicit empty-workspace setup before restore', 'SQLite restore', 'restore pause survives restart', 'item restore keeps pause', 'explicit resume', 'backup receipts survive replacement'], screenshots: [`${out}/reset-onboarding.png`, `${out}/restored-workspace.png`] }
+  await writeFile(`${out}/report.json`, JSON.stringify(report, null, 2))
+  console.log(JSON.stringify(report))
 } finally { await application.close(); await rm(profile, { recursive: true, force: true }) }

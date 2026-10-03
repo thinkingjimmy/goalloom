@@ -1,11 +1,12 @@
 /**
- * [INPUT]: Production Electron build and an isolated Repository/SQLite ordering fixture.
+ * [INPUT]: Production Electron build, an isolated Repository/SQLite ordering fixture and the shared setup driver.
  * [OUTPUT]: Ordering/motion and receipt-first recovery assertions with endpoint alignment, video, screenshots and runtime/transaction JSON.
  * [POS]: Focused desktop acceptance; observes real animation and IPC, with native sizing only during setup.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { stepPeriod } from './fixtures/period-step.mjs'
+import { finishSetup } from './fixtures/setup.mjs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir, cpus, release, version, arch } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -357,6 +358,7 @@ try {
   assert.notEqual((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.generation, oldGeneration)
   const released = await application.evaluate(() => { const reads = globalThis.orderingReads.splice(0); reads.forEach(resolve => resolve()); return reads.length })
   assert(released > 0)
+  await finishSetup(page)
   await open()
   await page.waitForFunction(() => document.querySelector('[role="switch"][aria-label="按上级自动排序"]')?.getAttribute('aria-checked') === 'false')
   assert.equal(await toggle().isDisabled(), false)
