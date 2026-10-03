@@ -4,6 +4,7 @@
  * [POS]: Desktop feedback acceptance; the batch driver calls the mounted renderer submit without replacing IPC or receipts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { stepPeriod } from './fixtures/period-step.mjs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -30,9 +31,7 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 1880, height: 1000 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await finishSetup(page)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
   const toast = page.locator('.toast')

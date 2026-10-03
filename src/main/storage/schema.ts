@@ -1,33 +1,22 @@
 /**
- * [INPUT]: 新建或已由启动编排保护的受支持版本 SQLite 连接。
- * [OUTPUT]: 多父 DAG、唯一位置、流程颜色、原子历史与不可变操作回执的 schema v5（v3 标识 createPlan 与多 ID 回执语义；v4 为 workspace 增加界面风格列；v5 增加复选框样式列），以及 v1–v4→v5 单事务升级。
- * [POS]: 唯一生产 DDL；只负责原子 DDL 与版本变更。迁移前只读探测和保护副本由 startup.ts 编排，本文件不做备份。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: A new or current-version SQLite database; legacy files are refused by startup.
+ * [OUTPUT]: Atomic schema v6 initialization with six planning horizons and unchanged four rollover policies.
+ * [POS]: Sole production DDL; no in-place upgrades, legacy sources remain readable through transfer.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
 import { transaction } from './database'
 import { serverText } from '../../shared/i18n/server'
 
-export const schemaVersion = 5
-export const supportedVersions = [1, 2, 3, 4, 5]
-export const upgradableVersions = [1, 2, 3, 4]
+export const schemaVersion = 6
+export const supportedVersions = [1, 2, 3, 4, 5, 6]
+export const upgradableVersions: number[] = []
 export const requiredTables = ['workspace', 'items', 'item_placements', 'planning_periods', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects', 'schema_migrations']
 export function userVersion(db: DatabaseSync): number { return Number(db.prepare('PRAGMA user_version').get()?.user_version) }
 export function migrate(db: DatabaseSync): void {
   const version = userVersion(db)
   if (version === schemaVersion) return
-  if (upgradableVersions.includes(version)) {
-    // Additive and atomic: every step up to v5 commits together, so an interrupted upgrade leaves the old file untouched.
-    transaction(db, () => {
-      if (version === 1) db.exec(`ALTER TABLE items ADD COLUMN flowColor INTEGER CHECK(flowColor IS NULL OR flowColor BETWEEN 0 AND 7);\n${flowDdl}`)
-      if (version < 4) db.exec(`ALTER TABLE workspace ADD COLUMN ${styleColumn}`)
-      db.exec(`ALTER TABLE workspace ADD COLUMN ${checkStyleColumn}`)
-      db.prepare('INSERT INTO schema_migrations VALUES (?, ?)').run(schemaVersion, new Date().toISOString())
-      db.exec(`PRAGMA user_version = ${schemaVersion}`)
-    })
-    return
-  }
   if (version !== 0 || db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().length) throw new Error(serverText().storage.unsupportedDatabase)
   transaction(db, () => {
     db.exec(ddl)
@@ -62,7 +51,7 @@ CREATE TABLE workspace (
   CHECK ((calendar IS NULL) = (setupConfirmedAt IS NULL))
 ) STRICT;
 CREATE TABLE planning_periods (
-  id TEXT PRIMARY KEY, horizon TEXT NOT NULL CHECK(horizon IN ('cycle','month','week','day')),
+  id TEXT PRIMARY KEY, horizon TEXT NOT NULL CHECK(horizon IN ('year','half','cycle','month','week','day')),
   startDate TEXT NOT NULL, endDate TEXT NOT NULL, startAt TEXT NOT NULL, endAt TEXT NOT NULL,
   CHECK(startDate < endDate), CHECK(julianday(endAt) > julianday(startAt)), UNIQUE(horizon,startAt)
 ) STRICT;
@@ -78,7 +67,7 @@ CREATE TABLE items (
     OR (status='done' AND cancelledAt IS NULL) OR (status='cancelled' AND completedAt IS NULL))
 ) STRICT;
 CREATE TABLE item_placements (
-  itemId TEXT PRIMARY KEY REFERENCES items(id), horizon TEXT NOT NULL CHECK(horizon IN ('later','cycle','month','week','day')),
+  itemId TEXT PRIMARY KEY REFERENCES items(id), horizon TEXT NOT NULL CHECK(horizon IN ('later','year','half','cycle','month','week','day')),
   periodId TEXT REFERENCES planning_periods(id), sortKey REAL NOT NULL, version INTEGER NOT NULL CHECK(version>0),
   holdPeriodId TEXT REFERENCES planning_periods(id), CHECK ((horizon='later') = (periodId IS NULL))
 ) STRICT;

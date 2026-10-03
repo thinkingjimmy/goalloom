@@ -4,6 +4,7 @@
  * [POS]: Focused desktop acceptance with native sizing only; transport and external-browser boundaries are disabled in the test process.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import { finishDetailEditing } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -131,9 +132,7 @@ async function openCachedDetail() {
 
 try {
   await launch()
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await finishSetup(page)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
 

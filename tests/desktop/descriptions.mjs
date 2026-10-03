@@ -4,6 +4,7 @@
  * [POS]: Focused desktop acceptance; external network and browser opening are intercepted.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import { finishDetailEditing, waitForDetailSave } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -71,9 +72,7 @@ try {
       if (window.descriptionPointerTrace.length > 80) window.descriptionPointerTrace.shift()
     }, true)
   })
-  await page.getByRole('button', { name: 'Skip', exact: true }).first().click()
-  await page.getByRole('button', { name: 'Confirm and start', exact: true }).click()
-  await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
+  await finishSetup(page)
   await page.locator('main.board').waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
 

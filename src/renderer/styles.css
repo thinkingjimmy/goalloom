@@ -160,9 +160,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .board-host { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .board { position: relative; flex: 1; display: flex; min-width: 0; min-height: 0; overflow: clip; }
 .board-panels { --column-min: 320px; position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
-/* Later is a docked sheet: its own raised ground keeps it from reading as a fifth timeline column. */
-/* Later's sheet matches a time column: five equal shares of the board after the timeline's 16px padding and Later's 12px inset. */
-.board-later { width: calc(max(var(--column-min), (100% - 28px) / 5) + 12px); flex: 0 0 auto; min-height: 0; display: flex; padding: 0 0 12px 12px; background: var(--bg); }
+/* Later is a docked sheet on its own raised ground, beside the six planning columns. */
+/* The sheet matches a time column: seven equal shares after the timeline padding and Later inset. */
+.board-later { width: calc(max(var(--column-min), (100% - 28px) / 7) + 12px); flex: 0 0 auto; min-height: 0; display: flex; padding: 0 0 12px 12px; background: var(--bg); }
 .board-later > .board-column { --ground: var(--raised); flex: 1; min-width: 0; border-left: 0; transition: none; border-radius: 14px; background: var(--raised); box-shadow: 0 0 0 .5px var(--edge), 0 6px 20px color-mix(in srgb, var(--fg) 6%, transparent); }
 .board-later > .board-column > .column-content { border-radius: 0 0 14px 14px; }
 .board-panels[data-later-open='false'] > .board-later { position: absolute; inset: 0 auto 0 0; visibility: hidden; transform: translateX(-100%); }
@@ -293,7 +293,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .flow-dot-button > * { grid-area: 1 / 1; }
 .task-row:is(:hover, [data-state='open']) .flow-dot-button, .flow-dot-button:focus-visible, .flow-dot-button[aria-expanded='true'],
 .board[data-lines='true'] .task-row[data-lit='true'] .flow-dot-button { opacity: 1; }
-.board[data-filtered='true'] [data-horizon='cycle'] .task-row[data-done='false']:not(:hover, [data-state='open']) .flow-dot-button:not(:focus-visible, [aria-expanded='true']) { opacity: 0; }
+.board[data-filtered='true'] [data-horizon='year'] .task-row[data-done='false']:not(:hover, [data-state='open']) .flow-dot-button:not(:focus-visible, [aria-expanded='true']) { opacity: 0; }
 :root[data-dragging='true'] .flow-dot-button, .task-row:has(.drag-handle:focus-visible) .flow-dot-button { opacity: 0; }
 /* A round halo on the dot itself, inside the row ground, never a separate patch. */
 .flow-dot-button:hover, .flow-dot-button[aria-expanded='true'] { background: var(--pressed); }

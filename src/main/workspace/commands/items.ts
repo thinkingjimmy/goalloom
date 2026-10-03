@@ -13,14 +13,20 @@ import { statusGroup } from '../../../shared/contracts/effects'
 import { assertAvailable, assertFlowColorFree, hasActiveParent, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { serverText } from '../../../shared/i18n/server'
 import { assertParentOrderTarget } from './ordering'
+import { policyHorizons } from '../../../shared/contracts/values'
 
 export function confirmSetup(context: Context, command: CommandOf<'confirmSetup'>): boolean {
   if (context.workspace.setupConfirmedAt) throw new DomainError('setup', serverText().errors.calendarLocked)
-  const calendar = calendarSchema.parse({ id: randomUUID(), timezone: command.timezone, weekStart: command.weekStart, cycleAnchor: command.cycleAnchor })
+  const today = workspaceDate(command.timezone, context.now)
+  const cycleAnchor = command.mode === 'natural' ? `${today.slice(0, 4)}-01-01`
+    : command.anchor.kind === 'date' ? command.anchor.date : command.anchor.kind === 'monthStart' ? `${today.slice(0, 8)}01` : today
+  if (command.mode === 'natural' && command.anchor.kind === 'date') throw new DomainError('invalid', serverText().calendar.invalidCalendar)
+  if (command.anchor.kind !== 'date' && command.anchor.expected !== cycleAnchor) throw new DomainError('stale_preview', serverText().errors.setupDateChanged)
+  const calendar = calendarSchema.parse({ id: randomUUID(), mode: command.mode, timezone: command.timezone, weekStart: command.weekStart, cycleAnchor })
   if (calendar.cycleAnchor > workspaceDate(calendar.timezone, context.now)) throw new DomainError('invalid', serverText().errors.anchorAfterToday)
   context.workspace.calendar = calendar
   context.workspace.setupConfirmedAt = context.now
-  for (const horizon of ['cycle', 'month', 'week', 'day'] as const) {
+  for (const horizon of policyHorizons) {
     const period = currentPeriod(calendar, horizon, context.now)
     context.store.ensurePeriod(period)
     context.store.db.prepare('INSERT INTO rollover_policies VALUES (?,?,1,?)').run(horizon, horizon === 'day' ? 'auto' : 'manual', period.id)

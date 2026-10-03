@@ -26,7 +26,7 @@ export function InsightPane({ snapshot, ai, goto }: { snapshot: Snapshot; ai: Ai
   const setPrefs = (patch: Partial<InsightPrefs>) => updateInsight(value => ({ ...value, prefs: { ...value.prefs, ...patch } }))
   // Only the system rules are shown from this call; they depend on the step size, never on board content.
   const system = useMemo(() => draftPrompt({ requestId: crypto.randomUUID(), generation: snapshot.workspace.generation, prefs,
-    board: { today: '2000-01-01', periods: {}, goals: [], unlinked: { month: [], week: [], day: [] } },
+    board: { today: '2000-01-01', periods: {}, goals: [], unlinked: { half: [], cycle: [], month: [], week: [], day: [] } },
     tasks: [{ id: 'sample', kind: 'next', parent: '…', goal: null, target: '…', targetHorizon: 'week', siblings: [], children: [] }] }).system, [prefs.stepSize])
   const labels: Record<Tab, string> = { about: t.settingsAbout, draft: t.settingsDraft, review: t.settingsReview, prompt: t.settingsPrompt }
   const move = (event: KeyboardEvent<HTMLDivElement>) => {

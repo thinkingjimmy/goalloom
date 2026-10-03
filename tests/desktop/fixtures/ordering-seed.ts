@@ -24,7 +24,7 @@ function workspace(now: string, path = ':memory:') {
   const clock = { now }, repo = new Repository(db, { now: () => clock.now })
   const generation = repo.store.workspace().generation
   const run = (action: Record<string, unknown>) => repo.execute({ generation, operationId: randomUUID(), ...action })
-  run({ type: 'confirmSetup', timezone: 'UTC', weekStart: 1, cycleAnchor: `${now.slice(0, 4)}-01-01`, confirmed: true })
+  run({ type: 'confirmSetup', timezone: 'UTC', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: `${now.slice(0, 4)}-01-01` }, confirmed: true })
   const create = (title: string, horizon: string, parentId?: string, extra = {}) => run({ type: 'create', title, horizon, ...(parentId ? { parentId, expectedParentVersion: repo.store.item(parentId).version } : {}), ...extra }).itemId!
   const move = (id: string, beforeId: string | null, extra = {}) => {
     const item = repo.store.item(id)

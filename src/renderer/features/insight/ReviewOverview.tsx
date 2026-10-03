@@ -6,6 +6,7 @@
  */
 import type { ReviewContext } from '../../../shared/contracts/queries'
 import type { ItemSummary } from '../../../shared/contracts/entities'
+import { periodHorizons } from '../../../shared/contracts/values'
 import { horizonNames, insightMessages as t } from '../../i18n'
 import { useFlows } from '../../state/flows'
 import { periodDates } from '../../lib/periods'
@@ -50,10 +51,10 @@ export function ReviewOverview({ due, context, ready, setFilter }: { due: Review
     </section>}
     {due.week && <section className="review-section"><h3>{t.matrix}</h3>
       <div className="review-matrix" role="table">
-        <div role="row"><span role="columnheader" />{(['cycle', 'month', 'week', 'day'] as const).map(horizon => <span key={horizon} role="columnheader">{horizonNames[horizon]}</span>)}</div>
+        <div role="row"><span role="columnheader" />{(periodHorizons).map(horizon => <span key={horizon} role="columnheader">{horizonNames[horizon]}</span>)}</div>
         {goals.map(goal => <div key={goal.id} role="row">
           <button role="rowheader" className="review-goal-title" onClick={() => setFilter(goal.id)}><span className="review-mark" style={{ borderColor: flowStroke(goal.flowColor) }} /><span>{goal.title}</span></button>
-          {(['cycle', 'month', 'week', 'day'] as const).map(horizon => <span key={horizon} role="cell" className="review-matrix-cell" data-empty={!goal.counts[horizon]} data-skip={horizon === 'week' && goal.skip}>{goal.counts[horizon] || t.matrixEmpty}</span>)}
+          {(periodHorizons).map(horizon => <span key={horizon} role="cell" className="review-matrix-cell" data-empty={!goal.counts[horizon]} data-skip={horizon === 'week' && goal.skip}>{goal.counts[horizon] || t.matrixEmpty}</span>)}
         </div>)}
       </div>
       <ul className="review-matrix-legend">

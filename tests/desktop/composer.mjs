@@ -1,3 +1,4 @@
+import { chooseSetupCalendar } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -17,13 +18,15 @@ const tabSteps = {}
 try {
   const page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
-  // --- Onboarding 第 1 步：写下三个月的方向，Enter 前进；第 2 步预览把它放进 3个月，确认前不写入。 ---
-  const direction = page.getByRole('textbox', { name: '三个月的方向', exact: true })
+  // Calendar selection precedes direction; Enter only focuses explicit confirmation.
+  await chooseSetupCalendar(page)
+  const direction = page.getByRole('textbox', { name: '这一年的方向', exact: true })
   await direction.fill('上线 2.0 版本')
   await direction.press('Enter')
-  await page.getByRole('heading', { name: '「上线 2.0 版本」会放进 3个月', exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: '确认并开始', exact: true }).evaluate(node => node === document.activeElement), true)
   await page.getByRole('figure', { name: '确认后，你的看板会是这样' }).getByText('待确认', { exact: true }).waitFor()
   assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).items.length, 0)
+  assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.setupConfirmedAt, null)
   await page.screenshot({ path: 'output/tests/screenshots/onboarding-calendar.png' })
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
   // --- Onboarding 第 3 步：预设示例与两个按钮；选择连接后每个服务一张卡片（标出能开启的功能），默认选中推荐服务，同意默认未勾选，提交按钮在底栏。 ---
@@ -53,7 +56,7 @@ try {
   await page.getByRole('button', { name: '上线 2.0 版本', exact: true }).waitFor()
   const first = await page.evaluate(() => window.goalloom.getSnapshot())
   assert.equal(first.items.length, 1)
-  assert.deepEqual([first.items[0].title, first.items[0].placement.horizon, first.items[0].flowColor], ['上线 2.0 版本', 'cycle', 0])
+  assert.deepEqual([first.items[0].title, first.items[0].placement.horizon, first.items[0].flowColor], ['上线 2.0 版本', 'year', 0])
   assert(first.workspace.setupConfirmedAt)
   // --- 列头＋键盘路径：记录 Tab 从顶栏设置按钮到「在今天新建」的实际步数，随前方任务控件增长。 ---
   const measure = async label => {

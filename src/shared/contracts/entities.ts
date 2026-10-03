@@ -5,7 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
-import { horizons } from './values'
+import { calendarModes, horizons, periodHorizons, policyHorizons } from './values'
 import { validDate, validTimezone } from './wire-calendar'
 import { validationText } from '../i18n/validation'
 
@@ -13,12 +13,13 @@ export const idSchema = z.string().min(1).max(180).regex(/^[a-zA-Z0-9:_-]+$/)
 export const dateSchema = z.string().refine(value => validDate(value), { error: () => validationText().invalidDate })
 export const instantSchema = z.iso.datetime({ offset: true })
 export const horizonSchema = z.enum(horizons)
-export const periodHorizonSchema = z.enum(['cycle', 'month', 'week', 'day'])
+export const periodHorizonSchema = z.enum(periodHorizons)
 export const statusSchema = z.enum(['todo', 'done', 'cancelled'])
 // Fixed palette index owned by a flow root; schema v1 data has no field and reads as null.
 export const flowColorSchema = z.number().int().min(0).max(7)
-export const calendarSchema = z.strictObject({ id: idSchema, timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema })
+export const calendarSchema = z.strictObject({ id: idSchema, mode: z.enum(calendarModes).default('rolling'), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema })
   .refine(value => validTimezone(value.timezone), { error: () => validationText().invalidCalendarConfig })
+  .refine(value => value.mode !== 'natural' || value.cycleAnchor.endsWith('-01-01'), { error: () => validationText().invalidCalendarConfig })
 export const periodSchema = z.strictObject({
   id: idSchema, horizon: periodHorizonSchema, startDate: dateSchema, endDate: dateSchema,
   startAt: instantSchema, endAt: instantSchema,
@@ -48,7 +49,7 @@ export const relationSchema = z.strictObject({
   invalidatedBy: idSchema.nullable(), reason: z.enum(['unlink', 'delete']).nullable(), createdAt: instantSchema,
 })
 export const policySchema = z.strictObject({
-  horizon: periodHorizonSchema, mode: z.enum(['auto', 'manual']), version: z.number().int().positive(), effectiveFromPeriodId: idSchema,
+  horizon: z.enum(policyHorizons), mode: z.enum(['auto', 'manual']), version: z.number().int().positive(), effectiveFromPeriodId: idSchema,
 })
 export const themeSchema = z.enum(['system', 'light', 'dark'])
 // Pre-v4 databases and datasets carry no style column; they keep the default paper look.

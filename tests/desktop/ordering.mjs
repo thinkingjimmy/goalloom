@@ -94,7 +94,7 @@ try {
   }
   const dragKeys = async (id, keys) => {
     const handle = page.locator(`#item-${id} .drag-handle`)
-    await handle.focus(); await handle.press('Space')
+    await handle.scrollIntoViewIfNeeded(); await handle.focus(); await handle.press('Space')
     await page.waitForFunction(() => document.documentElement.dataset.dragging === 'true')
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     for (const key of keys) await page.keyboard.press(key)
@@ -111,7 +111,7 @@ try {
   application = await launch(); await connect()
   await ordered('month', ['A1', 'C1', 'B1', 'A2', 'Unlinked'])
   await open(); assert.equal(await toggle().getAttribute('aria-checked'), 'false')
-  assert.equal(await settings().getByRole('group', { name: '在这些列完成时撒花' }).getByRole('button').count(), 5)
+  assert.equal(await settings().getByRole('group', { name: '在这些列完成时撒花' }).getByRole('button').count(), 7)
   await sample(); await toggle().click()
   await ordered('month', ['A1', 'A2', 'B1', 'C1', 'Unlinked'])
   await ordered('week', ['Aw', 'Bw', 'Cw']); await ordered('day', ['Ad', 'Bd', 'Cd'])
@@ -119,7 +119,7 @@ try {
   assert(new Set(enabledFrames.map(frame => Math.round(frame.rows[ids.C1] ?? 0))).size > 2, 'Cards travel through real intermediate positions')
   assert.deepEqual(await raw('month'), ['A1', 'C1', 'B1', 'A2', 'Unlinked'])
   await shot('board-settings'); await close()
-  report.checks.push('Local default-off switch, migrated five-column confetti, A/C/B example and transitive week/day order without writes')
+  report.checks.push('Local default-off switch, seven-column confetti, A/C/B example and transitive week/day order without writes')
 
   const pickerTitles = () => page.locator('.relation-picker .menu-text').allTextContents()
   await page.locator(`#item-${ids.Aw} .flow-dot-button`).click()
@@ -353,7 +353,7 @@ try {
   await settings().getByText('已创建并校验', { exact: true }).waitFor()
   await settings().getByRole('checkbox').check()
   await settings().getByRole('button', { name: '重置并重新配置', exact: true }).click()
-  await page.getByRole('textbox', { name: '三个月的方向', exact: true }).waitFor()
+  await page.locator('.calendar-modes').waitFor()
   assert.notEqual((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.generation, oldGeneration)
   const released = await application.evaluate(() => { const reads = globalThis.orderingReads.splice(0); reads.forEach(resolve => resolve()); return reads.length })
   assert(released > 0)

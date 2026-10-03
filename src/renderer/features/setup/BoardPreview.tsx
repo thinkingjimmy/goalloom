@@ -1,33 +1,24 @@
 /**
- * [INPUT]: 各列的预览周期（domain/calendar 计算，未写库）、可选方向草稿；board/period-labels 的 periodLabel 与 horizonNames。
- * [OUTPUT]: BoardPreview：与真实看板同样的五列列头与空状态，方向草稿以虚线「待确认」行放在 3个月列。
- * [POS]: features/setup 日历步的只读预览，让用户在锁定日历前看到列头日期会怎样显示。
+ * [INPUT]: Six calculated preview periods, calendar mode, workspace today and optional annual direction.
+ * [OUTPUT]: Seven-column read-only header strip with one pending annual direction row.
+ * [POS]: Direction confirmation preview; creates no entities or sample tasks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { parseDate } from '../../../domain/calendar'
 import { horizons } from '../../../shared/contracts/values'
-import type { Horizon, Period } from '../../../domain/calendar'
-import { horizonNames, messages } from '../../i18n'
-import { Icon } from '../../components/icons'
+import type { CalendarConfig, PlanningPeriod } from '../../../shared/contracts/entities'
+import { messages } from '../../i18n'
+import { horizonName, planningLabel } from '../../lib/periods'
 import { periodLabel } from '../board/period-labels'
 
-export function BoardPreview({ periods, direction }: { periods: Record<Horizon, Period>; direction: string }) {
+export function BoardPreview({ periods, calendar, today, direction, yearName }: { periods: PlanningPeriod[]; calendar: CalendarConfig; today: string; direction: string; yearName: string }) {
   return <figure className="board-preview" aria-label={messages.previewTitle}>
     {horizons.map(horizon => {
-      const period = horizon === 'later' ? null : periods[horizon]
-      const goal = horizon === 'cycle' && direction
-      return <section key={horizon} className="preview-column">
-        <header className="column-header">
-          <h2>{horizonNames[horizon]}</h2>
-          {period && <span className="column-meta">{periodLabel(horizon, period)}</span>}
-        </header>
-        {goal ? <div className="preview-row">
-          <span className="check check-dashed" aria-hidden="true" />
-          <span className="preview-title">{direction}</span>
-          <span className="row-meta">{messages.draftTag}</span>
-        </div> : <div className="preview-empty">
-          <Icon name="empty" size={44} strokeWidth={1.1} />
-          <p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p>
-        </div>}
+      const period = periods.find(period => period.horizon === horizon)
+      return <section key={horizon} className="preview-column" data-horizon={horizon}>
+        <header><h2>{horizon === 'year' ? yearName : period ? planningLabel(period, calendar, parseDate(today).toZonedDateTime(calendar.timezone).toInstant().toString()) : horizonName(horizon, calendar)}</h2>
+          {period && !(calendar.mode === 'natural' && horizon === 'year') && <span className="column-meta">{periodLabel(horizon, period, calendar, today)}</span>}</header>
+        {horizon === 'year' && direction && <div className="preview-row"><span className="check check-dashed" aria-hidden="true" /><span className="preview-title">{direction}</span><span className="row-meta">{messages.draftTag}</span></div>}
       </section>
     })}
   </figure>

@@ -14,7 +14,7 @@ import { compareInstants, currentPeriod, precedingPeriod, workspaceDate, type Ho
 import { horizons } from '../../../shared/contracts/values'
 import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
-import { messages, horizonNames, insightMessages, useLocale } from '../../i18n'
+import { messages, insightMessages, useLocale } from '../../i18n'
 import type { Action, PreparedWrite } from '../../state/use-workspace'
 import { activeFlowGraph, flowChain, type Flows } from '../../state/flows'
 import type { BoardView } from '../../state/board-periods'
@@ -23,7 +23,7 @@ import { flowTint } from '../../lib/colors'
 import { Icon } from '../../components/icons'
 import { PastPeriod, usePastPeriod } from './PastPeriod'
 import { periodLabel, periodTitle } from './period-labels'
-import { periodDates, planningLabel } from '../../lib/periods'
+import { horizonName, returnPeriodName, periodDates, planningLabel } from '../../lib/periods'
 import { Backlog } from './Backlog'
 import { QuickAdd, type QuickAddDraft, type SplitParent } from './QuickAdd'
 import { RelationLines } from './RelationLines'
@@ -73,7 +73,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     const period = view.mode(horizon) === 'history' ? snapshot.periods.find(value => value.horizon === horizon) ?? null : view.periods[horizon] ?? null
     if (view.mode(horizon) === 'history') view.choose(horizon, null)
     setAdding({ horizon, period, split: addRequest.split, key: addRequest.seq })
-    document.querySelector(`[data-horizon="${horizon}"]`)?.scrollIntoView({ inline: 'nearest' })
+    document.querySelector(`[data-horizon="${horizon}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [addRequest])
   const onAdding = useCallback((horizon: ItemHorizon, open: boolean) => setAdding(open ? { horizon, period: view.periods[horizon] ?? null, split: null, key: Date.now() } : null), [view.periods])
   const onFocus = useCallback((horizon: ItemHorizon, editable: boolean) => setFocused(editable ? horizon : 'later'), [])
@@ -101,10 +101,11 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const holdPreview = (event: { target: EventTarget }) => { if (inPreview(event.target)) clearTimeout(previewTimer.current) }
   const leavePreview = (event: { relatedTarget: EventTarget | null }) => { if (preview && !inPreview(event.relatedTarget)) onPreview(null) }
   const insightSettings = useInsightSettings()
-  const empty = useMemo(() => emptyColumns(snapshot, columns, view.mode), [snapshot, columns, view.mode])
+  const displayed = useMemo(() => ({ ...snapshot, periods: Object.values(view.periods), items: view.items }), [snapshot, view.periods, view.items])
+  const empty = useMemo(() => emptyColumns(displayed, columns, view.mode), [displayed, columns, view.mode])
   const column = (horizon: ItemHorizon) => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!} visible={columns.includes(horizon)}
     snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
-    dragging={dragging} relationSource={relationDrag.sourceId} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? empty.get(horizon as never) ?? null : null} />
+    dragging={dragging} relationSource={relationDrag.sourceId} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? (horizon === 'later' || horizon === 'year' ? undefined : empty.get(horizon)) ?? null : null} />
   return <RelationDragContext.Provider value={relationDrag.actions}><DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
     <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null} data-linking={relationDrag.sourceId ? 'true' : undefined}
       onPointerOver={holdPreview} onPointerOut={leavePreview} onFocus={holdPreview} onBlur={leavePreview}>
@@ -131,7 +132,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   onFocus: (horizon: ItemHorizon, editable: boolean) => void
 }) {
   useLocale()
-  const setAdding = (open: boolean) => onAdding(horizon, open), focus = (editable: boolean) => onFocus(horizon, editable)
+  const setAdding = (open: boolean) => { if (open) section.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); onAdding(horizon, open) }, focus = (editable: boolean) => onFocus(horizon, editable)
   const [doneOpen, setDoneOpen] = useState(false), [backlog, setBacklog] = useState(false)
   const [menuItem, setMenuItem] = useState<string | null>(null)
   const drafts = useRef(new Map<string, QuickAddDraft>())
@@ -148,15 +149,19 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     if (!next || history) return null
     const periods = [next]
     while (periods.length < 3) periods.push(currentPeriod(calendar, next.horizon, periods.at(-1)!.endAt))
-    return periods.map(value => ({ period: value, label: planningLabel(value, calendar, snapshot.observedAt) }))
+    return periods.map(value => {
+      const relative = value.id === currentPeriod(calendar, value.horizon, current!.endAt).id
+        && !(value.horizon === 'year' && calendar.mode === 'natural') && !(value.horizon === 'cycle' && calendar.mode === 'rolling')
+      return { period: value, label: planningLabel(value, calendar, snapshot.observedAt), hint: relative ? periodLabel(value.horizon, value, calendar, today, true) : null }
+    })
   }, [next?.id, history?.id, snapshot.observedAt])
-  const target = mode === 'current' ? shorter(horizon) : null
+  const target = mode === 'current' || mode === 'future' && (horizon === 'year' || horizon === 'half') ? shorter(horizon) : null
   const split = useCallback((item: ItemSummary) => {
-    if (target) void decompose({ snapshot, flows, ready: insight.ready, submit, seed: insight.seed }, { parent: item, target, children: [], manual: false })
-  }, [target, snapshot, flows, insight, submit])
+    if (target) void decompose({ snapshot: { ...snapshot, periods: Object.values(view.periods), items: view.items }, flows, ready: insight.ready, submit, seed: insight.seed }, { parent: item, target, children: [], manual: false })
+  }, [target, snapshot, view.periods, view.items, flows, insight, submit])
   const page = usePastPeriod(history, snapshot.workspace.generation, snapshot.workspace.revision)
   const earlier = history && (page.page ? page.page.previous !== null : previous !== null) ? previous : null
-  const name = horizonNames[horizon]
+  const name = horizonName(horizon, calendar)
   const displayName = mode !== 'current' && period ? planningLabel(period, calendar, snapshot.observedAt) : name
   const section = useRef<HTMLElement | null>(null), refocus = useRef<string | null>(null)
   const prepareMotion = usePeriodMotion(section, snapshot.workspace.generation, period?.id, loading || page.loading)
@@ -168,6 +173,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     refocus.current = !section.current?.contains(active) ? null : '[data-period-switch]'
     setAdding(false); setMenuItem(null)
     view.choose(horizon, target?.id === current?.id ? null : target)
+    section.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }
   // Header B: the title opens the period panel; ←/→ on it steps one period without motion, like other keyboard paging.
   const [picking, setPickingState] = useState(false)
@@ -245,9 +251,9 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   </div>
   const addButton = <button className="icon-button small" data-add-item aria-label={messages.newInColumn(displayName)} aria-pressed={!!adding} disabled={disabled} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>
   const back = history ? earlier : previous
-  const returnLabel = horizon === 'later' ? '' : messages.returnCurrentPeriod[horizon]
+  const returnLabel = horizon === 'later' ? '' : returnPeriodName(horizon, calendar)
   const heading = period && current ? periodTitle(period, current, calendar) : name
-  const date = period ? periodLabel(horizon, period) : null
+  const date = period && !(calendar.mode === 'natural' && horizon === 'year') ? periodLabel(horizon, period, calendar, today, heading !== null) : null
   return <section className={`board-column ${isOver ? 'drop-target' : ''}`} data-history={!!history} data-period-mode={mode} data-period-id={period?.id} aria-busy={loading || page.loading}
     onKeyDown={leaveOnEscape} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(name)} ref={node => { setNodeRef(node); section.current = node }}>
     <header className={`column-header ${period ? 'period-header' : ''}`}>
@@ -256,7 +262,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
           review={review?.period.id ?? null} open={picking} setOpen={setPicking} choose={choosePeriod} anchor={
             <h2 className="period-heading" aria-live="polite" aria-atomic="true">
               <button type="button" className="period-switch" data-period-switch aria-haspopup="dialog" aria-expanded={picking} onClick={() => setPicking(!picking)} onKeyDown={stepKeys}>
-                <span className="period-title" title={periodDates(period)}>{heading ?? date}</span>
+                <span className="period-title" title={periodDates(period)}>{heading ?? (period && horizon === 'year' && calendar.mode === 'natural' ? planningLabel(period, calendar, snapshot.observedAt) : date)}</span>
                 {heading && <span className="column-meta" title={periodDates(period)}>{date}</span>}
                 <span className="period-chevron" aria-hidden="true"><Icon name="expand" size={12} strokeWidth={2} /></span>
               </button>
@@ -291,7 +297,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
             }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} />}
           {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} render={row} />}</details>}
         </SortableContext>
-        {!monthlyGuide && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && <EmptyCard horizon={horizon as 'month' | 'week' | 'day'} sources={sources} period={current!} insight={insight} disabled={disabled} />}
+        {!monthlyGuide && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} />}
         {!monthlyGuide && !completedReview && items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}
       </>}
       </div>

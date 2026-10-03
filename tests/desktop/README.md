@@ -4,6 +4,7 @@
 
 ```text
 desktop/
+├── calendar-modes.mjs   # Rolling/natural setup, short annual target/future half drafting, six pickers, longest-parent dragging, legacy JSON/SQLite fidelity and five-locale/four-theme evidence; output/tests/calendar-modes
 ├── later-sidebar.mjs    # Fixed planning columns, legacy preference handling, Later count, independent scrolling, drag/undo, preserved drafts, motion, themes/locales and restart; output/tests/later-sidebar
 ├── sqlite.mjs           # 单独构建/启动真实 main 的内置 SQLite 探针
 ├── workspace.mjs        # 看板业务、流程筛选快捷键与快捷键设置（截图 settings-shortcuts.png）、协议/CSP/IPC、主题与窄窗口
@@ -12,7 +13,7 @@ desktop/
 ├── month-review.mjs    # Period-end records, live closing, unified guide, resume and exact planning destinations, partial failures and receipt recovery; --combined adds fresh month → week planning; output/tests/insight/{month-review,combined-review}/
 ├── insight.mjs          # 流程洞察（无模型路径）：空列卡批量/自己写、筛选／悬停预览断点 ＋ 的可达性、创建与撤销、尾部接点对齐及一次性引导、预填新建、跳级 insertBetween 与一次撤销、标明周期的复盘入口／标题与四步（复盘日才跑）、设置 › 洞察；output/tests/insight
 ├── insight-generation.mjs # Development/production Electron: review header, drafting, Settings with complete trial-action captures, summary persistence/restart/refresh/invalidation/failures/reset; real bridge/storage and synthetic HTTP; output/tests/insight/generation/
-├── insight-live.mjs     # Optional real OpenRouter: Settings trial/no writes, seven drafts, direct creation and review summary; titles, latency and runtime evidence; outside verify
+├── insight-live.mjs     # Authorized real OpenRouter: annual → half → cycle drafts, Settings trial/no writes, seven weekly drafts and review summary; outside verify
 ├── recovery.mjs         # 保护备份/维护/重置/SQLite 恢复与重启暂停
 ├── composer-live.mjs    # 可选：真实 OpenRouter Jev（需 .env.local Key）连接、默认采用 Jev 的上级推荐、↵ 创建并核对看板/关联/说明，截图作证据；不进 verify
 ├── composer.mjs         # 首次流程、全局 composer 普通 Later/会话草稿与关闭后的真实保存回执、列头＋Enter/Space 与 Tab 步数、拆解
@@ -32,6 +33,10 @@ desktop/
 ├── dialogs.mjs          # 操控真实原生保存/打开对话框的验收入口，保存 JSON 证据和恢复后截图
 ├── review/              # 已确认缺陷、输入/维护竞态、长列、wire、增长曲线和大备份回归
 └── fixtures/
+    ├── setup.mjs        # Shared real calendar → annual direction → AI setup controls; optional mode/timezone/week-start/anchor
+    ├── legacy-v5.ts     # Frozen v5 DDL used only to construct synthetic legacy import fixtures
+    ├── calendar-seed.ts # Legacy holds/history/undo/plan fidelity, startup refusal, v6 round trips and first-month/week pre-anchor review guards
+    ├── calendar-history.ts # Recorded year/half/cycle counts, earlier periods and reversed half/cycle parent groups for native restart acceptance
     ├── celebration-visibility.mjs # 原生窗口隐藏验证：独立 Electron + 无前台模拟的 CDP，确认真实 visibility 与动效释放
     ├── sqlite-probe.ts  # Electron main 的驱动/事务/恢复探针
     ├── review-seed.ts   # Injected-clock previous-month/week fixtures for review and provider-cache acceptance
@@ -50,7 +55,7 @@ desktop/
     └── performance.ts   # 10,000 条目/1,000 活跃及真实历史，测恢复与延迟
 ```
 
-按[功能测试映射](../../docs/development.md#测试范围)从仓库根选择脚本：完成一次改动只需本次场景与所属功能的全部 E2E，命令去重；这里的成员清单不是每次必须全部执行的清单。Onboarding 的专门覆盖目前位于 `workspace.mjs`、`composer.mjs`、`language.mjs`；其他脚本仅经过向导初始化不算相关覆盖。Review 回归按所需分组调用 `node tests/desktop/review/run.mjs <group>`，不默认运行所有分组。全量 `pnpm verify` 只在发布前或明确要求时运行。
+按[功能测试映射](../../docs/development.md#测试范围)从仓库根选择脚本：完成一次改动只需本次场景与所属功能的全部 E2E，命令去重；这里的成员清单不是每次必须全部执行的清单。Onboarding 专门覆盖位于 `workspace.mjs`、`composer.mjs`、`language.mjs`、`calendar-modes.mjs`，跨午夜场景位于 `review/renderer.mjs`；其他脚本仅经过向导初始化不算相关覆盖。Review 回归按所需分组调用 `node tests/desktop/review/run.mjs <group>`，不默认运行所有分组。全量 `pnpm verify` 只在发布前或明确要求时运行。
 
 同机操作引起的失焦／遮挡按[桌面测试干扰](../../docs/development.md#桌面测试干扰)处理：先确认原因，不自动增加失焦用例或等待／重试；消除已确认的环境干扰后只补跑最小范围一次。新增回归必须有产品契约或受控复现依据，现有真实焦点与可见性需求继续保留。
 

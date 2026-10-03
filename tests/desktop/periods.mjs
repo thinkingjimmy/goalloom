@@ -145,7 +145,7 @@ try {
   report.contextMenu = { menus, activeRow, clearedOnClose: true, unchangedItem: true }
   checks.push('Compact yearless month/submenus, no repeated concrete dates, pointer cursors and persistent source activation until close')
 
-  const labels = { day: '移到明天', week: '移到下周', month: '移到下月', cycle: '移到下个周期' }
+  const labels = { day: '移到明天', week: '移到下周', month: '移到下月', cycle: '移到下个 3个月' }
   for (const horizon of ['day', 'week', 'month', 'cycle']) {
     const before = await advance(ids[horizon], labels[horizon], horizon === 'week' ? 'context-menu-week' : null)
     const after = await item(ids[horizon])
@@ -222,6 +222,7 @@ try {
   await shot('future-relations')
   await page.getByRole('button', { name: '全部', exact: true }).click()
   await row(alpha).locator('.task-title').hover()
+  await column('day').scrollIntoViewIfNeeded()
   const from = await row(alpha).locator('.task-title').boundingBox(), to = await column('day').boundingBox()
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down()
   await page.mouse.move(from.x + from.width / 2 + 8, from.y + from.height / 2)
@@ -321,6 +322,7 @@ try {
     if (['en', 'es', 'fr'].includes(locale)) assert(!/[一-鿿]/.test(text), `${locale} context menu must be translated`)
     await shot(`context-menu-${locale}`); await page.keyboard.press('Escape')
     for (const horizon of ['cycle', 'month', 'week', 'day']) {
+      await column(horizon).scrollIntoViewIfNeeded()
       const header = column(horizon).locator('.column-header')
       // Header B: no header arrows; the switch carries the title and date and opens a panel without a footer pager.
       assert.equal(await header.locator('[data-previous-period], [data-next-period]').count(), 0)
@@ -333,16 +335,11 @@ try {
       const panel = column(horizon).locator('.period-picker')
       assert.equal(await panel.locator('[data-previous-period], [data-next-period]').count(), 0, `${locale} the period panel has no pager`)
       if (horizon === 'cycle') {
-        const currentLabels = { en: 'This period', ja: '今期', es: 'Este periodo', fr: 'Cette période', zh: '本周期' }
+        const currentLabels = { en: 'This period', ja: '今期', es: 'Este periodo', fr: 'Cette période', zh: '本期' }
         assert((await panel.locator('.period-picker-quick').innerText()).includes(currentLabels[locale]), `${locale} the current cycle is named as this period`)
         const rows = await panel.locator('.period-picker-row').evaluateAll(nodes => nodes.map(node => ({ text: node.querySelector('span')?.textContent ?? '', title: node.getAttribute('title') ?? '' })))
         assert.equal(rows.length, 6, `${locale} the cycle panel lists six periods`)
-        const crossed = rows.filter(row => new Set(row.title.match(/\b20\d{2}\b/g)).size > 1)
-        assert(crossed.length > 0, `${locale} the six cycles include a year boundary`)
-        for (const row of crossed) {
-          const endYear = row.title.match(/\b20\d{2}\b/g).at(-1).slice(2)
-          assert(row.text.includes(`${endYear}/`) || row.text.includes(`/${endYear}`), `${locale} a cross-year cycle shows the end year: ${row.text} (${row.title})`)
-        }
+        assert.equal(new Set(rows.map(row => row.text)).size, 6, `${locale} cycle dates are unambiguous across years`)
       }
       assert(await panel.evaluate(node => node.scrollWidth <= node.clientWidth + 1), `${locale} the period panel has no horizontal overflow`)
       await header.locator('[data-period-switch]').click()

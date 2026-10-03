@@ -1,13 +1,17 @@
 /**
- * [INPUT]: Nothing; fixed Chinese inputs with a fixed reference day (Wednesday 2026-09-23, weekStart Monday).
+ * [INPUT]: Chinese inputs, labelled outcomes and optional per-case calendar observations.
  * [OUTPUT]: evalCases: labelled inputs, optional existing goals and the preview each one should produce.
  * [POS]: Ground truth for scripts/eval/smart.ts; expectations describe product intent, not current model output.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import type { PeriodHorizon } from '../../src/shared/contracts/values'
+import type { ItemHorizon } from '../../src/shared/contracts/entities'
+
 export interface Expected {
   drafts: number | [number, number]
   titles?: string[]
-  horizons?: ('later' | 'day' | 'week' | 'month' | 'cycle')[]
+  horizons?: ItemHorizon[]
+  inferredHorizon?: { value: ItemHorizon | null; certain: boolean }[]
   due?: (string | null)[]
   // Some prefilled deadline equals this date, whichever draft carries it.
   anyDue?: string
@@ -18,8 +22,9 @@ export interface Expected {
   draftParent?: [child: number, parent: number][]
   warnings?: string[]
 }
-export interface Goal { title: string; horizon: 'cycle' | 'month' | 'week' | 'day' }
-export interface EvalCase { id: string; text: string; goals?: (string | Goal)[]; expected: Expected }
+export interface Goal { title: string; horizon: PeriodHorizon }
+export interface EvalCalendar { mode: 'rolling' | 'natural'; anchor: string; today: string; timezone: string; weekStart: number }
+export interface EvalCase { id: string; text: string; goals?: (string | Goal)[]; calendar?: EvalCalendar; expected: Expected }
 
 export const evalCases: EvalCase[] = [
   { id: 'website-with-feature', text: '搞个个人网站（放一些碎碎念，学习笔记等），然后里面有个判断排行榜，专门用于记录自己的各类判断。',
@@ -55,6 +60,7 @@ export const evalCases: EvalCase[] = [
     expected: { drafts: 1, titles: ['Bottega 远端控制功能完成验收（Web 控制 PC）'], parentSuggested: 'Bottega 正式对外，同时开启商业化' } },
   // --- Realistic TODOs against a simulated board (2026-09-25), incl. goals that must reach Jev by project name. ---
   ...realistic(),
+  ...calendarCases(),
   { id: 'this-week-with-reason', text: '本周把简历更新一下，因为下个月要开始找工作', expected: { drafts: 1, horizons: ['week'], descriptionIncludes: ['下个月要开始找工作'] } },
 ]
 
@@ -92,4 +98,23 @@ function realistic(): EvalCase[] {
     ['r-mixed-newline', '今天去银行办卡\n本周把 Bottega 官网上线\n以后有空学做饭', { drafts: 3, horizons: ['day', 'week', 'later'], parentSuggested: bottega }],
   ]
   return cases.map(([id, text, expected]) => ({ id, text, goals: board, expected }))
+}
+
+function calendarCases(): EvalCase[] {
+  const natural = (today: string): EvalCalendar => ({ mode: 'natural', anchor: '2026-01-01', today, timezone: 'Asia/Shanghai', weekStart: 1 })
+  const rolling = (anchor: string): EvalCalendar => ({ mode: 'rolling', anchor, today: '2026-10-02', timezone: 'America/New_York', weekStart: 7 })
+  return [
+    { id: 'annual-explicit', text: '这一年完成职业转型', expected: { drafts: 1, horizons: ['year'] } },
+    { id: 'half-explicit', text: '这半年跑完第一场马拉松', expected: { drafts: 1, horizons: ['half'] } },
+    { id: 'natural-half-october', text: '下半年完成职业转型', calendar: natural('2026-10-02'), expected: { drafts: 1, horizons: ['half'] } },
+    { id: 'natural-half-march', text: '下半年完成职业转型', calendar: natural('2026-03-02'), expected: { drafts: 1, horizons: ['later'], warnings: ['future'] } },
+    { id: 'rolling-half-contained', text: '下半年完成职业转型', calendar: rolling('2026-07-01'), expected: { drafts: 1, horizons: ['half'] } },
+    { id: 'rolling-half-crossing', text: '下半年完成职业转型', calendar: rolling('2026-06-01'), expected: { drafts: 1, horizons: ['year'] } },
+    { id: 'next-half-future', text: '下个半年完成职业转型', calendar: natural('2026-10-02'), expected: { drafts: 1, horizons: ['later'], warnings: ['future'] } },
+    { id: 'next-year-future', text: '明年跑完第一场马拉松', expected: { drafts: 1, horizons: ['later'], warnings: ['future'] } },
+    { id: 'annual-inference', text: '实现职业转型，从零学习并进入理想行业', expected: { drafts: 1, horizons: ['later'], inferredHorizon: [{ value: 'year', certain: true }] } },
+    { id: 'half-inference', text: '为「职业转型」完成技能学习与作品集阶段', goals: [{ title: '职业转型', horizon: 'year' }], expected: { drafts: 1, horizons: ['later'], inferredHorizon: [{ value: 'half', certain: false }] } },
+    { id: 'annual-parent', text: '这半年完成作品集，关联「职业转型」', goals: [{ title: '职业转型', horizon: 'year' }], expected: { drafts: 1, horizons: ['half'], existingParent: '职业转型' } },
+    { id: 'half-parent', text: '这三个月完成长跑基础训练，关联「首场马拉松」', goals: [{ title: '首场马拉松', horizon: 'half' }], expected: { drafts: 1, horizons: ['cycle'], existingParent: '首场马拉松' } },
+  ]
 }

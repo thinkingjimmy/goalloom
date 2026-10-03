@@ -19,7 +19,7 @@ const fresh = (id: string) => repo.store.item(id)
 beforeEach(() => {
   const db = openDatabase(':memory:'); migrate(db)
   repo = new Repository(db, { now: () => now })
-  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-09-21', confirmed: true })
+  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-09-21' }, confirmed: true })
 })
 afterEach(() => repo.db.close())
 

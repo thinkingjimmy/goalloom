@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Canonical column order and device-local storage.
- * [OUTPUT]: Persisted Later visibility with all four planning columns always shown.
+ * [OUTPUT]: Persisted Later visibility with all six planning columns always shown.
  * [POS]: Local renderer preference outside workspace history, exports and backups.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

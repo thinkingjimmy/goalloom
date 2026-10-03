@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { horizons } from '../../../shared/contracts/values'
 import type { CalendarConfig, Item, ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import { compareInstants } from '../../../domain/calendar'
-import { periodDates, planningLabel } from '../../lib/periods'
+import { horizonName, periodDates, planningLabel } from '../../lib/periods'
 import { statusNames, messages, horizonNames } from '../../i18n'
 import { type PreparedWrite, type WriteResult } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
@@ -27,7 +27,7 @@ import { FlowPicker } from './FlowPicker'
 import { DescriptionEditor } from '../../components/description/DescriptionEditor'
 import { linkUrls } from '../../components/links/parse'
 
-const nextHorizon: Record<ItemHorizon, ItemHorizon> = { later: 'later', cycle: 'month', month: 'week', week: 'day', day: 'day' }
+const nextHorizon: Record<ItemHorizon, ItemHorizon> = { later: 'later', year: 'half', half: 'cycle', cycle: 'month', month: 'week', week: 'day', day: 'day' }
 type Pop = 'parent' | 'child' | 'move' | 'more' | 'flow' | null
 
 export function ItemDetail({ itemId, generation, close, select, write, retryWrite, revision, blocked, locate, flows, candidates, today, calendar, observedAt, split }: {
@@ -70,7 +70,7 @@ export function ItemDetail({ itemId, generation, close, select, write, retryWrit
         {horizons.map(horizon => <button key={horizon} role="menuitemradio" aria-checked={inCurrent(horizon)} className="menu-item" disabled={busy} onClick={() => {
           setPop(null)
           if (!inCurrent(horizon)) void submit({ type: 'move', itemId, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon })
-        }}><span className="menu-check">{inCurrent(horizon) && <Icon name="check" size={14} strokeWidth={2} />}</span>{horizonNames[horizon]}</button>)}
+        }}><span className="menu-check">{inCurrent(horizon) && <Icon name="check" size={14} strokeWidth={2} />}</span>{horizonName(horizon, calendar)}</button>)}
       </div>
     </Popover>
   </div>)

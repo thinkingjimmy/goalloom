@@ -18,7 +18,7 @@ function fixture() {
   const db = openDatabase(':memory:'); migrate(db)
   const repo = new Repository(db, { now: () => now }), generation = repo.store.workspace().generation
   const run = (action: Record<string, unknown>) => repo.execute({ generation, operationId: randomUUID(), ...action })
-  run({ type: 'confirmSetup', timezone: 'UTC', weekStart: 1, cycleAnchor: '2026-07-01', confirmed: true })
+  run({ type: 'confirmSetup', timezone: 'UTC', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-07-01' }, confirmed: true })
   const create = (title: string, horizon: string, extra = {}) => run({ type: 'create', title, horizon, ...extra }).itemId!
   const parent = create('Parent', 'cycle', { flowColor: 0 }), child = create('Source root', 'month', { flowColor: 1 })
   const leaf = create('Existing child', 'week', { parentId: child, expectedParentVersion: repo.store.item(child).version })

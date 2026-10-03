@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Schema-v5 export, v1-v5 source validation, body-discarding protective checks and atomic replacement.
+ * [OUTPUT]: Schema-v6 export, v1-v6 source validation, body-discarding protective checks and atomic replacement.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

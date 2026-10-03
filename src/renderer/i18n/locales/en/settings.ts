@@ -14,7 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   enabledMeta: 'On',
   board: "Board",
   parentOrder: "Sort by parent",
-  parentOrderNote: "Month, week, day and future periods follow their nearest parents. Drag within a group. Turning this off keeps the current order.",
+  parentOrderNote: 'Half-years, three-month periods, months, weeks, days and future periods follow their nearest parents. Drag within groups. Turning this off keeps the current order.',
   subtitles: {
     ai: 'Add a key once and let smart input and insight each pick a service; keys stay encrypted in this device’s keychain and go only to the service you choose',
     board: "Ordering and completion feedback, saved on this device",

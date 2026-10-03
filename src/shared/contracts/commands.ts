@@ -7,6 +7,7 @@
 import { z } from 'zod'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, statusSchema, themeSchema } from './entities'
 import { validationText } from '../i18n/validation'
+import { calendarModes, policyHorizons } from './values'
 
 const envelope = { operationId: idSchema, generation: idSchema }
 const target = { itemId: idSchema, expectedVersion: z.number().int().positive() }
@@ -33,8 +34,14 @@ export const planItemSchema = z.strictObject({
   period: createPeriodTargetSchema.optional(),
 })
 export const planLimit = 8
+export const setupAnchorSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('today'), expected: dateSchema }),
+  z.strictObject({ kind: z.literal('monthStart'), expected: dateSchema }),
+  z.strictObject({ kind: z.literal('date'), date: dateSchema }),
+])
+export type SetupAnchor = z.infer<typeof setupAnchorSchema>
 export const commandSchema = z.discriminatedUnion('type', [
-  z.strictObject({ ...envelope, type: z.literal('confirmSetup'), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema, confirmed: z.literal(true) }),
+  z.strictObject({ ...envelope, type: z.literal('confirmSetup'), mode: z.enum(calendarModes), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), anchor: setupAnchorSchema, confirmed: z.literal(true) }),
   z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null) }),
   z.strictObject({ ...envelope, type: z.literal('createPlan'), items: z.array(planItemSchema).min(1).max(planLimit) }),
   // A milestone between a parent and some of its children in one transaction: create under the parent, re-link the children to it and drop their direct edges.
@@ -52,7 +59,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('undo'), originalOperationId: idSchema }),
   z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: z.enum(['paper', 'minimal']).optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => validationText().missingPreference }),
   z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),
-  z.strictObject({ ...envelope, type: z.literal('policy'), horizon: z.enum(['cycle', 'month', 'week', 'day']), mode: z.enum(['auto', 'manual']), expectedVersion: z.number().int().positive() }),
+  z.strictObject({ ...envelope, type: z.literal('policy'), horizon: z.enum(policyHorizons), mode: z.enum(['auto', 'manual']), expectedVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('confirmRollover'), confirmed: z.literal(true) }),
   z.strictObject({ ...envelope, type: z.literal('confirmClock'), confirmed: z.literal(true) }),
   z.strictObject({ ...envelope, type: z.literal('backupPreferences'), enabled: z.boolean(), retention: z.number().int().min(1).max(100) }),

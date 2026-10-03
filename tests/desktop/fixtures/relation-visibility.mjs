@@ -4,6 +4,7 @@
  * [POS]: Relation acceptance's native boundary; raw CDP preserves actual document visibility.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './setup.mjs'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -61,9 +62,7 @@ export async function verifyRelationVisibility(packaged, env, evidence) {
     page.setDefaultTimeout(12000)
     await node.evaluate('require("electron").BrowserWindow.getAllWindows()[0].setContentSize(1500, 900)')
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    await page.getByRole('button', { name: '先跳过', exact: true }).click()
-    await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-    await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+    await finishSetup(page)
     await page.locator('.board').waitFor(); await page.locator('#later-toggle').click()
     const source = await page.evaluate(async () => {
       const generation = (await window.goalloom.getSnapshot()).workspace.generation

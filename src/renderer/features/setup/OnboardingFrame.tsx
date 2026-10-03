@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 当前步骤序号、主体内容、底栏说明与按钮；LanguageSelect 语言控件；可选底栏按钮槽 ref（供 portal 放入表单外的提交按钮）。
- * [OUTPUT]: OnboardingFrame：顶部三步进度与语言、可滚动主体、固定底栏（说明在左，按钮统一在右下）。
- * [POS]: features/setup 的首次流程外框，方向/日历/AI 助手三步共用，保证主按钮始终在同一位置。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Step, content, footer actions, shared language control and optional portal action ref.
+ * [OUTPUT]: Three-step calendar/direction/AI frame with scrollable content and fixed footer actions.
+ * [POS]: Shared setup layout; keeps confirmation controls in a stable position.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ReactNode, Ref } from 'react'
 import { messages } from '../../i18n'
@@ -13,7 +13,7 @@ import './onboarding.css'
 export function OnboardingFrame({ step, label, children, note, lock = false, actions, actionsRef }: {
   step: 0 | 1 | 2; label: string; children: ReactNode; note: ReactNode; lock?: boolean; actions: ReactNode; actionsRef?: Ref<HTMLDivElement>
 }) {
-  const steps = [messages.stepDirection, messages.stepCalendar, messages.stepAi]
+  const steps = [messages.stepCalendar, messages.stepDirection, messages.stepAi]
   return <div className="onboarding">
     <header className="onboarding-header">
       <ol className="onboarding-steps" aria-label={messages.onboardingProgress}>

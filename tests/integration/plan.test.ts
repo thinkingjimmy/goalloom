@@ -51,7 +51,7 @@ beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'Goalloom 计划测试 '))
   const db = openDatabase(join(directory, 'workspace.sqlite')); migrate(db)
   repo = new Repository(db, { now: () => now }); service = new WorkspaceService(repo, join(directory, 'backups'))
-  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-07-01', confirmed: true })
+  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-07-01' }, confirmed: true })
 })
 afterEach(async () => { vi.restoreAllMocks(); repo.db.close(); await rm(directory, { force: true, recursive: true }) })
 

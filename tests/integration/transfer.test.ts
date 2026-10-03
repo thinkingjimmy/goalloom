@@ -26,7 +26,7 @@ beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'Goalloom 恢复测试 '))
   const db = openDatabase(join(directory, 'workspace.sqlite')); migrate(db)
   repo = new Repository(db, { now: () => now }); service = new WorkspaceService(repo, join(directory, 'backups'))
-  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-01-31', confirmed: true })
+  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-01-31' }, confirmed: true })
 })
 afterEach(async () => { vi.restoreAllMocks(); repo.db.close(); await rm(directory, { force: true, recursive: true }) })
 it('完整 JSON 校验允许无关编辑/关系/排序版本跳号与非栈顶撤销后的真实链', () => {

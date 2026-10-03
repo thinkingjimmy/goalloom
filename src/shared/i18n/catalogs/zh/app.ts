@@ -59,6 +59,7 @@ export const appMessages = widen({
     danglingReferences: '数据库包含悬空引用',
   },
   errors: {
+    setupDateChanged: '日期已变化，请确认新的起点',
     invalidPlanningPeriod: "请选择有效的计划周期",
     planningPeriodExpired: "该周期已结束，输入已保留，请重新安排",
     cannotAdvancePeriod: "只有未完成且未归档的周期待办可以移到下一期",

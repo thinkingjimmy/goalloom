@@ -9,7 +9,7 @@ import type { ItemHorizon } from '../../shared/contracts/entities'
 import { horizons } from '../../shared/contracts/values'
 
 const key = 'goalloom.celebration'
-const defaults: Record<ItemHorizon, boolean> = { later: false, cycle: true, month: true, week: true, day: false }
+const defaults: Record<ItemHorizon, boolean> = { later: false, year: true, half: true, cycle: true, month: true, week: true, day: false }
 
 function load(): Record<ItemHorizon, boolean> {
   const result = { ...defaults }

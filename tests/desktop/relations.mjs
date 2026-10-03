@@ -4,6 +4,7 @@
  * [POS]: Desktop flow acceptance; exercises live snapshots, keyboard moves and positional filter shortcuts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { stepPeriod } from './fixtures/period-step.mjs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -28,9 +29,7 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   // Use the actual native viewport, including the host's screen-size constraints.
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1600, 900))
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await finishSetup(page)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
 
   // One flow from 3个月 down to 今天: a two-parent item, a skip-level child (本月 → 今天) and a done leaf. Later only parks a loose item.
@@ -75,7 +74,7 @@ try {
         const port = document.querySelector(`[data-port-key^="${edge.parentId}:"]`).getBoundingClientRect()
         const end = path.getPointAtLength(path.getTotalLength()).matrixTransform(path.getScreenCTM())
         return { edgeId: edge.id, dot: [dot.width, dot.height], port: [port.width, port.height], hit: [hit.width, hit.height],
-          portError: Math.abs(port.left + port.width / 2 - parent.right),
+          portError: Math.abs(port.left + port.width / 2 - parent.right + 9),
           connectionError: Math.hypot(end.x - dot.left, end.y - dot.top - dot.height / 2) }
       })
     })
@@ -84,7 +83,7 @@ try {
       assert.deepEqual(endpoint.dot, [6, 6], 'Incoming dots match the 6px outgoing ports, including hover')
       assert.deepEqual(endpoint.port, endpoint.dot)
       assert.deepEqual(endpoint.hit, [18, 18], 'The smaller dot keeps its existing hit target')
-      assert(endpoint.portError < 0.5 && endpoint.connectionError < 0.5, 'Lines meet the row edge and the incoming dot')
+      assert(endpoint.portError < 0.5 && endpoint.connectionError < 0.5, `Lines meet the outgoing port and incoming dot: ${JSON.stringify(endpoint)}`)
     }
     endpointMeasurements.push({ state, endpoints })
   }
@@ -94,6 +93,13 @@ try {
   // root→b, root→c, b→d, c→f, d→j, f→j, c→p; the done leaf stays folded, so j→k is not drawn.
   await page.waitForFunction(() => document.querySelectorAll('.relation-edge').length === 7)
   // Insight owns the guide's acceptance; complete it before exercising the underlying flow menus.
+  await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
+  await board.locator('.breakpoint-guide').waitFor()
+  const guideBounds = await board.locator('.breakpoint-guide').evaluate(node => {
+    const guide = node.getBoundingClientRect(), board = node.closest('.board').getBoundingClientRect()
+    return { left: guide.left - board.left, right: guide.right - board.right, bottom: guide.bottom - board.bottom }
+  })
+  assert(guideBounds.left >= 0 && guideBounds.right <= 0 && guideBounds.bottom <= 0, `Guide stays inside the horizontally clipped board: ${JSON.stringify(guideBounds)}`)
   await board.locator('.breakpoint-guide').getByRole('button', { name: '知道了', exact: true }).click()
   assert.equal(await board.locator('.relation-edge[data-skip]').count(), 1, '本月 → 今天 按跨级虚线')
   assert.equal(await board.locator('[data-dimmed="true"]').count(), 4, '其他流程与无流程的时间列条目原位置灰，不隐藏（Later 除外）')
@@ -115,7 +121,7 @@ try {
       firstLineAligned: Math.abs(fragments[0].left - check.right - 7.2) < 0.5,
       continuationAligned: fragments.slice(1).every(fragment => Math.abs(fragment.left - check.left) < 0.5),
       checkClickable: document.elementFromPoint(check.left + check.width / 2, check.top + check.height / 2)?.closest('.check') === checkbox,
-      addAligned: !!add && Math.abs(add.right - (r.right - 6)) < 0.5 && Math.abs(add.top + add.height / 2 - r.top - 16) < 0.5,
+      addAligned: !!add && Math.abs(add.right - (r.right - 15)) < 0.5 && Math.abs(add.top + add.height / 2 - r.top - 16) < 0.5,
       check: Math.round(node.querySelector('.check').getBoundingClientRect().top - r.top - 2), anchored: [...document.querySelectorAll('.relation-port')].some(port => Math.abs(Number(port.getAttribute('cy')) - anchor) < 1) }
   })
   assert(tall.lines > 2, 'A long task title grows beyond two lines')
@@ -144,13 +150,13 @@ try {
   await page.waitForTimeout(1000)
   const dimmedTitle = await board.getByRole('button', { name: '剪演示视频', exact: true }).evaluate(node => getComputedStyle(node.closest('.task-line')).opacity)
   assert.equal(dimmedTitle, '0.28')
-  await waitForDotOpacity(ids.root, '0')
+  await waitForDotOpacity(ids.root, '1')
   await waitForDotOpacity(ids.b, '1')
   await measureEndpoints('filtered')
   await mkdir(shots, { recursive: true })
   await board.screenshot({ path: `${shots}/relation-lines.png` })
 
-  // Filtering hides the cycle TODO dot at rest, while hover, keyboard focus and the open menu keep it usable.
+  // Filtering keeps the cycle TODO dot visible now that year is the longest horizon, while hover, keyboard focus and the open menu keep it usable.
   const rootCheckbox = page.locator(`#item-${ids.root} .check`)
   // Hover may scroll the overflowing board; compare the checkbox's position inside its row.
   const checkboxPosition = () => rootCheckbox.evaluate(node => {
@@ -172,13 +178,15 @@ try {
   // Escape leaves visible keyboard focus on the trigger; clear it before checking the idle state.
   await dot(ids.root).blur()
   await leaveBoard()
-  await waitForDotOpacity(ids.root, '0')
+  await waitForDotOpacity(ids.root, '1')
   await page.locator(`#item-${ids.root} .drag-handle`).focus()
   await page.keyboard.press('Shift+Tab')
   assert.equal(await dot(ids.root).evaluate(node => node === document.activeElement && node.matches(':focus-visible')), true)
   await waitForDotOpacity(ids.root, '1')
   await dot(ids.root).blur()
-  await waitForDotOpacity(ids.root, '0')
+  await waitForDotOpacity(ids.root, '1')
+  await leaveBoard()
+  await page.waitForFunction(() => !document.querySelector('.relation-edge[data-state="hot"], [data-chain-out]'))
 
   // Hovering the two-parent item lights both ancestor paths and its descendants; the rest fades.
   await page.locator(`#item-${ids.j} .task-title`).hover()
@@ -431,7 +439,7 @@ try {
   await writeFile('output/tests/relation-endpoints.json', JSON.stringify({ ok: true, runtime: report.runtime, environment: report.environment, scope: report.scope, fullTitle: tall, measurements: endpointMeasurements }, null, 2))
   assert.deepEqual(errors, [])
   console.log(`flow filter order: ${checkpoints.length} checkpoints; output/tests/flow-filter-order.json`)
-  console.log('relation lines: 7 edges, 1 skip, hover chain 6/1, marker reveal, settings switch persisted; flow dot: filtered cycle TODO visibility, hover/focus/menu access, unfiltered preview + tint, root colour, child parents, loose join, horizon rule')
+  console.log('relation lines: 7 edges, 1 skip, hover chain 6/1, marker reveal, settings switch persisted; flow dot: filtered cycle TODO visibility below year, hover/focus/menu access, unfiltered preview + tint, root colour, child parents, loose join, horizon rule')
 } catch (error) {
   const page = await application.firstWindow()
   await mkdir(shots, { recursive: true })

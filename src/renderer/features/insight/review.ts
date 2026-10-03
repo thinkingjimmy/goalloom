@@ -10,8 +10,9 @@ import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/enti
 import type { Snapshot } from '../../../shared/contracts/queries'
 import type { InsightBoard, InsightSignal } from '../../../shared/contracts/smart-input'
 import type { Flows } from '../../state/flows'
+import { mapPeriodHorizons, periodHorizons } from '../../../shared/contracts/values'
 import { addDays } from '../../lib/dates'
-import { breakpoints, type Planned } from './signals'
+import { breakpoints, type ChildHorizon, type Planned } from './signals'
 
 export type ReviewHorizon = 'week' | 'month'
 export interface ReviewTarget { horizon: ReviewHorizon; period: PlanningPeriod; next: PlanningPeriod; key: string; lastDay: boolean }
@@ -52,7 +53,7 @@ export interface GoalRow { id: string; title: string; flowColor: number; counts:
 export function goalRows(snapshot: Snapshot, flows: Flows): GoalRow[] {
   const current = new Map(snapshot.periods.map(period => [period.horizon, period.id]))
   return flows.all.filter(flow => !flow.archived).map(flow => {
-    const counts = { cycle: 0, month: 0, week: 0, day: 0 }, done = { cycle: 0, month: 0, week: 0, day: 0 }
+    const counts = mapPeriodHorizons(() => 0), done = mapPeriodHorizons(() => 0)
     for (const item of snapshot.items) {
       const horizon = item.placement.horizon
       if (horizon === 'later' || item.placement.periodId !== current.get(horizon) || item.deletedAt || item.archivedAt || item.status === 'cancelled') continue
@@ -60,7 +61,7 @@ export function goalRows(snapshot: Snapshot, flows: Flows): GoalRow[] {
       counts[horizon]++
       if (item.status === 'done') done[horizon]++
     }
-    const skip = breakpoints(snapshot, flows, [flow.id], ['cycle', 'month', 'week', 'day'], () => 'current').skips.length > 0
+    const skip = breakpoints(snapshot, flows, [flow.id], [...periodHorizons], () => 'current').skips.length > 0
     return { id: flow.id, title: flow.title, flowColor: flow.flowColor, counts, done, skip }
   })
 }
@@ -69,10 +70,10 @@ export function reviewSignals(snapshot: Snapshot, flows: Flows, due: ReviewDue):
   const signals: InsightSignal[] = []
   const names = Object.fromEntries(snapshot.periods.map(period => [period.horizon, `${period.startDate} 至 ${addDays(period.endDate, -1)}`]))
   for (const flow of flows.all.filter(value => !value.archived).slice(0, 12)) {
-    const found = breakpoints(snapshot, flows, [flow.id], ['cycle', 'month', 'week', 'day'], () => 'current')
-    const byLevel = new Map<string, string[]>()
+    const found = breakpoints(snapshot, flows, [flow.id], [...periodHorizons], () => 'current')
+    const byLevel = new Map<ChildHorizon, string[]>()
     for (const gap of found.gaps) byLevel.set(gap.target, [...byLevel.get(gap.target) ?? [], gap.parent.title])
-    for (const [target, titles] of byLevel) signals.push({ kind: 'gap', goal: flow.title, detail: `${titles.slice(0, 3).join('、')}${titles.length > 3 ? ` 等 ${titles.length} 项` : ''}在${names[target as Planned]}没有下级` })
+    for (const [target, titles] of byLevel) signals.push({ kind: 'gap', goal: flow.title, detail: `${titles.slice(0, 3).join('、')}${titles.length > 3 ? ` 等 ${titles.length} 项` : ''}在${names[target]}没有下级` })
     const members = snapshot.items.filter(item => flows.of(item.id).some(value => value.id === flow.id) && item.id !== flow.id)
     if (!members.some(item => item.placement.horizon !== 'later')) signals.push({ kind: 'gap', goal: flow.title, detail: '复盘范围内没有它的条目' })
     for (const skip of found.skips) signals.push({ kind: 'skip', goal: flow.title, detail: `${names.day} 的 ${skip.children.length} 项直接挂在月计划「${skip.parent.title}」下，跳过 ${names.week}` })
@@ -101,14 +102,14 @@ export const reviewedOpen = (snapshot: Snapshot, period: PlanningPeriod) => snap
 
 export function reviewDigest(snapshot: Snapshot, flows: Flows): InsightBoard {
   const rows = snapshot.items
-  const titles = (items: ItemSummary[], horizon: ReviewHorizon | 'day') => items.filter(item => item.placement.horizon === horizon).slice(0, 24)
+  const titles = (items: ItemSummary[], horizon: Planned) => items.filter(item => item.placement.horizon === horizon).slice(0, 24)
     .map(item => `［${item.status === 'done' ? '已完成' : '未完成'}］${item.title}`)
   const goals = goalRows(snapshot, flows).slice(0, 12).map(goal => {
     const members = rows.filter(item => item.id !== goal.id && flows.of(item.id).some(flow => flow.id === goal.id))
-    return { title: goal.title, month: titles(members, 'month'), week: titles(members, 'week'), day: titles(members, 'day') }
+    return { title: goal.title, half: titles(members, 'half'), cycle: titles(members, 'cycle'), month: titles(members, 'month'), week: titles(members, 'week'), day: titles(members, 'day') }
   })
   const loose = rows.filter(item => flows.of(item.id).length === 0)
   return { today: workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt),
     periods: Object.fromEntries(snapshot.periods.map(period => [period.horizon, `${period.startDate} 至 ${addDays(period.endDate, -1)}`])),
-    goals, unlinked: { month: titles(loose, 'month'), week: titles(loose, 'week'), day: titles(loose, 'day') } }
+    goals, unlinked: { half: titles(loose, 'half'), cycle: titles(loose, 'cycle'), month: titles(loose, 'month'), week: titles(loose, 'week'), day: titles(loose, 'day') } }
 }

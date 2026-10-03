@@ -10,11 +10,12 @@ import type { Snapshot } from '../../../shared/contracts/queries'
 import type { InsightBoard } from '../../../shared/contracts/smart-input'
 import type { Flows } from '../../state/flows'
 import { addDays } from '../../lib/dates'
+import { childHorizons, nextHorizon, periodHorizons, type PeriodHorizon } from '../../../shared/contracts/values'
 
-export type Planned = 'cycle' | 'month' | 'week' | 'day'
-export type ChildHorizon = 'month' | 'week' | 'day'
-const chain: Planned[] = ['cycle', 'month', 'week', 'day']
-export const shorter = (horizon: ItemHorizon): ChildHorizon | null => (chain[chain.indexOf(horizon as Planned) + 1] ?? null) as ChildHorizon | null
+export type Planned = PeriodHorizon
+export type ChildHorizon = typeof childHorizons[number]
+const chain = periodHorizons
+export const shorter = (horizon: ItemHorizon): ChildHorizon | null => nextHorizon[horizon]
 
 export interface Gap { parent: ItemSummary; target: ChildHorizon }
 export interface Skip { parent: ItemSummary; children: ItemSummary[] }
@@ -63,19 +64,31 @@ export function breakpoints(snapshot: Snapshot, flows: Flows, flowIds: string[],
 export function emptyColumns(snapshot: Snapshot, columns: ItemHorizon[], mode: Mode): Map<ChildHorizon, ItemSummary[]> {
   const current = currentIds(snapshot)
   const result = new Map<ChildHorizon, ItemSummary[]>()
-  for (const horizon of ['month', 'week', 'day'] as const) {
-    if (!columns.includes(horizon) || mode(horizon) !== 'current') continue
-    if (snapshot.items.some(item => item.placement.horizon === horizon && inCurrent(item, current) && live(item))) continue
+  const byId = new Map(snapshot.items.map(item => [item.id, item]))
+  const covered = new Set(snapshot.relations.filter(edge => { const child = byId.get(edge.childId); return child && live(child) && inCurrent(child, current) }).map(edge => edge.parentId))
+  for (const horizon of childHorizons) {
+    if (!columns.includes(horizon) || mode(horizon) === 'history') continue
     const above = chain[chain.indexOf(horizon) - 1]!
-    const sources = snapshot.items.filter(item => item.placement.horizon === above && inCurrent(item, current) && open(item))
+    if (mode(above) === 'history' || mode(above) === 'future' && mode(horizon) !== 'future') continue
+    if (mode(horizon) === 'future') {
+      if (horizon !== 'half' && horizon !== 'cycle') continue
+      const target = snapshot.periods.find(period => period.horizon === horizon), parent = snapshot.periods.find(period => period.horizon === above)
+      if (!target || !parent || target.startDate < parent.startDate || target.endDate > parent.endDate) continue
+    }
+    if (snapshot.items.some(item => item.placement.horizon === horizon && inCurrent(item, current) && live(item))) continue
+    const sources = snapshot.items.filter(item => item.placement.horizon === above && inCurrent(item, current) && open(item) && !covered.has(item.id))
     if (sources.length) result.set(horizon, sources.slice(0, 8))
   }
   return result
 }
 
 // On the last day of a week/month a new child goes to the next period; a day target is always today.
-export function draftTarget(snapshot: Snapshot, horizon: ChildHorizon): { period: PlanningPeriod; next: boolean } {
+export function draftTarget(snapshot: Snapshot, horizon: ChildHorizon, parent?: ItemSummary): { period: PlanningPeriod; next: boolean } {
   const calendar = snapshot.workspace.calendar!
+  const parentPeriod = parent && snapshot.periods.find(period => period.id === parent.placement.periodId)
+  if (parentPeriod && parentPeriod.startAt > snapshot.observedAt && (horizon === 'half' || horizon === 'cycle')) {
+    return { period: currentPeriod(calendar, horizon, parentPeriod.startAt), next: true }
+  }
   const current = snapshot.periods.find(period => period.horizon === horizon) ?? currentPeriod(calendar, horizon, snapshot.observedAt)
   const today = workspaceDate(calendar.timezone, snapshot.observedAt)
   if (horizon !== 'day' && addDays(current.endDate, -1) === today) return { period: currentPeriod(calendar, horizon, current.endAt), next: true }
@@ -83,12 +96,14 @@ export function draftTarget(snapshot: Snapshot, horizon: ChildHorizon): { period
 }
 
 // --- Model context: Chinese labels by design (prompts are Chinese-only); bounded lists, titles only. ---
-const names: Record<Planned, string> = { cycle: '3个月', month: '本月', week: '本周', day: '今天' }
-const nextNames: Record<Planned, string> = { cycle: '下个3个月', month: '下月', week: '下周', day: '明天' }
-export function periodText(period: PlanningPeriod, next: boolean): string {
-  const horizon = period.horizon as Planned
+const names: Record<Planned, string> = { year: '这一年', half: '这半年', cycle: '3个月', month: '本月', week: '本周', day: '今天' }
+const nextNames: Record<Planned, string> = { year: '下一年', half: '下个半年', cycle: '下个3个月', month: '下月', week: '下周', day: '明天' }
+export function periodText(period: PlanningPeriod, next: boolean, calendar?: CalendarConfig): string {
+  const horizon = period.horizon
   const range = period.startDate === addDays(period.endDate, -1) ? period.startDate : `${period.startDate} 至 ${addDays(period.endDate, -1)}`
-  return `${next ? nextNames[horizon] : names[horizon]}（${range}）`
+  const name = calendar?.mode === 'natural' && horizon === 'year' ? next ? '明年' : '今年'
+    : calendar?.mode === 'natural' && horizon === 'cycle' ? next ? '下季度' : '本季度' : next ? nextNames[horizon] : names[horizon]
+  return `${name}（${range}）`
 }
 export function boardDigest(snapshot: Snapshot, flows: Flows, calendar: CalendarConfig = snapshot.workspace.calendar!): InsightBoard {
   const current = currentIds(snapshot)
@@ -96,9 +111,9 @@ export function boardDigest(snapshot: Snapshot, flows: Flows, calendar: Calendar
   const titles = (rows: ItemSummary[], horizon: ItemHorizon) => rows.filter(item => item.placement.horizon === horizon).slice(0, 24).map(item => item.title)
   const goals = flows.all.filter(flow => !flow.archived).slice(0, 12).map(flow => {
     const rows = openNow.filter(item => item.id !== flow.id && flows.of(item.id).some(value => value.id === flow.id))
-    return { title: flow.title, month: titles(rows, 'month'), week: titles(rows, 'week'), day: titles(rows, 'day') }
+    return { title: flow.title, half: titles(rows, 'half'), cycle: titles(rows, 'cycle'), month: titles(rows, 'month'), week: titles(rows, 'week'), day: titles(rows, 'day') }
   })
   const loose = openNow.filter(item => flows.of(item.id).length === 0)
-  const periods = Object.fromEntries(snapshot.periods.map(period => [period.horizon, periodText(period, false)]))
-  return { today: workspaceDate(calendar.timezone, snapshot.observedAt), periods, goals, unlinked: { month: titles(loose, 'month'), week: titles(loose, 'week'), day: titles(loose, 'day') } }
+  const periods = Object.fromEntries(snapshot.periods.map(period => [period.horizon, periodText(period, false, calendar)]))
+  return { today: workspaceDate(calendar.timezone, snapshot.observedAt), periods, goals, unlinked: { half: titles(loose, 'half'), cycle: titles(loose, 'cycle'), month: titles(loose, 'month'), week: titles(loose, 'week'), day: titles(loose, 'day') } }
 }

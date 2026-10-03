@@ -1,8 +1,8 @@
 /**
- * [INPUT]: shared/i18n 的 Locale 与服务端文案切换；locales/* 五种语言的完整 Catalog；React useSyncExternalStore。
- * [OUTPUT]: 当前语言的实时文案视图（messages、smartMessages、settingsMessages、shortcut*、insightMessages、providerNames、horizon/activity/status 名称）、setLocale/currentLocale/useLocale。
- * [POS]: renderer 唯一文案入口；原地替换视图内容实现即时切换，不重挂载组件，草稿、撤销栈与打开的弹窗保留。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Shared locale/server catalogs, five renderer catalogs and React external-store subscriptions.
+ * [OUTPUT]: Live calendar/app/smart/settings/insight/shortcut text, seven horizon names and locale controls.
+ * [POS]: Renderer text boundary; in-place catalog updates preserve drafts, undo and open dialogs.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 import type { ItemHorizon } from '../../shared/contracts/entities'
@@ -17,6 +17,7 @@ import { fr } from './locales/fr'
 const catalogs: Record<Locale, Catalog> = { zh, en, ja, es, fr }
 
 // Components read these at render time; setLocale swaps their contents in place, so no import ever goes stale.
+export const calendarMessages = { ...zh.calendar }
 export const messages = { ...zh.messages }
 export const smartMessages = { ...zh.smart }
 export const providerNames = { ...zh.providers }
@@ -38,11 +39,11 @@ function replace<T extends object>(target: T, source: T): void {
   Object.assign(target, source)
 }
 function apply(catalog: Catalog): void {
-  replace(messages, catalog.messages); replace(smartMessages, catalog.smart); replace(providerNames, catalog.providers)
+  replace(calendarMessages, catalog.calendar); replace(messages, catalog.messages); replace(smartMessages, catalog.smart); replace(providerNames, catalog.providers)
   replace(settingsMessages, catalog.settings); replace(shortcutMessages, catalog.shortcuts)
   replace(shortcutNames, catalog.shortcutNames); replace(shortcutNotes, catalog.shortcutNotes); replace(insightMessages, catalog.insight)
   const m = catalog.messages
-  Object.assign(horizonNames, { later: 'Later', cycle: m.cycle, month: m.month, week: m.week, day: m.day })
+  Object.assign(horizonNames, { later: 'Later', year: catalog.calendar.year, half: catalog.calendar.half, cycle: m.cycle, month: m.month, week: m.week, day: m.day })
   Object.assign(activityNames, { created: m.create, baseline: m.baseline, moved: m.move, rolled_over: m.rollover, status_changed: m.statusChanged, archived: m.archive, unarchived: m.unarchive, deleted: m.delete, item_restored: m.restoreItem, undo: m.undo })
   Object.assign(statusNames, { todo: m.todo, done: m.done, cancelled: m.cancelled })
 }

@@ -32,7 +32,7 @@ if (mode === 'cache') {
   run({ type: 'preferences', style: repo.store.workspace().style })
 } else {
   run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: mode === 'combined' ? today.dayOfWeek : (today.dayOfWeek + 1) % 7 + 1,
-    cycleAnchor: today.with({ day: 1 }).subtract({ months: 2 }).toPlainDate().toString(), confirmed: true })
+    mode: 'rolling', anchor: { kind: 'date', date: today.with({ day: 1 }).subtract({ months: 2 }).toPlainDate().toString() }, confirmed: true })
   const earlier = run({ type: 'create', title: 'Earlier unfinished item', horizon: 'month' }).itemId!
   now = today.subtract({ months: 1 }).with({ day: 10 }).toInstant().toString()
   const roots = ['Publish consistently', 'Grow the side project', 'Build a steady routine'].map((title, flowColor) => run({ type: 'create', title, horizon: 'cycle', flowColor }).itemId!)

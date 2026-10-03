@@ -2,10 +2,10 @@
  * [INPUT]: Zod, entity schemas and the lightweight AI provider / feature / capability values.
  * [OUTPUT]: AI 服务标识、设备侧状态（每服务凭据/能力/失败/冷却，每功能所选服务与启用）、受限设置/判断动作、带修订回声的判断回复与可编辑预览 DTO；流程洞察的起草/复盘请求（有界看板文本、代码算出的信号、本机偏好）与回复。
  * [POS]: main 智能服务 ↔ preload ↔ renderer 的唯一契约；不含凭据明文，也不进入 workspace 表、导出或迁移。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
-import { aiCapabilities, aiFeatures, aiProviders } from './values'
+import { aiCapabilities, aiFeatures, aiProviders, childHorizons, periodHorizons } from './values'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, statusSchema } from './entities'
 
 export const smartChannel = 'goalloom:smart'
@@ -65,14 +65,14 @@ export type InsightPrefs = z.infer<typeof insightPrefsSchema>
 const line = z.string().max(500)
 export const draftTaskSchema = z.strictObject({
   id: z.string().min(1).max(64), kind: z.enum(['next', 'bridge']), parent: line, goal: line.nullable(),
-  target: z.string().max(120), targetHorizon: z.enum(['month', 'week', 'day']),
+  target: z.string().max(120), targetHorizon: z.enum(childHorizons),
   siblings: z.array(line).max(20), children: z.array(line).max(8),
 })
 export type DraftTask = z.infer<typeof draftTaskSchema>
 export const insightBoardSchema = z.strictObject({
-  today: dateSchema, periods: z.partialRecord(z.enum(['cycle', 'month', 'week', 'day']), z.string().max(80)),
-  goals: z.array(z.strictObject({ title: line, month: z.array(line).max(24), week: z.array(line).max(24), day: z.array(line).max(24) })).max(12),
-  unlinked: z.strictObject({ month: z.array(line).max(24), week: z.array(line).max(24), day: z.array(line).max(24) }),
+  today: dateSchema, periods: z.partialRecord(z.enum(periodHorizons), z.string().max(80)),
+  goals: z.array(z.strictObject({ title: line, half: z.array(line).max(24), cycle: z.array(line).max(24), month: z.array(line).max(24), week: z.array(line).max(24), day: z.array(line).max(24) })).max(12),
+  unlinked: z.strictObject({ half: z.array(line).max(24), cycle: z.array(line).max(24), month: z.array(line).max(24), week: z.array(line).max(24), day: z.array(line).max(24) }),
 })
 export type InsightBoard = z.infer<typeof insightBoardSchema>
 export const insightSignalSchema = z.strictObject({ kind: z.enum(['gap', 'skip', 'pace', 'overload', 'vague']), goal: line, detail: z.string().max(300) })
@@ -128,7 +128,7 @@ export type PreviewWarning = z.infer<typeof warningSchema>
 export const periodRangeSchema = z.strictObject({ id: idSchema, startDate: dateSchema, endDate: dateSchema })
 export const smartPreviewSchema = z.strictObject({
   layout: suggestion(z.enum(['single', 'list', 'plan', 'unclear'])), referenceDate: dateSchema,
-  periods: z.record(z.enum(['day', 'week', 'month', 'cycle']), periodRangeSchema),
+  periods: z.record(z.enum(periodHorizons), periodRangeSchema),
   drafts: z.array(previewDraftSchema).min(1).max(8), candidates: z.array(candidateSchema).max(16), relations: z.array(relationSuggestionSchema).max(200),
   warnings: z.array(warningSchema).max(40), questionCount: z.number().int().nonnegative(), requests: z.number().int().min(1).max(2),
 })

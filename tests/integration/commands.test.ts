@@ -14,7 +14,7 @@ beforeEach(() => {
   generation = repository.store.workspace().generation
 })
 afterEach(() => repository.db.close())
-function setup() { repository.execute({ type: 'confirmSetup', operationId: randomUUID(), generation, timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-01-31', confirmed: true }) }
+function setup() { repository.execute({ type: 'confirmSetup', operationId: randomUUID(), generation, timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-01-31' }, confirmed: true }) }
 function create(title: string, horizon = 'later') {
   const result = repository.execute({ type: 'create', operationId: randomUUID(), generation, title, horizon })
   return repository.store.item(result.itemId!)

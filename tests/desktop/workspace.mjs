@@ -4,6 +4,7 @@
  * [POS]: Desktop workspace acceptance; uses the real preload, main and SQLite without production test hooks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import { finishDetailEditing, waitForDetailSave } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -23,7 +24,7 @@ const application = await electron.launch({ ...options, env: environment, timeou
 try {
   const page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
-  await page.getByRole('textbox', { name: '三个月的方向', exact: true }).waitFor()
+  await page.locator('.calendar-modes').waitFor()
   console.log(await page.locator('body').ariaSnapshot())
   assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getActivitySummary', 'getBackupSummary', 'getBatchItems', 'getBatches', 'getBoardPeriods', 'getCounts', 'getHistory', 'getHistoryIndex', 'getItem', 'getLanguage', 'getLinkPreview', 'getPastPeriod', 'getReceipt', 'getReviewContext', 'getRuntime', 'getSnapshot', 'listItems', 'onBeforeClose', 'onChanged', 'onOpenAbout', 'onUpdate', 'openExternal', 'setLanguage', 'smart', 'update'])
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
@@ -31,16 +32,8 @@ try {
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
   assert.match(runtime.sqlite, /^3\./)
   assert.equal(runtime.electron, JSON.parse(await readFile('node_modules/electron/package.json', 'utf8')).version)
-  // 不写方向也能继续：跳过后进入日历确认，看板保持为空。
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '工作区时区' }).click()
-  await page.getByRole('combobox', { name: '搜索城市或时区' }).fill('Asia/Shanghai')
-  await page.keyboard.press('Enter')
-  assert.match(await page.getByRole('button', { name: '工作区时区' }).innerText(), /Asia\/Shanghai/)
-  await page.getByRole('combobox', { name: '三个月周期的起点', exact: true }).click()
-  await page.getByRole('option', { name: '自选日期…', exact: true }).click()
-  await page.getByLabel('自选起点日期', { exact: true }).fill('2026-01-31')
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
+  // Calendar confirmation is explicit; an empty direction creates no item.
+  await finishSetup(page, { timezone: 'Asia/Shanghai', anchor: '2026-01-31', skipAi: false })
   // 可选 AI 助手步骤：两个同样可见的按钮，跳过后直接进入看板，不生成任何任务。
   await page.getByRole('button', { name: '连接 AI 服务', exact: true }).waitFor()
   await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
@@ -256,14 +249,14 @@ try {
   await trashed.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.waitFor({ state: 'hidden' })
-  // The four planning columns remain fixed while Later can collapse independently.
+  // The six planning columns remain fixed while Later can collapse independently.
   assert.equal(await page.getByRole('button', { name: '显示的列', exact: true }).count(), 0)
   await page.locator('#later-toggle').click()
   assert.equal(await page.getByRole('region', { name: 'Later列', exact: true }).count(), 0)
-  assert.equal(await page.locator('.board-timeline .board-column').count(), 4)
+  assert.equal(await page.locator('.board-timeline .board-column').count(), 6)
   assert.equal(await page.locator('#later-toggle').getAttribute('aria-expanded'), 'false')
   await page.locator('#later-toggle').click()
-  assert.equal(await page.locator('.board-timeline .board-column').count(), 4)
+  assert.equal(await page.locator('.board-timeline .board-column').count(), 6)
   // ⌘1 / Ctrl+1 is the leftmost top-bar slot: it toggles Later and is advertised on the button.
   await page.getByRole('button', { name: '全部', exact: true }).focus()
   await page.keyboard.press('ControlOrMeta+1')

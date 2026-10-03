@@ -5,9 +5,9 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { messages, smartMessages, useLocale } from './i18n'
-import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { workspaceDate } from '../domain/calendar'
-import type { ItemHorizon } from '../shared/contracts/entities'
+import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { currentPeriod, workspaceDate } from '../domain/calendar'
+import type { PlanningPeriod, ItemHorizon } from '../shared/contracts/entities'
 import { Icon } from './components/icons'
 import type { CalendarChoice } from './features/setup/Setup'
 import { revealRow } from './features/board/VirtualRows'
@@ -102,12 +102,32 @@ export function App() {
   })
   const openAbout = useCallback(() => openSettings('about'), [settings])
   useEffect(() => { try { return desktopApi().onOpenAbout(openAbout) } catch { return undefined } }, [openAbout])
-  // The calendar is confirmed first (it gates every item write); the onboarding direction then becomes an ordinary, undoable 3-month flow root.
-  const confirmSetup = async (calendar: CalendarChoice, direction: string) => {
-    if (!await submit({ type: 'confirmSetup', ...calendar, confirmed: true })) return
+  const directionLocation = useRef<{ generation: string; detail: Awaited<ReturnType<ReturnType<typeof desktopApi>['getItem']>> } | null>(null)
+  const [directionPending, setDirectionPending] = useState(false)
+  const [setupErrorCode, setSetupErrorCode] = useState<string | null>(null)
+  const confirmSetup = async (calendar: CalendarChoice, direction: string, period: PlanningPeriod) => {
+    setSetupErrorCode(null)
+    const confirmed = await write(async () => ({ type: 'confirmSetup', ...calendar, confirmed: true }), snapshot!.workspace.generation)
+    if (!confirmed.ok) { setSetupErrorCode(confirmed.code); setError(confirmed.message); return }
+    if (!confirmed.result) return
     startTransition(() => setOnboarding(true))
-    if (direction) await submit({ type: 'create', title: direction, description: '', dueDate: null, horizon: 'cycle', parentId: null, expectedParentVersion: null, flowColor: 0 })
+    if (direction) {
+      setDirectionPending(true)
+      try {
+        const result = await submit({ type: 'create', title: direction, description: '', dueDate: null, horizon: 'year', period: { kind: 'date', startDate: period.startDate }, parentId: null, expectedParentVersion: null, flowColor: 0 })
+        if (result?.itemId) directionLocation.current = { generation: snapshot!.workspace.generation, detail: await desktopApi().getItem(result.itemId) }
+      } finally { setDirectionPending(false) }
+    }
   }
+  useEffect(() => {
+    if (directionLocation.current && directionLocation.current.generation !== snapshot?.workspace.generation) directionLocation.current = null
+    const detail = directionLocation.current?.detail
+    if (onboarding || !snapshot?.workspace.calendar || !detail?.period) return
+    directionLocation.current = null
+    boardView.locate(detail.item, detail.period)
+    const half = currentPeriod(snapshot.workspace.calendar, 'half', detail.period.startAt)
+    boardView.choose('half', half.id === snapshot.periods.find(period => period.horizon === 'half')?.id ? null : half)
+  }, [onboarding, snapshot?.workspace.revision])
   useEffect(() => {
     const handle = (event: KeyboardEvent) => {
       if (event.defaultPrevented || (event.target instanceof Element && event.target.closest('.context-menu'))) return
@@ -141,8 +161,8 @@ export function App() {
     {snapshot?.backupError && <div className="notice-banner">{snapshot.backupError}<button className="text-button" onClick={() => openSettings('backup')}>{messages.viewBackups}</button></div>}
     {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <button className="text-button" onClick={() => void retry()}>{messages.retry}</button>}<button className="icon-button small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
-    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <Setup confirm={(calendar, direction) => void confirmSetup(calendar, direction)} busy={busy} />
-      : onboarding ? <AiStep ai={ai} finish={() => setOnboarding(false)} /> : <>
+    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <Setup confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy} errorCode={setupErrorCode ?? errorCode} />
+      : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>
       <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={addRequest} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight}
         write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || reviewOpen} /></div>
       <button className="fab" aria-label={messages.newItem} title={[messages.newItem, formatCombo(bindings.compose)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.compose)} disabled={busy} onClick={compose}><Icon name="add" size={24} strokeWidth={1.8} /></button>

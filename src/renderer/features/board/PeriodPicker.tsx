@@ -2,8 +2,8 @@
  * [INPUT]: Column horizon/name, the displayed and current periods, workspace calendar/today, the immediate earlier period
  *          that stays selectable, the recorded history index (loaded while open), a pending-review period and the column's choose callback.
  * [OUTPUT]: Header-B period panel under the column title: quick buttons for the previous/current/next period, then week
- *           rows, day cells, a year of months, or six anchored cycles. Past periods older than the earliest recorded
- *           history are disabled. There is no footer pager.
+ *           rows, day cells, a year of months, or six year/half/cycle rows with mode-aware labels.
+ *           History errors expose retry; periods older than the earliest recorded history stay disabled.
  * [POS]: Board column header switcher; Column owns switching, directional motion, focus return and Esc-to-current.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,14 +11,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { CalendarConfig, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { HistoryIndex } from '../../../shared/contracts/history'
 import { currentPeriod, makePeriod, parseDate, precedingPeriod, type Horizon } from '../../../domain/calendar'
-import { horizonNames, messages } from '../../i18n'
+import { calendarMessages, messages } from '../../i18n'
 import { monthName, weekdayName, yearMonth, yearOf } from '../../i18n/format'
 import { addDays, addMonths, weekday } from '../../lib/dates'
-import { periodDates } from '../../lib/periods'
+import { anchoredPeriodLabel, periodDates, relativePeriodName } from '../../lib/periods'
+import { isAnchoredHorizon } from '../../../shared/contracts/values'
 import { desktopApi } from '../../state/use-workspace'
 import { Popover } from '../../components/Popover'
 import { Icon } from '../../components/icons'
-import { cycleOptionLabel } from './period-labels'
 import './period-picker.css'
 
 type Choose = (target: PlanningPeriod, pointer: boolean, keepOpen?: boolean) => void
@@ -30,36 +30,39 @@ export function PeriodPicker({ horizon, name, period, current, calendar, today, 
   open: boolean; setOpen: (open: boolean) => void; choose: Choose; anchor: ReactNode
 }) {
   const [index, setIndex] = useState<HistoryIndex['periods']>([])
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [page, setPage] = useState(monthStart(period.startDate))
   const panel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
     let active = true
-    void desktopApi().getHistoryIndex(horizon).then(value => { if (active) setIndex(value.periods) }).catch(() => { if (active) setIndex([]) })
+    setFailed(false)
+    void desktopApi().getHistoryIndex(horizon).then(value => { if (active) setIndex(value.periods) }).catch(() => { if (active) setFailed(true) })
     const frame = requestAnimationFrame(() => panel.current?.querySelector<HTMLElement>('[aria-pressed="true"], [data-selected="true"]')?.focus({ preventScroll: true }))
     return () => { active = false; cancelAnimationFrame(frame) }
-  }, [open, horizon])
+  }, [open, horizon, attempt])
   useEffect(() => { setPage(monthStart(period.startDate)) }, [period.id])
   const at = (date: string) => currentPeriod(calendar, horizon, makePeriod(calendar, 'day', parseDate(date), parseDate(addDays(date, 1))).startAt) as PlanningPeriod
   // History stops at the earliest recorded period; empty periods after it stay reachable, the future is open.
   const earliest = index.reduce<string | null>((min, entry) => !min || entry.period.startDate < min ? entry.period.startDate : min, null)
   const allowed = (target: PlanningPeriod) => target.startDate >= current.startDate || target.id === back?.id
-    || (earliest !== null && target.startDate >= earliest && (horizon !== 'cycle' || !calendar.cycleAnchor || target.startDate >= calendar.cycleAnchor))
+    || (earliest !== null && target.startDate >= earliest && (!isAnchoredHorizon(horizon) || target.startDate >= calendar.cycleAnchor))
   const stats = (target: PlanningPeriod) => index.find(entry => entry.period.id === target.id)
   const pick = (target: PlanningPeriod, pointer: boolean) => { if (allowed(target) && !busy) choose(target, pointer) }
   const previousOfCurrent = precedingPeriod(calendar, current) as PlanningPeriod | null
   const quick = [
-    previousOfCurrent && { target: previousOfCurrent, label: messages.previousPeriodNames[horizon] },
-    { target: current, label: horizon === 'cycle' ? messages.currentCycle : horizonNames[horizon] },
-    { target: currentPeriod(calendar, horizon, current.endAt) as PlanningPeriod, label: messages.nextPeriodNames[horizon] },
+    previousOfCurrent && { target: previousOfCurrent, label: relativePeriodName(horizon, calendar, 'previous') },
+    { target: current, label: isAnchoredHorizon(horizon) && !(horizon === 'year' && calendar.mode === 'natural') ? messages.currentCycle : relativePeriodName(horizon, calendar, 'current') },
+    { target: currentPeriod(calendar, horizon, current.endAt) as PlanningPeriod, label: relativePeriodName(horizon, calendar, 'next') },
   ].filter(value => !!value)
   const state = (target: PlanningPeriod) => ({ 'data-selected': target.id === period.id, 'data-current': target.id === current.id, 'data-past': target.startDate < current.startDate })
 
   const monthNav = (step: number, label: string, icon: 'previous' | 'next') =>
     <button type="button" className="period-picker-icon" aria-label={label} onClick={() => setPage(addMonths(page, step))}><Icon name={icon} size={16} /></button>
   const body = () => {
-    if (horizon === 'cycle') {
-      // Six cycles around today: at most two earlier ones, then later cycles until the list is full.
+    if (isAnchoredHorizon(horizon)) {
+      // Anchored lists center on today with at most two earlier periods and six rows in total.
       const list: PlanningPeriod[] = []
       for (let cursor = precedingPeriod(calendar, current) as PlanningPeriod | null, steps = 0; cursor && steps < 2; cursor = precedingPeriod(calendar, cursor) as PlanningPeriod | null, steps++) list.unshift(cursor)
       list.push(current)
@@ -71,7 +74,7 @@ export function PeriodPicker({ horizon, name, period, current, calendar, today, 
       return <div className="period-picker-list" role="group" aria-label={name}>
         {list.map(target => { const recorded = stats(target); return <button type="button" key={target.id} className="period-picker-row" {...state(target)} aria-pressed={target.id === period.id}
           disabled={!allowed(target)} title={periodDates(target)} onClick={event => pick(target, event.detail > 0)}>
-          <span>{cycleOptionLabel(target)}</span><small>{recorded ? `${recorded.done}/${recorded.total}` : ''}</small>
+          <span>{anchoredPeriodLabel(target, calendar, today)}</span><small>{recorded ? `${recorded.done}/${recorded.total}` : ''}</small>
         </button> })}
       </div>
     }
@@ -112,6 +115,7 @@ export function PeriodPicker({ horizon, name, period, current, calendar, today, 
           onClick={event => pick(target, event.detail > 0)}>{label}{review === target.id && <span className="period-picker-review" aria-hidden="true" />}</button>)}
       </div>
       <div className="period-picker-body">{body()}</div>
+      {failed && <p className="inline-error" role="alert">{calendarMessages.periodRecordsFailed} <button className="text-button" onClick={() => setAttempt(value => value + 1)}>{messages.retryPeriod}</button></p>}
     </div>
   </Popover>
 }

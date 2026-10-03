@@ -10,6 +10,7 @@ import type { Item, ItemHorizon, PlanningPeriod } from '../../../shared/contract
 import { serverText } from '../../../shared/i18n/server'
 import { nextSortKey, type Context } from '../context'
 import { orderNodes } from '../ordering'
+import { periodHorizons } from '../../../shared/contracts/values'
 
 export function assertParentOrderTarget(context: Context, item: Item, horizon: ItemHorizon, period: PlanningPeriod | null, beforeId: string | null): void {
   if (!parentOrderedHorizon(horizon) || !period || !beforeId) return
@@ -23,8 +24,9 @@ export function assertParentOrderTarget(context: Context, item: Item, horizon: I
 
 export function materializeParentOrder(context: Context): boolean {
   // Archived/cancelled ancestors still define downstream groups; persist their order too, without changing lifecycle state.
+  const orderedHorizons = periodHorizons.filter(parentOrderedHorizon)
   const items = context.store.summaries(`i.deletedAt IS NULL
-    AND p.horizon IN ('month','week','day') AND p.periodId IN (SELECT id FROM planning_periods WHERE julianday(endAt)>julianday(?))`, [context.now])
+    AND p.horizon IN (${orderedHorizons.map(() => '?').join(',')}) AND p.periodId IN (SELECT id FROM planning_periods WHERE julianday(endAt)>julianday(?))`, [...orderedHorizons, context.now])
   const order = buildParentOrder(orderNodes(context.store, items.map(item => item.id)), context.store.relations(), context.now)
   const buckets = new Map<string, typeof items>()
   for (const item of items) {

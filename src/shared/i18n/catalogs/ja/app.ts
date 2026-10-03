@@ -60,6 +60,7 @@ export const appMessages: typeof source = {
     danglingReferences: 'データベースに参照先のない参照があります',
   },
   errors: {
+    setupDateChanged: '日付が変わりました。新しい開始日を確認してください。',
     invalidPlanningPeriod: "有効な計画期間を選択してください",
     planningPeriodExpired: "この期間は終了しました。入力は保持されています。別の期間を選んでください。",
     cannotAdvancePeriod: "次の期間に移せるのは、計画期間内の未完了・未アーカイブの項目のみです",

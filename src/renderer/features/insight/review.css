@@ -66,7 +66,7 @@
 .review-records small { margin-left: auto; white-space: nowrap; font-size: 10px; }
 .review-record-check { width: 12px; height: 12px; border: 1px solid var(--line); border-radius: 3px; margin-top: 3px; flex-shrink: 0; }
 .review-matrix { display: flex; flex-direction: column; gap: 6px; }
-.review-matrix [role='row'] { display: grid; grid-template-columns: minmax(0, 5fr) repeat(4, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.review-matrix [role='row'] { display: grid; grid-template-columns: minmax(0, 3fr) repeat(6, minmax(0, 1fr)); gap: 6px; align-items: center; }
 .review-matrix [role='columnheader'] { font-size: 11px; color: var(--secondary); text-align: center; }
 .review-matrix [role='rowheader'] { align-items: flex-start; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; border-radius: 4px; }
 .review-matrix [role='rowheader'] > span:last-child { min-width: 0; }

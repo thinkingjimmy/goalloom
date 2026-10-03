@@ -12,11 +12,13 @@
 - 单击 ＋：由模型起草一条标题并直接创建，与普通待办无异，不二次确认、无 Toast；上级已关联，目标周期为下一列的当前周期；若当前周（或月）今天结束，则写入下一周期，＋ 变为「下周 · 标题 →」去向标记，点击跳转查看。
 - 单击跳级 ＋：起草一个本周里程碑并在一个事务内创建，今天的这几项改挂到它下面（解除与月计划的直接关联），一次撤销完整还原。
 - ⇧ 单击，或未连接可用的模型：打开全局新建窗口（⌘N），只预填上级与周期，其余与平常新建一致；跳级另预填「下级：今天 N 项」。
-- 首次出现断点时给一次引导（第一个 ＋ 加重 + 说明卡），点「知道了」或点任一 ＋ 后不再出现；引导状态只存本机。
+- 首次出现断点时给一次引导（第一个 ＋ 加重 + 说明卡），点「知道了」或点任一 ＋ 后不再出现；引导状态只存本机。说明卡随时间区视口边界定位，横向滚动后关闭按钮仍在可见范围内；跳级入口比普通断点多退让 9px，避开关系线端口。
 
 ### 空列
 
-- 某一计划列在当前周期整列为空、且它的上一列有未完成条目时，列内显示一张卡：「本周还是空的」「为 N 项各起一步」「自己写」。不出逐项 ＋。
+链条为年 → 半年 → 3个月 → 本月 → 本周 → 今天；跳级提醒仅保留本月 → 今天。年 / 半年未来周期可右键拆解，未来半年 / 3个月在其周期落入左列显示周期时提供空列卡，下级使用与上级同日开始的一期。半年起草为可验收阶段成果，3个月为季度里程碑；复盘矩阵包含六列。详见 [双日历模式](calendar-modes.md)。
+
+- 半年、3个月、本月、本周、今天在显示周期整列为空，且上一列有未完成、未归档并没有任何显示周期下级的条目时，列内显示一张卡：「本周还是空的」「为 N 项各起一步」「自己写」。不出逐项 ＋。
 - 「为 N 项各起一步」打开新建窗口的多条草稿（最多 8 条），每条带上级，可取消勾选，↵ 一次写入；「自己写」打开只预填周期的新建窗口。有待复盘月份时，本月列由统一复盘引导卡替代空列卡。
 
 ### 复盘
@@ -58,7 +60,7 @@
 
 ## 工程契约
 
-- `src/domain/smart/insight.ts`：纯函数。`draftPrompt` / `reviewPrompt` 组装 system + user，`parseDraft` / `parseReview` 校验并清洗模型输出（标题去首尾标点、≤40 字、按任务 id 对齐），`gaps` 等信号计算供 renderer 与 prompt 共用。
+- `src/domain/smart/insight.ts`：纯函数。`draftPrompt` / `reviewPrompt` 组装 system + user，起草任务显式发送 `targetHorizon`：半年写阶段成果、3个月写可验收里程碑，小步长偏好不改变该周期粒度。`parseDraft` / `parseReview` 清洗模型输出（标题去首尾标点、≤40 字、按任务 id 对齐）；断点等信号由 renderer 计算。
 - `src/main/smart/insight.ts`：`chatAdapter(provider, fetch?)`，POST OpenRouter `https://openrouter.ai/api/v1/chat/completions` 或 Gateway `https://ai-gateway.vercel.sh/v1/chat/completions`，超时 15s，错误复用 `classifyFailure(provider, …)`；`chatSample` 为连接测试的固定能力样例（要求回 `{"ok":true}`）。
 - `SmartInputService.handle` 新增 `draft` / `review` 动作（`smartActionSchema`），回复 `draft` / `review`（`smartReplySchema`）；门控 = 洞察功能已对当前 generation 启用，所选服务 Key 可读、已同意且 DeepSeek 能力已验证；按服务冷却；账户级失败记到该服务；不缓存、不落盘、不记录正文。
 - `insertBetween` 命令：在一个事务内创建里程碑（挂在原上级下）、把指定下级改挂到里程碑、解除它们与原上级的边；周期规则与 DAG 校验复核；一次撤销。
@@ -70,6 +72,8 @@
 - Draft and review mount effects share one pending request across StrictMode replay; each subscription ignores responses after its cleanup. Draft failures always end loading and leave editable rows with visible feedback. `pnpm dev` watches main/preload so generation actions and renderer callers remain on the same contract; previously started non-watching processes require a restart.
 
 ## 实现前失败场景
+
+- Six-column viewport regression (2026-10-03): a visible month breakpoint placed the guide's dismissal 258px beyond the native board. `test:relations` asserts guide bounds before dismissal; geometry must keep the whole guide inside the timeline while scrolling.
 
 - Hover-preview acceptance: highlighted descendants with no children lack add buttons; multiple highlighted leaves show only one action; faded sibling branches show actions; switching dots leaves stale actions; an empty current target suppresses the local add action; the button disappears while crossing its source row; focus cannot reach the action; multi-flow membership duplicates buttons; leaving the preview leaves stale controls; completed/terminal/non-current items offer writes; clicking a descendant action chooses the hovered ancestor instead of that descendant or the wrong period; leaving and re-entering while generation is pending starts a second request.
 

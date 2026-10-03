@@ -14,7 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   enabledMeta: 'Activada',
   board: "Tablero",
   parentOrder: "Ordenar por elemento superior",
-  parentOrderNote: "El mes, la semana, el día y los periodos futuros siguen a su superior más cercano. Arrastra dentro de cada grupo. Al desactivar, se conserva el orden actual.",
+  parentOrderNote: 'Los semestres, períodos de tres meses, meses, semanas, días y períodos futuros siguen a sus superiores más cercanos. Arrastra dentro de cada grupo. Al desactivar, se conserva el orden actual.',
   subtitles: {
     ai: 'Añade una clave una vez y deja que la entrada inteligente y Perspectiva elijan servicio; las claves se guardan cifradas en el llavero de este equipo y solo van al servicio que elijas',
     board: "Orden y avisos al completar, guardados en este dispositivo",

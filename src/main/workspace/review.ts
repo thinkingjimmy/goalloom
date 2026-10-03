@@ -13,6 +13,7 @@ import { serverText } from '../../shared/i18n/server'
 import type { Repository } from './repository'
 import { projectPeriod } from './history'
 import { readBoardPeriods } from './periods'
+import { isAnchoredHorizon, periodHorizons } from '../../shared/contracts/values'
 
 export function readReviewContext(repository: Repository, query: Extract<Query, { type: 'reviewContext' }>): ReviewContext {
   const { store } = repository
@@ -29,9 +30,9 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
   if (new Set(targets.map(period => period.horizon)).size !== targets.length || targets.some(period => period.endAt !== targets[0]!.endAt)) throw invalid()
   const end = targets[0]!.endAt, closed = compareInstants(end, now) <= 0
   const observation = closed ? Temporal.Instant.from(end).subtract({ nanoseconds: 1 }).toString() : now
-  const periods = (['cycle', 'month', 'week', 'day'] as const).flatMap(horizon => {
-    // A workspace created this month has no preceding cycle to invent.
-    if (horizon === 'cycle' && workspaceDate(calendar.timezone, observation) < calendar.cycleAnchor) return []
+  const periods = periodHorizons.flatMap(horizon => {
+    // Anchored periods do not exist before setup's original anchor.
+    if (isAnchoredHorizon(horizon) && workspaceDate(calendar.timezone, observation) < calendar.cycleAnchor) return []
     return [currentPeriod(calendar, horizon, observation)]
   })
   const unknown = new Set<string>()

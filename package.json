@@ -54,7 +54,8 @@
     "test:periods": "node tests/desktop/periods.mjs",
     "test:insight": "node tests/desktop/insight.mjs",
     "test:insight-live": "node tests/desktop/insight-live.mjs",
-    "test:insight-generation": "node tests/desktop/insight-generation.mjs"
+    "test:insight-generation": "node tests/desktop/insight-generation.mjs",
+    "test:calendar": "node tests/desktop/calendar-modes.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

@@ -1,0 +1,50 @@
+/**
+ * [INPUT]: Locale-aware dates, mode and period presentation parameters.
+ * [OUTPUT]: Complete calendar-mode, annual-direction and anchored-period UI copy.
+ * [POS]: Calendar catalog shared by setup, board, details and settings.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+import type { calendarMessages as source } from '../zh/calendar'
+
+export const calendarMessages: typeof source = {
+  year: "1 an",
+  half: "6 mois",
+  naturalYear: "Cette année",
+  previousQuarter: "Trimestre précédent",
+  nextQuarter: "Trimestre suivant",
+  naturalCycle: "Ce trimestre",
+  previousYear: "Année précédente",
+  nextYear: "Année suivante",
+  previousNaturalYear: "L’année dernière",
+  nextNaturalYear: "L’année prochaine",
+  previousHalf: "Semestre précédent",
+  nextHalf: "Semestre suivant",
+  returnCurrent: "Revenir à la période",
+  returnNaturalYear: "Revenir à cette année",
+  returnNaturalCycle: "Revenir à ce trimestre",
+  chooseCalendar: "Choisissez votre calendrier",
+  rollingMode: "365 jours",
+  naturalMode: "Année civile",
+  rollingDescription: "Chaque année couvre 12 mois à partir de la date de début",
+  naturalDescription: "Planifiez par années civiles à partir du 1er janvier",
+  changeAnchor: "Changer la date de début",
+  anchorLabel: "Date de début",
+  modify: "Modifier",
+  manualAlways: "Toujours organisé manuellement",
+  nextYearStart: "La prochaine année commence",
+  nextHalfStart: "Le prochain semestre commence",
+  calendarMode: "Mode de calendrier",
+  dateChanged: "La date a changé. Confirmez la nouvelle date de début.",
+  periodRecordsFailed: "Impossible de charger les périodes. Réessayez.",
+  naturalDirectionTitle: "Que souhaitez-vous le plus faire avancer cette année ?",
+  useCurrentYear: "Utiliser cette année",
+  example1: "Courir un marathon complet",
+  example2: "Lire 24 livres",
+  example3: "Trouver votre emploi idéal",
+  modeRange: (year: string, half: string, cycle: string) => `Année jusqu’au ${year} · Semestre jusqu’au ${half} · 3 mois jusqu’au ${cycle}`,
+  naturalRange: (days: number, end: string) => `${days} jours restants cette année · Trimestre jusqu’au ${end}`,
+  yearRemaining: (days: number) => `${days} jours restants dans cette année`,
+  futureDirection: (days: number, year: string) => `Il reste ${days} jours. Votre direction ira dans ${year}.`,
+  lockedSummary: (mode: string, date: string, zone: string, weekday: string) => `Sera fixé : ${mode} · Début ${date} · ${zone} · Semaine dès ${weekday}`,
+  halfRange: (first: string, last: string, year: string | null) => `${year ? year + ' ' : ''}${first}–${last}`,
+}

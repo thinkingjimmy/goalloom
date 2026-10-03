@@ -14,7 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   enabledMeta: 'Activé',
   board: "Tableau",
   parentOrder: "Trier selon les parents",
-  parentOrderNote: "Le mois, la semaine, le jour et les périodes futures suivent leurs parents les plus proches. Déplacez les éléments dans leur groupe. Désactiver conserve l’ordre actuel.",
+  parentOrderNote: 'Les semestres, périodes de trois mois, mois, semaines, jours et périodes futures suivent leurs parents les plus proches. Glissez dans un groupe. Désactiver conserve l’ordre actuel.',
   subtitles: {
     ai: 'Ajoutez une clé une fois, puis la saisie intelligente et les Aperçus choisissent chacun leur service ; les clés restent chiffrées dans le trousseau de cet appareil et ne vont qu’au service choisi',
     board: "Ordre et retours de fin, enregistrés sur cet appareil",

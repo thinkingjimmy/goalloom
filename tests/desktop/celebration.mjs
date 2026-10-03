@@ -4,6 +4,7 @@
  * [POS]: Isolated desktop acceptance; no mocked receipts, synthetic completion events or real workspace data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
@@ -19,7 +20,7 @@ const options = packaged ? { executablePath: resolve(packaged), args: [`--user-d
 const shots = 'output/tests/screenshots'
 await mkdir(shots, { recursive: true })
 const defaults = { later: false, cycle: true, month: true, week: true, day: false }
-const labels = { later: 'Later', cycle: '3个月', month: '本月', week: '本周', day: '今天' }
+const labels = { later: 'Later', year: '1年', half: '半年', cycle: '3个月', month: '本月', week: '本周', day: '今天' }
 const checks = [], errors = []
 const report = {
   packaged: Boolean(packaged), runtime: null,
@@ -170,9 +171,7 @@ function assertWideCoverage(evidence) {
 
 try {
   await connectPage()
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await finishSetup(page)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
 
@@ -420,7 +419,7 @@ try {
   assert.equal(replaced.type, 'replaced')
   assert.equal(replaced.activeBeforeCommit, true, 'Reset commits while the effect is active')
   assert.notEqual(replaced.before, replaced.generation)
-  await page.getByRole('textbox', { name: '三个月的方向', exact: true }).waitFor()
+  await page.locator('.calendar-modes').waitFor()
   await waitForCleanup(1000)
   checks.push('Verified protective workspace reset clears the old-generation animation')
 

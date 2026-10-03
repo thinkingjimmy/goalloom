@@ -13,7 +13,7 @@ export const settingsMessages = widen({
   enabledMeta: '已启用',
   board: "看板",
   parentOrder: "按上级自动排序",
-  parentOrderNote: "本月、本周、今天及未来周期跟随最近一级上级顺序，同组可拖动。关闭后保留当前排列。",
+  parentOrderNote: '半年、3个月、本月、本周、今天及未来周期跟随最近一级上级顺序，同组可拖动。关闭后保留当前排列。',
   subtitles: {
     ai: '添加一次 Key，智能输入和洞察各自选用；Key 加密保存在本机钥匙串，只发给你选中的服务',
     board: "排序与完成反馈，偏好仅保存在这台设备",

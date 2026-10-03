@@ -4,6 +4,7 @@
  * [POS]: Focused desktop E2E acceptance; never opens the owner's workspace or captures unrelated desktop content.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir, arch, cpus, release, version } from 'node:os'
@@ -22,10 +23,7 @@ try {
   app = await electron.launch(options)
   page = await app.firstWindow()
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 840))
-  await page.getByRole('button', { name: 'Skip', exact: true }).click()
-  await page.getByRole('button', { name: 'Confirm and start', exact: true }).click()
-  await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
-  await page.locator('.board').waitFor()
+  await finishSetup(page)
   Object.assign(report.environment, await page.evaluate(() => window.goalloom.getRuntime()))
   const check = message => { report.checks.push(message); console.log(message) }
   const shot = async name => { const path = join(evidence, `${name}.png`); await page.screenshot({ path }); report.screenshots.push(path) }
@@ -56,6 +54,7 @@ try {
   const waitHorizon = (id, horizon) => pollPage(page, async ({ id, horizon }) => (await window.goalloom.getItem(id)).item.placement.horizon === horizon, { id, horizon })
   const undo = async () => { await page.keyboard.press('ControlOrMeta+z'); await page.waitForFunction(() => !document.querySelector('.fab').disabled) }
   const dragKeys = async (id, key) => {
+    await page.locator(`#item-${id} .drag-handle`).scrollIntoViewIfNeeded()
     await page.locator(`#item-${id} .drag-handle`).focus()
     await page.keyboard.press('Space')
     await page.waitForFunction(() => document.documentElement.dataset.dragging === 'true')
@@ -85,7 +84,7 @@ try {
   assert(Math.abs(widths[0] - widths[1]) <= 1 && widths[1] >= 320, `Later ${widths[0]} vs column ${widths[1]}`)
   const first = await create('Later first'), second = await create('Later second'), done = await create('Later finished')
   await execute({ type: 'status', itemId: done, expectedVersion: 1, status: 'done' })
-  const goal = await create('Sidebar flow', 'cycle', { flowColor: 0 })
+  const goal = await create('Sidebar flow', 'year', { flowColor: 0 })
   const child = await create('Existing linked item', 'month', { parentId: goal, expectedParentVersion: 1 })
   await create('Week flow item', 'week', { parentId: goal, expectedParentVersion: 1 })
   await move(child, 'later')
@@ -105,7 +104,7 @@ try {
   check('Default expansion, exact unfiltered TODO count, zero suppression, completion/undo, cancellation, archive and deletion/restore')
 
   assert.equal(await page.getByRole('button', { name: 'Visible columns', exact: true }).count(), 0)
-  assert.deepEqual(await page.locator('.board-timeline .board-column').evaluateAll(nodes => nodes.map(node => node.dataset.horizon)), ['cycle', 'month', 'week', 'day'])
+  assert.deepEqual(await page.locator('.board-timeline .board-column').evaluateAll(nodes => nodes.map(node => node.dataset.horizon)), ['year', 'half', 'cycle', 'month', 'week', 'day'])
   await page.getByRole('button', { name: 'Add to Later', exact: true }).click()
   await later().locator('.quick-add input').fill('Keep this Later draft')
   await later().locator('summary').click()
@@ -124,17 +123,17 @@ try {
             const edge = edges.find(edge => edge.id === path.dataset.edgeId)
             const parent = document.getElementById(`item-${edge.parentId}`).getBoundingClientRect(), child = document.getElementById(`item-${edge.childId}`).getBoundingClientRect()
             const start = path.getPointAtLength(0), end = path.getPointAtLength(path.getTotalLength())
-            const x1 = child.right <= parent.left ? parent.left : parent.right, x2 = parent.right <= child.left ? child.left + 6 : child.right
+            const x1 = child.right <= parent.left ? parent.left : parent.right - 9, x2 = parent.right <= child.left ? child.left + 6 : child.right - 9
             return { id: edge.id, startError: Math.hypot(start.x + origin.left - x1, start.y + origin.top - parent.top - 16), endError: Math.hypot(end.x + origin.left - x2, end.y + origin.top - child.top - 16) }
           })
           resolve({ wanted, anchors, sidebar: nodes[0].getBoundingClientRect().toJSON(), timeline: nodes[1].getBoundingClientRect().toJSON(), durations: nodes.flatMap(node => node.getAnimations().map(animation => animation.effect.getTiming().duration)) })
         })
       }))
     }, { wanted, edges })
+    report.motion.push(sample)
     assert(sample.sidebar.x > -sample.sidebar.width && sample.sidebar.x < 0, `Sidebar has a real intermediate frame: ${JSON.stringify(sample.sidebar)}`)
     assert(sample.timeline.x > 0 && sample.timeline.x < sample.sidebar.width, `Timeline follows without scaling text: ${JSON.stringify(sample.timeline)}`)
     assert(sample.anchors.length > 0 && sample.anchors.every(anchor => anchor.startError < 1 && anchor.endError < 1), 'Relation lines follow moving panel endpoints')
-    report.motion.push(sample)
     await shot(wanted ? 'opening-midpoint' : 'closing-midpoint')
     await page.evaluate(() => { for (const node of document.querySelectorAll('.board-later, .board-timeline')) for (const animation of node.getAnimations()) animation.play() })
     await settled()
@@ -164,9 +163,9 @@ try {
   await dragPointer(first, 'day')
   await dragPointer(first, 'later'); await count(3)
   await page.locator('.board-timeline').evaluate(node => { node.scrollLeft = 0 })
-  await dragKeys(second, 'ArrowRight'); await waitHorizon(second, 'cycle')
+  await dragKeys(second, 'ArrowRight'); await waitHorizon(second, 'year')
   await dragKeys(second, 'ArrowLeft'); await waitHorizon(second, 'later')
-  await open(false); await dragKeys(goal, 'ArrowLeft'); await waitHorizon(goal, 'cycle'); await open(true)
+  await open(false); await dragKeys(goal, 'ArrowLeft'); await waitHorizon(goal, 'year'); await open(true)
   await page.locator('.board-timeline').evaluate(node => { node.scrollLeft = 0 })
   await page.locator(`#item-${first} .task-title`).hover()
   const from = await page.locator(`#item-${first} .task-title`).boundingBox()
@@ -232,18 +231,18 @@ try {
   await page.locator('.board').waitFor()
   assert.equal(await toggle().getAttribute('aria-expanded'), 'false')
   await count(68)
-  for (const hidden of [['cycle', 'month', 'week', 'day'], ['later', 'cycle', 'month', 'week']]) {
+  for (const hidden of [['year', 'half', 'cycle', 'month', 'week', 'day'], ['later', 'cycle', 'month', 'week']]) {
     await page.evaluate(hidden => localStorage.setItem('goalloom.hiddenColumns', JSON.stringify(hidden)), hidden)
     await page.reload(); await page.locator('.board').waitFor()
     assert.equal(await toggle().getAttribute('aria-expanded'), String(!hidden.includes('later')))
-    assert.deepEqual(await page.locator('.board-timeline .board-column').evaluateAll(nodes => nodes.map(node => node.dataset.horizon)), ['cycle', 'month', 'week', 'day'])
+    assert.deepEqual(await page.locator('.board-timeline .board-column').evaluateAll(nodes => nodes.map(node => node.dataset.horizon)), ['year', 'half', 'cycle', 'month', 'week', 'day'])
   }
   await open(true)
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.hiddenColumns'))), [])
   await open(false)
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.hiddenColumns'))), ['later'])
   await shot('fixed-planning-columns')
-  check('Four fixed planning columns and no visibility menu in all locales; legacy hidden columns are ignored while the Later preference persists')
+  check('Six fixed planning columns and no visibility menu in all locales; legacy hidden columns are ignored while the Later preference persists')
   report.passed = true
 } catch (error) {
   report.error = String(error.stack ?? error)

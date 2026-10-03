@@ -9,6 +9,9 @@ import { dateCandidates, type DateCandidate } from './dates'
 import { segmentSlots, type Slot } from './segments'
 import { sharedTermText } from './terms'
 import { dateLimit, payloadLimit, payloadSize, questionBudget, textLimit, tokenBudget } from './budget'
+import { parseCalendarPhrases } from './calendar-phrases'
+import type { Calendar } from '../calendar'
+import type { PeriodHorizon } from '../../shared/contracts/values'
 import { serverText } from '../../shared/i18n/server'
 
 // Reserve space for the fixed provider/model envelope; adapters check the exact body too.
@@ -19,7 +22,8 @@ export type NeutralQuestion =
   | { type: 'boolean'; instructions: string; criteria: { true: string; false: string } }
 export interface SmartContext {
   text: string; referenceDate: string; weekdayName: string; timezone: string; weekStart: number
-  periods: Record<'day' | 'week' | 'month' | 'cycle', { id: string; startDate: string; endDate: string }>
+  calendar: Calendar
+  periods: Record<PeriodHorizon, { id: string; startDate: string; endDate: string }>
   candidates: Candidate[]
 }
 export interface DateSlot extends DateCandidate { id: string; slotId: string }
@@ -33,8 +37,8 @@ export type PlanFailure = { kind: 'too_large'; message: string }
 
 export const layoutOptions = { single: '只有一件事', list: '用户明确列出的多件并列事项', plan: '多件事项且原文写明了它们之间的目标/上下级关系', unclear: '无法判断' }
 export const roleOptions = { task: '一件独立要做的事项', part: '描述前面某件事项包含的内容、功能或要求（如“里面有…”“包括…”“能…”“还要支持…”），本身不是另外要去做的事', modifier: '修饰或补充前面事项的说明（如截止、时间、原因、目的或目标、关联）', not_independent: '不构成独立事项的连接词或语气', unclear: '无法判断' }
-export const horizonOptions = { day: '今天要做', week: '本周要做', month: '本月要做', cycle: '当前这一轮三个月内要做', later: '没有写执行时间', future: '写了明天、下周、下个月等未来周期才做', unclear: '无法判断' }
-export const inferOptions = { day: '适合今天就做（很小、紧急或马上要用）', week: '适合本周内完成', month: '适合本月内完成', cycle: '适合在这一轮三个月内推进', later: '没有时间压力，先放着以后再说' }
+export const horizonOptions = { day: '今天要做', week: '本周要做', month: '本月要做', cycle: '当前这一轮三个月内要做', half: '这半年内要做', year: '这一年内要做', later: '没有写执行时间', future: '写了今天之后才开始的周期（明天、下周、下个月、明年、下个半年），正在进行的下半年不是 future', unclear: '无法判断' }
+export const inferOptions = { day: '适合今天就做（很小、紧急或马上要用）', week: '适合本周内完成', month: '适合本月内完成', cycle: '适合在这一轮三个月内推进', half: '适合在半年内推进（阶段成果）', year: '适合在这一年内推进（需要长期投入的大目标）', later: '没有时间压力，先放着以后再说' }
 export const useOptions = { deadline: '截止日期（在此之前完成）', execution: '执行日期（这一天去做）', other: '与事项时间无关的日期', unclear: '无法判断' }
 
 // Questions name a slot by id and quote at most 40 characters; the full wording is in state.slots once, not per question.
@@ -67,7 +71,7 @@ function assemble(context: SmartContext, slots: Slot[], dates: DateSlot[], candi
   for (const slot of slots) {
     const ref = `state.slots 中 id 为 ${slot.id} 的片段「${quote(slot.text)}」`
     ask(`role_${slot.id}`, { type: 'choice', instructions: `结合 state.text 完整原文，判断${ref}的角色。该片段只是按标点切出的候选，尚未确定为事项；用户逐行或用列表写出的每一条，通常各自是独立事项（即使它们同属一个目标）；只有在一句话里描述前一件事内部内容的片段才属于组成部分。`, criteria: roleOptions })
-    ask(`horizon_${slot.id}`, { type: 'choice', instructions: `结合 state.text 完整原文与 state.reference 参考日，判断${ref}所说事项打算在什么时间范围去做（执行时间，不是截止日）。只有明确写出“今天/本周/本月/这三个月”等执行时间才选对应范围；“周五前完成”是截止而非执行时间。state.periods 给出各范围的实际日期。`, criteria: horizonOptions })
+    ask(`horizon_${slot.id}`, { type: 'choice', instructions: `结合 state.text 完整原文与 state.reference 参考日，判断${ref}所说事项打算在什么时间范围去做（执行时间，不是截止日）。只有明确写出“今天/本周/本月/这三个月/这一年/这半年”等执行时间才选对应范围；“周五前完成”是截止而非执行时间。state.periods 给出各范围的实际日期。state.calendarPhrases 已按工作区模式解析口语周期。写明匹配表达时，必须选它的 horizon，不要用自然年语义覆盖程序换算后的选项（它们包括“下半年完成”这样的执行范围）；若 horizon 为 unclear，不要猜成 future。纯截止日期仍由 due 题判断。`, criteria: horizonOptions })
     ask(`infer_${slot.id}`, { type: 'choice', instructions: `假设${ref}所说事项在原文里没有写执行时间。结合它的工作量、紧迫程度，以及 state.goals 中它可能所属的目标所在的列（column），推测最合适的执行范围。所属目标在某列时，它通常安排在比该列更短的范围内；看不出时间压力就选 later。`, criteria: inferOptions })
     const due: Record<string, string> = Object.fromEntries(dates.map(date => [date.id, `state.dates 中 ${date.id}「${date.text}」${date.value ? `= ${date.value}` : ''}`]))
     ask(`due_${slot.id}`, { type: 'choice', instructions: `判断${ref}所说事项的截止日期来自原文中的哪个日期表达；没有写截止日选 none。`, criteria: { ...due, none: '没有截止日期', unclear: '无法判断' } })
@@ -86,6 +90,8 @@ function assemble(context: SmartContext, slots: Slot[], dates: DateSlot[], candi
     text: context.text,
     reference: { date: context.referenceDate, weekday: context.weekdayName, timezone: context.timezone, weekStart: weekNames[context.weekStart]! },
     periods: periodText(context),
+    calendarMode: context.calendar.mode ?? 'rolling',
+    calendarPhrases: parseCalendarPhrases(context.text, context.calendar, context.referenceDate).map(phrase => ({ ...phrase })),
     slots: slots.map(slot => ({ id: slot.id, text: slot.text })),
     dates: dates.map(date => ({ id: date.id, text: date.text, slot: date.slotId, date: date.value, ambiguous: date.ambiguous })),
     goals: candidates.map(candidate => ({ id: candidate.ref, title: candidate.title, status: candidate.status, archived: candidate.archived, named: candidate.named, sharedTerm: sharedTermText(context.text, candidate.title), column: candidate.horizon })),

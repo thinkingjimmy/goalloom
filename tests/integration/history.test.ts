@@ -15,7 +15,7 @@ const month = (startDate: string) => readHistory(repo.store, { type: 'history', 
 beforeEach(() => {
   now = '2026-09-10T02:00:00Z'
   const db = openDatabase(':memory:'); migrate(db); repo = new Repository(db, { now: () => now })
-  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-01-31', confirmed: true })
+  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-01-31' }, confirmed: true })
 })
 afterEach(() => repo.db.close())
 it('9 月计划在 10 月顺延并完成：期末未完、后来结果和真实 10 月成员分开', () => {

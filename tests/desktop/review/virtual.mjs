@@ -1,3 +1,4 @@
+import { finishSetup } from '../fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { stepPeriod } from '../fixtures/period-step.mjs'
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
@@ -22,13 +23,7 @@ try {
   }
   const source = await app.evaluate(({ app }) => ({ appPath:app.getAppPath(), packaged:app.isPackaged, executable:process.execPath }))
   console.log('APPLICATION_SOURCE',JSON.stringify(source))
-  await page.getByRole('button', { name: 'Skip', exact: true }).click()
-  await page.getByRole('combobox', { name: '3-month cycle start', exact: true }).click()
-  await page.getByRole('option', { name: 'Pick a date…', exact: true }).click()
-  await page.getByLabel('Custom start date', { exact:true }).fill(`${new Date().getFullYear()-1}-01-01`)
-  await page.getByRole('button', { name: 'Confirm and start', exact: true }).click()
-  await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
-  await page.locator('.board').waitFor()
+  await finishSetup(page, { anchor: `${new Date().getFullYear()-1}-01-01` })
   const rows = await page.evaluate(async () => {
     const { workspace } = await window.goalloom.getSnapshot(), rows = []
     for (let i = 0; i < 150; i++) {
@@ -90,7 +85,7 @@ try {
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down()
   await page.mouse.move(from.x + from.width / 2 + 8, from.y + from.height / 2)
   await dragReady()
-  // Five columns overflow the 1600px window, so once the source row is in view only part of Today is visible.
+  // Six planning columns overflow the 1600px window, so only the timeline viewport is a drop surface.
   // Aim inside that visible part, clear of the right edge: edge autoscroll only slides Today further under the pointer.
   const viewport = page.viewportSize() ?? await page.evaluate(() => ({ width: innerWidth }))
   const dropX = Math.max(to.x + 24, Math.min(to.x + to.width / 2, viewport.width - 40))
@@ -143,6 +138,11 @@ try {
   const cycle = page.locator('[data-horizon="cycle"]')
   await cycle.getByRole('button',{name:'Current cycle destination',exact:true}).waitFor()
   assert.equal((await page.evaluate(id=>window.goalloom.getItem(id),rows[0])).item.placement.horizon,'later')
+  for (const horizon of ['year', 'half']) {
+    const earlier = page.locator(`[data-horizon="${horizon}"]`)
+    await stepPeriod(earlier, 'previous')
+    await earlier.locator('.past-period-rows').waitFor()
+  }
   await stepPeriod(cycle, 'previous')
   await cycle.locator('.past-period-rows').waitFor()
   await scroller.evaluate(element => { element.scrollTop=0 })

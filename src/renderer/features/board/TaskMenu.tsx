@@ -10,11 +10,9 @@ import type { Action } from '../../state/use-workspace'
 import { messages, insightMessages as t } from '../../i18n'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '../../components/ui/context-menu'
 import { Icon } from '../../components/icons'
-import { periodDates } from '../../lib/periods'
 import { revealRow } from './VirtualRows'
 
-export interface Upcoming { period: PlanningPeriod; label: string }
-const hasRelativeLabel = ({ period, label }: Upcoming) => label === messages.nextPeriodNames[period.horizon]
+export interface Upcoming { period: PlanningPeriod; label: string; hint: string | null }
 
 export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, onMenu, onMoved, children }: {
   item: ItemSummary; upcoming: Upcoming[]; relations: number; disabled: boolean; children: ReactElement
@@ -56,13 +54,13 @@ export function TaskMenu({ item, upcoming, relations, disabled, submit, select, 
         onMenu(null)
       }}>
       <ContextMenuItem disabled={disabled} onSelect={() => move({ kind: 'next' })}>
-        <Icon name="forward" size={16} /><span className="context-menu-label">{messages.moveToPeriod(next.label)}</span>{hasRelativeLabel(next) && <span className="menu-hint">{periodDates(next.period, false)}</span>}
+        <Icon name="forward" size={16} /><span className="context-menu-label">{messages.moveToPeriod(next.label)}</span>{next.hint && <span className="menu-hint">{next.hint}</span>}
       </ContextMenuItem>
       <ContextMenuSub>
         <ContextMenuSubTrigger disabled={disabled}><Icon name="calendar" size={16} /><span className="context-menu-label">{t.menuMoveTo}</span><Icon name="next" size={14} /></ContextMenuSubTrigger>
         <ContextMenuSubContent onKeyDown={event => event.stopPropagation()}>
           {upcoming.map(value => <ContextMenuItem key={value.period.id} disabled={disabled} onSelect={() => move({ kind: 'date', startDate: value.period.startDate })}>
-            <span className="context-menu-label">{value.label}</span>{hasRelativeLabel(value) && <span className="menu-hint">{periodDates(value.period, false)}</span>}
+            <span className="context-menu-label">{value.label}</span>{value.hint && <span className="menu-hint">{value.hint}</span>}
           </ContextMenuItem>)}
         </ContextMenuSubContent>
       </ContextMenuSub>

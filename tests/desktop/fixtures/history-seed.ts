@@ -18,7 +18,7 @@ const path = process.argv[2]!
 const db = openDatabase(join(path, 'workspace.sqlite')); migrate(db)
 const repo = new Repository(db, { now: () => now }), generation = repo.store.workspace().generation
 const envelope = () => ({ generation, operationId: randomUUID() })
-repo.execute({ ...envelope(), type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: old.subtract({ months: 3 }).toPlainDate().toString(), confirmed: true })
+repo.execute({ ...envelope(), type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: old.subtract({ months: 3 }).toPlainDate().toString() }, confirmed: true })
 const waiting = repo.execute({ ...envelope(), type: 'create', title: '往期待办样本', horizon: 'month' })
 const completed = repo.execute({ ...envelope(), type: 'create', title: '后来完成样本', horizon: 'month' })
 const finished = repo.execute({ ...envelope(), type: 'create', title: '当期完成样本', horizon: 'month' })

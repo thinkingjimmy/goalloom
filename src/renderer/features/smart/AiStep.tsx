@@ -1,8 +1,8 @@
 /**
- * [INPUT]: useAi 与进入看板回调；setup 的 OnboardingFrame；ProviderConnect 表单与 JevDemo 预设示例。
- * [OUTPUT]: 首次流程第 3 步（可选）：先看预设示例（「连接 AI 服务」「暂时跳过」）；选择连接后在服务卡片里选一个服务并填 Key（卡片标出它能开启智能输入、洞察中的哪些）；测试通过后显示实际开启的功能，再进入看板。任何时候都可跳过。
- * [POS]: 日历确认之后、看板之前；不注册、不购买、不强制 Key，不影响日历锁定；示例不调用服务、不生成任务。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: AI configuration, direction-write pending state, onboarding frame and provider connection forms.
+ * [OUTPUT]: Optional third setup step with provider capabilities, explicit connection and a guarded board entry.
+ * [POS]: Follows calendar confirmation; the local demo creates no tasks and needs no service.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -18,16 +18,16 @@ import { JevDemo } from './JevDemo'
 
 const serves = (provider: AiProvider, feature: AiFeature) => providerCapabilities[provider].includes(featureCapability[feature])
 
-export function AiStep({ ai, finish }: { ai: Ai; finish: () => void }) {
+export function AiStep({ ai, finish, busy = false }: { ai: Ai; finish: () => void; busy?: boolean }) {
   const [view, setView] = useState<'demo' | 'connect' | 'done'>('demo')
   const [provider, setProvider] = useState<AiProvider>(aiProviders[0])
   const [outcome, setOutcome] = useState<TestOutcome | null>(null)
   // The connect form's submit button lives in the page footer, next to the other step actions.
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   const names: Record<AiFeature, string> = { smart: t.sectionTitle, insight: insightMessages.settingsSection }
-  const skip = <Button type="button" variant="ghost" onClick={finish}>{t.skip}</Button>
+  const skip = <Button type="button" variant="ghost" disabled={busy} onClick={finish}>{t.skip}</Button>
 
-  if (view === 'done' && outcome) return <OnboardingFrame step={2} label={messages.stepAi} note={t.doneFootnote} actions={<Button type="button" onClick={finish}>{t.enterBoard}</Button>}>
+  if (view === 'done' && outcome) return <OnboardingFrame step={2} label={messages.stepAi} note={t.doneFootnote} actions={<Button type="button" disabled={busy} onClick={finish}>{t.enterBoard}</Button>}>
     <div className="onboarding-split">
       <section className="onboarding-lead">
         <p className="onboarding-eyebrow">{t.aiEyebrow}</p>

@@ -60,6 +60,7 @@ export const appMessages: typeof source = {
     danglingReferences: 'La base de datos contiene referencias huérfanas',
   },
   errors: {
+    setupDateChanged: 'La fecha ha cambiado. Confirma la nueva fecha de inicio.',
     invalidPlanningPeriod: "Elige un periodo de planificación válido",
     planningPeriodExpired: "Este periodo ha terminado. Conservamos tu texto; elige otro periodo.",
     cannotAdvancePeriod: "Solo las tareas pendientes y no archivadas de un periodo pueden pasar al siguiente",

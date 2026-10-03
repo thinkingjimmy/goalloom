@@ -14,7 +14,7 @@ for (const count of [200, 400, 800]) for (let sample = 0; sample < 3; sample++) 
   let now = '2026-09-23T12:00:00Z'
   const repo = new Repository(db, { now: () => now })
   const execute = action => repo.execute({ ...action, operationId: randomUUID(), generation: repo.store.workspace().generation })
-  execute({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-07-01', confirmed: true })
+  execute({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-07-01' }, confirmed: true })
   for (let i = 0; i < count; i++) execute({ type: 'create', title: `Synthetic ${i}`, description: '长说明'.repeat(1000), horizon: 'day' })
   now = '2026-09-24T12:00:00Z'
   const start = performance.now(), batch = reconcile(repo), rolloverMs = performance.now() - start

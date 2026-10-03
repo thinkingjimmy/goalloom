@@ -4,7 +4,7 @@
  *           the column rule where connector buses run — a thin ring at rest that becomes a labelled pill while its row is hovered, focused or pending;
  *           click drafts one title and creates it (create / insertBetween), ⇧-click or no model opens the prefilled composer;
  *           preview limits controls to its highlighted chain; a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
- * [POS]: Board's stable insight overlay clipped to the planning viewport; pending actions survive hover exits, with finite row/layout-motion tracking only while active.
+ * [POS]: Board insight overlay with a guide bounded to the planning viewport; pending actions survive hover exits and finite motion tracking.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
@@ -69,8 +69,18 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
       node.style.visibility = place ? '' : 'hidden'
       if (place) {
         const guide = node.classList.contains('breakpoint-guide')
-        node.style.left = `${guide ? place.x - 24 : place.x}px`
-        node.style.top = `${guide ? place.y + 20 : place.y}px`
+        const panel = guide ? board.querySelector('.board-timeline') : null
+        const viewport = panel && panelViewport(panel)
+        if (guide && viewport) {
+          // Keep the guide's dismissal reachable when a visible endpoint sits near the scroll viewport edge.
+          const width = Math.min(300, viewport.width - 16)
+          node.style.width = `${width}px`
+          node.style.left = `${Math.max(viewport.left + dx + 8, Math.min(place.x - 24, viewport.right + dx - width - 8))}px`
+          node.style.top = `${Math.max(viewport.top + dy + 8, Math.min(place.y + 20, viewport.bottom + dy - node.offsetHeight - 8))}px`
+        } else {
+          node.style.left = `${guide ? place.x - 24 : place.x}px`
+          node.style.top = `${guide ? place.y + 20 : place.y}px`
+        }
       }
     }
     if (!moving) setPlaces(previous => JSON.stringify([...previous]) === JSON.stringify([...next]) ? previous : next)

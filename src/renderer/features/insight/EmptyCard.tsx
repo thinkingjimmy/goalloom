@@ -1,7 +1,7 @@
 /**
- * [INPUT]: An empty current column, the open items of the column above it, that column's current period and the board insight seed opener.
+ * [INPUT]: Empty displayed column, eligible open parents without active displayed-period children, displayed period and seed opener.
  * [OUTPUT]: EmptyCard — "X is empty" with two actions: draft a step for each source (batch composer seed) or write one (free seed).
- * [POS]: features/insight replacement for the generic empty state when the column above still has open work; writes only through the composer.
+ * [POS]: Empty-state insight for current periods and future half/cycle inside a displayed future parent; writes through Composer.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
@@ -11,7 +11,7 @@ import type { BoardInsight } from '../board/Board'
 import type { ChildHorizon } from './signals'
 import './insight.css'
 
-const above: Record<ChildHorizon, 'cycle' | 'month' | 'week'> = { month: 'cycle', week: 'month', day: 'week' }
+const above: Record<ChildHorizon, 'year' | 'half' | 'cycle' | 'month' | 'week'> = { half: 'year', cycle: 'half', month: 'cycle', week: 'month', day: 'week' }
 
 export function EmptyCard({ horizon, sources, period, insight, disabled }: { horizon: ChildHorizon; sources: ItemSummary[]; period: PlanningPeriod; insight: BoardInsight; disabled: boolean }) {
   const base = { horizon, period, next: false, parent: null, children: [], note: null }

@@ -89,7 +89,7 @@ const cipher = (state: { available: boolean; broken?: boolean }): Cipher => ({
   encrypt: text => Buffer.from([...Buffer.from(text)].map(byte => byte ^ 0x5a)),
   decrypt: data => { if (state.broken) throw new Error('keychain denied'); return Buffer.from([...data].map(byte => byte ^ 0x5a)).toString() },
 })
-const periods = { day: { id: 'c:day:2026-09-23', startDate: '2026-09-23', endDate: '2026-09-24' }, week: { id: 'c:week:2026-09-21', startDate: '2026-09-21', endDate: '2026-09-28' }, month: { id: 'c:month:2026-09-01', startDate: '2026-09-01', endDate: '2026-10-01' }, cycle: { id: 'c:cycle:2026-07-01', startDate: '2026-07-01', endDate: '2026-10-01' } }
+const periods = { year: { id: 'c:year:2026-07-01', startDate: '2026-07-01', endDate: '2027-07-01' }, half: { id: 'c:half:2026-07-01', startDate: '2026-07-01', endDate: '2027-01-01' }, day: { id: 'c:day:2026-09-23', startDate: '2026-09-23', endDate: '2026-09-24' }, week: { id: 'c:week:2026-09-21', startDate: '2026-09-21', endDate: '2026-09-28' }, month: { id: 'c:month:2026-09-01', startDate: '2026-09-01', endDate: '2026-10-01' }, cycle: { id: 'c:cycle:2026-07-01', startDate: '2026-07-01', endDate: '2026-10-01' } }
 let directory: string, generation: string, keyState: { available: boolean; broken?: boolean }, calls: { provider: string; key: string; questions: number }[]
 let behaviour: (question: string, criteria: string[] | null) => unknown
 let candidates: Candidate[]
@@ -110,7 +110,7 @@ function withProbabilities(value: { type: string; choice?: string | undefined; p
 }
 const reader = (): WorkspaceReader => ({
   generation: async () => generation,
-  context: async (text): Promise<SmartContext> => ({ text, referenceDate: '2026-09-23', weekdayName: '周三', timezone: 'Asia/Shanghai', weekStart: 1, periods, candidates }),
+  context: async (text): Promise<SmartContext> => ({ text, calendar: { id: 'c', mode: 'rolling', cycleAnchor: '2026-07-01', timezone: 'Asia/Shanghai', weekStart: 1 }, referenceDate: '2026-09-23', weekdayName: '周三', timezone: 'Asia/Shanghai', weekStart: 1, periods, candidates }),
 })
 let service: SmartInputService, adapters: Record<'typesafe' | 'vercel-gateway' | 'openrouter', Adapter>
 const act = (action: unknown) => service.handle(action) as Promise<SmartReply>

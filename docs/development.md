@@ -4,15 +4,16 @@
 
 **技术栈：** Electron · React · TypeScript · Vite · shadcn/ui · Tailwind CSS · Hugeicons · SQLite · TypeSafe SDK（Jev，可选）。
 
-**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、极简五列看板、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；往期任务编辑、不可变历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、TypeSafe 原生 / Vercel AI Gateway / OpenRouter 三渠道、可编辑预览与 `createPlan` 整批事务/同代次撤销、迁移前保护副本）；外观支持纸感/简约两种风格 × 明暗模式与三种复选框样式（schema v5）。智能输入的各渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、固定三日历月、macOS 14+ Apple Silicon / Windows 11 x64、中/英/日/西/法五种界面语言（默认跟随系统，可在设置切换）与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。首个公开版本 1.0.0 已在 GitHub Releases 发布（MIT 许可证），官网为 https://www.goalloom.com 。
+**状态：** 文档 v0.8.0；已实现首次配置、SQLite 持久化、Later 与六个固定时间列、多父 DAG 与互斥流程颜色、独立状态/回收站及效果字段撤销；往期任务编辑、不可变历史与往期批量处理；自动顺延、批次撤销、日常备份与安全整库恢复/重置；智能输入（全局 composer、可跳过的 Jev 连接、TypeSafe 原生 / Vercel AI Gateway / OpenRouter 三渠道、可编辑预览与 `createPlan` 整批事务/同代次撤销、v6 起不再原地升级，旧数据经导入恢复）；外观支持纸感/简约两种风格 × 明暗模式与三种复选框样式（schema v6）。智能输入的各渠道真实 Key 联调、标注样例评估与双平台安装包验收尚待负责人执行，见功能规格。首版开发、自动化与两平台私人打包已完成；双平台人工验收由负责人执行。已确认多父 DAG、年 / 半年 / 3个月按 12 / 6 / 3 日历月从原始起点推导的双日历模式、macOS 14+ Apple Silicon / Windows 11 x64、中/英/日/西/法五种界面语言（默认跟随系统，可在设置切换）与负责人本人内测，持续按里程碑验证。品牌为 Goalloom，用户已购买 `goalloom.com`。首版仅 macOS / Windows 本地桌面，无账号、云同步或关联进度汇总。首个公开版本 1.0.0 已在 GitHub Releases 发布（MIT 许可证），官网为 https://www.goalloom.com 。
 
 | 文档 | 用途 |
 | --- | --- |
-| [智能输入功能规格](features/smart-input.md) | 全局输入、Jev 三渠道、Onboarding、计划创建/撤销、导出恢复与迁移保护的规则、工程契约、TODO 与验收 |
+| [智能输入功能规格](features/smart-input.md) | 全局输入、Jev 三渠道、Onboarding、计划创建/撤销与旧版导入恢复的规则、工程契约、TODO 与验收 |
 | [关系线功能规格](features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [快捷键功能规格](features/shortcuts.md) | 默认键位、流程筛选位置键、改键与冲突规则、工程契约与验收 |
 | [自动排序功能规格](features/board-ordering.md) | 最近一级上级排序、本机开关、关闭保存、拖动与连续重排动效及验收 |
 | [完成反馈功能规格](features/completion-feedback.md) | 按可见性反馈去向、静默操作、逐列撒花、提示与动效生命周期及撤销验收 |
+| [双日历模式](features/calendar-modes.md) | 年 / 半年列、365 天与自然年、三步向导、手动升级与六级 AI 契约 |
 | [周期规划功能规格](features/period-planning.md) | 待办右键顺延、统一前后周期浏览、往期任务编辑与未来规划、按周期草稿、事务和查询边界及验收 |
 | [流程洞察功能规格](features/flow-insight.md) | 单流程断点 ＋ 与跳级补里程碑、空列卡、周/月/合并复盘、分组右键菜单、设置 › 洞察与 DeepSeek Flash 起草通道 |
 | [链接预览功能规格](features/link-previews.md) | 混排短链接、真实预览、多链接横滑、历史数据按需展示、网络/缓存边界及验收 |
@@ -36,6 +37,7 @@ pnpm test                 # 领域 / SQLite 集成 / 主进程 / 前端库
 pnpm test:electron        # 真实 Electron main 的 SQLite 探针
 pnpm build                # 三入口与生产产物约束检查
 pnpm test:ui              # 真实窗口业务闭环与 CSP/IPC/主题
+pnpm test:calendar        # 双日历向导、年/半年、未来拆解、旧 v5 导入保真与五语言四主题
 pnpm test:later           # 固定时间列、Later 侧栏、独立滚动、拖放、动效及本机展开偏好
 pnpm test:history         # 独立夹具的历史/往期/hold 窗口验证
 pnpm test:ordering        # Parent ordering, atomic materialization/undo, group drag and measured motion
@@ -70,6 +72,8 @@ pnpm package:dir          # 当前平台本地目录包
 
 ## 测试范围
 
+年 / 半年与双日历模式的跨功能范围见 [功能规格 §11.1](features/calendar-modes.md#111-e2e-范围按-docsdevelopmentmd-的映射)；包含新增 `test:calendar`、向导跨午夜 renderer 场景、六列规划与年 / 半年起草，按下表去重。
+
 日常功能验收范围 = **本次新增／修改场景的 E2E ＋ 所属功能的全部 E2E**。不要求运行其他功能，也不以仓库全量通过作为功能完成、提交、push 或合入 `main` 的条件。执行规则以 [AGENTS.md](../AGENTS.md#validation-scope) 为准，下表维护功能与现有脚本的映射。
 
 - 开发中只跑当前需要验证的场景；完成后跑齐受影响功能。新增／修改场景若已在该功能脚本中通过，无需重复跑；多个功能共用的命令只执行一次。通过后仅在相关代码变化或出现失败时重跑。
@@ -79,7 +83,8 @@ pnpm package:dir          # 当前平台本地目录包
 
 | 受影响功能／行为 | 对应脚本与追加条件 |
 | --- | --- |
-| Onboarding／首次配置：方向输入、日历确认、AI 服务连接／跳过、首次语言选择 | `pnpm test:ui` ＋ `pnpm test:composer` ＋ `pnpm test:language`；仅当重置后重新进入向导的逻辑也受影响时追加 `pnpm test:recovery` |
+| Onboarding／首次配置：日历选择、年方向与确认、AI 服务连接／跳过、首次语言选择 | `pnpm test:ui` ＋ `pnpm test:composer` ＋ `pnpm test:language` ＋ `pnpm test:calendar`；日期刷新/确认变化追加 `node tests/desktop/review/renderer.mjs`；仅当重置后重新进入向导的逻辑也受影响时追加 `pnpm test:recovery` |
+| [年 / 半年与双日历模式](features/calendar-modes.md)：六尺度周期、模式与起点、年方向、未来拆解、旧库导入 | `pnpm test:calendar`；共享契约涉及的其余功能按规格 §11.1 和本表去重，真实模型测试经负责人授权执行 |
 | 看板、条目详情、设置框架、主题、preload 暴露面、CSP / 窗口安全 | `pnpm test:ui`；设置内的具体功能按所属行选择，不能因入口都在设置就追加全部功能 |
 | [关于与软件更新](features/updates.md)：设置 › 关于、macOS 应用菜单、更新阶段、顶栏／导航红点 | `pnpm test:updates`；改动 `main/update.ts`、打包 `publish`／mac zip 目标或发布资产时，在 macOS 追加可选的 `pnpm test:update-install`（需 Developer ID，真实签名包 + 本地更新源） |
 | [Later 固定侧栏](features/later-sidebar.md)：固定时间列、旧显隐偏好处理、Later 数量与开关、滚动隔离、草稿／焦点、动效与定位 | `pnpm test:later` ＋ `pnpm test:ui`；共享拖放／视口边界改变时，追加 `test:composer`、`test:language`、`test:ordering`、`test:periods`、`test:relations`、`test:insight`、`test:insight-generation`、`test:links`、`test:feedback`、`test:celebration` 及 `node tests/desktop/review/run.mjs virtual`，按下方各功能映射去重 |
@@ -99,13 +104,13 @@ pnpm package:dir          # 当前平台本地目录包
 | 顶栏流程筛选、数字快捷键及启停 | `pnpm test:ui` ＋ `pnpm test:relations` ＋ `pnpm test:history`（从往期返回当期、重复选择、输入保护与未来草稿）；周期选择逻辑受影响时追加 `pnpm test:periods` |
 | 完成反馈、撒花 | `pnpm test:celebration` ＋ `pnpm test:feedback`；影响往期还原反馈时追加 `pnpm test:history` |
 | 长列、虚拟滚动、拖放、键盘移动 | `node tests/desktop/review/run.mjs virtual` |
-| SQLite 驱动、存储 worker、迁移 | `pnpm test:electron` ＋ 实际受影响功能的脚本；大数据量相关再跑 `node tests/desktop/review/run.mjs large-workspace` |
+| SQLite 驱动、存储 worker、旧库只读拒绝与导入 | `pnpm test:electron` ＋ 实际受影响功能的脚本；v5/v6 保真追加 `test:calendar`，大数据量相关再跑 `node tests/desktop/review/run.mjs large-workspace` |
 | 打包脚本、包体报告 | `node tests/desktop/review/run.mjs package-report` |
 | `src/domain` 领域规则 | 改变用户可见行为时按所属功能选 E2E；不影响行为的内部调整保留快速检查，无需桌面脚本 |
 | 官网 `website/` | 在该目录运行 `pnpm typecheck`、`pnpm test:e2e`（包含构建）；不跑桌面 E2E，细节见 [官网 README](../website/README.md) |
 | 纯文档、规则、不影响行为的注释 | diff、链接和命令检查；无需应用测试或构建 |
 
-**例：只改 Onboarding。** 先完成快速检查与构建，再运行 `pnpm test:ui`、`pnpm test:composer`、`pnpm test:language`，包括本次修改的场景。这三个脚本分别覆盖跳过方向／日历配置、方向保存／Jev 可跳过流程、首次语言切换；目前没有 Onboarding 专用筛选入口，因此以包含这些断言的脚本为最小可运行范围。无需追加历史、恢复、关系线、撒花、洞察等独立套件；只有其行为实际受影响时才追加。其他套件启动时经过向导不构成追加理由。
+**例：只改 Onboarding。** 先完成快速检查与构建，再运行 `pnpm test:ui`、`pnpm test:composer`、`pnpm test:language`、`pnpm test:calendar`，包括本次修改的场景。这些脚本覆盖跳过方向／日历配置、方向保存／Jev 可跳过流程、首次语言切换和双模式／年底方向；修改日期刷新或跨夜确认时，另跑 `node tests/desktop/review/renderer.mjs` 的模拟时钟场景。目前没有 Onboarding 专用筛选入口，因此以包含这些断言的脚本为最小可运行范围。无需追加历史、恢复、关系线、撒花、洞察等独立套件；只有其行为实际受影响时才追加。其他套件启动时经过向导不构成追加理由。
 
 完整 `pnpm verify` 仅在发布新版本前或负责人明确要求全量验证时运行。性能、增长曲线、大备份、真实服务联调按改动需要或明确要求单独执行，不作为每个功能的固定门槛。功能规格里已勾选的全量验收是历史记录，不要求后续每次修改重跑全量。
 
@@ -130,7 +135,7 @@ src/
 │   ├── window/         # 窗口偏好、退出保护与 macOS 应用菜单
 │   ├── smart/          # AI 服务：Jev 三渠道与 DeepSeek 两渠道 adapter、设备凭据与独立异步服务
 │   ├── link-preview/   # Public URL metadata/image requests and disposable bounded device cache
-│   ├── storage/        # SQLite/启动迁移保护/备份/文件适配器与 worker 通道
+│   ├── storage/        # SQLite/v6 新库与旧库只读拒绝/备份/文件适配器与 worker 通道
 │   └── workspace/      # 业务事务、commands、历史/顺延与 transfer
 ├── preload/            # 沙箱 contextBridge，只暴露有限 API
 ├── renderer/

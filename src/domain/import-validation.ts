@@ -11,6 +11,7 @@ import { compareInstants, currentPeriod, parseDate, workspaceDate } from './cale
 import { validateDag } from './relations'
 import { matchesStatus } from './status'
 import { planLimit } from '../shared/contracts/commands'
+import { policyHorizons } from '../shared/contracts/values'
 import { serverText } from '../shared/i18n/server'
 
 function requireValid(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
@@ -40,7 +41,7 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
 export function validateDataset(data: Dataset, observedAt: string): Dataset {
   // --- 无历史旧数据缺策略时，只从恢复当天的来源周期启用默认策略。 ---
   if (data.historyMode === 'baseline' && data.workspace.calendar && data.policies.length === 0) {
-    for (const horizon of ['cycle', 'month', 'week', 'day'] as const) {
+    for (const horizon of policyHorizons) {
       const period = currentPeriod(data.workspace.calendar, horizon, observedAt)
       if (!data.periods.some(row => row.id === period.id)) data.periods.push(period)
       data.policies.push({ horizon, mode: horizon === 'day' ? 'auto' : 'manual', version: 1, effectiveFromPeriodId: period.id })

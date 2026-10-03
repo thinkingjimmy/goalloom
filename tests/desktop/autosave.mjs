@@ -54,7 +54,7 @@ try {
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
   const id = await page.evaluate(async () => {
     let snapshot = await window.goalloom.getSnapshot()
-    await window.goalloom.execute({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-09-01', confirmed: true, generation: snapshot.workspace.generation, operationId: crypto.randomUUID() })
+    await window.goalloom.execute({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-09-01' }, confirmed: true, generation: snapshot.workspace.generation, operationId: crypto.randomUUID() })
     snapshot = await window.goalloom.getSnapshot()
     const reply = await window.goalloom.execute({ type: 'create', title: 'Autosave fixture', description: 'Original note', horizon: 'day', generation: snapshot.workspace.generation, operationId: crypto.randomUUID() })
     if (!reply.ok) throw Error(reply.message)

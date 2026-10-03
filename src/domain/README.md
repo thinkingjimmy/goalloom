@@ -4,7 +4,7 @@
 
 ```text
 domain/
-├── calendar.ts   # 日/周/月/原锚点三个月区间、固定 IANA 边界
+├── calendar.ts   # 日/周/月/原锚点年/半年/三个月区间、固定 IANA 边界
 ├── temporal.ts   # 锁定 Electron 44 原生 Temporal 边界；polyfill 仅供开发期类型，不进入运行包
 ├── relations.ts  # 多父 DAG，线性整图拓扑校验与增量防环；新建关联的周期规则（上级周期更长、Later 不参与）
 ├── parent-order.ts # Deterministic nearest-parent ordering, historical/manual boundaries and stable transitive groups
@@ -12,12 +12,13 @@ domain/
 ├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断
 ├── undo.ts       # Owned fields, relation/color effects and semantic-order matching, independent of whole-item versions
 ├── history.ts    # 顺序流式投影期末与有界后续明细，缺失/回拨为 unknown；期末结果（完成/未完成/移出/取消/未知）
-├── import-validation.ts # Strict v1–v5 datasets, DAGs, relation-owned adoption colors, inverse-event indexes and atomic plan validation
+├── import-validation.ts # Strict v1–v6 datasets, DAGs, relation-owned adoption colors, inverse-event indexes and atomic plan validation
 ├── plan.ts       # createPlan 批内约束与稳定拓扑序（父在前、同级保持草稿顺序）
 ├── status.ts     # 独立状态时间组、效果匹配与差量逆转
 └── smart/        # 智能输入纯规则
     ├── segments.ts     # 强/弱边界无损槽位（≤8）与普通模式单条 Later
     ├── dates.ts        # 工作区 weekStart 的星期、绝对/月底日期与完整/省略终点的范围歧义
+    ├── calendar-phrases.ts # Pure Chinese execution-period phrases resolved against mode, anchor and injected today
     ├── questions.ts    # 原文直接作 state 的题单，Q=1+3S+D+3+R≤64，payload/token 预算与补充轮
     ├── budget.ts       # 不依赖日期规划的 payload/token/题数上限与估算，题单和 provider 共用
     ├── distribution.ts # 统一 Choice/boolean 契约校验、K×d 总和容差、top/margin/集中度与确定性
@@ -26,6 +27,6 @@ domain/
     └── terms.ts        # 共享专有词（拉丁词 ≥4 / 中文连续 ≥4 字），决定哪些看板目标可作为候选送给 Jev
 ```
 
-调用方注入观察时间及已经校验的快照；smart/ 不做网络请求，也不读取供应商 confidence。权威事务仍须重读并复核。`reverseStatus` 只是一种效果的原语，不代表完整撤销命令。D06 为多父 DAG；D07 为从原锚点推导的三日历月，月底截断而不逐轮漂移。
+调用方注入观察时间及已经校验的快照；smart/ 不做网络请求，也不读取供应商 confidence。权威事务仍须重读并复核。`reverseStatus` 只是一种效果的原语，不代表完整撤销命令。D06 为多父 DAG；D07 的年 / 半年 / 3个月从原锚点按 12 / 6 / 3 个日历月推导，月底截断而不逐轮漂移；自然年模式锁定确认年 1 月 1 日起点。年 / 半年始终手动，自动策略只覆盖原有四种尺度。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

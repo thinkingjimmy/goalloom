@@ -4,6 +4,7 @@
  * [POS]: Relation feature acceptance; no renderer bridge replacement or real user data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir } from 'node:os'
@@ -35,9 +36,7 @@ try {
   page.setDefaultTimeout(12000); page.on('pageerror', error => errors.push(error.message))
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1500, 900))
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await finishSetup(page)
   await page.locator('.board').waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
   const ids = await page.evaluate(async () => {

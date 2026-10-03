@@ -4,6 +4,7 @@
  * [POS]: Completion acceptance helper; CDP drives the real UI and Node inspector controls only its native window.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './setup.mjs'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -75,9 +76,7 @@ export async function verifyNativeCelebrationVisibility(packaged, environment) {
     const context = browser.contexts()[0]
     const page = context.pages()[0] ?? await context.waitForEvent('page')
     await page.emulateMedia({ reducedMotion: 'no-preference' })
-    await page.getByRole('button', { name: '先跳过', exact: true }).click()
-    await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-    await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+    await finishSetup(page)
     await page.getByRole('main', { name: '时间看板' }).waitFor()
     await page.getByRole('button', { name: '在本周新建', exact: true }).click()
     const input = page.getByRole('textbox', { name: '新建到本周', exact: true })

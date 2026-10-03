@@ -4,6 +4,7 @@
  * [POS]: Optional desktop performance evidence; never reads user workspaces or configures cloud services.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -114,9 +115,7 @@ async function resources() {
 }
 async function seed(profile, count) {
   await connect(profile)
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await finishSetup(page)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   if (count) await page.evaluate(async () => {
     const snapshot = await window.goalloom.getSnapshot(), roots = []

@@ -19,7 +19,7 @@ beforeEach(() => {
   now = '2026-09-23T02:00:00.000Z'
   const db = openDatabase(':memory:'); migrate(db)
   repo = new Repository(db, { now: () => now })
-  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-01-31', confirmed: true })
+  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-01-31' }, confirmed: true })
 })
 afterEach(() => repo.db.close())
 

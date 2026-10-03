@@ -1,3 +1,4 @@
+import { chooseSetupCalendar } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -22,14 +23,15 @@ try {
   await mkdir('output/tests/screenshots', { recursive: true })
   await page.setViewportSize({ width: 1200, height: 860 })
   page.on('pageerror', error => console.error(error.message))
-  const direction = page.getByRole('textbox', { name: '三个月的方向', exact: true })
+  await chooseSetupCalendar(page)
+  const direction = page.locator('.direction-input')
   await direction.fill('副业收入提升到 $5k'); await direction.press('Enter')
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '连接 Jev', exact: true }).click()
-  await page.getByRole('radio', { name: 'OpenRouter', exact: true }).click()
+  await page.getByRole('button', { name: '连接 AI 服务', exact: true }).click()
+  await page.getByRole('radio', { name: /^OpenRouter/ }).click()
   await page.getByLabel('OpenRouter API Key').fill(key)
   await page.getByRole('checkbox', { name: /我同意/ }).check()
-  await page.getByRole('button', { name: '测试并启用', exact: true }).click()
+  await page.getByRole('button', { name: '测试并开启', exact: true }).click()
   await page.getByRole('main', { name: '时间看板' }).waitFor({ timeout: 30_000 })
   checks.push('connect OpenRouter via onboarding')
   await page.evaluate(async () => {

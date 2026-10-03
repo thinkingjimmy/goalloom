@@ -9,8 +9,8 @@ import { planOrder, planProblem } from '../../src/domain/plan'
 import type { Candidate } from '../../src/shared/contracts/smart-input'
 
 const context = (text: string, candidates: Candidate[] = [], weekStart = 1): SmartContext => ({
-  text, referenceDate: '2026-09-23', weekdayName: '周三', timezone: 'Asia/Shanghai', weekStart, candidates,
-  periods: { day: { id: 'c:day:2026-09-23', startDate: '2026-09-23', endDate: '2026-09-24' }, week: { id: 'c:week:2026-09-21', startDate: '2026-09-21', endDate: '2026-09-28' }, month: { id: 'c:month:2026-09-01', startDate: '2026-09-01', endDate: '2026-10-01' }, cycle: { id: 'c:cycle:2026-07-01', startDate: '2026-07-01', endDate: '2026-10-01' } },
+  text, calendar: { id: 'c', mode: 'rolling', cycleAnchor: '2026-07-01', timezone: 'Asia/Shanghai', weekStart: 1 }, referenceDate: '2026-09-23', weekdayName: '周三', timezone: 'Asia/Shanghai', weekStart, candidates,
+  periods: { year: { id: 'c:year:2026-07-01', startDate: '2026-07-01', endDate: '2027-07-01' }, half: { id: 'c:half:2026-07-01', startDate: '2026-07-01', endDate: '2027-01-01' }, day: { id: 'c:day:2026-09-23', startDate: '2026-09-23', endDate: '2026-09-24' }, week: { id: 'c:week:2026-09-21', startDate: '2026-09-21', endDate: '2026-09-28' }, month: { id: 'c:month:2026-09-01', startDate: '2026-09-01', endDate: '2026-10-01' }, cycle: { id: 'c:cycle:2026-07-01', startDate: '2026-07-01', endDate: '2026-10-01' } },
 })
 const candidate = (ref: string, title: string, named = false): Candidate => ({ ref, itemId: `item-${ref}`, title, status: 'todo', horizon: 'month', archived: false, flowColor: null, version: 1, named })
 const plan = (value: ReturnType<typeof planQuestions>): QuestionPlan => { if ('kind' in value) throw new Error(value.message); return value }

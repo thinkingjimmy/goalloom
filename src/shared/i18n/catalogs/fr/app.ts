@@ -60,6 +60,7 @@ export const appMessages: typeof source = {
     danglingReferences: 'La base de données contient des références orphelines',
   },
   errors: {
+    setupDateChanged: 'La date a changé. Confirmez la nouvelle date de début.',
     invalidPlanningPeriod: "Choisissez une période de planification valide",
     planningPeriodExpired: "Cette période est terminée. Votre saisie est conservée ; choisissez une autre période.",
     cannotAdvancePeriod: "Seules les tâches à faire non archivées peuvent passer à la période suivante",

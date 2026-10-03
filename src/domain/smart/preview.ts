@@ -9,6 +9,7 @@ import { planOrder } from '../plan'
 import { booleanState, certainChoice, checkBoolean, checkChoice, type CheckedChoice, type Precision } from './distribution'
 import { horizonOptions, inferOptions, layoutOptions, roleOptions, useOptions, type Pair, type QuestionPlan, type SmartContext } from './questions'
 import { titleLimit } from './segments'
+import { parseCalendarPhrases } from './calendar-phrases'
 import { serverText } from '../../shared/i18n/server'
 
 export interface Round { answers: Record<string, unknown>; precision: Precision }
@@ -39,13 +40,18 @@ export function buildPreview(context: SmartContext, plan: QuestionPlan, first: R
     const horizons = members.map(row => choice(`horizon_${row.id}`, horizonOptions))
     const own = horizons[0]!
     const pick = certainChoice(own) && own.choice !== 'later' ? own : horizons.find(row => certainChoice(row) && !['later', 'unclear'].includes(row.choice)) ?? own
-    const horizon = (pick.choice === 'unclear' ? 'later' : pick.choice) as HorizonChoice
+    const phrases = parseCalendarPhrases(slot.text, context.calendar, context.referenceDate)
+    // A leading execution window is a calendar fact. Negation, deadlines and multiple windows still need judgement.
+    const resolved = phrases.length === 1 && slot.text.startsWith(phrases[0]!.text)
+      && !/(不用|不必|不要|不是|不在|之前|截止|年末|年底|年中|月底|前完成)/.test(slot.text)
+      && phrases[0]!.horizon !== 'unclear' ? phrases[0]!.horizon : null
+    const horizon = resolved ?? (pick.choice === 'unclear' ? 'later' : pick.choice) as HorizonChoice
     if (horizon === 'future') warnings.push({ kind: 'future', draftId: slot.id, text: serverText().smart.futurePeriod })
     return {
       draftId: slot.id, source: slot.text, roleCertain: plan.slots[0]!.id === slot.id || certainChoice(role),
       title: overflow ? slot.text.slice(0, titleLimit) : slot.text,
       description: [overflow ? slot.text : '', tail].filter(Boolean).join('\n'),
-      horizon: suggestion(horizon, pick, certainChoice(pick) || pick.choice === 'later'),
+      horizon: suggestion(horizon, resolved ? null : pick, resolved !== null || certainChoice(pick) || pick.choice === 'later'),
       due: dueFor(members.map(row => row.id)),
       inferredHorizon: inferFor(slot.id, horizon),
     }
@@ -55,7 +61,7 @@ export function buildPreview(context: SmartContext, plan: QuestionPlan, first: R
   function inferFor(slotId: string, written: HorizonChoice): PreviewDraft['inferredHorizon'] {
     if (written !== 'later') return null
     const guess = choice(`infer_${slotId}`, inferOptions)
-    return guess.choice === 'later' ? null : suggestion(guess.choice as 'day' | 'week' | 'month' | 'cycle', guess, certainChoice(guess, []))
+    return guess.choice === 'later' ? null : suggestion(guess.choice as keyof typeof inferOptions, guess, certainChoice(guess, []))
   }
   function dueFor(slotIds: string[]): PreviewDraft['due'] {
     const found = slotIds.flatMap(slotId => {

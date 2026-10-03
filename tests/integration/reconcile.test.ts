@@ -15,7 +15,7 @@ const policy = (horizon: 'day' | 'month' | 'cycle', mode: 'manual' | 'auto') => 
 beforeEach(() => {
   now = '2026-09-10T02:00:00Z'
   const db = openDatabase(':memory:'); migrate(db); repo = new Repository(db, { now: () => now })
-  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-01-31', confirmed: true })
+  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-01-31' }, confirmed: true })
 })
 afterEach(() => repo.db.close())
 it('长期离线只作一次真实顺延，不改状态/截止/关联，重试不重复', () => {
@@ -111,7 +111,7 @@ it('时钟回到日历起点前仍可读取工作区，拒绝错误复核，修�
   create()
   now = '2025-12-01T02:00:00Z'; reconcile(repo)
   expect(repo.snapshot().workspace.clockAnomaly).toBe(true)
-  expect(repo.snapshot().periods).toHaveLength(4)
+  expect(repo.snapshot().periods).toHaveLength(6)
   expect(() => run({ type: 'confirmClock', confirmed: true })).toThrow('起点')
   now = '2026-09-09T02:00:00Z'
   const id = create('回拨时仍可手动编辑', 'later')

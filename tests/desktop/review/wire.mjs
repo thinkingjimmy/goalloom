@@ -28,7 +28,7 @@ try {
   const fixture = await page.evaluate(async () => {
     const snapshot = await window.goalloom.getSnapshot(), generation = snapshot.workspace.generation
     const run = action => window.goalloom.execute({ ...action, generation, operationId: crypto.randomUUID() })
-    const configured = await run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-09-01', confirmed: true })
+    const configured = await run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-09-01' }, confirmed: true })
     if (!configured.ok) throw Error(configured.message)
     const created = await run({ type: 'create', title: 'Wire validation fixture', description: '', horizon: 'later' })
     if (!created.ok) throw Error(created.message)

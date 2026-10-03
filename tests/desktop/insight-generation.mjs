@@ -4,6 +4,7 @@
  * [POS]: Desktop acceptance of the AI-service onboarding path, per-feature switches, drafting and review persistence/refresh/restart/replacement through real IPC/storage; provider transport is controlled.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -43,13 +44,10 @@ async function run(mode) {
     page = await application.firstWindow()
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
-    await page.setViewportSize({ width: 1440, height: 900 })
+    await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 900))
     await installFixture(application)
-    await page.getByRole('button', { name: '先跳过', exact: true }).click()
     const weekStart = await page.evaluate(() => new Date().getDay() || 7)
-    await page.getByRole('combobox', { name: '一周从哪天开始', exact: true }).click()
-    await page.getByRole('option').nth(weekStart - 1).click()
-    await page.getByRole('button', { name: '确认并开始', exact: true }).click()
+    await finishSetup(page, { weekStart, skipAi: false })
     // Onboarding step 3 through the real UI: one OpenRouter key is tested per capability and turns on both features.
     await page.getByRole('button', { name: '连接 AI 服务', exact: true }).click()
     await page.getByLabel('OpenRouter API Key').fill('synthetic-key-only')
@@ -401,7 +399,7 @@ async function run(mode) {
     await recovery.getByText('已创建并校验', { exact: true }).waitFor()
     await recovery.getByRole('checkbox').check()
     await recovery.getByRole('button', { name: '重置并重新配置' }).click()
-    await page.getByRole('textbox', { name: '三个月的方向', exact: true }).waitFor()
+    await page.locator('.calendar-modes').waitFor()
     const afterReset = await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.review-summaries')))
     assert.notEqual(afterReset.generation, stored.generation)
     assert.deepEqual(afterReset.entries, [])
@@ -416,6 +414,8 @@ async function run(mode) {
     report.ok = true
   } catch (error) {
     report.error = error.message
+    report.nativeWindow = await application?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))).catch(() => null)
+    report.document = await page?.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML, viewport: { width: innerWidth, height: innerHeight } })).catch(() => null)
     if (page && !page.isClosed()) await page.screenshot({ path: `${out}/${mode}-failure.png` }).catch(() => {})
     throw error
   } finally {

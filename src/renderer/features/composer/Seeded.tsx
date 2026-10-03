@@ -45,7 +45,7 @@ export function Seeded({ seed, snapshot, flows, submit, busy, error, close }: { 
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const calendar = snapshot.workspace.calendar!
   const where = planningLabel(seed.period, calendar, snapshot.observedAt)
-  const target = seed.next ? { period: { kind: 'date' as const, startDate: seed.period.startDate } } : {}
+  const target = { period: { kind: 'date' as const, startDate: seed.period.startDate } }
 
   useEffect(() => {
     if (seed.mode !== 'batch' || !seed.draft) return

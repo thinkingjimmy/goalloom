@@ -4,6 +4,7 @@
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -81,18 +82,11 @@ try {
 
   // 2. Setup page switches instantly, before the calendar is confirmed; typed setup values survive the switch.
   await choose(page, language, 'en')
-  await page.getByRole('button', { name: 'Skip', exact: true }).waitFor()
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'en')
-  await assertTranslated(page, 'en direction step')
-  await page.screenshot({ path: `${shots}/language-setup-en.png` })
-  await page.getByRole('button', { name: 'Skip', exact: true }).click()
-  await page.getByRole('button', { name: 'Confirm and start', exact: true }).waitFor()
   await assertTranslated(page, 'en calendar step')
-  // Tomorrow as week start makes the current week's review available without replacing the clock.
+  await page.screenshot({ path: `${shots}/language-setup-en.png` })
   const weekStart = await page.evaluate(() => (new Date().getDay() + 1) % 7 || 7)
-  await page.getByRole('combobox', { name: 'Week starts on', exact: true }).click()
-  await page.getByRole('option').nth(weekStart - 1).click()
-  await page.getByRole('button', { name: 'Confirm and start', exact: true }).click()
+  await finishSetup(page, { weekStart, skipAi: false })
   await page.getByRole('button', { name: 'Connect an AI service', exact: true }).click()
   await page.getByLabel('OpenRouter API Key').waitFor()
   await assertTranslated(page, 'en AI service step')

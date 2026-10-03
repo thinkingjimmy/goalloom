@@ -1,23 +1,26 @@
 /**
- * [INPUT]: 确认回调（日历 + 可选方向）与忙碌状态；本机检测到的时区。
- * [OUTPUT]: 首次配置的前两步：写方向 → 确认日历；方向与日历草稿在两步之间保留。
- * [POS]: features/setup 的入口视图，被 App 在日历未确认时渲染；确认只锁定日历，方向由 App 在确认成功后作为普通条目创建，Jev 步骤由 App 接续。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Guarded setup confirmation, write feedback and device timezone.
+ * [OUTPUT]: Calendar selection followed by annual direction/explicit confirmation; drafts survive back, locale and stale dates.
+ * [POS]: Setup session owner; App creates the optional direction separately and continues to AI setup.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useMemo, useState } from 'react'
-import { CalendarStep, type CalendarChoice, type CalendarDraft } from './CalendarStep'
+import { useEffect, useMemo, useState } from 'react'
+import type { PlanningPeriod } from '../../../shared/contracts/entities'
+import { CalendarStep } from './CalendarStep'
 import { DirectionStep } from './DirectionStep'
+import { useSetupCalendar, type CalendarChoice, type CalendarDraft } from './use-setup-calendar'
 
-export type { CalendarChoice } from './CalendarStep'
-
-export function Setup({ confirm, busy }: { confirm: (calendar: CalendarChoice, direction: string) => void; busy: boolean }) {
+export type { CalendarChoice } from './use-setup-calendar'
+export function Setup({ confirm, busy, errorCode }: { confirm: (calendar: CalendarChoice, direction: string, period: PlanningPeriod) => void; busy: boolean; errorCode: string | null }) {
   const detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   const zones = useMemo(() => [...new Set(['UTC', detected, ...Intl.supportedValuesOf('timeZone')])], [detected])
-  const [step, setStep] = useState<'direction' | 'calendar'>('direction')
-  const [text, setText] = useState(''), [direction, setDirection] = useState('')
-  const [draft, setDraft] = useState<CalendarDraft>({ timezone: detected, weekStart: 1, anchorMode: 'today', customAnchor: '' })
-  return step === 'direction'
-    ? <DirectionStep value={text} change={setText} next={value => { setDirection(value); setStep('calendar') }} />
-    : <CalendarStep draft={draft} change={patch => setDraft(current => ({ ...current, ...patch }))} direction={direction} zones={zones} busy={busy}
-      back={() => setStep('direction')} confirm={calendar => confirm(calendar, direction)} />
+  const [step, setStep] = useState<'calendar' | 'direction'>('calendar')
+  const [text, setText] = useState('')
+  const [useCurrentYear, setUseCurrentYear] = useState(false)
+  const [draft, setDraft] = useState<CalendarDraft>({ mode: 'rolling', timezone: detected, weekStart: 1, anchorMode: 'today', customAnchor: '' })
+  const live = useSetupCalendar(draft)
+  useEffect(() => { if (errorCode === 'stale_preview') live.refresh() }, [errorCode, live.refresh])
+  return step === 'calendar'
+    ? <CalendarStep draft={draft} change={patch => setDraft(current => ({ ...current, ...patch }))} live={live} zones={zones} busy={busy} next={() => setStep('direction')} />
+    : <DirectionStep useCurrent={useCurrentYear} setUseCurrent={setUseCurrentYear} value={text} change={setText} live={live} busy={busy} back={() => setStep('calendar')} confirm={period => confirm(live.choice, text.trim(), period)} />
 }

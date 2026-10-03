@@ -70,7 +70,7 @@ export function useRelationDrag(input: { snapshot: Snapshot; view: BoardView; fl
   }, [])
   const begin = useCallback((event: ReactPointerEvent<HTMLButtonElement>, source: ItemSummary, close: () => void) => {
     event.stopPropagation()
-    if (!event.isPrimary || event.button !== 0 || event.ctrlKey || event.pointerType !== 'mouse' || latest.current.blocked || source.placement.horizon === 'cycle' || source.placement.horizon === 'later') return
+    if (!event.isPrimary || event.button !== 0 || event.ctrlKey || event.pointerType !== 'mouse' || latest.current.blocked || !horizons.some(horizon => mayParent(horizon, source.placement.horizon))) return
     cancel.current?.(); unsuppress.current?.()
     const button = event.currentTarget, board = button.closest<HTMLElement>('.board'), sourceRow = button.closest<HTMLElement>('.task-row')
     if (!board || !sourceRow) return

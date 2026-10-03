@@ -26,10 +26,10 @@ renderer/
 │   │       ├── FeatureControls.tsx # 智能输入/洞察共用：功能总开关状态卡与处理服务单选（只列能运行该模型的服务）
 │   │       ├── SmartPane.tsx    # 智能输入：总开关 + 处理服务（Jev）
 │   │       ├── InsightPane.tsx  # Insight: switch + DeepSeek provider, breakpoint/review switches, personalization tabs (about me / drafting / review / read-only prompt)
-│   │       ├── CalendarPane.tsx # Read-only calendar with reset navigation beside the section title and per-column rollover policies
+│   │       ├── CalendarPane.tsx # Locked mode/anchor and next year/half starts, manual year/half rows and four rollover policies
 │   │       ├── BackupPane.tsx   # 备份与恢复：状态/每日开关/保留份数、备份列表、导出与单一文件恢复、危险区重置
 │   │       ├── ItemsPane.tsx    # 条目：已完成/已取消/已归档/回收站的搜索、今天/昨天分组与行内还原
-│   │       ├── TransferReview.tsx # 三步进度与整库替换的两阶段确认
+│   │       ├── TransferReview.tsx # 来源日历模式预览、三步进度与整库替换的两阶段确认
 │   │       ├── parts.tsx        # 分组/行（可带整行下方控件）/分段选择（色块、数量）/多选按钮组/开关原语，工作区时区时间与相对日期
 │   │       └── settings.css     # 设置弹窗专属样式（仅 token）
 │   ├── composer/            # 全局新建：输入法式（输入 → 一条 Jev 推荐 → ↵ 创建 / Tab 调整 / ⌥↵ 原样存 Later）
@@ -39,11 +39,11 @@ renderer/
 │   │   ├── KeyMenu.tsx      # 行内菜单的键盘外壳：↑↓ 移动、数字直选，Esc 交给 Popover
 │   │   ├── suggestions.ts   # 纯函数：上级关联与移列规则、片段合并、Jev 拿不准的判断（doubts）
 │   │   ├── draft.ts         # 纯草稿模型：手动优先合并、推测列、orphan、计划负载与本地复核
-│   │   ├── Seeded.tsx       # Context-prefilled create / insertBetween / checked createPlan; one batch request across effect replay, typed-text precedence and visible manual fallback
+│   │   ├── Seeded.tsx       # Displayed-period create / insertBetween / checked createPlan, including future half/cycle; typed-text precedence and manual fallback
 │   │   └── composer.css     # composer 与连接表单样式（仅 token）
 │   ├── insight/             # 流程洞察（docs/features/flow-insight.md）
-│   │   ├── signals.ts       # 纯信号：活跃流程断点（缺口/跳级、多流程去重；筛选时空列让位，悬停预览保留本地添加）、空列、目标周期（最后一天→下一期）、发给模型的有界中文看板
-│   │   ├── Breakpoints.tsx  # Flow-filtered or highlighted-preview-chain breakpoints at outgoing row endpoints; unique shared-parent actions, persistent pending state, destination pill and guide
+│   │   ├── signals.ts       # Six-scale gaps/digests; displayed-period empty sources exclude active children and constrain future half/cycle to the displayed parent
+│   │   ├── Breakpoints.tsx  # Highlighted-chain row endpoints, pending/destination state and a guide bounded to the timeline viewport
 │   │   ├── decompose.ts     # 「拆下一步」唯一写入路径：模型起草后 create / insertBetween，⇧ 或无模型时打开预填新建（断点与右键共用）
 │   │   ├── EmptyCard.tsx    # 空列卡：为上一列各起一步（批量预填）或自己写
 │   │   ├── review.ts        # 复盘纯规则：入口（最后一天 / 次日一次，周月同日合并）、目标×周期、信号、排下一期候选
@@ -68,14 +68,14 @@ renderer/
 │   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, logical keyboard traversal and focus/drag/menu pinning
 │   │   ├── visibility.ts  # Post-layout title visibility in the selected current/future/past period, with pending reads and offscreen destination feedback
 │   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, tooltip-free titles, due indicators, description signals and flow-tinted highlights
-│   │   ├── PeriodPicker.tsx # Header B period panel: quick previous/current/next, week-row/day/month selection, six cycles, recorded-history bound, no footer pager
+│   │   ├── PeriodPicker.tsx # Header B: six-row year/half/cycle lists, week/day/month selection, visible history errors/retry and mode-aware labels
 │   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body loaded on open)
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # Role-aware flow menus, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
 │   │   ├── QuickAdd.tsx     # Explicit-period creation, per-period drafts, expired-input recovery and horizon-valid flow choices
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
-│   │   ├── period-labels.ts # Relative adjacent headings, date-only distant/cycle headings, year-free dates and cross-year cycle rows
+│   │   ├── period-labels.ts # Mode-aware adjacent/distant headings, natural Q/year lists and year-disambiguated anchored ranges
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
 │   │   ├── use-item-autosave.ts # Serialized silent saves, source/receipt guards, retry and close-time draining
@@ -87,11 +87,12 @@ renderer/
 │   │   ├── RelationChip.tsx # 详情「上级／下级」标签：弹层列出关联条目可跳转，并转入 RelationPicker
 │   │   └── Activity.tsx     # 活动摘要 hook 与右侧横向抽屉，打开时才分页读取事件
 │   └── setup/
-│       ├── Setup.tsx        # 首次流程前两步的状态：方向草稿 → 日历确认
+│       ├── Setup.tsx        # 日历 → 年方向与确认的草稿；返回、语言变化与日期过期均保留输入
 │       ├── OnboardingFrame.tsx # 三步进度、语言、固定底栏（主按钮统一在右下）
-│       ├── DirectionStep.tsx # 写下三个月的方向（示例可填入），确认前只存草稿
-│       ├── CalendarStep.tsx # 一句话三胶囊（时区/周起始/3个月起点）与剩余天数，显式确认锁定日历
-│       ├── BoardPreview.tsx # 真实列头与空状态的只读预览，方向以「待确认」行放进 3个月
+│       ├── DirectionStep.tsx # 年尺度方向、列头预览与显式锁定；不足 14 天默认下一年，Enter 只移焦点
+│       ├── CalendarStep.tsx # Rolling/natural mode cards with live dates, timezone/week-start and optional original anchor
+│       ├── use-setup-calendar.ts # Workspace-timezone midnight/focus/wake refresh and pure calendar/year-target derivation
+│       ├── BoardPreview.tsx # 六尺度只读列头与空状态，年方向目标与对应半年同步预览
 │       ├── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择；展开时才计算完整 GMT 偏移列表
 │       └── onboarding.css   # 首次流程样式（仅 token）
 ├── components/              # 可跨功能使用的 UI 原语
@@ -110,10 +111,10 @@ renderer/
 │   ├── board-periods.ts    # Generation/selection/revision-isolated future reads, atomic return from history, transitive parent ordering and shared visible candidates
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
 │   ├── flows.ts            # Board-ordered flow filters, topology/color caches and shared active graph/chain for relation lines and preview actions
-│   ├── columns.ts          # Device-local Later preference; all four planning columns always shown, old planning-column preferences ignored
+│   ├── columns.ts          # Device-local Later preference; all six planning columns always shown, old planning-column preferences ignored
 │   ├── relation-lines.ts   # 本机关系线开关（localStorage，默认开，只存关闭，不入工作区）
 │   ├── parent-order.ts    # Device-only preference and generation/revision-bound completion of materialization
-│   ├── celebration.ts      # 本机逐列撒花偏好（默认周/月/3个月）、设置页预览信号与系统减少动态效果订阅
+│   ├── celebration.ts      # 本机七栏撒花偏好（默认年/半年/3个月/月/周）、设置页预览与减少动态效果
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
 │   ├── update.ts           # 软件更新单一 store：版本 + 阶段（首次订阅读取并监听推送，不轮询）、手动检查／重启更新、hasUpdate 红点判定
@@ -125,11 +126,11 @@ renderer/
 ├── i18n/
 │   ├── index.ts             # 唯一文案入口：当前语言的实时视图（原地替换，不重挂载）、setLocale/useLocale
 │   ├── format.ts            # 按当前语言的 Intl 日期/星期/时间/数字格式
-│   └── locales/             # zh 为源语言（messages/smart/settings/shortcuts/insight 五分册 + index），en/ja/es/fr 同构，缺键即类型错误
+│   └── locales/             # zh 为源语言（messages/smart/settings/shortcuts/insight/calendar 六分册 + index），en/ja/es/fr 同构
 └── lib/
     ├── colors.ts            # 八组固定配对色板、色名与流程描边值
     ├── dates.ts             # UTC day/month arithmetic, month-end clamping and weekdays; locale formatting stays in i18n/format
-    ├── periods.ts           # Previous/current/next/concrete destination names, absolute date ranges and optional yearless menu hints shared by board, search, details and feedback
+    ├── periods.ts           # Mode-aware relative names, natural-year/Q labels and year-disambiguated ranges shared by board/search/detail/feedback
     ├── timezones.ts         # IANA 时区的 GMT 偏移标签
     └── utils.ts             # Tailwind class 合并
 ```
@@ -142,7 +143,7 @@ Descriptions keep Markdown strings in SQLite and load Lexical with the detail ch
 
 Detail titles read as complete, naturally wrapping rich text, matching the full-text presentation on the board. Clicking title text or its edit affordance focuses a growing raw-text field; links remain separate external actions. Editing retains authored URLs/labels, the 500-character limit, composition protection and the detail's autosave/receipt guards. Deleted titles are read-only. `DetailTitle` controls presentation/focus only; `use-item-autosave` owns draft persistence and close-time draining.
 
-Each time column keeps dates and a contextual return/review action inline between compact arrows. Desktop titles align with row checkboxes; the previous arrow shares the flow dots' center line within the column's left gutter, with an extended hit area that avoids the title. Headings stay fixed on hover and keyboard focus. Header dates omit years, with absolute dates in tooltips; distant periods and non-current three-month cycles use the date itself as the heading. Navigation and quick add appear on column hover or header keyboard focus without layout shift; touch controls remain visible. Pointer navigation brings ready content in from the time direction over 220ms, cancelling superseded motion and synchronizing overlays. Keyboard navigation and reduced motion remain immediate. Past rows use live unfinished/completed/deleted tasks still placed in that period; completion/reopening and restore update groups without rewriting period-end history. Paging is filtered before totals and recovers from an emptied last page. Keyboard focus follows navigation and direct state changes.
+Each time column keeps dates and a contextual return/review action inline between compact arrows. Desktop titles align with row checkboxes; the previous arrow shares the flow dots' center line within the column's left gutter, with an extended hit area that avoids the title. Headings stay fixed on hover and keyboard focus. Relative headings omit years beside the name, with full dates in tooltips. Distant year/half headings and anchored picker rows add years where dates would repeat; natural years, half-years and quarters use calendar labels. Rolling three-month headings keep their existing dates. Navigation and quick add appear on column hover or header keyboard focus without layout shift; touch controls remain visible. Pointer navigation brings ready content in from the time direction over 220ms, cancelling superseded motion and synchronizing overlays. Keyboard navigation and reduced motion remain immediate. Past rows use live unfinished/completed/deleted tasks still placed in that period; completion/reopening and restore update groups without rewriting period-end history. Paging is filtered before totals and recovers from an emptied last page. Keyboard focus follows navigation and direct state changes.
 
 `useBoardPeriods` keeps the global current snapshot separate from at most one selected future period per visible horizon. Explicit top-bar filter choices and valid filter shortcuts return all past selections to current, including repeated selections, while keeping future periods and drafts. The shortcut resolves the flow identity before navigation changes its position. Period changes reset column scroll. Responses are isolated by workspace generation, selection and revision; stale rows stay disabled until refreshed. Writes bind the displayed start date, and visibility feedback waits for this refresh. Period selections and drafts are session-only and reset with the workspace generation. Product rules and failure scenarios live in [period planning](../../docs/features/period-planning.md).
 
@@ -152,7 +153,7 @@ Task action menus size to content with a narrower destination submenu and pointe
 
 Column scrollbars sit at the right column boundary and appear only while that column, including its header, is hovered. Retained task focus does not keep them visible. Compensating content padding preserves task widths, wrapping and row alignment.
 
-Under a selected flow, cycle TODO rows show their flow dot only on row hover, keyboard focus or while its menu is open. Checkbox alignment, other columns, completed rows and unfiltered flow previews keep their existing behavior.
+Under a selected flow, year TODO rows show their flow dot only on row hover, keyboard focus or while their menu is open. Checkbox alignment, other columns, completed rows and unfiltered flow previews keep their existing behavior.
 
 Monthly review uses a todo-scale board guide and a resumable native modal with connected steps and text footer actions. `ReviewOverview` places the summary before inline period-end totals in an unfilled brief; the localized icon heading remains visible without AI. Expandable goal rows highlight on hover/focus and align markers with the title's first line. `ReviewDrawer` owns live decisions, destination drafts and guarded writes; `review.css` shares board tokens.
 

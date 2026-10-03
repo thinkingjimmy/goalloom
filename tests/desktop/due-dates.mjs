@@ -4,6 +4,7 @@
  * [POS]: Native desktop acceptance of immediate detail date persistence, keyboard navigation, focus, clipping and persistence.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import { waitForDetailSave } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -30,12 +31,7 @@ for (const weekStart of [1, 7]) {
     page = await application.firstWindow()
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
-    await page.getByRole('button', { name: '先跳过', exact: true }).click()
-    await page.getByRole('combobox', { name: '一周从哪天开始', exact: true }).click()
-    await page.getByRole('option').nth(weekStart - 1).click()
-    await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-    await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
-    await page.getByRole('main', { name: '时间看板' }).waitFor()
+    await finishSetup(page, { weekStart })
     report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
     const itemId = await page.evaluate(async () => {
       const snapshot = await window.goalloom.getSnapshot()

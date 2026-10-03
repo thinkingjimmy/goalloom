@@ -22,7 +22,7 @@ let db = openDatabase(path); migrate(db)
 let repo = new Repository(db, { now: () => now })
 const run = action => repo.execute({ ...action, generation: repo.store.workspace().generation, operationId: randomUUID() })
 try {
-  run({ type:'confirmSetup', timezone:'UTC', weekStart:1, cycleAnchor:now.slice(0,10), confirmed:true })
+  run({ type:'confirmSetup', timezone:'UTC', weekStart:1, mode: 'rolling', anchor: { kind: 'date', date: now.slice(0,10) }, confirmed:true })
   const rolled = run({ type:'create', title:'Still rolled over', horizon:'day' }).itemId
   const moved = run({ type:'create', title:'Moved after rollover', horizon:'day' }).itemId
   const oldDate = now.slice(0,10)

@@ -14,6 +14,7 @@ coverage/
 playwright-report/
 test-results/
 output/
+todo/
 *.log
 
 # Secrets and private app data

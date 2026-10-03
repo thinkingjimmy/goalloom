@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 恢复/重置预览、执行中状态、每次默认未选的确认勾选、工作区时区与数据动作。
- * [OUTPUT]: 三步进度（预览 → 保护备份 → 确认）、维护提示、五栏数据规模卡（源日历/警告/说明在卡底）、保护备份回执与底部确认栏。
- * [POS]: settings 整库替换的两阶段确认界面；维护期间由 Settings 锁定导航，取消恢复原运行状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Guarded replacement preview, acknowledgement, workspace timezone and data actions.
+ * [OUTPUT]: Source calendar mode, data counts, verified backup receipt and replacement confirmation.
+ * [POS]: Settings workspace replacement review; navigation stays locked during maintenance.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ReactNode } from 'react'
 import type { DataAction, TransferPreview } from '../../../../shared/contracts/transfer'
-import { messages } from '../../../i18n'
+import { calendarMessages as c, messages } from '../../../i18n'
 import { count, weekdayName } from '../../../i18n/format'
 import { Icon } from '../../../components/icons'
 import { SettingsGroup, stamp } from './parts'
@@ -29,7 +29,7 @@ export function TransferReview({ children, preview, working, acknowledged, ackno
   const stats = [[preview.items, messages.statItems], [preview.relations, messages.statRelations], [preview.periods, messages.statPeriods], [preview.events, messages.statEvents], [preview.operations, messages.statOperations]] as const
   const token = preview.token
   const notes = [
-    preview.sourceCalendar && <p key="calendar">{messages.sourceCalendar(preview.sourceCalendar.timezone, weekdayName(preview.sourceCalendar.weekStart), preview.sourceCalendar.cycleAnchor)}</p>,
+    preview.sourceCalendar && <p key="calendar">{preview.sourceCalendar.mode === 'natural' ? c.naturalMode : c.rollingMode} · {messages.sourceCalendar(preview.sourceCalendar.timezone, weekdayName(preview.sourceCalendar.weekStart), preview.sourceCalendar.cycleAnchor)}</p>,
     ...preview.warnings.map(warning => <p className="warning" key={warning}>{warning}</p>),
     !preview.backup && <p key="scope">{reset ? messages.resetNote : messages.restoreNoteFull}{messages.maintenanceNote}</p>,
   ].filter(Boolean)

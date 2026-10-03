@@ -22,6 +22,7 @@ import { setPolicy, confirmClock, setBackupPreferences, confirmRollover, undoBat
 import { serverText } from '../../shared/i18n/server'
 import { orderNodes } from './ordering'
 import { materializeParentOrder } from './commands/ordering'
+import { isAnchoredHorizon, periodHorizons } from '../../shared/contracts/values'
 
 export class Repository {
   readonly store: Store
@@ -109,10 +110,10 @@ export class Repository {
   metadata(): WorkspaceMetadata {
     const workspace = this.store.workspace()
     const observedAt = this.clock.now()
-    const periods = workspace.calendar ? (['cycle', 'month', 'week', 'day'] as const).map(horizon => {
+    const periods = workspace.calendar ? periodHorizons.map(horizon => {
       const beforeAnchor = workspaceDate(workspace.calendar!.timezone, observedAt) < workspace.calendar!.cycleAnchor
       const cycleObservation = beforeAnchor ? workspace.lastObservedAt ?? workspace.setupConfirmedAt! : observedAt
-      return currentPeriod(workspace.calendar!, horizon, horizon === 'cycle' ? cycleObservation : observedAt)
+      return currentPeriod(workspace.calendar!, horizon, isAnchoredHorizon(horizon) ? cycleObservation : observedAt)
     }) : []
     return { workspace, periods, observedAt, maintenance: this.maintenance, backupError: null }
   }

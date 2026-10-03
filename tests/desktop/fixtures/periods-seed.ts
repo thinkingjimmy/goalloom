@@ -26,7 +26,7 @@ function workspace(now: string, timezone = 'UTC', weekStart = 1, cycleAnchor = '
   const time = { now }, repo = new Repository(db, { now: () => time.now })
   const generation = repo.store.workspace().generation
   const run = (action: Record<string, unknown>) => repo.execute({ generation, operationId: randomUUID(), ...action })
-  run({ type: 'confirmSetup', timezone, weekStart, cycleAnchor, confirmed: true })
+  run({ type: 'confirmSetup', timezone, weekStart, mode: 'rolling', anchor: { kind: 'date', date: cycleAnchor }, confirmed: true })
   const create = (horizon: string, title = 'Boundary task', extra = {}) => run({ type: 'create', horizon, title, ...extra }).itemId!
   const advance = (id: string, extra = {}) => {
     const item = repo.store.item(id)

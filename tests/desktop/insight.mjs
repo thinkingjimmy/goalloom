@@ -4,6 +4,7 @@
  * [POS]: Desktop acceptance of empty columns, breakpoints, reviews and local insight preferences without a live model.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -29,9 +30,7 @@ try {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 1600, height: 900 })
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await finishSetup(page)
   const board = page.getByRole('main', { name: '时间看板' })
   await board.waitFor()
   const shot = name => page.screenshot({ path: `${out}/${name}.png` })
@@ -97,6 +96,7 @@ try {
   check('dot previews expose every highlighted chain gap, exclude faded branches and deduplicate multi-flow leaves; ancestor previews, empty targets, keyboard use, creation and undo preserve the correct parent and period')
 
   // 今天 is now empty under a non-empty 本周: its card offers the free composer with the period prefilled.
+  await dayColumn.scrollIntoViewIfNeeded()
   await dayColumn.getByText('今天还是空的').waitFor()
   await dayColumn.getByRole('button', { name: '自己写' }).click()
   await dialog.waitFor()
@@ -109,6 +109,7 @@ try {
 
   // --- 断点：筛选「全网粉丝」→ 两个本月计划都没有本周下级，各一个 ＋；首次引导只出现一次。 ---
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
+  await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
   await board.locator('.breakpoint[data-kind="gap"]').first().waitFor()
   assert.equal(await board.locator('.breakpoint[data-kind="gap"]').count(), 2)
   assert.equal(await board.locator('.breakpoint-guide').count(), 0, 'The guide dismissed during preview stays dismissed when filtering')
@@ -121,6 +122,7 @@ try {
   await page.reload()
   await board.waitFor()
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
+  await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
   await board.locator('.breakpoint[data-kind="gap"]').first().waitFor()
   assert.equal(await board.locator('.breakpoint-guide').count(), 0, '引导状态存本机，重载后不再出现')
   check('filtered flow shows one ＋ per gap at the outgoing row endpoint; the guide shows once and stays dismissed after reload')

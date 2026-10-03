@@ -1,8 +1,8 @@
 /**
- * [INPUT]: main 控制的工作区路径与既有固定备份目录、注入时刻；node:sqlite 只读连接与现有 BackupManager。
- * [OUTPUT]: openWorkspace：已就绪的受控连接及可选 protective 回执；StartupError 携带副本位置，失败时不运行迁移、不开放业务。
- * [POS]: storage 启动编排——只读探测源 user_version/schema，读取旧工作区，复用 BackupManager create(protective)+verify 并核对副本版本，再以正常连接复核后调用 migrate 原子升级。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Workspace path, backup directory and injected startup time.
+ * [OUTPUT]: Read-only version checks, unchanged rejection of v1–v5, and new/current v6 connections.
+ * [POS]: Startup boundary; dormant protected-upgrade orchestration is retained for future explicit migrations.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { existsSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'

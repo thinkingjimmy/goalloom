@@ -22,7 +22,7 @@ try {
   result.before = await app.evaluate(({ Menu }) => ({ pid: process.pid, platform: process.platform, menu: Menu.getApplicationMenu()?.items.flatMap(item => item.submenu?.items.map(child => ({ label: child.label, role: child.role, accelerator: child.accelerator, enabled: child.enabled })) ?? []) }))
   await page.evaluate(async () => {
     const s = await window.goalloom.getSnapshot()
-    await window.goalloom.execute({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-09-01', confirmed: true, generation: s.workspace.generation, operationId: crypto.randomUUID() })
+    await window.goalloom.execute({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-09-01' }, confirmed: true, generation: s.workspace.generation, operationId: crypto.randomUUID() })
   })
   await page.reload()
   await page.getByRole('button', { name: 'Add to Later', exact: true }).waitFor()

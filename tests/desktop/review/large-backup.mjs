@@ -22,7 +22,7 @@ try {
  const command=action=>call('command',{...action,generation,operationId:randomUUID()})
  const description='长'.repeat(100000)
  if(!process.env.GOALLOOM_LARGE_SEED) {
-  await command({type:'confirmSetup',timezone:'Asia/Shanghai',weekStart:1,cycleAnchor:'2026-09-01',confirmed:true})
+  await command({type:'confirmSetup',timezone:'Asia/Shanghai',weekStart:1,mode: 'rolling', anchor: { kind: 'date', date: '2026-09-01' },confirmed:true})
   for(let n=0;n<360;n++) {
    await command({type:'create',title:`Long item ${n}`,description,horizon:'later'})
    if(n%60===0)console.log(JSON.stringify({stage:'seed',items:n+1}))

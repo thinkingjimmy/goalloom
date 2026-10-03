@@ -10,9 +10,11 @@ import { buildPreview, taskSlots, type Round } from '../../src/domain/smart/prev
 import { systemOneAdapter, ProviderFailure, type Adapter } from '../../src/main/smart/providers'
 import type { Candidate, SmartPreview } from '../../src/shared/contracts/smart-input'
 import { sharedTerm } from '../../src/domain/smart/terms'
+import { currentPeriod, parseDate } from '../../src/domain/calendar'
+import { mapPeriodHorizons } from '../../src/shared/contracts/values'
 import { evalCases, type EvalCase } from './cases'
 
-const periods = { day: { id: 'eval:day:2026-09-23', startDate: '2026-09-23', endDate: '2026-09-24' }, week: { id: 'eval:week:2026-09-21', startDate: '2026-09-21', endDate: '2026-09-28' }, month: { id: 'eval:month:2026-09-01', startDate: '2026-09-01', endDate: '2026-10-01' }, cycle: { id: 'eval:cycle:2026-07-01', startDate: '2026-07-01', endDate: '2026-10-01' } }
+
 
 async function key(): Promise<string> {
   const line = (await readFile('.env.local', 'utf8')).split(/\r?\n/).find(row => row.startsWith('OPENROUTER_API_KEY='))
@@ -25,7 +27,11 @@ function context(item: EvalCase): SmartContext {
   const candidates: Candidate[] = (item.goals ?? []).map(goal => typeof goal === 'string' ? { title: goal, horizon: 'cycle' as const } : goal)
     .filter(goal => item.text.includes(goal.title) || sharedTerm(item.text, goal.title) > 0 || (item.goals ?? []).every(row => typeof row === 'string'))
     .map((goal, index) => ({ ref: `g${index + 1}`, itemId: `goal-${goal.title}`, title: goal.title, status: 'todo', horizon: goal.horizon, archived: false, flowColor: null, version: 1, named: item.text.includes(goal.title) }))
-  return { text: item.text, referenceDate: '2026-09-23', weekdayName: '周三', timezone: 'Asia/Shanghai', weekStart: 1, periods, candidates }
+  const observation = item.calendar ?? { mode: 'rolling', anchor: '2026-07-01', today: '2026-09-23', timezone: 'Asia/Shanghai', weekStart: 1 }
+  const calendar = { id: 'eval', mode: observation.mode, cycleAnchor: observation.anchor, timezone: observation.timezone, weekStart: observation.weekStart }
+  const date = parseDate(observation.today)
+  const periods = mapPeriodHorizons(horizon => currentPeriod(calendar, horizon, date.toZonedDateTime(calendar.timezone).toInstant().toString()))
+  return { text: item.text, referenceDate: observation.today, weekdayName: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][date.dayOfWeek - 1]!, timezone: calendar.timezone, weekStart: calendar.weekStart, calendar, periods, candidates }
 }
 
 async function run(adapter: Adapter, apiKey: string, item: EvalCase) {
@@ -65,6 +71,7 @@ function check(item: EvalCase, preview: SmartPreview): string[] {
   e.titles?.forEach((title, i) => { if (drafts[i]?.title !== title) failures.push(`title[${i}] "${drafts[i]?.title}" ≠ "${title}"`) })
   // A horizon only counts when it would actually be prefilled (certain), matching what the user sees.
   e.horizons?.forEach((horizon, i) => { const d = drafts[i]; const shown = d ? (d.horizon.certain ? (d.horizon.value === 'future' ? 'later' : d.horizon.value) : 'later') : null; if (shown !== horizon) failures.push(`horizon[${i}] ${shown} ≠ ${horizon}`) })
+  e.inferredHorizon?.forEach((expected, i) => { const actual = drafts[i]?.inferredHorizon; if ((actual?.value ?? null) !== expected.value || (actual?.certain ?? false) !== expected.certain) failures.push(`inferredHorizon[${i}] ${actual?.value ?? 'null'}/${actual?.certain ?? false} ≠ ${expected.value}/${expected.certain}`) })
   e.due?.forEach((due, i) => { const d = drafts[i]; const shown = d?.due.certain ? d.due.value : null; if (shown !== due) failures.push(`due[${i}] ${shown} ≠ ${due}`) })
   if (e.anyDue && !drafts.some(d => d.due.certain && d.due.value === e.anyDue)) failures.push(`no draft due ${e.anyDue}`)
   e.descriptionIncludes?.forEach(text => { if (!drafts.some(d => d.description.includes(text))) failures.push(`no description contains "${text}"`) })
@@ -95,7 +102,7 @@ for (const item of evalCases.filter(row => !only.length || only.includes(row.id)
     const outcome = await run(adapter, apiKey, item)
     if ('error' in outcome) { results.push({ id: item.id, text: item.text, failures: [String(outcome.error)] }); continue }
     const failures = check(item, outcome.preview)
-    results.push({ id: item.id, text: item.text, failures, slots: outcome.slots, calls: outcome.calls, raw: outcome.raw,
+    results.push({ id: item.id, text: item.text, calendar: item.calendar ?? null, failures, slots: outcome.slots, calls: outcome.calls, raw: outcome.raw,
       drafts: outcome.preview.drafts.map(d => ({ title: d.title, description: d.description, horizon: `${d.horizon.value}${d.horizon.certain ? '' : '?'}`, inferred: d.inferredHorizon ? `${d.inferredHorizon.value}${d.inferredHorizon.certain ? '' : '?'}` : null, due: d.due.value ? `${d.due.value}${d.due.certain ? '' : '?'}` : null, roleCertain: d.roleCertain })),
       relations: outcome.preview.relations.filter(r => r.state !== 'no').map(r => ({ child: r.childDraftId, parent: r.parent.kind === 'existing' ? r.parent.itemId : r.parent.draftId, state: r.state, p: r.probability })),
       warnings: outcome.preview.warnings.map(w => w.kind) })

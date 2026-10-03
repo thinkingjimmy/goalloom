@@ -6,6 +6,7 @@
  *        in these throwaway packages; the restart button's relaunch is not driven because it would open the default profile.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createReadStream } from 'node:fs'
@@ -69,9 +70,7 @@ try {
   for (const stream of [application.process().stdout, application.process().stderr]) stream.on('data', chunk => logs.push(String(chunk)))
   const page = await application.firstWindow()
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await finishSetup(page)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
 
   // --- Manual check from Settings › About (before the 15 s background check). ---

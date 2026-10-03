@@ -4,12 +4,12 @@
  * [POS]: Only smart-service workspace reader; no descriptions, history or database ownership during HTTP waits.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import type { SmartContext } from '../../domain/smart/questions'
 import type { ItemSummary } from '../../shared/contracts/entities'
 import type { ItemPage, Snapshot, WorkspaceMetadata } from '../../shared/contracts/queries'
 import type { Candidate } from '../../shared/contracts/smart-input'
 import type { StorageClient } from '../storage/client'
 import { sharedTerm } from '../../domain/smart/terms'
+import { mapPeriodHorizons } from '../../shared/contracts/values'
 import type { WorkspaceReader } from './service'
 
 export const candidateLimit = 8
@@ -21,7 +21,7 @@ export function storageReader(storage: () => StorageClient): WorkspaceReader {
   return {
     generation: async () => (await storage().call<WorkspaceMetadata>('metadata')).workspace.generation,
     async context(text, hints, referenceTime) {
-      const { workspaceDate } = await import('../../domain/calendar')
+      const { currentPeriod, workspaceDate } = await import('../../domain/calendar')
       const current = await snapshot()
       const calendar = current.workspace.calendar
       if (!calendar || !current.workspace.setupConfirmedAt) return null
@@ -50,8 +50,8 @@ export function storageReader(storage: () => StorageClient): WorkspaceReader {
       }))
       const referenceDate = workspaceDate(calendar.timezone, referenceTime)
       const dayOfWeek = new Date(`${referenceDate}T00:00:00Z`).getUTCDay() || 7
-      const periods = Object.fromEntries(current.periods.map(period => [period.horizon, { id: period.id, startDate: period.startDate, endDate: period.endDate }])) as SmartContext['periods']
-      return { text, referenceDate, weekdayName: weekdayNames[dayOfWeek]!, timezone: calendar.timezone, weekStart: calendar.weekStart, periods, candidates }
+      const periods = mapPeriodHorizons(horizon => { const period = currentPeriod(calendar, horizon, referenceTime); return { id: period.id, startDate: period.startDate, endDate: period.endDate } })
+      return { text, referenceDate, weekdayName: weekdayNames[dayOfWeek]!, timezone: calendar.timezone, weekStart: calendar.weekStart, calendar, periods, candidates }
     },
   }
 }

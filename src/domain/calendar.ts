@@ -1,15 +1,16 @@
 /**
  * [INPUT]: Explicit observation time, fixed IANA timezone/week start and the native Temporal boundary.
- * [OUTPUT]: 日/周/月/三个月的排他区间及固定 UTC 边界，不读取系统时钟。
- * [POS]: 独立领域库；三个月按已确认 D07 从原锚点推导。
+ * [OUTPUT]: Six exclusive planning ranges with fixed UTC boundaries, derived without a global clock.
+ * [POS]: Pure calendar rules; rolling/natural modes share original-anchor month clamping.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Temporal, type PlainDate } from './temporal'
 import { serverText } from '../shared/i18n/server'
+import { isAnchoredHorizon, type AnchoredHorizon, type PeriodHorizon } from '../shared/contracts/values'
 
-export type Horizon = 'day' | 'week' | 'month' | 'cycle'
+export type Horizon = PeriodHorizon
 export interface Clock { now(): string }
-export interface Calendar { id: string; timezone: string; weekStart: number; cycleAnchor?: string }
+export interface Calendar { id: string; timezone: string; weekStart: number; cycleAnchor?: string; mode?: 'rolling' | 'natural' }
 export interface Period {
   id: string
   horizon: Horizon
@@ -26,6 +27,7 @@ export function validateCalendar(calendar: Calendar): void {
   if (!/^[A-Za-z][A-Za-z0-9_+\-/]*$/.test(calendar.timezone)) throw new Error(serverText().calendar.timezoneRequired)
   new Intl.DateTimeFormat('en', { timeZone: calendar.timezone }).format(0)
   if (calendar.cycleAnchor !== undefined) parseDate(calendar.cycleAnchor)
+  if (calendar.mode === 'natural' && !calendar.cycleAnchor?.endsWith('-01-01')) throw new Error(serverText().calendar.invalidCalendar)
 }
 
 export function parseDate(value: string): PlainDate {
@@ -33,21 +35,23 @@ export function parseDate(value: string): PlainDate {
   return Temporal.PlainDate.from(value, { overflow: 'reject' })
 }
 
-export function cycleRange(anchor: string, today: PlainDate): [PlainDate, PlainDate] {
+export function anchoredRange(anchor: string, today: PlainDate, monthsPerPeriod: number): [PlainDate, PlainDate] {
   const origin = parseDate(anchor)
   if (Temporal.PlainDate.compare(origin, today) > 0) throw new Error(serverText().calendar.anchorAfterToday)
   const months = (today.year - origin.year) * 12 + today.month - origin.month
-  let index = Math.floor(months / 3)
-  if (Temporal.PlainDate.compare(origin.add({ months: index * 3 }), today) > 0) index--
-  return [origin.add({ months: index * 3 }), origin.add({ months: (index + 1) * 3 })]
+  let index = Math.floor(months / monthsPerPeriod)
+  if (Temporal.PlainDate.compare(origin.add({ months: index * monthsPerPeriod }), today) > 0) index--
+  return [origin.add({ months: index * monthsPerPeriod }), origin.add({ months: (index + 1) * monthsPerPeriod })]
 }
+export const cycleRange = (anchor: string, today: PlainDate): [PlainDate, PlainDate] => anchoredRange(anchor, today, 3)
+const anchoredMonths: Record<AnchoredHorizon, number> = { year: 12, half: 6, cycle: 3 }
 
 export function currentPeriod(calendar: Calendar, horizon: Horizon, observedAt: string): Period {
   validateCalendar(calendar)
   const today = Temporal.Instant.from(observedAt).toZonedDateTimeISO(calendar.timezone).toPlainDate()
-  if (horizon === 'cycle') {
+  if (isAnchoredHorizon(horizon)) {
     if (!calendar.cycleAnchor) throw new Error(serverText().calendar.anchorMissing)
-    const [start, end] = cycleRange(calendar.cycleAnchor, today)
+    const [start, end] = anchoredRange(calendar.cycleAnchor, today, anchoredMonths[horizon])
     return makePeriod(calendar, horizon, start, end)
   }
   const starts = {
@@ -72,7 +76,7 @@ export function makePeriod(calendar: Calendar, horizon: Horizon, start: PlainDat
 
 export function precedingPeriod(calendar: Calendar, period: Period): Period | null {
   const instant = Temporal.Instant.from(period.startAt).subtract({ nanoseconds: 1 }).toString()
-  if (period.horizon === 'cycle' && period.startDate === calendar.cycleAnchor) return null
+  if (isAnchoredHorizon(period.horizon) && period.startDate === calendar.cycleAnchor) return null
   return currentPeriod(calendar, period.horizon, instant)
 }
 

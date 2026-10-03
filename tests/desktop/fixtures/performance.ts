@@ -37,7 +37,7 @@ async function main() {
   const measured: Record<string, number | number[]> = {}
   const measure = <T>(label: string, work: () => T): T => { const t = performance.now(); const result = work(); measured[label] = Math.round((performance.now() - t) * 10) / 10; return result }
   const measureAsync = async <T>(label: string, work: () => Promise<T>): Promise<T> => { const t = performance.now(); const result = await work(); measured[label] = Math.round((performance.now() - t) * 10) / 10; return result }
-  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: start.toPlainDate().toString(), confirmed: true })
+  run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: start.toPlainDate().toString() }, confirmed: true })
   const description = '中文长说明，用于搜索与恢复验收。Alpha beta mixed %_正文。'.repeat(12)
   const seedAt = performance.now()
   for (let day = 0; day < 30; day++) {

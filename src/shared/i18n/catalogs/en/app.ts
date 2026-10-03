@@ -60,6 +60,7 @@ export const appMessages: typeof source = {
     danglingReferences: 'The database contains dangling references',
   },
   errors: {
+    setupDateChanged: 'The date has changed. Confirm the new start date.',
     invalidPlanningPeriod: "Choose a valid planning period",
     planningPeriodExpired: "This period has ended. Your input is kept; choose a new period.",
     cannotAdvancePeriod: "Only active to-dos in a planning period can move to the next period",

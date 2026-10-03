@@ -4,6 +4,7 @@
  * [POS]: Packaged desktop acceptance for native paths; no dialog mocks or real workspace data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -20,9 +21,7 @@ const application = await electron.launch({ ...options, env: environment })
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
 try {
   const page = await application.firstWindow()
-  await page.getByRole('button', { name: '先跳过', exact: true }).click()
-  await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await finishSetup(page)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   const original = await page.evaluate(async () => {
     const snapshot = await window.goalloom.getSnapshot(), generation = snapshot.workspace.generation

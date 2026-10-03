@@ -6,8 +6,8 @@
 scripts/
 ├── test.mjs                   # 用锁定 Electron 自带 Node 运行 Vitest
 ├── eval/                      # 智能输入真实服务评测（需 .env.local 中的 OPENROUTER_API_KEY，不进 CI）
-│   ├── cases.ts               # 固定参考日的中文样例与期望预览
-│   ├── smart.ts               # 走产品真实 planQuestions/adapter/buildPreview，输出 output/eval 报告
+│   ├── cases.ts               # Chinese cases with optional mode/anchor/today/timezone/week-start and inferred value/certainty expectations
+│   ├── smart.ts               # Real planQuestions/adapter/buildPreview with freshly calculated case periods; output/eval reports
 │   └── run.mjs                # esbuild 打包后用 Electron 自带 Node/native Temporal 运行；`pnpm eval:smart [case-id…]`
 └── build/
     ├── third-party-notices.mjs # 汇总安装依赖原始许可证，随离线包交付
