@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: Japanese flow-insight copy: breakpoints, onboarding, drafting, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: Japanese flow-insight copy: breakpoints, onboarding, count-free draft actions, period-named review entries/titles, matrix legends and settings.
  * [POS]: Japanese insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -38,7 +38,7 @@ export const insightMessages: InsightCatalog = {
   seedInclude: title => `「${title}」を作成`,
   emptyTitle: column => `${column}はまだ空です`,
   emptyBody: (column, count) => `${column}の ${count} 件がまだここに分解されていません。`,
-  emptyDraft: count => `${count} 件それぞれに一歩を作る`,
+  emptyDraft: '次のステップを提案',
   emptyOwn: '自分で書く',
   menuMoveTo: '移動先…',
   menuDecompose: '次の一歩',

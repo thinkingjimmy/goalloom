@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: French UI copy and parameterized messages, including feedback destinations and partial restores.
+ * [OUTPUT]: French UI copy and parameterized messages, including column add-task labels, feedback destinations and partial restores.
  * [POS]: French message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -91,6 +91,7 @@ export const messages: MessageCatalog = {
   addTo: "Ajouter à",
   cancel: "Annuler",
   addItem: "Ajouter un élément",
+  addTask: "Ajouter une tâche…",
   reopen: "Rouvrir",
   complete: "Terminer",
   overdue: "Échéance dépassée · ",
@@ -133,7 +134,6 @@ export const messages: MessageCatalog = {
   dueDate: "Échéance",
   dueDateNote: "L’échéance est indépendante de la colonne. Choisir une date future ne déplace pas la tâche.",
   save: "Enregistrer",
-  locate: "Afficher dans le tableau",
   restoreItemAction: "Restaurer l’élément",
   reopenAction: "Rouvrir",
   markDone: "Marquer comme terminé",
@@ -264,9 +264,9 @@ export const messages: MessageCatalog = {
   flowRootTag: "Flux",
   startFlow: "Démarrer un flux ici",
   startFlowHint: "Choisissez une couleur pour que cet élément démarre un nouveau flux.",
-  linkToParent: "Lier à un parent…",
+  linkToParent: "Lier à un parent",
   dragRelationHint: "Faites glisser vers une tâche à plus long terme pour la lier ; cliquez pour ouvrir le menu",
-  adoptParentFlowHint: "La liaison retire la couleur propre et suit le flux du parent",
+  adoptParentFlowHint: "Un parent sans couleur ni autre lien devient l’origine et garde cette couleur ; sinon, son flux est suivi. Les enfants existants restent liés.",
   relationTargetChanged: "La tâche a changé. Recommencez la liaison.",
   relationLinkFailed: "Impossible de lier les tâches. Réessayez.",
   relationLinked: (title: string) => `Lié à « ${title} »`,

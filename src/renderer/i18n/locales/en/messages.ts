@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: English UI copy and parameterized messages, including feedback destinations and partial restores.
+ * [OUTPUT]: English UI copy and parameterized messages, including column add-task labels, feedback destinations and partial restores.
  * [POS]: English message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -91,6 +91,7 @@ export const messages: MessageCatalog = {
   addTo: "Add to",
   cancel: "Cancel",
   addItem: "Add item",
+  addTask: "Add task…",
   reopen: "Reopen",
   complete: "Complete",
   overdue: "Overdue · ",
@@ -133,7 +134,6 @@ export const messages: MessageCatalog = {
   dueDate: "Due date",
   dueDateNote: "The due date is independent of the column. Choosing a future date won’t move the task.",
   save: "Save",
-  locate: "Show on board",
   restoreItemAction: "Restore item",
   reopenAction: "Reopen",
   markDone: "Mark as done",
@@ -264,9 +264,9 @@ export const messages: MessageCatalog = {
   flowRootTag: "Flow",
   startFlow: "Start a flow here",
   startFlowHint: "Pick a colour to make this item the start of a new flow.",
-  linkToParent: "Link to a parent…",
+  linkToParent: "Link to a parent",
   dragRelationHint: "Drag to an item in a longer horizon to link; click to open the menu",
-  adoptParentFlowHint: "Linking removes the independent color and follows the parent",
+  adoptParentFlowHint: "An uncolored parent with no other links becomes the flow root and keeps this color; otherwise, follow its flow. Existing children stay linked.",
   relationTargetChanged: "The item changed. Start linking again.",
   relationLinkFailed: "Could not link the items. Please try again.",
   relationLinked: (title: string) => `Linked to “${title}”`,

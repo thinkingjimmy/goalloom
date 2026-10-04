@@ -3,11 +3,12 @@
  * [OUTPUT]: Independent pointer linking, edge scrolling and a shared keyboard-menu adoption action. The copy-free preview marks
  *           eligible rows (the rest fade), routes the connector like the drawn relation line and snaps it, in the parent's
  *           flow colour, to the target's port; an adopting flow root shows its colour change beside its row.
+ *           Colorless pairs are excluded; isolated-parent root promotion previews the retained source color.
  * [POS]: Board gesture boundary; never moves items. Pointer frames update only the overlay; transactions own all writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createContext, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
-import { mayParent } from '../../../domain/relations'
+import { mayLinkFlows, mayParent, promotedFlowColor } from '../../../domain/relations'
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { horizons } from '../../../shared/contracts/values'
@@ -54,8 +55,10 @@ export function useRelationDrag(input: { snapshot: Snapshot; view: BoardView; fl
       const [p, c] = await Promise.all([desktopApi().getItem(parent.id), desktopApi().getItem(child.id)])
       if (latest.current.generation !== origin.generation || latest.current.selection !== origin.selection || p.item.deletedAt || c.item.deletedAt
         || visibleOnly && (!available(p.item) || !available(c.item))
-        || !samePlacement(p.item, parent) || !samePlacement(c.item, child) || c.item.flowColor !== child.flowColor
-        || !mayParent(p.item.placement.horizon, c.item.placement.horizon)) { changed = true; return null }
+        || !samePlacement(p.item, parent) || !samePlacement(c.item, child) || c.item.flowColor !== child.flowColor || p.item.flowColor !== parent.flowColor
+        || !mayParent(p.item.placement.horizon, c.item.placement.horizon)
+        || !mayLinkFlows(origin.flows.of(parent.id).length > 0, origin.flows.of(child.id).length > 0)
+        || promotedFlowColor(parent, child, origin.snapshot.relations) !== null && p.relations.length > 0) { changed = true; return null }
       return { type: 'link', parentId: parent.id, childId: child.id, expectedParentVersion: p.item.version, expectedChildVersion: c.item.version,
         ...(child.flowColor !== null ? { adoptParentFlow: true as const } : {}) }
     }, origin.generation)
@@ -97,7 +100,8 @@ export function useRelationDrag(input: { snapshot: Snapshot; view: BoardView; fl
         while (pending.length) { const id = pending.pop()!; if (visited.has(id)) continue; visited.add(id); excluded.add(id); pending.push(...children.get(id) ?? []) }
       }
       const horizon = item.placement.horizon
-      return !excluded.has(item.id) && available(item) && mayParent(horizon, source.placement.horizon) && current.view.mode(horizon) !== 'history'
+      return !excluded.has(item.id) && available(item) && mayParent(horizon, source.placement.horizon)
+        && mayLinkFlows(current.flows.of(item.id).length > 0, current.flows.of(source.id).length > 0) && current.view.mode(horizon) !== 'history'
         && !current.view.loading(horizon) && !(current.view.mode(horizon) === 'future' && current.view.failed)
     }
     const hit = () => {
@@ -105,9 +109,9 @@ export function useRelationDrag(input: { snapshot: Snapshot; view: BoardView; fl
       const viewport = node && board.contains(node) && dropViewport(node), clipped = viewport && intersectRect(node!.getBoundingClientRect(), viewport)
       const item = clipped && within(point, clipped) ? latest.current.view.items.find(item => item.id === node?.dataset.itemId) : null
       const next = item && eligible(item) ? node : null
+      color = next ? promotedFlowColor(item!, source, latest.current.snapshot.relations) ?? latest.current.flows.colorsOf(item!.id)[0] ?? null : null
       if (targetRow !== next) {
         targetRow?.removeAttribute('data-relation-target'); targetRow?.style.removeProperty('--relation-tint')
-        color = next ? latest.current.flows.colorsOf(item!.id)[0] ?? null : null
         next?.setAttribute('data-relation-target', 'true'); if (next && color !== null) next.style.setProperty('--relation-tint', flowTint(color))
         targetRow = next
       }

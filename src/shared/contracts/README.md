@@ -8,9 +8,9 @@ contracts/
 ├── entities.ts   # 工作区、rolling/natural 日历、实体 summary/detail、唯一位置、DAG 边和周期 schema
 ├── wire-calendar.ts # Gregorian 日期与 IANA 时区的轻量边界校验，不引入 Temporal
 ├── commands.ts   # Finite writes including expected-date setup confirmation, opt-in link adoption, parent-group-aware moves, six-horizon targets and guarded receipts
-├── effects.ts    # Immutable effects including relation-owned color deltas and body-free events
+├── effects.ts    # Immutable relation-owned adoption/promotion color deltas and body-free events
 ├── history.ts    # Strict events, immutable period-end projections/activity and separate revision-bound live past-task pages
-├── transfer.ts   # v1–v6 datasets, effect whitelist including adoption colors, backup/restore/reset confirmations and batch DTOs
+├── transfer.ts   # v1–v6 datasets, adoption/promotion effect whitelist, backup/restore/reset confirmations and batch DTOs
 ├── smart-input.ts # Jev 服务、设备状态、六尺度周期 / 起草 DTO、智能动作与修订回声
 ├── link-preview.ts # Strict public link preview/open actions and bounded inert metadata; lightweight syntax lives in ../links.ts
 ├── queries.ts    # Up to six selected periods, ancestor metadata, generation-guarded reviewContext and pastPeriod pages, details/search, immutable history and counts

@@ -3,8 +3,9 @@
 ## Product rules
 
 - Descriptions edit in place with Markdown shortcuts and retain Markdown strings in the existing item field. Opening, selecting text and resolving metadata never save or dirty an item.
+- The empty prompt and input share font and line metrics. Typing starts on the prompt's baseline, including compact windows and zoomed text; the multiline editor keeps its full-height area.
 - Support paragraphs, line breaks, headings, nested ordered/unordered lists, Markdown task lists (`- [ ]` / `- [x]`, including uppercase `X`), emphasis, strike, quotes, inline/fenced code and safe HTTP(S) links. Task-list checkboxes immediately autosave the description; they never change the owning item's completion or create subtask records. Unsupported syntax remains text. No attachments or tables are introduced.
-- Details save silently: title/description typing debounces for 500ms; blur, deadline selection/clear and checklist toggles flush immediately. No Save/Discard footer or success Toast. Closing, related-item navigation, locate and decompose drain pending edits first. Enter/submit still flushes and ends editing. Editor undo owns text while focused; persistence never resets its history or selection. Composition defers writes until it ends. Deleted items render read-only; titles remain required and at most 500 characters, serialized Markdown at most 100,000 characters.
+- Details save silently: title/description typing debounces for 500ms; blur, deadline selection/clear and checklist toggles flush immediately. No Save/Discard footer or success Toast. Closing, related-item navigation and decompose drain pending edits first. Enter/submit still flushes and ends editing. Editor undo owns text while focused; persistence never resets its history or selection. Composition defers writes until it ends. Deleted items render read-only; titles remain required and at most 500 characters, serialized Markdown at most 100,000 characters.
 - Save failures and invalid input retain the detail and draft with a localized inline error and Retry. Unknown outcomes resolve the original receipt before any new operation. Native window close/quit drains detail edits before continuing; a failed drain keeps the window and storage alive. Composer drafts retain their explicit confirmation. No persistent draft or crash-recovery subsystem is introduced.
 - Bare links display cached page titles and favicons; named links retain authored labels. Code stays literal. New destinations request metadata only after saving. Metadata is presentation, never document content.
 - Inline titles and named links wrap within the surrounding paragraph; the link itself never applies a width cap or ellipsis. Missing legacy icons are enriched without changing Markdown or editor history.
@@ -49,8 +50,14 @@ Selection-tool positioning regression cases recorded before implementation:
 - Scrolling leaves tools at stale coordinates or over the dialog header/footer; a selection outside the visible text area leaves an orphaned toolbar. Resizing and changing panel size must recompute placement without moving the editor or writing a draft.
 - Moving focus into the link form loses the saved anchor; formatting/cancel/Escape changes the wrong text, closes the detail, dirties a clean note or breaks local undo.
 
+First-line typography regression cases recorded before implementation (2026-10-03):
+
+- Empty placeholder and typed first character use different line metrics, shifting the baseline when typing begins. Locale, theme or zoom changes must not reintroduce the drift.
+- Adjusting the placeholder collapses the full-height editor or makes pure focus/selection dirty an empty description.
+
 ## Acceptance
 
+- [x] Empty prompts and typed first glyphs share the same baseline/inset across five locales, four themes and normal/150% zoom, while retaining full editor height and read-only focus.
 - [x] Silent autosave, pending-input drains, receipt/failure recovery and native close/quit pass the isolated desktop autosave scenarios.
 
 - [x] Desktop E2E covers editing, serialization, persistence, undo/redo, composition-Enter protection and saved-only links with repeatable reports/screenshots.
@@ -66,6 +73,8 @@ Lexical 0.51.0 loads with `ItemDetail`; the initial board does not import the ed
 Autosave is owned by `features/items/use-item-autosave.ts`. The workspace writer reserves the write slot before reading versions; clean fields merge from authoritative reads while local dirty fields survive refresh. Receipts advance only the submitted baseline. The narrow native close handshake is token-bound to the trusted main frame; it carries no task content. `pnpm test:autosave` writes its report/screenshots under `output/tests/autosave/`.
 
 Run the feature-owned commands in the [test map](../development.md#测试范围). Native editing evidence lives in `output/tests/descriptions/`; link transport/cache evidence in `output/tests/link-previews/`; renderer/virtual reports in `output/tests/review-fixes/`. Composition events are simulated; these runs do not claim a physical input-method session or Windows/packaged acceptance.
+
+`node tests/desktop/descriptions.mjs --alignment` measures empty/typed first-glyph geometry across five locales, four themes, native large/compact windows and 100%/150% zoom. The shared editor container owns line-height so the absolutely positioned placeholder and editable first paragraph stay on the same baseline. Reports and screenshots live in `output/tests/descriptions/alignment/`; full description acceptance includes these scenarios.
 
 Selection tools retain a DOM range while the link form owns focus and render in the native dialog's floating layer. Placement measures the current panel against visible clipping ancestors, follows scroll/resize/content changes and hides when its selection leaves view. It does not clamp tools into the description's first line or alter editor layout. `node tests/desktop/descriptions.mjs --selection-tools` reproduces the native geometry and selection-semantics cases with evidence in `output/tests/descriptions/selection-tools/`.
 

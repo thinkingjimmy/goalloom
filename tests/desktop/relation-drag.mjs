@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build, native pointer input and isolated production Repository fixtures.
- * [OUTPUT]: Drag linking, adoption/undo, receipt recovery, automatic order, cancellation, scroll and locale evidence in output/tests/relation-drag.
+ * [OUTPUT]: Drag linking, flow-valid picking, root promotion/adoption/undo, receipt recovery, ordering and locale evidence in output/tests/relation-drag.
  * [POS]: Relation feature acceptance; no renderer bridge replacement or real user data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -39,6 +39,7 @@ try {
   await finishSetup(page)
   await page.locator('.board').waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+  report.flowPolicy = { rejected: [] }
   const ids = await page.evaluate(async () => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation
     const run = async action => { const r = await window.goalloom.execute({ generation, operationId: crypto.randomUUID(), ...action }); if (!r.ok) throw Error(r.message); return r.result }
@@ -51,10 +52,13 @@ try {
     const root = await create('Merge root', 'month', { flowColor: 1 })
     const leaf = await create('Root child', 'week', { parentId: root, expectedParentVersion: (await item(root)).version })
     const keyboard = await create('Keyboard root', 'day', { flowColor: 2 })
-    const done = await create('Completed parent', 'week')
+    const isolated = await create('Independent upper goal', 'cycle')
+    const legacyParent = await create('Legacy uncolored parent', 'month')
+    const legacyChild = await create('Legacy uncolored child', 'day', { parentId: legacyParent, expectedParentVersion: (await item(legacyParent)).version })
+    const done = await create('Completed parent', 'week', { parentId: m, expectedParentVersion: (await item(m)).version })
     await run({ type: 'status', itemId: done, expectedVersion: 1, status: 'done' })
     const later = await create('Later target', 'later'), peer = await create('Day peer', 'day')
-    return { p, m, w, w2, day, root, leaf, keyboard, done, later, peer }
+    return { p, m, w, w2, day, root, leaf, keyboard, isolated, legacyParent, legacyChild, done, later, peer }
   })
   const row = id => page.locator(`#item-${id}`), dot = id => row(id).locator('.flow-dot-button')
   const column = horizon => page.locator(`.board-column[data-horizon="${horizon}"]`)
@@ -81,6 +85,52 @@ try {
   const press = await dot(ids.day).boundingBox()
   await page.mouse.move(press.x + 9, press.y + 9); await page.mouse.down(); await page.mouse.move(press.x + 5, press.y + 9)
   assert.equal(await page.locator('.relation-drag').count(), 0); await page.mouse.up(); await page.locator('.flow-choose').waitFor(); await page.keyboard.press('Escape')
+  await row(ids.peer).hover(); await dot(ids.peer).click()
+  await page.locator('.flow-choose').getByRole('menuitem', { name: /关联到上级/ }).click()
+  const picker = page.locator('.relation-picker')
+  assert.equal(await picker.getByRole('menuitemcheckbox', { name: /Independent upper goal/ }).count(), 0)
+  await picker.getByRole('menuitemcheckbox', { name: /Month parent/ }).waitFor()
+  await picker.locator('input').fill('Month parent')
+  await picker.getByRole('menuitemcheckbox', { name: /Parent flow/ }).waitFor({ state: 'detached' })
+  await picker.getByRole('menuitemcheckbox', { name: /Month parent/ }).waitFor()
+  await picker.locator('input').fill('Independent upper goal')
+  await picker.getByRole('menuitemcheckbox', { name: /Month parent/ }).waitFor({ state: 'detached' })
+  assert.equal(await picker.getByRole('menuitemcheckbox').count(), 0)
+  await shot('uncolored-parent-filtered'); await page.keyboard.press('Escape')
+  await row(ids.isolated).getByRole('button', { name: 'Independent upper goal', exact: true }).click()
+  const detail = page.getByRole('dialog', { name: '当前条目', exact: true })
+  await detail.getByRole('button', { name: '关联已有', exact: true }).click()
+  assert.equal(await detail.locator('.relation-picker').getByRole('menuitemcheckbox', { name: /Day peer/ }).count(), 0)
+  await page.keyboard.press('Escape'); await detail.getByRole('button', { name: '关闭', exact: true }).click()
+  const beforeColorless = await snapshot()
+  await start(ids.peer); await aim(ids.isolated)
+  assert.equal(await row(ids.isolated).getAttribute('data-relation-target'), null)
+  assert.equal(await row(ids.isolated).getAttribute('data-relation-eligible'), null)
+  await page.mouse.up()
+  assert.deepEqual((await snapshot()).relations, beforeColorless.relations)
+  assert.equal((await snapshot()).workspace.revision, beforeColorless.workspace.revision)
+  const noFlowMessages = {"zh":"两个无流程的条目不能关联，请先设置流程起点","en":"Two items without a flow cannot be linked. Set a flow root first","ja":"フローのない項目同士は関連付けできません。先にフローの起点を設定してください","es":"No se pueden vincular dos elementos sin flujo. Define primero un origen de flujo","fr":"Deux éléments sans flux ne peuvent pas être liés. Définissez d’abord une origine de flux"}
+  for (const [locale, message] of Object.entries(noFlowMessages)) {
+    await page.evaluate(locale => window.goalloom.setLanguage(locale), locale)
+    const rejected = await page.evaluate(async ({ parentId, childId }) => {
+      const before = await window.goalloom.getSnapshot(), p = await window.goalloom.getItem(parentId), c = await window.goalloom.getItem(childId)
+      const reply = await window.goalloom.execute({ type: 'link', parentId, childId, expectedParentVersion: p.item.version, expectedChildVersion: c.item.version,
+        generation: before.workspace.generation, operationId: crypto.randomUUID() })
+      const after = await window.goalloom.getSnapshot()
+      return { reply, unchanged: before.workspace.revision === after.workspace.revision && JSON.stringify(before.relations) === JSON.stringify(after.relations) }
+    }, { parentId: ids.isolated, childId: ids.peer })
+    assert.equal(rejected.reply.ok, false); assert.equal(rejected.reply.code, 'conflict'); assert.equal(rejected.reply.message, message); assert.equal(rejected.unchanged, true)
+    report.flowPolicy.rejected.push({ locale, message, unchanged: true })
+  }
+  await page.evaluate(() => window.goalloom.setLanguage('zh'))
+  await row(ids.legacyChild).hover(); await dot(ids.legacyChild).click()
+  const legacyChoice = page.locator('.relation-picker').getByRole('menuitemcheckbox', { name: /Legacy uncolored parent/ })
+  await legacyChoice.waitFor(); assert.equal(await legacyChoice.getAttribute('aria-checked'), 'true')
+  await legacyChoice.click(); await settled(); await page.keyboard.press('Escape')
+  assert(!(await snapshot()).relations.some(edge => edge.parentId === ids.legacyParent && edge.childId === ids.legacyChild))
+  await undo(); await linked(ids.legacyParent, ids.legacyChild)
+  if (await page.locator('.toast').count()) await page.locator('.toast').getByRole('button', { name: '关闭操作提示', exact: true }).click()
+  checks.push('Both selectors and parent search exclude colorless pairs; inherited-color parents stay selectable; invalid dragging makes no writes; existing colorless edges unlink and undo')
   const placement = (await item(ids.day)).item.placement
   await start(ids.day); await aim(ids.w); await row(ids.w).locator(':scope[data-relation-target="true"]').waitFor(); await shot('valid-drop')
   assert.equal(await page.locator('.drag-overlay').count(), 0)
@@ -115,6 +165,29 @@ try {
   assert(!(await snapshot()).relations.some(e => e.parentId === ids.p && e.childId === ids.root))
   assert.equal(await ring(ids.leaf), await ring(ids.root), 'One undo restores the descendant flow with its root')
   if (await page.locator('.toast').count()) await page.locator('.toast').getByRole('button', { name: '关闭操作提示', exact: true }).click()
+  await page.getByRole('button', { name: '只看 Merge root', exact: true }).click()
+  const originalRoot = (await item(ids.root)).item, originalParent = (await item(ids.isolated)).item
+  await start(ids.root); await aim(ids.isolated)
+  await row(ids.isolated).locator(':scope[data-relation-target="true"]').waitFor()
+  const promotion = await page.locator('.relation-drag-adopt > span').evaluateAll(nodes => nodes.map(node => ({ empty: node.dataset.empty, color: getComputedStyle(node).backgroundColor })))
+  assert.equal(promotion.length, 2); assert.equal(promotion[1].empty, undefined); assert.equal(promotion[0].color, promotion[1].color)
+  await shot('flow-root-promotion-preview')
+  await page.mouse.up(); await linked(ids.isolated, ids.root); await settled()
+  assert.equal((await item(ids.isolated)).item.flowColor, 1)
+  assert.equal((await item(ids.root)).item.flowColor, null)
+  assert.deepEqual((await item(ids.root)).item.placement, originalRoot.placement)
+  assert.deepEqual((await item(ids.isolated)).item.placement, originalParent.placement)
+  await page.getByRole('button', { name: '只看 Independent upper goal', exact: true, pressed: true }).waitFor()
+  assert.equal(await ring(ids.leaf), await ring(ids.isolated))
+  await shot('flow-root-promoted')
+  await undo(); await pollPage(page, async id => (await window.goalloom.getItem(id)).item.flowColor === 1, ids.root)
+  assert.equal((await item(ids.isolated)).item.flowColor, null)
+  await page.getByRole('button', { name: '只看 Merge root', exact: true, pressed: true }).waitFor()
+  assert.equal(await ring(ids.leaf), await ring(ids.root))
+  await shot('flow-root-promotion-undone')
+  if (await page.locator('.toast').count()) await page.locator('.toast').getByRole('button', { name: '关闭操作提示', exact: true }).click()
+  await page.getByRole('button', { name: '全部', exact: true }).click()
+  checks.push('Independent uncolored parent receives the original root color atomically; preview, descendants, placements and selected flow survive promotion and one undo')
   await row(ids.keyboard).hover(); await dot(ids.keyboard).focus(); await page.keyboard.press('Enter')
   await page.locator('.popover-floating').getByRole('menuitem', { name: /关联到上级/ }).focus(); await page.keyboard.press('Enter')
   await page.locator('.relation-picker input').fill('Second parent')
@@ -147,6 +220,13 @@ try {
   await column('day').locator('[data-return-current]').click()
   checks.push('Explicit blur, pointer cancellation and period switch clear the gesture')
 
+  await page.evaluate(async ({ parentId, childId }) => {
+    const s = await window.goalloom.getSnapshot(), parent = await window.goalloom.getItem(parentId), child = await window.goalloom.getItem(childId)
+    const r = await window.goalloom.execute({ type: 'link', parentId, childId, expectedParentVersion: parent.item.version, expectedChildVersion: child.item.version,
+      generation: s.workspace.generation, operationId: crypto.randomUUID() })
+    if (!r.ok) throw Error(r.message)
+  }, { parentId: ids.m, childId: ids.w2 })
+  await linked(ids.m, ids.w2); await settled()
   const future = await page.evaluate(async () => {
     const s = await window.goalloom.getSnapshot(), current = s.periods.find(p => p.horizon === 'day')
     const date = new Date(current.startDate); date.setUTCDate(date.getUTCDate() + 1)

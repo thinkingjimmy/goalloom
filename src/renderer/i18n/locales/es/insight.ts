@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: Spanish flow-insight copy: breakpoints, onboarding, drafting, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: Spanish flow-insight copy: breakpoints, onboarding, count-free draft actions, period-named review entries/titles, matrix legends and settings.
  * [POS]: Spanish insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -38,7 +38,7 @@ export const insightMessages: InsightCatalog = {
   seedInclude: title => `Crear «${title}»`,
   emptyTitle: column => `${column} está vacío`,
   emptyBody: (column, count) => `${count} de ${column} aún no se han desglosado aquí.`,
-  emptyDraft: count => `Un paso para cada una (${count})`,
+  emptyDraft: 'Preparar próximos pasos',
   emptyOwn: 'Escribir yo',
   menuMoveTo: 'Mover a…',
   menuDecompose: 'Siguiente paso',

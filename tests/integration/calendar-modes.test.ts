@@ -28,7 +28,7 @@ let now: string
 const horizons = ['year', 'half', 'cycle', 'month', 'week', 'day'] as const
 const run = (command: Record<string, unknown>) => repo.execute({ ...command, generation: repo.store.workspace().generation, operationId: randomUUID() })
 const setup = (mode = 'rolling', anchor: unknown = { kind: 'date', date: '2025-01-31' }) => run({ type: 'confirmSetup', mode, anchor, timezone: 'UTC', weekStart: 1, confirmed: true })
-const create = (horizon: ItemHorizon, title: string = horizon) => run({ type: 'create', title, horizon }).itemId!
+const create = (horizon: ItemHorizon, title: string = horizon, flowColor: number | null = null) => run({ type: 'create', title, horizon, flowColor }).itemId!
 function flows(): Flows {
   const all = repo.snapshot().flows
   return { all, visible: all, of: () => all, colorsOf: () => all.map(f => f.flowColor), owner: color => all.find(f => f.flowColor === color), isRoot: id => all.some(f => f.id === id) }
@@ -104,7 +104,7 @@ describe('Authoritative calendar transactions and shared consumers', () => {
     expect(emptyColumns(repo.snapshot(), [...horizons], () => 'current').has('half')).toBe(false)
   })
   it('BUG-10: materializes half/cycle order atomically and undo restores manual order', () => {
-    setup(); const a = create('year', 'A'), b = create('year', 'B')
+    setup(); const a = create('year', 'A', 0), b = create('year', 'B', 1)
     const pairs = horizons.slice(1, 3).map(horizon => {
       const second = create(horizon, 'Second'), first = create(horizon, 'First')
       for (const [parentId, childId] of [[b, second], [a, first]]) run({ type: 'link', parentId, childId, expectedParentVersion: repo.store.item(parentId!).version, expectedChildVersion: repo.store.item(childId!).version })

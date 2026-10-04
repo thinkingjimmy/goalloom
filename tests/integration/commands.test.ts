@@ -15,8 +15,8 @@ beforeEach(() => {
 })
 afterEach(() => repository.db.close())
 function setup() { repository.execute({ type: 'confirmSetup', operationId: randomUUID(), generation, timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-01-31' }, confirmed: true }) }
-function create(title: string, horizon = 'later') {
-  const result = repository.execute({ type: 'create', operationId: randomUUID(), generation, title, horizon })
+function create(title: string, horizon = 'later', flowColor: number | null = null) {
+  const result = repository.execute({ type: 'create', operationId: randomUUID(), generation, title, horizon, flowColor })
   return repository.store.item(result.itemId!)
 }
 function link(parentId: string, childId: string) { return repository.execute({ type: 'link', operationId: randomUUID(), generation, parentId, childId, expectedParentVersion: repository.store.item(parentId).version, expectedChildVersion: repository.store.item(childId).version }) }
@@ -30,8 +30,8 @@ it('显式确认之前拒绝任何条目写入；确认后日历不可改', () =
 })
 it('多父 DAG 允许两个上级，拒绝重复关系；自关联与反向关联先被周期规则拒绝；状态不联动', () => {
   setup()
-  const a = create('A', 'cycle'), b = create('B', 'month'), c = create('C', 'day')
-  link(a.id, c.id); link(b.id, c.id)
+  const a = create('A', 'cycle'), b = create('B', 'month', 0), c = create('C', 'day')
+  link(b.id, c.id); link(a.id, c.id)
   expect(repository.store.relations()).toHaveLength(2)
   expect(() => link(a.id, c.id)).toThrow('已经关联')
   // Horizon rule runs first: a self-link is same-horizon and a new cycle needs a reverse-horizon edge.
@@ -43,7 +43,7 @@ it('多父 DAG 允许两个上级，拒绝重复关系；自关联与反向关�
 })
 it('新建关联：Later 端点与同列/反向周期均拒绝；已有关联随移动保留', () => {
   setup()
-  const later = create('暂存'), month = create('月目标', 'month'), week = create('周任务', 'week'), day = create('今日', 'day'), sibling = create('另一日', 'day')
+  const later = create('暂存'), month = create('月目标', 'month', 0), week = create('周任务', 'week'), day = create('今日', 'day'), sibling = create('另一日', 'day')
   expect(() => link(later.id, day.id)).toThrow('Later 是暂存区')
   expect(() => link(month.id, later.id)).toThrow('Later 是暂存区')
   expect(() => link(day.id, sibling.id)).toThrow('周期更长')

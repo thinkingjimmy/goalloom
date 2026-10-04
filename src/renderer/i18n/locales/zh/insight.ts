@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 列名与条目标题等插值参数。
- * [OUTPUT]: Flow-insight copy and InsightCatalog: breakpoints, onboarding, drafting, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: Flow-insight copy and InsightCatalog: breakpoints, onboarding, count-free draft actions, period-named review entries/titles, matrix legends and settings.
  * [POS]: renderer/i18n/locales/zh 的洞察分册，与 messages.ts 同构；发给模型的提示词不在此处（固定中文）。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -37,7 +37,7 @@ export const insightMessages = widen({
   seedInclude: (title: string) => `创建「${title}」`,
   emptyTitle: (column: string) => `${column}还是空的`,
   emptyBody: (column: string, count: number) => `${column}有 ${count} 项还没拆到这里。`,
-  emptyDraft: (count: number) => `为 ${count} 项各起一步`,
+  emptyDraft: '起草下一步',
   emptyOwn: '自己写',
   menuMoveTo: '移到…',
   menuDecompose: '拆下一步',

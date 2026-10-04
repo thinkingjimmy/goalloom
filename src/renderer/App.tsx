@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Unified candidates/locating, independent Later visibility/count, board-ordered flow filters, board/dialogs, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and a generation-bound resumable review modal.
+ * [OUTPUT]: Unified candidates/initial direction placement, independent Later visibility/count, board-ordered filters that follow root promotion/undo, board/dialogs with input-aware detail focus return, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and a generation-bound resumable review modal.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -60,6 +60,7 @@ export function App() {
   const [palette, setPalette] = useState(false)
   const openPalette = () => startTransition(() => setPalette(true))
   const [filter, setFilter] = useState<string | null>(null)
+  const previousFlows = useRef(snapshot)
   const selectFilter = useCallback((id: string | null) => {
     boardView.returnPastToCurrent()
     setFilter(id)
@@ -82,8 +83,16 @@ export function App() {
     const timer = setTimeout(() => setFeedback(null), feedback.durationMs)
     return () => clearTimeout(timer)
   }, [feedback, toastHeld, busy, setFeedback])
-  const select = useCallback((id: string) => startTransition(() => setSelected(id)), [])
-  const closeDetail = () => { const id = selected; setSelected(null); if (id && !settings) requestAnimationFrame(() => revealRow(id, '.task-title')) }
+  const inputOrigin = useRef<'pointer' | 'keyboard'>('keyboard'), detailFocusOrigin = useRef<'pointer' | 'keyboard'>('keyboard')
+  const select = useCallback((id: string) => {
+    detailFocusOrigin.current = inputOrigin.current
+    startTransition(() => setSelected(id))
+  }, [])
+  const closeDetail = () => {
+    const id = selected, origin = detailFocusOrigin.current
+    setSelected(null)
+    if (id && !settings) requestAnimationFrame(() => revealRow(id, '.task-title', origin))
+  }
   const requestAdd = (horizon: ItemHorizon | null, split: AddRequest['split'] = null) => { setAddRequest(previous => ({ seq: (previous?.seq ?? 0) + 1, horizon, split })) }
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const setupReady = !!snapshot?.workspace.setupConfirmedAt
@@ -94,8 +103,15 @@ export function App() {
   useEffect(() => { document.documentElement.dataset.check = checkStyle }, [checkStyle])
   useEffect(() => { document.documentElement.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other' }, [])
   useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null); setReviewOpen(false) }, [snapshot?.workspace.generation])
-  // A filter pointing at a flow that no longer exists falls back to showing everything.
-  useEffect(() => { if (filter && !flows.visible.some(flow => flow.id === filter)) setFilter(null) }, [flows, filter])
+  // A promoted root keeps the selected flow; unrelated disappearance still returns to the full board.
+  useEffect(() => {
+    const previous = previousFlows.current; previousFlows.current = snapshot
+    if (!filter || flows.visible.some(flow => flow.id === filter)) return
+    const color = previous?.workspace.generation === snapshot?.workspace.generation ? previous?.flows.find(flow => flow.id === filter)?.flowColor : undefined
+    const replacement = flows.visible.find(flow => flow.flowColor === color && (snapshot?.relations.some(edge => edge.parentId === flow.id && edge.childId === filter)
+      || previous?.relations.some(edge => edge.parentId === filter && edge.childId === flow.id)))
+    setFilter(replacement?.id ?? null)
+  }, [snapshot, flows, filter])
   const openSettings = (section?: Section) => startTransition(() => {
     if (section || !settings) setSettingsRequest(previous => ({ section: section ?? 'appearance', at: previous.at + 1 }))
     setSettings(true)
@@ -151,7 +167,8 @@ export function App() {
     return () => window.removeEventListener('keydown', handle)
   }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, reviewOpen, bindings, filterKeys, flows, selectFilter, columns])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
-  return <div className="app-shell">
+  return <div className="app-shell" onPointerDownCapture={() => { inputOrigin.current = 'pointer' }}
+    onKeyDownCapture={event => { if (!event.nativeEvent.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) inputOrigin.current = 'keyboard' }}>
     <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
       laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
       updateAvailable={hasUpdate(update)} openSearch={openPalette} openSettings={() => openSettings()} />
@@ -185,12 +202,7 @@ export function App() {
     </Suspense>
     <Suspense fallback={null}>
     {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={closeDetail} generation={snapshot.workspace.generation} write={write} retryWrite={retryWrite} revision={snapshot.workspace.revision} blocked={!!pending || !!snapshot.maintenance}
-      flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} split={(parent, horizon) => { setSelected(null); setSettings(false); requestAdd(horizon, parent) }}
-      locate={(item, period) => {
-        const horizon = item.placement.horizon
-        if (horizon === 'later') columns.setLaterOpen(true)
-        boardView.locate(item, period); setSettings(false); setSelected(null)
-      }} />}
+      flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} split={(parent, horizon) => { setSelected(null); setSettings(false); requestAdd(horizon, parent) }} />}
     </Suspense>
     {feedback && <FeedbackLayer><div ref={toastRef} className="toast" key={feedback.result.operationId} data-warning={!!feedback.warning}
       onMouseEnter={() => setToastHeld(true)} onMouseLeave={event => setToastHeld(event.currentTarget.contains(document.activeElement))}

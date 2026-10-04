@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Real Electron, a fresh profile, a seeded production preview cache and authoritative IPC fixtures.
- * [OUTPUT]: Repeatable link rendering, cache remount, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
+ * [OUTPUT]: Repeatable link rendering, overlay width stability, cache remount, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
  * [POS]: Focused desktop acceptance with native sizing only; transport and external-browser boundaries are disabled in the test process.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -170,6 +170,7 @@ try {
     const output = { mixed: snapshot.items.find(item => item.title === source.mixed).id }
     const mixed = (await window.goalloom.getItem(output.mixed)).item
     await execute({ type: 'edit', itemId: mixed.id, expectedVersion: mixed.version, title: mixed.title, description: 'https://x.com/trq212/status/2103576349499855160', dueDate: null })
+    await execute({ type: 'flowColor', itemId: mixed.id, expectedVersion: (await window.goalloom.getItem(mixed.id)).item.version, flowColor: 1 })
     for (const [name, horizon] of [['multiple', 'week'], ['repeated', 'month'], ['completed', 'later'], ['archived', 'later']]) {
       const result = await execute({ type: 'create', title: source[name], horizon, description: ['completed', 'archived'].includes(name) ? 'https://x.com/trq212/status/2103576349499855160' : '' }); output[name] = result.itemId
       if (name === 'completed' || name === 'archived') {
@@ -204,6 +205,48 @@ try {
   assert.equal((await probe()).providerFetches.length, 0, 'Fresh cached previews need no provider fetch')
   report.image = imageEvidence
   checks.push('New input preserves raw source; saved mixed prose uses a compact URL label, custom labels survive, duplicate references share a preview, cached PNG decodes under the production CSP')
+
+  const contentGeometry = () => row(ids.mixed).evaluate(element => {
+    const bounds = element.getBoundingClientRect(), title = element.querySelector('.link-title').getBoundingClientRect(), card = element.querySelector('.link-preview').getBoundingClientRect()
+    return { rowWidth: bounds.width, rowHeight: bounds.height, titleWidth: title.width, cardWidth: card.width,
+      titleRightInset: bounds.right - title.right, cardRightInset: bounds.right - card.right }
+  })
+  const idleContent = await contentGeometry()
+  assert.equal(idleContent.titleRightInset, 6, 'Idle titles reserve no space for hidden trailing controls')
+  assert.equal(idleContent.cardRightInset, 8, 'Cards use the row inset plus the existing 2px carousel gutter')
+  const gap = page.locator(`.breakpoint[data-spot-key="gap:${ids.mixed}"]`)
+  await row(ids.mixed).locator('.flow-dot-button').hover()
+  await page.locator('.breakpoint-guide').waitFor()
+  await page.locator('.breakpoint-guide').getByRole('button', { name: '知道了', exact: true }).click()
+  await page.getByRole('button', { name: '全部', exact: true }).hover()
+  await gap.waitFor({ state: 'detached' })
+  await shot('overlay-idle')
+  await row(ids.mixed).locator('.flow-dot-button').hover()
+  await gap.waitFor()
+  const previewContent = await contentGeometry()
+  assert.deepEqual(previewContent, idleContent, 'Dot previews retain title wrapping, row height and URL-card width')
+  await shot('overlay-preview')
+  await page.getByRole('button', { name: `只看 ${titles.mixed}`, exact: true }).click()
+  await page.getByRole('button', { name: '全部', exact: true }).hover()
+  await pollPage(page, id => document.querySelector(`.breakpoint[data-spot-key="gap:${id}"]`)?.dataset.expanded === 'false', ids.mixed)
+  const ring = await gap.evaluate(element => {
+    const bounds = element.getBoundingClientRect(), title = document.getElementById(`item-${element.dataset.spotKey.slice(4)}`).querySelector('.link-title').getBoundingClientRect()
+    return { position: getComputedStyle(element).position, width: bounds.width, right: bounds.right, titleRight: title.right }
+  })
+  assert.equal(ring.position, 'absolute')
+  assert.equal(ring.width, 16)
+  assert(Math.abs(ring.right - ring.titleRight) < 0.5, 'The ring overlays the title edge instead of occupying its own column')
+  assert.deepEqual(await contentGeometry(), idleContent, 'Filtered rings retain full content width')
+  await shot('overlay-ring')
+  await gap.focus()
+  assert.deepEqual(await contentGeometry(), idleContent, 'Keyboard-expanded pills retain full content width')
+  await shot('overlay-keyboard')
+  await gap.blur()
+  await page.getByRole('button', { name: `只看 ${titles.mixed}`, exact: true }).click()
+  await page.getByRole('button', { name: '全部', exact: true }).hover()
+  await gap.waitFor({ state: 'detached' })
+  report.overlay = { idle: idleContent, preview: previewContent, ring }
+  checks.push('Titles and URL cards use full row width; dot previews, filtered rings and keyboard-expanded next-step pills overlay content without changing wrapping or height')
 
   const carousel = row(ids.multiple), track = carousel.locator('.link-carousel-track'), counter = carousel.locator('.link-carousel-count')
   const next = carousel.locator('.link-carousel-next'), previous = carousel.locator('.link-carousel-previous')

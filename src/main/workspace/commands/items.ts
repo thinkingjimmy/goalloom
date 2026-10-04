@@ -1,16 +1,16 @@
 /**
  * [INPUT]: Validated commands, current transaction context and explicit current/date/next targets.
- * [OUTPUT]: Atomic setup, group-checked placement and relationship changes, including opt-in flow adoption with one undo effect.
+ * [OUTPUT]: Atomic setup, placement and flow-valid links, including opt-in adoption or isolated-parent root promotion with one undo effect.
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import { currentPeriod, workspaceDate } from '../../../domain/calendar'
-import { horizonProblem, relationProblem } from '../../../domain/relations'
+import { horizonProblem, mayLinkFlows, promotedFlowColor, relationProblem } from '../../../domain/relations'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { calendarSchema, type Item, type Relation } from '../../../shared/contracts/entities'
 import { statusGroup } from '../../../shared/contracts/effects'
-import { assertAvailable, assertFlowColorFree, hasActiveParent, nextSortKey, targetPeriod, touch, type Context } from '../context'
+import { assertAvailable, assertFlowColorFree, hasActiveParent, hasFlow, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { serverText } from '../../../shared/i18n/server'
 import { assertParentOrderTarget } from './ordering'
 import { policyHorizons } from '../../../shared/contracts/values'
@@ -131,12 +131,16 @@ export function linkItems(context: Context, command: CommandOf<'link'>): boolean
   const child = context.store.item(command.childId, command.expectedChildVersion)
   assertAvailable(parent); assertAvailable(child)
   if (child.flowColor !== null && !command.adoptParentFlow) throw new DomainError('conflict', serverText().errors.childIsFlow(child.title))
-  const problem = horizonProblem(parent.placement.horizon, child.placement.horizon) ?? relationProblem(parent.id, child.id, context.store.relations())
+  const edges = context.store.relations()
+  const problem = horizonProblem(parent.placement.horizon, child.placement.horizon) ?? relationProblem(parent.id, child.id, edges)
   if (problem) throw new DomainError('conflict', problem)
-  const flowColor = child.flowColor === null ? undefined : { before: child.flowColor, after: null }
-  // Persist the cleared color before adding an incoming edge so the root trigger stays authoritative.
+  if (!mayLinkFlows(hasFlow(context, parent.id), hasFlow(context, child.id))) throw new DomainError('conflict', serverText().relations.noFlowEndpoints)
+  const promotion = promotedFlowColor(parent, child, edges)
+  const flowColor = child.flowColor === null ? undefined : { before: child.flowColor, after: null, ...(promotion !== null ? { transferredTo: parent.id } : {}) }
+  // Release the unique color before moving the root or adding an incoming edge.
   child.flowColor = null
   touch(context, child)
+  if (promotion !== null) parent.flowColor = promotion
   const relation = newRelation(parent.id, child.id, context.now)
   context.store.saveRelation(relation)
   touch(context, parent)

@@ -1,4 +1,11 @@
+/**
+ * [INPUT]: Built Electron, isolated profiles and an optional packaged executable or --column-add selector.
+ * [OUTPUT]: Composer/setup/column creation acceptance, measured keyboard paths and repeatable private evidence.
+ * [POS]: Desktop smart-input entry; includes the isolated column-add fixture after the base composer journey.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import { chooseSetupCalendar, settleSetupStep } from './fixtures/setup.mjs'
+import { runColumnAdd } from './fixtures/column-add.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -8,7 +15,8 @@ import { _electron as electron } from 'playwright'
 // 真实窗口：可跳过 Onboarding、全局 composer 普通模式、会话草稿、列头＋键盘路径与拆解入口；不调用任何云服务。
 const environment = { ...process.env }
 delete environment.ELECTRON_RUN_AS_NODE
-const packaged = process.argv[2]
+const packaged = process.argv.slice(2).find(arg => arg !== '--column-add')
+if (process.argv.includes('--column-add')) { await runColumnAdd(packaged); process.exit(0) }
 const profile = await mkdtemp(join(tmpdir(), 'Goalloom 输入测试 '))
 // Assertions use Chinese copy; pin the device language instead of following the machine's system language.
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
@@ -150,3 +158,4 @@ try {
   await writeFile('output/tests/composer.json', JSON.stringify(record, null, 2))
   console.log(JSON.stringify(record))
 } finally { await application.close(); await rm(profile, { recursive: true, force: true }) }
+await runColumnAdd(packaged)

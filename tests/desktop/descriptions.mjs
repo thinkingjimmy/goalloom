@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron, isolated SQLite and deterministic metadata cache fixtures.
- * [OUTPUT]: Repeatable description editing/serialization and inline-link evidence.
+ * [OUTPUT]: Repeatable description editing/serialization, first-line typography and inline-link evidence.
  * [POS]: Focused desktop acceptance; external network and browser opening are intercepted.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,13 +16,15 @@ import { pollPage } from './fixtures/poll.mjs'
 import { verifyDescriptionChecklists } from './fixtures/description-checklists.mjs'
 import { verifyDescriptionSelection } from './fixtures/description-selection.mjs'
 import { verifyDescriptionSignals } from './fixtures/description-signals.mjs'
+import { verifyDescriptionAlignment } from './fixtures/description-alignment.mjs'
 
 const checklistsOnly = process.argv.includes('--checklists')
 const selectionOnly = process.argv.includes('--selection-tools')
 const signalsOnly = process.argv.includes('--signals')
 const editingOnly = process.argv.includes('--editing')
-const only = checklistsOnly || selectionOnly || signalsOnly || editingOnly
-const output = `output/tests/descriptions${checklistsOnly ? '/checklists' : selectionOnly ? '/selection-tools' : signalsOnly ? '/signals' : editingOnly ? '/editing' : ''}`, profile = await mkdtemp(join(tmpdir(), 'goalloom-descriptions-'))
+const alignmentOnly = process.argv.includes('--alignment')
+const only = checklistsOnly || selectionOnly || signalsOnly || editingOnly || alignmentOnly
+const output = `output/tests/descriptions${checklistsOnly ? '/checklists' : selectionOnly ? '/selection-tools' : signalsOnly ? '/signals' : editingOnly ? '/editing' : alignmentOnly ? '/alignment' : ''}`, profile = await mkdtemp(join(tmpdir(), 'goalloom-descriptions-'))
 await mkdir(output, { recursive: true })
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'en' }))
 await seedPreviewCache(profile)
@@ -76,6 +78,7 @@ try {
   await page.locator('main.board').waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
 
+  if (!only || alignmentOnly) report.checks.push(...await verifyDescriptionAlignment({ app, page, create, stored, detail, output, shot }))
   if (!only || signalsOnly) report.checks.push(...await verifyDescriptionSignals({ page, create, stored, detail, shot }))
   if (!only || checklistsOnly) report.checks.push(...await verifyDescriptionChecklists({ app, page, create, open, close, save, paste, stored, detail, note, shot }))
   if (!only || selectionOnly) report.checks.push(...await verifyDescriptionSelection({ app, page, create, open, close, stored, detail, note, shot }))

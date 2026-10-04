@@ -135,7 +135,7 @@ it('同 ID 重试复用回执只生成一份计划；同 ID 异请求冲突', ()
 })
 
 it('外部新下级阻断整批撤销：无任何删除、不写 marker、itemIds 为空', () => {
-  const created = plan([{ draftId: 'a', title: '父', horizon: 'cycle' }, { draftId: 'b', title: '子', horizon: 'month', parents: [draft('a')] }])
+  const created = plan([{ draftId: 'a', title: '父', horizon: 'cycle', flowColor: 0 }, { draftId: 'b', title: '子', horizon: 'month', parents: [draft('a')] }])
   const outside = create('外部下级', null, 'day')
   run({ type: 'link', parentId: created.itemIds![1]!, childId: outside, expectedParentVersion: item(created.itemIds![1]!).version, expectedChildVersion: item(outside).version })
   const items = repo.store.items('1')

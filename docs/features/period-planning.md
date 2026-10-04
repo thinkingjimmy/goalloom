@@ -4,6 +4,8 @@
 
 ## 产品规则
 
+- 空列／空历史的居中短提示使用最多 280px、且不超出列内可用宽度的正文区，优化自然换行；「为这一段时间，留一个清楚的方向。」在最小 320px 列内完整显示，不把「方向」拆成孤字尾行。文案、字号和图标位置沿用现有规则。
+
 - 本期待办的菜单文案为「移到明天」「移到下周」「移到下月」「移到下个 3个月」「移到下个半年」「移到下一年」；自然年模式对应「下季度」「明年」。相对目标日期提示省略年份。更远的目标名称按工作区今年补年份；365 天模式下年 / 半年 / 3个月按原始锚点计算，自然年模式按日历年 / 半年 / 季度。六列命名、面板与年份规则见 [双日历模式](calendar-modes.md#43-命名与年份显示d8)。
 - 仅有效周期中的未完成、未归档、未删除条目可以顺延。Later、完成行、历史行无此菜单。只移动该条目，保留正文、截止日期、状态与关系；目标追加至末尾，来源不留引用。
 - 顺延后保持视图并静默更新列表，不显示去向 Toast 或撤销按钮；六种尺度和继续顺延统一处理。顺延仍进入会话撤销栈，支持 ⌘Z／Ctrl+Z；主动撤销后的成功反馈及操作失败提示保留。普通拖动和新建继续静默，撤销沿用现有会话与效果字段规则。
@@ -19,7 +21,8 @@
 - 点击顶栏流程筛选或按有效的 ⌘/Ctrl+数字时，所有往期列自动回到当期、列表回到顶部；重复选中同一筛选也生效，未来周期及草稿保留。快捷键仍遵循[启停、空位置和输入保护](shortcuts.md)。
 - 鼠标或触控翻页时，内容按时间方向从右／左滑入，220ms 内完成；返回按钮按实际时间方向过渡。导航控件保持可点击，数据就绪后只对最新选择播放一次，连续点击取消前一次动效。首次加载、后台刷新、键盘翻页及减少动态效果模式不播放；隐藏窗口或切换减少动态效果时结束动效，关系线随内容同步定位。
 - 列内创建和拖动明确绑定显示周期；每周期保留未提交的输入。目标周期已过期的新建／位置写入拒绝且保留草稿，不静默改投本期；已有往期任务的内容和状态仍可修改。全局智能输入仍按现有当前周期规则工作。
-- 详情显示真实周期，可从未来移回本期。关系候选、关系线、定位及反馈使用一致的可见条目；未来位置不得标成往期。
+- 详情显示真实周期，可从未来移回本期。关系候选、关系线及反馈使用一致的可见条目；未来位置不得标成往期。搜索打开未来任务后，关闭详情保持看板原来显示的周期；查看任务所在周期使用列头导航。
+- 详情顶部 More 菜单起始边贴合按钮并向右展开；菜单浮出弹窗滚动边界，窗口空间不足时平移到可见范围。保留取消／恢复待办、归档／取消归档与回收站操作，移除「定位到看板」。Esc 只关闭菜单。
 - 菜单使用 shadcn/Radix 与 Hugeicons，支持右键、Shift+F10、菜单键、Esc 和焦点恢复；不干扰拖动、链接和复选框。菜单打开时锁定虚拟行；忙碌、维护和未知结果时禁止重复写入。
 - 一级和二级菜单按内容收紧，二级菜单已用具体日期命名时不重复显示日期提示；可用菜单项与子菜单入口使用手型光标。右键／键盘打开菜单后，来源任务保留激活底色与流程圆点，鼠标进入二级菜单时仍保持，菜单关闭后恢复正常状态。
 - 所有新增文案覆盖中、英、日、西、法。
@@ -33,6 +36,8 @@
 - 复用位置效果、原子历史、回执、撤销和现有存储结构，不做数据库迁移。过期位置的撤销仍产生 current-period hold。
 
 ## 实现前失败场景
+
+- Detail More regression (2026-10-03): the panel remains end-aligned, clips at the dialog edge or overflows a narrow window; Escape closes both layers, the removed board-location action survives, or browsing the menu writes tasks. Search/detail close must preserve future-period selection and collapsed Later state.
 
 - Silent advance regression (2026-09-29): advancing day/week/month/cycle or advancing again emits a success Toast, drops keyboard undo membership, restores the wrong period or overwrites later text edits. Failed advances must still explain the error.
 
@@ -53,6 +58,10 @@
 
 ## 验收
 
+- [x] Empty-state captions fit the available column width without an orphaned Chinese direction character; native empty-board glyph lines and five-locale screenshots are retained under `output/tests/empty-column/`.
+
+- [x] Detail More starts at its button, stays clickable beyond the dialog and inside narrow windows, has only status/archive/trash actions and handles Escape without dismissing the detail; search/detail close preserves period and Later choices. Native geometry and screenshots: `output/tests/detail-more/`; period/Later/virtual acceptance uses the owning feature suites.
+
 - [x] 四种尺度及连续顺延成功后无 Toast，快捷键撤销恢复原周期并保留后续正文修改。
 
 - [x] 统一前后导航覆盖过去/本期/未来、空周期与最早边界、紧凑列头与日期旁复盘／返回入口、无布局跳动的悬停/键盘/触控导航、往期分页、未来草稿往返、历史视图下的去向提示和五语言布局。
@@ -64,7 +73,7 @@
 - [x] 同行无年份日期、远期及非本期三个月以日期作标题、按尺度返回文案；真实 Electron 记录左右滑入帧、快速反向取消、键盘静止和减少动态效果切换清理。
 - [x] 真实 Electron 右键四尺度、继续顺延、未来创建/完成/排序、跨列鼠标与键盘拖动和移回本期。
 - [x] 正式 Repository / SQLite 夹具覆盖日期边界、非法目标、版本/代次、原子回执、撤销 hold、未来自动顺延隔离和历史索引。
-- [x] 键盘、虚拟长列表及菜单关闭焦点、明暗主题、五语言、搜索定位、未来关系线、重启与草稿保留。
+- [x] 键盘、虚拟长列表及菜单关闭焦点、明暗主题、五语言、搜索详情与显式周期导航、未来关系线、重启与草稿保留。
 - [x] 真实维护态禁止写入、取消保留草稿，工作区恢复清除旧周期选择／草稿／反馈，过时代次不能写入。
 - [x] 类型检查、全部现有 Vitest 和受影响模块的桌面回归；JSON 环境报告与截图仅保存至忽略的 output/tests。
 - [ ] Windows 11 人工验收由所有者执行；源码 Electron 测试不代表安装包验收。

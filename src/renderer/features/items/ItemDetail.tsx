@@ -1,13 +1,13 @@
 /**
  * [INPUT]: Item ID, authoritative detail/period, workspace clock, visible candidates, flow views and actions.
  * [OUTPUT]: Editable details: rich title with an aligned checkbox, one horizontal property row (deadline, flow, 上级/下级, 拆解), a description that takes the remaining height,
- *           a header-toggled activity drawer beside the body, real-period controls and silent autosave.
+ *           a header-toggled activity drawer, real-period controls, a start-aligned floating actions menu and silent autosave.
  * [POS]: Full-body detail boundary; the autosave boundary preserves newer drafts and drains before navigation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { horizons } from '../../../shared/contracts/values'
-import type { CalendarConfig, Item, ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
+import type { CalendarConfig, ItemSummary, ItemHorizon } from '../../../shared/contracts/entities'
 import { compareInstants } from '../../../domain/calendar'
 import { horizonName, periodDates, planningLabel } from '../../lib/periods'
 import { statusNames, messages, horizonNames } from '../../i18n'
@@ -30,9 +30,9 @@ import { linkUrls } from '../../components/links/parse'
 const nextHorizon: Record<ItemHorizon, ItemHorizon> = { later: 'later', year: 'half', half: 'cycle', cycle: 'month', month: 'week', week: 'day', day: 'day' }
 type Pop = 'parent' | 'child' | 'move' | 'more' | 'flow' | null
 
-export function ItemDetail({ itemId, generation, close, select, write, retryWrite, revision, blocked, locate, flows, candidates, today, calendar, observedAt, split }: {
+export function ItemDetail({ itemId, generation, close, select, write, retryWrite, revision, blocked, flows, candidates, today, calendar, observedAt, split }: {
   itemId: string; generation: string; close: () => void; select: (id: string) => void; write: PreparedWrite; retryWrite: (generation: string) => Promise<WriteResult>; revision: number; blocked: boolean
-  locate?: ((item: Item, period: PlanningPeriod | null) => void) | undefined; flows: Flows; candidates: ItemSummary[]; today: string; calendar: CalendarConfig; observedAt: string; split: (parent: { id: string; title: string }, horizon: ItemHorizon) => void
+  flows: Flows; candidates: ItemSummary[]; today: string; calendar: CalendarConfig; observedAt: string; split: (parent: { id: string; title: string }, horizon: ItemHorizon) => void
 }) {
   const { bindings } = useShortcuts()
   const autosave = useItemAutosave({ itemId, generation, revision, write, retryWrite })
@@ -60,7 +60,6 @@ export function ItemDetail({ itemId, generation, close, select, write, retryWrit
   const later = item?.placement.horizon === 'later'
   const ring = item && !done ? flowVars(flows.colorsOf(itemId)) : undefined
   const inCurrent = (horizon: ItemHorizon) => !!item && item.placement.horizon === horizon && (horizon === 'later' || !!detail?.period && compareInstants(detail.period.startAt, observedAt) <= 0 && compareInstants(detail.period.endAt, observedAt) > 0)
-  const canLocate = item && !item.deletedAt && !item.archivedAt && item.status !== 'cancelled' && (!detail?.period || compareInstants(detail.period.endAt, observedAt) > 0)
   const context = item && `${detail?.period ? `${planningLabel(detail.period, calendar, observedAt)} · ${periodDates(detail.period)}` : horizonNames[item.placement.horizon]}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}${readOnly ? ` · ${messages.trash}` : ''}`
   const heading = item && (readOnly ? <p className="modal-context">{context}</p> : <div className="modal-context">
     <Popover open={pop === 'move'} onClose={() => setPop(null)} anchor={<button type="button" className="placement-chip" aria-label={messages.labelled(messages.moveTo, context ?? '')} aria-expanded={pop === 'move'} onClick={() => toggle('move')}>
@@ -74,9 +73,8 @@ export function ItemDetail({ itemId, generation, close, select, write, retryWrit
       </div>
     </Popover>
   </div>)
-  const actions = item && detail && !readOnly && <Popover open={pop === 'more'} onClose={() => setPop(null)} align="end" anchor={<button className="icon-button" aria-label={messages.moreActions} aria-expanded={pop === 'more'} onClick={() => toggle('more')}><Icon name="more" size={18} /></button>}>
+  const actions = item && detail && !readOnly && <Popover floating open={pop === 'more'} onClose={() => setPop(null)} align="start" anchor={<button className="icon-button" aria-label={messages.moreActions} aria-expanded={pop === 'more'} onClick={() => toggle('more')}><Icon name="more" size={18} /></button>}>
     <div className="menu" role="menu" aria-label={messages.moreActions}>
-      {locate && canLocate && <button role="menuitem" className="menu-item" onClick={() => { setPop(null); void leave(() => locate(item, detail.period)) }}>{messages.locate}</button>}
       <button role="menuitem" className="menu-item" disabled={busy} onClick={() => { setPop(null); void submit({ type: 'status', itemId, expectedVersion: item.version, status: item.status === 'cancelled' ? 'todo' : 'cancelled' }) }}>{item.status === 'cancelled' ? messages.restoreTodo : messages.cancelItem}</button>
       <button role="menuitem" className="menu-item" disabled={busy} onClick={() => { setPop(null); void submit({ type: 'archive', itemId, expectedVersion: item.version, archived: !item.archivedAt }) }}>{item.archivedAt ? messages.unarchive : messages.archiveItem}</button>
       <div className="menu-separator" />

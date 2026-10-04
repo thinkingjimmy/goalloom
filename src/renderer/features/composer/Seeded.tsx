@@ -94,7 +94,7 @@ export function Seeded({ seed, snapshot, flows, submit, busy, error, close }: { 
   return <Modal title={smartMessages.composer} close={close} className="palette composer-modal seeded-composer"
     heading={<div className="palette-search composer-search">
       <Icon name="add" size={18} />
-      {seed.mode === 'batch' ? <span className="composer-input seed-heading">{t.emptyDraft(rows.length)}</span>
+      {seed.mode === 'batch' ? <span className="composer-input seed-heading">{t.emptyDraft}</span>
         : <textarea className="composer-input" aria-label={smartMessages.inputLabel} autoFocus rows={1} maxLength={500} value={text} onChange={event => setText(event.target.value)} onKeyDown={keys}
           placeholder={seed.mode === 'bridge' ? t.seedBridgePlaceholder : seed.parent ? t.seedPlaceholder : t.seedFreePlaceholder} />}
     </div>}>

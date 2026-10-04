@@ -4,11 +4,11 @@
 
 ```text
 renderer/
-├── App.tsx                  # 首屏看板、按需加载配置/弹窗、全局快捷键与反馈；composer 首次打开后按工作区代次保留草稿
+├── App.tsx                  # Board/dialog composition, shortcuts/feedback, input-aware detail focus and generation-scoped drafts; selected flows follow root promotion/undo
 ├── main.tsx                 # React 挂载
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
-├── styles.css               # Tailwind, theme tokens, board/dialog/menu layout, column action visibility, scrollbars and accessibility
+├── styles.css               # Tailwind, theme tokens, readable empty-column hints, board/dialog/menu layout, column action visibility, scrollbars and accessibility
 ├── assets/app-icon.png      # 关于页的应用图标（resources/icon.png 的 256px 版本）
 ├── features/                # 按用户功能聚合页面及其专属组件
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
@@ -42,47 +42,47 @@ renderer/
 │   │   ├── Seeded.tsx       # Displayed-period create / insertBetween / checked createPlan, including future half/cycle; typed-text precedence and manual fallback
 │   │   └── composer.css     # composer 与连接表单样式（仅 token）
 │   ├── insight/             # 流程洞察（docs/features/flow-insight.md）
-│   │   ├── signals.ts       # Six-scale gaps/digests; displayed-period empty sources exclude active children and constrain future half/cycle to the displayed parent
-│   │   ├── Breakpoints.tsx  # Highlighted-chain row endpoints, pending/destination state and a guide bounded to the timeline viewport
+│   │   ├── signals.ts       # Six-scale gaps/digests, preview-scoped skip children before batching; displayed-period empty sources exclude active children and constrain future half/cycle to the displayed parent
+│   │   ├── Breakpoints.tsx  # Highlighted-chain row endpoints and bridge writes, busy loading glyph/destination state and a guide bounded to the timeline viewport
 │   │   ├── decompose.ts     # 「拆下一步」唯一写入路径：模型起草后 create / insertBetween，⇧ 或无模型时打开预填新建（断点与右键共用）
-│   │   ├── EmptyCard.tsx    # 空列卡：为上一列各起一步（批量预填）或自己写
+│   │   ├── EmptyCard.tsx    # 空列卡：「起草下一步」（批量预填）或自己写，数量只在说明中显示
 │   │   ├── review.ts        # 复盘纯规则：入口（最后一天 / 次日一次，周月同日合并）、目标×周期、信号、排下一期候选
 │   │   ├── ReviewDrawer.tsx # Review → wrap up → plan month/week → finish; period-aware titles, readable goal matrix with visual legends, period-scoped writes and a cached summary brief
 │   │   ├── ReviewOverview.tsx # Summary-first brief with inline counts, expandable month records and weekly flow matrix
 │   │   ├── ReviewSummary.tsx # Persistent localized icon heading, optional cached AI content, header refresh and retained results on failure
 │   │   ├── review.css       # Todo-scale monthly guide, unfilled review brief, text footer actions and responsive native modal using shared tokens
-│   │   └── insight.css      # Breakpoints, hints, empty-column cards and weekly review entry
+│   │   └── insight.css      # Breakpoints with full-colour loading rotation/reduced motion, hints, empty-column cards and weekly review entry
 │   ├── smart/
 │   │   ├── ProviderConnect.tsx # 单个服务的 Key（标签旁官方控制台入口）、点名该服务的同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底部按钮行）
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
-│   │   ├── Board.tsx        # Unified period navigation, period-named review entries, independent placement/relation gestures, virtual source pinning and preserved focus
+│   │   ├── Board.tsx        # Unified periods, header/todo-tail/blank-space QuickAdd entries, review entries, independent gestures, virtual source pinning and preserved focus
 │   │   ├── BoardLayout.tsx # Persistent 300px Later sidebar, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
 │   │   ├── useBoardDrag.ts # Group-bounded drag and pending-drop placement projection
-│   │   ├── RelationDrag.tsx # Independent pointer linking, clipped targeting/autoscroll, virtual source pinning and prepared keyboard-menu adoption
+│   │   ├── RelationDrag.tsx # Flow-valid pointer linking, root-promotion preview, clipped targeting/autoscroll, source pinning and guarded menu adoption
 │   │   ├── relation-drag.css # Copy-free linking preview: connector, ports, eligible-row fading, target flow tint and adoption chip
 │   │   ├── usePeriodMotion.ts # Cancellable directional content entry after data readiness; reduced-motion/visibility cleanup and overlay synchronization
 │   │   ├── RowMotion.tsx  # Interruptible outer-row FLIP and finite overlay geometry updates
-│   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, logical keyboard traversal and focus/drag/menu pinning
+│   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, logical keyboard traversal, input-aware focus return and focus/drag/menu pinning
 │   │   ├── visibility.ts  # Post-layout title visibility in the selected current/future/past period, with pending reads and offscreen destination feedback
 │   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, tooltip-free titles, due indicators, description signals and flow-tinted highlights
 │   │   ├── PeriodPicker.tsx # Header B: six-row year/half/cycle lists, week/day/month selection, visible history errors/retry and mode-aware labels
 │   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body loaded on open)
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
-│   │   ├── FlowDot.tsx      # Role-aware flow menus, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
+│   │   ├── FlowDot.tsx      # Role-aware flow menus with intrinsic choice width, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
-│   │   ├── QuickAdd.tsx     # Explicit-period creation, per-period drafts, expired-input recovery and horizon-valid flow choices
+│   │   ├── QuickAdd.tsx     # Title-aligned explicit-period creation, per-period drafts, expired-input recovery and horizon-valid flow choices
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
 │   │   ├── period-labels.ts # Mode-aware adjacent/distant headings, natural Q/year lists and year-disambiguated anchored ranges
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
 │   ├── items/
 │   │   ├── use-item-autosave.ts # Serialized silent saves, source/receipt guards, retry and close-time draining
-│   │   ├── ItemDetail.tsx   # Draft-safe details: aligned checkbox + rich title, one chip row (deadline/flow/上级/下级/拆解), full-height Markdown description, header activity drawer
+│   │   ├── ItemDetail.tsx   # Draft-safe details: rich title, one chip row, full-height Markdown description, activity drawer and start-aligned floating More actions without board navigation
 │   │   ├── DetailTitle.tsx  # Unclipped shared link display, growing raw-title editor, saved-only metadata and keyboard focus handoff
 │   │   ├── DuePicker.tsx    # Detail deadline trigger, shared calendar panel and focus restoration; selection/clear immediately autosaves
-│   │   ├── RelationPicker.tsx # Board-ordered parent/child candidates and search matches shared by detail/flow-dot menus; longer-horizon guards and linked-first priority
+│   │   ├── RelationPicker.tsx # Board-ordered parent/child search shared by detail/flow-dot menus; horizon/effective-flow guards, linked-first removal
 │   │   ├── FlowPicker.tsx   # 详情属性行的流程标签；FlowColorMenu 为色板本体，看板圆点复用
 │   │   ├── RelationChip.tsx # 详情「上级／下级」标签：弹层列出关联条目可跳转，并转入 RelationPicker
 │   │   └── Activity.tsx     # 活动摘要 hook 与右侧横向抽屉，打开时才分页读取事件
@@ -104,7 +104,7 @@ renderer/
 │   ├── Kbd.tsx              # 一键一帽的组合键展示（平台符号）
 │   ├── LanguageSelect.tsx   # 首次配置与设置外观共用的语言下拉（语言名用各自原文）
 │   ├── YearTimeline.tsx     # 当前一年的四段 3个月 / 两个半年时间轴与今天标记（首次配置模式卡与设置 › 日历共用，year-timeline.css）
-│   ├── icons/index.tsx      # Explicit free Hugeicons entry, shared React icons and checklist CSS checkmark mask
+│   ├── icons/index.tsx      # Explicit free Hugeicons entry, shared React/loading icons and checklist CSS checkmark mask
 │   └── ui/                 # shadcn Button, Radix Select and Context Menu; shared menu tokens and MIT attribution
 ├── state/
 │   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
@@ -141,13 +141,13 @@ renderer/
 
 Descriptions keep Markdown strings in SQLite and load Lexical with the detail chunk. The editor preserves untouched source, owns local text undo, imports plain clipboard Markdown, and renders unsupported syntax inertly. Save receipts never replace newer input. Shared inline links display favicon/page-title metadata only for saved destinations; metadata never enters the document. Details omit separate link cards while board/list/history cards remain. Homepage description comparisons live only in ignored `output/prototypes/descriptions/`; production summaries still expose `hasDescription` without loading full bodies.
 
-Detail titles read as complete, naturally wrapping rich text, matching the full-text presentation on the board. Clicking title text or its edit affordance focuses a growing raw-text field; links remain separate external actions. Editing retains authored URLs/labels, the 500-character limit, composition protection and the detail's autosave/receipt guards. Deleted titles are read-only. `DetailTitle` controls presentation/focus only; `use-item-autosave` owns draft persistence and close-time draining.
+Detail titles read as complete, naturally wrapping rich text, matching the full-text presentation on the board. Clicking title text or its edit affordance focuses a growing raw-text field with no bottom rule or focus shadow; links remain separate external actions. Editing retains authored URLs/labels, the 500-character limit, composition protection and the detail's autosave/receipt guards. Deleted titles are read-only. `DetailTitle` controls presentation/focus only; `use-item-autosave` owns draft persistence and close-time draining.
 
 Each time column keeps dates and a contextual return/review action inline between compact arrows. Desktop titles align with row checkboxes; the previous arrow shares the flow dots' center line within the column's left gutter, with an extended hit area that avoids the title. Headings stay fixed on hover and keyboard focus. Relative headings omit years beside the name, with full dates in tooltips. Distant year/half headings and anchored picker rows add years where dates would repeat; natural years, half-years and quarters use calendar labels. Rolling three-month headings keep their existing dates. Navigation and quick add appear on column hover or header keyboard focus without layout shift; touch controls remain visible. Pointer navigation brings ready content in from the time direction over 220ms, cancelling superseded motion and synchronizing overlays. Keyboard navigation and reduced motion remain immediate. Past rows use live unfinished/completed/deleted tasks still placed in that period; completion/reopening and restore update groups without rewriting period-end history. Paging is filtered before totals and recovers from an emptied last page. Keyboard focus follows navigation and direct state changes.
 
 `useBoardPeriods` keeps the global current snapshot separate from at most one selected future period per visible horizon. Explicit top-bar filter choices and valid filter shortcuts return all past selections to current, including repeated selections, while keeping future periods and drafts. The shortcut resolves the flow identity before navigation changes its position. Period changes reset column scroll. Responses are isolated by workspace generation, selection and revision; stale rows stay disabled until refreshed. Writes bind the displayed start date, and visibility feedback waits for this refresh. Period selections and drafts are session-only and reset with the workspace generation. Product rules and failure scenarios live in [period planning](../../docs/features/period-planning.md).
 
-Task titles show every line, including inline links; rows grow from a 32px single-line height with 14px type, 22px text leading and a 4px clear band between row grounds. Only the first line reserves the checkbox and gap; continuation lines use the checkbox/card left edge, and the checkbox keeps its own hit target above the title. Checkboxes, flow dots, metadata, relation lines and breakpoint markers remain centered on the first line; virtual rows use the same 32px initial estimate. Past and completed tasks share this density. Breakpoint centers share the outgoing relation-port anchor at the row right edge. Incoming board dots and outgoing ports are both 6px, including hover; the dot button retains its 18px hit target. Dot previews retain their lines and breakpoint actions while pointer/focus travels through active-flow rows or breakpoint controls; plain row hover does not start a preview. Empty current target columns still allow preview next steps.
+Task titles show every line, including inline links; rows grow from a 32px single-line height with 14px type, 22px text leading and a 4px clear band between row grounds. Only the first line reserves the checkbox and gap; continuation lines use the checkbox/card left edge, and the checkbox keeps its own hit target above the title. Checkboxes, flow dots, metadata, relation lines and breakpoint markers remain centered on the first line; virtual rows use the same 32px initial estimate. Past and completed tasks share this density. Titles and link cards use the row width with a 6px right inset; trailing ports and breakpoint rings/pills overlay content without reserving space or changing layout when shown. Breakpoint centers share the outgoing relation-port anchor at the row right edge. Incoming board dots and outgoing ports are both 6px, including hover; the dot button retains its 18px hit target. Dot previews retain their lines and breakpoint actions while pointer/focus travels through active-flow rows or breakpoint controls; plain row hover does not start a preview. Empty current target columns still allow preview next steps.
 
 Task action menus size to content with a narrower destination submenu and pointer cursors on enabled actions. Concrete date labels omit duplicate hints. Radix's trigger open state retains the source row's active ground and flow dot while the pointer moves through the menu; closing restores its normal hover/flow state without persisting a task selection.
 

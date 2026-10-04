@@ -10,11 +10,12 @@
 .breakpoint:is([data-expanded='true'], :hover, :focus-visible) { width: auto; height: 24px; padding: 0 9px 0 7px; border-radius: 12px; background: var(--node); color: var(--bg); box-shadow: none; }
 .breakpoint:is([data-expanded='true'], :hover, :focus-visible) > svg, .breakpoint:is([data-expanded='true'], :hover, :focus-visible) > .breakpoint-label { display: inline-flex; }
 .breakpoint:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.breakpoint[data-pending='true'] { animation: breakpoint-pulse 1s ease-in-out infinite alternate; }
+.breakpoint[data-pending='true'] { opacity: 1; transition: none; }
+.breakpoint[data-pending='true'] > svg { animation: breakpoint-spin .8s linear infinite; }
 @media (pointer: coarse) { .breakpoint { width: auto; height: 24px; padding: 0 9px 0 7px; border-radius: 12px; } .breakpoint > svg, .breakpoint-label { display: inline-flex; } }
 .breakpoint:disabled:not([data-pending='true']) { opacity: .5; }
-@keyframes breakpoint-pulse { from { opacity: .45; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .breakpoint[data-pending='true'] { animation: none; } }
+@keyframes breakpoint-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .breakpoint[data-pending='true'] > svg { animation: none; } }
 .breakpoint-away { position: absolute; transform: translate(-100%, -50%); height: 24px; max-width: 300px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: 12px;
   background: color-mix(in srgb, var(--node) 16%, var(--bg)); color: var(--fg-soft); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .breakpoint-away:hover { background: color-mix(in srgb, var(--node) 26%, var(--bg)); }

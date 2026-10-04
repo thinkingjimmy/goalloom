@@ -1,16 +1,16 @@
 /**
- * [INPUT]: Current item id and horizon, incident edges, flow view, ordered summary candidates, local order mode and actions.
- * [OUTPUT]: Searchable relationship controls offering only horizon-valid endpoints (existing links stay listed for removal),
+ * [INPUT]: Current item id/horizon, active edges, effective flow membership, ordered candidates and guarded actions.
+ * [OUTPUT]: Searchable relationship controls offering only horizon/flow-valid endpoints (existing links stay listed for removal),
  *           with board-consistent ordering, optional prepared parent-link/adoption callbacks and authoritative error feedback.
  * [POS]: Relationship entry shared by the detail dialog and the board flow dot; storage rejects self-links, duplicates,
- *        cycles, invalid roots and horizon violations.
+ *        cycles, invalid roots, colorless pairs and horizon violations.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState, type ReactNode } from 'react'
 import { horizons } from '../../../shared/contracts/values'
 import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
-import { mayParent } from '../../../domain/relations'
+import { mayLinkFlows, mayParent } from '../../../domain/relations'
 import { messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
@@ -48,8 +48,9 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
       }
     } catch { onError(messages.unlinkFailed) }
   }
-  // A parent is a bigger goal in a longer horizon; Later never links. Nearest horizon first, current links on top.
-  const eligible = (item: ItemSummary) => side === 'parent' ? mayParent(item.placement.horizon, self.horizon) : mayParent(self.horizon, item.placement.horizon)
+  const selfHasFlow = flows.of(self.id).length > 0
+  const eligible = (item: ItemSummary) => mayLinkFlows(selfHasFlow, flows.of(item.id).length > 0)
+    && (side === 'parent' ? mayParent(item.placement.horizon, self.horizon) : mayParent(self.horizon, item.placement.horizon))
   const distance = (item: ItemSummary) => Math.abs(horizons.indexOf(item.placement.horizon) - horizons.indexOf(self.horizon))
   const indexes = new Map(candidates.map((item, index) => [item.id, index]))
   const boardOrder = (a: ItemSummary, b: ItemSummary) => ordering.enabled || ordering.pending

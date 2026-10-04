@@ -3,11 +3,12 @@
  * [OUTPUT]: A title-as-switcher period header (header B: period panel, ←/→ stepping), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Owns independent relation dragging/prepared writes and virtual source pinning; exposes filter/linking states for row styling.
+ *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share the existing inline creation and drafts.
  *           Flow insight: one breakpoint layer for filtered flows or the highlighted preview chain, retained pending actions across hover exits, empty-column cards, a unified monthly review guide and period-named weekly prompts under column headers and per-row next steps.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { compareInstants, currentPeriod, precedingPeriod, workspaceDate, type Horizon } from '../../../domain/calendar'
@@ -163,7 +164,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const earlier = history && (page.page ? page.page.previous !== null : previous !== null) ? previous : null
   const name = horizonName(horizon, calendar)
   const displayName = mode !== 'current' && period ? planningLabel(period, calendar, snapshot.observedAt) : name
-  const section = useRef<HTMLElement | null>(null), refocus = useRef<string | null>(null)
+  const section = useRef<HTMLElement | null>(null), body = useRef<HTMLDivElement | null>(null), refocus = useRef<string | null>(null)
   const prepareMotion = usePeriodMotion(section, snapshot.workspace.generation, period?.id, loading || page.loading)
   const [focusAfterMove, setFocusAfterMove] = useState<string[] | null>(null)
   const switchTo = (target: PlanningPeriod | null, animate = false) => {
@@ -201,6 +202,19 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   }, [period?.id, mode, history ? page.loading : false])
   useEffect(() => { if (highlighted && items.some(item => item.id === highlighted && item.status === 'done')) setDoneOpen(true) }, [highlighted, items])
   const todo = useMemo(() => items.filter(item => item.status === 'todo'), [items]), done = useMemo(() => items.filter(item => item.status === 'done'), [items])
+  const openAdd = () => {
+    if (history || disabled || dragging || relationSource) return
+    if (adding) section.current?.querySelector<HTMLInputElement>('.quick-add input')?.focus()
+    else setAdding(true)
+  }
+  const addFromBlank = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (event.button !== 0 || event.defaultPrevented || !(target instanceof HTMLElement)) return
+    if (target !== event.currentTarget && target !== body.current && !target.matches('.empty-column')) return
+    // The full body includes virtual spacers and completed groups; side gutters are not trailing blank space.
+    if (items.length && event.clientY < (body.current?.getBoundingClientRect().bottom ?? Infinity)) return
+    openAdd()
+  }
   const onMoved = useCallback((id: string) => {
     const index = todo.findIndex(item => item.id === id)
     setFocusAfterMove([...todo.slice(index + 1), ...todo.slice(0, index).reverse()].map(item => item.id))
@@ -249,7 +263,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
       <span>{insight.started?.month?.key === review!.key ? insightMessages.reviewContinue : insightMessages.reviewStart(reviewMonthName)}</span><Icon name="next" size={14} />
     </button>
   </div>
-  const addButton = <button className="icon-button small" data-add-item aria-label={messages.newInColumn(displayName)} aria-pressed={!!adding} disabled={disabled} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>
+  const addButton = <button className="icon-button small" data-add-item aria-label={messages.newInColumn(displayName)} disabled={disabled} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>
   const back = history ? earlier : previous
   const returnLabel = horizon === 'later' ? '' : returnPeriodName(horizon, calendar)
   const heading = period && current ? periodTitle(period, current, calendar) : name
@@ -276,19 +290,22 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     {completedReview && <p className="reviewed-note"><Icon name="check" size={14} />{insightMessages.reviewCompleted(periodDates(recentMonth!.period, false))}</p>}
     {!monthlyGuide && mode === 'current' && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
-    <div className="column-content">
+    <div className="column-content" onDoubleClick={addFromBlank}>
       {guide}
       {completedReview && items.length === 0 && !adding && <div className="review-plan-invitation">
         <h3>{insightMessages.reviewArrange(periodDates(current!, false))}</h3>
         <button className="settings-button" disabled={disabled} onClick={() => insight.seed({ horizon: 'month', period: current!, next: false, parent: null, children: [], note: null,
-          mode: sources?.length ? 'batch' : 'free', parents: sources ?? [], draft: !!sources?.length && insight.ready })}>{sources?.length ? insightMessages.emptyDraft(sources.length) : insightMessages.emptyOwn}</button>
+          mode: sources?.length ? 'batch' : 'free', parents: sources ?? [], draft: !!sources?.length && insight.ready })}>{sources?.length ? insightMessages.emptyDraft : insightMessages.emptyOwn}</button>
       </div>}
-      <div className="period-body">
+      <div className="period-body" ref={body}>
       {history ? <PastPeriod key={history.id} history={page} select={select} submit={submit} busy={busy} /> : <>
         {loading && items.length === 0 && <p className="period-loading" role="status">{messages.loadingPeriod}</p>}
         {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <button className="text-button" onClick={view.retry}>{messages.retryPeriod}</button></p>}
         <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
           <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:todo`} items={todo} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} render={row} />
+          {!adding && todo.length > 0 && <button type="button" className="column-add-task" data-column-add aria-label={messages.newToColumn(displayName)} disabled={disabled || !!dragging || !!relationSource} onClick={openAdd}>
+            <Icon name="add" size={18} /><span>{messages.addTask}</span>
+          </button>}
           {adding && <QuickAdd key={`${adding.period?.id ?? 'later'}:${adding.key}`} horizon={horizon} period={adding.period} periodName={adding.period ? planningLabel(adding.period, calendar, snapshot.observedAt) : name}
             expired={!!adding.period && compareInstants(adding.period.endAt, snapshot.observedAt) <= 0} drafts={drafts.current} retarget={() => {
               const draft = drafts.current.get(adding.period?.id ?? 'later')

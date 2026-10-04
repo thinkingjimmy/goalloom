@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Theme tokens and shared renderer component classes and state attributes.
- * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, compact task rows, aligned chrome and accessible interaction states.
+ * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls, aligned chrome, unlined detail-title editing and keyboard focus indicators without pointer-return title rings.
  * [POS]: Renderer-wide stylesheet; feature-specific styles live beside their components.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,6 +18,7 @@
 /* --- Tokens: warm neutral ground, one ink, colour only for flows and warnings. --- */
 :root {
   color-scheme: light;
+  --check-size: 18px;
   --bg: #f5f1eb; --surface: #fbf9f6; --raised: #fffdfa; --fg: #2b2621; --fg-soft: #4a433c; --secondary: #6f665c; --faint: #b3a99e;
   --line: rgba(90, 70, 50, .14); --hairline: rgba(90, 70, 50, .08); --hover: rgba(70, 50, 30, .06); --pressed: rgba(70, 50, 30, .09);
   --check-fill: #e7e2db; --check-edge: rgba(90, 70, 50, .3); --checked: #a39a8f; --edit-line: rgba(43, 38, 33, .32); --edge: rgba(40, 25, 10, .14);
@@ -50,6 +51,7 @@
 /* --- Minimal style: neutral zinc scale, 1px borders over soft shadows, tighter radii. --- */
 :root[data-style='minimal'] {
   color-scheme: light;
+  --check-size: 16px;
   --bg: #ffffff; --surface: #ffffff; --raised: #ffffff; --fg: #09090b; --fg-soft: #3f3f46; --secondary: #71717a; --faint: #a1a1aa;
   --line: #e4e4e7; --hairline: #f4f4f5; --hover: #f4f4f5; --pressed: #e4e4e7;
   --check-fill: #ffffff; --checked: #a1a1aa; --edit-line: #a1a1aa; --edge: #e4e4e7;
@@ -169,7 +171,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .board-timeline { display: flex; flex: 1; min-width: 0; min-height: 0; padding: 0 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
 /* Time columns share the width equally; below 320px each the timeline scrolls instead of squeezing rows. */
 /* --row-inset is where a row's checkbox lands after the flow-dot gutter; column text chrome aligns to it. */
-.board-column { --row-inset: 9px; --ground: var(--bg); position: relative; flex: 1 1 0; min-width: var(--column-min); display: flex; flex-direction: column; padding: 4px 14px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
+.board-column { --row-inset: 9px; --title-gap: calc(12px * .6); --ground: var(--bg); position: relative; flex: 1 1 0; min-width: var(--column-min); display: flex; flex-direction: column; padding: 4px 14px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
 .board-column:first-child { border-left: 0; }
 .board-column.drop-target { background: var(--hover); }
 .column-header { height: 40px; flex-shrink: 0; padding-left: var(--row-inset); display: flex; align-items: center; gap: 8px; }
@@ -192,6 +194,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .period-nav button { touch-action: manipulation; }
 @media (hover: hover) and (pointer: fine) {
   .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) [data-add-item] { opacity: 0; }
+  .board-column:not(:hover) .column-add-task:not(:focus-visible) { opacity: 0; pointer-events: none; }
 }
 @media (pointer: coarse) {
   .period-header { height: 48px; }
@@ -199,6 +202,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 }
 .period-loading { padding: 14px var(--row-inset); color: var(--secondary); font-size: 13px; }
 .quick-add-expired { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--danger); }
+.column-add-task { display: flex; align-items: center; gap: var(--title-gap); width: 100%; height: 40px; padding-left: var(--row-inset); color: var(--faint); text-align: left; }
+.column-add-task > svg { width: var(--check-size); height: var(--check-size); flex-shrink: 0; }
+.column-add-task:hover:not(:disabled), .column-add-task:focus-visible { color: var(--secondary); }
 /* Reach the right column rule with the scrollbar; matching padding preserves row width and alignment. */
 .column-content { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; margin: 0 -14px; padding: 0 10px 96px 14px; }
 /* Downward fade only once the list actually moves. At rest the first row stays fully readable;
@@ -214,7 +220,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 /* A 2px clear band above and below keeps neighbouring grounds (hover, located, flow tint) from merging into one block;
    rows carry no divider, so that band is the only separation.
    Ground rules set background-color/-image only: the `background` shorthand would reset the clip and paint over the band. */
-.task-row { --check-space: 30px; --title-gap: calc(12px * .6); position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 32px; margin: 0 -7px 0 -11px; padding: 0 18px 0 20px; border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
+/* Trailing ports and breakpoint controls overlay content instead of reserving title/card width. */
+.task-row { --check-space: 30px; position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 32px; margin: 0 -7px 0 -11px; padding: 0 6px 0 20px; border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
 .task-row:is([data-highlighted='true'], [data-state='open']) { background-color: var(--hover); }
 /* Pointer hover stays lighter than the located/highlighted row so the two remain distinguishable. */
 :root:not([data-dragging='true']) .task-row:not([data-highlighted='true'], [data-state='open']):hover { background-color: color-mix(in srgb, var(--hover) 50%, transparent); }
@@ -230,6 +237,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .task-row > .check { z-index: 1; margin-top: 5px; }
 .task-line { position: relative; flex: 1; min-width: 0; margin-left: calc(-1 * var(--check-space)); align-self: stretch; display: flex; align-items: flex-start; gap: 8px; }
 .task-title { flex: 1; min-width: 0; padding: 3px 0; text-align: left; font-size: 14px; line-height: 22px; }
+.task-title[data-focus-return='pointer']:focus-visible { outline: none; }
 .task-title > span { display: block; text-indent: calc(var(--check-space) - 12px + var(--title-gap)); overflow-wrap: anywhere; }
 .task-row[data-done='true'] .task-title { color: var(--secondary); text-decoration: line-through; }
 .row-meta { flex-shrink: 0; height: 28px; display: flex; align-items: center; font-size: 12px; color: var(--secondary); }
@@ -244,7 +252,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .completed-fold > summary svg { transition: transform .16s ease-out; }
 .completed-fold[open] > summary svg { transform: rotate(90deg); }
 .empty-column { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 22vh; color: var(--faint); text-align: center; }
-.empty-column p { margin: 0; font-size: 13px; line-height: 1.7; color: var(--secondary); max-width: 200px; }
+.empty-column p { margin: 0; font-size: 13px; line-height: 1.7; color: var(--secondary); max-width: min(280px, 100%); text-wrap: pretty; }
 
 /* --- Relation lines: an overlay while a flow is filtered or previewed. Rows keep their full width and an opaque ground;
    right-angle connectors run in the gaps between columns and along the bands between rows. --- */
@@ -303,10 +311,12 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .flow-dot-button[data-role='loose']:is(:hover, :focus-visible, [aria-expanded='true']) > .flow-dot { visibility: hidden; }
 .flow-dot-button[data-role='loose']:is(:hover, :focus-visible, [aria-expanded='true']) > svg { visibility: visible; }
 .flow-dot-count { font-size: 10px; font-weight: 600; line-height: 1; color: var(--secondary); font-variant-numeric: tabular-nums; }
-.flow-choose { width: 300px; }
+.menu.flow-choose { width: max-content; max-width: min(480px, calc(100vw - 16px)); }
 .flow-choose .menu-item { align-items: flex-start; padding: 9px 10px; }
 .flow-choose .menu-item > :first-child { margin-top: 3px; flex-shrink: 0; }
 .flow-choose .menu-item:disabled { color: var(--faint); cursor: default; }
+.flow-choose .menu-rich { min-width: 0; }
+.flow-choose .menu-rich small { text-wrap: pretty; }
 .menu-rich { display: flex; flex-direction: column; gap: 2px; font-weight: 500; }
 .menu-rich small { font-size: 12px; font-weight: 400; line-height: 1.5; color: var(--secondary); }
 .relation-note { padding-bottom: 2px; }
@@ -324,7 +334,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 :root, [data-check='outline'] { --check-bg: transparent; }
 [data-check='paper'] { --check-bg: var(--raised); }
 [data-check='tint'] { --check-bg: initial; }
-.check { width: 18px; height: 18px; flex-shrink: 0; border-radius: 5px; display: grid; place-items: center; color: #fff; }
+.check { width: var(--check-size); height: var(--check-size); flex-shrink: 0; border-radius: 5px; display: grid; place-items: center; color: #fff; }
 .check:hover:not(:disabled) { filter: brightness(.96); }
 .check[data-checked='true'] { background: var(--checked); }
 .check[data-checked='true']::before, .check-dashed::before, .flow-mark-dashed::before { display: none; }
@@ -339,7 +349,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .swatch:disabled { opacity: .3; }
 
 /* --- Quick add --- */
-.quick-add { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding-left: var(--row-inset); }
+.quick-add { position: relative; display: flex; align-items: center; gap: var(--title-gap); min-height: 40px; padding-left: var(--row-inset); }
 .quick-add > input { flex: 1; min-width: 0; height: 39px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 14px; width: auto; }
 .quick-add > input:focus-visible { outline: none; }
 .quick-add-hint { flex-shrink: 0; max-width: 140px; font-size: 12px; color: var(--secondary); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -466,7 +476,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .detail-title-edit:hover { color: var(--secondary); background: var(--hover); }
 .title-line:hover .detail-title-edit, .title-line:focus-within .detail-title-edit { opacity: 1; }
 .title-input { display: block; field-sizing: content; width: 100%; min-width: 0; min-height: 28px; max-width: 100%; padding: 0 0 2px; border: 0; border-radius: 0; background: transparent; font: inherit; resize: none; overflow: hidden; overflow-wrap: anywhere; }
-.title-input:focus-visible { outline: none; box-shadow: 0 1px 0 var(--edit-line); }
+.title-input:focus-visible { outline: none; }
 @media (pointer: coarse) { .detail-title-edit { opacity: 1; width: 44px; height: 44px; top: -8px; right: -8px; } .detail-title-display[data-editable='true'] { padding-right: 36px; } }
 .flow-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--flow-ring); }
 .flow-dot[data-empty='true'] { background: transparent; border: 1.5px dashed var(--faint); }
@@ -616,7 +626,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
   .task-row { border-radius: 6px; }
   .task-line::after { border-bottom-style: solid; border-bottom-color: var(--hairline); }
   .backlog-row { border-radius: 6px; }
-  .check { width: 16px; height: 16px; border-radius: 4px; box-shadow: var(--shadow-xs); }
+  .check { border-radius: 4px; box-shadow: var(--shadow-xs); }
   .check-dashed, .flow-mark-dashed { box-shadow: none; }
   .check.large { width: 20px; height: 20px; border-radius: 5px; }
   .flow-mark { border-radius: 3px; }

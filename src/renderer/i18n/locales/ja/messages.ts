@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: Japanese UI copy and parameterized messages, including feedback destinations and partial restores.
+ * [OUTPUT]: Japanese UI copy and parameterized messages, including column add-task labels, feedback destinations and partial restores.
  * [POS]: Japanese message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -91,6 +91,7 @@ export const messages: MessageCatalog = {
   addTo: "追加先",
   cancel: "キャンセル",
   addItem: "項目を追加",
+  addTask: "タスクを追加…",
   reopen: "再開",
   complete: "完了",
   overdue: "期限切れ · ",
@@ -133,7 +134,6 @@ export const messages: MessageCatalog = {
   dueDate: "期限",
   dueDateNote: "期限は列とは独立しています。将来の日付を選んでもタスクは移動しません。",
   save: "保存",
-  locate: "ボードで表示",
   restoreItemAction: "項目を復元",
   reopenAction: "再開する",
   markDone: "完了にする",
@@ -264,9 +264,9 @@ export const messages: MessageCatalog = {
   flowRootTag: "フロー",
   startFlow: "フローの起点にする",
   startFlowHint: "色を選ぶと、この項目が新しいフローの起点になります。",
-  linkToParent: "上位に関連付け…",
+  linkToParent: "上位に関連付け",
   dragRelationHint: "長い期間の項目へドラッグして関連付け。クリックでメニューを開きます",
-  adoptParentFlowHint: "関連付けると独自の色を解除し、親のフローに従います",
+  adoptParentFlowHint: "色も他の関連もない親を新しい起点にして、現在の色を保ちます。それ以外は親のフローに従います。既存の子は維持します。",
   relationTargetChanged: "項目が変更されました。もう一度関連付けてください。",
   relationLinkFailed: "関連付けできませんでした。もう一度お試しください。",
   relationLinked: (title: string) => `「${title}」に関連付けました`,

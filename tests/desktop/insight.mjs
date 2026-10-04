@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Built Electron, isolated workspace data and the actual workspace calendar.
- * [OUTPUT]: Flow-insight acceptance, including reachable hover-preview additions, endpoint alignment, matching period-named review entries/titles and settings captures under output/tests/insight/.
+ * [INPUT]: Built Electron in a native 1440 × 900 window, isolated workspace data and the actual workspace calendar.
+ * [OUTPUT]: Flow-insight acceptance, empty-card copy/pointer-hit evidence, hover-preview additions, endpoint alignment, period-named review entries/titles, settings and app-local failure evidence under output/tests/insight/.
  * [POS]: Desktop acceptance of empty columns, breakpoints, reviews and local insight preferences without a live model.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -29,7 +29,7 @@ try {
   const page = await application.firstWindow()
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.setViewportSize({ width: 1600, height: 900 })
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 900))
   await finishSetup(page)
   const board = page.getByRole('main', { name: '时间看板' })
   await board.waitFor()
@@ -61,10 +61,11 @@ try {
   await weekColumn.getByText('本周还是空的').waitFor()
   assert.equal(await dayColumn.locator('.insight-empty').count(), 0, '今天的上一列（本周）为空，不出卡片')
   assert.equal(await board.locator('.breakpoint').count(), 0, '「全部」不出断点 ＋')
+  await weekColumn.scrollIntoViewIfNeeded()
   await shot('1-empty-week')
   check('empty week column shows the insight card; 全部 shows no breakpoint ＋')
 
-  await weekColumn.getByRole('button', { name: '为 4 项各起一步' }).click()
+  await weekColumn.getByRole('button', { name: '起草下一步', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '新建' })
   await dialog.waitFor()
   const rows = dialog.locator('.seed-row')
@@ -98,7 +99,13 @@ try {
   // 今天 is now empty under a non-empty 本周: its card offers the free composer with the period prefilled.
   await dayColumn.scrollIntoViewIfNeeded()
   await dayColumn.getByText('今天还是空的').waitFor()
-  await dayColumn.getByRole('button', { name: '自己写' }).click()
+  const manualEntry = dayColumn.getByRole('button', { name: '自己写' })
+  const emptyCardTarget = await manualEntry.evaluate(node => {
+    const rect = node.getBoundingClientRect(), x = rect.left + rect.width / 2, y = rect.top + rect.height / 2
+    return { viewport: { width: innerWidth, height: innerHeight }, target: { x, y, width: rect.width, height: rect.height }, hit: document.elementFromPoint(x, y)?.outerHTML }
+  })
+  await writeFile(`${out}/empty-card-target.json`, JSON.stringify(emptyCardTarget, null, 2))
+  await manualEntry.click()
   await dialog.waitFor()
   await dialog.getByRole('textbox').fill('随手记一件事')
   await dialog.getByRole('textbox').press('Enter')
@@ -273,6 +280,14 @@ try {
 
   assert.deepEqual(errors, [])
   await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, lastDayOfWeek: target.lastDay, reviewDay, checks, preview, breakpointGeometry: { gap: place, skip: skipPlace }, runtime: await page.evaluate(() => window.goalloom.getRuntime()), platform: `${process.platform}-${process.arch}` }, null, 2))
+} catch (error) {
+  const page = await application.firstWindow()
+  const nativeWindows = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))).catch(() => null)
+  const document = await page.evaluate(() => ({ focused: globalThis.document.hasFocus(), visibility: globalThis.document.visibilityState, active: globalThis.document.activeElement?.outerHTML,
+    viewport: { width: innerWidth, height: innerHeight }, timeline: [...globalThis.document.querySelectorAll('.board-timeline')].map(node => ({ left: node.scrollLeft, width: node.clientWidth, contentWidth: node.scrollWidth })) })).catch(() => null)
+  await writeFile(`${out}/failure.json`, JSON.stringify({ error: error.message, nativeWindows, document }, null, 2))
+  await page.screenshot({ path: `${out}/failure.png` }).catch(() => {})
+  throw error
 } finally {
   await application.close()
   await rm(profile, { recursive: true, force: true })

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Authoritative workspace, command, injected observation time and Store.
- * [OUTPUT]: Validated current/explicit planning periods, color and indexed ordering primitives.
+ * [OUTPUT]: Validated current/explicit periods, ancestor-based flow membership, color and indexed ordering primitives.
  * [POS]: Command context with transaction-local calculations and rollback-safe period insertion.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -21,6 +21,11 @@ export interface Context {
 export function assertAvailable(item: Item): void { if (item.deletedAt !== null) throw new DomainError('conflict', serverText().errors.inTrash) }
 export function hasActiveParent(context: Context, itemId: string): boolean {
   return !!context.store.db.prepare('SELECT 1 FROM item_relations WHERE childId=? AND invalidatedAt IS NULL LIMIT 1').get(itemId)
+}
+export function hasFlow(context: Context, itemId: string): boolean {
+  return !!context.store.prepare(`WITH RECURSIVE ancestors(id) AS (
+    SELECT ? UNION SELECT r.parentId FROM item_relations r JOIN ancestors a ON r.childId=a.id WHERE r.invalidatedAt IS NULL
+  ) SELECT 1 FROM ancestors a JOIN items i ON i.id=a.id WHERE i.flowColor IS NOT NULL AND i.deletedAt IS NULL LIMIT 1`).get(itemId)
 }
 export function flowColorOwner(context: Context, color: number, exceptId: string | null): string | null {
   const row = context.store.db.prepare('SELECT title FROM items WHERE flowColor=? AND deletedAt IS NULL AND id IS NOT ? LIMIT 1').get(color, exceptId)

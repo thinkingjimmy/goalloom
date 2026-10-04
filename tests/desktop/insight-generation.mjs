@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron main/preload, development or built renderer, isolated profiles, an explicit week-start choice and synthetic provider responses.
- * [OUTPUT]: Repeatable generation reports and screenshots (onboarding connection, Settings › AI services and its failure state, drafting, reviews) in output/tests/insight/generation/.
+ * [OUTPUT]: Repeatable generation reports and screenshots (onboarding connection, Settings › AI services, breakpoint loading/completion/fallback, drafting, reviews) in output/tests/insight/generation/.
  * [POS]: Desktop acceptance of the AI-service onboarding path, per-feature switches, drafting and review persistence/refresh/restart/replacement through real IPC/storage; provider transport is controlled.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -108,7 +108,7 @@ async function run(mode) {
     await page.keyboard.press('Escape')
     await settings.waitFor({ state: 'detached' })
 
-    const draftButton = board.locator('[data-horizon="week"]').getByRole('button', { name: '为 7 项各起一步', exact: true })
+    const draftButton = board.locator('[data-horizon="week"]').getByRole('button', { name: '起草下一步', exact: true })
     const dialog = page.getByRole('dialog', { name: '新建', exact: true })
     const settled = () => pollPage(page, () => document.querySelectorAll('.seed-title').length === 7 && ![...document.querySelectorAll('.seed-title')].some(input => input.placeholder === '正在起草…'), undefined, { timeout: 5000, label: 'batch leaves loading' })
     let before = (await calls()).length
@@ -178,6 +178,8 @@ async function run(mode) {
     })
     assert.deepEqual(written, { items: 7, relations: 7 })
     check('reopened composer ignores old results and commits seven linked steps')
+
+    report.loading = await verifyBreakpointLoading(page, application, mode, check)
 
     const beforeHistoryCalls = await calls()
     await application.close()
@@ -426,9 +428,146 @@ async function run(mode) {
   }
 }
 
+async function verifyBreakpointLoading(page, application, mode, check) {
+  const ids = await page.evaluate(async () => {
+    const ids = {}, generation = (await window.goalloom.getSnapshot()).workspace.generation
+    for (const [key, title, horizon, parent] of [
+      ['root', 'Synthetic loading flow', 'cycle', null], ['month', 'Synthetic loading month', 'month', 'root'],
+      ['week', 'Synthetic loading week', 'week', 'month'], ['day', 'Synthetic loading bridge child', 'day', 'month'],
+    ]) {
+      const parentId = ids[parent] ?? null
+      const expectedParentVersion = (await window.goalloom.getSnapshot()).items.find(item => item.id === parentId)?.version ?? null
+      const reply = await window.goalloom.execute({ type: 'create', title, horizon, parentId, expectedParentVersion, flowColor: key === 'root' ? 0 : null, generation, operationId: crypto.randomUUID() })
+      if (!reply.ok) throw Error(reply.message)
+      ids[key] = reply.result.itemId
+    }
+    return ids
+  })
+  await page.reload()
+  await page.getByRole('button', { name: '只看 Synthetic loading flow', exact: true }).click()
+  await page.locator(`#item-${ids.week}`).scrollIntoViewIfNeeded()
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  const gap = page.locator(`.breakpoint[data-spot-key="gap:${ids.week}"]`)
+  const skip = page.locator(`.breakpoint[data-spot-key="skip:${ids.month}"]`)
+  const dialog = page.getByRole('dialog', { name: '新建', exact: true })
+  const hold = responseMode => application.evaluate((_, responseMode) => {
+    globalThis.generationFixture.mode = responseMode
+    globalThis.generationFixture.hold = true
+  }, responseMode)
+  const release = () => application.evaluate(() => {
+    const fixture = globalThis.generationFixture
+    fixture.hold = false
+    for (const resolve of fixture.waiters.splice(0)) resolve()
+  })
+  const appearance = button => button.evaluate(async node => {
+    await Promise.all(node.getAnimations().filter(animation => Number.isFinite(animation.effect.getComputedTiming().endTime)).map(animation => animation.finished))
+    const style = getComputedStyle(node)
+    return { background: style.backgroundColor, color: style.color, icon: [...node.querySelectorAll('path')].map(path => path.getAttribute('d')) }
+  })
+  const pending = async button => {
+    await button.locator('svg').waitFor()
+    await page.waitForFunction(key => document.querySelector(`.breakpoint[data-spot-key="${key}"]`)?.getAttribute('aria-busy') === 'true', await button.getAttribute('data-spot-key'))
+    await application.evaluate(async () => {
+      const deadline = Date.now() + 5000
+      while (!globalThis.generationFixture.waiters.length) {
+        if (Date.now() > deadline) throw Error('Breakpoint request did not reach the held provider')
+        await new Promise(resolve => setTimeout(resolve, 20))
+      }
+    })
+    return button.evaluate(async node => {
+      const svg = node.querySelector('svg'), style = getComputedStyle(node)
+      const before = getComputedStyle(svg).transform
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      const animation = svg.getAnimations()[0]
+      return { disabled: node.disabled, opacity: style.opacity, background: style.backgroundColor, color: style.color, expanded: node.dataset.expanded, icon: [...svg.querySelectorAll('path')].map(path => path.getAttribute('d')),
+        animation: animation?.animationName, iterations: animation?.effect.getTiming().iterations === Infinity,
+        from: before, to: getComputedStyle(svg).transform }
+    })
+  }
+  await gap.hover()
+  const idle = await appearance(gap)
+  await hold('ready')
+  await gap.click()
+  const loading = await pending(gap)
+  assert.equal(loading.disabled, true)
+  assert.equal(loading.opacity, '1', 'The active action keeps its colour instead of inheriting disabled opacity')
+  assert.equal(loading.background, idle.background)
+  assert.equal(loading.color, idle.color)
+  assert.equal(loading.expanded, 'true')
+  assert.notDeepEqual(loading.icon, idle.icon)
+  assert.equal(loading.animation, 'breakpoint-spin')
+  assert.equal(loading.iterations, true)
+  assert.notEqual(loading.from, loading.to, 'The loading glyph rotates across rendered frames')
+  assert.equal(await skip.isDisabled(), true, 'Other actions cannot start during generation')
+  await gap.evaluate(node => node.click())
+  await page.mouse.move(10, 10)
+  assert.equal(await gap.getAttribute('data-expanded'), 'true', 'Pending feedback survives a hover exit')
+  await page.screenshot({ path: `${out}/${mode}-breakpoint-loading.png` })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  assert.equal(await gap.locator('svg').evaluate(node => getComputedStyle(node).animationName), 'none')
+  assert.equal(await gap.getAttribute('aria-busy'), 'true')
+  assert.equal(await gap.locator('svg').isVisible(), true)
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await release()
+  await gap.waitFor({ state: 'detached' })
+  const created = await page.evaluate(async parentId => {
+    const state = await window.goalloom.getSnapshot()
+    return state.relations.filter(edge => edge.parentId === parentId).map(edge => state.items.find(item => item.id === edge.childId))
+  }, ids.week)
+  assert.equal(created.length, 1, 'Repeated clicks create only one next step')
+  assert.equal(created[0].placement.horizon, 'day')
+  assert.equal(await page.locator('.breakpoint[aria-busy="true"]').count(), 0)
+  await page.screenshot({ path: `${out}/${mode}-breakpoint-complete.png` })
+  check('next-step loading rotates at full colour, remains visible after hover exit, respects reduced motion and creates once')
+
+  await skip.hover()
+  const bridgeIdle = await appearance(skip)
+  await hold('unavailable')
+  await skip.click()
+  const bridge = await pending(skip)
+  assert.equal(bridge.opacity, '1')
+  assert.equal(bridge.background, bridgeIdle.background)
+  assert.equal(bridge.color, bridgeIdle.color)
+  assert.equal(bridge.animation, 'breakpoint-spin')
+  assert.notEqual(bridge.from, bridge.to)
+  await page.screenshot({ path: `${out}/${mode}-bridge-loading.png` })
+  await release()
+  await dialog.getByRole('alert').waitFor()
+  assert.equal(await skip.getAttribute('aria-busy'), 'false')
+  assert.equal(await skip.isEnabled(), true)
+  assert.deepEqual(await skip.locator('svg').evaluate(node => [...node.querySelectorAll('path')].map(path => path.getAttribute('d'))), idle.icon)
+  assert.equal(await skip.locator('svg').evaluate(node => getComputedStyle(node).animationName), 'none')
+  await page.screenshot({ path: `${out}/${mode}-breakpoint-fallback.png` })
+  await page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'detached' })
+  check('bridge loading uses the same spinner and clears when a provider failure opens manual entry')
+
+  const before = await application.evaluate(() => globalThis.generationFixture.calls.length)
+  await skip.click({ modifiers: ['Shift'] })
+  await dialog.waitFor()
+  assert.equal(await skip.getAttribute('aria-busy'), 'false')
+  assert.equal(await page.locator('.breakpoint[aria-busy="true"]').count(), 0)
+  assert.equal(await application.evaluate(() => globalThis.generationFixture.calls.length), before)
+  await page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'detached' })
+  await page.getByRole('button', { name: '全部', exact: true }).click()
+  await page.evaluate(async itemIds => {
+    for (const itemId of itemIds.reverse()) {
+      const state = await window.goalloom.getSnapshot(), item = state.items.find(item => item.id === itemId)
+      const reply = await window.goalloom.execute({ type: 'delete', itemId, expectedVersion: item.version, generation: state.workspace.generation, operationId: crypto.randomUUID() })
+      if (!reply.ok) throw Error(reply.message)
+    }
+  }, [...Object.values(ids), created[0].id])
+  await application.evaluate(() => { globalThis.generationFixture.mode = 'ready' })
+  await page.reload()
+  await page.locator('.board').waitFor()
+  check('Shift-click opens manual entry without a model request or lingering loading state')
+  return { next: loading, bridge, created: created[0].id }
+}
+
 async function installFixture(application, previousCalls = []) {
   await application.evaluate(({ ipcMain }, previousCalls) => {
-    globalThis.generationFixture = { mode: 'ready', sequence: previousCalls.length, calls: previousCalls, bridgeErrors: [] }
+    globalThis.generationFixture = { mode: 'ready', sequence: previousCalls.length, calls: previousCalls, bridgeErrors: [], hold: false, waiters: [] }
     const original = ipcMain._invokeHandlers.get('goalloom:smart')
     ipcMain.removeHandler('goalloom:smart')
     ipcMain.handle('goalloom:smart', async (...args) => {
@@ -447,7 +586,8 @@ async function installFixture(application, previousCalls = []) {
       const sequence = ++fixture.sequence, responseMode = fixture.mode
       const call = { sequence, kind: input.tasks ? 'draft' : 'review', count: input.tasks?.length ?? 0, reasoning: body.reasoning, format: body.response_format, settled: false }
       fixture.calls.push(call)
-      await new Promise(resolve => setTimeout(resolve, responseMode === 'slow' ? 4000 : 700))
+      if (fixture.hold) await new Promise(resolve => fixture.waiters.push(resolve))
+      else await new Promise(resolve => setTimeout(resolve, responseMode === 'slow' ? 4000 : 700))
       call.settled = true
       if (responseMode === 'unavailable') return Response.json({ error: { code: 503 } }, { status: 503 })
       if (responseMode === 'payment') return Response.json({ error: { code: 402, message: 'Insufficient credits' } }, { status: 402 })

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Current snapshot items/relations/periods, active flow membership, visible columns, period modes and explicit preview intent.
- * [OUTPUT]: breakpoints (unique gaps/skips across active flows, allowing empty current targets during preview), emptyColumns, draftTarget and bounded model context via boardDigest / periodText.
+ * [INPUT]: Current snapshot items/relations/periods, active flow membership, visible columns, period modes and an optional highlighted preview chain.
+ * [OUTPUT]: breakpoints (unique gaps/skips with preview-scoped parents and day children before batching, allowing empty current targets during preview), emptyColumns, draftTarget and bounded model context via boardDigest / periodText.
  * [POS]: features/insight 的纯信号计算；与 domain/relations 的周期规则一致，不做网络与写入。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -33,7 +33,7 @@ function inCurrent(item: ItemSummary, current: Map<string, string>): boolean {
 }
 
 // --- A gap asks only for the nearest missing level: a month plan without week children, never also a day node for it. ---
-export function breakpoints(snapshot: Snapshot, flows: Flows, flowIds: string[], columns: ItemHorizon[], mode: Mode, preview = false): Breakpoints {
+export function breakpoints(snapshot: Snapshot, flows: Flows, flowIds: string[], columns: ItemHorizon[], mode: Mode, previewChain: ReadonlySet<string> | null = null): Breakpoints {
   const current = currentIds(snapshot)
   const byId = new Map(snapshot.items.map(item => [item.id, item]))
   const member = (item: ItemSummary) => flows.of(item.id).some(flow => flowIds.includes(flow.id))
@@ -47,13 +47,13 @@ export function breakpoints(snapshot: Snapshot, flows: Flows, flowIds: string[],
   const filled = new Set(snapshot.items.filter(item => live(item) && inCurrent(item, current)).map(item => item.placement.horizon))
   const gaps: Gap[] = [], skips: Skip[] = []
   for (const parent of snapshot.items) {
-    if (!open(parent) || !inCurrent(parent, current) || !member(parent) || !shown(parent.placement.horizon)) continue
+    if (!open(parent) || !inCurrent(parent, current) || !member(parent) || !shown(parent.placement.horizon) || previewChain !== null && !previewChain.has(parent.id)) continue
     const target = shorter(parent.placement.horizon)
     if (!target) continue
     const kids = children.get(parent.id) ?? []
-    if (!kids.length && mode(target) === 'current' && (preview || shown(target) && filled.has(target))) gaps.push({ parent, target })
+    if (!kids.length && mode(target) === 'current' && (previewChain !== null || shown(target) && filled.has(target))) gaps.push({ parent, target })
     if (parent.placement.horizon === 'month' && shown('week') && shown('day')) {
-      const skipped = kids.filter(child => child.placement.horizon === 'day' && open(child) && member(child))
+      const skipped = kids.filter(child => child.placement.horizon === 'day' && open(child) && member(child) && (previewChain === null || previewChain.has(child.id)))
       if (skipped.length) skips.push({ parent, children: skipped.slice(0, 8) })
     }
   }

@@ -109,7 +109,7 @@ try {
   // --- Empty 本周: one call drafts a step for each month plan; rows fill in, ↵ creates them. ---
   const week = board.locator('[data-horizon="week"]')
   await week.scrollIntoViewIfNeeded()
-  await week.getByRole('button', { name: '为 7 项各起一步' }).click()
+  await week.getByRole('button', { name: '起草下一步', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '新建' })
   let started = Date.now()
   await pollPage(page, () => { const inputs = [...document.querySelectorAll('.seed-title')]; return inputs.length === 7 && inputs.every(input => input.value.trim().length > 1) }, undefined, { timeout: 30_000, label: 'seven batch titles drafted' })

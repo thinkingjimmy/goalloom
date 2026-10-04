@@ -1,3 +1,9 @@
+/**
+ * [INPUT]: Real Electron, isolated synthetic long columns and production board/search controls.
+ * [OUTPUT]: Bounded row mounting, drag/period guards, detail-close focus return and refresh evidence.
+ * [POS]: Review virtual-list regression; does not use a separate board-location action.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import { finishSetup } from '../fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { stepPeriod } from '../fixtures/period-step.mjs'
@@ -102,11 +108,10 @@ try {
   await page.getByRole('textbox', { name: 'Search items', exact: true }).fill('Synthetic row 002')
   await page.locator('.command-results .menu-item').first().click()
   await page.locator('.modal.detail').waitFor()
-  await page.getByRole('button', { name: 'More actions', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Show on board', exact: true }).click()
+  await page.locator('.modal.detail').getByRole('button', { name: 'Close', exact: true }).click()
   await page.locator(`#item-${rows[2]}`).waitFor()
   await page.waitForFunction(id => document.activeElement?.closest('.task-row')?.getAttribute('data-item-id') === id, rows[2])
-  checks.push('search locates an offscreen item and restores row focus')
+  checks.push('search opens an offscreen item; closing its detail restores row focus')
   // Count snapshot reads at the IPC boundary; the production handler still answers every call.
   await app.evaluate(({ ipcMain }) => {
     const original = ipcMain._invokeHandlers.get('goalloom:query')

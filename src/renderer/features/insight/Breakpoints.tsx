@@ -2,8 +2,8 @@
  * [INPUT]: Snapshot, board view, active flows, the optional highlighted preview chain, visible columns, insight readiness, guarded submission and a composer-seed opener.
  * [OUTPUT]: The breakpoint layer inside `.board`: an entry right-aligned inside each gap parent's row (flow colour) and skip parent's row (amber), never crossing
  *           the column rule where connector buses run — a thin ring at rest that becomes a labelled pill while its row is hovered, focused or pending;
- *           click drafts one title and creates it (create / insertBetween), ⇧-click or no model opens the prefilled composer;
- *           preview limits controls to its highlighted chain; a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
+ *           click shows a loading glyph while drafting and creating (create / insertBetween), ⇧-click or no model opens the prefilled composer;
+ *           preview limits controls and bridge children to its highlighted chain; a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
  * [POS]: Board insight overlay with a guide bounded to the planning viewport; pending actions survive hover exits and finite motion tracking.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -42,11 +42,10 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
   const active = flowIds.length > 0
   const spots = useMemo<Spot[]>(() => {
     if (!active) return []
-    const found = breakpoints(snapshot, flows, flowIds, columns, view.mode, previewChain !== null)
+    const found = breakpoints(snapshot, flows, flowIds, columns, view.mode, previewChain)
     return [...found.gaps.map(gap => ({ key: `gap:${gap.parent.id}`, kind: 'gap' as const, parent: gap.parent, target: gap.target, children: [],
       color: flowStroke(flows.of(gap.parent.id).find(flow => flowIds.includes(flow.id))!.flowColor) })),
       ...found.skips.map(skip => ({ key: `skip:${skip.parent.id}`, kind: 'skip' as const, parent: skip.parent, target: 'week' as const, children: skip.children, color: 'var(--insight-skip)' }))]
-      .filter(spot => previewChain === null || previewChain.has(spot.parent.id))
   }, [snapshot, flows, flowIds, previewChain, columns, view.mode, active])
   const latest = useRef(spots); latest.current = spots
 
@@ -145,8 +144,8 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
       return <button key={spot.key} data-spot-key={spot.key} type="button" className="breakpoint" data-kind={spot.kind} data-pending={pending === spot.key} data-guided={guide?.key === spot.key}
         data-expanded={hovered === spot.parent.id || pending === spot.key || guide?.key === spot.key}
         style={{ left: place.x, top: place.y, '--node': spot.color } as CSSProperties} aria-label={label} title={`${label}\n${t.nodeTip}`}
-        disabled={!!pending} onClick={event => void open(spot, event)}>
-        <Icon name="add" size={12} strokeWidth={2.4} /><span className="breakpoint-label" aria-hidden="true">{spot.kind === 'skip' ? t.bridgeShort : t.nodeShort}</span>
+        aria-busy={pending === spot.key} disabled={!!pending} onClick={event => void open(spot, event)}>
+        <Icon name={pending === spot.key ? 'loading' : 'add'} size={12} strokeWidth={2.4} /><span className="breakpoint-label" aria-hidden="true">{spot.kind === 'skip' ? t.bridgeShort : t.nodeShort}</span>
       </button>
     })}
     {guide && places.get(guide.key) && <div data-spot-key={guide.key} className="breakpoint-guide" role="note" style={{ left: places.get(guide.key)!.x - 24, top: places.get(guide.key)!.y + 20 }}>

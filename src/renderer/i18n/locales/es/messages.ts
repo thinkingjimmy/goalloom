@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: Spanish UI copy and parameterized messages, including feedback destinations and partial restores.
+ * [OUTPUT]: Spanish UI copy and parameterized messages, including column add-task labels, feedback destinations and partial restores.
  * [POS]: Spanish message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -91,6 +91,7 @@ export const messages: MessageCatalog = {
   addTo: "Añadir a",
   cancel: "Cancelar",
   addItem: "Añadir elemento",
+  addTask: "Añadir tarea…",
   reopen: "Reabrir",
   complete: "Completar",
   overdue: "Vencido · ",
@@ -133,7 +134,6 @@ export const messages: MessageCatalog = {
   dueDate: "Fecha límite",
   dueDateNote: "La fecha límite es independiente de la columna. Elegir una fecha futura no mueve la tarea.",
   save: "Guardar",
-  locate: "Ver en el tablero",
   restoreItemAction: "Recuperar elemento",
   reopenAction: "Reabrir",
   markDone: "Marcar como completado",
@@ -264,9 +264,9 @@ export const messages: MessageCatalog = {
   flowRootTag: "Flujo",
   startFlow: "Iniciar un flujo aquí",
   startFlowHint: "Elige un color para que este elemento inicie un flujo nuevo.",
-  linkToParent: "Vincular a un superior…",
+  linkToParent: "Vincular a un superior",
   dragRelationHint: "Arrastra a una tarea de un horizonte más largo para vincular; haz clic para abrir el menú",
-  adoptParentFlowHint: "Al vincular, se elimina el color propio y se sigue el flujo del superior",
+  adoptParentFlowHint: "Un superior sin color ni otros vínculos será el origen y conservará este color; en los demás casos, se sigue su flujo. Se conservan los elementos inferiores.",
   relationTargetChanged: "La tarea ha cambiado. Vuelve a iniciar el vínculo.",
   relationLinkFailed: "No se pudieron vincular las tareas. Inténtalo de nuevo.",
   relationLinked: (title: string) => `Vinculado con «${title}»`,

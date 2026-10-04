@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Immutable original effects, current state, indexed neighbors and injected time.
- * [OUTPUT]: Atomic owned-field inverses, relation/color adoption reversal, dependency guards and persisted expiry holds.
+ * [OUTPUT]: Atomic owned-field inverses, guarded flow adoption/promotion reversal and persisted expiry holds.
  * [POS]: Undo transaction rules; Repository handles SAVEPOINT conflict rollback.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -54,9 +54,20 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
       break
     }
     case 'relations': {
+      const transfer = effect.flowColor?.transferredTo
+      if (transfer) {
+        const parent = context.store.item(transfer)
+        if (parent.flowColor !== effect.flowColor!.before) conflict(serverText().undo.flowColorChanged)
+        if (allEdges.some(edge => !edge.invalidatedAt && edge.parentId === transfer && edge.childId !== item.id)) conflict(serverText().undo.promotionBranchesChanged)
+      }
       reverseRelations(context, inverseEdges(effect.edges, context.command.operationId, context.now), item)
       if (effect.flowColor) {
         if (hasActiveParent(context, item.id)) conflict(serverText().undo.adoptionParentsChanged)
+        if (transfer) {
+          const parent = context.store.item(transfer)
+          parent.flowColor = null
+          touch(context, parent)
+        }
         if (flowColorOwner(context, effect.flowColor.before, item.id) !== null) conflict(serverText().undo.colorTaken)
         item.flowColor = effect.flowColor.before
       }

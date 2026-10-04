@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted JSON/SQLite datasets and finite maintenance actions.
- * [OUTPUT]: Versioned v1-v6 imports, relation-owned adoption color effects, backup/replacement previews and paged batch details.
+ * [OUTPUT]: Versioned v1-v6 imports, relation-owned adoption/promotion color effects, backup/replacement previews and paged batch details.
  * [POS]: Workspace transfer boundary; selected paths remain main-owned.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -19,7 +19,7 @@ export const effectSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('position'), itemId: idSchema, before: position, after: position }),
   z.strictObject({ kind: z.literal('archive'), itemId: idSchema, before: instantSchema.nullable(), after: instantSchema.nullable() }),
   z.strictObject({ kind: z.literal('visibility'), itemId: idSchema, before: visibility, after: visibility, edges: z.array(edgeDelta).max(100_000) }),
-  z.strictObject({ kind: z.literal('relations'), itemId: idSchema, edges: z.array(edgeDelta).max(100_000), flowColor: z.strictObject({ before: flowColorSchema, after: z.null() }).optional() }),
+  z.strictObject({ kind: z.literal('relations'), itemId: idSchema, edges: z.array(edgeDelta).max(100_000), flowColor: z.strictObject({ before: flowColorSchema, after: z.null(), transferredTo: idSchema.optional() }).optional() }),
 ])
 export const operationSchema = z.strictObject({
   id: idSchema, generation: idSchema, requestHash: z.string().regex(/^[a-f0-9]{64}$/), kind: z.string().min(1).max(60),

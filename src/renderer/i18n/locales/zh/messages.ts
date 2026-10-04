@@ -1,6 +1,6 @@
 /**
  * [INPUT]: UI parameters; Chinese defines the MessageCatalog shared by every locale.
- * [OUTPUT]: General UI copy and parameterized messages, including feedback destinations and partial restores.
+ * [OUTPUT]: General UI copy and parameterized messages, including column add-task labels, feedback destinations and partial restores.
  * [POS]: Chinese message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -91,6 +91,7 @@ export const messages = widen({
   addTo: "添加到",
   cancel: "取消",
   addItem: "添加条目",
+  addTask: "添加任务…",
   reopen: "重开",
   complete: "完成",
   overdue: "截止已过 · ",
@@ -133,7 +134,6 @@ export const messages = widen({
   dueDate: "截止日期",
   dueDateNote: "截止日独立于所在列。选择未来日期不会移动任务。",
   save: "保存",
-  locate: "定位到看板",
   restoreItemAction: "还原条目",
   reopenAction: "重新打开",
   markDone: "标记完成",
@@ -264,9 +264,9 @@ export const messages = widen({
   flowRootTag: "流程",
   startFlow: "设为流程起点",
   startFlowHint: "选一个颜色，这一项开启一条新流程。",
-  linkToParent: "关联到上级…",
+  linkToParent: "关联到上级",
   dragRelationHint: "按住拖到更长周期的任务以关联；点击打开菜单",
-  adoptParentFlowHint: "关联后取消独立颜色并跟随上级",
+  adoptParentFlowHint: "上级无色且没有其他关联时，将流程起点上移并保留颜色；否则跟随上级。已有下级保留。",
   relationTargetChanged: "任务已变化，请重新关联",
   relationLinkFailed: "暂时无法建立关联，请重试",
   relationLinked: (title: string) => `已关联到「${title}」`,

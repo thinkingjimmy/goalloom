@@ -1,17 +1,24 @@
 /**
- * [INPUT]: 显式端点集合与有效/失效关系快照；新建关联时两端的计划周期。
- * [OUTPUT]: 多父 DAG 的自关联/重复/环校验，以及新建关联的周期规则（mayParent/horizonProblem），不修改实体或状态。
- * [POS]: 可复用关系规则；事务、撤销、还原和导入共用 DAG 校验，周期规则只约束用户新建关联并被 renderer 候选过滤复用。
+ * [INPUT]: Explicit endpoints, active topology, effective flow membership and planning horizons.
+ * [OUTPUT]: DAG/horizon validation, flow-link eligibility and safe color promotion to an isolated parent.
+ * [POS]: Shared transaction/renderer relationship rules; undo, restore and import retain existing edges.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { horizons } from '../shared/contracts/values'
-import type { ItemHorizon, Relation } from '../shared/contracts/entities'
+import type { Item, ItemHorizon, Relation } from '../shared/contracts/entities'
 import { serverText } from '../shared/i18n/server'
 
 // Later is a parking lot, not a planning horizon: it never takes part in relations. A parent is a bigger goal, so it
 // must sit in a strictly longer horizon. Only new links are held to this; moves, undo, restore and import keep edges.
 export const mayParent = (parent: ItemHorizon, child: ItemHorizon): boolean =>
   parent !== 'later' && child !== 'later' && horizons.indexOf(parent) < horizons.indexOf(child)
+
+export const mayLinkFlows = (parentHasFlow: boolean, childHasFlow: boolean): boolean => parentHasFlow || childHasFlow
+
+export function promotedFlowColor(parent: Pick<Item, 'id' | 'flowColor'>, child: Pick<Item, 'flowColor'>, activeEdges: readonly Pick<Relation, 'parentId' | 'childId'>[]): number | null {
+  return child.flowColor !== null && parent.flowColor === null && !activeEdges.some(edge => edge.parentId === parent.id || edge.childId === parent.id)
+    ? child.flowColor : null
+}
 
 export function horizonProblem(parent: ItemHorizon, child: ItemHorizon): string | null {
   if (parent === 'later' || child === 'later') return serverText().relations.laterEndpoint

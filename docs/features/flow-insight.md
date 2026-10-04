@@ -9,8 +9,10 @@
 - 「全部」静止时不出 ＋；筛选某条流程时，本流程中「当前周期、未完成、未归档」的条目，若在当前周期没有任何活跃下级，在它行内右侧（离行边缘 6px，对齐首行中线）出一个流程色入口：静止时是 16px 细圈，悬停该行、键盘聚焦、首次引导或起草中时展开为「＋ 下一步」胶囊。入口始终在行底色内、不越过列分隔线，不遮挡沿分隔线走的连线总线。只提示最近一级：本周还没有下级时，今天列不为它出 ＋。Later 与今天列条目不出 ＋；目标列整列为空时不出逐项 ＋，由空列卡代替。
 - 悬停或键盘聚焦有色流程圆点时，高亮链中每个缺少下级的待办末尾都显示同款 ＋；高亮范围包含该条目及其祖先、后代，淡化的旁支不显示。切换圆点时按钮跟随高亮链切换。下一列为空时仍可添加；源条目与目标周期必须是当期，Later 与今天条目不出 ＋。多流程归属只显示一个按钮，预览中的跳级 ＋ 也只属于高亮链内的任务。鼠标或焦点经过流程内任务及 ＋／引导时保持预览，离开后按原有 120ms 缓冲收起；纯悬停普通任务不启动预览。
 - 跳级：本流程中直接挂在「本月」下的「今天」条目（跨过本周）按同一上级分组，在该月计划行内右侧出一个橙色入口（与断点同样的细圈／「＋ 补一级」胶囊，位于已连接端口左侧、不覆盖端口；跨列虚线本身不变）。
+- During dot previews, a skip requires both the month parent and a directly linked day child in the highlighted chain. Only those highlighted day children contribute to the label, draft and insertBetween action; faded sibling branches never trigger or join it. Apply this scope before the eight-child limit. Filtered flow overviews retain the flow-wide grouping.
 - 单击 ＋：由模型起草一条标题并直接创建，与普通待办无异，不二次确认、无 Toast；上级已关联，目标周期为下一列的当前周期；若当前周（或月）今天结束，则写入下一周期，＋ 变为「下周 · 标题 →」去向标记，点击跳转查看。
 - 单击跳级 ＋：起草一个本周里程碑并在一个事务内创建，今天的这几项改挂到它下面（解除与月计划的直接关联），一次撤销完整还原。
+- 「下一步」与「补一级」点击后立即把加号替换为旋转的加载图标，保持胶囊原色和文字直到起草与写入结束，期间阻止重复点击。失败转入手工填写后恢复按钮；⇧ 单击或无可用模型直接打开新建窗口。系统开启减少动态效果时保留加载图标但停止旋转。
 - ⇧ 单击，或未连接可用的模型：打开全局新建窗口（⌘N），只预填上级与周期，其余与平常新建一致；跳级另预填「下级：今天 N 项」。
 - 首次出现断点时给一次引导（第一个 ＋ 加重 + 说明卡），点「知道了」或点任一 ＋ 后不再出现；引导状态只存本机。说明卡随时间区视口边界定位，横向滚动后关闭按钮仍在可见范围内；跳级入口比普通断点多退让 9px，避开关系线端口。
 
@@ -18,8 +20,8 @@
 
 链条为年 → 半年 → 3个月 → 本月 → 本周 → 今天；跳级提醒仅保留本月 → 今天。年 / 半年未来周期可右键拆解，未来半年 / 3个月在其周期落入左列显示周期时提供空列卡，下级使用与上级同日开始的一期。半年起草为可验收阶段成果，3个月为季度里程碑；复盘矩阵包含六列。详见 [双日历模式](calendar-modes.md)。
 
-- 半年、3个月、本月、本周、今天在显示周期整列为空，且上一列有未完成、未归档并没有任何显示周期下级的条目时，列内显示一张卡：「本周还是空的」「为 N 项各起一步」「自己写」。不出逐项 ＋。
-- 「为 N 项各起一步」打开新建窗口的多条草稿（最多 8 条），每条带上级，可取消勾选，↵ 一次写入；「自己写」打开只预填周期的新建窗口。有待复盘月份时，本月列由统一复盘引导卡替代空列卡。
+- 半年、3个月、本月、本周、今天在显示周期整列为空，且上一列有未完成、未归档并没有任何显示周期下级的条目时，列内显示一张卡：「本周还是空的」「起草下一步」「自己写」。数量只在说明中显示，按钮和起草窗口标题不重复计数，单项与多项使用相同文案。五种语言同步。不出逐项 ＋。
+- 「起草下一步」打开新建窗口的多条草稿（最多 8 条），每条带上级，可取消勾选，↵ 一次写入；「自己写」打开只预填周期的新建窗口。有待复盘月份时，本月列由统一复盘引导卡替代空列卡。
 
 ### 复盘
 
@@ -66,12 +68,18 @@
 - `insertBetween` 命令：在一个事务内创建里程碑（挂在原上级下）、把指定下级改挂到里程碑、解除它们与原上级的边；周期规则与 DAG 校验复核；一次撤销。
 - `createPlan` 条目可带 `period`（`current` / `date`），用于复盘写入下一周期。
 - `features/insight/Breakpoints.tsx`: one stable layer per workspace generation handles all active flows, deduplicating shared parents and preserving pending actions across preview exits. Board supplies the preview chain from `state/flows.ts`, using the same active graph and ancestor/descendant traversal as relation-line highlighting. Gap and skip controls stay within that chain; filtered overview remains flow-wide. Gap and skip buttons share the outgoing row endpoint, including row-motion updates; geometry observers run only while flows are active. Native preview and geometry evidence is recorded in `output/tests/insight/report.json` and `output/tests/ordering/report.json`.
+- Pending breakpoint actions expose `aria-busy` and swap the add glyph for the bundled Hugeicons loading glyph. `insight.css` keeps that pending action at full opacity and its final hover colours immediately, rotating only its SVG; reduced motion stops rotation without hiding loading feedback. The existing pending lifetime includes both drafting and guarded submission and clears on manual fallback.
+- `features/insight/signals.ts`: `breakpoints` accepts an optional highlighted chain instead of a preview boolean. It scopes parents and direct day children before batching; the returned children drive both the skip label and its write. A null chain preserves overview/review rules.
 - renderer：`state/insight.ts` 本机偏好（localStorage `goalloom.insight`），`features/insight/` 断点层、空列卡、复盘抽屉；新建窗口接受预填（上级、周期、草稿列表）。
 - `state/review-summary.ts`: device-only `goalloom.review-summaries` cache, scoped by workspace generation and reviewed week/month keys, with one successful result per period and at most 24 entries. SHA-256 covers the actual review prompt (including review preferences, excluding draft-only preferences); only hashes and sanitised results persist. Concurrent identical requests share one promise, refresh failures preserve the previous entry, malformed/unavailable storage degrades to a session cache, and App invalidates both persisted and pending ownership on workspace replacement. Drafting remains uncached.
 - `features/insight/ReviewSummary.tsx`: revalidates actual context on drawer/step entry, not while editing preferences behind another dialog; manual refresh uses the latest context, guards stale subscriptions, and keeps successful text visible during refresh or failure. The explicit refresh control and failure copy ship in all five locales.
 - Draft and review mount effects share one pending request across StrictMode replay; each subscription ignores responses after its cleanup. Draft failures always end loading and leave editable rows with visible feedback. `pnpm dev` watches main/preload so generation actions and renderer callers remain on the same contract; previously started non-watching processes require a restart.
 
 ## 实现前失败场景
+
+- Breakpoint loading: disabled styles fade the active action; only opacity pulses instead of a visible spinner; hover exit hides pending feedback; repeated clicks start multiple requests; success or failure leaves the spinner active; manual entry keeps a loading state; reduced-motion preferences are ignored. Cover both next-step and bridge controls with held synthetic requests, actual animation frames and completion/failure screenshots.
+
+- Skip-preview regression (2026-10-03): a highlighted month → week path incorrectly shows a bridge for faded month → day siblings. A day preview must include only its highlighted direct siblings in the label/composer/write, including a child outside the overview's first eight. Month/root previews and filtered overviews must retain their bounded grouping; keyboard preview and undo must use the same scope.
 
 - Six-column viewport regression (2026-10-03): a visible month breakpoint placed the guide's dismissal 258px beyond the native board. `test:relations` asserts guide bounds before dismissal; geometry must keep the whole guide inside the timeline while scrolling.
 
@@ -100,6 +108,8 @@
 - [ ] Windows 11 人工验收由所有者执行
 
 ## 验收
+
+- [x] Breakpoint loading (2026-10-03): development and production Electron cover held next-step/bridge requests, actual rotation frames, unchanged full pill colours, hover exit, duplicate-click suppression, success, failure-to-manual recovery, Shift-click and reduced motion. Reports and screenshots: `output/tests/insight/generation/{development,production}-report.json` and `*-breakpoint-loading.png` / `*-bridge-loading.png`; final scope and commands: `output/tests/breakpoint-loading/report.json`.
 
 - [x] 2026-10-01「简报」预览落地：紧凑看板引导、无底色小结与行内统计、无模型图标标题、标题行刷新及文字底部按钮。`pnpm typecheck`、`pnpm test`（120 例）、`pnpm build`、insight、insight-generation（开发／生产）、月复盘、合并复盘及 language 通过；真实 Electron 截图与执行范围见 `output/tests/insight/review-brief-report.md`。
 - [x] 2026-10-01 复盘界面回归调整：步骤连接线、紧凑统计与 AI 总结合卡、目标行悬停／聚焦反馈和方框首行对齐。`pnpm typecheck`、`pnpm test`（120 例）、`pnpm build`、完整 insight／insight-generation、月复盘／合并复盘与 language 脚本通过；真实 Electron 截图复核与范围记录在 `output/tests/insight/review-layout-report.md`。

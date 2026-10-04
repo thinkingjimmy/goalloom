@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: French flow-insight copy: breakpoints, onboarding, drafting, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: French flow-insight copy: breakpoints, onboarding, count-free draft actions, period-named review entries/titles, matrix legends and settings.
  * [POS]: French insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -38,7 +38,7 @@ export const insightMessages: InsightCatalog = {
   seedInclude: title => `Créer « ${title} »`,
   emptyTitle: column => `${column} est vide`,
   emptyBody: (column, count) => `${count} élément(s) de ${column} ne sont pas encore découpés ici.`,
-  emptyDraft: count => `Une étape pour chacun (${count})`,
+  emptyDraft: 'Préparer les prochaines étapes',
   emptyOwn: 'Écrire moi-même',
   menuMoveTo: 'Déplacer vers…',
   menuDecompose: 'Étape suivante',

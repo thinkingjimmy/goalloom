@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Built Electron, an isolated device profile and production workspace controls.
- * [OUTPUT]: Board, fixed planning columns, Later toggle, settings, shortcut and security assertions with screenshots.
+ * [OUTPUT]: Board/empty-copy screenshots, flow-valid detail parent picking, More alignment/actions, fixed columns, Later, settings, shortcuts and security assertions.
  * [POS]: Desktop workspace acceptance; uses the real preload, main and SQLite without production test hooks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { finishSetup } from './fixtures/setup.mjs'
 import { finishDetailEditing, waitForDetailSave } from './fixtures/detail-save.mjs'
+import { verifyDetailMore } from './fixtures/detail-more.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -39,6 +40,17 @@ try {
   await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).items.length, 0)
+  await mkdir('output/tests/empty-column', { recursive: true })
+  await page.screenshot({ path: 'output/tests/empty-column/empty-board.png' })
+  await writeFile('output/tests/empty-column/geometry.json', JSON.stringify({ runtime, paragraphs: await page.locator('.empty-column p').evaluateAll(nodes => nodes.map(node => {
+    const text = node.firstChild, lines = new Map()
+    for (let index = 0; index < text.length; index++) {
+      const range = document.createRange(); range.setStart(text, index); range.setEnd(text, index + 1)
+      const top = range.getBoundingClientRect().top.toFixed(2)
+      lines.set(top, (lines.get(top) ?? '') + text.textContent[index])
+    }
+    return { horizon: node.closest('.board-column').dataset.horizon, width: node.getBoundingClientRect().width, lines: [...lines.values()] }
+  })) }, null, 2))
   const later = page.getByRole('textbox', { name: '新建到Later', exact: true })
   // Goals and the flow root live in 3个月; tasks go one horizon shorter, because a parent must sit in a longer horizon.
   const cycle = page.getByRole('textbox', { name: '新建到3个月', exact: true }), month = page.getByRole('textbox', { name: '新建到本月', exact: true })
@@ -142,11 +154,17 @@ try {
   await page.getByRole('button', { name: '流程子任务', exact: true }).click()
   await page.getByRole('img', { name: '流程：测试流程（跟随上级）', exact: true }).waitFor()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
+  await page.evaluate(async () => {
+    const s = await window.goalloom.getSnapshot(), parent = s.items.find(item => item.title === '测试上级 A')
+    const r = await window.goalloom.execute({ type: 'flowColor', itemId: parent.id, expectedVersion: parent.version, flowColor: 0,
+      generation: s.workspace.generation, operationId: crypto.randomUUID() })
+    if (!r.ok) throw Error(r.message)
+  })
   await page.getByRole('button', { name: '测试行动', exact: true }).click()
   await page.getByLabel('说明', { exact: true }).fill('重启仍保留的说明')
   await waitForDetailSave(page)
   // The 上级 chip opens the picker directly while empty; once linked it lists parents first and hands off via 「关联到…」.
-  const parentChip = page.locator('.detail-props .detail-chip', { hasText: '上级' })
+  const parentChip = page.locator('.detail-props button.detail-chip', { hasText: '上级' })
   for (const title of ['测试上级 A', '测试上级 B']) {
     await parentChip.click()
     const handoff = page.getByRole('menuitem', { name: '关联到…', exact: true })
@@ -183,6 +201,7 @@ try {
   const detailDialog = page.getByRole('dialog', { name: '当前条目' })
   const headerActions = await detailDialog.locator('.modal-header .icon-button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))
   assert.deepEqual(headerActions.slice(-3).map(label => label.replace(/ \d+$/, '')), ['更多操作', '活动', '关闭'])
+  await verifyDetailMore(application, page, detailDialog)
   const narrow = (await detailDialog.boundingBox()).width
   await detailDialog.getByRole('button', { name: /^活动 \d+$/ }).click()
   await detailDialog.locator('.activity-drawer li').first().waitFor()
@@ -354,7 +373,7 @@ try {
     const snapshot = await page.evaluate(() => window.goalloom.getSnapshot())
     assert.equal(snapshot.items.length, 6)
     assert.equal(snapshot.relations.length, 3)
-    assert.deepEqual(snapshot.flows.map(flow => flow.title), ['测试流程'])
+    assert.deepEqual(snapshot.flows.map(flow => flow.title), ['测试上级 A', '测试流程'])
     assert.equal(snapshot.items.find(item => item.title === '测试行动').placement.horizon, 'day')
     assert.equal(snapshot.workspace.style, 'minimal')
     assert.equal(snapshot.workspace.checkStyle, 'tint')

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: One board item, flow/topology/candidate views, guarded actions, RelationDragContext and the board's preview callback.
- * [OUTPUT]: Role-aware flow menus, pointer linking and keyboard adoption for roots; hover/focus previews stay active across flow rows and breakpoint controls without a native tooltip.
+ * [OUTPUT]: Role-aware flow menus with intrinsic choice width, pointer linking and keyboard adoption for roots; hover/focus previews stay active across flow rows and breakpoint controls without a native tooltip.
  * [POS]: board row decoration; writes only through flowColor/link/unlink actions, so undo toasts and revalidation stay authoritative.
  *        Later items render nothing: the parking lot takes no part in flows or links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.

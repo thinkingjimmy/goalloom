@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Ordered summary identities, scroll viewport, render function, active drag, selection and menu pin.
- * [OUTPUT]: Resize-observed rows with bounded motion retention, FLIP, keyboard traversal and synchronous reveal; inert panels retain their scroll and ignore reveal requests.
+ * [INPUT]: Ordered summary identities, scroll viewport, render function, active drag, selection, menu pin and optional focus-return input origin.
+ * [OUTPUT]: Resize-observed rows with bounded motion retention, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,9 +10,29 @@ import type { ItemSummary } from '../../../shared/contracts/entities'
 import { RowMotion } from './RowMotion'
 
 const revealEvent = 'goalloom:reveal-row'
-interface Reveal { id: string; focus: string | null }
-export function revealRow(id: string, focus: string | null = null): void {
-  window.dispatchEvent(new CustomEvent<Reveal>(revealEvent, { detail: { id, focus } }))
+interface Reveal { id: string; focus: string | null; origin?: 'pointer' | 'keyboard' }
+export function revealRow(id: string, focus: string | null = null, origin?: Reveal['origin']): void {
+  window.dispatchEvent(new CustomEvent<Reveal>(revealEvent, { detail: { id, focus, ...(origin ? { origin } : {}) } }))
+}
+
+function returnFocus(control: HTMLElement, origin: Reveal['origin']) {
+  if (origin === 'pointer') {
+    // Escape changes the browser's focus-visible heuristic; retain the opener's pointer presentation.
+    control.dataset.focusReturn = 'pointer'
+    const clear = () => {
+      delete control.dataset.focusReturn
+      control.removeEventListener('blur', clear)
+      control.removeEventListener('keydown', resume, true)
+    }
+    const resume = (event: KeyboardEvent) => { if (!['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) clear() }
+    control.addEventListener('blur', clear)
+    control.addEventListener('keydown', resume, true)
+    control.focus({ preventScroll: true })
+    if (document.activeElement !== control) clear()
+  } else {
+    delete control.dataset.focusReturn
+    control.focus({ preventScroll: true })
+  }
 }
 const overscan = 5
 const estimatedRowHeight = 32
@@ -53,7 +73,7 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
     const end = Math.min(items.length, (after < 0 ? items.length : after) + overscan)
     setRange(previous => previous.start === start && previous.end === end ? previous : { start, end })
   }
-  const reveal = ({ id, focus }: Reveal) => {
+  const reveal = ({ id, focus, origin }: Reveal) => {
     const index = latest.current.indexes.get(id), node = list.current, root = node?.closest('.column-content')
     if (index === undefined || !node || !(root instanceof HTMLElement) || node.closest('[inert]')) return
     const top = node.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop + latest.current.offsets[index]!
@@ -64,7 +84,8 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
     const row = document.getElementById(`item-${id}`)
     row?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     const control = focus === ':last-control' ? [...row?.querySelectorAll<HTMLElement>(controlSelector) ?? []].at(-1) : focus ? row?.querySelector<HTMLElement>(focus) : null
-    if (focus) (control ?? row?.querySelector<HTMLElement>('.task-title'))?.focus({ preventScroll: true })
+    const target = control ?? row?.querySelector<HTMLElement>('.task-title')
+    if (focus && target) returnFocus(target, origin)
   }
   const handler = useRef(reveal); handler.current = reveal
   useEffect(() => {

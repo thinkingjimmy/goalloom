@@ -10,7 +10,7 @@ import type { CommandInput } from '../../src/shared/contracts/commands'
 type Action<T = CommandInput> = T extends unknown ? Omit<T, 'operationId' | 'generation'> : never
 let repo: Repository, now: string
 const run = (action: Action) => repo.execute({ ...action, operationId: randomUUID(), generation: repo.store.workspace().generation })
-const create = (title = '自动事项', horizon: 'day' | 'month' | 'cycle' | 'later' = 'day') => run({ type: 'create', title, horizon, dueDate: '2026-09-30' }).itemId!
+const create = (title = '自动事项', horizon: 'day' | 'month' | 'cycle' | 'later' = 'day', flowColor: number | null = null) => run({ type: 'create', title, horizon, flowColor, dueDate: '2026-09-30' }).itemId!
 const policy = (horizon: 'day' | 'month' | 'cycle', mode: 'manual' | 'auto') => run({ type: 'policy', horizon, mode, expectedVersion: repo.store.policies().find(p => p.horizon === horizon)!.version })
 beforeEach(() => {
   now = '2026-09-10T02:00:00Z'
@@ -19,7 +19,7 @@ beforeEach(() => {
 })
 afterEach(() => repo.db.close())
 it('长期离线只作一次真实顺延，不改状态/截止/关联，重试不重复', () => {
-  const parent = create('目标', 'cycle'), child = create()
+  const parent = create('目标', 'cycle', 0), child = create()
   run({ type: 'link', parentId: parent, childId: child, expectedParentVersion: 1, expectedChildVersion: 1 })
   now = '2026-11-03T02:00:00Z'
   const batch = reconcile(repo)!

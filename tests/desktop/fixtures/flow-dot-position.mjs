@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Real Electron, a configured isolated workspace and a screenshot directory.
- * [OUTPUT]: Measured bounds and screenshots for bottom-edge flow menus, content changes, scrolling and resizing.
+ * [INPUT]: Real Electron, an isolated workspace with a longer-horizon flow root and a screenshot directory.
+ * [OUTPUT]: Measured bounds and screenshots for intrinsic flow-choice width, bottom-edge menus, content changes, scrolling and resizing.
  * [POS]: Relation acceptance fixture using production IPC and real board controls without replacing layout or renderer APIs.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,7 +12,9 @@ export async function verifyFlowDotPosition(application, page, shots) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 760))
   const items = await page.evaluate(async () => {
-    const { workspace } = await window.goalloom.getSnapshot()
+    const { workspace, flows, items } = await window.goalloom.getSnapshot()
+    const root = flows.find(flow => items.some(item => item.id === flow.id && ['year', 'half', 'cycle'].includes(item.placement.horizon)))?.id
+    if (!root) throw Error('Candidate geometry requires a longer-horizon flow root')
     const create = async (title, horizon, parentId = null) => {
       const parent = parentId ? (await window.goalloom.getItem(parentId)).item : null
       const reply = await window.goalloom.execute({ type: 'create', title, horizon, parentId, expectedParentVersion: parent?.version ?? null,
@@ -21,7 +23,7 @@ export async function verifyFlowDotPosition(application, page, shots) {
       return reply.result.itemId
     }
     const parents = []
-    for (let index = 1; index <= 8; index++) parents.push(await create(`Popover parent ${index}`, 'month'))
+    for (let index = 1; index <= 8; index++) parents.push(await create(`Popover parent ${index}`, 'month', root))
     const rows = []
     for (let index = 0; index < 28; index++) rows.push(await create(`Popover task ${index}`, 'week', index === 17 ? parents[0] : null))
     return { loose: rows[16], child: rows[17] }
@@ -62,6 +64,14 @@ export async function verifyFlowDotPosition(application, page, shots) {
   await alignNearBottom(items.loose)
   await dot(items.loose).click()
   await check(items.loose, 'bottom', 'Short choice menu fits below the dot')
+  // Failure cases: an unexplained ellipsis remains, or a fixed width leaves one Chinese character on its own line.
+  const choice = panel.locator('.flow-choose')
+  const parentLabel = choice.locator('.menu-rich > span').nth(1)
+  assert.equal(await parentLabel.innerText(), '关联到上级')
+  const hints = await choice.locator('.menu-rich small').evaluateAll(nodes => nodes.map(node => ({ text: node.textContent,
+    height: node.getBoundingClientRect().height, lineHeight: parseFloat(getComputedStyle(node).lineHeight), overflow: node.scrollWidth > node.clientWidth })))
+  assert(hints.every(hint => hint.height <= hint.lineHeight + 1 && !hint.overflow), 'Both Chinese explanations fit naturally on one line')
+  result.choice = { width: (await choice.boundingBox()).width, hints }
   await capture('choose-below')
   await page.getByRole('menuitem', { name: /关联到上级/ }).click()
   await parents.waitFor()

@@ -278,11 +278,15 @@ try {
   assert(!/本周/.test(await page.locator('.command-results').innerText()))
   await page.locator('.command-results .menu-item').filter({ hasText: 'Edited future task' }).click()
   await page.locator('dialog.detail').getByRole('button', { name: '更多操作', exact: true }).click()
-  await page.locator('dialog.detail').getByRole('menuitem', { name: '定位到看板', exact: true }).click()
+  assert.equal(await page.locator('dialog.detail').getByRole('menuitem', { name: '定位到看板', exact: true }).count(), 0)
+  await page.keyboard.press('Escape')
+  await page.locator('dialog.detail').getByRole('button', { name: '关闭', exact: true }).click()
+  assert.equal(await column('week').getAttribute('data-period-id'), current.find(period => period.horizon === 'week').id, 'Search/detail close keeps the displayed period')
+  await moveNext('week'); await moveNext('week')
   await row(ids.week).waitFor()
   assert.equal(await column('week').getAttribute('data-period-id'), further.id)
   await shot('future-board')
-  checks.push('Silent continuous postponement, keyboard undo, future editing, move back to this week, effect-scoped undo and search/detail locate')
+  checks.push('Silent continuous postponement, keyboard undo, future editing, move back to this week, effect-scoped undo, search/details and explicit future navigation')
 
   const virtualIds = await page.evaluate(async startDate => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation

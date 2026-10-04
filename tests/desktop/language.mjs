@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, isolated profiles, an explicit week-start choice and the five supported locale catalogs.
- * [OUTPUT]: Language-switching acceptance and repeatable screenshots of settings/calendar and period-named review entries/drawers in every locale.
+ * [OUTPUT]: Language-switching acceptance, app-local startup/failure diagnostics and repeatable screenshots of settings/calendar, detail/flow menus and period-named reviews in every locale.
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -40,6 +40,10 @@ const names = { zh: '简体中文', en: 'English', ja: '日本語', es: 'Españo
 // shadcn Select: open the trigger, then pick the option from the portaled listbox.
 async function choose(page, trigger, code) {
   await trigger.click()
+  report.languageMenus ??= []
+  report.languageMenus.push({ requested: code, native: await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))),
+    renderer: await trigger.evaluate(node => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML,
+      expanded: node.getAttribute('aria-expanded'), options: [...document.querySelectorAll('[role="option"]')].map(option => option.textContent) })) })
   await page.getByRole('option', { name: names[code], exact: true }).click()
 }
 
@@ -64,6 +68,7 @@ const reviewTitles = {
   es: { week: 'Repaso semanal', both: 'Repaso de semana y mes', previousMonth: 'Repaso de El mes pasado' },
   fr: { week: 'Bilan de la semaine', both: 'Bilan semaine + mois', previousMonth: 'Bilan de Le mois dernier' },
 }
+const parentLabels = { zh: '关联到上级', en: 'Link to a parent', ja: '上位に関連付け', es: 'Vincular a un superior', fr: 'Lier à un parent' }
 
 let application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 try {
@@ -123,6 +128,12 @@ try {
   assert.equal(await workerMessage(page), workerText.en)
   await assertTranslated(page, 'en board')
   await page.screenshot({ path: `${shots}/language-board-en.png` })
+  const flowChoiceId = await page.evaluate(async () => {
+    const { workspace } = await window.goalloom.getSnapshot()
+    const reply = await window.goalloom.execute({ type: 'create', title: 'Flow choice label fixture', horizon: 'week', generation: workspace.generation, operationId: crypto.randomUUID() })
+    if (!reply.ok) throw Error(reply.message)
+    return reply.result.itemId
+  })
 
   // 4. Settings: every pane is translated; switching language keeps the dialog open (no remount) and updates main + worker.
   await page.getByRole('button', { name: ui.en.settings, exact: true }).click()
@@ -149,6 +160,35 @@ try {
     await page.screenshot({ path: `${shots}/language-settings-${code}.png` })
     await page.keyboard.press('Escape')
     await dialog.waitFor({ state: 'detached' })
+    await page.locator(`#item-${flowChoiceId} .task-title`).hover()
+    await page.locator(`#item-${flowChoiceId} .flow-dot-button`).click()
+    const flowMenu = page.locator('.popover-floating .flow-choose')
+    await flowMenu.waitFor()
+    assert.equal(await flowMenu.locator('.menu-rich > span').nth(1).innerText(), parentLabels[code])
+    const flowGeometry = await flowMenu.evaluate(node => {
+      const rect = node.getBoundingClientRect()
+      return { width: rect.width, left: rect.left, right: rect.right, viewport: innerWidth,
+        hints: [...node.querySelectorAll('.menu-rich small')].map(hint => ({ text: hint.textContent, height: hint.getBoundingClientRect().height,
+          lineHeight: parseFloat(getComputedStyle(hint).lineHeight), overflow: hint.scrollWidth > hint.clientWidth })) }
+    })
+    assert(flowGeometry.left >= 8 && flowGeometry.right <= flowGeometry.viewport - 8, `${code}: flow choices fit the window`)
+    assert(flowGeometry.hints.every(hint => !hint.overflow), `${code}: explanations stay inside their buttons`)
+    if (code === 'zh') assert(flowGeometry.hints.every(hint => hint.height <= hint.lineHeight + 1), 'Chinese hints fit without an orphaned character')
+    await page.screenshot({ path: `${shots}/language-flow-choice-${code}.png` })
+    await page.keyboard.press('Escape')
+    await flowMenu.waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: 'Write report', exact: true }).click()
+    const detail = page.locator('dialog.detail')
+    await detail.locator('.modal-header .popover-root button.icon-button').click()
+    const moreMenu = detail.getByRole('menu')
+    await moreMenu.waitFor()
+    assert.equal(await moreMenu.getByRole('menuitem').count(), 3, `${code}: More contains only cancel, archive and trash`)
+    await page.screenshot({ path: `${shots}/language-detail-more-${code}.png` })
+    await page.keyboard.press('Escape')
+    await moreMenu.waitFor({ state: 'detached' })
+    assert.equal(await detail.isVisible(), true)
+    await page.keyboard.press('Escape')
+    await detail.waitFor({ state: 'detached' })
     const entry = page.locator('[data-review]'), expectedWeekTitle = reviewTitles[code].week
     assert.equal(await entry.count(), 1, 'Combined reviews have a single entry')
     if (report.reviewScope === 'week') assert.equal((await entry.innerText()).trim(), expectedWeekTitle)
@@ -170,7 +210,8 @@ try {
     await review.screenshot({ path: `${shots}/language-review-drawer-${code}.png` })
     await review.locator('.review-head .icon-button').click()
     await review.waitFor({ state: 'hidden' })
-    report.locales[code] = { lang: tags[code], panes, worker: 'ok', untranslatedCheck: ['en', 'es', 'fr'].includes(code), entryTitle, reviewTitle }
+    report.locales[code] = { lang: tags[code], panes, worker: 'ok', untranslatedCheck: ['en', 'es', 'fr'].includes(code), entryTitle, reviewTitle,
+      flowMenu: { parentLabel: parentLabels[code], ...flowGeometry }, detailMore: 'Three actions; Escape closes only the menu' }
     await page.getByRole('button', { name: ui[code].settings, exact: true }).click()
     dialog = settingsDialog(page, ui[code].settings)
     await dialog.waitFor()
@@ -181,6 +222,14 @@ try {
   await choose(page, dialog.locator('.settings-select'), 'fr')
   await settingsDialog(page, ui.fr.settings).waitFor()
   assert.deepEqual(JSON.parse(await readFile(join(profile, 'preferences.json'), 'utf8')), { language: 'fr' })
+} catch (error) {
+  const page = await application.firstWindow()
+  report.failure = { error: String(error), native: await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))),
+    renderer: await page.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML,
+      language: document.querySelector('#setup-language')?.outerHTML, options: [...document.querySelectorAll('[role="option"]')].map(option => option.textContent) })) }
+  await writeFile('output/tests/language-failure.json', JSON.stringify(report, null, 2))
+  await page.screenshot({ path: `${shots}/language-failure.png` })
+  throw error
 } finally { await application.close() }
 
 try {
