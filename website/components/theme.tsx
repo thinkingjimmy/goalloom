@@ -1,7 +1,7 @@
 'use client'
 /**
  * [INPUT]: Depends on react, ./boot and ./icons
- * [OUTPUT]: Exports ThemeRuntime (keeps auto mode in step with the system) and ThemeToggle
+ * [OUTPUT]: Exports ThemeRuntime (keeps auto mode in step with the system) and ThemeToggle. A swap suspends transitions until the next paint.
  * [POS]: components' owner of the auto/light/dark mode behind <html data-theme>; the whole page reads the tokens
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,10 +15,19 @@ type Mode = 'auto' | Theme
 const readMode = (value?: string): Mode => (value === 'light' || value === 'dark' ? value : 'auto')
 const systemTheme = (): Theme => (matchMedia(THEME_QUERY).matches ? 'dark' : 'light')
 
+let holds = 0
 function apply(mode: Mode) {
   const root = document.documentElement
+  holds += 1
+  root.classList.add('no-transitions')
   root.dataset.themeMode = mode
   root.dataset.theme = mode === 'auto' ? systemTheme() : mode
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      holds -= 1
+      if (holds === 0) root.classList.remove('no-transitions')
+    })
+  })
 }
 
 export function ThemeRuntime() {

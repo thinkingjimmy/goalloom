@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Unified candidates/initial direction placement, independent Later visibility/count, board-ordered filters that follow root promotion/undo, board/dialogs with input-aware detail focus return, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and a generation-bound resumable review modal.
+ * [OUTPUT]: Unified candidates/initial direction placement, independent Later visibility/count, board-ordered filters that follow root promotion/undo, board/dialogs with input-aware detail focus return, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and a generation-bound resumable review modal. Theme, style and checkbox swaps, and system appearance changes, apply without tweening colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -25,6 +25,7 @@ import { useFlows } from './state/flows'
 import { useColumns } from './state/columns'
 import { useBoardPeriods } from './state/board-periods'
 import { editingTarget } from './state/session'
+import { withoutTransitions } from './lib/motion'
 import { ariaKeys, filterSlot, formatCombo, parseEvent, useShortcuts } from './state/shortcuts'
 import type { Section } from './features/shell/settings/Settings'
 import { useAi } from './state/ai'
@@ -98,9 +99,16 @@ export function App() {
   const setupReady = !!snapshot?.workspace.setupConfirmedAt
   useLayoutEffect(() => { resetLinkPreviewCache() }, [snapshot?.workspace.generation])
   useLayoutEffect(() => { if (snapshot?.workspace.generation) syncReviewSummaryGeneration(snapshot.workspace.generation) }, [snapshot?.workspace.generation])
-  useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
-  useEffect(() => { document.documentElement.dataset.style = style }, [style])
-  useEffect(() => { document.documentElement.dataset.check = checkStyle }, [checkStyle])
+  useLayoutEffect(() => { withoutTransitions(() => { document.documentElement.dataset.theme = theme }) }, [theme])
+  useLayoutEffect(() => { withoutTransitions(() => { document.documentElement.dataset.style = style }) }, [style])
+  useLayoutEffect(() => { withoutTransitions(() => { document.documentElement.dataset.check = checkStyle }) }, [checkStyle])
+  useEffect(() => {
+    if (theme !== 'system') return
+    const query = window.matchMedia('(prefers-color-scheme: dark)')
+    const suppress = () => withoutTransitions(() => undefined)
+    query.addEventListener('change', suppress)
+    return () => query.removeEventListener('change', suppress)
+  }, [theme])
   useEffect(() => { document.documentElement.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other' }, [])
   useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null); setReviewOpen(false) }, [snapshot?.workspace.generation])
   // A promoted root keeps the selected flow; unrelated disappearance still returns to the full board.

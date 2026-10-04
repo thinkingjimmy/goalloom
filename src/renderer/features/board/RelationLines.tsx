@@ -2,8 +2,9 @@
  * [INPUT]: Board summaries, the shared active flow graph and flow colours, an optional externally focused item (flow-dot
  *          preview), whether to draw in, and visible columns; reads mounted row geometry from the enclosing `.board`.
  * [OUTPUT]: Read-only overlay: parent→child curves between rendered rows sharing an active flow, each in that flow's colour (dashed across
- *           skipped horizons), joining matching 6px row dots at the first title line; hover/focus chain highlighting (other rows faded via `data-chain-out`) and
- *           edge markers that reveal an off-screen related row; shared panel clipping and a finite motion pulse anchor paths throughout row/sidebar translations.
+ *           skipped horizons), joining matching 6px row dots at the first title line; hover/focus chain highlighting (other rows faded via `data-chain-out`,
+ *           without a layout read) and edge markers that reveal an off-screen related row; shared panel clipping and a finite motion pulse anchor paths
+ *           throughout row/sidebar translations. Geometry is read during that motion and when the graph changes, not on an idle hover.
  * [POS]: Board decoration mounted while one flow is filtered or a flow dot is previewed, with the device preference on; never writes
  *        workspace data or undo state.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -50,26 +51,47 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
   // Hover or focus lights a row's whole ancestor and descendant chain inside this flow.
   const chain = useMemo(() => flowChain(graph, hover), [graph, hover])
 
+  const geometryKey = useMemo(() => `${columns.join('\0')}\n${edges.map(edge => edge.id).join('\0')}\n${[...members].sort().join('\0')}\n${[...horizonOf].map(([id, horizon]) => `${id}:${horizon}`).join('\0')}`, [columns, edges, members, horizonOf])
   const root = useRef<HTMLDivElement>(null), clipId = useId()
   const latest = useRef({ edges, members, horizonOf, chain, columns })
   latest.current = { edges, members, horizonOf, chain, columns }
+  const paintChain = () => {
+    const board = root.current?.parentElement
+    if (!board) return
+    const { members, chain } = latest.current
+    for (const row of board.querySelectorAll<HTMLElement>('[data-chain-out]')) {
+      if (!members.has(row.dataset.itemId ?? '')) delete row.dataset.chainOut
+    }
+    for (const id of members) {
+      const row = document.getElementById(`item-${id}`)
+      if (!row || !board.contains(row) || row.closest('[inert]') || !row.closest('[data-board-panel]')) continue
+      const out = !!chain && !chain.has(id)
+      if (out) { if (row.dataset.chainOut !== 'true') row.dataset.chainOut = 'true' }
+      else if (row.dataset.chainOut) delete row.dataset.chainOut
+    }
+  }
   const measure = (moving = false) => {
     const board = root.current?.parentElement
     if (!board) return
-    const { edges, members, horizonOf, chain, columns } = latest.current
+    paintChain()
+    const { edges, members, horizonOf, columns } = latest.current
     const origin = board.getBoundingClientRect(), dx = -origin.left, dy = -origin.top
+    const panels = new Map<Element, DOMRect | null>()
+    const livePanel = (row: HTMLElement) => {
+      const panel = row.closest('[data-board-panel]')
+      if (!panel || row.closest('[inert]')) return null
+      let box = panels.get(panel)
+      if (box === undefined) { box = panelViewport(row); panels.set(panel, box) }
+      return box
+    }
     const clips = Object.fromEntries((['later', 'timeline'] as const).map(panel => {
       const node = board.querySelector(`[data-board-panel="${panel}"]`), rect = node && panelViewport(node)
       return [panel, rect ? { x: rect.left + dx, y: rect.top + dy, width: rect.width, height: rect.height } : noClip]
     })) as Record<Panel, Clip>
     const anchors = new Map<string, Anchor>()
-    // Rows that left the active flows (a preview moved on) drop their stale chain fade.
-    for (const row of board.querySelectorAll<HTMLElement>('[data-chain-out]')) if (!members.has(row.dataset.itemId ?? '')) delete row.dataset.chainOut
     for (const id of members) {
       const row = document.getElementById(`item-${id}`), content = row?.closest('.column-content')
-      if (!row || !content || !board.contains(row) || !panelViewport(row)) continue
-      // Rows outside the flow keep their own dimming; only this flow's rows join or leave the hovered chain.
-      if (chain && !chain.has(id)) row.dataset.chainOut = 'true'; else delete row.dataset.chainOut
+      if (!row || !content || !board.contains(row) || !livePanel(row)) continue
       const r = row.getBoundingClientRect(), c = content.getBoundingClientRect(), mid = r.top + Math.min(r.height, firstLine) / 2
       const off = mid < c.top ? 'up' : mid > c.bottom ? 'down' : null
       const y = off === 'up' ? c.top + inset : off === 'down' ? c.bottom - inset : mid
@@ -141,6 +163,10 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
     if (!moving) setGeometry(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next)
   }
   const measureRef = useRef(measure); measureRef.current = measure
+  const paintRef = useRef(paintChain); paintRef.current = paintChain
+  const seenKey = useRef('')
+  const chainStamp = useRef<string | null>(null)
+  const settled = useRef(true)
 
   useLayoutEffect(() => {
     const overlay = root.current, board = overlay?.parentElement
@@ -179,10 +205,20 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
       for (const row of board.querySelectorAll<HTMLElement>('[data-chain-out]')) delete row.dataset.chainOut
     }
   }, [])
-  // React may commit an earlier geometry read after FLIP has installed its inverse transform.
+  // A commit during FLIP can paint the last settled geometry; re-read while motion is unfinished.
+  // Idle hovers only retint the chain.
   useLayoutEffect(() => {
     const board = root.current?.parentElement
-    measureRef.current(!!board && boardIsMoving(board))
+    const moving = !!board && boardIsMoving(board)
+    const stamp = hover ?? ''
+    if (!moving && settled.current && seenKey.current === geometryKey) {
+      if (chainStamp.current !== stamp) { chainStamp.current = stamp; paintRef.current() }
+      return
+    }
+    seenKey.current = geometryKey
+    chainStamp.current = stamp
+    settled.current = !moving
+    measureRef.current(moving)
   })
 
   const state = (path: Path) => !chain ? (path.done ? 'done' : undefined) : chain.has(path.parentId) && chain.has(path.childId) ? 'hot' : 'faded'

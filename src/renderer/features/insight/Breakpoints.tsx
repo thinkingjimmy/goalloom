@@ -2,7 +2,7 @@
  * [INPUT]: Snapshot, board view, active flows, the optional highlighted preview chain, visible columns, insight readiness, guarded submission and a composer-seed opener.
  * [OUTPUT]: The breakpoint layer inside `.board`: an entry right-aligned inside each gap parent's row (flow colour) and skip parent's row (amber), never crossing
  *           the column rule where connector buses run — a thin ring at rest that becomes a labelled pill while its row is hovered, focused or pending;
- *           click shows a loading glyph while drafting and creating (create / insertBetween), ⇧-click or no model opens the prefilled composer;
+ *           hover does not remeasure anchors. Click shows a loading glyph while drafting and creating (create / insertBetween), ⇧-click or no model opens the prefilled composer;
  *           preview limits controls and bridge children to its highlighted chain; a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
  * [POS]: Board insight overlay with a guide bounded to the planning viewport; pending actions survive hover exits and finite motion tracking.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -85,6 +85,9 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
     if (!moving) setPlaces(previous => JSON.stringify([...previous]) === JSON.stringify([...next]) ? previous : next)
   }
   const measureRef = useRef(measure); measureRef.current = measure
+  const geometryKey = `${spots.map(spot => spot.key).join('\0')}\n${settings.onboarded ? 1 : 0}\n${[...sent.keys()].join('\0')}`
+  const seen = useRef<{ key: string; places: Map<string, Place> } | null>(null)
+  const settled = useRef(true)
   useLayoutEffect(() => {
     const overlay = root.current, board = overlay?.parentElement
     if (!overlay || !board || !active) return
@@ -101,10 +104,16 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
     measureRef.current()
     return () => { cancelAnimationFrame(frame); mutations.disconnect(); resize.disconnect(); board.removeEventListener('scroll', schedule, { capture: true }); board.removeEventListener('transitionend', schedule); board.removeEventListener(boardMotionEvent, motion) }
   }, [active])
-  // React may commit an earlier geometry read after FLIP has installed its inverse transform.
+  // A commit during FLIP can paint the last settled anchors; re-read while motion is unfinished. Hover only expands the pill.
   useLayoutEffect(() => {
     const board = root.current?.parentElement
-    measureRef.current(!!board && boardIsMoving(board))
+    const moving = !!board && boardIsMoving(board)
+    const same = seen.current?.key === geometryKey && seen.current.places === places
+    // The first-run guide is clamped in the DOM; its React style is the unclamped anchor, so keep measuring until it is dismissed.
+    if (!moving && settled.current && same && settings.onboarded) return
+    seen.current = { key: geometryKey, places }
+    settled.current = !moving
+    measureRef.current(moving)
   })
 
   // Rows live outside this layer, so the hovered row is tracked here to expand its entry into a labelled pill.

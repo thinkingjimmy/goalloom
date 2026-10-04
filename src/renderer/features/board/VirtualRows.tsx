@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Ordered summary identities, scroll viewport, render function, active drag, selection, menu pin and optional focus-return input origin.
- * [OUTPUT]: Resize-observed rows with bounded motion retention, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
+ * [OUTPUT]: Resize-observed rows (observers follow the mounted window, not every parent render) with bounded motion retention, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -102,8 +102,14 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
     observer.observe(root); root.addEventListener('scroll', onScroll, { passive: true }); update()
     return () => { observer.disconnect(); root.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame) }
   }, [])
+  const mounted = new Set<number>()
+  if (windowed) {
+    for (let index = range.start; index < range.end; index++) mounted.add(index)
+    for (const id of [focused, dragging, highlighted, pinned, ...retained.ids]) { const index = id ? indexes.get(id) : undefined; if (index !== undefined) mounted.add(index) }
+  } else items.forEach((_item, index) => mounted.add(index))
+  const observedKey = [...mounted].filter(index => index < items.length).sort((a, b) => a - b).map(index => items[index]!.id).join('|')
   useLayoutEffect(() => {
-    const valid = new Set(items.map(item => item.id))
+    const valid = new Set(latest.current.items.map(item => item.id))
     for (const id of heights.current.keys()) if (!valid.has(id)) heights.current.delete(id)
     const measure = (nodes: HTMLElement[]) => {
       let changed = false
@@ -117,12 +123,7 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
     const observer = new ResizeObserver(entries => measure(entries.map(entry => entry.target as HTMLElement)))
     nodes.forEach(node => observer.observe(node)); measure(nodes); update()
     return () => observer.disconnect()
-  })
-  const mounted = new Set<number>()
-  if (windowed) {
-    for (let index = range.start; index < range.end; index++) mounted.add(index)
-    for (const id of [focused, dragging, highlighted, pinned, ...retained.ids]) { const index = id ? indexes.get(id) : undefined; if (index !== undefined) mounted.add(index) }
-  } else items.forEach((_item, index) => mounted.add(index))
+  }, [observedKey, orderKey, measured])
   const children: ReactNode[] = []
   let previous = 0
   for (const index of [...mounted].filter(index => index < items.length).sort((a, b) => a - b)) {

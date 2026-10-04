@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Theme tokens and shared renderer component classes and state attributes.
- * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls, aligned chrome, unlined detail-title editing and keyboard focus indicators without pointer-return title rings.
+ * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls, aligned chrome, unlined detail-title editing, keyboard focus indicators without pointer-return title rings, and appearance swaps that do not tween token transitions.
  * [POS]: Renderer-wide stylesheet; feature-specific styles live beside their components.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -660,6 +660,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .board-column:hover > .column-content::-webkit-scrollbar-thumb:hover,
 .board-column:hover > .column-content::-webkit-scrollbar-thumb:active { background-color: var(--scrollbar-hover); }
 
+/* Appearance swaps add this for one paint so color transitions stay available for hover. */
+html.no-transitions, html.no-transitions *, html.no-transitions *::before, html.no-transitions *::after { transition: none !important; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 @media (forced-colors: active) {
   .check::before, .flow-mark::before { background: ButtonText; }

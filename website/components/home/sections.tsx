@@ -29,7 +29,7 @@ export function Hero({ locale, t }: Props) {
     <Stage header={<SiteHeader locale={locale} copy={t.nav} className="stage-head" />}>
       <section className="stage-frame" aria-labelledby="hero-title">
         <h1 id="hero-title" className="sr-only">{t.hero.h1}</h1>
-        {/* Decorative wallpaper; both themes are in the DOM and CSS crossfades them. */}
+        {/* Decorative wallpaper; both themes stay in the DOM and opacity selects the visible one. */}
         <img className="wall" src="/hero-light.jpg" alt="" fetchPriority="high" />
         <img className="wall wall-dark" src="/hero-dark.jpg" alt="" loading="lazy" />
         <div className="menubar" aria-hidden="true">
