@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 受控 renderer 根目录与请求 URL；Electron 协议和窗口 API。
- * [OUTPUT]: 本地资源响应、生产 CSP 与默认拒绝的权限/导航策略。
+ * [OUTPUT]: 本地资源响应、生产 CSP、关闭拼写检查与默认拒绝的权限/导航策略。
  * [POS]: main 安全边界，开发服务器不进入生产信任集合。
  * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
@@ -55,6 +55,7 @@ export async function serveResource(root: string, request: Request): Promise<Res
 export function restrictSession(session: Session): void {
   session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
   session.setPermissionCheckHandler(() => false)
+  session.setSpellCheckerEnabled(false)
   session.on('will-download', event => event.preventDefault())
 }
 

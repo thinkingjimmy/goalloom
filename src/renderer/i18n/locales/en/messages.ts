@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: English UI copy and parameterized messages, including column add-task labels, feedback destinations and partial restores.
+ * [OUTPUT]: English UI copy and parameterized messages, including column visibility/add-task labels, feedback destinations and partial restores.
  * [POS]: English message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -27,6 +27,8 @@ export const messages: MessageCatalog = {
   home: "Goalloom home",
   settings: "Settings & data",
   commands: "Search & commands",
+  visibleColumns: "Visible columns",
+  minimumVisibleColumns: "Keep at least one column visible",
   undoPrevious: "Undo last action",
   exportFailed: "Export failed. Please try again.",
   exportWorkspace: "Export workspace",

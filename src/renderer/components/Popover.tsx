@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Controlled visibility, anchor and panel content; floating mode measures their bounds and observes size changes.
  * [OUTPUT]: Anchored popovers; floating panels escape scroll clipping via the nearest native dialog or document body,
- *           updating placement when content, anchor size, scrolling or viewport size changes. Outside presses/Escape dismiss only the popover.
+ *           updating placement when content, anchor size, scrolling or viewport size changes. Inert anchors, outside presses and Escape dismiss only the popover.
  * [POS]: Shared UI primitive for filters, deadlines, relationships, flow selection and board flow dots.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -24,6 +24,8 @@ export function Popover({ open, onClose, anchor, children, align = 'start', side
   useLayoutEffect(() => {
     if (!open || !floating) { setPosition(null); return }
     const place = () => {
+      // A portal escapes its anchor's inert subtree, so dismiss it when that column is hidden.
+      if (root.current?.closest('[inert]')) { onClose(); return }
       const anchorRect = root.current?.getBoundingClientRect(), size = panel.current?.getBoundingClientRect()
       if (!anchorRect) return
       const width = size?.width ?? 0, height = size?.height ?? 0

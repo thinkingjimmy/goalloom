@@ -1,11 +1,11 @@
 /**
  * [INPUT]: electron-updater with the GitHub Releases feed baked into packaged builds (app-update.yml), Electron app identity.
  * [OUTPUT]: UpdateService: periodic background check + download, manual check, restart-to-install and phase notifications.
- * [POS]: main's only software-update path; development builds report `unsupported` and never reach the network.
+ * [POS]: main's only software-update path; development builds report `unsupported` and never load electron-updater.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { app } from 'electron'
-import electronUpdater from 'electron-updater'
+import type { AppUpdater } from 'electron-updater'
 import type { UpdateInfo, UpdateState } from '../shared/contracts/update'
 
 const firstCheckDelay = 15_000
@@ -16,9 +16,38 @@ export class UpdateService {
   // Phase to return to when a background check fails, so a flaky network never surfaces as an error.
   private settled: UpdateState = this.state
   private manual = false
+  private updater: AppUpdater | null = null
+  private attached: Promise<void> = Promise.resolve()
 
-  constructor(private readonly notify: (info: UpdateInfo) => void) {
-    if (!app.isPackaged) return
+  constructor(private readonly notify: (info: UpdateInfo) => void) {}
+
+  get info(): UpdateInfo { return { version: app.getVersion(), state: this.state } }
+
+  start(): void {
+    if (this.state.phase === 'unsupported') return
+    this.attached = this.attach()
+    setTimeout(() => { void this.check(false) }, firstCheckDelay).unref()
+    setInterval(() => { void this.check(false) }, checkInterval).unref()
+  }
+
+  async check(manual: boolean): Promise<UpdateInfo> {
+    await this.attached
+    const { phase } = this.state
+    // A running check/download or a staged update already answers the question.
+    if (!this.updater || phase === 'unsupported' || phase === 'checking' || phase === 'downloading' || phase === 'ready') return this.info
+    this.manual = manual
+    // Rejections are also emitted as 'error', which owns the resulting phase.
+    await this.updater.checkForUpdates().catch(() => undefined)
+    return this.info
+  }
+
+  install(): void {
+    // Silent on Windows so the assisted NSIS installer reuses the existing directory, then relaunches.
+    if (this.state.phase === 'ready') this.updater?.quitAndInstall(true, true)
+  }
+
+  private async attach(): Promise<void> {
+    const electronUpdater = await import('electron-updater')
     const updater = electronUpdater.autoUpdater
     updater.logger = null
     updater.autoDownload = true
@@ -33,29 +62,7 @@ export class UpdateService {
     })
     updater.on('update-downloaded', info => this.settle({ phase: 'ready', version: info.version }))
     updater.on('error', () => this.settle(this.manual ? { phase: 'failed' } : this.settled))
-  }
-
-  get info(): UpdateInfo { return { version: app.getVersion(), state: this.state } }
-
-  start(): void {
-    if (this.state.phase === 'unsupported') return
-    setTimeout(() => { void this.check(false) }, firstCheckDelay).unref()
-    setInterval(() => { void this.check(false) }, checkInterval).unref()
-  }
-
-  async check(manual: boolean): Promise<UpdateInfo> {
-    const { phase } = this.state
-    // A running check/download or a staged update already answers the question.
-    if (phase === 'unsupported' || phase === 'checking' || phase === 'downloading' || phase === 'ready') return this.info
-    this.manual = manual
-    // Rejections are also emitted as 'error', which owns the resulting phase.
-    await electronUpdater.autoUpdater.checkForUpdates().catch(() => undefined)
-    return this.info
-  }
-
-  install(): void {
-    // Silent on Windows so the assisted NSIS installer reuses the existing directory, then relaunches.
-    if (this.state.phase === 'ready') electronUpdater.autoUpdater.quitAndInstall(true, true)
+    this.updater = updater
   }
 
   private settle(state: UpdateState): void {

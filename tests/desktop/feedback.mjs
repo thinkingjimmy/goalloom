@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Real Electron, an isolated profile, authoritative IPC fixtures and renderer UI actions.
+ * [INPUT]: Real Electron, an isolated profile, flow-valid authoritative IPC fixtures and renderer UI actions.
  * [OUTPUT]: Contextual Toast, preserved keyboard undo, duration and partial-restore evidence in JSON and screenshots.
  * [POS]: Desktop feedback acceptance; the batch driver calls the mounted renderer submit without replacing IPC or receipts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -121,7 +121,7 @@ try {
       return reply.result
     }
     const change = async (id, action) => execute({ ...action, itemId: id, expectedVersion: (await window.goalloom.getItem(id)).item.version })
-    const create = async (title, horizon) => (await execute({ type: 'create', title, horizon })).itemId
+    const create = async (title, horizon, flowColor = null) => (await execute({ type: 'create', title, horizon, flowColor })).itemId
     const result = {}
     for (const [key, title, horizon, status, archived] of [
       ['reopenVisible', 'Visible reopening', 'week', 'done', false],
@@ -137,7 +137,7 @@ try {
       if (archived) await change(id, { type: 'archive', archived: true })
     }
     await change(result.restore, { type: 'delete' })
-    const parent = await create('Deleted relation endpoint', 'month')
+    const parent = await create('Deleted relation endpoint', 'month', 1)
     const child = await create('Partial relation restore', 'week'); result.warning = child
     await execute({ type: 'link', parentId: parent, childId: child, expectedParentVersion: (await window.goalloom.getItem(parent)).item.version, expectedChildVersion: (await window.goalloom.getItem(child)).item.version })
     await change(child, { type: 'delete' })

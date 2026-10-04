@@ -20,16 +20,15 @@ import { readBoardPeriods } from '../workspace/periods'
 import { readReviewContext } from '../workspace/review'
 import { WorkspaceService } from '../workspace/transfer/service'
 import { readJson, writeDataset } from '../workspace/transfer/files'
-import { serverText, setServerLocale } from '../../shared/i18n/server'
+import { serverText, loadServerLocale } from '../../shared/i18n/server'
 
 if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort
-setServerLocale(workerData.locale)
 mkdirSync(dirname(workerData.databasePath), { recursive: true })
 const clock = { now: () => new Date().toISOString() }
 let db: DatabaseSync, repository: Repository, service: WorkspaceService
 let startup: { ok: true; protectivePath: string | null } | { ok: false; message: string; backupPath: string | null; backupDirectory: string }
-const initialized = openWorkspace(workerData.databasePath, workerData.backupDirectory, clock.now).then(opened => {
+const initialized = loadServerLocale(workerData.locale).then(() => openWorkspace(workerData.databasePath, workerData.backupDirectory, clock.now)).then(opened => {
   db = opened.db
   repository = new Repository(db, clock)
   service = new WorkspaceService(repository, workerData.backupDirectory)
@@ -40,7 +39,7 @@ const initialized = openWorkspace(workerData.databasePath, workerData.backupDire
 
 function handle(method: string, argument: unknown): unknown {
   if (method === 'startup') return startup
-  if (method === 'locale') { setServerLocale(z.enum(locales).parse(argument)); return null }
+  if (method === 'locale') return loadServerLocale(z.enum(locales).parse(argument))
   if (!startup.ok) { if (method === 'close') return null; throw new DomainError('startup', startup.message) }
   if (method === 'close') { db.close(); return null }
   if (method === 'candidate') return repository.store.summaries('i.id=?', [z.string().max(180).parse(argument)])[0] ?? null

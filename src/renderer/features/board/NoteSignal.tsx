@@ -3,19 +3,21 @@
  * [OUTPUT]: One-line signal under the title (checklist progress with the first open item, or the first line; first link host +N).
  *           Hovering it for 300ms or focusing it opens a read-only floating peek with the Markdown note and its link cards;
  *           leaving both, Escape or an outside press closes it. Pressing the signal never starts a drag or opens the detail.
- * [POS]: Board row decoration for task descriptions (D5 "signal + peek"); editing and saving stay in ItemDetail.
+ * [POS]: Board row decoration for task descriptions (D5 "signal + peek"); the Lexical editor loads with the open peek, not the initial board. Editing and saving stay in ItemDetail.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { NoteSignal as Signal } from '../../../shared/contracts/entities'
 import { messages, useLocale } from '../../i18n'
 import { desktopApi } from '../../state/use-workspace'
 import { Popover } from '../../components/Popover'
 import { Icon } from '../../components/icons'
-import { DescriptionEditor } from '../../components/description/DescriptionEditor'
 import { LinkPreviews } from '../../components/links/LinkPreviews'
 import { linkSource, linkUrls } from '../../components/links/parse'
+import '../../components/description/description.css'
 import './note-signal.css'
+
+const DescriptionEditor = lazy(() => import('../../components/description/DescriptionEditor').then(module => ({ default: module.DescriptionEditor })))
 
 const openDelay = 300, closeDelay = 150
 const ignore = () => {}
@@ -57,10 +59,10 @@ export function NoteSignal({ itemId, title, note }: { itemId: string; title: str
     <section ref={panel} className="note-peek-panel" role="dialog" aria-label={messages.labelled(messages.description, title)}
       onPointerEnter={hold} onPointerLeave={() => later(false, closeDelay)} onPointerDown={event => event.stopPropagation()}>
       <h4 className="note-peek-title"><Icon name="note" size={12} strokeWidth={1.8} />{messages.description}</h4>
-      {text === null ? <p className="note-peek-loading" aria-busy="true">…</p> : <>
+      {text === null ? <p className="note-peek-loading" aria-busy="true">…</p> : <Suspense fallback={<p className="note-peek-loading" aria-busy="true">…</p>}>
         <DescriptionEditor key={text} id={`note-peek-${itemId}`} value={text} savedUrls={saved} onChange={ignore} readOnly />
         <LinkPreviews text={text} />
-      </>}
+      </Suspense>}
     </section>
   </Popover>
 }

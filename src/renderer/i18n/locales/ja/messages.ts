@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: Japanese UI copy and parameterized messages, including column add-task labels, feedback destinations and partial restores.
+ * [OUTPUT]: Japanese UI copy and parameterized messages, including column visibility/add-task labels, feedback destinations and partial restores.
  * [POS]: Japanese message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -27,6 +27,8 @@ export const messages: MessageCatalog = {
   home: "Goalloom ホーム",
   settings: "設定とデータ",
   commands: "検索とコマンド",
+  visibleColumns: "表示する列",
+  minimumVisibleColumns: "少なくとも1列を表示してください",
   undoPrevious: "直前の操作を取り消す",
   exportFailed: "書き出しに失敗しました。再試行してください",
   exportWorkspace: "ワークスペースを書き出す",

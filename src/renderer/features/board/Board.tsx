@@ -1,9 +1,9 @@
 /**
- * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later visibility and fixed planning columns, guarded actions and flow-insight hooks.
+ * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later/planning visibility, guarded actions and flow-insight hooks.
  * [OUTPUT]: A title-as-switcher period header (header B: period panel, ←/→ stepping), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Owns independent relation dragging/prepared writes and virtual source pinning; exposes filter/linking states for row styling.
- *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share the existing inline creation and drafts.
+ *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
  *           Flow insight: one breakpoint layer for filtered flows or the highlighted preview chain, retained pending actions across hover exits, empty-column cards, a unified monthly review guide and period-named weekly prompts under column headers and per-row next steps.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -12,7 +12,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardE
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { compareInstants, currentPeriod, precedingPeriod, workspaceDate, type Horizon } from '../../../domain/calendar'
-import { horizons } from '../../../shared/contracts/values'
+import { horizons, periodHorizons } from '../../../shared/contracts/values'
 import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { messages, insightMessages, useLocale } from '../../i18n'
@@ -69,7 +69,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     if (!addRequest || addRequest.seq === handled.current) return
     handled.current = addRequest.seq
     const wanted = addRequest.horizon ?? (document.activeElement?.closest('[data-horizon]') ? focused : 'later')
-    // A request for a hidden column opens in the first visible one instead of off-screen.
+    // App reveals explicit targets; untargeted requests fall back to a visible column.
     const horizon = columns.includes(wanted) ? wanted : columns[0]!
     const period = view.mode(horizon) === 'history' ? snapshot.periods.find(value => value.horizon === horizon) ?? null : view.periods[horizon] ?? null
     if (view.mode(horizon) === 'history') view.choose(horizon, null)
@@ -113,8 +113,8 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
       {/* Keyed by the filtered flow so switching flows replays the draw-in; a hover preview never animates in. */}
       {lines && <RelationLines key={`lines:${filter ?? 'preview'}`} items={items} graph={graph} flows={flows} focus={previewKey ? preview : null} animate={filter !== null} columns={columns} />}
       {insightSettings.breakpoints && <Breakpoints key={`breakpoints:${snapshot.workspace.generation}`} snapshot={snapshot} view={view} flows={flows} flowIds={active} previewChain={previewChain} columns={columns} ready={insight.ready} submit={submit} seed={insight.seed} />}
-      <BoardLayout open={columns.includes('later')} sidebar={column('later')}>
-        {columns.filter(horizon => horizon !== 'later').map(column)}
+      <BoardLayout open={columns.includes('later')} columns={columns.filter((horizon): horizon is Horizon => horizon !== 'later')} sidebar={column('later')}>
+        {periodHorizons.map(column)}
       </BoardLayout>
       <RelationDragOverlay drag={relationDrag} />
     </main>
@@ -269,6 +269,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const heading = period && current ? periodTitle(period, current, calendar) : name
   const date = period && !(calendar.mode === 'natural' && horizon === 'year') ? periodLabel(horizon, period, calendar, today, heading !== null) : null
   return <section className={`board-column ${isOver ? 'drop-target' : ''}`} data-history={!!history} data-period-mode={mode} data-period-id={period?.id} aria-busy={loading || page.loading}
+    hidden={horizon !== 'later' && !visible} inert={!visible}
     onKeyDown={leaveOnEscape} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(name)} ref={node => { setNodeRef(node); section.current = node }}>
     <header className={`column-header ${period ? 'period-header' : ''}`}>
       {period && current ? <div className="period-nav">

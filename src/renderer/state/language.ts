@@ -11,7 +11,7 @@ import { setLocale } from '../i18n'
 
 export async function startLanguage(): Promise<void> {
   const state = await window.goalloom?.getLanguage().catch(() => null)
-  setLocale(state?.locale ?? systemLocale(navigator.languages))
+  await setLocale(state?.locale ?? systemLocale(navigator.languages))
 }
 
 export function useLanguage(): { state: LanguageState | null; choose: (language: Language) => Promise<void> } {
@@ -21,7 +21,7 @@ export function useLanguage(): { state: LanguageState | null; choose: (language:
     if (!window.goalloom) return
     const next = await window.goalloom.setLanguage(language)
     setState(next)
-    setLocale(next.locale)
+    await setLocale(next.locale)
   }
   return { state, choose }
 }

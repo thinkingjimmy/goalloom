@@ -1,6 +1,6 @@
 /**
  * [INPUT]: UI parameters; Chinese defines the MessageCatalog shared by every locale.
- * [OUTPUT]: General UI copy and parameterized messages, including column add-task labels, feedback destinations and partial restores.
+ * [OUTPUT]: General UI copy and parameterized messages, including column visibility/add-task labels, feedback destinations and partial restores.
  * [POS]: Chinese message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -27,6 +27,8 @@ export const messages = widen({
   home: "Goalloom 首页",
   settings: "设置与数据",
   commands: "搜索与命令",
+  visibleColumns: "显示的列",
+  minimumVisibleColumns: "至少显示一列",
   undoPrevious: "撤销上一步",
   exportFailed: "导出失败，请重试",
   exportWorkspace: "导出工作区",

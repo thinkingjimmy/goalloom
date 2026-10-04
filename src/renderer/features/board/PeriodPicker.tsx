@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Column horizon/name, the displayed and current periods, workspace calendar/today, the immediate earlier period
+ * [INPUT]: Shared picker surface/list styles, column horizon/name, displayed/current periods, workspace calendar/today, the immediate earlier period
  *          that stays selectable, the recorded history index (loaded while open), a pending-review period and the column's choose callback.
  * [OUTPUT]: Header-B period panel under the column title: quick buttons for the previous/current/next period, then week
  *           rows, day cells, a year of months, or six year/half/cycle rows with mode-aware labels.
@@ -19,6 +19,7 @@ import { isAnchoredHorizon } from '../../../shared/contracts/values'
 import { desktopApi } from '../../state/use-workspace'
 import { Popover } from '../../components/Popover'
 import { Icon } from '../../components/icons'
+import '../../components/picker-panel.css'
 import './period-picker.css'
 
 type Choose = (target: PlanningPeriod, pointer: boolean, keepOpen?: boolean) => void
@@ -71,8 +72,8 @@ export function PeriodPicker({ horizon, name, period, current, calendar, today, 
         cursor = currentPeriod(calendar, horizon, cursor.endAt) as PlanningPeriod
         list.push(cursor)
       }
-      return <div className="period-picker-list" role="group" aria-label={name}>
-        {list.map(target => { const recorded = stats(target); return <button type="button" key={target.id} className="period-picker-row" {...state(target)} aria-pressed={target.id === period.id}
+      return <div className="picker-list period-picker-list" role="group" aria-label={name}>
+        {list.map(target => { const recorded = stats(target); return <button type="button" key={target.id} className="picker-row period-picker-row" {...state(target)} aria-pressed={target.id === period.id}
           disabled={!allowed(target)} title={periodDates(target)} onClick={event => pick(target, event.detail > 0)}>
           <span>{anchoredPeriodLabel(target, calendar, today)}</span><small>{recorded ? `${recorded.done}/${recorded.total}` : ''}</small>
         </button> })}
@@ -109,7 +110,7 @@ export function PeriodPicker({ horizon, name, period, current, calendar, today, 
     </>
   }
   return <Popover open={open} onClose={() => setOpen(false)} className="period-picker-popover" anchor={anchor}>
-    <div ref={panel} className="period-picker" role="dialog" aria-label={name}>
+    <div ref={panel} className="picker-panel period-picker" role="dialog" aria-label={name}>
       <div className="period-picker-quick" style={{ gridTemplateColumns: `repeat(${quick.length}, minmax(0, 1fr))` }}>
         {quick.map(({ target, label }) => <button type="button" key={target.id} aria-pressed={target.id === period.id} disabled={!allowed(target) || busy} title={periodDates(target)}
           onClick={event => pick(target, event.detail > 0)}>{label}{review === target.id && <span className="period-picker-review" aria-hidden="true" />}</button>)}

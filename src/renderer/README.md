@@ -12,7 +12,8 @@ renderer/
 ├── assets/app-icon.png      # 关于页的应用图标（resources/icon.png 的 256px 版本）
 ├── features/                # 按用户功能聚合页面及其专属组件
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
-│   │   ├── TopBar.tsx       # Draggable titlebar: independent Later/count toggle, flow filters, search and settings
+│   │   ├── TopBar.tsx       # Draggable titlebar: independent Later/count toggle, flow filters, search, column visibility and settings
+│   │   ├── ColumnVisibilityMenu.tsx # Six planning-column checkboxes in the shared period-picker skin, minimum guard, calendar labels and keyboard/focus dismissal
 │   │   ├── CommandPalette.tsx # Debounced search with actual-period hints, commands and detail navigation
 │   │   ├── CompletionCelebration.tsx # Exact-corner Canvas bursts with a broad viewport-scaled fan; nonmodal top layer, reduced motion and generation cleanup
 │   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable Toast actions
@@ -58,7 +59,7 @@ renderer/
 │   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
 │   │   ├── Board.tsx        # Unified periods, header/todo-tail/blank-space QuickAdd entries, review entries, independent gestures, virtual source pinning and preserved focus
-│   │   ├── BoardLayout.tsx # Persistent 300px Later sidebar, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
+│   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
 │   │   ├── useBoardDrag.ts # Group-bounded drag and pending-drop placement projection
 │   │   ├── RelationDrag.tsx # Flow-valid pointer linking, root-promotion preview, clipped targeting/autoscroll, source pinning and guarded menu adoption
@@ -69,7 +70,7 @@ renderer/
 │   │   ├── visibility.ts  # Post-layout title visibility in the selected current/future/past period, with pending reads and offscreen destination feedback
 │   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, tooltip-free titles, due indicators, description signals and flow-tinted highlights
 │   │   ├── PeriodPicker.tsx # Header B: six-row year/half/cycle lists, week/day/month selection, visible history errors/retry and mode-aware labels
-│   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body loaded on open)
+│   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body and Lexical load on open)
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # Role-aware flow menus with intrinsic choice width, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
@@ -99,7 +100,8 @@ renderer/
 │   ├── links/               # Saved-text link rendering, visible-only metadata requests, fixed-height preview cards and keyboard/swipe carousel
 │   ├── description/         # Lazy Lexical Markdown/task-list editor, authored URL nodes, selection tools, safe clipboard and save/undo boundaries
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉
-│   ├── Popover.tsx          # Anchored popovers; floating panels portal to the nearest native dialog or body, retaining its focus boundary and remeasuring content/anchor size, scroll and viewport changes
+│   ├── Popover.tsx          # Anchored popovers; floating panels retain native-dialog focus boundaries, dismiss inert anchors and remeasure content/anchor size, scroll and viewport changes
+│   ├── picker-panel.css    # Shared surface/list/selected rows for column-title periods and the column visibility menu
 │   ├── FlowMark.tsx         # 与复选框同构的流程色块
 │   ├── Kbd.tsx              # 一键一帽的组合键展示（平台符号）
 │   ├── LanguageSelect.tsx   # 首次配置与设置外观共用的语言下拉（语言名用各自原文）
@@ -108,10 +110,10 @@ renderer/
 │   └── ui/                 # shadcn Button, Radix Select and Context Menu; shared menu tokens and MIT attribution
 ├── state/
 │   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
-│   ├── board-periods.ts    # Generation/selection/revision-isolated future reads, atomic return from history, transitive parent ordering and shared visible candidates
+│   ├── board-periods.ts    # Generation/selection/revision-isolated future reads retained for hidden columns, atomic return from history, transitive parent ordering and shared candidates
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
 │   ├── flows.ts            # Board-ordered flow filters, topology/color caches and shared active graph/chain for relation lines and preview actions
-│   ├── columns.ts          # Device-local Later preference; all six planning columns always shown, old planning-column preferences ignored
+│   ├── columns.ts          # Independent device-local Later/planning visibility; six default columns, at-least-one guard and explicit-target reveal controls
 │   ├── relation-lines.ts   # 本机关系线开关（localStorage，默认开，只存关闭，不入工作区）
 │   ├── parent-order.ts    # Device-only preference and generation/revision-bound completion of materialization
 │   ├── celebration.ts      # 本机七栏撒花偏好（默认年/半年/3个月/月/周）、设置页预览与减少动态效果
@@ -145,7 +147,7 @@ Detail titles read as complete, naturally wrapping rich text, matching the full-
 
 Each time column keeps dates and a contextual return/review action inline between compact arrows. Desktop titles align with row checkboxes; the previous arrow shares the flow dots' center line within the column's left gutter, with an extended hit area that avoids the title. Headings stay fixed on hover and keyboard focus. Relative headings omit years beside the name, with full dates in tooltips. Distant year/half headings and anchored picker rows add years where dates would repeat; natural years, half-years and quarters use calendar labels. Rolling three-month headings keep their existing dates. Navigation and quick add appear on column hover or header keyboard focus without layout shift; touch controls remain visible. Pointer navigation brings ready content in from the time direction over 220ms, cancelling superseded motion and synchronizing overlays. Keyboard navigation and reduced motion remain immediate. Past rows use live unfinished/completed/deleted tasks still placed in that period; completion/reopening and restore update groups without rewriting period-end history. Paging is filtered before totals and recovers from an emptied last page. Keyboard focus follows navigation and direct state changes.
 
-`useBoardPeriods` keeps the global current snapshot separate from at most one selected future period per visible horizon. Explicit top-bar filter choices and valid filter shortcuts return all past selections to current, including repeated selections, while keeping future periods and drafts. The shortcut resolves the flow identity before navigation changes its position. Period changes reset column scroll. Responses are isolated by workspace generation, selection and revision; stale rows stay disabled until refreshed. Writes bind the displayed start date, and visibility feedback waits for this refresh. Period selections and drafts are session-only and reset with the workspace generation. Product rules and failure scenarios live in [period planning](../../docs/features/period-planning.md).
+`useBoardPeriods` keeps the global current snapshot separate from at most one selected future period per horizon, retaining its reads while the column is hidden. Explicit top-bar filter choices and valid filter shortcuts return all past selections to current, including repeated selections, while keeping future periods and drafts. The shortcut resolves the flow identity before navigation changes its position. Period changes reset column scroll. Responses are isolated by workspace generation, selection and revision; stale rows stay disabled until refreshed. Writes bind the displayed start date, and visibility feedback waits for this refresh. Period selections and drafts are session-only and reset with the workspace generation. Product rules and failure scenarios live in [period planning](../../docs/features/period-planning.md).
 
 Task titles show every line, including inline links; rows grow from a 32px single-line height with 14px type, 22px text leading and a 4px clear band between row grounds. Only the first line reserves the checkbox and gap; continuation lines use the checkbox/card left edge, and the checkbox keeps its own hit target above the title. Checkboxes, flow dots, metadata, relation lines and breakpoint markers remain centered on the first line; virtual rows use the same 32px initial estimate. Past and completed tasks share this density. Titles and link cards use the row width with a 6px right inset; trailing ports and breakpoint rings/pills overlay content without reserving space or changing layout when shown. Breakpoint centers share the outgoing relation-port anchor at the row right edge. Incoming board dots and outgoing ports are both 6px, including hover; the dot button retains its 18px hit target. Dot previews retain their lines and breakpoint actions while pointer/focus travels through active-flow rows or breakpoint controls; plain row hover does not start a preview. Empty current target columns still allow preview next steps.
 

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Electron lifecycle, security, storage, smart-input, link-preview and software-update services.
  * [OUTPUT]: Single window, startup/write gates, visible-change notifications, macOS app menu, update notifications and renderer-session cleanup.
- * [POS]: Application composition root; migrations remain protected before window creation.
+ * [POS]: Application composition root; the renderer parse overlaps guarded storage startup, and migrations remain protected before writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { app, BrowserWindow, dialog, powerMonitor, protocol, screen, session } from 'electron'
@@ -111,7 +111,7 @@ async function createWindow(): Promise<void> {
     webPreferences: {
       preload: join(directory, '../preload/index.cjs'), contextIsolation: true,
       sandbox: true, nodeIntegration: false, webSecurity: true, webviewTag: false,
-      devTools: !app.isPackaged,
+      spellcheck: false, devTools: !app.isPackaged,
     },
   })
   restrictWindow(window)
@@ -153,16 +153,26 @@ if (!app.requestSingleInstanceLock()) {
     installMenu(openAbout)
     language.onChange(() => installMenu(openAbout))
     updates = new UpdateService(info => send(updateEvent, info))
-    storage = await openStorage()
-    if (!storage) { app.exit(0); return }
-    const client = storage
+    let unlockStorage!: (client: StorageClient) => void
+    const pendingStorage = new Promise<StorageClient>(resolve => { unlockStorage = resolve })
+    const storageProxy = {
+      call: (method: Parameters<StorageClient['call']>[0], argument?: unknown) => pendingStorage.then(client => client.call(method, argument)),
+      close: () => pendingStorage.then(client => client.close()),
+    } as StorageClient
+    let client!: StorageClient
     const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client)
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
-    releaseRenderer = registerIpc(() => window, trustedUrl, storage, smart, language, links, updates, () => { void requestReconcile(false) }, firstWrite, meta => {
+    releaseRenderer = registerIpc(() => window, trustedUrl, storageProxy, smart, language, links, updates, () => { void requestReconcile(false) }, firstWrite, meta => {
       if (firstSnapshotRead) return
       firstSnapshotRead = true; lastVisible = visibleKey(meta); lastRevision = meta.workspace.revision; startInitialReconcile()
     })
-    await createWindow()
+    const opening = openStorage()
+    const windowing = createWindow()
+    const opened = await opening
+    if (!opened) { window?.destroy(); app.exit(0); return }
+    storage = client = opened
+    unlockStorage(opened)
+    await windowing
     updates.start()
     powerMonitor.on('resume', () => { void requestReconcile() })
     const timer = setInterval(() => { void requestReconcile() }, 30_000)

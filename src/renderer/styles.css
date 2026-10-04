@@ -162,9 +162,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .board-host { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .board { position: relative; flex: 1; display: flex; min-width: 0; min-height: 0; overflow: clip; }
 .board-panels { --column-min: 320px; position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
-/* Later is a docked sheet on its own raised ground, beside the six planning columns. */
-/* The sheet matches a time column: seven equal shares after the timeline padding and Later inset. */
-.board-later { width: calc(max(var(--column-min), (100% - 28px) / 7) + 12px); flex: 0 0 auto; min-height: 0; display: flex; padding: 0 0 12px 12px; background: var(--bg); }
+/* The docked sheet matches a visible time column after timeline padding and the Later inset. */
+.board-later { width: calc(max(var(--column-min), (100% - 28px) / (var(--planning-count) + 1)) + 12px); flex: 0 0 auto; min-height: 0; display: flex; padding: 0 0 12px 12px; background: var(--bg); }
 .board-later > .board-column { --ground: var(--raised); flex: 1; min-width: 0; border-left: 0; transition: none; border-radius: 14px; background: var(--raised); box-shadow: 0 0 0 .5px var(--edge), 0 6px 20px color-mix(in srgb, var(--fg) 6%, transparent); }
 .board-later > .board-column > .column-content { border-radius: 0 0 14px 14px; }
 .board-panels[data-later-open='false'] > .board-later { position: absolute; inset: 0 auto 0 0; visibility: hidden; transform: translateX(-100%); }
@@ -172,7 +171,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 /* Time columns share the width equally; below 320px each the timeline scrolls instead of squeezing rows. */
 /* --row-inset is where a row's checkbox lands after the flow-dot gutter; column text chrome aligns to it. */
 .board-column { --row-inset: 9px; --title-gap: calc(12px * .6); --ground: var(--bg); position: relative; flex: 1 1 0; min-width: var(--column-min); display: flex; flex-direction: column; padding: 4px 14px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
-.board-column:first-child { border-left: 0; }
+.board-column:first-child, .board-timeline > .board-column:nth-child(1 of :not([hidden])) { border-left: 0; }
 .board-column.drop-target { background: var(--hover); }
 .column-header { height: 40px; flex-shrink: 0; padding-left: var(--row-inset); display: flex; align-items: center; gap: 8px; }
 .column-header h2 { font-size: 15px; white-space: nowrap; }
@@ -366,6 +365,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .menu-item { width: 100%; min-height: 34px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; font-size: 13px; text-align: left; }
 .menu-item:hover:not(:disabled), .menu-item[aria-selected='true'] { background: var(--hover); }
 .menu-item.danger { color: var(--danger); }
+.column-visibility-menu .picker-row > svg { flex-shrink: 0; }
+.column-visibility-hint { margin: 10px 0 0; padding: 8px 10px 0; border-top: 1px solid var(--hairline); font-size: 12px; line-height: 1.6; color: var(--secondary); }
+@media (pointer: coarse) { #column-toggle { width: 44px; height: 44px; } }
 .menu-check { width: 14px; flex-shrink: 0; display: flex; }
 .menu-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .menu-hint { flex-shrink: 0; font-size: 12px; color: var(--secondary); }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Authoritative current snapshot, visible columns and explicit period selections.
- * [OUTPUT]: Generation-scoped planning views, atomic return from past selections, parent-order projections, revision-bound materialization and shared candidates/locate requests.
+ * [OUTPUT]: Generation-scoped planning views retaining hidden future selections, atomic return from past selections, parent-order projections, revision-bound materialization and shared candidates/locate requests.
  * [POS]: Board view state; current snapshots and closed-period history keep their independent read paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,7 @@ import type { BoardPeriods, Snapshot } from '../../shared/contracts/queries'
 import { desktopApi } from './use-workspace'
 import { buildParentOrder } from '../../domain/parent-order'
 import { finishParentOrder, useParentOrder } from './parent-order'
+import { periodHorizons } from '../../shared/contracts/values'
 
 type Selection = Partial<Record<ItemHorizon, PlanningPeriod>>
 const empty: Selection = {}
@@ -30,7 +31,7 @@ export function useBoardPeriods(snapshot: Snapshot | null, columns: ItemHorizon[
     if (!period || period.id === current?.id) return 'current'
     return compareInstants(period.endAt, snapshot!.observedAt) <= 0 ? 'history' : 'future'
   }
-  const requested = columns.filter(horizon => mode(horizon) === 'future').map(horizon => periods[horizon]!)
+  const requested = periodHorizons.filter(horizon => mode(horizon) === 'future').map(horizon => periods[horizon]!)
   const selectionKey = `${generation}:${requested.map(period => period.id).join('|')}`
   const key = `${selectionKey}:${revision}:${attempt}`
   const requestJson = JSON.stringify(requested.map(({ horizon, startDate }) => ({ horizon, startDate })))

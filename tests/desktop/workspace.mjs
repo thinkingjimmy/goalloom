@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, an isolated device profile and production workspace controls.
- * [OUTPUT]: Board/empty-copy screenshots, flow-valid detail parent picking, More alignment/actions, fixed columns, Later, settings, shortcuts and security assertions.
+ * [OUTPUT]: Board/empty-copy screenshots, flow-valid detail parent picking, More alignment/actions, default columns/visibility menu, Later, settings, shortcuts and security assertions.
  * [POS]: Desktop workspace acceptance; uses the real preload, main and SQLite without production test hooks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -268,8 +268,8 @@ try {
   await trashed.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.waitFor({ state: 'hidden' })
-  // The six planning columns remain fixed while Later can collapse independently.
-  assert.equal(await page.getByRole('button', { name: '显示的列', exact: true }).count(), 0)
+  // Planning columns start visible while Later can collapse independently.
+  assert.equal(await page.getByRole('button', { name: '显示的列', exact: true }).count(), 1)
   await page.locator('#later-toggle').click()
   assert.equal(await page.getByRole('region', { name: 'Later列', exact: true }).count(), 0)
   assert.equal(await page.locator('.board-timeline .board-column').count(), 6)

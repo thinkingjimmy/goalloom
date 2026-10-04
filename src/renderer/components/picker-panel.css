@@ -1,0 +1,15 @@
+/**
+ * [INPUT]: Theme surface tokens and selected/past/disabled choice states.
+ * [OUTPUT]: Shared picker surface and list rows for column periods and visibility choices.
+ * [POS]: Presentation primitive consumed by board and shell panels.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.picker-panel { width: 300px; padding: 10px; border-radius: 13px; background: var(--raised); box-shadow: var(--shadow); color: var(--fg); font-size: 13px; font-weight: 400; }
+.picker-list { display: flex; flex-direction: column; gap: 2px; }
+.picker-row { width: 100%; min-height: 36px; padding: 0 10px; border-radius: 9px; display: flex; align-items: center; justify-content: space-between; gap: 6px; text-align: left; font-variant-numeric: tabular-nums; }
+.picker-row:hover:not(:disabled):not([aria-disabled='true']):not([data-selected='true']) { background: var(--hover); }
+.picker-row[data-selected='true'] { background: var(--fg); color: var(--bg); box-shadow: none; font-weight: 500; }
+.picker-row[data-past='true']:not([data-selected='true']) { color: var(--secondary); }
+.picker-row:disabled { opacity: 1; color: var(--faint); cursor: default; }
+.picker-row[aria-disabled='true'] { cursor: default; }
+@media (pointer: coarse) { .picker-row { min-height: 44px; } }

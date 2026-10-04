@@ -1,7 +1,7 @@
 /**
  * [INPUT]: The descriptions Electron page, its create/stored helpers and screenshot hook.
  * [OUTPUT]: Board note-signal and read-only peek assertions (progress, next item, link host +N, excerpt, no signal
- *           without a note, hover/focus opening, Escape, drag/detail isolation, saved bytes untouched) with screenshots.
+ *           without a note, hover/focus opening after the lazy editor paints, Escape, drag/detail isolation, saved bytes untouched) with screenshots.
  * [POS]: Task-description acceptance fixture for the D5 "signal + peek" board presentation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -25,6 +25,8 @@ export async function verifyDescriptionSignals({ page, create, stored, detail, s
   const before = await stored(checklist)
   await signal(checklist).hover()
   await peek().waitFor()
+  await peek().hover()
+  await peek().getByText('Launch plan').waitFor()
   assert.match(await peek().innerText(), /Launch plan/)
   assert.equal(await peek().locator('[contenteditable="true"]').count(), 0, 'The peek is read-only')
   assert.equal(await detail().count(), 0, 'Hovering never opens the detail')
@@ -38,6 +40,7 @@ export async function verifyDescriptionSignals({ page, create, stored, detail, s
   await page.mouse.move(2, 2)
   await signal(prose).focus()
   await peek().waitFor()
+  await peek().getByText('Keep the sidebar calm').waitFor()
   assert.match(await peek().innerText(), /Keep the sidebar calm/)
   await page.keyboard.press('Escape')
   await peek().waitFor({ state: 'hidden' })

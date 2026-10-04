@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Unified candidates/initial direction placement, independent Later visibility/count, board-ordered filters that follow root promotion/undo, board/dialogs with input-aware detail focus return, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and a generation-bound resumable review modal. Theme, style and checkbox swaps, and system appearance changes, apply without tweening colors.
+ * [OUTPUT]: Unified candidates/initial direction placement, independent Later/planning visibility with explicit-target reveal, board-ordered filters that follow root promotion/undo, board/dialogs with input-aware detail focus return, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and a generation-bound resumable review modal. Theme, style and checkbox swaps, and system appearance changes, apply without tweening colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -94,7 +94,11 @@ export function App() {
     setSelected(null)
     if (id && !settings) requestAnimationFrame(() => revealRow(id, '.task-title', origin))
   }
-  const requestAdd = (horizon: ItemHorizon | null, split: AddRequest['split'] = null) => { setAddRequest(previous => ({ seq: (previous?.seq ?? 0) + 1, horizon, split })) }
+  const requestAdd = (horizon: ItemHorizon | null, split: AddRequest['split'] = null) => {
+    if (horizon === 'later') columns.setLaterOpen(true)
+    else if (horizon) columns.setVisible(horizon, true)
+    setAddRequest(previous => ({ seq: (previous?.seq ?? 0) + 1, horizon, split }))
+  }
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const setupReady = !!snapshot?.workspace.setupConfirmedAt
   useLayoutEffect(() => { resetLinkPreviewCache() }, [snapshot?.workspace.generation])
@@ -148,6 +152,7 @@ export function App() {
     const detail = directionLocation.current?.detail
     if (onboarding || !snapshot?.workspace.calendar || !detail?.period) return
     directionLocation.current = null
+    if (detail.item.placement.horizon !== 'later') columns.setVisible(detail.item.placement.horizon, true)
     boardView.locate(detail.item, detail.period)
     const half = currentPeriod(snapshot.workspace.calendar, 'half', detail.period.startAt)
     boardView.choose('half', half.id === snapshot.periods.find(period => period.horizon === 'half')?.id ? null : half)
@@ -178,6 +183,7 @@ export function App() {
   return <div className="app-shell" onPointerDownCapture={() => { inputOrigin.current = 'pointer' }}
     onKeyDownCapture={event => { if (!event.nativeEvent.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) inputOrigin.current = 'keyboard' }}>
     <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
+      calendar={snapshot?.workspace.calendar ?? null} menuBlocked={!!selected || settings || palette || composing || !!seed || reviewOpen}
       laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
       updateAvailable={hasUpdate(update)} openSearch={openPalette} openSettings={() => openSettings()} />
     {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</button></div>}

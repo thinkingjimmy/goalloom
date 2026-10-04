@@ -5,7 +5,8 @@
 ```text
 desktop/
 ├── calendar-modes.mjs   # Rolling/natural setup, short annual target/future half drafting, Settings › Calendar next starts and the change-calendar route to reset, six pickers, longest-parent dragging, legacy JSON/SQLite fidelity and five-locale/four-theme evidence; output/tests/calendar-modes
-├── later-sidebar.mjs    # Fixed planning columns, legacy preference handling, Later count, independent scrolling, drag/undo, preserved drafts, motion, themes/locales and restart; output/tests/later-sidebar
+├── later-sidebar.mjs    # Default planning columns, legacy preference handling, Later count, independent scrolling, drag/undo, preserved drafts, motion, themes/locales and restart; output/tests/later-sidebar
+├── column-visibility.mjs # Six-column checkbox menu matching the period panel, minimum guard, independent preferences, retained hidden drafts/scroll/periods, explicit-target reveal, keyboard drag, geometry/locales/themes; --menu narrows development checks, --baseline/--style-baseline preserve initial failures; output/tests/column-visibility
 ├── sqlite.mjs           # 单独构建/启动真实 main 的内置 SQLite 探针
 ├── workspace.mjs        # 看板业务、实际流程候选的详情关联、详情 More 起始对齐／窄窗口／Esc（fixtures/detail-more.mjs）、流程筛选快捷键与设置、协议/CSP/IPC、主题与窄窗口
 ├── task-focus.mjs       # Pointer/Escape/close and keyboard detail-focus returns, plain/rich titles, four themes and no task writes; output/tests/task-focus/
@@ -24,7 +25,7 @@ desktop/
 ├── relations.mjs        # Relation lines/dots with full task titles, matching endpoint sizes, dynamic popover positioning and board-ordered flow filters; row/column moves, undo, shortcuts and reload; relation-endpoints.json, flow-dot-position.json/screenshots and app-local failure diagnostics
 ├── relation-drag.mjs    # Native flow-valid parent/child search, colorless rejection, root promotion/adoption/undo, receipt recovery, ordering, clipped autoscroll and five locales; output/tests/relation-drag
 ├── language.mjs         # System language, setup/settings switching, main/worker copy, persistence, flow-choice/detail More menus, period-named reviews and app-local language-menu/failure diagnostics; five-locale screenshots, language-*.png and output/tests/language.json
-├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and persistent partial-restore warnings; feedback.json and feedback-*.png
+├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and flow-valid partial-restore warnings; feedback.json and feedback-*.png
 ├── link-previews.mjs    # Link text, full-width cards under overlay controls, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
 ├── ordering.mjs         # Parent ordering, group-aware drag, future materialization/undo, receipt-first recovery, local preference restart and measured motion (output/tests/ordering)

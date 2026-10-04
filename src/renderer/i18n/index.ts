@@ -1,20 +1,23 @@
 /**
- * [INPUT]: Shared locale/server catalogs, five renderer catalogs and React external-store subscriptions.
+ * [INPUT]: Shared locale/server catalogs, the eager Chinese renderer catalog and on-demand en/ja/es/fr catalogs.
  * [OUTPUT]: Live calendar/app/smart/settings/insight/shortcut text, seven horizon names and locale controls.
- * [POS]: Renderer text boundary; in-place catalog updates preserve drafts, undo and open dialogs.
+ * [POS]: Renderer text boundary; in-place catalog updates preserve drafts, undo and open dialogs. Unused locales stay out of the first board parse.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 import type { ItemHorizon } from '../../shared/contracts/entities'
 import { intlTags, type Locale } from '../../shared/i18n/locale'
-import { setServerLocale } from '../../shared/i18n/server'
+import { loadServerLocale } from '../../shared/i18n/server'
 import { zh, type Catalog } from './locales/zh'
-import { en } from './locales/en'
-import { ja } from './locales/ja'
-import { es } from './locales/es'
-import { fr } from './locales/fr'
 
-const catalogs: Record<Locale, Catalog> = { zh, en, ja, es, fr }
+const loaders: Record<Locale, () => Promise<Catalog>> = {
+  zh: async () => zh,
+  en: () => import('./locales/en').then(module => module.en),
+  ja: () => import('./locales/ja').then(module => module.ja),
+  es: () => import('./locales/es').then(module => module.es),
+  fr: () => import('./locales/fr').then(module => module.fr),
+}
+const loaded: Partial<Record<Locale, Catalog>> = { zh }
 
 // Components read these at render time; setLocale swaps their contents in place, so no import ever goes stale.
 export const calendarMessages = { ...zh.calendar }
@@ -49,11 +52,16 @@ function apply(catalog: Catalog): void {
 }
 apply(zh)
 
-export function setLocale(next: Locale): void {
+async function catalogFor(next: Locale): Promise<Catalog> {
+  return loaded[next] ??= await loaders[next]()
+}
+
+export async function setLocale(next: Locale): Promise<void> {
   if (next === locale && document.documentElement.lang === intlTags[next]) return
+  const catalog = await catalogFor(next)
+  await loadServerLocale(next)
   locale = next
-  apply(catalogs[next])
-  setServerLocale(next)
+  apply(catalog)
   document.documentElement.lang = intlTags[next]
   for (const listener of listeners) listener()
 }

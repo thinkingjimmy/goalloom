@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron and a fresh synthetic workspace through production IPC.
- * [OUTPUT]: Fixed planning columns, sidebar, scrolling, drag, motion, localization and restart evidence under output/tests/later-sidebar.
+ * [OUTPUT]: Default planning columns, independent sidebar, scrolling, drag, motion, localization and restart evidence under output/tests/later-sidebar.
  * [POS]: Focused desktop E2E acceptance; never opens the owner's workspace or captures unrelated desktop content.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -103,7 +103,7 @@ try {
   }
   check('Default expansion, exact unfiltered TODO count, zero suppression, completion/undo, cancellation, archive and deletion/restore')
 
-  assert.equal(await page.getByRole('button', { name: 'Visible columns', exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Visible columns', exact: true }).count(), 1)
   assert.deepEqual(await page.locator('.board-timeline .board-column').evaluateAll(nodes => nodes.map(node => node.dataset.horizon)), ['year', 'half', 'cycle', 'month', 'week', 'day'])
   await page.getByRole('button', { name: 'Add to Later', exact: true }).click()
   await later().locator('.quick-add input').fill('Keep this Later draft')
@@ -153,7 +153,7 @@ try {
   await later().locator('.quick-add input').press('Escape')
   await later().locator('summary').click()
   await page.locator('.flow-filter .chip').first().click()
-  check('Fixed planning columns, measured enter/exit motion, interruption, draft/fold preservation and focus')
+  check('Default planning columns, measured enter/exit motion, interruption, draft/fold preservation and focus')
 
   const beforeScroll = await later().boundingBox()
   await page.locator('.board-timeline').evaluate(node => { node.scrollLeft = node.scrollWidth })
@@ -226,7 +226,7 @@ try {
     await page.evaluate(locale => window.goalloom.setLanguage(locale), locale)
     await page.reload(); await page.locator('.board').waitFor()
     assert.equal(await toggle().getAttribute('aria-label'), labels[locale])
-    assert.equal(await page.locator('.titlebar [aria-haspopup="menu"]').count(), 0)
+    assert.equal(await page.locator('#column-toggle[aria-haspopup="menu"]').count(), 1)
     await shot(`locale-${locale}`)
   }
   check('Both styles, both themes and five localized toggle labels')
@@ -246,8 +246,8 @@ try {
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.hiddenColumns'))), [])
   await open(false)
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.hiddenColumns'))), ['later'])
-  await shot('fixed-planning-columns')
-  check('Six fixed planning columns and no visibility menu in all locales; legacy hidden columns are ignored while the Later preference persists')
+  await shot('default-planning-columns')
+  check('Six default planning columns and a visibility menu in all locales; legacy hidden columns are ignored while the independent Later preference persists')
   report.passed = true
 } catch (error) {
   report.error = String(error.stack ?? error)

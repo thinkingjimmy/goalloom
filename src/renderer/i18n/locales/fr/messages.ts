@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: French UI copy and parameterized messages, including column add-task labels, feedback destinations and partial restores.
+ * [OUTPUT]: French UI copy and parameterized messages, including column visibility/add-task labels, feedback destinations and partial restores.
  * [POS]: French message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -27,6 +27,8 @@ export const messages: MessageCatalog = {
   home: "Accueil Goalloom",
   settings: "Réglages et données",
   commands: "Recherche et commandes",
+  visibleColumns: "Colonnes visibles",
+  minimumVisibleColumns: "Gardez au moins une colonne visible",
   undoPrevious: "Annuler la dernière action",
   exportFailed: "Échec de l’export. Réessayez",
   exportWorkspace: "Exporter l’espace de travail",
