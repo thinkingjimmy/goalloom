@@ -40,25 +40,25 @@ renderer/
 │   │   ├── KeyMenu.tsx      # 行内菜单的键盘外壳：↑↓ 移动、数字直选，Esc 交给 Popover
 │   │   ├── suggestions.ts   # 纯函数：上级关联与移列规则、片段合并、Jev 拿不准的判断（doubts）
 │   │   ├── draft.ts         # 纯草稿模型：手动优先合并、推测列、orphan、计划负载与本地复核
-│   │   ├── Seeded.tsx       # Displayed-period child creation / checked createPlan, including future half/cycle; typed-text precedence and manual fallback
+│   │   ├── Seeded.tsx       # Displayed-period child creation / checked createPlan with horizon-specific headings, including future half/cycle; typed-text precedence and manual fallback
 │   │   └── composer.css     # composer 与连接表单样式（仅 token）
 │   ├── insight/             # 流程洞察（docs/features/flow-insight.md）
 │   │   ├── signals.ts       # Six-scale childless-parent gaps/digests and highlighted-chain scope; displayed-period empty sources exclude active children and constrain future half/cycle to the displayed parent
 │   │   ├── Breakpoints.tsx  # Highlighted-chain childless-parent endpoints and child creation, busy loading glyph/destination state and a guide bounded to the timeline viewport
 │   │   ├── decompose.ts     # 「拆下一步」唯一写入路径：模型起草后 create 下级，⇧ 或无模型时打开预填新建（断点与右键共用）
-│   │   ├── EmptyCard.tsx    # 空列卡：「起草下一步」（批量预填）或自己写，数量只在说明中显示
+│   │   ├── EmptyCard.tsx    # Horizon-specific outcome/milestone/plan/task draft actions or free writing; counts only in the body, equal-height buttons
 │   │   ├── review.ts        # 复盘纯规则：入口（最后一天 / 次日一次，周月同日合并）、目标×周期、只读跳级事实、信号、排下一期候选
 │   │   ├── ReviewDrawer.tsx # Resumable closing → cached connected suggestions with inherited todo markers, shared right-side dropdowns, guarded confirm/skip/receipt recovery and completion callback
 │   │   ├── ReviewOverview.tsx # Summary-first counts, original checked/flow-coloured month task markers, read-only saved links and goal matrix
 │   │   ├── ReviewSummary.tsx # Persistent localized icon heading, optional cached AI content, header refresh and retained results on failure
 │   │   ├── review.css       # Shared review/planning guide frames/actions, compact closing rows, compact drafts with joined marker-centred connectors, row separators/intrinsic inclusion dropdowns, borderless draft focus, compact Select and ghost footer actions
-│   │   └── insight.css      # Breakpoints with full-colour loading rotation/reduced motion, hints and empty-column cards
+│   │   └── insight.css      # Breakpoints with full-colour loading rotation/reduced motion, hints and empty cards with equal-height wrapping/touch actions
 │   ├── smart/
 │   │   ├── ProviderConnect.tsx # 单个服务的 Key（标签旁官方控制台入口）、点名该服务的同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底部按钮行）
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
-│   │   ├── Board.tsx        # Unified periods, header/todo-tail/blank-space QuickAdd entries, weekly/monthly review guides and current-period invitations, independent gestures, virtual source pinning and preserved focus
+│   │   ├── Board.tsx        # Unified periods, header/todo-tail/blank-space QuickAdd, review guides/current-period invitations without completed-status notes, independent gestures, virtual source pinning and preserved focus
 │   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
 │   │   ├── useBoardDrag.ts # Group-bounded drag and pending-drop placement projection
@@ -72,7 +72,7 @@ renderer/
 │   │   ├── PeriodPicker.tsx # Header B: six-row year/half/cycle lists, week/day/month selection, visible history errors/retry and mode-aware labels
 │   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body and Lexical load on open)
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
-│   │   ├── FlowDot.tsx      # Role-aware flow menus with intrinsic choice width, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
+│   │   ├── FlowDot.tsx      # Role-aware flow menus with a single parent-panel heading, intrinsic choice width, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
 │   │   ├── QuickAdd.tsx     # Title-aligned explicit-period creation, per-period drafts, expired-input recovery and horizon-valid flow choices
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
@@ -83,7 +83,7 @@ renderer/
 │   │   ├── ItemDetail.tsx   # Draft-safe details: rich title, one chip row, full-height Markdown description, activity drawer and start-aligned floating More actions without board navigation
 │   │   ├── DetailTitle.tsx  # Unclipped shared link display, growing raw-title editor with persistent native undo/redo and empty-draft recovery, saved-only metadata and keyboard focus handoff
 │   │   ├── DuePicker.tsx    # Detail deadline trigger, shared calendar panel and focus restoration; selection/clear immediately autosaves
-│   │   ├── RelationPicker.tsx # Board-ordered parent/child search shared by detail/flow-dot menus; horizon/effective-flow guards, linked-first removal
+│   │   ├── RelationPicker.tsx # Board-ordered parent/child search shared by detail/flow-dot menus; optional guidance replacement, horizon/effective-flow guards and linked-first removal
 │   │   ├── FlowPicker.tsx   # 详情属性行的流程标签；FlowColorMenu 为色板本体，看板圆点复用
 │   │   ├── RelationChip.tsx # 详情「上级／下级」标签：弹层列出关联条目可跳转，并转入 RelationPicker
 │   │   └── Activity.tsx     # 活动摘要 hook 与右侧横向抽屉，打开时才分页读取事件

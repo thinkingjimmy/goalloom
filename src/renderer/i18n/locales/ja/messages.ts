@@ -274,7 +274,7 @@ export const messages: MessageCatalog = {
   relationLinked: (title: string) => `「${title}」に関連付けました`,
   linkToParentHint: "期間がより長い項目の下に置き、そのフローに従います。",
   noLongerHorizon: (horizon: string | number) => `${horizon}はすでに最も長い計画期間のため、上位はありません。`,
-  flowFromParents: "フローは上位で決まります：",
+  flowFromParents: "上位フロー：",
   longerOnly: "期間がより長い項目のみ表示",
   shorterOnly: "期間がより短い項目のみ表示",
   flowImpact: (count: string | number) => `この項目はフローの起点です。この項目と下位 ${count} 件に影響します。`,

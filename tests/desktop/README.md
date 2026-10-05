@@ -17,7 +17,7 @@ desktop/
 ├── month-review.mjs    # Period-end records, live closing, unified guide, resume and exact planning destinations, partial failures and receipt recovery; --combined adds fresh month → week planning; output/tests/insight/{month-review,combined-review}/
 ├── review-scopes.mjs # Native component-only month/combined audit outside date-window eligibility; records, closing, monthly/weekly proposals and completion callback; output/tests/review-scopes/
 ├── weekly-review.mjs   # First/last-day guide/closing, compact read-only rows, two-parent hierarchy/colours/joined marker-centred lines, compact gap/intrinsic destination dropdowns with keyboard/focus dismissal/separators, skip versus linked creation, automatic completion/entry suppression distinct from planning invitations, resume and post-review creation; --completion selects receipt/confetti acceptance; included by insight.mjs; output/tests/insight/weekly-review/
-├── insight.mjs          # 流程洞察（无模型路径）：1440×900 原生窗口、可见空列卡文案与批量/自己写、筛选／悬停预览断点 ＋、创建与撤销、接点对齐与一次性引导、预填新建、跳级、周期复盘与设置；output/tests/insight，含 empty-card-target.json 的点击命中记录和应用内失败诊断
+├── insight.mjs          # Native flow insight; --empty-card selects weekly/daily labels/equal-height hit targets and batch/manual creation; full mode retains previews/undo/geometry/reviews/settings and weekly-review
 ├── insight-generation.mjs # Development/production Electron: held next-step success/failure requests with loading rotation/colour/reduced-motion, completion/manual fallback, drafting, Settings trial captures and summary persistence/restart/refresh/invalidation/failures/reset; real bridge/storage and synthetic HTTP; output/tests/insight/generation/
 ├── insight-live.mjs     # Authorized real OpenRouter: annual → half → cycle drafts, Settings trial/no writes, seven weekly drafts and review summary; outside verify
 ├── recovery.mjs         # 保护备份/维护/重置/SQLite 恢复与重启暂停
@@ -26,7 +26,7 @@ desktop/
 ├── due-dates.mjs        # Deadline calendar: real Electron draft/save boundaries, leap/month/week keyboard navigation, focus/info layers, five locales and four themes; output/tests/due-calendar/
 ├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
-├── relations.mjs        # Relation lines/dots with full task titles, matching endpoint sizes, dynamic popover positioning and board-ordered flow filters; row/column moves, undo, shortcuts and reload; relation-endpoints.json, flow-dot-position.json/screenshots and app-local failure diagnostics
+├── relations.mjs        # Relation lines/dots, geometry and board-ordered filters; --flow-dot selects parent-panel headings/search/checked links and positioning; full mode retains moves/undo/shortcuts/reload and gesture acceptance
 ├── relation-drag.mjs    # Native flow-valid parent/child search, colorless rejection, root promotion/adoption/undo, receipt recovery, ordering, clipped autoscroll and five locales; output/tests/relation-drag
 ├── language.mjs         # System language, setup/settings switching, main/worker copy, persistence, flow-choice/detail More menus, period-named reviews and custom default-move choices, app-local diagnostics; five-locale screenshots and output/tests/language.json
 ├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and flow-valid partial-restore warnings; feedback.json and feedback-*.png
@@ -49,7 +49,7 @@ desktop/
     ├── review-seed.ts   # Injected-clock weekly/monthly/combined fixtures and first/last-day calendars for review and provider-cache acceptance
     ├── review-drafts.mjs # Native held close/reopen, edited/excluded suggestions, local remount cache, input/preference invalidation and failed-cache recovery; insight-generation.mjs
     ├── review-completion.mjs # Native auto-close, immediate/persistent entry removal, rejected/lost writes, skip and real Canvas confetti/motion/column guards; weekly-review.mjs --completion
-    ├── review-invitation.mjs # Shared review/planning card styles and current dates, original linked creation; weekly-review.mjs --invitation; output/tests/review-invitation/
+    ├── review-invitation.mjs # Shared review/planning card styles/current dates, absent completion notes after close/reload and retained linked creation; weekly-review.mjs --invitation; output/tests/review-invitation/
     ├── review-scopes/ # Test-only native renderer mounting production month/combined components with explicit period props and real preload/main/SQLite; no authoritative clock override
     ├── review-draft-focus.mjs # Borderless focused review draft, editing/Tab and retained choices; weekly-review.mjs --draft-focus; output/tests/review-draft-focus/
     ├── history-seed.ts  # 正式事务生成历史样本，无生产测试时钟
@@ -64,7 +64,7 @@ desktop/
     ├── detail-more.mjs   # Start-aligned unclipped More, retained actions and Escape at wide/narrow native sizes in four themes; output/tests/detail-more
     ├── detail-discard.mjs # Native empty-title close/undo, content/lifecycle guards and failed/unknown/racing writes; autosave.mjs --discard
     ├── discard-data.ts  # Production discard transactions, past-period holds, atomic guards, five locales and JSON/SQLite recovery; output/tests/autosave/discard/
-    ├── flow-dot-position.mjs # Intrinsic choice width, complete Chinese hints, bottom-edge menus, mode/search size changes and scroll/resize geometry; real Electron/IPC and flow-dot-position-*.png
+    ├── flow-dot-position.mjs # Heading-only parent panels/checked links, intrinsic choice width, bottom-edge menus, mode/search size changes and scroll/resize geometry; focused via relations.mjs --flow-dot
     ├── relation-drag-data.ts # Production Repository/SQLite flow-policy guards, promotion/adoption rollback, receipts, branch-safe undo and durable JSON/SQLite round trips under Electron
     ├── relation-visibility.mjs # Raw Electron/CDP native hide/show cancellation without foreground emulation; called by relation-drag.mjs
     └── performance.ts   # 10,000 条目/1,000 活跃及真实历史，测恢复与延迟

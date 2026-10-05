@@ -22,6 +22,7 @@
   - **独立条目**（无上级、无流程色）：虚线点，悬停变「+」；点开二选一：「设为流程起点」（选色）或「关联到上级」。年列没有更长的上级，后者置灰并说明。菜单按内容自适应宽度，最多 480px 且不超过窗口可用宽度；说明自然换行，避免固定窄宽造成孤字折行。
 - 属于两条流程时圆点斜切双色；三条及以上显示流程数。行首圆点与尾部接点直径统一为 6px，悬停保持大小、仅显示光晕；行首按钮仍保留 18px 点击区域。
 - 圆点面板默认向下展开；下方空间不足时向上展开并留在窗口内。从二选一切换到上级选择器或色板、搜索结果改变高度时，立即按实际尺寸重新定位；滚动与窗口缩放时继续贴合圆点。
+- 2026-10-05 负责人确认圆点上级选择器的说明区仅显示「所属上级流程：」，不重复列出流程名称／色点及周期限制说明；下方关联候选和搜索保留，详情选择器仍显示对应的周期提示。五语言同步。
 - 悬停流程圆点不弹出文字提示；所属流程和拖拽说明保留在无障碍名称／描述与点击后的菜单中。
 - 改色、添加关联与解除关联都走现有命令，成功后以圆点、列表和连线变化反馈，不显示成功 Toast。关联仍进入现有会话撤销栈，快捷键／命令面板撤销有明确反馈；单独改色不进入全局撤销栈，合并流程时的清色随关联一同撤销。具体反馈规则见 [完成反馈与撒花](completion-feedback.md)。
 
@@ -57,6 +58,8 @@
 
 ## 工程契约
 
+- Parent-panel heading failure cases (2026-10-05): the old owner names/dots or horizon hint remain beside the new label; a custom heading hides the detail picker's default guidance; search, existing checked parents or viewport positioning regress after the panel shrinks. Extend the existing native flow-dot positioning scenario and expose a focused selector without running unrelated gesture acceptance.
+
 - Flow-choice failure cases (2026-10-03): an unexplained trailing ellipsis remains in any locale; a fixed width leaves an orphaned final character, intrinsic sizing pushes the panel outside the window, or the parent-disabled explanation overflows.
 - Flow-link policy failure cases: two colorless endpoints appear in parent/child search or link through dragging/IPC; an inherited flow is mistaken for no flow; old colorless links cannot be removed. Root promotion loses its color, recolors an unrelated branch, previews a different result, drops the selected filter, partially commits or duplicates on retry. Undo overwrites text or later branches/colors, fails to restore both roots atomically, or promotion effects fail JSON/SQLite restore or accept a forged transfer target. Record these cases before extending the existing desktop relation fixtures.
 
@@ -74,7 +77,7 @@
 - `src/domain/relations.ts`：`mayParent(parent, child)` / `horizonProblem(parent, child)` 是新建关联的周期规则，`link`、`create`（带上级）与 `createPlan` 在权威事务内复核；`create`/`createPlan`/`flowColor` 拒绝 Later 流程色。renderer 的选择器、QuickAdd 与 composer 草稿复用 `mayParent` 做同一过滤。DAG/防环校验不变，撤销、还原和导入不套用周期规则。`moveItem` 在进入 Later 时于同一操作解除上级（`move` / `arrangeBacklog` 可以带上这条 `relations` 效果），撤销该次移动时恢复；下级边和其他移动不解除。
 - `src/renderer/state/relation-lines.ts`：`useRelationLines` 外部存储，localStorage `goalloom.relationLines`，只在关闭时存 `'false'`；不进入工作区数据、历史、导出或备份。
 - `src/renderer/features/board/Board.tsx`：持有圆点预览（120ms 离开缓冲），活跃流程 = 预览条目的流程，否则为筛选流程；据此给时间列的行 `dimmed` 与 `tint`（`flowTint`；Later 不参与流程，筛选时保持原样、不置灰），并在「活跃 + 开关开」时挂载关系线（键为 `lines:<flow id>` 或 `lines:preview`，仅筛选时画入）。断点层使用独立的 `breakpoints:<workspace generation>` 键，接收同一活跃流程集合；跨悬停进出保留待处理操作，工作区替换时清空。Board 统一管理圆点预览的指针／焦点离开，允许跨正文访问末尾添加按钮。`data-filtered` 区分顶栏筛选与临时预览，供 CSS 控制年列待办圆点的静止态显示。
-- `src/renderer/features/board/FlowDot.tsx`：行内圆点与浮层（`Popover floating` 经 portal 浮出列滚动区），复用 `FlowColorMenu` 与 `RelationPicker`；指针悬停与键盘 `:focus-visible` 触发预览，鼠标点击的焦点不触发。
+- `src/renderer/features/board/FlowDot.tsx`：行内圆点与浮层（`Popover floating` 经 portal 浮出列滚动区），复用 `FlowColorMenu` 与 `RelationPicker`；自定义 note 替代通用周期提示，仅提供上级流程标题，详情未提供 note 时保留原提示。指针悬停与键盘 `:focus-visible` 触发预览，鼠标点击的焦点不触发。
 - `RelationDrag.tsx`：独立鼠标状态、虚拟源行保留、可视命中与自动滚动；逐帧更新只通知 SVG 浮层。菜单与拖拽复用 `PreparedWrite` 重读版本和提交，`relation-drag.css` 提供交互层样式。
 - `link.adoptParentFlow?: true`：只有显式启用才能调整源流程色。`mayLinkFlows` 用实际流程归属过滤两个已有条目，事务通过祖先查询复核；`promotedFlowColor` 仅对没有活跃关联的无色上级返回源颜色。先清源色，再写上级颜色／新边，保持触发器与颜色唯一性。同一 `relations` 效果可带 `flowColor: { before, after: null, transferredTo? }`；转移目标必须是该新边的上级。撤销复核两端颜色、其他上级和新增分支；JSON／SQLite 导入校验效果归属，普通关系效果不带该字段。
 - `src/renderer/components/Popover.tsx`：floating 浮层用 `ResizeObserver` 监听面板与锚点尺寸；模式切换和异步搜索改变内容后重算方向与横向边界，沿用 6px 锚点间距和 8px 窗口留白。关闭或卸载时释放观察与监听，位置未变时不重复更新。
@@ -83,6 +86,8 @@
 - 样式在 `styles.css` 的 Relation lines 与 Flow dot 段：`.column-content` 延伸到右侧列边界，以等量右内边距补偿保持内容宽度，行左内边距容纳行首圆点，右内边距为 6px，尾部接点与断点入口悬浮覆盖内容；行用透明上下边框 + `background-clip: padding-box` 留出 2px 空隙，行间无分隔线；`data-dimmed` / `data-chain-out` 只淡化行内容（不含拖动柄），`data-lit` + `--row-tint` 铺流程底色。
 
 ## 验收
+
+- [x] 2026-10-05 圆点上级面板说明区仅保留「所属上级流程：」，同步五语言；定向验证下级／独立条目／起点的标题、搜索、已关联选项及浮层定位。运行范围与证据：`output/tests/flow-dot-panel/report.json`。
 
 - [x] 两个已有无流程条目不出现在彼此的新关联候选中，搜索／拖拽／事务同样拒绝；继承流程的条目可关联，旧无色关系可解除和撤销。独立无色上级承接原起点颜色、筛选与下级；一次撤销恢复两端，后续正文保留，新增分支／改色冲突不部分回退。原生窗口与权威事务、JSON／SQLite 恢复证据：`output/tests/relation-drag/acceptance.json`、`report.json`、`transactions.json` 和 `flow-root-promotion-*.png`。
 

@@ -365,7 +365,7 @@ async function verify(mode, variant) {
     assert.equal(await week.locator('[data-review]').count(), 0)
     assert.equal(await week.locator('.backlog-entry').count(), 1)
     assert.equal(await week.locator('.insight-empty, .empty-column').count(), 0)
-    assert.equal(await week.locator('.reviewed-note').innerText(), `${reviewedName}已复盘`)
+    assert.equal(await week.locator('.reviewed-note').count(), 0)
     const afterReview = await page.evaluate(async () => window.goalloom.getSnapshot())
     assert.equal(afterReview.backlog.week, 1)
     assert.equal(afterReview.items.filter(item => item.placement.horizon === 'week').length, mode === 'week-first' ? 1 : 0)
@@ -388,7 +388,7 @@ async function verify(mode, variant) {
     await page.keyboard.press('Escape')
     check('Completion persists across reload, preserves a default-moved task and retained backlog, and offers one invitation when the current week is empty')
 
-    await invitation.getByRole('button', { name: '起草下一步', exact: true }).click()
+    await invitation.getByRole('button', { name: '起草本周待办', exact: true }).click()
     const composer = page.getByRole('dialog', { name: '新建', exact: true })
     await composer.locator('.seed-title').first().fill(`Current weekly action ${mode}`)
     await composer.getByRole('button', { name: /^创建 1 项/ }).click()

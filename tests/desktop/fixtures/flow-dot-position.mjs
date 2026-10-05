@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Real Electron, an isolated workspace with a longer-horizon flow root and a screenshot directory.
- * [OUTPUT]: Measured bounds and screenshots for intrinsic flow-choice width, bottom-edge menus, content changes, scrolling and resizing.
+ * [OUTPUT]: Heading-only parent panels, checked links, measured bounds and screenshots for intrinsic choice width, bottom-edge menus, content changes, scrolling and resizing.
  * [POS]: Relation acceptance fixture using production IPC and real board controls without replacing layout or renderer APIs.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,7 +13,7 @@ export async function verifyFlowDotPosition(application, page, shots) {
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 760))
   const items = await page.evaluate(async () => {
     const { workspace, flows, items } = await window.goalloom.getSnapshot()
-    const root = flows.find(flow => items.some(item => item.id === flow.id && ['year', 'half', 'cycle'].includes(item.placement.horizon)))?.id
+    const root = flows.find(flow => items.some(item => item.id === flow.id && ['half', 'cycle'].includes(item.placement.horizon)))?.id
     if (!root) throw Error('Candidate geometry requires a longer-horizon flow root')
     const create = async (title, horizon, parentId = null) => {
       const parent = parentId ? (await window.goalloom.getItem(parentId)).item : null
@@ -26,12 +26,16 @@ export async function verifyFlowDotPosition(application, page, shots) {
     for (let index = 1; index <= 8; index++) parents.push(await create(`Popover parent ${index}`, 'month', root))
     const rows = []
     for (let index = 0; index < 28; index++) rows.push(await create(`Popover task ${index}`, 'week', index === 17 ? parents[0] : null))
-    return { loose: rows[16], child: rows[17] }
+    return { root, loose: rows[16], child: rows[17] }
   })
   const result = { checkpoints: [], screenshots: [] }
   const panel = page.locator('.popover-floating')
   const parents = page.getByRole('dialog', { name: '关联到…', exact: true })
   const dot = id => page.locator(`#item-${id} .flow-dot-button`)
+  const checkHeading = async () => {
+    assert.equal(await parents.locator('.relation-note').innerText(), '所属上级流程：')
+    assert.equal(await parents.locator('.relation-rule, .flow-dot-owners, .relation-note .flow-dot').count(), 0)
+  }
   const alignNearBottom = async id => {
     await page.locator('[data-horizon="week"] .column-content').evaluate(node => { node.scrollTop = node.scrollHeight })
     await page.locator(`#item-${id}`).scrollIntoViewIfNeeded()
@@ -75,6 +79,7 @@ export async function verifyFlowDotPosition(application, page, shots) {
   await capture('choose-below')
   await page.getByRole('menuitem', { name: /关联到上级/ }).click()
   await parents.waitFor()
+  await checkHeading()
   await check(items.loose, 'top', 'Switching to parent choices flips above the dot')
   await capture('parents-above')
 
@@ -100,6 +105,8 @@ export async function verifyFlowDotPosition(application, page, shots) {
   await alignNearBottom(items.child)
   await dot(items.child).click()
   await parents.waitFor()
+  await checkHeading()
+  assert.equal(await parents.getByRole('menuitemcheckbox').filter({ hasText: 'Popover parent 1' }).getAttribute('aria-checked'), 'true')
   await check(items.child, 'top', 'A linked item opens its parent panel above immediately')
   await capture('direct-parents')
   await close()
@@ -113,5 +120,15 @@ export async function verifyFlowDotPosition(application, page, shots) {
   await capture('color')
   await page.getByRole('button', { name: '全部', exact: true }).click()
   await panel.waitFor({ state: 'detached' })
+
+  await page.locator(`#item-${items.root} .task-title`).scrollIntoViewIfNeeded()
+  await page.locator(`#item-${items.root} .task-title`).hover()
+  await dot(items.root).click()
+  await panel.locator('.flow-adoption-entry button').click()
+  await parents.waitFor()
+  await checkHeading()
+  await parents.screenshot({ path: join(shots, 'flow-dot-parent-heading.png') })
+  result.headings = { loose: '所属上级流程：', child: '所属上级流程：', root: '所属上级流程：', checkedParent: 'Popover parent 1' }
+  await close()
   return result
 }

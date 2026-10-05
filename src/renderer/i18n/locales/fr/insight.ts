@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: French flow-insight copy: breakpoints, onboarding, count-free draft actions, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: French flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, matrix legends and settings.
  * [POS]: French insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -31,7 +31,7 @@ export const insightMessages: InsightCatalog = {
   seedInclude: title => `Créer « ${title} »`,
   emptyTitle: column => `${column} est vide`,
   emptyBody: (column, count) => `${count} élément(s) de ${column} ne sont pas encore découpés ici.`,
-  emptyDraft: 'Préparer les prochaines étapes',
+  emptyDraft: { half: 'Préparer les étapes', cycle: 'Définir les jalons', month: 'Préparer le mois', week: 'Préparer la semaine', day: 'Préparer la journée' },
   emptyOwn: 'Écrire moi-même',
   menuMoveTo: 'Déplacer vers…',
   menuDecompose: 'Étape suivante',
@@ -41,7 +41,6 @@ export const insightMessages: InsightCatalog = {
   reviewGuide: (from: string, to: string) => `Bilan de ${from}, préparer ${to}`,
   reviewGuidePending: (count: number) => `${count} tâches inachevées à organiser.`,
   reviewStart: (period: string) => `Bilan de ${period}`,
-  reviewCompleted: (period: string) => `Bilan de ${period} terminé`,
   reviewContinue: 'Poursuivre le bilan',
   reviewLookBack: (period: string) => `Bilan de ${period}`,
   reviewArrange: (period: string) => `Préparer ${period}`,

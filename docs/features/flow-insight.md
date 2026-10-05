@@ -19,13 +19,15 @@
 
 链条为年 → 半年 → 3个月 → 本月 → 本周 → 今天；任意活跃当期下级都满足其上级，包括本月直接关联今天。年 / 半年未来周期可右键拆解，未来半年 / 3个月在其周期落入左列显示周期时提供空列卡，下级使用与上级同日开始的一期。半年起草为可验收阶段成果，3个月为季度里程碑；复盘矩阵包含六列。详见 [双日历模式](calendar-modes.md)。
 
-- 半年、3个月、本月、本周、今天在显示周期整列为空，且上一列有未完成、未归档并没有任何显示周期下级的条目时，列内显示一张卡：「本周还是空的」「起草下一步」「自己写」。数量只在说明中显示，按钮和起草窗口标题不重复计数，单项与多项使用相同文案。五种语言同步。不出逐项 ＋。
-- 「起草下一步」打开新建窗口的多条草稿（最多 8 条），每条带上级，可取消勾选，↵ 一次写入；「自己写」打开只预填周期的新建窗口。有待复盘周期时，本月／本周列由统一复盘引导卡替代空列卡。
+- 半年、3个月、本月、本周、今天在显示周期整列为空，且上一列有未完成、未归档并没有任何显示周期下级的条目时，列内显示一张卡：「本周还是空的」、对应尺度的起草按钮及「自己写」。数量只在说明中显示，按钮和起草窗口标题不重复计数，单项与多项使用相同文案。五种语言同步。不出逐项 ＋。
+- 2026-10-05 负责人确认起草动作按尺度区分：半年「起草阶段成果」、3个月「起草季度里程碑」、本月「起草本月计划」、本周「起草本周待办」、今天「起草今天待办」；批量起草窗口与复盘后安排卡复用同一文案。空列卡的两个按钮桌面同为 32px、同字号与行高；长翻译自然换行，同排拉齐，触控目标至少 44px，保留键盘焦点反馈。
+- 起草打开新建窗口的多条草稿（最多 8 条），每条带上级，可取消勾选，↵ 一次写入；「自己写」打开只预填周期的新建窗口。有待复盘周期时，本月／本周列由统一复盘引导卡替代空列卡。
 
 ### 复盘
 
 - 2026-10-01 确认的月复盘设计：本月列把复盘、往期未完成和空列提示合并成一张引导卡，唯一主按钮开始／继续复盘；不显示「回顾进展 · 处理未完成 · 安排本月」及「为重要的方向，留出一点空间」。抽屉按明确的实际周期回顾 → 处理未完成 → 安排目标周期；关闭后本次会话保留步骤、选择和已编辑草稿。
 - 2026-10-05 负责人确认本周复用同一规则：独立周复盘也使用统一引导卡，未完成数量收进卡片，不再并列显示往期入口或空状态。日期行显示实际周范围，标题／按钮使用本周、上周、下周；关闭后可继续，完成／已记录跳过后恢复往期入口，空列改为安排本周；安排卡复用复盘引导的底色、边框、日期行、标题和紧凑深色主按钮，日期使用当前目标周期，保留原有起草／手写行为。周月合并仍只在本月提供一个复盘入口。
+- 2026-10-05 负责人确认周／月列头不显示「上周已复盘」等完成提示；已完成周期仍隐藏复盘入口，空列保留安排当前周期的引导。
 - 2026-10-01 确认采用「简报」预览：复盘小结去掉大块底色，带图标的标题在前、AI 正文随后、三项统计在末尾同行排列并可换行；没有可用模型时也保留图标标题和统计。看板入口标题与 todo 同为 14px / 22px，内边距 12px，使用内容宽度的紧凑主按钮。2026-10-05 负责人确认底部「稍后／上一步」使用幽灵按钮，hover 显示共用背景色，保留键盘焦点反馈与左侧文案对齐。
 - 步骤之间以细线连接，已完成步骤的连线在浅色／深色外观下仍可见；下方目标行整行提供悬停和键盘聚焦反馈，方框与箭头对齐标题首行，完成数量位于标题下方。
 - 已结束周期的统计、目标记录与模型输入统一来自该周期截止时的历史投影；标题和说明使用当前文本，状态与位置使用截止时状态。回顾不使用本月空看板替代上月，也不将本月后来完成／顺延的状态倒填历史。无法可靠投影的记录明确提示，不伪装成无记录。
@@ -85,6 +87,10 @@
 
 ## 实现前失败场景
 
+- Empty-card action polish (2026-10-05): actions still say the same generic next step at every horizon; button/composer/invitation labels disagree; shared primary/secondary heights remain 32/30px; translated text overflows or focus feedback disappears; draft/manual clicks change their parent or displayed-period target. Extend existing native empty-card coverage with a focused selector, check horizon labels and actual equal-height hit targets, and retain linked batch/manual creation.
+
+- Completed-review note removal (2026-10-05): a week/month column still renders the redundant completed-period label; reload brings it back; removing completion state instead of its presentation revives the review entry or loses the empty-period planning invitation. Extend the existing first/last-day invitation scenario to check immediate/reloaded absence and retained linked creation.
+
 - Cross-scope consistency audit (2026-10-05): monthly/combined records keep old small uncoloured markers; task state, flow colour or first-line alignment differs from original todos; combined month confirmation ends the review early, skipping month skips week, or either step loses edited drafts. Verify actual monthly/combined ReviewDrawer/ReviewOverview through an isolated native component renderer using real preload/main/SQLite and explicit review-period props. The authoritative clock and natural date-window rules remain unchanged; component acceptance does not claim packaged/date-window entry or replace prior shared-App lifecycle evidence.
 
 - Post-review invitation styling (2026-10-05): the empty current-period planning card keeps a separate transparent frame, bold title or secondary button; its date names the reviewed period instead of the actual target; a shared class accidentally recreates the review entry or changes current-period child creation. Compare the invitation's computed frame/meta/title/action styles with the review guide, verify the current dates, and use the actual drafting action to create one linked current-week item in focused first/last-day native scenarios.
@@ -131,6 +137,10 @@
 - Summary cache failure scenarios: closing while pending starts duplicate requests; reopening, step navigation or process restart discards a successful summary; changed board facts, review preferences or period reuse stale text; unrelated draft preferences or renderer revisions trigger regeneration; refresh failure deletes the last successful result; failed initial requests become cached; corrupt/full storage prevents generation; a late result repopulates cache after workspace replacement; saved entries contain prompts, credentials or grow without a bound; Settings trials accidentally reuse review cache.
 
 ## TODO
+
+- [x] 2026-10-05 空列起草按钮按半年／3个月／月／周／日区分文案，与起草窗口及复盘后安排入口一致；两个按钮桌面高度统一为 32px，五语言同步。定向原生场景实测周／日按钮高度、字号、点击命中与批量／手写创建，周初／周末安排卡验证文案及起草窗口一致；运行范围与证据：`output/tests/empty-card/report.json`。
+
+- [x] 2026-10-05 移除周／月列头的「已复盘」完成提示，清理专属样式与五语言闲置文案；保留周期完成状态及空列安排入口。周初／周末定向场景验证完成／重载后无提示、复盘入口持续隐藏及关联创建；证据与运行范围：`output/tests/review-status-removal/report.json`。
 
 - [x] 2026-10-05 全复盘一致性补查：收尾／建议／缓存／完成退出／入口清理／撒花及安排卡均使用共用实现；补齐月／合并任务记录的原 Checkbox 完成状态／流程色与首行对齐。月、合并月→周、合并跳过月→周三个原生组件定向场景验证只读富链接、紧凑自定义下拉／默认目标、无重复日期／批量按钮／已有安排、无激活边框、草稿续接与真实月周写入，156 项测试、最终类型检查／build 通过。未修改主进程时钟或自然入口规则，未跑完整 E2E；组件页面不代表日期窗口 App 验收。夹具边界校验修正、截图、实际命令和既有共用证据范围：`output/tests/review-scopes/audit-report.json`。
 

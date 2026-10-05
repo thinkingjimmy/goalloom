@@ -4,7 +4,7 @@
  * [POS]: Flow-insight presentation; shared primitives retain their menu and link behaviour.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-.review-drawer, .reviewed-note { --ok-mark: light-dark(#567a53, #83af7b); }
+.review-drawer { --ok-mark: light-dark(#567a53, #83af7b); }
 .review-guide { margin: 6px var(--row-inset) 12px; padding: 12px; background: var(--surface, var(--bg)); border: 1px solid var(--line); border-radius: 9px; }
 .review-guide-meta { display: flex; align-items: center; gap: 6px; color: var(--secondary); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
 .review-guide h3 { margin: 8px 0 0; color: var(--fg); font-size: 14px; font-weight: 500; line-height: 22px; text-wrap: pretty; }
@@ -126,6 +126,3 @@
   .review-foot { padding: 12px 20px calc(18px + env(safe-area-inset-bottom)); }
 }
 @media (pointer: coarse) { .review-drawer .review-choice, .review-foot .settings-button, .review-guide .review-guide-action, .review-summary-refresh { min-height: 44px; } }
-
-.reviewed-note { display: flex; align-items: center; gap: 6px; margin: 0 var(--row-inset) 8px; font-size: 12px; color: var(--secondary); }
-.reviewed-note svg { color: var(--ok-mark); }

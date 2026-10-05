@@ -1,6 +1,6 @@
 /**
  * [INPUT]: One board item, flow/topology/candidate views, guarded actions, RelationDragContext and the board's preview callback.
- * [OUTPUT]: Role-aware flow menus with intrinsic choice width, pointer linking and keyboard adoption for roots; hover/focus previews stay active across flow rows and breakpoint controls without a native tooltip.
+ * [OUTPUT]: Role-aware flow menus with a single parent-panel heading, intrinsic choice width, pointer linking and keyboard adoption; hover/focus previews stay active across flow rows and breakpoint controls without a native tooltip.
  * [POS]: board row decoration; writes only through flowColor/link/unlink actions, so undo toasts and revalidation stay authoritative.
  *        Later items render nothing: the parking lot takes no part in flows or links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -76,7 +76,7 @@ export function FlowDot({ item, flows, relations, candidates, disabled, submit, 
       {mode === 'relation' && <div className="flow-dot-relations">
         <RelationPicker side="parent" self={{ id: item.id, horizon: item.placement.horizon }} edges={relations} flows={flows} candidates={candidates} submit={submit} onError={setError}
           linkParent={linking ? async parent => { const saved = await linking.connect(parent, item); if (saved && role === 'root') { close(); requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })) } } : undefined}
-          note={role === 'root' ? <span>{messages.adoptParentFlowHint}</span> : <span className="flow-dot-owners">{messages.flowFromParents}{member.length ? member.map(flow => <span key={flow.id}><span className="flow-dot" style={{ '--flow-ring': flowRing([flow.flowColor]) } as CSSProperties} />{flow.title}</span>) : <span>{messages.flowUnset}</span>}</span>} />
+          note={<span>{messages.flowFromParents}</span>} />
         {error && <p className="inline-error" role="alert">{error}</p>}
       </div>}
       {mode === 'choose' && <div className="menu flow-choose" role="menu" aria-label={messages.joinFlow}>

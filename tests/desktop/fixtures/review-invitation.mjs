@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An isolated native weekly review with two monthly sources and a first/last-day fixture.
- * [OUTPUT]: Shared review/invitation styling, current-period date and unchanged linked creation evidence.
+ * [OUTPUT]: Shared review/invitation styling, current dates, no completed-period note after close/reload and retained linked creation evidence.
  * [POS]: Invitation-only group of weekly-review; uses real UI, IPC and SQLite with no model provider.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -41,6 +41,10 @@ export async function verifyReviewInvitation({ page, fixture, mode, out, scenari
   assert.equal(await invitation.locator('.review-guide-meta svg').count(), 1)
   assert.equal(await invitation.locator('button.primary.review-guide-action').count(), 1)
   assert.equal(await page.locator('[data-review]').count(), 0)
+  const week = page.locator('[data-horizon=week]')
+  const completedLabel = `${mode === 'week-first' ? '上周' : '本周'}已复盘`
+  assert.equal(await week.locator('.reviewed-note').count(), 0)
+  assert.equal(await week.getByText(completedLabel, { exact: true }).count(), 0)
   const formatted = date => new Intl.DateTimeFormat('zh', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))
   const end = new Date(`${fixture.current.endDate}T12:00:00Z`); end.setUTCDate(end.getUTCDate() - 1)
   const range = `${formatted(fixture.current.startDate)} – ${formatted(end.toISOString().slice(0, 10))}`
@@ -49,8 +53,18 @@ export async function verifyReviewInvitation({ page, fixture, mode, out, scenari
   assert.deepEqual(styles, reference, 'The invitation shares the complete review frame/meta/title/action appearance')
   scenario.invitation = { range, reference, styles }
   await invitation.screenshot({ path: `${out}/${mode}-planning-card.png` })
-  await invitation.getByRole('button', { name: '起草下一步', exact: true }).click()
+  await page.reload()
+  await page.locator('.board').waitFor()
+  await invitation.waitFor()
+  assert.equal(await page.locator('[data-review]').count(), 0)
+  assert.equal(await week.locator('.reviewed-note').count(), 0)
+  assert.equal(await week.getByText(completedLabel, { exact: true }).count(), 0)
+  await week.screenshot({ path: `${out}/${mode}-completed-column.png` })
+  check('Completed-period notes stay absent after review and reload while the planning invitation remains available')
+  await invitation.getByRole('button', { name: '起草本周待办', exact: true }).click()
   const composer = page.getByRole('dialog', { name: '新建', exact: true })
+  await composer.locator('.seed-heading').waitFor()
+  assert.equal(await composer.locator('.seed-heading').innerText(), '起草本周待办')
   const title = `Current invitation step ${mode}`
   await composer.locator('.seed-title').first().fill(title)
   await composer.getByRole('button', { name: /^创建 1 项/ }).click()

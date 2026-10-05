@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A ComposerSeed (target column/period, parent or batch parents), the snapshot/flows for drafting, insight readiness and guarded submission.
- * [OUTPUT]: The ⌘N composer with prefilled context and one title or a checked batch; one draft request per mount, editable fallback on failure and typed-text precedence over late results.
+ * [OUTPUT]: The ⌘N composer with prefilled context, one title or a checked batch with a horizon-specific heading; one draft request per mount, editable fallback and typed-text precedence over late results.
  * [POS]: Prefill mode of the global composer for flow-insight entries; same modal, keys and styles, but no Jev analysis — the context is already decided.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -91,7 +91,7 @@ export function Seeded({ seed, snapshot, flows, submit, busy, error, close }: { 
   return <Modal title={smartMessages.composer} close={close} className="palette composer-modal seeded-composer"
     heading={<div className="palette-search composer-search">
       <Icon name="add" size={18} />
-      {seed.mode === 'batch' ? <span className="composer-input seed-heading">{t.emptyDraft}</span>
+      {seed.mode === 'batch' ? <span className="composer-input seed-heading">{t.emptyDraft[seed.horizon]}</span>
         : <textarea className="composer-input" aria-label={smartMessages.inputLabel} autoFocus rows={1} maxLength={500} value={text} onChange={event => setText(event.target.value)} onKeyDown={keys}
           placeholder={seed.parent ? t.seedPlaceholder : t.seedFreePlaceholder} />}
     </div>}>

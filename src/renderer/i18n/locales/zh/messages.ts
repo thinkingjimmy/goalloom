@@ -274,7 +274,7 @@ export const messages = widen({
   relationLinked: (title: string) => `已关联到「${title}」`,
   linkToParentHint: "挂到周期更长的条目下面，自动跟随它的流程。",
   noLongerHorizon: (horizon: string | number) => `${horizon}已是最长的计划周期，没有更长的上级。`,
-  flowFromParents: "所属流程由上级决定：",
+  flowFromParents: "所属上级流程：",
   longerOnly: "只列出周期更长的条目",
   shorterOnly: "只列出周期更短的条目",
   flowImpact: (count: string | number) => `这一项是流程起点，影响它和下面 ${count} 项。`,

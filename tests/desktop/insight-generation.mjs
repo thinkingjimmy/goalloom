@@ -112,7 +112,7 @@ async function run(mode) {
     await page.keyboard.press('Escape')
     await settings.waitFor({ state: 'detached' })
 
-    const draftButton = board.locator('[data-horizon="week"]').getByRole('button', { name: '起草下一步', exact: true })
+    const draftButton = board.locator('[data-horizon="week"]').getByRole('button', { name: '起草本周待办', exact: true })
     const dialog = page.getByRole('dialog', { name: '新建', exact: true })
     const settled = () => pollPage(page, () => document.querySelectorAll('.seed-title').length === 7 && ![...document.querySelectorAll('.seed-title')].some(input => input.placeholder === '正在起草…'), undefined, { timeout: 5000, label: 'batch leaves loading' })
     let before = (await calls()).length

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 列名与条目标题等插值参数。
- * [OUTPUT]: Flow-insight copy and InsightCatalog: breakpoints, onboarding, count-free draft actions, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: Flow-insight copy and InsightCatalog: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, matrix legends and settings.
  * [POS]: renderer/i18n/locales/zh 的洞察分册，与 messages.ts 同构；发给模型的提示词不在此处（固定中文）。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -30,7 +30,7 @@ export const insightMessages = widen({
   seedInclude: (title: string) => `创建「${title}」`,
   emptyTitle: (column: string) => `${column}还是空的`,
   emptyBody: (column: string, count: number) => `${column}有 ${count} 项还没拆到这里。`,
-  emptyDraft: '起草下一步',
+  emptyDraft: { half: '起草阶段成果', cycle: '起草季度里程碑', month: '起草本月计划', week: '起草本周待办', day: '起草今天待办' },
   emptyOwn: '自己写',
   menuMoveTo: '移到…',
   menuDecompose: '拆下一步',
@@ -40,7 +40,6 @@ export const insightMessages = widen({
   reviewGuide: (from: string, to: string) => `回顾 ${from}，安排 ${to}`,
   reviewGuidePending: (count: number) => `${count} 项未完成，一起整理后再出发。`,
   reviewStart: (period: string) => `开始 ${period}复盘`,
-  reviewCompleted: (period: string) => `${period}已复盘`,
   reviewContinue: '继续复盘',
   reviewLookBack: (period: string) => `回顾 ${period}`,
   reviewArrange: (period: string) => `安排 ${period}`,

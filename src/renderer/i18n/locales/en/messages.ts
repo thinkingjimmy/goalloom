@@ -274,7 +274,7 @@ export const messages: MessageCatalog = {
   relationLinked: (title: string) => `Linked to “${title}”`,
   linkToParentHint: "Place it under an item in a longer horizon; it follows that flow.",
   noLongerHorizon: (horizon: string | number) => `${horizon} is already the longest planning horizon, so there is no parent above it.`,
-  flowFromParents: "Flow comes from its parents:",
+  flowFromParents: "Parent flows:",
   longerOnly: "Only items in longer horizons are listed",
   shorterOnly: "Only items in shorter horizons are listed",
   flowImpact: (count: string | number) => `This item starts a flow; it affects this item and ${count} below it.`,

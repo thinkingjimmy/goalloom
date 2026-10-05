@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron in a native 1440 × 900 window, isolated workspace data and the actual workspace calendar.
- * [OUTPUT]: Flow-insight acceptance, empty-card copy/pointer-hit evidence, hover-preview additions, endpoint alignment, unified weekly/monthly reviews, settings and app-local failure evidence under output/tests/insight/.
+ * [OUTPUT]: Flow-insight acceptance, horizon-specific empty-card copy/equal-height hit targets, previews, endpoint alignment, reviews and settings; --empty-card selects card creation only.
  * [POS]: Desktop acceptance of empty columns, breakpoints, reviews and local insight preferences without a live model.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,10 +17,11 @@ import { verifyPreviewBreakpoints } from './fixtures/preview-breakpoints.mjs'
 // Breakpoint clicks without a model open the seeded composer; previews offer local next steps, while All stays clear at rest.
 // Artifacts: output/tests/insight/report.json and output/tests/insight/*.png.
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
-const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'Goalloom 洞察 '))
+const args = process.argv.slice(2), emptyOnly = args.includes('--empty-card')
+const packaged = args.find(value => !value.startsWith('--')), profile = await mkdtemp(join(tmpdir(), 'Goalloom 洞察 '))
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
 const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
-const out = 'output/tests/insight'
+const out = emptyOnly ? 'output/tests/empty-card/native' : 'output/tests/insight'
 await mkdir(out, { recursive: true })
 const application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 const checks = []
@@ -36,6 +37,21 @@ try {
   await board.waitFor()
   const shot = name => page.screenshot({ path: `${out}/${name}.png` })
   const snapshot = () => page.evaluate(() => window.goalloom.getSnapshot())
+  const emptyActions = []
+  const verifyEmptyActions = async (column, label) => {
+    const card = column.locator('.insight-empty')
+    assert.equal(await card.locator('button.primary').innerText(), label)
+    const metrics = await card.locator('button').evaluateAll(nodes => nodes.map(node => {
+      const rect = node.getBoundingClientRect(), style = getComputedStyle(node)
+      return { text: node.textContent, height: rect.height, top: rect.top, fontSize: style.fontSize, lineHeight: style.lineHeight,
+        overflow: node.scrollWidth > node.clientWidth, hit: node.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)) }
+    }))
+    assert.equal(metrics.length, 2)
+    assert(metrics.every(button => button.height === 32 && button.fontSize === '13px' && !button.overflow && button.hit))
+    assert.equal(metrics[0].top, metrics[1].top)
+    emptyActions.push({ label, buttons: metrics })
+    await card.screenshot({ path: `${out}/empty-card-${column === weekColumn ? 'week' : 'day'}.png` })
+  }
   // Creates rows in order; `parent` names an earlier key or an existing id. Returns key → item id.
   const seedRows = (specs, known = {}) => page.evaluate(async ([specs, known]) => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation
@@ -63,12 +79,14 @@ try {
   assert.equal(await dayColumn.locator('.insight-empty').count(), 0, '今天的上一列（本周）为空，不出卡片')
   assert.equal(await board.locator('.breakpoint').count(), 0, '「全部」不出断点 ＋')
   await weekColumn.scrollIntoViewIfNeeded()
+  await verifyEmptyActions(weekColumn, '起草本周待办')
   await shot('1-empty-week')
   check('empty week column shows the insight card; 全部 shows no breakpoint ＋')
 
-  await weekColumn.getByRole('button', { name: '起草下一步', exact: true }).click()
+  await weekColumn.getByRole('button', { name: '起草本周待办', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '新建' })
   await dialog.waitFor()
+  assert.equal(await dialog.locator('.seed-heading').innerText(), '起草本周待办')
   const rows = dialog.locator('.seed-row')
   assert.equal(await rows.count(), 4)
   // Without a model the titles stay empty for the user to write; unchecked rows are skipped.
@@ -91,15 +109,19 @@ try {
   }
   check('batch card creates only the checked, titled rows in 本周 under their parents (createPlan)')
 
-  const preview = await verifyPreviewBreakpoints(page, out, {
+  let preview
+  if (!emptyOnly) {
+  preview = await verifyPreviewBreakpoints(page, out, {
     week: state.items.find(item => item.title === titles[ids.bottega]).id, sibling: state.items.find(item => item.title === titles[ids.todo]).id,
     weekTitle: titles[ids.bottega], month: ids.bottega, root: ids.side, otherMonth: ids.video, otherSiblingMonth: ids.wechat, otherRoot: ids.fans,
   })
   check('dot previews expose every highlighted chain gap, exclude faded branches and deduplicate multi-flow leaves; ancestor previews, empty targets, keyboard use, creation and undo preserve the correct parent and period')
+  }
 
   // 今天 is now empty under a non-empty 本周: its card offers the free composer with the period prefilled.
   await dayColumn.scrollIntoViewIfNeeded()
   await dayColumn.getByText('今天还是空的').waitFor()
+  await verifyEmptyActions(dayColumn, '起草今天待办')
   const manualEntry = dayColumn.getByRole('button', { name: '自己写' })
   const emptyCardTarget = await manualEntry.evaluate(node => {
     const rect = node.getBoundingClientRect(), x = rect.left + rect.width / 2, y = rect.top + rect.height / 2
@@ -113,7 +135,15 @@ try {
   await dialog.waitFor({ state: 'hidden' })
   state = await snapshot()
   assert.equal(state.items.find(row => row.title === '随手记一件事')?.placement.horizon, 'day')
+  assert.equal(state.items.find(row => row.title === '随手记一件事')?.placement.periodId, state.periods.find(period => period.horizon === 'day').id)
   check('「自己写」opens the composer with only the period prefilled and creates in 今天')
+
+  if (emptyOnly) {
+    assert.deepEqual(errors, [])
+    await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, group: 'empty-card', checks, emptyActions,
+      runtime: await page.evaluate(() => window.goalloom.getRuntime()), platform: `${process.platform}-${process.arch}`,
+      scope: 'Native Electron/IPC/SQLite with isolated synthetic data; weekly/daily copy, equal-height hit targets, linked batch and manual period creation only.' }, null, 2))
+  } else {
 
   // --- 断点：筛选「全网粉丝」→ 两个本月计划都没有本周下级，各一个 ＋；首次引导只出现一次。 ---
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
@@ -253,6 +283,7 @@ try {
 
   assert.deepEqual(errors, [])
   await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, lastDayOfWeek: target.lastDay, reviewDay, checks, preview, breakpointGeometry: { gap: place }, runtime: await page.evaluate(() => window.goalloom.getRuntime()), platform: `${process.platform}-${process.arch}` }, null, 2))
+  }
 } catch (error) {
   const page = await application.firstWindow()
   const nativeWindows = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))).catch(() => null)
@@ -265,4 +296,4 @@ try {
   await application.close()
   await rm(profile, { recursive: true, force: true })
 }
-await import('./weekly-review.mjs')
+if (!emptyOnly) await import('./weekly-review.mjs')

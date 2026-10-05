@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: Japanese flow-insight copy: breakpoints, onboarding, count-free draft actions, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: Japanese flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, matrix legends and settings.
  * [POS]: Japanese insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -31,7 +31,7 @@ export const insightMessages: InsightCatalog = {
   seedInclude: title => `「${title}」を作成`,
   emptyTitle: column => `${column}はまだ空です`,
   emptyBody: (column, count) => `${column}の ${count} 件がまだここに分解されていません。`,
-  emptyDraft: '次のステップを提案',
+  emptyDraft: { half: '半年の成果を提案', cycle: '節目を提案', month: '今月の計画を提案', week: '今週の予定を提案', day: '今日の予定を提案' },
   emptyOwn: '自分で書く',
   menuMoveTo: '移動先…',
   menuDecompose: '次の一歩',
@@ -41,7 +41,6 @@ export const insightMessages: InsightCatalog = {
   reviewGuide: (from: string, to: string) => `${from}を振り返り、${to}を計画`,
   reviewGuidePending: (count: number) => `未完了の ${count} 件を一緒に整理しましょう。`,
   reviewStart: (period: string) => `${period}の振り返りを始める`,
-  reviewCompleted: (period: string) => `${period}の振り返り済み`,
   reviewContinue: '振り返りを続ける',
   reviewLookBack: (period: string) => `${period}の振り返り`,
   reviewArrange: (period: string) => `${period}の計画`,

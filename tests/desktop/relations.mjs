@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Real Electron, an isolated profile, production IPC fixtures and board interactions.
- * [OUTPUT]: Relation-line/flow-dot assertions, full-title geometry, endpoint dimensions, dynamic popover bounds, board-ordered filter evidence and app-local failure diagnostics in JSON and screenshots.
+ * [OUTPUT]: Relation-line/flow-dot assertions, full-title geometry, endpoint dimensions, dynamic popover bounds, board-ordered filter evidence and app-local diagnostics; --flow-dot selects parent-panel/positioning acceptance only.
  * [POS]: Desktop flow acceptance; exercises live snapshots, keyboard moves and positional filter shortcuts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,13 +17,15 @@ import { verifyFlowDotPosition } from './fixtures/flow-dot-position.mjs'
 // 关系线：筛选单个流程时连起上下级，其余流程原位置灰；悬停高亮整条链；滚出视野的端点给标记；设置里可关闭。
 // 流程圆点：悬停预览该条目的流程（连线 + 流程底色）；起点改色、下级改上级、独立条目二选一；Later 不参与。
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
-const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'Goalloom 关系线 '))
+const args = process.argv.slice(2), flowDotOnly = args.includes('--flow-dot')
+const packaged = args.find(value => !value.startsWith('--')), profile = await mkdtemp(join(tmpdir(), 'Goalloom 关系线 '))
 // Assertions use Chinese copy; pin the device language instead of following the machine's system language.
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
 const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
 const application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
-const shots = 'output/tests/screenshots'
+const shots = flowDotOnly ? 'output/tests/flow-dot-panel/native' : 'output/tests/screenshots'
 const errors = []
+await mkdir(shots, { recursive: true })
 try {
   const page = await application.firstWindow()
   page.on('pageerror', error => errors.push(error.message))
@@ -53,6 +55,17 @@ try {
     const loose = await create('整理报销单', 'week')
     return { root, other, b, c, d, f, j, p, k, later, loose }
   })
+  if (flowDotOnly) {
+    const positioning = await verifyFlowDotPosition(application, page, shots)
+    assert.deepEqual(errors, [])
+    await writeFile(`${shots}/report.json`, JSON.stringify({
+      ok: true, group: 'flow-dot', packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()),
+      environment: { platform: platform(), release: release(), version: version(), arch: arch(), cpu: cpus()[0]?.model, machineScope: 'Physical/VM status not independently verified' },
+      scope: 'Real Electron renderer/preload/IPC/SQLite with isolated synthetic data; flow-dot parent headings, search, checked links and positioning only.',
+      ...positioning,
+    }, null, 2))
+    console.log(`flow-dot parent panels and positioning passed; ${shots}/report.json`)
+  } else {
   const board = page.getByRole('main', { name: '时间看板' })
   // The draggable titlebar corner does not provide a reliable DOM pointer target.
   const leaveBoard = () => page.getByRole('button', { name: '全部', exact: true }).hover()
@@ -262,7 +275,8 @@ try {
   const parents = page.getByRole('dialog', { name: '关联到…', exact: true })
   await parents.waitFor()
   const option = title => parents.getByRole('menuitemcheckbox').filter({ hasText: title })
-  assert.ok((await parents.textContent()).includes('所属流程由上级决定'))
+  assert.equal(await parents.locator('.relation-note').innerText(), '所属上级流程：')
+  assert.equal(await parents.locator('.relation-rule, .flow-dot-owners').count(), 0)
   assert.equal(await option('移动端开发').getAttribute('aria-checked'), 'true')
   assert.equal(await option('咨询介绍页').getAttribute('aria-checked'), 'true')
   assert.equal(await option('以后再说').count(), 0, 'Later 不作为上级候选')
@@ -495,6 +509,7 @@ try {
   assert.deepEqual(errors, [])
   console.log(`flow filter order: ${checkpoints.length} checkpoints; output/tests/flow-filter-order.json`)
   console.log('relation lines: 7 edges, 1 skip, hover chain 6/1, marker reveal, settings switch persisted; flow dot: filtered cycle TODO visibility below year, hover/focus/menu access, unfiltered preview + tint, root colour, child parents, loose join, horizon rule')
+  }
 } catch (error) {
   const page = await application.firstWindow()
   await mkdir(shots, { recursive: true })
@@ -515,4 +530,4 @@ try {
   await rm(profile, { recursive: true, force: true })
 }
 // Keep the gesture journey isolated from the existing geometry/color fixture, with the same packaged argument.
-await import('./relation-drag.mjs')
+if (!flowDotOnly) await import('./relation-drag.mjs')

@@ -274,7 +274,7 @@ export const messages: MessageCatalog = {
   relationLinked: (title: string) => `Vinculado con «${title}»`,
   linkToParentHint: "Colócalo bajo un elemento de un horizonte más largo; seguirá su flujo.",
   noLongerHorizon: (horizon: string | number) => `${horizon} ya es el horizonte de planificación más largo; no hay superior por encima.`,
-  flowFromParents: "El flujo lo deciden sus superiores:",
+  flowFromParents: "Flujos superiores:",
   longerOnly: "Solo se muestran elementos de horizontes más largos",
   shorterOnly: "Solo se muestran elementos de horizontes más cortos",
   flowImpact: (count: string | number) => `Este elemento inicia un flujo; afecta a él y a ${count} por debajo.`,

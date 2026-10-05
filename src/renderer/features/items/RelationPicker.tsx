@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Current item id/horizon, active edges, effective flow membership, ordered candidates and guarded actions.
+ * [INPUT]: Current item id/horizon, active edges, effective flow membership, ordered candidates, guarded actions and an optional note replacing default guidance.
  * [OUTPUT]: Searchable relationship controls offering only horizon/flow-valid endpoints (existing links stay listed for removal),
  *           with board-consistent ordering, optional prepared parent-link/adoption callbacks and authoritative error feedback.
  * [POS]: Relationship entry shared by the detail dialog and the board flow dot; storage rejects self-links, duplicates,
@@ -61,8 +61,8 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
     .slice(0, 8)
   return <div className="menu relation-picker" role="dialog" aria-label={side === 'parent' ? messages.linkParent : messages.linkChild}>
     <input className="menu-search" autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder={messages.searchItems} aria-label={side === 'parent' ? messages.searchParents : messages.searchChildren} />
-    {note && <div className="menu-note relation-note">{note}</div>}
-    <p className="menu-note relation-rule">{side === 'parent' ? messages.longerOnly : messages.shorterOnly}</p>
+    {note ? <div className="menu-note relation-note">{note}</div>
+      : <p className="menu-note relation-rule">{side === 'parent' ? messages.longerOnly : messages.shorterOnly}</p>}
     <div role="group">
       {rows.map(item => {
         const linked = !!edgeFor(item.id)

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: English flow-insight copy: breakpoints, onboarding, count-free draft actions, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: English flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, matrix legends and settings.
  * [POS]: English insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -31,7 +31,7 @@ export const insightMessages: InsightCatalog = {
   seedInclude: title => `Create “${title}”`,
   emptyTitle: column => `${column} is empty`,
   emptyBody: (column, count) => `${count} in ${column} haven’t been broken down here yet.`,
-  emptyDraft: 'Draft next steps',
+  emptyDraft: { half: 'Draft outcomes', cycle: 'Draft milestones', month: 'Draft monthly plans', week: 'Draft weekly tasks', day: 'Draft today’s tasks' },
   emptyOwn: 'Write my own',
   menuMoveTo: 'Move to…',
   menuDecompose: 'Next step',
@@ -41,7 +41,6 @@ export const insightMessages: InsightCatalog = {
   reviewGuide: (from: string, to: string) => `Review ${from}, plan ${to}`,
   reviewGuidePending: (count: number) => `${count} unfinished items to sort through.`,
   reviewStart: (period: string) => `Review ${period}`,
-  reviewCompleted: (period: string) => `${period} reviewed`,
   reviewContinue: 'Continue review',
   reviewLookBack: (period: string) => `Review ${period}`,
   reviewArrange: (period: string) => `Plan ${period}`,

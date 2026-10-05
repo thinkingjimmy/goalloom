@@ -4,7 +4,7 @@
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Owns independent relation dragging/prepared writes and virtual source pinning; exposes filter/linking states for row styling.
  *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
- *           Flow insight: retained chain breakpoints, empty-column cards and shared review/post-review guide styling with explicit period targets.
+ *           Flow insight: retained chain breakpoints, empty-column cards and shared review/post-review guides with explicit targets; completed periods suppress entries without a status note.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -280,7 +280,6 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
       </div> : <><h2>{name}</h2><span className="column-spacer" /></>}
       <span className="column-add-slot">{!history && addButton}</span>
     </header>
-    {completedReview && <p className="reviewed-note"><Icon name="check" size={14} />{insightMessages.reviewCompleted(reviewName(recentReview!.period))}</p>}
     {!review && mode === 'current' && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
     <div className="column-content" onDoubleClick={addFromBlank}>
@@ -289,7 +288,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
         <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(current!)}</span>
         <h3>{insightMessages.reviewArrange(reviewName(current!))}</h3>
         <button className="settings-button primary review-guide-action" disabled={disabled} onClick={() => insight.seed({ horizon: recentReview!.horizon, period: current!, next: false, parent: null, note: null,
-          mode: sources?.length ? 'batch' : 'free', parents: sources ?? [], draft: !!sources?.length && insight.ready })}><span>{sources?.length ? insightMessages.emptyDraft : insightMessages.emptyOwn}</span><Icon name="next" size={14} /></button>
+          mode: sources?.length ? 'batch' : 'free', parents: sources ?? [], draft: !!sources?.length && insight.ready })}><span>{sources?.length ? insightMessages.emptyDraft[recentReview!.horizon] : insightMessages.emptyOwn}</span><Icon name="next" size={14} /></button>
       </div>}
       <div className="period-body" ref={body}>
       {history ? <PastPeriod key={history.id} history={page} select={select} submit={submit} busy={busy} /> : <>
