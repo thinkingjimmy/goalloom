@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Current or review-scoped snapshots (periods, items, relations, observedAt), flows and the device's reviewed/skipped period keys.
  * [OUTPUT]: reviewDue (which week/month review is open today — last day of the period or, if not yet done, the first day after — merged when both end together),
- *           reviewSignals (code-computed gap/skip/pace facts for the model), goalRows (flow × column counts) and planCandidates (parents needing a next-period step).
+ *           reviewSignals (descriptive gap/skip/pace facts, independent of child creation), goalRows (flow × column counts) and planCandidates (parents needing a next-period step).
  * [POS]: features/insight 的复盘纯规则；不写入、不联网，入口显示与抽屉步骤都从这里取数。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -49,6 +49,23 @@ export function reviewDue(snapshot: Snapshot, reviewed: string[]): ReviewDue | n
 const open = (item: ItemSummary) => item.status === 'todo' && !item.archivedAt && !item.deletedAt
 const inPeriod = (item: ItemSummary, period: PlanningPeriod) => item.placement.horizon === period.horizon && item.placement.periodId === period.id
 
+// Cross-horizon links remain review facts; they never offer an intermediate-task write.
+function directDayGroups(snapshot: Snapshot, flows: Flows, flowId: string): { parent: ItemSummary; children: ItemSummary[] }[] {
+  const month = snapshot.periods.find(period => period.horizon === 'month'), day = snapshot.periods.find(period => period.horizon === 'day')
+  if (!month || !day) return []
+  const byId = new Map(snapshot.items.map(item => [item.id, item]))
+  const member = (item: ItemSummary) => flows.of(item.id).some(flow => flow.id === flowId)
+  const groups = new Map<string, { parent: ItemSummary; children: ItemSummary[] }>()
+  for (const edge of snapshot.relations) {
+    const parent = byId.get(edge.parentId), child = byId.get(edge.childId)
+    if (!parent || !child || !open(parent) || !open(child) || !inPeriod(parent, month) || !inPeriod(child, day) || !member(parent) || !member(child)) continue
+    const group = groups.get(parent.id) ?? { parent, children: [] }
+    if (group.children.length < 8) group.children.push(child)
+    groups.set(parent.id, group)
+  }
+  return [...groups.values()]
+}
+
 export interface GoalRow { id: string; title: string; flowColor: number; counts: Record<Planned, number>; done: Record<Planned, number>; skip: boolean }
 export function goalRows(snapshot: Snapshot, flows: Flows): GoalRow[] {
   const current = new Map(snapshot.periods.map(period => [period.horizon, period.id]))
@@ -61,7 +78,7 @@ export function goalRows(snapshot: Snapshot, flows: Flows): GoalRow[] {
       counts[horizon]++
       if (item.status === 'done') done[horizon]++
     }
-    const skip = breakpoints(snapshot, flows, [flow.id], [...periodHorizons], () => 'current').skips.length > 0
+    const skip = directDayGroups(snapshot, flows, flow.id).length > 0
     return { id: flow.id, title: flow.title, flowColor: flow.flowColor, counts, done, skip }
   })
 }
@@ -72,11 +89,11 @@ export function reviewSignals(snapshot: Snapshot, flows: Flows, due: ReviewDue):
   for (const flow of flows.all.filter(value => !value.archived).slice(0, 12)) {
     const found = breakpoints(snapshot, flows, [flow.id], [...periodHorizons], () => 'current')
     const byLevel = new Map<ChildHorizon, string[]>()
-    for (const gap of found.gaps) byLevel.set(gap.target, [...byLevel.get(gap.target) ?? [], gap.parent.title])
+    for (const gap of found) byLevel.set(gap.target, [...byLevel.get(gap.target) ?? [], gap.parent.title])
     for (const [target, titles] of byLevel) signals.push({ kind: 'gap', goal: flow.title, detail: `${titles.slice(0, 3).join('、')}${titles.length > 3 ? ` 等 ${titles.length} 项` : ''}在${names[target]}没有下级` })
     const members = snapshot.items.filter(item => flows.of(item.id).some(value => value.id === flow.id) && item.id !== flow.id)
     if (!members.some(item => item.placement.horizon !== 'later')) signals.push({ kind: 'gap', goal: flow.title, detail: '复盘范围内没有它的条目' })
-    for (const skip of found.skips) signals.push({ kind: 'skip', goal: flow.title, detail: `${names.day} 的 ${skip.children.length} 项直接挂在月计划「${skip.parent.title}」下，跳过 ${names.week}` })
+    for (const skip of directDayGroups(snapshot, flows, flow.id)) signals.push({ kind: 'skip', goal: flow.title, detail: `${names.day} 的 ${skip.children.length} 项直接挂在月计划「${skip.parent.title}」下，跳过 ${names.week}` })
   }
   for (const target of [due.week, due.month]) {
     if (!target) continue

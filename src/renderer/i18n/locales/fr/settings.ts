@@ -48,6 +48,9 @@ export const settingsMessages: SettingsCatalog = {
   calendarSettings: 'Réglages du calendrier',
   overdue: 'Non terminés à échéance',
   policyNotes: {
+    year: { auto: 'Passent à l’année suivante en fin d’année', manual: 'Restent dans les périodes passées en fin d’année, à organiser' },
+    half: { auto: 'Passent au semestre suivant en fin de semestre', manual: 'Restent dans les périodes passées en fin de semestre, à organiser' },
+    cycle: { auto: 'Passent à la période suivante à son terme', manual: 'Restent dans les périodes passées à leur terme, à organiser' },
     month: { auto: 'Passent au mois suivant à la fin du mois', manual: 'Restent dans les périodes passées à la fin du mois, à organiser' },
     week: { auto: 'Passent à la semaine suivante en fin de semaine', manual: 'Restent dans les périodes passées en fin de semaine, à organiser' },
     day: { auto: 'Passent au nouvel aujourd’hui à minuit', manual: 'Restent dans les périodes passées à minuit, à organiser' },

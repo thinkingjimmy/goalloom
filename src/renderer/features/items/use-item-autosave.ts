@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Item identity/generation, authoritative revisions and the reserved workspace writer.
- * [OUTPUT]: Source-preserving drafts, serialized autosave/actions, explicit retry and a close-time drain.
- * [POS]: Detail persistence boundary; editor presentation and workspace undo remain independent.
+ * [OUTPUT]: Source-preserving drafts, serialized autosave/actions, guarded empty-title dismissal and receipt-first retry.
+ * [POS]: Detail persistence boundary; explicit dismissal can discard, while navigation/native close only drain edits.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -10,6 +10,7 @@ import type { ItemDetail } from '../../../shared/contracts/queries'
 import type { CommandResult } from '../../../shared/contracts/commands'
 import { desktopApi, type Action, type PreparedWrite, type WriteResult } from '../../state/use-workspace'
 import { messages } from '../../i18n'
+import { canDiscardEmptyTitle } from '../../../domain/items'
 
 const draftOf = (item: Item) => ({ title: item.title, description: item.description, dueDate: item.dueDate ?? '' })
 type Draft = ReturnType<typeof draftOf>
@@ -24,6 +25,8 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
   const [detail, setDetail] = useState<ItemDetail | null>(null)
   const [draft, setDraft] = useState<Draft>({ title: '', description: '', dueDate: '' })
   const [error, setError] = useState(''), [saving, setSaving] = useState(false), [actionBusy, setActionBusy] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+  const discardLock = useRef(false), discardAttempt = useRef(false)
   const live = useRef(true), current = useRef<ItemDetail | null>(null)
   const source = useRef(draft), baseline = useRef(draft), composing = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -102,7 +105,8 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
   }, [generation, itemId, receive, write])
   flushRef.current = flush
   const change = (field: keyof Draft, value: string, immediate = false) => {
-    if (current.current?.item.deletedAt || source.current[field] === value) return
+    if (discardLock.current || current.current?.item.deletedAt || source.current[field] === value) return
+    discardAttempt.current = false
     publish({ ...source.current, [field]: value })
     cancelTimer()
     if (uncertain.current) return
@@ -113,48 +117,81 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
     composing.current = active; cancelTimer()
     if (!active) timer.current = setTimeout(() => { void flushRef.current() }, 500)
   }
-  const retry = async () => {
+  const retry = async (): Promise<boolean> => {
     if (uncertain.current) {
       const submitted = uncertain.current.draft
       setSaving(true)
       const reply = await retryWrite(generation)
-      if (!live.current) return
+      if (!live.current) return false
       setSaving(false)
-      if (!reply.ok) { if (!reply.pending) uncertain.current = null; setError(reply.message); return }
+      if (!reply.ok) {
+        if (!reply.pending) { uncertain.current = null; discardLock.current = false; setDiscarding(false) }
+        setError(reply.message); return false
+      }
       uncertain.current = null; if (submitted && reply.result) baseline.current = submitted; setError(''); publish({ ...source.current })
-      try { receive(await desktopApi().getItem(itemId), true) } catch { setError(messages.itemFailed); return }
+      if (discardAttempt.current && reply.result) return true
+      try { receive(await desktopApi().getItem(itemId), true) } catch { setError(messages.itemFailed); return false }
     }
+    if (discardAttempt.current) return dismiss()
     await flush()
+    return false
   }
-  const submit = (action: Action): Promise<CommandResult | null> => {
+  const enqueue = <T,>(operation: () => Promise<T>): Promise<T> => {
     queued.current++; setActionBusy(true)
-    const run = actions.current.then(async () => {
-      if (!live.current || !await flush()) return null
-      const reply = await write(async () => {
-        if (!live.current) return null
-        const latest = await desktopApi().getItem(itemId)
-        if (!live.current) return null
-        receive(latest, true)
-        // Only this detail's item version changes when its pending text is saved. Other dependency guards stay intact.
-        if ('itemId' in action && action.itemId === itemId && 'expectedVersion' in action) return { ...action, expectedVersion: latest.item.version }
-        if (action.type === 'link') return { ...action, ...(action.parentId === itemId ? { expectedParentVersion: latest.item.version } : { expectedChildVersion: latest.item.version }) }
-        if (action.type === 'unlink') {
-          const edge = latest.relations.find(edge => edge.id === action.relationId)
-          if (edge) return { ...action, ...(edge.parentId === itemId ? { expectedParentVersion: latest.item.version } : { expectedChildVersion: latest.item.version }) }
-        }
-        return action
-      }, generation)
-      if (!reply.ok) { if (reply.pending) uncertain.current = { draft: null }; if (live.current) setError(reply.message); return null }
-      return reply.result
-    }).finally(() => { queued.current--; if (live.current) setActionBusy(queued.current > 0) })
+    const run = actions.current.then(operation).finally(() => { queued.current--; if (live.current) setActionBusy(queued.current > 0) })
     actions.current = run.then(() => undefined, () => undefined)
     return run
   }
+  const submit = (action: Action): Promise<CommandResult | null> => enqueue(async () => {
+    if (!live.current || !await flush()) return null
+    const reply = await write(async () => {
+      if (!live.current) return null
+      const latest = await desktopApi().getItem(itemId)
+      if (!live.current) return null
+      receive(latest, true)
+      // Only this detail's item version changes when its pending text is saved. Other dependency guards stay intact.
+      if ('itemId' in action && action.itemId === itemId && 'expectedVersion' in action) return { ...action, expectedVersion: latest.item.version }
+      if (action.type === 'link') return { ...action, ...(action.parentId === itemId ? { expectedParentVersion: latest.item.version } : { expectedChildVersion: latest.item.version }) }
+      if (action.type === 'unlink') {
+        const edge = latest.relations.find(edge => edge.id === action.relationId)
+        if (edge) return { ...action, ...(edge.parentId === itemId ? { expectedParentVersion: latest.item.version } : { expectedChildVersion: latest.item.version }) }
+      }
+      return action
+    }, generation)
+    if (!reply.ok) { if (reply.pending) uncertain.current = { draft: null }; if (live.current) setError(reply.message); return null }
+    return reply.result
+  })
+  const discardable = (latest: ItemDetail) => !source.current.title.trim()
+    && canDiscardEmptyTitle(latest.item, latest.relations.length)
+    && !source.current.description.trim() && !source.current.dueDate
+  const dismiss = (): Promise<boolean> => enqueue(async () => {
+    cancelTimer()
+    if (flight.current) await flight.current
+    if (!live.current || composing.current || uncertain.current) return false
+    if (!current.current || !discardable(current.current)) return flush()
+    const reply = await write(async () => {
+      if (!live.current || composing.current) return null
+      const latest = await desktopApi().getItem(itemId)
+      if (!live.current || composing.current) return null
+      receive(latest, true)
+      if (!discardable(latest)) return null
+      // The submitted close owns this draft until its receipt is known; it cannot absorb later typing.
+      cancelTimer(); discardAttempt.current = true; discardLock.current = true; setDiscarding(true); setError('')
+      return { type: 'discardEmpty', itemId, expectedVersion: latest.item.version }
+    }, generation)
+    if (!live.current) return false
+    if (!reply.ok) {
+      if (reply.pending) uncertain.current = { draft: null }
+      else { discardLock.current = false; setDiscarding(false) }
+      setError(reply.message); return false
+    }
+    return reply.result !== null || await flush()
+  })
   const drain = async () => { await actions.current; return flush() }
   useEffect(() => desktopApi().onBeforeClose(async () => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     await Promise.resolve()
     return drain()
   }), [flush])
-  return { detail, draft, error, setError, saving, actionBusy, change, composition, flush: drain, retry, submit, dirty: dirty() }
+  return { detail, draft, error, setError, saving, actionBusy, discarding, change, composition, flush: drain, dismiss, retry, submit, dirty: dirty() }
 }

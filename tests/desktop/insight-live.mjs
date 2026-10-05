@@ -90,7 +90,7 @@ try {
       goals: [{ title: root.title, ...groups }], unlinked: Object.fromEntries(horizons.map(horizon => [horizon, []])) }
     const common = { generation: state.workspace.generation, board, prefs: { about: '', stepSize: 'hour', stepNotes: '', tone: 'direct', focus: ['gap', 'overload'] } }
     const draft = await window.goalloom.smart({ type: 'draft', request: { ...common, requestId: crypto.randomUUID(),
-      tasks: [{ id: 'trial-half', kind: 'next', parent: root.title, goal: root.title, target: board.periods.half, targetHorizon: 'half', siblings: groups.half, children: [] }] } })
+      tasks: [{ id: 'trial-half', parent: root.title, goal: root.title, target: board.periods.half, targetHorizon: 'half', siblings: groups.half }] } })
     const review = await window.goalloom.smart({ type: 'review', request: { ...common, requestId: crypto.randomUUID(), scope: 'week',
       signals: [{ kind: 'gap', goal: root.title, detail: `本周尚未安排「发布小米 Fold 18 评测视频」的下一步，半年阶段开始于 ${period.startDate}` }] } })
     return { draft, review }

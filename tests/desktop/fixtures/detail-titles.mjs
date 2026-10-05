@@ -1,10 +1,10 @@
 /**
  * [INPUT]: Native Electron, production cache/IPC and isolated synthetic item data.
- * [OUTPUT]: Complete rich-title, raw editing, keyboard, saved-only metadata and read-only evidence.
+ * [OUTPUT]: Complete rich-title, raw editing, native undo/redo, saved-only metadata and read-only evidence.
  * [POS]: Link-feature desktop acceptance; composes with the existing offline preview runner.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { finishDetailEditing } from './detail-save.mjs'
+import { finishDetailEditing, waitForDetailSave } from './detail-save.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -26,7 +26,7 @@ export async function verifyDetailTitles(app, page, directory, output) {
     return reply.result
   }, action)
   const stored = id => page.evaluate(async id => (await window.goalloom.getItem(id)).item, id)
-  const created = await execute({ type: 'create', title: original, horizon: 'cycle' }), id = created.itemId
+  const created = await execute({ type: 'create', title: original, horizon: 'cycle', dueDate: '2027-01-01' }), id = created.itemId
   const before = await stored(id), row = page.locator(`#item-${id}`)
   await row.locator('.task-title').press('Enter')
   const dialog = page.locator('dialog.detail'), display = dialog.locator('.detail-title-display'), field = dialog.locator('.title-input')
@@ -34,7 +34,7 @@ export async function verifyDetailTitles(app, page, directory, output) {
   await display.locator('.link-inline[data-status="ready"]').waitFor()
   await pollPage(page, () => document.querySelector('.detail-title-display .link-favicon img')?.naturalWidth > 0)
   assert.equal(await display.locator('.link-domain-label').innerText(), title)
-  assert.equal(await field.count(), 0, 'Details initially present rich text, not a raw title field')
+  assert.equal(await field.isVisible(), false, 'Details initially present rich text, not a raw title field')
   assert.equal(await display.locator('button a').count(), 0)
   const bounds = await display.evaluate(element => {
     const rich = element.querySelector('.link-rich-text'), label = element.querySelector('.link-domain-label'), range = document.createRange()
@@ -53,7 +53,7 @@ export async function verifyDetailTitles(app, page, directory, output) {
   await display.getByRole('link').click()
   assert.equal((await app.evaluate(() => globalThis.linkPreviewProbe.external)).at(-1), url)
   assert.equal((await app.evaluate(() => globalThis.linkPreviewProbe.external)).length, externalBefore + 1)
-  assert.equal(await field.count(), 0, 'Opening a title link does not enter editing')
+  assert.equal(await field.isVisible(), false, 'Opening a title link does not enter editing')
   await edit().press('Enter')
   assert.equal(await field.inputValue(), original)
   const long = '用一段完整的任务标题验证编辑时的自动换行与阅读体验。'.repeat(10)
@@ -66,12 +66,85 @@ export async function verifyDetailTitles(app, page, directory, output) {
   assert.equal(await field.count(), 1); assert.equal((await stored(id)).title, original)
   await field.evaluate(element => element.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true })))
   await field.press('Escape')
-  assert.equal(await dialog.count(), 1); assert.equal(await field.count(), 0)
+  assert.equal(await dialog.count(), 1); assert.equal(await field.isVisible(), false)
   assert.equal(await display.locator('.link-rich-text').innerText(), long)
   assert(await edit().evaluate(element => document.activeElement === element))
   await edit().click(); await field.fill(original); await finishDetailEditing(page)
   await display.locator('.link-inline[data-status="ready"]').waitFor()
   assert.equal(await dialog.locator('.save-bar').count(), 0)
+
+  // Populate the real session undo stack: recovering text must not undo reopening.
+  await dialog.getByRole('button', { name: '标记完成', exact: true }).click()
+  await dialog.getByRole('button', { name: '重新打开', exact: true }).click()
+  await dialog.getByRole('button', { name: '标记完成', exact: true }).waitFor()
+  const undoBaseline = await stored(id), undo = []
+  const clearTitle = async () => { await field.press('ControlOrMeta+a'); await field.press('Backspace') }
+  const restoredTitle = async () => {
+    assert.equal(await field.inputValue(), original)
+    await dialog.getByRole('alert').waitFor({ state: 'hidden' })
+    await finishDetailEditing(page)
+    assert.deepEqual(await stored(id), undoBaseline, 'Undoing an invalid draft never changes the committed task')
+  }
+  await edit().click(); await clearTitle()
+  await dialog.getByRole('alert').waitFor()
+  await field.press('ControlOrMeta+z')
+  await restoredTitle()
+  undo.push('Focused undo survives empty-title autosave validation')
+
+  await edit().click(); await clearTitle(); await field.press('Tab')
+  await display.waitFor()
+  await edit().click(); await field.press('ControlOrMeta+z')
+  await restoredTitle()
+  undo.push('Native undo history survives raw/rich title handoffs')
+
+  await edit().click(); await clearTitle()
+  await dialog.locator('.modal-header').getByRole('button', { name: '关闭', exact: true }).click()
+  await dialog.getByRole('alert').waitFor()
+  assert.equal(await dialog.count(), 1)
+  await shot('detail-title-empty-close')
+  await page.keyboard.press('ControlOrMeta+z')
+  assert(await field.isVisible(), 'Undo from a blocked close returns to title editing')
+  await restoredTitle()
+  undo.push('Undo after a blocked close restores the title without workspace mutations')
+
+  await edit().click(); await clearTitle(); await field.press('Escape')
+  await page.keyboard.press('ControlOrMeta+z')
+  assert.equal(await field.inputValue(), original)
+  await field.press('ControlOrMeta+Shift+z')
+  assert.equal(await field.inputValue(), '')
+  await field.press('ControlOrMeta+z')
+  await restoredTitle()
+  undo.push('Escape retains invalid-draft undo; focused native redo and undo remain available')
+
+  await edit().click(); await clearTitle(); await field.press('Escape')
+  const note = dialog.getByRole('textbox', { name: '说明', exact: true })
+  await note.fill('Description owns its text history')
+  await note.press('ControlOrMeta+z')
+  assert.equal((await note.innerText()).trim(), '')
+  assert.equal(await field.inputValue(), '', 'Description undo does not recover the title')
+  await dialog.locator('.modal-header').getByRole('button', { name: '关闭', exact: true }).click()
+  await page.keyboard.press('ControlOrMeta+z')
+  await restoredTitle()
+  undo.push('Description text undo stays independent while the title is invalid')
+
+  await edit().click(); await field.pressSequentially('!')
+  await waitForDetailSave(page)
+  assert.equal((await stored(id)).title, `${original}!`)
+  await finishDetailEditing(page)
+  await edit().click(); await field.press('ControlOrMeta+z')
+  assert.equal(await field.inputValue(), original)
+  await waitForDetailSave(page)
+  assert.equal((await stored(id)).title, original)
+  await field.press('ControlOrMeta+Shift+z')
+  assert.equal(await field.inputValue(), `${original}!`)
+  await waitForDetailSave(page)
+  assert.equal((await stored(id)).title, `${original}!`)
+  await field.press('ControlOrMeta+z')
+  await finishDetailEditing(page)
+  assert.equal((await stored(id)).title, original)
+  assert.equal((await stored(id)).status, 'todo', 'Title recovery never consumes session reopening undo')
+  undo.push('Saved title undo/redo survives autosave receipts and raw/rich handoffs')
+  await shot('detail-title-undo-restored')
 
   const networkBefore = await app.evaluate(() => ({ lookups: globalThis.linkPreviewProbe.lookups.length, requests: globalThis.linkPreviewProbe.requests.length, providers: globalThis.linkPreviewProbe.providerFetches.length }))
   await edit().click(); await field.evaluate(element => element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))); await field.fill('稍后阅读 https://unsaved-title.example.com/reference')
@@ -101,8 +174,8 @@ export async function verifyDetailTitles(app, page, directory, output) {
   const current = await stored(id)
   await execute({ type: 'delete', itemId: id, expectedVersion: current.version })
   await pollPage(page, () => document.querySelector('dialog.detail')?.getAttribute('aria-label') === '回收站条目')
-  assert.equal(await edit().count(), 0); assert.equal(await field.count(), 0)
+  assert.equal(await edit().count(), 0); assert.equal(await field.isVisible(), false)
   assert.equal(await display.getByRole('link').innerText(), title)
   await dialog.locator('.modal-header').getByRole('button', { name: '关闭', exact: true }).click()
-  return { bounds, editor, screenshots: shots, checks: ['Complete rich-title display and first-line controls', 'Links and raw title editing have independent pointer/keyboard actions', 'Growing editor, composition, Escape, Enter and autosave preserve source', 'Draft URLs make no network requests', 'Custom/URL-only titles, dark/minimal theme and read-only deleted items'] }
+  return { bounds, editor, undo, screenshots: shots, checks: ['Complete rich-title display and first-line controls', 'Links and raw title editing have independent pointer/keyboard actions', 'Growing editor, composition, Escape, Enter and autosave preserve source', ...undo, 'Draft URLs make no network requests', 'Custom/URL-only titles, dark/minimal theme and read-only deleted items'] }
 }

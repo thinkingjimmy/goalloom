@@ -43,7 +43,7 @@ it('开启从当前源周期生效，不清旧积压；再启用记录新边界'
   expect(repo.snapshot().backlog.month).toBe(1)
   policy('month', 'manual'); policy('month', 'auto')
   expect(repo.store.policies().find(p => p.horizon === 'month')!.effectiveFromPeriodId).toContain('2026-11-01')
-  expect(() => policy('cycle', 'auto')).toThrow('固定')
+  expect(policy('cycle', 'auto').changed).toBe(true)
 })
 it('完成、取消、归档、删除、Later 与 cycle 不自动移动', () => {
   const done = create(), cancelled = create(), archived = create(), deleted = create()

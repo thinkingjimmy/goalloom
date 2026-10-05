@@ -1,10 +1,11 @@
 /**
  * [INPUT]: Workspace calendar, observation time, policies, guarded actions and the reset navigation.
- * [OUTPUT]: Locked calendar summary, current-year timeline with next year/half/3-month starts, a change-calendar row that opens the reset, and rollover policies.
+ * [OUTPUT]: Locked calendar summary/timeline, reset navigation and six editable rollover policies ordered from year to day.
  * [POS]: Calendar settings; policy changes are revalidated in storage.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { CalendarConfig, Policy } from '../../../../shared/contracts/entities'
+import { policyHorizons } from '../../../../shared/contracts/values'
 import { calendarMessages as c, messages, settingsMessages as s } from '../../../i18n'
 import { horizonName } from '../../../lib/periods'
 import { fullDate, weekdayName } from '../../../i18n/format'
@@ -55,14 +56,11 @@ export function CalendarPane({ calendar, policies, observedAt, today, disabled, 
       </button>
     </SettingsGroup>
     <SettingsGroup title={s.overdue} aside={<small>{messages.policyFootnote}</small>}>
-      {(['year', 'half', 'cycle'] as const).map(horizon => <div key={horizon} className="settings-row policy-row">
-        <span className="policy-name">{horizonName(horizon, calendar)}</span>
-        <span className="settings-hint policy-note">{messages.cyclePolicyNote}</span><span className="settings-hint">{c.manualAlways}</span>
-      </div>)}
-      {policies.flatMap(policy => {
-        if (policy.horizon === 'cycle') return []
-        const name = horizonName(policy.horizon, calendar)
-        return <div key={policy.horizon} className="settings-row policy-row">
+      {policyHorizons.map(horizon => {
+        const policy = policies.find(policy => policy.horizon === horizon)
+        if (!policy) return null
+        const name = horizonName(horizon, calendar)
+        return <div key={horizon} className="settings-row policy-row" data-policy-horizon={horizon}>
           <span className="policy-name">{name}</span>
           <span className="settings-hint policy-note">{s.policyNotes[policy.horizon][policy.mode]}</span>
           <Segmented label={name} value={policy.mode} options={modes()} disabled={disabled}

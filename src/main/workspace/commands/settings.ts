@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 严格设置/系统批次命令、事务内当前策略和效果。
- * [OUTPUT]: 非追溯策略边界、显式暂停解除、部分成功的批次撤销。
- * [POS]: 工作区控制库；日历锁不提供修改入口。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Validated settings/system-batch commands and authoritative policy versions/effects.
+ * [OUTPUT]: Six-horizon policy changes with non-retroactive boundaries, explicit resume and partial batch undo.
+ * [POS]: Workspace settings transactions; calendar configuration remains locked.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { targetPeriod, type Context } from '../context'
@@ -13,7 +13,6 @@ import { serverText } from '../../../shared/i18n/server'
 export function setPolicy(context: Context, command: CommandOf<'policy'>): boolean {
   const policy = context.store.policies().find(policy => policy.horizon === command.horizon)
   if (!policy || policy.version !== command.expectedVersion) throw new DomainError('stale', serverText().errors.policyChanged)
-  if (command.horizon === 'cycle' && command.mode !== 'manual') throw new DomainError('invalid', serverText().errors.cycleManualOnly)
   if (policy.mode === command.mode) return false
   const current = targetPeriod(context, command.horizon)!
   context.store.db.prepare('UPDATE rollover_policies SET mode=?,version=version+1,effectiveFromPeriodId=? WHERE horizon=? AND version=?').run(command.mode, current.id, command.horizon, policy.version)

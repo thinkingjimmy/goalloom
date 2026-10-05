@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A new or current-version SQLite database; legacy files are refused by startup.
- * [OUTPUT]: Atomic schema v6 initialization with six planning horizons and unchanged four rollover policies.
+ * [OUTPUT]: Atomic schema v7 initialization with six planning horizons and independently configurable rollover policies.
  * [POS]: Sole production DDL; no in-place upgrades, legacy sources remain readable through transfer.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,8 +9,8 @@ import { randomUUID } from 'node:crypto'
 import { transaction } from './database'
 import { serverText } from '../../shared/i18n/server'
 
-export const schemaVersion = 6
-export const supportedVersions = [1, 2, 3, 4, 5, 6]
+export const schemaVersion = 7
+export const supportedVersions = [1, 2, 3, 4, 5, 6, 7]
 export const upgradableVersions: number[] = []
 export const requiredTables = ['workspace', 'items', 'item_placements', 'planning_periods', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects', 'schema_migrations']
 export function userVersion(db: DatabaseSync): number { return Number(db.prepare('PRAGMA user_version').get()?.user_version) }
@@ -83,8 +83,8 @@ CREATE INDEX relations_child ON item_relations(childId,invalidatedAt);
 CREATE UNIQUE INDEX unique_active_edge ON item_relations(parentId,childId) WHERE invalidatedAt IS NULL;
 CREATE INDEX relations_parent ON item_relations(parentId,invalidatedAt);
 CREATE TABLE rollover_policies (
-  horizon TEXT PRIMARY KEY CHECK(horizon IN ('cycle','month','week','day')), mode TEXT NOT NULL CHECK(mode IN ('auto','manual')),
-  version INTEGER NOT NULL CHECK(version>0), effectiveFromPeriodId TEXT NOT NULL REFERENCES planning_periods(id), CHECK(horizon!='cycle' OR mode='manual')
+  horizon TEXT PRIMARY KEY CHECK(horizon IN ('year','half','cycle','month','week','day')), mode TEXT NOT NULL CHECK(mode IN ('auto','manual')),
+  version INTEGER NOT NULL CHECK(version>0), effectiveFromPeriodId TEXT NOT NULL REFERENCES planning_periods(id)
 ) STRICT;
 CREATE TABLE operations (
   id TEXT PRIMARY KEY, generation TEXT NOT NULL, requestHash TEXT NOT NULL, kind TEXT NOT NULL,

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron in a native 1440 × 900 window, isolated workspace data and the actual workspace calendar.
- * [OUTPUT]: Flow-insight acceptance, empty-card copy/pointer-hit evidence, hover-preview additions, endpoint alignment, period-named review entries/titles, settings and app-local failure evidence under output/tests/insight/.
+ * [OUTPUT]: Flow-insight acceptance, empty-card copy/pointer-hit evidence, hover-preview additions, endpoint alignment, unified weekly/monthly reviews, settings and app-local failure evidence under output/tests/insight/.
  * [POS]: Desktop acceptance of empty columns, breakpoints, reviews and local insight preferences without a live model.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -30,7 +30,8 @@ try {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 900))
-  await finishSetup(page)
+  const weekStart = await page.evaluate(() => (new Date().getDay() + 1) % 7 + 1)
+  await finishSetup(page, { weekStart })
   const board = page.getByRole('main', { name: '时间看板' })
   await board.waitFor()
   const shot = name => page.screenshot({ path: `${out}/${name}.png` })
@@ -117,8 +118,8 @@ try {
   // --- 断点：筛选「全网粉丝」→ 两个本月计划都没有本周下级，各一个 ＋；首次引导只出现一次。 ---
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
   await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
-  await board.locator('.breakpoint[data-kind="gap"]').first().waitFor()
-  assert.equal(await board.locator('.breakpoint[data-kind="gap"]').count(), 2)
+  await board.locator('.breakpoint').first().waitFor()
+  assert.equal(await board.locator('.breakpoint').count(), 2)
   assert.equal(await board.locator('.breakpoint-guide').count(), 0, 'The guide dismissed during preview stays dismissed when filtering')
   await shot('3-breakpoints')
   const place = await page.evaluate(id => {
@@ -130,7 +131,7 @@ try {
   await board.waitFor()
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
   await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
-  await board.locator('.breakpoint[data-kind="gap"]').first().waitFor()
+  await board.locator('.breakpoint').first().waitFor()
   assert.equal(await board.locator('.breakpoint-guide').count(), 0, '引导状态存本机，重载后不再出现')
   check('filtered flow shows one ＋ per gap at the outgoing row endpoint; the guide shows once and stays dismissed after reload')
 
@@ -162,44 +163,17 @@ try {
   }
   await shot('5-after-create')
 
-  // --- 跳级：今天两项直接挂在月计划 Bottega 下 → 橙色 ＋；预填新建以 insertBetween 一次补上并改挂。 ---
-  const skip = await seedRows([{ key: 'a', title: 'Bottega 远端控制功能完成验收', horizon: 'day', parent: 'bottega' }, { key: 'b', title: '完成 Bottega 09-24 开发任务', horizon: 'day', parent: 'bottega' }], { bottega: ids.bottega })
+  // A month with an existing week child and direct day children has no missing-child action.
+  const direct = await seedRows([{ key: 'a', title: 'Bottega 远端控制功能完成验收', horizon: 'day', parent: 'bottega' }, { key: 'b', title: '完成 Bottega 09-24 开发任务', horizon: 'day', parent: 'bottega' }], { bottega: ids.bottega })
   await page.getByRole('button', { name: '只看 副业收入提升到 $5k', exact: true }).click()
-  const amber = board.locator('.breakpoint[data-kind="skip"]')
-  await amber.waitFor()
-  assert.equal(await amber.count(), 1)
-  assert.equal(await page.locator(`#item-${ids.bottega}`).getAttribute('data-dimmed'), 'false', '筛选流程内的行不置灰')
-  await page.waitForTimeout(700)
-  const skipPlace = await amber.evaluate(node => {
-    const id = node.dataset.spotKey.slice('skip:'.length), button = node.getBoundingClientRect()
-    const port = document.querySelector(`[data-port-key^="${id}:"]`).getBoundingClientRect()
-    return { xError: Math.abs(port.left + port.width / 2 - 6 - button.right), clear: button.right <= port.left,
-      yError: Math.abs(button.top + button.height / 2 - port.top - port.height / 2) }
-  })
-  await shot('6-skip')
-  await writeFile(`${out}/skip-geometry.json`, JSON.stringify(skipPlace, null, 2))
-  assert(skipPlace.xError < 0.5 && skipPlace.clear && skipPlace.yError < 0.5, `The skip entry sits inside the row, level with its connected port but never covering it: ${JSON.stringify(skipPlace)}`)
-  await amber.click({ modifiers: ['Shift'] })
-  await dialog.waitFor()
-  assert(await dialog.locator('.seed-chip').filter({ hasText: '下级：今天 2 项' }).count())
-  await dialog.getByRole('textbox').fill('Bottega 远端控制功能完成验收（本周）')
-  await dialog.getByRole('textbox').press('Enter')
-  await dialog.waitFor({ state: 'hidden' })
+  await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
+  await page.locator(`#item-${ids.bottega} .task-title`).hover()
+  assert.equal(await board.locator(`.breakpoint[data-spot-key$=":${ids.bottega}"]`).count(), 0)
+  assert.equal(await board.locator('.breakpoint[data-kind="skip"]').count(), 0)
   state = await snapshot()
-  const milestone = state.items.find(row => row.title === 'Bottega 远端控制功能完成验收（本周）')
-  assert.equal(milestone?.placement.horizon, 'week')
-  const has = (parent, child) => state.relations.some(row => row.parentId === parent && row.childId === child)
-  assert(has(ids.bottega, milestone.id) && has(milestone.id, skip.a) && has(milestone.id, skip.b), '里程碑挂在 Bottega 下，今天两项改挂到里程碑')
-  assert(!has(ids.bottega, skip.a) && !has(ids.bottega, skip.b), '解除今天两项与月计划的直接关联')
-  await pollPage(page, () => document.querySelectorAll('.breakpoint[data-kind="skip"]').length === 0)
-  check('skip ＋ inserts a week milestone and re-links today\'s children in one insertBetween')
-
-  await page.keyboard.press('ControlOrMeta+z')
-  await pollPage(page, ids => window.goalloom.getSnapshot().then(s => !s.items.some(row => row.title === 'Bottega 远端控制功能完成验收（本周）')
-    && s.relations.some(row => row.parentId === ids.bottega && row.childId === ids.a) && s.relations.some(row => row.parentId === ids.bottega && row.childId === ids.b)), { ...skip, bottega: ids.bottega })
-  await amber.waitFor()
-  check('one undo removes the milestone and restores both direct edges')
-  await shot('7-undo')
+  assert([direct.a, direct.b].every(child => state.relations.some(edge => edge.parentId === ids.bottega && edge.childId === child)))
+  await shot('6-existing-children')
+  check('existing week and direct day children suppress the parent action and keep their original relationships')
 
   // --- 复盘：本周最后一天（或下周第一天）列头出现入口；回顾 → 收尾 → 排下周 → 完成；完成后入口消失且重载后不再出现。 ---
   const entry = board.locator('[data-review]')
@@ -214,13 +188,13 @@ try {
     await drawer.locator('.review-body[aria-busy="false"]').waitFor()
     await shot('8-review-lookback')
     let open = 0, rowsToPlan = 0
-    for (let step = 0; step < 5 && !await drawer.getByRole('heading', { name: '复盘完成', exact: true }).count(); step++) {
+    for (let step = 0; step < 5 && await drawer.count(); step++) {
       const closeRows = drawer.locator('.review-close-row')
       if (await closeRows.count()) {
         open = await closeRows.count()
         if (open >= 2) {
-          await closeRows.nth(0).getByRole('combobox').selectOption('defer')
-          await closeRows.nth(1).getByRole('combobox').selectOption('archive')
+          await closeRows.nth(1).getByRole('combobox').click()
+          await drawer.getByRole('option', { name: '归档', exact: true }).click()
         }
         await shot('9-review-close')
       }
@@ -232,12 +206,11 @@ try {
       await drawer.locator('.review-foot .primary').click()
       await page.waitForFunction(previous => {
         const dialog = document.querySelector('dialog.review-drawer[open]')
-        return dialog && (dialog.querySelector('[aria-current=step]')?.textContent ?? 'done') !== previous
+        return !dialog || dialog.querySelector('[aria-current=step]')?.textContent !== previous
       }, previousStep)
     }
-    await drawer.getByRole('heading', { name: '复盘完成', exact: true }).waitFor()
+    await drawer.waitFor({ state: 'detached' })
     await shot('11-review-done')
-    await drawer.getByRole('button', { name: '回到看板', exact: true }).click()
     await entry.waitFor({ state: 'detached' })
     await page.reload(); await board.waitFor()
     assert.equal(await board.locator('[data-review]').count(), 0, '复盘状态存本机，重载后入口不再出现')
@@ -279,7 +252,7 @@ try {
   check('settings › 洞察: breakpoints switch, personalization tabs (arrow keys), about-me persisted on the device, prompt tab carries preferences')
 
   assert.deepEqual(errors, [])
-  await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, lastDayOfWeek: target.lastDay, reviewDay, checks, preview, breakpointGeometry: { gap: place, skip: skipPlace }, runtime: await page.evaluate(() => window.goalloom.getRuntime()), platform: `${process.platform}-${process.arch}` }, null, 2))
+  await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, lastDayOfWeek: target.lastDay, reviewDay, checks, preview, breakpointGeometry: { gap: place }, runtime: await page.evaluate(() => window.goalloom.getRuntime()), platform: `${process.platform}-${process.arch}` }, null, 2))
 } catch (error) {
   const page = await application.firstWindow()
   const nativeWindows = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))).catch(() => null)
@@ -292,3 +265,4 @@ try {
   await application.close()
   await rm(profile, { recursive: true, force: true })
 }
+await import('./weekly-review.mjs')

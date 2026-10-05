@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { beforeEach, afterEach, expect, it } from 'vitest'
+import { validateImport } from '../../src/domain/import-validation'
 import { openDatabase } from '../../src/main/storage/database'
 import { migrate } from '../../src/main/storage/schema'
 import { Repository } from '../../src/main/workspace/repository'
+import { exportDataset } from '../../src/main/workspace/transfer/dataset'
 
 let repository: Repository
 let generation: string
@@ -54,6 +56,28 @@ it('新建关联：Later 端点与同列/反向周期均拒绝；已有关联随
   repository.execute({ type: 'move', operationId: randomUUID(), generation, itemId: parent.id, expectedVersion: parent.version, expectedPlacementVersion: parent.placement.version, horizon: 'later' })
   expect(repository.store.item(month.id).placement.horizon).toBe('later')
   expect(repository.store.relations().filter(edge => edge.invalidatedAt === null).map(edge => [edge.parentId, edge.childId])).toEqual([[month.id, day.id]])
+})
+it('移入 Later 解除上级并允许导入；撤销同时恢复位置和上级。Later 内改顺序、以及既有下级都保留', () => {
+  setup()
+  const month = create('月目标', 'month', 0), week = create('周任务', 'week'), day = create('今日', 'day'), parked = create('已在 Later'), neighbor = create('另一条 Later')
+  link(month.id, week.id)
+  link(week.id, day.id)
+  const legacy = { id: randomUUID(), parentId: month.id, childId: parked.id, invalidatedAt: null, invalidatedBy: null, reason: null, createdAt: now }
+  repository.store.saveRelation(legacy)
+  expect(repository.store.order('later', null).at(-1)?.id).toBe(neighbor.id)
+  const staying = repository.store.item(parked.id)
+  repository.execute({ type: 'move', operationId: randomUUID(), generation, itemId: staying.id, expectedVersion: staying.version, expectedPlacementVersion: staying.placement.version, horizon: 'later', beforeId: null })
+  expect(repository.store.relations().some(edge => edge.id === legacy.id && edge.invalidatedAt === null)).toBe(true)
+  const child = repository.store.item(week.id)
+  const moved = repository.execute({ type: 'move', operationId: randomUUID(), generation, itemId: child.id, expectedVersion: child.version, expectedPlacementVersion: child.placement.version, horizon: 'later' })
+  expect(repository.store.item(week.id).placement.horizon).toBe('later')
+  expect(repository.store.relations().filter(edge => edge.invalidatedAt === null).map(edge => [edge.parentId, edge.childId]).sort()).toEqual([[month.id, parked.id], [week.id, day.id]].sort())
+  expect(repository.store.operation(moved.operationId)?.effects.map(effect => effect.kind)).toEqual(['position', 'relations'])
+  expect(() => validateImport(exportDataset(repository.store, now), now)).not.toThrow()
+  repository.execute({ type: 'undo', operationId: randomUUID(), generation, originalOperationId: moved.operationId })
+  expect(repository.store.item(week.id).placement.horizon).toBe('week')
+  expect(repository.store.relations().filter(edge => edge.invalidatedAt === null).map(edge => [edge.parentId, edge.childId]).sort()).toEqual([[month.id, parked.id], [month.id, week.id], [week.id, day.id]].sort())
+  expect(() => validateImport(exportDataset(repository.store, now), now)).not.toThrow()
 })
 it('拆解、流程颜色与计划同样遵守周期规则：同列上级与 Later 流程根均拒绝且不写入', () => {
   setup()

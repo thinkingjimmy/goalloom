@@ -48,6 +48,9 @@ export const settingsMessages: SettingsCatalog = {
   calendarSettings: 'Configuración del calendario',
   overdue: 'Pendiente al terminar',
   policyNotes: {
+    year: { auto: 'Al terminar el año pasa al siguiente', manual: 'Al terminar el año queda en periodos anteriores para organizarlo' },
+    half: { auto: 'Al terminar el semestre pasa al siguiente', manual: 'Al terminar el semestre queda en periodos anteriores para organizarlo' },
+    cycle: { auto: 'Al terminar el periodo pasa al siguiente', manual: 'Al terminar el periodo queda en periodos anteriores para organizarlo' },
     month: { auto: 'A fin de mes pasa solo al mes siguiente', manual: 'A fin de mes queda en periodos anteriores hasta que lo organices' },
     week: { auto: 'Al terminar la semana pasa sola a la siguiente', manual: 'Al terminar la semana queda en periodos anteriores hasta que lo organices' },
     day: { auto: 'A medianoche pasa solo al nuevo hoy', manual: 'A medianoche queda en periodos anteriores hasta que lo organices' },

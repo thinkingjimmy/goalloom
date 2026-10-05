@@ -1,11 +1,11 @@
 /**
- * [INPUT]: Accepted completion identities, the current workspace generation, device-local motion preferences and the settings preview signal.
+ * [INPUT]: Accepted item completions, confirmed review signals, workspace generation, column/motion preferences and settings previews.
  * [OUTPUT]: Two confetti cannons anchored at the exact viewport bottom corners, above board and native dialogs; no business writes.
- * [POS]: Renderer shell feedback, driven only by fresh authoritative completion events.
+ * [POS]: Shared renderer celebration player; review signals reuse the same particles and lifecycle without synthetic business writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef } from 'react'
-import { onCelebrationPreview, useCelebration, useReducedMotion } from '../../state/celebration'
+import { onCelebrationPreview, onReviewCelebration, useCelebration, useReducedMotion } from '../../state/celebration'
 import type { CompletionEvent } from '../../state/use-workspace'
 import './completion-celebration.css'
 
@@ -141,6 +141,9 @@ function celebrate(canvas: HTMLCanvasElement, operationId: string): () => void {
 export function CompletionCelebration({ event, generation }: { event: CompletionEvent | null; generation: string }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const accepted = useRef<string | null>(null)
+  const currentGeneration = useRef(generation)
+  currentGeneration.current = generation
+  const activeReview = useRef<{ generation: string; horizon: 'week' | 'month' } | null>(null)
   const stop = useRef<() => void>(() => undefined)
   const { enabled } = useCelebration()
   const reducedMotion = useReducedMotion()
@@ -149,7 +152,14 @@ export function CompletionCelebration({ event, generation }: { event: Completion
     const identity = event ? `${event.generation}:${event.operationId}` : null
     const fresh = identity !== null && identity !== accepted.current
     // Consume even disabled events so changing a preference cannot replay old work.
-    if (fresh) accepted.current = identity
+    if (fresh) { accepted.current = identity; activeReview.current = null }
+    if (activeReview.current) {
+      const review = activeReview.current
+      if (review.generation !== generation || reducedMotion || !enabled[review.horizon] || document.hidden) {
+        stop.current(); activeReview.current = null
+      }
+      return
+    }
     if (!event || event.generation !== generation || reducedMotion || !enabled[event.horizon] || document.hidden) {
       stop.current()
       return
@@ -163,8 +173,16 @@ export function CompletionCelebration({ event, generation }: { event: Completion
   useEffect(() => onCelebrationPreview(() => {
     if (reducedMotion || document.hidden || !canvas.current) return
     stop.current()
+    activeReview.current = null
     stop.current = celebrate(canvas.current, 'preview')
   }), [reducedMotion])
+
+  useEffect(() => onReviewCelebration(review => {
+    if (review.generation !== currentGeneration.current || reducedMotion || !enabled[review.horizon] || document.hidden || !canvas.current) return
+    stop.current()
+    activeReview.current = review
+    stop.current = celebrate(canvas.current, review.id)
+  }), [enabled, reducedMotion])
 
   useEffect(() => {
     const onVisibilityChange = () => { if (document.hidden) stop.current() }

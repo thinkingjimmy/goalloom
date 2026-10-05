@@ -47,6 +47,9 @@ export const settingsMessages = widen({
   calendarSettings: '日历设置',
   overdue: '到期未完成',
   policyNotes: {
+    year: { auto: '本年度结束后自动移入下一年', manual: '本年度结束后留在往期，等你安排' },
+    half: { auto: '半年结束后自动移入下个半年', manual: '半年结束后留在往期，等你安排' },
+    cycle: { auto: '周期结束后自动移入下个周期', manual: '周期结束后留在往期，等你安排' },
     month: { auto: '月底自动移入下月', manual: '月底留在往期，等你安排' },
     week: { auto: '周末结束后自动移入下周', manual: '周末留在往期，等你安排' },
     day: { auto: '零点自动移到新的今天', manual: '零点留在往期，等你安排' },

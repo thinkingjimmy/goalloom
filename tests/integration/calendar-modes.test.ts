@@ -50,10 +50,10 @@ describe('Authoritative calendar transactions and shared consumers', () => {
     setup('natural', { kind: 'today', expected: '2026-01-01' })
     expect(repo.store.workspace().calendar).toMatchObject({ mode: 'natural', cycleAnchor: '2026-01-01' })
     expect(repo.snapshot().periods.map(p => p.horizon)).toEqual(horizons)
-    expect(repo.store.policies()).toHaveLength(4)
-    expect(repo.db.prepare('SELECT count(*) AS n FROM planning_periods').get()!.n).toBe(4)
+    expect(repo.store.policies()).toHaveLength(6)
+    expect(repo.db.prepare('SELECT count(*) AS n FROM planning_periods').get()!.n).toBe(6)
     expect(() => setup()).toThrow()
-    for (const h of ['year', 'half']) expect(() => run({ type: 'policy', horizon: h, mode: 'auto', expectedVersion: 1 })).toThrow()
+    for (const h of ['year', 'half', 'cycle']) expect(run({ type: 'policy', horizon: h, mode: 'auto', expectedVersion: 1 }).changed).toBe(true)
   })
   it('creates, advances, searches and selects all six future columns together', () => {
     setup()
@@ -67,7 +67,7 @@ describe('Authoritative calendar transactions and shared consumers', () => {
     const selected = repo.store.items('1').map(item => repo.store.period(item.placement.periodId!))
     expect(readBoardPeriods(repo.store, { type: 'boardPeriods', generation: repo.store.workspace().generation, periods: selected.map(({ horizon, startDate }) => ({ horizon, startDate })) }, now).items).toHaveLength(6)
   })
-  it.each(['year', 'half'] as const)('never rolls %s automatically, and undo into an expired period creates a hold', horizon => {
+  it.each(['year', 'half'] as const)('defaults %s to manual, and undo into an expired period creates a hold', horizon => {
     setup(); const id = create(horizon), source = repo.detail(id).period!
     now = source.endAt
     reconcile(repo)
@@ -122,7 +122,7 @@ describe('Authoritative calendar transactions and shared consumers', () => {
     setup(mode, mode === 'natural' ? { kind: 'today', expected: '2026-01-01' } : undefined)
     for (const h of horizons) create(h)
     const data = exportDataset(repo.store, now)
-    expect(data.schemaVersion).toBe(6)
+    expect(data.schemaVersion).toBe(7)
     replaceDataset(repo.store, validateDataset(data, now), 'restore', now)
     const after = exportDataset(repo.store, now)
     for (const key of ['items', 'placements', 'periods', 'relations', 'policies', 'events', 'operations', 'undoEffects'] as const) expect(after[key]).toEqual(data[key])

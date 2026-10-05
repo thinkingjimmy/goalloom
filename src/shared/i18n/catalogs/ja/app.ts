@@ -127,6 +127,7 @@ export const appMessages: typeof source = {
     archive: 'アーカイブ',
     unarchive: 'アーカイブ解除',
     delete: 'ゴミ箱に移動',
+    discardEmpty: '空の項目を削除',
     restore: '復元',
     unlink: 'リンク解除',
     createPlan: (count: number) => count === 1 ? '項目を作成' : `${count} 件の項目を作成`,

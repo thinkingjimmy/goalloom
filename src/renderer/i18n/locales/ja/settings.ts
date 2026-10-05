@@ -48,6 +48,9 @@ export const settingsMessages: SettingsCatalog = {
   calendarSettings: 'カレンダー設定',
   overdue: '期限切れの未完了',
   policyNotes: {
+    year: { auto: '1 年の終わりに自動で次の年へ移動', manual: '1 年の終わりに過去の期間に残し、整理を待つ' },
+    half: { auto: '半年の終わりに自動で次の半年へ移動', manual: '半年の終わりに過去の期間に残し、整理を待つ' },
+    cycle: { auto: '期間の終わりに自動で次の期間へ移動', manual: '期間の終わりに過去の期間に残し、整理を待つ' },
     month: { auto: '月末に自動で翌月へ移動', manual: '月末に過去の期間に残し、整理を待つ' },
     week: { auto: '週の終わりに自動で翌週へ移動', manual: '週の終わりに過去の期間に残し、整理を待つ' },
     day: { auto: '0 時に自動で新しい今日へ移動', manual: '0 時に過去の期間に残し、整理を待つ' },

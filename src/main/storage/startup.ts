@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace path, backup directory and injected startup time.
- * [OUTPUT]: Read-only version checks, unchanged rejection of v1–v5, and new/current v6 connections.
+ * [OUTPUT]: Read-only version checks, unchanged rejection of v1–v6, and new/current v7 connections.
  * [POS]: Startup boundary; dormant protected-upgrade orchestration is retained for future explicit migrations.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated history/activity queries, Store and observation time.
- * [OUTPUT]: Reusable period projections and activity, plus paged live tasks still placed in a closed period with generation/revision guards.
+ * [OUTPUT]: Immutable history/activity and generation/revision-guarded live past tasks, excluding empty-detail discards.
  * [POS]: Read-only past-period adapter; live placement queries never rewrite history or materialize periods.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,7 @@ import type { Query } from '../../shared/contracts/queries'
 import type { HistoryIndex, HistoryOutcome, HistoryPage, Activity, PastPeriodPage } from '../../shared/contracts/history'
 import type { Store } from '../storage/store'
 import { serverText } from '../../shared/i18n/server'
+import { trashWhere } from './queries'
 
 const order: Record<HistoryOutcome, number> = { done: 0, open: 1, moved: 2, cancelled: 3, unknown: 4 }
 // --- 两个独立索引取成员，不扫描全库 JSON，也不把其他尺度隐式纳入。 ---
@@ -60,7 +61,7 @@ export function readPastPeriod(store: Store, query: Extract<Query, { type: 'past
   const workspace = store.workspace()
   if (workspace.generation !== query.generation) throw new DomainError('generation', serverText().errors.workspaceReplaced)
   const period = closedPeriod(store, query.horizon, query.startDate, now)
-  const where = "p.periodId=? AND (i.deletedAt IS NOT NULL OR i.archivedAt IS NULL AND i.status IN ('todo','done'))"
+  const where = `p.periodId=? AND (${trashWhere} OR i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status IN ('todo','done'))`
   const total = Number(store.prepare(`SELECT count(*) AS total FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where}`).get(period.id)!.total)
   const offset = Math.min(query.offset, Math.max(0, Math.ceil(total / query.limit) - 1) * query.limit)
   const items = store.summaries(where, [period.id, query.limit, offset],

@@ -1,6 +1,7 @@
 /**
  * [INPUT]: Validated commands, current transaction context and explicit current/date/next targets.
- * [OUTPUT]: Atomic setup, placement and flow-valid links, including opt-in adoption or isolated-parent root promotion with one undo effect.
+ * [OUTPUT]: Atomic setup with six policies (only day defaults to automatic), placement and flow-valid links, including opt-in adoption or isolated-parent root promotion with one undo effect.
+ *          Entering Later unlinks that item's parents in the same operation; child edges stay.
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,6 +13,7 @@ import { calendarSchema, type Item, type Relation } from '../../../shared/contra
 import { statusGroup } from '../../../shared/contracts/effects'
 import { assertAvailable, assertFlowColorFree, hasActiveParent, hasFlow, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { serverText } from '../../../shared/i18n/server'
+import { writeEdges } from './lifecycle'
 import { assertParentOrderTarget } from './ordering'
 import { policyHorizons } from '../../../shared/contracts/values'
 
@@ -117,9 +119,18 @@ export function moveItem(context: Context, command: CommandOf<'move'>): boolean 
   const samePeriod = previous.horizon === command.horizon && previous.periodId === periodId
   const rollover = !samePeriod && previous.horizon === command.horizon && previous.periodId !== null && target !== null && context.store.period(previous.periodId).startAt < target.startAt
   if (!samePeriod) context.store.event(command.operationId, context.now, rollover ? 'rolled_over' : 'moved', before, item)
+  if (before.placement.horizon !== 'later' && item.placement.horizon === 'later') releaseLaterParents(context, item)
   context.itemId = item.id
   context.label = samePeriod ? serverText().labels.sort : rollover ? serverText().labels.rollover : serverText().labels.move
   return true
+}
+
+function releaseLaterParents(context: Context, item: Item): void {
+  const parents = context.store.relations().filter(edge => edge.childId === item.id).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  if (!parents.length) return
+  const edges = parents.map(edge => ({ before: edge, after: { ...edge, invalidatedAt: context.now, invalidatedBy: context.command.operationId, reason: 'unlink' as const } }))
+  writeEdges(context, edges.map(delta => delta.after), item.id)
+  context.effects.push({ kind: 'relations', itemId: item.id, edges })
 }
 
 export function newRelation(parentId: string, childId: string, now: string): Relation {

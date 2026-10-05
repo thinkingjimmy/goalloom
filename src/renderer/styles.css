@@ -164,13 +164,15 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .board-panels { --column-min: 320px; position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
 /* The docked sheet matches a visible time column after timeline padding and the Later inset. */
 .board-later { width: calc(max(var(--column-min), (100% - 28px) / (var(--planning-count) + 1)) + 12px); flex: 0 0 auto; min-height: 0; display: flex; padding: 0 0 12px 12px; background: var(--bg); }
-.board-later > .board-column { --ground: var(--raised); flex: 1; min-width: 0; border-left: 0; transition: none; border-radius: 14px; background: var(--raised); box-shadow: 0 0 0 .5px var(--edge), 0 6px 20px color-mix(in srgb, var(--fg) 6%, transparent); }
+.board-later > .board-column { --flow-gutter: 12px; --ground: var(--raised); flex: 1; min-width: 0; border-left: 0; transition: none; border-radius: 14px; background: var(--raised); box-shadow: 0 0 0 .5px var(--edge), 0 6px 20px color-mix(in srgb, var(--fg) 6%, transparent); }
 .board-later > .board-column > .column-content { border-radius: 0 0 14px 14px; }
 .board-panels[data-later-open='false'] > .board-later { position: absolute; inset: 0 auto 0 0; visibility: hidden; transform: translateX(-100%); }
 .board-timeline { display: flex; flex: 1; min-width: 0; min-height: 0; padding: 0 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
 /* Time columns share the width equally; below 320px each the timeline scrolls instead of squeezing rows. */
-/* --row-inset is where a row's checkbox lands after the flow-dot gutter; column text chrome aligns to it. */
-.board-column { --row-inset: 9px; --title-gap: calc(12px * .6); --ground: var(--bg); position: relative; flex: 1 1 0; min-width: var(--column-min); display: flex; flex-direction: column; padding: 4px 14px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
+/* --row-inset is where a row's checkbox lands; column text chrome aligns to it.
+   Time columns keep a 20px flow-dot gutter, so the checkbox sits 9px into the column padding.
+   Later has no dot: 12px of leading inset keeps the checkbox off the row edge, without the rest of that slot. */
+.board-column { --flow-gutter: 20px; --row-inset: calc(9px - 20px + var(--flow-gutter)); --title-gap: calc(12px * .6); --ground: var(--bg); position: relative; flex: 1 1 0; min-width: var(--column-min); display: flex; flex-direction: column; padding: 4px 14px 0; border-left: 1px solid var(--hairline); transition: background-color .15s; }
 .board-column:first-child, .board-timeline > .board-column:nth-child(1 of :not([hidden])) { border-left: 0; }
 .board-column.drop-target { background: var(--hover); }
 .column-header { height: 40px; flex-shrink: 0; padding-left: var(--row-inset); display: flex; align-items: center; gap: 8px; }
@@ -220,7 +222,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
    rows carry no divider, so that band is the only separation.
    Ground rules set background-color/-image only: the `background` shorthand would reset the clip and paint over the band. */
 /* Trailing ports and breakpoint controls overlay content instead of reserving title/card width. */
-.task-row { --check-space: 30px; position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 32px; margin: 0 -7px 0 -11px; padding: 0 6px 0 20px; border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
+.task-row { --check-space: 30px; position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 32px; margin: 0 -7px 0 -11px; padding: 0 6px 0 var(--flow-gutter); border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: opacity .18s ease-out, background-color .18s ease-out; }
 .task-row:is([data-highlighted='true'], [data-state='open']) { background-color: var(--hover); }
 /* Pointer hover stays lighter than the located/highlighted row so the two remain distinguishable. */
 :root:not([data-dragging='true']) .task-row:not([data-highlighted='true'], [data-state='open']):hover { background-color: color-mix(in srgb, var(--hover) 50%, transparent); }
@@ -290,9 +292,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .relation-marker[data-align='end'] { transform: translateX(calc(-100% - 4px)); }
 .relation-marker:hover { background: linear-gradient(var(--hover), var(--hover)) var(--raised); }
 
-/* --- Flow dot: sits in the gutter before a row's checkbox. Shown on row hover/focus, while its menu is open and on every
+/* --- Flow dot: sits in the gutter before a time-column checkbox. Shown on row hover/focus, while its menu is open and on every
    row of an active flow, where forward relation lines end on it. Filtered cycle TODO rows keep the dot hidden at rest.
-   Later rows have none. --- */
+   Later rows have none, and keep a 12px leading inset instead of this slot. --- */
 /* The 18px dot button fills the row's left padding and stops 2px before the checkbox, keeping the gutter at 23px. */
 .flow-dot-slot { position: absolute; left: 0; top: 5px; z-index: 1; }
 .flow-dot-slot > .popover-root { display: block; }
@@ -365,8 +367,15 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .menu-item { width: 100%; min-height: 34px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; font-size: 13px; text-align: left; }
 .menu-item:hover:not(:disabled), .menu-item[aria-selected='true'] { background: var(--hover); }
 .menu-item.danger { color: var(--danger); }
-.column-visibility-menu .picker-row > svg { flex-shrink: 0; }
-.column-visibility-hint { margin: 10px 0 0; padding: 8px 10px 0; border-top: 1px solid var(--hairline); font-size: 12px; line-height: 1.6; color: var(--secondary); }
+.column-visibility-menu.picker-panel { width: max-content; }
+.column-visibility-menu .picker-row { position: relative; gap: 20px; font-weight: 500; }
+.column-visibility-menu .picker-row[data-selected='true'] { background: transparent; color: var(--fg); font-weight: 500; }
+.column-visibility-menu .picker-row:hover:not(:disabled):not([aria-disabled='true']) { background: var(--hover); }
+.column-visibility-check { width: 14px; height: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--secondary); }
+.column-visibility-menu .picker-row[aria-disabled='true'] .column-visibility-check { color: var(--faint); }
+.column-visibility-tip { position: absolute; z-index: 1; top: 50%; right: calc(100% + 8px); transform: translateY(-50%); visibility: hidden; pointer-events: none; padding: 6px 8px; border-radius: 6px; background: var(--fg); color: var(--bg); font-size: 12px; font-weight: 400; line-height: 16px; white-space: nowrap; }
+.column-visibility-menu .picker-row[aria-disabled='true']:hover > .column-visibility-tip,
+.column-visibility-menu .picker-row[aria-disabled='true']:focus-visible > .column-visibility-tip { visibility: visible; }
 @media (pointer: coarse) { #column-toggle { width: 44px; height: 44px; } }
 .menu-check { width: 14px; flex-shrink: 0; display: flex; }
 .menu-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

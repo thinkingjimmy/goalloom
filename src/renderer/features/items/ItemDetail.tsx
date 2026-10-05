@@ -2,7 +2,7 @@
  * [INPUT]: Item ID, authoritative detail/period, workspace clock, visible candidates, flow views and actions.
  * [OUTPUT]: Editable details: rich title with an aligned checkbox, one horizontal property row (deadline, flow, 上级/下级, 拆解), a description that takes the remaining height,
  *           a header-toggled activity drawer, real-period controls, a start-aligned floating actions menu and silent autosave.
- * [POS]: Full-body detail boundary; the autosave boundary preserves newer drafts and drains before navigation.
+ * [POS]: Full-body detail boundary; autosave drains navigation and removes cleared title-only todos on explicit dismissal.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -48,7 +48,7 @@ export function ItemDetail({ itemId, generation, close, select, write, retryWrit
     return () => clearTimeout(timer)
   }, [history])
   const leave = async (next: () => void) => { if (await autosave.flush()) next() }
-  const dismiss = () => { void leave(close) }
+  const dismiss = () => { void autosave.dismiss().then(ready => { if (ready) close() }) }
   const navigate = (id: string) => { void leave(() => select(id)) }
   const toggle = (next: Pop) => setPop(pop === next ? null : next)
   const item = detail?.item
@@ -56,9 +56,9 @@ export function ItemDetail({ itemId, generation, close, select, write, retryWrit
   const readOnly = !!item?.deletedAt
   const parents = detail?.relations.filter(edge => edge.childId === itemId) ?? []
   const done = item?.status === 'done'
-  // Later is a parking lot: no flow colour and no links; existing edges still show and open. 今天 is the shortest horizon, so it has nothing to split into.
+  // Later is a parking lot: no flow colour and no new links. Moving in drops parent edges; remaining child edges still show and open. 今天 is the shortest horizon, so it has nothing to split into.
   const later = item?.placement.horizon === 'later'
-  const ring = item && !done ? flowVars(flows.colorsOf(itemId)) : undefined
+  const ring = item && !done && !later ? flowVars(flows.colorsOf(itemId)) : undefined
   const inCurrent = (horizon: ItemHorizon) => !!item && item.placement.horizon === horizon && (horizon === 'later' || !!detail?.period && compareInstants(detail.period.startAt, observedAt) <= 0 && compareInstants(detail.period.endAt, observedAt) > 0)
   const context = item && `${detail?.period ? `${planningLabel(detail.period, calendar, observedAt)} · ${periodDates(detail.period)}` : horizonNames[item.placement.horizon]}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}${readOnly ? ` · ${messages.trash}` : ''}`
   const heading = item && (readOnly ? <p className="modal-context">{context}</p> : <div className="modal-context">
@@ -86,7 +86,7 @@ export function ItemDetail({ itemId, generation, close, select, write, retryWrit
   </Popover>
   const activityToggle = <button type="button" className="icon-button" aria-label={`${messages.activity} ${activity.total}`} title={activity.latest ?? messages.activity} aria-expanded={history} aria-pressed={history} onClick={() => setHistory(!history)}><Icon name="history" size={18} /></button>
   return <Modal title={readOnly ? messages.trashItem : messages.currentItem} heading={heading} actions={<>{actions}{item && activityToggle}</>} close={dismiss} className={`detail${history ? ' with-activity' : ''}`}>
-    {error && <p className="inline-error detail-save-error" role="alert">{error} <button type="button" className="text-button" disabled={autosave.saving} onClick={() => void autosave.retry()}>{messages.retryAutosave}</button></p>}
+    {error && <p className="inline-error detail-save-error" role="alert">{error} <button type="button" className="text-button" disabled={autosave.saving} onClick={() => void autosave.retry().then(discarded => { if (discarded) close() })}>{messages.retryAutosave}</button></p>}
     {item && detail && <div className="detail-layout">
       <div className="detail-main">
         <form className="detail-body" data-save-state={error ? 'error' : autosave.saving ? 'saving' : autosave.dirty ? 'pending' : 'saved'} onCompositionStart={() => autosave.composition(true)} onCompositionEnd={() => autosave.composition(false)}
@@ -102,17 +102,17 @@ export function ItemDetail({ itemId, generation, close, select, write, retryWrit
               aria-label={done ? messages.reopenAction : messages.markDone} onClick={() => { if (!busy) void submit({ type: 'status', itemId, expectedVersion: item.version, status: done ? 'todo' : 'done' }) }}>
               {done && <Icon name="check" size={14} strokeWidth={2.5} />}
             </button>
-            <DetailTitle key={itemId} value={draft.title} savedValue={item.title} onChange={value => autosave.change('title', value)} readOnly={readOnly} />
+            <DetailTitle key={itemId} value={draft.title} savedValue={item.title} onChange={value => autosave.change('title', value)} readOnly={readOnly || autosave.discarding} />
           </div>
           <div className="detail-props">
-            <DuePicker value={draft.dueDate} today={today} weekStart={calendar.weekStart} readOnly={readOnly} onChange={value => autosave.change('dueDate', value, true)} />
+            <DuePicker value={draft.dueDate} today={today} weekStart={calendar.weekStart} readOnly={readOnly || autosave.discarding} onChange={value => autosave.change('dueDate', value, true)} />
             {!later && <FlowPicker item={item} hasParents={parents.length > 0} flows={flows} busy={busy} readOnly={readOnly} open={pop === 'flow'} setOpen={open => setPop(open ? 'flow' : null)} submit={submit} />}
             {(['parent', 'child'] as const).map(side => <RelationChip key={side} side={side} self={{ id: item.id, horizon: item.placement.horizon }} edges={detail.relations}
               open={pop === side} setOpen={open => setPop(open ? side : null)} canLink={!readOnly && !later && !(side === 'parent' && item.flowColor !== null)}
               flows={flows} candidates={candidates} navigate={navigate} submit={submit} onError={setError} />)}
             {!readOnly && !later && item.placement.horizon !== 'day' && <button type="button" className="detail-chip" data-ghost="true" onClick={() => { void leave(() => split({ id: item.id, title: draft.title.trim() }, nextHorizon[item.placement.horizon])) }}><Icon name="add" size={14} />{messages.decompose}</button>}
           </div>
-          <DescriptionEditor key={itemId} value={draft.description} savedUrls={savedUrls} onChange={(value, immediate) => autosave.change('description', value, immediate)} readOnly={readOnly} />
+          <DescriptionEditor key={itemId} value={draft.description} savedUrls={savedUrls} onChange={(value, immediate) => autosave.change('description', value, immediate)} readOnly={readOnly || autosave.discarding} />
           {/* The latest event stays readable at the foot of the body; the editor must not be the form's last node (Chromium then moves a focused checklist marker's Space to the text). */}
           <button type="button" className="detail-latest" aria-expanded={history} onClick={() => setHistory(!history)}>{activity.latest ?? messages.activity}</button>
         </form>

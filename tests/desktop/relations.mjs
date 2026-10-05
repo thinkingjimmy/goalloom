@@ -92,7 +92,15 @@ try {
   await page.getByRole('button', { name: '只看 副业收入', exact: true }).click()
   // root→b, root→c, b→d, c→f, d→j, f→j, c→p; the done leaf stays folded, so j→k is not drawn.
   await page.waitForFunction(() => document.querySelectorAll('.relation-edge').length === 7)
-  // Insight owns the guide's acceptance; complete it before exercising the underlying flow menus.
+  assert.equal(await board.locator('.breakpoint, .breakpoint-guide').count(), 0, 'Connected parents do not offer child creation or intermediate milestones')
+  // A temporary childless parent exercises the existing guide contract without changing the connected graph.
+  const guideParent = await page.evaluate(async parentId => {
+    const s = await window.goalloom.getSnapshot(), parent = s.items.find(item => item.id === parentId)
+    const reply = await window.goalloom.execute({ type: 'create', title: 'Guide childless month', horizon: 'month', parentId,
+      expectedParentVersion: parent.version, generation: s.workspace.generation, operationId: crypto.randomUUID() })
+    if (!reply.ok) throw Error(reply.message)
+    return reply.result.itemId
+  }, ids.root)
   await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
   await board.locator('.breakpoint-guide').waitFor()
   const guideBounds = await board.locator('.breakpoint-guide').evaluate(node => {
@@ -101,6 +109,13 @@ try {
   })
   assert(guideBounds.left >= 0 && guideBounds.right <= 0 && guideBounds.bottom <= 0, `Guide stays inside the horizontally clipped board: ${JSON.stringify(guideBounds)}`)
   await board.locator('.breakpoint-guide').getByRole('button', { name: '知道了', exact: true }).click()
+  await page.evaluate(async itemId => {
+    const s = await window.goalloom.getSnapshot(), item = s.items.find(item => item.id === itemId)
+    const reply = await window.goalloom.execute({ type: 'delete', itemId, expectedVersion: item.version,
+      generation: s.workspace.generation, operationId: crypto.randomUUID() })
+    if (!reply.ok) throw Error(reply.message)
+  }, guideParent)
+  await page.waitForFunction(() => document.querySelectorAll('.relation-edge').length === 7)
   assert.equal(await board.locator('.relation-edge[data-skip]').count(), 1, '本月 → 今天 按跨级虚线')
   assert.equal(await board.locator('[data-dimmed="true"]').count(), 4, '其他流程与无流程的时间列条目原位置灰，不隐藏（Later 除外）')
   assert.equal(await page.locator(`#item-${ids.later}`).getAttribute('data-dimmed'), 'false', 'Later 不参与流程，筛选时不置灰')
@@ -113,7 +128,7 @@ try {
   const tall = await page.locator(`#item-${ids.c}`).evaluate(node => {
     const r = node.getBoundingClientRect(), title = node.querySelector('.task-title > span'), board = node.closest('.board').getBoundingClientRect()
     const anchor = r.top - board.top + 16
-    const add = document.querySelector(`.breakpoint[data-spot-key="skip:${node.dataset.itemId}"]`)?.getBoundingClientRect()
+    const add = document.querySelector(`.breakpoint[data-spot-key$=":${node.dataset.itemId}"]`)
     const checkbox = node.querySelector('.check'), check = checkbox.getBoundingClientRect()
     const text = document.createRange(); text.selectNodeContents(title)
     const fragments = [...text.getClientRects()]
@@ -121,11 +136,11 @@ try {
       firstLineAligned: Math.abs(fragments[0].left - check.right - 7.2) < 0.5,
       continuationAligned: fragments.slice(1).every(fragment => Math.abs(fragment.left - check.left) < 0.5),
       checkClickable: document.elementFromPoint(check.left + check.width / 2, check.top + check.height / 2)?.closest('.check') === checkbox,
-      addAligned: !!add && Math.abs(add.right - (r.right - 15)) < 0.5 && Math.abs(add.top + add.height / 2 - r.top - 16) < 0.5,
+      hasChildAction: !!add,
       check: Math.round(node.querySelector('.check').getBoundingClientRect().top - r.top - 2), anchored: [...document.querySelectorAll('.relation-port')].some(port => Math.abs(Number(port.getAttribute('cy')) - anchor) < 1) }
   })
   assert(tall.lines > 2, 'A long task title grows beyond two lines')
-  assert.deepEqual(tall, { height: tall.lines * 22 + 10, lines: tall.lines, clipped: false, firstLineAligned: true, continuationAligned: true, checkClickable: true, addAligned: true, check: 5, anchored: true })
+  assert.deepEqual(tall, { height: tall.lines * 22 + 10, lines: tall.lines, clipped: false, firstLineAligned: true, continuationAligned: true, checkClickable: true, hasChildAction: false, check: 5, anchored: true })
   // Neighbouring tinted rows keep a clear band between their grounds instead of merging into one block.
   const band = await page.evaluate(([upper, lower]) => {
     const a = document.getElementById(`item-${upper}`), b = document.getElementById(`item-${lower}`)
@@ -207,6 +222,16 @@ try {
   await page.getByRole('button', { name: '只看 副业收入', exact: true }).click()
   await page.waitForFunction(() => !document.querySelector('.relation-lines'))
   assert.equal(await page.locator(`#item-${ids.later} .flow-dot-button`).count(), 0, 'Later 不显示圆点，不参与关联')
+  const laterRow = await page.locator(`#item-${ids.later}`).evaluate(node => {
+    const row = node.getBoundingClientRect(), check = node.querySelector('.check').getBoundingClientRect()
+    const title = node.closest('.board-column').querySelector('h2').getBoundingClientRect()
+    return { gutter: Math.round(check.left - row.left), aligned: Math.abs(check.left - title.left), ring: node.querySelector('.check').style.getPropertyValue('--flow-ring') }
+  })
+  assert.equal(laterRow.gutter, 12, 'Later rows keep a short leading inset instead of the flow-dot gutter')
+  assert.ok(laterRow.aligned < 0.5, `Later title aligns with the checkbox (${laterRow.aligned})`)
+  assert.equal(laterRow.ring, '', 'A Later checkbox has no flow colour')
+  const weekGutter = await page.locator(`#item-${ids.d} .check`).evaluate(node => Math.round(node.getBoundingClientRect().left - node.closest('.task-row').getBoundingClientRect().left))
+  assert.equal(weekGutter, 20, 'Time columns keep the flow-dot gutter')
   await page.locator(`#item-${ids.j} .task-title`).hover()
   await dot(ids.j).hover()
   await page.waitForFunction(() => document.querySelectorAll('.relation-edge[data-state="hot"]').length === 6)
@@ -427,6 +452,36 @@ try {
   await leaveBoard()
   const screenshot = `${shots}/flow-filter-order.png`
   await page.screenshot({ path: screenshot })
+  const parked = await page.evaluate(async root => {
+    const generation = (await window.goalloom.getSnapshot()).workspace.generation
+    const version = async id => (await window.goalloom.getSnapshot()).items.find(item => item.id === id).version
+    const placement = async id => (await window.goalloom.getSnapshot()).items.find(item => item.id === id).placement.version
+    const execute = async action => { const reply = await window.goalloom.execute({ ...action, generation, operationId: crypto.randomUUID() }); if (!reply.ok) throw new Error(reply.message); return reply.result }
+    const child = (await execute({ type: 'create', title: '先挂在流程上', horizon: 'week', parentId: root, expectedParentVersion: await version(root) })).itemId
+    const moved = await execute({ type: 'move', itemId: child, horizon: 'later', expectedVersion: await version(child), expectedPlacementVersion: await placement(child) })
+    return { child, operationId: moved.operationId }
+  }, ids.root)
+  await page.locator(`#item-${parked.child}`).waitFor()
+  const parkedView = await page.locator(`#item-${parked.child}`).evaluate(node => ({
+    horizon: node.closest('[data-horizon]')?.getAttribute('data-horizon'),
+    ring: node.querySelector('.check').style.getPropertyValue('--flow-ring'),
+    gutter: Math.round(node.querySelector('.check').getBoundingClientRect().left - node.getBoundingClientRect().left),
+  }))
+  const stillLinked = await page.evaluate(async child => (await window.goalloom.getSnapshot()).relations.some(edge => edge.childId === child), parked.child)
+  assert.equal(parkedView.horizon, 'later')
+  assert.equal(stillLinked, false, 'Moving into Later drops the parent')
+  assert.equal(parkedView.ring, '')
+  assert.equal(parkedView.gutter, 12)
+  await page.evaluate(async operationId => {
+    const generation = (await window.goalloom.getSnapshot()).workspace.generation
+    const reply = await window.goalloom.execute({ type: 'undo', originalOperationId: operationId, generation, operationId: crypto.randomUUID() })
+    if (!reply.ok) throw new Error(reply.message)
+  }, parked.operationId)
+  await page.waitForFunction(async child => {
+    const snapshot = await window.goalloom.getSnapshot()
+    const item = snapshot.items.find(row => row.id === child)
+    return item?.placement.horizon === 'week' && snapshot.relations.some(edge => edge.childId === child)
+  }, parked.child)
   const positioning = await verifyFlowDotPosition(application, page, shots)
   const report = {
     ok: true, packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()),

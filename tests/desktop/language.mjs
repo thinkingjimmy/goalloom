@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, isolated profiles, an explicit week-start choice and the five supported locale catalogs.
- * [OUTPUT]: Language-switching acceptance, app-local startup/failure diagnostics and repeatable screenshots of settings/calendar, detail/flow menus and period-named reviews in every locale.
+ * [OUTPUT]: Language-switching acceptance, app-local diagnostics and settings/calendar, detail/flow menus, review guides and custom choices in every locale.
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -37,6 +37,11 @@ async function assertTranslated(page, where) {
 const workerMessage = page => page.evaluate(async () => (await window.goalloom.execute({ type: 'preferences', theme: 'dark', operationId: crypto.randomUUID(), generation: 'stale-generation' })).message)
 const settingsDialog = (page, name) => page.getByRole('dialog', { name, exact: true })
 const names = { zh: '简体中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }
+const reviewChoices = {
+  zh: { move: /^移入 /, keep: '留在原处' }, en: { move: /^Move to /, keep: 'Keep in place' },
+  ja: { move: /へ移動$/, keep: 'そのまま残す' }, es: { move: /^Mover a /, keep: 'Dejar en su lugar' },
+  fr: { move: /^Déplacer vers /, keep: 'Laisser en place' },
+}
 // shadcn Select: open the trigger, then pick the option from the portaled listbox.
 async function choose(page, trigger, code) {
   await trigger.click()
@@ -61,12 +66,12 @@ const ui = {
   fr: { settings: 'Réglages et données', board: 'Tableau', smart: 'Saisie intelligente', day: 'Aujourd’hui' },
   zh: { settings: '设置与数据', board: '时间看板', smart: '智能输入', day: '今天' },
 }
-const reviewTitles = {
-  zh: { week: '本周复盘', both: '本周 + 本月复盘', previousMonth: '上月复盘' },
-  en: { week: 'Weekly review', both: 'Week + month review', previousMonth: 'Review Last month' },
-  ja: { week: '週の振り返り', both: '週 + 月の振り返り', previousMonth: '先月の振り返り' },
-  es: { week: 'Repaso semanal', both: 'Repaso de semana y mes', previousMonth: 'Repaso de El mes pasado' },
-  fr: { week: 'Bilan de la semaine', both: 'Bilan semaine + mois', previousMonth: 'Bilan de Le mois dernier' },
+const weeklyGuides = {
+  zh: { heading: '回顾 本周，安排 下周', start: '开始 本周复盘', continue: '继续复盘' },
+  en: { heading: 'Review This week, plan next week', start: 'Review This week', continue: 'Continue review' },
+  ja: { heading: '今週を振り返り、来週を計画', start: '今週の振り返りを始める', continue: '振り返りを続ける' },
+  es: { heading: 'Revisa Esta semana, planifica la próxima semana', start: 'Revisar Esta semana', continue: 'Continuar revisión' },
+  fr: { heading: 'Bilan de Cette semaine, préparer la semaine prochaine', start: 'Bilan de Cette semaine', continue: 'Poursuivre le bilan' },
 }
 const parentLabels = { zh: '关联到上级', en: 'Link to a parent', ja: '上位に関連付け', es: 'Vincular a un superior', fr: 'Lier à un parent' }
 
@@ -189,9 +194,15 @@ try {
     assert.equal(await detail.isVisible(), true)
     await page.keyboard.press('Escape')
     await detail.waitFor({ state: 'detached' })
-    const entry = page.locator('[data-review]'), expectedWeekTitle = reviewTitles[code].week
+    const entry = page.locator('[data-review]')
     assert.equal(await entry.count(), 1, 'Combined reviews have a single entry')
-    if (report.reviewScope === 'week') assert.equal((await entry.innerText()).trim(), expectedWeekTitle)
+    const guide = page.locator('.review-guide')
+    assert.equal(await guide.count(), 1, 'Weekly and monthly reviews share the unified guide')
+    if (report.reviewScope === 'week') {
+      assert.equal(await guide.locator('h3').innerText(), weeklyGuides[code].heading)
+      assert.equal((await entry.innerText()).trim(), code === 'en' ? weeklyGuides[code].start : weeklyGuides[code].continue)
+      assert.equal(await page.locator('[data-horizon=week] .backlog-entry, [data-horizon=week] .insight-empty, [data-horizon=week] .empty-column').count(), 0)
+    }
     const entryTitle = await entry.getAttribute('title')
     assert(entryTitle)
     if (report.reviewScope !== 'week') {
@@ -208,10 +219,35 @@ try {
     await review.locator('.review-foot .primary:not(:disabled)').waitFor()
     const reviewTitle = await review.locator('.review-head h2').innerText()
     await review.screenshot({ path: `${shots}/language-review-drawer-${code}.png` })
+    let closingMenu = 'No unfinished review step in this calendar window'
+    if (await review.locator('.review-metrics').count() && await review.locator('.review-steps li').count() >= 3) {
+      await review.locator('.review-foot .primary').click()
+      const choice = review.locator('.review-close-row').first().getByRole('combobox')
+      await choice.waitFor()
+      assert.match(await choice.innerText(), reviewChoices[code].move)
+      assert.equal(await review.locator('.review-close-row small').count(), 0)
+      await choice.click()
+      const list = review.getByRole('listbox')
+      await list.waitFor()
+      await list.evaluate(node => Promise.all(node.getAnimations().map(animation => animation.finished)))
+      assert.equal(await list.getByRole('option').count(), 3)
+      assert.equal(await list.getByRole('option', { name: reviewChoices[code].keep, exact: true }).count(), 1)
+      if (['en', 'es', 'fr'].includes(code)) assert(!/[\u4e00-\u9fff]/u.test(await review.innerText()), 'Default-move guidance and options are translated')
+      const bounds = await list.evaluate(node => { const box = node.getBoundingClientRect(); return { left: box.left, right: box.right, viewport: innerWidth } })
+      assert(bounds.left >= 0 && bounds.right <= bounds.viewport, 'Translated options stay within the window')
+      await review.screenshot({ path: `${shots}/language-review-menu-${code}.png` })
+      await page.keyboard.press('Escape')
+      await list.waitFor({ state: 'detached' })
+      await page.waitForFunction(label => document.activeElement?.getAttribute('aria-labelledby') === label, await choice.getAttribute('aria-labelledby'))
+      assert.equal(await choice.evaluate(node => document.activeElement === node), true)
+      assert.equal(await review.isVisible(), true)
+      await review.locator('.review-foot .review-text-button').click()
+      closingMenu = { defaultMove: 'ok', optionCount: 3, keepLabel: reviewChoices[code].keep, escapeFocus: 'ok', ...bounds }
+    }
     await review.locator('.review-head .icon-button').click()
     await review.waitFor({ state: 'hidden' })
     report.locales[code] = { lang: tags[code], panes, worker: 'ok', untranslatedCheck: ['en', 'es', 'fr'].includes(code), entryTitle, reviewTitle,
-      flowMenu: { parentLabel: parentLabels[code], ...flowGeometry }, detailMore: 'Three actions; Escape closes only the menu' }
+      flowMenu: { parentLabel: parentLabels[code], ...flowGeometry }, detailMore: 'Three actions; Escape closes only the menu', closingMenu }
     await page.getByRole('button', { name: ui[code].settings, exact: true }).click()
     dialog = settingsDialog(page, ui[code].settings)
     await dialog.waitFor()

@@ -27,7 +27,9 @@ try {
     const child = await execute({ type: 'create', title: '保护备份行动', horizon: 'day', parentId: parent.itemId, expectedParentVersion: 1 })
     const deleted = await execute({ type: 'create', title: '恢复后还原', horizon: 'later' })
     await execute({ type: 'delete', itemId: deleted.itemId, expectedVersion: 1 })
-    return { generation, parentId: parent.itemId, childId: child.itemId, deletedId: deleted.itemId }
+    const discarded = await execute({ type: 'create', title: '空白详情恢复保护', horizon: 'later' })
+    await execute({ type: 'discardEmpty', itemId: discarded.itemId, expectedVersion: 1 })
+    return { generation, parentId: parent.itemId, childId: child.itemId, deletedId: deleted.itemId, discardedId: discarded.itemId }
   })
   const openSettings = async () => { await page.getByRole('button', { name: '设置与数据', exact: true }).click(); return page.getByRole('dialog', { name: '设置与数据' }) }
   let settings = await openSettings()
@@ -77,6 +79,9 @@ try {
   let restored = await page.evaluate(() => window.goalloom.getSnapshot())
   assert.equal(restored.items.length, 2); assert.equal(restored.relations.length, 1)
   assert.equal(restored.workspace.pausedAfterRestore, true)
+  assert.equal((await page.evaluate(id => window.goalloom.getItem(id), seed.discardedId)).item.title, '空白详情恢复保护')
+  assert.equal((await page.evaluate(() => window.goalloom.getCounts())).trash, 1)
+  assert.equal((await page.evaluate(() => window.goalloom.listItems({ type: 'list', view: 'trash' }))).items.some(item => item.id === seed.discardedId), false)
   assert.notEqual(restored.workspace.generation, reset.workspace.generation)
   // 整库恢复清空会话撤销栈：命令面板中的撤销不可用。
   await page.getByRole('button', { name: '搜索与命令', exact: true }).click()

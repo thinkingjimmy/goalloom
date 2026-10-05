@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
- * [OUTPUT]: Accessible task row with saved links, a due indicator, a description signal/peek between title and link cards, flow dot with independent relation dragging, pointer/keyboard placement drag and TODO context menu; task titles have no native tooltip, and lit rows carry `data-lit` and `--row-tint`.
+ * [OUTPUT]: Accessible task row with saved links, a due indicator, a description signal/peek between title and link cards, flow dot with independent relation dragging, pointer/keyboard placement drag and TODO context menu; task titles have no native tooltip, and lit rows carry `data-lit` and `--row-tint`. Later checkboxes stay uncolored.
  * [POS]: One virtual board row; Board owns placement, preview and dimming; the peek and detail own description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -31,7 +31,8 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
   useLocale()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled, animateLayoutChanges: () => false })
   const done = item.status === 'done'
-  const ring = done ? undefined : flowVars(flows.colorsOf(item.id))
+  const colored = !done && item.placement.horizon !== 'later'
+  const ring = colored ? flowVars(flows.colorsOf(item.id)) : undefined
   const owners = flows.of(item.id).map(flow => flow.title).join(messages.listJoin)
   const overdue = !done && item.dueDate !== null && item.dueDate < today
   const hasLinks = useMemo(() => linkUrls(item.title).length > 0, [item.title])
@@ -44,7 +45,7 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
     style={{ transform: CSS.Transform.toString(transform), transition, '--row-tint': tint } as CSSProperties} onPointerDown={event => { if (event.button === 0 && !event.ctrlKey) (listeners?.onPointerDown as PointerEventHandler | undefined)?.(event) }}>
     <FlowDot item={item} flows={flows} relations={relations} candidates={candidates} disabled={disabled} submit={submit} onPreview={onPreview} />
     <button className="drag-handle" {...attributes} onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined} aria-label={messages.dragItem(item.title)}><Icon name="drag" size={14} /></button>
-    <button className="check" data-checked={done} style={ring} title={owners ? messages.labelled(messages.flow, owners) : undefined}
+    <button className="check" data-checked={done} style={ring} title={colored && owners ? messages.labelled(messages.flow, owners) : undefined}
       aria-label={`${done ? messages.reopen : messages.complete} ${item.title}`} disabled={disabled}
       onClick={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
       {done && <Icon name="check" size={12} strokeWidth={2.5} />}

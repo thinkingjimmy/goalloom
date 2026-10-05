@@ -48,6 +48,9 @@ export const settingsMessages: SettingsCatalog = {
   calendarSettings: 'Calendar settings',
   overdue: 'Overdue and unfinished',
   policyNotes: {
+    year: { auto: 'Moves to the next year when this year ends', manual: 'Stays in past periods at year end for you to arrange' },
+    half: { auto: 'Moves to the next half-year when this one ends', manual: 'Stays in past periods at half-year end for you to arrange' },
+    cycle: { auto: 'Moves to the next period when this one ends', manual: 'Stays in past periods at period end for you to arrange' },
     month: { auto: 'Moves to next month at month end', manual: 'Stays in past periods at month end for you to arrange' },
     week: { auto: 'Moves to next week when the week ends', manual: 'Stays in past periods when the week ends for you to arrange' },
     day: { auto: 'Moves to the new today at midnight', manual: 'Stays in past periods at midnight for you to arrange' },

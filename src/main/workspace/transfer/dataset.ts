@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Schema-v6 export, v1-v6 source validation, body-discarding protective checks and atomic replacement.
+ * [OUTPUT]: Schema-v7 export, v1-v7 source validation, body-discarding protective checks and atomic replacement with legacy manual year/half defaults.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,7 @@ import { transaction, verifyDatabase } from '../../storage/database'
 import { requiredTables, schemaVersion, supportedVersions, userVersion } from '../../storage/schema'
 import { datasetHeader, datasetRows } from './rows'
 import { serverText } from '../../../shared/i18n/server'
+import { currentPeriod } from '../../../domain/calendar'
 
 // Validate each source under its original schema version; only a new export uses the current version.
 export function exportDataset(store: Store, now: string, version: number = schemaVersion): Dataset {
@@ -67,6 +68,13 @@ export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 're
     for (const edge of data.relations) store.saveRelation(edge)
     const insertPolicy = store.prepare('INSERT INTO rollover_policies VALUES (?,?,?,?)')
     for (const policy of data.policies) insertPolicy.run(policy.horizon, policy.mode, policy.version, policy.effectiveFromPeriodId)
+    if (data.schemaVersion < 7 && data.workspace.calendar) {
+      for (const horizon of ['year', 'half'] as const) {
+        const period = currentPeriod(data.workspace.calendar, horizon, now)
+        store.ensurePeriod(period)
+        insertPolicy.run(horizon, 'manual', 1, period.id)
+      }
+    }
     for (const operation of data.operations) store.saveOperation(operation)
     const insertEvent = store.prepare('INSERT INTO item_events (seq,id,operationId,eventIndex,itemId,at,type,beforeState,afterState,fromPeriodId,toPeriodId,undoOf) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
     for (const event of data.events) insertEvent.run(event.seq, event.id, event.operationId, event.eventIndex, event.itemId, event.at, event.type, event.before ? JSON.stringify(event.before) : null, JSON.stringify(event.after), event.before?.periodId ?? null, event.after.periodId, event.undoOf)

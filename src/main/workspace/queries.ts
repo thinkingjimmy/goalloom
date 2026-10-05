@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A Store owned by the serial storage queue and validated page coordinates.
- * [OUTPUT]: Count-only summaries and bounded rollover detail pages without item bodies.
+ * [OUTPUT]: Count-only summaries, a shared trash projection excluding empty-detail discards and bounded rollover pages.
  * [POS]: Read projections for Settings and collapsed Activity; no business writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,12 +8,15 @@ import type { Store } from '../storage/store'
 import type { BatchPage, BatchSummary } from '../../shared/contracts/transfer'
 import type { ActivitySummary, ItemCounts } from '../../shared/contracts/queries'
 
+// The deletion receipt identifies empty-detail discards without adding another item lifecycle flag.
+export const trashWhere = "i.deletedAt IS NOT NULL AND NOT EXISTS (SELECT 1 FROM operations o WHERE o.id=i.deletedBy AND o.kind='discardEmpty')"
+
 export function itemCounts(store: Store): ItemCounts {
   const row = store.db.prepare(`SELECT
-    count(*) FILTER (WHERE deletedAt IS NULL AND status='done') AS done,
-    count(*) FILTER (WHERE deletedAt IS NULL AND status='cancelled') AS cancelled,
-    count(*) FILTER (WHERE deletedAt IS NULL AND archivedAt IS NOT NULL) AS archived,
-    count(*) FILTER (WHERE deletedAt IS NOT NULL) AS trash FROM items`).get()!
+    count(*) FILTER (WHERE i.deletedAt IS NULL AND i.status='done') AS done,
+    count(*) FILTER (WHERE i.deletedAt IS NULL AND i.status='cancelled') AS cancelled,
+    count(*) FILTER (WHERE i.deletedAt IS NULL AND i.archivedAt IS NOT NULL) AS archived,
+    count(*) FILTER (WHERE ${trashWhere}) AS trash FROM items i`).get()!
   return { done: Number(row.done), cancelled: Number(row.cancelled), archived: Number(row.archived), trash: Number(row.trash) }
 }
 

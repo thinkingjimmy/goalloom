@@ -126,6 +126,7 @@ export const appMessages = widen({
     archive: '归档',
     unarchive: '解除归档',
     delete: '删除',
+    discardEmpty: '移除空白事项',
     restore: '还原',
     unlink: '解除关联',
     createPlan: (count: number) => count === 1 ? '创建事项' : `创建 ${count} 个事项`,

@@ -64,9 +64,9 @@ export const insightPrefsSchema = z.strictObject({
 export type InsightPrefs = z.infer<typeof insightPrefsSchema>
 const line = z.string().max(500)
 export const draftTaskSchema = z.strictObject({
-  id: z.string().min(1).max(64), kind: z.enum(['next', 'bridge']), parent: line, goal: line.nullable(),
+  id: z.string().min(1).max(64), parent: line, goal: line.nullable(),
   target: z.string().max(120), targetHorizon: z.enum(childHorizons),
-  siblings: z.array(line).max(20), children: z.array(line).max(8),
+  siblings: z.array(line).max(20),
 })
 export type DraftTask = z.infer<typeof draftTaskSchema>
 export const insightBoardSchema = z.strictObject({

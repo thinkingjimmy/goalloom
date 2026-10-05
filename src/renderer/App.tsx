@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Unified candidates/initial direction placement, independent Later/planning visibility with explicit-target reveal, board-ordered filters that follow root promotion/undo, board/dialogs with input-aware detail focus return, menu-aware shortcuts, update dot and app-menu About requests, generation-scoped feedback/caches; flow-insight composer seeds and a generation-bound resumable review modal. Theme, style and checkbox swaps, and system appearance changes, apply without tweening colors.
+ * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; resumable review with atomic completion marks, direct board return and a guarded celebration request. Theme/style changes apply without tweening colours.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,8 +13,10 @@ import type { CalendarChoice } from './features/setup/Setup'
 import { revealRow } from './features/board/VirtualRows'
 import { Board, type AddRequest, type BoardInsight } from './features/board/Board'
 import type { ComposerSeed } from './features/composer/Seeded'
-import { insightReady, useInsightSettings } from './state/insight'
+import { insightReady, markReviewed, useInsightSettings } from './state/insight'
+import { requestReviewCelebration } from './state/celebration'
 import { syncReviewSummaryGeneration } from './state/review-summary'
+import { syncReviewDraftGeneration } from './state/review-drafts'
 import { reviewDue, type ReviewDue } from './features/insight/review'
 import { boardItemVisibility } from './features/board/visibility'
 import { TopBar } from './features/shell/TopBar'
@@ -71,6 +73,13 @@ export function App() {
   const insightSettings = useInsightSettings()
   const [reviewing, setReviewing] = useState<ReviewDue | null>(null)
   const [reviewOpen, setReviewOpen] = useState(false)
+  const completeReview = () => {
+    if (!reviewing || !snapshot) return
+    const generation = snapshot.workspace.generation, horizon = reviewing.month ? 'month' : 'week'
+    markReviewed([reviewing.month?.key, reviewing.week?.key].filter((key): key is string => !!key))
+    setReviewOpen(false); setReviewing(null)
+    requestAnimationFrame(() => requestReviewCelebration(generation, horizon))
+  }
   const due = useMemo(() => snapshot?.workspace.calendar && insightSettings.reviews ? reviewDue(snapshot, insightSettings.reviewed) : null, [snapshot, insightSettings.reviews, insightSettings.reviewed])
   const insight = useMemo<BoardInsight>(() => ({ ready, due, started: reviewing, reviewed: insightSettings.reviewed, review: value => startTransition(() => {
     setReviewing(previous => previous?.month?.key === value.month?.key && previous?.week?.key === value.week?.key ? previous : value); setReviewOpen(true)
@@ -102,7 +111,11 @@ export function App() {
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const setupReady = !!snapshot?.workspace.setupConfirmedAt
   useLayoutEffect(() => { resetLinkPreviewCache() }, [snapshot?.workspace.generation])
-  useLayoutEffect(() => { if (snapshot?.workspace.generation) syncReviewSummaryGeneration(snapshot.workspace.generation) }, [snapshot?.workspace.generation])
+  useLayoutEffect(() => {
+    if (!snapshot?.workspace.generation) return
+    syncReviewSummaryGeneration(snapshot.workspace.generation)
+    syncReviewDraftGeneration(snapshot.workspace.generation)
+  }, [snapshot?.workspace.generation])
   useLayoutEffect(() => { withoutTransitions(() => { document.documentElement.dataset.theme = theme }) }, [theme])
   useLayoutEffect(() => { withoutTransitions(() => { document.documentElement.dataset.style = style }) }, [style])
   useLayoutEffect(() => { withoutTransitions(() => { document.documentElement.dataset.check = checkStyle }) }, [checkStyle])
@@ -209,7 +222,7 @@ export function App() {
     {snapshot && setupReady && composerGeneration === snapshot.workspace.generation && <Composer key={snapshot.workspace.generation} open={composing} snapshot={snapshot} flows={flows} ai={ai} submit={submit} busy={busy} error={error} errorCode={errorCode} close={() => setComposing(false)} openSettings={() => openSettings('smart')} />}
     </Suspense>
     <Suspense fallback={null}>
-    {reviewing && snapshot && setupReady && <ReviewDrawer key={`${snapshot.workspace.generation}:${reviewing.month?.key}:${reviewing.week?.key}`} due={reviewing} snapshot={snapshot} open={reviewOpen} ready={ready} write={write} retryWrite={retryWrite} busy={busy && !pending} setFilter={setFilter} close={() => setReviewOpen(false)} />}
+    {reviewing && snapshot && setupReady && <ReviewDrawer key={`${snapshot.workspace.generation}:${reviewing.month?.key}:${reviewing.week?.key}`} due={reviewing} snapshot={snapshot} open={reviewOpen} ready={ready} write={write} retryWrite={retryWrite} busy={busy && !pending} close={() => setReviewOpen(false)} complete={completeReview} />}
     </Suspense>
     <Suspense fallback={null}>
     {seed && snapshot && setupReady && <Seeded key={seed.key} seed={seed} snapshot={snapshot} flows={flows} submit={submit} busy={busy} error={error} close={() => setSeed(null)} />}

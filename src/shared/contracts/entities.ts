@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Zod, ordered product horizons and date/calendar wire validation.
- * [OUTPUT]: Strict workspace, item summary/detail, placement, relation and period DTOs.
+ * [OUTPUT]: Strict workspace, item summary/detail, placement, relation, period and six-horizon policy DTOs.
  * [POS]: Persistence, IPC and import schemas without Electron dependencies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

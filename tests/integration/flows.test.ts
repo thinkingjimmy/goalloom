@@ -82,6 +82,6 @@ it('导入校验流程颜色唯一与根约束，并接受没有颜色字段的 
   const colouredChild = structuredClone(source)
   colouredChild.items.find(item => item.id === task.id)!.flowColor = 2
   expect(() => validateImport(colouredChild, now)).toThrow('流程根不能有上级')
-  const legacy = JSON.parse(JSON.stringify({ ...source, schemaVersion: 1, items: source.items.map(({ flowColor: _flowColor, ...item }) => item) }))
+  const legacy = JSON.parse(JSON.stringify({ ...source, schemaVersion: 1, policies: source.policies.filter(policy => policy.horizon !== 'year' && policy.horizon !== 'half'), items: source.items.map(({ flowColor: _flowColor, ...item }) => item) }))
   expect(validateImport(legacy, now).items.every(item => item.flowColor === null)).toBe(true)
 })

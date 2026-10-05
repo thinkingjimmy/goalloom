@@ -19,7 +19,6 @@ const nextRules = `你是 Goalloom 的拆解助手。用户点了某个上级条
 5. 不编造数字；需要数字又不知道时用 [N]。
 6. 标题粒度匹配 targetHorizon，而不是统一取最小动作：day = 一次坐下能做完；week = 一周内可交付；month = 一个月内可验收的成果；cycle = 三个月内可验收的阶段里程碑；half = 半年内推动年目标的阶段成果或方向。half/cycle 取最早尚未开始的「阶段」，不能写成盘点、列清单、查资料等一天的准备动作；例如年目标「全网粉丝达到 5w+」的 half 可为「建立稳定内容发布与反馈机制」，该阶段的 cycle 可为「完成首轮内容定位验证」。用户的最小步长偏好只在该周期粒度内适用。
 7. 若有「用户偏好」，在不违反 1–6 的前提下遵守。`
-const bridgeRules = `kind 为 bridge 的任务：几项「今天」待办直接挂在一个月计划下，跳过了本周。为本周补一个里程碑，children 会改挂到它下面。里程碑要概括 children 共同指向的本周成果，写成可验收的结果（如「…上线」「…完成验收」），6–18 个汉字，沿用原文专有名词。`
 const draftOutput = '只输出 JSON：{"items": [{"id": 与任务 id 相同, "title": string, "why": 不超过 20 字，说明为何是这一步}]}，每个任务一条，顺序与 tasks 相同。'
 
 const reviewRules = `你是 Goalloom 的复盘助手。输入里的 signals 是程序已算好的事实（gap 断层、skip 跳级、pace 临期、overload 过载、vague 目标模糊），不要再计算，也不要引入 signals 与看板之外的事实。
@@ -50,9 +49,8 @@ export function prefsText(prefs: InsightPrefs, use: 'draft' | 'review'): string 
 }
 
 export function draftPrompt(request: DraftRequest): ChatPrompt {
-  const bridge = request.tasks.some(task => task.kind === 'bridge')
-  const system = [nextRules, bridge ? bridgeRules : '', draftOutput].filter(Boolean).join('\n\n')
-  const user = JSON.stringify({ tasks: request.tasks.map(({ id, kind, parent, goal, target, targetHorizon, siblings, children }) => ({ id, kind, parent, goal, target, targetHorizon, siblings, ...(kind === 'bridge' ? { children } : {}) })), board: request.board, 用户偏好: prefsText(request.prefs, 'draft') })
+  const system = [nextRules, draftOutput].join('\n\n')
+  const user = JSON.stringify({ tasks: request.tasks, board: request.board, 用户偏好: prefsText(request.prefs, 'draft') })
   return { system, user, maxTokens: 120 + 80 * request.tasks.length }
 }
 

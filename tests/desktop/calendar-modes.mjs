@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current Electron build, isolated profiles and calendar storage fixtures.
- * [OUTPUT]: Two-mode/short-year/six-future-column acceptance, locale/theme captures and legacy import evidence.
+ * [OUTPUT]: Two-mode/short-year/six-future-column and six-policy acceptance, locale/theme captures and legacy import evidence.
  * [POS]: Cross-feature calendar regression journey; all task data is synthetic.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,9 +16,12 @@ import { finishSetup, chooseSetupCalendar } from './fixtures/setup.mjs'
 
 const out = resolve('output/tests/calendar-modes')
 await mkdir(out, { recursive: true })
-for (const name of ['legacy-v5.sqlite', 'legacy-v5.sqlite-wal', 'legacy-v5.sqlite-shm']) await rm(join(out, name), { force: true })
+for (const version of [5, 6]) for (const suffix of ['', '-wal', '-shm']) await rm(join(out, `legacy-v${version}.sqlite${suffix}`), { force: true })
 await build({ entryPoints: ['tests/desktop/fixtures/calendar-seed.ts'], bundle: true, platform: 'node', format: 'esm', outfile: join(out, 'calendar-seed.mjs') })
 await build({ entryPoints: ['tests/desktop/fixtures/calendar-history.ts'], bundle: true, platform: 'node', format: 'esm', outfile: join(out, 'calendar-history.mjs') })
+await build({ entryPoints: ['tests/desktop/fixtures/rollover-policies.ts'], bundle: true, platform: 'node', format: 'esm', outfile: join(out, 'rollover-policies.mjs') })
+const policies = spawnSync(electronPath, [join(out, 'rollover-policies.mjs'), out], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
+assert.equal(policies.status, 0, policies.stderr)
 const seed = spawnSync(electronPath, [join(out, 'calendar-seed.mjs'), out], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
 assert.equal(seed.status, 0, seed.stderr)
 const report = { checks: [], runtime: null, os: release(), arch: process.arch, cpu: cpus()[0]?.model, machineScope: 'Host macOS; physical/VM status not independently verified', scope: 'Source-built Electron, real preload/worker/SQLite, synthetic isolated data', passed: false }
@@ -45,8 +48,20 @@ async function verifySettings(mode) {
   await settings.getByRole('button', { name: '日历与顺延', exact: true }).click()
   assert.match(await settings.locator('.calendar-summary').innerText(), new RegExp(`${mode === 'natural' ? '自然年' : '365 天'}[\\s\\S]*已锁定`))
   assert.equal(await settings.locator('.policy-row').count(), 6)
-  assert.equal(await settings.getByText('始终手动安排', { exact: true }).count(), 3)
-  for (const index of [0, 1, 2]) assert.equal(await settings.locator('.policy-row').nth(index).locator('button').count(), 0)
+  assert.deepEqual(await settings.locator('.policy-row').evaluateAll(rows => rows.map(row => row.dataset.policyHorizon)), ['year', 'half', 'cycle', 'month', 'week', 'day'])
+  for (const horizon of ['year', 'half', 'cycle', 'month', 'week', 'day']) {
+    const row = settings.locator(`[data-policy-horizon="${horizon}"]`)
+    assert.equal(await row.getByRole('radio').count(), 2)
+    assert.equal(await row.getByRole('radio', { name: horizon === 'day' ? '自动顺延' : '手动', exact: true }).getAttribute('aria-checked'), 'true')
+  }
+  for (const horizon of ['year', 'half', 'cycle']) {
+    const row = settings.locator(`[data-policy-horizon="${horizon}"]`)
+    await row.getByRole('radio', { name: '自动顺延', exact: true }).click()
+    await page.waitForFunction(horizon => document.querySelector(`[data-policy-horizon="${horizon}"] [role="radio"]:last-child`)?.getAttribute('aria-checked') === 'true' && !document.querySelector('.fab').disabled, horizon)
+    assert.match(await row.locator('.policy-note').innerText(), /自动移入/)
+  }
+  const saved = await page.evaluate(() => window.goalloom.getSnapshot())
+  for (const horizon of ['year', 'half', 'cycle']) assert.equal(saved.policies.find(policy => policy.horizon === horizon).mode, 'auto')
   await settings.getByText('下一年度开始', { exact: true }).waitFor()
   await settings.getByText('下个半年开始', { exact: true }).waitFor()
   // The upcoming starts shown are the ends of the authoritative current periods.
@@ -67,6 +82,23 @@ async function verifySettings(mode) {
   assert.equal(await settings.locator('.settings-group[data-reveal]').count(), 0, 'Ordinary navigation does not re-mark the reset entry')
   await page.keyboard.press('Escape')
   await settings.waitFor({ state: 'detached' })
+  // A real process restart must retain all three independently saved choices.
+  await application.close(); application = null
+  await launch(false, true); await page.locator('.board').waitFor()
+  const restarted = await page.evaluate(() => window.goalloom.getSnapshot())
+  assert.deepEqual(restarted.policies, saved.policies)
+  await page.keyboard.press('ControlOrMeta+,')
+  const reopened = page.locator('dialog.settings-modal')
+  await reopened.getByRole('button', { name: '日历与顺延', exact: true }).click()
+  for (const horizon of ['year', 'half', 'cycle']) {
+    const row = reopened.locator(`[data-policy-horizon="${horizon}"]`)
+    assert.equal(await row.getByRole('radio', { name: '自动顺延', exact: true }).getAttribute('aria-checked'), 'true')
+    await row.getByRole('radio', { name: '手动', exact: true }).click()
+    await page.waitForFunction(horizon => document.querySelector(`[data-policy-horizon="${horizon}"] [role="radio"]:first-child`)?.getAttribute('aria-checked') === 'true' && !document.querySelector('.fab').disabled, horizon)
+  }
+  await shoot(`${mode}-calendar-settings-manual`)
+  await page.keyboard.press('Escape'); await reopened.waitFor({ state: 'detached' })
+  report.checks.push(`${mode}: six ordered editable policies, manual long-horizon defaults, auto/manual saves and process restart persistence`)
 }
 try {
   await launch()
@@ -189,6 +221,13 @@ try {
       await page.waitForFunction(({ theme, style }) => document.documentElement.dataset.theme === theme && document.documentElement.dataset.style === style, { theme, style })
       await column('year').scrollIntoViewIfNeeded()
       await shoot(`${locale}-${theme}-${style}`)
+      await page.keyboard.press('ControlOrMeta+,')
+      const settings = page.locator('dialog.settings-modal')
+      await settings.getByRole('button', { name: { zh: '日历与顺延', en: 'Calendar & roll-over', ja: 'カレンダーと繰り越し', es: 'Calendario y traspaso', fr: 'Calendrier et report' }[locale], exact: true }).click()
+      assert.equal(await settings.locator('.policy-row [role="radio"]').count(), 12)
+      assert.equal(await settings.locator('.policy-row').last().getAttribute('data-policy-horizon'), 'day')
+      await settings.locator('.settings-group').filter({ has: page.locator('.policy-row') }).screenshot({ path: join(out, `${locale}-${theme}-${style}-policies.png`) })
+      await page.keyboard.press('Escape'); await settings.waitFor({ state: 'detached' })
     }
   }
   report.checks.push('five locales and light/paper, dark/minimal captures')

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Device-local storage, React useSyncExternalStore, the preload smart API and the current SmartStatus.
- * [OUTPUT]: useInsightSettings (preferences, toggles, onboarding/review marks), insightReady(status) from the insight feature switch, requestDraft / requestReview.
+ * [OUTPUT]: useInsightSettings, insightReady, atomic bounded review-period marks and draft/review IPC helpers with preference snapshots.
  * [POS]: renderer/state 的流程洞察入口；偏好只存本机（不进工作区、导出或备份），模型调用经 main 的 smart 通道。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -39,8 +39,9 @@ export function updateInsight(change: (value: InsightSettings) => InsightSetting
 }
 export const insightSettings = (): InsightSettings => current
 export function useInsightSettings(): InsightSettings { return useSyncExternalStore(subscribe, () => current) }
-export function markReviewed(periodKey: string): void {
-  updateInsight(value => value.reviewed.includes(periodKey) ? value : { ...value, reviewed: [...value.reviewed, periodKey].slice(-24) })
+export function markReviewed(periodKeys: string[]): void {
+  updateInsight(value => periodKeys.every(key => value.reviewed.includes(key)) ? value
+    : { ...value, reviewed: [...new Set([...value.reviewed, ...periodKeys])].slice(-24) })
 }
 
 // Drafting follows the insight feature's own switch and provider, independent of smart input.
@@ -49,9 +50,9 @@ export function insightReady(status: SmartStatus | null): boolean {
 }
 
 export type InsightResult<T> = { ok: true; value: T } | { ok: false; failure: Failure | null }
-export async function requestDraft(request: Omit<DraftRequest, 'requestId' | 'prefs'>): Promise<InsightResult<DraftTitle[]>> {
+export async function requestDraft(request: Omit<DraftRequest, 'requestId' | 'prefs'>, prefs: InsightPrefs = current.prefs): Promise<InsightResult<DraftTitle[]>> {
   try {
-    const reply = await desktopApi().smart({ type: 'draft', request: { ...request, requestId: crypto.randomUUID(), prefs: current.prefs } })
+    const reply = await desktopApi().smart({ type: 'draft', request: { ...request, requestId: crypto.randomUUID(), prefs } })
     if (reply.type !== 'draft') return { ok: false, failure: null }
     return reply.reply.status === 'ready' ? { ok: true, value: reply.reply.value } : { ok: false, failure: reply.reply.failure }
   } catch { return { ok: false, failure: null } }

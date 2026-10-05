@@ -14,7 +14,7 @@ let directory: string, path: string, backups: string
 const now = () => '2026-09-23T02:00:00.000Z'
 const version = (file: string) => { const db = new DatabaseSync(file, { readOnly: true }); try { return Number(db.prepare('PRAGMA user_version').get()!.user_version) } finally { db.close() } }
 // Builds a real older-version file: v3 DDL rewound to the v1/v2 shape, with tasks and history.
-function legacy(target: 1 | 2 | 3 | 4 | 5, tasks = 1): DatabaseSync {
+function legacy(target: 1 | 2 | 3 | 4 | 5 | 6, tasks = 1): DatabaseSync {
   const db = openDatabase(path); migrate(db)
   const repo = new Repository(db, { now })
   const run = (command: Record<string, unknown>) => repo.execute({ ...command, operationId: randomUUID(), generation: repo.store.workspace().generation })
@@ -41,7 +41,7 @@ it('新库直接初始化当前版本，不创建保护副本', async () => {
   expect(existsSync(backups)).toBe(false)
 })
 
-it.each([1, 2, 3, 4, 5] as const)('v%i is rejected read-only without modifying the file or creating a backup', async target => {
+it.each([1, 2, 3, 4, 5, 6] as const)('v%i is rejected read-only without modifying the file or creating a backup', async target => {
   legacy(target).close()
   const bytes = await readFile(path)
   await expect(openWorkspace(path, backups, now)).rejects.toThrow('不支持')

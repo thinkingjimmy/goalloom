@@ -1,16 +1,25 @@
 /**
  * [INPUT]: An empty isolated SQLite connection.
- * [OUTPUT]: The exact v5 DDL from revision 93d2932, with a blank v5 workspace.
+ * [OUTPUT]: Frozen v5 DDL and its v6 planning-horizon extension, each with the original four-policy constraint.
  * [POS]: Immutable legacy-source fixture for read-only refusal and import acceptance.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
 export function createLegacyV5(db: DatabaseSync) {
-  db.exec(ddl)
+  initialize(db, ddl, 5)
+}
+export function createLegacyV6(db: DatabaseSync) {
+  initialize(db, ddl.replace(
+    "CREATE TABLE planning_periods (\n  id TEXT PRIMARY KEY, horizon TEXT NOT NULL CHECK(horizon IN ('cycle','month','week','day'))",
+    "CREATE TABLE planning_periods (\n  id TEXT PRIMARY KEY, horizon TEXT NOT NULL CHECK(horizon IN ('year','half','cycle','month','week','day'))",
+  ).replace("horizon IN ('later','cycle','month','week','day')", "horizon IN ('later','year','half','cycle','month','week','day')"), 6)
+}
+function initialize(db: DatabaseSync, sql: string, version: number) {
+  db.exec(sql)
   db.prepare('INSERT INTO workspace (id,generation) VALUES (1,?)').run(randomUUID())
-  db.prepare('INSERT INTO schema_migrations VALUES (?,?)').run(5, '2026-09-23T00:00:00Z')
-  db.exec('PRAGMA user_version=5')
+  db.prepare('INSERT INTO schema_migrations VALUES (?,?)').run(version, '2026-09-23T00:00:00Z')
+  db.exec(`PRAGMA user_version=${version}`)
 }
 const styleColumn = "style TEXT NOT NULL DEFAULT 'paper' CHECK(style IN ('paper','minimal'))"
 const checkStyleColumn = "checkStyle TEXT NOT NULL DEFAULT 'outline' CHECK(checkStyle IN ('outline','paper','tint'))"

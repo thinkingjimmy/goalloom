@@ -1,6 +1,6 @@
 /**
  * [INPUT]: The real insight Electron page, its seeded two-flow board and an empty today column.
- * [OUTPUT]: Highlighted-chain gap/skip controls across ancestor/sibling switching, scoped bridge labels/writes, hover/focus/undo assertions, measured endpoint bounds and screenshots.
+ * [OUTPUT]: Child-only breakpoint controls across ancestor/sibling switching, direct-child preservation, retired-write rejection, hover/focus/undo assertions, endpoint bounds and screenshots.
  * [POS]: Insight acceptance fixture; uses native controls and authoritative IPC, restoring its temporary children and extra parent.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -152,112 +152,105 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
   await pollPage(page, id => window.goalloom.getSnapshot().then(s => !s.items.some(item => item.id === id)), created.id)
   await preview()
   await leave()
-  const skipPreview = await verifySkipPreview(page, out, ids)
+  const childOnlyPreview = await verifyChildOnlyPreview(page, out, ids)
   await showLater(true)
-  return { geometry, screenshot, monthlyPreview, rootPreview, mixedPreview, created, skipPreview, checks: ['highlighted chain only', 'same-flow sibling switching', 'monthly preview exposes weekly leaf', 'all highlighted leaves have actions', 'mixed-horizon leaves', 'faded branches excluded', 'empty target', 'row and action hover retention', 'clean preview exit', 'multi-flow deduplication', 'non-current target guard', 'keyboard activation', 'descendant action creates under its own parent', 'linked current-day creation', 'terminal horizon', 'undo restores gap', ...skipPreview.checks] }
+  return { geometry, screenshot, monthlyPreview, rootPreview, mixedPreview, created, childOnlyPreview, checks: ['highlighted chain only', 'same-flow sibling switching', 'monthly preview exposes weekly leaf', 'all highlighted leaves have actions', 'mixed-horizon leaves', 'faded branches excluded', 'empty target', 'row and action hover retention', 'clean preview exit', 'multi-flow deduplication', 'non-current target guard', 'keyboard activation', 'descendant action creates under its own parent', 'linked current-day creation', 'terminal horizon', 'undo restores gap', ...childOnlyPreview.checks] }
 }
 
-async function verifySkipPreview(page, out, ids) {
+async function verifyChildOnlyPreview(page, out, ids) {
   const board = page.locator('.board'), all = page.getByRole('button', { name: '全部', exact: true })
-  const skip = board.locator(`.breakpoint[data-spot-key="skip:${ids.month}"]`)
   const weeklyGap = board.locator(`.breakpoint[data-spot-key="gap:${ids.week}"]`)
   const dot = id => page.locator(`#item-${id} .flow-dot-button`)
-  const children = await page.evaluate(async parentId => {
-    const generation = (await window.goalloom.getSnapshot()).workspace.generation, children = []
-    for (let index = 1; index <= 9; index++) {
-      const parent = (await window.goalloom.getItem(parentId)).item
-      const reply = await window.goalloom.execute({ type: 'create', title: `Preview direct task ${index}`, horizon: 'day', parentId,
+  const added = await page.evaluate(async ids => {
+    const added = {}, generation = (await window.goalloom.getSnapshot()).workspace.generation
+    for (const [key, title, horizon, parentId] of [
+      ['mixedA', 'Direct day task A', 'day', ids.month], ['mixedB', 'Direct day task B', 'day', ids.month],
+      ['month', 'Month with direct day child only', 'month', ids.root], ['day', 'Direct-only day task', 'day', null],
+    ]) {
+      const parent = (await window.goalloom.getItem(parentId ?? added.month)).item
+      const reply = await window.goalloom.execute({ type: 'create', title, horizon, parentId: parent.id,
         expectedParentVersion: parent.version, generation, operationId: crypto.randomUUID() })
-      if (!reply.ok) throw new Error(reply.message)
-      children.push(reply.result.itemId)
+      if (!reply.ok) throw Error(reply.message)
+      added[key] = reply.result.itemId
     }
-    const snapshot = await window.goalloom.getSnapshot()
-    return snapshot.relations.filter(edge => edge.parentId === parentId && children.includes(edge.childId)).map(edge => edge.childId)
-  }, ids.month)
-  await dot(children.at(-1)).waitFor()
-  const labels = []
-  const expectSkip = async (count, state) => {
-    await skip.waitFor()
-    await pollPage(page, ({ parent, count }) => document.querySelector(`.breakpoint[data-spot-key="skip:${parent}"]`)?.getAttribute('aria-label')?.includes(`今天 ${count} 项`), { parent: ids.month, count })
-    const label = await skip.getAttribute('aria-label')
-    assert(label.includes(`今天 ${count} 项`), `${state}: the bridge label counts only the selected children: ${label}`)
-    labels.push({ state, count, label })
+    return added
+  }, ids)
+  await dot(added.day).waitFor()
+  const before = await page.evaluate(() => window.goalloom.getSnapshot())
+  const parents = [ids.month, added.month]
+  const expectCovered = async state => {
+    assert.equal(await board.locator('.breakpoint[data-kind="skip"]').count(), 0, `${state}: no intermediate-milestone action`)
+    for (const parent of parents) {
+      assert.equal(await board.locator(`.breakpoint[data-spot-key$=":${parent}"]`).count(), 0, `${state}: a parent with an active child has no next-step action`)
+    }
   }
-  const shot = name => page.screenshot({ path: join(out, `skip-preview-${name}.png`), animations: 'disabled' })
-
+  const shot = name => page.screenshot({ path: join(out, `child-only-${name}.png`), animations: 'disabled' })
   await dot(ids.week).hover()
   await weeklyGap.waitFor()
-  assert.equal(await skip.count(), 0, 'A month → week preview excludes direct day siblings outside its highlighted chain')
-  await shot('no-skip-week')
-
+  await expectCovered('week preview')
   await dot(ids.month).hover()
-  await expectSkip(8, 'month preview')
-  await shot('month')
+  await weeklyGap.waitFor()
+  await expectCovered('month preview with week and day children')
+  await shot('mixed-children')
   await dot(ids.root).hover()
-  await expectSkip(8, 'root preview')
+  await weeklyGap.waitFor()
+  await expectCovered('root preview')
+  await dot(added.month).hover()
+  await weeklyGap.waitFor({ state: 'detached' })
+  await expectCovered('month preview with day child only')
+  assert.equal(await board.locator('.breakpoint').count(), 0)
+  await shot('direct-child')
+  for (const child of [added.mixedA, added.day]) {
+    await dot(child).hover()
+    await expectCovered('day preview')
+    assert.equal(await board.locator('.breakpoint').count(), 0, 'A direct day child does not imply an empty parent')
+  }
 
   const rootTitle = await page.evaluate(async id => (await window.goalloom.getItem(id)).item.title, ids.root)
-  const filter = page.getByRole('button', { name: `只看 ${rootTitle}`, exact: true })
-  await filter.click()
+  await page.getByRole('button', { name: `只看 ${rootTitle}`, exact: true }).click()
   await all.hover()
   await page.waitForFunction(() => !document.querySelector('.task-row[data-chain-out="true"]'))
-  await expectSkip(8, 'filtered overview')
+  await weeklyGap.waitFor()
+  await expectCovered('filtered overview')
   await shot('overview')
   await all.click()
-  await skip.waitFor({ state: 'detached' })
+  await weeklyGap.waitFor({ state: 'detached' })
 
-  // The ninth child proves chain filtering happens before the overview's eight-child limit.
-  const selected = children.at(-1)
-  await dot(selected).hover()
-  await expectSkip(1, 'day preview beyond overview batch')
-  await shot('one-day')
   await page.locator(`#item-${ids.week} .drag-handle`).focus()
   await page.keyboard.press('Shift+Tab')
   await weeklyGap.waitFor()
-  assert.equal(await dot(ids.week).evaluate(node => node === document.activeElement && node.matches(':focus-visible')), true)
-  assert.equal(await skip.count(), 0, 'Keyboard week previews exclude skipped sibling branches')
-  await page.locator(`#item-${selected} .drag-handle`).focus()
+  await expectCovered('keyboard week preview')
+  await page.locator(`#item-${added.mixedA} .drag-handle`).focus()
   await page.keyboard.press('Shift+Tab')
-  await expectSkip(1, 'keyboard day preview')
+  await weeklyGap.waitFor({ state: 'detached' })
+  assert.equal(await dot(added.mixedA).evaluate(node => node === document.activeElement && node.matches(':focus-visible')), true)
+  await expectCovered('keyboard day preview')
 
-  await skip.click({ modifiers: ['Shift'] })
-  const composer = page.getByRole('dialog', { name: '新建', exact: true })
-  await composer.waitFor()
-  assert.equal(await composer.locator('.seed-chip').filter({ hasText: '下级：今天 1 项' }).count(), 1)
-  await shot('scoped-composer')
-  const title = 'Preview scoped week milestone'
-  await composer.getByRole('textbox').fill(title)
-  await composer.getByRole('textbox').press('Enter')
-  await composer.waitFor({ state: 'hidden' })
-  const created = await page.evaluate(async ({ parent, selected, children, week, title }) => {
-    const snapshot = await window.goalloom.getSnapshot(), milestone = snapshot.items.find(item => item.title === title)
-    const linked = (from, to) => snapshot.relations.some(edge => edge.parentId === from && edge.childId === to)
-    return { id: milestone?.id, horizon: milestone?.placement.horizon, period: milestone?.placement.periodId,
-      currentWeek: snapshot.periods.find(period => period.horizon === 'week').id,
-      parentLinked: linked(parent, milestone?.id), selectedLinked: linked(milestone?.id, selected), selectedDirect: linked(parent, selected),
-      siblingsPreserved: children.filter(id => id !== selected).every(id => linked(parent, id) && !linked(milestone?.id, id)),
-      weekPreserved: linked(parent, week) }
-  }, { parent: ids.month, selected, children, week: ids.week, title })
-  assert(created.id && created.parentLinked && created.selectedLinked && !created.selectedDirect && created.siblingsPreserved && created.weekPreserved)
-  assert.equal(created.horizon, 'week')
-  assert.equal(created.period, created.currentWeek)
-  await shot('scoped-write')
-  await page.keyboard.press('ControlOrMeta+z')
-  await pollPage(page, async ({ parent, children, milestone }) => {
-    const snapshot = await window.goalloom.getSnapshot()
-    return !snapshot.items.some(item => item.id === milestone) && children.every(id => snapshot.relations.some(edge => edge.parentId === parent && edge.childId === id))
-  }, { parent: ids.month, children, milestone: created.id })
+  const rejected = await page.evaluate(async ({ parentId, childId }) => {
+    const s = await window.goalloom.getSnapshot()
+    return window.goalloom.execute({ type: 'insertBetween', title: 'Retired milestone', horizon: 'week', parentId,
+      expectedParentVersion: s.items.find(item => item.id === parentId).version,
+      children: [{ itemId: childId, expectedVersion: s.items.find(item => item.id === childId).version }],
+      generation: s.workspace.generation, operationId: crypto.randomUUID() })
+  }, { parentId: ids.month, childId: added.mixedA })
+  assert.equal(rejected.ok, false, 'The retired intermediate-milestone command is unavailable')
+  assert.equal(rejected.code, 'invalid')
+  const after = await page.evaluate(() => window.goalloom.getSnapshot())
+  assert.equal(after.workspace.revision, before.workspace.revision, 'Previews and rejected writes leave business data unchanged')
+  assert.deepEqual(after.items, before.items)
+  assert.deepEqual(after.relations, before.relations, 'Direct edges and existing week children are preserved')
 
-  await page.evaluate(async children => {
+  await page.evaluate(async added => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation
-    for (const id of children) {
+    for (const id of [added.day, added.month, added.mixedB, added.mixedA]) {
       const item = (await window.goalloom.getItem(id)).item
       const reply = await window.goalloom.execute({ type: 'delete', itemId: id, expectedVersion: item.version, generation, operationId: crypto.randomUUID() })
-      if (!reply.ok) throw new Error(reply.message)
+      if (!reply.ok) throw Error(reply.message)
     }
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-  }, children)
+  }, added)
   await all.hover()
   await page.waitForFunction(() => !document.querySelector('.relation-lines, .breakpoint'))
-  return { labels, created, selected, children, checks: ['no sibling skip on a week preview', 'month/root/overview preserve bounded grouping', 'day scope precedes eight-child limit', 'keyboard skips share preview scope', 'scoped composer and insertBetween preserve siblings', 'bridge undo restores direct edges'] }
+  return { parents, added, rejected, revision: after.workspace.revision, relations: after.relations,
+    checks: ['existing week/day children suppress parent additions', 'direct day child satisfies the parent', 'month/root/day/filter/keyboard previews never insert intermediate milestones', 'childless weekly next step remains available', 'retired write rejected atomically', 'all direct edges preserved'] }
 }

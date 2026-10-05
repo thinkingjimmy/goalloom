@@ -176,7 +176,7 @@ it('导入拒绝伪造的计划：同项多效果/缺事件/错 IDs/重复归属
     ['missing-inverse', '业务效果缺少原子事件', data => { const id = op(data).result.itemIds![0]!; data.events = data.events.filter(event => !(event.operationId === undone.operationId && event.itemId === id)); Object.assign(data.items.find(item => item.id === id)!, { deletedAt: null, deletedBy: null }) }],
     ['duplicate-inverse', '业务效果缺少原子事件', data => { const own = data.events.filter(row => row.operationId === undone.operationId); data.events.push({ ...own[0]!, id: randomUUID(), seq: Math.max(...data.events.map(row => row.seq)) + 1, eventIndex: own.length }) }],
     ['undo-ids', '计划撤销回执', data => { data.operations.find(row => row.id === undone.operationId)!.result.itemIds = [] }],
-    ['old-version', '旧版本数据集', data => { data.schemaVersion = 2 }],
+    ['old-version', '旧版本数据集', data => { data.schemaVersion = 2; data.policies = data.policies.filter(policy => policy.horizon !== 'year' && policy.horizon !== 'half') }],
     ['stray-ids', '非计划操作', data => { data.operations.find(row => row.kind === 'confirmSetup')!.result.itemIds = [] }],
   ]
   expect(() => validateImport(source, now)).not.toThrow()

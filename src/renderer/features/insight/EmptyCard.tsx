@@ -14,7 +14,7 @@ import './insight.css'
 const above: Record<ChildHorizon, 'year' | 'half' | 'cycle' | 'month' | 'week'> = { half: 'year', cycle: 'half', month: 'cycle', week: 'month', day: 'week' }
 
 export function EmptyCard({ horizon, sources, period, insight, disabled }: { horizon: ChildHorizon; sources: ItemSummary[]; period: PlanningPeriod; insight: BoardInsight; disabled: boolean }) {
-  const base = { horizon, period, next: false, parent: null, children: [], note: null }
+  const base = { horizon, period, next: false, parent: null, note: null }
   return <div className="insight-empty" role="group" aria-label={t.emptyTitle(horizonNames[horizon])}>
     <p className="insight-empty-title">{t.emptyTitle(horizonNames[horizon])}</p>
     <p className="insight-empty-body">{t.emptyBody(horizonNames[above[horizon]], sources.length)}</p>

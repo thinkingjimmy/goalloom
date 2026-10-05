@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Fixed product planning horizons, supported AI services and the capabilities each one offers.
- * [OUTPUT]: Seven horizons, six period horizons, anchored/policy subsets, calendar modes, next-horizon mapping and fixed AI metadata.
+ * [OUTPUT]: Seven horizons, six ordered period/policy horizons, anchored subsets, calendar modes, next-horizon mapping and fixed AI metadata.
  * [POS]: Lightweight metadata boundary; importing these values never constructs validation schemas.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,7 +8,7 @@ export const periodHorizons = ['year', 'half', 'cycle', 'month', 'week', 'day'] 
 export const horizons = ['later', ...periodHorizons] as const
 export const anchoredHorizons = ['year', 'half', 'cycle'] as const
 export const childHorizons = ['half', 'cycle', 'month', 'week', 'day'] as const
-export const policyHorizons = ['cycle', 'month', 'week', 'day'] as const
+export const policyHorizons = periodHorizons
 export const calendarModes = ['rolling', 'natural'] as const
 export type PeriodHorizon = typeof periodHorizons[number]
 export function mapPeriodHorizons<T>(project: (horizon: PeriodHorizon) => T): Record<PeriodHorizon, T> {

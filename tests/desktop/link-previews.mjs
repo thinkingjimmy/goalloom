@@ -443,7 +443,7 @@ try {
   throw error
 } finally {
   // Failed draft scenarios still need to write evidence and remove their isolated profile.
-  if (application && report.result === 'failed') await application.evaluate(({ dialog }) => { dialog.showMessageBoxSync = () => 1 }).catch(() => {})
+  if (application && report.result === 'failed') await application.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows().forEach(window => window.destroy()) }).catch(() => {})
   if (application) await application.close().catch(() => {})
   await writeFile(`${output}/report.json`, JSON.stringify(report, null, 2))
   await rm(profile, { recursive: true, force: true })

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted JSON/SQLite datasets and finite maintenance actions.
- * [OUTPUT]: Versioned v1-v6 imports, relation-owned adoption/promotion color effects, backup/replacement previews and paged batch details.
+ * [OUTPUT]: Versioned v1-v7 imports with up to six policies, relation-owned adoption/promotion color effects, backup/replacement previews and paged batch details.
  * [POS]: Workspace transfer boundary; selected paths remain main-owned.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { calendarSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, itemRecordSchema, periodSchema, placementSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 import { resultSchema } from './commands'
 import { businessStateSchema, eventSchema } from './history'
+import { policyHorizons } from './values'
 
 const statusGroup = businessStateSchema.pick({ status: true, completedAt: true, cancelledAt: true })
 const position = z.strictObject({ horizon: horizonSchema, periodId: idSchema.nullable(), previousId: idSchema.nullable(), nextId: idSchema.nullable() })
@@ -27,9 +28,9 @@ export const operationSchema = z.strictObject({
 })
 export const undoMarkerSchema = z.strictObject({ originalId: idSchema, effectIndex: z.number().int().nonnegative(), undoId: idSchema })
 export const datasetSchema = z.strictObject({
-  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,
   workspace: workspaceSchema, items: z.array(itemRecordSchema).max(100_000), placements: z.array(placementSchema).max(100_000),
-  periods: z.array(periodSchema).max(100_000), relations: z.array(relationSchema).max(500_000), policies: z.array(policySchema).max(4),
+  periods: z.array(periodSchema).max(100_000), relations: z.array(relationSchema).max(500_000), policies: z.array(policySchema).max(policyHorizons.length),
   events: z.array(eventSchema).max(1_000_000), operations: z.array(operationSchema).max(500_000), undoEffects: z.array(undoMarkerSchema).max(500_000),
 })
 export type Dataset = z.infer<typeof datasetSchema>

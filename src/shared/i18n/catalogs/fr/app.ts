@@ -128,6 +128,7 @@ export const appMessages: typeof source = {
     archive: 'Archiver',
     unarchive: 'Désarchiver',
     delete: 'Supprimer',
+    discardEmpty: 'Supprimer l’élément vide',
     restore: 'Restaurer',
     unlink: 'Délier',
     createPlan: (count: number) => count === 1 ? 'Créer l’élément' : `Créer ${count} éléments`,

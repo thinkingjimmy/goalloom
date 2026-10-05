@@ -4,7 +4,7 @@
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Owns independent relation dragging/prepared writes and virtual source pinning; exposes filter/linking states for row styling.
  *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
- *           Flow insight: one breakpoint layer for filtered flows or the highlighted preview chain, retained pending actions across hover exits, empty-column cards, a unified monthly review guide and period-named weekly prompts under column headers and per-row next steps.
+ *           Flow insight: retained chain breakpoints, empty-column cards and shared review/post-review guide styling with explicit period targets.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -158,7 +158,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   }, [next?.id, history?.id, snapshot.observedAt])
   const target = mode === 'current' || mode === 'future' && (horizon === 'year' || horizon === 'half') ? shorter(horizon) : null
   const split = useCallback((item: ItemSummary) => {
-    if (target) void decompose({ snapshot: { ...snapshot, periods: Object.values(view.periods), items: view.items }, flows, ready: insight.ready, submit, seed: insight.seed }, { parent: item, target, children: [], manual: false })
+    if (target) void decompose({ snapshot: { ...snapshot, periods: Object.values(view.periods), items: view.items }, flows, ready: insight.ready, submit, seed: insight.seed }, { parent: item, target, manual: false })
   }, [target, snapshot, view.periods, view.items, flows, insight, submit])
   const page = usePastPeriod(history, snapshot.workspace.generation, snapshot.workspace.revision)
   const earlier = history && (page.page ? page.page.previous !== null : previous !== null) ? previous : null
@@ -242,25 +242,18 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const due = insight.due, review = mode !== 'current' || !due ? null
     : horizon === 'month' && (due.scope === 'month' || due.scope === 'both') ? due.month!
     : horizon === 'week' && due.scope === 'week' ? due.week! : null
-  const reviewLabel = review ? review.lastDay ? insightMessages.reviewTitle(due!.scope)
-    : insightMessages.reviewEntryAfter(
-      [due!.week, due!.month].flatMap(value => value ? [planningLabel(value.period, calendar, snapshot.observedAt)] : []).join(' + '),
-    ) : undefined
-  const reviewButton = review && <button className="review-entry" data-review={horizon} title={reviewLabel} disabled={busy} onClick={() => insight.review(due!)}>
-    <span className="review-entry-dot" /><span className="review-entry-label">{reviewLabel}</span><Icon name="next" size={12} strokeWidth={2} />
-  </button>
-  const monthlyGuide = !!review && horizon === 'month'
   const pendingCount = [due?.month, due?.week].flatMap(value => value ? [value] : []).reduce((count, value) => count + (snapshot.backlog[value.horizon] ?? 0) + (value.lastDay ? snapshot.items.filter(item => item.placement.periodId === value.period.id && item.status === 'todo').length : 0), 0)
-  const recentMonth = horizon === 'month' && mode === 'current' ? reviewTarget(snapshot, 'month', []) : null
-  const completedReview = !!recentMonth && insight.reviewed.includes(recentMonth.key)
-  const reviewMonthName = review ? periodDates(review.period, review.period.startDate.slice(0, 4) !== today.slice(0, 4)) : ''
-  const nextMonthName = review ? periodDates(review.next, review.next.startDate.slice(0, 4) !== today.slice(0, 4)) : ''
-  const guide = monthlyGuide && <div className="review-guide">
-    <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(review!.period)}</span>
-    <h3>{insightMessages.reviewGuide(reviewMonthName, nextMonthName)}</h3>
+  const recentReview = (horizon === 'month' || horizon === 'week') && mode === 'current' ? reviewTarget(snapshot, horizon, []) : null
+  const completedReview = !!recentReview && insight.reviewed.includes(recentReview.key)
+  const reviewName = (period: PlanningPeriod) => period.horizon === 'week' ? planningLabel(period, calendar, snapshot.observedAt)
+    : periodDates(period, period.startDate.slice(0, 4) !== today.slice(0, 4))
+  const reviewPeriodName = review ? reviewName(review.period) : ''
+  const guide = review && <div className="review-guide">
+    <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(review.period)}</span>
+    <h3>{insightMessages.reviewGuide(reviewPeriodName, reviewName(review.next))}</h3>
     {pendingCount > 0 && <p>{insightMessages.reviewGuidePending(pendingCount)}</p>}
-    <button className="settings-button primary review-guide-action" data-review={horizon} title={insightMessages.reviewEntryAfter(reviewMonthName)} disabled={busy} onClick={() => insight.review(due!)}>
-      <span>{insight.started?.month?.key === review!.key ? insightMessages.reviewContinue : insightMessages.reviewStart(reviewMonthName)}</span><Icon name="next" size={14} />
+    <button className="settings-button primary review-guide-action" data-review={horizon} title={insightMessages.reviewEntryAfter(reviewPeriodName)} disabled={busy} onClick={() => insight.review(due!)}>
+      <span>{insight.started?.[review.horizon]?.key === review.key ? insightMessages.reviewContinue : insightMessages.reviewStart(reviewPeriodName)}</span><Icon name="next" size={14} />
     </button>
   </div>
   const addButton = <button className="icon-button small" data-add-item aria-label={messages.newInColumn(displayName)} disabled={disabled} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>
@@ -287,16 +280,16 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
       </div> : <><h2>{name}</h2><span className="column-spacer" /></>}
       <span className="column-add-slot">{!history && addButton}</span>
     </header>
-    {!monthlyGuide && reviewButton}
-    {completedReview && <p className="reviewed-note"><Icon name="check" size={14} />{insightMessages.reviewCompleted(periodDates(recentMonth!.period, false))}</p>}
-    {!monthlyGuide && mode === 'current' && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
+    {completedReview && <p className="reviewed-note"><Icon name="check" size={14} />{insightMessages.reviewCompleted(reviewName(recentReview!.period))}</p>}
+    {!review && mode === 'current' && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
     <div className="column-content" onDoubleClick={addFromBlank}>
       {guide}
-      {completedReview && items.length === 0 && !adding && <div className="review-plan-invitation">
-        <h3>{insightMessages.reviewArrange(periodDates(current!, false))}</h3>
-        <button className="settings-button" disabled={disabled} onClick={() => insight.seed({ horizon: 'month', period: current!, next: false, parent: null, children: [], note: null,
-          mode: sources?.length ? 'batch' : 'free', parents: sources ?? [], draft: !!sources?.length && insight.ready })}>{sources?.length ? insightMessages.emptyDraft : insightMessages.emptyOwn}</button>
+      {completedReview && items.length === 0 && !adding && <div className="review-guide review-plan-invitation">
+        <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(current!)}</span>
+        <h3>{insightMessages.reviewArrange(reviewName(current!))}</h3>
+        <button className="settings-button primary review-guide-action" disabled={disabled} onClick={() => insight.seed({ horizon: recentReview!.horizon, period: current!, next: false, parent: null, note: null,
+          mode: sources?.length ? 'batch' : 'free', parents: sources ?? [], draft: !!sources?.length && insight.ready })}><span>{sources?.length ? insightMessages.emptyDraft : insightMessages.emptyOwn}</span><Icon name="next" size={14} /></button>
       </div>}
       <div className="period-body" ref={body}>
       {history ? <PastPeriod key={history.id} history={page} select={select} submit={submit} busy={busy} /> : <>
@@ -315,8 +308,8 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
             }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} />}
           {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} render={row} />}</details>}
         </SortableContext>
-        {!monthlyGuide && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} />}
-        {!monthlyGuide && !completedReview && items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}
+        {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} />}
+        {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}
       </>}
       </div>
     </div>

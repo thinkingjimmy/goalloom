@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Strict commands, finite queries, injected clock and SQLite Store.
+ * [INPUT]: Strict lifecycle commands, finite queries, shared trash filtering, injected clock and SQLite Store.
  * [OUTPUT]: Authoritative writes, order materialization, idempotent receipts, current/ancestor summaries and actual-period detail/search projections.
  * [POS]: Sole workspace command transaction boundary, called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -17,12 +17,12 @@ import { deleteItem, restoreItem, setArchive, setStatus, unlinkItems } from './c
 import { undoOperation } from './commands/undo'
 import { arrangeBacklog } from './commands/backlog'
 import { createPlan } from './commands/plan'
-import { insertBetween } from './commands/bridge'
 import { setPolicy, confirmClock, setBackupPreferences, confirmRollover, undoBatch } from './commands/settings'
 import { serverText } from '../../shared/i18n/server'
 import { orderNodes } from './ordering'
 import { materializeParentOrder } from './commands/ordering'
 import { isAnchoredHorizon, periodHorizons } from '../../shared/contracts/values'
+import { trashWhere } from './queries'
 
 export class Repository {
   readonly store: Store
@@ -80,7 +80,6 @@ export class Repository {
       case 'confirmSetup': return confirmSetup(context, command)
       case 'create': return createItem(context, command)
       case 'createPlan': return createPlan(context, command)
-      case 'insertBetween': return insertBetween(context, command)
       case 'edit': return editItem(context, command)
       case 'flowColor': return setFlowColor(context, command)
       case 'move': return moveItem(context, command)
@@ -88,7 +87,7 @@ export class Repository {
       case 'link': return linkItems(context, command)
       case 'status': return setStatus(context, command)
       case 'archive': return setArchive(context, command)
-      case 'delete': return deleteItem(context, command)
+      case 'delete': case 'discardEmpty': return deleteItem(context, command)
       case 'restoreItem': return restoreItem(context, command)
       case 'unlink': return unlinkItems(context, command)
       case 'arrangeBacklog': return arrangeBacklog(context, command)
@@ -141,7 +140,7 @@ export class Repository {
     return { item, period: item.placement.periodId ? this.store.period(item.placement.periodId) : null, relations: this.relationViews(itemId) }
   }
   list(query: Extract<Query, { type: 'list' }>): ItemPage {
-    const conditions = [query.view === 'trash' ? 'i.deletedAt IS NOT NULL' : 'i.deletedAt IS NULL']
+    const conditions = [query.view === 'trash' ? trashWhere : 'i.deletedAt IS NULL']
     const parameters: (string | number)[] = []
     if (query.view === 'search' && !query.query.trim()) return { items: [], total: 0 }
     if (query.view === 'done' || query.view === 'cancelled') { conditions.push('i.status=?'); parameters.push(query.view) }

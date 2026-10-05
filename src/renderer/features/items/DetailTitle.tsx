@@ -1,14 +1,17 @@
 /**
- * [INPUT]: Draft/saved title strings, editability and the detail draft callback.
- * [OUTPUT]: Complete rich title display and a growing raw-text editor; metadata never changes the draft.
- * [POS]: ItemDetail's title interaction, sharing the board's links and the detail form's autosave boundary.
+ * [INPUT]: Draft/saved title strings, editability, native undo keys and the detail draft callback.
+ * [OUTPUT]: Complete rich title display and a growing raw-text editor with persistent native undo/redo and empty-draft recovery.
+ * [POS]: ItemDetail's title interaction; owns local text history across reading/editing, independent of workspace undo and autosave.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Icon } from '../../components/icons'
 import { LinkText } from '../../components/links/LinkText'
 import { linkUrls } from '../../components/links/parse'
 import { messages } from '../../i18n'
+import { editingTarget } from '../../state/session'
+import { defaultBindings, matches } from '../../state/shortcuts'
 
 export function DetailTitle({ value, savedValue, onChange, readOnly }: { value: string; savedValue: string; onChange: (value: string) => void; readOnly: boolean }) {
   const [editing, setEditing] = useState(false)
@@ -16,6 +19,21 @@ export function DetailTitle({ value, savedValue, onChange, readOnly }: { value: 
   const restoreFocus = useRef(false)
   const pointerDown = useRef(false), pendingBlur = useRef(false)
   const savedUrls = useMemo(() => new Set(linkUrls(savedValue)), [savedValue])
+  useEffect(() => {
+    if (readOnly || value.trim()) return
+    const recover = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !matches(event, defaultBindings.undo) || editingTarget(event.target)) return
+      if (!(event.target instanceof Element) || event.target.closest('dialog') !== root.current?.closest('dialog')) return
+      // A rejected close leaves focus on a control. Recover this invalid draft
+      // through its native text history before the global workspace shortcut runs.
+      event.preventDefault(); event.stopPropagation()
+      flushSync(() => setEditing(true))
+      input.current?.focus()
+      document.execCommand('undo')
+    }
+    window.addEventListener('keydown', recover, true)
+    return () => window.removeEventListener('keydown', recover, true)
+  }, [value, readOnly])
   useEffect(() => {
     if (!editing) return
     let frame = 0
@@ -53,7 +71,8 @@ export function DetailTitle({ value, savedValue, onChange, readOnly }: { value: 
   }, [editing, readOnly])
 
   return <div className="title-line" ref={root}>
-    {editing && !readOnly ? <textarea ref={input} className="title-input" aria-label={messages.title} value={value} rows={1} maxLength={500} required
+    {/* Keep the native editor mounted: autosave and read/edit handoffs must retain its undo history. */}
+    <textarea ref={input} className="title-input" aria-label={messages.title} value={value} rows={1} maxLength={500} required={editing && !readOnly} readOnly={readOnly} hidden={!editing || readOnly}
       onChange={event => onChange(event.target.value)} onBlur={() => { if (pointerDown.current) pendingBlur.current = true; else setEditing(false) }}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return
@@ -65,7 +84,8 @@ export function DetailTitle({ value, savedValue, onChange, readOnly }: { value: 
           event.currentTarget.form?.requestSubmit()
           restoreFocus.current = true; setEditing(false)
         }
-      }} /> : <>
+      }} />
+    {(!editing || readOnly) && <>
       <h2 className="detail-title-display" data-editable={!readOnly} onClick={() => { if (!readOnly) setEditing(true) }}>
         <span className="link-rich-text"><LinkText text={value || messages.titlePlaceholder} savedUrls={savedUrls} /></span>
       </h2>

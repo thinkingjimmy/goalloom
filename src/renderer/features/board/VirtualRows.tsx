@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Ordered summary identities, scroll viewport, render function, active drag, selection, menu pin and optional focus-return input origin.
+ * [INPUT]: Ordered identities, viewport, render function, drag/selection/menu pins and shared input-aware focus restoration.
  * [OUTPUT]: Resize-observed rows (observers follow the mounted window, not every parent render) with bounded motion retention, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -8,6 +8,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { flushSync } from 'react-dom'
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import { RowMotion } from './RowMotion'
+import { returnFocus } from '../../lib/focus'
 
 const revealEvent = 'goalloom:reveal-row'
 interface Reveal { id: string; focus: string | null; origin?: 'pointer' | 'keyboard' }
@@ -15,25 +16,6 @@ export function revealRow(id: string, focus: string | null = null, origin?: Reve
   window.dispatchEvent(new CustomEvent<Reveal>(revealEvent, { detail: { id, focus, ...(origin ? { origin } : {}) } }))
 }
 
-function returnFocus(control: HTMLElement, origin: Reveal['origin']) {
-  if (origin === 'pointer') {
-    // Escape changes the browser's focus-visible heuristic; retain the opener's pointer presentation.
-    control.dataset.focusReturn = 'pointer'
-    const clear = () => {
-      delete control.dataset.focusReturn
-      control.removeEventListener('blur', clear)
-      control.removeEventListener('keydown', resume, true)
-    }
-    const resume = (event: KeyboardEvent) => { if (!['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) clear() }
-    control.addEventListener('blur', clear)
-    control.addEventListener('keydown', resume, true)
-    control.focus({ preventScroll: true })
-    if (document.activeElement !== control) clear()
-  } else {
-    delete control.dataset.focusReturn
-    control.focus({ preventScroll: true })
-  }
-}
 const overscan = 5
 const estimatedRowHeight = 32
 const controlSelector = 'button:not(:disabled), a[href], [tabindex="0"]'

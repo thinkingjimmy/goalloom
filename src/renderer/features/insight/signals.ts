@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current snapshot items/relations/periods, active flow membership, visible columns, period modes and an optional highlighted preview chain.
- * [OUTPUT]: breakpoints (unique gaps/skips with preview-scoped parents and day children before batching, allowing empty current targets during preview), emptyColumns, draftTarget and bounded model context via boardDigest / periodText.
+ * [OUTPUT]: Childless-parent breakpoints scoped to the highlighted chain, emptyColumns, draftTarget and bounded model context via boardDigest / periodText.
  * [POS]: features/insight 的纯信号计算；与 domain/relations 的周期规则一致，不做网络与写入。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,8 +18,6 @@ const chain = periodHorizons
 export const shorter = (horizon: ItemHorizon): ChildHorizon | null => nextHorizon[horizon]
 
 export interface Gap { parent: ItemSummary; target: ChildHorizon }
-export interface Skip { parent: ItemSummary; children: ItemSummary[] }
-export interface Breakpoints { gaps: Gap[]; skips: Skip[] }
 
 type Mode = (horizon: ItemHorizon) => 'current' | 'future' | 'history'
 const live = (item: ItemSummary) => item.status !== 'cancelled' && !item.archivedAt && !item.deletedAt
@@ -32,32 +30,27 @@ function inCurrent(item: ItemSummary, current: Map<string, string>): boolean {
   return item.placement.horizon !== 'later' && item.placement.periodId === current.get(item.placement.horizon)
 }
 
-// --- A gap asks only for the nearest missing level: a month plan without week children, never also a day node for it. ---
-export function breakpoints(snapshot: Snapshot, flows: Flows, flowIds: string[], columns: ItemHorizon[], mode: Mode, previewChain: ReadonlySet<string> | null = null): Breakpoints {
+// Any active current child covers its parent; the next step never inserts an intermediate level.
+export function breakpoints(snapshot: Snapshot, flows: Flows, flowIds: string[], columns: ItemHorizon[], mode: Mode, previewChain: ReadonlySet<string> | null = null): Gap[] {
   const current = currentIds(snapshot)
   const byId = new Map(snapshot.items.map(item => [item.id, item]))
   const member = (item: ItemSummary) => flows.of(item.id).some(flow => flowIds.includes(flow.id))
   const shown = (horizon: ItemHorizon) => columns.includes(horizon) && mode(horizon) === 'current'
-  const children = new Map<string, ItemSummary[]>()
+  const covered = new Set<string>()
   for (const edge of snapshot.relations) {
     const child = byId.get(edge.childId)
-    if (child && live(child) && inCurrent(child, current)) children.set(edge.parentId, [...children.get(edge.parentId) ?? [], child])
+    if (child && live(child) && inCurrent(child, current)) covered.add(edge.parentId)
   }
   // An overview defers to the empty-column card; an intentional preview keeps the local next-step action.
   const filled = new Set(snapshot.items.filter(item => live(item) && inCurrent(item, current)).map(item => item.placement.horizon))
-  const gaps: Gap[] = [], skips: Skip[] = []
+  const gaps: Gap[] = []
   for (const parent of snapshot.items) {
     if (!open(parent) || !inCurrent(parent, current) || !member(parent) || !shown(parent.placement.horizon) || previewChain !== null && !previewChain.has(parent.id)) continue
     const target = shorter(parent.placement.horizon)
     if (!target) continue
-    const kids = children.get(parent.id) ?? []
-    if (!kids.length && mode(target) === 'current' && (previewChain !== null || shown(target) && filled.has(target))) gaps.push({ parent, target })
-    if (parent.placement.horizon === 'month' && shown('week') && shown('day')) {
-      const skipped = kids.filter(child => child.placement.horizon === 'day' && open(child) && member(child) && (previewChain === null || previewChain.has(child.id)))
-      if (skipped.length) skips.push({ parent, children: skipped.slice(0, 8) })
-    }
+    if (!covered.has(parent.id) && mode(target) === 'current' && (previewChain !== null || shown(target) && filled.has(target))) gaps.push({ parent, target })
   }
-  return { gaps, skips }
+  return gaps
 }
 
 // An empty current column under a previous column that still has open, current work.

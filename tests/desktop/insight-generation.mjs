@@ -16,6 +16,7 @@ import electronPath from 'electron'
 import react from '@vitejs/plugin-react'
 import tailwind from '@tailwindcss/vite'
 import { pollPage } from './fixtures/poll.mjs'
+import { verifyReviewDrafts } from './fixtures/review-drafts.mjs'
 
 const out = resolve('output/tests/insight/generation')
 await mkdir(out, { recursive: true })
@@ -102,6 +103,9 @@ async function run(mode) {
     await nav.getByRole('button', { name: '智能输入', exact: true }).click()
     await settings.getByText('已启用 · 由 OpenRouter 处理', { exact: true }).waitFor()
     assert.deepEqual(await features(), { smart: true, insight: true })
+    // Batch drafting needs the ordinary empty card; the unified review guide owns that space while reminders are enabled.
+    await nav.getByRole('button', { name: '洞察', exact: true }).click()
+    await settings.getByRole('switch', { name: '周复盘 · 月复盘', exact: true }).click()
     assert.equal(await revision(), beforeSettings)
     assert.equal((await calls()).length, 0, 'capability tests are not drafting calls')
     check('Settings › AI services shows the key per capability; insight switches off and on independently without workspace writes')
@@ -181,6 +185,11 @@ async function run(mode) {
 
     report.loading = await verifyBreakpointLoading(page, application, mode, check)
 
+    await page.keyboard.press('ControlOrMeta+,')
+    await nav.getByRole('button', { name: '洞察', exact: true }).click()
+    await settings.getByRole('switch', { name: '周复盘 · 月复盘', exact: true }).click()
+    await page.keyboard.press('Escape')
+    await settings.waitFor({ state: 'detached' })
     const beforeHistoryCalls = await calls()
     await application.close()
     const historySeed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, 'cache'], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
@@ -213,16 +222,16 @@ async function run(mode) {
     await page.mouse.move(1, 1)
     const reviewGeometry = await reviewColumn.evaluate(column => {
       const box = node => { const r = node.getBoundingClientRect(); return { left: r.left, top: r.top, bottom: r.bottom } }
-      const review = column.querySelector('[data-review]'), header = column.querySelector('.column-header'), title = column.querySelector('.period-title')
-      return { header: box(header), title: box(title), review: box(review.querySelector('.review-entry-dot') ?? review), monthly: !!column.querySelector('.review-guide'), opacity: getComputedStyle(review).opacity, background: getComputedStyle(review).backgroundColor }
+      const review = column.querySelector('[data-review]'), header = column.querySelector('.column-header'), guide = column.querySelector('.review-guide')
+      return { header: box(header), guide: box(guide), review: box(review), competingHints: column.querySelectorAll('.review-entry, .backlog-entry, .insight-empty, .empty-column').length, opacity: getComputedStyle(review).opacity }
     })
-    assert(reviewGeometry.review.top >= reviewGeometry.header.bottom - 1, 'Review is a line under the column header')
-    if (!reviewGeometry.monthly) assert(Math.abs(reviewGeometry.review.left - reviewGeometry.title.left) < 1, 'Review aligns with the column title and row checkboxes')
-    if (!reviewGeometry.monthly) assert.equal(reviewGeometry.background, 'rgba(0, 0, 0, 0)', 'Review is quiet text, not a filled pill')
+    assert(reviewGeometry.guide.top >= reviewGeometry.header.bottom - 1, 'The unified review guide sits below the column header')
+    assert(reviewGeometry.review.top >= reviewGeometry.guide.top && reviewGeometry.review.bottom <= reviewGeometry.guide.bottom, 'The review action stays inside its guide')
+    assert.equal(reviewGeometry.competingHints, 0, 'The guide replaces separate review, backlog and empty hints')
     assert.equal(reviewGeometry.opacity, '1', 'Review remains visible when navigation recedes')
-    await reviewColumn.locator('.column-header').screenshot({ path: `${out}/${mode}-review-header-idle.png` })
+    await reviewColumn.screenshot({ path: `${out}/${mode}-review-guide-idle.png` })
     report.reviewHeader = reviewGeometry
-    check('review remains visible below the header, with one monthly guide or a quiet weekly entry')
+    check('weekly and monthly reviews share one visible guide below the header without competing hints')
     await page.locator('[data-review]').click()
     await drawer().locator('.review-summary').waitFor()
     await closeReview()
@@ -383,15 +392,35 @@ async function run(mode) {
     await page.evaluate(() => globalThis.restoreSummaryStorage())
     check('full local storage keeps generation and session reuse working')
 
-    while (!await drawer().getByRole('heading', { name: '复盘完成', exact: true }).count()) {
+    await page.evaluate(async () => {
+      const generation = (await window.goalloom.getSnapshot()).workspace.generation
+      for (const horizon of ['cycle', 'month']) {
+        const reply = await window.goalloom.execute({ type: 'create', title: `Pending planning source ${horizon}`, horizon, flowColor: horizon === 'cycle' ? 2 : 3, generation, operationId: crypto.randomUUID() })
+        if (!reply.ok) throw Error(reply.message)
+      }
+    })
+    await application.evaluate(() => { globalThis.generationFixture.hold = true })
+    let pendingPlanChecked = false
+    while (await drawer().count()) {
+      if (await drawer().locator('.review-plan-list').count() && !pendingPlanChecked) {
+        await drawer().locator('.seed-title[placeholder="正在起草…"]').first().waitFor()
+        assert.equal(await drawer().getByRole('button', { name: '不排入', exact: true }).isEnabled(), true, 'Skip remains available while drafting')
+        assert.equal(await drawer().locator('.review-foot .primary').isDisabled(), true)
+        await drawer().screenshot({ path: `${out}/${mode}-planning-pending-skip.png` })
+        report.reviewDrafts = await verifyReviewDrafts({ page, application, mode, out, calls, check, changePreference })
+        pendingPlanChecked = true
+        check('planning keeps the explicit skip available during a held draft and resumes normal confirmation after release')
+      }
       const previousStep = await drawer().locator('.review-steps [aria-current=step]').textContent()
       await drawer().locator('.review-foot .primary').click()
       await page.waitForFunction(previous => (document.querySelector('dialog.review-drawer[open] [aria-current=step]')?.textContent ?? 'done') !== previous, previousStep)
     }
-    await drawer().getByText('复盘完成', { exact: true }).waitFor()
+    assert(pendingPlanChecked, 'The calendar fixture exercises pending planning controls')
+    await drawer().waitFor({ state: 'detached' })
     await page.screenshot({ path: `${out}/${mode}-review.png` })
     await closeReview()
-    check('review drawer still advances through completion')
+    assert.equal(await page.locator('[data-review]').count(), 0)
+    check('review finishes by closing the panel and immediately clearing its entry')
 
     await page.keyboard.press('ControlOrMeta+,')
     const recovery = page.locator('dialog.settings-modal')
@@ -405,6 +434,9 @@ async function run(mode) {
     const afterReset = await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.review-summaries')))
     assert.notEqual(afterReset.generation, stored.generation)
     assert.deepEqual(afterReset.entries, [])
+    const afterDraftReset = await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.review-drafts')))
+    assert.notEqual(afterDraftReset.generation, report.reviewDrafts.storage.generation)
+    assert.deepEqual(afterDraftReset.entries, [])
     check('verified workspace reset clears persisted summaries for the old generation')
     assert.deepEqual(errors, [])
     report.calls = await calls()
@@ -433,7 +465,8 @@ async function verifyBreakpointLoading(page, application, mode, check) {
     const ids = {}, generation = (await window.goalloom.getSnapshot()).workspace.generation
     for (const [key, title, horizon, parent] of [
       ['root', 'Synthetic loading flow', 'cycle', null], ['month', 'Synthetic loading month', 'month', 'root'],
-      ['week', 'Synthetic loading week', 'week', 'month'], ['day', 'Synthetic loading bridge child', 'day', 'month'],
+      ['week', 'Synthetic loading week', 'week', 'month'], ['otherWeek', 'Synthetic loading sibling week', 'week', 'month'],
+      ['day', 'Synthetic direct day child', 'day', 'month'],
     ]) {
       const parentId = ids[parent] ?? null
       const expectedParentVersion = (await window.goalloom.getSnapshot()).items.find(item => item.id === parentId)?.version ?? null
@@ -448,7 +481,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
   await page.locator(`#item-${ids.week}`).scrollIntoViewIfNeeded()
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   const gap = page.locator(`.breakpoint[data-spot-key="gap:${ids.week}"]`)
-  const skip = page.locator(`.breakpoint[data-spot-key="skip:${ids.month}"]`)
+  const otherGap = page.locator(`.breakpoint[data-spot-key="gap:${ids.otherWeek}"]`)
   const dialog = page.getByRole('dialog', { name: '新建', exact: true })
   const hold = responseMode => application.evaluate((_, responseMode) => {
     globalThis.generationFixture.mode = responseMode
@@ -498,7 +531,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
   assert.equal(loading.animation, 'breakpoint-spin')
   assert.equal(loading.iterations, true)
   assert.notEqual(loading.from, loading.to, 'The loading glyph rotates across rendered frames')
-  assert.equal(await skip.isDisabled(), true, 'Other actions cannot start during generation')
+  assert.equal(await otherGap.isDisabled(), true, 'Other actions cannot start during generation')
   await gap.evaluate(node => node.click())
   await page.mouse.move(10, 10)
   assert.equal(await gap.getAttribute('data-expanded'), 'true', 'Pending feedback survives a hover exit')
@@ -510,6 +543,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await release()
   await gap.waitFor({ state: 'detached' })
+  assert.equal(await page.locator(`.breakpoint[data-spot-key$=":${ids.month}"]`).count(), 0, 'A month with direct children has no intermediate-milestone action')
   const created = await page.evaluate(async parentId => {
     const state = await window.goalloom.getSnapshot()
     return state.relations.filter(edge => edge.parentId === parentId).map(edge => state.items.find(item => item.id === edge.childId))
@@ -520,36 +554,38 @@ async function verifyBreakpointLoading(page, application, mode, check) {
   await page.screenshot({ path: `${out}/${mode}-breakpoint-complete.png` })
   check('next-step loading rotates at full colour, remains visible after hover exit, respects reduced motion and creates once')
 
-  await skip.hover()
-  const bridgeIdle = await appearance(skip)
+  await otherGap.hover()
+  const fallbackIdle = await appearance(otherGap)
   await hold('unavailable')
-  await skip.click()
-  const bridge = await pending(skip)
-  assert.equal(bridge.opacity, '1')
-  assert.equal(bridge.background, bridgeIdle.background)
-  assert.equal(bridge.color, bridgeIdle.color)
-  assert.equal(bridge.animation, 'breakpoint-spin')
-  assert.notEqual(bridge.from, bridge.to)
-  await page.screenshot({ path: `${out}/${mode}-bridge-loading.png` })
+  await otherGap.click()
+  const fallback = await pending(otherGap)
+  assert.equal(fallback.opacity, '1')
+  assert.equal(fallback.background, fallbackIdle.background)
+  assert.equal(fallback.color, fallbackIdle.color)
+  assert.equal(fallback.animation, 'breakpoint-spin')
+  assert.notEqual(fallback.from, fallback.to)
+  await page.screenshot({ path: `${out}/${mode}-breakpoint-failure-loading.png` })
   await release()
   await dialog.getByRole('alert').waitFor()
-  assert.equal(await skip.getAttribute('aria-busy'), 'false')
-  assert.equal(await skip.isEnabled(), true)
-  assert.deepEqual(await skip.locator('svg').evaluate(node => [...node.querySelectorAll('path')].map(path => path.getAttribute('d'))), idle.icon)
-  assert.equal(await skip.locator('svg').evaluate(node => getComputedStyle(node).animationName), 'none')
+  assert.equal(await otherGap.getAttribute('aria-busy'), 'false')
+  assert.equal(await otherGap.isEnabled(), true)
+  assert.deepEqual(await otherGap.locator('svg').evaluate(node => [...node.querySelectorAll('path')].map(path => path.getAttribute('d'))), idle.icon)
+  assert.equal(await otherGap.locator('svg').evaluate(node => getComputedStyle(node).animationName), 'none')
   await page.screenshot({ path: `${out}/${mode}-breakpoint-fallback.png` })
   await page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'detached' })
-  check('bridge loading uses the same spinner and clears when a provider failure opens manual entry')
+  check('next-step loading clears when a provider failure opens manual entry')
 
   const before = await application.evaluate(() => globalThis.generationFixture.calls.length)
-  await skip.click({ modifiers: ['Shift'] })
+  await otherGap.click({ modifiers: ['Shift'] })
   await dialog.waitFor()
-  assert.equal(await skip.getAttribute('aria-busy'), 'false')
+  assert.equal(await otherGap.getAttribute('aria-busy'), 'false')
   assert.equal(await page.locator('.breakpoint[aria-busy="true"]').count(), 0)
   assert.equal(await application.evaluate(() => globalThis.generationFixture.calls.length), before)
   await page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'detached' })
+  const directPreserved = await page.evaluate(async ids => (await window.goalloom.getSnapshot()).relations.some(edge => edge.parentId === ids.month && edge.childId === ids.day), ids)
+  assert.equal(directPreserved, true, 'Next-step generation never reparents an existing direct day child')
   await page.getByRole('button', { name: '全部', exact: true }).click()
   await page.evaluate(async itemIds => {
     for (const itemId of itemIds.reverse()) {
@@ -562,7 +598,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
   await page.reload()
   await page.locator('.board').waitFor()
   check('Shift-click opens manual entry without a model request or lingering loading state')
-  return { next: loading, bridge, created: created[0].id }
+  return { next: loading, fallback, created: created[0].id }
 }
 
 async function installFixture(application, previousCalls = []) {

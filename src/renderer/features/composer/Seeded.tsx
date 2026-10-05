@@ -1,5 +1,5 @@
 /**
- * [INPUT]: A ComposerSeed (target column/period, parent, bridge children or batch parents), the snapshot/flows for drafting, insight readiness and guarded submission.
+ * [INPUT]: A ComposerSeed (target column/period, parent or batch parents), the snapshot/flows for drafting, insight readiness and guarded submission.
  * [OUTPUT]: The ⌘N composer with prefilled context and one title or a checked batch; one draft request per mount, editable fallback on failure and typed-text precedence over late results.
  * [POS]: Prefill mode of the global composer for flow-insight entries; same modal, keys and styles, but no Jev analysis — the context is already decided.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -20,12 +20,11 @@ import './composer.css'
 
 export interface ComposerSeed {
   key: number
-  mode: 'next' | 'bridge' | 'batch' | 'free'
+  mode: 'next' | 'batch' | 'free'
   horizon: ChildHorizon
   period: PlanningPeriod
   next: boolean
   parent: ItemSummary | null
-  children: ItemSummary[]
   // Batch only: one row per parent; titles arrive from the model when `draft` is set.
   parents: ItemSummary[]
   draft: boolean
@@ -54,7 +53,7 @@ export function Seeded({ seed, snapshot, flows, submit, busy, error, close }: { 
     const root = (item: ItemSummary) => flows.of(item.id).find(flow => flow.id !== item.id)?.title ?? null
     // StrictMode replays this effect; reuse the request while subscribing only the current effect to its result.
     pendingDraft.current ??= requestDraft({ generation: snapshot.workspace.generation, board: boardDigest(snapshot, flows), tasks: seed.parents.map(parent => ({
-      id: parent.id, kind: 'next' as const, parent: parent.title, goal: root(parent), target: periodText(seed.period, seed.next), targetHorizon: seed.horizon, siblings: siblings(parent.id), children: [] })) })
+      id: parent.id, parent: parent.title, goal: root(parent), target: periodText(seed.period, seed.next), targetHorizon: seed.horizon, siblings: siblings(parent.id) })) })
     void pendingDraft.current.then(result => {
       if (!active) return
       setDrafting(false)
@@ -75,9 +74,7 @@ export function Seeded({ seed, snapshot, flows, submit, busy, error, close }: { 
       const action: Action = seed.mode === 'batch'
         ? { type: 'createPlan', items: chosen.map((row, index) => ({ draftId: `seed-${index}`, title: row.title.trim(), description: '', dueDate: null, horizon: seed.horizon, previewPeriodId: seed.period.id, flowColor: null, ...target,
           parentRefs: [{ kind: 'existing' as const, itemId: row.parent.id, expectedVersion: row.parent.version }] })) }
-        : seed.mode === 'bridge'
-          ? { type: 'insertBetween', title, horizon: seed.horizon, ...target, parentId: seed.parent!.id, expectedParentVersion: seed.parent!.version, children: seed.children.map(child => ({ itemId: child.id, expectedVersion: child.version })) }
-          : { type: 'create', title, description: '', dueDate: null, horizon: seed.horizon, ...target, parentId: seed.parent?.id ?? null, expectedParentVersion: seed.parent?.version ?? null, flowColor: null }
+        : { type: 'create', title, description: '', dueDate: null, horizon: seed.horizon, ...target, parentId: seed.parent?.id ?? null, expectedParentVersion: seed.parent?.version ?? null, flowColor: null }
       if (!await submit(action)) return
       seed.onCreated?.(title)
       if (alive.current) close()
@@ -87,22 +84,21 @@ export function Seeded({ seed, snapshot, flows, submit, busy, error, close }: { 
     if (event.nativeEvent.isComposing) return
     if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void run() }
   }
-  const label = seed.mode === 'batch' ? t.seedCreateCount(chosen.length) : seed.mode === 'bridge' ? t.seedBridge : t.seedCreate
+  const label = seed.mode === 'batch' ? t.seedCreateCount(chosen.length) : t.seedCreate
   const primary = <button type="button" className="composer-primary" disabled={busy || !ready} onClick={() => void run()}>{label}<kbd className="keycap">{formatCombo('Enter')}</kbd></button>
-  const whereText = seed.mode === 'bridge' ? t.seedBridgeWhere(seed.children.length) : seed.parent ? t.seedWhereParent(where, seed.parent.title) : t.seedWhere(where)
+  const whereText = seed.parent ? t.seedWhereParent(where, seed.parent.title) : t.seedWhere(where)
   const chip = (text: string, key: string) => <span key={key} className="seed-chip">{text}</span>
   return <Modal title={smartMessages.composer} close={close} className="palette composer-modal seeded-composer"
     heading={<div className="palette-search composer-search">
       <Icon name="add" size={18} />
       {seed.mode === 'batch' ? <span className="composer-input seed-heading">{t.emptyDraft}</span>
         : <textarea className="composer-input" aria-label={smartMessages.inputLabel} autoFocus rows={1} maxLength={500} value={text} onChange={event => setText(event.target.value)} onKeyDown={keys}
-          placeholder={seed.mode === 'bridge' ? t.seedBridgePlaceholder : seed.parent ? t.seedPlaceholder : t.seedFreePlaceholder} />}
+          placeholder={seed.parent ? t.seedPlaceholder : t.seedFreePlaceholder} />}
     </div>}>
     <div className="composer-body">
       <div className="seed-chips">
         {seed.parent && chip(t.seedParent(seed.parent.title), 'parent')}
         {chip(where, 'period')}
-        {seed.mode === 'bridge' && chip(t.seedChildren(seed.children.length), 'children')}
       </div>
       {(error || note) && <p className="inline-error composer-error" role="alert">{error ?? note}</p>}
       <section className="composer-cand" data-tone={seed.mode === 'batch' ? 'jev' : 'plain'} aria-live="polite">

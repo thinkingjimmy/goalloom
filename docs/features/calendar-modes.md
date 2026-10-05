@@ -14,7 +14,7 @@
 - 自然年模式在实现上等价于「起点固定为当年 1 月 1 日」，两种模式共用同一套「从原始起点推导、月底截断」的算法，是已确认 D07 三个月规则的直接推广。
 - **年份只在可能有歧义时显示**（D8）：有「1年 / 下一年 / 本季度」这类相对名时不带年份；只有用日期当名字、且不带年份会和别的期重名时才加两位年份（§4.3）。
 - **现有工作区无损视为 365 天模式**：现在的「三个月周期起点」直接成为起点，已有的周期、条目位置和历史一条都不用改（见 [§8](#8-负责人现有数据能否当成-365-天模式)）。
-- **数据库不写原地迁移**（D10）：只有负责人在使用，升级时手动「旧版导出 JSON → 新版导入」（§6.3 有逐步操作）。新库的两张表直接带年 / 半年的尺度约束；年 / 半年不建顺延策略记录，日历模式存进现有的日历 JSON，周期仍在第一次写入时才创建，所以旧数据导入新版不需要任何转换。
+- **数据库不写原地迁移**（D10）：升级时手动「旧版导出 JSON → 新版导入」（§6.3 有逐步操作）。2026-10-05 顺延更新采用 schema v7：六种尺度均保存独立策略，年 / 半年 / 3个月默认手动；旧数据导入时仅补齐年 / 半年的手动策略与所需当期，原有条目、周期和历史保持原样。
 - Onboarding 按文档建议执行（D9）：**① 选择日历（模式，默认 365 天）→ ② 写下这一年的方向并确认 → ③ AI 助手（可选）**；方向作为流程根放进**年**列（D6）。
 - 首期一并让 **Jev 智能输入**识别年 / 半年，**流程洞察**（断点、空列卡、AI 拆解）覆盖完整的六级链条（D7），需要用真实模型重新评测。
 - [§9](#9-潜在-bug需开发者测试) 列出 12 个只在运行时才暴露、TypeScript 查不出的潜在 bug，开发时先写能复现的测试再修。
@@ -56,7 +56,7 @@
 **非目标（本期不做）**
 
 - 设置完成后修改模式或起点：仍需备份并重置，与现有日历锁一致（AGENTS.md 已把「设置后修改日历」列为后续可选项）。
-- 年 / 半年复盘（复盘仍只有周、月及合并）；年 / 半年自动顺延（与 3个月 一样只能手动安排）。
+- 年 / 半年复盘（复盘仍只有周、月及合并）。年 / 半年 / 3个月自动顺延已于 2026-10-05 纳入范围，默认仍手动。
 - 时间列显隐已由 2026-10-04 的[独立需求](column-visibility.md)接续；本规格不重复其规则。
 - 关联的进度汇总或状态联动（D06 不变）。
 - 官网与 README 的定位文案（目前是「把三个月的方向，连接到今天的行动」），另起网站任务。
@@ -104,7 +104,7 @@
 - 与现有时间列一致：列头 B 周期切换器（标题即按钮，←/→ 逐期，↓ 打开面板，Esc 回本期）、列内新建与按周期保留草稿、拖动排序、右键「移到下一年 / 下个半年」与「移到…」子菜单、往期页（编辑、补勾、重开、删除 / 还原、移动）、详情显示真实周期、搜索与定位。
 - 周期面板：年、半年与 3个月 一样用列表（最多含本期之前两期，其余向未来补齐，共 6 项）。
 - 关联：上级必须在严格更长的列，链条变为 年 > 半年 > 3个月 > 本月 > 本周 > 今天，规则本身不变。**年列成为最长列**，原来针对 3个月 的三条特殊规则移到年列：「关联到上级」置灰、不能从该列发起拖拽关联、单流程筛选时默认隐藏该列待办的流程圆点。
-- 到期未完成：年、半年与 3个月 一样「始终手动安排」，不自动顺延；往期积压入口沿用现有做法。
+- 到期未完成：六尺度均可选择手动／自动；年、半年与 3个月默认手动。开启自动后只处理从开启当期开始的来源周期，更早积压仍在往期手动安排。
 - 撒花：设置 › 看板的逐列开关增加年、半年，默认开启（同 3个月）。
 - 自动排序：年列（最长列）和 Later 不参与；半年、3个月、本月、本周、今天跟随最近一级上级排列。3个月 原来不自动排序，现在有了更长的上级，也会参与。关闭自动排序时，这五列显示中的排列都要保存下来（BUG-10）。
 - 列宽与显示：六个时间列默认显示；显隐与按可见列数等分见[列显隐规格](column-visibility.md)。最小 320px，放不下时只在时间区出现横向滚动条。列内新建、明确定位、往期返回等需要聚焦某列时，把该列横向滚入视口；拖动沿用右缘自动滚动。
@@ -179,11 +179,22 @@
 
 ### 4.5 设置
 
+2026-10-05 负责人更新顺延规则：六个尺度均可独立选择手动／自动，顺序固定为年 → 半年 → 3个月 → 本月 → 本周 → 今天。只有今天默认自动，其余默认手动；开启自动从当前源周期生效，不追溯更早积压。此规则替代下文历史方案中「年／半年无策略、3个月始终手动」的约束。
+
+Implementation failure cases to cover before changing production code:
+
+- Settings must render six editable rows in horizon order, retain choices after restart and show translated mode descriptions in every locale.
+- Manual policies must leave expired items in place; automatic policies must move eligible items once at the correct rolling/natural boundary, including month-end clamping and leap years.
+- Enabling or re-enabling automatic rollover must not sweep older backlog, future items, completed/cancelled/archived/deleted items or Later.
+- Stale policy versions must fail without writes; rollover must preserve text, dates and relationships, and batch undo must restore positions with current-period holds.
+- Current JSON/SQLite exports must round-trip all six policies; v1–v6 sources must retain their four policies and business history while receiving manual year/half defaults. Missing/duplicate/mismatched policies must still fail validation.
+- Schema v7 must refuse older workspace files without modifying them, retaining the existing explicit export/import upgrade workflow.
+
 - 日历与顺延 › 日历设置是一张只读卡片，自上而下：
   - 概要：模式名（365 天 / 自然年）、起点说明（「从 2026年9月23日 起，每 12 个月为一年」或「按 1 月 1 日起的日历年安排」）、「Asia/Shanghai（GMT+8）· 每周从星期一开始」，右侧「已锁定」标记。
   - 本年度：当前一年的起止日期与剩余天数，下面是与向导相同的时间轴；再下面三项「下一年度开始 / 下个半年开始 / 下个 3个月开始」（自然年为「下季度开始」），日期等于当期年 / 半年 / 3个月的结束日。
   - 「更换日历」行：说明模式和起点已锁定，要更换需先备份、再重置工作区，重置会清空全部条目、主题和备份保留；右侧标出目的地「备份与恢复 ›」。点击后进入「备份与恢复」，把重置入口滚入视口并聚焦，卡片短暂描红一次；从导航进入该页时不标记。它取代原来放在分组标题旁、看不出后果和去向的「前往重置」按钮。
-- 到期未完成：年、半年、3个月三行一致显示「周期结束时由你亲自安排 · 始终手动安排」（年、半年没有策略记录，见 §6.3），本月 / 本周 / 今天可切换手动与自动顺延；列名列按最长列名对齐，各语言的说明起点一致。
+- 到期未完成：按年 → 半年 → 3个月 → 本月 → 本周 → 今天排序，六行使用同一手动／自动顺延控件，说明跟随当前模式变化；仅今天默认自动。列名按最长名称对齐，五语言均使用相同布局。
 - 看板：撒花开关增加年、半年。
 - 恢复 / 导入预览：来源日历一行显示模式。
 
@@ -230,8 +241,8 @@
 - 不做原地升级（D10）：新版遇到旧版本的工作区文件时拒绝打开，提示「不支持的工作区版本，原文件未修改」，并给出工作区与备份目录的位置；不写入、不建副本。
 - 升级方式：负责人按 §6.3 的步骤，在旧版导出完整 JSON，移走旧数据库文件，在新版里「从文件恢复」。已有周期、位置、事件、回执全部原样导入；现有日历读出来就是 365 天、起点 = 原 `cycleAnchor`。
 - 导入走的是整库恢复：恢复后自动顺延会暂停、等你确认；工作区代次更换，会话撤销记录清空。
-- 新版仍能读取 v1–v5 的 JSON、`.sqlite` 文件和旧备份，导入逻辑不需要额外补数据。
-- 旧版本无法打开 v6 工作区（沿用现有「版本较新」提示）；v6 的备份 / 导出也不能在旧版本恢复。
+- 新版仍能读取 v1–v6 的 JSON、`.sqlite` 文件和旧备份，保留原有四条策略，并补充年／半年手动策略；补充策略从导入当天的当期生效。
+- 当前工作区为 v7；旧版本无法打开 v7 工作区（沿用现有「版本较新」提示），v7 的备份／导出也不能在旧版本恢复。
 
 ## 5. 体验问题与对策
 
@@ -273,8 +284,8 @@
 - `calendar.ts`：`Horizon` 增加 `'year' | 'half'`；`Calendar` 增加 `mode?: 'rolling' | 'natural'`；`cycleRange` 泛化为按 3 / 6 / 12 个月计算的锚定区间；`currentPeriod` 支持年 / 半年；`precedingPeriod` 对三个锚定尺度在起点处都返回 null；`validateCalendar` 要求自然年模式的起点为 `YYYY-01-01`。
 - `relations.ts`：逻辑不变（依赖 `horizons` 顺序），补测试。
 - `parent-order.ts`：`rank` 增加年 / 半年（或改为从 `horizons` 推导）。之后 `parentOrderedHorizon`（`rank > 0`）会把半年、3个月 也纳入自动排序；保存排列的 SQL 必须用同一个判断（§6.4、BUG-10）。
-- `rollover.ts`：逻辑不变；补测试确认年 / 半年不进入自动候选、撤销 hold 正常。
-- `import-validation.ts`：策略仍为 4 条（年 / 半年没有策略记录）；周期边界按数据集日历的 mode 复核；校验自然年起点。
+- `rollover.ts`：沿用通用候选与撤销 hold 规则；年／半年／3个月开启自动后也按所锁定日历的实际边界顺延。
+- `import-validation.ts`：按来源版本校验策略，v1–v6 必须有原四条且 cycle 手动，v7 必须有完整六条；周期边界按数据集日历复核。来源校验不改历史，新增默认策略仅在替换事务中写入目标库。
 - `smart/questions.ts`：`horizonOptions`、`inferOptions` 增加 year / half，执行时间题的说明补充「这一年 / 这半年」；`SmartContext.periods` 增加两个键；`state` 带上口语周期的解析结果。
 - `smart/` 新增口语周期解析：只处理中文的纯函数，按模式、起点和今天把「今年 / 这半年 / 上半年 / 下半年 / 下个半年 / 明年」解析成选项与实际日期（规则见 §4.6）。
 - `smart/preview.ts`：推测结果的类型增加 year / half；future 警示文案覆盖「明年 / 下个半年」，不再包括正在进行的「下半年」。原文开头唯一且明确的执行周期按解析结果生成预览；否定、截止表达和多个周期仍由 Jev 判断。手动调整优先，所有写入仍需用户确认。
@@ -283,28 +294,30 @@
 ### 6.2 共享契约（`src/shared/contracts`）
 
 - `values.ts`：`horizons = ['later','year','half','cycle','month','week','day']`；新增 `periodHorizons`（去掉 later）和 `anchoredHorizons`（年 / 半年 / 3个月）常量，替换各处手写的四元数组（`repository.ts`、`main/workspace/review.ts`、`CalendarStep.tsx`、`ReviewOverview.tsx`、`insight/review.ts` 等）。
-- `entities.ts`：`periodHorizonSchema` 改用常量；`calendarSchema` 增加 `mode: z.enum(['rolling','natural']).default('rolling')`。字段名 `cycleAnchor` 保留，语义扩为「锚定尺度共同的起点」，避免改动已存储的 JSON 和导出格式。`policySchema` 的尺度保持四种。
-- `commands.ts`：`confirmSetup` 增加 `mode`；起点改为 `{ kind: 'today', expected } | { kind: 'monthStart', expected } | { kind: 'date', date }`，`expected` 是界面上显示的日期；自然年模式的起点由服务端取当年 1 月 1 日，同样带 `expected`。确认事务按工作区今天解析预设起点，结果与 `expected` 不一致时以 `stale_preview` 拒绝，不锁定任何东西。这一项是必须的，不是可选项（BUG-12）。`policy` 的尺度枚举保持四种（年 / 半年没有可改的策略）。
+- `entities.ts`：`periodHorizonSchema` 改用常量；`calendarSchema` 增加 `mode: z.enum(['rolling','natural']).default('rolling')`。字段名 `cycleAnchor` 保留，语义扩为「锚定尺度共同的起点」。2026-10-05 起 `policyHorizons = periodHorizons`，策略和命令共用完整六尺度。
+- `commands.ts`：`confirmSetup` 增加 `mode`；起点改为 `{ kind: 'today', expected } | { kind: 'monthStart', expected } | { kind: 'date', date }`，`expected` 是界面上显示的日期；自然年模式的起点由服务端取当年 1 月 1 日，同样带 `expected`。确认事务按工作区今天解析预设起点，结果与 `expected` 不一致时以 `stale_preview` 拒绝，不锁定任何东西。这一项是必须的，不是可选项（BUG-12）。`policy` 的尺度枚举使用完整六尺度，每次修改均要求当前策略版本。
 - `queries.ts`：`boardPeriods` 的 `max(4)` 改为 6；`historyIndex` 枚举改用常量（BUG-03、BUG-04）。
-- `transfer.ts`：`schemaVersion` 增加 6，并保留 1–5，这样旧版导出的 JSON 能导入新版；其余不变。
+- `transfer.ts`：当前导出 schema v7，保留 v1–v6 导入；策略数组上限使用 `policyHorizons.length`。
 - `smart-input.ts`：`smartPreviewSchema.periods`、`insightBoardSchema.periods` 的键改为从周期尺度常量派生（BUG-01）；`draftTaskSchema.targetHorizon` 增加 half / cycle；`insightBoardSchema` 的 goals / unlinked 增加 half、cycle 列表（各 ≤ 24）。
 
 ### 6.3 存储：不做原地迁移（D10，`src/main/storage`）
 
-只有负责人在使用，升级改为手动导出、导入，代码里不写原地迁移。数据库结构只有一处变化：新库里 `planning_periods.horizon` 与 `item_placements.horizon` 的 CHECK 加上 `year`、`half`。其余新数据都不需要改表，所以旧数据导入新版不需要任何转换：
+**2026-10-05 当前增量**：schema v7 的 `rollover_policies.horizon` 接受六尺度，移除 cycle 只能 manual 的 CHECK。确认配置写入六条策略；当前库必须完整持有六条。`upgradableVersions` 仍为空，v1–v6 工作区只读拒绝，沿用下方手动升级流程；旧源导入校验保留四策略约束，目标事务补写年／半年手动策略及所需当期。JSON、SQLite 导出与备份验证统一接受六策略。
 
-| 新数据 | 放在哪里 | 为什么不用转换 |
+升级采用手动导出、导入，代码里不写原地迁移。新库的周期、位置与策略约束均覆盖六尺度；旧源的业务记录不改写，仅补齐新增策略需要的数据：
+
+| 新数据 | 放在哪里 | 导入规则 |
 | --- | --- | --- |
 | 日历模式 | 现有 `workspace.calendar` JSON 里新增 `mode` 字段 | 读取时缺省为 `'rolling'`，旧库、旧备份、旧 JSON 自然就是 365 天 |
-| 年 / 半年周期 | `planning_periods` | 沿用「写入时才物化」，第一次往年 / 半年列放任务时才创建 |
-| 年 / 半年顺延策略 | 不存 | 和 3个月 一样永远手动；自动顺延本来就只遍历 auto 策略，策略表、`policy` 命令和导入时的「恰好 4 条策略」规则都不变 |
+| 年 / 半年周期 | `planning_periods` | 配置确认或旧源导入时创建策略所需当期；已有周期保留，其余周期写入时物化 |
+| 年 / 半年顺延策略 | `rollover_policies` | 新配置默认 manual；v1–v6 导入补 manual，以恢复当天当期为生效边界；原四条策略原样保留 |
 
 代码改动：
 
-- `schema.ts`：`schemaVersion = 6`；新库 DDL 的两处 CHECK 加 `year`、`half`。
-- `upgradableVersions` 置空，删除 `migrate()` 里 v1–v4 → v5 的升级分支。新版遇到 v1–v5 的工作区时，`startup.ts` 现有的只读探测会直接拒绝（提示「不支持的工作区版本，原文件未修改」），启动错误对话框里给出工作区和备份目录的位置；不写入、不建副本，也不需要新增文案。`startup.ts` 里「保护副本 + 迁移」的编排保留，列表为空时不会触发，以后若需要原地迁移可以复用。
-- `supportedVersions` 保留 1–6：「从文件恢复」和备份列表里的「用它恢复」仍能读取旧版本的 JSON、`.sqlite` 与备份。
-- 测试：`tests/integration/startup.test.ts` 里 v1 / v2 / v3 升级与升级失败的用例，改为「旧版本被拒绝、文件未修改、不建副本」；新增「v5 数据导入 v6」的集成测试。
+- `schema.ts`：`schemaVersion = 7`；策略 DDL 支持六尺度，移除 cycle 只能 manual 的限制。
+- `upgradableVersions` 为空；新版遇到 v1–v6 工作区时，`startup.ts` 只读拒绝（提示「不支持的工作区版本，原文件未修改」），启动错误对话框给出工作区与备份目录的位置；不写入、不建副本。「保护副本 + 迁移」编排保留，列表为空时不会触发。
+- `supportedVersions` 保留 1–7：「从文件恢复」和备份列表里的「用它恢复」仍能读取旧版本的 JSON、`.sqlite` 与备份。
+- 测试：旧版本只读拒绝；真实 v5/v6 JSON／SQLite 源导入 v7 保留记录与四条原策略，补手动默认策略；v7 再次导出恢复保持全部六条策略。
 - 文档：`smart-input.md` 与 `docs/development.md` 里「启动时把 v1–v4 经保护副本原子迁移」的描述，改为「v6 起不再原地升级，旧数据通过导入恢复」；`storage/README.md` 与 `schema.ts`、`startup.ts` 的头注释同步。
 
 **负责人的手动升级步骤**（新版发布后，旧版会自动下载更新；先完成第 1 步再点「重启安装」）：
@@ -315,25 +328,25 @@
 4. 安装并打开新版：它会新建空工作区并进入向导。向导随便选，方向留空、跳过 AI 即可，导入时会整体替换日历和全部数据。
 5. 设置 › 备份与恢复 › 从文件恢复 › 选择文件，选第 1 步导出的 JSON；看完预览后确认替换（替换前会自动备份当前的空工作区）。
 6. 恢复完成后，顶部会提示「工作区恢复完成，确认后按设置处理往期事项」，点「确认按设置处理」恢复自动顺延。工作区代次更换、撤销记录清空，这是整库恢复的正常行为。
-7. 检查：设置 › 日历与顺延显示「365 天」、起点是原来的三个月周期起点；条目、历史、流程都在；年、半年列为空。
+7. 检查：设置 › 日历与顺延保留原模式与起点（v1–v5 为 365 天）；条目、历史、流程都在；年／半年策略默认手动，六行都可切换，今天在最下方。
 
 兜底：
 
 - 忘了先导出、新版已经装上：新版启动会提示不支持的版本，旧文件不会被改动。照样做第 2–4 步，然后在第 5 步直接选移走的 `workspace.sqlite`（`-wal` 文件放在它旁边），或在备份列表里对最近一份旧备份点「用它恢复」。
-- 想退回旧版：重装旧版，把第 3 步移走的文件放回原位。新版产生的 v6 数据旧版打不开。
+- 想退回旧版：重装旧版，把第 3 步移走的文件放回原位。新版产生的 v7 数据旧版打不开。
 
 **以后若出现其他用户、需要原地升级**：按已实测的做法补一个迁移即可。步骤是事务外关外键 → 先重建 `item_placements`（连带删除它的两个触发器和索引）→ 重建 `planning_periods` → 两表改回原名 → 重建索引与触发器 → 用 `verifyDatabase` 复核。2026-10-02 在 Electron 44（Node 24.21、SQLite 3.53.4）的一次性数据库上实测：原有行逐字节一致，外键、触发器、新 CHECK 都生效。直接改写 `sqlite_schema` 里的 CHECK 文本需要关闭 node:sqlite 默认的防御模式（`defensive: false`），不采用。
 
 ### 6.4 主进程事务与查询（`src/main/workspace`）
 
-- `commands/items.ts` 的 `confirmSetup`：接收 mode；在事务内按工作区今天解析起点（今天、本月 1 日、自然年的 1 月 1 日），与 `expected` 不一致就以 `stale_preview` 拒绝；自选日期仍只检查不晚于今天；仍只为四个原有尺度写当期周期与策略（日 auto，其余 manual）。
+- `commands/items.ts` 的 `confirmSetup`：接收 mode；在事务内按工作区今天解析起点（今天、本月 1 日、自然年的 1 月 1 日），与 `expected` 不一致就以 `stale_preview` 拒绝；自选日期仍只检查不晚于今天；六尺度均写当期周期与策略（日 auto，其余 manual）。
 - `commands/ordering.ts` 的 `materializeParentOrder`：保存排列的 SQL 写死 `p.horizon IN ('month','week','day')`，改为按 `parentOrderedHorizon` 生成，覆盖半年、3个月（BUG-10）。
-- `commands/settings.ts`、`reconcile.ts`：不用改；补测试确认年 / 半年永远不会被自动顺延。
+- `commands/settings.ts`：六尺度共用版本保护与非追溯生效边界，不再拒绝 cycle 自动；`reconcile.ts` 沿用统一候选、事务与批次撤销。
 - `repository.ts` 的 `metadata()`：返回六个尺度的当期（只计算，不写库）；「今天早于起点」的时钟回拨保护从 3个月 扩到所有锚定尺度。
 - `periods.ts`、`history.ts`、`context.ts`：逻辑已通用，补测试。
 - `review.ts`：复盘仍只有周 / 月，但复盘用的周期列表扩为六种，使复盘总览矩阵与信号包含年 / 半年。现有代码只对 3个月 做「观察时刻早于起点就跳过」，这层保护要扩到年、半年，否则在起点所在的月初 / 周初打开上一期复盘时，计算年 / 半年当期会抛错（BUG-11）。
 - `main/smart/context.ts`：`periods` 带上年 / 半年（与 BUG-01 的修复配合）。
-- `transfer/*`：导出 v6；读取 v1–v6。
+- `transfer/*`：导出 v7；读取 v1–v7；旧源仅在目标替换事务中补齐年／半年默认策略。
 
 ### 6.5 看板、向导与设置（`src/renderer`）
 
@@ -346,7 +359,7 @@
 - `items/ItemDetail.tsx`：`nextHorizon` 增加 年 → 半年、半年 → 3个月。
 - `composer/DraftRow.tsx`：列菜单变为 1–7。
 - `state/celebration.ts`、`settings/BoardPane.tsx`：年 / 半年默认开启。
-- `settings/CalendarPane.tsx`、`settings/TransferReview.tsx`：模式与起点展示；年 / 半年的静态策略行。
+- `settings/CalendarPane.tsx`、`settings/TransferReview.tsx`：模式与起点展示；六尺度可编辑策略按 `policyHorizons` 排序，今天在最下方。
 - `features/setup/*`、`App.tsx`：按 §4.4 实现三步；方向创建为年列流程根（`horizon: 'year'`，剩余不足 14 天时带 `period: { kind: 'date' }` 指向下一年）。
   - 向导持有自己的「今天」：在所选时区的下一个午夜、窗口获得焦点、睡眠唤醒时重算，并刷新卡片、预览和方向目标周期；提交时带上起点的种类和 `expected`；收到 `stale_preview` 时刷新并保留草稿。
   - 方向写进下一年时，向导结束、看板出现后，用现有的定位能力（`boardView.locate`）把年列切到那一年并高亮方向，同时把半年列切到同一天开始的那一期。
@@ -376,6 +389,7 @@
 | D8 | 年 / 半年的年份显示 | 只在可能有歧义时显示（§4.3 规则 1–4） | 3个月 面板列表一并改用规则 2 |
 | D9 | Onboarding | 按文档建议：三步、合并方向与确认、不足 14 天放进下一年（列头条预览已于 2026-10-03 由负责人去掉） | §4.4 |
 | D10 | 数据库方案 | 不写原地迁移，负责人手动「旧版导出 JSON → 新版导入」；新库直接带年 / 半年的尺度约束；年 / 半年不建策略行；模式存进日历 JSON | §6.3；只有负责人在使用，没有公开用户 |
+| D11 | 2026-10-05 顺延设置 | 年／半年／3个月可切换自动，默认手动；今天排在最下方。v7 保存完整六策略，旧源导入补手动默认值，继续沿用 D10 的手动升级流程 | §4.5、§6.3；取代 D10 的无年／半年策略行约定 |
 
 D1–D7 由负责人于 2026-10-02 在问答中确认，D8–D9 由负责人同日直接确认；D10 由负责人于 2026-10-03 确认。
 
@@ -465,7 +479,8 @@ D9 里「不足 14 天放进下一年」的规则保留，补齐了向导结束�
 - [x] 新工作区默认 365 天、起点 = 确认当天；「更改起点」只接受今天、本月 1 日或不晚于今天的日期；自然年起点 = 当年 1 月 1 日；确认后两者都不可改
 - [ ] 按 §6.3 的步骤把现有 v5 工作区导出、导入新版后：显示 365 天、起点 = 原「三个月周期起点」；条目、周期、关联、历史逐条一致；年 / 半年列显示正确当期
 - [x] 新版直接打开 v1–v5 工作区时明确拒绝，原文件不被修改；v1–v5 的 JSON、`.sqlite` 与旧备份都能导入；v6 自然年工作区导出再导入保持一致
-- [x] 年 / 半年列的新建、拖动、排序、右键顺延、前后浏览、往期编辑、详情、搜索定位、关联 / 关系线、撒花均可用，且不会自动顺延
+- [x] 年 / 半年列的新建、拖动、排序、右键顺延、前后浏览、往期编辑、详情、搜索定位、关联 / 关系线、撒花均可用，默认不自动顺延（2026-10-05 起可在设置启用）
+- [x] 2026-10-05：六行策略顺序与默认值正确，年／半年／3个月切换及重启保留；滚动／自然年、月底／闰年边界、旧积压隔离、版本保护、撤销 hold 与 v5/v6 导入 v7 保真通过对应日历自动化
 - [x] 自动排序：半年、3个月 跟随最近一级上级排列；关闭自动排序后顺序保持，重启后保持，撤销这次关闭后恢复原来的手动顺序
 - [x] 起点当天是月初 / 周初时打开上一期复盘，正常加载
 - [x] 年份按 §4.3 显示：相对名旁不带年份；远期与面板列表只在需要时补年份；年 / 半年 / 3个月 面板六行互不相同

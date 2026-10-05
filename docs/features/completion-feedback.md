@@ -29,6 +29,8 @@
 
 ### 完成撒花
 
+- 2026-10-05 负责人确认：周／月／合并复盘完成后，先关闭面板再播放同一轮 confetti；明确不排入也算本次复盘完成。仅确认成功后触发，失败／未知回执不播放；遵循入口所属列开关（合并复盘使用本月）及减少动态效果。完成入口和会话已清理，重载不重播。
+
 - 默认「3个月、本月、本周」开启撒花，「Later、今天」关闭；五列的撒花均可独立切换，包括收起的 Later。按完成时所在列判断，无关所属流程或上级所在列。
 - 设置是看板卡片中的一行：标题与说明右侧为「试一下」，下方为与看板同序（Later → 今天）的五个多选列按钮；全部取消即关闭，说明随之提示。「试一下」立即播放一轮预览，不受列开关影响、不写入任何数据；系统减少动态效果时不可用。
 - 看板和详情内主动完成均适用，包括详情中不在当前看板的往期／归档事项。完成提交确认成功且确实改变状态后，只播放一次。刷新、重复回执、无变化的请求、失败、撤销和数据恢复不播放；撤销完成后再次主动完成可再次播放。
@@ -44,12 +46,18 @@
 - Toast 时长由反馈类型决定：普通撤销且无 `restoreSource` 为 2.5 秒，其他普通反馈为 6 秒，还原部分成功警告不自动关闭；暂停与工作区代次清理沿用现有反馈生命周期。文案覆盖中、英、日、西、法。
 - `FeedbackLayer` 将提示挂到当前原生模态框内的非模态 top layer；弹窗关闭后回到页面。提示不抢焦点，空白区域点击穿透，在详情／回收站内可直接关闭或撤销。
 - `state/use-workspace.ts` 在权威刷新与 `UndoSession.accept` 去重后生成 renderer 内部 `CompletionEvent { operationId, generation, horizon }`；保留原命令上下文处理未知结果的回执恢复。优先从刷新快照读取列，缺失时查询详情；查询失败只跳过动效，不将已提交操作报为失败。代次变化清除旧事件。
-- `state/celebration.ts` 提供逐列外部存储、设置页预览信号与系统减少动态效果订阅；预览复用同一画布与生命周期。localStorage `goalloom.celebration` 只保存与默认不同的已知布尔字段；非法字段各自回退默认，存储不可用时仍保留本次会话设置。
+- `state/celebration.ts` 提供逐列外部存储、设置页预览、绑定工作区代次的复盘完成信号与系统减少动态效果订阅；预览复用同一画布与生命周期。localStorage `goalloom.celebration` 只保存与默认不同的已知布尔字段；非法字段各自回退默认，存储不可用时仍保留本次会话设置。
 - `CompletionCelebration` 只消费新事件身份。Canvas 2D 与单个 requestAnimationFrame 驱动有限粒子，DPR 上限 2，无闲置绘制、无逐帧 React 更新。非模态 manual popover 位于 top layer；画布与 backdrop 均透明且不拦截指针，装饰内容不进入可访问树。
 - 粒子出生位置为 CSS 像素坐标 `(0, innerHeight)` 和 `(innerWidth, innerHeight)`；摆动在出生时为零。每侧独立分层采样发射角（22°–82°）与速度，让每轮同时包含陡、平、慢和横跨中央的粒子；位置由线性空气阻力加重力的闭式解计算（水平以窗口宽、垂直以窗口高为单位），阻力让快粒子在前半秒后趋于悬停，慢粒子留在角旁，锥形整体锚定在出生角。每侧一枚零延迟种子在首帧出现，其余延迟按三次方分布集中在头几帧、尾部持续到约 450 ms。
 - 不增加动画依赖，不更改数据库、IPC、CSP、备份格式或撤销成员。渲染失败不影响保存或撤销。设置变化不重播旧事件。
 
+## 复盘触发的实现前失败场景
+
+- Final review confirmation celebrates before the modal closes, fires twice, or plays after a rejected/lost write; disabled review-column or reduced-motion preferences are ignored; a stale-generation request plays after replacement; cancelling motion or reloading replays the result. Observe actual Canvas corner translations through the native completion group; preserve the existing player, cleanup and item-completion path.
+
 ## 验收
+
+- [x] 2026-10-05 复盘完成复用 confetti：先关闭面板／清理入口，再按所属列和减少动态效果播放一次；失败／未知回执不播放。定向周初／周末确认／跳过场景通过真实 Canvas 起点与唯一身份、减少动态效果取消／资源释放、禁用列与重载不重播。未重跑完整 E2E；命令、初次测试拦截修正、平台范围与未验证边界：`output/tests/review-completion/report.json`。
 
 - [x] `pnpm test:celebration`：默认值、逐列设置和重启持久化；看板／详情／移动后的完成；双侧粒子、连续完成；减少动态效果、焦点、点击穿透与结束清理。保存截图与 `output/tests/celebration.json`；原生隐藏通过无前台模拟的独立 Electron / CDP 验证。
 - [x] 撒花范围调整：实际绘制从两个窗口下角起步，1880×1000 和 1280×760 窗口都覆盖中央和上部；保存出生坐标、像素边界范围及早期／展开截图。

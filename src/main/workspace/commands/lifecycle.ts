@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 事务中的当前条目、严格命令和注入时刻。
- * [OUTPUT]: 独立状态/归档/软删除/定向还原与关系差量，原子事件。
- * [POS]: 生命周期命令库；不变更计划、不联动关联项状态或恢复暂停。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Transaction-local items/relations, strict lifecycle commands and injected time.
+ * [OUTPUT]: Independent status/archive/delete, guarded title-only discard, scoped restore and atomic visibility effects.
+ * [POS]: Lifecycle commands; deletion retains saved text/placement for undo without cascading state.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { changeStatus } from '../../../domain/status'
 import { relationProblem } from '../../../domain/relations'
+import { canDiscardEmptyTitle } from '../../../domain/items'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { statusGroup, type EdgeDelta } from '../../../shared/contracts/effects'
 import type { Item, Relation } from '../../../shared/contracts/entities'
@@ -49,17 +50,21 @@ export function writeEdges(context: Context, edges: Relation[], exceptId?: strin
   const ids = new Set(edges.flatMap(edge => [edge.parentId, edge.childId]))
   for (const id of ids) if (id !== exceptId) touch(context, context.store.item(id))
 }
-export function deleteItem(context: Context, command: CommandOf<'delete'>): boolean {
+export function deleteItem(context: Context, command: CommandOf<'delete' | 'discardEmpty'>): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion)
   assertAvailable(item)
+  if (command.type === 'discardEmpty') {
+    const linked = context.store.prepare('SELECT 1 FROM item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?) LIMIT 1').get(item.id, item.id)
+    if (!canDiscardEmptyTitle(item, Number(!!linked))) throw new DomainError('conflict', serverText().errors.itemChanged)
+  }
   const before = structuredClone(item)
-  const edges = invalidateEdges(context, item.id)
+  const edges = command.type === 'discardEmpty' ? [] : invalidateEdges(context, item.id)
   writeEdges(context, edges.map(delta => delta.after), item.id)
   Object.assign(item, { deletedAt: context.now, deletedBy: command.operationId })
   touch(context, item)
   visibilityEffect(context, before, item, edges)
   context.store.event(command.operationId, context.now, 'deleted', before, item)
-  context.label = serverText().labels.delete
+  context.label = command.type === 'discardEmpty' ? serverText().labels.discardEmpty : serverText().labels.delete
   return true
 }
 export function restoreItem(context: Context, command: CommandOf<'restoreItem'>): boolean {

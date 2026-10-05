@@ -9,7 +9,7 @@
 - Later 是暂存区，不是计划周期：Later 条目不参与关联和流程，不显示流程圆点，不能设流程色。
 - 新建关联（关联上级、带上级新建、计划/拆解）要求上级在**周期严格更长**的计划列：年 → 半年 → 3个月 → 本月 → 本周 → 今天。同列、反向和任一端在 Later 都拒绝，且不写入。
 - 详情「拆解下一步」把下级建到下一列；今天已是最短周期，与 Later 一样不提供拆解。
-- 只约束新建：移动、顺延、撤销、还原和导入保留已有关联；反向或跨 Later 的旧线照常显示，可在选择器里解除。
+- 只约束新建：顺延、撤销、还原、导入，以及不是「移入 Later」的移动，都保留已有关联。移入 Later 在同一事务里解除该条目的上级，撤销这次移动时一起恢复；它留下的下级，以及反向或跨 Later 的旧线，照常显示，可在选择器里解除。
 - 选择器只列周期合规的候选（已关联的始终列出以便解除），最近的一列排前；开启[按上级自动排序](board-ordering.md)时，同列候选跟随看板顺序。详情与看板圆点共用同一选择器。
 - 关联两个已有条目时，至少一端已有流程归属；两端均无流程色且没有继承流程时禁止新建关联。上级／下级选择器（含搜索）、拖拽与权威 `link` 事务遵守同一规则。按实际祖先流程判断，不以条目自身 `flowColor` 是否为空判断；已有关联始终允许解除，移动、撤销、还原和导入仍保留旧关系。
 
@@ -36,7 +36,7 @@
 
 ### 行与列
 
-- 时间列等分宽度、至少 320px；[Later 固定侧栏](later-sidebar.md)与时间列同宽。复选框离列左竖线 23px（流程圆点占满其前方留白），行底色离左右两侧竖线各 3px。滚动条贴近列的右侧分隔线，仅鼠标悬停该列（含列头）时显示，移出即隐藏，保留的任务焦点不使其常显；内容宽度、换行及行对齐保持不变。
+- 时间列等分宽度、至少 320px；[Later 固定侧栏](later-sidebar.md)与时间列同宽。时间列复选框离列左竖线 23px（流程圆点占满其前方留白）。Later 没有圆点，行首留 12px，列标题与复选框对齐。行底色离左右两侧竖线各 3px。滚动条贴近列的右侧分隔线，仅鼠标悬停该列（含列头）时显示，移出即隐藏，保留的任务焦点不使其常显；内容宽度、换行及行对齐保持不变。
 - 看板任务标题完整换行显示，不限制行数、不以省略号截断，普通文本与链接标题一致；行高随内容增长。仅首行避让复选框，续行回到复选框左缘并与预览卡片对齐；复选框保持独立点击。圆点、复选框、日期/图标与连线接点都对齐第一行。
 - Trailing relation ports and next-step rings/pills overlay the row content. Titles and URL cards retain only the standard 6px right inset; showing or hiding these controls never reserves extra width or changes wrapping, even when they cover text.
 - 任务标题悬停不重复弹出标题文字，普通任务、含链接任务及往期列表一致；点击与键盘打开详情沿用原有行为。
@@ -71,7 +71,7 @@
 - 新效果无法通过 JSON／SQLite 备份恢复；恶意导入把颜色效果放进普通解除关联或改到其他端点。
 - 关系线开关关闭后无法拖拽、筛选淡化遮住候选、无色上级缺少反馈、键盘缺少同等的流程合并入口、五语言漏译。
 
-- `src/domain/relations.ts`：`mayParent(parent, child)` / `horizonProblem(parent, child)` 是新建关联的周期规则，`link`、`create`（带上级）与 `createPlan` 在权威事务内复核；`create`/`createPlan`/`flowColor` 拒绝 Later 流程色。renderer 的选择器、QuickAdd 与 composer 草稿复用 `mayParent` 做同一过滤。DAG/防环校验不变，撤销、还原和导入不套用周期规则。
+- `src/domain/relations.ts`：`mayParent(parent, child)` / `horizonProblem(parent, child)` 是新建关联的周期规则，`link`、`create`（带上级）与 `createPlan` 在权威事务内复核；`create`/`createPlan`/`flowColor` 拒绝 Later 流程色。renderer 的选择器、QuickAdd 与 composer 草稿复用 `mayParent` 做同一过滤。DAG/防环校验不变，撤销、还原和导入不套用周期规则。`moveItem` 在进入 Later 时于同一操作解除上级（`move` / `arrangeBacklog` 可以带上这条 `relations` 效果），撤销该次移动时恢复；下级边和其他移动不解除。
 - `src/renderer/state/relation-lines.ts`：`useRelationLines` 外部存储，localStorage `goalloom.relationLines`，只在关闭时存 `'false'`；不进入工作区数据、历史、导出或备份。
 - `src/renderer/features/board/Board.tsx`：持有圆点预览（120ms 离开缓冲），活跃流程 = 预览条目的流程，否则为筛选流程；据此给时间列的行 `dimmed` 与 `tint`（`flowTint`；Later 不参与流程，筛选时保持原样、不置灰），并在「活跃 + 开关开」时挂载关系线（键为 `lines:<flow id>` 或 `lines:preview`，仅筛选时画入）。断点层使用独立的 `breakpoints:<workspace generation>` 键，接收同一活跃流程集合；跨悬停进出保留待处理操作，工作区替换时清空。Board 统一管理圆点预览的指针／焦点离开，允许跨正文访问末尾添加按钮。`data-filtered` 区分顶栏筛选与临时预览，供 CSS 控制年列待办圆点的静止态显示。
 - `src/renderer/features/board/FlowDot.tsx`：行内圆点与浮层（`Popover floating` 经 portal 浮出列滚动区），复用 `FlowColorMenu` 与 `RelationPicker`；指针悬停与键盘 `:focus-visible` 触发预览，鼠标点击的焦点不触发。

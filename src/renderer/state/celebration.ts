@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Canonical planning horizons, device-local storage, system motion preference and React useSyncExternalStore.
- * [OUTPUT]: Shared per-column celebration controls, isCelebrationEnabled, a settings preview signal and a live useReducedMotion hook.
+ * [OUTPUT]: Per-column controls, settings previews, generation-bound review celebration requests and useReducedMotion.
  * [POS]: Renderer display preferences outside workspace history, exports and backups; only overrides are persisted.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -52,6 +52,17 @@ export function previewCelebration() { previewListeners.forEach(listener => list
 export function onCelebrationPreview(listener: () => void): () => void {
   previewListeners.add(listener)
   return () => { previewListeners.delete(listener) }
+}
+
+interface ReviewCelebration { id: string; generation: string; horizon: 'week' | 'month' }
+const reviewListeners = new Set<(event: ReviewCelebration) => void>()
+export function requestReviewCelebration(generation: string, horizon: 'week' | 'month'): void {
+  const event = { id: `review:${crypto.randomUUID()}`, generation, horizon }
+  reviewListeners.forEach(listener => listener(event))
+}
+export function onReviewCelebration(listener: (event: ReviewCelebration) => void): () => void {
+  reviewListeners.add(listener)
+  return () => { reviewListeners.delete(listener) }
 }
 
 const motion = typeof window === 'undefined' ? undefined : window.matchMedia('(prefers-reduced-motion: reduce)')

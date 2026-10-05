@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Device column preferences, workspace calendar, shared picker surface/list styles and the global dialog boundary.
- * [OUTPUT]: Immediate six-column checkbox menu with keyboard navigation, dismissal/focus return and a minimum-column hint.
+ * [OUTPUT]: Immediate six-column checkbox menu sized to the longest label, with right-aligned checks, keyboard navigation, dismissal/focus return and a hover tip on the locked last check.
  * [POS]: TopBar presentation control; reuses the shared popover and icon primitives without workspace writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -60,11 +60,12 @@ export function ColumnVisibilityMenu({ columns, calendar, blocked }: { columns: 
           return <button key={horizon} type="button" className="picker-row" role="menuitemcheckbox" data-column-choice={horizon} data-selected={checked}
             aria-checked={checked} aria-disabled={last || undefined} aria-describedby={last ? 'column-visibility-hint' : undefined}
             onClick={() => { if (!last) columns.setVisible(horizon, !checked) }}>
-            <span>{horizonName(horizon, calendar)}</span>{checked && <Icon name="check" size={14} />}
+            <span>{horizonName(horizon, calendar)}</span>
+            <span className="column-visibility-check">{checked && <Icon name="check" size={14} />}</span>
+            {last && <span id="column-visibility-hint" role="tooltip" className="column-visibility-tip">{messages.minimumVisibleColumns}</span>}
           </button>
         })}
       </div>
-      {count === 1 && <p id="column-visibility-hint" className="column-visibility-hint" role="note">{messages.minimumVisibleColumns}</p>}
     </div>
   </Popover>
 }
