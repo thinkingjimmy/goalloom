@@ -7,7 +7,7 @@ main/
 ├── index.ts       # 单实例、先展示后日常备份/核对、首次写入门控、renderer 会话释放与退出排空
 ├── ipc.ts         # 固定读写入口、来源/会话检查、会话释放取消智能请求/缓存、原生选择后仅向 worker 传受控路径
 ├── security.ts    # 本地协议白名单、生产 CSP、权限/导航/下载拒绝
-├── update.ts      # electron-updater（GitHub Releases）：定时后台检查/下载、手动检查、重启安装；开发版 unsupported
+├── update.ts      # electron-updater（GitHub Releases）：定时后台检查/下载、手动检查、macOS 原生准备完成后就绪、重启安装；开发版 unsupported
 ├── window/
 │   ├── menu.ts    # 仅 macOS 应用菜单：关于/检查更新打开设置 › 关于，随语言重建
 │   ├── state.ts   # 工作区之外的窗口偏好，跨屏恢复不出界

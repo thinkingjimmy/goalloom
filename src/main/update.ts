@@ -1,10 +1,10 @@
 /**
- * [INPUT]: electron-updater with the GitHub Releases feed baked into packaged builds (app-update.yml), Electron app identity.
- * [OUTPUT]: UpdateService: periodic background check + download, manual check, restart-to-install and phase notifications.
+ * [INPUT]: electron-updater with the packaged GitHub Releases feed, Electron app identity and native macOS staging events.
+ * [OUTPUT]: UpdateService: background/manual checks, download, native-ready restart/quit installation and phase notifications.
  * [POS]: main's only software-update path; development builds report `unsupported` and never load electron-updater.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { app } from 'electron'
+import { app, autoUpdater as nativeUpdater } from 'electron'
 import type { AppUpdater } from 'electron-updater'
 import type { UpdateInfo, UpdateState } from '../shared/contracts/update'
 
@@ -17,6 +17,7 @@ export class UpdateService {
   private settled: UpdateState = this.state
   private manual = false
   private updater: AppUpdater | null = null
+  private pendingMacVersion: string | null = null
   private attached: Promise<void> = Promise.resolve()
 
   constructor(private readonly notify: (info: UpdateInfo) => void) {}
@@ -60,8 +61,21 @@ export class UpdateService {
       const percent = Math.min(100, Math.max(0, Math.floor(progress.percent)))
       if (percent !== this.state.percent) this.set({ ...this.state, percent })
     })
-    updater.on('update-downloaded', info => this.settle({ phase: 'ready', version: info.version }))
-    updater.on('error', () => this.settle(this.manual ? { phase: 'failed' } : this.settled))
+    updater.on('update-downloaded', info => {
+      // MacUpdater announces its zip before Squirrel has verified and staged it for installation.
+      if (process.platform === 'darwin') this.pendingMacVersion = info.version
+      else this.settle({ phase: 'ready', version: info.version })
+    })
+    if (process.platform === 'darwin') nativeUpdater.on('update-downloaded', () => {
+      if (!this.pendingMacVersion) return
+      const version = this.pendingMacVersion
+      this.pendingMacVersion = null
+      this.settle({ phase: 'ready', version })
+    })
+    updater.on('error', () => {
+      this.pendingMacVersion = null
+      this.settle(this.manual ? { phase: 'failed' } : this.settled)
+    })
     this.updater = updater
   }
 

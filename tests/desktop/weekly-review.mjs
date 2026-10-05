@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build, real workspace date and first/last-day weekly history fixtures.
- * [OUTPUT]: Weekly guide, default destinations, custom menu/focus, read-only titles, theme connectors, resume and creation evidence in output/tests/insight/weekly-review/.
+ * [OUTPUT]: Weekly review-entry removal, separate planning invitations, default destinations, custom menu/focus, read-only titles, theme connectors, resume and creation evidence in output/tests/insight/weekly-review/.
  * [POS]: Flow-insight desktop regression using real renderer/preload/SQLite and isolated synthetic records.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -76,7 +76,7 @@ async function verify(mode, variant) {
       scenario.ok = true
       return
     }
-    const week = page.locator('[data-horizon=week]'), guide = week.locator('.review-guide')
+    const week = page.locator('[data-horizon=week]'), guide = week.locator('.review-guide').filter({ has: page.locator('[data-review]') })
     const reviewedName = mode === 'week-first' ? '上周' : '本周', nextName = mode === 'week-first' ? '本周' : '下周'
     await guide.waitFor()
     assert.equal(await page.locator('[data-review]').count(), 1)

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron and a fresh synthetic workspace through production IPC.
- * [OUTPUT]: Default planning columns, independent sidebar, scrolling, drag, motion, localization and restart evidence under output/tests/later-sidebar.
+ * [OUTPUT]: Default planning columns, independent sidebar, parent unlinking on Later moves, scrolling, drag, motion, localization and restart evidence under output/tests/later-sidebar.
  * [POS]: Focused desktop E2E acceptance; never opens the owner's workspace or captures unrelated desktop content.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -88,10 +88,13 @@ try {
   const child = await create('Existing linked item', 'month', { parentId: goal, expectedParentVersion: 1 })
   await create('Week flow item', 'week', { parentId: goal, expectedParentVersion: 1 })
   await move(child, 'later')
+  const movedRelations = await page.evaluate(async () => (await window.goalloom.getSnapshot()).relations)
+  assert.equal(movedRelations.some(edge => edge.childId === child), false, 'Moving into Later removes the incoming relationship')
+  assert.equal(movedRelations.length, 1, 'Moving into Later preserves the sibling relationship')
   await count(3)
   await page.locator('.flow-filter .chip').nth(1).click()
   await count(3)
-  await page.waitForFunction(() => document.querySelectorAll('.relation-edge').length >= 2)
+  await page.waitForFunction(() => document.querySelectorAll('.relation-edge').length === 1)
   await page.waitForFunction(() => document.querySelector('.relation-lines').getAnimations({ subtree: true }).every(animation => animation.playState === 'finished'))
   await shot('expanded-flow')
   await page.locator('.flow-filter .chip').first().click()

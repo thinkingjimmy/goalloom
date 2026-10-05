@@ -54,7 +54,7 @@
 | macOS 14+ (Apple silicon) | `Goalloom-<version>-mac-arm64.dmg` |
 | Windows 11 (x64) | `Goalloom-<version>-win-x64.exe` |
 
-The builds are **not notarized or code-signed** yet, so each platform needs a one-time step.
+The macOS build is **Developer ID signed but not notarized**; the Windows installer is **not code-signed**. Each platform needs a one-time step.
 
 **macOS.** Open the DMG and drag Goalloom into `Applications`. macOS will otherwise report that the app "is damaged" or "can't be verified": that is Gatekeeper's quarantine flag on an un-notarized download, not a broken file. Clear it once from Terminal, then launch normally:
 
