@@ -1,16 +1,18 @@
 {
   "electron": "44.4.4",
   "thresholdPercent": 5,
+  "asarBaselineVersion": "1.5.0",
+  "asarBaselineNote": "The common 1.5.0 production ASAR is 2575192 bytes, 16617 bytes (0.65%) above 1.4.0. New title editing, activity and planning UI account for the increase. Download and logical-size baselines stay at their measured values.",
   "darwin-arm64": {
     "downloadBytes": 116612529,
     "logicalBytes": 257543163,
-    "asarBytes": 2450278,
+    "asarBytes": 2575192,
     "archiveSha256": "fd3c1f0fd13cdb256f3bc2ee853da18bc801c420480392d9f72adbf5940a5305"
   },
   "win32-x64": {
     "downloadBytes": 104084380,
     "logicalBytes": 342255566,
-    "asarBytes": 2450278,
+    "asarBytes": 2575192,
     "archiveSha256": "b0a1ff31b54938eb59041cbeb526c458cbd2a075239e15ced1aa894fc8846cba"
   }
 }

@@ -16,7 +16,7 @@ scripts/
     ├── package-report.mjs      # 当前版本/平台精确产物与 ASAR 版本核对、清单、语言、SHA256、体积门槛
     ├── package-experiment.mjs  # 私人双平台 normal/maximum 构建与 macOS DMG 挂载+拷贝计时
     ├── package-locales.json    # 从锁定 Electron 实际资源核对的两平台语言白名单
-    └── package-budgets.json    # 锁定 Electron 的实测绝对体积基线，超过 5% 拒绝
+    └── package-budgets.json    # 锁定 Electron 的实测体积基线；ASAR 按 1.5.0 复核，下载／目录体积保留原基线，超过 5% 拒绝
 ```
 
 通过仓库根目录的 npm scripts 调用；路径相对于项目根。真实 Electron 场景与夹具统一在 [tests/desktop](../tests/desktop/README.md)。构建工具源码位于 `scripts/build/`，根目录 `/build/` 的忽略规则不会屏蔽这些脚本。
