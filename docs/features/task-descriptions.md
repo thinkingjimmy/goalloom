@@ -3,6 +3,9 @@
 ## Product rules
 
 - Descriptions edit in place with Markdown shortcuts and retain Markdown strings in the existing item field. Opening, selecting text and resolving metadata never save or dirty an item.
+- Details use a permanent side rail. Activity stays above the visible cancel, archive and delete controls; deleted items keep read-only activity and their existing restore action. The property row combines the deadline with one flow chip: a parent label, a root color dot or a join-flow action. These controls keep the existing guarded writes.
+- The activity rail scales with the detail width. Property controls stay inside the editor at native narrow sizes and zoomed text. Truncated date labels keep their full accessible name and hover text.
+- Three or more counted activity events show a read-only summary and month calendar. The summary includes rollover count, longest column stay, days since the first event and a completed-then-reopened pair when present. Undo events and the operations they reverse are excluded. Fewer events keep the recent-three timeline. Activity reads never change items or history.
 - The empty prompt and input share font and line metrics. Typing starts on the prompt's baseline, including compact windows and zoomed text; the multiline editor keeps its full-height area. In a detail, the focused fill is the field edge: the prompt and caret sit inside it, while the text column stays aligned with the property row.
 - Support paragraphs, line breaks, headings, nested ordered/unordered lists, Markdown task lists (`- [ ]` / `- [x]`, including uppercase `X`), emphasis, strike, quotes, inline/fenced code and safe HTTP(S) links. Task-list checkboxes immediately autosave the description; they never change the owning item's completion or create subtask records. Unsupported syntax remains text. No attachments or tables are introduced.
 - Details save silently: title/description typing debounces for 500ms; blur, deadline selection/clear and checklist toggles flush immediately. No Save/Discard footer or success Toast. Closing, related-item navigation and decompose drain pending edits first. Enter/submit still flushes and ends editing. Editor undo owns text while focused; persistence never resets its history or selection. Composition defers writes until it ends. Deleted items render read-only; titles remain required and at most 500 characters, serialized Markdown at most 100,000 characters.
@@ -59,7 +62,10 @@ First-line typography regression cases recorded before implementation (2026-10-0
 
 - Empty placeholder and typed first character use different line metrics, shifting the baseline when typing begins. Locale, theme or zoom changes must not reintroduce the drift.
 - The detail placeholder or caret sits on the focused fill's left edge.
+- A fixed activity rail leaves too little editor space at 720px and 150% zoom; long translated property controls force horizontal scrolling. Keep the side rail responsive, constrain the property controls and retain full accessible labels.
 - Adjusting the placeholder collapses the full-height editor or makes pure focus/selection dirty an empty description.
+
+Detail-rail regression cases: actions or history are clipped at 720px, the rail overlaps the editor, flow choices lose their hints or candidate guards, reading the summary changes an item, undo records inflate the summary, and deleted-item details expose lifecycle writes. Keep native geometry, lifecycle and restored-data evidence in the owning workspace/history/feedback scenarios.
 
 ## Acceptance
 

@@ -184,14 +184,11 @@ try {
     await flowMenu.waitFor({ state: 'detached' })
     await page.getByRole('button', { name: 'Write report', exact: true }).click()
     const detail = page.locator('dialog.detail')
-    await detail.locator('.modal-header .popover-root button.icon-button').click()
-    const moreMenu = detail.getByRole('menu')
-    await moreMenu.waitFor()
-    assert.equal(await moreMenu.getByRole('menuitem').count(), 3, `${code}: More contains only cancel, archive and trash`)
-    await page.screenshot({ path: `${shots}/language-detail-more-${code}.png` })
-    await page.keyboard.press('Escape')
-    await moreMenu.waitFor({ state: 'detached' })
-    assert.equal(await detail.isVisible(), true)
+    const rail = detail.locator('.detail-rail')
+    await rail.waitFor()
+    assert.equal(await rail.locator('.detail-rail-actions button').count(), 3, `${code}: rail contains cancel, archive and trash`)
+    if (['en', 'es', 'fr'].includes(code)) await assertTranslated(page, `${code} detail rail`)
+    await page.screenshot({ path: `${shots}/language-detail-actions-${code}.png` })
     await page.keyboard.press('Escape')
     await detail.waitFor({ state: 'detached' })
     const entry = page.locator('[data-review]')
@@ -247,7 +244,7 @@ try {
     await review.locator('.review-head .icon-button').click()
     await review.waitFor({ state: 'hidden' })
     report.locales[code] = { lang: tags[code], panes, worker: 'ok', untranslatedCheck: ['en', 'es', 'fr'].includes(code), entryTitle, reviewTitle,
-      flowMenu: { parentLabel: parentLabels[code], ...flowGeometry }, detailMore: 'Three actions; Escape closes only the menu', closingMenu }
+      flowMenu: { parentLabel: parentLabels[code], ...flowGeometry }, detailActions: 'Three visible rail actions; Escape closes details', closingMenu }
     await page.getByRole('button', { name: ui[code].settings, exact: true }).click()
     dialog = settingsDialog(page, ui[code].settings)
     await dialog.waitFor()

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Theme tokens and shared renderer component classes and state attributes.
- * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with return icons, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and the detail-rail activity summary colors.
+ * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with return icons, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and responsive detail rails with bounded property controls and activity summary colors.
  * [POS]: Renderer-wide stylesheet; feature-specific styles live beside their components.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -471,7 +471,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .placement-chip:hover, .placement-chip[aria-expanded='true'] { background: var(--hover); color: var(--fg); }
 .placement-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .modal.detail { width: min(960px, calc(100vw - 40px)); min-height: min(560px, calc(100vh - 80px)); max-height: min(760px, calc(100vh - 80px)); }
-.detail-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 248px; }
+.detail-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(180px, 35%, 248px); }
 .detail-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .modal.detail .modal-header > .icon-button:last-child { position: absolute; top: 10px; right: 12px; z-index: 4; }
 .detail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 28px 20px; display: flex; flex-direction: column; }
@@ -505,8 +505,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .flow-swatch:disabled .flow-swatch-label { color: var(--faint); }
 /* Properties, description and the latest event share the body's left edge; the dialog is wide enough for one chip row. */
 .detail-props { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 14px 0 0; }
-.detail-props > .popover-root { display: flex; }
-.detail-chip, .detail-props .field-button { height: 28px; max-width: 280px; margin: 0; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-soft); box-shadow: inset 0 0 0 1px var(--line); white-space: nowrap; }
+.detail-props > .popover-root { display: flex; min-width: 0; max-width: 100%; }
+.detail-chip, .detail-props .field-button { height: 28px; min-width: 0; max-width: min(280px, 100%); margin: 0; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-soft); box-shadow: inset 0 0 0 1px var(--line); white-space: nowrap; }
+.detail-props .field-button > svg { flex-shrink: 0; }
 .detail-chip:is(button):hover:not(:disabled), .detail-chip[aria-expanded='true'], .detail-props .field-button:hover:not(:disabled), .detail-props .field-button[aria-expanded='true'] { background: var(--hover); color: var(--fg); }
 .detail-chip[data-empty='true'], .detail-props .field-button[data-empty='true'] { color: var(--secondary); }
 .detail-chip[data-ghost='true'] { box-shadow: none; color: var(--secondary); }

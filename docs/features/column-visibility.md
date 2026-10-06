@@ -15,11 +15,13 @@
 
 - `useColumns` 提供 `setVisible(horizon: Horizon, visible: boolean)`，守住至少一列；新偏好 `goalloom.visiblePlanningColumns` 与原 Later 偏好 `goalloom.hiddenColumns` 独立。
 - 菜单复用 Icon、Popover 和 picker 列表结构，并在列菜单上覆盖宽度、浅色选中态和悬停提示。使用 `menuitemcheckbox`、`aria-checked`、可保留焦点的 `aria-disabled`，以及悬停或键盘聚焦时才可见的 `tooltip`。
+- App 打开带明确 horizon 的起草窗口时，先显示该目标列；右键下一步沿用真实起草与关联事务。普通搜索详情仍保持原显隐偏好。
 - Board 的时间列保持挂载，隐藏列使用 `hidden`／`inert` 并禁用写入／拖放。BoardLayout 在隐藏前记录滚动并在重新显示后还原，按可见列数设置宽度。
 - 所有已选未来周期继续读取；显隐不改变未来数据读取身份。现有几何、虚拟列表、反馈和关系线的 inert 边界继续生效；浮动 Popover 的锚点进入 inert 列时关闭弹层，键盘隐藏同样生效。
 
 ## 实现前失败场景
 
+- Targeted draft regression (1.5 release): the removed detail shortcut leaves board next-step drafting able to create into a hidden horizon without showing it. Opening a composer with an explicit horizon must reveal that horizon; creation keeps its period and parent, while ordinary search/details preserve visibility preferences.
 - 按钮缺失、位置错误、菜单包含 Later、模式名称／语言漏译；列菜单使用周期面板的固定宽度或深色选中行；勾号不在同一列；最后一列的提示在未悬停时一直显示，或悬停后不出现。
 - 点击一项就关闭菜单、最后一列可隐藏、方向键／Space 冒泡触发看板动作、Escape／Tab 丢失焦点。
 - Later 开关覆盖时间列选择、重启丢失选择、旧隐藏值意外恢复、无效或不可写的存储阻塞使用。

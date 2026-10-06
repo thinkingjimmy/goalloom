@@ -4,7 +4,7 @@
 
 ```text
 renderer/
-├── App.tsx                  # Board/dialog composition, shortcuts/feedback, input-aware detail focus and generation-scoped drafts, atomic review completion/exit and celebration requests; selected flows follow root promotion/undo
+├── App.tsx                  # Board/dialog composition, explicit draft-target visibility, shortcuts/feedback, input-aware detail focus and generation-scoped drafts, atomic review completion/exit and celebration requests; selected flows follow root promotion/undo
 ├── main.tsx                 # React 挂载
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
@@ -84,7 +84,7 @@ renderer/
 │   │   ├── use-item-autosave.ts # Serialized silent saves/actions, guarded empty-title dismissal outside trash, receipt-first retry and native draining
 │   │   ├── ItemDetail.tsx   # Draft-safe details: rich title, due plus one flow chip, full-height Markdown, and a permanent rail (activity above cancel/archive/delete)
 │   │   ├── DetailTitle.tsx  # Unclipped shared link display, growing raw-title editor with persistent native undo/redo and empty-draft recovery, saved-only metadata and keyboard focus handoff
-│   │   ├── DuePicker.tsx    # Detail deadline trigger, shared calendar panel and focus restoration; selection/clear immediately autosaves
+│   │   ├── DuePicker.tsx    # Width-bounded deadline label with full accessible/hover date, shared calendar and focus restoration; selection/clear immediately autosaves
 │   │   ├── RelationPicker.tsx # Board-ordered parent/child search shared by detail/flow-dot menus; optional guidance replacement, horizon/effective-flow guards and linked-first removal
 │   │   ├── DetailFlowChip.tsx # 详情流程芯片：上级标题、起点圆点或加入流程，菜单与看板圆点一致
 │   │   ├── FlowPicker.tsx   # FlowDot 与 FlowColorMenu；详情芯片和看板圆点共用色板

@@ -45,10 +45,7 @@ try {
     if (await detail().count()) await detail().getByRole('button', { name: '关闭', exact: true }).click()
     if (await settings().count()) await settings().getByRole('button', { name: '关闭', exact: true }).click()
   }
-  const more = async name => {
-    await detail().getByRole('button', { name: '更多操作', exact: true }).click()
-    await page.getByRole('menuitem', { name, exact: true }).click()
-  }
+  const detailAction = name => detail().locator('.detail-rail-actions').getByRole('button', { name, exact: true }).click()
   const toggleLater = async () => {
     await page.locator('#later-toggle').click()
     await page.waitForFunction(() => document.querySelector('.board-later').getAnimations().length === 0)
@@ -156,7 +153,7 @@ try {
   checks.push('Reopen checks actual board visibility and ignores modal occlusion; hidden destination gets feedback')
   for (const [title, id, visible] of [['Visible unarchive', ids.unarchiveVisible, true], ['Hidden unarchive', ids.unarchiveHidden, false]]) {
     await openStored(title, 'archived')
-    await more('解除归档')
+    await detailAction('解除归档')
     await pollPage(page, async id => !(await window.goalloom.getItem(id)).item.archivedAt, id)
     if (visible) await silent('Unarchive into a visible row stays quiet')
     else await toast.filter({ hasText: 'Later' }).waitFor()
@@ -165,7 +162,7 @@ try {
   checks.push('Unarchive is quiet for a visible board destination and explicit for a hidden column')
 
   await page.getByRole('button', { name: 'Cancel and undo timing', exact: true }).click()
-  await more('取消事项')
+  await detailAction('取消')
   await toast.filter({ hasText: '已取消' }).waitFor()
   await closePanels()
   await page.getByRole('button', { name: '新建', exact: true }).focus()

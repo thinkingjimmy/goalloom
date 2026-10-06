@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 当前条目、其关联边、流程视图、候选与受限提交。
- * [OUTPUT]: 详情属性行上的一枚流程芯片。有上级时圆点加上级标题，点开上级选择器；流程起点只显示圆点，点开色板；都没有时是「加入流程」。Later 不渲染。
- * [POS]: 详情里对应看板流程圆点的点击菜单；下级和下一步不在这里出现。写入仍由 RelationPicker / flowColor 事务复核。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Item identity, relations, flow colors, eligible candidates and guarded submission.
+ * [OUTPUT]: DetailFlowChip: parent selection for linked items, color selection for roots and flow choices for loose items; hidden in Later.
+ * [POS]: Detail property control matching the board flow dot. RelationPicker and flowColor transactions validate writes.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useMemo, useState } from 'react'
 import { horizons } from '../../../shared/contracts/values'

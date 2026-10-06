@@ -68,7 +68,7 @@
 
 - [x] Empty-state captions fit the available column width without an orphaned Chinese direction character; native empty-board glyph lines and five-locale screenshots are retained under `output/tests/empty-column/`.
 
-- [x] Detail More starts at its button, stays clickable beyond the dialog and inside narrow windows, has only status/archive/trash actions and handles Escape without dismissing the detail; search/detail close preserves period and Later choices. Native geometry and screenshots: `output/tests/detail-more/`; period/Later/virtual acceptance uses the owning feature suites.
+- [x] Historical acceptance before 1.5: Detail More starts at its button, stays inside narrow windows and retains status/archive/trash actions. Evidence remains in `output/tests/detail-more/`. Version 1.5 places these actions in the permanent detail rail; current checks use `fixtures/detail-rail.mjs` and the owning period/Later/history/feedback scripts, preserving period selection and detail-close focus.
 
 - [x] 四种尺度及连续顺延成功后无 Toast，快捷键撤销恢复原周期并保留后续正文修改。
 

@@ -1,12 +1,12 @@
 /**
  * [INPUT]: Built Electron, an isolated device profile and production workspace controls.
- * [OUTPUT]: Board/empty-copy screenshots, inline title editing, flow-valid detail parent picking, More alignment/actions, default columns/visibility menu, Later, settings, shortcuts and security assertions.
+ * [OUTPUT]: Board screenshots, inline titles, flow-valid detail parent picking, permanent rail/action geometry, lifecycle operations, restart and security evidence.
  * [POS]: Desktop workspace acceptance; uses the real preload, main and SQLite without production test hooks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { finishSetup } from './fixtures/setup.mjs'
 import { finishDetailEditing, waitForDetailSave } from './fixtures/detail-save.mjs'
-import { verifyDetailMore } from './fixtures/detail-more.mjs'
+import { verifyDetailRail } from './fixtures/detail-rail.mjs'
 import { verifyInlineTitle } from './fixtures/inline-title.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -23,8 +23,9 @@ const profile = await mkdtemp(join(tmpdir(), 'Goalloom 窗口测试 '))
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
 const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
 const application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
+let page
 try {
-  const page = await application.firstWindow()
+  page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
   await page.locator('.calendar-modes').waitFor()
   console.log(await page.locator('body').ariaSnapshot())
@@ -166,12 +167,12 @@ try {
   await page.getByRole('button', { name: '测试行动', exact: true }).click()
   await page.getByLabel('说明', { exact: true }).fill('重启仍保留的说明')
   await waitForDetailSave(page)
-  // The 上级 chip opens the picker directly while empty; once linked it lists parents first and hands off via 「关联到…」.
-  const parentChip = page.locator('.detail-props button.detail-chip', { hasText: '上级' })
+  // Loose items choose a flow action; linked items open the parent picker directly.
+  const parentChip = detail.locator('.detail-props button.detail-chip[data-dot]')
   for (const title of ['测试上级 A', '测试上级 B']) {
+    const choosing = await parentChip.getAttribute('data-empty') === 'true'
     await parentChip.click()
-    const handoff = page.getByRole('menuitem', { name: '关联到…', exact: true })
-    if (await handoff.count()) await handoff.click()
+    if (choosing) await page.getByRole('menuitem', { name: /^关联到上级/ }).click()
     await page.getByLabel('搜索上级条目', { exact: true }).fill(title)
     const option = page.locator('.relation-picker').getByRole('menuitemcheckbox', { name: title })
     await option.click()
@@ -196,20 +197,15 @@ try {
   await page.getByRole('button', { name: /^移动到：/ }).click()
   await page.getByRole('menuitemradio', { name: '今天', exact: true }).click()
   await page.getByRole('dialog', { name: '当前条目' }).getByText('今天', { exact: false }).first().waitFor()
-  // 详情默认无底栏、活动折叠；截图供人工核对布局与滚动条位置。
+  // Details keep activity and lifecycle actions in a permanent side rail.
   assert.equal(await page.getByRole('dialog', { name: '当前条目' }).locator('.modal-footer').count(), 0)
   await mkdir('output/tests/screenshots', { recursive: true })
   await page.getByRole('dialog', { name: '当前条目' }).screenshot({ path: 'output/tests/screenshots/item-detail.png' })
-  // 页眉顺序：更多操作 → 活动 → 关闭；活动从右侧横向展开，弹窗加宽而不是向下堆叠。
   const detailDialog = page.getByRole('dialog', { name: '当前条目' })
   const headerActions = await detailDialog.locator('.modal-header .icon-button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))
-  assert.deepEqual(headerActions.slice(-3).map(label => label.replace(/ \d+$/, '')), ['更多操作', '活动', '关闭'])
-  await verifyDetailMore(application, page, detailDialog)
-  const narrow = (await detailDialog.boundingBox()).width
-  await detailDialog.getByRole('button', { name: /^活动 \d+$/ }).click()
-  await detailDialog.locator('.activity-drawer li').first().waitFor()
-  await detailDialog.evaluate(node => Promise.all(node.getAnimations({ subtree: true }).map(animation => animation.finished)))
-  assert.ok((await detailDialog.boundingBox()).width > narrow + 200, 'Activity drawer widens the dialog')
+  assert.deepEqual(headerActions, ['关闭'])
+  await detailDialog.locator('.activity-insight').waitFor()
+  await verifyDetailRail(application, page, detailDialog)
   await detailDialog.screenshot({ path: 'output/tests/screenshots/item-detail-activity.png' })
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await page.getByRole('button', { name: '设置与数据', exact: true }).focus()
@@ -254,19 +250,17 @@ try {
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later', exact: true }).click()
   await detail.waitFor()
   try { assert.equal(await detail.getByLabel('说明', { exact: true }).innerText({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
-  // 取消事项是低频操作，收在 ⋯ 菜单。
-  await detail.getByRole('button', { name: '更多操作', exact: true }).click()
-  await page.getByRole('menuitem', { name: '取消事项', exact: true }).click()
+  await detail.locator('.detail-rail-actions').getByRole('button', { name: '取消', exact: true }).click()
   await detail.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.getByRole('radio', { name: '取消', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later', exact: true }).click()
   page.once('dialog', dialog => dialog.accept())
-  await detail.getByRole('button', { name: '更多操作', exact: true }).click()
-  await page.getByRole('menuitem', { name: '移到回收站', exact: true }).click()
+  await detail.locator('.detail-rail-actions').getByRole('button', { name: '删除', exact: true }).click()
   await detail.waitFor({ state: 'hidden' })
   await settingsDialog.getByRole('button', { name: '回收站', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later · 已取消', exact: true }).click()
   const trashed = page.getByRole('dialog', { name: '回收站条目' })
+  assert.equal(await trashed.locator('.detail-rail-actions').count(), 0, 'Deleted items keep activity without lifecycle writes')
   try { assert.equal(await trashed.getByLabel('说明', { exact: true }).innerText({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
   await trashed.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click()
@@ -365,6 +359,15 @@ try {
   await mkdir('output/tests/screenshots', { recursive: true })
   await page.screenshot({ path: 'output/tests/screenshots/electron-foundation.png', fullPage: true })
   console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['detail autosave (native close coverage in autosave.mjs)', 'preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', 'style', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
+} catch (error) {
+  await mkdir('output/tests/workspace', { recursive: true })
+  const native = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))).catch(() => null)
+  const document = await page?.evaluate(() => ({ focused: globalThis.document.hasFocus(), visibility: globalThis.document.visibilityState,
+    active: globalThis.document.activeElement?.outerHTML, detail: globalThis.document.querySelector('dialog.detail')?.innerText,
+    popovers: [...globalThis.document.querySelectorAll('.popover')].map(node => ({ text: node.innerText, visibility: getComputedStyle(node).visibility })) })).catch(() => null)
+  await writeFile('output/tests/workspace/failure.json', JSON.stringify({ error: String(error), native, document }, null, 2))
+  await page?.screenshot({ path: 'output/tests/workspace/failure.png' }).catch(() => {})
+  throw error
 } finally {
   await application.close()
 }

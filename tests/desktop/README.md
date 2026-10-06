@@ -10,7 +10,7 @@ desktop/
 ├── later-sidebar.mjs    # Default planning columns, legacy preference handling, Later count and parent unlinking on moves, independent scrolling, drag/undo, preserved drafts, motion, themes/locales and restart; output/tests/later-sidebar
 ├── column-visibility.mjs # Six-column checkbox menu sized to the longest label, right-aligned checks, gray locked check with a hover tip, independent preferences, retained hidden drafts/scroll/periods, explicit-target reveal, keyboard drag, geometry/locales/themes; --menu narrows development checks, --baseline/--style-baseline preserve initial failures; output/tests/column-visibility
 ├── sqlite.mjs           # 单独构建/启动真实 main 的内置 SQLite 探针
-├── workspace.mjs        # 看板业务、实际流程候选的详情关联、详情 More 起始对齐／窄窗口／Esc（fixtures/detail-more.mjs）、流程筛选快捷键与设置、协议/CSP/IPC、主题与窄窗口
+├── workspace.mjs        # 看板业务、实际流程候选的详情关联、固定活动侧栏／操作按钮／窄窗口（fixtures/detail-rail.mjs）、流程筛选快捷键与设置、协议/CSP/IPC、主题与窄窗口
 ├── task-focus.mjs       # Pointer/Escape/close and keyboard detail-focus returns, plain/rich titles, four themes and no task writes; output/tests/task-focus/
 ├── history.mjs          # Live past-task editing/groups, filter return to current, paging recovery, focus/feedback, immutable history, backlog/hold and replacement isolation; history.json and history/past-task screenshots
 ├── periods.mjs          # Compact TODO menus with source-row activation/cursors, unified period navigation, editable future periods, cross-period drafts, sorting, undo, future search/details and explicit navigation, five-language header geometry and restart; app-local input/focus failure diagnostics in output/tests/periods
@@ -29,7 +29,7 @@ desktop/
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
 ├── relations.mjs        # Relation lines/dots, geometry and board-ordered filters; --flow-dot selects parent-panel headings/search/checked links and positioning; full mode retains moves/undo/shortcuts/reload and gesture acceptance
 ├── relation-drag.mjs    # Native flow-valid parent/child search, colorless rejection, root promotion/adoption/undo, receipt recovery, ordering, clipped autoscroll and five locales; output/tests/relation-drag
-├── language.mjs         # System language, setup/settings switching, main/worker copy, persistence, flow-choice/detail More menus, period-named reviews and custom default-move choices, app-local diagnostics; five-locale screenshots and output/tests/language.json
+├── language.mjs         # System language, setup/settings switching, main/worker copy, persistence, flow-choice menus and permanent detail actions, period-named reviews and custom default-move choices, app-local diagnostics; five-locale screenshots and output/tests/language.json
 ├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and flow-valid partial-restore warnings; feedback.json and feedback-*.png
 ├── link-previews.mjs    # Link text, full-width cards under overlay controls, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
@@ -62,7 +62,7 @@ desktop/
     ├── favicon-transport.mjs # Real preview IPC with deterministic HTTP/DNS fixtures: declared/fallback raster/ICO icons and unsafe/oversized/malformed responses
     ├── poll.mjs         # pollPage：轮询 renderer 里的异步桥接读取（page.waitForFunction 会把 async 谓词的 Promise 当作真值立即返回）
     ├── preview-breakpoints.mjs # Highlighted-chain childless-parent actions, direct week/day-child preservation, retired-write rejection, ancestor/sibling switching, hover/focus retention, empty targets, multi-flow deduplication, creation and undo; called by insight.mjs
-    ├── detail-more.mjs   # Start-aligned unclipped More, retained actions and Escape at wide/narrow native sizes in four themes; output/tests/detail-more
+    ├── detail-rail.mjs   # Permanent activity calendar, visible lifecycle actions, native hit testing and no item writes at wide/narrow sizes in four themes; output/tests/detail-rail
     ├── detail-discard.mjs # Native empty-title close/undo, content/lifecycle guards and failed/unknown/racing writes; autosave.mjs --discard
     ├── discard-data.ts  # Production discard transactions, past-period holds, atomic guards, five locales and JSON/SQLite recovery; output/tests/autosave/discard/
     ├── flow-dot-position.mjs # Heading-only parent panels/checked links, intrinsic choice width, bottom-edge menus, mode/search size changes and scroll/resize geometry; focused via relations.mjs --flow-dot
@@ -99,7 +99,7 @@ Playwright 控制真实窗口，并关闭 CDP 默认的 unsafe-eval 绕过再验
 
 `fixtures/detail-titles.mjs` covers complete rich detail headings, first-line control alignment, title/link action separation, growing raw editing, composition/Escape/Enter, autosave, native undo/redo across rich/raw handoffs and invalid-title close rejection, saved-only metadata, authored labels, URL-only titles and deleted-item reading. `node tests/desktop/link-previews.mjs --titles` selects it with reports/screenshots in `output/tests/link-previews/titles/`; `pnpm test:links` includes it. Description, renderer-race, past/future-editing and feedback fixtures enter through the visible edit action or wait for the rendered title.
 
-`pnpm test:ui` includes `fixtures/detail-more.mjs`: four themes, 1280px start alignment beyond the detail edge, live shrinking to 720px, native hit testing, remaining actions and menu-only Escape. Reports and screenshots go to `output/tests/detail-more/`. `pnpm test:language` also captures the three-action More menu and complete flow-choice labels/hint geometry in all five locales.
+`pnpm test:ui` includes `fixtures/detail-rail.mjs`: a permanent activity calendar, cancel/archive/delete actions, live shrinking from 1280px to 720px, native hit testing and unchanged item data across four themes. Reports and screenshots go to `output/tests/detail-rail/`. `pnpm test:language` captures the visible rail actions and flow-choice labels/hint geometry in all five locales. Lifecycle, search/detail-close and read-only deleted-item checks stay in their owning scenarios.
 
 `pnpm test:ui` captures the untouched initial empty board and actual glyph-line grouping under `output/tests/empty-column/`, providing repeatable visual evidence for shared empty-state typography.
 

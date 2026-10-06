@@ -62,7 +62,7 @@ Detail-title cases recorded before implementation:
 - [x] Main/preload URL and metadata boundaries reject unsafe requests; CSP remains unchanged.
 - [x] A hostname resolved only to `198.18.0.0/15` is fetched at that pinned address. A private answer, a fake IP mixed with a private answer, and a fake-IP literal are not requested. Evidence is `favicons.fakeIp` in `output/tests/link-previews/report.json`.
 - [x] Five-language copy, themes, focus and virtual rows remain usable.
-- [x] Double-clicking a board title edits it in place. The field matches the title's width, line count and full text; Enter changes only the title; Escape or a blank field restores it; a single click still opens details. `fixtures/inline-title.mjs` passed inside `pnpm test:ui` (screenshot: `output/tests/inline-title/editing.png`). The same script later still stops on the existing empty parent-chip locator, which is unchanged by this edit.
+- [x] Double-clicking a board title edits it in place. The field matches the title's width, line count and full text; Enter changes only the title; Escape or a blank field restores it; a single click still opens details. `fixtures/inline-title.mjs` is included in `pnpm test:ui` (screenshot: `output/tests/inline-title/editing.png`). Current workspace acceptance uses the new detail flow chip and permanent rail.
 - [x] Typecheck, existing Vitest suite and affected desktop scripts pass; repeatable JSON/screenshots document the scope.
 
 Desktop validation uses isolated synthetic profiles. Controlled cached fixtures make UI checks repeatable; live-provider checks are reported separately and do not guarantee future provider availability. Windows and packaged-install acceptance remain separate from a macOS source Electron run.

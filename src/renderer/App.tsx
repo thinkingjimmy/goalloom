@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; resumable review with atomic completion marks, direct board return and a guarded celebration request. Theme/style changes apply without tweening colours.
+ * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Reviews complete atomically with board return and guarded celebration. Theme/style changes do not tween colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -84,7 +84,10 @@ export function App() {
   const insight = useMemo<BoardInsight>(() => ({ ready, due, started: reviewing, reviewed: insightSettings.reviewed, review: value => startTransition(() => {
     setReviewing(previous => previous?.month?.key === value.month?.key && previous?.week?.key === value.week?.key ? previous : value); setReviewOpen(true)
   }),
-    seed: value => startTransition(() => setSeed(previous => ({ ...value, key: (previous?.key ?? 0) + 1 }))) }), [ready, due, reviewing, insightSettings.reviewed])
+    seed: value => {
+      columns.setVisible(value.horizon, true)
+      startTransition(() => setSeed(previous => ({ ...value, key: (previous?.key ?? 0) + 1 })))
+    } }), [ready, due, reviewing, insightSettings.reviewed, columns.setVisible])
   const [toastHeld, setToastHeld] = useState(false)
   const toastRef = useCallback((node: HTMLDivElement | null) => { setToastHeld(!!node && (node.matches(':hover') || node.contains(document.activeElement))) }, [])
   useEffect(() => {
