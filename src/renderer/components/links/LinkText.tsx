@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Display text, optional saved URL membership, localized copy and external-browser IPC.
- * [OUTPUT]: Shared favicon/page-title links, authored labels and an actionable title without a native tooltip, with sibling link controls.
+ * [OUTPUT]: Shared favicon/page-title links, authored labels and an actionable title without a native tooltip, with sibling link controls. Title activation receives the click so the board can tell a single click from a double click.
  * [POS]: Shared text rendering for current, historical and archived item surfaces.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -43,9 +43,9 @@ export const LinkText = memo(function LinkText({ text, savedUrls }: { text: stri
   return <>{tokens.map((token, index) => 'text' in token ? token.text : <InlineLink key={index} url={token.url} label={token.label} named={token.named} enabled={!savedUrls || savedUrls.has(token.url)} />)}</>
 })
 
-export function LinkTitle({ text, onOpen, className = '' }: { text: string; onOpen: () => void; className?: string }) {
+export function LinkTitle({ text, onOpen, onDoubleClick, className = '' }: { text: string; onOpen: (event: MouseEvent<HTMLButtonElement>) => void; onDoubleClick?: (event: MouseEvent<HTMLButtonElement>) => void; className?: string }) {
   return <div className={`link-title ${className}`}>
-    <button type="button" className="task-title link-title-open" aria-label={text} onClick={onOpen} />
+    <button type="button" className="task-title link-title-open" aria-label={text} onClick={onOpen} onDoubleClick={onDoubleClick} />
     <span className="link-rich-text"><LinkText text={text} /></span>
   </div>
 }

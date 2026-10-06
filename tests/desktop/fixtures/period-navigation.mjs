@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Native Electron page, isolated period fixture and the owning period suite's artifact directory.
- * [OUTPUT]: Header-B title/checkbox alignment, chevron reveal without movement, inline dates, week-row selection and directional-motion assertions with repeatable screenshots.
+ * [OUTPUT]: Header-B title/checkbox alignment, chevron reveal without movement, inline dates, accessible return-icon labels, week-row selection and directional-motion assertions with repeatable screenshots.
  * [POS]: Period-navigation scenarios shared by the focused selector and full period acceptance; no production API replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -21,7 +21,7 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     assert(geometry.date.left >= geometry.title.right && Math.abs(geometry.date.center - geometry.title.center) <= 3)
     assert(geometry.date.right <= geometry.action.left && geometry.action.left - geometry.date.right <= 32, 'Return follows the date closely')
     assert(Math.abs(geometry.action.center - geometry.title.center) <= 3)
-    assert.equal(await week.locator('[data-return-current]').innerText(), '回到本周')
+    assert.equal(await week.locator('[data-return-current]').getAttribute('aria-label'), '回到本周')
     assert.equal(await week.locator('.period-meta').count(), 0)
     return geometry
   }
@@ -85,6 +85,8 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     await target.scrollIntoViewIfNeeded()
     await page.getByRole('button', { name: '全部', exact: true }).focus()
     await leaveBoard()
+    // Leaving the column also uses the chevron's existing opacity transition.
+    await page.waitForFunction(horizon => getComputedStyle(document.querySelector(`[data-horizon="${horizon}"] .period-chevron`)).opacity === '0', horizon)
     const measure = () => target.evaluate(node => {
       const left = node.getBoundingClientRect().left
       const rect = selector => {
@@ -170,8 +172,8 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     assert.match(await title.innerText(), /\d/)
     assert(!/20\d{2}/.test(await title.innerText()), 'Compact heading omits years')
     assert.match(await title.getAttribute('title'), /20\d{2}/, 'Absolute year stays available in the tooltip')
-    assert.equal(await header.locator('[data-return-current]').innerText(), label)
-    assert(await header.locator('[data-return-current] > span').evaluate(node => node.scrollWidth <= node.clientWidth + 1), 'Chinese return action remains readable')
+    assert.equal(await header.locator('[data-return-current]').getAttribute('aria-label'), label)
+    assert.equal(await header.locator('[data-return-current] > svg').count(), 1, 'Return uses one decorative icon')
     const screenshot = join(evidence, `header-date-only-${horizon}.png`)
     await header.screenshot({ path: screenshot }); result.screenshots.push(screenshot)
     await target.locator('[data-return-current]').click()

@@ -8,7 +8,8 @@ import assert from 'node:assert/strict'
 import { writeFile } from 'node:fs/promises'
 
 // Failure cases: the placeholder and typed first character have different baselines; theme/locale/zoom changes
-// reintroduce drift; focus alone writes an empty note; adjusting typography collapses the full-height editor.
+// reintroduce drift; the focused fill's edge meets the placeholder or caret; focus alone writes an empty note;
+// adjusting typography collapses the full-height editor.
 export async function verifyDescriptionAlignment({ app, page, create, stored, detail, output, shot }) {
   const id = await create('Description alignment fixture'), checks = [], geometry = []
   let complete = false
@@ -44,12 +45,16 @@ export async function verifyDescriptionAlignment({ app, page, create, stored, de
           const label = `${locale}-${style}-${theme}-${width}-zoom-${zoom}`, character = (await placeholder.innerText())[0]
           const empty = await placeholder.evaluate(firstGlyph)
           const layout = await note().evaluate(element => {
-            const style = getComputedStyle(element), prompt = getComputedStyle(element.parentElement.querySelector('.description-placeholder'))
-            return { height: element.getBoundingClientRect().height, focused: document.activeElement === element,
-              lineHeight: style.lineHeight, marginTop: style.marginTop, paddingTop: style.paddingTop, placeholderLineHeight: prompt.lineHeight, placeholderTop: prompt.top }
+            const style = getComputedStyle(element), promptNode = element.parentElement.querySelector('.description-placeholder'), prompt = getComputedStyle(promptNode)
+            const box = element.getBoundingClientRect(), promptBox = promptNode.getBoundingClientRect(), body = element.closest('.detail-body')
+            return { height: box.height, focused: document.activeElement === element,
+              lineHeight: style.lineHeight, marginTop: style.marginTop, paddingTop: style.paddingTop, placeholderLineHeight: prompt.lineHeight, placeholderTop: prompt.top,
+              fieldInset: promptBox.left - box.left, horizontalOverflow: body.scrollWidth > body.clientWidth + 1 }
           })
           assert.equal(layout.focused, true)
           assert(layout.height >= 160, 'Typography preserves the full-height description area')
+          assert(layout.fieldInset >= 10, `${label}: placeholder must sit inside the focused field (${layout.fieldInset}px from its edge)`)
+          assert.equal(layout.horizontalOverflow, false, `${label}: the field inset must not make the detail scroll sideways`)
           assert.deepEqual(await stored(id), before, 'Focusing an empty description does not save or dirty it')
           if (locale === 'zh' || (locale === 'en' && style === 'paper' && theme === 'light')) await shot(`alignment-${label}-empty`)
           await note().pressSequentially(character)

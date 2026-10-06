@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Theme tokens and shared renderer component classes and state attributes.
- * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls, aligned chrome, unlined detail-title editing, keyboard focus indicators without pointer-return title rings, and appearance swaps that do not tween token transitions.
+ * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with return icons, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and the detail-rail activity summary colors.
  * [POS]: Renderer-wide stylesheet; feature-specific styles live beside their components.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,7 +15,7 @@
   --color-ring: var(--focus);
 }
 
-/* --- Tokens: warm neutral ground, one ink, colour only for flows and warnings. --- */
+/* --- Tokens: warm neutral ground, one ink, colour for flows, warnings and the activity summary. --- */
 :root {
   color-scheme: light;
   --check-size: 18px;
@@ -23,6 +23,7 @@
   --line: rgba(90, 70, 50, .14); --hairline: rgba(90, 70, 50, .08); --hover: rgba(70, 50, 30, .06); --pressed: rgba(70, 50, 30, .09);
   --check-fill: #e7e2db; --check-edge: rgba(90, 70, 50, .3); --checked: #a39a8f; --edit-line: rgba(43, 38, 33, .32); --edge: rgba(40, 25, 10, .14);
   --danger: #b4382f; --danger-tint: #f8e4df; --backlog: #8a5a22; --focus: #547aaa;
+  --activity-rollover: #244979; --activity-stay: #225650; --activity-done: #285128; --activity-move: #754713;
   --scrim: rgba(40, 25, 10, .16); --shadow: 0 0 0 .5px var(--edge), 0 12px 32px rgba(60, 40, 20, .14); --shadow-lg: 0 0 0 .5px var(--edge), 0 24px 64px rgba(60, 40, 20, .22);
   --primary: var(--fg); --primary-foreground: var(--bg); --card: var(--raised); --muted: var(--hover); --border: var(--line);
   --scrollbar: rgba(70, 50, 30, .18); --scrollbar-hover: rgba(70, 50, 30, .32);
@@ -33,6 +34,7 @@
   --line: rgba(255, 240, 220, .13); --hairline: rgba(255, 240, 220, .07); --hover: rgba(255, 240, 220, .06); --pressed: rgba(255, 240, 220, .1);
   --check-fill: #3a342e; --check-edge: rgba(255, 240, 220, .28); --checked: #7d746a; --edit-line: rgba(237, 231, 223, .38); --edge: rgba(255, 240, 220, .12);
   --danger: #f08a7e; --danger-tint: #3d2522; --backlog: #d9a760; --focus: #85a8d9;
+  --activity-rollover: #c1d9ff; --activity-stay: #b7e6dc; --activity-done: #c5e7bf; --activity-move: #f4d7ad;
   --scrim: rgba(0, 0, 0, .45); --shadow: 0 0 0 .5px var(--edge), 0 12px 32px rgba(0, 0, 0, .4); --shadow-lg: 0 0 0 .5px var(--edge), 0 24px 64px rgba(0, 0, 0, .5);
   --scrollbar: rgba(255, 240, 220, .16); --scrollbar-hover: rgba(255, 240, 220, .3);
 }
@@ -43,6 +45,7 @@
     --line: rgba(255, 240, 220, .13); --hairline: rgba(255, 240, 220, .07); --hover: rgba(255, 240, 220, .06); --pressed: rgba(255, 240, 220, .1);
     --check-fill: #3a342e; --check-edge: rgba(255, 240, 220, .28); --checked: #7d746a; --edit-line: rgba(237, 231, 223, .38); --edge: rgba(255, 240, 220, .12);
     --danger: #f08a7e; --danger-tint: #3d2522; --backlog: #d9a760; --focus: #85a8d9;
+  --activity-rollover: #c1d9ff; --activity-stay: #b7e6dc; --activity-done: #c5e7bf; --activity-move: #f4d7ad;
     --scrim: rgba(0, 0, 0, .45); --shadow: 0 0 0 .5px var(--edge), 0 12px 32px rgba(0, 0, 0, .4); --shadow-lg: 0 0 0 .5px var(--edge), 0 24px 64px rgba(0, 0, 0, .5);
   --scrollbar: rgba(255, 240, 220, .16); --scrollbar-hover: rgba(255, 240, 220, .3);
   }
@@ -56,6 +59,7 @@
   --line: #e4e4e7; --hairline: #f4f4f5; --hover: #f4f4f5; --pressed: #e4e4e7;
   --check-fill: #ffffff; --checked: #a1a1aa; --edit-line: #a1a1aa; --edge: #e4e4e7;
   --danger: #dc2626; --danger-tint: #fef2f2; --backlog: #b45309; --focus: #18181b;
+  --activity-rollover: #244979; --activity-stay: #225650; --activity-done: #285128; --activity-move: #754713;
   --scrim: rgba(0, 0, 0, .32); --shadow: 0 0 0 1px var(--line), 0 4px 6px -1px rgba(0, 0, 0, .08), 0 2px 4px -2px rgba(0, 0, 0, .06); --shadow-lg: 0 0 0 1px var(--line), 0 25px 50px -12px rgba(0, 0, 0, .25);
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, .05); --nav: #fafafa; --check-edge: #d4d4d8;
   --scrollbar: rgba(0, 0, 0, .14); --scrollbar-hover: rgba(0, 0, 0, .28);
@@ -66,6 +70,7 @@
     --line: #27272a; --hairline: #1c1c1f; --hover: #27272a; --pressed: #3f3f46;
     --check-fill: #09090b; --checked: #52525b; --edit-line: #71717a; --edge: #27272a;
     --danger: #f87171; --danger-tint: #2b1113; --backlog: #fbbf24; --focus: #fafafa;
+  --activity-rollover: #c1d9ff; --activity-stay: #b7e6dc; --activity-done: #c5e7bf; --activity-move: #f4d7ad;
     --scrim: rgba(0, 0, 0, .6); --shadow: 0 0 0 1px var(--line), 0 8px 16px -4px rgba(0, 0, 0, .5); --shadow-lg: 0 0 0 1px var(--line), 0 25px 50px -12px rgba(0, 0, 0, .7);
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, .3); --nav: #111113; --check-edge: #3f3f46;
     --scrollbar: rgba(255, 255, 255, .14); --scrollbar-hover: rgba(255, 255, 255, .28);
@@ -77,6 +82,7 @@
     --line: #27272a; --hairline: #1c1c1f; --hover: #27272a; --pressed: #3f3f46;
     --check-fill: #09090b; --checked: #52525b; --edit-line: #71717a; --edge: #27272a;
     --danger: #f87171; --danger-tint: #2b1113; --backlog: #fbbf24; --focus: #fafafa;
+  --activity-rollover: #c1d9ff; --activity-stay: #b7e6dc; --activity-done: #c5e7bf; --activity-move: #f4d7ad;
     --scrim: rgba(0, 0, 0, .6); --shadow: 0 0 0 1px var(--line), 0 8px 16px -4px rgba(0, 0, 0, .5); --shadow-lg: 0 0 0 1px var(--line), 0 25px 50px -12px rgba(0, 0, 0, .7);
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, .3); --nav: #111113; --check-edge: #3f3f46;
     --scrollbar: rgba(255, 255, 255, .14); --scrollbar-hover: rgba(255, 255, 255, .28);
@@ -182,16 +188,15 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .column-add-slot { display: flex; flex: 0 0 28px; margin-left: auto; margin-right: -6px; }
 /* Header B: the title is the period switcher; it keeps its full width and aligns with the row checkboxes. */
 .period-header { padding-left: var(--row-inset); gap: 6px; }
-.period-nav { display: flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; }
-/* The heading keeps its width; a long return label truncates first (its full text stays in the tooltip). */
-.period-nav > .popover-root { flex: 0 0 auto; }
+/* Keep navigation on one row; the title and controls retain their width before secondary dates. */
+.period-nav { display: flex; align-items: center; gap: 4px; flex: 0 1 auto; min-width: 0; }
+.period-nav > .popover-root { flex: 0 1 auto; min-width: 0; }
+.period-nav > .popover-root:last-child:not(:first-child) { flex: 0 0 auto; }
 .period-heading { display: flex; min-width: 0; margin: 0; font-size: inherit; font-weight: inherit; }
 .period-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.period-heading:has(.column-meta) .period-title { flex-shrink: 0; }
 .period-heading .column-meta { flex-shrink: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .period-title:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
-.period-return { display: inline-flex; align-items: center; min-width: 0; height: 26px; padding: 0 10px; border-radius: 13px; background: var(--hover); color: var(--secondary); font-size: 12px; white-space: nowrap; }
-.period-return > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.period-return:hover:not(:disabled) { background: var(--pressed); color: var(--fg); }
 .period-nav button { touch-action: manipulation; }
 @media (hover: hover) and (pointer: fine) {
   .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) [data-add-item] { opacity: 0; }
@@ -199,7 +204,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 }
 @media (pointer: coarse) {
   .period-header { height: 48px; }
-  .period-switch, .period-return { min-height: 44px; }
+  .period-header .column-add-slot { flex-basis: 44px; }
+  .period-header .column-add-slot .icon-button { width: 44px; height: 44px; }
+  .period-switch { min-height: 44px; }
 }
 .period-loading { padding: 14px var(--row-inset); color: var(--secondary); font-size: 13px; }
 .quick-add-expired { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--danger); }
@@ -230,7 +237,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 /* Only the content fades, so a row keeps its ground and still hides relation lines passing behind it. */
 .task-row[data-dimmed='true'] > :not(.drag-handle), .task-row[data-chain-out='true'] > :not(.drag-handle) { opacity: .28; }
 .task-row.dragging { opacity: .3; }
-/* Rows open on click and drag on press: point on hover, grab on the handle, grabbing everywhere while a drag is live. */
+/* Rows open on a single click, edit on a double click, and drag on press: point on hover, grab on the handle, grabbing everywhere while a drag is live. */
 .task-row { cursor: pointer; }
 .task-row .drag-handle:not(:disabled) { cursor: grab; }
 :root[data-dragging='true'], :root[data-dragging='true'] * { cursor: grabbing !important; }
@@ -240,7 +247,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .task-title { flex: 1; min-width: 0; padding: 3px 0; text-align: left; font-size: 14px; line-height: 22px; }
 .task-title[data-focus-return='pointer']:focus-visible { outline: none; }
 .task-title > span { display: block; text-indent: calc(var(--check-space) - 12px + var(--title-gap)); overflow-wrap: anywhere; }
-.task-row[data-done='true'] .task-title { color: var(--secondary); text-decoration: line-through; }
+.task-line > .task-title-input { flex: 1 1 auto; width: auto; min-width: 0; max-width: 100%; margin: 0; padding: 3px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 14px; line-height: 22px; text-align: left; text-indent: calc(var(--check-space) - 12px + var(--title-gap)); color: inherit; resize: none; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; cursor: text; }
+.task-line > .task-title-input:focus-visible { outline: none; }
+.task-row[data-done='true'] .task-title, .task-row[data-done='true'] .task-title-input { color: var(--secondary); text-decoration: line-through; }
 .row-meta { flex-shrink: 0; height: 28px; display: flex; align-items: center; font-size: 12px; color: var(--secondary); }
 .row-icon { flex-shrink: 0; height: 28px; display: flex; align-items: center; color: var(--faint); }
 .row-icon.overdue { color: var(--danger); }
@@ -347,10 +356,13 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .swatch:disabled { opacity: .3; }
 
 /* --- Quick add --- */
-.quick-add { position: relative; display: flex; align-items: center; gap: var(--title-gap); min-height: 40px; padding-left: var(--row-inset); }
-.quick-add > input { flex: 1; min-width: 0; height: 39px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 14px; width: auto; }
-.quick-add > input:focus-visible { outline: none; }
-.quick-add-hint { flex-shrink: 0; max-width: 140px; font-size: 12px; color: var(--secondary); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quick-add { position: relative; display: grid; grid-template-columns: var(--check-size) minmax(0, 1fr); column-gap: var(--title-gap); align-items: start; min-height: 40px; padding: 9px 0 9px var(--row-inset); }
+/* The marker overlays the first line; wrapped lines use the whole row, as they do when editing a task title. */
+.quick-add > .check, .quick-add > .popover-root { grid-column: 1; grid-row: 1; z-index: 1; margin-top: 2px; }
+.quick-add-title { grid-column: 1 / -1; grid-row: 1; field-sizing: content; width: 100%; min-width: 0; min-height: 22px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 14px; line-height: 22px; text-indent: calc(var(--check-size) + var(--title-gap)); resize: none; overflow: hidden; overflow-wrap: anywhere; }
+.quick-add-title:focus-visible { outline: none; }
+.quick-add-hint, .quick-add-expired { grid-column: 2; margin-top: 2px; }
+.quick-add-hint { min-width: 0; font-size: 12px; line-height: 18px; color: var(--secondary); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* --- Popover & menus --- */
 .popover-root { position: relative; display: inline-flex; }
@@ -448,11 +460,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .segmented button { height: 28px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: var(--secondary); }
 .segmented button[aria-checked='true'] { background: var(--raised); color: var(--fg); box-shadow: 0 1px 2px rgba(60, 40, 20, .1); }
 
-/* --- Detail: only the body scrolls, so the scrollbar stays inside the rounded frame. --- */
-/* The dialog is always a two-column grid; the activity column is 0px until opened. Width and that column animate together,
-   so the body column keeps its width while the dialog widens and the drawer is revealed from the right edge. */
-.modal.detail[open] { display: grid; grid-template-columns: minmax(0, 1fr) 0px; grid-template-rows: auto auto minmax(0, 1fr); padding: 0; overflow: hidden; }
-.detail .modal-header { position: static; flex-shrink: 0; margin: 0; height: 56px; padding: 0 58px 0 20px; gap: 2px; transition: padding-right .26s cubic-bezier(.32, .72, 0, 1); }
+/* --- Detail: the left column scrolls; the right rail keeps activity in the leftover height and pins actions. --- */
+.modal.detail[open] { display: flex; flex-direction: column; width: min(960px, calc(100vw - 40px)); min-height: min(560px, calc(100vh - 80px)); max-height: min(760px, calc(100vh - 80px)); padding: 0; overflow: hidden; }
+.detail .modal-header { position: static; flex-shrink: 0; margin: 0; height: 56px; padding: 0 58px 0 20px; gap: 2px; }
 /* The placement menu drops out of the header, so let it overflow; the chip text truncates itself. */
 .detail .modal-context { display: flex; min-width: 0; overflow: visible; }
 .detail .modal-context > .popover-root { min-width: 0; }
@@ -460,19 +470,10 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .placement-chip { max-width: 100%; height: 32px; padding: 0 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; }
 .placement-chip:hover, .placement-chip[aria-expanded='true'] { background: var(--hover); color: var(--fg); }
 .placement-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* The body and the activity drawer sit side by side under the shared header; opening the drawer widens the dialog. */
-/* A steady minimum height keeps short items from turning into a wide, flat strip; the description fills the rest. */
-.modal.detail { width: min(720px, calc(100vw - 40px)); min-height: min(560px, calc(100vh - 80px)); transition: width .26s cubic-bezier(.32, .72, 0, 1), grid-template-columns .26s cubic-bezier(.32, .72, 0, 1); }
-.modal.detail.with-activity { width: min(1020px, calc(100vw - 40px)); grid-template-columns: minmax(0, 1fr) 300px; }
-.modal.detail > :not(.detail-layout) { grid-column: 1; }
-.modal.detail > .detail-layout { display: contents; }
-.modal.detail .detail-main { grid-column: 1; grid-row: 3; min-height: 0; }
-.modal.detail .activity-drawer { grid-column: 2; grid-row: 1 / -1; }
-/* Close sits in the dialog's top-right corner in both states, gliding with the edge; the header reserves its space only while the drawer is shut. */
+.modal.detail { width: min(960px, calc(100vw - 40px)); min-height: min(560px, calc(100vh - 80px)); max-height: min(760px, calc(100vh - 80px)); }
+.detail-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 248px; }
+.detail-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .modal.detail .modal-header > .icon-button:last-child { position: absolute; top: 10px; right: 12px; z-index: 4; }
-.modal.detail.with-activity .modal-header { padding-right: 14px; }
-@media (prefers-reduced-motion: reduce) { .modal.detail, .detail .modal-header { transition: none; } }
-.detail-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .detail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 28px 20px; display: flex; flex-direction: column; }
 .detail-title { display: flex; align-items: flex-start; gap: 12px; }
 .detail-title .check.large { margin-top: 3px; }
@@ -505,11 +506,12 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 /* Properties, description and the latest event share the body's left edge; the dialog is wide enough for one chip row. */
 .detail-props { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 14px 0 0; }
 .detail-props > .popover-root { display: flex; }
-.detail-chip, .detail-props .field-button { height: 28px; margin: 0; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-soft); box-shadow: inset 0 0 0 1px var(--line); white-space: nowrap; }
+.detail-chip, .detail-props .field-button { height: 28px; max-width: 280px; margin: 0; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-soft); box-shadow: inset 0 0 0 1px var(--line); white-space: nowrap; }
 .detail-chip:is(button):hover:not(:disabled), .detail-chip[aria-expanded='true'], .detail-props .field-button:hover:not(:disabled), .detail-props .field-button[aria-expanded='true'] { background: var(--hover); color: var(--fg); }
 .detail-chip[data-empty='true'], .detail-props .field-button[data-empty='true'] { color: var(--secondary); }
 .detail-chip[data-ghost='true'] { box-shadow: none; color: var(--secondary); }
 .detail-props .field-button[data-overdue='true'] { color: var(--danger); }
+.detail-chip[data-dot='true'] { width: 28px; padding: 0; justify-content: center; }
 .detail-chip[data-static='true'] { max-width: 240px; cursor: default; }
 .detail-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .detail-chip-count { color: var(--secondary); font-variant-numeric: tabular-nums; }
@@ -517,27 +519,64 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .detail-body > .description-editor { flex: 1; display: flex; flex-direction: column; margin: 16px 0 0; }
 .detail-body .description-content { flex: 1; min-height: 160px; }
 .detail-body .description-content:focus-visible { outline: none; }
-.detail-latest { align-self: flex-start; margin: 12px 0 0; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
-.detail-latest:hover { color: var(--secondary); text-decoration: underline; text-underline-offset: 3px; }
+.detail-sentinel { height: 0; }
 .field-button { height: 30px; margin-left: -8px; padding: 0 8px; border-radius: 7px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .field-button:hover:not(:disabled), .field-button[aria-expanded='true'] { background: var(--hover); }
 .field-button[data-empty='true'] { color: var(--secondary); }
 .field-button[data-overdue='true'] { color: var(--danger); }
 .note-input { display: block; width: calc(100% + 16px); margin: 4px -8px 0; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; resize: none; font-size: 14px; line-height: 23px; color: var(--fg-soft); }
 .note-input:focus-visible { outline: none; background: var(--hover); }
-.activity-drawer { width: 300px; flex-shrink: 0; min-height: 0; overflow-y: auto; padding: 0 20px 20px; border-left: 1px solid var(--hairline); background: var(--bg); animation: activity-in .26s cubic-bezier(.32, .72, 0, 1); }
-.activity-drawer-title { height: 56px; display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--fg); }
+.detail-rail { min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--hairline); background: transparent; }
+.activity-drawer { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.activity-drawer[data-expanded='true'] { flex: 1; }
+.activity-drawer-title { height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 16px; font-size: 13px; font-weight: 600; color: var(--fg); }
 .activity-count { font-weight: 400; color: var(--secondary); font-variant-numeric: tabular-nums; }
-@keyframes activity-in { from { opacity: 0; transform: translateX(24px); } }
-@media (prefers-reduced-motion: reduce) { .activity-drawer { animation: none; } }
+.activity-scroll { min-height: 0; padding: 0 16px 4px; }
+.activity-drawer[data-expanded='true'] .activity-scroll { flex: 1; overflow: auto; padding-bottom: 12px; }
+.activity-list:has(+ .activity-earlier) li:last-child { padding-bottom: 0; }
+.activity-earlier { display: block; margin: 10px 0 8px 20px; padding: 0; border: 0; background: none; font: inherit; font-size: 12px; line-height: 16px; color: var(--faint); cursor: pointer; text-align: left; }
+.activity-earlier:hover { color: var(--secondary); }
+.activity-drawer[data-insight='true'] { flex: 0 1 auto; min-height: 0; overflow: auto; }
+.activity-drawer[data-insight='true'] .activity-scroll { padding: 16px 16px 12px; }
+.activity-insight-lead { margin: 0; font-size: 20px; line-height: 26px; font-weight: 600; color: var(--activity-rollover); font-variant-numeric: tabular-nums; }
+.activity-insight-lead[data-tone='stay'] { color: var(--activity-stay); }
+.activity-insight-lead[data-tone='open'] { color: var(--fg); }
+.activity-insight-meta { margin: 6px 0 0; font-size: 12px; line-height: 18px; color: var(--secondary); }
+.activity-insight-stay { color: var(--activity-stay); font-weight: 600; }
+.activity-insight-open { color: var(--fg); font-weight: 600; }
+.activity-insight-sep { color: var(--faint); }
+.activity-insight-done { margin: 2px 0 0; font-size: 12px; line-height: 18px; color: var(--activity-done); font-weight: 500; }
+.activity-rule { height: 1px; margin: 12px 0 0; border: 0; background: var(--hairline); }
+.activity-month { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.activity-month-label { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.activity-month-button { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; color: var(--secondary); }
+.activity-month-button:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+.activity-month-button:disabled { color: var(--faint); }
+.activity-calendar { margin-top: 8px; }
+.activity-weekdays, .activity-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.activity-weekdays span { text-align: center; font-size: 10px; line-height: 14px; color: var(--faint); }
+.activity-week > [role='gridcell'] { height: 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; font-size: 11px; line-height: 14px; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.activity-week > [role='gridcell'][data-today='true'] { color: var(--fg); font-weight: 600; }
+.activity-week > [role='gridcell'][data-future='true'] { color: var(--faint); font-weight: 400; }
+.activity-dot { width: 5px; height: 5px; flex-shrink: 0; border-radius: 99px; background: transparent; }
+.activity-dot[data-kind='rollover'] { background: var(--activity-rollover); }
+.activity-dot[data-kind='move'] { background: var(--activity-move); }
+.activity-legend { display: flex; justify-content: center; gap: 14px; margin-top: 10px; font-size: 11px; line-height: 14px; color: var(--secondary); }
+.activity-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.activity-legend .activity-dot { width: 6px; height: 6px; }
+.detail-rail-actions { flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; margin: 0 8px 8px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.detail-rail-action { width: 100%; min-height: 32px; padding: 0 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg); text-align: left; }
+.detail-rail-action:hover:not(:disabled) { background: var(--hover); }
+.detail-rail-action.danger { color: var(--danger); }
 .detail .modal-footer { position: static; flex-shrink: 0; margin: 0; padding: 12px 16px 12px 28px; }
 /* A dotted timeline: each event's dot sits beside its title, joined to the next by a hairline. */
 .activity-list { list-style: none; margin: 0 0 8px; padding: 0; }
-.activity-list li { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 0 0 18px 20px; }
+.activity-list li { position: relative; display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 0 0 18px 20px; }
 .activity-list li::before { content: ''; position: absolute; left: 3px; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
 .activity-list li::after { content: ''; position: absolute; left: 6px; top: 18px; bottom: 0; width: 1px; background: var(--line); }
 .activity-list li:last-child::after { display: none; }
 .activity-list strong { font-size: 13px; font-weight: 500; color: var(--fg); }
+.activity-list strong, .activity-list span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-list span { font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; }
 
 /* --- Command palette --- */

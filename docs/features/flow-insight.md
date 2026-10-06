@@ -20,7 +20,7 @@
 链条为年 → 半年 → 3个月 → 本月 → 本周 → 今天；任意活跃当期下级都满足其上级，包括本月直接关联今天。年 / 半年未来周期可右键拆解，未来半年 / 3个月在其周期落入左列显示周期时提供空列卡，下级使用与上级同日开始的一期。半年起草为可验收阶段成果，3个月为季度里程碑；复盘矩阵包含六列。详见 [双日历模式](calendar-modes.md)。
 
 - 半年、3个月、本月、本周、今天在显示周期整列为空，且上一列有未完成、未归档并没有任何显示周期下级的条目时，列内显示一张卡：「本周还是空的」、对应尺度的起草按钮及「自己写」。数量只在说明中显示，按钮和起草窗口标题不重复计数，单项与多项使用相同文案。五种语言同步。不出逐项 ＋。
-- 2026-10-05 负责人确认起草动作按尺度区分：半年「起草阶段成果」、3个月「起草季度里程碑」、本月「起草本月计划」、本周「起草本周待办」、今天「起草今天待办」；批量起草窗口与复盘后安排卡复用同一文案。空列卡的两个按钮桌面同为 32px、同字号与行高；长翻译自然换行，同排拉齐，触控目标至少 44px，保留键盘焦点反馈。
+- 2026-10-05 负责人确认起草动作按尺度区分：半年「起草阶段成果」、3个月「起草季度里程碑」、本月「起草本月计划」、本周「起草本周待办」、今天「起草今天待办」；批量起草窗口与复盘后安排卡复用同一文案。2026-10-06 负责人要求空列卡的两个按钮始终同排；桌面最小高度为 32px、同字号与行高，长翻译在按钮内自然换行并等高增长。触控目标至少 44px，保留键盘焦点反馈。
 - 起草打开新建窗口的多条草稿（最多 8 条），每条带上级，可取消勾选，↵ 一次写入；「自己写」打开只预填周期的新建窗口。有待复盘周期时，本月／本周列由统一复盘引导卡替代空列卡。
 
 ### 复盘
@@ -86,6 +86,8 @@
 - Draft and review mount effects share one pending request across StrictMode replay; each subscription ignores responses after its cleanup. Draft failures always end loading and leave editable rows with visible feedback. `pnpm dev` watches main/preload so generation actions and renderer callers remain on the same contract; previously started non-watching processes require a restart.
 
 ## 实现前失败场景
+
+- Empty-card row regression (2026-10-06): a long translation moves the entire secondary action onto another row at the 320px column minimum; shrinking controls clips labels, moves the primary icon or produces unequal heights/hit targets. Measure native five-locale future-half cards and all five English draft actions, keeping the linked batch/manual creation scenarios.
 
 - Empty-card action polish (2026-10-05): actions still say the same generic next step at every horizon; button/composer/invitation labels disagree; shared primary/secondary heights remain 32/30px; translated text overflows or focus feedback disappears; draft/manual clicks change their parent or displayed-period target. Extend existing native empty-card coverage with a focused selector, check horizon labels and actual equal-height hit targets, and retain linked batch/manual creation.
 
@@ -177,6 +179,8 @@
 - [ ] Windows 11 人工验收由所有者执行
 
 ## 验收
+
+- [x] 最小 320px 列宽下，五语言未来半年空列卡及五种英文起草动作的按钮始终同排、等高，文案在按钮内换行且可实际点击；既有批量／手写创建保留原周期与关联。原生几何与截图见 `output/tests/empty-card-layout/native/`，创建证据见 `output/tests/insight/`。
 
 - [x] Breakpoint loading (2026-10-03): development and production Electron cover held next-step/bridge requests, actual rotation frames, unchanged full pill colours, hover exit, duplicate-click suppression, success, failure-to-manual recovery, Shift-click and reduced motion. Reports and screenshots: `output/tests/insight/generation/{development,production}-report.json` and `*-breakpoint-loading.png` / `*-bridge-loading.png`; final scope and commands: `output/tests/breakpoint-loading/report.json`.
 

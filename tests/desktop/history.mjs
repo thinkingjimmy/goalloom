@@ -97,7 +97,7 @@ try {
   await cdp.detach()
   await stepPeriod(day, 'next')
   await day.locator('.period-title').filter({ hasText: '明天' }).waitFor()
-  assert.equal(await current(day).innerText(), '回到今日')
+  assert.equal(await current(day).getAttribute('aria-label'), '回到今日')
   assert.equal(await day.locator('.period-heading .column-meta').count(), 1)
   assert.equal(await day.locator('.period-meta').count(), 0)
   await compactHeader(day)

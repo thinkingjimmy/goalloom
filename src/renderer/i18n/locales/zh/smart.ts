@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 服务标识与界面参数（模型名由调用方传入，不随语言变化）。
- * [OUTPUT]: 智能输入与 AI 服务（全局 composer、草稿校验、服务连接表单、Onboarding、设置 › AI 服务 / 智能输入 / 洞察顶部）的文案、服务显示名与参数化消息。
- * [POS]: renderer/i18n/locales/zh 的智能输入分册，与 messages.ts 同构；不决定业务状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: AI service identifiers, message parameters and the shared locale widening helper.
+ * [OUTPUT]: Chinese smart-input and AI service messages, provider names and the SmartCatalog type.
+ * [POS]: Source renderer catalog for composer, draft validation, onboarding and AI settings; contains no business state.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import { widen } from '../../../../shared/i18n/locale'
@@ -25,7 +25,6 @@ export const smartMessages = widen({
   fallbackBody: (count: number) => `原文会完整保留。你调整过的 ${count} 项预览将不会创建。`,
   fallbackConfirm: '确认原样存到 Later',
   back: '返回',
-  entryTip: '全局＋用于收集或智能整理；列头＋仍在对应列快速录入。',
   keepAsLater: '原样存到 Later',
   adjust: '调整',
   adjustHeading: '逐项调整',
@@ -51,7 +50,6 @@ export const smartMessages = widen({
   maybeParentMove: (title: string, column: string) => `可能归到「${title}」下（会移到${column}）`,
   maybeHorizon: (column: string) => `可能是${column}`,
   maybeDue: (date: string) => `可能 ${date} 截止`,
-  dismiss: '关闭提示',
   titleLabel: '标题',
   descriptionLabel: '说明',
   horizonLabel: '执行时间',

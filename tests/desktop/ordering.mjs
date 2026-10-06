@@ -279,7 +279,7 @@ try {
   assert(Math.abs(await scroller.evaluate(node => node.scrollTop) - focus.scrollTop) < 2, 'Reordering preserves the scroll position')
   assert(await column('day').locator('.task-row').count() < 65, 'The old window is released after motion')
   await column('day').locator('[data-add-item]').click()
-  const draft = column('day').locator('.quick-add input')
+  const draft = column('day').locator('.quick-add-title')
   await draft.fill('Unsubmitted ordering draft')
   await move(ids.C, ids.A)
   await ordered('month', ['C1', 'A2', 'A1', 'B1', 'Unlinked'])

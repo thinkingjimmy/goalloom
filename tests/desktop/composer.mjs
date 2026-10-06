@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, isolated profiles and an optional packaged executable or --column-add selector.
- * [OUTPUT]: Composer/setup/column creation acceptance, measured keyboard paths and repeatable private evidence.
+ * [OUTPUT]: Composer/setup/column creation acceptance, absence of entry guidance, measured keyboard paths and repeatable private evidence.
  * [POS]: Desktop smart-input entry; includes the isolated column-add fixture after the base composer journey.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -89,7 +89,8 @@ try {
   await page.getByRole('button', { name: '新建', exact: true }).click()
   const composer = page.getByRole('textbox', { name: '写下想法', exact: true })
   await composer.fill('本月发布内测版；本周完成登录功能；今天写文案')
-  await page.getByText('全局＋用于收集或智能整理；列头＋仍在对应列快速录入。').waitFor()
+  assert.equal(await page.locator('.composer-tip').count(), 0, 'The composer does not show entry guidance')
+  await page.screenshot({ path: 'output/tests/screenshots/composer-without-entry-tip.png' })
   await page.keyboard.press('Escape')
   await page.getByRole('dialog', { name: '新建' }).waitFor({ state: 'hidden' })
   await page.keyboard.press('ControlOrMeta+n')
@@ -136,14 +137,14 @@ try {
   await page.keyboard.press('ControlOrMeta+n')
   await composer.waitFor()
   await page.keyboard.press('Escape')
-  // 今天已是最短周期，没有可拆解的下一列；「拆解下一步」在更长的列里保留带上级的显式创建（落到下一列）。
+  // Day has no shorter horizon; the board context menu keeps explicit parent-scoped creation for longer horizons.
   await page.getByRole('button', { name: '列内连续一', exact: true }).click()
   await page.getByRole('dialog', { name: '当前条目' }).waitFor()
   assert.equal(await page.getByRole('button', { name: /拆解下一步/ }).count(), 0)
   await page.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.getByRole('region', { name: '本周列', exact: true }).getByRole('button', { name: '前方任务 3', exact: true }).first().click()
-  await page.getByRole('button', { name: /拆解下一步/ }).first().click()
-  const split = page.locator('.quick-add input')
+  await page.getByRole('region', { name: '本周列', exact: true }).getByRole('button', { name: '前方任务 3', exact: true }).first().click({ button: 'right' })
+  await page.getByRole('menuitem', { name: '拆下一步', exact: true }).click()
+  const split = page.locator('.seeded-composer .composer-input')
   await split.waitFor()
   await split.fill('拆解出的下一步'); await split.press('Enter')
   await page.getByRole('button', { name: '拆解出的下一步', exact: true }).waitFor()
@@ -151,9 +152,9 @@ try {
   const child = final.items.find(item => item.title === '拆解出的下一步'), edge = final.relations.find(row => row.childId === child.id)
   const parent = final.items.find(item => item.id === edge?.parentId)
   assert.deepEqual([parent?.title, parent?.placement.horizon, child.placement.horizon], ['前方任务 3', 'week', 'day'])
-  await split.press('Escape')
+  await page.locator('.seeded-composer').waitFor({ state: 'hidden' })
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
-  const record = { packaged: Boolean(packaged), runtime, tabStepsToTodayAdd: tabSteps, checks: ['direction draft not written before confirm', 'direction becomes 3-month flow root', 'onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar', 'settings entry', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent'] }
+  const record = { packaged: Boolean(packaged), runtime, tabStepsToTodayAdd: tabSteps, checks: ['direction draft not written before confirm', 'direction becomes 3-month flow root', 'onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar', 'settings entry', 'composer without entry guidance', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent'] }
   await mkdir('output/tests', { recursive: true })
   await writeFile('output/tests/composer.json', JSON.stringify(record, null, 2))
   console.log(JSON.stringify(record))

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron in a native 1440 × 900 window, isolated workspace data and the actual workspace calendar.
- * [OUTPUT]: Flow-insight acceptance, horizon-specific empty-card copy/equal-height hit targets, previews, endpoint alignment, reviews and settings; --empty-card selects card creation only.
+ * [OUTPUT]: Flow-insight acceptance, horizon-specific empty-card copy/equal-height hit targets, five-locale minimum-width layout, previews, endpoint alignment, reviews and settings; --empty-card selects card creation/layout only.
  * [POS]: Desktop acceptance of empty columns, breakpoints, reviews and local insight preferences without a live model.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -296,4 +296,5 @@ try {
   await application.close()
   await rm(profile, { recursive: true, force: true })
 }
+await import('./empty-card-layout.mjs')
 if (!emptyOnly) await import('./weekly-review.mjs')

@@ -7,11 +7,11 @@
 import { messages, smartMessages, useLocale } from './i18n'
 import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { currentPeriod, workspaceDate } from '../domain/calendar'
-import type { PlanningPeriod, ItemHorizon } from '../shared/contracts/entities'
+import type { PlanningPeriod } from '../shared/contracts/entities'
 import { Icon } from './components/icons'
 import type { CalendarChoice } from './features/setup/Setup'
 import { revealRow } from './features/board/VirtualRows'
-import { Board, type AddRequest, type BoardInsight } from './features/board/Board'
+import { Board, type BoardInsight } from './features/board/Board'
 import type { ComposerSeed } from './features/composer/Seeded'
 import { insightReady, markReviewed, useInsightSettings } from './state/insight'
 import { requestReviewCelebration } from './state/celebration'
@@ -85,7 +85,6 @@ export function App() {
     setReviewing(previous => previous?.month?.key === value.month?.key && previous?.week?.key === value.week?.key ? previous : value); setReviewOpen(true)
   }),
     seed: value => startTransition(() => setSeed(previous => ({ ...value, key: (previous?.key ?? 0) + 1 }))) }), [ready, due, reviewing, insightSettings.reviewed])
-  const [addRequest, setAddRequest] = useState<AddRequest | null>(null)
   const [toastHeld, setToastHeld] = useState(false)
   const toastRef = useCallback((node: HTMLDivElement | null) => { setToastHeld(!!node && (node.matches(':hover') || node.contains(document.activeElement))) }, [])
   useEffect(() => {
@@ -102,11 +101,6 @@ export function App() {
     const id = selected, origin = detailFocusOrigin.current
     setSelected(null)
     if (id && !settings) requestAnimationFrame(() => revealRow(id, '.task-title', origin))
-  }
-  const requestAdd = (horizon: ItemHorizon | null, split: AddRequest['split'] = null) => {
-    if (horizon === 'later') columns.setLaterOpen(true)
-    else if (horizon) columns.setVisible(horizon, true)
-    setAddRequest(previous => ({ seq: (previous?.seq ?? 0) + 1, horizon, split }))
   }
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const setupReady = !!snapshot?.workspace.setupConfirmedAt
@@ -207,7 +201,7 @@ export function App() {
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <Setup confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy} errorCode={setupErrorCode ?? errorCode} />
       : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>
-      <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={addRequest} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight}
+      <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={null} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight}
         write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || reviewOpen} /></div>
       <button className="fab" aria-label={messages.newItem} title={[messages.newItem, formatCombo(bindings.compose)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.compose)} disabled={busy} onClick={compose}><Icon name="add" size={24} strokeWidth={1.8} /></button>
     </>}
@@ -228,8 +222,8 @@ export function App() {
     {seed && snapshot && setupReady && <Seeded key={seed.key} seed={seed} snapshot={snapshot} flows={flows} submit={submit} busy={busy} error={error} close={() => setSeed(null)} />}
     </Suspense>
     <Suspense fallback={null}>
-    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} select={select} close={closeDetail} generation={snapshot.workspace.generation} write={write} retryWrite={retryWrite} revision={snapshot.workspace.revision} blocked={!!pending || !!snapshot.maintenance}
-      flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} split={(parent, horizon) => { setSelected(null); setSettings(false); requestAdd(horizon, parent) }} />}
+    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} close={closeDetail} generation={snapshot.workspace.generation} write={write} retryWrite={retryWrite} revision={snapshot.workspace.revision} blocked={!!pending || !!snapshot.maintenance}
+      flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} />}
     </Suspense>
     {feedback && <FeedbackLayer><div ref={toastRef} className="toast" key={feedback.result.operationId} data-warning={!!feedback.warning}
       onMouseEnter={() => setToastHeld(true)} onMouseLeave={event => setToastHeld(event.currentTarget.contains(document.activeElement))}

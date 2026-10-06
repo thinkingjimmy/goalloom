@@ -1,12 +1,13 @@
 /**
  * [INPUT]: Built Electron, an isolated device profile and production workspace controls.
- * [OUTPUT]: Board/empty-copy screenshots, flow-valid detail parent picking, More alignment/actions, default columns/visibility menu, Later, settings, shortcuts and security assertions.
+ * [OUTPUT]: Board/empty-copy screenshots, inline title editing, flow-valid detail parent picking, More alignment/actions, default columns/visibility menu, Later, settings, shortcuts and security assertions.
  * [POS]: Desktop workspace acceptance; uses the real preload, main and SQLite without production test hooks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { finishSetup } from './fixtures/setup.mjs'
 import { finishDetailEditing, waitForDetailSave } from './fixtures/detail-save.mjs'
 import { verifyDetailMore } from './fixtures/detail-more.mjs'
+import { verifyInlineTitle } from './fixtures/inline-title.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -140,6 +141,7 @@ try {
   assert.equal(await shortcutSettings.getByRole('button', { name: '恢复默认', exact: true }).isDisabled(), true)
   await shortcutSettings.getByRole('button', { name: '关闭', exact: true }).click()
   await shortcutSettings.waitFor({ state: 'hidden' })
+  await verifyInlineTitle(page)
   // 详情里的流程色点紧贴复选框：点开 4×2 命名色板，选色即生效并收起。
   await page.getByRole('button', { name: '测试流程', exact: true }).click()
   const detail = page.getByRole('dialog', { name: '当前条目' })
@@ -152,7 +154,8 @@ try {
   assert.deepEqual((await page.evaluate(() => window.goalloom.getSnapshot())).flows.map(flow => flow.flowColor), [5])
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await page.getByRole('button', { name: '流程子任务', exact: true }).click()
-  await page.getByRole('img', { name: '流程：测试流程（跟随上级）', exact: true }).waitFor()
+  // The inherited flow is the detail parent chip; the old standalone image name is gone.
+  await page.getByRole('dialog', { name: '当前条目' }).getByRole('button', { name: '上级：测试流程', exact: true }).waitFor()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await page.evaluate(async () => {
     const s = await window.goalloom.getSnapshot(), parent = s.items.find(item => item.title === '测试上级 A')

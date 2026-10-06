@@ -170,9 +170,9 @@ try {
   await moveNext('week')
 
   const add = async title => {
-    if (!(await column('week').locator('.quick-add input').count())) await column('week').locator('[data-add-item]').click()
-    await column('week').locator('.quick-add input').fill(title)
-    await column('week').locator('.quick-add input').press('Enter')
+    if (!(await column('week').locator('.quick-add-title').count())) await column('week').locator('[data-add-item]').click()
+    await column('week').locator('.quick-add-title').fill(title)
+    await column('week').locator('.quick-add-title').press('Enter')
     await pollPage(page, async title => (await window.goalloom.listItems({ type: 'list', view: 'search', query: title })).items.some(item => item.title === title), title)
     const found = (await page.evaluate(title => window.goalloom.listItems({ type: 'list', view: 'search', query: title }), title)).items.find(item => item.title === title)
     await row(found.id).waitFor()
@@ -180,11 +180,11 @@ try {
     return found.id
   }
   const alpha = await add('Future alpha'), beta = await add('Future beta')
-  await column('week').locator('.quick-add input').fill('Future draft kept')
+  await column('week').locator('.quick-add-title').fill('Future draft kept')
   await moveNext('week')
   await stepPeriod(column('week'), 'previous'); await settled('week')
   await column('week').locator('[data-add-item]').click()
-  assert.equal(await column('week').locator('.quick-add input').inputValue(), 'Future draft kept')
+  assert.equal(await column('week').locator('.quick-add-title').inputValue(), 'Future draft kept')
   await page.keyboard.press('Escape')
   await column('week').locator('[data-return-current]').click()
   await stepPeriod(column('week'), 'previous')
@@ -194,7 +194,7 @@ try {
   assert.equal(await column('week').getAttribute('data-period-mode'), 'current')
   await moveNext('week')
   await column('week').locator('[data-add-item]').click()
-  assert.equal(await column('week').locator('.quick-add input').inputValue(), 'Future draft kept')
+  assert.equal(await column('week').locator('.quick-add-title').inputValue(), 'Future draft kept')
   await page.keyboard.press('Escape')
   checks.push('Future inline creation targets the displayed period; a draft survives leaving and returning')
 
@@ -351,7 +351,7 @@ try {
       assert.equal(await header.locator('.period-heading .column-meta').count(), horizon === 'week' || horizon === 'cycle' ? 0 : 1, `${locale} distant dates and non-current cycles are the heading`)
       assert(!/\b20\d{2}\b/.test(await header.locator('.period-heading').innerText()), `${locale} header dates omit years`)
       const currentLabels = { en: ['Back to current period', 'Back to this month', 'Back to this week', 'Back to today'], ja: ['今期に戻る', '今月に戻る', '今週に戻る', '今日に戻る'], es: ['Volver al período actual', 'Volver a este mes', 'Volver a esta semana', 'Volver a hoy'], fr: ['Revenir à la période actuelle', 'Revenir à ce mois', 'Revenir à cette semaine', 'Revenir à aujourd’hui'], zh: ['回到当期', '回到本月', '回到本周', '回到今日'] }
-      if (await header.locator('[data-return-current]').count()) assert.equal(await header.locator('[data-return-current]').innerText(), currentLabels[locale][['cycle', 'month', 'week', 'day'].indexOf(horizon)])
+      if (await header.locator('[data-return-current]').count()) assert.equal(await header.locator('[data-return-current]').getAttribute('aria-label'), currentLabels[locale][['cycle', 'month', 'week', 'day'].indexOf(horizon)])
       if (['en', 'es', 'fr'].includes(locale)) assert(!/[一-鿿]/.test(await header.innerText()), `${locale} period header must be translated`)
     }
     await shot(`timeline-${locale}`)
@@ -367,7 +367,7 @@ try {
   await shot('future-after-restart')
   checks.push('Restart defaults to the current board and retains future task placement/content')
   await column('week').locator('[data-add-item]').click()
-  await column('week').locator('.quick-add input').fill('Draft before replacement')
+  await column('week').locator('.quick-add-title').fill('Draft before replacement')
   const beforeReplacement = await item(ids.week)
   const generation = (await page.evaluate(() => window.goalloom.getSnapshot())).workspace.generation
   const data = async action => {
@@ -393,7 +393,7 @@ try {
   assert.deepEqual(await item(ids.week), beforeReplacement)
   await data({ type: 'cancel', token })
   await page.waitForFunction(() => !document.querySelector('.fab').disabled)
-  assert.equal(await column('week').locator('.quick-add input').inputValue(), 'Draft before replacement')
+  assert.equal(await column('week').locator('.quick-add-title').inputValue(), 'Draft before replacement')
   const restored = await data({ type: 'commit', token: await prepareRestore(), acknowledged: true })
   assert.notEqual(restored.generation, generation)
   await page.waitForFunction(() => document.querySelector('.board-column[data-horizon="week"]')?.getAttribute('data-period-mode') === 'current')

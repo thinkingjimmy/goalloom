@@ -71,8 +71,6 @@ button.plan-row:hover { background: var(--hover); }
 .key-menu { min-width: 240px; }
 .key-menu .menu-item .plan-key { width: 12px; }
 .key-menu .menu-item .jev-badge { margin-left: 4px; }
-.composer-tip { display: flex; align-items: center; gap: 8px; margin: 2px 6px 0; font-size: 12px; line-height: 1.6; color: var(--secondary); }
-.composer-tip > span { flex: 1; }
 /* --- Jev connect form shared by onboarding and settings. --- */
 .jev-connect { display: flex; flex-direction: column; gap: 4px; }
 .jev-connect .segmented { align-self: flex-start; margin-bottom: 4px; }

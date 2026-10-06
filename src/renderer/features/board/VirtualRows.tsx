@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Ordered identities, viewport, render function, drag/selection/menu pins and shared input-aware focus restoration.
+ * [INPUT]: Ordered identities, viewport, render function, drag/selection/menu/editing pins and shared input-aware focus restoration.
  * [OUTPUT]: Resize-observed rows (observers follow the mounted window, not every parent render) with bounded motion retention, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -20,7 +20,7 @@ const overscan = 5
 const estimatedRowHeight = 32
 const controlSelector = 'button:not(:disabled), a[href], [tabindex="0"]'
 
-export function VirtualRows({ scope = 'board', items, dragging, highlighted, pinned = null, render }: { scope?: string; items: ItemSummary[]; dragging: string | null; highlighted: string | null; pinned?: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
+export function VirtualRows({ scope = 'board', items, dragging, highlighted, pinned = null, alsoPinned = null, render }: { scope?: string; items: ItemSummary[]; dragging: string | null; highlighted: string | null; pinned?: string | null; alsoPinned?: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
   const list = useRef<HTMLDivElement>(null), heights = useRef(new Map<string, number>())
   const [measured, setMeasured] = useState(0), [focused, setFocused] = useState<string | null>(null)
   const [range, setRange] = useState({ start: 0, end: 20 })
@@ -87,7 +87,7 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
   const mounted = new Set<number>()
   if (windowed) {
     for (let index = range.start; index < range.end; index++) mounted.add(index)
-    for (const id of [focused, dragging, highlighted, pinned, ...retained.ids]) { const index = id ? indexes.get(id) : undefined; if (index !== undefined) mounted.add(index) }
+    for (const id of [focused, dragging, highlighted, pinned, alsoPinned, ...retained.ids]) { const index = id ? indexes.get(id) : undefined; if (index !== undefined) mounted.add(index) }
   } else items.forEach((_item, index) => mounted.add(index))
   const observedKey = [...mounted].filter(index => index < items.length).sort((a, b) => a - b).map(index => items[index]!.id).join('|')
   useLayoutEffect(() => {

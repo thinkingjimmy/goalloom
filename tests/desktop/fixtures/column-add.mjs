@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, an optional packaged executable and a fresh synthetic workspace.
- * [OUTPUT]: Repeatable blank-space/todo-tail creation acceptance, native app diagnostics and screenshots in output/tests/column-add/.
+ * [OUTPUT]: Repeatable blank-space/todo-tail creation and growing-title acceptance, native app diagnostics and screenshots in output/tests/column-add/.
  * [POS]: Composer-owned desktop fixture; real preload/main/SQLite with controlled main-process read/write gates.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -20,7 +20,7 @@ export async function runColumnAdd(packaged) {
   const environment = { ...process.env }
   delete environment.ELECTRON_RUN_AS_NODE
   const report = {
-    ok: false, packaged: Boolean(packaged), checks: [], placements: [], alignment: [], screenshots: [],
+    ok: false, packaged: Boolean(packaged), checks: [], placements: [], alignment: [], wrapping: [], screenshots: [],
     host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model, machineScope: 'Host OS; physical/VM status not independently verified' },
   }
   let app, page
@@ -29,13 +29,17 @@ export async function runColumnAdd(packaged) {
     page = await app.firstWindow()
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 840))
+    await app.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0]
+      window.setSize(1280, 840)
+      window.focus()
+    })
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await finishSetup(page)
     report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
     const column = horizon => page.locator(`.board-column[data-horizon="${horizon}"]`)
     const footer = horizon => column(horizon).locator('[data-column-add]')
-    const input = horizon => column(horizon).locator('.quick-add input')
+    const input = horizon => column(horizon).locator('.quick-add-title')
     const openFooter = async horizon => { await column(horizon).locator('.column-header').hover(); await footer(horizon).click() }
     const settled = horizon => page.waitForFunction(horizon => !document.querySelector('.fab')?.disabled && document.querySelector(`[data-horizon="${horizon}"]`)?.getAttribute('aria-busy') !== 'true', horizon)
     const active = locator => locator.evaluate(node => node === document.activeElement)
@@ -77,6 +81,30 @@ export async function runColumnAdd(packaged) {
       await page.screenshot({ path: join(evidence, file) })
       report.screenshots.push(file)
     }
+    const longTitle = '新建待办也应像双击编辑一样自动折行并完整显示所有文字。'.repeat(5)
+    const measureInput = horizon => input(horizon).evaluate(node => {
+      const css = getComputedStyle(node), box = node.getBoundingClientRect()
+      const marker = node.parentElement.querySelector('.check').getBoundingClientRect()
+      const hint = node.parentElement.querySelector('.quick-add-hint')?.getBoundingClientRect()
+      return {
+        width: box.width, height: box.height, lineHeight: parseFloat(css.lineHeight), fontSize: css.fontSize,
+        clientHeight: node.clientHeight, scrollHeight: node.scrollHeight, clientWidth: node.clientWidth, scrollWidth: node.scrollWidth,
+        markerOffset: marker.top - box.top, hintOffset: hint ? hint.top - box.bottom : null,
+      }
+    })
+    const wrappedInput = async (horizon, title = longTitle) => {
+      await input(horizon).fill(title)
+      const geometry = await measureInput(horizon)
+      assert(geometry.height >= geometry.lineHeight * 2, `${horizon}: a long title grows beyond one line`)
+      assert(geometry.scrollHeight <= geometry.clientHeight + 1, `${horizon}: the complete title is visible`)
+      assert(geometry.scrollWidth <= geometry.clientWidth + 1, `${horizon}: unbroken text stays inside the field`)
+      assert(geometry.markerOffset >= 0 && geometry.markerOffset <= 4, `${horizon}: the marker stays on the first line`)
+      assert(geometry.hintOffset === null || geometry.hintOffset >= 0, `${horizon}: the hint sits below the title`)
+      assert.equal(geometry.fontSize, '14px')
+      assert.equal(geometry.lineHeight, 22)
+      report.wrapping.push({ horizon, characters: title.length, ...geometry })
+      return geometry
+    }
     const alignedEntry = async horizon => {
       const geometry = await column(horizon).evaluate(node => {
         const start = element => {
@@ -84,12 +112,12 @@ export async function runColumnAdd(packaged) {
           range.setStart(element.firstChild, 0); range.setEnd(element.firstChild, 1)
           return range.getBoundingClientRect().left
         }
-        const field = node.querySelector('.quick-add input'), label = node.querySelector('[data-column-add] > span')
+        const field = node.querySelector('.quick-add-title'), label = node.querySelector('[data-column-add] > span')
         const header = node.querySelector('[data-add-item]')
         return {
           style: document.documentElement.dataset.style, theme: document.documentElement.dataset.theme, language: document.documentElement.lang,
           kind: field ? 'input' : 'button', title: start(node.querySelector('.task-row[data-done="false"] .task-title > span')),
-          entry: field ? field.getBoundingClientRect().left + parseFloat(getComputedStyle(field).paddingLeft) : start(label),
+          entry: field ? field.getBoundingClientRect().left + parseFloat(getComputedStyle(field).paddingLeft) + parseFloat(getComputedStyle(field).textIndent) : start(label),
           headerBackground: getComputedStyle(header).backgroundColor, headerPressed: header.getAttribute('aria-pressed'),
         }
       })
@@ -118,6 +146,7 @@ export async function runColumnAdd(packaged) {
       const before = await page.evaluate(() => window.goalloom.getSnapshot())
       await doubleBlank(horizon)
       assert.equal(await active(input(horizon)), true)
+      assert.equal(await column(horizon).locator('.quick-add-hint').count(), 0, 'Plain creation does not show a keyboard hint')
       assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).items.length, before.items.length, 'Opening must not create an item')
       const blank = await save(horizon, `Blank ${horizon}`)
       await alignedEntry(horizon)
@@ -131,10 +160,49 @@ export async function runColumnAdd(packaged) {
     }
     report.checks.push('Both entries create in all seven columns; empty columns, insight-card exclusion, focus and continuous input')
 
+    for (const horizon of ['later', 'year', 'half', 'cycle', 'month', 'week', 'day']) {
+      await openFooter(horizon)
+      const blank = await measureInput(horizon)
+      await wrappedInput(horizon)
+      await input(horizon).evaluate(node => {
+        node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, isComposing: true }))
+      })
+      assert.equal(await input(horizon).inputValue(), longTitle, 'Composition Enter must retain the draft')
+      await input(horizon).evaluate(node => { window.columnAddInput = node })
+      await doubleBlank(horizon)
+      assert.equal(await input(horizon).evaluate(node => node === window.columnAddInput && node === document.activeElement), true)
+      await shot(`wrapped-${horizon}`)
+      await close(horizon)
+      await openFooter(horizon)
+      assert.equal(await input(horizon).inputValue(), longTitle)
+      await wrappedInput(horizon, 'x'.repeat(500))
+      await input(horizon).fill('Pasted first line\nPasted second line')
+      assert.equal(await input(horizon).inputValue(), 'Pasted first line Pasted second line')
+      await save(horizon, `${horizon}: ${longTitle}`)
+      const cleared = await measureInput(horizon)
+      assert.equal(await input(horizon).inputValue(), '')
+      assert.equal(cleared.height, blank.height, 'Saving shrinks the field back to one line')
+      await close(horizon)
+    }
+    await openFooter('month')
+    const narrow = await wrappedInput('month')
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(2800, 840))
+    await page.waitForFunction(width => document.querySelector('[data-horizon="month"] .quick-add-title').getBoundingClientRect().width > width, narrow.width)
+    const wide = await measureInput('month')
+    assert(wide.height < narrow.height, 'Widening the column recomputes the wrapped height')
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 840))
+    await page.waitForFunction(width => document.querySelector('[data-horizon="month"] .quick-add-title').getBoundingClientRect().width <= width + 1, narrow.width)
+    assert.equal((await measureInput('month')).height, narrow.height)
+    await input('month').fill('Short title')
+    assert.equal((await measureInput('month')).height, 22, 'Shortening the draft returns to one line')
+    await input('month').fill(''); await close('month')
+    report.checks.push('Seven-column CJK/unbroken wrapping, first-line markers, hint placement, resize, paste normalization, IME protection, focus, long drafts and save/shortening shrink')
+
     await doubleBlank('month')
     await input('month').fill('Preserved flow draft')
     await column('month').locator('.quick-add button.check').click()
     await page.locator('.flow-picker .swatches button').nth(1).click()
+    assert.equal(await column('month').locator('.quick-add-hint').count(), 1, 'Selected flow context remains visible')
     const choice = await column('month').locator('.quick-add button.check').getAttribute('aria-label')
     await input('month').evaluate(node => { window.columnAddInput = node })
     await doubleBlank('month')
@@ -160,7 +228,7 @@ export async function runColumnAdd(packaged) {
     await close('day')
     const positions = await column('day').evaluate(node => ({ button: node.querySelector('[data-column-add]').getBoundingClientRect().bottom, completed: node.querySelector('.completed-fold').getBoundingClientRect().top }))
     assert(positions.button <= positions.completed, 'The button precedes completed tasks')
-    await column('day').getByRole('button', { name: 'Todo after completed', exact: true }).dblclick()
+    await column('day').getByRole('button', { name: 'Todo after completed', exact: true }).click()
     const detail = page.getByRole('dialog', { name: '当前条目', exact: true })
     await detail.waitFor()
     assert.equal(await page.locator('.quick-add').count(), 0)
@@ -286,7 +354,7 @@ export async function runColumnAdd(packaged) {
       assert.deepEqual(surface, { background: 'rgba(0, 0, 0, 0)', border: '0px', height: 40 })
       await alignedEntry('day')
       await shot(`${style}-${theme}`)
-      await openFooter('day'); await alignedEntry('day'); await shot(`${style}-${theme}-input`); await close('day')
+      await openFooter('day'); await alignedEntry('day'); await wrappedInput('day'); await shot(`${style}-${theme}-input`); await input('day').fill(''); await close('day')
     }
     const labels = { zh: '添加任务…', en: 'Add task…', ja: 'タスクを追加…', es: 'Añadir tarea…', fr: 'Ajouter une tâche…' }
     for (const [locale, label] of Object.entries(labels)) {
@@ -296,7 +364,10 @@ export async function runColumnAdd(packaged) {
       assert.equal(await footer('day').innerText(), label)
       assert(await footer('day').getAttribute('aria-label'))
       await alignedEntry('day')
-      await openFooter('day'); assert.equal(await active(input('day')), true); await alignedEntry('day'); await close('day')
+      await openFooter('day'); assert.equal(await active(input('day')), true); await alignedEntry('day')
+      assert.equal(await column('day').locator('.quick-add-hint').count(), 0, 'The keyboard hint stays absent in every locale')
+      if (locale === 'en') await shot('english-empty-input')
+      await wrappedInput('day'); await shot(`locale-${locale}-input`); await input('day').fill(''); await close('day')
       await shot(`locale-${locale}`)
     }
     const cdp = await page.context().newCDPSession(page)
@@ -310,6 +381,7 @@ export async function runColumnAdd(packaged) {
     await cdp.detach()
     assert.deepEqual(errors, [])
     report.checks.push('Title-aligned button/input text and inactive header Add across all columns, four themes and five locales; visible no-hover controls without renderer errors')
+    report.checks.push('Plain creation has no keyboard hint in all seven columns and five locales; selected flow context remains visible')
     report.ok = true
   } catch (error) {
     report.error = error.stack ?? String(error)

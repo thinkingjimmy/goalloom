@@ -3,7 +3,7 @@
 ## Product rules
 
 - Descriptions edit in place with Markdown shortcuts and retain Markdown strings in the existing item field. Opening, selecting text and resolving metadata never save or dirty an item.
-- The empty prompt and input share font and line metrics. Typing starts on the prompt's baseline, including compact windows and zoomed text; the multiline editor keeps its full-height area.
+- The empty prompt and input share font and line metrics. Typing starts on the prompt's baseline, including compact windows and zoomed text; the multiline editor keeps its full-height area. In a detail, the focused fill is the field edge: the prompt and caret sit inside it, while the text column stays aligned with the property row.
 - Support paragraphs, line breaks, headings, nested ordered/unordered lists, Markdown task lists (`- [ ]` / `- [x]`, including uppercase `X`), emphasis, strike, quotes, inline/fenced code and safe HTTP(S) links. Task-list checkboxes immediately autosave the description; they never change the owning item's completion or create subtask records. Unsupported syntax remains text. No attachments or tables are introduced.
 - Details save silently: title/description typing debounces for 500ms; blur, deadline selection/clear and checklist toggles flush immediately. No Save/Discard footer or success Toast. Closing, related-item navigation and decompose drain pending edits first. Enter/submit still flushes and ends editing. Editor undo owns text while focused; persistence never resets its history or selection. Composition defers writes until it ends. Deleted items render read-only; titles remain required and at most 500 characters, serialized Markdown at most 100,000 characters.
 - Save failures and invalid input retain the detail and draft with a localized inline error and Retry. Unknown outcomes resolve the original receipt before any new operation. Native window close/quit drains detail edits before continuing; a failed drain keeps the window and storage alive. Composer drafts retain their explicit confirmation. No persistent draft or crash-recovery subsystem is introduced.
@@ -58,6 +58,7 @@ Selection-tool positioning regression cases recorded before implementation:
 First-line typography regression cases recorded before implementation (2026-10-03):
 
 - Empty placeholder and typed first character use different line metrics, shifting the baseline when typing begins. Locale, theme or zoom changes must not reintroduce the drift.
+- The detail placeholder or caret sits on the focused fill's left edge.
 - Adjusting the placeholder collapses the full-height editor or makes pure focus/selection dirty an empty description.
 
 ## Acceptance
@@ -82,7 +83,7 @@ Explicit detail dismissal serializes with pending actions/autosave and sends `di
 
 Run the feature-owned commands in the [test map](../development.md#测试范围). Native editing evidence lives in `output/tests/descriptions/`; link transport/cache evidence in `output/tests/link-previews/`; renderer/virtual reports in `output/tests/review-fixes/`. Composition events are simulated; these runs do not claim a physical input-method session or Windows/packaged acceptance.
 
-`node tests/desktop/descriptions.mjs --alignment` measures empty/typed first-glyph geometry across five locales, four themes, native large/compact windows and 100%/150% zoom. The shared editor container owns line-height so the absolutely positioned placeholder and editable first paragraph stay on the same baseline. Reports and screenshots live in `output/tests/descriptions/alignment/`; full description acceptance includes these scenarios.
+`node tests/desktop/descriptions.mjs --alignment` measures empty/typed first-glyph geometry across five locales, four themes, native large/compact windows and 100%/150% zoom. The shared editor container owns line-height so the absolutely positioned placeholder and editable first paragraph stay on the same baseline. The same run checks that the focused detail fill keeps the placeholder inside its edge. Reports and screenshots live in `output/tests/descriptions/alignment/`; full description acceptance includes these scenarios.
 
 Selection tools retain a DOM range while the link form owns focus and render in the native dialog's floating layer. Placement measures the current panel against visible clipping ancestors, follows scroll/resize/content changes and hides when its selection leaves view. It does not clamp tools into the description's first line or alter editor layout. `node tests/desktop/descriptions.mjs --selection-tools` reproduces the native geometry and selection-semantics cases with evidence in `output/tests/descriptions/selection-tools/`.
 

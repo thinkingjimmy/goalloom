@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 依赖 ../zh/smart 的 SmartCatalog 与 providerNames 类型；服务标识与界面参数（模型名由调用方传入）。
- * [OUTPUT]: 与 zh 同构的英文智能输入文案、服务显示名与参数化消息。
- * [POS]: renderer/i18n/locales/en 的智能输入分册，与 zh 同构；不决定业务状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: SmartCatalog and providerNames types from ../zh/smart, service identifiers and message parameters.
+ * [OUTPUT]: English smart-input messages and provider names matching the Chinese catalog.
+ * [POS]: English renderer catalog for smart input and AI service views; contains no business state.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
@@ -25,7 +25,6 @@ export const smartMessages: SmartCatalog = {
   fallbackBody: (count: number) => `The original text is kept in full. The ${count === 1 ? 'preview item' : `${count} preview items`} you adjusted won’t be created.`,
   fallbackConfirm: 'Save to Later',
   back: 'Back',
-  entryTip: 'The global + collects or smartly organizes ideas; a column’s + still adds directly to that column.',
   keepAsLater: 'Save as-is to Later',
   adjust: 'Adjust',
   adjustHeading: 'Adjust items',
@@ -51,7 +50,6 @@ export const smartMessages: SmartCatalog = {
   maybeParentMove: (title: string, column: string) => `may belong under “${title}” (moves to ${column})`,
   maybeHorizon: (column: string) => `maybe ${column}`,
   maybeDue: (date: string) => `maybe due ${date}`,
-  dismiss: 'Dismiss tip',
   titleLabel: 'Title',
   descriptionLabel: 'Description',
   horizonLabel: 'When',

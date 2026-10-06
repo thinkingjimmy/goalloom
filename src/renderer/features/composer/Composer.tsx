@@ -263,7 +263,6 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
     <div className="composer-body">
       {(error || problem) && <p className="inline-error composer-error" role="alert">{problem ?? error}</p>}
       {content}
-      {ai.status && !ai.status.dismissed.includes('globalEntry') && <p className="composer-tip"><span>{t.entryTip}</span><button type="button" className="icon-button small" aria-label={t.dismiss} onClick={() => void ai.dismiss('globalEntry')}><Icon name="close" size={12} /></button></p>}
     </div>
   </Modal>
 }

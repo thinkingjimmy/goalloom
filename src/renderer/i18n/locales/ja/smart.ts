@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 依赖 ../zh/smart 的 SmartCatalog 与 providerNames 类型；服务标识与界面参数（模型名由调用方传入）。
- * [OUTPUT]: 日语的智能输入文案、服务显示名与参数化消息。
- * [POS]: renderer/i18n/locales/ja 的智能输入分册，与 zh 同构；不决定业务状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: SmartCatalog and providerNames types from ../zh/smart, service identifiers and message parameters.
+ * [OUTPUT]: Japanese smart-input messages and provider names matching the Chinese catalog.
+ * [POS]: Japanese renderer catalog for smart input and AI service views; contains no business state.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
@@ -25,7 +25,6 @@ export const smartMessages: SmartCatalog = {
   fallbackBody: (count: number) => `原文はすべて保持されます。調整したプレビューの ${count} 件は作成されません。`,
   fallbackConfirm: '先に Later に保存',
   back: '戻る',
-  entryTip: '全体の＋は収集やスマート整理に、列見出しの＋はその列へのすばやい入力に使えます。',
   keepAsLater: 'そのまま Later に保存',
   adjust: '調整',
   adjustHeading: '項目ごとに調整',
@@ -51,7 +50,6 @@ export const smartMessages: SmartCatalog = {
   maybeParentMove: (title: string, column: string) => `「${title}」の下かもしれません（${column}に移動）`,
   maybeHorizon: (column: string) => `${column}かもしれません`,
   maybeDue: (date: string) => `${date} 期限かもしれません`,
-  dismiss: 'ヒントを閉じる',
   titleLabel: 'タイトル',
   descriptionLabel: 'メモ',
   horizonLabel: '実行時期',

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Explicit displayed period, period-keyed drafts, flow views, visible candidates, optional parent and guarded submission.
- * [OUTPUT]: Continuous inline creation preserving input across navigation/save and expired-period recovery; offers only flows whose root is in a longer
- *           horizon, and no flow choice at all in Later.
+ * [OUTPUT]: Continuous inline creation with a title that grows with content/column width, normalized paste, preserved drafts and expired-period recovery;
+ *           shows flow context without a keyboard prompt, offers only flows whose root is in a longer horizon, and no flow choice at all in Later.
  * [POS]: Board creation entry; input revision controls clearing, storage owns relationship constraints.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -25,7 +25,7 @@ export function QuickAdd({ horizon, period, periodName, expired, retarget, draft
   const [choice, setChoice] = useState<Choice>(() => split ? { kind: 'split', parent: split } : drafts.get(draftKey)?.choice ?? { kind: 'none' })
   useLayoutEffect(() => { drafts.set(draftKey, { title, choice }) }, [drafts, draftKey, title, choice])
   const [picking, setPicking] = useState(false)
-  const input = useRef<HTMLInputElement>(null), root = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLTextAreaElement>(null), root = useRef<HTMLDivElement>(null)
   const revision = useRef(0), saving = useRef(false), choiceRef = useRef(choice)
   choiceRef.current = choice
   // Joining links the new item under the flow root, so the root must sit in a longer horizon; Later starts no flow.
@@ -75,14 +75,14 @@ export function QuickAdd({ horizon, period, periodName, expired, retarget, draft
         </div>
       </div>
     </Popover>}
-    <input ref={input} aria-label={messages.newToColumn(periodName)} placeholder={messages.titlePlaceholder} autoFocus value={title} maxLength={500}
-      onChange={event => { revision.current++; setTitle(event.target.value) }}
+    <textarea ref={input} className="quick-add-title" aria-label={messages.newToColumn(periodName)} placeholder={messages.titlePlaceholder} autoFocus value={title} rows={1} maxLength={500}
+      onChange={event => { revision.current++; setTitle(event.target.value.replace(/\r?\n/g, ' ')) }}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return
         if (event.key === 'Enter') { event.preventDefault(); void create() }
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close() }
       }} />
     {expired ? <span className="quick-add-expired" role="status">{messages.expiredDraft}<button type="button" className="text-button" disabled={busy} onClick={retarget}>{messages.useDisplayedPeriod}</button></span>
-      : <span className="quick-add-hint" aria-hidden="true">{choice.kind === 'none' ? messages.addHint : label}</span>}
+      : choice.kind !== 'none' && <span className="quick-add-hint" aria-hidden="true">{label}</span>}
   </div>
 }

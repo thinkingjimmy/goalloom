@@ -172,13 +172,13 @@ try{
  result.checks.push({case:'detail-generation',staleDraftSubmitted:false})
  // QuickAdd continuous entry while a save is pending.
  await page.getByRole('button',{name:'Add to Later',exact:true}).click()
- await page.locator('.quick-add input').fill('First task');await page.evaluate(()=>review.delayExecute=true)
- await page.locator('.quick-add input').press('Enter');await page.waitForFunction(()=>review.executeWaiters.length===1)
- await page.locator('.quick-add input').fill('Second task already typed')
- const second=await page.locator('.quick-add input').inputValue()
+ await page.locator('.quick-add-title').fill('First task');await page.evaluate(()=>review.delayExecute=true)
+ await page.locator('.quick-add-title').press('Enter');await page.waitForFunction(()=>review.executeWaiters.length===1)
+ await page.locator('.quick-add-title').fill('Second task already typed')
+ const second=await page.locator('.quick-add-title').inputValue()
  await page.evaluate(()=>{review.delayExecute=false;review.executeWaiters.shift()()});await page.waitForTimeout(200)
- result.checks.push({case:'quick-add-save',typed:second,after:await page.locator('.quick-add input').inputValue(),submitted:await page.evaluate(()=>review.commands.at(-1).title)})
- await page.locator('.quick-add input').press('Escape')
+ result.checks.push({case:'quick-add-save',typed:second,after:await page.locator('.quick-add-title').inputValue(),submitted:await page.evaluate(()=>review.commands.at(-1).title)})
+ await page.locator('.quick-add-title').press('Escape')
  // Restore the one row on page 2 of a 51-item trash list.
  await page.evaluate(()=>{
   const r=review,base=r.snapshot.items[0]
@@ -220,7 +220,7 @@ try{
   if(kind==='detail') { await page.getByRole('button',{name:'New unsaved text entered during save',exact:true}).click();await page.getByRole('button',{name:'Edit title',exact:true}).click() }
   else if(kind==='quick-add') await page.getByRole('button',{name:'Add to Later',exact:true}).click()
   else await page.locator('.fab').click()
-  const field=page.locator(kind==='detail'?'.title-input':kind==='quick-add'?'.quick-add input':'.composer-input')
+  const field=page.locator(kind==='detail'?'.title-input':kind==='quick-add'?'.quick-add-title':'.composer-input')
   await field.fill(`${kind} submitted`)
   await page.evaluate(()=>review.delaySnapshot=true)
   if(kind==='quick-add') await field.press('Enter')

@@ -434,7 +434,7 @@ try {
   checks.push('A cold renderer restart renders existing raw-link records and disk-cached images with HTTP(S) transport disabled, without an item migration or write')
   assert.deepEqual(errors, [])
   report.favicons = await verifyFaviconTransport(application, page)
-  checks.push('Production metadata and IPC accept declared PNG and ICO/fallback icons while retaining page titles after private, SVG, oversized, redirect and malformed icon failures')
+  checks.push('Production metadata and IPC accept declared PNG and ICO/fallback icons while retaining page titles after private, SVG, oversized, redirect and malformed icon failures; fake-IP-only hosts are fetched and private or literal fake-IP targets are not')
   report.result = 'passed'
   }
 } catch (error) {

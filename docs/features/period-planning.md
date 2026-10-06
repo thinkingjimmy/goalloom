@@ -4,6 +4,8 @@
 
 ## 产品规则
 
+- 2026-10-06 负责人确认返回动作改为日期右侧的回转箭头图标，与新建按钮同排，列头保持单行；仅非本期显示，默认无底色，悬停／键盘聚焦显示完整五语言提示。提示可用 Esc 单独关闭，原有返回当期、指针动效和键盘即时导航保留。触控图标有 44px 点击区域。标题优先完整显示，空间不足时仅次要日期省略，完整日期仍可悬停查看。
+
 - 空列／空历史的居中短提示使用最多 280px、且不超出列内可用宽度的正文区，优化自然换行；「为这一段时间，留一个清楚的方向。」在最小 320px 列内完整显示，不把「方向」拆成孤字尾行。文案、字号和图标位置沿用现有规则。
 
 - 本期待办的菜单文案为「移到明天」「移到下周」「移到下月」「移到下个 3个月」「移到下个半年」「移到下一年」；自然年模式对应「下季度」「明年」。相对目标日期提示省略年份。更远的目标名称按工作区今年补年份；365 天模式下年 / 半年 / 3个月按原始锚点计算，自然年模式按日历年 / 半年 / 季度。六列命名、面板与年份规则见 [双日历模式](calendar-modes.md#43-命名与年份显示d8)。
@@ -37,6 +39,10 @@
 
 ## 实现前失败场景
 
+- Return-icon correction (2026-10-06): the icon still creates another header row, loses its accessible/localized label, mixes with Undo or quick add, clips its floating hint, cannot be reached by keyboard, changes period when Escape dismisses the hint, or fails pointer/Enter return. Keep titles and controls readable at 320px, preserve full-date access when a secondary range is constrained, and retain the empty-card row and 44px touch controls.
+
+- Return-action layout regression (2026-10-06): English and other long translations collapse to a generic “Back to…” at the 320px column minimum; preserving the action pushes the period switch or add control outside the column, hides its chevron or changes period/draft behavior. Measure native five-locale return labels, control bounds and actual return navigation, including the future-half annual-direction case.
+
 - Detail More regression (2026-10-03): the panel remains end-aligned, clips at the dialog edge or overflows a narrow window; Escape closes both layers, the removed board-location action survives, or browsing the menu writes tasks. Search/detail close must preserve future-period selection and collapsed Later state.
 
 - Silent advance regression (2026-09-29): advancing day/week/month/cycle or advancing again emits a success Toast, drops keyboard undo membership, restores the wrong period or overwrites later text edits. Failed advances must still explain the error.
@@ -57,6 +63,8 @@
 - 筛选返回回归：仅重置一列、重复快捷键未返回、色块重排后选错流程、列表停在历史滚动位置、误清未来周期／草稿、禁用或空位置快捷键仍导航、输入和弹窗内误触发、旧历史请求返回后重新显示往期。
 
 ## 验收
+
+- [x] 最小 320px 列宽下，五语言的返回图标、周期标题和新建按钮保持单行；提示完整、可键盘访问且 Esc 只关闭提示，点击／Enter 返回当期后图标消失。英文日期完整显示，受限的次要日期保留完整悬停文案，触控按钮为 44px。原生几何、提示与截图见 `output/tests/period-return/native/`；此前空列同行布局继续保留。
 
 - [x] Empty-state captions fit the available column width without an orphaned Chinese direction character; native empty-board glyph lines and five-locale screenshots are retained under `output/tests/empty-column/`.
 

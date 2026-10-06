@@ -2,6 +2,7 @@
  * [INPUT]: Current item id/horizon, active edges, effective flow membership, ordered candidates, guarded actions and an optional note replacing default guidance.
  * [OUTPUT]: Searchable relationship controls offering only horizon/flow-valid endpoints (existing links stay listed for removal),
  *           with board-consistent ordering, optional prepared parent-link/adoption callbacks and authoritative error feedback.
+ *           `adoptParentFlow` lets a flow root link a parent in one transaction, matching the board dot.
  * [POS]: Relationship entry shared by the detail dialog and the board flow dot; storage rejects self-links, duplicates,
  *        cycles, invalid roots, colorless pairs and horizon violations.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -18,10 +19,10 @@ import { useParentOrder } from '../../state/parent-order'
 import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
 
-export function RelationPicker({ side, self, edges, flows, candidates, submit, onError, note, linkParent }: {
+export function RelationPicker({ side, self, edges, flows, candidates, submit, onError, note, linkParent, adoptParentFlow = false }: {
   side: 'parent' | 'child'; self: { id: string; horizon: ItemHorizon }; edges: Snapshot['relations']; flows: Flows; candidates: ItemSummary[]
   submit: (action: Action) => Promise<unknown>; onError: (message: string) => void; note?: ReactNode
-  linkParent?: ((parent: ItemSummary) => Promise<void>) | undefined
+  linkParent?: ((parent: ItemSummary) => Promise<void>) | undefined; adoptParentFlow?: boolean
 }) {
   const [query, setQuery] = useState(''), [results, setResults] = useState<ItemSummary[]>([])
   const ordering = useParentOrder()
@@ -44,7 +45,7 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
         if (side === 'parent' && linkParent) { await linkParent(other); return }
         const [target, current] = await Promise.all([desktopApi().getItem(other.id), desktopApi().getItem(self.id)])
         const [parent, child] = side === 'parent' ? [target.item, current.item] : [current.item, target.item]
-        await submit({ type: 'link', parentId: parent.id, childId: child.id, expectedParentVersion: parent.version, expectedChildVersion: child.version })
+        await submit({ type: 'link', parentId: parent.id, childId: child.id, expectedParentVersion: parent.version, expectedChildVersion: child.version, ...(adoptParentFlow ? { adoptParentFlow: true as const } : {}) })
       }
     } catch { onError(messages.unlinkFailed) }
   }

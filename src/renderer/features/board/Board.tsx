@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later/planning visibility, guarded actions and flow-insight hooks.
- * [OUTPUT]: A title-as-switcher period header (header B: period panel, ←/→ stepping), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
+ * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later/planning visibility, guarded actions, PeriodPicker/PeriodReturn controls and flow-insight hooks.
+ * [OUTPUT]: A single-row title-as-switcher period header (header B: period panel, ←/→ stepping and a return icon with localized guidance), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Owns independent relation dragging/prepared writes and virtual source pinning; exposes filter/linking states for row styling.
  *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
+ *           Double-clicking a card edits its title in place; the write keeps the description and due date.
  *           Flow insight: retained chain breakpoints, empty-column cards and shared review/post-review guides with explicit targets; completed periods suppress entries without a status note.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -16,7 +17,7 @@ import { horizons, periodHorizons } from '../../../shared/contracts/values'
 import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { messages, insightMessages, useLocale } from '../../i18n'
-import type { Action, PreparedWrite } from '../../state/use-workspace'
+import { desktopApi, type Action, type PreparedWrite } from '../../state/use-workspace'
 import { activeFlowGraph, flowChain, type Flows } from '../../state/flows'
 import type { BoardView } from '../../state/board-periods'
 import { useRelationLines } from '../../state/relation-lines'
@@ -35,6 +36,7 @@ import { RelationDragContext, RelationDragOverlay, useRelationDrag } from './Rel
 import { BoardLayout } from './BoardLayout'
 import { usePeriodMotion } from './usePeriodMotion'
 import { PeriodPicker } from './PeriodPicker'
+import { PeriodReturn } from './PeriodReturn'
 import { Breakpoints } from '../insight/Breakpoints'
 import { EmptyCard } from '../insight/EmptyCard'
 import { emptyColumns, shorter } from '../insight/signals'
@@ -63,6 +65,19 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     }
   }, [view.locating, items])
   const [focused, setFocused] = useState<ItemHorizon>('later')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  useEffect(() => { setEditingId(null) }, [snapshot.workspace.generation])
+  const beginEdit = useCallback((id: string) => setEditingId(id), [])
+  const endEdit = useCallback((id: string) => setEditingId(current => current === id ? null : current), [])
+  const renameTitle = useCallback(async (itemId: string, title: string) => {
+    const reply = await write(async () => {
+      const latest = await desktopApi().getItem(itemId)
+      if (!title || title === latest.item.title) return null
+      return { type: 'edit', itemId, expectedVersion: latest.item.version, title, description: latest.item.description, dueDate: latest.item.dueDate }
+    }, snapshot.workspace.generation)
+    if (!reply.ok) { onError(reply.message); return false }
+    return true
+  }, [write, onError, snapshot.workspace.generation])
   const [adding, setAdding] = useState<{ horizon: ItemHorizon; period: PlanningPeriod | null; split: SplitParent | null; key: number } | null>(null)
   const handled = useRef(addRequest?.seq ?? 0)
   useEffect(() => {
@@ -106,7 +121,8 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const empty = useMemo(() => emptyColumns(displayed, columns, view.mode), [displayed, columns, view.mode])
   const column = (horizon: ItemHorizon) => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!} visible={columns.includes(horizon)}
     snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
-    dragging={dragging} relationSource={relationDrag.sourceId} adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? (horizon === 'later' || horizon === 'year' ? undefined : empty.get(horizon)) ?? null : null} />
+    dragging={dragging} relationSource={relationDrag.sourceId} editingId={editingId} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
+    adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? (horizon === 'later' || horizon === 'year' ? undefined : empty.get(horizon)) ?? null : null} />
   return <RelationDragContext.Provider value={relationDrag.actions}><DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
     <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null} data-linking={relationDrag.sourceId ? 'true' : undefined}
       onPointerOver={holdPreview} onPointerOut={leavePreview} onFocus={holdPreview} onBlur={leavePreview}>
@@ -123,13 +139,14 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   </DndContext></RelationDragContext.Provider>
 })
 
-const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, relationSource, insight, sources }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
+const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, relationSource, editingId, beginEdit, endEdit, renameTitle, insight, sources }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
   sources: ItemSummary[] | null
   active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
   horizon: ItemHorizon; items: ItemSummary[]; today: string; visible: boolean
   adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number } | null
   dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean) => void
-  relationSource: string | null
+  relationSource: string | null; editingId: string | null
+  beginEdit: (id: string) => void; endEdit: (id: string) => void; renameTitle: (itemId: string, title: string) => Promise<boolean>
   onFocus: (horizon: ItemHorizon, editable: boolean) => void
 }) {
   useLocale()
@@ -204,7 +221,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const todo = useMemo(() => items.filter(item => item.status === 'todo'), [items]), done = useMemo(() => items.filter(item => item.status === 'done'), [items])
   const openAdd = () => {
     if (history || disabled || dragging || relationSource) return
-    if (adding) section.current?.querySelector<HTMLInputElement>('.quick-add input')?.focus()
+    if (adding) section.current?.querySelector<HTMLTextAreaElement>('.quick-add-title')?.focus()
     else setAdding(true)
   }
   const addFromBlank = (event: MouseEvent<HTMLDivElement>) => {
@@ -236,8 +253,8 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     const lit = active.length ? flows.of(item.id).find(flow => active.includes(flow.id)) : undefined
     return <TaskRow index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
       // Later never joins flows, so a flow filter leaves the parking lot readable instead of greying it out.
-      dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} select={select} submit={submit} onPreview={onPreview}
-      upcoming={upcoming} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} />
+      dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} editing={editingId === item.id} editLocked={disabled || !!dragging || !!relationSource} select={select} submit={submit} onPreview={onPreview}
+      upcoming={upcoming} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle} />
   }
   const due = insight.due, review = mode !== 'current' || !due ? null
     : horizon === 'month' && (due.scope === 'month' || due.scope === 'both') ? due.month!
@@ -276,7 +293,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
               </button>
             </h2>
           } />
-        {mode !== 'current' && <button className="period-return" data-return-current title={returnLabel} disabled={busy} onClick={event => switchTo(null, event.detail > 0)}><span>{returnLabel}</span></button>}
+        {mode !== 'current' && <PeriodReturn label={returnLabel} disabled={busy} onReturn={pointer => switchTo(null, pointer)} />}
       </div> : <><h2>{name}</h2><span className="column-spacer" /></>}
       <span className="column-add-slot">{!history && addButton}</span>
     </header>
@@ -295,7 +312,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
         {loading && items.length === 0 && <p className="period-loading" role="status">{messages.loadingPeriod}</p>}
         {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <button className="text-button" onClick={view.retry}>{messages.retryPeriod}</button></p>}
         <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
-          <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:todo`} items={todo} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} render={row} />
+          <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:todo`} items={todo} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} alsoPinned={editingId} render={row} />
           {!adding && todo.length > 0 && <button type="button" className="column-add-task" data-column-add aria-label={messages.newToColumn(displayName)} disabled={disabled || !!dragging || !!relationSource} onClick={openAdd}>
             <Icon name="add" size={18} /><span>{messages.addTask}</span>
           </button>}
@@ -305,7 +322,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
               setAdding(true)
             }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} />}
-          {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} render={row} />}</details>}
+          {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} render={row} />}</details>}
         </SortableContext>
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} />}
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}

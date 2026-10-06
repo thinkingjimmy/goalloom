@@ -1,11 +1,13 @@
 /**
  * [INPUT]: Renderer tokens, Lexical content classes and detail/peek containers.
- * [OUTPUT]: Shared first-line metrics for placeholder and input, Markdown reading/editing and selection tools.
+ * [OUTPUT]: Shared first-line metrics for placeholder and input, a detail focus fill with inset text, Markdown reading/editing and selection tools.
  * [POS]: Description presentation shared by editable details and read-only board peeks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .description-editor { position: relative; margin-top: 4px; line-height: 1.65; }
 .description-editor .description-content { min-height: 132px; width: 100%; margin: 0; padding: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: inherit; cursor: text; }
+/* The focused fill is the field edge. Text stays on the body edge with the property chips; the fill reaches into the dialog gutter so the caret and placeholder clear that edge and the 8px corner. */
+.detail-body .description-editor .description-content { width: calc(100% + 24px); margin-inline: -12px; padding-inline: 12px; }
 .description-content:focus-visible { background: transparent; outline: 1px solid var(--line); outline-offset: 6px; }
 .description-content > * { margin-block: 0 8px; }
 .description-content > :last-child { margin-bottom: 0; }

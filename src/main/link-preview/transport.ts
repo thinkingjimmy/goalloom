@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted public HTTP(S) URLs and a caller-owned cancellation signal.
- * [OUTPUT]: Bounded response bytes after public-address, redirect and pinned-DNS checks.
+ * [OUTPUT]: Bounded response bytes after public-address, fake-IP pin, redirect and pinned-DNS checks.
  * [POS]: Main-process preview network boundary; never uses Electron sessions or credentials.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,6 +17,9 @@ for (const [address, prefix] of [
   ['192.88.99.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
   ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 3],
 ] as const) deniedV4.addSubnet(address, prefix, 'ipv4')
+// Clash, Surge and sing-box assign this benchmarking range as a hostname-keyed fake IP.
+const fakeIpV4 = new BlockList()
+fakeIpV4.addSubnet('198.18.0.0', 15, 'ipv4')
 const globalV6 = new BlockList()
 globalV6.addSubnet('2000::', 3, 'ipv6')
 const deniedV6 = new BlockList()
@@ -28,6 +31,20 @@ export function isPublicAddress(address: string): boolean {
   const family = isIP(address)
   return family === 4 ? !deniedV4.check(address, 'ipv4')
     : family === 6 && globalV6.check(address, 'ipv6') && !deniedV6.check(address, 'ipv6')
+}
+
+function isFakeIpAddress(address: string): boolean {
+  return isIP(address) === 4 && fakeIpV4.check(address, 'ipv4')
+}
+
+function approvedAddress(records: { address: string; family: number }[]): { address: string; family: number } {
+  // A private answer alongside a fake IP is still a rebinding attempt. Public answers win when both exist.
+  if (!records.length || records.some(record => !isPublicAddress(record.address) && !isFakeIpAddress(record.address))) {
+    throw new Error('Non-public preview destination')
+  }
+  return records.find(record => isPublicAddress(record.address) && record.family === 4)
+    ?? records.find(record => isPublicAddress(record.address))
+    ?? records.find(record => isFakeIpAddress(record.address))!
 }
 
 export function publicUrl(input: string): URL {
@@ -59,8 +76,7 @@ export async function fetchPublic(input: string, maxBytes: number, signal: Abort
     const host = url.hostname.replace(/^\[|\]$/g, '')
     const records = isIP(host) ? [{ address: host, family: isIP(host) }]
       : await aborted(lookup(host, { all: true, verbatim: true }), signal)
-    if (!records.length || records.some(record => !isPublicAddress(record.address))) throw new Error('Non-public preview destination')
-    const approved = records.find(record => record.family === 4) ?? records[0]!
+    const approved = approvedAddress(records)
     const response = await new Promise<PublicResponse | { redirect: string }>((resolve, reject) => {
       const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)(url, {
         method: 'GET', agent: false, signal, maxHeaderSize: 16 * 1024,
@@ -99,7 +115,8 @@ export async function fetchPublic(input: string, maxBytes: number, signal: Abort
         socket.once('connect', () => {
           // Also check the actual socket; a custom resolver must not be the sole guard.
           const actual = socket.remoteAddress?.replace(/^::ffff:/, '')
-          if (!actual || !isPublicAddress(actual)) request.destroy(new Error('Non-public preview socket'))
+          // A fake-IP socket is accepted only when it is the exact address chosen for this hostname.
+          if (!actual || !(isPublicAddress(actual) || (isFakeIpAddress(actual) && actual === approved.address))) request.destroy(new Error('Non-public preview socket'))
         })
       })
       request.setTimeout(6000, () => request.destroy(new Error('Preview request timed out')))

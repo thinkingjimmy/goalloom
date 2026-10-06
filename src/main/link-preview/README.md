@@ -3,7 +3,7 @@
 > Parent: [main](../README.md). Public URL metadata; never workspace mutations.
 
 - `service.ts`: bounded queue, in-flight deduplication, missing-icon enrichment, session cancellation and offline cache orchestration.
-- `transport.ts`: credential-free HTTP(S), public-address validation, pinned DNS, redirect and response limits.
+- `transport.ts`: credential-free HTTP(S), public-address validation, pinned DNS, fake-IP pin, redirect and response limits.
 - `providers.ts`: isolated Electron session for fixed HTTPS X/YouTube metadata, image paths and official favicon endpoints, with no redirects or credentials.
 - `metadata.ts`: inert OG/title parsing, YouTube oEmbed and X public embed metadata; optional cover/favicon enrichment.
 - `images.ts`: shared PNG/JPEG/WebP signature and dimension limits for covers and icons.
@@ -12,7 +12,7 @@
 
 ## Failure scenarios recorded before implementation
 
-- Invalid schemes, credentials, localhost/private/reserved IPs, mixed public/private DNS, DNS rebinding, unsafe redirects and unsafe image destinations must never reach those destinations.
+- Invalid schemes, credentials, localhost/private/reserved IPs, mixed public/private DNS, DNS rebinding, unsafe redirects and unsafe image destinations must never reach those destinations. A hostname whose DNS answers are exclusively in `198.18.0.0/15` may connect to that exact fake IP so a local TUN proxy can map it back to the hostname. A fake-IP literal, or a fake IP mixed with any other non-public answer, must not be requested.
 - Redirect loops, stalled DNS/HTTP, oversized bodies, compressed payloads, malformed HTML/JSON and unreadable images must resolve to a bounded unavailable/text-only result.
 - Repeated URLs must share work; bursts must respect finite concurrency and queue budgets. Session release cancels active/queued work and prevents late cache insertion.
 - Missing OG tags, X login/deleted/private posts, unavailable public embed endpoints and YouTube failures must not invent titles or covers.
@@ -32,6 +32,6 @@ Cache files use SHA-256 of the canonical URL without its fragment. JSON contains
 
 Serving an expired disk record gives it only a 30-second refresh retry window, never a new full freshness period. A failed refresh preserves the usable cached content while allowing a later visible request to try again.
 
-Generic page/image DNS must resolve to public routable addresses. Networks that replace arbitrary hosts with private/reserved proxy addresses receive the unavailable fallback for those pages. X/YouTube adapters instead use exact trusted HTTPS metadata endpoints, CDN image paths and official favicon endpoints through an isolated in-memory Electron session, retaining system network/proxy support and normal TLS checks. That transport omits credentials, refuses every redirect, bypasses custom protocol handlers and bounds decoded response bytes; it is never selected for arbitrary page metadata, OG images or favicons.
+Generic page/image DNS must resolve to public routable addresses, or exclusively to `198.18.0.0/15`. That range is the fake-IP pool used by local TUN proxies: the request is pinned to the returned address and the connected socket must be the same address, so the proxy can recover the hostname. Any other non-public answer, a mixture of a fake IP and a private address, or a fake IP written into the URL still receives the unavailable fallback. X/YouTube adapters instead use exact trusted HTTPS metadata endpoints, CDN image paths and official favicon endpoints through an isolated in-memory Electron session, retaining system network/proxy support and normal TLS checks. That transport omits credentials, refuses every redirect, bypasses custom protocol handlers and bounds decoded response bytes; it is never selected for arbitrary page metadata, OG images or favicons.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

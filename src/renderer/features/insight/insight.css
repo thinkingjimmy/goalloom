@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Shared appearance tokens, breakpoint states and empty-card action classes.
- * [OUTPUT]: Breakpoints, guides and empty cards with equal-height, wrapping actions and coarse-pointer targets.
+ * [OUTPUT]: Breakpoints, guides and empty cards with same-row, equal-height actions, wrapping labels and coarse-pointer targets.
  * [POS]: Flow-insight styles; button sizing is local to empty cards.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -36,8 +36,9 @@
 .insight-empty p { margin: 0; }
 .insight-empty-title { font-size: 14px; font-weight: 600; }
 .insight-empty-body { font-size: 12.5px; line-height: 1.6; color: var(--secondary); }
-.insight-empty-actions { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 8px; }
-.insight-empty .insight-empty-actions .settings-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: auto; min-height: 32px; max-width: 100%; padding: 4px 12px; font-size: 13px; line-height: 22px; white-space: normal; }
+.insight-empty-actions { margin-top: 4px; display: flex; gap: 8px; }
+.insight-empty .insight-empty-actions .settings-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 1 auto; min-width: 0; gap: 6px; height: auto; min-height: 32px; max-width: 100%; padding: 4px 8px; font-size: 13px; line-height: 22px; white-space: normal; }
 .insight-empty .insight-empty-actions .settings-button.primary { border: 1px solid transparent; }
+.insight-empty-actions span { min-width: 0; overflow-wrap: break-word; }
 .insight-empty-actions svg { flex-shrink: 0; }
 @media (pointer: coarse) { .insight-empty .insight-empty-actions .settings-button { min-height: 44px; } }

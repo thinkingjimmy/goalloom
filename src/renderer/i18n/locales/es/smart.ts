@@ -1,8 +1,8 @@
 /**
- * [INPUT]: 服务标识与界面参数；依赖 ../zh/smart 的 SmartCatalog 与 providerNames 类型。
- * [OUTPUT]: 西班牙语的智能输入文案、服务显示名与参数化消息。
- * [POS]: renderer/i18n/locales/es 的智能输入分册，与 zh 同构；不决定业务状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: SmartCatalog and providerNames types from ../zh/smart, service identifiers and message parameters.
+ * [OUTPUT]: Spanish smart-input messages and provider names matching the Chinese catalog.
+ * [POS]: Spanish renderer catalog for smart input and AI service views; contains no business state.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
@@ -25,7 +25,6 @@ export const smartMessages: SmartCatalog = {
   fallbackBody: (count: number) => count === 1 ? 'El texto se conserva completo. El elemento que ajustaste en la vista previa no se creará.' : `El texto se conserva completo. Los ${count} elementos que ajustaste en la vista previa no se crearán.`,
   fallbackConfirm: 'Guardar antes en Later',
   back: 'Volver',
-  entryTip: 'El ＋ global sirve para anotar u organizar con Jev; el ＋ de cada columna sigue añadiendo rápido en esa columna.',
   keepAsLater: 'Guardar tal cual en Later',
   adjust: 'Ajustar',
   adjustHeading: 'Ajustar elementos',
@@ -51,7 +50,6 @@ export const smartMessages: SmartCatalog = {
   maybeParentMove: (title: string, column: string) => `quizá va bajo «${title}» (pasa a ${column})`,
   maybeHorizon: (column: string) => `quizá ${column}`,
   maybeDue: (date: string) => `quizá vence el ${date}`,
-  dismiss: 'Cerrar sugerencia',
   titleLabel: 'Título',
   descriptionLabel: 'Descripción',
   horizonLabel: 'Cuándo',

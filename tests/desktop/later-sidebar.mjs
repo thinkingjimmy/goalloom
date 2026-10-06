@@ -109,10 +109,10 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Visible columns', exact: true }).count(), 1)
   assert.deepEqual(await page.locator('.board-timeline .board-column').evaluateAll(nodes => nodes.map(node => node.dataset.horizon)), ['year', 'half', 'cycle', 'month', 'week', 'day'])
   await page.getByRole('button', { name: 'Add to Later', exact: true }).click()
-  await later().locator('.quick-add input').fill('Keep this Later draft')
+  await later().locator('.quick-add-title').fill('Keep this Later draft')
   await later().locator('summary').click()
   await page.locator('.flow-filter .chip').nth(1).click()
-  await later().locator('.quick-add input').focus()
+  await later().locator('.quick-add-title').focus()
   const edges = await page.evaluate(async () => (await window.goalloom.getSnapshot()).relations)
   const snapshotMotion = async wanted => {
     const sample = await page.evaluate(({ wanted, edges }) => {
@@ -145,7 +145,7 @@ try {
   assert.equal(await later().getAttribute('inert'), '')
   assert.equal(await page.evaluate(() => document.activeElement.id), 'later-toggle')
   await snapshotMotion(true)
-  assert.equal(await later().locator('.quick-add input').inputValue(), 'Keep this Later draft')
+  assert.equal(await later().locator('.quick-add-title').inputValue(), 'Keep this Later draft')
   assert.equal(await later().locator('details').getAttribute('open'), '')
   await page.evaluate(() => {
     document.getElementById('later-toggle').click()
@@ -153,7 +153,7 @@ try {
   })
   await settled()
   assert.equal(await toggle().getAttribute('aria-expanded'), 'true')
-  await later().locator('.quick-add input').press('Escape')
+  await later().locator('.quick-add-title').press('Escape')
   await later().locator('summary').click()
   await page.locator('.flow-filter .chip').first().click()
   check('Default planning columns, measured enter/exit motion, interruption, draft/fold preservation and focus')

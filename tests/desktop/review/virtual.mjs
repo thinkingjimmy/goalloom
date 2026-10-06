@@ -125,16 +125,16 @@ try {
   assert.equal(await queryCount(), 0)
   const beforeWrite = await queryCount()
   await page.locator('[data-horizon="day"] .column-header button').last().click()
-  await page.locator('.quick-add input').fill('One authoritative refresh')
-  await page.locator('.quick-add input').press('Enter')
+  await page.locator('.quick-add-title').fill('One authoritative refresh')
+  await page.locator('.quick-add-title').press('Enter')
   await page.getByRole('button', { name: 'One authoritative refresh', exact: true }).waitFor()
-  await page.waitForFunction(() => document.querySelector('.quick-add input').value === '')
+  await page.waitForFunction(() => document.querySelector('.quick-add-title').value === '')
   assert.equal((await queryCount()) - beforeWrite, 1)
   checks.push('unchanged focus reconciliation reads no snapshot; one UI write requests one snapshot')
   // Failure cases: logical keyboard targets bypass a history column's disabled
   // droppable; stale collision geometry overrides an empty keyboard destination;
   // a target that becomes historical during a drag still accepts it.
-  await page.locator('.quick-add input').press('Escape')
+  await page.locator('.quick-add-title').press('Escape')
   await page.evaluate(async () => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation
     const reply = await window.goalloom.execute({ type:'create', operationId:crypto.randomUUID(), generation, title:'Current cycle destination', horizon:'cycle' })
