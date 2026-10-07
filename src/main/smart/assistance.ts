@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Device configuration, the existing chat adapters and a short authoritative context reader.
- * [OUTPUT]: Local preflight tickets and consent-gated, cancellable, bounded sessions retaining accepted multi-turn context.
+ * [OUTPUT]: Local preflight tickets or normal cancellation, with owned cleanup and bounded sessions retaining accepted multi-turn context.
  * [POS]: Main-only network coordinator; no raw content is logged or persisted and no write is performed here.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -38,14 +38,20 @@ export class AssistanceService {
     session.bytes = Buffer.byteLength(JSON.stringify([session.prepared, session.conversation, session.last])) + Buffer.byteLength(session.signature ?? '')
     this.trim()
   }
-  async prepare(request: AssistancePrepare): Promise<AssistancePrepared> {
+  async prepare(request: AssistancePrepare): Promise<AssistancePrepared | null> {
     this.cancel(request.sessionId)
     const session: Session = { controller: new AbortController(), prepared: null, turns: 0, clarified: false, conversation: [], last: null, signature: null, bytes: 0 }
     this.sessions.set(request.sessionId, session)
+    this.trim()
+    const active = () => this.sessions.get(request.sessionId) === session && !session.controller.signal.aborted
+    const discard = () => { if (this.sessions.get(request.sessionId) === session) this.cancel(request.sessionId); return null }
     try {
       const context = await this.dependencies.context(request.itemId, request.generation)
+      if (!active()) return discard()
       const config = await this.dependencies.config()
-      if (session.controller.signal.aborted || this.sessions.get(request.sessionId) !== session || request.generation !== await this.dependencies.generation()) throw new Aborted()
+      if (!active()) return discard()
+      const generation = await this.dependencies.generation()
+      if (!active() || request.generation !== generation) return discard()
       const setting = config.features.insight, provider = setting.provider
       const prepared: AssistancePrepared = { ...request, contextId: randomUUID(), context,
         expiresAt: new Date(this.dependencies.now() + 10 * 60_000).toISOString(), featureRevision: setting.revision, provider,
@@ -53,8 +59,13 @@ export class AssistanceService {
         consented: !!provider && config.providers[provider].assistanceConsent?.version === 1,
       }
       session.prepared = prepared; this.account(session)
-      return prepared
-    } catch (error) { this.cancel(request.sessionId); throw error }
+      return active() ? prepared : discard()
+    } catch (error) {
+      const cancelled = !active() || error instanceof Aborted
+      discard()
+      if (cancelled) return null
+      throw error
+    }
   }
   private async current(prepared: AssistancePrepared, signal?: AbortSignal): Promise<boolean> {
     if (signal?.aborted || Date.parse(prepared.expiresAt) <= this.dependencies.now()) return false

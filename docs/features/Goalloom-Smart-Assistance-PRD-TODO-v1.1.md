@@ -416,6 +416,8 @@ moveSuggestion 只是草稿；程序依工作区日历归一化为实际目标�
 
 取消一个辅助会话不得误杀其他正常复盘或连接测试；切换／遗忘同一 provider 时则取消依赖该配置的请求。状态切换要贯穿 preflight、网络、解析与返回，不只在 fetch 后做一次检查。
 
+本地 preflight 在每次异步读取后复核会话对象归属与取消状态；替换同 sessionId 的预检时，旧请求结束或失败不能删除新请求。正常取消、淘汰或旧代次返回既有 `cancelled` 回执，preload 不将其当作异常，界面不显示读取失败。真实未取消的读取错误仍需反馈；八会话上限也覆盖尚未完成的预检。
+
 ### 6.4 缓存与离线
 
 新辅助的上下文和未采用内容只做会话内有界缓存，不落盘。缓存键至少含 generation、itemId、依赖快照、provider/model、featureRevision、consentVersion、locale、提示词版本与用户文本／手工修订；键和原文不写日志。
@@ -1180,6 +1182,18 @@ renderer 用 `PreparedWrite` 预留写槽位，再读取权威版本。不能先
 最终证据：`output/tests/assistance/review-report.json`（9 个数据回归和批次读数）、`native-report.json`、`upgrade-report.json`、`review-regression-report.json`（本轮 11 条）、`review-delivery-report.json`；应用截图 `reschedule-entry.png`、`undone-completion.png`、`upgraded-v7.png`。原 `regression/report.json` 保留此前 22 条与本轮重验记录，不将未重跑项标为本轮执行。
 
 执行范围仍为 macOS 26.4.1（Darwin 25.4.0）arm64 / Apple M3 Max；Electron 44.4.4 / Node 24.21.0 / SQLite 3.53.4。实机/VM 身份未独立核实。HTTP、composition 和升级对话框选择为合成夹具；Windows、物理 IME、安装包和真实 AI 质量仍未验收，本轮模型计费调用为 0。
+
+### 14.5 2026-10-07 预检取消竞态修复
+
+用户回归报告 `goalloom:smart` 的 `AssistanceService.prepare` 抛出 Aborted，界面同时显示“未能读取活动”。在开发 StrictMode 下，用真实 main/preload/SQLite 与受控 worker 响应顺序复现：两个预检共享 sessionId，旧请求取消后全局清理同 ID，误删新请求；修复前出现两条 Aborted IPC 日志和一次界面错误。
+
+修复：预检清理绑定会话对象，不删除同 ID 的替代会话；context/config/generation 的每个异步读取后，以及预算淘汰后，复核对象归属与取消状态。正常取消、淘汰或代次变化返回已存在的 `cancelled` DTO；不改变公开 schema、不改模型路由或任务数据。八会话上限在待完成预检创建时执行。真实未取消的读取错误仍正常反馈。
+
+先定义失败场景并完成受控复现，再修改业务代码。开发检查 `node tests/desktop/assistance/preflight.mjs --development` 通过；完成时执行 `pnpm test:assistance` 七组全部通过，新增 preflight 已归属 entry/generation，并运行 development（8 项）与 production（7 项）两种 renderer。覆盖 StrictMode、关闭中取消、同 ID 旧响应/旧错误、最终代次读取中取消、代次变化、9 个待完成请求的上限和真实错误保留。正常取消导致的 IPC 异常为 0，provider 调用为 0。
+
+快速检查：`pnpm build`（含 `pnpm run typecheck` 和生产产物检查）、`pnpm test`（24 文件 / 166 项）通过；差异、契约和文档检查通过。改动限于辅助预检分支与自身会话，不扩大为无关功能或发布前全量验收。保留工作区内其他并行的 Settings/图标/多语言改动。
+
+证据：`output/tests/assistance/preflight-before.json`、`preflight-before.png`、`preflight-development-report.json`、`preflight-production-report.json`、`preflight-strict-mode.png`、`preflight-delivery-report.json`。版本与平台为 Electron 44.4.4 / Node 24.21.0 / SQLite 3.53.4；macOS 26.4.1（Darwin 25.4.0）arm64 / Apple M3 Max，实机/VM 身份未核实。数据与响应延迟均为合成夹具；不将该回归当作 Windows、物理 IME、安装包或真实模型质量验收。核心 TODO 仍为 129/132，三个外部门槛不变。
 
 ## 附录 H. 习惯真实执行的后续接入契约
 

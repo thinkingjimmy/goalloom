@@ -32,4 +32,5 @@ if (reviewGroups.length) {
 }
 const native = groups.filter(group => ['entry', 'generation', 'language'].includes(group))
 if (native.length) await run(process.execPath, ['tests/desktop/assistance/native.mjs', ...native], process.env)
+if (native.some(group => ['entry', 'generation'].includes(group))) await run(process.execPath, ['tests/desktop/assistance/preflight.mjs'], process.env)
 if (groups.includes('recovery')) await run(process.execPath, ['tests/desktop/assistance/upgrade.mjs'], process.env)

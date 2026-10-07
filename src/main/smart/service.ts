@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated actions, DeviceStore, adapters, a workspace reader and injected clock.
- * [OUTPUT]: Revision-guarded provider/feature configuration, per-capability connection tests, cancellable analysis, per-provider cooldown and account failures, renderer-session preview cache and uncached flow-insight draft/review calls on the insight feature's provider.
+ * [OUTPUT]: Revision-guarded configuration, connection tests, typed preflight cancellation, cancellable analysis, provider failures and renderer-session previews/drafts/reviews.
  * [POS]: Lightweight main-process service; analysis loads its planner on demand and HTTP never holds a storage transaction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -70,7 +70,10 @@ export class SmartInputService {
   async handle(input: unknown): Promise<SmartReply> {
     const action = smartActionSchema.parse(input)
     switch (action.type) {
-      case 'prepareAssistance': return { type: 'assistancePrepared', prepared: await this.assistance.prepare(action.request) }
+      case 'prepareAssistance': {
+        const prepared = await this.assistance.prepare(action.request)
+        return prepared ? { type: 'assistancePrepared', prepared } : { type: 'cancelled' }
+      }
       case 'assist': return { type: 'assistance', reply: await this.assistance.assist(action.request) }
       case 'cancelAssistance': this.assistance.cancel(action.sessionId); return { type: 'cancelled' }
       case 'consentAssistance': {
