@@ -42,7 +42,8 @@ export const noteSignalSchema = z.strictObject({
   next: z.string().max(120).nullable(), links: z.array(z.string().max(4096)).max(3), linkCount: z.number().int().nonnegative(), excerpt: z.string().max(120),
 })
 export type NoteSignal = z.infer<typeof noteSignalSchema>
-export const itemSummarySchema = itemRecordSchema.omit({ description: true }).extend({ note: noteSignalSchema.nullable(), placement: placementSchema })
+export const guidanceSignalSchema = z.strictObject({ kind: z.enum(['next_step', 'working_scope', 'resume_point', 'waiting_note']), nextAction: z.string().max(120), revision: z.number().int().positive(), updatedAt: instantSchema })
+export const itemSummarySchema = itemRecordSchema.omit({ description: true }).extend({ note: noteSignalSchema.nullable(), placement: placementSchema, guidance: guidanceSignalSchema.nullable().optional() })
 export type ItemSummary = z.infer<typeof itemSummarySchema>
 export const relationSchema = z.strictObject({
   id: idSchema, parentId: idSchema, childId: idSchema, invalidatedAt: instantSchema.nullable(),

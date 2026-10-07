@@ -87,6 +87,8 @@ pnpm package:mac   # release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # release/Goalloom-<version>-win-x64.exe
 ```
 
+This development branch uses schema v8 for optional task guidance and shared execution facts. Legacy workspaces upgrade through a verified protective copy and explicit confirmation. See the [smart assistance specification](./docs/features/Goalloom-Smart-Assistance-PRD-TODO-v1.1.md) for scope and remaining release gates.
+
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`website/`](./website/README.md).
 
 # Collaboration

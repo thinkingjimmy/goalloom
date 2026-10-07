@@ -21,6 +21,7 @@ import { LinkPreviewService } from './link-preview/service'
 import { UpdateService } from './update'
 import { installMenu } from './window/menu'
 import { openAboutEvent, updateEvent } from '../shared/contracts/update'
+import { assistanceServerText } from '../shared/i18n/assistance'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -80,8 +81,21 @@ async function openStorage(): Promise<StorageClient | null> {
   const backups = join(app.getPath('userData'), 'backups')
   for (;;) {
     const client = new StorageClient(join(directory, 'storage.js'), join(app.getPath('userData'), 'workspace.sqlite'), backups, language.locale)
-    const status = await client.call<{ ok: true } | { ok: false; message: string; backupPath: string | null; backupDirectory: string }>('startup').catch(() => ({ ok: false as const, message: serverText().dialogs.startupUnavailable, backupPath: null, backupDirectory: backups }))
+    const status = await client.call<{ ok: true } | { ok: false; message: string; backupPath: string | null; backupDirectory: string; legacyVersion: number | null }>('startup').catch(() => ({ ok: false as const, message: serverText().dialogs.startupUnavailable, backupPath: null, backupDirectory: backups, legacyVersion: null }))
     if (status.ok) return client
+    if (status.legacyVersion !== null) {
+      const t = assistanceServerText()
+      const begin = await dialog.showMessageBox({ type: 'info', title: t.upgradeTitle, message: t.upgradePrepare, detail: `v${status.legacyVersion} → v8`, buttons: [t.prepare, t.cancel], defaultId: 1, cancelId: 1, noLink: true })
+      if (begin.response !== 0) { await client.close().catch(() => undefined); return null }
+      try {
+        const preview = await client.call<{ token: string; backupPath: string }>('prepareStartupUpgrade')
+        const confirm = await dialog.showMessageBox({ type: 'question', title: t.upgradeTitle, message: t.upgradeConfirm, detail: preview.backupPath, buttons: [t.confirm, t.cancel], defaultId: 1, cancelId: 1, noLink: true })
+        if (confirm.response !== 0) { await client.close().catch(() => undefined); return null }
+        await client.call('commitStartupUpgrade', preview.token)
+        await client.close().catch(() => undefined)
+        continue
+      } catch (error) { status.message = error instanceof Error ? error.message : serverText().storage.upgradeFailed }
+    }
     await client.close().catch(() => undefined)
     const detail = serverText().dialogs.startupDetail(status.backupPath, status.backupDirectory, join(app.getPath('userData'), 'workspace.sqlite'))
     const choice = await dialog.showMessageBox({ type: 'error', title: serverText().dialogs.startupTitle, message: status.message, detail, buttons: [serverText().dialogs.retry, serverText().dialogs.quit], defaultId: 0, cancelId: 1, noLink: true })
@@ -167,12 +181,13 @@ if (!app.requestSingleInstanceLock()) {
       firstSnapshotRead = true; lastVisible = visibleKey(meta); lastRevision = meta.workspace.revision; startInitialReconcile()
     })
     const opening = openStorage()
-    const windowing = createWindow()
+    const windowing = createWindow().then(() => ({ ok: true as const }), error => ({ ok: false as const, error }))
     const opened = await opening
     if (!opened) { window?.destroy(); app.exit(0); return }
     storage = client = opened
     unlockStorage(opened)
-    await windowing
+    const openedWindow = await windowing
+    if (!openedWindow.ok) throw openedWindow.error
     updates.start()
     powerMonitor.on('resume', () => { void requestReconcile() })
     const timer = setInterval(() => { void requestReconcile() }, 30_000)

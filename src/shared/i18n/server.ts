@@ -17,6 +17,7 @@ const loaders: Record<Locale, () => Promise<ServerCatalog>> = {
   fr: () => import('./catalogs/fr').then(module => module.fr),
 }
 let current: ServerCatalog = zh
+let selectedLocale: Locale = 'zh'
 
 export async function loadServerLocale(locale: Locale): Promise<void> {
   catalogs[locale] ??= await loaders[locale]()
@@ -24,8 +25,10 @@ export async function loadServerLocale(locale: Locale): Promise<void> {
 }
 
 export function setServerLocale(locale: Locale): void {
+  selectedLocale = locale
   current = catalogs[locale] ?? zh
   setValidationLocale(locale)
 }
 // Read at the moment a message is produced; never cache the result across a language change.
 export function serverText(): ServerCatalog { return current }
+export function serverLocale(): Locale { return selectedLocale }

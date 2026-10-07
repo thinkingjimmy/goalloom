@@ -6,7 +6,7 @@
  */
 import type { DraftRequest, DraftTitle, InsightPrefs, ReviewRequest, ReviewText } from '../../shared/contracts/smart-input'
 
-export interface ChatPrompt { system: string; user: string; maxTokens: number }
+export interface ChatPrompt { system: string; user: string; maxTokens: number; maxOutputBytes?: number }
 export class InsightOutputError extends Error {}
 
 // Tested against deepseek flash (2026-09-27): "earliest step" fixed skipped-step titles, the grain rule keeps month plans month-sized.
@@ -49,14 +49,14 @@ export function prefsText(prefs: InsightPrefs, use: 'draft' | 'review'): string 
 }
 
 export function draftPrompt(request: DraftRequest): ChatPrompt {
-  const system = [nextRules, draftOutput].join('\n\n')
-  const user = JSON.stringify({ tasks: request.tasks, board: request.board, 用户偏好: prefsText(request.prefs, 'draft') })
+  const system = [nextRules, draftOutput, ...(request.executionContext?.length ? ['guidance is user-adopted intent, not proof of completed work. Continue known progress; do not repeat existing steps. executionFacts are program facts: do not recalculate them, infer lack of work from missing records, or diagnose the user.'] : [])].join('\n\n')
+  const user = JSON.stringify({ tasks: request.tasks, board: request.board, ...(request.executionContext?.length ? { executionContext: request.executionContext } : {}), 用户偏好: prefsText(request.prefs, 'draft') })
   return { system, user, maxTokens: 120 + 80 * request.tasks.length }
 }
 
 export function reviewPrompt(request: ReviewRequest): ChatPrompt {
-  const user = JSON.stringify({ scope: scopeText[request.scope], board: request.board, signals: request.signals, 用户偏好: prefsText(request.prefs, 'review') })
-  return { system: reviewRules, user, maxTokens: 700 }
+  const user = JSON.stringify({ scope: scopeText[request.scope], board: request.board, signals: request.signals, ...(request.executionContext?.length ? { historicalExecutionContext: request.executionContext } : {}), 用户偏好: prefsText(request.prefs, 'review') })
+  return { system: reviewRules + (request.executionContext?.length ? '\nHistorical facts are frozen at each cutoff; never fill unknown guidance, deadlines or progress with today’s values. Guidance describes intent, not completed work. Do not diagnose users or treat missing records as no work. Do not recalculate program pressure from evidence samples.' : ''), user, maxTokens: 700 }
 }
 
 // --- Output: models drift on punctuation and length; clean what is safe, reject what is not a usable title. ---

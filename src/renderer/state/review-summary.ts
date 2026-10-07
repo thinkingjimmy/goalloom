@@ -6,6 +6,7 @@
  */
 import { parseReview, reviewPrompt } from '../../domain/smart/insight'
 import type { InsightPrefs, ReviewRequest, ReviewText } from '../../shared/contracts/smart-input'
+import { enrichInsightRequest, insightDependencyKey } from './insight-context'
 import { requestReview, type InsightResult } from './insight'
 
 type Request = Omit<ReviewRequest, 'requestId' | 'prefs'>
@@ -54,12 +55,13 @@ export function loadReviewSummary(prepared: ReturnType<typeof prepareReviewSumma
   const ticket = {}
   const ownsRequest = () => cache === current && pending.get(key)?.ticket === ticket
   const promise = (async (): Promise<InsightResult<ReviewText>> => {
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+    const projected = await enrichInsightRequest(request)
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([input, insightDependencyKey(projected)])))
     if (!ownsRequest()) return failed()
     const fingerprint = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
     const saved = current.entries.find(entry => entry.key === key && entry.fingerprint === fingerprint)
     if (saved && !refresh) return { ok: true, value: saved.value }
-    const result = await requestReview(request, prefs)
+    const result = await requestReview(projected, prefs)
     if (result.ok && ownsRequest()) {
       current.entries = [...current.entries.filter(entry => entry.key !== key), { key, fingerprint, value: result.value }].slice(-24)
       persist(current)

@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 有限 preload smart API、当前工作区代次。
- * [OUTPUT]: useAi：设备侧 AI 服务状态与 connect / setFeature / forget / dismiss / openConsole；代次变化即重新读取（整库替换后自动显示暂停）。connectedProviders、providerIssue、featureProvider 等只读派生。
- * [POS]: renderer/state 的 AI 服务入口，被设置三个面板、Onboarding、composer 与洞察共用；Key 只经一次 connect 提交，状态中只有遮罩提示。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Finite smart actions and the active workspace generation.
+ * [OUTPUT]: Provider/feature state, scoped connect/forget/dismiss actions and assistance-draft cleanup on forget.
+ * [POS]: Shared device AI state for setup, settings and existing/new writing features.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { aiProviders, featureCapability, providerCapabilities } from '../../shared/contracts/values'
 import type { AiFeature, AiProvider, Failure, Notice, SmartAction, SmartStatus, TestOutcome } from '../../shared/contracts/smart-input'
+import { clearAssistanceDrafts } from './assistance-drafts'
 import { desktopApi } from './use-workspace'
 
 export interface Ai {
@@ -31,7 +32,7 @@ export function useAi(generation: string | undefined): Ai {
     status, refresh,
     connect: (provider, apiKey) => generation ? send({ type: 'connect', generation, provider, apiKey, consent: true }) : Promise.resolve(null),
     setFeature: async (feature, provider, enabled) => { if (generation) await send({ type: 'feature', generation, feature, provider, enabled }) },
-    forget: async provider => { if (generation) await send({ type: 'forget', generation, provider }) },
+    forget: async provider => { clearAssistanceDrafts(); if (generation) await send({ type: 'forget', generation, provider }) },
     dismiss: async notice => { if (generation) await send({ type: 'dismiss', generation, notice }).catch(() => null) },
     openConsole: provider => { void desktopApi().smart({ type: 'openConsole', provider }).catch(() => null) },
   }

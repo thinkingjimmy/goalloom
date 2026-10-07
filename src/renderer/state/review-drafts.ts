@@ -6,6 +6,7 @@
  */
 import { cleanTitle, draftPrompt } from '../../domain/smart/insight'
 import type { DraftRequest, DraftTitle, InsightPrefs } from '../../shared/contracts/smart-input'
+import { enrichInsightRequest, insightDependencyKey } from './insight-context'
 import { insightSettings, requestDraft, type InsightResult } from './insight'
 
 type Request = Omit<DraftRequest, 'requestId' | 'prefs'>
@@ -56,12 +57,13 @@ export function requestReviewDraft(request: Request, periodKey: string, prefs: I
   const ticket = {}
   const ownsRequest = () => cache === current && pending.get(periodKey)?.ticket === ticket
   const promise = (async (): Promise<InsightResult<DraftTitle[]>> => {
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+    const projected = await enrichInsightRequest(request)
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([input, insightDependencyKey(projected)])))
     if (!ownsRequest()) return failed()
     const fingerprint = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
     const saved = current.entries.find(entry => entry.key === periodKey && entry.fingerprint === fingerprint)
     if (saved) return { ok: true, value: saved.value }
-    const result = await requestDraft(request, prefs)
+    const result = await requestDraft(projected, prefs)
     if (!ownsRequest()) return failed()
     if (result.ok) {
       current.entries = [...current.entries.filter(entry => entry.key !== periodKey), { key: periodKey, fingerprint, value: result.value }].slice(-24)

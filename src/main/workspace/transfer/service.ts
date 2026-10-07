@@ -114,6 +114,7 @@ export class WorkspaceService {
       const source = pending.source ?? emptyDataset(this.repository.store, now)
       validateDataset(source, now)
       const generation = replaceDataset(this.repository.store, source, pending.preview.mode, now)
+      this.repository.execution.clear()
       this.completed.set(token, { originalGeneration: current.generation, generation })
       this.release()
       return { type: 'replaced', generation }

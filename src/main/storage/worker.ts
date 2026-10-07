@@ -21,25 +21,33 @@ import { readReviewContext } from '../workspace/review'
 import { WorkspaceService } from '../workspace/transfer/service'
 import { readJson, writeDataset } from '../workspace/transfer/files'
 import { serverText, loadServerLocale } from '../../shared/i18n/server'
+import { readAssistanceContext } from '../workspace/assistance-context'
+import { StartupUpgrade } from './upgrade'
 
 if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort
 mkdirSync(dirname(workerData.databasePath), { recursive: true })
 const clock = { now: () => new Date().toISOString() }
 let db: DatabaseSync, repository: Repository, service: WorkspaceService
-let startup: { ok: true; protectivePath: string | null } | { ok: false; message: string; backupPath: string | null; backupDirectory: string }
+const upgrade = new StartupUpgrade(workerData.databasePath, workerData.backupDirectory, clock.now)
+let startup: { ok: true; protectivePath: string | null } | { ok: false; message: string; backupPath: string | null; backupDirectory: string; legacyVersion: number | null }
 const initialized = loadServerLocale(workerData.locale).then(() => openWorkspace(workerData.databasePath, workerData.backupDirectory, clock.now)).then(opened => {
   db = opened.db
   repository = new Repository(db, clock)
   service = new WorkspaceService(repository, workerData.backupDirectory)
   startup = { ok: true, protectivePath: opened.protective ? service.backups.path(opened.protective.id) : null }
 }, error => {
-  startup = { ok: false, message: error instanceof StartupError ? error.message : serverText().storage.openFailed, backupPath: error instanceof StartupError ? error.backupPath : null, backupDirectory: workerData.backupDirectory }
+  startup = { ok: false, message: error instanceof StartupError ? error.message : serverText().storage.openFailed, backupPath: error instanceof StartupError ? error.backupPath : null, legacyVersion: error instanceof StartupError ? error.legacyVersion : null, backupDirectory: workerData.backupDirectory }
 })
 
 function handle(method: string, argument: unknown): unknown {
   if (method === 'startup') return startup
   if (method === 'locale') return loadServerLocale(z.enum(locales).parse(argument))
+  if (!startup.ok && startup.legacyVersion !== null) {
+    if (method === 'prepareStartupUpgrade') return upgrade.prepare()
+    if (method === 'commitStartupUpgrade') return upgrade.commit(z.uuid().parse(argument))
+  }
+  if (method === 'close' && !startup.ok) return upgrade.cancel()
   if (!startup.ok) { if (method === 'close') return null; throw new DomainError('startup', startup.message) }
   if (method === 'close') { db.close(); return null }
   if (method === 'candidate') return repository.store.summaries('i.id=?', [z.string().max(180).parse(argument)])[0] ?? null
@@ -58,6 +66,11 @@ function handle(method: string, argument: unknown): unknown {
   if (method !== 'query') throw new DomainError('invalid', serverText().storage.unknownMethod)
   const query = querySchema.parse(argument)
   switch (query.type) {
+    case 'insightTaskContext': return repository.execution.insightContext(query, repository.clock.now())
+    case 'executionSummary': return repository.execution.summary(query, repository.clock.now())
+    case 'activityMonth': return repository.execution.month(query, repository.clock.now())
+    case 'activityDay': case 'activityPage': return repository.execution.page(query, repository.clock.now())
+    case 'assistanceContext': return readAssistanceContext(repository.store, repository.execution, query, repository.clock.now())
     case 'snapshot': return { ...repository.snapshot(), backupError: service.backups.lastError }
     case 'reviewContext': return readReviewContext(repository, query)
     case 'boardPeriods': return readBoardPeriods(repository.store, query, repository.clock.now())

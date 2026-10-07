@@ -198,6 +198,7 @@ export const appMessages: typeof source = {
       authentication_failed: (name: string) => `${name} rejected the key. Check or replace the key.`,
       permission_denied: (name: string) => `This ${name} key isn’t allowed to call Jev. Check it in the official console.`,
       routing_policy: () => 'AI Gateway didn’t confirm this request would be handled only by TypeSafe, so sending was stopped',
+      timeout: () => 'Generation timed out. Your input is kept. Retry or write guidance yourself.',
       unavailable: () => 'Can’t reach Jev right now (network, timeout or service busy). Your draft is kept.',
       malformed_response: () => 'Jev returned a result that doesn’t match the contract, so it wasn’t used. Your draft is kept.',
       request_failed: (_name: string, status: number | null) => `The request didn’t succeed${status ? ` (HTTP ${status})` : ''}. This doesn’t mean the key is invalid.`,

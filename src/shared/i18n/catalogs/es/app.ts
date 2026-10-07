@@ -198,6 +198,7 @@ export const appMessages: typeof source = {
       authentication_failed: (name: string) => `${name} no aceptó la clave. Revisa o cambia la Key`,
       permission_denied: (name: string) => `Esta Key de ${name} no tiene permiso para usar Jev. Revísalo en su consola oficial`,
       routing_policy: () => 'AI Gateway no confirmó que solo TypeSafe procese esta solicitud; se detuvo el envío',
+      timeout: () => 'La generación agotó el tiempo. Se conserva tu texto. Reintenta o escribe tu guía.',
       unavailable: () => 'No se puede conectar con Jev por ahora (red, tiempo de espera o servicio ocupado). El borrador se conserva',
       malformed_response: () => 'La respuesta de Jev no cumple el formato acordado y no se usó. El borrador se conserva',
       request_failed: (_name: string, status: number | null) => `La llamada no tuvo éxito${status ? ` (HTTP ${status})` : ''}. Esto no significa que la Key no sea válida`,

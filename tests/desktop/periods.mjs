@@ -90,7 +90,10 @@ try {
 
   if (!navigationOnly) {
   await row(ids.later).locator('.task-title').click({ button: 'right' })
-  assert.equal(await page.locator('.context-menu').count(), 0)
+  assert.equal(await page.getByRole('menuitem', { name: '卡住了…', exact: true }).count(), 1)
+  assert.equal(await page.locator('.context-menu-sub-trigger').count(), 0, 'Later has assistance without a next-period destination')
+  await page.keyboard.press('Escape')
+  await page.locator('.context-menu').waitFor({ state: 'detached' })
   await column('week').locator('summary').click()
   await row(ids.done).locator('.task-title').click({ button: 'right' })
   assert.equal(await page.locator('.context-menu').count(), 0)

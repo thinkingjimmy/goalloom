@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Action } from '../../state/use-workspace'
+import { assistanceMessages } from '../../i18n/assistance'
 import { messages, insightMessages as t } from '../../i18n'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '../../components/ui/context-menu'
 import { Icon } from '../../components/icons'
@@ -14,12 +15,12 @@ import { revealRow } from './VirtualRows'
 
 export interface Upcoming { period: PlanningPeriod; label: string; hint: string | null }
 
-export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, onMenu, onMoved, children }: {
+export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, assist, onMenu, onMoved, children }: {
   item: ItemSummary; upcoming: Upcoming[]; relations: number; disabled: boolean; children: ReactElement
-  submit: (action: Action) => Promise<unknown>; select: (id: string) => void; decompose: (() => void) | null
+  submit: (action: Action) => Promise<unknown>; select: (id: string) => void; decompose: (() => void) | null; assist?: (() => void) | undefined
   onMenu: (id: string | null) => void; onMoved: (id: string) => void
 }) {
-  const [next] = upcoming as [Upcoming, ...Upcoming[]]
+  const next = upcoming[0]
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLElement | null>(null), returnTo = useRef<HTMLElement | null>(null), selecting = useRef(false), outside = useRef(false)
   const change = (nextOpen: boolean) => {
@@ -53,7 +54,7 @@ export function TaskMenu({ item, upcoming, relations, disabled, submit, select, 
         // Release the virtual pin only after focus can keep the source row mounted.
         onMenu(null)
       }}>
-      <ContextMenuItem disabled={disabled} onSelect={() => move({ kind: 'next' })}>
+      {next && <><ContextMenuItem disabled={disabled} onSelect={() => move({ kind: 'next' })}>
         <Icon name="forward" size={16} /><span className="context-menu-label">{messages.moveToPeriod(next.label)}</span>{next.hint && <span className="menu-hint">{next.hint}</span>}
       </ContextMenuItem>
       <ContextMenuSub>
@@ -64,9 +65,10 @@ export function TaskMenu({ item, upcoming, relations, disabled, submit, select, 
           </ContextMenuItem>)}
         </ContextMenuSubContent>
       </ContextMenuSub>
-      <ContextMenuSeparator />
+      <ContextMenuSeparator /></>}
+      {assist && <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; assist() }}><Icon name="smart" size={16} /><span className="context-menu-label">{assistanceMessages().title}</span></ContextMenuItem>}
       {decompose && <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; decompose() }}><Icon name="smart" size={16} /><span className="context-menu-label">{t.menuDecompose}</span></ContextMenuItem>}
-      <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; select(item.id) }}><Icon name="split" size={16} /><span className="context-menu-label">{t.menuLinkParent}</span></ContextMenuItem>
+      {item.placement.horizon !== 'later' && <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; select(item.id) }}><Icon name="split" size={16} /><span className="context-menu-label">{t.menuLinkParent}</span></ContextMenuItem>}
       <ContextMenuSeparator />
       <ContextMenuItem disabled={disabled} onSelect={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: 'done' })}><Icon name="check" size={16} /><span className="context-menu-label">{t.menuComplete}</span></ContextMenuItem>
       <ContextMenuItem className="danger" disabled={disabled} onSelect={() => {

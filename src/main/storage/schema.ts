@@ -1,7 +1,7 @@
 /**
- * [INPUT]: A new or current-version SQLite database; legacy files are refused by startup.
- * [OUTPUT]: Atomic schema v7 initialization with six planning horizons and independently configurable rollover policies.
- * [POS]: Sole production DDL; no in-place upgrades, legacy sources remain readable through transfer.
+ * [INPUT]: A new or current-version SQLite database; legacy files remain read-only until confirmed recovery.
+ * [OUTPUT]: Atomic schema v8 with guidance heads, v1/v2 effects, six horizons and independent rollover policies.
+ * [POS]: Sole production DDL; temporary recovery databases use the same initialization.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
@@ -9,10 +9,11 @@ import { randomUUID } from 'node:crypto'
 import { transaction } from './database'
 import { serverText } from '../../shared/i18n/server'
 
-export const schemaVersion = 7
-export const supportedVersions = [1, 2, 3, 4, 5, 6, 7]
+export const schemaVersion = 8
+export const supportedVersions = [1, 2, 3, 4, 5, 6, 7, 8]
 export const upgradableVersions: number[] = []
 export const requiredTables = ['workspace', 'items', 'item_placements', 'planning_periods', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects', 'schema_migrations']
+export function sourceTables(version: number): string[] { return version >= 8 ? [...requiredTables, 'item_guidance'] : requiredTables }
 export function userVersion(db: DatabaseSync): number { return Number(db.prepare('PRAGMA user_version').get()?.user_version) }
 export function migrate(db: DatabaseSync): void {
   const version = userVersion(db)
@@ -88,10 +89,15 @@ CREATE TABLE rollover_policies (
 ) STRICT;
 CREATE TABLE operations (
   id TEXT PRIMARY KEY, generation TEXT NOT NULL, requestHash TEXT NOT NULL, kind TEXT NOT NULL,
-  source TEXT NOT NULL CHECK(source IN ('user','system')), at TEXT NOT NULL, effectsVersion INTEGER NOT NULL CHECK(effectsVersion=1),
+  source TEXT NOT NULL CHECK(source IN ('user','system')), at TEXT NOT NULL, effectsVersion INTEGER NOT NULL CHECK(effectsVersion IN (1,2)),
   effects TEXT NOT NULL CHECK(json_valid(effects)), result TEXT NOT NULL CHECK(json_valid(result))
 ) STRICT;
 CREATE INDEX operations_recent ON operations(at,id);
+CREATE TABLE item_guidance (
+  itemId TEXT PRIMARY KEY REFERENCES items(id), revision INTEGER NOT NULL CHECK(revision>0),
+  value TEXT CHECK(value IS NULL OR json_valid(value)), updatedAt TEXT NOT NULL,
+  operationId TEXT NOT NULL REFERENCES operations(id) DEFERRABLE INITIALLY DEFERRED
+) STRICT;
 CREATE TABLE item_events (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, operationId TEXT NOT NULL REFERENCES operations(id) DEFERRABLE INITIALLY DEFERRED,
   eventIndex INTEGER NOT NULL, itemId TEXT NOT NULL REFERENCES items(id), at TEXT NOT NULL, type TEXT NOT NULL,

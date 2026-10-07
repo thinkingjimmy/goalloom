@@ -50,7 +50,7 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
         if (endState.periodId !== period.id || endState.deletedAt || endState.archivedAt || endState.status === 'cancelled') continue
         const item = store.summaries('i.id=?', [id])[0]
         if (!item) continue
-        items.push({ ...item, status: endState.status, completedAt: endState.completedAt, cancelledAt: endState.cancelledAt,
+        items.push({ ...item, guidance: null, status: endState.status, completedAt: endState.completedAt, cancelledAt: endState.cancelledAt,
           archivedAt: endState.archivedAt, deletedAt: endState.deletedAt, deletedBy: endState.deletedBy,
           placement: { ...item.placement, horizon: endState.horizon, periodId: endState.periodId, sortKey: endState.sortKey, holdPeriodId: endState.holdPeriodId } })
       }

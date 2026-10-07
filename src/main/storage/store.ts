@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Controlled SQLite connection, validated DTOs and authoritative current versions.
- * [OUTPUT]: Bounded prepared statements, summary reads with a digested description signal, detail reads, indexed neighbors and versioned writes/events/receipts.
- * [POS]: Persistence adapter; Repository owns transactions and business policy.
+ * [INPUT]: Controlled SQLite, validated DTOs and current transaction versions.
+ * [OUTPUT]: Bounded note/guidance signals, versioned guidance heads, item/placement writes and immutable events/receipts.
+ * [POS]: Persistence adapter; Repository owns business policy and transactions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync, SQLInputValue, StatementSync } from 'node:sqlite'
@@ -11,11 +11,20 @@ import { workspaceSchema, type Item, type ItemSummary, type ItemRecord, type Pla
 import { businessState, type ItemEvent, type Operation, type PositionEffect } from '../../shared/contracts/effects'
 import { serverText } from '../../shared/i18n/server'
 import { noteSignal } from '../../shared/notes'
+import { guidanceRecordSchema, type GuidanceRecord } from '../../shared/contracts/assistance'
 
 export class Store {
   private statements = new Map<string, StatementSync>()
+  private readonly hasGuidance: boolean
   constructor(readonly db: DatabaseSync) {
+    this.hasGuidance = !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_guidance'").get()
     // Summaries digest each description inside SQLite, so only the bounded signal leaves the worker's query.
+    db.function('guidance_signal', { deterministic: true }, (text: unknown, revision: unknown, updatedAt: unknown) => {
+      if (typeof text !== 'string') return null
+      const value = JSON.parse(text) as { kind: string; nextAction: string }
+      const nextAction = value.nextAction.slice(0, 120).replace(/[\uD800-\uDBFF]$/, '')
+      return JSON.stringify({ kind: value.kind, nextAction, revision, updatedAt })
+    })
     db.function('note_signal', { deterministic: true }, (text: unknown) => {
       const signal = noteSignal(typeof text === 'string' ? text : '')
       return signal ? JSON.stringify(signal) : null
@@ -56,17 +65,27 @@ export class Store {
   }
   summaries(where: string, parameters: SQLInputValue[] = [], suffix = 'ORDER BY p.sortKey,i.id'): ItemSummary[] {
     const rows = this.prepare(`SELECT i.id,i.title,i.dueDate,i.status,i.completedAt,i.cancelledAt,i.archivedAt,i.deletedAt,i.deletedBy,i.createdAt,i.updatedAt,i.version,i.flowColor,
-      note_signal(i.description) AS note,p.horizon,p.periodId,p.sortKey,p.version AS placementVersion,p.holdPeriodId
+      note_signal(i.description) AS note,${this.hasGuidance ? "(SELECT guidance_signal(g.value,g.revision,g.updatedAt) FROM item_guidance g WHERE g.itemId=i.id AND g.value IS NOT NULL)" : 'NULL'} AS guidance,p.horizon,p.periodId,p.sortKey,p.version AS placementVersion,p.holdPeriodId
       FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where} ${suffix}`).all(...parameters)
     return rows.map(row => {
-      const { horizon, periodId, sortKey, placementVersion, holdPeriodId, note, ...item } = row
-      return { ...item, note: typeof note === 'string' ? JSON.parse(note) : null, placement: { itemId: item.id, horizon, periodId, sortKey, version: placementVersion, holdPeriodId } } as ItemSummary
+      const { horizon, periodId, sortKey, placementVersion, holdPeriodId, note, guidance, ...item } = row
+      return { ...item, note: typeof note === 'string' ? JSON.parse(note) : null, guidance: typeof guidance === 'string' ? JSON.parse(guidance) : null, placement: { itemId: item.id, horizon, periodId, sortKey, version: placementVersion, holdPeriodId } } as ItemSummary
     })
   }
   insertItem(item: Item): void {
     this.prepare('INSERT INTO items (id,title,description,dueDate,status,completedAt,cancelledAt,archivedAt,deletedAt,deletedBy,createdAt,updatedAt,version,flowColor) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(item.id, item.title, item.description, item.dueDate, item.status, item.completedAt, item.cancelledAt, item.archivedAt, item.deletedAt, item.deletedBy, item.createdAt, item.updatedAt, item.version, item.flowColor ?? null)
     const p = item.placement
     this.prepare('INSERT INTO item_placements VALUES (?,?,?,?,?,?)').run(p.itemId, p.horizon, p.periodId, p.sortKey, p.version, p.holdPeriodId)
+  }
+  guidance(itemId: string): GuidanceRecord | null {
+    if (!this.hasGuidance) return null
+    const row = this.prepare('SELECT * FROM item_guidance WHERE itemId=?').get(itemId)
+    return row ? guidanceRecordSchema.parse({ ...row, value: row.value ? JSON.parse(String(row.value)) : null }) : null
+  }
+  saveGuidance(record: GuidanceRecord): void {
+    const row = guidanceRecordSchema.parse(record)
+    this.prepare('INSERT INTO item_guidance VALUES (?,?,?,?,?) ON CONFLICT(itemId) DO UPDATE SET revision=excluded.revision,value=excluded.value,updatedAt=excluded.updatedAt,operationId=excluded.operationId')
+      .run(row.itemId, row.revision, row.value ? JSON.stringify(row.value) : null, row.updatedAt, row.operationId)
   }
   saveItem(item: Item, previousVersion: number): void {
     const result = this.prepare('UPDATE items SET title=?,description=?,dueDate=?,status=?,completedAt=?,cancelledAt=?,archivedAt=?,deletedAt=?,deletedBy=?,updatedAt=?,version=?,flowColor=? WHERE id=? AND version=?')

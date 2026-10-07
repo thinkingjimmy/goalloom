@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Strict lifecycle commands, finite queries, shared trash filtering, injected clock and SQLite Store.
- * [OUTPUT]: Authoritative writes, order materialization, idempotent receipts, current/ancestor summaries and actual-period detail/search projections.
- * [POS]: Sole workspace command transaction boundary, called by the serial worker.
+ * [INPUT]: Strict commands/queries, injected clock, Store and bounded ExecutionQueries.
+ * [OUTPUT]: Authoritative atomic writes, v1/v2 receipts, facts caches and detail guidance without body duplication.
+ * [POS]: Sole workspace write boundary called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createHash } from 'node:crypto'
@@ -23,11 +23,14 @@ import { orderNodes } from './ordering'
 import { materializeParentOrder } from './commands/ordering'
 import { isAnchoredHorizon, periodHorizons } from '../../shared/contracts/values'
 import { trashWhere } from './queries'
+import { applyAssistance } from './commands/assistance'
+import { ExecutionQueries } from './execution'
 
 export class Repository {
   readonly store: Store
+  readonly execution: ExecutionQueries
   maintenance = false
-  constructor(readonly db: DatabaseSync, readonly clock: Clock) { this.store = new Store(db) }
+  constructor(readonly db: DatabaseSync, readonly clock: Clock) { this.store = new Store(db); this.execution = new ExecutionQueries(this.store) }
   execute(input: unknown): CommandResult {
     const command = commandSchema.parse(input)
     if (this.maintenance) throw new DomainError('maintenance', serverText().errors.maintenance)
@@ -53,7 +56,7 @@ export class Repository {
     const result: CommandResult = { operationId: command.operationId, generation: command.generation, changed, undoable: context.effects.length > 0,
       outcome: context.outcome ?? 'committed', itemId: context.itemId, label: context.label, warnings: context.warnings, restoreSource: context.restoreSource ?? null, originalOperationId: command.type === 'undo' || command.type === 'undoBatch' ? command.originalOperationId : null,
       ...(context.itemIds ? { itemIds: context.itemIds } : {}) }
-    this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: 'user', at: now, effectsVersion: 1, effects: context.effects, result })
+    this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: 'user', at: now, effectsVersion: context.effects.some(effect => effect.kind === 'guidance') ? 2 : 1, effects: context.effects, result })
     for (const effect of context.undone ?? []) this.db.prepare('INSERT INTO undo_effects VALUES (?,?,?)').run(effect.originalId, effect.index, command.operationId)
     return result
   }
@@ -77,6 +80,7 @@ export class Repository {
   }
   private dispatch(context: Context, command: Command): boolean {
     switch (command.type) {
+      case 'applyAssistance': return applyAssistance(context, command)
       case 'confirmSetup': return confirmSetup(context, command)
       case 'create': return createItem(context, command)
       case 'createPlan': return createPlan(context, command)
@@ -137,7 +141,7 @@ export class Repository {
   }
   detail(itemId: string): ItemDetail {
     const item = this.store.item(itemId)
-    return { item, period: item.placement.periodId ? this.store.period(item.placement.periodId) : null, relations: this.relationViews(itemId) }
+    return { item, period: item.placement.periodId ? this.store.period(item.placement.periodId) : null, relations: this.relationViews(itemId), guidance: this.store.guidance(itemId) }
   }
   list(query: Extract<Query, { type: 'list' }>): ItemPage {
     const conditions = [query.view === 'trash' ? trashWhere : 'i.deletedAt IS NULL']

@@ -1,0 +1,20 @@
+.activity-drawer[data-insight='true'] { flex: 1; overflow: auto; }
+.activity-insight-lead[data-tone='normal'], .activity-insight-lead[data-tone='carryover'] { color: var(--fg); }
+.activity-insight-lead[data-tone='overdue'] { color: var(--danger); }
+.activity-insight-lead[data-tone='reconfirm'] { color: var(--activity-rollover); }
+.execution-reconfirm { margin: 8px 0; font-size: 13px; line-height: 1.6; color: var(--activity-rollover); }
+.execution-explanation { margin-top: 10px; font-size: 11px; line-height: 1.6; color: var(--secondary); }
+.execution-explanation summary { cursor: pointer; }
+.execution-explanation p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.execution-help { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin-top: 12px; }
+.execution-help .text-button { min-height: 32px; text-align: left; }
+.execution-help[data-emphasis='true'] .text-button:first-child { color: var(--activity-rollover); font-weight: 600; }
+.activity-week > [role='gridcell'] { height: 32px; }
+.activity-date { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; border-radius: 6px; color: inherit; }
+.activity-date:hover, .activity-date[aria-pressed='true'] { background: var(--hover); }
+.activity-date:focus-visible, .execution-explanation summary:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
+.activity-month-button { width: 32px; height: 32px; }
+.activity-all { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; min-height: 32px; font-size: 12px; }
+.activity-day-details h4 { margin: 12px 0; font-size: 12px; font-weight: 500; }
+.activity-day-details .activity-list span, .activity-day-details .activity-list strong { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; line-height: 1.6; }
+.activity-day-details .activity-list em { font-size: 11px; font-style: normal; color: var(--secondary); }

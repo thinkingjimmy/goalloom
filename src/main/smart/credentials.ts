@@ -1,8 +1,8 @@
 /**
- * [INPUT]: main 固定的设备目录（userData/smart-input）、注入的 OS 保护 Cipher（Electron safeStorage 或测试替身）。
- * [OUTPUT]: DeviceStore：每服务加密 Key 文件与遮罩提示、区分 missing/unreadable/unavailable 的读取；设备配置（每服务同意/能力验证/最近账户失败，每功能所选服务/修订/绑定代次，提示关闭状态）的原子读写，旧版单服务配置读取时升级；已下线的 TypeSafe 原生渠道在读取时移除（绑定它的功能关闭并递增修订，删除其加密 Key 文件）。
- * [POS]: AI 服务的设备侧持久化；不进入业务 SQLite、workspace 表、导出/备份或迁移；绝不明文回退，读取失败保留加密文件供重试。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: A fixed device directory, OS-protected cipher and bounded provider/feature schemas.
+ * [OUTPUT]: Device configuration v3, encrypted keys and preserved v1/v2 settings with empty new purpose consent.
+ * [POS]: Device-only AI persistence; keys and consent never enter workspace data or backups.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { mkdir, readFile, rm, writeFile, rename } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -14,18 +14,18 @@ import { atomicJson } from '../storage/atomic-json'
 
 export interface Cipher { available(): boolean; encrypt(text: string): Buffer; decrypt(data: Buffer): string }
 const stamp = z.string().nullable()
-const providerConfig = z.strictObject({ consentedAt: stamp, verifiedAt: stamp, keyHint: z.string().max(12).nullable(), capabilities: z.strictObject({ jev: stamp, chat: stamp }), lastFailure: failureSchema.nullable() })
+const providerConfig = z.strictObject({ consentedAt: stamp, verifiedAt: stamp, keyHint: z.string().max(12).nullable(), capabilities: z.strictObject({ jev: stamp, chat: stamp }), lastFailure: failureSchema.nullable(), assistanceConsent: z.strictObject({ version: z.literal(1), at: z.iso.datetime({ offset: true }) }).nullable().default(null) })
 const featureConfig = z.strictObject({ provider: aiProviderSchema.nullable(), revision: z.number().int().nonnegative(), enabledForGeneration: z.string().nullable() })
 export type ProviderConfig = z.infer<typeof providerConfig>
 export type FeatureConfig = z.infer<typeof featureConfig>
 export const deviceConfigSchema = z.strictObject({
-  version: z.literal(2), providers: z.strictObject({ openrouter: providerConfig, 'vercel-gateway': providerConfig }),
+  version: z.literal(3), providers: z.strictObject({ openrouter: providerConfig, 'vercel-gateway': providerConfig }),
   features: z.strictObject({ smart: featureConfig, insight: featureConfig }), dismissed: z.array(noticeSchema),
 })
 export type DeviceConfig = z.infer<typeof deviceConfigSchema>
-export const blankProvider = (): ProviderConfig => ({ consentedAt: null, verifiedAt: null, keyHint: null, capabilities: { jev: null, chat: null }, lastFailure: null })
+export const blankProvider = (): ProviderConfig => ({ consentedAt: null, verifiedAt: null, keyHint: null, capabilities: { jev: null, chat: null }, lastFailure: null, assistanceConsent: null })
 const blankFeature = (): FeatureConfig => ({ provider: null, revision: 0, enabledForGeneration: null })
-const empty = (): DeviceConfig => ({ version: 2, providers: { openrouter: blankProvider(), 'vercel-gateway': blankProvider() },
+const empty = (): DeviceConfig => ({ version: 3, providers: { openrouter: blankProvider(), 'vercel-gateway': blankProvider() },
   features: { smart: blankFeature(), insight: blankFeature() }, dismissed: [] })
 
 // --- The TypeSafe native channel was retired: its entry is dropped and a feature bound to it switches off with a new revision. ---
@@ -33,6 +33,7 @@ const retired = 'typesafe'
 const storedProvider = z.enum([...aiProviders, retired])
 const storedFeature = featureConfig.extend({ provider: storedProvider.nullable() })
 const withRetired = deviceConfigSchema.extend({
+  version: z.union([z.literal(2), z.literal(3)]),
   providers: z.strictObject({ openrouter: providerConfig, 'vercel-gateway': providerConfig, [retired]: providerConfig.optional() }),
   features: z.strictObject({ smart: storedFeature, insight: storedFeature }),
 })
@@ -55,12 +56,12 @@ function upgrade(raw: unknown): DeviceConfig {
   const stored = withRetired.safeParse(raw)
   if (stored.success) {
     const { openrouter, 'vercel-gateway': gateway } = stored.data.providers
-    return { ...stored.data, providers: { openrouter, 'vercel-gateway': gateway }, features: { smart: current(stored.data.features.smart), insight: current(stored.data.features.insight) } }
+    return { ...stored.data, version: 3, providers: { openrouter, 'vercel-gateway': gateway }, features: { smart: current(stored.data.features.smart), insight: current(stored.data.features.insight) } }
   }
   const old = legacySchema.parse(raw), config = empty()
   for (const provider of aiProviders) {
     const value = old.providers[provider]
-    if (value) config.providers[provider] = { ...value, capabilities: { jev: value.verifiedAt, chat: null }, lastFailure: null }
+    if (value) config.providers[provider] = { ...value, capabilities: { jev: value.verifiedAt, chat: null }, lastFailure: null, assistanceConsent: null }
   }
   config.features.smart = current({ provider: old.activeProvider, revision: old.providerRevision, enabledForGeneration: old.enabledForGeneration })
   const openrouter = config.providers.openrouter

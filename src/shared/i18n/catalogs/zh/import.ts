@@ -44,6 +44,7 @@ export const importMessages = widen({
   undoMarkerDangling: '撤销标记悬空或回执不一致',
   selfUndo: '操作不能撤销自己',
   planUndoIncomplete: '计划撤销必须覆盖全部原效果',
+  compositeUndoIncomplete: '复合操作必须整体撤销',
   danglingEventReference: '事件引用悬空',
   eventTimeMismatch: '事件与操作实际时间不一致',
   brokenEventChain: '业务事件链不连续或缺少明确起点',

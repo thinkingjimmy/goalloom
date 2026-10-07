@@ -1,14 +1,22 @@
 /**
- * [INPUT]: Finite queries and entity/operation schemas.
- * [OUTPUT]: Current/planning summaries with ancestor order nodes, generation/revision guards, review contexts, live past-period pages, historical projections and counts.
- * [POS]: Read-only IPC contract; full descriptions are available only through item detail.
+ * [INPUT]: Finite generation/item/date/cursor requests and bounded strict response schemas.
+ * [OUTPUT]: Current/past summaries, optional guidance detail, execution facts and frozen activity/context reads.
+ * [POS]: Read contract; only on-demand details/context carry bounded task bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, itemSchema, itemSummarySchema, periodHorizonSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 import { periodHorizons } from './values'
+import { guidanceRecordSchema } from './assistance'
+import { activityReadSchema } from './execution'
 
 export const querySchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('executionSummary'), generation: idSchema, itemId: idSchema, cutoff: instantSchema.optional() }),
+  z.strictObject({ type: z.literal('assistanceContext'), generation: idSchema, itemId: idSchema }),
+  z.strictObject({ type: z.literal('insightTaskContext'), generation: idSchema, itemId: idSchema, cutoff: instantSchema.optional() }),
+  z.strictObject({ type: z.literal('activityMonth'), generation: idSchema, itemId: idSchema, month: dateSchema }),
+  activityReadSchema.extend({ type: z.literal('activityDay'), date: dateSchema }),
+  activityReadSchema.extend({ type: z.literal('activityPage') }),
   z.strictObject({ type: z.literal('snapshot') }),
   z.strictObject({ type: z.literal('reviewContext'), generation: idSchema, periods: z.array(z.strictObject({ horizon: z.enum(['week', 'month']), startDate: dateSchema })).min(1).max(2) }),
   z.strictObject({ type: z.literal('boardPeriods'), generation: idSchema, periods: z.array(z.strictObject({ horizon: periodHorizonSchema, startDate: dateSchema })).min(1).max(periodHorizons.length) }),
@@ -40,7 +48,7 @@ export const snapshotSchema = z.strictObject({
 export const itemPageSchema = z.strictObject({ items: z.array(itemSummarySchema), total: z.number().int().nonnegative(), periods: z.array(periodSchema).optional() })
 export const boardPeriodsSchema = snapshotSchema.pick({ periods: true, items: true, rolloverSources: true, orderNodes: true }).extend({ generation: idSchema, revision: z.number().int().nonnegative() })
 export type BoardPeriods = z.infer<typeof boardPeriodsSchema>
-export const detailSchema = z.strictObject({ item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema) })
+export const detailSchema = z.strictObject({ item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema), guidance: guidanceRecordSchema.nullable().optional() })
 export type Snapshot = z.infer<typeof snapshotSchema>
 export const reviewContextSchema = z.strictObject({
   board: snapshotSchema, planning: snapshotSchema, closing: z.array(itemSummarySchema), sourcePeriods: z.array(periodSchema), unknown: z.number().int().nonnegative(),

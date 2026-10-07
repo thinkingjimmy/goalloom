@@ -1,16 +1,18 @@
 /**
- * [INPUT]: 权威事务中的业务状态，不含正文。
- * [OUTPUT]: Immutable effects with relation-owned adoption/promotion color deltas, and history events.
- * [POS]: domain 与 storage 共用的撤销/历史契约，renderer 不能提交这些类型。
+ * [INPUT]: Authoritative business states, relation deltas and approved bounded guidance content.
+ * [OUTPUT]: Immutable v1/v2 owned effects and body-free business-state events.
+ * [POS]: Shared transaction, undo and import contract; models cannot supply effects.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { StatusGroup } from '../../domain/status'
 import type { Item, ItemHorizon, Relation } from './entities'
 import type { CommandResult } from './commands'
+import type { GuidanceValue } from './assistance'
 
 export interface PositionEffect { horizon: ItemHorizon; periodId: string | null; previousId: string | null; nextId: string | null }
 export interface EdgeDelta { before: Relation | null; after: Relation }
 export type Effect =
+  | { kind: 'guidance'; itemId: string; before: { value: GuidanceValue | null; operationId: string | null }; after: { value: GuidanceValue | null; operationId: string } }
   | { kind: 'create'; itemId: string; status: StatusGroup; horizon: ItemHorizon; periodId: string | null; initialRelations: string[] }
   | { kind: 'status'; itemId: string; before: StatusGroup; after: StatusGroup }
   | { kind: 'position'; itemId: string; before: PositionEffect; after: PositionEffect }
@@ -28,7 +30,7 @@ export interface ItemEvent {
 }
 export interface Operation {
   id: string; generation: string; requestHash: string; kind: string; source: 'user' | 'system'; at: string;
-  effectsVersion: 1; effects: Effect[]; result: CommandResult
+  effectsVersion: 1 | 2; effects: Effect[]; result: CommandResult
 }
 export function businessState(item: Item): BusinessState {
   return { status: item.status, completedAt: item.completedAt, cancelledAt: item.cancelledAt,

@@ -52,7 +52,12 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     guard(event)
     try {
       await firstWrite
-      const result = await storage.call<CommandResult>('command', commandSchema.parse(input))
+      const command = commandSchema.parse(input)
+      if (command.type === 'applyAssistance' && command.contextId) {
+        const receipt = await storage.call<CommandResult | null>('query', { type: 'receipt', operationId: command.operationId, generation: command.generation })
+        if (!receipt) await smart.validateAssistanceApply(command)
+      }
+      const result = await storage.call<CommandResult>('command', command)
       if (result.changed) { window()?.webContents.send('goalloom:changed', null); changed() }
       return { ok: true, result }
     }

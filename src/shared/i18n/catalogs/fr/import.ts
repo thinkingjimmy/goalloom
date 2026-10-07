@@ -45,6 +45,7 @@ export const importMessages: typeof source = {
   undoMarkerDangling: 'Marqueur d’annulation orphelin ou reçu incohérent',
   selfUndo: 'Une opération ne peut pas s’annuler elle-même',
   planUndoIncomplete: 'L’annulation d’un plan doit couvrir tous les effets d’origine',
+  compositeUndoIncomplete: 'L’annulation d’une opération composée doit couvrir tous ses effets',
   danglingEventReference: 'Référence d’événement orpheline',
   eventTimeMismatch: 'L’heure de l’événement ne correspond pas à l’heure réelle de l’opération',
   brokenEventChain: 'La chaîne d’événements est discontinue ou n’a pas de point de départ explicite',

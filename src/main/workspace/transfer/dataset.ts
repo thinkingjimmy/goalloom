@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Schema-v7 export, v1-v7 source validation, body-discarding protective checks and atomic replacement with legacy manual year/half defaults.
+ * [OUTPUT]: Schema-v8 export, v1-v8 source validation and atomic replacement; startup upgrades keep source appearance, restores keep target appearance.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,7 +12,7 @@ import { validateDataset } from '../../../domain/import-validation'
 import { DomainError } from '../../../shared/contracts/commands'
 import { Store } from '../../storage/store'
 import { transaction, verifyDatabase } from '../../storage/database'
-import { requiredTables, schemaVersion, supportedVersions, userVersion } from '../../storage/schema'
+import { sourceTables, schemaVersion, supportedVersions, userVersion } from '../../storage/schema'
 import { datasetHeader, datasetRows } from './rows'
 import { serverText } from '../../../shared/i18n/server'
 import { currentPeriod } from '../../../domain/calendar'
@@ -26,7 +26,7 @@ function readDataset(store: Store, now: string, version: number, keepDescription
     // Each original body passes the same schema before it is discarded for protection-only validation.
     items: Array.from(datasetRows(store, 'items'), item => keepDescriptions ? item : { ...item, description: '' }), placements: [...datasetRows(store, 'placements')], periods: [...datasetRows(store, 'periods')],
     relations: [...datasetRows(store, 'relations')], policies: [...datasetRows(store, 'policies')], events: [...datasetRows(store, 'events')],
-    operations: [...datasetRows(store, 'operations')], undoEffects: [...datasetRows(store, 'undoEffects')],
+    guidance: [...datasetRows(store, 'guidance')], operations: [...datasetRows(store, 'operations')], undoEffects: [...datasetRows(store, 'undoEffects')],
   }
 }
 export async function readSqliteDataset(path: string, now: string, source: 'external' | 'backup' = 'external'): Promise<Dataset> {
@@ -43,7 +43,7 @@ async function readSqlite(path: string, now: string, source: 'external' | 'backu
     const version = userVersion(db)
     if (!supportedVersions.includes(version)) throw new DomainError('invalid', serverText().errors.unsupportedDatabase)
     const tables = db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
-    if (tables.some(row => row.type === 'view') || requiredTables.some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
+    if (tables.some(row => row.type === 'view') || sourceTables(version).some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
     verifyDatabase(db)
     const data = readDataset(new Store(db), now, version, keepDescriptions)
     return validateDataset(data, now)
@@ -53,14 +53,14 @@ export function emptyDataset(store: Store, now: string): Dataset {
   const workspace = store.workspace()
   return { schemaVersion, historyMode: 'complete', exportedAt: now,
     workspace: { ...workspace, generation: randomUUID(), calendar: null, setupConfirmedAt: null, pausedAfterRestore: false, revision: 0, clockAnomaly: false, lastObservedAt: null, backupEnabled: true, backupRetention: 7 },
-    items: [], placements: [], periods: [], policies: [], relations: [], events: [], operations: [], undoEffects: [] }
+    guidance: [], items: [], placements: [], periods: [], policies: [], relations: [], events: [], operations: [], undoEffects: [] }
 }
-export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 'restore', now: string): string {
-  const generation = randomUUID(), { theme, style, checkStyle } = store.workspace()
-  const data = { ...input, workspace: { ...input.workspace, generation, theme, style, checkStyle, pausedAfterRestore: mode === 'restore', revision: input.workspace.revision + 1 } }
+export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 'restore' | 'upgrade', now: string): string {
+  const generation = randomUUID(), { theme, style, checkStyle } = mode === 'upgrade' ? input.workspace : store.workspace()
+  const data = { ...input, workspace: { ...input.workspace, generation, theme, style, checkStyle, pausedAfterRestore: mode !== 'reset', revision: input.workspace.revision + 1 } }
   return transaction(store.db, () => {
     // --- 唯一连接中原子替换；任何约束/校验/磁盘错误全部回滚旧库。 ---
-    store.db.exec('PRAGMA defer_foreign_keys=ON; DELETE FROM undo_effects; DELETE FROM item_events; DELETE FROM operations; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM planning_periods; DELETE FROM items; DELETE FROM sqlite_sequence WHERE name=\'item_events\';')
+    store.db.exec('PRAGMA defer_foreign_keys=ON; DELETE FROM item_guidance; DELETE FROM undo_effects; DELETE FROM item_events; DELETE FROM operations; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM planning_periods; DELETE FROM items; DELETE FROM sqlite_sequence WHERE name=\'item_events\';')
     store.saveWorkspace(data.workspace)
     for (const period of data.periods) store.ensurePeriod(period)
     const placements = new Map(data.placements.map(p => [p.itemId, p]))
@@ -76,6 +76,7 @@ export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 're
       }
     }
     for (const operation of data.operations) store.saveOperation(operation)
+    for (const head of data.guidance ?? []) store.saveGuidance(head)
     const insertEvent = store.prepare('INSERT INTO item_events (seq,id,operationId,eventIndex,itemId,at,type,beforeState,afterState,fromPeriodId,toPeriodId,undoOf) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
     for (const event of data.events) insertEvent.run(event.seq, event.id, event.operationId, event.eventIndex, event.itemId, event.at, event.type, event.before ? JSON.stringify(event.before) : null, JSON.stringify(event.after), event.before?.periodId ?? null, event.after.periodId, event.undoOf)
     const insertMarker = store.prepare('INSERT INTO undo_effects VALUES (?,?,?)')

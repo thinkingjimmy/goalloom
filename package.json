@@ -57,7 +57,9 @@
     "test:insight": "node tests/desktop/insight.mjs",
     "test:insight-live": "node tests/desktop/insight-live.mjs",
     "test:insight-generation": "node tests/desktop/insight-generation.mjs",
-    "test:calendar": "node tests/desktop/calendar-modes.mjs"
+    "test:calendar": "node tests/desktop/calendar-modes.mjs",
+    "test:assistance": "node tests/desktop/assistance/run.mjs",
+    "eval:assistance": "node scripts/eval/assistance/run.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

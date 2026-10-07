@@ -199,6 +199,7 @@ export const appMessages: typeof source = {
       authentication_failed: (name: string) => `La clé n’a pas été authentifiée par ${name}. Vérifiez ou remplacez la Key`,
       permission_denied: (name: string) => `Cette Key ${name} n’a pas l’autorisation d’appeler Jev. Vérifiez dans la console officielle`,
       routing_policy: () => 'AI Gateway n’a pas confirmé que seul TypeSafe traite cette requête. Envoi interrompu',
+      timeout: () => 'La génération a dépassé le délai. Votre texte est conservé. Réessayez ou écrivez une note.',
       unavailable: () => 'Connexion à Jev impossible pour le moment (réseau, délai dépassé ou service saturé). Le brouillon est conservé',
       malformed_response: () => 'Le résultat renvoyé par Jev ne respecte pas le format attendu et n’a pas été utilisé. Le brouillon est conservé',
       request_failed: (_name: string, status: number | null) => `L’appel a échoué${status ? ` (HTTP ${status})` : ''}. Cela ne signifie pas que la Key est invalide`,

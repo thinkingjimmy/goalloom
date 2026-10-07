@@ -80,17 +80,19 @@ renderer/
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
 │   │   ├── period-labels.ts # Mode-aware adjacent/distant headings, natural Q/year lists and year-disambiguated anchored ranges
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
+│   ├── assistance/        # Detail subview, bounded memory drafts, explicit provider consent and atomic adoption (see its README)
 │   ├── items/
 │   │   ├── use-item-autosave.ts # Serialized silent saves/actions, guarded empty-title dismissal outside trash, receipt-first retry and native draining
-│   │   ├── ItemDetail.tsx   # Draft-safe details: rich title, due plus one flow chip, full-height Markdown, and a permanent rail (activity above cancel/archive/delete)
+│   │   ├── ItemDetail.tsx   # Draft-safe details with intent-scoped help/schedule subviews; unknown writes block entry switches while Markdown stays mounted
 │   │   ├── DetailTitle.tsx  # Unclipped shared link display, growing raw-title editor with persistent native undo/redo and empty-draft recovery, saved-only metadata and keyboard focus handoff
 │   │   ├── DuePicker.tsx    # Width-bounded deadline label with full accessible/hover date, shared calendar and focus restoration; selection/clear immediately autosaves
 │   │   ├── RelationPicker.tsx # Board-ordered parent/child search shared by detail/flow-dot menus; optional guidance replacement, horizon/effective-flow guards and linked-first removal
 │   │   ├── DetailFlowChip.tsx # 详情流程芯片：上级标题、起点圆点或加入流程，菜单与看板圆点一致
 │   │   ├── FlowPicker.tsx   # FlowDot 与 FlowColorMenu；详情芯片和看板圆点共用色板
 │   │   ├── RelationChip.tsx # 关联弹层：列出一端的关联并可转入 RelationPicker
-│   │   ├── Activity.tsx     # 活动摘要 hook；满 3 条后是彩色总结和按月日历，更少则是最近三条时间线
-│   │   └── activity-insight.ts # 从活动事件折出顺延次数、停留最久的列、打开天数和日历圆点
+│   │   ├── Activity.tsx     # Stable facts/help/calendar rail, guarded help actions, accessible day/all cursor pages and undone event labels
+│   │   ├── activity.css    # Rail hierarchy, accessible date controls and bounded record reading
+│   │   └── activity-insight.ts # Month grid only; no renderer statistics algorithm
 │   └── setup/
 │       ├── Setup.tsx        # 日历 → 年方向与确认的草稿；返回、语言变化与日期过期均保留输入
 │       ├── OnboardingFrame.tsx # 左上三步进度、右上语言、居中内容列（各步标题位置一致），底部固定、无底栏样式的说明与按钮行
@@ -126,6 +128,8 @@ renderer/
 │   ├── update.ts           # 软件更新单一 store：版本 + 阶段（首次订阅读取并监听推送，不轮询）、手动检查／重启更新、hasUpdate 红点判定
 │   ├── ai.ts               # 设备侧 AI 服务状态（每服务凭据/能力/失败，每功能服务与开关）与动作（代次变化即重读）
 │   ├── insight.ts          # 本机流程洞察偏好（localStorage，不入工作区）：关于我/步长/语气/关注、开关、引导与批量原子复盘标记；draft/review 请求
+│   ├── assistance-drafts.ts # Eight intent-scoped drafts within 512 KiB; adoption/replacement/forget cleanup
+│   ├── insight-context.ts # Consent-scoped program facts and stable dependency keys for existing caches
 │   ├── review-summary.ts   # Up to 24 device-local period summaries, exact-prompt fingerprints, shared requests and generation invalidation
 │   ├── review-drafts.ts    # Up to 24 review-only destination suggestion batches, exact-prompt fingerprints, pending reuse and generation invalidation
 │   ├── feedback.ts         # Command feedback policy (moves/advances are silent), committed destinations, partial-restore warnings and reading durations

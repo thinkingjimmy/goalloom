@@ -32,16 +32,18 @@ export function chatAdapter(provider: ChatProvider, fetch?: Fetch): ChatAdapter 
     if (signal.aborted) throw new Aborted()
     const body = JSON.stringify({ model: preset.model, messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }],
       temperature: 0.3, max_tokens: prompt.maxTokens, response_format: { type: 'json_object' }, ...preset.options })
+    const timeout = AbortSignal.timeout(insightTimeoutMs)
     let response: Response
     try {
-      response = await (fetch ?? globalThis.fetch)(preset.endpoint, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body, signal: AbortSignal.any([signal, AbortSignal.timeout(insightTimeoutMs)]), redirect: 'error' })
-    } catch { if (signal.aborted) throw new Aborted(); throw new ProviderFailure(failure('unavailable', provider)) }
+      response = await (fetch ?? globalThis.fetch)(preset.endpoint, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body, signal: AbortSignal.any([signal, timeout]), redirect: 'error' })
+    } catch { if (signal.aborted) throw new Aborted(); throw new ProviderFailure(failure(timeout.aborted ? 'timeout' : 'unavailable', provider)) }
     let data: Record<string, unknown>
     try { data = await response.json() as Record<string, unknown> }
-    catch { if (signal.aborted) throw new Aborted(); throw new ProviderFailure(response.ok ? failure('malformed_response', provider) : classifyFailure(provider, response.status, null, response.headers, Date.now())) }
+    catch { if (signal.aborted) throw new Aborted(); throw new ProviderFailure(timeout.aborted ? failure('timeout', provider) : response.ok ? failure('malformed_response', provider) : classifyFailure(provider, response.status, null, response.headers, Date.now())) }
     if (!response.ok) throw new ProviderFailure(classifyFailure(provider, response.status, data, response.headers, Date.now()))
     const content = ((data.choices as { message?: { content?: unknown } }[] | undefined)?.[0]?.message?.content)
     if (typeof content !== 'string' || !content.trim()) throw new ProviderFailure(failure('malformed_response', provider))
+    if (prompt.maxOutputBytes && Buffer.byteLength(content) > prompt.maxOutputBytes) throw new ProviderFailure(failure('too_large', provider))
     return content
   }
 }

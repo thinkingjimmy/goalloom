@@ -10,18 +10,21 @@ workspace/
 ├── ordering.ts       # Body-free ancestor placement metadata shared by board reads and guarded ordering commands
 ├── queries.ts        # Count/activity/batch projections and shared trash filtering that excludes empty-detail discards
 ├── review.ts         # Generation-bound period-end facts, six-scale context with pre-anchor guards, live unfinished placements and exact plans
+├── execution.ts      # Indexed 5,000-event facts, all event-owned undo, replayed guidance and frozen month/day/all pages with exact local end boundaries
+├── assistance-context.ts # Bounded task/relationship context, exact omissions and transaction dependency guards
 ├── history.ts        # Immutable period-end projections and activity; separate generation-guarded live past-task pages filtered by current placement
 ├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/
 │   ├── items.ts      # Setup/date revalidation, atomic item writes and flow-valid linking with isolated-parent root promotion
 │   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
+│   ├── assistance.ts # Atomic guidance plus optional placement, owned-content identity and immutable v2 effects
 │   ├── lifecycle.ts  # Independent lifecycle, guarded empty-title discard outside trash, scoped restore and unlink
 │   ├── undo.ts       # Owned-field inverses including atomic flow adoption/promotion, color/branch guards, events and holds
 │   ├── backlog.ts    # 往期候选复核与批量安排，一个原子用户操作
 │   ├── ordering.ts   # Group-checked moves and atomic, reversible half/cycle/month/week/day current/future order materialization
 │   └── settings.ts   # Six-horizon policy versions/non-retroactive boundaries, explicit resume and independent batch undo
 └── transfer/
-    ├── dataset.ts    # v1–v7 validation, v7 export, legacy manual year/half defaults, baseline history and atomic replacement
+    ├── dataset.ts    # v1–v8 validation/export, legacy defaults and atomic replacement; upgrades retain source appearance, restores/reset retain target appearance
     ├── rows.ts       # 导出/恢复共用逐行 schema 与数量上限
     ├── files.ts      # worker 内受限 JSON 读取与一致视图的分块原子导出
     └── service.ts    # 源数据校验、预览/保护备份/持续维护/显式提交

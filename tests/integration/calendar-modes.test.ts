@@ -122,7 +122,7 @@ describe('Authoritative calendar transactions and shared consumers', () => {
     setup(mode, mode === 'natural' ? { kind: 'today', expected: '2026-01-01' } : undefined)
     for (const h of horizons) create(h)
     const data = exportDataset(repo.store, now)
-    expect(data.schemaVersion).toBe(7)
+    expect(data.schemaVersion).toBe(8)
     replaceDataset(repo.store, validateDataset(data, now), 'restore', now)
     const after = exportDataset(repo.store, now)
     for (const key of ['items', 'placements', 'periods', 'relations', 'policies', 'events', 'operations', 'undoEffects'] as const) expect(after[key]).toEqual(data[key])

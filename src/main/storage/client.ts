@@ -27,7 +27,7 @@ export class StorageClient {
     this.worker.on('error', () => this.fail())
     this.worker.on('exit', () => this.fail())
   }
-  call<T>(method: 'candidate' | 'metadata' | 'startup' | 'locale' | 'query' | 'command' | 'runtime' | 'export' | 'close' | 'data' | 'previewImport' | 'reconcile' | 'releaseTransfer', argument?: unknown): Promise<T> {
+  call<T>(method: 'prepareStartupUpgrade' | 'commitStartupUpgrade' | 'candidate' | 'metadata' | 'startup' | 'locale' | 'query' | 'command' | 'runtime' | 'export' | 'close' | 'data' | 'previewImport' | 'reconcile' | 'releaseTransfer', argument?: unknown): Promise<T> {
     if (this.stopped || this.closing) return Promise.reject(new DomainError('storage', serverText().storage.closing))
     const id = ++this.sequence
     return new Promise<T>((resolve, reject) => {

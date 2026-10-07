@@ -203,7 +203,7 @@ async function panelCheck(count) {
   if (count) {
     const detail = page.getByRole('dialog', { name: '当前条目', exact: true })
     await open('detail', '当前条目', () => page.getByRole('button', { name: 'Startup fixture cycle 01', exact: true }).click(), detail)
-    assert.equal(await detail.getByLabel('说明', { exact: true }).inputValue(), 'Synthetic local benchmark task. No personal content or credentials.')
+    assert.equal(await detail.getByRole('textbox', { name: '说明', exact: true }).innerText(), 'Synthetic local benchmark task. No personal content or credentials.')
     await detail.getByRole('button', { name: '关闭', exact: true }).click()
     await detail.waitFor({ state: 'hidden' })
   }

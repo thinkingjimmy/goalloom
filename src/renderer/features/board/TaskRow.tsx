@@ -77,10 +77,11 @@ function TitleField({ title, itemId, renameTitle, endEdit }: {
     }} />
 }
 
-export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, onMenu, onMoved, beginEdit, endEdit, renameTitle }: {
+export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle }: {
   index: number; total: number; item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]; today: string
   selected: boolean; dimmed: boolean; tint: string | undefined; disabled: boolean; editing: boolean; editLocked: boolean
   select: (id: string) => void; submit: (action: Action) => Promise<unknown>; onPreview: (itemId: string | null) => void
+  assist?: ((itemId: string) => void) | undefined
   upcoming: Upcoming[] | null; decompose: ((item: ItemSummary) => void) | null; onMenu: (id: string | null) => void; onMoved: (id: string) => void
   beginEdit: (id: string) => void; endEdit: (id: string) => void; renameTitle: (itemId: string, title: string) => Promise<boolean>
 }) {
@@ -133,9 +134,9 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
       onClick={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
       {done && <Icon name="check" size={12} strokeWidth={2.5} />}
     </button>
-    {hasLinks || item.note ? <div className="task-content">{line}{item.note && <NoteSignal itemId={item.id} title={item.title} note={item.note} />}{hasLinks && <LinkPreviews text={item.title} />}</div> : line}
+    {hasLinks || item.note || item.guidance ? <div className="task-content">{line}{(item.note || item.guidance) && <NoteSignal itemId={item.id} title={item.title} note={item.note} guidance={item.guidance} />}{hasLinks && <LinkPreviews text={item.title} />}</div> : line}
   </article>
   const links = relations.filter(edge => edge.parentId === item.id || edge.childId === item.id).length
-  return upcoming && item.status === 'todo' ? <TaskMenu item={item} upcoming={upcoming} relations={links} disabled={disabled || isDragging} submit={submit} select={select}
-    decompose={decompose && (() => decompose(item))} onMenu={onMenu} onMoved={onMoved}>{row}</TaskMenu> : row
+  return item.status === 'todo' ? <TaskMenu item={item} upcoming={upcoming ?? []} relations={links} disabled={disabled || isDragging} submit={submit} select={select}
+    assist={assist ? () => assist(item.id) : undefined} decompose={decompose && (() => decompose(item))} onMenu={onMenu} onMoved={onMoved}>{row}</TaskMenu> : row
 })

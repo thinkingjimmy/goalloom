@@ -7,7 +7,7 @@
 import { messages, smartMessages, useLocale } from './i18n'
 import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { currentPeriod, workspaceDate } from '../domain/calendar'
-import type { PlanningPeriod } from '../shared/contracts/entities'
+import type { ItemSummary, PlanningPeriod } from '../shared/contracts/entities'
 import { Icon } from './components/icons'
 import type { CalendarChoice } from './features/setup/Setup'
 import { revealRow } from './features/board/VirtualRows'
@@ -16,7 +16,10 @@ import type { ComposerSeed } from './features/composer/Seeded'
 import { insightReady, markReviewed, useInsightSettings } from './state/insight'
 import { requestReviewCelebration } from './state/celebration'
 import { syncReviewSummaryGeneration } from './state/review-summary'
+import { syncAssistanceGeneration } from './state/assistance-drafts'
 import { syncReviewDraftGeneration } from './state/review-drafts'
+import { decompose as decomposeItem } from './features/insight/decompose'
+import { shorter } from './features/insight/signals'
 import { reviewDue, type ReviewDue } from './features/insight/review'
 import { boardItemVisibility } from './features/board/visibility'
 import { TopBar } from './features/shell/TopBar'
@@ -59,6 +62,7 @@ export function App() {
   // `at` re-targets an already open Settings when a caller (e.g. the app menu's About) names a section.
   const [settings, setSettings] = useState(false), [settingsRequest, setSettingsRequest] = useState<{ section: Section; at: number }>({ section: 'appearance', at: 0 })
   const update = useUpdate()
+  const [initialHelp, setInitialHelp] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [palette, setPalette] = useState(false)
   const openPalette = () => startTransition(() => setPalette(true))
@@ -68,6 +72,17 @@ export function App() {
     boardView.returnPastToCurrent()
     setFilter(id)
   }, [boardView.returnPastToCurrent])
+  const inputOrigin = useRef<'pointer' | 'keyboard'>('keyboard'), detailFocusOrigin = useRef<'pointer' | 'keyboard'>('keyboard')
+  const select = useCallback((id: string) => {
+    setInitialHelp(false)
+    detailFocusOrigin.current = inputOrigin.current
+    startTransition(() => setSelected(id))
+  }, [])
+  const closeDetail = () => {
+    const id = selected, origin = detailFocusOrigin.current
+    setSelected(null); setInitialHelp(false)
+    if (id && !settings) requestAnimationFrame(() => revealRow(id, '.task-title', origin))
+  }
   const [seed, setSeed] = useState<ComposerSeed | null>(null)
   const ready = insightReady(ai.status)
   const insightSettings = useInsightSettings()
@@ -81,7 +96,7 @@ export function App() {
     requestAnimationFrame(() => requestReviewCelebration(generation, horizon))
   }
   const due = useMemo(() => snapshot?.workspace.calendar && insightSettings.reviews ? reviewDue(snapshot, insightSettings.reviewed) : null, [snapshot, insightSettings.reviews, insightSettings.reviewed])
-  const insight = useMemo<BoardInsight>(() => ({ ready, due, started: reviewing, reviewed: insightSettings.reviewed, review: value => startTransition(() => {
+  const insight = useMemo<BoardInsight>(() => ({ assist: id => { detailFocusOrigin.current = inputOrigin.current; setInitialHelp(true); startTransition(() => setSelected(id)) }, ready, due, started: reviewing, reviewed: insightSettings.reviewed, review: value => startTransition(() => {
     setReviewing(previous => previous?.month?.key === value.month?.key && previous?.week?.key === value.week?.key ? previous : value); setReviewOpen(true)
   }),
     seed: value => {
@@ -95,16 +110,6 @@ export function App() {
     const timer = setTimeout(() => setFeedback(null), feedback.durationMs)
     return () => clearTimeout(timer)
   }, [feedback, toastHeld, busy, setFeedback])
-  const inputOrigin = useRef<'pointer' | 'keyboard'>('keyboard'), detailFocusOrigin = useRef<'pointer' | 'keyboard'>('keyboard')
-  const select = useCallback((id: string) => {
-    detailFocusOrigin.current = inputOrigin.current
-    startTransition(() => setSelected(id))
-  }, [])
-  const closeDetail = () => {
-    const id = selected, origin = detailFocusOrigin.current
-    setSelected(null)
-    if (id && !settings) requestAnimationFrame(() => revealRow(id, '.task-title', origin))
-  }
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const setupReady = !!snapshot?.workspace.setupConfirmedAt
   useLayoutEffect(() => { resetLinkPreviewCache() }, [snapshot?.workspace.generation])
@@ -112,6 +117,7 @@ export function App() {
     if (!snapshot?.workspace.generation) return
     syncReviewSummaryGeneration(snapshot.workspace.generation)
     syncReviewDraftGeneration(snapshot.workspace.generation)
+    syncAssistanceGeneration(snapshot.workspace.generation)
   }, [snapshot?.workspace.generation])
   useLayoutEffect(() => { withoutTransitions(() => { document.documentElement.dataset.theme = theme }) }, [theme])
   useLayoutEffect(() => { withoutTransitions(() => { document.documentElement.dataset.style = style }) }, [style])
@@ -225,7 +231,16 @@ export function App() {
     {seed && snapshot && setupReady && <Seeded key={seed.key} seed={seed} snapshot={snapshot} flows={flows} submit={submit} busy={busy} error={error} close={() => setSeed(null)} />}
     </Suspense>
     <Suspense fallback={null}>
-    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} close={closeDetail} generation={snapshot.workspace.generation} write={write} retryWrite={retryWrite} revision={snapshot.workspace.revision} blocked={!!pending || !!snapshot.maintenance}
+    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} decompose={async () => {
+        try {
+          const detail = await desktopApi().getItem(selected), target = shorter(detail.item.placement.horizon)
+          if (!target) return
+          const { description: _description, ...record } = detail.item
+          const parent: ItemSummary = { ...record, note: null }
+          setSelected(null); setInitialHelp(false)
+          await decomposeItem({ snapshot: { ...snapshot, items: boardView.items, periods: snapshot.periods.map(period => detail.period?.horizon === period.horizon ? detail.period : period) }, flows, ready, submit, seed: insight.seed }, { parent, target, manual: true })
+        } catch { setError(messages.autosaveFailed) }
+      }} connect={() => { closeDetail(); openSettings('ai') }} initialAssistance={initialHelp} close={closeDetail} generation={snapshot.workspace.generation} write={write} retryWrite={retryWrite} revision={snapshot.workspace.revision} blocked={!!pending || !!snapshot.maintenance}
       flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} />}
     </Suspense>
     {feedback && <FeedbackLayer><div ref={toastRef} className="toast" key={feedback.result.operationId} data-warning={!!feedback.warning}

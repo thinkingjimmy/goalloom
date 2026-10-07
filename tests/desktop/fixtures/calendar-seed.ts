@@ -103,7 +103,7 @@ for (const version of [5, 6]) {
     const destination = new Repository(target, { now: () => now })
     replaceDataset(destination.store, dataset, 'restore', now)
     const roundTrip = exportDataset(destination.store, now)
-    assert.equal(roundTrip.schemaVersion, 7)
+    assert.equal(roundTrip.schemaVersion, 8)
     assert.equal(roundTrip.workspace.calendar!.mode, 'rolling')
     assert.equal(roundTrip.workspace.calendar!.cycleAnchor, '2026-01-31')
     for (const field of fields) {

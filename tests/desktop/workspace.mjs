@@ -29,7 +29,7 @@ try {
   page.on('pageerror', error => console.error(error.message))
   await page.locator('.calendar-modes').waitFor()
   console.log(await page.locator('body').ariaSnapshot())
-  assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getActivitySummary', 'getBackupSummary', 'getBatchItems', 'getBatches', 'getBoardPeriods', 'getCounts', 'getHistory', 'getHistoryIndex', 'getItem', 'getLanguage', 'getLinkPreview', 'getPastPeriod', 'getReceipt', 'getReviewContext', 'getRuntime', 'getSnapshot', 'listItems', 'onBeforeClose', 'onChanged', 'onOpenAbout', 'onUpdate', 'openExternal', 'setLanguage', 'smart', 'update'])
+  assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getActivityDay', 'getActivityMonth', 'getActivityPage', 'getActivitySummary', 'getBackupSummary', 'getBatchItems', 'getBatches', 'getBoardPeriods', 'getCounts', 'getExecutionSummary', 'getHistory', 'getHistoryIndex', 'getInsightTaskContext', 'getItem', 'getLanguage', 'getLinkPreview', 'getPastPeriod', 'getReceipt', 'getReviewContext', 'getRuntime', 'getSnapshot', 'listItems', 'onBeforeClose', 'onChanged', 'onOpenAbout', 'onUpdate', 'openExternal', 'setLanguage', 'smart', 'update'])
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
   assert.equal(await page.evaluate(() => typeof window.process), 'undefined')
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())

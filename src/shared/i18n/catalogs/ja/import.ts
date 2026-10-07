@@ -45,6 +45,7 @@ export const importMessages: typeof source = {
   undoMarkerDangling: '取り消しマーカーの参照先がないか、記録が一致しません',
   selfUndo: '操作は自分自身を取り消せません',
   planUndoIncomplete: '計画の取り消しは元の効果をすべて含む必要があります',
+  compositeUndoIncomplete: '複合操作はすべての効果をまとめて取り消す必要があります',
   danglingEventReference: '参照先のないイベント参照があります',
   eventTimeMismatch: 'イベントと操作の実際の時刻が一致しません',
   brokenEventChain: '業務イベントの連鎖が途切れているか、明確な起点がありません',

@@ -197,6 +197,7 @@ export const appMessages = widen({
       authentication_failed: (name: string) => `${name} 未通过密钥认证，请检查或更换 Key`,
       permission_denied: (name: string) => `该 ${name} Key 没有调用 Jev 的权限，请在官方控制台检查`,
       routing_policy: () => 'AI Gateway 未确认只由 TypeSafe 处理本请求，已停止发送',
+      timeout: () => '生成超时，输入已保留；可重试或手写推进说明。',
       unavailable: () => '暂时无法连接 Jev（网络、超时或服务繁忙），草稿已保留',
       malformed_response: () => 'Jev 返回的结果不符合约定，未使用；草稿已保留',
       request_failed: (_name: string, status: number | null) => `调用未成功${status ? `（HTTP ${status}）` : ''}，这不代表 Key 失效`,

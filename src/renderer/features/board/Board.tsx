@@ -47,7 +47,7 @@ import { useInsightSettings } from '../../state/insight'
 import type { ComposerSeed } from '../composer/Seeded'
 
 export interface AddRequest { seq: number; horizon: ItemHorizon | null; split: SplitParent | null }
-export interface BoardInsight { ready: boolean; seed: (seed: Omit<ComposerSeed, 'key'>) => void; due: ReviewDue | null; started: ReviewDue | null; reviewed: string[]; review: (due: ReviewDue) => void }
+export interface BoardInsight { assist?: (itemId: string) => void; ready: boolean; seed: (seed: Omit<ComposerSeed, 'key'>) => void; due: ReviewDue | null; started: ReviewDue | null; reviewed: string[]; review: (due: ReviewDue) => void }
 interface BoardProps { snapshot: Snapshot; view: BoardView; flows: Flows; filter: string | null; columns: ItemHorizon[]; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void; insight: BoardInsight; write: PreparedWrite; relationBlocked: boolean; onError: (message: string) => void }
 
 export const Board = memo(function Board({ snapshot, view, flows, filter, columns, highlighted, addRequest, submit, busy, select, insight, write, relationBlocked, onError }: BoardProps) {
@@ -254,7 +254,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     return <TaskRow index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
       // Later never joins flows, so a flow filter leaves the parking lot readable instead of greying it out.
       dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} editing={editingId === item.id} editLocked={disabled || !!dragging || !!relationSource} select={select} submit={submit} onPreview={onPreview}
-      upcoming={upcoming} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle} />
+      upcoming={upcoming} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle} />
   }
   const due = insight.due, review = mode !== 'current' || !due ? null
     : horizon === 'month' && (due.scope === 'month' || due.scope === 'both') ? due.month!

@@ -11,11 +11,12 @@ import { activitySummarySchema, backupSummarySchema, boardPeriodsSchema, reviewC
 import { replySchema, resultSchema } from '../shared/contracts/commands'
 import { activitySchema, historyIndexSchema, historyPageSchema, pastPeriodPageSchema } from '../shared/contracts/history'
 import { batchPageSchema, batchSchema, dataReplySchema } from '../shared/contracts/transfer'
-import { smartChannel, smartReplySchema } from '../shared/contracts/smart-input'
+import { smartChannel, smartReplySchema, insightEvidenceSchema } from '../shared/contracts/smart-input'
 import { setValidationLocale } from '../shared/i18n/validation'
 import { linkChannel, linkPreviewSchema } from '../shared/contracts/link-preview'
 import { openAboutEvent, updateChannel, updateEvent, updateInfoSchema } from '../shared/contracts/update'
 import { closeRequestEvent, closeReplyEvent, closeRequestSchema } from '../shared/contracts/window-close'
+import { activityEntriesSchema, activityMonthSchema, executionFactsSchema } from '../shared/contracts/execution'
 
 const closeGuards = new Set<() => Promise<boolean>>()
 ipcRenderer.on(closeRequestEvent, (_event, input: unknown) => {
@@ -50,6 +51,11 @@ const api: GoalloomApi = {
   getPastPeriod: async query => readQuery(query, pastPeriodPageSchema),
   getHistoryIndex: async horizon => query({ type: 'historyIndex', horizon }, historyIndexSchema),
   getActivity: async query => readQuery(query, activitySchema),
+  getExecutionSummary: async input => readQuery(input, executionFactsSchema),
+  getActivityMonth: async input => readQuery(input, activityMonthSchema),
+  getActivityDay: async input => readQuery(input, activityEntriesSchema),
+  getActivityPage: async input => readQuery(input, activityEntriesSchema),
+  getInsightTaskContext: async input => readQuery(input, insightEvidenceSchema),
   getBatches: async () => query({ type: 'batches' }, batchSchema.array()),
   getBackupSummary: async () => query({ type: 'backupSummary' }, backupSummarySchema),
   getCounts: async () => query({ type: 'counts' }, itemCountsSchema),

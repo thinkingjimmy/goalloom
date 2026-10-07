@@ -16,7 +16,7 @@ import { reviewDigest, reviewSignals, type ReviewDue } from './review'
 
 export function ReviewSummary({ due, snapshot, flows, ready }: { due: ReviewDue; snapshot: Snapshot; flows: Flows; ready: boolean }) {
   const { prefs } = useInsightSettings()
-  const prepared = prepareReviewSummary({ generation: snapshot.workspace.generation, scope: due.scope, board: reviewDigest(snapshot, flows), signals: reviewSignals(snapshot, flows, due) },
+  const prepared = prepareReviewSummary({ generation: snapshot.workspace.generation, scope: due.scope, board: reviewDigest(snapshot, flows), signals: reviewSignals(snapshot, flows, due), evidenceRequests: snapshot.items.slice(0, 8).flatMap(item => { const period = [due.week?.period, due.month?.period].find(period => period?.id === item.placement.periodId); return period ? [{ itemId: item.id, cutoff: period.endAt < snapshot.observedAt ? period.endAt : snapshot.observedAt }] : [] }) },
     [due.week?.key, due.month?.key].filter((key): key is string => !!key), prefs)
   const [state, setState] = useState<{ value: ReviewText | null; pending: boolean; error: boolean }>({ value: null, pending: ready, error: false })
   const sequence = useRef(0), working = useRef(false)

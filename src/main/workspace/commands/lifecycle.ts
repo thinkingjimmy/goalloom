@@ -55,7 +55,7 @@ export function deleteItem(context: Context, command: CommandOf<'delete' | 'disc
   assertAvailable(item)
   if (command.type === 'discardEmpty') {
     const linked = context.store.prepare('SELECT 1 FROM item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?) LIMIT 1').get(item.id, item.id)
-    if (!canDiscardEmptyTitle(item, Number(!!linked))) throw new DomainError('conflict', serverText().errors.itemChanged)
+    if (!canDiscardEmptyTitle(item, Number(!!linked), !!context.store.guidance(item.id)?.value)) throw new DomainError('conflict', serverText().errors.itemChanged)
   }
   const before = structuredClone(item)
   const edges = command.type === 'discardEmpty' ? [] : invalidateEdges(context, item.id)

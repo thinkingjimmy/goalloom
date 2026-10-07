@@ -162,7 +162,7 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
     return reply.result
   })
   const discardable = (latest: ItemDetail) => !source.current.title.trim()
-    && canDiscardEmptyTitle(latest.item, latest.relations.length)
+    && canDiscardEmptyTitle(latest.item, latest.relations.length, !!latest.guidance?.value)
     && !source.current.description.trim() && !source.current.dueDate
   const dismiss = (): Promise<boolean> => enqueue(async () => {
     cancelTimer()

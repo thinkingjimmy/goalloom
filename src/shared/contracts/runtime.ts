@@ -11,8 +11,10 @@ import type { ItemDetail, ItemPage, Query, Snapshot, BoardPeriods, ReviewContext
 import type { Activity, HistoryIndex, HistoryPage, PastPeriodPage } from './history'
 import type { BatchSummary, BatchPage, DataAction, DataReply } from './transfer'
 import type { SmartAction, SmartReply } from './smart-input'
+import type { insightEvidenceSchema } from './smart-input'
 import type { LinkPreview } from './link-preview'
 import type { UpdateAction, UpdateInfo } from './update'
+import type { ActivityEntries, ActivityMonth, ExecutionFacts } from './execution'
 
 export const runtimeChannel = 'goalloom:runtime'
 export const runtimeInfoSchema = z.strictObject({
@@ -41,6 +43,11 @@ export interface GoalloomApi {
   getPastPeriod(query: Extract<Query, { type: 'pastPeriod' }>): Promise<PastPeriodPage>
   getHistoryIndex(horizon: Extract<Query, { type: 'historyIndex' }>['horizon']): Promise<HistoryIndex>
   getActivity(query: Extract<Query, { type: 'activity' }>): Promise<Activity>
+  getExecutionSummary(query: Extract<Query, { type: 'executionSummary' }>): Promise<ExecutionFacts>
+  getActivityMonth(query: Extract<Query, { type: 'activityMonth' }>): Promise<ActivityMonth>
+  getActivityDay(query: Extract<Query, { type: 'activityDay' }>): Promise<ActivityEntries>
+  getActivityPage(query: Extract<Query, { type: 'activityPage' }>): Promise<ActivityEntries>
+  getInsightTaskContext(query: Extract<Query, { type: 'insightTaskContext' }>): Promise<z.infer<typeof insightEvidenceSchema>>
   getBatches(): Promise<BatchSummary[]>
   getBatchItems(query: Extract<Query, { type: 'batchItems' }>): Promise<BatchPage>
   getCounts(): Promise<ItemCounts>

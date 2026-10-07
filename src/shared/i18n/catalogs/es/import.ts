@@ -45,6 +45,7 @@ export const importMessages: typeof source = {
   undoMarkerDangling: 'La marca de deshacer está huérfana o su recibo no coincide',
   selfUndo: 'Una operación no puede deshacerse a sí misma',
   planUndoIncomplete: 'Deshacer un plan debe cubrir todos sus efectos originales',
+  compositeUndoIncomplete: 'Deshacer una operación compuesta debe revertir todos sus efectos',
   danglingEventReference: 'Referencia de evento huérfana',
   eventTimeMismatch: 'La hora del evento no coincide con la hora real de la operación',
   brokenEventChain: 'La cadena de eventos no es continua o no tiene un punto de partida claro',

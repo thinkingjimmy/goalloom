@@ -104,6 +104,7 @@ pnpm package:dir          # 当前平台本地目录包
 | Detail titles: complete rich reading, raw editing, persistent native undo/redo and invalid-title recovery, saved-only links and focus/autosave guards | `pnpm test:links` + `pnpm test:ui` + `pnpm test:language` + `node tests/desktop/review/run.mjs renderer`; development selector: `node tests/desktop/link-previews.mjs --titles`. Editing integration is also owned by `test:autosave`, `test:descriptions`, `test:history` and `test:periods`. |
 | [Task descriptions](features/task-descriptions.md): rich editing/task lists, first-line alignment, selection-tool placement, source/clipboard semantics, saved-only enrichment and inline titles/icons | `pnpm test:descriptions` + `pnpm test:ui` + `pnpm test:links` + `pnpm test:language` + `node tests/desktop/review/run.mjs renderer virtual`; development selectors: `node tests/desktop/descriptions.mjs --editing`, `--checklists`, `--selection-tools`, `--alignment` or `--signals` (board signal and peek). Prototypes are a separate browser comparison, not desktop acceptance. |
 | 备份、JSON 导入导出、恢复、重置 | `pnpm test:recovery`；historical milestone receipt import/undo also uses `pnpm test:calendar` (`fixtures/legacy-milestone.ts`); 维护态与重载相关再跑 `node tests/desktop/review/run.mjs lifecycle` |
+| [任务推进辅助与执行事实](features/Goalloom-Smart-Assistance-PRD-TODO-v1.1.md)：手写/生成、多轮上下文、入口/草稿切换、purpose consent、原子采用/撤销、旧库外观恢复、分层事实/压力/月历分页 | `pnpm test:assistance`（`entry / generation / apply / undo / recovery / language / statistics`；开发选择 `pnpm test:assistance generation` 等）。`review.ts` 归属 undo/recovery/statistics，覆盖复合导入撤销、清除后的历史、撤销状态、午夜/DST、升级外观和 50,000 项批次；证据 `output/tests/assistance/review-report.json`。既有影响范围与逐命令结果在 `output/tests/assistance/regression/report.json`。`pnpm eval:assistance` 默认仅校验 60 个样例并记录跳过，真实模型需明确网络/计费授权和人工评分；不构成已验证质量。 |
 | composer、智能输入、快捷新建（列头／todo 末尾／空白双击） | `pnpm test:composer`（含 `fixtures/column-add.mjs` 的七列、无键盘提示／保留流程信息、长标题折行／增高／收缩／随列宽更新、粘贴／IME、草稿、显示周期、禁用、虚拟列表、五语言与四主题）；开发选择器 `node tests/desktop/composer.mjs --column-add`，证据 `output/tests/column-add/`；保存回执/草稿竞态再跑 `node tests/desktop/review/run.mjs renderer` |
 | 多语言文案、语言切换（含五语言复盘入口与弹窗标题） | `pnpm test:language`；preload 校验文案再跑 `node tests/desktop/review/run.mjs wire` |
 | 自动排序、分组拖动、重排动效 | `pnpm test:ordering`；私有报告、截图与录像位于 `output/tests/ordering/` |
@@ -142,7 +143,7 @@ src/
 │   ├── window/         # 窗口偏好、退出保护与 macOS 应用菜单
 │   ├── smart/          # AI 服务：Jev 与 DeepSeek 的 OpenRouter / Gateway 两渠道 adapter、设备凭据与独立异步服务
 │   ├── link-preview/   # Public URL metadata/image requests and disposable bounded device cache
-│   ├── storage/        # SQLite/v7 新库与旧库只读拒绝/备份/文件适配器与 worker 通道
+│   ├── storage/        # SQLite/v8 新库与旧库只读拒绝/备份/文件适配器与 worker 通道
 │   └── workspace/      # 业务事务、commands、历史/顺延与 transfer
 ├── preload/            # 沙箱 contextBridge，只暴露有限 API
 ├── renderer/

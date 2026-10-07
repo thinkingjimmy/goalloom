@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Workspace path, backup directory and injected startup time.
- * [OUTPUT]: Read-only version checks, unchanged rejection of v1–v6, and new/current v7 connections.
- * [POS]: Startup boundary; dormant protected-upgrade orchestration is retained for future explicit migrations.
+ * [INPUT]: Main-owned workspace path, source-aware table/version rules and injected startup time.
+ * [OUTPUT]: Read-only legacy recovery state, unchanged refusal for old sources and new/current v8 connections.
+ * [POS]: Startup probe; explicit protective-copy conversion is owned by upgrade.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { existsSync } from 'node:fs'
@@ -10,12 +10,12 @@ import type { Workspace } from '../../shared/contracts/entities'
 import type { BackupRecord } from '../../shared/contracts/transfer'
 import { BackupManager } from './backup/manager'
 import { openDatabase } from './database'
-import { migrate, requiredTables, schemaVersion, upgradableVersions, userVersion } from './schema'
+import { migrate, requiredTables, sourceTables, schemaVersion, supportedVersions, upgradableVersions, userVersion } from './schema'
 import { Store } from './store'
 import { serverText } from '../../shared/i18n/server'
 
 export class StartupError extends Error {
-  constructor(message: string, readonly backupPath: string | null = null) { super(message) }
+  constructor(message: string, readonly backupPath: string | null = null, readonly legacyVersion: number | null = null) { super(message) }
 }
 export interface OpenedWorkspace { db: DatabaseSync; protective: BackupRecord | null }
 
@@ -59,8 +59,11 @@ export function probeSource(path: string): Probe {
     const version = userVersion(db)
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(row => String(row.name))
     if (version === 0 && !tables.length) return { kind: 'new' }
-    if (version === schemaVersion) return { kind: 'current' }
-    if (!upgradableVersions.includes(version)) throw new StartupError(version > schemaVersion ? serverText().storage.newerVersion : serverText().storage.unsupportedVersion)
+    if (version === schemaVersion) {
+      if (sourceTables(version).some(name => !tables.includes(name))) throw new StartupError(serverText().storage.incompleteSchema)
+      return { kind: 'current' }
+    }
+    if (!upgradableVersions.includes(version)) throw new StartupError(version > schemaVersion ? serverText().storage.newerVersion : serverText().storage.unsupportedVersion, null, supportedVersions.includes(version) && version < schemaVersion ? version : null)
     if (requiredTables.some(name => !tables.includes(name))) throw new StartupError(serverText().storage.incompleteSchema)
     return { kind: 'upgrade', version }
   } catch (error) { throw error instanceof StartupError ? error : new StartupError(serverText().storage.unreadable) }

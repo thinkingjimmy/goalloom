@@ -19,6 +19,8 @@ const quoted = /[「『“"【]([^」』”"】]{1,80})[」』”"】]/g
 export function storageReader(storage: () => StorageClient): WorkspaceReader {
   const snapshot = () => storage().call<Snapshot>('query', { type: 'snapshot' })
   return {
+    insightEvidence: (itemId, generation, cutoff) => storage().call('query', { type: 'insightTaskContext', itemId, generation, ...(cutoff ? { cutoff } : {}) }),
+    assistance: (itemId, generation) => storage().call('query', { type: 'assistanceContext', itemId, generation }),
     generation: async () => (await storage().call<WorkspaceMetadata>('metadata')).workspace.generation,
     async context(text, hints, referenceTime) {
       const { currentPeriod, workspaceDate } = await import('../../domain/calendar')

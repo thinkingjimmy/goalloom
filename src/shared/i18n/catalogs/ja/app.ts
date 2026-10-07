@@ -198,6 +198,7 @@ export const appMessages: typeof source = {
       authentication_failed: (name: string) => `${name} のキー認証に失敗しました。Key を確認するか変更してください`,
       permission_denied: (name: string) => `この ${name} Key には Jev を呼び出す権限がありません。公式コンソールで確認してください`,
       routing_policy: () => 'AI Gateway がこのリクエストを TypeSafe のみで処理することを確認できなかったため、送信を中止しました',
+      timeout: () => '生成がタイムアウトしました。入力は保持されています。再試行するか手書きしてください。',
       unavailable: () => '現在 Jev に接続できません（ネットワーク、タイムアウト、またはサービスの混雑）。下書きは保持されています',
       malformed_response: () => 'Jev の応答が想定の形式と異なるため使用しませんでした。下書きは保持されています',
       request_failed: (_name: string, status: number | null) => `呼び出しに失敗しました${status ? `（HTTP ${status}）` : ''}。Key が無効という意味ではありません`,

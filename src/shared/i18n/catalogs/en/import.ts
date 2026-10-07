@@ -45,6 +45,7 @@ export const importMessages: typeof source = {
   undoMarkerDangling: 'Undo marker is dangling or its receipt is inconsistent',
   selfUndo: 'An operation can’t undo itself',
   planUndoIncomplete: 'A plan undo must cover all original effects',
+  compositeUndoIncomplete: 'Undo must cover all effects of a composite operation',
   danglingEventReference: 'Dangling event reference',
   eventTimeMismatch: 'Event time doesn’t match the operation’s actual time',
   brokenEventChain: 'The business event chain is broken or lacks a clear origin',

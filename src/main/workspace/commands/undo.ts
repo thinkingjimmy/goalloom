@@ -13,6 +13,8 @@ import type { Item, Relation } from '../../../shared/contracts/entities'
 import { flowColorOwner, hasActiveParent, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { invalidateEdges, writeEdges } from './lifecycle'
 import { serverText } from '../../../shared/i18n/server'
+import { assistanceServerText } from '../../../shared/i18n/assistance'
+import { guidanceIdentity } from './assistance'
 
 function conflict(message: string): never { throw new DomainError('conflict', message) }
 export function undoOperation(context: Context, command: CommandOf<'undo'>): boolean {
@@ -32,6 +34,14 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
   const allEdges = ['create', 'visibility', 'relations'].includes(effect.kind) ? context.store.relations(false) : []
   const problem = effectProblem(effect, item, allEdges, context.store.position(item))
   if (problem) conflict(problem)
+  if (effect.kind === 'guidance') {
+    const head = context.store.guidance(item.id)
+    if (!head || JSON.stringify(head.value) !== JSON.stringify(effect.after.value) || guidanceIdentity(context.store, head) !== effect.after.operationId) conflict(assistanceServerText().guidanceChanged)
+    context.store.saveGuidance({ itemId: item.id, revision: head.revision + 1, value: effect.before.value, updatedAt: context.now, operationId: context.command.operationId })
+    touch(context, item)
+    context.store.event(context.command.operationId, context.now, 'undo', before, item, originalId)
+    return
+  }
   switch (effect.kind) {
     case 'status': Object.assign(item, effect.before); break
     case 'archive': item.archivedAt = effect.before; break

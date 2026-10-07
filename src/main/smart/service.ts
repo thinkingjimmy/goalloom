@@ -10,15 +10,20 @@ import { payloadSize, payloadLimit, tokenBudget, questionBudget, textLimit } fro
 import type { SmartContext } from '../../domain/smart/questions'
 import type { Round } from '../../domain/smart/preview'
 import { aiFeatures, aiProviders, featureCapability, providerCapabilities } from '../../shared/contracts/values'
-import { smartActionSchema, type AiFeature, type AiProvider, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type DraftRequest, type Failure, type FailureKind, type ReviewRequest, type SmartReply, type SmartStatus, type TestOutcome } from '../../shared/contracts/smart-input'
+import { smartActionSchema, type AiFeature, type AiProvider, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type DraftRequest, type Failure, type FailureKind, type ReviewRequest, type SmartReply, type SmartStatus, type TestOutcome, insightEvidenceSchema } from '../../shared/contracts/smart-input'
 import type { ChatPrompt } from '../../domain/smart/insight'
 import { chatSample, sampleAnswered, type ChatAdapter, type ChatProvider } from './insight'
 import { blankProvider, type DeviceConfig, type DeviceStore } from './credentials'
 import { Aborted, failure, JEV_PROVIDERS, ProviderFailure, type Adapter, type EvaluateOutput } from './providers'
+import { AssistanceService } from './assistance'
+import type { AssistanceContext } from '../../shared/contracts/assistance'
+import type { CommandOf } from '../../shared/contracts/commands'
 import { serverText } from '../../shared/i18n/server'
 
 export interface WorkspaceReader {
   generation(): Promise<string>
+  insightEvidence?(itemId: string, generation: string, cutoff?: string): Promise<import('zod').infer<typeof insightEvidenceSchema>>
+  assistance?(itemId: string, generation: string): Promise<AssistanceContext>
   context(text: string, hints: string[], referenceTime: string): Promise<SmartContext | null>
 }
 export interface ServiceOptions { store: DeviceStore; adapters: Record<AiProvider, Adapter>; chat?: Partial<Record<ChatProvider, ChatAdapter>>; reader: WorkspaceReader; now?: () => number; unsignedBuild: boolean; openExternal?: (url: string) => void }
@@ -38,6 +43,8 @@ const usable = (config: DeviceConfig, feature: AiFeature, provider: AiProvider |
   !!provider && !!config.providers[provider].consentedAt && !!config.providers[provider].capabilities[featureCapability[feature]]
 
 export class SmartInputService {
+  private readonly assistance: AssistanceService
+  private insightControllers = new Set<AbortController>()
   private chains = new Map<string, AbortController>()
   private cache = new Map<string, { reply: AnalyzeReply; bytes: number }>()
   private cacheBytes = 0
@@ -47,13 +54,29 @@ export class SmartInputService {
   private connections = new Set<AbortController>()
   private configurationQueue: Promise<unknown> = Promise.resolve()
   private readonly now: () => number
-  constructor(private readonly options: ServiceOptions) { this.now = options.now ?? Date.now }
+  constructor(private readonly options: ServiceOptions) {
+    this.now = options.now ?? Date.now
+    this.assistance = new AssistanceService({
+      config: () => options.store.config(), generation: () => options.reader.generation(),
+      context: (itemId, generation) => options.reader.assistance ? options.reader.assistance(itemId, generation) : Promise.reject(new Error('Assistance reader unavailable')),
+      key: provider => options.store.readKey(provider), chat: options.chat ?? {}, now: this.now,
+      cooling: provider => this.coolingDown(provider), record: (provider, outcome) => this.record(provider, outcome),
+    })
+  }
+  validateAssistanceApply(command: CommandOf<'applyAssistance'>): Promise<void> { return this.assistance.validateApply(command) }
 
   private clearCache(): void { this.cache.clear(); this.cacheBytes = 0 }
 
   async handle(input: unknown): Promise<SmartReply> {
     const action = smartActionSchema.parse(input)
     switch (action.type) {
+      case 'prepareAssistance': return { type: 'assistancePrepared', prepared: await this.assistance.prepare(action.request) }
+      case 'assist': return { type: 'assistance', reply: await this.assistance.assist(action.request) }
+      case 'cancelAssistance': this.assistance.cancel(action.sessionId); return { type: 'cancelled' }
+      case 'consentAssistance': {
+        if (action.generation === await this.options.reader.generation()) await this.update(config => { config.providers[action.provider].assistanceConsent = { version: 1, at: new Date(this.now()).toISOString() } })
+        return this.reply(action.generation, null)
+      }
       case 'status': return this.reply(action.generation, null)
       case 'connect': return this.reply(action.generation, await this.connect(action.generation, action.provider, action.apiKey))
       case 'feature': await this.feature(action.generation, action.feature, action.provider, action.enabled); return this.reply(action.generation, null)
@@ -76,11 +99,13 @@ export class SmartInputService {
       case 'cancel': this.chains.get(action.draftSessionId)?.abort(); this.chains.delete(action.draftSessionId); return { type: 'cancelled' }
       case 'draft': return { type: 'draft', reply: await this.insight(action.request, async request => {
         const { draftPrompt, parseDraft } = await import('../../domain/smart/insight')
-        return { prompt: draftPrompt(request), parse: (content: string) => parseDraft(content, request) }
+        const projected = await this.projectInsight(request)
+        return { prompt: draftPrompt(projected), parse: (content: string) => parseDraft(content, request) }
       }) }
       case 'review': return { type: 'review', reply: await this.insight(action.request, async request => {
         const { reviewPrompt, parseReview } = await import('../../domain/smart/insight')
-        return { prompt: reviewPrompt(request), parse: parseReview }
+        const projected = await this.projectInsight(request)
+        return { prompt: reviewPrompt(projected), parse: parseReview }
       }) }
     }
   }
@@ -90,7 +115,7 @@ export class SmartInputService {
     const reads = Object.fromEntries(await Promise.all(aiProviders.map(async provider => [provider, (await this.options.store.readKey(provider)).state] as const))) as Record<AiProvider, SmartStatus['providers'][AiProvider]['credential']>
     const providers = Object.fromEntries(aiProviders.map(provider => {
       const value = config.providers[provider], until = this.cooldownUntil.get(provider) ?? 0
-      return [provider, { credential: reads[provider], keyHint: value.keyHint, consentedAt: value.consentedAt, verifiedAt: value.verifiedAt, capabilities: value.capabilities, lastFailure: value.lastFailure,
+      return [provider, { credential: reads[provider], keyHint: value.keyHint, assistanceConsent: value.assistanceConsent, consentedAt: value.consentedAt, verifiedAt: value.verifiedAt, capabilities: value.capabilities, lastFailure: value.lastFailure,
         cooldownUntil: until > this.now() ? new Date(until).toISOString() : null }]
     })) as SmartStatus['providers']
     const features = Object.fromEntries(aiFeatures.map(feature => {
@@ -114,6 +139,7 @@ export class SmartInputService {
     })
   }
   private abortAll(): void {
+    this.assistance.release()
     for (const chain of [...this.chains.values(), ...this.connections]) chain.abort()
     this.chains.clear(); this.connections.clear(); this.clearCache()
   }
@@ -146,6 +172,7 @@ export class SmartInputService {
       if (current.provider === next.provider && current.enabledForGeneration === next.enabledForGeneration) return
       config.features[feature] = { ...next, revision: current.revision + 1 }
     })
+    if (feature === 'insight') { this.assistance.release(); for (const controller of this.insightControllers) controller.abort() }
     if (feature === 'smart') { this.configurationRevision++; this.abortAll() }
   }
 
@@ -189,7 +216,7 @@ export class SmartInputService {
         const capabilities = { ...(apiKey === null ? previous.capabilities : { jev: null, chat: null }) }
         capable.forEach((capability, index) => { if (tests[index]!.ok) capabilities[capability] = at })
         const blocking = failed && accountFailures.has(failed.kind) ? failed : null
-        config.providers[provider] = { consentedAt: previous.consentedAt ?? at, verifiedAt: at, keyHint: hint ?? previous.keyHint, capabilities, lastFailure: blocking }
+        config.providers[provider] = { consentedAt: previous.consentedAt ?? at, verifiedAt: at, keyHint: hint ?? previous.keyHint, capabilities, lastFailure: blocking, assistanceConsent: previous.assistanceConsent }
         const enabled: AiFeature[] = []
         for (const feature of aiFeatures) {
           const setting = config.features[feature]
@@ -290,13 +317,29 @@ export class SmartInputService {
     } finally { if (this.chains.get(request.draftSessionId) === controller) this.chains.delete(request.draftSessionId) }
   }
 
+  private async projectInsight<R extends DraftRequest | ReviewRequest>(request: R): Promise<R> {
+    const config = await this.options.store.config(), provider = config.features.insight.provider
+    const allowed = !!provider && config.providers[provider].assistanceConsent?.version === 1 && !!this.options.reader.insightEvidence
+    const { executionContext: _context, ...withoutContext } = request
+    const sanitized = 'tasks' in request ? { ...withoutContext, tasks: request.tasks.map(({ guidance: _guidance, ...task }) => task) } : withoutContext
+    if (!allowed) return sanitized as R
+    const identities = 'tasks' in request ? request.tasks.map(task => ({ itemId: task.id, cutoff: undefined })) : request.evidenceRequests ?? []
+    const executionContext = []
+    for (const identity of identities.slice(0, 8)) {
+      const evidence = await this.options.reader.insightEvidence!(identity.itemId, request.generation, identity.cutoff).catch(() => null)
+      if (evidence) executionContext.push(evidence)
+      if (Buffer.byteLength(JSON.stringify(executionContext)) > 32 * 1024) { executionContext.pop(); break }
+    }
+    return { ...sanitized, executionContext } as R
+  }
+
   // --- Flow insight: one chat call per request on the insight feature's provider; gated like analysis, never cached or logged. ---
   private async insight<R extends DraftRequest | ReviewRequest, T>(request: R, build: (request: R) => Promise<{ prompt: ChatPrompt; parse: (content: string) => T }>):
     Promise<{ status: 'ready'; requestId: string; value: T } | { status: 'failed'; requestId: string; failure: Failure }> {
     const failed = (value: Failure) => ({ status: 'failed' as const, requestId: request.requestId, failure: value })
     const revision = this.configurationRevision
     const controller = new AbortController()
-    this.connections.add(controller)
+    this.connections.add(controller); this.insightControllers.add(controller)
     let provider: AiProvider = 'openrouter'
     try {
       const config = await this.options.store.config()
@@ -309,15 +352,16 @@ export class SmartInputService {
       if (cooling) return failed(cooling)
       const read = await this.options.store.readKey(provider)
       if (read.state !== 'saved') return failed(credentialFailure(read.state, provider, 'not_enabled'))
+      if (controller.signal.aborted || revision !== this.configurationRevision) throw new Aborted()
       const { prompt, parse } = await build(request)
       const content = await chat(read.key, prompt, controller.signal)
-      if (revision !== this.configurationRevision) return failed(failure('not_enabled', provider))
+      if (controller.signal.aborted || revision !== this.configurationRevision || request.generation !== await this.options.reader.generation()) return failed(failure('not_enabled', provider))
       if (config.providers[provider].lastFailure) await this.record(provider, null)
       try { return { status: 'ready' as const, requestId: request.requestId, value: parse(content) } }
       catch { return failed(failure('malformed_response', provider)) }
     } catch (error) {
       if (error instanceof ProviderFailure) { await this.record(provider, error.failure); return failed(error.failure) }
       return failed(failure(error instanceof Aborted || controller.signal.aborted ? 'not_enabled' : 'unavailable', provider))
-    } finally { this.connections.delete(controller) }
+    } finally { this.connections.delete(controller); this.insightControllers.delete(controller) }
   }
 }
