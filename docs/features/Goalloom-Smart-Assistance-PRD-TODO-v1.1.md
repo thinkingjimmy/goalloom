@@ -2,8 +2,8 @@
 
 > 需求、工程契约、Markdown TODO 与验收标准 · v1.1（并入执行事实与顺延洞察）
 >
-> 更新日期：2026-10-07（Asia/Shanghai）；初版日期：2026-10-06\
-> 状态：核心开发已实施，本地源码 Electron 功能与受影响回归已通过；真实模型质量、物理输入/Windows/安装包及发布前验收仍按下方未勾选项处理。\
+> 更新日期：2026-10-08（Asia/Shanghai）；初版日期：2026-10-06\
+> 状态：1.6.0 已发布，发布验证命令集、两平台包体和真实 macOS 保护升级已验证；真实模型语义质量、物理 IME 和 Windows 11 仍按下方未勾选项处理。\
 > 仓库：`thinkingjimmy/goalloom`\
 > 原智能辅助规格基线：`7085f98eb33af1a39e1181e2d142070bc4752e08`。\
 > v1.1 增量核查基线：`6d4eca76f5a32c3384992124426622b14fa1613b`（本次重新读取到的 `main`）；详情布局与活动统计按此较新基线接线，不恢复已经移除的旧详情菜单。\
@@ -1080,7 +1080,7 @@ renderer 用 `PreparedWrite` 预留写槽位，再读取权威版本。不能先
 - [x] **B10-03** 新增／修改模块仅在有实际边界时补 README 与头部契约，不机械生成空文件。
 - [x] **B10-04** 提供用户体验变化、升级恢复成本、关闭 AI 后行为和未实现习惯能力的发布说明。
 - [x] **B10-05** 每个 TODO 仅在实现和所属验收通过后勾选，记录命令、平台、结果和证据路径。
-- [ ] **B10-06** 发布前按既有规则执行完整 verify 与相应安装包检查；不未经授权发布、修改许可证或触发付费 CI。**本次仅交付开发与功能回归，未切发布包，未运行发布前全量 verify，未发布。**
+- [x] **B10-06** 发布前按既有规则执行完整 verify 与相应安装包检查；不未经授权发布、修改许可证或触发付费 CI。**2026-10-08 已按用户请求发布 1.6.0：完整命令集经撒花用例定向回放后完成，两平台包体／资产检查和真实 macOS 保护升级通过；实际命令、日期窗口限制与剩余人工验收见 §14.6。**
 
 ## 13. 体验变化与主要风险
 
@@ -1211,6 +1211,16 @@ renderer 用 `PreparedWrite` 预留写槽位，再读取权威版本。不能先
 快速检查：`pnpm build`（含 `pnpm run typecheck` 和生产产物检查）、`pnpm test`（24 文件 / 166 项）通过；差异、契约和文档检查通过。改动限于辅助预检分支与自身会话，不扩大为无关功能或发布前全量验收。保留工作区内其他并行的 Settings/图标/多语言改动。
 
 证据：`output/tests/assistance/preflight-before.json`、`preflight-before.png`、`preflight-development-report.json`、`preflight-production-report.json`、`preflight-strict-mode.png`、`preflight-delivery-report.json`。版本与平台为 Electron 44.4.4 / Node 24.21.0 / SQLite 3.53.4；macOS 26.4.1（Darwin 25.4.0）arm64 / Apple M3 Max，实机/VM 身份未核实。数据与响应延迟均为合成夹具；不将该回归当作 Windows、物理 IME、安装包或真实模型质量验收。核心 TODO 仍为 129/132，三个外部门槛不变。
+
+### 14.6 2026-10-08 release 1.6.0
+
+Published `v1.6.0` from `83b53ff`, with eight verified assets and update feeds. All 23 commands in the release verification set completed. The initial `pnpm verify` stopped at an obsolete detail move control in the celebration fixture; its full owning suite passed after switching to the current board move. This is not a single zero-exit verify invocation.
+
+Assistance, descriptions, calendar and startup acceptance passed. The real DMG application passed workspace, history, recovery, update and link-preview checks. Actual native 1.5.0 → 1.6.0 confirmations preserved the source hash until replacement; the exact v7 protective copy and v8 workspace retained every item and event. Cold restart retained notes, calendar, appearance and the restored rollover pause. Native-driver interruptions and their focused completion are recorded without treating them as product failures.
+
+Runtime: Electron 44.4.4 / Node 24.21.0 / SQLite 3.53.4, macOS 26.4.1 / Darwin 25.4.0, arm64 / physical Apple M3 Max (`kern.hv_vmm_present=0`). Data and AI responses were synthetic. The offline evaluator made zero model calls. Real semantic quality, physical IME and Windows 11 runtime remain unverified. Monthly historical API and component checks passed; natural-date entry and combined native planning remain limited by the current date. Combined planning was skipped after its month-start week expired, without changing the production clock or period guard.
+
+Current core TODO count: **130/132**. B8-06 and B9-09 remain open for their manual and live-provider requirements. Earlier 129/132 records describe the previous development deliveries. Release commands, reports and private screenshots: `output/tests/release-1.6.0/report.json`, `source-validation.json`, `installed-results.json`, `upgrade-installed-report.json` and `native-confirmations.json`.
 
 ## 附录 H. 习惯真实执行的后续接入契约
 
@@ -1383,7 +1393,7 @@ v1.1 保留原 100 项核心开发任务的 ID 和原 AC01—AC42；新增 B11-0
 
 | 项目 | v1.1 数量／状态 |
 | --- | --- |
-| 核心 Markdown TODO | 132 项；当前 129 项已勾选，3 项验收/发布门槛未勾选（见 §14） |
+| 核心 Markdown TODO | 132 项；当前 130 项已勾选，2 项人工/真实模型门槛未勾选（见 §14.6） |
 | 习惯扩展 TODO | 24 项，独立于核心 |
 | 核心验收场景 | 74 个，AC01—AC74 |
 | 新增统计任务／验收 | 32 项／32 个，已并入核心 |

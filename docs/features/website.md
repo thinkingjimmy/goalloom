@@ -74,6 +74,7 @@
 - [x] 发布公开 Release 1.3.0 并将 `website/lib/release.ts` 指向 1.3.0 资产。
 - [x] 发布公开 Release 1.4.0 并将 `website/lib/release.ts` 指向 1.4.0 资产。
 - [x] 发布公开 Release 1.5.0 并将 `website/lib/release.ts` 指向 1.5.0 资产。
+- [x] 发布公开 Release 1.6.0 并将 `website/lib/release.ts` 指向 1.6.0 资产。
 
 ## 验收
 
