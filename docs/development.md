@@ -18,9 +18,12 @@
 | [流程洞察功能规格](features/flow-insight.md) | 单流程断点 ＋ 与跳级补里程碑、空列卡、周/月/合并复盘、分组右键菜单、设置 › 洞察与 DeepSeek Flash 起草通道 |
 | [链接预览功能规格](features/link-previews.md) | 混排短链接、真实预览、多链接横滑、历史数据按需展示、网络/缓存边界及验收 |
 | [Task descriptions](features/task-descriptions.md) | In-place Markdown, inline page titles/favicons, source preservation and the board signal + read-only peek |
+| [Task assistance](features/Goalloom-Smart-Assistance-PRD-TODO-v1.1.md) | Explicit note rewriting, description-owned undo, execution facts and protective legacy workspace upgrade |
 | [关于与软件更新](features/updates.md) | 设置 › 关于、真实版本与图标、macOS 应用菜单、GitHub Releases 自动更新、红点提示与发布资产清单 |
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
+
+Version 1.6.0 uses schema v8. Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
 
 每个功能的产品规则、工程契约、TODO 与验收集中在 `docs/features/` 下的一份规格，不另建重复文件；变更过程和测试结果记录在 Git / PR 中。`CLAUDE.md` 仅导入 `AGENTS.md`，不另维护一套规则。
 

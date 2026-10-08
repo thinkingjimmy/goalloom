@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built production main/preload, a test-only native renderer, month/combined fixtures and real IPC/storage.
- * [OUTPUT]: Scope-specific task markers, readonly rich titles, compact choices and actual monthly/weekly plan workflows.
+ * [OUTPUT]: Scope-specific task markers, readonly rich titles, compact choices, actual monthly/weekly plan workflows and explicit expired-window skips.
  * [POS]: Focused native component acceptance outside calendar-entry windows; no production clock or bridge replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -51,10 +51,18 @@ async function run(scope, skipMonth) {
     })
     await page.emulateMedia({ reducedMotion: 'reduce' })
     const errors = []; page.on('pageerror', error => errors.push(error.message))
+    scenario.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+    const snapshot = await page.evaluate(() => window.goalloom.getSnapshot())
+    if (scope === 'both' && snapshot.periods.find(period => period.horizon === 'week').startAt !== snapshot.periods.find(period => period.horizon === 'month').startAt) {
+      scenario.skipped = true
+      scenario.reason = 'The month-start week has expired. Production planning rejects its destination; no clock or guard is replaced.'
+      scenario.observedAt = snapshot.observedAt
+      console.log(`Skipped ${name}: ${scenario.reason}`)
+      return
+    }
     await page.getByRole('button', { name: 'Open review', exact: true }).click()
     const drawer = page.locator('.review-drawer[open]')
     await drawer.locator('.review-body[aria-busy=false]').waitFor()
-    scenario.runtime = await page.evaluate(() => window.goalloom.getRuntime())
     await drawer.locator('.review-goal-records summary').first().click()
     const record = drawer.locator('.review-records li').filter({ hasText: 'September finished work' })
     await record.locator('.link-inline[data-status=ready]').waitFor()

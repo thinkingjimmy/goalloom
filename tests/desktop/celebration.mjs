@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A source or packaged Electron executable, production IPC fixtures and real UI actions.
- * [OUTPUT]: Completion feedback, per-column preferences, exact rendered origins, viewport coverage and lifecycle evidence.
+ * [OUTPUT]: Completion feedback after board moves, per-column preferences, exact rendered origins, viewport coverage and lifecycle evidence.
  * [POS]: Isolated desktop acceptance; no mocked receipts, synthetic completion events or real workspace data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -36,6 +36,19 @@ const settings = () => page.getByRole('dialog', { name: '设置与数据', exact
 const detail = () => page.getByRole('dialog', { name: '当前条目', exact: true })
 const setting = horizon => settings().getByRole('group', { name: '在这些列完成时撒花', exact: true }).getByRole('button', { name: labels[horizon], exact: true })
 const state = id => page.evaluate(async id => (await window.goalloom.getItem(id)).item, id)
+
+async function dragTo(title, horizon) {
+  const source = await page.getByRole('button', { name: title, exact: true }).boundingBox()
+  const column = page.getByRole('region', { name: `${labels[horizon]}列`, exact: true })
+  const destination = await column.boundingBox()
+  assert(source && destination)
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(destination.x + destination.width / 2, destination.y + 135, { steps: 15 })
+  await page.mouse.up()
+  await column.getByRole('button', { name: title, exact: true }).waitFor()
+  await pollPage(page, async ({ id, horizon }) => (await window.goalloom.getItem(id)).item.placement.horizon === horizon, { id: ids[title], horizon })
+}
 
 async function connectPage() {
   page = await application.firstWindow()
@@ -246,31 +259,20 @@ try {
   await waitForCleanup()
   checks.push('Keyboard undo retains visible feedback without celebration; completing again celebrates')
 
-  // Both move entry points stay quiet, remain undoable and use the destination preference.
+  // Board moves stay quiet and use the destination preference.
   for (const [title, horizon, enabled] of [['Move to week', 'week', true], ['Move to day', 'day', false]]) {
-    await page.getByRole('button', { name: title, exact: true }).click()
-    await detail().getByRole('button', { name: /^移动到：/ }).click()
-    await page.getByRole('menuitemradio', { name: labels[horizon], exact: true }).click()
-    await pollPage(page, async ({ id, horizon }) => (await window.goalloom.getItem(id)).item.placement.horizon === horizon, { id: ids[title], horizon })
+    await dragTo(title, horizon)
     assert.equal(await page.locator('.toast').count(), 0)
-    await detail().getByRole('button', { name: '关闭', exact: true }).click()
     await assertSilentCompletion(title, enabled)
     if (enabled) await waitForCleanup()
   }
-  const source = await page.getByRole('button', { name: 'Drag move', exact: true }).boundingBox()
-  const destination = await page.getByRole('region', { name: '本周列', exact: true }).boundingBox()
-  assert(source && destination)
-  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(destination.x + destination.width / 2, destination.y + 135, { steps: 15 })
-  await page.mouse.up()
-  await page.getByRole('region', { name: '本周列', exact: true }).getByRole('button', { name: 'Drag move', exact: true }).waitFor()
+  await dragTo('Drag move', 'week')
   assert.equal(await page.locator('.toast').count(), 0)
   await page.keyboard.press('ControlOrMeta+z')
   await page.getByRole('region', { name: '今天列', exact: true }).getByRole('button', { name: 'Drag move', exact: true }).waitFor()
   await page.locator('.toast [role="status"]').filter({ hasText: '已撤销' }).waitFor()
   await dismissFeedback()
-  checks.push('Detail and drag moves have no toast; drag keyboard undo works; destination column controls celebration')
+  checks.push('Board moves have no toast; drag keyboard undo works; destination column controls celebration')
 
   await page.getByRole('button', { name: 'Detail completion', exact: true }).click()
   await assertSilentCompletion('Detail completion', true, true)

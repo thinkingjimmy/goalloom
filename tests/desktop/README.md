@@ -10,12 +10,12 @@ desktop/
 ├── later-sidebar.mjs    # Default planning columns, legacy preference handling, Later count and parent unlinking on moves, independent scrolling, drag/undo, preserved drafts, motion, themes/locales and restart; output/tests/later-sidebar
 ├── column-visibility.mjs # Six-column checkbox menu sized to the longest label, right-aligned checks, gray locked check with a hover tip, independent preferences, retained hidden drafts/scroll/periods, explicit-target reveal, keyboard drag, geometry/locales/themes; --menu narrows development checks, --baseline/--style-baseline preserve initial failures; output/tests/column-visibility
 ├── sqlite.mjs           # 单独构建/启动真实 main 的内置 SQLite 探针
-├── workspace.mjs        # 看板业务、实际流程候选的详情关联、固定活动侧栏／操作按钮／窄窗口（fixtures/detail-rail.mjs）、流程筛选快捷键与设置、协议/CSP/IPC、主题与窄窗口
+├── workspace.mjs        # 看板业务、实际流程候选的详情关联、单面板详情／顶部操作按钮／窄窗口（fixtures/detail-rail.mjs）、流程筛选快捷键与设置、协议/CSP/IPC、主题与窄窗口
 ├── task-focus.mjs       # Pointer/Escape/close and keyboard detail-focus returns, plain/rich titles, four themes and no task writes; output/tests/task-focus/
 ├── history.mjs          # Live past-task editing/groups, filter return to current, paging recovery, focus/feedback, immutable history, backlog/hold and replacement isolation; history.json and history/past-task screenshots
 ├── periods.mjs          # Compact TODO menus with source-row activation/cursors, unified period navigation, editable future periods, cross-period drafts, sorting, undo, future search/details and explicit navigation, five-language header geometry and restart; app-local input/focus failure diagnostics in output/tests/periods
 ├── month-review.mjs    # Period-end records, live closing, unified guide, resume and exact planning destinations, partial failures and receipt recovery; --combined adds fresh month → week planning; output/tests/insight/{month-review,combined-review}/
-├── review-scopes.mjs # Native component-only month/combined audit outside date-window eligibility; records, closing, monthly/weekly proposals and completion callback; output/tests/review-scopes/
+├── review-scopes.mjs # Native component-only month/combined audit outside App entry eligibility; records, closing, proposals and completion callback; combined skips after the month-start week expires; output/tests/review-scopes/
 ├── weekly-review.mjs   # First/last-day guide/closing, compact read-only rows, two-parent hierarchy/colours/joined marker-centred lines, compact gap/intrinsic destination dropdowns with keyboard/focus dismissal/separators, skip versus linked creation, automatic completion/entry suppression distinct from planning invitations, resume and post-review creation; --completion selects receipt/confetti acceptance; included by insight.mjs; output/tests/insight/weekly-review/
 ├── insight.mjs          # Native flow insight; --empty-card selects weekly/daily labels/equal-height hit targets, batch/manual creation and empty-card-layout; full mode retains previews/undo/geometry/reviews/settings and weekly-review
 ├── empty-card-layout.mjs # Five-locale single-row return icons/pointer-keyboard hints, scoped Escape, 44px touch controls and same-row empty actions at 320px; --return-icons writes output/tests/period-return, --baseline records failures; default output/tests/empty-card-layout
@@ -34,7 +34,7 @@ desktop/
 ├── link-previews.mjs    # Link text, full-width cards under overlay controls, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
 ├── ordering.mjs         # Parent ordering, group-aware drag, future materialization/undo, receipt-first recovery, local preference restart and measured motion (output/tests/ordering)
-├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
+├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、看板移动后的目标列偏好、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
 ├── updates.mjs        # Settings › About: menu routing/re-targeting, real version and icon, update phases via the production event, top-bar/nav dots, menu relabelling; output/tests/updates/
 ├── update-install.mjs # Optional macOS: signed 90.0.0 app + 90.0.1 zip/latest-mac.yml on a 127.0.0.1 feed; UI check → native staging before ready → immediate quit/install, retained failure evidence; outside verify
 ├── dialogs.mjs          # 操控真实原生保存/打开对话框的验收入口，保存 JSON 证据和恢复后截图
