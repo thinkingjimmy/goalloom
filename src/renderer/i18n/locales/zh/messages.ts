@@ -89,7 +89,7 @@ export const messages = widen({
   dragOver: "已移动到新的落点。",
   dragEnded: "拖动结束，正在核对位置。",
   dragCancelled: "已取消拖动，原位置保留。",
-  dragInstructions: "按空格开始拖动，方向键移动，空格放下，Esc 取消。也可在详情使用“移动到”。",
+  dragInstructions: "按空格开始拖动，方向键移动，空格放下，Esc 取消。",
   board: "时间看板",
   history: "历史",
   futureIdeas: "留给未来的想法",

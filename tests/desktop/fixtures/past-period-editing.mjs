@@ -20,21 +20,33 @@ const focusOn = async (page, id) => page.waitForFunction(id => document.querySel
 const closeDetail = async page => detail(page).getByRole('button', { name: '关闭', exact: true }).click()
 const move = async (page, column, id, destination) => {
   await column.locator(`#item-${id} .task-title`).click()
-  await detail(page).locator('.placement-chip').click()
-  await page.getByRole('menuitemradio', { name: destination, exact: true }).click()
+  await detail(page).waitFor()
+  const operationId = await page.evaluate(async ({ id, horizon }) => {
+    const { workspace } = await window.goalloom.getSnapshot(), { item } = await window.goalloom.getItem(id)
+    const reply = await window.goalloom.execute({ type: 'move', itemId: id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon, generation: workspace.generation, operationId: crypto.randomUUID() })
+    if (!reply.ok) throw Error(reply.message)
+    return reply.result.operationId
+  }, { id, horizon: destination === 'Later' ? 'later' : 'month' })
   await column.locator(`#item-${id}`).waitFor({ state: 'detached' })
   await closeDetail(page)
   await settle(column)
+  return operationId
 }
+const undoMove = (page, originalOperationId) => page.evaluate(async originalOperationId => {
+  const { workspace } = await window.goalloom.getSnapshot()
+  const reply = await window.goalloom.execute({ type: 'undo', originalOperationId, generation: workspace.generation, operationId: crypto.randomUUID() })
+  if (!reply.ok) throw Error(reply.message)
+}, originalOperationId)
 
 export async function verifyPastPaging(page, column) {
   const ids = await column.locator('.past-period-row').evaluateAll(rows => rows.map(row => row.dataset.itemId))
   assert.equal(ids.length, 5)
-  for (const id of ids) await move(page, column, id, 'Later')
+  const moves = []
+  for (const id of ids) moves.push(await move(page, column, id, 'Later'))
   assert.equal(await column.locator('.past-period-row').count(), 50, 'Removing the last page returns to an available page')
   assert.equal(await column.locator('.pagination').count(), 0)
-  for (const [index] of ids.entries()) {
-    await page.keyboard.press('ControlOrMeta+z')
+  for (const [index, operationId] of moves.reverse().entries()) {
+    await undoMove(page, operationId)
     await page.waitForFunction(total => document.querySelector('[data-horizon="day"] .pagination')?.textContent.includes(`1–50/${total}`), 51 + index)
     await settle(column)
     await dismiss(page)
@@ -78,7 +90,7 @@ export async function verifyPastEditing(page, column, fixture) {
   await row(fixture.finishedId).getByRole('button', { name: 'Edited past task', exact: true }).waitFor()
   await row(fixture.finishedId).locator('.task-title').click()
   page.once('dialog', dialog => dialog.accept())
-  await detail(page).locator('.detail-rail-actions').getByRole('button', { name: '删除', exact: true }).click()
+  await detail(page).locator('.detail-management').getByRole('button', { name: '删除', exact: true }).click()
   await detail(page).waitFor({ state: 'hidden' })
   await outcome(page, column, fixture.finishedId, 'deleted')
   assert.equal((await item(page, fixture.finishedId)).placement.periodId, original.placement.periodId)
@@ -94,9 +106,9 @@ export async function verifyPastEditing(page, column, fixture) {
   await dismiss(page)
   const screenshot = 'output/tests/screenshots/past-tasks-edited.png'
   await column.locator('.past-period-rows').screenshot({ path: screenshot })
-  await move(page, column, fixture.finishedId, '本月')
+  const moveOperation = await move(page, column, fixture.finishedId, '本月')
   assert.equal(await row(fixture.finishedId).count(), 0)
-  await page.keyboard.press('ControlOrMeta+z')
+  await undoMove(page, moveOperation)
   await outcome(page, column, fixture.finishedId, 'done')
   await dismiss(page)
   assert.deepEqual(await projected(), before, 'Task actions never rewrite the original period-end states')

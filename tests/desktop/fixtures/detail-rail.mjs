@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Open native details, production preferences/IPC and the isolated Electron window.
- * [OUTPUT]: Permanent rail, activity calendar, action geometry and read-only evidence across four appearances and two sizes.
+ * [OUTPUT]: Single-pane detail, header actions, editor geometry and read-only evidence across four appearances and two sizes.
  * [POS]: Workspace acceptance fixture for the current detail layout; it never changes item data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,8 +9,8 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { arch, cpus, release } from 'node:os'
 import { join, resolve } from 'node:path'
 
-// Failure cases: the rail is collapsed, activity is missing, action labels or hit targets are clipped,
-// narrow layouts overlap the editor, and reading history or changing its month writes item data.
+// Failure cases: a retired rail or calendar is visible, action labels or hit targets are clipped,
+// narrow layouts overlap the editor, and opening assistance writes item data.
 export async function verifyDetailRail(app, page, detail) {
   const output = resolve('output/tests/detail-rail')
   await mkdir(output, { recursive: true })
@@ -32,29 +32,29 @@ export async function verifyDetailRail(app, page, detail) {
       for (const width of [1280, 720]) {
         await app.evaluate(({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0].setContentSize(width, width === 720 ? 640 : 840), width)
         await page.waitForFunction(width => innerWidth === width, width)
-        const rail = detail.locator('.detail-rail')
-        await rail.locator('.activity-insight').waitFor()
-        assert.deepEqual(await rail.locator('.detail-rail-actions button').allTextContents(), ['取消', '归档', '删除'])
+        const rail = detail.locator('.detail-management')
+        await rail.waitFor()
+        assert.deepEqual(await rail.locator('button').allTextContents(), ['取消', '归档', '删除'])
         assert.equal(await detail.getByRole('button', { name: '更多操作', exact: true }).count(), 0)
-        assert.equal(await rail.getByRole('grid').count(), 1, 'Counted activity renders a month calendar')
+        assert.equal(await detail.locator('.detail-rail, .activity-drawer').count(), 0, 'The task sheet has no activity rail or calendar')
         const geometry = await rail.evaluate(node => {
           const bounds = element => element.getBoundingClientRect().toJSON()
-          const buttons = [...node.querySelectorAll('.detail-rail-actions button')].map(button => {
+          const buttons = [...node.querySelectorAll('button')].map(button => {
             const rect = button.getBoundingClientRect()
             return { label: button.textContent, rect: rect.toJSON(), hit: button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)) }
           })
           return { rail: bounds(node), dialog: bounds(node.closest('dialog')), editor: bounds(node.closest('dialog').querySelector('.detail-main')), buttons,
             viewport: { width: innerWidth, height: innerHeight } }
         })
-        assert(geometry.rail.left >= geometry.editor.right - 1, 'The rail stays beside the editor')
-        assert(geometry.rail.right <= geometry.dialog.right + 1 && geometry.rail.bottom <= geometry.dialog.bottom + 1, 'The rail stays inside the detail')
-        assert(geometry.buttons.every(button => button.hit && button.rect.height >= 32 && button.rect.right <= geometry.viewport.width && button.rect.bottom <= geometry.viewport.height), 'Rail actions stay visible and clickable')
+        assert(geometry.rail.bottom <= geometry.editor.top + 1, 'Actions stay in the header above the editor')
+        assert(geometry.rail.right <= geometry.dialog.right + 1 && geometry.rail.bottom <= geometry.dialog.bottom + 1, 'Header actions stay inside the detail')
+        assert(geometry.buttons.every(button => button.hit && button.rect.height >= 32 && button.rect.right <= geometry.viewport.width && button.rect.bottom <= geometry.viewport.height), 'Header actions stay visible and clickable')
         const screenshot = join(output, `${style}-${theme}-${width}.png`)
         await detail.screenshot({ path: screenshot })
         report.cases.push({ style, theme, width, geometry, screenshot })
       }
     }
-    assert.deepEqual((await page.evaluate(() => window.goalloom.getSnapshot())).items, before.items, 'Reading the rail never changes item data')
+    assert.deepEqual((await page.evaluate(() => window.goalloom.getSnapshot())).items, before.items, 'Inspecting the detail never changes item data')
     report.passed = true
   } catch (error) {
     report.failure = error.message

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Item identity/generation, authoritative revisions and the reserved workspace writer.
- * [OUTPUT]: Source-preserving drafts, serialized autosave/actions, guarded empty-title dismissal and receipt-first retry.
+ * [OUTPUT]: Source-preserving drafts, guarded atomic note rewrites, serialized autosave/actions, empty-title dismissal and receipt-first retry.
  * [POS]: Detail persistence boundary; explicit dismissal can discard, while navigation/native close only drain edits.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,8 @@ import type { CommandResult } from '../../../shared/contracts/commands'
 import { desktopApi, type Action, type PreparedWrite, type WriteResult } from '../../state/use-workspace'
 import { messages } from '../../i18n'
 import { canDiscardEmptyTitle } from '../../../domain/items'
+import type { AssistancePrepared } from '../../../shared/contracts/assistance'
+import { noteAssistanceMessages } from '../../i18n/note-assistance'
 
 const draftOf = (item: Item) => ({ title: item.title, description: item.description, dueDate: item.dueDate ?? '' })
 type Draft = ReturnType<typeof draftOf>
@@ -26,11 +28,13 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
   const [draft, setDraft] = useState<Draft>({ title: '', description: '', dueDate: '' })
   const [error, setError] = useState(''), [saving, setSaving] = useState(false), [actionBusy, setActionBusy] = useState(false)
   const [discarding, setDiscarding] = useState(false)
+  const [rewriting, setRewriting] = useState(false)
+  const editRevision = useRef(0), rewriteLock = useRef(false)
   const discardLock = useRef(false), discardAttempt = useRef(false)
   const live = useRef(true), current = useRef<ItemDetail | null>(null)
   const source = useRef(draft), baseline = useRef(draft), composing = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const flight = useRef<Promise<boolean> | null>(null), uncertain = useRef<{ draft: Draft | null } | null>(null)
+  const flight = useRef<Promise<boolean> | null>(null), uncertain = useRef<{ draft: Draft | null; onCommit?: () => void } | null>(null)
   const actions = useRef(Promise.resolve()), queued = useRef(0)
   const flushRef = useRef<() => Promise<boolean>>(() => Promise.resolve(true))
   const cancelTimer = () => { clearTimeout(timer.current); timer.current = undefined }
@@ -105,7 +109,8 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
   }, [generation, itemId, receive, write])
   flushRef.current = flush
   const change = (field: keyof Draft, value: string, immediate = false) => {
-    if (discardLock.current || current.current?.item.deletedAt || source.current[field] === value) return
+    if (discardLock.current || rewriteLock.current || current.current?.item.deletedAt || source.current[field] === value) return
+    editRevision.current++
     discardAttempt.current = false
     publish({ ...source.current, [field]: value })
     cancelTimer()
@@ -114,23 +119,26 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
     if (!composing.current) timer.current = setTimeout(() => { void flushRef.current() }, immediate ? 0 : 500)
   }
   const composition = (active: boolean) => {
+    if (active) editRevision.current++
     composing.current = active; cancelTimer()
     if (!active) timer.current = setTimeout(() => { void flushRef.current() }, 500)
   }
   const retry = async (): Promise<boolean> => {
     if (uncertain.current) {
-      const submitted = uncertain.current.draft
+      const { draft: submitted, onCommit } = uncertain.current
       setSaving(true)
       const reply = await retryWrite(generation)
       if (!live.current) return false
       setSaving(false)
       if (!reply.ok) {
-        if (!reply.pending) { uncertain.current = null; discardLock.current = false; setDiscarding(false) }
+        if (!reply.pending) { uncertain.current = null; discardLock.current = false; setDiscarding(false); rewriteLock.current = false; setRewriting(false) }
         setError(reply.message); return false
       }
       uncertain.current = null; if (submitted && reply.result) baseline.current = submitted; setError(''); publish({ ...source.current })
       if (discardAttempt.current && reply.result) return true
       try { receive(await desktopApi().getItem(itemId), true) } catch { setError(messages.itemFailed); return false }
+      finally { rewriteLock.current = false; setRewriting(false) }
+      if (reply.result) onCommit?.()
     }
     if (discardAttempt.current) return dismiss()
     await flush()
@@ -142,6 +150,28 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
     actions.current = run.then(() => undefined, () => undefined)
     return run
   }
+  const rewrite = (prepared: AssistancePrepared, description: string, expectedRevision: number, onCommit: () => void): Promise<boolean> => enqueue(async () => {
+    const unchanged = () => live.current && !composing.current && !uncertain.current && editRevision.current === expectedRevision && !dirty()
+    if (!unchanged()) { setError(noteAssistanceMessages().stale); return false }
+    rewriteLock.current = true; setRewriting(true); setError('')
+    const reply = await write(async () => {
+      if (!unchanged()) return null
+      const latest = await desktopApi().getItem(itemId)
+      if (!unchanged() || latest.item.version !== prepared.context.item.version) return null
+      return { type: 'applyAssistance', itemId, expectedVersion: latest.item.version, expectedGuidanceRevision: prepared.context.guard.guidanceRevision,
+        guidance: { kind: 'keep' }, description, guard: prepared.context.guard, contextId: prepared.contextId }
+    }, generation)
+    if (!reply.ok && reply.pending) uncertain.current = { draft: null, onCommit }
+    else if (!reply.ok || !reply.result) { rewriteLock.current = false; if (live.current) setRewriting(false) }
+    if (!live.current) return false
+    if (!reply.ok) { setError(reply.message); return false }
+    if (!reply.result) { setError(noteAssistanceMessages().stale); return false }
+    try {
+      receive(await desktopApi().getItem(itemId), true)
+      onCommit()
+      return true
+    } finally { rewriteLock.current = false; if (live.current) setRewriting(false) }
+  })
   const submit = (action: Action): Promise<CommandResult | null> => enqueue(async () => {
     if (!live.current || !await flush()) return null
     const reply = await write(async () => {
@@ -193,5 +223,5 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
     await Promise.resolve()
     return drain()
   }), [flush])
-  return { detail, draft, error, setError, saving, actionBusy, discarding, change, composition, flush: drain, dismiss, retry, submit, dirty: dirty() }
+  return { detail, draft, error, setError, saving, actionBusy, discarding, rewriting, rewrite, captureRevision: () => editRevision.current, change, composition, flush: drain, dismiss, retry, submit, dirty: dirty() }
 }

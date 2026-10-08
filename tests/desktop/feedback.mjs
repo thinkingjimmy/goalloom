@@ -45,7 +45,7 @@ try {
     if (await detail().count()) await detail().getByRole('button', { name: '关闭', exact: true }).click()
     if (await settings().count()) await settings().getByRole('button', { name: '关闭', exact: true }).click()
   }
-  const detailAction = name => detail().locator('.detail-rail-actions').getByRole('button', { name, exact: true }).click()
+  const detailAction = name => detail().locator('.detail-management').getByRole('button', { name, exact: true }).click()
   const toggleLater = async () => {
     await page.locator('#later-toggle').click()
     await page.waitForFunction(() => document.querySelector('.board-later').getAnimations().length === 0)

@@ -17,7 +17,7 @@ workspace/
 ├── commands/
 │   ├── items.ts      # Setup/date revalidation, atomic item writes and flow-valid linking with isolated-parent root promotion
 │   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
-│   ├── assistance.ts # Atomic guidance plus optional placement, owned-content identity and immutable v2 effects
+│   ├── assistance.ts # Atomic guarded note rewrites (description-only v2 effects), legacy guidance/placement and receipt-first undo
 │   ├── lifecycle.ts  # Independent lifecycle, guarded empty-title discard outside trash, scoped restore and unlink
 │   ├── undo.ts       # Owned-field inverses including atomic flow adoption/promotion, color/branch guards, events and holds
 │   ├── backlog.ts    # 往期候选复核与批量安排，一个原子用户操作

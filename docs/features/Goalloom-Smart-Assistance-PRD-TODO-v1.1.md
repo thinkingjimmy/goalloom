@@ -11,6 +11,23 @@
 > 单一维护路径：`docs/features/Goalloom-Smart-Assistance-PRD-TODO-v1.1.md`，沿用本次请求的文件名，不另建重复规格。本文统一维护“任务推进辅助＋执行事实／顺延洞察”的增量规格；不另建重复统计 PRD，不恢复旧的根目录 PRD/TODO，不复制现有智能输入与复盘的完整规格。\
 > 初版核查方式：通过 GitHub 读取相关代码及文档，完整文件与节选结合；增量以最新详情、活动计算、事件来源、测试夹具和用户截图为依据。当时未读取用户本地任务数据库，截图中的数字不是核查时的复算结果，也未运行应用或功能测试；当前开发与实际验收见 §14。文末保留两组基线来源，不把旧版引用冒充最新版逐行审计。
 
+## Owner update — 2026-10-07: Rewrite notes
+
+This confirmed design supersedes the earlier guidance-only UI, second-level view, scheduling form, task-level consent and permanent activity rail in this specification. Legacy guidance/history remains readable by the data layer and export/restore paths.
+
+- One detail pane. Cancel, Archive and Delete sit beside Close. Placement is read-only in the header; board placement tools retain their existing contract. No detail activity/calendar section.
+- Above Add thoughts: an action invitation combines the authoritative complete-quality current-episode carryover count with a help question. Unknown/partial counts are omitted. No manual/automatic breakdown.
+- I’m stuck opens three obstacle choices and a final custom input. Nothing is preselected. No collapse arrow or press motion. Not now/Escape/cancel returns to the notes.
+- Enabled drafting/review settings authorize an explicit generation request. No extra task checkbox; opening help sends nothing.
+- One response rewrites the existing Markdown notes and automatically persists it. Preserve essential context, pending work, completed checkboxes and links. No proposal card, Save step or automatic success toast; keyboard undo remains available. Empty notes become a small checklist. Rethink uses the current notes without repeated append-only sections.
+- The real editor remains mounted. The result has only Rethink at the bottom right, no left metadata and no divider. Existing notes remain editable during generation; concurrent edits invalidate the result. An unresolved write receipt locks editing and retries the same receipt.
+- Main validates the exact generated description and its preflight ticket. Worker rechecks item/dependency/clock guards in the transaction. A description-only v2 effect owns before/after text for workspace undo; later edits to notes cause an undo conflict while unrelated title/deadline changes survive.
+- Complete notes are required. The existing bounded context can carry up to 6,000 source characters; any description truncation rejects rewriting before network transmission. Invalid, cancelled or failed output leaves the source unchanged. Completed checkbox lines and existing links are checked before applying; semantic model quality still needs live-model review.
+- Description effects and body-free `description_changed` events use the existing schema v8 tables. JSON and SQLite recovery validate the new effect/event pair. No new database columns or silent schema migration.
+- Five-language native source Electron checks and synthetic transport reports: `output/tests/assistance/`. Final command results, shared-feature coverage and replay evidence: `output/tests/note-rewrite/README.md` (2026-10-08). This does not claim live-provider quality or packaged/Windows acceptance.
+
+[PROTOCOL]: Update this header when making changes, then check README.md.
+
 ## 0. 交付范围与阅读方式
 
 ### 0.1 一句话目标

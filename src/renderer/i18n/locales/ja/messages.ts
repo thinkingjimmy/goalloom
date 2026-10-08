@@ -89,7 +89,7 @@ export const messages: MessageCatalog = {
   dragOver: "新しい位置に移動しました。",
   dragEnded: "ドラッグを終了しました。位置を確認しています。",
   dragCancelled: "ドラッグをキャンセルしました。元の位置のままです。",
-  dragInstructions: "スペースでドラッグを開始、矢印キーで移動、スペースで配置、Esc でキャンセルします。詳細画面の「移動先」も使えます。",
+  dragInstructions: "スペースでドラッグを開始、矢印キーで移動、スペースで配置、Esc でキャンセルします。",
   board: "タイムボード",
   history: "履歴",
   futureIdeas: "未来のためのアイデア",

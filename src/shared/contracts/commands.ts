@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted finite commands, entity/guidance schemas and explicit dependency/version guards.
- * [OUTPUT]: Strict atomic assistance, existing lifecycle/planning commands and immutable receipts.
+ * [OUTPUT]: Guarded description rewrites, atomic assistance, lifecycle/planning commands and immutable receipts.
  * [POS]: Write contract accepting neither arbitrary effects nor model-generated commands.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -44,9 +44,11 @@ export type SetupAnchor = z.infer<typeof setupAnchorSchema>
 export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, ...target, type: z.literal('applyAssistance'), expectedGuidanceRevision: z.number().int().nonnegative(),
     guidance: guidanceChangeSchema, guard: assistanceGuardSchema.optional(), contextId: z.uuid().optional(),
+    description: z.string().trim().min(1).max(16_000).optional(),
     move: z.strictObject({ horizon: horizonSchema, startDate: dateSchema.nullable(), expectedPlacementVersion: z.number().int().positive(),
       previewPeriodId: idSchema.nullable(), confirmedLater: z.boolean().default(false) }).optional(),
-  }).refine(value => value.guidance.kind !== 'keep' || value.move !== undefined)
+  }).refine(value => value.guidance.kind !== 'keep' || value.move !== undefined || value.description !== undefined)
+    .refine(value => value.description === undefined || !!value.guard && !!value.contextId && value.guidance.kind === 'keep' && !value.move)
     .refine(value => value.guidance.kind !== 'set' || value.guidance.value.authorship !== 'ai_assisted' || !!value.guard && !!value.contextId),
   z.strictObject({ ...envelope, type: z.literal('confirmSetup'), mode: z.enum(calendarModes), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), anchor: setupAnchorSchema, confirmed: z.literal(true) }),
   z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null) }),

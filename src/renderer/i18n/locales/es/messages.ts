@@ -89,7 +89,7 @@ export const messages: MessageCatalog = {
   dragOver: "Movido a una nueva posición.",
   dragEnded: "Arrastre terminado. Comprobando la posición.",
   dragCancelled: "Arrastre cancelado. Se mantiene la posición original.",
-  dragInstructions: "Pulsa Espacio para arrastrar, usa las flechas para mover, Espacio para soltar y Esc para cancelar. También puedes usar “Mover a” en el detalle.",
+  dragInstructions: "Pulsa Espacio para arrastrar, usa las flechas para mover, Espacio para soltar y Esc para cancelar.",
   board: "Tablero",
   history: "Historial",
   futureIdeas: "Ideas para el futuro",

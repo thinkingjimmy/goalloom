@@ -130,7 +130,6 @@ export const smartMessages: SmartCatalog = {
   connectedGroup: '接続済み',
   addGroup: 'サービスを追加',
   addGroupNote: 'サービスごとに課金され、キーをサービス間で共有することはありません',
-  connectedCount: (count: number) => `${count} 件接続`,
   pausedMeta: '一時停止中',
   needsAttention: '要対応',
   notAdded: 'キー未追加',
@@ -164,7 +163,7 @@ export const smartMessages: SmartCatalog = {
   addService: 'サービスを追加',
   blocked: (name: string) => `送信を停止中 · ${name} に対応が必要です`,
   resolve: 'AI サービスで対応 →',
-  onlyCapable: (feature: AiFeature) => ({ smart: 'Jev を実行できるサービスだけを表示します。切り替えても、整理中の下書きは新しいサービスに自動送信されません。', insight: 'DeepSeek を実行できるサービスだけを表示します。' })[feature],
+  onlyCapable: (feature: AiFeature) => ({ smart: 'Jev を実行できるサービスだけを表示します。切り替えても、整理中の下書きは新しいサービスに自動送信されません。', insight: 'タスクの支援を求めると、メモ、関連目標、実行の要約と設定をこのサービスに送り、メモを直接書き直します。' })[feature],
   current: '使用中',
   cooldown: (time: string) => `レート制限の待機中です。${time} 後に自動整理を再開できます`,
 }

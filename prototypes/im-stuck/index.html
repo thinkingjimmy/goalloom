@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I’m stuck · prototype</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f5f1eb; --surface: #fbf9f6; --raised: #fffdfa; --fg: #2b2621; --fg-soft: #4a433c; --secondary: #6f665c; --faint: #b3a99e;
+  --line: rgba(90, 70, 50, .14); --hairline: rgba(90, 70, 50, .08); --hover: rgba(70, 50, 30, .06); --pressed: rgba(70, 50, 30, .09);
+  --check-edge: rgba(90, 70, 50, .3); --checked: #a39a8f; --edge: rgba(40, 25, 10, .14);
+  --danger: #b4382f; --focus: #547aaa;
+  --activity-rollover: #244979;
+  --scrim: rgba(40, 25, 10, .16);
+  --shadow: 0 0 0 .5px var(--edge), 0 12px 32px rgba(60, 40, 20, .14);
+  --shadow-lg: 0 0 0 .5px var(--edge), 0 24px 64px rgba(60, 40, 20, .22);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-size: 14px; -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+textarea, select, input[type="date"] { font-size: 16px; line-height: 1.5; color: var(--fg); }
+textarea:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+p, h2, h3 { margin: 0; }
+
+.board-ghost { position: fixed; inset: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; padding: 22px 28px; pointer-events: none; }
+.board-ghost h2 { margin: 0 0 16px; font-size: 13px; font-weight: 600; color: var(--secondary); }
+.board-ghost small { margin-left: 8px; font-weight: 400; color: var(--faint); font-variant-numeric: tabular-nums; }
+.board-ghost span { display: block; height: 14px; margin: 0 18px 12px 0; border-radius: 7px; background: rgba(90, 70, 50, .06); }
+.board-ghost span.short { width: 62%; }
+.scrim { position: fixed; inset: 0; background: var(--scrim); }
+#stage { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; padding: 28px 20px 96px; pointer-events: none; }
+
+.modal.detail {
+  position: relative; pointer-events: auto;
+  width: min(720px, calc(100vw - 40px));
+  max-height: min(740px, calc(100vh - 120px));
+  display: flex; flex-direction: column;
+  border: 0; border-radius: 14px; background: var(--surface); color: var(--fg);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.modal.detail.margin { width: min(920px, calc(100vw - 40px)); }
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(220px, 30%, 268px); }
+.rail { min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--hairline); }
+.rail-scroll { flex: 1; min-height: 0; overflow: auto; padding: 20px 18px 8px; }
+.rail-label { margin-bottom: 14px; font-size: 13px; font-weight: 600; }
+.rail-actions { flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; margin: 0 8px 10px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.rail-actions button { width: 100%; min-height: 32px; padding: 0 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-size: 13px; text-align: left; }
+.rail-actions button:hover { background: var(--hover); }
+.rail-actions .danger { color: var(--danger); }
+.modal.detail:focus, .modal.detail:focus-visible { outline: none; }
+.modal-header { position: relative; flex-shrink: 0; height: 56px; padding: 0 8px 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.placement-wrap { min-width: 0; }
+.header-tools { position: static; display: flex; align-items: center; flex-shrink: 0; }
+.header-tools .icon-button { position: static; }
+.tool { position: relative; }
+.activity-menu, .more-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 6; background: var(--raised); box-shadow: var(--shadow); }
+.activity-menu { width: 280px; max-height: 440px; overflow: auto; padding: 6px; border-radius: 12px; }
+.activity-menu .menu-label { margin: 4px 8px 6px; font-size: 12px; font-weight: 500; color: var(--secondary); }
+.more-menu { min-width: 196px; padding: 4px; border-radius: 10px; }
+.menu-list { list-style: none; margin: 0; padding: 0; }
+.menu-list li { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; }
+.menu-list strong { font-size: 13px; font-weight: 500; }
+.menu-list span { font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.sheet-foot { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 8px 20px 12px; border-top: 1px solid var(--hairline); }
+.title-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-top: 12px; }
+.sheet-foot button, .title-actions button, .more-menu button, .head-actions button { min-height: 32px; padding: 0 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg); }
+.more-menu button { width: 100%; text-align: left; }
+.sheet-foot button:hover, .title-actions button:hover, .more-menu button:hover, .head-actions button:hover { background: var(--hover); }
+.sheet-foot .danger, .title-actions .danger, .more-menu .danger, .head-actions .danger { color: var(--danger); }
+.title-actions button, .sheet-foot button:not(.danger), .head-actions button:not(.danger) { color: var(--secondary); }
+.title-actions button:hover, .sheet-foot button:not(.danger):hover, .head-actions button:not(.danger):hover { color: var(--fg); }
+.head-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 2px; margin-right: 4px; }
+.placement-wrap { position: relative; min-width: 0; }
+.placement-chip { max-width: 100%; height: 32px; padding: 0 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; transition: background-color 150ms ease-out, color 150ms ease-out; }
+.placement-chip:hover, .placement-chip[aria-expanded="true"] { background: var(--hover); color: var(--fg); }
+.placement-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.placement-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; min-width: 260px; padding: 4px; border-radius: 10px; background: var(--raised); box-shadow: var(--shadow); }
+.placement-menu button { width: 100%; min-height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; text-align: left; }
+.placement-menu button:hover, .placement-menu button[aria-current="true"] { background: var(--hover); }
+.icon-button { position: absolute; top: 10px; right: 12px; width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--secondary); transition: background-color 150ms ease-out, color 150ms ease-out; }
+.icon-button:hover { background: var(--hover); color: var(--fg); }
+
+.detail-body { flex: 1; min-height: 0; overflow: auto; padding: 4px 32px 24px; }
+.margin-layout { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
+.margin-layout > .detail-body { padding: 4px 36px 28px; }
+.detail-title { display: flex; align-items: flex-start; gap: 12px; }
+.detail-title h2 { font-size: 20px; line-height: 28px; font-weight: 600; text-wrap: pretty; overflow-wrap: anywhere; }
+.check { position: relative; width: 22px; height: 22px; margin-top: 3px; flex-shrink: 0; border-radius: 6px; display: grid; place-items: center; color: #fff; background: transparent; }
+.check::before { content: ""; position: absolute; inset: 0; padding: 1.5px; border-radius: inherit; pointer-events: none; background: var(--check-edge);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+.check[data-checked] { background: var(--checked); }
+.check[data-checked]::before { display: none; }
+.check svg { opacity: 0; }
+.check[data-checked] svg { opacity: 1; }
+.detail-props { position: relative; display: flex; margin-top: 16px; }
+.detail-chip { height: 28px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; font-size: 13px; color: var(--secondary); box-shadow: inset 0 0 0 1px var(--line); transition: background-color 150ms ease-out, color 150ms ease-out; }
+.detail-chip:not([data-empty]) { color: var(--fg-soft); }
+.detail-chip:hover { background: var(--hover); color: var(--fg); }
+.due-pop { position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; padding: 8px; border-radius: 13px; background: var(--raised); box-shadow: var(--shadow); }
+.due-pop input { width: auto; padding: 6px 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); }
+
+.saved { margin: 0; padding: 14px 14px 12px; border-radius: 10px; background: var(--hover); display: flex; flex-direction: column; gap: 6px; }
+.note .saved { margin-left: 34px; }
+.saved h3 { font-size: 12px; font-weight: 500; color: var(--secondary); }
+.saved p { font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.saved-meta { font-size: 12px !important; color: var(--secondary); }
+.saved-actions { display: flex; gap: 14px; margin-top: 2px; }
+
+.entry { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+[data-entry-body] { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.entry-head { width: 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.entry-ask { font-size: 15px; line-height: 1.45; font-weight: 600; color: var(--activity-rollover); text-wrap: pretty; }
+.entry-fact { font-size: 13px; line-height: 1.5; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.entry-go { flex-shrink: 0; min-height: 32px; padding: 0 2px; font-size: 13px; font-weight: 600; color: var(--activity-rollover); }
+.entry-go:hover { color: var(--fg); }
+.description { margin-top: 22px; min-height: 72px; font-size: 14px; line-height: 1.65; color: var(--fg-soft); overflow-wrap: anywhere; }
+.description:focus-visible { outline: 1px solid var(--line); outline-offset: 6px; }
+.description p + p { margin-top: 8px; }
+
+.writer { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; margin-top: 6px; }
+.writer label { width: 100%; display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 500; color: var(--secondary); }
+.writer textarea, .writer select, .writer input[type="date"] { width: 100%; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--raised); resize: vertical; }
+.writer textarea { min-height: 96px; }
+.writer textarea::placeholder { color: var(--faint); }
+.writer [data-ai] { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 20px; }
+.kind-block { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.kind-caption { font-size: 12px; line-height: 1.4; color: var(--secondary); }
+.kind-row { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.kind-row button { min-height: 32px; padding: 0 0 2px; border-bottom: 1px solid transparent; border-radius: 0; font-size: 13px; font-weight: 500; color: var(--secondary); background: none; box-shadow: none; }
+.kind-row button[aria-checked="true"] { color: var(--fg); border-bottom-color: var(--fg); }
+.kind-row button:hover { color: var(--fg); }
+.kinds { width: 100%; display: flex; flex-direction: column; gap: 2px; }
+.kinds button { min-height: 32px; padding: 0 10px; border-radius: 8px; text-align: left; font-size: 13px; color: var(--secondary); }
+.kinds button[aria-checked="true"], .kinds button:hover { background: var(--hover); color: var(--fg); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.button { min-height: 36px; padding: 0 14px; border-radius: 9px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 500; background: var(--fg); color: var(--bg); transition: background-color 150ms ease-out; }
+.button:hover:not(:disabled) { background: color-mix(in oklch, var(--fg) 86%, black); }
+.button:active:not(:disabled) { background: color-mix(in oklch, var(--fg) 78%, black); }
+.button.quiet { background: var(--hover); color: var(--fg); }
+.button.quiet:hover:not(:disabled) { background: var(--pressed); }
+.text-button { min-height: 32px; font-size: 13px; color: var(--secondary); transition: color 150ms ease-out; }
+.text-button:hover:not(:disabled) { color: var(--fg); }
+.move { width: 100%; display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+.move label { font-size: 13px; font-weight: 500; color: var(--secondary); display: flex; flex-direction: column; gap: 6px; }
+.proposal { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+.proposal h3 { font-size: 12px; font-weight: 500; color: var(--secondary); }
+.proposal p { font-size: 14px; line-height: 1.55; }
+.note { font-size: 12px; line-height: 1.5; color: var(--secondary); }
+.activity { width: 100%; list-style: none; margin: 4px 0 0; padding: 0; }
+.activity li { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 0 0 14px 18px; }
+.activity li::before { content: ""; position: absolute; left: 2px; top: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.activity li::after { content: ""; position: absolute; left: 5px; top: 16px; bottom: 0; width: 1px; background: var(--line); }
+.activity li:last-child::after { display: none; }
+.activity strong { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.activity span { font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; }
+
+.sheet-actions, .side-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.sheet-actions button, .side-actions button { min-height: 32px; padding: 0 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg); }
+.sheet-actions button:hover, .side-actions button:hover { background: var(--hover); }
+.sheet-actions .danger, .side-actions .danger { color: var(--danger); }
+.status { flex: 1 0 100%; margin: 0 8px 4px; font-size: 12px; line-height: 1.5; color: var(--secondary); }
+.delete-ask { flex: 1 0 100%; margin: 0 8px 4px; font-size: 13px; line-height: 1.45; }
+
+.margin-side { min-height: 0; display: flex; flex-direction: column; gap: 16px; padding: 8px 22px 18px; border-left: 1px solid var(--hairline); }
+.margin-side .entry { margin-top: 0; padding-top: 0; border-top: 0; gap: 10px; }
+.margin-side .entry-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+.margin-side .entry-ask { font-size: 14px; }
+.margin-side .side-actions { margin-top: auto; }
+.margin-side .writer textarea { min-height: 84px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .placement-chip, .icon-button, .detail-chip, .segmented button, .button, .text-button { transition: none; }
+}
+@media (pointer: coarse) {
+  .button, .text-button, .entry-go, .sheet-actions button, .side-actions button { min-height: 44px; }
+}
+
+.proto-picker {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2147483647;
+  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px;
+  background: rgba(10, 10, 10, 0.82);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset, 0 8px 24px rgba(0, 0, 0, 0.24), 0 2px 6px rgba(0, 0, 0, 0.12);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px; line-height: 1; -webkit-font-smoothing: antialiased;
+  user-select: none; -webkit-user-select: none;
+}
+.proto-picker-highlight { position: absolute; top: 4px; left: 0; height: 28px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); will-change: transform; }
+.proto-picker[data-ready] .proto-picker-highlight { transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1), width 250ms cubic-bezier(0.23, 1, 0.32, 1); }
+@media (prefers-reduced-motion: reduce) { .proto-picker[data-ready] .proto-picker-highlight { transition: none; } }
+.proto-picker-item { position: relative; display: flex; align-items: center; height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: rgba(255, 255, 255, 0.55); font: inherit; cursor: pointer; transition: color 150ms ease-out; }
+.proto-picker-item:hover { color: rgba(255, 255, 255, 0.85); }
+.proto-picker-item:active { transform: scale(0.97); }
+.proto-picker-item:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: 2px; }
+.proto-picker-item[data-active] { color: #fff; }
+</style>
+</head>
+<body>
+<div class="board-ghost" aria-hidden="true">
+  <section><h2>This month</h2><span></span><span class="short"></span><span></span></section>
+  <section><h2>This week<small>10/5 – 10/11</small></h2><span></span><span class="short"></span><span></span></section>
+  <section><h2>Today<small>Oct 7</small></h2><span></span><span class="short"></span><span></span></section>
+  <section><h2>Later</h2><span class="short"></span><span></span></section>
+</div>
+<div class="scrim" data-scrim></div>
+<div id="stage"></div>
+<nav class="proto-picker" aria-label="Prototype variants">
+  <span class="proto-picker-highlight" aria-hidden="true"></span>
+  <button type="button" class="proto-picker-item">页脚</button>
+  <button type="button" class="proto-picker-item">更多</button>
+  <button type="button" class="proto-picker-item">标题下</button>
+  <button type="button" class="proto-picker-item">页头</button>
+</nav>
+<script>
+const TITLE = 'Bottega 远端控制功能完成验收（Web 控制 PC）';
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const KINDS = ['Resume point', 'Waiting condition', 'Narrow this attempt'];
+const ACT = [
+  ['Oct 11', 'Carried into Today', 'Automatic · 9:11'],
+  ['Oct 10', 'Carried into Today', 'Automatic · 9:08'],
+  ['Oct 7', 'Moved within Today', 'User · 11:40'],
+  ['Oct 6', 'Carried into Today', 'Automatic · 9:02'],
+  ['Oct 5', 'Carried into Today', 'Automatic · 9:14'],
+  ['Sep 30', 'Carried into Today', 'Automatic · 9:04'],
+  ['Sep 28', 'Carried into Today', 'Automatic · 9:06'],
+];
+const EXPANSIONS = {
+  'Resume point': 'Resume at the Web control login on the acceptance PC, and stop at the first command that does not return a receipt.',
+  'Waiting condition': 'Waiting on the acceptance PC to be online. The schedule stays in Today until that PC is ready.',
+  'Narrow this attempt': 'This attempt only covers the Web control on one PC. Mobile stays outside this attempt.',
+};
+const icon = (paths, size, width = 1.5) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const I = {
+  close: icon('<path d="M7 7 L17 17 M17 7 L7 17"/>', 18),
+  chevron: icon('<path d="M6 9.5 L12 15.5 L18 9.5"/>', 14),
+  tick: icon('<path d="M5 12.5 L9.5 17 L19 7.5"/>', 14, 2.5),
+  cancel: icon('<circle cx="12" cy="12" r="8"/><path d="M8.2 8.2 L15.8 15.8"/>', 16),
+  archive: icon('<path d="M4 7.5 h16 v3.2 h-16 z"/><path d="M6.5 10.7 V19 h11 v-8.3"/><path d="M10 14.2 h4"/>', 16),
+  trash: icon('<path d="M5 8 h14"/><path d="M9.2 8 V5.8 h5.6 V8"/><path d="M7.2 8 l.8 12 h8 l.8-12"/>', 16),
+  clock: icon('<circle cx="12" cy="12" r="7.5"/><path d="M12 8.25 V12 L14.75 13.7"/>', 18),
+  more: icon('<circle cx="5" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.35" fill="currentColor" stroke="none"/>', 18),
+};
+
+function places() {
+  return ['Today · Oct 7, 2026', 'This week · Oct 5 – Oct 11, 2026', 'This month · October 2026', 'Later'].map((value, index) =>
+    `<button type="button" role="menuitem" data-act="place" data-value="${value}" ${index === 0 ? 'aria-current="true"' : ''}>${value}</button>`).join('');
+}
+function activityMenu() {
+  const items = ACT.map(([when, title, meta]) => `<li><strong>${title}</strong><span>${when} · ${meta}</span></li>`).join('');
+  return `<div class="tool">
+    <button type="button" class="icon-button" data-act="activity" aria-label="Activity" aria-expanded="false" aria-haspopup="menu">${I.clock}</button>
+    <div class="activity-menu" role="menu" hidden><p class="menu-label">Activity</p><ul class="menu-list">${items}</ul></div>
+  </div>`;
+}
+function header(more, head) {
+  const headActions = head ? actions('head-actions') : '';
+  const moreTool = more ? `<div class="tool">
+      <button type="button" class="icon-button" data-act="more" aria-label="More actions" aria-expanded="false" aria-haspopup="menu">${I.more}</button>
+      <div class="more-menu" role="menu" hidden>${actions('menu-actions')}</div>
+    </div>` : '';
+  return `<header class="modal-header">
+    <div class="placement-wrap">
+      <button type="button" class="placement-chip" data-act="placement" aria-expanded="false" aria-haspopup="menu">
+        <span class="placement-text" data-placement-label>Today · Oct 7, 2026</span>${I.chevron}
+      </button>
+      <div class="placement-menu" role="menu" hidden>${places()}</div>
+    </div>
+    <div class="header-tools">${headActions}${moreTool}${activityMenu()}<button type="button" class="icon-button" data-act="dismiss" aria-label="Close">${I.close}</button></div>
+  </header>`;
+}
+function taskHead() {
+  return `<div class="detail-title">
+      <button type="button" class="check" data-act="check" aria-pressed="false" aria-label="Mark as done">${I.tick}</button>
+      <h2>${TITLE}</h2>
+    </div>
+    <div class="detail-props">
+      <button type="button" class="detail-chip" data-act="due" data-empty="true" aria-expanded="false">Due date</button>
+      <div class="due-pop" data-due-pop hidden><input type="date" data-due-input aria-label="Due date"></div>
+    </div>`;
+}
+function description() {
+  return `<div class="description" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Description" spellcheck="true">
+    <p>远端控制台要在指定 PC 上完成验收：登录、下发一条控制指令、确认回执，并把失败步骤记在这条任务里。</p>
+    <p>验收范围只包含 Web 控制 PC，不包含移动端。卡住的时候标题、期限和完成标准都先不动。</p>
+  </div>`;
+}
+function kindControl() {
+  const buttons = KINDS.map((kind) => `<button type="button" role="radio" data-act="kind" data-value="${kind}" aria-checked="false">${kind}</button>`).join('');
+  return `<div class="kind-block"><p class="kind-caption">Focus this on</p><div class="kind-row" role="radiogroup" aria-label="Guidance type">${buttons}</div></div>`;
+}
+function writer(vertical) {
+  return `<form class="writer" data-writer hidden>
+    <div data-ai>
+      <label>What is hardest to move forward now?
+        <textarea data-difficulty rows="3" maxlength="2000" spellcheck="true" autocomplete="off" placeholder="A receipt that never comes back, a PC that isn’t on, or a scope that’s too wide."></textarea>
+      </label>
+      ${kindControl()}
+      <div class="row">
+        <button type="submit" class="button" data-generate>Help me find an approach</button>
+        <button type="button" class="button quiet" data-cancel hidden>Cancel</button>
+        <button type="button" class="text-button" data-act="manual">Write guidance myself</button>
+      </div>
+    </div>
+    <div data-manual hidden>
+      <label>What to do first next time
+        <textarea data-manual-text rows="3" maxlength="2000" spellcheck="true"></textarea>
+      </label>
+      <p class="note">Title, description, deadline and completion stay unchanged.</p>
+      <div class="row">
+        <button type="button" class="button" data-act="save-manual">Save guidance</button>
+        <button type="button" class="text-button" data-act="back-ai">Suggest an approach instead</button>
+      </div>
+    </div>
+    <section class="proposal" data-proposal hidden>
+      <h3>Progress guidance</h3>
+      <p data-proposal-text></p>
+      <p class="note">Title, description, deadline and completion stay unchanged.</p>
+      <button type="button" class="button" data-act="save">Save guidance</button>
+    </section>
+    <button type="button" class="text-button" data-act="toggle-move" aria-expanded="false">Reschedule</button>
+    <div class="move" data-move hidden>
+      <label>Schedule in
+        <select data-horizon>
+          <option value="Today · Oct 7, 2026">Today</option>
+          <option value="This week · Oct 5 – Oct 11, 2026">This week</option>
+          <option value="This month · October 2026">This month</option>
+          <option value="Later">Later</option>
+        </select>
+      </label>
+      <label data-date-label>Target date<input type="date" value="2026-10-07"></label>
+      <p class="note" data-later-note hidden>Moving to Later removes parent links. The deadline stays unchanged.</p>
+      <button type="button" class="button quiet" data-act="apply-move">Move</button>
+    </div>
+  </form>`;
+}
+function entry(vertical) {
+  return `<section class="entry">
+    <section class="saved" data-saved hidden>
+      <h3>Progress guidance</h3>
+      <p data-saved-text></p>
+      <p class="saved-meta"><span data-by>AI assisted</span> · Updated Oct 7, 2026</p>
+      <div class="saved-actions">
+        <button type="button" class="text-button" data-act="edit">Edit</button>
+        <button type="button" class="text-button" data-act="clear">Clear guidance</button>
+      </div>
+    </section>
+    <div data-entry-body>
+      <div class="entry-head">
+        <p class="entry-ask">Does this task still fit the plan?</p>
+        <button type="button" class="entry-go" data-act="open" data-entry-go>I’m stuck…</button>
+        <button type="button" class="text-button" data-act="hide" data-hide hidden>Hide</button>
+      </div>
+      <p class="entry-fact">Carried forward 7 times · about 7.9 days in Today</p>
+      ${writer(vertical)}
+    </div>
+  </section>`;
+}
+function actions(className) {
+  return `<div class="${className}">
+    <p class="status" data-status role="status" hidden></p>
+    <div data-action-row>
+      <button type="button" data-act="cancel">${I.cancel}<span data-cancel-label>Cancel</span></button>
+      <button type="button" data-act="archive">${I.archive}<span data-archive-label>Archive</span></button>
+      <button type="button" class="danger" data-act="delete">${I.trash}<span>Delete</span></button>
+    </div>
+    <div data-delete-confirm hidden>
+      <p class="delete-ask">Delete this task? Linked goals would be counted before it goes.</p>
+      <button type="button" class="danger" data-act="confirm-delete">${I.trash}<span>Delete</span></button>
+      <button type="button" data-act="keep">Keep</button>
+    </div>
+  </div>`;
+}
+function shell(place) {
+  const more = place === 'more';
+  return `<div class="modal detail note" role="dialog" aria-modal="true" aria-label="Current item">
+    ${header(more, place === 'head')}
+    <div class="detail-body">
+      ${taskHead()}
+      ${place === 'title' ? actions('title-actions') : ''}
+      ${entry(false)}
+      ${description()}
+    </div>
+    ${place === 'foot' ? actions('sheet-foot') : ''}
+  </div>`;
+}
+const variants = [() => shell('foot'), () => shell('more'), () => shell('title'), () => shell('head')];
+let wireAbort = new AbortController();
+
+function wire(root) {
+  wireAbort.abort();
+  wireAbort = new AbortController();
+  const signal = wireAbort.signal;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  let genToken = 0;
+  const q = (sel) => root.querySelector(sel);
+  const status = (text) => {
+    const el = q('[data-status]');
+    el.hidden = !text;
+    el.textContent = text || '';
+  };
+  const writing = () => q('[data-writer]') && !q('[data-writer]').hidden;
+  function focusDifficulty() {
+    const ta = q('[data-difficulty]');
+    if (ta && fine && !ta.closest('[hidden]')) ta.focus();
+  }
+  function setOpen(open) {
+    q('[data-writer]').hidden = !open;
+    q('[data-entry-go]').hidden = open;
+    q('[data-hide]').hidden = !open;
+    if (open) focusDifficulty();
+  }
+  function approach(text) {
+    const trimmed = text.trim();
+    const kind = q('[data-act="kind"][aria-checked="true"]')?.dataset.value;
+    if (trimmed) return trimmed;
+    return EXPANSIONS[kind] || 'Open the Web control on the acceptance PC, send one command, and record the first failure on this task.';
+  }
+  function generate() {
+    const id = ++genToken;
+    const button = q('[data-generate]');
+    const cancel = q('[data-cancel]');
+    button.hidden = true;
+    cancel.hidden = false;
+    const text = q('[data-difficulty]').value;
+    const delay = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650;
+    setTimeout(() => {
+      if (!root.isConnected || id !== genToken) return;
+      button.hidden = false;
+      button.textContent = 'Adjust suggestion';
+      cancel.hidden = true;
+      const proposal = q('[data-proposal]');
+      proposal.hidden = false;
+      q('[data-proposal-text]').textContent = approach(text);
+    }, delay);
+  }
+  function commit(text, by) {
+    q('[data-saved]').hidden = false;
+    q('[data-saved-text]').textContent = text;
+    q('[data-by]').textContent = by;
+    q('[data-entry-body]').hidden = true;
+    q('[data-saved]').scrollIntoView({ block: 'nearest' });
+    status('');
+  }
+  function restoreEntry() {
+    q('[data-saved]').hidden = true;
+    q('[data-entry-body]').hidden = false;
+    q('[data-proposal]').hidden = true;
+    q('[data-manual]').hidden = true;
+    q('[data-ai]').hidden = false;
+    q('[data-difficulty]').value = '';
+    q('[data-generate]').hidden = false;
+    q('[data-generate]').textContent = 'Help me find an approach';
+    q('[data-cancel]').hidden = true;
+    root.querySelectorAll('[data-act="kind"]').forEach((button) => button.setAttribute('aria-checked', 'false'));
+    setOpen(false);
+  }
+  function closeMenus() {
+    for (const [menu, button] of [['.placement-menu', '[data-act="placement"]'], ['.activity-menu', '[data-act="activity"]'], ['.more-menu', '[data-act="more"]']]) {
+      const panel = q(menu);
+      const control = q(button);
+      if (panel) panel.hidden = true;
+      if (control) control.setAttribute('aria-expanded', 'false');
+    }
+    const due = q('[data-due-pop]');
+    const dueBtn = q('[data-act="due"]');
+    if (due) due.hidden = true;
+    if (dueBtn) dueBtn.setAttribute('aria-expanded', 'false');
+  }
+  function dismiss() {
+    closeMenus();
+    if (writing()) { setOpen(false); status(''); return; }
+    status('This would return to the board.');
+  }
+
+  root.addEventListener('submit', (event) => { event.preventDefault(); generate(); }, { signal });
+  root.addEventListener('change', (event) => {
+    if (event.target.matches('[data-horizon]')) {
+      const later = event.target.value === 'Later';
+      q('[data-later-note]').hidden = !later;
+      q('[data-date-label]').hidden = later;
+    }
+    if (event.target.matches('[data-due-input]')) {
+      const chip = q('[data-act="due"]');
+      if (!event.target.value) { chip.textContent = 'Due date'; chip.dataset.empty = 'true'; }
+      else {
+        const [, m, d] = event.target.value.split('-').map(Number);
+        const y = event.target.value.slice(0, 4);
+        chip.textContent = `${MONTHS[m - 1]} ${d}, ${y}`;
+        delete chip.dataset.empty;
+      }
+    }
+  }, { signal });
+  root.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && event.target.matches('textarea')) {
+      event.preventDefault();
+      if (event.target.matches('[data-manual-text]')) q('[data-act="save-manual"]').click();
+      else generate();
+    }
+  }, { signal });
+  root.addEventListener('click', (event) => {
+    const el = event.target.closest('[data-act]');
+    if (!el || !root.contains(el)) return;
+    const act = el.dataset.act;
+    if (act === 'placement') {
+      const menu = q('.placement-menu');
+      const open = menu.hidden;
+      closeMenus();
+      menu.hidden = !open;
+      el.setAttribute('aria-expanded', String(open));
+      return;
+    }
+    if (act === 'activity' || act === 'more') {
+      const menu = q(act === 'activity' ? '.activity-menu' : '.more-menu');
+      const open = menu.hidden;
+      closeMenus();
+      menu.hidden = !open;
+      el.setAttribute('aria-expanded', String(open));
+      return;
+    }
+    if (act === 'place') {
+      q('[data-placement-label]').textContent = el.dataset.value;
+      root.querySelectorAll('[data-act="place"]').forEach((item) => item.removeAttribute('aria-current'));
+      el.setAttribute('aria-current', 'true');
+      closeMenus();
+      status(el.dataset.value === 'Later' ? 'Would move to Later and remove parent links.' : '');
+      return;
+    }
+    if (act === 'due') {
+      const pop = q('[data-due-pop]');
+      const open = pop.hidden;
+      closeMenus();
+      pop.hidden = !open;
+      el.setAttribute('aria-expanded', String(open));
+      if (open) q('[data-due-input]').focus();
+      return;
+    }
+    if (act === 'check') {
+      const on = el.toggleAttribute('data-checked');
+      el.setAttribute('aria-pressed', String(on));
+      el.setAttribute('aria-label', on ? 'Reopen' : 'Mark as done');
+      return;
+    }
+    if (act === 'open' || act === 'edit') {
+      if (act === 'edit') {
+        q('[data-saved]').hidden = true;
+        q('[data-entry-body]').hidden = false;
+        q('[data-difficulty]').value = q('[data-saved-text]').textContent;
+      }
+      setOpen(true);
+      return;
+    }
+    if (act === 'hide') { setOpen(false); return; }
+    if (act === 'clear') { restoreEntry(); return; }
+    if (act === 'kind') {
+      root.querySelectorAll('[data-act="kind"]').forEach((button) => button.setAttribute('aria-checked', String(button === el)));
+      return;
+    }
+    if (act === 'manual') {
+      q('[data-ai]').hidden = true;
+      q('[data-manual]').hidden = false;
+      const manual = q('[data-manual-text]');
+      if (!manual.value) manual.value = q('[data-difficulty]').value;
+      if (fine) manual.focus();
+      return;
+    }
+    if (act === 'back-ai') { q('[data-manual]').hidden = true; q('[data-ai]').hidden = false; return; }
+    if (act === 'save') { commit(q('[data-proposal-text]').textContent.trim(), 'AI assisted'); return; }
+    if (act === 'save-manual') {
+      const text = q('[data-manual-text]').value.trim();
+      if (!text) { status('Write the first step, then save.'); return; }
+      commit(text, 'Handwritten');
+      return;
+    }
+    if (act === 'toggle-move') {
+      const move = q('[data-move]');
+      move.hidden = !move.hidden;
+      el.setAttribute('aria-expanded', String(!move.hidden));
+      return;
+    }
+    if (act === 'apply-move') {
+      const value = q('[data-horizon]').value;
+      q('[data-placement-label]').textContent = value;
+      q('[data-move]').hidden = true;
+      q('[data-act="toggle-move"]').setAttribute('aria-expanded', 'false');
+      status(value === 'Later' ? 'Would move to Later and remove parent links. The deadline stays unchanged.' : 'Schedule would move. The deadline stays unchanged.');
+      return;
+    }
+    if (act === 'dismiss') { dismiss(); return; }
+    if (act === 'cancel') {
+      const label = q('[data-cancel-label]');
+      const on = label.textContent !== 'Restore';
+      label.textContent = on ? 'Restore' : 'Cancel';
+      status(on ? 'Would mark this task canceled.' : 'Would return this task to todo.');
+      return;
+    }
+    if (act === 'archive') {
+      const label = q('[data-archive-label]');
+      const on = label.textContent !== 'Unarchive';
+      label.textContent = on ? 'Unarchive' : 'Archive';
+      status(on ? 'Would archive this task.' : 'Would unarchive this task.');
+      return;
+    }
+    if (act === 'delete') { q('[data-action-row]').hidden = true; q('[data-delete-confirm]').hidden = false; return; }
+    if (act === 'keep') { q('[data-delete-confirm]').hidden = true; q('[data-action-row]').hidden = false; return; }
+    if (act === 'confirm-delete') {
+      status('Would delete this task after the confirmation.');
+      q('[data-delete-confirm]').hidden = true;
+      q('[data-action-row]').hidden = false;
+    }
+  }, { signal });
+  q('[data-cancel]').addEventListener('click', () => {
+    genToken++;
+    q('[data-cancel]').hidden = true;
+    q('[data-generate]').hidden = false;
+  }, { signal });
+  document.addEventListener('click', (event) => {
+    if (!root.contains(event.target)) return;
+    if (!event.target.closest('.placement-wrap')) {
+      const menu = q('.placement-menu');
+      const button = q('[data-act="placement"]');
+      if (menu) menu.hidden = true;
+      if (button) button.setAttribute('aria-expanded', 'false');
+    }
+    if (!event.target.closest('.activity-menu, [data-act="activity"]')) {
+      const menu = q('.activity-menu');
+      const button = q('[data-act="activity"]');
+      if (menu) menu.hidden = true;
+      if (button) button.setAttribute('aria-expanded', 'false');
+    }
+    if (!event.target.closest('.more-menu, [data-act="more"]')) {
+      const menu = q('.more-menu');
+      const button = q('[data-act="more"]');
+      if (menu) menu.hidden = true;
+      if (button) button.setAttribute('aria-expanded', 'false');
+    }
+    if (!event.target.closest('.detail-props')) {
+      const due = q('[data-due-pop]');
+      const dueBtn = q('[data-act="due"]');
+      if (due) due.hidden = true;
+      if (dueBtn) dueBtn.setAttribute('aria-expanded', 'false');
+    }
+  }, { signal });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const menuOpen = ['.placement-menu', '.activity-menu', '.more-menu'].some((sel) => q(sel) && !q(sel).hidden);
+    const dueOpen = q('[data-due-pop]') && !q('[data-due-pop]').hidden;
+    const deleting = q('[data-delete-confirm]') && !q('[data-delete-confirm]').hidden;
+    if (menuOpen || dueOpen) { event.preventDefault(); closeMenus(); return; }
+    if (deleting) { q('[data-delete-confirm]').hidden = true; q('[data-action-row]').hidden = false; return; }
+    event.preventDefault();
+    dismiss();
+  }, { signal });
+  document.querySelector('[data-scrim]').addEventListener('click', () => dismiss(), { signal });
+}
+
+const stage = document.getElementById('stage');
+const picker = document.querySelector('.proto-picker');
+const highlight = picker.querySelector('.proto-picker-highlight');
+const items = [...picker.querySelectorAll('.proto-picker-item')];
+let current = 0;
+function moveHighlight() {
+  const el = items[current];
+  highlight.style.width = el.offsetWidth + 'px';
+  highlight.style.transform = `translateX(${el.offsetLeft}px)`;
+}
+function mount(i) {
+  stage.replaceChildren();
+  requestAnimationFrame(() => {
+    stage.innerHTML = variants[i]();
+    const dialog = stage.querySelector('.modal');
+    if (dialog) wire(dialog);
+  });
+}
+function setActive(i) {
+  if (i < 0 || i >= variants.length) return;
+  current = i;
+  items.forEach((el, j) => {
+    el.toggleAttribute('data-active', j === i);
+    if (j === i) el.setAttribute('aria-current', 'true');
+    else el.removeAttribute('aria-current');
+  });
+  moveHighlight();
+  try {
+    const url = new URL(location.href);
+    url.searchParams.set('v', String(i + 1));
+    history.replaceState(null, '', url);
+  } catch { /* file URLs can reject replaceState */ }
+  mount(i);
+}
+items.forEach((el, i) => el.addEventListener('click', () => setActive(i)));
+window.addEventListener('resize', moveHighlight);
+document.addEventListener('keydown', (event) => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) || event.target.isContentEditable) return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const num = parseInt(event.key, 10);
+  if (num >= 1 && num <= variants.length) setActive(num - 1);
+  else if (event.key === 'ArrowRight') setActive((current + 1) % variants.length);
+  else if (event.key === 'ArrowLeft') setActive((current - 1 + variants.length) % variants.length);
+});
+let initial = (parseInt(new URLSearchParams(location.search).get('v'), 10) || 1) - 1;
+if (initial < 0 || initial >= variants.length) initial = 0;
+setActive(initial);
+requestAnimationFrame(() => requestAnimationFrame(() => picker.setAttribute('data-ready', '')));
+</script>
+</body>
+</html>

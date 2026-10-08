@@ -5,7 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { GuidanceValue } from '../../shared/contracts/assistance'
-export interface AssistanceDraft { text: string; answer: string; adjustment: string; guidance: GuidanceValue | null; manual: boolean; horizon: string | null; date: string; source: boolean }
+export interface AssistanceDraft { choice?: number | null; text: string; answer: string; adjustment: string; guidance: GuidanceValue | null; manual: boolean; horizon: string | null; date: string; source: boolean }
 export type AssistanceEntry = 'help' | 'guidance' | 'schedule'
 const entries = new Map<string, { itemId: string; value: AssistanceDraft; size: number }>()
 let generation: string | null = null

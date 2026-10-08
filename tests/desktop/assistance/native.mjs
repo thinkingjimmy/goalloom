@@ -1,11 +1,11 @@
 /**
- * [INPUT]: Built production main/preload/renderer, isolated profile and synthetic HTTP transport.
- * [OUTPUT]: Native entry/generation/language reports, app-only focus evidence and screenshots.
- * [POS]: Feature E2E; keeps the production UI, service, cancellation, writes and receipts active.
+ * [INPUT]: Built production main/preload/renderer and a synthetic provider transport.
+ * [OUTPUT]: Repeatable note-rewrite, concurrency, receipt, keyboard and localization acceptance evidence.
+ * [POS]: Source Electron E2E; real service, SQLite and IPC, no live provider or personal data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
- * Failure cases: open triggers AI/writes, stale replies overwrite edits, consent expands silently,
- * cancel fails to abort transport, conversation loses prior turns, entry intent loses to a cached draft,
- * unknown receipts duplicate adoption, focus/IME is lost, and translated actions clip.
+ * Failure cases: read-only entry sends data; implicit preselection; stale/late output overwrites typing;
+ * cancel fails; completed tasks disappear; rethink duplicates notes; unknown writes repeat;
+ * undo loses unrelated edits; inactive tasks generate; new UI clips or restores old controls.
  */
 import assert from 'node:assert/strict'
 import { _electron as electron } from 'playwright'
@@ -13,246 +13,152 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir, cpus, release } from 'node:os'
 import { join, resolve } from 'node:path'
 import { finishSetup } from '../fixtures/setup.mjs'
-
 const groups = process.argv.slice(2), out = resolve('output/tests/assistance')
 await mkdir(out, { recursive: true })
-const profile = await mkdtemp(join(tmpdir(), 'Goalloom assistance native '))
+const profile = await mkdtemp(join(tmpdir(), 'Goalloom note rewrite '))
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'en' }))
 const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE; delete env.ELECTRON_RENDERER_URL
 const application = await electron.launch({ args: ['.', `--user-data-dir=${profile}`], env })
 const page = await application.firstWindow(), errors = []
 page.on('pageerror', error => errors.push(error.message))
-const report = { ok: false, groups, checks: [], screenshots: [], scope: 'Source native Electron, real preload/main/SQLite/safeStorage, synthetic HTTP only; synthesized composition, no physical IME, packaged, live-model or Windows acceptance', host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model, physicalOrVm: 'unverified' } }
-const checked = label => { report.checks.push(label); console.log(`✓ native: ${label}`) }
+const report = { ok: false, groups, checks: [], screenshots: [], scope: 'Source Electron; real preload/main/SQLite; synthetic provider. No live-model, packaged, physical IME or Windows acceptance.', host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model, physicalOrVm: 'unverified' } }
+const checked = label => { report.checks.push(label); console.log(`✓ rewrite: ${label}`) }
+const detail = page.locator('dialog.detail'), panel = detail.locator('.assistance-panel')
+const originalNotes = 'Validate the Web to PC flow.\n\n- [x] Connect the test PC\n- [ ] Check keyboard input'
+let id
+const read = () => page.evaluate(id => window.goalloom.getItem(id), id)
+const edit = async description => page.evaluate(async ({ id, description }) => {
+  const { workspace } = await window.goalloom.getSnapshot(), { item } = await window.goalloom.getItem(id)
+  const reply = await window.goalloom.execute({ type: 'edit', generation: workspace.generation, operationId: crypto.randomUUID(), itemId: id, expectedVersion: item.version, title: item.title, dueDate: item.dueDate, description })
+  if (!reply.ok) throw Error(reply.message)
+}, { id, description })
+const open = async () => {
+  await detail.locator('.action-invitation, .rewrite-actions button').click()
+  await page.waitForFunction(() => document.querySelector('.assistance-panel')?.getAttribute('aria-busy') === 'false')
+}
+const submit = async () => { await panel.locator('.help-option').first().click(); await panel.getByRole('button', { name: 'Find a next step', exact: true }).click() }
+const shot = async name => { await detail.screenshot({ path: `${out}/${name}.png` }); report.screenshots.push(`${name}.png`) }
 try {
   await installTransport(application)
   await finishSetup(page, { skipAi: true })
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
-  const id = await page.evaluate(async () => {
+  id = await page.evaluate(async description => {
     const { workspace } = await window.goalloom.getSnapshot()
-    const reply = await window.goalloom.execute({ type: 'create', title: 'Synthetic tutorial draft', description: 'The concept section is already written.', horizon: 'week', generation: workspace.generation, operationId: crypto.randomUUID() })
+    const reply = await window.goalloom.execute({ type: 'create', title: 'Validate Web control of the test PC', description, horizon: 'week', generation: workspace.generation, operationId: crypto.randomUUID() })
     if (!reply.ok) throw Error(reply.message)
     return reply.result.itemId
-  })
-  const before = await page.evaluate(() => window.goalloom.getSnapshot())
-  await page.locator(`#item-${id} .task-title`).click()
-  const detail = page.locator('dialog.detail')
-  await detail.waitFor(); await detail.locator('.activity-insight').waitFor()
-  await detail.locator('.execution-help button').first().click()
-  const panel = detail.locator('.assistance-panel')
-  await panel.waitFor(); await page.waitForFunction(() => document.querySelector('.assistance-panel')?.getAttribute('aria-busy') === 'false')
+  }, originalNotes)
+  await page.locator(`#item-${id} .task-title`).click(); await detail.waitFor()
+  const before = await read()
+  await open()
   assert.equal(await calls(application), 0)
-  assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.revision, before.workspace.revision)
-  assert.equal(await panel.locator('textarea').first().evaluate(node => document.activeElement === node), true)
-  checked('opening facts and assistance is local-only, does not write, and focuses the explicit user input')
+  assert.deepEqual((await read()).item, before.item)
+  assert.equal(await panel.locator('[aria-pressed="true"]').count(), 0)
+  assert.equal(await panel.getByRole('button', { name: 'Find a next step', exact: true }).isDisabled(), true)
+  assert.equal(await detail.locator('.detail-rail, .activity-drawer, .saved-guidance, .assistance-consent').count(), 0)
+  assert.equal(await detail.locator('.detail-management button').count(), 3)
+  assert.equal(await panel.locator('header button').count(), 0)
+  assert.equal(await detail.locator('.description-editor').isVisible(), true)
+  checked('entry is local-only, single-pane, choices unselected and the notes editor remains visible')
   if (groups.includes('entry')) {
-    await panel.getByLabel('What is hardest to move forward now?', { exact: true }).fill('Keep this unsaved help draft')
-    await panel.getByRole('button', { name: 'Back to task', exact: true }).click()
-    await detail.locator('.execution-help button').nth(1).click()
-    await panel.locator('.assistance-preview').waitFor()
-    await panel.getByRole('heading', { name: 'Reschedule', exact: true }).waitFor()
-    assert.equal(await panel.getByLabel('What is hardest to move forward now?', { exact: true }).count(), 0)
-    assert.equal(await panel.locator('select').inputValue(), 'week')
-    await panel.locator('select').selectOption('day')
-    const date = before.periods.find(period => period.horizon === 'day').startDate
-    await panel.getByLabel('Target date', { exact: true }).fill(date)
-    await panel.getByRole('button', { name: 'Back to task', exact: true }).click()
-    await detail.locator('.execution-help button').first().click()
-    await panel.getByLabel('What is hardest to move forward now?', { exact: true }).waitFor()
-    assert.equal(await panel.getByLabel('What is hardest to move forward now?', { exact: true }).inputValue(), 'Keep this unsaved help draft')
-    await detail.locator('.execution-help button').nth(1).click()
-    await panel.locator('.assistance-preview').waitFor()
-    assert.equal(await panel.getByLabel('What is hardest to move forward now?', { exact: true }).count(), 0)
-    assert.equal(await panel.locator('select').inputValue(), 'day')
-    assert.equal(await panel.getByLabel('Target date', { exact: true }).inputValue(), date)
-    await checkCheckbox(panel)
-    assert.equal(await calls(application), 0)
-    await page.screenshot({ path: `${out}/reschedule-entry.png` }); report.screenshots.push('reschedule-entry.png')
-    await panel.getByRole('button', { name: 'Back to task', exact: true }).click()
-    await detail.locator('.execution-help button').first().click()
-    await panel.getByLabel('What is hardest to move forward now?', { exact: true }).waitFor()
-    checked('rescheduling switches an open help form, restores its own draft and preserves the separate help draft without AI or writes')
-    await panel.getByRole('button', { name: 'Write guidance myself', exact: true }).click()
-    await panel.getByLabel('What to do first next time', { exact: true }).fill('Start with one existing example')
-    await panel.getByLabel('What to do first next time', { exact: true }).evaluate(node => node.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true })))
-    await panel.getByRole('button', { name: 'Save guidance', exact: true }).click()
-    assert.equal((await page.evaluate(id => window.goalloom.getItem(id), id)).guidance, null)
-    await panel.getByLabel('What to do first next time', { exact: true }).evaluate(node => node.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true })))
-    await panel.getByRole('button', { name: 'Save guidance', exact: true }).click()
-    await panel.waitFor({ state: 'detached' })
-    const saved = await page.evaluate(id => window.goalloom.getItem(id), id)
-    assert.equal(saved.guidance.value.nextAction, 'Start with one existing example')
-    assert.equal(saved.item.description, 'The concept section is already written.')
-    await detail.locator('.saved-guidance').waitFor()
-    assert.equal(await calls(application), 0)
-    await page.screenshot({ path: `${out}/manual-guidance.png` }); report.screenshots.push('manual-guidance.png')
-    await detail.getByRole('button', { name: 'Clear guidance', exact: true }).click()
-    await detail.locator('.saved-guidance').waitFor({ state: 'detached' })
-    const tombstone = await page.evaluate(id => window.goalloom.getItem(id), id)
-    assert.equal(tombstone.guidance.value, null)
-    assert.equal(tombstone.guidance.revision, 2)
-    checked('manual guidance works without AI, IME blocks early adoption, clear persists a tombstone and original text stays')
-    await page.evaluate(async id => {
-      const { workspace } = await window.goalloom.getSnapshot(), { item } = await window.goalloom.getItem(id)
-      const done = await window.goalloom.execute({ type: 'status', itemId: id, expectedVersion: item.version, status: 'done', generation: workspace.generation, operationId: crypto.randomUUID() })
-      if (!done.ok) throw Error(done.message)
-      const undo = await window.goalloom.execute({ type: 'undo', originalOperationId: done.result.operationId, generation: workspace.generation, operationId: crypto.randomUUID() })
-      if (!undo.ok || !undo.result.changed) throw Error('Synthetic completion undo failed')
-    }, id)
-    await detail.locator('.activity-all').click()
-    await detail.locator('.activity-list em').filter({ hasText: 'Undone' }).waitFor()
-    await page.screenshot({ path: `${out}/undone-completion.png` }); report.screenshots.push('undone-completion.png')
-    await detail.locator('.activity-all').click()
-    checked('completion undo is visible on the original activity record')
-    await page.keyboard.press('Escape'); await detail.waitFor({ state: 'detached' })
-    await page.locator(`#item-${id} .task-title`).focus()
-    await page.keyboard.press('Shift+F10')
-    await page.getByRole('menuitem', { name: 'I’m stuck…', exact: true }).click()
-    await panel.waitFor(); await panel.getByRole('button', { name: 'Back to task', exact: true }).click()
-    await panel.waitFor({ state: 'detached' }); await page.keyboard.press('Escape')
-    await detail.waitFor({ state: 'detached' })
-    assert.equal(await page.locator(`#item-${id} .task-title`).evaluate(node => document.activeElement === node), true)
-    checked('keyboard context-menu help returns through the existing detail to the source row')
-    await page.locator(`#item-${id} .task-title`).click(); await detail.waitFor()
+    await panel.getByLabel('Something else…', { exact: true }).fill('Keep the existing acceptance scope')
+    await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' })
+    await detail.getByRole('button', { name: 'Close', exact: true }).click()
+    await page.locator(`#item-${id} .task-title`).click(); await open()
+    assert.equal(await panel.getByLabel('Something else…', { exact: true }).inputValue(), 'Keep the existing acceptance scope')
+    await panel.getByLabel('Something else…', { exact: true }).fill('')
+    assert.equal(await panel.getByRole('button', { name: 'Find a next step', exact: true }).isDisabled(), true)
+    await panel.locator('.help-option').first().focus(); await page.keyboard.press('b')
+    assert.equal(await panel.locator('button.help-option').nth(1).getAttribute('aria-pressed'), 'true')
+    await shot('rewrite-choices')
+    checked('custom input, blank input guard, keyboard choices and session-only draft restoration')
   }
+  await panel.getByRole('button', { name: 'Not now', exact: true }).click()
   if (groups.includes('generation')) {
     await page.evaluate(async () => {
       const { workspace } = await window.goalloom.getSnapshot()
-      const reply = await window.goalloom.smart({ type: 'connect', generation: workspace.generation, provider: 'openrouter', apiKey: 'synthetic-assistance-key', consent: true })
-      if (reply.type !== 'status' || !reply.test?.ok) throw Error('Synthetic connection failed')
+      await window.goalloom.smart({ type: 'connect', generation: workspace.generation, provider: 'openrouter', apiKey: 'synthetic-assistance-key', consent: true })
+      await window.goalloom.smart({ type: 'feature', generation: workspace.generation, feature: 'insight', provider: 'openrouter', enabled: true })
     })
-    if (await panel.count()) await panel.getByRole('button', { name: 'Back to task', exact: true }).click()
-    await detail.locator('.execution-help button').first().click()
-    await page.waitForFunction(() => document.querySelector('.assistance-panel')?.getAttribute('aria-busy') === 'false')
-    await panel.getByLabel('What is hardest to move forward now?', { exact: true }).fill('The example keeps changing')
-    await panel.getByRole('button', { name: 'Help me find an approach', exact: true }).click()
-    await panel.getByRole('alert').waitFor()
-    assert.equal(await calls(application), 0, 'Old connection consent grants no new task-body permission')
-    await panel.getByRole('checkbox', { name: 'Allow sending to this service', exact: true }).check()
-    await setMode(application, 'clarify')
-    await panel.getByRole('button', { name: 'Help me find an approach', exact: true }).click()
-    await panel.getByLabel('Your answer', { exact: true }).waitFor()
-    await panel.getByLabel('Your answer', { exact: true }).fill('The rough cut is finished; the opening is unclear')
-    await setMode(application, 'proposal')
-    await panel.getByRole('button', { name: 'Help me find an approach', exact: true }).click()
-    await panel.getByLabel('What to do first next time', { exact: true }).waitFor()
-    const fixture = await application.evaluate(() => globalThis.assistanceFixture)
-    assert.equal(fixture.calls.length, 2)
-    assert.equal(fixture.lastRequest.context.facts.calculationVersion, 1)
-    assert.equal(fixture.lastRequest.context.item.id, id)
-    assert.equal(await detail.locator('.activity-drawer').getAttribute('data-facts-as-of'), fixture.lastRequest.context.facts.asOf)
-    assert.equal(await detail.locator('.activity-drawer').getAttribute('data-facts-revision'), fixture.lastRequest.context.facts.sourceRevision)
-    assert.equal(fixture.lastRequest.context.item.description, 'The concept section is already written.')
-    assert.equal(fixture.lastRequest.conversation.length, 1)
-    assert.equal(fixture.lastRequest.conversation[0].output.question, 'Which part is already finished?')
-    assert.equal(fixture.lastRequest.conversation[0].input.text, 'The example keeps changing')
-    assert.equal(fixture.lastRequest.answer, 'The rough cut is finished; the opening is unclear')
-    assert.equal(await panel.getByLabel('What to do first next time', { exact: true }).inputValue(), 'Write one existing example')
-    checked('new purpose consent gates task content; one clarification and one explicit proposal use the authoritative facts')
-    await setMode(application, 'hold')
-    await panel.getByLabel('What should change?', { exact: true }).fill('Make it smaller')
-    await panel.getByRole('button', { name: 'Adjust suggestion', exact: true }).click()
-    await held(application)
-    const adjustment = await application.evaluate(() => globalThis.assistanceFixture.lastRequest)
-    assert.equal(adjustment.conversation.length, 2)
-    assert.equal(adjustment.conversation[0].output.question, 'Which part is already finished?')
-    assert.equal(adjustment.conversation[1].input.answer, 'The rough cut is finished; the opening is unclear')
-    assert.equal(adjustment.conversation[1].output.guidance.nextAction, 'Write one existing example')
-    assert.equal(adjustment.adjustment, 'Make it smaller')
-    assert(JSON.stringify(adjustment).length <= 16_000)
-    checked('second and third requests retain the prior question, proposal and reported progress inside the bounded session')
-    await panel.getByLabel('What to do first next time', { exact: true }).fill('My edited next action')
+    await open(); await submit()
+    await panel.waitFor({ state: 'detached' }); await detail.getByRole('button', { name: 'Rethink', exact: true }).waitFor()
+    const rewritten = (await read()).item.description
+    assert.match(rewritten, /- \[x\] Connect the test PC/)
+    assert.match(rewritten, /- \[ \] Check keyboard input/)
+    assert.match(rewritten, /Verify one complete path/)
+    assert.equal((await read()).assistedNotes, true)
+    assert.equal(await detail.locator('.rewrite-actions button').count(), 1)
+    assert.equal(await page.locator('.toast').count(), 0, 'Automatic note persistence stays quiet; keyboard undo remains available')
+    assert.equal(await detail.locator('.rewrite-actions').evaluate(node => getComputedStyle(node).borderTopWidth), '0px')
+    assert.equal(await calls(application), 1)
+    await shot('rewrite-result')
+    checked('settings enablement is sufficient; one request rewrites and persists notes without a Save step')
+    await open(); await submit(); await panel.waitFor({ state: 'detached' })
+    assert.equal((await read()).item.description, rewritten)
+    checked('rethink reads current notes and does not append another next-step block')
+    await setMode(application, 'hold'); await open(); await submit(); await held(application)
+    await detail.locator('.description-content').fill('My newer notes while AI is working')
     await releaseTransport(application)
     await page.waitForFunction(() => document.querySelector('.assistance-panel')?.getAttribute('aria-busy') === 'false')
-    assert.equal(await panel.getByLabel('What to do first next time', { exact: true }).inputValue(), 'My edited next action')
-    checked('late results preserve the user’s manual revision and never submit automatically')
-    const writesBefore = await application.evaluate(() => globalThis.assistanceFixture.applyWrites)
-    await application.evaluate(() => { globalThis.assistanceFixture.dropWrite = true; globalThis.assistanceFixture.hideReceipt = true })
-    await panel.getByRole('button', { name: 'Save guidance', exact: true }).click()
-    await panel.getByRole('alert').waitFor()
-    assert.equal(await detail.locator('.execution-help button').evaluateAll(buttons => buttons.every(button => button.disabled)), true)
-    await page.keyboard.press('Escape')
-    assert.equal(await panel.count(), 1, 'An unknown write receipt keeps the assistance session open')
-    await page.screenshot({ path: `${out}/unknown-receipt.png` }); report.screenshots.push('unknown-receipt.png')
-    await application.evaluate(() => { globalThis.assistanceFixture.hideReceipt = false })
-    await panel.getByRole('button', { name: 'Retry', exact: true }).click()
-    await panel.waitFor({ state: 'detached' })
-    const adopted = await page.evaluate(id => window.goalloom.getItem(id), id)
-    assert.equal(adopted.guidance.value.nextAction, 'My edited next action')
-    assert.equal(adopted.item.status, 'todo')
-    assert.equal(await detail.locator('.saved-guidance').count(), 1)
-    assert.equal(await application.evaluate(() => globalThis.assistanceFixture.applyWrites), writesBefore + 1, 'The lost reply does not create a second guidance write')
-    checked('a lost adoption reply is resolved through the original receipt without a second guidance write or completion')
-    await detail.locator('.execution-help button').first().click()
-    await page.waitForFunction(() => document.querySelector('.assistance-panel')?.getAttribute('aria-busy') === 'false')
-    await setMode(application, 'hold')
-    await panel.getByRole('button', { name: 'Help me find an approach', exact: true }).click()
-    await held(application)
-    await panel.getByRole('button', { name: 'Cancel generation', exact: true }).click()
-    await page.waitForFunction(() => !document.querySelector('.assistance-panel')?.getAttribute('aria-busy') || document.querySelector('.assistance-panel')?.getAttribute('aria-busy') === 'false')
-    assert.equal(await application.evaluate(() => globalThis.assistanceFixture.aborted), 1)
-    await panel.getByRole('button', { name: 'Back to task', exact: true }).click()
-    checked('explicit session cancellation aborts the actual fetch transport')
-    for (const mode of ['invalid', 'empty', 'oversized', 'unauthorized']) {
-      await setMode(application, mode)
-      await detail.locator('.execution-help button').first().click()
-      await page.waitForFunction(() => document.querySelector('.assistance-panel')?.getAttribute('aria-busy') === 'false')
-      await panel.getByLabel('What is hardest to move forward now?', { exact: true }).fill('Retain this input')
-      await panel.getByRole('button', { name: 'Help me find an approach', exact: true }).click()
+    await page.waitForFunction(async id => (await window.goalloom.getItem(id)).item.description === 'My newer notes while AI is working', id)
+    assert.match(await detail.innerText(), /changed|kept/)
+    checked('typing during generation is kept; stale output cannot overwrite it')
+    await panel.getByRole('button', { name: 'Not now', exact: true }).click()
+    await edit(originalNotes)
+    await open(); await submit(); await held(application)
+    await panel.getByRole('button', { name: 'Cancel', exact: true }).click(); await panel.waitFor({ state: 'detached' })
+    assert.equal((await read()).item.description, originalNotes)
+    checked('cancel aborts generation and preserves the original notes')
+    for (const mode of ['invalid', 'empty', 'oversized', 'lose-completed']) {
+      await setMode(application, mode); await open(); await submit()
       await panel.getByRole('alert').waitFor()
-      assert.equal(await panel.getByLabel('What is hardest to move forward now?', { exact: true }).inputValue(), 'Retain this input')
-      await panel.getByRole('button', { name: 'Back to task', exact: true }).click()
+      assert.equal((await read()).item.description, originalNotes)
+      await panel.getByRole('button', { name: 'Not now', exact: true }).click()
     }
-    checked('bad JSON, empty/oversized content and authentication failure retain the input and expose manual fallback')
+    checked('invalid, empty, oversized and lost-completion responses leave notes intact')
+    await edit('x'.repeat(7000)); const networkBefore = await calls(application)
+    await setMode(application, 'proposal'); await open(); await submit(); await panel.getByRole('alert').waitFor()
+    assert.equal(await calls(application), networkBefore)
+    assert.equal((await read()).item.description.length, 7000)
+    await panel.getByRole('button', { name: 'Not now', exact: true }).click(); await edit(originalNotes)
+    checked('incomplete source is rejected locally before a provider request')
+    await application.evaluate(() => { globalThis.assistanceFixture.dropWrite = true; globalThis.assistanceFixture.hideReceipt = true })
+    const writes = await application.evaluate(() => globalThis.assistanceFixture.applyWrites)
+    await open(); await submit(); await detail.locator('.detail-save-error').waitFor()
+    assert.equal(await detail.locator('.description-content').getAttribute('contenteditable'), 'false')
+    await application.evaluate(() => { globalThis.assistanceFixture.hideReceipt = false })
+    await detail.locator('.detail-save-error button').click(); await panel.waitFor({ state: 'detached' })
+    assert.equal(await application.evaluate(() => globalThis.assistanceFixture.applyWrites), writes + 1)
+    assert.equal((await read()).item.description, rewritten)
+    checked('lost write receipt locks the editor and retries the receipt without duplicating the rewrite')
+    await detail.getByRole('button', { name: 'Close', exact: true }).click()
+    await page.locator(`#item-${id} .task-title`).focus(); await page.keyboard.press('ControlOrMeta+z')
+    await page.waitForFunction(async ({ id, originalNotes }) => (await window.goalloom.getItem(id)).item.description === originalNotes, { id, originalNotes })
+    checked('workspace undo restores the original notes as one operation')
+    await page.locator(`#item-${id} .task-title`).click()
+    await open(); await submit(); await panel.waitFor({ state: 'detached' })
+    await page.reload(); await page.locator(`#item-${id} .task-title`).click()
+    await detail.getByRole('button', { name: 'Rethink', exact: true }).waitFor()
+    checked('rewritten notes and Rethink survive a renderer reload')
   }
   if (groups.includes('language')) {
-    if (await panel.count()) await panel.locator('.assistance-header button').click()
-    await page.keyboard.press('Escape'); await detail.waitFor({ state: 'detached' })
-    report.geometry = []
-    for (const locale of ['zh', 'en', 'ja', 'es', 'fr']) {
-      await page.evaluate(locale => window.goalloom.setLanguage(locale), locale)
-      await page.reload(); await page.locator('.board').waitFor()
-      await page.locator(`#item-${id} .task-title`).click(); await detail.waitFor()
-      await detail.locator('.activity-insight').waitFor()
-      for (const style of ['paper', 'minimal']) for (const theme of ['light', 'dark']) {
-        await page.evaluate(async ({ style, theme }) => {
-          const { workspace } = await window.goalloom.getSnapshot()
-          const reply = await window.goalloom.execute({ type: 'preferences', generation: workspace.generation, operationId: crypto.randomUUID(), style, theme })
-          if (!reply.ok) throw Error(reply.message)
-        }, { style, theme })
-        for (const width of [1280, 720]) {
-          await application.evaluate(({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0].setContentSize(width, 840), width)
-          await page.waitForFunction(width => innerWidth === width, width)
-          const geometry = await detail.evaluate(node => {
-            const rail = node.querySelector('.detail-rail'), buttons = [...rail.querySelectorAll('.detail-rail-actions button')]
-            return { rail: rail.getBoundingClientRect().toJSON(), buttons: buttons.map(button => { const r = button.getBoundingClientRect(); return { label: button.textContent, height: r.height, hit: button.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) } }) }
-          })
-          assert(geometry.buttons.every(button => button.hit && button.height >= 32))
-          report.geometry.push({ locale, style, theme, width, geometry })
-          if (style === 'paper' && theme === 'light') {
-            const screenshot = `${locale}-${width}.png`; await detail.screenshot({ path: `${out}/${screenshot}` }); report.screenshots.push(screenshot)
-          }
-        }
+    for (const language of ['zh', 'en', 'ja', 'es', 'fr']) {
+      await page.evaluate(language => window.goalloom.setLanguage(language), language)
+      for (const width of [720, 1280]) {
+        await application.evaluate(({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0].setContentSize(width, 840), width)
+        await page.waitForFunction(width => innerWidth === width, width)
+        if (!await panel.count()) await detail.locator('.action-invitation, .rewrite-actions button').click()
+        await page.waitForFunction(() => document.querySelector('.assistance-panel')?.getAttribute('aria-busy') === 'false')
+        const geometry = await detail.evaluate(node => {
+          const d = node.getBoundingClientRect(), controls = [...node.querySelectorAll('.detail-management button, .help-option, .assistance-actions button')]
+          return controls.map(control => { const r = control.getBoundingClientRect(); return { text: control.textContent, width: r.width, within: r.left >= d.left && r.right <= d.right + 1, clipped: control.scrollWidth > control.clientWidth + 1 } })
+        })
+        assert(geometry.every(row => row.within && !row.clipped))
+        await shot(`rewrite-${language}-${width}`)
       }
-      await detail.locator('.execution-help button').first().click()
-      await page.waitForFunction(() => document.querySelector('.assistance-panel')?.getAttribute('aria-busy') === 'false')
-      assert.equal(await panel.locator('label').first().innerText() === 'What is hardest to move forward now?', locale === 'en')
-      await detail.locator('.execution-help button').nth(1).click()
-      await panel.locator('.assistance-preview').waitFor()
-      assert.equal(await panel.getByRole('heading', { level: 2 }).innerText(), await detail.locator('.execution-help button').nth(1).innerText())
-      await checkCheckbox(panel)
-      await panel.locator('.assistance-header button').click()
-      const date = detail.locator('.activity-date').first()
-      await date.focus(); await page.keyboard.press('Enter')
-      await detail.locator('.activity-day-details').waitFor()
-      await detail.locator('.activity-all').click()
-      await detail.locator('.activity-day-details').waitFor()
-      assert.equal(await detail.locator('.activity-calendar').count(), 0)
-      await detail.locator('.activity-all').click()
-      assert.equal(await detail.locator('.activity-calendar').count(), 1)
-      await page.keyboard.press('Escape'); await detail.waitFor({ state: 'detached' })
+      await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' })
     }
-    checked('five locales, four appearances and 720/1280 rails retain reachable actions and keyboard-accessible day/all activity')
+    checked('all five locales fit the detail and option controls at 720/1280 widths')
   }
   assert.deepEqual(errors, [])
   report.ok = true
@@ -268,10 +174,6 @@ try {
 }
 
 async function calls(app) { return app.evaluate(() => globalThis.assistanceFixture.calls.length) }
-async function checkCheckbox(panel) {
-  const geometry = await panel.locator('.assistance-check').first().evaluate(label => ({ width: label.querySelector('input').getBoundingClientRect().width, content: label.scrollWidth, available: label.clientWidth }))
-  assert(geometry.width <= 20 && geometry.content <= geometry.available + 1, 'A checkbox must not inherit full input width or push its label outside the form')
-}
 async function setMode(app, mode) { await app.evaluate((_, mode) => { globalThis.assistanceFixture.mode = mode }, mode) }
 async function held(app) { await app.evaluate(async () => { const end = Date.now() + 5000; while (!globalThis.assistanceFixture.waiters.length) { if (Date.now() > end) throw Error('Assistance request did not reach held transport'); await new Promise(resolve => setTimeout(resolve, 20)) } }) }
 async function releaseTransport(app) { await app.evaluate(() => { for (const resolve of globalThis.assistanceFixture.waiters.splice(0)) resolve() }) }
@@ -282,7 +184,7 @@ async function installTransport(app) {
     ipcMain.removeHandler('goalloom:command')
     ipcMain.handle('goalloom:command', async (...args) => {
       const result = await original(...args), fixture = globalThis.assistanceFixture
-      if (args[1].type === 'applyAssistance' && args[1].guidance.kind === 'set') {
+      if (args[1].type === 'applyAssistance' && args[1].description !== undefined) {
         fixture.applyWrites++
         if (fixture.dropWrite) { fixture.dropWrite = false; throw Error('Synthetic lost write reply') }
       }
@@ -306,7 +208,8 @@ async function installTransport(app) {
         init.signal.addEventListener('abort', abort, { once: true })
       })
       if (mode === 'unauthorized') return Response.json({ error: { message: 'Synthetic authentication failure' } }, { status: 401 })
-      const value = mode === 'clarify' ? { kind: 'clarify', question: 'Which part is already finished?' } : { kind: 'proposal', explanation: 'Continue the existing progress with one example.', guidance: { formatVersion: 1, kind: 'next_step', nextAction: 'Write one existing example', contextNote: 'The concept section is already written', scopeNote: null }, moveSuggestion: null }
+      const value = { kind: 'rewrite', description: input.description.includes('### Next') ? input.description : `${input.description}\n\n### Next\n- [ ] Verify one complete path` }
+      if (mode === 'lose-completed') value.description = '- [ ] Start from scratch'
       const content = mode === 'invalid' ? '{"kind":"create_habit"}' : mode === 'empty' ? '' : mode === 'oversized' ? 'x'.repeat(65_537) : JSON.stringify(value)
       return Response.json({ choices: [{ message: { content } }] })
     }

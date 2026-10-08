@@ -130,7 +130,6 @@ export const smartMessages = widen({
   connectedGroup: '已连接',
   addGroup: '添加服务',
   addGroupNote: '每个服务单独计费，Key 不会跨服务复用',
-  connectedCount: (count: number) => `${count} 个已连接`,
   pausedMeta: '已暂停',
   needsAttention: '需处理',
   notAdded: '未添加 Key',
@@ -164,7 +163,7 @@ export const smartMessages = widen({
   addService: '添加服务',
   blocked: (name: string) => `暂停发送 · ${name} 需要处理`,
   resolve: '去 AI 服务处理 →',
-  onlyCapable: (feature: AiFeature) => ({ smart: '只列出能运行 Jev 的服务。切换后，正在整理的草稿不会自动发给新服务。', insight: '只列出能运行 DeepSeek 的服务。' })[feature],
+  onlyCapable: (feature: AiFeature) => ({ smart: '只列出能运行 Jev 的服务。切换后，正在整理的草稿不会自动发给新服务。', insight: '使用任务帮助时，会向此服务发送任务笔记、相关目标、执行摘要和你的偏好，并直接重写笔记。' })[feature],
   current: '当前',
   cooldown: (time: string) => `限流冷却中，${time} 后可再次自动整理`,
 })

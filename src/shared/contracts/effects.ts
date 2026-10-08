@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Authoritative business states, relation deltas and approved bounded guidance content.
- * [OUTPUT]: Immutable v1/v2 owned effects and body-free business-state events.
+ * [INPUT]: Authoritative business states, relation deltas, bounded guidance and original/rewritten note text.
+ * [OUTPUT]: Immutable v1/v2 owned effects (including description-only undo) and body-free business-state events.
  * [POS]: Shared transaction, undo and import contract; models cannot supply effects.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,6 +12,7 @@ import type { GuidanceValue } from './assistance'
 export interface PositionEffect { horizon: ItemHorizon; periodId: string | null; previousId: string | null; nextId: string | null }
 export interface EdgeDelta { before: Relation | null; after: Relation }
 export type Effect =
+  | { kind: 'description'; itemId: string; before: string; after: string }
   | { kind: 'guidance'; itemId: string; before: { value: GuidanceValue | null; operationId: string | null }; after: { value: GuidanceValue | null; operationId: string } }
   | { kind: 'create'; itemId: string; status: StatusGroup; horizon: ItemHorizon; periodId: string | null; initialRelations: string[] }
   | { kind: 'status'; itemId: string; before: StatusGroup; after: StatusGroup }

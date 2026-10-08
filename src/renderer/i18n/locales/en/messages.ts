@@ -89,7 +89,7 @@ export const messages: MessageCatalog = {
   dragOver: "Moved to a new drop position.",
   dragEnded: "Drag ended. Checking the position.",
   dragCancelled: "Drag cancelled. The original position is kept.",
-  dragInstructions: "Press Space to start dragging, arrow keys to move, Space to drop, Esc to cancel. You can also use “Move to” in the details.",
+  dragInstructions: "Press Space to start dragging, arrow keys to move, Space to drop, Esc to cancel.",
   board: "Timeline board",
   history: "History",
   futureIdeas: "Ideas for the future",

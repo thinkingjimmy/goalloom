@@ -19,7 +19,7 @@ renderer/
 │   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable Toast actions
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
-│   │       ├── Settings.tsx     # Container: grouped navigation, section headings with shortcut guidance, backup/count reads, data actions and transfer previews
+│   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
 │   │       ├── AppearancePane.tsx # Language, visual styles, theme and device relation-line switch
 │   │       ├── BoardPane.tsx      # Device parent-order switch, atomic disable/materialization and per-column completion-confetti preview
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
@@ -32,7 +32,7 @@ renderer/
 │   │       ├── ItemsPane.tsx    # 条目：已完成/已取消/已归档/回收站的搜索、今天/昨天分组与行内还原
 │   │       ├── TransferReview.tsx # 来源日历模式预览、三步进度与整库替换的两阶段确认
 │   │       ├── parts.tsx        # 分组/行（可带整行下方控件）/分段选择（色块、数量）/多选按钮组/开关原语，工作区时区时间与相对日期
-│   │       └── settings.css     # 设置弹窗专属样式（仅 token）
+│   │       └── settings.css     # Content-sized, single-line navigation with a bounded pane; settings-only theme-token styles
 │   ├── composer/            # 全局新建：输入法式（输入 → 一条 Jev 推荐 → ↵ 创建 / Tab 调整 / ⌥↵ 原样存 Later）
 │   │   ├── Composer.tsx     # Input, debounce/IME, revision guards, candidate strip without entry guidance, keyboard adjustment, fallback, session drafts and createPlan confirmation
 │   │   ├── Plan.tsx         # 推荐的只读呈现（单件一句话、多件一行一件）、拿不准的「可能…」旁注、Jev 标记
@@ -80,10 +80,10 @@ renderer/
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
 │   │   ├── period-labels.ts # Mode-aware adjacent/distant headings, natural Q/year lists and year-disambiguated anchored ranges
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
-│   ├── assistance/        # Detail subview, bounded memory drafts, explicit provider consent and atomic adoption (see its README)
+│   ├── assistance/        # Inline choice-first note rewrites, bounded memory drafts and guarded automatic persistence (see its README)
 │   ├── items/
-│   │   ├── use-item-autosave.ts # Serialized silent saves/actions, guarded empty-title dismissal outside trash, receipt-first retry and native draining
-│   │   ├── ItemDetail.tsx   # Draft-safe details with intent-scoped help/schedule subviews; unknown writes block entry switches while Markdown stays mounted
+│   │   ├── use-item-autosave.ts # Serialized silent saves/actions, guarded note rewrites and empty-title dismissal, receipt-first retry and native draining
+│   │   ├── ItemDetail.tsx   # Single-pane detail with header actions and inline note rewrites; the Markdown editor stays mounted
 │   │   ├── DetailTitle.tsx  # Unclipped shared link display, growing raw-title editor with persistent native undo/redo and empty-draft recovery, saved-only metadata and keyboard focus handoff
 │   │   ├── DuePicker.tsx    # Width-bounded deadline label with full accessible/hover date, shared calendar and focus restoration; selection/clear immediately autosaves
 │   │   ├── RelationPicker.tsx # Board-ordered parent/child search shared by detail/flow-dot menus; optional guidance replacement, horizon/effective-flow guards and linked-first removal
@@ -112,7 +112,7 @@ renderer/
 │   ├── Kbd.tsx              # 一键一帽的组合键展示（平台符号）
 │   ├── LanguageSelect.tsx   # 首次配置与设置外观共用的语言下拉（语言名用各自原文）
 │   ├── YearTimeline.tsx     # 当前一年的四段 3个月 / 两个半年时间轴与今天标记（首次配置模式卡与设置 › 日历共用，year-timeline.css）
-│   ├── icons/index.tsx      # Explicit free Hugeicons entry, shared React/loading icons and checklist CSS checkmark mask
+│   ├── icons/index.tsx      # Explicit free Hugeicons entry, shared React/loading/pause icons and checklist CSS checkmark mask
 │   └── ui/                 # shadcn Button, Radix Select and Context Menu; shared menu tokens and MIT attribution
 ├── state/
 │   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
@@ -172,3 +172,5 @@ Under a selected flow, year TODO rows show their flow dot only on row hover, key
 Monthly review uses a todo-scale board guide and a resumable native modal with connected steps and text footer actions. `ReviewOverview` places the summary before inline period-end totals in an unfilled brief; the localized icon heading remains visible without AI. Expandable goal rows highlight on hover/focus and align markers with the title's first line. `ReviewDrawer` owns live decisions, edited destination drafts and guarded writes; inclusion dropdowns share closing-control styling and remain distinct from read-only todo markers. `review-drafts` persists generated suggestions and shares pending input ownership; App clears both review caches on workspace generation changes. `review.css` shares board tokens.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+Note assistance uses the approved rewrite-notes design: no detail activity rail, rescheduling form, task consent checkbox or result adoption step. Generated Markdown replaces only the unchanged source notes; description effects retain one-step workspace undo. Rethink persists through reload via non-undone rewrite events. Automatic note writes are quiet, while keyboard undo keeps normal feedback. Local editor history still owns manual typing.

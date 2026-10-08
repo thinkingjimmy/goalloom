@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Device configuration, the existing chat adapters and a short authoritative context reader.
- * [OUTPUT]: Local preflight tickets or normal cancellation, with owned cleanup and bounded sessions retaining accepted multi-turn context.
+ * [OUTPUT]: Settings-authorized preflight/generation and exact-output rewrite tickets, with cancellation and bounded accepted turns.
  * [POS]: Main-only network coordinator; no raw content is logged or persisted and no write is performed here.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,7 @@ import type { ChatAdapter } from './insight'
 import { Aborted, failure, ProviderFailure } from './providers'
 import { assistanceServerText } from '../../shared/i18n/assistance'
 import type { AssistanceTurn } from '../../domain/smart/assistance'
+import { retainsNoteAnchors } from '../../domain/smart/rewrite-notes'
 
 interface Dependencies {
   config(): Promise<DeviceConfig>; generation(): Promise<string>; context(itemId: string, generation: string): Promise<AssistanceContext>
@@ -56,7 +57,7 @@ export class AssistanceService {
       const prepared: AssistancePrepared = { ...request, contextId: randomUUID(), context,
         expiresAt: new Date(this.dependencies.now() + 10 * 60_000).toISOString(), featureRevision: setting.revision, provider,
         enabled: !!provider && setting.enabledForGeneration === request.generation && !!config.providers[provider].capabilities.chat,
-        consented: !!provider && config.providers[provider].assistanceConsent?.version === 1,
+        consented: !!provider && !!config.providers[provider].consentedAt && setting.enabledForGeneration === request.generation,
       }
       session.prepared = prepared; this.account(session)
       return active() ? prepared : discard()
@@ -71,19 +72,22 @@ export class AssistanceService {
     if (signal?.aborted || Date.parse(prepared.expiresAt) <= this.dependencies.now()) return false
     const config = await this.dependencies.config(), setting = config.features.insight, provider = prepared.provider
     if (!provider || setting.provider !== provider || setting.revision !== prepared.featureRevision || setting.enabledForGeneration !== prepared.generation
-      || !config.providers[provider].capabilities.chat || !config.providers[provider].consentedAt || config.providers[provider].assistanceConsent?.version !== 1
+      || !config.providers[provider].capabilities.chat || !config.providers[provider].consentedAt
       || prepared.generation !== await this.dependencies.generation()) return false
     const context = await this.dependencies.context(prepared.itemId, prepared.generation)
     return !signal?.aborted && JSON.stringify(context.guard) === JSON.stringify(prepared.context.guard)
   }
   async validateApply(command: CommandOf<'applyAssistance'>): Promise<void> {
     // Lost-receipt retries are checked by the caller before a ticket is needed again.
-    const prepared = [...this.sessions.values()].find(row => row.prepared?.contextId === command.contextId)?.prepared
+    const session = [...this.sessions.values()].find(row => row.prepared?.contextId === command.contextId)
+    const prepared = session?.prepared
+    if (command.description !== undefined && (session?.last?.status !== 'ready' || session.last.value.kind !== 'rewrite'
+      || session.last.value.description !== command.description)) throw new DomainError('stale_preview', assistanceServerText().contextChanged)
     if (!prepared || prepared.itemId !== command.itemId || prepared.generation !== command.generation
       || JSON.stringify(prepared.context.guard) !== JSON.stringify(command.guard) || !await this.current(prepared)) throw new DomainError('stale_preview', assistanceServerText().contextChanged)
   }
   async assist(request: AssistanceRequest): Promise<AssistanceReply> {
-    const { prefs: _prefs, text: _text, answer: _answer, adjustment: _adjustment, ...echo } = request
+    const { mode: _mode, prefs: _prefs, text: _text, answer: _answer, adjustment: _adjustment, ...echo } = request
     const session = this.sessions.get(request.sessionId), prepared = session?.prepared
     const stale = (): AssistanceReply => ({ status: 'stale', echo })
     if (!session || !prepared || prepared.contextId !== request.contextId || prepared.itemId !== request.itemId || prepared.generation !== request.generation
@@ -97,7 +101,7 @@ export class AssistanceService {
     const failed = (value: Failure): AssistanceReply => { const reply: AssistanceReply = { status: 'failed', echo, failure: value }; session.last = reply; this.account(session); return reply }
     try {
       const config = await this.dependencies.config()
-      if (config.providers[provider].assistanceConsent?.version !== 1) return failed({ ...failure('not_enabled', provider), message: assistanceServerText().consentRequired })
+      if (!config.providers[provider].consentedAt || config.features.insight.enabledForGeneration !== request.generation) return failed(failure('not_enabled', provider))
       if (!await this.current(prepared, controller.signal)) return controller.signal.aborted ? { status: 'cancelled', echo } : stale()
       const cooling = this.dependencies.cooling(provider)
       if (cooling) return failed(cooling)
@@ -114,6 +118,7 @@ export class AssistanceService {
       if (!await this.current(prepared, controller.signal)) return stale()
       let value
       try { value = parseAssistance(content) } catch { return failed(failure('malformed_response', provider)) }
+      if (request.mode === 'rewrite' ? value.kind !== 'rewrite' || !retainsNoteAnchors(prepared.context.item.description, value.description) : value.kind === 'rewrite') return failed(failure('malformed_response', provider))
       if (value.kind === 'clarify') {
         if (session.clarified || request.turn !== 1) return failed(failure('malformed_response', provider))
         session.clarified = true

@@ -1,6 +1,10 @@
-/* --- Settings dialog: grouped sidebar on the page ground, a titled pane of quiet cards on the surface. Tokens only. --- */
+/* [INPUT]: Settings navigation, localized labels/status and shared theme tokens.
+ * [OUTPUT]: Content-sized, single-line navigation, colored pause indicators and bounded settings panes.
+ * [POS]: Styles scoped to the settings dialog.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 .settings-modal { --ok: light-dark(#285128, #c5e7bf); --ok-tint: light-dark(#e8f0e6, #263927); --ok-mark: light-dark(#567a53, #83af7b); }
-.settings-modal[open] { display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-template-rows: minmax(76px, auto) minmax(0, 1fr) auto; width: min(880px, calc(100vw - 40px)); height: min(680px, calc(100vh - 80px)); padding: 0; overflow: hidden; }
+.settings-modal[open] { display: grid; grid-template-columns: fit-content(45%) minmax(0, 1fr); grid-template-rows: minmax(76px, auto) minmax(0, 1fr) auto; width: min(880px, calc(100vw - 40px)); height: min(680px, calc(100vh - 80px)); padding: 0; overflow: hidden; }
 .settings-modal section + section { margin-top: 0; }
 .settings-modal .modal-header { grid-column: 2; grid-row: 1; position: static; min-height: 76px; margin: 0; padding: 14px 20px 14px 36px; gap: 16px; }
 .settings-heading { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -12,8 +16,8 @@
 .settings-heading .settings-shortcut-note { display: block; -webkit-line-clamp: unset; }
 .settings-modal .modal-header > .segmented, .settings-modal .modal-header > .transfer-steps { margin-right: auto; }
 
-/* Sidebar: three labelled groups, glanceable status on the right, the open-settings shortcut at the foot. */
-.settings-nav { grid-column: 1; grid-row: 1 / -1; display: flex; flex-direction: column; gap: 18px; padding: 20px 12px 16px; background: var(--bg); border-right: 1px solid var(--hairline); overflow-y: auto; }
+/* Grow for translated labels and status, while reserving room for the settings pane. */
+.settings-nav { grid-column: 1; grid-row: 1 / -1; min-width: 220px; display: flex; flex-direction: column; gap: 18px; padding: 20px 12px 16px; background: var(--bg); border-right: 1px solid var(--hairline); overflow-y: auto; }
 .settings-nav-title { margin: 0; padding: 0 10px; font-size: 15px; font-weight: 600; }
 .settings-nav-group { display: flex; flex-direction: column; gap: 2px; }
 .settings-nav-group > p { margin: 0; padding: 0 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--secondary); }
@@ -21,13 +25,14 @@
 .settings-nav button:hover:not(:disabled):not([aria-current='page']) { background: var(--hover); color: var(--fg); }
 .settings-nav button[aria-current='page'] { background: var(--raised); color: var(--fg); font-weight: 500; box-shadow: 0 0 0 .5px var(--edge), 0 1px 2px rgba(60, 40, 20, .06); }
 .settings-nav button:disabled { opacity: .45; }
-.settings-nav-label { flex: 1; min-width: 0; }
-.settings-nav-meta { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 400; color: var(--secondary); font-variant-numeric: tabular-nums; }
-.settings-nav-meta[data-dot='true']::before, .settings-nav-meta[data-dot='warn']::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--ok-mark); }
-.settings-nav-meta[data-dot='warn']::before { background: var(--backlog); }
+.settings-nav button > svg { flex-shrink: 0; }
+.settings-nav-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.settings-nav-meta { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12px; font-weight: 400; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.settings-nav-meta[data-dot='true']::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--ok-mark); }
+.settings-nav-meta[data-icon='pause'] { color: var(--backlog); }
 .settings-nav-meta[data-dot='update'] { color: var(--danger); }
 .settings-nav-meta[data-dot='update']::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--danger); }
-.settings-nav-note { margin: auto 0 0; padding: 10px; display: flex; align-items: flex-start; gap: 8px; border-radius: 8px; background: var(--hover); font-size: 12px; line-height: 1.5; color: var(--fg-soft); }
+.settings-nav-note { contain: inline-size; margin: auto 0 0; padding: 10px; display: flex; align-items: flex-start; gap: 8px; border-radius: 8px; background: var(--hover); font-size: 12px; line-height: 1.5; color: var(--fg-soft); }
 .settings-nav-note svg { flex-shrink: 0; margin-top: 2px; }
 
 /* A little top padding so the first card's hairline shadow isn't clipped by the scroll edge. */

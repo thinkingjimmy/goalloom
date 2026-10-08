@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Finite generation/item/date/cursor requests and bounded strict response schemas.
- * [OUTPUT]: Current/past summaries, optional guidance detail, execution facts and frozen activity/context reads.
+ * [OUTPUT]: Current/past summaries, guidance and assisted-note detail projections, execution facts and frozen context reads.
  * [POS]: Read contract; only on-demand details/context carry bounded task bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -48,7 +48,7 @@ export const snapshotSchema = z.strictObject({
 export const itemPageSchema = z.strictObject({ items: z.array(itemSummarySchema), total: z.number().int().nonnegative(), periods: z.array(periodSchema).optional() })
 export const boardPeriodsSchema = snapshotSchema.pick({ periods: true, items: true, rolloverSources: true, orderNodes: true }).extend({ generation: idSchema, revision: z.number().int().nonnegative() })
 export type BoardPeriods = z.infer<typeof boardPeriodsSchema>
-export const detailSchema = z.strictObject({ item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema), guidance: guidanceRecordSchema.nullable().optional() })
+export const detailSchema = z.strictObject({ item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema), guidance: guidanceRecordSchema.nullable().optional(), assistedNotes: z.boolean().optional() })
 export type Snapshot = z.infer<typeof snapshotSchema>
 export const reviewContextSchema = z.strictObject({
   board: snapshotSchema, planning: snapshotSchema, closing: z.array(itemSummarySchema), sourcePeriods: z.array(periodSchema), unknown: z.number().int().nonnegative(),

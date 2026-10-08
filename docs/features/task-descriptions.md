@@ -20,7 +20,7 @@
 - The surrounding detail title reads as complete rich text and switches to growing raw-text editing on demand; its shared link/source and draft rules are defined in [link previews](link-previews.md).
 - Selection tools stay clear of the selected text, prefer the space above it and flip below when needed. Placement uses the measured toolbar/link-form size and tracks scrolling and resizing within the visible detail area.
 
-Independent guidance never overwrites Markdown. The detail retains the mounted editor while help is open, flushes before entry, and uses a dedicated reversible command for adopted guidance. Saved guidance remains available with AI disabled.
+The approved note-assistance flow rewrites Markdown directly. The detail keeps its editor mounted during generation, flushes before reading authoritative context, and applies a guarded, description-only reversible command. Generated notes remain readable and editable with AI disabled.
 
 ## Failure cases recorded before implementation
 
@@ -100,3 +100,7 @@ The private harness starts with `node output/prototypes/descriptions/serve.mjs` 
 The user selected the persistent-summary interaction for further visual refinement on 2026-09-28. The second round at `http://127.0.0.1:5178/refinements/?v=1` keeps its original appearance as the baseline and adds reading text, margin notes and inset notes. No final style has been selected or integrated. `node output/prototypes/descriptions/refinements/verify.mjs` reproduces its browser checks; `--compact` selects compact-window coverage. Reports and screenshots live in `output/tests/persistent-summary-refinements/`. The first-round comparison remains available.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+## Owner update — 2026-10-07
+
+Task assistance now rewrites this same Markdown description. The previous independent-guidance rule is superseded by the approved rewrite-notes design in [the assistance specification](Goalloom-Smart-Assistance-PRD-TODO-v1.1.md#owner-update--2026-10-07-rewrite-notes). Generation leaves the editor mounted and permits typing; source changes reject adoption. Successful writes update the editor once and are undoable through the workspace description effect. Ordinary autosave, Markdown source preservation and local editing history keep their existing rules.

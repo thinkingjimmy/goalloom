@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace, narrow data/actions API and device preferences.
- * [OUTPUT]: Settings navigation (preferences / AI / workspace / items / About) with glanceable status (including a new-version dot), section headings (including shortcut guidance), lightweight counts, section-scoped backup reads and AI status refresh.
+ * [OUTPUT]: Settings navigation with colored pause icons and update status, section headings, item-filter counts, section-scoped backup reads and AI status refresh.
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,7 +10,7 @@ import type { BackupStatus, DataAction, TransferPreview } from '../../../../shar
 import { workspaceDate } from '../../../../domain/calendar'
 import { insightMessages, messages, settingsMessages as s, shortcutMessages, smartMessages } from '../../../i18n'
 import { desktopApi, type Action } from '../../../state/use-workspace'
-import { connectedProviders, providerIssue, type Ai } from '../../../state/ai'
+import type { Ai } from '../../../state/ai'
 import { Modal } from '../../../components/Modal'
 import { Icon, type IconName } from '../../../components/icons'
 import { AppearancePane } from './AppearancePane'
@@ -24,7 +24,7 @@ import { ShortcutsPane } from './ShortcutsPane'
 import { ItemsPane, type ItemsView } from './ItemsPane'
 import { AboutPane } from './AboutPane'
 import { hasUpdate, useUpdate } from '../../../state/update'
-import { Segmented, relativeDay } from './parts'
+import { Segmented } from './parts'
 import { TransferReview, TransferSteps } from './TransferReview'
 import './settings.css'
 
@@ -66,7 +66,6 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
   const [revealReset, setRevealReset] = useState(false)
   const navigate = (next: Section, reset = false) => { setSection(next); setRevealReset(reset) }
   const [backups, setBackups] = useState<BackupStatus | null>(null)
-  const [latest, setLatest] = useState<string | null>(null)
   const [counts, setCounts] = useState<Counts | null>(null)
   const [preview, setPreview] = useState<TransferPreview | null>(null), [acknowledged, setAcknowledged] = useState(false)
   const [working, setWorking] = useState(false), [error, setError] = useState('')
@@ -77,9 +76,9 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
   const timezone = calendar?.timezone
   const today = calendar ? workspaceDate(calendar.timezone, snapshot.observedAt) : ''
   const reload = async (active: () => boolean = () => true) => {
-    const [summary, totals] = await Promise.all([desktopApi().getBackupSummary(), desktopApi().getCounts()])
+    const totals = await desktopApi().getCounts()
     if (!active()) return
-    setLatest(summary.latest); setCounts(totals)
+    setCounts(totals)
     if (section === 'backup') {
       const reply = await desktopApi().data({ type: 'backupStatus' })
       if (active() && reply.type === 'status') setBackups(reply.status)
@@ -120,14 +119,10 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
     close()
   }
   const disabled = busy || working
-  const aiStatus = ai.status, connected = aiStatus ? connectedProviders(aiStatus) : []
-  const featureMeta = (feature: 'smart' | 'insight') => aiStatus?.features[feature].enabled ? { text: s.enabledMeta, dot: true as const } : aiStatus?.features[feature].paused ? { text: smartMessages.pausedMeta, dot: 'warn' as const } : null
-  const meta: Partial<Record<Section, { text: string; dot?: boolean | 'warn' | 'update' }>> = {
-    ...(connected.length && { ai: connected.some(provider => providerIssue(aiStatus!, provider)) ? { text: smartMessages.needsAttention, dot: 'warn' as const } : { text: smartMessages.connectedCount(connected.length) } }),
+  const featureMeta = (feature: 'smart' | 'insight') => ai.status?.features[feature].enabled ? { text: s.enabledMeta, dot: true as const } : ai.status?.features[feature].paused ? { text: smartMessages.pausedMeta, icon: 'pause' as const } : null
+  const meta: Partial<Record<Section, { text: string; dot?: true | 'update'; icon?: 'pause' }>> = {
     ...(featureMeta('smart') && { smart: featureMeta('smart')! }),
     ...(featureMeta('insight') && { insight: featureMeta('insight')! }),
-    ...(latest && today && { backup: { text: relativeDay(latest, today, timezone, s) } }),
-    ...(counts?.trash && { trash: { text: String(counts.trash) } }),
     ...(hasUpdate(update) && { about: { text: s.about.navMeta, dot: 'update' as const } }),
   }
   const title = preview ? (preview.mode === 'reset' ? messages.resetWorkspace : messages.restoreWorkspace) : groups().flatMap(group => group.entries).find(entry => entry.id === section)!.label
@@ -152,11 +147,16 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
       <p className="settings-nav-title">{messages.settings}</p>
       {groups().map(group => <div key={group.label} className="settings-nav-group">
         <p>{group.label}</p>
-        {group.entries.map(entry => <button key={entry.id} type="button" aria-current={!preview && section === entry.id ? 'page' : undefined} disabled={!!preview} onClick={() => navigate(entry.id)}>
-          <Icon name={entry.icon} size={16} /><span className="settings-nav-label">{entry.label}</span>
-          {/* Glanceable status only; the section name stays the button's accessible name. */}
-          {meta[entry.id] && <span className="settings-nav-meta" data-dot={meta[entry.id]!.dot ?? false} aria-hidden="true">{meta[entry.id]!.text}</span>}
-        </button>)}
+        {group.entries.map(entry => {
+          const status = meta[entry.id]
+          return <button key={entry.id} type="button" aria-current={!preview && section === entry.id ? 'page' : undefined} aria-description={status?.text} disabled={!!preview} onClick={() => navigate(entry.id)}>
+            <Icon name={entry.icon} size={16} /><span className="settings-nav-label">{entry.label}</span>
+            {/* The section name stays the button's accessible name; status is its description. */}
+            {status && <span className="settings-nav-meta" data-dot={status.dot ?? false} data-icon={status.icon} title={status.icon ? status.text : undefined} aria-hidden="true">
+              {status.icon ? <Icon name={status.icon} size={14} /> : status.text}
+            </span>}
+          </button>
+        })}
       </div>)}
       {preview && <p className="settings-nav-note"><Icon name="lock" size={14} /><span>{messages.maintenanceNav}</span></p>}
     </nav>

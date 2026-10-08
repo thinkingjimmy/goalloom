@@ -89,7 +89,7 @@ export const messages: MessageCatalog = {
   dragOver: "Déplacé vers un nouvel emplacement.",
   dragEnded: "Déplacement terminé. Vérification de l’emplacement.",
   dragCancelled: "Déplacement annulé. L’emplacement d’origine est conservé.",
-  dragInstructions: "Espace pour saisir, flèches pour déplacer, Espace pour déposer, Esc pour annuler. Vous pouvez aussi utiliser « Déplacer vers » dans le détail.",
+  dragInstructions: "Espace pour saisir, flèches pour déplacer, Espace pour déposer, Esc pour annuler.",
   board: "Tableau",
   history: "Historique",
   futureIdeas: "Idées pour plus tard",

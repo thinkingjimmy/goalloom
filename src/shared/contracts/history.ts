@@ -14,7 +14,7 @@ export const businessStateSchema = z.strictObject({
 })
 export const eventSchema = z.strictObject({
   seq: z.number().int().positive(), id: idSchema, operationId: idSchema, eventIndex: z.number().int().nonnegative(), itemId: idSchema,
-  at: instantSchema, type: z.enum(['created', 'baseline', 'moved', 'rolled_over', 'status_changed', 'archived', 'unarchived', 'deleted', 'item_restored', 'undo', 'guidance_changed']),
+  at: instantSchema, type: z.enum(['created', 'baseline', 'moved', 'rolled_over', 'status_changed', 'archived', 'unarchived', 'deleted', 'item_restored', 'undo', 'guidance_changed', 'description_changed']),
   before: businessStateSchema.nullable(), after: businessStateSchema, undoOf: idSchema.nullable(),
 })
 export const activitySchema = z.strictObject({ events: z.array(eventSchema), more: z.boolean() })

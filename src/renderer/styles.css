@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Theme tokens and shared renderer component classes and state attributes.
- * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with return icons, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and responsive detail rails with bounded property controls and activity summary colors.
+ * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with return icons, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
  * [POS]: Renderer-wide stylesheet; feature-specific styles live beside their components.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -460,7 +460,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .segmented button { height: 28px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: var(--secondary); }
 .segmented button[aria-checked='true'] { background: var(--raised); color: var(--fg); box-shadow: 0 1px 2px rgba(60, 40, 20, .1); }
 
-/* --- Detail: the left column scrolls; the right rail keeps activity in the leftover height and pins actions. --- */
+/* --- Detail: one scrollable task sheet with header actions. --- */
 .modal.detail[open] { display: flex; flex-direction: column; width: min(960px, calc(100vw - 40px)); min-height: min(560px, calc(100vh - 80px)); max-height: min(760px, calc(100vh - 80px)); padding: 0; overflow: hidden; }
 .detail .modal-header { position: static; flex-shrink: 0; margin: 0; height: 56px; padding: 0 58px 0 20px; gap: 2px; }
 /* The placement menu drops out of the header, so let it overflow; the chip text truncates itself. */
@@ -471,10 +471,10 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .placement-chip:hover, .placement-chip[aria-expanded='true'] { background: var(--hover); color: var(--fg); }
 .placement-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .modal.detail { width: min(960px, calc(100vw - 40px)); min-height: min(560px, calc(100vh - 80px)); max-height: min(760px, calc(100vh - 80px)); }
-.detail-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(180px, 35%, 248px); }
+.detail-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
 .detail-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .modal.detail .modal-header > .icon-button:last-child { position: absolute; top: 10px; right: 12px; z-index: 4; }
-.detail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 28px 20px; display: flex; flex-direction: column; }
+.detail-body { scrollbar-gutter: stable; flex: 1; min-height: 0; overflow-y: auto; padding: 4px 28px 20px; display: flex; flex-direction: column; }
 .detail-title { display: flex; align-items: flex-start; gap: 12px; }
 .detail-title .check.large { margin-top: 3px; }
 .title-line { position: relative; flex: 1; min-width: 0; font-size: 20px; line-height: 28px; font-weight: 600; }
@@ -720,3 +720,16 @@ html.no-transitions, html.no-transitions *, html.no-transitions *::before, html.
 /* --- Keycaps: shortcut hints in settings, palette and tooltips. --- */
 .keycaps { display: inline-flex; gap: 4px; }
 .keycap { min-width: 24px; height: 24px; padding: 0 6px; display: inline-grid; place-items: center; border-radius: 6px; background: var(--hover); color: var(--fg-soft); font-size: 12px; font-variant-numeric: tabular-nums; opacity: 1; }
+
+.detail-context { padding-inline: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.detail .detail-context { display: block; overflow: hidden; }
+.detail-management { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.detail-management .detail-rail-action { width: auto; white-space: nowrap; }
+.detail-management button, .detail-management button:active { transform: none; transition: none; animation: none; }
+@media (max-width: 570px) {
+  .detail .modal-header { padding-left: 12px; }
+  .detail-management .detail-rail-action { width: 32px; padding: 0; justify-content: center; gap: 0; }
+  .detail-management .detail-rail-action > span { display: none; }
+  .detail-body { padding-inline: 20px; }
+}
+@media (pointer: coarse) { .detail-management .detail-rail-action { min-width: 44px; min-height: 44px; } }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted assistance input, entity identities and the five UI locales.
- * [OUTPUT]: Strict guidance, limited proposals, request echoes and dependency guards.
+ * [OUTPUT]: Strict complete-note rewrites, legacy guidance/proposals, request echoes and dependency guards.
  * [POS]: Assistance boundary shared by main, worker and preload; models never supply commands.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -30,6 +30,7 @@ export const guidanceChangeSchema = z.discriminatedUnion('kind', [
 const moveSuggestionSchema = z.strictObject({ horizon: horizonSchema, localDate: dateSchema.nullable() })
   .refine(value => value.horizon === 'later' ? value.localDate === null : value.localDate !== null)
 export const assistanceOutputSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('rewrite'), description: z.string().trim().min(1).max(16_000) }),
   z.strictObject({ kind: z.literal('clarify'), question: z.string().trim().min(1).max(200) }),
   z.strictObject({ kind: z.literal('proposal'), explanation: z.string().trim().min(1).max(400),
     guidance: z.strictObject(guidanceBody).nullable(), moveSuggestion: moveSuggestionSchema.nullable(),
@@ -42,6 +43,7 @@ export const assistanceEchoSchema = z.strictObject({
   contextId: z.uuid(), locale: z.enum(locales), turn: z.number().int().min(1).max(3),
 })
 export const assistanceRequestSchema = assistanceEchoSchema.extend({
+  mode: z.literal('rewrite').optional(),
   prefs: insightPrefsSchema.optional(), text: z.string().max(2000), answer: z.string().max(2000).nullable(), adjustment: z.string().max(2000).nullable(),
 })
 export type AssistanceRequest = z.infer<typeof assistanceRequestSchema>

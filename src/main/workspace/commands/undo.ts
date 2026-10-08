@@ -34,6 +34,12 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
   const allEdges = ['create', 'visibility', 'relations'].includes(effect.kind) ? context.store.relations(false) : []
   const problem = effectProblem(effect, item, allEdges, context.store.position(item))
   if (problem) conflict(problem)
+  if (effect.kind === 'description') {
+    item.description = effect.before
+    touch(context, item)
+    context.store.event(context.command.operationId, context.now, 'undo', before, item, originalId)
+    return
+  }
   if (effect.kind === 'guidance') {
     const head = context.store.guidance(item.id)
     if (!head || JSON.stringify(head.value) !== JSON.stringify(effect.after.value) || guidanceIdentity(context.store, head) !== effect.after.operationId) conflict(assistanceServerText().guidanceChanged)

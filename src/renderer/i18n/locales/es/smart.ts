@@ -130,7 +130,6 @@ export const smartMessages: SmartCatalog = {
   connectedGroup: 'Conectados',
   addGroup: 'Añadir un servicio',
   addGroupNote: 'Cada servicio factura por separado; las claves nunca se comparten entre servicios',
-  connectedCount: (count: number) => `${count} conectado${count === 1 ? '' : 's'}`,
   pausedMeta: 'En pausa',
   needsAttention: 'Requiere atención',
   notAdded: 'Sin clave',
@@ -164,7 +163,7 @@ export const smartMessages: SmartCatalog = {
   addService: 'Añadir un servicio',
   blocked: (name: string) => `Envío en pausa · ${name} requiere atención`,
   resolve: 'Resolver en Servicios de IA →',
-  onlyCapable: (feature: AiFeature) => ({ smart: 'Solo se muestran los servicios que ejecutan Jev. Al cambiar, un borrador en curso no se envía automáticamente al nuevo servicio.', insight: 'Solo se muestran los servicios que ejecutan DeepSeek.' })[feature],
+  onlyCapable: (feature: AiFeature) => ({ smart: 'Solo se muestran los servicios que ejecutan Jev. Al cambiar, un borrador en curso no se envía automáticamente al nuevo servicio.', insight: 'Al pedir ayuda con una tarea, este servicio recibe las notas, objetivos relacionados, resumen de ejecución y preferencias, y reescribe las notas directamente.' })[feature],
   current: 'Actual',
   cooldown: (time: string) => `Límite de solicitudes alcanzado. La organización automática se reanuda en ${time}`,
 }

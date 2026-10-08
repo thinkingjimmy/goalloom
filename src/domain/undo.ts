@@ -8,6 +8,7 @@ import type { Effect, EdgeDelta, PositionEffect } from '../shared/contracts/effe
 import type { Item, Relation } from '../shared/contracts/entities'
 import { matchesStatus } from './status'
 import { serverText } from '../shared/i18n/server'
+import { assistanceServerText } from '../shared/i18n/assistance'
 
 export function samePosition(a: PositionEffect, b: PositionEffect): boolean {
   return a.horizon === b.horizon && a.periodId === b.periodId && a.previousId === b.previousId && a.nextId === b.nextId
@@ -18,6 +19,7 @@ export function sameEdge(a: Relation | undefined, b: Relation): boolean {
 }
 export function effectProblem(effect: Effect, item: Item, edges: Relation[], position: PositionEffect): string | null {
   if (effect.kind !== 'visibility' && item.deletedAt !== null) return serverText().undo.itemDeleted
+  if (effect.kind === 'description' && item.description !== effect.after) return assistanceServerText().notesChanged
   if (effect.kind === 'status' && !matchesStatus(item, effect.after)) return serverText().undo.statusChanged
   if (effect.kind === 'archive' && item.archivedAt !== effect.after) return serverText().undo.archiveChanged
   if (effect.kind === 'position' && !samePosition(position, effect.after)) return serverText().undo.positionChanged

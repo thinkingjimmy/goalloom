@@ -20,3 +20,5 @@ smart/
 Assistance preflight rechecks session ownership after every awaited read. Cancellation and replaced generations return the existing `cancelled` reply through main/preload; they do not reject IPC or show a failure. A late completion/error can only remove its own session object. Uncancelled storage/configuration failures still surface normally. Pending preflights share the eight-session limit.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+Task note assistance is enabled by the insight feature setting and the connected provider consent. It requires no additional task-level checkbox. Rewrite mode returns complete Markdown in one response, refuses truncated source notes, checks completed tasks/links, and binds the accepted output to the main-owned preflight ticket before the worker writes. Purpose consent for separate draft/review enrichment remains unchanged.

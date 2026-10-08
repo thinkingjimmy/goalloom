@@ -9,7 +9,7 @@ import { writeFile } from 'node:fs/promises'
 
 // Failure cases: the placeholder and typed first character have different baselines; theme/locale/zoom changes
 // reintroduce drift; the focused fill's edge meets the placeholder or caret; focus alone writes an empty note;
-// adjusting typography collapses the full-height editor.
+// adjusting typography collapses the minimum editing target.
 export async function verifyDescriptionAlignment({ app, page, create, stored, detail, output, shot }) {
   const id = await create('Description alignment fixture'), checks = [], geometry = []
   let complete = false
@@ -52,7 +52,7 @@ export async function verifyDescriptionAlignment({ app, page, create, stored, de
               fieldInset: promptBox.left - box.left, horizontalOverflow: body.scrollWidth > body.clientWidth + 1 }
           })
           assert.equal(layout.focused, true)
-          assert(layout.height >= 160, 'Typography preserves the full-height description area')
+          assert(layout.height >= 64, 'Typography preserves the compact note editing target')
           assert(layout.fieldInset >= 10, `${label}: placeholder must sit inside the focused field (${layout.fieldInset}px from its edge)`)
           assert.equal(layout.horizontalOverflow, false, `${label}: the field inset must not make the detail scroll sideways`)
           assert.deepEqual(await stored(id), before, 'Focusing an empty description does not save or dirty it')

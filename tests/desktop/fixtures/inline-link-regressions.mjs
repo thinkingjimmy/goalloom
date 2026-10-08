@@ -14,7 +14,7 @@ const legacyUrl = 'https://x.com/fixture/status/9999900000000000001'
 const missingUrl = 'https://x.com/fixture/status/9999900000000000002'
 const videoUrl = 'https://www.youtube.com/watch?v=FixtureIcon'
 const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAJ0lEQVR4nGPwLltKEmKgr4b/OMBg0ECRHwaJBpL9QDMNJCcNmmgAAMFFwK+jqNbxAAAAAElFTkSuQmCC'
-const title = '整理了十二种图像创作方法，包含构图、光线、文字排版与日常练习，希望能给下一次创作带来启发。'
+const title = '整理了十二种图像创作方法，包含构图、光线、文字排版与日常练习，希望能给下一次创作带来启发。'.repeat(2)
 const filename = (directory, url) => join(directory, `${createHash('sha256').update(url).digest('hex')}.json`)
 
 async function installProvider(app) {

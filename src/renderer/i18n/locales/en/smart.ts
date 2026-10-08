@@ -130,7 +130,6 @@ export const smartMessages: SmartCatalog = {
   connectedGroup: 'Connected',
   addGroup: 'Add a service',
   addGroupNote: 'Each service bills separately; keys are never shared between services',
-  connectedCount: (count: number) => `${count} connected`,
   pausedMeta: 'Paused',
   needsAttention: 'Needs attention',
   notAdded: 'No key added',
@@ -164,7 +163,7 @@ export const smartMessages: SmartCatalog = {
   addService: 'Add a service',
   blocked: (name: string) => `Sending paused · ${name} needs attention`,
   resolve: 'Fix in AI services →',
-  onlyCapable: (feature: AiFeature) => ({ smart: 'Only services that run Jev are listed. After switching, a draft being organized isn’t sent to the new service automatically.', insight: 'Only services that run DeepSeek are listed.' })[feature],
+  onlyCapable: (feature: AiFeature) => ({ smart: 'Only services that run Jev are listed. After switching, a draft being organized isn’t sent to the new service automatically.', insight: 'When you ask for task help, this service receives the task notes, related goals, execution summary and your preferences, and rewrites the notes directly.' })[feature],
   current: 'Current',
   cooldown: (time: string) => `Rate-limited. Automatic organizing resumes in ${time}`,
 }

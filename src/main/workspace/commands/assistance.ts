@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Strict applyAssistance, authoritative versions/guards and the current transaction.
- * [OUTPUT]: One atomic guidance/move operation, immutable effects and ordered events.
+ * [OUTPUT]: Atomic note rewrites or legacy guidance/moves, immutable owned effects and ordered events.
  * [POS]: Limited task assistance writer; reuses movement and the existing receipt/undo infrastructure.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -43,6 +43,17 @@ export function applyAssistance(context: Context, command: CommandOf<'applyAssis
     if (move.horizon === 'later' ? move.startDate !== null || move.previewPeriodId !== null || !move.confirmedLater : move.startDate === null) throw new DomainError('invalid', t.contextChanged)
     const target = move.horizon === 'later' ? null : currentPeriod(calendar, move.horizon, parseDate(move.startDate!).toZonedDateTime(calendar.timezone).toInstant().toString())
     if (target && (target.id !== move.previewPeriodId || target.startDate !== move.startDate)) throw new DomainError('stale_preview', t.contextChanged)
+  }
+  if (command.description !== undefined) {
+    context.itemId = item.id
+    context.label = t.notesRewritten
+    if (item.description === command.description) return false
+    const before = structuredClone(item)
+    context.effects.push({ kind: 'description', itemId: item.id, before: item.description, after: command.description })
+    item.description = command.description
+    touch(context, item)
+    context.store.event(command.operationId, context.now, 'description_changed', before, item)
+    return true
   }
   const value = command.guidance.kind === 'keep' ? record?.value ?? null : command.guidance.kind === 'set' ? command.guidance.value : null
   const guidanceChanged = JSON.stringify(value) !== JSON.stringify(record?.value ?? null)

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated operation effects, period metadata, undo markers and ordered task events.
- * [OUTPUT]: Indexed event ownership and replayed guidance with its original confirmation boundary.
+ * [OUTPUT]: Indexed event ownership including note rewrites, and replayed guidance with its original confirmation boundary.
  * [POS]: Shared execution-history primitives for current facts, historical facts and activity pages.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -38,6 +38,7 @@ export function ownedExecutionEffect(event: ItemEvent, history: ExecutionHistory
       case 'archive': return ['archived', 'unarchived'].includes(event.type) && a?.archivedAt === effect.before && b.archivedAt === effect.after
       case 'visibility': return ['deleted', 'item_restored'].includes(event.type) && a?.deletedAt === effect.before.deletedAt && a?.deletedBy === effect.before.deletedBy && b.deletedAt === effect.after.deletedAt && b.deletedBy === effect.after.deletedBy
       case 'guidance': return event.type === 'guidance_changed'
+      case 'description': return event.type === 'description_changed'
       case 'position': return !!a && !samePlace(a, b) && effect.before.horizon === a.horizon && effect.before.periodId === a.periodId && effect.after.horizon === b.horizon && effect.after.periodId === b.periodId
       case 'relations': return false
     }

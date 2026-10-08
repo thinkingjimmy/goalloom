@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Built Electron, isolated profiles, an explicit week-start choice and the five supported locale catalogs.
- * [OUTPUT]: Language-switching acceptance, app-local diagnostics and settings/calendar, detail/flow menus, review guides and custom choices in every locale.
+ * [INPUT]: Built Electron, isolated profiles with synthetic paused AI credentials, an explicit week-start choice and the five supported locale catalogs.
+ * [OUTPUT]: Language-switching acceptance, single-line navigation and localized pause icons, app-local diagnostics and screenshots.
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -141,6 +141,17 @@ try {
   })
 
   // 4. Settings: every pane is translated; switching language keeps the dialog open (no remount) and updates main + worker.
+  {
+    const directory = join(profile, 'smart-input'), stamp = new Date().toISOString()
+    const blank = { consentedAt: null, verifiedAt: null, keyHint: null, capabilities: { jev: null, chat: null }, lastFailure: null, assistanceConsent: null }
+    const feature = { provider: 'openrouter', revision: 1, enabledForGeneration: 'previous-workspace' }
+    await mkdir(directory, { recursive: true })
+    const key = await application.evaluate(({ safeStorage }) => safeStorage.encryptString('synthetic-paused-key').toString('base64'))
+    await writeFile(join(directory, 'openrouter.key'), Buffer.from(key, 'base64'))
+    await writeFile(join(directory, 'config.json'), JSON.stringify({ version: 3,
+      providers: { openrouter: { ...blank, consentedAt: stamp, verifiedAt: stamp, keyHint: 'test', capabilities: { jev: stamp, chat: stamp } }, 'vercel-gateway': blank },
+      features: { smart: feature, insight: feature }, dismissed: [] }))
+  }
   await page.getByRole('button', { name: ui.en.settings, exact: true }).click()
   let dialog = settingsDialog(page, ui.en.settings)
   await dialog.waitFor()
@@ -155,6 +166,49 @@ try {
     await dialog.locator('.settings-nav').getByText(ui[code].smart, { exact: true }).waitFor()
     await page.getByRole('main', { name: ui[code].board }).getByText(ui[code].day, { exact: true }).first().waitFor()
     assert.equal(await workerMessage(page), workerText[code])
+    const paused = { en: 'Paused', es: 'En pausa', fr: 'En pause', ja: '一時停止中', zh: '已暂停' }[code]
+    await dialog.locator('.settings-nav-meta[data-icon="pause"]').last().waitFor()
+    assert.equal(await dialog.locator('.settings-nav-meta[data-icon="pause"]').count(), 2)
+    for (const index of [2, 7, 9]) assert.equal(await dialog.locator('.settings-nav button').nth(index).locator('.settings-nav-meta').count(), 0)
+    for (const index of [3, 4]) {
+      const button = dialog.locator('.settings-nav button').nth(index), icon = button.locator('.settings-nav-meta')
+      assert.equal(await icon.innerText(), '')
+      assert.equal(await icon.locator('svg').count(), 1)
+      assert.equal(await icon.getAttribute('title'), paused)
+      assert.equal(await button.getAttribute('aria-description'), paused)
+      assert.equal(await icon.evaluate(node => getComputedStyle(node).color !== getComputedStyle(node.closest('button')).color), true)
+    }
+    report.settingsNavigation ??= {}
+    report.settingsNavigation[code] = []
+    const originalSize = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize())
+    for (const width of [1280, 720]) {
+      await application.evaluate(({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0].setContentSize(width, 840), width)
+      await page.waitForFunction(width => innerWidth === width, width)
+      const geometry = await dialog.locator('.settings-nav').evaluate(nav => ({
+        width: nav.getBoundingClientRect().width,
+        dialogWidth: nav.closest('dialog').getBoundingClientRect().width,
+        overflow: nav.scrollWidth > nav.clientWidth,
+        paneWidth: document.querySelector('.settings-body').getBoundingClientRect().width,
+        entries: [...nav.querySelectorAll('button')].map(button => {
+          const label = button.querySelector('.settings-nav-label'), meta = button.querySelector('.settings-nav-meta')
+          const bounds = label.getBoundingClientRect(), range = document.createRange()
+          range.selectNodeContents(label)
+          return { label: label.textContent, lines: range.getClientRects().length, clipped: label.scrollWidth > label.clientWidth,
+            status: meta?.textContent, overlap: meta ? bounds.right > meta.getBoundingClientRect().left : false,
+            height: button.getBoundingClientRect().height }
+        }),
+      }))
+      report.settingsNavigation[code].push({ windowWidth: width, pausedDescription: paused, pauseIcons: 2, hiddenMetadata: ['ai', 'backup', 'trash'], ...geometry })
+      assert.equal(geometry.overflow, false, `${code}/${width}: no horizontal navigation overflow`)
+      assert(geometry.paneWidth >= geometry.dialogWidth * .5, `${code}/${width}: settings pane keeps half the dialog`)
+      for (const entry of geometry.entries) {
+        assert.equal(entry.lines, 1, `${code}/${width}: ${entry.label} stays on one line`)
+        assert.equal(entry.clipped, false, `${code}/${width}: ${entry.label} remains fully visible`)
+        assert.equal(entry.overlap, false, `${code}/${width}: ${entry.label} does not overlap status`)
+      }
+      await dialog.screenshot({ path: `${shots}/language-settings-nav-${code}-${width}.png` })
+    }
+    await application.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setContentSize(...size), originalSize)
     const panes = await dialog.locator('.settings-nav button').count()
     for (let index = 0; index < panes; index++) {
       await dialog.locator('.settings-nav button').nth(index).click()
@@ -184,9 +238,9 @@ try {
     await flowMenu.waitFor({ state: 'detached' })
     await page.getByRole('button', { name: 'Write report', exact: true }).click()
     const detail = page.locator('dialog.detail')
-    const rail = detail.locator('.detail-rail')
+    const rail = detail.locator('.detail-management')
     await rail.waitFor()
-    assert.equal(await rail.locator('.detail-rail-actions button').count(), 3, `${code}: rail contains cancel, archive and trash`)
+    assert.equal(await rail.locator('button').count(), 3, `${code}: rail contains cancel, archive and trash`)
     if (['en', 'es', 'fr'].includes(code)) await assertTranslated(page, `${code} detail rail`)
     await page.screenshot({ path: `${shots}/language-detail-actions-${code}.png` })
     await page.keyboard.press('Escape')

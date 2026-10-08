@@ -14,7 +14,7 @@ import { pollPage } from './poll.mjs'
 
 export async function verifyDetailTitles(app, page, directory, output) {
   const url = 'https://example.com/complete-detail-title'
-  const title = '图像创作参考：从构图、光线、色彩到文字排版，整理可以立即尝试的十二种练习方法，让每次创作都有清晰的起点，也保留探索和调整的空间。完整标题的最后一句也应该可见。'
+  const title = '图像创作参考：从构图、光线、色彩到文字排版，整理可以立即尝试的十二种练习方法，让每次创作都有清晰的起点，也保留探索和调整的空间。完整标题的最后一句也应该可见。'.repeat(2)
   const original = `参考这篇文章 ${url}`
   const cacheFile = url => join(directory, `${createHash('sha256').update(url).digest('hex')}.json`)
   const icon = JSON.parse(await readFile(cacheFile(urls.x), 'utf8')).preview.favicon

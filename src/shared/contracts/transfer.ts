@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted source-aware JSON/SQLite data and explicit maintenance actions.
- * [OUTPUT]: Validated v1-v8 datasets, guidance/tombstones, v1/v2 effects and protected replacement previews.
+ * [OUTPUT]: Validated v1-v8 datasets, guidance/tombstones, description-only v2 effects and protected replacement previews.
  * [POS]: Transfer boundary preserving old receipts and rejecting inconsistent heads/history.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,6 +16,7 @@ const position = z.strictObject({ horizon: horizonSchema, periodId: idSchema.nul
 const edgeDelta = z.strictObject({ before: relationSchema.nullable(), after: relationSchema })
 const visibility = z.strictObject({ deletedAt: instantSchema.nullable(), deletedBy: idSchema.nullable() })
 export const effectSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('description'), itemId: idSchema, before: z.string().max(100_000), after: z.string().trim().min(1).max(16_000) }).refine(value => value.before !== value.after),
   z.strictObject({ kind: z.literal('guidance'), itemId: idSchema,
     before: z.strictObject({ value: guidanceValueSchema.nullable(), operationId: idSchema.nullable() }),
     after: z.strictObject({ value: guidanceValueSchema.nullable(), operationId: idSchema }),
@@ -30,7 +31,7 @@ export const effectSchema = z.discriminatedUnion('kind', [
 export const operationSchema = z.strictObject({
   id: idSchema, generation: idSchema, requestHash: z.string().regex(/^[a-f0-9]{64}$/), kind: z.string().min(1).max(60),
   source: z.enum(['user', 'system']), at: instantSchema, effectsVersion: z.union([z.literal(1), z.literal(2)]), effects: z.array(effectSchema).max(100_000), result: resultSchema,
-}).refine(value => value.effectsVersion === (value.effects.some(effect => effect.kind === 'guidance') ? 2 : 1))
+}).refine(value => value.effectsVersion === (value.effects.some(effect => ['guidance', 'description'].includes(effect.kind)) ? 2 : 1))
 export const undoMarkerSchema = z.strictObject({ originalId: idSchema, effectIndex: z.number().int().nonnegative(), undoId: idSchema })
 export const datasetSchema = z.strictObject({
   schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,

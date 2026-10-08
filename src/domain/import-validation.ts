@@ -221,7 +221,7 @@ function validateKind(operation: Dataset['operations'][number], version: Dataset
     if (effect.flowColor.transferredTo) requireValid(effect.flowColor.transferredTo === edge!.after.parentId, serverText().import.relationEffectIdentityMismatch)
   }
   requireValid(operation.kind !== 'createPlan' || version >= 3, serverText().import.legacyPlan)
-  const allowed: Record<string, Effect['kind'][]> = { applyAssistance: ['guidance', 'position', 'relations'], create: ['create'], createPlan: ['create'], insertBetween: ['create', 'relations'], edit: [], flowColor: [], move: ['position', 'relations'], materializeParentOrder: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], discardEmpty: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position', 'relations'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
+  const allowed: Record<string, Effect['kind'][]> = { applyAssistance: ['description', 'guidance', 'position', 'relations'], create: ['create'], createPlan: ['create'], insertBetween: ['create', 'relations'], edit: [], flowColor: [], move: ['position', 'relations'], materializeParentOrder: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility'], discardEmpty: ['visibility'], restoreItem: ['visibility'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position', 'relations'], rollover: ['position'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
   requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), serverText().import.effectKindNotAllowed)
   requireValid(operation.source === (['rollover', 'baseline'].includes(operation.kind) ? 'system' : 'user'), serverText().import.operationSourceMismatch)
   const inverse = ['undo', 'undoBatch'].includes(operation.kind)
@@ -232,7 +232,8 @@ function validateKind(operation: Dataset['operations'][number], version: Dataset
   else if (operation.kind === 'insertBetween') validateLegacyMilestone(operation, edges)
   else if (operation.kind === 'applyAssistance') {
     requireValid(version >= 8 && operation.effects.length <= 3 && new Set(operation.effects.map(effect => effect.itemId)).size <= 1 && operation.effects.filter(effect => effect.kind === 'guidance').length <= 1 && operation.effects.filter(effect => effect.kind === 'position').length <= 1, serverText().import.extraEffects)
-    validateLaterEntry({ ...operation, effects: operation.effects.filter(effect => effect.kind !== 'guidance') })
+    requireValid(!operation.effects.some(effect => effect.kind === 'description') || operation.effects.length === 1, serverText().import.extraEffects)
+    validateLaterEntry({ ...operation, effects: operation.effects.filter(effect => !['guidance', 'description'].includes(effect.kind)) })
   }
   else if (operation.kind === 'move' || operation.kind === 'arrangeBacklog') validateLaterEntry(operation)
   else if (!['rollover', 'materializeParentOrder'].includes(operation.kind)) requireValid(operation.effects.length <= 1, serverText().import.extraEffects)
@@ -290,7 +291,7 @@ function validateItemIds(operation: Dataset['operations'][number], operations: M
 }
 function validateEvent(event: ItemEvent, operation: Dataset['operations'][number], effectsByItem: Map<string, Map<string, Array<{ effect: Effect; index: number }>>>, markers: Map<string | number, Dataset['undoEffects'][number]>, periods: Map<string | number, PlanningPeriod>): void {
   const a = event.before, b = event.after
-  const types: Record<string, string[]> = { created: ['create', 'createPlan', 'insertBetween'], baseline: ['baseline'], guidance_changed: ['applyAssistance'], moved: ['move', 'arrangeBacklog', 'applyAssistance'], rolled_over: ['move', 'arrangeBacklog', 'rollover', 'applyAssistance'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete', 'discardEmpty'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
+  const types: Record<string, string[]> = { created: ['create', 'createPlan', 'insertBetween'], baseline: ['baseline'], guidance_changed: ['applyAssistance'], description_changed: ['applyAssistance'], moved: ['move', 'arrangeBacklog', 'applyAssistance'], rolled_over: ['move', 'arrangeBacklog', 'rollover', 'applyAssistance'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete', 'discardEmpty'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
   requireValid(types[event.type]?.includes(operation.kind), serverText().import.eventTypeMismatch)
   if (event.type === 'baseline') { requireValid(!a && !event.undoOf, serverText().import.baselineNotOrigin); return }
   if (event.type === 'created') { requireValid(!a && b.status === 'todo' && !b.archivedAt && !b.deletedAt && !b.holdPeriodId, serverText().import.invalidCreatedEvent); return }
@@ -351,6 +352,7 @@ function validateOwnedFields(effect: Effect, event: ItemEvent): void {
 }
 
 function eventMatchesEffect(event: ItemEvent, effect: Effect): boolean {
+  if (effect.kind === 'description') return event.type === 'description_changed' || event.type === 'undo' && event.before?.horizon === event.after.horizon && event.before?.periodId === event.after.periodId && event.before?.status === event.after.status && event.before?.archivedAt === event.after.archivedAt && event.before?.deletedAt === event.after.deletedAt
   if (effect.kind === 'guidance') return event.type === 'guidance_changed' || event.type === 'undo' && event.before?.horizon === event.after.horizon && event.before?.periodId === event.after.periodId && event.before?.status === event.after.status && event.before?.archivedAt === event.after.archivedAt && event.before?.deletedAt === event.after.deletedAt
   if (effect.kind === 'position') return event.before?.horizon !== event.after.horizon || event.before?.periodId !== event.after.periodId
   return true

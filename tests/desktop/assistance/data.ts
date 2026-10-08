@@ -4,7 +4,7 @@
  * [POS]: E2E data boundary; production has no test clock, arbitrary SQL API or provider bypass.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  * Failure cases: partial adoption/undo, ABA, duplicate receipts, lifecycle bypass, bad imports,
- * unsafe upgrades, incorrect carryovers, undo erasing actual intervals, unfrozen history and unbounded reads.
+ * note rewrite guards, stale note undo, description-effect import forgery, unsafe upgrades, incorrect carryovers, undo erasing actual intervals, unfrozen history and unbounded reads.
  */
 import assert from 'node:assert/strict'
 import { randomUUID, createHash } from 'node:crypto'
@@ -56,6 +56,48 @@ const checks: Record<string, string[]> = {}
 function checked(group: string, label: string) { (checks[group] ??= []).push(label); console.log(`✓ ${group}: ${label}`) }
 
 async function applyCases() {
+  await fixture(async (f, directory) => {
+    const before = '- [x] Complete the outline\n- [ ] Verify the example', after = `${before}\n- [ ] Run one path`
+    const id = f.create('week', { description: before })
+    const rewrite = () => {
+      const context = readAssistanceContext(f.repo.store, f.repo.execution, { type: 'assistanceContext', itemId: id, generation: f.generation }, f.now())
+      return { type: 'applyAssistance', itemId: id, expectedVersion: f.item(id).version, expectedGuidanceRevision: 0, guidance: { kind: 'keep' }, description: after, contextId: randomUUID(), guard: context.guard }
+    }
+    const stale = rewrite()
+    f.run({ type: 'edit', itemId: id, expectedVersion: f.item(id).version, title: 'Edited title', description: before, dueDate: null })
+    assert.throws(() => f.run({ ...stale, expectedVersion: f.item(id).version }))
+    const command = { ...rewrite(), generation: f.generation, operationId: randomUUID() }, applied = f.repo.execute(command)
+    assert(applied.undoable)
+    assert.deepEqual(f.repo.execute(command), applied)
+    assert.equal(f.item(id).description, after)
+    assert.equal(f.repo.detail(id).assistedNotes, true)
+    const exported = exportDataset(f.repo.store, f.now())
+    validateImport(JSON.parse(JSON.stringify(exported)), f.now())
+    const { consistentBackup } = await import('../../../src/main/storage/backup/snapshot')
+    const backup = await consistentBackup(f.db, join(directory, 'rewrite-backup'))
+    const restored = await readSqliteDataset(backup, f.now(), 'backup')
+    assert.equal(restored.items.find(row => row.id === id)?.description, after)
+    for (const mutate of [
+      (data: typeof exported) => { data.operations.find(row => row.id === applied.operationId)!.kind = 'edit' },
+      (data: typeof exported) => { data.operations.find(row => row.id === applied.operationId)!.effectsVersion = 1 },
+      (data: typeof exported) => { data.events = data.events.filter(row => row.operationId !== applied.operationId) },
+    ]) { const data = structuredClone(exported); mutate(data); assert.throws(() => validateImport(data, f.now())) }
+    f.run({ type: 'edit', itemId: id, expectedVersion: f.item(id).version, title: 'Later title', description: after, dueDate: '2026-11-01' })
+    f.run({ type: 'undo', originalOperationId: applied.operationId })
+    assert.equal(f.item(id).description, before)
+    assert.equal(f.item(id).title, 'Later title')
+    assert.equal(f.item(id).dueDate, '2026-11-01')
+    assert.equal(f.repo.detail(id).assistedNotes, false)
+    validateImport(exportDataset(f.repo.store, f.now()), f.now())
+    const second = f.run(rewrite())
+    f.run({ type: 'edit', itemId: id, expectedVersion: f.item(id).version, title: 'Later title', description: 'User changed notes', dueDate: '2026-11-01' })
+    const conflict = f.run({ type: 'undo', originalOperationId: second.operationId })
+    assert.equal(conflict.outcome, 'conflict_skipped')
+    assert.equal(f.item(id).description, 'User changed notes')
+    validateImport(exportDataset(f.repo.store, f.now()), f.now())
+    checked('apply', 'note rewrites reject stale context, round-trip JSON/SQLite, reject forged effects, and undo only their own unchanged notes')
+  })
+
   await fixture(f => {
     const id = f.create('week'), original = f.item(id), operationId = randomUUID()
     const command = { type: 'applyAssistance', operationId, generation: f.generation, itemId: id, expectedVersion: original.version, expectedGuidanceRevision: 0, guidance: { kind: 'set', value: guidance('Write one example') } }

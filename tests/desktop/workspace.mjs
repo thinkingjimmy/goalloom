@@ -193,18 +193,22 @@ try {
   // dnd-kit swallows clicks for 50ms after a drop so the release never opens a row.
   await page.waitForTimeout(100)
   await page.getByRole('button', { name: '测试行动', exact: true }).click()
-  // 移动入口是页眉的位置标签，点开即选列。
-  await page.getByRole('button', { name: /^移动到：/ }).click()
-  await page.getByRole('menuitemradio', { name: '今天', exact: true }).click()
+  await page.getByRole('dialog', { name: '当前条目' }).waitFor()
+  // Placement is read-only in detail; external moves still update the open task.
+  await page.evaluate(async () => {
+    const snapshot = await window.goalloom.getSnapshot(), item = snapshot.items.find(item => item.title === '测试行动')
+    const reply = await window.goalloom.execute({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon: 'day', generation: snapshot.workspace.generation, operationId: crypto.randomUUID() })
+    if (!reply.ok) throw Error(reply.message)
+  })
   await page.getByRole('dialog', { name: '当前条目' }).getByText('今天', { exact: false }).first().waitFor()
-  // Details keep activity and lifecycle actions in a permanent side rail.
+  // Details keep lifecycle actions in the header and notes in one pane.
   assert.equal(await page.getByRole('dialog', { name: '当前条目' }).locator('.modal-footer').count(), 0)
   await mkdir('output/tests/screenshots', { recursive: true })
   await page.getByRole('dialog', { name: '当前条目' }).screenshot({ path: 'output/tests/screenshots/item-detail.png' })
   const detailDialog = page.getByRole('dialog', { name: '当前条目' })
   const headerActions = await detailDialog.locator('.modal-header .icon-button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))
   assert.deepEqual(headerActions, ['关闭'])
-  await detailDialog.locator('.activity-insight').waitFor()
+  await detailDialog.locator('.action-invitation').waitFor()
   await verifyDetailRail(application, page, detailDialog)
   await detailDialog.screenshot({ path: 'output/tests/screenshots/item-detail-activity.png' })
   await page.getByRole('button', { name: '关闭', exact: true }).click()
@@ -250,17 +254,17 @@ try {
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later', exact: true }).click()
   await detail.waitFor()
   try { assert.equal(await detail.getByLabel('说明', { exact: true }).innerText({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
-  await detail.locator('.detail-rail-actions').getByRole('button', { name: '取消', exact: true }).click()
+  await detail.locator('.detail-management').getByRole('button', { name: '取消', exact: true }).click()
   await detail.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.getByRole('radio', { name: '取消', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later', exact: true }).click()
   page.once('dialog', dialog => dialog.accept())
-  await detail.locator('.detail-rail-actions').getByRole('button', { name: '删除', exact: true }).click()
+  await detail.locator('.detail-management').getByRole('button', { name: '删除', exact: true }).click()
   await detail.waitFor({ state: 'hidden' })
   await settingsDialog.getByRole('button', { name: '回收站', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '撤销内容保留 Later · 已取消', exact: true }).click()
   const trashed = page.getByRole('dialog', { name: '回收站条目' })
-  assert.equal(await trashed.locator('.detail-rail-actions').count(), 0, 'Deleted items keep activity without lifecycle writes')
+  assert.equal(await trashed.locator('.detail-management').count(), 0, 'Deleted items keep activity without lifecycle writes')
   try { assert.equal(await trashed.getByLabel('说明', { exact: true }).innerText({ timeout: 5000 }), '撤销创建后必须保留的文本') } catch (error) { console.error(await page.locator('body').ariaSnapshot()); throw error }
   await trashed.getByRole('button', { name: '关闭', exact: true }).click()
   await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click()
