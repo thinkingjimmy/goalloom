@@ -1,23 +1,19 @@
 /**
  * [INPUT]: Shared appearance tokens, breakpoint states and empty-card action classes.
- * [OUTPUT]: Breakpoints, guides and empty cards with same-row, equal-height actions, wrapping labels and coarse-pointer targets.
+ * [OUTPUT]: Labelled breakpoint pills, guides and empty cards with same-row, equal-height actions, wrapping labels and coarse-pointer targets.
  * [POS]: Flow-insight styles; button sizing is local to empty cards.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .board { --insight-skip: light-dark(#b8732c, #d9a760); }
 .breakpoints { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; }
 :root[data-dragging='true'] .breakpoints { display: none; }
-.breakpoint { position: absolute; transform: translate(-100%, -50%); width: 16px; height: 16px; padding: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden;
-  border-radius: 8px; background: var(--raised); box-shadow: inset 0 0 0 1.3px color-mix(in srgb, var(--node) 55%, transparent); color: var(--node); font-size: 12px; font-weight: 500; white-space: nowrap;
+.breakpoint { position: absolute; transform: translate(-100%, -50%); height: 24px; padding: 0 9px 0 7px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; overflow: hidden;
+  border-radius: 12px; background: var(--node); color: var(--bg); font-size: 12px; font-weight: 500; white-space: nowrap;
   transition: background-color .15s ease-out, color .15s ease-out; }
-/* At rest only the ring shows; the row's hover, keyboard focus, the guide or a pending draft expands it into「＋ 下一步」. */
-.breakpoint > svg, .breakpoint-label { display: none; }
-.breakpoint:is([data-expanded='true'], :hover, :focus-visible) { width: auto; height: 24px; padding: 0 9px 0 7px; border-radius: 12px; background: var(--node); color: var(--bg); box-shadow: none; }
-.breakpoint:is([data-expanded='true'], :hover, :focus-visible) > svg, .breakpoint:is([data-expanded='true'], :hover, :focus-visible) > .breakpoint-label { display: inline-flex; }
+.breakpoint > svg, .breakpoint-label { display: inline-flex; }
 .breakpoint:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .breakpoint[data-pending='true'] { opacity: 1; transition: none; }
 .breakpoint[data-pending='true'] > svg { animation: breakpoint-spin .8s linear infinite; }
-@media (pointer: coarse) { .breakpoint { width: auto; height: 24px; padding: 0 9px 0 7px; border-radius: 12px; } .breakpoint > svg, .breakpoint-label { display: inline-flex; } }
 .breakpoint:disabled:not([data-pending='true']) { opacity: .5; }
 @keyframes breakpoint-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .breakpoint[data-pending='true'] > svg { animation: none; } }

@@ -512,7 +512,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
       const before = getComputedStyle(svg).transform
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       const animation = svg.getAnimations()[0]
-      return { disabled: node.disabled, opacity: style.opacity, background: style.backgroundColor, color: style.color, expanded: node.dataset.expanded, icon: [...svg.querySelectorAll('path')].map(path => path.getAttribute('d')),
+      return { disabled: node.disabled, opacity: style.opacity, background: style.backgroundColor, color: style.color, labelVisible: getComputedStyle(node.querySelector('.breakpoint-label')).display !== 'none', icon: [...svg.querySelectorAll('path')].map(path => path.getAttribute('d')),
         animation: animation?.animationName, iterations: animation?.effect.getTiming().iterations === Infinity,
         from: before, to: getComputedStyle(svg).transform }
     })
@@ -526,7 +526,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
   assert.equal(loading.opacity, '1', 'The active action keeps its colour instead of inheriting disabled opacity')
   assert.equal(loading.background, idle.background)
   assert.equal(loading.color, idle.color)
-  assert.equal(loading.expanded, 'true')
+  assert.equal(loading.labelVisible, true)
   assert.notDeepEqual(loading.icon, idle.icon)
   assert.equal(loading.animation, 'breakpoint-spin')
   assert.equal(loading.iterations, true)
@@ -534,7 +534,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
   assert.equal(await otherGap.isDisabled(), true, 'Other actions cannot start during generation')
   await gap.evaluate(node => node.click())
   await page.mouse.move(10, 10)
-  assert.equal(await gap.getAttribute('data-expanded'), 'true', 'Pending feedback survives a hover exit')
+  assert.equal(await gap.locator('.breakpoint-label').isVisible(), true, 'Pending feedback survives a hover exit')
   await page.screenshot({ path: `${out}/${mode}-breakpoint-loading.png` })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   assert.equal(await gap.locator('svg').evaluate(node => getComputedStyle(node).animationName), 'none')

@@ -154,16 +154,16 @@ try {
   await shot('3-breakpoints')
   const place = await page.evaluate(id => {
     const row = document.getElementById(`item-${id}`).getBoundingClientRect(), node = document.querySelector(`.breakpoint[aria-label*="发布小米"]`).getBoundingClientRect()
-    return { gap: Math.round(row.right - node.right), mid: Math.abs(node.top + node.height / 2 - (row.top + Math.min(row.height, 32) / 2)) < 2 }
+    return { gap: Math.round(row.right - node.right), mid: Math.abs(node.top + node.height / 2 - (row.top + row.height / 2)) < 2 }
   }, ids.video)
-  assert.deepEqual(place, { gap: 6, mid: true }, 'The entry sits 6px inside the row edge on the first title line, clear of the column rule')
+  assert.deepEqual(place, { gap: 6, mid: true }, 'The pill sits 6px inside the row edge, centered on the complete task')
   await page.reload()
   await board.waitFor()
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
   await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
   await board.locator('.breakpoint').first().waitFor()
   assert.equal(await board.locator('.breakpoint-guide').count(), 0, '引导状态存本机，重载后不再出现')
-  check('filtered flow shows one ＋ per gap at the outgoing row endpoint; the guide shows once and stays dismissed after reload')
+  check('filtered flow shows one labelled pill per gap centered on the complete row; the guide shows once and stays dismissed after reload')
 
   // No model connected: a click opens the prefilled composer (parent + target period), ↵ creates the child.
   await board.getByRole('button', { name: '给「发布小米 Fold 18 评测视频」拆下一步' }).click()

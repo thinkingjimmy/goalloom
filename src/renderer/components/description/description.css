@@ -1,13 +1,13 @@
 /**
  * [INPUT]: Renderer tokens, Lexical content classes and detail/peek containers.
- * [OUTPUT]: Shared first-line metrics for placeholder and input, a detail focus fill with inset text, Markdown reading/editing and selection tools.
+ * [OUTPUT]: Shared first-line metrics, a bounded detail focus fill with editing-only text insets, flush reading text, Markdown and selection tools.
  * [POS]: Description presentation shared by editable details and read-only board peeks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-.description-editor { position: relative; margin-top: 4px; line-height: 1.65; }
-.description-editor .description-content { min-height: 132px; width: 100%; margin: 0; padding: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: inherit; cursor: text; }
-/* The focused fill is the field edge. Text stays on the body edge with the property chips; the fill reaches into the dialog gutter so the caret and placeholder clear that edge and the 8px corner. */
-.detail-body .description-editor .description-content { width: calc(100% + 24px); margin-inline: -12px; padding-inline: 12px; }
+.description-editor { --description-inset: 0px; position: relative; margin-top: 4px; line-height: 1.65; }
+.description-editor .description-content { min-height: 132px; width: 100%; margin: 0; padding: 8px var(--description-inset); white-space: pre-wrap; overflow-wrap: anywhere; line-height: inherit; cursor: text; }
+/* Keep the fill inside the content column and reserve its text inset only while editing. */
+.detail-body .description-editor:has(> .description-content:focus-visible) { --description-inset: 12px; }
 .description-content:focus-visible { background: transparent; outline: 1px solid var(--line); outline-offset: 6px; }
 .description-content > * { margin-block: 0 8px; }
 .description-content > :last-child { margin-bottom: 0; }
@@ -32,7 +32,7 @@
 .description-italic, .format-italic { font-style: italic; }
 .description-strike, .format-strikethrough { text-decoration: line-through; }
 .description-code { font-family: ui-monospace, monospace; background: var(--hover); border-radius: 3px; padding-inline: 3px; }
-.description-placeholder { position: absolute; top: 8px; left: 0; color: var(--faint); pointer-events: none; }
+.description-placeholder { position: absolute; top: 8px; inset-inline: var(--description-inset); color: var(--faint); pointer-events: none; }
 .description-link { display: inline; }
 .description-link .link-inline { font-size: inherit; line-height: inherit; background: transparent; padding: 0; }
 .description-tools { position: fixed; z-index: 4; display: flex; gap: 2px; padding: 4px; width: max-content; overflow: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); box-shadow: 0 4px 18px #00000014; }

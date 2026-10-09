@@ -1,6 +1,6 @@
 /**
  * [INPUT]: The real insight Electron page, its seeded two-flow board and an empty today column.
- * [OUTPUT]: Child-only breakpoint controls across ancestor/sibling switching, direct-child preservation, retired-write rejection, hover/focus/undo assertions, endpoint bounds and screenshots.
+ * [OUTPUT]: Labelled, full-row-centered child-only actions across title growth, ancestor/sibling switching, direct-child preservation, retired-write rejection, hover/focus/undo assertions and screenshots.
  * [POS]: Insight acceptance fixture; uses native controls and authoritative IPC, restoring its temporary children and extra parent.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -46,11 +46,39 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
   await preview()
   assert.equal(await board.locator(`[data-spot-key="gap:${ids.month}"]`).count(), 0, 'Connected parents do not offer a gap')
   assert.equal(await board.locator(`[data-spot-key="gap:${ids.otherMonth}"]`).count(), 0, 'Unrelated flows do not get preview controls')
-  const geometry = await plus.evaluate(node => {
+  const measure = () => plus.evaluate(node => {
     const row = document.getElementById(`item-${node.dataset.spotKey.slice(4)}`).getBoundingClientRect(), button = node.getBoundingClientRect()
-    return { xError: Math.abs(button.right - (row.right - 6)), yError: Math.abs(button.top + button.height / 2 - row.top - 16) }
+    return { xError: Math.abs(button.right - (row.right - 6)), yError: Math.abs(button.top + button.height / 2 - row.top - row.height / 2),
+      rowHeight: row.height, height: button.height, width: button.width, label: node.querySelector('.breakpoint-label').textContent,
+      labelVisible: getComputedStyle(node.querySelector('.breakpoint-label')).display !== 'none', iconVisible: getComputedStyle(node.querySelector('svg')).display !== 'none' }
   })
+  const geometry = await measure()
   assert(geometry.xError < 0.5 && geometry.yError < 0.5)
+  assert(geometry.height === 24 && geometry.width > 16 && geometry.labelVisible && geometry.iconVisible, 'Hovering only the flow dot shows the labelled pill immediately')
+  const editTitle = title => page.evaluate(async ({ id, title }) => {
+    const snapshot = await window.goalloom.getSnapshot(), item = (await window.goalloom.getItem(id)).item
+    const reply = await window.goalloom.execute({ type: 'edit', itemId: id, expectedVersion: item.version,
+      title, description: item.description, dueDate: item.dueDate, generation: snapshot.workspace.generation, operationId: crypto.randomUUID() })
+    if (!reply.ok) throw Error(reply.message)
+  }, { id: ids.week, title })
+  const longTitle = 'Prepare the tutorial, compare reference examples and verify every step so readers can follow the complete guide. '.repeat(2).trim()
+  await editTitle(longTitle)
+  await page.waitForFunction(({ id, title }) => {
+    const row = document.getElementById(`item-${id}`), button = document.querySelector(`.breakpoint[data-spot-key="gap:${id}"]`)
+    if (!row || !button || row.querySelector('.task-title').textContent !== title) return false
+    const r = row.getBoundingClientRect(), b = button.getBoundingClientRect()
+    return r.height > 32 && Math.abs(b.top + b.height / 2 - r.top - r.height / 2) < 0.5
+  }, { id: ids.week, title: longTitle })
+  const multiline = await measure()
+  assert(multiline.xError < 0.5 && multiline.yError < 0.5 && multiline.labelVisible)
+  await page.screenshot({ path: join(out, 'next-step-multiline-centered.png') })
+  await editTitle(ids.weekTitle)
+  await page.waitForFunction(({ id, height }) => {
+    const row = document.getElementById(`item-${id}`), button = document.querySelector(`.breakpoint[data-spot-key="gap:${id}"]`)
+    if (!row || !button) return false
+    const r = row.getBoundingClientRect(), b = button.getBoundingClientRect()
+    return r.height === height && Math.abs(b.top + b.height / 2 - r.top - r.height / 2) < 0.5
+  }, { id: ids.week, height: geometry.rowHeight })
   await row.locator('.task-title').hover()
   // Deliberately exceed the 120ms exit grace while crossing the row, then while resting on the action.
   await page.waitForTimeout(180)
@@ -154,7 +182,7 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
   await leave()
   const childOnlyPreview = await verifyChildOnlyPreview(page, out, ids)
   await showLater(true)
-  return { geometry, screenshot, monthlyPreview, rootPreview, mixedPreview, created, childOnlyPreview, checks: ['highlighted chain only', 'same-flow sibling switching', 'monthly preview exposes weekly leaf', 'all highlighted leaves have actions', 'mixed-horizon leaves', 'faded branches excluded', 'empty target', 'row and action hover retention', 'clean preview exit', 'multi-flow deduplication', 'non-current target guard', 'keyboard activation', 'descendant action creates under its own parent', 'linked current-day creation', 'terminal horizon', 'undo restores gap', ...childOnlyPreview.checks] }
+  return { geometry, multiline, screenshot, monthlyPreview, rootPreview, mixedPreview, created, childOnlyPreview, checks: ['labelled pill on initial dot hover', 'full-row centering follows title growth and shrink', 'highlighted chain only', 'same-flow sibling switching', 'monthly preview exposes weekly leaf', 'all highlighted leaves have actions', 'mixed-horizon leaves', 'faded branches excluded', 'empty target', 'row and action hover retention', 'clean preview exit', 'multi-flow deduplication', 'non-current target guard', 'keyboard activation', 'descendant action creates under its own parent', 'linked current-day creation', 'terminal horizon', 'undo restores gap', ...childOnlyPreview.checks] }
 }
 
 async function verifyChildOnlyPreview(page, out, ids) {

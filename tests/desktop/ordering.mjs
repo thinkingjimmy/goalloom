@@ -56,7 +56,7 @@ try {
           const lines = [...document.querySelectorAll('.relation-edge')].filter(path => getComputedStyle(path).visibility !== 'hidden').map(path => ({ id: path.dataset.edgeId, start: path.getPointAtLength(0), end: path.getPointAtLength(path.getTotalLength()) }))
           const spots = [...document.querySelectorAll('.breakpoint')].filter(node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden').map(node => {
             const row = document.getElementById(`item-${node.dataset.spotKey.slice(node.dataset.spotKey.indexOf(':') + 1)}`)?.getBoundingClientRect(), point = node.getBoundingClientRect()
-            return { key: node.dataset.spotKey, error: row ? Math.max(Math.abs(point.right - (row.right - 6)), Math.abs(point.top + point.height / 2 - row.top - 16)) : null }
+            return { key: node.dataset.spotKey, error: row ? Math.max(Math.abs(point.right - (row.right - 6)), Math.abs(point.top + point.height / 2 - row.top - row.height / 2)) : null }
           })
           window.motionFrames.push({ at: performance.now(), rows, spots, lines: lines.map(line => ({ id: line.id, startY: line.start.y + origin.top, endY: line.end.y + origin.top })) })
         }

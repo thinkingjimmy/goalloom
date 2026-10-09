@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Real Electron, a fresh profile, a seeded production preview cache and authoritative IPC fixtures.
- * [OUTPUT]: Repeatable link rendering, overlay width stability, cache remount, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
+ * [OUTPUT]: Repeatable link rendering, full-row-centered overlay pills and width stability, cache remount, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
  * [POS]: Focused desktop acceptance with native sizing only; transport and external-browser boundaries are disabled in the test process.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -228,25 +228,27 @@ try {
   await shot('overlay-preview')
   await page.getByRole('button', { name: `只看 ${titles.mixed}`, exact: true }).click()
   await page.getByRole('button', { name: '全部', exact: true }).hover()
-  await pollPage(page, id => document.querySelector(`.breakpoint[data-spot-key="gap:${id}"]`)?.dataset.expanded === 'false', ids.mixed)
-  const ring = await gap.evaluate(element => {
-    const bounds = element.getBoundingClientRect(), title = document.getElementById(`item-${element.dataset.spotKey.slice(4)}`).querySelector('.link-title').getBoundingClientRect()
-    return { position: getComputedStyle(element).position, width: bounds.width, right: bounds.right, titleRight: title.right }
+  await gap.waitFor()
+  const pill = await gap.evaluate(element => {
+    const row = document.getElementById(`item-${element.dataset.spotKey.slice(4)}`), bounds = element.getBoundingClientRect(), title = row.querySelector('.link-title').getBoundingClientRect(), task = row.getBoundingClientRect()
+    return { position: getComputedStyle(element).position, width: bounds.width, height: bounds.height, right: bounds.right, titleRight: title.right,
+      yError: Math.abs(bounds.top + bounds.height / 2 - task.top - task.height / 2), labelVisible: getComputedStyle(element.querySelector('.breakpoint-label')).display !== 'none' }
   })
-  assert.equal(ring.position, 'absolute')
-  assert.equal(ring.width, 16)
-  assert(Math.abs(ring.right - ring.titleRight) < 0.5, 'The ring overlays the title edge instead of occupying its own column')
-  assert.deepEqual(await contentGeometry(), idleContent, 'Filtered rings retain full content width')
-  await shot('overlay-ring')
+  assert.equal(pill.position, 'absolute')
+  assert(pill.width > 16 && pill.height === 24 && pill.labelVisible, 'Filtered gaps show the labelled pill without a hollow ring')
+  assert(pill.yError < 0.5, 'Next step is centered on the full task including its URL card')
+  assert(Math.abs(pill.right - pill.titleRight) < 0.5, 'The pill overlays the title edge instead of occupying its own column')
+  assert.deepEqual(await contentGeometry(), idleContent, 'Filtered pills retain full content width')
+  await shot('overlay-filtered')
   await gap.focus()
-  assert.deepEqual(await contentGeometry(), idleContent, 'Keyboard-expanded pills retain full content width')
+  assert.deepEqual(await contentGeometry(), idleContent, 'Keyboard-focused pills retain full content width')
   await shot('overlay-keyboard')
   await gap.blur()
   await page.getByRole('button', { name: `只看 ${titles.mixed}`, exact: true }).click()
   await page.getByRole('button', { name: '全部', exact: true }).hover()
   await gap.waitFor({ state: 'detached' })
-  report.overlay = { idle: idleContent, preview: previewContent, ring }
-  checks.push('Titles and URL cards use full row width; dot previews, filtered rings and keyboard-expanded next-step pills overlay content without changing wrapping or height')
+  report.overlay = { idle: idleContent, preview: previewContent, pill }
+  checks.push('Titles and URL cards use full row width; labelled next-step pills stay centered on the complete task during dot preview, filtering and keyboard focus without changing wrapping or height')
 
   const carousel = row(ids.multiple), track = carousel.locator('.link-carousel-track'), counter = carousel.locator('.link-carousel-count')
   const next = carousel.locator('.link-carousel-next'), previous = carousel.locator('.link-carousel-previous')

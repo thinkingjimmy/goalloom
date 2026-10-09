@@ -39,7 +39,7 @@
 
 - 时间列等分宽度、至少 320px；[Later 固定侧栏](later-sidebar.md)与时间列同宽。时间列复选框离列左竖线 23px（流程圆点占满其前方留白）。Later 没有圆点，行首留 12px，列标题与复选框对齐。行底色离左右两侧竖线各 3px。滚动条贴近列的右侧分隔线，仅鼠标悬停该列（含列头）时显示，移出即隐藏，保留的任务焦点不使其常显；内容宽度、换行及行对齐保持不变。
 - 看板任务标题完整换行显示，不限制行数、不以省略号截断，普通文本与链接标题一致；行高随内容增长。仅首行避让复选框，续行回到复选框左缘并与预览卡片对齐；复选框保持独立点击。圆点、复选框、日期/图标与连线接点都对齐第一行。
-- Trailing relation ports and next-step rings/pills overlay the row content. Titles and URL cards retain only the standard 6px right inset; showing or hiding these controls never reserves extra width or changes wrapping, even when they cover text.
+- Trailing relation ports and labelled next-step pills overlay the row content. Titles and URL cards retain only the standard 6px right inset; showing or hiding these controls never reserves extra width or changes wrapping, even when they cover text.
 - 任务标题悬停不重复弹出标题文字，普通任务、含链接任务及往期列表一致。单击或键盘打开详情；双击当前、未来、Later 和已完成卡片就地编辑标题，输入框按标题的宽度、字号、行高和首行缩进换行并显示全文。Enter 只保存标题，Esc 或空白恢复原文且不删除任务。往期列表仍单击打开详情。
 - 单行行高 32px（相邻待办的纵向间距比原来缩小 20%），标题字号 14px、多行文字行距 22px；普通、已完成和往期任务共用紧凑间距。行间不画分隔线；行底色上下各留 2px，相邻两行的悬停/定位/流程底色之间的 4px 空隙就是唯一的分隔。
 

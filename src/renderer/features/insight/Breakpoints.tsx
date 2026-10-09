@@ -1,13 +1,13 @@
 /**
  * [INPUT]: Snapshot, board view, active flows, the optional highlighted preview chain, visible columns, insight readiness, guarded submission and a composer-seed opener.
  * [OUTPUT]: The breakpoint layer inside `.board`: an entry right-aligned inside each childless parent's row (flow colour), never crossing
- *           the column rule where connector buses run — a thin ring at rest that becomes a labelled pill while its row is hovered, focused or pending;
- *           hover does not remeasure anchors. Click shows a loading glyph while drafting and creating a child, ⇧-click or no model opens the prefilled composer;
+ *           the column rule where connector buses run — a labelled pill centered on the complete row, tracking row size and motion;
+ *           click shows a loading glyph while drafting and creating a child, ⇧-click or no model opens the prefilled composer;
  *           preview limits controls to its highlighted chain; a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
  * [POS]: Board insight overlay with a guide bounded to the planning viewport; pending actions survive hover exits and finite motion tracking.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { insightMessages as t } from '../../i18n'
@@ -22,7 +22,7 @@ import { breakpoints, type ChildHorizon } from './signals'
 import { decompose, type Seed } from './decompose'
 import './insight.css'
 import { boardIsMoving, boardMotionEvent } from '../board/RowMotion'
-import { firstLine, panelViewport } from '../board/geometry'
+import { panelViewport } from '../board/geometry'
 
 interface Spot { key: string; parent: ItemSummary; target: ChildHorizon; color: string }
 interface Place { x: number; y: number }
@@ -57,9 +57,9 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
       const row = document.getElementById(`item-${spot.parent.id}`), content = row?.closest('.column-content')
       if (!row || !content || !board.contains(row)) continue
       const offset = inset
-      const r = row.getBoundingClientRect(), c = content.getBoundingClientRect(), viewport = panelViewport(row), mid = r.top + Math.min(r.height, firstLine) / 2
+      const r = row.getBoundingClientRect(), c = content.getBoundingClientRect(), viewport = panelViewport(row), mid = r.top + r.height / 2
       if (!viewport || r.right - offset - 24 < viewport.left || r.right - offset > viewport.right || mid < c.top || mid > c.bottom) continue
-      // Anchored inside the row's right edge (level with the first line), so it never covers the connector bus on the column rule.
+      // Center the action on the full row; relation endpoints keep their independent first-line anchors.
       next.set(spot.key, { x: r.right - offset + dx, y: mid + dy })
     }
     for (const node of root.current?.querySelectorAll<HTMLElement>('[data-spot-key]') ?? []) {
@@ -91,7 +91,16 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
     const overlay = root.current, board = overlay?.parentElement
     if (!overlay || !board || !active) return
     let frame = 0
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measureRef.current(boardIsMoving(board)) }) }
+    const rows = new Set<HTMLElement>()
+    const observeRows = () => {
+      const mounted = new Set(latest.current.flatMap(spot => {
+        const row = document.getElementById(`item-${spot.parent.id}`)
+        return row && board.contains(row) ? [row] : []
+      }))
+      for (const row of rows) if (!mounted.has(row)) { resize.unobserve(row); rows.delete(row) }
+      for (const row of mounted) if (!rows.has(row)) { resize.observe(row); rows.add(row) }
+    }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; observeRows(); measureRef.current(boardIsMoving(board)) }) }
     const mutations = new MutationObserver(records => { if (records.some(record => !overlay.contains(record.target))) schedule() })
     mutations.observe(board, { childList: true, subtree: true })
     const resize = new ResizeObserver(schedule)
@@ -100,10 +109,10 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
     board.addEventListener('transitionend', schedule)
     const motion = () => measureRef.current(boardIsMoving(board))
     board.addEventListener(boardMotionEvent, motion)
-    measureRef.current()
+    observeRows(); measureRef.current()
     return () => { cancelAnimationFrame(frame); mutations.disconnect(); resize.disconnect(); board.removeEventListener('scroll', schedule, { capture: true }); board.removeEventListener('transitionend', schedule); board.removeEventListener(boardMotionEvent, motion) }
-  }, [active])
-  // A commit during FLIP can paint the last settled anchors; re-read while motion is unfinished. Hover only expands the pill.
+  }, [active, geometryKey])
+  // A commit during FLIP can paint the last settled anchors; re-read while motion is unfinished.
   useLayoutEffect(() => {
     const board = root.current?.parentElement
     const moving = !!board && boardIsMoving(board)
@@ -115,20 +124,6 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
     measureRef.current(moving)
   })
 
-  // Rows live outside this layer, so the hovered row is tracked here to expand its entry into a labelled pill.
-  const [hovered, setHovered] = useState<string | null>(null)
-  useEffect(() => {
-    const board = root.current?.parentElement
-    if (!board || !active) return
-    const over = (event: PointerEvent) => {
-      const target = event.target instanceof Element ? event.target : null
-      if (!target || target.closest('.breakpoints')) return
-      setHovered(target.closest('.task-row')?.getAttribute('data-item-id') ?? null)
-    }
-    const leave = () => setHovered(null)
-    board.addEventListener('pointerover', over); board.addEventListener('pointerleave', leave)
-    return () => { board.removeEventListener('pointerover', over); board.removeEventListener('pointerleave', leave) }
-  }, [active])
   const open = async (spot: Spot, event: MouseEvent) => {
     if (pending) return
     if (!settings.onboarded) updateInsight(value => ({ ...value, onboarded: true }))
@@ -150,7 +145,6 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
         onClick={() => view.choose(away.horizon, away.period)}>{t.destination(planningLabel(away.period, snapshot.workspace.calendar!, snapshot.observedAt), away.title)}<Icon name="next" size={12} /></button>
       const label = t.nodeLabel(spot.parent.title)
       return <button key={spot.key} data-spot-key={spot.key} type="button" className="breakpoint" data-pending={pending === spot.key} data-guided={guide?.key === spot.key}
-        data-expanded={hovered === spot.parent.id || pending === spot.key || guide?.key === spot.key}
         style={{ left: place.x, top: place.y, '--node': spot.color } as CSSProperties} aria-label={label} title={`${label}\n${t.nodeTip}`}
         aria-busy={pending === spot.key} disabled={!!pending} onClick={event => void open(spot, event)}>
         <Icon name={pending === spot.key ? 'loading' : 'add'} size={12} strokeWidth={2.4} /><span className="breakpoint-label" aria-hidden="true">{t.nodeShort}</span>

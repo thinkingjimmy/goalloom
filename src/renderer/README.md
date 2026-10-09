@@ -44,7 +44,7 @@ renderer/
 │   │   └── composer.css     # composer 与连接表单样式（仅 token）
 │   ├── insight/             # 流程洞察（docs/features/flow-insight.md）
 │   │   ├── signals.ts       # Six-scale childless-parent gaps/digests and highlighted-chain scope; displayed-period empty sources exclude active children and constrain future half/cycle to the displayed parent
-│   │   ├── Breakpoints.tsx  # Highlighted-chain childless-parent endpoints and child creation, busy loading glyph/destination state and a guide bounded to the timeline viewport
+│   │   ├── Breakpoints.tsx  # Highlighted-chain childless-parent pills centered on complete rows, row-size/motion tracking, child creation and loading/destination state and a guide bounded to the timeline viewport
 │   │   ├── decompose.ts     # 「拆下一步」唯一写入路径：模型起草后 create 下级，⇧ 或无模型时打开预填新建（断点与右键共用）
 │   │   ├── EmptyCard.tsx    # Horizon-specific outcome/milestone/plan/task draft actions or free writing; counts only in the body, same-row equal-height buttons with wrapping labels
 │   │   ├── review.ts        # 复盘纯规则：入口（最后一天 / 次日一次，周月同日合并）、目标×周期、只读跳级事实、信号、排下一期候选
@@ -52,7 +52,7 @@ renderer/
 │   │   ├── ReviewOverview.tsx # Summary-first counts, original checked/flow-coloured month task markers, read-only saved links and goal matrix
 │   │   ├── ReviewSummary.tsx # Persistent localized icon heading, optional cached AI content, header refresh and retained results on failure
 │   │   ├── review.css       # Shared review/planning guide frames/actions, compact closing rows, compact drafts with joined marker-centred connectors, row separators/intrinsic inclusion dropdowns, borderless draft focus, compact Select and ghost footer actions
-│   │   └── insight.css      # Breakpoints with full-colour loading rotation/reduced motion, hints and empty cards with same-row equal-height actions, wrapping labels and touch targets
+│   │   └── insight.css      # Labelled breakpoint pills with full-colour loading rotation/reduced motion, hints and empty cards with same-row equal-height actions, wrapping labels and touch targets
 │   ├── smart/
 │   │   ├── ProviderConnect.tsx # 单个服务的 Key（标签旁官方控制台入口）、点名该服务的同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底部按钮行）
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
