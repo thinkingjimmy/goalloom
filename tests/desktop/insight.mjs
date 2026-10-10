@@ -13,7 +13,7 @@ import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
 import { verifyPreviewBreakpoints } from './fixtures/preview-breakpoints.mjs'
 
-// 流程洞察（无模型路径）：空列卡 → 批量起草 / 自己写；单流程筛选的断点 ＋ 与首次引导（只一次，重载后不再出现）；
+// 流程洞察（无模型路径）：空列卡 → 批量起草 / 列内自己写；单流程筛选的断点 ＋ 与首次引导（只一次，重载后不再出现）；
 // Breakpoint clicks without a model open the seeded composer; previews offer local next steps, while All stays clear at rest.
 // Artifacts: output/tests/insight/report.json and output/tests/insight/*.png.
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
@@ -118,7 +118,7 @@ try {
   check('dot previews expose every highlighted chain gap, exclude faded branches and deduplicate multi-flow leaves; ancestor previews, empty targets, keyboard use, creation and undo preserve the correct parent and period')
   }
 
-  // 今天 is now empty under a non-empty 本周: its card offers the free composer with the period prefilled.
+  // 今天 is now empty under a non-empty 本周: 「自己写」 opens the same inline entry as ＋.
   await dayColumn.scrollIntoViewIfNeeded()
   await dayColumn.getByText('今天还是空的').waitFor()
   await verifyEmptyActions(dayColumn, '起草今天待办')
@@ -129,14 +129,17 @@ try {
   })
   await writeFile(`${out}/empty-card-target.json`, JSON.stringify(emptyCardTarget, null, 2))
   await manualEntry.click()
-  await dialog.waitFor()
-  await dialog.getByRole('textbox').fill('随手记一件事')
-  await dialog.getByRole('textbox').press('Enter')
-  await dialog.waitFor({ state: 'hidden' })
+  const own = dayColumn.locator('.quick-add-title')
+  await own.waitFor()
+  assert.equal(await page.getByRole('dialog', { name: '新建' }).count(), 0, '「自己写」 stays on the board')
+  await shot('2b-write-own')
+  await own.fill('随手记一件事')
+  await own.press('Enter')
+  await dayColumn.getByRole('button', { name: '随手记一件事', exact: true }).waitFor()
   state = await snapshot()
   assert.equal(state.items.find(row => row.title === '随手记一件事')?.placement.horizon, 'day')
   assert.equal(state.items.find(row => row.title === '随手记一件事')?.placement.periodId, state.periods.find(period => period.horizon === 'day').id)
-  check('「自己写」opens the composer with only the period prefilled and creates in 今天')
+  check('「自己写」 opens inline creation in 今天, the same entry as ＋')
 
   if (emptyOnly) {
     assert.deepEqual(errors, [])

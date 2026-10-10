@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import type { Snapshot } from '../../../../shared/contracts/queries'
 import type { BackupStatus, DataAction, TransferPreview } from '../../../../shared/contracts/transfer'
 import { workspaceDate } from '../../../../domain/calendar'
-import { insightMessages, messages, settingsMessages as s, shortcutMessages, smartMessages } from '../../../i18n'
+import { insightMessages, messages, settingsMessages as s, shortcutMessages, smartMessages, useLocale } from '../../../i18n'
 import { desktopApi, type Action } from '../../../state/use-workspace'
 import type { Ai } from '../../../state/ai'
 import { Modal } from '../../../components/Modal'
@@ -61,6 +61,7 @@ const endingLabels = (): Record<Ending, string> => ({ done: messages.doneShort, 
 type Counts = Record<Ending | 'trash', number>
 
 export function Settings({ snapshot, ai, initial = 'appearance', request = 0, submit, refresh, busy, select, close }: { snapshot: Snapshot; ai: Ai; initial?: Section; request?: number; submit: (action: Action) => Promise<unknown>; refresh: () => Promise<Snapshot>; busy: boolean; select: (id: string) => void; close: () => void }) {
+  useLocale()
   const [section, setSection] = useState<Section>(initial), [ending, setEnding] = useState<Ending>('done')
   // Set only by the calendar pane's change row so Backup opens on its reset entry; any other navigation clears it.
   const [revealReset, setRevealReset] = useState(false)

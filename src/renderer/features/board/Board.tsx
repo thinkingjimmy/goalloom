@@ -6,6 +6,7 @@
  *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
  *           Double-clicking a card edits its title in place; the write keeps the description and due date.
  *           Flow insight: retained chain breakpoints, empty-column cards and shared review/post-review guides with explicit targets; completed periods suppress entries without a status note.
+ *           "Write my own" opens this column's inline entry, the same one as ＋.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -304,8 +305,9 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
       {completedReview && items.length === 0 && !adding && <div className="review-guide review-plan-invitation">
         <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(current!)}</span>
         <h3>{insightMessages.reviewArrange(reviewName(current!))}</h3>
-        <button className="settings-button primary review-guide-action" disabled={disabled} onClick={() => insight.seed({ horizon: recentReview!.horizon, period: current!, next: false, parent: null, note: null,
-          mode: sources?.length ? 'batch' : 'free', parents: sources ?? [], draft: !!sources?.length && insight.ready })}><span>{sources?.length ? insightMessages.emptyDraft[recentReview!.horizon] : insightMessages.emptyOwn}</span><Icon name="next" size={14} /></button>
+        <button className="settings-button primary review-guide-action" disabled={disabled} onClick={() => sources?.length
+          ? insight.seed({ horizon: recentReview!.horizon, period: current!, next: false, parent: null, note: null, mode: 'batch', parents: sources, draft: insight.ready })
+          : openAdd()}><span>{sources?.length ? insightMessages.emptyDraft[recentReview!.horizon] : insightMessages.emptyOwn}</span><Icon name="next" size={14} /></button>
       </div>}
       <div className="period-body" ref={body}>
       {history ? <PastPeriod key={history.id} history={page} select={select} submit={submit} busy={busy} /> : <>
@@ -324,7 +326,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
             }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} />}
           {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} render={row} />}</details>}
         </SortableContext>
-        {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} />}
+        {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} onWrite={openAdd} />}
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}
       </>}
       </div>

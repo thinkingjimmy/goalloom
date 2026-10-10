@@ -24,12 +24,12 @@
 
 - 半年、3个月、本月、本周、今天在显示周期整列为空，且上一列有未完成、未归档并没有任何显示周期下级的条目时，列内显示一张卡：「本周还是空的」、对应尺度的起草按钮及「自己写」。数量只在说明中显示，按钮和起草窗口标题不重复计数，单项与多项使用相同文案。五种语言同步。不出逐项 ＋。
 - 2026-10-05 负责人确认起草动作按尺度区分：半年「起草阶段成果」、3个月「起草季度里程碑」、本月「起草本月计划」、本周「起草本周待办」、今天「起草今天待办」；批量起草窗口与复盘后安排卡复用同一文案。2026-10-06 负责人要求空列卡的两个按钮始终同排；桌面最小高度为 32px、同字号与行高，长翻译在按钮内自然换行并等高增长。触控目标至少 44px，保留键盘焦点反馈。
-- 起草打开新建窗口的多条草稿（最多 8 条），每条带上级，可取消勾选，↵ 一次写入；「自己写」打开只预填周期的新建窗口。有待复盘周期时，本月／本周列由统一复盘引导卡替代空列卡。
+- 起草打开新建窗口的多条草稿（最多 8 条），每条带上级，可取消勾选，↵ 一次写入；「自己写」与列头 ＋ 相同，直接在该列打开行内新建并写入当前显示周期，不打开新建窗口。有待复盘周期时，本月／本周列由统一复盘引导卡替代空列卡。
 
 ### 复盘
 
 - 2026-10-01 确认的月复盘设计：本月列把复盘、往期未完成和空列提示合并成一张引导卡，唯一主按钮开始／继续复盘；不显示「回顾进展 · 处理未完成 · 安排本月」及「为重要的方向，留出一点空间」。抽屉按明确的实际周期回顾 → 处理未完成 → 安排目标周期；关闭后本次会话保留步骤、选择和已编辑草稿。
-- 2026-10-05 负责人确认本周复用同一规则：独立周复盘也使用统一引导卡，未完成数量收进卡片，不再并列显示往期入口或空状态。日期行显示实际周范围，标题／按钮使用本周、上周、下周；关闭后可继续，完成／已记录跳过后恢复往期入口，空列改为安排本周；安排卡复用复盘引导的底色、边框、日期行、标题和紧凑深色主按钮，日期使用当前目标周期，保留原有起草／手写行为。周月合并仍只在本月提供一个复盘入口。
+- 2026-10-05 负责人确认本周复用同一规则：独立周复盘也使用统一引导卡，未完成数量收进卡片，不再并列显示往期入口或空状态。日期行显示实际周范围，标题／按钮使用本周、上周、下周；关闭后可继续，完成／已记录跳过后恢复往期入口，空列改为安排本周；安排卡复用复盘引导的底色、边框、日期行、标题和紧凑深色主按钮，日期使用当前目标周期；有可拆来源时打开批量起草，没有来源时的「自己写」与列头 ＋ 一样打开行内新建。周月合并仍只在本月提供一个复盘入口。
 - 2026-10-05 负责人确认周／月列头不显示「上周已复盘」等完成提示；已完成周期仍隐藏复盘入口，空列保留安排当前周期的引导。
 - 2026-10-01 确认采用「简报」预览：复盘小结去掉大块底色，带图标的标题在前、AI 正文随后、三项统计在末尾同行排列并可换行；没有可用模型时也保留图标标题和统计。看板入口标题与 todo 同为 14px / 22px，内边距 12px，使用内容宽度的紧凑主按钮。2026-10-05 负责人确认底部「稍后／上一步」使用幽灵按钮，hover 显示共用背景色，保留键盘焦点反馈与左侧文案对齐。
 - 步骤之间以细线连接，已完成步骤的连线在浅色／深色外观下仍可见；下方目标行整行提供悬停和键盘聚焦反馈，方框与箭头对齐标题首行，完成数量位于标题下方。
@@ -144,6 +144,8 @@
 - Summary cache failure scenarios: closing while pending starts duplicate requests; reopening, step navigation or process restart discards a successful summary; changed board facts, review preferences or period reuse stale text; unrelated draft preferences or renderer revisions trigger regeneration; refresh failure deletes the last successful result; failed initial requests become cached; corrupt/full storage prevents generation; a late result repopulates cache after workspace replacement; saved entries contain prompts, credentials or grow without a bound; Settings trials accidentally reuse review cache.
 
 ## TODO
+
+- [x] 2026-10-10 「自己写」与列头 ＋ 相同，在当前列打开行内新建并写入显示周期，不再打开新建窗口；有来源的起草与复盘后安排仍走批量窗口。`node tests/desktop/insight.mjs --empty-card` 确认今天列出现行内输入、无新建对话框并写入今天；`pnpm test:calendar` 确认未来半年同样写入显示周期。空列布局首次在日列返回提示悬停超时（指针移出窗口），重跑 `node tests/desktop/empty-card-layout.mjs` 通过。`node tests/desktop/weekly-review.mjs --invitation` 周初／周末确认有来源时仍打开批量起草并创建关联本周任务。typecheck、166 项测试、build 通过。证据：`output/tests/empty-card/native/report.json`、`output/tests/empty-card-layout/native/report.json`、`output/tests/calendar-modes/report.json`、`output/tests/review-invitation/native/report.json`。源码 Electron 44.4.4 / Node 24.21.0 / SQLite 3.53.4，macOS 26.4 arm64 / Apple M3 Max；实机／VM 未独立确认。未跑完整 `pnpm test:insight`（断点、复盘设置与周复盘其余场景未受此次手写入口影响）。
 
 - [x] 2026-10-05 空列起草按钮按半年／3个月／月／周／日区分文案，与起草窗口及复盘后安排入口一致；两个按钮桌面高度统一为 32px，五语言同步。定向原生场景实测周／日按钮高度、字号、点击命中与批量／手写创建，周初／周末安排卡验证文案及起草窗口一致；运行范围与证据：`output/tests/empty-card/report.json`。
 

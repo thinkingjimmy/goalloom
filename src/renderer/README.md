@@ -46,7 +46,7 @@ renderer/
 │   │   ├── signals.ts       # Six-scale childless-parent gaps/digests and highlighted-chain scope; displayed-period empty sources exclude active children and constrain future half/cycle to the displayed parent
 │   │   ├── Breakpoints.tsx  # Highlighted-chain childless-parent pills centered on complete rows, row-size/motion tracking, child creation and loading/destination state and a guide bounded to the timeline viewport
 │   │   ├── decompose.ts     # 「拆下一步」唯一写入路径：模型起草后 create 下级，⇧ 或无模型时打开预填新建（断点与右键共用）
-│   │   ├── EmptyCard.tsx    # Horizon-specific outcome/milestone/plan/task draft actions or free writing; counts only in the body, same-row equal-height buttons with wrapping labels
+│   │   ├── EmptyCard.tsx    # Horizon-specific outcome/milestone/plan/task draft actions, or the column's inline create; counts only in the body, same-row equal-height buttons with wrapping labels
 │   │   ├── review.ts        # 复盘纯规则：入口（最后一天 / 次日一次，周月同日合并）、目标×周期、只读跳级事实、信号、排下一期候选
 │   │   ├── ReviewDrawer.tsx # Resumable closing → cached connected suggestions with inherited todo markers, shared right-side dropdowns, guarded confirm/skip/receipt recovery and completion callback
 │   │   ├── ReviewOverview.tsx # Summary-first counts, original checked/flow-coloured month task markers, read-only saved links and goal matrix

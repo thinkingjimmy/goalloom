@@ -128,8 +128,11 @@ try {
   await shoot('short-year-board')
   // The free empty-column action must retain the displayed future half, even without an AI provider.
   await column('half').getByRole('button', { name: '自己写', exact: true }).click()
-  await page.locator('.seeded-composer textarea').fill('Future half phase')
-  await page.locator('.seeded-composer .composer-primary').click()
+  const phaseInput = column('half').locator('.quick-add-title')
+  await phaseInput.waitFor()
+  assert.equal(await page.locator('.seeded-composer').count(), 0, '「自己写」 stays on the board')
+  await phaseInput.fill('Future half phase')
+  await phaseInput.press('Enter')
   await column('half').getByRole('button', { name: 'Future half phase', exact: true }).waitFor()
   const phaseId = await column('half').locator('.task-row').filter({ has: page.getByRole('button', { name: 'Future half phase', exact: true }) }).getAttribute('data-item-id')
   const phase = (await page.evaluate(id => window.goalloom.getItem(id), phaseId)).item
