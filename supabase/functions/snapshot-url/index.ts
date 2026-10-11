@@ -4,11 +4,23 @@
 //
 // Signs a Storage URL only after snapshot_access accepts the device, workspace and path.
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY come from the function runtime. Do not commit them.
-// Upload URLs use the Storage upload-sign endpoint (host-enforced expiry, requested 7200s).
 // Download URLs expire in 60 seconds.
+// Upload URLs are fixed at 2 hours by Storage. The upload-sign endpoint does not take expiresIn.
+// x-upsert is required when the object already exists; a retry otherwise gets 409.
 
 const url = Deno.env.get('SUPABASE_URL')
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+function storageMessage(detail: string) {
+  let text = detail
+  try {
+    const parsed = JSON.parse(detail) as { message?: string; error?: string }
+    text = parsed.message || parsed.error || detail
+  } catch {
+    text = detail
+  }
+  return text.replace(/\s+/g, ' ').slice(0, 180)
+}
 
 Deno.serve(async (request: Request) => {
   if (!url || !serviceKey) return new Response('snapshot signing is not configured', { status: 503 })
@@ -28,16 +40,22 @@ Deno.serve(async (request: Request) => {
   const endpoint = method === 'upload'
     ? `${url}/storage/v1/object/upload/sign/snapshots/${encoded}`
     : `${url}/storage/v1/object/sign/snapshots/${encoded}`
+  const headers: Record<string, string> = {
+    authorization: `Bearer ${serviceKey}`,
+    apikey: serviceKey,
+    'content-type': 'application/json',
+  }
+  if (method === 'upload') headers['x-upsert'] = 'true'
   const signed = await fetch(endpoint, {
     method: 'POST',
-    headers: { authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'content-type': 'application/json' },
-    body: JSON.stringify({ expiresIn }),
+    headers,
+    body: method === 'upload' ? '{}' : JSON.stringify({ expiresIn }),
   })
   if (!signed.ok) {
     const detail = await signed.text()
     const missing = signed.status === 404 || /not found|not_found/i.test(detail)
     if (method === 'download' && missing) return new Response('object not found', { status: 404 })
-    return new Response('storage signing failed', { status: 502 })
+    return new Response(`storage signing failed: ${signed.status} ${storageMessage(detail)}`, { status: 502 })
   }
   const payload = await signed.json() as { signedURL?: string; signedUrl?: string; url?: string }
   const token = payload.signedURL ?? payload.signedUrl ?? payload.url

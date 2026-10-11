@@ -71,7 +71,7 @@ Deploy after the migration. The hosted runtime injects `SUPABASE_URL` and `SUPAB
 supabase functions deploy snapshot-url --project-ref asqyvcnxdltzzfutbbqy
 ```
 
-`snapshot-url` calls `snapshot_access` with the caller's JWT, then asks Storage for a signed download URL (60s) or upload URL (7200s, host-enforced) in the private `snapshots` bucket. A download of a published path with no object returns 404. Redeploy this function after pulling the 404 change.
+`snapshot-url` calls `snapshot_access` with the caller's JWT, then asks Storage for a signed download URL (60s) or upload URL in the private `snapshots` bucket. Upload signatures are fixed at 2 hours and send `x-upsert: true`, so a retry can replace an object that is already there. A download of a published path with no object returns 404. A signing failure includes the Storage status and message. Redeploy this function after pulling it.
 
 ## Realtime, Storage and JWT
 
@@ -91,7 +91,7 @@ It checks:
 
 The "existing connection still receives" check waits up to 8 seconds. Resubscribe must be rejected.
 
-Private channels need the select and insert policies from `0002_cleanup.sql`. A client that omits `broadcast.self` gets `send=ok` and `seen=0`, because Realtime does not echo a broadcast to its sender. `push_ops` also calls `realtime.send`. That database broadcast needs **Broadcast from database** enabled in the hosted dashboard (Project Settings → Realtime). If the toggle is off, the migration swallows the error and `control_events` keeps the hint.
+Private channels need the select and insert policies from `0002_cleanup.sql`. A client that omits `broadcast.self` gets `send=ok` and `seen=0`, because Realtime does not echo a broadcast to its sender. `push_ops` also calls `realtime.send`. **Broadcast from database** is a required manual project setting: Dashboard → Project Settings → Realtime. It is not in the Management API, so a migration cannot turn it on. If the toggle is off, the migration swallows the error and `control_events` keeps the hint.
 
 ## Reset
 
