@@ -85,13 +85,18 @@ It checks:
 
 - `register_device` reads `session_id` from the access token
 - `push_ops` accepts an authorized device and rejects it after `revoke_device`
-- a private Realtime channel `ws:<workspace>` subscribes with `broadcast.self: true`, receives its own broadcast, keeps one broadcast after revoke, and fails the next subscribe
+- a second authorized device on its own session subscribes to the private channel and receives the `realtime.send` head broadcast from the first device's `push_ops`
+- an unauthorized client does not reach `SUBSCRIBED` on that private channel
+- a subscribe with `private: false` does not reach `SUBSCRIBED`
+- the first device's private channel subscribes with `broadcast.self: true`, receives its own broadcast, keeps one broadcast after revoke, and fails the next subscribe
 - `snapshot_access` rejects a foreign path and accepts a published object
 - `snapshot-url` returns 404 when the object is missing, then a signed download URL after the upload, a signed upload URL, and 403 for a foreign path
 
 The "existing connection still receives" check waits up to 8 seconds. Resubscribe must be rejected.
 
-Private channels need the select and insert policies from `0002_cleanup.sql`. A client that omits `broadcast.self` gets `send=ok` and `seen=0`, because Realtime does not echo a broadcast to its sender. `push_ops` also calls `realtime.send`. **Broadcast from database** is a required manual project setting: Dashboard → Project Settings → Realtime. It is not in the Management API, so a migration cannot turn it on. If the toggle is off, the migration swallows the error and `control_events` keeps the hint.
+Private channels need the select and insert policies from `0002_cleanup.sql`. A client that omits `broadcast.self` gets `send=ok` and `seen=0`, because Realtime does not echo a broadcast to its sender.
+
+The hosted Realtime Settings page does not have a "Broadcast from database" control. `push_ops` calls `realtime.send` on the private topic `ws:<workspace>`. The script is the check that a second authorized device receives that head broadcast. Set **Allow public access to channels** to off. That is the required manual project setting. With it off, only `private: true` subscriptions are attempted, and a client that is not authorized must not reach `SUBSCRIBED`.
 
 ## Reset
 

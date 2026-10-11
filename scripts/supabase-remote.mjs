@@ -69,9 +69,30 @@ function subscribe(channel, ms) {
   })
 }
 
+function broadcastHead(message) {
+  const value = message?.payload?.head ?? message?.head
+  return value == null ? null : Number(value)
+}
+
+function waitForHead(messages, seq, ms) {
+  const started = Date.now()
+  return new Promise(resolve => {
+    const timer = setInterval(() => {
+      const hit = messages.some(message => broadcastHead(message) === seq)
+      if (hit || Date.now() - started >= ms) {
+        clearInterval(timer)
+        resolve(hit)
+      }
+    }, 50)
+  })
+}
+
 const user = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } })
 const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
 let userId = null
+let peer = null
+let stranger = null
+let publicClient = null
 
 try {
   const created = await admin('/auth/v1/admin/users', {
@@ -147,6 +168,55 @@ try {
   check('snapshot-url returns a 7200s upload url', upload.status === 200 && uploadBody.expiresIn === 7200 && String(uploadBody.signedUrl ?? '').startsWith('http'), `${upload.status} ${upload.body.slice(0, 180)}`)
 
   const topic = `ws:${workspaceId}`
+  peer = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const peerSign = await peer.auth.signInWithPassword({ email, password })
+  if (peerSign.error || !peerSign.data.session) throw new Error(fail(peerSign.error))
+  const peerAccess = peerSign.data.session.access_token
+  const peerClaims = JSON.parse(Buffer.from(peerAccess.split('.')[1], 'base64url').toString())
+  await peer.realtime.setAuth(peerAccess)
+  const peerRegistered = await peer.rpc('register_device', {
+    p_name: 'phase0-peer', p_platform: 'ios', p_sign_pub: bytea(), p_box_pub: bytea(), p_protocol: 1,
+  })
+  if (peerRegistered.error || !peerRegistered.data) throw new Error(fail(peerRegistered.error))
+  const peerDeviceId = peerRegistered.data
+  const peerAuthorized = await service.from('devices').update({ status: 'authorized' }).eq('id', peerDeviceId).select('id,status,auth_session_id')
+  const peerRow = peerAuthorized.data?.[0]
+  check(
+    'peer device is authorized on its own session',
+    !peerAuthorized.error && peerRow?.status === 'authorized' && peerRow?.auth_session_id === peerClaims.session_id,
+    fail(peerAuthorized.error) || `session ${peerRow?.auth_session_id ?? 'missing'}`,
+  )
+  const heads = []
+  const peerChannel = peer.channel(topic, { config: { private: true } })
+  peerChannel.on('broadcast', { event: 'head' }, payload => heads.push(payload))
+  const peerJoined = await subscribe(peerChannel, 8000)
+  check('peer subscribes to the private workspace channel', peerJoined === 'SUBSCRIBED', peerJoined)
+  const second = await user.rpc('push_ops', {
+    p_workspace: workspaceId, p_device: deviceId, p_generation: generation,
+    p_ops: [{ op_id: randomUUID(), payload_hash: 'cd'.repeat(32), format_version: 1, key_epoch: 1, ciphertext: 'bb' }],
+  })
+  const secondRow = second.data?.[0]
+  const headSeq = Number(secondRow?.seq)
+  const heard = await waitForHead(heads, headSeq, 8000)
+  check(
+    'peer receives push_ops head broadcast',
+    !second.error && headSeq > 1 && heard,
+    fail(second.error) || `seq=${secondRow?.seq ?? 'missing'} seen=${heads.length} ${JSON.stringify(heads[0] ?? null).slice(0, 180)}`,
+  )
+
+  stranger = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const strangerChannel = stranger.channel(topic, { config: { private: true } })
+  const strangerJoined = await subscribe(strangerChannel, 8000)
+  await stranger.removeChannel(strangerChannel)
+  check('unauthorized private subscribe is rejected', strangerJoined !== 'SUBSCRIBED', strangerJoined)
+
+  publicClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  await publicClient.realtime.setAuth(access)
+  const publicChannel = publicClient.channel(topic, { config: { private: false } })
+  const publicJoined = await subscribe(publicChannel, 8000)
+  await publicClient.removeChannel(publicChannel)
+  check('public channel subscribe is rejected', publicJoined !== 'SUBSCRIBED', publicJoined)
+
   const seen = []
   const channel = user.channel(topic, { config: { private: true, broadcast: { self: true, ack: true } } })
   channel.on('broadcast', { event: 'head' }, payload => seen.push(payload))
@@ -185,6 +255,10 @@ try {
       console.error(`cleanup failed for ${email}: ${error instanceof Error ? error.message : error}`)
     })
   }
+  if (peer) await peer.removeAllChannels().catch(() => {})
+  await peer?.realtime.disconnect()
+  await stranger?.realtime.disconnect()
+  await publicClient?.realtime.disconnect()
   await user.realtime.disconnect()
 }
 
