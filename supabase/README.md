@@ -1,6 +1,10 @@
 # Hosted Supabase (phase 0)
 
-Project ref `asqyvcnxdltzzfutbbqy`. Migrations and tests run against that hosted database. Nothing in this folder starts Docker, and no key belongs in git.
+The desktop and mobile clients are free and open source. The sync service will be paid later. This tree has no payment integration. `public.sync_entitled(uuid)` in `supabase/migrations/0001_core.sql` is the only billing hook: `push_ops` and `pull_ops` call it with `auth.uid()`, and the function returns true for dev and test. A later billing change replaces that function body and nothing else.
+
+Security of the hosted service is end-to-end encryption plus secrets kept in the environment. Hiding this source is not a control. Do not commit database URLs, anon keys, service-role keys, or access tokens. The project ref below names the dev project; it is not a credential.
+
+Project ref `asqyvcnxdltzzfutbbqy`. Migrations and tests run against that hosted database. Nothing in this folder starts Docker.
 
 The coordinator's machine exports:
 

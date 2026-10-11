@@ -350,5 +350,25 @@ begin
 end $$;
 select pass('stale epoch allocates no seq');
 
+select is(public.sync_entitled('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), true, 'dev entitlement is open');
+
+create or replace function public.sync_entitled(p_user uuid) returns boolean
+language sql stable security definer set search_path = '' as $$ select false $$;
+
+do $$ begin
+  begin
+    perform public.push_ops('ffffffff-ffff-4fff-8fff-ffffffffffff', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      '99999999-9999-4999-8999-999999999999', '[]'::jsonb);
+    raise exception 'unentitled push was accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.pull_ops('ffffffff-ffff-4fff-8fff-ffffffffffff', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 0, 1);
+    raise exception 'unentitled pull was accepted';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+select pass('sync_entitled false rejects push and pull');
+
 select * from finish();
 rollback;

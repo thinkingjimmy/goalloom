@@ -275,6 +275,18 @@ begin
   update public.devices set status = 'authorized' where id = p_device and status in ('registered', 'pending');
 end $$;
 
+-- The only billing hook. The desktop and mobile clients stay free. Paid sync
+-- replaces this body later; there is no payment integration in this migration.
+-- p_user is auth.uid() from push_ops and pull_ops. Dev and test ignore it and
+-- return true. Do not add a second entitlement check.
+create or replace function public.sync_entitled(p_user uuid) returns boolean
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  -- Read p_user so the billing signature stays part of the body.
+  if p_user is null then return true; end if;
+  return true;
+end $$;
+
 create or replace function public.push_ops(p_workspace uuid, p_device uuid, p_generation uuid, p_ops jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -292,6 +304,9 @@ declare
   results jsonb := '[]'::jsonb;
 begin
   perform public._device_guard(p_device);
+  if not public.sync_entitled(auth.uid()) then
+    raise exception 'sync not entitled' using errcode = '42501';
+  end if;
   perform public._rate_limit(p_device, 'push', 60);
   if jsonb_typeof(p_ops) <> 'array' or jsonb_array_length(p_ops) > 200 then
     raise exception 'batch limit' using errcode = '22023';
@@ -354,6 +369,9 @@ returns jsonb language plpgsql security definer set search_path = '' as $$
 declare rows jsonb;
 begin
   perform public._device_guard(p_device);
+  if not public.sync_entitled(auth.uid()) then
+    raise exception 'sync not entitled' using errcode = '42501';
+  end if;
   perform public._rate_limit(p_device, 'pull', 120);
   if p_limit < 1 or p_limit > 200 then raise exception 'bad limit' using errcode = '22023'; end if;
   if not exists (select 1 from public.workspaces w where w.id = p_workspace and w.user_id = auth.uid()) then
@@ -542,6 +560,7 @@ revoke all on sequence public.control_events_id_seq from public, anon, authentic
 revoke execute on function
   public._random_bytes(integer),
   public._ed25519_verify(bytea, bytea, bytea),
+  public.sync_entitled(uuid),
   public._device_guard(uuid, boolean),
   public._rate_limit(uuid, text, integer),
   public.register_device(text, text, bytea, bytea, integer),
