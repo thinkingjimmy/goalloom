@@ -1,0 +1,162 @@
+/**
+ * [INPUT]: A committed command, its effects, and item rows captured before dispatch.
+ * [OUTPUT]: One sync_ops row in the same transaction. Local-only commands write nothing.
+ * [POS]: Desktop adapter from command effects to SyncOp. applySyncOp is the other direction.
+ */
+import type { DatabaseSync } from 'node:sqlite'
+import { syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
+import { sha256Hex, uuidv5 } from '@goalloom/crypto'
+import type { Command } from '../../../shared/contracts/commands'
+import type { Effect } from '../../../shared/contracts/effects'
+
+interface BeforeItem { title: string; description: string; dueDate: string | null; deletedBy: string | null; version: number }
+
+export function captureSyncBefore(db: DatabaseSync, command: Command): Map<string, BeforeItem> {
+  const ids = 'itemId' in command ? [command.itemId] : command.type === 'link' ? [command.parentId, command.childId] : []
+  const rows = new Map<string, BeforeItem>()
+  for (const id of ids) {
+    const row = db.prepare('SELECT title, description, dueDate, deletedBy, version FROM items WHERE id=?').get(id)
+    if (row) rows.set(id, { title: String(row.title), description: String(row.description), dueDate: row.dueDate === null ? null : String(row.dueDate), deletedBy: row.deletedBy === null ? null : String(row.deletedBy), version: Number(row.version) })
+  }
+  return rows
+}
+
+export function emitSyncOp(db: DatabaseSync, input: { command: Command; effects: Effect[]; before: Map<string, BeforeItem>; at: string; changed: boolean }): void {
+  if (!input.changed || !db.prepare("SELECT 1 FROM sqlite_master WHERE name='sync_ops'").get()) return
+  if (input.command.type === 'preferences' || input.command.type === 'backupPreferences' || input.command.type === 'confirmClock' || input.command.type === 'confirmRollover') return
+  if (input.command.type === 'undo' || input.command.type === 'undoBatch') {
+    emitUndo(db, input.command.originalOperationId, input.command.operationId, input.at)
+    return
+  }
+  const actions = actionsFor(db, input)
+  if (!actions.length) return
+  insertOp(db, { v: 1, opId: input.command.operationId, deviceId: deviceId(db), at: input.at, actions })
+}
+
+export function emitRolloverOp(db: DatabaseSync, input: { itemId: string; fromPeriodId: string; toPeriodId: string; placementSeq: number; at: string }): void {
+  const from = db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(input.fromPeriodId)
+  const to = db.prepare('SELECT horizon, startDate, startAt FROM planning_periods WHERE id=?').get(input.toPeriodId)
+  const base = db.prepare('SELECT periodId FROM base_item_placements WHERE itemId=?').get(input.itemId)
+  if (!from || !to || !base || String(base.periodId) !== input.fromPeriodId) return
+  const workspace = db.prepare('SELECT workspaceId FROM sync_state WHERE id=1').get()
+  const generation = String(db.prepare('SELECT generation FROM workspace WHERE id=1').get()!.generation)
+  const namespace = workspace?.workspaceId ? String(workspace.workspaceId) : generation
+  const fromKey = { horizon: String(from.horizon) as 'week', startDate: String(from.startDate) }
+  const toKey = { horizon: String(to.horizon) as 'week', startDate: String(to.startDate) }
+  const opId = uuidv5(`rollover:${input.itemId}:${fromKey.horizon}:${fromKey.startDate}@${input.placementSeq}:${toKey.horizon}:${toKey.startDate}`, namespace)
+  if (db.prepare('SELECT 1 FROM sync_ops WHERE opId=?').get(opId)) return
+  insertOp(db, {
+    v: 1, opId, deviceId: 'system', at: String(to.startAt),
+    actions: [{ t: 'item.rollover', id: input.itemId, from: { periodKey: fromKey, placementSeq: input.placementSeq }, to: toKey, position: 'append' }],
+  })
+}
+
+function emitUndo(db: DatabaseSync, originalId: string, undoId: string, at: string): void {
+  const row = db.prepare('SELECT state FROM sync_ops WHERE opId=?').get(originalId)
+  if (!row) return
+  if (String(row.state) === 'never_sent') {
+    db.prepare(`UPDATE sync_ops SET state='reverted_local', updatedAt=? WHERE opId=? AND state='never_sent'`).run(at, originalId)
+    return
+  }
+  insertOp(db, { v: 1, opId: undoId, deviceId: deviceId(db), at, actions: [{ t: 'revert', targetOpId: originalId, mode: 'all_or_nothing' }] })
+}
+
+function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect[]; before: Map<string, BeforeItem> }): Action[] {
+  const actions: Action[] = []
+  if (input.command.type === 'edit') {
+    const before = input.before.get(input.command.itemId)
+    const after = db.prepare('SELECT title, description, dueDate FROM items WHERE id=?').get(input.command.itemId)
+    if (!before || !after) return []
+    const fields: { title?: string; description?: string; dueDate?: string | null } = {}
+    if (String(after.title) !== before.title) fields.title = String(after.title)
+    if (String(after.description) !== before.description) fields.description = String(after.description)
+    if ((after.dueDate === null ? null : String(after.dueDate)) !== before.dueDate) fields.dueDate = after.dueDate === null ? null : String(after.dueDate)
+    if (Object.keys(fields).length) actions.push({ t: 'item.set', id: input.command.itemId, fields })
+    return actions
+  }
+  if (input.command.type === 'confirmSetup') {
+    const calendar = db.prepare('SELECT calendar FROM workspace WHERE id=1').get()
+    if (calendar?.calendar) actions.push({ t: 'calendar.setup', calendar: JSON.parse(String(calendar.calendar)) })
+    return actions
+  }
+  if (input.command.type === 'policy') {
+    const period = db.prepare('SELECT p.horizon, p.startDate FROM rollover_policies r JOIN planning_periods p ON p.id=r.effectiveFromPeriodId WHERE r.horizon=?').get(input.command.horizon)
+    if (period) actions.push({ t: 'policy.set', horizon: input.command.horizon, mode: input.command.mode, effectiveFromKey: { horizon: String(period.horizon) as 'day', startDate: String(period.startDate) } })
+    return actions
+  }
+  for (const effect of input.effects) {
+    if (effect.kind === 'create') actions.push(...createActions(db, effect.itemId, effect.initialRelations))
+    if (effect.kind === 'description') actions.push({ t: 'item.set', id: effect.itemId, fields: { description: effect.after } })
+    if (effect.kind === 'status') actions.push({ t: 'item.status', id: effect.itemId, status: effect.after.status, completedAt: effect.after.completedAt, cancelledAt: effect.after.cancelledAt })
+    if (effect.kind === 'position') actions.push(placeAction(db, effect.itemId, effect.after.horizon, effect.after.periodId, effect.after.previousId, effect.after.nextId, 'move'))
+    if (effect.kind === 'archive') actions.push({ t: 'item.archive', id: effect.itemId, archivedAt: effect.after })
+    if (effect.kind === 'visibility' && effect.after.deletedAt) {
+      const before = input.before.get(effect.itemId)
+      actions.push(input.command.type === 'discardEmpty'
+        ? { t: 'item.discardIfEmpty', id: effect.itemId, expectVersion: before?.version ?? 1 }
+        : { t: 'item.delete', id: effect.itemId })
+    }
+    if (effect.kind === 'visibility' && !effect.after.deletedAt) {
+      const before = input.before.get(effect.itemId)
+      if (before?.deletedBy) actions.push({ t: 'item.restore', id: effect.itemId, expectedDeleteOpId: before.deletedBy })
+    }
+    if (effect.kind === 'relations') {
+      for (const edge of effect.edges) {
+        if (edge.after.invalidatedAt) actions.push({ t: 'rel.unlink', id: edge.after.id })
+        else if (!edge.before) actions.push({ t: 'rel.link', id: edge.after.id, parentId: edge.after.parentId, childId: edge.after.childId, ...(effect.flowColor ? { adoptParentFlow: true } : {}) })
+      }
+    }
+    if (effect.kind === 'guidance' && input.command.type === 'applyAssistance') {
+      actions.push({ t: 'guidance.set', itemId: effect.itemId, value: effect.after.value, baseRevision: input.command.expectedGuidanceRevision })
+    }
+    if (effect.kind === 'relations' && effect.flowColor && input.command.type === 'flowColor') {
+      actions.push({ t: 'item.set', id: effect.itemId, fields: { flowColor: null } })
+    }
+  }
+  if (input.command.type === 'flowColor' && !actions.some(action => action.t === 'item.set')) {
+    actions.push({ t: 'item.set', id: input.command.itemId, fields: { flowColor: input.command.flowColor } })
+  }
+  return actions
+}
+
+function createActions(db: DatabaseSync, itemId: string, relations: string[]): Action[] {
+  const item = db.prepare('SELECT * FROM items WHERE id=?').get(itemId)
+  const placement = db.prepare('SELECT * FROM item_placements WHERE itemId=?').get(itemId)
+  if (!item || !placement) return []
+  const periodId = placement.periodId ?? null
+  const period = periodId ? db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(periodId) : undefined
+  const previous = db.prepare('SELECT itemId FROM item_placements WHERE horizon=? AND periodId IS ? AND itemId!=? ORDER BY sortKey DESC, itemId DESC LIMIT 1').get(placement.horizon ?? null, periodId, itemId)
+  const parent = relations[0] ? db.prepare('SELECT parentId FROM item_relations WHERE id=?').get(relations[0]) : undefined
+  const action: Action = {
+    t: 'item.create', id: itemId, title: String(item.title), description: String(item.description), dueDate: item.dueDate === null ? null : String(item.dueDate),
+    horizon: String(placement.horizon) as 'later', periodKey: period ? { horizon: String(period.horizon) as 'week', startDate: String(period.startDate) } : null,
+    sortHint: { afterId: previous ? String(previous.itemId) : null, beforeId: null },
+    ...(item.flowColor === null ? {} : { flowColor: Number(item.flowColor) }),
+    ...(parent ? { parentId: String(parent.parentId) } : {}),
+  }
+  const link = parent ? relations.map(id => {
+    const edge = db.prepare('SELECT id, parentId, childId FROM item_relations WHERE id=?').get(id)
+    return edge ? { t: 'rel.link' as const, id: String(edge.id), parentId: String(edge.parentId), childId: String(edge.childId) } : null
+  }).filter(value => value !== null) : []
+  return [action, ...link]
+}
+
+function placeAction(db: DatabaseSync, itemId: string, horizon: string, periodId: string | null, previousId: string | null, nextId: string | null, reason: 'move' | 'arrange' | 'rollover'): Action {
+  const period = periodId ? db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(periodId) : undefined
+  return {
+    t: 'item.place', id: itemId, horizon: horizon as 'later', periodKey: period ? { horizon: String(period.horizon) as 'week', startDate: String(period.startDate) } : null,
+    sortHint: { afterId: previousId, beforeId: nextId }, reason,
+  }
+}
+
+function deviceId(db: DatabaseSync): string {
+  const row = db.prepare('SELECT deviceId FROM sync_state WHERE id=1').get()
+  return row?.deviceId ? String(row.deviceId) : 'local'
+}
+
+function insertOp(db: DatabaseSync, op: SyncOp): void {
+  const payload = syncOpPayload(op)
+  const order = Number(db.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()!.n) + 1
+  db.prepare(`INSERT INTO sync_ops (opId, localOrder, origin, formatVersion, payload, payloadHash, deviceId, at, state, createdAt, updatedAt)
+    VALUES (?, ?, 'local', 1, ?, ?, ?, ?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, op.at, op.at)
+}

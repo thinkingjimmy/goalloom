@@ -17,6 +17,21 @@ importers:
       '@dnd-kit/utilities':
         specifier: 3.2.2
         version: 3.2.2(react@19.3.0)
+      '@goalloom/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
+      '@goalloom/crypto':
+        specifier: workspace:*
+        version: link:packages/crypto
+      '@goalloom/schema':
+        specifier: workspace:*
+        version: link:packages/schema
+      '@goalloom/store-core':
+        specifier: workspace:*
+        version: link:packages/store-core
+      '@goalloom/sync':
+        specifier: workspace:*
+        version: link:packages/sync
       '@hugeicons/core-free-icons':
         specifier: 4.3.5
         version: 4.3.5
@@ -129,6 +144,56 @@ importers:
       vitest:
         specifier: 5.0.1
         version: 5.0.1(@types/node@24.13.6)(vite@7.3.6(@types/node@24.13.6)(jiti@2.7.0)(lightningcss@1.32.0))
+
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
+  packages/crypto:
+    dependencies:
+      '@goalloom/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@noble/ciphers':
+        specifier: 2.4.0
+        version: 2.4.0
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
+      '@scure/bip39':
+        specifier: 2.4.0
+        version: 2.4.0
+
+  packages/schema: {}
+
+  packages/store-core:
+    dependencies:
+      '@goalloom/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@goalloom/crypto':
+        specifier: workspace:*
+        version: link:../crypto
+      '@goalloom/schema':
+        specifier: workspace:*
+        version: link:../schema
+
+  packages/sync:
+    dependencies:
+      '@goalloom/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@goalloom/crypto':
+        specifier: workspace:*
+        version: link:../crypto
+      '@goalloom/store-core':
+        specifier: workspace:*
+        version: link:../store-core
 
 packages:
 
@@ -867,6 +932,14 @@ packages:
     os: [linux]
     libc: [glibc]
 
+  '@noble/ciphers@2.4.0':
+    resolution: {integrity: sha512-AnjFn0Jv92laAkvMrghlFZq4qQCIN/4DxFV/eooqtC2YTjB7kBeLMS2T9KJX4Dn+ZVXLOwK0lSgqDtx9gvxtiw==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/curves@2.4.0':
+    resolution: {integrity: sha512-P4/62zrgfH33CneE3Dn4WhJVA22YUU0eR51wKIan4NVRvwsA0YnPTwWGpNbpuacSujmSFLvyzpyuR30+fbq2Ew==}
+    engines: {node: '>= 20.19.0'}
+
   '@noble/hashes@1.8.0':
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
@@ -1337,6 +1410,9 @@ packages:
     resolution: {integrity: sha512-Erx822VRBwLa124shbj+wNXe//BOgMEctDV0m1aqTQdNO1S69DgNUCFKC1RCeZfixs1J31l6igk1ziyXErbigQ==}
     cpu: [x64]
     os: [win32]
+
+  '@scure/bip39@2.4.0':
+    resolution: {integrity: sha512-82dxFbZUYboyOf0AXiydsQrFQ5Q4h9mX+O2UkE91ROYmsc0BKMGZLwDmy96Jpa2+vrtoxomjUhy1RPIgH/r2nA==}
 
   '@sindresorhus/is@4.6.0':
     resolution: {integrity: sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw==}
@@ -3594,6 +3670,12 @@ snapshots:
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
 
+  '@noble/ciphers@2.4.0': {}
+
+  '@noble/curves@2.4.0':
+    dependencies:
+      '@noble/hashes': 2.4.0
+
   '@noble/hashes@1.8.0': {}
 
   '@noble/hashes@2.4.0': {}
@@ -3984,6 +4066,10 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.63.4':
     optional: true
+
+  '@scure/bip39@2.4.0':
+    dependencies:
+      '@noble/hashes': 2.4.0
 
   '@sindresorhus/is@4.6.0': {}
 

@@ -23,7 +23,7 @@
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
-Version 1.6.0 uses schema v8. Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
+Version 1.6.0 uses schema v9 for new and upgraded workspaces (v8 upgrades in place; older files still use the protective-copy path). Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
 
 每个功能的产品规则、工程契约、TODO 与验收集中在 `docs/features/` 下的一份规格，不另建重复文件；变更过程和测试结果记录在 Git / PR 中。`CLAUDE.md` 仅导入 `AGENTS.md`，不另维护一套规则。
 
@@ -116,6 +116,7 @@ pnpm package:dir          # 当前平台本地目录包
 | 完成反馈、撒花（复盘完成的自动退出／单次播放开发可用 `node tests/desktop/weekly-review.mjs --completion`） | `pnpm test:celebration` ＋ `pnpm test:feedback`；影响往期还原反馈时追加 `pnpm test:history` |
 | 长列、虚拟滚动、拖放、键盘移动 | `node tests/desktop/review/run.mjs virtual` |
 | SQLite 驱动、存储 worker、旧库只读拒绝与导入 | `pnpm test:electron` ＋ 实际受影响功能的脚本；v5/v6 导入 v7 保真追加 `test:calendar`，大数据量相关再跑 `node tests/desktop/review/run.mjs large-workspace` |
+| 同步协议 v1：SyncOp、v9、影子基线、发送状态、加密构造 | `pnpm test` 中的 `tests/integration/upgrade-v9.test.ts`、`tests/integration/sync-emit.test.ts`、`tests/sync/phase0.test.ts`、`tests/sync/adversarial.test.ts`、`tests/crypto/constructs.test.ts`；服务端用例另跑 `node scripts/pg-sync-test.mjs`（本机 Postgres，不是桌面 E2E）。schema 变化仍追加 `pnpm test:electron` 与 `pnpm test:recovery` |
 | 打包脚本、包体报告 | `node tests/desktop/review/run.mjs package-report` |
 | `src/domain` 领域规则 | 改变用户可见行为时按所属功能选 E2E；不影响行为的内部调整保留快速检查，无需桌面脚本 |
 | 官网 `website/` | 在该目录运行 `pnpm typecheck`、`pnpm test:e2e`（包含构建）；不跑桌面 E2E，细节见 [官网 README](../website/README.md) |

@@ -66,13 +66,13 @@ it('rejects a v5 writer with committed WAL without losing its pending data', asy
 
 it('更高/未知版本：只读探测拒绝，不改日记模式也不创建副本', async () => {
   const db = new DatabaseSync(path)
-  db.exec('CREATE TABLE future (id INTEGER); PRAGMA user_version = 9')
+  db.exec('CREATE TABLE future (id INTEGER); PRAGMA user_version = 10')
   db.close()
   await expect(openWorkspace(path, backups, now)).rejects.toThrow('更新版本')
   const check = new DatabaseSync(path, { readOnly: true })
   expect(check.prepare('PRAGMA journal_mode').get()!.journal_mode).toBe('delete')
   check.close()
-  expect(version(path)).toBe(9)
+  expect(version(path)).toBe(10)
   expect(existsSync(`${path}-wal`)).toBe(false)
   expect(existsSync(backups)).toBe(false)
 })
