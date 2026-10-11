@@ -79,7 +79,7 @@ supabase functions deploy snapshot-url --project-ref asqyvcnxdltzzfutbbqy
 node scripts/supabase-remote.mjs
 ```
 
-Requires Node.js 22 or newer (native `WebSocket`; `package.json` `engines` is `>=22.12.0`), plus `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. The script creates a user `p0-<uuid>@goalloom.test` through the admin API, signs in with a password, registers one device, uploads a real snapshot object, and deletes that user in a `finally` block. Google and Apple OAuth are not used.
+Requires Node.js 22 or newer (native `WebSocket`; `package.json` `engines` is `>=22.12.0`), plus `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. The script creates a user `p0-<uuid>@goalloom.test` through the admin API, signs in twice so two devices have different sessions, uploads a real snapshot object, and deletes that user in a `finally` block. Google and Apple OAuth are not used.
 
 It checks:
 
@@ -96,7 +96,7 @@ The "existing connection still receives" check waits up to 8 seconds. Resubscrib
 
 Private channels need the select and insert policies from `0002_cleanup.sql`. A client that omits `broadcast.self` gets `send=ok` and `seen=0`, because Realtime does not echo a broadcast to its sender.
 
-The hosted Realtime Settings page does not have a "Broadcast from database" control. `push_ops` calls `realtime.send` on the private topic `ws:<workspace>`. The script is the check that a second authorized device receives that head broadcast. Set **Allow public access to channels** to off. That is the required manual project setting. With it off, only `private: true` subscriptions are attempted, and a client that is not authorized must not reach `SUBSCRIBED`.
+The hosted Realtime Settings page does not have a "Broadcast from database" control. `push_ops` calls `realtime.send` on the private topic `ws:<workspace>`. The script checks that a second authorized device receives that head broadcast within 8 seconds. Set **Allow public access to channels** to off. That is the required manual project setting. With it off, an unauthorized client and a subscribe with `private: false` must not reach `SUBSCRIBED`. The head broadcast and those two rejections wait up to 8 seconds each.
 
 ## Reset
 
