@@ -818,7 +818,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 20. （v1.4）首次响应丢失 → 第二次 rate_limited / stale_epoch → 撤销：op 保持 send_unknown，生成 revert，不复活（已复现）。
 21. （v1.4）恢复检查点：重新生成短语且旧设备全丢后用新短语加入真实工作区成功；只抄恢复公钥的替换名单、旧检查点回滚、旧短语分叉、跨工作区重放均被拒（已复现）。
 
-**8 个必须通过的确定性对抗用例**（放在 `tests/sync/adversarial/*.test.ts` 和 `supabase/tests/adversarial.sql`）：
+**8 个必须通过的确定性对抗用例**（放在 `tests/sync/adversarial.test.ts` 和 `supabase/tests/0001_core.test.sql`）：
 1. **响应丢失加压缩后重试**：push 成功、响应丢失，服务端在此期间压缩掉了这些 op，客户端重推 → 通过 op_receipts 拿回原 seq，不产生重复。
 2. **拿到 seq 后、写入基线前重启** → op 状态为 accepted（不再有内存中的 uploading）；重启后拉到自己的 op，按 hash 识别并应用，不重复。
 3. **重放失败，同时在事务边界崩溃** → 重启后 op 发送状态不变（never_sent/send_unknown/accepted），outcome 只由规范位置决定；基线不变。
@@ -846,7 +846,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 - [x] **P0.2 v9 迁移** `src/main/storage/schema.ts`、`src/main/storage/upgrade.ts`（v1.4：含重建 item_events、item_guidance 去外键，以及 sync_ops 的 sticky 触发器，见 7.2、8.2）
   - 做什么：把 `schemaVersion` 改为 9，`upgradableVersions` 改为 [8]。新增 7.2 节的表和 base_* 影子表（含触发器）。升级前先调用现有的备份逻辑（`storage/backup/manager.ts`），升级在一个事务里完成。同时更新 `transfer/dataset.ts` 和 `import-validation`（`src/domain/import-validation.ts`），让它们认识 v9。确认 operations 的 source CHECK 是否需要放宽（8.3），如果必须改 v8 的表，就记录下来并改用 `system`。
   - 验收：新增测试 `tests/integration/upgrade-v9.test.ts`：v8 的样例库升级后，v8 的业务表逐行一致，`integrity_check` 通过；全新的库直接以 v9 创建。`pnpm test && pnpm test:electron && pnpm test:recovery` 全部通过。
-- [ ] **P0.3 SyncOp 生成** `src/main/workspace/repository.ts`、`src/main/workspace/sync/emit.ts`（新增）
+- [x] **P0.3 SyncOp 生成** `src/main/workspace/repository.ts`、`src/main/workspace/sync/emit.ts`（新增）
   - 做什么：在 `apply()` 的同一个事务里，根据命令和执行前后的差异生成 SyncOp，写入 sync_ops（state 为 pending，带 localOrder）。把 `randomUUID` 的生成结果记录进 action（item.create 和 rel.link 里的 id）。`reconcile.ts` 改为每次迁移生成一条确定性的系统 op（8.7）。设备本地命令不生成 SyncOp。
   - 验收：每种命令至少一个测试（`tests/integration/sync-emit.test.ts`），检查 action 的内容；edit 只改 title 时，`fields` 里只有 title。
 - [x] **P0.4 applySyncOp 和影子基线** `packages/store-core/src/sync/apply.ts`（暂时先放在 `src/main/workspace/sync/`）
@@ -859,7 +859,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
   - 做什么：建 devices、workspaces、ops、op_receipts、snapshots、device_roster、key_envelopes、pairing_requests；写 `_device_guard`、push_ops、pull_ops、rotate_epoch、snapshot 的签名 URL（Edge Function）；完成函数授权和限流。
   - 另外实现 `rebind_device`（登录会话轮换后，用设备签名证明来重新绑定），以及控制频道的 `revoked` 消息。
   - v1.3 增加：`commit_roster`（版本 + prevHash CAS）、`bootstrap_workspace`、`regenerate_recovery`、`recovery_checkpoints` 表、`start_recovery`/`complete_recovery`、`receipts_for`、`realtime_can_read`；device_roster/key_envelopes 加 signer_type 和 roster_version。
-  - 验收：`supabase test db` 跑过对抗用例 1、4 和 P0 用例 16、17（**在 `supabase db reset` 后的全新库上**，迁移包含全部 revoke），并把 spike 的 SQL 迁移到正式的迁移文件里。
+  - 验收：`supabase test db --db-url "$SUPABASE_DB_URL"` 跑过对抗用例 1、4 和 P0 用例 16、17（托管项目 `asqyvcnxdltzzfutbbqy`，见 `supabase/README.md`；迁移只撤销 Goalloom 对象上的权限），并把 spike 的 SQL 迁移到正式的迁移文件里。
 - [x] **P0.6a 加密构造 spike（2026-10-11，Mac，Node 24.21）**：在 `~/goalloom-spikes/crypto/spike.mjs` 中用 noble 2.4.0 实现了 C1–C4、恢复密钥派生和名单链，24 项正确性检查全部通过（9.7）。
 - [ ] **P0.6b `packages/crypto/` 正式实现**
   - 做什么：把 spike 移植成 TS 模块（`wrap.ts`、`roster.ts`、`recovery.ts`、`op.ts`、`stream.ts`、`random.ts`），锁定版本 `@noble/curves@2.4.0`、`@noble/ciphers@2.4.0`、`@noble/hashes@2.4.0`、`@scure/bip39@2.4.0`（`pnpm add -E`）；补上固定的测试向量（`packages/crypto/test/vectors.json`，保证两端字节级一致）。

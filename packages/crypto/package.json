@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "react-native": "./src/index.ts",
   "scripts": {
     "test": "vitest run --config ../../vitest.config.ts test"
   },

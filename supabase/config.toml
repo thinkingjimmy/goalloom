@@ -1,0 +1,10 @@
+# Hosted project asqyvcnxdltzzfutbbqy. db push and test db use --db-url
+# and do not start Docker. Link needs the coordinator's access token.
+
+project_id = "asqyvcnxdltzzfutbbqy"
+
+[db]
+major_version = 15
+
+[functions.snapshot-url]
+verify_jwt = true

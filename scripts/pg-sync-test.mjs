@@ -1,9 +1,11 @@
 import { spawnSync } from 'node:child_process'
 
+const url = process.env.SUPABASE_DB_URL
+if (!url) {
+  console.error('SUPABASE_DB_URL is required. See supabase/README.md. This script does not start Docker or install a signature oracle.')
+  process.exit(1)
+}
 const psql = process.env.PSQL ?? 'psql'
-const db = process.env.PGDATABASE ?? 'goalloom_sync_p0'
-const user = process.env.PGUSER
-const args = [...(user ? ['-U', user] : []), '-d', db, '-v', 'ON_ERROR_STOP=1', '-f', 'supabase/tests/harness.sql', '-f', 'supabase/migrations/0001_core.sql', '-f', 'supabase/tests/adversarial.sql']
-const result = spawnSync(psql, args, { stdio: 'inherit' })
+const result = spawnSync(psql, [url, '-v', 'ON_ERROR_STOP=1', '-f', 'supabase/tests/0001_core.test.sql'], { stdio: 'inherit' })
 if (result.status !== 0) process.exit(result.status ?? 1)
-console.log(`pg sync cases 1, 4, 16, 17 passed on ${db}`)
+console.log('pgTAP cases 1, 4, 16, 17 passed')

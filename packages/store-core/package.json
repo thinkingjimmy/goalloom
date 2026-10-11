@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./node": "./src/node-driver.ts"
   },
+  "react-native": "./src/index.ts",
   "dependencies": {
     "@goalloom/contracts": "workspace:*",
     "@goalloom/crypto": "workspace:*",

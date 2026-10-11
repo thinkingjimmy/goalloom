@@ -1,8 +1,12 @@
--- Goalloom sync core. Ciphertext only. Direct table access is revoked.
--- Ed25519 verification fails closed until public._ed25519_verify is replaced
--- by a real verifier. This file does not embed keys.
+-- Goalloom sync core. Ciphertext only. Direct table access is revoked for
+-- anon and authenticated. Grants are limited to these objects so a hosted
+-- project can keep unrelated public objects. This file does not embed keys.
+-- Ed25519 verification uses pgsodium (libsodium), the same message bytes
+-- noble ed25519.sign/verify hash internally. It fails closed when pgsodium
+-- is missing.
 
 create extension if not exists pgcrypto;
+create extension if not exists pgsodium;
 
 do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
@@ -31,9 +35,15 @@ begin
 end $$;
 
 create or replace function public._ed25519_verify(pub bytea, message bytea, signature bytea) returns boolean
-language plpgsql immutable set search_path = '' as $$
+language plpgsql stable security definer set search_path = '' as $$
 begin
-  raise exception 'ed25519 verifier not installed' using errcode = '42501';
+  if octet_length(pub) is distinct from 32 or octet_length(signature) is distinct from 64 then
+    return false;
+  end if;
+  return pgsodium.crypto_sign_verify_detached(signature, message, pub);
+exception
+  when undefined_function or invalid_schema_name or insufficient_privilege then
+    raise exception 'ed25519 verifier not installed' using errcode = '42501';
 end $$;
 
 create table public.devices (
@@ -332,7 +342,8 @@ begin
   values (p_device, 'ws:' || p_workspace::text, 'head', jsonb_build_object('head', v_head));
   begin
     perform realtime.send(jsonb_build_object('head', v_head), 'head', 'ws:' || p_workspace::text, true);
-  exception when undefined_function or invalid_schema_name then
+  exception when others then
+    -- control_events is the durable hint. A broadcast failure must not roll back an accepted push.
     null;
   end;
   return results;
@@ -522,9 +533,33 @@ begin
      and s.object_path = p_path and s.state = 'published';
 end $$;
 
-revoke all on all tables in schema public from public, anon, authenticated;
-revoke all on all sequences in schema public from public, anon, authenticated;
-revoke execute on all functions in schema public from public, anon, authenticated;
+revoke all on table
+  public.devices, public.workspaces, public.device_roster, public.key_envelopes, public.pairing_requests,
+  public.ops, public.recovery_challenges, public.recovery_checkpoints, public.op_receipts, public.snapshots,
+  public.op_blobs, public.rpc_buckets, public.control_events
+from public, anon, authenticated;
+revoke all on sequence public.control_events_id_seq from public, anon, authenticated;
+revoke execute on function
+  public._random_bytes(integer),
+  public._ed25519_verify(bytea, bytea, bytea),
+  public._device_guard(uuid, boolean),
+  public._rate_limit(uuid, text, integer),
+  public.register_device(text, text, bytea, bytea, integer),
+  public.rebind_device(uuid, bytea, bytea),
+  public.bootstrap_workspace(uuid, uuid, uuid, jsonb, text, bytea, jsonb, bytea, bytea),
+  public.push_ops(uuid, uuid, uuid, jsonb),
+  public.pull_ops(uuid, uuid, bigint, integer),
+  public.receipts_for(uuid, uuid, uuid[]),
+  public.commit_roster(uuid, uuid, integer, text, jsonb, text, bytea, text),
+  public.rotate_epoch(uuid, uuid, integer, jsonb, text, bytea),
+  public.start_recovery(uuid, uuid),
+  public.complete_recovery(uuid, uuid, uuid, bytea, jsonb, text, bytea),
+  public.regenerate_recovery(uuid, uuid, integer, text, jsonb, text, bytea, jsonb, bytea, bytea),
+  public.get_latest_checkpoint(uuid, uuid),
+  public.revoke_device(uuid, uuid),
+  public.realtime_can_read(text),
+  public.snapshot_access(uuid, uuid, bigint, text)
+from public, anon, authenticated;
 
 grant execute on function
   public.register_device(text, text, bytea, bytea, int),
@@ -543,6 +578,24 @@ grant execute on function
   public.realtime_can_read(text),
   public.snapshot_access(uuid, uuid, bigint, text)
 to authenticated;
+
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    execute 'grant all on table public.devices, public.workspaces, public.device_roster, public.key_envelopes, public.pairing_requests, public.ops, public.recovery_challenges, public.recovery_checkpoints, public.op_receipts, public.snapshots, public.op_blobs, public.rpc_buckets, public.control_events to service_role';
+    execute 'grant usage, select on sequence public.control_events_id_seq to service_role';
+  end if;
+end $$;
+
+do $$ begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'storage' and table_name = 'buckets'
+  ) then
+    insert into storage.buckets (id, name, public)
+    values ('snapshots', 'snapshots', false)
+    on conflict (id) do nothing;
+  end if;
+end $$;
 
 alter table public.devices enable row level security;
 alter table public.workspaces enable row level security;

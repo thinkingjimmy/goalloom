@@ -48,22 +48,22 @@ Local commands run first. The SyncOp is the diff plus the intent, written in the
 | Command | SyncOp | Test |
 | --- | --- | --- |
 | `confirmSetup` | `calendar.setup` | `tests/integration/sync-emit.test.ts` (setup row exists before other actions) |
-| `create` / `createPlan` | `item.create` and, when a parent edge was inserted, `rel.link` | sync-emit create; plan still shares the create effect path |
+| `create` / `createPlan` | one SyncOp: `item.create` and, when a parent edge was inserted, `rel.link` | sync-emit create; `tests/integration/sync-emit-commands.test.ts` |
 | `edit` | `item.set` with only the changed fields | sync-emit “field diff” |
 | `flowColor` | `item.set` flowColor | sync-emit “maps move, colour…” |
-| `move` / `arrangeBacklog` | `item.place` | sync-emit move |
+| `move` | `item.place` reason `move` | sync-emit move |
+| `arrangeBacklog` / `materializeParentOrder` | `item.place` reason `arrange` | sync-emit-commands |
 | `link` / `unlink` | `rel.link` / `rel.unlink` | sync-emit |
 | `status` / `archive` | `item.status` / `item.archive` | sync-emit |
 | `delete` / `restoreItem` | `item.delete` / `item.restore` | sync-emit |
-| `discardEmpty` | `item.discardIfEmpty` | apply path; a successful empty discard is covered by the action schema, not by a stored empty title |
+| `discardEmpty` | `item.discardIfEmpty` | sync-emit-commands |
 | `policy` | `policy.set` | sync-emit |
-| `applyAssistance` | `guidance.set` | effect branch in `emit.ts`; no dedicated fixture in this change |
-| `undo` / `undoBatch` of `never_sent` | no new op; row becomes `reverted_local` | sync-emit undo; cases 10 and 20 |
+| `applyAssistance` | `guidance.set` | sync-emit-commands |
+| `undo` of `never_sent` | no new op; that row becomes `reverted_local` | sync-emit undo; cases 10 and 20 |
 | `undo` of `send_unknown` or `accepted` | new `revert` op, `all_or_nothing` | cases 10 and 20 |
-| `preferences`, `backupPreferences`, `confirmClock`, `confirmRollover` | none | sync-emit |
-| reconcile rollover | one local `operations` receipt, plus one `item.rollover` per moved item | cases 13 and 14 |
-
-`materializeParentOrder` does not emit its own action. It materializes order inside an existing placement.
+| `undoBatch` of a system rollover | each undone `item.rollover`: `never_sent` becomes `reverted_local`; `send_unknown`, `accepted` or `applied` gets its own `revert` op. Skipped effects are left alone | sync-emit-commands |
+| `preferences`, `backupPreferences`, `confirmClock`, `confirmRollover` | none | sync-emit; confirmRollover in sync-emit-commands |
+| reconcile rollover | one local `operations` receipt, plus one `item.rollover` per moved item whose `base_item_placements` period still matches the source | cases 13 and 14 |
 
 ## Send states
 
@@ -102,7 +102,7 @@ Two devices that observe the same canonical placement emit the same hash (case 1
 
 P0 snapshot body is canonical JSON of `base_*` plus canon rows at `uptoSeq` (`packages/store-core/src/snapshot.ts`). It is not zstd. Encryption is C4. Installing a snapshot keeps the snapshot generation (case 7) and does not call `replaceDataset`.
 
-Server compaction may delete `ops` rows and must keep `op_receipts`. A retry with the same hash returns the original `seq` and does not allocate another one (case 1, `supabase/tests/adversarial.sql`). A different hash is `op_id_reused`.
+Server compaction may delete `ops` rows and must keep `op_receipts`. A retry with the same hash returns the original `seq` and does not allocate another one (case 1, `supabase/tests/0001_core.test.sql`). A different hash is `op_id_reused`.
 
 Push batches are at most 200 ops and 1 MiB. An op with a missing blob holds every later op (case 18).
 
@@ -123,15 +123,15 @@ Unwrap verifies the signature with a caller-supplied trusted public key before d
 
 A recovery join checks the phrase-derived public key, the checkpoint signature, the roster hash pinned by that checkpoint, and a device signature over the same checkpoint bytes. A copied recovery public key fails (cases 15 and 21). `acceptNewerCheckpoint` rejects a lower `cpVersion` and a `prevCpHash` that does not extend the pinned checkpoint.
 
-Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` fails closed until a real verifier is installed. The SQL suite replaces it with `sha256(pub || message)` only inside `supabase/tests/adversarial.sql`.
+Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` on the raw message bytes (the same single hash noble's `ed25519.sign` / `ed25519.verify` apply). A missing pgsodium function raises `42501`. The pgTAP file checks a fixed noble vector and a pgsodium-generated recovery signature. Commands are in `supabase/README.md`.
 
 ## Test index
 
 | # | Where |
 | --- | --- |
-| 1 | `applyPushReceipts` and `supabase/tests/adversarial.sql` |
+| 1 | `applyPushReceipts` and `supabase/tests/0001_core.test.sql` |
 | 2, 3, 10, 20 | `tests/sync/phase0.test.ts` |
-| 4, 16, 17 | `supabase/tests/adversarial.sql` |
+| 4, 16, 17 | `supabase/tests/0001_core.test.sql`; Realtime resubscribe and Storage URLs in `scripts/supabase-remote.mjs` |
 | 5, 6, 7, 8, 15, 21 | `tests/sync/adversarial.test.ts` |
 | 9, 11, 12, 13, 14, 18, 19 | `tests/sync/phase0.test.ts` |
 | C1–C4 vectors | `tests/crypto/constructs.test.ts` |
@@ -144,9 +144,9 @@ Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` fails 
 - `item.discardIfEmpty` cannot observe a stored empty title. The items CHECK requires a trimmed title of 1–500 characters. The predicate matches the domain empty-card rule.
 - P0 snapshots are canonical JSON inside C4. zstd is not applied.
 - `Store.summaries` still uses SQLite functions. `item_signals` is P1.2.
-- Postgres has no Ed25519 verifier here. `_ed25519_verify` fails closed. `supabase/tests/adversarial.sql` installs a sha256 oracle for cases 16 and the state machine only. Docker and the Supabase CLI were not available, so this is not `supabase test db`.
-- Realtime broadcasts are written to `control_events`. `realtime.send` runs only when that function exists.
-- `snapshot-url` refuses to sign when its runtime secrets are missing. It does not embed a service key.
-- Hermes was not executed. Vectors are pinned for Node only.
+- `_ed25519_verify` uses pgsodium. This VM did not run it against the hosted project. `supabase/README.md` has the push, pgTAP, reset and Node commands. There is no local Docker database and no sha256 oracle.
+- Realtime broadcasts are written to `control_events`. A `realtime.send` failure does not roll back an accepted push.
+- `snapshot-url` signs a Storage URL only after `snapshot_access` accepts the caller. It refuses when its runtime secrets are missing and does not embed a service key.
+- `apps/mobile` is the Hermes runner. It was not executed here (no iOS simulator). P0.6b, P0.6c and P0.7 stay open.
 - Reconcile still writes one local `operations` receipt, and also one deterministic `item.rollover` SyncOp per moved item.
 - A dataset replace clears sync projection tables, pauses with `generation`, and copies the new projection into `base_*`. Exports do not include the sync tables.

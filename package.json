@@ -96,6 +96,7 @@
   },
   "devDependencies": {
     "@js-temporal/polyfill": "0.5.1",
+    "@supabase/supabase-js": "2.117.3",
     "@tailwindcss/vite": "4.3.3",
     "@types/node": "24.13.6",
     "@types/react": "19.3.0",

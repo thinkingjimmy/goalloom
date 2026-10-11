@@ -53,12 +53,53 @@ export function emitRolloverOp(db: DatabaseSync, input: { itemId: string; fromPe
 
 function emitUndo(db: DatabaseSync, originalId: string, undoId: string, at: string): void {
   const row = db.prepare('SELECT state FROM sync_ops WHERE opId=?').get(originalId)
-  if (!row) return
+  if (!row) {
+    emitRolloverUndo(db, originalId, undoId, at)
+    return
+  }
   if (String(row.state) === 'never_sent') {
     db.prepare(`UPDATE sync_ops SET state='reverted_local', updatedAt=? WHERE opId=? AND state='never_sent'`).run(at, originalId)
     return
   }
   insertOp(db, { v: 1, opId: undoId, deviceId: deviceId(db), at, actions: [{ t: 'revert', targetOpId: originalId, mode: 'all_or_nothing' }] })
+}
+
+/** A system rollover receipt is not itself a SyncOp. Revert only the item.rollover rows whose effects this undo actually applied. */
+function emitRolloverUndo(db: DatabaseSync, originalId: string, undoId: string, at: string): void {
+  const original = db.prepare('SELECT kind, source, effects FROM operations WHERE id=?').get(originalId)
+  if (!original || String(original.source) !== 'system' || String(original.kind) !== 'rollover') return
+  const effects = JSON.parse(String(original.effects)) as Effect[]
+  const undone = db.prepare('SELECT effectIndex FROM undo_effects WHERE originalId=? AND undoId=?').all(originalId, undoId)
+  for (const marker of undone) {
+    const effect = effects[Number(marker.effectIndex)]
+    if (!effect || effect.kind !== 'position' || effect.before.periodId === effect.after.periodId) continue
+    const from = periodKey(db, effect.before.periodId)
+    const to = periodKey(db, effect.after.periodId)
+    if (!from || !to) continue
+    const candidates = db.prepare(`SELECT opId, state, payload FROM sync_ops WHERE deviceId='system' AND json_extract(payload,'$.actions[0].t')='item.rollover' AND json_extract(payload,'$.actions[0].id')=?`).all(effect.itemId)
+    for (const candidate of candidates) {
+      const action = JSON.parse(String(candidate.payload)).actions?.[0]
+      if (!action || action.t !== 'item.rollover') continue
+      if (action.from?.periodKey?.horizon !== from.horizon || action.from?.periodKey?.startDate !== from.startDate) continue
+      if (action.to?.horizon !== to.horizon || action.to?.startDate !== to.startDate) continue
+      const opId = String(candidate.opId)
+      const state = String(candidate.state)
+      if (state === 'never_sent') {
+        db.prepare(`UPDATE sync_ops SET state='reverted_local', updatedAt=? WHERE opId=? AND state='never_sent'`).run(at, opId)
+      } else if (state === 'send_unknown' || state === 'accepted' || state === 'applied') {
+        const revertId = uuidv5(`revert:${opId}`, undoId)
+        if (!db.prepare('SELECT 1 FROM sync_ops WHERE opId=?').get(revertId)) {
+          insertOp(db, { v: 1, opId: revertId, deviceId: deviceId(db), at, actions: [{ t: 'revert', targetOpId: opId, mode: 'all_or_nothing' }] })
+        }
+      }
+    }
+  }
+}
+
+function periodKey(db: DatabaseSync, periodId: string | null): { horizon: string; startDate: string } | null {
+  if (!periodId) return null
+  const row = db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(periodId)
+  return row ? { horizon: String(row.horizon), startDate: String(row.startDate) } : null
 }
 
 function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect[]; before: Map<string, BeforeItem> }): Action[] {
@@ -88,7 +129,7 @@ function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect
     if (effect.kind === 'create') actions.push(...createActions(db, effect.itemId, effect.initialRelations))
     if (effect.kind === 'description') actions.push({ t: 'item.set', id: effect.itemId, fields: { description: effect.after } })
     if (effect.kind === 'status') actions.push({ t: 'item.status', id: effect.itemId, status: effect.after.status, completedAt: effect.after.completedAt, cancelledAt: effect.after.cancelledAt })
-    if (effect.kind === 'position') actions.push(placeAction(db, effect.itemId, effect.after.horizon, effect.after.periodId, effect.after.previousId, effect.after.nextId, 'move'))
+    if (effect.kind === 'position') actions.push(placeAction(db, effect.itemId, effect.after.horizon, effect.after.periodId, effect.after.previousId, effect.after.nextId, input.command.type === 'arrangeBacklog' || input.command.type === 'materializeParentOrder' ? 'arrange' : 'move'))
     if (effect.kind === 'archive') actions.push({ t: 'item.archive', id: effect.itemId, archivedAt: effect.after })
     if (effect.kind === 'visibility' && effect.after.deletedAt) {
       const before = input.before.get(effect.itemId)

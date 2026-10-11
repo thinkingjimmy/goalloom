@@ -18,4 +18,4 @@ SHA-1 is used only for UUIDv5 (RFC 4122) via `@noble/hashes/legacy.js`. It is no
 
 Pinned vectors (`packages/crypto/test/vectors.json`): RFC 8032 Ed25519 test 1, RFC 7748 X25519, RFC 5869 HKDF-SHA256 case 1, the draft XChaCha20-Poly1305 key/nonce/aad, and the C1–C4 fixtures generated from those seeds. They were checked on Node in this VM. They were not checked on Hermes iOS or Hermes Android.
 
-Server `_ed25519_verify` rejects every signature until a verifier is installed. The SQL suite's sha256 oracle is test-only and is not the production verifier.
+Server `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` and fails closed when pgsodium is missing. `supabase/tests/0001_core.test.sql` checks one noble Ed25519 fixture against that function. This VM did not execute it on the hosted project.
