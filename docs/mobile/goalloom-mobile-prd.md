@@ -745,7 +745,11 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 | 验证一条 3 版的名单链 | 2.7 ms | 约 15–55 ms |
 | 恢复短语 → 密钥对（HKDF） | 0.9 ms | 约 5–20 ms |
 | 对比：scrypt N=2^15 / argon2id t=2、m=19MiB | 68.2 / 119 ms | 约 0.7–1.4 / 1.2–2.4 秒（v1 不使用） |
-- 结论：常见的 1KB op 和名单操作在手机上也够快；**64KB 的大 op 和 25MB 快照在手机上可能要几秒**，所以必须分批执行、放在后台并显示进度（与 8.3.1 的分批策略一致）。P0.6c 用真机实测后再决定要不要给 XChaCha 换原生实现。
+- 结论：常见的 1KB op 和名单操作在手机上也够快；**64KB 的大 op 和 25MB 快照在手机上可能要几秒**，所以必须分批执行、放在后台并显示进度（与 8.3.1 的分批策略一致）。P0.6c 用真机实测后再决定要不要给 XChaCha 换原生实现。上表的 Hermes 列仍是推测。
+
+**2026-10-11 补充实测**（还不是 9.7 的大批量基准，不勾选 P0.6c / P0.7）：
+- Hermes，Expo Go，iPhone 16 模拟器：`apps/mobile` 的 pinned vectors 通过，559ms；reference rebuild 通过，68ms。
+- Node，MacBook Pro M3 Max：`tests/crypto/constructs.test.ts`、`tests/sync/phase0.test.ts`、`tests/sync/adversarial.test.ts` 共 22/22 通过。
 
 ## 10. 各页面 UX（v1.1 修订）
 
@@ -867,9 +871,9 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 - [ ] **P0.6b `packages/crypto/` 正式实现**
   - 做什么：把 spike 移植成 TS 模块（`wrap.ts`、`roster.ts`、`recovery.ts`、`op.ts`、`stream.ts`、`random.ts`），锁定版本 `@noble/curves@2.4.0`、`@noble/ciphers@2.4.0`、`@noble/hashes@2.4.0`、`@scure/bip39@2.4.0`（`pnpm add -E`）；补上固定的测试向量（`packages/crypto/test/vectors.json`，保证两端字节级一致）。
   - 验收：`pnpm -F crypto test` 覆盖 9.7 的 24 项；同一组向量在 Node 和 Hermes 上的输出一致。
-- [ ] **P0.6c Hermes 真机基准**：在 `apps/proto-mobile` 里加 expo-crypto 的 polyfill，在中端安卓机和 iPhone 上跑 9.7 的基准。
+- [ ] **P0.6c Hermes 真机基准**：在 `apps/proto-mobile` 里加 expo-crypto 的 polyfill，在中端安卓机和 iPhone 上跑 9.7 的基准。2026-10-11 已在 iPhone 16 模拟器（Expo Go）跑通 pinned vectors（559ms）和 reference rebuild（68ms）；9.7 的 64KB×1000 与 25MB 快照仍未测，本项不勾选。
   - 验收：记录实测值，替换 9.7 中的推测值；如果 64KB 的 op ×1000 超过 5 秒，或者 25MB 快照解密超过 5 秒，就评估原生实现。**注意（v1.3 更正）**：普通的 ChaCha20-Poly1305（IETF，96 位 nonce）**不能直接替换** XChaCha20-Poly1305（192 位 nonce）。原生方案必须是真正的 XChaCha20-Poly1305，或者用 `HChaCha20(key, nonce[0..16])` 派生子密钥、以 `0x00000000‖nonce[16..24]` 作 12 字节 nonce 调用 IETF ChaCha20-Poly1305（这就是 XChaCha 的定义，draft-irtf-cfrg-xchacha）。无论哪种都要用 `packages/crypto/test/vectors.json`（含 draft-irtf-cfrg-xchacha 的官方向量和我们自己的 C1–C4 向量）在 Node、Hermes(iOS)、Hermes(Android) 三端逐字节比对。
-- [ ] **P0.7 最小双端原型**：`apps/proto-mobile`（Expo dev client，只有一个列表页）和桌面端隐藏的 debug 面板
+- [ ] **P0.7 最小双端原型**：`apps/proto-mobile`（Expo dev client，只有一个列表页）和桌面端隐藏的 debug 面板。2026-10-11：iPhone 16 模拟器上的 reference rebuild 为 68ms（见 9.7 补充实测）。六个场景、1000 op 合并和录屏报告仍未做，本项不勾选。
   - 验证 6 个场景：离线编辑、重排序、冲突被拒、崩溃恢复、密钥轮换、从快照加入（含对抗用例 7 和 8）。
   - 同时实测：**在真机上（expo-sqlite）**复测 8.3.1 的数字（Mac 上的 node:sqlite 数据已有）；用真实的 applySyncOp 测合并 1000 个 op 时单批阻塞多久；TenTap 和 Lexical-DOM 编辑器原型。
   - 验收：一段录屏，加一份 `docs/sync/p0-report.md`（包括测量数据，以及根据实测更新后的第 11 节成本和第 14 节工期）。
@@ -971,7 +975,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 - ~~base_* 影子表复制触发器的写法~~：已于 2026-10-11 在 Mac 上实测通过（8.3.1）。**还没验证**：expo-sqlite 真机上的重建耗时，以及走完整 domain 命令和 applySyncOp 时的开销（P0.7）。
 - ~~operations.source 的 CHECK 是否需要放宽~~：v1.3 不再需要（远端 op 只写 canon_*）。
 - 原生 XChaCha20-Poly1305 在 RN 上是否有可用实现（P0.6c）；增量 rebase 的依赖作用域是否完备（以差异校验兜底）。
-- noble 在 Hermes 上的实际性能（P0.6c）；@scure/bip39 的审计状态。
+- noble 在 Hermes 上的大批量性能（P0.6c 的 64KB×1000 与 25MB 快照）仍未测。2026-10-11 已测 iPhone 16 模拟器 pinned vectors 559ms、reference rebuild 68ms，以及 M3 Max 上 Node 22/22（见 9.7）。@scure/bip39 的审计状态仍未核实。
 - **已知风险（v1.4.1 有意接受）：加密构造（C1–C4、名单信任锚、恢复检查点）和实现都不做外部/第三方评审**，只靠内部自审清单、固定跨平台向量和对抗用例；自研构造可能存在内部审查发现不了的缺陷。以后可以补做外部评审（例如有付费用户之后），协议已有 protocolVersion，届时如需修改构造可按版本升级。
 - ~~session_id 能否在 RPC 中读到~~：**已于 2026-10-11 实测关闭**（7.3）。还未核实：手动关联身份的开关名称；登录会话轮换后 rebind 的具体流程。
 - Google 和 Apple 是否会自动关联成同一个用户（P2.1）。
@@ -1030,6 +1034,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.4.1+ | 2026-10-11 | 收费决定（延后）：RevenueCat，桌面/PC 网页支付优先，移动端遵守同一 `sync_entitled`；表出现后读 `entitlements.active`，当前无表故为 true。BILL-1 未勾选。iOS 外部购买规则未核实 |
+| v1.4.1++ | 2026-10-11 | 实测：Hermes（Expo Go，iPhone 16 模拟器）pinned vectors 559ms、reference rebuild 68ms；Node（M3 Max）crypto/sync 22/22。P0.6c 与 P0.7 仍未勾选 |
 | v1.0 | 2026-10-11 | 首版：合并移动端方案和同步设计 |
 | v1.1 | 2026-10-11 | 处理同事评审 P0-01~P0-09：SyncOp、v9 主库、影子重执行、签名名单、恢复公钥、失败分类等；重写第 7、8、9、12、14 节 |
 | v1.1+ | 2026-10-11 | 影子基线 spike 实测（8.3.1），修正重建策略；加密库改为 noble 2.4.0，加密 spike 实测（9.0、9.7） |

@@ -4,9 +4,10 @@
 -- The full text is supabase/LICENSE.
 --
 -- Reset Goalloom rows on the dedicated test project asqyvcnxdltzzfutbbqy.
--- Deletes test auth users (email ending in @goalloom.test) and their cascaded
--- devices, workspaces, ops and receipts. Does not drop schemas, extensions,
--- storage buckets, or any other auth user.
+-- Deletes child rows before devices, then test auth users (email ending in
+-- @goalloom.test). Does not drop schemas, extensions, storage buckets, or any
+-- other auth user. Hosted Storage rejects DELETE on storage.objects; remove
+-- snapshot files with node scripts/supabase-reset.mjs instead.
 --
 --   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/reset.sql
 
@@ -31,16 +32,6 @@ do $$ begin
     delete from public.entitlements e
      using auth.users u
      where e.user_id = u.id and u.email like '%@goalloom.test';
-  end if;
-end $$;
-
-do $$ begin
-  if exists (
-    select 1 from information_schema.tables
-    where table_schema = 'storage' and table_name = 'objects'
-  ) then
-    delete from storage.objects
-     where bucket_id = 'snapshots' and name like 'workspaces/%';
   end if;
 end $$;
 

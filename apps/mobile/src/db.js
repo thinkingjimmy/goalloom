@@ -2,7 +2,12 @@ import * as SQLite from 'expo-sqlite'
 import { shadowStatements, v8Ddl, v9HistoryRewrite, v9SyncDdl } from '@goalloom/schema'
 
 export function openFresh(name) {
-  SQLite.deleteDatabaseSync(name)
+  try {
+    SQLite.deleteDatabaseSync(name)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!message.includes('DatabaseNotFound') && !/not found/i.test(message)) throw error
+  }
   const db = SQLite.openDatabaseSync(name)
   db.execSync('PRAGMA foreign_keys = ON')
   return db

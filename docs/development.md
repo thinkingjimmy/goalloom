@@ -31,7 +31,7 @@ Version 1.6.0 uses schema v9 for new and upgraded workspaces (v8 upgrades in pla
 
 Node >=22.12，包管理器为 pnpm 11.9.0（`packageManager` 锁定，Corepack 可自动启用）；`pnpm install --frozen-lockfile` 安装锁定依赖与 Electron。依赖构建脚本白名单与扁平 `node_modules` 设置见 `pnpm-workspace.yaml`。测试使用 Electron 自带 Node/SQLite，无外部数据库驱动。
 
-日历计算使用锁定 Electron 44.4.4 的原生 Temporal（main、worker 和 renderer）；`@js-temporal/polyfill` 仅提供开发期类型，不进入正式包。领域测试与智能输入评测都使用 Electron 自带 Node；升级 Electron 时须复核原生 Temporal、DST 和三个月锚点行为。
+日历计算使用锁定 Electron 44.4.4 的原生 Temporal（main、worker 和 renderer）；`@js-temporal/polyfill` 仅提供开发期类型，不进入正式包。领域测试与智能输入评测都使用 Electron 自带 Node；升级 Electron 时须复核原生 Temporal、DST 和三个月锚点行为。Vitest 的入口是 `pnpm test`（`node scripts/test.mjs`，用 Electron 的 Node 启动）。不要用 `npx vitest` 或 `pnpm exec vitest`：系统 Node 没有原生 Temporal，日历测试会失败。`tests/setup-temporal.ts` 在缺少 Temporal 时直接说明这一点。
 
 ```sh
 pnpm dev                  # Electron preview; watches main/preload and hot-reloads the renderer

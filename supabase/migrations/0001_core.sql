@@ -86,7 +86,7 @@ create table public.device_roster (
   version int not null,
   roster jsonb not null,
   signer_type text not null check (signer_type in ('device', 'recovery')),
-  signer_device uuid references public.devices,
+  signer_device uuid references public.devices on delete cascade,
   prev_hash text,
   body_hash text not null,
   signature bytea not null,
@@ -101,7 +101,7 @@ create table public.key_envelopes (
   recipient text not null,
   ciphertext bytea not null,
   signer_type text not null check (signer_type in ('device', 'recovery')),
-  signer_device uuid references public.devices,
+  signer_device uuid references public.devices on delete cascade,
   roster_version int not null,
   signature bytea not null,
   created_at timestamptz default now(),
@@ -111,10 +111,10 @@ create table public.key_envelopes (
 create table public.pairing_requests (
   id uuid primary key,
   workspace_id uuid references public.workspaces on delete cascade,
-  new_device uuid references public.devices,
+  new_device uuid references public.devices on delete cascade,
   nonce bytea not null,
   expires_at timestamptz not null,
-  approved_by uuid references public.devices,
+  approved_by uuid references public.devices on delete cascade,
   consumed_at timestamptz
 );
 
@@ -122,7 +122,7 @@ create table public.ops (
   workspace_id uuid not null references public.workspaces on delete cascade,
   seq bigint not null,
   op_id uuid not null,
-  device_id uuid not null references public.devices,
+  device_id uuid not null references public.devices on delete cascade,
   payload_hash text not null,
   format_version int not null,
   key_epoch int not null,
@@ -135,7 +135,7 @@ create table public.ops (
 create table public.recovery_challenges (
   id uuid primary key,
   workspace_id uuid references public.workspaces on delete cascade,
-  device_id uuid references public.devices,
+  device_id uuid references public.devices on delete cascade,
   nonce bytea not null,
   roster_version int not null,
   expires_at timestamptz not null,
@@ -147,7 +147,7 @@ create table public.recovery_checkpoints (
   cp_version int not null,
   body jsonb not null,
   rec_sig bytea not null,
-  dev_signer uuid references public.devices,
+  dev_signer uuid references public.devices on delete cascade,
   dev_sig bytea not null,
   primary key (workspace_id, cp_version)
 );
@@ -169,7 +169,7 @@ create table public.snapshots (
   sha256 text not null,
   size bigint not null,
   state text not null check (state in ('uploading', 'published', 'retired')),
-  created_by uuid references public.devices,
+  created_by uuid references public.devices on delete cascade,
   created_at timestamptz default now(),
   primary key (workspace_id, upto_seq)
 );
@@ -660,6 +660,8 @@ do $$ begin
     where n.nspname = 'realtime' and c.relname = 'messages'
   ) then
     execute 'drop policy if exists "ws topic read" on realtime.messages';
+    execute 'drop policy if exists "ws topic write" on realtime.messages';
     execute 'create policy "ws topic read" on realtime.messages for select to authenticated using ((select public.realtime_can_read(realtime.topic())))';
+    execute 'create policy "ws topic write" on realtime.messages for insert to authenticated with check ((select public.realtime_can_read(realtime.topic())))';
   end if;
 end $$;

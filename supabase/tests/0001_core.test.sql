@@ -7,9 +7,13 @@
 -- Run with: supabase test db --db-url "$SUPABASE_DB_URL"
 -- or: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0001_core.test.sql
 -- The file rolls back. It does not install a signature oracle.
--- Noble fixture (seed 32 bytes of 0x42, message "goalloom/ed25519-fixture/v1"):
---   pub 2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12
+-- Noble fixtures from scripts/gen-ed25519-fixtures.mjs (seed 32 bytes of 0x42).
+-- Hosted postgres cannot call pgsodium.crypto_sign_new_keypair (42501).
+-- pub 2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12
+-- fixture message "goalloom/ed25519-fixture/v1"
 --   sig 1b7e33e90d42931eee096472cdd462eaca2128375857134671acae886fa12ec804b26b5633f730b1045917702da9ec5446b068c1783196a0907b2c7a057fe10e
+-- recovery message uses nonce 32 bytes of 0x42 and roster hash cd*32
+--   sig 947f9078028932189c32ee444dbc8a81f9297946bb1acca82e80f70cb19aa05084370b8258408c81349dcbc98fd633be5ce369cef2c339ef7a45be03ea3ec60c
 
 set search_path to extensions, public;
 
@@ -220,6 +224,18 @@ select ok(
   'ws topic read policy calls realtime_can_read when realtime.messages exists'
 );
 
+select ok(
+  not exists (
+    select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'realtime' and c.relname = 'messages'
+  ) or exists (
+    select 1 from pg_policies
+    where schemaname = 'realtime' and tablename = 'messages' and policyname = 'ws topic write'
+      and coalesce(with_check, '') like '%realtime_can_read%'
+  ),
+  'ws topic write policy calls realtime_can_read when realtime.messages exists'
+);
+
 do $$
 declare
   v_op uuid := '12121212-1212-4121-8121-121212121212';
@@ -294,27 +310,34 @@ select pass('case 4 signed-out jwt rejected');
 
 select pg_temp.insert_auth_session('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 
+create or replace function public._random_bytes(n integer) returns bytea
+language sql immutable set search_path = '' as $$
+  select decode(repeat('42', n), 'hex')
+$$;
+
 do $$
 declare
-  pub bytea;
-  secret bytea;
+  pub bytea := decode('2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12', 'hex');
+  nonce text := repeat('42', 32);
+  roster_hash text := repeat('cd', 32);
   started jsonb;
   message bytea;
-  sig bytea;
+  sig bytea := decode('947f9078028932189c32ee444dbc8a81f9297946bb1acca82e80f70cb19aa05084370b8258408c81349dcbc98fd633be5ce369cef2c339ef7a45be03ea3ec60c', 'hex');
   challenge uuid;
 begin
-  select kp."public", kp.secret into pub, secret from pgsodium.crypto_sign_new_keypair() as kp;
   update public.device_roster
      set roster = jsonb_build_object('recoverySignPub', encode(pub, 'hex'))
    where workspace_id = 'ffffffff-ffff-4fff-8fff-ffffffffffff' and version = 1;
   started := public.start_recovery('ffffffff-ffff-4fff-8fff-ffffffffffff', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd');
   challenge := (started->>'challengeId')::uuid;
+  if started->>'nonce' is distinct from nonce or started->>'rosterHash' is distinct from roster_hash then
+    raise exception 'case 16 nonce or roster hash drifted: %', started;
+  end if;
   message := convert_to(
     'goalloom/recover/v1|ffffffff-ffff-4fff-8fff-ffffffffffff|dddddddd-dddd-4ddd-8ddd-dddddddddddd|'
-    || (started->>'nonce') || '|' || (started->>'rosterHash'), 'UTF8');
-  sig := pgsodium.crypto_sign_detached(message, secret);
+    || nonce || '|' || roster_hash, 'UTF8');
   if public._ed25519_verify(pub, message, sig) is not true then
-    raise exception 'case 16 pgsodium signature failed the server verifier';
+    raise exception 'case 16 noble fixture failed the server verifier';
   end if;
   begin
     perform public.complete_recovery(

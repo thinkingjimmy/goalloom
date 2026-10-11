@@ -16,6 +16,6 @@ This is the v1.4.1 checklist. It is not a third-party review. Hermes is not in t
 
 SHA-1 is used only for UUIDv5 (RFC 4122) via `@noble/hashes/legacy.js`. It is not a KDF. That module is outside the Cure53 hash audit scope; the roster and checkpoint hashes are SHA-256.
 
-Pinned vectors (`packages/crypto/test/vectors.json`): RFC 8032 Ed25519 test 1, RFC 7748 X25519, RFC 5869 HKDF-SHA256 case 1, the draft XChaCha20-Poly1305 key/nonce/aad, and the C1–C4 fixtures generated from those seeds. They were checked on Node in this VM. They were not checked on Hermes iOS or Hermes Android.
+Pinned vectors (`packages/crypto/test/vectors.json`): RFC 8032 Ed25519 test 1, RFC 7748 X25519, RFC 5869 HKDF-SHA256 case 1, the draft XChaCha20-Poly1305 key/nonce/aad, and the C1–C4 fixtures generated from those seeds. Measured 2026-10-11: Hermes (Expo Go, iPhone 16 simulator) pinned vectors passed in 559ms and the reference rebuild passed in 68ms. Node on an M3 Max passed `tests/crypto/constructs.test.ts`, `tests/sync/phase0.test.ts` and `tests/sync/adversarial.test.ts`, 22/22. Hermes Android is still open.
 
-Server `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` and fails closed when pgsodium is missing. `supabase/tests/0001_core.test.sql` checks one noble Ed25519 fixture against that function. This VM did not execute it on the hosted project.
+Server `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` and fails closed when pgsodium is missing. Hosted Supabase grants that verify function. It does not grant `crypto_sign_new_keypair`. `supabase/tests/0001_core.test.sql` checks noble fixtures from `scripts/gen-ed25519-fixtures.mjs`.

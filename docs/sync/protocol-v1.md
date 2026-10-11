@@ -123,7 +123,7 @@ Unwrap verifies the signature with a caller-supplied trusted public key before d
 
 A recovery join checks the phrase-derived public key, the checkpoint signature, the roster hash pinned by that checkpoint, and a device signature over the same checkpoint bytes. A copied recovery public key fails (cases 15 and 21). `acceptNewerCheckpoint` rejects a lower `cpVersion` and a `prevCpHash` that does not extend the pinned checkpoint.
 
-Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` on the raw message bytes (the same single hash noble's `ed25519.sign` / `ed25519.verify` apply). A missing pgsodium function raises `42501`. The pgTAP file checks a fixed noble vector and a pgsodium-generated recovery signature. Commands are in `supabase/README.md`.
+Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` on the raw message bytes (the same single hash noble's `ed25519.sign` / `ed25519.verify` apply). A missing pgsodium function raises `42501`. On hosted Supabase that verify function is granted; `crypto_sign_new_keypair` is not. The pgTAP file checks noble fixtures from `scripts/gen-ed25519-fixtures.mjs`. Commands are in `supabase/README.md`.
 
 `public.sync_entitled(uuid)` is the only billing hook. `push_ops` and `pull_ops` call it with `auth.uid()` and reject with `42501` when it is false. The shipped body returns true because `public.entitlements` does not exist yet. When that table exists, the function reads `active` for the Supabase user id and treats a missing row as not entitled. Paid sync is RevenueCat later (web billing first); there is no payment code.
 
@@ -146,7 +146,7 @@ Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls 
 - `item.discardIfEmpty` cannot observe a stored empty title. The items CHECK requires a trimmed title of 1–500 characters. The predicate matches the domain empty-card rule.
 - P0 snapshots are canonical JSON inside C4. zstd is not applied.
 - `Store.summaries` still uses SQLite functions. `item_signals` is P1.2.
-- `_ed25519_verify` uses pgsodium. This VM did not run it against the hosted project. `supabase/README.md` has the push, pgTAP, reset and Node commands. There is no local Docker database and no sha256 oracle.
+- `_ed25519_verify` uses pgsodium verify. Hosted postgres cannot call `crypto_sign_new_keypair`. Tests use noble fixtures. `supabase/README.md` has the push, pgTAP, reset and Node commands. There is no local Docker database and no sha256 oracle.
 - Realtime broadcasts are written to `control_events`. A `realtime.send` failure does not roll back an accepted push.
 - `snapshot-url` signs a Storage URL only after `snapshot_access` accepts the caller. It refuses when its runtime secrets are missing and does not embed a service key.
 - `apps/mobile` is the Hermes runner. It was not executed here (no iOS simulator). P0.6b, P0.6c and P0.7 stay open.

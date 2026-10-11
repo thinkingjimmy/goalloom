@@ -1,10 +1,17 @@
 /**
  * Hosted Realtime, Storage and JWT checks for project asqyvcnxdltzzfutbbqy.
  * Reads SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY.
+ * Requires Node.js 22 or newer for the global WebSocket (package.json engines).
  * Creates and deletes its own @goalloom.test user. Does not print secrets.
  */
 import { randomBytes, randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
+import { deleteUserData } from './supabase-reset.mjs'
+
+if (typeof WebSocket === 'undefined') {
+  console.error('This script needs a global WebSocket. Use Node.js 22 or newer (`package.json` engines).')
+  process.exit(1)
+}
 
 const url = process.env.SUPABASE_URL
 const anonKey = process.env.SUPABASE_ANON_KEY
@@ -123,6 +130,13 @@ try {
   }
   const foreign = await edge('workspaces/other/1.bin', 'download')
   check('snapshot-url rejects a foreign path', foreign.status === 403, String(foreign.status))
+  const missing = await edge(objectPath, 'download')
+  check('snapshot-url returns 404 when the object is missing', missing.status === 404, `${missing.status} ${missing.body.slice(0, 180)}`)
+  const uploaded = await service.storage.from('snapshots').upload(objectPath, new Uint8Array([1, 2, 3]), {
+    contentType: 'application/octet-stream',
+    upsert: true,
+  })
+  check('storage upload writes the snapshot object', !uploaded.error, uploaded.error?.message ?? '')
   const download = await edge(objectPath, 'download')
   let downloadUrl = ''
   try { downloadUrl = JSON.parse(download.body).signedUrl ?? '' } catch { downloadUrl = '' }
@@ -134,7 +148,7 @@ try {
 
   const topic = `ws:${workspaceId}`
   const seen = []
-  const channel = user.channel(topic, { config: { private: true } })
+  const channel = user.channel(topic, { config: { private: true, broadcast: { self: true, ack: true } } })
   channel.on('broadcast', { event: 'head' }, payload => seen.push(payload))
   const joined = await subscribe(channel, 8000)
   check('realtime subscribe', joined === 'SUBSCRIBED', joined)
@@ -163,6 +177,10 @@ try {
   check('script', false, error instanceof Error ? error.message : String(error))
 } finally {
   if (userId) {
+    await service.storage.from('snapshots').remove([objectPath]).catch(() => {})
+    await deleteUserData(service, userId).catch(error => {
+      console.error(`row cleanup failed for ${email}: ${error instanceof Error ? error.message : error}`)
+    })
     await admin(`/auth/v1/admin/users/${userId}`, { method: 'DELETE' }).catch(error => {
       console.error(`cleanup failed for ${email}: ${error instanceof Error ? error.message : error}`)
     })

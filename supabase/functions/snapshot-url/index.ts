@@ -33,7 +33,12 @@ Deno.serve(async (request: Request) => {
     headers: { authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'content-type': 'application/json' },
     body: JSON.stringify({ expiresIn }),
   })
-  if (!signed.ok) return new Response('storage signing failed', { status: 502 })
+  if (!signed.ok) {
+    const detail = await signed.text()
+    const missing = signed.status === 404 || /not found|not_found/i.test(detail)
+    if (method === 'download' && missing) return new Response('object not found', { status: 404 })
+    return new Response('storage signing failed', { status: 502 })
+  }
   const payload = await signed.json() as { signedURL?: string; signedUrl?: string; url?: string }
   const token = payload.signedURL ?? payload.signedUrl ?? payload.url
   if (!token) return new Response('storage did not return a signed url', { status: 502 })
