@@ -125,7 +125,7 @@ A recovery join checks the phrase-derived public key, the checkpoint signature, 
 
 Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` on the raw message bytes (the same single hash noble's `ed25519.sign` / `ed25519.verify` apply). A missing pgsodium function raises `42501`. The pgTAP file checks a fixed noble vector and a pgsodium-generated recovery signature. Commands are in `supabase/README.md`.
 
-`public.sync_entitled(uuid)` is the only billing hook. `push_ops` and `pull_ops` call it with `auth.uid()` and reject with `42501` when it is false. The shipped body returns true. Paid sync replaces that body; there is no payment code.
+`public.sync_entitled(uuid)` is the only billing hook. `push_ops` and `pull_ops` call it with `auth.uid()` and reject with `42501` when it is false. The shipped body returns true because `public.entitlements` does not exist yet. When that table exists, the function reads `active` for the Supabase user id and treats a missing row as not entitled. Paid sync is RevenueCat later (web billing first); there is no payment code.
 
 ## Test index
 

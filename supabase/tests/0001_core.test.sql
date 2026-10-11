@@ -355,7 +355,20 @@ begin
 end $$;
 select pass('stale epoch allocates no seq');
 
-select is(public.sync_entitled('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), true, 'dev entitlement is open');
+select is(public.sync_entitled('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), true, 'entitlement is open while public.entitlements is absent');
+
+create table public.entitlements (
+  user_id uuid primary key,
+  active boolean not null
+);
+select is(public.sync_entitled('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), false, 'missing entitlements row is not entitled');
+insert into public.entitlements(user_id, active)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
+select is(public.sync_entitled('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), true, 'active entitlement');
+update public.entitlements set active = false
+ where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+select is(public.sync_entitled('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), false, 'inactive entitlement');
+drop table public.entitlements;
 
 create or replace function public.sync_entitled(p_user uuid) returns boolean
 language sql stable security definer set search_path = '' as $$ select false $$;

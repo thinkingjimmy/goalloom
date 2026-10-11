@@ -27,6 +27,14 @@ delete from public.workspaces;
 delete from public.devices;
 
 do $$ begin
+  if pg_catalog.to_regclass('public.entitlements') is not null then
+    delete from public.entitlements e
+     using auth.users u
+     where e.user_id = u.id and u.email like '%@goalloom.test';
+  end if;
+end $$;
+
+do $$ begin
   if exists (
     select 1 from information_schema.tables
     where table_schema = 'storage' and table_name = 'objects'

@@ -280,16 +280,29 @@ begin
   update public.devices set status = 'authorized' where id = p_device and status in ('registered', 'pending');
 end $$;
 
--- The only billing hook. The desktop and mobile clients stay free. Paid sync
--- replaces this body later; there is no payment integration in this migration.
--- p_user is auth.uid() from push_ops and pull_ops. Dev and test ignore it and
--- return true. Do not add a second entitlement check.
+-- The only billing hook. push_ops and pull_ops call it with auth.uid().
+-- Do not add a second entitlement check, and do not put payment code here.
+-- RevenueCat will set app_user_id to the Supabase user id. Its webhook upserts
+-- public.entitlements (user_id uuid primary key, active boolean not null).
+-- That table is not created yet. While it is absent this function returns true.
+-- Once it exists, sync is allowed only when that user's active flag is true.
+-- A missing row is not entitled. The later migration must revoke direct access
+-- to the table from public, anon and authenticated; only this function reads it.
 create or replace function public.sync_entitled(p_user uuid) returns boolean
 language plpgsql stable security definer set search_path = '' as $$
+declare
+  entitled boolean;
 begin
-  -- Read p_user so the billing signature stays part of the body.
-  if p_user is null then return true; end if;
-  return true;
+  if pg_catalog.to_regclass('public.entitlements') is null then
+    return true;
+  end if;
+  if p_user is null then
+    return false;
+  end if;
+  execute 'select e.active from public.entitlements e where e.user_id = $1'
+    into entitled
+    using p_user;
+  return coalesce(entitled, false);
 end $$;
 
 create or replace function public.push_ops(p_workspace uuid, p_device uuid, p_generation uuid, p_ops jsonb)

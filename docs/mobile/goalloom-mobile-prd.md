@@ -34,6 +34,7 @@
   - 自动顺延按"每个 item 的一次迁移"生成确定性 opId。
   - v1 的富文本整段后写胜出。
 - **AI**：用户自带 Key，存在 secure-store。托管代理以后再做，而且**不在端到端加密的承诺范围内**。
+- **收费**【决策，延后实现】：以后用 RevenueCat。桌面和 PC 先走网页支付；移动端只遵守服务端已有资格。`sync_entitled` 在 `public.entitlements` 出现之前返回 true。见第 15 节，待办 BILL-1 未勾选。
 - 不考虑中国大陆。
 
 ### 0.1 本版已关闭的核实项【实证 @dd29236】
@@ -337,6 +338,8 @@ create table public.op_blobs (                  -- 大 payload 拆分出来的�
   workspace_id uuid references public.workspaces on delete cascade, blob_id uuid primary key, object_path text not null,
   sha256 text not null, size bigint not null check (size <= 2097152));
 ```
+`public.entitlements` 现在不建。收费决定见第 15 节：RevenueCat 的 webhook 以后按 Supabase 用户 id 写入该表，`sync_entitled` 只读 `active`。表不存在时函数返回 true。
+
 **权限模型【决策】**
 - **所有表都开启 RLS，而且不给 anon 和 authenticated 授予任何直接的 select/insert/update 权限。**
 - 所有读写只能通过 security definer RPC（`set search_path = ''`）进行。函数的执行权限是 `revoke execute ... from public, anon; grant execute ... to authenticated`。
@@ -928,16 +931,30 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 - [ ] **P6.2** 配置 `eas.json`，runtimeVersion 策略；在 TestFlight 和 Play 封闭测试中运行；完成隐私政策（按第 11 节逐项列出元数据）和隐私标签。
 - [ ] **P6.3** 桌面端发布 1.8（v9 加同步），移动端 1.0 公测；灰度两周没有 P0 级问题。
 
+### 延后：同步收费（不计入 P0–P6）
+- [ ] **BILL-1** 按第 15 节收费决定接入 RevenueCat。当前不实现支付、webhook 或 `entitlements` 表。桌面和 PC 先用网页支付。`app_user_id` 使用 Supabase 用户 id。Webhook 更新 `public.entitlements`（`user_id uuid` 主键，`active boolean not null`），`sync_entitled` 读取 `active`。移动端不另开购买，只遵守这一处服务端资格。上线前核实 iOS 外部购买和多平台服务规则（第 16 节）。
+  - 验收：表不存在时 `sync_entitled` 为 true；`active = false` 或没有对应行时 push/pull 返回 42501；`active = true` 后恢复。客户端没有第二处资格判断。
+
 **工期**：P0 是 3–4 周（硬性前置）。P1–P6 估算约 17–24 周，**在 P0.8 评审之后重新估算**。
 ## 15. 产品开放问题（协议阻塞项见第 17 节的 P0 评审清单）
 1. 每个账号一个工作区还是多个（本文默认一个），v1 是否不做共享。
-2. 同步服务以后收费，当前不做支付集成。唯一接入口是 `public.sync_entitled(user_id)`（`push_ops` / `pull_ops` 调用，开发与测试恒为 true）。op 保留天数 R 仍默认 30 天，尚未冻结。
+2. op 保留天数 R 仍默认 30 天，尚未冻结。
 3. Supabase 项目的区域。
 4. 是否加购 PITR（价格未核实）。
 5. 移动端的 bundle id 和应用名称。
 6. 跨设备提醒是否放进 v1.1。
 
 已在 v1.1 关闭的事项：重放路线（采用 SyncOp，状态重放路线 B 已删除）、同步表放哪里（v9 主库）、基线机制（影子重执行）、恢复架构（恢复公钥）、设备信任（签名名单）、"查看恢复密钥"（取消，改为重新生成）、SQLCipher（v1 不用）、撤销设备的方式（四个通道加轮换；signOut 只是辅助）。
+
+### 收费（2026-10-11 决定，延后实现）
+
+同步服务以后收费。现在不接支付，不建 `public.entitlements`，也不接 RevenueCat。唯一资格入口仍是 `public.sync_entitled(user_id)`：`push_ops` 和 `pull_ops` 用 `auth.uid()` 调用它，为 false 时返回 42501。
+
+- 付款走 RevenueCat。桌面和 PC 先做网页支付，避开应用商店抽成。
+- 移动端不单独售卖，只遵守服务端已有资格。iOS 外部购买和多平台服务规则上线前必须核实（第 16 节）；核实完成前不在移动端引导外部购买。
+- RevenueCat 的 `app_user_id` 等于 Supabase 用户 id（`auth.users.id`）。
+- Webhook 更新 `public.entitlements`（`user_id uuid` 主键，`active boolean not null`）。`sync_entitled` 只读 `active`。表不存在时返回 true。表存在后，没有行或 `active = false` 都拒绝同步；`active = true` 才允许。
+- 对应待办是第 14 节的 BILL-1，保持未勾选。op 保留天数 R 仍是本节第 2 条的开放问题。
 
 ### 许可证（2026-10-11 决定）
 
@@ -958,6 +975,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 - **已知风险（v1.4.1 有意接受）：加密构造（C1–C4、名单信任锚、恢复检查点）和实现都不做外部/第三方评审**，只靠内部自审清单、固定跨平台向量和对抗用例；自研构造可能存在内部审查发现不了的缺陷。以后可以补做外部评审（例如有付费用户之后），协议已有 protocolVersion，届时如需修改构造可按版本升级。
 - ~~session_id 能否在 RPC 中读到~~：**已于 2026-10-11 实测关闭**（7.3）。还未核实：手动关联身份的开关名称；登录会话轮换后 rebind 的具体流程。
 - Google 和 Apple 是否会自动关联成同一个用户（P2.1）。
+- iOS 外部购买与多平台服务（App Store）规则尚未核实。收费上线前必须确认移动端能否只解锁已在网页购买的同步资格，以及应用内能否、如何提示网页购买。见第 15 节收费决定和 BILL-1。
 - Expo 当前支持的最低 Android 版本；Play 新开发者账号封闭测试的具体要求；PITR 的价格。
 
 ## 17. 评审意见处理记录（对照 main@dd29236 和官方文档核实）
@@ -1011,6 +1029,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 ## 18. 变更记录
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.4.1+ | 2026-10-11 | 收费决定（延后）：RevenueCat，桌面/PC 网页支付优先，移动端遵守同一 `sync_entitled`；表出现后读 `entitlements.active`，当前无表故为 true。BILL-1 未勾选。iOS 外部购买规则未核实 |
 | v1.0 | 2026-10-11 | 首版：合并移动端方案和同步设计 |
 | v1.1 | 2026-10-11 | 处理同事评审 P0-01~P0-09：SyncOp、v9 主库、影子重执行、签名名单、恢复公钥、失败分类等；重写第 7、8、9、12、14 节 |
 | v1.1+ | 2026-10-11 | 影子基线 spike 实测（8.3.1），修正重建策略；加密库改为 noble 2.4.0，加密 spike 实测（9.0、9.7） |

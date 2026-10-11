@@ -2,7 +2,7 @@
 
 The desktop and mobile clients, and the shared packages under `packages/`, stay MIT ([`LICENSE`](../LICENSE)). Everything in this directory is GNU AGPL-3.0-only ([`LICENSE`](./LICENSE)): migrations, RPCs, Edge Functions, pgTAP, `reset.sql`, and `config.toml`. Client packages do not import this tree.
 
-The sync service will be paid later. This tree has no payment integration. `public.sync_entitled(uuid)` in `supabase/migrations/0001_core.sql` is the only billing hook: `push_ops` and `pull_ops` call it with `auth.uid()`, and the function returns true for dev and test. A later billing change replaces that function body and nothing else.
+The sync service will be paid later through RevenueCat. This tree has no payment integration and no `public.entitlements` table. `public.sync_entitled(uuid)` in `supabase/migrations/0001_core.sql` is the only billing hook: `push_ops` and `pull_ops` call it with `auth.uid()`. While that table is absent the function returns true. After a webhook creates it, the function allows sync only when `entitlements.active` is true for that Supabase user id (`RevenueCat app_user_id`). Desktop and PC web billing comes first. Mobile apps use the same server entitlement. iOS external-purchase and multiplatform rules are unverified and have to be checked before launch.
 
 Security of the hosted service is end-to-end encryption plus secrets kept in the environment. Hiding this source is not a control. Do not commit database URLs, anon keys, service-role keys, or access tokens. The project ref below names the dev project; it is not a credential.
 
