@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Jimmy Wong
+// SPDX-License-Identifier: AGPL-3.0-only
+// Licensed under the GNU Affero General Public License v3.0 only. See supabase/LICENSE.
+//
 // Signs a Storage URL only after snapshot_access accepts the device, workspace and path.
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY come from the function runtime. Do not commit them.
 // Upload URLs use the Storage upload-sign endpoint (host-enforced expiry, requested 7200s).

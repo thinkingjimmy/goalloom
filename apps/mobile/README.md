@@ -18,3 +18,5 @@ pnpm android
 ```
 
 Do not install these dependencies from the repository root. A root install would hoist React Native next to the desktop app.
+
+This app is MIT (`"license": "MIT"` in `package.json`). It loads the MIT packages under `packages/` and does not import `supabase/`.

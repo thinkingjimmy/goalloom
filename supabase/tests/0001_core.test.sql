@@ -1,3 +1,8 @@
+-- Copyright (C) 2026 Jimmy Wong
+-- SPDX-License-Identifier: AGPL-3.0-only
+-- Licensed under the GNU Affero General Public License v3.0 only.
+-- The full text is supabase/LICENSE.
+--
 -- pgTAP for cases 1, 4, 16 and 17 on a hosted project.
 -- Run with: supabase test db --db-url "$SUPABASE_DB_URL"
 -- or: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0001_core.test.sql

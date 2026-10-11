@@ -1,6 +1,8 @@
 # Hosted Supabase (phase 0)
 
-The desktop and mobile clients are free and open source. The sync service will be paid later. This tree has no payment integration. `public.sync_entitled(uuid)` in `supabase/migrations/0001_core.sql` is the only billing hook: `push_ops` and `pull_ops` call it with `auth.uid()`, and the function returns true for dev and test. A later billing change replaces that function body and nothing else.
+The desktop and mobile clients, and the shared packages under `packages/`, stay MIT ([`LICENSE`](../LICENSE)). Everything in this directory is GNU AGPL-3.0-only ([`LICENSE`](./LICENSE)): migrations, RPCs, Edge Functions, pgTAP, `reset.sql`, and `config.toml`. Client packages do not import this tree.
+
+The sync service will be paid later. This tree has no payment integration. `public.sync_entitled(uuid)` in `supabase/migrations/0001_core.sql` is the only billing hook: `push_ops` and `pull_ops` call it with `auth.uid()`, and the function returns true for dev and test. A later billing change replaces that function body and nothing else.
 
 Security of the hosted service is end-to-end encryption plus secrets kept in the environment. Hiding this source is not a control. Do not commit database URLs, anon keys, service-role keys, or access tokens. The project ref below names the dev project; it is not a credential.
 
@@ -92,3 +94,12 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/reset.sql
 ```
 
 Run it when a Node run was killed before its `finally`, or before a clean pgTAP pass on a database that already has leftover rows. pgTAP itself rolls back.
+
+## License
+
+| Path | License |
+|---|---|
+| `src/`, `apps/mobile`, `packages/contracts`, `packages/crypto`, `packages/schema`, `packages/store-core`, `packages/sync`, `tests/`, `scripts/` (including `scripts/supabase-remote.mjs` and `scripts/pg-sync-test.mjs`), `website/`, `docs/`, root [`LICENSE`](../LICENSE) | MIT |
+| This directory: migrations, RPCs, Edge Functions, pgTAP, `reset.sql`, `config.toml`, this README, [`LICENSE`](./LICENSE) | AGPL-3.0-only |
+
+`@goalloom/contracts`, `@goalloom/crypto`, `@goalloom/schema`, `@goalloom/store-core`, and `@goalloom/sync` declare `"license": "MIT"` and depend only on each other plus pinned libraries (`zod`, `@noble/*`, `@scure/bip39`). Their sources do not import `supabase/`.

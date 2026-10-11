@@ -95,4 +95,13 @@ The [development guide](./docs/development.md) (Chinese) covers the full test su
 
 Please use [GitHub Issues](https://github.com/thinkingjimmy/goalloom/issues) for bugs, feedback and proposals.
 
-Goalloom is available under the [MIT License](./LICENSE).
+# License
+
+The desktop app, the mobile client, and the shared packages are [MIT](./LICENSE). Server-side sync code is [GNU AGPL-3.0-only](./supabase/LICENSE).
+
+| Path | License |
+|---|---|
+| [`LICENSE`](./LICENSE), `src/`, `apps/mobile`, `packages/contracts`, `packages/crypto`, `packages/schema`, `packages/store-core`, `packages/sync`, `tests/`, `scripts/`, `website/`, `docs/` | MIT |
+| [`supabase/`](./supabase/) (migrations, RPCs, Edge Functions, pgTAP, `reset.sql`, `config.toml`, and [`supabase/LICENSE`](./supabase/LICENSE)) | AGPL-3.0-only |
+
+`@goalloom/contracts`, `@goalloom/crypto`, `@goalloom/schema`, `@goalloom/store-core`, and `@goalloom/sync` depend only on each other and their pinned MIT-compatible libraries. Their sources stay under the repository MIT license. `scripts/supabase-remote.mjs` and `scripts/pg-sync-test.mjs` are MIT test clients.

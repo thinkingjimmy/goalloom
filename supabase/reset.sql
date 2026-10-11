@@ -1,3 +1,8 @@
+-- Copyright (C) 2026 Jimmy Wong
+-- SPDX-License-Identifier: AGPL-3.0-only
+-- Licensed under the GNU Affero General Public License v3.0 only.
+-- The full text is supabase/LICENSE.
+--
 -- Reset Goalloom rows on the dedicated test project asqyvcnxdltzzfutbbqy.
 -- Deletes test auth users (email ending in @goalloom.test) and their cascaded
 -- devices, workspaces, ops and receipts. Does not drop schemas, extensions,

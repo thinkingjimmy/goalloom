@@ -1,3 +1,8 @@
+-- Copyright (C) 2026 Jimmy Wong
+-- SPDX-License-Identifier: AGPL-3.0-only
+-- Licensed under the GNU Affero General Public License v3.0 only.
+-- The full text is supabase/LICENSE.
+--
 -- Goalloom sync core. Ciphertext only. Direct table access is revoked for
 -- anon and authenticated. Grants are limited to these objects so a hosted
 -- project can keep unrelated public objects. This file does not embed keys.

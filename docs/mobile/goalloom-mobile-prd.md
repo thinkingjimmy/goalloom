@@ -936,9 +936,19 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 4. 是否加购 PITR（价格未核实）。
 5. 移动端的 bundle id 和应用名称。
 6. 跨设备提醒是否放进 v1.1。
-7. 服务端代码的许可证尚未决定（例如 AGPL，或继续不公开服务端）。客户端保持自由开源。
 
 已在 v1.1 关闭的事项：重放路线（采用 SyncOp，状态重放路线 B 已删除）、同步表放哪里（v9 主库）、基线机制（影子重执行）、恢复架构（恢复公钥）、设备信任（签名名单）、"查看恢复密钥"（取消，改为重新生成）、SQLCipher（v1 不用）、撤销设备的方式（四个通道加轮换；signOut 只是辅助）。
+
+### 许可证（2026-10-11 决定）
+
+客户端与共享包保持 MIT。服务端代码采用 GNU Affero General Public License v3.0 only（SPDX：`AGPL-3.0-only`）。全文在 [`supabase/LICENSE`](../../supabase/LICENSE)。
+
+| 路径 | 许可证 |
+|---|---|
+| 仓库根 [`LICENSE`](../../LICENSE)；桌面端 `src/`；`apps/mobile`；`packages/contracts`、`packages/crypto`、`packages/schema`、`packages/store-core`、`packages/sync`；`tests/`；`scripts/`（含 `scripts/supabase-remote.mjs` 与 `scripts/pg-sync-test.mjs`）；`website/`；`docs/` | MIT |
+| `supabase/` 下全部内容（迁移、RPC、Edge Functions、pgTAP、`reset.sql`、`config.toml`、`supabase/README.md`、`supabase/LICENSE`） | AGPL-3.0-only |
+
+客户端使用的共享包只依赖其他 MIT 包和已固定的库。`packages/*` 与 `apps/mobile` 的源码不引用 `supabase/`。服务端按同一协议实现，客户端包保持独立。
 
 ## 16. 未核实清单
 - ~~base_* 影子表复制触发器的写法~~：已于 2026-10-11 在 Mac 上实测通过（8.3.1）。**还没验证**：expo-sqlite 真机上的重建耗时，以及走完整 domain 命令和 applySyncOp 时的开销（P0.7）。
