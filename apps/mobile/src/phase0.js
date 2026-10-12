@@ -1,11 +1,8 @@
-import { ed25519, x25519 } from '@noble/curves/ed25519.js'
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { hkdf } from '@noble/hashes/hkdf.js'
-import { sha256 } from '@noble/hashes/sha2.js'
 import { randomUUID } from 'expo-crypto'
 import { parseSyncOp, syncOpPayload } from '@goalloom/contracts'
-import { hex, openOp, openSnapshot, sha256Hex, unhex, unwrap, uuidv5 } from '@goalloom/crypto'
+import { parityDigest, parityTranscript, sha256Hex } from '@goalloom/crypto'
 import { mergeRemoteOps, rebuildVisibleFull } from '@goalloom/store-core'
+import { runLocalPrototype } from '@goalloom/sync'
 import vectors from '../../../packages/crypto/test/vectors.json'
 import { expoDriver, host, installV9, openFresh } from './db'
 
@@ -26,21 +23,18 @@ function timed(name, fn) {
 }
 
 function vectorsChecks() {
-  const secret = unhex('9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60')
-  assert(hex(ed25519.getPublicKey(secret)) === 'd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a', 'ed25519 public')
-  assert(hex(ed25519.sign(new Uint8Array(), secret)) === 'e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b', 'ed25519 sign')
-  const alice = unhex('77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a')
-  const bobPub = unhex('de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f')
-  assert(hex(x25519.getSharedSecret(alice, bobPub)) === '4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742', 'x25519')
-  const okm = hkdf(sha256, unhex('0b'.repeat(22)), unhex('000102030405060708090a0b0c'), unhex('f0f1f2f3f4f5f6f7f8f9'), 42)
-  assert(hex(okm) === '3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865', 'hkdf')
-  const x = vectors.xchacha
-  assert(hex(xchacha20poly1305(unhex(x.key), unhex(x.nonce), unhex(x.aad)).encrypt(unhex(x.pt))) === x.ct, 'xchacha')
-  const c1 = vectors.c1
-  assert(hex(unwrap(c1.envelope, { expectedCtx: c1.ctx, recipientId: c1.recipientId, boxSk: unhex(c1.boxSk), senderSignPub: unhex(c1.signPub) })) === c1.pt, 'c1')
-  assert(hex(openOp({ workspaceKey: unhex(vectors.op.key), workspaceId: vectors.op.workspaceId, opId: vectors.op.opId, epoch: vectors.op.epoch, ciphertext: unhex(vectors.op.ct) })) === vectors.op.pt, 'op')
-  assert(hex(openSnapshot({ workspaceKey: unhex(vectors.snap.key), workspaceId: vectors.snap.workspaceId, uptoSeq: vectors.snap.uptoSeq, epoch: vectors.snap.epoch, ciphertext: unhex(vectors.snap.ct) })) === vectors.snap.pt, 'snap')
-  assert(uuidv5('rollover:item:week:2026-09-21@0:week:2026-09-28', '11111111-1111-4111-8111-111111111111') === vectors.uuid, 'uuidv5')
+  const lines = new Set(parityTranscript().split('\n'))
+  assert(lines.has('ed25519.pub d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a'), 'ed25519 public')
+  assert(lines.has('ed25519.sig e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b'), 'ed25519 sign')
+  assert(lines.has('x25519.shared 4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742'), 'x25519')
+  assert(lines.has('hkdf.okm 3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865'), 'hkdf')
+  assert(lines.has(`xchacha.ct ${vectors.xchacha.ct}`), 'xchacha')
+  assert(lines.has(`c1.pt ${vectors.c1.pt}`), 'c1')
+  assert(lines.has(`op.pt ${vectors.op.pt}`), 'op')
+  assert(lines.has(`snap.pt ${vectors.snap.pt}`), 'snap')
+  assert(lines.has(`uuidv5 ${vectors.uuid}`), 'uuidv5')
+  assert([...lines].some(line => line.startsWith('canon ') && line.includes('"title":"offline"')), 'canonical sync op')
+  assert([...lines].some(line => line.startsWith('hash ') && line.length === 69), 'payload hash')
 }
 
 function seed(driver, id, title) {
@@ -80,10 +74,28 @@ function rebuildChecks() {
   db.closeSync()
 }
 
+let protoDb = 0
+
+function openProto() {
+  protoDb += 1
+  const db = openFresh(`phase0-proto-${protoDb}.db`)
+  installV9(db, 'phone', at)
+  return { driver: expoDriver(db), host, close() { db.closeSync() } }
+}
+
 export function runPhase0() {
+  let digest = ''
+  try {
+    digest = parityDigest()
+    console.log(`digest ${digest}`)
+  } catch (error) {
+    digest = error instanceof Error ? error.message : String(error)
+  }
   const rows = [
+    { name: 'parity digest', ok: /^[0-9a-f]{64}$/.test(digest), ms: 0, detail: digest },
     timed('pinned vectors', vectorsChecks),
     timed('reference rebuild', rebuildChecks),
+    ...runLocalPrototype(openProto),
   ]
   for (const row of rows) console.log(`${row.ok ? 'pass' : 'fail'}  ${row.name}  ${row.ms}ms${row.detail ? `  ${row.detail}` : ''}`)
   return rows

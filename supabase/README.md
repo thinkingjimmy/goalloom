@@ -98,6 +98,18 @@ Private channels need the select and insert policies from `0002_cleanup.sql`. A 
 
 The hosted Realtime Settings page does not have a "Broadcast from database" control. `push_ops` calls `realtime.send` on the private topic `ws:<workspace>`. The script checks that a second authorized device receives that head broadcast within 8 seconds. Set **Allow public access to channels** to off. That is the required manual project setting. With it off, an unauthorized client and a subscribe with `private: false` must not reach `SUBSCRIBED`. The head broadcast and those two rejections wait up to 8 seconds each.
 
+## Dual-end prototype
+
+Six scenarios, two Electron SQLite clients, no OAuth. The script creates `p0-proto-<uuid>@goalloom.test` with the admin API and deletes that user afterwards. It needs the same three API variables as `scripts/supabase-remote.mjs`. It does not need `SUPABASE_DB_URL`.
+
+```sh
+pnpm test:phase0
+```
+
+The scenarios are offline edit, reorder, conflict reject, crash recovery, key rotation (`rotate_epoch`, then a stale epoch 1 push, then an epoch 2 push), and snapshot join (signed upload, signed download, install without changing generation). The same six scenarios also run locally inside `pnpm test` (`tests/sync/phase0-prototype.test.ts`) and on the iOS simulator (`apps/mobile/README.md`). The simulator does not receive these keys.
+
+`scripts/phase0-prototype.mjs` and `scripts/parity-digest.mjs` are MIT. They do not import this directory.
+
 ## Reset
 
 Safe only on this dedicated test project. The Node script removes snapshot objects through the Storage API, deletes workspaces before devices, then deletes auth users whose email ends in `@goalloom.test`. It does not drop the database or touch any other user. Hosted Postgres rejects `DELETE` on `storage.objects`.

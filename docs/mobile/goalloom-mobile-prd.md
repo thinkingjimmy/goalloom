@@ -750,6 +750,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 **2026-10-11 补充实测**（还不是 9.7 的大批量基准，不勾选 P0.6c / P0.7）：
 - Hermes，Expo Go，iPhone 16 模拟器：`apps/mobile` 的 pinned vectors 通过，559ms；reference rebuild 通过，68ms。
 - Node，MacBook Pro M3 Max：`tests/crypto/constructs.test.ts`、`tests/sync/phase0.test.ts`、`tests/sync/adversarial.test.ts` 共 22/22 通过。
+- Electron（本仓库 `pnpm test`，2026-10-11 再次跑过）：`parityDigest()` 固定为 `753bccfb53c6ac4625e51184df3033154927e0727c865b4c019a572e4d4cffb1`。摘要覆盖 pinned 向量和两条 SyncOp 的规范化 JSON 与 payloadHash。Hermes 还要用 `pnpm parity:digest <hex>` 对上这一行。64KB×1000 和 25MB 快照仍未在手机上测。
 
 ## 10. 各页面 UX（v1.1 修订）
 
@@ -871,9 +872,9 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 - [ ] **P0.6b `packages/crypto/` 正式实现**
   - 做什么：把 spike 移植成 TS 模块（`wrap.ts`、`roster.ts`、`recovery.ts`、`op.ts`、`stream.ts`、`random.ts`），锁定版本 `@noble/curves@2.4.0`、`@noble/ciphers@2.4.0`、`@noble/hashes@2.4.0`、`@scure/bip39@2.4.0`（`pnpm add -E`）；补上固定的测试向量（`packages/crypto/test/vectors.json`，保证两端字节级一致）。
   - 验收：`pnpm -F crypto test` 覆盖 9.7 的 24 项；同一组向量在 Node 和 Hermes 上的输出一致。
-- [ ] **P0.6c Hermes 真机基准**：在 `apps/proto-mobile` 里加 expo-crypto 的 polyfill，在中端安卓机和 iPhone 上跑 9.7 的基准。2026-10-11 已在 iPhone 16 模拟器（Expo Go）跑通 pinned vectors（559ms）和 reference rebuild（68ms）；9.7 的 64KB×1000 与 25MB 快照仍未测，本项不勾选。
+- [ ] **P0.6c Hermes 真机基准**：在 `apps/mobile` 里用 Hermes 跑 pinned 向量，并和 Node 逐字节比对。2026-10-11：Electron 摘要已固定（见 9.7）；Expo 启动后 Metro 会打印 `digest <hex>`，用 `pnpm parity:digest <hex>` 比对。iPhone 16 模拟器已跑通 pinned vectors（559ms）和 reference rebuild（68ms）。Hermes 摘要、安卓，以及 9.7 的 64KB×1000 与 25MB 快照仍未测，本项不勾选。
   - 验收：记录实测值，替换 9.7 中的推测值；如果 64KB 的 op ×1000 超过 5 秒，或者 25MB 快照解密超过 5 秒，就评估原生实现。**注意（v1.3 更正）**：普通的 ChaCha20-Poly1305（IETF，96 位 nonce）**不能直接替换** XChaCha20-Poly1305（192 位 nonce）。原生方案必须是真正的 XChaCha20-Poly1305，或者用 `HChaCha20(key, nonce[0..16])` 派生子密钥、以 `0x00000000‖nonce[16..24]` 作 12 字节 nonce 调用 IETF ChaCha20-Poly1305（这就是 XChaCha 的定义，draft-irtf-cfrg-xchacha）。无论哪种都要用 `packages/crypto/test/vectors.json`（含 draft-irtf-cfrg-xchacha 的官方向量和我们自己的 C1–C4 向量）在 Node、Hermes(iOS)、Hermes(Android) 三端逐字节比对。
-- [ ] **P0.7 最小双端原型**：`apps/proto-mobile`（Expo dev client，只有一个列表页）和桌面端隐藏的 debug 面板。2026-10-11：iPhone 16 模拟器上的 reference rebuild 为 68ms（见 9.7 补充实测）。六个场景、1000 op 合并和录屏报告仍未做，本项不勾选。
+- [ ] **P0.7 最小双端原型**：`apps/mobile`（Expo Go 列表页）和两个 Electron SQLite 客户端。2026-10-11：六个本地场景在 Electron 上通过（`tests/sync/phase0-prototype.test.ts`，含在 `pnpm test` 里）；同一组场景也编进了 Expo 启动检查。托管跑法是 `pnpm test:phase0`（`SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`，管理员 API 建测试用户，不用 OAuth）。这次没有托管凭据，也没有 iOS 模拟器，所以托管六个场景、Hermes 上的六个场景、1000 op 合并、编辑器原型和录屏仍未做，本项不勾选。
   - 验证 6 个场景：离线编辑、重排序、冲突被拒、崩溃恢复、密钥轮换、从快照加入（含对抗用例 7 和 8）。
   - 同时实测：**在真机上（expo-sqlite）**复测 8.3.1 的数字（Mac 上的 node:sqlite 数据已有）；用真实的 applySyncOp 测合并 1000 个 op 时单批阻塞多久；TenTap 和 Lexical-DOM 编辑器原型。
   - 验收：一段录屏，加一份 `docs/sync/p0-report.md`（包括测量数据，以及根据实测更新后的第 11 节成本和第 14 节工期）。
@@ -1035,6 +1036,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 |---|---|---|
 | v1.4.1+ | 2026-10-11 | 收费决定（延后）：RevenueCat，桌面/PC 网页支付优先，移动端遵守同一 `sync_entitled`；表出现后读 `entitlements.active`，当前无表故为 true。BILL-1 未勾选。iOS 外部购买规则未核实 |
 | v1.4.1++ | 2026-10-11 | 实测：Hermes（Expo Go，iPhone 16 模拟器）pinned vectors 559ms、reference rebuild 68ms；Node（M3 Max）crypto/sync 22/22。P0.6c 与 P0.7 仍未勾选 |
+| v1.4.2 | 2026-10-11 | P0.6c 摘要脚本和 P0.7 本地六场景已进仓库。Electron 摘要 `753bccfb53c6ac4625e51184df3033154927e0727c865b4c019a572e4d4cffb1`。Hermes 比对、托管 `pnpm test:phase0`、安卓、64KB×1000、25MB、1000 op 真机、编辑器原型和录屏仍未做，两项都不勾选 |
 | v1.0 | 2026-10-11 | 首版：合并移动端方案和同步设计 |
 | v1.1 | 2026-10-11 | 处理同事评审 P0-01~P0-09：SyncOp、v9 主库、影子重执行、签名名单、恢复公钥、失败分类等；重写第 7、8、9、12、14 节 |
 | v1.1+ | 2026-10-11 | 影子基线 spike 实测（8.3.1），修正重建策略；加密库改为 noble 2.4.0，加密 spike 实测（9.0、9.7） |

@@ -116,7 +116,7 @@ export default function App() {
       <Text style={styles.title}>Phase 0</Text>
       <Text style={styles.summary}>{rows.length ? `${rows.length - failed}/${rows.length} 通过` : '运行中'}</Text>
       {rows.map(row => (
-        <Text key={row.name} style={row.ok ? styles.pass : styles.fail}>
+        <Text key={row.name} selectable style={row.ok ? styles.pass : styles.fail}>
           {row.ok ? '通过' : '失败'}  {row.name}  {row.ms}ms{row.detail ? `\n${row.detail}` : ''}
         </Text>
       ))}

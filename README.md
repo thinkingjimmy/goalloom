@@ -104,4 +104,4 @@ The desktop app, the mobile client, and the shared packages are [MIT](./LICENSE)
 | [`LICENSE`](./LICENSE), `src/`, `apps/mobile`, `packages/contracts`, `packages/crypto`, `packages/schema`, `packages/store-core`, `packages/sync`, `tests/`, `scripts/`, `website/`, `docs/` | MIT |
 | [`supabase/`](./supabase/) (migrations, RPCs, Edge Functions, pgTAP, `reset.sql`, `config.toml`, and [`supabase/LICENSE`](./supabase/LICENSE)) | AGPL-3.0-only |
 
-`@goalloom/contracts`, `@goalloom/crypto`, `@goalloom/schema`, `@goalloom/store-core`, and `@goalloom/sync` depend only on each other and their pinned MIT-compatible libraries. Their sources stay under the repository MIT license. `scripts/supabase-remote.mjs` and `scripts/pg-sync-test.mjs` are MIT test clients.
+`@goalloom/contracts`, `@goalloom/crypto`, `@goalloom/schema`, `@goalloom/store-core`, and `@goalloom/sync` depend only on each other and their pinned MIT-compatible libraries. Their sources stay under the repository MIT license. `scripts/supabase-remote.mjs`, `scripts/pg-sync-test.mjs`, `scripts/phase0-prototype.mjs` and `scripts/parity-digest.mjs` are MIT test clients.

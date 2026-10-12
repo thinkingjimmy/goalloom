@@ -10,7 +10,22 @@ npx expo start
 xcrun simctl openurl booted exp://127.0.0.1:8081
 ```
 
-`pnpm install` without `--ignore-workspace` attaches this directory to the desktop workspace. `pnpm ios` (`expo start --ios`) asks osascript to open the Simulator and fails when that permission is denied. Start Metro yourself, then open the Expo URL in the already-booted simulator. The simulator does not need a signing team. Hermes is the Expo Go default. The screen and the Metro console print `通过` or `失败` and the elapsed milliseconds for `pinned vectors` and `reference rebuild`.
+`pnpm install` without `--ignore-workspace` attaches this directory to the desktop workspace. `pnpm ios` (`expo start --ios`) asks osascript to open the Simulator and fails when that permission is denied. Start Metro yourself, then open the Expo URL in the already-booted simulator. The simulator does not need a signing team. Hermes is the Expo Go default.
+
+The Metro console prints one machine-comparable line:
+
+```
+digest <64 hex chars>
+```
+
+That digest covers the pinned crypto vectors and two SyncOp canonical-JSON / payload-hash lines. From the repository root, compare it with the Electron result:
+
+```sh
+pnpm parity:digest
+pnpm parity:digest <hex>
+```
+
+`match` and exit 0 means Hermes and Node produced the same bytes. The screen also lists six local scenarios: offline edit, reorder, conflict reject, crash recovery, key rotation, and snapshot join. This app still does not talk to Supabase. The hosted pair of Electron clients is `pnpm test:phase0` from the repository root, with the variables in `supabase/README.md`.
 
 Measured 2026-10-11 on an iPhone 16 simulator (Expo Go): pinned vectors 559ms, reference rebuild 68ms.
 

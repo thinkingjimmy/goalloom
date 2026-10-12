@@ -16,6 +16,8 @@
     "dev": "electron-vite dev --watch",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/test.mjs",
+    "parity:digest": "node scripts/parity-digest.mjs",
+    "test:phase0": "node scripts/phase0-prototype.mjs",
     "test:domain": "node scripts/test.mjs tests/domain",
     "test:integration": "node scripts/test.mjs tests/integration",
     "test:repository": "node scripts/test.mjs tests/integration",

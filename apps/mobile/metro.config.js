@@ -15,6 +15,7 @@ config.resolver.extraNodeModules = {
   '@goalloom/crypto': path.resolve(workspaceRoot, 'packages/crypto'),
   '@goalloom/schema': path.resolve(workspaceRoot, 'packages/schema'),
   '@goalloom/store-core': path.resolve(workspaceRoot, 'packages/store-core'),
+  '@goalloom/sync': path.resolve(workspaceRoot, 'packages/sync'),
 }
 config.resolver.unstable_enablePackageExports = true
 
