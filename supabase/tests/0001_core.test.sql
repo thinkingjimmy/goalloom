@@ -374,7 +374,8 @@ begin
   end;
   perform public.complete_recovery(
     'ffffffff-ffff-4fff-8fff-ffffffffffff', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', challenge, sig,
-    '{"devices":[]}'::jsonb, repeat('ee', 32), decode(repeat('00', 64), 'hex'));
+    '{"devices":[]}'::jsonb, repeat('ee', 32),
+    decode('2bfff60c99fef2811e2f227bf799748f0c989712cf3cbebe2da6a47f7a0b5d44d93bac0a1697c32556c18194762403882ff9155981c84c5885f6eddd21a9b708', 'hex'));
   if (select status from public.devices where id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd') <> 'authorized' then
     raise exception 'case 16 device was not authorized';
   end if;
@@ -435,6 +436,110 @@ do $$ begin
   end;
 end $$;
 select pass('sync_entitled false rejects push and pull');
+
+-- Seeds 0x42 (authorized device) and 0x24 (recovery). Signatures are over
+-- SHA-256(goalloom/roster/v1| + canonical JSON). Keep them in scripts/gen-ed25519-fixtures.mjs.
+do $$
+declare
+  ws uuid := 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+  dev uuid := 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  phone uuid := 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  recovery_pub text := '58936604abda112bc94933569c82f8d0cc0ddf92a3f8329f2f448f7f484a594c';
+  v2 text := '{"devices":[{"boxPub":"22","id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","signPub":"2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12"}],"epoch":1,"prevHash":"1111111111111111111111111111111111111111111111111111111111111111","recoveryBoxPub":"cc","recoverySignPub":"58936604abda112bc94933569c82f8d0cc0ddf92a3f8329f2f448f7f484a594c","version":2,"workspaceId":"ffffffff-ffff-4fff-8fff-ffffffffffff"}';
+  v3 text := '{"devices":[{"boxPub":"22","id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","signPub":"2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12"}],"epoch":2,"prevHash":"2222222222222222222222222222222222222222222222222222222222222222","recoveryBoxPub":"cc","recoverySignPub":"58936604abda112bc94933569c82f8d0cc0ddf92a3f8329f2f448f7f484a594c","version":3,"workspaceId":"ffffffff-ffff-4fff-8fff-ffffffffffff"}';
+  v4 text := '{"devices":[{"boxPub":"22","id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","signPub":"2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12"}],"epoch":2,"prevHash":"3333333333333333333333333333333333333333333333333333333333333333","recoveryBoxPub":"cc","recoverySignPub":"58936604abda112bc94933569c82f8d0cc0ddf92a3f8329f2f448f7f484a594c","version":4,"workspaceId":"ffffffff-ffff-4fff-8fff-ffffffffffff"}';
+  v2_device bytea := decode('c500969e5abd0bf709fe010df3ea6f12b9ff17a49dac66fca7d0fad8b38347c2948933d362dd260ce0d2881a0c32eaaa99526d265f32729e647ff6b2029faf0e', 'hex');
+  v2_recovery bytea := decode('01ff77a97631f0a940e7fa509da27aae3940399ec87d12da24c763d69aaaf7d5dccc6260c761e6adcfaf91b5ecc554178a64bc5e8df88049c15182d643ebae03', 'hex');
+  v3_device bytea := decode('d0b80c9ed46eac5988e2b5847be5d267e69da75987d118d7df53480893e76a34261b41ffb1699d66277a5db66bb43ca7c1d9b7d41661f77ea9c1a419112af908', 'hex');
+  v3_recovery bytea := decode('8532a0845417a69a54870aedd9b5209f85a119da7852542cd188cf90a97e80f5e8ad3de685389cdc083b84f4dcefda39a635a00b55558407c0372fec0acd7607', 'hex');
+  v4_device bytea := decode('033bef9f2d3e561a6a116394ce5bce400778aed4194e41297a534a50b55953afe7db80dd0863799ee29bf775f11096e0433db7b0888968abec9d88862f11410f', 'hex');
+  v4_recovery bytea := decode('22c57f16cc246cfd199949a2dbe7aba7c0be5e726c657a4127b9ca0f94b78e152738b95226112614adbca295ece9094ce635ddcf7f4162fa30d2ed5a07700b0c', 'hex');
+  challenge_sig bytea := decode('3dea9aa8c29eac141008a98ec7f089353d530e9ca0c0ef10564b376d1bd773a860af57e34a430692119a983fc41965f3938037a608f4dfbf0e659a9b46c1ed01', 'hex');
+  started jsonb;
+  challenge uuid;
+begin
+  if public._canonical_json(v2::jsonb) is distinct from v2
+     or public._canonical_json(v3::jsonb) is distinct from v3
+     or public._canonical_json(v4::jsonb) is distinct from v4 then
+    raise exception 'signer fixture is not canonical: %', public._canonical_json(v2::jsonb);
+  end if;
+  delete from public.recovery_challenges where workspace_id = ws;
+  delete from public.device_roster where workspace_id = ws;
+  update public.workspaces set roster_version = 1, key_epoch = 1 where id = ws;
+  update public.devices set status = 'authorized', revoked_at = null,
+    sign_pub = decode('2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12', 'hex')
+   where id = dev;
+  insert into public.device_roster(workspace_id, version, roster, signer_type, signer_device, prev_hash, body_hash, signature)
+  values (ws, 1, jsonb_build_object('recoverySignPub', recovery_pub), 'device', dev, null, repeat('11', 32), decode(repeat('00', 64), 'hex'));
+
+  perform public.commit_roster(ws, dev, 1, repeat('11', 32), v2::jsonb, repeat('22', 32), v2_device, 'device');
+  if (select roster_version from public.workspaces where id = ws) <> 2 then
+    raise exception 'commit_roster valid did not advance';
+  end if;
+  begin
+    perform public.commit_roster(ws, dev, 2, repeat('22', 32), v3::jsonb, repeat('33', 32), set_byte(v3_device, 0, get_byte(v3_device, 0) # 1), 'device');
+    raise exception 'commit_roster invalid was accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'roster_signature_rejected' then raise exception 'commit_roster invalid: %', sqlerrm; end if;
+  end;
+  begin
+    perform public.commit_roster(ws, dev, 2, repeat('22', 32), v3::jsonb, repeat('33', 32), v3_recovery, 'device');
+    raise exception 'commit_roster wrong signer was accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'roster_signature_rejected' then raise exception 'commit_roster wrong signer: %', sqlerrm; end if;
+  end;
+  if (select roster_version from public.workspaces where id = ws) <> 2 then
+    raise exception 'rejected commit_roster advanced the roster';
+  end if;
+
+  begin
+    perform public.rotate_epoch(ws, dev, 1, v3::jsonb, repeat('33', 32), set_byte(v3_device, 0, get_byte(v3_device, 0) # 1));
+    raise exception 'rotate_epoch invalid was accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'roster_signature_rejected' then raise exception 'rotate_epoch invalid: %', sqlerrm; end if;
+  end;
+  begin
+    perform public.rotate_epoch(ws, dev, 1, v3::jsonb, repeat('33', 32), v3_recovery);
+    raise exception 'rotate_epoch wrong signer was accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'roster_signature_rejected' then raise exception 'rotate_epoch wrong signer: %', sqlerrm; end if;
+  end;
+  if (select key_epoch from public.workspaces where id = ws) <> 1 then
+    raise exception 'rejected rotate_epoch advanced the epoch';
+  end if;
+  perform public.rotate_epoch(ws, dev, 1, v3::jsonb, repeat('33', 32), v3_device);
+  if (select key_epoch from public.workspaces where id = ws) <> 2
+     or (select roster_version from public.workspaces where id = ws) <> 3 then
+    raise exception 'rotate_epoch valid did not advance';
+  end if;
+
+  started := public.start_recovery(ws, phone);
+  challenge := (started->>'challengeId')::uuid;
+  if started->>'nonce' is distinct from repeat('42', 32) or started->>'rosterHash' is distinct from repeat('33', 32) then
+    raise exception 'signer recovery challenge drifted: %', started;
+  end if;
+  begin
+    perform public.complete_recovery(ws, phone, challenge, challenge_sig, v4::jsonb, repeat('44', 32), set_byte(v4_recovery, 0, get_byte(v4_recovery, 0) # 1));
+    raise exception 'complete_recovery invalid was accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'roster_signature_rejected' then raise exception 'complete_recovery invalid: %', sqlerrm; end if;
+  end;
+  begin
+    perform public.complete_recovery(ws, phone, challenge, challenge_sig, v4::jsonb, repeat('44', 32), v4_device);
+    raise exception 'complete_recovery wrong signer was accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'roster_signature_rejected' then raise exception 'complete_recovery wrong signer: %', sqlerrm; end if;
+  end;
+  if (select roster_version from public.workspaces where id = ws) <> 3 then
+    raise exception 'rejected complete_recovery advanced the roster';
+  end if;
+  perform public.complete_recovery(ws, phone, challenge, challenge_sig, v4::jsonb, repeat('44', 32), v4_recovery);
+  if (select roster_version from public.workspaces where id = ws) <> 4
+     or (select signer_type from public.device_roster where workspace_id = ws and version = 4) <> 'recovery' then
+    raise exception 'complete_recovery valid did not record a recovery signature';
+  end if;
+end $$;
+select pass('commit_roster, rotate_epoch and complete_recovery accept only the roster signer');
 
 select * from finish();
 rollback;

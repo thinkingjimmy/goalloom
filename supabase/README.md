@@ -37,7 +37,10 @@ The migration enables `pgsodium` when it is not already installed. Hosted projec
 ```sh
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0002_cleanup.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0003_roster_signature.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0004_roster_signers.sql
 ```
+
+`0004_roster_signers.sql` depends on `_roster_message` from `0003`. `commit_roster` and `rotate_epoch` then accept only the calling device's authorized signing key. `complete_recovery` accepts only the current roster's `recoverySignPub`. A mismatch raises `roster_signature_rejected` (`42501`).
 
 ## pgTAP
 

@@ -3,6 +3,7 @@
  * Hosted Supabase does not grant postgres pgsodium.crypto_sign_new_keypair.
  * Verification stays in public._ed25519_verify (pgsodium.crypto_sign_verify_detached).
  */
+import { readFileSync } from 'node:fs'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 
@@ -34,6 +35,34 @@ const expectedRecovery = '947f9078028932189c32ee444dbc8a81f9297946bb1acca82e80f7
 const expectedRoster = '0a92e4dedfc06749fcd95129ef6f54f20a9e72b5de577b7d57d9cddcb1e0a95449cb5a42c924b88d12fe0e09534de40730eae92259d3f30bc302d43ef098a30d'
 if (hex(pub) !== expectedPub || hex(fixtureSig) !== expectedFixture || hex(recoverySig) !== expectedRecovery || hex(rosterSig) !== expectedRoster) {
   throw new Error('committed pgTAP constants drifted; update supabase/tests/0001_core.test.sql')
+}
+
+const recoverySeed = new Uint8Array(32).fill(0x24)
+const deviceId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+const workspaceId = 'ffffffff-ffff-4fff-8fff-ffffffffffff'
+const recoveryPub = hex(ed25519.getPublicKey(recoverySeed))
+const rosterBody = (version, prevHash, epoch) => JSON.stringify({
+  devices: [{ boxPub: '22', id: deviceId, signPub: expectedPub }],
+  epoch, prevHash, recoveryBoxPub: 'cc', recoverySignPub: recoveryPub, version, workspaceId,
+})
+const signRoster = (canonical, secret) => ed25519.sign(sha256(new TextEncoder().encode(`goalloom/roster/v1|${canonical}`)), secret)
+const emptyRoster = '{"devices":[]}'
+const pins = [
+  hex(signRoster(emptyRoster, seed)),
+  hex(signRoster(rosterBody(2, '11'.repeat(32), 1), seed)),
+  hex(signRoster(rosterBody(2, '11'.repeat(32), 1), recoverySeed)),
+  hex(signRoster(rosterBody(3, '22'.repeat(32), 2), seed)),
+  hex(signRoster(rosterBody(3, '22'.repeat(32), 2), recoverySeed)),
+  hex(signRoster(rosterBody(4, '33'.repeat(32), 2), seed)),
+  hex(signRoster(rosterBody(4, '33'.repeat(32), 2), recoverySeed)),
+  hex(ed25519.sign(new TextEncoder().encode(`goalloom/recover/v1|${workspaceId}|dddddddd-dddd-4ddd-8ddd-dddddddddddd|${'42'.repeat(32)}|${'33'.repeat(32)}`), recoverySeed)),
+]
+const sql = readFileSync(new URL('../supabase/tests/0001_core.test.sql', import.meta.url), 'utf8')
+for (const pin of pins) {
+  if (!sql.includes(pin)) throw new Error(`pgTAP is missing roster signer pin ${pin}`)
+}
+if (recoveryPub !== '58936604abda112bc94933569c82f8d0cc0ddf92a3f8329f2f448f7f484a594c') {
+  throw new Error('recovery fixture public key drifted')
 }
 
 console.log(`pub ${hex(pub)}`)
