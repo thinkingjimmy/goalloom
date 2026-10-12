@@ -1,7 +1,9 @@
-# Shared protocol packages live under packages/. The desktop app stays at the repo root
-# until the P1 directory move; website keeps its own install (it was not a workspace member).
+# Shared protocol packages live under packages/. The Electron app is the apps/desktop workspace package.
+# apps/website keeps its own pnpm root: Next.js must not hoist into the Electron node_modules that
+# electron-builder and the package-size budgets read. apps/mobile is also installed on its own.
 packages:
   - 'packages/*'
+  - 'apps/desktop'
 
 # Flat node_modules: electron-builder packaging and the license collector resolve dependencies npm-style.
 nodeLinker: hoisted

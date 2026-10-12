@@ -30,7 +30,7 @@
 </p>
 
 <p align="center">
-  <img src="./images/readme.jpg" alt="Goalloom's goal board: 3 months, this month, this week and today">
+  <img src="./docs/images/readme.jpg" alt="Goalloom's goal board: 3 months, this month, this week and today">
 </p>
 
 # Key features
@@ -84,13 +84,13 @@ pnpm dev
 To build local installers:
 
 ```bash
-pnpm package:mac   # release/Goalloom-<version>-mac-arm64.dmg
-pnpm package:win   # release/Goalloom-<version>-win-x64.exe
+pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
+pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
 Version 1.6.0 adds optional task assistance that rewrites the current notes, with one-step undo, and introduced schema v8 for shared execution facts. Development builds use schema v9 for two-level tasks. Legacy workspaces upgrade through a verified protective copy and explicit confirmation. See the [smart assistance specification](./docs/features/Goalloom-Smart-Assistance-PRD-TODO-v1.1.md) for scope and remaining manual acceptance.
 
-The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`website/`](./website/README.md).
+The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 
 # Collaboration
 
@@ -102,7 +102,7 @@ The desktop app, the mobile client, and the shared packages are [MIT](./LICENSE)
 
 | Path | License |
 |---|---|
-| [`LICENSE`](./LICENSE), `src/`, `apps/mobile`, `packages/contracts`, `packages/crypto`, `packages/schema`, `packages/store-core`, `packages/sync`, `tests/`, `scripts/`, `website/`, `docs/` | MIT |
+| [`LICENSE`](./LICENSE), `apps/desktop/` (app, tests, and desktop scripts), `apps/mobile`, `packages/` (including `packages/crypto/test` and `packages/tests`), `scripts/`, `apps/website/`, `docs/` | MIT |
 | [`supabase/`](./supabase/) (migrations, RPCs, Edge Functions, pgTAP, `reset.sql`, `config.toml`, and [`supabase/LICENSE`](./supabase/LICENSE)) | AGPL-3.0-only |
 
 `@goalloom/contracts`, `@goalloom/crypto`, `@goalloom/schema`, `@goalloom/store-core`, and `@goalloom/sync` depend only on each other and their pinned MIT-compatible libraries. Their sources stay under the repository MIT license. `scripts/supabase-remote.mjs`, `scripts/pg-sync-test.mjs`, `scripts/phase0-prototype.mjs` and `scripts/parity-digest.mjs` are MIT test clients.

@@ -33,7 +33,7 @@ Approved on 2026-09-26 from the Goalloom-styled interactive demo.
 
 Before implementation, identified failure cases: punctuation swallowed into URLs; nested clickable elements; user labels rewritten; duplicate cards; preview fetch delaying save; failed image collapsing rows; oversized/malformed metadata; unsafe schemes/credentials/private addresses and redirect/DNS rebinding; remote HTML execution; swallowed task/detail clicks; swipe starting drag; nested horizontal scroll; stale virtual offsets; cache growth; expired failures never recovering; cross-session responses surviving replacement; preview writes changing history; missing translations.
 
-Review-title cases recorded before implementation: raw URLs remain in closing/record/plan titles; matrix links are nested inside its filter button; cached metadata changes stored titles or versions; link presentation disappears on step/session changes. Native first/last-day weekly fixtures reuse the production preview cache and assert source preservation in `tests/desktop/weekly-review.mjs`.
+Review-title cases recorded before implementation: raw URLs remain in closing/record/plan titles; matrix links are nested inside its filter button; cached metadata changes stored titles or versions; link presentation disappears on step/session changes. Native first/last-day weekly fixtures reuse the production preview cache and assert source preservation in `apps/desktop/tests/weekly-review.mjs`.
 
 Regression cases recorded before the favicon/wrapping repair:
 
@@ -54,7 +54,7 @@ Detail-title cases recorded before implementation:
 
 - [x] Mixed text, bare URLs and named links preserve order and raw editing.
 - [x] Detail titles show every line with shared favicon/page-title links; explicit raw editing preserves drafts, composition, autosave and read-only states.
-- [x] Native title undo/redo survives autosave and rich/raw handoffs; empty-title recovery after blur, Escape or blocked close preserves description history and the workspace undo stack. Reproduce with `node tests/desktop/link-previews.mjs --titles`; JSON and before/after screenshots live in `output/tests/link-previews/titles/`.
+- [x] Native title undo/redo survives autosave and rich/raw handoffs; empty-title recovery after blur, Escape or blocked close preserves description history and the workspace undo stack. Reproduce with `pnpm --filter @goalloom/desktop exec -- node tests/link-previews.mjs --titles`; JSON and before/after screenshots live in `output/tests/link-previews/titles/`.
 - [x] Real X/YouTube/public OG metadata is supported with honest failure fallback.
 - [x] Multiple cards support pointer/keyboard navigation, visible position, boundaries and task-drag isolation.
 - [x] Historical, completed and archived tasks work without mutations; cache survives restart/offline use.

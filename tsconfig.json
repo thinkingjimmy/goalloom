@@ -15,7 +15,14 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "types": ["node", "vite/client"],
-    "paths": { "@/*": ["./src/renderer/*"] }
+    "paths": { "@/*": ["./apps/desktop/src/renderer/*"] }
   },
-  "include": ["src", "tests", "*.config.ts"]
+  "include": [
+    "apps/desktop/src",
+    "apps/desktop/tests",
+    "apps/desktop/electron.vite.config.ts",
+    "packages/crypto/test",
+    "packages/tests",
+    "vitest.config.ts"
+  ]
 }

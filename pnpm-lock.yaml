@@ -6,7 +6,9 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  apps/desktop:
     dependencies:
       '@dnd-kit/core':
         specifier: 6.3.1
@@ -19,19 +21,19 @@ importers:
         version: 3.2.2(react@19.3.0)
       '@goalloom/contracts':
         specifier: workspace:*
-        version: link:packages/contracts
+        version: link:../../packages/contracts
       '@goalloom/crypto':
         specifier: workspace:*
-        version: link:packages/crypto
+        version: link:../../packages/crypto
       '@goalloom/schema':
         specifier: workspace:*
-        version: link:packages/schema
+        version: link:../../packages/schema
       '@goalloom/store-core':
         specifier: workspace:*
-        version: link:packages/store-core
+        version: link:../../packages/store-core
       '@goalloom/sync':
         specifier: workspace:*
-        version: link:packages/sync
+        version: link:../../packages/sync
       '@hugeicons/core-free-icons':
         specifier: 4.3.5
         version: 4.3.5
@@ -197,6 +199,21 @@ importers:
       '@goalloom/store-core':
         specifier: workspace:*
         version: link:../store-core
+
+  packages/tests:
+    dependencies:
+      '@goalloom/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@goalloom/crypto':
+        specifier: workspace:*
+        version: link:../crypto
+      '@goalloom/store-core':
+        specifier: workspace:*
+        version: link:../store-core
+      '@goalloom/sync':
+        specifier: workspace:*
+        version: link:../sync
 
 packages:
 

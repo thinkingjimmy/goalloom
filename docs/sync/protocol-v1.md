@@ -9,7 +9,7 @@
 - Object keys are sorted by UTF-16 code unit.
 - `undefined` object fields are dropped. Arrays keep their order and do not drop holes.
 - No insignificant whitespace. Strings are `JSON.stringify` strings.
-- Test: `tests/sync/adversarial.test.ts` “canonical JSON”.
+- Test: `packages/tests/sync/adversarial.test.ts` “canonical JSON”.
 
 `payloadHash` is SHA-256 hex of the canonical SyncOp (`packages/crypto` `sha256Hex`).
 
@@ -44,12 +44,12 @@ Actions (one user command is one atomic op):
 
 ## Command map
 
-Local commands run first. The SyncOp is the diff plus the intent, written in the same `BEGIN IMMEDIATE` transaction (`src/main/workspace/sync/emit.ts`).
+Local commands run first. The SyncOp is the diff plus the intent, written in the same `BEGIN IMMEDIATE` transaction (`apps/desktop/src/main/workspace/sync/emit.ts`).
 
 | Command | SyncOp | Test |
 | --- | --- | --- |
-| `confirmSetup` | `calendar.setup` | `tests/integration/sync-emit.test.ts` (setup row exists before other actions) |
-| `create` / `createPlan` | one SyncOp: `item.create` and, when a parent edge was inserted, `rel.link` | sync-emit create; `tests/integration/sync-emit-commands.test.ts` |
+| `confirmSetup` | `calendar.setup` | `apps/desktop/tests/integration/sync-emit.test.ts` (setup row exists before other actions) |
+| `create` / `createPlan` | one SyncOp: `item.create` and, when a parent edge was inserted, `rel.link` | sync-emit create; `apps/desktop/tests/integration/sync-emit-commands.test.ts` |
 | `edit` | `item.set` with only the changed fields | sync-emit “field diff” |
 | `flowColor` | `item.set` flowColor | sync-emit “maps move, colour…” |
 | `move` | `item.place` reason `move`. A child leaving its group is `item.nest` (parent cleared) plus `rel.link` for each materialized goal edge, then `item.place`. Live children that follow a root are extra `item.place` actions in the same op and keep their parent | sync-emit move; sync-emit nesting |
@@ -74,7 +74,7 @@ Local commands run first. The SyncOp is the diff plus the intent, written in the
 - `send_unknown` is written before the request leaves the device.
 - The sticky trigger `sync_ops_send_state_irreversible` rejects any update to `never_sent` or `reverted_local` once the row has left `never_sent`. `never_sent → reverted_local` is allowed.
 - `outcome` is written only when the op is applied at its canonical `seq`.
-- Tests: `tests/integration/upgrade-v9.test.ts` (trigger), `tests/sync/phase0.test.ts` cases 2, 3, 10, 20.
+- Tests: `apps/desktop/tests/integration/upgrade-v9.test.ts` (trigger), `packages/tests/sync/phase0.test.ts` cases 2, 3, 10, 20.
 
 ## Baseline
 
@@ -82,7 +82,7 @@ Confirmed state lives in `base_*`, cloned from the seven business tables (constr
 
 `mergeRemoteOps` requires `seq = lastAppliedSeq + 1`. Each op runs in a `SAVEPOINT`. Business errors record `rejected` and a `sync_conflicts` row; the cursor still advances. Storage errors abort the transaction and leave the cursor unchanged (case 3).
 
-`rebuildVisibleFull` preserves device-local workspace columns, copies `base_*` back, then replays pending ops. `operations` rows are not deleted. Visible `workspace.revision` becomes the greater of the visible counter and `base_workspace.revision`, so a local command does not roll the renderer guard backward. Tests: cases 9, 11, 12, 19 and `tests/sync/applier-review.test.ts`.
+`rebuildVisibleFull` preserves device-local workspace columns, copies `base_*` back, then replays pending ops. `operations` rows are not deleted. Visible `workspace.revision` becomes the greater of the visible counter and `base_workspace.revision`, so a local command does not roll the renderer guard backward. Tests: cases 9, 11, 12, 19 and `packages/tests/sync/applier-review.test.ts`.
 
 `canon_ops` / `canon_changes` are appended only at the canonical seq. `dim` is one of `create`, `delete`, `restore`, `title`, `description`, `dueDate`, `flowColor`, `status`, `archive`, `placement`, `relation`, `guidance`, `policy`, `calendar`. A revert walks that op's canon rows from the last index backward and writes the inverted value under the original `dim`. Outline membership is the `placement` dimension: `before` / `after` include `nestingParentId` when the writer recorded it. A placement row written before nesting leaves that field untouched.
 
@@ -99,7 +99,7 @@ The reference applier (`packages/store-core/src/apply.ts`) additionally:
 - `item.set` of a non-null `flowColor`, and `item.create` into Later with a flow color, are `horizon_order`. Clearing a color is allowed.
 - Placement revert writes `sortKey`. A relation whose `before` is null is invalidated; a relation whose `before` is the edge is made active again.
 
-Tests: `tests/sync/applier-review.test.ts`. Case 11 places the parent on year and the child on month.
+Tests: `packages/tests/sync/applier-review.test.ts`. Case 11 places the parent on year and the child on month.
 
 ## Error codes
 
@@ -129,7 +129,7 @@ Constructions live in `packages/crypto`. Vectors: `packages/crypto/test/vectors.
 
 | Construction | Domain | Test |
 | --- | --- | --- |
-| C1 wrap | `goalloom/wrap/v1` | `tests/crypto/constructs.test.ts`, case 5 |
+| C1 wrap | `goalloom/wrap/v1` | `packages/crypto/test/constructs.test.ts`, case 5 |
 | C2 roster | `goalloom/roster/v1` | constructs roster chain, cases 6 and 15 |
 | C3 op | `goalloom/op/v1` | constructs AAD |
 | C4 snapshot / blob | `goalloom/snap/v1`, `goalloom/blob/v1`, 64 KiB chunks | constructs AAD |
@@ -149,15 +149,15 @@ Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls 
 | # | Where |
 | --- | --- |
 | 1 | `applyPushReceipts` and `supabase/tests/0001_core.test.sql` |
-| 2, 3, 10, 20 | `tests/sync/phase0.test.ts` |
+| 2, 3, 10, 20 | `packages/tests/sync/phase0.test.ts` |
 | 4, 16, 17 | `supabase/tests/0001_core.test.sql`; Realtime resubscribe and Storage URLs in `scripts/supabase-remote.mjs` |
-| 5, 6, 7, 8, 15, 21 | `tests/sync/adversarial.test.ts` |
-| 9, 11, 12, 13, 14, 18, 19 | `tests/sync/phase0.test.ts` |
-| C1–C4 vectors | `tests/crypto/constructs.test.ts` |
+| 5, 6, 7, 8, 15, 21 | `packages/tests/sync/adversarial.test.ts` |
+| 9, 11, 12, 13, 14, 18, 19 | `packages/tests/sync/phase0.test.ts` |
+| C1–C4 vectors | `packages/crypto/test/constructs.test.ts` |
 
 ## Deviations from the PRD
 
-- Desktop sources stay in `src/`. Shared code is `packages/{contracts,crypto,schema,store-core,sync}`. Moving the app to `apps/desktop` is still P1.1.
+- Desktop sources stay in `apps/desktop/src/`. Shared code is `packages/{contracts,crypto,schema,store-core,sync}`. Moving the app to `apps/desktop` is still P1.1.
 - `item_guidance.operationId` keeps its column name. The foreign key to `operations` is gone; the value is the source operation id.
 - The persisted initial send state is `never_sent`. The older word `pending` is not stored.
 - `item.discardIfEmpty` cannot observe a stored empty title. The items CHECK requires a trimmed title of 1–500 characters. The predicate matches the domain empty-card rule.

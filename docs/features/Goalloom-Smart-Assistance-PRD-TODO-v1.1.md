@@ -19,7 +19,7 @@ This confirmed design supersedes the earlier guidance-only UI, second-level view
 - Above Add thoughts: an action invitation combines the authoritative complete-quality current-episode carryover count with a help question. Unknown/partial counts are omitted. No manual/automatic breakdown.
 - I’m stuck opens three obstacle choices and a final custom input. Nothing is preselected. No collapse arrow or press motion. Not now/Escape/cancel returns to the notes.
 - Enabled drafting/review settings authorize an explicit generation request. No extra task checkbox; opening help sends nothing.
-- The unavailable-service Open Settings action drains detail edits before navigation. Pending saves keep the editor mounted and include newer typing. Failed or unknown writes retain the draft and existing retry controls; invalid titles never trigger item dismissal. Closing help cancels any pending settings navigation. Regression: `tests/desktop/assistance/settings-navigation.mjs` (entry group).
+- The unavailable-service Open Settings action drains detail edits before navigation. Pending saves keep the editor mounted and include newer typing. Failed or unknown writes retain the draft and existing retry controls; invalid titles never trigger item dismissal. Closing help cancels any pending settings navigation. Regression: `apps/desktop/tests/assistance/settings-navigation.mjs` (entry group).
 - One response rewrites the existing Markdown notes and automatically persists it. Preserve essential context, pending work, completed checkboxes and links. No proposal card, Save step or automatic success toast; keyboard undo remains available. Empty notes become a small checklist. Rethink uses the current notes without repeated append-only sections.
 - The real editor remains mounted. The result has only Rethink at the bottom right, no left metadata and no divider. Existing notes remain editable during generation; concurrent edits invalidate the result. An unresolved write receipt locks editing and retries the same receipt.
 - Main validates the exact generated description and its preflight ticket. Worker rechecks item/dependency/clock guards in the transaction. A description-only v2 effect owns before/after text for workspace undo; later edits to notes cause an undo conflict while unrelated title/deadline changes survive.
@@ -603,7 +603,7 @@ type ExecutionFacts = {
 
 新增有界只读查询：`executionSummary`（单任务摘要）、`activityMonth`（月份事件计数与日期导航）、`activityDay`（单日分页）、必要时复用/扩展 `activity`（全部活动分页）。每次请求绑定 generation/itemId，返回 asOf 与快照修订；按月／日查询携带选择身份，迟到结果不能覆盖另一项任务或另一个月份。cursor 由程序给出，并冻结上界 seq／cutoff；分页遇数据修订时保留一致快照或明确要求刷新，不能静默混合两个版本。
 
-`executionSummary` 由 storage/workspace 查询装配，纯计算放在 `src/domain/execution-facts.ts`；不从 main 反向 import renderer 工具。UI 和 assistance-context 使用同一计算与同一口径版本；复盘传入确定的历史 cutoff。网络不进入 worker 查询或事务。
+`executionSummary` 由 storage/workspace 查询装配，纯计算放在 `apps/desktop/src/domain/execution-facts.ts`；不从 main 反向 import renderer 工具。UI 和 assistance-context 使用同一计算与同一口径版本；复盘传入确定的历史 cutoff。网络不进入 worker 查询或事务。
 
 ### 6A.6 有界读取与缓存
 
@@ -730,33 +730,33 @@ renderer 用 `PreparedWrite` 预留写槽位，再读取权威版本。不能先
 
 | 层次 | 主要文件 | 改动 |
 | --- | --- | --- |
-| 智能协议 | `src/shared/contracts/smart-input.ts` | 新辅助动作、echo、取消状态、consent/status；兼容既有 draft/review/analyze |
-| 辅助结构 | `src/shared/contracts/assistance.ts`（新增） | 严格 guidance、输出和请求 schema；避免无限扩展旧文件 |
-| 业务协议 | `src/shared/contracts/commands.ts`、`effects.ts`、`queries.ts` | applyAssistance、v2 effect、detail／有界摘要 |
-| 导入协议 | `src/shared/contracts/transfer.ts` | dataset v8、版本化 effects、guidance heads |
-| 提示与解析 | `src/domain/smart/assistance.ts`（新增） | 输出白名单、限长、来源、澄清与恶意输入测试 |
-| 旧提示适配 | `src/domain/smart/insight.ts` | 可选推进上下文投影，保持已实现起草／复盘语义 |
-| 主进程 | `src/main/smart/service.ts`、`insight.ts` | 专用辅助路由，取消、配置检查、JSON错误处理；不重复造 adapter |
-| 上下文 | `src/main/smart/context.ts`及 `assistance-context.ts`（新增） | 经 worker 有界读取、ticket／依赖记录；保留原 Jev context |
-| 凭据配置 | `src/main/smart/credentials.ts` | v3 设备配置、旧设置保持、新发送范围 consent |
-| IPC | `src/main/ipc.ts`、`src/preload/`现有桥接 | 复用固定通道，补足动作与身份校验，不暴露任意 invoke |
-| 存储 | `src/main/storage/schema.ts`、`store.ts`、`worker.ts` | v8 DDL、guidance DAO、权威读取与命令转发 |
-| 事务 | `src/main/workspace/repository.ts`及 `commands/assistance.ts`（新增） | 单一采用事务、依赖守卫、回执、事件 |
+| 智能协议 | `apps/desktop/src/shared/contracts/smart-input.ts` | 新辅助动作、echo、取消状态、consent/status；兼容既有 draft/review/analyze |
+| 辅助结构 | `apps/desktop/src/shared/contracts/assistance.ts`（新增） | 严格 guidance、输出和请求 schema；避免无限扩展旧文件 |
+| 业务协议 | `apps/desktop/src/shared/contracts/commands.ts`、`effects.ts`、`queries.ts` | applyAssistance、v2 effect、detail／有界摘要 |
+| 导入协议 | `apps/desktop/src/shared/contracts/transfer.ts` | dataset v8、版本化 effects、guidance heads |
+| 提示与解析 | `apps/desktop/src/domain/smart/assistance.ts`（新增） | 输出白名单、限长、来源、澄清与恶意输入测试 |
+| 旧提示适配 | `apps/desktop/src/domain/smart/insight.ts` | 可选推进上下文投影，保持已实现起草／复盘语义 |
+| 主进程 | `apps/desktop/src/main/smart/service.ts`、`insight.ts` | 专用辅助路由，取消、配置检查、JSON错误处理；不重复造 adapter |
+| 上下文 | `apps/desktop/src/main/smart/context.ts`及 `assistance-context.ts`（新增） | 经 worker 有界读取、ticket／依赖记录；保留原 Jev context |
+| 凭据配置 | `apps/desktop/src/main/smart/credentials.ts` | v3 设备配置、旧设置保持、新发送范围 consent |
+| IPC | `apps/desktop/src/main/ipc.ts`、`apps/desktop/src/preload/`现有桥接 | 复用固定通道，补足动作与身份校验，不暴露任意 invoke |
+| 存储 | `apps/desktop/src/main/storage/schema.ts`、`store.ts`、`worker.ts` | v8 DDL、guidance DAO、权威读取与命令转发 |
+| 事务 | `apps/desktop/src/main/workspace/repository.ts`及 `commands/assistance.ts`（新增） | 单一采用事务、依赖守卫、回执、事件 |
 | 既有命令 | `commands/items.ts`、`commands/undo.ts`、`commands/lifecycle.ts` | 复用移动、精准逆向、删除／空标题守卫 |
-| 领域校验 | `src/domain/items.ts`、`src/domain/import-validation.ts` | guidance 非空判定、导入完整性与新 effect 语义 |
+| 领域校验 | `apps/desktop/src/domain/items.ts`、`apps/desktop/src/domain/import-validation.ts` | guidance 非空判定、导入完整性与新 effect 语义 |
 | 恢复 | `storage/startup.ts`、`workspace/transfer/` | 旧版本显式恢复入口、保护副本、完整转换与回滚 |
-| 求助 UI | `src/renderer/features/assistance/`（新增） | 有界面板、输入／建议／预览／采用、会话草稿 |
+| 求助 UI | `apps/desktop/src/renderer/features/assistance/`（新增） | 有界面板、输入／建议／预览／采用、会话草稿 |
 | 已有入口 | `features/board/TaskMenu.tsx`、`features/items/ItemDetail.tsx`、`App.tsx` | TaskMenu 与最新详情右栏入口、flush、焦点返回、代次清理；不恢复旧更多菜单 |
 | 呈现 | `features/board/NoteSignal.tsx`、`TaskRow.tsx` | 单一摘要体系，不覆盖原清单和期限 |
 | 写入与反馈 | `state/use-workspace.ts`、`state/session.ts`及反馈映射 | 复用 prepared write、unknown receipt 与统一 undo，不新建第二栈 |
 | 设置与复盘 | `features/shell/settings/`、`features/insight/` | 统一文案、purpose consent、历史与未来上下文分离 |
-| 国际化 | `src/renderer/i18n/`、`src/shared/i18n/` | 中／英／日／西／法、main/worker错误、辅助输出 locale |
+| 国际化 | `apps/desktop/src/renderer/i18n/`、`apps/desktop/src/shared/i18n/` | 中／英／日／西／法、main/worker错误、辅助输出 locale |
 | 文档与测试 | `docs/features/`、`docs/development.md`、`package.json`、`tests/` | 同步旧范围、登记新测试命令、维护功能测试映射 |
-| 执行事实计算 | `src/domain/execution-facts.ts`（新增）、原 `features/items/activity-insight.ts` | 单一纯计算；替换旧次数／停留算法，renderer 仅保留展示适配或网格函数 |
-| 活动读取 | `src/main/workspace/history.ts`、`queries.ts`、`storage/worker.ts` | 单任务事件/operation/period/undo 读取、固定 cutoff、按月/日/全部分页 |
-| 活动协议 | `src/shared/contracts/history.ts`、`queries.ts`，可独立新增 `execution.ts` | 来源、quality、统计版本、严格摘要与证据 DTO、请求身份/cursor |
-| 详情统计 UI | `features/items/Activity.tsx`、`ItemDetail.tsx`、`src/renderer/styles.css` | 稳定右栏、去掉三条阈值、事实/帮助/历史层次、月历明细及状态反馈 |
-| 执行事实测试 | `tests/renderer/activity-insight.test.ts`、`tests/desktop/fixtures/detail-rail.mjs`、新 domain/integration 用例 | 替换有意改变的旧语义断言，保留管理按钮/右栏几何/只读测试，新增 AC43—AC74 |
+| 执行事实计算 | `apps/desktop/src/domain/execution-facts.ts`（新增）、原 `features/items/activity-insight.ts` | 单一纯计算；替换旧次数／停留算法，renderer 仅保留展示适配或网格函数 |
+| 活动读取 | `apps/desktop/src/main/workspace/history.ts`、`queries.ts`、`storage/worker.ts` | 单任务事件/operation/period/undo 读取、固定 cutoff、按月/日/全部分页 |
+| 活动协议 | `apps/desktop/src/shared/contracts/history.ts`、`queries.ts`，可独立新增 `execution.ts` | 来源、quality、统计版本、严格摘要与证据 DTO、请求身份/cursor |
+| 详情统计 UI | `features/items/Activity.tsx`、`ItemDetail.tsx`、`apps/desktop/src/renderer/styles.css` | 稳定右栏、去掉三条阈值、事实/帮助/历史层次、月历明细及状态反馈 |
+| 执行事实测试 | `apps/desktop/tests/renderer/activity-insight.test.ts`、`apps/desktop/tests/fixtures/detail-rail.mjs`、新 domain/integration 用例 | 替换有意改变的旧语义断言，保留管理按钮/右栏几何/只读测试，新增 AC43—AC74 |
 
 新辅助按当前 UI locale 生成文本；五语言支持需要实际评测，不因 prompt 加一个 language 字段就标完成。现有 Jev 的中文日期解析不在本次扩为五语自然语言解析，已有起草／复盘语言的改变必须作为显式变更单列验证。
 
@@ -856,7 +856,7 @@ renderer 用 `PreparedWrite` 预留写槽位，再读取权威版本。不能先
 | 洞察上下文与复盘 | `pnpm test:insight`、`pnpm test:insight-generation`；只增加共享调用不改变行为也需验证所属功能 |
 | 详情编辑／导航 | `pnpm test:autosave`、`pnpm test:task-focus`、`pnpm test:descriptions` |
 | 采用、撤销和历史 | `pnpm test:ui`、`pnpm test:history`、`pnpm test:feedback` |
-| 详情右栏与执行统计 | `pnpm test` 包含扩展后的纯计算/集成用例；`pnpm test:ui` 包含 `tests/desktop/fixtures/detail-rail.mjs`。拟新增 statistics 分组补齐新语义，不替代原管理动作/几何/只读覆盖。[C32]、[C37] |
+| 详情右栏与执行统计 | `pnpm test` 包含扩展后的纯计算/集成用例；`pnpm test:ui` 包含 `apps/desktop/tests/fixtures/detail-rail.mjs`。拟新增 statistics 分组补齐新语义，不替代原管理动作/几何/只读覆盖。[C32]、[C37] |
 | 移动、目标周期与 Later | `pnpm test:periods`、`pnpm test:later`；关系显隐／线条确有影响再加 `pnpm test:relations` |
 | 新 schema、启动与恢复 | `pnpm test:startup`、`pnpm test:recovery`、`pnpm test:calendar` 中旧版恢复相关覆盖 |
 | 多语言 | `pnpm test:language`，新辅助需新增五语言场景 |
@@ -1126,12 +1126,12 @@ renderer 用 `PreparedWrite` 预留写槽位，再读取权威版本。不能先
 | 升级 | 旧库只读检查 → 保护副本校验 → 临时 v8 验证 → 第二次明确确认 → 原子文件替换；取消不动源文件，升级保留业务/历史并暂停恢复后的顺延 |
 | 快速检查 | `pnpm typecheck`、`pnpm test`（24 文件 / 166 项）、`pnpm build` 实际通过；生产检查无 HMR、测试控制口或第二图标库 |
 | 新功能 | `pnpm test:assistance` 七组全部通过；取消启动加载 Promise 修复后补跑 `pnpm test:assistance recovery`，最终七组再次通过 |
-| 旧功能 | `node tests/desktop/assistance/regression.mjs` 按影响范围运行 22 个去重命令；修正旧夹具后 `... ui later language periods calendar startup` 补跑通过，总计 22/22 |
+| 旧功能 | `pnpm --filter @goalloom/desktop exec -- node tests/assistance/regression.mjs` 按影响范围运行 22 个去重命令；修正旧夹具后 `... ui later language periods calendar startup` 补跑通过，总计 22/22 |
 | 评测准备 | `pnpm eval:assistance` 离线校验通过：60 条独立脱敏样例，12 条事实场景，40 条要求非中文输出；默认无计费授权，实际模型调用 0，质量未验证 |
 | 运行平台 | Electron 44.4.4 / Node 24.21.0 / SQLite 3.53.4；macOS 26.4.1（Darwin 25.4.0）arm64 / Apple M3 Max；实机/VM 身份未独立核实 |
 | 限制 | 浏览器 mock 只属于 renderer 回归；原生 composition 与升级对话框决定为合成事件/回答。月/合并脚本在实际日期窗口外仅验证历史 API，不声称当日自然入口或安装包验收 |
 
-实际旧命令：`pnpm test:electron`、`test:ui`、`test:task-focus`、`test:autosave`、`test:descriptions`、`test:links`、`test:composer`、`test:due-dates`、`test:language`、`test:history`、`test:feedback`、`test:periods`、`test:later`、`test:relations`、`test:recovery`、`test:calendar`、`test:insight`、`test:insight-generation`、`test:startup`；另执行 `node tests/desktop/month-review.mjs`、`node tests/desktop/month-review.mjs --combined`、`node tests/desktop/review/run.mjs renderer lifecycle wire virtual`。没有运行无关的 ordering/columns/updates/website 套件，或发布前的 `pnpm verify`。
+实际旧命令：`pnpm test:electron`、`test:ui`、`test:task-focus`、`test:autosave`、`test:descriptions`、`test:links`、`test:composer`、`test:due-dates`、`test:language`、`test:history`、`test:feedback`、`test:periods`、`test:later`、`test:relations`、`test:recovery`、`test:calendar`、`test:insight`、`test:insight-generation`、`test:startup`；另执行 `pnpm --filter @goalloom/desktop exec -- node tests/month-review.mjs`、`pnpm --filter @goalloom/desktop exec -- node tests/month-review.mjs --combined`、`pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs renderer lifecycle wire virtual`。没有运行无关的 ordering/columns/updates/website 套件，或发布前的 `pnpm verify`。
 
 可重复证据位于忽略目录：`output/tests/assistance/boundary-report.json`、`native-report.json`、`upgrade-report.json`、`regression/report.json` 与逐命令 `.log`；截图 `manual-guidance.png`、`unknown-receipt.png`、`upgraded-v7.png`、五语宽/窄右栏图。预算测量与缓存扫描次数在 boundary 报告；原右栏、正文、焦点、恢复等证据继续留在各自原目录。真实质量输出路径为 `output/eval/assistance/`，当前 `report.json` 明确为 skipped，不得作通过证据。
 
@@ -1195,7 +1195,7 @@ renderer 用 `PreparedWrite` 预留写槽位，再读取权威版本。不能先
 
 实际命令与结果：`pnpm typecheck`、`pnpm test`（24 文件 / 166 项）、`pnpm build` 通过；`pnpm test:assistance` 全部七组通过。截图复核发现复选框继承全局 input 宽度，已限定原生复选框尺寸并新增文字边界断言；入口标题与局部布局修正后重新构建，`pnpm test:assistance entry generation language` 通过。八个核心失败场景在修改业务代码前记录并复现，修复后扩展 DST、完整效果和界面覆盖；没有新增事后单元测试。
 
-既有消费者按功能映射选择并去重，执行 `node tests/desktop/assistance/regression.mjs electron ui language history recovery calendar insight insight-generation startup month-review combined-review`，**11/11 命令通过**：`pnpm test:electron`、`test:ui`、`test:language`、`test:history`、`test:recovery`、`test:calendar`、`test:insight`、`test:insight-generation`、`test:startup`，以及 `node tests/desktop/month-review.mjs`、同脚本 `--combined`。本轮未重跑不受该 review 修复影响的正文/链接/composer/排序等套件，也未运行发布前 `pnpm verify`。月/合并脚本在日期窗口外仍只证明 API 路径。
+既有消费者按功能映射选择并去重，执行 `pnpm --filter @goalloom/desktop exec -- node tests/assistance/regression.mjs electron ui language history recovery calendar insight insight-generation startup month-review combined-review`，**11/11 命令通过**：`pnpm test:electron`、`test:ui`、`test:language`、`test:history`、`test:recovery`、`test:calendar`、`test:insight`、`test:insight-generation`、`test:startup`，以及 `pnpm --filter @goalloom/desktop exec -- node tests/month-review.mjs`、同脚本 `--combined`。本轮未重跑不受该 review 修复影响的正文/链接/composer/排序等套件，也未运行发布前 `pnpm verify`。月/合并脚本在日期窗口外仍只证明 API 路径。
 
 最终证据：`output/tests/assistance/review-report.json`（9 个数据回归和批次读数）、`native-report.json`、`upgrade-report.json`、`review-regression-report.json`（本轮 11 条）、`review-delivery-report.json`；应用截图 `reschedule-entry.png`、`undone-completion.png`、`upgraded-v7.png`。原 `regression/report.json` 保留此前 22 条与本轮重验记录，不将未重跑项标为本轮执行。
 
@@ -1207,7 +1207,7 @@ renderer 用 `PreparedWrite` 预留写槽位，再读取权威版本。不能先
 
 修复：预检清理绑定会话对象，不删除同 ID 的替代会话；context/config/generation 的每个异步读取后，以及预算淘汰后，复核对象归属与取消状态。正常取消、淘汰或代次变化返回已存在的 `cancelled` DTO；不改变公开 schema、不改模型路由或任务数据。八会话上限在待完成预检创建时执行。真实未取消的读取错误仍正常反馈。
 
-先定义失败场景并完成受控复现，再修改业务代码。开发检查 `node tests/desktop/assistance/preflight.mjs --development` 通过；完成时执行 `pnpm test:assistance` 七组全部通过，新增 preflight 已归属 entry/generation，并运行 development（8 项）与 production（7 项）两种 renderer。覆盖 StrictMode、关闭中取消、同 ID 旧响应/旧错误、最终代次读取中取消、代次变化、9 个待完成请求的上限和真实错误保留。正常取消导致的 IPC 异常为 0，provider 调用为 0。
+先定义失败场景并完成受控复现，再修改业务代码。开发检查 `pnpm --filter @goalloom/desktop exec -- node tests/assistance/preflight.mjs --development` 通过；完成时执行 `pnpm test:assistance` 七组全部通过，新增 preflight 已归属 entry/generation，并运行 development（8 项）与 production（7 项）两种 renderer。覆盖 StrictMode、关闭中取消、同 ID 旧响应/旧错误、最终代次读取中取消、代次变化、9 个待完成请求的上限和真实错误保留。正常取消导致的 IPC 异常为 0，provider 调用为 0。
 
 快速检查：`pnpm build`（含 `pnpm run typecheck` 和生产产物检查）、`pnpm test`（24 文件 / 166 项）通过；差异、契约和文档检查通过。改动限于辅助预检分支与自身会话，不扩大为无关功能或发布前全量验收。保留工作区内其他并行的 Settings/图标/多语言改动。
 
@@ -1299,45 +1299,45 @@ Jev 可以辅助判断“用户表达了重复意图”，但不能直接判定�
 | 编号 | 文件／资料 | 核查内容 |
 | --- | --- | --- |
 | [C01] | `package.json` | 版本、依赖与真实 scripts；完整读取 |
-| [C02] | `src/main/storage/schema.ts` | schemaVersion、DDL、effectsVersion 与无原地迁移；完整读取 |
-| [C03] | `src/main/smart/credentials.ts` | 设备配置 v2、provider/feature、Key 边界与升级；节选读取 |
-| [C04] | `src/main/smart/service.ts` | handle、analyze、insight、feature、取消／修订；相关段落读取 |
-| [C05] | `src/shared/contracts/smart-input.ts` | 当前动作、请求、回声、预览与洞察契约；完整读取 |
-| [C06] | `src/main/smart/insight.ts` | chat adapter、固定 preset、JSON、推理及超时；已核对同基线 |
-| [C07] | `src/domain/smart/insight.ts` | 起草／复盘 prompt 与输出限制；已核对同基线 |
+| [C02] | `apps/desktop/src/main/storage/schema.ts` | schemaVersion、DDL、effectsVersion 与无原地迁移；完整读取 |
+| [C03] | `apps/desktop/src/main/smart/credentials.ts` | 设备配置 v2、provider/feature、Key 边界与升级；节选读取 |
+| [C04] | `apps/desktop/src/main/smart/service.ts` | handle、analyze、insight、feature、取消／修订；相关段落读取 |
+| [C05] | `apps/desktop/src/shared/contracts/smart-input.ts` | 当前动作、请求、回声、预览与洞察契约；完整读取 |
+| [C06] | `apps/desktop/src/main/smart/insight.ts` | chat adapter、固定 preset、JSON、推理及超时；已核对同基线 |
+| [C07] | `apps/desktop/src/domain/smart/insight.ts` | 起草／复盘 prompt 与输出限制；已核对同基线 |
 | [C08] | `docs/features/smart-input.md` | 当前智能输入范围、授权与降级；相关段落读取 |
-| [C09] | `src/main/workspace/commands/items.ts` | editItem、moveItem、createItem、Later 与关联；完整读取 |
-| [C10] | `src/shared/contracts/effects.ts` | 既有 v1 Effect / BusinessState / Operation；完整读取 |
-| [C11] | `src/renderer/state/session.ts` | UndoSession 接纳和代次规则；完整读取 |
-| [C12] | `src/main/workspace/repository.ts` | execute/apply/dispatch、receipt、query；相关实现读取 |
-| [C13] | `src/shared/contracts/transfer.ts` | dataset、effect、operation 与 data actions；完整读取 |
-| [C14] | `src/renderer/features/items/ItemDetail.tsx` | 入口、flush、autosave、更多菜单与详情；完整读取 |
-| [C15] | `src/renderer/state/use-workspace.ts` | PreparedWrite、perform、accept、unknown receipt；相关段落读取 |
-| [C16] | `src/shared/contracts/queries.ts` | 有界摘要、detail、receipt、reviewContext；完整读取 |
+| [C09] | `apps/desktop/src/main/workspace/commands/items.ts` | editItem、moveItem、createItem、Later 与关联；完整读取 |
+| [C10] | `apps/desktop/src/shared/contracts/effects.ts` | 既有 v1 Effect / BusinessState / Operation；完整读取 |
+| [C11] | `apps/desktop/src/renderer/state/session.ts` | UndoSession 接纳和代次规则；完整读取 |
+| [C12] | `apps/desktop/src/main/workspace/repository.ts` | execute/apply/dispatch、receipt、query；相关实现读取 |
+| [C13] | `apps/desktop/src/shared/contracts/transfer.ts` | dataset、effect、operation 与 data actions；完整读取 |
+| [C14] | `apps/desktop/src/renderer/features/items/ItemDetail.tsx` | 入口、flush、autosave、更多菜单与详情；完整读取 |
+| [C15] | `apps/desktop/src/renderer/state/use-workspace.ts` | PreparedWrite、perform、accept、unknown receipt；相关段落读取 |
+| [C16] | `apps/desktop/src/shared/contracts/queries.ts` | 有界摘要、detail、receipt、reviewContext；完整读取 |
 | [C17] | `docs/features/task-descriptions.md` | Markdown、NoteSignal、清空标题与编辑约束；已核对同基线 |
-| [C18] | `src/domain/rollover.ts` | 普通 backlog 与自动顺延候选；已核对同基线 |
+| [C18] | `apps/desktop/src/domain/rollover.ts` | 普通 backlog 与自动顺延候选；已核对同基线 |
 | [C19] | `AGENTS.md` | 不可变产品规则、关联、验证、文档归属；完整读取 |
-| [C20] | `src/domain/items.ts` | canDiscardEmptyTitle；完整读取 |
-| [C21] | `src/main/storage/startup.ts` | probeSource/openWorkspace 对旧库的真实行为；完整读取 |
-| [C22] | `src/main/workspace/transfer/rows.ts` | 有界表集合、序列化与恢复；完整读取 |
+| [C20] | `apps/desktop/src/domain/items.ts` | canDiscardEmptyTitle；完整读取 |
+| [C21] | `apps/desktop/src/main/storage/startup.ts` | probeSource/openWorkspace 对旧库的真实行为；完整读取 |
+| [C22] | `apps/desktop/src/main/workspace/transfer/rows.ts` | 有界表集合、序列化与恢复；完整读取 |
 | [C23] | `docs/features/flow-insight.md` | 断点／复盘、历史投影与只读记录；相关段落已核对 |
 | [C24] | `docs/development.md` | 项目地图、测试与功能映射；相关段落读取 |
-| [C25] | `src/renderer/README.md` | renderer 文件位置和职责；模块地图读取 |
-| [C26] | `src/main/README.md` | IPC／main／worker／网络边界；模块地图读取 |
-| [C27] | `src/main/workspace/README.md` | Repository、命令、transfer 位置；模块地图读取 |
+| [C25] | `apps/desktop/src/renderer/README.md` | renderer 文件位置和职责；模块地图读取 |
+| [C26] | `apps/desktop/src/main/README.md` | IPC／main／worker／网络边界；模块地图读取 |
+| [C27] | `apps/desktop/src/main/workspace/README.md` | Repository、命令、transfer 位置；模块地图读取 |
 | [C28] | `package.json` | 应用 1.5.0 与现有测试 scripts；本轮重读相关段落 |
-| [C29] | `src/renderer/features/items/ItemDetail.tsx` | 常驻 detail-rail、管理操作与 autosave；本轮完整读取 |
-| [C30] | `src/renderer/features/items/Activity.tsx` | 三条门槛、全量分页读取、日历与缺少明细入口；前轮完整读取 |
-| [C31] | `src/renderer/features/items/activity-insight.ts` | 有效事件过滤、列累计、openDays、单值 marks；前轮完整读取 |
-| [C32] | `tests/renderer/activity-insight.test.ts` | 旧样例、撤销和网格断言；前轮完整读取 |
-| [C33] | `src/shared/contracts/history.ts` | 事件 DTO 没有 source，业务状态与活动类型；前轮完整读取 |
-| [C34] | `src/main/workspace/history.ts` | 活动 SELECT/pagination、历史投影；前轮完整读取 |
-| [C35] | `src/main/workspace/commands/items.ts` | rolled_over 的实际条件与普通 edit；前轮相关段落读取 |
-| [C36] | `src/main/workspace/reconcile.ts` | 自动批次 source=system、单次移到当前周期；前轮完整读取 |
-| [C37] | `tests/desktop/fixtures/detail-rail.mjs` | 720/1280、四外观、无旧更多按钮、只读与管理动作几何；本轮完整读取 |
-| [C38] | `src/shared/contracts/smart-input.ts` | 最新洞察 DTO 未包含本规范执行摘要；前轮相关段落读取 |
-| [C39] | `src/main/workspace/commands/undo.ts` | 按 effect 撤销、undo 事件与不回滚版本；本轮相关段落读取 |
-| [C40] | `src/main/storage/schema.ts` | 增量基线 schemaVersion=7、无原地迁移；本轮重读相关段落 |
+| [C29] | `apps/desktop/src/renderer/features/items/ItemDetail.tsx` | 常驻 detail-rail、管理操作与 autosave；本轮完整读取 |
+| [C30] | `apps/desktop/src/renderer/features/items/Activity.tsx` | 三条门槛、全量分页读取、日历与缺少明细入口；前轮完整读取 |
+| [C31] | `apps/desktop/src/renderer/features/items/activity-insight.ts` | 有效事件过滤、列累计、openDays、单值 marks；前轮完整读取 |
+| [C32] | `apps/desktop/tests/renderer/activity-insight.test.ts` | 旧样例、撤销和网格断言；前轮完整读取 |
+| [C33] | `apps/desktop/src/shared/contracts/history.ts` | 事件 DTO 没有 source，业务状态与活动类型；前轮完整读取 |
+| [C34] | `apps/desktop/src/main/workspace/history.ts` | 活动 SELECT/pagination、历史投影；前轮完整读取 |
+| [C35] | `apps/desktop/src/main/workspace/commands/items.ts` | rolled_over 的实际条件与普通 edit；前轮相关段落读取 |
+| [C36] | `apps/desktop/src/main/workspace/reconcile.ts` | 自动批次 source=system、单次移到当前周期；前轮完整读取 |
+| [C37] | `apps/desktop/tests/fixtures/detail-rail.mjs` | 720/1280、四外观、无旧更多按钮、只读与管理动作几何；本轮完整读取 |
+| [C38] | `apps/desktop/src/shared/contracts/smart-input.ts` | 最新洞察 DTO 未包含本规范执行摘要；前轮相关段落读取 |
+| [C39] | `apps/desktop/src/main/workspace/commands/undo.ts` | 按 effect 撤销、undo 事件与不回滚版本；本轮相关段落读取 |
+| [C40] | `apps/desktop/src/main/storage/schema.ts` | 增量基线 schemaVersion=7、无原地迁移；本轮重读相关段落 |
 | [C41] | `commit metadata` | 本轮重新读取 main 指向 6d4eca7；来源链接锁定该 commit |
 | [W01] | Vercel · Jev model page | 结构化选择、评分、布尔概率；外部能力核对，非项目实测 |
 | [W02] | DeepSeek · JSON Output | JSON 参数、提示示例、截断与空内容；外部 API 注意事项 |

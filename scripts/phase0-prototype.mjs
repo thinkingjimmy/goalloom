@@ -10,9 +10,14 @@
  * The same six scenarios also run locally, without these variables, inside `pnpm test`.
  */
 import { spawn } from 'node:child_process'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import electron from 'electron'
 
-const child = spawn(electron, ['node_modules/vitest/vitest.mjs', 'run', 'tests/sync/phase0-prototype.test.ts'], {
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+const vitest = join(repoRoot, 'node_modules/vitest/vitest.mjs')
+const child = spawn(electron, [vitest, 'run', 'packages/tests/sync/phase0-prototype.test.ts'], {
+  cwd: repoRoot,
   stdio: 'inherit',
   env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', PHASE0_REQUIRE_HOSTED: '1' },
 })

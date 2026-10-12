@@ -26,22 +26,22 @@
 
 | 方面 | 现状 | 位置 |
 | --- | --- | --- |
-| 尺度 | `horizons = ['later','cycle','month','week','day']`；数组顺序即周期长短，关联规则用 `indexOf` 比较 | `src/shared/contracts/values.ts`、`src/domain/relations.ts` |
-| 日历配置 | `{ id, timezone, weekStart, cycleAnchor }`，存为 `workspace.calendar` JSON；确认后锁定（再次确认报 `calendarLocked`），设置页只读 | `src/shared/contracts/entities.ts`、`src/main/workspace/commands/items.ts` |
-| 周期算法 | 日 / 周 / 月按自然边界；3个月 = 从 `cycleAnchor` 起每 3 个日历月，月底截断，始终从原锚点推导；早于锚点的 3个月 不存在 | `src/domain/calendar.ts` |
-| 周期 ID | `${calendar.id}:${horizon}:${startDate}`；周期只在写入时物化 | 同上、`src/main/workspace/periods.ts` |
-| 存储 | `planning_periods`、`item_placements` 的 `horizon` CHECK 写死四种（placement 另含 later）；连接默认开启外键，迁移在 `BEGIN IMMEDIATE` 事务内执行 | `src/main/storage/schema.ts`、`database.ts` |
+| 尺度 | `horizons = ['later','cycle','month','week','day']`；数组顺序即周期长短，关联规则用 `indexOf` 比较 | `apps/desktop/src/shared/contracts/values.ts`、`apps/desktop/src/domain/relations.ts` |
+| 日历配置 | `{ id, timezone, weekStart, cycleAnchor }`，存为 `workspace.calendar` JSON；确认后锁定（再次确认报 `calendarLocked`），设置页只读 | `apps/desktop/src/shared/contracts/entities.ts`、`apps/desktop/src/main/workspace/commands/items.ts` |
+| 周期算法 | 日 / 周 / 月按自然边界；3个月 = 从 `cycleAnchor` 起每 3 个日历月，月底截断，始终从原锚点推导；早于锚点的 3个月 不存在 | `apps/desktop/src/domain/calendar.ts` |
+| 周期 ID | `${calendar.id}:${horizon}:${startDate}`；周期只在写入时物化 | 同上、`apps/desktop/src/main/workspace/periods.ts` |
+| 存储 | `planning_periods`、`item_placements` 的 `horizon` CHECK 写死四种（placement 另含 later）；连接默认开启外键，迁移在 `BEGIN IMMEDIATE` 事务内执行 | `apps/desktop/src/main/storage/schema.ts`、`database.ts` |
 | 顺延策略 | 确认时插入四条：日 auto，周 / 月 / 3个月 manual；3个月 不能改成 auto；自动顺延只遍历 auto 策略 | `confirmSetup`、`commands/settings.ts`、`reconcile.ts` |
-| Onboarding | 方向（写进 3个月）→ 日历（时区 / 周起始 / 3个月起点：今天·本月初·本季度初·自选）→ AI；「确认并开始」锁定日历，随后把方向创建为 3个月 的流程根 | `src/renderer/features/setup/*`、`src/renderer/App.tsx` |
-| 看板 | Later 侧栏 + 四个时间列固定显示，不提供时间列显隐；最小列宽 320px，放不下时横向滚动；拖动到右缘会自动滚动 | `src/renderer/state/columns.ts`、`styles.css`、`docs/features/later-sidebar.md` |
-| 列头年份 | 列头日期一律省略年份，悬停看完整日期；3个月 面板列表只在跨年时给结束日加两位年份 | `src/renderer/features/board/period-labels.ts` |
-| 导入导出 | 数据集 v1–v5；要求恰好 4 条策略；逐条用 `currentPeriod` 复核每个周期边界 | `src/domain/import-validation.ts`、`src/shared/contracts/transfer.ts` |
-| Jev | 执行时间选项只有 day / week / month / cycle / later / future / unclear，推测选项只有 day / week / month / cycle / later；提示词只用中文 | `src/domain/smart/questions.ts`、`preview.ts` |
-| 洞察 | 链条写死 3个月 → 本月 → 本周 → 今天；空列卡只在本月 / 本周 / 今天出现，且只看当期；AI 起草目标只有 month / week / day | `src/renderer/features/insight/signals.ts`、`EmptyCard.tsx`、`src/domain/smart/insight.ts` |
-| 自动排序 | 参与排序的列由 `rank > 0` 推导（现在是本月 / 本周 / 今天）；关闭时保存排列的 SQL 写死 `p.horizon IN ('month','week','day')`；规格写明「3个月 不自动排序」 | `src/domain/parent-order.ts`、`src/main/workspace/commands/ordering.ts`、`docs/features/board-ordering.md` |
-| 复盘 | 计算复盘范围时，只对 3个月 做「观察时刻早于起点就跳过」 | `src/main/workspace/review.ts` |
-| 起点提交 | 向导在渲染时算出「今天」并作为起点提交，服务端只检查不晚于今天 | `src/renderer/features/setup/CalendarStep.tsx`、`confirmSetup` |
-| 智能输入评测 | 所有用例共用 2026-09-23 和一组固定周期；只断言原文写明的执行时间，推测结果只写进报告 | `scripts/eval/smart.ts`、`scripts/eval/cases.ts` |
+| Onboarding | 方向（写进 3个月）→ 日历（时区 / 周起始 / 3个月起点：今天·本月初·本季度初·自选）→ AI；「确认并开始」锁定日历，随后把方向创建为 3个月 的流程根 | `apps/desktop/src/renderer/features/setup/*`、`apps/desktop/src/renderer/App.tsx` |
+| 看板 | Later 侧栏 + 四个时间列固定显示，不提供时间列显隐；最小列宽 320px，放不下时横向滚动；拖动到右缘会自动滚动 | `apps/desktop/src/renderer/state/columns.ts`、`styles.css`、`docs/features/later-sidebar.md` |
+| 列头年份 | 列头日期一律省略年份，悬停看完整日期；3个月 面板列表只在跨年时给结束日加两位年份 | `apps/desktop/src/renderer/features/board/period-labels.ts` |
+| 导入导出 | 数据集 v1–v5；要求恰好 4 条策略；逐条用 `currentPeriod` 复核每个周期边界 | `apps/desktop/src/domain/import-validation.ts`、`apps/desktop/src/shared/contracts/transfer.ts` |
+| Jev | 执行时间选项只有 day / week / month / cycle / later / future / unclear，推测选项只有 day / week / month / cycle / later；提示词只用中文 | `apps/desktop/src/domain/smart/questions.ts`、`preview.ts` |
+| 洞察 | 链条写死 3个月 → 本月 → 本周 → 今天；空列卡只在本月 / 本周 / 今天出现，且只看当期；AI 起草目标只有 month / week / day | `apps/desktop/src/renderer/features/insight/signals.ts`、`EmptyCard.tsx`、`apps/desktop/src/domain/smart/insight.ts` |
+| 自动排序 | 参与排序的列由 `rank > 0` 推导（现在是本月 / 本周 / 今天）；关闭时保存排列的 SQL 写死 `p.horizon IN ('month','week','day')`；规格写明「3个月 不自动排序」 | `apps/desktop/src/domain/parent-order.ts`、`apps/desktop/src/main/workspace/commands/ordering.ts`、`docs/features/board-ordering.md` |
+| 复盘 | 计算复盘范围时，只对 3个月 做「观察时刻早于起点就跳过」 | `apps/desktop/src/main/workspace/review.ts` |
+| 起点提交 | 向导在渲染时算出「今天」并作为起点提交，服务端只检查不晚于今天 | `apps/desktop/src/renderer/features/setup/CalendarStep.tsx`、`confirmSetup` |
+| 智能输入评测 | 所有用例共用 2026-09-23 和一组固定周期；只断言原文写明的执行时间，推测结果只写进报告 | `apps/desktop/scripts/eval/smart.ts`、`apps/desktop/scripts/eval/cases.ts` |
 
 结论：现有工作区的日历本质上就是「3个月滚动 + 自然月 / 周 / 日」，也就是本需求的 365 天模式去掉年和半年。
 
@@ -281,7 +281,7 @@ Implementation failure cases to cover before changing production code:
 
 ## 6. 工程方案
 
-### 6.1 领域（`src/domain`）
+### 6.1 领域（`apps/desktop/src/domain`）
 
 - `calendar.ts`：`Horizon` 增加 `'year' | 'half'`；`Calendar` 增加 `mode?: 'rolling' | 'natural'`；`cycleRange` 泛化为按 3 / 6 / 12 个月计算的锚定区间；`currentPeriod` 支持年 / 半年；`precedingPeriod` 对三个锚定尺度在起点处都返回 null；`validateCalendar` 要求自然年模式的起点为 `YYYY-01-01`。
 - `relations.ts`：逻辑不变（依赖 `horizons` 顺序），补测试。
@@ -293,7 +293,7 @@ Implementation failure cases to cover before changing production code:
 - `smart/preview.ts`：推测结果的类型增加 year / half；future 警示文案覆盖「明年 / 下个半年」，不再包括正在进行的「下半年」。原文开头唯一且明确的执行周期按解析结果生成预览；否定、截止表达和多个周期仍由 Jev 判断。手动调整优先，所有写入仍需用户确认。
 - `smart/insight.ts`：颗粒度规则增加半年、3个月；跳级规则保持只针对本月 → 今天。
 
-### 6.2 共享契约（`src/shared/contracts`）
+### 6.2 共享契约（`apps/desktop/src/shared/contracts`）
 
 - `values.ts`：`horizons = ['later','year','half','cycle','month','week','day']`；新增 `periodHorizons`（去掉 later）和 `anchoredHorizons`（年 / 半年 / 3个月）常量，替换各处手写的四元数组（`repository.ts`、`main/workspace/review.ts`、`CalendarStep.tsx`、`ReviewOverview.tsx`、`insight/review.ts` 等）。
 - `entities.ts`：`periodHorizonSchema` 改用常量；`calendarSchema` 增加 `mode: z.enum(['rolling','natural']).default('rolling')`。字段名 `cycleAnchor` 保留，语义扩为「锚定尺度共同的起点」。2026-10-05 起 `policyHorizons = periodHorizons`，策略和命令共用完整六尺度。
@@ -302,7 +302,7 @@ Implementation failure cases to cover before changing production code:
 - `transfer.ts`：当前导出 schema v7，保留 v1–v6 导入；策略数组上限使用 `policyHorizons.length`。
 - `smart-input.ts`：`smartPreviewSchema.periods`、`insightBoardSchema.periods` 的键改为从周期尺度常量派生（BUG-01）；`draftTaskSchema.targetHorizon` 增加 half / cycle；`insightBoardSchema` 的 goals / unlinked 增加 half、cycle 列表（各 ≤ 24）。
 
-### 6.3 存储：不做原地迁移（D10，`src/main/storage`）
+### 6.3 存储：不做原地迁移（D10，`apps/desktop/src/main/storage`）
 
 **2026-10-05 当前增量**：schema v7 的 `rollover_policies.horizon` 接受六尺度，移除 cycle 只能 manual 的 CHECK。确认配置写入六条策略；当前库必须完整持有六条。`upgradableVersions` 仍为空，v1–v6 工作区只读拒绝，沿用下方手动升级流程；旧源导入校验保留四策略约束，目标事务补写年／半年手动策略及所需当期。JSON、SQLite 导出与备份验证统一接受六策略。
 
@@ -339,7 +339,7 @@ Implementation failure cases to cover before changing production code:
 
 **以后若出现其他用户、需要原地升级**：按已实测的做法补一个迁移即可。步骤是事务外关外键 → 先重建 `item_placements`（连带删除它的两个触发器和索引）→ 重建 `planning_periods` → 两表改回原名 → 重建索引与触发器 → 用 `verifyDatabase` 复核。2026-10-02 在 Electron 44（Node 24.21、SQLite 3.53.4）的一次性数据库上实测：原有行逐字节一致，外键、触发器、新 CHECK 都生效。直接改写 `sqlite_schema` 里的 CHECK 文本需要关闭 node:sqlite 默认的防御模式（`defensive: false`），不采用。
 
-### 6.4 主进程事务与查询（`src/main/workspace`）
+### 6.4 主进程事务与查询（`apps/desktop/src/main/workspace`）
 
 - `commands/items.ts` 的 `confirmSetup`：接收 mode；在事务内按工作区今天解析起点（今天、本月 1 日、自然年的 1 月 1 日），与 `expected` 不一致就以 `stale_preview` 拒绝；自选日期仍只检查不晚于今天；六尺度均写当期周期与策略（日 auto，其余 manual）。
 - `commands/ordering.ts` 的 `materializeParentOrder`：保存排列的 SQL 写死 `p.horizon IN ('month','week','day')`，改为按 `parentOrderedHorizon` 生成，覆盖半年、3个月（BUG-10）。
@@ -350,7 +350,7 @@ Implementation failure cases to cover before changing production code:
 - `main/smart/context.ts`：`periods` 带上年 / 半年（与 BUG-01 的修复配合）。
 - `transfer/*`：导出 v7；读取 v1–v7；旧源仅在目标替换事务中补齐年／半年默认策略。
 
-### 6.5 看板、向导与设置（`src/renderer`）
+### 6.5 看板、向导与设置（`apps/desktop/src/renderer`）
 
 - `state/columns.ts`：六个时间列默认显示；显隐接口已由[列显隐需求](column-visibility.md)接续。
 - `features/board/Board.tsx`、`BoardLayout.tsx`、`styles.css`：Later 与时间列等宽，当前按[可见列数](column-visibility.md)计算；隐藏最长列圆点的 CSS 改为 `[data-horizon='year']`（BUG-08）；聚焦某列的操作把该列横向滚入视口。
@@ -368,7 +368,7 @@ Implementation failure cases to cover before changing production code:
 - `settings/BoardPane.tsx` 与五语言文案：「按上级自动排序」的说明改为半年、3个月、本月、本周、今天及未来周期跟随上级。
 - `i18n/locales/*`：五语言新增年 / 半年名称、上 / 下一期、返回、面板本期按钮、模式卡片、方向步骤（标题、示例、无障碍名称「这一年的方向」）与设置文案；`i18n/index.ts` 的 `horizonNames` 映射增加两个键。
 
-### 6.6 流程洞察（`src/renderer/features/insight`）
+### 6.6 流程洞察（`apps/desktop/src/renderer/features/insight`）
 
 - `signals.ts`：`chain` 扩为六级，`Planned` / `ChildHorizon` 类型同步；`shorter()` 沿完整链条取下一级，未知尺度显式返回 null（BUG-02）；`emptyColumns` 覆盖半年 → 今天，来源按 §4.7 只取没有当期下级的条目（BUG-07）；跳级检测保持本月 → 今天；`periodText` 的中文名增加年 / 半年（按模式区分「这一年 / 今年」等），去掉 `as Planned` 断言（BUG-01）；`boardDigest` 输出新的列表字段。
 - 未来周期（§4.7）：`emptyColumns` 改为按各列当前显示的周期计算，覆盖「半年 / 3个月 显示的未来周期落在左侧一列所显示的周期之内」的情况，未来周期的条目来自 `useBoardPeriods` 已加载的数据；年 / 半年列在未来周期也给出拆解目标，下级周期取与上级同一天开始的那一期；`EmptyCard` 与起草种子使用列当前显示的周期，而不是固定取当期。
@@ -468,10 +468,10 @@ D9 里「不足 14 天放进下一年」的规则保留，补齐了向导结束�
 | BUG-06 | `PeriodPicker` 只有 `'cycle'` 走列表，其余尺度落到按天的月历分支 | 年 / 半年面板显示成按天的月历，点任一天都选中整年 / 整个半年 | 年 / 半年面板是周期列表 |
 | BUG-07 | `emptyColumns` 写死 `['month','week','day']` | 扩链后，半年 / 3个月 仍不会出现空列卡 | 只有年目标、半年为空时，半年列出现空列卡 |
 | BUG-08 | `styles.css` 写死 `[data-horizon='cycle']` 隐藏最长列圆点 | 单流程筛选时年列圆点常显，3个月 的反而被隐藏 | 单流程筛选截图对比 |
-| BUG-09（现有） | 3个月 面板列表用 `cycleOptionLabel`，同一年内的日期不带年份 | 面板含本期前两期 + 后三期，相隔四期的两行月日相同；两行都在同一年内时，会显示成一模一样的「3/23 – 6/22」。工作区用满半年、有两期往期后就会出现 | 有两期往期的工作区，面板六行文字各不相同（按 §4.3 规则 2 修复，同步更新 `tests/renderer/period-labels.test.ts`） |
+| BUG-09（现有） | 3个月 面板列表用 `cycleOptionLabel`，同一年内的日期不带年份 | 面板含本期前两期 + 后三期，相隔四期的两行月日相同；两行都在同一年内时，会显示成一模一样的「3/23 – 6/22」。工作区用满半年、有两期往期后就会出现 | 有两期往期的工作区，面板六行文字各不相同（按 §4.3 规则 2 修复，同步更新 `apps/desktop/tests/renderer/period-labels.test.ts`） |
 | BUG-10 | `commands/ordering.ts` 的 `materializeParentOrder` 写死 `p.horizon IN ('month','week','day')` | 开着自动排序时，半年、3个月 按上级排列；关闭自动排序保存排列时这两列没有被保存，跳回旧的手动顺序 | 半年、3个月 里有上级的条目：关闭自动排序后顺序不变；重启后不变；撤销这次关闭后恢复到原来的手动顺序 |
 | BUG-11 | `main/workspace/review.ts` 只对 cycle 做「观察时刻早于起点就跳过」 | 复盘周期列表扩为六种后，在起点所在的月初 / 周初打开上一期复盘（例如 10/1 新建工作区、当天打开 9 月复盘），计算年 / 半年当期时抛出「起点晚于今天」，复盘加载失败 | 起点当天是月初 / 周初时打开上一期复盘，正常加载，年 / 半年不进入复盘范围（用注入时钟的集成测试） |
-| BUG-12（现有） | `CalendarStep` 在渲染时算出「今天」并作为起点提交，服务端只检查不晚于今天 | 停在日历步跨过午夜再确认，会把昨天永久锁成起点；「本月初」在月末跨夜、自然年的 1 月 1 日在跨年夜同理 | 集成测试：`expected` 是昨天时确认被 `stale_preview` 拒绝，不锁定任何东西；渲染端测试（建议在 `tests/desktop/review/renderer.mjs` 的模拟 IPC 环境里用 Playwright 的 `page.clock` 快进过午夜）：卡片、预览和方向目标周期刷新为新的今天 |
+| BUG-12（现有） | `CalendarStep` 在渲染时算出「今天」并作为起点提交，服务端只检查不晚于今天 | 停在日历步跨过午夜再确认，会把昨天永久锁成起点；「本月初」在月末跨夜、自然年的 1 月 1 日在跨年夜同理 | 集成测试：`expected` 是昨天时确认被 `stale_preview` 拒绝，不锁定任何东西；渲染端测试（建议在 `apps/desktop/tests/review/renderer.mjs` 的模拟 IPC 环境里用 Playwright 的 `page.clock` 快进过午夜）：卡片、预览和方向目标周期刷新为新的今天 |
 
 - [x] BUG-03 至 BUG-12 均已修复并通过自动化回归验证（修复前失败证据范围见开发进度 T01）
 
@@ -506,14 +506,14 @@ D9 里「不足 14 天放进下一年」的规则保留，补齐了向导结束�
 | --- | --- |
 | Onboarding / 首次配置 | `pnpm test:ui`、`pnpm test:composer`、`pnpm test:language`、`pnpm test:calendar`；重置后重新进入向导追加 `pnpm test:recovery` |
 | 周期规划、往期 | `pnpm test:periods`、`pnpm test:history` |
-| Later 与看板布局 | `pnpm test:later`；共享视口变化追加 `pnpm test:links`、`pnpm test:feedback`、`node tests/desktop/review/run.mjs virtual`，其余按本表去重 |
+| Later 与看板布局 | `pnpm test:later`；共享视口变化追加 `pnpm test:links`、`pnpm test:feedback`、`pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs virtual`，其余按本表去重 |
 | 关联与关系线 | `pnpm test:relations` |
 | 存储（新库 DDL；拒绝旧版本由 Vitest 集成测试覆盖） | `pnpm test:electron` |
 | 备份、导入、恢复（含 v5 的 JSON / `.sqlite` 导入 v6） | `pnpm test:recovery`、`pnpm test:calendar` |
 | 撒花默认值 | `pnpm test:celebration` |
 | 自动排序（半年、3个月 的排序与关闭时保存） | `pnpm test:ordering` |
-| 向导跨午夜刷新（渲染端，模拟 IPC） | `node tests/desktop/review/run.mjs renderer`（新增 `page.clock` 快进场景） |
+| 向导跨午夜刷新（渲染端，模拟 IPC） | `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs renderer`（新增 `page.clock` 快进场景） |
 | 智能输入 | `pnpm test:composer`；真实模型 `pnpm eval:smart`（需授权），可选 `pnpm test:composer-live` |
-| 流程洞察 | `pnpm test:insight`、`pnpm test:insight-generation`、`node tests/desktop/month-review.mjs`、`node tests/desktop/month-review.mjs --combined`；真实模型 `pnpm test:insight-live`（需授权） |
+| 流程洞察 | `pnpm test:insight`、`pnpm test:insight-generation`、`pnpm --filter @goalloom/desktop exec -- node tests/month-review.mjs`、`pnpm --filter @goalloom/desktop exec -- node tests/month-review.mjs --combined`；真实模型 `pnpm test:insight-live`（需授权） |
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

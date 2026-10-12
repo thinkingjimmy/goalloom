@@ -21,14 +21,14 @@
 
 ## 工程契约
 
-- `src/renderer/state/shortcuts.ts` 是唯一来源：定义表、按位置的 `filterCombo`/`filterSlot`、解析/校验/格式化、`useShortcuts` 外部存储。只保存与默认不同的项到 localStorage `goalloom.shortcuts`（改过的通用键，及关闭筛选时的 `filters: false`）；非法或未知项在读取时丢弃并回退默认。键位不进入工作区数据、历史、导出或备份。
+- `apps/desktop/src/renderer/state/shortcuts.ts` 是唯一来源：定义表、按位置的 `filterCombo`/`filterSlot`、解析/校验/格式化、`useShortcuts` 外部存储。只保存与默认不同的项到 localStorage `goalloom.shortcuts`（改过的通用键，及关闭筛选时的 `filters: false`）；非法或未知项在读取时丢弃并回退默认。键位不进入工作区数据、历史、导出或备份。
 - `App.tsx` 统一分发全局快捷键；顶栏与筛选快捷键共用主动选择入口，调用 `useBoardPeriods.returnPastToCurrent` 原子清除往期选择，内部筛选清理不触发导航。composer 的确认与详情的立即保存并结束编辑读取同一绑定；详情平时自动保存，无需按快捷键；顶栏、FAB、Toast、命令面板的快捷键提示随绑定变化，`aria-keyshortcuts` 同步。
 - `state/flows.ts` 从 `useBoardPeriods.items` 派生 `visible`：复用看板摘要顺序、固定列序与待办/完成分组；顶栏与快捷键共用同一列表。位置变化只重算展示顺序，不重建图归属与颜色缓存，不额外保存筛选顺序。
 
 ## 验收
 
-- [x] `pnpm run test:ui`（`tests/desktop/workspace.mjs`）：⌘1 开关 Later、⌘3 筛选首个流程、⌘4 无流程不响应、⌘2 回到全部；关闭顶栏数字键开关后 ⌘3 不响应、存储为 `{ filters: false }`，重新打开恢复；示意图不含真实流程名；⌘, 打开设置；录制拒绝无修饰键与系统占用组合；改为 ⌘N 显示双向冲突警告；改为 ⌘J 后 ⌘K 失效、⌘J 打开搜索；Esc 只取消录制；恢复默认。截图 `output/tests/screenshots/settings-shortcuts.png`。
-- [x] `pnpm run test:relations`（`tests/desktop/relations.mjs`）：17 个顺序检查覆盖四个计划列、同列重排、跨列移动与撤销、完成分组、改色、归档/还原、Later 收起／展开、未来周期及重载；七个流程的数字键按新位置切换，移动时保留已选流程。可复核证据：`output/tests/flow-filter-order.json`（环境与每步顺序）及 `output/tests/screenshots/flow-filter-order.png`。
+- [x] `pnpm run test:ui`（`apps/desktop/tests/workspace.mjs`）：⌘1 开关 Later、⌘3 筛选首个流程、⌘4 无流程不响应、⌘2 回到全部；关闭顶栏数字键开关后 ⌘3 不响应、存储为 `{ filters: false }`，重新打开恢复；示意图不含真实流程名；⌘, 打开设置；录制拒绝无修饰键与系统占用组合；改为 ⌘N 显示双向冲突警告；改为 ⌘J 后 ⌘K 失效、⌘J 打开搜索；Esc 只取消录制；恢复默认。截图 `output/tests/screenshots/settings-shortcuts.png`。
+- [x] `pnpm run test:relations`（`apps/desktop/tests/relations.mjs`）：17 个顺序检查覆盖四个计划列、同列重排、跨列移动与撤销、完成分组、改色、归档/还原、Later 收起／展开、未来周期及重载；七个流程的数字键按新位置切换，移动时保留已选流程。可复核证据：`output/tests/flow-filter-order.json`（环境与每步顺序）及 `output/tests/screenshots/flow-filter-order.png`。
 - [x] `pnpm test:history`：顶栏／数字快捷键返回所有往期列并归位滚动；重复筛选／全部同样返回；返回引起的顺序变化保留原流程身份；空位置、禁用、弹窗、输入框不导航；未来周期及草稿保留。证据：`output/tests/history.json` 的 `filterNavigation` 与 `filter-from-history.png`／`filter-return-current.png`。
 - [ ] Windows 11 上 Ctrl 显示与行为由所有者人工验收。
 
