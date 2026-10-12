@@ -1,10 +1,11 @@
 /**
  * [INPUT]: Review selection, generation/revision, shared Select/link rendering, cached drafting and guarded writes.
- * [OUTPUT]: Resumable review with guarded closing/confirm/skip and a completion callback after all writes and receipts succeed.
+ * [OUTPUT]: Resumable review with independent archival, synchronized group destinations, guarded writes and completion after receipts succeed.
  * [POS]: Review session owner; read contexts separate historical facts from current command versions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { nestingText } from '../../../shared/i18n/nesting'
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { ReviewContext, Snapshot } from '../../../shared/contracts/queries'
 import { insightMessages as t, messages, horizonNames } from '../../i18n'
@@ -136,19 +137,23 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
         return
       }
       if (step === 'close') {
-        for (const item of context.closing) {
+        const rows = [...context.closing.filter(item => choiceFor(item.id) === 'archive'), ...context.closing.filter(item => choiceFor(item.id) !== 'archive')]
+        for (const item of rows) {
           if (!alive.current) return
           if (processed.current.has(item.id)) continue
           const { item: live } = await desktopApi().getItem(item.id)
           if (!alive.current) return
           // A rollover or another edit can win while this drawer is open.
-          if (live.status !== 'todo' || live.archivedAt || live.deletedAt || live.placement.periodId !== item.placement.periodId) { processed.current.add(item.id); continue }
+          if (live.status !== 'todo' || live.archivedAt || live.deletedAt || live.placement.periodId !== item.placement.periodId || (live.placement.nestingParentId ?? null) !== (item.placement.nestingParentId ?? null)) { processed.current.add(item.id); continue }
           const choice = choiceFor(item.id)
           const destination = due[live.placement.horizon as ReviewHorizon]!.next
-          const confirmed = () => { processed.current.add(item.id) }
+          const confirmed = () => {
+            processed.current.add(item.id)
+            if (choice === 'defer') for (const peer of context.closing) if ((peer.placement.nestingParentId ?? peer.id) === (item.placement.nestingParentId ?? item.id)) processed.current.add(peer.id)
+          }
           if (choice === 'keep') confirmed()
           else if (!await commit(choice === 'defer'
-            ? { type: 'move', itemId: live.id, expectedVersion: live.version, expectedPlacementVersion: live.placement.version, horizon: live.placement.horizon, period: { kind: 'date', startDate: destination.startDate } }
+            ? { type: 'move', group: true, itemId: live.id, expectedVersion: live.version, expectedPlacementVersion: live.placement.version, horizon: live.placement.horizon, period: { kind: 'date', startDate: destination.startDate } }
             : { type: 'archive', itemId: live.id, expectedVersion: live.version, archived: true }, confirmed)) return
         }
       }
@@ -208,10 +213,14 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
               {context.closing.filter(item => item.placement.horizon === value.horizon && !processed.current.has(item.id)).map(item => {
                 return <div key={item.id} className="review-close-row" data-choice={choiceFor(item.id)}>
                   <div id={`review-choice-title-${item.id}`} className="review-goal-title"><span className="check review-todo-check" aria-hidden="true" style={flowVars(flows.colorsOf(item.id))} /><span className="review-item-title"><LinkText text={item.title} /></span></div>
-                  <Select disabled={disabled} value={choiceFor(item.id)} onValueChange={choice => setDecisions(previous => new Map(previous).set(item.id, choice as Decision))}>
-                    <SelectTrigger className="review-choice" aria-labelledby={`review-choice-title-${item.id}`}><SelectValue /></SelectTrigger>
+                  <Select disabled={disabled} value={choiceFor(item.id)} onValueChange={choice => setDecisions(previous => {
+                    const next = new Map(previous).set(item.id, choice as Decision)
+                    if (choice !== 'archive') for (const peer of context.closing) if ((peer.placement.nestingParentId ?? peer.id) === (item.placement.nestingParentId ?? item.id) && next.get(peer.id) !== 'archive') next.set(peer.id, choice as Decision)
+                    return next
+                  })}>
+                    <SelectTrigger className="review-choice" aria-labelledby={`review-choice-title-${item.id}`} aria-description={item.placement.nestingParentId || context.closing.some(peer => peer.placement.nestingParentId === item.id) ? nestingText().groupMove : undefined}><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="defer">{t.reviewMove(periodName(value.horizon, true))}</SelectItem>
+                      <SelectItem value="defer">{item.placement.nestingParentId || context.closing.some(peer => peer.placement.nestingParentId === item.id) ? `${nestingText().groupMove} · ` : ''}{t.reviewMove(periodName(value.horizon, true))}</SelectItem>
                       <SelectItem value="keep">{t.reviewKeep}</SelectItem>
                       <SelectItem value="archive">{t.archive}</SelectItem>
                     </SelectContent>

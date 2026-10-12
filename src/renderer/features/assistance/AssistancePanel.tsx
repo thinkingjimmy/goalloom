@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Live Markdown editor, authoritative facts and the detail's guarded autosave writer.
- * [OUTPUT]: Inline obstacle choices and one automatically persisted note rewrite, with Rethink below the editor.
+ * [OUTPUT]: Inline obstacle choices, save-guarded settings navigation and one persisted note rewrite, with Rethink below the editor.
  * [POS]: Task assistance presentation; settings gate network access, the main process owns context and output validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -77,6 +77,11 @@ export function AssistancePanel({ itemId, generation, revision, observedAt, acti
     stop(); setBusy(false); setLoading(false); setExpanded(false); setError('')
     requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true }))
   }
+  const openSettings = async () => {
+    const token = epoch.current
+    if (locked || !await callbacks.current.flush() || !live.current || token !== epoch.current || !activeRef.current) return
+    stop(); connect?.()
+  }
   const generate = async () => {
     if (working.current || locked || composing.current || selected === null || selected === 3 && !text.trim()) return
     stop(); working.current = true
@@ -137,7 +142,7 @@ export function AssistancePanel({ itemId, generation, revision, observedAt, acti
           </label>
         </div>
         {error && <p className="inline-error" role="alert">{error} {!prepared && !loading && <button type="button" className="text-button" onClick={() => setAttempt(value => value + 1)}>{assistanceMessages().retry}</button>}</p>}
-        {!loading && prepared && !prepared.enabled && <p className="assistance-unavailable">{t.unavailable} {connect && <button type="button" className="text-button" onClick={connect}>{t.settings}</button>}</p>}
+        {!loading && prepared && !prepared.enabled && <p className="assistance-unavailable">{t.unavailable} {connect && <button type="button" className="text-button" disabled={locked} onClick={() => void openSettings()}>{t.settings}</button>}</p>}
         <div className="assistance-actions">{busy || locked ? <><span role="status">{t.pending}</span><button type="button" className="button" disabled={locked} onClick={close}>{t.cancel}</button></> : <>
           <button type="button" className="text-button" onClick={close}>{t.later}</button><button type="submit" className="button primary" disabled={loading || !prepared?.enabled || selected === null || selected === 3 && !text.trim()}>{t.generate}<Icon name="forward" size={16} /></button>
         </>}</div>

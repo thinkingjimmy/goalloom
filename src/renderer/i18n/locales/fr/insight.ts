@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: French flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: French flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, reminder dismissal, matrix legends and settings.
  * [POS]: French insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -42,6 +42,7 @@ export const insightMessages: InsightCatalog = {
   reviewGuidePending: (count: number) => `${count} tâches inachevées à organiser.`,
   reviewStart: (period: string) => `Bilan de ${period}`,
   reviewContinue: 'Poursuivre le bilan',
+  reviewDismiss: 'Masquer ce bilan',
   reviewLookBack: (period: string) => `Bilan de ${period}`,
   reviewArrange: (period: string) => `Préparer ${period}`,
   reviewHandle: 'Tâches inachevées',

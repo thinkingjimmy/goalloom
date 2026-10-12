@@ -7,6 +7,7 @@
  *        cycles, invalid roots, colorless pairs and horizon violations.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { nestingText } from '../../../shared/i18n/nesting'
 import { useEffect, useState, type ReactNode } from 'react'
 import { horizons } from '../../../shared/contracts/values'
 import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
@@ -50,7 +51,7 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
     } catch { onError(messages.unlinkFailed) }
   }
   const selfHasFlow = flows.of(self.id).length > 0
-  const eligible = (item: ItemSummary) => mayLinkFlows(selfHasFlow, flows.of(item.id).length > 0)
+  const eligible = (item: ItemSummary) => !(side === 'child' && item.placement.nestingParentId) && mayLinkFlows(selfHasFlow, flows.of(item.id).length > 0)
     && (side === 'parent' ? mayParent(item.placement.horizon, self.horizon) : mayParent(self.horizon, item.placement.horizon))
   const distance = (item: ItemSummary) => Math.abs(horizons.indexOf(item.placement.horizon) - horizons.indexOf(self.horizon))
   const indexes = new Map(candidates.map((item, index) => [item.id, index]))
@@ -67,8 +68,9 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
     <div role="group">
       {rows.map(item => {
         const linked = !!edgeFor(item.id)
-        const blocked = side === 'child' && roots.has(item.id) && !linked
-        return <button key={item.id} type="button" role="menuitemcheckbox" aria-checked={linked} className="menu-item" disabled={blocked} title={blocked ? messages.flowRootNoParent : undefined} onClick={() => void toggle(item)}>
+        const inherited = !!edgeFor(item.id)?.inheritedFrom
+        const blocked = inherited || side === 'child' && roots.has(item.id) && !linked
+        return <button key={item.id} type="button" role="menuitemcheckbox" aria-checked={linked} className="menu-item" disabled={blocked} title={inherited ? nestingText().inherited : blocked ? messages.flowRootNoParent : undefined} onClick={() => void toggle(item)}>
           <FlowMark colors={flows.colorsOf(item.id)} />
           <span className="menu-text">{item.title}{item.archivedAt ? messages.archivedSuffix : ''}</span>
           <span className="menu-hint">{blocked ? messages.flowRootTag : horizonNames[item.placement.horizon]}</span>

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build, real workspace date and first/last-day weekly history fixtures.
- * [OUTPUT]: Weekly review-entry removal, separate planning invitations, default destinations, custom menu/focus, read-only titles, theme connectors, resume and creation evidence in output/tests/insight/weekly-review/.
+ * [OUTPUT]: Retained previous-week reminders, persistent dismissal, planning invitations, current-week destinations, custom menu/focus, read-only titles, resume and creation evidence in output/tests/insight/weekly-review/.
  * [POS]: Flow-insight desktop regression using real renderer/preload/SQLite and isolated synthetic records.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -77,21 +77,41 @@ async function verify(mode, variant) {
       return
     }
     const week = page.locator('[data-horizon=week]'), guide = week.locator('.review-guide').filter({ has: page.locator('[data-review]') })
-    const reviewedName = mode === 'week-first' ? '上周' : '本周', nextName = mode === 'week-first' ? '本周' : '下周'
+    const reviewedName = '上周', nextName = '本周'
     await guide.waitFor()
     assert.equal(await page.locator('[data-review]').count(), 1)
     assert.equal(await week.locator('.backlog-entry, .insight-empty, .empty-column, .review-entry').count(), 0)
-    assert.equal(await guide.getByRole('button').count(), 1)
+    assert.equal(await guide.getByRole('button').count(), 2)
     assert.equal(await guide.locator('h3').innerText(), `回顾 ${reviewedName}，安排 ${nextName}`)
-    assert.equal(await guide.getByRole('button').innerText(), `开始 ${reviewedName}复盘`)
+    assert.equal(await guide.locator('[data-review]').innerText(), `开始 ${reviewedName}复盘`)
     assert.equal(await guide.locator('p').innerText(), '3 项未完成，一起整理后再出发。')
-    assert.equal(await week.locator('.task-row').count(), mode === 'week-first' ? 0 : 2, 'The guide preserves visible current tasks')
+    assert.equal(await week.locator('.task-row').count(), 0, 'The review uses last week without populating this week')
     await week.scrollIntoViewIfNeeded()
     await page.screenshot({ path: `${out}/${mode}-unified-board.png` })
     await week.screenshot({ path: `${out}/${mode}-unified-guide.png` })
     check('One guide contains the unfinished count, suppresses competing hints and preserves current tasks')
 
-    await guide.getByRole('button').click()
+    const beforeDismiss = await page.evaluate(async () => ({ preferences: localStorage.getItem('goalloom.insight'), snapshot: await window.goalloom.getSnapshot() }))
+    const dismiss = guide.getByRole('button', { name: '关闭本次回顾', exact: true })
+    if (mode === 'week-first') await dismiss.press('Enter')
+    else await dismiss.click()
+    await guide.waitFor({ state: 'detached' })
+    assert.equal(await week.locator('[data-period-switch]').evaluate(node => node === document.activeElement), true)
+    const dismissed = await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.insight')))
+    assert.equal(dismissed.reviews, true)
+    assert.deepEqual(dismissed.reviewed, fixture.monthKeys)
+    assert.deepEqual(dismissed.dismissed, [`${beforeDismiss.snapshot.workspace.generation}:week:${fixture.period.startDate}`])
+    assert.equal(await week.locator('.review-plan-invitation').count(), 0, 'Dismissal does not mark the review complete')
+    assert.equal(await week.locator('.backlog-entry').count(), 1)
+    await page.reload(); await page.locator('.board').waitFor()
+    assert.equal(await week.locator('[data-review]').count(), 0)
+    assert.equal(await page.evaluate(() => window.goalloom.getSnapshot().then(snapshot => snapshot.workspace.revision)), beforeDismiss.snapshot.workspace.revision)
+    await week.screenshot({ path: `${out}/${mode}-dismissed-reloaded.png` })
+    scenario.dismissal = { persisted: true, separateFromCompletion: true, unchangedRevision: beforeDismiss.snapshot.workspace.revision }
+    check('Closing only this reminder persists after reload, restores backlog and returns focus without writes or completion')
+    await page.evaluate(value => localStorage.setItem('goalloom.insight', value), beforeDismiss.preferences)
+    await page.reload(); await page.locator('.board').waitFor()
+    await guide.locator('[data-review]').click()
     const drawer = page.locator('dialog.review-drawer[open]')
     await drawer.locator('.review-body[aria-busy=false]').waitFor()
     assert.equal(await drawer.locator('.review-matrix-legend li').count(), 2)
@@ -279,11 +299,11 @@ async function verify(mode, variant) {
     assert(saved[1].archivedAt)
     assert.equal(saved[1].version, originals[1].version + 1, 'Retry does not archive the item twice')
     assert.equal(saved[2].placement.horizon, 'week')
-    assert.equal(saved[2].placement.periodId, mode === 'week-first' ? fixture.current.id : fixture.current.id.replace(fixture.current.startDate, fixture.current.endDate))
+    assert.equal(saved[2].placement.periodId, fixture.current.id)
     assert.equal(saved[2].version, originals[2].version + 1, 'The default move commits once')
     assert.equal(saved[2].title, originals[2].title, 'Metadata does not replace source URLs')
     scenario.decisions = { kept: saved[0].id, archived: saved[1].id, moved: saved[2].id, destination: saved[2].placement.periodId }
-    check('Default move uses the exact first/last-day destination, manual keep/archive persist, and a partial rejection retries without duplicates')
+    check('Default move uses this week throughout the week, manual keep/archive persist, and a partial rejection retries without duplicates')
     await plan.locator('.seed-title').fill('Preserved weekly draft')
     const draftFocus = await plan.locator('.seed-title').evaluate(input => {
       const style = getComputedStyle(input)
@@ -368,16 +388,17 @@ async function verify(mode, variant) {
     assert.equal(await week.locator('.reviewed-note').count(), 0)
     const afterReview = await page.evaluate(async () => window.goalloom.getSnapshot())
     assert.equal(afterReview.backlog.week, 1)
-    assert.equal(afterReview.items.filter(item => item.placement.horizon === 'week').length, mode === 'week-first' ? 1 : 0)
+    const currentItems = afterReview.items.filter(item => item.placement.horizon === 'week')
+    assert.equal(currentItems.length, mode === 'week-first' ? 1 : 2)
     await week.screenshot({ path: `${out}/${mode}-completed.png` })
-    if (mode === 'week-first') {
-      assert.equal(await week.locator('.review-plan-invitation').count(), 0, 'The moved item keeps the current week populated')
-      await week.locator('.task-row .link-domain-label').filter({ hasText: 'Fixture X post' }).waitFor()
-      const cleared = await page.evaluate(async id => {
-        const { item } = await window.goalloom.getItem(id), snapshot = await window.goalloom.getSnapshot()
-        return window.goalloom.execute({ type: 'archive', itemId: id, expectedVersion: item.version, archived: true,
+    assert.equal(await week.locator('.review-plan-invitation').count(), 0, 'Moved and created items keep the current week populated')
+    await week.locator('.task-row .link-domain-label').filter({ hasText: 'Fixture X post' }).waitFor()
+    for (const item of currentItems) {
+      const cleared = await page.evaluate(async item => {
+        const snapshot = await window.goalloom.getSnapshot()
+        return window.goalloom.execute({ type: 'archive', itemId: item.id, expectedVersion: item.version, archived: true,
           generation: snapshot.workspace.generation, operationId: crypto.randomUUID() })
-      }, fixture.defaultMove)
+      }, item)
       assert.equal(cleared.ok, true)
     }
     const invitation = week.locator('.review-plan-invitation')
@@ -399,7 +420,7 @@ async function verify(mode, variant) {
     }, `Current weekly action ${mode}`)
     assert.equal(created.item.placement.horizon, 'week')
     assert.equal(created.item.placement.periodId, fixture.current.id)
-    assert(created.relations.some(edge => edge.parentId === fixture.parent && edge.childId === created.item.id))
+    assert(created.relations.some(edge => edge.parentId === fixture.invitationParent && edge.childId === created.item.id))
     assert.equal(await invitation.count(), 0)
     await week.screenshot({ path: `${out}/${mode}-current-week-created.png` })
     check('The post-review invitation creates in the current week under its monthly parent')

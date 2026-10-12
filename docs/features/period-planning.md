@@ -4,7 +4,11 @@
 
 ## 产品规则
 
-- 2026-10-06 负责人确认返回动作改为日期右侧的回转箭头图标，与新建按钮同排，列头保持单行；仅非本期显示，默认无底色，悬停／键盘聚焦显示完整五语言提示。提示可用 Esc 单独关闭，原有返回当期、指针动效和键盘即时导航保留。触控图标有 44px 点击区域。标题优先完整显示，空间不足时仅次要日期省略，完整日期仍可悬停查看。
+- English week period names are `Last week`, `This week` and `Next week`; column headings and period-picker options share these labels.
+
+- Current month/week headers show the remaining day count in a rounded badge with a subdued background at the far right, sharing the add-button slot. Count calendar days including workspace today, using the configured week boundary; the final day shows `1`. Hovering the column or focusing its header by keyboard replaces the badge with the add button without shifting the title/date or controls. The title keeps its independent dropdown chevron. Touch keeps add visible with its existing 44px target. Other horizons and past/future views have no countdown badge. The existing localized days-left text describes the period switch; existing workspace date refresh updates the count.
+
+- 2026-10-06 负责人确认返回动作改为日期右侧的回转箭头图标，与新建按钮同排，列头保持单行；仅非本期提供，默认无底色。2026-10-11 确认与新建按钮共用显隐规则：桌面默认隐藏，悬停整列或键盘聚焦列头时显示，隐藏时保留占位；触控保持可见。悬停／键盘聚焦返回按钮显示完整五语言提示。提示可用 Esc 单独关闭，原有返回当期、指针动效和键盘即时导航保留。触控图标有 44px 点击区域。标题优先完整显示，空间不足时仅次要日期省略，完整日期仍可悬停查看。
 
 - 空列／空历史的居中短提示使用最多 280px、且不超出列内可用宽度的正文区，优化自然换行；「为这一段时间，留一个清楚的方向。」在最小 320px 列内完整显示，不把「方向」拆成孤字尾行。文案、字号和图标位置沿用现有规则。
 
@@ -17,8 +21,9 @@
 - 往期页只显示目前仍属于这一期的任务，按最新状态分为「当期已完成」「当期未完成」「当期删除」。移走或顺延的任务不留引用，撤销归位后恢复显示；未删除的取消／归档任务沿用普通看板的隐藏规则。三类始终展开，分组标题紧贴首条记录，组间留白大于组内间距。
 - 往期未完成／已完成任务可直接勾选和重开，点击标题可编辑、删除或移动；已删除任务可直接还原。操作成功立即更新所在分组，保留同一任务的键盘焦点。所有操作复用真实任务的版本保护、撤销和实际操作时间；今天补勾上周任务不会倒填完成日期或改写期末历史。仍不向已结束周期新建、拖入或重排任务。
 - 可连续跨越过去、本期和未来；历史到达最早有记录的周期后停止向前，空周期仍能逐期跨过。列头日期统一省略年份，包含年份的完整日期可悬停查看；更远周期直接用日期作标题，不显示单独的「日／周／月／周期」，也不重复显示同一日期。锚定尺度面板的日期以工作区今年为参照：不在今年的一端补两位年份，两端同在其他年份时仅开头补一次；相对列头不带年份，自然年使用年份／半年／季度名。年与半年相邻列头使用相对名。Esc 先关闭菜单或输入，再返回本期；关闭面板后焦点回到列头标题。默认启动显示本期，选中的未来周期到期后成为本期，跨过后成为往期任务页。
-- 列头 B：标题与日期是一个按钮，按内容宽度完整显示（有空间时不省略），左缘与任务复选框对齐，返回按钮紧邻其后。悬停整列时出现 ⌄ 与新建按钮，标题和日期的位置始终不变；键盘聚焦时同样可见，触控设备常显并保留 44px 点击区域。
+- 列头 B：标题与日期是一个按钮，按内容宽度完整显示（有空间时不省略），左缘与任务复选框对齐，返回按钮紧邻其后。新建与返回按钮在悬停整列或键盘聚焦列头时出现；本月／本周倒数在最右侧与新建按钮共用位置。所有列头在悬停整列时显示下拉箭头。标题和日期的位置始终不变；键盘聚焦时显示箭头，触控保留 44px 点击区域并常显箭头与新建按钮。
 - 点击标题打开周期面板（沿用截止日期面板的样式）：顶部为上一期／本期／下一期常用按钮，名称随尺度和模式变化，上一期有待复盘时带琥珀点。周列为按周起始排布的月历，整行框选一周；日列为月历选单天；月列为一年 12 个月的网格；年、半年、三个月列固定列出 6 期（最多含本期之前两期，其余向未来补齐），自然年年度列表显示四位年份。当前显示的周期用深底浅字标出，今天仍画圈；早于最早有记录的周期不可选；网格与列表带已记录周期的完成数，历史查询失败显示重试。六个周期面板都没有底部逐期翻页；列头 ←／→ 仍可跨过空周期。
+- Clicking the app's blank titlebar dismisses the open period picker without changing its selection. While a shared popover is mounted, the titlebar accepts pointer events instead of starting a window drag; closing the last popover restores native dragging. Popover content and the other titlebar controls keep their existing actions.
 - 选择后面板关闭、焦点回到标题；Esc 先关闭面板，再按一次返回本期。标题聚焦时 ←／→ 逐期翻页、↓ 打开面板；键盘翻页不播放动效，鼠标点选周期按时间方向滑入。
 - 点击顶栏流程筛选或按有效的 ⌘/Ctrl+数字时，所有往期列自动回到当期、列表回到顶部；重复选中同一筛选也生效，未来周期及草稿保留。快捷键仍遵循[启停、空位置和输入保护](shortcuts.md)。
 - 鼠标或触控翻页时，内容按时间方向从右／左滑入，220ms 内完成；返回按钮按实际时间方向过渡。导航控件保持可点击，数据就绪后只对最新选择播放一次，连续点击取消前一次动效。首次加载、后台刷新、键盘翻页及减少动态效果模式不播放；隐藏窗口或切换减少动态效果时结束动效，关系线随内容同步定位。
@@ -38,6 +43,8 @@
 - 复用位置效果、原子历史、回执、撤销和现有存储结构，不做数据库迁移。过期位置的撤销仍产生 current-period hold。
 
 ## 实现前失败场景
+
+- Header countdown: excluding today shows `0` on the last day; host timezone, DST or an assumed Monday changes the count; midnight/wake refresh leaves stale text; past/future periods show a current-period count; the badge remains beside the date, lacks its rounded background or overlaps add; column hover or header keyboard focus fails to reveal add; the swap shifts the date or controls; touch hides the creation action; a screen reader reads an unexplained number. The existing period-navigation scenario covers current-month/week counts, trailing-slot geometry, column-hover/add swaps, keyboard access and non-current suppression.
 
 - Return-icon correction (2026-10-06): the icon still creates another header row, loses its accessible/localized label, mixes with Undo or quick add, clips its floating hint, cannot be reached by keyboard, changes period when Escape dismisses the hint, or fails pointer/Enter return. Keep titles and controls readable at 320px, preserve full-date access when a secondary range is constrained, and retain the empty-card row and 44px touch controls.
 

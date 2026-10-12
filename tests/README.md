@@ -16,6 +16,7 @@ tests/
 ├── renderer/
 │   ├── session.test.ts      # 会话去重、非栈顶/冲突单项移除、代次隔离
 │   ├── colors.test.ts       # 八组浅/深色对比度、流程描边与拼色
+│   ├── review.test.ts       # Seven week starts, timezone/DST boundaries, weekly retention, monthly overlap and generation-scoped persistent dismissal
 │   └── draft.test.ts        # composer 手动优先合并、orphan、计划负载与本地复核
 ├── integration/
 │   ├── database.test.ts     # 实际 SQLite 副本的失败保留与悬空引用拒绝

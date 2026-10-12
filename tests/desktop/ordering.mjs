@@ -143,9 +143,20 @@ try {
   await page.getByRole('button', { name: '只看 A', exact: true }).click()
   await page.waitForFunction(() => [...document.querySelectorAll('.relation-edge')].some(path => getComputedStyle(path).visibility !== 'hidden'))
   await page.evaluate(() => { window.rowIdentities = new Map([...document.querySelectorAll('.task-row')].map(row => [row.id, row])) })
+  await page.locator(`#item-${ids.C} .task-title`).scrollIntoViewIfNeeded()
+  await page.locator(`#item-${ids.A} .task-title`).scrollIntoViewIfNeeded()
+  await page.locator('.board-timeline').evaluate((timeline, id) => {
+    const row = document.getElementById(`item-${id}`).getBoundingClientRect(), viewport = timeline.getBoundingClientRect()
+    timeline.scrollLeft += row.left + row.width / 2 - viewport.left - timeline.clientWidth / 2
+  }, ids.A)
   await sample()
-  const source = await page.locator(`#item-${ids.C} .task-title`).boundingBox(), target = await page.locator(`#item-${ids.A} .task-title`).boundingBox()
-  await page.mouse.move(source.x + 50, source.y + 10); await page.mouse.down(); await page.mouse.move(target.x + 50, target.y + 8, { steps: 12 }); await page.mouse.up()
+  const source = await page.locator(`#item-${ids.C} .task-title`).boundingBox(), target = await page.locator(`#item-${ids.A}`).boundingBox()
+  const viewport = await page.locator('.board-timeline').boundingBox(), targetX = target.x + target.width / 2
+  assert(targetX > viewport.x + viewport.width * .2 && targetX < viewport.x + viewport.width * .8, 'The sorting target stays outside horizontal edge-autoscroll zones')
+  report.pointerReorder = { source, target, viewport, targetX }
+  await page.mouse.move(source.x + 50, source.y + 10); await page.mouse.down(); await page.mouse.move(source.x + 60, source.y + 10)
+  await page.waitForFunction(() => document.documentElement.dataset.dragging === 'true')
+  await page.mouse.move(targetX, target.y + 4, { steps: 12 }); await page.mouse.up()
   await ordered('month', ['C1', 'A2', 'A1', 'B1', 'Unlinked'])
   await ordered('week', ['Cw', 'Aw', 'Bw']); await ordered('day', ['Cd', 'Ad', 'Bd'])
   const dragFrames = await collect('Pointer parent reorder')
@@ -369,7 +380,13 @@ try {
   report.passed = true
 } catch (error) {
   report.failure = error.stack ?? String(error)
-  if (page && !page.isClosed()) await page.screenshot({ path: join(evidence, 'failure.png') }).catch(() => {})
+  if (page && !page.isClosed()) {
+    report.localState = await page.evaluate(async () => ({ visibility: document.visibilityState, focused: document.hasFocus(), activeElement: document.activeElement?.outerHTML.slice(0, 1000),
+      dragging: document.documentElement.dataset.dragging, nesting: document.documentElement.dataset.nestingDrag, timeline: document.querySelector('.board-timeline')?.scrollLeft,
+      placements: (await window.goalloom.getSnapshot()).items.map(item => ({ id: item.id, title: item.title, placement: item.placement })) })).catch(() => null)
+    report.nativeWindow = await application.evaluate(({ BrowserWindow }) => ({ focused: BrowserWindow.getAllWindows()[0]?.isFocused(), visible: BrowserWindow.getAllWindows()[0]?.isVisible() })).catch(() => null)
+    await page.screenshot({ path: join(evidence, 'failure.png') }).catch(() => {})
+  }
   throw error
 } finally {
   if (application) await application.close().catch(() => {})

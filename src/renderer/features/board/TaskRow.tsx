@@ -1,10 +1,11 @@
 /**
  * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
- * [OUTPUT]: Accessible task row with saved links, a due indicator, a description signal/peek between title and link cards, flow dot with independent relation dragging, pointer/keyboard placement drag and TODO context menu; task titles have no native tooltip, and lit rows carry `data-lit` and `--row-tint`. Later checkboxes stay uncolored.
+ * [OUTPUT]: Accessible root/subtask row with saved links, due/description signals, independent flow ports, placement dragging and hierarchy/lifecycle menus; titles fully wrap, lit rows carry `data-lit`/`--row-tint`, and Later checkboxes stay uncolored.
  *           A double click edits the title in place; a single click or keyboard activation still opens details.
  * [POS]: One virtual board row; Board owns placement, preview, dimming and which row is editing; the peek and detail own description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { nestingText } from '../../../shared/i18n/nesting'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEventHandler, type MouseEvent, type PointerEventHandler } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -77,7 +78,9 @@ function TitleField({ title, itemId, renameTitle, endEdit }: {
     }} />
 }
 
-export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle }: {
+export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle, onNest, hasNestedChildren, nestingParentTitle }: {
+  hasNestedChildren: boolean; nestingParentTitle: string | undefined
+  onNest: (id: string) => void
   index: number; total: number; item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]; today: string
   selected: boolean; dimmed: boolean; tint: string | undefined; disabled: boolean; editing: boolean; editLocked: boolean
   select: (id: string) => void; submit: (action: Action) => Promise<unknown>; onPreview: (itemId: string | null) => void
@@ -125,7 +128,7 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
     {item.dueDate && !overdue && !done && <span className="row-meta tabular" title={`${messages.dueDate} ${longDate(item.dueDate)}`}>{shortDate(item.dueDate)}</span>}
     {overdue && <span className="row-icon overdue" role="img" aria-label={messages.dueOverdue(longDate(item.dueDate!))} title={messages.dueOverdue(longDate(item.dueDate!))}><Icon name="overdue" size={16} /></span>}
   </div>
-  const row = <article role="listitem" aria-posinset={index + 1} aria-setsize={total} id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-highlighted={selected} data-dimmed={dimmed} data-done={done} data-lit={!!tint || undefined}
+  const row = <article role="listitem" aria-posinset={index + 1} aria-setsize={total} aria-level={item.placement.nestingParentId ? 2 : 1} aria-description={item.placement.nestingParentId ? `${nestingText().belongsTo} ${nestingParentTitle ?? ''}` : undefined} id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-nested={!!item.placement.nestingParentId} data-nesting-parent={item.placement.nestingParentId ?? undefined} data-context={!!item.archivedAt || item.status === 'cancelled'} data-highlighted={selected} data-dimmed={dimmed} data-done={done} data-lit={!!tint || undefined}
     style={{ transform: CSS.Transform.toString(transform), transition, '--row-tint': tint } as CSSProperties} onPointerDown={event => { if (event.button === 0 && !event.ctrlKey) (listeners?.onPointerDown as PointerEventHandler | undefined)?.(event) }}>
     <FlowDot item={item} flows={flows} relations={relations} candidates={candidates} disabled={disabled} submit={submit} onPreview={onPreview} />
     <button className="drag-handle" {...attributes} onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined} aria-label={messages.dragItem(item.title)}><Icon name="drag" size={14} /></button>
@@ -137,6 +140,6 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
     {hasLinks || item.note || item.guidance ? <div className="task-content">{line}{(item.note || item.guidance) && <NoteSignal itemId={item.id} title={item.title} note={item.note} guidance={item.guidance} />}{hasLinks && <LinkPreviews text={item.title} />}</div> : line}
   </article>
   const links = relations.filter(edge => edge.parentId === item.id || edge.childId === item.id).length
-  return item.status === 'todo' ? <TaskMenu item={item} upcoming={upcoming ?? []} relations={links} disabled={disabled || isDragging} submit={submit} select={select}
-    assist={assist ? () => assist(item.id) : undefined} decompose={decompose && (() => decompose(item))} onMenu={onMenu} onMoved={onMoved}>{row}</TaskMenu> : row
+  return !item.archivedAt && item.status !== 'cancelled' ? <TaskMenu onNest={() => onNest(item.id)} hasNestedChildren={hasNestedChildren} item={item} upcoming={item.status === 'todo' || candidates.some(candidate => candidate.placement.nestingParentId === item.id && candidate.status === 'todo') ? upcoming ?? [] : []} relations={links} disabled={disabled || isDragging} submit={submit} select={select}
+    assist={item.status === 'todo' && assist ? () => assist(item.id) : undefined} decompose={item.status === 'todo' && decompose ? () => decompose(item) : null} onMenu={onMenu} onMoved={onMoved}>{row}</TaskMenu> : row
 })

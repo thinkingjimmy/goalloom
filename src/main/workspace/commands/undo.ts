@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Immutable original effects, current state, indexed neighbors and injected time.
- * [OUTPUT]: Atomic owned-field inverses, guarded flow adoption/promotion reversal and persisted expiry holds.
+ * [OUTPUT]: Atomic owned-field inverses, guarded nesting/group and flow reversal, and persisted expiry holds.
  * [POS]: Undo transaction rules; Repository handles SAVEPOINT conflict rollback.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,7 @@ import { flowColorOwner, hasActiveParent, nextSortKey, targetPeriod, touch, type
 import { invalidateEdges, writeEdges } from './lifecycle'
 import { serverText } from '../../../shared/i18n/server'
 import { assistanceServerText } from '../../../shared/i18n/assistance'
+import { nestingTargets } from '../../../domain/nesting'
 import { guidanceIdentity } from './assistance'
 
 function conflict(message: string): never { throw new DomainError('conflict', message) }
@@ -24,15 +25,22 @@ export function undoOperation(context: Context, command: CommandOf<'undo'>): boo
   context.label = original.result.label
   context.itemId = original.result.itemId
   if (original.result.itemIds) context.itemIds = original.result.itemIds
-  for (const effect of [...original.effects].reverse()) reverseEffect(context, effect, original.id)
+  const checked = new Set<Effect>()
+  for (const effect of original.effects) if (effect.kind === 'nesting' && !original.effects.some(other => other.kind === 'position' && other.itemId === effect.itemId)) {
+    const item = context.store.item(effect.itemId)
+    const problem = effectProblem(effect, item, context.store.relations(false), context.store.position(item))
+    if (problem) conflict(problem)
+    checked.add(effect)
+  }
+  for (const effect of [...original.effects].reverse()) reverseEffect(context, effect, original.id, checked.has(effect))
   context.undone = original.effects.map((_, index) => ({ originalId: original.id, index }))
   return true
 }
-export function reverseEffect(context: Context, effect: Effect, originalId: string): void {
+export function reverseEffect(context: Context, effect: Effect, originalId: string, prechecked = false): void {
   const item = context.store.item(effect.itemId)
   const before = structuredClone(item)
-  const allEdges = ['create', 'visibility', 'relations'].includes(effect.kind) ? context.store.relations(false) : []
-  const problem = effectProblem(effect, item, allEdges, context.store.position(item))
+  const allEdges = ['create', 'visibility', 'relations', 'nesting'].includes(effect.kind) ? context.store.relations(false) : []
+  const problem = effectProblem(effect, item, allEdges, prechecked && effect.kind === 'nesting' ? effect.after : context.store.position(item))
   if (problem) conflict(problem)
   if (effect.kind === 'description') {
     item.description = effect.before
@@ -49,10 +57,43 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
     return
   }
   switch (effect.kind) {
+    case 'nesting': {
+      if (item.placement.nestingParentId) {
+        const version = item.placement.version
+        item.placement.nestingParentId = null; item.placement.version++
+        context.store.savePlacement(item.placement, version)
+      }
+      reverseRelations(context, inverseEdges(effect.edges, context.command.operationId, context.now), item)
+      const p = effect.before
+      if (p.nestingParentId) {
+        if (item.flowColor !== null || hasActiveParent(context, item.id)) conflict(serverText().undo.relationUnsafe)
+        const parent = context.store.item(p.nestingParentId)
+        if (parent.deletedAt || parent.placement.nestingParentId || parent.placement.horizon !== p.horizon || parent.placement.periodId !== p.periodId
+          || !nestingTargets(item.id, context.store.relations(), context.store.nestingLinks())(parent.id)) conflict(serverText().undo.relationUnsafe)
+      }
+      const neighbors = context.store.insertion(p.horizon, p.periodId, p.nextId, item.id, p.nestingParentId)
+      if ((neighbors.previous?.itemId ?? null) !== p.previousId) conflict(serverText().undo.orderUnsafe)
+      const key = nextSortKey(context, p.horizon, p.periodId, p.nextId, item.id, p.nestingParentId)
+      const version = item.placement.version
+      Object.assign(item.placement, { horizon: p.horizon, periodId: p.periodId, sortKey: key, nestingParentId: p.nestingParentId, version: version + 1 })
+      context.store.savePlacement(item.placement, version)
+      if (effect.flowColor) {
+        if (flowColorOwner(context, effect.flowColor.before, item.id) !== null) conflict(serverText().undo.colorTaken)
+        item.flowColor = effect.flowColor.before
+      }
+      break
+    }
+    case 'groupPlacement': {
+      const version = item.placement.version
+      Object.assign(item.placement, { horizon: effect.before.horizon, periodId: effect.before.periodId, version: version + 1 })
+      context.store.savePlacement(item.placement, version)
+      break
+    }
     case 'status': Object.assign(item, effect.before); break
     case 'archive': item.archivedAt = effect.before; break
     case 'position': reversePosition(context, item, effect); break
     case 'create': {
+      if (item.placement.nestingParentId || context.store.hasNestedChildren(item.id)) conflict(serverText().undo.createdRelationsChanged)
       const edges = invalidateEdges(context, item.id)
       writeEdges(context, edges.map(delta => delta.after), item.id)
       Object.assign(item, { deletedAt: context.now, deletedBy: context.command.operationId })
@@ -97,12 +138,12 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
 }
 function reversePosition(context: Context, item: Item, effect: Extract<Effect, { kind: 'position' }>): void {
   let neighbors
-  try { neighbors = context.store.insertion(effect.before.horizon, effect.before.periodId, effect.before.nextId, item.id) }
+  try { neighbors = context.store.insertion(effect.before.horizon, effect.before.periodId, effect.before.nextId, item.id, effect.before.nestingParentId ?? null) }
   catch (error) { if (error instanceof DomainError && error.code === 'conflict') conflict(serverText().undo.orderUnsafe); throw error }
   const ids = [neighbors.previous?.itemId, neighbors.next?.itemId].filter((id): id is string => id !== undefined)
   const problem = insertionProblem(effect.before, ids)
   if (problem) conflict(problem)
-  const key = nextSortKey(context, effect.before.horizon, effect.before.periodId, effect.before.nextId, item.id)
+  const key = nextSortKey(context, effect.before.horizon, effect.before.periodId, effect.before.nextId, item.id, effect.before.nestingParentId ?? null)
   const version = item.placement.version
   Object.assign(item.placement, { horizon: effect.before.horizon, periodId: effect.before.periodId, sortKey: key, version: version + 1 })
   context.store.savePlacement(item.placement, version)
@@ -111,7 +152,8 @@ function reverseRelations(context: Context, reversed: Relation[], item: Item): v
   const replacements = new Map(reversed.map(edge => [edge.id, edge]))
   const graph = context.store.relations(false).map(edge => replacements.get(edge.id) ?? edge)
   const items = context.store.db.prepare('SELECT id,deletedAt FROM items').all()
-  try { validateDag(new Set(items.map(row => String(row.id))), graph, new Set(items.filter(row => row.deletedAt).map(row => String(row.id)))) }
+  const topology: Relation[] = [...graph.map(edge => ({ ...edge, id: `goal:${edge.id}` })), ...context.store.nestingLinks().map(link => ({ ...link, id: `nest:${link.childId}`, createdAt: context.now, invalidatedAt: null, invalidatedBy: null, reason: null }))]
+  try { validateDag(new Set(items.map(row => String(row.id))), topology, new Set(items.filter(row => row.deletedAt).map(row => String(row.id)))) }
   catch (error) { conflict(error instanceof Error ? error.message : serverText().undo.relationUnsafe) }
   for (const edge of reversed) {
     if (!edge.invalidatedAt && context.store.item(edge.childId).flowColor !== null) conflict(serverText().undo.childIsFlow)

@@ -5,6 +5,8 @@
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { changeNesting } from './nesting'
+import { nestingText } from '../../../shared/i18n/nesting'
 import { randomUUID } from 'node:crypto'
 import { currentPeriod, workspaceDate } from '../../../domain/calendar'
 import { horizonProblem, mayLinkFlows, promotedFlowColor, relationProblem } from '../../../domain/relations'
@@ -77,6 +79,7 @@ export function editItem(context: Context, command: CommandOf<'edit'>): boolean 
 export function setFlowColor(context: Context, command: CommandOf<'flowColor'>): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion)
   assertAvailable(item)
+  if (item.placement.nestingParentId) throw new DomainError('conflict', nestingText().inherited)
   if ((item.flowColor ?? null) === command.flowColor) return false
   if (command.flowColor !== null) {
     if (item.placement.horizon === 'later') throw new DomainError('conflict', serverText().relations.laterEndpoint)
@@ -90,15 +93,28 @@ export function setFlowColor(context: Context, command: CommandOf<'flowColor'>):
   return true
 }
 
-export function moveItem(context: Context, command: CommandOf<'move'>): boolean {
+export function moveItem(context: Context, command: CommandOf<'move'>, keepNesting = false): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion)
   assertAvailable(item)
   if (item.placement.version !== command.expectedPlacementVersion) throw new DomainError('stale', serverText().errors.placementChanged)
+  if (command.group && item.placement.nestingParentId) {
+    if (command.beforeId) throw new DomainError('invalid', nestingText().changed)
+    const root = context.store.item(item.placement.nestingParentId)
+    const changed = moveItem(context, { ...command, itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version })
+    context.itemId = item.id
+    return changed
+  }
+  const destinationPeriod = targetPeriod(context, command.horizon, command.period?.kind === 'next' ? undefined : command.period)
+  const targetParent = command.beforeId ? context.store.item(command.beforeId).placement.nestingParentId ?? null : null
+  const sameContainer = item.placement.nestingParentId && command.horizon === item.placement.horizon && destinationPeriod?.id === item.placement.periodId && (targetParent === item.placement.nestingParentId || command.keepNesting && !command.beforeId)
+  if (command.keepNesting && !sameContainer) throw new DomainError('conflict', nestingText().changed)
+  if (item.placement.nestingParentId && !keepNesting && !sameContainer) changeNesting(context, item, null)
+  const children = !item.placement.nestingParentId ? context.store.nestedItems(item.id) : []
   const before = structuredClone(item)
   const previous = context.store.position(item)
   let destination = command.period
   if (destination?.kind === 'next') {
-    if (item.status !== 'todo' || item.archivedAt || item.placement.horizon === 'later' || item.placement.horizon !== command.horizon || !item.placement.periodId || command.beforeId !== null) {
+    if ((item.status !== 'todo' && !children.some(child => child.status === 'todo' && !child.archivedAt)) || (item.archivedAt && !children.some(child => child.status === 'todo' && !child.archivedAt)) || item.placement.horizon === 'later' || item.placement.horizon !== command.horizon || !item.placement.periodId || command.beforeId !== null) {
       throw new DomainError('conflict', serverText().errors.cannotAdvancePeriod)
     }
     const source = context.store.period(item.placement.periodId)
@@ -108,9 +124,9 @@ export function moveItem(context: Context, command: CommandOf<'move'>): boolean 
   const target = targetPeriod(context, command.horizon, destination)
   const periodId = target?.id ?? null
   if (command.beforeId === item.id) return false
-  if (command.parentOrder) assertParentOrderTarget(context, item, command.horizon, target, command.beforeId)
+  if (command.parentOrder && !item.placement.nestingParentId) assertParentOrderTarget(context, item, command.horizon, target, command.beforeId)
   if (item.placement.horizon === command.horizon && item.placement.periodId === periodId && previous.nextId === command.beforeId) return false
-  const key = nextSortKey(context, command.horizon, periodId, command.beforeId, item.id)
+  const key = nextSortKey(context, command.horizon, periodId, command.beforeId, item.id, item.placement.nestingParentId ?? null)
   const priorVersion = item.placement.version
   Object.assign(item.placement, { horizon: command.horizon, periodId, sortKey: key, version: priorVersion + 1, holdPeriodId: null })
   context.store.savePlacement(item.placement, priorVersion)
@@ -119,7 +135,15 @@ export function moveItem(context: Context, command: CommandOf<'move'>): boolean 
   const samePeriod = previous.horizon === command.horizon && previous.periodId === periodId
   const rollover = !samePeriod && previous.horizon === command.horizon && previous.periodId !== null && target !== null && context.store.period(previous.periodId).startAt < target.startAt
   if (!samePeriod) context.store.event(command.operationId, context.now, rollover ? 'rolled_over' : 'moved', before, item)
-  if (before.placement.horizon !== 'later' && item.placement.horizon === 'later') releaseLaterParents(context, item)
+  if (!samePeriod) for (const child of children) {
+    const prior = structuredClone(child), version = child.placement.version
+    const childBefore = { horizon: child.placement.horizon, periodId: child.placement.periodId, nestingParentId: item.id }
+    Object.assign(child.placement, { horizon: command.horizon, periodId, version: version + 1, holdPeriodId: null })
+    context.store.savePlacement(child.placement, version); touch(context, child)
+    context.effects.push({ kind: 'groupPlacement', itemId: child.id, before: childBefore, after: { horizon: command.horizon, periodId, nestingParentId: item.id } })
+    context.store.event(command.operationId, context.now, rollover ? 'rolled_over' : 'moved', prior, child)
+  }
+  if (before.placement.horizon !== 'later'  && item.placement.horizon === 'later') releaseLaterParents(context, item)
   context.itemId = item.id
   context.label = samePeriod ? serverText().labels.sort : rollover ? serverText().labels.rollover : serverText().labels.move
   return true
@@ -141,9 +165,10 @@ export function linkItems(context: Context, command: CommandOf<'link'>): boolean
   const parent = context.store.item(command.parentId, command.expectedParentVersion)
   const child = context.store.item(command.childId, command.expectedChildVersion)
   assertAvailable(parent); assertAvailable(child)
+  if (child.placement.nestingParentId) throw new DomainError('conflict', nestingText().inherited)
   if (child.flowColor !== null && !command.adoptParentFlow) throw new DomainError('conflict', serverText().errors.childIsFlow(child.title))
   const edges = context.store.relations()
-  const problem = horizonProblem(parent.placement.horizon, child.placement.horizon) ?? relationProblem(parent.id, child.id, edges)
+  const problem = horizonProblem(parent.placement.horizon, child.placement.horizon) ?? relationProblem(parent.id, child.id, [...edges, ...context.store.nestingLinks().map(link => ({ ...link, id: `nest:${link.childId}`, invalidatedAt: null, invalidatedBy: null, reason: null, createdAt: context.now }))])
   if (problem) throw new DomainError('conflict', problem)
   if (!mayLinkFlows(hasFlow(context, parent.id), hasFlow(context, child.id))) throw new DomainError('conflict', serverText().relations.noFlowEndpoints)
   const promotion = promotedFlowColor(parent, child, edges)

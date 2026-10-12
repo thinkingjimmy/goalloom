@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Schema-v8 export, v1-v8 source validation and atomic replacement; startup upgrades keep source appearance, restores keep target appearance.
+ * [OUTPUT]: Schema-v9 export with nesting, v1-v9 source validation and atomic replacement; startup upgrades keep source appearance, restores keep target appearance.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

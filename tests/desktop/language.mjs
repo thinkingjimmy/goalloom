@@ -1,15 +1,18 @@
 /**
- * [INPUT]: Built Electron, isolated profiles with synthetic paused AI credentials, an explicit week-start choice and the five supported locale catalogs.
- * [OUTPUT]: Language-switching acceptance, single-line navigation and localized pause icons, app-local diagnostics and screenshots.
+ * [INPUT]: Built Electron, isolated profiles with synthetic paused AI credentials, injected review history, an explicit week-start choice and the five supported locale catalogs.
+ * [OUTPUT]: Language-switching acceptance, single-line navigation and content-sized review choices, localized reminder dismissal/pause icons, app-local diagnostics and screenshots.
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { cpus, release, tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
+import electronPath from 'electron'
+import { build } from 'vite'
 import { pollPage } from './fixtures/poll.mjs'
 
 // Multi-language acceptance in a real window: system detection, setup and settings switching without remounting,
@@ -24,6 +27,8 @@ const tags = { zh: 'zh-CN', en: 'en', ja: 'ja-JP', es: 'es', fr: 'fr-FR' }
 const shots = 'output/tests/screenshots'
 const report = { packaged: Boolean(packaged), host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model }, system: null, detected: null, locales: {}, relaunch: null }
 await mkdir(shots, { recursive: true })
+await build({ configFile: false, build: { outDir: 'output/tests/build/review', emptyOutDir: false,
+  lib: { entry: 'tests/desktop/fixtures/review-seed.ts', formats: ['cjs'], fileName: () => 'review-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
 
 const han = /[一-鿿]/
 // Language names are intentionally shown in their own script in every UI language.
@@ -67,17 +72,17 @@ const ui = {
   zh: { settings: '设置与数据', board: '时间看板', smart: '智能输入', day: '今天' },
 }
 const weeklyGuides = {
-  zh: { heading: '回顾 本周，安排 下周', start: '开始 本周复盘', continue: '继续复盘' },
-  en: { heading: 'Review This week, plan next week', start: 'Review This week', continue: 'Continue review' },
-  ja: { heading: '今週を振り返り、来週を計画', start: '今週の振り返りを始める', continue: '振り返りを続ける' },
-  es: { heading: 'Revisa Esta semana, planifica la próxima semana', start: 'Revisar Esta semana', continue: 'Continuar revisión' },
-  fr: { heading: 'Bilan de Cette semaine, préparer la semaine prochaine', start: 'Bilan de Cette semaine', continue: 'Poursuivre le bilan' },
+  zh: { heading: '回顾 上周，安排 本周', start: '开始 上周复盘', continue: '继续复盘', dismiss: '关闭本次回顾' },
+  en: { heading: 'Review Last week, plan This week', start: 'Review Last week', continue: 'Continue review', dismiss: 'Dismiss this review' },
+  ja: { heading: '先週を振り返り、今週を計画', start: '先週の振り返りを始める', continue: '振り返りを続ける', dismiss: '今回の振り返りを非表示' },
+  es: { heading: 'Revisa La semana pasada, planifica Esta semana', start: 'Revisar La semana pasada', continue: 'Continuar revisión', dismiss: 'Ocultar esta revisión' },
+  fr: { heading: 'Bilan de La semaine dernière, préparer Cette semaine', start: 'Bilan de La semaine dernière', continue: 'Poursuivre le bilan', dismiss: 'Masquer ce bilan' },
 }
 const parentLabels = { zh: '关联到上级', en: 'Link to a parent', ja: '上位に関連付け', es: 'Vincular a un superior', fr: 'Lier à un parent' }
 
 let application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 try {
-  const page = await application.firstWindow()
+  let page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
   const language = page.locator('#setup-language')
   await language.waitFor()
@@ -115,7 +120,7 @@ try {
     if (today === month.startDate) return 'previousMonth'
     const tomorrow = new Date(`${today}T00:00:00Z`)
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
-    return tomorrow.toISOString().slice(0, 10) === month.endDate ? 'both' : 'week'
+    return tomorrow.toISOString().slice(0, 10) === month.endDate ? 'month' : 'week'
   })
 
   // 3. Completion stays quiet; its keyboard undo and the worker error both speak English.
@@ -139,6 +144,13 @@ try {
     if (!reply.ok) throw Error(reply.message)
     return reply.result.itemId
   })
+  await application.close()
+  const historySeed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, 'language'], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
+  assert.equal(historySeed.status, 0, historySeed.stderr)
+  application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
+  page = await application.firstWindow()
+  page.on('pageerror', error => console.error(error.message))
+  await page.locator('.board').waitFor()
 
   // 4. Settings: every pane is translated; switching language keeps the dialog open (no remount) and updates main + worker.
   {
@@ -245,10 +257,11 @@ try {
     await page.screenshot({ path: `${shots}/language-detail-actions-${code}.png` })
     await page.keyboard.press('Escape')
     await detail.waitFor({ state: 'detached' })
-    const entry = page.locator('[data-review]')
-    assert.equal(await entry.count(), 1, 'Combined reviews have a single entry')
-    const guide = page.locator('.review-guide')
-    assert.equal(await guide.count(), 1, 'Weekly and monthly reviews share the unified guide')
+    const entry = page.locator(`[data-review=${report.reviewScope === 'week' ? 'week' : 'month'}]`)
+    assert.equal(await page.locator('[data-review]').count(), report.reviewScope === 'week' ? 1 : 2, 'Unrelated weekly/monthly closing dates retain separate entries')
+    const guide = page.locator('.review-guide').filter({ has: entry })
+    assert.equal(await guide.count(), 1)
+    assert.equal(await page.getByRole('button', { name: weeklyGuides[code].dismiss, exact: true }).count(), 1, 'The retained weekly reminder has a localized dismissal control')
     if (report.reviewScope === 'week') {
       assert.equal(await guide.locator('h3').innerText(), weeklyGuides[code].heading)
       assert.equal((await entry.innerText()).trim(), code === 'en' ? weeklyGuides[code].start : weeklyGuides[code].continue)
@@ -277,6 +290,27 @@ try {
       await choice.waitFor()
       assert.match(await choice.innerText(), reviewChoices[code].move)
       assert.equal(await review.locator('.review-close-row small').count(), 0)
+      const choiceLayout = [], reviewWindowSize = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize())
+      for (const width of [1280, 720]) {
+        await application.evaluate(({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0].setContentSize(width, 840), width)
+        await page.waitForFunction(width => innerWidth === width, width)
+        const geometry = await choice.evaluate(node => {
+          const value = node.querySelector('.select-value'), icon = node.querySelector('.select-icon')
+          const box = node.getBoundingClientRect(), text = value.getBoundingClientRect(), arrow = icon.getBoundingClientRect()
+          const row = node.closest('.review-close-row'), title = row.querySelector('.review-goal-title').getBoundingClientRect()
+          return { text: value.textContent, width: box.width, height: box.height, textHeight: text.height,
+            lineHeight: parseFloat(getComputedStyle(value).lineHeight), textOverflow: value.scrollWidth > value.clientWidth,
+            rowOverflow: row.scrollWidth > row.clientWidth, rightInset: row.getBoundingClientRect().right - box.right,
+            titleGap: box.left - title.right, iconGap: arrow.left - text.right, iconInset: box.right - arrow.right }
+        })
+        choiceLayout.push({ viewport: width, ...geometry })
+        assert.equal(geometry.height, 30, `${code}: the destination stays compact at ${width}px`)
+        assert(geometry.textHeight <= geometry.lineHeight + 1 && !geometry.textOverflow, `${code}: the complete destination fits on one line`)
+        assert(!geometry.rowOverflow && Math.abs(geometry.rightInset) <= 1 && geometry.titleGap >= 12, `${code}: the choice fits at the right edge without overlapping the title`)
+        assert(geometry.iconGap >= 10 && geometry.iconInset >= 12, `${code}: the chevron keeps its spacing`)
+        await review.screenshot({ path: `${shots}/language-review-choice-${code}-${width}.png` })
+      }
+      await application.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setContentSize(...size), reviewWindowSize)
       await choice.click()
       const list = review.getByRole('listbox')
       await list.waitFor()
@@ -293,7 +327,7 @@ try {
       assert.equal(await choice.evaluate(node => document.activeElement === node), true)
       assert.equal(await review.isVisible(), true)
       await review.locator('.review-foot .review-text-button').click()
-      closingMenu = { defaultMove: 'ok', optionCount: 3, keepLabel: reviewChoices[code].keep, escapeFocus: 'ok', ...bounds }
+      closingMenu = { defaultMove: 'ok', optionCount: 3, keepLabel: reviewChoices[code].keep, escapeFocus: 'ok', choiceLayout, ...bounds }
     }
     await review.locator('.review-head .icon-button').click()
     await review.waitFor({ state: 'hidden' })

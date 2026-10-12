@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 列名与条目标题等插值参数。
- * [OUTPUT]: Flow-insight copy and InsightCatalog: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: Flow-insight copy and InsightCatalog: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, reminder dismissal, matrix legends and settings.
  * [POS]: renderer/i18n/locales/zh 的洞察分册，与 messages.ts 同构；发给模型的提示词不在此处（固定中文）。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -41,6 +41,7 @@ export const insightMessages = widen({
   reviewGuidePending: (count: number) => `${count} 项未完成，一起整理后再出发。`,
   reviewStart: (period: string) => `开始 ${period}复盘`,
   reviewContinue: '继续复盘',
+  reviewDismiss: '关闭本次回顾',
   reviewLookBack: (period: string) => `回顾 ${period}`,
   reviewArrange: (period: string) => `安排 ${period}`,
   reviewHandle: '处理未完成',

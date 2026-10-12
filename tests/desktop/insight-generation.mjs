@@ -190,6 +190,16 @@ async function run(mode) {
     await settings.getByRole('switch', { name: '周复盘 · 月复盘', exact: true }).click()
     await page.keyboard.press('Escape')
     await settings.waitFor({ state: 'detached' })
+    // Provider caching has one weekly owner; monthly entry/overlap belongs to month-review.
+    await page.evaluate(async () => {
+      const month = (await window.goalloom.getSnapshot()).periods.find(period => period.horizon === 'month')
+      const previous = new Date(`${month.startDate}T00:00:00Z`)
+      previous.setUTCMonth(previous.getUTCMonth() - 1)
+      const preferences = JSON.parse(localStorage.getItem('goalloom.insight'))
+      localStorage.setItem('goalloom.insight', JSON.stringify({ ...preferences, reviewed: [
+        ...preferences.reviewed, `month:${month.startDate}`, `month:${previous.toISOString().slice(0, 10)}`,
+      ] }))
+    })
     const beforeHistoryCalls = await calls()
     await application.close()
     const historySeed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, 'cache'], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })

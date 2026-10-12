@@ -1,15 +1,20 @@
 /**
- * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later/planning visibility, guarded actions, PeriodPicker/PeriodReturn controls and flow-insight hooks.
+ * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later/planning visibility, guarded actions, PeriodPicker/PeriodReturn controls, input-aware focus return and flow-insight hooks.
  * [OUTPUT]: A single-row title-as-switcher period header (header B: period panel, ←/→ stepping and a return icon with localized guidance), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Owns independent relation dragging/prepared writes and virtual source pinning; exposes filter/linking states for row styling.
  *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
  *           Double-clicking a card edits its title in place; the write keeps the description and due date.
- *           Flow insight: retained chain breakpoints, empty-column cards and shared review/post-review guides with explicit targets; completed periods suppress entries without a status note.
+ *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly reminders support persistent dismissal without completion.
  *           "Write my own" opens this column's inline entry, the same one as ＋.
+ *           Current month/week headers share the trailing add slot with a rounded calendar-day countdown badge.
  * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { outlineSections } from '../../../domain/nesting'
+import './nesting.css'
+import { TaskContext } from './TaskContext'
+import { NestingPicker } from './NestingPicker'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -17,12 +22,13 @@ import { compareInstants, currentPeriod, precedingPeriod, workspaceDate, type Ho
 import { horizons, periodHorizons } from '../../../shared/contracts/values'
 import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
-import { messages, insightMessages, useLocale } from '../../i18n'
+import { calendarMessages, messages, insightMessages, useLocale } from '../../i18n'
 import { desktopApi, type Action, type PreparedWrite } from '../../state/use-workspace'
 import { activeFlowGraph, flowChain, type Flows } from '../../state/flows'
 import type { BoardView } from '../../state/board-periods'
 import { useRelationLines } from '../../state/relation-lines'
 import { flowTint } from '../../lib/colors'
+import { returnFocus } from '../../lib/focus'
 import { Icon } from '../../components/icons'
 import { PastPeriod, usePastPeriod } from './PastPeriod'
 import { periodLabel, periodTitle } from './period-labels'
@@ -48,7 +54,7 @@ import { useInsightSettings } from '../../state/insight'
 import type { ComposerSeed } from '../composer/Seeded'
 
 export interface AddRequest { seq: number; horizon: ItemHorizon | null; split: SplitParent | null }
-export interface BoardInsight { assist?: (itemId: string) => void; ready: boolean; seed: (seed: Omit<ComposerSeed, 'key'>) => void; due: ReviewDue | null; started: ReviewDue | null; reviewed: string[]; review: (due: ReviewDue) => void }
+export interface BoardInsight { assist?: (itemId: string) => void; ready: boolean; seed: (seed: Omit<ComposerSeed, 'key'>) => void; due: ReviewDue[]; started: ReviewDue | null; reviewed: string[]; review: (due: ReviewDue) => void; dismiss: (due: ReviewDue) => void }
 interface BoardProps { snapshot: Snapshot; view: BoardView; flows: Flows; filter: string | null; columns: ItemHorizon[]; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void; insight: BoardInsight; write: PreparedWrite; relationBlocked: boolean; onError: (message: string) => void }
 
 export const Board = memo(function Board({ snapshot, view, flows, filter, columns, highlighted, addRequest, submit, busy, select, insight, write, relationBlocked, onError }: BoardProps) {
@@ -65,6 +71,8 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
       return () => cancelAnimationFrame(frame)
     }
   }, [view.locating, items])
+  const [nestingItemId, setNestingItemId] = useState<string | null>(null)
+  useEffect(() => setNestingItemId(null), [snapshot.workspace.generation])
   const [focused, setFocused] = useState<ItemHorizon>('later')
   const [editingId, setEditingId] = useState<string | null>(null)
   useEffect(() => { setEditingId(null) }, [snapshot.workspace.generation])
@@ -106,7 +114,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const enabled = useRelationLines().enabled
   const previewKey = enabled && preview ? flows.of(preview).map(flow => flow.id).join(' ') : ''
   const active = useMemo(() => previewKey ? previewKey.split(' ') : filter ? [filter] : [], [previewKey, filter])
-  const graph = useMemo(() => activeFlowGraph(items, snapshot.relations, flows, active), [items, snapshot.relations, flows, active])
+  const graph = useMemo(() => activeFlowGraph(items, snapshot.relations, flows, active, snapshot.nesting ?? []), [items, snapshot.relations, flows, active, snapshot.nesting])
   const previewChain = useMemo(() => flowChain(graph, previewKey ? preview : null), [graph, previewKey, preview])
   const lines = enabled && active.length > 0
   const inPreview = (target: EventTarget | null) => {
@@ -122,7 +130,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const empty = useMemo(() => emptyColumns(displayed, columns, view.mode), [displayed, columns, view.mode])
   const column = (horizon: ItemHorizon) => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!} visible={columns.includes(horizon)}
     snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
-    dragging={dragging} relationSource={relationDrag.sourceId} editingId={editingId} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
+    onNest={setNestingItemId} dragging={dragging} relationSource={relationDrag.sourceId} editingId={editingId} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
     adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? (horizon === 'later' || horizon === 'year' ? undefined : empty.get(horizon)) ?? null : null} />
   return <RelationDragContext.Provider value={relationDrag.actions}><DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
     <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null} data-linking={relationDrag.sourceId ? 'true' : undefined}
@@ -136,16 +144,18 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
       <RelationDragOverlay drag={relationDrag} />
     </main>
     {/* The placement preview owns the drop; outer rows animate from the release position. */}
-    <DragOverlay dropAnimation={null}>{dragging ? <div className="drag-overlay">{items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
+    {nestingItemId && <NestingPicker itemId={nestingItemId} snapshot={displayed} candidates={view.items.filter(item => columns.includes(item.placement.horizon))} submit={submit} close={origin => { const id = nestingItemId; setNestingItemId(null); if (id) requestAnimationFrame(() => revealRow(id, '.task-title', origin)) }} />}
+    <DragOverlay dropAnimation={null} style={{ pointerEvents: 'none' }}>{dragging ? <div className="drag-overlay">{items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
   </DndContext></RelationDragContext.Provider>
 })
 
-const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, relationSource, editingId, beginEdit, endEdit, renameTitle, insight, sources }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
+const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, relationSource, editingId, beginEdit, endEdit, renameTitle, insight, sources, onNest }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
   sources: ItemSummary[] | null
   active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
   horizon: ItemHorizon; items: ItemSummary[]; today: string; visible: boolean
   adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number } | null
   dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean) => void
+  onNest: (id: string) => void
   relationSource: string | null; editingId: string | null
   beginEdit: (id: string) => void; endEdit: (id: string) => void; renameTitle: (itemId: string, title: string) => Promise<boolean>
   onFocus: (horizon: ItemHorizon, editable: boolean) => void
@@ -219,7 +229,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     refocus.current = null
   }, [period?.id, mode, history ? page.loading : false])
   useEffect(() => { if (highlighted && items.some(item => item.id === highlighted && item.status === 'done')) setDoneOpen(true) }, [highlighted, items])
-  const todo = useMemo(() => items.filter(item => item.status === 'todo'), [items]), done = useMemo(() => items.filter(item => item.status === 'done'), [items])
+  const { todo, done } = useMemo(() => outlineSections(items, view.nestingParents), [items, view.nestingParents])
   const openAdd = () => {
     if (history || disabled || dragging || relationSource) return
     if (adding) section.current?.querySelector<HTMLTextAreaElement>('.quick-add-title')?.focus()
@@ -251,15 +261,15 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     if (mode !== 'current' && !busy && event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) { event.preventDefault(); switchTo(null) }
   }
   const row = (item: ItemSummary, index: number, total: number) => {
+    if (item.archivedAt || item.status === 'cancelled') return <TaskContext item={item} select={select} />
     const lit = active.length ? flows.of(item.id).find(flow => active.includes(flow.id)) : undefined
-    return <TaskRow index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
+    return <TaskRow hasNestedChildren={(snapshot.nesting ?? []).some(link => link.parentId === item.id)} nestingParentTitle={view.nestingParents.find(parent => parent.id === item.placement.nestingParentId)?.title} index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
       // Later never joins flows, so a flow filter leaves the parking lot readable instead of greying it out.
       dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} editing={editingId === item.id} editLocked={disabled || !!dragging || !!relationSource} select={select} submit={submit} onPreview={onPreview}
-      upcoming={upcoming} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle} />
+      onNest={onNest} upcoming={upcoming} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle} />
   }
-  const due = insight.due, review = mode !== 'current' || !due ? null
-    : horizon === 'month' && (due.scope === 'month' || due.scope === 'both') ? due.month!
-    : horizon === 'week' && due.scope === 'week' ? due.week! : null
+  const due = mode === 'current' ? insight.due.find(entry => horizon === 'month' ? !!entry.month : horizon === 'week' && entry.scope === 'week') : undefined
+  const review = due ? due.month ?? due.week : null
   const pendingCount = [due?.month, due?.week].flatMap(value => value ? [value] : []).reduce((count, value) => count + (snapshot.backlog[value.horizon] ?? 0) + (value.lastDay ? snapshot.items.filter(item => item.placement.periodId === value.period.id && item.status === 'todo').length : 0), 0)
   const recentReview = (horizon === 'month' || horizon === 'week') && mode === 'current' ? reviewTarget(snapshot, horizon, []) : null
   const completedReview = !!recentReview && insight.reviewed.includes(recentReview.key)
@@ -267,7 +277,14 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     : periodDates(period, period.startDate.slice(0, 4) !== today.slice(0, 4))
   const reviewPeriodName = review ? reviewName(review.period) : ''
   const guide = review && <div className="review-guide">
-    <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(review.period)}</span>
+    <div className="review-guide-head">
+      <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(review.period)}</span>
+      {due?.week && <button type="button" className="icon-button small review-guide-dismiss" data-dismiss-review aria-label={insightMessages.reviewDismiss} title={insightMessages.reviewDismiss} disabled={busy} onClick={event => {
+        insight.dismiss(due)
+        const control = section.current?.querySelector<HTMLElement>('[data-period-switch]')
+        if (control) returnFocus(control, event.detail > 0 ? 'pointer' : 'keyboard')
+      }}><Icon name="close" size={14} /></button>}
+    </div>
     <h3>{insightMessages.reviewGuide(reviewPeriodName, reviewName(review.next))}</h3>
     {pendingCount > 0 && <p>{insightMessages.reviewGuidePending(pendingCount)}</p>}
     <button className="settings-button primary review-guide-action" data-review={horizon} title={insightMessages.reviewEntryAfter(reviewPeriodName)} disabled={busy} onClick={() => insight.review(due!)}>
@@ -279,6 +296,8 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const returnLabel = horizon === 'later' ? '' : returnPeriodName(horizon, calendar)
   const heading = period && current ? periodTitle(period, current, calendar) : name
   const date = period && !(calendar.mode === 'natural' && horizon === 'year') ? periodLabel(horizon, period, calendar, today, heading !== null) : null
+  const daysLeft = period && mode === 'current' && (horizon === 'month' || horizon === 'week')
+    ? Math.round((Date.parse(period.endDate) - Date.parse(today)) / 86400000) : null
   return <section className={`board-column ${isOver ? 'drop-target' : ''}`} data-history={!!history} data-period-mode={mode} data-period-id={period?.id} aria-busy={loading || page.loading}
     hidden={horizon !== 'later' && !visible} inert={!visible}
     onKeyDown={leaveOnEscape} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(name)} ref={node => { setNodeRef(node); section.current = node }}>
@@ -287,7 +306,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
         <PeriodPicker horizon={horizon as Horizon} name={name} period={period} current={current} calendar={calendar} today={today} back={back} busy={busy}
           review={review?.period.id ?? null} open={picking} setOpen={setPicking} choose={choosePeriod} anchor={
             <h2 className="period-heading" aria-live="polite" aria-atomic="true">
-              <button type="button" className="period-switch" data-period-switch aria-haspopup="dialog" aria-expanded={picking} onClick={() => setPicking(!picking)} onKeyDown={stepKeys}>
+              <button type="button" className="period-switch" data-period-switch aria-haspopup="dialog" aria-expanded={picking} aria-description={daysLeft !== null ? calendarMessages.daysLeft(daysLeft) : undefined} onClick={() => setPicking(!picking)} onKeyDown={stepKeys}>
                 <span className="period-title" title={periodDates(period)}>{heading ?? (period && horizon === 'year' && calendar.mode === 'natural' ? planningLabel(period, calendar, snapshot.observedAt) : date)}</span>
                 {heading && <span className="column-meta" title={periodDates(period)}>{date}</span>}
                 <span className="period-chevron" aria-hidden="true"><Icon name="expand" size={12} strokeWidth={2} /></span>
@@ -296,7 +315,10 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
           } />
         {mode !== 'current' && <PeriodReturn label={returnLabel} disabled={busy} onReturn={pointer => switchTo(null, pointer)} />}
       </div> : <><h2>{name}</h2><span className="column-spacer" /></>}
-      <span className="column-add-slot">{!history && addButton}</span>
+      <span className="column-add-slot">
+        {daysLeft !== null && <span className="period-countdown" aria-hidden="true">{daysLeft}</span>}
+        {!history && addButton}
+      </span>
     </header>
     {!review && mode === 'current' && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
@@ -324,7 +346,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
               setAdding(true)
             }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} />}
-          {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} render={row} />}</details>}
+          {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} render={row} />}</details>}
         </SortableContext>
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} onWrite={openAdd} />}
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}

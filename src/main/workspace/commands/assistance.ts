@@ -31,10 +31,11 @@ export function applyAssistance(context: Context, command: CommandOf<'applyAssis
   const calendar = context.workspace.calendar!
   if (command.guard) {
     const guard = command.guard
-    const parents = context.store.prepare('SELECT id FROM item_relations WHERE childId=? AND invalidatedAt IS NULL ORDER BY id LIMIT 3').all(item.id).map(row => String(row.id))
+    const incoming = context.store.effectiveRelations().filter(edge => edge.childId === item.id)
+    const parents = incoming.map(edge => edge.id).sort().slice(0, 3)
     if (guard.today !== workspaceDate(calendar.timezone, context.now) || guard.calendarId !== calendar.id
       || guard.sourceRevision !== new ExecutionQueries(context.store).revision(item.id, context.workspace.generation)
-      || guard.parentRelationCount !== Number(context.store.prepare('SELECT count(*) AS n FROM item_relations WHERE childId=? AND invalidatedAt IS NULL').get(item.id)!.n)
+      || guard.parentRelationCount !== incoming.length
       || guard.guidanceRevision !== (record?.revision ?? 0) || JSON.stringify(parents) !== JSON.stringify(guard.parentRelationIds)) throw new DomainError('stale_preview', t.contextChanged)
     for (const dependency of guard.dependencies) context.store.item(dependency.itemId, dependency.version)
   }

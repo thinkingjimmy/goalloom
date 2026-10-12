@@ -35,6 +35,15 @@ try {
   await finishSetup(page, { weekStart })
   const board = page.getByRole('main', { name: '时间看板' })
   await board.waitFor()
+  const setReviews = async enabled => {
+    await page.getByRole('button', { name: '设置与数据', exact: true }).click()
+    const settings = page.locator('dialog.settings-modal')
+    await settings.getByRole('button', { name: '洞察', exact: true }).click()
+    const toggle = settings.getByRole('switch', { name: '周复盘 · 月复盘', exact: true })
+    if ((await toggle.getAttribute('aria-checked') === 'true') !== enabled) await toggle.click()
+    await page.keyboard.press('Escape'); await settings.waitFor({ state: 'detached' })
+  }
+  await setReviews(false)
   const shot = name => page.screenshot({ path: `${out}/${name}.png` })
   const snapshot = () => page.evaluate(() => window.goalloom.getSnapshot())
   const emptyActions = []
@@ -208,11 +217,12 @@ try {
   await shot('6-existing-children')
   check('existing week and direct day children suppress the parent action and keep their original relationships')
 
-  // --- 复盘：本周最后一天（或下周第一天）列头出现入口；回顾 → 收尾 → 排下周 → 完成；完成后入口消失且重载后不再出现。 ---
-  const entry = board.locator('[data-review]')
-  const reviewDay = await entry.count() > 0
-  if (reviewDay) {
-    const scope = await entry.getAttribute('data-review')
+  // Complete each due reminder; unrelated monthly and weekly boundaries retain separate entries.
+  await setReviews(true)
+  const scopes = await board.locator('[data-review]').evaluateAll(entries => entries.map(entry => entry.dataset.review))
+  assert(scopes.length > 0, 'The previous-week review remains available throughout this week')
+  for (const scope of scopes) {
+    const entry = board.locator(`[data-review="${scope}"]`)
     const entryLabel = await entry.getAttribute('title')
     assert(entryLabel?.includes('复盘'), 'The entry names the reviewed period')
     await board.locator(`[data-horizon="${scope}"]`).screenshot({ path: `${out}/8-review-entry.png` })
@@ -246,9 +256,10 @@ try {
     await shot('11-review-done')
     await entry.waitFor({ state: 'detached' })
     await page.reload(); await board.waitFor()
-    assert.equal(await board.locator('[data-review]').count(), 0, '复盘状态存本机，重载后入口不再出现')
+    assert.equal(await entry.count(), 0, 'Completed reminders stay hidden after reload')
     check(`review (${scope}): completion (${open} unfinished items; ${rowsToPlan} planning candidate${rowsToPlan === 1 ? '' : 's'});  the entry stays gone after reload`)
-  } else check('not a review day (neither the last nor the first day of a week/month): review checks skipped')
+  }
+  assert.equal(await board.locator('[data-review]').count(), 0)
 
   // Settings: breakpoint visibility and device-only preferences survive reload.
   const openInsight = async () => {
@@ -285,7 +296,7 @@ try {
   check('settings › 洞察: breakpoints switch, personalization tabs (arrow keys), about-me persisted on the device, prompt tab carries preferences')
 
   assert.deepEqual(errors, [])
-  await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, lastDayOfWeek: target.lastDay, reviewDay, checks, preview, breakpointGeometry: { gap: place }, runtime: await page.evaluate(() => window.goalloom.getRuntime()), platform: `${process.platform}-${process.arch}` }, null, 2))
+  await writeFile(`${out}/report.json`, JSON.stringify({ ok: true, lastDayOfWeek: target.lastDay, reviewScopes: scopes, checks, preview, breakpointGeometry: { gap: place }, runtime: await page.evaluate(() => window.goalloom.getRuntime()), platform: `${process.platform}-${process.arch}` }, null, 2))
   }
 } catch (error) {
   const page = await application.firstWindow()

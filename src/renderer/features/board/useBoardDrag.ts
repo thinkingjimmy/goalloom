@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current/planning views, authoritative submissions and device ordering mode.
- * [OUTPUT]: Viewport-clipped, group-bounded pointer/keyboard drops and an optimistic placement projection until reads settle.
+ * [OUTPUT]: Viewport-clipped edge sorting, middle-row nesting, grouped pointer/keyboard moves and pending placement projections.
  * [POS]: Board drag coordinator; transactions remain authoritative and failed drops animate back.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { closestCenter, KeyboardSensor, pointerWithin, PointerSensor, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragStartEvent, type KeyboardCoordinateGetter } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { buildParentOrder, parentOrderedHorizon } from '../../../domain/parent-order'
+import { nestingTargets, outlineRows } from '../../../domain/nesting'
 import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import type { BoardView } from '../../state/board-periods'
@@ -18,21 +19,48 @@ import { dropViewport, intersectRect } from './geometry'
 
 interface Input { snapshot: Snapshot; view: BoardView; columns: ItemHorizon[]; busy: boolean; submit: (action: Action) => Promise<unknown> }
 interface Preview { generation: string; selection: string; items: ItemSummary[]; settled: boolean; success: boolean; focus: string | null }
+interface NestFocus { generation: string; selection: string; id: string; parentId: string; selector: string }
 
 export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
   const [dragging, setDragging] = useState<string | null>(null), [preview, setPreview] = useState<Preview | null>(null)
+  const [nestFocus, setNestFocus] = useState<NestFocus | null>(null)
   const generation = snapshot.workspace.generation, selection = Object.values(view.periods).map(period => period?.id).join('|')
   const validPreview = preview?.generation === generation && preview.selection === selection ? preview : null
   const items = validPreview?.items ?? view.items
   const latest = useRef({ generation, selection }); latest.current = { generation, selection }
   const editable = columns.filter(horizon => view.mode(horizon) !== 'history' && !view.loading(horizon) && !(view.mode(horizon) === 'future' && view.failed))
   const cursor = useRef<{ id: string | null; horizon: ItemHorizon } | null>(null)
+  const activeGesture = useRef(false)
+  const sourceFocus = useRef<string | null>(null)
+  const nestTarget = useRef<string | null>(null)
+  const clearNest = () => {
+    if (nestTarget.current) document.getElementById(`item-${nestTarget.current}`)?.removeAttribute('data-nesting-target')
+    nestTarget.current = null
+    delete document.documentElement.dataset.nestingDrag
+  }
+  const canNest = useMemo(() => dragging ? nestingTargets(dragging, snapshot.relations.filter(edge => !edge.inheritedFrom), snapshot.nesting ?? []) : () => false, [dragging, snapshot.relations, snapshot.nesting])
+  useEffect(() => {
+    if (!dragging) return
+    const cancel = () => { activeGesture.current = false; clearNest(); cursor.current = null; setDragging(null) }
+    const hidden = () => { if (document.hidden) cancel() }
+    window.addEventListener('blur', cancel); document.addEventListener('visibilitychange', hidden)
+    return () => { activeGesture.current = false; clearNest(); window.removeEventListener('blur', cancel); document.removeEventListener('visibilitychange', hidden) }
+  }, [dragging, generation, selection])
   useEffect(() => {
     if (preview && !validPreview) setPreview(null)
     if (!validPreview?.settled || busy || columns.some(view.loading)) return
     if (validPreview.success && validPreview.focus) requestAnimationFrame(() => revealRow(validPreview.focus!, '.drag-handle'))
     setPreview(null)
   }, [preview, validPreview, busy, view.items, generation, selection])
+  useEffect(() => {
+    if (!nestFocus) return
+    if (nestFocus.generation !== generation || nestFocus.selection !== selection) { setNestFocus(null); return }
+    if (busy || columns.some(view.loading)) return
+    const item = view.items.find(item => item.id === nestFocus.id)
+    if (!item || item.placement.nestingParentId !== nestFocus.parentId) { setNestFocus(null); return }
+    const frame = requestAnimationFrame(() => { revealRow(nestFocus.id, nestFocus.selector, 'pointer'); setNestFocus(null) })
+    return () => cancelAnimationFrame(frame)
+  }, [nestFocus, busy, view.items, generation, selection])
   useEffect(() => {
     if (!dragging) return
     document.documentElement.dataset.dragging = 'true'
@@ -48,9 +76,28 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
       return [horizon, buildParentOrder(nodes, snapshot.relations, snapshot.observedAt)]
     }))
   }, [dragging, view.items, view.parentOrder, view.orderNodes, selection, snapshot.relations, snapshot.observedAt, columns])
-  const rowsIn = (horizon: ItemHorizon, active: ItemSummary) => view.items.filter(row => row.placement.horizon === horizon && row.status === active.status
+  const todoGroups = new Set(view.items.filter(row => row.status === 'todo').map(row => row.placement.nestingParentId ?? row.id))
+  const rowsIn = (horizon: ItemHorizon, active: ItemSummary) => view.items.filter(row => row.placement.horizon === horizon
+    && (!row.placement.nestingParentId || row.placement.nestingParentId === active.placement.nestingParentId)
+    && todoGroups.has(row.placement.nestingParentId ?? row.id) === todoGroups.has(active.placement.nestingParentId ?? active.id)
     && (!orders.get(horizon) || orders.get(horizon)!.group(row.id) === orders.get(horizon)!.group(active.id)))
   const collision: CollisionDetection = args => {
+    const active = view.items.find(row => row.id === args.active.id), point = args.pointerCoordinates
+    // Nest the row under the pointer. Sortable rectangles can precede a panel scroll or guide layout change.
+    const node = point ? document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>('.task-row') : null
+    const targetAtPointer = node ? view.items.find(row => row.id === node.dataset.itemId) : undefined
+    const viewport = node && dropViewport(node), bounds = node && viewport && intersectRect(node.getBoundingClientRect(), viewport)
+    const middle = point && bounds && point.x >= bounds.left && point.x <= bounds.right && point.y >= bounds.top + 8 && point.y <= bounds.bottom - 8
+    clearNest()
+    if (active && targetAtPointer && targetAtPointer.id !== active.id && middle) {
+      if (editable.includes(targetAtPointer.placement.horizon) && !targetAtPointer.archivedAt && targetAtPointer.status !== 'cancelled' && canNest(targetAtPointer.id)) {
+        document.documentElement.dataset.nestingDrag = 'true'
+        nestTarget.current = targetAtPointer.id
+        node?.setAttribute('data-nesting-target', 'true')
+        return [{ id: targetAtPointer.id }]
+      }
+      return []
+    }
     // Scrolled timeline rows can overlap Later geometrically while their pixels are clipped.
     const rects = new Map(args.droppableRects)
     const containers = args.droppableContainers.filter(container => {
@@ -66,7 +113,6 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
     const raw = rows.length ? closestCenter({ ...args, droppableContainers: args.droppableContainers.filter(container => rows.some(hit => hit.id === container.id)) }) : hits
     const target = view.items.find(row => row.id === raw[0]?.id)
     const horizon = target?.placement.horizon ?? String(raw[0]?.id).replace('column:', '') as ItemHorizon
-    const active = view.items.find(row => row.id === args.active.id)
     if (!active || !editable.includes(horizon)) return raw
     const allowed = new Set(rowsIn(horizon, active).map(row => row.id))
     if (target && !allowed.has(target.id)) {
@@ -93,7 +139,18 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
   }
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: coordinates }))
   const end = (event: DragEndEvent) => {
+    if (!activeGesture.current) { clearNest(); setDragging(null); return }
+    activeGesture.current = false
+    const nestingId = nestTarget.current; clearNest()
     const keyTarget = cursor.current; cursor.current = null; setDragging(null)
+    if (nestingId) {
+      const item = view.items.find(row => row.id === event.active.id), parent = view.items.find(row => row.id === nestingId)
+      const selector = sourceFocus.current
+      if (!busy && item && parent && latest.current.generation === generation && latest.current.selection === selection) void submit({ type: 'nest', itemId: item.id, parentId: parent.id,
+        expectedVersion: item.version, expectedParentVersion: parent.version, expectedPlacementVersion: item.placement.version, expectedParentPlacementVersion: parent.placement.version })
+        .then(result => { if (result && selector && latest.current.generation === generation && latest.current.selection === selection) setNestFocus({ generation, selection, id: item.id, parentId: parent.id, selector }) })
+      return
+    }
     if (!event.over && !keyTarget) return
     const item = view.items.find(row => row.id === event.active.id)
     const target = view.items.find(row => row.id === (keyTarget ? keyTarget.id : event.over?.id))
@@ -111,22 +168,29 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
     const insertion = beforeId ? targetNodes.findIndex(node => node.id === beforeId) : targetNodes.length
     targetNodes.splice(insertion < 0 ? targetNodes.length : insertion, 0, moved)
     const replacements = new Map(targetNodes.map((node, index) => [node.id, { ...node, sortKey: (index + 1) * 1024 }]))
+    const children = new Set((snapshot.nesting ?? []).filter(link => link.parentId === item.id).map(link => link.childId))
     const projected = view.rawItems.map(row => {
       const node = replacements.get(row.id)
-      return node ? { ...row, placement: { ...row.placement, horizon: node.horizon, periodId: node.periodId, sortKey: node.sortKey } } : row
+      if (children.has(row.id)) return { ...row, placement: { ...row.placement, horizon, periodId: moved.periodId } }
+      return node ? { ...row, placement: { ...row.placement, horizon: node.horizon, periodId: node.periodId, sortKey: node.sortKey,
+        nestingParentId: row.id === item.id && (horizon !== item.placement.horizon || target?.placement.nestingParentId !== item.placement.nestingParentId) ? null : row.placement.nestingParentId } } : row
     })
     const nodes = view.orderNodes.map(node => replacements.get(node.id) ?? node)
-    const ordered = view.parentOrder ? buildParentOrder(nodes, snapshot.relations, snapshot.observedAt).sort(projected)
-      : projected.sort((a, b) => a.placement.sortKey - b.placement.sortKey || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    const ordered = outlineRows(projected, view.parentOrder ? buildParentOrder(nodes, snapshot.relations, snapshot.observedAt).compare : undefined, view.nestingParents)
     const rect = document.querySelector('.drag-overlay')?.getBoundingClientRect()
     if (rect) captureDropPosition(item.id, rect)
     const pending: Preview = { generation, selection, items: ordered, settled: false, success: false, focus: keyTarget ? item.id : null }
     setPreview(pending)
     void submit({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon, beforeId,
-      ...(view.parentOrder ? { parentOrder: true } : {}), ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}) })
+      ...(view.parentOrder ? { parentOrder: true } : {}), ...(item.placement.nestingParentId && target?.placement.nestingParentId === item.placement.nestingParentId && horizon === item.placement.horizon ? { keepNesting: true as const } : {}), ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}) })
       .then(result => { if (latest.current.generation === generation && latest.current.selection === selection) setPreview(value => value === pending ? { ...pending, settled: true, success: !!result } : value) })
   }
   return { items, dragging, sensors, collision, end,
-    start: (event: DragStartEvent) => { cursor.current = null; setDragging(String(event.active.id)) },
-    cancel: () => { cursor.current = null; setDragging(null) } }
+    start: (event: DragStartEvent) => {
+      const focused = document.activeElement
+      sourceFocus.current = focused instanceof HTMLElement && focused.closest<HTMLElement>('[data-item-id]')?.dataset.itemId === event.active.id
+        ? focused.matches('.drag-handle') ? '.drag-handle' : '.task-title' : null
+      activeGesture.current = true; cursor.current = null; setDragging(String(event.active.id))
+    },
+    cancel: () => { activeGesture.current = false; clearNest(); cursor.current = null; setDragging(null) } }
 }

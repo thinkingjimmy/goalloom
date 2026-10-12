@@ -52,6 +52,7 @@
     "package:experiment": "node scripts/build/package-experiment.mjs",
     "eval:smart": "node scripts/eval/run.mjs",
     "test:composer-live": "node tests/desktop/composer-live.mjs",
+    "test:subtasks": "node tests/desktop/subtasks.mjs",
     "test:ordering": "node tests/desktop/ordering.mjs",
     "test:periods": "node tests/desktop/periods.mjs",
     "test:insight": "node tests/desktop/insight.mjs",

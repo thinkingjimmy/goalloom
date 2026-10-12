@@ -20,6 +20,7 @@ function legacy(target: 1 | 2 | 3 | 4 | 5 | 6, tasks = 1): DatabaseSync {
   const run = (command: Record<string, unknown>) => repo.execute({ ...command, operationId: randomUUID(), generation: repo.store.workspace().generation })
   run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-09-01' }, confirmed: true })
   for (let index = 0; index < tasks; index++) run({ type: 'create', title: `旧任务 ${index}`, horizon: 'later' })
+  db.exec('DROP TRIGGER IF EXISTS nesting_guard_insert; DROP TRIGGER IF EXISTS nesting_guard_update')
   if (target < 5) db.exec('ALTER TABLE workspace DROP COLUMN checkStyle; DELETE FROM schema_migrations WHERE version>=5')
   if (target < 4) db.exec('ALTER TABLE workspace DROP COLUMN style; DELETE FROM schema_migrations WHERE version>=4')
   if (target <= 2) db.exec('DELETE FROM schema_migrations WHERE version=3')
@@ -66,13 +67,13 @@ it('rejects a v5 writer with committed WAL without losing its pending data', asy
 
 it('更高/未知版本：只读探测拒绝，不改日记模式也不创建副本', async () => {
   const db = new DatabaseSync(path)
-  db.exec('CREATE TABLE future (id INTEGER); PRAGMA user_version = 9')
+  db.exec('CREATE TABLE future (id INTEGER); PRAGMA user_version = 10')
   db.close()
   await expect(openWorkspace(path, backups, now)).rejects.toThrow('更新版本')
   const check = new DatabaseSync(path, { readOnly: true })
   expect(check.prepare('PRAGMA journal_mode').get()!.journal_mode).toBe('delete')
   check.close()
-  expect(version(path)).toBe(9)
+  expect(version(path)).toBe(10)
   expect(existsSync(`${path}-wal`)).toBe(false)
   expect(existsSync(backups)).toBe(false)
 })

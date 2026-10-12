@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Theme tokens and shared renderer component classes and state attributes.
- * [OUTPUT]: App layout, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with return icons, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
+ * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
  * [POS]: Renderer-wide stylesheet; feature-specific styles live beside their components.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -119,6 +119,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 /* --- Shell --- */
 .app-shell { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 .titlebar { height: 56px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 20px; -webkit-app-region: drag; user-select: none; }
+/* Native drag regions swallow pointer events needed for outside-press dismissal. */
+body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 :root[data-platform='mac'] .titlebar { padding-left: 88px; }
 .titlebar-spacer { flex: 1; align-self: stretch; }
 .flow-filter { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
@@ -185,7 +187,9 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .column-header h2 { font-size: 15px; white-space: nowrap; }
 .column-meta { font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .column-spacer { flex: 1; }
-.column-add-slot { display: flex; flex: 0 0 28px; margin-left: auto; margin-right: -6px; }
+.column-add-slot { display: grid; place-items: center; flex: 0 0 28px; margin-left: auto; margin-right: -6px; }
+.column-add-slot > * { grid-area: 1 / 1; }
+.period-countdown { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: var(--hover); color: var(--secondary); font-size: 13px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; opacity: 0; pointer-events: none; }
 /* Header B: the title is the period switcher; it keeps its full width and aligns with the row checkboxes. */
 .period-header { padding-left: var(--row-inset); gap: 6px; }
 /* Keep navigation on one row; the title and controls retain their width before secondary dates. */
@@ -199,7 +203,8 @@ h3 { font-size: 13px; font-weight: 500; color: var(--secondary); margin: 0 0 10p
 .period-title:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 .period-nav button { touch-action: manipulation; }
 @media (hover: hover) and (pointer: fine) {
-  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) [data-add-item] { opacity: 0; }
+  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) :is([data-add-item], [data-return-current]) { opacity: 0; }
+  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) .period-countdown { opacity: 1; }
   .board-column:not(:hover) .column-add-task:not(:focus-visible) { opacity: 0; pointer-events: none; }
 }
 @media (pointer: coarse) {

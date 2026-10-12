@@ -4,6 +4,7 @@
  * [POS]: Renderer text boundary; in-place catalog updates preserve drafts, undo and open dialogs. Unused locales stay out of the first board parse.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { nestingText } from '../../shared/i18n/nesting'
 import { useSyncExternalStore } from 'react'
 import type { ItemHorizon } from '../../shared/contracts/entities'
 import { intlTags, type Locale } from '../../shared/i18n/locale'
@@ -47,7 +48,7 @@ function apply(catalog: Catalog): void {
   replace(shortcutNames, catalog.shortcutNames); replace(shortcutNotes, catalog.shortcutNotes); replace(insightMessages, catalog.insight)
   const m = catalog.messages
   Object.assign(horizonNames, { later: 'Later', year: catalog.calendar.year, half: catalog.calendar.half, cycle: m.cycle, month: m.month, week: m.week, day: m.day })
-  Object.assign(activityNames, { created: m.create, baseline: m.baseline, moved: m.move, rolled_over: m.rollover, status_changed: m.statusChanged, archived: m.archive, unarchived: m.unarchive, deleted: m.delete, item_restored: m.restoreItem, undo: m.undo })
+  Object.assign(activityNames, { nesting_changed: nestingText().nest, created: m.create, baseline: m.baseline, moved: m.move, rolled_over: m.rollover, status_changed: m.statusChanged, archived: m.archive, unarchived: m.unarchive, deleted: m.delete, item_restored: m.restoreItem, undo: m.undo })
   Object.assign(statusNames, { todo: m.todo, done: m.done, cancelled: m.cancelled })
 }
 apply(zh)

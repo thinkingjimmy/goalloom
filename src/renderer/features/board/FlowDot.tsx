@@ -1,10 +1,11 @@
 /**
  * [INPUT]: One board item, flow/topology/candidate views, guarded actions, RelationDragContext and the board's preview callback.
- * [OUTPUT]: Role-aware flow menus with a single parent-panel heading, intrinsic choice width, pointer linking and keyboard adoption; hover/focus previews stay active across flow rows and breakpoint controls without a native tooltip.
+ * [OUTPUT]: Role-aware flow menus with read-only inheritance, a single parent-panel heading, pointer linking and keyboard adoption; hover/focus previews stay active across flow rows and breakpoint controls without a native tooltip.
  * [POS]: board row decoration; writes only through flowColor/link/unlink actions, so undo toasts and revalidation stay authoritative.
  *        Later items render nothing: the parking lot takes no part in flows or links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { nestingText } from '../../../shared/i18n/nesting'
 import { useContext, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { horizons } from '../../../shared/contracts/values'
 import type { ItemSummary } from '../../../shared/contracts/entities'
@@ -20,7 +21,7 @@ import { FlowColorMenu } from '../items/FlowPicker'
 import { RelationPicker } from '../items/RelationPicker'
 import { RelationDragContext } from './RelationDrag'
 
-type Mode = 'color' | 'relation' | 'choose'
+type Mode = 'color' | 'relation' | 'choose' | 'inherited'
 
 export function FlowDot({ item, flows, relations, candidates, disabled, submit, onPreview }: {
   item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]
@@ -31,11 +32,12 @@ export function FlowDot({ item, flows, relations, candidates, disabled, submit, 
   const linking = useContext(RelationDragContext)
   const trigger = useRef<HTMLButtonElement>(null)
   const open = mode !== null
-  const hasParents = relations.some(edge => edge.childId === item.id)
+  const hasParents = !!item.placement.nestingParentId || relations.some(edge => edge.childId === item.id)
   const role = hasParents ? 'child' : item.flowColor !== null ? 'root' : 'loose'
   // Descendants reached by a root's colour change, counted only while its menu is open.
   const impact = useMemo(() => {
     if (mode !== 'color') return 0
+    if (flows.descendantsOf) return flows.descendantsOf(item.id).length
     const seen = new Set<string>(), pending = [item.id]
     while (pending.length) {
       const id = pending.pop()!
@@ -60,14 +62,15 @@ export function FlowDot({ item, flows, relations, candidates, disabled, submit, 
   return <div className="flow-dot-slot">
     <Popover floating open={open} onClose={close} anchor={
       <button ref={trigger} type="button" className="flow-dot-button" data-role={role} aria-haspopup="dialog" aria-expanded={open} aria-label={label} disabled={disabled}
-        aria-description={!topmost ? messages.dragRelationHint : undefined}
-        onPointerDown={event => { event.stopPropagation(); if (!disabled) linking?.begin(event, item, close) }} onClick={() => open ? close() : setMode(role === 'root' ? 'color' : role === 'child' ? 'relation' : 'choose')}
+        aria-description={item.placement.nestingParentId ? nestingText().inherits : !topmost ? messages.dragRelationHint : undefined}
+        onPointerDown={event => { event.stopPropagation(); if (!disabled && !item.placement.nestingParentId) linking?.begin(event, item, close) }} onClick={() => open ? close() : setMode(item.placement.nestingParentId ? 'inherited' : role === 'root' ? 'color' : role === 'child' ? 'relation' : 'choose')}
         onPointerEnter={preview} onFocus={event => { if (event.currentTarget.matches(':focus-visible')) preview() }}>
         {colors.length > 2 ? <span className="flow-dot-count">{colors.length}</span>
           : <span className="flow-dot" data-empty={!colors.length} style={colors.length ? { '--flow-ring': flowRing(colors) } as CSSProperties : undefined} />}
         {role === 'loose' && <Icon name="add" size={12} strokeWidth={2} />}
       </button>
     }>
+      {mode === 'inherited' && <div className="menu" role="dialog" aria-label={nestingText().inherits}><p className="menu-note">{nestingText().inherited}</p></div>}
       {mode === 'color' && <><FlowColorMenu itemId={item.id} color={item.flowColor} flows={flows} busy={disabled} impact={impact} onChoose={chooseColor} />
         {role === 'root' && !topmost && linking && <div className="flow-adoption-entry"><button type="button" role="menuitem" className="menu-item" disabled={disabled} onClick={() => setMode('relation')}>
           <Icon name="link" size={14} /><span className="menu-rich"><span>{messages.linkToParent}</span><small>{messages.adoptParentFlowHint}</small></span>

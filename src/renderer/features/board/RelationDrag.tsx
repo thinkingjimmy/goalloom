@@ -133,7 +133,7 @@ export function useRelationDrag(input: { snapshot: Snapshot; view: BoardView; fl
       if (!viewport || !sourceViewport) { stop(); return }
       // Same anchors as RelationLines: the child end stops at its flow dot on the first line, the parent end leaves its right edge.
       const from = sourceRow.getBoundingClientRect(), to = targetRow?.getBoundingClientRect(), toViewport = targetRow && dropViewport(targetRow)
-      const x2 = clamp(from.left + dotEdge, viewport.left, viewport.right), y2 = clamp(from.top + Math.min(from.height, firstLine) / 2, sourceViewport.top, sourceViewport.bottom)
+      const x2 = clamp(from.left + dotEdge + (sourceRow.dataset.nested === 'true' ? 24 : 0), viewport.left, viewport.right), y2 = clamp(from.top + Math.min(from.height, firstLine) / 2, sourceViewport.top, sourceViewport.bottom)
       let x1 = point.x, y1 = point.y, bus = from.left - busGap - 1
       if (target && to && toViewport) {
         x1 = Math.min(to.right - dotCenter, viewport.right); y1 = clamp(to.top + Math.min(to.height, firstLine) / 2, toViewport.top, toViewport.bottom)

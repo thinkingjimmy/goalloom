@@ -39,6 +39,8 @@ export function ownedExecutionEffect(event: ItemEvent, history: ExecutionHistory
       case 'visibility': return ['deleted', 'item_restored'].includes(event.type) && a?.deletedAt === effect.before.deletedAt && a?.deletedBy === effect.before.deletedBy && b.deletedAt === effect.after.deletedAt && b.deletedBy === effect.after.deletedBy
       case 'guidance': return event.type === 'guidance_changed'
       case 'description': return event.type === 'description_changed'
+      case 'nesting': return event.type === 'nesting_changed'
+      case 'groupPlacement':
       case 'position': return !!a && !samePlace(a, b) && effect.before.horizon === a.horizon && effect.before.periodId === a.periodId && effect.after.horizon === b.horizon && effect.after.periodId === b.periodId
       case 'relations': return false
     }

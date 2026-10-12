@@ -5,6 +5,9 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { compareInstants, currentPeriod, parseDate, workspaceDate } from '../../domain/calendar'
+import { effectiveRelations } from '../../domain/nesting'
+import { inheritedRelationId } from '../storage/store'
+import type { Relation } from '../../shared/contracts/entities'
 import { Temporal } from '../../domain/temporal'
 import { DomainError } from '../../shared/contracts/commands'
 import type { ItemSummary, PlanningPeriod } from '../../shared/contracts/entities'
@@ -38,7 +41,7 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
   const unknown = new Set<string>()
   let board: Snapshot = { ...snapshot, periods }
   if (closed) {
-    const items: ItemSummary[] = []
+    const items: ItemSummary[] = [], projected: ItemSummary[] = []
     for (const period of periods) {
       const projections = projectPeriod(store, { ...period, endAt: end })
       for (const { id, endState } of projections) {
@@ -47,19 +50,25 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
           if (item && compareInstants(item.createdAt, end) < 0) unknown.add(id)
           continue
         }
-        if (endState.periodId !== period.id || endState.deletedAt || endState.archivedAt || endState.status === 'cancelled') continue
+        if (endState.periodId !== period.id || endState.deletedAt) continue
         const item = store.summaries('i.id=?', [id])[0]
         if (!item) continue
-        items.push({ ...item, guidance: null, status: endState.status, completedAt: endState.completedAt, cancelledAt: endState.cancelledAt,
+        const row: ItemSummary = { ...item, guidance: null, status: endState.status, completedAt: endState.completedAt, cancelledAt: endState.cancelledAt,
           archivedAt: endState.archivedAt, deletedAt: endState.deletedAt, deletedBy: endState.deletedBy,
-          placement: { ...item.placement, horizon: endState.horizon, periodId: endState.periodId, sortKey: endState.sortKey, holdPeriodId: endState.holdPeriodId } })
+          placement: { ...item.placement, horizon: endState.horizon, periodId: endState.periodId, sortKey: endState.sortKey, holdPeriodId: endState.holdPeriodId, nestingParentId: endState.nestingParentId ?? null } }
+        projected.push(row)
+        if (!row.archivedAt && row.status !== 'cancelled') items.push(row)
       }
     }
     // As with history, text is current; lifecycle/placement facts are projected at the review boundary.
     const roots = store.summaries('i.flowColor IS NOT NULL AND julianday(i.createdAt)<julianday(?) AND (i.deletedAt IS NULL OR julianday(i.deletedAt)>=julianday(?))', [end, end])
     const flows = roots.map(item => ({ id: item.id, title: item.title, flowColor: item.flowColor!, archived: !!item.archivedAt && compareInstants(item.archivedAt, end) < 0 }))
-    const relations = store.prepare('SELECT id,parentId,childId FROM item_relations WHERE julianday(createdAt)<julianday(?) AND (invalidatedAt IS NULL OR julianday(invalidatedAt)>=julianday(?)) ORDER BY createdAt,id').all(end, end) as Snapshot['relations']
-    board = { ...board, items, flows, relations, observedAt: observation, orderNodes: [], rolloverSources: {}, backlog: {} }
+    const nesting = projected.flatMap(item => item.placement.nestingParentId ? [{ parentId: item.placement.nestingParentId, childId: item.id }] : [])
+    const raw = store.prepare('SELECT * FROM item_relations WHERE julianday(createdAt)<julianday(?) AND (invalidatedAt IS NULL OR julianday(invalidatedAt)>=julianday(?)) ORDER BY createdAt,id').all(end, end) as unknown as Relation[]
+    const relations = effectiveRelations(raw.map(edge => ({ ...edge, invalidatedAt: null, invalidatedBy: null, reason: null })), nesting, inheritedRelationId)
+      .map(({ id, parentId, childId, inheritedFrom }) => ({ id, parentId, childId, ...(inheritedFrom ? { inheritedFrom } : {}) }))
+    const parents = new Set(items.flatMap(item => item.placement.nestingParentId ? [item.placement.nestingParentId] : []))
+    board = { ...board, items, flows, relations, nesting, nestingParents: projected.filter(item => parents.has(item.id)), observedAt: observation, orderNodes: [], rolloverSources: {}, backlog: {} }
   }
   const closing = targets.flatMap(period => store.summaries("i.status='todo' AND i.deletedAt IS NULL AND i.archivedAt IS NULL AND p.periodId IN (SELECT id FROM planning_periods WHERE horizon=? AND startDate<=?)", [period.horizon, period.startDate]))
   const sourcePeriods = [...new Set(closing.map(item => item.placement.periodId!))].map(id => store.period(id))
@@ -72,5 +81,5 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
   }
   const planning = readBoardPeriods(store, { type: 'boardPeriods', generation: query.generation,
     periods: [...destinations.values()].map(({ horizon, startDate }) => ({ horizon, startDate })) }, now)
-  return { board, planning: { ...snapshot, periods: planning.periods, items: planning.items, orderNodes: planning.orderNodes, rolloverSources: planning.rolloverSources }, closing, sourcePeriods, unknown: unknown.size }
+  return { board, planning: { ...snapshot, periods: planning.periods, items: planning.items, nestingParents: planning.nestingParents, orderNodes: planning.orderNodes, rolloverSources: planning.rolloverSources }, closing, sourcePeriods, unknown: unknown.size }
 }

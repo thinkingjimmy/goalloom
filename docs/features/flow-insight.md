@@ -1,6 +1,6 @@
 # 流程洞察：断点、空列、复盘与右键菜单
 
-> 顶部筛选与圆点预览都能在断链处给 ＋，一键补下一步；空列给一张起草卡；周期末在列头提供周/月复盘；待办右键菜单分组；设置 › 洞察可自定义起草与复盘的偏好。设计稿：Design 画布「目标聚焦 Insight 方案」（负责人 2026-09-27 确认）。
+> 顶部筛选与圆点预览都能在断链处给 ＋，一键补下一步；空列给一张起草卡；周起始日提供上周复盘并保留整周，月末／月初提供月复盘；待办右键菜单分组；设置 › 洞察可自定义起草与复盘的偏好。设计稿：Design 画布「目标聚焦 Insight 方案」（负责人 2026-09-27 确认）。
 
 
 任务内卡点帮助、purpose consent、已采用指导与执行事实的增量接线统一维护在 [智能辅助规格](Goalloom-Smart-Assistance-PRD-TODO-v1.1.md)。一键起草、复盘只读及既有确认/撒花保持原语义；新增历史事实按 cutoff 投影，未同意扩展范围时保留原输入。
@@ -29,27 +29,28 @@
 ### 复盘
 
 - 2026-10-01 确认的月复盘设计：本月列把复盘、往期未完成和空列提示合并成一张引导卡，唯一主按钮开始／继续复盘；不显示「回顾进展 · 处理未完成 · 安排本月」及「为重要的方向，留出一点空间」。抽屉按明确的实际周期回顾 → 处理未完成 → 安排目标周期；关闭后本次会话保留步骤、选择和已编辑草稿。
-- 2026-10-05 负责人确认本周复用同一规则：独立周复盘也使用统一引导卡，未完成数量收进卡片，不再并列显示往期入口或空状态。日期行显示实际周范围，标题／按钮使用本周、上周、下周；关闭后可继续，完成／已记录跳过后恢复往期入口，空列改为安排本周；安排卡复用复盘引导的底色、边框、日期行、标题和紧凑深色主按钮，日期使用当前目标周期；有可拆来源时打开批量起草，没有来源时的「自己写」与列头 ＋ 一样打开行内新建。周月合并仍只在本月提供一个复盘入口。
+- 周复盘使用统一引导卡，未完成数量收进卡片，不再并列显示往期入口或空状态。日期行显示上周范围，标题为「回顾 上周，安排 本周」，主按钮开始／继续复盘。卡片右上角提供独立关闭按钮；关闭抽屉仍保留本次会话，关闭卡片则隐藏本期提醒。完成／已记录跳过后恢复往期入口，空列改为安排本周；安排卡复用复盘引导的底色、边框、日期行、标题和紧凑深色主按钮，日期使用当前目标周期；有可拆来源时打开批量起草，没有来源时的「自己写」与列头 ＋ 一样打开行内新建。周月合并只在本月提供一个复盘入口。
 - 2026-10-05 负责人确认周／月列头不显示「上周已复盘」等完成提示；已完成周期仍隐藏复盘入口，空列保留安排当前周期的引导。
 - 2026-10-01 确认采用「简报」预览：复盘小结去掉大块底色，带图标的标题在前、AI 正文随后、三项统计在末尾同行排列并可换行；没有可用模型时也保留图标标题和统计。看板入口标题与 todo 同为 14px / 22px，内边距 12px，使用内容宽度的紧凑主按钮。2026-10-05 负责人确认底部「稍后／上一步」使用幽灵按钮，hover 显示共用背景色，保留键盘焦点反馈与左侧文案对齐。
 - 步骤之间以细线连接，已完成步骤的连线在浅色／深色外观下仍可见；下方目标行整行提供悬停和键盘聚焦反馈，方框与箭头对齐标题首行，完成数量位于标题下方。
 - 已结束周期的统计、目标记录与模型输入统一来自该周期截止时的历史投影；标题和说明使用当前文本，状态与位置使用截止时状态。回顾不使用本月空看板替代上月，也不将本月后来完成／顺延的状态倒填历史。无法可靠投影的记录明确提示，不伪装成无记录。
-- 2026-10-05 负责人确认收尾默认移入明确的目标周期：周初移入本周，周末移入下周，月／合并复盘分别使用对应尺度的目标周期。可手动选择保留原位或归档，关闭后继续保留选择；选择本身不写入，点击下一步才提交。收尾读取最新位置与版本，包括同尺度更早的往期待办；条目下方不重复显示日期，顶部统一说明复盘范围。已经移走／完成的条目不重复操作。写入失败停留当前步骤，可重试；不会误标复盘完成。
+- 收尾默认移入明确的目标周期：上周复盘在本周任何一天都移入本周，月／合并复盘分别使用对应尺度的目标周期。可手动选择保留原位或归档，关闭抽屉后继续保留选择；选择本身不写入，点击下一步才提交。收尾读取最新位置与版本，包括同尺度更早的往期待办；条目下方不重复显示日期，顶部统一说明复盘范围。已经移走／完成的条目不重复操作。写入失败停留当前步骤，可重试；不会误标复盘完成。
 - 收尾使用 Settings 共用的 Select 按钮与应用内菜单，图标保留内边距，支持键盘选择、Escape 关闭与焦点返回；弹层留在原生复盘 dialog 内。月／合并的任务记录复用看板的只读 Checkbox 状态、流程色及首行对齐，不再单独使用无色小方框；复盘记录、目标、收尾和安排页的已保存标题复用看板的 favicon／页面标题链接渲染；原始标题、历史和草稿不受展示元数据影响。
 - 2026-10-05 负责人澄清复盘中的 todo 只读：目标矩阵、回顾记录、收尾待办、已有计划和起草来源的标题不提供点击／键盘按钮，不打开详情或筛选流程。移除带 i 的流程筛选说明。URL 继续使用页面标题展示与独立外部链接；收尾下拉、起草勾选／输入与复盘步骤按钮照常使用。
-- 2026-10-05 负责人确认收尾列表使用紧凑的 todo 行：补充与看板一致的只读未勾选 Checkbox，并对齐标题首行；移除「全部移入目标周期」按钮；桌面下拉按钮高度降至 30px，长文案可自然增高；条目不设分割线，缩小行间距。
+- 2026-10-05 负责人确认收尾列表使用紧凑的 todo 行：补充与看板一致的只读未勾选 Checkbox，并对齐标题首行；移除「全部移入目标周期」按钮；桌面下拉按钮高度降至 30px。按钮按文案收宽并居右，五语言常用选项保持单行；只有达到行宽上限时才换行增高。条目不设分割线，缩小行间距。
 - 2026-10-05 负责人确认安排页只展示「为目标补上下一步」及未拆解的上级任务建议，不再重复列出已有安排。说明明确指出哪些来源周期任务还未拆到目标周期，五语言同步。上级与建议 todo 使用原任务的只读 Checkbox 样式／流程色，建议任务紧凑缩进，连线从上级 Checkbox 下沿接到下级 Checkbox 左侧中点；右侧使用与第二步收尾一致的下拉按钮／应用内菜单，选项明确为「排入本周／下周」等实际目标周期及「不排入」，按钮随文案收宽并居右，区分安排选择与任务完成。取消卡片外框，选项之间用分割线。
 - 安排页仍仅为尚未覆盖的上级起草，晚到的模型结果不覆盖手工输入，确认后才写入。建议标题可直接编辑，聚焦时不显示激活边框／阴影；菜单与按钮保留键盘焦点反馈。「不排入」放在主按钮左侧，采用与「上一步」一致的幽灵按钮；跳过当前安排步骤且不创建任何建议任务，可在起草期间使用，未知写入回执核对期间禁用。合并复盘跳过月安排后继续周安排；各尺度起草状态独立，晚到的月结果不干扰周安排。没有历史记录时直接安排，全部完成时跳过空收尾。最后一步确认成功或明确不排入后，直接关闭面板并回到看板；不再停留在完成结果页。App 一次记录所有本次周期为已复盘，并清理保留会话，完成后的入口立即消失且重启不再出现；失败或未知回执继续留在当前步骤。关闭后触发一次现有 confetti，遵循入口所属列（合并复盘为本月）的撒花开关和系统减少动态效果设置。恢复普通看板与往期入口。
 - 复盘建议生成使用本机缓存：关闭重开保留已编辑标题与排入选择；重新挂载或重启可复用同工作区、目标周期与生成输入的成功建议，进行中的相同请求共用一次生成。来源任务、看板事实或拆解偏好变化后重新生成；复盘语气等无关偏好不使建议失效。失败结果不缓存，整库替换清除旧代次建议。
 
 本次变更的失败场景（实现前确认）：月初／跨年／周月合并读取错误周期；新工作区在锚点前无历史；已顺延条目重复移动；更早往期入口消失；当前状态覆盖历史；目标周期已有计划仍重复起草；关闭重开丢草稿；部分写入失败后继续或重复提交；整库替换后旧读取／模型结果写回；五种语言漏译与键盘焦点逃出抽屉。
 
-- 周复盘入口在本周列头：本周最后一天出现「本周复盘」，下一周第一天出现「上周复盘」；最后一天已复盘或点了「这周跳过」，次日不再出现（最多连续两天）。月复盘同样遵守两天窗口，使用确认后的统一引导卡；卡片和抽屉明确显示实际月份，覆盖五种语言。
-- 周入口使用「本周／上周」；月入口显示实际月份，抽屉显示年份。合并抽屉同时列出周与月。
-- 周／月复盘入口为列内统一引导卡，持续可见；「上一期」待复盘时，周期面板的常用按钮同样带琥珀点。
-- 周与月同一天结束时只出一个入口（本月列统一引导卡），步骤合并。
-- 周复盘：回顾（模型小结 + 目标×周期矩阵）→ 本周收尾（保留原位 / 移入目标周期 / 归档）→ 排下周（为断链起草，可改、可取消）→ 直接返回看板（入口消失，按偏好撒花）。月复盘：回顾（任务数量、目标关联记录）→ 处理未完成 → 安排目标月（仅为未覆盖的目标起草）。合并：回顾 → 收尾 → 排下月 → 排下周。
-- 没有可用模型时：回顾保留复盘小结的图标标题、统计与目标记录／矩阵，不出现空的 AI 正文或刷新按钮；排下周/下月为每条断链给空位，写了才创建。
+- 2026-10-11 负责人确认：周回顾按工作区的周起始日与时区切换。例如周一开始，则周一出现刚结束一周的「上周复盘」，周日不提前回顾尚未结束的本周。未完成／未关闭的卡片在本周持续保留，下周替换为新的上周回顾，不堆积旧卡片。月复盘保留月末最后一天及次月第一天的两天窗口，使用实际月份与统一引导卡。
+- 卡片关闭只隐藏该期，不记录已完成、不触发撒花、不改任务或全局复盘开关；本机保存关闭状态，重载后仍隐藏，下周照常出现。关闭后恢复普通往期／空列提示。关闭周月合并卡会隐藏卡内两期提醒；新工作区不继承旧代次的隐藏状态。按钮保留五语言可访问名称，关闭后焦点返回该列周期按钮。
+- 周入口使用「上周」，安排目标使用「本周」；月入口显示实际月份，抽屉显示年份。合并抽屉同时列出周与月。
+- 周／月复盘入口为列内统一引导卡；「上一期」待复盘时，周期面板的常用按钮同样带琥珀点。完成或关闭该提醒后去掉对应提示。
+- 周与月的实际结束时间相同时只出一个入口（本月列统一引导卡），步骤合并；结束时间不同时分别显示两张卡，月回顾不遮住整周保留的周回顾。
+- 周复盘：回顾（模型小结 + 目标×周期矩阵）→ 处理往期未完成（保留原位 / 移入本周 / 归档）→ 安排本周（为断链起草，可改、可取消）→ 直接返回看板（入口消失，按偏好撒花）。月复盘：回顾（任务数量、目标关联记录）→ 处理未完成 → 安排目标月（仅为未覆盖的目标起草）。合并：回顾 → 收尾 → 安排目标月 → 安排本周。
+- 没有可用模型时：回顾保留复盘小结的图标标题、统计与目标记录／矩阵，不出现空的 AI 正文或刷新按钮；安排目标周期时为每条断链给空位，写了才创建。
 - 复盘抽屉最大宽度 640px，并随窗口收窄；目标×周期矩阵优先为目标标题留空间，长标题可换行。底部用同款虚线空格、橙色边框配简短说明标识无行动和跳级；图例文案覆盖五种语言。
 - 复盘小结按工作区、复盘周期与实际模型输入保存在本机，关闭重开、切换步骤和重启后复用；再次进入「回顾」时，若复盘周期事实、日期上下文或复盘偏好变化则更新。编辑设置不会逐字触发生成；拆解偏好、界面样式与普通刷新不触发新请求。标题行右侧提供「重新生成」图标按钮，使用本地化可访问名称与提示；按最新上下文刷新，期间禁用重复请求并保留上次内容，失败时提示并允许重试。缓存不进入工作区导出与备份，整库替换后清空。
 
@@ -83,12 +84,17 @@
 - Pending breakpoint actions expose `aria-busy` and swap the add glyph for the bundled Hugeicons loading glyph. `insight.css` keeps that pending action at full opacity and its final hover colours immediately, rotating only its SVG; reduced motion stops rotation without hiding loading feedback. The existing pending lifetime includes both drafting and guarded submission and clears on manual fallback.
 - `features/insight/signals.ts`: `breakpoints` accepts an optional highlighted chain instead of a preview boolean. It scopes parents and direct day children before batching; the returned children drive both the skip label and its write. A null chain preserves overview/review rules.
 - renderer：`state/insight.ts` 本机偏好（localStorage `goalloom.insight`），`features/insight/` 断点层、空列卡、复盘抽屉；新建窗口接受预填（上级、周期、草稿列表）。
+- `features/insight/review.ts`: `reviewTarget` derives the previous week from the snapshot calendar, configured week start and observed workspace date. `reviewDue` returns separate week/month entries or one entry when closing instants match. `state/insight.ts` keeps up to 24 generation-scoped `dismissed` period keys separately from completion marks; dismissal never writes workspace data. Existing midnight/wake refresh advances the reminder. `Board` adds a neutral close control to weekly/combined guides and returns input-aware focus to the column's period switch.
 - `state/review-summary.ts`: device-only `goalloom.review-summaries` cache, scoped by workspace generation and reviewed week/month keys, with one successful result per period and at most 24 entries. SHA-256 covers the actual review prompt (including review preferences, excluding draft-only preferences); only hashes and sanitised results persist. Concurrent identical requests share one promise, refresh failures preserve the previous entry, malformed/unavailable storage degrades to a session cache, and App invalidates both persisted and pending ownership on workspace replacement.
 - `state/review-drafts.ts`: review-only `goalloom.review-drafts` cache, keyed by destination horizon/start date with an exact drafting-prompt fingerprint. At most 24 validated batches persist; identical pending inputs share a promise, failures are not cached and stale ownership cannot replace newer context/generation. App clears old-generation entries and ownership alongside summaries. `requestDraft` accepts an optional preference snapshot so fingerprinting and network input agree; ordinary composer/breakpoint drafting retains its existing fresh-request behavior.
 - `features/insight/ReviewSummary.tsx`: revalidates actual context on drawer/step entry, not while editing preferences behind another dialog; manual refresh uses the latest context, guards stale subscriptions, and keeps successful text visible during refresh or failure. The explicit refresh control and failure copy ship in all five locales.
 - Draft and review mount effects share one pending request across StrictMode replay; each subscription ignores responses after its cleanup. Draft failures always end loading and leave editable rows with visible feedback. `pnpm dev` watches main/preload so generation actions and renderer callers remain on the same contract; previously started non-watching processes require a restart.
 
 ## 实现前失败场景
+
+- Weekly reminder retention (2026-10-11): a Monday-start calendar offers the ending week on Sunday; a non-Monday start or workspace timezone changes the wrong boundary; the previous-week card disappears midweek or never advances next week; completed/dismissed cards return after reload; dismissal records completion, suppresses later weeks or leaks across workspace generations; a monthly boundary hides an unrelated weekly reminder or combines different closing dates; closing a card discards a resumable drawer, starts a write or moves task focus into a removed control. Verify all seven week starts, timezone/DST boundaries, full-week retention, independent completion/dismissal storage and monthly overlap before changing the rule.
+
+- Review choice sizing (2026-10-11): a fixed 160px closing control wraps “Move to next week” despite unused row space; short choices retain excessive width, long translations crowd the chevron, or intrinsic sizing overflows a narrow drawer. Check five-locale closing labels at 720px and 1280px native window widths, compact height, complete text, right alignment and icon spacing. Retain keyboard selection, Escape focus return and the existing weekly planning workflow.
 
 - Next-step presentation (2026-10-09): entering a childless task's flow dot shows a hollow ring before its label; multiline titles or URL cards keep the action on the first line; later row growth leaves its anchor stale. Show only the labelled pill, centered on the complete row, across pointer previews, filtered overview, keyboard focus and pending generation. Preserve the 6px right inset, content wrapping, child creation and first-line relation endpoints; record native geometry and screenshots.
 
@@ -138,12 +144,14 @@
 - 信号：未来/历史周期视图误出 ＋；已完成/归档/删除条目出 ＋；多父条目重复出 ＋；Later 参与；横向滚动后 ＋ 落到错误列；虚拟行未挂载时锚点丢失。
 - 写入：连点生成两条；生成期间版本变化（上级被编辑/删除）；周期在生成中翻过；撤销不完整或误删用户后续编辑。
 - 模型：Key 缺失/未同意/智能关闭时仍请求；推理开启导致空输出；返回非 JSON、空标题、超长、重复同级、带 emoji；429 后连续请求；超时无反馈；workspace 替换后旧请求写入。
-- 复盘：入口在第三天仍出现；跳过后次日仍出现；周月同日出两个入口；收尾写入已结束周期；排下周写入当前周期。
+- 复盘：周入口在周中消失或提前出现；关闭后重载再出现或屏蔽下周；关闭误记完成；周月结束时间相同仍出两个入口、不同却合并；收尾写入已结束周期；上周回顾错误排入下周。
 - 隐私：正文进入日志；关于我进入工作区/导出。
 - Development regression: StrictMode replays mount effects, losing draft/review results or sending duplicate requests; a late response overwrites typed text or a reopened composer; failures leave loading active or hide the manual fallback; Settings generation changes workspace data; a renderer update calls an older main/preload contract when the development process is not watching those builds.
 - Summary cache failure scenarios: closing while pending starts duplicate requests; reopening, step navigation or process restart discards a successful summary; changed board facts, review preferences or period reuse stale text; unrelated draft preferences or renderer revisions trigger regeneration; refresh failure deletes the last successful result; failed initial requests become cached; corrupt/full storage prevents generation; a late result repopulates cache after workspace replacement; saved entries contain prompts, credentials or grow without a bound; Settings trials accidentally reuse review cache.
 
 ## TODO
+
+- [x] 2026-10-11 周回顾按工作区周起始日出现，整周保留上周回顾，下周替换；卡片增加独立关闭按钮，本机按代次／周期保存隐藏状态，不记完成、不影响以后各周。月窗口保持原规则，不同截止时间分别显示。实现前先列失败场景并写日期／状态验证；15 项定向检查、全量 181 项 Vitest、typecheck、build 通过。原生脚本已更新，按负责人本次偏好未运行 E2E；不主张卡片视觉或原生交互验收。实际命令、版本与平台范围：`output/tests/weekly-reminder/report.json`，Vitest 证据：`output/tests/weekly-reminder/vitest.json`。
 
 - [x] 2026-10-10 「自己写」与列头 ＋ 相同，在当前列打开行内新建并写入显示周期，不再打开新建窗口；有来源的起草与复盘后安排仍走批量窗口。`node tests/desktop/insight.mjs --empty-card` 确认今天列出现行内输入、无新建对话框并写入今天；`pnpm test:calendar` 确认未来半年同样写入显示周期。空列布局首次在日列返回提示悬停超时（指针移出窗口），重跑 `node tests/desktop/empty-card-layout.mjs` 通过。`node tests/desktop/weekly-review.mjs --invitation` 周初／周末确认有来源时仍打开批量起草并创建关联本周任务。typecheck、166 项测试、build 通过。证据：`output/tests/empty-card/native/report.json`、`output/tests/empty-card-layout/native/report.json`、`output/tests/calendar-modes/report.json`、`output/tests/review-invitation/native/report.json`。源码 Electron 44.4.4 / Node 24.21.0 / SQLite 3.53.4，macOS 26.4 arm64 / Apple M3 Max；实机／VM 未独立确认。未跑完整 `pnpm test:insight`（断点、复盘设置与周复盘其余场景未受此次手写入口影响）。
 

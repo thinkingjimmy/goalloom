@@ -4,6 +4,8 @@
  * [POS]: Command context with transaction-local calculations and rollback-safe period insertion.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { flowIndex } from '../../domain/flows'
+import { combinedTopology } from '../../domain/nesting'
 import { currentPeriod } from '../../domain/calendar'
 import { DomainError, type Command, type CreatePeriodTarget } from '../../shared/contracts/commands'
 import { readPlanningPeriod } from './periods'
@@ -20,12 +22,11 @@ export interface Context {
 }
 export function assertAvailable(item: Item): void { if (item.deletedAt !== null) throw new DomainError('conflict', serverText().errors.inTrash) }
 export function hasActiveParent(context: Context, itemId: string): boolean {
-  return !!context.store.db.prepare('SELECT 1 FROM item_relations WHERE childId=? AND invalidatedAt IS NULL LIMIT 1').get(itemId)
+  return !!context.store.item(itemId).placement.nestingParentId || !!context.store.db.prepare('SELECT 1 FROM item_relations WHERE childId=? AND invalidatedAt IS NULL LIMIT 1').get(itemId)
 }
 export function hasFlow(context: Context, itemId: string): boolean {
-  return !!context.store.prepare(`WITH RECURSIVE ancestors(id) AS (
-    SELECT ? UNION SELECT r.parentId FROM item_relations r JOIN ancestors a ON r.childId=a.id WHERE r.invalidatedAt IS NULL
-  ) SELECT 1 FROM ancestors a JOIN items i ON i.id=a.id WHERE i.flowColor IS NOT NULL AND i.deletedAt IS NULL LIMIT 1`).get(itemId)
+  const roots = context.store.prepare('SELECT id FROM items WHERE flowColor IS NOT NULL AND deletedAt IS NULL').all().map(row => String(row.id))
+  return flowIndex(combinedTopology(context.store.relations(), context.store.nestingLinks()), roots)(itemId).length > 0
 }
 export function flowColorOwner(context: Context, color: number, exceptId: string | null): string | null {
   const row = context.store.db.prepare('SELECT title FROM items WHERE flowColor=? AND deletedAt IS NULL AND id IS NOT ? LIMIT 1').get(color, exceptId)
@@ -54,8 +55,8 @@ export function touch(context: Context, item: Item): void {
   item.updatedAt = context.now
   context.store.saveItem(item, previousVersion)
 }
-export function nextSortKey(context: Context, horizon: ItemHorizon, periodId: string | null, beforeId: string | null, excludedId?: string): number {
-  let neighbors = context.store.insertion(horizon, periodId, beforeId, excludedId ?? null)
+export function nextSortKey(context: Context, horizon: ItemHorizon, periodId: string | null, beforeId: string | null, excludedId?: string, nestingParentId: string | null = null): number {
+  let neighbors = context.store.insertion(horizon, periodId, beforeId, excludedId ?? null, nestingParentId)
   const calculate = (): number => {
     const previous = neighbors.previous?.sortKey, next = neighbors.next?.sortKey
     return previous === undefined ? (next ?? 1024) - 1024 : next === undefined ? previous + 1024 : previous + (next - previous) / 2
@@ -68,7 +69,7 @@ export function nextSortKey(context: Context, horizon: ItemHorizon, periodId: st
       item.placement.sortKey = (index + 1) * 1024; item.placement.version++
       context.store.savePlacement(item.placement, previous)
     })
-    neighbors = context.store.insertion(horizon, periodId, beforeId, excludedId ?? null)
+    neighbors = context.store.insertion(horizon, periodId, beforeId, excludedId ?? null, nestingParentId)
     key = calculate()
   }
   return key

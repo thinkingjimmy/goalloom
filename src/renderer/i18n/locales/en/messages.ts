@@ -383,7 +383,7 @@ export const messages: MessageCatalog = {
   useDisplayedPeriod: "Use the displayed period",
   currentCycle: "This period",
   previousPeriodNames: { year: "Previous year", half: "Previous half","day": "Yesterday", "week": "Last week", "month": "Last month", "cycle": "Previous period"},
-  nextPeriodNames: { year: "Next year", half: "Next half","day": "tomorrow", "week": "next week", "month": "next month", "cycle": "the next period"},
+  nextPeriodNames: { year: "Next year", half: "Next half","day": "tomorrow", "week": "Next week", "month": "next month", "cycle": "the next period"},
   moveToPeriod: (period: string) => `Move to ${period}`,
   feedbackFuture: "Future",
   loadingPeriod: "Loading period…",

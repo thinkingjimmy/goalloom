@@ -11,7 +11,7 @@ const appearance = card => {
     const style = getComputedStyle(node)
     return Object.fromEntries(['backgroundColor', 'color', 'borderTopWidth', 'borderRadius', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'fontSize', 'fontWeight', 'lineHeight'].map(key => [key, style[key]]))
   }
-  return { frame: pick(card), meta: pick(card.querySelector('.review-guide-meta')), title: pick(card.querySelector('h3')), action: pick(card.querySelector('button')) }
+  return { frame: pick(card), meta: pick(card.querySelector('.review-guide-meta')), title: pick(card.querySelector('h3')), action: pick(card.querySelector('.review-guide-action')) }
 }
 
 export async function verifyReviewInvitation({ page, fixture, mode, out, scenario, check }) {
@@ -22,12 +22,10 @@ export async function verifyReviewInvitation({ page, fixture, mode, out, scenari
   for (let step = 0; step < 3; step++) {
     await drawer.locator('.review-body[aria-busy=false]').waitFor()
     if (await drawer.locator('.review-plan-list').count()) break
-    if (mode === 'week-first') {
-      const choices = drawer.locator('.review-close-row [role=combobox]')
-      for (let row = 0; row < await choices.count(); row++) {
-        await choices.nth(row).click()
-        await drawer.getByRole('option', { name: '留在原处', exact: true }).click()
-      }
+    const choices = drawer.locator('.review-close-row [role=combobox]')
+    for (let row = 0; row < await choices.count(); row++) {
+      await choices.nth(row).click()
+      await drawer.getByRole('option', { name: '留在原处', exact: true }).click()
     }
     const previous = await drawer.locator('.review-steps [aria-current=step]').textContent()
     await drawer.locator('.review-foot .primary:not(:disabled)').click()
@@ -42,7 +40,7 @@ export async function verifyReviewInvitation({ page, fixture, mode, out, scenari
   assert.equal(await invitation.locator('button.primary.review-guide-action').count(), 1)
   assert.equal(await page.locator('[data-review]').count(), 0)
   const week = page.locator('[data-horizon=week]')
-  const completedLabel = `${mode === 'week-first' ? '上周' : '本周'}已复盘`
+  const completedLabel = '上周已复盘'
   assert.equal(await week.locator('.reviewed-note').count(), 0)
   assert.equal(await week.getByText(completedLabel, { exact: true }).count(), 0)
   const formatted = date => new Intl.DateTimeFormat('zh', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))
@@ -74,7 +72,7 @@ export async function verifyReviewInvitation({ page, fixture, mode, out, scenari
     return { item: snapshot.items.find(item => item.title === title), relations: snapshot.relations }
   }, title)
   assert.equal(result.item.placement.periodId, fixture.current.id)
-  assert(result.relations.some(edge => edge.parentId === fixture.parent && edge.childId === result.item.id))
+  assert(result.relations.some(edge => edge.parentId === fixture.invitationParent && edge.childId === result.item.id))
   await invitation.waitFor({ state: 'detached' })
   scenario.created = result.item.id
   check('Post-review planning shares review styling/current dates and creates a linked current-week task through its original action')

@@ -14,20 +14,21 @@ import { periodHorizons } from '../../../shared/contracts/values'
 
 export function assertParentOrderTarget(context: Context, item: Item, horizon: ItemHorizon, period: PlanningPeriod | null, beforeId: string | null): void {
   if (!parentOrderedHorizon(horizon) || !period || !beforeId) return
-  const rows = context.store.summaries("i.deletedAt IS NULL AND i.archivedAt IS NULL AND p.horizon=? AND p.periodId=? AND i.status=?", [horizon, period.id, item.status])
+  const rows = context.store.summaries("i.deletedAt IS NULL AND i.archivedAt IS NULL AND p.horizon=? AND p.periodId=?", [horizon, period.id])
   const nodes = orderNodes(context.store, [...rows.map(row => row.id), item.id])
   const moved = nodes.find(node => node.id === item.id)!
   Object.assign(moved, { horizon, periodId: period.id, periodStart: period.startDate, periodEnd: period.endAt })
-  const order = buildParentOrder(nodes, context.store.relations(), context.now)
-  if (!rows.some(row => row.id === beforeId && order.group(row.id) === order.group(item.id))) throw new DomainError('conflict', serverText().errors.sortTargetGone)
+  const order = buildParentOrder(nodes, context.store.effectiveRelations(), context.now)
+  const todo = (task: Pick<Item, 'id' | 'status'>) => task.status === 'todo' || context.store.summaries("i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status='todo' AND p.nestingParentId=?", [task.id]).length > 0
+  if (!rows.some(row => row.id === beforeId && !row.placement.nestingParentId && todo(row) === todo(item) && order.group(row.id) === order.group(item.id))) throw new DomainError('conflict', serverText().errors.sortTargetGone)
 }
 
 export function materializeParentOrder(context: Context): boolean {
   // Archived/cancelled ancestors still define downstream groups; persist their order too, without changing lifecycle state.
   const orderedHorizons = periodHorizons.filter(parentOrderedHorizon)
-  const items = context.store.summaries(`i.deletedAt IS NULL
+  const items = context.store.summaries(`i.deletedAt IS NULL AND p.nestingParentId IS NULL
     AND p.horizon IN (${orderedHorizons.map(() => '?').join(',')}) AND p.periodId IN (SELECT id FROM planning_periods WHERE julianday(endAt)>julianday(?))`, [...orderedHorizons, context.now])
-  const order = buildParentOrder(orderNodes(context.store, items.map(item => item.id)), context.store.relations(), context.now)
+  const order = buildParentOrder(orderNodes(context.store, items.map(item => item.id)), context.store.effectiveRelations(), context.now)
   const buckets = new Map<string, typeof items>()
   for (const item of items) {
     const key = item.placement.periodId!, bucket = buckets.get(key) ?? []

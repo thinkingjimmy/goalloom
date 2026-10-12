@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Current or review-scoped snapshots (periods, items, relations, observedAt), flows and the device's reviewed/skipped period keys.
- * [OUTPUT]: reviewDue (which week/month review is open today — last day of the period or, if not yet done, the first day after — merged when both end together),
+ * [INPUT]: Current or review-scoped snapshots (periods, items, relations, observedAt), flows, completed period keys and generation-scoped dismissal keys.
+ * [OUTPUT]: reviewDue entries (previous-week reminders throughout the configured week; monthly last/first-day reminders, merged only at matching closing boundaries),
  *           reviewSignals (descriptive gap/skip/pace facts, independent of child creation), goalRows (flow × column counts) and planCandidates (parents needing a next-period step).
  * [POS]: features/insight 的复盘纯规则；不写入、不联网，入口显示与抽屉步骤都从这里取数。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -20,30 +20,35 @@ export interface ReviewDue { scope: 'week' | 'month' | 'both'; week: ReviewTarge
 
 export const reviewKey = (period: PlanningPeriod) => `${period.horizon}:${period.startDate}`
 
-// Open on the period's last day; on the next period's first day only if that review was neither done nor skipped (so at most two days).
+// Weekly reminders cover the completed previous week; monthly reminders retain their two-day window.
 export function reviewTarget(snapshot: Snapshot, horizon: ReviewHorizon, reviewed: string[]): ReviewTarget | null {
   const calendar = snapshot.workspace.calendar
   const current = snapshot.periods.find(period => period.horizon === horizon)
   if (!calendar || !current) return null
   const today = workspaceDate(calendar.timezone, snapshot.observedAt)
-  if (addDays(current.endDate, -1) === today) {
+  if (horizon === 'month' && addDays(current.endDate, -1) === today) {
     const key = reviewKey(current)
     return reviewed.includes(key) ? null : { horizon, period: current, next: currentPeriod(calendar, horizon, current.endAt), key, lastDay: true }
   }
-  if (current.startDate === today) {
+  if (horizon === 'week' || current.startDate === today) {
     const previous = precedingPeriod(calendar, current)
     if (!previous || reviewed.includes(reviewKey(previous))) return null
     return { horizon, period: previous, next: current, key: reviewKey(previous), lastDay: false }
   }
   return null
 }
-export function reviewDue(snapshot: Snapshot, reviewed: string[]): ReviewDue | null {
-  const week = reviewTarget(snapshot, 'week', reviewed), month = reviewTarget(snapshot, 'month', reviewed)
-  // Only one entry when both end together; it lives on the month header.
-  if (week && month && week.lastDay === month.lastDay) return { scope: 'both', week, month }
-  if (month) return { scope: 'month', week: null, month }
-  if (week) return { scope: 'week', week, month: null }
-  return null
+export function reviewDue(snapshot: Snapshot, reviewed: string[], dismissed: string[] = []): ReviewDue[] {
+  const visible = (horizon: ReviewHorizon) => {
+    const target = reviewTarget(snapshot, horizon, reviewed)
+    return target && !dismissed.includes(`${snapshot.workspace.generation}:${target.key}`) ? target : null
+  }
+  const week = visible('week'), month = visible('month')
+  // An unrelated monthly boundary must not hide the retained weekly reminder.
+  if (week && month && week.period.endAt === month.period.endAt) return [{ scope: 'both', week, month }]
+  const entries: ReviewDue[] = []
+  if (month) entries.push({ scope: 'month', week: null, month })
+  if (week) entries.push({ scope: 'week', week, month: null })
+  return entries
 }
 
 const open = (item: ItemSummary) => item.status === 'todo' && !item.archivedAt && !item.deletedAt

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Isolated evidence directory, frozen v5/v6 DDL and production Repository/transfer APIs.
- * [OUTPUT]: Legacy transfer fidelity, historical milestone validation/undo, manual year/half defaults, v7 round trips and pre-anchor review guards.
+ * [OUTPUT]: Legacy transfer fidelity with independent v9 placements, historical milestone validation/undo, manual year/half defaults and pre-anchor review guards.
  * [POS]: Calendar storage acceptance under Electron's actual Node/SQLite, with an injected clock.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -80,6 +80,7 @@ for (const version of [5, 6]) {
   for (const table of ['planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects']) {
     const where = table === 'rollover_policies' || version === 5 && table === 'planning_periods' ? " WHERE horizon NOT IN ('year','half')" : ''
     for (const row of db.prepare(`SELECT * FROM ${table}${where}`).all()) {
+      if (table === 'item_placements') delete row.nestingParentId
       legacy.prepare(`INSERT INTO ${table} (${Object.keys(row).join(',')}) VALUES (${Object.keys(row).map(() => '?').join(',')})`).run(...Object.values(row))
     }
   }
@@ -103,12 +104,13 @@ for (const version of [5, 6]) {
     const destination = new Repository(target, { now: () => now })
     replaceDataset(destination.store, dataset, 'restore', now)
     const roundTrip = exportDataset(destination.store, now)
-    assert.equal(roundTrip.schemaVersion, 8)
+    assert.equal(roundTrip.schemaVersion, 9)
     assert.equal(roundTrip.workspace.calendar!.mode, 'rolling')
     assert.equal(roundTrip.workspace.calendar!.cycleAnchor, '2026-01-31')
     for (const field of fields) {
       if (field === 'policies') assert.deepEqual(roundTrip.policies.filter(policy => policy.horizon !== 'year' && policy.horizon !== 'half'), source.policies)
       else if (field === 'periods') for (const period of source.periods) assert.deepEqual(roundTrip.periods.find(row => row.id === period.id), period)
+      else if (field === 'placements') assert.deepEqual(roundTrip.placements, source.placements.map(row => ({ ...row, nestingParentId: null })), 'Legacy tasks default to independent placement')
       else assert.deepEqual(roundTrip[field], source[field], `${index}/${field}`)
     }
     for (const horizon of ['year', 'half']) assert.equal(roundTrip.policies.find(policy => policy.horizon === horizon)!.mode, 'manual')

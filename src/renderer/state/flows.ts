@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useMemo } from 'react'
+import { combinedTopology } from '../../domain/nesting'
 import { flowIndex } from '../../domain/flows'
 import { horizons } from '../../shared/contracts/values'
 import type { ItemSummary } from '../../shared/contracts/entities'
@@ -12,9 +13,11 @@ import type { Flow, Snapshot } from '../../shared/contracts/queries'
 
 /** Unarchived flows in top-bar order; chip position also drives the ⌘1…⌘9 filter shortcuts. */
 export function visibleFlows(all: Flow[], items: ItemSummary[]): Flow[] {
+  const todo = new Set(items.filter(item => item.status === 'todo').map(item => item.placement.nestingParentId ?? item.id))
   const positions = new Map(items.map((item, index) => [item.id, {
-    column: horizons.indexOf(item.placement.horizon), done: Number(item.status === 'done'), index,
+    column: horizons.indexOf(item.placement.horizon), done: Number(!todo.has(item.placement.nestingParentId ?? item.id)), index,
   }]))
+  for (const item of items) if (item.placement.nestingParentId && !positions.has(item.placement.nestingParentId)) positions.set(item.placement.nestingParentId, positions.get(item.id)!)
   return all.filter(flow => !flow.archived).sort((a, b) => {
     const left = positions.get(a.id), right = positions.get(b.id)
     // Roots outside the displayed periods remain accessible after the board's roots.
@@ -29,15 +32,17 @@ export interface Flows {
   of: (itemId: string) => Flow[]
   colorsOf: (itemId: string) => number[]
   owner: (color: number) => Flow | undefined
+  descendantsOf?: ((itemId: string) => string[]) | undefined
   isRoot: (itemId: string) => boolean
 }
 
 export interface FlowGraph {
+  traversal?: readonly { parentId: string; childId: string }[]
   members: ReadonlySet<string>
   edges: (Snapshot['relations'][number] & { flowId: string })[]
 }
 
-export function activeFlowGraph(items: ItemSummary[], relations: Snapshot['relations'], flows: Flows, flowIds: string[]): FlowGraph {
+export function activeFlowGraph(items: ItemSummary[], relations: Snapshot['relations'], flows: Flows, flowIds: string[], nesting: NonNullable<Snapshot['nesting']> = []): FlowGraph {
   if (!flowIds.length) return { members: new Set(), edges: [] }
   const active = new Map<string, string[]>()
   for (const item of items) {
@@ -49,7 +54,7 @@ export function activeFlowGraph(items: ItemSummary[], relations: Snapshot['relat
     const flowId = active.get(edge.childId)?.find(id => active.get(edge.parentId)?.includes(id))
     return flowId ? [{ ...edge, flowId }] : []
   })
-  return { members: new Set(active.keys()), edges }
+  return { members: new Set(active.keys()), edges, traversal: [...edges, ...nesting.filter(link => active.has(link.parentId) && active.has(link.childId))] }
 }
 
 export function flowChain(graph: FlowGraph, focus: string | null): ReadonlySet<string> | null {
@@ -62,7 +67,7 @@ export function flowChain(graph: FlowGraph, focus: string | null): ReadonlySet<s
     const pending = [focus]
     while (pending.length) {
       const id = pending.pop()!
-      for (const edge of graph.edges) {
+      for (const edge of graph.traversal ?? graph.edges) {
         const [from, to] = up ? [edge.childId, edge.parentId] : [edge.parentId, edge.childId]
         if (from === id && !found.has(to)) { found.add(to); pending.push(to) }
       }
@@ -75,8 +80,10 @@ export function useFlows(snapshot: Snapshot | null, items: ItemSummary[]): Flows
   const memberships = useMemo<Omit<Flows, 'visible'>>(() => {
     const all = snapshot?.flows ?? []
     const byId = new Map(all.map(flow => [flow.id, flow]))
-    const resolve = flowIndex(snapshot?.relations ?? [], byId.keys())
-    const children = new Set((snapshot?.relations ?? []).map(edge => edge.childId))
+    const topology = combinedTopology(snapshot?.relations ?? [], snapshot?.nesting ?? [])
+    const resolve = flowIndex(topology, byId.keys())
+    let descendants: Map<string, string[]> | null = null
+    const children = new Set([...snapshot?.relations ?? [], ...snapshot?.nesting ?? []].map(edge => edge.childId))
     const resolved = new Map<string, Flow[]>(), colors = new Map<string, number[]>()
     const emptyFlows: Flow[] = [], emptyColors: number[] = []
     const of = (itemId: string) => {
@@ -90,6 +97,15 @@ export function useFlows(snapshot: Snapshot | null, items: ItemSummary[]): Flows
     }
     return {
       all, of,
+      descendantsOf: itemId => {
+        if (!descendants) {
+          descendants = new Map()
+          for (const edge of topology) { const rows = descendants.get(edge.parentId) ?? []; rows.push(edge.childId); descendants.set(edge.parentId, rows) }
+        }
+        const seen = new Set<string>(), pending = [itemId]
+        while (pending.length) { const id = pending.pop()!; for (const child of descendants.get(id) ?? []) if (!seen.has(child)) { seen.add(child); pending.push(child) } }
+        return [...seen]
+      },
       colorsOf: itemId => {
         const cached = colors.get(itemId)
         if (cached) return cached
@@ -102,7 +118,7 @@ export function useFlows(snapshot: Snapshot | null, items: ItemSummary[]): Flows
       owner: color => all.find(flow => flow.flowColor === color),
       isRoot: itemId => !children.has(itemId),
     }
-  }, [snapshot?.flows, snapshot?.relations])
+  }, [snapshot?.flows, snapshot?.relations, snapshot?.nesting])
   const visible = useMemo(() => visibleFlows(memberships.all, items), [memberships.all, items])
   return useMemo(() => ({ ...memberships, visible }), [memberships, visible])
 }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A new or current-version SQLite database; legacy files remain read-only until confirmed recovery.
- * [OUTPUT]: Atomic schema v8 with guidance heads, v1/v2 effects, six horizons and independent rollover policies.
+ * [OUTPUT]: Atomic schema v9 with two-level nesting, guidance heads, v1/v2/v3 effects, six horizons and independent rollover policies.
  * [POS]: Sole production DDL; temporary recovery databases use the same initialization.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,8 +9,8 @@ import { randomUUID } from 'node:crypto'
 import { transaction } from './database'
 import { serverText } from '../../shared/i18n/server'
 
-export const schemaVersion = 8
-export const supportedVersions = [1, 2, 3, 4, 5, 6, 7, 8]
+export const schemaVersion = 9
+export const supportedVersions = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 export const upgradableVersions: number[] = []
 export const requiredTables = ['workspace', 'items', 'item_placements', 'planning_periods', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects', 'schema_migrations']
 export function sourceTables(version: number): string[] { return version >= 8 ? [...requiredTables, 'item_guidance'] : requiredTables }
@@ -34,9 +34,11 @@ const checkStyleColumn = "checkStyle TEXT NOT NULL DEFAULT 'outline' CHECK(check
 const flowDdl = `
 CREATE UNIQUE INDEX unique_flow_color ON items(flowColor) WHERE flowColor IS NOT NULL AND deletedAt IS NULL;
 CREATE TRIGGER flow_root_color BEFORE UPDATE OF flowColor ON items WHEN NEW.flowColor IS NOT NULL BEGIN
+  SELECT CASE WHEN EXISTS(SELECT 1 FROM item_placements WHERE itemId=NEW.id AND nestingParentId IS NOT NULL) THEN RAISE(ABORT,'nested task inherits color') END;
   SELECT CASE WHEN EXISTS(SELECT 1 FROM item_relations WHERE childId=NEW.id AND invalidatedAt IS NULL) THEN RAISE(ABORT,'flow root has parent') END;
 END;
 ${['INSERT', 'UPDATE'].map(event => `CREATE TRIGGER flow_root_edge_${event.toLowerCase()} BEFORE ${event} ON item_relations WHEN NEW.invalidatedAt IS NULL BEGIN
+  SELECT CASE WHEN EXISTS(SELECT 1 FROM item_placements WHERE itemId=NEW.childId AND nestingParentId IS NOT NULL) THEN RAISE(ABORT,'nested task inherits parents') END;
   SELECT CASE WHEN (SELECT flowColor FROM items WHERE id=NEW.childId) IS NOT NULL THEN RAISE(ABORT,'flow root has parent') END;
 END;`).join('\n')}
 `
@@ -70,8 +72,9 @@ CREATE TABLE items (
 CREATE TABLE item_placements (
   itemId TEXT PRIMARY KEY REFERENCES items(id), horizon TEXT NOT NULL CHECK(horizon IN ('later','year','half','cycle','month','week','day')),
   periodId TEXT REFERENCES planning_periods(id), sortKey REAL NOT NULL, version INTEGER NOT NULL CHECK(version>0),
-  holdPeriodId TEXT REFERENCES planning_periods(id), CHECK ((horizon='later') = (periodId IS NULL))
+  holdPeriodId TEXT REFERENCES planning_periods(id), nestingParentId TEXT REFERENCES items(id), CHECK ((horizon='later') = (periodId IS NULL))
 ) STRICT;
+CREATE INDEX placements_nesting ON item_placements(nestingParentId,sortKey,itemId);
 CREATE INDEX placements_period_order ON item_placements(periodId,sortKey,itemId);
 CREATE INDEX items_status_time ON items(status,completedAt,cancelledAt,id);
 CREATE INDEX items_visibility ON items(deletedAt,archivedAt,id);
@@ -89,7 +92,7 @@ CREATE TABLE rollover_policies (
 ) STRICT;
 CREATE TABLE operations (
   id TEXT PRIMARY KEY, generation TEXT NOT NULL, requestHash TEXT NOT NULL, kind TEXT NOT NULL,
-  source TEXT NOT NULL CHECK(source IN ('user','system')), at TEXT NOT NULL, effectsVersion INTEGER NOT NULL CHECK(effectsVersion IN (1,2)),
+  source TEXT NOT NULL CHECK(source IN ('user','system')), at TEXT NOT NULL, effectsVersion INTEGER NOT NULL CHECK(effectsVersion IN (1,2,3)),
   effects TEXT NOT NULL CHECK(json_valid(effects)), result TEXT NOT NULL CHECK(json_valid(result))
 ) STRICT;
 CREATE INDEX operations_recent ON operations(at,id);
@@ -122,7 +125,17 @@ ${['INSERT', 'UPDATE'].map(event => `CREATE TRIGGER relation_guard_${event.toLow
   SELECT CASE WHEN EXISTS(
     WITH RECURSIVE ancestors(id) AS (
       SELECT NEW.parentId UNION SELECT r.parentId FROM item_relations r JOIN ancestors a ON r.childId=a.id WHERE r.invalidatedAt IS NULL AND r.id!=NEW.id
+      UNION SELECT p.nestingParentId FROM item_placements p JOIN ancestors a ON p.itemId=a.id WHERE p.nestingParentId IS NOT NULL
     ) SELECT 1 FROM ancestors WHERE id=NEW.childId
   ) THEN RAISE(ABORT,'relation cycle') END;
+END;`).join('\n')}
+${['INSERT', 'UPDATE'].map(event => `CREATE TRIGGER nesting_guard_${event.toLowerCase()} BEFORE ${event} ON item_placements WHEN NEW.nestingParentId IS NOT NULL BEGIN
+  SELECT CASE WHEN NEW.itemId=NEW.nestingParentId OR EXISTS(SELECT 1 FROM item_placements WHERE itemId=NEW.nestingParentId AND nestingParentId IS NOT NULL) OR EXISTS(SELECT 1 FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.nestingParentId=NEW.itemId AND i.deletedAt IS NULL) THEN RAISE(ABORT,'only two outline levels') END;
+  SELECT CASE WHEN EXISTS(SELECT 1 FROM items WHERE id=NEW.nestingParentId AND deletedAt IS NOT NULL) THEN RAISE(ABORT,'deleted nesting parent') END;
+  SELECT CASE WHEN EXISTS(SELECT 1 FROM items WHERE id=NEW.itemId AND flowColor IS NOT NULL) OR EXISTS(SELECT 1 FROM item_relations WHERE childId=NEW.itemId AND invalidatedAt IS NULL) THEN RAISE(ABORT,'nested task owns incoming flow') END;
+  SELECT CASE WHEN EXISTS(WITH RECURSIVE ancestors(id) AS (
+    SELECT NEW.nestingParentId UNION SELECT r.parentId FROM item_relations r JOIN ancestors a ON r.childId=a.id WHERE r.invalidatedAt IS NULL
+    UNION SELECT p.nestingParentId FROM item_placements p JOIN ancestors a ON p.itemId=a.id WHERE p.nestingParentId IS NOT NULL AND p.itemId!=NEW.itemId
+  ) SELECT 1 FROM ancestors WHERE id=NEW.itemId) THEN RAISE(ABORT,'outline goal cycle') END;
 END;`).join('\n')}
 ${flowDdl}`
