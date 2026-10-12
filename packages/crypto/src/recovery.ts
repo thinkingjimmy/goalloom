@@ -16,6 +16,37 @@ export interface RecoverySecrets { boxSk: Uint8Array; boxPub: Uint8Array; signSk
 
 export function generateRecoveryMnemonic(): string { return generateMnemonic(wordlist, 256) }
 
+export function recoveryPhraseAccepted(mnemonic: string): boolean {
+  const words = mnemonic.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  return words.length === 24 && validateMnemonic(words.join(' '), wordlist)
+}
+
+/** 1-based positions. The phrase itself is not stored with the result. */
+export function recoveryWordChecks(random: { bytes(length: number): Uint8Array }): number[] {
+  const picks: number[] = []
+  for (const byte of random.bytes(48)) {
+    const index = (byte % 24) + 1
+    if (!picks.includes(index)) picks.push(index)
+    if (picks.length === 3) return picks.sort((left, right) => left - right)
+  }
+  for (let index = 1; picks.length < 3 && index <= 24; index += 1) if (!picks.includes(index)) picks.push(index)
+  return picks
+}
+
+export function recoveryWordsMatch(mnemonic: string, indexes: number[], answers: string[]): boolean {
+  if (!recoveryPhraseAccepted(mnemonic) || indexes.length !== 3 || answers.length !== 3) return false
+  const words = mnemonic.trim().toLowerCase().split(/\s+/)
+  return indexes.every((index, offset) => words[index - 1] === answers[offset]?.trim().toLowerCase())
+}
+
+export function recoveryChallengeMessage(input: { workspaceId: string; deviceId: string; nonceHex: string; rosterHash: string }): Uint8Array {
+  return utf8(`goalloom/recover/v1|${input.workspaceId}|${input.deviceId}|${input.nonceHex}|${input.rosterHash}`)
+}
+
+export function signRecoveryChallenge(input: { workspaceId: string; deviceId: string; nonceHex: string; rosterHash: string; signSk: Uint8Array }): Uint8Array {
+  return ed25519.sign(recoveryChallengeMessage(input), input.signSk)
+}
+
 export function deriveRecovery(mnemonic: string, workspaceId: string): RecoverySecrets {
   if (!validateMnemonic(mnemonic, wordlist) || mnemonic.trim().split(/\s+/).length !== 24) throw new Error('recovery phrase rejected')
   const entropy = mnemonicToEntropy(mnemonic, wordlist)

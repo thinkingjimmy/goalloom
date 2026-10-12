@@ -1,0 +1,69 @@
+/**
+ * [INPUT]: OS cipher and the device directory.
+ * [OUTPUT]: Device keys, the workspace key, and the refresh token. Missing keychain refuses to persist.
+ * [POS]: Desktop secret store. The workspace database does not contain these keys.
+ */
+import { readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { z } from 'zod'
+import { hex, unhex, type RosterBody } from '@goalloom/crypto'
+import type { Cipher } from '../smart/credentials'
+
+const fileSchema = z.strictObject({
+  v: z.literal(1),
+  deviceId: z.string().nullable(),
+  signSk: z.string(),
+  boxSk: z.string(),
+  workspaceKey: z.string().nullable(),
+  workspaceId: z.string().nullable(),
+  generation: z.string().nullable(),
+  epoch: z.number().int().positive().nullable(),
+  roster: z.unknown().nullable(),
+  refreshToken: z.string().nullable(),
+})
+
+export interface VaultSecrets {
+  deviceId: string | null
+  signSk: Uint8Array
+  boxSk: Uint8Array
+  workspaceKey: Uint8Array | null
+  workspaceId: string | null
+  generation: string | null
+  epoch: number | null
+  roster: RosterBody | null
+  refreshToken: string | null
+}
+
+export class SyncVault {
+  constructor(private directory: string, private cipher: Cipher) {}
+  get available(): boolean { return this.cipher.available() }
+  async load(): Promise<VaultSecrets | null> {
+    if (!this.available) return null
+    try {
+      const raw = this.cipher.decrypt(await readFile(join(this.directory, 'sync-vault.bin')))
+      const parsed = fileSchema.parse(JSON.parse(raw))
+      return {
+        deviceId: parsed.deviceId, signSk: unhex(parsed.signSk), boxSk: unhex(parsed.boxSk),
+        workspaceKey: parsed.workspaceKey ? unhex(parsed.workspaceKey) : null,
+        workspaceId: parsed.workspaceId, generation: parsed.generation, epoch: parsed.epoch,
+        roster: parsed.roster as RosterBody | null, refreshToken: parsed.refreshToken,
+      }
+    } catch { return null }
+  }
+  async save(secrets: VaultSecrets): Promise<void> {
+    if (!this.available) throw new Error('keychain')
+    const body = JSON.stringify({
+      v: 1, deviceId: secrets.deviceId, signSk: hex(secrets.signSk), boxSk: hex(secrets.boxSk),
+      workspaceKey: secrets.workspaceKey ? hex(secrets.workspaceKey) : null,
+      workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
+      roster: secrets.roster, refreshToken: secrets.refreshToken,
+    })
+    const encrypted = this.cipher.encrypt(body)
+    const path = join(this.directory, 'sync-vault.bin')
+    await writeFile(`${path}.tmp`, encrypted)
+    await rename(`${path}.tmp`, path)
+  }
+  async clear(): Promise<void> {
+    await rm(join(this.directory, 'sync-vault.bin'), { force: true })
+  }
+}

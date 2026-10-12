@@ -15,6 +15,7 @@ import type { insightEvidenceSchema } from './smart-input'
 import type { LinkPreview } from './link-preview'
 import type { UpdateAction, UpdateInfo } from './update'
 import type { ActivityEntries, ActivityMonth, ExecutionFacts } from './execution'
+import type { SyncAction, SyncReply, SyncStatus } from './sync'
 
 export const runtimeChannel = 'goalloom:runtime'
 export const runtimeInfoSchema = z.strictObject({
@@ -62,6 +63,8 @@ export interface GoalloomApi {
   getLinkPreview(url: string): Promise<LinkPreview>
   openExternal(url: string): Promise<boolean>
   update(action: UpdateAction): Promise<UpdateInfo>
+  sync(action: SyncAction): Promise<SyncReply>
+  onSync(listener: (status: SyncStatus) => void): () => void
   onUpdate(listener: (info: UpdateInfo) => void): () => void
   onOpenAbout(listener: () => void): () => void
   onBeforeClose(listener: () => Promise<boolean>): () => void

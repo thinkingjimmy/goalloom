@@ -24,6 +24,14 @@ export function verifyRosterSignature(body: RosterBody, signature: Uint8Array, s
   return ed25519.verify(signature, sha256Bytes(utf8(`goalloom/roster/v1|${canonicalJson(body)}`)), signPub)
 }
 
+export function signDetached(message: Uint8Array, signSk: Uint8Array): Uint8Array {
+  return ed25519.sign(message, signSk)
+}
+
+export function verifyDetached(message: Uint8Array, signature: Uint8Array, signPub: Uint8Array): boolean {
+  return ed25519.verify(signature, message, signPub)
+}
+
 export interface RosterLink { body: RosterBody; signature: Uint8Array; signerId: string | 'recovery' }
 
 /** signerId 'recovery' uses body.recoverySignPub of the PREVIOUS body (or the same body only when the caller passed an out-of-band recovery public). */

@@ -23,12 +23,14 @@ import { InsightPane } from './InsightPane'
 import { ShortcutsPane } from './ShortcutsPane'
 import { ItemsPane, type ItemsView } from './ItemsPane'
 import { AboutPane } from './AboutPane'
+import { SyncPane } from './SyncPane'
+import { useSync } from '../../../state/sync'
 import { hasUpdate, useUpdate } from '../../../state/update'
 import { Segmented } from './parts'
 import { TransferReview, TransferSteps } from './TransferReview'
 import './settings.css'
 
-export type Section = 'appearance' | 'board' | 'shortcuts' | 'ai' | 'smart' | 'insight' | 'calendar' | 'backup' | 'done' | 'trash' | 'about'
+export type Section = 'appearance' | 'board' | 'shortcuts' | 'ai' | 'smart' | 'insight' | 'calendar' | 'backup' | 'sync' | 'done' | 'trash' | 'about'
 interface Entry { id: Section; label: string; icon: IconName }
 // Built per render so every label follows the current language.
 const groups = (): { label: string; entries: Entry[] }[] => [
@@ -45,6 +47,7 @@ const groups = (): { label: string; entries: Entry[] }[] => [
     { id: 'board', label: s.board, icon: 'views' },
     { id: 'calendar', label: messages.calendarSection, icon: 'calendar' },
     { id: 'backup', label: s.backupSection, icon: 'backup' },
+    { id: 'sync', label: s.sync.section, icon: 'cloud' },
   ] },
   { label: s.items, entries: [
     { id: 'done', label: messages.done, icon: 'check' },
@@ -73,6 +76,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
   // A new request (e.g. the app menu's About) re-targets an open dialog, except while a transfer review locks navigation.
   useEffect(() => { if (!preview) navigate(initial) }, [request])
   const update = useUpdate()
+  const sync = useSync()
   const { generation, calendar, revision } = snapshot.workspace
   const timezone = calendar?.timezone
   const today = calendar ? workspaceDate(calendar.timezone, snapshot.observedAt) : ''
@@ -176,6 +180,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
           : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}
         {section === 'backup' && <BackupPane status={backups} enabled={snapshot.workspace.backupEnabled} retention={snapshot.workspace.backupRetention} timezone={timezone} today={today} generation={generation} configured={!!calendar} disabled={disabled} submit={submit} data={data} revealReset={revealReset}
           exportJson={() => void desktopApi().exportWorkspace().catch(() => setError(messages.exportUnknown))} />}
+        {section === 'sync' && <SyncPane status={sync} {...(timezone ? { timezone } : {})} />}
         {section === 'about' && <AboutPane info={update} />}
         {items && calendar && <ItemsPane key={items} view={items as ItemsView} revision={revision} timezone={calendar.timezone} today={today} disabled={disabled} select={select} submit={submit} />}
       </div>}

@@ -12,14 +12,14 @@ import { chatAdapter } from './insight'
 import { SmartInputService } from './service'
 import { storageReader } from './context'
 
-const cipher: Cipher = {
+export const deviceCipher: Cipher = {
   available: () => safeStorage.isEncryptionAvailable() && (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text'),
   encrypt: text => safeStorage.encryptString(text),
   decrypt: data => safeStorage.decryptString(data),
 }
 export function createSmartService(directory: string, storage: () => StorageClient): SmartInputService {
   return new SmartInputService({
-    store: new DeviceStore(directory, cipher), reader: storageReader(storage),
+    store: new DeviceStore(directory, deviceCipher), reader: storageReader(storage),
     adapters: { 'vercel-gateway': gatewayAdapter(), openrouter: systemOneAdapter('openrouter') }, chat: { openrouter: chatAdapter('openrouter'), 'vercel-gateway': chatAdapter('vercel-gateway') },
     unsignedBuild: process.platform === 'darwin', openExternal: url => { void shell.openExternal(url) },
   })

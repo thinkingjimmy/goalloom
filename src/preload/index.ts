@@ -17,6 +17,7 @@ import { linkChannel, linkPreviewSchema } from '../shared/contracts/link-preview
 import { openAboutEvent, updateChannel, updateEvent, updateInfoSchema } from '../shared/contracts/update'
 import { closeRequestEvent, closeReplyEvent, closeRequestSchema } from '../shared/contracts/window-close'
 import { activityEntriesSchema, activityMonthSchema, executionFactsSchema } from '../shared/contracts/execution'
+import { syncChannel, syncEvent, syncReplySchema, syncStatusSchema } from '../shared/contracts/sync'
 
 const closeGuards = new Set<() => Promise<boolean>>()
 ipcRenderer.on(closeRequestEvent, (_event, input: unknown) => {
@@ -74,6 +75,12 @@ const api: GoalloomApi = {
   getLinkPreview: async url => linkPreviewSchema.parse(await ipcRenderer.invoke(linkChannel, { type: 'preview', url })),
   openExternal: async url => (await ipcRenderer.invoke(linkChannel, { type: 'open', url })) === true,
   update: async action => updateInfoSchema.parse(await ipcRenderer.invoke(updateChannel, action)),
+  sync: async action => syncReplySchema.parse(await ipcRenderer.invoke(syncChannel, action)),
+  onSync: listener => {
+    const receive = (_event: unknown, value: unknown) => { const parsed = syncStatusSchema.safeParse(value); if (parsed.success) listener(parsed.data) }
+    ipcRenderer.on(syncEvent, receive)
+    return () => { ipcRenderer.removeListener(syncEvent, receive) }
+  },
   onUpdate: listener => {
     const receive = (_event: unknown, value: unknown) => { const parsed = updateInfoSchema.safeParse(value); if (parsed.success) listener(parsed.data) }
     ipcRenderer.on(updateEvent, receive)
