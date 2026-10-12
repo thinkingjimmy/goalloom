@@ -16,6 +16,8 @@ import { sourceTables, schemaVersion, supportedVersions, userVersion } from '../
 import { datasetHeader, datasetRows } from './rows'
 import { serverText } from '../../../shared/i18n/server'
 import { currentPeriod } from '../../../domain/calendar'
+import { copyProjectionToBase } from '@goalloom/store-core'
+import { nodeSqlDriver } from '@goalloom/store-core/node'
 
 // Validate each source under its original schema version; only a new export uses the current version.
 export function exportDataset(store: Store, now: string, version: number = schemaVersion): Dataset {
@@ -82,6 +84,10 @@ export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 're
     const insertMarker = store.prepare('INSERT INTO undo_effects VALUES (?,?,?)')
     for (const marker of data.undoEffects) insertMarker.run(marker.originalId, marker.effectIndex, marker.undoId)
     if (data.historyMode === 'baseline') addBaseline(store, now)
+    const driver = nodeSqlDriver(store.db)
+    driver.exec('DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops')
+    driver.prepare(`UPDATE sync_state SET lastAppliedSeq=0, lastUploadedSeq=0, paused='generation', workspaceId=NULL, keyEpoch=NULL, updatedAt=? WHERE id=1`).run(now)
+    copyProjectionToBase(driver)
     verifyDatabase(store.db)
     return generation
   })

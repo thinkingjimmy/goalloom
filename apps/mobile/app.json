@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Goalloom Phase 0",
+    "slug": "goalloom-phase0",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.goalloom.phase0"
+    },
+    "android": {
+      "package": "app.goalloom.phase0"
+    },
+    "plugins": [
+      "expo-sqlite"
+    ]
+  }
+}

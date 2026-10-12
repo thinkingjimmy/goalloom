@@ -23,7 +23,7 @@
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
-Version 1.6.0 uses schema v8. Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
+Version 1.6.0 uses schema v9 for new and upgraded workspaces (v8 upgrades in place; older files still use the protective-copy path). Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
 
 每个功能的产品规则、工程契约、TODO 与验收集中在 `docs/features/` 下的一份规格，不另建重复文件；变更过程和测试结果记录在 Git / PR 中。`CLAUDE.md` 仅导入 `AGENTS.md`，不另维护一套规则。
 
@@ -31,7 +31,7 @@ Version 1.6.0 uses schema v8. Task assistance rewrites the current Markdown note
 
 Node >=22.12，包管理器为 pnpm 11.9.0（`packageManager` 锁定，Corepack 可自动启用）；`pnpm install --frozen-lockfile` 安装锁定依赖与 Electron。依赖构建脚本白名单与扁平 `node_modules` 设置见 `pnpm-workspace.yaml`。测试使用 Electron 自带 Node/SQLite，无外部数据库驱动。
 
-日历计算使用锁定 Electron 44.4.4 的原生 Temporal（main、worker 和 renderer）；`@js-temporal/polyfill` 仅提供开发期类型，不进入正式包。领域测试与智能输入评测都使用 Electron 自带 Node；升级 Electron 时须复核原生 Temporal、DST 和三个月锚点行为。
+日历计算使用锁定 Electron 44.4.4 的原生 Temporal（main、worker 和 renderer）；`@js-temporal/polyfill` 仅提供开发期类型，不进入正式包。领域测试与智能输入评测都使用 Electron 自带 Node；升级 Electron 时须复核原生 Temporal、DST 和三个月锚点行为。Vitest 的入口是 `pnpm test`（`node scripts/test.mjs`，用 Electron 的 Node 启动）。不要用 `npx vitest` 或 `pnpm exec vitest`：系统 Node 没有原生 Temporal，日历测试会失败。`tests/setup-temporal.ts` 在缺少 Temporal 时直接说明这一点。
 
 ```sh
 pnpm dev                  # Electron preview; watches main/preload and hot-reloads the renderer
@@ -68,7 +68,7 @@ pnpm build:debug          # 正式构建 + 不入包的私有源码映射与逐�
 pnpm package:dir          # 当前平台本地目录包
 ```
 
-`package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/DMG 安装时间。产物位于 `release/Goalloom-<版本>-mac-arm64.dmg` 与 `release/Goalloom-<版本>-win-x64.exe`；前者为拖拽安装的磁盘映像，后者为中文 x64 安装器。macOS 包在本机有 Developer ID 证书时自动签名但未公证，Windows 包未签名，安装方式见[中文 README 的「首次打开」](README.zh-CN.md#首次打开)；应用图标来自 `resources/icon.png`。公开版本以 [GitHub Releases](https://github.com/thinkingjimmy/goalloom/releases) 分发（首个公开版本 1.0.0），官网下载按钮指向同一批资产。正式包经 electron-updater 从 GitHub Releases 自动更新：打包同时生成 macOS zip 与 `latest-mac.yml` / `latest.yml`，发布时须随安装包一起上传，清单见[关于与软件更新](features/updates.md#工程契约)。许可证：[MIT](../LICENSE)。
+`package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/DMG 安装时间。产物位于 `release/Goalloom-<版本>-mac-arm64.dmg` 与 `release/Goalloom-<版本>-win-x64.exe`；前者为拖拽安装的磁盘映像，后者为中文 x64 安装器。macOS 包在本机有 Developer ID 证书时自动签名但未公证，Windows 包未签名，安装方式见[中文 README 的「首次打开」](README.zh-CN.md#首次打开)；应用图标来自 `resources/icon.png`。公开版本以 [GitHub Releases](https://github.com/thinkingjimmy/goalloom/releases) 分发（首个公开版本 1.0.0），官网下载按钮指向同一批资产。正式包经 electron-updater 从 GitHub Releases 自动更新：打包同时生成 macOS zip 与 `latest-mac.yml` / `latest.yml`，发布时须随安装包一起上传，清单见[关于与软件更新](features/updates.md#工程契约)。桌面安装包许可证：[MIT](../LICENSE)。`supabase/` 为 [AGPL-3.0-only](../supabase/LICENSE)，路径划分见根 README 的 License 一节。
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
@@ -116,6 +116,7 @@ pnpm package:dir          # 当前平台本地目录包
 | 完成反馈、撒花（复盘完成的自动退出／单次播放开发可用 `node tests/desktop/weekly-review.mjs --completion`） | `pnpm test:celebration` ＋ `pnpm test:feedback`；影响往期还原反馈时追加 `pnpm test:history` |
 | 长列、虚拟滚动、拖放、键盘移动 | `node tests/desktop/review/run.mjs virtual` |
 | SQLite 驱动、存储 worker、旧库只读拒绝与导入 | `pnpm test:electron` ＋ 实际受影响功能的脚本；v5/v6 导入 v7 保真追加 `test:calendar`，大数据量相关再跑 `node tests/desktop/review/run.mjs large-workspace` |
+| 同步协议 v1：SyncOp、v9、影子基线、发送状态、加密构造 | `pnpm test` 中的 `tests/integration/upgrade-v9.test.ts`、`tests/integration/sync-emit.test.ts`、`tests/integration/sync-emit-commands.test.ts`、`tests/sync/phase0.test.ts`、`tests/sync/applier-review.test.ts`、`tests/sync/phase0-prototype.test.ts`、`tests/sync/adversarial.test.ts`、`tests/crypto/constructs.test.ts`、`tests/crypto/parity.test.ts`。Node 摘要是 `pnpm parity:digest`。托管双端原型是 `pnpm test:phase0`（需要 `supabase/README.md` 里的三个 API 变量）。托管库用例见 `supabase/README.md`（`supabase db push`、`supabase test db --db-url`、`node scripts/supabase-remote.mjs`），不是桌面 E2E。schema 变化仍追加 `pnpm test:electron` 与 `pnpm test:recovery` |
 | 打包脚本、包体报告 | `node tests/desktop/review/run.mjs package-report` |
 | `src/domain` 领域规则 | 改变用户可见行为时按所属功能选 E2E；不影响行为的内部调整保留快速检查，无需桌面脚本 |
 | 官网 `website/` | 在该目录运行 `pnpm typecheck`、`pnpm test:e2e`（包含构建）；不跑桌面 E2E，细节见 [官网 README](../website/README.md) |

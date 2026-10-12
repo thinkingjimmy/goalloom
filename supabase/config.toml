@@ -1,0 +1,14 @@
+# Copyright (C) 2026 Jimmy Wong
+# SPDX-License-Identifier: AGPL-3.0-only
+# Licensed under the GNU Affero General Public License v3.0 only. See supabase/LICENSE.
+#
+# Hosted project asqyvcnxdltzzfutbbqy. db push and test db use --db-url
+# and do not start Docker. Link needs the coordinator's access token.
+
+project_id = "asqyvcnxdltzzfutbbqy"
+
+[db]
+major_version = 15
+
+[functions.snapshot-url]
+verify_jwt = true
