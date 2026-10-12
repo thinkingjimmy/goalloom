@@ -75,15 +75,15 @@
 - 新效果无法通过 JSON／SQLite 备份恢复；恶意导入把颜色效果放进普通解除关联或改到其他端点。
 - 关系线开关关闭后无法拖拽、筛选淡化遮住候选、无色上级缺少反馈、键盘缺少同等的流程合并入口、五语言漏译。
 
-- `src/domain/relations.ts`：`mayParent(parent, child)` / `horizonProblem(parent, child)` 是新建关联的周期规则，`link`、`create`（带上级）与 `createPlan` 在权威事务内复核；`create`/`createPlan`/`flowColor` 拒绝 Later 流程色。renderer 的选择器、QuickAdd 与 composer 草稿复用 `mayParent` 做同一过滤。DAG/防环校验不变，撤销、还原和导入不套用周期规则。`moveItem` 在进入 Later 时于同一操作解除上级（`move` / `arrangeBacklog` 可以带上这条 `relations` 效果），撤销该次移动时恢复；下级边和其他移动不解除。
-- `src/renderer/state/relation-lines.ts`：`useRelationLines` 外部存储，localStorage `goalloom.relationLines`，只在关闭时存 `'false'`；不进入工作区数据、历史、导出或备份。
-- `src/renderer/features/board/Board.tsx`：持有圆点预览（120ms 离开缓冲），活跃流程 = 预览条目的流程，否则为筛选流程；据此给时间列的行 `dimmed` 与 `tint`（`flowTint`；Later 不参与流程，筛选时保持原样、不置灰），并在「活跃 + 开关开」时挂载关系线（键为 `lines:<flow id>` 或 `lines:preview`，仅筛选时画入）。断点层使用独立的 `breakpoints:<workspace generation>` 键，接收同一活跃流程集合；跨悬停进出保留待处理操作，工作区替换时清空。Board 统一管理圆点预览的指针／焦点离开，允许跨正文访问末尾添加按钮。`data-filtered` 区分顶栏筛选与临时预览，供 CSS 控制年列待办圆点的静止态显示。
-- `src/renderer/features/board/FlowDot.tsx`：行内圆点与浮层（`Popover floating` 经 portal 浮出列滚动区），复用 `FlowColorMenu` 与 `RelationPicker`；自定义 note 替代通用周期提示，仅提供上级流程标题，详情未提供 note 时保留原提示。指针悬停与键盘 `:focus-visible` 触发预览，鼠标点击的焦点不触发。
+- `apps/desktop/src/domain/relations.ts`：`mayParent(parent, child)` / `horizonProblem(parent, child)` 是新建关联的周期规则，`link`、`create`（带上级）与 `createPlan` 在权威事务内复核；`create`/`createPlan`/`flowColor` 拒绝 Later 流程色。renderer 的选择器、QuickAdd 与 composer 草稿复用 `mayParent` 做同一过滤。DAG/防环校验不变，撤销、还原和导入不套用周期规则。`moveItem` 在进入 Later 时于同一操作解除上级（`move` / `arrangeBacklog` 可以带上这条 `relations` 效果），撤销该次移动时恢复；下级边和其他移动不解除。
+- `apps/desktop/src/renderer/state/relation-lines.ts`：`useRelationLines` 外部存储，localStorage `goalloom.relationLines`，只在关闭时存 `'false'`；不进入工作区数据、历史、导出或备份。
+- `apps/desktop/src/renderer/features/board/Board.tsx`：持有圆点预览（120ms 离开缓冲），活跃流程 = 预览条目的流程，否则为筛选流程；据此给时间列的行 `dimmed` 与 `tint`（`flowTint`；Later 不参与流程，筛选时保持原样、不置灰），并在「活跃 + 开关开」时挂载关系线（键为 `lines:<flow id>` 或 `lines:preview`，仅筛选时画入）。断点层使用独立的 `breakpoints:<workspace generation>` 键，接收同一活跃流程集合；跨悬停进出保留待处理操作，工作区替换时清空。Board 统一管理圆点预览的指针／焦点离开，允许跨正文访问末尾添加按钮。`data-filtered` 区分顶栏筛选与临时预览，供 CSS 控制年列待办圆点的静止态显示。
+- `apps/desktop/src/renderer/features/board/FlowDot.tsx`：行内圆点与浮层（`Popover floating` 经 portal 浮出列滚动区），复用 `FlowColorMenu` 与 `RelationPicker`；自定义 note 替代通用周期提示，仅提供上级流程标题，详情未提供 note 时保留原提示。指针悬停与键盘 `:focus-visible` 触发预览，鼠标点击的焦点不触发。
 - `RelationDrag.tsx`：独立鼠标状态、虚拟源行保留、可视命中与自动滚动；逐帧更新只通知 SVG 浮层。菜单与拖拽复用 `PreparedWrite` 重读版本和提交，`relation-drag.css` 提供交互层样式。
 - `link.adoptParentFlow?: true`：只有显式启用才能调整源流程色。`mayLinkFlows` 用实际流程归属过滤两个已有条目，事务通过祖先查询复核；`promotedFlowColor` 仅对没有活跃关联的无色上级返回源颜色。先清源色，再写上级颜色／新边，保持触发器与颜色唯一性。同一 `relations` 效果可带 `flowColor: { before, after: null, transferredTo? }`；转移目标必须是该新边的上级。撤销复核两端颜色、其他上级和新增分支；JSON／SQLite 导入校验效果归属，普通关系效果不带该字段。
-- `src/renderer/components/Popover.tsx`：floating 浮层用 `ResizeObserver` 监听面板与锚点尺寸；模式切换和异步搜索改变内容后重算方向与横向边界，沿用 6px 锚点间距和 8px 窗口留白。关闭或卸载时释放观察与监听，位置未变时不重复更新。
-- `src/renderer/state/flows.ts`：`activeFlowGraph` 根据看板条目、快照关联与活跃流程归属投影共用图；`flowChain` 从焦点分别向祖先和后代遍历，不从祖先扩散到旁支。Board 将同一图提供给关系线，并将预览链提供给断点层。
-- `src/renderer/features/board/RelationLines.tsx`：使用 Board 提供的共用流程图与 `flowChain`，按边的共享流程着色；几何读取已挂载行的 DOM 位置，经 MutationObserver（忽略自身）、ResizeObserver、捕获阶段 scroll 与 transitionend 以 rAF 合并重算。共享 `RowMotion` 的有限动效帧信号直接更新路径和标记，结束即停止；React 提交后在布局阶段校准首帧。锚点取行首行（顶部 32px）的中线；路径由 `orthogonal()` 生成（经列间留白的竖直走线、圆角转折）；向前的边终点在下级流程圆点左边缘（行左边缘内 8px）且不画端点；线层 `z-index` 在行之上；链高亮通过行上的 `data-chain-out`，活跃流程变化或卸载时清除。
+- `apps/desktop/src/renderer/components/Popover.tsx`：floating 浮层用 `ResizeObserver` 监听面板与锚点尺寸；模式切换和异步搜索改变内容后重算方向与横向边界，沿用 6px 锚点间距和 8px 窗口留白。关闭或卸载时释放观察与监听，位置未变时不重复更新。
+- `apps/desktop/src/renderer/state/flows.ts`：`activeFlowGraph` 根据看板条目、快照关联与活跃流程归属投影共用图；`flowChain` 从焦点分别向祖先和后代遍历，不从祖先扩散到旁支。Board 将同一图提供给关系线，并将预览链提供给断点层。
+- `apps/desktop/src/renderer/features/board/RelationLines.tsx`：使用 Board 提供的共用流程图与 `flowChain`，按边的共享流程着色；几何读取已挂载行的 DOM 位置，经 MutationObserver（忽略自身）、ResizeObserver、捕获阶段 scroll 与 transitionend 以 rAF 合并重算。共享 `RowMotion` 的有限动效帧信号直接更新路径和标记，结束即停止；React 提交后在布局阶段校准首帧。锚点取行首行（顶部 32px）的中线；路径由 `orthogonal()` 生成（经列间留白的竖直走线、圆角转折）；向前的边终点在下级流程圆点左边缘（行左边缘内 8px）且不画端点；线层 `z-index` 在行之上；链高亮通过行上的 `data-chain-out`，活跃流程变化或卸载时清除。
 - 样式在 `styles.css` 的 Relation lines 与 Flow dot 段：`.column-content` 延伸到右侧列边界，以等量右内边距补偿保持内容宽度，行左内边距容纳行首圆点，右内边距为 6px，尾部接点与断点入口悬浮覆盖内容；行用透明上下边框 + `background-clip: padding-box` 留出 2px 空隙，行间无分隔线；`data-dimmed` / `data-chain-out` 只淡化行内容（不含拖动柄），`data-lit` + `--row-tint` 铺流程底色。
 
 ## 验收
@@ -94,9 +94,9 @@
 
 - [x] Flow choices use content width with a viewport cap; Chinese explanations have no orphaned final character and all five parent-action labels omit the ellipsis. Existing root adoption and parent picking still work. Measured geometry: `output/tests/flow-dot-position.json` and five-locale screenshots `output/tests/screenshots/language-flow-choice-*.png`.
 
-- [x] 拖拽关联：`pnpm test:relations` 包含独立 `relation-drag.mjs`；开发可单跑 `node tests/desktop/relation-drag.mjs`。真实指针、原子事务／撤销／导入、原回执恢复、自动排序、当前未来、完成项、长列、窄窗、取消、五语言和主题证据位于 `output/tests/relation-drag/`。原生隐藏通过无前台模拟的独立 Electron 验证。
+- [x] 拖拽关联：`pnpm test:relations` 包含独立 `relation-drag.mjs`；开发可单跑 `pnpm --filter @goalloom/desktop exec -- node tests/relation-drag.mjs`。真实指针、原子事务／撤销／导入、原回执恢复、自动排序、当前未来、完成项、长列、窄窗、取消、五语言和主题证据位于 `output/tests/relation-drag/`。原生隐藏通过无前台模拟的独立 Electron 验证。
 
-- [x] `pnpm run test:relations`（`tests/desktop/relations.mjs`）：
+- [x] `pnpm run test:relations`（`apps/desktop/tests/relations.mjs`）：
   - 周期规则：Later 端点、同列、反向关联与 Later 设流程色均被拒绝且不写入。
   - 筛选：3个月 → 今天一个流程（含两个上级、本月 → 今天跨级、已完成叶子）画 7 条线、1 条虚线；其他流程与无流程的 5 行原位置灰；本流程 7 行铺流程底色；画线时行宽不变、底色不透明。
   - 行与列：普通文本和链接长标题完整换行，行高随内容增长；复选框与连线接点对齐第一行；列宽 ≥ 320px，行底色离两侧竖线各 3px；相邻底色间留 4px，行间无分隔线。
@@ -104,7 +104,7 @@
   - 流程圆点：筛选时 3个月待办圆点默认隐藏，悬停/键盘聚焦/菜单打开时显示且复选框不移位，其他列圆点仍常显；Later 无圆点；「全部」下悬停下级圆点预览连线与底色，3个月圆点仍常显；起点圆点色板写明「影响它和下面 7 项」「不设流程（共 8 项）」；下级圆点只列周期更长的候选、取消上级后撤销恢复；独立条目「加入流程」二选一并关联上级、撤销恢复。
   - 设置外观开关关闭后不画线、行宽不变、存储为 `false`、刷新后保持，顶栏无入口。
   - 截图 `output/tests/screenshots/relation-lines*.png`、`flow-dot-*.png`、`settings-relation-lines.png`。首尾 6px 圆点、18px 点击区和静止／悬停时的连线贴合尺寸保存在 `output/tests/relation-endpoints.json`。
-- [x] `pnpm test`：`tests/integration` 覆盖 `link`、带上级新建、`flowColor` 与 `createPlan` 的周期规则及拒绝不写入；`tests/renderer/draft.test.ts` 覆盖 composer 本地复核。
+- [x] `pnpm test`：`tests/integration` 覆盖 `link`、带上级新建、`flowColor` 与 `createPlan` 的周期规则及拒绝不写入；`apps/desktop/tests/renderer/draft.test.ts` 覆盖 composer 本地复核。
 - [ ] 反馈优化：添加与解除关联成功后无底部 Toast；快捷键／命令面板撤销仍恢复原关联并显示撤销反馈，流程色改动保持静默。
 - [x] 浮层定位：`pnpm test:relations` 覆盖底部短菜单切换上级／色板、搜索收缩后恢复候选、已关联圆点直接打开、滚动与窗口缩放；尺寸报告 `output/tests/flow-dot-position.json`，截图 `output/tests/screenshots/flow-dot-position-*.png`。
 - [ ] Windows 11 上显示与性能由所有者人工验收。

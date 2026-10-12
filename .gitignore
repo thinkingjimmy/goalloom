@@ -10,6 +10,8 @@ node_modules/
 /out/
 /release/
 /build/
+/apps/desktop/out/
+/apps/desktop/release/
 coverage/
 playwright-report/
 test-results/

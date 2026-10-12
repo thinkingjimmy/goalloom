@@ -17,7 +17,7 @@
 - `shared/contracts/update.ts`：`goalloom:update` 只接受 `status | check | install`；回复与推送同为 `{ version, state }`，`state.phase` 为 `unsupported | idle | checking | latest | downloading | ready | failed`。不跨桥传 URL、路径或发布说明。
 - `main/update.ts`：`UpdateService` 包装 electron-updater（logger 关闭，`autoDownload`、`autoInstallOnAppQuit` 开启），事件映射为上述阶段并经 `goalloom:update-state` 推送；macOS 的库级下载事件只暂存版本，原生 `autoUpdater` 的 `update-downloaded` 才进入 `ready`，失败清除待就绪版本；`check(manual)` 在检查/下载/就绪时直接返回当前状态；只有手动检查把错误显示为 `failed`。`install()` 仅在 `ready` 时 `quitAndInstall(true, true)`（Windows 静默复用原安装目录后重启）。非打包环境为 `unsupported`，不触网。
 - `main/window/menu.ts`：仅 macOS `Menu.setApplicationMenu`；`LanguagePreference.onChange` 触发重建。菜单点击经 `goalloom:open-about` 通知 renderer；窗口已关闭时先重建窗口。
-- renderer：`state/update.ts` 单一 store（首次订阅时读取状态并监听推送，不轮询）；`App` 以 `{ section, at }` 请求打开设置，使菜单能重定向已打开的弹窗；`AboutPane` 无自有状态；图标为 `src/renderer/assets/app-icon.png`（`resources/icon.png` 的 256px 版本）。
+- renderer：`state/update.ts` 单一 store（首次订阅时读取状态并监听推送，不轮询）；`App` 以 `{ section, at }` 请求打开设置，使菜单能重定向已打开的弹窗；`AboutPane` 无自有状态；图标为 `apps/desktop/src/renderer/assets/app-icon.png`（`apps/desktop/resources/icon.png` 的 256px 版本）。
 - 打包：`electron-builder.yml` 的 `publish` 为 GitHub `thinkingjimmy/goalloom`，据此把 `app-update.yml` 写入包内并在 `release/` 生成 `latest-mac.yml` / `latest.yml`；macOS 额外产出 zip（Squirrel.Mac 更新载荷，需 Developer ID 签名，公证非必需）。脚本仍 `--publish never`，由人工上传。
 - 发布一个可自动更新的版本：`package:mac` 与 `package:win` 后，把 `Goalloom-<v>-mac-arm64.dmg`、`Goalloom-<v>-mac-arm64.zip`、`Goalloom-<v>-mac-arm64.zip.blockmap`、`latest-mac.yml`、`Goalloom-<v>-win-x64.exe`、`Goalloom-<v>-win-x64.exe.blockmap`、`latest.yml` 一起上传到 tag `v<v>` 的正式（非 draft / prerelease）Release。缺少 yml 时客户端手动检查会显示失败。
 
@@ -77,6 +77,6 @@
 
 ## 验收
 
-- `pnpm test:updates`（源码或 `node tests/desktop/updates.mjs <打包可执行文件>`）：菜单「关于 Goalloom」打开关于页、真实版本与图标加载、下载中/就绪/最新/失败文案、导航与顶栏红点及无障碍名称、菜单重定向已打开的设置、语言切换后菜单重建；报告与截图在 `output/tests/updates/`。
+- `pnpm test:updates`（源码或 `pnpm --filter @goalloom/desktop exec -- node tests/updates.mjs <打包可执行文件>`）：菜单「关于 Goalloom」打开关于页、真实版本与图标加载、下载中/就绪/最新/失败文案、导航与顶栏红点及无障碍名称、菜单重定向已打开的设置、语言切换后菜单重建；报告与截图在 `output/tests/updates/`。
 - `pnpm test:update-install`（可选，仅 macOS，需本机 Developer ID）：临时打出签名的 90.0.0 应用与 90.0.1 zip + `latest-mac.yml`，经 127.0.0.1 更新源从界面手动检查 → 下载 → 原生 Squirrel 就绪后「重启并更新」才出现 → 随即退出后原包被替换为 90.0.1 且签名有效；证据 `output/tests/updates/install.json`，失败保留 `install-failure.json`。重启按钮的自动重开不驱动，因为重开的进程会使用默认用户数据目录。
 - [x] 2026-09-29 macOS 26 (Darwin 25.4.0) Apple Silicon 实机，Electron 44.4.4：`test:updates` 8 项、`test:update-install` 3 项通过（检查到就绪 0.8 s，退出到安装 1.7 s）。

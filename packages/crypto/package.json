@@ -9,7 +9,7 @@
   },
   "react-native": "./src/index.ts",
   "scripts": {
-    "test": "vitest run --config ../../vitest.config.ts test"
+    "test": "node ../../apps/desktop/scripts/test.mjs packages/crypto/test"
   },
   "dependencies": {
     "@goalloom/contracts": "workspace:*",

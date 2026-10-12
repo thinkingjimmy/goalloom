@@ -4,14 +4,14 @@ description: >-
   Drive the Goalloom Electron desktop app in an isolated profile and prove a
   user-facing board feature. Use when verifying first-run setup, column capture,
   search, the Later sidebar, or undo against the real Goalloom window. Do not
-  use it for the marketing site in website/.
+  use it for the marketing site in apps/website/.
 ---
 
 # Verify Goalloom
 
-Goalloom's primary surface is the local Electron board (macOS and Windows). The marketing site in `website/` is a separate Next.js app; use [website/README.md](../../../website/README.md) for that, not this skill. `pnpm dev` opens the real workspace at `~/Library/Application Support/Goalloom` (or `%APPDATA%\Goalloom`) and must not be driven.
+Goalloom's primary surface is the local Electron board (macOS and Windows). The marketing site in `apps/website/` is a separate Next.js app; use [apps/website/README.md](../../../apps/website/README.md) for that, not this skill. `pnpm dev` opens the real workspace at `~/Library/Application Support/Goalloom` (or `%APPDATA%\Goalloom`) and must not be driven.
 
-The harness is `node .cursor/skills/verify-goalloom/scripts/goalloom-verify.mjs`. Run it from the repository root. It launches the built app with Playwright's Electron driver, the same isolation as `tests/desktop`: a private `--user-data-dir`, Chinese UI pinned in that profile, and no `ELECTRON_RENDERER_URL`. The single-instance lock follows the user-data directory, so a verification window can run beside the owner's real app. Two verification runs can run together only with different `--run` ids.
+The harness is `node .cursor/skills/verify-goalloom/scripts/goalloom-verify.mjs`. Run it from the repository root. It launches the built app with Playwright's Electron driver, the same isolation as `apps/desktop/tests`: a private `--user-data-dir`, Chinese UI pinned in that profile, and no `ELECTRON_RENDERER_URL`. The single-instance lock follows the user-data directory, so a verification window can run beside the owner's real app. Two verification runs can run together only with different `--run` ids.
 
 ## Launch
 
@@ -22,7 +22,7 @@ pnpm build
 node .cursor/skills/verify-goalloom/scripts/goalloom-verify.mjs launch
 ```
 
-`pnpm build` refreshes `out/`. Skip it only when `out/main/index.js` is already newer than the sources under test. `launch` exits 0 when the window is ready. Stdout is JSON with `"ready": true` and `"surface": "onboarding"` for a fresh profile. The Electron process stays up after the command returns.
+`pnpm build` refreshes `apps/desktop/out/`. Skip it only when `apps/desktop/out/main/index.js` is already newer than the sources under test. `launch` exits 0 when the window is ready. Stdout is JSON with `"ready": true` and `"surface": "onboarding"` for a fresh profile. The Electron process stays up after the command returns.
 
 A fresh profile shows the calendar step (`欢迎来到 Goalloom`). Readiness is that screen, or the board if this run's profile was already confirmed. The page URL must start with `goalloom:`.
 
@@ -48,7 +48,7 @@ Stdout JSON is worth driving only when `worthDriving` is true. That requires all
 - the recorded daemon and Electron pids are alive, and the Electron command line contains this run's profile path
 - the profile is under `output/tests/verify-goalloom/runs/` and is not `~/Library/Application Support/Goalloom` or `%APPDATA%\Goalloom`
 - `workspace.sqlite` exists in that profile
-- the document title is `Goalloom`, the URL starts with `goalloom:`, and `runtime.electron` matches `node_modules/electron/package.json`
+- the document title is `Goalloom`, the URL starts with `goalloom:`, and `runtime.electron` matches the installed `electron` package version
 - runtime SQLite is 3.x and the UI language is Chinese (`surface` is `onboarding` or `board`)
 
 Save a copy with `--path output/tests/verify-goalloom/evidence/<feature>/doctor.json`. Do not drive a session that fails the doctor.

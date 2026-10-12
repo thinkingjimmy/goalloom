@@ -46,20 +46,22 @@ jobs:
       - run: pnpm run package:${{ matrix.package }}
       - name: Packaged macOS smoke
         if: runner.os == 'macOS'
+        working-directory: apps/desktop
         run: |
-          node tests/desktop/workspace.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
-          node tests/desktop/history.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
-          node tests/desktop/recovery.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+          node tests/workspace.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+          node tests/history.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+          node tests/recovery.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
       - name: Packaged Windows smoke
         if: runner.os == 'Windows'
+        working-directory: apps/desktop
         run: |
-          node tests/desktop/workspace.mjs release/win-unpacked/Goalloom.exe
-          node tests/desktop/history.mjs release/win-unpacked/Goalloom.exe
-          node tests/desktop/recovery.mjs release/win-unpacked/Goalloom.exe
+          node tests/workspace.mjs release/win-unpacked/Goalloom.exe
+          node tests/history.mjs release/win-unpacked/Goalloom.exe
+          node tests/recovery.mjs release/win-unpacked/Goalloom.exe
       - uses: actions/upload-artifact@v4
         with:
           name: private-preview-${{ matrix.os }}-${{ matrix.arch }}
           retention-days: 3
           path: |
-            release/*.dmg
-            release/*.exe
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
