@@ -186,6 +186,94 @@ it('revives delete-owned edges except a deleted endpoint or a flow-root child', 
   db.close()
 })
 
+it('restores edges invalidated by a delete when that delete is reverted', () => {
+  const { db, driver, host } = openSync()
+  periods(driver)
+  seedItem(driver, 'base', 'P', '父', null)
+  seedItem(driver, 'base', 'C', '子', null, 1024)
+  place(driver, 'P', 'year', 'year-1')
+  place(driver, 'C', 'month', 'month-1')
+  apply(driver, host, 1, [{ t: 'rel.link', id: 'edge-1', parentId: 'P', childId: 'C' }])
+  const deleted = apply(driver, host, 2, [{ t: 'item.delete', id: 'C' }])
+  expect(driver.prepare(`SELECT count(*) AS n FROM canon_changes WHERE seq=2 AND dim='relation'`).get()?.n).toBe(1)
+  expect(edgeLive(driver)).toBe(false)
+  apply(driver, host, 3, [{ t: 'revert', targetOpId: deleted, mode: 'all_or_nothing' }])
+  expect(driver.prepare(`SELECT deletedAt FROM base_items WHERE id='C'`).get()?.deletedAt).toBeNull()
+  expect(edgeLive(driver)).toBe(true)
+
+  const deletedChild = apply(driver, host, 4, [{ t: 'item.delete', id: 'C' }])
+  apply(driver, host, 5, [{ t: 'item.delete', id: 'P' }])
+  apply(driver, host, 6, [{ t: 'revert', targetOpId: deletedChild, mode: 'all_or_nothing' }])
+  expect(String(driver.prepare('SELECT errorCode FROM canon_ops WHERE seq=6').get()?.errorCode)).toBe('parent_unavailable')
+  expect(driver.prepare(`SELECT deletedAt FROM base_items WHERE id='C'`).get()?.deletedAt).toBeTruthy()
+  expect(edgeLive(driver)).toBe(false)
+  db.close()
+})
+
+it('writes the previous guidance value when that op is reverted', () => {
+  const { db, driver, host } = openSync()
+  seedItem(driver, 'base', 'A', '甲', null)
+  const guidance = { formatVersion: 1 as const, kind: 'next_step' as const, nextAction: '下一步', contextNote: null, scopeNote: null, authorship: 'user' as const }
+  const set = apply(driver, host, 1, [{ t: 'guidance.set', itemId: 'A', value: guidance, baseRevision: 0 }])
+  expect(String(driver.prepare(`SELECT value FROM base_item_guidance WHERE itemId='A'`).get()?.value)).toContain('下一步')
+  apply(driver, host, 2, [{ t: 'revert', targetOpId: set, mode: 'all_or_nothing' }])
+  const row = driver.prepare(`SELECT revision, value FROM base_item_guidance WHERE itemId='A'`).get()
+  expect(Number(row?.revision)).toBe(2)
+  expect(row?.value).toBeNull()
+  apply(driver, host, 3, [{ t: 'guidance.set', itemId: 'A', value: guidance, baseRevision: 0 }])
+  expect(String(driver.prepare('SELECT errorCode FROM canon_ops WHERE seq=3').get()?.errorCode)).toBe('guidance_stale')
+  apply(driver, host, 4, [{ t: 'guidance.set', itemId: 'A', value: guidance, baseRevision: 2 }])
+  expect(Number(driver.prepare(`SELECT revision FROM base_item_guidance WHERE itemId='A'`).get()?.revision)).toBe(3)
+  db.close()
+})
+
+it('rejects a create revert while a later link is still active', () => {
+  const { db, driver, host } = openSync()
+  periods(driver)
+  seedItem(driver, 'base', 'P', '父', null)
+  place(driver, 'P', 'year', 'year-1')
+  const created = apply(driver, host, 1, [{
+    t: 'item.create', id: 'C', title: '子', description: '', dueDate: null, horizon: 'month',
+    periodKey: { horizon: 'month', startDate: '2026-09-01' }, sortHint: { afterId: null, beforeId: null },
+  }])
+  apply(driver, host, 2, [{ t: 'rel.link', id: 'edge-1', parentId: 'P', childId: 'C' }])
+  apply(driver, host, 3, [{ t: 'revert', targetOpId: created, mode: 'all_or_nothing' }])
+  expect(String(driver.prepare('SELECT errorCode FROM canon_ops WHERE seq=3').get()?.errorCode)).toBe('revert_superseded')
+  expect(driver.prepare(`SELECT deletedAt FROM base_items WHERE id='C'`).get()?.deletedAt).toBeNull()
+  expect(edgeLive(driver)).toBe(true)
+
+  const paired = apply(driver, host, 4, [
+    { t: 'item.create', id: 'D', title: '丁', description: '', dueDate: null, horizon: 'month', periodKey: { horizon: 'month', startDate: '2026-09-01' }, sortHint: { afterId: null, beforeId: null }, parentId: 'P' },
+    { t: 'rel.link', id: 'edge-2', parentId: 'P', childId: 'D' },
+  ])
+  apply(driver, host, 5, [{ t: 'revert', targetOpId: paired, mode: 'all_or_nothing' }])
+  expect(driver.prepare('SELECT errorCode FROM canon_ops WHERE seq=5').get()?.errorCode).toBeNull()
+  expect(driver.prepare(`SELECT deletedAt FROM base_items WHERE id='D'`).get()?.deletedAt).toBeTruthy()
+  expect(edgeLive(driver, 'edge-2')).toBe(false)
+  db.close()
+})
+
+it('rejects a non-null flow color once the item is in Later', () => {
+  const { db, driver, host } = openSync()
+  periods(driver)
+  seedItem(driver, 'base', 'A', '甲', null)
+  place(driver, 'A', 'month', 'month-1')
+  apply(driver, host, 1, [{ t: 'item.place', id: 'A', horizon: 'later', periodKey: null, sortHint: { afterId: null, beforeId: null }, reason: 'move' }])
+  apply(driver, host, 2, [{ t: 'item.set', id: 'A', fields: { flowColor: 2 } }])
+  expect(String(driver.prepare('SELECT errorCode FROM canon_ops WHERE seq=2').get()?.errorCode)).toBe('horizon_order')
+  expect(colorOf(driver, 'A')).toBeNull()
+  apply(driver, host, 3, [{ t: 'item.create', id: 'B', title: '乙', description: '', dueDate: null, horizon: 'later', periodKey: null, sortHint: { afterId: null, beforeId: null }, flowColor: 1 }])
+  expect(String(driver.prepare('SELECT errorCode FROM canon_ops WHERE seq=3').get()?.errorCode)).toBe('horizon_order')
+  expect(driver.prepare(`SELECT id FROM base_items WHERE id='B'`).get()).toBeUndefined()
+  place(driver, 'A', 'month', 'month-1')
+  apply(driver, host, 4, [{ t: 'item.set', id: 'A', fields: { flowColor: 2 } }])
+  expect(colorOf(driver, 'A')).toBe(2)
+  apply(driver, host, 5, [{ t: 'item.place', id: 'A', horizon: 'later', periodKey: null, sortHint: { afterId: null, beforeId: null }, reason: 'move' }])
+  apply(driver, host, 6, [{ t: 'item.set', id: 'A', fields: { flowColor: null } }])
+  expect(colorOf(driver, 'A')).toBeNull()
+  db.close()
+})
+
 it('keeps the higher workspace revision across a visible rebuild', () => {
   const { db, driver, host } = openSync()
   driver.prepare('UPDATE workspace SET revision=4').run()

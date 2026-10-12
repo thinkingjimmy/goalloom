@@ -42,11 +42,12 @@ export function signCheckpoint(body: CheckpointBody, signSk: Uint8Array): Uint8A
   return ed25519.sign(sha256Bytes(utf8(`goalloom/recovery-cp/v1|${canonicalJson(body)}`)), signSk)
 }
 
-/** A pinned checkpoint rejects an older version, a different workspace, and a fork that does not extend prevCpHash. */
+/** A pinned checkpoint rejects an older version, a different workspace, a fork, and a version gap the caller did not supply. */
 export function acceptNewerCheckpoint(pinned: CheckpointBody, offered: CheckpointBody): void {
   if (offered.workspaceId !== pinned.workspaceId) throw new Error('checkpoint workspace mismatch')
   if (offered.cpVersion < pinned.cpVersion) throw new Error('checkpoint rollback')
   if (offered.cpVersion === pinned.cpVersion && checkpointHash(offered) !== checkpointHash(pinned)) throw new Error('checkpoint fork')
+  if (offered.cpVersion > pinned.cpVersion + 1) throw new Error('checkpoint gap')
   if (offered.cpVersion === pinned.cpVersion + 1 && offered.prevCpHash !== checkpointHash(pinned)) throw new Error('checkpoint fork')
 }
 

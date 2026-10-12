@@ -89,6 +89,7 @@ function sortKey(driver: SqlDriver, prefix: string, horizon: string, periodId: s
 
 function createItem(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Action, { t: 'item.create' }>, host: ApplyHost, changes: CanonChange[]): 'applied' {
   if (driver.prepare(`SELECT 1 FROM ${prefix}items WHERE id=?`).get(action.id)) throw new SyncApplyError('item_exists')
+  if (action.horizon === 'later' && action.flowColor !== undefined && action.flowColor !== null) throw new SyncApplyError('horizon_order')
   const periodId = ensurePeriod(driver, prefix, host, action.horizon, action.periodKey?.startDate ?? null)
   const key = sortKey(driver, prefix, action.horizon, periodId, action.sortHint.afterId, action.sortHint.beforeId, null)
   const color = action.parentId ? null : action.flowColor ?? null
@@ -109,6 +110,10 @@ function setFields(driver: SqlDriver, prefix: string, op: SyncOp, action: Extrac
   if (fields.title !== undefined && fields.title !== text(item, 'title')) changes.push({ itemId: action.id, dim: 'title', before: text(item, 'title'), after: fields.title })
   if (fields.description !== undefined && fields.description !== text(item, 'description')) changes.push({ itemId: action.id, dim: 'description', before: text(item, 'description'), after: fields.description })
   if (fields.dueDate !== undefined && fields.dueDate !== text(item, 'dueDate')) changes.push({ itemId: action.id, dim: 'dueDate', before: text(item, 'dueDate'), after: fields.dueDate })
+  if (fields.flowColor !== undefined && fields.flowColor !== null) {
+    const placement = driver.prepare(`SELECT horizon FROM ${prefix}item_placements WHERE itemId=?`).get(action.id)
+    if (text(placement, 'horizon') === 'later') throw new SyncApplyError('horizon_order')
+  }
   if (fields.flowColor !== undefined && fields.flowColor !== (item.flowColor === null ? null : Number(item.flowColor))) {
     changes.push({ itemId: action.id, dim: 'flowColor', before: item.flowColor === null ? null : Number(item.flowColor), after: fields.flowColor })
   }
@@ -154,7 +159,11 @@ function setArchive(driver: SqlDriver, prefix: string, op: SyncOp, action: Extra
 function deleteItem(driver: SqlDriver, prefix: string, op: SyncOp, id: string, changes: CanonChange[]): 'applied' {
   const item = driver.prepare(`SELECT * FROM ${prefix}items WHERE id=?`).get(id)
   if (!item || text(item, 'deletedAt')) return 'applied'
-  driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=?, invalidatedBy=?, reason='delete' WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?)`).run(op.at, op.opId, id, id)
+  const edges = driver.prepare(`SELECT id, parentId, childId FROM ${prefix}item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?)`).all(id, id)
+  for (const edge of edges) {
+    changes.push({ itemId: String(edge.childId), dim: 'relation', before: { id: String(edge.id), parentId: String(edge.parentId), childId: String(edge.childId) }, after: null })
+  }
+  if (edges.length) driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=?, invalidatedBy=?, reason='delete' WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?)`).run(op.at, op.opId, id, id)
   driver.prepare(`UPDATE ${prefix}items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=?`).run(op.at, op.opId, op.at, id)
   changes.push({ itemId: id, dim: 'delete', before: { deletedAt: null }, after: { deletedAt: op.at, deletedBy: op.opId } })
   return 'applied'
@@ -349,7 +358,14 @@ function invertChange(driver: SqlDriver, prefix: string, op: SyncOp, host: Apply
     const value = parsed as { deletedAt: string | null; deletedBy: string | null }
     driver.prepare(`UPDATE ${prefix}items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=?`).run(value.deletedAt, value.deletedBy, op.at, itemId)
   } else if (dim === 'create' && itemId) {
+    const live = driver.prepare(`SELECT 1 AS n FROM ${prefix}item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?) LIMIT 1`).get(itemId, itemId)
+    if (live) throw new SyncApplyError('revert_superseded')
     driver.prepare(`UPDATE ${prefix}items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=?`).run(op.at, op.opId, op.at, itemId)
+  } else if (dim === 'guidance' && itemId) {
+    const current = driver.prepare(`SELECT revision FROM ${prefix}item_guidance WHERE itemId=?`).get(itemId)
+    const value = parsed === null || typeof parsed === 'string' ? parsed : JSON.stringify(parsed)
+    if (current) driver.prepare(`UPDATE ${prefix}item_guidance SET revision=?, value=?, updatedAt=?, operationId=? WHERE itemId=?`).run(num(current, 'revision') + 1, value, op.at, op.opId, itemId)
+    else driver.prepare(`INSERT INTO ${prefix}item_guidance (itemId,revision,value,updatedAt,operationId) VALUES (?,?,?,?,?)`).run(itemId, 1, value, op.at, op.opId)
   } else if (dim === 'relation' && itemId) {
     const created = parsed === null
     const source = (created ? (after ? JSON.parse(after) as unknown : null) : parsed) as { id?: string } | null

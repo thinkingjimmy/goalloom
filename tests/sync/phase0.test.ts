@@ -13,6 +13,8 @@ it('case 9 blue rebase keeps the canonical colours', () => {
   const { db, driver, host } = openSync()
   seedItem(driver, 'base', 'A', 'A', 1)
   seedItem(driver, 'base', 'B', 'B', null, 1024)
+  driver.prepare(`INSERT INTO base_planning_periods (id,horizon,startDate,endDate,startAt,endAt) VALUES ('month-1','month','2026-09-01','2026-10-01','2026-09-01T00:00:00.000Z','2026-10-01T00:00:00.000Z')`).run()
+  driver.prepare(`UPDATE base_item_placements SET horizon='month', periodId='month-1' WHERE itemId IN ('A','B')`).run()
   pendingOp(driver, op({ opId: randomUUID(), actions: [{ t: 'item.set', id: 'A', fields: { flowColor: 2 } }] }))
   mergeRemoteOps(driver, [{ seq: 1, op: op({ opId: randomUUID(), actions: [{ t: 'item.set', id: 'B', fields: { flowColor: 2 } }] }) }], host, at)
   expect(color(driver, 'A')).toBe(1)

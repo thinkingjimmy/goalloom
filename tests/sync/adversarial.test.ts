@@ -147,6 +147,8 @@ it('case 21 accepts a regenerated phrase and rejects rollback, forks and cross-w
   })).toThrow()
   expect(() => acceptNewerCheckpoint(cp2, cp1)).toThrow(/rollback/)
   expect(() => acceptNewerCheckpoint(cp1, { ...cp2, prevCpHash: '00'.repeat(32) })).toThrow(/fork/)
+  expect(() => acceptNewerCheckpoint(cp1, cp2)).not.toThrow()
+  expect(() => acceptNewerCheckpoint(cp1, { ...cp2, cpVersion: 3, prevCpHash: checkpointHash(cp2) })).toThrow(/gap/)
   expect(() => verifyRecoveryJoin({
     mnemonic: newPhrase, workspaceId: '22222222-2222-4222-8222-222222222222', checkpoint: cp2,
     recSig: signCheckpoint(cp2, newKeys.signSk), devSig: signCheckpoint(cp2, device), roster: roster2,

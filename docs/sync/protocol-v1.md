@@ -90,6 +90,10 @@ The reference applier (`packages/store-core/src/apply.ts`) additionally:
 - A colored child requires `adoptParentFlow`. The color is cleared on the child and copied to the parent only when that parent is uncolored and has no active edge.
 - `item.place` into Later records a relation change for each parent edge it invalidates. A `rel.unlink` for an edge this same op already invalidated does not record a second change.
 - `item.restore` revives edges with `reason='delete'` and `invalidatedBy` equal to `expectedDeleteOpId`, skipping a deleted other endpoint, a flow-root child, a duplicate, or a cycle. A flow color taken by a live item stays with that item.
+- `item.delete` records a relation change for each edge it invalidates, before the delete change. Revert restores those edges after the item is live again. A trigger failure rejects the whole revert.
+- Revert of `item.create` is `revert_superseded` when an active relation still touches the item. A link in the same op is inverted first, so that edge does not block the revert.
+- `guidance` revert writes the previous value and increments `item_guidance.revision`.
+- `item.set` of a non-null `flowColor`, and `item.create` into Later with a flow color, are `horizon_order`. Clearing a color is allowed.
 - Placement revert writes `sortKey`. A relation whose `before` is null is invalidated; a relation whose `before` is the edge is made active again.
 
 Tests: `tests/sync/applier-review.test.ts`. Case 11 places the parent on year and the child on month.
@@ -131,7 +135,7 @@ Constructions live in `packages/crypto`. Vectors: `packages/crypto/test/vectors.
 
 Unwrap verifies the signature with a caller-supplied trusted public key before decrypting. `rosterWrapTargets` is the roster device ids plus `recovery`. A public key that exists only on the server is not a wrap target (case 6).
 
-A recovery join checks the phrase-derived public key, the checkpoint signature, the roster hash pinned by that checkpoint, and a device signature over the same checkpoint bytes. A copied recovery public key fails (cases 15 and 21). `acceptNewerCheckpoint` rejects a lower `cpVersion` and a `prevCpHash` that does not extend the pinned checkpoint.
+A recovery join checks the phrase-derived public key, the checkpoint signature, the roster hash pinned by that checkpoint, and a device signature over the same checkpoint bytes. A copied recovery public key fails (cases 15 and 21). `acceptNewerCheckpoint` rejects a lower `cpVersion`, a `prevCpHash` that does not extend the pinned checkpoint, and any version above `pinned.cpVersion + 1`.
 
 Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` on the message bytes noble's `ed25519.sign` / `ed25519.verify` hash internally. Roster signatures are the 32-byte SHA-256 of `goalloom/roster/v1|` plus canonical JSON (`_roster_message`). `bootstrap_workspace`, `commit_roster`, `rotate_epoch`, and `complete_recovery` all verify that digest. `commit_roster` and `rotate_epoch` require the calling device's authorized signing key. `complete_recovery`, and a `commit_roster` whose signer type is `recovery`, require `recoverySignPub` from the current roster. A mismatch raises `roster_signature_rejected` (`42501`). A missing pgsodium function raises `42501`. On hosted Supabase that verify function is granted; `crypto_sign_new_keypair` is not. The pgTAP file checks noble fixtures from `scripts/gen-ed25519-fixtures.mjs`. Commands are in `supabase/README.md`.
 
