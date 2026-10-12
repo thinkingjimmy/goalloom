@@ -9,12 +9,15 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createPackage } from '@electron/asar'
+import { detectLocales } from '../../scripts/build/package-report.mjs'
 
 const evidence=resolve('output/tests/review-followup')
 await mkdir(evidence,{recursive:true})
 const directory=await mkdtemp(join(evidence,'package-fixture-')), checks=[]
 const metadata=JSON.parse(await readFile('package.json','utf8'))
 const locales=JSON.parse(await readFile('scripts/build/package-locales.json','utf8'))
+assert.deepEqual(detectLocales('win32-x64', locales['win32-x64'].map(locale => `locales\\${locale}.pak`)), locales['win32-x64'].toSorted())
+assert.deepEqual(detectLocales('darwin-arm64', locales['darwin-arm64'].map(locale => `Contents/Frameworks/${locale}.lproj/locale.pak`)), locales['darwin-arm64'].toSorted())
 try {
   await writeFile(join(directory,'package.json'),JSON.stringify(metadata))
   await mkdir(join(directory,'scripts/build'),{recursive:true})
