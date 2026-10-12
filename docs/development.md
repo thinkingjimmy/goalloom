@@ -23,7 +23,7 @@
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
-Version 1.6.0 uses schema v10. Phase 0 sync is the v9 step (in-place from v8: history tables that do not pin projection rows, sync tables and `base_*` shadows). v10 adds two-level nesting on that chain and mirrors the column, index and triggers onto `base_*`. v8 and Phase 0 v9 upgrade in place after a protective backup; v1–v7 stay on the verified protective-copy path. Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
+Version 1.7.0 uses schema v10. Phase 0 sync is the v9 step (in-place from v8: history tables that do not pin projection rows, sync tables and `base_*` shadows). v10 adds two-level nesting on that chain and mirrors the column, index and triggers onto `base_*`. v8 and Phase 0 v9 upgrade in place after a protective backup; v1–v7 stay on the verified protective-copy path. Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
 
 每个功能的产品规则、工程契约、TODO 与验收集中在 `docs/features/` 下的一份规格，不另建重复文件；变更过程和测试结果记录在 Git / PR 中。`CLAUDE.md` 仅导入 `AGENTS.md`，不另维护一套规则。
 
@@ -143,7 +143,7 @@ GitHub Actions 仅手动触发（免费版无私有仓库托管分钟数）；Wi
 
 ```text
 apps/
-├── desktop/                 # Electron 桌面（工作区包 @goalloom/desktop，产品版本仍为 package.json 的 1.6.0）
+├── desktop/                 # Electron 桌面（工作区包 @goalloom/desktop，产品版本为 package.json 的 1.7.0）
 │   ├── src/                 # domain、main、preload、renderer、shared
 │   ├── tests/               # Vitest（domain/main/renderer/integration）与真实 Electron 场景
 │   ├── scripts/             # Electron Vitest 运行器、eval 与打包检查
