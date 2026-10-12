@@ -26,7 +26,8 @@ try {
     const app=join(root,mac?'mac-arm64/Goalloom.app':'win-unpacked')
     const resources=join(app,mac?'Contents/Resources':'resources')
     await mkdir(resources,{recursive:true})
-    await writeFile(join(source,'package.json'),JSON.stringify(metadata))
+    const packaged = { ...metadata, name: 'goalloom' }
+    await writeFile(join(source,'package.json'),JSON.stringify(packaged))
     await createPackage(source,join(resources,'app.asar'))
     for(const locale of locales[platform]) {
       const location=mac?join(app,`Contents/Frameworks/${locale}.lproj`):join(app,'locales')
@@ -45,7 +46,7 @@ try {
     await rm(join(root,current))
     const missing=run(); assert.notEqual(missing.status,0,'Missing current artifact must fail')
     await writeFile(join(root,current),bytes)
-    await writeFile(join(source,'package.json'),JSON.stringify({...metadata,version:'0.0.0'}))
+    await writeFile(join(source,'package.json'),JSON.stringify({...packaged,version:'0.0.0'}))
     await createPackage(source,join(resources,'app.asar'))
     const stale=run(); assert.notEqual(stale.status,0,'Stale unpacked version must fail')
     checks.push({platform,selected:current,sha256:report.sha256,missingRejected:true,staleUnpackedRejected:true})

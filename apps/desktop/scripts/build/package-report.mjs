@@ -21,7 +21,10 @@ const platform = packageRoot.endsWith('.app') ? 'darwin-arm64' : 'win32-x64'
 const asar = join(packageRoot, platform === 'darwin-arm64' ? 'Contents/Resources/app.asar' : 'resources/app.asar')
 const metadata = JSON.parse(await readFile('package.json', 'utf8'))
 const packagedMetadata = JSON.parse(extractFile(asar, 'package.json').toString('utf8'))
-assert.equal(packagedMetadata.name, metadata.name, 'Unpacked application identity differs from the project')
+// electron-builder extraMetadata writes this historical name into the ASAR. The workspace
+// package stays @goalloom/desktop so it does not collide with the root package name.
+const packagedName = 'goalloom'
+assert.equal(packagedMetadata.name, packagedName, 'Unpacked application must keep the historical package name goalloom')
 assert.equal(packagedMetadata.version, metadata.version, 'Unpacked application version differs from the project')
 async function walk(directory) {
   const entries = []
@@ -44,7 +47,7 @@ for await (const chunk of createReadStream(archivePath)) hash.update(chunk)
 let signing
 if (platform === 'darwin-arm64') {
   const check = spawnSync('codesign', ['-d', '--verbose=2', packageRoot], { encoding: 'utf8' })
-  signing = { signed: check.status === 0, details: check.stderr.trim() }
+  signing = { signed: check.status === 0, details: `${check.stderr ?? ''}${check.error ? `\n${check.error.message}` : ''}`.trim() }
 } else {
   const executable = await readFile(archivePath), optionalHeader = executable.readUInt32LE(0x3c) + 24
   const directories = optionalHeader + (executable.readUInt16LE(optionalHeader) === 0x20b ? 112 : 96)
