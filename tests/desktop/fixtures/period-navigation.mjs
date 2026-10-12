@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Native Electron page, isolated period fixture and the owning period suite's artifact directory.
- * [OUTPUT]: Header-B title/checkbox alignment, chevron reveal without movement, inline dates, accessible return-icon labels, week-row selection and directional-motion assertions with repeatable screenshots.
+ * [OUTPUT]: Trailing countdown badges and stable add-button swaps, title/checkbox alignment, inline dates, accessible return-icon labels, week-row selection and directional-motion assertions with repeatable screenshots.
  * [POS]: Period-navigation scenarios shared by the focused selector and full period acceptance; no production API replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,7 @@ export async function verifyPeriodNavigation(page, column, evidence) {
   const result = { alignment: [], frames: [], screenshots: [] }
   const settled = () => page.waitForFunction(() => document.querySelector('[data-horizon="week"]')?.getAttribute('aria-busy') === 'false')
   const date = async () => {
+    assert.equal(await week.locator('.period-countdown').count(), 0, 'Past and future weeks do not show a current-period countdown')
     const geometry = await week.locator('.column-header').evaluate(header => {
       const rect = selector => { const box = header.querySelector(selector).getBoundingClientRect(); return { left: box.left, right: box.right, center: box.top + box.height / 2 } }
       return { title: rect('.period-title'), date: rect('.column-meta'), action: rect('[data-return-current]'), text: header.querySelector('.column-meta').textContent }
@@ -82,6 +83,7 @@ export async function verifyPeriodNavigation(page, column, evidence) {
   const leaveBoard = () => page.getByRole('button', { name: '全部', exact: true }).hover()
   for (const horizon of ['cycle', 'month', 'week', 'day']) {
     const target = column(horizon), chevron = target.locator('.period-chevron')
+    const hasCountdown = horizon === 'month' || horizon === 'week'
     await target.scrollIntoViewIfNeeded()
     await page.getByRole('button', { name: '全部', exact: true }).focus()
     await leaveBoard()
@@ -93,13 +95,35 @@ export async function verifyPeriodNavigation(page, column, evidence) {
         const box = node.querySelector(selector).getBoundingClientRect()
         return { left: box.left - left, right: box.right - left, top: box.top, height: box.height }
       }
-      return { title: rect('.period-title'), checkbox: rect('.task-row > .check'), dot: rect('.task-row .flow-dot-button') }
+      return { title: rect('.period-title'), checkbox: rect('.task-row > .check'), dot: rect('.task-row .flow-dot-button'),
+        indicator: rect('.period-chevron'), add: rect('.column-add-slot [data-add-item]'),
+        countdown: node.querySelector('.period-countdown') ? rect('.period-countdown') : null,
+        date: node.querySelector('.column-meta') ? rect('.column-meta') : null }
     })
     const idle = await measure()
     assert(Math.abs(idle.title.left - idle.checkbox.left) < .5, `${horizon} title aligns with its checkboxes`)
     if (horizon === 'cycle') assert.equal(await target.locator('.period-title').innerText(), '3个月')
     assert.equal(await target.locator('.column-header [data-previous-period], .column-header [data-next-period]').count(), 0, 'Header B has no arrows')
     assert.equal(await chevron.evaluate(node => getComputedStyle(node).opacity), '0')
+    assert.equal(await target.locator('.period-countdown').count(), hasCountdown ? 1 : 0)
+    if (hasCountdown) {
+      const expected = await page.evaluate(async horizon => {
+        const snapshot = await window.goalloom.getSnapshot()
+        const period = snapshot.periods.find(period => period.horizon === horizon)
+        const today = snapshot.periods.find(period => period.horizon === 'day').startDate
+        return Math.round((Date.parse(period.endDate) - Date.parse(today)) / 86400000)
+      }, horizon)
+      assert.equal(await target.locator('.period-countdown').innerText(), String(expected))
+      assert.equal(await target.locator('[data-period-switch]').getAttribute('aria-description'), `还剩 ${expected} 天`)
+      assert.equal(await target.locator('.period-countdown').evaluate(node => getComputedStyle(node).opacity), '1')
+      assert.equal(await target.locator('[data-add-item]').evaluate(node => getComputedStyle(node).opacity), '0')
+      assert.deepEqual(idle.countdown, idle.add, 'The countdown occupies the trailing add-button slot')
+      assert(idle.countdown.left >= idle.date.right, 'The countdown stays to the right of the date')
+      assert(await target.locator('.period-countdown').evaluate(node => {
+        const style = getComputedStyle(node)
+        return parseFloat(style.borderRadius) > 0 && style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+      }), 'The countdown has a rounded background')
+    }
     if (horizon === 'month') {
       const screenshot = join(evidence, 'header-alignment-idle.png')
       await page.screenshot({ path: screenshot, clip: { ...await target.boundingBox(), height: 180 } }); result.screenshots.push(screenshot)
@@ -107,6 +131,10 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     await target.locator('.task-row .task-title').first().hover()
     await page.waitForFunction(horizon => getComputedStyle(document.querySelector(`[data-horizon="${horizon}"] .period-chevron`)).opacity === '1', horizon)
     assert.deepEqual(await measure(), idle, 'Hover reveals the chevron without moving the title or rows')
+    if (hasCountdown) {
+      assert.equal(await target.locator('.period-countdown').evaluate(node => getComputedStyle(node).opacity), '0')
+      assert.equal(await target.locator('[data-add-item]').evaluate(node => getComputedStyle(node).opacity), '1')
+    }
     if (horizon === 'month') {
       const screenshot = join(evidence, 'header-alignment-hover.png')
       await page.screenshot({ path: screenshot, clip: { ...await target.boundingBox(), height: 180 } }); result.screenshots.push(screenshot)
@@ -127,7 +155,11 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     await leaveBoard()
     assert.equal(await chevron.evaluate(node => getComputedStyle(node).opacity), '1')
     assert.deepEqual(await measure(), idle, 'Keyboard focus preserves header alignment')
-    result.alignment.push({ horizon, idle, hoverUnchanged: true, keyboardUnchanged: true })
+    if (hasCountdown) {
+      assert.equal(await target.locator('.period-countdown').evaluate(node => getComputedStyle(node).opacity), '0')
+      assert.equal(await target.locator('[data-add-item]').evaluate(node => getComputedStyle(node).opacity), '1')
+    }
+    result.alignment.push({ horizon, countdown: hasCountdown, idle, hoverUnchanged: true, keyboardUnchanged: true })
   }
 
   assert.equal(await body.evaluate(node => node.getAnimations().length), 0, 'Initial render is static')

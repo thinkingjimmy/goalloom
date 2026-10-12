@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An isolated Electron profile and monthly, cache or first/last-day weekly fixture mode.
- * [OUTPUT]: Real event history spanning previous/current periods, including weekly move/keep/archive and saved-link records.
+ * [OUTPUT]: Real event history for previous-week reminders throughout the current week, monthly reviews, move/keep/archive and saved-link records.
  * [POS]: Injected-clock desktop setup; production has no test clock or renderer bridge replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -26,26 +26,32 @@ if (mode === 'week-first' || mode === 'week-last') {
   const earlier = run({ type: 'create', title: 'Earlier weekly backlog', horizon: 'week' }).itemId!
   const calendar = repo.store.workspace().calendar!
   const current = currentPeriod(calendar, 'week', today.toInstant().toString())
-  const period = mode === 'week-first' ? precedingPeriod(calendar, current)! : current
+  const period = precedingPeriod(calendar, current)!
   now = period.startAt
+  run({ type: 'create', title: 'Historical direction https://example.com/link-preview-article', horizon: 'year', flowColor: 2 })
   const unfinished = run({ type: 'create', title: 'Weekly unfinished review item https://example.com/link-preview-article', horizon: 'week' }).itemId!
   const defaultMove = run({ type: 'create', title: 'Default weekly move https://x.com/trq212/status/2103576349499855160', horizon: 'week' }).itemId!
-  now = today.toInstant().toString()
+  now = current.startAt
   const parent = run({ type: 'create', title: 'Current monthly direction https://example.com/link-preview-article', horizon: 'month', flowColor: 0 }).itemId!
   const extraParent = run({ type: 'create', title: 'Additional monthly direction', horizon: 'month', flowColor: 1 }).itemId!
+  const planningMonth = currentPeriod(calendar, 'month', now)
+  now = today.toInstant().toString()
   const month = currentPeriod(calendar, 'month', now)
+  const invitationParent = month.id === planningMonth.id ? parent
+    : run({ type: 'create', title: 'New monthly invitation source', horizon: 'month', flowColor: 3 }).itemId!
   const monthKeys = [month, precedingPeriod(calendar, month)!].map(value => `month:${value.startDate}`)
-  writeFileSync(join(profile, 'review-fixture.json'), JSON.stringify({ mode, earlier, unfinished, defaultMove, parent, extraParent, period, current, monthKeys }))
-} else if (mode === 'cache') {
+  writeFileSync(join(profile, 'review-fixture.json'), JSON.stringify({ mode, earlier, unfinished, defaultMove, parent, extraParent, invitationParent, period, current, monthKeys }))
+} else if (mode === 'cache' || mode === 'language') {
   const calendar = repo.store.workspace().calendar!
   const week = precedingPeriod(calendar, currentPeriod(calendar, 'week', today.toInstant().toString()))!
   const month = precedingPeriod(calendar, currentPeriod(calendar, 'month', today.toInstant().toString()))!
-  // Current month takes priority at the monthly boundary. Give both possible review scopes a real record.
+  // Weekly and monthly reminders can coexist. Give both scopes a real record.
   for (const period of [month, week].sort((a, b) => a.startAt.localeCompare(b.startAt))) {
     now = period.startAt
     run({ type: 'create', title: `Historical ${period.horizon} review record`, horizon: period.horizon })
   }
   now = today.toInstant().toString()
+  if (mode === 'language') run({ type: 'create', title: 'Current monthly language record', horizon: 'month' })
   run({ type: 'preferences', style: repo.store.workspace().style })
 } else {
   run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: mode === 'scope-combined' ? today.with({ day: 1 }).dayOfWeek : combined ? today.dayOfWeek : (today.dayOfWeek + 1) % 7 + 1,

@@ -54,6 +54,9 @@ export const actionSchema = z.discriminatedUnion('t', [
     t: z.literal('item.place'), id, horizon, periodKey: periodKeySchema.nullable(), sortHint: sortHintSchema,
     reason: z.enum(['move', 'arrange', 'rollover']),
   }),
+  z.strictObject({
+    t: z.literal('item.nest'), id, parentId: id.nullable(), horizon, periodKey: periodKeySchema.nullable(), sortHint: sortHintSchema,
+  }),
   z.strictObject({ t: z.literal('item.archive'), id, archivedAt: instant.nullable() }),
   z.strictObject({ t: z.literal('item.delete'), id }),
   z.strictObject({ t: z.literal('item.discardIfEmpty'), id, expectVersion: z.number().int().positive() }),

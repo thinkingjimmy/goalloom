@@ -6,6 +6,7 @@
 i18n/
 ├── locale.ts     # 轻量 Locale/Language 列表与类型、系统语言解析（不支持回落英文）、原生语言名、Intl 标签、widen；schema 归 contracts/runtime
 ├── server.ts     # 每个进程/线程的当前语言：setServerLocale / serverText()
+├── nesting.ts    # Five-language outline actions, inheritance descriptions, group moves and transaction errors
 ├── validation.ts # 五语言 wire 校验文案与 preload 当前语言，服务端目录复用同一文案
 └── catalogs/     # 服务端文案：zh 为源（app 通用 + import 导入校验），en/ja/es/fr 同构
 ```

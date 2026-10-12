@@ -22,7 +22,7 @@ import { busGap, dotCenter, dotEdge, firstLine, orthogonal, panelViewport } from
 
 type Panel = 'later' | 'timeline'
 interface Clip { x: number; y: number; width: number; height: number }
-interface Anchor { left: number; right: number; y: number; mid: number; off: 'up' | 'down' | null; done: boolean; content: Element; panel: Panel; clip: Clip }
+interface Anchor { indent: number; left: number; right: number; y: number; mid: number; off: 'up' | 'down' | null; done: boolean; content: Element; panel: Panel; clip: Clip }
 interface Path { id: string; d: string; skip: boolean; done: boolean; delay: number; parentId: string; childId: string; color: string; panel: Panel | null }
 interface Port { key: string; x: number; y: number; itemId: string; color: string; panel: Panel }
 interface Marker { key: string; x: number; y: number; dir: 'up' | 'down'; align: 'start' | 'end'; ids: string[]; color: string }
@@ -96,7 +96,7 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
       const off = mid < c.top ? 'up' : mid > c.bottom ? 'down' : null
       const y = off === 'up' ? c.top + inset : off === 'down' ? c.bottom - inset : mid
       const panel = horizonOf.get(id) === 'later' ? 'later' : 'timeline'
-      anchors.set(id, { left: r.left + dx, right: r.right + dx, y: y + dy, mid, off, done: row.dataset.done === 'true', content, panel, clip: clips[panel] })
+      anchors.set(id, { indent: row.dataset.nested === 'true' ? 24 : 0, left: r.left + dx, right: r.right + dx, y: y + dy, mid, off, done: row.dataset.done === 'true', content, panel, clip: clips[panel] })
     }
     const paths: Path[] = [], ports = new Map<string, Port>(), markers = new Map<string, Marker>()
     // A skip-level curve crosses the columns in between along a row boundary, so it never seems to leave a row it merely passes.
@@ -123,7 +123,7 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
       // and turn into the child. A forward line stops at the child's flow dot; loops and backward lines end on a port.
       const forward = parent.right <= child.left, backward = child.right <= parent.left, side = backward ? -1 : 1
       const x1 = backward ? parent.left : parent.right - dotCenter
-      const x2 = forward ? child.left + dotEdge : child.right - dotCenter
+      const x2 = forward ? child.left + dotEdge + child.indent : child.right - dotCenter
       // Existing cross-Later edges survive, but an obscured timeline endpoint must not land in Later.
       if (parent.panel !== child.panel && (x1 < parent.clip.x || x1 > parent.clip.x + parent.clip.width || x2 < child.clip.x || x2 > child.clip.x + child.clip.width)) continue
       const exitBus = (backward ? parent.left : parent.right) + side * busGap

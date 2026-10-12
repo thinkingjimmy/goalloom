@@ -16,7 +16,7 @@ desktop/
 ├── periods.mjs          # Compact TODO menus with source-row activation/cursors, unified period navigation, editable future periods, cross-period drafts, sorting, undo, future search/details and explicit navigation, five-language header geometry and restart; app-local input/focus failure diagnostics in output/tests/periods
 ├── month-review.mjs    # Period-end records, live closing, unified guide, resume and exact planning destinations, partial failures and receipt recovery; --combined adds fresh month → week planning; output/tests/insight/{month-review,combined-review}/
 ├── review-scopes.mjs # Native component-only month/combined audit outside App entry eligibility; records, closing, proposals and completion callback; combined skips after the month-start week expires; output/tests/review-scopes/
-├── weekly-review.mjs   # First/last-day guide/closing, compact read-only rows, two-parent hierarchy/colours/joined marker-centred lines, compact gap/intrinsic destination dropdowns with keyboard/focus dismissal/separators, skip versus linked creation, automatic completion/entry suppression distinct from planning invitations, resume and post-review creation; --completion selects receipt/confetti acceptance; included by insight.mjs; output/tests/insight/weekly-review/
+├── weekly-review.mjs   # First/last-day retention of the previous-week guide, persistent dismissal/focus without writes or completion, current-week closing destinations, compact read-only rows, two-parent hierarchy/colours/joined marker-centred lines, compact gap/intrinsic destination dropdowns with keyboard/focus dismissal/separators, skip versus linked creation, automatic completion/entry suppression distinct from planning invitations, resume and post-review creation; --completion selects receipt/confetti acceptance; included by insight.mjs; output/tests/insight/weekly-review/
 ├── insight.mjs          # Native flow insight; --empty-card selects weekly/daily labels/equal-height hit targets, batch/manual creation and empty-card-layout; full mode retains previews/undo/geometry/reviews/settings and weekly-review
 ├── empty-card-layout.mjs # Five-locale single-row return icons/pointer-keyboard hints, scoped Escape, 44px touch controls and same-row empty actions at 320px; --return-icons writes output/tests/period-return, --baseline records failures; default output/tests/empty-card-layout
 ├── insight-generation.mjs # Development/production Electron: held next-step success/failure requests with loading rotation/colour/reduced-motion, completion/manual fallback, drafting, Settings trial captures and summary persistence/restart/refresh/invalidation/failures/reset; real bridge/storage and synthetic HTTP; output/tests/insight/generation/
@@ -29,10 +29,11 @@ desktop/
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
 ├── relations.mjs        # Relation lines/dots, geometry and board-ordered filters; --flow-dot selects parent-panel headings/search/checked links and positioning; full mode retains moves/undo/shortcuts/reload and gesture acceptance
 ├── relation-drag.mjs    # Native flow-valid parent/child search, colorless rejection, root promotion/adoption/undo, receipt recovery, ordering, clipped autoscroll and five locales; output/tests/relation-drag
-├── language.mjs         # System language, setup/settings switching, 720/1280px single-line settings navigation (real paused state with synthetic credentials, localized icons and no service/backup/trash metadata), main/worker copy, persistence, flow/detail menus and reviews; five-locale screenshots and output/tests/language.json
+├── language.mjs         # System language, setup/settings switching, 720/1280px single-line settings navigation (real paused state with synthetic credentials, localized icons and no service/backup/trash metadata) and content-sized review choices, main/worker copy, persistence, flow/detail menus and reviews; five-locale screenshots and output/tests/language.json
 ├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and flow-valid partial-restore warnings; feedback.json and feedback-*.png
 ├── link-previews.mjs    # Link text, full-width cards under overlay controls, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
+├── subtasks.mjs         # Native nesting/cancel/focus, receipt recovery, complete-group status, future search, virtual details and five locales; --data selects transaction/recovery fixtures; output/tests/subtasks/
 ├── ordering.mjs         # Parent ordering, group-aware drag, future materialization/undo, receipt-first recovery, local preference restart and measured motion (output/tests/ordering)
 ├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、看板移动后的目标列偏好、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
 ├── updates.mjs        # Settings › About: menu routing/re-targeting, real version and icon, update phases via the production event, top-bar/nav dots, menu relabelling; output/tests/updates/
@@ -42,22 +43,23 @@ desktop/
 └── fixtures/
     ├── setup.mjs        # Shared real calendar → annual direction → AI setup controls; optional mode/timezone/week-start/anchor
     ├── legacy-v5.ts     # Frozen v5/v6 DDL used only to construct synthetic legacy import fixtures
+    ├── subtasks-data.ts # Two-level/effective graph, group order/movement/hold, bounded inherited AI context, scoped undo, source-aware import and protected v8 upgrade
     ├── calendar-seed.ts # Legacy holds/history/undo/plan fidelity, read-only startup refusal, manual policy defaults, v7 round trips and pre-anchor review guards
     ├── rollover-policies.ts # Six-policy defaults, rolling/natural month-end/leap boundaries, eligibility, stale writes, undo holds and JSON/SQLite round trips
     ├── calendar-history.ts # Recorded year/half/cycle counts, earlier periods and reversed half/cycle parent groups for native restart acceptance
     ├── celebration-visibility.mjs # 原生窗口隐藏验证：独立 Electron + 无前台模拟的 CDP，确认真实 visibility 与动效释放
     ├── sqlite-probe.ts  # Electron main 的驱动/事务/恢复探针
-    ├── review-seed.ts   # Injected-clock weekly/monthly/combined fixtures and first/last-day calendars for review and provider-cache acceptance
+    ├── review-seed.ts   # Injected-clock previous-week/monthly/combined history, first/last-day calendars, provider caching and five-locale review fixtures
     ├── review-drafts.mjs # Native held close/reopen, edited/excluded suggestions, local remount cache, input/preference invalidation and failed-cache recovery; insight-generation.mjs
     ├── review-completion.mjs # Native auto-close, immediate/persistent entry removal, rejected/lost writes, skip and real Canvas confetti/motion/column guards; weekly-review.mjs --completion
-    ├── review-invitation.mjs # Shared review/planning card styles/current dates, absent completion notes after close/reload and retained linked creation; weekly-review.mjs --invitation; output/tests/review-invitation/
+    ├── review-invitation.mjs # Shared review/planning card styles/current dates, keeping previous-week items in place, absent completion notes after close/reload and retained linked creation; weekly-review.mjs --invitation; output/tests/review-invitation/
     ├── review-scopes/ # Test-only native renderer mounting production month/combined components with explicit period props and real preload/main/SQLite; no authoritative clock override
     ├── review-draft-focus.mjs # Borderless focused review draft, editing/Tab and retained choices; weekly-review.mjs --draft-focus; output/tests/review-draft-focus/
     ├── history-seed.ts  # 正式事务生成历史样本，无生产测试时钟
     ├── past-period-editing.mjs # Native past-task editing, completion/reopening, restore, move/undo, focus, query guards and last-page recovery
     ├── filter-navigation.mjs # Top-bar/shortcut return from history, flow identity, input guards, scroll reset and future-draft retention
     ├── periods-seed.ts  # Production Repository/SQLite clock-boundary, atomicity and recovery assertions plus the planning UI fixture
-    ├── period-navigation.mjs # Title/checkbox and arrow/flow-dot alignment across idle/hover/focus, inline/date-only dates, contextual return labels, paused motion frames and reduced-motion acceptance
+    ├── period-navigation.mjs # Current month/week countdown badges in the trailing add slot and stable column-hover/keyboard swaps, title/checkbox alignment across idle/hover/focus, inline/date-only dates, contextual return labels, paused motion frames and reduced-motion acceptance
     ├── link-preview-cache.mjs # Fresh production preview-cache records and locally generated PNG; no renderer API replacement
     ├── favicon-transport.mjs # Real preview IPC with deterministic HTTP/DNS fixtures: declared/fallback raster/ICO icons and unsafe/oversized/malformed responses
     ├── poll.mjs         # pollPage：轮询 renderer 里的异步桥接读取（page.waitForFunction 会把 async 谓词的 Promise 当作真值立即返回）

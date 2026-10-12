@@ -17,7 +17,14 @@ export function arrangeBacklog(context: Context, command: CommandOf<'arrangeBack
     if (!isBacklog({ ...item, period, holdPeriodId: item.placement.holdPeriodId }, context.now) || (command.horizon !== 'later' && command.horizon !== item.placement.horizon)) throw new DomainError('conflict', serverText().errors.notInBacklog)
     return { expected, item, period: period! }
   }).sort((a, b) => b.period.startAt.localeCompare(a.period.startAt) || a.item.placement.sortKey - b.item.placement.sortKey || a.item.id.localeCompare(b.item.id))
-  for (const { expected } of selected) moveItem(context, { ...command, type: 'move', ...expected, beforeId: null })
+  const groups = new Set<string>()
+  for (const { item } of selected) {
+    const rootId = item.placement.nestingParentId ?? item.id
+    if (groups.has(rootId)) continue
+    groups.add(rootId)
+    const root = context.store.item(rootId)
+    moveItem(context, { ...command, type: 'move', itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version, beforeId: null })
+  }
   context.label = serverText().labels.arrangeBacklog(selected.length)
   return true
 }

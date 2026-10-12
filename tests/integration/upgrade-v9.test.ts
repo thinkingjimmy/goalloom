@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { expect, it } from 'vitest'
+import { shadowStatements, v9HistoryRewrite, v9SyncDdl, type MasterRow } from '@goalloom/schema'
 import { openDatabase } from '../../src/main/storage/database'
 import { migrate, schemaVersion, userVersion, v8Ddl } from '../../src/main/storage/schema'
 
-it('upgrades a v8 file in place and opens a fresh database as v9', () => {
+it('upgrades a v8 file in place and opens a fresh database as the current schema', () => {
   const legacy = openDatabase(':memory:')
   legacy.exec(v8Ddl)
   const generation = randomUUID()
@@ -23,6 +24,11 @@ it('upgrades a v8 file in place and opens a fresh database as v9', () => {
   migrate(legacy)
   expect(userVersion(legacy)).toBe(schemaVersion)
   expect(legacy.prepare('SELECT id, title, version FROM items').all()).toEqual(before)
+  expect(legacy.prepare('SELECT nestingParentId FROM item_placements').get()!.nestingParentId).toBeNull()
+  expect(legacy.prepare('SELECT nestingParentId FROM base_item_placements').get()!.nestingParentId).toBeNull()
+  const shadowGuard = String(legacy.prepare("SELECT sql FROM sqlite_master WHERE name='base_nesting_guard_update'").get()!.sql)
+  expect(shadowGuard).toContain('base_item_placements')
+  expect(shadowGuard).not.toMatch(/[^_]item_placements/)
   expect(legacy.prepare('PRAGMA integrity_check').all()).toEqual([{ integrity_check: 'ok' }])
   expect(legacy.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   expect(legacy.prepare("SELECT sql FROM sqlite_master WHERE name='item_events'").get()!.sql).not.toContain('REFERENCES items')
@@ -37,12 +43,64 @@ it('upgrades a v8 file in place and opens a fresh database as v9', () => {
     VALUES (?, 1, 'local', 1, '{}', ?, 'dev', '2026-09-01T00:00:00.000Z', 'send_unknown', '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z')`).run(opId, 'cd'.repeat(32))
   expect(() => legacy.prepare(`UPDATE sync_ops SET state='never_sent' WHERE opId=?`).run(opId)).toThrow(/send_state_irreversible/)
   expect(legacy.prepare('SELECT count(*) AS n FROM base_items').get()!.n).toBe(1)
+  legacy.prepare(`INSERT INTO operations (id,generation,requestHash,kind,source,at,effectsVersion,effects,result) VALUES (?,?,?,?,?,?,?,?,?)`)
+    .run(randomUUID(), generation, 'ef'.repeat(32), 'nest', 'user', '2026-09-01T00:00:00.000Z', 3, '[]', '{}')
   legacy.close()
 
   const fresh = openDatabase(':memory:')
   migrate(fresh)
-  expect(userVersion(fresh)).toBe(9)
+  expect(userVersion(fresh)).toBe(schemaVersion)
   expect(fresh.prepare("SELECT name FROM sqlite_master WHERE name='base_items'").get()).toBeTruthy()
   expect(fresh.prepare('SELECT count(*) AS n FROM sync_state').get()!.n).toBe(1)
+  expect(fresh.prepare("SELECT name FROM pragma_table_info('item_placements') WHERE name='nestingParentId'").get()).toBeTruthy()
+  expect(fresh.prepare("SELECT name FROM pragma_table_info('base_item_placements') WHERE name='nestingParentId'").get()).toBeTruthy()
   fresh.close()
+})
+
+it('adds nesting to a Phase 0 v9 database and mirrors it onto base_*', () => {
+  const db = openDatabase(':memory:')
+  db.exec(v8Ddl)
+  const itemId = randomUUID()
+  db.prepare('INSERT INTO workspace (id, generation) VALUES (1, ?)').run(randomUUID())
+  db.prepare(`INSERT INTO items (id,title,description,dueDate,status,completedAt,cancelledAt,archivedAt,deletedAt,deletedBy,createdAt,updatedAt,version,flowColor)
+    VALUES (?, '旧任务', '', NULL, 'todo', NULL, NULL, NULL, NULL, NULL, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z', 1, NULL)`).run(itemId)
+  db.prepare(`INSERT INTO item_placements (itemId,horizon,periodId,sortKey,version,holdPeriodId) VALUES (?, 'later', NULL, 0, 1, NULL)`).run(itemId)
+  db.exec(v9HistoryRewrite)
+  db.exec(v9SyncDdl)
+  const master = db.prepare(`SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%'`).all() as unknown as MasterRow[]
+  for (const statement of shadowStatements(master)) db.exec(statement)
+  for (const table of ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies', 'item_guidance']) {
+    db.exec(`INSERT INTO base_${table} SELECT * FROM ${table}`)
+  }
+  db.prepare('INSERT INTO sync_state (id, deviceId, lastAppliedSeq, lastUploadedSeq, protocolVersion, updatedAt) VALUES (1, ?, 0, 0, 1, ?)').run(randomUUID(), '2026-09-01T00:00:00.000Z')
+  db.exec('PRAGMA user_version = 9')
+  migrate(db)
+  expect(userVersion(db)).toBe(schemaVersion)
+  expect(db.prepare('SELECT nestingParentId FROM item_placements').get()!.nestingParentId).toBeNull()
+  expect(db.prepare('SELECT nestingParentId FROM base_item_placements').get()!.nestingParentId).toBeNull()
+  expect(String(db.prepare("SELECT sql FROM sqlite_master WHERE name='base_relation_guard_insert'").get()!.sql)).toContain('nestingParentId')
+  expect(db.prepare('SELECT count(*) AS n FROM sync_state').get()!.n).toBe(1)
+  db.close()
+})
+
+it('installs sync tables on a WIP nesting database without dropping the outline column', () => {
+  const db = openDatabase(':memory:')
+  migrate(db)
+  const itemId = randomUUID()
+  db.prepare(`INSERT INTO items (id,title,description,dueDate,status,completedAt,cancelledAt,archivedAt,deletedAt,deletedBy,createdAt,updatedAt,version,flowColor)
+    VALUES (?, '子任务', '', NULL, 'todo', NULL, NULL, NULL, NULL, NULL, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z', 1, NULL)`).run(itemId)
+  db.prepare(`INSERT INTO item_placements (itemId,horizon,periodId,sortKey,version,holdPeriodId,nestingParentId) VALUES (?, 'later', NULL, 0, 1, NULL, NULL)`).run(itemId)
+  db.exec('PRAGMA foreign_keys=OFF')
+  for (const name of ['base_item_guidance', 'base_item_relations', 'base_item_placements', 'base_rollover_policies', 'base_items', 'base_planning_periods', 'base_workspace', 'sync_conflicts', 'canon_changes', 'canon_ops', 'sync_ops', 'sync_state']) {
+    db.exec(`DROP TABLE IF EXISTS ${name}`)
+  }
+  db.exec('PRAGMA foreign_keys=ON')
+  db.prepare('DELETE FROM schema_migrations WHERE version>=9').run()
+  db.exec('PRAGMA user_version = 9')
+  migrate(db)
+  expect(userVersion(db)).toBe(schemaVersion)
+  expect(db.prepare('SELECT count(*) AS n FROM sync_state').get()!.n).toBe(1)
+  expect(db.prepare('SELECT nestingParentId FROM item_placements WHERE itemId=?').get(itemId)!.nestingParentId).toBeNull()
+  expect(db.prepare('SELECT nestingParentId FROM base_item_placements WHERE itemId=?').get(itemId)!.nestingParentId).toBeNull()
+  db.close()
 })

@@ -5,6 +5,8 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { outlineSections } from '../../../domain/nesting'
+import { TaskContext } from './TaskContext'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { PastPeriodPage } from '../../../shared/contracts/history'
 import { messages } from '../../i18n'
@@ -52,9 +54,10 @@ type PeriodOutcome = 'done' | 'open' | 'deleted'
 const outcomeOf = (item: ItemSummary): PeriodOutcome => item.deletedAt ? 'deleted' : item.status === 'done' ? 'done' : 'open'
 
 function PastRow({ item, outcome, disabled, select, act }: { item: ItemSummary; outcome: PeriodOutcome; disabled: boolean; select: (id: string) => void; act: (item: ItemSummary, control: HTMLElement) => void }) {
+  if (item.archivedAt || item.status === 'cancelled') return <TaskContext item={item} select={select} />
   const done = outcome === 'done'
   const hasLinks = linkUrls(item.title).length > 0
-  return <article id={`item-${item.id}`} className="task-row past-period-row" data-item-id={item.id} data-past-item-id={item.id} data-done={done} data-outcome={outcome}>
+  return <article id={`item-${item.id}`} className="task-row past-period-row" data-item-id={item.id} data-past-item-id={item.id} data-nested={!!item.placement.nestingParentId} data-done={done} data-outcome={outcome}>
     {outcome === 'deleted' ? <span className="check" role="img" aria-label={messages.periodOutcomes.deleted}><Icon name="close" size={12} /></span> : <button className="check" data-state-action data-checked={done} aria-disabled={disabled}
       aria-label={`${done ? messages.reopen : messages.complete} ${item.title}`} onClick={event => act(item, event.currentTarget)}>
       {done && <Icon name="check" size={12} strokeWidth={2.5} />}
@@ -91,7 +94,8 @@ export function PastPeriod({ history, select, submit, busy }: { history: ReturnT
     focus.current = null
   }, [page, disabled])
   const items = page?.items ?? []
-  const groups = { open: items.filter(item => outcomeOf(item) === 'open'), done: items.filter(item => outcomeOf(item) === 'done'), deleted: items.filter(item => outcomeOf(item) === 'deleted') }
+  const sections = outlineSections(items.filter(item => !item.deletedAt), page?.nestingParents ?? [])
+  const groups = { open: sections.todo, done: sections.done, deleted: items.filter(item => outcomeOf(item) === 'deleted') }
   return <div className="past-period-rows" ref={root}>
     {loading && !page && <p className="period-loading" role="status">{messages.loadingPeriod}</p>}
     {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <button className="text-button" onClick={retry}>{messages.retryPeriod}</button></p>}

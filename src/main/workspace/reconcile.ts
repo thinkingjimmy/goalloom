@@ -4,6 +4,7 @@
  * [POS]: Common reconcile path for startup, focus, wake and time boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { effectsVersion } from '../../shared/contracts/effects'
 import { randomUUID, createHash } from 'node:crypto'
 import { compareInstants } from '../../domain/calendar'
 import { canRollover } from '../../domain/rollover'
@@ -11,6 +12,7 @@ import type { CommandResult } from '../../shared/contracts/commands'
 import type { PlanningPeriod } from '../../shared/contracts/entities'
 import { targetPeriod, type Context } from './context'
 import { moveItem } from './commands/items'
+import { assertOutline } from './commands/nesting'
 import { transaction } from '../storage/database'
 import type { Repository } from './repository'
 import { serverText } from '../../shared/i18n/server'
@@ -28,6 +30,7 @@ export function reconcile(repository: Repository, now = repository.clock.now()):
     if (workspace.clockAnomaly || workspace.pausedAfterRestore) return null
     const operationId = randomUUID()
     const context: Context = { store, workspace, command: { operationId, generation: workspace.generation }, now, effects: [], warnings: [], itemId: null, label: '' }
+    const processed = new Set<string>()
     const periods = new Map<string, PlanningPeriod>()
     for (const policy of store.policies().filter(policy => policy.mode === 'auto')) {
       const current = targetPeriod(context, policy.horizon)!, effectiveFrom = store.period(policy.effectiveFromPeriodId)
@@ -37,19 +40,25 @@ export function reconcile(repository: Repository, now = repository.clock.now()):
         let period = periods.get(periodId)
         if (!period) { period = store.period(periodId); periods.set(periodId, period) }
         if (!canRollover({ ...item, period, holdPeriodId: item.placement.holdPeriodId }, { clock: { now: () => now }, current, mode: policy.mode, effectiveFrom, setupConfirmed: true, maintenance: false, pausedAfterRestore: false })) continue
-        moveItem(context, { type: 'move', operationId, generation: workspace.generation, itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon: policy.horizon, beforeId: null })
+        const rootId = item.placement.nestingParentId ?? item.id
+        if (processed.has(rootId)) continue
+        const root = store.item(rootId), members = [root, ...store.nestedItems(rootId)]
+        if (members.some(member => member.status === 'todo' && member.placement.holdPeriodId === current.id)) continue
+        processed.add(rootId)
+        moveItem(context, { type: 'move', operationId, generation: workspace.generation, itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version, horizon: policy.horizon, beforeId: null })
       }
     }
     for (const effect of context.effects) {
-      if (effect.kind !== 'position' || !effect.before.periodId || !effect.after.periodId || effect.before.periodId === effect.after.periodId) continue
+      if ((effect.kind !== 'position' && effect.kind !== 'groupPlacement') || !effect.before.periodId || !effect.after.periodId || effect.before.periodId === effect.after.periodId) continue
       const seq = store.db.prepare(`SELECT MAX(seq) AS seq FROM canon_changes WHERE itemId=? AND dim IN ('placement','create')`).get(effect.itemId)
       emitRolloverOp(store.db, { itemId: effect.itemId, fromPeriodId: effect.before.periodId, toPeriodId: effect.after.periodId, placementSeq: seq?.seq == null ? 0 : Number(seq.seq), at: now })
     }
     if (!context.effects.length) return null
+    assertOutline(context)
     workspace.revision++
     store.saveWorkspace(workspace)
     const result: CommandResult = { operationId, generation: workspace.generation, changed: true, undoable: false, outcome: 'committed', itemId: null, label: serverText().labels.autoRollover(context.effects.length), warnings: [], restoreSource: null, originalOperationId: null }
-    store.saveOperation({ id: operationId, generation: workspace.generation, requestHash: createHash('sha256').update(`${workspace.generation}:${now}:${operationId}`).digest('hex'), kind: 'rollover', source: 'system', at: now, effectsVersion: 1, effects: context.effects, result })
+    store.saveOperation({ id: operationId, generation: workspace.generation, requestHash: createHash('sha256').update(`${workspace.generation}:${now}:${operationId}`).digest('hex'), kind: 'rollover', source: 'system', at: now, effectsVersion: effectsVersion(context.effects), effects: context.effects, result })
     return result
   })
 }

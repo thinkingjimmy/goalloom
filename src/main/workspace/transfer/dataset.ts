@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Schema-v8 export, v1-v8 source validation and atomic replacement; startup upgrades keep source appearance, restores keep target appearance.
+ * [OUTPUT]: Schema-v10 export with nesting, v1-v10 source validation and atomic replacement; startup upgrades keep source appearance, restores keep target appearance.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -45,7 +45,8 @@ async function readSqlite(path: string, now: string, source: 'external' | 'backu
     const version = userVersion(db)
     if (!supportedVersions.includes(version)) throw new DomainError('invalid', serverText().errors.unsupportedDatabase)
     const tables = db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
-    if (tables.some(row => row.type === 'view') || sourceTables(version).some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
+    const names = tables.map(row => String(row.name))
+    if (tables.some(row => row.type === 'view') || sourceTables(version, names).some(name => !names.includes(name))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
     verifyDatabase(db)
     const data = readDataset(new Store(db), now, version, keepDescriptions)
     return validateDataset(data, now)

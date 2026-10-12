@@ -4,6 +4,7 @@
  * [POS]: Board view state; current snapshots and closed-period history keep their independent read paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { outlineRows } from '../../domain/nesting'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { compareInstants } from '../../domain/calendar'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../shared/contracts/entities'
@@ -67,9 +68,13 @@ export function useBoardPeriods(snapshot: Snapshot | null, columns: ItemHorizon[
     const sources = data && data.revision > revision ? [snapshot?.orderNodes ?? [], data.orderNodes] : [data?.orderNodes ?? [], snapshot?.orderNodes ?? []]
     return [...new Map(sources.flat().map(node => [node.id, node])).values()]
   }, [snapshot?.orderNodes, data, revision])
+  const nestingParents = useMemo(() => {
+    const sources = data && data.revision > revision ? [snapshot?.nestingParents ?? [], data.nestingParents ?? []] : [data?.nestingParents ?? [], snapshot?.nestingParents ?? []]
+    return [...new Map(sources.flat().map(item => [item.id, item])).values()]
+  }, [snapshot?.nestingParents, data, revision])
   const order = useMemo(() => buildParentOrder(orderNodes, snapshot?.relations ?? [], snapshot?.observedAt ?? ''), [orderNodes, snapshot?.relations, snapshot?.observedAt])
   const parentOrder = ordering.enabled || ordering.pending?.generation === generation
-  const items = useMemo(() => parentOrder ? order.sort(rawItems) : rawItems, [rawItems, order, parentOrder])
+  const items = useMemo(() => outlineRows(rawItems, parentOrder ? order.compare : undefined, nestingParents), [rawItems, order, parentOrder, nestingParents])
   useEffect(() => { finishParentOrder(generation, revision, requested.length === 0 || fresh && !failed) }, [generation, revision, fresh, failed, requestJson, ordering.pending])
   const candidates = useMemo(() => {
     const combined = [...new Map([...(snapshot?.items ?? []), ...items].map(item => [item.id, item])).values()]
@@ -101,7 +106,7 @@ export function useBoardPeriods(snapshot: Snapshot | null, columns: ItemHorizon[
     setLocating(previous => ({ generation, id: item.id, seq: (previous?.seq ?? 0) + 1 }))
   }
   const finishLocate = useCallback((seq: number) => setLocating(previous => previous?.seq === seq ? null : previous), [])
-  return { periods, mode, items, rawItems, order, orderNodes, parentOrder, candidates, loading, failed, retry: () => setAttempt(value => value + 1), choose, returnPastToCurrent, locate, finishLocate, locating: locating?.generation === generation ? locating : null }
+  return { nestingParents, periods, mode, items, rawItems, order, orderNodes, parentOrder, candidates, loading, failed, retry: () => setAttempt(value => value + 1), choose, returnPastToCurrent, locate, finishLocate, locating: locating?.generation === generation ? locating : null }
 }
 
 export type BoardView = ReturnType<typeof useBoardPeriods>

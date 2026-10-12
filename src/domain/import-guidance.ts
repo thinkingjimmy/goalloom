@@ -31,7 +31,7 @@ export function validateGuidanceHistory(data: Dataset): void {
     const previous = states.get(event.itemId)
     const before = event.undoOf ? effect.after : effect.before, after = event.undoOf ? effect.before : effect.after
     requireValid(JSON.stringify(previous?.value ?? null) === JSON.stringify(before.value) && (previous?.identity ?? null) === before.operationId)
-    if (!event.undoOf) requireValid(effect.after.operationId === operation.id && operation.effectsVersion === 2)
+    if (!event.undoOf) requireValid(effect.after.operationId === operation.id && operation.effectsVersion >= 2)
     states.set(event.itemId, { value: after.value, identity: after.operationId, operationId: operation.id, revision: (previous?.revision ?? 0) + 1, at: event.at })
   }
   requireValid(states.size === heads.length)
@@ -41,7 +41,7 @@ export function validateGuidanceHistory(data: Dataset): void {
       && head.updatedAt === state.at && head.operationId === state.operationId && JSON.stringify(head.value) === JSON.stringify(state.value))
   }
   for (const operation of data.operations) for (const effect of operation.effects) if (effect.kind === 'guidance') {
-    requireValid(data.schemaVersion >= 8 && operation.kind === 'applyAssistance' && operation.effectsVersion === 2 && items.has(effect.itemId)
+    requireValid(data.schemaVersion >= 8 && operation.kind === 'applyAssistance' && operation.effectsVersion >= 2 && items.has(effect.itemId)
       && effect.after.operationId === operation.id && (!effect.before.operationId || operations.has(effect.before.operationId)))
   }
 }

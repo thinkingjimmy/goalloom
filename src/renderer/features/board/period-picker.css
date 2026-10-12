@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Shared theme/picker tokens and period-header hover, focus, touch and selection states.
- * [OUTPUT]: Period switches, compact return controls with floating hints, period lists and calendar selection styles.
+ * [OUTPUT]: Period switches with stable chevron slots, compact return controls with floating hints, period lists and calendar selection styles.
  * [POS]: Board period-navigation skin; temporal selection and hint state stay in PeriodPicker/PeriodReturn.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

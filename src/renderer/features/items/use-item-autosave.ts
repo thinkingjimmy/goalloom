@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Item identity/generation, authoritative revisions and the reserved workspace writer.
- * [OUTPUT]: Source-preserving drafts, guarded atomic note rewrites, serialized autosave/actions, empty-title dismissal and receipt-first retry.
+ * [OUTPUT]: Source-preserving drafts, guarded atomic note rewrites, serialized autosave/actions, dependency-safe empty-title dismissal and receipt-first retry.
  * [POS]: Detail persistence boundary; explicit dismissal can discard, while navigation/native close only drain edits.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -192,6 +192,7 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
     return reply.result
   })
   const discardable = (latest: ItemDetail) => !source.current.title.trim()
+    && !latest.item.placement.nestingParentId && !latest.hasNestingChildren
     && canDiscardEmptyTitle(latest.item, latest.relations.length, !!latest.guidance?.value)
     && !source.current.description.trim() && !source.current.dueDate
   const dismiss = (): Promise<boolean> => enqueue(async () => {

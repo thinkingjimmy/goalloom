@@ -30,7 +30,8 @@ Actions (one user command is one atomic op):
 | `item.create` | Insert one item and its placement. `id` is the local id. Optional `parentId` does not itself insert an edge when a `rel.link` for the same pair is present. |
 | `item.set` | Field diff: `title`, `description`, `dueDate`, `flowColor`. Only changed keys are present. |
 | `item.status` | `todo` / `done` / `cancelled` plus the matching timestamps. |
-| `item.place` | Horizon, period key and sort hint. `reason` is `move`, `arrange` or `rollover`. |
+| `item.place` | Horizon, period key and sort hint. `reason` is `move`, `arrange` or `rollover`. Sort is among items with the same nesting parent. The parent id itself is not changed. |
+| `item.nest` | Set or clear `nestingParentId` and the resulting horizon, period and sort. `parentId` null makes the task independent. |
 | `item.archive` | `archivedAt` set or cleared. |
 | `item.delete` / `item.restore` | Soft delete. Restore requires `expectedDeleteOpId`. |
 | `item.discardIfEmpty` | Delete only when the domain empty-card predicate matches `expectVersion`. |
@@ -51,11 +52,12 @@ Local commands run first. The SyncOp is the diff plus the intent, written in the
 | `create` / `createPlan` | one SyncOp: `item.create` and, when a parent edge was inserted, `rel.link` | sync-emit create; `tests/integration/sync-emit-commands.test.ts` |
 | `edit` | `item.set` with only the changed fields | sync-emit “field diff” |
 | `flowColor` | `item.set` flowColor | sync-emit “maps move, colour…” |
-| `move` | `item.place` reason `move` | sync-emit move |
-| `arrangeBacklog` / `materializeParentOrder` | `item.place` reason `arrange` | sync-emit-commands |
+| `move` | `item.place` reason `move`. A child leaving its group is `item.nest` (parent cleared) plus `rel.link` for each materialized goal edge, then `item.place`. Live children that follow a root are extra `item.place` actions in the same op and keep their parent | sync-emit move; sync-emit nesting |
+| `arrangeBacklog` / `materializeParentOrder` | `item.place` reason `arrange`. Followers of a moved root are included | sync-emit-commands |
+| `nest` / `unnest` | `item.nest`. Nesting also emits `rel.unlink` for the child's own incoming goal edges and `item.set` when a flow color is cleared, before the parent is set. Unnest emits `item.nest` with `parentId` null, then `rel.link` for each materialized inherited edge | sync-emit nesting |
 | `link` / `unlink` | `rel.link` / `rel.unlink` | sync-emit |
 | `status` / `archive` | `item.status` / `item.archive` | sync-emit |
-| `delete` / `restoreItem` | `item.delete` / `item.restore` | sync-emit |
+| `delete` / `restoreItem` | `item.delete` / `item.restore`. Delete unnests live children and a nested target first (`item.nest` plus materialized `rel.link`). Restore emits `item.nest` only for outline members the desktop command actually reattached | sync-emit |
 | `discardEmpty` | `item.discardIfEmpty` | sync-emit-commands |
 | `policy` | `policy.set` | sync-emit |
 | `applyAssistance` | `guidance.set` | sync-emit-commands |
@@ -63,7 +65,7 @@ Local commands run first. The SyncOp is the diff plus the intent, written in the
 | `undo` of `send_unknown` or `accepted` | new `revert` op, `all_or_nothing` | cases 10 and 20 |
 | `undoBatch` of a system rollover | each undone `item.rollover`: `never_sent` becomes `reverted_local`; `send_unknown`, `accepted` or `applied` gets its own `revert` op. Skipped effects are left alone | sync-emit-commands |
 | `preferences`, `backupPreferences`, `confirmClock`, `confirmRollover` | none | sync-emit; confirmRollover in sync-emit-commands |
-| reconcile rollover | one local `operations` receipt, plus one `item.rollover` per moved item whose `base_item_placements` period still matches the source | cases 13 and 14 |
+| reconcile rollover | one local `operations` receipt, plus one `item.rollover` per moved root and per grouped child whose `base_item_placements` period still matches the source | cases 13 and 14 |
 
 ## Send states
 
@@ -82,13 +84,14 @@ Confirmed state lives in `base_*`, cloned from the seven business tables (constr
 
 `rebuildVisibleFull` preserves device-local workspace columns, copies `base_*` back, then replays pending ops. `operations` rows are not deleted. Visible `workspace.revision` becomes the greater of the visible counter and `base_workspace.revision`, so a local command does not roll the renderer guard backward. Tests: cases 9, 11, 12, 19 and `tests/sync/applier-review.test.ts`.
 
-`canon_ops` / `canon_changes` are appended only at the canonical seq. `dim` is one of `create`, `delete`, `restore`, `title`, `description`, `dueDate`, `flowColor`, `status`, `archive`, `placement`, `relation`, `guidance`, `policy`, `calendar`. A revert walks that op's canon rows from the last index backward and writes the inverted value under the original `dim`.
+`canon_ops` / `canon_changes` are appended only at the canonical seq. `dim` is one of `create`, `delete`, `restore`, `title`, `description`, `dueDate`, `flowColor`, `status`, `archive`, `placement`, `relation`, `guidance`, `policy`, `calendar`. A revert walks that op's canon rows from the last index backward and writes the inverted value under the original `dim`. Outline membership is the `placement` dimension: `before` / `after` include `nestingParentId` when the writer recorded it. A placement row written before nesting leaves that field untouched.
 
 The reference applier (`packages/store-core/src/apply.ts`) additionally:
 
 - `rel.link` rejects Later and any parent that is not in a strictly longer horizon (`horizon_order`). Cycles stay on the SQLite trigger (`relation_cycle`).
 - A colored child requires `adoptParentFlow`. The color is cleared on the child and copied to the parent only when that parent is uncolored and has no active edge.
-- `item.place` into Later records a relation change for each parent edge it invalidates. A `rel.unlink` for an edge this same op already invalidated does not record a second change.
+- `item.place` into Later records a relation change for each parent edge it invalidates. A `rel.unlink` for an edge this same op already invalidated does not record a second change. Sort is scoped to the current nesting parent, which `item.place` does not change.
+- `item.nest` requires the same horizon and period as the parent, a root parent, and a child with no live children, flow color or incoming goal edge. Two-level and same-period failures are `outline_conflict`. The SQL triggers remain the cycle and color backstop.
 - `item.restore` revives edges with `reason='delete'` and `invalidatedBy` equal to `expectedDeleteOpId`, skipping a deleted other endpoint, a flow-root child, a duplicate, or a cycle. A flow color taken by a live item stays with that item.
 - `item.delete` records a relation change for each edge it invalidates, before the delete change. Revert restores those edges after the item is live again. A trigger failure rejects the whole revert.
 - Revert of `item.create` is `revert_superseded` when an active relation still touches the item. A link in the same op is inverted first, so that edge does not block the revert.
@@ -100,7 +103,7 @@ Tests: `tests/sync/applier-review.test.ts`. Case 11 places the parent on year an
 
 ## Error codes
 
-Business (one op rolls back, cursor advances): `packages/contracts/src/errors.ts` `businessErrorCodes`. Case 14 expects `rollover_stale`.
+Business (one op rolls back, cursor advances): `packages/contracts/src/errors.ts` `businessErrorCodes`. Case 14 expects `rollover_stale`. `outline_conflict` is the two-level / same-period nesting rejection.
 
 Pause the workspace and stop applying: `key_missing`, `unsupported_version`, `auth`, `generation`, `storage`, `blob_missing`. Case 8.
 

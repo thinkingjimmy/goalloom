@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Device-local storage, React useSyncExternalStore, the preload smart API and the current SmartStatus.
- * [OUTPUT]: useInsightSettings, insightReady, atomic bounded review-period marks and draft/review IPC helpers with preference snapshots.
+ * [OUTPUT]: useInsightSettings, insightReady, separate bounded completion/dismissal marks and draft/review IPC helpers with preference snapshots.
  * [POS]: renderer/state 的流程洞察入口；偏好只存本机（不进工作区、导出或备份），模型调用经 main 的 smart 通道。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,17 +15,21 @@ export interface InsightSettings {
   onboarded: boolean
   // Period keys (`week:2026-09-21`) that were reviewed or skipped; bounded so the entry stays small.
   reviewed: string[]
+  // Dismissal keys include the workspace generation and never mark a review complete.
+  dismissed: string[]
 }
 const key = 'goalloom.insight'
 export const defaultPrefs: InsightPrefs = { about: '', stepSize: 'hour', stepNotes: '', tone: 'direct', focus: ['gap', 'overload'] }
-const defaults: InsightSettings = { prefs: defaultPrefs, breakpoints: true, reviews: true, onboarded: false, reviewed: [] }
+const defaults: InsightSettings = { prefs: defaultPrefs, breakpoints: true, reviews: true, onboarded: false, reviewed: [], dismissed: [] }
 
 function load(): InsightSettings {
   try {
     const raw = JSON.parse(localStorage.getItem(key) ?? 'null') as Partial<InsightSettings> | null
     if (!raw || typeof raw !== 'object') return defaults
     const prefs = { ...defaultPrefs, ...(raw.prefs ?? {}) }
-    return { ...defaults, ...raw, prefs, reviewed: Array.isArray(raw.reviewed) ? raw.reviewed.filter(value => typeof value === 'string').slice(-24) : [] }
+    return { ...defaults, ...raw, prefs,
+      reviewed: Array.isArray(raw.reviewed) ? raw.reviewed.filter(value => typeof value === 'string').slice(-24) : [],
+      dismissed: Array.isArray(raw.dismissed) ? raw.dismissed.filter(value => typeof value === 'string').slice(-24) : [] }
   } catch { return defaults }
 }
 
@@ -42,6 +46,11 @@ export function useInsightSettings(): InsightSettings { return useSyncExternalSt
 export function markReviewed(periodKeys: string[]): void {
   updateInsight(value => periodKeys.every(key => value.reviewed.includes(key)) ? value
     : { ...value, reviewed: [...new Set([...value.reviewed, ...periodKeys])].slice(-24) })
+}
+export function dismissReviews(generation: string, periodKeys: string[]): void {
+  const keys = periodKeys.map(key => `${generation}:${key}`)
+  updateInsight(value => keys.every(key => value.dismissed.includes(key)) ? value
+    : { ...value, dismissed: [...new Set([...value.dismissed, ...keys])].slice(-24) })
 }
 
 // Drafting follows the insight feature's own switch and provider, independent of smart input.

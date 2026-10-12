@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Controlled SQLite, validated DTOs and current transaction versions.
- * [OUTPUT]: Bounded note/guidance signals, versioned guidance heads, item/placement writes and immutable events/receipts.
+ * [OUTPUT]: Bounded note/guidance signals, versioned guidance heads, nested item/placement writes and effective relations and immutable events/receipts.
  * [POS]: Persistence adapter; Repository owns business policy and transactions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { effectiveRelations, type NestingLink } from '../../domain/nesting'
 import type { DatabaseSync, SQLInputValue, StatementSync } from 'node:sqlite'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { DomainError } from '../../shared/contracts/commands'
 import { workspaceSchema, type Item, type ItemSummary, type ItemRecord, type Placement, type PlanningPeriod, type Policy, type Relation, type Workspace } from '../../shared/contracts/entities'
 import { businessState, type ItemEvent, type Operation, type PositionEffect } from '../../shared/contracts/effects'
@@ -13,10 +14,14 @@ import { serverText } from '../../shared/i18n/server'
 import { noteSignal } from '../../shared/notes'
 import { guidanceRecordSchema, type GuidanceRecord } from '../../shared/contracts/assistance'
 
+export const inheritedRelationId = (relationId: string, childId: string): string => `inherit:${createHash('sha256').update(JSON.stringify([relationId, childId])).digest('hex')}`
+
 export class Store {
   private statements = new Map<string, StatementSync>()
   private readonly hasGuidance: boolean
+  private readonly hasNesting: boolean
   constructor(readonly db: DatabaseSync) {
+    this.hasNesting = db.prepare('PRAGMA table_info(item_placements)').all().some(row => row.name === 'nestingParentId')
     this.hasGuidance = !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_guidance'").get()
     // Summaries digest each description inside SQLite, so only the bounded signal leaves the worker's query.
     db.function('guidance_signal', { deterministic: true }, (text: unknown, revision: unknown, updatedAt: unknown) => {
@@ -57,25 +62,25 @@ export class Store {
     return { ...row, placement }
   }
   items(where: string, parameters: SQLInputValue[] = [], suffix = 'ORDER BY p.sortKey,i.id'): Item[] {
-    const rows = this.prepare(`SELECT i.*,p.horizon,p.periodId,p.sortKey,p.version AS placementVersion,p.holdPeriodId FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where} ${suffix}`).all(...parameters)
+    const rows = this.prepare(`SELECT i.*,p.horizon,p.periodId,p.sortKey,p.version AS placementVersion,p.holdPeriodId,${this.hasNesting ? 'p.nestingParentId' : 'NULL AS nestingParentId'} FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where} ${suffix}`).all(...parameters)
     return rows.map(row => {
-      const { horizon, periodId, sortKey, placementVersion, holdPeriodId, ...item } = row
-      return { ...item, placement: { itemId: item.id, horizon, periodId, sortKey, version: placementVersion, holdPeriodId } } as Item
+      const { horizon, periodId, sortKey, placementVersion, holdPeriodId, nestingParentId, ...item } = row
+      return { ...item, placement: { itemId: item.id, horizon, periodId, sortKey, version: placementVersion, holdPeriodId, nestingParentId } } as Item
     })
   }
   summaries(where: string, parameters: SQLInputValue[] = [], suffix = 'ORDER BY p.sortKey,i.id'): ItemSummary[] {
     const rows = this.prepare(`SELECT i.id,i.title,i.dueDate,i.status,i.completedAt,i.cancelledAt,i.archivedAt,i.deletedAt,i.deletedBy,i.createdAt,i.updatedAt,i.version,i.flowColor,
-      note_signal(i.description) AS note,${this.hasGuidance ? "(SELECT guidance_signal(g.value,g.revision,g.updatedAt) FROM item_guidance g WHERE g.itemId=i.id AND g.value IS NOT NULL)" : 'NULL'} AS guidance,p.horizon,p.periodId,p.sortKey,p.version AS placementVersion,p.holdPeriodId
+      note_signal(i.description) AS note,${this.hasGuidance ? "(SELECT guidance_signal(g.value,g.revision,g.updatedAt) FROM item_guidance g WHERE g.itemId=i.id AND g.value IS NOT NULL)" : 'NULL'} AS guidance,p.horizon,p.periodId,p.sortKey,p.version AS placementVersion,p.holdPeriodId,${this.hasNesting ? 'p.nestingParentId' : 'NULL AS nestingParentId'}
       FROM items i JOIN item_placements p ON p.itemId=i.id WHERE ${where} ${suffix}`).all(...parameters)
     return rows.map(row => {
-      const { horizon, periodId, sortKey, placementVersion, holdPeriodId, note, guidance, ...item } = row
-      return { ...item, note: typeof note === 'string' ? JSON.parse(note) : null, guidance: typeof guidance === 'string' ? JSON.parse(guidance) : null, placement: { itemId: item.id, horizon, periodId, sortKey, version: placementVersion, holdPeriodId } } as ItemSummary
+      const { horizon, periodId, sortKey, placementVersion, holdPeriodId, nestingParentId, note, guidance, ...item } = row
+      return { ...item, note: typeof note === 'string' ? JSON.parse(note) : null, guidance: typeof guidance === 'string' ? JSON.parse(guidance) : null, placement: { itemId: item.id, horizon, periodId, sortKey, version: placementVersion, holdPeriodId, nestingParentId } } as ItemSummary
     })
   }
   insertItem(item: Item): void {
     this.prepare('INSERT INTO items (id,title,description,dueDate,status,completedAt,cancelledAt,archivedAt,deletedAt,deletedBy,createdAt,updatedAt,version,flowColor) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(item.id, item.title, item.description, item.dueDate, item.status, item.completedAt, item.cancelledAt, item.archivedAt, item.deletedAt, item.deletedBy, item.createdAt, item.updatedAt, item.version, item.flowColor ?? null)
     const p = item.placement
-    this.prepare('INSERT INTO item_placements VALUES (?,?,?,?,?,?)').run(p.itemId, p.horizon, p.periodId, p.sortKey, p.version, p.holdPeriodId)
+    this.prepare('INSERT INTO item_placements VALUES (?,?,?,?,?,?,?)').run(p.itemId, p.horizon, p.periodId, p.sortKey, p.version, p.holdPeriodId, p.nestingParentId ?? null)
   }
   guidance(itemId: string): GuidanceRecord | null {
     if (!this.hasGuidance) return null
@@ -93,8 +98,8 @@ export class Store {
     if (result.changes !== 1) throw new DomainError('stale', serverText().errors.writeRace)
   }
   savePlacement(placement: Placement, previousVersion: number): void {
-    const result = this.prepare('UPDATE item_placements SET horizon=?,periodId=?,sortKey=?,version=?,holdPeriodId=? WHERE itemId=? AND version=?')
-      .run(placement.horizon, placement.periodId, placement.sortKey, placement.version, placement.holdPeriodId, placement.itemId, previousVersion)
+    const result = this.prepare('UPDATE item_placements SET horizon=?,periodId=?,sortKey=?,version=?,holdPeriodId=?,nestingParentId=? WHERE itemId=? AND version=?')
+      .run(placement.horizon, placement.periodId, placement.sortKey, placement.version, placement.holdPeriodId, placement.nestingParentId ?? null, placement.itemId, previousVersion)
     if (result.changes !== 1) throw new DomainError('stale', serverText().errors.placementChanged)
   }
   periods(): PlanningPeriod[] { return this.prepare('SELECT * FROM planning_periods ORDER BY startAt,id').all() as unknown as PlanningPeriod[] }
@@ -106,6 +111,18 @@ export class Store {
   ensurePeriod(period: PlanningPeriod): void { this.prepare('INSERT OR IGNORE INTO planning_periods VALUES (?,?,?,?,?,?)').run(period.id, period.horizon, period.startDate, period.endDate, period.startAt, period.endAt) }
   policies(): Policy[] { return this.prepare('SELECT * FROM rollover_policies').all() as unknown as Policy[] }
   relations(activeOnly = true): Relation[] { return this.prepare(`SELECT * FROM item_relations ${activeOnly ? 'WHERE invalidatedAt IS NULL' : ''}`).all() as unknown as Relation[] }
+  nestingLinks(): NestingLink[] {
+    return this.hasNesting ? this.prepare('SELECT p.nestingParentId AS parentId,p.itemId AS childId FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.nestingParentId IS NOT NULL AND i.deletedAt IS NULL').all() as unknown as NestingLink[] : []
+  }
+  hasNestedChildren(itemId: string): boolean {
+    return this.hasNesting && !!this.prepare('SELECT 1 FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.nestingParentId=? AND i.deletedAt IS NULL LIMIT 1').get(itemId)
+  }
+  nestedItems(itemId: string): Item[] { return this.hasNesting ? this.items('i.deletedAt IS NULL AND p.nestingParentId=?', [itemId]) : [] }
+  effectiveRelations(): Relation[] { return effectiveRelations(this.relations(), this.nestingLinks(), inheritedRelationId) }
+  nestingParents(items: readonly ItemSummary[]): ItemSummary[] {
+    const ids = [...new Set(items.flatMap(item => item.placement.nestingParentId ? [item.placement.nestingParentId] : []))]
+    return ids.length ? this.summaries('i.deletedAt IS NULL AND i.id IN (SELECT value FROM json_each(?))', [JSON.stringify(ids)]) : []
+  }
   saveRelation(relation: Relation): void {
     this.prepare('INSERT INTO item_relations VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET invalidatedAt=excluded.invalidatedAt,invalidatedBy=excluded.invalidatedBy,reason=excluded.reason')
       .run(relation.id, relation.parentId, relation.childId, relation.invalidatedAt, relation.invalidatedBy, relation.reason, relation.createdAt)
@@ -117,20 +134,20 @@ export class Store {
   neighbor(placement: Placement, direction: 'before' | 'after', excludedId: string | null = null): Placement | null {
     const comparison = direction === 'before' ? '<' : '>', order = direction === 'before' ? 'DESC' : 'ASC'
     return this.prepare(`SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ?
-      AND (p.sortKey,p.itemId) ${comparison} (?,?) AND p.itemId IS NOT ? ORDER BY p.sortKey ${order},p.itemId ${order} LIMIT 1`)
-      .get(placement.horizon, placement.periodId, placement.sortKey, placement.itemId, excludedId) as unknown as Placement ?? null
+      AND p.nestingParentId IS ? AND (p.sortKey,p.itemId) ${comparison} (?,?) AND p.itemId IS NOT ? ORDER BY p.sortKey ${order},p.itemId ${order} LIMIT 1`)
+      .get(placement.horizon, placement.periodId, placement.nestingParentId ?? null, placement.sortKey, placement.itemId, excludedId) as unknown as Placement ?? null
   }
-  insertion(horizon: Placement['horizon'], periodId: string | null, beforeId: string | null, excludedId: string | null): { previous: Placement | null; next: Placement | null } {
+  insertion(horizon: Placement['horizon'], periodId: string | null, beforeId: string | null, excludedId: string | null, nestingParentId: string | null = null): { previous: Placement | null; next: Placement | null } {
     if (beforeId === null) {
-      const previous = this.prepare('SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ? ORDER BY p.sortKey DESC,p.itemId DESC LIMIT 1').get(horizon, periodId, excludedId) as unknown as Placement ?? null
+      const previous = this.prepare('SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ? AND p.nestingParentId IS ? ORDER BY p.sortKey DESC,p.itemId DESC LIMIT 1').get(horizon, periodId, excludedId, nestingParentId) as unknown as Placement ?? null
       return { previous, next: null }
     }
-    const next = this.prepare('SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.itemId=? AND i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ?').get(beforeId, horizon, periodId, excludedId) as unknown as Placement | undefined
+    const next = this.prepare('SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.itemId=? AND i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ? AND p.nestingParentId IS ?').get(beforeId, horizon, periodId, excludedId, nestingParentId) as unknown as Placement | undefined
     if (!next) throw new DomainError('conflict', serverText().errors.sortTargetGone)
     return { previous: this.neighbor(next, 'before', excludedId), next }
   }
   position(item: Pick<Item, 'placement'>): PositionEffect {
-    return { horizon: item.placement.horizon, periodId: item.placement.periodId, previousId: this.neighbor(item.placement, 'before')?.itemId ?? null, nextId: this.neighbor(item.placement, 'after')?.itemId ?? null }
+    return { ...(item.placement.nestingParentId ? { nestingParentId: item.placement.nestingParentId } : {}), horizon: item.placement.horizon, periodId: item.placement.periodId, previousId: this.neighbor(item.placement, 'before')?.itemId ?? null, nextId: this.neighbor(item.placement, 'after')?.itemId ?? null }
   }
   operation(id: string): Operation | null {
     const row = this.prepare('SELECT * FROM operations WHERE id=?').get(id)

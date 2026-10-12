@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Zod, ordered product horizons and date/calendar wire validation.
- * [OUTPUT]: Strict workspace, item summary/detail, placement, relation, period and six-horizon policy DTOs.
+ * [OUTPUT]: Strict workspace, item summary/detail, two-level placement, relation, period and six-horizon policy DTOs.
  * [POS]: Persistence, IPC and import schemas without Electron dependencies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -34,6 +34,7 @@ export const itemRecordSchema = z.strictObject({
 export const placementSchema = z.strictObject({
   itemId: idSchema, horizon: horizonSchema, periodId: idSchema.nullable(), sortKey: z.number().finite(),
   version: z.number().int().positive(), holdPeriodId: idSchema.nullable(),
+  nestingParentId: idSchema.nullable().optional(),
 })
 export const itemSchema = itemRecordSchema.extend({ placement: placementSchema })
 // A bounded description digest for board rows (see shared/notes.ts); summaries never carry the description body.
@@ -48,6 +49,7 @@ export type ItemSummary = z.infer<typeof itemSummarySchema>
 export const relationSchema = z.strictObject({
   id: idSchema, parentId: idSchema, childId: idSchema, invalidatedAt: instantSchema.nullable(),
   invalidatedBy: idSchema.nullable(), reason: z.enum(['unlink', 'delete']).nullable(), createdAt: instantSchema,
+  inheritedFrom: z.strictObject({ rootId: idSchema, relationId: idSchema }).optional(),
 })
 export const policySchema = z.strictObject({
   horizon: z.enum(policyHorizons), mode: z.enum(['auto', 'manual']), version: z.number().int().positive(), effectiveFromPeriodId: idSchema,

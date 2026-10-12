@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: Spanish flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: Spanish flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, reminder dismissal, matrix legends and settings.
  * [POS]: Spanish insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -42,6 +42,7 @@ export const insightMessages: InsightCatalog = {
   reviewGuidePending: (count: number) => `${count} tareas pendientes por organizar.`,
   reviewStart: (period: string) => `Revisar ${period}`,
   reviewContinue: 'Continuar revisión',
+  reviewDismiss: 'Ocultar esta revisión',
   reviewLookBack: (period: string) => `Revisar ${period}`,
   reviewArrange: (period: string) => `Planificar ${period}`,
   reviewHandle: 'Tareas pendientes',

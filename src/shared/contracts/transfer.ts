@@ -1,10 +1,11 @@
 /**
  * [INPUT]: Untrusted source-aware JSON/SQLite data and explicit maintenance actions.
- * [OUTPUT]: Validated v1-v8 datasets, guidance/tombstones, description-only v2 effects and protected replacement previews.
+ * [OUTPUT]: Validated v1-v10 datasets, guidance/tombstones, v2 note and v3 nesting effects and protected replacement previews.
  * [POS]: Transfer boundary preserving old receipts and rejecting inconsistent heads/history.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
+import { effectsVersion } from './effects'
 import { calendarSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, itemRecordSchema, periodSchema, placementSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 import { resultSchema } from './commands'
 import { businessStateSchema, eventSchema } from './history'
@@ -12,10 +13,14 @@ import { policyHorizons } from './values'
 import { guidanceRecordSchema, guidanceValueSchema } from './assistance'
 
 const statusGroup = businessStateSchema.pick({ status: true, completedAt: true, cancelledAt: true })
-const position = z.strictObject({ horizon: horizonSchema, periodId: idSchema.nullable(), previousId: idSchema.nullable(), nextId: idSchema.nullable() })
+const position = z.strictObject({ horizon: horizonSchema, periodId: idSchema.nullable(), previousId: idSchema.nullable(), nextId: idSchema.nullable(), nestingParentId: idSchema.nullable().optional() })
 const edgeDelta = z.strictObject({ before: relationSchema.nullable(), after: relationSchema })
+const nestingPosition = position.extend({ nestingParentId: idSchema.nullable() })
+const groupPlacement = z.strictObject({ horizon: horizonSchema, periodId: idSchema.nullable(), nestingParentId: idSchema })
 const visibility = z.strictObject({ deletedAt: instantSchema.nullable(), deletedBy: idSchema.nullable() })
 export const effectSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('nesting'), itemId: idSchema, before: nestingPosition, after: nestingPosition, edges: z.array(edgeDelta).max(100_000), flowColor: z.strictObject({ before: flowColorSchema, after: z.null() }).optional(), inheritedFrom: z.strictObject({ rootId: idSchema, relations: z.array(relationSchema).max(100_000) }).optional() }),
+  z.strictObject({ kind: z.literal('groupPlacement'), itemId: idSchema, before: groupPlacement, after: groupPlacement }),
   z.strictObject({ kind: z.literal('description'), itemId: idSchema, before: z.string().max(100_000), after: z.string().trim().min(1).max(16_000) }).refine(value => value.before !== value.after),
   z.strictObject({ kind: z.literal('guidance'), itemId: idSchema,
     before: z.strictObject({ value: guidanceValueSchema.nullable(), operationId: idSchema.nullable() }),
@@ -30,11 +35,11 @@ export const effectSchema = z.discriminatedUnion('kind', [
 ])
 export const operationSchema = z.strictObject({
   id: idSchema, generation: idSchema, requestHash: z.string().regex(/^[a-f0-9]{64}$/), kind: z.string().min(1).max(60),
-  source: z.enum(['user', 'system']), at: instantSchema, effectsVersion: z.union([z.literal(1), z.literal(2)]), effects: z.array(effectSchema).max(100_000), result: resultSchema,
-}).refine(value => value.effectsVersion === (value.effects.some(effect => ['guidance', 'description'].includes(effect.kind)) ? 2 : 1))
+  source: z.enum(['user', 'system']), at: instantSchema, effectsVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]), effects: z.array(effectSchema).max(100_000), result: resultSchema,
+}).refine(value => value.effectsVersion === effectsVersion(value.effects))
 export const undoMarkerSchema = z.strictObject({ originalId: idSchema, effectIndex: z.number().int().nonnegative(), undoId: idSchema })
 export const datasetSchema = z.strictObject({
-  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,
   workspace: workspaceSchema, items: z.array(itemRecordSchema).max(100_000), placements: z.array(placementSchema).max(100_000),
   periods: z.array(periodSchema).max(100_000), relations: z.array(relationSchema).max(500_000), policies: z.array(policySchema).max(policyHorizons.length),
   events: z.array(eventSchema).max(1_000_000), operations: z.array(operationSchema).max(500_000), undoEffects: z.array(undoMarkerSchema).max(500_000),

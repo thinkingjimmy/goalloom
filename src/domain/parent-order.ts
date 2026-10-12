@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Lightweight placements, active topology and an injected observation time.
- * [OUTPUT]: Nearest-parent groups and transitive ordering without placement writes.
+ * [OUTPUT]: Nearest-parent groups, outline-aware transitive ordering and stable root/child positions without writes.
  * [POS]: Shared board/transaction rule; lifecycle state never determines parent priority.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -37,6 +37,12 @@ export function buildParentOrder(nodes: readonly OrderNode[], edges: readonly { 
     if (a.id === b.id) return 0
     if (a.horizon !== b.horizon) return rank(a.horizon) - rank(b.horizon)
     if (a.periodId !== b.periodId) return textOrder(a.periodStart ?? '', b.periodStart ?? '') || textOrder(a.periodId ?? '', b.periodId ?? '')
+    const rootA = a.nestingParentId ? byId.get(a.nestingParentId) : a, rootB = b.nestingParentId ? byId.get(b.nestingParentId) : b
+    if (rootA && rootB && (rootA.id !== a.id || rootB.id !== b.id)) {
+      if (rootA.id !== rootB.id) return compareNodes(rootA, rootB)
+      if (a.id === rootA.id || b.id === rootB.id) return a.id === rootA.id ? -1 : 1
+      return manual(a, b)
+    }
     if (editable(a) && editable(b)) {
       const pa = group(a.id), pb = group(b.id)
       if (pa !== pb) {

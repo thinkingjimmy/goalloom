@@ -1,9 +1,10 @@
 /**
  * [INPUT]: Authoritative task/notes, workspace clock and the shared guarded autosave writer.
- * [OUTPUT]: One detail sheet with header lifecycle actions, inline AI note rewrites and a persistent Markdown editor.
+ * [OUTPUT]: One detail sheet with independent lifecycle, container navigation/detach, inherited goal/color provenance, AI note rewrites and persistent Markdown editing.
  * [POS]: Detail boundary; ordinary edits stay local while generating, guarded rewrites own only the description.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { nestingText } from '../../../shared/i18n/nesting'
 import { useMemo } from 'react'
 import type { CalendarConfig, ItemSummary } from '../../../shared/contracts/entities'
 import { periodDates, planningLabel } from '../../lib/periods'
@@ -22,7 +23,8 @@ import { DescriptionEditor } from '../../components/description/DescriptionEdito
 import { linkUrls } from '../../components/links/parse'
 import { AssistancePanel } from '../assistance/AssistancePanel'
 
-export function ItemDetail({ itemId, generation, close, write, retryWrite, revision, blocked, flows, candidates, today, calendar, observedAt, connect, initialAssistance = false }: {
+export function ItemDetail({ itemId, generation, close, write, retryWrite, revision, blocked, flows, candidates, today, calendar, observedAt, connect, navigate, initialAssistance = false }: {
+  navigate?: ((id: string) => void) | undefined
   decompose?: (() => void) | undefined
   connect?: (() => void) | undefined
   initialAssistance?: boolean
@@ -74,6 +76,8 @@ export function ItemDetail({ itemId, generation, close, write, retryWrite, revis
           <DetailTitle key={itemId} value={draft.title} savedValue={item.title} onChange={value => autosave.change('title', value)} readOnly={readOnly || autosave.discarding || autosave.rewriting} />
         </div>
         <div className="detail-props">
+          {detail.nestingParent && <button type="button" className="detail-chip nesting-parent-chip" disabled={busy} onClick={() => void autosave.flush().then(ready => { if (ready) navigate?.(detail.nestingParent!.id) })}>{nestingText().belongsTo} {detail.nestingParent.title}</button>}
+          {item.placement.nestingParentId && <button type="button" className="detail-chip" disabled={busy} onClick={() => void submit({ type: 'unnest', itemId, expectedVersion: item.version, expectedPlacementVersion: item.placement.version })}>{nestingText().unnest}</button>}
           <DuePicker value={draft.dueDate} today={today} weekStart={calendar.weekStart} readOnly={readOnly || autosave.discarding || autosave.rewriting} onChange={value => autosave.change('dueDate', value, true)} />
           <DetailFlowChip item={item} edges={detail.relations} flows={flows} candidates={candidates} busy={busy} readOnly={readOnly} submit={submit} onError={setError} />
         </div>

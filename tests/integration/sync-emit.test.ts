@@ -76,3 +76,39 @@ it('maps move, colour, policy, delete, restore and unlink, and skips device-loca
   expect(String(db.prepare('SELECT state FROM sync_ops WHERE opId=?').get(never.operationId!)!.state)).toBe('reverted_local')
   db.close()
 })
+
+it('maps nest, unnest and a grouped move onto item.nest and item.place', () => {
+  const { db, repo, run } = harness()
+  const parent = run({ type: 'create', title: '容器', horizon: 'week' })
+  const child = run({ type: 'create', title: '叶子', horizon: 'month', flowColor: 3 })
+  const parentId = parent.itemId!, childId = child.itemId!
+  const versions = () => ({
+    item: repo.store.item(childId).version,
+    parent: repo.store.item(parentId).version,
+    place: repo.store.item(childId).placement.version,
+    parentPlace: repo.store.item(parentId).placement.version,
+  })
+  let current = versions()
+  run({ type: 'nest', itemId: childId, parentId, expectedVersion: current.item, expectedParentVersion: current.parent, expectedPlacementVersion: current.place, expectedParentPlacementVersion: current.parentPlace })
+  const nested = parseSyncOp(JSON.parse(String(db.prepare('SELECT payload FROM sync_ops ORDER BY localOrder DESC LIMIT 1').get()!.payload)))
+  expect(nested.actions.map(action => action.t)).toEqual(['item.set', 'item.nest'])
+  expect(nested.actions[0]).toMatchObject({ t: 'item.set', id: childId, fields: { flowColor: null } })
+  expect(nested.actions[1]).toMatchObject({ t: 'item.nest', id: childId, parentId, horizon: 'week' })
+  current = versions()
+  const goal = run({ type: 'create', title: '目标', horizon: 'cycle', flowColor: 1 })
+  run({ type: 'link', parentId: goal.itemId!, childId: parentId, expectedParentVersion: repo.store.item(goal.itemId!).version, expectedChildVersion: repo.store.item(parentId).version })
+  current = versions()
+  run({ type: 'unnest', itemId: childId, expectedVersion: current.item, expectedPlacementVersion: current.place })
+  const independent = parseSyncOp(JSON.parse(String(db.prepare('SELECT payload FROM sync_ops ORDER BY localOrder DESC LIMIT 1').get()!.payload)))
+  expect(independent.actions[0]).toMatchObject({ t: 'item.nest', id: childId, parentId: null })
+  expect(independent.actions.some(action => action.t === 'rel.link' && action.childId === childId && action.parentId === goal.itemId)).toBe(true)
+  current = versions()
+  run({ type: 'nest', itemId: childId, parentId, expectedVersion: current.item, expectedParentVersion: repo.store.item(parentId).version, expectedPlacementVersion: current.place, expectedParentPlacementVersion: repo.store.item(parentId).placement.version })
+  const root = repo.store.item(parentId)
+  const moved = run({ type: 'move', itemId: parentId, expectedVersion: root.version, expectedPlacementVersion: root.placement.version, horizon: 'week', period: { kind: 'next' } })
+  const group = parseSyncOp(JSON.parse(String(db.prepare('SELECT payload FROM sync_ops WHERE opId=?').get(moved.operationId!)!.payload)))
+  const placed = group.actions.filter(action => action.t === 'item.place')
+  expect(placed.map(action => action.t === 'item.place' ? action.id : '')).toEqual([parentId, childId])
+  expect(repo.store.item(childId).placement.nestingParentId).toBe(parentId)
+  db.close()
+})

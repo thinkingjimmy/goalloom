@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Reviews complete atomically with board return and guarded celebration. Theme/style changes do not tween colors.
+ * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Independent review reminders support local dismissal; completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,7 +13,7 @@ import type { CalendarChoice } from './features/setup/Setup'
 import { revealRow } from './features/board/VirtualRows'
 import { Board, type BoardInsight } from './features/board/Board'
 import type { ComposerSeed } from './features/composer/Seeded'
-import { insightReady, markReviewed, useInsightSettings } from './state/insight'
+import { dismissReviews, insightReady, markReviewed, useInsightSettings } from './state/insight'
 import { requestReviewCelebration } from './state/celebration'
 import { syncReviewSummaryGeneration } from './state/review-summary'
 import { syncAssistanceGeneration } from './state/assistance-drafts'
@@ -95,14 +95,17 @@ export function App() {
     setReviewOpen(false); setReviewing(null)
     requestAnimationFrame(() => requestReviewCelebration(generation, horizon))
   }
-  const due = useMemo(() => snapshot?.workspace.calendar && insightSettings.reviews ? reviewDue(snapshot, insightSettings.reviewed) : null, [snapshot, insightSettings.reviews, insightSettings.reviewed])
+  const due = useMemo(() => snapshot?.workspace.calendar && insightSettings.reviews ? reviewDue(snapshot, insightSettings.reviewed, insightSettings.dismissed) : [], [snapshot, insightSettings.reviews, insightSettings.reviewed, insightSettings.dismissed])
   const insight = useMemo<BoardInsight>(() => ({ assist: id => { detailFocusOrigin.current = inputOrigin.current; setInitialHelp(true); startTransition(() => setSelected(id)) }, ready, due, started: reviewing, reviewed: insightSettings.reviewed, review: value => startTransition(() => {
     setReviewing(previous => previous?.month?.key === value.month?.key && previous?.week?.key === value.week?.key ? previous : value); setReviewOpen(true)
   }),
+    dismiss: value => {
+      if (snapshot) dismissReviews(snapshot.workspace.generation, [value.month?.key, value.week?.key].filter((key): key is string => !!key))
+    },
     seed: value => {
       columns.setVisible(value.horizon, true)
       startTransition(() => setSeed(previous => ({ ...value, key: (previous?.key ?? 0) + 1 })))
-    } }), [ready, due, reviewing, insightSettings.reviewed, columns.setVisible])
+    } }), [ready, due, reviewing, insightSettings.reviewed, columns.setVisible, snapshot?.workspace.generation])
   const [toastHeld, setToastHeld] = useState(false)
   const toastRef = useCallback((node: HTMLDivElement | null) => { setToastHeld(!!node && (node.matches(':hover') || node.contains(document.activeElement))) }, [])
   useEffect(() => {
@@ -231,7 +234,7 @@ export function App() {
     {seed && snapshot && setupReady && <Seeded key={seed.key} seed={seed} snapshot={snapshot} flows={flows} submit={submit} busy={busy} error={error} close={() => setSeed(null)} />}
     </Suspense>
     <Suspense fallback={null}>
-    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} decompose={async () => {
+    {selected && snapshot && <ItemDetail navigate={setSelected} key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} decompose={async () => {
         try {
           const detail = await desktopApi().getItem(selected), target = shorter(detail.item.placement.horizon)
           if (!target) return

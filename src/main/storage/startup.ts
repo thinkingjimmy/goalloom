@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Main-owned workspace path, source-aware table/version rules and injected startup time.
- * [OUTPUT]: Read-only legacy recovery state, unchanged refusal for old sources and new/current v8 connections.
+ * [OUTPUT]: Read-only refusal for v1–v7, in-place upgrade for v8 and Phase 0 v9, and current v10 connections.
  * [POS]: Startup probe; explicit protective-copy conversion is owned by upgrade.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted finite commands, entity/guidance schemas and explicit dependency/version guards.
- * [OUTPUT]: Guarded description rewrites, atomic assistance, lifecycle/planning commands and immutable receipts.
+ * [OUTPUT]: Guarded description rewrites, atomic assistance, nesting/lifecycle/planning commands and immutable receipts.
  * [POS]: Write contract accepting neither arbitrary effects nor model-generated commands.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -55,7 +55,9 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('createPlan'), items: z.array(planItemSchema).min(1).max(planLimit) }),
   z.strictObject({ ...envelope, ...target, type: z.literal('edit'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000), dueDate: dateSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
-  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), parentOrder: z.boolean().optional() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), parentOrder: z.boolean().optional(), keepNesting: z.literal(true).optional(), group: z.literal(true).optional() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('nest'), parentId: idSchema, expectedParentVersion: z.number().int().positive(), expectedPlacementVersion: z.number().int().positive(), expectedParentPlacementVersion: z.number().int().positive() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('unnest'), expectedPlacementVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('materializeParentOrder') }),
   z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), adoptParentFlow: z.literal(true).optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('status'), status: statusSchema }),

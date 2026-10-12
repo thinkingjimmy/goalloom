@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite'
-import { shadowStatements, v8Ddl, v9HistoryRewrite, v9SyncDdl } from '@goalloom/schema'
+import { nestingMigrationSql, shadowStatements, v8Ddl, v9HistoryRewrite, v9SyncDdl } from '@goalloom/schema'
 
 export function openFresh(name) {
   try {
@@ -14,7 +14,8 @@ export function openFresh(name) {
 }
 
 export function installV9(db, deviceId, at) {
-  db.execSync(v8Ddl)
+  db.execSync(v8Ddl.replace('CHECK(effectsVersion IN (1,2))', 'CHECK(effectsVersion IN (1,2,3))'))
+  db.execSync(nestingMigrationSql(''))
   db.execSync(v9HistoryRewrite)
   db.execSync(v9SyncDdl)
   db.runSync('INSERT INTO workspace (id, generation) VALUES (1, ?)', deviceId)

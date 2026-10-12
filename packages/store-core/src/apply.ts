@@ -37,6 +37,7 @@ function applyAction(driver: SqlDriver, prefix: string, op: SyncOp, action: Acti
     case 'item.set': return setFields(driver, prefix, op, action, changes)
     case 'item.status': return setStatus(driver, prefix, op, action, changes)
     case 'item.place': return placeItem(driver, prefix, op, action, host, changes, action.reason)
+    case 'item.nest': return nestItem(driver, prefix, op, action, host, changes)
     case 'item.archive': return setArchive(driver, prefix, op, action, changes)
     case 'item.delete': return deleteItem(driver, prefix, op, action.id, changes)
     case 'item.discardIfEmpty': return discardIfEmpty(driver, prefix, op, action, changes)
@@ -71,9 +72,9 @@ function ensurePeriod(driver: SqlDriver, prefix: string, host: ApplyHost, horizo
   return period.id
 }
 
-function sortKey(driver: SqlDriver, prefix: string, horizon: string, periodId: string | null, afterId: string | null, beforeId: string | null, excluded: string | null): number {
+function sortKey(driver: SqlDriver, prefix: string, horizon: string, periodId: string | null, afterId: string | null, beforeId: string | null, excluded: string | null, nestingParentId: string | null): number {
   const rows = driver.prepare(`SELECT p.itemId AS itemId, p.sortKey AS sortKey FROM ${prefix}item_placements p JOIN ${prefix}items i ON i.id=p.itemId
-    WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ? ORDER BY p.sortKey, p.itemId`).all(horizon, periodId, excluded)
+    WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.nestingParentId IS ? AND p.itemId IS NOT ? ORDER BY p.sortKey, p.itemId`).all(horizon, periodId, nestingParentId, excluded)
   const ids = rows.map(row => String(row.itemId))
   const indexOf = (id: string | null) => id && ids.includes(id) ? ids.indexOf(id) : -1
   const before = indexOf(beforeId)
@@ -91,13 +92,13 @@ function createItem(driver: SqlDriver, prefix: string, op: SyncOp, action: Extra
   if (driver.prepare(`SELECT 1 FROM ${prefix}items WHERE id=?`).get(action.id)) throw new SyncApplyError('item_exists')
   if (action.horizon === 'later' && action.flowColor !== undefined && action.flowColor !== null) throw new SyncApplyError('horizon_order')
   const periodId = ensurePeriod(driver, prefix, host, action.horizon, action.periodKey?.startDate ?? null)
-  const key = sortKey(driver, prefix, action.horizon, periodId, action.sortHint.afterId, action.sortHint.beforeId, null)
+  const key = sortKey(driver, prefix, action.horizon, periodId, action.sortHint.afterId, action.sortHint.beforeId, null, null)
   const color = action.parentId ? null : action.flowColor ?? null
   driver.prepare(`INSERT INTO ${prefix}items (id,title,description,dueDate,status,completedAt,cancelledAt,archivedAt,deletedAt,deletedBy,createdAt,updatedAt,version,flowColor)
     VALUES (?,?,?,?,'todo',NULL,NULL,NULL,NULL,NULL,?,?,1,?)`).run(action.id, action.title, action.description, action.dueDate, op.at, op.at, color)
   driver.prepare(`INSERT INTO ${prefix}item_placements (itemId,horizon,periodId,sortKey,version,holdPeriodId) VALUES (?,?,?,?,1,NULL)`).run(action.id, action.horizon, periodId, key)
   changes.push({ itemId: action.id, dim: 'create', before: null, after: { title: action.title, horizon: action.horizon, periodId } })
-  changes.push({ itemId: action.id, dim: 'placement', before: null, after: { horizon: action.horizon, periodId, sortKey: key } })
+  changes.push({ itemId: action.id, dim: 'placement', before: null, after: { horizon: action.horizon, periodId, sortKey: key, nestingParentId: null } })
   if (action.parentId && !op.actions.some(other => other.t === 'rel.link' && other.parentId === action.parentId && other.childId === action.id)) {
     link(driver, prefix, op, { t: 'rel.link', id: `rel-${op.opId}`, parentId: action.parentId, childId: action.id }, changes)
   }
@@ -111,8 +112,9 @@ function setFields(driver: SqlDriver, prefix: string, op: SyncOp, action: Extrac
   if (fields.description !== undefined && fields.description !== text(item, 'description')) changes.push({ itemId: action.id, dim: 'description', before: text(item, 'description'), after: fields.description })
   if (fields.dueDate !== undefined && fields.dueDate !== text(item, 'dueDate')) changes.push({ itemId: action.id, dim: 'dueDate', before: text(item, 'dueDate'), after: fields.dueDate })
   if (fields.flowColor !== undefined && fields.flowColor !== null) {
-    const placement = driver.prepare(`SELECT horizon FROM ${prefix}item_placements WHERE itemId=?`).get(action.id)
+    const placement = driver.prepare(`SELECT horizon, nestingParentId FROM ${prefix}item_placements WHERE itemId=?`).get(action.id)
     if (text(placement, 'horizon') === 'later') throw new SyncApplyError('horizon_order')
+    if (text(placement, 'nestingParentId')) throw new SyncApplyError('flow_root_parent')
   }
   if (fields.flowColor !== undefined && fields.flowColor !== (item.flowColor === null ? null : Number(item.flowColor))) {
     changes.push({ itemId: action.id, dim: 'flowColor', before: item.flowColor === null ? null : Number(item.flowColor), after: fields.flowColor })
@@ -140,11 +142,39 @@ function placeItem(driver: SqlDriver, prefix: string, op: SyncOp, action: { id: 
   if (!placement) throw new SyncApplyError('item_deleted')
   const periodId = ensurePeriod(driver, prefix, host, action.horizon, action.periodKey?.startDate ?? null)
   if (action.horizon === 'later') releaseLaterParents(driver, prefix, op, action.id, changes)
-  const key = sortKey(driver, prefix, action.horizon, periodId, action.sortHint.afterId, action.sortHint.beforeId, action.id)
-  const before = { horizon: text(placement, 'horizon'), periodId: text(placement, 'periodId'), sortKey: num(placement, 'sortKey') }
-  const after = { horizon: action.horizon, periodId, sortKey: key, reason }
+  const nestingParentId = text(placement, 'nestingParentId')
+  const key = sortKey(driver, prefix, action.horizon, periodId, action.sortHint.afterId, action.sortHint.beforeId, action.id, nestingParentId)
+  const before = { horizon: text(placement, 'horizon'), periodId: text(placement, 'periodId'), sortKey: num(placement, 'sortKey'), nestingParentId }
+  const after = { horizon: action.horizon, periodId, sortKey: key, nestingParentId, reason }
   changes.push({ itemId: action.id, dim: 'placement', before, after })
   driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, sortKey=?, version=version+1, holdPeriodId=NULL WHERE itemId=?`).run(action.horizon, periodId, key, action.id)
+  driver.prepare(`UPDATE ${prefix}items SET updatedAt=?, version=version+1 WHERE id=?`).run(op.at, action.id)
+  return 'applied'
+}
+
+function nestItem(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Action, { t: 'item.nest' }>, host: ApplyHost, changes: CanonChange[]): 'applied' {
+  const child = requireItem(driver, prefix, action.id)
+  const placement = driver.prepare(`SELECT * FROM ${prefix}item_placements WHERE itemId=?`).get(action.id)
+  if (!placement) throw new SyncApplyError('item_deleted')
+  const periodId = ensurePeriod(driver, prefix, host, action.horizon, action.periodKey?.startDate ?? null)
+  if (action.parentId) {
+    if (action.parentId === action.id) throw new SyncApplyError('outline_conflict')
+    requireItem(driver, prefix, action.parentId)
+    const parentPlace = driver.prepare(`SELECT horizon, periodId, nestingParentId FROM ${prefix}item_placements WHERE itemId=?`).get(action.parentId)
+    if (!parentPlace || text(parentPlace, 'nestingParentId')) throw new SyncApplyError('outline_conflict')
+    if (text(parentPlace, 'horizon') !== action.horizon || text(parentPlace, 'periodId') !== periodId) throw new SyncApplyError('outline_conflict')
+    const ownChild = driver.prepare(`SELECT 1 FROM ${prefix}item_placements p JOIN ${prefix}items i ON i.id=p.itemId WHERE p.nestingParentId=? AND i.deletedAt IS NULL LIMIT 1`).get(action.id)
+    if (ownChild) throw new SyncApplyError('outline_conflict')
+    if (child.flowColor !== null && child.flowColor !== undefined) throw new SyncApplyError('flow_root_parent')
+    const incoming = driver.prepare(`SELECT 1 FROM ${prefix}item_relations WHERE childId=? AND invalidatedAt IS NULL LIMIT 1`).get(action.id)
+    if (incoming) throw new SyncApplyError('flow_root_parent')
+  }
+  const key = sortKey(driver, prefix, action.horizon, periodId, action.sortHint.afterId, action.sortHint.beforeId, action.id, action.parentId)
+  const before = { horizon: text(placement, 'horizon'), periodId: text(placement, 'periodId'), sortKey: num(placement, 'sortKey'), nestingParentId: text(placement, 'nestingParentId') }
+  const after = { horizon: action.horizon, periodId, sortKey: key, nestingParentId: action.parentId }
+  changes.push({ itemId: action.id, dim: 'placement', before, after })
+  driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, sortKey=?, nestingParentId=?, version=version+1, holdPeriodId=CASE WHEN ? IS NULL THEN holdPeriodId ELSE NULL END WHERE itemId=?`)
+    .run(action.horizon, periodId, key, action.parentId, action.parentId, action.id)
   driver.prepare(`UPDATE ${prefix}items SET updatedAt=?, version=version+1 WHERE id=?`).run(op.at, action.id)
   return 'applied'
 }
@@ -172,9 +202,12 @@ function deleteItem(driver: SqlDriver, prefix: string, op: SyncOp, id: string, c
 function discardIfEmpty(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Action, { t: 'item.discardIfEmpty' }>, changes: CanonChange[]): 'applied' {
   const item = requireItem(driver, prefix, action.id)
   const linked = driver.prepare(`SELECT 1 FROM ${prefix}item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?) LIMIT 1`).get(action.id, action.id)
+  const placement = driver.prepare(`SELECT nestingParentId FROM ${prefix}item_placements WHERE itemId=?`).get(action.id)
+  const child = driver.prepare(`SELECT 1 FROM ${prefix}item_placements p JOIN ${prefix}items i ON i.id=p.itemId WHERE p.nestingParentId=? AND i.deletedAt IS NULL LIMIT 1`).get(action.id)
   const guidance = driver.prepare(`SELECT value FROM ${prefix}item_guidance WHERE itemId=?`).get(action.id)
   const empty = !String(text(item, 'description') ?? '').trim() && !text(item, 'dueDate') && item.flowColor === null
     && text(item, 'status') === 'todo' && !text(item, 'archivedAt') && num(item, 'version') === action.expectVersion && !linked && !text(guidance, 'value')
+    && !text(placement, 'nestingParentId') && !child
   if (!empty) throw new SyncApplyError('discard_not_empty')
   return deleteItem(driver, prefix, op, action.id, changes)
 }
@@ -243,7 +276,8 @@ function link(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Act
   const parent = requireItem(driver, prefix, action.parentId)
   const child = requireItem(driver, prefix, action.childId)
   const parentPlace = driver.prepare(`SELECT horizon FROM ${prefix}item_placements WHERE itemId=?`).get(action.parentId)
-  const childPlace = driver.prepare(`SELECT horizon FROM ${prefix}item_placements WHERE itemId=?`).get(action.childId)
+  const childPlace = driver.prepare(`SELECT horizon, nestingParentId FROM ${prefix}item_placements WHERE itemId=?`).get(action.childId)
+  if (text(childPlace, 'nestingParentId')) throw new SyncApplyError('flow_root_parent')
   if (!parentPlace || !childPlace || !longerHorizon(String(parentPlace.horizon), String(childPlace.horizon))) throw new SyncApplyError('horizon_order')
   if (child.flowColor !== null) {
     if (!action.adoptParentFlow) throw new SyncApplyError('flow_root_parent')
@@ -349,8 +383,11 @@ function invertChange(driver: SqlDriver, prefix: string, op: SyncOp, host: Apply
     const value = parsed as { status: string; completedAt: string | null; cancelledAt: string | null }
     driver.prepare(`UPDATE ${prefix}items SET status=?, completedAt=?, cancelledAt=?, updatedAt=?, version=version+1 WHERE id=?`).run(value.status, value.completedAt, value.cancelledAt, op.at, itemId)
   } else if (dim === 'placement' && itemId && parsed && typeof parsed === 'object') {
-    const value = parsed as { horizon: string; periodId: string | null; sortKey?: number }
-    if (typeof value.sortKey === 'number') driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, sortKey=?, version=version+1 WHERE itemId=?`).run(value.horizon, value.periodId, value.sortKey, itemId)
+    const value = parsed as { horizon: string; periodId: string | null; sortKey?: number; nestingParentId?: string | null }
+    const nesting = Object.prototype.hasOwnProperty.call(value, 'nestingParentId')
+    if (typeof value.sortKey === 'number' && nesting) driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, sortKey=?, nestingParentId=?, version=version+1 WHERE itemId=?`).run(value.horizon, value.periodId, value.sortKey, value.nestingParentId ?? null, itemId)
+    else if (typeof value.sortKey === 'number') driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, sortKey=?, version=version+1 WHERE itemId=?`).run(value.horizon, value.periodId, value.sortKey, itemId)
+    else if (nesting) driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, nestingParentId=?, version=version+1 WHERE itemId=?`).run(value.horizon, value.periodId, value.nestingParentId ?? null, itemId)
     else driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, version=version+1 WHERE itemId=?`).run(value.horizon, value.periodId, itemId)
   } else if (dim === 'delete' && itemId) {
     driver.prepare(`UPDATE ${prefix}items SET deletedAt=NULL, deletedBy=NULL, updatedAt=?, version=version+1 WHERE id=?`).run(op.at, itemId)

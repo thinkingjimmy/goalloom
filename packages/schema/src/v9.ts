@@ -74,6 +74,7 @@ const prefixIdents = [
   'unique_flow_color', 'unique_active_edge', 'placements_period_order', 'items_status_time', 'items_visibility',
   'relations_child', 'relations_parent', 'flow_root_edge_insert', 'flow_root_edge_update', 'flow_root_color',
   'placement_scale_insert', 'placement_scale_update', 'relation_guard_insert', 'relation_guard_update',
+  'placements_nesting', 'nesting_guard_insert', 'nesting_guard_update',
   'workspace', 'items',
 ]
 

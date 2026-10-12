@@ -1,9 +1,10 @@
 /**
- * [INPUT]: A live TODO, its upcoming periods with localized names, guarded submission, detail opening and an optional decompose action.
- * [OUTPUT]: Compact pointer/keyboard context menu with non-redundant yearless date hints, persistent source-row activation, virtual-row pinning and deterministic focus restoration.
+ * [INPUT]: A visible task, outline membership, eligible upcoming periods, guarded submission, detail navigation and optional todo assistance/decomposition.
+ * [OUTPUT]: Compact pointer/keyboard hierarchy and lifecycle actions with yearless dates, source-row activation, virtual pinning and deterministic focus return.
  * [POS]: Board-only action wrapper; the main process resolves and validates the actual next period.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { nestingText } from '../../../shared/i18n/nesting'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Action } from '../../state/use-workspace'
@@ -15,7 +16,9 @@ import { revealRow } from './VirtualRows'
 
 export interface Upcoming { period: PlanningPeriod; label: string; hint: string | null }
 
-export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, assist, onMenu, onMoved, children }: {
+export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, assist, onMenu, onMoved, children, onNest, hasNestedChildren }: {
+  hasNestedChildren: boolean
+  onNest: () => void
   item: ItemSummary; upcoming: Upcoming[]; relations: number; disabled: boolean; children: ReactElement
   submit: (action: Action) => Promise<unknown>; select: (id: string) => void; decompose: (() => void) | null; assist?: (() => void) | undefined
   onMenu: (id: string | null) => void; onMoved: (id: string) => void
@@ -66,11 +69,14 @@ export function TaskMenu({ item, upcoming, relations, disabled, submit, select, 
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSeparator /></>}
+      <ContextMenuItem disabled={disabled || hasNestedChildren} title={hasNestedChildren ? nestingText().levels : undefined} onSelect={() => { selecting.current = true; onNest() }}><Icon name="split" size={16} /><span>{nestingText().nest}</span></ContextMenuItem>
+      {item.placement.nestingParentId && <ContextMenuItem disabled={disabled} onSelect={() => void submit({ type: 'unnest', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version })}><Icon name="forward" size={16} /><span>{nestingText().unnest}</span></ContextMenuItem>}
+      <ContextMenuSeparator />
       {assist && <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; assist() }}><Icon name="smart" size={16} /><span className="context-menu-label">{assistanceMessages().title}</span></ContextMenuItem>}
       {decompose && <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; decompose() }}><Icon name="smart" size={16} /><span className="context-menu-label">{t.menuDecompose}</span></ContextMenuItem>}
-      {item.placement.horizon !== 'later' && <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; select(item.id) }}><Icon name="split" size={16} /><span className="context-menu-label">{t.menuLinkParent}</span></ContextMenuItem>}
+      {item.placement.horizon !== 'later' && !item.placement.nestingParentId && <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; select(item.id) }}><Icon name="split" size={16} /><span className="context-menu-label">{t.menuLinkParent}</span></ContextMenuItem>}
       <ContextMenuSeparator />
-      <ContextMenuItem disabled={disabled} onSelect={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: 'done' })}><Icon name="check" size={16} /><span className="context-menu-label">{t.menuComplete}</span></ContextMenuItem>
+      <ContextMenuItem disabled={disabled} onSelect={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: item.status === 'done' ? 'todo' : 'done' })}><Icon name="check" size={16} /><span className="context-menu-label">{item.status === 'done' ? messages.reopenAction : t.menuComplete}</span></ContextMenuItem>
       <ContextMenuItem className="danger" disabled={disabled} onSelect={() => {
         if (relations && !window.confirm(messages.deletePreview(relations))) return
         void submit({ type: 'delete', itemId: item.id, expectedVersion: item.version })

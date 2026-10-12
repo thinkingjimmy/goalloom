@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Finite generation/item/date/cursor requests and bounded strict response schemas.
- * [OUTPUT]: Current/past summaries, guidance and assisted-note detail projections, execution facts and frozen context reads.
+ * [OUTPUT]: Current/past summaries, nesting/context metadata, effective relations, assisted-note details and execution facts.
  * [POS]: Read contract; only on-demand details/context carry bounded task bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -36,19 +36,25 @@ export const querySchema = z.discriminatedUnion('type', [
 export type Query = z.infer<typeof querySchema>
 export type ListView = Extract<Query, { type: 'list' }>['view']
 export const relationViewSchema = relationSchema.extend({ parentTitle: z.string(), childTitle: z.string(), parentArchived: z.boolean(), childArchived: z.boolean() })
-export const topologySchema = relationSchema.pick({ id: true, parentId: true, childId: true })
+export const topologySchema = relationSchema.pick({ id: true, parentId: true, childId: true, inheritedFrom: true })
+export const nestingLinkSchema = z.strictObject({ parentId: idSchema, childId: idSchema })
 export const flowSchema = z.strictObject({ id: idSchema, title: z.string(), flowColor: flowColorSchema, archived: z.boolean() })
-export const orderNodeSchema = z.strictObject({ id: idSchema, horizon: horizonSchema, periodId: idSchema.nullable(), sortKey: z.number().finite(), periodStart: dateSchema.nullable(), periodEnd: instantSchema.nullable() })
+export const orderNodeSchema = z.strictObject({ id: idSchema, horizon: horizonSchema, periodId: idSchema.nullable(), sortKey: z.number().finite(), nestingParentId: idSchema.nullable().optional(), periodStart: dateSchema.nullable(), periodEnd: instantSchema.nullable() })
 export type OrderNode = z.infer<typeof orderNodeSchema>
 export const snapshotSchema = z.strictObject({
   workspace: workspaceSchema, periods: z.array(periodSchema), items: z.array(itemSummarySchema), relations: z.array(topologySchema), policies: z.array(policySchema),
   backlog: z.record(z.string(), z.number().int().nonnegative()), observedAt: z.string(), maintenance: z.boolean(), backupError: z.string().nullable(),
   rolloverSources: z.record(idSchema, dateSchema), flows: z.array(flowSchema), orderNodes: z.array(orderNodeSchema),
+  nesting: z.array(nestingLinkSchema).optional(), nestingParents: z.array(itemSummarySchema).optional(),
 })
 export const itemPageSchema = z.strictObject({ items: z.array(itemSummarySchema), total: z.number().int().nonnegative(), periods: z.array(periodSchema).optional() })
-export const boardPeriodsSchema = snapshotSchema.pick({ periods: true, items: true, rolloverSources: true, orderNodes: true }).extend({ generation: idSchema, revision: z.number().int().nonnegative() })
+export const boardPeriodsSchema = snapshotSchema.pick({ periods: true, items: true, rolloverSources: true, orderNodes: true, nestingParents: true }).extend({ generation: idSchema, revision: z.number().int().nonnegative() })
 export type BoardPeriods = z.infer<typeof boardPeriodsSchema>
-export const detailSchema = z.strictObject({ item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema), guidance: guidanceRecordSchema.nullable().optional(), assistedNotes: z.boolean().optional() })
+export const detailSchema = z.strictObject({
+  item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema),
+  nestingParent: itemSummarySchema.nullable().optional(), hasNestingChildren: z.boolean().optional(),
+  guidance: guidanceRecordSchema.nullable().optional(), assistedNotes: z.boolean().optional(),
+})
 export type Snapshot = z.infer<typeof snapshotSchema>
 export const reviewContextSchema = z.strictObject({
   board: snapshotSchema, planning: snapshotSchema, closing: z.array(itemSummarySchema), sourcePeriods: z.array(periodSchema), unknown: z.number().int().nonnegative(),

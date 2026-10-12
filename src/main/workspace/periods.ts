@@ -40,5 +40,5 @@ export function readBoardPeriods(store: Store, query: Extract<Query, { type: 'bo
   const periods = query.periods.map(({ horizon, startDate }) => readPlanningPeriod(store, horizon, startDate, now))
   const ids = periods.map(period => period.id)
   const items = store.summaries(`i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status!='cancelled' AND p.periodId IN (${ids.map(() => '?').join(',')})`, ids)
-  return { generation: workspace.generation, revision: workspace.revision, periods, items, orderNodes: orderNodes(store, items.map(item => item.id)), rolloverSources: periodRolloverSources(store, ids) }
+  return { generation: workspace.generation, revision: workspace.revision, periods, items, nestingParents: store.nestingParents(items), orderNodes: orderNodes(store, items.map(item => item.id)), rolloverSources: periodRolloverSources(store, ids) }
 }

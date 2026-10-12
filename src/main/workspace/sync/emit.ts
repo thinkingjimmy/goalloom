@@ -72,7 +72,7 @@ function emitRolloverUndo(db: DatabaseSync, originalId: string, undoId: string, 
   const undone = db.prepare('SELECT effectIndex FROM undo_effects WHERE originalId=? AND undoId=?').all(originalId, undoId)
   for (const marker of undone) {
     const effect = effects[Number(marker.effectIndex)]
-    if (!effect || effect.kind !== 'position' || effect.before.periodId === effect.after.periodId) continue
+    if (!effect || (effect.kind !== 'position' && effect.kind !== 'groupPlacement') || effect.before.periodId === effect.after.periodId) continue
     const from = periodKey(db, effect.before.periodId)
     const to = periodKey(db, effect.after.periodId)
     if (!from || !to) continue
@@ -130,6 +130,8 @@ function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect
     if (effect.kind === 'description') actions.push({ t: 'item.set', id: effect.itemId, fields: { description: effect.after } })
     if (effect.kind === 'status') actions.push({ t: 'item.status', id: effect.itemId, status: effect.after.status, completedAt: effect.after.completedAt, cancelledAt: effect.after.cancelledAt })
     if (effect.kind === 'position') actions.push(placeAction(db, effect.itemId, effect.after.horizon, effect.after.periodId, effect.after.previousId, effect.after.nextId, input.command.type === 'arrangeBacklog' || input.command.type === 'materializeParentOrder' ? 'arrange' : 'move'))
+    if (effect.kind === 'groupPlacement') actions.push(placeAction(db, effect.itemId, effect.after.horizon, effect.after.periodId, null, null, input.command.type === 'arrangeBacklog' || input.command.type === 'materializeParentOrder' ? 'arrange' : 'move'))
+    if (effect.kind === 'nesting') actions.push(...nestingActions(db, effect))
     if (effect.kind === 'archive') actions.push({ t: 'item.archive', id: effect.itemId, archivedAt: effect.after })
     if (effect.kind === 'visibility' && effect.after.deletedAt) {
       const before = input.before.get(effect.itemId)
@@ -180,6 +182,21 @@ function createActions(db: DatabaseSync, itemId: string, relations: string[]): A
     return edge ? { t: 'rel.link' as const, id: String(edge.id), parentId: String(edge.parentId), childId: String(edge.childId) } : null
   }).filter(value => value !== null) : []
   return [action, ...link]
+}
+
+function nestingActions(db: DatabaseSync, effect: Extract<Effect, { kind: 'nesting' }>): Action[] {
+  const unlinks = effect.edges.flatMap(edge => edge.after.invalidatedAt ? [{ t: 'rel.unlink' as const, id: edge.after.id }] : [])
+  const links = effect.edges.flatMap(edge => !edge.before && !edge.after.invalidatedAt
+    ? [{ t: 'rel.link' as const, id: edge.after.id, parentId: edge.after.parentId, childId: edge.after.childId }] : [])
+  const color = effect.flowColor ? [{ t: 'item.set' as const, id: effect.itemId, fields: { flowColor: null as null } }] : []
+  const period = effect.after.periodId ? db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(effect.after.periodId) : undefined
+  const nest: Action = {
+    t: 'item.nest', id: effect.itemId, parentId: effect.after.nestingParentId, horizon: effect.after.horizon as 'later',
+    periodKey: period ? { horizon: String(period.horizon) as 'week', startDate: String(period.startDate) } : null,
+    sortHint: { afterId: effect.after.previousId, beforeId: effect.after.nextId },
+  }
+  // Clear incoming goal edges and color before the child becomes nested. Materialized edges are written after it is independent again.
+  return effect.after.nestingParentId ? [...unlinks, ...color, nest] : [...unlinks, ...color, nest, ...links]
 }
 
 function placeAction(db: DatabaseSync, itemId: string, horizon: string, periodId: string | null, previousId: string | null, nextId: string | null, reason: 'move' | 'arrange' | 'rollover'): Action {

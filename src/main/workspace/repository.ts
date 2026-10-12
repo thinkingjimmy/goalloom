@@ -1,9 +1,11 @@
 /**
  * [INPUT]: Strict commands/queries, injected clock, Store and bounded ExecutionQueries.
- * [OUTPUT]: Authoritative atomic writes, v1/v2 receipts, facts caches and detail projections including non-undone note rewrites.
+ * [OUTPUT]: Authoritative atomic writes, v1/v2/v3 receipts and effective outline relationships, facts caches and detail projections including non-undone note rewrites.
  * [POS]: Sole workspace write boundary called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { effectsVersion } from '../../shared/contracts/effects'
+import { nestItem, unnestItem, assertOutline } from './commands/nesting'
 import { createHash } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import { compareInstants, currentPeriod, workspaceDate, type Clock } from '../../domain/calendar'
@@ -51,14 +53,18 @@ export class Repository {
     const now = this.clock.now()
     const context: Context = { store: this.store, workspace, command, now, effects: [], warnings: [], itemId: null, label: '' }
     const changed = command.type === 'undo' ? this.undo(context, command) : this.dispatch(context, command)
-    if (changed) workspace.revision++
+    if (command.type === 'delete' || command.type === 'restoreItem') for (const effect of context.effects) if (effect.kind === 'nesting') {
+      const position = this.store.position(this.store.item(effect.itemId))
+      effect.after.previousId = position.previousId; effect.after.nextId = position.nextId
+    }
+    if (changed) { assertOutline(context); workspace.revision++ }
     if (workspace.lastObservedAt && compareInstants(now, workspace.lastObservedAt) < 0) workspace.clockAnomaly = true
     else workspace.lastObservedAt = now
     this.store.saveWorkspace(workspace)
     const result: CommandResult = { operationId: command.operationId, generation: command.generation, changed, undoable: context.effects.length > 0,
       outcome: context.outcome ?? 'committed', itemId: context.itemId, label: context.label, warnings: context.warnings, restoreSource: context.restoreSource ?? null, originalOperationId: command.type === 'undo' || command.type === 'undoBatch' ? command.originalOperationId : null,
       ...(context.itemIds ? { itemIds: context.itemIds } : {}) }
-    this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: 'user', at: now, effectsVersion: context.effects.some(effect => ['guidance', 'description'].includes(effect.kind)) ? 2 : 1, effects: context.effects, result })
+    this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: 'user', at: now, effectsVersion: effectsVersion(context.effects), effects: context.effects, result })
     for (const effect of context.undone ?? []) this.db.prepare('INSERT INTO undo_effects VALUES (?,?,?)').run(effect.originalId, effect.index, command.operationId)
     emitSyncOp(this.db, { command, effects: context.effects, before: syncBefore, at: now, changed })
     return result
@@ -89,6 +95,8 @@ export class Repository {
       case 'createPlan': return createPlan(context, command)
       case 'edit': return editItem(context, command)
       case 'flowColor': return setFlowColor(context, command)
+      case 'nest': return nestItem(context, command)
+      case 'unnest': return unnestItem(context, command)
       case 'move': return moveItem(context, command)
       case 'materializeParentOrder': return materializeParentOrder(context)
       case 'link': return linkItems(context, command)
@@ -136,15 +144,18 @@ export class Repository {
     const rolloverSources = Object.fromEntries(sources.map(row => [String(row.itemId), String(row.startDate)]))
     const flows = this.db.prepare('SELECT id,title,flowColor,archivedAt FROM items WHERE flowColor IS NOT NULL AND deletedAt IS NULL ORDER BY flowColor').all()
       .map(row => ({ id: String(row.id), title: String(row.title), flowColor: Number(row.flowColor), archived: row.archivedAt !== null }))
-    return { workspace, periods, items, orderNodes: orderNodes(this.store, items.map(item => item.id)), relations: this.db.prepare('SELECT id,parentId,childId FROM item_relations WHERE invalidatedAt IS NULL ORDER BY createdAt,id').all() as Snapshot['relations'], policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance, backupError: null, rolloverSources, flows }
+    return { workspace, periods, items, orderNodes: orderNodes(this.store, items.map(item => item.id)), relations: this.store.effectiveRelations().map(({ id, parentId, childId, inheritedFrom }) => ({ id, parentId, childId, ...(inheritedFrom ? { inheritedFrom } : {}) })), nesting: this.store.nestingLinks(), nestingParents: this.store.nestingParents(items), policies: this.store.policies(), backlog, observedAt, maintenance: this.maintenance, backupError: null, rolloverSources, flows }
   }
   relationViews(itemId: string): ItemDetail['relations'] {
-    return this.db.prepare('SELECT r.*,p.title AS parentTitle,c.title AS childTitle,p.archivedAt AS parentArchived,c.archivedAt AS childArchived FROM item_relations r JOIN items p ON p.id=r.parentId JOIN items c ON c.id=r.childId WHERE r.invalidatedAt IS NULL AND (r.parentId=? OR r.childId=?) ORDER BY r.createdAt,r.id').all(itemId, itemId)
-      .map(row => ({ ...row, parentArchived: row.parentArchived !== null, childArchived: row.childArchived !== null })) as unknown as ItemDetail['relations']
+    const edges = this.store.effectiveRelations().filter(edge => edge.parentId === itemId || edge.childId === itemId)
+    const ids = [...new Set(edges.flatMap(edge => [edge.parentId, edge.childId]))]
+    const titles = new Map(this.store.prepare('SELECT id,title,archivedAt FROM items WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(ids)).map(row => [String(row.id), row]))
+    return edges.map(edge => ({ ...edge, parentTitle: String(titles.get(edge.parentId)?.title ?? ''), childTitle: String(titles.get(edge.childId)?.title ?? ''),
+      parentArchived: !!titles.get(edge.parentId)?.archivedAt, childArchived: !!titles.get(edge.childId)?.archivedAt }))
   }
   detail(itemId: string): ItemDetail {
     const item = this.store.item(itemId)
-    return { item, period: item.placement.periodId ? this.store.period(item.placement.periodId) : null, relations: this.relationViews(itemId), guidance: this.store.guidance(itemId),
+    return { item, period: item.placement.periodId ? this.store.period(item.placement.periodId) : null, relations: this.relationViews(itemId), nestingParent: item.placement.nestingParentId ? this.store.nestingParents([{ ...item, note: null }])[0] ?? null : null, hasNestingChildren: this.store.hasNestedChildren(itemId), guidance: this.store.guidance(itemId),
       assistedNotes: !!this.db.prepare("SELECT 1 FROM item_events e WHERE e.itemId=? AND e.type='description_changed' AND NOT EXISTS (SELECT 1 FROM undo_effects u WHERE u.originalId=e.operationId) LIMIT 1").get(itemId) }
   }
   list(query: Extract<Query, { type: 'list' }>): ItemPage {

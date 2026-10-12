@@ -285,3 +285,30 @@ it('keeps the higher workspace revision across a visible rebuild', () => {
   expect(Number(driver.prepare('SELECT revision FROM workspace WHERE id=1').get()?.revision)).toBe(9)
   db.close()
 })
+
+it('nests within one period, rejects a third level, and revert restores color and membership', () => {
+  const { db, driver, host } = openSync()
+  periods(driver)
+  seedItem(driver, 'base', 'P', '父', null)
+  seedItem(driver, 'base', 'C', '子', 2, 1024)
+  seedItem(driver, 'base', 'G', '孙', null, 2048)
+  place(driver, 'P', 'month', 'month-1')
+  place(driver, 'C', 'month', 'month-1')
+  place(driver, 'G', 'month', 'month-1')
+  const nested = apply(driver, host, 1, [
+    { t: 'item.set', id: 'C', fields: { flowColor: null } },
+    { t: 'item.nest', id: 'C', parentId: 'P', horizon: 'month', periodKey: { horizon: 'month', startDate: '2026-09-01' }, sortHint: { afterId: null, beforeId: null } },
+  ])
+  expect(driver.prepare(`SELECT nestingParentId FROM base_item_placements WHERE itemId='C'`).get()?.nestingParentId).toBe('P')
+  expect(colorOf(driver, 'C')).toBeNull()
+  apply(driver, host, 2, [
+    { t: 'item.nest', id: 'G', parentId: 'C', horizon: 'month', periodKey: { horizon: 'month', startDate: '2026-09-01' }, sortHint: { afterId: null, beforeId: null } },
+  ])
+  expect(String(driver.prepare('SELECT errorCode FROM canon_ops WHERE seq=2').get()?.errorCode)).toBe('outline_conflict')
+  apply(driver, host, 3, [{ t: 'revert', targetOpId: nested, mode: 'all_or_nothing' }])
+  expect(driver.prepare(`SELECT nestingParentId FROM base_item_placements WHERE itemId='C'`).get()?.nestingParentId).toBeNull()
+  expect(colorOf(driver, 'C')).toBe(2)
+  rebuildVisibleFull(driver, host)
+  expect(driver.prepare(`SELECT nestingParentId FROM item_placements WHERE itemId='C'`).get()?.nestingParentId).toBeNull()
+  db.close()
+})

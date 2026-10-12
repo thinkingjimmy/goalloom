@@ -1,11 +1,17 @@
 /**
  * [INPUT]: Shared appearance tokens, Select/link classes and review progress/choice states.
- * [OUTPUT]: Shared review/planning guides, responsive modal, joined task connectors, compact dropdowns and borderless draft editing.
+ * [OUTPUT]: Review/planning guides with a distinct dismiss control for weekly reminders, responsive modal, joined task connectors, content-sized dropdowns and borderless draft editing.
  * [POS]: Flow-insight presentation; shared primitives retain their menu and link behaviour.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .review-drawer { --ok-mark: light-dark(#567a53, #83af7b); }
 .review-guide { margin: 6px var(--row-inset) 12px; padding: 12px; background: var(--surface, var(--bg)); border: 1px solid var(--line); border-radius: 9px; }
+.review-guide-head { display: flex; align-items: flex-start; gap: 8px; }
+.review-guide-head .review-guide-meta { flex: 1; min-width: 0; }
+.review-guide-meta svg { flex-shrink: 0; }
+.review-guide .review-guide-dismiss { margin: -5px -5px 0 0; color: var(--secondary); }
+.review-guide .review-guide-dismiss:hover { color: var(--fg); }
+@media (pointer: coarse) { .review-guide .review-guide-dismiss { width: 44px; height: 44px; } }
 .review-guide-meta { display: flex; align-items: center; gap: 6px; color: var(--secondary); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
 .review-guide h3 { margin: 8px 0 0; color: var(--fg); font-size: 14px; font-weight: 500; line-height: 22px; text-wrap: pretty; }
 .review-guide p { margin: 4px 0 0; color: var(--secondary); font-size: 12px; line-height: 20px; }
@@ -89,7 +95,7 @@
 .review-close-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; min-height: 34px; padding: 2px 0; }
 .review-close-row .review-goal-title { display: flex; align-items: flex-start; gap: 8px; padding-top: 4px; white-space: pre-wrap; }
 .review-todo-check { margin-top: calc((21px - var(--check-size)) / 2); pointer-events: none; }
-.review-drawer .review-choice { width: 160px; max-width: 48%; flex-shrink: 0; min-height: 30px; padding: 4px 12px; font-size: 13px; }
+.review-drawer .review-choice { width: auto; max-width: 48%; flex-shrink: 0; min-height: 30px; padding: 4px 12px; font-size: 13px; }
 .review-choice .select-value { white-space: normal; overflow: visible; text-overflow: clip; }
 .review-close-row[data-choice=keep] .review-choice { color: var(--secondary); }
 .review-close-row[data-choice=archive] .review-choice { color: var(--insight-skip); }
@@ -101,7 +107,7 @@
 .review-plan-source { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1; font-size: 14px; line-height: 21px; color: var(--fg); overflow-wrap: anywhere; }
 .review-item-title { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .review-records .review-item-title, .review-plan-source .review-item-title { flex: 1; }
-.review-plan-head .review-choice { width: auto; margin-top: -4px; }
+.review-plan-head .review-choice { margin-top: -4px; }
 .review-plan-child { display: flex; align-items: center; gap: 8px; min-height: var(--plan-child-height); margin-left: var(--plan-indent); }
 .review-plan-child .review-todo-check { margin-top: 0; }
 .review-plan-row .seed-title { flex: 1; min-width: 0; height: var(--plan-child-height); padding: 2px 0; border: 0; border-radius: 3px; font-size: 14px; line-height: 22px; background: none; color: var(--fg); }

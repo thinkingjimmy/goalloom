@@ -1,8 +1,14 @@
-/* --- Global composer: an input method — the text field, then one candidate strip (recommendation, adjust list or state). Tokens only. --- */
+/**
+ * [INPUT]: Shared appearance tokens, palette modal styles and composer content states.
+ * [OUTPUT]: Composer layout without an empty-state divider, candidate strips, draft controls and provider forms.
+ * [POS]: Shared presentation for global and seeded composers, plus onboarding/settings provider forms.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 /* Short by design (≤ 8 one-line drafts), so inline menus may overflow the dialog instead of being clipped. */
 .modal.palette.composer-modal { width: min(600px, calc(100vw - 40px)); max-height: none; overflow: visible; }
 .modal.palette.composer-modal .modal-header { position: static; height: auto; min-height: 56px; align-items: flex-start; gap: 4px; padding: 16px 10px 14px 18px; }
 .modal.palette.composer-modal .modal-header { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+.modal.palette.composer-modal:has(> .composer-body:empty) .modal-header { border-bottom: 0; }
 .modal.palette.composer-modal .modal-header > .icon-button { margin-top: -6px; }
 .palette-search.composer-search { align-items: flex-start; }
 .composer-search > svg { margin-top: 3px; flex-shrink: 0; }

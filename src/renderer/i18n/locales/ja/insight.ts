@@ -1,6 +1,6 @@
 /**
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
- * [OUTPUT]: Japanese flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, matrix legends and settings.
+ * [OUTPUT]: Japanese flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, reminder dismissal, matrix legends and settings.
  * [POS]: Japanese insight catalog matching the source; model prompts are not here (fixed Chinese).
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -42,6 +42,7 @@ export const insightMessages: InsightCatalog = {
   reviewGuidePending: (count: number) => `未完了の ${count} 件を一緒に整理しましょう。`,
   reviewStart: (period: string) => `${period}の振り返りを始める`,
   reviewContinue: '振り返りを続ける',
+  reviewDismiss: '今回の振り返りを非表示',
   reviewLookBack: (period: string) => `${period}の振り返り`,
   reviewArrange: (period: string) => `${period}の計画`,
   reviewHandle: '未完了を整理',

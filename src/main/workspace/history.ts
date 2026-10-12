@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated history/activity queries, Store and observation time.
- * [OUTPUT]: Immutable history/activity and generation/revision-guarded live past tasks, excluding empty-detail discards.
+ * [OUTPUT]: Immutable history/activity and guarded live past tasks with outline context, excluding empty-detail discards.
  * [POS]: Read-only past-period adapter; live placement queries never rewrite history or materialize periods.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -66,7 +66,7 @@ export function readPastPeriod(store: Store, query: Extract<Query, { type: 'past
   const offset = Math.min(query.offset, Math.max(0, Math.ceil(total / query.limit) - 1) * query.limit)
   const items = store.summaries(where, [period.id, query.limit, offset],
     "ORDER BY CASE WHEN i.deletedAt IS NOT NULL THEN 2 WHEN i.status='done' THEN 1 ELSE 0 END,p.sortKey,i.id LIMIT ? OFFSET ?")
-  return { ...periodNavigation(store, period), generation: workspace.generation, revision: workspace.revision, items, total, offset }
+  return { ...periodNavigation(store, period), generation: workspace.generation, revision: workspace.revision, items, nestingParents: store.nestingParents(items), total, offset }
 }
 
 function periodNavigation(store: Store, period: Period) {

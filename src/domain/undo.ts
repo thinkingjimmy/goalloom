@@ -11,7 +11,7 @@ import { serverText } from '../shared/i18n/server'
 import { assistanceServerText } from '../shared/i18n/assistance'
 
 export function samePosition(a: PositionEffect, b: PositionEffect): boolean {
-  return a.horizon === b.horizon && a.periodId === b.periodId && a.previousId === b.previousId && a.nextId === b.nextId
+  return a.horizon === b.horizon && a.periodId === b.periodId && a.previousId === b.previousId && a.nextId === b.nextId && (a.nestingParentId ?? null) === (b.nestingParentId ?? null)
 }
 export function sameEdge(a: Relation | undefined, b: Relation): boolean {
   return !!a && a.id === b.id && a.parentId === b.parentId && a.childId === b.childId && a.createdAt === b.createdAt
@@ -23,11 +23,13 @@ export function effectProblem(effect: Effect, item: Item, edges: Relation[], pos
   if (effect.kind === 'status' && !matchesStatus(item, effect.after)) return serverText().undo.statusChanged
   if (effect.kind === 'archive' && item.archivedAt !== effect.after) return serverText().undo.archiveChanged
   if (effect.kind === 'position' && !samePosition(position, effect.after)) return serverText().undo.positionChanged
+  if (effect.kind === 'nesting' && (!samePosition(position, effect.after) || (item.placement.nestingParentId ?? null) !== effect.after.nestingParentId)) return serverText().undo.positionChanged
+  if (effect.kind === 'groupPlacement' && (item.placement.horizon !== effect.after.horizon || item.placement.periodId !== effect.after.periodId || item.placement.nestingParentId !== effect.after.nestingParentId)) return serverText().undo.positionChanged
   if (effect.kind === 'visibility' && (item.deletedAt !== effect.after.deletedAt || item.deletedBy !== effect.after.deletedBy)) return serverText().undo.visibilityChanged
-  if (effect.kind === 'relations' || effect.kind === 'visibility') {
+  if (effect.kind === 'relations' || effect.kind === 'visibility' || effect.kind === 'nesting') {
     if (effect.edges.some(delta => !sameEdge(edges.find(edge => edge.id === delta.after.id), delta.after))) return serverText().undo.relationsChanged
   }
-  if (effect.kind === 'relations' && effect.flowColor && item.flowColor !== effect.flowColor.after) return serverText().undo.flowColorChanged
+  if ((effect.kind === 'relations' || effect.kind === 'nesting') && effect.flowColor && item.flowColor !== effect.flowColor.after) return serverText().undo.flowColorChanged
   if (effect.kind === 'create') {
     if (item.archivedAt || !matchesStatus(item, effect.status) || item.placement.horizon !== effect.horizon || item.placement.periodId !== effect.periodId) return serverText().undo.createdChanged
     const incident = edges.filter(edge => !edge.invalidatedAt && (edge.parentId === item.id || edge.childId === item.id))

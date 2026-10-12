@@ -1,9 +1,10 @@
 /**
  * [INPUT]: Item identity, relations, flow colors, eligible candidates and guarded submission.
- * [OUTPUT]: DetailFlowChip: parent selection for linked items, color selection for roots and flow choices for loose items; hidden in Later.
+ * [OUTPUT]: DetailFlowChip: parent selection, root colors, loose flow choices and read-only inherited goal provenance; hidden in Later.
  * [POS]: Detail property control matching the board flow dot. RelationPicker and flowColor transactions validate writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { nestingText } from '../../../shared/i18n/nesting'
 import { useMemo, useState } from 'react'
 import { horizons } from '../../../shared/contracts/values'
 import type { Item, ItemSummary } from '../../../shared/contracts/entities'
@@ -17,7 +18,7 @@ import { Icon } from '../../components/icons'
 import { FlowColorMenu, FlowDot } from './FlowPicker'
 import { RelationPicker } from './RelationPicker'
 
-type Mode = 'color' | 'relation' | 'choose'
+type Mode = 'color' | 'relation' | 'choose' | 'inherited'
 
 export function DetailFlowChip({ item, edges, flows, candidates, busy, readOnly, submit, onError }: {
   item: Item; edges: ItemDetail['relations']; flows: Flows; candidates: ItemSummary[]
@@ -26,11 +27,12 @@ export function DetailFlowChip({ item, edges, flows, candidates, busy, readOnly,
   const [mode, setMode] = useState<Mode | null>(null), [error, setError] = useState('')
   const parents = edges.filter(edge => edge.childId === item.id)
   const later = item.placement.horizon === 'later'
-  const role = parents.length > 0 ? 'child' : item.flowColor !== null ? 'root' : 'loose'
+  const role = parents.length > 0 || !!item.placement.nestingParentId ? 'child' : item.flowColor !== null ? 'root' : 'loose'
   const topmost = !horizons.some(horizon => mayParent(horizon, item.placement.horizon))
   const colors = flows.colorsOf(item.id)
   const impact = useMemo(() => {
     if (mode !== 'color') return 0
+    if (flows.descendantsOf) return flows.descendantsOf(item.id).length
     const seen = new Set<string>(), pending = [item.id]
     while (pending.length) {
       const id = pending.pop()!
@@ -49,13 +51,14 @@ export function DetailFlowChip({ item, edges, flows, candidates, busy, readOnly,
     ? messages.labelled(messages.flowColor, item.flowColor === null ? messages.flowUnset : messages.colorNames[item.flowColor]!)
     : role === 'child' ? messages.labelled(messages.parents, names || messages.parents) : messages.joinFlow
   return <Popover floating open={mode !== null} onClose={close} anchor={
-    <button type="button" className="detail-chip" data-dot={role === 'root'} data-empty={role === 'loose'} aria-haspopup="dialog" aria-expanded={mode !== null} aria-label={label} disabled={readOnly} onClick={() => { if (!busy) setMode(mode ? null : role === 'root' ? 'color' : role === 'child' ? 'relation' : 'choose') }}>
+    <button type="button" className="detail-chip" data-dot={role === 'root'} data-empty={role === 'loose'} aria-haspopup="dialog" aria-expanded={mode !== null} aria-label={label} disabled={readOnly} onClick={() => { if (!busy) setMode(mode ? null : item.placement.nestingParentId ? 'inherited' : role === 'root' ? 'color' : role === 'child' ? 'relation' : 'choose') }}>
       <FlowDot colors={role === 'loose' ? [] : colors} />
       {role === 'child' && <span className="detail-chip-text">{parents[0]?.parentTitle}</span>}
       {role === 'child' && parents.length > 1 && <span className="detail-chip-count">{parents.length}</span>}
-      {role === 'loose' && messages.joinFlow}
+      {role === 'loose' && (item.placement.nestingParentId ? nestingText().inherits : messages.joinFlow)}
     </button>
   }>
+    {mode === 'inherited' && <div className="menu" role="dialog" aria-label={nestingText().inherits}><p className="menu-note">{nestingText().inherited}</p>{parents.map(parent => <p key={parent.id} className="menu-note">{parent.parentTitle}{parent.parentArchived ? messages.archivedSuffix : ''}</p>)}</div>}
     {mode === 'color' && <FlowColorMenu itemId={item.id} color={item.flowColor} flows={flows} busy={busy} impact={impact} onChoose={choose} extra={role === 'root' && !topmost && <>
       <div className="menu-separator" />
       <button type="button" className="menu-item" disabled={busy} onClick={() => setMode('relation')}>

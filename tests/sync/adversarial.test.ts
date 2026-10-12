@@ -5,7 +5,7 @@ import {
   acceptNewerCheckpoint, checkpointHash, counterRandom, deriveRecovery, generateRecoveryMnemonic, hex,
   rosterHash, rosterWrapTargets, signCheckpoint, unwrap, verifyRecoveryJoin, wipeRecovery, wrap, type RosterBody,
 } from '@goalloom/crypto'
-import { exportCanonicalSnapshot, installCanonicalSnapshot, projectionHash } from '@goalloom/store-core'
+import { exportCanonicalSnapshot, installCanonicalSnapshot, projectionHash, rebuildVisibleFull } from '@goalloom/store-core'
 import { applyPushReceipts, rejectMissingKey, rejectUnknownFormat } from '@goalloom/sync'
 import { at, openSync, seedItem } from './fixture'
 
@@ -67,6 +67,25 @@ it('case 7 installs a snapshot without changing generation', () => {
   expect(minted).not.toBe(ws)
   expect(target.driver.prepare('SELECT title FROM base_items').get()).toEqual({ title: '保留' })
   expect(projectionHash(target.driver, 'base')).toBe(projectionHash(source.driver, 'base'))
+  source.db.close(); target.db.close()
+})
+
+it('a snapshot copies a nesting parent onto both projections', () => {
+  const source = openSync()
+  source.driver.prepare('UPDATE workspace SET generation=? WHERE id=1').run(ws)
+  source.driver.prepare('UPDATE base_workspace SET generation=? WHERE id=1').run(ws)
+  seedItem(source.driver, 'base', 'kept', '保留', null)
+  seedItem(source.driver, 'base', 'child', '子', null, 1024)
+  source.driver.prepare(`UPDATE base_item_placements SET nestingParentId='kept' WHERE itemId='child'`).run()
+  const body = exportCanonicalSnapshot(source.driver, { workspaceId: ws, uptoSeq: 0, keyEpoch: 1 })
+  expect(body.tables.item_placements?.find(row => row.itemId === 'child')?.nestingParentId).toBe('kept')
+  const target = openSync()
+  installCanonicalSnapshot(target.driver, body, at)
+  expect(target.driver.prepare(`SELECT nestingParentId FROM base_item_placements WHERE itemId='child'`).get()?.nestingParentId).toBe('kept')
+  expect(target.driver.prepare(`SELECT nestingParentId FROM item_placements WHERE itemId='child'`).get()?.nestingParentId).toBe('kept')
+  expect(projectionHash(target.driver, 'base')).toBe(projectionHash(source.driver, 'base'))
+  rebuildVisibleFull(target.driver, target.host)
+  expect(target.driver.prepare(`SELECT nestingParentId FROM item_placements WHERE itemId='child'`).get()?.nestingParentId).toBe('kept')
   source.db.close(); target.db.close()
 })
 
