@@ -26,7 +26,8 @@ export default defineConfig({
       externalizeDeps: false,
       minify: 'esbuild', sourcemap: debugRoot ? 'hidden' : false,
       outDir: resolve(debugRoot ?? 'out', 'main'),
-      rollupOptions: { onwarn, input: { index: resolve('src/main/index.ts'), storage: resolve('src/main/storage/worker.ts') } },
+      // The Supabase client ships a gotrue default of http://localhost:9999. Leaving the package external keeps that dev URL out of the app bundle; the desktop always passes the configured project URL.
+      rollupOptions: { onwarn, external: ['@supabase/supabase-js'], input: { index: resolve('src/main/index.ts'), storage: resolve('src/main/storage/worker.ts') } },
     },
   },
   preload: {
