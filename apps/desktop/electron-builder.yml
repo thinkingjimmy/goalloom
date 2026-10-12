@@ -1,5 +1,9 @@
 appId: com.goalloom.desktop
 productName: Goalloom
+# The workspace package is @goalloom/desktop so it does not collide with the root package name.
+# The packaged app keeps the historical npm name: Linux executable, updater cache and app.getName() fallback.
+extraMetadata:
+  name: goalloom
 directories:
   output: release
   buildResources: resources
