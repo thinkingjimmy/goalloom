@@ -134,9 +134,7 @@ function placeItem(driver: SqlDriver, prefix: string, op: SyncOp, action: { id: 
   const placement = driver.prepare(`SELECT * FROM ${prefix}item_placements WHERE itemId=?`).get(action.id)
   if (!placement) throw new SyncApplyError('item_deleted')
   const periodId = ensurePeriod(driver, prefix, host, action.horizon, action.periodKey?.startDate ?? null)
-  if (action.horizon === 'later') {
-    driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=?, invalidatedBy=?, reason='unlink' WHERE childId=? AND invalidatedAt IS NULL`).run(op.at, op.opId, action.id)
-  }
+  if (action.horizon === 'later') releaseLaterParents(driver, prefix, op, action.id, changes)
   const key = sortKey(driver, prefix, action.horizon, periodId, action.sortHint.afterId, action.sortHint.beforeId, action.id)
   const before = { horizon: text(placement, 'horizon'), periodId: text(placement, 'periodId'), sortKey: num(placement, 'sortKey') }
   const after = { horizon: action.horizon, periodId, sortKey: key, reason }
@@ -176,9 +174,35 @@ function restoreItem(driver: SqlDriver, prefix: string, op: SyncOp, action: Extr
   const item = driver.prepare(`SELECT * FROM ${prefix}items WHERE id=?`).get(action.id)
   if (!item || !text(item, 'deletedAt')) throw new SyncApplyError('restore_superseded')
   if (text(item, 'deletedBy') !== action.expectedDeleteOpId) throw new SyncApplyError('restore_superseded')
+  const deletedAt = text(item, 'deletedAt')
+  const deletedBy = text(item, 'deletedBy')
+  const flowColor = item.flowColor
+  if (flowColor !== null && flowColor !== undefined) {
+    const taken = driver.prepare(`SELECT id FROM ${prefix}items WHERE flowColor=? AND deletedAt IS NULL AND id!=?`).get(flowColor, action.id)
+    if (taken) {
+      changes.push({ itemId: action.id, dim: 'flowColor', before: Number(flowColor), after: null })
+      driver.prepare(`UPDATE ${prefix}items SET flowColor=NULL, updatedAt=?, version=version+1 WHERE id=?`).run(op.at, action.id)
+    }
+  }
   driver.prepare(`UPDATE ${prefix}items SET deletedAt=NULL, deletedBy=NULL, updatedAt=?, version=version+1 WHERE id=?`).run(op.at, action.id)
-  changes.push({ itemId: action.id, dim: 'restore', before: { deletedBy: action.expectedDeleteOpId }, after: { deletedAt: null } })
+  changes.push({ itemId: action.id, dim: 'restore', before: { deletedAt, deletedBy }, after: { deletedAt: null } })
+  const edges = driver.prepare(`SELECT id, parentId, childId FROM ${prefix}item_relations WHERE reason='delete' AND invalidatedBy=? AND (parentId=? OR childId=?)`).all(deletedBy, action.id, action.id)
+  for (const edge of edges) reviveEdge(driver, prefix, action.id, edge, changes)
   return 'applied'
+}
+
+function reviveEdge(driver: SqlDriver, prefix: string, restoredId: string, edge: Row, changes: CanonChange[]): void {
+  const id = String(edge.id)
+  const parentId = String(edge.parentId)
+  const childId = String(edge.childId)
+  const otherId = parentId === restoredId ? childId : parentId
+  const other = driver.prepare(`SELECT deletedAt FROM ${prefix}items WHERE id=?`).get(otherId)
+  if (!other || text(other, 'deletedAt')) return
+  const child = driver.prepare(`SELECT flowColor FROM ${prefix}items WHERE id=?`).get(childId)
+  if (!child || child.flowColor !== null) return
+  if (relationBlocked(parentId, childId, activeEdges(driver, prefix))) return
+  driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=NULL, invalidatedBy=NULL, reason=NULL WHERE id=?`).run(id)
+  changes.push({ itemId: childId, dim: 'relation', before: null, after: { id, parentId, childId } })
 }
 
 function lastPlacementSeq(driver: SqlDriver, itemId: string): number {
@@ -198,13 +222,30 @@ function rolloverItem(driver: SqlDriver, prefix: string, op: SyncOp, action: Ext
   return placeItem(driver, prefix, op, { id: action.id, horizon: action.to.horizon, periodKey: action.to, sortHint: { afterId: null, beforeId: null } }, host, changes, 'rollover')
 }
 
+const horizons = ['later', 'year', 'half', 'cycle', 'month', 'week', 'day']
+
+function longerHorizon(parent: string, child: string): boolean {
+  const parentIndex = horizons.indexOf(parent)
+  const childIndex = horizons.indexOf(child)
+  return parentIndex > 0 && childIndex > 0 && parentIndex < childIndex
+}
+
 function link(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Action, { t: 'rel.link' }>, changes: CanonChange[]): 'applied' {
-  requireItem(driver, prefix, action.parentId)
+  const parent = requireItem(driver, prefix, action.parentId)
   const child = requireItem(driver, prefix, action.childId)
+  const parentPlace = driver.prepare(`SELECT horizon FROM ${prefix}item_placements WHERE itemId=?`).get(action.parentId)
+  const childPlace = driver.prepare(`SELECT horizon FROM ${prefix}item_placements WHERE itemId=?`).get(action.childId)
+  if (!parentPlace || !childPlace || !longerHorizon(String(parentPlace.horizon), String(childPlace.horizon))) throw new SyncApplyError('horizon_order')
   if (child.flowColor !== null) {
     if (!action.adoptParentFlow) throw new SyncApplyError('flow_root_parent')
+    const color = Number(child.flowColor)
     driver.prepare(`UPDATE ${prefix}items SET flowColor=NULL, updatedAt=?, version=version+1 WHERE id=?`).run(op.at, action.childId)
-    changes.push({ itemId: action.childId, dim: 'flowColor', before: Number(child.flowColor), after: null })
+    changes.push({ itemId: action.childId, dim: 'flowColor', before: color, after: null })
+    const isolated = !driver.prepare(`SELECT 1 AS n FROM ${prefix}item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?) LIMIT 1`).get(action.parentId, action.parentId)
+    if (parent.flowColor === null && isolated) {
+      driver.prepare(`UPDATE ${prefix}items SET flowColor=?, updatedAt=?, version=version+1 WHERE id=?`).run(color, op.at, action.parentId)
+      changes.push({ itemId: action.parentId, dim: 'flowColor', before: null, after: color })
+    }
   }
   driver.prepare(`INSERT INTO ${prefix}item_relations (id,parentId,childId,invalidatedAt,invalidatedBy,reason,createdAt) VALUES (?,?,?,NULL,NULL,NULL,?)`)
     .run(action.id, action.parentId, action.childId, op.at)
@@ -213,8 +254,12 @@ function link(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Act
 }
 
 function unlink(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Action, { t: 'rel.unlink' }>, changes: CanonChange[]): 'applied' {
-  const edge = driver.prepare(`SELECT * FROM ${prefix}item_relations WHERE id=? AND invalidatedAt IS NULL`).get(action.id)
+  const edge = driver.prepare(`SELECT * FROM ${prefix}item_relations WHERE id=?`).get(action.id)
   if (!edge) throw new SyncApplyError('parent_unavailable')
+  if (text(edge, 'invalidatedAt')) {
+    if (text(edge, 'invalidatedBy') === op.opId && text(edge, 'reason') === 'unlink') return 'applied'
+    throw new SyncApplyError('parent_unavailable')
+  }
   driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=?, invalidatedBy=?, reason='unlink' WHERE id=?`).run(op.at, op.opId, action.id)
   changes.push({ itemId: text(edge, 'childId'), dim: 'relation', before: { id: action.id, parentId: text(edge, 'parentId'), childId: text(edge, 'childId') }, after: null })
   return 'applied'
@@ -267,7 +312,8 @@ function revert(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<A
   if (!target) throw new SyncApplyError('revert_superseded')
   if (text(target, 'outcome') === 'rejected') return 'applied'
   const seq = num(target, 'seq')
-  const rows = driver.prepare('SELECT * FROM canon_changes WHERE seq=? ORDER BY idx').all(seq)
+  // Last change first: a promoted color is released, and a new edge is gone, before the child color returns.
+  const rows = driver.prepare('SELECT * FROM canon_changes WHERE seq=? ORDER BY idx DESC').all(seq)
   let skipped = 0
   for (const row of rows) {
     const dim = String(row.dim)
@@ -277,12 +323,12 @@ function revert(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<A
       skipped++
       continue
     }
-    invertChange(driver, prefix, op, host, itemId, dim, text(row, 'before'), changes)
+    invertChange(driver, prefix, op, host, itemId, dim, text(row, 'before'), text(row, 'after'), changes)
   }
   return skipped && skipped < rows.length ? 'partial' : skipped && !rows.length ? 'applied' : skipped ? 'partial' : 'applied'
 }
 
-function invertChange(driver: SqlDriver, prefix: string, op: SyncOp, host: ApplyHost, itemId: string | null, dim: string, before: string | null, changes: CanonChange[]): void {
+function invertChange(driver: SqlDriver, prefix: string, op: SyncOp, host: ApplyHost, itemId: string | null, dim: string, before: string | null, after: string | null, changes: CanonChange[]): void {
   const parsed = before ? JSON.parse(before) as unknown : null
   const column = columnFor(dim)
   if (column && itemId) {
@@ -294,18 +340,58 @@ function invertChange(driver: SqlDriver, prefix: string, op: SyncOp, host: Apply
     const value = parsed as { status: string; completedAt: string | null; cancelledAt: string | null }
     driver.prepare(`UPDATE ${prefix}items SET status=?, completedAt=?, cancelledAt=?, updatedAt=?, version=version+1 WHERE id=?`).run(value.status, value.completedAt, value.cancelledAt, op.at, itemId)
   } else if (dim === 'placement' && itemId && parsed && typeof parsed === 'object') {
-    const value = parsed as { horizon: string; periodId: string | null }
-    driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, version=version+1 WHERE itemId=?`).run(value.horizon, value.periodId, itemId)
+    const value = parsed as { horizon: string; periodId: string | null; sortKey?: number }
+    if (typeof value.sortKey === 'number') driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, sortKey=?, version=version+1 WHERE itemId=?`).run(value.horizon, value.periodId, value.sortKey, itemId)
+    else driver.prepare(`UPDATE ${prefix}item_placements SET horizon=?, periodId=?, version=version+1 WHERE itemId=?`).run(value.horizon, value.periodId, itemId)
   } else if (dim === 'delete' && itemId) {
     driver.prepare(`UPDATE ${prefix}items SET deletedAt=NULL, deletedBy=NULL, updatedAt=?, version=version+1 WHERE id=?`).run(op.at, itemId)
+  } else if (dim === 'restore' && itemId && parsed && typeof parsed === 'object') {
+    const value = parsed as { deletedAt: string | null; deletedBy: string | null }
+    driver.prepare(`UPDATE ${prefix}items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=?`).run(value.deletedAt, value.deletedBy, op.at, itemId)
   } else if (dim === 'create' && itemId) {
     driver.prepare(`UPDATE ${prefix}items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=?`).run(op.at, op.opId, op.at, itemId)
-  } else if (dim === 'relation' && itemId && before) {
-    const value = parsed as { id: string }
-    driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=?, invalidatedBy=?, reason='unlink' WHERE id=? AND invalidatedAt IS NULL`).run(op.at, op.opId, value.id)
+  } else if (dim === 'relation' && itemId) {
+    const created = parsed === null
+    const source = (created ? (after ? JSON.parse(after) as unknown : null) : parsed) as { id?: string } | null
+    const edgeId = source && typeof source.id === 'string' ? source.id : null
+    if (edgeId && created) driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=?, invalidatedBy=?, reason='unlink' WHERE id=? AND invalidatedAt IS NULL`).run(op.at, op.opId, edgeId)
+    else if (edgeId) driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=NULL, invalidatedBy=NULL, reason=NULL WHERE id=?`).run(edgeId)
   } else if (dim === 'calendar') {
     driver.prepare(`UPDATE ${prefix}workspace SET calendar=? WHERE id=1`).run(before)
   }
   changes.push({ itemId, dim, before: parsed, after: null })
   void host
+}
+
+function releaseLaterParents(driver: SqlDriver, prefix: string, op: SyncOp, childId: string, changes: CanonChange[]): void {
+  const edges = driver.prepare(`SELECT id, parentId, childId FROM ${prefix}item_relations WHERE childId=? AND invalidatedAt IS NULL`).all(childId)
+  for (const edge of edges) {
+    changes.push({ itemId: childId, dim: 'relation', before: { id: String(edge.id), parentId: String(edge.parentId), childId: String(edge.childId) }, after: null })
+  }
+  if (edges.length) driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=?, invalidatedBy=?, reason='unlink' WHERE childId=? AND invalidatedAt IS NULL`).run(op.at, op.opId, childId)
+}
+
+function activeEdges(driver: SqlDriver, prefix: string): { parentId: string; childId: string }[] {
+  return driver.prepare(`SELECT parentId, childId FROM ${prefix}item_relations WHERE invalidatedAt IS NULL`).all()
+    .map(edge => ({ parentId: String(edge.parentId), childId: String(edge.childId) }))
+}
+
+function relationBlocked(parentId: string, childId: string, edges: { parentId: string; childId: string }[]): boolean {
+  if (parentId === childId || edges.some(edge => edge.parentId === parentId && edge.childId === childId)) return true
+  const children = new Map<string, string[]>()
+  for (const edge of edges) {
+    const group = children.get(edge.parentId) ?? []
+    group.push(edge.childId)
+    children.set(edge.parentId, group)
+  }
+  const pending = [childId]
+  const seen = new Set<string>()
+  while (pending.length) {
+    const id = pending.pop()!
+    if (id === parentId) return true
+    if (seen.has(id)) continue
+    seen.add(id)
+    pending.push(...(children.get(id) ?? []))
+  }
+  return false
 }

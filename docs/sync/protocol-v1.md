@@ -80,9 +80,19 @@ Confirmed state lives in `base_*`, cloned from the seven business tables (constr
 
 `mergeRemoteOps` requires `seq = lastAppliedSeq + 1`. Each op runs in a `SAVEPOINT`. Business errors record `rejected` and a `sync_conflicts` row; the cursor still advances. Storage errors abort the transaction and leave the cursor unchanged (case 3).
 
-`rebuildVisibleFull` preserves device-local workspace columns, copies `base_*` back, then replays pending ops. `operations` rows are not deleted. Tests: cases 9, 11, 12, 19.
+`rebuildVisibleFull` preserves device-local workspace columns, copies `base_*` back, then replays pending ops. `operations` rows are not deleted. Visible `workspace.revision` becomes the greater of the visible counter and `base_workspace.revision`, so a local command does not roll the renderer guard backward. Tests: cases 9, 11, 12, 19 and `tests/sync/applier-review.test.ts`.
 
-`canon_ops` / `canon_changes` are appended only at the canonical seq. `dim` is one of `create`, `delete`, `restore`, `title`, `description`, `dueDate`, `flowColor`, `status`, `archive`, `placement`, `relation`, `guidance`, `policy`, `calendar`. A revert writes the inverted value under the original `dim`.
+`canon_ops` / `canon_changes` are appended only at the canonical seq. `dim` is one of `create`, `delete`, `restore`, `title`, `description`, `dueDate`, `flowColor`, `status`, `archive`, `placement`, `relation`, `guidance`, `policy`, `calendar`. A revert walks that op's canon rows from the last index backward and writes the inverted value under the original `dim`.
+
+The reference applier (`packages/store-core/src/apply.ts`) additionally:
+
+- `rel.link` rejects Later and any parent that is not in a strictly longer horizon (`horizon_order`). Cycles stay on the SQLite trigger (`relation_cycle`).
+- A colored child requires `adoptParentFlow`. The color is cleared on the child and copied to the parent only when that parent is uncolored and has no active edge.
+- `item.place` into Later records a relation change for each parent edge it invalidates. A `rel.unlink` for an edge this same op already invalidated does not record a second change.
+- `item.restore` revives edges with `reason='delete'` and `invalidatedBy` equal to `expectedDeleteOpId`, skipping a deleted other endpoint, a flow-root child, a duplicate, or a cycle. A flow color taken by a live item stays with that item.
+- Placement revert writes `sortKey`. A relation whose `before` is null is invalidated; a relation whose `before` is the edge is made active again.
+
+Tests: `tests/sync/applier-review.test.ts`. Case 11 places the parent on year and the child on month.
 
 ## Error codes
 

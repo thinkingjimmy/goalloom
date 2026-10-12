@@ -578,7 +578,7 @@ stateDiagram-v2
 | status | 状态和 completedAt/cancelledAt 作为一个整体后写胜出 |
 | 排序 | 用 SortHint 加锚点定位；锚点不存在时放到末尾；平局用 opId 字典序决定 |
 | 删除和编辑并发 | 删除优先；之后到达的编辑被拒绝（item_deleted），记入冲突列表 |
-| 触发器或 domain 拒绝 | 整条 op 回滚、记录稳定错误码（relation_cycle / flow_root_parent / flow_color_taken / parent_unavailable / guidance_stale / calendar_locked / item_deleted），继续同步 |
+| 触发器或 domain 拒绝 | 整条 op 回滚、记录稳定错误码（relation_cycle / horizon_order / flow_root_parent / flow_color_taken / parent_unavailable / guidance_stale / calendar_locked / item_deleted），继续同步 |
 | 自动顺延 | 见 8.7 |
 | 富文本 | v1 整段后写胜出 |
 | generation 不一致 | 暂停同步，进入"选择数据来源"流程（第 10 节） |

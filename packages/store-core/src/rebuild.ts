@@ -21,7 +21,7 @@ export function copyProjectionToBase(driver: SqlDriver): void {
 }
 
 export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost): void {
-  const local = driver.prepare(`SELECT ${localColumns.join(',')} FROM workspace WHERE id=1`).get()
+  const local = driver.prepare(`SELECT ${localColumns.join(',')}, revision FROM workspace WHERE id=1`).get()
   if (!local) throw new SyncApplyError('storage', 'workspace missing')
   driver.exec(`DELETE FROM item_guidance; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; UPDATE items SET flowColor=NULL;`)
   driver.exec(`DELETE FROM items WHERE id NOT IN (SELECT id FROM base_items)`)
@@ -37,8 +37,9 @@ export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost): void {
   driver.exec(`INSERT INTO rollover_policies SELECT * FROM base_rollover_policies`)
   driver.exec(`INSERT INTO item_guidance SELECT * FROM base_item_guidance`)
   const baseWorkspace = driver.prepare('SELECT calendar, setupConfirmedAt, revision FROM base_workspace WHERE id=1').get()
+  const revision = Math.max(Number(local.revision ?? 0), Number(baseWorkspace?.revision ?? 0))
   driver.prepare(`UPDATE workspace SET calendar=?, setupConfirmedAt=?, revision=?, theme=?, style=?, checkStyle=?, backupEnabled=?, backupRetention=?, clockAnomaly=?, lastObservedAt=?, pausedAfterRestore=?, generation=? WHERE id=1`)
-    .run(baseWorkspace?.calendar ?? null, baseWorkspace?.setupConfirmedAt ?? null, baseWorkspace?.revision ?? 0,
+    .run(baseWorkspace?.calendar ?? null, baseWorkspace?.setupConfirmedAt ?? null, revision,
       local.theme ?? 'system', local.style ?? 'paper', local.checkStyle ?? 'outline', local.backupEnabled ?? 1, local.backupRetention ?? 7,
       local.clockAnomaly ?? 0, local.lastObservedAt ?? null, local.pausedAfterRestore ?? 0, local.generation ?? '')
   for (const row of pending(driver)) {

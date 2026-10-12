@@ -6,9 +6,10 @@
 -- Goalloom sync core. Ciphertext only. Direct table access is revoked for
 -- anon and authenticated. Grants are limited to these objects so a hosted
 -- project can keep unrelated public objects. This file does not embed keys.
--- Ed25519 verification uses pgsodium (libsodium), the same message bytes
--- noble ed25519.sign/verify hash internally. It fails closed when pgsodium
--- is missing.
+-- Ed25519 verification uses pgsodium (libsodium). It fails closed when
+-- pgsodium is missing. Roster signatures are over the 32-byte SHA-256 of
+-- goalloom/roster/v1| plus canonical JSON, the message signRoster passes
+-- to noble. Other proofs pass their raw UTF-8 message.
 
 create extension if not exists pgcrypto;
 create extension if not exists pgsodium;
@@ -50,6 +51,64 @@ exception
   when undefined_function or invalid_schema_name or insufficient_privilege then
     raise exception 'ed25519 verifier not installed' using errcode = '42501';
 end $$;
+
+-- UTF-8 byte order matches canonicalJson for ASCII keys. Roster keys are ASCII.
+create or replace function public._canonical_json(p_value jsonb) returns text
+language plpgsql immutable set search_path = '' as $$
+declare
+  kind text;
+  element jsonb;
+  object_key text;
+  parts text[] := array[]::text[];
+begin
+  if p_value is null or jsonb_typeof(p_value) = 'null' then
+    return 'null';
+  end if;
+  kind := jsonb_typeof(p_value);
+  if kind = 'boolean' or kind = 'number' then
+    return p_value::text;
+  elsif kind = 'string' then
+    return to_json(p_value #>> '{}')::text;
+  elsif kind = 'array' then
+    for element in select value from jsonb_array_elements(p_value) as t(value)
+    loop
+      parts := parts || public._canonical_json(element);
+    end loop;
+    return '[' || array_to_string(parts, ',') || ']';
+  elsif kind = 'object' then
+    for object_key in
+      select t.key from jsonb_object_keys(p_value) as t(key) order by t.key collate "C"
+    loop
+      parts := parts || (to_json(object_key)::text || ':' || public._canonical_json(p_value -> object_key));
+    end loop;
+    return '{' || array_to_string(parts, ',') || '}';
+  else
+    raise exception 'unsupported json' using errcode = '22023';
+  end if;
+end $$;
+
+create or replace function public._sha256(p_data bytea) returns bytea
+language plpgsql immutable security definer set search_path = '' as $$
+declare
+  schema_name text;
+  result bytea;
+begin
+  select ns.nspname into schema_name from pg_proc p
+    join pg_namespace ns on ns.oid = p.pronamespace
+   where p.proname = 'digest' and pg_get_function_identity_arguments(p.oid) = 'bytea, text'
+     and ns.nspname in ('extensions', 'public')
+   order by ns.nspname limit 1;
+  if schema_name is null then
+    raise exception 'sha256 not installed' using errcode = '42501';
+  end if;
+  execute format('select %I.digest($1, %L)', schema_name, 'sha256') into result using p_data;
+  return result;
+end $$;
+
+create or replace function public._roster_message(p_roster jsonb) returns bytea
+language sql immutable set search_path = '' as $$
+  select public._sha256(convert_to('goalloom/roster/v1|' || public._canonical_json(p_roster), 'UTF8'));
+$$;
 
 create table public.devices (
   id uuid primary key default gen_random_uuid(),
@@ -269,7 +328,7 @@ begin
     raise exception 'workspace exists' using errcode = '42501';
   end if;
   select sign_pub into pub from public.devices where id = p_device;
-  if not public._ed25519_verify(pub, convert_to(p_roster::text, 'UTF8'), p_roster_sig) then
+  if not public._ed25519_verify(pub, public._roster_message(p_roster), p_roster_sig) then
     raise exception 'roster signature rejected' using errcode = '42501';
   end if;
   insert into public.workspaces(id, user_id, generation, roster_version) values (p_workspace, auth.uid(), p_generation, 1);
@@ -578,6 +637,9 @@ revoke all on sequence public.control_events_id_seq from public, anon, authentic
 revoke execute on function
   public._random_bytes(integer),
   public._ed25519_verify(bytea, bytea, bytea),
+  public._canonical_json(jsonb),
+  public._sha256(bytea),
+  public._roster_message(jsonb),
   public.sync_entitled(uuid),
   public._device_guard(uuid, boolean),
   public._rate_limit(uuid, text, integer),

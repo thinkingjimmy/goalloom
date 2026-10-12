@@ -56,6 +56,31 @@ select is(
   'a public key that is not 32 bytes is rejected'
 );
 
+-- Roster body signed by the 0x42 seed. Message is SHA-256 of
+-- goalloom/roster/v1| plus canonical JSON, matching packages/crypto signRoster.
+-- sig 0a92e4dedfc06749fcd95129ef6f54f20a9e72b5de577b7d57d9cddcb1e0a95449cb5a42c924b88d12fe0e09534de40730eae92259d3f30bc302d43ef098a30d
+select is(
+  public._canonical_json('{"b":1,"a":{"d":true,"c":null},"z":[2,1]}'::jsonb),
+  '{"a":{"c":null,"d":true},"b":1,"z":[2,1]}',
+  'canonical json sorts keys and keeps nulls and array order'
+);
+
+select is(
+  public._canonical_json('{"workspaceId":"11111111-1111-4111-8111-111111111111","version":1,"epoch":1,"prevHash":null,"recoverySignPub":"dd","recoveryBoxPub":"cc","devices":[{"id":"dev","signPub":"bb","boxPub":"aa"}]}'::jsonb),
+  '{"devices":[{"boxPub":"aa","id":"dev","signPub":"bb"}],"epoch":1,"prevHash":null,"recoveryBoxPub":"cc","recoverySignPub":"dd","version":1,"workspaceId":"11111111-1111-4111-8111-111111111111"}',
+  'roster canonical json matches signRoster'
+);
+
+select is(
+  public._ed25519_verify(
+    decode('2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12', 'hex'),
+    public._roster_message('{"workspaceId":"11111111-1111-4111-8111-111111111111","version":1,"epoch":1,"prevHash":null,"recoverySignPub":"dd","recoveryBoxPub":"cc","devices":[{"id":"dev","signPub":"bb","boxPub":"aa"}]}'::jsonb),
+    decode('0a92e4dedfc06749fcd95129ef6f54f20a9e72b5de577b7d57d9cddcb1e0a95449cb5a42c924b88d12fe0e09534de40730eae92259d3f30bc302d43ef098a30d', 'hex')
+  ),
+  true,
+  'bootstrap verifies the domain-separated roster digest'
+);
+
 create or replace function pg_temp.insert_auth_user(p_id uuid, p_email text) returns void
 language plpgsql as $$
 declare

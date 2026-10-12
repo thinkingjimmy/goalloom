@@ -32,10 +32,11 @@ supabase db push --db-url "$SUPABASE_DB_URL"
 
 The migration enables `pgsodium` when it is not already installed. Hosted projects already have it. `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` and raises `42501` if that function is missing. On the hosted project that call is granted: the noble fixture at the start of the pgTAP file verifies. `pgsodium.crypto_sign_new_keypair` is not granted to `postgres` (`42501`). Tests sign with noble (`node scripts/gen-ed25519-fixtures.mjs`) and do not generate keys in SQL. Verification stays in Postgres. Move it to an Edge Function only if a future project also revokes `crypto_sign_verify_detached`.
 
-`supabase/migrations/0002_cleanup.sql` is the delta for a database that already applied `0001_core.sql`: device foreign keys cascade, and `realtime.messages` gets the insert policy. Apply that file through the Management API SQL endpoint, or:
+`supabase/migrations/0002_cleanup.sql` is the delta for a database that already applied `0001_core.sql`: device foreign keys cascade, and `realtime.messages` gets the insert policy. `supabase/migrations/0003_roster_signature.sql` replaces `bootstrap_workspace` so the roster signature is checked over SHA-256 of `goalloom/roster/v1|` plus canonical JSON. Apply a delta through the Management API SQL endpoint, or:
 
 ```sh
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0002_cleanup.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0003_roster_signature.sql
 ```
 
 ## pgTAP

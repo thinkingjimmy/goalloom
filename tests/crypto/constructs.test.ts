@@ -3,6 +3,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { describe, expect, it } from 'vitest'
+import { canonicalJson } from '@goalloom/contracts'
 import {
   counterRandom, deriveRecovery, generateRecoveryMnemonic, hex, openOp, openSnapshot, qrMatchesHead, rosterHash,
   sealOp, sealSnapshot, signCheckpoint, signRoster, systemRandom, unhex, unwrap, uuidv5, verifyRecoveryJoin,
@@ -64,6 +65,15 @@ describe('C1–C4 and trust anchors', () => {
     const envelope = wrap({ senderId: 'dev', signSk: sender, recipientId: 'recovery', recipientBoxPub: first.boxPub, ctx: 'wk|ws-1|2', plaintext: utf8('next'), random: systemRandom() })
     expect(new TextDecoder().decode(unwrap(envelope, { expectedCtx: 'wk|ws-1|2', recipientId: 'recovery', boxSk: again.boxSk, senderSignPub: signPub }))).toBe('next')
     wipeRecovery(first); wipeRecovery(again); wipeRecovery(other)
+  })
+
+  it('signs the domain-separated roster digest pinned for bootstrap_workspace', () => {
+    const body: RosterBody = {
+      workspaceId: '11111111-1111-4111-8111-111111111111', version: 1, epoch: 1, prevHash: null,
+      devices: [{ id: 'dev', signPub: 'bb', boxPub: 'aa' }], recoverySignPub: 'dd', recoveryBoxPub: 'cc',
+    }
+    expect(canonicalJson(body)).toBe('{"devices":[{"boxPub":"aa","id":"dev","signPub":"bb"}],"epoch":1,"prevHash":null,"recoveryBoxPub":"cc","recoverySignPub":"dd","version":1,"workspaceId":"11111111-1111-4111-8111-111111111111"}')
+    expect(hex(signRoster(body, new Uint8Array(32).fill(0x42)))).toBe('0a92e4dedfc06749fcd95129ef6f54f20a9e72b5de577b7d57d9cddcb1e0a95449cb5a42c924b88d12fe0e09534de40730eae92259d3f30bc302d43ef098a30d')
   })
 
   it('rejects a broken roster chain, a forged self-signed head, and a copied recovery public key', () => {

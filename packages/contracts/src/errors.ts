@@ -1,6 +1,6 @@
 /** Stable sync error codes. Business codes roll back one op; workspace codes pause; storage codes stop writes. */
 export const businessErrorCodes = [
-  'parent_unavailable', 'relation_cycle', 'flow_root_parent', 'flow_color_taken', 'item_deleted',
+  'parent_unavailable', 'relation_cycle', 'horizon_order', 'flow_root_parent', 'flow_color_taken', 'item_deleted',
   'discard_not_empty', 'restore_superseded', 'guidance_stale', 'calendar_locked', 'stale_preview',
   'revert_superseded', 'rollover_stale', 'period_scale_mismatch', 'item_exists',
 ] as const
