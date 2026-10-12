@@ -1,0 +1,21 @@
+{
+  "name": "@goalloom/crypto",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "react-native": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run --config ../../vitest.config.ts test"
+  },
+  "dependencies": {
+    "@goalloom/contracts": "workspace:*",
+    "@noble/ciphers": "2.4.0",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@scure/bip39": "2.4.0"
+  }
+}

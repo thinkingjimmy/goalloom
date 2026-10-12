@@ -16,7 +16,7 @@
 
 ## Engineering contract
 
-- Schema/dataset v9: optional legacy/default-null placement nesting parent, body-free hierarchy history and v3 owned nesting effects. Upgrade uses the existing verified protective-copy and explicit-confirmation workflow.
+- Schema/dataset v10: optional legacy/default-null placement nesting parent, body-free hierarchy history and v3 owned nesting effects. v10 sits on the Phase 0 v9 chain and mirrors the column and triggers onto `base_*`. v8 and Phase 0 v9 upgrade in place after a protective backup; v1–v7 keep the verified protective-copy and explicit-confirmation workflow. `nest` / `unnest` map to SyncOp `item.nest` (placement dimension, plus relation and color actions in the same op).
 - Nesting and explicit goal links are distinct. Shared effective-topology rules drive flow membership, relation rendering, ordering, queries and AI context. Validate cycles in their combined graph inside authoritative writes and import.
 - Nest/unnest are finite generation/version-guarded commands. Their placement, incoming-link and color changes share one receipt. Existing inherited links materialized on detach retain their source provenance.
 - Root ordering precedes child ordering. Flatten groups into the existing virtual list; preserve task identity, drafts, focus and scroll.

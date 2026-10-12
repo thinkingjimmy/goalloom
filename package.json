@@ -16,6 +16,8 @@
     "dev": "electron-vite dev --watch",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/test.mjs",
+    "parity:digest": "node scripts/parity-digest.mjs",
+    "test:phase0": "node scripts/phase0-prototype.mjs",
     "test:domain": "node scripts/test.mjs tests/domain",
     "test:integration": "node scripts/test.mjs tests/integration",
     "test:repository": "node scripts/test.mjs tests/integration",
@@ -63,6 +65,11 @@
     "eval:assistance": "node scripts/eval/assistance/run.mjs"
   },
   "dependencies": {
+    "@goalloom/contracts": "workspace:*",
+    "@goalloom/crypto": "workspace:*",
+    "@goalloom/schema": "workspace:*",
+    "@goalloom/store-core": "workspace:*",
+    "@goalloom/sync": "workspace:*",
     "@dnd-kit/core": "6.3.1",
     "@dnd-kit/sortable": "10.0.0",
     "@dnd-kit/utilities": "3.2.2",
@@ -92,6 +99,7 @@
   },
   "devDependencies": {
     "@js-temporal/polyfill": "0.5.1",
+    "@supabase/supabase-js": "2.117.3",
     "@tailwindcss/vite": "4.3.3",
     "@types/node": "24.13.6",
     "@types/react": "19.3.0",

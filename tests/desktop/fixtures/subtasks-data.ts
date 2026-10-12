@@ -150,30 +150,33 @@ function world(path = ':memory:') {
     assert.equal(restored.item(w.leaf).placement.nestingParentId, w.root); restored.db.close()
     w.db.close()
     const sqlite = await readSqliteDataset(path, w.now())
-    assert.equal(sqlite.schemaVersion, 9)
+    assert.equal(sqlite.schemaVersion, 10)
     assert.equal(sqlite.placements.find(p => p.itemId === w.leaf)!.nestingParentId, w.root)
     const reopened = openDatabase(path), repo = new Repository(reopened, { now: w.now })
     assert.equal(repo.store.item(w.leaf).placement.nestingParentId, w.root); reopened.close()
     const legacyPath = join(directory, 'legacy.sqlite'), legacy = world(legacyPath)
     const triggers = legacy.db.prepare("SELECT name,sql FROM sqlite_master WHERE type='trigger'").all()
     for (const trigger of triggers) legacy.db.exec(`DROP TRIGGER ${trigger.name}`)
-    legacy.db.exec('DROP INDEX placements_nesting; ALTER TABLE item_placements DROP COLUMN nestingParentId; PRAGMA user_version=8')
-    for (const trigger of triggers) if (!String(trigger.name).startsWith('nesting_guard')) {
-      const sql = String(trigger.sql).split('\n').filter(line => !line.includes('nestingParentId')).join('\n')
+    legacy.db.exec('DROP INDEX IF EXISTS placements_nesting; ALTER TABLE item_placements DROP COLUMN nestingParentId')
+    for (const trigger of triggers) {
+      const name = String(trigger.name), sql = String(trigger.sql)
+      if (name.startsWith('base_') || name.includes('nesting_guard') || sql.includes('nestingParentId')) continue
       legacy.db.exec(sql)
     }
+    // v8 and Phase 0 v9 now upgrade in place. v7 still stays read-only until the explicit protective-copy commit.
+    legacy.db.exec('PRAGMA user_version=7')
     legacy.db.close()
     await assert.rejects(() => openWorkspace(legacyPath, join(directory, 'backups'), w.now), /./)
     const original = readFileSync(legacyPath)
     const upgrade = new StartupUpgrade(legacyPath, join(directory, 'backups'), w.now)
     const prepared = await upgrade.prepare()
-    assert.equal(prepared.version, 8); assert(prepared.backupPath)
+    assert.equal(prepared.version, 7); assert(prepared.backupPath)
     assert.deepEqual(readFileSync(legacyPath), original)
     await upgrade.commit(prepared.token)
     const upgraded = await readSqliteDataset(legacyPath, w.now())
-    assert.equal(upgraded.schemaVersion, 9)
+    assert.equal(upgraded.schemaVersion, 10)
     assert(upgraded.placements.every(p => !p.nestingParentId))
-    checks.push('Validated JSON/SQLite round trips, restart, genuine v8 read-only startup, verified protective backup and explicit upgrade commit')
+    checks.push('Validated JSON/SQLite round trips, restart, pre-v8 read-only startup, verified protective backup and explicit upgrade commit')
   } finally { rmSync(directory, { recursive: true, force: true }) }
 }
 {

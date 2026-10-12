@@ -18,6 +18,11 @@ async function collect(name, from) {
   const identity = `${metadata.name}@${metadata.version}`
   if (visited.has(identity)) return
   visited.add(identity)
+  // Workspace packages are first-party. Walk their dependencies without listing them as third-party notices.
+  if (metadata.name?.startsWith('@goalloom/')) {
+    for (const dependency of Object.keys(metadata.dependencies ?? {})) await collect(dependency, root)
+    return
+  }
   const licenses = (await readdir(root)).filter(file => /^(license|licence|copying)(\.[^.]+)?$/i.test(file))
   const text = await Promise.all(licenses.map(file => readFile(join(root, file), 'utf8')))
   // Some MIT packages declare the license only in package.json; reproduce the standard text with the declared author.

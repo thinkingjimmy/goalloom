@@ -95,4 +95,13 @@ pnpm package:win   # release/Goalloom-<版本>-win-x64.exe
 
 问题、反馈和建议请提交到 [GitHub Issues](https://github.com/thinkingjimmy/goalloom/issues)。
 
-Goalloom 以 [MIT 许可证](../LICENSE)发布。
+# 许可证
+
+桌面端、移动端和共享包使用 [MIT 许可证](../LICENSE)。服务端同步代码使用 [GNU AGPL-3.0-only](../supabase/LICENSE)。
+
+| 路径 | 许可证 |
+|---|---|
+| [`LICENSE`](../LICENSE)、`src/`、`apps/mobile`、`packages/contracts`、`packages/crypto`、`packages/schema`、`packages/store-core`、`packages/sync`、`tests/`、`scripts/`、`website/`、`docs/` | MIT |
+| [`supabase/`](../supabase/)（迁移、RPC、Edge Functions、pgTAP、`reset.sql`、`config.toml`，以及 [`supabase/LICENSE`](../supabase/LICENSE)） | AGPL-3.0-only |
+
+`@goalloom/contracts`、`@goalloom/crypto`、`@goalloom/schema`、`@goalloom/store-core` 和 `@goalloom/sync` 只依赖彼此及其已固定的库，源码仍属仓库 MIT 许可证。`scripts/supabase-remote.mjs` 与 `scripts/pg-sync-test.mjs` 是 MIT 测试客户端。

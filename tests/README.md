@@ -32,7 +32,7 @@ tests/
 └── desktop/                 # 真实 Electron 场景与专属夹具，见局部地图
 ```
 
-`pnpm test` 使用锁定 Electron 自带的 Node 运行全部 Vitest 测试；`test:domain` 只运行纯领域层，`test:integration` 运行 SQLite 集成测试（保留 `test:repository` 别名）。临时工作区由测试创建并清理，不访问用户任务。桌面自动化独立运行，正式应用没有测试 IPC 或时钟控制口。
+`pnpm test` 使用锁定 Electron 自带的 Node 运行全部 Vitest 测试；`test:domain` 只运行纯领域层，`test:integration` 运行 SQLite 集成测试（保留 `test:repository` 别名）。不要用 `npx vitest`：系统 Node 没有原生 Temporal。临时工作区由测试创建并清理，不访问用户任务。桌面自动化独立运行，正式应用没有测试 IPC 或时钟控制口。
 
 `tests/main/smart.test.ts` 只用受控 fixture 验证请求/响应契约，不代表各渠道真实 Key 已联调。纯函数与集成测试通过不表示打包桌面、Windows 安装、IME 或睡眠验收通过。实际命令、运行版本和平台范围记录于开发提交/PR。
 

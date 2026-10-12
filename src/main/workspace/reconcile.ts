@@ -16,6 +16,7 @@ import { assertOutline } from './commands/nesting'
 import { transaction } from '../storage/database'
 import type { Repository } from './repository'
 import { serverText } from '../../shared/i18n/server'
+import { emitRolloverOp } from './sync/emit'
 
 export function reconcile(repository: Repository, now = repository.clock.now()): CommandResult | null {
   if (repository.maintenance) return null
@@ -46,6 +47,11 @@ export function reconcile(repository: Repository, now = repository.clock.now()):
         processed.add(rootId)
         moveItem(context, { type: 'move', operationId, generation: workspace.generation, itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version, horizon: policy.horizon, beforeId: null })
       }
+    }
+    for (const effect of context.effects) {
+      if ((effect.kind !== 'position' && effect.kind !== 'groupPlacement') || !effect.before.periodId || !effect.after.periodId || effect.before.periodId === effect.after.periodId) continue
+      const seq = store.db.prepare(`SELECT MAX(seq) AS seq FROM canon_changes WHERE itemId=? AND dim IN ('placement','create')`).get(effect.itemId)
+      emitRolloverOp(store.db, { itemId: effect.itemId, fromPeriodId: effect.before.periodId, toPeriodId: effect.after.periodId, placementSeq: seq?.seq == null ? 0 : Number(seq.seq), at: now })
     }
     if (!context.effects.length) return null
     assertOutline(context)

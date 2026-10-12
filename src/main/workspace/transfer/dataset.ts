@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Schema-v9 export with nesting, v1-v9 source validation and atomic replacement; startup upgrades keep source appearance, restores keep target appearance.
+ * [OUTPUT]: Schema-v10 export with nesting, v1-v10 source validation and atomic replacement; startup upgrades keep source appearance, restores keep target appearance.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,6 +16,8 @@ import { sourceTables, schemaVersion, supportedVersions, userVersion } from '../
 import { datasetHeader, datasetRows } from './rows'
 import { serverText } from '../../../shared/i18n/server'
 import { currentPeriod } from '../../../domain/calendar'
+import { copyProjectionToBase } from '@goalloom/store-core'
+import { nodeSqlDriver } from '@goalloom/store-core/node'
 
 // Validate each source under its original schema version; only a new export uses the current version.
 export function exportDataset(store: Store, now: string, version: number = schemaVersion): Dataset {
@@ -43,7 +45,8 @@ async function readSqlite(path: string, now: string, source: 'external' | 'backu
     const version = userVersion(db)
     if (!supportedVersions.includes(version)) throw new DomainError('invalid', serverText().errors.unsupportedDatabase)
     const tables = db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
-    if (tables.some(row => row.type === 'view') || sourceTables(version).some(name => !tables.some(row => row.name === name && row.type === 'table'))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
+    const names = tables.map(row => String(row.name))
+    if (tables.some(row => row.type === 'view') || sourceTables(version, names).some(name => !names.includes(name))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
     verifyDatabase(db)
     const data = readDataset(new Store(db), now, version, keepDescriptions)
     return validateDataset(data, now)
@@ -82,6 +85,10 @@ export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 're
     const insertMarker = store.prepare('INSERT INTO undo_effects VALUES (?,?,?)')
     for (const marker of data.undoEffects) insertMarker.run(marker.originalId, marker.effectIndex, marker.undoId)
     if (data.historyMode === 'baseline') addBaseline(store, now)
+    const driver = nodeSqlDriver(store.db)
+    driver.exec('DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops')
+    driver.prepare(`UPDATE sync_state SET lastAppliedSeq=0, lastUploadedSeq=0, paused='generation', workspaceId=NULL, keyEpoch=NULL, updatedAt=? WHERE id=1`).run(now)
+    copyProjectionToBase(driver)
     verifyDatabase(store.db)
     return generation
   })

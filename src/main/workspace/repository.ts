@@ -27,6 +27,7 @@ import { isAnchoredHorizon, periodHorizons } from '../../shared/contracts/values
 import { trashWhere } from './queries'
 import { applyAssistance } from './commands/assistance'
 import { ExecutionQueries } from './execution'
+import { captureSyncBefore, emitSyncOp } from './sync/emit'
 
 export class Repository {
   readonly store: Store
@@ -48,6 +49,7 @@ export class Repository {
       return receipt.result
     }
     if (!workspace.setupConfirmedAt && !['confirmSetup', 'preferences'].includes(command.type)) throw new DomainError('setup', serverText().errors.setupRequired)
+    const syncBefore = captureSyncBefore(this.db, command)
     const now = this.clock.now()
     const context: Context = { store: this.store, workspace, command, now, effects: [], warnings: [], itemId: null, label: '' }
     const changed = command.type === 'undo' ? this.undo(context, command) : this.dispatch(context, command)
@@ -64,6 +66,7 @@ export class Repository {
       ...(context.itemIds ? { itemIds: context.itemIds } : {}) }
     this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: 'user', at: now, effectsVersion: effectsVersion(context.effects), effects: context.effects, result })
     for (const effect of context.undone ?? []) this.db.prepare('INSERT INTO undo_effects VALUES (?,?,?)').run(effect.originalId, effect.index, command.operationId)
+    emitSyncOp(this.db, { command, effects: context.effects, before: syncBefore, at: now, changed })
     return result
   }
   private undo(context: Context, command: Extract<Command, { type: 'undo' }>): boolean {
