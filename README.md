@@ -88,7 +88,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.6.0 adds optional task assistance that rewrites the current notes, with one-step undo, and introduced schema v8 for shared execution facts. Development builds use schema v9 for two-level tasks. Legacy workspaces upgrade through a verified protective copy and explicit confirmation. See the [smart assistance specification](./docs/features/Goalloom-Smart-Assistance-PRD-TODO-v1.1.md) for scope and remaining manual acceptance.
+Version 1.7.0 adds two-level tasks on the board and uses workspace schema v10. A 1.6.0 workspace upgrades in place after an automatic protective backup. Workspaces from 1.5.0 and earlier still upgrade through a verified protective copy and an explicit confirmation. Accounts and cloud sync are not in this release. See the [1.7.0 release notes](./docs/releases/v1.7.0.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 

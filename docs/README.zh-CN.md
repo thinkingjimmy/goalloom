@@ -89,6 +89,8 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<版本>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<版本>-win-x64.exe
 ```
 
+1.7.0 在看板上支持两级任务，工作区格式为 schema v10。1.6.0 的工作区会在自动保护备份后原地升级；1.5.0 及更早版本仍经校验过的保护副本和明确确认后升级。本版本没有账号或云同步。说明见 [v1.7.0 发布说明](./releases/v1.7.0.md)。
+
 完整测试、打包检查、代码地图以及贡献者与开发代理的约定见[开发文档](./development.md)。官网代码在 [`apps/website/`](../apps/website/README.md)。
 
 # 协作

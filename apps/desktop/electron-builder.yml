@@ -88,7 +88,8 @@ nsis:
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
 # Bakes app-update.yml into the package and writes latest*.yml next to the installers.
-# Scripts still pass --publish never; release assets are uploaded by hand (see docs/development.md).
+# Scripts still pass --publish never. .github/workflows/release.yml uploads the
+# assets to a draft Release; publishing that draft stays manual (see docs/development.md).
 publish:
   provider: github
   owner: thinkingjimmy

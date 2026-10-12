@@ -18,10 +18,14 @@
 - `main/update.ts`：`UpdateService` 包装 electron-updater（logger 关闭，`autoDownload`、`autoInstallOnAppQuit` 开启），事件映射为上述阶段并经 `goalloom:update-state` 推送；macOS 的库级下载事件只暂存版本，原生 `autoUpdater` 的 `update-downloaded` 才进入 `ready`，失败清除待就绪版本；`check(manual)` 在检查/下载/就绪时直接返回当前状态；只有手动检查把错误显示为 `failed`。`install()` 仅在 `ready` 时 `quitAndInstall(true, true)`（Windows 静默复用原安装目录后重启）。非打包环境为 `unsupported`，不触网。
 - `main/window/menu.ts`：仅 macOS `Menu.setApplicationMenu`；`LanguagePreference.onChange` 触发重建。菜单点击经 `goalloom:open-about` 通知 renderer；窗口已关闭时先重建窗口。
 - renderer：`state/update.ts` 单一 store（首次订阅时读取状态并监听推送，不轮询）；`App` 以 `{ section, at }` 请求打开设置，使菜单能重定向已打开的弹窗；`AboutPane` 无自有状态；图标为 `apps/desktop/src/renderer/assets/app-icon.png`（`apps/desktop/resources/icon.png` 的 256px 版本）。
-- 打包：`electron-builder.yml` 的 `publish` 为 GitHub `thinkingjimmy/goalloom`，据此把 `app-update.yml` 写入包内并在 `release/` 生成 `latest-mac.yml` / `latest.yml`；macOS 额外产出 zip（Squirrel.Mac 更新载荷，需 Developer ID 签名，公证非必需）。脚本仍 `--publish never`，由人工上传。
-- 发布一个可自动更新的版本：`package:mac` 与 `package:win` 后，把 `Goalloom-<v>-mac-arm64.dmg`、`Goalloom-<v>-mac-arm64.zip`、`Goalloom-<v>-mac-arm64.zip.blockmap`、`latest-mac.yml`、`Goalloom-<v>-win-x64.exe`、`Goalloom-<v>-win-x64.exe.blockmap`、`latest.yml` 一起上传到 tag `v<v>` 的正式（非 draft / prerelease）Release。缺少 yml 时客户端手动检查会显示失败。
+- 打包：`electron-builder.yml` 的 `publish` 为 GitHub `thinkingjimmy/goalloom`，据此把 `app-update.yml` 写入包内并在 `release/` 生成 `latest-mac.yml` / `latest.yml`；macOS 额外产出 zip（Squirrel.Mac 更新载荷，需 Developer ID 签名，公证非必需）。脚本仍 `--publish never`。资产由 [release.yml](../../.github/workflows/release.yml) 上传到草稿 Release，步骤与 secrets 见[开发文档](../development.md#托管打包与草稿-release)。
+- 发布一个可自动更新的版本：把 `Goalloom-<v>-mac-arm64.dmg`、`Goalloom-<v>-mac-arm64.zip`、`Goalloom-<v>-mac-arm64.zip.blockmap`、`latest-mac.yml`、`Goalloom-<v>-win-x64.exe`、`Goalloom-<v>-win-x64.exe.blockmap`、`latest.yml` 与 `SHA256SUMS.txt` 放到 tag `v<v>`。自动更新只认正式（非 draft / prerelease）Release，因此工作流只更新草稿，由负责人再发布该草稿。缺少 yml 时客户端手动检查会显示失败。
 
 ## TODO
+
+### 1.7.0 更新说明：看板上的二级任务
+
+尚未发布。完整中英文说明见 [v1.7.0 发布说明](../releases/v1.7.0.md)。
 
 ### 1.6.0 更新说明：从卡住的任务继续行动
 
@@ -72,6 +76,7 @@
 - [x] 1.3.0 正式发布，包含两平台安装包、完整自动更新资产与 SHA256SUMS；发布说明开头给出旧工作区的导出／导入升级步骤。
 - [x] 1.4.0 正式发布，包含两平台安装包、完整自动更新资产与 SHA256SUMS；发布说明开头给出 v7 工作区的导出／导入升级步骤。
 - [x] 1.5.0 正式发布，包含两平台安装包、完整自动更新资产与 SHA256SUMS；1.4 工作区可直接升级，旧格式升级步骤保留在发布说明中。
+- [ ] 1.7.0 正式发布，包含两平台安装包、完整自动更新资产与 SHA256SUMS；1.6.0 工作区在自动保护备份后原地升级到 schema v10。本版本没有账号或云同步。
 - [x] 1.6.0 正式发布，包含两平台安装包、完整自动更新资产与 SHA256SUMS；真实 macOS 1.5.0→1.6.0 保护升级、原副本保留与重启验收通过，Windows 11 仍由负责人手动验收。
 - [ ] Windows 11 真机：NSIS 静默更新与重启（负责人手动）。
 
