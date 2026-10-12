@@ -6,10 +6,14 @@
   "main": "index.js",
   "scripts": {
     "start": "expo start",
+    "web": "expo start --web",
     "ios": "expo start --ios",
-    "android": "expo start --android"
+    "android": "expo start --android",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src"
   },
   "dependencies": {
+    "@hugeicons/core-free-icons": "4.3.5",
     "@noble/ciphers": "2.4.0",
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
@@ -19,7 +23,18 @@
     "expo-sqlite": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-svg": "15.12.1",
+    "react-native-web": "0.21.2",
+    "sql.js": "1.13.0",
     "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.36.0",
+    "@types/react": "19.2.2",
+    "eslint": "9.36.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.45.0"
   }
 }

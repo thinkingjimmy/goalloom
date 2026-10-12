@@ -1,5 +1,5 @@
 import './polyfill'
 import { registerRootComponent } from 'expo'
-import App from './App'
+import App from './src/root'
 
 registerRootComponent(App)

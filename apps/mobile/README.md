@@ -1,40 +1,30 @@
-# Hermes runner
+# Goalloom mobile
 
-This app is not part of the desktop pnpm workspace. It runs the pinned crypto vectors and one store-core rebuild on an iOS simulator, then keeps a local list (create, reorder, a rejected remote op, full rebuild). It does not talk to Supabase.
+Offline Expo app. It shares schema v10 and the planning rules with the desktop app through `@goalloom/local-store`. There is no account, no sync and no network call in the product UI.
 
-On a Mac with Xcode selected, from this directory:
+This directory is not a pnpm workspace member. Install it on its own so React Native is not hoisted next to Electron:
 
 ```sh
 pnpm install --ignore-workspace
+pnpm typecheck
+pnpm lint
+pnpm web
+```
+
+iOS and Android keep the workspace in expo-sqlite. The web preview uses sql.js in the page (same schema and statements) because the browser build of expo-sqlite waits on origin private file storage, which does not finish in this environment. `EXPO_PUBLIC_DEMO=1` confirms a natural calendar for 2026-10-12 in Asia/Shanghai and loads the interaction-mockup items. `?shot=` on web opens a specific screen (`today`, `mid`, `week`, `month`, `later`, `menu`, `drag`, `detail`, `sub`, `flow`, `flowsticky`, `capture`, `backlog`, `settings`, `empty`, `emptycol`, `min`, `dark`, `mindark`, `detaildark`). `?demo=1` does the same seed without the env var.
+
+A normal launch asks for the calendar mode once, then locks it. The device language, visible columns and other preferences live in `goalloom-device.db`, outside the workspace file `goalloom.db`.
+
+iOS Simulator and Android:
+
+```sh
 npx expo start
-xcrun simctl openurl booted exp://127.0.0.1:8081
 ```
 
-`pnpm install` without `--ignore-workspace` attaches this directory to the desktop workspace. `pnpm ios` (`expo start --ios`) asks osascript to open the Simulator and fails when that permission is denied. Start Metro yourself, then open the Expo URL in the already-booted simulator. The simulator does not need a signing team. Hermes is the Expo Go default.
+The iOS bundle id is `app.goalloom.mobile`.
 
-The Metro console prints one machine-comparable line:
+## Phase 0 digest
 
-```
-digest <64 hex chars>
-```
+`src/phase0.js` and `src/phase0-app.js` still run the pinned crypto vectors and a store-core rebuild. They are not the product UI. The Metro entry is `index.js`, which mounts `src/root.tsx`.
 
-That digest covers the pinned crypto vectors and two SyncOp canonical-JSON / payload-hash lines. From the repository root, compare it with the Electron result:
-
-```sh
-pnpm parity:digest
-pnpm parity:digest <hex>
-```
-
-`match` and exit 0 means Hermes and Node produced the same bytes. The screen also lists six local scenarios: offline edit, reorder, conflict reject, crash recovery, key rotation, and snapshot join. This app still does not talk to Supabase. The hosted pair of Electron clients is `pnpm test:phase0` from the repository root, with the variables in `supabase/README.md`.
-
-Measured 2026-10-11 on an iPhone 16 simulator (Expo Go): pinned vectors 559ms, reference rebuild 68ms.
-
-Android, when a device or emulator is available:
-
-```sh
-pnpm android
-```
-
-Do not install these dependencies from the repository root. A root install would hoist React Native next to the desktop app.
-
-This app is MIT (`"license": "MIT"` in `package.json`). It loads the MIT packages under `packages/` and does not import `supabase/`.
+This app is MIT. It does not import `supabase/` and it does not ship secrets.
