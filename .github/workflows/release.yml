@@ -57,6 +57,8 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          GOALLOOM_SUPABASE_ANON_KEY: ${{ secrets.GOALLOOM_SUPABASE_ANON_KEY }}
+          GOALLOOM_SUPABASE_URL: ${{ secrets.GOALLOOM_SUPABASE_URL || 'https://asqyvcnxdltzzfutbbqy.supabase.co' }}
         run: |
           set -euo pipefail
           if [[ -n "${CSC_LINK}" && -n "${CSC_KEY_PASSWORD}" ]]; then
@@ -66,12 +68,22 @@ jobs:
             export CSC_IDENTITY_AUTO_DISCOVERY=false
             echo "::warning title=Unsigned macOS build::CSC_LINK (base64 p12) and CSC_KEY_PASSWORD are not both set. Building unsigned with CSC_IDENTITY_AUTO_DISCOVERY=false. Squirrel.Mac auto-update requires a Developer ID signed build; this zip cannot ship as an automatic update."
           fi
+          if [[ -z "${GOALLOOM_SUPABASE_ANON_KEY}" ]]; then
+            echo "::warning title=Sync unconfigured::GOALLOOM_SUPABASE_ANON_KEY is empty. The build continues and the packaged app leaves sync unconfigured."
+          fi
           pnpm run package:mac
       - name: Package Windows
         if: matrix.package == 'win'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: pnpm run package:win
+          GOALLOOM_SUPABASE_ANON_KEY: ${{ secrets.GOALLOOM_SUPABASE_ANON_KEY }}
+          GOALLOOM_SUPABASE_URL: ${{ secrets.GOALLOOM_SUPABASE_URL || 'https://asqyvcnxdltzzfutbbqy.supabase.co' }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GOALLOOM_SUPABASE_ANON_KEY}" ]]; then
+            echo "::warning title=Sync unconfigured::GOALLOOM_SUPABASE_ANON_KEY is empty. The build continues and the packaged app leaves sync unconfigured."
+          fi
+          pnpm run package:win
       - name: Packaged macOS smoke
         if: runner.os == 'macOS'
         working-directory: apps/desktop
