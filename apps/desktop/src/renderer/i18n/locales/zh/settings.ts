@@ -132,7 +132,7 @@ export const settingsMessages = widen({
     acknowledge: '我知道这会改动这台电脑上的看板',
     exportJson: '导出 JSON',
     pending: (count: number) => count === 1 ? '1 条待发送' : `${count} 条待发送`,
-    conflicts: (count: number) => `${count} 条冲突已保留，没有改写幸存的条目`,
+    conflicts: (count: number) => `有 ${count} 处改动没有同步，这台电脑上的任务保持原样`,
     offline: '离线，改动会在连上后送出',
     paused: '同步已暂停',
     pausedNav: '已暂停',

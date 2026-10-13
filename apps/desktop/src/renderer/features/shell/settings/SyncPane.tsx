@@ -6,6 +6,7 @@
 import { useState, type ReactNode } from 'react'
 import type { SyncAction, SyncStatus } from '../../../../shared/contracts/sync'
 import { messages, settingsMessages as s } from '../../../i18n'
+import { useDismissedNotice } from '../../../state/notices'
 import { desktopApi } from '../../../state/use-workspace'
 import { Icon } from '../../../components/icons'
 import { SettingsGroup, SettingsRow, relativeDay, stamp } from './parts'
@@ -77,6 +78,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
   const [resetting, setResetting] = useState(false)
   const [forgot, setForgot] = useState(false)
   const [hiddenError, setHiddenError] = useState<string | null>(null)
+  const conflictNotice = useDismissedNotice('sync-conflicts', status?.conflicts ? String(status.conflicts) : null)
   const run = async (action: SyncAction) => {
     setWorking(true)
     try {
@@ -94,14 +96,13 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
   const onRow = status.phase === 'ready' || status.phase === 'locked'
   const error = status.error && !onRow && hiddenError !== status.error ? t.errors[status.error] : ''
   const signOut = <button type="button" className="settings-button" disabled={working} onClick={() => void run({ type: 'sign-out' })}>{t.signOut}</button>
-  const accountNote = status.conflicts > 0
-    ? <>{status.email}<span className="sync-extra">{t.conflicts(status.conflicts)}</span></>
-    : status.email
+  const accountNote = status.email
   const line = status.phase === 'ready' ? readyLine(status, today, timezone) : null
   const failed = line?.state === 'bad'
   const syncing = line?.state === 'run'
   return <div className="sync-pane">
     {error && <div className="settings-alert" role="alert"><span>{error}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status.error)}><Icon name="close" size={16} /></button></div>}
+    {conflictNotice.open && <div className="settings-alert" role="status"><span>{t.conflicts(status.conflicts)}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={conflictNotice.dismiss}><Icon name="close" size={16} /></button></div>}
     {status.phase === 'unconfigured' && <p className="settings-footnote">{t.unconfigured}</p>}
     {status.phase === 'locked' && <SettingsGroup>
       <Account note={accountNote}>
