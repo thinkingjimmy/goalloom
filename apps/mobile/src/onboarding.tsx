@@ -3,9 +3,9 @@
  * [OUTPUT]: Choice, calendar, direction, and the optional AI connect screen. Password screens render but do not call sync.
  * [POS]: First-run UI. Calendar lock and the year item happen only in onConfirm, after the AI step.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
+  ActivityIndicator, InputAccessoryView, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
 } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -185,18 +185,60 @@ function GroupRow({ theme, label, value, onPress }: { theme: Theme; label: strin
   </Pressable>
 }
 
+const DIRECTION_ACCESSORY = 'goalloom-direction-suggestions'
+
 function Direction({ copy, theme, value, onChange, onBack, onNext }: {
   copy: Copy; theme: Theme; value: string; onChange: (value: string) => void; onBack: () => void; onNext: () => void
 }) {
   const s = copy.start
-  return <Screen theme={theme} title={s.directionTitle} onBack={onBack} backLabel={s.back} cta={<Primary label={s.confirmStart} onPress={onNext} />}>
-    <TextInput value={value} onChangeText={onChange} multiline style={[styles.field, styles.direction, { color: theme.fg, backgroundColor: theme.raised, borderColor: theme.line }]} />
-    <View style={styles.chips}>
-      {s.examples.map(example => <Pressable key={example} onPress={() => onChange(example)} style={[styles.chip, { backgroundColor: theme.hover }]}>
-        <Text style={{ color: theme.fg, fontSize: 14 }}>{example}</Text>
-      </Pressable>)}
-    </View>
-  </Screen>
+  const input = useRef<TextInput>(null)
+  const [keyboard, setKeyboard] = useState(Platform.OS === 'ios')
+  useEffect(() => {
+    let seen = false
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const show = Keyboard.addListener(showEvent, () => { seen = true; setKeyboard(true) })
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboard(false))
+    const focus = setTimeout(() => input.current?.focus(), 40)
+    const fallback = setTimeout(() => { if (!seen) setKeyboard(false) }, 700)
+    return () => { show.remove(); hide.remove(); clearTimeout(focus); clearTimeout(fallback) }
+  }, [])
+  const suggestions = (edge: boolean) => <Suggestions examples={s.examples} theme={theme} edge={edge} onPick={onChange} />
+  return <>
+    <Screen theme={theme} title={s.directionTitle} onBack={onBack} backLabel={s.back} avoid={false} scroll={false} cta={<Primary label={s.continue} onPress={onNext} />}>
+      <View style={styles.fill}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
+        <View style={[styles.insetField, { backgroundColor: theme.scheme === 'dark' ? theme.surface : '#fff', borderColor: theme.line }]}>
+          <TextInput
+            ref={input}
+            value={value}
+            onChangeText={onChange}
+            autoFocus
+            clearButtonMode="while-editing"
+            inputAccessoryViewID={Platform.OS === 'ios' ? DIRECTION_ACCESSORY : undefined}
+            returnKeyType="done"
+            returnKeyLabel={s.continue}
+            enablesReturnKeyAutomatically
+            onSubmitEditing={() => { if (value.trim()) onNext() }}
+            style={[styles.insetInput, { color: theme.fg }]}
+          />
+          {Platform.OS !== 'ios' && value.length > 0 && <Pressable onPress={() => onChange('')} hitSlop={8} accessibilityLabel={s.clear}><Icon name="close" size={16} color={theme.secondary} /></Pressable>}
+        </View>
+        {!(Platform.OS === 'ios' && keyboard) && suggestions(false)}
+      </View>
+    </Screen>
+    {Platform.OS === 'ios' && <InputAccessoryView nativeID={DIRECTION_ACCESSORY} backgroundColor={theme.bg}>
+      <View style={[styles.accessory, { backgroundColor: theme.bg, borderTopColor: theme.line }]}>{suggestions(true)}</View>
+    </InputAccessoryView>}
+  </>
+}
+
+function Suggestions({ examples, theme, edge, onPick }: { examples: readonly string[]; theme: Theme; edge: boolean; onPick: (value: string) => void }) {
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={[styles.suggestionRow, edge && styles.suggestionEdge]}>
+    {examples.map(example => <Pressable key={example} onPress={() => onPick(example)} style={[styles.suggestion, { backgroundColor: theme.hover }]}>
+      <Text style={{ color: theme.fg, fontSize: 15 }}>{example}</Text>
+    </Pressable>)}
+  </ScrollView>
 }
 
 function JoinPassword({ copy, theme, email, onBack, onReset }: {
@@ -373,8 +415,12 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.38 },
   primaryText: { color: INK_TEXT, fontSize: 17, fontWeight: '600' },
   field: { minHeight: 48, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 17 },
-  direction: { minHeight: 96, textAlignVertical: 'top' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  insetField: { height: 44, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, paddingLeft: 12, paddingRight: 8, flexDirection: 'row', alignItems: 'center' },
+  insetInput: { flex: 1, fontSize: 17, height: 44, paddingVertical: 0 },
+  suggestionRow: { gap: 8, paddingVertical: 10 },
+  suggestionEdge: { paddingHorizontal: 20 },
+  suggestion: { height: 32, borderRadius: 16, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  accessory: { borderTopWidth: StyleSheet.hairlineWidth },
   chip: { borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
   pointText: { flex: 1, fontSize: 16, lineHeight: 22 },
   labelRow: { flexDirection: 'row', marginBottom: 8 },

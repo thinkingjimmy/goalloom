@@ -483,6 +483,9 @@ describe('workspace', () => {
     expect(catalogs.zh.start.apple).toBe('使用 Apple 继续')
     expect(catalogs.zh.start.or).toBe('或')
     expect(catalogs.zh.start.local).toBe('仅在这台设备使用')
+    expect(catalogs.zh.start.directionTitle).toBe('今年最想推进什么？')
+    expect(catalogs.zh.start.examples).toEqual(['跑一次全马', '读 24 本书', '找到理想工作'])
+    for (const copy of Object.values(catalogs)) expect(copy.start.examples).toHaveLength(3)
     for (const copy of Object.values(catalogs)) {
       expect(copy.start.benefits).toHaveLength(2)
       for (const line of copy.start.benefits) {
