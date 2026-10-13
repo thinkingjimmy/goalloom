@@ -37,7 +37,13 @@ export function SyncPane({ status, timezone }: { status: SyncStatus | null; time
         <button type="button" className="settings-button primary" disabled={working} onClick={() => void run({ type: 'sign-in' })}>{t.signIn}</button>
       </SettingsRow>
     </SettingsGroup>}
-    {status.phase === 'signing-in' && <p className="settings-footnote" role="status">{t.signingIn}</p>}
+    {status.phase === 'signing-in' && <SettingsGroup>
+      <SettingsRow title={t.signIn} note={t.signingIn}>
+        {status.error
+          ? <button type="button" className="settings-button primary" disabled={working} onClick={() => void run({ type: 'sign-in' })}>{t.signIn}</button>
+          : <p className="settings-footnote" role="status">{t.signingIn}</p>}
+      </SettingsRow>
+    </SettingsGroup>}
     {status.phase === 'setup' && <SettingsGroup>
       <SettingsRow title={t.createKey} note={t.setupNote}>
         <button type="button" className="settings-button primary" disabled={working} onClick={() => void run({ type: 'prepare' })}>{t.createKey}</button>

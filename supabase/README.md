@@ -39,11 +39,14 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0002_cleanup.s
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0003_roster_signature.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0004_roster_signers.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0005_desktop_client.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0006_envelope_ambiguity.sql
 ```
 
 `0004_roster_signers.sql` depends on `_roster_message` from `0003`. `commit_roster` and `rotate_epoch` then accept only the calling device's authorized signing key. `complete_recovery` accepts only the current roster's `recoverySignPub`. A mismatch raises `roster_signature_rejected` (`42501`).
 
 `0005_desktop_client.sql` is the desktop client delta. It adds `linux` to `devices.platform`, plus `list_account`, `get_roster`, `get_key_envelopes` and `put_key_envelopes`. It does not change `sync_entitled`. The desktop app does not deploy it. Apply it to the dev project before a Linux client can call `register_device`, and before any client can discover a workspace or store key envelopes.
+
+`0006_envelope_ambiguity.sql` replaces `put_key_envelopes` and `push_ops` on a database that already applied `0005`. The `0005` function declares `epoch`, `recipient`, `signature` and `roster_version`, which are also columns, so the first envelope insert raises `42702` under the default `plpgsql.variable_conflict`. `0006` prefixes those variables. It also raises the per-op ciphertext cap from 64 KiB to the existing 1 MiB batch cap so a long description can sync. Apply `0006` to the dev project before enabling sync. The client does not deploy it.
 
 ## pgTAP
 

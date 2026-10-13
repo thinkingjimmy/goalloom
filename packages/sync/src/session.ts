@@ -12,7 +12,7 @@ import { applyRemoteBatch, markAccepted, markSendUnknown, mergeRemoteOps, type A
 import { planPushBatches } from './push'
 import { openOpWire, sealOpWire } from './codec'
 import { SyncFailure } from './failure'
-import { bindWorkspace, captureVisibleBoard, clearProjection, conflictCount, queueBaseline, stageImportedBoard, syncCursor } from './board'
+import { applyImportedBoard, bindWorkspace, captureVisibleBoard, clearProjection, conflictCount, queueBaseline, syncCursor } from './board'
 import type { EnvelopeWire, PullWire, PushResultWire, RosterWire, SyncRemote } from './remote'
 
 export interface DeviceSecret { signSk: Uint8Array; boxSk: Uint8Array }
@@ -50,17 +50,19 @@ export interface BoundWorkspace { workspaceId: string; generation: string; epoch
 
 export async function createRemoteWorkspace(input: {
   remote: SyncRemote; deviceId: string; secret: DeviceSecret; mnemonic: string; generation: string; random?: RandomSource
+  workspaceId?: string; workspaceKey?: Uint8Array
 }): Promise<BoundWorkspace> {
   const phrase = normalize(input.mnemonic)
   if (!recoveryPhraseAccepted(phrase)) throw new SyncFailure('phrase')
+  if (Boolean(input.workspaceId) !== Boolean(input.workspaceKey)) throw new SyncFailure('storage', 'pending workspace')
   const random = input.random ?? systemRandom()
   const generation = input.generation
   if (!generation) throw new SyncFailure('storage', 'generation missing')
-  const workspaceId = globalThis.crypto.randomUUID()
+  const workspaceId = input.workspaceId ?? globalThis.crypto.randomUUID()
+  const workspaceKey = input.workspaceKey ?? random.bytes(32)
   const signPub = hex(publicFromSeed('ed25519', input.secret.signSk))
   const boxPub = hex(publicFromSeed('x25519', input.secret.boxSk))
   const recovery = deriveRecovery(phrase, workspaceId)
-  const workspaceKey = random.bytes(32)
   try {
     const roster: RosterBody = {
       workspaceId, version: 1, epoch: 1, prevHash: null,
@@ -75,11 +77,19 @@ export async function createRemoteWorkspace(input: {
       senderId: input.deviceId, signSk: input.secret.signSk, workspaceKey, workspaceId, epoch: 1, rosterVersion: 1, random,
       targets: [{ id: input.deviceId, boxPub }, { id: 'recovery', boxPub: hex(recovery.boxPub) }],
     })
-    await input.remote.bootstrap({
-      deviceId: input.deviceId, workspaceId, generation, roster, rosterHash: rosterHash(roster),
-      rosterSig: signRoster(roster, input.secret.signSk), checkpoint,
-      recSig: signCheckpoint(checkpoint, recovery.signSk), devSig: signCheckpoint(checkpoint, input.secret.signSk),
-    })
+    try {
+      await input.remote.bootstrap({
+        deviceId: input.deviceId, workspaceId, generation, roster, rosterHash: rosterHash(roster),
+        rosterSig: signRoster(roster, input.secret.signSk), checkpoint,
+        recSig: signCheckpoint(checkpoint, recovery.signSk), devSig: signCheckpoint(checkpoint, input.secret.signSk),
+      })
+    } catch (error) {
+      if (!input.workspaceId || !(error instanceof SyncFailure) || !error.message.includes('workspace')) throw error
+      const account = await input.remote.account()
+      if (!account || account.workspaceId !== workspaceId) throw error
+      const checkpoint = await input.remote.getCheckpoint(workspaceId, input.deviceId)
+      if (!checkpoint || checkpoint.body.recoverySignPub !== hex(recovery.signPub)) throw new SyncFailure('phrase')
+    }
     await input.remote.putEnvelopes(workspaceId, input.deviceId, wires)
     return { workspaceId, generation, epoch: 1, workspaceKey, roster }
   } finally {
@@ -186,14 +196,27 @@ export async function joinWorkspace(input: {
   remote: SyncRemote; driver: SqlDriver; host: ApplyHost; deviceId: string; secret: DeviceSecret; mnemonic: string
   choice: 'use-remote' | 'merge'; at: string; random?: RandomSource
 }): Promise<BoundWorkspace> {
-  const captured = input.choice === 'merge' ? captureVisibleBoard(input.driver) : null
   const { bound, ops } = await unlockWithPhrase(input)
-  input.driver.transaction(() => {
-    clearProjection(input.driver, { workspaceId: bound.workspaceId, deviceId: input.deviceId, keyEpoch: bound.epoch }, input.at)
-    applyRemoteBatch(input.driver, ops, input.host, input.at)
+  installJoined(input.driver, input.host, {
+    binding: { workspaceId: bound.workspaceId, deviceId: input.deviceId, keyEpoch: bound.epoch },
+    ops, at: input.at, merge: input.choice === 'merge',
   })
-  if (captured) stageImportedBoard(input.driver, input.host, captured, input.deviceId, input.at)
   return bound
+}
+
+/** Clears, applies the remote log, and imports the board captured inside that same transaction. */
+export function installJoined(driver: SqlDriver, host: ApplyHost, input: {
+  binding: { workspaceId: string; deviceId: string; keyEpoch: number }
+  ops: RemoteEnvelope[]
+  at: string
+  merge: boolean
+}): void {
+  driver.transaction(() => {
+    const captured = input.merge ? captureVisibleBoard(driver) : null
+    clearProjection(driver, input.binding, input.at)
+    applyRemoteBatch(driver, input.ops, host, input.at)
+    if (captured) applyImportedBoard(driver, host, captured, input.binding.deviceId, input.at)
+  })
 }
 
 export function acceptRosterAdvance(pinned: RosterBody, chain: RosterWire[], deviceId: string): RosterBody {
@@ -231,17 +254,20 @@ export function sealPending(rows: PendingPlain[], input: { workspaceKey: Uint8Ar
   })
 }
 
-export function acceptPushResults(driver: SqlDriver, pending: PendingPlain[], results: PushResultWire[], at: string): void {
+/** Marks accepted ops. A per-op rejection stays pending and is returned so the caller can still pull. */
+export function acceptPushResults(driver: SqlDriver, pending: PendingPlain[], results: PushResultWire[], at: string): string | null {
+  let held: string | null = null
   for (const result of results) {
     const local = pending.find(row => row.opId === result.opId)
     if (!local) throw new SyncFailure('storage', 'unknown receipt')
-    if (result.error) throw new SyncFailure(result.error === 'stale_epoch' ? 'key' : 'rejected', result.error)
+    if (result.error) { held = held ?? result.error; continue }
     if (result.seq === undefined) throw new SyncFailure('rejected')
     markAccepted(driver, result.opId, result.seq, at)
     if (result.seq > Number(driver.prepare('SELECT lastUploadedSeq AS seq FROM sync_state WHERE id=1').get()?.seq ?? 0)) {
       driver.prepare('UPDATE sync_state SET lastUploadedSeq=?, updatedAt=? WHERE id=1').run(result.seq, at)
     }
   }
+  return held
 }
 
 export function absorbPulled(driver: SqlDriver, host: ApplyHost, rows: PullWire[], input: { workspaceKey: Uint8Array; workspaceId: string; at: string }): number {
@@ -278,14 +304,18 @@ export async function exchange(input: {
   const sealed = sealPending(pending, input)
   const batches = planPushBatches(sealed.map(row => ({ opId: row.opId, localOrder: row.localOrder, bytes: row.wire.ciphertext.length / 2, blobReady: true })))
   let pushed = 0
+  let held: string | null = null
   for (const ids of batches) {
+    if (held) break
     const wires = ids.map(opId => sealed.find(row => row.opId === opId)!.wire)
     const results = await input.remote.pushOps({ workspaceId: input.workspaceId, deviceId: input.deviceId, generation: input.generation, ops: wires })
-    acceptPushResults(input.driver, pending, results, input.at)
+    held = acceptPushResults(input.driver, pending, results, input.at)
     pushed += results.length
   }
   const pulledRows = await pullAll(input.remote, input.workspaceId, input.deviceId, syncCursor(input.driver))
   const pulled = absorbPulled(input.driver, input.host, pulledRows, input)
+  if (held === 'stale_epoch') throw new SyncFailure('key', held)
+  if (held) throw new SyncFailure('rejected', held)
   return { pushed, pulled, conflicts: conflictCount(input.driver) }
 }
 

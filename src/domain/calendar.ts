@@ -44,6 +44,35 @@ export function anchoredRange(anchor: string, today: PlainDate, monthsPerPeriod:
   return [origin.add({ months: index * monthsPerPeriod }), origin.add({ months: (index + 1) * monthsPerPeriod })]
 }
 export const cycleRange = (anchor: string, today: PlainDate): [PlainDate, PlainDate] => anchoredRange(anchor, today, 3)
+
+/** End of the anchored period that starts on `start`, counted from the original anchor so a clamped start does not shorten the next boundary. */
+export function boundedPeriodEnd(calendar: Calendar, horizon: Horizon, start: PlainDate): PlainDate {
+  if (isAnchoredHorizon(horizon)) {
+    if (!calendar.cycleAnchor) throw new Error(serverText().calendar.anchorMissing)
+    const origin = parseDate(calendar.cycleAnchor)
+    const monthsPerPeriod = anchoredMonths[horizon]
+    const at = (index: number) => origin.add({ months: index * monthsPerPeriod })
+    let index = 0
+    while (index < 480 && Temporal.PlainDate.compare(at(index + 1), start) <= 0) index += 1
+    return at(index + 1)
+  }
+  if (horizon === 'week') return start.add({ days: 7 })
+  if (horizon === 'month') return start.add({ months: 1 })
+  return start.add({ days: 1 })
+}
+
+/** Places a captured task onto `remote`. A task in the local current period stays in the remote current period. */
+export function alignImportedStart(local: Calendar, remote: Calendar, horizon: Horizon, startDate: string, at: string): string {
+  try {
+    if (currentPeriod(local, horizon, at).startDate === startDate) return currentPeriod(remote, horizon, at).startDate
+  } catch { /* The local calendar cannot name this instant. */ }
+  try {
+    const instant = parseDate(startDate).toZonedDateTime(remote.timezone).toInstant().toString()
+    return currentPeriod(remote, horizon, instant).startDate
+  } catch {
+    try { return currentPeriod(remote, horizon, at).startDate } catch { return startDate }
+  }
+}
 const anchoredMonths: Record<AnchoredHorizon, number> = { year: 12, half: 6, cycle: 3 }
 
 export function currentPeriod(calendar: Calendar, horizon: Horizon, observedAt: string): Period {

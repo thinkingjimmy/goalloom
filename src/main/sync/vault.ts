@@ -9,6 +9,15 @@ import { z } from 'zod'
 import { hex, unhex, type RosterBody } from '@goalloom/crypto'
 import type { Cipher } from '../smart/credentials'
 
+const accountSchema = z.strictObject({
+  deviceId: z.string().nullable(),
+  workspaceKey: z.string().nullable(),
+  workspaceId: z.string().nullable(),
+  generation: z.string().nullable(),
+  epoch: z.number().int().positive().nullable(),
+  roster: z.unknown().nullable(),
+})
+
 const fileSchema = z.strictObject({
   v: z.literal(1),
   deviceId: z.string().nullable(),
@@ -20,7 +29,18 @@ const fileSchema = z.strictObject({
   epoch: z.number().int().positive().nullable(),
   roster: z.unknown().nullable(),
   refreshToken: z.string().nullable(),
+  userId: z.string().nullable().default(null),
+  accounts: z.record(z.string(), accountSchema).default({}),
 })
+
+export interface AccountSecrets {
+  deviceId: string | null
+  workspaceKey: Uint8Array | null
+  workspaceId: string | null
+  generation: string | null
+  epoch: number | null
+  roster: RosterBody | null
+}
 
 export interface VaultSecrets {
   deviceId: string | null
@@ -32,6 +52,8 @@ export interface VaultSecrets {
   epoch: number | null
   roster: RosterBody | null
   refreshToken: string | null
+  userId: string | null
+  accounts: Record<string, AccountSecrets>
 }
 
 export class SyncVault {
@@ -39,24 +61,41 @@ export class SyncVault {
   get available(): boolean { return this.cipher.available() }
   async load(): Promise<VaultSecrets | null> {
     if (!this.available) return null
-    try {
-      const raw = this.cipher.decrypt(await readFile(join(this.directory, 'sync-vault.bin')))
-      const parsed = fileSchema.parse(JSON.parse(raw))
-      return {
-        deviceId: parsed.deviceId, signSk: unhex(parsed.signSk), boxSk: unhex(parsed.boxSk),
-        workspaceKey: parsed.workspaceKey ? unhex(parsed.workspaceKey) : null,
-        workspaceId: parsed.workspaceId, generation: parsed.generation, epoch: parsed.epoch,
-        roster: parsed.roster as RosterBody | null, refreshToken: parsed.refreshToken,
+    let bytes: Buffer
+    try { bytes = await readFile(join(this.directory, 'sync-vault.bin')) }
+    catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return null
+      throw error
+    }
+    const parsed = fileSchema.parse(JSON.parse(this.cipher.decrypt(bytes)))
+    const accounts: Record<string, AccountSecrets> = {}
+    for (const [userId, account] of Object.entries(parsed.accounts)) {
+      accounts[userId] = {
+        deviceId: account.deviceId, workspaceKey: account.workspaceKey ? unhex(account.workspaceKey) : null,
+        workspaceId: account.workspaceId, generation: account.generation, epoch: account.epoch, roster: account.roster as RosterBody | null,
       }
-    } catch { return null }
+    }
+    return {
+      deviceId: parsed.deviceId, signSk: unhex(parsed.signSk), boxSk: unhex(parsed.boxSk),
+      workspaceKey: parsed.workspaceKey ? unhex(parsed.workspaceKey) : null,
+      workspaceId: parsed.workspaceId, generation: parsed.generation, epoch: parsed.epoch,
+      roster: parsed.roster as RosterBody | null, refreshToken: parsed.refreshToken, userId: parsed.userId, accounts,
+    }
   }
   async save(secrets: VaultSecrets): Promise<void> {
     if (!this.available) throw new Error('keychain')
+    const accounts: Record<string, z.infer<typeof accountSchema>> = {}
+    for (const [userId, account] of Object.entries(secrets.accounts)) {
+      accounts[userId] = {
+        deviceId: account.deviceId, workspaceKey: account.workspaceKey ? hex(account.workspaceKey) : null,
+        workspaceId: account.workspaceId, generation: account.generation, epoch: account.epoch, roster: account.roster,
+      }
+    }
     const body = JSON.stringify({
       v: 1, deviceId: secrets.deviceId, signSk: hex(secrets.signSk), boxSk: hex(secrets.boxSk),
       workspaceKey: secrets.workspaceKey ? hex(secrets.workspaceKey) : null,
       workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
-      roster: secrets.roster, refreshToken: secrets.refreshToken,
+      roster: secrets.roster, refreshToken: secrets.refreshToken, userId: secrets.userId, accounts,
     })
     const encrypted = this.cipher.encrypt(body)
     const path = join(this.directory, 'sync-vault.bin')

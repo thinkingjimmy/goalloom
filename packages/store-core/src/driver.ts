@@ -20,6 +20,8 @@ export interface PeriodRow {
 }
 export interface ApplyHost {
   materializePeriod(horizon: string, startDate: string): PeriodRow
+  /** Maps a captured period onto the calendar already installed by the remote log. */
+  alignImportedPeriod?(localCalendarJson: string, horizon: string, startDate: string, at: string): string
 }
 
 export class SyncApplyError extends Error {

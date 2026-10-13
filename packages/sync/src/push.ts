@@ -6,7 +6,9 @@
 export interface PushCandidate { opId: string; localOrder: number; bytes: number; blobReady: boolean }
 
 const maxOps = 200
-const maxBytes = 1024 * 1024
+/** One op may use the whole push batch. A 100_000-character description seals under this and over 64 KiB. */
+export const maxOpCiphertextBytes = 1024 * 1024
+const maxBytes = maxOpCiphertextBytes
 
 export function planPushBatches(ops: PushCandidate[]): string[][] {
   const ordered = [...ops].sort((left, right) => left.localOrder - right.localOrder)

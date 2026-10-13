@@ -76,6 +76,7 @@ export class SyncService {
     onApplied: () => void
     clipboard: (text: string) => void
     now: () => string
+    beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>) => Promise<Session>
   }) {
     this.vault = new SyncVault(deps.userData, deps.cipher)
   }
@@ -85,7 +86,15 @@ export class SyncService {
     if (!config.anonKey) { this.phase = 'unconfigured'; this.publish(); return }
     if (!this.vault.available) { this.phase = 'locked'; this.publish(); return }
     this.started = true
-    this.secrets = await this.vault.load() ?? this.freshSecrets()
+    try { this.secrets = await this.vault.load() }
+    catch {
+      this.phase = 'locked'
+      this.error = 'storage'
+      this.secrets = null
+      this.publish()
+      return
+    }
+    this.secrets = this.secrets ?? this.freshSecrets()
     this.client = supabaseClient(config.url, config.anonKey, this.sessionStorage())
     this.remote = createFetchRemote({ url: config.url, anonKey: config.anonKey, accessToken: () => this.accessToken() })
     this.client.auth.onAuthStateChange((_event, session) => { void this.keepSession(session).catch(() => undefined) })
@@ -125,6 +134,7 @@ export class SyncService {
       else await this.exclusive(() => this.perform(action))
     } catch (error) {
       this.setError(error)
+      this.publish()
     }
     const phrase = action.type === 'prepare' ? this.phrase?.text ?? null : null
     return syncReplySchema.parse({ status: this.status(), phrase })
@@ -152,10 +162,15 @@ export class SyncService {
     this.phase = 'signing-in'
     this.error = null
     this.publish()
-    const session = await googleSignIn(this.client, this.deps.openExternal)
-    this.email = session.user.email ?? null
-    await this.keepSession(session)
-    await this.afterAuth()
+    try {
+      const session = await (this.deps.beginSignIn ?? googleSignIn)(this.client, this.deps.openExternal)
+      this.email = session.user.email ?? null
+      await this.keepSession(session)
+      await this.afterAuth()
+    } catch (error) {
+      this.phase = 'signed-out'
+      throw error
+    }
   }
 
   private async signOut(): Promise<void> {
@@ -164,8 +179,8 @@ export class SyncService {
     this.error = null
     this.offline = false
     this.dropPhrase()
-    if (this.secrets) { this.secrets.refreshToken = null; await this.vault.save(this.secrets) }
-    await this.client?.auth.signOut().catch(() => undefined)
+    if (this.secrets) { this.secrets.refreshToken = null; await this.persist() }
+    await this.client?.auth.signOut({ scope: 'local' }).catch(() => undefined)
     void this.channel?.unsubscribe()
     this.channel = null
     this.publish()
@@ -189,14 +204,30 @@ export class SyncService {
     if (!this.phrase || !this.checks || !recoveryWordsMatch(this.phrase.text, this.checks, words)) throw new SyncFailure('phrase')
     const remote = this.requireRemote()
     const deviceId = this.requireDevice()
+    const secrets = this.requireSecrets()
     const view = await this.readView()
+    if (!secrets.roster) {
+      if (!secrets.workspaceId || !secrets.workspaceKey) {
+        secrets.workspaceId = globalThis.crypto.randomUUID()
+        secrets.workspaceKey = systemRandom().bytes(32)
+        secrets.generation = view.generation
+        secrets.epoch = 1
+        await this.persist()
+      }
+    }
+    const workspaceId = secrets.workspaceId
+    const workspaceKey = secrets.workspaceKey
+    if (!workspaceId || !workspaceKey) throw new SyncFailure('storage', 'pending workspace')
     let bound: BoundWorkspace
     try {
       bound = await createRemoteWorkspace({
-        remote, deviceId, secret: this.deviceSecret(), mnemonic: this.phrase.text, generation: view.generation,
+        remote, deviceId, secret: this.deviceSecret(), mnemonic: this.phrase.text,
+        generation: secrets.generation || view.generation, workspaceId, workspaceKey,
       })
     } catch (error) {
       if (!(error instanceof SyncFailure) || !error.message.includes('workspace')) throw error
+      const account = await remote.account()
+      if (account?.workspaceId === workspaceId) throw error
       const unlocked = await unlockWithPhrase({ remote, deviceId, secret: this.deviceSecret(), mnemonic: this.phrase.text })
       bound = unlocked.bound
     }
@@ -227,23 +258,30 @@ export class SyncService {
     const deviceId = this.requireDevice()
     const view = await this.readView()
     if (view.localItems > 0 && !acknowledged) return
-    const captured = choice === 'merge' ? await this.storage<unknown>({ type: 'capture' }) : null
+    await this.storage({ type: 'hold', closed: true })
     let bound: BoundWorkspace
     let ops: RemoteEnvelope[]
-    if (this.phrase) {
-      const unlocked = await unlockWithPhrase({ remote, deviceId, secret: this.deviceSecret(), mnemonic: this.phrase.text })
-      bound = unlocked.bound
-      ops = unlocked.ops
-    } else if (secrets.workspaceKey && secrets.workspaceId && secrets.epoch && secrets.roster && secrets.generation) {
-      bound = {
-        workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
-        workspaceKey: secrets.workspaceKey, roster: secrets.roster,
-      }
-      ops = await downloadWorkspace({ remote, deviceId, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey })
-    } else throw new SyncFailure('phrase')
-    const at = this.deps.now()
-    await this.storage({ type: 'install', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch }, ops, at })
-    if (captured) await this.storage({ type: 'import', deviceId, board: captured, at })
+    try {
+      await this.storage({ type: 'protect', at: this.deps.now() })
+      if (this.phrase) {
+        const unlocked = await unlockWithPhrase({ remote, deviceId, secret: this.deviceSecret(), mnemonic: this.phrase.text })
+        bound = unlocked.bound
+        ops = unlocked.ops
+      } else if (secrets.workspaceKey && secrets.workspaceId && secrets.epoch && secrets.roster && secrets.generation) {
+        bound = {
+          workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
+          workspaceKey: secrets.workspaceKey, roster: secrets.roster,
+        }
+        ops = await downloadWorkspace({ remote, deviceId, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey })
+      } else throw new SyncFailure('phrase')
+      const at = this.deps.now()
+      await this.storage({
+        type: 'install', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch },
+        ops, at, merge: choice === 'merge',
+      })
+    } finally {
+      await this.storage({ type: 'hold', closed: false }).catch(() => undefined)
+    }
     await this.remember(bound)
     this.dropPhrase()
     this.phase = 'ready'
@@ -256,8 +294,9 @@ export class SyncService {
 
   private async afterAuth(): Promise<void> {
     const remote = this.requireRemote()
+    const userId = (await this.client?.auth.getSession())?.data.session?.user.id ?? null
+    await this.activateAccount(userId)
     const secrets = this.requireSecrets()
-    await this.ensureDevice()
     const account = await remote.account()
     if (secrets.workspaceId && account && account.workspaceId !== secrets.workspaceId) {
       this.phase = 'signed-out'
@@ -271,6 +310,7 @@ export class SyncService {
       this.publish()
       return
     }
+    await this.ensureDevice()
     if (!account) { this.phase = 'setup'; this.error = null; this.publish(); return }
     if (!secrets.workspaceKey || secrets.workspaceId !== account.workspaceId) {
       this.phase = 'enter-key'
@@ -305,14 +345,38 @@ export class SyncService {
       } catch (error) {
         if (!(error instanceof SyncFailure) || error.code !== 'auth') throw error
         secrets.deviceId = null
-        secrets.workspaceKey = null
-        secrets.roster = null
       }
     }
     secrets.deviceId = await remote.registerDevice({
       name: hostname().slice(0, 64) || 'Goalloom', platform: desktopPlatform(), signPub, boxPub,
     })
-    await this.vault.save(secrets)
+    await this.persist()
+  }
+
+  private async activateAccount(userId: string | null): Promise<void> {
+    const secrets = this.requireSecrets()
+    if (!userId || secrets.userId === userId) {
+      if (userId && !secrets.userId) { secrets.userId = userId; await this.persist() }
+      return
+    }
+    if (secrets.userId) secrets.accounts[secrets.userId] = this.accountSecrets()
+    const stored = secrets.accounts[userId]
+    secrets.userId = userId
+    secrets.deviceId = stored?.deviceId ?? null
+    secrets.workspaceKey = stored?.workspaceKey ?? null
+    secrets.workspaceId = stored?.workspaceId ?? null
+    secrets.generation = stored?.generation ?? null
+    secrets.epoch = stored?.epoch ?? null
+    secrets.roster = stored?.roster ?? null
+    await this.persist()
+  }
+
+  private accountSecrets() {
+    const secrets = this.requireSecrets()
+    return {
+      deviceId: secrets.deviceId, workspaceKey: secrets.workspaceKey, workspaceId: secrets.workspaceId,
+      generation: secrets.generation, epoch: secrets.epoch, roster: secrets.roster,
+    }
   }
 
   private async tick(): Promise<void> {
@@ -349,10 +413,12 @@ export class SyncService {
     const pending = await this.storage<PendingPlain[]>({ type: 'take', at, attemptId: globalThis.crypto.randomUUID() })
     const sealed = sealPending(pending, { workspaceKey: secrets.workspaceKey, workspaceId: secrets.workspaceId, epoch: secrets.epoch })
     const batches = planPushBatches(sealed.map(row => ({ opId: row.opId, localOrder: row.localOrder, bytes: row.wire.ciphertext.length / 2, blobReady: true })))
+    let held: string | null = null
     for (const ids of batches) {
+      if (held) break
       const ops = ids.map(opId => sealed.find(row => row.opId === opId)!.wire)
       const results = await remote.pushOps({ workspaceId: secrets.workspaceId, deviceId: secrets.deviceId, generation: secrets.generation, ops })
-      await this.storage({ type: 'accept', pending, results, at })
+      held = await this.storage<string | null>({ type: 'accept', pending, results, at })
     }
     const cursor = (await this.readView()).lastAppliedSeq
     const opened = await pullOpened({
@@ -360,6 +426,8 @@ export class SyncService {
     })
     const applied = Number(await this.storage({ type: 'absorb', ops: opened, at }) ?? 0)
     if (applied > 0) this.deps.onApplied()
+    if (held === 'stale_epoch') throw new SyncFailure('key', held)
+    if (held) throw new SyncFailure('rejected', held)
   }
 
   private async followRoster(): Promise<void> {
@@ -379,7 +447,7 @@ export class SyncService {
       secrets.epoch = next.epoch
     }
     secrets.roster = next
-    await this.vault.save(secrets)
+    await this.persist()
   }
 
   private async remember(bound: BoundWorkspace): Promise<void> {
@@ -389,6 +457,12 @@ export class SyncService {
     secrets.epoch = bound.epoch
     secrets.workspaceKey = bound.workspaceKey
     secrets.roster = bound.roster
+    await this.persist()
+  }
+
+  private async persist(): Promise<void> {
+    const secrets = this.requireSecrets()
+    if (secrets.userId) secrets.accounts[secrets.userId] = this.accountSecrets()
     await this.vault.save(secrets)
   }
 
@@ -412,7 +486,8 @@ export class SyncService {
     if (!this.secrets || !session?.refresh_token || session.refresh_token === this.secrets.refreshToken) return
     this.secrets.refreshToken = session.refresh_token
     this.email = session.user.email ?? this.email
-    await this.vault.save(this.secrets)
+    if (!this.secrets.userId) this.secrets.userId = session.user.id
+    await this.persist()
   }
 
   private sessionStorage() {
@@ -428,7 +503,7 @@ export class SyncService {
     const secret = newDeviceSecret()
     return {
       deviceId: null, signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: null, workspaceId: null,
-      generation: null, epoch: null, roster: null, refreshToken: null,
+      generation: null, epoch: null, roster: null, refreshToken: null, userId: null, accounts: {},
     }
   }
 

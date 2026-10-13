@@ -6,13 +6,15 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { z } from 'zod'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
-import { applyRemoteBatch, type RemoteEnvelope } from '@goalloom/store-core'
+import type { RemoteEnvelope } from '@goalloom/store-core'
 import {
-  absorbOpened, acceptPushResults, bindWorkspace, captureVisibleBoard, clearProjection, conflictCount, localLiveCount, queueBaseline,
+  absorbOpened, acceptPushResults, bindWorkspace, captureVisibleBoard, conflictCount, installJoined, localLiveCount, queueBaseline,
   stageImportedBoard, syncCursor, takePending, type LocalBoard, type PendingPlain, type PushResultWire,
 } from '@goalloom/sync'
 import { syncHost } from '../../sync/host'
 import { DomainError } from '../../../shared/contracts/commands'
+import { BackupManager } from '../../storage/backup/manager'
+import { Store } from '../../storage/store'
 
 const binding = z.strictObject({ workspaceId: z.uuid(), deviceId: z.uuid(), keyEpoch: z.number().int().positive() })
 const pending = z.strictObject({ opId: z.uuid(), localOrder: z.number().int(), payload: z.string(), payloadHash: z.string() })
@@ -27,12 +29,24 @@ const command = z.discriminatedUnion('type', [
     opId: z.uuid(), seq: z.number().int().positive().optional(), duplicate: z.boolean().optional(), error: z.string().optional(),
   })), at: z.string() }),
   z.strictObject({ type: z.literal('absorb'), ops: z.array(opened), at: z.string() }),
-  z.strictObject({ type: z.literal('install'), binding, ops: z.array(opened), at: z.string() }),
+  z.strictObject({ type: z.literal('install'), binding, ops: z.array(opened), at: z.string(), merge: z.boolean() }),
   z.strictObject({ type: z.literal('import'), deviceId: z.uuid(), board: z.unknown(), at: z.string() }),
+  z.strictObject({ type: z.literal('hold'), closed: z.boolean() }),
+  z.strictObject({ type: z.literal('protect'), at: z.string() }),
   z.strictObject({ type: z.literal('pause'), reason: z.string().max(40).nullable(), at: z.string() }),
 ])
 
-export function runSyncLocal(db: DatabaseSync, argument: unknown): unknown {
+export async function protectSyncBackup(db: DatabaseSync, directory: string, now: string): Promise<string> {
+  const manager = new BackupManager(db, directory)
+  const record = await manager.create('protective', new Store(db).workspace(), now)
+  await manager.verify(record)
+  return record.id
+}
+
+export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: {
+  hold?: (closed: boolean) => void
+  protect?: () => Promise<string>
+}): Promise<unknown> {
   const action = command.parse(argument)
   const driver = nodeSqlDriver(db)
   const host = syncHost(db)
@@ -55,22 +69,23 @@ export function runSyncLocal(db: DatabaseSync, argument: unknown): unknown {
   if (action.type === 'baseline') return queueBaseline(driver, host, action.deviceId, action.at)
   if (action.type === 'take') return takePending(driver, action.at, action.attemptId)
   if (action.type === 'accept') {
-    acceptPushResults(driver, action.pending as PendingPlain[], action.results.map(result => {
+    return acceptPushResults(driver, action.pending as PendingPlain[], action.results.map(result => {
       const wire: PushResultWire = { opId: result.opId }
       if (result.seq !== undefined) wire.seq = result.seq
       if (result.duplicate !== undefined) wire.duplicate = result.duplicate
       if (result.error !== undefined) wire.error = result.error
       return wire
     }), action.at)
-    return null
   }
   if (action.type === 'absorb') return absorbOpened(driver, host, action.ops as RemoteEnvelope[], action.at)
   if (action.type === 'install') {
-    driver.transaction(() => {
-      clearProjection(driver, action.binding, action.at)
-      applyRemoteBatch(driver, action.ops as RemoteEnvelope[], host, action.at)
-    })
+    installJoined(driver, host, { binding: action.binding, ops: action.ops as RemoteEnvelope[], at: action.at, merge: action.merge })
     return null
+  }
+  if (action.type === 'hold') { hooks?.hold?.(action.closed); return null }
+  if (action.type === 'protect') {
+    if (!hooks?.protect) throw new DomainError('backup', 'backup')
+    return hooks.protect()
   }
   if (action.type === 'import') return stageImportedBoard(driver, host, action.board as LocalBoard, action.deviceId, action.at)
   if (action.type === 'pause') {

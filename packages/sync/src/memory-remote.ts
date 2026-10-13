@@ -5,6 +5,7 @@
  */
 import { hex, rosterHash, unhex, verifyDetached, verifyRosterSignature } from '@goalloom/crypto'
 import { SyncFailure } from './failure'
+import { maxOpCiphertextBytes } from './push'
 import type { AccountView, CheckpointWire, EnvelopeWire, PullWire, PushResultWire, PushWire, RecoveryChallenge, RosterWire, SyncRemote } from './remote'
 
 interface DeviceRow { id: string; sessionId: string; signPub: Uint8Array; boxPub: Uint8Array; status: 'registered' | 'authorized' | 'revoked' }
@@ -175,7 +176,7 @@ function acceptOp(workspace: WorkspaceRow, _deviceId: string, op: PushWire, meas
     if (existing.hash !== op.payloadHash) return { opId: op.opId, error: 'op_id_reused' }
     return { opId: op.opId, seq: existing.seq, duplicate: true }
   }
-  if (measure() > 1048576 || op.ciphertext.length / 2 > 65536) return { opId: op.opId, error: 'payload_too_large' }
+  if (measure() > maxOpCiphertextBytes || op.ciphertext.length / 2 > maxOpCiphertextBytes) return { opId: op.opId, error: 'payload_too_large' }
   if (op.keyEpoch !== workspace.keyEpoch) return { opId: op.opId, error: 'stale_epoch' }
   if (op.formatVersion < 1) return { opId: op.opId, error: 'protocol_too_old' }
   const seq = workspace.headSeq + 1

@@ -5,22 +5,39 @@
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { Temporal } from '../../domain/temporal'
-import { makePeriod, type Horizon } from '../../domain/calendar'
+import { alignImportedStart, boundedPeriodEnd, currentPeriod, makePeriod, parseDate, type Calendar, type Horizon } from '../../domain/calendar'
+import { isAnchoredHorizon } from '../../shared/contracts/values'
 import type { ApplyHost } from '@goalloom/store-core'
 import { SyncApplyError } from '@goalloom/store-core'
 
-const months: Partial<Record<Horizon, number>> = { year: 12, half: 6, cycle: 3 }
+function readCalendar(db: DatabaseSync): Calendar {
+  const raw = db.prepare('SELECT calendar FROM base_workspace WHERE id=1 AND calendar IS NOT NULL').get()?.calendar
+    ?? db.prepare('SELECT calendar FROM workspace WHERE id=1 AND calendar IS NOT NULL').get()?.calendar
+  if (!raw) throw new SyncApplyError('period_scale_mismatch')
+  return JSON.parse(String(raw)) as Calendar
+}
+
+function snapStart(calendar: Calendar, horizon: Horizon, start: ReturnType<typeof parseDate>) {
+  try {
+    const instant = start.toZonedDateTime(calendar.timezone).toInstant().toString()
+    return parseDate(currentPeriod(calendar, horizon, instant).startDate)
+  } catch {
+    return isAnchoredHorizon(horizon) && calendar.cycleAnchor ? parseDate(calendar.cycleAnchor) : start
+  }
+}
 
 export function syncHost(db: DatabaseSync): ApplyHost {
-  return { materializePeriod(horizon, startDate) {
-    const raw = db.prepare('SELECT calendar FROM base_workspace WHERE id=1 AND calendar IS NOT NULL').get()?.calendar
-      ?? db.prepare('SELECT calendar FROM workspace WHERE id=1 AND calendar IS NOT NULL').get()?.calendar
-    if (!raw) throw new SyncApplyError('period_scale_mismatch')
-    const calendar = JSON.parse(String(raw))
-    const start = Temporal.PlainDate.from(startDate)
-    const span = months[horizon as Horizon]
-    const end = span ? start.add({ months: span }) : horizon === 'week' ? start.add({ days: 7 }) : horizon === 'month' ? start.add({ months: 1 }) : start.add({ days: 1 })
-    const period = makePeriod(calendar, horizon as Horizon, start, end)
-    return { id: period.id, horizon: period.horizon, startDate: period.startDate, endDate: period.endDate, startAt: period.startAt, endAt: period.endAt }
-  } }
+  return {
+    materializePeriod(horizon, startDate) {
+      const calendar = readCalendar(db)
+      const name = horizon as Horizon
+      const start = snapStart(calendar, name, Temporal.PlainDate.from(startDate))
+      const end = boundedPeriodEnd(calendar, name, start)
+      const period = makePeriod(calendar, name, start, end)
+      return { id: period.id, horizon: period.horizon, startDate: period.startDate, endDate: period.endDate, startAt: period.startAt, endAt: period.endAt }
+    },
+    alignImportedPeriod(localCalendarJson, horizon, startDate, at) {
+      return alignImportedStart(JSON.parse(localCalendarJson) as Calendar, readCalendar(db), horizon as Horizon, startDate, at)
+    },
+  }
 }

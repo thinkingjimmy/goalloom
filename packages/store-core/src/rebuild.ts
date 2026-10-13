@@ -113,6 +113,8 @@ export function applyRemoteBatch(driver: SqlDriver, batch: RemoteEnvelope[], hos
       driver.prepare('UPDATE sync_state SET lastAppliedSeq=?, updatedAt=? WHERE id=1').run(entry.seq, at)
     }
   rebuildVisibleFull(driver, host)
+  // The board snapshot ignores item rows and refreshes when workspace.revision changes.
+  if (ordered.length) driver.prepare('UPDATE workspace SET revision = revision + 1 WHERE id=1').run()
   assertForeignKeys(driver)
 }
 

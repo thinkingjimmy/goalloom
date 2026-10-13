@@ -201,33 +201,50 @@ export function queueBaseline(driver: SqlDriver, host: ApplyHost, deviceId: stri
   })
 }
 
-export function stageImportedBoard(driver: SqlDriver, host: ApplyHost, board: LocalBoard, deviceId: string, at: string): number {
-  const imported: LocalBoard = { calendar: null, policies: [], guidance: board.guidance, edges: [], items: [], }
+function placedBoard(host: ApplyHost, board: LocalBoard, at: string): LocalBoard {
+  if (!board.calendar || !host.alignImportedPeriod) return board
+  const local = JSON.stringify(board.calendar)
+  return {
+    ...board,
+    items: board.items.map(item => {
+      if (!item.period) return item
+      const startDate = host.alignImportedPeriod!(local, item.period.horizon, item.period.startDate, at)
+      return startDate === item.period.startDate ? item : { ...item, period: { horizon: item.period.horizon, startDate } }
+    }),
+  }
+}
+
+/** Writes the captured board as new local ops. Caller owns the transaction. */
+export function applyImportedBoard(driver: SqlDriver, host: ApplyHost, board: LocalBoard, deviceId: string, at: string): number {
+  const source = placedBoard(host, board, at)
+  const imported: LocalBoard = { calendar: null, policies: [], guidance: source.guidance, edges: [], items: [] }
   const map = new Map<string, string>()
-  for (const item of board.items.filter(item => !item.deletedAt)) map.set(item.id, id())
-  imported.items = board.items.filter(item => !item.deletedAt).map(item => ({
+  for (const item of source.items.filter(item => !item.deletedAt)) map.set(item.id, id())
+  imported.items = source.items.filter(item => !item.deletedAt).map(item => ({
     ...item,
     id: map.get(item.id)!,
     nestingParentId: item.nestingParentId && map.has(item.nestingParentId) ? map.get(item.nestingParentId)! : null,
     flowColor: item.flowColor !== null && driver.prepare('SELECT 1 FROM items WHERE flowColor=? AND deletedAt IS NULL').get(item.flowColor) ? null : item.flowColor,
   }))
-  imported.edges = board.edges.flatMap(edge => {
+  imported.edges = source.edges.flatMap(edge => {
     const parentId = map.get(edge.parentId)
     const childId = map.get(edge.childId)
     return parentId && childId ? [{ id: id(), parentId, childId }] : []
   })
-  imported.guidance = board.guidance.flatMap(note => map.has(note.itemId) ? [{ itemId: map.get(note.itemId)!, value: note.value }] : [])
+  imported.guidance = source.guidance.flatMap(note => map.has(note.itemId) ? [{ itemId: map.get(note.itemId)!, value: note.value }] : [])
   const ops = opsForBoard(imported, deviceId, at, 'import')
   if (!ops.length) return 0
-  driver.transaction(() => {
-    let order = Number(driver.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()?.n ?? 0)
-    for (const op of ops) {
-      applySyncOp(driver, op, 'visible', host)
-      order += 1
-      insertOp(driver, op, at, order)
-    }
-  })
+  let order = Number(driver.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()?.n ?? 0)
+  for (const op of ops) {
+    applySyncOp(driver, op, 'visible', host)
+    order += 1
+    insertOp(driver, op, at, order)
+  }
   return imported.items.length
+}
+
+export function stageImportedBoard(driver: SqlDriver, host: ApplyHost, board: LocalBoard, deviceId: string, at: string): number {
+  return driver.transaction(() => applyImportedBoard(driver, host, board, deviceId, at))
 }
 
 export function clearProjection(driver: SqlDriver, binding: { workspaceId: string; deviceId: string; keyEpoch: number }, at: string): void {
