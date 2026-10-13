@@ -177,7 +177,8 @@ export function outlineRows<T extends OutlineItem>(items: readonly T[], compare?
   return ordered.flatMap(root => [root, ...(children.get(root.id) ?? []).sort(manual)])
 }
 
-export function columnOutline<T extends OutlineItem>(items: readonly T[], compare?: (a: string, b: string) => number): T[] {
+/** Open groups stay above groups whose members are all done, matching the desktop column fold. */
+export function columnSections<T extends OutlineItem>(items: readonly T[], compare?: (a: string, b: string) => number): { todo: T[]; done: T[] } {
   const groups = new Map<string, T[]>()
   for (const item of items) {
     const root = item.nestingParentId ?? item.id
@@ -190,6 +191,11 @@ export function columnOutline<T extends OutlineItem>(items: readonly T[], compar
     const rows = outlineRows(members, compare)
     ;(members.some(item => item.status === 'todo') ? todo : done).push(...rows)
   }
+  return { todo, done }
+}
+
+export function columnOutline<T extends OutlineItem>(items: readonly T[], compare?: (a: string, b: string) => number): T[] {
+  const { todo, done } = columnSections(items, compare)
   return [...todo, ...done]
 }
 

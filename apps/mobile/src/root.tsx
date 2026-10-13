@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Linking, Platform, Pressable, Text, useColorScheme, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { randomUUID } from 'expo-crypto'
 import {
   BOARD_COLUMNS, DEMO_NOW, LocalWorkspace, OPEN_COLUMN, StoreError, installDevice, installSchema,
@@ -8,6 +9,7 @@ import {
   type LocaleId, type Period, type PeriodHorizon, type Snapshot, type UndoToken,
 } from '@goalloom/local-store'
 import { catalogs, systemLocale, type Copy } from './copy'
+import { launchFromUrl, webLaunch, type Launch } from './launch'
 import { openDatabase } from './storage'
 import { themeFor, type Scheme } from './theme'
 import { Goalloom, type Sheet } from './view'
@@ -21,23 +23,23 @@ interface Boot {
   prefs: DevicePrefs
 }
 
-function demoFlag(): boolean {
-  if (process.env.EXPO_PUBLIC_DEMO === '1') return true
-  return typeof location !== 'undefined' && new URLSearchParams(location.search).get('demo') === '1'
-}
-
-function shotName(): string {
-  if (typeof location === 'undefined') return ''
-  return new URLSearchParams(location.search).get('shot') ?? ''
-}
+let useDemoClock = process.env.EXPO_PUBLIC_DEMO === '1'
+let bootTail: Promise<unknown> = Promise.resolve()
 
 function clock(): string {
-  if (demoFlag()) return process.env.EXPO_PUBLIC_NOW || DEMO_NOW
+  if (useDemoClock) return process.env.EXPO_PUBLIC_NOW || DEMO_NOW
   return new Date().toISOString()
 }
 
-async function openBoot(): Promise<Boot> {
-  const demo = demoFlag()
+function enqueueBoot(fn: () => Promise<Boot>): Promise<Boot> {
+  const run = bootTail.then(fn, fn)
+  bootTail = run.then(() => undefined, () => undefined)
+  return run
+}
+
+async function openBoot(launch: Launch): Promise<Boot> {
+  if (launch.demo) useDemoClock = true
+  const demo = launch.demo
   const at = clock()
   const driver = await openDatabase(demo ? 'goalloom-demo' : 'goalloom', demo)
   const device = await openDatabase('goalloom-device', demo)
@@ -48,10 +50,7 @@ async function openBoot(): Promise<Boot> {
     store.confirm(at, { mode: 'natural', timezone: 'Asia/Shanghai', weekStart: 1 })
     seedDemo(store, at)
   }
-  const shot = shotName()
-  if (demo && (shot.includes('dark') || (typeof location !== 'undefined' && new URLSearchParams(location.search).get('dark') === '1'))) {
-    store.setAppearance({ theme: 'dark' })
-  }
+  if (demo && launch.dark) store.setAppearance({ theme: 'dark' })
   let prefs = readPrefs(device)
   if (demo) {
     prefs = { ...prefs, locale: 'zh' }
@@ -84,6 +83,7 @@ function initialTab(shot: string): 'board' | 'flow' | 'settings' {
 }
 
 export default function Root() {
+  const systemScheme = useColorScheme()
   const [boot, setBoot] = useState<Boot | null>(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<'board' | 'flow' | 'settings'>('board')
@@ -93,22 +93,48 @@ export default function Root() {
   const [toast, setToast] = useState<{ text: string; undo: UndoToken | null } | null>(null)
   const [viewed, setViewed] = useState<Partial<Record<PeriodHorizon, Period>>>({})
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const shot = shotName()
+  const [launch, setLaunch] = useState<Launch | null>(Platform.OS === 'web' ? webLaunch() : null)
+  const launchRef = useRef(launch)
+  launchRef.current = launch
+  const shot = launch?.shot ?? ''
+  const launchKey = launch ? `${launch.shot}\n${launch.demo}\n${launch.dark}` : ''
 
   useEffect(() => {
+    if (Platform.OS === 'web') return
+    if (!__DEV__) {
+      setLaunch(webLaunch())
+      return
+    }
     let cancelled = false
-    void openBoot().then(opened => {
+    const adopt = (url: string | null) => {
+      setLaunch(current => {
+        const base = current ?? webLaunch()
+        if (!url) return base
+        return launchFromUrl(url, base) ?? base
+      })
+    }
+    void Linking.getInitialURL().then(url => { if (!cancelled) adopt(url) })
+    const sub = Linking.addEventListener('url', event => adopt(event.url))
+    return () => { cancelled = true; sub.remove() }
+  }, [])
+
+  useEffect(() => {
+    const current = launchRef.current
+    if (!current) return
+    let cancelled = false
+    void enqueueBoot(() => openBoot(current)).then(opened => {
       if (cancelled) return
       setBoot(opened)
-      setTab(initialTab(shot))
-      setColumn(initialColumn(shot))
-      setSheet(initialSheet(shot, opened.snap.items))
-      setMinimized(shot === 'min' || shot === 'mindark')
+      setError('')
+      setTab(initialTab(current.shot))
+      setColumn(initialColumn(current.shot))
+      setSheet(initialSheet(current.shot, opened.snap.items))
+      setMinimized(current.shot === 'min' || current.shot === 'mindark')
     }).catch(cause => {
       if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause))
     })
     return () => { cancelled = true }
-  }, [shot])
+  }, [launchKey])
 
   const show = (text: string, undo: UndoToken | null) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -121,7 +147,7 @@ export default function Root() {
 
   const locale: LocaleId = boot.prefs.locale ?? systemLocale()
   const copy = catalogs[locale]
-  const scheme = appearance(boot.snap.theme)
+  const scheme = appearance(boot.snap.theme, systemScheme)
   const theme = themeFor(scheme)
 
   const refresh = () => setBoot({ ...boot, snap: boot.store.load(clock()) })
@@ -204,16 +230,18 @@ function createOne(store: LocalWorkspace, draft: CaptureDraft, periodId: string 
   }).undo
 }
 
-function appearance(theme: Snapshot['theme']): Scheme {
+function appearance(theme: Snapshot['theme'], system: string | null | undefined): Scheme {
   if (theme === 'light' || theme === 'dark') return theme
-  if (typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'
+  if (system === 'dark') return 'dark'
+  if (system !== 'light' && typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'
   return 'light'
 }
 
 function Setup({ copy, scheme, onConfirm }: { copy: Copy; scheme: Scheme; onConfirm: (mode: 'rolling' | 'natural') => void }) {
   const theme = themeFor(scheme)
+  const insets = useSafeAreaInsets()
   const [mode, setMode] = useState<'rolling' | 'natural'>('rolling')
-  return <View style={{ flex: 1, backgroundColor: theme.bg, padding: 24, paddingTop: 72, gap: 12 }}>
+  return <View style={{ flex: 1, backgroundColor: theme.bg, padding: 24, paddingTop: Platform.OS === 'web' ? 72 : insets.top + 24, paddingBottom: Math.max(insets.bottom, 16), gap: 12 }}>
     <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     <Text style={{ color: theme.fg, fontSize: 28, fontWeight: '700' }}>{copy.setupTitle}</Text>
     {(['rolling', 'natural'] as const).map(option => <Pressable key={option} onPress={() => setMode(option)} style={{ padding: 16, borderRadius: 12, backgroundColor: mode === option ? theme.hover : theme.raised, borderWidth: 1, borderColor: theme.line }}>

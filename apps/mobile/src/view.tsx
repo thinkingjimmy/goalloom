@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
+  Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
   type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
-  BOARD_COLUMNS, LONG_PRESS_MS, NEST_INDENT, buildParentOrder, canNest, classifyPointer, columnOutline,
+  BOARD_COLUMNS, LONG_PRESS_MS, NEST_INDENT, buildParentOrder, canNest, classifyPointer, columnSections,
   dropOnRows, flowColors, flowConnectors, flowSections, flowStroke, flowTint, linkHost, mayLink, nextHorizon,
   parseCapture, periodMeta, showBreakpoint, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon,
   type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot, type UndoToken,
@@ -14,16 +15,23 @@ import { CheckBox, Icon } from './icons'
 import type { Theme } from './theme'
 
 export type Sheet =
-  | { kind: 'detail'; id: string } | { kind: 'composer' } | { kind: 'backlog'; horizon: PeriodHorizon }
+  | { kind: 'detail'; id: string } | { kind: 'composer'; horizon?: Horizon } | { kind: 'backlog'; horizon: PeriodHorizon }
   | { kind: 'menu'; id: string } | { kind: 'add'; horizon: Horizon; periodId: string | null; parentId?: string | null; nestingParentId?: string | null }
   | { kind: 'move'; id: string } | { kind: 'due'; id: string } | { kind: 'parent'; id: string }
   | { kind: 'review'; horizon: 'week' | 'month' } | { kind: 'period'; horizon: PeriodHorizon }
-  | { kind: 'trash' } | { kind: 'links' } | { kind: 'export'; json: string }
+  | { kind: 'trash' } | { kind: 'done' } | { kind: 'links' } | { kind: 'export'; json: string }
   | { kind: 'language' } | { kind: 'columns' } | { kind: 'check' } | { kind: 'style' } | { kind: 'celebrate' }
   | null
 
 const previous: Partial<Record<PeriodHorizon, PeriodHorizon>> = { half: 'year', cycle: 'half', month: 'cycle', week: 'month', day: 'week' }
 const rank: Record<Horizon, number> = { year: 0, half: 1, cycle: 2, month: 3, week: 4, day: 5, later: 6 }
+const TAB_HEIGHT = 62
+const scrollInset = { contentInsetAdjustmentBehavior: 'never' as const }
+
+function chrome(bottomInset: number): { barBottom: number; contentBottom: number } {
+  const barBottom = Math.max(bottomInset, 16)
+  return { barBottom, contentBottom: barBottom + TAB_HEIGHT + 20 }
+}
 
 export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimized, sheet, toast, shot, viewed, captureSeed, onTab, onColumn, onMinimize, onSheet, onToast, onCheck, onTrash, onMove, onNest, onReorder, onCreate, onEdit, onFlow, onLink, onUnlink, onPolicy, onAppearance, onBackup, onPrefs, onUndo, onRestore, onViewPeriod, activity, periodsAround }: {
   copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; tab: 'board' | 'flow' | 'settings'; column: number; minimized: boolean; sheet: Sheet
@@ -40,7 +48,9 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
   activity: (id: string) => { type: string; at: string }[]; periodsAround: (horizon: PeriodHorizon) => Period[]
 }) {
   const { width } = useWindowDimensions()
-  const page = Math.max(280, width - 16)
+  const insets = useSafeAreaInsets()
+  const { barBottom, contentBottom } = chrome(insets.bottom)
+  const page = Math.max(280, width)
   const columns = BOARD_COLUMNS.filter(horizon => horizon === 'later' ? prefs.later : prefs.columns[horizon])
   const scheme = theme.scheme
   const nodes = useMemo(() => new Map(snap.items.map(item => [item.id, { id: item.id, flowColor: item.flowColor, nestingParentId: item.nestingParentId, horizon: item.horizon, status: item.status }])), [snap.items])
@@ -56,24 +66,25 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
     else if (y < 8 || y < lastY.current - 8) onMinimize(false)
     lastY.current = y
   }
-  return <View style={[styles.app, { backgroundColor: theme.bg }]}>
-    {tab === 'board' && <Board copy={copy} theme={theme} snap={snap} prefs={prefs} columns={columns} column={column} page={page} hide={hide} shot={shot} viewed={viewed} nodes={nodes} {...(prefs.parentOrder ? { compare: order.compare } : {})} onColumn={onColumn} onSheet={onSheet} onCheck={onCheck} onNest={onNest} onReorder={onReorder} onScroll={scroll} />}
-    {tab === 'flow' && <Flow copy={copy} theme={theme} snap={snap} prefs={prefs} nodes={nodes} shot={shot} onSheet={onSheet} onCheck={onCheck} onScroll={scroll} />}
-    {tab === 'settings' && <Settings copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} onSheet={onSheet} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
-    <TabBar copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} showPlus={tab !== 'settings'} onTab={onTab} onPlus={() => onSheet({ kind: 'composer' })} />
-    {toast && <View style={[styles.toast, { backgroundColor: theme.fg }]}><Text style={{ color: theme.onAccent, flex: 1 }}>{toast.text}</Text>{toast.undo && <Pressable onPress={onUndo}><Text style={{ color: theme.focus, fontWeight: '700' }}>{copy.undo}</Text></Pressable>}</View>}
+  return <View style={[styles.app, { backgroundColor: theme.bg, paddingTop: Platform.OS === 'web' ? 47 : insets.top }]}>
+    {tab === 'board' && <Board copy={copy} theme={theme} snap={snap} prefs={prefs} columns={columns} column={column} page={page} hide={hide} shot={shot} viewed={viewed} nodes={nodes} contentBottom={contentBottom} {...(prefs.parentOrder ? { compare: order.compare } : {})} onColumn={onColumn} onSheet={onSheet} onCheck={onCheck} onNest={onNest} onReorder={onReorder} onScroll={scroll} />}
+    {tab === 'flow' && <Flow copy={copy} theme={theme} snap={snap} prefs={prefs} nodes={nodes} shot={shot} contentBottom={contentBottom} onSheet={onSheet} onCheck={onCheck} onScroll={scroll} />}
+    {tab === 'settings' && <Settings copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} contentBottom={contentBottom} onSheet={onSheet} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
+    <TabBar copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => onSheet(tab === 'settings' ? { kind: 'composer', horizon: 'day' } : { kind: 'composer' })} />
+    {toast && <View style={[styles.toast, { backgroundColor: theme.fg, bottom: barBottom + TAB_HEIGHT + 12 }]}><Text style={{ color: theme.onAccent, flex: 1 }}>{toast.text}</Text>{toast.undo && <Pressable onPress={onUndo}><Text style={{ color: theme.focus, fontWeight: '700' }}>{copy.undo}</Text></Pressable>}</View>}
     {sheet && <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={() => onSheet(null)} />}
-    {sheet?.kind === 'menu' ? <Menu copy={copy} theme={theme} item={snap.items.find(item => item.id === sheet.id) ?? snap.trash.find(item => item.id === sheet.id)} onSheet={onSheet} onCheck={onCheck} onTrash={onTrash} onMove={onMove} /> : sheet && <View style={[styles.sheet, { backgroundColor: theme.surface }]}>
+    {sheet?.kind === 'menu' ? <Menu copy={copy} theme={theme} item={snap.items.find(item => item.id === sheet.id) ?? snap.trash.find(item => item.id === sheet.id)} onSheet={onSheet} onCheck={onCheck} onTrash={onTrash} onMove={onMove} /> : sheet && <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
       <View style={[styles.grab, { backgroundColor: theme.line }]} />
       <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} sheet={sheet} scheme={scheme} nodes={nodes} captureSeed={captureSeed} onSheet={onSheet} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onToast={onToast} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={onCheck} />
     </View>}
   </View>
 }
 
-function Board({ copy, theme, snap, prefs, columns, column, page, hide, shot, viewed, nodes, compare, onColumn, onSheet, onCheck, onNest, onReorder, onScroll }: {
+function Board({ copy, theme, snap, prefs, columns, column, page, hide, shot, viewed, nodes, contentBottom, compare, onColumn, onSheet, onCheck, onNest, onReorder, onScroll }: {
   copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; columns: readonly Horizon[]; column: number; page: number; hide: boolean; shot: string
   viewed: Partial<Record<PeriodHorizon, Period>>
   nodes: Map<string, { id: string; flowColor: number | null; nestingParentId: string | null; horizon: Horizon; status: string }>
+  contentBottom: number
   compare?: (a: string, b: string) => number
   onColumn: (index: number) => void; onSheet: (sheet: Sheet) => void; onCheck: (item: ItemRow) => void
   onNest: (id: string, parentId: string) => void; onReorder: (id: string, beforeId: string | null, afterId: string | null) => void
@@ -87,6 +98,7 @@ function Board({ copy, theme, snap, prefs, columns, column, page, hide, shot, vi
   const orders = useRef<Partial<Record<Horizon, string[]>>>({})
   const [dragId, setDragId] = useState<string | null>(null)
   const [nestUnder, setNestUnder] = useState<string | null>(null)
+  const [doneOpen, setDoneOpen] = useState<Partial<Record<Horizon, boolean>>>({})
   const place = column * page + (shot === 'mid' ? page * 0.32 : 0)
   const dragged = useRef(false)
   const jump = () => { scroller.current?.scrollTo({ x: place, animated: false }) }
@@ -118,27 +130,30 @@ function Board({ copy, theme, snap, prefs, columns, column, page, hide, shot, vi
     else onReorder(id, ids[target.index - 1] ?? null, ids[target.index] ?? null)
   }
   return <View style={styles.flex}>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+    <ScrollView horizontal style={styles.chipStrip} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip} {...scrollInset}>
       {columns.map((horizon, index) => <Pressable key={horizon} onPress={() => onColumn(index)} style={[styles.chip, index === column && { backgroundColor: theme.hover }]}>
         <Text style={{ color: index === column ? theme.fg : theme.faint, fontWeight: index === column ? '700' : '500', fontSize: 13 }}>{copy[horizon]}</Text>
       </Pressable>)}
     </ScrollView>
-    <ScrollView ref={scroller} horizontal scrollEnabled={!dragId} snapToInterval={shot === 'mid' ? undefined : page} decelerationRate="fast" disableIntervalMomentum showsHorizontalScrollIndicator={false} contentOffset={{ x: place, y: 0 }} onContentSizeChange={jump}
+    <ScrollView ref={scroller} horizontal style={styles.flex} scrollEnabled={!dragId} snapToInterval={shot === 'mid' ? undefined : page} decelerationRate="fast" disableIntervalMomentum showsHorizontalScrollIndicator={false} contentOffset={{ x: place, y: 0 }} onContentSizeChange={jump} {...scrollInset}
       onScrollBeginDrag={() => { dragged.current = true }}
       onMomentumScrollEnd={event => { if (!dragged.current) return; dragged.current = false; onColumn(Math.round(event.nativeEvent.contentOffset.x / page)) }}>
       {columns.map(horizon => {
         const period = horizon === 'later' ? null : viewed[horizon] ?? snap.periods[horizon] ?? null
         const meta = period ? periodMeta(horizon, period, snap.today) : { title: copy.later, meta: '', countdown: null as number | null }
-        const rows = hide && (shot === 'empty' || horizon === 'week') ? [] : columnOutline(snap.items.filter(item => item.horizon === horizon && (horizon === 'later' || item.periodId === period?.id) && item.status !== 'cancelled'), compare)
+        const sections = hide && (shot === 'empty' || horizon === 'week') ? { todo: [], done: [] } : columnSections(snap.items.filter(item => item.horizon === horizon && (horizon === 'later' || item.periodId === period?.id) && item.status !== 'cancelled'), compare)
+        const outline = [...sections.todo, ...sections.done]
+        const visible = [...sections.todo, ...(doneOpen[horizon] ? sections.done : [])]
+        const open = !!doneOpen[horizon]
         const backlog = snap.backlog.filter(item => item.horizon === horizon).length
         const manual = horizon !== 'later' && snap.policies[horizon] === 'manual'
         const prev = horizon === 'later' ? undefined : previous[horizon]
         const sources = prev ? snap.items.filter(item => item.horizon === prev && item.status === 'todo' && item.periodId === snap.periods[prev]?.id && !snap.relations.some(edge => edge.parentId === item.id && snap.items.some(child => child.id === edge.childId && child.horizon === horizon))) : []
-        return <View key={horizon} style={[styles.column, { width: page, borderRightColor: theme.hairline, backgroundColor: theme.bg }]} onLayout={event => {
+        return <View key={horizon} style={{ width: page, backgroundColor: theme.bg }} onLayout={event => {
           const node = event.target as unknown as { measureInWindow?: (callback: (x: number, y: number) => void) => void } | null
           if (node && typeof node.measureInWindow === 'function') node.measureInWindow((_x, y) => { tops.current[horizon] = y })
         }}>
-          <ScrollView scrollEnabled={!dragId} onScroll={event => { scrolls.current[horizon] = event.nativeEvent.contentOffset.y; onScroll(event) }} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 170 }}>
+          <ScrollView scrollEnabled={!dragId} onScroll={event => { scrolls.current[horizon] = event.nativeEvent.contentOffset.y; onScroll(event) }} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: contentBottom }} {...scrollInset}>
             <View style={styles.header}>
               <View style={styles.headerText}>
                 <Text style={[styles.periodTitle, { color: theme.fg }]}>{copy[horizon]}</Text>
@@ -152,13 +167,26 @@ function Board({ copy, theme, snap, prefs, columns, column, page, hide, shot, vi
             </View>
             {(horizon === 'week' || horizon === 'month') && <Pressable onPress={() => onSheet({ kind: 'review', horizon })} style={styles.entry}><Text style={{ color: theme.secondary }}>{copy.review(copy[horizon])}</Text><Icon name="next" size={14} color={theme.faint} /></Pressable>}
             {manual && backlog > 0 && <Pressable onPress={() => onSheet({ kind: 'backlog', horizon })} style={styles.entry}><Text style={{ color: theme.secondary }}>{copy.backlog(backlog)}</Text><Icon name="next" size={14} color={theme.faint} /></Pressable>}
-            {rows.length === 0 ? <Empty copy={copy} theme={theme} horizon={horizon} sources={sources.length} onDraft={() => onSheet({ kind: 'composer' })} onWrite={() => onSheet({ kind: 'add', horizon, periodId: period?.id ?? null })} /> : rows.map(item => {
-              const colors = item.status === 'done' || item.horizon === 'later' ? [] : flowColors(item.id, nodes, snap.relations)
-              return <View key={item.id} onLayout={event => { layouts.current.set(item.id, { y: event.nativeEvent.layout.y, height: event.nativeEvent.layout.height }); orders.current[horizon] = rows.map(row => row.id) }}>
-                <Row item={item} copy={copy} theme={theme} nested={!!item.nestingParentId && rows.some(row => row.id === item.nestingParentId)} strokes={colors.slice(0, 2).map(index => flowStroke(index, theme.scheme))} tint={colors[0] === undefined ? null : flowTint(colors[0], theme.scheme)} breakpoint={prefs.showInsight && showBreakpoint(item.id, nodes, snap.relations)} lifted={dragId === item.id || (shot === 'drag' && item.title === '整理读书笔记')} onCheck={() => onCheck(item)} onOpen={() => onSheet({ kind: 'detail', id: item.id })} onMenu={() => onSheet({ kind: 'menu', id: item.id })} onDrag={(y) => follow(item.id, y)} onDrop={() => finish(item.id)} today={snap.today} checkStyle={snap.checkStyle} />
-                {(nestUnder === item.id || (shot === 'drag' && item.title === '周三 10km 节奏跑')) && <View style={[styles.nestLine, { backgroundColor: theme.focus, marginLeft: 14 + NEST_INDENT }]} />}
-              </View>
-            })}
+            {outline.length === 0 ? <Empty copy={copy} theme={theme} horizon={horizon} sources={sources.length} onDraft={() => onSheet({ kind: 'composer' })} onWrite={() => onSheet({ kind: 'add', horizon, periodId: period?.id ?? null })} /> : <>
+              {sections.todo.map(item => {
+                const colors = item.status === 'done' || item.horizon === 'later' ? [] : flowColors(item.id, nodes, snap.relations)
+                return <View key={item.id} onLayout={event => { layouts.current.set(item.id, { y: event.nativeEvent.layout.y, height: event.nativeEvent.layout.height }); orders.current[horizon] = visible.map(row => row.id) }}>
+                  <Row item={item} copy={copy} theme={theme} nested={!!item.nestingParentId && outline.some(row => row.id === item.nestingParentId)} strokes={colors.slice(0, 2).map(index => flowStroke(index, theme.scheme))} tint={colors[0] === undefined ? null : flowTint(colors[0], theme.scheme)} breakpoint={prefs.showInsight && showBreakpoint(item.id, nodes, snap.relations)} lifted={dragId === item.id || (shot === 'drag' && item.title === '整理读书笔记')} onCheck={() => onCheck(item)} onOpen={() => onSheet({ kind: 'detail', id: item.id })} onMenu={() => onSheet({ kind: 'menu', id: item.id })} onDrag={(y) => follow(item.id, y)} onDrop={() => finish(item.id)} today={snap.today} checkStyle={snap.checkStyle} />
+                  {(nestUnder === item.id || (shot === 'drag' && item.title === '周三 10km 节奏跑')) && <View style={[styles.nestLine, { backgroundColor: theme.focus, marginLeft: 20 + NEST_INDENT }]} />}
+                </View>
+              })}
+              {sections.done.length > 0 && <Pressable onPress={() => setDoneOpen(current => ({ ...current, [horizon]: !current[horizon] }))} style={styles.fold} accessibilityRole="button" accessibilityState={{ expanded: open }}>
+                <View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}><Icon name="next" size={14} color={theme.secondary} /></View>
+                <Text style={{ color: theme.secondary, fontSize: 13 }}>{copy.doneFold(sections.done.filter(entry => entry.status === 'done').length)}</Text>
+              </Pressable>}
+              {open && sections.done.map(item => {
+                const colors = item.status === 'done' || item.horizon === 'later' ? [] : flowColors(item.id, nodes, snap.relations)
+                return <View key={item.id} onLayout={event => { layouts.current.set(item.id, { y: event.nativeEvent.layout.y, height: event.nativeEvent.layout.height }); orders.current[horizon] = visible.map(row => row.id) }}>
+                  <Row item={item} copy={copy} theme={theme} nested={!!item.nestingParentId && outline.some(row => row.id === item.nestingParentId)} strokes={colors.slice(0, 2).map(index => flowStroke(index, theme.scheme))} tint={colors[0] === undefined ? null : flowTint(colors[0], theme.scheme)} breakpoint={prefs.showInsight && showBreakpoint(item.id, nodes, snap.relations)} lifted={dragId === item.id || (shot === 'drag' && item.title === '整理读书笔记')} onCheck={() => onCheck(item)} onOpen={() => onSheet({ kind: 'detail', id: item.id })} onMenu={() => onSheet({ kind: 'menu', id: item.id })} onDrag={(y) => follow(item.id, y)} onDrop={() => finish(item.id)} today={snap.today} checkStyle={snap.checkStyle} />
+                  {(nestUnder === item.id || (shot === 'drag' && item.title === '周三 10km 节奏跑')) && <View style={[styles.nestLine, { backgroundColor: theme.focus, marginLeft: 20 + NEST_INDENT }]} />}
+                </View>
+              })}
+            </>}
           </ScrollView>
         </View>
       })}
@@ -174,7 +202,6 @@ function Row({ item, copy, theme, nested, strokes, tint, breakpoint, lifted, onC
   const phase = useRef<'pending' | 'scroll' | 'paging' | 'drag' | 'menu'>('pending')
   const origin = useRef({ x: 0, y: 0, t: 0 })
   const dragging = useRef(false)
-  const overdue = item.status !== 'done' && !!item.dueDate && item.dueDate < today
   const fill = item.status === 'done' ? theme.checked : checkStyle === 'paper' ? theme.checkFill : checkStyle === 'tint' && tint ? tint : 'none'
   const note = item.note
   const words = note?.tasks ? note.next : note?.excerpt
@@ -207,12 +234,12 @@ function Row({ item, copy, theme, nested, strokes, tint, breakpoint, lifted, onC
     phase.current = 'pending'
   }
   return <Pressable onPress={onOpen} onPressIn={event => begin(event.nativeEvent.pageX, event.nativeEvent.pageY)} onPressOut={end} onTouchMove={event => move(event.nativeEvent.pageX, event.nativeEvent.pageY)}
-    style={[styles.row, nested && { paddingLeft: 14 + NEST_INDENT }, lifted && { transform: [{ translateY: -28 }, { scale: 1.02 }], backgroundColor: theme.raised, borderRadius: 10, zIndex: lifted ? 2 : 0 }]}>
+    style={[styles.row, nested && { paddingLeft: 20 + NEST_INDENT }, lifted && { transform: [{ translateY: -28 }, { scale: 1.02 }], backgroundColor: theme.raised, borderRadius: 10, zIndex: lifted ? 2 : 0 }]}>
     <Pressable onPress={onCheck} hitSlop={11} style={styles.checkHit}><CheckBox done={item.status === 'done'} strokes={strokes} fill={fill} edge={theme.checkEdge} checked={theme.checked} /></Pressable>
     <View style={styles.flex}>
       <View style={styles.titleLine}>
         <Text style={[styles.title, { color: item.status === 'done' ? theme.secondary : theme.fg, textDecorationLine: item.status === 'done' ? 'line-through' : 'none' }]}>{item.title}</Text>
-        {overdue ? <Icon name="overdue" size={16} color={theme.danger} /> : item.dueDate && item.status !== 'done' ? <Text style={[styles.due, { color: theme.secondary }]}>{shortDue(item.dueDate)}</Text> : null}
+        <DueMark item={item} copy={copy} theme={theme} today={today} />
       </View>
       {note && <View style={styles.noteRow}>
         {note.tasks && <Text style={[styles.note, { color: theme.secondary }]}>{note.tasks.done}/{note.tasks.total}</Text>}
@@ -229,6 +256,14 @@ function shortDue(date: string): string {
   return `${Number(month)}/${Number(day)}`
 }
 
+function DueMark({ item, copy, theme, today, flush = false }: { item: ItemRow; copy: Copy; theme: Theme; today: string; flush?: boolean }) {
+  const overdue = item.status !== 'done' && !!item.dueDate && item.dueDate < today
+  if (!item.dueDate || item.status === 'done') return null
+  return <View style={[styles.dueSlot, !flush && styles.dueSlotLine]} accessibilityRole={overdue ? 'image' : undefined} accessibilityLabel={overdue ? copy.overdue(shortDue(item.dueDate)) : undefined}>
+    {overdue ? <Icon name="overdue" size={16} color={theme.danger} /> : <Text style={[styles.due, { color: theme.secondary }]}>{shortDue(item.dueDate)}</Text>}
+  </View>
+}
+
 function Empty({ copy, theme, horizon, sources, onDraft, onWrite }: { copy: Copy; theme: Theme; horizon: Horizon; sources: number; onDraft: () => void; onWrite: () => void }) {
   const prev = horizon === 'later' ? undefined : previous[horizon as PeriodHorizon]
   return <View style={styles.empty}>
@@ -242,10 +277,10 @@ function Empty({ copy, theme, horizon, sources, onDraft, onWrite }: { copy: Copy
   </View>
 }
 
-function Flow({ copy, theme, snap, prefs, nodes, shot, onSheet, onCheck, onScroll }: {
+function Flow({ copy, theme, snap, prefs, nodes, shot, contentBottom, onSheet, onCheck, onScroll }: {
   copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs
   nodes: Map<string, { id: string; flowColor: number | null; nestingParentId: string | null; horizon: Horizon; status: string }>
-  shot: string; onSheet: (sheet: Sheet) => void; onCheck: (item: ItemRow) => void
+  shot: string; contentBottom: number; onSheet: (sheet: Sheet) => void; onCheck: (item: ItemRow) => void
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void
 }) {
   const roots = snap.items.filter(item => item.flowColor !== null && !item.nestingParentId)
@@ -263,7 +298,7 @@ function Flow({ copy, theme, snap, prefs, nodes, shot, onSheet, onCheck, onScrol
   const blocks: ReactNode[] = []
   blocks.push(<View key="flow-head">
     <Text style={[styles.screenTitle, { color: theme.fg }]}>{copy.flow}</Text>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+    <ScrollView horizontal style={styles.chipStrip} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip} {...scrollInset}>
       <Pressable onPress={() => setRoot(null)} style={[styles.flowChip, { backgroundColor: root === null ? theme.fg : theme.hover }]}><Text style={{ color: root === null ? theme.onAccent : theme.secondary }}>{copy.all}</Text></Pressable>
       {roots.map(item => <Pressable key={item.id} onPress={() => setRoot(item.id)} style={[styles.flowChip, { backgroundColor: root === item.id ? theme.fg : theme.hover }]}>
         <CheckBox done={false} strokes={item.flowColor === null ? [] : [flowStroke(item.flowColor, theme.scheme)]} fill="none" edge={theme.checkEdge} checked={theme.checked} />
@@ -286,35 +321,49 @@ function Flow({ copy, theme, snap, prefs, nodes, shot, onSheet, onCheck, onScrol
         </View>
         <Pressable onPress={() => onCheck(item)} hitSlop={10}><CheckBox done={item.status === 'done'} strokes={item.status === 'done' || item.horizon === 'later' ? [] : flowColors(item.id, nodes, snap.relations).slice(0, 2).map(index => flowStroke(index, theme.scheme))} fill="none" edge={theme.checkEdge} checked={theme.checked} /></Pressable>
         <Text style={[styles.title, styles.flex, { color: item.status === 'done' ? theme.secondary : theme.fg, textDecorationLine: item.status === 'done' ? 'line-through' : 'none' }]}>{item.title}</Text>
-        {!!item.dueDate && item.status !== 'done' && <Text style={[styles.due, { color: theme.secondary }]}>{shortDue(item.dueDate)}</Text>}
+        <DueMark item={item} copy={copy} theme={theme} today={snap.today} flush />
       </Pressable>)
     }
   }
-  return <ScrollView ref={list} onScroll={onScroll} scrollEventThrottle={16} stickyHeaderIndices={sticky} onContentSizeChange={stick} contentContainerStyle={{ paddingBottom: 160 }}>{blocks}</ScrollView>
+  return <ScrollView ref={list} onScroll={onScroll} scrollEventThrottle={16} stickyHeaderIndices={sticky} onContentSizeChange={stick} contentContainerStyle={{ paddingBottom: contentBottom }} {...scrollInset}>{blocks}</ScrollView>
 }
 
-function Settings({ copy, theme, snap, prefs, locale, onSheet, onPolicy, onAppearance, onBackup, onPrefs, onScroll }: {
-  copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; onSheet: (sheet: Sheet) => void
+function Settings({ copy, theme, snap, prefs, locale, contentBottom, onSheet, onPolicy, onAppearance, onBackup, onPrefs, onScroll }: {
+  copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; contentBottom: number; onSheet: (sheet: Sheet) => void
   onPolicy: (horizon: PeriodHorizon, mode: 'auto' | 'manual') => void
   onAppearance: (fields: { theme?: 'system' | 'light' | 'dark'; style?: 'paper' | 'minimal'; checkStyle?: 'outline' | 'paper' | 'tint' }) => void
   onBackup: () => void; onPrefs: (prefs: DevicePrefs) => void; onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void
 }) {
   const visible = BOARD_COLUMNS.filter(horizon => horizon === 'later' ? prefs.later : prefs.columns[horizon]).length
+  const doneCount = snap.items.filter(item => item.status === 'done').length
+  const celebrating = BOARD_COLUMNS.some(horizon => prefs.celebration[horizon])
   const localeName = { zh: '简体中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }[prefs.locale ?? locale]
-  return <ScrollView onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 140 }}>
+  const check = snap.checkStyle === 'outline' ? copy.outline : snap.checkStyle === 'tint' ? copy.tint : copy.paper
+  return <ScrollView onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: contentBottom }} {...scrollInset}>
     <Text style={[styles.screenTitle, { color: theme.fg }]}>{copy.settings}</Text>
-    <Section theme={theme} title={copy.appearance} rows={[
-      [copy.language, localeName, () => onSheet({ kind: 'language' })],
-      [copy.style, snap.style === 'paper' ? copy.paper : copy.minimal, () => onSheet({ kind: 'style' })],
-    ]} extra={<View style={styles.field}><Text style={{ color: theme.fg }}>{copy.dark}</Text><Pressable onPress={() => onAppearance({ theme: theme.scheme === 'dark' ? 'light' : 'dark' })} style={[styles.toggle, { backgroundColor: theme.scheme === 'dark' ? '#3f7a3a' : theme.line }]}><View style={[styles.knob, theme.scheme === 'dark' && { marginLeft: 18 }]} /></Pressable></View>} />
+    <Text style={[styles.section, { color: theme.secondary }]}>{copy.appearance}</Text>
     <Card theme={theme}>
-      <Field theme={theme} label={copy.check} value={snap.checkStyle === 'outline' ? copy.outline : snap.checkStyle === 'tint' ? copy.tint : copy.paper} onPress={() => onSheet({ kind: 'check' })} />
+      <Field theme={theme} label={copy.language} value={localeName} onPress={() => onSheet({ kind: 'language' })} />
+      <Field theme={theme} label={copy.style} value={snap.style === 'paper' ? copy.paper : copy.minimal} onPress={() => onSheet({ kind: 'style' })} />
+      <Field theme={theme} label={copy.check} value={check} onPress={() => onSheet({ kind: 'check' })} />
+      <View style={styles.themeRow}>
+        <Text style={{ color: theme.fg }}>{copy.themeLabel}</Text>
+        <View style={[styles.themeSegment, { backgroundColor: theme.hover }]}>
+          {(['system', 'light', 'dark'] as const).map(mode => <Pressable key={mode} onPress={() => onAppearance({ theme: mode })} style={[styles.themeSegmentItem, snap.theme === mode && { backgroundColor: theme.raised }]}><Text style={{ color: theme.fg, fontSize: 12 }}>{copy[mode]}</Text></Pressable>)}
+        </View>
+      </View>
       <Field theme={theme} label={copy.lines} value={prefs.relationLines ? copy.on : copy.off} onPress={() => onPrefs({ ...prefs, relationLines: !prefs.relationLines })} />
+    </Card>
+    <Text style={[styles.section, { color: theme.secondary }]}>{copy.ai}</Text>
+    <Card theme={theme}>
+      <Field theme={theme} label={copy.aiService} value={copy.disconnected} onPress={() => undefined} />
+      <Field theme={theme} label={copy.smart} value={copy.local} onPress={() => undefined} />
+      <Field theme={theme} label={copy.insight} value={prefs.showInsight ? copy.on : copy.off} onPress={() => onPrefs({ ...prefs, showInsight: !prefs.showInsight })} />
     </Card>
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.boardSection}</Text>
     <Card theme={theme}>
       <Field theme={theme} label={copy.parentOrder} value={prefs.parentOrder ? copy.on : copy.off} onPress={() => onPrefs({ ...prefs, parentOrder: !prefs.parentOrder })} />
-      <Field theme={theme} label={copy.celebration} value={copy.on} onPress={() => onSheet({ kind: 'celebrate' })} />
+      <Field theme={theme} label={copy.celebration} value={celebrating ? copy.on : copy.off} onPress={() => onSheet({ kind: 'celebrate' })} />
       <Field theme={theme} label={copy.columns} value={String(visible)} onPress={() => onSheet({ kind: 'columns' })} />
     </Card>
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.calendar}</Text>
@@ -327,56 +376,39 @@ function Settings({ copy, theme, snap, prefs, locale, onSheet, onPolicy, onAppea
       </View>)}
     </Card>
     <Text style={[styles.note, { color: theme.secondary, marginHorizontal: 20, marginTop: 8 }]}>{copy.calendarLocked}</Text>
-    <Text style={[styles.section, { color: theme.secondary }]}>{copy.ai}</Text>
-    <Card theme={theme}>
-      <Field theme={theme} label={copy.aiService} value={copy.disconnected} onPress={() => undefined} />
-      <Field theme={theme} label={copy.smart} value={copy.local} onPress={() => undefined} />
-      <Field theme={theme} label={copy.insight} value={prefs.showInsight ? copy.on : copy.off} onPress={() => onPrefs({ ...prefs, showInsight: !prefs.showInsight })} />
-    </Card>
-    <Text style={[styles.section, { color: theme.secondary }]}>{copy.items}</Text>
-    <Card theme={theme}>
-      <Field theme={theme} label={copy.links} value="" onPress={() => onSheet({ kind: 'links' })} />
-      <Field theme={theme} label={copy.trashCan} value={String(snap.trash.length)} onPress={() => onSheet({ kind: 'trash' })} />
-    </Card>
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.backup}</Text>
     <Card theme={theme}>
       <Field theme={theme} label={copy.backupDaily} value={snap.backupEnabled ? copy.on : copy.off} onPress={onBackup} />
       <Field theme={theme} label={copy.exportJson} value="" onPress={() => onSheet({ kind: 'export', json: JSON.stringify({ items: snap.items.map(item => ({ id: item.id, title: item.title, horizon: item.horizon, dueDate: item.dueDate, status: item.status })) }, null, 2) })} />
     </Card>
-    <Text style={[styles.section, { color: theme.secondary }]}>{copy.sync}  ·  {copy.syncLater}</Text>
+    <Text style={[styles.section, { color: theme.secondary }]}>{copy.items}</Text>
     <Card theme={theme}>
-      <Field theme={theme} label={copy.login} value="" disabled onPress={() => undefined} />
-      <Field theme={theme} label={copy.encryption} value="" disabled onPress={() => undefined} />
+      <Field theme={theme} label={copy.doneItems} value={String(doneCount)} onPress={() => onSheet({ kind: 'done' })} />
+      <Field theme={theme} label={copy.trashCan} value={String(snap.trash.length)} onPress={() => onSheet({ kind: 'trash' })} />
     </Card>
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.about}</Text>
     <Card theme={theme}><Field theme={theme} label="Goalloom" value={copy.version} onPress={() => undefined} /></Card>
   </ScrollView>
 }
 
-function Section({ theme, title, rows, extra }: { theme: Theme; title: string; rows: [string, string, () => void][]; extra?: ReactNode }) {
-  return <View>
-    <Text style={[styles.section, { color: theme.secondary }]}>{title}</Text>
-    <Card theme={theme}>{rows.map(([label, value, press]) => <Field key={label} theme={theme} label={label} value={value} onPress={press} />)}{extra}</Card>
-  </View>
-}
-
 function Card({ theme, children }: { theme: Theme; children: ReactNode }) {
   return <View style={[styles.card, { backgroundColor: theme.raised, borderColor: theme.line }]}>{children}</View>
 }
-function Field({ theme, label, value, onPress, disabled = false }: { theme: Theme; label: string; value: string; onPress: () => void; disabled?: boolean }) {
-  return <Pressable disabled={disabled} onPress={onPress} style={[styles.field, disabled && { opacity: 0.45 }]}><Text style={{ color: theme.fg, flex: 1 }}>{label}</Text><Text style={{ color: theme.secondary }}>{value}{disabled ? '' : ' ›'}</Text></Pressable>
+function Field({ theme, label, value, onPress, disabled = false, valueColor }: { theme: Theme; label: string; value: string; onPress: () => void; disabled?: boolean; valueColor?: string }) {
+  return <Pressable disabled={disabled} onPress={onPress} style={[styles.field, disabled && { opacity: 0.45 }]}><Text style={{ color: theme.fg, flex: 1 }}>{label}</Text><Text style={{ color: valueColor ?? theme.secondary }}>{value}{disabled ? '' : ' ›'}</Text></Pressable>
 }
 
-function TabBar({ copy, theme, tab, minimized, showPlus, onTab, onPlus }: { copy: Copy; theme: Theme; tab: 'board' | 'flow' | 'settings'; minimized: boolean; showPlus: boolean; onTab: (tab: 'board' | 'flow' | 'settings') => void; onPlus: () => void }) {
+function TabBar({ copy, theme, tab, minimized, barBottom, onTab, onPlus }: { copy: Copy; theme: Theme; tab: 'board' | 'flow' | 'settings'; minimized: boolean; barBottom: number; onTab: (tab: 'board' | 'flow' | 'settings') => void; onPlus: () => void }) {
   const tabs = [['board', 'board', copy.board], ['flow', 'flow', copy.flow], ['settings', 'settings', copy.settings]] as const
+  const bottom = minimized ? barBottom + 4 : barBottom
   return <View pointerEvents="box-none" style={styles.tabs}>
-    <View style={[styles.bar, minimized ? styles.barMin : showPlus ? styles.barPlus : styles.barFull, { backgroundColor: theme.scheme === 'dark' ? 'rgba(43,38,33,0.72)' : 'rgba(255,253,250,0.72)', borderColor: theme.line }]}>
+    <View style={[styles.bar, minimized ? styles.barMin : styles.barPlus, { bottom, backgroundColor: theme.scheme === 'dark' ? 'rgba(43,38,33,0.72)' : 'rgba(255,253,250,0.72)', borderColor: theme.line }]}>
       {tabs.filter((entry) => !minimized || entry[0] === tab).map(([id, icon, label]) => <Pressable key={id} onPress={() => onTab(id)} style={[styles.tab, id === tab && { backgroundColor: theme.hover }]}>
         <Icon name={icon} size={minimized ? 22 : 20} color={id === tab ? theme.focus : theme.fgSoft} />
         {!minimized && <Text style={{ fontSize: 10.5, fontWeight: '600', color: id === tab ? theme.focus : theme.fgSoft }}>{label}</Text>}
       </Pressable>)}
     </View>
-    {showPlus && <Pressable onPress={onPlus} style={[styles.plus, minimized && styles.plusMin, { backgroundColor: theme.fg }]} accessibilityLabel={copy.capture}><Icon name="add" size={minimized ? 26 : 30} color={theme.onAccent} /></Pressable>}
+    <Pressable onPress={onPlus} style={[styles.plus, minimized && styles.plusMin, { bottom, backgroundColor: theme.fg }]} accessibilityLabel={copy.capture}><Icon name="add" size={minimized ? 26 : 30} color={theme.onAccent} /></Pressable>
   </View>
 }
 
@@ -417,7 +449,7 @@ function SheetBody(props: {
   const { copy, theme, snap, sheet, onSheet } = props
   const item = 'id' in sheet ? snap.items.find(row => row.id === sheet.id) ?? snap.trash.find(row => row.id === sheet.id) : undefined
   if (sheet.kind === 'detail' && item) return <Detail {...props} item={item} />
-  if (sheet.kind === 'composer') return <Composer {...props} seed={props.captureSeed} />
+  if (sheet.kind === 'composer') return <Composer {...props} seed={props.captureSeed} {...(sheet.horizon ? { horizon: sheet.horizon } : {})} />
   if (sheet.kind === 'backlog') return <Backlog {...props} horizon={sheet.horizon} />
   if (sheet.kind === 'add') return <Add {...props} horizon={sheet.horizon} periodId={sheet.periodId} parentId={sheet.parentId ?? null} nestingParentId={sheet.nestingParentId ?? null} />
   if (sheet.kind === 'move' && item) return <View>{BOARD_COLUMNS.filter(horizon => props.prefs.later || horizon !== 'later').map(horizon => <Pressable key={horizon} onPress={() => { props.onMove(item.id, horizon); onSheet(null) }} style={styles.menuRow}><Text style={{ color: theme.fg }}>{copy[horizon]}</Text></Pressable>)}</View>
@@ -429,6 +461,10 @@ function SheetBody(props: {
     {props.periodsAround(sheet.horizon).map(period => <Pressable key={period.id} onPress={() => { props.onViewPeriod(sheet.horizon, period); onSheet(null) }} style={styles.menuRow}><Text style={{ color: theme.fg }}>{periodMeta(sheet.horizon, period, snap.today).meta}</Text></Pressable>)}
   </View>
   if (sheet.kind === 'trash') return <View>{snap.trash.length === 0 ? <Text style={{ color: theme.secondary }}>{copy.emptyTrash}</Text> : snap.trash.map(row => <View key={row.id} style={styles.field}><Text style={{ color: theme.fg, flex: 1 }}>{row.title}</Text><Pressable onPress={() => props.onRestore(row.id)}><Text style={{ color: theme.focus }}>{copy.restore}</Text></Pressable></View>)}</View>
+  if (sheet.kind === 'done') {
+    const rows = snap.items.filter(row => row.status === 'done').sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
+    return <ScrollView {...scrollInset}>{rows.length === 0 ? <Text style={{ color: theme.secondary }}>{copy.emptyDone}</Text> : rows.map(row => <Pressable key={row.id} onPress={() => onSheet({ kind: 'detail', id: row.id })} style={styles.field}><Text style={{ color: theme.fg, flex: 1 }}>{row.title}</Text><Text style={{ color: theme.secondary }}>{copy[row.horizon]}</Text></Pressable>)}</ScrollView>
+  }
   if (sheet.kind === 'links') {
     const links = snap.items.flatMap(row => row.note?.links.map(url => ({ url, title: row.title })) ?? [])
     return <View>{links.length === 0 ? <Text style={{ color: theme.secondary }}>{copy.linkNone}</Text> : links.map(link => <Text key={link.url + link.title} style={{ color: theme.fg, marginVertical: 6 }}>{linkHost(link.url)}</Text>)}</View>
@@ -449,14 +485,14 @@ function Detail(props: { copy: Copy; theme: Theme; snap: Snapshot; item: ItemRow
   const colors = flowColors(item.id, props.nodes, snap.relations)
   const subs = snap.items.filter(row => row.nestingParentId === item.id)
   const names: Record<string, string> = { created: copy.activityCreated, moved: copy.activityMoved, status_changed: copy.activityStatus, deleted: copy.activityDeleted, item_restored: copy.activityRestored, nesting_changed: copy.activityNest, edited: copy.activityEdit, rolled_over: copy.activityRoll, undo: copy.undo }
-  return <ScrollView>
+  return <ScrollView {...scrollInset}>
     <View style={styles.titleLine}>
       <Pressable onPress={() => props.onCheck(item)} hitSlop={8}><CheckBox done={item.status === 'done'} strokes={item.status === 'done' ? [] : colors.map(index => flowStroke(index, theme.scheme))} fill="none" edge={theme.checkEdge} checked={theme.checked} /></Pressable>
       <TextInput defaultValue={item.title} onEndEditing={event => onEdit(item.id, { title: event.nativeEvent.text })} style={[styles.detailTitle, { color: theme.fg }]} />
     </View>
     {parent && <Field theme={theme} label={copy.belongs} value={parent.title} onPress={() => onSheet({ kind: 'detail', id: parent.id })} />}
     <Field theme={theme} label={copy.column} value={copy[item.horizon]} onPress={() => onSheet({ kind: 'move', id: item.id })} />
-    <Field theme={theme} label={copy.due} value={item.dueDate ? shortDue(item.dueDate) : copy.noDue} onPress={() => onSheet({ kind: 'due', id: item.id })} />
+    <Field theme={theme} label={copy.due} value={item.dueDate ? `${shortDue(item.dueDate)}${item.status !== 'done' && item.dueDate < snap.today ? copy.overdueSuffix : ''}` : copy.noDue} {...(item.status !== 'done' && item.dueDate && item.dueDate < snap.today ? { valueColor: theme.danger } : {})} onPress={() => onSheet({ kind: 'due', id: item.id })} />
     <Field theme={theme} label={copy.parent} value={parent ? copy.follows(parent.title) : parents.join(' · ') || copy.noParent} onPress={() => onSheet({ kind: 'parent', id: item.id })} />
     <Field theme={theme} label={copy.flowField} value={parent ? copy.followsParent : colors.length ? colors.map(index => snap.items.find(row => row.flowColor === index)?.title ?? '').filter(Boolean).join(' · ') : copy.noParent} onPress={() => undefined} />
     {!parent && item.horizon !== 'later' && <View style={styles.rowGap}>{[0, 1, 2, 3, 4, 5, 6, 7].map(index => <Pressable key={index} onPress={() => props.onFlow(item.id, item.flowColor === index ? null : index)} style={[styles.swatch, { backgroundColor: flowStroke(index, theme.scheme) }]} />)}</View>}
@@ -470,17 +506,18 @@ function Detail(props: { copy: Copy; theme: Theme; snap: Snapshot; item: ItemRow
   </ScrollView>
 }
 
-function Composer({ copy, theme, snap, seed, onCreate, onSheet, onToast }: { copy: Copy; theme: Theme; snap: Snapshot; seed: string; onCreate: (drafts: CaptureDraft[]) => void; onSheet: (sheet: Sheet) => void; onToast: (text: string, undo: UndoToken | null) => void }) {
+function Composer({ copy, theme, snap, seed, horizon, onCreate, onSheet, onToast }: { copy: Copy; theme: Theme; snap: Snapshot; seed: string; horizon?: Horizon; onCreate: (drafts: CaptureDraft[]) => void; onSheet: (sheet: Sheet) => void; onToast: (text: string, undo: UndoToken | null) => void }) {
+  const place = (rows: CaptureDraft[]) => horizon === 'day' ? rows.map(row => row.horizon === 'later' && row.dueDate === null ? { ...row, horizon: 'day' as const } : row) : rows
   const [text, setText] = useState(seed)
-  const [drafts, setDrafts] = useState<CaptureDraft[]>(() => parseCapture(seed, snap.today, snap.items))
-  const update = (value: string) => { setText(value); setDrafts(parseCapture(value, snap.today, snap.items)) }
+  const [drafts, setDrafts] = useState<CaptureDraft[]>(() => place(parseCapture(seed, snap.today, snap.items)))
+  const update = (value: string) => { setText(value); setDrafts(place(parseCapture(value, snap.today, snap.items))) }
   return <View>
     <View style={styles.field}><Text style={{ color: theme.fg, fontWeight: '700' }}>{copy.capture}</Text><Text style={{ color: theme.secondary }}>{copy.local}</Text></View>
     <TextInput multiline value={text} onChangeText={update} style={[styles.desc, { color: theme.fg, backgroundColor: theme.raised, borderColor: theme.line }]} />
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.preview}</Text>
     {drafts.map((draft, index) => <View key={index} style={[styles.preview, { backgroundColor: theme.raised, borderColor: theme.line }]}>
       <TextInput value={draft.title} onChangeText={title => setDrafts(drafts.map((row, rowIndex) => rowIndex === index ? { ...row, title } : row))} style={{ color: theme.fg, fontSize: 15 }} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowGap}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowGap} {...scrollInset}>
         {BOARD_COLUMNS.map(horizon => <Pressable key={horizon} onPress={() => setDrafts(drafts.map((row, rowIndex) => rowIndex === index ? { ...row, horizon } : row))} style={[styles.flowChip, { backgroundColor: draft.horizon === horizon ? theme.fg : theme.hover }]}><Text style={{ color: draft.horizon === horizon ? theme.onAccent : theme.secondary, fontSize: 12 }}>{copy[horizon]}</Text></Pressable>)}
       </ScrollView>
       <Text style={{ color: theme.secondary }}>{draft.dueDate ? shortDue(draft.dueDate) : copy.noDue}{draft.parentId ? ` · ${snap.items.find(item => item.id === draft.parentId)?.title ?? ''}` : ''}</Text>
@@ -541,11 +578,11 @@ function Review({ copy, theme, snap, horizon }: { copy: Copy; theme: Theme; snap
 }
 
 const styles = StyleSheet.create({
-  app: { flex: 1, paddingTop: 47 },
+  app: { flex: 1 },
   flex: { flex: 1 },
-  strip: { paddingHorizontal: 12, paddingVertical: 6, gap: 4, alignItems: 'center' },
+  chipStrip: { flexGrow: 0 },
+  strip: { paddingHorizontal: 14, paddingTop: 6, paddingBottom: 2, gap: 4, alignItems: 'center' },
   chip: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7 },
-  column: { borderRightWidth: 1 },
   header: { minHeight: 60, paddingLeft: 20, paddingRight: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerText: { flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   periodTitle: { fontSize: 26, fontWeight: '700', letterSpacing: -0.3 },
@@ -553,11 +590,14 @@ const styles = StyleSheet.create({
   meta: { fontSize: 15, fontVariant: ['tabular-nums'] },
   count: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   entry: { marginLeft: 20, height: 30, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  row: { minHeight: 44, paddingVertical: 5, paddingRight: 10, paddingLeft: 14, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  row: { minHeight: 44, paddingVertical: 5, paddingRight: 16, paddingLeft: 20, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  fold: { height: 40, paddingLeft: 20, flexDirection: 'row', alignItems: 'center', gap: 6 },
   checkHit: { marginTop: 6 },
   titleLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   title: { flex: 1, fontSize: 15, lineHeight: 22, paddingVertical: 6 },
-  due: { fontSize: 12, fontVariant: ['tabular-nums'], marginTop: 8 },
+  dueSlot: { height: 28, justifyContent: 'center' },
+  dueSlotLine: { marginTop: 6 },
+  due: { fontSize: 12, fontVariant: ['tabular-nums'] },
   noteRow: { flexDirection: 'row', gap: 8, marginTop: -4, marginBottom: 4, alignItems: 'center' },
   note: { fontSize: 12 },
   pill: { alignSelf: 'center', height: 24, borderRadius: 12, paddingHorizontal: 8, justifyContent: 'center' },
@@ -570,27 +610,27 @@ const styles = StyleSheet.create({
   button: { minHeight: 44, borderRadius: 10, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   screenTitle: { fontSize: 28, fontWeight: '700', marginHorizontal: 20, marginTop: 8, letterSpacing: -0.3 },
   flowChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 10, borderRadius: 8 },
-  flowHeader: { height: 40, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  flowHeader: { height: 40, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   flowHeaderText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
-  flowRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 12 },
+  flowRow: { minHeight: 44, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 12 },
   gutter: { width: 18, alignSelf: 'stretch', alignItems: 'center' },
   flowLine: { position: 'absolute', top: 22, bottom: -22, borderLeftWidth: 1.5 },
   dot: { width: 6, height: 6, borderRadius: 3, marginTop: 8 },
   section: { marginTop: 18, marginBottom: 6, marginHorizontal: 20, fontSize: 13, fontWeight: '600' },
   card: { marginHorizontal: 12, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   field: { minHeight: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  toggle: { width: 44, height: 26, borderRadius: 13, padding: 3 },
-  knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
+  themeRow: { paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
+  themeSegment: { flexDirection: 'row', borderRadius: 7, padding: 2 },
+  themeSegmentItem: { flex: 1, alignItems: 'center', paddingVertical: 6, paddingHorizontal: 4, borderRadius: 5 },
   segment: { flexDirection: 'row', borderRadius: 7, padding: 2 },
   segmentItem: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5 },
   tabs: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120 },
-  bar: { position: 'absolute', left: 16, bottom: 26, height: 62, borderRadius: 31, flexDirection: 'row', padding: 4, borderWidth: StyleSheet.hairlineWidth },
+  bar: { position: 'absolute', left: 16, height: 62, borderRadius: 31, flexDirection: 'row', padding: 4, borderWidth: StyleSheet.hairlineWidth },
   barPlus: { right: 86 },
-  barFull: { right: 16 },
-  barMin: { width: 62, height: 52, bottom: 30, right: undefined },
+  barMin: { width: 62, height: 52, right: undefined },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 27, gap: 2 },
-  plus: { position: 'absolute', right: 16, bottom: 26, width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
-  plusMin: { width: 52, height: 52, bottom: 30 },
+  plus: { position: 'absolute', right: 16, width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
+  plusMin: { width: 52, height: 52 },
   toast: { position: 'absolute', left: 16, right: 16, bottom: 108, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '88%', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: 18, paddingBottom: 28 },

@@ -4,7 +4,7 @@ import { currentPeriod as desktopPeriod, workspaceDate as desktopToday } from '.
 import { buildParentOrder as desktopOrder } from '../../../apps/desktop/src/domain/parent-order'
 import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/notes'
 import {
-  DEMO_NOW, LONG_PRESS_MS, buildParentOrder, canNest, classifyPointer, columnOutline, currentPeriod, daysLeft, dropOnRows,
+  DEMO_NOW, LONG_PRESS_MS, buildParentOrder, canNest, classifyPointer, columnOutline, columnSections, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowSections, installSchema, nearbyPeriods, noteSignal, pageFromOffset, parseCapture,
   periodMeta, rowSwipeAction, showBreakpoint, userVersion, workspaceDate, type OrderNode, type SqlDriver,
 } from '../src/index'
@@ -168,6 +168,14 @@ describe('workspace', () => {
     const nested = store.create(DEMO_NOW, { title: '子条目', horizon: 'day', nestingParentId: child }).id
     expect(() => store.create(DEMO_NOW, { title: '太深', horizon: 'day', nestingParentId: nested })).toThrow(/two outline/)
     expect(columnOutline(store.load(DEMO_NOW).items.filter(item => item.horizon === 'day')).map(item => item.title)).toEqual(['今天的一步', '子条目'])
+    store.setStatus(DEMO_NOW, nested, 'done')
+    const openParent = columnSections(store.load(DEMO_NOW).items.filter(item => item.horizon === 'day'))
+    expect(openParent.todo.map(item => item.title)).toEqual(['今天的一步', '子条目'])
+    expect(openParent.done).toEqual([])
+    store.setStatus(DEMO_NOW, child, 'done')
+    const finished = columnSections(store.load(DEMO_NOW).items.filter(item => item.horizon === 'day'))
+    expect(finished.todo).toEqual([])
+    expect(finished.done.map(item => item.title)).toEqual(['今天的一步', '子条目'])
     const undo = store.move(DEMO_NOW, child, 'later', null)
     const moved = store.load(DEMO_NOW)
     expect(moved.relations.some(edge => edge.childId === child)).toBe(false)

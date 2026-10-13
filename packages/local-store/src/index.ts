@@ -16,7 +16,7 @@ export type { OrderNode } from './order'
 export { flowPalette, flowRing, flowStroke, flowTint } from './colors'
 export {
   BOARD_COLUMNS, GESTURE_SLOP, LONG_PRESS_MS, NEST_INDENT, OPEN_COLUMN, OPEN_INDEX,
-  canNest, classifyPointer, columnOutline, dropOnRows, flowColors, flowConnectors, flowSections,
+  canNest, classifyPointer, columnOutline, columnSections, dropOnRows, flowColors, flowConnectors, flowSections,
   mayLink, nextHorizon, outlineRows, pageFromOffset, parseCapture, rowSwipeAction, showBreakpoint,
 } from './board'
 export type { CaptureDraft, DropTarget, RowBox } from './board'
