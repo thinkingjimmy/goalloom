@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import type { RollupLog, LoggingFunction } from 'rollup'
 import type { Plugin } from 'vite'
+import { syncBuildDefine } from './scripts/build/sync-define'
 
 // zod ships /*#__PURE__*/ hints Rollup cannot place; the notice is harmless noise in every build.
 const onwarn = (warning: RollupLog, warn: LoggingFunction) => { if (warning.code !== 'INVALID_ANNOTATION' || !warning.id?.includes('/zod/')) warn(warning) }
@@ -20,6 +21,8 @@ function runtimeBoundary(renderer = false): Plugin {
 
 export default defineConfig({
   main: {
+    // Separate identifiers from process.env so a runtime env var still wins, and a missing secret stays an empty string.
+    define: syncBuildDefine(),
     plugins: [runtimeBoundary()],
     esbuild: { keepNames: true },
     build: {

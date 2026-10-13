@@ -23,7 +23,7 @@
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
-Version 1.7.0 uses schema v10. Phase 0 sync is the v9 step (in-place from v8: history tables that do not pin projection rows, sync tables and `base_*` shadows). v10 adds two-level nesting on that chain and mirrors the column, index and triggers onto `base_*`. v8 and Phase 0 v9 upgrade in place after a protective backup; v1–v7 stay on the verified protective-copy path. Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
+Version 1.8.0 uses schema v10. Phase 0 sync is the v9 step (in-place from v8: history tables that do not pin projection rows, sync tables and `base_*` shadows). v10 adds two-level nesting on that chain and mirrors the column, index and triggers onto `base_*`. v8 and Phase 0 v9 upgrade in place after a protective backup; v1–v7 stay on the verified protective-copy path. Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
 
 每个功能的产品规则、工程契约、TODO 与验收集中在 `docs/features/` 下的一份规格，不另建重复文件；变更过程和测试结果记录在 Git / PR 中。`CLAUDE.md` 仅导入 `AGENTS.md`，不另维护一套规则。
 
@@ -75,7 +75,7 @@ pnpm package:dir          # 当前平台本地目录包
 
 桌面安装包可以在 GitHub Actions 上打出，不必在本机 Mac 上执行 `package:mac` / `package:win`。工作流是 [`.github/workflows/release.yml`](../.github/workflows/release.yml)，汇总脚本是 [`.github/scripts/draft-release.sh`](../.github/scripts/draft-release.sh)。
 
-- 触发：Actions 页手动运行 `workflow_dispatch`，或推送匹配 `v*` 的 tag（例如 `v1.7.0`）。tag 必须等于 `v` 加上 `apps/desktop/package.json` 的版本，且根 `package.json` 版本相同。对不上就失败，不创建 Release。
+- 触发：Actions 页手动运行 `workflow_dispatch`，或推送匹配 `v*` 的 tag（例如 `v1.8.0`）。tag 必须等于 `v` 加上 `apps/desktop/package.json` 的版本，且根 `package.json` 版本相同。对不上就失败，不创建 Release。
 - Runner：`macos-15`（arm64）与 `windows-2025`（x64）各自打包；`ubuntu-latest` 只负责校验文件、写 `SHA256SUMS.txt` 并更新草稿。同一时间只跑一个这样的工作流。
 - 托管门禁，用来代替本机完整 `pnpm verify` 里能在托管 runner 上跑的部分：`pnpm typecheck`、`pnpm test`、`pnpm build`，然后 `package:mac` / `package:win`（仍 `--publish never`，并跑现有包体报告），再跑 `ci.yml` 里已有的打包后冒烟（`tests/workspace.mjs`、`tests/history.mjs`、`tests/recovery.mjs` 指向打好的应用）。包体报告在比对语言白名单前把相对路径里的反斜杠换成正斜杠。1.7.0 的 ASAR 基线按实测写在 `apps/desktop/scripts/build/package-budgets.json`。这不是完整 `pnpm verify`，也不代替公证、Windows 11 实机或负责人的安装验收。
 - 上传的文件：`Goalloom-<v>-mac-arm64.dmg`、`Goalloom-<v>-mac-arm64.zip`、`Goalloom-<v>-mac-arm64.zip.blockmap`、`latest-mac.yml`、`Goalloom-<v>-win-x64.exe`、`Goalloom-<v>-win-x64.exe.blockmap`、`latest.yml`，以及与 1.6.0 相同两空格格式的 `SHA256SUMS.txt`（覆盖这七个文件，不含校验文件自身）。缺任何一个都会失败。
@@ -89,8 +89,12 @@ macOS 签名用仓库 Actions secrets，不要把证书放进仓库：
 | --- | --- |
 | `CSC_LINK` | Developer ID Application 证书的 `.p12` 文件字节的 base64（不是磁盘路径，也不是密码）。electron-builder 把它当作 `CSC_LINK`。 |
 | `CSC_KEY_PASSWORD` | 该 `.p12` 的导入密码。 |
+| `GOALLOOM_SUPABASE_ANON_KEY` | Supabase anon key。只在打包步骤作为构建期环境变量传给 `electron-vite`，打进主进程。不要写入仓库。未设置或为空时构建仍成功，安装包里的同步保持未配置。 |
+| `GOALLOOM_SUPABASE_URL` | 可选。未设置时工作流使用 `https://asqyvcnxdltzzfutbbqy.supabase.co`。 |
 
-两个 secret 都有值时，macOS job 用这份证书签名。缺任何一个就 `unset` 它们，设置 `CSC_IDENTITY_AUTO_DISCOVERY=false`，打未签名包，并在日志里打出警告：Squirrel.Mac 自动更新要求 Developer ID 签名，这次的 zip 不能作为自动更新载荷。不配置 Apple 公证。Windows 安装包始终未签名，该 job 固定 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取上述 secrets。
+两个签名 secret 都有值时，macOS job 用这份证书签名。缺任何一个就 `unset` 它们，设置 `CSC_IDENTITY_AUTO_DISCOVERY=false`，打未签名包，并在日志里打出警告：Squirrel.Mac 自动更新要求 Developer ID 签名，这次的 zip 不能作为自动更新载荷。不配置 Apple 公证。Windows 安装包始终未签名，该 job 固定 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取上述签名 secrets。
+
+打包步骤把 `GOALLOOM_SUPABASE_ANON_KEY` 和 `GOALLOOM_SUPABASE_URL` 传给 `package:mac` / `package:win` 里的 `electron-vite build`。运行时先看环境变量 `GOALLOOM_SUPABASE_ANON_KEY`，再看用户数据目录里 `sync-config.json` 的 `anonKey`（可选字段 `url`），最后用打进包里的值。macOS 用户数据目录是 `~/Library/Application Support/Goalloom/`。anon key 为空只打警告，不让构建失败。`pnpm test` 不接收这把 key。
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
@@ -140,7 +144,7 @@ macOS 签名用仓库 Actions secrets，不要把证书放进仓库：
 | 长列、虚拟滚动、拖放、键盘移动 | `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs virtual` |
 | SQLite 驱动、存储 worker、旧库只读拒绝与导入 | `pnpm test:electron` ＋ 实际受影响功能的脚本；v5/v6 导入 v7 保真追加 `test:calendar`，大数据量相关再跑 `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs large-workspace` |
 | 同步协议 v1：SyncOp、v9、影子基线、发送状态、加密构造 | `pnpm test` 中的 `apps/desktop/tests/integration/upgrade-v9.test.ts`、`apps/desktop/tests/integration/sync-emit.test.ts`、`apps/desktop/tests/integration/sync-emit-commands.test.ts`、`packages/tests/sync/phase0.test.ts`、`packages/tests/sync/applier-review.test.ts`、`packages/tests/sync/phase0-prototype.test.ts`、`packages/tests/sync/adversarial.test.ts`、`packages/tests/sync/desktop-engine.test.ts`、`packages/tests/sync/review-fixes.test.ts`、`packages/crypto/test/constructs.test.ts`、`packages/crypto/test/parity.test.ts`。Node 摘要是 `pnpm parity:digest`。托管双端原型是 `pnpm test:phase0`（需要 `supabase/README.md` 里的三个 API 变量）。托管库用例见 `supabase/README.md`（`supabase db push`、`supabase test db --db-url`、`node scripts/supabase-remote.mjs`），不是桌面 E2E。schema 变化仍追加 `pnpm test:electron` 与 `pnpm test:recovery` |
-| 桌面同步：Google 登录、恢复密钥、两台电脑汇合（含 `item.nest`） | `pnpm test` 中的 `packages/tests/sync/desktop-engine.test.ts` 与 `packages/tests/sync/review-fixes.test.ts`。设置新增「同步」入口，文案变化追加 `pnpm test:language`。这次没有改 schema `user_version`，因此不单为同步追加 `test:electron` / `test:recovery`。操作清单见 [docs/sync/desktop.md](sync/desktop.md) |
+| 桌面同步：Google 登录、恢复密钥、两台电脑汇合（含 `item.nest`） | `pnpm test` 中的 `packages/tests/sync/desktop-engine.test.ts`、`packages/tests/sync/review-fixes.test.ts` 与 `apps/desktop/tests/main/sync-config.test.ts`。设置新增「同步」入口，文案变化追加 `pnpm test:language`。这次没有改 schema `user_version`，因此不单为同步追加 `test:electron` / `test:recovery`。操作清单见 [docs/sync/desktop.md](sync/desktop.md) |
 | 打包脚本、包体报告 | `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs package-report` |
 | `apps/desktop/src/domain` 领域规则 | 改变用户可见行为时按所属功能选 E2E；不影响行为的内部调整保留快速检查，无需桌面脚本 |
 | 官网 `apps/website/` | 在该目录运行 `pnpm typecheck`、`pnpm test:e2e`（包含构建）；不跑桌面 E2E，细节见 [官网 README](../apps/website/README.md) |
@@ -165,7 +169,7 @@ macOS 签名用仓库 Actions secrets，不要把证书放进仓库：
 
 ```text
 apps/
-├── desktop/                 # Electron 桌面（工作区包 @goalloom/desktop，产品版本为 package.json 的 1.7.0）
+├── desktop/                 # Electron 桌面（工作区包 @goalloom/desktop，产品版本为 package.json 的 1.8.0）
 │   ├── src/                 # domain、main、preload、renderer、shared
 │   ├── tests/               # Vitest（domain/main/renderer/integration）与真实 Electron 场景
 │   ├── scripts/             # Electron Vitest 运行器、eval 与打包检查

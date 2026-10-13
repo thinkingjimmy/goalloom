@@ -88,7 +88,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.7.0 adds two-level tasks on the board and uses workspace schema v10. A 1.6.0 workspace upgrades in place after an automatic protective backup. Workspaces from 1.5.0 and earlier still upgrade through a verified protective copy and an explicit confirmation. Accounts and cloud sync are not in this release. See the [1.7.0 release notes](./docs/releases/v1.7.0.md).
+Version 1.8.0 adds opt-in sync between desktop computers. Sign in with Google and keep a 24-word recovery key; the workspace is end-to-end encrypted. Release builds embed the Supabase anon key when `GOALLOOM_SUPABASE_ANON_KEY` is set at build time. Runtime order is that environment variable, then `sync-config.json` (`anonKey`, optional `url`) in the user-data directory, then the baked value. A build without the secret still runs, and sync stays unconfigured. The workspace format is still schema v10. See the [1.8.0 release notes](./docs/releases/v1.8.0.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 
