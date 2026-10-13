@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { expect, it } from 'vitest'
-import { generateRecoveryMnemonic, publicFromSeed, unhex, utf8 } from '@goalloom/crypto'
+import { hex, publicFromSeed, unhex, utf8 } from '@goalloom/crypto'
 import {
-  acceptRosterAdvance, bootstrapWorkspace, exchange, joinWorkspace, memoryCiphertext, memoryRemote, newDeviceSecret,
-  SyncFailure, createMemoryWorld, type BoundWorkspace, type MemoryWorld,
+  acceptRosterAdvance, bootstrapWorkspace, changeSyncPassword, exchange, joinWorkspace, memoryCiphertext, memoryRemote, newDeviceSecret,
+  queueVisibleBaseline, unlockWithPassword, SyncFailure, createMemoryWorld, type BoundWorkspace, type MemoryWorld,
 } from '@goalloom/sync'
 import type { ApplyHost, SqlDriver } from '@goalloom/store-core'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
@@ -60,13 +60,12 @@ function contains(haystack: Uint8Array, needle: Uint8Array): boolean {
 
 it('converges a nested task between two computers without writing the title to the server', async () => {
   const world = createMemoryWorld()
-  const phrase = generateRecoveryMnemonic()
   const first = desktop()
   const second = desktop()
   const alpha = await register(world, 'alpha')
   const beta = await register(world, 'beta')
   const bound = await bootstrapWorkspace({
-    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, mnemonic: phrase, at: now,
+    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', at: now,
   })
   const parent = first.run({ type: 'create', title: '季度目标', horizon: 'week' })
   const child = first.run({ type: 'create', title: '子任务', horizon: 'month', flowColor: 3 })
@@ -81,7 +80,7 @@ it('converges a nested task between two computers without writing the title to t
   await push({ ...alpha, driver: first.driver, host: first.host }, bound)
   const joined = await joinWorkspace({
     remote: beta.remote, driver: second.driver, host: second.host, deviceId: beta.deviceId, secret: beta.secret,
-    mnemonic: phrase, choice: 'use-remote', at: now,
+    password: 'sync-pass', choice: 'use-remote', at: now,
   })
   expect(live(second.db)).toEqual(live(first.db))
   expect(second.db.prepare('SELECT nestingParentId FROM item_placements WHERE itemId=?').get(childId)).toMatchObject({ nestingParentId: parentId })
@@ -99,19 +98,18 @@ it('converges a nested task between two computers without writing the title to t
 
 it('keeps an offline edit and records a delete that wins over a later edit', async () => {
   const world = createMemoryWorld()
-  const phrase = generateRecoveryMnemonic()
   const first = desktop()
   const second = desktop()
   const alpha = await register(world, 'alpha')
   const beta = await register(world, 'beta')
   const bound = await bootstrapWorkspace({
-    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, mnemonic: phrase, at: now,
+    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', at: now,
   })
   const created = first.run({ type: 'create', title: '共享任务', horizon: 'later' })
   await push({ ...alpha, driver: first.driver, host: first.host }, bound)
   const joined = await joinWorkspace({
     remote: beta.remote, driver: second.driver, host: second.host, deviceId: beta.deviceId, secret: beta.secret,
-    mnemonic: phrase, choice: 'use-remote', at: now,
+    password: 'sync-pass', choice: 'use-remote', at: now,
   })
   world.online = false
   first.run({ type: 'create', title: '离线新增', horizon: 'later' })
@@ -133,9 +131,8 @@ it('keeps an offline edit and records a delete that wins over a later edit', asy
   second.db.close()
 })
 
-it('rejects a different recovery phrase and baselines nested pre-sync rows', async () => {
+it('rejects a different sync password and baselines nested pre-sync rows', async () => {
   const world = createMemoryWorld()
-  const phrase = generateRecoveryMnemonic()
   const { db, driver, host } = openSync()
   const parent = randomUUID()
   const child = randomUUID()
@@ -144,23 +141,62 @@ it('rejects a different recovery phrase and baselines nested pre-sync rows', asy
   driver.prepare('UPDATE base_item_placements SET nestingParentId=? WHERE itemId=?').run(parent, child)
   const alpha = await register(world, 'alpha')
   const bound = await bootstrapWorkspace({
-    remote: alpha.remote, driver, host, deviceId: alpha.deviceId, secret: alpha.secret, mnemonic: phrase, at: now,
+    remote: alpha.remote, driver, host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', at: now,
   })
   await push({ ...alpha, driver, host }, bound)
   const peer = openSync()
   const beta = await register(world, 'beta')
   await expect(joinWorkspace({
     remote: beta.remote, driver: peer.driver, host: peer.host, deviceId: beta.deviceId, secret: beta.secret,
-    mnemonic: generateRecoveryMnemonic(), choice: 'use-remote', at: now,
+    password: 'other-pass', choice: 'use-remote', at: now,
   })).rejects.toBeInstanceOf(SyncFailure)
   await joinWorkspace({
     remote: beta.remote, driver: peer.driver, host: peer.host, deviceId: beta.deviceId, secret: beta.secret,
-    mnemonic: phrase, choice: 'use-remote', at: now,
+    password: 'sync-pass', choice: 'use-remote', at: now,
   })
   expect(db.prepare('SELECT nestingParentId FROM item_placements WHERE itemId=?').get(child)).toMatchObject({ nestingParentId: parent })
   expect(peer.db.prepare('SELECT nestingParentId FROM item_placements WHERE itemId=?').get(child)).toMatchObject({ nestingParentId: parent })
   expect(contains(unhex(memoryCiphertext(world)), utf8('基线子'))).toBe(false)
   expect(Number(db.prepare(`SELECT count(*) AS n FROM sync_ops WHERE payload LIKE '%item.nest%'`).get()?.n)).toBeGreaterThan(0)
   db.close()
+  peer.db.close()
+})
+
+it('changes the password from an unlocked computer and resets cloud data from the local board', async () => {
+  const world = createMemoryWorld()
+  const first = desktop()
+  const alpha = await register(world, 'alpha')
+  const bound = await bootstrapWorkspace({
+    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', at: now,
+  })
+  first.run({ type: 'create', title: '留在本机', horizon: 'later' })
+  await push({ ...alpha, driver: first.driver, host: first.host }, bound)
+  await changeSyncPassword({
+    remote: alpha.remote, deviceId: alpha.deviceId, workspaceId: bound.workspaceId, recovery: bound.recovery, password: 'next-pass',
+  })
+  const beta = await register(world, 'beta')
+  await expect(unlockWithPassword({ remote: beta.remote, deviceId: beta.deviceId, secret: beta.secret, password: 'sync-pass' })).rejects.toMatchObject({ code: 'password' })
+  const unlocked = await unlockWithPassword({ remote: beta.remote, deviceId: beta.deviceId, secret: beta.secret, password: 'next-pass' })
+  expect(hex(unlocked.bound.workspaceKey)).toBe(hex(bound.workspaceKey))
+  await alpha.remote.resetSync(alpha.deviceId)
+  expect(await alpha.remote.account()).toBeNull()
+  queueVisibleBaseline(first.driver, first.host, alpha.deviceId, now)
+  const again = await bootstrapWorkspace({
+    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'fresh-pass', at: now,
+  })
+  expect(again.workspaceId).not.toBe(bound.workspaceId)
+  await push({ ...alpha, driver: first.driver, host: first.host }, again)
+  const peer = desktop()
+  const gamma = await register(world, 'gamma')
+  await expect(joinWorkspace({
+    remote: gamma.remote, driver: peer.driver, host: peer.host, deviceId: gamma.deviceId, secret: gamma.secret,
+    password: 'next-pass', choice: 'use-remote', at: now,
+  })).rejects.toMatchObject({ code: 'password' })
+  await joinWorkspace({
+    remote: gamma.remote, driver: peer.driver, host: peer.host, deviceId: gamma.deviceId, secret: gamma.secret,
+    password: 'fresh-pass', choice: 'use-remote', at: now,
+  })
+  expect(peer.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL').all().map(row => String(row.title))).toContain('留在本机')
+  first.db.close()
   peer.db.close()
 })

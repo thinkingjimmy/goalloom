@@ -92,5 +92,6 @@ export function createFetchRemote(input: { url: string; anonKey: string; accessT
       const rows = await call<unknown[]>('pull_ops', { p_workspace: input.workspaceId, p_device: input.deviceId, p_after: input.after, p_limit: input.limit })
       return pullRows(rows)
     },
+    resetSync: deviceId => call<void>('reset_sync', { p_device: deviceId }),
   }
 }

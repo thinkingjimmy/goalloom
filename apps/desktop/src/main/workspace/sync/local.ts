@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import type { RemoteEnvelope } from '@goalloom/store-core'
 import {
-  absorbOpened, acceptPushResults, bindWorkspace, captureVisibleBoard, conflictCount, installJoined, localLiveCount, queueBaseline,
+  absorbOpened, acceptPushResults, bindWorkspace, captureVisibleBoard, conflictCount, installJoined, localLiveCount, queueBaseline, queueVisibleBaseline,
   stageImportedBoard, syncCursor, takePending, type LocalBoard, type PendingPlain, type PushResultWire,
 } from '@goalloom/sync'
 import { syncHost } from '../../sync/host'
@@ -24,6 +24,7 @@ const command = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('capture') }),
   z.strictObject({ type: z.literal('bind'), binding, at: z.string() }),
   z.strictObject({ type: z.literal('baseline'), deviceId: z.uuid(), at: z.string() }),
+  z.strictObject({ type: z.literal('rebaseline'), deviceId: z.uuid(), at: z.string() }),
   z.strictObject({ type: z.literal('take'), at: z.string(), attemptId: z.uuid() }),
   z.strictObject({ type: z.literal('accept'), pending: z.array(pending), results: z.array(z.strictObject({
     opId: z.uuid(), seq: z.number().int().positive().optional(), duplicate: z.boolean().optional(), error: z.string().optional(),
@@ -67,6 +68,7 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
   if (action.type === 'capture') return captureVisibleBoard(driver)
   if (action.type === 'bind') { bindWorkspace(driver, action.binding, action.at); return null }
   if (action.type === 'baseline') return queueBaseline(driver, host, action.deviceId, action.at)
+  if (action.type === 'rebaseline') return queueVisibleBaseline(driver, host, action.deviceId, action.at)
   if (action.type === 'take') return takePending(driver, action.at, action.attemptId)
   if (action.type === 'accept') {
     return acceptPushResults(driver, action.pending as PendingPlain[], action.results.map(result => {

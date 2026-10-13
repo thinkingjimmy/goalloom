@@ -1,6 +1,8 @@
 # Desktop sync
 
-Two desktop installs sign in with the same Google account, share one recovery key, and converge encrypted ops. The board stays usable while signed out. Apple sign-in, payments, snapshots and QR pairing are not in this client.
+Two desktop installs sign in with the same Google account, share one sync password, and converge encrypted ops. The board stays usable while signed out. Apple sign-in, payments, snapshots and QR pairing are not in this client.
+
+The password is an ordinary secret of 8 to 128 characters. Argon2id (`m=8192` KiB, `t=2`, `p=1`, 32-byte output) derives a key that seals a random recovery keypair. Salt and those parameters travel inside the existing recovery envelope. The roster, checkpoint and workspace-key wrap stay as they are. Keys stay in the OS keychain. A phrase-era envelope does not open.
 
 The engine lives in `packages/sync` (`SyncRemote`, session, board, codec). Desktop OAuth and the keychain vault stay in `apps/desktop/src/main/sync`. `apps/mobile` is not part of this change.
 
@@ -11,7 +13,7 @@ Do not commit the anon key or the Google client secret.
 1. Google Cloud: an OAuth client whose authorized redirect is `https://asqyvcnxdltzzfutbbqy.supabase.co/auth/v1/callback`. The desktop does not register its own Google redirect.
 2. Supabase Dashboard → Authentication → Google: enable the provider with that client id and secret.
 3. Supabase Dashboard → Authentication → URL configuration: add `http://127.0.0.1:53682/callback` to the redirect allow list. Site URL can stay the project URL. The app uses this loopback because `goalloom://` already serves the local window.
-4. Apply `supabase/migrations/0005_desktop_client.sql` and then `supabase/migrations/0006_envelope_ambiguity.sql` to the dev project (and keep `0001`–`0004` applied). The client does not deploy them. Linux `register_device` fails until `linux` is an allowed platform. Every client needs `list_account`, `get_roster`, `get_key_envelopes` and `put_key_envelopes`. `0006` is required on top of a deployed `0005`: it removes the envelope `42702` name clash and lets one op use the 1 MiB batch cap.
+4. Apply `supabase/migrations/0005_desktop_client.sql` and then `supabase/migrations/0006_envelope_ambiguity.sql` to the dev project (and keep `0001`–`0004` applied). The client does not deploy them. Linux `register_device` fails until `linux` is an allowed platform. Every client needs `list_account`, `get_roster`, `get_key_envelopes` and `put_key_envelopes`. `0006` is required on top of a deployed `0005`: it removes the envelope `42702` name clash and lets one op use the 1 MiB batch cap. `supabase/migrations/0007_reset_sync.sql` adds `reset_sync` for a forgotten password. It is not deployed by this client. Apply it before using Reset sync. It does not change `sync_entitled`.
 5. Authentication → Realtime: leave “Allow public access to Realtime channels” off. The client polls every 8 seconds and treats a private `ws:<id>` broadcast as an optional accelerator.
 6. Give the desktop the anon key without committing it. The release workflow passes the repository secret `GOALLOOM_SUPABASE_ANON_KEY`, and optional `GOALLOOM_SUPABASE_URL` (default `https://asqyvcnxdltzzfutbbqy.supabase.co`), into `electron-vite` as build-time env. The main-process build embeds those values. A missing or blank anon key does not fail the build: sync stays unconfigured. Do not commit a key value.
    Runtime precedence is `GOALLOOM_SUPABASE_ANON_KEY`, then `sync-config.json` in the app user-data directory, then the baked value. The same order applies to the URL, and an empty result still falls back to the dev project URL. `sync-config.json` fields are `anonKey` and optional `url`. On macOS the user-data directory name is `Goalloom` (`~/Library/Application Support/Goalloom/`), so the file is `~/Library/Application Support/Goalloom/sync-config.json`. Windows is `%APPDATA%\Goalloom\sync-config.json`.
@@ -22,11 +24,13 @@ Do not commit the anon key or the Google client secret.
 
 Use two user-data directories, or two computers, with the same anon key and migration `0005` applied.
 
-1. Machine A: Settings → Sync → Sign in with Google. Create the recovery key, write down the 24 English words, confirm the three requested words. Create a week goal and nest a subtask under it.
-2. Machine B: sign in with the same Google account. Enter the 24 words. If B already has items, leave the acknowledgement unchecked until you mean it, export JSON if you want a copy, then choose “use the other board” or “merge”.
+1. Machine A: Settings → Sync → Sign in with Google. Choose a sync password of at least 8 characters and enter it again. Create a week goal and nest a subtask under it.
+2. Machine B: sign in with the same Google account. Enter the same password. If B already has items, leave the acknowledgement unchecked until you mean it, export JSON if you want a copy, then choose “use the other board” or “merge”.
 3. The nested task appears on B. Edit a title on B and confirm A shows it. Turn networking off, edit both sides, reconnect, and confirm both boards match.
 4. Delete an item on A and edit that same item on B before either syncs. After both reconnect, the item stays deleted and each board shows a kept conflict. The other items are unchanged.
 5. Sign out. The board remains editable. Quit and reopen without ever signing in: capture, search and the Later sidebar still work.
 6. Sign in with a different Google account on a machine that already joined. Sync reports a mismatch and does not upload that board.
+7. On A, while sync is ready, set a new password and enter it again. B can no longer open the cloud data with the old password. The new password works, and A did not have to type the old one.
+8. On a computer that is signed in but cannot open the cloud data, the pane says the cloud data cannot be decrypted without the password. Reset sync deletes that account’s cloud workspace and uploads the board still on that computer under a new password. The old password does not open the new workspace.
 
 A missing anon key — no runtime env, no `sync-config.json`, and nothing baked — leaves the Sync pane unconfigured. A keychain that cannot encrypt (Linux `basic_text`) leaves sync locked. Neither state blocks the rest of the app.

@@ -1,12 +1,13 @@
 /**
- * [INPUT]: Device keys, a recovery phrase, and a SyncRemote. Phrase-derived keys exist only inside these calls.
+ * [INPUT]: Device keys, a sync password, and a SyncRemote. The password exists only inside these calls.
  * [OUTPUT]: A bound workspace key, sealed pushes, and opened remote ops.
  * [POS]: Shared sync session. Desktop and mobile supply the remote and the SQL driver; neither UI lives here.
  */
 import type { SyncOp } from '@goalloom/contracts'
 import {
-  deriveRecovery, hex, publicFromSeed, recoveryPhraseAccepted, rosterHash, signCheckpoint, signRecoveryChallenge, signRoster,
-  systemRandom, unhex, unwrap, verifyRecoveryJoin, verifyRosterExtension, wipeRecovery, wrap, type RandomSource, type RosterBody,
+  hex, newRecovery, openRecoveryLock, passwordAccepted, publicFromSeed, rosterHash, sealRecoveryLock, signCheckpoint,
+  signRecoveryChallenge, signRoster, systemRandom, unhex, unwrap, utf8, verifyRecoveryJoin, verifyRosterExtension, wrap,
+  type Envelope, type RandomSource, type RecoverySecrets, type RosterBody, type SyncKdfParams,
 } from '@goalloom/crypto'
 import { applyRemoteBatch, markAccepted, markSendUnknown, mergeRemoteOps, type ApplyHost, type RemoteEnvelope, type SqlDriver } from '@goalloom/store-core'
 import { planPushBatches } from './push'
@@ -19,10 +20,6 @@ export interface DeviceSecret { signSk: Uint8Array; boxSk: Uint8Array }
 
 export function newDeviceSecret(random: RandomSource = systemRandom()): DeviceSecret {
   return { signSk: random.bytes(32), boxSk: random.bytes(32) }
-}
-
-function normalize(mnemonic: string): string {
-  return mnemonic.trim().toLowerCase().split(/\s+/).filter(Boolean).join(' ')
 }
 
 function envelopesFor(input: {
@@ -46,14 +43,39 @@ function readEnvelope(wire: EnvelopeWire): { envelope: ReturnType<typeof wrap>; 
   return { envelope, epoch: wire.epoch }
 }
 
-export interface BoundWorkspace { workspaceId: string; generation: string; epoch: number; workspaceKey: Uint8Array; roster: RosterBody }
+interface RecoveryBody { v: 2; kdf: SyncKdfParams; lock: string; wrap: Envelope }
+
+function readRecovery(wire: EnvelopeWire): RecoveryBody {
+  const parsed = JSON.parse(new TextDecoder().decode(unhex(wire.ciphertext))) as Partial<RecoveryBody>
+  if (parsed.v !== 2 || !parsed.kdf || !parsed.lock || !parsed.wrap) throw new SyncFailure('key')
+  return parsed as RecoveryBody
+}
+
+async function recoveryWire(input: {
+  senderId: string; signSk: Uint8Array; workspaceKey: Uint8Array; workspaceId: string; epoch: number; rosterVersion: number
+  recovery: RecoverySecrets; password: string; random: RandomSource
+}): Promise<EnvelopeWire> {
+  const lock = await sealRecoveryLock({ password: input.password, workspaceId: input.workspaceId, secrets: input.recovery, random: input.random })
+  const wrapped = wrap({
+    senderId: input.senderId, signSk: input.signSk, recipientId: 'recovery', recipientBoxPub: input.recovery.boxPub,
+    ctx: `wk|${input.workspaceId}|${input.epoch}`, plaintext: input.workspaceKey, random: input.random,
+  })
+  const body: RecoveryBody = { v: 2, kdf: lock.kdf, lock: lock.lock, wrap: wrapped }
+  return {
+    epoch: input.epoch, recipient: 'recovery', ciphertext: hex(utf8(JSON.stringify(body))),
+    signature: wrapped.sig, rosterVersion: input.rosterVersion, signerDevice: input.senderId,
+  }
+}
+
+export interface BoundWorkspace {
+  workspaceId: string; generation: string; epoch: number; workspaceKey: Uint8Array; roster: RosterBody; recovery: RecoverySecrets
+}
 
 export async function createRemoteWorkspace(input: {
-  remote: SyncRemote; deviceId: string; secret: DeviceSecret; mnemonic: string; generation: string; random?: RandomSource
-  workspaceId?: string; workspaceKey?: Uint8Array
+  remote: SyncRemote; deviceId: string; secret: DeviceSecret; password: string; generation: string; random?: RandomSource
+  workspaceId?: string; workspaceKey?: Uint8Array; recovery?: RecoverySecrets
 }): Promise<BoundWorkspace> {
-  const phrase = normalize(input.mnemonic)
-  if (!recoveryPhraseAccepted(phrase)) throw new SyncFailure('phrase')
+  if (!passwordAccepted(input.password)) throw new SyncFailure('password')
   if (Boolean(input.workspaceId) !== Boolean(input.workspaceKey)) throw new SyncFailure('storage', 'pending workspace')
   const random = input.random ?? systemRandom()
   const generation = input.generation
@@ -62,43 +84,45 @@ export async function createRemoteWorkspace(input: {
   const workspaceKey = input.workspaceKey ?? random.bytes(32)
   const signPub = hex(publicFromSeed('ed25519', input.secret.signSk))
   const boxPub = hex(publicFromSeed('x25519', input.secret.boxSk))
-  const recovery = deriveRecovery(phrase, workspaceId)
-  try {
-    const roster: RosterBody = {
-      workspaceId, version: 1, epoch: 1, prevHash: null,
-      devices: [{ id: input.deviceId, signPub, boxPub }],
-      recoverySignPub: hex(recovery.signPub), recoveryBoxPub: hex(recovery.boxPub),
-    }
-    const checkpoint = {
-      workspaceId, cpVersion: 1, rosterVersion: 1, rosterHash: rosterHash(roster), epoch: 1,
-      recoverySignPub: hex(recovery.signPub), recoveryBoxPub: hex(recovery.boxPub), prevCpHash: null,
-    }
-    const wires = envelopesFor({
-      senderId: input.deviceId, signSk: input.secret.signSk, workspaceKey, workspaceId, epoch: 1, rosterVersion: 1, random,
-      targets: [{ id: input.deviceId, boxPub }, { id: 'recovery', boxPub: hex(recovery.boxPub) }],
-    })
-    try {
-      await input.remote.bootstrap({
-        deviceId: input.deviceId, workspaceId, generation, roster, rosterHash: rosterHash(roster),
-        rosterSig: signRoster(roster, input.secret.signSk), checkpoint,
-        recSig: signCheckpoint(checkpoint, recovery.signSk), devSig: signCheckpoint(checkpoint, input.secret.signSk),
-      })
-    } catch (error) {
-      if (!input.workspaceId || !(error instanceof SyncFailure) || !error.message.includes('workspace')) throw error
-      const account = await input.remote.account()
-      if (!account || account.workspaceId !== workspaceId) throw error
-      const checkpoint = await input.remote.getCheckpoint(workspaceId, input.deviceId)
-      if (!checkpoint || checkpoint.body.recoverySignPub !== hex(recovery.signPub)) throw new SyncFailure('phrase')
-    }
-    await input.remote.putEnvelopes(workspaceId, input.deviceId, wires)
-    return { workspaceId, generation, epoch: 1, workspaceKey, roster }
-  } finally {
-    wipeRecovery(recovery)
+  const recovery = input.recovery ?? newRecovery(random)
+  const roster: RosterBody = {
+    workspaceId, version: 1, epoch: 1, prevHash: null,
+    devices: [{ id: input.deviceId, signPub, boxPub }],
+    recoverySignPub: hex(recovery.signPub), recoveryBoxPub: hex(recovery.boxPub),
   }
+  const checkpoint = {
+    workspaceId, cpVersion: 1, rosterVersion: 1, rosterHash: rosterHash(roster), epoch: 1,
+    recoverySignPub: hex(recovery.signPub), recoveryBoxPub: hex(recovery.boxPub), prevCpHash: null,
+  }
+  const wires = [
+    ...envelopesFor({
+      senderId: input.deviceId, signSk: input.secret.signSk, workspaceKey, workspaceId, epoch: 1, rosterVersion: 1, random,
+      targets: [{ id: input.deviceId, boxPub }],
+    }),
+    await recoveryWire({
+      senderId: input.deviceId, signSk: input.secret.signSk, workspaceKey, workspaceId, epoch: 1, rosterVersion: 1, random,
+      recovery, password: input.password,
+    }),
+  ]
+  try {
+    await input.remote.bootstrap({
+      deviceId: input.deviceId, workspaceId, generation, roster, rosterHash: rosterHash(roster),
+      rosterSig: signRoster(roster, input.secret.signSk), checkpoint,
+      recSig: signCheckpoint(checkpoint, recovery.signSk), devSig: signCheckpoint(checkpoint, input.secret.signSk),
+    })
+  } catch (error) {
+    if (!input.workspaceId || !(error instanceof SyncFailure) || !error.message.includes('workspace')) throw error
+    const account = await input.remote.account()
+    if (!account || account.workspaceId !== workspaceId) throw error
+    const saved = await input.remote.getCheckpoint(workspaceId, input.deviceId)
+    if (!saved || saved.body.recoverySignPub !== hex(recovery.signPub)) throw new SyncFailure('password')
+  }
+  await input.remote.putEnvelopes(workspaceId, input.deviceId, wires)
+  return { workspaceId, generation, epoch: 1, workspaceKey, roster, recovery }
 }
 
 export async function bootstrapWorkspace(input: {
-  remote: SyncRemote; driver: SqlDriver; host: ApplyHost; deviceId: string; secret: DeviceSecret; mnemonic: string; at: string
+  remote: SyncRemote; driver: SqlDriver; host: ApplyHost; deviceId: string; secret: DeviceSecret; password: string; at: string
   random?: RandomSource
 }): Promise<BoundWorkspace> {
   const generation = String(input.driver.prepare('SELECT generation FROM workspace WHERE id=1').get()?.generation ?? '')
@@ -108,11 +132,10 @@ export async function bootstrapWorkspace(input: {
   return bound
 }
 
-export async function unlockWithPhrase(input: {
-  remote: SyncRemote; deviceId: string; secret: DeviceSecret; mnemonic: string; random?: RandomSource
+export async function unlockWithPassword(input: {
+  remote: SyncRemote; deviceId: string; secret: DeviceSecret; password: string; random?: RandomSource
 }): Promise<{ bound: BoundWorkspace; ops: RemoteEnvelope[] }> {
-  const phrase = normalize(input.mnemonic)
-  if (!recoveryPhraseAccepted(phrase)) throw new SyncFailure('phrase')
+  if (!passwordAccepted(input.password)) throw new SyncFailure('password')
   const random = input.random ?? systemRandom()
   const account = await input.remote.account()
   if (!account) throw new SyncFailure('mismatch')
@@ -122,48 +145,77 @@ export async function unlockWithPhrase(input: {
   const pinned = chain.find(link => link.version === checkpoint.body.rosterVersion)
   if (!pinned) throw new SyncFailure('key')
   const newer = chain.filter(link => link.version > pinned.version).sort((left, right) => left.version - right.version)
-  const recovery = deriveRecovery(phrase, account.workspaceId)
+  const head = newer.at(-1)?.roster ?? pinned.roster
+  const envelopes = await input.remote.getEnvelopes(account.workspaceId, input.deviceId)
+  const recoveryWrap = envelopes.find(item => item.recipient === 'recovery' && item.epoch === head.epoch)
+  if (!recoveryWrap) throw new SyncFailure('key')
+  const body = readRecovery(recoveryWrap)
+  let recovery: RecoverySecrets
   try {
-    try {
-      verifyRecoveryJoin({
-        mnemonic: phrase, workspaceId: account.workspaceId, checkpoint: checkpoint.body,
-        recSig: unhex(checkpoint.recSig), devSig: unhex(checkpoint.devSig), roster: pinned.roster,
-        newer: newer.map(link => ({
-          body: link.roster, signature: unhex(link.signature), signerId: link.signerType === 'recovery' ? 'recovery' : (link.signerDevice ?? ''),
-        })),
-      })
-    } catch (error) {
-      if (error instanceof SyncFailure) throw error
-      const message = error instanceof Error ? error.message : ''
-      throw new SyncFailure(message.includes('recovery') ? 'phrase' : 'key')
-    }
-    const head = newer.at(-1)?.roster ?? pinned.roster
-    const envelopes = await input.remote.getEnvelopes(account.workspaceId, input.deviceId)
-    const recoveryWrap = envelopes.find(item => item.recipient === 'recovery' && item.epoch === head.epoch)
-    if (!recoveryWrap) throw new SyncFailure('key')
-    const workspaceKey = workspaceKeyFromEnvelope({
-      wire: recoveryWrap, roster: head, earlier: pinned.roster, workspaceId: account.workspaceId, recipientId: 'recovery', boxSk: recovery.boxSk,
+    recovery = await openRecoveryLock({ password: input.password, workspaceId: account.workspaceId, lock: { kdf: body.kdf, lock: body.lock } })
+  } catch (error) {
+    if (error instanceof SyncFailure) throw error
+    throw new SyncFailure('password')
+  }
+  try {
+    verifyRecoveryJoin({
+      secrets: recovery, workspaceId: account.workspaceId, checkpoint: checkpoint.body,
+      recSig: unhex(checkpoint.recSig), devSig: unhex(checkpoint.devSig), roster: pinned.roster,
+      newer: newer.map(link => ({
+        body: link.roster, signature: unhex(link.signature), signerId: link.signerType === 'recovery' ? 'recovery' : (link.signerDevice ?? ''),
+      })),
     })
-    const challenge = await input.remote.startRecovery(account.workspaceId, input.deviceId)
-    if (challenge.rosterHash !== rosterHash(head)) throw new SyncFailure('key')
-    const signPub = hex(publicFromSeed('ed25519', input.secret.signSk))
-    const boxPub = hex(publicFromSeed('x25519', input.secret.boxSk))
-    const next: RosterBody = {
-      ...head, version: head.version + 1, prevHash: rosterHash(head),
-      devices: [...head.devices.filter(device => device.id !== input.deviceId), { id: input.deviceId, signPub, boxPub }],
-    }
-    await input.remote.completeRecovery({
-      workspaceId: account.workspaceId, deviceId: input.deviceId, challengeId: challenge.challengeId,
-      signature: signRecoveryChallenge({ workspaceId: account.workspaceId, deviceId: input.deviceId, nonceHex: challenge.nonce, rosterHash: challenge.rosterHash, signSk: recovery.signSk }),
-      roster: next, bodyHash: rosterHash(next), rosterSig: signRoster(next, recovery.signSk),
-    })
-    await input.remote.putEnvelopes(account.workspaceId, input.deviceId, envelopesFor({
-      senderId: input.deviceId, signSk: input.secret.signSk, workspaceKey, workspaceId: account.workspaceId, epoch: head.epoch,
-      rosterVersion: next.version, random, targets: [{ id: input.deviceId, boxPub }],
-    }))
-    const ops = await downloadWorkspace({ remote: input.remote, deviceId: input.deviceId, workspaceId: account.workspaceId, workspaceKey })
-    return { bound: { workspaceId: account.workspaceId, generation: account.generation, epoch: head.epoch, workspaceKey, roster: next }, ops }
-  } finally { wipeRecovery(recovery) }
+  } catch (error) {
+    if (error instanceof SyncFailure) throw error
+    const message = error instanceof Error ? error.message : ''
+    throw new SyncFailure(message.includes('recovery') ? 'password' : 'key')
+  }
+  const sender = head.devices.find(device => device.id === body.wrap.senderId) ?? pinned.roster.devices.find(device => device.id === body.wrap.senderId)
+  if (!sender) throw new SyncFailure('key')
+  const workspaceKey = unwrap(body.wrap, {
+    expectedCtx: `wk|${account.workspaceId}|${head.epoch}`, recipientId: 'recovery', boxSk: recovery.boxSk, senderSignPub: unhex(sender.signPub),
+  })
+  const challenge = await input.remote.startRecovery(account.workspaceId, input.deviceId)
+  if (challenge.rosterHash !== rosterHash(head)) throw new SyncFailure('key')
+  const signPub = hex(publicFromSeed('ed25519', input.secret.signSk))
+  const boxPub = hex(publicFromSeed('x25519', input.secret.boxSk))
+  const next: RosterBody = {
+    ...head, version: head.version + 1, prevHash: rosterHash(head),
+    devices: [...head.devices.filter(device => device.id !== input.deviceId), { id: input.deviceId, signPub, boxPub }],
+  }
+  await input.remote.completeRecovery({
+    workspaceId: account.workspaceId, deviceId: input.deviceId, challengeId: challenge.challengeId,
+    signature: signRecoveryChallenge({ workspaceId: account.workspaceId, deviceId: input.deviceId, nonceHex: challenge.nonce, rosterHash: challenge.rosterHash, signSk: recovery.signSk }),
+    roster: next, bodyHash: rosterHash(next), rosterSig: signRoster(next, recovery.signSk),
+  })
+  await input.remote.putEnvelopes(account.workspaceId, input.deviceId, envelopesFor({
+    senderId: input.deviceId, signSk: input.secret.signSk, workspaceKey, workspaceId: account.workspaceId, epoch: head.epoch,
+    rosterVersion: next.version, random, targets: [{ id: input.deviceId, boxPub }],
+  }))
+  const ops = await downloadWorkspace({ remote: input.remote, deviceId: input.deviceId, workspaceId: account.workspaceId, workspaceKey })
+  return { bound: { workspaceId: account.workspaceId, generation: account.generation, epoch: head.epoch, workspaceKey, roster: next, recovery }, ops }
+}
+
+/** Re-seals the recovery keypair. An unlocked device already holds that keypair and does not need the old password. */
+export async function changeSyncPassword(input: {
+  remote: SyncRemote; deviceId: string; workspaceId: string; recovery: RecoverySecrets; password: string; random?: RandomSource
+}): Promise<void> {
+  if (!passwordAccepted(input.password)) throw new SyncFailure('password')
+  const random = input.random ?? systemRandom()
+  const checkpoint = await input.remote.getCheckpoint(input.workspaceId, input.deviceId)
+  if (!checkpoint || checkpoint.body.recoveryBoxPub !== hex(input.recovery.boxPub) || checkpoint.body.recoverySignPub !== hex(input.recovery.signPub)) {
+    throw new SyncFailure('key')
+  }
+  const envelopes = await input.remote.getEnvelopes(input.workspaceId, input.deviceId)
+  const current = envelopes.find(item => item.recipient === 'recovery' && item.epoch === checkpoint.body.epoch)
+  if (!current) throw new SyncFailure('key')
+  const body = readRecovery(current)
+  const lock = await sealRecoveryLock({ password: input.password, workspaceId: input.workspaceId, secrets: input.recovery, random })
+  const next: RecoveryBody = { v: 2, kdf: lock.kdf, lock: lock.lock, wrap: body.wrap }
+  await input.remote.putEnvelopes(input.workspaceId, input.deviceId, [{
+    epoch: current.epoch, recipient: 'recovery', ciphertext: hex(utf8(JSON.stringify(next))),
+    signature: body.wrap.sig, rosterVersion: current.rosterVersion, signerDevice: input.deviceId,
+  }])
 }
 
 export async function downloadWorkspace(input: {
@@ -193,10 +245,10 @@ export function workspaceKeyFromEnvelope(input: {
 
 /** Installs a recovered log. `merge` keeps the local board as new items after the remote log is applied. */
 export async function joinWorkspace(input: {
-  remote: SyncRemote; driver: SqlDriver; host: ApplyHost; deviceId: string; secret: DeviceSecret; mnemonic: string
+  remote: SyncRemote; driver: SqlDriver; host: ApplyHost; deviceId: string; secret: DeviceSecret; password: string
   choice: 'use-remote' | 'merge'; at: string; random?: RandomSource
 }): Promise<BoundWorkspace> {
-  const { bound, ops } = await unlockWithPhrase(input)
+  const { bound, ops } = await unlockWithPassword(input)
   installJoined(input.driver, input.host, {
     binding: { workspaceId: bound.workspaceId, deviceId: input.deviceId, keyEpoch: bound.epoch },
     ops, at: input.at, merge: input.choice === 'merge',

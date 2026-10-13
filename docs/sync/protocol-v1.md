@@ -133,12 +133,12 @@ Constructions live in `packages/crypto`. Vectors: `packages/crypto/test/vectors.
 | C2 roster | `goalloom/roster/v1` | constructs roster chain, cases 6 and 15 |
 | C3 op | `goalloom/op/v1` | constructs AAD |
 | C4 snapshot / blob | `goalloom/snap/v1`, `goalloom/blob/v1`, 64 KiB chunks | constructs AAD |
-| Recovery KDF | `goalloom/recovery/v1\|<workspaceId>` | constructs, case 21 |
+| Recovery lock | `goalloom/recovery-lock/v1\|<workspaceId>`, Argon2id `m=8192` `t=2` `p=1` | constructs |
 | Checkpoint | `goalloom/recovery-cp/v1` | case 21 |
 
 Unwrap verifies the signature with a caller-supplied trusted public key before decrypting. `rosterWrapTargets` is the roster device ids plus `recovery`. A public key that exists only on the server is not a wrap target (case 6).
 
-A recovery join checks the phrase-derived public key, the checkpoint signature, the roster hash pinned by that checkpoint, and a device signature over the same checkpoint bytes. A copied recovery public key fails (cases 15 and 21). `acceptNewerCheckpoint` rejects a lower `cpVersion`, a `prevCpHash` that does not extend the pinned checkpoint, and any version above `pinned.cpVersion + 1`.
+A recovery join opens the password lock, then checks that keypair against the checkpoint signature, the roster hash pinned by that checkpoint, and a device signature over the same checkpoint bytes. A copied recovery public key fails (cases 15 and 21). `acceptNewerCheckpoint` rejects a lower `cpVersion`, a `prevCpHash` that does not extend the pinned checkpoint, and any version above `pinned.cpVersion + 1`. Salt and Argon2id parameters sit in the recovery envelope next to the lock. Changing the password re-seals that lock and keeps the same recovery keypair.
 
 Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls `pgsodium.crypto_sign_verify_detached` on the message bytes noble's `ed25519.sign` / `ed25519.verify` hash internally. Roster signatures are the 32-byte SHA-256 of `goalloom/roster/v1|` plus canonical JSON (`_roster_message`). `bootstrap_workspace`, `commit_roster`, `rotate_epoch`, and `complete_recovery` all verify that digest. `commit_roster` and `rotate_epoch` require the calling device's authorized signing key. `complete_recovery`, and a `commit_roster` whose signer type is `recovery`, require `recoverySignPub` from the current roster. A mismatch raises `roster_signature_rejected` (`42501`). A missing pgsodium function raises `42501`. On hosted Supabase that verify function is granted; `crypto_sign_new_keypair` is not. The pgTAP file checks noble fixtures from `scripts/gen-ed25519-fixtures.mjs`. Commands are in `supabase/README.md`.
 

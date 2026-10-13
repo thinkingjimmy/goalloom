@@ -170,9 +170,6 @@ importers:
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
-      '@scure/bip39':
-        specifier: 2.4.0
-        version: 2.4.0
 
   packages/local-store:
     dependencies:
@@ -1436,9 +1433,6 @@ packages:
     resolution: {integrity: sha512-Erx822VRBwLa124shbj+wNXe//BOgMEctDV0m1aqTQdNO1S69DgNUCFKC1RCeZfixs1J31l6igk1ziyXErbigQ==}
     cpu: [x64]
     os: [win32]
-
-  '@scure/bip39@2.4.0':
-    resolution: {integrity: sha512-82dxFbZUYboyOf0AXiydsQrFQ5Q4h9mX+O2UkE91ROYmsc0BKMGZLwDmy96Jpa2+vrtoxomjUhy1RPIgH/r2nA==}
 
   '@sindresorhus/is@4.6.0':
     resolution: {integrity: sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw==}
@@ -4128,10 +4122,6 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.63.4':
     optional: true
-
-  '@scure/bip39@2.4.0':
-    dependencies:
-      '@noble/hashes': 2.4.0
 
   '@sindresorhus/is@4.6.0': {}
 

@@ -5,9 +5,9 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { describe, expect, it } from 'vitest'
 import { canonicalJson } from '@goalloom/contracts'
 import {
-  counterRandom, deriveRecovery, generateRecoveryMnemonic, hex, openOp, openSnapshot, qrMatchesHead, rosterHash,
-  sealOp, sealSnapshot, signCheckpoint, signRoster, systemRandom, unhex, unwrap, uuidv5, verifyRecoveryJoin,
-  verifyRosterExtension, wipeRecovery, wrap, type Envelope, type RosterBody,
+  counterRandom, deriveSyncKek, hex, newRecovery, openOp, openRecoveryLock, openSnapshot, passwordAccepted, qrMatchesHead, rosterHash,
+  sealOp, sealRecoveryLock, sealSnapshot, signCheckpoint, signRoster, systemRandom, unhex, unwrap, uuidv5, verifyRecoveryJoin,
+  verifyRosterExtension, wipe, wipeRecovery, wrap, type Envelope, type RosterBody,
 } from '@goalloom/crypto'
 import vectors from './vectors.json'
 
@@ -54,17 +54,21 @@ describe('C1–C4 and trust anchors', () => {
     expect(() => unwrap(envelope, { expectedCtx: 'wk|ws|1', recipientId: 'bob', boxSk: recipient, senderSignPub: ed25519.getPublicKey(ed25519.utils.randomSecretKey()) })).toThrow()
   })
 
-  it('derives recovery keys per workspace and opens a wrap made without the phrase', () => {
-    const phrase = generateRecoveryMnemonic()
-    const first = deriveRecovery(phrase, 'ws-1')
-    const again = deriveRecovery(phrase, 'ws-1')
-    expect(hex(first.signPub)).toBe(hex(again.signPub))
-    const other = deriveRecovery(phrase, 'ws-2')
-    expect(hex(other.signPub)).not.toBe(hex(first.signPub))
-    expect(() => deriveRecovery('abandon '.repeat(23) + 'abandon', 'ws-1')).toThrow()
-    const envelope = wrap({ senderId: 'dev', signSk: sender, recipientId: 'recovery', recipientBoxPub: first.boxPub, ctx: 'wk|ws-1|2', plaintext: utf8('next'), random: systemRandom() })
-    expect(new TextDecoder().decode(unwrap(envelope, { expectedCtx: 'wk|ws-1|2', recipientId: 'recovery', boxSk: again.boxSk, senderSignPub: signPub }))).toBe('next')
-    wipeRecovery(first); wipeRecovery(again); wipeRecovery(other)
+  it('seals the recovery keypair with a sync password and still opens a wrap without that password', async () => {
+    expect(passwordAccepted('short')).toBe(false)
+    expect(passwordAccepted('  sync-pass  ')).toBe(true)
+    const secrets = newRecovery(systemRandom())
+    const lock = await sealRecoveryLock({ password: 'sync-pass', workspaceId: 'ws-1', secrets, random: systemRandom() })
+    const opened = await openRecoveryLock({ password: ' sync-pass ', workspaceId: 'ws-1', lock })
+    expect(hex(opened.signPub)).toBe(hex(secrets.signPub))
+    await expect(openRecoveryLock({ password: 'other-pass', workspaceId: 'ws-1', lock })).rejects.toThrow(/recovery lock/)
+    await expect(deriveSyncKek('sync-pass', { ...lock.kdf, m: 1 })).rejects.toThrow(/kdf rejected/)
+    const again = await deriveSyncKek('sync-pass', lock.kdf)
+    const same = await deriveSyncKek('sync-pass', lock.kdf)
+    expect(hex(again)).toBe(hex(same))
+    const envelope = wrap({ senderId: 'dev', signSk: sender, recipientId: 'recovery', recipientBoxPub: secrets.boxPub, ctx: 'wk|ws-1|2', plaintext: utf8('next'), random: systemRandom() })
+    expect(new TextDecoder().decode(unwrap(envelope, { expectedCtx: 'wk|ws-1|2', recipientId: 'recovery', boxSk: opened.boxSk, senderSignPub: signPub }))).toBe('next')
+    wipe(again); wipe(same); wipeRecovery(secrets); wipeRecovery(opened)
   })
 
   it('signs the domain-separated roster digest pinned for bootstrap_workspace', () => {
@@ -89,16 +93,15 @@ describe('C1–C4 and trust anchors', () => {
     const anchor = { workspaceId: v1.workspaceId, epoch: 1, rosterVersion: 1, rosterHash: rosterHash(v1), approverDeviceId: 'dev', approverSignPub: hex(signPub) }
     expect(qrMatchesHead(anchor, v1)).toBe(true)
     expect(qrMatchesHead(anchor, body(1, null, hex(ed25519.getPublicKey(ed25519.utils.randomSecretKey()))))).toBe(false)
-    const phrase = generateRecoveryMnemonic()
-    const secrets = deriveRecovery(phrase, v1.workspaceId)
+    const secrets = newRecovery(systemRandom())
     const checkpoint = { workspaceId: v1.workspaceId, cpVersion: 1, rosterVersion: 1, rosterHash: rosterHash(v1), epoch: 1, recoverySignPub: hex(secrets.signPub), recoveryBoxPub: hex(secrets.boxPub), prevCpHash: null }
     const realRoster = { ...v1, recoverySignPub: hex(secrets.signPub), recoveryBoxPub: hex(secrets.boxPub) }
     const realCp = { ...checkpoint, rosterHash: rosterHash(realRoster) }
-    verifyRecoveryJoin({ mnemonic: phrase, workspaceId: v1.workspaceId, checkpoint: realCp, recSig: signCheckpoint(realCp, secrets.signSk), devSig: signCheckpoint(realCp, sender), roster: realRoster })
+    verifyRecoveryJoin({ secrets, workspaceId: v1.workspaceId, checkpoint: realCp, recSig: signCheckpoint(realCp, secrets.signSk), devSig: signCheckpoint(realCp, sender), roster: realRoster })
     const copied = { ...realRoster, devices: [{ id: 'evil', signPub: hex(ed25519.getPublicKey(ed25519.utils.randomSecretKey())), boxPub: hex(boxPub) }] }
     const copiedCp = { ...realCp, rosterHash: rosterHash(copied) }
-    expect(() => verifyRecoveryJoin({ mnemonic: phrase, workspaceId: v1.workspaceId, checkpoint: copiedCp, recSig: signCheckpoint(copiedCp, secrets.signSk), devSig: signCheckpoint(copiedCp, sender), roster: copied })).toThrow()
-    expect(() => verifyRecoveryJoin({ mnemonic: phrase, workspaceId: '22222222-2222-4222-8222-222222222222', checkpoint: realCp, recSig: signCheckpoint(realCp, secrets.signSk), devSig: signRoster(realRoster, sender), roster: realRoster })).toThrow()
+    expect(() => verifyRecoveryJoin({ secrets, workspaceId: v1.workspaceId, checkpoint: copiedCp, recSig: signCheckpoint(copiedCp, secrets.signSk), devSig: signCheckpoint(copiedCp, sender), roster: copied })).toThrow()
+    expect(() => verifyRecoveryJoin({ secrets, workspaceId: '22222222-2222-4222-8222-222222222222', checkpoint: realCp, recSig: signCheckpoint(realCp, secrets.signSk), devSig: signRoster(realRoster, sender), roster: realRoster })).toThrow()
     wipeRecovery(secrets)
   })
 

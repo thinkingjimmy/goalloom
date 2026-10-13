@@ -6,9 +6,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { expect, it } from 'vitest'
-import { generateRecoveryMnemonic, hex, publicFromSeed, sha256Hex } from '@goalloom/crypto'
+import { hex, newRecovery, publicFromSeed, sha256Hex, systemRandom, utf8 } from '@goalloom/crypto'
 import {
-  createRemoteWorkspace, exchange, joinWorkspace, maxOpCiphertextBytes, memoryRemote, newDeviceSecret, unlockWithPhrase,
+  createRemoteWorkspace, exchange, joinWorkspace, maxOpCiphertextBytes, memoryRemote, newDeviceSecret, unlockWithPassword,
   SyncFailure, createMemoryWorld, type SyncRemote,
 } from '@goalloom/sync'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
@@ -77,12 +77,16 @@ it('documents the deployed envelope name clash and replaces it in 0006', () => {
   const push = next.slice(next.indexOf('function public.push_ops'))
   expect(push).toContain(`octet_length(v_ct) > ${maxOpCiphertextBytes}`)
   expect(push).not.toContain('65536')
+  const reset = readFileSync(new URL('../../../supabase/migrations/0007_reset_sync.sql', import.meta.url), 'utf8')
+  expect(reset).toContain('function public.reset_sync')
+  expect(reset).toContain('delete from public.workspaces')
+  expect(reset).not.toMatch(/function public\.sync_entitled/)
 })
 
 it('resumes the same workspace key when the first envelope upload fails', async () => {
   const world = createMemoryWorld()
-  const phrase = generateRecoveryMnemonic()
   const alpha = await register(world, 'alpha')
+  const recovery = newRecovery(systemRandom())
   const workspaceId = randomUUID()
   const workspaceKey = randomBytes(32)
   const generation = randomUUID()
@@ -94,23 +98,24 @@ it('resumes the same workspace key when the first envelope upload fails', async 
     return original(id, device, envelopes)
   }
   const input = {
-    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, mnemonic: phrase, generation, workspaceId, workspaceKey,
+    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, recovery, generation, workspaceId, workspaceKey,
   }
-  await expect(createRemoteWorkspace(input)).rejects.toMatchObject({ code: 'network' })
+  await expect(createRemoteWorkspace({ ...input, password: 'sync-pass' })).rejects.toMatchObject({ code: 'network' })
   expect(world.workspace?.id).toBe(workspaceId)
   expect(world.workspace?.envelopes).toHaveLength(0)
-  const bound = await createRemoteWorkspace(input)
+  const bound = await createRemoteWorkspace({ ...input, password: 'sync-pass-2' })
   expect(hex(bound.workspaceKey)).toBe(hex(workspaceKey))
   expect(world.workspace?.envelopes.some(item => item.recipient === 'recovery')).toBe(true)
   const beta = await register(world, 'beta')
-  const unlocked = await unlockWithPhrase({ remote: beta.remote, deviceId: beta.deviceId, secret: beta.secret, mnemonic: phrase })
+  await expect(unlockWithPassword({ remote: beta.remote, deviceId: beta.deviceId, secret: beta.secret, password: 'sync-pass' })).rejects.toMatchObject({ code: 'password' })
+  const unlocked = await unlockWithPassword({ remote: beta.remote, deviceId: beta.deviceId, secret: beta.secret, password: 'sync-pass-2' })
   expect(hex(unlocked.bound.workspaceKey)).toBe(hex(workspaceKey))
 })
 
-it('does not replace envelopes when a later phrase does not match the checkpoint', async () => {
+it('does not replace envelopes when a later recovery key does not match the checkpoint', async () => {
   const world = createMemoryWorld()
-  const phrase = generateRecoveryMnemonic()
-  const other = generateRecoveryMnemonic()
+  const recovery = newRecovery(systemRandom())
+  const other = newRecovery(systemRandom())
   const alpha = await register(world, 'alpha')
   const workspaceId = randomUUID()
   const workspaceKey = randomBytes(32)
@@ -118,20 +123,47 @@ it('does not replace envelopes when a later phrase does not match the checkpoint
     remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, generation: randomUUID(), workspaceId, workspaceKey,
   }
   alpha.remote.putEnvelopes = async () => { throw new SyncFailure('network') }
-  await expect(createRemoteWorkspace({ ...input, mnemonic: phrase })).rejects.toMatchObject({ code: 'network' })
-  await expect(createRemoteWorkspace({ ...input, mnemonic: other })).rejects.toMatchObject({ code: 'phrase' })
+  await expect(createRemoteWorkspace({ ...input, password: 'sync-pass', recovery })).rejects.toMatchObject({ code: 'network' })
+  await expect(createRemoteWorkspace({ ...input, password: 'sync-pass', recovery: other })).rejects.toMatchObject({ code: 'password' })
   expect(world.workspace?.envelopes).toHaveLength(0)
   alpha.remote.putEnvelopes = async (id, device, envelopes) => {
     const fresh = memoryRemote(world, 'alpha')
     return fresh.putEnvelopes(id, device, envelopes)
   }
-  const bound = await createRemoteWorkspace({ ...input, mnemonic: phrase })
+  const bound = await createRemoteWorkspace({ ...input, password: 'sync-pass', recovery })
   expect(hex(bound.workspaceKey)).toBe(hex(workspaceKey))
+})
+
+it('rejects a phrase-era recovery envelope', async () => {
+  const world = createMemoryWorld()
+  const alpha = await register(world, 'alpha')
+  await createRemoteWorkspace({
+    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', generation: randomUUID(),
+  })
+  const row = world.workspace?.envelopes.find(item => item.recipient === 'recovery')
+  if (!row) throw new Error('recovery envelope missing')
+  row.ciphertext = hex(utf8(JSON.stringify({ v: 1 })))
+  const beta = await register(world, 'beta')
+  await expect(unlockWithPassword({ remote: beta.remote, deviceId: beta.deviceId, secret: beta.secret, password: 'sync-pass' })).rejects.toMatchObject({ code: 'key' })
+})
+
+it('loads a vault written before recovery secrets were stored', async () => {
+  const cipher = identityCipher()
+  const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-legacy-'))
+  const secret = newDeviceSecret()
+  await writeFile(join(userData, 'sync-vault.bin'), Buffer.from(JSON.stringify({
+    v: 1, deviceId: null, signSk: hex(secret.signSk), boxSk: hex(secret.boxSk),
+    workspaceKey: null, workspaceId: null, generation: null, epoch: null, roster: null,
+    refreshToken: null, userId: null, accounts: {},
+  })))
+  const loaded = await new SyncVault(userData, cipher).load()
+  expect(loaded?.recoveryBoxSk).toBeNull()
+  expect(loaded?.recoverySignSk).toBeNull()
+  expect(hex(loaded!.signSk)).toBe(hex(secret.signSk))
 })
 
 it('rolls back a merge when importing the local board fails', async () => {
   const world = createMemoryWorld()
-  const phrase = generateRecoveryMnemonic()
   const first = machine()
   const second = machine('2026-01-01')
   const alpha = await register(world, 'alpha')
@@ -139,7 +171,7 @@ it('rolls back a merge when importing the local board fails', async () => {
   first.run({ type: 'create', title: '远程任务', horizon: 'week' })
   second.run({ type: 'create', title: 'BOOM', horizon: 'week' })
   const bound = await createRemoteWorkspace({
-    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, mnemonic: phrase, generation: randomUUID(),
+    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', generation: randomUUID(),
   })
   await exchange({
     remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, workspaceId: bound.workspaceId,
@@ -162,14 +194,13 @@ it('rolls back a merge when importing the local board fails', async () => {
     transaction: fn => inner.transaction(fn),
   }
   await expect(joinWorkspace({
-    remote: beta.remote, driver, host: second.host, deviceId: beta.deviceId, secret: beta.secret, mnemonic: phrase, choice: 'merge', at: now,
+    remote: beta.remote, driver, host: second.host, deviceId: beta.deviceId, secret: beta.secret, password: 'sync-pass', choice: 'merge', at: now,
   })).rejects.toThrow('import failed')
   expect(titles(second.db)).toEqual(['BOOM'])
 })
 
 it('keeps a task created while the merge is waiting on the network', async () => {
   const world = createMemoryWorld()
-  const phrase = generateRecoveryMnemonic()
   const first = machine()
   const second = machine()
   const alpha = await register(world, 'alpha')
@@ -177,7 +208,7 @@ it('keeps a task created while the merge is waiting on the network', async () =>
   first.run({ type: 'create', title: '已有远程', horizon: 'week' })
   second.run({ type: 'create', title: '已有本地', horizon: 'week' })
   const bound = await createRemoteWorkspace({
-    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, mnemonic: phrase, generation: randomUUID(),
+    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', generation: randomUUID(),
   })
   await exchange({
     remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, workspaceId: bound.workspaceId,
@@ -190,7 +221,7 @@ it('keeps a task created while the merge is waiting on the network', async () =>
   }
   await joinWorkspace({
     remote: beta.remote, driver: second.driver, host: second.host, deviceId: beta.deviceId, secret: beta.secret,
-    mnemonic: phrase, choice: 'merge', at: now,
+    password: 'sync-pass', choice: 'merge', at: now,
   })
   expect(titles(second.db)).toContain('期间新增')
   expect(titles(second.db)).toContain('已有远程')
@@ -200,7 +231,6 @@ it('keeps a task created while the merge is waiting on the network', async () =>
 
 it('places a merged task on the adopted calendar period and bumps revision', async () => {
   const world = createMemoryWorld()
-  const phrase = generateRecoveryMnemonic()
   const first = machine('2026-01-31')
   const second = machine('2026-01-01')
   const alpha = await register(world, 'alpha')
@@ -209,7 +239,7 @@ it('places a merged task on the adopted calendar period and bumps revision', asy
   second.run({ type: 'create', title: '本地季度', horizon: 'cycle' })
   const before = Number(second.db.prepare('SELECT revision FROM workspace WHERE id=1').get()?.revision)
   const bound = await createRemoteWorkspace({
-    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, mnemonic: phrase, generation: randomUUID(),
+    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', generation: randomUUID(),
   })
   await exchange({
     remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, workspaceId: bound.workspaceId,
@@ -217,7 +247,7 @@ it('places a merged task on the adopted calendar period and bumps revision', asy
   })
   await joinWorkspace({
     remote: beta.remote, driver: second.driver, host: second.host, deviceId: beta.deviceId, secret: beta.secret,
-    mnemonic: phrase, choice: 'merge', at: now,
+    password: 'sync-pass', choice: 'merge', at: now,
   })
   const calendar = second.repo.store.workspace().calendar!
   const current = currentPeriod(calendar, 'cycle', now)
@@ -240,7 +270,6 @@ it('ends a recovered month-end cycle on the anchor boundary', () => {
 
 it('syncs a long description and still applies remote ops when another op is too large', async () => {
   const world = createMemoryWorld()
-  const phrase = generateRecoveryMnemonic()
   const first = machine()
   const second = machine()
   const alpha = await register(world, 'alpha')
@@ -252,7 +281,7 @@ it('syncs a long description and still applies remote ops when another op is too
     type: 'edit', itemId: item.id, expectedVersion: item.version, title: item.title, description, dueDate: null,
   })
   const bound = await createRemoteWorkspace({
-    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, mnemonic: phrase, generation: randomUUID(),
+    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', generation: randomUUID(),
   })
   await exchange({
     remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, workspaceId: bound.workspaceId,
@@ -263,7 +292,7 @@ it('syncs a long description and still applies remote ops when another op is too
   expect(largest).toBeLessThanOrEqual(maxOpCiphertextBytes)
   const joined = await joinWorkspace({
     remote: beta.remote, driver: second.driver, host: second.host, deviceId: beta.deviceId, secret: beta.secret,
-    mnemonic: phrase, choice: 'use-remote', at: now,
+    password: 'sync-pass', choice: 'use-remote', at: now,
   })
   expect(String(second.db.prepare('SELECT description FROM items WHERE title=?').get('长文')?.description)).toHaveLength(30_000)
   first.run({ type: 'create', title: '来自另一台', horizon: 'day' })
@@ -327,13 +356,13 @@ it('writes a protective backup and asks for one transaction before replacing the
   opened.secrets = {
     deviceId: randomUUID(), signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: randomBytes(32), workspaceId,
     generation: randomUUID(), epoch: 1, roster: { workspaceId, version: 1, epoch: 1, prevHash: null, devices: [], recoverySignPub: 'aa', recoveryBoxPub: 'bb' },
-    refreshToken: null, userId: null, accounts: {},
+    recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
   }
   opened.remote = {
     pullOps: async () => [], pushOps: async () => [], getRoster: async () => { throw new SyncFailure('network') },
     getEnvelopes: async () => [], account: async () => null, registerDevice: async () => randomUUID(), rebindDevice: async () => undefined,
     bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
-    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined,
+    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined, resetSync: async () => undefined,
   }
   await service.handle({ type: 'join', choice: 'merge', acknowledged: true })
   const types = calls.map(call => call.type)
@@ -406,7 +435,7 @@ it('keeps the previous Google account key when another account signs in', async 
     deviceId: deviceA, signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: key, workspaceId: workspaceA,
     generation: randomUUID(), epoch: 1,
     roster: { workspaceId: workspaceA, version: 1, epoch: 1, prevHash: null, devices: [], recoverySignPub: 'aa', recoveryBoxPub: 'bb' },
-    refreshToken: null, userId: 'user-a', accounts: {},
+    recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: 'user-a', accounts: {},
   }
   await vault.save(stored)
   const service = new SyncService({
@@ -439,7 +468,7 @@ it('keeps the previous Google account key when another account signs in', async 
     getRoster: async () => { throw new SyncFailure('network') },
     pullOps: async () => [], pushOps: async () => [], getEnvelopes: async () => [],
     bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
-    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined,
+    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined, resetSync: async () => undefined,
   }
   await opened.afterAuth()
   expect(hex(opened.secrets.workspaceKey!)).toBe(hex(key))
