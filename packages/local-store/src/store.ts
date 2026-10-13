@@ -6,7 +6,7 @@
 import { mayLink } from './board'
 import { noteSignal } from './notes'
 import { currentPeriod, validateCalendar, workspaceDate } from './periods'
-import type { ActivityRow, CalendarConfig, Horizon, ItemRow, Period, PeriodHorizon, PolicyMode, RelationRow, SqlDriver, SqlValue, Status, UndoToken } from './types'
+import type { ActivityRow, CalendarConfig, GroupUndo, Horizon, ItemRow, NestSnap, Period, PeriodHorizon, PolicyMode, RelationRow, SqlDriver, SqlValue, Status, UndoToken } from './types'
 import { periodHorizons } from './types'
 
 export class StoreError extends Error {
@@ -46,7 +46,7 @@ export interface CreateInput {
 const itemSql = `SELECT i.id AS id, i.title AS title, i.description AS description, i.dueDate AS dueDate, i.status AS status,
   i.completedAt AS completedAt, i.archivedAt AS archivedAt, i.deletedAt AS deletedAt, i.createdAt AS createdAt, i.updatedAt AS updatedAt,
   i.version AS version, i.flowColor AS flowColor, p.horizon AS horizon, p.periodId AS periodId, p.sortKey AS sortKey,
-  p.version AS placementVersion, p.nestingParentId AS nestingParentId
+  p.version AS placementVersion, p.nestingParentId AS nestingParentId, p.holdPeriodId AS holdPeriodId
   FROM items i JOIN item_placements p ON p.itemId=i.id`
 
 export class LocalWorkspace {
@@ -123,18 +123,7 @@ export class LocalWorkspace {
 
   move(now: string, id: string, horizon: Horizon, periodId: string | null): UndoToken {
     return this.tx(() => {
-      const item = this.item(id)
-      if (!item || item.deletedAt) throw new StoreError('missing')
-      const period = this.periodFor(now, horizon, periodId)
-      const relationIds = horizon === 'later' ? this.activeParentIds(id) : []
-      const nestingParentId = this.nestingAfterMove(item, horizon)
-      const undo: UndoToken = { kind: 'placement', id, horizon: item.horizon, periodId: item.periodId, sortKey: item.sortKey, nestingParentId: item.nestingParentId, relationIds }
-      const sortKey = this.nextSort(horizon, period?.id ?? null, nestingParentId)
-      this.db.prepare('UPDATE item_placements SET horizon=?, periodId=?, sortKey=?, nestingParentId=?, version=version+1 WHERE itemId=? AND version=?')
-        .run(horizon, period?.id ?? null, sortKey, nestingParentId, id, item.placementVersion)
-      if (horizon === 'later') this.unlinkParents(id, now)
-      this.touch(id, item.version, now)
-      this.event(now, id, 'moved', { horizon: item.horizon, periodId: item.periodId }, { horizon, periodId: period?.id ?? null }, item.periodId, period?.id ?? null)
+      const undo = this.place(now, id, horizon, periodId)
       this.mirror()
       return undo
     })
@@ -144,9 +133,12 @@ export class LocalWorkspace {
     return this.tx(() => {
       const item = this.item(id), parent = this.item(parentId)
       if (!item || !parent || item.deletedAt || parent.deletedAt) throw new StoreError('missing')
-      const undo: UndoToken = { kind: 'placement', id, horizon: item.horizon, periodId: item.periodId, sortKey: item.sortKey, nestingParentId: item.nestingParentId, relationIds: [] }
+      const undo: UndoToken = {
+        kind: 'placement', id, horizon: item.horizon, periodId: item.periodId, sortKey: item.sortKey,
+        nestingParentId: item.nestingParentId, nestingAfter: parentId, relationIds: [], createdRelationIds: [],
+      }
       const sortKey = this.nextSort(parent.horizon, parent.periodId, parentId)
-      const changed = this.db.prepare('UPDATE item_placements SET horizon=?, periodId=?, sortKey=?, nestingParentId=?, version=version+1 WHERE itemId=? AND version=?')
+      const changed = this.db.prepare('UPDATE item_placements SET horizon=?, periodId=?, sortKey=?, nestingParentId=?, holdPeriodId=NULL, version=version+1 WHERE itemId=? AND version=?')
         .run(parent.horizon, parent.periodId, sortKey, parentId, id, item.placementVersion)
       if (changed.changes !== 1) throw new StoreError('conflict')
       this.touch(id, item.version, now)
@@ -163,10 +155,19 @@ export class LocalWorkspace {
       const before = beforeId ? this.item(beforeId) : null
       const after = afterId ? this.item(afterId) : null
       const nestingParentId = before?.nestingParentId ?? after?.nestingParentId ?? null
+      const leaving = Boolean(item.nestingParentId && item.nestingParentId !== nestingParentId && nestingParentId === null)
+      const createdRelationIds = leaving ? this.releaseNesting(item, now) : []
+      const current = leaving ? this.item(id) : item
+      if (!current) throw new StoreError('missing')
       const sortKey = keyBetween(before?.sortKey ?? null, after?.sortKey ?? null, item.sortKey)
-      const undo: UndoToken = { kind: 'placement', id, horizon: item.horizon, periodId: item.periodId, sortKey: item.sortKey, nestingParentId: item.nestingParentId, relationIds: [] }
-      this.db.prepare('UPDATE item_placements SET sortKey=?, nestingParentId=?, version=version+1 WHERE itemId=? AND version=?').run(sortKey, nestingParentId, id, item.placementVersion)
-      this.touch(id, item.version, now)
+      const undo: UndoToken = {
+        kind: 'placement', id, horizon: item.horizon, periodId: item.periodId, sortKey: item.sortKey,
+        nestingParentId: item.nestingParentId, nestingAfter: nestingParentId, relationIds: [], createdRelationIds,
+      }
+      const changed = this.db.prepare('UPDATE item_placements SET sortKey=?, nestingParentId=?, version=version+1 WHERE itemId=? AND version=?')
+        .run(sortKey, nestingParentId, id, current.placementVersion)
+      if (changed.changes !== 1) throw new StoreError('conflict')
+      this.touch(id, current.version, now)
       this.mirror()
       return undo
     })
@@ -219,12 +220,36 @@ export class LocalWorkspace {
     return this.tx(() => {
       const item = this.item(id)
       if (!item || item.deletedAt) throw new StoreError('missing')
+      const children = this.childrenOf(id)
+      const nestChildren: NestSnap[] = []
+      const createdRelationIds: string[] = []
+      for (const child of children) {
+        if (!child.nestingParentId) continue
+        nestChildren.push({ id: child.id, horizon: child.horizon, periodId: child.periodId, sortKey: child.sortKey, nestingParentId: child.nestingParentId })
+        createdRelationIds.push(...this.releaseNesting(child, now))
+        this.touch(child.id, child.version, now)
+      }
+      const priorNest: NestSnap | null = item.nestingParentId
+        ? { id: item.id, horizon: item.horizon, periodId: item.periodId, sortKey: item.sortKey, nestingParentId: item.nestingParentId }
+        : null
+      if (priorNest) {
+        const fresh = this.item(id)
+        if (!fresh) throw new StoreError('missing')
+        createdRelationIds.push(...this.releaseNesting(fresh, now))
+      }
+      const current = this.item(id)
+      if (!current) throw new StoreError('missing')
+      const relationIds = this.touchingRelationIds(id)
+      this.invalidateIds(relationIds, now, 'delete')
       const changed = this.db.prepare('UPDATE items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=? AND version=? AND deletedAt IS NULL')
-        .run(now, this.generation(), now, id, item.version)
+        .run(now, this.generation(), now, id, current.version)
       if (changed.changes !== 1) throw new StoreError('conflict')
       this.event(now, id, 'deleted', { title: item.title }, { deleted: true })
       this.mirror()
-      return { kind: 'trash', id }
+      return {
+        kind: 'trash', id, relationIds, createdRelationIds, nestChildren,
+        ...(priorNest ? { priorNest } : {}),
+      }
     })
   }
 
@@ -240,19 +265,41 @@ export class LocalWorkspace {
 
   undo(now: string, token: UndoToken): void {
     this.tx(() => {
-      if (token.kind === 'trash' || token.kind === 'create') {
+      if (token.kind === 'create') {
         const item = this.item(token.id)
         if (!item) throw new StoreError('missing')
-        if (token.kind === 'trash') this.db.prepare('UPDATE items SET deletedAt=NULL, deletedBy=NULL, updatedAt=?, version=version+1 WHERE id=?').run(now, token.id)
-        else this.db.prepare('UPDATE items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=? AND deletedAt IS NULL').run(now, this.generation(), now, token.id)
+        this.db.prepare('UPDATE items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=? AND deletedAt IS NULL').run(now, this.generation(), now, token.id)
+      } else if (token.kind === 'trash') {
+        const item = this.item(token.id)
+        if (!item?.deletedAt) throw new StoreError('missing')
+        this.db.prepare('UPDATE items SET deletedAt=NULL, deletedBy=NULL, updatedAt=?, version=version+1 WHERE id=?').run(now, token.id)
+        const copies = new Set(token.createdRelationIds ?? [])
+        for (const relationId of token.relationIds ?? []) if (!copies.has(relationId)) this.reactivateRelation(relationId)
+        for (const child of token.nestChildren ?? []) this.restoreNest(now, child, copies)
+        if (token.priorNest) this.restoreNest(now, token.priorNest, copies)
+        this.applyUndoHold(now, token.id)
       } else if (token.kind === 'status') {
         this.db.prepare('UPDATE items SET status=?, completedAt=?, updatedAt=?, version=version+1 WHERE id=?').run(token.status ?? 'todo', token.completedAt ?? null, now, token.id)
+        this.applyUndoHold(now, token.id)
       } else {
+        const item = this.item(token.id)
+        if (!item || item.deletedAt) throw new StoreError('missing')
+        if ((item.nestingParentId ?? null) !== (token.nestingAfter ?? null)) throw new StoreError('conflict')
+        for (const child of token.group ?? []) {
+          const row = this.item(child.id)
+          if (!row || row.deletedAt) throw new StoreError('missing')
+          if ((row.nestingParentId ?? null) !== child.nestingAfter || row.horizon !== child.horizonAfter || (row.periodId ?? null) !== child.periodAfter) throw new StoreError('conflict')
+        }
+        this.invalidateIds(token.createdRelationIds ?? [], now, 'unlink')
         this.db.prepare('UPDATE item_placements SET horizon=?, periodId=?, sortKey=?, nestingParentId=?, version=version+1 WHERE itemId=?')
           .run(token.horizon ?? 'later', token.periodId ?? null, token.sortKey ?? 0, token.nestingParentId ?? null, token.id)
-        for (const relationId of token.relationIds ?? []) {
-          this.db.prepare('UPDATE item_relations SET invalidatedAt=NULL, invalidatedBy=NULL, reason=NULL WHERE id=?').run(relationId)
+        for (const child of token.group ?? []) {
+          this.db.prepare('UPDATE item_placements SET horizon=?, periodId=?, sortKey=?, nestingParentId=?, version=version+1 WHERE itemId=?')
+            .run(child.horizon, child.periodId, child.sortKey, child.nestingParentId, child.id)
         }
+        for (const relationId of token.relationIds ?? []) this.reactivateRelation(relationId)
+        this.applyUndoHold(now, token.id)
+        for (const child of token.group ?? []) this.applyUndoHold(now, child.id)
       }
       this.event(now, token.id, 'undo', null, { kind: token.kind })
       this.mirror()
@@ -293,19 +340,25 @@ export class LocalWorkspace {
     const calendar = this.calendar()
     if (!calendar) return
     const policies = this.policyMap()
-    const rows = this.db.prepare(`SELECT i.id AS id, i.version AS version, p.horizon AS horizon, p.periodId AS periodId, p.version AS placementVersion, per.endAt AS endAt
+    const rows = this.db.prepare(`SELECT i.id AS id, p.horizon AS horizon, p.periodId AS periodId, p.nestingParentId AS nestingParentId, per.endAt AS endAt
       FROM items i JOIN item_placements p ON p.itemId=i.id JOIN planning_periods per ON per.id=p.periodId
       WHERE i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status='todo'`).all()
+    const processed = new Set<string>()
+    const observed = Date.parse(now)
     for (const row of rows) {
       const horizon = String(row.horizon) as PeriodHorizon
-      if (policies.get(horizon) !== 'auto' || String(row.endAt) > now) continue
+      if (policies.get(horizon) !== 'auto' || Date.parse(String(row.endAt)) > observed) continue
       const period = currentPeriod(calendar, horizon, now)
       if (period.id === row.periodId) continue
       this.ensurePeriod(period)
-      const sortKey = this.nextSort(horizon, period.id, null)
-      this.db.prepare('UPDATE item_placements SET periodId=?, sortKey=?, version=version+1 WHERE itemId=? AND version=?').run(period.id, sortKey, String(row.id), Number(row.placementVersion))
-      this.touch(String(row.id), Number(row.version), now)
-      this.event(now, String(row.id), 'rolled_over', { periodId: row.periodId }, { periodId: period.id }, row.periodId === null ? null : String(row.periodId), period.id)
+      const rootId = row.nestingParentId == null ? String(row.id) : String(row.nestingParentId)
+      if (processed.has(rootId)) continue
+      processed.add(rootId)
+      const root = this.item(rootId)
+      if (!root || root.deletedAt) continue
+      const members = [root, ...this.childrenOf(rootId)]
+      if (members.some(member => member.status === 'todo' && member.holdPeriodId === period.id)) continue
+      this.place(now, rootId, horizon, period.id, 'rolled_over')
     }
   }
 
@@ -355,13 +408,15 @@ export class LocalWorkspace {
       .run(period.id, period.horizon, period.startDate, period.endDate, period.startAt, period.endAt)
   }
 
-  private insertRelation(parentId: string, childId: string, now: string): void {
+  private insertRelation(parentId: string, childId: string, now: string): string {
     if (parentId === childId) throw new StoreError('self')
     const parent = this.item(parentId), child = this.item(childId)
     if (!parent || !child || parent.deletedAt || child.deletedAt) throw new StoreError('missing')
     if (!mayLink(parent.horizon, child.horizon)) throw new StoreError('horizon')
+    const id = this.ids()
     this.db.prepare(`INSERT INTO item_relations (id,parentId,childId,invalidatedAt,invalidatedBy,reason,createdAt) VALUES (?,?,?,NULL,NULL,NULL,?)`)
-      .run(this.ids(), parentId, childId, now)
+      .run(id, parentId, childId, now)
+    return id
   }
 
   private activeParentIds(id: string): string[] {
@@ -372,10 +427,111 @@ export class LocalWorkspace {
     this.db.prepare(`UPDATE item_relations SET invalidatedAt=?, invalidatedBy=?, reason='unlink' WHERE childId=? AND invalidatedAt IS NULL`).run(now, this.generation(), id)
   }
 
-  private nestingAfterMove(item: ItemRow, horizon: Horizon): string | null {
-    if (!item.nestingParentId) return null
-    const parent = this.item(item.nestingParentId)
-    return parent && parent.horizon === horizon ? item.nestingParentId : null
+  private place(now: string, id: string, horizon: Horizon, periodId: string | null, event: 'moved' | 'rolled_over' = 'moved'): UndoToken {
+    const item = this.item(id)
+    if (!item || item.deletedAt) throw new StoreError('missing')
+    const period = this.periodFor(now, horizon, periodId)
+    const destination = period?.id ?? null
+    const sameContainer = item.nestingParentId !== null && item.horizon === horizon && item.periodId === destination
+    const relationIds = horizon === 'later' ? this.activeParentIds(id) : []
+    const released = Boolean(item.nestingParentId && !sameContainer)
+    const createdRelationIds = released ? this.releaseNesting(item, now) : []
+    const current = released ? this.item(id) : item
+    if (!current) throw new StoreError('missing')
+    const nestingAfter = sameContainer ? item.nestingParentId : null
+    const group: GroupUndo[] = []
+    if (!current.nestingParentId) {
+      for (const child of this.childrenOf(id)) {
+        if (child.horizon === horizon && child.periodId === destination) continue
+        group.push({
+          id: child.id, horizon: child.horizon, periodId: child.periodId, sortKey: child.sortKey,
+          nestingParentId: child.nestingParentId, nestingAfter: child.nestingParentId, horizonAfter: horizon, periodAfter: destination,
+        })
+        const moved = this.db.prepare('UPDATE item_placements SET horizon=?, periodId=?, holdPeriodId=NULL, version=version+1 WHERE itemId=? AND version=?')
+          .run(horizon, destination, child.id, child.placementVersion)
+        if (moved.changes !== 1) throw new StoreError('conflict')
+        this.touch(child.id, child.version, now)
+        this.event(now, child.id, event, { horizon: child.horizon, periodId: child.periodId }, { horizon, periodId: destination }, child.periodId, destination)
+      }
+    }
+    const sortKey = this.nextSort(horizon, destination, nestingAfter)
+    const changed = this.db.prepare('UPDATE item_placements SET horizon=?, periodId=?, sortKey=?, nestingParentId=?, holdPeriodId=NULL, version=version+1 WHERE itemId=? AND version=?')
+      .run(horizon, destination, sortKey, nestingAfter, id, current.placementVersion)
+    if (changed.changes !== 1) throw new StoreError('conflict')
+    if (horizon === 'later') this.unlinkParents(id, now)
+    this.touch(id, current.version, now)
+    this.event(now, id, event, { horizon: item.horizon, periodId: item.periodId }, { horizon, periodId: destination }, item.periodId, destination)
+    return {
+      kind: 'placement', id, horizon: item.horizon, periodId: item.periodId, sortKey: item.sortKey,
+      nestingParentId: item.nestingParentId, nestingAfter, relationIds, createdRelationIds,
+      ...(group.length ? { group } : {}),
+    }
+  }
+
+  /** Leaves a container and copies that container's active goal parents onto the item. */
+  private releaseNesting(item: ItemRow, now: string): string[] {
+    if (!item.nestingParentId) return []
+    const sources = this.db.prepare('SELECT parentId FROM item_relations WHERE childId=? AND invalidatedAt IS NULL').all(item.nestingParentId).map(row => String(row.parentId))
+    const sortKey = this.nextSort(item.horizon, item.periodId, null)
+    const changed = this.db.prepare('UPDATE item_placements SET nestingParentId=NULL, sortKey=?, version=version+1 WHERE itemId=? AND version=?')
+      .run(sortKey, item.id, item.placementVersion)
+    if (changed.changes !== 1) throw new StoreError('conflict')
+    return sources.map(parentId => this.insertRelation(parentId, item.id, now))
+  }
+
+  private childrenOf(id: string): ItemRow[] {
+    return this.db.prepare(`${itemSql} WHERE p.nestingParentId=? AND i.deletedAt IS NULL`).all(id).map(mapItem)
+  }
+
+  private touchingRelationIds(id: string): string[] {
+    return this.db.prepare('SELECT id FROM item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?)').all(id, id).map(row => String(row.id))
+  }
+
+  private invalidateIds(ids: readonly string[], now: string, reason: string): void {
+    for (const id of ids) {
+      this.db.prepare('UPDATE item_relations SET invalidatedAt=?, invalidatedBy=?, reason=? WHERE id=? AND invalidatedAt IS NULL').run(now, this.generation(), reason, id)
+    }
+  }
+
+  private reactivateRelation(id: string): void {
+    const edge = this.db.prepare('SELECT parentId, childId FROM item_relations WHERE id=?').get(id)
+    if (!edge) return
+    const parent = this.item(String(edge.parentId))
+    const child = this.item(String(edge.childId))
+    if (!parent || !child || parent.deletedAt || child.deletedAt || child.nestingParentId || child.flowColor !== null) return
+    this.db.prepare('UPDATE item_relations SET invalidatedAt=NULL, invalidatedBy=NULL, reason=NULL WHERE id=?').run(id)
+  }
+
+  private restoreNest(now: string, child: NestSnap, copies: ReadonlySet<string>): void {
+    const row = this.item(child.id)
+    const parent = this.item(child.nestingParentId)
+    if (!row || row.deletedAt || row.nestingParentId || row.flowColor !== null || row.horizon !== child.horizon || row.periodId !== child.periodId) return
+    if (!parent || parent.deletedAt || parent.nestingParentId || parent.horizon !== child.horizon || parent.periodId !== child.periodId) return
+    const incoming = this.activeParentIds(child.id)
+    if (incoming.some(id => !copies.has(id))) return
+    this.invalidateIds(incoming, now, 'unlink')
+    this.db.prepare('UPDATE item_placements SET horizon=?, periodId=?, sortKey=?, nestingParentId=?, version=version+1 WHERE itemId=?')
+      .run(child.horizon, child.periodId, child.sortKey, child.nestingParentId, child.id)
+  }
+
+  private applyUndoHold(now: string, id: string): void {
+    const item = this.item(id)
+    if (!item || item.deletedAt) return
+    const calendar = this.calendar()
+    let hold: string | null = null
+    if (item.status === 'todo' && item.periodId && calendar && item.horizon !== 'later') {
+      const period = this.db.prepare('SELECT id, horizon, startDate, endDate, startAt, endAt FROM planning_periods WHERE id=?').get(item.periodId)
+      const mapped = period ? mapPeriod(period) : null
+      if (mapped && Date.parse(mapped.endAt) <= Date.parse(now)) {
+        const current = currentPeriod(calendar, mapped.horizon, now)
+        if (mapped.horizon === current.horizon) {
+          this.ensurePeriod(current)
+          hold = current.id
+        }
+      }
+    }
+    if (hold === item.holdPeriodId) return
+    this.db.prepare('UPDATE item_placements SET holdPeriodId=?, version=version+1 WHERE itemId=?').run(hold, id)
   }
 
   private nextSort(horizon: Horizon, periodId: string | null, nestingParentId: string | null): number {
@@ -479,6 +635,7 @@ function mapItem(row: Record<string, SqlValue>): ItemRow {
     periodId: row.periodId === null || row.periodId === undefined ? null : String(row.periodId),
     sortKey: Number(row.sortKey), placementVersion: Number(row.placementVersion),
     nestingParentId: row.nestingParentId === null || row.nestingParentId === undefined ? null : String(row.nestingParentId),
+    holdPeriodId: row.holdPeriodId === null || row.holdPeriodId === undefined ? null : String(row.holdPeriodId),
     note: noteSignal(description),
   }
 }

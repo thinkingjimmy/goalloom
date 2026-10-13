@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Linking, Platform, Pressable, Text, useColorScheme, View } from 'react-native'
+import { ActivityIndicator, AppState, Linking, Platform, Pressable, Text, useColorScheme, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { randomUUID } from 'expo-crypto'
 import {
-  BOARD_COLUMNS, DEMO_NOW, LocalWorkspace, OPEN_COLUMN, StoreError, installDevice, installSchema,
+  BOARD_COLUMNS, DEMO_NOW, LocalWorkspace, OPEN_COLUMN, StoreError, columnIndex, installDevice, installSchema,
   nearbyPeriods, readPrefs, seedDemo, writePrefs, type CaptureDraft, type DevicePrefs, type Horizon, type ItemRow,
   type LocaleId, type Period, type PeriodHorizon, type Snapshot, type UndoToken,
 } from '@goalloom/local-store'
@@ -69,11 +69,11 @@ function initialSheet(shot: string, items: ItemRow[]): Sheet {
   return null
 }
 
-function initialColumn(shot: string): number {
+function initialColumn(shot: string, prefs: DevicePrefs): number {
   const horizon: Horizon = shot === 'week' || shot === 'mid' || shot === 'drag' || shot === 'emptycol' || shot === 'sub' ? 'week'
     : shot === 'month' ? 'month' : shot === 'later' ? 'later' : OPEN_COLUMN
-  const index = BOARD_COLUMNS.indexOf(horizon)
-  return index < 0 ? BOARD_COLUMNS.indexOf(OPEN_COLUMN) : index
+  const columns = BOARD_COLUMNS.filter(column => column === 'later' ? prefs.later : prefs.columns[column])
+  return columnIndex(columns, horizon)
 }
 
 function initialTab(shot: string): 'board' | 'flow' | 'settings' {
@@ -93,6 +93,7 @@ export default function Root() {
   const [toast, setToast] = useState<{ text: string; undo: UndoToken | null } | null>(null)
   const [viewed, setViewed] = useState<Partial<Record<PeriodHorizon, Period>>>({})
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bootRef = useRef<Boot | null>(null)
   const [launch, setLaunch] = useState<Launch | null>(Platform.OS === 'web' ? webLaunch() : null)
   const launchRef = useRef(launch)
   launchRef.current = launch
@@ -127,7 +128,7 @@ export default function Root() {
       setBoot(opened)
       setError('')
       setTab(initialTab(current.shot))
-      setColumn(initialColumn(current.shot))
+      setColumn(initialColumn(current.shot, opened.prefs))
       setSheet(initialSheet(current.shot, opened.snap.items))
       setMinimized(current.shot === 'min' || current.shot === 'mindark')
     }).catch(cause => {
@@ -135,6 +136,16 @@ export default function Root() {
     })
     return () => { cancelled = true }
   }, [launchKey])
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', state => {
+      if (state !== 'active') return
+      const current = bootRef.current
+      if (!current?.snap.setupConfirmedAt) return
+      try { setBoot({ ...current, snap: current.store.load(clock()) }) } catch { /* keep the visible board when a foreground refresh fails */ }
+    })
+    return () => sub.remove()
+  }, [])
 
   const show = (text: string, undo: UndoToken | null) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -150,10 +161,12 @@ export default function Root() {
   const scheme = appearance(boot.snap.theme, systemScheme)
   const theme = themeFor(scheme)
 
+  bootRef.current = boot
   const refresh = () => setBoot({ ...boot, snap: boot.store.load(clock()) })
-  const guard = (fn: () => void) => {
-    try { fn(); refresh() } catch (cause) {
+  const guard = (fn: () => void): boolean => {
+    try { fn(); refresh(); return true } catch (cause) {
       show(cause instanceof StoreError ? copy.conflict : (cause instanceof Error ? cause.message : copy.conflict), null)
+      return false
     }
   }
   const savePrefs = (prefs: DevicePrefs) => {
@@ -205,12 +218,15 @@ export default function Root() {
         guard(() => { boot.store.undo(clock(), token); setToast(null) })
       }}
       onRestore={id => guard(() => { boot.store.restore(clock(), id) })}
-      onViewPeriod={(horizon, period) => setViewed(current => {
-        const next = { ...current }
-        if (period) next[horizon] = period
-        else delete next[horizon]
-        return next
-      })}
+      onViewPeriod={(horizon, period) => {
+        if (period && !guard(() => { boot.store.savePeriod(period) })) return
+        setViewed(current => {
+          const next = { ...current }
+          if (period) next[horizon] = period
+          else delete next[horizon]
+          return next
+        })
+      }}
       activity={id => boot.store.activity(id)}
       periodsAround={horizon => boot.snap.calendar ? nearbyPeriods(boot.snap.calendar, horizon, clock()) : []}
     />

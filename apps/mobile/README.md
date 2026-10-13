@@ -2,7 +2,7 @@
 
 Offline Expo app. It shares schema v10 and the planning rules with the desktop app through `@goalloom/local-store`. There is no account, no sync and no network call in the product UI.
 
-This directory is its own pnpm root, like `apps/website`, so React Native is not hoisted next to Electron. The desktop workspace does not list this package.
+This directory is its own pnpm root, like `apps/website`, so React Native is not hoisted next to Electron. The desktop workspace does not list this package. pnpm's isolated linker does not expose Expo's transitive `babel-preset-expo` to `babel.config.js`, so that preset is a direct dependency of this package.
 
 ## Install
 

@@ -69,7 +69,29 @@ export interface ItemRow {
   sortKey: number
   placementVersion: number
   nestingParentId: string | null
+  holdPeriodId: string | null
   note: NoteSignal | null
+}
+
+/** A row a placement undo must restore, plus the nesting that undo is still allowed to see. */
+export interface GroupUndo {
+  id: string
+  horizon: Horizon
+  periodId: string | null
+  sortKey: number
+  nestingParentId: string | null
+  nestingAfter: string | null
+  horizonAfter: Horizon
+  periodAfter: string | null
+}
+
+/** Outline membership to put back after undoing a delete, when the child has not moved on. */
+export interface NestSnap {
+  id: string
+  horizon: Horizon
+  periodId: string | null
+  sortKey: number
+  nestingParentId: string
 }
 
 export interface RelationRow { id: string; parentId: string; childId: string }
@@ -90,5 +112,12 @@ export interface UndoToken {
   periodId?: string | null
   sortKey?: number
   nestingParentId?: string | null
+  /** Nesting left by the operation. A later nest or unnest makes this undo a conflict. */
+  nestingAfter?: string | null
   relationIds?: string[]
+  /** Goal edges copied while leaving a container. Undo drops them before nesting returns. */
+  createdRelationIds?: string[]
+  group?: GroupUndo[]
+  nestChildren?: NestSnap[]
+  priorNest?: NestSnap
 }

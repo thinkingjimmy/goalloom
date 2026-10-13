@@ -4,8 +4,8 @@ import { currentPeriod as desktopPeriod, workspaceDate as desktopToday } from '.
 import { buildParentOrder as desktopOrder } from '../../../apps/desktop/src/domain/parent-order'
 import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/notes'
 import {
-  DEMO_NOW, LONG_PRESS_MS, buildParentOrder, canNest, classifyPointer, columnOutline, columnSections, currentPeriod, daysLeft, dropOnRows,
-  flowColors, flowConnectors, flowSections, installSchema, nearbyPeriods, noteSignal, pageFromOffset, parseCapture,
+  DEMO_NOW, LONG_PRESS_MS, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, currentPeriod, daysLeft, dropOnRows,
+  flowColors, flowConnectors, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
   periodMeta, rowSwipeAction, showBreakpoint, userVersion, workspaceDate, type OrderNode, type SqlDriver,
 } from '../src/index'
 import { LocalWorkspace } from '../src/store'
@@ -72,6 +72,22 @@ describe('calendar parity', () => {
     })
   }
 
+  it('keeps the Santiago spring-forward day', () => {
+    const santiago = { id: 'scl', mode: 'natural' as const, timezone: 'America/Santiago', weekStart: 1, cycleAnchor: '2026-01-01' }
+    for (const observed of ['2026-09-05T15:00:00Z', '2026-09-06T15:00:00Z', '2026-09-07T15:00:00Z', '2026-04-04T15:00:00Z', '2026-04-05T15:00:00Z', '2026-04-06T15:00:00Z']) {
+      for (const horizon of ['day', 'week'] as const) {
+        const ours = currentPeriod(santiago, horizon, observed)
+        const theirs = desktopPeriod(santiago, horizon, observed)
+        expect(ours.startDate).toBe(theirs.startDate)
+        expect(ours.endDate).toBe(theirs.endDate)
+        expect(ours.startAt).toBe(theirs.startAt)
+        expect(ours.endAt).toBe(theirs.endAt)
+      }
+    }
+    const around = nearbyPeriods(santiago, 'day', '2026-09-05T15:00:00Z', 3)
+    expect(around.map(period => period.startDate)).toContain('2026-09-06')
+  })
+
   it('labels the mockup day the way the desktop countdown does', () => {
     const day = currentPeriod(calendar, 'day', DEMO_NOW)
     const week = currentPeriod(calendar, 'week', DEMO_NOW)
@@ -126,6 +142,41 @@ describe('gestures', () => {
     const calendar = { id: 'cal', mode: 'natural' as const, timezone: 'Asia/Shanghai', weekStart: 1, cycleAnchor: '2026-01-01' }
     const periods = nearbyPeriods(calendar, 'day', DEMO_NOW, 2)
     expect(periods.map(period => period.startDate)).toEqual(['2026-10-10', '2026-10-11', '2026-10-12', '2026-10-13', '2026-10-14'])
+  })
+
+  it('orders column groups by sort key and parent order', () => {
+    const items = [
+      { id: 'third', status: 'todo', sortKey: 3, nestingParentId: null },
+      { id: 'first', status: 'todo', sortKey: 1, nestingParentId: null },
+      { id: 'second', status: 'todo', sortKey: 2, nestingParentId: null },
+      { id: 'child', status: 'done', sortKey: 0, nestingParentId: 'third' },
+    ]
+    expect(columnSections(items).todo.map(item => item.id)).toEqual(['first', 'second', 'third', 'child'])
+    const parentFirst = (a: string, b: string) => a === 'third' ? -1 : b === 'third' ? 1 : a < b ? -1 : 1
+    expect(columnSections(items, parentFirst).todo.map(item => item.id)).toEqual(['third', 'child', 'first', 'second'])
+  })
+
+  it('colors a goal child of a nested subtask', () => {
+    const nodes = new Map([
+      ['root', { id: 'root', flowColor: 2, nestingParentId: null, horizon: 'year' as const, status: 'todo' }],
+      ['box', { id: 'box', flowColor: null, nestingParentId: null, horizon: 'month' as const, status: 'todo' }],
+      ['step', { id: 'step', flowColor: null, nestingParentId: 'box', horizon: 'month' as const, status: 'todo' }],
+      ['note', { id: 'note', flowColor: null, nestingParentId: null, horizon: 'day' as const, status: 'todo' }],
+    ])
+    const edges = [{ parentId: 'root', childId: 'box' }, { parentId: 'step', childId: 'note' }]
+    expect(flowColors('note', nodes, edges)).toEqual([2])
+    expect(flowColors('step', nodes, edges)).toEqual([2])
+  })
+
+  it('drops a downward drag before the following row', () => {
+    expect(neighborsAfterRemoval(['a', 'b', 'c'], 'a', 2)).toEqual({ beforeId: 'b', afterId: 'c' })
+    expect(neighborsAfterRemoval(['a', 'b', 'c'], 'c', 0)).toEqual({ beforeId: null, afterId: 'a' })
+    expect(neighborsAfterRemoval(['a', 'b', 'c'], 'c', 3)).toEqual({ beforeId: 'b', afterId: null })
+  })
+
+  it('opens the day column among the visible columns', () => {
+    expect(columnIndex(['month', 'week', 'day', 'later'], 'day')).toBe(2)
+    expect(columnIndex(['later'], 'day')).toBe(0)
   })
 
   it('nests in the middle of a row and reorders at the edge', () => {
@@ -214,6 +265,87 @@ describe('workspace', () => {
     const next = store.load(DEMO_NOW)
     expect(next.backlog.map(item => item.title)).toContain('留在往期')
     expect(next.items.find(item => item.title === '留在往期')?.periodId).toBe(past.id)
+  })
+
+  it('deletes a parent that still has a goal and a subtask', () => {
+    const { store } = workspace()
+    const root = store.create(DEMO_NOW, { title: '年', horizon: 'year', flowColor: 1 }).id
+    const parent = store.create(DEMO_NOW, { title: '父', horizon: 'week', parentId: root }).id
+    const child = store.create(DEMO_NOW, { title: '子', horizon: 'week', nestingParentId: parent }).id
+    const undo = store.trash(DEMO_NOW, parent)
+    const trashed = store.load(DEMO_NOW)
+    expect(trashed.items.some(item => item.id === parent)).toBe(false)
+    expect(trashed.trash.some(item => item.id === parent)).toBe(true)
+    expect(trashed.items.find(item => item.id === child)?.nestingParentId).toBeNull()
+    expect(trashed.relations.some(edge => edge.parentId === root && edge.childId === child)).toBe(true)
+    store.undo(DEMO_NOW, undo)
+    const restored = store.load(DEMO_NOW)
+    expect(restored.trash.some(item => item.id === parent)).toBe(false)
+    expect(restored.items.find(item => item.id === child)?.nestingParentId).toBe(parent)
+    expect(restored.relations.some(edge => edge.parentId === root && edge.childId === parent)).toBe(true)
+    expect(restored.relations.some(edge => edge.parentId === root && edge.childId === child)).toBe(false)
+  })
+
+  it('moves nested subtasks with their parent', () => {
+    const { store } = workspace()
+    const parent = store.create(DEMO_NOW, { title: '父', horizon: 'week' }).id
+    const child = store.create(DEMO_NOW, { title: '子', horizon: 'week', nestingParentId: parent }).id
+    store.move(DEMO_NOW, parent, 'day', null)
+    const snap = store.load(DEMO_NOW)
+    const parentRow = snap.items.find(item => item.id === parent)
+    const childRow = snap.items.find(item => item.id === child)
+    expect(parentRow?.horizon).toBe('day')
+    expect(childRow?.horizon).toBe('day')
+    expect(childRow?.periodId).toBe(parentRow?.periodId)
+    expect(childRow?.nestingParentId).toBe(parent)
+  })
+
+  it('copies the container goal when a subtask leaves', () => {
+    const { store } = workspace()
+    const root = store.create(DEMO_NOW, { title: '一年', horizon: 'year', flowColor: 4 }).id
+    const parent = store.create(DEMO_NOW, { title: '本周容器', horizon: 'week', parentId: root }).id
+    const child = store.create(DEMO_NOW, { title: '子步骤', horizon: 'week', nestingParentId: parent }).id
+    store.move(DEMO_NOW, child, 'day', null)
+    const snap = store.load(DEMO_NOW)
+    expect(snap.items.find(item => item.id === child)?.nestingParentId).toBeNull()
+    expect(snap.relations.some(edge => edge.parentId === root && edge.childId === child)).toBe(true)
+    expect(flowColors(child, nodes(store), snap.relations)).toContain(4)
+  })
+
+  it('refuses to undo a move after the item was nested', () => {
+    const { store } = workspace()
+    const parent = store.create(DEMO_NOW, { title: '容器', horizon: 'day' }).id
+    const task = store.create(DEMO_NOW, { title: '一步', horizon: 'week' }).id
+    const undo = store.move(DEMO_NOW, task, 'day', null)
+    store.nest(DEMO_NOW, task, parent)
+    expect(() => store.undo(DEMO_NOW, undo)).toThrow(/conflict/)
+    const row = store.load(DEMO_NOW).items.find(item => item.id === task)
+    expect(row?.nestingParentId).toBe(parent)
+    expect(row?.horizon).toBe('day')
+  })
+
+  it('holds an undone todo in an expired period', () => {
+    const { store } = workspace()
+    const periodId = store.load(DEMO_NOW).periods.day!.id
+    const id = store.create(DEMO_NOW, { title: '过期', horizon: 'day' }).id
+    const undo = store.setStatus(DEMO_NOW, id, 'done')
+    const later = '2026-10-20T01:00:00.000Z'
+    store.undo(later, undo)
+    const row = store.load(later).items.find(item => item.id === id)
+    expect(row?.status).toBe('todo')
+    expect(row?.periodId).toBe(periodId)
+    expect(row?.holdPeriodId).toBe(store.load(later).periods.day!.id)
+  })
+
+  it('persists a future period before create', () => {
+    const { store } = workspace()
+    const calendar = store.load(DEMO_NOW).calendar!
+    const future = nearbyPeriods(calendar, 'week', DEMO_NOW, 4).find(period => period.startDate > '2026-10-18')
+    expect(future).toBeTruthy()
+    expect(() => store.create(DEMO_NOW, { title: '下周', horizon: 'week', periodId: future!.id })).toThrow(/period/)
+    store.savePeriod(future!)
+    const id = store.create(DEMO_NOW, { title: '下周', horizon: 'week', periodId: future!.id }).id
+    expect(store.load(DEMO_NOW).items.find(item => item.id === id)?.periodId).toBe(future!.id)
   })
 
   it('shows a breakpoint only when the next column has no child', () => {

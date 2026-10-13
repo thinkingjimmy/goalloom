@@ -66,17 +66,17 @@ export interface FlowNode { id: string; flowColor: number | null; nestingParentI
 export interface FlowEdge { parentId: string; childId: string }
 
 export function flowColors(itemId: string, nodes: ReadonlyMap<string, FlowNode>, edges: readonly FlowEdge[]): number[] {
-  const node = nodes.get(itemId)
-  if (!node) return []
-  const origin = node.nestingParentId && nodes.has(node.nestingParentId) ? node.nestingParentId : itemId
+  if (!nodes.has(itemId)) return []
   const roots = new Set<string>()
   for (const entry of nodes.values()) if (entry.flowColor !== null) roots.add(entry.id)
   const parents = new Map<string, string[]>()
-  for (const edge of edges) {
-    const list = parents.get(edge.childId) ?? []
-    list.push(edge.parentId)
-    parents.set(edge.childId, list)
+  const addParent = (childId: string, parentId: string) => {
+    const list = parents.get(childId) ?? []
+    list.push(parentId)
+    parents.set(childId, list)
   }
+  for (const edge of edges) addParent(edge.childId, edge.parentId)
+  for (const entry of nodes.values()) if (entry.nestingParentId) addParent(entry.id, entry.nestingParentId)
   const memo = new Map<string, string[]>()
   for (const id of roots) memo.set(id, [id])
   const resolve = (id: string): string[] => {
@@ -96,7 +96,7 @@ export function flowColors(itemId: string, nodes: ReadonlyMap<string, FlowNode>,
     return memo.get(id) ?? []
   }
   const colors: number[] = []
-  for (const rootId of resolve(origin)) {
+  for (const rootId of resolve(itemId)) {
     const color = nodes.get(rootId)?.flowColor
     if (color !== null && color !== undefined && !colors.includes(color)) colors.push(color)
   }
@@ -177,21 +177,36 @@ export function outlineRows<T extends OutlineItem>(items: readonly T[], compare?
   return ordered.flatMap(root => [root, ...(children.get(root.id) ?? []).sort(manual)])
 }
 
-/** Open groups stay above groups whose members are all done, matching the desktop column fold. */
+/** Open groups stay above groups whose members are all done, in outline order rather than insertion order. */
 export function columnSections<T extends OutlineItem>(items: readonly T[], compare?: (a: string, b: string) => number): { todo: T[]; done: T[] } {
+  const ordered = outlineRows(items, compare)
+  const present = new Set(ordered.map(item => item.id))
   const groups = new Map<string, T[]>()
-  for (const item of items) {
-    const root = item.nestingParentId ?? item.id
+  for (const item of ordered) {
+    const root = item.nestingParentId && present.has(item.nestingParentId) ? item.nestingParentId : item.id
     const group = groups.get(root) ?? []
     group.push(item)
     groups.set(root, group)
   }
   const todo: T[] = [], done: T[] = []
-  for (const members of groups.values()) {
-    const rows = outlineRows(members, compare)
-    ;(members.some(item => item.status === 'todo') ? todo : done).push(...rows)
-  }
+  for (const members of groups.values()) (members.some(item => item.status === 'todo') ? todo : done).push(...members)
   return { todo, done }
+}
+
+/** Drop index from a list that still contains the dragged row. A downward move shifts once the row is gone. */
+export function neighborsAfterRemoval(ids: readonly string[], draggedId: string, index: number): { beforeId: string | null; afterId: string | null } {
+  const from = ids.indexOf(draggedId)
+  const target = from >= 0 && from < index ? index - 1 : index
+  const rest = ids.filter(id => id !== draggedId)
+  return { beforeId: rest[target - 1] ?? null, afterId: rest[target] ?? null }
+}
+
+/** Index of a horizon in the visible column list. A hidden requested column falls back to today, then the first page. */
+export function columnIndex(columns: readonly string[], horizon: string): number {
+  const index = columns.indexOf(horizon)
+  if (index >= 0) return index
+  const day = columns.indexOf(OPEN_COLUMN)
+  return day >= 0 ? day : 0
 }
 
 export function columnOutline<T extends OutlineItem>(items: readonly T[], compare?: (a: string, b: string) => number): T[] {

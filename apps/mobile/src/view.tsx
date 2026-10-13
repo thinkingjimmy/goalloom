@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   BOARD_COLUMNS, LONG_PRESS_MS, NEST_INDENT, buildParentOrder, canNest, classifyPointer, columnSections,
-  dropOnRows, flowColors, flowConnectors, flowSections, flowStroke, flowTint, linkHost, mayLink, nextHorizon,
+  dropOnRows, flowColors, flowConnectors, flowSections, flowStroke, flowTint, linkHost, mayLink, neighborsAfterRemoval, nextHorizon,
   parseCapture, periodMeta, showBreakpoint, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon,
   type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot, type UndoToken,
 } from '@goalloom/local-store'
@@ -40,7 +40,7 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
   onTab: (tab: 'board' | 'flow' | 'settings') => void; onColumn: (index: number) => void; onMinimize: (value: boolean) => void; onSheet: (sheet: Sheet) => void
   onToast: (text: string, undo: UndoToken | null) => void; onCheck: (item: ItemRow) => void; onTrash: (id: string) => void
   onMove: (id: string, horizon: Horizon) => void; onNest: (id: string, parentId: string) => void; onReorder: (id: string, beforeId: string | null, afterId: string | null) => void
-  onCreate: (drafts: CaptureDraft[], periodId?: string | null) => void; onEdit: (id: string, fields: { title?: string; description?: string; dueDate?: string | null }) => void
+  onCreate: (drafts: CaptureDraft[], periodId?: string | null) => boolean; onEdit: (id: string, fields: { title?: string; description?: string; dueDate?: string | null }) => void
   onFlow: (id: string, color: number | null) => void; onLink: (parentId: string, childId: string) => void; onUnlink: (parentId: string, childId: string) => void
   onPolicy: (horizon: PeriodHorizon, mode: 'auto' | 'manual') => void; onAppearance: (fields: { theme?: Theme['scheme'] | 'system'; style?: 'paper' | 'minimal'; checkStyle?: 'outline' | 'paper' | 'tint' }) => void
   onBackup: () => void; onPrefs: (prefs: DevicePrefs) => void; onUndo: () => void; onRestore: (id: string) => void
@@ -121,13 +121,15 @@ function Board({ copy, theme, snap, prefs, columns, column, page, hide, shot, vi
   const finish = (id: string) => {
     const target = drop.current
     const item = snap.items.find(row => row.id === id)
-    const ids = (item ? orders.current[item.horizon] ?? [] : []).filter(rowId => rowId !== id)
     setDragId(null)
     setNestUnder(null)
     drop.current = null
     if (!target) return
     if (target.kind === 'nest') onNest(id, target.parentId)
-    else onReorder(id, ids[target.index - 1] ?? null, ids[target.index] ?? null)
+    else {
+      const neighbors = neighborsAfterRemoval(item ? orders.current[item.horizon] ?? [] : [], id, target.index)
+      onReorder(id, neighbors.beforeId, neighbors.afterId)
+    }
   }
   return <View style={styles.flex}>
     <ScrollView horizontal style={styles.chipStrip} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip} {...scrollInset}>
@@ -434,7 +436,7 @@ function SheetBody(props: {
   copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; sheet: Exclude<Sheet, null>; scheme: Theme['scheme']
   nodes: Map<string, { id: string; flowColor: number | null; nestingParentId: string | null; horizon: Horizon; status: string }>
   captureSeed: string
-  onSheet: (sheet: Sheet) => void; onCreate: (drafts: CaptureDraft[], periodId?: string | null) => void
+  onSheet: (sheet: Sheet) => void; onCreate: (drafts: CaptureDraft[], periodId?: string | null) => boolean
   onEdit: (id: string, fields: { title?: string; description?: string; dueDate?: string | null }) => void
   onFlow: (id: string, color: number | null) => void; onLink: (parentId: string, childId: string) => void; onUnlink: (parentId: string, childId: string) => void
   onMove: (id: string, horizon: Horizon) => void; onTrash: (id: string) => void; onRestore: (id: string) => void
@@ -448,7 +450,7 @@ function SheetBody(props: {
 }) {
   const { copy, theme, snap, sheet, onSheet } = props
   const item = 'id' in sheet ? snap.items.find(row => row.id === sheet.id) ?? snap.trash.find(row => row.id === sheet.id) : undefined
-  if (sheet.kind === 'detail' && item) return <Detail {...props} item={item} />
+  if (sheet.kind === 'detail' && item) return <Detail key={item.id} {...props} item={item} />
   if (sheet.kind === 'composer') return <Composer {...props} seed={props.captureSeed} {...(sheet.horizon ? { horizon: sheet.horizon } : {})} />
   if (sheet.kind === 'backlog') return <Backlog {...props} horizon={sheet.horizon} />
   if (sheet.kind === 'add') return <Add {...props} horizon={sheet.horizon} periodId={sheet.periodId} parentId={sheet.parentId ?? null} nestingParentId={sheet.nestingParentId ?? null} />
@@ -506,7 +508,7 @@ function Detail(props: { copy: Copy; theme: Theme; snap: Snapshot; item: ItemRow
   </ScrollView>
 }
 
-function Composer({ copy, theme, snap, seed, horizon, onCreate, onSheet, onToast }: { copy: Copy; theme: Theme; snap: Snapshot; seed: string; horizon?: Horizon; onCreate: (drafts: CaptureDraft[]) => void; onSheet: (sheet: Sheet) => void; onToast: (text: string, undo: UndoToken | null) => void }) {
+function Composer({ copy, theme, snap, seed, horizon, onCreate, onSheet }: { copy: Copy; theme: Theme; snap: Snapshot; seed: string; horizon?: Horizon; onCreate: (drafts: CaptureDraft[]) => boolean; onSheet: (sheet: Sheet) => void }) {
   const place = (rows: CaptureDraft[]) => horizon === 'day' ? rows.map(row => row.horizon === 'later' && row.dueDate === null ? { ...row, horizon: 'day' as const } : row) : rows
   const [text, setText] = useState(seed)
   const [drafts, setDrafts] = useState<CaptureDraft[]>(() => place(parseCapture(seed, snap.today, snap.items)))
@@ -524,8 +526,8 @@ function Composer({ copy, theme, snap, seed, horizon, onCreate, onSheet, onToast
       <Pressable onPress={() => setDrafts(drafts.filter((_, rowIndex) => rowIndex !== index))}><Text style={{ color: theme.danger }}>{copy.trash}</Text></Pressable>
     </View>)}
     <View style={styles.rowGap}>
-      <Pressable style={[styles.button, styles.flex, { backgroundColor: theme.hover }]} onPress={() => { onCreate([{ title: text.trim() || copy.capture, horizon: 'later', dueDate: null, parentId: null }]); onSheet(null); onToast(copy.created(1), null) }}><Text style={{ color: theme.fg, fontWeight: '700', textAlign: 'center' }}>{copy.saveLater}</Text></Pressable>
-      <Pressable style={[styles.button, styles.flex, { backgroundColor: theme.fg }]} onPress={() => { onCreate(drafts); onSheet(null); onToast(copy.created(drafts.length), null) }}><Text style={{ color: theme.onAccent, fontWeight: '700', textAlign: 'center' }}>{copy.createN(drafts.length)}</Text></Pressable>
+      <Pressable style={[styles.button, styles.flex, { backgroundColor: theme.hover }]} onPress={() => { if (onCreate([{ title: text.trim() || copy.capture, horizon: 'later', dueDate: null, parentId: null }])) onSheet(null) }}><Text style={{ color: theme.fg, fontWeight: '700', textAlign: 'center' }}>{copy.saveLater}</Text></Pressable>
+      <Pressable style={[styles.button, styles.flex, { backgroundColor: theme.fg }]} onPress={() => { if (onCreate(drafts)) onSheet(null) }}><Text style={{ color: theme.onAccent, fontWeight: '700', textAlign: 'center' }}>{copy.createN(drafts.length)}</Text></Pressable>
     </View>
   </View>
 }
@@ -548,11 +550,11 @@ function Backlog({ copy, theme, snap, horizon, onMove, onSheet, onToast }: { cop
   </View>
 }
 
-function Add({ copy, theme, horizon, periodId, parentId, nestingParentId, onCreate, onSheet }: { copy: Copy; theme: Theme; horizon: Horizon; periodId: string | null; parentId: string | null; nestingParentId: string | null; onCreate: (drafts: CaptureDraft[], periodId?: string | null) => void; onSheet: (sheet: Sheet) => void }) {
+function Add({ copy, theme, horizon, periodId, parentId, nestingParentId, onCreate, onSheet }: { copy: Copy; theme: Theme; horizon: Horizon; periodId: string | null; parentId: string | null; nestingParentId: string | null; onCreate: (drafts: CaptureDraft[], periodId?: string | null) => boolean; onSheet: (sheet: Sheet) => void }) {
   const [title, setTitle] = useState('')
   return <View>
     <TextInput value={title} onChangeText={setTitle} placeholder={copy.addTitle} placeholderTextColor={theme.faint} style={[styles.desc, { color: theme.fg, backgroundColor: theme.raised, borderColor: theme.line }]} />
-    <Pressable style={[styles.button, { backgroundColor: theme.fg }]} onPress={() => { if (title.trim()) onCreate([{ title: title.trim(), horizon, dueDate: null, parentId, nestingParentId }], periodId); onSheet(null) }}><Text style={{ color: theme.onAccent, fontWeight: '700', textAlign: 'center' }}>{copy.add}</Text></Pressable>
+    <Pressable style={[styles.button, { backgroundColor: theme.fg }]} onPress={() => { if (!title.trim()) { onSheet(null); return }; if (onCreate([{ title: title.trim(), horizon, dueDate: null, parentId, nestingParentId }], periodId)) onSheet(null) }}><Text style={{ color: theme.onAccent, fontWeight: '700', textAlign: 'center' }}>{copy.add}</Text></Pressable>
   </View>
 }
 

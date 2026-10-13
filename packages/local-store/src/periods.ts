@@ -63,12 +63,16 @@ function offsetMinutes(timeZone: string, utcMs: number): number {
 }
 
 export function zonedMidnight(date: Ymd, timeZone: string): string {
-  const guess = Date.UTC(date.y, date.m - 1, date.d)
-  let instant = guess - offsetMinutes(timeZone, guess) * 60_000
-  const again = offsetMinutes(timeZone, instant)
-  const adjusted = guess - again * 60_000
-  if (adjusted !== instant) instant = adjusted
-  return new Date(instant).toISOString().replace('.000Z', 'Z')
+  // Earliest UTC instant whose local calendar date is `date`. That matches Temporal's
+  // compatible disambiguation: a missing midnight starts after the gap, a repeated one uses the earlier instant.
+  const target = formatYmd(date)
+  const localDate = (ms: number) => formatYmd(parts(timeZone, ms))
+  const noon = Date.UTC(date.y, date.m - 1, date.d, 12)
+  let instant = Date.UTC(date.y, date.m - 1, date.d) - offsetMinutes(timeZone, noon) * 60_000
+  for (let step = 0; step < 60 * 36 && localDate(instant) < target; step++) instant += 60_000
+  for (let step = 0; step < 60 * 36 && localDate(instant) > target; step++) instant -= 60_000
+  for (let step = 0; step < 60 * 36 && instant >= 60_000 && localDate(instant - 60_000) === target; step++) instant -= 60_000
+  return new Date(instant).toISOString().replace(/\.000Z$/, 'Z')
 }
 
 export function workspaceDate(timeZone: string, instant: string): string {
