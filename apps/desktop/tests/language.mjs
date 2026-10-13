@@ -181,7 +181,8 @@ try {
     const paused = { en: 'Paused', es: 'En pausa', fr: 'En pause', ja: '一時停止中', zh: '已暂停' }[code]
     await dialog.locator('.settings-nav-meta[data-icon="pause"]').last().waitFor()
     assert.equal(await dialog.locator('.settings-nav-meta[data-icon="pause"]').count(), 2)
-    for (const index of [2, 7, 9]) assert.equal(await dialog.locator('.settings-nav button').nth(index).locator('.settings-nav-meta').count(), 0)
+    // ai, backup, trash. Sync is the workspace entry before 已完成, so trash is no longer index 9.
+    for (const index of [2, 7, 10]) assert.equal(await dialog.locator('.settings-nav button').nth(index).locator('.settings-nav-meta').count(), 0)
     for (const index of [3, 4]) {
       const button = dialog.locator('.settings-nav button').nth(index), icon = button.locator('.settings-nav-meta')
       assert.equal(await icon.innerText(), '')
