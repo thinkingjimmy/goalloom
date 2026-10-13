@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, filterTimeZones, friendlyZoneName, monthGrid, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, filterTimeZones, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -108,6 +108,13 @@ describe('calendar parity', () => {
     expect(periodMeta('week', same, '2026-10-12').meta).toBe('10/12–10/18')
     expect(periodMeta('week', cross, '2026-12-30').meta).toBe('2026/12/28–2027/1/3')
     expect(periodMeta('half', half, '2026-12-30').meta).toBe('2026年10月–2027年3月')
+    expect(compactRange('2026-10-12', '2026-10-19', 'zh', 'day')).toBe('10月12日 – 18日')
+    expect(compactRange('2026-10-12', '2026-10-19', 'en', 'day')).toBe('Oct 12 – 18')
+    expect(compactRange('2026-12-28', '2027-01-04', 'zh', 'day')).toBe('2026年12月28日 – 2027年1月3日')
+    expect(compactRange('2026-10-01', '2027-04-01', 'zh', 'month')).toBe('2026年10月 – 2027年3月')
+    expect(yearMenu('2026-10-12', '2027-10-12', 'zh')).toEqual({ title: '2026 年', range: '至 2027年10月' })
+    expect(yearMenu('2026-01-01', '2027-01-01', 'zh')).toEqual({ title: '2026 年', range: '至 2026年12月' })
+    expect(yearMenu('2026-10-12', '2027-10-12', 'en')).toEqual({ title: '2026', range: 'through Oct 2027' })
   })
 })
 
