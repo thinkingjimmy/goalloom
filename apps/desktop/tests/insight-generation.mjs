@@ -4,7 +4,7 @@
  * [POS]: Desktop acceptance of the AI-service onboarding path, per-feature switches, drafting and review persistence/refresh/restart/replacement through real IPC/storage; provider transport is controlled.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { finishSetup } from './fixtures/setup.mjs'
+import { finishSetup, waitForSetupEntry } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -440,7 +440,7 @@ async function run(mode) {
     await recovery.getByText('已创建并校验', { exact: true }).waitFor()
     await recovery.getByRole('checkbox').check()
     await recovery.getByRole('button', { name: '重置并重新配置' }).click()
-    await page.locator('.calendar-modes').waitFor()
+    await waitForSetupEntry(page)
     const afterReset = await page.evaluate(() => JSON.parse(localStorage.getItem('goalloom.review-summaries')))
     assert.notEqual(afterReset.generation, stored.generation)
     assert.deepEqual(afterReset.entries, [])

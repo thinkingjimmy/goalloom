@@ -4,7 +4,7 @@
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { finishSetup } from './fixtures/setup.mjs'
+import { chooseLocalStart, finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -84,6 +84,7 @@ let application = await electron.launch({ ...options, env: environment, timeout:
 try {
   let page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
+  await chooseLocalStart(page)
   const language = page.locator('#setup-language')
   await language.waitFor()
 

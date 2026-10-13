@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Isolated Playwright page and optional calendar/direction choices (mode radio, the timezone/week-start sentence, the rolling card's start date).
- * [OUTPUT]: Completes the real calendar → annual direction → AI setup, or stops at direction/AI for owning scenarios.
+ * [OUTPUT]: Chooses local use on the welcome page, then completes the real calendar → annual direction → AI setup, or stops at direction/AI for owning scenarios.
  * [POS]: Shared desktop setup driver; uses rendered controls and never writes setup through IPC.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,8 +13,17 @@ const copy = {
 }
 /** Each step's content fades in once; waiting for it keeps evidence screenshots and later clicks on a settled layout. */
 export const settleSetupStep = page => page.locator('.onboarding-content').evaluate(node => Promise.all(node.getAnimations().map(animation => animation.finished)))
-export async function chooseSetupCalendar(page, { mode = 'rolling', timezone, weekStart, anchor } = {}) {
+/** First-run and post-reset windows open on the local-or-Google choice. A window already inside calendar setup matches the second selector. */
+export const waitForSetupEntry = page => page.locator('.start-cards, .calendar-modes').first().waitFor()
+/** Local use is the first card. Joining a second computer never reaches this helper. */
+export async function chooseLocalStart(page) {
+  await waitForSetupEntry(page)
+  const choice = page.locator('.start-cards')
+  if (await choice.isVisible()) await choice.locator('button.start-card').first().click()
   await page.locator('.calendar-modes').waitFor()
+}
+export async function chooseSetupCalendar(page, { mode = 'rolling', timezone, weekStart, anchor } = {}) {
+  await chooseLocalStart(page)
   const locale = await page.evaluate(() => document.documentElement.lang.split('-')[0])
   await page.locator(`.calendar-mode[role="radio"][data-mode="${mode}"]`).click()
   if (timezone) {

@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict'
 import { stepPeriod } from './fixtures/period-step.mjs'
-import { finishSetup } from './fixtures/setup.mjs'
+import { finishSetup, waitForSetupEntry } from './fixtures/setup.mjs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir, cpus, release, version, arch } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -364,7 +364,7 @@ try {
   await settings().getByText('已创建并校验', { exact: true }).waitFor()
   await settings().getByRole('checkbox').check()
   await settings().getByRole('button', { name: '重置并重新配置', exact: true }).click()
-  await page.locator('.calendar-modes').waitFor()
+  await waitForSetupEntry(page)
   assert.notEqual((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.generation, oldGeneration)
   const released = await application.evaluate(() => { const reads = globalThis.orderingReads.splice(0); reads.forEach(resolve => resolve()); return reads.length })
   assert(released > 0)
