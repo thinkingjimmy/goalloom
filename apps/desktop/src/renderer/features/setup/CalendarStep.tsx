@@ -18,8 +18,8 @@ import { OnboardingFrame } from './OnboardingFrame'
 import { TimezoneSelect } from './TimezoneSelect'
 import type { CalendarDraft, useSetupCalendar } from './use-setup-calendar'
 
-export function CalendarStep({ draft, change, live, zones, next, busy }: {
-  draft: CalendarDraft; change: (patch: Partial<CalendarDraft>) => void; live: ReturnType<typeof useSetupCalendar>; zones: string[]; next: () => void; busy: boolean
+export function CalendarStep({ draft, change, live, zones, next, busy, back }: {
+  draft: CalendarDraft; change: (patch: Partial<CalendarDraft>) => void; live: ReturnType<typeof useSetupCalendar>; zones: string[]; next: () => void; busy: boolean; back?: () => void
 }) {
   const timezoneLabel = useId(), [changing, setChanging] = useState(draft.anchorMode !== 'today')
   const cards = useRef<HTMLDivElement>(null)
@@ -41,7 +41,7 @@ export function CalendarStep({ draft, change, live, zones, next, busy }: {
     <SelectContent>{[1, 2, 3, 4, 5, 6, 7].map(day => <SelectItem key={day} value={String(day)}>{weekdayName(day)}</SelectItem>)}</SelectContent>
   </Select>
   return <OnboardingFrame step={0} label={messages.stepCalendar} note={messages.calendarLockNote} lock
-    actions={<Button type="button" disabled={busy || !live.periods} onClick={next}>{messages.nextStep}<Icon name="forward" size={16} /></Button>}>
+    actions={<>{back && <Button type="button" variant="ghost" disabled={busy} onClick={back}>{messages.previousStep}</Button>}<Button type="button" disabled={busy || !live.periods} onClick={next}>{messages.nextStep}<Icon name="forward" size={16} /></Button></>}>
     <section className="onboarding-calendar calendar-choice">
       <header className="onboarding-intro">
         <p className="onboarding-eyebrow"><span className="onboarding-mark" aria-hidden="true"><img src={appIcon} alt="" draggable={false} /></span>{messages.welcome}</p>

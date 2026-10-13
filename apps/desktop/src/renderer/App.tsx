@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
+ * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences, features and the unconfirmed start choice.
  * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -38,7 +38,7 @@ import { hasUpdate, useUpdate } from './state/update'
 import { timezoneNoticeToken, useDismissedNotice } from './state/notices'
 import { resetLinkPreviewCache } from './components/links/cache'
 
-const Setup = lazy(() => import('./features/setup/Setup').then(module => ({ default: module.Setup })))
+const StartGate = lazy(() => import('./features/setup/StartGate').then(module => ({ default: module.StartGate })))
 const ItemDetail = lazy(() => import('./features/items/ItemDetail').then(module => ({ default: module.ItemDetail })))
 const Settings = lazy(() => import('./features/shell/settings/Settings').then(module => ({ default: module.Settings })))
 const CommandPalette = lazy(() => import('./features/shell/CommandPalette').then(module => ({ default: module.CommandPalette })))
@@ -153,11 +153,11 @@ export function App() {
   const directionLocation = useRef<{ generation: string; detail: Awaited<ReturnType<ReturnType<typeof desktopApi>['getItem']>> } | null>(null)
   const [directionPending, setDirectionPending] = useState(false)
   const [setupErrorCode, setSetupErrorCode] = useState<string | null>(null)
-  const confirmSetup = async (calendar: CalendarChoice, direction: string, period: PlanningPeriod) => {
+  const confirmSetup = async (calendar: CalendarChoice, direction: string, period: PlanningPeriod): Promise<boolean> => {
     setSetupErrorCode(null)
     const confirmed = await write(async () => ({ type: 'confirmSetup', ...calendar, confirmed: true }), snapshot!.workspace.generation)
-    if (!confirmed.ok) { setSetupErrorCode(confirmed.code); setError(confirmed.message); return }
-    if (!confirmed.result) return
+    if (!confirmed.ok) { setSetupErrorCode(confirmed.code); setError(confirmed.message); return false }
+    if (!confirmed.result) return false
     startTransition(() => setOnboarding(true))
     if (direction) {
       setDirectionPending(true)
@@ -166,6 +166,7 @@ export function App() {
         if (result?.itemId) directionLocation.current = { generation: snapshot!.workspace.generation, detail: await desktopApi().getItem(result.itemId) }
       } finally { setDirectionPending(false) }
     }
+    return true
   }
   useEffect(() => {
     if (directionLocation.current && directionLocation.current.generation !== snapshot?.workspace.generation) directionLocation.current = null
@@ -215,7 +216,7 @@ export function App() {
     {backupNotice.open && snapshot?.backupError && <div className="notice-banner"><span>{snapshot.backupError}</span><button className="text-button" onClick={() => openSettings('backup')}>{messages.viewBackups}</button><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={backupNotice.dismiss}><Icon name="close" size={16} /></button></div>}
     {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <button className="text-button" onClick={() => void retry()}>{messages.retry}</button>}<button className="icon-button small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
-    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <Setup confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy} errorCode={setupErrorCode ?? errorCode} />
+    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
       : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>
       <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={null} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight}
         write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || reviewOpen} /></div>
