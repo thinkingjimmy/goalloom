@@ -1,13 +1,15 @@
 /**
  * [INPUT]: Snapshot, board view, active flows, the optional highlighted preview chain, visible columns, insight readiness, guarded submission and a composer-seed opener.
- * [OUTPUT]: The breakpoint layer inside `.board`: an entry right-aligned inside each childless parent's row (flow colour), never crossing
- *           the column rule where connector buses run — a labelled pill centered on the complete row, tracking row size and motion;
- *           click shows a loading glyph while drafting and creating a child, ⇧-click or no model opens the prefilled composer;
- *           preview limits controls to its highlighted chain; a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
+ * [OUTPUT]: The breakpoint layer inside `.board`: a next-step pill portaled into each childless parent's row (flow colour), 6px inside
+ *           the right edge and centered on the complete row. The pill keeps its box and stays hidden until that row is hovered or
+ *           `:focus-within`; a pending action and the one-time guide's pill stay visible. Click shows a loading glyph while drafting
+ *           and creating a child, ⇧-click or no model opens the prefilled composer; preview limits controls to its highlighted chain;
+ *           a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
  * [POS]: Board insight overlay with a guide bounded to the planning viewport; pending actions survive hover exits and finite motion tracking.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { insightMessages as t } from '../../i18n'
@@ -143,12 +145,14 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
       if (away) return <button key={spot.key} data-spot-key={spot.key} type="button" className="breakpoint-away" style={{ left: place.x, top: place.y, '--node': spot.color } as CSSProperties}
         aria-label={t.openDestination(planningLabel(away.period, snapshot.workspace.calendar!, snapshot.observedAt))}
         onClick={() => view.choose(away.horizon, away.period)}>{t.destination(planningLabel(away.period, snapshot.workspace.calendar!, snapshot.observedAt), away.title)}<Icon name="next" size={12} /></button>
+      const row = document.getElementById(`item-${spot.parent.id}`)
+      if (!row) return null
       const label = t.nodeLabel(spot.parent.title)
-      return <button key={spot.key} data-spot-key={spot.key} type="button" className="breakpoint" data-pending={pending === spot.key} data-guided={guide?.key === spot.key}
-        style={{ left: place.x, top: place.y, '--node': spot.color } as CSSProperties} aria-label={label} title={`${label}\n${t.nodeTip}`}
-        aria-busy={pending === spot.key} disabled={!!pending} onClick={event => void open(spot, event)}>
+      return createPortal(<button data-spot-key={spot.key} type="button" className="breakpoint" data-pending={pending === spot.key} data-guided={guide?.key === spot.key}
+        style={{ '--node': spot.color } as CSSProperties} aria-label={label} title={`${label}\n${t.nodeTip}`}
+        aria-busy={pending === spot.key} disabled={!!pending} onPointerDown={event => event.stopPropagation()} onContextMenu={event => event.stopPropagation()} onClick={event => void open(spot, event)}>
         <Icon name={pending === spot.key ? 'loading' : 'add'} size={12} strokeWidth={2.4} /><span className="breakpoint-label" aria-hidden="true">{t.nodeShort}</span>
-      </button>
+      </button>, row, spot.key)
     })}
     {guide && places.get(guide.key) && <div data-spot-key={guide.key} className="breakpoint-guide" role="note" style={{ left: places.get(guide.key)!.x - 24, top: places.get(guide.key)!.y + 20 }}>
       <p className="breakpoint-guide-kicker">{t.onboardKicker}</p>

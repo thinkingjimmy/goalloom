@@ -125,6 +125,7 @@ try {
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
   await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
   const node = board.getByRole('button', { name: '给「发 3 篇小红书图文」拆下一步' })
+  await page.locator(`#item-${ids.xhs}`).hover()
   await node.waitFor()
   const guide = board.getByRole('button', { name: '知道了' })
   if (await guide.count()) await guide.click()

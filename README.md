@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./resources/icon.png" alt="Goalloom logo" width="112">
+  <img src="./apps/desktop/resources/icon.png" alt="Goalloom logo" width="112">
 </p>
 
 <h1 align="center">Goalloom</h1>

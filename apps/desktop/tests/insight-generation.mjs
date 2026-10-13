@@ -527,6 +527,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
         from: before, to: getComputedStyle(svg).transform }
     })
   }
+  await page.locator(`#item-${ids.week}`).hover()
   await gap.hover()
   const idle = await appearance(gap)
   await hold('ready')
@@ -564,6 +565,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
   await page.screenshot({ path: `${out}/${mode}-breakpoint-complete.png` })
   check('next-step loading rotates at full colour, remains visible after hover exit, respects reduced motion and creates once')
 
+  await page.locator(`#item-${ids.otherWeek}`).hover()
   await otherGap.hover()
   const fallbackIdle = await appearance(otherGap)
   await hold('unavailable')
@@ -587,6 +589,7 @@ async function verifyBreakpointLoading(page, application, mode, check) {
   check('next-step loading clears when a provider failure opens manual entry')
 
   const before = await application.evaluate(() => globalThis.generationFixture.calls.length)
+  await page.locator(`#item-${ids.otherWeek}`).hover()
   await otherGap.click({ modifiers: ['Shift'] })
   await dialog.waitFor()
   assert.equal(await otherGap.getAttribute('aria-busy'), 'false')

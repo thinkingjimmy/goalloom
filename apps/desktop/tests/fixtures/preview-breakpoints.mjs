@@ -1,6 +1,6 @@
 /**
  * [INPUT]: The real insight Electron page, its seeded two-flow board and an empty today column.
- * [OUTPUT]: Labelled, full-row-centered child-only actions across title growth, ancestor/sibling switching, direct-child preservation, retired-write rejection, hover/focus/undo assertions and screenshots.
+ * [OUTPUT]: Labelled, full-row-centered child-only actions across title growth, ancestor/sibling switching, direct-child preservation, retired-write rejection, rest-hidden/hover/focus-within assertions and screenshots.
  * [POS]: Insight acceptance fixture; uses native controls and authoritative IPC, restoring its temporary children and extra parent.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,13 +16,19 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
   const screenshot = join(out, 'hover-preview-gap.png')
   const expectGaps = async (...parents) => {
     const keys = parents.map(id => `gap:${id}`).sort()
-    for (const key of keys) await board.locator(`.breakpoint[data-spot-key="${key}"]`).waitFor()
+    for (const key of keys) await board.locator(`.breakpoint[data-spot-key="${key}"]`).waitFor({ state: 'attached' })
     const actions = await board.locator('.breakpoint').evaluateAll(nodes => nodes.map(node => {
-      const row = document.getElementById(`item-${node.dataset.spotKey.slice(4)}`)
-      return { key: node.dataset.spotKey, highlighted: row.dataset.chainOut !== 'true' && row.dataset.dimmed !== 'true' }
+      const row = node.closest('.task-row')
+      const style = getComputedStyle(node)
+      const revealed = row.matches(':hover') || row.matches(':focus-within') || node.dataset.pending === 'true' || node.dataset.guided === 'true'
+      return { key: node.dataset.spotKey, highlighted: row.dataset.chainOut !== 'true' && row.dataset.dimmed !== 'true',
+        visibility: style.visibility, opacity: style.opacity, revealed }
     }))
     assert.deepEqual(actions.map(action => action.key).sort(), keys, 'Every highlighted gap has one action; faded branches have none')
     assert(actions.every(action => action.highlighted), 'Actions belong to highlighted rows')
+    assert(actions.every(action => action.revealed
+      ? action.visibility === 'visible' && action.opacity === '1'
+      : action.visibility === 'hidden' && action.opacity === '0'), 'A next-step pill stays hidden until its own row is hovered or focused')
     return actions
   }
   const preview = async () => { await row.locator('.task-title').hover(); await dot.hover(); await plus.waitFor() }
@@ -54,7 +60,7 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
   })
   const geometry = await measure()
   assert(geometry.xError < 0.5 && geometry.yError < 0.5)
-  assert(geometry.height === 24 && geometry.width > 16 && geometry.labelVisible && geometry.iconVisible, 'Hovering only the flow dot shows the labelled pill immediately')
+  assert(Math.abs(geometry.height - 24) < 0.01 && geometry.width > 16 && geometry.labelVisible && geometry.iconVisible, 'Hovering only the flow dot shows the labelled pill immediately')
   const editTitle = title => page.evaluate(async ({ id, title }) => {
     const snapshot = await window.goalloom.getSnapshot(), item = (await window.goalloom.getItem(id)).item
     const reply = await window.goalloom.execute({ type: 'edit', itemId: id, expectedVersion: item.version,
@@ -79,6 +85,14 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
     const r = row.getBoundingClientRect(), b = button.getBoundingClientRect()
     return r.height === height && Math.abs(b.top + b.height / 2 - r.top - r.height / 2) < 0.5
   }, { id: ids.week, height: geometry.rowHeight })
+  await page.locator(`#item-${ids.month} .task-title`).hover()
+  await page.waitForTimeout(180)
+  assert.deepEqual(await plus.evaluate(node => ({ visibility: getComputedStyle(node).visibility, opacity: getComputedStyle(node).opacity })), { visibility: 'hidden', opacity: '0' }, 'Leaving the row hides its next-step pill without ending the preview')
+  await row.locator('.task-title').evaluate(node => node.focus({ preventScroll: true }))
+  assert.deepEqual(await plus.evaluate(node => {
+    const owner = node.closest('.task-row'), style = getComputedStyle(node)
+    return { visibility: style.visibility, opacity: style.opacity, focusWithin: owner.matches(':focus-within'), hover: owner.matches(':hover') }
+  }), { visibility: 'visible', opacity: '1', focusWithin: true, hover: false }, 'Row focus-within shows the pill without pointer hover')
   await row.locator('.task-title').hover()
   // Deliberately exceed the 120ms exit grace while crossing the row, then while resting on the action.
   await page.waitForTimeout(180)
@@ -156,6 +170,7 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
 
   await page.locator(`#item-${ids.month} .flow-dot-button`).hover()
   await expectGaps(ids.week)
+  await row.hover()
   await plus.click()
   await composer.waitFor()
   assert.equal(await composer.locator('.seed-chip').filter({ hasText: ids.weekTitle }).count(), 1, 'A descendant action uses its own task as parent')
@@ -182,7 +197,7 @@ export async function verifyPreviewBreakpoints(page, out, ids) {
   await leave()
   const childOnlyPreview = await verifyChildOnlyPreview(page, out, ids)
   await showLater(true)
-  return { geometry, multiline, screenshot, monthlyPreview, rootPreview, mixedPreview, created, childOnlyPreview, checks: ['labelled pill on initial dot hover', 'full-row centering follows title growth and shrink', 'highlighted chain only', 'same-flow sibling switching', 'monthly preview exposes weekly leaf', 'all highlighted leaves have actions', 'mixed-horizon leaves', 'faded branches excluded', 'empty target', 'row and action hover retention', 'clean preview exit', 'multi-flow deduplication', 'non-current target guard', 'keyboard activation', 'descendant action creates under its own parent', 'linked current-day creation', 'terminal horizon', 'undo restores gap', ...childOnlyPreview.checks] }
+  return { geometry, multiline, screenshot, monthlyPreview, rootPreview, mixedPreview, created, childOnlyPreview, checks: ['labelled pill on initial dot hover', 'full-row centering follows title growth and shrink', 'highlighted chain only', 'same-flow sibling switching', 'monthly preview exposes weekly leaf', 'all highlighted leaves have actions', 'mixed-horizon leaves', 'faded branches excluded', 'empty target', 'pill hidden off its row', 'focus-within reveals the pill', 'row and action hover retention', 'clean preview exit', 'multi-flow deduplication', 'non-current target guard', 'keyboard activation', 'descendant action creates under its own parent', 'linked current-day creation', 'terminal horizon', 'undo restores gap', ...childOnlyPreview.checks] }
 }
 
 async function verifyChildOnlyPreview(page, out, ids) {
@@ -217,11 +232,11 @@ async function verifyChildOnlyPreview(page, out, ids) {
   await weeklyGap.waitFor()
   await expectCovered('week preview')
   await dot(ids.month).hover()
-  await weeklyGap.waitFor()
+  await weeklyGap.waitFor({ state: 'attached' })
   await expectCovered('month preview with week and day children')
   await shot('mixed-children')
   await dot(ids.root).hover()
-  await weeklyGap.waitFor()
+  await weeklyGap.waitFor({ state: 'attached' })
   await expectCovered('root preview')
   await dot(added.month).hover()
   await weeklyGap.waitFor({ state: 'detached' })
@@ -238,7 +253,10 @@ async function verifyChildOnlyPreview(page, out, ids) {
   await page.getByRole('button', { name: `只看 ${rootTitle}`, exact: true }).click()
   await all.hover()
   await page.waitForFunction(() => !document.querySelector('.task-row[data-chain-out="true"]'))
-  await weeklyGap.waitFor()
+  await weeklyGap.waitFor({ state: 'attached' })
+  assert.deepEqual(await weeklyGap.evaluate(node => ({ visibility: getComputedStyle(node).visibility, opacity: getComputedStyle(node).opacity })), { visibility: 'hidden', opacity: '0' }, 'A filtered next-step pill stays hidden until its row is hovered')
+  await page.locator(`#item-${ids.week}`).hover()
+  assert.deepEqual(await weeklyGap.evaluate(node => ({ visibility: getComputedStyle(node).visibility, opacity: getComputedStyle(node).opacity })), { visibility: 'visible', opacity: '1' })
   await expectCovered('filtered overview')
   await shot('overview')
   await all.click()

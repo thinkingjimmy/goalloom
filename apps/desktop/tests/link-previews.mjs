@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Real Electron, a fresh profile, a seeded production preview cache and authoritative IPC fixtures.
- * [OUTPUT]: Repeatable link rendering, full-row-centered overlay pills and width stability, cache remount, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
+ * [OUTPUT]: Repeatable link rendering, full-row-centered next-step pills that stay hidden until row hover or focus-within, width stability, cache remount, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
  * [POS]: Focused desktop acceptance with native sizing only; transport and external-browser boundaries are disabled in the test process.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -228,18 +228,29 @@ try {
   await shot('overlay-preview')
   await page.getByRole('button', { name: `只看 ${titles.mixed}`, exact: true }).click()
   await page.getByRole('button', { name: '全部', exact: true }).hover()
-  await gap.waitFor()
+  await gap.waitFor({ state: 'attached' })
+  assert.deepEqual(await gap.evaluate(element => ({ visibility: getComputedStyle(element).visibility, opacity: getComputedStyle(element).opacity })), { visibility: 'hidden', opacity: '0' }, 'A filtered next-step pill stays hidden until its row is hovered')
+  await row(ids.mixed).hover()
   const pill = await gap.evaluate(element => {
     const row = document.getElementById(`item-${element.dataset.spotKey.slice(4)}`), bounds = element.getBoundingClientRect(), title = row.querySelector('.link-title').getBoundingClientRect(), task = row.getBoundingClientRect()
-    return { position: getComputedStyle(element).position, width: bounds.width, height: bounds.height, right: bounds.right, titleRight: title.right,
+    const style = getComputedStyle(element)
+    return { position: style.position, visibility: style.visibility, opacity: style.opacity, width: bounds.width, height: bounds.height, right: bounds.right, titleRight: title.right,
       yError: Math.abs(bounds.top + bounds.height / 2 - task.top - task.height / 2), labelVisible: getComputedStyle(element.querySelector('.breakpoint-label')).display !== 'none' }
   })
   assert.equal(pill.position, 'absolute')
-  assert(pill.width > 16 && pill.height === 24 && pill.labelVisible, 'Filtered gaps show the labelled pill without a hollow ring')
+  assert.equal(pill.visibility, 'visible')
+  assert.equal(pill.opacity, '1')
+  assert(pill.width > 16 && Math.abs(pill.height - 24) < 0.01 && pill.labelVisible, 'Hovering the row shows the labelled pill without a hollow ring')
   assert(pill.yError < 0.5, 'Next step is centered on the full task including its URL card')
   assert(Math.abs(pill.right - pill.titleRight) < 0.5, 'The pill overlays the title edge instead of occupying its own column')
   assert.deepEqual(await contentGeometry(), idleContent, 'Filtered pills retain full content width')
   await shot('overlay-filtered')
+  await page.getByRole('button', { name: '全部', exact: true }).hover()
+  await row(ids.mixed).locator('.task-title').evaluate(node => node.focus({ preventScroll: true }))
+  assert.deepEqual(await gap.evaluate(element => {
+    const style = getComputedStyle(element)
+    return { visibility: style.visibility, opacity: style.opacity, focusWithin: element.closest('.task-row').matches(':focus-within'), hover: element.closest('.task-row').matches(':hover') }
+  }), { visibility: 'visible', opacity: '1', focusWithin: true, hover: false }, 'Focus inside the row shows the pill without pointer hover')
   await gap.focus()
   assert.deepEqual(await contentGeometry(), idleContent, 'Keyboard-focused pills retain full content width')
   await shot('overlay-keyboard')
