@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, AppState, Linking, Platform, Pressable, Text, useColorScheme, View } from 'react-native'
+import { ActivityIndicator, AppState, Linking, Platform, Text, useColorScheme, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { randomUUID } from 'expo-crypto'
 import {
   BOARD_COLUMNS, DEMO_NOW, LocalWorkspace, OPEN_COLUMN, StoreError, columnIndex, installDevice, installSchema,
   nearbyPeriods, readPrefs, seedDemo, writePrefs, type CaptureDraft, type DevicePrefs, type Horizon, type ItemRow,
   type LocaleId, type Period, type PeriodHorizon, type Snapshot, type UndoToken,
 } from '@goalloom/local-store'
-import { catalogs, systemLocale, type Copy } from './copy'
+import { catalogs, systemLocale } from './copy'
+import { Onboarding } from './onboarding'
 import { launchFromUrl, webLaunch, type Launch } from './launch'
 import { openDatabase } from './storage'
 import { themeFor, type Scheme } from './theme'
@@ -175,9 +175,14 @@ export default function Root() {
   }
 
   if (!boot.snap.setupConfirmedAt) {
-    return <Setup copy={copy} scheme={scheme} onConfirm={mode => guard(() => {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-      boot.store.confirm(clock(), { mode, timezone, weekStart: 1 })
+    return <Onboarding copy={copy} scheme={scheme} locale={locale} now={clock()} onConfirm={input => guard(() => {
+      const at = clock()
+      boot.store.confirm(at, {
+        mode: input.mode, timezone: input.timezone, weekStart: input.weekStart,
+        ...(input.mode === 'rolling' ? { anchor: input.anchor } : {}),
+      })
+      const title = input.direction.trim()
+      if (title) boot.store.create(at, { title, horizon: 'year', flowColor: 0 })
     })} />
   }
 
@@ -254,20 +259,3 @@ function appearance(theme: Snapshot['theme'], system: string | null | undefined)
   return 'light'
 }
 
-function Setup({ copy, scheme, onConfirm }: { copy: Copy; scheme: Scheme; onConfirm: (mode: 'rolling' | 'natural') => void }) {
-  const theme = themeFor(scheme)
-  const insets = useSafeAreaInsets()
-  const [mode, setMode] = useState<'rolling' | 'natural'>('rolling')
-  return <View style={{ flex: 1, backgroundColor: theme.bg, padding: 24, paddingTop: Platform.OS === 'web' ? 72 : insets.top + 24, paddingBottom: Math.max(insets.bottom, 16), gap: 12 }}>
-    <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-    <Text style={{ color: theme.fg, fontSize: 28, fontWeight: '700' }}>{copy.setupTitle}</Text>
-    {(['rolling', 'natural'] as const).map(option => <Pressable key={option} onPress={() => setMode(option)} style={{ padding: 16, borderRadius: 12, backgroundColor: mode === option ? theme.hover : theme.raised, borderWidth: 1, borderColor: theme.line }}>
-      <Text style={{ color: theme.fg, fontWeight: '700' }}>{option === 'rolling' ? copy.rolling : copy.natural}</Text>
-      <Text style={{ color: theme.secondary, marginTop: 4 }}>{option === 'rolling' ? copy.rollingBody : copy.naturalBody}</Text>
-    </Pressable>)}
-    <Text style={{ color: theme.secondary }}>{copy.weekStart}</Text>
-    <Pressable onPress={() => onConfirm(mode)} style={{ marginTop: 12, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.fg }}>
-      <Text style={{ color: theme.onAccent, fontWeight: '700' }}>{copy.confirm}</Text>
-    </Pressable>
-  </View>
-}

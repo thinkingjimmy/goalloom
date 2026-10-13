@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  periodMeta, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, userVersion, workspaceDate, type OrderNode, type SqlDriver,
+  calendarAnchorVisible, periodMeta, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, workspaceDate, type OrderNode, type SqlDriver,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -413,6 +413,15 @@ describe('workspace', () => {
     expect(sheetRelease(20, 0.9, 500)).toBe(true)
     expect(sheetRelease(50, 0, 200)).toBe(false)
     expect(sheetRelease(60, 0, 200)).toBe(true)
+  })
+
+  it('hides the rolling start date for a natural year and checks a new sync password', () => {
+    expect(calendarAnchorVisible('rolling')).toBe(true)
+    expect(calendarAnchorVisible('natural')).toBe(false)
+    expect(syncPasswordReady('short', 'short')).toBe(false)
+    expect(syncPasswordReady('long-enough', 'different')).toBe(false)
+    expect(syncPasswordReady('  long-enough ', 'long-enough')).toBe(true)
+    expect(syncPasswordReady('x'.repeat(129), 'x'.repeat(129))).toBe(false)
   })
 
   it('does not use the word 继承 in any locale', () => {

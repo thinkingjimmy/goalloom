@@ -21,6 +21,7 @@ export {
   SHEET_DISMISS_VELOCITY, SHEET_GRABBER,
 } from './board'
 export type { AppTab, CaptureDraft, DropTarget, FlowRailItem, RowBox } from './board'
+export { calendarAnchorVisible, syncPasswordReady } from './onboarding'
 export { horizons, periodHorizons } from './types'
 export type {
   ActivityRow, BoardStyle, CalendarConfig, CheckStyle, Horizon, ItemRow, NoteSignal, Period, PeriodHorizon,
