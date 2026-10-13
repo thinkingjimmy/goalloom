@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, AppState, Linking, Platform, Text, useColorScheme, View } from 'react-native'
+import { ActivityIndicator, AppState, Linking, Platform, StyleSheet, Text, useColorScheme, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { randomUUID } from 'expo-crypto'
 import {
   ACTION_TOAST_MS, BOARD_COLUMNS, DEMO_NOW, LocalWorkspace, OPEN_COLUMN, StoreError, UNDO_TOAST_MS, actionNotice, columnIndex, installDevice, installSchema,
   nearbyPeriods, readPrefs, seedDemo, writePrefs, type CaptureDraft, type DevicePrefs, type Glance, type Horizon, type ItemRow,
-  type LocaleId, type Notice, type Period, type PeriodHorizon, type Snapshot, type UndoToken,
+  type AiConnection, type LocaleId, type Notice, type Period, type PeriodHorizon, type Snapshot, type UndoToken,
 } from '@goalloom/local-store'
+import { loadAiConnection } from './ai-account'
+import { AiConnect } from './ai-connect'
 import { catalogs, systemLocale } from './copy'
 import { Onboarding } from './onboarding'
 import { launchFromUrl, webLaunch, type Launch } from './launch'
@@ -91,6 +93,9 @@ export default function Root() {
   const [minimized, setMinimized] = useState(false)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [toast, setToast] = useState<Notice | null>(null)
+  const [ai, setAi] = useState<AiConnection | null>(null)
+  const [aiOpen, setAiOpen] = useState(false)
+  useEffect(() => { void loadAiConnection().then(setAi) }, [])
   const [viewed, setViewed] = useState<Partial<Record<PeriodHorizon, Period>>>({})
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bootRef = useRef<Boot | null>(null)
@@ -180,7 +185,7 @@ export default function Root() {
   const glance: Glance = { tab, horizon: openHorizon, periodId: openPeriod?.id ?? null, columns, doneOpen: false }
 
   if (!boot.snap.setupConfirmedAt) {
-    return <Onboarding copy={copy} scheme={scheme} locale={locale} now={clock()} onConfirm={input => guard(() => {
+    return <Onboarding copy={copy} scheme={scheme} locale={locale} now={clock()} ai={ai} onAi={setAi} onConfirm={input => guard(() => {
       const at = clock()
       boot.store.confirm(at, {
         mode: input.mode, timezone: input.timezone, weekStart: input.weekStart,
@@ -191,11 +196,11 @@ export default function Root() {
     })} />
   }
 
-  return <>
+  return <View style={styles.app}>
     <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     <Goalloom
       copy={copy} theme={theme} snap={boot.snap} prefs={boot.prefs} locale={locale} tab={tab} column={column}
-      minimized={minimized} sheet={sheet} toast={toast} shot={shot} viewed={viewed}
+      minimized={minimized} sheet={sheet} toast={toast} shot={shot} viewed={viewed} ai={ai} onOpenAi={() => setAiOpen(true)}
       captureSeed={shot === 'capture' ? CAPTURE_SEED : ''}
       onTab={next => { setTab(next); setMinimized(false) }} onColumn={setColumn} onMinimize={setMinimized} onSheet={setSheet}
       onDismissToast={() => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast(null) }}
@@ -256,8 +261,16 @@ export default function Root() {
       activity={id => boot.store.activity(id)}
       periodsAround={horizon => boot.snap.calendar ? nearbyPeriods(boot.snap.calendar, horizon, clock()) : []}
     />
-  </>
+    {aiOpen && <View style={[StyleSheet.absoluteFill, styles.ai, { backgroundColor: theme.bg }]}>
+      <AiConnect copy={copy} theme={theme} connection={ai} onConnection={setAi} onBack={() => setAiOpen(false)} />
+    </View>}
+  </View>
 }
+
+const styles = StyleSheet.create({
+  app: { flex: 1 },
+  ai: { zIndex: 20 },
+})
 
 function findItem(snap: Snapshot, id: string): ItemRow | null {
   return snap.items.find(item => item.id === id) ?? snap.trash.find(item => item.id === id) ?? null

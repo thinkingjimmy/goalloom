@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Locale copy, the device clock, and an explicit confirm callback.
- * [OUTPUT]: Choice, calendar, direction, and optional AI screens. Password screens render but do not call sync.
+ * [OUTPUT]: Choice, calendar, direction, and the optional AI connect screen. Password screens render but do not call sync.
  * [POS]: First-run UI. Calendar lock and the year item happen only in onConfirm, after the AI step.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -13,6 +13,8 @@ import Svg, { Path } from 'react-native-svg'
 import {
   calendarAnchorVisible, filterTimeZones, friendlyZoneName, pinCurrentZone, readTimeZones, runtimeZoneName, syncPasswordReady, workspaceDate, zoneLocalizedNames,
 } from '@goalloom/local-store'
+import type { AiConnection } from '@goalloom/local-store'
+import { AiConnect } from './ai-connect'
 import type { Copy } from './copy'
 import type { LocaleId } from '@goalloom/local-store'
 import { Icon } from './icons'
@@ -27,8 +29,10 @@ const INK_TEXT = '#fbf9f6'
 type Step = 'choice' | 'calendar' | 'direction' | 'ai' | 'join' | 'create-password'
 type Picker = 'anchor' | 'zone' | 'week' | null
 
-export function Onboarding({ copy, scheme, locale, now, onConfirm }: {
+export function Onboarding({ copy, scheme, locale, now, ai, onAi, onConfirm }: {
   copy: Copy; scheme: Scheme; locale: LocaleId; now: string
+  ai: AiConnection | null
+  onAi: (next: AiConnection | null) => void
   onConfirm: (input: { mode: 'rolling' | 'natural'; timezone: string; weekStart: number; anchor: string; direction: string }) => void
 }) {
   const theme = themeFor(scheme)
@@ -57,7 +61,7 @@ export function Onboarding({ copy, scheme, locale, now, onConfirm }: {
     {step === 'choice' && <Choice copy={copy} theme={theme} waiting={waiting} onLocal={() => { setWaiting(false); setStep('calendar') }} onGoogle={() => setWaiting(true)} onCancel={() => setWaiting(false)} />}
     {step === 'calendar' && <Calendar copy={copy} theme={theme} locale={locale} mode={mode} timezone={timezone} weekStart={weekStart} anchor={anchor} today={today} onBack={back!} onMode={setMode} onOpen={setPicker} onNext={() => setStep('direction')} />}
     {step === 'direction' && <Direction copy={copy} theme={theme} value={direction} onChange={setDirection} onBack={back!} onNext={() => setStep('ai')} />}
-    {step === 'ai' && <Ai copy={copy} theme={theme} onBack={back!} onDone={finish} />}
+    {step === 'ai' && <AiConnect copy={copy} theme={theme} connection={ai} onConnection={onAi} onBack={back!} onDone={finish} />}
     {step === 'join' && <JoinPassword copy={copy} theme={theme} email={email} onBack={back!} onReset={() => setResetOpen(true)} />}
     {step === 'create-password' && <NewPassword copy={copy} theme={theme} email={email} onBack={back!} />}
     {picker && <PickerSheet copy={copy} theme={theme} scheme={scheme} locale={locale} kind={picker} today={today} anchor={anchor} timezone={timezone} weekStart={weekStart} onClose={() => setPicker(null)} onAnchor={setAnchor} onZone={setTimezone} onWeek={setWeekStart} />}
@@ -201,25 +205,6 @@ function Direction({ copy, theme, value, onChange, onBack, onNext }: {
       {s.examples.map(example => <Pressable key={example} onPress={() => onChange(example)} style={[styles.chip, { backgroundColor: theme.hover }]}>
         <Text style={{ color: theme.fg, fontSize: 14 }}>{example}</Text>
       </Pressable>)}
-    </View>
-  </Screen>
-}
-
-function Ai({ copy, theme, onBack, onDone }: { copy: Copy; theme: Theme; onBack: () => void; onDone: () => void }) {
-  const s = copy.start
-  return <Screen theme={theme} title={s.aiTitle} onBack={onBack} backLabel={s.back} right={<Pressable onPress={onDone} hitSlop={8} style={styles.skip}><Text style={[styles.link, { color: theme.fg }]}>{s.skip}</Text></Pressable>} cta={<Primary label={s.aiConnect} onPress={onDone} />}>
-    <View style={[styles.card, { backgroundColor: theme.raised, borderColor: theme.line }]}>
-      <Text style={[styles.sample, { color: theme.fg }]}>{s.aiSample}</Text>
-      {s.aiItems.map(item => <View key={item} style={styles.sampleRow}>
-        <View style={[styles.sampleDot, { borderColor: theme.checkEdge }]} />
-        <Text style={{ color: theme.fg, fontSize: 15, flex: 1 }}>{item}</Text>
-      </View>)}
-    </View>
-    <View style={styles.points}>
-      {s.aiPoints.map((point, index) => <View key={point} style={styles.point}>
-        <Text style={[styles.pointIndex, { color: theme.secondary }]}>{index + 1}</Text>
-        <Text style={[styles.pointText, { color: theme.fg }]}>{point}</Text>
-      </View>)}
     </View>
   </Screen>
 }
@@ -396,14 +381,7 @@ const styles = StyleSheet.create({
   direction: { minHeight: 96, textAlignVertical: 'top' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   chip: { borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
-  sample: { fontSize: 15, lineHeight: 22 },
-  sampleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  sampleDot: { width: 16, height: 16, borderRadius: 5, borderWidth: 1.5 },
-  points: { marginTop: 18, gap: 12 },
-  point: { flexDirection: 'row', gap: 10 },
-  pointIndex: { width: 18, fontSize: 15, fontWeight: '600' },
   pointText: { flex: 1, fontSize: 16, lineHeight: 22 },
-  skip: { height: 44, justifyContent: 'center', paddingHorizontal: 4 },
   labelRow: { flexDirection: 'row', marginBottom: 8 },
   fieldLabel: { fontSize: 13, marginTop: 16, marginBottom: 8 },
   secret: { minHeight: 48, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingLeft: 14, paddingRight: 12, flexDirection: 'row', alignItems: 'center' },

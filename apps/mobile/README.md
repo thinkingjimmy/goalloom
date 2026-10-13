@@ -1,8 +1,8 @@
 # Goalloom mobile
 
-Offline Expo app for Phase 1. It shares schema v10 and the planning rules with the desktop app through `@goalloom/local-store` (`@goalloom/schema` underneath, expo-sqlite on device). There is no account, no login, no sync and no network call in the product UI.
+Offline Expo app for Phase 1. It shares schema v10 and the planning rules with the desktop app through `@goalloom/local-store` (`@goalloom/schema` underneath, expo-sqlite on device). There is no account, no login and no sync. The only network call is the AI key check, and only after the consent box is ticked.
 
-Phase 1 matches the desktop board in one column: the board opens on today, the bottom bar is 看板 / 流程 / 设置 (no Today tab), and the flow page is a single top-down column with the desktop’s dots and connecting lines on the left. Login, sync, AI keys and reminders stay deferred.
+Phase 1 matches the desktop board in one column: the board opens on today, the bottom bar is 看板 / 流程 / 设置 (no Today tab), and the flow page is a single top-down column with the desktop’s dots and connecting lines on the left. Login, sync and reminders stay deferred. Smart input still parses on the device; insight text is not generated yet.
 
 ## Run on a Mac (iOS Simulator)
 
@@ -29,7 +29,7 @@ npx expo start --dev-client
 
 Then press `i`, or open the Goalloom app in the simulator. The bundle id is `app.goalloom.mobile`.
 
-A normal launch opens the mobile onboarding: use on this device, then the calendar, a year direction, and an optional AI step. Confirming on the AI step locks the calendar. The start date opens an iOS inline calendar (`@react-native-community/datetimepicker`, `display="inline"`) limited to today or earlier, the same bound as the desktop date field. That picker is a native module, so a Metro reload does not add it; use the prebuild and `pod install` commands above. There is no language picker and no step indicator. Google sign-in shows the browser-wait card only; the password screens are present and not connected to sync. The demo launch below skips onboarding. The device language, visible columns and other preferences live in `goalloom-device.db`, outside the workspace file `goalloom.db`.
+A normal launch opens the mobile onboarding: use on this device, then the calendar, a year direction, and an optional AI step. The AI step (and Settings › AI 服务) shows a short example, then a sheet for OpenRouter or Vercel AI Gateway. “测试并开启” checks the key with that provider and, only on success, stores it in the iOS Keychain through `expo-secure-store` (this device only, not in `goalloom.db` or a backup). “稍后” finishes setup without a key. The calendar locks when that step is left, whether or not a key was saved. The start date opens an iOS inline calendar (`@react-native-community/datetimepicker`, `display="inline"`) limited to today or earlier, the same bound as the desktop date field. The date picker, the Keychain store and the paste button are native modules, so a Metro reload does not add them; use the prebuild and `pod install` commands above. There is no language picker and no step indicator. Google sign-in shows the browser-wait card only; the password screens are present and not connected to sync. The demo launch below skips onboarding. The device language, visible columns and other preferences live in `goalloom-device.db`, outside the workspace file `goalloom.db`.
 
 To open the interaction-mockup items (natural calendar, 2026-10-12, Asia/Shanghai):
 

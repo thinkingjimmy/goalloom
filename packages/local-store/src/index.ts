@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Schema, calendar, board rules and the offline workspace.
  * [OUTPUT]: The public surface the mobile app imports.
- * [POS]: Package entry. No React Native and no network.
+ * [POS]: Package entry. No React Native. The AI key check is the only call that uses the network, and only when a sheet tests a key.
  */
 export { installDevice, installSchema, userVersion } from './schema'
 export { LocalWorkspace, StoreError } from './store'
@@ -24,6 +24,8 @@ export type { AppTab, CaptureDraft, DropTarget, FlowRailItem, RowBox } from './b
 export { anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, monthGrid, syncPasswordReady } from './onboarding'
 export type { MonthCell } from './onboarding'
 export { filterTimeZones, friendlyZoneName, pinCurrentZone, readTimeZones, runtimeZoneName, zoneLocalizedNames } from './time-zones'
+export { AI_KEY_URL, AI_PROBE_URL, AI_PROVIDERS, aiKeyAccepted, aiProbeResult, parseAiCredential, probeAiKey, serializeAiCredential } from './ai-connect'
+export type { AiConnection, AiCredential, AiProbe, AiProbeFetch, AiProviderId } from './ai-connect'
 export { ACTION_TOAST_MS, UNDO_TOAST_MS, actionNotice, boardVisibility } from './feedback'
 export type { Glance, ItemVisibility, Notice, NoticeAction, NoticeBoard, ToastCopy } from './feedback'
 export { horizons, periodHorizons } from './types'

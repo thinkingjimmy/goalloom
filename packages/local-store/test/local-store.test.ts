@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  actionNotice, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, filterTimeZones, friendlyZoneName, monthGrid, periodFromId, periodMeta, pinCurrentZone, readTimeZones, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, filterTimeZones, friendlyZoneName, monthGrid, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -482,11 +482,28 @@ describe('workspace', () => {
     expect(periodFromId('day', 'cal:day:2026-10-11')?.startDate).toBe('2026-10-11')
   })
 
-  it('does not use the word 继承 in any locale', () => {
-    for (const copy of Object.values(catalogs)) {
-      const text = Object.values(copy).map(value => typeof value === 'function' ? value.toString() : String(value)).join('\n')
-      expect(text).not.toContain('继承')
+  it('does not use the word 继承 or Jev in any locale', () => {
+    const textOf = (value: unknown): string => {
+      if (typeof value === 'function') return value.toString()
+      if (typeof value === 'string') return value
+      if (Array.isArray(value)) return value.map(textOf).join('\n')
+      if (value && typeof value === 'object') return Object.values(value).map(textOf).join('\n')
+      return ''
     }
+    for (const copy of Object.values(catalogs)) {
+      const text = textOf(copy)
+      expect(text).not.toContain('继承')
+      expect(text).not.toContain('Jev')
+    }
+  })
+
+  it('names the AI connect consent and the provider key link', () => {
+    expect(catalogs.zh.start.aiConsent('OpenRouter')).toBe('我同意把智能输入和洞察需要的内容发送给 OpenRouter')
+    expect(catalogs.zh.start.aiGetKey('OpenRouter')).toBe('获取 OpenRouter Key')
+    expect(catalogs.zh.start.aiGetKey('Vercel AI Gateway')).toBe('获取 Vercel AI Gateway Key')
+    expect(catalogs.zh.start.aiTitle).toBe('让 AI 帮你拆任务')
+    expect(catalogs.zh.start.aiTasks).toHaveLength(2)
+    expect(catalogs.en.start.aiConsent('OpenRouter')).toContain('OpenRouter')
   })
 })
 
@@ -533,6 +550,40 @@ describe('time zone search', () => {
     expect(filterTimeZones(bundled, '上海', localize)).toContain('Asia/Shanghai')
     expect(filterTimeZones(bundled, '新加坡', localize)).toContain('Asia/Singapore')
     expect(filterTimeZones(bundled, 'Asia/', localize).every(id => id.startsWith('Asia/'))).toBe(true)
+  })
+})
+
+describe('AI key check', () => {
+  const fetchWith = (status: number | null): AiProbeFetch => async (url, init) => {
+    expect(url).toBe(AI_PROBE_URL.openrouter)
+    expect(init.headers.Authorization).toBe('Bearer secret-key')
+    expect(init.redirect).toBe('error')
+    if (status === null) throw new Error('offline')
+    return { status }
+  }
+
+  it('accepts a key only with consent and a length the desktop form allows', () => {
+    expect(aiKeyAccepted('short', true)).toBe(false)
+    expect(aiKeyAccepted('secret-key', false)).toBe(false)
+    expect(aiKeyAccepted('  secret-key  ', true)).toBe(true)
+    expect(aiKeyAccepted('x'.repeat(513), true)).toBe(false)
+    expect(aiProbeResult(200)).toBe('ok')
+    expect(aiProbeResult(401)).toBe('rejected')
+    expect(aiProbeResult(403)).toBe('rejected')
+    expect(aiProbeResult(500)).toBe('unavailable')
+    expect(aiProbeResult(null)).toBe('unavailable')
+  })
+
+  it('treats a 200 as connected and keeps a failed check from looking saved', async () => {
+    expect(AI_KEY_URL.openrouter).toBe('https://openrouter.ai/settings/keys')
+    expect(AI_KEY_URL['vercel-gateway']).toBe('https://vercel.com/dashboard')
+    await expect(probeAiKey('openrouter', 'secret-key', fetchWith(200))).resolves.toBe('ok')
+    await expect(probeAiKey('openrouter', 'secret-key', fetchWith(401))).resolves.toBe('rejected')
+    await expect(probeAiKey('openrouter', 'secret-key', fetchWith(null))).resolves.toBe('unavailable')
+    const saved = serializeAiCredential({ provider: 'openrouter', apiKey: ' secret-key ', consentedAt: '2026-10-13T00:00:00.000Z', verifiedAt: '2026-10-13T00:00:00.000Z' })
+    expect(parseAiCredential(saved)).toMatchObject({ provider: 'openrouter', apiKey: 'secret-key' })
+    expect(parseAiCredential('{"provider":"other","apiKey":"secret-key"}')).toBeNull()
+    expect(parseAiCredential('not-json')).toBeNull()
   })
 })
 

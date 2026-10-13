@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   BOARD_COLUMNS, FLOW_INDENT, LONG_PRESS_MS, NEST_INDENT, SHEET_GRABBER, buildParentOrder, canNest, classifyPointer, columnSections,
   completionLabel, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon,
-  periodMeta, sheetRelease, shouldDragSheet, showBreakpoint, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
+  periodMeta, sheetRelease, shouldDragSheet, showBreakpoint, type AiConnection, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
   type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot,
 } from '@goalloom/local-store'
 import { BlurView } from 'expo-blur'
@@ -138,8 +138,9 @@ function BottomSheet({ theme, paddingBottom, onDismiss, children }: { theme: The
   </SheetScrollY.Provider>
 }
 
-export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimized, sheet, toast, shot, viewed, captureSeed, onTab, onColumn, onMinimize, onSheet, onDismissToast, onCheck, onTrash, onMove, onNest, onReorder, onCreate, onEdit, onFlow, onLink, onUnlink, onPolicy, onAppearance, onBackup, onPrefs, onUndo, onRestore, onViewPeriod, activity, periodsAround }: {
+export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimized, sheet, toast, shot, viewed, captureSeed, ai, onOpenAi, onTab, onColumn, onMinimize, onSheet, onDismissToast, onCheck, onTrash, onMove, onNest, onReorder, onCreate, onEdit, onFlow, onLink, onUnlink, onPolicy, onAppearance, onBackup, onPrefs, onUndo, onRestore, onViewPeriod, activity, periodsAround }: {
   copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; tab: 'board' | 'flow' | 'settings'; column: number; minimized: boolean; sheet: Sheet
+  ai: AiConnection | null; onOpenAi: () => void
   toast: Notice | null; shot: string
   viewed: Partial<Record<PeriodHorizon, Period>>; captureSeed: string
   onTab: (tab: 'board' | 'flow' | 'settings') => void; onColumn: (index: number) => void; onMinimize: (value: boolean) => void; onSheet: (sheet: Sheet) => void
@@ -183,7 +184,7 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
   return <View style={[styles.app, { backgroundColor: theme.bg, paddingTop: Platform.OS === 'web' ? 47 : insets.top }]}>
     {tab === 'board' && <Board copy={copy} theme={theme} snap={snap} columns={columns} column={column} hide={hide} shot={shot} viewed={viewed} nodes={nodes} contentBottom={contentBottom} {...(prefs.parentOrder ? { compare: order.compare } : {})} onColumn={onColumn} onSheet={onSheet} onCheck={celebrate} onNest={onNest} onReorder={onReorder} onScroll={scroll} />}
     {tab === 'flow' && <Flow copy={copy} theme={theme} snap={snap} prefs={prefs} nodes={nodes} shot={shot} contentBottom={contentBottom} onSheet={onSheet} onCheck={celebrate} onScroll={scroll} />}
-    {tab === 'settings' && <Settings copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} contentBottom={contentBottom} onSheet={onSheet} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
+    {tab === 'settings' && <Settings copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} ai={ai} contentBottom={contentBottom} onSheet={onSheet} onOpenAi={onOpenAi} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
     <TabBar copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => onSheet({ kind: 'composer', horizon: columns[column] ?? 'day' })} />
     {toast && <View style={[styles.toast, theme.style === 'minimal' ? { ...surface(theme, theme.controlRadius), bottom: barBottom + TAB_HEIGHT + 12 } : { backgroundColor: theme.fg, borderRadius: 22, bottom: barBottom + TAB_HEIGHT + 12 }]}>
       <View style={styles.flex}>
@@ -470,8 +471,8 @@ function Flow({ copy, theme, snap, prefs, nodes, shot, contentBottom, onSheet, o
   </ScrollView>
 }
 
-function Settings({ copy, theme, snap, prefs, locale, contentBottom, onSheet, onPolicy, onAppearance, onBackup, onPrefs, onScroll }: {
-  copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; contentBottom: number; onSheet: (sheet: Sheet) => void
+function Settings({ copy, theme, snap, prefs, locale, ai, contentBottom, onSheet, onOpenAi, onPolicy, onAppearance, onBackup, onPrefs, onScroll }: {
+  copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; ai: AiConnection | null; contentBottom: number; onSheet: (sheet: Sheet) => void; onOpenAi: () => void
   onPolicy: (horizon: PeriodHorizon, mode: 'auto' | 'manual') => void
   onAppearance: (fields: { theme?: 'system' | 'light' | 'dark'; style?: 'paper' | 'minimal'; checkStyle?: 'outline' | 'paper' | 'tint' }) => void
   onBackup: () => void; onPrefs: (prefs: DevicePrefs) => void; onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void
@@ -498,7 +499,7 @@ function Settings({ copy, theme, snap, prefs, locale, contentBottom, onSheet, on
     </Card>
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.ai}</Text>
     <Card theme={theme}>
-      <Field theme={theme} label={copy.aiService} value={copy.disconnected} onPress={() => undefined} />
+      <Field theme={theme} label={copy.aiService} value={ai ? copy.start.aiProviders[ai.provider] : copy.disconnected} onPress={onOpenAi} />
       <Field theme={theme} label={copy.smart} value={copy.local} onPress={() => undefined} />
       <Field theme={theme} label={copy.insight} value={prefs.showInsight ? copy.on : copy.off} onPress={() => onPrefs({ ...prefs, showInsight: !prefs.showInsight })} />
     </Card>
