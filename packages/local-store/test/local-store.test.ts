@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, filterTimeZones, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, filterTimeZones, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -441,6 +441,15 @@ describe('workspace', () => {
     expect(syncPasswordReady('long-enough', 'different')).toBe(false)
     expect(syncPasswordReady('  long-enough ', 'long-enough')).toBe(true)
     expect(syncPasswordReady('x'.repeat(129), 'x'.repeat(129))).toBe(false)
+    expect(signInButtons(['google'])).toEqual(['google'])
+    expect(signInButtons(['google', 'apple'])).toEqual(['apple', 'google'])
+    expect(signInButtons([])).toEqual([])
+    expect(catalogs.zh.start.benefits).toEqual(['加密同步多台设备', '数据端到端加密', '随时可以稍后登录'])
+    expect(catalogs.zh.start.google).toBe('使用 Google 继续')
+    expect(catalogs.zh.start.apple).toBe('使用 Apple 继续')
+    expect(catalogs.zh.start.or).toBe('或')
+    expect(catalogs.zh.start.local).toBe('仅在这台设备使用')
+    for (const copy of Object.values(catalogs)) expect(copy.start.benefits).toHaveLength(3)
   })
 
   it('allows an anchor on or before today, matching the desktop date input', () => {

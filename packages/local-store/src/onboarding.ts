@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A calendar mode, a start date against workspace today, and a pair of sync-password drafts.
- * [OUTPUT]: Whether the rolling start date is shown, whether a date is an allowed anchor, a month grid, and whether a new sync password can be accepted.
+ * [OUTPUT]: Whether the rolling start date is shown, whether a date is an allowed anchor, a month grid, whether a new sync password can be accepted, and the sign-in button order.
  * [POS]: Shared onboarding decisions. No React Native and no network.
  */
 
@@ -18,6 +18,14 @@ export function clampAnchorDate(value: string, today: string): string {
 
 export function anchorDateAllowed(value: string, today: string): boolean {
   return value <= today
+}
+
+/** Apple stays first so a later enable renders it above Google, per the Apple HIG. */
+export const SIGN_IN_PROVIDERS = ['apple', 'google'] as const
+export type SignInProvider = (typeof SIGN_IN_PROVIDERS)[number]
+
+export function signInButtons(enabled: readonly SignInProvider[]): SignInProvider[] {
+  return SIGN_IN_PROVIDERS.filter(id => enabled.includes(id))
 }
 
 /** Sunday for English, Monday for the other shipped locales. Matches a localized calendar, not the board week-start setting. */

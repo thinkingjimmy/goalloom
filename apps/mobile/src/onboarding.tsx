@@ -5,15 +5,15 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
+  ActivityIndicator, KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
 } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 import {
-  calendarAnchorVisible, filterTimeZones, friendlyZoneName, pinCurrentZone, readTimeZones, runtimeZoneName, syncPasswordReady, workspaceDate, zoneLocalizedNames,
+  calendarAnchorVisible, filterTimeZones, friendlyZoneName, pinCurrentZone, readTimeZones, runtimeZoneName, signInButtons, syncPasswordReady, workspaceDate, zoneLocalizedNames,
 } from '@goalloom/local-store'
-import type { AiConnection } from '@goalloom/local-store'
+import type { AiConnection, SignInProvider } from '@goalloom/local-store'
 import { AiConnect } from './ai-connect'
 import type { Copy } from './copy'
 import type { LocaleId } from '@goalloom/local-store'
@@ -21,7 +21,6 @@ import { Icon } from './icons'
 import type { Scheme, Theme } from './theme'
 import { themeFor } from './theme'
 import { AnchorCalendar } from './anchor-calendar'
-import appIcon from '../assets/icon.png'
 
 const INK = '#2b2621'
 const INK_TEXT = '#fbf9f6'
@@ -110,42 +109,64 @@ function Primary({ label, disabled, danger, onPress }: { label: string; disabled
   </Pressable>
 }
 
+const BENEFIT_ICONS = ['sync', 'lock', 'login'] as const
+/** Apple is omitted until sign-in exists. `signInButtons` still places it above Google. */
+const SIGN_IN_ENABLED = ['google'] as const satisfies readonly SignInProvider[]
+
 function Choice({ copy, theme, waiting, onLocal, onGoogle, onCancel }: {
   copy: Copy; theme: Theme; waiting: boolean; onLocal: () => void; onGoogle: () => void; onCancel: () => void
 }) {
   const s = copy.start
-  return <Screen theme={theme} intro={<View style={styles.welcomeRow}>
-    <Image source={appIcon} style={styles.mark} />
-    <Text style={[styles.welcome, { color: theme.secondary }]}>{s.welcome}</Text>
-  </View>} title={s.title}>
-    <View style={styles.stack}>
-      <Pressable disabled={waiting} onPress={onLocal} style={[styles.card, { backgroundColor: theme.raised, borderColor: theme.line }, waiting && styles.dimmed]}>
-        <Icon name="phone" size={22} color={theme.fg} />
-        <Text style={[styles.cardTitle, { color: theme.fg }]}>{s.local}</Text>
-        <Text style={[styles.cardNote, { color: theme.secondary }]}>{s.localNote}</Text>
-      </Pressable>
-      {waiting ? <View style={[styles.card, { backgroundColor: theme.raised, borderColor: INK }]}>
-        <IconRow theme={theme} title={s.google} />
-        <View style={[styles.divider, { backgroundColor: theme.line }]} />
-        <View style={styles.waitRow}>
-          <ActivityIndicator color={theme.fg} />
-          <Text style={[styles.cardNote, styles.fill, { color: theme.fg }]}>{s.browser}</Text>
-          <Pressable onPress={onCancel} hitSlop={8}><Text style={[styles.link, { color: theme.focus }]}>{s.back}</Text></Pressable>
-        </View>
-      </View> : <Pressable onPress={onGoogle} style={[styles.card, { backgroundColor: theme.raised, borderColor: theme.line }]}>
-        <IconRow theme={theme} title={s.google} />
-        <Text style={[styles.cardNote, { color: theme.secondary }]}>{s.googleNote}</Text>
-      </Pressable>}
+  return <Screen theme={theme} title={s.title} cta={<View style={styles.authStack}>
+    {signInButtons(SIGN_IN_ENABLED).map(id => id === 'apple'
+      ? <AppleButton key={id} label={s.apple} />
+      : <GoogleButton key={id} label={s.google} waiting={waiting} browser={s.browser} back={s.back} focus={theme.focus} onPress={onGoogle} onCancel={onCancel} />)}
+    <OrDivider label={s.or} color={theme.secondary} line={theme.line} />
+    <Pressable disabled={waiting} onPress={onLocal} style={[styles.authButton, { backgroundColor: theme.checkFill }, waiting && styles.dimmed]}>
+      <View style={styles.slot}><Icon name="phone" size={20} color={theme.fg} /></View>
+      <Text style={[styles.authLabel, { color: theme.fg }]}>{s.local}</Text>
+    </Pressable>
+  </View>}>
+    <View style={styles.benefits}>
+      {s.benefits.map((line, index) => <View key={line} style={styles.benefit}>
+        <View style={styles.benefitIcon}><Icon name={BENEFIT_ICONS[index] ?? 'info'} size={20} color={theme.fg} /></View>
+        <Text style={[styles.benefitText, { color: theme.fg }]}>{line}</Text>
+      </View>)}
     </View>
   </Screen>
 }
 
-function IconRow({ theme, title }: { theme: Theme; title: string }) {
-  return <View style={styles.iconRow}><GoogleMark /><Text style={[styles.cardTitle, { color: theme.fg }]}>{title}</Text></View>
+function AppleButton({ label }: { label: string }) {
+  return <Pressable style={[styles.authButton, styles.appleButton]}>
+    <View style={styles.slot}><Icon name="apple" size={20} color="#fff" /></View>
+    <Text style={[styles.authLabel, styles.appleLabel]}>{label}</Text>
+  </Pressable>
+}
+
+function GoogleButton({ label, waiting, browser, back, focus, onPress, onCancel }: {
+  label: string; waiting: boolean; browser: string; back: string; focus: string; onPress: () => void; onCancel: () => void
+}) {
+  if (waiting) return <View style={[styles.authButton, styles.googleButton]}>
+    <View style={styles.slot}><ActivityIndicator color="#1f1f1f" /></View>
+    <Text style={[styles.authLabel, styles.googleLabel, styles.authLabelWait]}>{browser}</Text>
+    <Pressable onPress={onCancel} hitSlop={8}><Text style={[styles.link, { color: focus }]}>{back}</Text></Pressable>
+  </View>
+  return <Pressable onPress={onPress} style={[styles.authButton, styles.googleButton]}>
+    <View style={styles.slot}><GoogleMark /></View>
+    <Text style={[styles.authLabel, styles.googleLabel]}>{label}</Text>
+  </Pressable>
+}
+
+function OrDivider({ label, color, line }: { label: string; color: string; line: string }) {
+  return <View style={styles.orRow}>
+    <View style={[styles.orLine, { backgroundColor: line }]} />
+    <Text style={[styles.orText, { color }]}>{label}</Text>
+    <View style={[styles.orLine, { backgroundColor: line }]} />
+  </View>
 }
 
 function GoogleMark() {
-  return <Svg width={20} height={20} viewBox="0 0 48 48">
+  return <Svg width={18} height={18} viewBox="0 0 48 48">
     <Path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
     <Path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
     <Path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
@@ -351,17 +372,27 @@ const styles = StyleSheet.create({
   edge: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 24, zIndex: 4 },
   body: { paddingHorizontal: 20, paddingBottom: 12 },
   title: { fontSize: 34, lineHeight: 40, fontWeight: '700', letterSpacing: -0.4, textAlign: 'left', marginBottom: 20 },
-  welcomeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 4 },
-  mark: { width: 28, height: 28, borderRadius: 7 },
-  welcome: { fontSize: 15 },
+  benefits: { gap: 16 },
+  benefit: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  benefitIcon: { width: 28, alignItems: 'center' },
+  benefitText: { flex: 1, fontSize: 16, lineHeight: 22 },
+  authStack: { gap: 12 },
+  authButton: { height: 52, borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
+  googleButton: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dadce0' },
+  appleButton: { backgroundColor: '#000' },
+  slot: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  authLabel: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '600', marginRight: 24 },
+  authLabelWait: { marginRight: 0 },
+  googleLabel: { color: '#1f1f1f' },
+  appleLabel: { color: '#fff' },
+  orRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  orLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  orText: { fontSize: 14 },
   stack: { gap: 12 },
   card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, gap: 6 },
   cardTitle: { fontSize: 17, fontWeight: '600' },
   cardNote: { fontSize: 14, lineHeight: 20 },
   dimmed: { opacity: 0.38 },
-  iconRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  divider: { height: StyleSheet.hairlineWidth, marginVertical: 4 },
-  waitRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   link: { fontSize: 16 },
   modeTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tag: { fontSize: 12, fontWeight: '600', overflow: 'hidden', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
