@@ -4,7 +4,7 @@ import { hex, publicFromSeed, sha256Hex, unhex, utf8 } from '@goalloom/crypto'
 import { syncOpPayload, type CalendarWire, type SyncOp } from '@goalloom/contracts'
 import {
   acceptRosterAdvance, bootstrapWorkspace, changeSyncPassword, createRemoteWorkspace, exchange, joinWorkspace, memoryCiphertext, memoryRemote, newDeviceSecret,
-  queueVisibleBaseline, repairRejectedBaseline, unlockWithPassword, SyncFailure, createMemoryWorld, type BoundWorkspace, type MemoryWorld,
+  queueBaseline, queueVisibleBaseline, repairRejectedBaseline, unlockWithPassword, SyncFailure, createMemoryWorld, type BoundWorkspace, type MemoryWorld,
 } from '@goalloom/sync'
 import { copyProjectionToBase, type ApplyHost, type SqlDriver } from '@goalloom/store-core'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
@@ -18,6 +18,14 @@ import { openSync, seedItem } from './fixture'
 
 const now = '2026-09-23T02:00:00.000Z'
 type WithoutEnvelope<T> = T extends unknown ? Omit<T, 'operationId' | 'generation'> : never
+
+function fresh() {
+  const db = openDatabase(':memory:')
+  migrate(db)
+  const repo = new Repository(db, { now: () => now })
+  const run = (command: WithoutEnvelope<CommandInput>) => repo.execute({ ...command, operationId: randomUUID(), generation: repo.store.workspace().generation } as CommandInput)
+  return { db, repo, run, driver: nodeSqlDriver(db), host: syncHost(db) }
+}
 
 function desktop() {
   const db = openDatabase(':memory:')
@@ -447,4 +455,56 @@ it('does not clear a local board when the cloud workspace is still phrase-era', 
   expect(confirmed(local.db)).toEqual(before)
   expect(local.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL').get()?.title).toBe('本机任务')
   local.db.close()
+})
+
+it('installs the cloud calendar on a joining device that has not run setup', async () => {
+  const world = createMemoryWorld()
+  const first = desktop()
+  const cloud = confirmed(first.db)
+  expect(cloud.setupConfirmedAt).toBe(now)
+  const alpha = await register(world, 'alpha')
+  const bound = await bootstrapWorkspace({
+    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', at: now,
+  })
+  await push({ ...alpha, driver: first.driver, host: first.host }, bound)
+  const second = fresh()
+  expect(confirmed(second.db).setupConfirmedAt).toBeNull()
+  const beta = await register(world, 'beta')
+  await joinWorkspace({
+    remote: beta.remote, driver: second.driver, host: second.host, deviceId: beta.deviceId, secret: beta.secret,
+    password: 'sync-pass', choice: 'use-remote', at: now,
+  })
+  expect(confirmed(second.db).setupConfirmedAt).toBe(cloud.setupConfirmedAt)
+  expect(confirmed(second.db).calendar?.id).toBe(cloud.calendar?.id)
+  first.db.close()
+  second.db.close()
+})
+
+it('keeps setup when the first device baselines after confirmation', async () => {
+  const world = createMemoryWorld()
+  const first = fresh()
+  first.run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-09-21' }, confirmed: true })
+  first.run({ type: 'create', title: '首台任务', horizon: 'week' })
+  const before = confirmed(first.db)
+  const alpha = await register(world, 'alpha')
+  expect(queueBaseline(first.driver, first.host, alpha.deviceId, now)).toBe(0)
+  expect(confirmed(first.db)).toEqual(before)
+  expect(first.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL').all().map(row => String(row.title))).toContain('首台任务')
+  const bound = await bootstrapWorkspace({
+    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', at: now,
+  })
+  expect(confirmed(first.db)).toEqual(before)
+  await push({ ...alpha, driver: first.driver, host: first.host }, bound)
+  expect(confirmed(first.db)).toEqual(before)
+  const second = fresh()
+  const beta = await register(world, 'beta')
+  await joinWorkspace({
+    remote: beta.remote, driver: second.driver, host: second.host, deviceId: beta.deviceId, secret: beta.secret,
+    password: 'sync-pass', choice: 'use-remote', at: now,
+  })
+  expect(confirmed(second.db).setupConfirmedAt).toBe(before.setupConfirmedAt)
+  expect(confirmed(second.db).calendar?.id).toBe(before.calendar?.id)
+  expect(second.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL').all().map(row => String(row.title))).toContain('首台任务')
+  first.db.close()
+  second.db.close()
 })

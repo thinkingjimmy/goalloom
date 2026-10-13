@@ -17,6 +17,7 @@ export interface OAuthListenOptions {
   port?: number
   timeoutMs?: number
   onReady?: (port: number) => void
+  signal?: AbortSignal
 }
 
 const memory = () => {
@@ -65,10 +66,14 @@ function listenForSession(client: SupabaseClient, open: (url: string) => Promise
       if (settled) return
       settled = true
       clearTimeout(timer)
+      options?.signal?.removeEventListener('abort', onAbort)
       server?.close()
       if (error || !session) reject(error ?? new SyncFailure('auth', 'oauth'))
       else resolve(session)
     }
+    const onAbort = () => finish(new SyncFailure('auth', 'cancelled'))
+    if (options?.signal?.aborted) { finish(new SyncFailure('auth', 'cancelled')); return }
+    options?.signal?.addEventListener('abort', onAbort, { once: true })
     server = createServer((request, response) => {
       let parsed: URL
       try { parsed = new URL(request.url ?? '/', oauthRedirect) }

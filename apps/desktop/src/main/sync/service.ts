@@ -63,6 +63,7 @@ export class SyncService {
   private heldPassword: string | null = null
   private heldTimer: ReturnType<typeof setTimeout> | null = null
   private operation: Promise<void> | null = null
+  private signInAbort: AbortController | null = null
   private ticking = false
   private poll: ReturnType<typeof setInterval> | null = null
   private channel: { unsubscribe: () => Promise<unknown> } | null = null
@@ -77,7 +78,7 @@ export class SyncService {
     onApplied: () => void
     clipboard: (text: string) => void
     now: () => string
-    beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>) => Promise<Session>
+    beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>, options?: { signal?: AbortSignal }) => Promise<Session>
   }) {
     this.vault = new SyncVault(deps.userData, deps.cipher)
   }
@@ -148,6 +149,7 @@ export class SyncService {
     else if (action.type === 'submit-password') await this.submitPassword(action.password)
     else if (action.type === 'change-password') await this.changePassword(action.password)
     else if (action.type === 'reset-sync') await this.resetAndUpload(action.password)
+    else if (action.type === 'reset-cloud') await this.resetForSetup()
     else if (action.type === 'join') await this.finishJoin(action.choice, action.acknowledged)
   }
 
@@ -161,18 +163,51 @@ export class SyncService {
 
   private async signIn(): Promise<void> {
     if (!this.client || !this.remote || !this.secrets) return
+    const abort = new AbortController()
+    this.signInAbort = abort
     this.phase = 'signing-in'
     this.error = null
     this.publish()
     try {
-      const session = await (this.deps.beginSignIn ?? googleSignIn)(this.client, this.deps.openExternal)
+      const session = await this.requestSignIn(abort.signal)
+      if (abort.signal.aborted) return
       this.email = session.user.email ?? null
       await this.keepSession(session)
+      if (abort.signal.aborted) {
+        await this.client.auth.signOut({ scope: 'local' }).catch(() => undefined)
+        this.phase = 'signed-out'
+        this.email = null
+        this.error = null
+        return
+      }
       await this.afterAuth()
     } catch (error) {
+      if (abort.signal.aborted || (error instanceof SyncFailure && error.message === 'cancelled')) {
+        this.phase = 'signed-out'
+        this.error = null
+        return
+      }
       this.phase = 'signed-out'
       throw error
+    } finally {
+      if (this.signInAbort === abort) this.signInAbort = null
     }
+  }
+
+  private requestSignIn(signal: AbortSignal): Promise<Session> {
+    if (!this.client) return Promise.reject(new SyncFailure('auth'))
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) { reject(new SyncFailure('auth', 'cancelled')); return }
+      const onAbort = () => reject(new SyncFailure('auth', 'cancelled'))
+      signal.addEventListener('abort', onAbort, { once: true })
+      void (this.deps.beginSignIn ?? googleSignIn)(this.client!, this.deps.openExternal, { signal }).then(session => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(session)
+      }, error => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      })
+    })
   }
 
   private async signOut(): Promise<void> {
@@ -243,6 +278,27 @@ export class SyncService {
     await changeSyncPassword({
       remote: this.requireRemote(), deviceId: secrets.deviceId, workspaceId: secrets.workspaceId, recovery, password,
     })
+    this.error = null
+    this.publish()
+  }
+
+  /** Drops the cloud workspace and returns to first-device setup. The new password and board upload happen later. */
+  private async resetForSetup(): Promise<void> {
+    if (this.phase !== 'enter-key' && this.phase !== 'choose') return
+    const remote = this.requireRemote()
+    const deviceId = this.requireDevice()
+    const secrets = this.requireSecrets()
+    await remote.resetSync(deviceId)
+    secrets.workspaceId = null
+    secrets.workspaceKey = null
+    secrets.generation = null
+    secrets.epoch = null
+    secrets.roster = null
+    secrets.recoveryBoxSk = null
+    secrets.recoverySignSk = null
+    this.dropPassword()
+    await this.persist()
+    this.phase = 'setup'
     this.error = null
     this.publish()
   }
@@ -621,8 +677,16 @@ export class SyncService {
   }
 
   private cancelJoin(): void {
+    if (this.phase === 'signing-in') {
+      this.signInAbort?.abort()
+      this.phase = 'signed-out'
+      this.error = null
+      this.publish()
+      return
+    }
     this.dropPassword()
     if (this.phase === 'choose') this.phase = 'enter-key'
+    if (this.phase === 'signed-out' && this.error === 'auth') this.error = null
     this.publish()
   }
 

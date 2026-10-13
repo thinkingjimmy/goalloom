@@ -35,6 +35,7 @@ export const syncActionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('submit-password'), password }),
   z.strictObject({ type: z.literal('change-password'), password }),
   z.strictObject({ type: z.literal('reset-sync'), password }),
+  z.strictObject({ type: z.literal('reset-cloud') }),
   z.strictObject({ type: z.literal('join'), choice: z.enum(['use-remote', 'merge']), acknowledged: z.boolean() }),
   z.strictObject({ type: z.literal('retry') }),
 ])

@@ -113,7 +113,7 @@ macOS 签名用仓库 Actions secrets，不要把证书放进仓库：
 
 | 受影响功能／行为 | 对应脚本与追加条件 |
 | --- | --- |
-| Onboarding／首次配置：日历选择、年方向与确认、AI 服务连接／跳过、首次语言选择 | `pnpm test:ui` ＋ `pnpm test:composer` ＋ `pnpm test:language` ＋ `pnpm test:calendar`；日期刷新/确认变化追加 `pnpm --filter @goalloom/desktop exec -- node tests/review/renderer.mjs`；仅当重置后重新进入向导的逻辑也受影响时追加 `pnpm test:recovery` |
+| Onboarding／首次配置：日历选择、年方向与确认、AI 服务连接／跳过、首次语言选择、开始页（直接使用 / Google 等待 / 加入设备密码 / 首台设备基线） | `pnpm test:ui` ＋ `pnpm test:composer` ＋ `pnpm test:language` ＋ `pnpm test:calendar`；入口分支与基线在 `pnpm test`（`start-entry`、`desktop-engine`）；日期刷新/确认变化追加 `pnpm --filter @goalloom/desktop exec -- node tests/review/renderer.mjs`；仅当重置后重新进入向导的逻辑也受影响时追加 `pnpm test:recovery` |
 | [年 / 半年与双日历模式](features/calendar-modes.md)：六尺度周期、模式与起点、年方向、未来拆解、旧库导入 | `pnpm test:calendar`；共享契约涉及的其余功能按规格 §11.1 和本表去重，真实模型测试经负责人授权执行 |
 | Calendar rollover settings: six ordered manual/automatic policies, defaults, persistence, non-retroactive boundaries and batch undo | `pnpm test:calendar` (includes `fixtures/rollover-policies.ts` and native settings/restart checks); schema/import changes add `pnpm test:electron` + `pnpm test:recovery`, locale changes add `pnpm test:language`. Reports and screenshots: `output/tests/calendar-modes/`. |
 | 看板、条目详情、设置框架、主题、preload 暴露面、CSP / 窗口安全 | `pnpm test:ui`（含 `fixtures/inline-title.mjs`：双击就地编辑、输入框与标题同宽同行数、Enter 只改标题、Esc／空白恢复、单击仍打开详情）；设置内的具体功能按所属行选择，不能因入口都在设置就追加全部功能 |

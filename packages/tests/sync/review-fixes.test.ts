@@ -415,6 +415,72 @@ it('backs up the board before the first device baselines and before a reset uplo
   expect(reset.calls.map(call => call.type).filter(type => type === 'protect' || type === 'rebaseline')).toEqual(['protect', 'rebaseline'])
 })
 
+it('cancels an in-flight sign-in without an auth notice and resets cloud data back to setup', async () => {
+  const cipher = identityCipher()
+  const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-cancel-'))
+  await writeFile(join(userData, 'sync-config.json'), JSON.stringify({ anonKey: 'test-anon-key' }))
+  let resets = 0
+  let release: (() => void) | null = null
+  const service = new SyncService({
+    userData, cipher,
+    storage: { call: async () => ({ workspaceId: null, deviceId: null, generation: '', keyEpoch: null, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 0 }) } as unknown as StorageClient,
+    openExternal: async () => undefined, notify: () => undefined, onApplied: () => undefined, clipboard: () => undefined, now: () => now,
+    beginSignIn: (_client, _open, options) => new Promise((resolve, reject) => {
+      options?.signal?.addEventListener('abort', () => reject(new SyncFailure('auth', 'cancelled')))
+      release = () => resolve({ user: { email: 'jimmy@example.com' } } as never)
+    }),
+  })
+  await service.start()
+  const pending = service.handle({ type: 'sign-in' })
+  await new Promise(resolve => setImmediate(resolve))
+  const cancelled = await service.handle({ type: 'cancel' })
+  expect(cancelled.status.phase).toBe('signed-out')
+  expect(cancelled.status.error).toBeNull()
+  const finished = await pending
+  expect(finished.status.phase).toBe('signed-out')
+  expect(finished.status.error).toBeNull()
+  expect(release).not.toBeNull()
+
+  const failed = new SyncService({
+    userData, cipher,
+    storage: { call: async () => ({ workspaceId: null, deviceId: null, generation: '', keyEpoch: null, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 0 }) } as unknown as StorageClient,
+    openExternal: async () => undefined, notify: () => undefined, onApplied: () => undefined, clipboard: () => undefined, now: () => now,
+    beginSignIn: async () => { throw new SyncFailure('auth', 'timeout') },
+  })
+  await failed.start()
+  expect((await failed.handle({ type: 'sign-in' })).status.error).toBe('auth')
+  expect((await failed.handle({ type: 'cancel' })).status).toMatchObject({ phase: 'signed-out', error: null })
+
+  const secret = newDeviceSecret()
+  const opened = service as unknown as { started: boolean; secrets: VaultSecrets; remote: SyncRemote; phase: string }
+  opened.started = true
+  opened.phase = 'enter-key'
+  opened.secrets = {
+    deviceId: randomUUID(), signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: null, workspaceId: randomUUID(),
+    generation: null, epoch: null, roster: null, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
+  }
+  opened.remote = {
+    pullOps: async () => [], pushOps: async () => [], getRoster: async () => { throw new SyncFailure('network') },
+    getEnvelopes: async () => [], account: async () => null, registerDevice: async () => randomUUID(), rebindDevice: async () => undefined,
+    bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
+    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined,
+    resetSync: async () => { resets += 1 },
+  }
+  const calls: string[] = []
+  const resetting = service as unknown as { deps: { storage: StorageClient } }
+  const storage = resetting.deps.storage
+  resetting.deps.storage = { call: async (_method: string, argument?: unknown) => {
+    calls.push((argument as { type?: string } | undefined)?.type ?? '')
+    return storage.call('sync', argument)
+  } } as StorageClient
+  const reset = await service.handle({ type: 'reset-cloud' })
+  expect(resets).toBe(1)
+  expect(reset.status.phase).toBe('setup')
+  expect(calls).not.toContain('protect')
+  expect(calls).not.toContain('baseline')
+  expect(calls).not.toContain('rebaseline')
+})
+
 it('signs out of this computer only and leaves a failed sign-in retryable', async () => {
   const cipher = identityCipher()
   const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-auth-'))
