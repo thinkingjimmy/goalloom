@@ -72,11 +72,11 @@ export function DetailFlowChip({ item, edges, flows, candidates, busy, readOnly,
     {mode === 'choose' && <div className="menu flow-choose" role="menu" aria-label={messages.joinFlow}>
       <button type="button" role="menuitem" className="menu-item" onClick={() => setMode('color')}>
         <span className="flow-dot" data-empty="true" />
-        <span className="menu-rich"><span>{messages.startFlow}</span><small>{messages.startFlowHint}</small></span>
+        <span className="menu-rich"><span>{messages.startFlow}</span></span>
       </button>
       <button type="button" role="menuitem" className="menu-item" disabled={topmost || busy} onClick={() => setMode('relation')}>
         <Icon name="link" size={14} />
-        <span className="menu-rich"><span>{messages.linkToParent}</span><small>{topmost ? messages.noLongerHorizon(horizonNames[item.placement.horizon]) : messages.linkToParentHint}</small></span>
+        <span className="menu-rich"><span>{messages.linkToParent}</span>{topmost && <small>{messages.noLongerHorizon(horizonNames[item.placement.horizon])}</small>}</span>
       </button>
     </div>}
   </Popover>

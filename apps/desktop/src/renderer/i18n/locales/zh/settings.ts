@@ -97,8 +97,6 @@ export const settingsMessages = widen({
     releaseNotes: '更新日志',
     settingsWithUpdate: (settings: string) => `${settings}（有新版本）`,
   },
-  // Items
-  trashNote: '回收站不会自动清空；删除的条目会一直留在这里，直到你还原。',
   sync: {
     section: '同步',
     signIn: '使用 Google 登录',

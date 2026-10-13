@@ -34,14 +34,14 @@ export function AppearancePane({ workspace, disabled, submit }: { workspace: Wor
   const lines = useRelationLines()
   return <>
     <SettingsGroup>
-      <SettingsRow title={messages.language} note={messages.languageNote}><LanguageSelect className="settings-select" /></SettingsRow>
+      <SettingsRow title={messages.language}><LanguageSelect className="settings-select" /></SettingsRow>
       <SettingsRow title={messages.style} note={t.styleNotes[workspace.style]}>
         <Segmented label={messages.style} value={workspace.style} options={styles()} disabled={disabled} onChange={style => void submit({ type: 'preferences', style })} />
       </SettingsRow>
       <SettingsRow title={messages.checkStyle} note={t.checkNotes[workspace.checkStyle]}>
         <Segmented label={messages.checkStyle} value={workspace.checkStyle} options={checks()} disabled={disabled} onChange={checkStyle => void submit({ type: 'preferences', checkStyle })} />
       </SettingsRow>
-      <SettingsRow title={messages.theme} note={messages.themeModeNote}>
+      <SettingsRow title={messages.theme}>
         <Segmented label={messages.theme} value={workspace.theme} options={themes()} disabled={disabled} onChange={theme => void submit({ type: 'preferences', theme })} />
       </SettingsRow>
       <SettingsRow title={t.relationLines} note={t.relationLinesNote}>

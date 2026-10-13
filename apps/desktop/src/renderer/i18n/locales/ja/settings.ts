@@ -98,8 +98,6 @@ export const settingsMessages: SettingsCatalog = {
     releaseNotes: 'リリースノート',
     settingsWithUpdate: (settings: string) => `${settings}（新しいバージョンあり）`,
   },
-  // Items
-  trashNote: 'ゴミ箱は自動で空になりません。削除した項目は復元するまでここに残ります。',
   sync: {
     section: '同期',
     signIn: 'Google でログイン',

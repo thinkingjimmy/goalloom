@@ -1,6 +1,6 @@
 /**
  * [INPUT]: useAi 状态与动作。
- * [OUTPUT]: 「设置 › AI 服务」：已连接服务（能力标签、Key 遮罩与测试日期、正在使用它的功能、账户问题与控制台/重测入口、更换 Key、移除前说明会停用哪些功能）、可添加服务（连接表单在该行下展开）、隐私要点与未签名私测提示。
+ * [OUTPUT]: 「设置 › AI 服务」：已连接服务（能力标签、Key 遮罩与测试日期、正在使用它的功能、账户问题与控制台/重测入口、更换 Key、移除前说明会停用哪些功能）、可添加服务（连接表单在该行下展开）、隐私要点与可关闭的未签名私测提示。
  * [POS]: settings 的 AI 服务分类，唯一管理 Key 与服务的地方；智能输入与洞察只选用这里已连接的服务；设备配置不进入工作区数据。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,7 +8,8 @@ import { assistanceMessages } from '../../../i18n/assistance'
 import { useState } from 'react'
 import { aiCapabilities, aiProviders, providerCapabilities } from '../../../../shared/contracts/values'
 import type { AiProvider } from '../../../../shared/contracts/smart-input'
-import { insightMessages, providerNames, settingsMessages, smartMessages as t } from '../../../i18n'
+import { insightMessages, messages, providerNames, settingsMessages, smartMessages as t } from '../../../i18n'
+import { useDismissedNotice } from '../../../state/notices'
 import { monthDay } from '../../../i18n/format'
 import { connectedProviders, featureUsers, providerIssue, type Ai } from '../../../state/ai'
 import { Icon } from '../../../components/icons'
@@ -21,6 +22,7 @@ const marks: Record<AiProvider, string> = { openrouter: 'OR', 'vercel-gateway': 
 export function AiPane({ ai }: { ai: Ai }) {
   const [open, setOpen] = useState<AiProvider | null>(null), [removing, setRemoving] = useState<AiProvider | null>(null)
   const status = ai.status
+  const unsigned = useDismissedNotice('unsigned', status?.unsignedBuild ? 'unsigned' : null)
   if (!status) return <p className="settings-footnote">{t.testing}</p>
   const connected = connectedProviders(status), others = aiProviders.filter(provider => !connected.includes(provider))
   const featureName = { smart: t.sectionTitle, insight: insightMessages.settingsSection }
@@ -62,12 +64,12 @@ export function AiPane({ ai }: { ai: Ai }) {
   }
   return <>
     {connected.length > 0 && <SettingsGroup title={t.connectedGroup}>{connected.map(row)}</SettingsGroup>}
-    {others.length > 0 && <SettingsGroup title={t.addGroup} aside={<small className="settings-group-note">{t.addGroupNote}</small>}>{others.map(row)}</SettingsGroup>}
+    {others.length > 0 && <SettingsGroup title={t.addGroup}>{others.map(row)}</SettingsGroup>}
     <section className="settings-group">
       <header className="settings-group-header"><h3>{settingsMessages.privacy}</h3></header>
       <p className="settings-footnote">{assistanceMessages().name} · {assistanceMessages().consentBody}</p>
       <ul className="settings-points">{settingsMessages.privacyPoints.map(point => <li key={point}>{point}</li>)}</ul>
-      {status.unsignedBuild && <p className="settings-footnote settings-warning"><Icon name="warning" size={14} /><span>{t.unsigned}</span></p>}
+      {unsigned.open && <div className="settings-footnote settings-warning" role="status"><Icon name="warning" size={14} /><span>{t.unsigned}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={unsigned.dismiss}><Icon name="close" size={16} /></button></div>}
     </section>
   </>
 }

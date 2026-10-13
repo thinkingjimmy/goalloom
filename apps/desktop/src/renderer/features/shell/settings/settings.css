@@ -70,9 +70,11 @@
 .settings-row-text small { font-size: 12px; line-height: 1.5; font-weight: 400; color: var(--secondary); text-wrap: pretty; }
 .settings-hint { flex-shrink: 0; font-size: 12px; color: var(--secondary); }
 .settings-footnote { margin: 0; font-size: 12px; line-height: 1.7; color: var(--secondary); }
-.settings-warning { display: flex; gap: 8px; color: var(--backlog); }
-.settings-warning svg { flex-shrink: 0; margin-top: 3px; }
-.settings-alert { margin: 0; padding: 10px 14px; border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-size: 12.5px; line-height: 1.6; }
+.settings-warning { display: flex; align-items: flex-start; gap: 8px; color: var(--backlog); }
+.settings-warning > span { flex: 1; min-width: 0; }
+.settings-warning > svg { flex-shrink: 0; margin-top: 3px; }
+.settings-alert { margin: 0; display: flex; align-items: flex-start; gap: 8px; padding: 10px 14px; border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-size: 12.5px; line-height: 1.6; }
+.settings-alert > span { flex: 1; min-width: 0; }
 .settings-path { min-width: 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 11px; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .settings-tag { margin-left: 8px; height: 18px; padding: 0 6px; display: inline-flex; align-items: center; vertical-align: 1px; border-radius: 5px; background: var(--hover); font-size: 11px; font-weight: 500; color: var(--fg-soft); }
 .settings-points { margin: 0; padding: 0 2px; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; line-height: 1.6; color: var(--fg-soft); }

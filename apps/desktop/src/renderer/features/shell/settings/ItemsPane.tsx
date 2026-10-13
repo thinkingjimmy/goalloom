@@ -44,13 +44,12 @@ export function ItemsPane({ view, revision, timezone, today, disabled, select, s
     : `${horizonNames[item.placement.horizon]} · ${statusNames[item.status]}${item.archivedAt ? messages.archivedSuffix : ''}`
   const total = page?.total ?? 0
   return <>
-    {view === 'archived' && <p className="settings-footnote">{messages.archiveNote}</p>}
     <label className="items-search">
       <Icon name="search" size={14} />
       <input type="search" aria-label={messages.searchText} placeholder={messages.searchText} value={query} onChange={event => { setQuery(event.target.value); setOffset(0) }} />
       {page && <span className="tabular">{messages.itemCount(total)}</span>}
     </label>
-    {error && <p className="settings-alert" role="alert">{error}</p>}
+    {error && <div className="settings-alert" role="alert"><span>{error}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={() => setError('')}><Icon name="close" size={16} /></button></div>}
     {[...groups].map(([heading, items]) => <section key={heading || view} className="items-group">
       {heading && <h3>{heading}</h3>}
       <div className="settings-card">
@@ -74,7 +73,6 @@ export function ItemsPane({ view, revision, timezone, today, disabled, select, s
       </div>
     </section>)}
     {page && !total && <p className="settings-empty">{query.trim() ? messages.noResults : messages.emptyList}</p>}
-    {view === 'trash' && page && total > 0 && <p className="settings-footnote">{settingsMessages.trashNote}</p>}
     {(total > limit || offset > 0) && <div className="items-pagination">
       <button type="button" className="settings-button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - limit))}>{messages.previousPage}</button>
       <span className="tabular">{offset + 1}–{Math.min(offset + limit, total)} / {total}</span>

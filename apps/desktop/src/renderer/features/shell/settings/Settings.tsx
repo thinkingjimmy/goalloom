@@ -143,7 +143,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
   </>
   const items = section === 'done' ? ending : section === 'trash' ? 'trash' : null
   const status = <>
-    {error && <p className="settings-alert" role="alert">{error}</p>}
+    {error && <div className="settings-alert" role="alert"><span>{error}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={() => setError('')}><Icon name="close" size={16} /></button></div>}
     {working && <p className="settings-footnote" role="status">{messages.checkingData}</p>}
   </>
 

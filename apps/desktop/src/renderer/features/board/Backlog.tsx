@@ -50,7 +50,7 @@ export function Backlog({ horizon, revision, submit, busy, close, select }: { ho
   }
   const empty = page !== null && total === 0
   return <Modal title={messages.backlogTitle(horizonNames[horizon])} close={close} wide className="backlog-modal">
-    <p className="field-note backlog-note">{empty ? messages.backlogEmpty : `${count(total)} ${messages.backlogNote}`}</p>
+    <p className="field-note backlog-note">{empty ? messages.backlogEmpty : messages.itemCount(count(total))}</p>
     {error && <p className="backlog-error" role="alert">{error}</p>}
     {items.length > 0 && <div className="backlog-toolbar">
       <label className="backlog-check"><input ref={allToggle} type="checkbox" checked={allPicked} onChange={() => void toggleAll()} /><span>{messages.selectAll}</span></label>

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences and features.
- * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Independent review reminders support local dismissal; completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
+ * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -35,6 +35,7 @@ import { ariaKeys, filterSlot, formatCombo, parseEvent, useShortcuts } from './s
 import type { Section } from './features/shell/settings/Settings'
 import { useAi } from './state/ai'
 import { hasUpdate, useUpdate } from './state/update'
+import { timezoneNoticeToken, useDismissedNotice } from './state/notices'
 import { resetLinkPreviewCache } from './components/links/cache'
 
 const Setup = lazy(() => import('./features/setup/Setup').then(module => ({ default: module.Setup })))
@@ -199,6 +200,9 @@ export function App() {
     return () => window.removeEventListener('keydown', handle)
   }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, reviewOpen, bindings, filterKeys, flows, selectFilter, columns])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
+  const workspaceZone = snapshot?.workspace.calendar?.timezone ?? null
+  const timezoneNotice = useDismissedNotice('timezone', workspaceZone ? timezoneNoticeToken(Intl.DateTimeFormat().resolvedOptions().timeZone, workspaceZone) : null)
+  const backupNotice = useDismissedNotice('backup', snapshot?.backupError ?? null)
   return <div className="app-shell" onPointerDownCapture={() => { inputOrigin.current = 'pointer' }}
     onKeyDownCapture={event => { if (!event.nativeEvent.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) inputOrigin.current = 'keyboard' }}>
     <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
@@ -206,9 +210,9 @@ export function App() {
       laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
       updateAvailable={hasUpdate(update)} openSearch={openPalette} openSettings={() => openSettings()} />
     {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</button></div>}
-    {snapshot?.workspace.calendar && Intl.DateTimeFormat().resolvedOptions().timeZone !== snapshot.workspace.calendar.timezone && <div className="notice-banner">{messages.timezoneMismatch} {snapshot.workspace.calendar.timezone}。</div>}
+    {timezoneNotice.open && workspaceZone && <div className="notice-banner"><span>{messages.timezoneMismatch} {workspaceZone}。</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={timezoneNotice.dismiss}><Icon name="close" size={16} /></button></div>}
     {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">{messages.restorePaused}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>{messages.confirmRollover}</button></div>}
-    {snapshot?.backupError && <div className="notice-banner">{snapshot.backupError}<button className="text-button" onClick={() => openSettings('backup')}>{messages.viewBackups}</button></div>}
+    {backupNotice.open && snapshot?.backupError && <div className="notice-banner"><span>{snapshot.backupError}</span><button className="text-button" onClick={() => openSettings('backup')}>{messages.viewBackups}</button><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={backupNotice.dismiss}><Icon name="close" size={16} /></button></div>}
     {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <button className="text-button" onClick={() => void retry()}>{messages.retry}</button>}<button className="icon-button small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <Setup confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy} errorCode={setupErrorCode ?? errorCode} />

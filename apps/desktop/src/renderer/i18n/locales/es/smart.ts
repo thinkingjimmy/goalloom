@@ -129,7 +129,6 @@ export const smartMessages: SmartCatalog = {
   aiSection: 'Servicios de IA',
   connectedGroup: 'Conectados',
   addGroup: 'Añadir un servicio',
-  addGroupNote: 'Cada servicio factura por separado; las claves nunca se comparten entre servicios',
   pausedMeta: 'En pausa',
   needsAttention: 'Requiere atención',
   notAdded: 'Sin clave',
