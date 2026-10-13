@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Pointer samples, row boxes and flow membership.
- * [OUTPUT]: Column paging, a rejected row-swipe, long-press drag, nest/reorder drops, outline rows and breakpoint flags.
+ * [OUTPUT]: Column paging, a rejected row-swipe, long-press drag, nest/reorder drops, outline rows, breakpoint flags and sheet-dismiss decisions.
  * [POS]: Gesture and board projection rules with no React Native.
  */
 import type { Horizon, PeriodHorizon } from './types'
@@ -27,6 +27,24 @@ export function completionLabel(where: 'note' | 'fold' | 'header', done: number,
 }
 
 export function rowSwipeAction(): null { return null }
+
+/** Hit height of the sheet grabber, measured from the top of the sheet. */
+export const SHEET_GRABBER = 44
+/** Downward speed, in px/ms, that closes the sheet even when the drag is short. */
+export const SHEET_DISMISS_VELOCITY = 0.75
+
+/** Pull down on the grabber, or on the body only while its content is at the top. */
+export function shouldDragSheet(dy: number, dx: number, scrollY: number, startOffsetY: number): boolean {
+  if (dy <= GESTURE_SLOP || dy < Math.abs(dx)) return false
+  if (startOffsetY <= SHEET_GRABBER) return true
+  return scrollY <= 1
+}
+
+/** Close once the drag passes the distance threshold or the flick is fast enough; otherwise spring back. */
+export function sheetRelease(distance: number, velocity: number, height: number): boolean {
+  const span = Math.max(height, 1)
+  return distance > Math.min(140, span * 0.28) || velocity > SHEET_DISMISS_VELOCITY
+}
 
 export function pageFromOffset(x: number, pageWidth: number, count = BOARD_COLUMNS.length): number {
   if (pageWidth <= 0) return OPEN_INDEX

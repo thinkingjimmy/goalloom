@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import {
-  Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Animated, Easing, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
-  BOARD_COLUMNS, FLOW_INDENT, LONG_PRESS_MS, NEST_INDENT, buildParentOrder, canNest, classifyPointer, columnSections,
+  BOARD_COLUMNS, FLOW_INDENT, LONG_PRESS_MS, NEST_INDENT, SHEET_GRABBER, buildParentOrder, canNest, classifyPointer, columnSections,
   completionLabel, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon,
-  parseCapture, periodMeta, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon,
+  parseCapture, periodMeta, sheetRelease, shouldDragSheet, showBreakpoint, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon,
   type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot, type UndoToken,
 } from '@goalloom/local-store'
 import { BlurView } from 'expo-blur'
@@ -33,6 +33,78 @@ const scrollInset = { contentInsetAdjustmentBehavior: 'never' as const }
 function chrome(bottomInset: number): { barBottom: number; contentBottom: number } {
   const barBottom = Math.max(bottomInset, 16)
   return { barBottom, contentBottom: barBottom + TAB_HEIGHT + 20 }
+}
+
+const SheetScrollY = createContext<RefObject<number> | null>(null)
+
+function SheetScrollView({ children }: { children: ReactNode }) {
+  const scrollY = useContext(SheetScrollY)
+  useEffect(() => {
+    if (scrollY) scrollY.current = 0
+    return () => { if (scrollY) scrollY.current = 0 }
+  }, [scrollY])
+  return <ScrollView {...scrollInset} bounces={false} scrollEventThrottle={16} onScroll={event => { if (scrollY) scrollY.current = event.nativeEvent.contentOffset.y }}>{children}</ScrollView>
+}
+
+function BottomSheet({ theme, paddingBottom, onDismiss, children }: { theme: Theme; paddingBottom: number; onDismiss: () => void; children: ReactNode }) {
+  const translateY = useRef(new Animated.Value(0)).current
+  const host = useRef<View>(null)
+  const top = useRef(0)
+  const height = useRef(480)
+  const scrollY = useRef(0)
+  const lead = useRef(0)
+  const dismiss = useRef(onDismiss)
+  dismiss.current = onDismiss
+  const measure = () => {
+    host.current?.measureInWindow((_x, y, _width, measured) => {
+      top.current = y
+      if (measured > 0) height.current = measured
+    })
+  }
+  const release = (distance: number, velocity: number) => {
+    if (sheetRelease(distance, velocity, height.current)) {
+      const remaining = Math.max(height.current - distance, 0)
+      const duration = Math.min(260, Math.max(140, remaining / Math.max(velocity, 0.8)))
+      Animated.timing(translateY, { toValue: height.current + 48, duration, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+        if (finished) dismiss.current()
+      })
+    } else {
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 18, stiffness: 220, mass: 0.6 }).start()
+    }
+  }
+  const pan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_event, gesture) => shouldDragSheet(gesture.dy, gesture.dx, scrollY.current, gesture.moveY - gesture.dy - top.current),
+    onMoveShouldSetPanResponderCapture: (_event, gesture) => {
+      const take = shouldDragSheet(gesture.dy, gesture.dx, scrollY.current, gesture.moveY - gesture.dy - top.current)
+      if (take) lead.current = gesture.dy
+      return take
+    },
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: () => { translateY.stopAnimation() },
+    onPanResponderMove: (_event, gesture) => { translateY.setValue(Math.max(0, lead.current + gesture.dy)) },
+    onPanResponderRelease: (_event, gesture) => release(Math.max(0, lead.current + gesture.dy), gesture.vy),
+    onPanResponderTerminate: () => release(0, 0),
+  })).current
+  const grabber = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_event, gesture) => {
+      const take = shouldDragSheet(gesture.dy, gesture.dx, 0, 0)
+      if (take) lead.current = gesture.dy
+      return take
+    },
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: () => { translateY.stopAnimation() },
+    onPanResponderMove: (_event, gesture) => { translateY.setValue(Math.max(0, lead.current + gesture.dy)) },
+    onPanResponderRelease: (_event, gesture) => release(Math.max(0, lead.current + gesture.dy), gesture.vy),
+    onPanResponderTerminate: () => release(0, 0),
+  })).current
+  return <SheetScrollY.Provider value={scrollY}>
+    <Animated.View ref={host} collapsable={false} onLayout={measure} {...pan.panHandlers} style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom, transform: [{ translateY }] }]}>
+      <View style={styles.grabHit} {...grabber.panHandlers}>
+        <View style={[styles.grab, { backgroundColor: theme.line }]} />
+      </View>
+      {children}
+    </Animated.View>
+  </SheetScrollY.Provider>
 }
 
 export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimized, sheet, toast, shot, viewed, captureSeed, onTab, onColumn, onMinimize, onSheet, onToast, onDismissToast, onCheck, onTrash, onMove, onNest, onReorder, onCreate, onEdit, onFlow, onLink, onUnlink, onPolicy, onAppearance, onBackup, onPrefs, onUndo, onRestore, onViewPeriod, activity, periodsAround }: {
@@ -73,10 +145,9 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
     <TabBar copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => onSheet(tab === 'settings' ? { kind: 'composer', horizon: 'day' } : { kind: 'composer' })} />
     {toast && <View style={[styles.toast, { backgroundColor: theme.fg, bottom: barBottom + TAB_HEIGHT + 12 }]}><Text style={{ color: theme.onAccent, flex: 1 }}>{toast.text}</Text>{toast.undo && <Pressable onPress={onUndo}><Text style={{ color: theme.focus, fontWeight: '700' }}>{copy.undo}</Text></Pressable>}<Pressable onPress={onDismissToast} accessibilityLabel={copy.close} hitSlop={8}><Icon name="close" size={16} color={theme.onAccent} /></Pressable></View>}
     {sheet && <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={() => onSheet(null)} />}
-    {sheet?.kind === 'menu' ? <Menu copy={copy} theme={theme} item={snap.items.find(item => item.id === sheet.id) ?? snap.trash.find(item => item.id === sheet.id)} onSheet={onSheet} onCheck={onCheck} onTrash={onTrash} onMove={onMove} /> : sheet && <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
-      <View style={[styles.grab, { backgroundColor: theme.line }]} />
+    {sheet?.kind === 'menu' ? <Menu copy={copy} theme={theme} item={snap.items.find(item => item.id === sheet.id) ?? snap.trash.find(item => item.id === sheet.id)} onSheet={onSheet} onCheck={onCheck} onTrash={onTrash} onMove={onMove} /> : sheet && <BottomSheet theme={theme} paddingBottom={Math.max(insets.bottom, 16) + 12} onDismiss={() => onSheet(null)}>
       <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} sheet={sheet} scheme={scheme} nodes={nodes} captureSeed={captureSeed} onSheet={onSheet} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onToast={onToast} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={onCheck} />
-    </View>}
+    </BottomSheet>}
   </View>
 }
 
@@ -485,7 +556,7 @@ function SheetBody(props: {
   if (sheet.kind === 'trash') return <View>{snap.trash.length === 0 ? <Text style={{ color: theme.secondary }}>{copy.emptyTrash}</Text> : snap.trash.map(row => <View key={row.id} style={styles.field}><Text style={{ color: theme.fg, flex: 1 }}>{row.title}</Text><Pressable onPress={() => props.onRestore(row.id)}><Text style={{ color: theme.focus }}>{copy.restore}</Text></Pressable></View>)}</View>
   if (sheet.kind === 'done') {
     const rows = snap.items.filter(row => row.status === 'done').sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
-    return <ScrollView {...scrollInset}>{rows.length === 0 ? <Text style={{ color: theme.secondary }}>{copy.emptyDone}</Text> : rows.map(row => <Pressable key={row.id} onPress={() => onSheet({ kind: 'detail', id: row.id })} style={styles.field}><Text style={{ color: theme.fg, flex: 1 }}>{row.title}</Text><Text style={{ color: theme.secondary }}>{copy[row.horizon]}</Text></Pressable>)}</ScrollView>
+    return <SheetScrollView>{rows.length === 0 ? <Text style={{ color: theme.secondary }}>{copy.emptyDone}</Text> : rows.map(row => <Pressable key={row.id} onPress={() => onSheet({ kind: 'detail', id: row.id })} style={styles.field}><Text style={{ color: theme.fg, flex: 1 }}>{row.title}</Text><Text style={{ color: theme.secondary }}>{copy[row.horizon]}</Text></Pressable>)}</SheetScrollView>
   }
   if (sheet.kind === 'links') {
     const links = snap.items.flatMap(row => row.note?.links.map(url => ({ url, title: row.title })) ?? [])
@@ -507,7 +578,8 @@ function Detail(props: { copy: Copy; theme: Theme; snap: Snapshot; item: ItemRow
   const colors = flowColors(item.id, props.nodes, snap.relations)
   const subs = snap.items.filter(row => row.nestingParentId === item.id)
   const names: Record<string, string> = { created: copy.activityCreated, moved: copy.activityMoved, status_changed: copy.activityStatus, deleted: copy.activityDeleted, item_restored: copy.activityRestored, nesting_changed: copy.activityNest, edited: copy.activityEdit, rolled_over: copy.activityRoll, undo: copy.undo }
-  return <ScrollView {...scrollInset}>
+  const step = showBreakpoint(item.id, props.nodes, snap.relations) ? nextHorizon(item.horizon) : null
+  return <SheetScrollView>
     <View style={styles.titleLine}>
       <Pressable onPress={() => props.onCheck(item)} hitSlop={8}><CheckBox done={item.status === 'done'} strokes={item.status === 'done' ? [] : colors.map(index => flowStroke(index, theme.scheme))} fill="none" edge={theme.checkEdge} checked={theme.checked} /></Pressable>
       <TextInput defaultValue={item.title} onEndEditing={event => onEdit(item.id, { title: event.nativeEvent.text })} style={[styles.detailTitle, { color: theme.fg }]} />
@@ -515,6 +587,7 @@ function Detail(props: { copy: Copy; theme: Theme; snap: Snapshot; item: ItemRow
     {parent && <Field theme={theme} label={copy.belongs} value={parent.title} onPress={() => onSheet({ kind: 'detail', id: parent.id })} />}
     <Field theme={theme} label={copy.column} value={copy[item.horizon]} onPress={() => onSheet({ kind: 'move', id: item.id })} />
     <Field theme={theme} label={copy.due} value={item.dueDate ? `${shortDue(item.dueDate)}${item.status !== 'done' && item.dueDate < snap.today ? copy.overdueSuffix : ''}` : copy.noDue} {...(item.status !== 'done' && item.dueDate && item.dueDate < snap.today ? { valueColor: theme.danger } : {})} onPress={() => onSheet({ kind: 'due', id: item.id })} />
+    {step && <Pressable onPress={() => onSheet({ kind: 'add', horizon: step, periodId: null, parentId: item.id })} style={styles.menuRow}><Text style={{ color: theme.focus, fontWeight: '600' }}>＋ {copy.nextStep}</Text></Pressable>}
     <Field theme={theme} label={copy.parent} value={parent ? copy.follows(parent.title) : parents.join(' · ') || copy.noParent} onPress={() => onSheet({ kind: 'parent', id: item.id })} />
     <Field theme={theme} label={copy.flowField} value={parent ? copy.followsParent : colors.length ? colors.map(index => snap.items.find(row => row.flowColor === index)?.title ?? '').filter(Boolean).join(' · ') : copy.noParent} onPress={() => undefined} />
     {!parent && item.horizon !== 'later' && <View style={styles.rowGap}>{[0, 1, 2, 3, 4, 5, 6, 7].map(index => <Pressable key={index} onPress={() => props.onFlow(item.id, item.flowColor === index ? null : index)} style={[styles.swatch, { backgroundColor: flowStroke(index, theme.scheme) }]} />)}</View>}
@@ -525,7 +598,7 @@ function Detail(props: { copy: Copy; theme: Theme; snap: Snapshot; item: ItemRow
     <Pressable onPress={() => onSheet({ kind: 'add', horizon: item.horizon, periodId: item.periodId, nestingParentId: item.id })} style={styles.menuRow}><Text style={{ color: theme.focus }}>{copy.addSub}</Text></Pressable>
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.activity}</Text>
     {props.activity(item.id).map((event, index) => <Text key={index} style={{ color: theme.secondary, marginVertical: 2 }}>{names[event.type] ?? event.type} · {event.at.slice(5, 10)}</Text>)}
-  </ScrollView>
+  </SheetScrollView>
 }
 
 function Composer({ copy, theme, snap, seed, horizon, onCreate, onSheet }: { copy: Copy; theme: Theme; snap: Snapshot; seed: string; horizon?: Horizon; onCreate: (drafts: CaptureDraft[]) => boolean; onSheet: (sheet: Sheet) => void }) {
@@ -609,8 +682,6 @@ const styles = StyleSheet.create({
   due: { fontSize: 12, fontVariant: ['tabular-nums'] },
   noteRow: { flexDirection: 'row', gap: 8, marginTop: -4, marginBottom: 4, alignItems: 'center' },
   note: { fontSize: 12 },
-  pill: { alignSelf: 'center', height: 24, borderRadius: 12, paddingHorizontal: 8, justifyContent: 'center' },
-  pillText: { color: '#fff', fontSize: 12 },
   nestLine: { height: 2, marginRight: 12, borderRadius: 2 },
   empty: { alignItems: 'center', paddingHorizontal: 36, paddingTop: 48, gap: 8 },
   emptyTitle: { fontSize: 16, fontWeight: '700' },
@@ -647,7 +718,8 @@ const styles = StyleSheet.create({
   toast: { position: 'absolute', left: 16, right: 16, bottom: 108, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '88%', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: 18, paddingBottom: 28 },
-  grab: { width: 36, height: 5, borderRadius: 3, alignSelf: 'center', marginVertical: 8 },
+  grabHit: { height: SHEET_GRABBER, alignItems: 'center', justifyContent: 'center' },
+  grab: { width: 36, height: 5, borderRadius: 3 },
   menu: { position: 'absolute', left: 48, top: 280, width: 230, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
   menuRow: { paddingHorizontal: 14, paddingVertical: 12 },
   detailTitle: { fontSize: 20, fontWeight: '600', flex: 1 },

@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  periodMeta, rowSwipeAction, showBreakpoint, userVersion, workspaceDate, type OrderNode, type SqlDriver,
+  periodMeta, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, userVersion, workspaceDate, type OrderNode, type SqlDriver,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -397,6 +397,22 @@ describe('workspace', () => {
     expect(completionLabel('fold', 1, 5)).toBe('1')
     expect(completionLabel('header', 1, 5)).toBeNull()
     expect(completionLabel('note', 0, 0)).toBeNull()
+  })
+
+  it('closes a sheet on a far or fast pull and springs back otherwise', () => {
+    expect(shouldDragSheet(12, 2, 80, 10)).toBe(true)
+    expect(shouldDragSheet(12, 2, 80, 90)).toBe(false)
+    expect(shouldDragSheet(12, 2, 0, 90)).toBe(true)
+    expect(shouldDragSheet(12, 2, 1, 90)).toBe(true)
+    expect(shouldDragSheet(12, 2, 2, 90)).toBe(false)
+    expect(shouldDragSheet(-12, 2, 0, 90)).toBe(false)
+    expect(shouldDragSheet(4, 1, 0, 10)).toBe(false)
+    expect(shouldDragSheet(10, 24, 0, 90)).toBe(false)
+    expect(sheetRelease(20, 0.2, 500)).toBe(false)
+    expect(sheetRelease(150, 0.2, 500)).toBe(true)
+    expect(sheetRelease(20, 0.9, 500)).toBe(true)
+    expect(sheetRelease(50, 0, 200)).toBe(false)
+    expect(sheetRelease(60, 0, 200)).toBe(true)
   })
 
   it('does not use the word 继承 in any locale', () => {
