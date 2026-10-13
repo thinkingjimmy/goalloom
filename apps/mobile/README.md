@@ -18,6 +18,8 @@ npx expo run:ios --no-install
 
 `npx expo run:ios` by itself also works, but Expo hides `pod install` output and that step can look stuck. The three commands above install the pods where you can see them, then build a development client and launch the booted iOS Simulator.
 
+The home-screen icon and launch splash come from `app.json` (`icon`, `ios.icon`, `android.adaptiveIcon`, `splash`). They are baked in by prebuild. A Metro reload does not change the icon; run the commands above again after an icon or splash change. The iOS icon is `assets/icon.png`, a 1024×1024 PNG with no alpha, flattened from `apps/desktop/resources/icon.png`.
+
 After the first native build, start the same client again with:
 
 ```sh

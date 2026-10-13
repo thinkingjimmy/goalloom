@@ -5,18 +5,38 @@
     "scheme": "goalloom",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#fcfaf8"
+    },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.goalloom.mobile"
+      "bundleIdentifier": "app.goalloom.mobile",
+      "icon": "./assets/icon.png"
     },
     "android": {
-      "package": "app.goalloom.mobile"
+      "package": "app.goalloom.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#fcfaf8"
+      }
     },
     "web": { "bundler": "metro" },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#fcfaf8",
+          "imageWidth": 200
+        }
+      ]
     ]
   }
 }
