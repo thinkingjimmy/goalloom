@@ -159,7 +159,7 @@ export default function Root() {
   const locale: LocaleId = boot.prefs.locale ?? systemLocale()
   const copy = catalogs[locale]
   const scheme = appearance(boot.snap.theme, systemScheme)
-  const theme = themeFor(scheme)
+  const theme = themeFor(scheme, boot.snap.style === 'minimal' ? 'minimal' : 'paper')
 
   bootRef.current = boot
   const refresh = () => setBoot({ ...boot, snap: boot.store.load(clock()) })
