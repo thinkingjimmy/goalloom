@@ -23,7 +23,10 @@ import { readJson, writeDataset } from '../workspace/transfer/files'
 import { serverText, loadServerLocale } from '../../shared/i18n/server'
 import { readAssistanceContext } from '../workspace/assistance-context'
 import { StartupUpgrade } from './upgrade'
+import { repairRejectedBaseline } from '@goalloom/sync'
+import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { protectSyncBackup, runSyncLocal } from '../workspace/sync/local'
+import { syncHost } from '../sync/host'
 
 if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort
@@ -35,6 +38,7 @@ let startup: { ok: true; protectivePath: string | null } | { ok: false; message:
 const initialized = loadServerLocale(workerData.locale).then(() => openWorkspace(workerData.databasePath, workerData.backupDirectory, clock.now)).then(opened => {
   db = opened.db
   repository = new Repository(db, clock)
+  try { repairRejectedBaseline(nodeSqlDriver(db), syncHost(db)) } catch { /* A failed repair leaves the previous file untouched inside its transaction. */ }
   service = new WorkspaceService(repository, workerData.backupDirectory)
   startup = { ok: true, protectivePath: opened.protective ? service.backups.path(opened.protective.id) : null }
 }, error => {

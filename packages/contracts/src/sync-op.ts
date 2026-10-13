@@ -62,11 +62,11 @@ export const actionSchema = z.discriminatedUnion('t', [
   z.strictObject({ t: z.literal('item.discardIfEmpty'), id, expectVersion: z.number().int().positive() }),
   z.strictObject({ t: z.literal('item.restore'), id, expectedDeleteOpId: id }),
   z.strictObject({ t: z.literal('item.rollover'), id, from: rolloverFromSchema, to: periodKeySchema, position: z.literal('append') }),
-  z.strictObject({ t: z.literal('rel.link'), id, parentId: id, childId: id, adoptParentFlow: z.boolean().optional() }),
+  z.strictObject({ t: z.literal('rel.link'), id, parentId: id, childId: id, adoptParentFlow: z.boolean().optional(), retain: z.literal(true).optional() }),
   z.strictObject({ t: z.literal('rel.unlink'), id }),
   z.strictObject({ t: z.literal('guidance.set'), itemId: id, value: guidanceValueSchema.nullable(), baseRevision: z.number().int().nonnegative() }),
   z.strictObject({ t: z.literal('policy.set'), horizon: periodHorizon, mode: z.enum(['auto', 'manual']), effectiveFromKey: periodKeySchema }),
-  z.strictObject({ t: z.literal('calendar.setup'), calendar: calendarSchema }),
+  z.strictObject({ t: z.literal('calendar.setup'), calendar: calendarSchema, confirmedAt: instant.optional() }),
   z.strictObject({ t: z.literal('revert'), targetOpId: z.uuid(), mode: z.enum(['all_or_nothing', 'per_dimension']) }),
 ])
 

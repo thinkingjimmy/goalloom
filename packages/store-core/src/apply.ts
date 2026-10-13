@@ -278,7 +278,9 @@ function link(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Act
   const parentPlace = driver.prepare(`SELECT horizon FROM ${prefix}item_placements WHERE itemId=?`).get(action.parentId)
   const childPlace = driver.prepare(`SELECT horizon, nestingParentId FROM ${prefix}item_placements WHERE itemId=?`).get(action.childId)
   if (text(childPlace, 'nestingParentId')) throw new SyncApplyError('flow_root_parent')
-  if (!parentPlace || !childPlace || !longerHorizon(String(parentPlace.horizon), String(childPlace.horizon))) throw new SyncApplyError('horizon_order')
+  // A baseline snapshot re-links edges that moves, undo, restore and import already kept. New links still require a longer parent.
+  const retained = action.retain === true || op.actions.some(other => other.t === 'calendar.setup')
+  if (!parentPlace || !childPlace || (!retained && !longerHorizon(String(parentPlace.horizon), String(childPlace.horizon)))) throw new SyncApplyError('horizon_order')
   if (child.flowColor !== null) {
     if (!action.adoptParentFlow) throw new SyncApplyError('flow_root_parent')
     const color = Number(child.flowColor)
@@ -334,7 +336,7 @@ function setupCalendar(driver: SqlDriver, prefix: string, op: SyncOp, action: Ex
   const workspace = driver.prepare(`SELECT calendar FROM ${prefix}workspace WHERE id=1`).get()
   if (text(workspace, 'calendar')) throw new SyncApplyError('calendar_locked')
   const calendar = JSON.stringify(action.calendar)
-  driver.prepare(`UPDATE ${prefix}workspace SET calendar=?, setupConfirmedAt=? WHERE id=1`).run(calendar, op.at)
+  driver.prepare(`UPDATE ${prefix}workspace SET calendar=?, setupConfirmedAt=? WHERE id=1`).run(calendar, action.confirmedAt ?? op.at)
   changes.push({ itemId: null, dim: 'calendar', before: null, after: action.calendar })
   return 'applied'
 }

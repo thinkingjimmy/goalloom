@@ -214,7 +214,9 @@ export class SyncService {
       generation: secrets.generation || view.generation, workspaceId, workspaceKey,
     })
     await this.remember(bound)
-    await this.storage({ type: 'baseline', deviceId, at: this.deps.now() })
+    const at = this.deps.now()
+    await this.storage({ type: 'protect', at })
+    await this.storage({ type: 'baseline', deviceId, at })
     await this.storage({ type: 'bind', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch }, at: this.deps.now() })
     this.becomeReady()
     await this.pushAndPull()
@@ -268,7 +270,9 @@ export class SyncService {
     secrets.generation = view.generation
     secrets.epoch = 1
     await this.persist()
-    await this.storage({ type: 'rebaseline', deviceId, at: this.deps.now() })
+    const at = this.deps.now()
+    await this.storage({ type: 'protect', at })
+    await this.storage({ type: 'rebaseline', deviceId, at })
     let bound: BoundWorkspace
     try {
       bound = await createRemoteWorkspace({

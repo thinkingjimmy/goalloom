@@ -376,6 +376,45 @@ it('writes a protective backup and asks for one transaction before replacing the
   expect(types).not.toContain('import')
 })
 
+it('backs up the board before the first device baselines and before a reset upload', async () => {
+  const remote = (): SyncRemote => ({
+    pullOps: async () => [], pushOps: async () => [], getRoster: async () => { throw new SyncFailure('network') },
+    getEnvelopes: async () => [], account: async () => null, registerDevice: async () => randomUUID(), rebindDevice: async () => undefined,
+    bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
+    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined, resetSync: async () => undefined,
+  })
+  const open = (phase: 'setup' | 'enter-key') => {
+    const calls: { type?: string }[] = []
+    const secret = newDeviceSecret()
+    const service = new SyncService({
+      userData: mkdtempSync(join(tmpdir(), 'goalloom-sync-baseline-')), cipher: identityCipher(),
+      storage: { call: async (_method: string, argument?: unknown) => {
+        const action = argument as { type?: string }
+        calls.push(action)
+        if (action.type === 'view') return { workspaceId: null, deviceId: null, generation: randomUUID(), keyEpoch: null, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 2 }
+        if (action.type === 'take') return []
+        return null
+      } } as unknown as StorageClient,
+      openExternal: async () => undefined, notify: () => undefined, onApplied: () => undefined, clipboard: () => undefined, now: () => now,
+    })
+    const opened = service as unknown as { started: boolean; secrets: VaultSecrets; remote: SyncRemote; phase: string }
+    opened.started = true
+    opened.phase = phase
+    opened.secrets = {
+      deviceId: randomUUID(), signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: null, workspaceId: null,
+      generation: null, epoch: null, roster: null, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
+    }
+    opened.remote = remote()
+    return { service, calls }
+  }
+  const created = open('setup')
+  await created.service.handle({ type: 'create', password: 'sync-pass' })
+  expect(created.calls.map(call => call.type).filter(type => type === 'protect' || type === 'baseline')).toEqual(['protect', 'baseline'])
+  const reset = open('enter-key')
+  await reset.service.handle({ type: 'reset-sync', password: 'sync-pass' })
+  expect(reset.calls.map(call => call.type).filter(type => type === 'protect' || type === 'rebaseline')).toEqual(['protect', 'rebaseline'])
+})
+
 it('signs out of this computer only and leaves a failed sign-in retryable', async () => {
   const cipher = identityCipher()
   const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-auth-'))

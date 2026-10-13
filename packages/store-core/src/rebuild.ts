@@ -1,7 +1,7 @@
 /**
  * [INPUT]: base_* projection, pending local sync_ops, and device-local workspace columns to preserve.
  * [OUTPUT]: Visible projection equals base plus replay of pending ops. Receipts and canon rows are not deleted.
- * [POS]: Reference rebase. A foreign-key failure aborts the caller transaction (storage pause).
+ * [POS]: Reference rebase. A foreign-key failure aborts the caller transaction (storage pause). Baseline op ids rethrow business errors so a bad snapshot rolls back.
  */
 import { parseSyncOp, syncOpPayload, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
@@ -20,7 +20,7 @@ export function copyProjectionToBase(driver: SqlDriver): void {
   }
 }
 
-export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost): void {
+export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost, options?: { strictOpIds?: ReadonlySet<string> }): void {
   const local = driver.prepare(`SELECT ${localColumns.join(',')}, revision FROM workspace WHERE id=1`).get()
   if (!local) throw new SyncApplyError('storage', 'workspace missing')
   driver.exec(`DELETE FROM item_guidance; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; UPDATE items SET flowColor=NULL;`)
@@ -49,6 +49,7 @@ export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost): void {
       driver.exec('RELEASE replay')
     } catch (error) {
       driver.exec('ROLLBACK TO replay'); driver.exec('RELEASE replay')
+      if (options?.strictOpIds?.has(String(row.opId))) throw error
       if (!businessCode(error)) throw error
     }
   }
@@ -65,7 +66,7 @@ function rememberOp(driver: SqlDriver, entry: RemoteEnvelope, outcome: 'applied'
 
 function pending(driver: SqlDriver): Record<string, import('./driver').SqlValue>[] {
   const cursor = Number(driver.prepare('SELECT lastAppliedSeq AS seq FROM sync_state WHERE id=1').get()?.seq ?? 0)
-  return driver.prepare(`SELECT payload FROM sync_ops WHERE origin='local' AND state IN ('never_sent','send_unknown','accepted') AND (seq IS NULL OR seq>?) ORDER BY localOrder`).all(cursor)
+  return driver.prepare(`SELECT opId, payload, at FROM sync_ops WHERE origin='local' AND state IN ('never_sent','send_unknown','accepted') AND (seq IS NULL OR seq>?) ORDER BY localOrder`).all(cursor)
 }
 
 export function assertForeignKeys(driver: SqlDriver): void {

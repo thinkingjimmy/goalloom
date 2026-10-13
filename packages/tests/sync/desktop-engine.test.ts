@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { expect, it } from 'vitest'
-import { hex, publicFromSeed, unhex, utf8 } from '@goalloom/crypto'
+import { hex, publicFromSeed, sha256Hex, unhex, utf8 } from '@goalloom/crypto'
+import { syncOpPayload, type CalendarWire, type SyncOp } from '@goalloom/contracts'
 import {
-  acceptRosterAdvance, bootstrapWorkspace, changeSyncPassword, exchange, joinWorkspace, memoryCiphertext, memoryRemote, newDeviceSecret,
-  queueVisibleBaseline, unlockWithPassword, SyncFailure, createMemoryWorld, type BoundWorkspace, type MemoryWorld,
+  acceptRosterAdvance, bootstrapWorkspace, changeSyncPassword, createRemoteWorkspace, exchange, joinWorkspace, memoryCiphertext, memoryRemote, newDeviceSecret,
+  queueVisibleBaseline, repairRejectedBaseline, unlockWithPassword, SyncFailure, createMemoryWorld, type BoundWorkspace, type MemoryWorld,
 } from '@goalloom/sync'
-import type { ApplyHost, SqlDriver } from '@goalloom/store-core'
+import { copyProjectionToBase, type ApplyHost, type SqlDriver } from '@goalloom/store-core'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import type { DatabaseSync } from 'node:sqlite'
 import { openDatabase } from '../../../apps/desktop/src/main/storage/database'
@@ -48,6 +49,14 @@ function live(db: DatabaseSync) {
   return db.prepare(`SELECT i.title AS title, p.nestingParentId AS parent, i.deletedAt AS deleted
     FROM items i JOIN item_placements p ON p.itemId=i.id ORDER BY i.title`).all()
     .map(row => ({ title: String(row.title), parent: row.parent === null ? null : String(row.parent), deleted: row.deleted !== null }))
+}
+
+function confirmed(db: DatabaseSync) {
+  const row = db.prepare('SELECT calendar, setupConfirmedAt FROM workspace WHERE id=1').get()
+  return {
+    calendar: row?.calendar ? JSON.parse(String(row.calendar)) as { id: string } : null,
+    setupConfirmedAt: row?.setupConfirmedAt ? String(row.setupConfirmedAt) : null,
+  }
 }
 
 function contains(haystack: Uint8Array, needle: Uint8Array): boolean {
@@ -199,4 +208,187 @@ it('changes the password from an unlocked computer and resets cloud data from th
   expect(peer.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL').all().map(row => String(row.title))).toContain('留在本机')
   first.db.close()
   peer.db.close()
+})
+
+it('keeps a configured board when the first computer enables sync', async () => {
+  const world = createMemoryWorld()
+  const first = desktop()
+  first.run({ type: 'create', title: '已有任务', horizon: 'week' })
+  const before = confirmed(first.db)
+  const alpha = await register(world, 'alpha')
+  const bound = await bootstrapWorkspace({
+    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', at: now,
+  })
+  expect(confirmed(first.db)).toEqual(before)
+  expect(first.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL').all().map(row => String(row.title))).toContain('已有任务')
+  await push({ ...alpha, driver: first.driver, host: first.host }, bound)
+  expect(confirmed(first.db)).toEqual(before)
+  expect(first.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL').all().map(row => String(row.title))).toContain('已有任务')
+  const peer = desktop()
+  const beta = await register(world, 'beta')
+  await joinWorkspace({
+    remote: beta.remote, driver: peer.driver, host: peer.host, deviceId: beta.deviceId, secret: beta.secret,
+    password: 'sync-pass', choice: 'use-remote', at: now,
+  })
+  expect(confirmed(peer.db).calendar?.id).toBe(before.calendar?.id)
+  expect(peer.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL').all().map(row => String(row.title))).toContain('已有任务')
+  first.db.close()
+  peer.db.close()
+})
+
+it('keeps an upgraded shadow board when the first computer enables sync', async () => {
+  const world = createMemoryWorld()
+  const first = desktop()
+  const parent = first.run({ type: 'create', title: '年度方向', horizon: 'year', flowColor: 1 })
+  const child = first.run({ type: 'create', title: '本周任务', horizon: 'week' })
+  const parentRow = first.repo.store.item(parent.itemId!)
+  const childRow = first.repo.store.item(child.itemId!)
+  first.run({
+    type: 'nest', itemId: child.itemId!, parentId: parent.itemId!, expectedVersion: childRow.version, expectedParentVersion: parentRow.version,
+    expectedPlacementVersion: childRow.placement.version, expectedParentPlacementVersion: parentRow.placement.version,
+  })
+  copyProjectionToBase(first.driver)
+  const before = confirmed(first.db)
+  const alpha = await register(world, 'alpha')
+  const bound = await bootstrapWorkspace({
+    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', at: now,
+  })
+  expect(confirmed(first.db)).toEqual(before)
+  expect(first.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL ORDER BY title').all().map(row => String(row.title))).toEqual(['年度方向', '本周任务'])
+  await push({ ...alpha, driver: first.driver, host: first.host }, bound)
+  expect(confirmed(first.db)).toEqual(before)
+  expect(first.db.prepare('SELECT nestingParentId FROM item_placements WHERE itemId=?').get(child.itemId!)).toMatchObject({ nestingParentId: parent.itemId })
+  first.db.close()
+})
+
+it('keeps a moved goal edge when the upgraded board is baselined', async () => {
+  const world = createMemoryWorld()
+  const first = desktop()
+  const parent = first.run({ type: 'create', title: '年度方向', horizon: 'year', flowColor: 1 })
+  const child = first.run({ type: 'create', title: '月度任务', horizon: 'month' })
+  const linkedParent = first.repo.store.item(parent.itemId!)
+  const linkedChild = first.repo.store.item(child.itemId!)
+  first.run({
+    type: 'link', parentId: parent.itemId!, childId: child.itemId!,
+    expectedParentVersion: linkedParent.version, expectedChildVersion: linkedChild.version,
+  })
+  const moved = first.repo.store.item(child.itemId!)
+  first.run({
+    type: 'move', itemId: child.itemId!, expectedVersion: moved.version, expectedPlacementVersion: moved.placement.version, horizon: 'year',
+  })
+  expect(first.db.prepare(`SELECT p.horizon AS horizon FROM items i JOIN item_placements p ON p.itemId=i.id WHERE i.deletedAt IS NULL ORDER BY i.title`).all())
+    .toEqual([{ horizon: 'year' }, { horizon: 'year' }])
+  expect(Number(first.db.prepare('SELECT count(*) AS n FROM item_relations WHERE invalidatedAt IS NULL').get()?.n)).toBe(1)
+  copyProjectionToBase(first.driver)
+  first.db.exec('DELETE FROM sync_ops')
+  const before = confirmed(first.db)
+  const alpha = await register(world, 'alpha')
+  const started = '2026-10-13T07:56:00.000Z'
+  const bound = await bootstrapWorkspace({
+    remote: alpha.remote, driver: first.driver, host: first.host, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', at: started,
+  })
+  const payloads = first.db.prepare('SELECT payload FROM sync_ops ORDER BY localOrder').all().map(row => JSON.parse(String(row.payload)) as SyncOp)
+  const calendarOp = payloads.find(op => op.actions.some(action => action.t === 'calendar.setup'))
+  expect(calendarOp?.actions).toEqual([{ t: 'calendar.setup', calendar: before.calendar, confirmedAt: before.setupConfirmedAt }])
+  expect(payloads.some(op => op.actions.length > 0 && op.actions.every(action => action.t === 'policy.set'))).toBe(true)
+  expect(payloads.flatMap(op => op.actions).find(action => action.t === 'rel.link')).toMatchObject({ retain: true, parentId: parent.itemId, childId: child.itemId })
+  expect(confirmed(first.db)).toEqual(before)
+  expect(first.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL ORDER BY title').all().map(row => String(row.title))).toEqual(['年度方向', '月度任务'])
+  expect(first.db.prepare('SELECT parentId, childId FROM item_relations WHERE invalidatedAt IS NULL').get()).toMatchObject({ parentId: parent.itemId, childId: child.itemId })
+  await push({ ...alpha, driver: first.driver, host: first.host }, bound)
+  expect(first.db.prepare('SELECT errorCode FROM sync_ops WHERE errorCode IS NOT NULL').all()).toEqual([])
+  expect(confirmed(first.db)).toEqual(before)
+  expect(String(first.db.prepare('SELECT paused FROM sync_state WHERE id=1').get()?.paused ?? '')).toBe('')
+  first.db.close()
+})
+
+it('rebuilds a rejected baseline from its payload without asking for setup again', () => {
+  const first = desktop()
+  const parent = first.run({ type: 'create', title: '年度方向', horizon: 'year', flowColor: 1 })
+  const child = first.run({ type: 'create', title: '月度任务', horizon: 'month' })
+  const parentId = parent.itemId!
+  const childId = child.itemId!
+  const linkedParent = first.repo.store.item(parentId)
+  const linkedChild = first.repo.store.item(childId)
+  first.run({
+    type: 'link', parentId, childId, expectedParentVersion: linkedParent.version, expectedChildVersion: linkedChild.version,
+  })
+  const moved = first.repo.store.item(childId)
+  first.run({ type: 'move', itemId: childId, expectedVersion: moved.version, expectedPlacementVersion: moved.placement.version, horizon: 'year' })
+  const calendar = JSON.parse(String(first.db.prepare('SELECT calendar FROM workspace WHERE id=1').get()?.calendar)) as CalendarWire
+  const startDate = String(first.db.prepare(`SELECT pp.startDate AS startDate FROM planning_periods pp JOIN item_placements p ON p.periodId=pp.id WHERE p.itemId=?`).get(parentId)?.startDate)
+  const policies = first.db.prepare(`SELECT r.horizon AS horizon, r.mode AS mode, pp.startDate AS startDate, pp.horizon AS periodHorizon
+    FROM rollover_policies r JOIN planning_periods pp ON pp.id=r.effectiveFromPeriodId`).all()
+  const baselineAt = '2026-10-04T03:00:00.000Z'
+  const deviceId = 'device-a'
+  const baselineId = randomUUID()
+  const edgeId = randomUUID()
+  const baseline: SyncOp = {
+    v: 1, opId: baselineId, deviceId, at: baselineAt,
+    actions: [
+      { t: 'calendar.setup', calendar },
+      ...policies.map(row => ({
+        t: 'policy.set' as const,
+        horizon: String(row.horizon) as 'year',
+        mode: String(row.mode) as 'auto',
+        effectiveFromKey: { horizon: String(row.periodHorizon) as 'year', startDate: String(row.startDate) },
+      })),
+      { t: 'item.create', id: parentId, title: '年度方向', description: '', dueDate: null, horizon: 'year', periodKey: { horizon: 'year', startDate }, sortHint: { afterId: null, beforeId: null }, flowColor: 1 },
+      { t: 'item.create', id: childId, title: '月度任务', description: '', dueDate: null, horizon: 'year', periodKey: { horizon: 'year', startDate }, sortHint: { afterId: parentId, beforeId: null } },
+      { t: 'rel.link', id: edgeId, parentId, childId },
+    ],
+  }
+  const rollover = (): SyncOp => ({
+    v: 1, opId: randomUUID(), deviceId: 'system', at: '2026-09-28T00:00:00.000Z',
+    actions: [{ t: 'item.rollover', id: childId, from: { periodKey: { horizon: 'month', startDate: '2026-09-01' }, placementSeq: 1 }, to: { horizon: 'month', startDate: '2026-10-01' }, position: 'append' }],
+  })
+  first.db.exec(`DELETE FROM item_guidance; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM items;
+    DELETE FROM base_item_guidance; DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_items; DELETE FROM sync_ops;`)
+  first.db.prepare('UPDATE workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
+  first.db.prepare('UPDATE base_workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
+  const rejected = (op: SyncOp, order: number, seq: number, errorCode: string) => {
+    const payload = syncOpPayload(op)
+    first.db.prepare(`INSERT INTO sync_ops (opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,outcome,seq,errorCode,createdAt,updatedAt)
+      VALUES (?,?,'local',1,?,?,?,?, 'applied','rejected',?,?,?,?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, seq, errorCode, baselineAt, baselineAt)
+  }
+  rejected(baseline, 1, 1, 'horizon_order')
+  rejected(rollover(), 2, 2, 'item_deleted')
+  rejected(rollover(), 3, 3, 'item_deleted')
+  first.db.prepare('UPDATE sync_state SET lastAppliedSeq=3, updatedAt=? WHERE id=1').run(baselineAt)
+  expect(confirmed(first.db).setupConfirmedAt).toBeNull()
+  expect(repairRejectedBaseline(first.driver, first.host)).toBe(true)
+  expect(confirmed(first.db).calendar?.id).toBe(calendar.id)
+  expect(confirmed(first.db).setupConfirmedAt).toBe(baselineAt)
+  expect(first.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL ORDER BY title').all().map(row => String(row.title))).toEqual(['年度方向', '月度任务'])
+  expect(first.db.prepare('SELECT parentId, childId FROM item_relations WHERE invalidatedAt IS NULL').get()).toMatchObject({ parentId, childId })
+  expect(repairRejectedBaseline(first.driver, first.host)).toBe(false)
+  first.db.close()
+})
+
+it('does not clear a local board when the cloud workspace is still phrase-era', async () => {
+  const world = createMemoryWorld()
+  const local = desktop()
+  local.run({ type: 'create', title: '本机任务', horizon: 'later' })
+  const before = confirmed(local.db)
+  const alpha = await register(world, 'alpha')
+  await createRemoteWorkspace({
+    remote: alpha.remote, deviceId: alpha.deviceId, secret: alpha.secret, password: 'sync-pass', generation: randomUUID(),
+  })
+  const row = world.workspace?.envelopes.find(item => item.recipient === 'recovery')
+  if (!row) throw new Error('recovery envelope missing')
+  row.ciphertext = hex(utf8(JSON.stringify({ v: 1 })))
+  const beta = await register(world, 'beta')
+  await expect(bootstrapWorkspace({
+    remote: beta.remote, driver: local.driver, host: local.host, deviceId: beta.deviceId, secret: beta.secret, password: 'sync-pass', at: now,
+  })).rejects.toMatchObject({ code: 'rejected' })
+  await expect(unlockWithPassword({
+    remote: beta.remote, deviceId: beta.deviceId, secret: beta.secret, password: 'sync-pass',
+  })).rejects.toMatchObject({ code: 'key' })
+  await expect(joinWorkspace({
+    remote: beta.remote, driver: local.driver, host: local.host, deviceId: beta.deviceId, secret: beta.secret,
+    password: 'sync-pass', choice: 'use-remote', at: now,
+  })).rejects.toBeInstanceOf(SyncFailure)
+  expect(confirmed(local.db)).toEqual(before)
+  expect(local.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL').get()?.title).toBe('本机任务')
+  local.db.close()
 })

@@ -80,6 +80,8 @@ Local commands run first. The SyncOp is the diff plus the intent, written in the
 
 Confirmed state lives in `base_*`, cloned from the seven business tables (constraints included). Visible rows are `base_*` plus pending ops (`never_sent`, `send_unknown`, and `accepted` with `seq > lastAppliedSeq`).
 
+A first-device baseline writes `calendar.setup` (with `confirmedAt` when the board was already confirmed) and each `policy.set` as their own ops, then the remaining actions in chunks of 200. Snapshot `rel.link` actions set `retain: true`. Replay of those baseline op ids does not swallow business errors: the baseline transaction rolls back and sync pauses. A launch with an empty `setupConfirmedAt` and a rejected local op whose first action is `calendar.setup` rebuilds the board from that op's stored payload.
+
 `mergeRemoteOps` requires `seq = lastAppliedSeq + 1`. Each op runs in a `SAVEPOINT`. Business errors record `rejected` and a `sync_conflicts` row; the cursor still advances. Storage errors abort the transaction and leave the cursor unchanged (case 3).
 
 `rebuildVisibleFull` preserves device-local workspace columns, copies `base_*` back, then replays pending ops. `operations` rows are not deleted. Visible `workspace.revision` becomes the greater of the visible counter and `base_workspace.revision`, so a local command does not roll the renderer guard backward. Tests: cases 9, 11, 12, 19 and `packages/tests/sync/applier-review.test.ts`.
@@ -88,7 +90,8 @@ Confirmed state lives in `base_*`, cloned from the seven business tables (constr
 
 The reference applier (`packages/store-core/src/apply.ts`) additionally:
 
-- `rel.link` rejects Later and any parent that is not in a strictly longer horizon (`horizon_order`). Cycles stay on the SQLite trigger (`relation_cycle`).
+- `rel.link` rejects Later and any parent that is not in a strictly longer horizon (`horizon_order`). `retain: true`, or a `calendar.setup` in the same op, keeps an edge that a move, undo, restore or import already kept. Cycles stay on the SQLite trigger (`relation_cycle`).
+- `calendar.setup` may include `confirmedAt`. When it is absent, the op's `at` is stored as the confirmation time.
 - A colored child requires `adoptParentFlow`. The color is cleared on the child and copied to the parent only when that parent is uncolored and has no active edge.
 - `item.place` into Later records a relation change for each parent edge it invalidates. A `rel.unlink` for an edge this same op already invalidated does not record a second change. Sort is scoped to the current nesting parent, which `item.place` does not change.
 - `item.nest` requires the same horizon and period as the parent, a root parent, and a child with no live children, flow color or incoming goal edge. Two-level and same-period failures are `outline_conflict`. The SQL triggers remain the cycle and color backstop.
