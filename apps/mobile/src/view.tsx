@@ -25,6 +25,7 @@ export type Sheet =
   | { kind: 'language' } | { kind: 'columns' } | { kind: 'check' } | { kind: 'style' } | { kind: 'celebrate' }
   | null
 
+const languageNames: Record<LocaleId, string> = { zh: '中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }
 const previous: Partial<Record<PeriodHorizon, PeriodHorizon>> = { half: 'year', cycle: 'half', month: 'cycle', week: 'month', day: 'week' }
 const rank: Record<Horizon, number> = { year: 0, half: 1, cycle: 2, month: 3, week: 4, day: 5, later: 6 }
 const TAB_HEIGHT = 62
@@ -146,7 +147,7 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
     {toast && <View style={[styles.toast, { backgroundColor: theme.fg, bottom: barBottom + TAB_HEIGHT + 12 }]}><Text style={{ color: theme.onAccent, flex: 1 }}>{toast.text}</Text>{toast.undo && <Pressable onPress={onUndo}><Text style={{ color: theme.focus, fontWeight: '700' }}>{copy.undo}</Text></Pressable>}<Pressable onPress={onDismissToast} accessibilityLabel={copy.close} hitSlop={8}><Icon name="close" size={16} color={theme.onAccent} /></Pressable></View>}
     {sheet && <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={() => onSheet(null)} />}
     {sheet?.kind === 'menu' ? <Menu copy={copy} theme={theme} item={snap.items.find(item => item.id === sheet.id) ?? snap.trash.find(item => item.id === sheet.id)} onSheet={onSheet} onCheck={onCheck} onTrash={onTrash} onMove={onMove} /> : sheet && <BottomSheet theme={theme} paddingBottom={Math.max(insets.bottom, 16) + 12} onDismiss={() => onSheet(null)}>
-      <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} sheet={sheet} scheme={scheme} nodes={nodes} captureSeed={captureSeed} onSheet={onSheet} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onToast={onToast} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={onCheck} />
+      <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} sheet={sheet} scheme={scheme} nodes={nodes} captureSeed={captureSeed} onSheet={onSheet} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onToast={onToast} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={onCheck} />
     </BottomSheet>}
   </View>
 }
@@ -221,14 +222,12 @@ function Board({ copy, theme, snap, columns, column, hide, shot, viewed, nodes, 
           <ScrollView scrollEnabled={!dragId} onScroll={event => { scrolls.current[horizon] = event.nativeEvent.contentOffset.y; onScroll(event) }} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: contentBottom }} {...scrollInset}>
             <View style={styles.header}>
               <View style={styles.headerText}>
-                <Text style={[styles.periodTitle, { color: theme.fg }]}>{copy[horizon]}</Text>
-                {!!meta.meta && <Pressable onPress={() => horizon !== 'later' && onSheet({ kind: 'period', horizon })} style={styles.metaPress}>
-                  <Text style={[styles.meta, { color: theme.secondary }]}>{meta.meta}</Text>
-                  <Icon name="down" size={14} color={theme.faint} />
+                {horizon === 'later' ? <Text style={[styles.periodTitle, { color: theme.fg }]}>{copy.later}</Text> : <Pressable onPress={() => onSheet({ kind: 'period', horizon })} style={styles.metaPress} accessibilityRole="button">
+                  <Text numberOfLines={1} style={[styles.periodTitle, styles.heading, { color: theme.fg }]}>{meta.meta}</Text>
+                  <Icon name="down" size={16} color={theme.faint} />
                 </Pressable>}
               </View>
               {meta.countdown !== null && <View style={[styles.count, { backgroundColor: theme.hover }]}><Text style={{ color: theme.secondary, fontVariant: ['tabular-nums'] }}>{meta.countdown}</Text></View>}
-              <Pressable onPress={() => onSheet({ kind: 'add', horizon, periodId: period?.id ?? null })} hitSlop={8}><Icon name="add" size={22} color={theme.secondary} /></Pressable>
             </View>
             {manual && backlog > 0 && <Pressable onPress={() => onSheet({ kind: 'backlog', horizon })} style={styles.entry}><Text style={{ color: theme.secondary }}>{copy.backlog(backlog)}</Text><Icon name="next" size={14} color={theme.faint} /></Pressable>}
             {outline.length === 0 ? <Empty copy={copy} theme={theme} horizon={horizon} sources={sources.length} onDraft={() => onSheet({ kind: 'composer' })} onWrite={() => onSheet({ kind: 'add', horizon, periodId: period?.id ?? null })} /> : <>
@@ -421,7 +420,7 @@ function Settings({ copy, theme, snap, prefs, locale, contentBottom, onSheet, on
   const visible = BOARD_COLUMNS.filter(horizon => horizon === 'later' ? prefs.later : prefs.columns[horizon]).length
   const doneCount = snap.items.filter(item => item.status === 'done').length
   const celebrating = BOARD_COLUMNS.some(horizon => prefs.celebration[horizon])
-  const localeName = { zh: '简体中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }[prefs.locale ?? locale]
+  const localeName = languageNames[prefs.locale ?? locale]
   const check = snap.checkStyle === 'outline' ? copy.outline : snap.checkStyle === 'tint' ? copy.tint : copy.paper
   return <ScrollView onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: contentBottom }} {...scrollInset}>
     <Text style={[styles.screenTitle, { color: theme.fg }]}>{copy.settings}</Text>
@@ -459,7 +458,6 @@ function Settings({ copy, theme, snap, prefs, locale, contentBottom, onSheet, on
         </View>
       </View>)}
     </Card>
-    <CalendarNote copy={copy} theme={theme} />
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.backup}</Text>
     <Card theme={theme}>
       <Field theme={theme} label={copy.backupDaily} value={snap.backupEnabled ? copy.on : copy.off} onPress={onBackup} />
@@ -473,15 +471,6 @@ function Settings({ copy, theme, snap, prefs, locale, contentBottom, onSheet, on
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.about}</Text>
     <Card theme={theme}><Field theme={theme} label="Goalloom" value={copy.version} onPress={() => undefined} /></Card>
   </ScrollView>
-}
-
-function CalendarNote({ copy, theme }: { copy: Copy; theme: Theme }) {
-  const [open, setOpen] = useState(true)
-  if (!open) return null
-  return <View style={[styles.notice, { backgroundColor: theme.raised, borderColor: theme.line }]}>
-    <Text style={[styles.note, styles.flex, { color: theme.secondary }]}>{copy.calendarLocked}</Text>
-    <Pressable onPress={() => setOpen(false)} accessibilityLabel={copy.close} hitSlop={8}><Icon name="close" size={16} color={theme.secondary} /></Pressable>
-  </View>
 }
 
 function Card({ theme, children }: { theme: Theme; children: ReactNode }) {
@@ -525,7 +514,7 @@ function Menu({ copy, theme, item, onSheet, onCheck, onTrash, onMove }: { copy: 
 }
 
 function SheetBody(props: {
-  copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; sheet: Exclude<Sheet, null>; scheme: Theme['scheme']
+  copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; sheet: Exclude<Sheet, null>; scheme: Theme['scheme']
   nodes: Map<string, { id: string; flowColor: number | null; nestingParentId: string | null; horizon: Horizon; status: string }>
   captureSeed: string
   onSheet: (sheet: Sheet) => void; onCreate: (drafts: CaptureDraft[], periodId?: string | null) => boolean
@@ -563,7 +552,13 @@ function SheetBody(props: {
     return <View>{links.length === 0 ? <Text style={{ color: theme.secondary }}>{copy.linkNone}</Text> : links.map(link => <Text key={link.url + link.title} style={{ color: theme.fg, marginVertical: 6 }}>{linkHost(link.url)}</Text>)}</View>
   }
   if (sheet.kind === 'export') return <Text selectable style={{ color: theme.fg }}>{sheet.json}</Text>
-  if (sheet.kind === 'language') return <View>{(['zh', 'en', 'ja', 'es', 'fr'] as const).map(locale => <Pressable key={locale} onPress={() => { props.onPrefs({ ...props.prefs, locale }); onSheet(null) }} style={styles.menuRow}><Text style={{ color: theme.fg }}>{locale}</Text></Pressable>)}</View>
+  if (sheet.kind === 'language') {
+    const current = props.prefs.locale ?? props.locale
+    return <View>{(['zh', 'en', 'ja', 'es', 'fr'] as const).map(id => <Pressable key={id} onPress={() => { props.onPrefs({ ...props.prefs, locale: id }); onSheet(null) }} style={styles.languageRow}>
+      <Text style={{ color: theme.fg, flex: 1, fontSize: 16, fontWeight: id === current ? '600' : '400' }}>{languageNames[id]}</Text>
+      {id === current && <Icon name="check" size={18} color={theme.fg} />}
+    </Pressable>)}</View>
+  }
   if (sheet.kind === 'columns') return <View>{BOARD_COLUMNS.map(horizon => <Pressable key={horizon} onPress={() => props.onPrefs({ ...props.prefs, later: horizon === 'later' ? !props.prefs.later : props.prefs.later, columns: horizon === 'later' ? props.prefs.columns : { ...props.prefs.columns, [horizon]: !props.prefs.columns[horizon] } })} style={styles.menuRow}><Text style={{ color: theme.fg }}>{copy[horizon]} {horizon === 'later' ? (props.prefs.later ? copy.on : copy.off) : props.prefs.columns[horizon] ? copy.on : copy.off}</Text></Pressable>)}</View>
   if (sheet.kind === 'check') return <View>{(['outline', 'paper', 'tint'] as const).map(style => <Pressable key={style} onPress={() => { props.onAppearance({ checkStyle: style }); onSheet(null) }} style={styles.menuRow}><Text style={{ color: theme.fg }}>{style === 'outline' ? copy.outline : style === 'paper' ? copy.paper : copy.tint}</Text></Pressable>)}</View>
   if (sheet.kind === 'style') return <View>{(['paper', 'minimal'] as const).map(style => <Pressable key={style} onPress={() => { props.onAppearance({ style }); onSheet(null) }} style={styles.menuRow}><Text style={{ color: theme.fg }}>{style === 'paper' ? copy.paper : copy.minimal}</Text></Pressable>)}</View>
@@ -668,8 +663,8 @@ const styles = StyleSheet.create({
   header: { minHeight: 60, paddingLeft: 20, paddingRight: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerText: { flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   periodTitle: { fontSize: 26, fontWeight: '700', letterSpacing: -0.3 },
-  metaPress: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  meta: { fontSize: 15, fontVariant: ['tabular-nums'] },
+  metaPress: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0 },
+  heading: { flexShrink: 1 },
   count: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   entry: { marginLeft: 20, height: 30, flexDirection: 'row', alignItems: 'center', gap: 4 },
   row: { minHeight: 44, paddingVertical: 5, paddingRight: 16, paddingLeft: 20, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
@@ -699,7 +694,6 @@ const styles = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, marginTop: 8 },
   dotChip: { marginTop: 0 },
   rail: { position: 'absolute', left: 0, top: 0 },
-  notice: { marginHorizontal: 12, marginTop: 8, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   section: { marginTop: 18, marginBottom: 6, marginHorizontal: 20, fontSize: 13, fontWeight: '600' },
   card: { marginHorizontal: 12, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   field: { minHeight: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
@@ -722,6 +716,7 @@ const styles = StyleSheet.create({
   grab: { width: 36, height: 5, borderRadius: 3 },
   menu: { position: 'absolute', left: 48, top: 280, width: 230, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
   menuRow: { paddingHorizontal: 14, paddingVertical: 12 },
+  languageRow: { minHeight: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   detailTitle: { fontSize: 20, fontWeight: '600', flex: 1 },
   desc: { minHeight: 72, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, padding: 12, fontSize: 15 },
   preview: { borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, padding: 10, marginBottom: 8, gap: 4 },
