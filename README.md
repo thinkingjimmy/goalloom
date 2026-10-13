@@ -88,7 +88,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.8.0 adds optional sync between computers. Sign in with Google and your board stays in sync; your data is encrypted before it leaves your device. Setup asks you to save a recovery key. See the [1.8.0 release notes](./docs/releases/v1.8.0.md). Build-time sync configuration is in the [development guide](./docs/development.md).
+Version 1.8.0 adds optional sync between computers. Sign in with Google and your board stays in sync; your data is encrypted before it leaves your device. Setup asks you to set a sync password. See the [1.8.0 release notes](./docs/releases/v1.8.0.md). Build-time sync configuration is in the [development guide](./docs/development.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 
