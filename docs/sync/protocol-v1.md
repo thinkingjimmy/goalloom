@@ -64,8 +64,19 @@ Local commands run first. The SyncOp is the diff plus the intent, written in the
 | `undo` of `never_sent` | no new op; that row becomes `reverted_local` | sync-emit undo; cases 10 and 20 |
 | `undo` of `send_unknown` or `accepted` | new `revert` op, `all_or_nothing` | cases 10 and 20 |
 | `undoBatch` of a system rollover | each undone `item.rollover`: `never_sent` becomes `reverted_local`; `send_unknown`, `accepted` or `applied` gets its own `revert` op. Skipped effects are left alone | sync-emit-commands |
-| `preferences`, `backupPreferences`, `confirmClock`, `confirmRollover` | none | sync-emit; confirmRollover in sync-emit-commands |
+| `preferences`, `backupPreferences` | `pref.set`, one action per changed key. Last writer wins per key (`at`, then `opId`) | sync-emit; `packages/tests/sync/settings-sync.test.ts` |
+| `confirmClock`, `confirmRollover` | none | sync-emit; confirmRollover in sync-emit-commands |
 | reconcile rollover | one local `operations` receipt, plus one `item.rollover` per moved root and per grouped child whose `base_item_placements` period still matches the source | cases 13 and 14 |
+
+## Settings
+
+User-facing preferences and API keys ride the same op log. There is no separate switch: once sync is on, a change emits `pref.set`. The value is sealed with the workspace key before upload. The server stores ciphertext.
+
+`sync_settings` is an additive side table (`CREATE TABLE IF NOT EXISTS`). It does not change the v8 business DDL or `user_version`. A replay writes the row when the incoming `at` is newer, then the same `at` with a greater `opId`. The same `opId` does not write again. Workspace columns (`theme`, `style`, `checkStyle`, backup) are projected onto the visible workspace after replay. Language, renderer preferences and API keys are applied live by the desktop: language updates the device preference file, renderer keys update the open window, and an API key is decrypted on the writer, sealed inside the op, then written back into that computer’s keychain. Plaintext keys are removed from backup copies of the database.
+
+Week start, timezone, calendar mode and the cycle anchor stay on `calendar.setup`. Rollover policy stays on `policy.set`.
+
+These stay on the device: window size and position, the sync refresh token and session tokens, device id, the sync password and every key derived from it, clock anomaly, restore pause, workspace generation, review drafts and summary cache, dismissed notices, insight reviewed / dismissed / onboarded marks, and the link preview cache.
 
 ## Send states
 

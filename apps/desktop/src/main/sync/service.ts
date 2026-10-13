@@ -68,6 +68,8 @@ export class SyncService {
   private poll: ReturnType<typeof setInterval> | null = null
   private channel: { unsubscribe: () => Promise<unknown> } | null = null
   private started = false
+  private seedPending = false
+  private appliedSetting = new Map<string, string>()
 
   constructor(private deps: {
     userData: string
@@ -76,6 +78,9 @@ export class SyncService {
     openExternal: (url: string) => Promise<void>
     notify: (status: SyncStatus) => void
     onApplied: () => void
+    onSettings?: (rows: { key: string; value: unknown; updatedAt: string; opId: string }[]) => Promise<string[]>
+    collectSeed?: () => Promise<{ key: string; value: unknown }[]>
+    language?: () => string
     clipboard: (text: string) => void
     now: () => string
     beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>, options?: { signal?: AbortSignal }) => Promise<Session>
@@ -398,6 +403,7 @@ export class SyncService {
     this.dropPassword()
     this.phase = 'ready'
     this.error = null
+    this.seedPending = true
     this.listen()
   }
 
@@ -506,10 +512,45 @@ export class SyncService {
   }
 
   private async pushAndPull(): Promise<void> {
+    if (this.deps.onSettings) await this.projectRemote()
+    if (this.seedPending && this.deps.collectSeed && this.deps.language) await this.seedLocal()
+    this.seedPending = false
     await this.exchangeOnce()
+    if (this.deps.onSettings) await this.projectRemote()
     this.error = null
     this.offline = false
     this.lastSyncedAt = this.deps.now()
+  }
+
+  private async seedLocal(): Promise<void> {
+    const collectSeed = this.deps.collectSeed
+    const language = this.deps.language
+    if (!collectSeed || !language) return
+    const meta = await this.deps.storage.call<{ workspace: { theme: string; style: string; checkStyle: string; backupEnabled: boolean; backupRetention: number } }>('metadata')
+    const entries = [
+      { key: 'theme', value: meta.workspace.theme },
+      { key: 'style', value: meta.workspace.style },
+      { key: 'checkStyle', value: meta.workspace.checkStyle },
+      { key: 'backup.enabled', value: meta.workspace.backupEnabled },
+      { key: 'backup.retention', value: meta.workspace.backupRetention },
+      { key: 'language', value: language() },
+      ...await collectSeed(),
+    ]
+    await this.storage({ type: 'emit-settings', entries, at: this.deps.now(), opId: globalThis.crypto.randomUUID(), mode: 'seed' })
+  }
+
+  private async projectRemote(): Promise<void> {
+    const onSettings = this.deps.onSettings
+    if (!onSettings) return
+    const rows = await this.storage<{ key: string; value: unknown; updatedAt: string; opId: string }[]>({ type: 'settings' })
+    if (!Array.isArray(rows)) return
+    const fresh = rows.filter(row => this.appliedSetting.get(row.key) !== row.opId)
+    if (!fresh.length) return
+    const applied = await onSettings(fresh)
+    for (const key of applied) {
+      const row = fresh.find(item => item.key === key)
+      if (row) this.appliedSetting.set(key, row.opId)
+    }
   }
 
   private async exchangeOnce(): Promise<void> {

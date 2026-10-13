@@ -6,7 +6,7 @@
  */
 import type { z } from 'zod'
 import { contextBridge, ipcRenderer } from 'electron'
-import { languageChannel, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
+import { devicePrefEntrySchema, devicePrefsChannel, devicePrefsEvent, devicePrefsReportSchema, languageChannel, languageEvent, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
 import { activitySummarySchema, backupSummarySchema, boardPeriodsSchema, reviewContextSchema, itemCountsSchema, detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
 import { replySchema, resultSchema } from '../shared/contracts/commands'
 import { activitySchema, historyIndexSchema, historyPageSchema, pastPeriodPageSchema } from '../shared/contracts/history'
@@ -43,6 +43,26 @@ const api: GoalloomApi = {
   getRuntime: async () => runtimeInfoSchema.parse(await ipcRenderer.invoke(runtimeChannel)),
   getLanguage: () => language(ipcRenderer.invoke(languageChannel)),
   setLanguage: input => language(ipcRenderer.invoke(languageChannel, input)),
+  onLanguage: listener => {
+    const receive = (_event: unknown, value: unknown) => {
+      const parsed = languageStateSchema.safeParse(value)
+      if (!parsed.success) return
+      setValidationLocale(parsed.data.locale)
+      listener(parsed.data)
+    }
+    ipcRenderer.on(languageEvent, receive)
+    return () => { ipcRenderer.removeListener(languageEvent, receive) }
+  },
+  pullDevicePrefs: async () => devicePrefEntrySchema.array().parse(await ipcRenderer.invoke(devicePrefsChannel)),
+  reportDevicePrefs: async (entries, mode) => { await ipcRenderer.invoke(devicePrefsChannel, devicePrefsReportSchema.parse({ entries, mode })) },
+  onDevicePrefs: listener => {
+    const receive = (_event: unknown, value: unknown) => {
+      const parsed = devicePrefEntrySchema.array().safeParse(value)
+      if (parsed.success) listener(parsed.data)
+    }
+    ipcRenderer.on(devicePrefsEvent, receive)
+    return () => { ipcRenderer.removeListener(devicePrefsEvent, receive) }
+  },
   getSnapshot: async () => query({ type: 'snapshot' }, snapshotSchema),
   getReviewContext: async query => readQuery(query, reviewContextSchema),
   getBoardPeriods: async query => readQuery(query, boardPeriodsSchema),

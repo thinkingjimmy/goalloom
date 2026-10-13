@@ -1,10 +1,12 @@
 /**
  * [INPUT]: A committed command, its effects, and item rows captured before dispatch.
- * [OUTPUT]: One sync_ops row in the same transaction. Local-only commands write nothing.
+ * [OUTPUT]: One sync_ops row in the same transaction. Clock confirmation and rollover resume write nothing. Appearance and backup preferences write pref.set.
  * [POS]: Desktop adapter from command effects to SyncOp. applySyncOp is the other direction.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
+import { enqueueSettings } from '@goalloom/store-core'
+import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { sha256Hex, uuidv5 } from '@goalloom/crypto'
 import type { Command } from '../../../shared/contracts/commands'
 import type { Effect } from '../../../shared/contracts/effects'
@@ -23,7 +25,11 @@ export function captureSyncBefore(db: DatabaseSync, command: Command): Map<strin
 
 export function emitSyncOp(db: DatabaseSync, input: { command: Command; effects: Effect[]; before: Map<string, BeforeItem>; at: string; changed: boolean }): void {
   if (!input.changed || !db.prepare("SELECT 1 FROM sqlite_master WHERE name='sync_ops'").get()) return
-  if (input.command.type === 'preferences' || input.command.type === 'backupPreferences' || input.command.type === 'confirmClock' || input.command.type === 'confirmRollover') return
+  if (input.command.type === 'preferences' || input.command.type === 'backupPreferences') {
+    emitPreferences(db, input.command, input.at)
+    return
+  }
+  if (input.command.type === 'confirmClock' || input.command.type === 'confirmRollover') return
   if (input.command.type === 'undo' || input.command.type === 'undoBatch') {
     emitUndo(db, input.command.originalOperationId, input.command.operationId, input.at)
     return
@@ -205,6 +211,17 @@ function placeAction(db: DatabaseSync, itemId: string, horizon: string, periodId
     t: 'item.place', id: itemId, horizon: horizon as 'later', periodKey: period ? { horizon: String(period.horizon) as 'week', startDate: String(period.startDate) } : null,
     sortHint: { afterId: previousId, beforeId: nextId }, reason,
   }
+}
+
+function emitPreferences(db: DatabaseSync, command: Extract<Command, { type: 'preferences' | 'backupPreferences' }>, at: string): void {
+  const entries = command.type === 'preferences'
+    ? [
+      ...(command.theme ? [{ key: 'theme', value: command.theme }] : []),
+      ...(command.style ? [{ key: 'style', value: command.style }] : []),
+      ...(command.checkStyle ? [{ key: 'checkStyle', value: command.checkStyle }] : []),
+    ]
+    : [{ key: 'backup.enabled', value: command.enabled }, { key: 'backup.retention', value: command.retention }]
+  enqueueSettings(nodeSqlDriver(db), { opId: command.operationId, deviceId: deviceId(db), at, entries })
 }
 
 function deviceId(db: DatabaseSync): string {

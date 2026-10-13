@@ -1,12 +1,12 @@
 /**
  * [INPUT]: A new or current-version SQLite database. v8 and Phase 0 v9 files upgrade in place after the caller has taken a backup. Older files stay read-only until confirmed recovery.
- * [OUTPUT]: Atomic schema v10: the v9 sync projection and base_* shadow, plus two-level nesting mirrored onto those shadow tables.
+ * [OUTPUT]: Atomic schema v10: the v9 sync projection and base_* shadow, plus two-level nesting mirrored onto those shadow tables. sync_settings is added with IF NOT EXISTS and does not change user_version.
  * [POS]: Sole production DDL owner. Statements come from @goalloom/schema so they do not depend on node:sqlite types.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
-import { nestingMigrationSql, shadowStatements, v8Ddl, v9HistoryRewrite, v9SyncDdl, type MasterRow } from '@goalloom/schema'
+import { nestingMigrationSql, shadowStatements, syncSettingsDdl, v8Ddl, v9HistoryRewrite, v9SyncDdl, type MasterRow } from '@goalloom/schema'
 import { transaction } from './database'
 import { serverText } from '../../shared/i18n/server'
 
@@ -23,9 +23,13 @@ export function sourceTables(version: number, present?: readonly string[]): stri
 }
 export function userVersion(db: DatabaseSync): number { return Number(db.prepare('PRAGMA user_version').get()?.user_version) }
 
+export function ensureSyncSettings(db: DatabaseSync): void {
+  db.exec(syncSettingsDdl)
+}
+
 export function migrate(db: DatabaseSync): void {
   const version = userVersion(db)
-  if (version === schemaVersion) return
+  if (version === schemaVersion) { ensureSyncSettings(db); return }
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all()
   if (version === 0) {
     if (tables.length) throw new Error(serverText().storage.unsupportedDatabase)
@@ -135,6 +139,7 @@ CREATE INDEX events_to_period ON item_events(toPeriodId,itemId,seq);
 }
 
 function finish(db: DatabaseSync): void {
+  ensureSyncSettings(db)
   db.prepare('INSERT INTO schema_migrations VALUES (?, ?)').run(schemaVersion, new Date().toISOString())
   db.exec(`PRAGMA user_version = ${schemaVersion}`)
   const integrity = db.prepare('PRAGMA integrity_check').all()

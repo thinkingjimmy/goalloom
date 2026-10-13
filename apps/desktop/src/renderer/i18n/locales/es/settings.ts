@@ -16,10 +16,10 @@ export const settingsMessages: SettingsCatalog = {
   parentOrder: "Ordenar por elemento superior",
   parentOrderNote: 'Los semestres, períodos de tres meses, meses, semanas, días y períodos futuros siguen a sus superiores más cercanos. Arrastra dentro de cada grupo. Al desactivar, se conserva el orden actual.',
   subtitles: {
-    ai: 'Añade una clave una vez y deja que la entrada inteligente y Perspectiva elijan servicio; las claves se guardan cifradas en el llavero de este equipo y solo van al servicio que elijas',
-    board: "Orden y avisos al completar, guardados en este dispositivo",
+    ai: 'Añade una clave una vez y deja que la entrada inteligente y Perspectiva elijan servicio; las claves se sincronizan cifradas de extremo a extremo, permanecen en el llavero de este equipo y solo van al servicio que elijas',
+    board: 'El orden y los avisos al completar se sincronizan entre ordenadores',
     insight: 'Cortes, repasos y cómo te entiende el borrador',
-    appearance: 'Solo afecta a la visualización en este dispositivo; no se guarda en el historial del espacio de trabajo',
+    appearance: 'El tema, el estilo y el idioma se sincronizan entre ordenadores y no forman parte del historial de tareas',
     smart: 'Jev convierte una frase en una vista previa de acciones editable; solo se guarda cuando confirmas',
     calendar: 'El calendario se bloquea tras la primera confirmación; cada columna decide qué hacer con lo pendiente al terminar el periodo',
     backup: 'Las copias se guardan en este ordenador; restaurar reemplaza todo, sin combinar',
@@ -43,7 +43,7 @@ export const settingsMessages: SettingsCatalog = {
   privacyPoints: [
     'Solo recibe contenido el servicio que usa cada función; las funciones desactivadas no envían nada',
     'La entrada inteligente solo envía el texto actual, la fecha del espacio de trabajo y los objetivos que menciones o elijas; Perspectiva solo envía un resumen del tablero y tus preferencias',
-    'No se envían descripciones, historial ni papelera; las claves se guardan cifradas en este equipo, fuera de los datos, copias y exportaciones',
+    'No se envían descripciones, historial ni papelera; las claves solo se sincronizan dentro del canal cifrado, permanecen en el llavero de este equipo y no entran en las copias ni en las exportaciones',
   ],
   // Calendar
   calendarSettings: 'Configuración del calendario',

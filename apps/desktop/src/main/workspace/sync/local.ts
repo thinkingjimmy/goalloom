@@ -7,6 +7,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { z } from 'zod'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import type { RemoteEnvelope } from '@goalloom/store-core'
+import { enqueueSettings, readSettings } from '@goalloom/store-core'
 import {
   absorbOpened, acceptPushResults, bindWorkspace, captureVisibleBoard, conflictCount, installJoined, localLiveCount, queueBaseline, queueVisibleBaseline,
   stageImportedBoard, syncCursor, takePending, type LocalBoard, type PendingPlain, type PushResultWire,
@@ -35,6 +36,14 @@ const command = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('hold'), closed: z.boolean() }),
   z.strictObject({ type: z.literal('protect'), at: z.string() }),
   z.strictObject({ type: z.literal('pause'), reason: z.string().max(40).nullable(), at: z.string() }),
+  z.strictObject({
+    type: z.literal('emit-settings'),
+    opId: z.uuid(),
+    at: z.string().min(20).max(40),
+    mode: z.enum(['change', 'seed']),
+    entries: z.array(z.strictObject({ key: z.string().min(1).max(80), value: z.unknown() })).min(1).max(40),
+  }),
+  z.strictObject({ type: z.literal('settings') }),
 ])
 
 export async function protectSyncBackup(db: DatabaseSync, directory: string, now: string): Promise<string> {
@@ -93,6 +102,16 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
   if (action.type === 'pause') {
     driver.prepare('UPDATE sync_state SET paused=?, updatedAt=? WHERE id=1').run(action.reason, action.at)
     return null
+  }
+  if (action.type === 'settings') return readSettings(driver)
+  if (action.type === 'emit-settings') {
+    const state = db.prepare('SELECT deviceId FROM sync_state WHERE id=1').get()
+    try {
+      return enqueueSettings(driver, {
+        opId: action.opId, deviceId: state?.deviceId ? String(state.deviceId) : 'local', at: action.at,
+        entries: action.entries, onlyAbsent: action.mode === 'seed',
+      }) !== null
+    } catch { throw new DomainError('invalid', 'setting') }
   }
   throw new DomainError('invalid', 'sync')
 }

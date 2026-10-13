@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Device-local storage, React useSyncExternalStore, the preload smart API and the current SmartStatus.
  * [OUTPUT]: useInsightSettings, insightReady, separate bounded completion/dismissal marks and draft/review IPC helpers with preference snapshots.
- * [POS]: renderer/state 的流程洞察入口；偏好只存本机（不进工作区、导出或备份），模型调用经 main 的 smart 通道。
+ * [POS]: renderer/state 的流程洞察入口。偏好、断点和复盘开关会同步；已复盘、已忽略和引导标记留在本机。模型调用经 main 的 smart 通道。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 import type { DraftRequest, DraftTitle, Failure, InsightPrefs, ReviewRequest, ReviewText, SmartStatus } from '../../shared/contracts/smart-input'
+import { noteDevicePref } from './device-pref-bus'
 import { desktopApi } from './use-workspace'
 
 export interface InsightSettings {
@@ -36,10 +37,30 @@ function load(): InsightSettings {
 let current = load()
 const listeners = new Set<() => void>()
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
-export function updateInsight(change: (value: InsightSettings) => InsightSettings): void {
+function samePrefs(left: InsightPrefs, right: InsightPrefs): boolean {
+  return left.about === right.about && left.stepSize === right.stepSize && left.stepNotes === right.stepNotes && left.tone === right.tone
+    && left.focus.length === right.focus.length && left.focus.every((item, index) => item === right.focus[index])
+}
+
+export function updateInsight(change: (value: InsightSettings) => InsightSettings, report = true): void {
+  const previous = current
   current = change(current)
   try { localStorage.setItem(key, JSON.stringify(current)) } catch { /* Device preference only; the session keeps working without persistence. */ }
   listeners.forEach(listener => listener())
+  if (!report) return
+  if (!samePrefs(previous.prefs, current.prefs)) noteDevicePref('insight.prefs', current.prefs)
+  if (previous.breakpoints !== current.breakpoints) noteDevicePref('insight.breakpoints', current.breakpoints)
+  if (previous.reviews !== current.reviews) noteDevicePref('insight.reviews', current.reviews)
+}
+
+export function applyInsightPrefs(prefs: InsightPrefs): void {
+  updateInsight(value => ({ ...value, prefs: { ...defaultPrefs, ...prefs, focus: Array.isArray(prefs.focus) ? prefs.focus : value.prefs.focus } }), false)
+}
+export function applyInsightBreakpoints(breakpoints: boolean): void {
+  if (current.breakpoints !== breakpoints) updateInsight(value => ({ ...value, breakpoints }), false)
+}
+export function applyInsightReviews(reviews: boolean): void {
+  if (current.reviews !== reviews) updateInsight(value => ({ ...value, reviews }), false)
 }
 export const insightSettings = (): InsightSettings => current
 export function useInsightSettings(): InsightSettings { return useSyncExternalStore(subscribe, () => current) }

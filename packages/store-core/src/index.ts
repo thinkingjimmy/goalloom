@@ -5,3 +5,6 @@ export { projectionHash } from './hash'
 export { applyRemoteBatch, assertForeignKeys, copyProjectionToBase, mergeRemoteOps, rebuildVisibleFull, type RemoteEnvelope } from './rebuild'
 export { exportCanonicalSnapshot, installCanonicalSnapshot, type SnapshotBody } from './snapshot'
 export { cancelIfNeverSent, markAccepted, markSendUnknown, pauseWorkspace } from './state'
+export {
+  clearSyncSettings, enqueueSettings, projectWorkspaceSettings, readSettings, settingsBaselineOp, syncSettingsReady, writeSetting, type SettingEntry, type SettingRow,
+} from './settings'

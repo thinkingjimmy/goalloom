@@ -86,7 +86,7 @@ export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 're
     for (const marker of data.undoEffects) insertMarker.run(marker.originalId, marker.effectIndex, marker.undoId)
     if (data.historyMode === 'baseline') addBaseline(store, now)
     const driver = nodeSqlDriver(store.db)
-    driver.exec('DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops')
+    driver.exec('DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops; DELETE FROM sync_settings')
     driver.prepare(`UPDATE sync_state SET lastAppliedSeq=0, lastUploadedSeq=0, paused='generation', workspaceId=NULL, keyEpoch=NULL, updatedAt=? WHERE id=1`).run(now)
     copyProjectionToBase(driver)
     verifyDatabase(store.db)

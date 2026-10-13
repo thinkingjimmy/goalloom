@@ -6,6 +6,7 @@
 import { parseSyncOp, syncOpPayload, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
 import { applySyncOp } from './apply'
+import { projectWorkspaceSettings } from './settings'
 import { businessCode } from './classify'
 import type { ApplyHost, SqlDriver } from './driver'
 import { SyncApplyError } from './driver'
@@ -53,6 +54,7 @@ export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost, options?:
       if (!businessCode(error)) throw error
     }
   }
+  projectWorkspaceSettings(driver)
 }
 
 function rememberOp(driver: SqlDriver, entry: RemoteEnvelope, outcome: 'applied' | 'rejected' | 'partial', errorCode: string | null, at: string): void {

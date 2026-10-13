@@ -2,7 +2,7 @@
  * [INPUT]: Workspace snapshot, useAi state/actions, device insight settings and a way to open another settings section.
  * [OUTPUT]: Settings › 洞察: the feature switch and its DeepSeek-capable provider (shared with 智能输入); breakpoint / review switches;
  *           personalization tabs (about me; step size and extra notes for drafting; review tone and focus; the read-only prompt with the user's preferences appended).
- * [POS]: settings 的流程洞察面板；偏好只存本机（state/insight），不产生任何工作区写入或模型调用。
+ * [POS]: settings 的流程洞察面板。偏好、断点和复盘开关会同步；已复盘、已忽略和引导标记留在本机。这里不写工作区，也不调用模型。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useMemo, useState, type KeyboardEvent } from 'react'

@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { app, BrowserWindow, clipboard, dialog, powerMonitor, protocol, screen, session, shell } from 'electron'
+import { randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { StorageClient } from './storage/client'
@@ -23,7 +24,9 @@ import { installMenu } from './window/menu'
 import { openAboutEvent, updateEvent } from '../shared/contracts/update'
 import { assistanceServerText } from '../shared/i18n/assistance'
 import { SyncService } from './sync/service'
+import { projectSettingRows } from './sync/project-settings'
 import { syncEvent } from '../shared/contracts/sync'
+import { devicePrefsEvent, languageEvent } from '../shared/contracts/runtime'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -177,13 +180,22 @@ if (!app.requestSingleInstanceLock()) {
       close: () => pendingStorage.then(client => client.close()),
     } as StorageClient
     let client!: StorageClient
-    const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client)
+    const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client, entries => {
+      void storageProxy.call('sync', { type: 'emit-settings', entries, at: new Date().toISOString(), opId: randomUUID(), mode: 'change' }).then(() => sync?.nudge()).catch(() => undefined)
+    })
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
     const syncing = sync = new SyncService({
       userData: app.getPath('userData'), cipher: deviceCipher, storage: storageProxy,
       openExternal: url => shell.openExternal(url),
       notify: status => send(syncEvent, status),
       onApplied: () => { send('goalloom:changed', null); void requestReconcile(false) },
+      onSettings: rows => projectSettingRows(rows, {
+        language, smart,
+        notifyLanguage: state => send(languageEvent, state),
+        notifyDevicePrefs: entries => send(devicePrefsEvent, entries),
+      }),
+      collectSeed: () => smart.syncedSettingEntries(),
+      language: () => language.state.language,
       clipboard: text => clipboard.writeText(text),
       now: () => new Date().toISOString(),
     })

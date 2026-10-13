@@ -18,6 +18,12 @@ export async function consistentBackup(db: DatabaseSync, directory: string): Pro
     await backup(db, temporary)
     const copy = new DatabaseSync(temporary)
     try {
+      // API keys ride the encrypted sync log. A board backup keeps the keychain copy and drops the plaintext op.
+      const settings = copy.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_settings'").get()
+      if (settings) {
+        copy.exec(`DELETE FROM sync_settings WHERE key IN ('ai.key.openrouter', 'ai.key.vercel-gateway')`)
+        copy.exec(`DELETE FROM sync_ops WHERE instr(payload, '"ai.key.') > 0`)
+      }
       // --- 导出的独立副本不依赖任何 WAL/SHM 配套文件。 ---
       copy.exec('PRAGMA journal_mode = DELETE')
       verifyDatabase(copy)

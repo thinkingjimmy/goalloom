@@ -16,7 +16,12 @@ export async function startLanguage(): Promise<void> {
 
 export function useLanguage(): { state: LanguageState | null; choose: (language: Language) => Promise<void> } {
   const [state, setState] = useState<LanguageState | null>(null)
-  useEffect(() => { void window.goalloom?.getLanguage().then(setState).catch(() => undefined) }, [])
+  useEffect(() => {
+    const api = window.goalloom
+    if (!api) return
+    void api.getLanguage().then(setState).catch(() => undefined)
+    return api.onLanguage(next => { setState(next); void setLocale(next.locale) })
+  }, [])
   const choose = async (language: Language) => {
     if (!window.goalloom) return
     const next = await window.goalloom.setLanguage(language)

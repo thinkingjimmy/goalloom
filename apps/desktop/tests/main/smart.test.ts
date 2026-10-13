@@ -116,6 +116,25 @@ beforeEach(async () => {
 afterEach(async () => { await rm(directory, { recursive: true, force: true }) })
 
 describe('设备配置与凭据', () => {
+  it('远端 Key 重新写入本机钥匙串，磁盘上没有明文', async () => {
+    const secret = 'sk-sync-remote-OPENROUTER-key-778899'
+    const published: { key: string; value: unknown }[] = []
+    service = new SmartInputService({
+      store: new DeviceStore(directory, cipher(keyState)), adapters, chat: { openrouter: chatAll, 'vercel-gateway': chatAll }, reader: reader(), unsignedBuild: true,
+      onSyncedSettings: entries => { published.push(...entries) },
+    })
+    await act({ type: 'connect', generation, provider: 'openrouter', apiKey: secret, consent: true })
+    expect(published).toContainEqual({ key: 'ai.key.openrouter', value: secret })
+    const file = await readFile(join(directory, 'openrouter.key'))
+    expect(file.toString('utf8')).not.toContain(secret)
+    await service.applyRemoteSetting('ai.key.openrouter', null)
+    expect(await readdir(directory)).not.toContain('openrouter.key')
+    await service.applyRemoteSetting('ai.key.openrouter', secret)
+    const restored = await readFile(join(directory, 'openrouter.key'))
+    expect(restored.toString('utf8')).not.toContain(secret)
+    expect(await new DeviceStore(directory, cipher(keyState)).readKey('openrouter')).toEqual({ state: 'saved', key: secret })
+    expect(JSON.parse(await readFile(join(directory, 'config.json'), 'utf8'))).not.toMatchObject({ providers: { openrouter: { keyHint: secret } } })
+  })
   it('测试通过才启用并加密保存；Key 不以明文落盘，配置不含 Key', async () => {
     const reply = await act({ type: 'connect', generation, provider: 'openrouter', apiKey: 'or-secret-1234', consent: true })
     expect(reply.type === 'status' && reply.test).toMatchObject({ ok: true, sampleMatched: true })
