@@ -55,7 +55,7 @@ export function CalendarPane({ calendar, policies, observedAt, today, disabled, 
         <span className="calendar-change-target">{s.backupSection}<Icon name="next" size={16} /></span>
       </button>
     </SettingsGroup>
-    <SettingsGroup title={s.overdue} aside={<small>{messages.policyFootnote}</small>}>
+    <SettingsGroup title={s.overdue}>
       {policyHorizons.map(horizon => {
         const policy = policies.find(policy => policy.horizon === horizon)
         if (!policy) return null

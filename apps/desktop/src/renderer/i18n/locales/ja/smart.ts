@@ -129,7 +129,6 @@ export const smartMessages: SmartCatalog = {
   aiSection: 'AI サービス',
   connectedGroup: '接続済み',
   addGroup: 'サービスを追加',
-  addGroupNote: 'サービスごとに課金され、キーをサービス間で共有することはありません',
   pausedMeta: '一時停止中',
   needsAttention: '要対応',
   notAdded: 'キー未追加',

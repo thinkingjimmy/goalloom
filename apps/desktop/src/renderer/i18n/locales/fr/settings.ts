@@ -98,8 +98,6 @@ export const settingsMessages: SettingsCatalog = {
     releaseNotes: 'Notes de version',
     settingsWithUpdate: (settings: string) => `${settings} (mise à jour disponible)`,
   },
-  // Items
-  trashNote: 'La corbeille ne se vide jamais automatiquement ; les éléments supprimés y restent jusqu’à ce que vous les restauriez.',
   sync: {
     section: 'Synchro',
     signIn: 'Se connecter avec Google',

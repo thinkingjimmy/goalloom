@@ -98,8 +98,6 @@ export const settingsMessages: SettingsCatalog = {
     releaseNotes: 'Release notes',
     settingsWithUpdate: (settings: string) => `${settings} (update available)`,
   },
-  // Items
-  trashNote: 'The trash is never emptied automatically; deleted items stay here until you restore them.',
   sync: {
     section: 'Sync',
     signIn: 'Sign in with Google',

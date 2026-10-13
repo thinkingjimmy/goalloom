@@ -98,8 +98,6 @@ export const settingsMessages: SettingsCatalog = {
     releaseNotes: 'Notas de la versión',
     settingsWithUpdate: (settings: string) => `${settings} (actualización disponible)`,
   },
-  // Items
-  trashNote: 'La papelera no se vacía sola; los elementos eliminados se quedan aquí hasta que los recuperes.',
   sync: {
     section: 'Sincronizar',
     signIn: 'Entrar con Google',

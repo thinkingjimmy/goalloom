@@ -129,7 +129,6 @@ export const smartMessages = widen({
   aiSection: 'AI 服务',
   connectedGroup: '已连接',
   addGroup: '添加服务',
-  addGroupNote: '每个服务单独计费，Key 不会跨服务复用',
   pausedMeta: '已暂停',
   needsAttention: '需处理',
   notAdded: '未添加 Key',

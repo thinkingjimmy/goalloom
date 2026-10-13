@@ -5,8 +5,9 @@
  */
 import { useState } from 'react'
 import type { SyncStatus } from '../../../../shared/contracts/sync'
-import { settingsMessages as s } from '../../../i18n'
+import { messages, settingsMessages as s } from '../../../i18n'
 import { desktopApi } from '../../../state/use-workspace'
+import { Icon } from '../../../components/icons'
 import { SettingsGroup, SettingsRow, stamp } from './parts'
 
 function passwordOk(value: string, again: string): boolean {
@@ -26,15 +27,16 @@ export function SyncPane({ status, timezone }: { status: SyncStatus | null; time
   const [choice, setChoice] = useState<'use-remote' | 'merge'>('use-remote')
   const [acknowledged, setAcknowledged] = useState(false)
   const [working, setWorking] = useState(false)
+  const [hiddenError, setHiddenError] = useState<string | null>(null)
   const run = async (action: Parameters<ReturnType<typeof desktopApi>['sync']>[0]) => {
     setWorking(true)
     try { await desktopApi().sync(action) }
     finally { setWorking(false) }
   }
   if (!status) return <p className="settings-footnote">{t.loading}</p>
-  const error = status.error ? t.errors[status.error] : ''
+  const error = status.error && hiddenError !== status.error ? t.errors[status.error] : ''
   return <div className="sync-pane">
-    {error && <p className="settings-alert" role="alert">{error}</p>}
+    {error && <div className="settings-alert" role="alert"><span>{error}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status.error)}><Icon name="close" size={16} /></button></div>}
     {status.phase === 'unconfigured' && <p className="settings-footnote">{t.unconfigured}</p>}
     {status.phase === 'locked' && <p className="settings-footnote">{t.locked}</p>}
     {status.phase === 'signed-out' && <SettingsGroup>

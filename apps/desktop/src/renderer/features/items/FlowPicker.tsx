@@ -23,7 +23,7 @@ export function FlowColorMenu({ itemId, color, flows, busy, impact = 0, onChoose
   return <div className="menu flow-menu">
     <div className="flow-menu-header">
       <span>{messages.flowColor}</span>
-      <p>{color !== null && impact ? messages.flowImpact(impact) : messages.flowColorHint}</p>
+      {color !== null && impact > 0 && <p>{messages.flowImpact(impact)}</p>}
     </div>
     <div className="flow-swatches" role="radiogroup" aria-label={messages.flowColor}>
       {relationColors.map((_, index) => {
