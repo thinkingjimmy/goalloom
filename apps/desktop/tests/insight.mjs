@@ -160,8 +160,10 @@ try {
   // --- 断点：筛选「全网粉丝」→ 两个本月计划都没有本周下级，各一个 ＋；首次引导只出现一次。 ---
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
   await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
-  await board.locator('.breakpoint').first().waitFor()
+  await board.locator('.breakpoint').first().waitFor({ state: 'attached' })
   assert.equal(await board.locator('.breakpoint').count(), 2)
+  assert.deepEqual(await board.locator('.breakpoint').evaluateAll(nodes => nodes.map(node => ({ visibility: getComputedStyle(node).visibility, opacity: getComputedStyle(node).opacity }))),
+    [{ visibility: 'hidden', opacity: '0' }, { visibility: 'hidden', opacity: '0' }], 'Filtered next-step pills stay hidden until their row is hovered')
   assert.equal(await board.locator('.breakpoint-guide').count(), 0, 'The guide dismissed during preview stays dismissed when filtering')
   await shot('3-breakpoints')
   const place = await page.evaluate(id => {
@@ -173,11 +175,12 @@ try {
   await board.waitFor()
   await page.getByRole('button', { name: '只看 全网粉丝达到 5w+', exact: true }).click()
   await board.locator('[data-horizon="month"]').scrollIntoViewIfNeeded()
-  await board.locator('.breakpoint').first().waitFor()
+  await board.locator('.breakpoint').first().waitFor({ state: 'attached' })
   assert.equal(await board.locator('.breakpoint-guide').count(), 0, '引导状态存本机，重载后不再出现')
-  check('filtered flow shows one labelled pill per gap centered on the complete row; the guide shows once and stays dismissed after reload')
+  check('filtered flow keeps one labelled pill per gap, hidden until row hover, centered on the complete row; the guide shows once and stays dismissed after reload')
 
   // No model connected: a click opens the prefilled composer (parent + target period), ↵ creates the child.
+  await page.locator(`#item-${ids.video}`).hover()
   await board.getByRole('button', { name: '给「发布小米 Fold 18 评测视频」拆下一步' }).click()
   await dialog.waitFor()
   assert(await dialog.locator('.seed-chip').filter({ hasText: '↳ 发布小米 Fold 18 评测视频' }).count())

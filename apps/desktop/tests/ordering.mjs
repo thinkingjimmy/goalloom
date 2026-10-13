@@ -54,7 +54,7 @@ try {
           const board = document.querySelector('.board'), origin = board.getBoundingClientRect()
           const rows = Object.fromEntries(ids.map(id => [id, document.getElementById(`item-${id}`)?.getBoundingClientRect().top ?? null]))
           const lines = [...document.querySelectorAll('.relation-edge')].filter(path => getComputedStyle(path).visibility !== 'hidden').map(path => ({ id: path.dataset.edgeId, start: path.getPointAtLength(0), end: path.getPointAtLength(path.getTotalLength()) }))
-          const spots = [...document.querySelectorAll('.breakpoint')].filter(node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden').map(node => {
+          const spots = [...document.querySelectorAll('.breakpoint')].filter(node => node.getClientRects().length && getComputedStyle(node).display !== 'none').map(node => {
             const row = document.getElementById(`item-${node.dataset.spotKey.slice(node.dataset.spotKey.indexOf(':') + 1)}`)?.getBoundingClientRect(), point = node.getBoundingClientRect()
             return { key: node.dataset.spotKey, error: row ? Math.max(Math.abs(point.right - (row.right - 6)), Math.abs(point.top + point.height / 2 - row.top - row.height / 2)) : null }
           })
