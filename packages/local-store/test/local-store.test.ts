@@ -5,7 +5,7 @@ import { buildParentOrder as desktopOrder } from '../../../apps/desktop/src/doma
 import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/notes'
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
-  flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
+  columnMenuDismiss, columnMenuIndex, flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
   AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, columnRange, filterTimeZones, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
@@ -167,6 +167,16 @@ describe('gestures', () => {
     expect(pageFromOffset(377 * 5, 377)).toBe(5)
     expect(pageFromOffset(377 * 5 + 200, 377)).toBe(6)
     expect(pageFromOffset(9000, 377)).toBe(6)
+    expect(columnMenuIndex(100, 100, 7)).toBe(0)
+    expect(columnMenuIndex(139, 100, 7)).toBe(0)
+    expect(columnMenuIndex(140, 100, 7)).toBe(1)
+    expect(columnMenuIndex(100 + 40 * 6, 100, 7)).toBe(6)
+    expect(columnMenuIndex(99, 100, 7)).toBeNull()
+    expect(columnMenuIndex(100 + 40 * 7, 100, 7)).toBeNull()
+    expect(columnMenuDismiss(-30, 4)).toBe(true)
+    expect(columnMenuDismiss(-10, 0)).toBe(false)
+    expect(columnMenuDismiss(-30, 40)).toBe(false)
+    expect(columnMenuDismiss(30, 0)).toBe(false)
   })
 
   it('keeps a flick as paging and a held finger as drag', () => {

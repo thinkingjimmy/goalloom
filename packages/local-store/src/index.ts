@@ -15,8 +15,8 @@ export { buildParentOrder, parentOrderedHorizon } from './order'
 export type { OrderNode } from './order'
 export { flowPalette, flowRing, flowStroke, flowTint } from './colors'
 export {
-  APP_TABS, BOARD_COLUMNS, FLOW_INDENT, GESTURE_SLOP, LONG_PRESS_MS, NEST_INDENT, OPEN_COLUMN, OPEN_INDEX,
-  canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, dropOnRows, flowColors, flowConnectors, flowLeftLinks, flowSections,
+  APP_TABS, BOARD_COLUMNS, COLUMN_MENU_ROW, FLOW_INDENT, GESTURE_SLOP, LONG_PRESS_MS, NEST_INDENT, OPEN_COLUMN, OPEN_INDEX,
+  canNest, classifyPointer, columnIndex, columnMenuDismiss, columnMenuIndex, columnOutline, columnSections, completionLabel, dropOnRows, flowColors, flowConnectors, flowLeftLinks, flowSections,
   mayLink, neighborsAfterRemoval, nextHorizon, outlineRows, pageFromOffset, parseCapture, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, withCaptureColumn,
   SHEET_DISMISS_VELOCITY, SHEET_GRABBER,
 } from './board'

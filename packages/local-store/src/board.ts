@@ -51,6 +51,22 @@ export function pageFromOffset(x: number, pageWidth: number, count: number = BOA
   return Math.max(0, Math.min(count - 1, Math.round(x / pageWidth)))
 }
 
+/** Height of one column-menu row. The menu is a compact stack under the title. */
+export const COLUMN_MENU_ROW = 40
+
+/** Row under a finger. Null when the point is above the first row or below the last. */
+export function columnMenuIndex(y: number, top: number, count: number, row = COLUMN_MENU_ROW): number | null {
+  if (count <= 0 || row <= 0) return null
+  const index = Math.floor((y - top) / row)
+  if (index < 0 || index >= count) return null
+  return index
+}
+
+/** An upward flick dismisses the open column menu. A sideways move does not. */
+export function columnMenuDismiss(dy: number, dx: number): boolean {
+  return dy <= -24 && dy < -Math.abs(dx)
+}
+
 export type PointerPhase = 'pending' | 'scroll' | 'paging' | 'drag'
 
 export function classifyPointer(dx: number, dy: number, elapsed: number, slop = GESTURE_SLOP): PointerPhase {
