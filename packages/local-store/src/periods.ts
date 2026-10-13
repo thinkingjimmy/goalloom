@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An explicit observation instant, IANA timezone, week start and cycle anchor.
- * [OUTPUT]: The six current planning periods, with month-end clamping and exclusive UTC bounds, plus a period rebuilt from its id.
+ * [OUTPUT]: The six current planning periods, with month-end clamping and exclusive UTC bounds, a period rebuilt from its id, and the column date the desktop header shows.
  * [POS]: Mobile calendar. Parity with apps/desktop/src/domain/calendar.ts is locked by tests; no Temporal import.
  */
 import type { LocaleId } from './prefs'
@@ -222,6 +222,54 @@ function monthSpan(start: Ymd, end: Ymd, locale: LocaleId): string {
   if (start.y !== end.y) return `${left} ${start.y}${RANGE_DASH}${right} ${end.y}`
   if (start.m !== end.m) return `${left}${RANGE_DASH}${right}`
   return left
+}
+
+const INTL_TAG: Record<LocaleId, string> = { zh: 'zh-CN', en: 'en', ja: 'ja-JP', es: 'es', fr: 'fr-FR' }
+
+function intlDate(locale: LocaleId, options: Intl.DateTimeFormatOptions, date: string): string {
+  return new Intl.DateTimeFormat(INTL_TAG[locale], { ...options, timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`))
+}
+
+/**
+ * Date beside a column name. Mirrors the desktop column header
+ * (`periodLabel` / `anchoredPeriodLabel` / `yearAwareRange`): numeric month/day ranges,
+ * a short date for today, a month name for the month column, no date on Later or a natural year.
+ * `relative` omits year digits, matching a current, previous, or next heading.
+ */
+export function columnRange(
+  horizon: PeriodHorizon | 'later',
+  period: { startDate: string; endDate: string } | null,
+  calendar: { mode: 'rolling' | 'natural' } | null,
+  today: string,
+  locale: LocaleId,
+  relative = true,
+): string {
+  if (horizon === 'later' || !period) return ''
+  if (calendar?.mode === 'natural' && horizon === 'year') return ''
+  const end = formatYmd(addDays(parseYmd(period.endDate), -1))
+  if (horizon === 'day') return intlDate(locale, { month: 'short', day: 'numeric' }, period.startDate)
+  if (horizon === 'month') return intlDate(locale, { month: 'short' }, period.startDate)
+  if (calendar && (horizon === 'year' || horizon === 'half' || horizon === 'cycle')) return anchoredColumnRange(horizon, period.startDate, end, calendar.mode, today, locale, relative)
+  return `${intlDate(locale, { month: 'numeric', day: 'numeric' }, period.startDate)} – ${intlDate(locale, { month: 'numeric', day: 'numeric' }, end)}`
+}
+
+function anchoredColumnRange(horizon: 'year' | 'half' | 'cycle', startDate: string, endInclusive: string, mode: 'rolling' | 'natural', today: string, locale: LocaleId, relative: boolean): string {
+  if (mode === 'natural') {
+    if (horizon === 'year') return intlDate(locale, { year: 'numeric' }, startDate)
+    const otherYear = !relative && startDate.slice(0, 4) !== today.slice(0, 4) ? intlDate(locale, { year: 'numeric' }, startDate) : null
+    if (horizon === 'cycle') return `${otherYear ? `${otherYear} ` : ''}Q${Math.ceil(Number(startDate.slice(5, 7)) / 3)}`
+    const numeric = locale === 'zh' || locale === 'ja'
+    const first = numeric ? String(Number(startDate.slice(5, 7))) : intlDate(locale, { month: 'short' }, startDate)
+    const last = numeric ? String(Number(endInclusive.slice(5, 7))) : intlDate(locale, { month: 'short' }, endInclusive)
+    if (locale === 'zh' || locale === 'ja') return `${otherYear ? `${otherYear}年` : ''}${first}月–${last}月`
+    return `${otherYear ? `${otherYear} ` : ''}${first}–${last}`
+  }
+  const year = today.slice(0, 4)
+  const startYear = startDate.slice(0, 4)
+  const endYear = endInclusive.slice(0, 4)
+  const start = !relative && startYear !== year ? intlDate(locale, { year: '2-digit', month: 'numeric', day: 'numeric' }, startDate) : intlDate(locale, { month: 'numeric', day: 'numeric' }, startDate)
+  const last = !relative && endYear !== year && endYear !== startYear ? intlDate(locale, { year: '2-digit', month: 'numeric', day: 'numeric' }, endInclusive) : intlDate(locale, { month: 'numeric', day: 'numeric' }, endInclusive)
+  return `${start} – ${last}`
 }
 
 /** Year row in the column menu: the start year, and the inclusive end month after 至. */

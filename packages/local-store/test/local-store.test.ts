@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, filterTimeZones, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, columnRange, filterTimeZones, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -115,6 +115,26 @@ describe('calendar parity', () => {
     expect(yearMenu('2026-10-12', '2027-10-12', 'zh')).toEqual({ title: '2026 年', range: '至 2027年10月' })
     expect(yearMenu('2026-01-01', '2027-01-01', 'zh')).toEqual({ title: '2026 年', range: '至 2026年12月' })
     expect(yearMenu('2026-10-12', '2027-10-12', 'en')).toEqual({ title: '2026', range: 'through Oct 2027' })
+    const rolling = { mode: 'rolling' as const }
+    const natural = { mode: 'natural' as const }
+    const span = (startDate: string, endDate: string) => ({ startDate, endDate })
+    expect(columnRange('week', span('2026-10-12', '2026-10-19'), rolling, '2026-10-12', 'zh')).toBe('10/12 – 10/18')
+    expect(columnRange('week', span('2026-10-12', '2026-10-19'), rolling, '2026-10-12', 'es')).toBe('12/10 – 18/10')
+    expect(columnRange('week', span('2026-12-28', '2027-01-04'), rolling, '2026-12-30', 'zh')).toBe('12/28 – 1/3')
+    expect(columnRange('half', span('2026-09-23', '2027-03-23'), rolling, '2026-10-02', 'zh')).toBe('9/23 – 3/22')
+    expect(columnRange('cycle', span('2026-09-23', '2026-12-23'), rolling, '2026-10-02', 'zh')).toBe('9/23 – 12/22')
+    expect(columnRange('year', span('2026-10-12', '2027-10-12'), rolling, '2026-10-12', 'zh')).toBe('10/12 – 10/11')
+    expect(columnRange('year', span('2026-01-01', '2027-01-01'), natural, '2026-10-12', 'zh')).toBe('')
+    expect(columnRange('later', null, rolling, '2026-10-12', 'zh')).toBe('')
+    expect(columnRange('day', span('2026-10-12', '2026-10-13'), rolling, '2026-10-12', 'zh')).toBe('10月12日')
+    expect(columnRange('day', span('2026-10-12', '2026-10-13'), rolling, '2026-10-12', 'en')).toBe('Oct 12')
+    expect(columnRange('month', span('2026-10-01', '2026-11-01'), rolling, '2026-10-12', 'zh')).toBe('10月')
+    expect(columnRange('month', span('2026-10-01', '2026-11-01'), rolling, '2026-10-12', 'en')).toBe('Oct')
+    expect(columnRange('cycle', span('2026-10-01', '2027-01-01'), natural, '2026-10-12', 'zh')).toBe('Q4')
+    expect(columnRange('half', span('2026-07-01', '2027-01-01'), natural, '2026-10-12', 'zh')).toBe('7月–12月')
+    expect(columnRange('half', span('2026-07-01', '2027-01-01'), natural, '2026-10-12', 'en')).toBe('Jul–Dec')
+    expect(columnRange('cycle', span('2026-12-23', '2027-03-23'), rolling, '2026-10-02', 'zh', false)).toBe('12/23 – 27/3/22')
+    expect(columnRange('cycle', span('2025-09-23', '2025-12-23'), rolling, '2026-10-02', 'zh', false)).toBe('25/9/23 – 12/22')
   })
 })
 

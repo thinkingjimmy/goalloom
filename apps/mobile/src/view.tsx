@@ -6,8 +6,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   BOARD_COLUMNS, FLOW_INDENT, LONG_PRESS_MS, NEST_INDENT, SHEET_GRABBER, buildParentOrder, canNest, classifyPointer, columnSections,
-  compactRange, completionLabel, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon,
-  pageFromOffset, periodMeta, sheetRelease, shouldDragSheet, showBreakpoint, yearMenu, type AiConnection, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
+  columnRange, completionLabel, currentPeriod, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon,
+  pageFromOffset, periodMeta, precedingPeriod, sheetRelease, shouldDragSheet, showBreakpoint, yearMenu, type AiConnection, type CalendarConfig, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
   type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot,
 } from '@goalloom/local-store'
 import { BlurView } from 'expo-blur'
@@ -278,7 +278,7 @@ function Board({ copy, theme, locale, snap, columns, column, hide, shot, viewed,
     if (index !== column) onColumn(index)
   }
   return <View style={styles.flex}>
-    <BoardTitle copy={copy} theme={theme} locale={locale} horizon={horizon} period={period} open={menu} onPress={() => setMenu(value => !value)} onLayout={setHeaderHeight} />
+    <BoardTitle copy={copy} theme={theme} locale={locale} horizon={horizon} period={period} calendar={snap.calendar} today={snap.today} current={horizon === 'later' ? null : snap.periods[horizon] ?? null} open={menu} onPress={() => setMenu(value => !value)} onLayout={setHeaderHeight} />
     <View style={styles.flex} onLayout={event => { setPageWidth(event.nativeEvent.layout.width); setPageHeight(event.nativeEvent.layout.height) }}>
       {pageWidth > 0 && pageHeight > 0 && <ScrollView ref={pager} horizontal pagingEnabled directionalLockEnabled nestedScrollEnabled scrollEnabled={!dragId && !menu} showsHorizontalScrollIndicator={false} style={styles.flex} onMomentumScrollEnd={event => settle(event.nativeEvent.contentOffset.x)}>
         {columns.map(page => {
@@ -325,7 +325,7 @@ function Board({ copy, theme, locale, snap, columns, column, hide, shot, viewed,
       <View style={[styles.columnMenu, { top: headerHeight + 4, backgroundColor: theme.surface, borderColor: theme.line }]}>
         {columns.map((page, index) => {
           const pagePeriod = page === 'later' ? null : viewed[page] ?? snap.periods[page] ?? null
-          const label = columnLabel(copy, locale, page, pagePeriod)
+          const label = columnLabel(copy, locale, page, pagePeriod, snap.calendar, snap.today, page === 'later' ? null : snap.periods[page] ?? null)
           return <Pressable key={page} onPress={() => pick(index)} accessibilityRole="menuitem" accessibilityState={{ selected: index === column }} style={[styles.columnRow, index < columns.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.hairline }]}>
             <View style={styles.menuCheck}>{index === column && <Icon name="check" size={16} color={theme.fg} />}</View>
             <Text numberOfLines={1} style={[styles.menuName, { color: theme.fg }]}>{label.title}</Text>
@@ -337,17 +337,29 @@ function Board({ copy, theme, locale, snap, columns, column, hide, shot, viewed,
   </View>
 }
 
-function columnLabel(copy: Copy, locale: LocaleId, horizon: Horizon, period: Period | null): { title: string; range: string } {
+function columnLabel(copy: Copy, locale: LocaleId, horizon: Horizon, period: Period | null, calendar: CalendarConfig | null, today: string, current: Period | null): { title: string; range: string } {
   if (horizon === 'later' || !period) return { title: copy.later, range: '' }
-  if (horizon === 'year') return yearMenu(period.startDate, period.endDate, locale)
-  const unit = horizon === 'half' || horizon === 'cycle' ? 'month' : 'day'
-  return { title: copy[horizon], range: compactRange(period.startDate, period.endDate, locale, unit) }
+  const title = horizon === 'year' ? yearMenu(period.startDate, period.endDate, locale).title : copy[horizon]
+  return { title, range: columnRange(horizon, period, calendar, today, locale, headingRelative(horizon, period, calendar, current)) }
 }
 
-function BoardTitle({ copy, theme, locale, horizon, period, open, onPress, onLayout }: {
-  copy: Copy; theme: Theme; locale: LocaleId; horizon: Horizon; period: Period | null; open: boolean; onPress: () => void; onLayout: (height: number) => void
+/** Current, previous, and next headings keep year digits off, except a rolling cycle that is not current. Matches the desktop column header. */
+function headingRelative(horizon: Horizon, period: Period, calendar: CalendarConfig | null, current: Period | null): boolean {
+  if (!calendar || !current?.startAt || !current.endAt) return true
+  if (period.id === current.id) return true
+  if (horizon === 'later') return true
+  if (horizon === 'cycle' && calendar.mode !== 'natural') return false
+  try {
+    if (precedingPeriod(calendar, current)?.id === period.id) return true
+    return currentPeriod(calendar, horizon, current.endAt).id === period.id
+  } catch { return false }
+}
+
+function BoardTitle({ copy, theme, locale, horizon, period, calendar, today, current, open, onPress, onLayout }: {
+  copy: Copy; theme: Theme; locale: LocaleId; horizon: Horizon; period: Period | null; calendar: CalendarConfig | null; today: string; current: Period | null
+  open: boolean; onPress: () => void; onLayout: (height: number) => void
 }) {
-  const label = columnLabel(copy, locale, horizon, period)
+  const label = columnLabel(copy, locale, horizon, period, calendar, today, current)
   return <View style={styles.header} onLayout={event => onLayout(event.nativeEvent.layout.height)}>
     <Pressable onPress={onPress} style={styles.titlePress} accessibilityRole="button" accessibilityState={{ expanded: open }}>
       <Text numberOfLines={1} style={[styles.periodTitle, { color: theme.fg }]}>{label.title}</Text>
