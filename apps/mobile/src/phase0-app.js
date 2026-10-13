@@ -5,8 +5,8 @@ import { randomUUID } from 'expo-crypto'
 import { applySyncOp, mergeRemoteOps, rebuildVisibleFull } from '@goalloom/store-core'
 import { parseSyncOp, syncOpPayload } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
-import { expoDriver, host, installV9, openFresh } from './src/db'
-import { runPhase0 } from './src/phase0'
+import { expoDriver, host, installV9, openFresh } from './db'
+import { runPhase0 } from './phase0'
 
 const at = () => new Date().toISOString()
 
