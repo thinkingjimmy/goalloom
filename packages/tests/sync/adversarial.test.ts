@@ -2,8 +2,8 @@ import { ed25519, x25519 } from '@noble/curves/ed25519.js'
 import { expect, it } from 'vitest'
 import { canonicalJson } from '@goalloom/contracts'
 import {
-  acceptNewerCheckpoint, checkpointHash, counterRandom, deriveRecovery, generateRecoveryMnemonic, hex,
-  rosterHash, rosterWrapTargets, signCheckpoint, unwrap, verifyRecoveryJoin, wipeRecovery, wrap, type RosterBody,
+  acceptNewerCheckpoint, checkpointHash, counterRandom, hex, newRecovery,
+  rosterHash, rosterWrapTargets, signCheckpoint, systemRandom, unwrap, verifyRecoveryJoin, wipeRecovery, wrap, type RosterBody,
 } from '@goalloom/crypto'
 import { exportCanonicalSnapshot, installCanonicalSnapshot, projectionHash, rebuildVisibleFull } from '@goalloom/store-core'
 import { applyPushReceipts, rejectMissingKey, rejectUnknownFormat } from '@goalloom/sync'
@@ -20,9 +20,8 @@ it('case 1 a lost response and a compacted op retry keep the original seq', () =
   expect(() => applyPushReceipts(pending, [{ ...receipt, payloadHash: 'cd'.repeat(32) }])).toThrow(/op_id_reused/)
 })
 
-it('case 5 rotates a recovery envelope without the phrase', () => {
-  const phrase = generateRecoveryMnemonic()
-  const recovery = deriveRecovery(phrase, ws)
+it('case 5 opens a recovery wrap without the password', () => {
+  const recovery = newRecovery(systemRandom())
   const sender = ed25519.utils.randomSecretKey()
   const envelope = wrap({
     senderId: 'dev', signSk: sender, recipientId: 'recovery', recipientBoxPub: recovery.boxPub,
@@ -114,8 +113,7 @@ it('case 15 rejects a roster whose fingerprint or recovery key does not match th
   const anchor = { workspaceId: ws, epoch: 1, rosterVersion: 1, rosterHash: rosterHash(head), approverDeviceId: 'dev', approverSignPub: signPub }
   const forged: RosterBody = { ...head, devices: [{ id: 'dev', signPub: hex(ed25519.getPublicKey(ed25519.utils.randomSecretKey())), boxPub }] }
   expect(rosterHash(forged)).not.toBe(anchor.rosterHash)
-  const phrase = generateRecoveryMnemonic()
-  const secrets = deriveRecovery(phrase, ws)
+  const secrets = newRecovery(systemRandom())
   const roster = { ...head, recoverySignPub: hex(secrets.signPub), recoveryBoxPub: hex(secrets.boxPub) }
   const checkpoint = {
     workspaceId: ws, cpVersion: 1, rosterVersion: 1, rosterHash: rosterHash(roster), epoch: 1,
@@ -124,17 +122,15 @@ it('case 15 rejects a roster whose fingerprint or recovery key does not match th
   const copied = { ...roster, devices: [{ id: 'evil', signPub: forged.devices[0]!.signPub, boxPub }] }
   const copiedCp = { ...checkpoint, rosterHash: rosterHash(copied) }
   expect(() => verifyRecoveryJoin({
-    mnemonic: phrase, workspaceId: ws, checkpoint: copiedCp, recSig: signCheckpoint(copiedCp, secrets.signSk),
+    secrets, workspaceId: ws, checkpoint: copiedCp, recSig: signCheckpoint(copiedCp, secrets.signSk),
     devSig: signCheckpoint(copiedCp, sender), roster: copied,
   })).toThrow()
   wipeRecovery(secrets)
 })
 
-it('case 21 accepts a regenerated phrase and rejects rollback, forks and cross-workspace replay', () => {
-  const oldPhrase = generateRecoveryMnemonic()
-  const newPhrase = generateRecoveryMnemonic()
-  const oldKeys = deriveRecovery(oldPhrase, ws)
-  const newKeys = deriveRecovery(newPhrase, ws)
+it('case 21 accepts a rotated recovery key and rejects rollback, forks and cross-workspace replay', () => {
+  const oldKeys = newRecovery(systemRandom())
+  const newKeys = newRecovery(systemRandom())
   const device = ed25519.utils.randomSecretKey()
   const devicePub = hex(ed25519.getPublicKey(device))
   const boxPub = hex(x25519.getPublicKey(x25519.utils.randomSecretKey()))
@@ -148,7 +144,7 @@ it('case 21 accepts a regenerated phrase and rejects rollback, forks and cross-w
     recoverySignPub: hex(oldKeys.signPub), recoveryBoxPub: hex(oldKeys.boxPub), prevCpHash: null,
   }
   verifyRecoveryJoin({
-    mnemonic: oldPhrase, workspaceId: ws, checkpoint: cp1, recSig: signCheckpoint(cp1, oldKeys.signSk),
+    secrets: oldKeys, workspaceId: ws, checkpoint: cp1, recSig: signCheckpoint(cp1, oldKeys.signSk),
     devSig: signCheckpoint(cp1, device), roster: roster1,
   })
   const roster2: RosterBody = { ...roster1, version: 2, prevHash: rosterHash(roster1), epoch: 2, recoverySignPub: hex(newKeys.signPub), recoveryBoxPub: hex(newKeys.boxPub) }
@@ -157,11 +153,11 @@ it('case 21 accepts a regenerated phrase and rejects rollback, forks and cross-w
     recoverySignPub: hex(newKeys.signPub), recoveryBoxPub: hex(newKeys.boxPub), prevCpHash: checkpointHash(cp1),
   }
   verifyRecoveryJoin({
-    mnemonic: newPhrase, workspaceId: ws, checkpoint: cp2, recSig: signCheckpoint(cp2, newKeys.signSk),
+    secrets: newKeys, workspaceId: ws, checkpoint: cp2, recSig: signCheckpoint(cp2, newKeys.signSk),
     devSig: signCheckpoint(cp2, device), roster: roster2,
   })
   expect(() => verifyRecoveryJoin({
-    mnemonic: oldPhrase, workspaceId: ws, checkpoint: cp2, recSig: signCheckpoint(cp2, oldKeys.signSk),
+    secrets: oldKeys, workspaceId: ws, checkpoint: cp2, recSig: signCheckpoint(cp2, oldKeys.signSk),
     devSig: signCheckpoint(cp2, device), roster: roster2,
   })).toThrow()
   expect(() => acceptNewerCheckpoint(cp2, cp1)).toThrow(/rollback/)
@@ -169,7 +165,7 @@ it('case 21 accepts a regenerated phrase and rejects rollback, forks and cross-w
   expect(() => acceptNewerCheckpoint(cp1, cp2)).not.toThrow()
   expect(() => acceptNewerCheckpoint(cp1, { ...cp2, cpVersion: 3, prevCpHash: checkpointHash(cp2) })).toThrow(/gap/)
   expect(() => verifyRecoveryJoin({
-    mnemonic: newPhrase, workspaceId: '22222222-2222-4222-8222-222222222222', checkpoint: cp2,
+    secrets: newKeys, workspaceId: '22222222-2222-4222-8222-222222222222', checkpoint: cp2,
     recSig: signCheckpoint(cp2, newKeys.signSk), devSig: signCheckpoint(cp2, device), roster: roster2,
   })).toThrow()
   wipeRecovery(oldKeys); wipeRecovery(newKeys)

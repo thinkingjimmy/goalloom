@@ -1,6 +1,6 @@
 /**
  * [INPUT]: The preload sync channel.
- * [OUTPUT]: The latest sync status. The recovery phrase stays in the pane that asked for it.
+ * [OUTPUT]: The latest sync status. The sync password stays in the pane that asked for it.
  * [POS]: Renderer subscription for Settings › Sync.
  */
 import { useEffect, useState } from 'react'

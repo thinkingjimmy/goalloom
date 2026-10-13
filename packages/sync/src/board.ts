@@ -184,6 +184,20 @@ function clearBase(driver: SqlDriver): void {
   driver.prepare('UPDATE base_workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
 }
 
+/** Replaces the op log with the visible board. Used when cloud ciphertext is abandoned and this computer uploads again. */
+export function queueVisibleBaseline(driver: SqlDriver, host: ApplyHost, deviceId: string, at: string): number {
+  return driver.transaction(() => {
+    const board = captureVisibleBoard(driver)
+    driver.exec('DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops;')
+    const ops = board.calendar || board.items.length || board.policies.length ? opsForBoard(board, deviceId, at, 'baseline') : []
+    ops.forEach((op, index) => insertOp(driver, op, at, index + 1))
+    clearBase(driver)
+    rebuildVisibleFull(driver, host)
+    driver.prepare('UPDATE sync_state SET lastAppliedSeq=0, lastUploadedSeq=0, paused=NULL, updatedAt=? WHERE id=1').run(at)
+    return ops.length
+  })
+}
+
 /** Turns a pre-sync base projection into never_sent ops and replays them onto an empty base. Pending ops keep their relative order. */
 export function queueBaseline(driver: SqlDriver, host: ApplyHost, deviceId: string, at: string): number {
   return driver.transaction(() => {

@@ -1,42 +1,22 @@
 /**
- * [INPUT]: 24-word English mnemonic and workspace id. Private keys exist only for the duration of a call.
- * [OUTPUT]: X25519 and Ed25519 recovery keys, plus dual-signed checkpoint checks (v1.4).
+ * [INPUT]: A random recovery keypair, or one opened from the password lock. Private keys stay with the caller.
+ * [OUTPUT]: X25519 and Ed25519 recovery keys, plus dual-signed checkpoint checks.
  * [POS]: Recovery trust anchor. A roster that merely copies the recovery public key is not enough.
+ * The password that encrypts this keypair lives in password.ts. It is not derived from these keys.
  */
-import { generateMnemonic, mnemonicToEntropy, validateMnemonic } from '@scure/bip39'
-import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { canonicalJson } from '@goalloom/contracts'
 import { unhex, utf8, wipe } from './bytes'
-import { hkdfSha256, sha256Bytes, sha256Hex } from './kdf'
+import { sha256Bytes, sha256Hex } from './kdf'
 import { publicFromSeed } from './wrap'
 import { rosterHash, verifyRosterExtension, type RosterBody, type RosterLink } from './roster'
 
 export interface RecoverySecrets { boxSk: Uint8Array; boxPub: Uint8Array; signSk: Uint8Array; signPub: Uint8Array }
 
-export function generateRecoveryMnemonic(): string { return generateMnemonic(wordlist, 256) }
-
-export function recoveryPhraseAccepted(mnemonic: string): boolean {
-  const words = mnemonic.trim().toLowerCase().split(/\s+/).filter(Boolean)
-  return words.length === 24 && validateMnemonic(words.join(' '), wordlist)
-}
-
-/** 1-based positions. The phrase itself is not stored with the result. */
-export function recoveryWordChecks(random: { bytes(length: number): Uint8Array }): number[] {
-  const picks: number[] = []
-  for (const byte of random.bytes(48)) {
-    const index = (byte % 24) + 1
-    if (!picks.includes(index)) picks.push(index)
-    if (picks.length === 3) return picks.sort((left, right) => left - right)
-  }
-  for (let index = 1; picks.length < 3 && index <= 24; index += 1) if (!picks.includes(index)) picks.push(index)
-  return picks
-}
-
-export function recoveryWordsMatch(mnemonic: string, indexes: number[], answers: string[]): boolean {
-  if (!recoveryPhraseAccepted(mnemonic) || indexes.length !== 3 || answers.length !== 3) return false
-  const words = mnemonic.trim().toLowerCase().split(/\s+/)
-  return indexes.every((index, offset) => words[index - 1] === answers[offset]?.trim().toLowerCase())
+export function newRecovery(random: { bytes(length: number): Uint8Array }): RecoverySecrets {
+  const boxSk = random.bytes(32)
+  const signSk = random.bytes(32)
+  return { boxSk, boxPub: publicFromSeed('x25519', boxSk), signSk, signPub: publicFromSeed('ed25519', signSk) }
 }
 
 export function recoveryChallengeMessage(input: { workspaceId: string; deviceId: string; nonceHex: string; rosterHash: string }): Uint8Array {
@@ -45,16 +25,6 @@ export function recoveryChallengeMessage(input: { workspaceId: string; deviceId:
 
 export function signRecoveryChallenge(input: { workspaceId: string; deviceId: string; nonceHex: string; rosterHash: string; signSk: Uint8Array }): Uint8Array {
   return ed25519.sign(recoveryChallengeMessage(input), input.signSk)
-}
-
-export function deriveRecovery(mnemonic: string, workspaceId: string): RecoverySecrets {
-  if (!validateMnemonic(mnemonic, wordlist) || mnemonic.trim().split(/\s+/).length !== 24) throw new Error('recovery phrase rejected')
-  const entropy = mnemonicToEntropy(mnemonic, wordlist)
-  const salt = utf8(`goalloom/recovery/v1|${workspaceId}`)
-  const boxSk = hkdfSha256(entropy, salt, 'x25519')
-  const signSk = hkdfSha256(entropy, salt, 'ed25519')
-  wipe(entropy)
-  return { boxSk, boxPub: publicFromSeed('x25519', boxSk), signSk, signPub: publicFromSeed('ed25519', signSk) }
 }
 
 export function wipeRecovery(secrets: RecoverySecrets | null): void {
@@ -87,30 +57,28 @@ export function verifyCheckpointSig(body: CheckpointBody, signature: Uint8Array,
 }
 
 export interface JoinInput {
-  mnemonic: string; workspaceId: string; checkpoint: CheckpointBody; recSig: Uint8Array; devSig: Uint8Array
+  secrets: RecoverySecrets; workspaceId: string; checkpoint: CheckpointBody; recSig: Uint8Array; devSig: Uint8Array
   roster: RosterBody; newer?: RosterLink[]
 }
 
-/** Rules (a)–(f) from protocol §9.3. Fails closed. */
+/** Rules (a)–(f) from protocol §9.3. Fails closed. The caller opens the password lock first. */
 export function verifyRecoveryJoin(input: JoinInput): void {
-  const secrets = deriveRecovery(input.mnemonic, input.workspaceId)
-  try {
-    if (input.checkpoint.workspaceId !== input.workspaceId) throw new Error('checkpoint workspace mismatch')
-    const derived = toHex(secrets.signPub)
-    if (input.checkpoint.recoverySignPub !== derived) throw new Error('checkpoint recovery key mismatch')
-    if (!verifyCheckpointSig(input.checkpoint, input.recSig, secrets.signPub)) throw new Error('checkpoint recovery signature rejected')
-    if (input.roster.version !== input.checkpoint.rosterVersion || rosterHash(input.roster) !== input.checkpoint.rosterHash || input.roster.epoch !== input.checkpoint.epoch) {
-      throw new Error('checkpoint roster mismatch')
-    }
-    const signer = input.roster.devices.find(device => verifyCheckpointSig(input.checkpoint, input.devSig, unhex(device.signPub)))
-    if (!signer) throw new Error('checkpoint device signature rejected')
-    if (input.roster.recoverySignPub !== derived || input.roster.recoveryBoxPub !== toHex(secrets.boxPub)) throw new Error('roster recovery key mismatch')
-    let previous = input.roster
-    for (const link of input.newer ?? []) {
-      verifyRosterExtension(previous, link, secrets.signPub)
-      previous = link.body
-    }
-  } finally { wipeRecovery(secrets) }
+  const secrets = input.secrets
+  if (input.checkpoint.workspaceId !== input.workspaceId) throw new Error('checkpoint workspace mismatch')
+  const derived = toHex(secrets.signPub)
+  if (input.checkpoint.recoverySignPub !== derived) throw new Error('checkpoint recovery key mismatch')
+  if (!verifyCheckpointSig(input.checkpoint, input.recSig, secrets.signPub)) throw new Error('checkpoint recovery signature rejected')
+  if (input.roster.version !== input.checkpoint.rosterVersion || rosterHash(input.roster) !== input.checkpoint.rosterHash || input.roster.epoch !== input.checkpoint.epoch) {
+    throw new Error('checkpoint roster mismatch')
+  }
+  const signer = input.roster.devices.find(device => verifyCheckpointSig(input.checkpoint, input.devSig, unhex(device.signPub)))
+  if (!signer) throw new Error('checkpoint device signature rejected')
+  if (input.roster.recoverySignPub !== derived || input.roster.recoveryBoxPub !== toHex(secrets.boxPub)) throw new Error('roster recovery key mismatch')
+  let previous = input.roster
+  for (const link of input.newer ?? []) {
+    verifyRosterExtension(previous, link, secrets.signPub)
+    previous = link.body
+  }
 }
 
 function toHex(bytes: Uint8Array): string { return [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('') }

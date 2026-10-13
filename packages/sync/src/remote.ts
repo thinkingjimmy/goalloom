@@ -90,4 +90,5 @@ export interface SyncRemote {
   }): Promise<void>
   pushOps(input: { workspaceId: string; deviceId: string; generation: string; ops: PushWire[] }): Promise<PushResultWire[]>
   pullOps(input: { workspaceId: string; deviceId: string; after: number; limit: number }): Promise<PullWire[]>
+  resetSync(deviceId: string): Promise<void>
 }

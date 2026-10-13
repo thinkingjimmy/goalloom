@@ -16,6 +16,8 @@ const accountSchema = z.strictObject({
   generation: z.string().nullable(),
   epoch: z.number().int().positive().nullable(),
   roster: z.unknown().nullable(),
+  recoveryBoxSk: z.string().nullable().default(null),
+  recoverySignSk: z.string().nullable().default(null),
 })
 
 const fileSchema = z.strictObject({
@@ -28,6 +30,8 @@ const fileSchema = z.strictObject({
   generation: z.string().nullable(),
   epoch: z.number().int().positive().nullable(),
   roster: z.unknown().nullable(),
+  recoveryBoxSk: z.string().nullable().default(null),
+  recoverySignSk: z.string().nullable().default(null),
   refreshToken: z.string().nullable(),
   userId: z.string().nullable().default(null),
   accounts: z.record(z.string(), accountSchema).default({}),
@@ -40,6 +44,8 @@ export interface AccountSecrets {
   generation: string | null
   epoch: number | null
   roster: RosterBody | null
+  recoveryBoxSk: Uint8Array | null
+  recoverySignSk: Uint8Array | null
 }
 
 export interface VaultSecrets {
@@ -51,6 +57,8 @@ export interface VaultSecrets {
   generation: string | null
   epoch: number | null
   roster: RosterBody | null
+  recoveryBoxSk: Uint8Array | null
+  recoverySignSk: Uint8Array | null
   refreshToken: string | null
   userId: string | null
   accounts: Record<string, AccountSecrets>
@@ -73,13 +81,18 @@ export class SyncVault {
       accounts[userId] = {
         deviceId: account.deviceId, workspaceKey: account.workspaceKey ? unhex(account.workspaceKey) : null,
         workspaceId: account.workspaceId, generation: account.generation, epoch: account.epoch, roster: account.roster as RosterBody | null,
+        recoveryBoxSk: account.recoveryBoxSk ? unhex(account.recoveryBoxSk) : null,
+        recoverySignSk: account.recoverySignSk ? unhex(account.recoverySignSk) : null,
       }
     }
     return {
       deviceId: parsed.deviceId, signSk: unhex(parsed.signSk), boxSk: unhex(parsed.boxSk),
       workspaceKey: parsed.workspaceKey ? unhex(parsed.workspaceKey) : null,
       workspaceId: parsed.workspaceId, generation: parsed.generation, epoch: parsed.epoch,
-      roster: parsed.roster as RosterBody | null, refreshToken: parsed.refreshToken, userId: parsed.userId, accounts,
+      roster: parsed.roster as RosterBody | null,
+      recoveryBoxSk: parsed.recoveryBoxSk ? unhex(parsed.recoveryBoxSk) : null,
+      recoverySignSk: parsed.recoverySignSk ? unhex(parsed.recoverySignSk) : null,
+      refreshToken: parsed.refreshToken, userId: parsed.userId, accounts,
     }
   }
   async save(secrets: VaultSecrets): Promise<void> {
@@ -89,13 +102,18 @@ export class SyncVault {
       accounts[userId] = {
         deviceId: account.deviceId, workspaceKey: account.workspaceKey ? hex(account.workspaceKey) : null,
         workspaceId: account.workspaceId, generation: account.generation, epoch: account.epoch, roster: account.roster,
+        recoveryBoxSk: account.recoveryBoxSk ? hex(account.recoveryBoxSk) : null,
+        recoverySignSk: account.recoverySignSk ? hex(account.recoverySignSk) : null,
       }
     }
     const body = JSON.stringify({
       v: 1, deviceId: secrets.deviceId, signSk: hex(secrets.signSk), boxSk: hex(secrets.boxSk),
       workspaceKey: secrets.workspaceKey ? hex(secrets.workspaceKey) : null,
       workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
-      roster: secrets.roster, refreshToken: secrets.refreshToken, userId: secrets.userId, accounts,
+      roster: secrets.roster,
+      recoveryBoxSk: secrets.recoveryBoxSk ? hex(secrets.recoveryBoxSk) : null,
+      recoverySignSk: secrets.recoverySignSk ? hex(secrets.recoverySignSk) : null,
+      refreshToken: secrets.refreshToken, userId: secrets.userId, accounts,
     })
     const encrypted = this.cipher.encrypt(body)
     const path = join(this.directory, 'sync-vault.bin')

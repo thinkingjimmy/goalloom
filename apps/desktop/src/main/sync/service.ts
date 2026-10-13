@@ -1,16 +1,15 @@
 /**
  * [INPUT]: OS cipher, storage worker, system browser and an optional anon key.
- * [OUTPUT]: Google sign-in, recovery-key setup or entry, and an encrypted op exchange. The board stays usable when sync is off.
+ * [OUTPUT]: Google sign-in, a sync password, and an encrypted op exchange. The board stays usable when sync is off.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
+ * The password is held in memory only until a join finishes or ten minutes pass.
  */
 import { hostname } from 'node:os'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
+import { newRecovery, passwordAccepted, publicFromSeed, signDetached, systemRandom, type RecoverySecrets } from '@goalloom/crypto'
 import {
-  generateRecoveryMnemonic, publicFromSeed, recoveryPhraseAccepted, recoveryWordChecks, recoveryWordsMatch, signDetached, systemRandom,
-} from '@goalloom/crypto'
-import {
-  acceptRosterAdvance, createFetchRemote, createRemoteWorkspace, downloadWorkspace, newDeviceSecret, planPushBatches, pullOpened,
-  rebindMessage, sealPending, unlockWithPhrase, workspaceKeyFromEnvelope, SyncFailure, type BoundWorkspace, type DevicePlatform,
+  acceptRosterAdvance, changeSyncPassword, createFetchRemote, createRemoteWorkspace, downloadWorkspace, newDeviceSecret, planPushBatches, pullOpened,
+  rebindMessage, sealPending, unlockWithPassword, workspaceKeyFromEnvelope, SyncFailure, type BoundWorkspace, type DevicePlatform,
   type DeviceSecret, type PendingPlain, type SyncRemote,
 } from '@goalloom/sync'
 import type { RemoteEnvelope } from '@goalloom/store-core'
@@ -35,10 +34,13 @@ interface LocalView {
   conflicts: number
   localItems: number
 }
-interface PhraseHold { text: string; purpose: 'setup' | 'join' }
 
 const emptyView = (): LocalView => ({
   workspaceId: null, deviceId: null, generation: '', keyEpoch: null, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 0,
+})
+
+const emptyRecovery = (): RecoverySecrets => ({
+  boxSk: new Uint8Array(), signSk: new Uint8Array(), boxPub: new Uint8Array(), signPub: new Uint8Array(),
 })
 
 function desktopPlatform(): DevicePlatform {
@@ -57,10 +59,9 @@ export class SyncService {
   private error: SyncError | null = null
   private offline = false
   private lastSyncedAt: string | null = null
-  private checks: number[] | null = null
   private view: LocalView = emptyView()
-  private phrase: PhraseHold | null = null
-  private phraseTimer: ReturnType<typeof setTimeout> | null = null
+  private heldPassword: string | null = null
+  private heldTimer: ReturnType<typeof setTimeout> | null = null
   private operation: Promise<void> | null = null
   private ticking = false
   private poll: ReturnType<typeof setInterval> | null = null
@@ -117,6 +118,7 @@ export class SyncService {
   stop(): void {
     if (this.poll) clearInterval(this.poll)
     this.poll = null
+    this.dropPassword()
     void this.channel?.unsubscribe()
     this.channel = null
   }
@@ -129,23 +131,22 @@ export class SyncService {
     const action = syncActionSchema.parse(input)
     try {
       if (action.type === 'status') await this.readView().catch(() => undefined)
-      else if (action.type === 'copy') this.copyPhrase()
-      else if (action.type === 'cancel') this.cancelPhrase()
+      else if (action.type === 'cancel') this.cancelJoin()
       else await this.exclusive(() => this.perform(action))
     } catch (error) {
       this.setError(error)
       this.publish()
     }
-    const phrase = action.type === 'prepare' ? this.phrase?.text ?? null : null
-    return syncReplySchema.parse({ status: this.status(), phrase })
+    return syncReplySchema.parse({ status: this.status() })
   }
 
   private async perform(action: SyncAction): Promise<void> {
     if (action.type === 'sign-in') await this.signIn()
     else if (action.type === 'sign-out') await this.signOut()
-    else if (action.type === 'prepare') this.preparePhrase()
-    else if (action.type === 'confirm') await this.confirmPhrase(action.words)
-    else if (action.type === 'submit-phrase') await this.submitPhrase(action.phrase)
+    else if (action.type === 'create') await this.createWorkspace(action.password)
+    else if (action.type === 'submit-password') await this.submitPassword(action.password)
+    else if (action.type === 'change-password') await this.changePassword(action.password)
+    else if (action.type === 'reset-sync') await this.resetAndUpload(action.password)
     else if (action.type === 'join') await this.finishJoin(action.choice, action.acknowledged)
   }
 
@@ -178,7 +179,7 @@ export class SyncService {
     this.email = null
     this.error = null
     this.offline = false
-    this.dropPhrase()
+    this.dropPassword()
     if (this.secrets) { this.secrets.refreshToken = null; await this.persist() }
     await this.client?.auth.signOut({ scope: 'local' }).catch(() => undefined)
     void this.channel?.unsubscribe()
@@ -186,70 +187,110 @@ export class SyncService {
     this.publish()
   }
 
-  private preparePhrase(): void {
-    if (this.phase !== 'setup' && this.phase !== 'confirm') return
-    const text = generateRecoveryMnemonic()
-    this.phrase = { text, purpose: 'setup' }
-    this.checks = recoveryWordChecks(systemRandom())
-    this.phase = 'confirm'
-    this.armPhrase()
-    this.publish()
-  }
-
-  private copyPhrase(): void {
-    if (this.phrase) this.deps.clipboard(this.phrase.text)
-  }
-
-  private async confirmPhrase(words: string[]): Promise<void> {
-    if (!this.phrase || !this.checks || !recoveryWordsMatch(this.phrase.text, this.checks, words)) throw new SyncFailure('phrase')
+  private async createWorkspace(password: string): Promise<void> {
+    if (this.phase !== 'setup') return
+    if (!passwordAccepted(password)) throw new SyncFailure('password')
     const remote = this.requireRemote()
     const deviceId = this.requireDevice()
     const secrets = this.requireSecrets()
     const view = await this.readView()
-    if (!secrets.roster) {
-      if (!secrets.workspaceId || !secrets.workspaceKey) {
-        secrets.workspaceId = globalThis.crypto.randomUUID()
-        secrets.workspaceKey = systemRandom().bytes(32)
-        secrets.generation = view.generation
-        secrets.epoch = 1
-        await this.persist()
-      }
+    if (!secrets.workspaceId || !secrets.workspaceKey || !this.recoveryFromVault()) {
+      const recovery = newRecovery(systemRandom())
+      secrets.workspaceId = globalThis.crypto.randomUUID()
+      secrets.workspaceKey = systemRandom().bytes(32)
+      secrets.recoveryBoxSk = recovery.boxSk
+      secrets.recoverySignSk = recovery.signSk
+      secrets.generation = view.generation
+      secrets.epoch = 1
+      secrets.roster = null
+      await this.persist()
     }
+    const recovery = this.recoveryFromVault()
     const workspaceId = secrets.workspaceId
     const workspaceKey = secrets.workspaceKey
-    if (!workspaceId || !workspaceKey) throw new SyncFailure('storage', 'pending workspace')
-    let bound: BoundWorkspace
-    try {
-      bound = await createRemoteWorkspace({
-        remote, deviceId, secret: this.deviceSecret(), mnemonic: this.phrase.text,
-        generation: secrets.generation || view.generation, workspaceId, workspaceKey,
-      })
-    } catch (error) {
-      if (!(error instanceof SyncFailure) || !error.message.includes('workspace')) throw error
-      const account = await remote.account()
-      if (account?.workspaceId === workspaceId) throw error
-      const unlocked = await unlockWithPhrase({ remote, deviceId, secret: this.deviceSecret(), mnemonic: this.phrase.text })
-      bound = unlocked.bound
-    }
+    if (!recovery || !workspaceId || !workspaceKey) throw new SyncFailure('storage', 'pending workspace')
+    const bound = await createRemoteWorkspace({
+      remote, deviceId, secret: this.deviceSecret(), password, recovery,
+      generation: secrets.generation || view.generation, workspaceId, workspaceKey,
+    })
     await this.remember(bound)
     await this.storage({ type: 'baseline', deviceId, at: this.deps.now() })
     await this.storage({ type: 'bind', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch }, at: this.deps.now() })
-    this.dropPhrase()
-    this.phase = 'ready'
-    this.error = null
-    this.listen()
+    this.becomeReady()
     await this.pushAndPull()
     this.publish()
   }
 
-  private async submitPhrase(phrase: string): Promise<void> {
-    const text = phrase.trim().toLowerCase().split(/\s+/).filter(Boolean).join(' ')
-    if (!recoveryPhraseAccepted(text)) throw new SyncFailure('phrase')
-    this.phrase = { text, purpose: 'join' }
-    this.armPhrase()
+  private async submitPassword(password: string): Promise<void> {
+    if (this.phase !== 'enter-key') return
+    if (!passwordAccepted(password)) throw new SyncFailure('password')
+    this.heldPassword = password
+    this.armPassword()
     const view = await this.readView()
     if (view.localItems > 0) { this.phase = 'choose'; this.error = null; this.publish(); return }
     await this.finishJoin('use-remote', true)
+  }
+
+  private async changePassword(password: string): Promise<void> {
+    if (this.phase !== 'ready') return
+    if (!passwordAccepted(password)) throw new SyncFailure('password')
+    const secrets = this.requireSecrets()
+    const recovery = this.recoveryFromVault()
+    if (!recovery || !secrets.workspaceId || !secrets.deviceId) throw new SyncFailure('key')
+    await changeSyncPassword({
+      remote: this.requireRemote(), deviceId: secrets.deviceId, workspaceId: secrets.workspaceId, recovery, password,
+    })
+    this.error = null
+    this.publish()
+  }
+
+  private async resetAndUpload(password: string): Promise<void> {
+    if (this.phase !== 'enter-key') return
+    if (!passwordAccepted(password)) throw new SyncFailure('password')
+    const remote = this.requireRemote()
+    const deviceId = this.requireDevice()
+    const secrets = this.requireSecrets()
+    await remote.resetSync(deviceId)
+    secrets.workspaceId = null
+    secrets.workspaceKey = null
+    secrets.generation = null
+    secrets.epoch = null
+    secrets.roster = null
+    secrets.recoveryBoxSk = null
+    secrets.recoverySignSk = null
+    await this.persist()
+    const view = await this.readView()
+    const recovery = newRecovery(systemRandom())
+    secrets.workspaceId = globalThis.crypto.randomUUID()
+    secrets.workspaceKey = systemRandom().bytes(32)
+    secrets.recoveryBoxSk = recovery.boxSk
+    secrets.recoverySignSk = recovery.signSk
+    secrets.generation = view.generation
+    secrets.epoch = 1
+    await this.persist()
+    await this.storage({ type: 'rebaseline', deviceId, at: this.deps.now() })
+    let bound: BoundWorkspace
+    try {
+      bound = await createRemoteWorkspace({
+        remote, deviceId, secret: this.deviceSecret(), password, recovery,
+        generation: secrets.generation || view.generation, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey,
+      })
+    } catch (error) {
+      secrets.workspaceId = null
+      secrets.workspaceKey = null
+      secrets.generation = null
+      secrets.epoch = null
+      secrets.roster = null
+      secrets.recoveryBoxSk = null
+      secrets.recoverySignSk = null
+      await this.persist()
+      throw error
+    }
+    await this.remember(bound)
+    await this.storage({ type: 'bind', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch }, at: this.deps.now() })
+    this.becomeReady()
+    await this.pushAndPull()
+    this.publish()
   }
 
   private async finishJoin(choice: 'use-remote' | 'merge', acknowledged: boolean): Promise<void> {
@@ -261,19 +302,22 @@ export class SyncService {
     await this.storage({ type: 'hold', closed: true })
     let bound: BoundWorkspace
     let ops: RemoteEnvelope[]
+    let writeRecovery = true
     try {
       await this.storage({ type: 'protect', at: this.deps.now() })
-      if (this.phrase) {
-        const unlocked = await unlockWithPhrase({ remote, deviceId, secret: this.deviceSecret(), mnemonic: this.phrase.text })
+      if (this.heldPassword) {
+        const unlocked = await unlockWithPassword({ remote, deviceId, secret: this.deviceSecret(), password: this.heldPassword })
         bound = unlocked.bound
         ops = unlocked.ops
       } else if (secrets.workspaceKey && secrets.workspaceId && secrets.epoch && secrets.roster && secrets.generation) {
+        const recovery = this.recoveryFromVault()
+        writeRecovery = Boolean(recovery)
         bound = {
           workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
-          workspaceKey: secrets.workspaceKey, roster: secrets.roster,
+          workspaceKey: secrets.workspaceKey, roster: secrets.roster, recovery: recovery ?? emptyRecovery(),
         }
         ops = await downloadWorkspace({ remote, deviceId, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey })
-      } else throw new SyncFailure('phrase')
+      } else throw new SyncFailure('password')
       const at = this.deps.now()
       await this.storage({
         type: 'install', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch },
@@ -282,14 +326,18 @@ export class SyncService {
     } finally {
       await this.storage({ type: 'hold', closed: false }).catch(() => undefined)
     }
-    await this.remember(bound)
-    this.dropPhrase()
-    this.phase = 'ready'
-    this.error = null
-    this.listen()
+    await this.remember(bound, writeRecovery)
+    this.becomeReady()
     this.deps.onApplied()
     await this.pushAndPull()
     this.publish()
+  }
+
+  private becomeReady(): void {
+    this.dropPassword()
+    this.phase = 'ready'
+    this.error = null
+    this.listen()
   }
 
   private async afterAuth(): Promise<void> {
@@ -368,6 +416,8 @@ export class SyncService {
     secrets.generation = stored?.generation ?? null
     secrets.epoch = stored?.epoch ?? null
     secrets.roster = stored?.roster ?? null
+    secrets.recoveryBoxSk = stored?.recoveryBoxSk ?? null
+    secrets.recoverySignSk = stored?.recoverySignSk ?? null
     await this.persist()
   }
 
@@ -376,6 +426,7 @@ export class SyncService {
     return {
       deviceId: secrets.deviceId, workspaceKey: secrets.workspaceKey, workspaceId: secrets.workspaceId,
       generation: secrets.generation, epoch: secrets.epoch, roster: secrets.roster,
+      recoveryBoxSk: secrets.recoveryBoxSk, recoverySignSk: secrets.recoverySignSk,
     }
   }
 
@@ -450,14 +501,28 @@ export class SyncService {
     await this.persist()
   }
 
-  private async remember(bound: BoundWorkspace): Promise<void> {
+  private async remember(bound: BoundWorkspace, writeRecovery = true): Promise<void> {
     const secrets = this.requireSecrets()
     secrets.workspaceId = bound.workspaceId
     secrets.generation = bound.generation
     secrets.epoch = bound.epoch
     secrets.workspaceKey = bound.workspaceKey
     secrets.roster = bound.roster
+    if (writeRecovery) {
+      secrets.recoveryBoxSk = bound.recovery.boxSk
+      secrets.recoverySignSk = bound.recovery.signSk
+    }
     await this.persist()
+  }
+
+  private recoveryFromVault(): RecoverySecrets | null {
+    const secrets = this.requireSecrets()
+    if (!secrets.recoveryBoxSk || !secrets.recoverySignSk || secrets.recoveryBoxSk.length !== 32 || secrets.recoverySignSk.length !== 32) return null
+    return {
+      boxSk: secrets.recoveryBoxSk, signSk: secrets.recoverySignSk,
+      boxPub: publicFromSeed('x25519', secrets.recoveryBoxSk),
+      signPub: publicFromSeed('ed25519', secrets.recoverySignSk),
+    }
   }
 
   private async persist(): Promise<void> {
@@ -503,7 +568,8 @@ export class SyncService {
     const secret = newDeviceSecret()
     return {
       deviceId: null, signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: null, workspaceId: null,
-      generation: null, epoch: null, roster: null, refreshToken: null, userId: null, accounts: {},
+      generation: null, epoch: null, roster: null, recoveryBoxSk: null, recoverySignSk: null,
+      refreshToken: null, userId: null, accounts: {},
     }
   }
 
@@ -538,29 +604,26 @@ export class SyncService {
     return this.deps.storage.call<T>('sync', argument)
   }
 
-  private armPhrase(): void {
-    if (this.phraseTimer) clearTimeout(this.phraseTimer)
-    this.phraseTimer = setTimeout(() => {
-      const purpose = this.phrase?.purpose
-      this.dropPhrase()
-      if (this.phase === 'confirm' || this.phase === 'choose') this.phase = purpose === 'setup' ? 'setup' : 'enter-key'
+  private armPassword(): void {
+    if (this.heldTimer) clearTimeout(this.heldTimer)
+    this.heldTimer = setTimeout(() => {
+      this.dropPassword()
+      if (this.phase === 'choose') this.phase = 'enter-key'
       this.publish()
     }, 10 * 60 * 1000)
-    this.phraseTimer.unref()
+    this.heldTimer.unref()
   }
 
-  private cancelPhrase(): void {
-    const purpose = this.phrase?.purpose
-    this.dropPhrase()
-    if (this.phase === 'confirm' || this.phase === 'choose' || this.phase === 'enter-key') this.phase = purpose === 'setup' ? 'setup' : 'enter-key'
+  private cancelJoin(): void {
+    this.dropPassword()
+    if (this.phase === 'choose') this.phase = 'enter-key'
     this.publish()
   }
 
-  private dropPhrase(): void {
-    this.phrase = null
-    this.checks = null
-    if (this.phraseTimer) clearTimeout(this.phraseTimer)
-    this.phraseTimer = null
+  private dropPassword(): void {
+    this.heldPassword = null
+    if (this.heldTimer) clearTimeout(this.heldTimer)
+    this.heldTimer = null
   }
 
   private setError(error: unknown): void {
@@ -590,7 +653,6 @@ export class SyncService {
       lastSyncedAt: this.lastSyncedAt,
       error: this.error,
       localItems: this.view.localItems,
-      checks: this.phase === 'confirm' ? this.checks : null,
       offline: this.offline,
     }
   }

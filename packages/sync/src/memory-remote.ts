@@ -70,6 +70,11 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       if (!workspace) return null
       return { workspaceId: workspace.id, generation: workspace.generation, keyEpoch: workspace.keyEpoch, headSeq: workspace.headSeq, rosterVersion: workspace.rosterVersion }
     },
+    async resetSync(deviceId) {
+      failIfOffline(world)
+      device(world, sessionId, deviceId, true)
+      world.workspace = null
+    },
     async bootstrap(input) {
       failIfOffline(world)
       device(world, sessionId, input.deviceId, true)
