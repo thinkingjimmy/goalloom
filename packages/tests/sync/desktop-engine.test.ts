@@ -351,17 +351,73 @@ it('rebuilds a rejected baseline from its payload without asking for setup again
     first.db.prepare(`INSERT INTO sync_ops (opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,outcome,seq,errorCode,createdAt,updatedAt)
       VALUES (?,?,'local',1,?,?,?,?, 'applied','rejected',?,?,?,?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, seq, errorCode, baselineAt, baselineAt)
   }
+  const earlyRollover = rollover()
+  const nextRollover = rollover()
   rejected(baseline, 1, 1, 'horizon_order')
-  rejected(rollover(), 2, 2, 'item_deleted')
-  rejected(rollover(), 3, 3, 'item_deleted')
-  first.db.prepare('UPDATE sync_state SET lastAppliedSeq=3, updatedAt=? WHERE id=1').run(baselineAt)
+  rejected(earlyRollover, 2, 2, 'item_deleted')
+  rejected(nextRollover, 3, 3, 'item_deleted')
+  const unrelated: SyncOp = {
+    v: 1, opId: randomUUID(), deviceId: 'device-b', at: '2026-10-12T00:00:00.000Z',
+    actions: [{ t: 'item.set', id: childId, fields: { title: '另一处改动' } }],
+  }
+  rejected(unrelated, 4, 4, 'item_deleted')
+  const conflict = (op: SyncOp, seq: number, code: string) => {
+    first.db.prepare('INSERT INTO sync_conflicts (opId, seq, code, itemId, detail, at) VALUES (?,?,?,?,?,?)').run(op.opId, seq, code, childId, code, op.at)
+  }
+  conflict(baseline, 1, 'horizon_order')
+  conflict(earlyRollover, 2, 'item_deleted')
+  conflict(nextRollover, 3, 'item_deleted')
+  conflict(unrelated, 4, 'item_deleted')
+  first.db.prepare('UPDATE sync_state SET lastAppliedSeq=4, updatedAt=? WHERE id=1').run(baselineAt)
   expect(confirmed(first.db).setupConfirmedAt).toBeNull()
   expect(repairRejectedBaseline(first.driver, first.host)).toBe(true)
   expect(confirmed(first.db).calendar?.id).toBe(calendar.id)
   expect(confirmed(first.db).setupConfirmedAt).toBe(baselineAt)
   expect(first.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL ORDER BY title').all().map(row => String(row.title))).toEqual(['年度方向', '月度任务'])
   expect(first.db.prepare('SELECT parentId, childId FROM item_relations WHERE invalidatedAt IS NULL').get()).toMatchObject({ parentId, childId })
+  expect(first.db.prepare('SELECT opId FROM sync_conflicts').all().map(row => String(row.opId))).toEqual([unrelated.opId])
   expect(repairRejectedBaseline(first.driver, first.host)).toBe(false)
+  expect(first.db.prepare('SELECT opId FROM sync_conflicts').all().map(row => String(row.opId))).toEqual([unrelated.opId])
+  first.db.close()
+})
+
+it('drops stale baseline conflicts after the board is already restored', () => {
+  const first = desktop()
+  first.run({ type: 'create', title: '仍在的任务', horizon: 'later' })
+  const title = '仍在的任务'
+  const before = confirmed(first.db)
+  const calendar = before.calendar as CalendarWire
+  const baselineAt = '2026-10-04T03:00:00.000Z'
+  const baseline: SyncOp = {
+    v: 1, opId: randomUUID(), deviceId: 'device-a', at: baselineAt,
+    actions: [{ t: 'calendar.setup', calendar }],
+  }
+  const rollover = (): SyncOp => ({
+    v: 1, opId: randomUUID(), deviceId: 'system', at: '2026-09-28T00:00:00.000Z',
+    actions: [{ t: 'item.rollover', id: randomUUID(), from: { periodKey: { horizon: 'month', startDate: '2026-09-01' }, placementSeq: 1 }, to: { horizon: 'month', startDate: '2026-10-01' }, position: 'append' }],
+  })
+  const applied: SyncOp = {
+    v: 1, opId: randomUUID(), deviceId: 'device-a', at: '2026-10-13T01:00:00.000Z',
+    actions: [{ t: 'item.set', id: randomUUID(), fields: { title: '后来的改动' } }],
+  }
+  const later = rollover()
+  const write = (op: SyncOp, order: number, seq: number, outcome: 'rejected' | 'applied', errorCode: string | null) => {
+    const payload = syncOpPayload(op)
+    first.db.prepare(`INSERT INTO sync_ops (opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,outcome,seq,errorCode,createdAt,updatedAt)
+      VALUES (?,?,'local',1,?,?,?,?, 'applied',?,?,?,?,?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, outcome, seq, errorCode, baselineAt, baselineAt)
+    if (errorCode) first.db.prepare('INSERT INTO sync_conflicts (opId, seq, code, itemId, detail, at) VALUES (?,?,?,?,?,?)').run(op.opId, seq, errorCode, null, errorCode, op.at)
+  }
+  write(baseline, 80, 80, 'rejected', 'horizon_order')
+  write(rollover(), 81, 81, 'rejected', 'item_deleted')
+  write(rollover(), 82, 82, 'rejected', 'item_deleted')
+  write(applied, 90, 90, 'applied', null)
+  write(later, 91, 91, 'rejected', 'item_deleted')
+  expect(repairRejectedBaseline(first.driver, first.host)).toBe(false)
+  expect(confirmed(first.db)).toEqual(before)
+  expect(String(first.db.prepare('SELECT title FROM items WHERE deletedAt IS NULL LIMIT 1').get()?.title ?? '')).toBe(title)
+  expect(first.db.prepare('SELECT opId FROM sync_conflicts ORDER BY seq').all().map(row => String(row.opId))).toEqual([later.opId])
+  expect(repairRejectedBaseline(first.driver, first.host)).toBe(false)
+  expect(first.db.prepare('SELECT opId FROM sync_conflicts').all().map(row => String(row.opId))).toEqual([later.opId])
   first.db.close()
 })
 

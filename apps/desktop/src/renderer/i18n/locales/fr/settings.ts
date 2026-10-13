@@ -133,7 +133,7 @@ export const settingsMessages: SettingsCatalog = {
     acknowledge: 'Je comprends que cela modifie le tableau de cet ordinateur',
     exportJson: 'Exporter le JSON',
     pending: (count: number) => count === 1 ? '1 modification en attente' : `${count} modifications en attente`,
-    conflicts: (count: number) => `${count} conflits conservés ; les éléments restants n’ont pas été réécrits`,
+    conflicts: (count: number) => count === 1 ? '1 modification n’a pas été synchronisée. Les tâches de cet ordinateur sont restées telles quelles.' : `${count} modifications n’ont pas été synchronisées. Les tâches de cet ordinateur sont restées telles quelles.`,
     offline: 'Hors ligne. Les modifications partent au retour du réseau.',
     paused: 'La synchro est en pause',
     pausedNav: 'En pause',

@@ -5,7 +5,7 @@
  */
 import { parseSyncOp, syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
-import { applySyncOp, rebuildVisibleFull, type ApplyHost, type SqlDriver } from '@goalloom/store-core'
+import { applySyncOp, rebuildVisibleFull, type ApplyHost, type SqlDriver, type SqlValue } from '@goalloom/store-core'
 import { SyncFailure } from './failure'
 
 export interface BoardItem {
@@ -242,20 +242,46 @@ function assertBaselineKept(before: LocalBoard, driver: SqlDriver): void {
   if (before.items.some(item => !item.deletedAt) && localLiveCount(driver) === 0) throw new SyncFailure('storage', 'baseline items')
 }
 
-/** Restores a board whose baseline calendar op was rejected and left setup unconfirmed. Payloads stay the source; onboarding is not required. */
+/** Restores a board whose baseline calendar op was rejected and left setup unconfirmed. Payloads stay the source; onboarding is not required. A board that is already confirmed only drops the stale conflict rows. */
 export function repairRejectedBaseline(driver: SqlDriver, host: ApplyHost): boolean {
-  if (driver.prepare('SELECT setupConfirmedAt FROM workspace WHERE id=1').get()?.setupConfirmedAt) return false
-  const rows = driver.prepare(`SELECT localOrder, payload, at, deviceId, outcome FROM sync_ops WHERE origin='local' ORDER BY localOrder`).all()
+  const confirmed = Boolean(driver.prepare('SELECT setupConfirmedAt FROM workspace WHERE id=1').get()?.setupConfirmedAt)
+  const rows = driver.prepare(`SELECT opId, localOrder, payload, at, deviceId, outcome, seq FROM sync_ops WHERE origin='local' ORDER BY localOrder`).all()
   const head = rows.find(row => String(row.outcome ?? '') === 'rejected' && firstAction(row.payload) === 'calendar.setup')
   if (!head) return false
+  if (confirmed) {
+    if (!baselineConflict(driver, head)) return false
+    driver.transaction(() => clearStaleBaselineConflicts(driver, head))
+    return false
+  }
   const batch = rows.filter(row => String(row.at) === String(head.at) && String(row.deviceId) === String(head.deviceId))
   return driver.transaction(() => {
     for (const row of batch) applySyncOp(driver, JSON.parse(String(row.payload)), 'base', host)
     rebuildVisibleFull(driver, host)
     const restored = readBoard(driver, '')
     if (!restored.calendar || !restored.setupConfirmedAt) throw new SyncFailure('storage', 'baseline repair')
+    clearStaleBaselineConflicts(driver, head)
     return true
   })
+}
+
+function baselineConflict(driver: SqlDriver, head: Record<string, SqlValue>): boolean {
+  return Boolean(driver.prepare(`SELECT 1 AS n FROM sync_conflicts c JOIN sync_ops o ON o.opId=c.opId
+    WHERE o.origin='local' AND o.outcome='rejected' AND o.at=? AND o.deviceId=?`).get(String(head.at), String(head.deviceId)))
+}
+
+/** Drops the rejected baseline and the rollover rejections that happened before any later op applied. */
+function clearStaleBaselineConflicts(driver: SqlDriver, head: Record<string, SqlValue>): void {
+  driver.prepare(`DELETE FROM sync_conflicts WHERE opId IN (
+    SELECT opId FROM sync_ops WHERE origin='local' AND outcome='rejected' AND at=? AND deviceId=?
+  )`).run(String(head.at), String(head.deviceId))
+  if (head.seq === null || head.seq === undefined) return
+  const seq = Number(head.seq)
+  driver.prepare(`DELETE FROM sync_conflicts WHERE opId IN (
+    SELECT opId FROM sync_ops WHERE origin='local' AND outcome='rejected'
+      AND errorCode='item_deleted' AND json_extract(payload,'$.actions[0].t')='item.rollover'
+      AND seq IS NOT NULL AND seq>?
+      AND NOT EXISTS (SELECT 1 FROM sync_ops later WHERE later.outcome='applied' AND later.seq>? AND later.seq<sync_ops.seq)
+  )`).run(seq, seq)
 }
 
 function firstAction(payload: unknown): string | null {

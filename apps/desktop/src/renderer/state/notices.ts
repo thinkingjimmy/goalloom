@@ -49,7 +49,7 @@ function commit(next: Record<string, string>) {
 }
 
 export function useDismissedNotice(id: string, token: string | null): { open: boolean; dismiss: () => void } {
-  const map = useSyncExternalStore(subscribe, () => current)
+  const map = useSyncExternalStore(subscribe, () => current, () => current)
   const dismiss = useCallback(() => {
     if (token === null) return
     commit({ ...current, [id]: token })

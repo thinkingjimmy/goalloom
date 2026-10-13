@@ -133,7 +133,7 @@ export const settingsMessages: SettingsCatalog = {
     acknowledge: 'このパソコンのボードが変わることを理解しました',
     exportJson: 'JSON を書き出す',
     pending: (count: number) => `${count} 件が送信待ち`,
-    conflicts: (count: number) => `${count} 件の競合を残しました。残った項目は書き換えていません`,
+    conflicts: (count: number) => `${count} 件の変更は同期されませんでした。このパソコンのタスクはそのままです`,
     offline: 'オフラインです。接続後に変更を送ります',
     paused: '同期は一時停止しています',
     pausedNav: '一時停止',

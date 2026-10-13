@@ -133,7 +133,7 @@ export const settingsMessages: SettingsCatalog = {
     acknowledge: 'I understand this changes the board on this computer',
     exportJson: 'Export JSON',
     pending: (count: number) => count === 1 ? '1 change waiting' : `${count} changes waiting`,
-    conflicts: (count: number) => `${count} conflicts kept; surviving items were not rewritten`,
+    conflicts: (count: number) => count === 1 ? '1 change did not sync. Tasks on this computer stayed as they are.' : `${count} changes did not sync. Tasks on this computer stayed as they are.`,
     offline: 'Offline. Changes send after you reconnect.',
     paused: 'Sync is paused',
     pausedNav: 'Paused',

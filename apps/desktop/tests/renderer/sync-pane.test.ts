@@ -77,6 +77,18 @@ it('七种同步状态都是普通设置行，状态和退出登录在同一行'
   expect(syncNavBadge(status({ phase: 'locked', email: 'jimmy@example.com' }))).toEqual({ text: '已关闭', dot: 'err' })
 })
 
+it('同步冲突用白话说明，并且可以关闭', () => {
+  const markup = page({ phase: 'ready', email: 'jimmy@example.com', conflicts: 3, lastSyncedAt: '2026-10-13T15:28:00.000Z' })
+  expect(markup).toContain('有 3 处改动没有同步，这台电脑上的任务保持原样')
+  expect(markup).toContain('关闭提示')
+  expect(markup).not.toContain('幸存的条目')
+  expect(page({ phase: 'ready', email: 'jimmy@example.com', conflicts: 0 })).not.toContain('没有同步')
+  for (const catalog of [zh, en, ja, es, fr]) {
+    expect(catalog.settings.sync.conflicts(3)).not.toMatch(/幸存|surviving|残った項目|elementos que quedan|éléments restants/)
+  }
+  expect(en.settings.sync.conflicts(1)).toContain('1 change did not sync')
+})
+
 it('重试和退出登录的间距是 8px，并且不出现已删除的密码提示', () => {
   const css = readFileSync(new URL('../../src/renderer/features/shell/settings/settings.css', import.meta.url), 'utf8')
   expect(css).toMatch(/\.sync-row-actions, \.sync-end \{[^}]*gap: 8px/)
