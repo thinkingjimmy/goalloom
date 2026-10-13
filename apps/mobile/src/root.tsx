@@ -189,6 +189,7 @@ export default function Root() {
       captureSeed={shot === 'capture' ? CAPTURE_SEED : ''}
       onTab={next => { setTab(next); setMinimized(false) }} onColumn={setColumn} onMinimize={setMinimized} onSheet={setSheet}
       onToast={show}
+      onDismissToast={() => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast(null) }}
       onCheck={item => guard(() => {
         const next = item.status === 'done' ? 'todo' : 'done'
         const undo = boot.store.setStatus(clock(), item.id, next)

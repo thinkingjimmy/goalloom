@@ -10,9 +10,21 @@ export const BOARD_COLUMNS = ['year', 'half', 'cycle', 'month', 'week', 'day', '
 export type BoardColumn = typeof BOARD_COLUMNS[number]
 export const OPEN_COLUMN: BoardColumn = 'day'
 export const OPEN_INDEX = BOARD_COLUMNS.indexOf(OPEN_COLUMN)
+/** Bottom bar. There is no Today tab; today is the column the board opens on. */
+export const APP_TABS = ['board', 'flow', 'settings'] as const
+export type AppTab = typeof APP_TABS[number]
 export const LONG_PRESS_MS = 450
 export const GESTURE_SLOP = 8
 export const NEST_INDENT = 24
+/** The flow page is one column. Rows do not indent. */
+export const FLOW_INDENT = 0
+
+/** Checklist fraction, matching the desktop note signal. Folds show a count. Other surfaces show nothing. */
+export function completionLabel(where: 'note' | 'fold' | 'header', done: number, total: number): string | null {
+  if (where === 'note' && total > 0) return `${done}/${total}`
+  if (where === 'fold') return String(done)
+  return null
+}
 
 export function rowSwipeAction(): null { return null }
 
@@ -224,6 +236,34 @@ export function flowSections(items: readonly FlowListItem[]): { horizon: PeriodH
     buckets.set(item.horizon, list)
   }
   return periodHorizons.filter(horizon => buckets.has(horizon)).map(horizon => ({ horizon, ids: buckets.get(horizon)! }))
+}
+
+export interface FlowRailItem { id: string; horizon: PeriodHorizon; done: boolean; color: number | null }
+
+/** Parent→child rails for the single-column flow page. Unrelated neighbours are not connected. */
+export function flowLeftLinks(items: readonly FlowRailItem[], edges: readonly FlowEdge[]): { from: string; to: string; skip: boolean; dim: boolean; color: number | null }[] {
+  const placed = new Map(items.map((item, index) => [item.id, { item, index }]))
+  const rank = (horizon: PeriodHorizon) => periodHorizons.indexOf(horizon)
+  const seen = new Set<string>()
+  const links: { from: string; to: string; skip: boolean; dim: boolean; color: number | null }[] = []
+  for (const edge of edges) {
+    const parent = placed.get(edge.parentId)
+    const child = placed.get(edge.childId)
+    if (!parent || !child || parent.index === child.index) continue
+    const upper = parent.index < child.index ? parent : child
+    const lower = parent.index < child.index ? child : parent
+    const key = `${upper.item.id}>${lower.item.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    links.push({
+      from: upper.item.id,
+      to: lower.item.id,
+      skip: Math.abs(rank(parent.item.horizon) - rank(child.item.horizon)) > 1,
+      dim: child.item.done,
+      color: parent.item.color ?? child.item.color,
+    })
+  }
+  return links
 }
 
 export function flowConnectors(items: readonly FlowListItem[]): { from: string; to: string; skip: boolean; dim: boolean }[] {

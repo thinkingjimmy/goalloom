@@ -16,6 +16,7 @@ export async function openDatabase(name: string, reset: boolean): Promise<SqlDri
     try { deleteDatabaseSync(file) } catch { /* a missing file is a fresh database */ }
   }
   const db = openDatabaseSync(file)
+  db.execSync('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;')
   open.set(file, db)
   return expoDriver(db)
 }

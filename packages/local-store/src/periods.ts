@@ -153,19 +153,26 @@ export function daysLeft(period: Period, today: string): number {
   return Math.round((Date.parse(`${period.endDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000)
 }
 
+/** Inclusive range. A year is written on both ends only when the range crosses one. */
+export function rangeLabel(start: Ymd, endInclusive: Ymd, unit: 'day' | 'month'): string {
+  const crosses = start.y !== endInclusive.y
+  if (unit === 'month') {
+    return crosses ? `${start.y}年${start.m}月–${endInclusive.y}年${endInclusive.m}月` : `${start.m}月–${endInclusive.m}月`
+  }
+  return crosses
+    ? `${start.y}/${start.m}/${start.d}–${endInclusive.y}/${endInclusive.m}/${endInclusive.d}`
+    : `${start.m}/${start.d}–${endInclusive.m}/${endInclusive.d}`
+}
+
 export function periodMeta(horizon: PeriodHorizon | 'later', period: Period | null, today: string): { title: string; meta: string; countdown: number | null } {
   if (horizon === 'later' || !period) return { title: 'Later', meta: '', countdown: null }
   const end = addDays(parseYmd(period.endDate), -1)
   const start = parseYmd(period.startDate)
-  const monthSpan = `${start.m}月–${end.m}月`
   if (horizon === 'year') return { title: '1年', meta: String(start.y), countdown: null }
-  if (horizon === 'half') return { title: '半年', meta: monthSpan, countdown: null }
-  if (horizon === 'cycle') return { title: '3个月', meta: monthSpan, countdown: null }
+  if (horizon === 'half') return { title: '半年', meta: rangeLabel(start, end, 'month'), countdown: null }
+  if (horizon === 'cycle') return { title: '3个月', meta: rangeLabel(start, end, 'month'), countdown: null }
   if (horizon === 'month') return { title: '本月', meta: `${start.m}月`, countdown: daysLeft(period, today) }
-  if (horizon === 'week') {
-    const label = `${start.m}/${start.d}–${end.m}/${end.d}`
-    return { title: '本周', meta: label, countdown: daysLeft(period, today) }
-  }
+  if (horizon === 'week') return { title: '本周', meta: rangeLabel(start, end, 'day'), countdown: daysLeft(period, today) }
   const weekday = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'][isoWeekday(start)]
   return { title: '今天', meta: `${start.m}月${start.d}日 ${weekday}`, countdown: null }
 }

@@ -1,6 +1,47 @@
 # Goalloom mobile
 
-Offline Expo app. It shares schema v10 and the planning rules with the desktop app through `@goalloom/local-store`. There is no account, no sync and no network call in the product UI.
+Offline Expo app for Phase 1. It shares schema v10 and the planning rules with the desktop app through `@goalloom/local-store` (`@goalloom/schema` underneath, expo-sqlite on device). There is no account, no login, no sync and no network call in the product UI.
+
+Phase 1 matches the desktop board in one column: the board opens on today, the bottom bar is 看板 / 流程 / 设置 (no Today tab), and the flow page is a single top-down column with the desktop’s dots and connecting lines on the left. Login, sync, AI keys and reminders stay deferred.
+
+## Run on a Mac (iOS Simulator)
+
+Use a Mac with Xcode 26 (iOS 26 simulator), Node 22.12 or newer, and pnpm 11. This app is its own pnpm root, so install it from `apps/mobile`, not from the desktop workspace.
+
+```sh
+cd apps/mobile
+pnpm install
+npx expo prebuild --platform ios --no-install
+cd ios && pod install && cd ..
+npx expo run:ios --no-install
+```
+
+`npx expo run:ios` by itself also works, but Expo hides `pod install` output and that step can look stuck. The three commands above install the pods where you can see them, then build a development client and launch the booted iOS Simulator.
+
+After the first native build, start the same client again with:
+
+```sh
+cd apps/mobile
+npx expo start --dev-client
+```
+
+Then press `i`, or open the Goalloom app in the simulator. The bundle id is `app.goalloom.mobile`.
+
+A normal launch asks for the calendar mode once, then locks it. The device language, visible columns and other preferences live in `goalloom-device.db`, outside the workspace file `goalloom.db`.
+
+To open the interaction-mockup items (natural calendar, 2026-10-12, Asia/Shanghai):
+
+```sh
+EXPO_PUBLIC_DEMO=1 npx expo run:ios --no-install
+```
+
+Or, with the dev client already running:
+
+```sh
+xcrun simctl openurl booted "goalloom://shot/today?demo=1"
+```
+
+`shot` names: `today`, `mid`, `week`, `month`, `later`, `menu`, `drag`, `detail`, `sub`, `flow`, `flowsticky`, `capture`, `backlog`, `settings`, `empty`, `emptycol`, `min`, `dark`, `mindark`, `detaildark`. `?dark=1` forces the dark theme for that launch. Screen links are read only in development builds. A release build ignores `goalloom://` and opens the board.
 
 This directory is its own pnpm root, like `apps/website`, so React Native is not hoisted next to Electron. The desktop workspace does not list this package. pnpm's isolated linker does not expose Expo's transitive `babel-preset-expo` to `babel.config.js`, so that preset is a direct dependency of this package.
 
@@ -29,37 +70,36 @@ npx expo install --fix
 
 When the one-day gate is still active, pass it through to pnpm: `npx expo install --fix -- --config.minimumReleaseAge=0`.
 
-## iOS
+## Checks
 
-`npx expo run:ios` prints `Installing CocoaPods...` and runs `pod install` with the pod output hidden. That step can hang even when CocoaPods itself succeeds. Install the pods directly, then build without Expo's pod step:
+From `apps/mobile`:
 
 ```sh
-npx expo prebuild --platform ios --no-install
-cd ios && pod install
-cd ..
-npx expo run:ios --no-install
+pnpm typecheck
+pnpm lint
 ```
 
-When `ios/` already exists, run `pod install` there after a native dependency change, then `npx expo run:ios --no-install`.
+Shared planning rules, including year-crossing date ranges and the flow-page links, run with the repo tests:
 
-The iOS bundle id is `app.goalloom.mobile`. The URL scheme is `goalloom`. Screen links are read only in development builds. A release build ignores `goalloom://` and opens the board.
+```sh
+pnpm test
+```
+
+from the repository root. `packages/local-store/test` is part of that Vitest run.
 
 ## Screens
 
-iOS and Android keep the workspace in expo-sqlite. The web preview uses sql.js in the page (same schema and statements) because the browser build of expo-sqlite waits on origin private file storage, which does not finish in this environment.
+iOS and Android keep the workspace in expo-sqlite (WAL, foreign keys). The web preview uses sql.js in the page (same schema and statements) because the browser build of expo-sqlite waits on origin private file storage, which does not finish in this environment.
 
-`EXPO_PUBLIC_DEMO=1`, `?demo=1` on web, or `demo=1` on a screen link confirms a natural calendar for 2026-10-12 in Asia/Shanghai and loads the interaction-mockup items. That path replaces the demo database and the device preference file. Use it on a simulator or the web preview.
-
-Web query `?shot=` and the `goalloom://shot/<name>` link open the same screens: `today`, `mid`, `week`, `month`, `later`, `menu`, `drag`, `detail`, `sub`, `flow`, `flowsticky`, `capture`, `backlog`, `settings`, `empty`, `emptycol`, `min`, `dark`, `mindark`, `detaildark`. `?dark=1` or `dark=1`, or a shot name that contains `dark`, sets the dark theme for that launch.
+`EXPO_PUBLIC_DEMO=1`, `?demo=1` on web, or `demo=1` on a screen link confirms a natural calendar for 2026-10-12 in Asia/Shanghai and loads the interaction-mockup items. That path replaces the demo database and the device preference file.
 
 ```sh
-xcrun simctl openurl booted "goalloom://shot/today?demo=1"
 xcrun simctl openurl booted "goalloom://shot/week?demo=1&dark=1"
 ```
 
 Leave `dark` off and the app follows the system appearance, unless Settings chooses light or dark.
 
-A normal launch asks for the calendar mode once, then locks it. The device language, visible columns and other preferences live in `goalloom-device.db`, outside the workspace file `goalloom.db`.
+When `ios/` already exists, run `pod install` there after a native dependency change, then `npx expo run:ios --no-install`.
 
 ## Phase 0 digest
 

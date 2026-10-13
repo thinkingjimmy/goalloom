@@ -4,10 +4,11 @@ import { currentPeriod as desktopPeriod, workspaceDate as desktopToday } from '.
 import { buildParentOrder as desktopOrder } from '../../../apps/desktop/src/domain/parent-order'
 import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/notes'
 import {
-  DEMO_NOW, LONG_PRESS_MS, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, currentPeriod, daysLeft, dropOnRows,
-  flowColors, flowConnectors, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
+  APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
+  flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
   periodMeta, rowSwipeAction, showBreakpoint, userVersion, workspaceDate, type OrderNode, type SqlDriver,
 } from '../src/index'
+import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
 
 function memory(): SqlDriver {
@@ -94,8 +95,19 @@ describe('calendar parity', () => {
     const month = currentPeriod(calendar, 'month', DEMO_NOW)
     expect(periodMeta('day', day, '2026-10-12').meta).toBe('10月12日 周一')
     expect(periodMeta('week', week, '2026-10-12').meta).toBe('10/12–10/18')
+    expect(periodMeta('week', week, '2026-10-12').meta).not.toMatch(/2026/)
+    expect(periodMeta('day', day, '2026-10-12').meta).not.toMatch(/2026/)
     expect(daysLeft(month, '2026-10-12')).toBe(20)
     expect(daysLeft(week, '2026-10-12')).toBe(7)
+  })
+
+  it('writes a year on a range only when the range crosses a year', () => {
+    const same = { id: 'w', horizon: 'week' as const, startDate: '2026-10-12', endDate: '2026-10-19', startAt: '', endAt: '' }
+    const cross = { id: 'x', horizon: 'week' as const, startDate: '2026-12-28', endDate: '2027-01-04', startAt: '', endAt: '' }
+    const half = { id: 'h', horizon: 'half' as const, startDate: '2026-10-01', endDate: '2027-04-01', startAt: '', endAt: '' }
+    expect(periodMeta('week', same, '2026-10-12').meta).toBe('10/12–10/18')
+    expect(periodMeta('week', cross, '2026-12-30').meta).toBe('2026/12/28–2027/1/3')
+    expect(periodMeta('half', half, '2026-12-30').meta).toBe('2026年10月–2027年3月')
   })
 })
 
@@ -366,6 +378,32 @@ describe('workspace', () => {
     ]
     expect(flowSections(rows).map(section => section.horizon)).toEqual(['year', 'day'])
     expect(flowConnectors(rows)).toEqual([{ from: 'y', to: 'd', skip: true, dim: true }])
+    const rail = [
+      { id: 'y', horizon: 'year' as const, done: false, color: 1 },
+      { id: 'h', horizon: 'half' as const, done: false, color: null },
+      { id: 'd', horizon: 'day' as const, done: true, color: null },
+    ]
+    expect(FLOW_INDENT).toBe(0)
+    expect(flowLeftLinks(rail, [])).toEqual([])
+    expect(flowLeftLinks(rail, [{ parentId: 'y', childId: 'd' }])).toEqual([{ from: 'y', to: 'd', skip: true, dim: true, color: 1 }])
+    expect(flowLeftLinks(rail, [{ parentId: 'y', childId: 'h' }])).toEqual([{ from: 'y', to: 'h', skip: false, dim: false, color: 1 }])
+  })
+
+  it('opens on today, has no Today tab, and shows 1/5 only on a note', () => {
+    expect(OPEN_COLUMN).toBe('day')
+    expect(APP_TABS).toEqual(['board', 'flow', 'settings'])
+    expect(APP_TABS).not.toContain('today')
+    expect(completionLabel('note', 1, 5)).toBe('1/5')
+    expect(completionLabel('fold', 1, 5)).toBe('1')
+    expect(completionLabel('header', 1, 5)).toBeNull()
+    expect(completionLabel('note', 0, 0)).toBeNull()
+  })
+
+  it('does not use the word 继承 in any locale', () => {
+    for (const copy of Object.values(catalogs)) {
+      const text = Object.values(copy).map(value => typeof value === 'function' ? value.toString() : String(value)).join('\n')
+      expect(text).not.toContain('继承')
+    }
   })
 })
 
