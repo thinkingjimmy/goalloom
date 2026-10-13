@@ -1,18 +1,18 @@
 {
   "electron": "44.4.4",
   "thresholdPercent": 5,
-  "asarBaselineVersion": "1.7.0",
-  "asarBaselineNote": "The 1.7.0 production ASAR is 2767167 bytes, 191975 bytes (7.45%) above the 1.5.0 measurement of 2575192. The 1.6.0 package stayed inside the 5% band. The increase is compiled application code (two-level subtasks plus schema, store and sync modules bundled into out/), not unpacked dependencies: electron-builder 26.15.3 --dir packed 57 entries and no node_modules, tests or source maps. Download and logical-size baselines stay at their measured values; the 1.7.0 macOS run passed those two checks and failed only on asarBytes.",
+  "asarBaselineVersion": "1.8.0",
+  "asarBaselineNote": "The 1.8.0 production ASAR is 2939261 bytes on darwin-arm64 and 2939295 bytes on win32-x64, 172094 bytes (6.22%) and 172128 bytes (6.22%) above the 1.7.0 measurement of 2767167. Run 38350634397 failed only on asarBytes; download and logical-size checks passed. The increase is compiled desktop sync code from PR #15 (the Google sign-in client and related modules in out/). @supabase/supabase-js is a runtime dependency left external so its localhost default stays out of out/, and electron-builder still packs no node_modules. Download and logical-size baselines stay at their measured values.",
   "darwin-arm64": {
     "downloadBytes": 116612529,
     "logicalBytes": 257543163,
-    "asarBytes": 2767167,
+    "asarBytes": 2939261,
     "archiveSha256": "fd3c1f0fd13cdb256f3bc2ee853da18bc801c420480392d9f72adbf5940a5305"
   },
   "win32-x64": {
     "downloadBytes": 104084380,
     "logicalBytes": 342255566,
-    "asarBytes": 2767167,
+    "asarBytes": 2939295,
     "archiveSha256": "b0a1ff31b54938eb59041cbeb526c458cbd2a075239e15ced1aa894fc8846cba"
   }
 }
