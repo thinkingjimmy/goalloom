@@ -65,7 +65,10 @@ const zh = {
   conflict: '这一步没能保存',
   start: {
     title: '怎么开始？',
-    benefits: ['加密同步多台设备', '数据端到端加密', '随时可以稍后登录'],
+    benefits: [
+      { lead: '登录后', body: '：手机和电脑上的看板自动保持一致，换了设备数据也还在。' },
+      { lead: '不登录', body: '：所有数据只存在这台设备上，不用账号，马上就能开始用。' },
+    ],
     google: '使用 Google 继续', apple: '使用 Apple 继续', or: '或',
     local: '仅在这台设备使用',
     browser: '在浏览器中继续…', back: '返回',
@@ -167,7 +170,10 @@ const en: typeof zh = {
   conflict: 'That change was not saved',
   start: {
     title: 'How do you want to start?',
-    benefits: ['Encrypted sync across devices', 'End-to-end encrypted', 'Sign in later, anytime'],
+    benefits: [
+      { lead: 'After you sign in', body: ': Your phone and computer stay on the same board, and your data is still there if you switch devices.' },
+      { lead: 'Without signing in', body: ': Everything stays on this device. No account, and you can start right away.' },
+    ],
     google: 'Continue with Google', apple: 'Continue with Apple', or: 'or',
     local: 'Use only on this device',
     browser: 'Continue in the browser…', back: 'Back',
@@ -269,7 +275,10 @@ const ja: typeof zh = {
   conflict: '保存できませんでした',
   start: {
     title: 'どこから始めますか？',
-    benefits: ['複数デバイスで暗号化同期', 'データはエンドツーエンド暗号化', 'ログインはあとからでも'],
+    benefits: [
+      { lead: 'ログイン後', body: '：スマホとパソコンのボードは自動で揃い、機種を変えてもデータは残ります。' },
+      { lead: 'ログインしない', body: '：データはこの端末だけにあります。アカウントは不要で、すぐに始められます。' },
+    ],
     google: 'Google で続ける', apple: 'Apple で続ける', or: 'または',
     local: 'このデバイスだけで使う',
     browser: 'ブラウザで続行…', back: '戻る',
@@ -371,7 +380,10 @@ const es: typeof zh = {
   conflict: 'No se pudo guardar',
   start: {
     title: '¿Cómo quieres empezar?',
-    benefits: ['Sincronización cifrada entre dispositivos', 'Datos cifrados de extremo a extremo', 'Puedes iniciar sesión más tarde'],
+    benefits: [
+      { lead: 'Tras iniciar sesión', body: ': el tablero del teléfono y del ordenador se mantiene igual, y los datos siguen ahí si cambias de dispositivo.' },
+      { lead: 'Sin iniciar sesión', body: ': todos los datos se quedan en este dispositivo. Sin cuenta, y puedes empezar ahora.' },
+    ],
     google: 'Continuar con Google', apple: 'Continuar con Apple', or: 'o',
     local: 'Usar solo en este dispositivo',
     browser: 'Continúa en el navegador…', back: 'Volver',
@@ -473,7 +485,10 @@ const fr: typeof zh = {
   conflict: 'La modification n’a pas été enregistrée',
   start: {
     title: 'Comment commencer ?',
-    benefits: ['Synchro chiffrée entre appareils', 'Données chiffrées de bout en bout', 'Connexion possible plus tard'],
+    benefits: [
+      { lead: 'Une fois connecté', body: ' : le tableau du téléphone et de l’ordinateur reste le même, et vos données sont encore là si vous changez d’appareil.' },
+      { lead: 'Sans connexion', body: ' : toutes les données restent sur cet appareil. Pas de compte, et vous pouvez commencer tout de suite.' },
+    ],
     google: 'Continuer avec Google', apple: 'Continuer avec Apple', or: 'ou',
     local: 'Utiliser seulement sur cet appareil',
     browser: 'Continuer dans le navigateur…', back: 'Retour',

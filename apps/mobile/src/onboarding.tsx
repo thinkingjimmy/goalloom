@@ -75,7 +75,7 @@ function Primary({ label, disabled, danger, onPress }: { label: string; disabled
   </Pressable>
 }
 
-const BENEFIT_ICONS = ['sync', 'lock', 'login'] as const
+const BENEFIT_ICONS = ['sync', 'phone'] as const
 /** Apple is omitted until sign-in exists. `signInButtons` still places it above Google. */
 const SIGN_IN_ENABLED = ['google'] as const satisfies readonly SignInProvider[]
 
@@ -94,9 +94,9 @@ function Choice({ copy, theme, waiting, onLocal, onGoogle, onCancel }: {
     </Pressable>
   </View>}>
     <View style={styles.benefits}>
-      {s.benefits.map((line, index) => <View key={line} style={styles.benefit}>
+      {s.benefits.map((line, index) => <View key={line.lead} style={styles.benefit}>
         <View style={styles.benefitIcon}><Icon name={BENEFIT_ICONS[index] ?? 'info'} size={20} color={theme.fg} /></View>
-        <Text style={[styles.benefitText, { color: theme.fg }]}>{line}</Text>
+        <Text style={[styles.benefitText, { color: theme.fg }]}><Text style={styles.benefitLead}>{line.lead}</Text>{line.body}</Text>
       </View>)}
     </View>
   </Screen>
@@ -333,9 +333,10 @@ function showDate(copy: Copy, today: string, ymd: string): string {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   benefits: { gap: 16 },
-  benefit: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  benefitIcon: { width: 28, alignItems: 'center' },
+  benefit: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  benefitIcon: { width: 28, alignItems: 'center', marginTop: 1 },
   benefitText: { flex: 1, fontSize: 16, lineHeight: 22 },
+  benefitLead: { fontWeight: '700' },
   authStack: { gap: 12 },
   authButton: { height: 52, borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
   googleButton: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dadce0' },

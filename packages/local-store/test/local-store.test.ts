@@ -474,12 +474,22 @@ describe('workspace', () => {
     expect(signInButtons(['google'])).toEqual(['google'])
     expect(signInButtons(['google', 'apple'])).toEqual(['apple', 'google'])
     expect(signInButtons([])).toEqual([])
-    expect(catalogs.zh.start.benefits).toEqual(['加密同步多台设备', '数据端到端加密', '随时可以稍后登录'])
+    expect(catalogs.zh.start.benefits).toEqual([
+      { lead: '登录后', body: '：手机和电脑上的看板自动保持一致，换了设备数据也还在。' },
+      { lead: '不登录', body: '：所有数据只存在这台设备上，不用账号，马上就能开始用。' },
+    ])
+    expect(catalogs.en.start.benefits.map(line => line.lead)).toEqual(['After you sign in', 'Without signing in'])
     expect(catalogs.zh.start.google).toBe('使用 Google 继续')
     expect(catalogs.zh.start.apple).toBe('使用 Apple 继续')
     expect(catalogs.zh.start.or).toBe('或')
     expect(catalogs.zh.start.local).toBe('仅在这台设备使用')
-    for (const copy of Object.values(catalogs)) expect(copy.start.benefits).toHaveLength(3)
+    for (const copy of Object.values(catalogs)) {
+      expect(copy.start.benefits).toHaveLength(2)
+      for (const line of copy.start.benefits) {
+        expect(line.lead.length).toBeGreaterThan(0)
+        expect(line.body.length).toBeGreaterThan(0)
+      }
+    }
   })
 
   it('allows an anchor on or before today, matching the desktop date input', () => {
