@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Built Electron, an isolated device profile and production workspace controls.
+ * [INPUT]: Built Electron or a packaged executable copied outside the checkout, an isolated device profile and production workspace controls.
  * [OUTPUT]: Board screenshots, inline titles, flow-valid detail parent picking, permanent rail/action geometry, lifecycle operations, restart and security evidence.
  * [POS]: Desktop workspace acceptance; uses the real preload, main and SQLite without production test hooks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -8,6 +8,7 @@ import { finishSetup } from './fixtures/setup.mjs'
 import { finishDetailEditing, waitForDetailSave } from './fixtures/detail-save.mjs'
 import { verifyDetailRail } from './fixtures/detail-rail.mjs'
 import { verifyInlineTitle } from './fixtures/inline-title.mjs'
+import { packagedElectronOptions } from './fixtures/packaged-app.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -22,8 +23,8 @@ const packaged = process.argv[2]
 const profile = await mkdtemp(join(tmpdir(), 'Goalloom 窗口测试 '))
 // Assertions use Chinese copy; pin the device language instead of following the machine's system language.
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
-const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
-const application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
+const { options, cleanup: removePackagedCopy } = await packagedElectronOptions(packaged, profile, environment)
+const application = await electron.launch({ ...options, timeout: 30_000 })
 let page
 try {
   page = await application.firstWindow()
@@ -33,6 +34,9 @@ try {
   assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getActivityDay', 'getActivityMonth', 'getActivityPage', 'getActivitySummary', 'getBackupSummary', 'getBatchItems', 'getBatches', 'getBoardPeriods', 'getCounts', 'getExecutionSummary', 'getHistory', 'getHistoryIndex', 'getInsightTaskContext', 'getItem', 'getLanguage', 'getLinkPreview', 'getPastPeriod', 'getReceipt', 'getReviewContext', 'getRuntime', 'getSnapshot', 'listItems', 'onBeforeClose', 'onChanged', 'onOpenAbout', 'onSync', 'onUpdate', 'openExternal', 'setLanguage', 'smart', 'sync', 'update'])
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
   assert.equal(await page.evaluate(() => typeof window.process), 'undefined')
+  // SyncService is constructed at startup and statically imports the Supabase client. A status read fails the smoke if that module did not load.
+  const syncStatus = await page.evaluate(() => window.goalloom.sync({ type: 'status' }))
+  assert.equal(typeof syncStatus.status.phase, 'string')
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
   assert.match(runtime.sqlite, /^3\./)
   const electronPackage = createRequire(resolve('package.json')).resolve('electron/package.json')
@@ -364,7 +368,7 @@ try {
   assert.equal(rejectsOtherWindow, true, 'IPC 必须拒绝非主窗口的请求，即使 URL 与 preload 相同')
   await mkdir('output/tests/screenshots', { recursive: true })
   await page.screenshot({ path: 'output/tests/screenshots/electron-foundation.png', fullPage: true })
-  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['detail autosave (native close coverage in autosave.mjs)', 'preload', 'worker SQLite', 'CSP inline/eval/connect', 'theme', 'style', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
+  console.log(JSON.stringify({ packaged: Boolean(packaged), runtime, checks: ['detail autosave (native close coverage in autosave.mjs)', 'preload', 'sync module', 'worker SQLite', 'CSP inline/eval/connect', 'theme', 'style', '720px layout', 'sandbox', 'hash navigation IPC', 'reject untrusted IPC sender'] }))
 } catch (error) {
   await mkdir('output/tests/workspace', { recursive: true })
   const native = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))).catch(() => null)
@@ -378,7 +382,7 @@ try {
   await application.close()
 }
 try {
-  const reopened = await electron.launch({ ...options, env: environment, timeout: 30_000 })
+  const reopened = await electron.launch({ ...options, timeout: 30_000 })
   try {
     const page = await reopened.firstWindow()
     await page.getByRole('main', { name: '时间看板' }).waitFor()
@@ -392,4 +396,4 @@ try {
     await page.waitForFunction(() => document.documentElement.dataset.style === 'minimal')
     console.log('真实进程重启：6 个条目、3 条关联、流程颜色、唯一位置和界面风格均保留。')
   } finally { await reopened.close() }
-} finally { await rm(profile, { recursive: true, force: true }) }
+} finally { await rm(profile, { recursive: true, force: true }); await removePackagedCopy() }

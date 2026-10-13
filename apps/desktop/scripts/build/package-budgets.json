@@ -2,17 +2,17 @@
   "electron": "44.4.4",
   "thresholdPercent": 5,
   "asarBaselineVersion": "1.8.0",
-  "asarBaselineNote": "The 1.8.0 production ASAR is 2939261 bytes on darwin-arm64 and 2939295 bytes on win32-x64, 172094 bytes (6.22%) and 172128 bytes (6.22%) above the 1.7.0 measurement of 2767167. Run 38350634397 failed only on asarBytes; download and logical-size checks passed. The increase is compiled desktop sync code from PR #15 (the Google sign-in client and related modules in out/). @supabase/supabase-js is a runtime dependency left external so its localhost default stays out of out/, and electron-builder still packs no node_modules. Download and logical-size baselines stay at their measured values.",
+  "asarBaselineNote": "The 1.8.0 production ASAR was 2939261 bytes on darwin-arm64 and 2939295 bytes on win32-x64 after run 38350634397. That build left @supabase/supabase-js external so GoTrue's http://localhost:9999 default stayed out of out/, and electron-builder packs no node_modules. The installed app then crashed: Node walks parent directories of app.asar, finds the package inside a checkout, and does not find it under /Applications. The client is now bundled into out/main. A Linux unpacked asar of the externalized build was 2939180 bytes; the bundled build is 3170597 bytes, 231417 bytes more. darwin-arm64 and win32-x64 baselines are the hosted measurements plus that same 231417 bytes (3170678 and 3170712). Download and logical-size baselines stay at their measured values; this growth is inside the ASAR and under their 5% budgets.",
   "darwin-arm64": {
     "downloadBytes": 116612529,
     "logicalBytes": 257543163,
-    "asarBytes": 2939261,
+    "asarBytes": 3170678,
     "archiveSha256": "fd3c1f0fd13cdb256f3bc2ee853da18bc801c420480392d9f72adbf5940a5305"
   },
   "win32-x64": {
     "downloadBytes": 104084380,
     "logicalBytes": 342255566,
-    "asarBytes": 2939295,
+    "asarBytes": 3170712,
     "archiveSha256": "b0a1ff31b54938eb59041cbeb526c458cbd2a075239e15ced1aa894fc8846cba"
   }
 }

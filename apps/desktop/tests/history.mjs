@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Production Electron build and isolated history/rollover fixtures.
+ * [INPUT]: Production Electron build, or a packaged executable copied outside the checkout, and isolated history/rollover fixtures.
  * [OUTPUT]: Compact timeline and filter navigation, past rows/paging, backlog and restore assertions; repeatable screenshots and history.json.
  * [POS]: Focused desktop acceptance using the production bridge and database; setup only sizes the native window.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { stepEnabled, stepPeriod } from './fixtures/period-step.mjs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { build } from 'vite'
 import electronPath from 'electron'
@@ -16,6 +16,7 @@ import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
 import { verifyPastEditing, verifyPastPaging } from './fixtures/past-period-editing.mjs'
 import { verifyFilterNavigation } from './fixtures/filter-navigation.mjs'
+import { packagedElectronOptions } from './fixtures/packaged-app.mjs'
 
 await build({ configFile: false, build: { outDir: 'output/tests/build/history', emptyOutDir: false, lib: { entry: 'tests/fixtures/history-seed.ts', formats: ['cjs'], fileName: () => 'history-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
 const profile = await mkdtemp(join(tmpdir(), 'Goalloom 历史测试 '))
@@ -27,8 +28,8 @@ await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'z
 await mkdir('output/tests/screenshots', { recursive: true })
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2]
-const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
-const app = await electron.launch({ ...options, env: environment })
+const { options, cleanup: removePackagedCopy } = await packagedElectronOptions(packaged, profile, environment)
+const app = await electron.launch(options)
 try {
   const page = await app.firstWindow()
   page.setDefaultTimeout(12000)
@@ -299,4 +300,4 @@ try {
   await writeFile('output/tests/history-interaction.json', JSON.stringify(interaction, null, 2))
   await writeFile('output/tests/history-failure.txt', `${String(error)}\n${await page?.locator('body').ariaSnapshot().catch(() => 'Unavailable')}`)
   throw error
-} finally { await app.close(); await rm(profile, { recursive: true, force: true }) }
+} finally { await app.close(); await rm(profile, { recursive: true, force: true }); await removePackagedCopy() }
