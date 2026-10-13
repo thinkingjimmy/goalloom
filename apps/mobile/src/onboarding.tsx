@@ -3,9 +3,9 @@
  * [OUTPUT]: Choice, calendar, direction, and the optional AI connect screen. Password screens render but do not call sync.
  * [POS]: First-run UI. Calendar lock and the year item happen only in onConfirm, after the AI step.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  ActivityIndicator, KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
+  ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
 } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -15,6 +15,7 @@ import {
 } from '@goalloom/local-store'
 import type { AiConnection, SignInProvider } from '@goalloom/local-store'
 import { AiConnect } from './ai-connect'
+import { SetupScreen as Screen } from './setup-screen'
 import type { Copy } from './copy'
 import type { LocaleId } from '@goalloom/local-store'
 import { Icon } from './icons'
@@ -66,41 +67,6 @@ export function Onboarding({ copy, scheme, locale, now, ai, onAi, onConfirm }: {
     {picker && <PickerSheet copy={copy} theme={theme} scheme={scheme} locale={locale} kind={picker} today={today} anchor={anchor} timezone={timezone} weekStart={weekStart} onClose={() => setPicker(null)} onAnchor={setAnchor} onZone={setTimezone} onWeek={setWeekStart} />}
     {resetOpen && <ResetSheet copy={copy} theme={theme} onCancel={() => setResetOpen(false)} onConfirm={() => { setResetOpen(false); setStep('create-password') }} />}
   </View>
-}
-
-function Screen({ theme, title, intro, onBack, backLabel, lead, right, cta, children }: {
-  theme: Theme; title?: string; intro?: ReactNode; onBack?: (() => void) | null; backLabel?: string
-  lead?: ReactNode; right?: ReactNode; cta?: ReactNode; children: ReactNode
-}) {
-  const insets = useSafeAreaInsets()
-  const showNav = !!onBack || !!right
-  return <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <View style={{ paddingTop: Platform.OS === 'web' ? 12 : insets.top }}>
-      {showNav && <View style={styles.nav}>
-        {onBack ? <Pressable onPress={onBack} hitSlop={8} style={styles.back} accessibilityLabel={backLabel}><Text style={[styles.chevron, { color: theme.fg }]}>‹</Text></Pressable> : <View style={styles.back} />}
-        {lead}
-        <View style={styles.fill} />
-        {right}
-      </View>}
-    </View>
-    {onBack && <EdgeBack onBack={onBack} />}
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.body, !showNav && { paddingTop: 8 }]}>
-      {intro}
-      {!!title && <Text style={[styles.title, { color: theme.fg }]}>{title}</Text>}
-      {children}
-    </ScrollView>
-    {cta && <View style={[styles.ctaBar, { paddingBottom: insets.bottom + 16 }]}>{cta}</View>}
-  </KeyboardAvoidingView>
-}
-
-function EdgeBack({ onBack }: { onBack: () => void }) {
-  const back = useRef(onBack)
-  back.current = onBack
-  const pan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dx > 12 && gesture.dx > Math.abs(gesture.dy),
-    onPanResponderRelease: (_event, gesture) => { if (gesture.dx > 72 && gesture.vx > 0.2) back.current() },
-  })).current
-  return <View style={styles.edge} {...pan.panHandlers} />
 }
 
 function Primary({ label, disabled, danger, onPress }: { label: string; disabled?: boolean; danger?: boolean; onPress: () => void }) {
@@ -235,7 +201,7 @@ function JoinPassword({ copy, theme, email, onBack, onReset }: {
 }) {
   const s = copy.start
   const [password, setPassword] = useState('')
-  return <Screen theme={theme} title={s.enterTitle} onBack={onBack} backLabel={s.back} lead={email ? <EmailChip theme={theme} email={email} /> : null} cta={<Primary label={s.startSync} disabled={password.trim().length < 8} onPress={() => undefined} />}>
+  return <Screen theme={theme} title={s.enterTitle} onBack={onBack} backLabel={s.back} extra={email ? <EmailChip theme={theme} email={email} /> : null} cta={<Primary label={s.startSync} disabled={password.trim().length < 8} onPress={() => undefined} />}>
     <View style={styles.labelRow}>
       <View style={styles.fill} />
       <Pressable onPress={onReset} hitSlop={8}><Text style={[styles.link, { color: theme.focus }]}>{s.resetSync}</Text></Pressable>
@@ -251,7 +217,7 @@ function NewPassword({ copy, theme, email, onBack }: { copy: Copy; theme: Theme;
   const ready = syncPasswordReady(password, again)
   const longEnough = password.trim().length >= 8
   const mismatch = again.length > 0 && password.trim() !== again.trim()
-  return <Screen theme={theme} title={s.newTitle} onBack={onBack} backLabel={s.back} lead={email ? <EmailChip theme={theme} email={email} /> : null} cta={<Primary label={s.continue} disabled={!ready} onPress={() => undefined} />}>
+  return <Screen theme={theme} title={s.newTitle} onBack={onBack} backLabel={s.back} extra={email ? <EmailChip theme={theme} email={email} /> : null} cta={<Primary label={s.continue} disabled={!ready} onPress={() => undefined} />}>
     <Text style={[styles.cardNote, { color: theme.secondary, marginBottom: 12 }]}>{s.newNote}</Text>
     <Secret copy={copy} theme={theme} value={password} onChange={setPassword} label={s.newTitle} />
     <View style={styles.rule}>
@@ -366,12 +332,6 @@ function showDate(copy: Copy, today: string, ymd: string): string {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  nav: { height: 44, flexDirection: 'row', alignItems: 'center', paddingRight: 16 },
-  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  chevron: { fontSize: 34, lineHeight: 38, fontWeight: '300', marginTop: -2 },
-  edge: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 24, zIndex: 4 },
-  body: { paddingHorizontal: 20, paddingBottom: 12 },
-  title: { fontSize: 34, lineHeight: 40, fontWeight: '700', letterSpacing: -0.4, textAlign: 'left', marginBottom: 20 },
   benefits: { gap: 16 },
   benefit: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   benefitIcon: { width: 28, alignItems: 'center' },
@@ -403,7 +363,6 @@ const styles = StyleSheet.create({
   groupChevron: { fontSize: 20, marginTop: -1 },
   hairline: { height: StyleSheet.hairlineWidth, marginLeft: 16 },
   footer: { fontSize: 13, lineHeight: 18, marginTop: 8, marginHorizontal: 16 },
-  ctaBar: { paddingHorizontal: 20, paddingTop: 8 },
   primary: { height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: INK },
   danger: { backgroundColor: '#b4382f' },
   disabled: { opacity: 0.38 },

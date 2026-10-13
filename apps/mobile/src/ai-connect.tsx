@@ -15,6 +15,7 @@ import {
 import { clearAiConnection, saveAiConnection } from './ai-account'
 import type { Copy } from './copy'
 import { Icon } from './icons'
+import { SetupScreen } from './setup-screen'
 import type { Theme } from './theme'
 
 const INK = '#2b2621'
@@ -38,7 +39,7 @@ export function AiConnect({ copy, theme, connection, onConnection, onBack, onDon
     } catch { /* A failed delete keeps the connected row. */ }
   }
   return <View style={styles.fill}>
-    <Intro theme={theme} title={s.aiTitle} onBack={onBack} backLabel={s.back} avoid={!open} right={onDone ? <Pressable onPress={onDone} hitSlop={8} style={styles.later}><Text style={[styles.link, { color: theme.fg }]}>{s.aiLater}</Text></Pressable> : null} cta={!connection ? <Primary label={s.aiConnect} onPress={() => setOpen(true)} /> : onDone ? <Primary label={s.aiEnter} onPress={onDone} /> : null}>
+    <SetupScreen theme={theme} title={s.aiTitle} onBack={onBack} backLabel={s.back} avoid={!open} scroll={false} right={onDone ? <Pressable onPress={onDone} hitSlop={8} style={styles.later}><Text style={[styles.link, { color: theme.fg }]}>{s.aiLater}</Text></Pressable> : null} cta={!connection ? <Primary label={s.aiConnect} onPress={() => setOpen(true)} /> : onDone ? <Primary label={s.aiEnter} onPress={onDone} /> : null}>
       <Text style={[styles.line, { color: theme.secondary }]}>{s.aiLine}</Text>
       {connection ? <View style={[styles.card, { backgroundColor: theme.raised, borderColor: theme.line }]}>
         <Text style={[styles.connected, { color: theme.fg }]}>{s.aiConnected(name)}</Text>
@@ -52,40 +53,9 @@ export function AiConnect({ copy, theme, connection, onConnection, onBack, onDon
           <Text style={[styles.tag, { color: theme.secondary, backgroundColor: theme.hover }]}>{task.tag}</Text>
         </View>)}
       </View>}
-    </Intro>
+    </SetupScreen>
     {open && <ConnectSheet copy={copy} theme={theme} onClose={() => setOpen(false)} onConnected={next => { onConnection(next); setOpen(false) }} />}
   </View>
-}
-
-function Intro({ theme, title, onBack, backLabel, right, cta, avoid, children }: {
-  theme: Theme; title: string; onBack: () => void; backLabel: string; right: ReactNode; cta: ReactNode; avoid: boolean; children: ReactNode
-}) {
-  const insets = useSafeAreaInsets()
-  return <KeyboardAvoidingView style={styles.fill} behavior={avoid && Platform.OS === 'ios' ? 'padding' : undefined}>
-    <View style={{ paddingTop: Platform.OS === 'web' ? 12 : insets.top }}>
-      <View style={styles.nav}>
-        <Pressable onPress={onBack} hitSlop={8} style={styles.back} accessibilityLabel={backLabel}><Text style={[styles.chevron, { color: theme.fg }]}>‹</Text></Pressable>
-        <View style={styles.fill} />
-        {right}
-      </View>
-    </View>
-    <EdgeBack onBack={onBack} />
-    <View style={styles.body}>
-      <Text style={[styles.title, { color: theme.fg }]}>{title}</Text>
-      {children}
-    </View>
-    {cta && <View style={[styles.ctaBar, { paddingBottom: insets.bottom + 16 }]}>{cta}</View>}
-  </KeyboardAvoidingView>
-}
-
-function EdgeBack({ onBack }: { onBack: () => void }) {
-  const back = useRef(onBack)
-  back.current = onBack
-  const pan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dx > 12 && gesture.dx > Math.abs(gesture.dy),
-    onPanResponderRelease: (_event, gesture) => { if (gesture.dx > 72 && gesture.vx > 0.2) back.current() },
-  })).current
-  return <View style={styles.edge} {...pan.panHandlers} />
 }
 
 function Primary({ label, disabled, onPress }: { label: string; disabled?: boolean; onPress: () => void }) {
@@ -211,13 +181,7 @@ function Lift({ onDismiss, enabled, children }: { onDismiss: () => void; enabled
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  nav: { height: 44, flexDirection: 'row', alignItems: 'center', paddingRight: 16 },
-  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  chevron: { fontSize: 34, lineHeight: 38, fontWeight: '300', marginTop: -2 },
-  later: { height: 44, justifyContent: 'center', paddingHorizontal: 4 },
-  edge: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 24, zIndex: 4 },
-  body: { flex: 1, paddingHorizontal: 20 },
-  title: { fontSize: 34, lineHeight: 40, fontWeight: '700', letterSpacing: -0.4, marginBottom: 8 },
+  later: { paddingTop: 8, paddingHorizontal: 4 },
   line: { fontSize: 16, lineHeight: 22, marginBottom: 16 },
   card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
   example: { fontSize: 15, lineHeight: 22 },
@@ -226,7 +190,6 @@ const styles = StyleSheet.create({
   tag: { fontSize: 12, fontWeight: '600', overflow: 'hidden', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   connected: { fontSize: 17, fontWeight: '600' },
   link: { fontSize: 16 },
-  ctaBar: { paddingHorizontal: 20, paddingTop: 8 },
   primary: { height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: INK },
   disabled: { opacity: 0.38 },
   primaryText: { color: INK_TEXT, fontSize: 17, fontWeight: '600' },
