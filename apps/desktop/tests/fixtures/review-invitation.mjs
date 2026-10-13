@@ -35,7 +35,7 @@ export async function verifyReviewInvitation({ page, fixture, mode, out, scenari
   await drawer.waitFor({ state: 'detached' })
   const invitation = page.locator('[data-horizon=week] .review-plan-invitation')
   await invitation.waitFor()
-  assert.equal(await invitation.getByRole('heading').innerText(), '安排 本周')
+  assert.equal(await invitation.getByRole('heading').innerText(), '安排本周')
   assert.equal(await invitation.locator('.review-guide-meta svg').count(), 1)
   assert.equal(await invitation.locator('button.primary.review-guide-action').count(), 1)
   assert.equal(await page.locator('[data-review]').count(), 0)

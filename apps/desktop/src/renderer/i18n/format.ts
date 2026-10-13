@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace date strings or timestamps and the active renderer locale.
- * [OUTPUT]: Intl date/time/number formats, including year-inclusive planning destinations, 2-digit cycle ends and accessible calendar labels.
+ * [OUTPUT]: Intl date/time/number formats, including year-boundary ranges, year-inclusive planning destinations, 2-digit cycle ends and accessible calendar labels.
  * [POS]: Presentation-only formatting; date strings use UTC without timezone shifts, date arithmetic stays in lib/dates.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,6 +22,14 @@ export function shortYearDate(date: string): string { return format({ year: '2-d
 export function monthDay(date: string): string { return format({ month: 'short', day: 'numeric' }).format(day(date)) }
 export function longDate(date: string): string { return format({ month: 'short', day: 'numeric', weekday: 'short' }).format(day(date)) }
 export function fullDate(date: string): string { return format({ year: 'numeric', month: 'short', day: 'numeric' }).format(day(date)) }
+/** Inclusive calendar range. Years appear on both ends only when the range crosses a year. */
+export function dateRange(startDate: string, endDate: string): string {
+  if (currentLocale() === 'zh' || currentLocale() === 'ja') {
+    const date = startDate.slice(0, 4) === endDate.slice(0, 4) ? monthDay : fullDate
+    return `${date(startDate)} – ${date(endDate)}`
+  }
+  return format({ month: 'short', day: 'numeric' }).formatRange(day(startDate), day(endDate))
+}
 export function calendarDate(date: string): string { return format({ year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(day(date)) }
 export function monthName(date: string): string { return format({ month: 'short' }).format(day(date)) }
 export function yearMonth(date: string): string { return format({ year: 'numeric', month: 'short' }).format(day(date)) }
