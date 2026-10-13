@@ -4,7 +4,7 @@
  * [POS]: Desktop recovery acceptance, including explicit empty-workspace setup before restoring after reset.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { finishSetup } from './fixtures/setup.mjs'
+import { finishSetup, waitForSetupEntry } from './fixtures/setup.mjs'
 import { packagedElectronOptions } from './fixtures/packaged-app.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -50,7 +50,7 @@ try {
   assert.equal(await settings.getByRole('checkbox').isChecked(), false)
   await settings.getByRole('checkbox').check()
   await settings.getByRole('button', { name: '重置并重新配置' }).click()
-  await page.locator('.calendar-modes').waitFor()
+  await waitForSetupEntry(page)
   const reset = await page.evaluate(() => window.goalloom.getSnapshot())
   assert.notEqual(reset.workspace.generation, seed.generation)
   assert.equal(reset.workspace.setupConfirmedAt, null); assert.equal(reset.workspace.pausedAfterRestore, false)

@@ -4,7 +4,7 @@
  * [POS]: Isolated desktop acceptance; no mocked receipts, synthetic completion events or real workspace data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { finishSetup } from './fixtures/setup.mjs'
+import { finishSetup, waitForSetupEntry } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
@@ -421,7 +421,7 @@ try {
   assert.equal(replaced.type, 'replaced')
   assert.equal(replaced.activeBeforeCommit, true, 'Reset commits while the effect is active')
   assert.notEqual(replaced.before, replaced.generation)
-  await page.locator('.calendar-modes').waitFor()
+  await waitForSetupEntry(page)
   await waitForCleanup(1000)
   checks.push('Verified protective workspace reset clears the old-generation animation')
 
