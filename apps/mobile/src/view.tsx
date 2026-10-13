@@ -7,8 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   BOARD_COLUMNS, FLOW_INDENT, LONG_PRESS_MS, NEST_INDENT, SHEET_GRABBER, buildParentOrder, canNest, classifyPointer, columnSections,
   completionLabel, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon,
-  parseCapture, periodMeta, sheetRelease, shouldDragSheet, showBreakpoint, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon,
-  type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot, type UndoToken,
+  parseCapture, periodMeta, sheetRelease, shouldDragSheet, showBreakpoint, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
+  type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot,
 } from '@goalloom/local-store'
 import { BlurView } from 'expo-blur'
 import Svg, { Line } from 'react-native-svg'
@@ -137,12 +137,12 @@ function BottomSheet({ theme, paddingBottom, onDismiss, children }: { theme: The
   </SheetScrollY.Provider>
 }
 
-export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimized, sheet, toast, shot, viewed, captureSeed, onTab, onColumn, onMinimize, onSheet, onToast, onDismissToast, onCheck, onTrash, onMove, onNest, onReorder, onCreate, onEdit, onFlow, onLink, onUnlink, onPolicy, onAppearance, onBackup, onPrefs, onUndo, onRestore, onViewPeriod, activity, periodsAround }: {
+export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimized, sheet, toast, shot, viewed, captureSeed, onTab, onColumn, onMinimize, onSheet, onDismissToast, onCheck, onTrash, onMove, onNest, onReorder, onCreate, onEdit, onFlow, onLink, onUnlink, onPolicy, onAppearance, onBackup, onPrefs, onUndo, onRestore, onViewPeriod, activity, periodsAround }: {
   copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; tab: 'board' | 'flow' | 'settings'; column: number; minimized: boolean; sheet: Sheet
-  toast: { text: string; undo: UndoToken | null } | null; shot: string
+  toast: Notice | null; shot: string
   viewed: Partial<Record<PeriodHorizon, Period>>; captureSeed: string
   onTab: (tab: 'board' | 'flow' | 'settings') => void; onColumn: (index: number) => void; onMinimize: (value: boolean) => void; onSheet: (sheet: Sheet) => void
-  onToast: (text: string, undo: UndoToken | null) => void; onDismissToast: () => void; onCheck: (item: ItemRow) => void; onTrash: (id: string) => void
+  onDismissToast: () => void; onCheck: (item: ItemRow) => void; onTrash: (id: string) => void
   onMove: (id: string, horizon: Horizon) => void; onNest: (id: string, parentId: string) => void; onReorder: (id: string, beforeId: string | null, afterId: string | null) => void
   onCreate: (drafts: CaptureDraft[], periodId?: string | null) => boolean; onEdit: (id: string, fields: { title?: string; description?: string; dueDate?: string | null }) => void
   onFlow: (id: string, color: number | null) => void; onLink: (parentId: string, childId: string) => void; onUnlink: (parentId: string, childId: string) => void
@@ -184,10 +184,17 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
     {tab === 'flow' && <Flow copy={copy} theme={theme} snap={snap} prefs={prefs} nodes={nodes} shot={shot} contentBottom={contentBottom} onSheet={onSheet} onCheck={celebrate} onScroll={scroll} />}
     {tab === 'settings' && <Settings copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} contentBottom={contentBottom} onSheet={onSheet} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
     <TabBar copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => onSheet(tab === 'settings' ? { kind: 'composer', horizon: 'day' } : { kind: 'composer' })} />
-    {toast && <View style={[styles.toast, theme.style === 'minimal' ? { ...surface(theme, theme.controlRadius), bottom: barBottom + TAB_HEIGHT + 12 } : { backgroundColor: theme.fg, borderRadius: 22, bottom: barBottom + TAB_HEIGHT + 12 }]}><Text style={{ color: theme.style === 'minimal' ? theme.fg : theme.onAccent, flex: 1 }}>{toast.text}</Text>{toast.undo && <Pressable onPress={onUndo}><Text style={{ color: theme.focus, fontWeight: '700' }}>{copy.undo}</Text></Pressable>}<Pressable onPress={onDismissToast} accessibilityLabel={copy.close} hitSlop={8}><Icon name="close" size={16} color={theme.style === 'minimal' ? theme.secondary : theme.onAccent} /></Pressable></View>}
+    {toast && <View style={[styles.toast, theme.style === 'minimal' ? { ...surface(theme, theme.controlRadius), bottom: barBottom + TAB_HEIGHT + 12 } : { backgroundColor: theme.fg, borderRadius: 22, bottom: barBottom + TAB_HEIGHT + 12 }]}>
+      <View style={styles.flex}>
+        <Text style={{ color: theme.style === 'minimal' ? theme.fg : theme.onAccent }}>{toast.text}</Text>
+        {toast.detail ? <Text style={{ color: theme.style === 'minimal' ? theme.secondary : theme.onAccent, opacity: theme.style === 'minimal' ? 1 : 0.75, fontSize: 12, marginTop: 2 }}>{toast.detail}</Text> : null}
+      </View>
+      {toast.undo && <Pressable onPress={onUndo}><Text style={{ color: theme.focus, fontWeight: '700' }}>{copy.undo}</Text></Pressable>}
+      <Pressable onPress={onDismissToast} accessibilityLabel={copy.close} hitSlop={8}><Icon name="close" size={16} color={theme.style === 'minimal' ? theme.secondary : theme.onAccent} /></Pressable>
+    </View>}
     {sheet && <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={() => onSheet(null)} />}
     {sheet?.kind === 'menu' ? <Menu copy={copy} theme={theme} item={snap.items.find(item => item.id === sheet.id) ?? snap.trash.find(item => item.id === sheet.id)} onSheet={onSheet} onCheck={celebrate} onTrash={onTrash} onMove={onMove} /> : sheet && <BottomSheet theme={theme} paddingBottom={Math.max(insets.bottom, 16) + 12} onDismiss={() => onSheet(null)}>
-      <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} sheet={sheet} scheme={scheme} nodes={nodes} captureSeed={captureSeed} onSheet={onSheet} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onToast={onToast} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={celebrate} />
+      <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} sheet={sheet} scheme={scheme} nodes={nodes} captureSeed={captureSeed} onSheet={onSheet} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={celebrate} />
     </BottomSheet>}
     <Confetti token={burst} />
   </View>
@@ -572,7 +579,7 @@ function SheetBody(props: {
   onPolicy: (horizon: PeriodHorizon, mode: 'auto' | 'manual') => void
   onAppearance: (fields: { theme?: 'system' | 'light' | 'dark'; style?: 'paper' | 'minimal'; checkStyle?: 'outline' | 'paper' | 'tint' }) => void
   onBackup: () => void
-  onPrefs: (prefs: DevicePrefs) => void; onToast: (text: string, undo: UndoToken | null) => void
+  onPrefs: (prefs: DevicePrefs) => void
   onViewPeriod: (horizon: PeriodHorizon, period: Period | null) => void
   activity: (id: string) => { type: string; at: string }[]; periodsAround: (horizon: PeriodHorizon) => Period[]
   onCheck: (item: ItemRow) => void
@@ -668,7 +675,7 @@ function Composer({ copy, theme, snap, seed, horizon, onCreate, onSheet }: { cop
   </View>
 }
 
-function Backlog({ copy, theme, snap, horizon, onMove, onSheet, onToast }: { copy: Copy; theme: Theme; snap: Snapshot; horizon: PeriodHorizon; onMove: (id: string, horizon: Horizon) => void; onSheet: (sheet: Sheet) => void; onToast: (text: string, undo: UndoToken | null) => void }) {
+function Backlog({ copy, theme, snap, horizon, onMove, onSheet }: { copy: Copy; theme: Theme; snap: Snapshot; horizon: PeriodHorizon; onMove: (id: string, horizon: Horizon) => void; onSheet: (sheet: Sheet) => void }) {
   const rows = snap.backlog.filter(item => item.horizon === horizon)
   const [picked, setPicked] = useState<string[]>(() => rows.map(row => row.id))
   return <View>
@@ -680,7 +687,7 @@ function Backlog({ copy, theme, snap, horizon, onMove, onSheet, onToast }: { cop
     <Text style={{ color: theme.secondary }}>{copy.selected(picked.length)}</Text>
     <View style={styles.rowGap}>
       <Pressable style={[styles.button, styles.flex, { backgroundColor: theme.hover }]} onPress={() => { picked.forEach(id => onMove(id, 'later')); onSheet(null) }}><Text style={{ textAlign: 'center', color: theme.fg, fontWeight: '700' }}>{copy.toLater}</Text></Pressable>
-      <Pressable style={[styles.button, styles.flex, { backgroundColor: theme.fg }]} onPress={() => { picked.forEach(id => onMove(id, 'day')); onSheet(null); onToast(copy.moveToday, null) }}><Text style={{ textAlign: 'center', color: theme.onAccent, fontWeight: '700' }}>{copy.moveToday}</Text></Pressable>
+      <Pressable style={[styles.button, styles.flex, { backgroundColor: theme.fg }]} onPress={() => { picked.forEach(id => onMove(id, 'day')); onSheet(null) }}><Text style={{ textAlign: 'center', color: theme.onAccent, fontWeight: '700' }}>{copy.moveToday}</Text></Pressable>
     </View>
   </View>
 }

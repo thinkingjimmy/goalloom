@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  calendarAnchorVisible, periodMeta, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, workspaceDate, type OrderNode, type SqlDriver,
+  actionNotice, calendarAnchorVisible, periodFromId, periodMeta, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, workspaceDate, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -263,6 +263,14 @@ describe('workspace', () => {
     store.undo(DEMO_NOW, undo)
     expect(store.load(DEMO_NOW).trash.some(item => item.id === b)).toBe(false)
     expect(store.load(DEMO_NOW).items.some(item => item.id === b)).toBe(true)
+    const deletedAt = '2026-10-13T01:00:00.000Z'
+    store.trash(deletedAt, b)
+    const restore = store.restore(DEMO_NOW, b)
+    expect(store.load(DEMO_NOW).items.some(item => item.id === b)).toBe(true)
+    store.undo(DEMO_NOW, restore)
+    const again = store.load(DEMO_NOW).trash.find(item => item.id === b)
+    expect(again?.deletedAt).toBe(deletedAt)
+    expect(store.load(DEMO_NOW).items.some(item => item.id === b)).toBe(false)
   })
 
   it('rolls an automatic column forward and keeps a manual backlog', () => {
@@ -424,6 +432,36 @@ describe('workspace', () => {
     expect(syncPasswordReady('x'.repeat(129), 'x'.repeat(129))).toBe(false)
   })
 
+  it('matches desktop toasts: create, move and complete stay quiet', () => {
+    const copy = catalogs.zh
+    const board = { today: '2026-10-12', calendar: { mode: 'rolling' as const }, periods: { day: samplePeriod } }
+    const here: Glance = { tab: 'board', horizon: 'day', periodId: samplePeriod.id, columns: ['year', 'half', 'cycle', 'month', 'week', 'day'], doneOpen: false }
+    const undo: UndoToken = { kind: 'trash', id: '1' }
+    for (const action of ['create', 'move', 'reorder', 'edit', 'flow', 'link', 'unlink', 'policy', 'appearance', 'backup', 'complete'] as const) {
+      expect(actionNotice(copy, action, sampleItem(), undo, here, board)).toBeNull()
+    }
+    expect(actionNotice(copy, 'delete', sampleItem(), null, here, board)).toBeNull()
+    const deleted = actionNotice(copy, 'delete', sampleItem(), undo, here, board)
+    expect(deleted).toMatchObject({ text: '已删除「甲」', detail: null, durationMs: 6000, label: '删除' })
+    expect(deleted?.undo).toBe(undo)
+    expect(actionNotice(copy, 'nest', sampleItem(), { kind: 'placement', id: '1' }, here, board)?.text).toBe('已设为二级 todo「甲」')
+    expect(actionNotice(copy, 'reopen', sampleItem({ status: 'done' }), { kind: 'status', id: '1', status: 'done' }, here, board)).toBeNull()
+    const away = actionNotice(copy, 'reopen', sampleItem({ status: 'done' }), { kind: 'status', id: '1', status: 'done' }, { ...here, tab: 'flow' }, board)
+    expect(away?.text).toBe('已重开「甲」')
+    expect(away?.detail).toBe('位置：今天 · 列已隐藏')
+    expect(away?.undo).toBeTruthy()
+    const past = actionNotice(copy, 'reopen', sampleItem({ status: 'done', periodId: 'cal:day:2026-10-11' }), { kind: 'status', id: '1', status: 'done' }, here, board)
+    expect(past?.detail).toContain('往期')
+    expect(past?.detail).toContain('当前视图未显示')
+    expect(past?.detail).not.toContain('已完成')
+    const restored = actionNotice(copy, 'restore', sampleItem(), { kind: 'restore', id: '1', deletedAt: DEMO_NOW }, here, board)
+    expect(restored?.text).toBe('已还原「甲」')
+    expect(restored?.detail).toBe('位置：今天')
+    expect(catalogs.en.applied(catalogs.en.actionDelete, '甲')).toBe('Move to trash · “甲”')
+    expect(catalogs.en.undone(catalogs.en.actionDelete, '甲')).toBe('Undone · Move to trash “甲”')
+    expect(periodFromId('day', 'cal:day:2026-10-11')?.startDate).toBe('2026-10-11')
+  })
+
   it('does not use the word 继承 in any locale', () => {
     for (const copy of Object.values(catalogs)) {
       const text = Object.values(copy).map(value => typeof value === 'function' ? value.toString() : String(value)).join('\n')
@@ -431,6 +469,16 @@ describe('workspace', () => {
     }
   })
 })
+
+const samplePeriod = { id: 'cal:day:2026-10-12', horizon: 'day' as const, startDate: '2026-10-12', endDate: '2026-10-13', startAt: '', endAt: '' }
+
+function sampleItem(patch: Partial<ItemRow> = {}): ItemRow {
+  return {
+    id: '1', title: '甲', description: '', dueDate: null, status: 'todo', completedAt: null, archivedAt: null, deletedAt: null,
+    createdAt: DEMO_NOW, updatedAt: DEMO_NOW, version: 1, flowColor: null, horizon: 'day', periodId: samplePeriod.id, sortKey: 1,
+    placementVersion: 1, nestingParentId: null, holdPeriodId: null, note: null, ...patch,
+  }
+}
 
 function nodes(store: LocalWorkspace) {
   const snap = store.load(DEMO_NOW)

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An explicit observation instant, IANA timezone, week start and cycle anchor.
- * [OUTPUT]: The six current planning periods, with month-end clamping and exclusive UTC bounds.
+ * [OUTPUT]: The six current planning periods, with month-end clamping and exclusive UTC bounds, plus a period rebuilt from its id.
  * [POS]: Mobile calendar. Parity with apps/desktop/src/domain/calendar.ts is locked by tests; no Temporal import.
  */
 import type { CalendarConfig, Period, PeriodHorizon } from './types'
@@ -147,6 +147,17 @@ export function nearbyPeriods(calendar: CalendarConfig, horizon: PeriodHorizon, 
     instant = next.endAt
   }
   return [...past.reverse(), current, ...future]
+}
+
+/** Period encoded as `${calendar}:${horizon}:${start}`. End is exclusive, matching `currentPeriod`. */
+export function periodFromId(horizon: PeriodHorizon, periodId: string): Period | null {
+  const startDate = periodId.split(':').at(-1) ?? ''
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return null
+  let start: Ymd
+  try { start = parseYmd(startDate) } catch { return null }
+  const months = horizon === 'year' ? 12 : horizon === 'half' ? 6 : horizon === 'cycle' ? 3 : horizon === 'month' ? 1 : 0
+  const end = months ? addMonths(start, months) : addDays(start, horizon === 'week' ? 7 : 1)
+  return { id: periodId, horizon, startDate, endDate: formatYmd(end), startAt: '', endAt: '' }
 }
 
 export function daysLeft(period: Period, today: string): number {

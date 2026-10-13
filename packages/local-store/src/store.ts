@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A schema v10 driver, injected ids and an explicit clock.
- * [OUTPUT]: Board snapshot and local commands. base_* stays equal to the live rows while sync is off.
+ * [OUTPUT]: Board snapshot and local commands. Restore returns a token that puts the same deletion back. base_* stays equal to the live rows while sync is off.
  * [POS]: Offline workspace. Graph rules are rechecked by the schema triggers inside the write transaction.
  */
 import { mayLink } from './board'
@@ -253,13 +253,16 @@ export class LocalWorkspace {
     })
   }
 
-  restore(now: string, id: string): void {
-    this.tx(() => {
+  restore(now: string, id: string): UndoToken {
+    return this.tx(() => {
       const item = this.item(id)
       if (!item?.deletedAt) throw new StoreError('missing')
+      const raw = this.db.prepare('SELECT deletedBy FROM items WHERE id=?').get(id)?.deletedBy
+      const undo: UndoToken = { kind: 'restore', id, deletedAt: item.deletedAt, deletedBy: typeof raw === 'string' ? raw : null }
       this.db.prepare('UPDATE items SET deletedAt=NULL, deletedBy=NULL, updatedAt=?, version=version+1 WHERE id=? AND version=?').run(now, id, item.version)
       this.event(now, id, 'item_restored', null, { title: item.title })
       this.mirror()
+      return undo
     })
   }
 
@@ -281,6 +284,11 @@ export class LocalWorkspace {
       } else if (token.kind === 'status') {
         this.db.prepare('UPDATE items SET status=?, completedAt=?, updatedAt=?, version=version+1 WHERE id=?').run(token.status ?? 'todo', token.completedAt ?? null, now, token.id)
         this.applyUndoHold(now, token.id)
+      } else if (token.kind === 'restore') {
+        const item = this.item(token.id)
+        if (!item || item.deletedAt || !token.deletedAt) throw new StoreError('missing')
+        this.db.prepare('UPDATE items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=? AND deletedAt IS NULL')
+          .run(token.deletedAt, token.deletedBy ?? null, now, token.id)
       } else {
         const item = this.item(token.id)
         if (!item || item.deletedAt) throw new StoreError('missing')

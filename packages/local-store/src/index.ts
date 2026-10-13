@@ -10,7 +10,7 @@ export { defaultPrefs, readPrefs, writePrefs } from './prefs'
 export type { DevicePrefs, LocaleId } from './prefs'
 export { seedDemo, DEMO_NOW } from './demo'
 export { noteSignal, linkHost } from './notes'
-export { currentPeriod, daysLeft, nearbyPeriods, periodMeta, precedingPeriod, rangeLabel, workspaceDate } from './periods'
+export { currentPeriod, daysLeft, nearbyPeriods, periodFromId, periodMeta, precedingPeriod, rangeLabel, workspaceDate } from './periods'
 export { buildParentOrder, parentOrderedHorizon } from './order'
 export type { OrderNode } from './order'
 export { flowPalette, flowRing, flowStroke, flowTint } from './colors'
@@ -22,6 +22,8 @@ export {
 } from './board'
 export type { AppTab, CaptureDraft, DropTarget, FlowRailItem, RowBox } from './board'
 export { calendarAnchorVisible, syncPasswordReady } from './onboarding'
+export { ACTION_TOAST_MS, UNDO_TOAST_MS, actionNotice, boardVisibility } from './feedback'
+export type { Glance, ItemVisibility, Notice, NoticeAction, NoticeBoard, ToastCopy } from './feedback'
 export { horizons, periodHorizons } from './types'
 export type {
   ActivityRow, BoardStyle, CalendarConfig, CheckStyle, Horizon, ItemRow, NoteSignal, Period, PeriodHorizon,

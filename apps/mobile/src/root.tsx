@@ -3,9 +3,9 @@ import { ActivityIndicator, AppState, Linking, Platform, Text, useColorScheme, V
 import { StatusBar } from 'expo-status-bar'
 import { randomUUID } from 'expo-crypto'
 import {
-  BOARD_COLUMNS, DEMO_NOW, LocalWorkspace, OPEN_COLUMN, StoreError, columnIndex, installDevice, installSchema,
-  nearbyPeriods, readPrefs, seedDemo, writePrefs, type CaptureDraft, type DevicePrefs, type Horizon, type ItemRow,
-  type LocaleId, type Period, type PeriodHorizon, type Snapshot, type UndoToken,
+  ACTION_TOAST_MS, BOARD_COLUMNS, DEMO_NOW, LocalWorkspace, OPEN_COLUMN, StoreError, UNDO_TOAST_MS, actionNotice, columnIndex, installDevice, installSchema,
+  nearbyPeriods, readPrefs, seedDemo, writePrefs, type CaptureDraft, type DevicePrefs, type Glance, type Horizon, type ItemRow,
+  type LocaleId, type Notice, type Period, type PeriodHorizon, type Snapshot, type UndoToken,
 } from '@goalloom/local-store'
 import { catalogs, systemLocale } from './copy'
 import { Onboarding } from './onboarding'
@@ -90,7 +90,7 @@ export default function Root() {
   const [column, setColumn] = useState(BOARD_COLUMNS.indexOf(OPEN_COLUMN))
   const [minimized, setMinimized] = useState(false)
   const [sheet, setSheet] = useState<Sheet>(null)
-  const [toast, setToast] = useState<{ text: string; undo: UndoToken | null } | null>(null)
+  const [toast, setToast] = useState<Notice | null>(null)
   const [viewed, setViewed] = useState<Partial<Record<PeriodHorizon, Period>>>({})
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bootRef = useRef<Boot | null>(null)
@@ -147,11 +147,12 @@ export default function Root() {
     return () => sub.remove()
   }, [])
 
-  const show = (text: string, undo: UndoToken | null) => {
+  const show = (notice: Notice) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast({ text, undo })
-    toastTimer.current = setTimeout(() => setToast(null), 5000)
+    setToast(notice)
+    toastTimer.current = setTimeout(() => setToast(null), notice.durationMs)
   }
+  const showError = (text: string) => show({ text, detail: null, undo: null, label: '', title: null, durationMs: ACTION_TOAST_MS })
 
   if (error) return <View style={{ flex: 1, padding: 24, justifyContent: 'center' }}><Text>{error}</Text></View>
   if (!boot) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator /></View>
@@ -165,7 +166,7 @@ export default function Root() {
   const refresh = () => setBoot({ ...boot, snap: boot.store.load(clock()) })
   const guard = (fn: () => void): boolean => {
     try { fn(); refresh(); return true } catch (cause) {
-      show(cause instanceof StoreError ? copy.conflict : (cause instanceof Error ? cause.message : copy.conflict), null)
+      showError(cause instanceof StoreError ? copy.conflict : (cause instanceof Error ? cause.message : copy.conflict))
       return false
     }
   }
@@ -173,6 +174,10 @@ export default function Root() {
     writePrefs(boot.device, prefs)
     setBoot({ ...boot, prefs })
   }
+  const columns = BOARD_COLUMNS.filter(horizon => horizon === 'later' ? boot.prefs.later : boot.prefs.columns[horizon])
+  const openHorizon = tab === 'board' ? columns[column] ?? null : null
+  const openPeriod = openHorizon && openHorizon !== 'later' ? viewed[openHorizon] ?? boot.snap.periods[openHorizon] ?? null : null
+  const glance: Glance = { tab, horizon: openHorizon, periodId: openPeriod?.id ?? null, columns, doneOpen: false }
 
   if (!boot.snap.setupConfirmedAt) {
     return <Onboarding copy={copy} scheme={scheme} locale={locale} now={clock()} onConfirm={input => guard(() => {
@@ -193,22 +198,30 @@ export default function Root() {
       minimized={minimized} sheet={sheet} toast={toast} shot={shot} viewed={viewed}
       captureSeed={shot === 'capture' ? CAPTURE_SEED : ''}
       onTab={next => { setTab(next); setMinimized(false) }} onColumn={setColumn} onMinimize={setMinimized} onSheet={setSheet}
-      onToast={show}
       onDismissToast={() => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast(null) }}
       onCheck={item => guard(() => {
         const next = item.status === 'done' ? 'todo' : 'done'
         const undo = boot.store.setStatus(clock(), item.id, next)
-        show(next === 'done' ? copy.doneToast : copy.reopenToast, undo)
+        if (next === 'done') return
+        const notice = actionNotice(copy, 'reopen', item, undo, glance, boot.snap)
+        if (notice) show(notice)
       })}
-      onTrash={id => guard(() => { const undo = boot.store.trash(clock(), id); show(copy.trashToast, undo) })}
-      onMove={(id, horizon) => guard(() => { const undo = boot.store.move(clock(), id, horizon, null); show(copy.moved, undo) })}
-      onNest={(id, parentId) => guard(() => { boot.store.nest(clock(), id, parentId) })}
+      onTrash={id => guard(() => {
+        const item = findItem(boot.snap, id)
+        const undo = boot.store.trash(clock(), id)
+        const notice = actionNotice(copy, 'delete', item, undo, glance, boot.snap)
+        if (notice) show(notice)
+      })}
+      onMove={(id, horizon) => guard(() => { boot.store.move(clock(), id, horizon, null) })}
+      onNest={(id, parentId) => guard(() => {
+        const item = findItem(boot.snap, id)
+        const undo = boot.store.nest(clock(), id, parentId)
+        const notice = actionNotice(copy, 'nest', item, undo, glance, boot.snap)
+        if (notice) show(notice)
+      })}
       onReorder={(id, beforeId, afterId) => guard(() => { boot.store.reorder(clock(), id, beforeId, afterId) })}
       onCreate={(drafts, periodId) => guard(() => {
-        const made = drafts.filter(draft => draft.title.trim())
-        let undo: UndoToken | null = null
-        for (const draft of made) undo = createOne(boot.store, draft, periodId ?? null)
-        show(copy.created(made.length), made.length === 1 ? undo : null)
+        for (const draft of drafts) if (draft.title.trim()) createOne(boot.store, draft, periodId ?? null)
       })}
       onEdit={(id, fields) => guard(() => { boot.store.edit(clock(), id, fields) })}
       onFlow={(id, color) => guard(() => { boot.store.setFlow(clock(), id, color) })}
@@ -219,11 +232,18 @@ export default function Root() {
       onBackup={() => guard(() => { boot.store.setBackup(!boot.snap.backupEnabled, boot.snap.backupRetention) })}
       onPrefs={savePrefs}
       onUndo={() => {
-        const token = toast?.undo
-        if (!token) return
-        guard(() => { boot.store.undo(clock(), token); setToast(null) })
+        const current = toast
+        if (!current?.undo) return
+        const token = current.undo
+        if (!guard(() => { boot.store.undo(clock(), token) })) return
+        show({ text: copy.undone(current.label, current.title), detail: null, undo: null, label: current.label, title: current.title, durationMs: UNDO_TOAST_MS })
       }}
-      onRestore={id => guard(() => { boot.store.restore(clock(), id) })}
+      onRestore={id => guard(() => {
+        const item = findItem(boot.snap, id)
+        const undo = boot.store.restore(clock(), id)
+        const notice = actionNotice(copy, 'restore', item, undo, glance, boot.snap)
+        if (notice) show(notice)
+      })}
       onViewPeriod={(horizon, period) => {
         if (period && !guard(() => { boot.store.savePeriod(period) })) return
         setViewed(current => {
@@ -237,6 +257,10 @@ export default function Root() {
       periodsAround={horizon => boot.snap.calendar ? nearbyPeriods(boot.snap.calendar, horizon, clock()) : []}
     />
   </>
+}
+
+function findItem(snap: Snapshot, id: string): ItemRow | null {
+  return snap.items.find(item => item.id === id) ?? snap.trash.find(item => item.id === id) ?? null
 }
 
 function createOne(store: LocalWorkspace, draft: CaptureDraft, periodId: string | null): UndoToken {

@@ -104,7 +104,7 @@ export interface ActivityRow {
 }
 
 export interface UndoToken {
-  kind: 'status' | 'trash' | 'create' | 'placement'
+  kind: 'status' | 'trash' | 'create' | 'placement' | 'restore'
   id: string
   status?: Status
   completedAt?: string | null
@@ -112,6 +112,9 @@ export interface UndoToken {
   periodId?: string | null
   sortKey?: number
   nestingParentId?: string | null
+  /** Deletion stamp put back when a restore is undone. */
+  deletedAt?: string
+  deletedBy?: string | null
   /** Nesting left by the operation. A later nest or unnest makes this undo a conflict. */
   nestingAfter?: string | null
   relationIds?: string[]
