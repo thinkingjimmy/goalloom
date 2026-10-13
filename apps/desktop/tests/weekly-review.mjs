@@ -82,8 +82,8 @@ async function verify(mode, variant) {
     assert.equal(await page.locator('[data-review]').count(), 1)
     assert.equal(await week.locator('.backlog-entry, .insight-empty, .empty-column, .review-entry').count(), 0)
     assert.equal(await guide.getByRole('button').count(), 2)
-    assert.equal(await guide.locator('h3').innerText(), `回顾 ${reviewedName}，安排 ${nextName}`)
-    assert.equal(await guide.locator('[data-review]').innerText(), `开始 ${reviewedName}复盘`)
+    assert.equal(await guide.locator('h3').innerText(), `回顾${reviewedName}，安排${nextName}`)
+    assert.equal(await guide.locator('[data-review]').innerText(), `开始${reviewedName}复盘`)
     assert.equal(await guide.locator('p').innerText(), '3 项未完成，一起整理后再出发。')
     assert.equal(await week.locator('.task-row').count(), 0, 'The review uses last week without populating this week')
     await week.scrollIntoViewIfNeeded()
@@ -174,7 +174,7 @@ async function verify(mode, variant) {
       assert.equal(await page.locator('.flow-filter [aria-pressed=true]').innerText(), '全部')
     }
     await assertReadOnly(unfinished.locator('.review-goal-title'))
-    for (const row of [earlier, unfinished, moving]) assert.equal(await row.getByRole('combobox').innerText(), `移入 ${nextName}`)
+    for (const row of [earlier, unfinished, moving]) assert.equal(await row.getByRole('combobox').innerText(), `移入${nextName}`)
     await unfinished.locator(`a[href="${urls.article}"][data-status=ready]`).waitFor()
     assert.equal(await unfinished.locator('.link-domain-label').innerText(), 'Fixture article without image')
     await unfinished.locator(`a[href="${urls.article}"]`).click()
@@ -247,7 +247,7 @@ async function verify(mode, variant) {
     await drawer.locator('.review-body[aria-busy=false]').waitFor()
     assert.equal(await unfinished.getByRole('combobox').innerText(), '归档')
     assert.equal(await earlier.getByRole('combobox').innerText(), '留在原处')
-    assert.equal(await moving.getByRole('combobox').innerText(), `移入 ${nextName}`)
+    assert.equal(await moving.getByRole('combobox').innerText(), `移入${nextName}`)
     await app.evaluate(({ ipcMain }) => {
       const command = ipcMain._invokeHandlers.get('goalloom:command')
       let reject = true
@@ -403,7 +403,7 @@ async function verify(mode, variant) {
     }
     const invitation = week.locator('.review-plan-invitation')
     await invitation.waitFor()
-    assert.equal(await invitation.locator('h3').innerText(), '安排 本周')
+    assert.equal(await invitation.locator('h3').innerText(), '安排本周')
     await week.locator('.backlog-entry').click()
     await page.getByText('Earlier weekly backlog', { exact: true }).waitFor()
     await page.keyboard.press('Escape')

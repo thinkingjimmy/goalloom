@@ -7,7 +7,7 @@
 import type { CalendarConfig, PlanningPeriod } from '../../shared/contracts/entities'
 import { currentPeriod, precedingPeriod, workspaceDate } from '../../domain/calendar'
 import { calendarMessages as c, currentLocale, horizonNames, messages } from '../i18n'
-import { fullDate, monthDay, monthName, shortDate, shortYearDate, yearMonth, yearOf } from '../i18n/format'
+import { dateRange, fullDate, monthDay, monthName, shortDate, shortYearDate, yearMonth, yearOf } from '../i18n/format'
 import type { ItemHorizon } from '../../shared/contracts/entities'
 import { isAnchoredHorizon } from '../../shared/contracts/values'
 import { addDays } from './dates'
@@ -47,12 +47,11 @@ export function yearAwareRange(period: Pick<PlanningPeriod, 'startDate' | 'endDa
   return `${start} – ${last}`
 }
 
-/** Ranges show the inclusive final day; compact menu hints can omit the year. */
+/** Day and month singles follow includeYear. Longer ranges omit the year unless they cross a year, then both ends keep it. */
 export function periodDates(period: PlanningPeriod, includeYear = true): string {
-  const date = includeYear ? fullDate : monthDay
-  if (period.horizon === 'day') return date(period.startDate)
+  if (period.horizon === 'day') return (includeYear ? fullDate : monthDay)(period.startDate)
   if (period.horizon === 'month') return (includeYear ? yearMonth : monthName)(period.startDate)
-  return `${date(period.startDate)} – ${date(addDays(period.endDate, -1))}`
+  return dateRange(period.startDate, addDays(period.endDate, -1))
 }
 
 /** Relative names are tied to workspace today, never to whichever column the user has opened. */

@@ -86,7 +86,7 @@ async function run(scope, skipMonth) {
     assert.equal(await closing.locator('small').count(), 0)
     assert.equal(await drawer.locator('.review-bulk').count(), 0)
     assert.equal(await closing.locator('.check').count(), await closing.count())
-    assert((await closing.getByRole('combobox').allTextContents()).every(value => value.startsWith('移入 ')))
+    assert((await closing.getByRole('combobox').allTextContents()).every(value => /^移入\S/.test(value)))
     assert((await closing.getByRole('combobox').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().height))).every(value => value === 30))
     // Keep the backlog outside the new month so all uncovered-goal candidates remain available.
     for (let row = 0; row < await closing.count(); row++) {
@@ -110,7 +110,7 @@ async function run(scope, skipMonth) {
     const before = await revision()
     await drawer.getByRole('button', { name: skipMonth ? '不排入' : /^排入 1 项/, exact: !skipMonth }).click()
     if (scope === 'both') {
-      await drawer.getByRole('heading', { name: '安排 本周', exact: true }).waitFor()
+      await drawer.getByRole('heading', { name: '安排本周', exact: true }).waitFor()
       assert.equal(await page.locator('[data-component-harness]').getAttribute('data-completed'), '0')
       if (skipMonth) assert.equal(await revision(), before)
       const weeklyTitle = `Scoped weekly step ${name}`

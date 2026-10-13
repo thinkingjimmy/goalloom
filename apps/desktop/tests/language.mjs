@@ -43,7 +43,7 @@ const workerMessage = page => page.evaluate(async () => (await window.goalloom.e
 const settingsDialog = (page, name) => page.getByRole('dialog', { name, exact: true })
 const names = { zh: '简体中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }
 const reviewChoices = {
-  zh: { move: /^移入 /, keep: '留在原处' }, en: { move: /^Move to /, keep: 'Keep in place' },
+  zh: { move: /^移入\S/, keep: '留在原处' }, en: { move: /^Move to /, keep: 'Keep in place' },
   ja: { move: /へ移動$/, keep: 'そのまま残す' }, es: { move: /^Mover a /, keep: 'Dejar en su lugar' },
   fr: { move: /^Déplacer vers /, keep: 'Laisser en place' },
 }
@@ -72,7 +72,7 @@ const ui = {
   zh: { settings: '设置与数据', board: '时间看板', smart: '智能输入', day: '今天' },
 }
 const weeklyGuides = {
-  zh: { heading: '回顾 上周，安排 本周', start: '开始 上周复盘', continue: '继续复盘', dismiss: '关闭本次回顾' },
+  zh: { heading: '回顾上周，安排本周', start: '开始上周复盘', continue: '继续复盘', dismiss: '关闭本次回顾' },
   en: { heading: 'Review Last week, plan This week', start: 'Review Last week', continue: 'Continue review', dismiss: 'Dismiss this review' },
   ja: { heading: '先週を振り返り、今週を計画', start: '先週の振り返りを始める', continue: '振り返りを続ける', dismiss: '今回の振り返りを非表示' },
   es: { heading: 'Revisa La semana pasada, planifica Esta semana', start: 'Revisar La semana pasada', continue: 'Continuar revisión', dismiss: 'Ocultar esta revisión' },
