@@ -29,8 +29,8 @@ export default defineConfig({
       externalizeDeps: false,
       minify: 'esbuild', sourcemap: debugRoot ? 'hidden' : false,
       outDir: resolve(debugRoot ?? 'out', 'main'),
-      // The Supabase client ships a gotrue default of http://localhost:9999. Leaving the package external keeps that dev URL out of the app bundle; the desktop always passes the configured project URL.
-      rollupOptions: { onwarn, external: ['@supabase/supabase-js'], input: { index: resolve('src/main/index.ts'), storage: resolve('src/main/storage/worker.ts') } },
+      // Bundle @supabase/supabase-js. electron-builder ships no node_modules, and a bare import crashes an installed app. GoTrue's unused http://localhost:9999 default is allowlisted in the production check; the desktop always passes the configured project URL.
+      rollupOptions: { onwarn, input: { index: resolve('src/main/index.ts'), storage: resolve('src/main/storage/worker.ts') } },
     },
   },
   preload: {

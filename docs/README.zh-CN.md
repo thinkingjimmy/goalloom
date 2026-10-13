@@ -89,7 +89,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<版本>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<版本>-win-x64.exe
 ```
 
-1.8.0 增加可选的桌面同步：使用 Google 登录，并用 24 个单词的恢复密钥做端到端加密。正式构建在设置了 `GOALLOOM_SUPABASE_ANON_KEY` 时会把 Supabase anon key 打进安装包。运行时先看这个环境变量，再看用户数据目录里的 `sync-config.json`（字段 `anonKey`，可选 `url`），最后用打进包里的值。没有这把 key 时构建仍会成功，同步保持未配置，看板仍只在本机。工作区格式仍是 schema v10。说明见 [v1.8.0 发布说明](./releases/v1.8.0.md)。
+1.8.0 增加可选的电脑间同步：用 Google 登录后，看板会在几台电脑之间保持同步，数据在离开设备前加密。设置时会请你保存一把恢复密钥。说明见 [v1.8.0 发布说明](./releases/v1.8.0.md)。构建期的同步配置见[开发文档](./development.md)。
 
 完整测试、打包检查、代码地图以及贡献者与开发代理的约定见[开发文档](./development.md)。官网代码在 [`apps/website/`](../apps/website/README.md)。
 

@@ -1,21 +1,22 @@
 /**
- * [INPUT]: Built Electron or a packaged executable, an isolated profile and production recovery controls.
+ * [INPUT]: Built Electron or a packaged executable copied outside the checkout, an isolated profile and production recovery controls.
  * [OUTPUT]: Reset, maintenance, generation, SQLite restore and rollover-pause assertions; recovery report and screenshots.
  * [POS]: Desktop recovery acceptance, including explicit empty-workspace setup before restoring after reset.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { finishSetup } from './fixtures/setup.mjs'
+import { packagedElectronOptions } from './fixtures/packaged-app.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { cpus, release, tmpdir } from 'node:os'
 import { _electron as electron } from 'playwright'
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'Goalloom 整库窗口 '))
 // Assertions use Chinese copy; pin the device language instead of following the machine's system language.
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
-const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
-let application = await electron.launch({ ...options, env: environment })
+const { options, cleanup: removePackagedCopy } = await packagedElectronOptions(packaged, profile, environment)
+let application = await electron.launch(options)
 try {
   let page = await application.firstWindow()
   await finishSetup(page)
@@ -88,7 +89,7 @@ try {
   assert.equal(await page.getByRole('dialog', { name: '搜索与命令' }).getByRole('button', { name: /^撤销上一步/ }).isDisabled(), true)
   await page.keyboard.press('Escape')
   await application.close()
-  application = await electron.launch({ ...options, env: environment }); page = await application.firstWindow()
+  application = await electron.launch(options); page = await application.firstWindow()
   await page.getByRole('button', { name: '确认按设置处理', exact: true }).waitFor()
   // 设置 → 回收站的行内还原：只还原条目，不解除恢复后的顺延暂停。
   const settingsDialog = page.getByRole('dialog', { name: '设置与数据' })
@@ -111,4 +112,4 @@ try {
   const report = { ok: true, packaged: Boolean(packaged), runtime: await page.evaluate(() => window.goalloom.getRuntime()), environment: { platform: process.platform, os: release(), arch: process.arch, cpu: cpus()[0]?.model }, checks: ['reset protective preview', 'unchecked final confirmation', 'maintenance UI/IPC', 'cancel preserves', 'new generation rejects old write', 'explicit empty-workspace setup before restore', 'SQLite restore', 'restore pause survives restart', 'item restore keeps pause', 'explicit resume', 'backup receipts survive replacement'], screenshots: [`${out}/reset-onboarding.png`, `${out}/restored-workspace.png`] }
   await writeFile(`${out}/report.json`, JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
-} finally { await application.close(); await rm(profile, { recursive: true, force: true }) }
+} finally { await application.close(); await rm(profile, { recursive: true, force: true }); await removePackagedCopy() }
