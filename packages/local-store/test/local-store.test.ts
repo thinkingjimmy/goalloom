@@ -475,8 +475,8 @@ describe('workspace', () => {
     expect(signInButtons(['google', 'apple'])).toEqual(['apple', 'google'])
     expect(signInButtons([])).toEqual([])
     expect(catalogs.zh.start.benefits).toEqual([
-      { lead: '登录后', body: '：手机和电脑上的看板自动保持一致，换了设备数据也还在。' },
-      { lead: '不登录', body: '：所有数据只存在这台设备上，不用账号，马上就能开始用。' },
+      { lead: '登录后', body: '手机和电脑上的看板自动保持一致，换了设备数据也还在。' },
+      { lead: '不登录', body: '所有数据只存在这台设备上，不用账号，马上就能开始用。' },
     ])
     expect(catalogs.en.start.benefits.map(line => line.lead)).toEqual(['After you sign in', 'Without signing in'])
     expect(catalogs.zh.start.google).toBe('使用 Google 继续')

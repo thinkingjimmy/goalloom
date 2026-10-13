@@ -96,7 +96,10 @@ function Choice({ copy, theme, waiting, onLocal, onGoogle, onCancel }: {
     <View style={styles.benefits}>
       {s.benefits.map((line, index) => <View key={line.lead} style={styles.benefit}>
         <View style={styles.benefitIcon}><Icon name={BENEFIT_ICONS[index] ?? 'info'} size={20} color={theme.fg} /></View>
-        <Text style={[styles.benefitText, { color: theme.fg }]}><Text style={styles.benefitLead}>{line.lead}</Text>{line.body}</Text>
+        <View style={styles.benefitCopy}>
+          <Text style={[styles.benefitLead, { color: theme.fg }]}>{line.lead}</Text>
+          <Text style={[styles.benefitBody, { color: theme.secondary }]}>{line.body}</Text>
+        </View>
       </View>)}
     </View>
   </Screen>
@@ -332,11 +335,12 @@ function showDate(copy: Copy, today: string, ymd: string): string {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  benefits: { gap: 16 },
+  benefits: { gap: 20 },
   benefit: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  benefitIcon: { width: 28, alignItems: 'center', marginTop: 1 },
-  benefitText: { flex: 1, fontSize: 16, lineHeight: 22 },
-  benefitLead: { fontWeight: '700' },
+  benefitIcon: { width: 28, height: 22, alignItems: 'center', justifyContent: 'center' },
+  benefitCopy: { flex: 1 },
+  benefitLead: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
+  benefitBody: { fontSize: 15, lineHeight: 20, marginTop: 2 },
   authStack: { gap: 12 },
   authButton: { height: 52, borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
   googleButton: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dadce0' },
