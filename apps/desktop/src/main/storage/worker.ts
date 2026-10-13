@@ -23,6 +23,7 @@ import { readJson, writeDataset } from '../workspace/transfer/files'
 import { serverText, loadServerLocale } from '../../shared/i18n/server'
 import { readAssistanceContext } from '../workspace/assistance-context'
 import { StartupUpgrade } from './upgrade'
+import { protectSyncBackup, runSyncLocal } from '../workspace/sync/local'
 
 if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort
@@ -54,6 +55,10 @@ function handle(method: string, argument: unknown): unknown {
   if (method === 'metadata') return { ...repository.metadata(), backupError: service.backups.lastError }
   if (method === 'runtime') return { sqlite: String(db.prepare('SELECT sqlite_version() AS version').get()!.version) }
   if (method === 'command') return repository.execute(argument)
+  if (method === 'sync') return runSyncLocal(db, argument, {
+    hold: closed => { repository.maintenance = closed },
+    protect: () => protectSyncBackup(db, workerData.backupDirectory, clock.now()),
+  })
   if (method === 'export') return writeDataset(repository.store, z.string().min(1).parse(argument), repository.clock.now())
   if (method === 'data') return service.action(argument)
   if (method === 'releaseTransfer') { service.release(); return null }

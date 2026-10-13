@@ -4,7 +4,7 @@
  * [POS]: Application composition root; the renderer parse overlaps guarded storage startup, and migrations remain protected before writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { app, BrowserWindow, dialog, powerMonitor, protocol, screen, session } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, powerMonitor, protocol, screen, session, shell } from 'electron'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { StorageClient } from './storage/client'
@@ -15,13 +15,15 @@ import type { WorkspaceMetadata } from '../shared/contracts/queries'
 import { loadWindowState, saveWindowState } from './window/state'
 import { LanguagePreference } from './window/language'
 import { protectWindowClose } from './window/close'
-import { createSmartService } from './smart/electron'
+import { createSmartService, deviceCipher } from './smart/electron'
 import { serverText } from '../shared/i18n/server'
 import { LinkPreviewService } from './link-preview/service'
 import { UpdateService } from './update'
 import { installMenu } from './window/menu'
 import { openAboutEvent, updateEvent } from '../shared/contracts/update'
 import { assistanceServerText } from '../shared/i18n/assistance'
+import { SyncService } from './sync/service'
+import { syncEvent } from '../shared/contracts/sync'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -41,6 +43,7 @@ let releaseRenderer: (() => void) | undefined
 let updates: UpdateService
 
 let storage: StorageClient | null = null
+let sync: SyncService | undefined
 let reconciling = false
 let boundaryTimer: ReturnType<typeof setTimeout> | undefined
 let quitting = false
@@ -143,7 +146,7 @@ async function createWindow(): Promise<void> {
   window.on('resize', changed); window.on('move', changed)
   window.on('close', persist)
   window.once('ready-to-show', () => { window?.show(); firstVisible = true; startInitialReconcile() })
-  window.on('focus', () => { void requestReconcile() })
+  window.on('focus', () => { void requestReconcile(); sync?.nudge() })
   window.on('closed', () => { window = null })
   await window.loadURL(trustedUrl)
 }
@@ -176,7 +179,15 @@ if (!app.requestSingleInstanceLock()) {
     let client!: StorageClient
     const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client)
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
-    releaseRenderer = registerIpc(() => window, trustedUrl, storageProxy, smart, language, links, updates, () => { void requestReconcile(false) }, firstWrite, meta => {
+    const syncing = sync = new SyncService({
+      userData: app.getPath('userData'), cipher: deviceCipher, storage: storageProxy,
+      openExternal: url => shell.openExternal(url),
+      notify: status => send(syncEvent, status),
+      onApplied: () => { send('goalloom:changed', null); void requestReconcile(false) },
+      clipboard: text => clipboard.writeText(text),
+      now: () => new Date().toISOString(),
+    })
+    releaseRenderer = registerIpc(() => window, trustedUrl, storageProxy, smart, language, links, updates, syncing, () => { void requestReconcile(false); syncing.nudge() }, firstWrite, meta => {
       if (firstSnapshotRead) return
       firstSnapshotRead = true; lastVisible = visibleKey(meta); lastRevision = meta.workspace.revision; startInitialReconcile()
     })
@@ -186,10 +197,11 @@ if (!app.requestSingleInstanceLock()) {
     if (!opened) { window?.destroy(); app.exit(0); return }
     storage = client = opened
     unlockStorage(opened)
+    void syncing.start()
     const openedWindow = await windowing
     if (!openedWindow.ok) throw openedWindow.error
     updates.start()
-    powerMonitor.on('resume', () => { void requestReconcile() })
+    powerMonitor.on('resume', () => { void requestReconcile(); sync?.nudge() })
     const timer = setInterval(() => { void requestReconcile() }, 30_000)
     timer.unref()
     app.on('activate', () => { if (!window) void createWindow() })
@@ -200,6 +212,7 @@ if (!app.requestSingleInstanceLock()) {
     if (drained || !storage) return
     event.preventDefault()
     quitting = true
+    sync?.stop()
     if (boundaryTimer) clearTimeout(boundaryTimer)
     void storage.close().catch(() => undefined).finally(() => { drained = true; app.quit() })
   })

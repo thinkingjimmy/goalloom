@@ -75,9 +75,8 @@ export function assertForeignKeys(driver: SqlDriver): void {
 
 export type RemoteEnvelope = { seq: number; op: SyncOp }
 
-export function mergeRemoteOps(driver: SqlDriver, batch: RemoteEnvelope[], host: ApplyHost, at: string): void {
-  driver.transaction(() => {
-    const ordered = [...batch].sort((left, right) => left.seq - right.seq)
+export function applyRemoteBatch(driver: SqlDriver, batch: RemoteEnvelope[], host: ApplyHost, at: string): void {
+  const ordered = [...batch].sort((left, right) => left.seq - right.seq)
     for (const entry of ordered) {
       const cursor = Number(driver.prepare('SELECT lastAppliedSeq AS seq FROM sync_state WHERE id=1').get()?.seq ?? 0)
       if (entry.seq !== cursor + 1) throw new SyncApplyError('storage', 'seq gap')
@@ -113,7 +112,12 @@ export function mergeRemoteOps(driver: SqlDriver, batch: RemoteEnvelope[], host:
       })
       driver.prepare('UPDATE sync_state SET lastAppliedSeq=?, updatedAt=? WHERE id=1').run(entry.seq, at)
     }
-    rebuildVisibleFull(driver, host)
-    assertForeignKeys(driver)
-  })
+  rebuildVisibleFull(driver, host)
+  // The board snapshot ignores item rows and refreshes when workspace.revision changes.
+  if (ordered.length) driver.prepare('UPDATE workspace SET revision = revision + 1 WHERE id=1').run()
+  assertForeignKeys(driver)
+}
+
+export function mergeRemoteOps(driver: SqlDriver, batch: RemoteEnvelope[], host: ApplyHost, at: string): void {
+  driver.transaction(() => applyRemoteBatch(driver, batch, host, at))
 }

@@ -20,8 +20,10 @@ import { linkActionSchema, linkChannel, linkPreviewSchema } from '../shared/cont
 import type { LinkPreviewService } from './link-preview/service'
 import { updateActionSchema, updateChannel, updateInfoSchema } from '../shared/contracts/update'
 import type { UpdateService } from './update'
+import { syncChannel } from '../shared/contracts/sync'
+import type { SyncService } from './sync/service'
 
-export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, links: LinkPreviewService, updates: UpdateService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
+export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, links: LinkPreviewService, updates: UpdateService, sync: SyncService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
   let rendererSession = 0
   const guard = (event: IpcMainInvokeEvent) => {
     const current = window()
@@ -72,6 +74,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     if (action.type === 'preview') return linkPreviewSchema.parse(await links.get(action.url))
     try { await shell.openExternal(action.url); return true } catch { return false }
   })
+  ipcMain.handle(syncChannel, async (event, input: unknown) => { guard(event); return sync.handle(input) })
   ipcMain.handle(updateChannel, async (event, ...args: unknown[]) => {
     guard(event)
     if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
