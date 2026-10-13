@@ -5,12 +5,14 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Image, KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
 } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
-import { calendarAnchorVisible, syncPasswordReady, workspaceDate } from '@goalloom/local-store'
+import {
+  calendarAnchorVisible, filterTimeZones, friendlyZoneName, pinCurrentZone, readTimeZones, runtimeZoneName, syncPasswordReady, workspaceDate, zoneLocalizedNames,
+} from '@goalloom/local-store'
 import type { Copy } from './copy'
 import type { LocaleId } from '@goalloom/local-store'
 import { Icon } from './icons'
@@ -160,7 +162,7 @@ function Calendar({ copy, theme, locale, mode, timezone, weekStart, anchor, toda
     <View style={[styles.group, { backgroundColor: theme.raised }]}>
       {calendarAnchorVisible(mode) && <GroupRow theme={theme} label={s.anchor} value={anchorValue} onPress={() => onOpen('anchor')} />}
       {calendarAnchorVisible(mode) && <View style={[styles.hairline, { backgroundColor: theme.line }]} />}
-      <GroupRow theme={theme} label={s.timezone} value={zoneLabel(timezone, locale)} onPress={() => onOpen('zone')} />
+      <GroupRow theme={theme} label={s.timezone} value={friendlyZoneName(timezone, locale)} onPress={() => onOpen('zone')} />
       <View style={[styles.hairline, { backgroundColor: theme.line }]} />
       <GroupRow theme={theme} label={s.weekFrom} value={s.weekdays[weekStart - 1] ?? s.weekdays[0]!} onPress={() => onOpen('week')} />
     </View>
@@ -297,29 +299,40 @@ function PickerSheet({ copy, theme, locale, kind, today, anchor, timezone, weekS
   onClose: () => void; onAnchor: (value: string) => void; onZone: (value: string) => void; onWeek: (value: number) => void
 }) {
   const insets = useSafeAreaInsets()
+  const { height } = useWindowDimensions()
   const s = copy.start
   const [query, setQuery] = useState('')
   const dates = useMemo(() => pastDates(today, 420), [today])
-  const zones = useMemo(() => timeZones(), [])
-  const shown = zones.filter(id => {
-    const name = zoneLabel(id, locale).toLowerCase()
-    const q = query.trim().toLowerCase()
-    return !q || id.toLowerCase().includes(q) || name.includes(q)
-  })
+  const zones = useMemo(() => {
+    if (kind !== 'zone') return []
+    const all = readTimeZones()
+    return all.includes(timezone) ? all : [timezone, ...all]
+  }, [kind, timezone])
+  const names = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const id of zones) {
+      const runtime = runtimeZoneName(id, locale)
+      const localized = zoneLocalizedNames(id)
+      map.set(id, runtime ? [...localized, runtime] : localized)
+    }
+    return map
+  }, [zones, locale])
+  const shown = useMemo(
+    () => pinCurrentZone(filterTimeZones(zones, query, id => names.get(id) ?? []), timezone),
+    [zones, query, names, timezone],
+  )
   const title = kind === 'anchor' ? s.anchor : kind === 'zone' ? s.timezone : s.weekFrom
   return <View style={styles.sheetWrap}>
     <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={onClose} />
     <View style={[styles.sheet, styles.pickerSheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + 16 }]}>
       <View style={[styles.grab, { backgroundColor: theme.line }]} />
       <Text style={[styles.sheetTitle, { color: theme.fg }]}>{title}</Text>
-      {kind === 'zone' && <TextInput value={query} onChangeText={setQuery} placeholder={s.search} placeholderTextColor={theme.faint} style={[styles.field, { color: theme.fg, backgroundColor: theme.raised, borderColor: theme.line }]} />}
-      <ScrollView keyboardShouldPersistTaps="handled" style={styles.pickerList}>
+      {kind === 'zone' && <TextInput value={query} onChangeText={setQuery} placeholder={s.search} placeholderTextColor={theme.faint} autoCapitalize="none" autoCorrect={false} clearButtonMode="while-editing" style={[styles.field, { color: theme.fg, backgroundColor: theme.raised, borderColor: theme.line }]} />}
+      <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: Math.round(height * 0.62) }}>
         {kind === 'anchor' && dates.map(date => <Pressable key={date} onPress={() => { onAnchor(date); onClose() }} style={styles.pickerRow}>
           <Text style={{ color: date === anchor ? theme.fg : theme.secondary, fontWeight: date === anchor ? '600' : '400', fontSize: 16 }}>{showDate(copy, today, date)}</Text>
         </Pressable>)}
-        {kind === 'zone' && shown.slice(0, 80).map(id => <Pressable key={id} onPress={() => { onZone(id); onClose() }} style={styles.pickerRow}>
-          <Text style={{ color: id === timezone ? theme.fg : theme.secondary, fontWeight: id === timezone ? '600' : '400', fontSize: 16 }}>{zoneLabel(id, locale)}</Text>
-        </Pressable>)}
+        {kind === 'zone' && shown.map(id => <ZoneRow key={id} theme={theme} id={id} locale={locale} selected={id === timezone} onPress={() => { onZone(id); onClose() }} />)}
         {kind === 'week' && s.weekdays.map((name, index) => <Pressable key={name} onPress={() => { onWeek(index + 1); onClose() }} style={styles.pickerRow}>
           <Text style={{ color: index + 1 === weekStart ? theme.fg : theme.secondary, fontWeight: index + 1 === weekStart ? '600' : '400', fontSize: 16 }}>{name}</Text>
         </Pressable>)}
@@ -328,28 +341,23 @@ function PickerSheet({ copy, theme, locale, kind, today, anchor, timezone, weekS
   </View>
 }
 
+function ZoneRow({ theme, id, locale, selected, onPress }: { theme: Theme; id: string; locale: LocaleId; selected: boolean; onPress: () => void }) {
+  const friendly = friendlyZoneName(id, locale)
+  return <Pressable onPress={onPress} style={styles.zoneRow}>
+    <View style={styles.zoneText}>
+      <Text numberOfLines={1} style={{ color: selected ? theme.fg : theme.secondary, fontWeight: selected ? '600' : '400', fontSize: 16 }}>{friendly}</Text>
+      {friendly !== id && <Text numberOfLines={1} style={{ color: theme.faint, fontSize: 13 }}>{id}</Text>}
+    </View>
+    {selected && <Icon name="check" size={18} color={theme.fg} />}
+  </Pressable>
+}
+
 function showDate(copy: Copy, today: string, ymd: string): string {
   const [year, month, day] = ymd.split('-').map(Number)
   const chip = copy.start.monthDay(month ?? 1, day ?? 1)
   if (ymd === today) return copy.start.anchorToday(chip)
   if (String(year) !== today.slice(0, 4)) return `${year} · ${chip}`
   return chip
-}
-
-function zoneLabel(id: string, locale: LocaleId): string {
-  try {
-    const Names = Intl.DisplayNames as unknown as new (locales: string[], options: { type: 'timeZone' }) => { of(code: string): string | undefined }
-    const name = new Names([locale], { type: 'timeZone' }).of(id)
-    return name && name !== id ? name : id
-  } catch {
-    return id
-  }
-}
-
-function timeZones(): string[] {
-  const detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-  const all = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [detected]
-  return [...new Set([detected, 'UTC', ...all])]
 }
 
 function pastDates(today: string, count: number): string[] {
@@ -434,6 +442,7 @@ const styles = StyleSheet.create({
   box: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   tick: { color: INK_TEXT, fontSize: 14, fontWeight: '700' },
   cancel: { height: 44, alignItems: 'center', justifyContent: 'center' },
-  pickerList: { flexGrow: 0 },
   pickerRow: { minHeight: 48, justifyContent: 'center' },
+  zoneRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  zoneText: { flex: 1 },
 })

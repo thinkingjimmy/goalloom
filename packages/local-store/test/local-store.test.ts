@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  actionNotice, calendarAnchorVisible, periodFromId, periodMeta, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  actionNotice, calendarAnchorVisible, filterTimeZones, friendlyZoneName, periodFromId, periodMeta, pinCurrentZone, readTimeZones, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -475,6 +475,50 @@ describe('workspace', () => {
 })
 
 const samplePeriod = { id: 'cal:day:2026-10-12', horizon: 'day' as const, startDate: '2026-10-12', endDate: '2026-10-13', startAt: '', endAt: '' }
+
+describe('time zone search', () => {
+  const zones = ['Asia/Singapore', 'Asia/Shanghai', 'Asia/Tokyo', 'America/New_York', 'Europe/Paris', 'UTC']
+  const names: Record<string, readonly string[]> = {
+    'Asia/Singapore': ['新加坡'],
+    'Asia/Shanghai': ['上海'],
+    'Asia/Tokyo': ['东京', 'Tokyo'],
+    'America/New_York': ['纽约'],
+    'Europe/Paris': ['巴黎'],
+  }
+  const search = (query: string) => filterTimeZones(zones, query, id => names[id] ?? [])
+
+  it('matches the zone id, the city, and localized names', () => {
+    expect(search('Asia/')).toEqual(['Asia/Singapore', 'Asia/Shanghai', 'Asia/Tokyo'])
+    expect(search('ASIA/tokyo')).toEqual(['Asia/Tokyo'])
+    expect(search('tokyo')).toEqual(['Asia/Tokyo'])
+    expect(search('Tokyo')).toEqual(['Asia/Tokyo'])
+    expect(search('new york')).toEqual(['America/New_York'])
+    expect(search('新加坡')).toEqual(['Asia/Singapore'])
+    expect(search('上海')).toEqual(['Asia/Shanghai'])
+    expect(search('  ')).toEqual(zones)
+    expect(search('Europe/')).toEqual(['Europe/Paris'])
+    expect(pinCurrentZone(search('Asia/'), 'Asia/Singapore')).toEqual(['Asia/Singapore', 'Asia/Shanghai', 'Asia/Tokyo'])
+    expect(pinCurrentZone(search('Europe/'), 'Asia/Singapore')).toEqual(['Europe/Paris'])
+  })
+
+  it('uses the bundled IANA list when the runtime cannot list time zones', () => {
+    const bundled = readTimeZones(() => { throw new Error('unsupported') })
+    expect(bundled.length).toBeGreaterThan(400)
+    expect(bundled).toContain('Asia/Shanghai')
+    expect(bundled).toContain('Asia/Singapore')
+    expect(readTimeZones(() => ['Asia/Singapore'])).toContain('Europe/Paris')
+    const custom = Array.from({ length: 100 }, (_, index) => `Zone/${index}`)
+    expect(readTimeZones(() => custom)).toEqual(custom)
+    expect(friendlyZoneName('Asia/Shanghai', 'zh')).toBe('上海')
+    expect(friendlyZoneName('Asia/Singapore', 'zh')).toBe('新加坡')
+    expect(friendlyZoneName('Asia/Tokyo', 'en')).toBe('Tokyo')
+    expect(friendlyZoneName('America/New_York', 'en')).toBe('New York')
+    const localize = (id: string) => [friendlyZoneName(id, 'zh')]
+    expect(filterTimeZones(bundled, '上海', localize)).toContain('Asia/Shanghai')
+    expect(filterTimeZones(bundled, '新加坡', localize)).toContain('Asia/Singapore')
+    expect(filterTimeZones(bundled, 'Asia/', localize).every(id => id.startsWith('Asia/'))).toBe(true)
+  })
+})
 
 function sampleItem(patch: Partial<ItemRow> = {}): ItemRow {
   return {
