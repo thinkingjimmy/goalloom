@@ -16,7 +16,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.goalloom.mobile",
-      "icon": "./assets/icon.png"
+      "icon": "./assets/icon.png",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true,
+        "CFBundleLocalizations": ["en", "zh-Hans", "ja", "es", "fr"]
+      }
     },
     "android": {
       "package": "app.goalloom.mobile",

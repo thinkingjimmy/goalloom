@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  actionNotice, calendarAnchorVisible, filterTimeZones, friendlyZoneName, periodFromId, periodMeta, pinCurrentZone, readTimeZones, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  actionNotice, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, filterTimeZones, friendlyZoneName, monthGrid, periodFromId, periodMeta, pinCurrentZone, readTimeZones, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -434,6 +434,22 @@ describe('workspace', () => {
     expect(syncPasswordReady('long-enough', 'different')).toBe(false)
     expect(syncPasswordReady('  long-enough ', 'long-enough')).toBe(true)
     expect(syncPasswordReady('x'.repeat(129), 'x'.repeat(129))).toBe(false)
+  })
+
+  it('allows an anchor on or before today, matching the desktop date input', () => {
+    expect(clampAnchorDate('2026-10-14', '2026-10-13')).toBe('2026-10-13')
+    expect(clampAnchorDate('2026-10-13', '2026-10-13')).toBe('2026-10-13')
+    expect(clampAnchorDate('2020-01-31', '2026-10-13')).toBe('2020-01-31')
+    expect(anchorDateAllowed('2026-10-13', '2026-10-13')).toBe(true)
+    expect(anchorDateAllowed('2026-10-14', '2026-10-13')).toBe(false)
+    const grid = monthGrid(2026, 10, '2026-10-13', calendarWeekStart('zh'))
+    expect(grid.length % 7).toBe(0)
+    expect(grid.filter(cell => cell.inMonth)).toHaveLength(31)
+    expect(grid.find(cell => cell.ymd === '2026-10-13')?.allowed).toBe(true)
+    expect(grid.find(cell => cell.ymd === '2026-10-14')?.allowed).toBe(false)
+    expect(grid[0]?.ymd).toBe('2026-09-28')
+    expect(calendarWeekStart('en')).toBe(0)
+    expect(monthGrid(2026, 10, '2026-10-13', 0)[0]?.ymd).toBe('2026-09-27')
   })
 
   it('matches desktop toasts: create, move and complete stay quiet', () => {

@@ -29,7 +29,7 @@ npx expo start --dev-client
 
 Then press `i`, or open the Goalloom app in the simulator. The bundle id is `app.goalloom.mobile`.
 
-A normal launch opens the mobile onboarding: use on this device, then the calendar, a year direction, and an optional AI step. Confirming on the AI step locks the calendar. There is no language picker and no step indicator. Google sign-in shows the browser-wait card only; the password screens are present and not connected to sync. The demo launch below skips onboarding. The device language, visible columns and other preferences live in `goalloom-device.db`, outside the workspace file `goalloom.db`.
+A normal launch opens the mobile onboarding: use on this device, then the calendar, a year direction, and an optional AI step. Confirming on the AI step locks the calendar. The start date opens an iOS inline calendar (`@react-native-community/datetimepicker`, `display="inline"`) limited to today or earlier, the same bound as the desktop date field. That picker is a native module, so a Metro reload does not add it; use the prebuild and `pod install` commands above. There is no language picker and no step indicator. Google sign-in shows the browser-wait card only; the password screens are present and not connected to sync. The demo launch below skips onboarding. The device language, visible columns and other preferences live in `goalloom-device.db`, outside the workspace file `goalloom.db`.
 
 To open the interaction-mockup items (natural calendar, 2026-10-12, Asia/Shanghai):
 

@@ -21,7 +21,8 @@ export {
   SHEET_DISMISS_VELOCITY, SHEET_GRABBER,
 } from './board'
 export type { AppTab, CaptureDraft, DropTarget, FlowRailItem, RowBox } from './board'
-export { calendarAnchorVisible, syncPasswordReady } from './onboarding'
+export { anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, monthGrid, syncPasswordReady } from './onboarding'
+export type { MonthCell } from './onboarding'
 export { filterTimeZones, friendlyZoneName, pinCurrentZone, readTimeZones, runtimeZoneName, zoneLocalizedNames } from './time-zones'
 export { ACTION_TOAST_MS, UNDO_TOAST_MS, actionNotice, boardVisibility } from './feedback'
 export type { Glance, ItemVisibility, Notice, NoticeAction, NoticeBoard, ToastCopy } from './feedback'

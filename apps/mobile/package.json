@@ -17,6 +17,7 @@
     "@noble/ciphers": "2.4.0",
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "@scure/bip39": "2.4.0",
     "expo": "~57.0.27",
     "expo-blur": "~57.0.2",

@@ -18,6 +18,7 @@ import type { LocaleId } from '@goalloom/local-store'
 import { Icon } from './icons'
 import type { Scheme, Theme } from './theme'
 import { themeFor } from './theme'
+import { AnchorCalendar } from './anchor-calendar'
 import appIcon from '../assets/icon.png'
 
 const INK = '#2b2621'
@@ -59,7 +60,7 @@ export function Onboarding({ copy, scheme, locale, now, onConfirm }: {
     {step === 'ai' && <Ai copy={copy} theme={theme} onBack={back!} onDone={finish} />}
     {step === 'join' && <JoinPassword copy={copy} theme={theme} email={email} onBack={back!} onReset={() => setResetOpen(true)} />}
     {step === 'create-password' && <NewPassword copy={copy} theme={theme} email={email} onBack={back!} />}
-    {picker && <PickerSheet copy={copy} theme={theme} locale={locale} kind={picker} today={today} anchor={anchor} timezone={timezone} weekStart={weekStart} onClose={() => setPicker(null)} onAnchor={setAnchor} onZone={setTimezone} onWeek={setWeekStart} />}
+    {picker && <PickerSheet copy={copy} theme={theme} scheme={scheme} locale={locale} kind={picker} today={today} anchor={anchor} timezone={timezone} weekStart={weekStart} onClose={() => setPicker(null)} onAnchor={setAnchor} onZone={setTimezone} onWeek={setWeekStart} />}
     {resetOpen && <ResetSheet copy={copy} theme={theme} onCancel={() => setResetOpen(false)} onConfirm={() => { setResetOpen(false); setStep('create-password') }} />}
   </View>
 }
@@ -294,15 +295,14 @@ function ResetSheet({ copy, theme, onCancel, onConfirm }: { copy: Copy; theme: T
   </View>
 }
 
-function PickerSheet({ copy, theme, locale, kind, today, anchor, timezone, weekStart, onClose, onAnchor, onZone, onWeek }: {
-  copy: Copy; theme: Theme; locale: LocaleId; kind: Exclude<Picker, null>; today: string; anchor: string; timezone: string; weekStart: number
+function PickerSheet({ copy, theme, scheme, locale, kind, today, anchor, timezone, weekStart, onClose, onAnchor, onZone, onWeek }: {
+  copy: Copy; theme: Theme; scheme: Scheme; locale: LocaleId; kind: Exclude<Picker, null>; today: string; anchor: string; timezone: string; weekStart: number
   onClose: () => void; onAnchor: (value: string) => void; onZone: (value: string) => void; onWeek: (value: number) => void
 }) {
   const insets = useSafeAreaInsets()
   const { height } = useWindowDimensions()
   const s = copy.start
   const [query, setQuery] = useState('')
-  const dates = useMemo(() => pastDates(today, 420), [today])
   const zones = useMemo(() => {
     if (kind !== 'zone') return []
     const all = readTimeZones()
@@ -324,19 +324,17 @@ function PickerSheet({ copy, theme, locale, kind, today, anchor, timezone, weekS
   const title = kind === 'anchor' ? s.anchor : kind === 'zone' ? s.timezone : s.weekFrom
   return <View style={styles.sheetWrap}>
     <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={onClose} />
-    <View style={[styles.sheet, styles.pickerSheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + 16 }]}>
+    <View style={[styles.sheet, styles.pickerSheet, kind === 'anchor' && { maxHeight: '94%' }, { backgroundColor: theme.surface, paddingBottom: insets.bottom + 16 }]}>
       <View style={[styles.grab, { backgroundColor: theme.line }]} />
       <Text style={[styles.sheetTitle, { color: theme.fg }]}>{title}</Text>
       {kind === 'zone' && <TextInput value={query} onChangeText={setQuery} placeholder={s.search} placeholderTextColor={theme.faint} autoCapitalize="none" autoCorrect={false} clearButtonMode="while-editing" style={[styles.field, { color: theme.fg, backgroundColor: theme.raised, borderColor: theme.line }]} />}
-      <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: Math.round(height * 0.62) }}>
-        {kind === 'anchor' && dates.map(date => <Pressable key={date} onPress={() => { onAnchor(date); onClose() }} style={styles.pickerRow}>
-          <Text style={{ color: date === anchor ? theme.fg : theme.secondary, fontWeight: date === anchor ? '600' : '400', fontSize: 16 }}>{showDate(copy, today, date)}</Text>
-        </Pressable>)}
+      {kind === 'anchor' && <AnchorCalendar copy={copy} theme={theme} scheme={scheme} locale={locale} today={today} anchor={anchor} onConfirm={ymd => { onAnchor(ymd); onClose() }} />}
+      {kind !== 'anchor' && <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: Math.round(height * 0.62) }}>
         {kind === 'zone' && shown.map(id => <ZoneRow key={id} theme={theme} id={id} locale={locale} selected={id === timezone} onPress={() => { onZone(id); onClose() }} />)}
         {kind === 'week' && s.weekdays.map((name, index) => <Pressable key={name} onPress={() => { onWeek(index + 1); onClose() }} style={styles.pickerRow}>
           <Text style={{ color: index + 1 === weekStart ? theme.fg : theme.secondary, fontWeight: index + 1 === weekStart ? '600' : '400', fontSize: 16 }}>{name}</Text>
         </Pressable>)}
-      </ScrollView>
+      </ScrollView>}
     </View>
   </View>
 }
@@ -358,25 +356,6 @@ function showDate(copy: Copy, today: string, ymd: string): string {
   if (ymd === today) return copy.start.anchorToday(chip)
   if (String(year) !== today.slice(0, 4)) return `${year} · ${chip}`
   return chip
-}
-
-function pastDates(today: string, count: number): string[] {
-  const list = [today]
-  let cursor = today
-  for (let index = 0; index < count; index += 1) {
-    cursor = shiftDay(cursor, -1)
-    list.push(cursor)
-  }
-  return list
-}
-
-function shiftDay(ymd: string, days: number): string {
-  const [year, month, day] = ymd.split('-').map(Number)
-  const date = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1))
-  date.setUTCDate(date.getUTCDate() + days)
-  const monthText = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const dayText = String(date.getUTCDate()).padStart(2, '0')
-  return `${date.getUTCFullYear()}-${monthText}-${dayText}`
 }
 
 const styles = StyleSheet.create({
