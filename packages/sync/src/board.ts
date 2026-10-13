@@ -1,7 +1,7 @@
 /**
  * [INPUT]: base_* rows, or a captured visible board.
- * [OUTPUT]: SyncOps that replay that board, plus a one-time baseline that moves pre-sync history into the op log.
- * [POS]: Upgrade path for data that predates sync. Pending ops stay ahead of the baseline and are not rewritten.
+ * [OUTPUT]: SyncOps that replay that board. Calendar and policies are their own ops. A failed baseline rolls back and pauses sync.
+ * [POS]: Upgrade path for data that predates sync. Pending ops stay ahead of the baseline and are not rewritten. Kept edges are not re-checked as new links.
  */
 import { parseSyncOp, syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
@@ -27,6 +27,7 @@ export interface BoardItem {
 
 export interface LocalBoard {
   calendar: { id: string; mode: 'rolling' | 'natural'; timezone: string; weekStart: number; cycleAnchor: string } | null
+  setupConfirmedAt: string | null
   policies: { horizon: 'year' | 'half' | 'cycle' | 'month' | 'week' | 'day'; mode: 'auto' | 'manual'; startDate: string }[]
   items: BoardItem[]
   edges: { id: string; parentId: string; childId: string }[]
@@ -81,7 +82,9 @@ function creates(items: BoardItem[]): Action[] {
 export function actionsForBoard(board: LocalBoard, scope: 'baseline' | 'import'): Action[] {
   const live = new Set(board.items.filter(item => !item.deletedAt).map(item => item.id))
   const actions: Action[] = []
-  if (scope === 'baseline' && board.calendar) actions.push({ t: 'calendar.setup', calendar: board.calendar })
+  if (scope === 'baseline' && board.calendar) {
+    actions.push({ t: 'calendar.setup', calendar: board.calendar, ...(board.setupConfirmedAt ? { confirmedAt: board.setupConfirmedAt } : {}) })
+  }
   if (scope === 'baseline') {
     for (const policy of board.policies) {
       actions.push({ t: 'policy.set', horizon: policy.horizon, mode: policy.mode, effectiveFromKey: { horizon: policy.horizon, startDate: policy.startDate } })
@@ -108,7 +111,7 @@ export function actionsForBoard(board: LocalBoard, scope: 'baseline' | 'import')
   for (const edge of board.edges) {
     const child = board.items.find(item => item.id === edge.childId)
     if (!child || child.deletedAt || child.nestingParentId || !live.has(edge.parentId)) continue
-    actions.push({ t: 'rel.link', id: edge.id, parentId: edge.parentId, childId: edge.childId })
+    actions.push({ t: 'rel.link', id: edge.id, parentId: edge.parentId, childId: edge.childId, retain: true })
   }
   for (const note of board.guidance) {
     if (!live.has(note.itemId) || note.value === null) continue
@@ -122,7 +125,11 @@ export function actionsForBoard(board: LocalBoard, scope: 'baseline' | 'import')
 }
 
 export function opsForBoard(board: LocalBoard, deviceId: string, at: string, scope: 'baseline' | 'import'): SyncOp[] {
-  return chunk(actionsForBoard(board, scope), deviceId, at)
+  const actions = actionsForBoard(board, scope)
+  const calendar = actions.filter(action => action.t === 'calendar.setup')
+  const policies = actions.filter(action => action.t === 'policy.set')
+  const rest = actions.filter(action => action.t !== 'calendar.setup' && action.t !== 'policy.set')
+  return [...chunk(calendar, deviceId, at), ...chunk(policies, deviceId, at), ...chunk(rest, deviceId, at)]
 }
 
 function text(value: unknown): string | null {
@@ -130,12 +137,14 @@ function text(value: unknown): string | null {
 }
 
 function readBoard(driver: SqlDriver, prefix: '' | 'base_'): LocalBoard {
-  const calendarRaw = driver.prepare(`SELECT calendar FROM ${prefix}workspace WHERE id=1`).get()?.calendar
+  const workspace = driver.prepare(`SELECT calendar, setupConfirmedAt FROM ${prefix}workspace WHERE id=1`).get()
+  const calendarRaw = workspace?.calendar
   let calendar: LocalBoard['calendar'] = null
   if (calendarRaw) {
     const parsed = JSON.parse(String(calendarRaw)) as LocalBoard['calendar']
     calendar = parsed
   }
+  const setupConfirmedAt = workspace?.setupConfirmedAt ? String(workspace.setupConfirmedAt) : null
   const policies = driver.prepare(`SELECT r.horizon AS horizon, r.mode AS mode, p.startDate AS startDate, p.horizon AS periodHorizon
     FROM ${prefix}rollover_policies r JOIN ${prefix}planning_periods p ON p.id=r.effectiveFromPeriodId`).all().map(row => ({
     horizon: String(row.horizon) as LocalBoard['policies'][number]['horizon'],
@@ -161,7 +170,7 @@ function readBoard(driver: SqlDriver, prefix: '' | 'base_'): LocalBoard {
     try { return [{ itemId: String(row.itemId), value: JSON.parse(String(row.value)) }] }
     catch { return [] }
   })
-  return { calendar, policies, items, edges, guidance }
+  return { calendar, setupConfirmedAt, policies, items, edges, guidance }
 }
 
 export function captureVisibleBoard(driver: SqlDriver): LocalBoard {
@@ -186,13 +195,14 @@ function clearBase(driver: SqlDriver): void {
 
 /** Replaces the op log with the visible board. Used when cloud ciphertext is abandoned and this computer uploads again. */
 export function queueVisibleBaseline(driver: SqlDriver, host: ApplyHost, deviceId: string, at: string): number {
-  return driver.transaction(() => {
+  return baselineTransaction(driver, at, () => {
     const board = captureVisibleBoard(driver)
     driver.exec('DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops;')
     const ops = board.calendar || board.items.length || board.policies.length ? opsForBoard(board, deviceId, at, 'baseline') : []
     ops.forEach((op, index) => insertOp(driver, op, at, index + 1))
     clearBase(driver)
-    rebuildVisibleFull(driver, host)
+    rebuildVisibleFull(driver, host, { strictOpIds: new Set(ops.map(op => op.opId)) })
+    assertBaselineKept(board, driver)
     driver.prepare('UPDATE sync_state SET lastAppliedSeq=0, lastUploadedSeq=0, paused=NULL, updatedAt=? WHERE id=1').run(at)
     return ops.length
   })
@@ -200,7 +210,7 @@ export function queueVisibleBaseline(driver: SqlDriver, host: ApplyHost, deviceI
 
 /** Turns a pre-sync base projection into never_sent ops and replays them onto an empty base. Pending ops keep their relative order. */
 export function queueBaseline(driver: SqlDriver, host: ApplyHost, deviceId: string, at: string): number {
-  return driver.transaction(() => {
+  return baselineTransaction(driver, at, () => {
     const board = readBoard(driver, 'base_')
     const meaningful = board.calendar || board.items.length || board.policies.length
     if (!meaningful) return 0
@@ -210,9 +220,49 @@ export function queueBaseline(driver: SqlDriver, host: ApplyHost, deviceId: stri
     driver.prepare('UPDATE sync_ops SET localOrder = -localOrder + ? WHERE localOrder IS NOT NULL').run(ops.length)
     ops.forEach((op, index) => insertOp(driver, op, at, index + 1))
     clearBase(driver)
-    rebuildVisibleFull(driver, host)
+    rebuildVisibleFull(driver, host, { strictOpIds: new Set(ops.map(op => op.opId)) })
+    assertBaselineKept(board, driver)
     return ops.length
   })
+}
+
+function baselineTransaction<T>(driver: SqlDriver, at: string, work: () => T): T {
+  try { return driver.transaction(work) }
+  catch (error) {
+    driver.prepare('UPDATE sync_state SET paused=?, updatedAt=? WHERE id=1').run('baseline', at)
+    throw error
+  }
+}
+
+function assertBaselineKept(before: LocalBoard, driver: SqlDriver): void {
+  const after = readBoard(driver, '')
+  if (before.calendar && (!after.calendar || after.calendar.id !== before.calendar.id || !after.setupConfirmedAt)) {
+    throw new SyncFailure('storage', 'baseline calendar')
+  }
+  if (before.items.some(item => !item.deletedAt) && localLiveCount(driver) === 0) throw new SyncFailure('storage', 'baseline items')
+}
+
+/** Restores a board whose baseline calendar op was rejected and left setup unconfirmed. Payloads stay the source; onboarding is not required. */
+export function repairRejectedBaseline(driver: SqlDriver, host: ApplyHost): boolean {
+  if (driver.prepare('SELECT setupConfirmedAt FROM workspace WHERE id=1').get()?.setupConfirmedAt) return false
+  const rows = driver.prepare(`SELECT localOrder, payload, at, deviceId, outcome FROM sync_ops WHERE origin='local' ORDER BY localOrder`).all()
+  const head = rows.find(row => String(row.outcome ?? '') === 'rejected' && firstAction(row.payload) === 'calendar.setup')
+  if (!head) return false
+  const batch = rows.filter(row => String(row.at) === String(head.at) && String(row.deviceId) === String(head.deviceId))
+  return driver.transaction(() => {
+    for (const row of batch) applySyncOp(driver, JSON.parse(String(row.payload)), 'base', host)
+    rebuildVisibleFull(driver, host)
+    const restored = readBoard(driver, '')
+    if (!restored.calendar || !restored.setupConfirmedAt) throw new SyncFailure('storage', 'baseline repair')
+    return true
+  })
+}
+
+function firstAction(payload: unknown): string | null {
+  try {
+    const action = JSON.parse(String(payload))?.actions?.[0]
+    return action && typeof action.t === 'string' ? action.t : null
+  } catch { return null }
 }
 
 function placedBoard(host: ApplyHost, board: LocalBoard, at: string): LocalBoard {
@@ -231,7 +281,7 @@ function placedBoard(host: ApplyHost, board: LocalBoard, at: string): LocalBoard
 /** Writes the captured board as new local ops. Caller owns the transaction. */
 export function applyImportedBoard(driver: SqlDriver, host: ApplyHost, board: LocalBoard, deviceId: string, at: string): number {
   const source = placedBoard(host, board, at)
-  const imported: LocalBoard = { calendar: null, policies: [], guidance: source.guidance, edges: [], items: [] }
+  const imported: LocalBoard = { calendar: null, setupConfirmedAt: null, policies: [], guidance: source.guidance, edges: [], items: [] }
   const map = new Map<string, string>()
   for (const item of source.items.filter(item => !item.deletedAt)) map.set(item.id, id())
   imported.items = source.items.filter(item => !item.deletedAt).map(item => ({

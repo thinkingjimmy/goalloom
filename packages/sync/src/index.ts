@@ -6,7 +6,7 @@ export { SyncFailure } from './failure'
 export { openOpWire, sealOpWire } from './codec'
 export { createFetchRemote } from './fetch-remote'
 export { createMemoryWorld, memoryCiphertext, memoryRemote, type MemoryWorld } from './memory-remote'
-export { bindWorkspace, captureVisibleBoard, clearProjection, conflictCount, localLiveCount, queueBaseline, queueVisibleBaseline, stageImportedBoard, syncCursor, type LocalBoard } from './board'
+export { bindWorkspace, captureVisibleBoard, clearProjection, conflictCount, localLiveCount, queueBaseline, queueVisibleBaseline, repairRejectedBaseline, stageImportedBoard, syncCursor, type LocalBoard } from './board'
 export {
   acceptPushResults, acceptRosterAdvance, absorbOpened, absorbPulled, bootstrapWorkspace, createRemoteWorkspace, downloadWorkspace,
   changeSyncPassword, exchange, installJoined, joinWorkspace, newDeviceSecret, pullOpened, rebindMessage, sealPending, takePending, unlockWithPassword, workspaceKeyFromEnvelope,
