@@ -23,7 +23,7 @@
 | [官网功能规格](features/website.md) | 卖点叙事、官网页面/动效/多语言规则、工程契约与验收 |
 | [开发代理约定](../AGENTS.md) | 通用业务/安全约束、文档维护、代码组织、执行与权限规则 |
 
-Version 1.7.0 uses schema v10. Phase 0 sync is the v9 step (in-place from v8: history tables that do not pin projection rows, sync tables and `base_*` shadows). v10 adds two-level nesting on that chain and mirrors the column, index and triggers onto `base_*`. v8 and Phase 0 v9 upgrade in place after a protective backup; v1–v7 stay on the verified protective-copy path. Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
+Version 1.8.0 uses schema v10. Phase 0 sync is the v9 step (in-place from v8: history tables that do not pin projection rows, sync tables and `base_*` shadows). v10 adds two-level nesting on that chain and mirrors the column, index and triggers onto `base_*`. v8 and Phase 0 v9 upgrade in place after a protective backup; v1–v7 stay on the verified protective-copy path. Task assistance rewrites the current Markdown notes with description-owned undo. Legacy workspaces use a verified protective copy and two explicit startup confirmations before file replacement; current acceptance and remaining manual checks are in the assistance specification.
 
 每个功能的产品规则、工程契约、TODO 与验收集中在 `docs/features/` 下的一份规格，不另建重复文件；变更过程和测试结果记录在 Git / PR 中。`CLAUDE.md` 仅导入 `AGENTS.md`，不另维护一套规则。
 
@@ -75,7 +75,7 @@ pnpm package:dir          # 当前平台本地目录包
 
 桌面安装包可以在 GitHub Actions 上打出，不必在本机 Mac 上执行 `package:mac` / `package:win`。工作流是 [`.github/workflows/release.yml`](../.github/workflows/release.yml)，汇总脚本是 [`.github/scripts/draft-release.sh`](../.github/scripts/draft-release.sh)。
 
-- 触发：Actions 页手动运行 `workflow_dispatch`，或推送匹配 `v*` 的 tag（例如 `v1.7.0`）。tag 必须等于 `v` 加上 `apps/desktop/package.json` 的版本，且根 `package.json` 版本相同。对不上就失败，不创建 Release。
+- 触发：Actions 页手动运行 `workflow_dispatch`，或推送匹配 `v*` 的 tag（例如 `v1.8.0`）。tag 必须等于 `v` 加上 `apps/desktop/package.json` 的版本，且根 `package.json` 版本相同。对不上就失败，不创建 Release。
 - Runner：`macos-15`（arm64）与 `windows-2025`（x64）各自打包；`ubuntu-latest` 只负责校验文件、写 `SHA256SUMS.txt` 并更新草稿。同一时间只跑一个这样的工作流。
 - 托管门禁，用来代替本机完整 `pnpm verify` 里能在托管 runner 上跑的部分：`pnpm typecheck`、`pnpm test`、`pnpm build`，然后 `package:mac` / `package:win`（仍 `--publish never`，并跑现有包体报告），再跑 `ci.yml` 里已有的打包后冒烟（`tests/workspace.mjs`、`tests/history.mjs`、`tests/recovery.mjs` 指向打好的应用）。包体报告在比对语言白名单前把相对路径里的反斜杠换成正斜杠。1.7.0 的 ASAR 基线按实测写在 `apps/desktop/scripts/build/package-budgets.json`。这不是完整 `pnpm verify`，也不代替公证、Windows 11 实机或负责人的安装验收。
 - 上传的文件：`Goalloom-<v>-mac-arm64.dmg`、`Goalloom-<v>-mac-arm64.zip`、`Goalloom-<v>-mac-arm64.zip.blockmap`、`latest-mac.yml`、`Goalloom-<v>-win-x64.exe`、`Goalloom-<v>-win-x64.exe.blockmap`、`latest.yml`，以及与 1.6.0 相同两空格格式的 `SHA256SUMS.txt`（覆盖这七个文件，不含校验文件自身）。缺任何一个都会失败。
@@ -165,7 +165,7 @@ macOS 签名用仓库 Actions secrets，不要把证书放进仓库：
 
 ```text
 apps/
-├── desktop/                 # Electron 桌面（工作区包 @goalloom/desktop，产品版本为 package.json 的 1.7.0）
+├── desktop/                 # Electron 桌面（工作区包 @goalloom/desktop，产品版本为 package.json 的 1.8.0）
 │   ├── src/                 # domain、main、preload、renderer、shared
 │   ├── tests/               # Vitest（domain/main/renderer/integration）与真实 Electron 场景
 │   ├── scripts/             # Electron Vitest 运行器、eval 与打包检查
