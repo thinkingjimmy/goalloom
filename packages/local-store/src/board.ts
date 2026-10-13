@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Pointer samples, row boxes and flow membership.
- * [OUTPUT]: Column paging, a rejected row-swipe, long-press drag, nest/reorder drops, outline rows, breakpoint flags and sheet-dismiss decisions.
+ * [OUTPUT]: Column paging, a rejected row-swipe, long-press drag, nest/reorder drops, outline rows, breakpoint flags, sheet-dismiss decisions and capture drafts.
  * [POS]: Gesture and board projection rules with no React Native.
  */
 import type { Horizon, PeriodHorizon } from './types'
@@ -301,6 +301,12 @@ export interface CaptureDraft {
   dueDate: string | null
   parentId: string | null
   nestingParentId?: string | null
+}
+
+/** A chosen column replaces a parsed Later item that has no date. Dated and named horizons stay. */
+export function withCaptureColumn(rows: readonly CaptureDraft[], column: Horizon): CaptureDraft[] {
+  if (column === 'later') return rows.map(row => ({ ...row }))
+  return rows.map(row => row.horizon === 'later' && row.dueDate === null ? { ...row, horizon: column } : { ...row })
 }
 
 export function parseCapture(text: string, today: string, parents: readonly CaptureParent[]): CaptureDraft[] {

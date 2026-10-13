@@ -1,17 +1,18 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import {
-  AccessibilityInfo, Animated, Easing, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  AccessibilityInfo, Animated, Easing, KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   BOARD_COLUMNS, FLOW_INDENT, LONG_PRESS_MS, NEST_INDENT, SHEET_GRABBER, buildParentOrder, canNest, classifyPointer, columnSections,
   completionLabel, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon,
-  parseCapture, periodMeta, sheetRelease, shouldDragSheet, showBreakpoint, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
+  periodMeta, sheetRelease, shouldDragSheet, showBreakpoint, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
   type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot,
 } from '@goalloom/local-store'
 import { BlurView } from 'expo-blur'
 import Svg, { Line } from 'react-native-svg'
+import { Composer } from './composer'
 import type { Copy } from './copy'
 import { CheckBox, Icon } from './icons'
 import type { Theme } from './theme'
@@ -183,7 +184,7 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
     {tab === 'board' && <Board copy={copy} theme={theme} snap={snap} columns={columns} column={column} hide={hide} shot={shot} viewed={viewed} nodes={nodes} contentBottom={contentBottom} {...(prefs.parentOrder ? { compare: order.compare } : {})} onColumn={onColumn} onSheet={onSheet} onCheck={celebrate} onNest={onNest} onReorder={onReorder} onScroll={scroll} />}
     {tab === 'flow' && <Flow copy={copy} theme={theme} snap={snap} prefs={prefs} nodes={nodes} shot={shot} contentBottom={contentBottom} onSheet={onSheet} onCheck={celebrate} onScroll={scroll} />}
     {tab === 'settings' && <Settings copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} contentBottom={contentBottom} onSheet={onSheet} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
-    <TabBar copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => onSheet(tab === 'settings' ? { kind: 'composer', horizon: 'day' } : { kind: 'composer' })} />
+    <TabBar copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => onSheet({ kind: 'composer', horizon: columns[column] ?? 'day' })} />
     {toast && <View style={[styles.toast, theme.style === 'minimal' ? { ...surface(theme, theme.controlRadius), bottom: barBottom + TAB_HEIGHT + 12 } : { backgroundColor: theme.fg, borderRadius: 22, bottom: barBottom + TAB_HEIGHT + 12 }]}>
       <View style={styles.flex}>
         <Text style={{ color: theme.style === 'minimal' ? theme.fg : theme.onAccent }}>{toast.text}</Text>
@@ -193,9 +194,12 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
       <Pressable onPress={onDismissToast} accessibilityLabel={copy.close} hitSlop={8}><Icon name="close" size={16} color={theme.style === 'minimal' ? theme.secondary : theme.onAccent} /></Pressable>
     </View>}
     {sheet && <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={() => onSheet(null)} />}
-    {sheet?.kind === 'menu' ? <Menu copy={copy} theme={theme} item={snap.items.find(item => item.id === sheet.id) ?? snap.trash.find(item => item.id === sheet.id)} onSheet={onSheet} onCheck={celebrate} onTrash={onTrash} onMove={onMove} /> : sheet && <BottomSheet theme={theme} paddingBottom={Math.max(insets.bottom, 16) + 12} onDismiss={() => onSheet(null)}>
-      <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} sheet={sheet} scheme={scheme} nodes={nodes} captureSeed={captureSeed} onSheet={onSheet} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={celebrate} />
+    {sheet?.kind === 'menu' ? <Menu copy={copy} theme={theme} item={snap.items.find(item => item.id === sheet.id) ?? snap.trash.find(item => item.id === sheet.id)} onSheet={onSheet} onCheck={celebrate} onTrash={onTrash} onMove={onMove} /> : sheet && sheet.kind !== 'composer' && <BottomSheet theme={theme} paddingBottom={Math.max(insets.bottom, 16) + 12} onDismiss={() => onSheet(null)}>
+      <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} sheet={sheet} scheme={scheme} nodes={nodes} onSheet={onSheet} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={celebrate} />
     </BottomSheet>}
+    {sheet?.kind === 'composer' && <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.composerHost} pointerEvents="box-none">
+      <Composer copy={copy} theme={theme} snap={snap} seed={captureSeed} horizon={sheet.horizon ?? columns[column] ?? 'day'} columns={columns} bottom={Math.max(insets.bottom, 8)} onCreate={onCreate} onDismiss={() => onSheet(null)} />
+    </KeyboardAvoidingView>}
     <Confetti token={burst} />
   </View>
 }
@@ -278,7 +282,7 @@ function Board({ copy, theme, snap, columns, column, hide, shot, viewed, nodes, 
               {meta.countdown !== null && <View style={[styles.count, { backgroundColor: theme.hover }]}><Text style={{ color: theme.secondary, fontVariant: ['tabular-nums'] }}>{meta.countdown}</Text></View>}
             </View>
             {manual && backlog > 0 && <Pressable onPress={() => onSheet({ kind: 'backlog', horizon })} style={styles.entry}><Text style={{ color: theme.secondary }}>{copy.backlog(backlog)}</Text><Icon name="next" size={14} color={theme.faint} /></Pressable>}
-            {outline.length === 0 ? <Empty copy={copy} theme={theme} horizon={horizon} sources={sources.length} onDraft={() => onSheet({ kind: 'composer' })} onWrite={() => onSheet({ kind: 'add', horizon, periodId: period?.id ?? null })} /> : <>
+            {outline.length === 0 ? <Empty copy={copy} theme={theme} horizon={horizon} sources={sources.length} onDraft={() => onSheet({ kind: 'composer', horizon })} onWrite={() => onSheet({ kind: 'add', horizon, periodId: period?.id ?? null })} /> : <>
               {sections.todo.map(item => {
                 return <View key={item.id} onLayout={event => { layouts.current.set(item.id, { y: event.nativeEvent.layout.y, height: event.nativeEvent.layout.height }); orders.current[horizon] = visible.map(row => row.id) }}>
                   <Row item={item} copy={copy} theme={theme} nested={!!item.nestingParentId && outline.some(row => row.id === item.nestingParentId)} lifted={dragId === item.id || (shot === 'drag' && item.title === '整理读书笔记')} onCheck={() => onCheck(item)} onOpen={() => onSheet({ kind: 'detail', id: item.id })} onMenu={() => onSheet({ kind: 'menu', id: item.id })} onDrag={(y) => follow(item.id, y)} onDrop={() => finish(item.id)} today={snap.today} checkStyle={snap.checkStyle} tint={rowTint(item.id, nodes, snap.relations, theme.scheme)} />
@@ -571,7 +575,6 @@ function Menu({ copy, theme, item, onSheet, onCheck, onTrash, onMove }: { copy: 
 function SheetBody(props: {
   copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; sheet: Exclude<Sheet, null>; scheme: Theme['scheme']
   nodes: Map<string, { id: string; flowColor: number | null; nestingParentId: string | null; horizon: Horizon; status: string }>
-  captureSeed: string
   onSheet: (sheet: Sheet) => void; onCreate: (drafts: CaptureDraft[], periodId?: string | null) => boolean
   onEdit: (id: string, fields: { title?: string; description?: string; dueDate?: string | null }) => void
   onFlow: (id: string, color: number | null) => void; onLink: (parentId: string, childId: string) => void; onUnlink: (parentId: string, childId: string) => void
@@ -587,7 +590,7 @@ function SheetBody(props: {
   const { copy, theme, snap, sheet, onSheet } = props
   const item = 'id' in sheet ? snap.items.find(row => row.id === sheet.id) ?? snap.trash.find(row => row.id === sheet.id) : undefined
   if (sheet.kind === 'detail' && item) return <Detail key={item.id} {...props} item={item} />
-  if (sheet.kind === 'composer') return <Composer {...props} seed={props.captureSeed} {...(sheet.horizon ? { horizon: sheet.horizon } : {})} />
+  if (sheet.kind === 'composer') return null
   if (sheet.kind === 'backlog') return <Backlog {...props} horizon={sheet.horizon} />
   if (sheet.kind === 'add') return <Add {...props} horizon={sheet.horizon} periodId={sheet.periodId} parentId={sheet.parentId ?? null} nestingParentId={sheet.nestingParentId ?? null} />
   if (sheet.kind === 'move' && item) return <View>{BOARD_COLUMNS.filter(horizon => props.prefs.later || horizon !== 'later').map(horizon => <Pressable key={horizon} onPress={() => { props.onMove(item.id, horizon); onSheet(null) }} style={styles.menuRow}><Text style={{ color: theme.fg }}>{copy[horizon]}</Text></Pressable>)}</View>
@@ -649,30 +652,6 @@ function Detail(props: { copy: Copy; theme: Theme; snap: Snapshot; item: ItemRow
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.activity}</Text>
     {props.activity(item.id).map((event, index) => <Text key={index} style={{ color: theme.secondary, marginVertical: 2 }}>{names[event.type] ?? event.type} · {event.at.slice(5, 10)}</Text>)}
   </SheetScrollView>
-}
-
-function Composer({ copy, theme, snap, seed, horizon, onCreate, onSheet }: { copy: Copy; theme: Theme; snap: Snapshot; seed: string; horizon?: Horizon; onCreate: (drafts: CaptureDraft[]) => boolean; onSheet: (sheet: Sheet) => void }) {
-  const place = (rows: CaptureDraft[]) => horizon === 'day' ? rows.map(row => row.horizon === 'later' && row.dueDate === null ? { ...row, horizon: 'day' as const } : row) : rows
-  const [text, setText] = useState(seed)
-  const [drafts, setDrafts] = useState<CaptureDraft[]>(() => place(parseCapture(seed, snap.today, snap.items)))
-  const update = (value: string) => { setText(value); setDrafts(place(parseCapture(value, snap.today, snap.items))) }
-  return <View>
-    <View style={styles.field}><Text style={{ color: theme.fg, fontWeight: '700' }}>{copy.capture}</Text><Text style={{ color: theme.secondary }}>{copy.local}</Text></View>
-    <TextInput multiline value={text} onChangeText={update} style={[styles.desc, ink(theme)]} />
-    <Text style={[styles.section, { color: theme.secondary }]}>{copy.preview}</Text>
-    {drafts.map((draft, index) => <View key={index} style={[styles.preview, surface(theme, theme.controlRadius)]}>
-      <TextInput value={draft.title} onChangeText={title => setDrafts(drafts.map((row, rowIndex) => rowIndex === index ? { ...row, title } : row))} style={{ color: theme.fg, fontSize: 15 }} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowGap} {...scrollInset}>
-        {BOARD_COLUMNS.map(horizon => <Pressable key={horizon} onPress={() => setDrafts(drafts.map((row, rowIndex) => rowIndex === index ? { ...row, horizon } : row))} style={[styles.flowChip, { borderRadius: theme.controlRadius, backgroundColor: draft.horizon === horizon ? theme.fg : theme.hover }]}><Text style={{ color: draft.horizon === horizon ? theme.onAccent : theme.secondary, fontSize: 12 }}>{copy[horizon]}</Text></Pressable>)}
-      </ScrollView>
-      <Text style={{ color: theme.secondary }}>{draft.dueDate ? shortDue(draft.dueDate) : copy.noDue}{draft.parentId ? ` · ${snap.items.find(item => item.id === draft.parentId)?.title ?? ''}` : ''}</Text>
-      <Pressable onPress={() => setDrafts(drafts.filter((_, rowIndex) => rowIndex !== index))}><Text style={{ color: theme.danger }}>{copy.trash}</Text></Pressable>
-    </View>)}
-    <View style={styles.rowGap}>
-      <Pressable style={[styles.button, styles.flex, { backgroundColor: theme.hover }]} onPress={() => { if (onCreate([{ title: text.trim() || copy.capture, horizon: 'later', dueDate: null, parentId: null }])) onSheet(null) }}><Text style={{ color: theme.fg, fontWeight: '700', textAlign: 'center' }}>{copy.saveLater}</Text></Pressable>
-      <Pressable style={[styles.button, styles.flex, { backgroundColor: theme.fg }]} onPress={() => { if (onCreate(drafts)) onSheet(null) }}><Text style={{ color: theme.onAccent, fontWeight: '700', textAlign: 'center' }}>{copy.createN(drafts.length)}</Text></Pressable>
-    </View>
-  </View>
 }
 
 function Backlog({ copy, theme, snap, horizon, onMove, onSheet }: { copy: Copy; theme: Theme; snap: Snapshot; horizon: PeriodHorizon; onMove: (id: string, horizon: Horizon) => void; onSheet: (sheet: Sheet) => void }) {
@@ -801,6 +780,7 @@ const styles = StyleSheet.create({
   toast: { position: 'absolute', left: 16, right: 16, bottom: 108, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   confetti: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 40 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+  composerHost: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'flex-end' },
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '88%', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: 18, paddingBottom: 28 },
   grabHit: { height: SHEET_GRABBER, alignItems: 'center', justifyContent: 'center' },
   grab: { width: 36, height: 5, borderRadius: 3 },

@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  actionNotice, calendarAnchorVisible, periodFromId, periodMeta, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, workspaceDate, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  actionNotice, calendarAnchorVisible, periodFromId, periodMeta, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
@@ -211,6 +211,10 @@ describe('capture', () => {
     expect(drafts).toHaveLength(2)
     expect(drafts[0]).toMatchObject({ title: '订京都酒店', horizon: 'week', dueDate: '2026-10-16', parentId: 'kyoto' })
     expect(drafts[1]).toMatchObject({ title: '读 30 页', horizon: 'day', parentId: 'books' })
+    const placed = withCaptureColumn(drafts, 'month')
+    expect(placed[0]?.horizon).toBe('week')
+    expect(placed[1]?.horizon).toBe('day')
+    expect(withCaptureColumn([{ title: '记一下', horizon: 'later', dueDate: null, parentId: null }], 'week')[0]?.horizon).toBe('week')
   })
 })
 

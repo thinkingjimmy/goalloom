@@ -17,7 +17,7 @@ export { flowPalette, flowRing, flowStroke, flowTint } from './colors'
 export {
   APP_TABS, BOARD_COLUMNS, FLOW_INDENT, GESTURE_SLOP, LONG_PRESS_MS, NEST_INDENT, OPEN_COLUMN, OPEN_INDEX,
   canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, dropOnRows, flowColors, flowConnectors, flowLeftLinks, flowSections,
-  mayLink, neighborsAfterRemoval, nextHorizon, outlineRows, pageFromOffset, parseCapture, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint,
+  mayLink, neighborsAfterRemoval, nextHorizon, outlineRows, pageFromOffset, parseCapture, rowSwipeAction, sheetRelease, shouldDragSheet, showBreakpoint, withCaptureColumn,
   SHEET_DISMISS_VELOCITY, SHEET_GRABBER,
 } from './board'
 export type { AppTab, CaptureDraft, DropTarget, FlowRailItem, RowBox } from './board'
