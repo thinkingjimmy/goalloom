@@ -1,9 +1,8 @@
 /**
  * [INPUT]: An explicit observation instant, IANA timezone, week start and cycle anchor.
- * [OUTPUT]: The six current planning periods, with month-end clamping and exclusive UTC bounds, a period rebuilt from its id, and a compact header range.
+ * [OUTPUT]: The six current planning periods, with month-end clamping and exclusive UTC bounds, plus a period rebuilt from its id.
  * [POS]: Mobile calendar. Parity with apps/desktop/src/domain/calendar.ts is locked by tests; no Temporal import.
  */
-import type { LocaleId } from './prefs'
 import type { CalendarConfig, Period, PeriodHorizon } from './types'
 
 export interface Ymd { y: number; m: number; d: number }
@@ -174,65 +173,6 @@ export function rangeLabel(start: Ymd, endInclusive: Ymd, unit: 'day' | 'month')
   return crosses
     ? `${start.y}/${start.m}/${start.d}–${endInclusive.y}/${endInclusive.m}/${endInclusive.d}`
     : `${start.m}/${start.d}–${endInclusive.m}/${endInclusive.d}`
-}
-
-const SHORT_MONTH: Record<Exclude<LocaleId, 'zh' | 'ja'>, readonly string[]> = {
-  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-  es: ['ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.', 'jul.', 'ago.', 'sept.', 'oct.', 'nov.', 'dic.'],
-  fr: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'],
-}
-
-const RANGE_DASH = ' – '
-
-/**
- * Compact range beside a column title. The year is written only when the range crosses one.
- * `endDateExclusive` matches a period's exclusive end. A day unit drops a repeated month; a month unit names months only.
- */
-export function compactRange(startDate: string, endDateExclusive: string, locale: LocaleId, unit: 'day' | 'month'): string {
-  const start = parseYmd(startDate)
-  const end = addDays(parseYmd(endDateExclusive), -1)
-  return unit === 'month' ? monthSpan(start, end, locale) : daySpan(start, end, locale)
-}
-
-function daySpan(start: Ymd, end: Ymd, locale: LocaleId): string {
-  if (locale === 'zh' || locale === 'ja') {
-    if (start.y !== end.y) return `${start.y}年${start.m}月${start.d}日${RANGE_DASH}${end.y}年${end.m}月${end.d}日`
-    if (start.m !== end.m) return `${start.m}月${start.d}日${RANGE_DASH}${end.m}月${end.d}日`
-    if (start.d === end.d) return `${start.m}月${start.d}日`
-    return `${start.m}月${start.d}日${RANGE_DASH}${end.d}日`
-  }
-  const name = SHORT_MONTH[locale]
-  const left = name[start.m - 1] ?? ''
-  const right = name[end.m - 1] ?? ''
-  if (locale === 'en') {
-    if (start.y !== end.y) return `${left} ${start.d}, ${start.y}${RANGE_DASH}${right} ${end.d}, ${end.y}`
-    if (start.m !== end.m) return `${left} ${start.d}${RANGE_DASH}${right} ${end.d}`
-    if (start.d === end.d) return `${left} ${start.d}`
-    return `${left} ${start.d}${RANGE_DASH}${end.d}`
-  }
-  if (start.y !== end.y) return `${start.d} ${left} ${start.y}${RANGE_DASH}${end.d} ${right} ${end.y}`
-  if (start.m !== end.m) return `${start.d} ${left}${RANGE_DASH}${end.d} ${right}`
-  if (start.d === end.d) return `${start.d} ${left}`
-  return `${start.d}${RANGE_DASH}${end.d} ${left}`
-}
-
-function monthSpan(start: Ymd, end: Ymd, locale: LocaleId): string {
-  if (locale === 'zh' || locale === 'ja') {
-    if (start.y !== end.y) return `${start.y}年${start.m}月${RANGE_DASH}${end.y}年${end.m}月`
-    if (start.m !== end.m) return `${start.m}月${RANGE_DASH}${end.m}月`
-    return `${start.m}月`
-  }
-  const name = SHORT_MONTH[locale]
-  const left = name[start.m - 1] ?? ''
-  const right = name[end.m - 1] ?? ''
-  if (locale === 'en') {
-    if (start.y !== end.y) return `${left} ${start.y}${RANGE_DASH}${right} ${end.y}`
-    if (start.m !== end.m) return `${left}${RANGE_DASH}${right}`
-    return left
-  }
-  if (start.y !== end.y) return `${left} ${start.y}${RANGE_DASH}${right} ${end.y}`
-  if (start.m !== end.m) return `${left}${RANGE_DASH}${right}`
-  return left
 }
 
 export function periodMeta(horizon: PeriodHorizon | 'later', period: Period | null, today: string): { title: string; meta: string; countdown: number | null } {
