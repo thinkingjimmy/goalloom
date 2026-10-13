@@ -28,6 +28,6 @@ The owner selected the calendar-first prototype on 2026-09-28. Item details and 
 - Calendar arrows reach invalid years, a disabled clear action remains interactive, or first/last-week cells contain malformed dates.
 - Composer selection loses an explicit suggestion/manual override, numeric shortcuts stop working, or a day selection creates the draft prematurely.
 
-Repeatable acceptance: `pnpm test:due-dates` (real Electron, isolated data), `pnpm test:ui`, `pnpm test:composer`, `pnpm test:language`, and `node tests/desktop/review/renderer.mjs --calendar` (composer interaction in a browser with mocked IPC; not desktop acceptance). Deadline reports/screenshots are saved under `output/tests/due-calendar/`. Windows and packaged-desktop checks remain separate.
+Repeatable acceptance: `pnpm test:due-dates` (real Electron, isolated data), `pnpm test:ui`, `pnpm test:composer`, `pnpm test:language`, and `pnpm --filter @goalloom/desktop exec -- node tests/review/renderer.mjs --calendar` (composer interaction in a browser with mocked IPC; not desktop acceptance). Deadline reports/screenshots are saved under `output/tests/due-calendar/`. Windows and packaged-desktop checks remain separate.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

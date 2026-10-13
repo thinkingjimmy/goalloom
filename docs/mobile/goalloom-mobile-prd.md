@@ -40,14 +40,14 @@
 ### 0.1 本版已关闭的核实项【实证 @dd29236】
 | 问题 | 结论 | 出处 |
 |---|---|---|
-| operations 里有没有完整的命令入参 | **没有**。只存了 `requestHash = sha256(JSON.stringify(command))`、kind、effects、result | `src/main/workspace/repository.ts` 第 44–61 行 |
-| `edit` 命令的字段 | 必须同时带 title、description、dueDate 三个字段（全量覆盖） | `src/shared/contracts/commands.ts` 第 58 行；`commands/items.ts` 中 `editItem` 第 71–72 行 |
-| item_events 和 effects 能否用来还原状态 | 不能。`businessState()` 只有状态、时间、placement、version，**不含 title 和 dueDate**；effects 只有 description 带正文 | `src/shared/contracts/effects.ts` 第 17–41 行 |
+| operations 里有没有完整的命令入参 | **没有**。只存了 `requestHash = sha256(JSON.stringify(command))`、kind、effects、result | `apps/desktop/src/main/workspace/repository.ts` 第 44–61 行 |
+| `edit` 命令的字段 | 必须同时带 title、description、dueDate 三个字段（全量覆盖） | `apps/desktop/src/shared/contracts/commands.ts` 第 58 行；`commands/items.ts` 中 `editItem` 第 71–72 行 |
+| item_events 和 effects 能否用来还原状态 | 不能。`businessState()` 只有状态、时间、placement、version，**不含 title 和 dueDate**；effects 只有 description 带正文 | `apps/desktop/src/shared/contracts/effects.ts` 第 17–41 行 |
 | create / createPlan 的 id 从哪来 | 执行时用 `randomUUID()` 生成 | `commands/items.ts` 第 51 行；`commands/plan.ts` 第 44 行；关系 id 在 items.ts 第 139 行 |
-| 自动顺延的写入路径 | `reconcile()` **绕过了** `Repository.execute()`：生成随机的 operationId，直接调用 `moveItem()`，写入 `kind:'rollover', source:'system'` 的 operation，requestHash 是 `sha256(generation:now:opId)`；同一事务里还会更新 clockAnomaly 和 lastObservedAt | `src/main/workspace/reconcile.ts` 第 20–48 行 |
-| 自定义 SQL 函数 | `store.ts` 用 `db.function()` 注册了 `guidance_signal` 和 `note_signal`；**expo-sqlite 没有提供注册 JS 自定义函数的 API** | `src/main/storage/store.ts` 第 24–30 行；Expo SQLite 文档和 SQLiteDatabase.d.ts |
-| 导入恢复会怎样 | `replaceDataset()` 会返回**一个新的 generation** | `src/main/workspace/transfer/service.ts` 第 118 行 |
-| 本地数据库的日志模式 | 开启了 WAL，`synchronous=FULL`，事务必须同步完成 | `src/main/storage/database.ts` |
+| 自动顺延的写入路径 | `reconcile()` **绕过了** `Repository.execute()`：生成随机的 operationId，直接调用 `moveItem()`，写入 `kind:'rollover', source:'system'` 的 operation，requestHash 是 `sha256(generation:now:opId)`；同一事务里还会更新 clockAnomaly 和 lastObservedAt | `apps/desktop/src/main/workspace/reconcile.ts` 第 20–48 行 |
+| 自定义 SQL 函数 | `store.ts` 用 `db.function()` 注册了 `guidance_signal` 和 `note_signal`；**expo-sqlite 没有提供注册 JS 自定义函数的 API** | `apps/desktop/src/main/storage/store.ts` 第 24–30 行；Expo SQLite 文档和 SQLiteDatabase.d.ts |
+| 导入恢复会怎样 | `replaceDataset()` 会返回**一个新的 generation** | `apps/desktop/src/main/workspace/transfer/service.ts` 第 118 行 |
+| 本地数据库的日志模式 | 开启了 WAL，`synchronous=FULL`，事务必须同步完成 | `apps/desktop/src/main/storage/database.ts` |
 | SecureStore 有没有 2KB 上限 | v1.0 写成"约 2KB 上限"是**不准确的**。Expo 本身不强制限制；只是某些 iOS 版本曾经拒绝过约 2048 字节以上的值，所以需要处理原生层报错 | docs.expo.dev SecureStore（v57） |
 | Realtime 的权限缓存 | 私有频道的权限按连接缓存，直到 JWT 过期或客户端发送新 token 才重新计算 | Supabase Realtime Authorization 文档 |
 | signOut 能否让已签发的 JWT 失效 | 不能，已签发的 JWT 在过期前一直有效 | Supabase 官方在 GitHub issue #6702 中的回复 |
@@ -90,20 +90,20 @@ Goalloom 是一个本地优先的桌面规划工具，口号是"把三个月的�
 package.json              # v1.6.0；pnpm@11.9.0；node>=22.12；脚本见 3.2
 pnpm-workspace.yaml       # 已有 workspace 配置（website 是子包【未核实具体内容】）
 electron.vite.config.ts / electron-builder.yml
-src/domain/               # 纯 TS 业务规则：calendar, rollover, relations, flows, plan, undo, smart/*（不直接调用网络）
-src/main/                 # Electron 主进程
+apps/desktop/src/domain/               # 纯 TS 业务规则：calendar, rollover, relations, flows, plan, undo, smart/*（不直接调用网络）
+apps/desktop/src/main/                 # Electron 主进程
   index.ts, ipc.ts, security.ts, update.ts
   storage/                # database.ts（WAL、synchronous=FULL、BEGIN IMMEDIATE 事务）、schema.ts（v8 DDL）、store.ts、backup/、upgrade.ts、worker.ts
   workspace/              # repository.ts（命令入口 execute/apply、幂等、写 operations）、commands/*（items, lifecycle, ordering, plan, settings, undo, backlog, assistance）、context.ts, periods.ts, reconcile.ts, history.ts, transfer/*
   smart/                  # credentials.ts（DeviceStore，用 Cipher 加密的 <provider>.key）、providers.ts（openrouter / vercel-gateway，超时 8s，冷却 30s）、service.ts …
   link-preview/           # 链接元数据、favicon、缓存
-src/preload/index.ts
-src/renderer/             # React UI：features/{board, composer, insight, items, assistance …}、components/{description(Lexical), due-date, links, ui}
-src/shared/contracts/     # commands.ts（commandSchema）、queries、effects、values
-src/shared/i18n/
+apps/desktop/src/preload/index.ts
+apps/desktop/src/renderer/             # React UI：features/{board, composer, insight, items, assistance …}、components/{description(Lexical), due-date, links, ui}
+apps/desktop/src/shared/contracts/     # commands.ts（commandSchema）、queries、effects、values
+apps/desktop/src/shared/i18n/
 tests/                    # domain/、integration/、desktop/*.mjs（Playwright + Electron）
 scripts/                  # test.mjs、build/*（包体预算）、eval/*（AI 评测）
-website/                  # 官网（Next 风格 app 目录）
+apps/website/                  # 官网（Next 风格 app 目录）
 docs/features/*.md        # 每个功能一份文档（board-ordering, calendar-modes, relation-lines, smart-input, flow-insight …）
 .github/workflows/ci.yml  # 只能手动触发（workflow_dispatch），跑 macOS/Windows 桌面端检查
 AGENTS.md / CLAUDE.md     # 给 AI 代理的协作规范（改代码前请先读）
@@ -122,7 +122,7 @@ AGENTS.md / CLAUDE.md     # 给 AI 代理的协作规范（改代码前请先读
 pnpm install          # 安装依赖；postinstall 会执行 install-electron
 pnpm dev              # electron-vite dev --watch
 pnpm typecheck
-pnpm test             # node scripts/test.mjs（domain + integration）
+pnpm test             # node apps/desktop/scripts/test.mjs（domain + integration）
 pnpm test:domain | test:integration | test:electron
 pnpm test:ui | test:relations | test:periods | test:ordering | test:insight …   # 桌面端 E2E
 pnpm verify           # 全量检查（发版前跑）
@@ -149,7 +149,7 @@ flowchart LR
     SYNC_M --> CRYPTO_M[packages/crypto noble]
   end
   subgraph Desktop[Electron]
-    UI_D[renderer] -- IPC --> Main[src/main]
+    UI_D[renderer] -- IPC --> Main[apps/desktop/src/main]
     Main --> Core_D[packages/store-core] --> DB_D[(goalloom.db v9)]
     Main --> SYNC_D[packages/sync] --> DB_D
   end
@@ -184,13 +184,13 @@ sequenceDiagram
 
 ### 5.1 Monorepo 改造
 ```
-apps/desktop/      ← 现在的 src/、electron.vite.config.ts、electron-builder.yml、tests/desktop
-apps/mobile/       ← 新建 Expo 应用
-apps/website/      ← 现在的 website/
-packages/domain/   ← src/domain（原样迁移）
-packages/contracts/← src/shared/contracts + src/shared/i18n
+apps/desktop/      ← Electron 应用已在此（src、electron 配置、桌面测试）
+apps/mobile/       ← Expo 应用
+apps/website/      ← 官网，独立 pnpm 根
+packages/domain/   ← apps/desktop/src/domain（原样迁移）
+packages/contracts/← apps/desktop/src/shared/contracts + apps/desktop/src/shared/i18n
 packages/schema/   ← schema.ts 的 DDL（去掉 node:sqlite 类型依赖）
-packages/store-core/ ← src/main/workspace + storage/store.ts，依赖 SqlDriver 接口
+packages/store-core/ ← apps/desktop/src/main/workspace + storage/store.ts，依赖 SqlDriver 接口
 packages/sync/     ← 同步引擎
 packages/crypto/   ← 加密构造 C1–C4（基于 @noble/curves、ciphers、hashes 2.4.0，以及 @scure/bip39）
 ```
@@ -535,7 +535,7 @@ stateDiagram-v2
        d. 按 localOrder 用 applySyncOp 重放全部 pending（never_sent、send_unknown、accepted 但 seq > lastAppliedSeq），每条一个 SAVEPOINT；**业务错误**（触发器/守卫）= 该 op 在可见态暂不生效，状态不变（8.2）；
        e. 提交前跑 `PRAGMA foreign_key_check`：非空即为**存储级错误**——整个事务回滚、工作区 paused(storage)，**绝不跳过数据库错误继续**；
        f. operations、item_events、undo_effects、canon_* **一行都不删**。
-     - 2026-10-11 Mac 复现（`~/goalloom-spikes/review3/repro3.mjs`，DDL 取自 `git show dd29236:src/main/storage/schema.ts`）：
+     - 2026-10-11 Mac 复现（`~/goalloom-spikes/review3/repro3.mjs`，DDL 取自 `git show dd29236:apps/desktop/src/main/storage/schema.ts`）：
        | 反例 | v1.3 参考实现 | v1.4 |
        |---|---|---|
        | 关系释放：可见态 A→B 仍有效，远端解除 A→B 并把 B 设为 Flow 根 | `flow root has parent` | 通过（B=颜色 3，r1 已失效） |
@@ -553,7 +553,7 @@ stateDiagram-v2
 - **代价**：业务数据在磁盘上占两份，见 8.3.1 的实测。
 
 #### 8.3.1 影子基线 spike 实测结果（2026-10-11，MacBook Pro M3 Max，Node v24.21，node:sqlite 内置 SQLite 3.53.4，WAL + synchronous=FULL）
-- 数据来源：DDL 用 `git show dd29236:src/main/storage/schema.ts` 读取已提交的版本（本机工作区里 schema.ts 有未提交的改动，没有使用）。脚本在 `~/goalloom-spikes/shadow/spike.mjs`，在仓库之外。
+- 数据来源：DDL 用 `git show dd29236:apps/desktop/src/main/storage/schema.ts` 读取已提交的版本（本机工作区里 schema.ts 有未提交的改动，没有使用）。脚本在 `~/goalloom-spikes/shadow/spike.mjs`，在仓库之外。
 - 构造的数据：52 个周周期；约 1/3 的 item 在 Later；每 5 个 item 中有 1 个带 200 字符的描述；8 个 Flow 根；约 1/4 的 item 有父关系。
 
 | 项目 | 2k items | 10k items |
@@ -749,7 +749,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 
 **2026-10-11 补充实测**（还不是 9.7 的大批量基准）：
 - Hermes，Expo Go，iPhone 16 模拟器：`apps/mobile` 的 pinned vectors 通过，559ms；reference rebuild 通过，68ms。
-- Node，MacBook Pro M3 Max：`tests/crypto/constructs.test.ts`、`tests/sync/phase0.test.ts`、`tests/sync/adversarial.test.ts` 共 22/22 通过。
+- Node，MacBook Pro M3 Max：`packages/crypto/test/constructs.test.ts`、`packages/tests/sync/phase0.test.ts`、`packages/tests/sync/adversarial.test.ts` 共 22/22 通过。
 - Electron：`parityDigest()` 固定为 `753bccfb53c6ac4625e51184df3033154927e0727c865b4c019a572e4d4cffb1`。摘要覆盖 pinned 向量和两条 SyncOp 的规范化 JSON 与 payloadHash。
 
 **2026-10-12 验证**（commit `0c68962`）：
@@ -817,7 +817,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 | 服务端 | Supabase CLI + pgTAP | 权限、序号、回执、epoch、限流 |
 | UI 响应 | Maestro + 性能埋点 | 合并 1000 个 op 时，没有一帧超过 100ms |
 
-**v1.3 新增 10 个 P0 原型用例**（`tests/sync/p0/*.test.ts`，P0.7 必须全部通过）：
+**v1.3 新增 10 个 P0 原型用例**（`packages/tests/sync/p0/*.test.ts`，P0.7 必须全部通过）：
 9. 蓝色 rebase：base A=red/B=none，本地 A→blue，远端 B→blue → 无约束错误；可见态 = 参考实现（已在 Mac 复现，见 8.3）。
 10. 响应丢失 + 重启 + 撤销 → op 为 send_unknown，撤销产生 revert，任务不复活（已复现，见 8.2）。
 11. 未来 seq 的 accepted op 暂时无效：101 删父、102 恢复、我们的 103 → 中间批次不标 rejected，最终 applied。
@@ -832,7 +832,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 20. （v1.4）首次响应丢失 → 第二次 rate_limited / stale_epoch → 撤销：op 保持 send_unknown，生成 revert，不复活（已复现）。
 21. （v1.4）恢复检查点：重新生成短语且旧设备全丢后用新短语加入真实工作区成功；只抄恢复公钥的替换名单、旧检查点回滚、旧短语分叉、跨工作区重放均被拒（已复现）。
 
-**8 个必须通过的确定性对抗用例**（放在 `tests/sync/adversarial.test.ts` 和 `supabase/tests/0001_core.test.sql`）：
+**8 个必须通过的确定性对抗用例**（放在 `packages/tests/sync/adversarial.test.ts` 和 `supabase/tests/0001_core.test.sql`）：
 1. **响应丢失加压缩后重试**：push 成功、响应丢失，服务端在此期间压缩掉了这些 op，客户端重推 → 通过 op_receipts 拿回原 seq，不产生重复。
 2. **拿到 seq 后、写入基线前重启** → op 状态为 accepted（不再有内存中的 uploading）；重启后拉到自己的 op，按 hash 识别并应用，不重复。
 3. **重放失败，同时在事务边界崩溃** → 重启后 op 发送状态不变（never_sent/send_unknown/accepted），outcome 只由规范位置决定；基线不变。
@@ -857,13 +857,13 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 - [x] **P0.1 写出可执行的协议规格** `docs/sync/protocol-v1.md`
   - 做什么：把第 7–9 节写成规范文本，包括：SyncOp 的 JSON Schema（`packages/contracts/src/sync-op.ts`，用 zod 编写）、规范化 JSON 的规则、23 种命令到 action 的映射表（8.1）、生命周期状态机（8.2）、基线算法（8.3）、错误码表（8.4、8.6）、压缩边界（8.8）、密钥状态机和名单签名格式（9.2–9.4）。
   - 验收：一位没参与设计的工程师（或第二个 AI 代理）复核后，没有"未定义行为"类的问题；每条规则都能对应到一个测试用例的编号。
-- [x] **P0.2 v9 迁移** `src/main/storage/schema.ts`、`src/main/storage/upgrade.ts`（v1.4：含重建 item_events、item_guidance 去外键，以及 sync_ops 的 sticky 触发器，见 7.2、8.2）
-  - 做什么：把 `schemaVersion` 改为 9，`upgradableVersions` 改为 [8]。新增 7.2 节的表和 base_* 影子表（含触发器）。升级前先调用现有的备份逻辑（`storage/backup/manager.ts`），升级在一个事务里完成。同时更新 `transfer/dataset.ts` 和 `import-validation`（`src/domain/import-validation.ts`），让它们认识 v9。确认 operations 的 source CHECK 是否需要放宽（8.3），如果必须改 v8 的表，就记录下来并改用 `system`。
-  - 验收：新增测试 `tests/integration/upgrade-v9.test.ts`：v8 的样例库升级后，v8 的业务表逐行一致，`integrity_check` 通过；全新的库直接以 v9 创建。`pnpm test && pnpm test:electron && pnpm test:recovery` 全部通过。
-- [x] **P0.3 SyncOp 生成** `src/main/workspace/repository.ts`、`src/main/workspace/sync/emit.ts`（新增）
+- [x] **P0.2 v9 迁移** `apps/desktop/src/main/storage/schema.ts`、`apps/desktop/src/main/storage/upgrade.ts`（v1.4：含重建 item_events、item_guidance 去外键，以及 sync_ops 的 sticky 触发器，见 7.2、8.2）
+  - 做什么：把 `schemaVersion` 改为 9，`upgradableVersions` 改为 [8]。新增 7.2 节的表和 base_* 影子表（含触发器）。升级前先调用现有的备份逻辑（`storage/backup/manager.ts`），升级在一个事务里完成。同时更新 `transfer/dataset.ts` 和 `import-validation`（`apps/desktop/src/domain/import-validation.ts`），让它们认识 v9。确认 operations 的 source CHECK 是否需要放宽（8.3），如果必须改 v8 的表，就记录下来并改用 `system`。
+  - 验收：新增测试 `apps/desktop/tests/integration/upgrade-v9.test.ts`：v8 的样例库升级后，v8 的业务表逐行一致，`integrity_check` 通过；全新的库直接以 v9 创建。`pnpm test && pnpm test:electron && pnpm test:recovery` 全部通过。
+- [x] **P0.3 SyncOp 生成** `apps/desktop/src/main/workspace/repository.ts`、`apps/desktop/src/main/workspace/sync/emit.ts`（新增）
   - 做什么：在 `apply()` 的同一个事务里，根据命令和执行前后的差异生成 SyncOp，写入 sync_ops（state 为 pending，带 localOrder）。把 `randomUUID` 的生成结果记录进 action（item.create 和 rel.link 里的 id）。`reconcile.ts` 改为每次迁移生成一条确定性的系统 op（8.7）。设备本地命令不生成 SyncOp。
-  - 验收：每种命令至少一个测试（`tests/integration/sync-emit.test.ts`），检查 action 的内容；edit 只改 title 时，`fields` 里只有 title。
-- [x] **P0.4 applySyncOp 和影子基线** `packages/store-core/src/sync/apply.ts`（暂时先放在 `src/main/workspace/sync/`）
+  - 验收：每种命令至少一个测试（`apps/desktop/tests/integration/sync-emit.test.ts`），检查 action 的内容；edit 只改 title 时，`fields` 里只有 title。
+- [x] **P0.4 applySyncOp 和影子基线** `packages/store-core/src/sync/apply.ts`（暂时先放在 `apps/desktop/src/main/workspace/sync/`）
   - 做什么：实现 8.3 的 4 个步骤：每条 op 一个 SAVEPOINT；按命令守卫；用错误码；重建可见态；重新应用待推送 op；lastAppliedSeq 和基线在同一个事务里推进。
   - v1.3：**先实现参考版 `rebuildVisibleFull()`**（8.3 步骤 2），增量版作为后续优化且必须与参考版做差异校验；同时写 canon_ops/canon_changes；item.rollover、discardIfEmpty、restore{expectedDeleteOpId}、revert 两种模式。
   - 验收：带前置条件的序列测试；对抗用例 2、3 和 P0 用例 9–14、18–20 通过；**P0.4 是同步核心验收和 P0.8 协议冻结的前置条件**；最小参考实现的蓝色用例已在 `~/goalloom-spikes/review2/repro.mjs` 跑通，可作为起点。
@@ -972,7 +972,7 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 
 | 路径 | 许可证 |
 |---|---|
-| 仓库根 [`LICENSE`](../../LICENSE)；桌面端 `src/`；`apps/mobile`；`packages/contracts`、`packages/crypto`、`packages/schema`、`packages/store-core`、`packages/sync`；`tests/`；`scripts/`（含 `scripts/supabase-remote.mjs` 与 `scripts/pg-sync-test.mjs`）；`website/`；`docs/` | MIT |
+| 仓库根 [`LICENSE`](../../LICENSE)；`apps/desktop/`（应用、测试与桌面脚本）；`apps/mobile`；`packages/`（含 `packages/crypto/test` 与 `packages/tests`）；`scripts/`（含 `scripts/supabase-remote.mjs` 与 `scripts/pg-sync-test.mjs`）；`apps/website/`；`docs/` | MIT |
 | `supabase/` 下全部内容（迁移、RPC、Edge Functions、pgTAP、`reset.sql`、`config.toml`、`supabase/README.md`、`supabase/LICENSE`） | AGPL-3.0-only |
 
 客户端使用的共享包只依赖其他 MIT 包和已固定的库。`packages/*` 与 `apps/mobile` 的源码不引用 `supabase/`。服务端按同一协议实现，客户端包保持独立。

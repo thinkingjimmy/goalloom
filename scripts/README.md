@@ -1,28 +1,18 @@
 # scripts/
 
-> 父级：[项目地图](../docs/development.md)。运行器和构建工具，不进入正式包；测试场景归属 tests。
+> 父级：[项目地图](../docs/development.md)。仓库级运行脚本，不进入正式包。桌面 Vitest 运行器、智能输入评测和打包检查在 [apps/desktop/scripts](../apps/desktop/scripts/README.md)。
 
 ```text
 scripts/
-├── test.mjs                   # 用锁定 Electron 自带 Node 运行 Vitest
-├── eval/                      # 智能输入真实服务评测（需 .env.local 中的 OPENROUTER_API_KEY，不进 CI）
-│   ├── cases.ts               # Chinese cases with optional mode/anchor/today/timezone/week-start and inferred value/certainty expectations
-│   ├── smart.ts               # Real planQuestions/adapter/buildPreview with freshly calculated case periods; output/eval reports
-│   └── run.mjs                # esbuild 打包后用 Electron 自带 Node/native Temporal 运行；`pnpm eval:smart [case-id…]`
-└── build/
-    ├── third-party-notices.mjs # 汇总安装依赖原始许可证，随离线包交付
-    ├── check-production.mjs    # 无 HMR/测试入口/第二图标库，preload 只外部依赖 electron
-    ├── debug-artifacts.mjs     # 私有 hidden maps，与正式代码逐字节匹配并验证映射可用
-    ├── package-report.mjs      # 当前版本/平台精确产物与 ASAR 版本核对、清单、语言、SHA256、体积门槛
-    ├── package-experiment.mjs  # 私人双平台 normal/maximum 构建与 macOS DMG 挂载+拷贝计时
-    ├── package-locales.json    # 从锁定 Electron 实际资源核对的两平台语言白名单
-    └── package-budgets.json    # 锁定 Electron 的实测体积基线；ASAR 按 1.5.0 复核，下载／目录体积保留原基线，超过 5% 拒绝
+├── parity-digest.mjs      # Electron Node 上的加密摘要，可与 Hermes digest 对比
+├── phase0-prototype.mjs   # 托管双端原型（需要 supabase/README.md 里的三个 API 变量）
+├── supabase-remote.mjs    # 对托管库做 Realtime / Storage 检查
+├── supabase-reset.mjs     # 托管库重置辅助
+├── pg-sync-test.mjs       # 用 psql 跑 supabase/tests pgTAP
+├── gen-ed25519-fixtures.mjs
+└── gen-vectors.ts         # 重写 packages/crypto/test/vectors.json
 ```
 
-通过仓库根目录的 npm scripts 调用；路径相对于项目根。真实 Electron 场景与夹具统一在 [tests/desktop](../tests/desktop/README.md)。构建工具源码位于 `scripts/build/`，根目录 `/build/` 的忽略规则不会屏蔽这些脚本。
-
-正式打包只纳入 `out/` 和 package 元数据，应用依赖已在构建时打包，不分发完整图标库或开发工具。
-
-Calendar code uses native Temporal from the pinned Electron runtime. The polyfill package supplies development types only; the build rejects its runtime and JSBI in all bundles, and rejects Zod in the renderer.
+从仓库根目录调用。`pnpm parity:digest` 与 `pnpm test:phase0` 仍是根脚本。桌面命令（`pnpm test`、`pnpm build`、`pnpm test:ui` 等）是转到 `@goalloom/desktop` 的薄封装，工作目录为 `apps/desktop`。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

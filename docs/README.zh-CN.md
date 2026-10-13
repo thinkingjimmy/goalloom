@@ -30,7 +30,7 @@
 </p>
 
 <p align="center">
-  <img src="../images/readme.zh-CN.jpg" alt="Goalloom 目标看板：3个月、本月、本周与今天">
+  <img src="./images/readme.zh-CN.jpg" alt="Goalloom 目标看板：3个月、本月、本周与今天">
 </p>
 
 # 核心功能
@@ -85,11 +85,13 @@ pnpm dev
 打本地安装包：
 
 ```bash
-pnpm package:mac   # release/Goalloom-<版本>-mac-arm64.dmg
-pnpm package:win   # release/Goalloom-<版本>-win-x64.exe
+pnpm package:mac   # apps/desktop/release/Goalloom-<版本>-mac-arm64.dmg
+pnpm package:win   # apps/desktop/release/Goalloom-<版本>-win-x64.exe
 ```
 
-完整测试、打包检查、代码地图以及贡献者与开发代理的约定见[开发文档](./development.md)。官网代码在 [`website/`](../website/README.md)。
+1.7.0 在看板上支持两级任务，工作区格式为 schema v10。1.6.0 的工作区会在自动保护备份后原地升级；1.5.0 及更早版本仍经校验过的保护副本和明确确认后升级。本版本没有账号或云同步。说明见 [v1.7.0 发布说明](./releases/v1.7.0.md)。
+
+完整测试、打包检查、代码地图以及贡献者与开发代理的约定见[开发文档](./development.md)。官网代码在 [`apps/website/`](../apps/website/README.md)。
 
 # 协作
 
@@ -101,7 +103,7 @@ pnpm package:win   # release/Goalloom-<版本>-win-x64.exe
 
 | 路径 | 许可证 |
 |---|---|
-| [`LICENSE`](../LICENSE)、`src/`、`apps/mobile`、`packages/contracts`、`packages/crypto`、`packages/schema`、`packages/store-core`、`packages/sync`、`tests/`、`scripts/`、`website/`、`docs/` | MIT |
+| [`LICENSE`](../LICENSE)、`apps/desktop/`（应用、测试与桌面脚本）、`apps/mobile`、`packages/`（含 `packages/crypto/test` 与 `packages/tests`）、`scripts/`、`apps/website/`、`docs/` | MIT |
 | [`supabase/`](../supabase/)（迁移、RPC、Edge Functions、pgTAP、`reset.sql`、`config.toml`，以及 [`supabase/LICENSE`](../supabase/LICENSE)） | AGPL-3.0-only |
 
 `@goalloom/contracts`、`@goalloom/crypto`、`@goalloom/schema`、`@goalloom/store-core` 和 `@goalloom/sync` 只依赖彼此及其已固定的库，源码仍属仓库 MIT 许可证。`scripts/supabase-remote.mjs` 与 `scripts/pg-sync-test.mjs` 是 MIT 测试客户端。

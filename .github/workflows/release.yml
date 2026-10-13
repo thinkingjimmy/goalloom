@@ -1,0 +1,141 @@
+name: Draft desktop release
+
+# Manual dispatch, or a push of a v* tag. The last job only creates or updates a
+# draft Release. It never publishes and never changes the prerelease flag.
+# Hosted gates are typecheck, pnpm test, build, packaging, and the packaged
+# smokes from ci.yml. Full local `pnpm verify` is unchanged.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-draft-release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package ${{ matrix.package }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+            package: mac
+          - os: windows-2025
+            arch: x64
+            package: win
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.21.0"
+          architecture: ${{ matrix.arch }}
+          cache: pnpm
+      - name: Record hosted VM scope
+        run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0].model})); if(process.arch !== '${{ matrix.arch }}') process.exit(1)"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Package macOS
+        if: matrix.package == 'mac'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${CSC_LINK}" && -n "${CSC_KEY_PASSWORD}" ]]; then
+            echo "Developer ID signing is enabled from CSC_LINK."
+          else
+            unset CSC_LINK CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            echo "::warning title=Unsigned macOS build::CSC_LINK (base64 p12) and CSC_KEY_PASSWORD are not both set. Building unsigned with CSC_IDENTITY_AUTO_DISCOVERY=false. Squirrel.Mac auto-update requires a Developer ID signed build; this zip cannot ship as an automatic update."
+          fi
+          pnpm run package:mac
+      - name: Package Windows
+        if: matrix.package == 'win'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: pnpm run package:win
+      - name: Packaged macOS smoke
+        if: runner.os == 'macOS'
+        working-directory: apps/desktop
+        run: |
+          node tests/workspace.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+          node tests/history.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+          node tests/recovery.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+      - name: Packaged Windows smoke
+        if: runner.os == 'Windows'
+        working-directory: apps/desktop
+        run: |
+          node tests/workspace.mjs release/win-unpacked/Goalloom.exe
+          node tests/history.mjs release/win-unpacked/Goalloom.exe
+          node tests/recovery.mjs release/win-unpacked/Goalloom.exe
+      - name: Stage auto-update assets
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./apps/desktop/package.json').version")"
+          stage="${RUNNER_TEMP}/update-assets"
+          mkdir -p "$stage"
+          if [[ "${{ matrix.package }}" == "mac" ]]; then
+            names=(
+              "Goalloom-${version}-mac-arm64.dmg"
+              "Goalloom-${version}-mac-arm64.zip"
+              "Goalloom-${version}-mac-arm64.zip.blockmap"
+              "latest-mac.yml"
+            )
+          else
+            names=(
+              "Goalloom-${version}-win-x64.exe"
+              "Goalloom-${version}-win-x64.exe.blockmap"
+              "latest.yml"
+            )
+          fi
+          for name in "${names[@]}"; do
+            if [[ ! -f "apps/desktop/release/${name}" ]]; then
+              echo "Missing apps/desktop/release/${name}" >&2
+              exit 1
+            fi
+            cp "apps/desktop/release/${name}" "${stage}/${name}"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-update-${{ matrix.package }}
+          retention-days: 7
+          if-no-files-found: error
+          path: ${{ runner.temp }}/update-assets/*
+
+  draft:
+    name: Draft GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-update-*
+          merge-multiple: true
+          path: update-assets
+      - name: Create or update the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/draft-release.sh update-assets

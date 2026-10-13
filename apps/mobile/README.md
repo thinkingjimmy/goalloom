@@ -1,40 +1,68 @@
-# Hermes runner
+# Goalloom mobile
 
-This app is not part of the desktop pnpm workspace. It runs the pinned crypto vectors and one store-core rebuild on an iOS simulator, then keeps a local list (create, reorder, a rejected remote op, full rebuild). It does not talk to Supabase.
+Offline Expo app. It shares schema v10 and the planning rules with the desktop app through `@goalloom/local-store`. There is no account, no sync and no network call in the product UI.
 
-On a Mac with Xcode selected, from this directory:
+This directory is its own pnpm root, like `apps/website`, so React Native is not hoisted next to Electron. The desktop workspace does not list this package. pnpm's isolated linker does not expose Expo's transitive `babel-preset-expo` to `babel.config.js`, so that preset is a direct dependency of this package.
 
-```sh
-pnpm install --ignore-workspace
-npx expo start
-xcrun simctl openurl booted exp://127.0.0.1:8081
-```
+## Install
 
-`pnpm install` without `--ignore-workspace` attaches this directory to the desktop workspace. `pnpm ios` (`expo start --ios`) asks osascript to open the Simulator and fails when that permission is denied. Start Metro yourself, then open the Expo URL in the already-booted simulator. The simulator does not need a signing team. Hermes is the Expo Go default.
-
-The Metro console prints one machine-comparable line:
-
-```
-digest <64 hex chars>
-```
-
-That digest covers the pinned crypto vectors and two SyncOp canonical-JSON / payload-hash lines. From the repository root, compare it with the Electron result:
+pnpm 11 defaults `minimumReleaseAge` to 1440 minutes and refuses a package published in the last day (`NO_MATURE_MATCHING_VERSION`). Current Expo SDK 57 packages are often inside that window. This app's `pnpm-workspace.yaml` sets `minimumReleaseAge: 0`. The desktop workspace keeps the one-day gate.
 
 ```sh
-pnpm parity:digest
-pnpm parity:digest <hex>
+pnpm install
+pnpm typecheck
+pnpm lint
+pnpm web
 ```
 
-`match` and exit 0 means Hermes and Node produced the same bytes. The screen also lists six local scenarios: offline edit, reorder, conflict reject, crash recovery, key rotation, and snapshot join. This app still does not talk to Supabase. The hosted pair of Electron clients is `pnpm test:phase0` from the repository root, with the variables in `supabase/README.md`.
-
-Measured 2026-10-11 on an iPhone 16 simulator (Expo Go): pinned vectors 559ms, reference rebuild 68ms.
-
-Android, when a device or emulator is available:
+Run those commands in `apps/mobile`. If an install still picks up the desktop gate, override it for that command:
 
 ```sh
-pnpm android
+pnpm install --ignore-workspace --config.minimumReleaseAge=0
 ```
 
-Do not install these dependencies from the repository root. A root install would hoist React Native next to the desktop app.
+Native versions follow the installed Expo SDK's `bundledNativeModules.json`. `react-native-svg` is 15.15.4. 15.12.1 does not compile on Xcode 26.6 against React Native 0.86.3 (`RNSVGImage.mm:121`, no conversion from `RCTImageResponseObserverProxy` to `shared_ptr<const ImageResponseObserver>`). After an Expo upgrade, realign with:
 
-This app is MIT (`"license": "MIT"` in `package.json`). It loads the MIT packages under `packages/` and does not import `supabase/`.
+```sh
+npx expo install --fix
+```
+
+When the one-day gate is still active, pass it through to pnpm: `npx expo install --fix -- --config.minimumReleaseAge=0`.
+
+## iOS
+
+`npx expo run:ios` prints `Installing CocoaPods...` and runs `pod install` with the pod output hidden. That step can hang even when CocoaPods itself succeeds. Install the pods directly, then build without Expo's pod step:
+
+```sh
+npx expo prebuild --platform ios --no-install
+cd ios && pod install
+cd ..
+npx expo run:ios --no-install
+```
+
+When `ios/` already exists, run `pod install` there after a native dependency change, then `npx expo run:ios --no-install`.
+
+The iOS bundle id is `app.goalloom.mobile`. The URL scheme is `goalloom`. Screen links are read only in development builds. A release build ignores `goalloom://` and opens the board.
+
+## Screens
+
+iOS and Android keep the workspace in expo-sqlite. The web preview uses sql.js in the page (same schema and statements) because the browser build of expo-sqlite waits on origin private file storage, which does not finish in this environment.
+
+`EXPO_PUBLIC_DEMO=1`, `?demo=1` on web, or `demo=1` on a screen link confirms a natural calendar for 2026-10-12 in Asia/Shanghai and loads the interaction-mockup items. That path replaces the demo database and the device preference file. Use it on a simulator or the web preview.
+
+Web query `?shot=` and the `goalloom://shot/<name>` link open the same screens: `today`, `mid`, `week`, `month`, `later`, `menu`, `drag`, `detail`, `sub`, `flow`, `flowsticky`, `capture`, `backlog`, `settings`, `empty`, `emptycol`, `min`, `dark`, `mindark`, `detaildark`. `?dark=1` or `dark=1`, or a shot name that contains `dark`, sets the dark theme for that launch.
+
+```sh
+xcrun simctl openurl booted "goalloom://shot/today?demo=1"
+xcrun simctl openurl booted "goalloom://shot/week?demo=1&dark=1"
+```
+
+Leave `dark` off and the app follows the system appearance, unless Settings chooses light or dark.
+
+A normal launch asks for the calendar mode once, then locks it. The device language, visible columns and other preferences live in `goalloom-device.db`, outside the workspace file `goalloom.db`.
+
+## Phase 0 digest
+
+`src/phase0.js` and `src/phase0-app.js` still run the pinned crypto vectors and a store-core rebuild. They are not the product UI. The Metro entry is `index.js`, which mounts `src/root.tsx`.
+
+This app is MIT. It does not import `supabase/` and it does not ship secrets.

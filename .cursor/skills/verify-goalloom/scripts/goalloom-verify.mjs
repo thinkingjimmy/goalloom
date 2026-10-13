@@ -7,6 +7,7 @@
  * Cleanup removes only the run it started. It never signals a process by name.
  */
 import { spawn, execFileSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { connect, createServer } from 'node:net'
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { openSync, readFileSync } from 'node:fs'
@@ -16,6 +17,10 @@ import { fileURLToPath } from 'node:url'
 
 const scriptPath = fileURLToPath(import.meta.url)
 const horizons = ['year', 'half', 'cycle', 'month', 'week', 'day', 'later']
+
+function appRoot(repo) {
+  return join(repo, 'apps', 'desktop')
+}
 
 function repoRoot() {
   let dir = dirname(scriptPath)
@@ -169,9 +174,9 @@ async function cleanup(repo, run) {
 async function launch(repo, run) {
   const paths = pathsFor(repo, run)
   assertIsolated(paths.profile)
-  const built = join(repo, 'out', 'main', 'index.js')
+  const built = join(appRoot(repo), 'out', 'main', 'index.js')
   try { await stat(built) }
-  catch { throw new Error('out/main/index.js is missing. From the repository root run: pnpm build') }
+  catch { throw new Error('apps/desktop/out/main/index.js is missing. From the repository root run: pnpm build') }
   const existing = await readJson(paths.session)
   if (existing?.daemonPid && alive(existing.daemonPid) && commandOf(existing.daemonPid).includes('goalloom-verify.mjs')) {
     throw new Error(`run ${run} is already up (pid ${existing.daemonPid}). Cleanup it or pass --run with another id.`)
@@ -236,9 +241,11 @@ async function serve(repo, run) {
   process.on('uncaughtException', error => { void fail(error) })
   process.on('unhandledRejection', error => { void fail(error) })
   try {
+    const electronExecutable = createRequire(join(appRoot(repo), 'package.json'))('electron')
     application = await electron.launch({
+      executablePath: electronExecutable,
       args: ['.', `--user-data-dir=${paths.profile}`],
-      cwd: repo,
+      cwd: appRoot(repo),
       env: environment,
       timeout: 30_000,
     })
@@ -389,7 +396,7 @@ async function doctor(repo, paths, application, page) {
   const url = page.url()
   const lang = await page.evaluate(() => document.documentElement.lang)
   const surface = await page.locator('.board').count() ? 'board' : await page.locator('.calendar-modes').count() ? 'onboarding' : 'unknown'
-  const packageElectron = JSON.parse(await readFile(join(repo, 'node_modules', 'electron', 'package.json'), 'utf8')).version
+  const packageElectron = JSON.parse(await readFile(createRequire(join(appRoot(repo), 'package.json')).resolve('electron/package.json'), 'utf8')).version
   let sqliteFile = false
   try { await stat(join(paths.profile, 'workspace.sqlite')); sqliteFile = true } catch { /* not created */ }
   const checks = {

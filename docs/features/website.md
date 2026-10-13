@@ -1,6 +1,6 @@
 # 官网
 
-> 面向用户的产品官网（`website/`，部署于 https://www.goalloom.com）：用可操作的产品演示讲清两个卖点——OKR 驱动的 Todo 与 Jev 智能输入。营销页不是第二份产品实现：演示复刻产品可见的规则与尺寸，产品行为仍归 `src/`。
+> 面向用户的产品官网（`apps/website/`，部署于 https://www.goalloom.com）：用可操作的产品演示讲清两个卖点——OKR 驱动的 Todo 与 Jev 智能输入。营销页不是第二份产品实现：演示复刻产品可见的规则与尺寸，产品行为仍归 `apps/desktop/src/`。
 
 ## 卖点与叙事（所有者原文）
 
@@ -41,7 +41,7 @@
 ### 文案、语言与视觉
 
 - 语言与应用一致：en（无前缀，同时为 x-default）、zh-CN、ja、es、fr；不按浏览器语言重定向，语言切换是普通链接。
-- 演示中的界面词（列名、「全部」、Jev 的放置句式、Toast、占位符）逐字取自 `src/renderer/i18n/locales/*`，不另写近义说法。
+- 演示中的界面词（列名、「全部」、Jev 的放置句式、Toast、占位符）逐字取自 `apps/desktop/src/renderer/i18n/locales/*`，不另写近义说法。
 - 视觉沿用产品纸感主题（明暗两套 token）与 Hugeicons；标题为紧凑无衬线体，章节标签为等宽大写。明暗默认跟随系统，header 可切换并记住选择。
 - 下载按访问者系统展示：Windows 访客首推 Windows 安装包，其余默认 macOS，另一平台在下方一行；手机访客额外提供「复制链接到电脑」。
 
@@ -58,8 +58,8 @@
 
 ## 工程契约
 
-- `website/` 是独立 pnpm 根（自带 `pnpm-workspace.yaml`），Next.js 静态导出；Vercel 项目 Root Directory = `website`，依赖不得进入根目录 Electron 的 `node_modules`。
-- 单一事实来源：站点地址 `website/lib/seo/site.ts`（`scripts/audit-seo.mjs` 与 `scripts/e2e.mjs` 各保留一份同值常量，改域名三处同改）；下载版本与资产名 `website/lib/release.ts`；看板演示规则 `website/lib/board.ts`（筛选点亮、悬停链、跨级虚线，与 `relation-lines.md` 一致）；文案 `website/lib/i18n/catalogs/*`（`en.ts` 定义结构，其余语言由类型强制对齐）。
+- `apps/website/` 是独立 pnpm 根（自带 `pnpm-workspace.yaml`），Next.js 静态导出；Vercel 项目 Root Directory = `apps/website`，依赖不得进入根目录 Electron 的 `node_modules`。
+- 单一事实来源：站点地址 `apps/website/lib/seo/site.ts`（`scripts/audit-seo.mjs` 与 `scripts/e2e.mjs` 各保留一份同值常量，改域名三处同改）；下载版本与资产名 `apps/website/lib/release.ts`；看板演示规则 `apps/website/lib/board.ts`（筛选点亮、悬停链、跨级虚线，与 `relation-lines.md` 一致）；文案 `apps/website/lib/i18n/catalogs/*`（`en.ts` 定义结构，其余语言由类型强制对齐）。
 - 主题与平台在 `<head>` 内联脚本中于首帧前决定（`components/boot.ts`），不得挪进 `"use client"` 模块。
 - 构建门禁：`pnpm build` 之后运行 SEO 审计，逐页解析标签属性（托管方可能重排属性），要求 html lang、自指 canonical、互指 hreflang（含 x-default）、description、og:image、JSON-LD，以及 sitemap、robots、社交图存在。
 - 生产域名为 `https://www.goalloom.com`，`goalloom.com` 由 Vercel 308 跳转；canonical、hreflang、sitemap、og 一律使用 www。
@@ -69,17 +69,17 @@
 - [x] 官网首版：五语言静态站、可操作首屏、关系线轮播、Jev 动图、明暗主题、平台感知下载、窄屏布局、滚动动效。
 - [x] 部署 Vercel 并绑定 www.goalloom.com；Search Console 提交 `https://www.goalloom.com/sitemap.xml`。
 - [ ] 首屏壁纸补 2880px 宽的高清版本（现为 1586px）。
-- [x] 发布公开 Release 1.1.0 并更新 `website/lib/release.ts`（版本、资产名、`published: true`）。
-- [x] 发布公开 Release 1.2.0 并将 `website/lib/release.ts` 指向 1.2.0 资产。
-- [x] 发布公开 Release 1.3.0 并将 `website/lib/release.ts` 指向 1.3.0 资产。
-- [x] 发布公开 Release 1.4.0 并将 `website/lib/release.ts` 指向 1.4.0 资产。
-- [x] 发布公开 Release 1.5.0 并将 `website/lib/release.ts` 指向 1.5.0 资产。
-- [x] 发布公开 Release 1.6.0 并将 `website/lib/release.ts` 指向 1.6.0 资产。
+- [x] 发布公开 Release 1.1.0 并更新 `apps/website/lib/release.ts`（版本、资产名、`published: true`）。
+- [x] 发布公开 Release 1.2.0 并将 `apps/website/lib/release.ts` 指向 1.2.0 资产。
+- [x] 发布公开 Release 1.3.0 并将 `apps/website/lib/release.ts` 指向 1.3.0 资产。
+- [x] 发布公开 Release 1.4.0 并将 `apps/website/lib/release.ts` 指向 1.4.0 资产。
+- [x] 发布公开 Release 1.5.0 并将 `apps/website/lib/release.ts` 指向 1.5.0 资产。
+- [x] 发布公开 Release 1.6.0 并将 `apps/website/lib/release.ts` 指向 1.6.0 资产。
 
 ## 验收
 
-- [x] `cd website && pnpm typecheck` 通过。
-- [x] `cd website && pnpm build`：五语言页面、sitemap、robots 静态导出，SEO 审计通过；Vercel 线上构建同样通过。
-- [x] `cd website && pnpm test:e2e`（Playwright Chromium 驱动本地静态服务）27/27：五语言 SEO 标签、首屏收缩与浮动 header、看板筛选/悬停链/新建与撤销/Esc/完成/场景切换、关系线轮播自动播放与点选即停、Jev 动图落入今天、明暗切换与持久化、macOS/Windows 访客下载、作者链接、窄屏无横向溢出与单列、减少动效。报告与截图写入 `website/output/e2e/`。
+- [x] `cd apps/website && pnpm typecheck` 通过。
+- [x] `cd apps/website && pnpm build`：五语言页面、sitemap、robots 静态导出，SEO 审计通过；Vercel 线上构建同样通过。
+- [x] `cd apps/website && pnpm test:e2e`（Playwright Chromium 驱动本地静态服务）27/27：五语言 SEO 标签、首屏收缩与浮动 header、看板筛选/悬停链/新建与撤销/Esc/完成/场景切换、关系线轮播自动播放与点选即停、Jev 动图落入今天、明暗切换与持久化、macOS/Windows 访客下载、作者链接、窄屏无横向溢出与单列、减少动效。报告与截图写入 `apps/website/output/e2e/`。
 - [x] 线上 https://www.goalloom.com：五语言页面、sitemap、robots、社交图 200；canonical/hreflang/og 为 www。
 - [ ] Windows 11 真机浏览与 Safari/Firefox 浏览器目测由所有者人工验收。

@@ -1,0 +1,97 @@
+appId: com.goalloom.desktop
+productName: Goalloom
+# The workspace package is @goalloom/desktop so it does not collide with the root package name.
+# The packaged app keeps the historical npm name: Linux executable, updater cache and app.getName() fallback.
+extraMetadata:
+  name: goalloom
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+  - '!node_modules/**/*'
+asar: true
+compression: normal
+npmRebuild: false
+toolsets:
+  nsis: '1.2.1'
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+mac:
+  electronLanguages:
+    - en
+    - en_FEMININE
+    - en_GB
+    - en_GB_FEMININE
+    - en_GB_MASCULINE
+    - en_GB_NEUTER
+    - en_MASCULINE
+    - en_NEUTER
+    - es
+    - es_419
+    - es_419_FEMININE
+    - es_419_MASCULINE
+    - es_419_NEUTER
+    - es_FEMININE
+    - es_MASCULINE
+    - es_NEUTER
+    - fr
+    - fr_FEMININE
+    - fr_MASCULINE
+    - fr_NEUTER
+    - ja
+    - ja_FEMININE
+    - ja_MASCULINE
+    - ja_NEUTER
+    - zh_CN
+    - zh_CN_FEMININE
+    - zh_CN_MASCULINE
+    - zh_CN_NEUTER
+    - zh_TW
+    - zh_TW_FEMININE
+    - zh_TW_MASCULINE
+    - zh_TW_NEUTER
+  minimumSystemVersion: '14.0'
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64]
+    # The zip is the auto-update payload (Squirrel.Mac); people still download the DMG.
+    - target: zip
+      arch: [arm64]
+dmg:
+  # Updates ship through the zip, so the DMG needs no blockmap.
+  writeUpdateInfo: false
+  # Drag-to-install window: app on the left, an Applications link on the right.
+  window: { width: 540, height: 380 }
+  iconSize: 96
+  contents:
+    - { x: 140, y: 180 }
+    - { x: 400, y: 180, type: link, path: /Applications }
+win:
+  electronLanguages:
+    - en-GB
+    - en-US
+    - es
+    - es-419
+    - fr
+    - ja
+    - zh-CN
+    - zh-TW
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  installerLanguages: [zh_CN]
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+# Bakes app-update.yml into the package and writes latest*.yml next to the installers.
+# Scripts still pass --publish never. .github/workflows/release.yml uploads the
+# assets to a draft Release; publishing that draft stays manual (see docs/development.md).
+publish:
+  provider: github
+  owner: thinkingjimmy
+  repo: goalloom
+  releaseType: release

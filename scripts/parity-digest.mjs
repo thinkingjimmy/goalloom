@@ -10,12 +10,16 @@
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import electron from 'electron'
 
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+const vitest = join(repoRoot, 'node_modules/vitest/vitest.mjs')
 const outDir = mkdtempSync(join(tmpdir(), 'goalloom-parity-'))
 const outFile = join(outDir, 'digest.txt')
-const child = spawnSync(electron, ['node_modules/vitest/vitest.mjs', 'run', 'tests/crypto/parity.test.ts'], {
+const child = spawnSync(electron, [vitest, 'run', 'packages/crypto/test/parity.test.ts'], {
+  cwd: repoRoot,
   encoding: 'utf8',
   env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', PARITY_DIGEST_OUT: outFile },
 })

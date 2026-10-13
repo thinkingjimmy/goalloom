@@ -116,7 +116,7 @@ Six scenarios, two Electron SQLite clients, no OAuth. The script creates `p0-pro
 pnpm test:phase0
 ```
 
-The scenarios are offline edit, reorder, conflict reject, crash recovery, key rotation (`rotate_epoch`, then a stale epoch 1 push, then an epoch 2 push), and snapshot join (signed upload, signed download, install without changing generation). The same six scenarios also run locally inside `pnpm test` (`tests/sync/phase0-prototype.test.ts`) and on the iOS simulator (`apps/mobile/README.md`). The simulator does not receive these keys.
+The scenarios are offline edit, reorder, conflict reject, crash recovery, key rotation (`rotate_epoch`, then a stale epoch 1 push, then an epoch 2 push), and snapshot join (signed upload, signed download, install without changing generation). The same six scenarios also run locally inside `pnpm test` (`packages/tests/sync/phase0-prototype.test.ts`) and on the iOS simulator (`apps/mobile/README.md`). The simulator does not receive these keys.
 
 `scripts/phase0-prototype.mjs` and `scripts/parity-digest.mjs` are MIT. They do not import this directory.
 
@@ -140,7 +140,7 @@ Run the Node script when a remote run was killed before its `finally`, or before
 
 | Path | License |
 |---|---|
-| `src/`, `apps/mobile`, `packages/contracts`, `packages/crypto`, `packages/schema`, `packages/store-core`, `packages/sync`, `tests/`, `scripts/` (including `scripts/supabase-remote.mjs` and `scripts/pg-sync-test.mjs`), `website/`, `docs/`, root [`LICENSE`](../LICENSE) | MIT |
+| `apps/desktop/` (app, tests, and desktop scripts), `apps/mobile`, `packages/` (including `packages/crypto/test` and `packages/tests`), `scripts/` (including `scripts/supabase-remote.mjs` and `scripts/pg-sync-test.mjs`), `apps/website/`, `docs/`, root [`LICENSE`](../LICENSE) | MIT |
 | This directory: migrations, RPCs, Edge Functions, pgTAP, `reset.sql`, `config.toml`, this README, [`LICENSE`](./LICENSE) | AGPL-3.0-only |
 
 `@goalloom/contracts`, `@goalloom/crypto`, `@goalloom/schema`, `@goalloom/store-core`, and `@goalloom/sync` declare `"license": "MIT"` and depend only on each other plus pinned libraries (`zod`, `@noble/*`, `@scure/bip39`). Their sources do not import `supabase/`.

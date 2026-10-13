@@ -1,0 +1,40 @@
+# domain/
+
+> 父级：[项目地图](../../../../docs/development.md)。纯领域库，不依赖 Electron、SQLite 或全局时钟。
+
+```text
+domain/
+├── calendar.ts   # 日/周/月/原锚点年/半年/三个月区间、固定 IANA 边界
+├── temporal.ts   # 锁定 Electron 44 原生 Temporal 边界；polyfill 仅供开发期类型，不进入运行包
+├── relations.ts  # DAG/horizon validation, effective-flow link eligibility and isolated-parent root promotion
+├── nesting.ts    # Effective inherited goal edges, combined ancestry, valid two-level targets and context-aware outline rows
+├── parent-order.ts # Deterministic nearest-parent ordering, outline-aware ancestor comparisons and historical/manual boundaries
+├── flows.ts      # 流程归属：图内祖先缓存解析流程根，图外条目共享空结果，不保留累计访问身份
+├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断
+├── undo.ts       # Owned fields, relation/color effects and semantic-order matching, independent of whole-item versions
+├── history.ts    # 顺序流式投影期末与有界后续明细，缺失/回拨为 unknown；期末结果（完成/未完成/移出/取消/未知）
+├── execution-facts.ts # Effective counts versus real state seconds, replayed guidance pressure and clock-only projections
+├── execution-history.ts # Indexed ownership for every event effect and chronological guidance/clear/undo replay
+├── import-nesting.ts # Inheritance provenance, group ownership and commit-order relationship/lifecycle replay
+├── import-guidance.ts # Indexed guidance head/receipt/sequence integrity, tombstones and logical ownership without per-event batch scans
+├── import-validation.ts # Strict v1–v9 datasets, DAGs, adoption colors, guarded discard visibility, inverse-event indexes, plans and legacy milestone receipts
+├── plan.ts       # createPlan 批内约束与稳定拓扑序（父在前、同级保持草稿顺序）
+├── status.ts     # 独立状态时间组、效果匹配与差量逆转
+├── items.ts      # Pure title-only discard eligibility shared by detail drafts and authoritative lifecycle writes
+└── smart/        # 智能输入纯规则
+    ├── segments.ts     # 强/弱边界无损槽位（≤8）与普通模式单条 Later
+    ├── dates.ts        # 工作区 weekStart 的星期、绝对/月底日期与完整/省略终点的范围歧义
+    ├── calendar-phrases.ts # Pure Chinese execution-period phrases resolved against mode, anchor and injected today
+    ├── questions.ts    # 原文直接作 state 的题单，Q=1+3S+D+3+R≤64，payload/token 预算与补充轮
+    ├── budget.ts       # 不依赖日期规划的 payload/token/题数上限与估算，题单和 provider 共用
+    ├── distribution.ts # 统一 Choice/boolean 契约校验、K×d 总和容差、top/margin/集中度与确定性
+    ├── preview.ts      # 答案组装为可编辑预览：角色归并（说明取原文原句）、执行/截止、多父建议去环、`关联「X」` 直接确认、警示
+    ├── insight.ts      # Child-only drafting and review prompts（中文、用户偏好追加末尾）与起草/复盘输出清洗、按任务 id 对齐
+    ├── assistance.ts   # Complete-note rewrite routing plus legacy proposals/clarification, strict output and 16,000-unit/64 KiB budgets
+    ├── rewrite-notes.ts # Complete-source Markdown rewrite prompts; retained completion/link checks; refuses truncation
+    └── terms.ts        # 共享专有词（拉丁词 ≥4 / 中文连续 ≥4 字），决定哪些看板目标可作为候选送给 Jev
+```
+
+调用方注入观察时间及已经校验的快照；smart/ 不做网络请求，也不读取供应商 confidence。权威事务仍须重读并复核。`reverseStatus` 只是一种效果的原语，不代表完整撤销命令。D06 为多父 DAG；D07 的年 / 半年 / 3个月从原锚点按 12 / 6 / 3 个日历月推导，月底截断而不逐轮漂移；自然年模式锁定确认年 1 月 1 日起点。Six horizons support manual or automatic rollover; only day defaults to automatic. Import validates four policies for v1–v6 and six for v7.
+
+[PROTOCOL]: Update this header when making changes, then check README.md.

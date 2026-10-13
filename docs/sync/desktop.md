@@ -2,7 +2,7 @@
 
 Two desktop installs sign in with the same Google account, share one recovery key, and converge encrypted ops. The board stays usable while signed out. Apple sign-in, payments, snapshots and QR pairing are not in this client.
 
-The engine lives in `packages/sync` (`SyncRemote`, session, board, codec). Desktop OAuth and the keychain vault stay in `src/main/sync`. `apps/mobile` is not part of this change.
+The engine lives in `packages/sync` (`SyncRemote`, session, board, codec). Desktop OAuth and the keychain vault stay in `apps/desktop/src/main/sync`. `apps/mobile` is not part of this change.
 
 ## What the owner configures
 

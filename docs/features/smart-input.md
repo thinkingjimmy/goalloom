@@ -60,7 +60,7 @@
 
 自动折行的失败场景（实现前记录）：中文长句或无空格文本横向溢出、输入框只显示首行、列宽改变后高度不更新、缩短／保存清空后仍保留多行高度、圆点随多行标题垂直居中、提示挤占输入宽度、粘贴意外生成多行标题、IME Enter 提前创建、重复打开丢失长草稿或光标焦点。七列、四主题与五语言证据沿用 `output/tests/column-add/`。
 
-列内快捷入口的失败场景（实现验收前固定）：空列不能添加、仅完成任务错误显示按钮、悬停导致列表跳动、标题／按钮／输入文字错位、输入时列头仍有持续激活态、重复打开丢失草稿／流程、虚拟占位或任务控件误触发、未来任务误写本期、历史／加载／忙碌／隐藏／拖动状态绕过禁用、键盘或无 hover 设备不可达、主题和语言漏适配。真实 Electron 场景由 `pnpm test:composer` 包含的 `fixtures/column-add.mjs` 覆盖，开发可用 `node tests/desktop/composer.mjs --column-add`；报告与截图在 `output/tests/column-add/`。
+列内快捷入口的失败场景（实现验收前固定）：空列不能添加、仅完成任务错误显示按钮、悬停导致列表跳动、标题／按钮／输入文字错位、输入时列头仍有持续激活态、重复打开丢失草稿／流程、虚拟占位或任务控件误触发、未来任务误写本期、历史／加载／忙碌／隐藏／拖动状态绕过禁用、键盘或无 hover 设备不可达、主题和语言漏适配。真实 Electron 场景由 `pnpm test:composer` 包含的 `fixtures/column-add.mjs` 覆盖，开发可用 `pnpm --filter @goalloom/desktop exec -- node tests/composer.mjs --column-add`；报告与截图在 `output/tests/column-add/`。
 
 **键盘路径与已知代价：** 不增加普通 composer 的五列分段选择，也不把全局 Cmd/Ctrl+N 改回聚焦列。列头「＋」保持可聚焦的原生按钮，Enter/Space 启动对应列 QuickAdd，显示焦点与列名，并保留流程选择和连续输入。当前 Tab 顺序会经过前方列的任务行及其控件，到达「今天」列的路径长度随前面可聚焦任务与控件数量增长；可达不等于高效，也不能宣传为保留了原有一键效率。B02/V02 按空看板、小量任务和大量任务分别记录实际 Tab 步数，不用固定少量示例掩盖规模影响。[C5][C14]
 
@@ -265,7 +265,7 @@ Vercel官方另提供 `https://ai-gateway.vercel.sh/typesafe`，示例仅改变K
 
 ### 7.1 与SQLite串行队列隔离
 
-**Jev client、连接测试、重试和HTTP等待在main进程独立异步服务/IPC通道中，不进入 `src/main/storage/worker.ts` 的串行RPC队列。** 当前worker以Promise队列逐个等待handle完成；把await fetch放进去，即使HTTP异步也会阻塞后续所有存储RPC。[C3]
+**Jev client、连接测试、重试和HTTP等待在main进程独立异步服务/IPC通道中，不进入 `apps/desktop/src/main/storage/worker.ts` 的串行RPC队列。** 当前worker以Promise队列逐个等待handle完成；把await fetch放进去，即使HTTP异步也会阻塞后续所有存储RPC。[C3]
 
 需要读取目标或日历时只发短只读RPC，取得快照即释放队列，再调用云端；HTTP期间不持有SQLite事务、SAVEPOINT或全局写锁。renderer分别维护 `analysisPending` 与现有 `workspaceBusy`，前者不能让全应用误显示“保存中”或禁用正常数据库操作。`createPlan` 只在用户确认后走现有worker→Repository事务。
 
@@ -402,7 +402,7 @@ type ParentRef =
 | domain/import-validation.ts、transfer/dataset.ts、storage/schema.ts | 完整导入验证与版本标识，JSON/SQLite双路径兼容；不为恢复后撤销旧用户操作开例外 |
 | storage启动初始化/worker、现有backup/manager与snapshot | 只读探测后提前构造BackupManager，protective→verify→原子migrate；同目录/回执/设置恢复路径，同步schema头部契约 |
 | renderer/state/session.ts、use-workspace.ts | 单operation入栈，多ID只影响展示和定位，不复制撤销步 |
-| tests/integration/transfer.test.ts、undo.test.ts等 | 新计划与旧数据完整回归；复用requestHash与lifecycle机制 |
+| apps/desktop/tests/integration/transfer.test.ts、undo.test.ts等 | 新计划与旧数据完整回归；复用requestHash与lifecycle机制 |
 
 新增功能期间原有业务规则以实际已完成代码和确认约定为基线；不要从删除前的旧TODO重新标记全部开发未完成。本文只约束本次增量；下列任务仅在实现并通过相关测试后勾选，未勾选项的原因见 §14。
 
@@ -572,7 +572,7 @@ type ParentRef =
 
 ### 14.4 实测调优（2026-09-25，OpenRouter · typesafe/jev-1.13）
 
-`pnpm eval:smart` 用真实 OpenRouter 跑 `scripts/eval/cases.ts` 的 25 条中文样例（固定参考日 2026-09-23 周三），产物为 `output/eval/smart-<时间>.{json,md}`（含逐题原始 choice/概率、拆分、字段与耗时），Key 只从 git 忽略的 `.env.local` 读取。首轮 14 条基线 11/14；修正后 25/25，连续两次全量通过；单次调用约 0.3–1 s。
+`pnpm eval:smart` 用真实 OpenRouter 跑 `apps/desktop/scripts/eval/cases.ts` 的 25 条中文样例（固定参考日 2026-09-23 周三），产物为 `output/eval/smart-<时间>.{json,md}`（含逐题原始 choice/概率、拆分、字段与耗时），Key 只从 git 忽略的 `.env.local` 读取。首轮 14 条基线 11/14；修正后 25/25，连续两次全量通过；单次调用约 0.3–1 s。
 
 修正项：括号/引号内的逗号不再切分；角色新增「前一项的组成部分」（里面有/包括/能/还要支持…），逐行或列表条目默认独立；截止日取同一事项各片段中最确定的回答且要求日期用途为截止；关系题接受“标题＋下方列表/冒号分解”这种结构依据；原文 `关联「X」` 精确命中已有目标时直接作为确定上级；单项预览不再显示“整体形式不确定”。
 

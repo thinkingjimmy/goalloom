@@ -1,0 +1,14 @@
+{
+  "name": "@goalloom/tests",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Workspace links so packages/tests can resolve @goalloom/* the same way the desktop app does.",
+  "dependencies": {
+    "@goalloom/contracts": "workspace:*",
+    "@goalloom/crypto": "workspace:*",
+    "@goalloom/store-core": "workspace:*",
+    "@goalloom/sync": "workspace:*"
+  }
+}

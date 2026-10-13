@@ -1,5 +1,10 @@
 import './polyfill'
 import { registerRootComponent } from 'expo'
-import App from './App'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
+import App from './src/root'
 
-registerRootComponent(App)
+function Root() {
+  return <SafeAreaProvider><App /></SafeAreaProvider>
+}
+
+registerRootComponent(Root)
