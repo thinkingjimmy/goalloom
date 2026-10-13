@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Sync actions from the settings pane.
- * [OUTPUT]: A status snapshot. The sync password is never returned.
+ * [OUTPUT]: A status snapshot, including whether a ready workspace is exchanging right now. The sync password is never returned.
  * [POS]: Preload boundary for desktop sync. The renderer imports the types and does not bundle this schema.
  */
 import { z } from 'zod'
@@ -21,6 +21,7 @@ export const syncStatusSchema = z.strictObject({
   error: z.enum(syncErrors).nullable(),
   localItems: z.number().int().nonnegative(),
   offline: z.boolean(),
+  syncing: z.boolean(),
 })
 
 const password = z.string().max(128)
@@ -35,6 +36,7 @@ export const syncActionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('change-password'), password }),
   z.strictObject({ type: z.literal('reset-sync'), password }),
   z.strictObject({ type: z.literal('join'), choice: z.enum(['use-remote', 'merge']), acknowledged: z.boolean() }),
+  z.strictObject({ type: z.literal('retry') }),
 ])
 
 export const syncReplySchema = z.strictObject({

@@ -16,11 +16,12 @@ export function SettingsGroup({ title, aside, danger = false, reveal = false, re
 }
 
 /** `below` holds a full-width control under the title line, for choices too wide to sit on the right. */
-export function SettingsRow({ title, note, children, below, dimmed = false }: { title: ReactNode; note?: ReactNode; children?: ReactNode; below?: ReactNode; dimmed?: boolean }) {
+export function SettingsRow({ title, note, children, below, dimmed = false, className }: { title: ReactNode; note?: ReactNode; children?: ReactNode; below?: ReactNode; dimmed?: boolean; className?: string }) {
   const line = <><div className="settings-row-text"><span>{title}</span>{note && <small>{note}</small>}</div>{children}</>
+  const row = className ? `settings-row ${className}` : 'settings-row'
   return below
-    ? <div className="settings-row settings-row-stacked" data-dimmed={dimmed}><div className="settings-row-line">{line}</div>{below}</div>
-    : <div className="settings-row" data-dimmed={dimmed}>{line}</div>
+    ? <div className={`${row} settings-row-stacked`} data-dimmed={dimmed}><div className="settings-row-line">{line}</div>{below}</div>
+    : <div className={row} data-dimmed={dimmed}>{line}</div>
 }
 
 export interface SegmentOption<T extends string> { value: T; label: string; swatch?: string; swatchStyle?: CSSProperties | undefined; count?: number | undefined }

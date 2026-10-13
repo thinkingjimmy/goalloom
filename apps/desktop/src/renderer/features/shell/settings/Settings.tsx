@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace, narrow data/actions API and device preferences.
- * [OUTPUT]: Settings navigation with colored pause icons and update status, section headings, item-filter counts, section-scoped backup reads and AI status refresh.
+ * [OUTPUT]: Settings navigation with colored pause icons, sync status and update status, section headings, item-filter counts, section-scoped backup reads and AI status refresh.
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -23,7 +23,7 @@ import { InsightPane } from './InsightPane'
 import { ShortcutsPane } from './ShortcutsPane'
 import { ItemsPane, type ItemsView } from './ItemsPane'
 import { AboutPane } from './AboutPane'
-import { SyncPane } from './SyncPane'
+import { SyncPane, syncNavBadge } from './SyncPane'
 import { useSync } from '../../../state/sync'
 import { hasUpdate, useUpdate } from '../../../state/update'
 import { Segmented } from './parts'
@@ -125,13 +125,15 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
   }
   const disabled = busy || working
   const featureMeta = (feature: 'smart' | 'insight') => ai.status?.features[feature].enabled ? { text: s.enabledMeta, dot: true as const } : ai.status?.features[feature].paused ? { text: smartMessages.pausedMeta, icon: 'pause' as const } : null
-  const meta: Partial<Record<Section, { text: string; dot?: true | 'update'; icon?: 'pause' }>> = {
+  const syncMeta = syncNavBadge(sync)
+  const meta: Partial<Record<Section, { text: string; dot?: true | 'update' | 'err'; icon?: 'pause' }>> = {
     ...(featureMeta('smart') && { smart: featureMeta('smart')! }),
     ...(featureMeta('insight') && { insight: featureMeta('insight')! }),
+    ...(syncMeta && { sync: syncMeta }),
     ...(hasUpdate(update) && { about: { text: s.about.navMeta, dot: 'update' as const } }),
   }
   const title = preview ? (preview.mode === 'reset' ? messages.resetWorkspace : messages.restoreWorkspace) : groups().flatMap(group => group.entries).find(entry => entry.id === section)!.label
-  const subtitle = preview ? '' : section === 'shortcuts' ? shortcutMessages.subtitle : section === 'done' ? '' : s.subtitles[section]
+  const subtitle = preview || section === 'done' || section === 'sync' ? '' : section === 'shortcuts' ? shortcutMessages.subtitle : s.subtitles[section]
   const heading = <>
     <div className="settings-heading">
       <h2>{title}</h2>{subtitle && <p>{subtitle}</p>}
@@ -180,7 +182,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
           : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}
         {section === 'backup' && <BackupPane status={backups} enabled={snapshot.workspace.backupEnabled} retention={snapshot.workspace.backupRetention} timezone={timezone} today={today} generation={generation} configured={!!calendar} disabled={disabled} submit={submit} data={data} revealReset={revealReset}
           exportJson={() => void desktopApi().exportWorkspace().catch(() => setError(messages.exportUnknown))} />}
-        {section === 'sync' && <SyncPane status={sync} {...(timezone ? { timezone } : {})} />}
+        {section === 'sync' && <SyncPane status={sync} today={today} {...(timezone ? { timezone } : {})} />}
         {section === 'about' && <AboutPane info={update} />}
         {items && calendar && <ItemsPane key={items} view={items as ItemsView} revision={revision} timezone={calendar.timezone} today={today} disabled={disabled} select={select} submit={submit} />}
       </div>}

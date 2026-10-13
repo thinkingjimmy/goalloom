@@ -132,6 +132,7 @@ export class SyncService {
     try {
       if (action.type === 'status') await this.readView().catch(() => undefined)
       else if (action.type === 'cancel') this.cancelJoin()
+      else if (action.type === 'retry') await this.tick()
       else await this.exclusive(() => this.perform(action))
     } catch (error) {
       this.setError(error)
@@ -245,7 +246,7 @@ export class SyncService {
   }
 
   private async resetAndUpload(password: string): Promise<void> {
-    if (this.phase !== 'enter-key') return
+    if (this.phase !== 'enter-key' && this.phase !== 'ready') return
     if (!passwordAccepted(password)) throw new SyncFailure('password')
     const remote = this.requireRemote()
     const deviceId = this.requireDevice()
@@ -433,6 +434,7 @@ export class SyncService {
   private async tick(): Promise<void> {
     if (this.ticking || this.operation || this.phase !== 'ready') return
     this.ticking = true
+    this.publish()
     try {
       await this.pushAndPull()
     } catch (error) {
@@ -654,6 +656,7 @@ export class SyncService {
       error: this.error,
       localItems: this.view.localItems,
       offline: this.offline,
+      syncing: this.ticking,
     }
   }
 
