@@ -46,7 +46,7 @@ export function sheetRelease(distance: number, velocity: number, height: number)
   return distance > Math.min(140, span * 0.28) || velocity > SHEET_DISMISS_VELOCITY
 }
 
-export function pageFromOffset(x: number, pageWidth: number, count = BOARD_COLUMNS.length): number {
+export function pageFromOffset(x: number, pageWidth: number, count: number = BOARD_COLUMNS.length): number {
   if (pageWidth <= 0) return OPEN_INDEX
   return Math.max(0, Math.min(count - 1, Math.round(x / pageWidth)))
 }
