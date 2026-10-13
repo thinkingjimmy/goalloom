@@ -2,7 +2,7 @@
  * [INPUT]: Supabase URL, anon key, and the system browser.
  * [OUTPUT]: An auth session from the Google PKCE redirect on 127.0.0.1:53682.
  *          The loopback page is sent only after the code exchange, so it shows success or failure.
- * [POS]: Desktop sign-in. The goalloom:// scheme stays reserved for local pages.
+ * [POS]: Desktop sign-in. The loopback page is the site header and footer; success asks the OS to focus the app.
  */
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
@@ -17,6 +17,8 @@ export interface OAuthListenOptions {
   port?: number
   timeoutMs?: number
   onReady?: (port: number) => void
+  /** The browser step finished and a result page was sent. The main process uses this to focus its window. */
+  onCallback?: () => void
   signal?: AbortSignal
 }
 
@@ -71,6 +73,10 @@ function listenForSession(client: SupabaseClient, open: (url: string) => Promise
       if (error || !session) reject(error ?? new SyncFailure('auth', 'oauth'))
       else resolve(session)
     }
+    const reply = (response: ServerResponse, failed: boolean) => {
+      sendPage(response, failed)
+      try { options?.onCallback?.() } catch { /* Focusing the window must not change the session result. */ }
+    }
     const onAbort = () => finish(new SyncFailure('auth', 'cancelled'))
     if (options?.signal?.aborted) { finish(new SyncFailure('auth', 'cancelled')); return }
     options?.signal?.addEventListener('abort', onAbort, { once: true })
@@ -85,20 +91,20 @@ function listenForSession(client: SupabaseClient, open: (url: string) => Promise
       const oauthError = parsed.searchParams.get('error_description') || parsed.searchParams.get('error')
       const code = parsed.searchParams.get('code')
       if (oauthError || !code) {
-        sendPage(response, true)
+        reply(response, true)
         finish(new SyncFailure('auth', oauthError ?? 'missing code'))
         return
       }
       void client.auth.exchangeCodeForSession(code).then(exchanged => {
         if (exchanged.error || !exchanged.data.session) {
-          sendPage(response, true)
+          reply(response, true)
           finish(new SyncFailure('auth', exchanged.error?.message ?? 'oauth'))
           return
         }
-        sendPage(response, false)
+        reply(response, false)
         finish(null, exchanged.data.session)
       }).catch(error => {
-        sendPage(response, true)
+        reply(response, true)
         finish(error instanceof Error ? error : new SyncFailure('auth'))
       })
     })
