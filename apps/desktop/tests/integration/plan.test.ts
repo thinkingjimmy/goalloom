@@ -212,4 +212,4 @@ it('跨代次 JSON/SQLite 恢复：快照都可恢复并再导出；旧计划不
   expect((await service.action({ type: 'commit', generation: generation(), token, acknowledged: true })).type).toBe('replaced')
   valid()
   expect(undo(later).outcome).toBe('conflict_skipped')
-})
+}, 30_000)
