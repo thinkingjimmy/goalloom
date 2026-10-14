@@ -1,5 +1,6 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { expect, it } from 'vitest'
+import { signedInUrl } from '../../src/main/protocol'
 import { callbackCsp, callbackLinks, callbackPage } from '../../src/main/sync/callback-page'
 import { googleSignIn, oauthTimeoutMs } from '../../src/main/sync/oauth'
 
@@ -18,9 +19,9 @@ function client(exchange: (code: string) => Promise<{ session: Session | null; m
   } as unknown as SupabaseClient
 }
 
-async function start(exchange: (code: string) => Promise<{ session: Session | null; message?: string }>, timeoutMs = 5_000) {
+async function start(exchange: (code: string) => Promise<{ session: Session | null; message?: string }>, timeoutMs = 5_000, onCallback?: () => void) {
   let port = 0
-  const done = googleSignIn(client(exchange), async () => {}, { port: 0, timeoutMs, onReady: value => { port = value } })
+  const done = googleSignIn(client(exchange), async () => {}, { port: 0, timeoutMs, onReady: value => { port = value }, ...(onCallback ? { onCallback } : {}) })
   void done.then(() => undefined, () => undefined)
   const deadline = Date.now() + 2_000
   while (port === 0 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10))
@@ -34,10 +35,20 @@ it('回调页自包含，成功和失败都有中英正文，链接是绝对地�
   expect(oauthTimeoutMs).toBe(180_000)
   expect(ok).toContain('已登录，可以关闭此页面')
   expect(ok).toContain('Signed in. You can close this tab.')
+  expect(ok).toContain('class="site-header float-bar"')
+  expect(ok).toContain('site-footer')
+  expect(ok).toContain('目标看板')
+  expect(ok).toContain('打开 Goalloom')
+  expect(ok).toContain(`href="${signedInUrl}"`)
+  expect(ok).toContain(`location.href=${JSON.stringify(signedInUrl)}`)
   expect(ok).not.toContain('class="error"')
   expect(failed).toContain('class="error"')
+  expect(failed).toContain('class="site-header float-bar"')
+  expect(failed).toContain('site-footer')
   expect(failed).toContain('登录未完成')
   expect(failed).toContain('Sign-in didn\'t finish. Please try again in the app.')
+  expect(failed).not.toContain('打开 Goalloom')
+  expect(failed).not.toContain('location.href')
   for (const page of [ok, failed]) {
     expect(page).not.toMatch(/<script[^>]+src=/i)
     expect(page).not.toMatch(/<link\b/i)
@@ -52,9 +63,10 @@ it('回调页自包含，成功和失败都有中英正文，链接是绝对地�
 
 it('交换完成之前不返回页面，成功后才是登录完成', async () => {
   let started = false
+  let callbacks = 0
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
-  const { port, done } = await start(async () => { started = true; await gate; return { session } })
+  const { port, done } = await start(async () => { started = true; await gate; return { session } }, 5_000, () => { callbacks += 1 })
   const pending = fetch(`http://127.0.0.1:${port}/callback?code=ok`)
   const deadline = Date.now() + 1_000
   while (!started && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10))
@@ -67,16 +79,27 @@ it('交换完成之前不返回页面，成功后才是登录完成', async () =
   const response = await pending
   expect(response.status).toBe(200)
   expect(response.headers.get('content-security-policy')).toBe(callbackCsp)
-  expect(await response.text()).toContain('已登录，可以关闭此页面')
+  const body = await response.text()
+  expect(body).toContain('已登录，可以关闭此页面')
+  expect(body).toContain('class="site-header float-bar"')
+  expect(body).toContain('site-footer')
+  expect(body).toContain('打开 Goalloom')
+  expect(callbacks).toBe(1)
   await expect(done).resolves.toBe(session)
 })
 
 it('提供方错误或缺少 code 时直接显示失败页，并且不交换', async () => {
   let calls = 0
-  const { port, done } = await start(async () => { calls += 1; return { session } })
+  let callbacks = 0
+  const { port, done } = await start(async () => { calls += 1; return { session } }, 5_000, () => { callbacks += 1 })
   const response = await fetch(`http://127.0.0.1:${port}/callback?error=access_denied`)
-  expect(await response.text()).toContain('class="error"')
+  const body = await response.text()
+  expect(body).toContain('class="error"')
+  expect(body).toContain('site-header')
+  expect(body).not.toContain('打开 Goalloom')
+  expect(body).not.toContain('location.href')
   expect(calls).toBe(0)
+  expect(callbacks).toBe(1)
   await expect(done).rejects.toMatchObject({ code: 'auth', message: 'access_denied' })
 })
 
@@ -95,10 +118,13 @@ it('交换失败时页面是失败状态', async () => {
 })
 
 it('其它路径返回 404，不结束这次登录', async () => {
-  const { port, done } = await start(async () => ({ session }))
+  let callbacks = 0
+  const { port, done } = await start(async () => ({ session }), 5_000, () => { callbacks += 1 })
   expect((await fetch(`http://127.0.0.1:${port}/elsewhere`)).status).toBe(404)
+  expect(callbacks).toBe(0)
   const response = await fetch(`http://127.0.0.1:${port}/callback?code=ok`)
   expect(await response.text()).toContain('已登录，可以关闭此页面')
+  expect(callbacks).toBe(1)
   await expect(done).resolves.toBe(session)
 })
 

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Electron lifecycle, security, storage, smart-input, link-preview and software-update services.
- * [OUTPUT]: Single window, startup/write gates, visible-change notifications, macOS app menu, update notifications and renderer-session cleanup.
+ * [OUTPUT]: Single window, startup/write gates, visible-change notifications, macOS app menu, update notifications, renderer-session cleanup, and focus when a goalloom:// link or the OAuth callback returns.
  * [POS]: Application composition root; the renderer parse overlaps guarded storage startup, and migrations remain protected before writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -27,6 +27,7 @@ import { SyncService } from './sync/service'
 import { projectSettingRows } from './sync/project-settings'
 import { syncEvent } from '../shared/contracts/sync'
 import { aiRefreshEvent, devicePrefsEvent, languageEvent } from '../shared/contracts/runtime'
+import { isGoalloomProtocol, protocolRegistration, protocolUrlFromArgv, secondInstanceFocus } from './protocol'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -41,6 +42,20 @@ app.setPath('userData', profile ? resolve(profile) : join(app.getPath('appData')
 protocol.registerSchemesAsPrivileged([{ scheme: 'goalloom', privileges: { standard: true, secure: true, supportFetchAPI: true } }])
 
 let window: BrowserWindow | null = null
+let returnFocus = false
+function focusMainWindow(): void {
+  if (!window || window.isDestroyed()) { returnFocus = true; return }
+  returnFocus = false
+  if (window.isMinimized()) window.restore()
+  window.show()
+  window.focus()
+}
+function registerDesktopProtocol(): void {
+  const entry = process.argv[1]
+  const registration = protocolRegistration({ defaultApp: process.defaultApp === true, execPath: process.execPath, ...(entry ? { entry } : {}) })
+  if (registration.command && registration.args) app.setAsDefaultProtocolClient(registration.scheme, registration.command, registration.args)
+  else app.setAsDefaultProtocolClient(registration.scheme)
+}
 let language: LanguagePreference
 let releaseRenderer: (() => void) | undefined
 let updates: UpdateService
@@ -148,7 +163,7 @@ async function createWindow(): Promise<void> {
   const changed = () => { if (saving) clearTimeout(saving); saving = setTimeout(persist, 200) }
   window.on('resize', changed); window.on('move', changed)
   window.on('close', persist)
-  window.once('ready-to-show', () => { window?.show(); firstVisible = true; startInitialReconcile() })
+  window.once('ready-to-show', () => { window?.show(); firstVisible = true; startInitialReconcile(); if (returnFocus) focusMainWindow() })
   window.on('focus', () => { void requestReconcile(); sync?.nudge() })
   window.on('closed', () => { window = null })
   await window.loadURL(trustedUrl)
@@ -157,12 +172,18 @@ async function createWindow(): Promise<void> {
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    if (window?.isMinimized()) window.restore()
-    window?.show()
-    window?.focus()
+  // macOS delivers goalloom://signed-in here. The URL is not loaded; the existing window comes forward.
+  app.on('open-url', (event, url) => {
+    event.preventDefault()
+    if (isGoalloomProtocol(url)) focusMainWindow()
+  })
+  // Windows delivers the same URL on argv. Any other second launch still focuses the open window.
+  app.on('second-instance', (_event, argv) => {
+    if (secondInstanceFocus(argv)) focusMainWindow()
   })
   app.whenReady().then(async () => {
+    registerDesktopProtocol()
+    if (protocolUrlFromArgv(process.argv)) focusMainWindow()
     // Packaged builds take the icon from the bundle; the dev Electron binary would otherwise show its own.
     if (!app.isPackaged) app.dock?.setIcon(join(directory, '../../resources/icon.png'))
     restrictSession(session.defaultSession)
@@ -187,6 +208,7 @@ if (!app.requestSingleInstanceLock()) {
     const syncing = sync = new SyncService({
       userData: app.getPath('userData'), cipher: deviceCipher, storage: storageProxy,
       openExternal: url => shell.openExternal(url),
+      onBrowserReturn: () => focusMainWindow(),
       notify: status => send(syncEvent, status),
       onApplied: () => { send('goalloom:changed', null); void requestReconcile(false) },
       onSettings: rows => projectSettingRows(rows, {

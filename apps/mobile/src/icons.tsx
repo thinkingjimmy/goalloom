@@ -1,17 +1,19 @@
 import { useId } from 'react'
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import {
-  Add01Icon, AlarmClockIcon, ArrowDown01Icon, ArrowRight01Icon, Cancel01Icon, Delete02Icon,
-  GitBranchIcon, GridViewIcon, InboxIcon, InformationCircleIcon, Link01Icon, MoreHorizontalIcon,
-  Note01Icon, PaintBoardIcon, SlidersHorizontalIcon, Tick02Icon,
+  Add01Icon, AlarmClockIcon, AppleIcon, ArrowDown01Icon, ArrowLeft01Icon, ArrowRight01Icon, ArrowUp01Icon, Cancel01Icon,
+  ComputerPhoneSyncIcon, Delete02Icon, GitBranchIcon, GridViewIcon, InboxIcon, InformationCircleIcon,
+  Link01Icon, Login01Icon, MoreHorizontalIcon, Note01Icon, PaintBoardIcon, SlidersHorizontalIcon,
+  SmartPhone01Icon, SquareLock01Icon, Tick02Icon, ViewIcon, ViewOffIcon,
 } from '@hugeicons/core-free-icons'
 
 type SvgNode = readonly [string, { readonly [key: string]: string | number }]
 const icons = {
-  add: Add01Icon, overdue: AlarmClockIcon, down: ArrowDown01Icon, next: ArrowRight01Icon, close: Cancel01Icon,
+  add: Add01Icon, overdue: AlarmClockIcon, back: ArrowLeft01Icon, down: ArrowDown01Icon, next: ArrowRight01Icon, send: ArrowUp01Icon, close: Cancel01Icon,
   trash: Delete02Icon, board: GridViewIcon, later: InboxIcon, info: InformationCircleIcon, link: Link01Icon,
   more: MoreHorizontalIcon, note: Note01Icon, appearance: PaintBoardIcon, settings: SlidersHorizontalIcon,
-  flow: GitBranchIcon, check: Tick02Icon,
+  flow: GitBranchIcon, check: Tick02Icon, phone: SmartPhone01Icon, eye: ViewIcon, eyeOff: ViewOffIcon,
+  sync: ComputerPhoneSyncIcon, lock: SquareLock01Icon, login: Login01Icon, apple: AppleIcon,
 } as const
 export type IconName = keyof typeof icons
 

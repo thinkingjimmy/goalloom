@@ -10,6 +10,7 @@ export default defineConfig({
     include: [
       'apps/desktop/tests/**/*.test.ts',
       'packages/crypto/test/**/*.test.ts',
+      'packages/local-store/test/**/*.test.ts',
       'packages/tests/**/*.test.ts',
     ],
     environment: 'node',

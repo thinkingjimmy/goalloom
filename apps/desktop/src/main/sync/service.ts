@@ -19,7 +19,7 @@ import { syncActionSchema, syncReplySchema, type SyncAction, type SyncReply, typ
 import type { StorageClient } from '../storage/client'
 import type { Cipher } from '../smart/credentials'
 import { readSyncConfig } from './config'
-import { googleSignIn, supabaseClient } from './oauth'
+import { googleSignIn, supabaseClient, type OAuthListenOptions } from './oauth'
 import { SyncVault, type VaultSecrets } from './vault'
 
 type Phase = SyncStatus['phase']
@@ -86,7 +86,9 @@ export class SyncService {
     language?: () => string
     clipboard: (text: string) => void
     now: () => string
-    beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>, options?: { signal?: AbortSignal }) => Promise<Session>
+    /** Focus the desktop window once the loopback page has been sent. */
+    onBrowserReturn?: () => void
+    beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>, options?: OAuthListenOptions) => Promise<Session>
   }) {
     this.vault = new SyncVault(deps.userData, deps.cipher)
   }
@@ -208,7 +210,8 @@ export class SyncService {
       if (signal.aborted) { reject(new SyncFailure('auth', 'cancelled')); return }
       const onAbort = () => reject(new SyncFailure('auth', 'cancelled'))
       signal.addEventListener('abort', onAbort, { once: true })
-      void (this.deps.beginSignIn ?? googleSignIn)(this.client!, this.deps.openExternal, { signal }).then(session => {
+      const onCallback = this.deps.onBrowserReturn
+      void (this.deps.beginSignIn ?? googleSignIn)(this.client!, this.deps.openExternal, { signal, ...(onCallback ? { onCallback } : {}) }).then(session => {
         signal.removeEventListener('abort', onAbort)
         resolve(session)
       }, error => {
