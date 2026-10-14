@@ -6,6 +6,9 @@ name: Draft desktop release
 # never changes the prerelease flag.
 # Hosted gates are typecheck, pnpm test, build, packaging, and the packaged
 # smokes from ci.yml. Full local `pnpm verify` is unchanged.
+#
+# Do not add pull_request or pull_request_target. Fork pull requests must never
+# receive the release environment's signing secrets.
 on:
   workflow_dispatch:
     inputs:
@@ -26,20 +29,60 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  package:
-    name: Package ${{ matrix.package }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15
-            arch: arm64
-            package: mac
-          - os: windows-2025
-            arch: x64
-            package: win
-    runs-on: ${{ matrix.os }}
+  test-mac:
+    name: Test macOS
+    runs-on: macos-15
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.21.0"
+          architecture: arm64
+          cache: pnpm
+      - name: Record hosted VM scope
+        run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0]?.model})); if(process.arch !== 'arm64') process.exit(1)"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  test-win:
+    name: Test Windows
+    runs-on: windows-2025
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.21.0"
+          architecture: x64
+          cache: pnpm
+      - name: Record hosted VM scope
+        run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0]?.model})); if(process.arch !== 'x64') process.exit(1)"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  package-mac:
+    name: Package and notarize macOS
+    needs: test-mac
+    runs-on: macos-15
     timeout-minutes: 90
+    environment: release
     permissions:
       contents: read
       actions: write
@@ -47,21 +90,17 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24.21.0"
-          architecture: ${{ matrix.arch }}
+          architecture: arm64
           cache: pnpm
       - name: Record hosted VM scope
-        run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0].model})); if(process.arch !== '${{ matrix.arch }}') process.exit(1)"
+        run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0]?.model})); if(process.arch !== 'arm64') process.exit(1)"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
       - name: Prepare macOS signing
-        if: matrix.package == 'mac'
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
@@ -71,7 +110,6 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash .github/scripts/macos-signing.sh prepare
       - name: Package macOS
-        if: matrix.package == 'mac'
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
@@ -101,17 +139,71 @@ jobs:
             exit 1
           fi
       - name: Notarize the macOS disk image
-        if: matrix.package == 'mac'
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash .github/scripts/macos-signing.sh notarize-dmg
       - name: Verify macOS signature and notarization
-        if: matrix.package == 'mac'
         run: bash .github/scripts/macos-signing.sh verify
+      - name: Packaged macOS smoke
+        working-directory: apps/desktop
+        run: |
+          node tests/workspace.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+          node tests/history.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+          node tests/recovery.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
+      - name: Stage auto-update assets
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./apps/desktop/package.json').version")"
+          stage="${RUNNER_TEMP}/update-assets"
+          mkdir -p "$stage"
+          names=(
+            "Goalloom-${version}-mac-arm64.dmg"
+            "Goalloom-${version}-mac-arm64.zip"
+            "Goalloom-${version}-mac-arm64.zip.blockmap"
+            "latest-mac.yml"
+          )
+          for name in "${names[@]}"; do
+            if [[ ! -f "apps/desktop/release/${name}" ]]; then
+              echo "Missing apps/desktop/release/${name}" >&2
+              exit 1
+            fi
+            cp "apps/desktop/release/${name}" "${stage}/${name}"
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-update-mac
+          retention-days: 7
+          if-no-files-found: error
+          path: ${{ runner.temp }}/update-assets/*
+      - name: Remove macOS signing material
+        if: always()
+        run: bash .github/scripts/macos-signing.sh cleanup
+
+  package-win:
+    name: Package Windows
+    needs: test-win
+    runs-on: windows-2025
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.21.0"
+          architecture: x64
+          cache: pnpm
+      - name: Record hosted VM scope
+        run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0]?.model})); if(process.arch !== 'x64') process.exit(1)"
+      - run: pnpm install --frozen-lockfile
       - name: Package Windows
-        if: matrix.package == 'win'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           GOALLOOM_SUPABASE_ANON_KEY: ${{ secrets.GOALLOOM_SUPABASE_ANON_KEY }}
@@ -122,15 +214,7 @@ jobs:
             echo "::warning title=Sync unconfigured::GOALLOOM_SUPABASE_ANON_KEY is empty. The build continues and the packaged app leaves sync unconfigured."
           fi
           pnpm run package:win
-      - name: Packaged macOS smoke
-        if: runner.os == 'macOS'
-        working-directory: apps/desktop
-        run: |
-          node tests/workspace.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
-          node tests/history.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
-          node tests/recovery.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
       - name: Packaged Windows smoke
-        if: runner.os == 'Windows'
         working-directory: apps/desktop
         run: |
           node tests/workspace.mjs release/win-unpacked/Goalloom.exe
@@ -142,20 +226,11 @@ jobs:
           version="$(node -p "require('./apps/desktop/package.json').version")"
           stage="${RUNNER_TEMP}/update-assets"
           mkdir -p "$stage"
-          if [[ "${{ matrix.package }}" == "mac" ]]; then
-            names=(
-              "Goalloom-${version}-mac-arm64.dmg"
-              "Goalloom-${version}-mac-arm64.zip"
-              "Goalloom-${version}-mac-arm64.zip.blockmap"
-              "latest-mac.yml"
-            )
-          else
-            names=(
-              "Goalloom-${version}-win-x64.exe"
-              "Goalloom-${version}-win-x64.exe.blockmap"
-              "latest.yml"
-            )
-          fi
+          names=(
+            "Goalloom-${version}-win-x64.exe"
+            "Goalloom-${version}-win-x64.exe.blockmap"
+            "latest.yml"
+          )
           for name in "${names[@]}"; do
             if [[ ! -f "apps/desktop/release/${name}" ]]; then
               echo "Missing apps/desktop/release/${name}" >&2
@@ -163,19 +238,16 @@ jobs:
             fi
             cp "apps/desktop/release/${name}" "${stage}/${name}"
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: desktop-update-${{ matrix.package }}
+          name: desktop-update-win
           retention-days: 7
           if-no-files-found: error
           path: ${{ runner.temp }}/update-assets/*
-      - name: Remove macOS signing material
-        if: always() && matrix.package == 'mac'
-        run: bash .github/scripts/macos-signing.sh cleanup
 
   draft:
     name: Draft GitHub Release
-    needs: package
+    needs: [package-mac, package-win]
     if: github.event_name == 'push' || inputs.update_draft == true
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -183,8 +255,8 @@ jobs:
       contents: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: desktop-update-*
           merge-multiple: true
