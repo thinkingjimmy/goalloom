@@ -66,7 +66,16 @@ prepare() {
   security unlock-keychain -p "$password" "$keychain_path"
   security import "$p12_path" -k "$keychain_path" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security >/dev/null
   rm -f "$p12_path"
-  security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain_path" >/dev/null
+  # unsigned: lets a non-Apple caller (electron-builder's node) use the key without a SecurityAgent prompt.
+  local partition_out partition_status=0
+  partition_out="$(security set-key-partition-list -S apple-tool:,apple:,codesign:,unsigned: -s -k "$password" "$keychain_path" 2>&1)" || partition_status=$?
+  if [[ "$partition_status" -eq 0 ]]; then
+    echo "set-key-partition-list succeeded."
+  else
+    echo "::error::set-key-partition-list failed."
+    printf '%s\n' "$partition_out" | grep -F -v -- "$password" || true
+    exit 1
+  fi
   # shellcheck disable=SC2046
   security list-keychains -d user -s "$keychain_path" $(security list-keychains -d user | tr -d '"')
 
@@ -82,6 +91,9 @@ prepare() {
 
   if [[ -n "${GITHUB_ENV:-}" ]]; then
     printf 'APPLE_API_KEY=%s\n' "$key_path" >> "$GITHUB_ENV"
+    # electron-builder 26.15.3, with CSC_LINK unset: MacPackager.codeSigningInfo
+    # reads CSC_KEYCHAIN, buildSignOptions sets SignOptions.keychain, and
+    # @electron/osx-sign adds `codesign --keychain`. mac.keychain is not a config key.
     printf 'CSC_KEYCHAIN=%s\n' "$keychain_path" >> "$GITHUB_ENV"
     # Keep the Apple ID flow from stealing notarization if a runner image sets it.
     # APPLE_KEYCHAIN is that flow's keychain name, not CSC_KEYCHAIN.
@@ -99,18 +111,25 @@ unlock() {
     echo "::error::CSC_NAME must be the Developer ID common name, without the certificate prefix."
     exit 1
   fi
-  local password identity probe pid i
+  local password identity probe entitlements pid i
   password="$(cat "$password_path")"
   security unlock-keychain -p "$password" "$keychain_path"
   # shellcheck disable=SC2046
   security list-keychains -d user -s "$keychain_path" $(security list-keychains -d user | tr -d '"')
   security default-keychain -s "$keychain_path"
   identity="Developer ID Application: ${CSC_NAME}"
+  # Same flags as the codesign that hung (--timestamp --options runtime --entitlements)
+  # on a Mach-O copy, and no --keychain so this uses the search list. osx-sign itself
+  # still receives --keychain from CSC_KEYCHAIN; see the note in prepare.
+  entitlements="apps/desktop/build/entitlements.mac.inherit.plist"
+  [[ -f "$entitlements" ]] || {
+    echo "::error::Missing ${entitlements}"
+    exit 1
+  }
   probe="${RUNNER_TEMP}/goalloom-sign-probe"
-  printf 'probe\n' > "$probe"
-  # A locked key or a second copy of this identity makes codesign wait on a GUI prompt.
-  # Kill that wait in seconds instead of hanging the packaging step.
-  codesign --force --sign "$identity" --keychain "$keychain_path" "$probe" &
+  cp /usr/bin/true "$probe"
+  chmod u+w "$probe"
+  codesign --sign "$identity" --force --timestamp --options runtime --entitlements "$entitlements" "$probe" &
   pid=$!
   for i in $(seq 1 20); do
     if ! kill -0 "$pid" 2>/dev/null; then
