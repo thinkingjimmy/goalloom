@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { noteDevicePref } from './device-pref-bus'
 
 export const shortcutIds = ['palette', 'compose', 'settings', 'undo', 'submit'] as const
 export type ShortcutId = typeof shortcutIds[number]
@@ -82,14 +83,15 @@ const isCombo = (value: unknown): value is string => typeof value === 'string' &
 
 // Only differences from the defaults are stored: rebound keys plus `filters: false` when the position filters are off.
 type Stored = Partial<Bindings> & { filters?: false }
+function parseStored(value: unknown): Stored {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const stored = value as Record<string, unknown>
+  const keys: Stored = Object.fromEntries(shortcutIds.filter(id => id in stored && (stored[id] === null || isCombo(stored[id]))).map(id => [id, stored[id]]))
+  return stored.filters === false ? { ...keys, filters: false } : keys
+}
+
 function load(): Stored {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(storageKey) ?? '{}')
-    if (!value || typeof value !== 'object') return {}
-    const stored = value as Record<string, unknown>
-    const keys: Stored = Object.fromEntries(shortcutIds.filter(id => id in stored && (stored[id] === null || isCombo(stored[id]))).map(id => [id, stored[id]]))
-    return stored.filters === false ? { ...keys, filters: false } : keys
-  } catch { return {} }
+  try { return parseStored(JSON.parse(localStorage.getItem(storageKey) ?? '{}')) } catch { return {} }
 }
 
 interface State { bindings: Bindings; filters: boolean }
@@ -100,12 +102,16 @@ const derive = (stored: Stored): State => {
 let overrides = load()
 let state = derive(overrides)
 const listeners = new Set<() => void>()
-function save(next: Stored) {
+function save(next: Stored, report = true) {
   overrides = next
   state = derive(overrides)
   try { localStorage.setItem(storageKey, JSON.stringify(overrides)) } catch { /* Device preference only; the session keeps working without persistence. */ }
   listeners.forEach(listener => listener())
+  if (report) noteDevicePref('shortcuts', overrides)
 }
+
+export function currentShortcutOverrides(): Stored { return overrides }
+export function applyShortcuts(value: unknown): void { save(parseStored(value), false) }
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
 
 export interface Shortcuts {

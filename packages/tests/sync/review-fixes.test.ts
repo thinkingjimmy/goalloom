@@ -6,13 +6,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { expect, it } from 'vitest'
-import { hex, newRecovery, publicFromSeed, sha256Hex, systemRandom, utf8 } from '@goalloom/crypto'
+import { parseSyncOp, syncOpPayload } from '@goalloom/contracts'
+import { hex, newRecovery, publicFromSeed, rosterHash, sha256Hex, systemRandom, utf8 } from '@goalloom/crypto'
 import {
-  createRemoteWorkspace, exchange, joinWorkspace, maxOpCiphertextBytes, memoryRemote, newDeviceSecret, unlockWithPassword,
+  createRemoteWorkspace, exchange, joinWorkspace, maxOpCiphertextBytes, memoryRemote, newDeviceSecret, openOpWire, sealOpWire, unlockWithPassword,
   SyncFailure, createMemoryWorld, type SyncRemote,
 } from '@goalloom/sync'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
-import type { SqlDriver, SqlValue } from '@goalloom/store-core'
+import { redactSyncOp, secretFingerprint, type SqlDriver, type SqlValue } from '@goalloom/store-core'
 import { currentPeriod } from '../../../apps/desktop/src/domain/calendar'
 import { openDatabase } from '../../../apps/desktop/src/main/storage/database'
 import { migrate } from '../../../apps/desktop/src/main/storage/schema'
@@ -597,4 +598,123 @@ it('keeps the previous Google account key when another account signs in', async 
   await opened.afterAuth()
   expect(rebound).toBe(deviceA)
   expect(hex(opened.secrets.workspaceKey!)).toBe(hex(key))
+})
+
+it('seeds settings when an already-bound account resumes', async () => {
+  const cipher = identityCipher()
+  const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-seed-'))
+  const deviceSecret = newDeviceSecret()
+  const workspaceId = randomUUID()
+  const deviceId = randomUUID()
+  const calls: { method: string; type?: string; entries?: { key: string; value: unknown }[] }[] = []
+  const service = new SyncService({
+    userData, cipher,
+    storage: { call: async (method: string, argument?: unknown) => {
+      const action = argument as { type?: string; entries?: { key: string; value: unknown }[] } | undefined
+      calls.push({ method, ...(action?.type ? { type: action.type } : {}), ...(action?.entries ? { entries: action.entries } : {}) })
+      if (method === 'metadata') return { workspace: { theme: 'dark', style: 'paper', checkStyle: 'outline', backupEnabled: true, backupRetention: 7 } }
+      if (action?.type === 'view') return { workspaceId, deviceId, generation: workspaceId, keyEpoch: 1, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 0 }
+      return null
+    } } as unknown as StorageClient,
+    openExternal: async () => undefined, notify: () => undefined, onApplied: () => undefined, clipboard: () => undefined, now: () => now,
+    collectSeed: async () => [{ key: 'relationLines', value: false }],
+    language: () => 'en',
+  })
+  const opened = service as unknown as {
+    started: boolean
+    secrets: VaultSecrets
+    remote: SyncRemote
+    client: { auth: { getSession: () => Promise<{ data: { session: { user: { id: string } } | null } }> }; channel: () => { on: () => unknown; subscribe: () => void; unsubscribe: () => Promise<void> } }
+    afterAuth: () => Promise<void>
+  }
+  opened.started = true
+  opened.secrets = {
+    deviceId, signSk: deviceSecret.signSk, boxSk: deviceSecret.boxSk, workspaceKey: randomBytes(32), workspaceId,
+    generation: workspaceId, epoch: 1,
+    roster: { workspaceId, version: 1, epoch: 1, prevHash: null, devices: [{ id: deviceId, signPub: 'aa', boxPub: 'bb' }], recoverySignPub: 'aa', recoveryBoxPub: 'bb' },
+    recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: 'user-a', accounts: {},
+  }
+  opened.client = {
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-a' } } } }) },
+    channel: () => ({ on() { return this }, subscribe() { return undefined }, async unsubscribe() { return undefined } }),
+  }
+  opened.remote = {
+    account: async () => ({ workspaceId, generation: workspaceId, keyEpoch: 1, headSeq: 0, rosterVersion: 1 }),
+    rebindDevice: async () => undefined, registerDevice: async () => randomUUID(),
+    getRoster: async () => { throw new SyncFailure('network') },
+    pullOps: async () => [], pushOps: async () => [], getEnvelopes: async () => [],
+    bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
+    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined, resetSync: async () => undefined,
+  }
+  await opened.afterAuth()
+  const seeded = calls.find(call => call.type === 'emit-settings')
+  expect(seeded?.entries).toEqual(expect.arrayContaining([
+    { key: 'theme', value: 'dark' },
+    { key: 'language', value: 'en' },
+    { key: 'relationLines', value: false },
+  ]))
+})
+
+it('seals an API key from the keychain and writes the fingerprint on absorb', async () => {
+  const apiKey = 'sk-sync-settings-OPENROUTER-key-9f3c1a7b'
+  const cipher = identityCipher()
+  const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-key-'))
+  const deviceSecret = newDeviceSecret()
+  const workspaceId = randomUUID()
+  const deviceId = randomUUID()
+  const workspaceKey = randomBytes(32)
+  const roster = { workspaceId, version: 1, epoch: 1, prevHash: null, devices: [{ id: deviceId, signPub: 'aa', boxPub: 'bb' }], recoverySignPub: 'aa', recoveryBoxPub: 'bb' }
+  const localId = randomUUID()
+  const remoteId = randomUUID()
+  const redacted = redactSyncOp(parseSyncOp({
+    v: 1, opId: localId, deviceId, at: now, actions: [{ t: 'pref.set', key: 'ai.key.openrouter', value: apiKey }],
+  }))
+  const payload = syncOpPayload(redacted)
+  const pending = { opId: localId, localOrder: 1, payload, payloadHash: sha256Hex(payload) }
+  const remoteOp = parseSyncOp({
+    v: 1, opId: remoteId, deviceId: randomUUID(), at: now, actions: [{ t: 'pref.set', key: 'ai.key.vercel-gateway', value: apiKey }],
+  })
+  const wire = sealOpWire({ op: remoteOp, workspaceKey, workspaceId, epoch: 1 })
+  const absorbed: unknown[] = []
+  const applied: { key: string; value: string | null }[] = []
+  let pushed: { opId: string; payloadHash: string; formatVersion: number; keyEpoch: number; ciphertext: string }[] = []
+  const service = new SyncService({
+    userData, cipher,
+    storage: { call: async (_method: string, argument?: unknown) => {
+      const action = argument as { type?: string; ops?: unknown[] }
+      if (action?.type === 'view') return { workspaceId, deviceId, generation: workspaceId, keyEpoch: 1, paused: null, lastAppliedSeq: 0, pending: 1, conflicts: 0, localItems: 0 }
+      if (action?.type === 'take') return [pending]
+      if (action?.type === 'accept') return null
+      if (action?.type === 'absorb') { absorbed.push(...(action.ops ?? [])); return 1 }
+      if (action?.type === 'settings') return []
+      return null
+    } } as unknown as StorageClient,
+    openExternal: async () => undefined, notify: () => undefined, onApplied: () => undefined, clipboard: () => undefined, now: () => now,
+    readSecret: async key => (key === 'ai.key.openrouter' ? apiKey : null),
+    applySecret: async (key, value) => { applied.push({ key, value }) },
+  })
+  const opened = service as unknown as { started: boolean; phase: string; secrets: VaultSecrets; remote: SyncRemote; pushAndPull: () => Promise<void> }
+  opened.started = true
+  opened.phase = 'ready'
+  opened.secrets = {
+    deviceId, signSk: deviceSecret.signSk, boxSk: deviceSecret.boxSk, workspaceKey, workspaceId,
+    generation: workspaceId, epoch: 1, roster, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
+  }
+  opened.remote = {
+    account: async () => null,
+    rebindDevice: async () => undefined, registerDevice: async () => deviceId,
+    getRoster: async () => [{ version: 1, roster, bodyHash: rosterHash(roster), signature: 'aa', signerType: 'device', signerDevice: deviceId }],
+    pullOps: async () => [{ seq: 1, opId: remoteId, payloadHash: wire.payloadHash, formatVersion: 1, keyEpoch: 1, ciphertext: wire.ciphertext }],
+    pushOps: async input => { pushed = input.ops; return input.ops.map((op, index) => ({ opId: op.opId, seq: index + 2 })) },
+    getEnvelopes: async () => [],
+    bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
+    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined, resetSync: async () => undefined,
+  }
+  await opened.pushAndPull()
+  const sealed = pushed[0]
+  expect(sealed).toBeTruthy()
+  expect(JSON.stringify(openOpWire({ seq: 1, ...sealed! }, { workspaceKey, workspaceId }))).toContain(apiKey)
+  expect(JSON.stringify(absorbed)).not.toContain(apiKey)
+  expect(JSON.stringify(absorbed)).toContain(secretFingerprint(apiKey))
+  expect(applied).toEqual([{ key: 'ai.key.vercel-gateway', value: apiKey }])
 })

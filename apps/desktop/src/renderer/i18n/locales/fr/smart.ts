@@ -112,7 +112,7 @@ export const smartMessages: SmartCatalog = {
   featureOn: (name: string) => `${name} : activé`,
   featureOff: (name: string) => `${name} : désactivé`,
   insightNeedsChat: 'Ce service n’a pas de modèle de rédaction. Ajoutez plus tard une clé OpenRouter ou Vercel AI Gateway dans Réglages › Services d’IA pour l’activer ; les ruptures restent signalées.',
-  doneFootnote: 'La clé est stockée chiffrée sur cet ordinateur et n’entre jamais dans les sauvegardes de l’espace de travail.',
+  doneFootnote: 'La clé ne se synchronise que dans le canal chiffré, reste dans le trousseau de cet appareil et n’entre pas dans les sauvegardes de l’espace de travail.',
   enterBoard: 'Aller au tableau',
   // --- Connect form (onboarding and Settings › AI services) ---
   keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],

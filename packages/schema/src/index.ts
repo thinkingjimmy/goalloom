@@ -5,4 +5,5 @@
  */
 export { businessTables, prefixShadowSql, shadowStatements, v9HistoryRewrite, v9SyncDdl, type MasterRow } from './v9'
 export { nestingMigrationSql } from './v10'
+export { syncSettingsDdl } from './settings'
 export { v8Ddl } from './v8'

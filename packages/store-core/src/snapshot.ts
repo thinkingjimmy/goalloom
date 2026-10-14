@@ -5,12 +5,15 @@
  */
 import type { SqlDriver, SqlValue } from './driver'
 import { SyncApplyError } from './driver'
+import { clearSyncSettings, readSettings, syncSettingsReady, writeSetting } from './settings'
+import { isSecretSettingKey, parseSetting } from '@goalloom/contracts'
 
 const tables = ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies', 'item_guidance'] as const
 
 export interface SnapshotBody {
   formatVersion: 1; protocolVersion: 1; workspaceId: string | null; generation: string
   uptoSeq: number; keyEpoch: number; tables: Record<string, Record<string, SqlValue>[]>; canonOps: Record<string, SqlValue>[]; canonChanges: Record<string, SqlValue>[]
+  settings?: { key: string; value: string | null; updatedAt: string; opId: string }[]
 }
 
 export function exportCanonicalSnapshot(driver: SqlDriver, input: { workspaceId: string | null; uptoSeq: number; keyEpoch: number }): SnapshotBody {
@@ -21,6 +24,7 @@ export function exportCanonicalSnapshot(driver: SqlDriver, input: { workspaceId:
     formatVersion: 1, protocolVersion: 1, workspaceId: input.workspaceId, generation, uptoSeq: input.uptoSeq, keyEpoch: input.keyEpoch, tables: tablesOut,
     canonOps: driver.prepare('SELECT * FROM canon_ops WHERE seq<=? ORDER BY seq').all(input.uptoSeq),
     canonChanges: driver.prepare('SELECT * FROM canon_changes WHERE seq<=? ORDER BY seq, idx').all(input.uptoSeq),
+    settings: readSettings(driver).filter(row => !isSecretSettingKey(row.key)).map(row => ({ key: row.key, value: row.value === null ? null : JSON.stringify(row.value), updatedAt: row.updatedAt, opId: row.opId })),
   }
 }
 
@@ -37,6 +41,16 @@ export function installCanonicalSnapshot(driver: SqlDriver, body: SnapshotBody, 
     for (const row of body.canonOps) insertRow(driver, 'canon_ops', row)
     for (const row of body.canonChanges) insertRow(driver, 'canon_changes', row)
     driver.prepare(`UPDATE sync_state SET workspaceId=?, lastAppliedSeq=?, keyEpoch=?, paused=NULL, updatedAt=? WHERE id=1`).run(body.workspaceId, body.uptoSeq, body.keyEpoch, at)
+    if (syncSettingsReady(driver)) {
+      clearSyncSettings(driver)
+      for (const row of body.settings ?? []) {
+        try {
+          const value = row.value === null ? null : JSON.parse(row.value) as unknown
+          const setting = parseSetting(row.key, value)
+          writeSetting(driver, setting.key, setting.value, row.updatedAt, row.opId)
+        } catch { /* An unknown key never becomes a local setting. */ }
+      }
+    }
     const generation = driver.prepare('SELECT generation FROM workspace WHERE id=1').get()?.generation
     if (String(generation) !== body.generation) throw new SyncApplyError('generation')
   })

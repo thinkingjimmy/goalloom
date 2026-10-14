@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Guarded workspace submission, local parent ordering and existing celebration preferences.
  * [OUTPUT]: Board ordering switch and per-column confetti controls with a preview.
- * [POS]: Workspace navigation's board pane; both preferences stay on this device.
+ * [POS]: Workspace navigation's board pane. Ordering and completion feedback sync between computers.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { horizons } from '../../../../shared/contracts/values'

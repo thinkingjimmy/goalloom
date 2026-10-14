@@ -1,7 +1,7 @@
 /**
  * [INPUT]: A fixed device directory, OS-protected cipher and bounded provider/feature schemas.
  * [OUTPUT]: Device configuration v3, encrypted keys and preserved v1/v2 settings with empty new purpose consent.
- * [POS]: Device-only AI persistence; keys and consent never enter workspace data or backups.
+ * [POS]: Device-only AI persistence. Keys stay in the OS cipher on disk. The workspace database stores a sha256 fingerprint. The sealed pref.set is built in memory from the keychain.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { mkdir, readFile, rm, writeFile, rename } from 'node:fs/promises'

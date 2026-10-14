@@ -13,7 +13,8 @@ import { aiFeatures, aiProviders, featureCapability, providerCapabilities } from
 import { smartActionSchema, type AiFeature, type AiProvider, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type DraftRequest, type Failure, type FailureKind, type ReviewRequest, type SmartReply, type SmartStatus, type TestOutcome, insightEvidenceSchema } from '../../shared/contracts/smart-input'
 import type { ChatPrompt } from '../../domain/smart/insight'
 import { chatSample, sampleAnswered, type ChatAdapter, type ChatProvider } from './insight'
-import { blankProvider, type DeviceConfig, type DeviceStore } from './credentials'
+import { isSecretFingerprint, parseSetting } from '@goalloom/contracts'
+import { blankProvider, type DeviceConfig, type DeviceStore, type ProviderConfig } from './credentials'
 import { Aborted, failure, JEV_PROVIDERS, ProviderFailure, type Adapter, type EvaluateOutput } from './providers'
 import { AssistanceService } from './assistance'
 import type { AssistanceContext } from '../../shared/contracts/assistance'
@@ -26,7 +27,7 @@ export interface WorkspaceReader {
   assistance?(itemId: string, generation: string): Promise<AssistanceContext>
   context(text: string, hints: string[], referenceTime: string): Promise<SmartContext | null>
 }
-export interface ServiceOptions { store: DeviceStore; adapters: Record<AiProvider, Adapter>; chat?: Partial<Record<ChatProvider, ChatAdapter>>; reader: WorkspaceReader; now?: () => number; unsignedBuild: boolean; openExternal?: (url: string) => void }
+export interface ServiceOptions { store: DeviceStore; adapters: Record<AiProvider, Adapter>; chat?: Partial<Record<ChatProvider, ChatAdapter>>; reader: WorkspaceReader; now?: () => number; unsignedBuild: boolean; openExternal?: (url: string) => void; onSyncedSettings?: (entries: { key: string; value: unknown }[]) => void }
 
 // Fixed, non-private sample: a real judgement plus schema check, so a key string alone never counts as connected.
 const sample = {
@@ -41,6 +42,10 @@ const accountFailures: ReadonlySet<FailureKind> = new Set(['account_verification
 const credentialFailure = (state: 'missing' | 'unreadable' | 'unavailable', provider: AiProvider, missing: FailureKind) => failure(state === 'unavailable' ? 'credential_unavailable' : state === 'unreadable' ? 'credential_unreadable' : missing, provider)
 const usable = (config: DeviceConfig, feature: AiFeature, provider: AiProvider | null): provider is AiProvider =>
   !!provider && !!config.providers[provider].consentedAt && !!config.providers[provider].capabilities[featureCapability[feature]]
+const metaOf = (provider: ProviderConfig) => ({
+  consentedAt: provider.consentedAt, verifiedAt: provider.verifiedAt, keyHint: provider.keyHint,
+  capabilities: provider.capabilities, assistanceConsent: provider.assistanceConsent,
+})
 
 export class SmartInputService {
   private readonly assistance: AssistanceService
@@ -65,6 +70,74 @@ export class SmartInputService {
   }
   validateAssistanceApply(command: CommandOf<'applyAssistance'>): Promise<void> { return this.assistance.validateApply(command) }
 
+  /** Saved keys only. A missing key is not seeded as null, so another computer's key is not deleted. */
+  async syncedSettingEntries(): Promise<{ key: string; value: unknown }[]> {
+    const config = await this.options.store.config()
+    const entries: { key: string; value: unknown }[] = []
+    for (const provider of aiProviders) {
+      const read = await this.options.store.readKey(provider)
+      if (read.state === 'saved') entries.push({ key: `ai.key.${provider}`, value: read.key })
+      if (config.providers[provider].consentedAt || config.providers[provider].verifiedAt) entries.push({ key: `ai.meta.${provider}`, value: metaOf(config.providers[provider]) })
+      else if (read.state === 'saved') entries.push({ key: `ai.meta.${provider}`, value: metaOf(config.providers[provider]) })
+    }
+    for (const feature of aiFeatures) {
+      const setting = config.features[feature]
+      if (setting.provider || setting.enabledForGeneration) entries.push({ key: `ai.feature.${feature}`, value: { provider: setting.provider, enabled: setting.enabledForGeneration !== null } })
+    }
+    return entries
+  }
+
+  /** The keychain value for a synced secret. `undefined` means the cipher cannot be read yet. */
+  async syncedSecret(key: string): Promise<string | null | undefined> {
+    if (key !== 'ai.key.openrouter' && key !== 'ai.key.vercel-gateway') return undefined
+    const provider = key.slice('ai.key.'.length) as AiProvider
+    const read = await this.options.store.readKey(provider)
+    if (read.state === 'saved') return read.key
+    if (read.state === 'missing') return null
+    return undefined
+  }
+
+  /** Applies one remote setting into the keychain or device config. Does not emit another op. */
+  async applyRemoteSetting(key: string, value: unknown): Promise<void> {
+    const setting = parseSetting(key, value)
+    if ((setting.key === 'ai.key.openrouter' || setting.key === 'ai.key.vercel-gateway') && isSecretFingerprint(setting.value)) return
+    if (setting.key === 'ai.key.openrouter' || setting.key === 'ai.key.vercel-gateway') {
+      const provider = setting.key.slice('ai.key.'.length) as AiProvider
+      if (setting.value === null) { await this.options.store.removeKey(provider); return }
+      const current = await this.options.store.readKey(provider)
+      if (current.state === 'saved' && current.key === setting.value) return
+      await this.options.store.saveKey(provider, setting.value)
+      return
+    }
+    if (setting.key === 'ai.meta.openrouter' || setting.key === 'ai.meta.vercel-gateway') {
+      const provider = setting.key.slice('ai.meta.'.length) as AiProvider
+      await this.update(config => {
+        const current = config.providers[provider]
+        config.providers[provider] = { ...current, ...setting.value, lastFailure: current.lastFailure }
+      })
+      return
+    }
+    if (setting.key === 'ai.feature.smart' || setting.key === 'ai.feature.insight') {
+      const feature = setting.key.slice('ai.feature.'.length) as AiFeature
+      const generation = await this.options.reader.generation()
+      await this.update(config => {
+        const current = config.features[feature]
+        const enabledForGeneration = setting.value.enabled ? generation : null
+        if (current.provider === setting.value.provider && current.enabledForGeneration === enabledForGeneration) return
+        config.features[feature] = { provider: setting.value.provider, revision: current.revision + 1, enabledForGeneration }
+      })
+    }
+  }
+
+  private publish(entries: { key: string; value: unknown }[]): void {
+    if (entries.length) this.options.onSyncedSettings?.(entries)
+  }
+
+  private async publishProvider(provider: AiProvider): Promise<void> {
+    const config = await this.options.store.config()
+    this.publish([{ key: `ai.meta.${provider}`, value: metaOf(config.providers[provider]) }])
+  }
+
   private clearCache(): void { this.cache.clear(); this.cacheBytes = 0 }
 
   async handle(input: unknown): Promise<SmartReply> {
@@ -77,7 +150,10 @@ export class SmartInputService {
       case 'assist': return { type: 'assistance', reply: await this.assistance.assist(action.request) }
       case 'cancelAssistance': this.assistance.cancel(action.sessionId); return { type: 'cancelled' }
       case 'consentAssistance': {
-        if (action.generation === await this.options.reader.generation()) await this.update(config => { config.providers[action.provider].assistanceConsent = { version: 1, at: new Date(this.now()).toISOString() } })
+        if (action.generation === await this.options.reader.generation()) {
+          await this.update(config => { config.providers[action.provider].assistanceConsent = { version: 1, at: new Date(this.now()).toISOString() } })
+          await this.publishProvider(action.provider)
+        }
         return this.reply(action.generation, null)
       }
       case 'status': return this.reply(action.generation, null)
@@ -85,15 +161,24 @@ export class SmartInputService {
       case 'feature': await this.feature(action.generation, action.feature, action.provider, action.enabled); return this.reply(action.generation, null)
       case 'forget': {
         this.configurationRevision++; this.abortAll()
+        const cleared: AiFeature[] = []
         await this.update(async config => {
           await this.options.store.removeKey(action.provider)
           config.providers[action.provider] = blankProvider()
           for (const feature of aiFeatures) {
             const current = config.features[feature]
-            if (current.provider === action.provider) config.features[feature] = { provider: null, revision: current.revision + 1, enabledForGeneration: null }
+            if (current.provider !== action.provider) continue
+            cleared.push(feature)
+            config.features[feature] = { provider: null, revision: current.revision + 1, enabledForGeneration: null }
           }
         })
         this.cooldownUntil.delete(action.provider)
+        const config = await this.options.store.config()
+        this.publish([
+          { key: `ai.key.${action.provider}`, value: null },
+          { key: `ai.meta.${action.provider}`, value: metaOf(config.providers[action.provider]) },
+          ...cleared.map(feature => ({ key: `ai.feature.${feature}`, value: { provider: null, enabled: false } })),
+        ])
         return this.reply(action.generation, null)
       }
       case 'dismiss': await this.update(config => { if (!config.dismissed.includes(action.notice)) config.dismissed.push(action.notice) }); return this.reply(action.generation, null)
@@ -175,6 +260,9 @@ export class SmartInputService {
       if (current.provider === next.provider && current.enabledForGeneration === next.enabledForGeneration) return
       config.features[feature] = { ...next, revision: current.revision + 1 }
     })
+    const stored = await this.options.store.config()
+    const setting = stored.features[feature]
+    this.publish([{ key: `ai.feature.${feature}`, value: { provider: setting.provider, enabled: setting.enabledForGeneration !== null } }])
     if (feature === 'insight') { this.assistance.release(); for (const controller of this.insightControllers) controller.abort() }
     if (feature === 'smart') { this.configurationRevision++; this.abortAll() }
   }
@@ -229,6 +317,12 @@ export class SmartInputService {
         }
         await this.options.store.saveConfig(config)
         this.clearCache()
+        const saved = apiKey === null ? null : apiKey
+        this.publish([
+          ...(saved ? [{ key: `ai.key.${provider}`, value: saved }] : []),
+          { key: `ai.meta.${provider}`, value: metaOf(config.providers[provider]) },
+          ...enabled.map(feature => ({ key: `ai.feature.${feature}`, value: { provider, enabled: true } })),
+        ])
         return { ok: true, failure: failed, sampleMatched, results, enabled }
       })
     } finally { this.connections.delete(controller) }

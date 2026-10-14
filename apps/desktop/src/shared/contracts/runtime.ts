@@ -28,6 +28,16 @@ export const runtimeInfoSchema = z.strictObject({
 
 export type RuntimeInfo = z.infer<typeof runtimeInfoSchema>
 export const languageChannel = 'goalloom:language'
+export const languageEvent = 'goalloom:language-state'
+export const devicePrefsChannel = 'goalloom:device-prefs'
+export const devicePrefsEvent = 'goalloom:device-prefs'
+export const aiRefreshEvent = 'goalloom:ai-refresh'
+export const devicePrefEntrySchema = z.strictObject({ key: z.string().min(1).max(80), value: z.unknown() })
+export const devicePrefsReportSchema = z.strictObject({
+  mode: z.enum(['change', 'seed']),
+  entries: z.array(devicePrefEntrySchema).min(1).max(20),
+})
+export type DevicePrefEntry = z.infer<typeof devicePrefEntrySchema>
 export const languageSchema = z.enum(languages)
 export const languageStateSchema = z.strictObject({ language: languageSchema, locale: z.enum(locales), system: z.enum(locales) })
 export type LanguageState = z.infer<typeof languageStateSchema>
@@ -35,6 +45,11 @@ export interface GoalloomApi {
   getRuntime(): Promise<RuntimeInfo>
   getLanguage(): Promise<LanguageState>
   setLanguage(language: Language): Promise<LanguageState>
+  onLanguage(listener: (state: LanguageState) => void): () => void
+  pullDevicePrefs(): Promise<DevicePrefEntry[]>
+  reportDevicePrefs(entries: DevicePrefEntry[], mode: 'change' | 'seed'): Promise<void>
+  onDevicePrefs(listener: (entries: DevicePrefEntry[]) => void): () => void
+  onAiRefresh(listener: () => void): () => void
   getSnapshot(): Promise<Snapshot>
   getReviewContext(query: Extract<Query, { type: 'reviewContext' }>): Promise<ReviewContext>
   getBoardPeriods(query: Extract<Query, { type: 'boardPeriods' }>): Promise<BoardPeriods>

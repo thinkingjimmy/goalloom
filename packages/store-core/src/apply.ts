@@ -4,9 +4,10 @@
  * [POS]: Reference applier. It does not touch operations, item_events or undo_effects.
  */
 import type { Action, SyncOp } from '@goalloom/contracts'
-import { parseSyncOp } from '@goalloom/contracts'
+import { parseSetting, parseSyncOp } from '@goalloom/contracts'
 import type { ApplyHost, SqlDriver, SqlValue } from './driver'
 import { SyncApplyError } from './driver'
+import { writeSetting } from './settings'
 
 export interface CanonChange { itemId: string | null; dim: string; before: unknown; after: unknown }
 export interface AppliedOp { kind: string; outcome: 'applied' | 'partial'; changes: CanonChange[] }
@@ -48,9 +49,16 @@ function applyAction(driver: SqlDriver, prefix: string, op: SyncOp, action: Acti
     case 'guidance.set': return setGuidance(driver, prefix, op, action, changes)
     case 'policy.set': return setPolicy(driver, prefix, op, action, host, changes)
     case 'calendar.setup': return setupCalendar(driver, prefix, op, action, changes)
+    case 'pref.set': return setPreference(driver, op, action)
     case 'revert': return revert(driver, prefix, op, action, host, changes)
     default: throw new SyncApplyError('unsupported_version')
   }
+}
+
+function setPreference(driver: SqlDriver, op: SyncOp, action: Extract<Action, { t: 'pref.set' }>): 'applied' {
+  const setting = parseSetting(action.key, action.value)
+  writeSetting(driver, setting.key, setting.value, op.at, op.opId)
+  return 'applied'
 }
 
 function requireItem(driver: SqlDriver, prefix: string, id: string): Row {

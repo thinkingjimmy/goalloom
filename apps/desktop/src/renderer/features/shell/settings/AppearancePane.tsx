@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Workspace appearance preferences, submission controls, LanguageSelect and local relation-line preferences.
  * [OUTPUT]: Language, appearance and relation-line controls.
- * [POS]: Settings appearance pane; language and relation-line preferences remain device-local.
+ * [POS]: Settings appearance pane. Language, theme, style and relation lines sync between computers.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Workspace } from '../../../../shared/contracts/entities'

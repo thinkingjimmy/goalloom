@@ -5,10 +5,12 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { randomUUID } from 'node:crypto'
 import { extname } from 'node:path'
+import { isRendererSettingKey, parseSetting } from '@goalloom/contracts'
 import { commandSchema, DomainError, type CommandResult } from '../shared/contracts/commands'
 import { querySchema, type WorkspaceMetadata } from '../shared/contracts/queries'
-import { languageChannel, languageSchema, runtimeChannel, runtimeInfoSchema } from '../shared/contracts/runtime'
+import { devicePrefsChannel, devicePrefsReportSchema, languageChannel, languageSchema, runtimeChannel, runtimeInfoSchema } from '../shared/contracts/runtime'
 import type { LanguagePreference } from './window/language'
 import { isTrustedFrameUrl } from './security'
 import type { StorageClient } from './storage/client'
@@ -41,7 +43,28 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
     const state = await language.set(languageSchema.parse(args[0]))
     await storage.call('locale', state.locale)
+    try {
+      await storage.call('sync', { type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: 'change', entries: [{ key: 'language', value: state.language }] })
+      changed()
+    } catch { /* The language is saved on this device. The next change reports it again. */ }
     return state
+  })
+  ipcMain.handle(devicePrefsChannel, async (event, ...args: unknown[]) => {
+    guard(event)
+    if (args.length === 0) {
+      const rows = await storage.call<{ key: string; value: unknown }[]>('sync', { type: 'settings' })
+      return (Array.isArray(rows) ? rows : []).filter(row => isRendererSettingKey(row.key)).map(row => ({ key: row.key, value: row.value }))
+    }
+    if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
+    const report = devicePrefsReportSchema.parse(args[0])
+    const entries = report.entries.map(entry => {
+      if (!isRendererSettingKey(entry.key)) throw new Error(serverText().storage.invalidRequest)
+      const setting = parseSetting(entry.key, entry.value)
+      return { key: setting.key, value: setting.value }
+    })
+    await storage.call('sync', { type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: report.mode, entries })
+    changed()
+    return null
   })
   ipcMain.handle('goalloom:query', async (event, input: unknown) => {
     guard(event)

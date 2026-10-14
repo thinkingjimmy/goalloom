@@ -6,6 +6,8 @@ The password is an ordinary secret of 8 to 128 characters. Argon2id (`m=8192` Ki
 
 The engine lives in `packages/sync` (`SyncRemote`, session, board, codec). Desktop OAuth and the keychain vault stay in `apps/desktop/src/main/sync`. `apps/mobile` is not part of this change.
 
+Preferences and API keys use that same log. A theme, language, shortcut or saved key becomes a `pref.set` op and is sealed with the sync password’s workspace key. The other computer applies it without a restart. The key is stored again in that computer’s keychain. The workspace database keeps a sha256 fingerprint, not the key. Window size, the sync session, the device id and the sync password itself stay on the computer where they were created. Week start is already part of the locked calendar, not a separate preference.
+
 ## What the owner configures
 
 Do not commit the anon key or the Google client secret.

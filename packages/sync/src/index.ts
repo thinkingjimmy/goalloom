@@ -9,7 +9,7 @@ export { createMemoryWorld, memoryCiphertext, memoryRemote, type MemoryWorld } f
 export { bindWorkspace, captureVisibleBoard, clearProjection, conflictCount, localLiveCount, queueBaseline, queueVisibleBaseline, repairRejectedBaseline, stageImportedBoard, syncCursor, type LocalBoard } from './board'
 export {
   acceptPushResults, acceptRosterAdvance, absorbOpened, absorbPulled, bootstrapWorkspace, createRemoteWorkspace, downloadWorkspace,
-  changeSyncPassword, exchange, installJoined, joinWorkspace, newDeviceSecret, pullOpened, rebindMessage, sealPending, takePending, unlockWithPassword, workspaceKeyFromEnvelope,
-  type BoundWorkspace, type DeviceSecret, type PendingPlain,
+  changeSyncPassword, exchange, installJoined, joinWorkspace, newDeviceSecret, pullOpened, rebindMessage, restorePendingSecrets, sealPending, takePending, unlockWithPassword, workspaceKeyFromEnvelope,
+  type BoundWorkspace, type DeviceSecret, type PendingPlain, type SecretLookup,
 } from './session'
 export type { AccountView, DevicePlatform, PushResultWire, SyncRemote } from './remote'

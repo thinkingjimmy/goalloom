@@ -110,7 +110,7 @@ export const smartMessages: SmartCatalog = {
   featureOn: (name: string) => `${name}：オン`,
   featureOff: (name: string) => `${name}：オフ`,
   insightNeedsChat: 'このサービスには文章生成モデルがありません。あとで「設定 › AI サービス」に OpenRouter か Vercel AI Gateway のキーを追加するとオンにできます。途切れの表示はそのまま使えます。',
-  doneFootnote: 'キーはこのコンピュータに暗号化して保存され、ワークスペースのバックアップには入りません。',
+  doneFootnote: 'キーは暗号化された通信の中だけで同期され、この端末のキーチェーンに残り、ワークスペースのバックアップには入りません。',
   enterBoard: 'ボードへ',
   // --- Connect form (onboarding and Settings › AI services) ---
   keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],

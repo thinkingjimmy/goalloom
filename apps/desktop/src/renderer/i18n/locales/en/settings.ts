@@ -16,10 +16,10 @@ export const settingsMessages: SettingsCatalog = {
   parentOrder: "Sort by parent",
   parentOrderNote: 'Half-years, three-month periods, months, weeks, days and future periods follow their nearest parents. Drag within groups. Turning this off keeps the current order.',
   subtitles: {
-    ai: 'Add a key once and let smart input and insight each pick a service; keys stay encrypted in this device’s keychain and go only to the service you choose',
-    board: "Ordering and completion feedback, saved on this device",
+    ai: 'Add a key once and let smart input and insight each pick a service; keys sync end-to-end encrypted, stay in this device’s keychain, and go only to the service you choose',
+    board: 'Ordering and completion feedback sync between computers',
     insight: 'Breakpoints, reviews, and how drafting understands you',
-    appearance: 'Only affects this device’s display; not recorded in workspace history',
+    appearance: 'Theme, style and language sync between computers, and are not part of task history',
     smart: 'Jev turns a sentence into an editable action preview; nothing is written until you confirm',
     calendar: 'The calendar locks after initial setup; each column decides what happens to overdue unfinished items',
     backup: 'Backups are stored on this computer; restoring replaces the whole workspace without merging',
@@ -43,7 +43,7 @@ export const settingsMessages: SettingsCatalog = {
   privacyPoints: [
     'Only the service a feature is using receives content; features that are off send nothing',
     'Smart input sends only the current input text, the workspace date and goals you mention or select; insight sends only a board summary and your preferences',
-    'Descriptions, history and trash are never sent; keys stay encrypted on this device, outside workspace data, backups and exports',
+    'Descriptions, history and trash are never sent; keys sync only inside the encrypted channel, stay in this device’s keychain, and never enter workspace backups or exports',
   ],
   // Calendar
   calendarSettings: 'Calendar settings',

@@ -16,10 +16,10 @@ export const settingsMessages: SettingsCatalog = {
   parentOrder: "Trier selon les parents",
   parentOrderNote: 'Les semestres, périodes de trois mois, mois, semaines, jours et périodes futures suivent leurs parents les plus proches. Glissez dans un groupe. Désactiver conserve l’ordre actuel.',
   subtitles: {
-    ai: 'Ajoutez une clé une fois, puis la saisie intelligente et les Aperçus choisissent chacun leur service ; les clés restent chiffrées dans le trousseau de cet appareil et ne vont qu’au service choisi',
-    board: "Ordre et retours de fin, enregistrés sur cet appareil",
+    ai: 'Ajoutez une clé une fois, puis la saisie intelligente et les Aperçus choisissent chacun leur service ; les clés se synchronisent chiffrées de bout en bout, restent dans le trousseau de cet appareil et ne vont qu’au service choisi',
+    board: 'L’ordre et les retours de fin se synchronisent entre ordinateurs',
     insight: 'Ruptures, bilans et comment la rédaction vous comprend',
-    appearance: 'Ne concerne que l’affichage sur cet appareil, sans entrer dans l’historique de l’espace de travail',
+    appearance: 'Le thème, le style et la langue se synchronisent entre ordinateurs et ne font pas partie de l’historique des tâches',
     smart: 'Jev transforme une phrase en aperçu d’actions modifiable ; rien n’est écrit avant votre confirmation',
     calendar: 'Le calendrier est verrouillé après la première confirmation ; chaque colonne décide du sort des éléments non terminés à échéance',
     backup: 'Les sauvegardes restent sur cet ordinateur ; une restauration remplace toute la base, sans fusion',
@@ -43,7 +43,7 @@ export const settingsMessages: SettingsCatalog = {
   privacyPoints: [
     'Seul le service utilisé par une fonction reçoit du contenu ; une fonction désactivée n’envoie rien',
     'La saisie intelligente n’envoie que le texte saisi, la date de l’espace de travail et les objectifs mentionnés ou sélectionnés ; les Aperçus n’envoient qu’un résumé du tableau et vos préférences',
-    'Les descriptions, l’historique et la corbeille ne sont jamais envoyés ; les clés restent chiffrées sur cet appareil, hors des données, sauvegardes et exports',
+    'Les descriptions, l’historique et la corbeille ne sont jamais envoyés ; les clés ne se synchronisent que dans le canal chiffré, restent dans le trousseau de cet appareil et n’entrent pas dans les sauvegardes ni les exports',
   ],
   // Calendar
   calendarSettings: 'Réglages du calendrier',

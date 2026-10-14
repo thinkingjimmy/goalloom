@@ -25,6 +25,7 @@ import { boardItemVisibility } from './features/board/visibility'
 import { TopBar } from './features/shell/TopBar'
 import { CompletionCelebration } from './features/shell/CompletionCelebration'
 import { FeedbackLayer } from './features/shell/FeedbackLayer'
+import { startDevicePrefs } from './state/device-prefs'
 import { desktopApi, useWorkspace } from './state/use-workspace'
 import { useFlows } from './state/flows'
 import { useColumns } from './state/columns'
@@ -134,6 +135,7 @@ export function App() {
     return () => query.removeEventListener('change', suppress)
   }, [theme])
   useEffect(() => { document.documentElement.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other' }, [])
+  useEffect(() => startDevicePrefs(), [])
   useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null); setReviewOpen(false) }, [snapshot?.workspace.generation])
   // A promoted root keeps the selected flow; unrelated disappearance still returns to the full board.
   useEffect(() => {

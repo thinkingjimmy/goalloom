@@ -479,7 +479,8 @@ type BlobRef = { blobId: string; sha256: string; size: number }      // 大正�
 | applyAssistance | guidance.set + item.set{description} + **item.place**（建议里改了跨度/周期时），**一个原子单元** | guidance 的 baseRevision 与 base 不符 → **整条 op 拒绝**（`guidance_stale`），不允许只落下 description 或只移动 |
 | policy / confirmSetup | policy.set / calendar.setup | 后写胜出；calendar.setup 只允许第一次设置，之后的拒绝（`calendar_locked`） |
 | undo / undoBatch | revert | 见 8.5 |
-| preferences / backupPreferences / confirmClock / confirmRollover | **不同步** | — |
+| preferences / backupPreferences | `pref.set`（桌面；按设置键后写胜出） | 旧客户端不认识该动作时按版本暂停 |
+| confirmClock / confirmRollover | **不同步** | — |
 
 - **大 payload（v1.3 修订，R9）**：单条加密后超过 64 KiB（例如 description 可能接近 10 万字符【实证：schema 是 max(100_000)】，或者 createPlan 条目很多）时，正文先单独加密，经签名 URL 上传到 Storage 的 `op_blobs`，SyncOp 里只放 `{blobRef, sha256}`。push 的请求预算：每批 ≤ 1 MiB，最多 200 条。**大 op 单独成批，但保持因果提交顺序**：推送队列严格按 localOrder 提交；blob 可以提前并行上传，但 op 本身只有在其 blob 全部上传并校验后才进入批次，**它后面的 op 不得越过它**（例如带 blob 的 create 之后的 complete）。只有与它无依赖的 op 可以先发的优化在 v1 不做（简单正确优先）。接收端：引用的 blob 下载或校验失败 → 该 seq 不能应用，**lastAppliedSeq 停在它前面**，按临时失败重试，持续失败进入 paused(blob_missing)。
 

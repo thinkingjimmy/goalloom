@@ -110,7 +110,7 @@ export const smartMessages = widen({
   featureOn: (name: string) => `${name}已开启`,
   featureOff: (name: string) => `${name}未开启`,
   insightNeedsChat: '这个服务不提供写作模型。之后在「设置 › AI 服务」再加一个 OpenRouter 或 Vercel AI Gateway 的 Key 即可开启；断点提示照常显示。',
-  doneFootnote: 'Key 已加密保存在本机，不进入工作区备份。',
+  doneFootnote: 'Key 只在加密通道里同步，保存在本机钥匙串，不进入工作区备份。',
   enterBoard: '进入看板',
   // --- Connect form (onboarding and Settings › AI services) ---
   keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],

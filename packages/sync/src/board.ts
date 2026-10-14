@@ -5,7 +5,7 @@
  */
 import { parseSyncOp, syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
-import { applySyncOp, rebuildVisibleFull, type ApplyHost, type SqlDriver, type SqlValue } from '@goalloom/store-core'
+import { applySyncOp, clearSyncSettings, rebuildVisibleFull, settingsBaselineOp, type ApplyHost, type SqlDriver, type SqlValue } from '@goalloom/store-core'
 import { SyncFailure } from './failure'
 
 export interface BoardItem {
@@ -203,8 +203,9 @@ export function queueVisibleBaseline(driver: SqlDriver, host: ApplyHost, deviceI
     clearBase(driver)
     rebuildVisibleFull(driver, host, { strictOpIds: new Set(ops.map(op => op.opId)) })
     assertBaselineKept(board, driver)
+    const settings = settingsBaselineOp(driver, deviceId, at)
     driver.prepare('UPDATE sync_state SET lastAppliedSeq=0, lastUploadedSeq=0, paused=NULL, updatedAt=? WHERE id=1').run(at)
-    return ops.length
+    return ops.length + (settings ? 1 : 0)
   })
 }
 
@@ -341,6 +342,7 @@ export function clearProjection(driver: SqlDriver, binding: { workspaceId: strin
   driver.exec(`DELETE FROM item_guidance; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM items; DELETE FROM planning_periods;
     DELETE FROM base_item_guidance; DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies; DELETE FROM base_items; DELETE FROM base_planning_periods;
     DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops;`)
+  clearSyncSettings(driver)
   driver.prepare('UPDATE workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
   driver.prepare('UPDATE base_workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
   driver.prepare('UPDATE sync_state SET workspaceId=?, deviceId=?, keyEpoch=?, lastAppliedSeq=0, lastUploadedSeq=0, paused=NULL, updatedAt=? WHERE id=1')

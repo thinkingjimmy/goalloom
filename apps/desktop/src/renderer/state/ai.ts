@@ -28,6 +28,11 @@ export function useAi(generation: string | undefined): Ai {
   }, [])
   const refresh = useCallback(async () => { if (generation) await send({ type: 'status', generation }).catch(() => null) }, [generation, send])
   useEffect(() => { setStatus(null); void refresh() }, [refresh])
+  useEffect(() => {
+    const api = window.goalloom
+    if (!generation || !api?.onAiRefresh) return
+    return api.onAiRefresh(() => { void refresh() })
+  }, [generation, refresh])
   return {
     status, refresh,
     connect: (provider, apiKey) => generation ? send({ type: 'connect', generation, provider, apiKey, consent: true }) : Promise.resolve(null),

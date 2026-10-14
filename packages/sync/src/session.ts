@@ -3,9 +3,9 @@
  * [OUTPUT]: A bound workspace key, sealed pushes, and opened remote ops.
  * [POS]: Shared sync session. Desktop and mobile supply the remote and the SQL driver; neither UI lives here.
  */
-import type { SyncOp } from '@goalloom/contracts'
+import { isSecretFingerprint, isSecretSettingKey, syncOpPayload, type SyncOp } from '@goalloom/contracts'
 import {
-  hex, newRecovery, openRecoveryLock, passwordAccepted, publicFromSeed, rosterHash, sealRecoveryLock, signCheckpoint,
+  hex, newRecovery, openRecoveryLock, passwordAccepted, publicFromSeed, rosterHash, sealRecoveryLock, sha256Hex, signCheckpoint,
   signRecoveryChallenge, signRoster, systemRandom, unhex, unwrap, utf8, verifyRecoveryJoin, verifyRosterExtension, wrap,
   type Envelope, type RandomSource, type RecoverySecrets, type RosterBody, type SyncKdfParams,
 } from '@goalloom/crypto'
@@ -299,6 +299,38 @@ export function takePending(driver: SqlDriver, at: string, attemptId: string): P
   return rows.map(row => ({ opId: String(row.opId), localOrder: Number(row.localOrder), payload: String(row.payload), payloadHash: String(row.payloadHash) }))
 }
 
+export type SecretLookup = (key: string) => string | null | undefined
+
+/**
+ * Puts keychain keys back into pending pref.set ops. `undefined` means the cipher cannot be read, and the queue stops
+ * before that op so a fingerprint is never sealed as if it were the key. `null` means the key is gone.
+ */
+export function restorePendingSecrets(rows: PendingPlain[], lookup: SecretLookup): { rows: PendingPlain[]; blocked: boolean } {
+  const ready: PendingPlain[] = []
+  for (const row of rows) {
+    const restored = restoreRow(row, lookup)
+    if (!restored) return { rows: ready, blocked: true }
+    ready.push(restored)
+  }
+  return { rows: ready, blocked: false }
+}
+
+function restoreRow(row: PendingPlain, lookup: SecretLookup): PendingPlain | null {
+  const op = JSON.parse(row.payload) as SyncOp
+  let changed = false
+  const actions = op.actions.map(action => {
+    if (action.t !== 'pref.set' || !isSecretSettingKey(action.key) || !isSecretFingerprint(action.value)) return action
+    const secret = lookup(action.key)
+    if (secret === undefined) return null
+    changed = true
+    return { ...action, value: secret }
+  })
+  if (actions.some(action => action === null)) return null
+  if (!changed) return row
+  const payload = syncOpPayload({ ...op, actions: actions as SyncOp['actions'] })
+  return { ...row, payload, payloadHash: sha256Hex(payload) }
+}
+
 export function sealPending(rows: PendingPlain[], input: { workspaceKey: Uint8Array; workspaceId: string; epoch: number; random?: RandomSource }): { opId: string; localOrder: number; wire: ReturnType<typeof sealOpWire> }[] {
   return rows.map(row => {
     const op = JSON.parse(row.payload) as SyncOp
@@ -351,8 +383,9 @@ async function pullAll(remote: SyncRemote, workspaceId: string, deviceId: string
 export async function exchange(input: {
   remote: SyncRemote; driver: SqlDriver; host: ApplyHost; deviceId: string; workspaceId: string; generation: string
   epoch: number; workspaceKey: Uint8Array; at: string; random?: RandomSource
+  secrets?: SecretLookup
 }): Promise<{ pushed: number; pulled: number; conflicts: number }> {
-  const pending = takePending(input.driver, input.at, globalThis.crypto.randomUUID())
+  const pending = restorePendingSecrets(takePending(input.driver, input.at, globalThis.crypto.randomUUID()), input.secrets ?? (() => undefined)).rows
   const sealed = sealPending(pending, input)
   const batches = planPushBatches(sealed.map(row => ({ opId: row.opId, localOrder: row.localOrder, bytes: row.wire.ciphertext.length / 2, blobReady: true })))
   let pushed = 0

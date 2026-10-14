@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { classifyFailure, gatewayAdapter, ProviderFailure, systemOneAdapter, type Adapter, type EvaluateInput } from '../../src/main/smart/providers'
 import { DeviceStore, type Cipher } from '../../src/main/smart/credentials'
 import { SmartInputService, type WorkspaceReader } from '../../src/main/smart/service'
+import { projectSettingRows } from '../../src/main/sync/project-settings'
 import type { SmartContext } from '../../src/domain/smart/questions'
 import type { AnalyzeRequest, Candidate, SmartReply } from '../../src/shared/contracts/smart-input'
 
@@ -116,6 +117,43 @@ beforeEach(async () => {
 afterEach(async () => { await rm(directory, { recursive: true, force: true }) })
 
 describe('设备配置与凭据', () => {
+  it('远端 Key 重新写入本机钥匙串，磁盘上没有明文', async () => {
+    const secret = 'sk-sync-remote-OPENROUTER-key-778899'
+    const published: { key: string; value: unknown }[] = []
+    service = new SmartInputService({
+      store: new DeviceStore(directory, cipher(keyState)), adapters, chat: { openrouter: chatAll, 'vercel-gateway': chatAll }, reader: reader(), unsignedBuild: true,
+      onSyncedSettings: entries => { published.push(...entries) },
+    })
+    await act({ type: 'connect', generation, provider: 'openrouter', apiKey: secret, consent: true })
+    expect(published).toContainEqual({ key: 'ai.key.openrouter', value: secret })
+    const file = await readFile(join(directory, 'openrouter.key'))
+    expect(file.toString('utf8')).not.toContain(secret)
+    await service.applyRemoteSetting('ai.key.openrouter', null)
+    expect(await readdir(directory)).not.toContain('openrouter.key')
+    await service.applyRemoteSetting('ai.key.openrouter', secret)
+    const restored = await readFile(join(directory, 'openrouter.key'))
+    expect(restored.toString('utf8')).not.toContain(secret)
+    expect(await new DeviceStore(directory, cipher(keyState)).readKey('openrouter')).toEqual({ state: 'saved', key: secret })
+    await service.applyRemoteSetting('ai.key.openrouter', `sha256:${'ab'.repeat(32)}`)
+    expect(await new DeviceStore(directory, cipher(keyState)).readKey('openrouter')).toEqual({ state: 'saved', key: secret })
+    expect(JSON.parse(await readFile(join(directory, 'config.json'), 'utf8'))).not.toMatchObject({ providers: { openrouter: { keyHint: secret } } })
+  })
+  it('notifies after a remote AI change and does not treat a fingerprint as a key', async () => {
+    let notified = 0
+    const applied = await projectSettingRows([
+      { key: 'ai.feature.smart', value: { provider: 'openrouter', enabled: true }, updatedAt: '2026-09-23T02:00:00.000Z', opId: randomUUID() },
+      { key: 'ai.key.openrouter', value: `sha256:${'cd'.repeat(32)}`, updatedAt: '2026-09-23T02:00:00.000Z', opId: randomUUID() },
+    ], {
+      language: { state: { language: 'en', locale: 'en', system: 'en' }, set: async language => ({ language, locale: 'en', system: 'en' }) },
+      notifyLanguage: () => undefined,
+      smart: service,
+      notifyDevicePrefs: () => undefined,
+      notifyAi: () => { notified += 1 },
+    })
+    expect(applied).toEqual(['ai.feature.smart', 'ai.key.openrouter'])
+    expect(notified).toBe(1)
+    expect(await service.syncedSecret('ai.key.openrouter')).toBeNull()
+  })
   it('测试通过才启用并加密保存；Key 不以明文落盘，配置不含 Key', async () => {
     const reply = await act({ type: 'connect', generation, provider: 'openrouter', apiKey: 'or-secret-1234', consent: true })
     expect(reply.type === 'status' && reply.test).toMatchObject({ ok: true, sampleMatched: true })

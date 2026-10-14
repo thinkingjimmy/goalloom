@@ -1,18 +1,19 @@
 /**
  * [INPUT]: Canonical planning horizons, device-local storage, system motion preference and React useSyncExternalStore.
  * [OUTPUT]: Per-column controls, settings previews, generation-bound review celebration requests and useReducedMotion.
- * [POS]: Renderer display preferences outside workspace history, exports and backups; only overrides are persisted.
+ * [POS]: Renderer display preferences. The per-column choice syncs and stays out of task history; only overrides are persisted locally.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 import type { ItemHorizon } from '../../shared/contracts/entities'
 import { horizons } from '../../shared/contracts/values'
+import { noteDevicePref } from './device-pref-bus'
 
 const key = 'goalloom.celebration'
-const defaults: Record<ItemHorizon, boolean> = { later: false, year: true, half: true, cycle: true, month: true, week: true, day: false }
+export const celebrationDefaults: Record<ItemHorizon, boolean> = { later: false, year: true, half: true, cycle: true, month: true, week: true, day: false }
 
 function load(): Record<ItemHorizon, boolean> {
-  const result = { ...defaults }
+  const result = { ...celebrationDefaults }
   try {
     const value: unknown = JSON.parse(localStorage.getItem(key) ?? '{}')
     if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -29,15 +30,29 @@ let enabled = load()
 const listeners = new Set<() => void>()
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
 
-function setEnabled(horizon: ItemHorizon, next: boolean) {
-  if (enabled[horizon] === next) return
-  enabled = { ...enabled, [horizon]: next }
-  const overrides = Object.fromEntries(horizons.filter(entry => enabled[entry] !== defaults[entry]).map(entry => [entry, enabled[entry]]))
+function write(next: Record<ItemHorizon, boolean>, report: boolean) {
+  enabled = next
+  const overrides = Object.fromEntries(horizons.filter(entry => enabled[entry] !== celebrationDefaults[entry]).map(entry => [entry, enabled[entry]]))
   try {
     if (Object.keys(overrides).length) localStorage.setItem(key, JSON.stringify(overrides))
     else localStorage.removeItem(key)
   } catch { /* Display preference only; the session keeps working without persistence. */ }
   listeners.forEach(listener => listener())
+  if (report) noteDevicePref('celebration', enabled)
+}
+
+function setEnabled(horizon: ItemHorizon, next: boolean) {
+  if (enabled[horizon] === next) return
+  write({ ...enabled, [horizon]: next }, true)
+}
+
+export function currentCelebration(): Record<ItemHorizon, boolean> { return enabled }
+
+export function applyCelebration(next: Partial<Record<ItemHorizon, boolean>>): void {
+  const merged = { ...celebrationDefaults }
+  for (const horizon of horizons) if (typeof next[horizon] === 'boolean') merged[horizon] = next[horizon]
+  if (horizons.every(horizon => merged[horizon] === enabled[horizon])) return
+  write(merged, false)
 }
 
 export function isCelebrationEnabled(horizon: ItemHorizon): boolean { return enabled[horizon] }

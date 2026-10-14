@@ -5,6 +5,7 @@
  */
 import { z } from 'zod'
 import { canonicalJson } from './canonical'
+import { parseSetting } from './settings'
 
 const horizon = z.enum(['later', 'year', 'half', 'cycle', 'month', 'week', 'day'])
 const periodHorizon = z.enum(['year', 'half', 'cycle', 'month', 'week', 'day'])
@@ -67,6 +68,7 @@ export const actionSchema = z.discriminatedUnion('t', [
   z.strictObject({ t: z.literal('guidance.set'), itemId: id, value: guidanceValueSchema.nullable(), baseRevision: z.number().int().nonnegative() }),
   z.strictObject({ t: z.literal('policy.set'), horizon: periodHorizon, mode: z.enum(['auto', 'manual']), effectiveFromKey: periodKeySchema }),
   z.strictObject({ t: z.literal('calendar.setup'), calendar: calendarSchema, confirmedAt: instant.optional() }),
+  z.strictObject({ t: z.literal('pref.set'), key: z.string().min(1).max(80), value: z.unknown() }),
   z.strictObject({ t: z.literal('revert'), targetOpId: z.uuid(), mode: z.enum(['all_or_nothing', 'per_dimension']) }),
 ])
 
@@ -86,15 +88,17 @@ export type GuidanceWire = z.infer<typeof guidanceValueSchema>
 export type CalendarWire = z.infer<typeof calendarSchema>
 
 export function parseSyncOp(input: unknown): SyncOp {
-  return syncOpSchema.parse(input)
+  const op = syncOpSchema.parse(input)
+  for (const action of op.actions) if (action.t === 'pref.set') parseSetting(action.key, action.value)
+  return op
 }
 
 export function syncOpPayload(op: SyncOp): string {
   return canonicalJson(op)
 }
 
-/** Commands that never become a SyncOp. */
-export const localOnlyCommands = ['preferences', 'backupPreferences', 'confirmClock', 'confirmRollover'] as const
+/** Commands that never become a SyncOp. Appearance and backup preferences sync as pref.set. */
+export const localOnlyCommands = ['confirmClock', 'confirmRollover'] as const
 export type LocalOnlyCommand = typeof localOnlyCommands[number]
 
 export const sendStates = ['never_sent', 'send_unknown', 'accepted', 'applied', 'reverted_local', 'quarantined'] as const

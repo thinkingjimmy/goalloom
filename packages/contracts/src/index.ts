@@ -1,4 +1,9 @@
 export { canonicalJson } from './canonical'
+export {
+  isRendererSettingKey, isSecretFingerprint, isSecretSettingKey, isWorkspaceSettingKey, parseSetting, rendererSettingKeys,
+  secretSettingKeys, settingSchema, syncedSettingKeys, workspaceSettingKeys,
+} from './settings'
+export type { Setting, SettingKey, SettingValue } from './settings'
 export { businessErrorCodes, isBusinessErrorCode, pushErrorCodes, workspacePauseCodes } from './errors'
 export type { BusinessErrorCode, PushErrorCode, WorkspacePauseCode } from './errors'
 export {
