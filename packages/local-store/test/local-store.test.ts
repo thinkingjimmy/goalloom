@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   columnMenuDismiss, columnMenuIndex, flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, orderFlowItems, pageFromOffset, parseCapture,
-  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, catalogs, clampAnchorDate, columnRange, filterTimeZones, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarMonthTitle, calendarWeekStart, catalogs, clampAnchorDate, columnRange, filterTimeZones, highlightSpans, keyboardDuration, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, sortZonesByOffset, suggestionShift, timeZonePickerList, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, zoneOffsetLabel, zoneOffsetMinutes, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { LocalWorkspace } from '../src/store'
 
@@ -485,14 +485,19 @@ describe('workspace', () => {
     expect(signInButtons(['google', 'apple'])).toEqual(['apple', 'google'])
     expect(signInButtons([])).toEqual([])
     expect(catalogs.zh.start.benefits).toEqual([
-      { lead: '登录后', body: '手机和电脑上的看板自动保持一致，换了设备数据也还在。' },
-      { lead: '不登录', body: '所有数据只存在这台设备上，不用账号，马上就能开始用。' },
+      { lead: '多设备同步', body: '手机和电脑上的看板保持一致，换机也不丢。' },
+      { lead: '仅存本机', body: '不用账号，马上开始。' },
     ])
-    expect(catalogs.en.start.benefits.map(line => line.lead)).toEqual(['After you sign in', 'Without signing in'])
+    expect(catalogs.en.start.benefits.map(line => line.lead)).toEqual(['Sync across devices', 'This device only'])
     expect(catalogs.zh.start.google).toBe('使用 Google 继续')
+    expect(catalogs.zh.start.googleRetry).toBe('重试 Google 登录')
+    expect(catalogs.zh.start.googleError).toBe('Google 登录没有完成，请重试。')
     expect(catalogs.zh.start.apple).toBe('使用 Apple 继续')
     expect(catalogs.zh.start.or).toBe('或')
-    expect(catalogs.zh.start.local).toBe('仅在这台设备使用')
+    expect(catalogs.zh.start.local).toBe('直接使用')
+    expect(catalogs.zh.start.monthDay(10, 14)).toBe('10/14')
+    expect(catalogs.zh.start.ok).toBe('确定')
+    expect(catalogs.zh.start.resetAction).toBe('重置')
     expect(catalogs.zh.start.directionTitle).toBe('今年最想推进什么？')
     expect(catalogs.zh.start.examples).toEqual(['跑一次全马', '读 24 本书', '找到理想工作'])
     for (const copy of Object.values(catalogs)) expect(copy.start.examples).toHaveLength(3)
@@ -502,7 +507,21 @@ describe('workspace', () => {
         expect(line.lead.length).toBeGreaterThan(0)
         expect(line.body.length).toBeGreaterThan(0)
       }
+      expect(copy.start.googleRetry.length).toBeGreaterThan(0)
+      expect(copy.start.googleError.length).toBeGreaterThan(0)
+      expect(copy.start.resetAction.length).toBeGreaterThan(0)
+      expect(copy.start.ok.length).toBeGreaterThan(0)
+      expect(copy.start.monthDay(10, 14)).toMatch(/\d/)
     }
+    expect(calendarMonthTitle(2026, 10, 'zh')).toBe('2026/10')
+    expect(calendarMonthTitle(2026, 10, 'en')).toBe('10/2026')
+    expect(suggestionShift(400, 500, 8)).toBe(92)
+    expect(suggestionShift(600, 500, 8)).toBe(-108)
+    expect(suggestionShift(0, 500, 8)).toBe(0)
+    expect(suggestionShift(400, 0, 8)).toBe(0)
+    expect(keyboardDuration(undefined)).toBe(250)
+    expect(keyboardDuration(0.25)).toBe(250)
+    expect(keyboardDuration(180)).toBe(180)
   })
 
   it('allows an anchor on or before today, matching the desktop date input', () => {
@@ -619,6 +638,34 @@ describe('time zone search', () => {
     expect(filterTimeZones(bundled, '上海', localize)).toContain('Asia/Shanghai')
     expect(filterTimeZones(bundled, '新加坡', localize)).toContain('Asia/Singapore')
     expect(filterTimeZones(bundled, 'Asia/', localize).every(id => id.startsWith('Asia/'))).toBe(true)
+  })
+
+  it('sorts zones by the UTC offset at the given instant and pins the current one', () => {
+    const winter = new Date('2026-01-15T12:00:00Z')
+    const summer = new Date('2026-07-15T12:00:00Z')
+    expect(zoneOffsetMinutes('Asia/Shanghai', winter)).toBe(480)
+    expect(zoneOffsetMinutes('America/New_York', winter)).toBe(-300)
+    expect(zoneOffsetMinutes('America/New_York', summer)).toBe(-240)
+    expect(zoneOffsetMinutes('Asia/Kolkata', winter)).toBe(330)
+    expect(zoneOffsetMinutes('Not/AZone', winter)).toBeNull()
+    expect(zoneOffsetLabel(480)).toBe('GMT+8')
+    expect(zoneOffsetLabel(-240)).toBe('GMT-4')
+    expect(zoneOffsetLabel(330)).toBe('GMT+5:30')
+    expect(zoneOffsetLabel(0)).toBe('GMT+0')
+    expect(sortZonesByOffset(['Asia/Tokyo', 'America/New_York', 'UTC', 'Asia/Bangkok'], winter)).toEqual(['America/New_York', 'UTC', 'Asia/Bangkok', 'Asia/Tokyo'])
+    expect(sortZonesByOffset(['Asia/Singapore', 'Asia/Hong_Kong', 'Asia/Shanghai'], winter)).toEqual(['Asia/Hong_Kong', 'Asia/Shanghai', 'Asia/Singapore'])
+    const zones = ['Asia/Tokyo', 'Asia/Singapore', 'Europe/Paris', 'UTC']
+    const names = (id: string) => [friendlyZoneName(id, 'zh')]
+    expect(timeZonePickerList(zones, 'Asia/Singapore', '', names, winter)).toEqual({
+      pinned: 'Asia/Singapore',
+      rest: ['UTC', 'Europe/Paris', 'Asia/Tokyo'],
+    })
+    expect(timeZonePickerList(zones, 'Asia/Singapore', '新加', names, winter)).toEqual({ pinned: 'Asia/Singapore', rest: [] })
+    expect(timeZonePickerList(zones, 'Asia/Singapore', 'Tokyo', names, winter)).toEqual({ pinned: null, rest: ['Asia/Tokyo'] })
+    expect(highlightSpans('新加坡', '新加')).toEqual([{ text: '新加', hit: true }, { text: '坡', hit: false }])
+    expect(highlightSpans('Singapore', 'sing')).toEqual([{ text: 'Sing', hit: true }, { text: 'apore', hit: false }])
+    expect(highlightSpans('上海', '新加')).toEqual([{ text: '上海', hit: false }])
+    expect(highlightSpans('Asia/Singapore', '  ')).toEqual([{ text: 'Asia/Singapore', hit: false }])
   })
 })
 

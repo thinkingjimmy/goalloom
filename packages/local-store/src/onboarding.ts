@@ -1,6 +1,6 @@
 /**
- * [INPUT]: A calendar mode, a start date against workspace today, and a pair of sync-password drafts.
- * [OUTPUT]: Whether the rolling start date is shown, whether a date is an allowed anchor, a month grid, whether a new sync password can be accepted, and the sign-in button order.
+ * [INPUT]: A calendar mode, a start date against workspace today, a pair of sync-password drafts, and a keyboard frame.
+ * [OUTPUT]: Whether the rolling start date is shown, whether a date is an allowed anchor, a month grid, whether a new sync password can be accepted, the sign-in button order, and where the suggestion row sits relative to the keyboard.
  * [POS]: Shared onboarding decisions. No React Native and no network.
  */
 
@@ -59,4 +59,25 @@ function formatUtc(date: Date): string {
 export function syncPasswordReady(password: string, again: string): boolean {
   const text = password.trim()
   return text.length >= 8 && text.length <= 128 && text === again.trim()
+}
+
+/** Numeric month title. Chinese and Japanese read year/month; the others read month/year. */
+export function calendarMonthTitle(year: number, month: number, locale: 'zh' | 'en' | 'ja' | 'es' | 'fr'): string {
+  if (locale === 'zh' || locale === 'ja') return `${year}/${month}`
+  return `${month}/${year}`
+}
+
+/**
+ * Vertical shift that puts a row's bottom edge `gap` above the keyboard.
+ * Positive moves the row down, negative moves it up. A missing measurement stays put.
+ */
+export function suggestionShift(rowBottom: number, keyboardTop: number, gap = 8): number {
+  if (!(rowBottom > 0) || !(keyboardTop > 0)) return 0
+  return keyboardTop - gap - rowBottom
+}
+
+/** Keyboard events report milliseconds, except some iOS frames report seconds. */
+export function keyboardDuration(duration: number | undefined): number {
+  if (duration == null || !Number.isFinite(duration) || duration <= 0) return 250
+  return duration < 5 ? Math.round(duration * 1000) : Math.round(duration)
 }
