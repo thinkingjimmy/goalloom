@@ -6,9 +6,8 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   columnMenuDismiss, columnMenuIndex, flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, orderFlowItems, pageFromOffset, parseCapture,
-  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, columnRange, filterTimeZones, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, catalogs, clampAnchorDate, columnRange, filterTimeZones, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
-import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
 
 function memory(): SqlDriver {

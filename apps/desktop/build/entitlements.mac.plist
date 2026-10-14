@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Electron V8 needs JIT under Hardened Runtime. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!-- Electron still maps executable pages outside the JIT entitlement. -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!--
+      com.apple.security.cs.disable-library-validation is intentionally absent.
+      SQLite is Electron's built-in node:sqlite. The package ships no unsigned
+      native addon such as better-sqlite3, and electron-builder re-signs the
+      Electron frameworks with the same Developer ID.
+    -->
+  </dict>
+</plist>

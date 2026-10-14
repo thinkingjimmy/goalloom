@@ -57,6 +57,19 @@ mac:
     - zh_TW_NEUTER
   minimumSystemVersion: '14.0'
   category: public.app-category.productivity
+  # Hardened Runtime is required for Developer ID notarization.
+  # electron-builder 26 accepts `notarize` as a boolean only. notarytool runs when
+  # APPLE_API_KEY (path to the .p8), APPLE_API_KEY_ID and APPLE_API_ISSUER are set.
+  # Team id is the APPLE_TEAM_ID secret. This version sends teamId to notarytool
+  # only for Apple ID password credentials; passing it together with an API key is
+  # rejected, so it is not nested under `notarize`.
+  # gatekeeperAssess stays off while signing. The ticket is stapled afterwards, and
+  # the release workflow runs codesign, spctl and stapler.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  notarize: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
   target:
     - target: dmg
       arch: [arm64]
@@ -66,6 +79,9 @@ mac:
 dmg:
   # Updates ship through the zip, so the DMG needs no blockmap.
   writeUpdateInfo: false
+  # electron-builder 26's DMG signature has no secure timestamp, which notarytool
+  # rejects. The release workflow signs the DMG with a timestamp, then notarizes it.
+  sign: false
   # Drag-to-install window: app on the left, an Applications link on the right.
   window: { width: 540, height: 380 }
   iconSize: 96
