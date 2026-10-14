@@ -74,19 +74,21 @@ export function pinCurrentZone(zones: readonly string[], current: string): strin
   return [current, ...zones.slice(0, index), ...zones.slice(index + 1)]
 }
 
-/** Minutes east of UTC at `at`. Null when this runtime rejects the id. */
+/**
+ * Minutes east of UTC at `at`. Null when this runtime rejects the id.
+ * `h23` keeps midnight at 00. An `h24` runtime instead reports `24:xx` on that same civil date,
+ * so 24 becomes 0 without moving the day forward.
+ */
 export function zoneOffsetMinutes(id: string, at: Date): number | null {
   try {
     const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: id, hour12: false,
+      timeZone: id, hourCycle: 'h23',
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit',
     }).formatToParts(at)
     const value = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value ?? ''
-    const hourText = value('hour')
-    const hour = hourText === '24' ? 0 : Number(hourText)
-    let utc = Date.UTC(Number(value('year')), Number(value('month')) - 1, Number(value('day')), hour, Number(value('minute')), Number(value('second')))
-    if (hourText === '24') utc += 24 * 60 * 60 * 1000
+    const hour = value('hour') === '24' ? 0 : Number(value('hour'))
+    const utc = Date.UTC(Number(value('year')), Number(value('month')) - 1, Number(value('day')), hour, Number(value('minute')), Number(value('second')))
     return Math.round((utc - at.getTime()) / 60000)
   } catch {
     return null
@@ -103,11 +105,15 @@ export function zoneOffsetLabel(minutes: number): string {
   return `GMT${sign}${hours}:${String(rest).padStart(2, '0')}`
 }
 
-/** Ascending UTC offset, then zone id. Unknown offsets sort last. */
+/** Ascending UTC offset, then zone id. Unknown offsets sort last. Each id is formatted once. */
 export function sortZonesByOffset(zones: readonly string[], at: Date): string[] {
+  const offsets = new Map<string, number | null>()
+  for (const id of zones) {
+    if (!offsets.has(id)) offsets.set(id, zoneOffsetMinutes(id, at))
+  }
   return [...zones].sort((a, b) => {
-    const left = zoneOffsetMinutes(a, at)
-    const right = zoneOffsetMinutes(b, at)
+    const left = offsets.get(a) ?? null
+    const right = offsets.get(b) ?? null
     if (left == null && right == null) return a.localeCompare(b)
     if (left == null) return 1
     if (right == null) return -1

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A calendar mode, a start date against workspace today, a pair of sync-password drafts, and a keyboard frame.
- * [OUTPUT]: Whether the rolling start date is shown, whether a date is an allowed anchor, a month grid, whether a new sync password can be accepted, the sign-in button order, and where the suggestion row sits relative to the keyboard.
+ * [OUTPUT]: Whether the rolling start date is shown, whether a date is an allowed anchor, a month grid, whether a new sync password can be accepted, the sign-in button order, and where the suggestion row sits relative to the keyboard. A dismiss frame whose top is at the screen bottom counts as hidden.
  * [POS]: Shared onboarding decisions. No React Native and no network.
  */
 
@@ -80,4 +80,16 @@ export function suggestionShift(rowBottom: number, keyboardTop: number, gap = 8)
 export function keyboardDuration(duration: number | undefined): number {
   if (duration == null || !Number.isFinite(duration) || duration <= 0) return 250
   return duration < 5 ? Math.round(duration * 1000) : Math.round(duration)
+}
+
+/**
+ * Window Y of the keyboard top, or 0 when that frame is hidden.
+ * iOS dismiss notifications keep the keyboard height and park its top on the screen bottom.
+ * A missing Y falls back to measuring that height up from the window bottom.
+ */
+export function keyboardFrameTop(frame: { height: number; screenY: number }, windowHeight: number): number {
+  if (!(frame.height > 0) || !(windowHeight > 0)) return 0
+  if (frame.screenY >= windowHeight) return 0
+  if (!(frame.screenY > 0)) return windowHeight - frame.height
+  return frame.screenY
 }

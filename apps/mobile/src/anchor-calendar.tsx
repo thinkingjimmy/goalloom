@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { calendarMonthTitle, calendarWeekStart, monthGrid, type MonthCell } from '@goalloom/local-store'
 import type { LocaleId } from '@goalloom/local-store'
+import { Icon } from './icons'
 import { accentOrange, type Theme } from './theme'
 
 const PICKER_LOCALE: Record<LocaleId, string> = {
@@ -29,11 +30,11 @@ export function AnchorCalendar({ theme, locale, today, value, onSelect }: {
   return <View>
     <View style={styles.monthNav}>
       <Pressable onPress={() => setShown(shiftMonth(year, month, -1))} hitSlop={8} style={styles.monthStep} accessibilityLabel={title}>
-        <Text style={[styles.monthChevron, { color: theme.fg }]}>‹</Text>
+        <Icon name="back" size={22} color={theme.fg} />
       </Pressable>
       <Text style={[styles.monthTitle, { color: theme.fg }]}>{title}</Text>
       <Pressable onPress={() => { if (canNext) setShown(shiftMonth(year, month, 1)) }} hitSlop={8} disabled={!canNext} style={styles.monthStep}>
-        <Text style={[styles.monthChevron, { color: canNext ? theme.fg : theme.faint }]}>›</Text>
+        <Icon name="next" size={22} color={canNext ? theme.fg : theme.faint} />
       </Pressable>
     </View>
     <View style={styles.weekRow}>
@@ -79,7 +80,6 @@ function shiftMonth(year: number, month: number, delta: number): string {
 const styles = StyleSheet.create({
   monthNav: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
   monthStep: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  monthChevron: { fontSize: 28, lineHeight: 32, fontWeight: '300' },
   monthTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '600' },
   weekRow: { flexDirection: 'row', marginBottom: 4 },
   weekday: { width: '14.285%', textAlign: 'center', fontSize: 13, fontWeight: '600' },

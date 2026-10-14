@@ -23,7 +23,7 @@ export {
   SHEET_DISMISS_VELOCITY, SHEET_GRABBER,
 } from './board'
 export type { AppTab, CaptureDraft, DropTarget, FlowRailItem, RowBox } from './board'
-export { anchorDateAllowed, calendarAnchorVisible, calendarMonthTitle, calendarWeekStart, clampAnchorDate, keyboardDuration, monthGrid, signInButtons, suggestionShift, syncPasswordReady } from './onboarding'
+export { anchorDateAllowed, calendarAnchorVisible, calendarMonthTitle, calendarWeekStart, clampAnchorDate, keyboardDuration, keyboardFrameTop, monthGrid, signInButtons, suggestionShift, syncPasswordReady } from './onboarding'
 export type { SignInProvider } from './onboarding'
 export type { MonthCell } from './onboarding'
 export { filterTimeZones, friendlyZoneName, highlightSpans, pinCurrentZone, readTimeZones, runtimeZoneName, sortZonesByOffset, timeZonePickerList, zoneLocalizedNames, zoneOffsetLabel, zoneOffsetMinutes } from './time-zones'

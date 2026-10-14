@@ -12,7 +12,7 @@ import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 import {
-  calendarAnchorVisible, clampAnchorDate, friendlyZoneName, highlightSpans, keyboardDuration, readTimeZones, runtimeZoneName, signInButtons,
+  calendarAnchorVisible, clampAnchorDate, friendlyZoneName, highlightSpans, keyboardDuration, keyboardFrameTop, readTimeZones, runtimeZoneName, signInButtons,
   sheetRelease, shouldDragSheet, suggestionShift, syncPasswordReady, timeZonePickerList, workspaceDate, zoneLocalizedNames, zoneOffsetLabel, zoneOffsetMinutes,
 } from '@goalloom/local-store'
 import type { SignInProvider } from '@goalloom/local-store'
@@ -195,7 +195,7 @@ function ModeRow({ theme, selected, title, body, tag, onPress }: {
 }
 
 function SelectMark({ theme, selected }: { theme: Theme; selected: boolean }) {
-  if (selected) return <View style={[styles.checkCircle, { backgroundColor: theme.fg }]}><Text style={[styles.checkGlyph, { color: theme.onAccent }]}>✓</Text></View>
+  if (selected) return <View style={[styles.checkCircle, { backgroundColor: theme.fg }]}><Icon name="check" size={16} color={theme.onAccent} strokeWidth={2.2} /></View>
   return <View style={[styles.radio, { borderColor: theme.checkEdge }]} />
 }
 
@@ -206,7 +206,7 @@ function GroupRow({ theme, label, value, cue = 'chevron', rowRef, onPress }: {
     <Pressable onPress={onPress} accessibilityRole="button" style={styles.groupRow}>
       <Text style={[styles.groupLabel, { color: theme.fg }]}>{label}</Text>
       <Text numberOfLines={1} style={[styles.groupValue, { color: theme.secondary }]}>{value}</Text>
-      <Text style={[styles.groupChevron, { color: theme.faint }]}>{cue === 'menu' ? '▾' : '›'}</Text>
+      <View style={styles.groupChevron}><Icon name={cue === 'menu' ? 'down' : 'next'} size={16} color={theme.faint} /></View>
     </Pressable>
   </View>
 }
@@ -253,6 +253,8 @@ function Direction({ copy, theme, titleGap, value, onChange, onBack, onNext }: {
  * One suggestion row, always mounted under the field. An iOS input accessory
  * registered after focus never attaches, so assuming the keyboard is already
  * open hides the only copy of the chips. This row moves from keyboard frames.
+ * A dismiss frame keeps its height and sits on the screen bottom, so that frame
+ * and keyboardWillHide both put the row back under the field.
  */
 function StickySuggestions({ examples, theme, onPick }: { examples: readonly string[]; theme: Theme; onPick: (value: string) => void }) {
   const shift = useRef(new Animated.Value(0)).current
@@ -273,12 +275,12 @@ function StickySuggestions({ examples, theme, onPick }: { examples: readonly str
     }
     placeRef.current = place
     const onFrame = (event: KeyboardEvent) => {
-      const frame = event.endCoordinates
-      const top = frame.height > 0 ? (frame.screenY > 0 ? frame.screenY : height - frame.height) : 0
-      place(top, event.duration)
+      place(keyboardFrameTop(event.endCoordinates, height), event.duration)
     }
     const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow', onFrame)
-    const hide = Platform.OS === 'android' ? Keyboard.addListener('keyboardDidHide', () => place(0, 200)) : null
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', event => {
+      place(0, Platform.OS === 'ios' ? event.duration : 200)
+    })
     if (lastTop.current > 0) place(lastTop.current, 16)
     return () => { alive = false; show.remove(); hide?.remove() }
   }, [height, shift])
@@ -365,7 +367,7 @@ function WeekMenu({ copy, theme, weekStart, anchor, onClose, onSelect }: {
         const selected = index + 1 === weekStart
         const last = index === copy.start.weekdays.length - 1
         return <Pressable key={name} onPress={() => onSelect(index + 1)} accessibilityRole="menuitem" accessibilityState={{ selected }} style={[styles.menuRow, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.line }]}>
-          <Text style={[styles.menuCheck, { color: theme.fg }]}>{selected ? '✓' : ''}</Text>
+          <View style={styles.menuCheck}>{selected && <Icon name="check" size={16} color={theme.fg} strokeWidth={2} />}</View>
           <Text style={{ flex: 1, color: theme.fg, fontSize: 17, fontWeight: selected ? '600' : '400' }}>{name}</Text>
           {selected && <View style={[styles.accentDot, { backgroundColor: accentOrange }]} />}
         </Pressable>
@@ -471,7 +473,7 @@ function ZoneRow({ theme, id, locale, query, offset, selected, onPress }: {
       <Text numberOfLines={1} style={{ color: theme.secondary, fontSize: 13, marginTop: 1 }}>{highlight(id, query, accentOrange, theme.secondary)}</Text>
     </View>
     <Text style={{ color: theme.secondary, fontSize: 15 }}>{offset}</Text>
-    <Text style={[styles.zoneCheck, { color: theme.fg }]}>{selected ? '✓' : ''}</Text>
+    <View style={styles.zoneCheck}>{selected && <Icon name="check" size={16} color={theme.fg} strokeWidth={2} />}</View>
   </Pressable>
 }
 
@@ -582,14 +584,13 @@ const styles = StyleSheet.create({
   modeTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   accentDot: { width: 8, height: 8, borderRadius: 4 },
   checkCircle: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  checkGlyph: { fontSize: 15, fontWeight: '700', marginTop: -1 },
   radio: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5 },
   tag: { fontSize: 12, fontWeight: '600', overflow: 'hidden', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   group: { marginTop: 20, borderRadius: 12, overflow: 'hidden' },
   groupRow: { minHeight: 48, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   groupLabel: { fontSize: 16, flex: 1 },
   groupValue: { fontSize: 16, maxWidth: '58%' },
-  groupChevron: { fontSize: 18, width: 16, textAlign: 'center' },
+  groupChevron: { width: 16, alignItems: 'center' },
   hairline: { height: StyleSheet.hairlineWidth, marginLeft: 16 },
   footer: { fontSize: 13, lineHeight: 18, marginTop: 8, marginHorizontal: 16 },
   primary: { minHeight: 52, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
@@ -609,7 +610,7 @@ const styles = StyleSheet.create({
   menuWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   menu: { position: 'absolute', borderRadius: 14, paddingVertical: 4, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
   menuRow: { minHeight: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  menuCheck: { width: 18, fontSize: 16, fontWeight: '700' },
+  menuCheck: { width: 18, alignItems: 'center' },
   sheetWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   sheetHost: { position: 'absolute', left: 0, right: 0, bottom: 0 },
@@ -628,5 +629,5 @@ const styles = StyleSheet.create({
   zoneListCard: { marginTop: 12 },
   zoneRow: { minHeight: 56, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12 },
   zoneText: { flex: 1 },
-  zoneCheck: { width: 18, fontSize: 16, fontWeight: '600', textAlign: 'right' },
+  zoneCheck: { width: 18, alignItems: 'flex-end' },
 })

@@ -6,7 +6,7 @@ import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/note
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
   columnMenuDismiss, columnMenuIndex, flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, orderFlowItems, pageFromOffset, parseCapture,
-  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarMonthTitle, calendarWeekStart, catalogs, clampAnchorDate, columnRange, filterTimeZones, highlightSpans, keyboardDuration, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, sortZonesByOffset, suggestionShift, timeZonePickerList, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, zoneOffsetLabel, zoneOffsetMinutes, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
+  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarMonthTitle, calendarWeekStart, catalogs, clampAnchorDate, columnRange, filterTimeZones, highlightSpans, keyboardDuration, keyboardFrameTop, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, sortZonesByOffset, suggestionShift, timeZonePickerList, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, zoneOffsetLabel, zoneOffsetMinutes, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { LocalWorkspace } from '../src/store'
 
@@ -522,6 +522,11 @@ describe('workspace', () => {
     expect(keyboardDuration(undefined)).toBe(250)
     expect(keyboardDuration(0.25)).toBe(250)
     expect(keyboardDuration(180)).toBe(180)
+    expect(keyboardFrameTop({ height: 336, screenY: 500 }, 844)).toBe(500)
+    expect(keyboardFrameTop({ height: 336, screenY: 844 }, 844)).toBe(0)
+    expect(keyboardFrameTop({ height: 336, screenY: 900 }, 844)).toBe(0)
+    expect(keyboardFrameTop({ height: 0, screenY: 844 }, 844)).toBe(0)
+    expect(keyboardFrameTop({ height: 336, screenY: 0 }, 844)).toBe(508)
   })
 
   it('allows an anchor on or before today, matching the desktop date input', () => {
@@ -644,6 +649,7 @@ describe('time zone search', () => {
     const winter = new Date('2026-01-15T12:00:00Z')
     const summer = new Date('2026-07-15T12:00:00Z')
     expect(zoneOffsetMinutes('Asia/Shanghai', winter)).toBe(480)
+    expect(zoneOffsetMinutes('Asia/Shanghai', new Date('2026-01-15T16:00:00Z'))).toBe(480)
     expect(zoneOffsetMinutes('America/New_York', winter)).toBe(-300)
     expect(zoneOffsetMinutes('America/New_York', summer)).toBe(-240)
     expect(zoneOffsetMinutes('Asia/Kolkata', winter)).toBe(330)
@@ -666,6 +672,45 @@ describe('time zone search', () => {
     expect(highlightSpans('Singapore', 'sing')).toEqual([{ text: 'Sing', hit: true }, { text: 'apore', hit: false }])
     expect(highlightSpans('上海', '新加')).toEqual([{ text: '上海', hit: false }])
     expect(highlightSpans('Asia/Singapore', '  ')).toEqual([{ text: 'Asia/Singapore', hit: false }])
+  })
+
+  it('formats each zone once while sorting, and keeps an h24 midnight on the same date', () => {
+    const Real = Intl.DateTimeFormat
+    const winter = new Date('2026-01-15T12:00:00Z')
+    let calls = 0
+    class Counting extends Real {
+      constructor(locales?: Intl.LocalesArgument, options?: Intl.DateTimeFormatOptions) {
+        calls += 1
+        super(locales, options)
+      }
+    }
+    Intl.DateTimeFormat = Counting as typeof Intl.DateTimeFormat
+    try {
+      const zones = ['Asia/Tokyo', 'America/New_York', 'UTC', 'Asia/Bangkok', 'Europe/Paris', 'Asia/Tokyo']
+      expect(sortZonesByOffset(zones, winter)).toEqual(['America/New_York', 'UTC', 'Europe/Paris', 'Asia/Bangkok', 'Asia/Tokyo', 'Asia/Tokyo'])
+      expect(calls).toBe(5)
+    } finally {
+      Intl.DateTimeFormat = Real
+    }
+
+    class MidnightH24 extends Real {
+      override formatToParts(): Intl.DateTimeFormatPart[] {
+        return [
+          { type: 'year', value: '2026' },
+          { type: 'month', value: '01' },
+          { type: 'day', value: '16' },
+          { type: 'hour', value: '24' },
+          { type: 'minute', value: '00' },
+          { type: 'second', value: '00' },
+        ]
+      }
+    }
+    Intl.DateTimeFormat = MidnightH24 as typeof Intl.DateTimeFormat
+    try {
+      expect(zoneOffsetMinutes('Asia/Shanghai', new Date('2026-01-15T16:00:00Z'))).toBe(480)
+    } finally {
+      Intl.DateTimeFormat = Real
+    }
   })
 })
 
