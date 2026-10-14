@@ -71,11 +71,11 @@ function initialSheet(shot: string, items: ItemRow[]): Sheet {
   return null
 }
 
-function initialColumn(shot: string, prefs: DevicePrefs): number {
-  const horizon: Horizon = shot === 'week' || shot === 'mid' || shot === 'drag' || shot === 'emptycol' || shot === 'sub' ? 'week'
+function initialHorizon(shot: string, prefs: DevicePrefs): Horizon {
+  const requested: Horizon = shot === 'week' || shot === 'mid' || shot === 'drag' || shot === 'emptycol' || shot === 'sub' ? 'week'
     : shot === 'month' ? 'month' : shot === 'later' ? 'later' : OPEN_COLUMN
   const columns = BOARD_COLUMNS.filter(column => column === 'later' ? prefs.later : prefs.columns[column])
-  return columnIndex(columns, horizon)
+  return columns[columnIndex(columns, requested)] ?? OPEN_COLUMN
 }
 
 function initialTab(shot: string): 'board' | 'flow' | 'settings' {
@@ -89,7 +89,7 @@ export default function Root() {
   const [boot, setBoot] = useState<Boot | null>(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<'board' | 'flow' | 'settings'>('board')
-  const [column, setColumn] = useState(BOARD_COLUMNS.indexOf(OPEN_COLUMN))
+  const [boardHorizon, setBoardHorizon] = useState<Horizon>(OPEN_COLUMN)
   const [minimized, setMinimized] = useState(false)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [toast, setToast] = useState<Notice | null>(null)
@@ -133,7 +133,7 @@ export default function Root() {
       setBoot(opened)
       setError('')
       setTab(initialTab(current.shot))
-      setColumn(initialColumn(current.shot, opened.prefs))
+      setBoardHorizon(initialHorizon(current.shot, opened.prefs))
       setSheet(initialSheet(current.shot, opened.snap.items))
       setMinimized(current.shot === 'min' || current.shot === 'mindark')
     }).catch(cause => {
@@ -180,6 +180,9 @@ export default function Root() {
     setBoot({ ...boot, prefs })
   }
   const columns = BOARD_COLUMNS.filter(horizon => horizon === 'later' ? boot.prefs.later : boot.prefs.columns[horizon])
+  const column = columnIndex(columns, boardHorizon)
+  const shown = columns[column]
+  if (shown && shown !== boardHorizon) setBoardHorizon(shown)
   const openHorizon = tab === 'board' ? columns[column] ?? null : null
   const openPeriod = openHorizon && openHorizon !== 'later' ? viewed[openHorizon] ?? boot.snap.periods[openHorizon] ?? null : null
   const glance: Glance = { tab, horizon: openHorizon, periodId: openPeriod?.id ?? null, columns, doneOpen: false }
@@ -202,7 +205,7 @@ export default function Root() {
       copy={copy} theme={theme} snap={boot.snap} prefs={boot.prefs} locale={locale} tab={tab} column={column}
       minimized={minimized} sheet={sheet} toast={toast} shot={shot} viewed={viewed} ai={ai} onOpenAi={() => setAiOpen(true)}
       captureSeed={shot === 'capture' ? CAPTURE_SEED : ''}
-      onTab={next => { setTab(next); setMinimized(false) }} onColumn={setColumn} onMinimize={setMinimized} onSheet={setSheet}
+      onTab={next => { setTab(next); setMinimized(false) }} onColumn={index => { const next = columns[index]; if (next) setBoardHorizon(next) }} onMinimize={setMinimized} onSheet={setSheet}
       onDismissToast={() => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast(null) }}
       onCheck={item => guard(() => {
         const next = item.status === 'done' ? 'todo' : 'done'

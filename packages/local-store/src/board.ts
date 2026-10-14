@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Pointer samples, row boxes and flow membership.
- * [OUTPUT]: Column paging, a rejected row-swipe, long-press drag, nest/reorder drops, outline rows, breakpoint flags, sheet-dismiss decisions and capture drafts.
+ * [OUTPUT]: Column paging, a rejected row-swipe, long-press drag, nest/reorder drops, outline rows, flow parent-before-child order, breakpoint flags, sheet-dismiss decisions and capture drafts.
  * [POS]: Gesture and board projection rules with no React Native.
  */
 import type { Horizon, PeriodHorizon } from './types'
@@ -261,6 +261,17 @@ export function columnOutline<T extends OutlineItem>(items: readonly T[], compar
 }
 
 export interface FlowListItem { id: string; horizon: PeriodHorizon; done: boolean }
+
+/** Horizon order first. Within a horizon, a nesting parent precedes its children. Sort keys are per parent, so a raw sort can place a child above its parent. */
+export function orderFlowItems<T extends OutlineItem & { horizon: PeriodHorizon }>(items: readonly T[]): T[] {
+  const grouped = new Map<PeriodHorizon, T[]>()
+  for (const item of items) {
+    const list = grouped.get(item.horizon) ?? []
+    list.push(item)
+    grouped.set(item.horizon, list)
+  }
+  return periodHorizons.flatMap(horizon => outlineRows(grouped.get(horizon) ?? []))
+}
 
 export function flowSections(items: readonly FlowListItem[]): { horizon: PeriodHorizon; ids: string[] }[] {
   const buckets = new Map<PeriodHorizon, string[]>()

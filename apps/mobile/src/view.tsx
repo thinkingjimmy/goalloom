@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   BOARD_COLUMNS, FLOW_INDENT, LONG_PRESS_MS, NEST_INDENT, SHEET_GRABBER, buildParentOrder, canNest, classifyPointer, columnMenuDismiss, columnMenuIndex, columnSections,
-  columnRange, completionLabel, currentPeriod, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon,
+  columnRange, completionLabel, currentPeriod, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon, orderFlowItems,
   pageFromOffset, periodMeta, precedingPeriod, sheetRelease, shouldDragSheet, showBreakpoint, type AiConnection, type CalendarConfig, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
   type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot,
 } from '@goalloom/local-store'
@@ -63,7 +63,6 @@ function surface(theme: Theme, radius: number): ViewStyle {
     ...(minimal ? { elevation: 0 } : { shadowColor: theme.scheme === 'dark' ? '#000' : '#3c2814', shadowOpacity: theme.scheme === 'dark' ? 0.35 : 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 1 }, elevation: 1 }),
   }
 }
-const rank: Record<Horizon, number> = { year: 0, half: 1, cycle: 2, month: 3, week: 4, day: 5, later: 6 }
 const TAB_HEIGHT = 62
 const scrollInset = { contentInsetAdjustmentBehavior: 'never' as const }
 
@@ -547,8 +546,8 @@ function Flow({ copy, theme, snap, prefs, nodes, shot, contentBottom, onSheet, o
   const roots = snap.items.filter(item => item.flowColor !== null && !item.nestingParentId)
   const [root, setRoot] = useState<string | null>(null)
   const chosen = roots.find(item => item.id === root)
-  const items = snap.items.filter(item => item.horizon !== 'later' && item.status !== 'cancelled' && (root === null || item.id === root || (chosen?.flowColor !== null && chosen && flowColors(item.id, nodes, snap.relations).includes(chosen.flowColor!))))
-    .sort((a, b) => rank[a.horizon] - rank[b.horizon] || a.sortKey - b.sortKey)
+  const items = orderFlowItems(snap.items.filter(item => item.horizon !== 'later' && item.status !== 'cancelled' && (root === null || item.id === root || (chosen?.flowColor !== null && chosen && flowColors(item.id, nodes, snap.relations).includes(chosen.flowColor!))))
+    .map(item => ({ ...item, horizon: item.horizon as PeriodHorizon })))
   const sections = flowSections(items.map(item => ({ id: item.id, horizon: item.horizon as PeriodHorizon, done: item.status === 'done' })))
   const railItems = items.map(item => ({ id: item.id, horizon: item.horizon as PeriodHorizon, done: item.status === 'done', color: flowColors(item.id, nodes, snap.relations)[0] ?? null }))
   const nesting = items.flatMap(item => item.nestingParentId ? [{ parentId: item.nestingParentId, childId: item.id }] : [])
@@ -565,6 +564,17 @@ function Flow({ copy, theme, snap, prefs, nodes, shot, contentBottom, onSheet, o
     painted(value => value + 1)
   }
   const blocks: ReactNode[] = []
+  const sticky: number[] = []
+  const height = [...tops.current.values()].reduce((max, box) => Math.max(max, box.y + box.height), 0)
+  if (prefs.relationLines) blocks.push(<Svg key="rail" width={40} height={height} style={styles.rail} pointerEvents="none">
+    {links.map(link => {
+      const from = tops.current.get(link.from)
+      const to = tops.current.get(link.to)
+      if (!from || !to) return null
+      const color = link.color === null ? theme.faint : flowStroke(link.color, theme.scheme)
+      return <Line key={`${link.from}-${link.to}`} x1={25} y1={from.y + from.height / 2} x2={25} y2={to.y + to.height / 2} stroke={color} strokeWidth={1.5} strokeOpacity={link.dim ? 0.3 : 0.6} {...(link.skip ? { strokeDasharray: '3 4' } : {})} />
+    })}
+  </Svg>)
   blocks.push(<View key="flow-head">
     <Text style={[styles.screenTitle, { color: theme.fg }]}>{copy.flow}</Text>
     <ScrollView horizontal style={styles.chipStrip} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip} {...scrollInset}>
@@ -577,7 +587,8 @@ function Flow({ copy, theme, snap, prefs, nodes, shot, contentBottom, onSheet, o
   </View>)
   for (const section of sections) {
     const headerStat = completionLabel('header', section.ids.length, section.ids.length)
-    blocks.push(<View key={`h-${section.horizon}`} style={[styles.flowHeader, { backgroundColor: theme.bg }]}><View style={styles.gutter} /><Text style={[styles.flowHeaderText, { color: theme.fg }]}>{copy[section.horizon]}{headerStat ? ` ${headerStat}` : ''}</Text></View>)
+    sticky.push(blocks.length)
+    blocks.push(<View key={`h-${section.horizon}`} collapsable={false} style={[styles.flowHeader, { backgroundColor: theme.bg, zIndex: 1 }]}><View style={styles.gutter} /><Text style={[styles.flowHeaderText, { color: theme.fg }]}>{copy[section.horizon]}{headerStat ? ` ${headerStat}` : ''}</Text></View>)
     for (const id of section.ids) {
       const item = items.find(row => row.id === id)
       if (!item) continue
@@ -597,21 +608,8 @@ function Flow({ copy, theme, snap, prefs, nodes, shot, contentBottom, onSheet, o
       </Pressable>)
     }
   }
-  const boxes = [...tops.current.values()]
-  const height = boxes.reduce((max, box) => Math.max(max, box.y + box.height), 0)
-  return <ScrollView ref={list} onScroll={onScroll} scrollEventThrottle={16} onContentSizeChange={stick} contentContainerStyle={{ paddingBottom: contentBottom }} {...scrollInset}>
-    <View>
-      {prefs.relationLines && <Svg width={40} height={height} style={styles.rail} pointerEvents="none">
-        {links.map(link => {
-          const from = tops.current.get(link.from)
-          const to = tops.current.get(link.to)
-          if (!from || !to) return null
-          const color = link.color === null ? theme.faint : flowStroke(link.color, theme.scheme)
-          return <Line key={`${link.from}-${link.to}`} x1={25} y1={from.y + from.height / 2} x2={25} y2={to.y + to.height / 2} stroke={color} strokeWidth={1.5} strokeOpacity={link.dim ? 0.3 : 0.6} {...(link.skip ? { strokeDasharray: '3 4' } : {})} />
-        })}
-      </Svg>}
-      {blocks}
-    </View>
+  return <ScrollView ref={list} stickyHeaderIndices={sticky} onScroll={onScroll} scrollEventThrottle={16} onContentSizeChange={stick} contentContainerStyle={{ paddingBottom: contentBottom }} {...scrollInset}>
+    {blocks}
   </ScrollView>
 }
 
@@ -903,7 +901,7 @@ const styles = StyleSheet.create({
   button: { minHeight: 44, borderRadius: 10, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   screenTitle: { fontSize: 28, fontWeight: '700', marginHorizontal: 20, marginTop: 8, letterSpacing: -0.3 },
   flowChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 10, borderRadius: 8 },
-  flowHeader: { height: 40, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  flowHeader: { height: 40, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   flowHeaderText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
   flowRow: { minHeight: 44, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 12 },
   gutter: { width: 18, alignSelf: 'stretch', alignItems: 'center' },

@@ -5,7 +5,7 @@ import { buildParentOrder as desktopOrder } from '../../../apps/desktop/src/doma
 import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/notes'
 import {
   APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
-  columnMenuDismiss, columnMenuIndex, flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
+  columnMenuDismiss, columnMenuIndex, flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, orderFlowItems, pageFromOffset, parseCapture,
   AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, columnRange, filterTimeZones, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
 import { catalogs } from '../../../apps/mobile/src/copy'
@@ -226,6 +226,8 @@ describe('gestures', () => {
   it('opens the day column among the visible columns', () => {
     expect(columnIndex(['month', 'week', 'day', 'later'], 'day')).toBe(2)
     expect(columnIndex(['later'], 'day')).toBe(0)
+    expect(columnIndex(['half', 'cycle', 'month', 'week', 'day', 'later'], 'day')).toBe(4)
+    expect(columnIndex(['year', 'half', 'cycle', 'month', 'week', 'later'], 'day')).toBe(0)
   })
 
   it('nests in the middle of a row and reorders at the edge', () => {
@@ -436,6 +438,15 @@ describe('workspace', () => {
     expect(flowLeftLinks(rail, [])).toEqual([])
     expect(flowLeftLinks(rail, [{ parentId: 'y', childId: 'd' }])).toEqual([{ from: 'y', to: 'd', skip: true, dim: true, color: 1 }])
     expect(flowLeftLinks(rail, [{ parentId: 'y', childId: 'h' }])).toEqual([{ from: 'y', to: 'h', skip: false, dim: false, color: 1 }])
+    const nested = orderFlowItems([
+      { id: 'child', horizon: 'month' as const, status: 'todo', sortKey: 0, nestingParentId: 'parent' },
+      { id: 'parent', horizon: 'month' as const, status: 'todo', sortKey: 2, nestingParentId: null },
+      { id: 'other', horizon: 'month' as const, status: 'todo', sortKey: 1, nestingParentId: null },
+      { id: 'day', horizon: 'day' as const, status: 'todo', sortKey: 0, nestingParentId: 'parent' },
+      { id: 'year', horizon: 'year' as const, status: 'todo', sortKey: 9, nestingParentId: null },
+    ])
+    expect(nested.map(item => item.id)).toEqual(['year', 'other', 'parent', 'child', 'day'])
+    expect(flowLeftLinks(nested.map(item => ({ id: item.id, horizon: item.horizon, done: false, color: null })), [{ parentId: 'parent', childId: 'child' }])[0]).toMatchObject({ from: 'parent', to: 'child' })
   })
 
   it('opens on today, has no Today tab, and shows 1/5 only on a note', () => {
