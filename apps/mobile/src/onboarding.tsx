@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Locale copy, the device clock, and an explicit confirm callback.
- * [OUTPUT]: Choice, calendar, direction, and the optional AI connect screen. Password screens render but do not call sync.
- * [POS]: First-run UI. Calendar lock and the year item happen only in onConfirm, after the AI step.
+ * [OUTPUT]: Choice, calendar, and direction. Password screens render but do not call sync.
+ * [POS]: First-run UI. Calendar lock and the year item happen only in onConfirm, when the direction step continues.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -13,8 +13,7 @@ import Svg, { Path } from 'react-native-svg'
 import {
   calendarAnchorVisible, filterTimeZones, friendlyZoneName, pinCurrentZone, readTimeZones, runtimeZoneName, signInButtons, syncPasswordReady, workspaceDate, zoneLocalizedNames,
 } from '@goalloom/local-store'
-import type { AiConnection, SignInProvider } from '@goalloom/local-store'
-import { AiConnect } from './ai-connect'
+import type { SignInProvider } from '@goalloom/local-store'
 import { SetupScreen as Screen } from './setup-screen'
 import type { Copy } from './copy'
 import type { LocaleId } from '@goalloom/local-store'
@@ -26,13 +25,11 @@ import { AnchorCalendar } from './anchor-calendar'
 const INK = '#2b2621'
 const INK_TEXT = '#fbf9f6'
 
-type Step = 'choice' | 'calendar' | 'direction' | 'ai' | 'join' | 'create-password'
+type Step = 'choice' | 'calendar' | 'direction' | 'join' | 'create-password'
 type Picker = 'anchor' | 'zone' | 'week' | null
 
-export function Onboarding({ copy, scheme, locale, now, ai, onAi, onConfirm }: {
+export function Onboarding({ copy, scheme, locale, now, onConfirm }: {
   copy: Copy; scheme: Scheme; locale: LocaleId; now: string
-  ai: AiConnection | null
-  onAi: (next: AiConnection | null) => void
   onConfirm: (input: { mode: 'rolling' | 'natural'; timezone: string; weekStart: number; anchor: string; direction: string }) => void
 }) {
   const theme = themeFor(scheme)
@@ -51,7 +48,6 @@ export function Onboarding({ copy, scheme, locale, now, ai, onAi, onConfirm }: {
   useEffect(() => { if (anchor > today) setAnchor(today) }, [anchor, today])
   const back = step === 'calendar' ? () => setStep('choice')
     : step === 'direction' ? () => setStep('calendar')
-    : step === 'ai' ? () => setStep('direction')
     : step === 'join' ? () => { setResetOpen(false); setStep('choice') }
     : step === 'create-password' ? () => setStep('join')
     : null
@@ -60,8 +56,7 @@ export function Onboarding({ copy, scheme, locale, now, ai, onAi, onConfirm }: {
     <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     {step === 'choice' && <Choice copy={copy} theme={theme} waiting={waiting} onLocal={() => { setWaiting(false); setStep('calendar') }} onGoogle={() => setWaiting(true)} onCancel={() => setWaiting(false)} />}
     {step === 'calendar' && <Calendar copy={copy} theme={theme} locale={locale} mode={mode} timezone={timezone} weekStart={weekStart} anchor={anchor} today={today} onBack={back!} onMode={setMode} onOpen={setPicker} onNext={() => setStep('direction')} />}
-    {step === 'direction' && <Direction copy={copy} theme={theme} value={direction} onChange={setDirection} onBack={back!} onNext={() => setStep('ai')} />}
-    {step === 'ai' && <AiConnect copy={copy} theme={theme} connection={ai} onConnection={onAi} onBack={back!} onDone={finish} />}
+    {step === 'direction' && <Direction copy={copy} theme={theme} value={direction} onChange={setDirection} onBack={back!} onNext={finish} />}
     {step === 'join' && <JoinPassword copy={copy} theme={theme} email={email} onBack={back!} onReset={() => setResetOpen(true)} />}
     {step === 'create-password' && <NewPassword copy={copy} theme={theme} email={email} onBack={back!} />}
     {picker && <PickerSheet copy={copy} theme={theme} scheme={scheme} locale={locale} kind={picker} today={today} anchor={anchor} timezone={timezone} weekStart={weekStart} onClose={() => setPicker(null)} onAnchor={setAnchor} onZone={setTimezone} onWeek={setWeekStart} />}

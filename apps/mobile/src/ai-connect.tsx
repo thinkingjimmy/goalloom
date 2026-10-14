@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Locale copy, the saved provider (never the key), and connect / disconnect callbacks.
  * [OUTPUT]: The shared AI intro and the keyboard-attached key sheet. A passing check stores the key, then shows the provider.
- * [POS]: Onboarding step 3 and Settings › AI 服务. The key stays in the platform secret store.
+ * [POS]: Settings › AI 服务. The key stays in the platform secret store. Onboarding does not open this screen.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
@@ -21,13 +21,12 @@ import type { Theme } from './theme'
 const INK = '#2b2621'
 const INK_TEXT = '#fbf9f6'
 
-export function AiConnect({ copy, theme, connection, onConnection, onBack, onDone }: {
+export function AiConnect({ copy, theme, connection, onConnection, onBack }: {
   copy: Copy
   theme: Theme
   connection: AiConnection | null
   onConnection: (next: AiConnection | null) => void
   onBack: () => void
-  onDone?: () => void
 }) {
   const s = copy.start
   const [open, setOpen] = useState(false)
@@ -39,7 +38,7 @@ export function AiConnect({ copy, theme, connection, onConnection, onBack, onDon
     } catch { /* A failed delete keeps the connected row. */ }
   }
   return <View style={styles.fill}>
-    <SetupScreen theme={theme} title={s.aiTitle} onBack={onBack} backLabel={s.back} avoid={!open} scroll={false} right={onDone ? <Pressable onPress={onDone} hitSlop={8} style={styles.later}><Text style={[styles.link, { color: theme.fg }]}>{s.aiLater}</Text></Pressable> : null} cta={!connection ? <Primary label={s.aiConnect} onPress={() => setOpen(true)} /> : onDone ? <Primary label={s.aiEnter} onPress={onDone} /> : null}>
+    <SetupScreen theme={theme} title={s.aiTitle} onBack={onBack} backLabel={s.back} avoid={!open} scroll={false} cta={!connection ? <Primary label={s.aiConnect} onPress={() => setOpen(true)} /> : null}>
       <Text style={[styles.line, { color: theme.secondary }]}>{s.aiLine}</Text>
       {connection ? <View style={[styles.card, { backgroundColor: theme.raised, borderColor: theme.line }]}>
         <Text style={[styles.connected, { color: theme.fg }]}>{s.aiConnected(name)}</Text>
@@ -181,7 +180,6 @@ function Lift({ onDismiss, enabled, children }: { onDismiss: () => void; enabled
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  later: { paddingTop: 8, paddingHorizontal: 4 },
   line: { fontSize: 16, lineHeight: 22, marginBottom: 16 },
   card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
   example: { fontSize: 15, lineHeight: 22 },

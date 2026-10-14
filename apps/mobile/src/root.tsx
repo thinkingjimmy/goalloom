@@ -185,7 +185,7 @@ export default function Root() {
   const glance: Glance = { tab, horizon: openHorizon, periodId: openPeriod?.id ?? null, columns, doneOpen: false }
 
   if (!boot.snap.setupConfirmedAt) {
-    return <Onboarding copy={copy} scheme={scheme} locale={locale} now={clock()} ai={ai} onAi={setAi} onConfirm={input => guard(() => {
+    return <Onboarding copy={copy} scheme={scheme} locale={locale} now={clock()} onConfirm={input => guard(() => {
       const at = clock()
       boot.store.confirm(at, {
         mode: input.mode, timezone: input.timezone, weekStart: input.weekStart,
