@@ -118,7 +118,7 @@ notarize_dmg() {
 }
 
 verify() {
-  local version app dmg zip meta output
+  local version app dmg zip meta output team dmg_gate
   version="$(node -p "require('./apps/desktop/package.json').version")"
   app="apps/desktop/release/mac-arm64/Goalloom.app"
   dmg="apps/desktop/release/Goalloom-${version}-mac-arm64.dmg"
@@ -142,6 +142,15 @@ verify() {
 
   echo "Verifying the disk image."
   codesign --verify --deep --strict --verbose=2 "$dmg"
+  output="$(codesign -dv --verbose=4 "$dmg" 2>&1)"
+  printf '%s\n' "$output"
+  grep -q 'Developer ID Application' <<<"$output"
+  team="$(sed -n 's/^TeamIdentifier=//p' <<<"$output" | head -n 1)"
+  if [[ -z "$team" || "$team" == "not set" ]]; then
+    echo "::error::Disk image codesign -dv did not report a TeamIdentifier."
+    exit 1
+  fi
+  echo "Disk image TeamIdentifier=${team}"
 
   assess() {
     local result
@@ -154,7 +163,18 @@ verify() {
     grep -E -q 'Notarized Developer ID|source=Notarized' <<<"$result"
   }
   assess --type execute "$app"
-  assess --type open "$dmg"
+  # A disk image is not an executable. Without context:primary-signature,
+  # `spctl -t open` reports source=Insufficient Context after the ticket is stapled.
+  dmg_gate="$(spctl -a -vvv -t open --context context:primary-signature "$dmg" 2>&1)" || {
+    printf '%s\n' "$dmg_gate"
+    echo "::error::Disk image Gatekeeper assessment failed."
+    exit 1
+  }
+  printf '%s\n' "$dmg_gate"
+  if ! grep -q 'accepted' <<<"$dmg_gate" || ! grep -E -q 'Notarized Developer ID|source=Notarized' <<<"$dmg_gate"; then
+    echo "::error::Disk image was not accepted as a notarized Developer ID."
+    exit 1
+  fi
 
   staple() {
     local result
