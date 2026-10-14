@@ -1,19 +1,20 @@
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, it } from 'vitest'
 import { appProtocol, isGoalloomProtocol, protocolRegistration, protocolUrlFromArgv, secondInstanceFocus, signedInUrl } from '../../src/main/protocol'
 
-function platformBlock(source: string, name: string): string {
-  // `* text=auto` checks this file out as CRLF on Windows. A raw `mac:\r` never equals `mac:`.
-  const lines = source.replace(/\r\n/g, '\n').split('\n')
-  const start = lines.findIndex(line => line === `${name}:`)
-  if (start < 0) throw new Error(`missing ${name} section`)
-  const body: string[] = []
-  for (const line of lines.slice(start + 1)) {
-    if (line.length > 0 && !line.startsWith(' ')) break
-    body.push(line)
-  }
-  return body.join('\n')
+const { load } = createRequire(import.meta.url)('js-yaml') as { load: (source: string) => unknown }
+
+function protocols(text: string, section: 'mac' | 'win'): { name?: string, schemes?: string[] }[] {
+  const doc = load(text)
+  if (typeof doc !== 'object' || doc === null) throw new Error('electron-builder config is empty')
+  const block = (doc as Record<string, unknown>)[section]
+  if (typeof block !== 'object' || block === null || !('protocols' in block)) throw new Error(`missing ${section} section`)
+  const list = (block as { protocols?: unknown }).protocols
+  if (!Array.isArray(list)) throw new Error(`missing ${section} protocols`)
+  return list as { name?: string, schemes?: string[] }[]
 }
 
 it('打包应用只注册 goalloom，开发时把 Electron 入口一并交给系统', () => {
@@ -42,13 +43,22 @@ it('Windows 第二次启动会回到已打开的窗口，包括协议唤回', ()
 })
 
 it('mac 和 win 的 electron-builder 配置都声明 goalloom 协议', () => {
-  const source = readFileSync(fileURLToPath(new URL('../../electron-builder.yml', import.meta.url)), 'utf8')
-  for (const text of [source, source.replace(/\n/g, '\r\n')]) {
-    for (const name of ['mac', 'win']) {
-      const block = platformBlock(text, name)
-      expect(block).toContain('protocols:')
-      expect(block).toContain('name: Goalloom')
-      expect(block).toContain('schemes: [goalloom]')
+  const configPath = fileURLToPath(new URL('../../electron-builder.yml', import.meta.url))
+  expect(configPath.endsWith(`${path.sep}apps${path.sep}desktop${path.sep}electron-builder.yml`)).toBe(true)
+  // Windows checkout of this test file. path.win32 folds `..` the same way fileURLToPath does on Windows.
+  const windowsTest = 'D:\\runner\\work\\goalloom\\goalloom\\apps\\desktop\\tests\\main\\protocol.test.ts'
+  expect(path.win32.join(path.win32.dirname(windowsTest), '..', '..', 'electron-builder.yml')).toBe('D:\\runner\\work\\goalloom\\goalloom\\apps\\desktop\\electron-builder.yml')
+  expect(new URL('../../electron-builder.yml', 'file:///D:/runner/work/goalloom/goalloom/apps/desktop/tests/main/protocol.test.ts').pathname)
+    .toBe('/D:/runner/work/goalloom/goalloom/apps/desktop/electron-builder.yml')
+
+  const source = readFileSync(configPath, 'utf8')
+  // Normalize first. Replacing `\n` in an already-CRLF checkout yields `\r\r\n` (`mac:\r`), which the line matcher rejected.
+  const lf = source.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const windowsCheckout = lf.replace(/\n/g, '\r\n')
+  const doubledCarriageReturn = windowsCheckout.replace(/\n/g, '\r\n')
+  for (const text of [source, windowsCheckout, doubledCarriageReturn]) {
+    for (const name of ['mac', 'win'] as const) {
+      expect(protocols(text, name)).toEqual([{ name: 'Goalloom', schemes: ['goalloom'] }])
     }
   }
 })
