@@ -5,12 +5,13 @@
 #
 # Usage (from the repository root, on the macOS runner):
 #   macos-signing.sh prepare
+#   macos-signing.sh unlock
 #   macos-signing.sh notarize-dmg
 #   macos-signing.sh verify
 #   macos-signing.sh cleanup
 set -euo pipefail
 
-command="${1:?prepare|notarize-dmg|verify|cleanup}"
+command="${1:?prepare|unlock|notarize-dmg|verify|cleanup}"
 
 key_path="${RUNNER_TEMP:?}/AuthKey.p8"
 p12_path="${RUNNER_TEMP}/developer-id.p12"
@@ -81,10 +82,54 @@ prepare() {
 
   if [[ -n "${GITHUB_ENV:-}" ]]; then
     printf 'APPLE_API_KEY=%s\n' "$key_path" >> "$GITHUB_ENV"
+    printf 'CSC_KEYCHAIN=%s\n' "$keychain_path" >> "$GITHUB_ENV"
     # Keep the Apple ID flow from stealing notarization if a runner image sets it.
+    # APPLE_KEYCHAIN is that flow's keychain name, not CSC_KEYCHAIN.
     printf 'APPLE_ID=\nAPPLE_APP_SPECIFIC_PASSWORD=\nAPPLE_KEYCHAIN=\nAPPLE_KEYCHAIN_PROFILE=\n' >> "$GITHUB_ENV"
   fi
-  echo "Developer ID signing uses CSC_NAME (${CSC_NAME}). Notarytool will use the App Store Connect API key at \$RUNNER_TEMP/AuthKey.p8."
+  echo "Developer ID signing uses CSC_NAME (${CSC_NAME}) in the prepared keychain. Notarytool will use the App Store Connect API key at \$RUNNER_TEMP/AuthKey.p8."
+}
+
+unlock() {
+  [[ -f "$password_path" && -f "$keychain_path" ]] || {
+    echo "::error::Signing keychain is missing. The prepare step did not finish."
+    exit 1
+  }
+  if [[ -z "${CSC_NAME:-}" || "$CSC_NAME" == *"Developer ID Application:"* ]]; then
+    echo "::error::CSC_NAME must be the Developer ID common name, without the certificate prefix."
+    exit 1
+  fi
+  local password identity probe pid i
+  password="$(cat "$password_path")"
+  security unlock-keychain -p "$password" "$keychain_path"
+  # shellcheck disable=SC2046
+  security list-keychains -d user -s "$keychain_path" $(security list-keychains -d user | tr -d '"')
+  security default-keychain -s "$keychain_path"
+  identity="Developer ID Application: ${CSC_NAME}"
+  probe="${RUNNER_TEMP}/goalloom-sign-probe"
+  printf 'probe\n' > "$probe"
+  # A locked key or a second copy of this identity makes codesign wait on a GUI prompt.
+  # Kill that wait in seconds instead of hanging the packaging step.
+  codesign --force --sign "$identity" --keychain "$keychain_path" "$probe" &
+  pid=$!
+  for i in $(seq 1 20); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      if wait "$pid"; then
+        rm -f "$probe"
+        echo "codesign can use the prepared keychain."
+        return
+      fi
+      rm -f "$probe"
+      echo "::error::codesign could not sign a probe file with CSC_NAME."
+      exit 1
+    fi
+    sleep 1
+  done
+  kill -9 "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  rm -f "$probe"
+  echo "::error::codesign did not finish in 20s. The keychain is probably waiting for an access prompt."
+  exit 1
 }
 
 notarize_dmg() {
@@ -222,6 +267,7 @@ cleanup() {
 
 case "$command" in
   prepare) prepare ;;
+  unlock) unlock ;;
   notarize-dmg) notarize_dmg ;;
   verify) verify ;;
   cleanup) cleanup ;;
