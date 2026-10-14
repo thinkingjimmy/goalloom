@@ -69,15 +69,15 @@ pnpm build:debug          # 正式构建 + 不入包的私有源码映射与逐�
 pnpm package:dir          # 当前平台本地目录包
 ```
 
-`package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/DMG 安装时间。产物位于 `apps/desktop/release/Goalloom-<版本>-mac-arm64.dmg` 与 `apps/desktop/release/Goalloom-<版本>-win-x64.exe`；前者为拖拽安装的磁盘映像，后者为中文 x64 安装器。macOS 包在本机有 Developer ID 证书时自动签名但未公证，Windows 包未签名，安装方式见[中文 README 的「首次打开」](README.zh-CN.md#首次打开)；应用图标来自 `apps/desktop/resources/icon.png`。公开版本以 [GitHub Releases](https://github.com/thinkingjimmy/goalloom/releases) 分发（首个公开版本 1.0.0），官网下载按钮指向同一批资产。正式包经 electron-updater 从 GitHub Releases 自动更新：打包同时生成 macOS zip 与 `latest-mac.yml` / `latest.yml`。托管打包把这些资产放上草稿 Release，见下方「托管打包与草稿 Release」；自动更新要等该草稿被发布为正式版。清单见[关于与软件更新](features/updates.md#工程契约)。桌面安装包许可证：[MIT](../LICENSE)。`supabase/` 为 [AGPL-3.0-only](../supabase/LICENSE)，路径划分见根 README 的 License 一节。
+`package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/DMG 安装时间。产物位于 `apps/desktop/release/Goalloom-<版本>-mac-arm64.dmg` 与 `apps/desktop/release/Goalloom-<版本>-win-x64.exe`；前者为拖拽安装的磁盘映像，后者为中文 x64 安装器。macOS 包在本机有 Developer ID 证书时会签名；没有 Apple API key 时 electron-builder 跳过公证。Windows 包未签名。托管 Release 工作流则必须签名并公证，见下方。安装方式见[中文 README 的「首次打开」](README.zh-CN.md#首次打开)。已经发布的下载仍是未公证包，README 与官网里的首次打开说明要等第一份公证过的 Release 发布后再改。应用图标来自 `apps/desktop/resources/icon.png`。公开版本以 [GitHub Releases](https://github.com/thinkingjimmy/goalloom/releases) 分发（首个公开版本 1.0.0），官网下载按钮指向同一批资产。正式包经 electron-updater 从 GitHub Releases 自动更新：打包同时生成 macOS zip 与 `latest-mac.yml` / `latest.yml`。托管打包把这些资产放上草稿 Release，见下方「托管打包与草稿 Release」；自动更新要等该草稿被发布为正式版。清单见[关于与软件更新](features/updates.md#工程契约)。桌面安装包许可证：[MIT](../LICENSE)。`supabase/` 为 [AGPL-3.0-only](../supabase/LICENSE)，路径划分见根 README 的 License 一节。
 
 ## 托管打包与草稿 Release
 
 桌面安装包可以在 GitHub Actions 上打出，不必在本机 Mac 上执行 `package:mac` / `package:win`。工作流是 [`.github/workflows/release.yml`](../.github/workflows/release.yml)，汇总脚本是 [`.github/scripts/draft-release.sh`](../.github/scripts/draft-release.sh)。
 
-- 触发：Actions 页手动运行 `workflow_dispatch`，或推送匹配 `v*` 的 tag（例如 `v1.8.0`）。tag 必须等于 `v` 加上 `apps/desktop/package.json` 的版本，且根 `package.json` 版本相同。对不上就失败，不创建 Release。
-- Runner：`macos-15`（arm64）与 `windows-2025`（x64）各自打包；`ubuntu-latest` 只负责校验文件、写 `SHA256SUMS.txt` 并更新草稿。同一时间只跑一个这样的工作流。
-- 托管门禁，用来代替本机完整 `pnpm verify` 里能在托管 runner 上跑的部分：`pnpm typecheck`、`pnpm test`、`pnpm build`，然后 `package:mac` / `package:win`（仍 `--publish never`，并跑现有包体报告），再跑 `ci.yml` 里已有的打包后冒烟（`tests/workspace.mjs`、`tests/history.mjs`、`tests/recovery.mjs` 指向打好的应用）。包体报告在比对语言白名单前把相对路径里的反斜杠换成正斜杠。1.8.0 的 ASAR 基线按实测写在 `apps/desktop/scripts/build/package-budgets.json`（darwin-arm64 3170678 字节，win32-x64 3170712 字节）。主进程打包了 `@supabase/supabase-js`，不再把它留成运行时依赖。这不是完整 `pnpm verify`，也不代替公证、Windows 11 实机或负责人的安装验收。
+- 触发：Actions 页手动运行 `workflow_dispatch`，或推送匹配 `v*` 的 tag（例如 `v1.8.0`）。手动运行默认只上传 Actions artifact，不创建、不更新、也不发布 Release；勾选 `update_draft` 后才会和 tag 推送一样去创建或更新草稿。tag 必须等于 `v` 加上 `apps/desktop/package.json` 的版本，且根 `package.json` 版本相同。对不上就失败，不创建 Release。
+- Runner：`macos-15`（arm64）与 `windows-2025`（x64）各自打包。需要草稿时，`ubuntu-latest` 校验文件、写 `SHA256SUMS.txt` 并更新草稿；只做签名测试时这个 job 不运行。同一时间只跑一个这样的工作流。
+- 托管门禁，用来代替本机完整 `pnpm verify` 里能在托管 runner 上跑的部分：`pnpm typecheck`、`pnpm test`、`pnpm build`，然后 `package:mac` / `package:win`（仍 `--publish never`，并跑现有包体报告），再跑 `ci.yml` 里已有的打包后冒烟（`tests/workspace.mjs`、`tests/history.mjs`、`tests/recovery.mjs` 指向打好的应用）。macOS job 在冒烟之前用 `codesign --verify --deep --strict`、`spctl -a -vv` 和 `xcrun stapler validate` 检查 `.app` 与 `.dmg`。包体报告在比对语言白名单前把相对路径里的反斜杠换成正斜杠。1.8.0 的 ASAR 基线按实测写在 `apps/desktop/scripts/build/package-budgets.json`（darwin-arm64 3170678 字节，win32-x64 3170712 字节）。主进程打包了 `@supabase/supabase-js`，不再把它留成运行时依赖。这不是完整 `pnpm verify`，也不代替 Windows 11 实机或负责人的安装验收。
 - 上传的文件：`Goalloom-<v>-mac-arm64.dmg`、`Goalloom-<v>-mac-arm64.zip`、`Goalloom-<v>-mac-arm64.zip.blockmap`、`latest-mac.yml`、`Goalloom-<v>-win-x64.exe`、`Goalloom-<v>-win-x64.exe.blockmap`、`latest.yml`，以及与 1.6.0 相同两空格格式的 `SHA256SUMS.txt`（覆盖这七个文件，不含校验文件自身）。缺任何一个都会失败。
 - 草稿 job 用自带的 `GITHUB_TOKEN` 创建或更新 tag `v<版本>` 的 draft Release。标题为 `Goalloom <版本>`，正文来自 `docs/releases/v<版本>.md`。调用只带 `--draft`，不带 `--prerelease`，也不带 `--draft=false`。已发布的 Release 直接失败，不会被改回草稿、不会被改成 prerelease、也不会被再次发布。自动更新要等负责人在 GitHub 上发布该草稿。
 - 权限：工作流默认 `contents: read`。打包 job 另有 `actions: write`，只为上传 artifact。`contents: write` 只给草稿 job；该 job 另有 `actions: read` 以下载 artifact。不使用个人 access token。
@@ -87,12 +87,16 @@ macOS 签名用仓库 Actions secrets，不要把证书放进仓库：
 
 | Secret | 内容 |
 | --- | --- |
-| `CSC_LINK` | Developer ID Application 证书的 `.p12` 文件字节的 base64（不是磁盘路径，也不是密码）。electron-builder 把它当作 `CSC_LINK`。 |
+| `CSC_LINK` | Developer ID Application 证书的 `.p12` 文件字节的 base64（不是磁盘路径，也不是密码）。electron-builder 把它当作 `CSC_LINK`。证书主体是 `Developer ID Application: ziming wang (947MAGH97Q)`。 |
 | `CSC_KEY_PASSWORD` | 该 `.p12` 的导入密码。 |
+| `APPLE_API_KEY_P8` | App Store Connect API key 的原始 `.p8` 文本（不是 base64）。工作流把它写成 `$RUNNER_TEMP/AuthKey.p8`，并把路径放进 `APPLE_API_KEY`。 |
+| `APPLE_API_KEY_ID` | 该 API key 的 Key ID。 |
+| `APPLE_API_ISSUER` | App Store Connect Issuer ID。 |
+| `APPLE_TEAM_ID` | Apple Team ID（`947MAGH97Q`）。工作流要求它非空并传入打包环境。electron-builder 26 的 `notarize` 只能是布尔值；API key 公证不会把 team id 再传给 notarytool（同时传入会被拒绝）。工作流会清掉 `APPLE_ID`，因此不会走需要 team id 的密码登录。 |
 | `GOALLOOM_SUPABASE_ANON_KEY` | Supabase anon key。只在打包步骤作为构建期环境变量传给 `electron-vite`，打进主进程。不要写入仓库。未设置或为空时构建仍成功，安装包里的同步保持未配置。 |
 | `GOALLOOM_SUPABASE_URL` | 可选。未设置时工作流使用 `https://asqyvcnxdltzzfutbbqy.supabase.co`。 |
 
-两个签名 secret 都有值时，macOS job 用这份证书签名。缺任何一个就 `unset` 它们，设置 `CSC_IDENTITY_AUTO_DISCOVERY=false`，打未签名包，并在日志里打出警告：Squirrel.Mac 自动更新要求 Developer ID 签名，这次的 zip 不能作为自动更新载荷。不配置 Apple 公证。Windows 安装包始终未签名，该 job 固定 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取上述签名 secrets。
+macOS job 要求上表里的签名和公证 secret 全部有值。缺任何一个就失败，不再 `unset` 后设置 `CSC_IDENTITY_AUTO_DISCOVERY=false` 打未签名包。`package:mac` 仍 `--publish never`。electron-builder 用 `CSC_LINK` 签名应用，并用 API key 走 notarytool 公证 `.app`。`apps/desktop/electron-builder.yml` 打开 `hardenedRuntime`、关闭 `gatekeeperAssess`、`notarize: true`，权限文件是 `apps/desktop/build/entitlements.mac.plist`（JIT 与未签名可执行内存；没有 `disable-library-validation`，因为没有 better-sqlite3 这类未签名原生模块，SQLite 用 Electron 自带的 `node:sqlite`）。zip 与 `latest-mac.yml` 仍是 Squirrel.Mac 自动更新载荷；校验步骤确认这两个文件都在，并且 yml 指向该 zip。DMG 由工作流另行加上安全时间戳、提交公证并装订票据。随后在 macOS runner 上对 `.app` 和 `.dmg` 执行 `codesign --verify --deep --strict`、`spctl -a -vv` 和 `xcrun stapler validate`。日志只出现 secret 的名字，不出现值。`.github/workflows/ci.yml` 仍设置 `CSC_IDENTITY_AUTO_DISCOVERY=false`，私人检查不签名、不公证。Windows 安装包始终未签名，该 job 固定 `CSC_IDENTITY_AUTO_DISCOVERY=false`，不读取上述签名 secrets。
 
 打包步骤把 `GOALLOOM_SUPABASE_ANON_KEY` 和 `GOALLOOM_SUPABASE_URL` 传给 `package:mac` / `package:win` 里的 `electron-vite build`。运行时先看环境变量 `GOALLOOM_SUPABASE_ANON_KEY`，再看用户数据目录里 `sync-config.json` 的 `anonKey`（可选字段 `url`），最后用打进包里的值。macOS 用户数据目录是 `~/Library/Application Support/Goalloom/`。anon key 为空只打警告，不让构建失败。`pnpm test` 不接收这把 key。
 
@@ -163,7 +167,7 @@ macOS 签名用仓库 Actions secrets，不要把证书放进仓库：
 - 失败时先看应用自身的焦点／可见性、活动元素、输入目标及已有截图／日志，不采集其他应用的屏幕内容。有证据确认环境干扰且消除原因后，只补跑受影响场景一次；不支持单场景入口时跑最小包含脚本，使用全新隔离测试数据，不重跑其他已通过的功能。
 - 环境仍不满足前提时，将相应用例明确标为“环境干扰，尚未验证”；原因不明则保留待排查，不能直接跳过、标为通过或认定产品缺陷。依赖前台的测试优先放到隔离桌面运行，不靠反复抢焦点或要求负责人停止使用电脑维持测试；其他独立工作继续推进。
 
-`.github/workflows/ci.yml` 仅手动触发，做更宽的桌面检查，不创建 Release。`release.yml` 由手动运行或推送 `v*` tag 触发，在托管 macOS arm64 与 Windows x64 上打包并更新草稿 Release，见上文「托管打包与草稿 Release」。Windows 11 实机输入、安装与升级验收仍由负责人完成。
+`.github/workflows/ci.yml` 仅手动触发，做更宽的桌面检查，不创建 Release，macOS 打包保持未签名。`release.yml` 由手动运行或推送 `v*` tag 触发，在托管 macOS arm64 与 Windows x64 上打包；macOS 包签名并公证。只有 tag 推送或手动勾选 `update_draft` 时才更新草稿 Release，见上文「托管打包与草稿 Release」。Windows 11 实机输入、安装与升级验收仍由负责人完成。
 
 ## 代码地图
 

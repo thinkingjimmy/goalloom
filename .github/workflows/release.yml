@@ -1,11 +1,19 @@
 name: Draft desktop release
 
-# Manual dispatch, or a push of a v* tag. The last job only creates or updates a
-# draft Release. It never publishes and never changes the prerelease flag.
+# Manual dispatch builds artifacts and does not publish. Leave `update_draft`
+# off for a signing test (Actions artifacts only). Check it, or push a v* tag,
+# to also create or update a draft Release. The draft job never publishes and
+# never changes the prerelease flag.
 # Hosted gates are typecheck, pnpm test, build, packaging, and the packaged
 # smokes from ci.yml. Full local `pnpm verify` is unchanged.
 on:
   workflow_dispatch:
+    inputs:
+      update_draft:
+        description: Create or update the draft Release. Never publishes. Leave off to only upload Actions artifacts.
+        required: false
+        type: boolean
+        default: false
   push:
     tags:
       - "v*"
@@ -31,7 +39,7 @@ jobs:
             arch: x64
             package: win
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 90
     permissions:
       contents: read
       actions: write
@@ -52,26 +60,56 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - name: Prepare macOS signing
+        if: matrix.package == 'mac'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash .github/scripts/macos-signing.sh prepare
       - name: Package macOS
         if: matrix.package == 'mac'
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GOALLOOM_SUPABASE_ANON_KEY: ${{ secrets.GOALLOOM_SUPABASE_ANON_KEY }}
           GOALLOOM_SUPABASE_URL: ${{ secrets.GOALLOOM_SUPABASE_URL || 'https://asqyvcnxdltzzfutbbqy.supabase.co' }}
         run: |
           set -euo pipefail
-          if [[ -n "${CSC_LINK}" && -n "${CSC_KEY_PASSWORD}" ]]; then
-            echo "Developer ID signing is enabled from CSC_LINK."
-          else
-            unset CSC_LINK CSC_KEY_PASSWORD
-            export CSC_IDENTITY_AUTO_DISCOVERY=false
-            echo "::warning title=Unsigned macOS build::CSC_LINK (base64 p12) and CSC_KEY_PASSWORD are not both set. Building unsigned with CSC_IDENTITY_AUTO_DISCOVERY=false. Squirrel.Mac auto-update requires a Developer ID signed build; this zip cannot ship as an automatic update."
+          unset CSC_IDENTITY_AUTO_DISCOVERY
+          if [[ -z "${APPLE_API_KEY:-}" || ! -f "${APPLE_API_KEY}" ]]; then
+            echo "::error::APPLE_API_KEY is not the AuthKey.p8 path from the prepare step."
+            exit 1
           fi
           if [[ -z "${GOALLOOM_SUPABASE_ANON_KEY}" ]]; then
             echo "::warning title=Sync unconfigured::GOALLOOM_SUPABASE_ANON_KEY is empty. The build continues and the packaged app leaves sync unconfigured."
           fi
-          pnpm run package:mac
+          log="${RUNNER_TEMP}/electron-builder-mac.log"
+          pnpm run package:mac 2>&1 | tee "$log"
+          if grep -E -q 'skipped macOS (application code signing|notarization)' "$log"; then
+            echo "::error::electron-builder skipped macOS signing or notarization. This workflow does not ship an unsigned build."
+            exit 1
+          fi
+          if ! grep -q 'notarization successful' "$log"; then
+            echo "::error::electron-builder did not report a successful macOS notarization."
+            exit 1
+          fi
+      - name: Notarize the macOS disk image
+        if: matrix.package == 'mac'
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash .github/scripts/macos-signing.sh notarize-dmg
+      - name: Verify macOS signature and notarization
+        if: matrix.package == 'mac'
+        run: bash .github/scripts/macos-signing.sh verify
       - name: Package Windows
         if: matrix.package == 'win'
         env:
@@ -131,10 +169,14 @@ jobs:
           retention-days: 7
           if-no-files-found: error
           path: ${{ runner.temp }}/update-assets/*
+      - name: Remove macOS signing material
+        if: always() && matrix.package == 'mac'
+        run: bash .github/scripts/macos-signing.sh cleanup
 
   draft:
     name: Draft GitHub Release
     needs: package
+    if: github.event_name == 'push' || inputs.update_draft == true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
