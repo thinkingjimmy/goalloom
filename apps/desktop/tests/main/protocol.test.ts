@@ -4,7 +4,8 @@ import { expect, it } from 'vitest'
 import { appProtocol, isGoalloomProtocol, protocolRegistration, protocolUrlFromArgv, secondInstanceFocus, signedInUrl } from '../../src/main/protocol'
 
 function platformBlock(source: string, name: string): string {
-  const lines = source.split('\n')
+  // `* text=auto` checks this file out as CRLF on Windows. A raw `mac:\r` never equals `mac:`.
+  const lines = source.replace(/\r\n/g, '\n').split('\n')
   const start = lines.findIndex(line => line === `${name}:`)
   if (start < 0) throw new Error(`missing ${name} section`)
   const body: string[] = []
@@ -42,10 +43,12 @@ it('Windows 第二次启动会回到已打开的窗口，包括协议唤回', ()
 
 it('mac 和 win 的 electron-builder 配置都声明 goalloom 协议', () => {
   const source = readFileSync(fileURLToPath(new URL('../../electron-builder.yml', import.meta.url)), 'utf8')
-  for (const name of ['mac', 'win']) {
-    const block = platformBlock(source, name)
-    expect(block).toContain('protocols:')
-    expect(block).toContain('name: Goalloom')
-    expect(block).toContain('schemes: [goalloom]')
+  for (const text of [source, source.replace(/\n/g, '\r\n')]) {
+    for (const name of ['mac', 'win']) {
+      const block = platformBlock(text, name)
+      expect(block).toContain('protocols:')
+      expect(block).toContain('name: Goalloom')
+      expect(block).toContain('schemes: [goalloom]')
+    }
   }
 })
