@@ -86,6 +86,11 @@ jobs:
     permissions:
       contents: read
       actions: write
+    env:
+      # Not a secret. The .p12 can hold more than one Developer ID; without this,
+      # electron-builder signs with whichever identity security lists first.
+      # electron-builder rejects a CSC_NAME that already includes "Developer ID Application:".
+      CSC_NAME: "ziming wang (947MAGH97Q)"
     defaults:
       run:
         shell: bash
@@ -145,6 +150,8 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash .github/scripts/macos-signing.sh notarize-dmg
       - name: Verify macOS signature and notarization
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash .github/scripts/macos-signing.sh verify
       - name: Packaged macOS smoke
         working-directory: apps/desktop

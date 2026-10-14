@@ -69,8 +69,13 @@ prepare() {
   # shellcheck disable=SC2046
   security list-keychains -d user -s "$keychain_path" $(security list-keychains -d user | tr -d '"')
 
-  if ! security find-identity -p codesigning -v "$keychain_path" | grep -q 'Developer ID Application'; then
-    echo "::error::Imported CSC_LINK has no Developer ID Application identity."
+  # CSC_NAME is the common name only. electron-builder rejects the "Developer ID Application:" prefix.
+  if [[ -z "${CSC_NAME:-}" || "$CSC_NAME" == *"Developer ID Application:"* ]]; then
+    echo "::error::CSC_NAME must be the Developer ID common name, without the certificate prefix."
+    exit 1
+  fi
+  if ! security find-identity -p codesigning -v "$keychain_path" | grep -F -q "\"Developer ID Application: ${CSC_NAME}\""; then
+    echo "::error::Imported CSC_LINK has no Developer ID Application identity for CSC_NAME."
     exit 1
   fi
 
@@ -79,7 +84,7 @@ prepare() {
     # Keep the Apple ID flow from stealing notarization if a runner image sets it.
     printf 'APPLE_ID=\nAPPLE_APP_SPECIFIC_PASSWORD=\nAPPLE_KEYCHAIN=\nAPPLE_KEYCHAIN_PROFILE=\n' >> "$GITHUB_ENV"
   fi
-  echo "Developer ID signing is enabled. Notarytool will use the App Store Connect API key at \$RUNNER_TEMP/AuthKey.p8."
+  echo "Developer ID signing uses CSC_NAME (${CSC_NAME}). Notarytool will use the App Store Connect API key at \$RUNNER_TEMP/AuthKey.p8."
 }
 
 notarize_dmg() {
@@ -97,15 +102,19 @@ notarize_dmg() {
   }
   password="$(cat "$password_path")"
   security unlock-keychain -p "$password" "$keychain_path"
-  identity="$(security find-identity -p codesigning -v "$keychain_path" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -n 1)"
-  [[ -n "$identity" ]] || {
-    echo "::error::No Developer ID Application identity is available to sign the disk image."
+  if [[ -z "${CSC_NAME:-}" || "$CSC_NAME" == *"Developer ID Application:"* ]]; then
+    echo "::error::CSC_NAME must be the Developer ID common name, without the certificate prefix."
     exit 1
-  }
+  fi
+  identity="Developer ID Application: ${CSC_NAME}"
+  if ! security find-identity -p codesigning -v "$keychain_path" | grep -F -q "\"${identity}\""; then
+    echo "::error::No Developer ID Application identity for CSC_NAME is available to sign the disk image."
+    exit 1
+  fi
   # electron-builder 26 signs a DMG only when dmg.sign is true, and then without a
   # secure timestamp, which notarytool rejects. Sign it here, then notarize the
   # container. The .app was already notarized by electron-builder.
-  echo "Signing the disk image with Developer ID and a secure timestamp."
+  echo "Signing the disk image with ${identity} and a secure timestamp."
   codesign --force --sign "$identity" --keychain "$keychain_path" --timestamp --verbose=2 "$dmg"
   echo "Submitting the disk image to notarytool."
   xcrun notarytool submit "$dmg" \
@@ -118,7 +127,8 @@ notarize_dmg() {
 }
 
 verify() {
-  local version app dmg zip meta output team dmg_gate
+  local version app dmg zip meta dmg_gate
+  require_secrets APPLE_TEAM_ID
   version="$(node -p "require('./apps/desktop/package.json').version")"
   app="apps/desktop/release/mac-arm64/Goalloom.app"
   dmg="apps/desktop/release/Goalloom-${version}-mac-arm64.dmg"
@@ -133,24 +143,36 @@ verify() {
     exit 1
   fi
 
+  # codesign -dv prints the TeamIdentifier embedded in the signature. The comparison
+  # below never prints APPLE_TEAM_ID.
+  require_team() {
+    local label="$1" file="$2" details team
+    details="$(codesign -dv --verbose=4 "$file" 2>&1)"
+    printf '%s\n' "$details"
+    grep -q 'Developer ID Application' <<<"$details"
+    if [[ "$label" == "Application" ]] && ! grep -q '(runtime)' <<<"$details"; then
+      echo "::error::Application is not signed with the hardened runtime."
+      exit 1
+    fi
+    team="$(sed -n 's/^TeamIdentifier=//p' <<<"$details" | head -n 1)"
+    if [[ -z "$team" || "$team" == "not set" ]]; then
+      echo "::error::${label} codesign -dv did not report a TeamIdentifier."
+      exit 1
+    fi
+    echo "${label} TeamIdentifier=${team}"
+    if [[ "$team" != "$APPLE_TEAM_ID" ]]; then
+      echo "::error::${label} TeamIdentifier does not match APPLE_TEAM_ID."
+      exit 1
+    fi
+  }
+
   echo "Verifying the application bundle."
   codesign --verify --deep --strict --verbose=2 "$app"
-  output="$(codesign -dv --verbose=4 "$app" 2>&1)"
-  printf '%s\n' "$output"
-  grep -q 'Developer ID Application' <<<"$output"
-  grep -q '(runtime)' <<<"$output"
+  require_team "Application" "$app"
 
   echo "Verifying the disk image."
   codesign --verify --deep --strict --verbose=2 "$dmg"
-  output="$(codesign -dv --verbose=4 "$dmg" 2>&1)"
-  printf '%s\n' "$output"
-  grep -q 'Developer ID Application' <<<"$output"
-  team="$(sed -n 's/^TeamIdentifier=//p' <<<"$output" | head -n 1)"
-  if [[ -z "$team" || "$team" == "not set" ]]; then
-    echo "::error::Disk image codesign -dv did not report a TeamIdentifier."
-    exit 1
-  fi
-  echo "Disk image TeamIdentifier=${team}"
+  require_team "Disk image" "$dmg"
 
   assess() {
     local result
