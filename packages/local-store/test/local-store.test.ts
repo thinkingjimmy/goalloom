@@ -4,10 +4,11 @@ import { currentPeriod as desktopPeriod, workspaceDate as desktopToday } from '.
 import { buildParentOrder as desktopOrder } from '../../../apps/desktop/src/domain/parent-order'
 import { noteSignal as desktopNote } from '../../../apps/desktop/src/shared/notes'
 import {
-  DEMO_NOW, LONG_PRESS_MS, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, currentPeriod, daysLeft, dropOnRows,
-  flowColors, flowConnectors, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, pageFromOffset, parseCapture,
-  periodMeta, rowSwipeAction, showBreakpoint, userVersion, workspaceDate, type OrderNode, type SqlDriver,
+  APP_TABS, DEMO_NOW, FLOW_INDENT, LONG_PRESS_MS, OPEN_COLUMN, buildParentOrder, canNest, classifyPointer, columnIndex, columnOutline, columnSections, completionLabel, currentPeriod, daysLeft, dropOnRows,
+  columnMenuDismiss, columnMenuIndex, flowColors, flowConnectors, flowLeftLinks, flowSections, installSchema, nearbyPeriods, neighborsAfterRemoval, noteSignal, orderFlowItems, pageFromOffset, parseCapture,
+  AI_KEY_URL, AI_PROBE_URL, actionNotice, aiKeyAccepted, aiProbeResult, anchorDateAllowed, calendarAnchorVisible, calendarWeekStart, clampAnchorDate, columnRange, filterTimeZones, signInButtons, friendlyZoneName, monthGrid, compactRange, parseAiCredential, periodFromId, periodMeta, pinCurrentZone, probeAiKey, yearMenu, readTimeZones, rowSwipeAction, serializeAiCredential, sheetRelease, shouldDragSheet, showBreakpoint, syncPasswordReady, userVersion, withCaptureColumn, workspaceDate, type AiProbeFetch, type Glance, type ItemRow, type OrderNode, type SqlDriver, type UndoToken,
 } from '../src/index'
+import { catalogs } from '../../../apps/mobile/src/copy'
 import { LocalWorkspace } from '../src/store'
 
 function memory(): SqlDriver {
@@ -94,8 +95,46 @@ describe('calendar parity', () => {
     const month = currentPeriod(calendar, 'month', DEMO_NOW)
     expect(periodMeta('day', day, '2026-10-12').meta).toBe('10月12日 周一')
     expect(periodMeta('week', week, '2026-10-12').meta).toBe('10/12–10/18')
+    expect(periodMeta('week', week, '2026-10-12').meta).not.toMatch(/2026/)
+    expect(periodMeta('day', day, '2026-10-12').meta).not.toMatch(/2026/)
     expect(daysLeft(month, '2026-10-12')).toBe(20)
     expect(daysLeft(week, '2026-10-12')).toBe(7)
+  })
+
+  it('writes a year on a range only when the range crosses a year', () => {
+    const same = { id: 'w', horizon: 'week' as const, startDate: '2026-10-12', endDate: '2026-10-19', startAt: '', endAt: '' }
+    const cross = { id: 'x', horizon: 'week' as const, startDate: '2026-12-28', endDate: '2027-01-04', startAt: '', endAt: '' }
+    const half = { id: 'h', horizon: 'half' as const, startDate: '2026-10-01', endDate: '2027-04-01', startAt: '', endAt: '' }
+    expect(periodMeta('week', same, '2026-10-12').meta).toBe('10/12–10/18')
+    expect(periodMeta('week', cross, '2026-12-30').meta).toBe('2026/12/28–2027/1/3')
+    expect(periodMeta('half', half, '2026-12-30').meta).toBe('2026年10月–2027年3月')
+    expect(compactRange('2026-10-12', '2026-10-19', 'zh', 'day')).toBe('10月12日 – 18日')
+    expect(compactRange('2026-10-12', '2026-10-19', 'en', 'day')).toBe('Oct 12 – 18')
+    expect(compactRange('2026-12-28', '2027-01-04', 'zh', 'day')).toBe('2026年12月28日 – 2027年1月3日')
+    expect(compactRange('2026-10-01', '2027-04-01', 'zh', 'month')).toBe('2026年10月 – 2027年3月')
+    expect(yearMenu('2026-10-12', '2027-10-12', 'zh')).toEqual({ title: '2026 年', range: '至 2027年10月' })
+    expect(yearMenu('2026-01-01', '2027-01-01', 'zh')).toEqual({ title: '2026 年', range: '至 2026年12月' })
+    expect(yearMenu('2026-10-12', '2027-10-12', 'en')).toEqual({ title: '2026', range: 'through Oct 2027' })
+    const rolling = { mode: 'rolling' as const }
+    const natural = { mode: 'natural' as const }
+    const span = (startDate: string, endDate: string) => ({ startDate, endDate })
+    expect(columnRange('week', span('2026-10-12', '2026-10-19'), rolling, '2026-10-12', 'zh')).toBe('10/12 – 10/18')
+    expect(columnRange('week', span('2026-10-12', '2026-10-19'), rolling, '2026-10-12', 'es')).toBe('12/10 – 18/10')
+    expect(columnRange('week', span('2026-12-28', '2027-01-04'), rolling, '2026-12-30', 'zh')).toBe('12/28 – 1/3')
+    expect(columnRange('half', span('2026-09-23', '2027-03-23'), rolling, '2026-10-02', 'zh')).toBe('9/23 – 3/22')
+    expect(columnRange('cycle', span('2026-09-23', '2026-12-23'), rolling, '2026-10-02', 'zh')).toBe('9/23 – 12/22')
+    expect(columnRange('year', span('2026-10-12', '2027-10-12'), rolling, '2026-10-12', 'zh')).toBe('10/12 – 10/11')
+    expect(columnRange('year', span('2026-01-01', '2027-01-01'), natural, '2026-10-12', 'zh')).toBe('')
+    expect(columnRange('later', null, rolling, '2026-10-12', 'zh')).toBe('')
+    expect(columnRange('day', span('2026-10-12', '2026-10-13'), rolling, '2026-10-12', 'zh')).toBe('10月12日')
+    expect(columnRange('day', span('2026-10-12', '2026-10-13'), rolling, '2026-10-12', 'en')).toBe('Oct 12')
+    expect(columnRange('month', span('2026-10-01', '2026-11-01'), rolling, '2026-10-12', 'zh')).toBe('10月')
+    expect(columnRange('month', span('2026-10-01', '2026-11-01'), rolling, '2026-10-12', 'en')).toBe('Oct')
+    expect(columnRange('cycle', span('2026-10-01', '2027-01-01'), natural, '2026-10-12', 'zh')).toBe('Q4')
+    expect(columnRange('half', span('2026-07-01', '2027-01-01'), natural, '2026-10-12', 'zh')).toBe('7月–12月')
+    expect(columnRange('half', span('2026-07-01', '2027-01-01'), natural, '2026-10-12', 'en')).toBe('Jul–Dec')
+    expect(columnRange('cycle', span('2026-12-23', '2027-03-23'), rolling, '2026-10-02', 'zh', false)).toBe('12/23 – 27/3/22')
+    expect(columnRange('cycle', span('2025-09-23', '2025-12-23'), rolling, '2026-10-02', 'zh', false)).toBe('25/9/23 – 12/22')
   })
 })
 
@@ -128,6 +167,16 @@ describe('gestures', () => {
     expect(pageFromOffset(377 * 5, 377)).toBe(5)
     expect(pageFromOffset(377 * 5 + 200, 377)).toBe(6)
     expect(pageFromOffset(9000, 377)).toBe(6)
+    expect(columnMenuIndex(100, 100, 7)).toBe(0)
+    expect(columnMenuIndex(139, 100, 7)).toBe(0)
+    expect(columnMenuIndex(140, 100, 7)).toBe(1)
+    expect(columnMenuIndex(100 + 40 * 6, 100, 7)).toBe(6)
+    expect(columnMenuIndex(99, 100, 7)).toBeNull()
+    expect(columnMenuIndex(100 + 40 * 7, 100, 7)).toBeNull()
+    expect(columnMenuDismiss(-30, 4)).toBe(true)
+    expect(columnMenuDismiss(-10, 0)).toBe(false)
+    expect(columnMenuDismiss(-30, 40)).toBe(false)
+    expect(columnMenuDismiss(30, 0)).toBe(false)
   })
 
   it('keeps a flick as paging and a held finger as drag', () => {
@@ -177,6 +226,8 @@ describe('gestures', () => {
   it('opens the day column among the visible columns', () => {
     expect(columnIndex(['month', 'week', 'day', 'later'], 'day')).toBe(2)
     expect(columnIndex(['later'], 'day')).toBe(0)
+    expect(columnIndex(['half', 'cycle', 'month', 'week', 'day', 'later'], 'day')).toBe(4)
+    expect(columnIndex(['year', 'half', 'cycle', 'month', 'week', 'later'], 'day')).toBe(0)
   })
 
   it('nests in the middle of a row and reorders at the edge', () => {
@@ -199,6 +250,10 @@ describe('capture', () => {
     expect(drafts).toHaveLength(2)
     expect(drafts[0]).toMatchObject({ title: '订京都酒店', horizon: 'week', dueDate: '2026-10-16', parentId: 'kyoto' })
     expect(drafts[1]).toMatchObject({ title: '读 30 页', horizon: 'day', parentId: 'books' })
+    const placed = withCaptureColumn(drafts, 'month')
+    expect(placed[0]?.horizon).toBe('week')
+    expect(placed[1]?.horizon).toBe('day')
+    expect(withCaptureColumn([{ title: '记一下', horizon: 'later', dueDate: null, parentId: null }], 'week')[0]?.horizon).toBe('week')
   })
 })
 
@@ -251,6 +306,14 @@ describe('workspace', () => {
     store.undo(DEMO_NOW, undo)
     expect(store.load(DEMO_NOW).trash.some(item => item.id === b)).toBe(false)
     expect(store.load(DEMO_NOW).items.some(item => item.id === b)).toBe(true)
+    const deletedAt = '2026-10-13T01:00:00.000Z'
+    store.trash(deletedAt, b)
+    const restore = store.restore(DEMO_NOW, b)
+    expect(store.load(DEMO_NOW).items.some(item => item.id === b)).toBe(true)
+    store.undo(DEMO_NOW, restore)
+    const again = store.load(DEMO_NOW).trash.find(item => item.id === b)
+    expect(again?.deletedAt).toBe(deletedAt)
+    expect(store.load(DEMO_NOW).items.some(item => item.id === b)).toBe(false)
   })
 
   it('rolls an automatic column forward and keeps a manual backlog', () => {
@@ -366,8 +429,241 @@ describe('workspace', () => {
     ]
     expect(flowSections(rows).map(section => section.horizon)).toEqual(['year', 'day'])
     expect(flowConnectors(rows)).toEqual([{ from: 'y', to: 'd', skip: true, dim: true }])
+    const rail = [
+      { id: 'y', horizon: 'year' as const, done: false, color: 1 },
+      { id: 'h', horizon: 'half' as const, done: false, color: null },
+      { id: 'd', horizon: 'day' as const, done: true, color: null },
+    ]
+    expect(FLOW_INDENT).toBe(0)
+    expect(flowLeftLinks(rail, [])).toEqual([])
+    expect(flowLeftLinks(rail, [{ parentId: 'y', childId: 'd' }])).toEqual([{ from: 'y', to: 'd', skip: true, dim: true, color: 1 }])
+    expect(flowLeftLinks(rail, [{ parentId: 'y', childId: 'h' }])).toEqual([{ from: 'y', to: 'h', skip: false, dim: false, color: 1 }])
+    const nested = orderFlowItems([
+      { id: 'child', horizon: 'month' as const, status: 'todo', sortKey: 0, nestingParentId: 'parent' },
+      { id: 'parent', horizon: 'month' as const, status: 'todo', sortKey: 2, nestingParentId: null },
+      { id: 'other', horizon: 'month' as const, status: 'todo', sortKey: 1, nestingParentId: null },
+      { id: 'day', horizon: 'day' as const, status: 'todo', sortKey: 0, nestingParentId: 'parent' },
+      { id: 'year', horizon: 'year' as const, status: 'todo', sortKey: 9, nestingParentId: null },
+    ])
+    expect(nested.map(item => item.id)).toEqual(['year', 'other', 'parent', 'child', 'day'])
+    expect(flowLeftLinks(nested.map(item => ({ id: item.id, horizon: item.horizon, done: false, color: null })), [{ parentId: 'parent', childId: 'child' }])[0]).toMatchObject({ from: 'parent', to: 'child' })
+  })
+
+  it('opens on today, has no Today tab, and shows 1/5 only on a note', () => {
+    expect(OPEN_COLUMN).toBe('day')
+    expect(APP_TABS).toEqual(['board', 'flow', 'settings'])
+    expect(APP_TABS).not.toContain('today')
+    expect(completionLabel('note', 1, 5)).toBe('1/5')
+    expect(completionLabel('fold', 1, 5)).toBe('1')
+    expect(completionLabel('header', 1, 5)).toBeNull()
+    expect(completionLabel('note', 0, 0)).toBeNull()
+  })
+
+  it('closes a sheet on a far or fast pull and springs back otherwise', () => {
+    expect(shouldDragSheet(12, 2, 80, 10)).toBe(true)
+    expect(shouldDragSheet(12, 2, 80, 90)).toBe(false)
+    expect(shouldDragSheet(12, 2, 0, 90)).toBe(true)
+    expect(shouldDragSheet(12, 2, 1, 90)).toBe(true)
+    expect(shouldDragSheet(12, 2, 2, 90)).toBe(false)
+    expect(shouldDragSheet(-12, 2, 0, 90)).toBe(false)
+    expect(shouldDragSheet(4, 1, 0, 10)).toBe(false)
+    expect(shouldDragSheet(10, 24, 0, 90)).toBe(false)
+    expect(sheetRelease(20, 0.2, 500)).toBe(false)
+    expect(sheetRelease(150, 0.2, 500)).toBe(true)
+    expect(sheetRelease(20, 0.9, 500)).toBe(true)
+    expect(sheetRelease(50, 0, 200)).toBe(false)
+    expect(sheetRelease(60, 0, 200)).toBe(true)
+  })
+
+  it('hides the rolling start date for a natural year and checks a new sync password', () => {
+    expect(calendarAnchorVisible('rolling')).toBe(true)
+    expect(calendarAnchorVisible('natural')).toBe(false)
+    expect(syncPasswordReady('short', 'short')).toBe(false)
+    expect(syncPasswordReady('long-enough', 'different')).toBe(false)
+    expect(syncPasswordReady('  long-enough ', 'long-enough')).toBe(true)
+    expect(syncPasswordReady('x'.repeat(129), 'x'.repeat(129))).toBe(false)
+    expect(signInButtons(['google'])).toEqual(['google'])
+    expect(signInButtons(['google', 'apple'])).toEqual(['apple', 'google'])
+    expect(signInButtons([])).toEqual([])
+    expect(catalogs.zh.start.benefits).toEqual([
+      { lead: '登录后', body: '手机和电脑上的看板自动保持一致，换了设备数据也还在。' },
+      { lead: '不登录', body: '所有数据只存在这台设备上，不用账号，马上就能开始用。' },
+    ])
+    expect(catalogs.en.start.benefits.map(line => line.lead)).toEqual(['After you sign in', 'Without signing in'])
+    expect(catalogs.zh.start.google).toBe('使用 Google 继续')
+    expect(catalogs.zh.start.apple).toBe('使用 Apple 继续')
+    expect(catalogs.zh.start.or).toBe('或')
+    expect(catalogs.zh.start.local).toBe('仅在这台设备使用')
+    expect(catalogs.zh.start.directionTitle).toBe('今年最想推进什么？')
+    expect(catalogs.zh.start.examples).toEqual(['跑一次全马', '读 24 本书', '找到理想工作'])
+    for (const copy of Object.values(catalogs)) expect(copy.start.examples).toHaveLength(3)
+    for (const copy of Object.values(catalogs)) {
+      expect(copy.start.benefits).toHaveLength(2)
+      for (const line of copy.start.benefits) {
+        expect(line.lead.length).toBeGreaterThan(0)
+        expect(line.body.length).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('allows an anchor on or before today, matching the desktop date input', () => {
+    expect(clampAnchorDate('2026-10-14', '2026-10-13')).toBe('2026-10-13')
+    expect(clampAnchorDate('2026-10-13', '2026-10-13')).toBe('2026-10-13')
+    expect(clampAnchorDate('2020-01-31', '2026-10-13')).toBe('2020-01-31')
+    expect(anchorDateAllowed('2026-10-13', '2026-10-13')).toBe(true)
+    expect(anchorDateAllowed('2026-10-14', '2026-10-13')).toBe(false)
+    const grid = monthGrid(2026, 10, '2026-10-13', calendarWeekStart('zh'))
+    expect(grid.length % 7).toBe(0)
+    expect(grid.filter(cell => cell.inMonth)).toHaveLength(31)
+    expect(grid.find(cell => cell.ymd === '2026-10-13')?.allowed).toBe(true)
+    expect(grid.find(cell => cell.ymd === '2026-10-14')?.allowed).toBe(false)
+    expect(grid[0]?.ymd).toBe('2026-09-28')
+    expect(calendarWeekStart('en')).toBe(0)
+    expect(monthGrid(2026, 10, '2026-10-13', 0)[0]?.ymd).toBe('2026-09-27')
+  })
+
+  it('matches desktop toasts: create, move and complete stay quiet', () => {
+    const copy = catalogs.zh
+    const board = { today: '2026-10-12', calendar: { mode: 'rolling' as const }, periods: { day: samplePeriod } }
+    const here: Glance = { tab: 'board', horizon: 'day', periodId: samplePeriod.id, columns: ['year', 'half', 'cycle', 'month', 'week', 'day'], doneOpen: false }
+    const undo: UndoToken = { kind: 'trash', id: '1' }
+    for (const action of ['create', 'move', 'reorder', 'edit', 'flow', 'link', 'unlink', 'policy', 'appearance', 'backup', 'complete'] as const) {
+      expect(actionNotice(copy, action, sampleItem(), undo, here, board)).toBeNull()
+    }
+    expect(actionNotice(copy, 'delete', sampleItem(), null, here, board)).toBeNull()
+    const deleted = actionNotice(copy, 'delete', sampleItem(), undo, here, board)
+    expect(deleted).toMatchObject({ text: '已删除「甲」', detail: null, durationMs: 6000, label: '删除' })
+    expect(deleted?.undo).toBe(undo)
+    expect(actionNotice(copy, 'nest', sampleItem(), { kind: 'placement', id: '1' }, here, board)?.text).toBe('已设为二级 todo「甲」')
+    expect(actionNotice(copy, 'reopen', sampleItem({ status: 'done' }), { kind: 'status', id: '1', status: 'done' }, here, board)).toBeNull()
+    const away = actionNotice(copy, 'reopen', sampleItem({ status: 'done' }), { kind: 'status', id: '1', status: 'done' }, { ...here, tab: 'flow' }, board)
+    expect(away?.text).toBe('已重开「甲」')
+    expect(away?.detail).toBe('位置：今天 · 列已隐藏')
+    expect(away?.undo).toBeTruthy()
+    const past = actionNotice(copy, 'reopen', sampleItem({ status: 'done', periodId: 'cal:day:2026-10-11' }), { kind: 'status', id: '1', status: 'done' }, here, board)
+    expect(past?.detail).toContain('往期')
+    expect(past?.detail).toContain('当前视图未显示')
+    expect(past?.detail).not.toContain('已完成')
+    const restored = actionNotice(copy, 'restore', sampleItem(), { kind: 'restore', id: '1', deletedAt: DEMO_NOW }, here, board)
+    expect(restored?.text).toBe('已还原「甲」')
+    expect(restored?.detail).toBe('位置：今天')
+    expect(catalogs.en.applied(catalogs.en.actionDelete, '甲')).toBe('Move to trash · “甲”')
+    expect(catalogs.en.undone(catalogs.en.actionDelete, '甲')).toBe('Undone · Move to trash “甲”')
+    expect(periodFromId('day', 'cal:day:2026-10-11')?.startDate).toBe('2026-10-11')
+  })
+
+  it('does not use the word 继承 or Jev in any locale', () => {
+    const textOf = (value: unknown): string => {
+      if (typeof value === 'function') return value.toString()
+      if (typeof value === 'string') return value
+      if (Array.isArray(value)) return value.map(textOf).join('\n')
+      if (value && typeof value === 'object') return Object.values(value).map(textOf).join('\n')
+      return ''
+    }
+    for (const copy of Object.values(catalogs)) {
+      const text = textOf(copy)
+      expect(text).not.toContain('继承')
+      expect(text).not.toContain('Jev')
+    }
+  })
+
+  it('names the AI connect consent and the provider key link', () => {
+    expect(catalogs.zh.start.aiConsent('OpenRouter')).toBe('我同意把智能输入和洞察需要的内容发送给 OpenRouter')
+    expect(catalogs.zh.start.aiGetKey('OpenRouter')).toBe('获取 OpenRouter Key')
+    expect(catalogs.zh.start.aiGetKey('Vercel AI Gateway')).toBe('获取 Vercel AI Gateway Key')
+    expect(catalogs.zh.start.aiTitle).toBe('让 AI 帮你拆任务')
+    expect(catalogs.zh.start.aiTasks).toHaveLength(2)
+    expect(catalogs.en.start.aiConsent('OpenRouter')).toContain('OpenRouter')
   })
 })
+
+const samplePeriod = { id: 'cal:day:2026-10-12', horizon: 'day' as const, startDate: '2026-10-12', endDate: '2026-10-13', startAt: '', endAt: '' }
+
+describe('time zone search', () => {
+  const zones = ['Asia/Singapore', 'Asia/Shanghai', 'Asia/Tokyo', 'America/New_York', 'Europe/Paris', 'UTC']
+  const names: Record<string, readonly string[]> = {
+    'Asia/Singapore': ['新加坡'],
+    'Asia/Shanghai': ['上海'],
+    'Asia/Tokyo': ['东京', 'Tokyo'],
+    'America/New_York': ['纽约'],
+    'Europe/Paris': ['巴黎'],
+  }
+  const search = (query: string) => filterTimeZones(zones, query, id => names[id] ?? [])
+
+  it('matches the zone id, the city, and localized names', () => {
+    expect(search('Asia/')).toEqual(['Asia/Singapore', 'Asia/Shanghai', 'Asia/Tokyo'])
+    expect(search('ASIA/tokyo')).toEqual(['Asia/Tokyo'])
+    expect(search('tokyo')).toEqual(['Asia/Tokyo'])
+    expect(search('Tokyo')).toEqual(['Asia/Tokyo'])
+    expect(search('new york')).toEqual(['America/New_York'])
+    expect(search('新加坡')).toEqual(['Asia/Singapore'])
+    expect(search('上海')).toEqual(['Asia/Shanghai'])
+    expect(search('  ')).toEqual(zones)
+    expect(search('Europe/')).toEqual(['Europe/Paris'])
+    expect(pinCurrentZone(search('Asia/'), 'Asia/Singapore')).toEqual(['Asia/Singapore', 'Asia/Shanghai', 'Asia/Tokyo'])
+    expect(pinCurrentZone(search('Europe/'), 'Asia/Singapore')).toEqual(['Europe/Paris'])
+  })
+
+  it('uses the bundled IANA list when the runtime cannot list time zones', () => {
+    const bundled = readTimeZones(() => { throw new Error('unsupported') })
+    expect(bundled.length).toBeGreaterThan(400)
+    expect(bundled).toContain('Asia/Shanghai')
+    expect(bundled).toContain('Asia/Singapore')
+    expect(readTimeZones(() => ['Asia/Singapore'])).toContain('Europe/Paris')
+    const custom = Array.from({ length: 100 }, (_, index) => `Zone/${index}`)
+    expect(readTimeZones(() => custom)).toEqual(custom)
+    expect(friendlyZoneName('Asia/Shanghai', 'zh')).toBe('上海')
+    expect(friendlyZoneName('Asia/Singapore', 'zh')).toBe('新加坡')
+    expect(friendlyZoneName('Asia/Tokyo', 'en')).toBe('Tokyo')
+    expect(friendlyZoneName('America/New_York', 'en')).toBe('New York')
+    const localize = (id: string) => [friendlyZoneName(id, 'zh')]
+    expect(filterTimeZones(bundled, '上海', localize)).toContain('Asia/Shanghai')
+    expect(filterTimeZones(bundled, '新加坡', localize)).toContain('Asia/Singapore')
+    expect(filterTimeZones(bundled, 'Asia/', localize).every(id => id.startsWith('Asia/'))).toBe(true)
+  })
+})
+
+describe('AI key check', () => {
+  const fetchWith = (status: number | null): AiProbeFetch => async (url, init) => {
+    expect(url).toBe(AI_PROBE_URL.openrouter)
+    expect(init.headers.Authorization).toBe('Bearer secret-key')
+    expect(init.redirect).toBe('error')
+    if (status === null) throw new Error('offline')
+    return { status }
+  }
+
+  it('accepts a key only with consent and a length the desktop form allows', () => {
+    expect(aiKeyAccepted('short', true)).toBe(false)
+    expect(aiKeyAccepted('secret-key', false)).toBe(false)
+    expect(aiKeyAccepted('  secret-key  ', true)).toBe(true)
+    expect(aiKeyAccepted('x'.repeat(513), true)).toBe(false)
+    expect(aiProbeResult(200)).toBe('ok')
+    expect(aiProbeResult(401)).toBe('rejected')
+    expect(aiProbeResult(403)).toBe('rejected')
+    expect(aiProbeResult(500)).toBe('unavailable')
+    expect(aiProbeResult(null)).toBe('unavailable')
+  })
+
+  it('treats a 200 as connected and keeps a failed check from looking saved', async () => {
+    expect(AI_KEY_URL.openrouter).toBe('https://openrouter.ai/settings/keys')
+    expect(AI_KEY_URL['vercel-gateway']).toBe('https://vercel.com/dashboard')
+    await expect(probeAiKey('openrouter', 'secret-key', fetchWith(200))).resolves.toBe('ok')
+    await expect(probeAiKey('openrouter', 'secret-key', fetchWith(401))).resolves.toBe('rejected')
+    await expect(probeAiKey('openrouter', 'secret-key', fetchWith(null))).resolves.toBe('unavailable')
+    const saved = serializeAiCredential({ provider: 'openrouter', apiKey: ' secret-key ', consentedAt: '2026-10-13T00:00:00.000Z', verifiedAt: '2026-10-13T00:00:00.000Z' })
+    expect(parseAiCredential(saved)).toMatchObject({ provider: 'openrouter', apiKey: 'secret-key' })
+    expect(parseAiCredential('{"provider":"other","apiKey":"secret-key"}')).toBeNull()
+    expect(parseAiCredential('not-json')).toBeNull()
+  })
+})
+
+function sampleItem(patch: Partial<ItemRow> = {}): ItemRow {
+  return {
+    id: '1', title: '甲', description: '', dueDate: null, status: 'todo', completedAt: null, archivedAt: null, deletedAt: null,
+    createdAt: DEMO_NOW, updatedAt: DEMO_NOW, version: 1, flowColor: null, horizon: 'day', periodId: samplePeriod.id, sortKey: 1,
+    placementVersion: 1, nestingParentId: null, holdPeriodId: null, note: null, ...patch,
+  }
+}
 
 function nodes(store: LocalWorkspace) {
   const snap = store.load(DEMO_NOW)

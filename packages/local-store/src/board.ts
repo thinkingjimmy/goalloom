@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Pointer samples, row boxes and flow membership.
- * [OUTPUT]: Column paging, a rejected row-swipe, long-press drag, nest/reorder drops, outline rows and breakpoint flags.
+ * [OUTPUT]: Column paging, a rejected row-swipe, long-press drag, nest/reorder drops, outline rows, flow parent-before-child order, breakpoint flags, sheet-dismiss decisions and capture drafts.
  * [POS]: Gesture and board projection rules with no React Native.
  */
 import type { Horizon, PeriodHorizon } from './types'
@@ -10,15 +10,61 @@ export const BOARD_COLUMNS = ['year', 'half', 'cycle', 'month', 'week', 'day', '
 export type BoardColumn = typeof BOARD_COLUMNS[number]
 export const OPEN_COLUMN: BoardColumn = 'day'
 export const OPEN_INDEX = BOARD_COLUMNS.indexOf(OPEN_COLUMN)
+/** Bottom bar. There is no Today tab; today is the column the board opens on. */
+export const APP_TABS = ['board', 'flow', 'settings'] as const
+export type AppTab = typeof APP_TABS[number]
 export const LONG_PRESS_MS = 450
 export const GESTURE_SLOP = 8
 export const NEST_INDENT = 24
+/** The flow page is one column. Rows do not indent. */
+export const FLOW_INDENT = 0
+
+/** Checklist fraction, matching the desktop note signal. Folds show a count. Other surfaces show nothing. */
+export function completionLabel(where: 'note' | 'fold' | 'header', done: number, total: number): string | null {
+  if (where === 'note' && total > 0) return `${done}/${total}`
+  if (where === 'fold') return String(done)
+  return null
+}
 
 export function rowSwipeAction(): null { return null }
 
-export function pageFromOffset(x: number, pageWidth: number, count = BOARD_COLUMNS.length): number {
+/** Hit height of the sheet grabber, measured from the top of the sheet. */
+export const SHEET_GRABBER = 44
+/** Downward speed, in px/ms, that closes the sheet even when the drag is short. */
+export const SHEET_DISMISS_VELOCITY = 0.75
+
+/** Pull down on the grabber, or on the body only while its content is at the top. */
+export function shouldDragSheet(dy: number, dx: number, scrollY: number, startOffsetY: number): boolean {
+  if (dy <= GESTURE_SLOP || dy < Math.abs(dx)) return false
+  if (startOffsetY <= SHEET_GRABBER) return true
+  return scrollY <= 1
+}
+
+/** Close once the drag passes the distance threshold or the flick is fast enough; otherwise spring back. */
+export function sheetRelease(distance: number, velocity: number, height: number): boolean {
+  const span = Math.max(height, 1)
+  return distance > Math.min(140, span * 0.28) || velocity > SHEET_DISMISS_VELOCITY
+}
+
+export function pageFromOffset(x: number, pageWidth: number, count: number = BOARD_COLUMNS.length): number {
   if (pageWidth <= 0) return OPEN_INDEX
   return Math.max(0, Math.min(count - 1, Math.round(x / pageWidth)))
+}
+
+/** Height of one column-menu row. The menu is a compact stack under the title. */
+export const COLUMN_MENU_ROW = 40
+
+/** Row under a finger. Null when the point is above the first row or below the last. */
+export function columnMenuIndex(y: number, top: number, count: number, row = COLUMN_MENU_ROW): number | null {
+  if (count <= 0 || row <= 0) return null
+  const index = Math.floor((y - top) / row)
+  if (index < 0 || index >= count) return null
+  return index
+}
+
+/** An upward flick dismisses the open column menu. A sideways move does not. */
+export function columnMenuDismiss(dy: number, dx: number): boolean {
+  return dy <= -24 && dy < -Math.abs(dx)
 }
 
 export type PointerPhase = 'pending' | 'scroll' | 'paging' | 'drag'
@@ -216,6 +262,17 @@ export function columnOutline<T extends OutlineItem>(items: readonly T[], compar
 
 export interface FlowListItem { id: string; horizon: PeriodHorizon; done: boolean }
 
+/** Horizon order first. Within a horizon, a nesting parent precedes its children. Sort keys are per parent, so a raw sort can place a child above its parent. */
+export function orderFlowItems<T extends OutlineItem & { horizon: PeriodHorizon }>(items: readonly T[]): T[] {
+  const grouped = new Map<PeriodHorizon, T[]>()
+  for (const item of items) {
+    const list = grouped.get(item.horizon) ?? []
+    list.push(item)
+    grouped.set(item.horizon, list)
+  }
+  return periodHorizons.flatMap(horizon => outlineRows(grouped.get(horizon) ?? []))
+}
+
 export function flowSections(items: readonly FlowListItem[]): { horizon: PeriodHorizon; ids: string[] }[] {
   const buckets = new Map<PeriodHorizon, string[]>()
   for (const item of items) {
@@ -224,6 +281,34 @@ export function flowSections(items: readonly FlowListItem[]): { horizon: PeriodH
     buckets.set(item.horizon, list)
   }
   return periodHorizons.filter(horizon => buckets.has(horizon)).map(horizon => ({ horizon, ids: buckets.get(horizon)! }))
+}
+
+export interface FlowRailItem { id: string; horizon: PeriodHorizon; done: boolean; color: number | null }
+
+/** Parent→child rails for the single-column flow page. Unrelated neighbours are not connected. */
+export function flowLeftLinks(items: readonly FlowRailItem[], edges: readonly FlowEdge[]): { from: string; to: string; skip: boolean; dim: boolean; color: number | null }[] {
+  const placed = new Map(items.map((item, index) => [item.id, { item, index }]))
+  const rank = (horizon: PeriodHorizon) => periodHorizons.indexOf(horizon)
+  const seen = new Set<string>()
+  const links: { from: string; to: string; skip: boolean; dim: boolean; color: number | null }[] = []
+  for (const edge of edges) {
+    const parent = placed.get(edge.parentId)
+    const child = placed.get(edge.childId)
+    if (!parent || !child || parent.index === child.index) continue
+    const upper = parent.index < child.index ? parent : child
+    const lower = parent.index < child.index ? child : parent
+    const key = `${upper.item.id}>${lower.item.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    links.push({
+      from: upper.item.id,
+      to: lower.item.id,
+      skip: Math.abs(rank(parent.item.horizon) - rank(child.item.horizon)) > 1,
+      dim: child.item.done,
+      color: parent.item.color ?? child.item.color,
+    })
+  }
+  return links
 }
 
 export function flowConnectors(items: readonly FlowListItem[]): { from: string; to: string; skip: boolean; dim: boolean }[] {
@@ -243,6 +328,12 @@ export interface CaptureDraft {
   dueDate: string | null
   parentId: string | null
   nestingParentId?: string | null
+}
+
+/** A chosen column replaces a parsed Later item that has no date. Dated and named horizons stay. */
+export function withCaptureColumn(rows: readonly CaptureDraft[], column: Horizon): CaptureDraft[] {
+  if (column === 'later') return rows.map(row => ({ ...row }))
+  return rows.map(row => row.horizon === 'later' && row.dueDate === null ? { ...row, horizon: column } : { ...row })
 }
 
 export function parseCapture(text: string, today: string, parents: readonly CaptureParent[]): CaptureDraft[] {
