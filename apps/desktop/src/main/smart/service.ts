@@ -13,7 +13,7 @@ import { aiFeatures, aiProviders, featureCapability, providerCapabilities } from
 import { smartActionSchema, type AiFeature, type AiProvider, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type DraftRequest, type Failure, type FailureKind, type ReviewRequest, type SmartReply, type SmartStatus, type TestOutcome, insightEvidenceSchema } from '../../shared/contracts/smart-input'
 import type { ChatPrompt } from '../../domain/smart/insight'
 import { chatSample, sampleAnswered, type ChatAdapter, type ChatProvider } from './insight'
-import { parseSetting } from '@goalloom/contracts'
+import { isSecretFingerprint, parseSetting } from '@goalloom/contracts'
 import { blankProvider, type DeviceConfig, type DeviceStore, type ProviderConfig } from './credentials'
 import { Aborted, failure, JEV_PROVIDERS, ProviderFailure, type Adapter, type EvaluateOutput } from './providers'
 import { AssistanceService } from './assistance'
@@ -87,9 +87,20 @@ export class SmartInputService {
     return entries
   }
 
+  /** The keychain value for a synced secret. `undefined` means the cipher cannot be read yet. */
+  async syncedSecret(key: string): Promise<string | null | undefined> {
+    if (key !== 'ai.key.openrouter' && key !== 'ai.key.vercel-gateway') return undefined
+    const provider = key.slice('ai.key.'.length) as AiProvider
+    const read = await this.options.store.readKey(provider)
+    if (read.state === 'saved') return read.key
+    if (read.state === 'missing') return null
+    return undefined
+  }
+
   /** Applies one remote setting into the keychain or device config. Does not emit another op. */
   async applyRemoteSetting(key: string, value: unknown): Promise<void> {
     const setting = parseSetting(key, value)
+    if ((setting.key === 'ai.key.openrouter' || setting.key === 'ai.key.vercel-gateway') && isSecretFingerprint(setting.value)) return
     if (setting.key === 'ai.key.openrouter' || setting.key === 'ai.key.vercel-gateway') {
       const provider = setting.key.slice('ai.key.'.length) as AiProvider
       if (setting.value === null) { await this.options.store.removeKey(provider); return }

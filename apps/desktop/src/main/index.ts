@@ -26,7 +26,7 @@ import { assistanceServerText } from '../shared/i18n/assistance'
 import { SyncService } from './sync/service'
 import { projectSettingRows } from './sync/project-settings'
 import { syncEvent } from '../shared/contracts/sync'
-import { devicePrefsEvent, languageEvent } from '../shared/contracts/runtime'
+import { aiRefreshEvent, devicePrefsEvent, languageEvent } from '../shared/contracts/runtime'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -193,8 +193,11 @@ if (!app.requestSingleInstanceLock()) {
         language, smart,
         notifyLanguage: state => send(languageEvent, state),
         notifyDevicePrefs: entries => send(devicePrefsEvent, entries),
+        notifyAi: () => send(aiRefreshEvent, null),
       }),
       collectSeed: () => smart.syncedSettingEntries(),
+      readSecret: key => smart.syncedSecret(key),
+      applySecret: (key, value) => smart.applyRemoteSetting(key, value),
       language: () => language.state.language,
       clipboard: text => clipboard.writeText(text),
       now: () => new Date().toISOString(),

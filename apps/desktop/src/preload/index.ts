@@ -6,7 +6,7 @@
  */
 import type { z } from 'zod'
 import { contextBridge, ipcRenderer } from 'electron'
-import { devicePrefEntrySchema, devicePrefsChannel, devicePrefsEvent, devicePrefsReportSchema, languageChannel, languageEvent, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
+import { aiRefreshEvent, devicePrefEntrySchema, devicePrefsChannel, devicePrefsEvent, devicePrefsReportSchema, languageChannel, languageEvent, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
 import { activitySummarySchema, backupSummarySchema, boardPeriodsSchema, reviewContextSchema, itemCountsSchema, detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
 import { replySchema, resultSchema } from '../shared/contracts/commands'
 import { activitySchema, historyIndexSchema, historyPageSchema, pastPeriodPageSchema } from '../shared/contracts/history'
@@ -62,6 +62,11 @@ const api: GoalloomApi = {
     }
     ipcRenderer.on(devicePrefsEvent, receive)
     return () => { ipcRenderer.removeListener(devicePrefsEvent, receive) }
+  },
+  onAiRefresh: listener => {
+    const receive = () => listener()
+    ipcRenderer.on(aiRefreshEvent, receive)
+    return () => { ipcRenderer.removeListener(aiRefreshEvent, receive) }
   },
   getSnapshot: async () => query({ type: 'snapshot' }, snapshotSchema),
   getReviewContext: async query => readQuery(query, reviewContextSchema),

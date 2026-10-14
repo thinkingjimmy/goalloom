@@ -6,13 +6,14 @@
  */
 import { hostname } from 'node:os'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
+import { isSecretFingerprint, isSecretSettingKey, secretSettingKeys } from '@goalloom/contracts'
 import { newRecovery, passwordAccepted, publicFromSeed, signDetached, systemRandom, type RecoverySecrets } from '@goalloom/crypto'
 import {
   acceptRosterAdvance, changeSyncPassword, createFetchRemote, createRemoteWorkspace, downloadWorkspace, newDeviceSecret, planPushBatches, pullOpened,
-  rebindMessage, sealPending, unlockWithPassword, workspaceKeyFromEnvelope, SyncFailure, type BoundWorkspace, type DevicePlatform,
+  rebindMessage, restorePendingSecrets, sealPending, unlockWithPassword, workspaceKeyFromEnvelope, SyncFailure, type BoundWorkspace, type DevicePlatform,
   type DeviceSecret, type PendingPlain, type SyncRemote,
 } from '@goalloom/sync'
-import type { RemoteEnvelope } from '@goalloom/store-core'
+import { redactSyncOp, type RemoteEnvelope } from '@goalloom/store-core'
 import { DomainError } from '../../shared/contracts/commands'
 import { syncActionSchema, syncReplySchema, type SyncAction, type SyncReply, type SyncStatus } from '../../shared/contracts/sync'
 import type { StorageClient } from '../storage/client'
@@ -80,6 +81,8 @@ export class SyncService {
     onApplied: () => void
     onSettings?: (rows: { key: string; value: unknown; updatedAt: string; opId: string }[]) => Promise<string[]>
     collectSeed?: () => Promise<{ key: string; value: unknown }[]>
+    readSecret?: (key: string) => Promise<string | null | undefined>
+    applySecret?: (key: string, value: string | null) => Promise<void>
     language?: () => string
     clipboard: (text: string) => void
     now: () => string
@@ -385,9 +388,10 @@ export class SyncService {
         ops = await downloadWorkspace({ remote, deviceId, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey })
       } else throw new SyncFailure('password')
       const at = this.deps.now()
+      await this.deliverSecrets(ops)
       await this.storage({
         type: 'install', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch },
-        ops, at, merge: choice === 'merge',
+        ops: ops.map(entry => ({ ...entry, op: redactSyncOp(entry.op) })), at, merge: choice === 'merge',
       })
     } finally {
       await this.storage({ type: 'hold', closed: false }).catch(() => undefined)
@@ -437,6 +441,7 @@ export class SyncService {
     if (view.workspaceId === account.workspaceId && !view.paused) {
       this.phase = 'ready'
       this.error = null
+      this.seedPending = true
       this.listen()
       this.publish()
       await this.tick()
@@ -564,7 +569,10 @@ export class SyncService {
     }
     await this.followRoster()
     const at = this.deps.now()
-    const pending = await this.storage<PendingPlain[]>({ type: 'take', at, attemptId: globalThis.crypto.randomUUID() })
+    const pending = restorePendingSecrets(
+      await this.storage<PendingPlain[]>({ type: 'take', at, attemptId: globalThis.crypto.randomUUID() }),
+      await this.secretLookup(),
+    ).rows
     const sealed = sealPending(pending, { workspaceKey: secrets.workspaceKey, workspaceId: secrets.workspaceId, epoch: secrets.epoch })
     const batches = planPushBatches(sealed.map(row => ({ opId: row.opId, localOrder: row.localOrder, bytes: row.wire.ciphertext.length / 2, blobReady: true })))
     let held: string | null = null
@@ -578,10 +586,33 @@ export class SyncService {
     const opened = await pullOpened({
       remote, deviceId: secrets.deviceId, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey, after: cursor,
     })
-    const applied = Number(await this.storage({ type: 'absorb', ops: opened, at }) ?? 0)
+    await this.deliverSecrets(opened)
+    const applied = Number(await this.storage({ type: 'absorb', ops: opened.map(entry => ({ ...entry, op: redactSyncOp(entry.op) })), at }) ?? 0)
     if (applied > 0) this.deps.onApplied()
     if (held === 'stale_epoch') throw new SyncFailure('key', held)
     if (held) throw new SyncFailure('rejected', held)
+  }
+
+  private async secretLookup(): Promise<(key: string) => string | null | undefined> {
+    const read = this.deps.readSecret
+    if (!read) return () => undefined
+    const map = new Map<string, string | null | undefined>()
+    for (const key of secretSettingKeys) map.set(key, await read(key))
+    return key => (map.has(key) ? map.get(key) : undefined)
+  }
+
+  /** Writes incoming API keys to the OS keychain before the redacted op is stored. */
+  private async deliverSecrets(ops: RemoteEnvelope[]): Promise<void> {
+    const apply = this.deps.applySecret
+    if (!apply) return
+    for (const entry of ops) {
+      for (const action of entry.op.actions) {
+        if (action.t !== 'pref.set' || !isSecretSettingKey(action.key)) continue
+        if (typeof action.value === 'string' && isSecretFingerprint(action.value)) continue
+        if (action.value !== null && typeof action.value !== 'string') continue
+        await apply(action.key, action.value)
+      }
+    }
   }
 
   private async followRoster(): Promise<void> {

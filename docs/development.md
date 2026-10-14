@@ -96,7 +96,7 @@ macOS 签名用仓库 Actions secrets，不要把证书放进仓库：
 
 打包步骤把 `GOALLOOM_SUPABASE_ANON_KEY` 和 `GOALLOOM_SUPABASE_URL` 传给 `package:mac` / `package:win` 里的 `electron-vite build`。运行时先看环境变量 `GOALLOOM_SUPABASE_ANON_KEY`，再看用户数据目录里 `sync-config.json` 的 `anonKey`（可选字段 `url`），最后用打进包里的值。macOS 用户数据目录是 `~/Library/Application Support/Goalloom/`。anon key 为空只打警告，不让构建失败。`pnpm test` 不接收这把 key。
 
-默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
+默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。同步时 Key 只在内存里放进密封的 `pref.set`，工作区里留下的是 `sha256` 指纹；备份会删掉这些行和动作再 `VACUUM`，文件里不留 Key 的字节。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 
 `pnpm test:ui <本机应用可执行文件>` 验证已打包窗口。桌面脚本的工作目录是 `apps/desktop`，测试截图写入忽略的 `apps/desktop/output/tests/screenshots/`；许可证自动汇总到包内 `apps/desktop/out/THIRD_PARTY_NOTICES.txt`。
 

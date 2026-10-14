@@ -7,6 +7,8 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
 import { nestingMigrationSql, shadowStatements, syncSettingsDdl, v8Ddl, v9HistoryRewrite, v9SyncDdl, type MasterRow } from '@goalloom/schema'
+import { scrubSecretMaterial } from '@goalloom/store-core'
+import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { transaction } from './database'
 import { serverText } from '../../shared/i18n/server'
 
@@ -29,7 +31,7 @@ export function ensureSyncSettings(db: DatabaseSync): void {
 
 export function migrate(db: DatabaseSync): void {
   const version = userVersion(db)
-  if (version === schemaVersion) { ensureSyncSettings(db); return }
+  if (version === schemaVersion) { ensureSyncSettings(db); scrubSecretMaterial(nodeSqlDriver(db)); return }
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all()
   if (version === 0) {
     if (tables.length) throw new Error(serverText().storage.unsupportedDatabase)

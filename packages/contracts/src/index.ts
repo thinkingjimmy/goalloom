@@ -1,6 +1,6 @@
 export { canonicalJson } from './canonical'
 export {
-  isRendererSettingKey, isSecretSettingKey, isWorkspaceSettingKey, parseSetting, rendererSettingKeys,
+  isRendererSettingKey, isSecretFingerprint, isSecretSettingKey, isWorkspaceSettingKey, parseSetting, rendererSettingKeys,
   secretSettingKeys, settingSchema, syncedSettingKeys, workspaceSettingKeys,
 } from './settings'
 export type { Setting, SettingKey, SettingValue } from './settings'

@@ -1,11 +1,12 @@
 /**
  * [INPUT]: A validated pref.set and the sync_settings side table.
  * [OUTPUT]: Last-writer-wins rows, workspace-column projection, and one local SyncOp.
- * [POS]: Settings log beside the board. v8 business tables are not altered. API key plaintext lives only inside the op, which the engine seals before upload.
+ * [POS]: Settings log beside the board. v8 business tables are not altered. An API key is stored as a sha256 fingerprint. The key itself stays in the OS keychain and is sealed only in memory.
  */
-import { canonicalJson, parseSetting, parseSyncOp, syncOpPayload, type SettingKey, type SyncOp } from '@goalloom/contracts'
+import { canonicalJson, isSecretSettingKey, parseSetting, parseSyncOp, syncOpPayload, type SettingKey, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
 import type { SqlDriver } from './driver'
+import { persistedSecret, redactSyncOp } from './secrets'
 
 export interface SettingRow { key: string; value: unknown; updatedAt: string; opId: string }
 
@@ -25,13 +26,14 @@ function encoded(value: unknown): string | null {
   return value === null || value === undefined ? null : canonicalJson(value)
 }
 
-/** Returns true when this writer replaces the stored value. Equal op ids are replays and do not write. */
+/** Returns true when this writer replaces the stored value. Equal op ids are replays and do not write. Secret keys are stored as fingerprints. */
 export function writeSetting(driver: SqlDriver, key: SettingKey, value: unknown, at: string, opId: string): boolean {
   const existing = driver.prepare('SELECT updatedAt, opId FROM sync_settings WHERE key=?').get(key)
   if (existing && !later(at, opId, String(existing.updatedAt), String(existing.opId))) return false
+  const stored = isSecretSettingKey(key) ? persistedSecret(value) : value
   driver.prepare(`INSERT INTO sync_settings (key, value, updatedAt, opId) VALUES (?,?,?,?)
     ON CONFLICT(key) DO UPDATE SET value=excluded.value, updatedAt=excluded.updatedAt, opId=excluded.opId`)
-    .run(key, encoded(value), at, opId)
+    .run(key, encoded(stored), at, opId)
   return true
 }
 
@@ -111,10 +113,11 @@ export function enqueueSettings(driver: SqlDriver, input: {
     const setting = parseSetting(entry.key, entry.value)
     const existing = driver.prepare('SELECT value FROM sync_settings WHERE key=?').get(setting.key)
     if (input.onlyAbsent && existing) continue
-    const next = encoded(setting.value)
+    const durable = isSecretSettingKey(setting.key) ? persistedSecret(setting.value) : setting.value
+    const next = encoded(durable)
     const current = !existing || existing.value === null || existing.value === undefined ? null : String(existing.value)
     if (!input.force && existing && current === next) continue
-    actions.push({ t: 'pref.set', key: setting.key, value: setting.value })
+    actions.push({ t: 'pref.set', key: setting.key, value: durable })
   }
   if (!actions.length) return null
   const op = parseSyncOp({ v: 1, opId: input.opId, deviceId: input.deviceId, at: input.at, actions })
@@ -124,6 +127,43 @@ export function enqueueSettings(driver: SqlDriver, input: {
     VALUES (?, ?, 'local', 1, ?, ?, ?, ?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, op.at, op.at)
   for (const action of actions) writeSetting(driver, action.key, action.value, op.at, op.opId)
   return op
+}
+
+/**
+ * Replaces API-key plaintext left by an older build with fingerprints, then VACUUMs so the file bytes do not keep the key.
+ * Returns true when a row changed. A database that already stores fingerprints is left alone.
+ */
+export function scrubSecretMaterial(driver: SqlDriver): boolean {
+  if (!syncSettingsReady(driver)) return false
+  const opsReady = Boolean(driver.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_ops'").get())
+  let changed = false
+  driver.exec('PRAGMA secure_delete = ON')
+  try {
+    for (const row of driver.prepare(`SELECT key, value FROM sync_settings WHERE key IN ('ai.key.openrouter', 'ai.key.vercel-gateway')`).all()) {
+      if (row.value === null || row.value === undefined) continue
+      let parsed: unknown
+      try { parsed = JSON.parse(String(row.value)) } catch { continue }
+      const durable = persistedSecret(parsed)
+      if (durable === parsed) continue
+      driver.prepare('UPDATE sync_settings SET value=? WHERE key=?').run(encoded(durable), String(row.key))
+      changed = true
+    }
+    if (opsReady) {
+      for (const row of driver.prepare(`SELECT opId, payload FROM sync_ops WHERE instr(payload, '"ai.key.') > 0`).all()) {
+        let op: SyncOp
+        try { op = parseSyncOp(JSON.parse(String(row.payload))) } catch { continue }
+        const redacted = redactSyncOp(op)
+        const payload = syncOpPayload(redacted)
+        if (payload === String(row.payload)) continue
+        driver.prepare('UPDATE sync_ops SET payload=?, payloadHash=? WHERE opId=?').run(payload, sha256Hex(payload), String(row.opId))
+        changed = true
+      }
+    }
+    if (changed) driver.exec('VACUUM')
+  } finally {
+    driver.exec('PRAGMA secure_delete = OFF')
+  }
+  return changed
 }
 
 /** One op that re-uploads the current settings after the op log is replaced. */

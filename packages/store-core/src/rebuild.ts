@@ -4,6 +4,7 @@
  * [POS]: Reference rebase. A foreign-key failure aborts the caller transaction (storage pause). Baseline op ids rethrow business errors so a bad snapshot rolls back.
  */
 import { parseSyncOp, syncOpPayload, type SyncOp } from '@goalloom/contracts'
+import { redactSyncOp } from './secrets'
 import { sha256Hex } from '@goalloom/crypto'
 import { applySyncOp } from './apply'
 import { projectWorkspaceSettings } from './settings'
@@ -59,7 +60,7 @@ export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost, options?:
 
 function rememberOp(driver: SqlDriver, entry: RemoteEnvelope, outcome: 'applied' | 'rejected' | 'partial', errorCode: string | null, at: string): void {
   const stored = outcome === 'rejected' ? 'rejected' : 'applied'
-  const payload = syncOpPayload(entry.op)
+  const payload = syncOpPayload(redactSyncOp(entry.op))
   const existing = driver.prepare('SELECT opId FROM sync_ops WHERE opId=?').get(entry.op.opId)
   if (existing) driver.prepare(`UPDATE sync_ops SET state='applied', outcome=?, seq=?, errorCode=?, updatedAt=? WHERE opId=?`).run(stored, entry.seq, errorCode, at, entry.op.opId)
   else driver.prepare(`INSERT INTO sync_ops (opId, localOrder, origin, formatVersion, payload, payloadHash, deviceId, at, keyEpoch, state, outcome, seq, errorCode, createdAt, updatedAt)

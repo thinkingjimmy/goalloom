@@ -6,7 +6,7 @@
 import type { SqlDriver, SqlValue } from './driver'
 import { SyncApplyError } from './driver'
 import { clearSyncSettings, readSettings, syncSettingsReady, writeSetting } from './settings'
-import { parseSetting } from '@goalloom/contracts'
+import { isSecretSettingKey, parseSetting } from '@goalloom/contracts'
 
 const tables = ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies', 'item_guidance'] as const
 
@@ -24,7 +24,7 @@ export function exportCanonicalSnapshot(driver: SqlDriver, input: { workspaceId:
     formatVersion: 1, protocolVersion: 1, workspaceId: input.workspaceId, generation, uptoSeq: input.uptoSeq, keyEpoch: input.keyEpoch, tables: tablesOut,
     canonOps: driver.prepare('SELECT * FROM canon_ops WHERE seq<=? ORDER BY seq').all(input.uptoSeq),
     canonChanges: driver.prepare('SELECT * FROM canon_changes WHERE seq<=? ORDER BY seq, idx').all(input.uptoSeq),
-    settings: readSettings(driver).map(row => ({ key: row.key, value: row.value === null ? null : JSON.stringify(row.value), updatedAt: row.updatedAt, opId: row.opId })),
+    settings: readSettings(driver).filter(row => !isSecretSettingKey(row.key)).map(row => ({ key: row.key, value: row.value === null ? null : JSON.stringify(row.value), updatedAt: row.updatedAt, opId: row.opId })),
   }
 }
 

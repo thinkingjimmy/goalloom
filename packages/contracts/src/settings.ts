@@ -117,3 +117,8 @@ export function isWorkspaceSettingKey(key: string): key is (typeof workspaceSett
 export function isSecretSettingKey(key: string): key is (typeof secretSettingKeys)[number] {
   return secretKeySet.has(key)
 }
+
+/** Disk form of an API key. The key itself stays in the OS keychain. */
+export function isSecretFingerprint(value: unknown): value is string {
+  return typeof value === 'string' && /^sha256:[0-9a-f]{64}$/.test(value)
+}

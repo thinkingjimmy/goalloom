@@ -31,6 +31,7 @@ export const languageChannel = 'goalloom:language'
 export const languageEvent = 'goalloom:language-state'
 export const devicePrefsChannel = 'goalloom:device-prefs'
 export const devicePrefsEvent = 'goalloom:device-prefs'
+export const aiRefreshEvent = 'goalloom:ai-refresh'
 export const devicePrefEntrySchema = z.strictObject({ key: z.string().min(1).max(80), value: z.unknown() })
 export const devicePrefsReportSchema = z.strictObject({
   mode: z.enum(['change', 'seed']),
@@ -48,6 +49,7 @@ export interface GoalloomApi {
   pullDevicePrefs(): Promise<DevicePrefEntry[]>
   reportDevicePrefs(entries: DevicePrefEntry[], mode: 'change' | 'seed'): Promise<void>
   onDevicePrefs(listener: (entries: DevicePrefEntry[]) => void): () => void
+  onAiRefresh(listener: () => void): () => void
   getSnapshot(): Promise<Snapshot>
   getReviewContext(query: Extract<Query, { type: 'reviewContext' }>): Promise<ReviewContext>
   getBoardPeriods(query: Extract<Query, { type: 'boardPeriods' }>): Promise<BoardPeriods>
