@@ -89,7 +89,7 @@ it('materializeParentOrder emits item.place reason arrange when the order change
   run({ type: 'link', parentId: b, childId: second, expectedParentVersion: repo.store.item(b).version, expectedChildVersion: repo.store.item(second).version })
   run({ type: 'link', parentId: a, childId: first, expectedParentVersion: repo.store.item(a).version, expectedChildVersion: repo.store.item(first).version })
   const before = Number(db.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()!.n)
-  const result = run({ type: 'materializeParentOrder' })
+  const result = run({ type: 'materializeParentOrder', horizon: 'half', period: { kind: 'date', startDate: repo.snapshot().periods.find(period => period.horizon === 'half')!.startDate } })
   expect(result.changed).toBe(true)
   const actions = db.prepare('SELECT payload FROM sync_ops WHERE localOrder>? ORDER BY localOrder').all(before)
     .flatMap(row => parseSyncOp(JSON.parse(String(row.payload))).actions)

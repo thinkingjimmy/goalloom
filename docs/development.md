@@ -11,7 +11,7 @@
 | [智能输入功能规格](features/smart-input.md) | 全局输入、Jev 两渠道、Onboarding、计划创建/撤销与旧版导入恢复的规则、工程契约、TODO 与验收 |
 | [关系线功能规格](features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [快捷键功能规格](features/shortcuts.md) | 默认键位、流程筛选位置键、改键与冲突规则、工程契约与验收 |
-| [自动排序功能规格](features/board-ordering.md) | 最近一级上级排序、本机开关、关闭保存、拖动与连续重排动效及验收 |
+| [自动放置与整理规格](features/board-ordering.md) | 事件触发的局部放置、自由手排、单列单次整理及原子撤销 |
 | [完成反馈功能规格](features/completion-feedback.md) | 按可见性反馈去向、静默操作、逐列撒花、提示与动效生命周期及撤销验收 |
 | [双日历模式](features/calendar-modes.md) | 年 / 半年列、365 天与自然年、三步向导、手动升级与六级 AI 契约 |
 | [周期规划功能规格](features/period-planning.md) | 待办右键顺延、统一前后周期浏览、往期任务编辑与未来规划、按周期草稿、事务和查询边界及验收 |
@@ -44,7 +44,7 @@ pnpm test:task-focus      # Todo 详情关闭后的鼠标/键盘焦点返回，�
 pnpm test:calendar        # 双日历向导、年/半年、未来拆解、旧 v5 导入保真与五语言四主题
 pnpm test:later           # 固定时间列、Later 侧栏、独立滚动、拖放、动效及本机展开偏好
 pnpm test:history         # 独立夹具的历史/往期/hold 窗口验证
-pnpm test:ordering        # Parent ordering, atomic materialization/undo, group drag and measured motion
+pnpm test:ordering        # Local automatic placement, free manual order, scoped arrangement/undo, nesting and wrapped drag titles
 pnpm test:periods         # Context menus, future periods, drafts, sorting, undo, clock boundaries and restart
 pnpm test:insight         # 流程洞察：断点、空列卡、预填新建、跳级、复盘与设置（无模型路径）
 pnpm test:insight-generation # Development/production generation, summary cache/restart/refresh/recovery and Settings trials with synthetic HTTP
@@ -158,7 +158,7 @@ macOS still verifies `.app` and `.dmg` with codesign, expected TeamIdentifier, G
 | 多语言文案、语言切换（含五语言复盘入口与弹窗标题） | `pnpm test:language`；含 720px／1280px 原生窗口下设置侧栏单行、完整标签、状态间距与内容区宽度，两项暂停使用彩色图标及本地化说明，AI 服务／备份／回收站无附加信息（隔离配置与合成凭据，不连接服务）；复盘收尾下拉按内容收宽，检查五语言单行完整文案、30px 高度、右对齐及箭头间距；证据 `output/tests/language.json`、`output/tests/screenshots/language-settings-nav-*.png` 和 `language-review-choice-*.png`；preload 校验文案再跑 `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs wire` |
 | [二级 todo](features/subtasks.md)：中部嵌套／边缘排序、24px 缩进、继承上级／流程、独立详情／状态、整组移动／顺延、删除提升／安全还原／撤销、v10 数据与五语言 | `pnpm test:subtasks`；事务反馈选择 `pnpm test:subtasks --data`。共享行为完成覆盖：`test:ui`、`test:task-focus`、`test:later`、`test:ordering`、`test:relations`、`test:periods`、`test:calendar`、`test:history`、`test:recovery`、`test:electron`、`test:language`、`test:feedback`、`test:celebration`、`test:composer`、`test:insight`、`test:insight-generation`、`test:assistance`、`test:autosave`、`test:descriptions`、`test:links`、`test:due-dates`、`pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs wire renderer virtual lifecycle` 及月回顾的 `month-review.mjs`／`--combined` 入口，按所属功能映射去重。报告／截图位于 `output/tests/subtasks/`。 |
 | 二级 todo 的成功反馈：拖拽／菜单／回执恢复静默，快捷键撤销保留提示 | `pnpm test:subtasks` ＋ `pnpm test:feedback`；仅调整 `nest` 的反馈选择时按此范围验证，报告／截图在 `output/tests/subtasks/` 和 `output/tests/feedback.json` |
-| 自动排序、分组拖动、重排动效 | `pnpm test:ordering`（含鼠标／键盘浮动卡片的完整长 URL／连续字符换行、文字边界及取消不写入）；私有报告、截图与录像位于 `output/tests/ordering/`。共享拖拽浮层变化追加 `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs virtual` |
+| 自动放置、自由手排、单次整理 | `pnpm test:ordering`；定向选择 `pnpm test:ordering --auto-placement`（创建／批量／关联的局部放置、显式插入、同次撤销／恢复、单列周期范围、自由鼠标／键盘排序、嵌套、五语言与浮层完整标题）和 `pnpm test:ordering --edge-sorting`（12 个边缘落点／取消／撤销）；证据在 `output/tests/ordering/` 同名子目录。旧的持续分组限制用例已由自由手排用例替代。共享拖拽浮层变化追加 `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs virtual` |
 | 关联、流程颜色、关系线、圆点菜单及拖拽关联：实际流程候选过滤、独立上级承接起点／一次撤销 | `pnpm test:relations`（包含独立 `relation-drag.mjs` 与权威事务／JSON／SQLite 夹具）；菜单文案／宽度变化追加 `pnpm test:language`；开发可用 `pnpm --filter @goalloom/desktop exec -- node tests/relations.mjs --flow-dot` 定向验证简洁标题／搜索／已关联选项／浮层定位（`output/tests/flow-dot-panel/`）或 `pnpm --filter @goalloom/desktop exec -- node tests/relation-drag.mjs`，候选过滤／原子起点上移证据位于 `output/tests/relation-drag/`；效果导入校验变化追加 `pnpm test:recovery`，筛选身份变化按下行覆盖；菜单尺寸证据在 `output/tests/flow-dot-position.json` 与 `output/tests/screenshots/flow-dot-position-*.png` |
 | 顶栏流程筛选、数字快捷键及启停 | `pnpm test:ui` ＋ `pnpm test:relations` ＋ `pnpm test:history`（从往期返回当期、重复选择、输入保护与未来草稿）；周期选择逻辑受影响时追加 `pnpm test:periods` |
 | 完成反馈、撒花（复盘完成的自动退出／单次播放开发可用 `pnpm --filter @goalloom/desktop exec -- node tests/weekly-review.mjs --completion`） | `pnpm test:celebration` ＋ `pnpm test:feedback`；影响往期还原反馈时追加 `pnpm test:history` |

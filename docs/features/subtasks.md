@@ -4,7 +4,7 @@
 
 ## Product rules
 
-- Drop a leaf task on the middle of a root row to nest it; move it to the root's horizon/period and append it. Row edges reorder. Keep the 6px drag threshold and use a 24px indent. The nesting hot zone covers the central vertical area (16px margins from top/bottom) and the left 60% of the row width (at least 200px), focusing the gesture on the title/indent area while keeping edge reordering clear.
+- Drop a leaf task on the middle of a root row to nest it; move it to the root's horizon/period and append it. Row edges reorder. Keep the 6px drag threshold and use a 24px indent. Each vertical sorting margin is the smaller of 16px and one quarter of the full row height, leaving at least the middle half for nesting, including 32px single-line rows. The nesting zone covers the left 60% of the row width (at least 200px). Clip these zones to the visible viewport without moving their boundaries within the row.
 - A root with children cannot be nested. A nested task cannot receive nested children. Keyboard menus provide equivalent nest/unnest actions.
 - Successful nesting stays quiet for drag, menu and recovered receipts. Keep keyboard/command undo and its confirmation, plus existing failure feedback.
 - The selector searches current, future and Later tasks, including periods outside the displayed board. Expired or changed targets are rejected.
@@ -26,6 +26,8 @@
 ## Failure cases recorded before implementation
 
 - Middle-row drops reorder instead of nesting; edge drops nest accidentally; invalid/hidden/history targets write; cancellation or a stale generation leaves an outline preview.
+- Fixed 16px edge zones consume a 32px row's nesting area. Native drops at 35% and 65% of the row height must preview nesting; committing across automatic parent groups must nest, retain focus and support undo.
+- Edge insertion lines and persisted order must match in either direction, including adjacent unchanged slots, the last sibling and one-step undo; ending or cancelling clears all drag markers.
 - Nesting changes text/status/due dates, loses outgoing links, keeps old incoming links/colors or allows a third level.
 - Inherited parents/colors become stale; a goal edge and nesting edge form a cycle; inherited edges are editable on a child or counted as an additional task.
 - Mixed-status groups split apart, archived/cancelled roots hide active children, or virtual rows lose focus and geometry.

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Explicit displayed period, period-keyed drafts, flow views, visible candidates, optional parent and guarded submission.
+ * [INPUT]: Displayed period, optional explicit insertion, period-keyed drafts, flow views, visible candidates and guarded submission.
  * [OUTPUT]: Continuous inline creation with a title that grows with content/column width, normalized paste, preserved drafts and expired-period recovery;
  *           shows flow context without a keyboard prompt, offers only flows whose root is in a longer horizon, and no flow choice at all in Later.
  * [POS]: Board creation entry; input revision controls clearing, storage owns relationship constraints.
@@ -19,7 +19,7 @@ export interface SplitParent { id: string; title: string }
 type Choice = { kind: 'none' } | { kind: 'join'; id: string } | { kind: 'new'; color: number } | { kind: 'split'; parent: SplitParent }
 export interface QuickAddDraft { title: string; choice: Choice }
 
-export function QuickAdd({ horizon, period, periodName, expired, retarget, drafts, flows, items, split, submit, busy, close }: { horizon: ItemHorizon; period: PlanningPeriod | null; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void }) {
+export function QuickAdd({ horizon, period, beforeId, periodName, expired, retarget, drafts, flows, items, split, submit, busy, close }: { horizon: ItemHorizon; period: PlanningPeriod | null; beforeId?: string | null | undefined; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void }) {
   const draftKey = period?.id ?? 'later'
   const [title, setTitle] = useState(() => drafts.get(draftKey)?.title ?? '')
   const [choice, setChoice] = useState<Choice>(() => split ? { kind: 'split', parent: split } : drafts.get(draftKey)?.choice ?? { kind: 'none' })
@@ -47,7 +47,7 @@ export function QuickAdd({ horizon, period, periodName, expired, retarget, draft
     try {
       const expectedParentVersion = parentId ? (await desktopApi().getItem(parentId).catch(() => null))?.item.version ?? null : null
       if (parentId && expectedParentVersion === null) return
-      const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), parentId, expectedParentVersion, flowColor: choice.kind === 'new' ? choice.color : null })
+      const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), ...(beforeId !== undefined ? { beforeId } : {}), parentId, expectedParentVersion, flowColor: choice.kind === 'new' ? choice.color : null })
       if (!result) return
       if (revision.current === submittedRevision) setTitle('')
       // The new item now owns the colour, so following entries join that flow.

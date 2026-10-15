@@ -214,16 +214,16 @@ try {
   for (const suffix of ['first', 'second']) ordered.push((await execute({ type: 'create', title: `Ordered ${suffix}`, horizon: 'week', parentId: flows[1], expectedParentVersion: (await item(flows[1])).version })).itemId)
   await status(ordered[0], 'done')
   const settings = await openBoard()
-  await settings.dialog.getByRole('switch', { name: 'Sort by parent', exact: true }).click()
+  await settings.dialog.getByRole('switch', { name: 'Place by parent automatically', exact: true }).click()
   await settings.dialog.getByRole('button', { name: settings.copy.close, exact: true }).click()
   await dragKeys(ordered[1], ['ArrowUp'])
   assert((await idsIn('week')).indexOf(ordered[1]) < (await idsIn('week')).indexOf(ordered[0]))
   const other = (await execute({ type: 'create', title: 'Other parent group', horizon: 'week', parentId: flows[2], expectedParentVersion: (await item(flows[2])).version })).itemId
   const guarded = await item(ordered[1])
-  const rejected = await page.evaluate(async ({ id, beforeId, version, placementVersion }) => window.goalloom.execute({ type: 'move', itemId: id, horizon: 'week', beforeId, expectedVersion: version, expectedPlacementVersion: placementVersion, parentOrder: true, generation: (await window.goalloom.getSnapshot()).workspace.generation, operationId: crypto.randomUUID() }), { id: guarded.id, beforeId: other, version: guarded.version, placementVersion: guarded.placement.version })
-  assert.equal(rejected.ok, false)
-  assert.deepEqual(await item(ordered[1]), guarded)
-  report.checks.push('Mixed-status pointer/keyboard reordering retains keyboard focus and follows visible flow shortcut order; automatic parent ordering accepts mixed statuses but still rejects another parent group')
+  const moved = await page.evaluate(async ({ id, beforeId, version, placementVersion }) => window.goalloom.execute({ type: 'move', itemId: id, horizon: 'week', beforeId, expectedVersion: version, expectedPlacementVersion: placementVersion, generation: (await window.goalloom.getSnapshot()).workspace.generation, operationId: crypto.randomUUID() }), { id: guarded.id, beforeId: other, version: guarded.version, placementVersion: guarded.placement.version })
+  assert.equal(moved.ok, true)
+  assert.equal((await item(ordered[1])).placement.nestingParentId, null)
+  report.checks.push('Mixed-status pointer/keyboard reordering retains keyboard focus and follows visible flow shortcut order; automatic placement leaves cross-parent manual sorting available')
 
   const parent = (await execute({ type: 'create', title: 'Outline parent', horizon: 'week' })).itemId, children = []
   for (const title of ['Outline child one', 'Outline child two']) {

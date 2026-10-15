@@ -1,54 +1,59 @@
 /**
- * [INPUT]: Authoritative placements, active relations, guarded moves and the transaction clock.
- * [OUTPUT]: Group-checked neighbors and one reversible materialization of every editable parent-ordered period.
- * [POS]: Ordering command boundary; sequential position effects keep reverse replay safe and atomic.
+ * [INPUT]: Authoritative placements/effective parents, explicit column/period and the transaction clock.
+ * [OUTPUT]: Local placement of one root and atomic, reversible arrangement of one current/future column.
+ * [POS]: Ordering command boundary; other tasks retain their relative order during automatic placement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { buildParentOrder, parentOrderedHorizon } from '../../../domain/parent-order'
-import { DomainError } from '../../../shared/contracts/commands'
-import type { Item, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
+import { buildParentOrder } from '../../../domain/parent-order'
+import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
+import type { Item } from '../../../shared/contracts/entities'
 import { serverText } from '../../../shared/i18n/server'
-import { nextSortKey, type Context } from '../context'
+import { nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { orderNodes } from '../ordering'
-import { periodHorizons } from '../../../shared/contracts/values'
 
-export function assertParentOrderTarget(context: Context, item: Item, horizon: ItemHorizon, period: PlanningPeriod | null, beforeId: string | null): void {
-  if (!parentOrderedHorizon(horizon) || !period || !beforeId) return
-  const rows = context.store.summaries("i.deletedAt IS NULL AND i.archivedAt IS NULL AND p.horizon=? AND p.periodId=?", [horizon, period.id])
-  const todo = (task: Pick<Item, 'id' | 'status'>) => task.status === 'todo' || context.store.summaries("i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status='todo' AND p.nestingParentId=?", [task.id]).length > 0
-  // Allow moving within the column as long as target exists with matching todo status and no nesting parent
-  if (!rows.some(row => row.id === beforeId && !row.placement.nestingParentId && todo(row) === todo(item))) throw new DomainError('conflict', serverText().errors.sortTargetGone)
+export function orderingParent(context: Context, itemId: string): string | null {
+  return buildParentOrder(orderNodes(context.store, [itemId]), context.store.effectiveRelations(), context.now).group(itemId)
 }
 
-export function materializeParentOrder(context: Context): boolean {
-  // Archived/cancelled ancestors still define downstream groups; persist their order too, without changing lifecycle state.
-  const orderedHorizons = periodHorizons.filter(parentOrderedHorizon)
-  const items = context.store.summaries(`i.deletedAt IS NULL AND p.nestingParentId IS NULL
-    AND p.horizon IN (${orderedHorizons.map(() => '?').join(',')}) AND p.periodId IN (SELECT id FROM planning_periods WHERE julianday(endAt)>julianday(?))`, [...orderedHorizons, context.now])
-  const order = buildParentOrder(orderNodes(context.store, items.map(item => item.id)), context.store.effectiveRelations(), context.now)
-  const buckets = new Map<string, typeof items>()
-  for (const item of items) {
-    const key = item.placement.periodId!, bucket = buckets.get(key) ?? []
-    bucket.push(item); buckets.set(key, bucket)
+export function placeByParent(context: Context, item: Item, record = true): boolean {
+  if (item.placement.nestingParentId || item.archivedAt || item.status === 'cancelled') return false
+  const { horizon, periodId } = item.placement
+  const rows = context.store.summaries('i.deletedAt IS NULL AND p.nestingParentId IS NULL AND p.horizon=? AND p.periodId IS ?', [horizon, periodId])
+  const order = buildParentOrder(orderNodes(context.store, rows.map(row => row.id)), context.store.effectiveRelations(), context.now)
+  if (!order.editable(item.id)) return false
+  const others = rows.filter(row => row.id !== item.id), group = order.group(item.id)
+  const visible = others.filter(row => !row.archivedAt && row.status !== 'cancelled')
+  const last = group ? visible.filter(row => order.group(row.id) === group).at(-1) : null
+  const beforeId = !group ? null : last ? others[others.indexOf(last) + 1]?.id ?? null
+    : visible.find(row => order.compare(item.id, row.id) < 0)?.id ?? null
+  const before = context.store.position(item)
+  if (before.nextId === beforeId) return false
+  const key = nextSortKey(context, horizon, periodId, beforeId, item.id)
+  const placement = context.store.item(item.id).placement
+  item.placement = { ...placement, sortKey: key, version: placement.version + 1 }
+  context.store.savePlacement(item.placement, placement.version)
+  if (record) {
+    touch(context, item)
+    context.effects.push({ kind: 'position', itemId: item.id, before, after: context.store.position(item) })
   }
-  for (const bucket of buckets.values()) {
-    const members = new Map(bucket.map(item => [item.id, item]))
-    const full = order.sort(bucket).map(item => item.id)
-    for (let position = full.length - 1; position >= 0; position--) {
-      const item = members.get(full[position]!)
-      if (!item) continue
-      const beforeId = full[position + 1] ?? null
-      item.placement = context.store.prepare('SELECT * FROM item_placements WHERE itemId=?').get(item.id) as unknown as Item['placement']
-      const before = context.store.position(item)
-      if (before.nextId === beforeId) continue
-      const key = nextSortKey(context, item.placement.horizon, item.placement.periodId, beforeId, item.id)
-      // Gap normalization may have changed this placement's version.
-      const current = context.store.prepare('SELECT * FROM item_placements WHERE itemId=?').get(item.id) as unknown as Item['placement']
-      item.placement = { ...current, sortKey: key, version: current.version + 1 }
-      context.store.savePlacement(item.placement, current.version)
-      context.store.prepare('UPDATE items SET version=version+1 WHERE id=?').run(item.id)
-      context.effects.push({ kind: 'position', itemId: item.id, before, after: context.store.position(item) })
-    }
+  return true
+}
+
+export function materializeParentOrder(context: Context, command: CommandOf<'materializeParentOrder'>): boolean {
+  const period = targetPeriod(context, command.horizon, command.period)!
+  if (Date.parse(period.endAt) <= Date.parse(context.now)) throw new DomainError('conflict', serverText().errors.invalidPlanningPeriod)
+  const items = context.store.summaries('i.deletedAt IS NULL AND p.nestingParentId IS NULL AND p.horizon=? AND p.periodId=?', [command.horizon, period.id])
+  const order = buildParentOrder(orderNodes(context.store, items.map(item => item.id)), context.store.effectiveRelations(), context.now)
+  const full = order.sort(items).map(item => item.id)
+  for (let position = full.length - 1; position >= 0; position--) {
+    const item = context.store.item(full[position]!), beforeId = full[position + 1] ?? null
+    const before = context.store.position(item)
+    if (before.nextId === beforeId) continue
+    const key = nextSortKey(context, command.horizon, period.id, beforeId, item.id)
+    const placement = context.store.item(item.id).placement
+    item.placement = { ...placement, sortKey: key, version: placement.version + 1 }
+    context.store.savePlacement(item.placement, placement.version); touch(context, item)
+    context.effects.push({ kind: 'position', itemId: item.id, before, after: context.store.position(item) })
   }
   context.label = serverText().labels.sort
   return context.effects.length > 0

@@ -35,7 +35,7 @@ try {
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
   const boardSettings = page.locator('dialog.settings-modal')
   await boardSettings.getByRole('button', { name: '看板', exact: true }).click()
-  await boardSettings.getByRole('switch', { name: '按上级自动排序', exact: true }).click()
+  await boardSettings.getByRole('switch', { name: '按上级自动放置', exact: true }).click()
   await boardSettings.getByRole('button', { name: '关闭', exact: true }).click()
   const ids = await page.evaluate(async () => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation

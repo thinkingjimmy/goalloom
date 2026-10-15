@@ -187,7 +187,7 @@ function world(path = ':memory:') {
   const second = w.create('Second daily child', 'day', { parentId: otherChild, expectedParentVersion: w.item(otherChild).version })
   const order = () => { const s = w.repo.snapshot(); return buildParentOrder(s.orderNodes, s.relations, s.observedAt).sort(s.items.filter(item => item.placement.horizon === 'day')).map(item => item.id) }
   assert.deepEqual(order(), [first, second])
-  w.move(other, 'week', { beforeId: w.root, parentOrder: true })
+  w.move(other, 'week', { beforeId: w.root })
   assert.deepEqual(order(), [second, first])
   const grouped = w.move(otherChild, 'day', { group: true })
   assert.equal(w.item(other).placement.horizon, 'day'); assert.equal(w.item(otherChild).placement.horizon, 'day')

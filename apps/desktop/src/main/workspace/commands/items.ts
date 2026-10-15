@@ -2,6 +2,7 @@
  * [INPUT]: Validated commands, current transaction context and explicit current/date/next targets.
  * [OUTPUT]: Atomic setup with six policies (only day defaults to automatic), placement and flow-valid links, including opt-in adoption or isolated-parent root promotion with one undo effect.
  *          Entering Later unlinks that item's parents in the same operation; child edges stay.
+ *          Creation and changed ordering parents can place only the affected root, with explicit insertion taking priority.
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,7 +17,7 @@ import { statusGroup } from '../../../shared/contracts/effects'
 import { assertAvailable, assertFlowColorFree, hasActiveParent, hasFlow, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { serverText } from '../../../shared/i18n/server'
 import { writeEdges } from './lifecycle'
-import { assertParentOrderTarget } from './ordering'
+import { orderingParent, placeByParent } from './ordering'
 import { policyHorizons } from '../../../shared/contracts/values'
 
 export function confirmSetup(context: Context, command: CommandOf<'confirmSetup'>): boolean {
@@ -53,11 +54,12 @@ export function createItem(context: Context, command: CommandOf<'create'>): bool
   const item: Item = { id, title: command.title, description: command.description, dueDate: command.dueDate,
     status: 'todo', completedAt: null, cancelledAt: null, archivedAt: null, deletedAt: null, deletedBy: null,
     createdAt: context.now, updatedAt: context.now, version: 1, flowColor: command.flowColor,
-    placement: { itemId: id, horizon: command.horizon, periodId: period?.id ?? null, sortKey: nextSortKey(context, command.horizon, period?.id ?? null, null), version: 1, holdPeriodId: null } }
+    placement: { itemId: id, horizon: command.horizon, periodId: period?.id ?? null, sortKey: nextSortKey(context, command.horizon, period?.id ?? null, command.beforeId ?? null), version: 1, holdPeriodId: null } }
   context.store.insertItem(item)
   const relation = parent ? newRelation(parent.id, id, context.now) : null
   if (relation) context.store.saveRelation(relation)
   if (parent) touch(context, parent)
+  if (command.autoPlace && command.beforeId === undefined) placeByParent(context, item, false)
   context.effects.push({ kind: 'create', itemId: id, status: statusGroup(item), horizon: command.horizon, periodId: period?.id ?? null, initialRelations: relation ? [relation.id] : [] })
   context.store.event(command.operationId, context.now, 'created', null, item)
   context.itemId = id
@@ -132,7 +134,6 @@ export function moveItem(context: Context, command: CommandOf<'move'>, keepNesti
   const target = targetPeriod(context, command.horizon, destination)
   const periodId = target?.id ?? null
   if (command.beforeId === item.id) return false
-  if (command.parentOrder && !item.placement.nestingParentId) assertParentOrderTarget(context, item, command.horizon, target, command.beforeId)
   if (item.placement.horizon === command.horizon && item.placement.periodId === periodId && previous.nextId === command.beforeId) return false
   const key = nextSortKey(context, command.horizon, periodId, command.beforeId, item.id, item.placement.nestingParentId ?? null)
   const priorVersion = item.placement.version
@@ -178,6 +179,7 @@ export function linkItems(context: Context, command: CommandOf<'link'>): boolean
   const edges = context.store.relations()
   const problem = horizonProblem(parent.placement.horizon, child.placement.horizon) ?? relationProblem(parent.id, child.id, [...edges, ...context.store.nestingLinks().map(link => ({ ...link, id: `nest:${link.childId}`, invalidatedAt: null, invalidatedBy: null, reason: null, createdAt: context.now }))])
   if (problem) throw new DomainError('conflict', problem)
+  const previousParent = command.autoPlace ? orderingParent(context, child.id) : null
   if (!mayLinkFlows(hasFlow(context, parent.id), hasFlow(context, child.id))) throw new DomainError('conflict', serverText().relations.noFlowEndpoints)
   const promotion = promotedFlowColor(parent, child, edges)
   const flowColor = child.flowColor === null ? undefined : { before: child.flowColor, after: null, ...(promotion !== null ? { transferredTo: parent.id } : {}) }
@@ -189,6 +191,7 @@ export function linkItems(context: Context, command: CommandOf<'link'>): boolean
   context.store.saveRelation(relation)
   touch(context, parent)
   context.effects.push({ kind: 'relations', itemId: child.id, edges: [{ before: null, after: relation }], ...(flowColor ? { flowColor } : {}) })
+  if (command.autoPlace && orderingParent(context, child.id) !== previousParent) placeByParent(context, child)
   context.itemId = child.id
   context.label = serverText().labels.link
   return true

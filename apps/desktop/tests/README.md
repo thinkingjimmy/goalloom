@@ -70,7 +70,7 @@ Electron scenarios (this directory)
 ├── link-previews.mjs    # Link text, full-width cards under overlay controls, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
 ├── subtasks.mjs         # Native nesting/cancel/focus, quiet drag/menu nesting and receipt recovery, keyboard undo feedback, complete-group status, future search, virtual details and five locales; --data selects transaction/recovery fixtures; output/tests/subtasks/
-├── ordering.mjs         # Parent ordering, group-aware drag, pointer/keyboard drag-card URL/token wrapping, future materialization/undo, receipt-first recovery, local preference restart and measured motion (output/tests/ordering)
+├── ordering.mjs         # Local placement/free manual ordering/scoped arrangement (--auto-placement), 12 edge drops (--edge-sorting), atomic undo/recovery, nesting, five locales and complete drag titles; output/tests/ordering
 ├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、看板移动后的目标列偏好、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
 ├── updates.mjs        # Settings › About: menu routing/re-targeting, real version and icon, update phases via the production event, top-bar/nav dots, menu relabelling; output/tests/updates/
 ├── update-install.mjs # Optional macOS: signed 90.0.0 app + 90.0.1 zip/latest-mac.yml on a 127.0.0.1 feed; UI check → native staging before ready → immediate quit/install, retained failure evidence; outside verify
@@ -80,6 +80,9 @@ Electron scenarios (this directory)
     ├── setup.mjs        # Shared welcome local-use choice, then real calendar → annual direction → AI setup; optional mode/timezone/week-start/anchor
     ├── legacy-v5.ts     # Frozen v5/v6 DDL used only to construct synthetic legacy import fixtures
     ├── subtasks-data.ts # Two-level/effective graph, group order/movement/hold, bounded inherited AI context, scoped undo, source-aware import and protected v8 upgrade
+    ├── edge-sorting.mjs # Native before/after insertion previews, 12 manual/automatic adjacent-row drops, cancellation and undo
+    ├── drag-titles.mjs # Retained pointer/keyboard wrapping of raw URLs and 500-character titles, with no-write cancellation
+    ├── auto-placement.mjs # Native create/link placement, explicit tail, free pointer/keyboard sorting, one-shot arrange/undo/recovery, usable nesting and five locales
     ├── calendar-seed.ts # Legacy holds/history/undo/plan fidelity, read-only startup refusal, manual policy defaults, v7 round trips and pre-anchor review guards
     ├── rollover-policies.ts # Six-policy defaults, rolling/natural month-end/leap boundaries, eligibility, stale writes, undo holds and JSON/SQLite round trips
     ├── calendar-history.ts # Recorded year/half/cycle counts, earlier periods and reversed half/cycle parent groups for native restart acceptance

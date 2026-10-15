@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: French UI copy and parameterized messages, including column visibility/add-task labels, feedback destinations and partial restores.
+ * [OUTPUT]: French UI copy and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
  * [POS]: French message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -86,6 +86,8 @@ export const messages: MessageCatalog = {
   deferBacklog: "Plus tard",
   dragStarted: "Déplacement commencé. Flèches pour ajuster, Espace pour déposer, Esc pour annuler.",
   dragOver: "Déplacé vers un nouvel emplacement.",
+  sortByParent: "Organiser selon les parents",
+  columnActions: (column: string | number) => `Actions de la colonne ${column}`,
   dragEnded: "Déplacement terminé. Vérification de l’emplacement.",
   dragCancelled: "Déplacement annulé. L’emplacement d’origine est conservé.",
   dragInstructions: "Espace pour saisir, flèches pour déplacer, Espace pour déposer, Esc pour annuler.",

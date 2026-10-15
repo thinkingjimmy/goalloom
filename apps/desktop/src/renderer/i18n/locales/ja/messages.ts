@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: Japanese UI copy and parameterized messages, including column visibility/add-task labels, feedback destinations and partial restores.
+ * [OUTPUT]: Japanese UI copy and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
  * [POS]: Japanese message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -86,6 +86,8 @@ export const messages: MessageCatalog = {
   deferBacklog: "後で",
   dragStarted: "ドラッグを開始しました。矢印キーで調整、スペースで配置、Esc でキャンセルします。",
   dragOver: "新しい位置に移動しました。",
+  sortByParent: "親順に整理",
+  columnActions: (column: string | number) => `${column}列の操作`,
   dragEnded: "ドラッグを終了しました。位置を確認しています。",
   dragCancelled: "ドラッグをキャンセルしました。元の位置のままです。",
   dragInstructions: "スペースでドラッグを開始、矢印キーで移動、スペースで配置、Esc でキャンセルします。",

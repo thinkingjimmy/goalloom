@@ -3,6 +3,7 @@
  * [OUTPUT]: Entity, version-specific policies, DAG, adoption/promotion effect identity, bulk-order receipt, inverse and event-chain integrity validation.
  *          Moves/backlog may drop Later parent edges; legacy milestones retain atomic create/reparenting history.
  *          Empty-detail discards retain guarded visibility receipts for undo.
+ *          Link/unlink may own one same-period root placement; both effects must restore together.
  * [POS]: Shared JSON/SQLite import rules; indexed references and one event ordering, without IO.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -140,7 +141,7 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
     requireValid(original?.effects[marker.effectIndex] && inverse && inverse.result.changed && inverse.result.originalOperationId === original.id && ['undo', 'undoBatch'].includes(inverse.kind), serverText().import.undoMarkerDangling)
     requireValid(original.id !== inverse.id, serverText().import.selfUndo)
     // Composite user operations are reversed as a whole, including event-free relationship effects.
-    if (['createPlan', 'applyAssistance', 'nest', 'unnest', 'delete', 'move'].includes(original.kind) && !checkedAtomicUndos.has(original.id)) {
+    if (['createPlan', 'applyAssistance', 'nest', 'unnest', 'delete', 'move', 'link', 'unlink', 'materializeParentOrder'].includes(original.kind) && !checkedAtomicUndos.has(original.id)) {
       const message = original.kind === 'createPlan' ? serverText().import.planUndoIncomplete : serverText().import.compositeUndoIncomplete
       requireValid(inverse.kind === 'undo' && original.effects.every((_, index) => markers.get(`${original.id}:${index}`)?.undoId === inverse.id), message)
       checkedAtomicUndos.add(original.id)
@@ -236,13 +237,13 @@ function validateKind(operation: Dataset['operations'][number], version: Dataset
   requireValid(operation.effectsVersion < 3 || version >= 9, serverText().import.effectKindNotAllowed)
   for (const effect of operation.effects) if (effect.kind === 'relations' && effect.flowColor) {
     const edge = effect.edges[0]
-    requireValid(operation.kind === 'link' && operation.effects.length === 1 && effect.edges.length === 1 && edge?.before === null
+    requireValid(operation.kind === 'link' && effect.edges.length === 1 && edge?.before === null
       && edge.after.childId === effect.itemId && edge.after.createdAt === operation.at && edge.after.invalidatedAt === null,
     serverText().import.effectKindNotAllowed)
     if (effect.flowColor.transferredTo) requireValid(effect.flowColor.transferredTo === edge!.after.parentId, serverText().import.relationEffectIdentityMismatch)
   }
   requireValid(operation.kind !== 'createPlan' || version >= 3, serverText().import.legacyPlan)
-  const allowed: Record<string, Effect['kind'][]> = { nest: ['nesting'], unnest: ['nesting'], applyAssistance: ['description', 'guidance', 'position', 'relations', 'nesting', 'groupPlacement'], create: ['create'], createPlan: ['create'], insertBetween: ['create', 'relations'], edit: [], flowColor: [], move: ['position', 'relations', 'nesting', 'groupPlacement'], materializeParentOrder: ['position'], link: ['relations'], status: ['status'], archive: ['archive'], delete: ['visibility', 'nesting'], discardEmpty: ['visibility'], restoreItem: ['visibility', 'nesting'], unlink: ['relations'], undo: [], undoBatch: [], arrangeBacklog: ['position', 'relations', 'groupPlacement'], rollover: ['position', 'groupPlacement'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
+  const allowed: Record<string, Effect['kind'][]> = { nest: ['nesting'], unnest: ['nesting'], applyAssistance: ['description', 'guidance', 'position', 'relations', 'nesting', 'groupPlacement'], create: ['create'], createPlan: ['create'], insertBetween: ['create', 'relations'], edit: [], flowColor: [], move: ['position', 'relations', 'nesting', 'groupPlacement'], materializeParentOrder: ['position'], link: ['relations', 'position'], status: ['status'], archive: ['archive'], delete: ['visibility', 'nesting'], discardEmpty: ['visibility'], restoreItem: ['visibility', 'nesting'], unlink: ['relations', 'position'], undo: [], undoBatch: [], arrangeBacklog: ['position', 'relations', 'groupPlacement'], rollover: ['position', 'groupPlacement'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
   requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), serverText().import.effectKindNotAllowed)
   requireValid(operation.source === (['rollover', 'baseline'].includes(operation.kind) ? 'system' : 'user'), serverText().import.operationSourceMismatch)
   const inverse = ['undo', 'undoBatch'].includes(operation.kind)
@@ -258,6 +259,15 @@ function validateKind(operation: Dataset['operations'][number], version: Dataset
     validateLaterEntry({ ...operation, effects: operation.effects.filter(effect => !['guidance', 'description', 'nesting', 'groupPlacement'].includes(effect.kind)) })
   }
   else if (operation.kind === 'move' || operation.kind === 'arrangeBacklog') validateLaterEntry({ ...operation, effects: operation.effects.filter(effect => !['nesting', 'groupPlacement'].includes(effect.kind)) })
+  else if (operation.kind === 'link' || operation.kind === 'unlink') {
+    if (operation.result.changed) {
+      const [relation, position] = operation.effects
+      requireValid(operation.effects.length <= 2 && relation?.kind === 'relations' && relation.edges.length === 1 && relation.itemId === operation.result.itemId, serverText().import.extraEffects)
+      if (position) requireValid(version >= 10 && position.kind === 'position' && position.itemId === relation.itemId
+        && position.before.horizon === position.after.horizon && position.before.periodId === position.after.periodId
+        && !['later', 'year'].includes(position.before.horizon) && !position.before.nestingParentId && !position.after.nestingParentId, serverText().import.effectKindNotAllowed)
+    }
+  }
   else if (!['rollover', 'materializeParentOrder', 'delete', 'restoreItem'].includes(operation.kind)) requireValid(operation.effects.length <= 1, serverText().import.extraEffects)
   if (operation.kind === 'discardEmpty') requireValid(operation.effects.every(effect => effect.kind === 'visibility' && effect.before.deletedAt === null && effect.after.deletedAt === operation.at && effect.after.deletedBy === operation.id && effect.edges.length === 0), serverText().import.visibilityReceiptMismatch)
 }

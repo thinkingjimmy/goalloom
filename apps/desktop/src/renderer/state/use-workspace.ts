@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Finite preload API, user commands, UndoSession and post-refresh live board visibility across all periods.
  * [OUTPUT]: Authoritative snapshots, typed prepared-write outcomes, visibility-aware success/undo feedback, deduplicated completion events after committed writes and a
- *           keyboard undo request that waits for an in-flight own write; confirmed materialization switches the device order preference.
+ *           keyboard undo request that waits for an in-flight own write; placement preferences are captured once per command.
  * [POS]: Renderer state boundary; reserves prepared detail writes before version reads, returns typed outcomes and preserves unknown receipts without redundant refreshes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,7 +11,7 @@ import type { CommandInput, CommandResult } from '../../shared/contracts/command
 import type { ItemHorizon } from '../../shared/contracts/entities'
 import type { Snapshot } from '../../shared/contracts/queries'
 import { shareSnapshot } from './snapshot'
-import { parentOrderMaterialized } from './parent-order'
+import { currentParentOrder } from './parent-order'
 import { UndoSession } from './session'
 import { feedbackKind, resolveFeedback, systemFeedback, type Feedback, type FeedbackCandidate, type FeedbackItem, type ItemVisibility } from './feedback'
 
@@ -97,7 +97,6 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
     const next = await refresh()
     for (const notification of delayed.current.splice(0)) if (notification?.changed && session.current.accept(notification)) setFeedback(systemFeedback(notification))
     if (!session.current.accept(result)) return result
-    if (command.type === 'materializeParentOrder' && result.outcome === 'committed') parentOrderMaterialized(result.generation, next.workspace.revision)
     setUndoCount(session.current.entries.length)
     if (result.outcome === 'conflict_skipped') { setError(messages.undoConflict(result.warnings.join(messages.sentenceJoin))); return result }
     const kind = feedbackKind(command, result)
@@ -140,6 +139,9 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
         command = { ...action, operationId: crypto.randomUUID(), generation } as CommandInput
       }
       if (!command) return { ok: true, result: null }
+      if (['create', 'createPlan', 'link', 'unlink'].includes(command.type) && !('autoPlace' in command)) {
+        command = { ...command, autoPlace: currentParentOrder() } as CommandInput
+      }
       if (inline && pendingRef.current?.operationId === command.operationId) {
         const receipt = await desktopApi().getReceipt(command.operationId, command.generation)
         if (receipt) {

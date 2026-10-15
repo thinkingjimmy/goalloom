@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Authoritative current snapshot, visible columns and explicit period selections.
- * [OUTPUT]: Generation-scoped planning views retaining hidden future selections, atomic return from past selections, parent-order projections, revision-bound materialization and shared candidates/locate requests.
+ * [OUTPUT]: Generation-scoped planning views retaining hidden future selections, persisted manual outline order and shared candidates/locate requests.
  * [POS]: Board view state; current snapshots and closed-period history keep their independent read paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,8 +10,6 @@ import { compareInstants } from '../../domain/calendar'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../shared/contracts/entities'
 import type { BoardPeriods, Snapshot } from '../../shared/contracts/queries'
 import { desktopApi } from './use-workspace'
-import { buildParentOrder } from '../../domain/parent-order'
-import { finishParentOrder, useParentOrder } from './parent-order'
 import { periodHorizons } from '../../shared/contracts/values'
 
 type Selection = Partial<Record<ItemHorizon, PlanningPeriod>>
@@ -19,7 +17,6 @@ const empty: Selection = {}
 export type PeriodMode = 'current' | 'future' | 'history'
 
 export function useBoardPeriods(snapshot: Snapshot | null, columns: ItemHorizon[]) {
-  const ordering = useParentOrder()
   const generation = snapshot?.workspace.generation ?? '', revision = snapshot?.workspace.revision ?? 0, observedAt = snapshot?.observedAt
   const [selected, setSelected] = useState<{ generation: string; periods: Selection }>({ generation, periods: {} })
   const selection = selected.generation === generation ? selected.periods : empty
@@ -72,14 +69,11 @@ export function useBoardPeriods(snapshot: Snapshot | null, columns: ItemHorizon[
     const sources = data && data.revision > revision ? [snapshot?.nestingParents ?? [], data.nestingParents ?? []] : [data?.nestingParents ?? [], snapshot?.nestingParents ?? []]
     return [...new Map(sources.flat().map(item => [item.id, item])).values()]
   }, [snapshot?.nestingParents, data, revision])
-  const order = useMemo(() => buildParentOrder(orderNodes, snapshot?.relations ?? [], snapshot?.observedAt ?? ''), [orderNodes, snapshot?.relations, snapshot?.observedAt])
-  const parentOrder = ordering.enabled || ordering.pending?.generation === generation
-  const items = useMemo(() => outlineRows(rawItems, parentOrder ? order.compare : undefined, nestingParents), [rawItems, order, parentOrder, nestingParents])
-  useEffect(() => { finishParentOrder(generation, revision, requested.length === 0 || fresh && !failed) }, [generation, revision, fresh, failed, requestJson, ordering.pending])
+  const items = useMemo(() => outlineRows(rawItems, undefined, nestingParents), [rawItems, nestingParents])
   const candidates = useMemo(() => {
     const combined = [...new Map([...(snapshot?.items ?? []), ...items].map(item => [item.id, item])).values()]
-    return parentOrder ? order.sort(combined) : combined
-  }, [snapshot?.items, items, parentOrder, order])
+    return combined
+  }, [snapshot?.items, items])
   const choose = useCallback((horizon: ItemHorizon, period: PlanningPeriod | null) => {
     setSelected(previous => {
       const next = previous.generation === generation ? { ...previous.periods } : {}
@@ -106,7 +100,7 @@ export function useBoardPeriods(snapshot: Snapshot | null, columns: ItemHorizon[
     setLocating(previous => ({ generation, id: item.id, seq: (previous?.seq ?? 0) + 1 }))
   }
   const finishLocate = useCallback((seq: number) => setLocating(previous => previous?.seq === seq ? null : previous), [])
-  return { nestingParents, periods, mode, items, rawItems, order, orderNodes, parentOrder, candidates, loading, failed, retry: () => setAttempt(value => value + 1), choose, returnPastToCurrent, locate, finishLocate, locating: locating?.generation === generation ? locating : null }
+  return { nestingParents, periods, mode, items, rawItems, orderNodes, candidates, loading, failed, retry: () => setAttempt(value => value + 1), choose, returnPastToCurrent, locate, finishLocate, locating: locating?.generation === generation ? locating : null }
 }
 
 export type BoardView = ReturnType<typeof useBoardPeriods>

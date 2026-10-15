@@ -15,14 +15,14 @@ workspace/
 ├── history.ts        # Immutable period-end projections and activity; separate generation-guarded live past-task pages filtered by current placement
 ├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/
-│   ├── items.ts      # Setup/date revalidation, atomic root/group moves, child detach and flow-valid goal linking
+│   ├── items.ts      # Setup/date guards, explicit creation, local automatic placement, root/group moves and atomic link placement
 │   ├── nesting.ts    # Guarded nest/unnest, inherited-parent materialization and combined outline/goal validation
 │   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
 │   ├── assistance.ts # Atomic guarded note rewrites (description-only v2 effects), legacy guidance/placement and receipt-first undo
 │   ├── lifecycle.ts  # Independent lifecycle, parent deletion promotion, non-stealing outline restore, guarded discard and unlink
 │   ├── undo.ts       # Owned-field inverses including atomic flow adoption/promotion, color/branch guards, events and holds
 │   ├── backlog.ts    # 往期候选复核与批量安排，一个原子用户操作
-│   ├── ordering.ts   # Group-checked moves and atomic, reversible half/cycle/month/week/day current/future order materialization
+│   ├── ordering.ts   # Local root placement on creation/effective-parent changes and atomic arrangement of one current/future column
 │   └── settings.ts   # Six-horizon policy versions/non-retroactive boundaries, explicit resume and independent batch undo
 └── transfer/
     ├── dataset.ts    # v1–v9 validation/export, legacy defaults and atomic replacement; upgrades retain source appearance, restores/reset retain target appearance

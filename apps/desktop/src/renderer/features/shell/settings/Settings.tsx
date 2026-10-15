@@ -172,7 +172,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
       : <div className="settings-body">
         {status}
         {section === 'appearance' && <AppearancePane workspace={snapshot.workspace} disabled={disabled} submit={submit} />}
-        {section === 'board' && <BoardPane disabled={disabled} submit={submit} />}
+        {section === 'board' && <BoardPane disabled={disabled} />}
         {section === 'shortcuts' && <ShortcutsPane />}
         {section === 'ai' && <AiPane ai={ai} />}
         {section === 'smart' && <SmartPane ai={ai} goto={next => navigate(next)} />}

@@ -12,8 +12,8 @@ export const settingsMessages = widen({
   backupSection: '备份与恢复',
   enabledMeta: '已启用',
   board: "看板",
-  parentOrder: "按上级自动排序",
-  parentOrderNote: '半年、3个月、本月、本周、今天及未来周期跟随最近一级上级顺序，同组可拖动。关闭后保留当前排列。',
+  parentOrder: "按上级自动放置",
+  parentOrderNote: "新增或更换有效上级时，只调整这条任务的位置。之后可自由手动排序；开关切换不改变已有排列。",
   subtitles: {
     ai: '添加一次 Key，智能输入和洞察各自选用；Key 经端到端加密同步，保存在本机钥匙串，只发给你选中的服务',
     board: '排序与完成反馈会在电脑之间同步',

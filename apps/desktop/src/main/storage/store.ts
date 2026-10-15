@@ -143,7 +143,10 @@ export class Store {
       return { previous, next: null }
     }
     const next = this.prepare('SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.itemId=? AND i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ? AND p.nestingParentId IS ?').get(beforeId, horizon, periodId, excludedId, nestingParentId) as unknown as Placement | undefined
-    if (!next) throw new DomainError('conflict', serverText().errors.sortTargetGone)
+    if (!next) {
+      console.error('[insertion] Target not found - beforeId:', beforeId, 'horizon:', horizon, 'nestingParentId:', nestingParentId)
+      throw new DomainError('conflict', serverText().errors.sortTargetGone)
+    }
     return { previous: this.neighbor(next, 'before', excludedId), next }
   }
   position(item: Pick<Item, 'placement'>): PositionEffect {

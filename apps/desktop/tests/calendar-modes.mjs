@@ -259,20 +259,29 @@ try {
     await page.keyboard.press('ControlOrMeta+,')
     const settings = page.locator('dialog.settings-modal')
     await settings.getByRole('button', { name: '看板', exact: true }).click()
-    const control = settings.getByRole('switch', { name: '按上级自动排序', exact: true })
+    const control = settings.getByRole('switch', { name: '按上级自动放置', exact: true })
     const previous = await control.getAttribute('aria-checked')
     await control.click()
     await page.waitForFunction(previous => document.querySelector('dialog.settings-modal [role="switch"]')?.getAttribute('aria-checked') !== previous && !document.querySelector('.fab').disabled, previous)
     await page.keyboard.press('Escape'); await settings.waitFor({ state: 'detached' })
   }
-  await order(['B', 'A']); await toggleOrder(); await order(['A', 'B'])
+  const arrange = async () => {
+    for (const horizon of ['half', 'cycle']) {
+      await column(horizon).locator('[data-column-actions]').click()
+      await page.getByRole('menuitem', { name: '按上级整理', exact: true }).click()
+      await page.waitForFunction(() => !document.querySelector('.fab').disabled)
+    }
+  }
+  await order(['B', 'A']); await toggleOrder(); await order(['B', 'A'])
+  await arrange(); await order(['A', 'B'])
   await toggleOrder(); await order(['A', 'B'])
+  await page.keyboard.press('ControlOrMeta+z'); await page.waitForFunction(() => !document.querySelector('.fab').disabled)
   await page.keyboard.press('ControlOrMeta+z'); await order(['B', 'A'])
-  await toggleOrder(); await toggleOrder(); await order(['A', 'B'])
-  await shoot('half-cycle-materialized-order')
+  await arrange(); await order(['A', 'B'])
+  await shoot('half-cycle-arranged-once')
   await application.close(); application = null
   await launch(false, true); await page.locator('.board').waitFor(); await order(['A', 'B'])
-  report.checks.push('BUG-03: year/half/cycle completed counts and two-period history navigation; BUG-10: half/cycle order holds on disable, undo and real process restart')
+  report.checks.push('BUG-03: year/half/cycle completed counts and two-period history navigation; half/cycle one-shot arrangement preserves preference toggles and supports undo/restart')
   report.passed = true
 } catch (error) {
   report.error = String(error)

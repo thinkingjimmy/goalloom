@@ -1,10 +1,11 @@
 /**
  * [INPUT]: Transaction-local items/relations, strict lifecycle commands and injected time.
- * [OUTPUT]: Independent status/archive/delete, outline-safe title-only discard, scoped restore and atomic visibility effects.
+ * [OUTPUT]: Independent lifecycle effects, scoped restore and atomic unlink/placement when the effective parent changes.
  * [POS]: Lifecycle commands; deletion retains saved text/placement for undo without cascading state.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { changeNesting } from './nesting'
+import { orderingParent, placeByParent } from './ordering'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { samePosition } from '../../../domain/undo'
 import { nestingTargets } from '../../../domain/nesting'
@@ -131,9 +132,11 @@ export function unlinkItems(context: Context, command: CommandOf<'unlink'>): boo
   if (!edge) throw new DomainError('conflict', context.store.effectiveRelations().some(row => row.id === command.relationId && row.inheritedFrom) ? nestingText().inherited : serverText().errors.relationGone)
   assertAvailable(context.store.item(edge.parentId, command.expectedParentVersion))
   assertAvailable(context.store.item(edge.childId, command.expectedChildVersion))
+  const previousParent = command.autoPlace ? orderingParent(context, edge.childId) : null
   const after: Relation = { ...edge, invalidatedAt: context.now, invalidatedBy: command.operationId, reason: 'unlink' }
   writeEdges(context, [after])
   context.effects.push({ kind: 'relations', itemId: edge.childId, edges: [{ before: edge, after }] })
+  if (command.autoPlace && orderingParent(context, edge.childId) !== previousParent) placeByParent(context, context.store.item(edge.childId))
   context.itemId = edge.childId
   context.label = serverText().labels.unlink
   return true

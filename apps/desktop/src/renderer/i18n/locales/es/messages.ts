@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: Spanish UI copy and parameterized messages, including column visibility/add-task labels, feedback destinations and partial restores.
+ * [OUTPUT]: Spanish UI copy and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
  * [POS]: Spanish message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -86,6 +86,8 @@ export const messages: MessageCatalog = {
   deferBacklog: "Dejar para después",
   dragStarted: "Arrastre iniciado. Usa las flechas para mover, Espacio para soltar y Esc para cancelar.",
   dragOver: "Movido a una nueva posición.",
+  sortByParent: "Organizar por superior",
+  columnActions: (column: string | number) => `Acciones de la columna ${column}`,
   dragEnded: "Arrastre terminado. Comprobando la posición.",
   dragCancelled: "Arrastre cancelado. Se mantiene la posición original.",
   dragInstructions: "Pulsa Espacio para arrastrar, usa las flechas para mover, Espacio para soltar y Esc para cancelar.",

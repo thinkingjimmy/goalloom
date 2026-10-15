@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Existing theme/row tokens and outline drag/membership attributes.
- * [OUTPUT]: Stable 24px indentation, a middle-row drop preview, compact context and bounded accessible choices.
+ * [OUTPUT]: Stable indentation, nesting containers, insertion lines, accessible arrangement actions and bounded choices.
  * [POS]: Board-only nesting styles; row backgrounds and relation exits keep their original bounds.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -36,6 +36,7 @@
 .task-row[data-sort-position='after']::after {
   bottom: -1px;
 }
+.column-order-menu .menu-item { min-height: 44px; }
 .nesting-picker { max-width: 480px; padding-bottom: 12px; }
 .nesting-choices { max-height: min(60vh, 480px); overflow-y: auto; padding: 6px 12px; }
 .detail-props .nesting-parent-chip { display: block; height: auto; min-height: 28px; max-width: 100%; padding: 4px 10px; line-height: 20px; white-space: normal; overflow-wrap: anywhere; text-align: left; }

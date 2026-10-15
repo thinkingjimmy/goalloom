@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted finite commands, entity/guidance schemas and explicit dependency/version guards.
- * [OUTPUT]: Guarded description rewrites, atomic assistance, nesting/lifecycle/planning commands and immutable receipts.
+ * [OUTPUT]: Guarded writes, opt-in local placement, explicit insertion, scoped parent arrangement and immutable receipts.
  * [POS]: Write contract accepting neither arbitrary effects nor model-generated commands.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -51,21 +51,21 @@ export const commandSchema = z.discriminatedUnion('type', [
     .refine(value => value.description === undefined || !!value.guard && !!value.contextId && value.guidance.kind === 'keep' && !value.move)
     .refine(value => value.guidance.kind !== 'set' || value.guidance.value.authorship !== 'ai_assisted' || !!value.guard && !!value.contextId),
   z.strictObject({ ...envelope, type: z.literal('confirmSetup'), mode: z.enum(calendarModes), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), anchor: setupAnchorSchema, confirmed: z.literal(true) }),
-  z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null) }),
-  z.strictObject({ ...envelope, type: z.literal('createPlan'), items: z.array(planItemSchema).min(1).max(planLimit) }),
+  z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null), autoPlace: z.boolean().optional(), beforeId: idSchema.nullable().optional() }),
+  z.strictObject({ ...envelope, type: z.literal('createPlan'), items: z.array(planItemSchema).min(1).max(planLimit), autoPlace: z.boolean().optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('edit'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000), dueDate: dateSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
-  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), parentOrder: z.boolean().optional(), keepNesting: z.literal(true).optional(), group: z.literal(true).optional() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), keepNesting: z.literal(true).optional(), group: z.literal(true).optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('nest'), parentId: idSchema, expectedParentVersion: z.number().int().positive(), expectedPlacementVersion: z.number().int().positive(), expectedParentPlacementVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('unnest'), expectedPlacementVersion: z.number().int().positive() }),
-  z.strictObject({ ...envelope, type: z.literal('materializeParentOrder') }),
-  z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), adoptParentFlow: z.literal(true).optional() }),
+  z.strictObject({ ...envelope, type: z.literal('materializeParentOrder'), horizon: z.enum(['half', 'cycle', 'month', 'week', 'day']), period: z.strictObject({ kind: z.literal('date'), startDate: dateSchema }) }),
+  z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), adoptParentFlow: z.literal(true).optional(), autoPlace: z.boolean().optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('status'), status: statusSchema }),
   z.strictObject({ ...envelope, ...target, type: z.literal('archive'), archived: z.boolean() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('delete') }),
   z.strictObject({ ...envelope, ...target, type: z.literal('discardEmpty') }),
   z.strictObject({ ...envelope, ...target, type: z.literal('restoreItem'), deletionSource: idSchema.nullable().default(null) }),
-  z.strictObject({ ...envelope, type: z.literal('unlink'), relationId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive() }),
+  z.strictObject({ ...envelope, type: z.literal('unlink'), relationId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), autoPlace: z.boolean().optional() }),
   z.strictObject({ ...envelope, type: z.literal('undo'), originalOperationId: idSchema }),
   z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: z.enum(['paper', 'minimal']).optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => validationText().missingPreference }),
   z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),

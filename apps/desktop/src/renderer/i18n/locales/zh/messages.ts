@@ -1,6 +1,6 @@
 /**
  * [INPUT]: UI parameters; Chinese defines the MessageCatalog shared by every locale.
- * [OUTPUT]: General UI copy and parameterized messages, including column visibility/add-task labels, feedback destinations and partial restores.
+ * [OUTPUT]: General UI copy and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
  * [POS]: Chinese message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -86,6 +86,8 @@ export const messages = widen({
   deferBacklog: "暂不处理",
   dragStarted: "已开始拖动。方向键调整，空格放下，Esc 取消。",
   dragOver: "已移动到新的落点。",
+  sortByParent: "按上级整理",
+  columnActions: (column: string | number) => `${column}列操作`,
   dragEnded: "拖动结束，正在核对位置。",
   dragCancelled: "已取消拖动，原位置保留。",
   dragInstructions: "按空格开始拖动，方向键移动，空格放下，Esc 取消。",

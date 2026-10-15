@@ -110,12 +110,12 @@ describe('Authoritative calendar transactions and shared consumers', () => {
       for (const [parentId, childId] of [[b, second], [a, first]]) run({ type: 'link', parentId, childId, expectedParentVersion: repo.store.item(parentId!).version, expectedChildVersion: repo.store.item(childId!).version })
       return [horizon, first, second] as const
     })
-    const result = run({ type: 'materializeParentOrder' })
+    const results = pairs.map(([horizon]) => run({ type: 'materializeParentOrder', horizon, period: { kind: 'date', startDate: repo.snapshot().periods.find(period => period.horizon === horizon)!.startDate } }))
     const order = (horizon: string) => repo.store.items('p.horizon=?', [horizon]).map(i => i.id)
     for (const [horizon, first, second] of pairs) expect(order(horizon)).toEqual([first, second])
     const restarted = new Repository(repo.db, { now: () => now })
     for (const [horizon, first, second] of pairs) expect(restarted.store.items('p.horizon=?', [horizon]).map(i => i.id)).toEqual([first, second])
-    run({ type: 'undo', originalOperationId: result.operationId })
+    for (const result of [...results].reverse()) run({ type: 'undo', originalOperationId: result.operationId })
     for (const [horizon, first, second] of pairs) expect(order(horizon)).toEqual([second, first])
   })
   it.each(['rolling', 'natural'])('round-trips %s datasets without changing periods, events, relations or receipts', mode => {

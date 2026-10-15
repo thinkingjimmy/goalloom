@@ -16,7 +16,6 @@ import { mayLinkFlows, mayParent } from '../../../domain/relations'
 import { messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
-import { useParentOrder } from '../../state/parent-order'
 import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
 
@@ -26,7 +25,6 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
   linkParent?: ((parent: ItemSummary) => Promise<void>) | undefined; adoptParentFlow?: boolean
 }) {
   const [query, setQuery] = useState(''), [results, setResults] = useState<ItemSummary[]>([])
-  const ordering = useParentOrder()
   useEffect(() => {
     if (!query.trim()) return
     let active = true
@@ -55,8 +53,7 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
     && (side === 'parent' ? mayParent(item.placement.horizon, self.horizon) : mayParent(self.horizon, item.placement.horizon))
   const distance = (item: ItemSummary) => Math.abs(horizons.indexOf(item.placement.horizon) - horizons.indexOf(self.horizon))
   const indexes = new Map(candidates.map((item, index) => [item.id, index]))
-  const boardOrder = (a: ItemSummary, b: ItemSummary) => ordering.enabled || ordering.pending
-    ? (indexes.get(a.id) ?? candidates.length) - (indexes.get(b.id) ?? candidates.length) : 0
+  const boardOrder = (a: ItemSummary, b: ItemSummary) => (indexes.get(a.id) ?? candidates.length) - (indexes.get(b.id) ?? candidates.length)
   const rows = (query.trim() ? results : candidates)
     .filter(item => item.id !== self.id && item.status !== 'cancelled' && (!!edgeFor(item.id) || eligible(item)))
     .sort((a, b) => Number(!!edgeFor(b.id)) - Number(!!edgeFor(a.id)) || distance(a) - distance(b) || boardOrder(a, b))

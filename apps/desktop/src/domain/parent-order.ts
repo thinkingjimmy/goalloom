@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Lightweight placements, active topology and an injected observation time.
- * [OUTPUT]: Nearest-parent groups, outline-aware transitive ordering and stable root/child positions without writes.
+ * [OUTPUT]: Nearest-parent groups and one-shot ordering based on parents' persisted positions, without writes.
  * [POS]: Shared board/transaction rule; lifecycle state never determines parent priority.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -24,7 +24,13 @@ export function buildParentOrder(nodes: readonly OrderNode[], edges: readonly { 
   }
   const manual = (a: OrderNode, b: OrderNode) => a.sortKey - b.sortKey || textOrder(a.id, b.id)
   const compareParents = (a: OrderNode, b: OrderNode): number => rank(b.horizon) - rank(a.horizon)
-    || textOrder(a.periodStart ?? '', b.periodStart ?? '') || compareNodes(a, b)
+    || textOrder(a.periodStart ?? '', b.periodStart ?? '') || comparePlacement(a, b)
+  function comparePlacement(a: OrderNode, b: OrderNode): number {
+    const rootA = a.nestingParentId ? byId.get(a.nestingParentId) : a, rootB = b.nestingParentId ? byId.get(b.nestingParentId) : b
+    if (rootA && rootB && rootA.id !== rootB.id) return manual(rootA, rootB)
+    if (rootA && rootB && (a.id === rootA.id || b.id === rootB.id) && a.id !== b.id) return a.id === rootA.id ? -1 : 1
+    return manual(a, b)
+  }
   function group(id: string): string | null {
     if (groups.has(id)) return groups.get(id)!
     let first: OrderNode | undefined

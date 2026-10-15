@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated createPlan entries, versioned parent references and current transaction context.
- * [OUTPUT]: Revalidated periods (current or an explicit date target)/parents/colors and the new-link horizon rule, topological creation effects, events and ordered item IDs.
+ * [OUTPUT]: Revalidated periods/parents/colors, optional local placement of new rows only, topological creation effects, events and ordered item IDs.
  * [POS]: Atomic batch creation sharing single-item primitives; stale previews have a stable error code.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,6 +13,7 @@ import { statusGroup } from '../../../shared/contracts/effects'
 import { assertAvailable, assertFlowColorFree, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { newRelation } from './items'
 import { serverText } from '../../../shared/i18n/server'
+import { placeByParent } from './ordering'
 
 export function createPlan(context: Context, command: CommandOf<'createPlan'>): boolean {
   const problem = planProblem(command.items)
@@ -49,6 +50,7 @@ export function createPlan(context: Context, command: CommandOf<'createPlan'>): 
     context.store.insertItem(item)
     const edges = draft.parentRefs.map(ref => newRelation(ref.kind === 'existing' ? ref.itemId : ids.get(ref.draftId)!, id, context.now))
     for (const edge of edges) context.store.saveRelation(edge)
+    if (command.autoPlace) placeByParent(context, item, false)
     context.effects.push({ kind: 'create', itemId: id, status: statusGroup(item), horizon: draft.horizon, periodId: period?.id ?? null, initialRelations: edges.map(edge => edge.id) })
     context.store.event(command.operationId, context.now, 'created', null, item)
   }

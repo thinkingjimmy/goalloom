@@ -13,8 +13,8 @@ export const settingsMessages: SettingsCatalog = {
   backupSection: 'Sauvegardes',
   enabledMeta: 'Activé',
   board: "Tableau",
-  parentOrder: "Trier selon les parents",
-  parentOrderNote: 'Les semestres, périodes de trois mois, mois, semaines, jours et périodes futures suivent leurs parents les plus proches. Glissez dans un groupe. Désactiver conserve l’ordre actuel.',
+  parentOrder: "Placer automatiquement selon le parent",
+  parentOrderNote: "Place uniquement la tâche créée ou dont le parent de classement change. Vous pouvez ensuite réordonner librement. Ce réglage conserve les positions existantes.",
   subtitles: {
     ai: 'Ajoutez une clé une fois, puis la saisie intelligente et les Aperçus choisissent chacun leur service ; les clés se synchronisent chiffrées de bout en bout, restent dans le trousseau de cet appareil et ne vont qu’au service choisi',
     board: 'L’ordre et les retours de fin se synchronisent entre ordinateurs',

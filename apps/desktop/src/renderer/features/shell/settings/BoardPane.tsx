@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Guarded workspace submission, local parent ordering and existing celebration preferences.
- * [OUTPUT]: Board ordering switch and per-column confetti controls with a preview.
+ * [INPUT]: Device automatic-placement and existing celebration preferences.
+ * [OUTPUT]: Automatic-placement preference without task writes and per-column confetti controls with a preview.
  * [POS]: Workspace navigation's board pane. Ordering and completion feedback sync between computers.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,18 +8,16 @@ import { horizons } from '../../../../shared/contracts/values'
 import { horizonNames, settingsMessages as t, useLocale } from '../../../i18n'
 import { Icon } from '../../../components/icons'
 import { previewCelebration, useCelebration, useReducedMotion } from '../../../state/celebration'
-import { enableParentOrder, useParentOrder } from '../../../state/parent-order'
-import type { Action } from '../../../state/use-workspace'
+import { setParentOrder, useParentOrder } from '../../../state/parent-order'
 import { SettingsGroup, SettingsRow, Switch, ToggleChips } from './parts'
 
-export function BoardPane({ disabled, submit }: { disabled: boolean; submit: (action: Action) => Promise<unknown> }) {
+export function BoardPane({ disabled }: { disabled: boolean }) {
   useLocale()
   const order = useParentOrder(), celebration = useCelebration(), reducedMotion = useReducedMotion()
   const anyCelebration = horizons.some(horizon => celebration.enabled[horizon])
   return <SettingsGroup>
     <SettingsRow title={t.parentOrder} note={t.parentOrderNote}>
-      <Switch label={t.parentOrder} checked={order.enabled || !!order.pending} disabled={disabled || !!order.pending}
-        onChange={enabled => { if (enabled) enableParentOrder(); else void submit({ type: 'materializeParentOrder' }) }} />
+      <Switch label={t.parentOrder} checked={order.enabled} disabled={disabled} onChange={setParentOrder} />
     </SettingsRow>
     <SettingsRow title={t.celebration} note={anyCelebration ? t.celebrationNote : t.celebrationOff} below={<>
       <div className="celebration-chips"><ToggleChips label={t.celebrationColumns} options={horizons.map(horizon => ({ value: horizon, label: horizonNames[horizon], pressed: celebration.enabled[horizon] }))} onToggle={celebration.setEnabled} /></div>

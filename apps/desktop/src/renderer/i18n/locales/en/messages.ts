@@ -1,6 +1,6 @@
 /**
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
- * [OUTPUT]: English UI copy and parameterized messages, including column visibility/add-task labels, feedback destinations and partial restores.
+ * [OUTPUT]: English UI copy and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
  * [POS]: English message catalog loaded by i18n/index; no workspace access or business decisions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -86,6 +86,8 @@ export const messages: MessageCatalog = {
   deferBacklog: "Not now",
   dragStarted: "Dragging. Use arrow keys to move, Space to drop, Esc to cancel.",
   dragOver: "Moved to a new drop position.",
+  sortByParent: "Arrange by parent",
+  columnActions: (column: string | number) => `${column} column actions`,
   dragEnded: "Drag ended. Checking the position.",
   dragCancelled: "Drag cancelled. The original position is kept.",
   dragInstructions: "Press Space to start dragging, arrow keys to move, Space to drop, Esc to cancel.",

@@ -293,7 +293,7 @@ try {
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
   const settings = page.getByRole('dialog', { name: '设置与数据', exact: true })
   await settings.getByRole('navigation').getByRole('button', { name: '看板', exact: true }).click()
-  await settings.getByRole('switch', { name: '按上级自动排序', exact: true }).click(); await page.keyboard.press('Escape')
+  await settings.getByRole('switch', { name: '按上级自动放置', exact: true }).click(); await page.keyboard.press('Escape')
   const ordered = await page.evaluate(async () => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation, ids = []
     for (const title of ['Ordered later', 'Ordered earlier']) {
@@ -305,9 +305,10 @@ try {
   const originalOrder = await Promise.all(ordered.map(async id => (await item(id)).item.placement))
   await drag(ordered[0], ids.w2); await drag(ordered[1], ids.w)
   const displayed = await column('day').locator('.task-row').evaluateAll(rows => rows.map(row => row.dataset.itemId))
-  assert(displayed.indexOf(ordered[1]) < displayed.indexOf(ordered[0]), 'The new parent immediately controls the projected order')
-  assert.deepEqual(await Promise.all(ordered.map(async id => (await item(id)).item.placement)), originalOrder)
-  await shot('automatic-order'); checks.push('Drag linking immediately updates automatic parent order without moving the saved placement')
+  assert(displayed.indexOf(ordered[1]) < displayed.indexOf(ordered[0]), 'A changed ordering parent places the affected task beside its peers')
+  assert((await item(ordered[1])).item.placement.sortKey < (await item(ordered[0])).item.placement.sortKey)
+  assert.notDeepEqual(await Promise.all(ordered.map(async id => (await item(id)).item.placement)), originalOrder)
+  await shot('automatic-placement'); checks.push('Drag linking persists local placement with the relationship; existing tasks retain their relative order')
   const last = await page.evaluate(async () => {
     const s = await window.goalloom.getSnapshot(); let last
     for (let i = 0; i < 85; i++) for (const horizon of ['week', 'day']) {

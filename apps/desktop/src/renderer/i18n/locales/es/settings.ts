@@ -13,8 +13,8 @@ export const settingsMessages: SettingsCatalog = {
   backupSection: 'Copias y restauración',
   enabledMeta: 'Activada',
   board: "Tablero",
-  parentOrder: "Ordenar por elemento superior",
-  parentOrderNote: 'Los semestres, períodos de tres meses, meses, semanas, días y períodos futuros siguen a sus superiores más cercanos. Arrastra dentro de cada grupo. Al desactivar, se conserva el orden actual.',
+  parentOrder: "Colocar automáticamente por superior",
+  parentOrderNote: "Coloca solo la tarea nueva o aquella cuyo superior de ordenación cambia. Después puedes reordenar libremente. Cambiar este ajuste conserva las posiciones existentes.",
   subtitles: {
     ai: 'Añade una clave una vez y deja que la entrada inteligente y Perspectiva elijan servicio; las claves se sincronizan cifradas de extremo a extremo, permanecen en el llavero de este equipo y solo van al servicio que elijas',
     board: 'El orden y los avisos al completar se sincronizan entre ordenadores',

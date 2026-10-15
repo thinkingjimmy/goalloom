@@ -21,7 +21,7 @@ renderer/
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
 │   │       ├── AppearancePane.tsx # Language, visual styles, theme and device relation-line switch
-│   │       ├── BoardPane.tsx      # Synced parent-order/completed-folding switches, atomic disable/materialization and per-column completion-confetti preview
+│   │       ├── BoardPane.tsx      # Synced automatic-placement preference without task writes and per-column completion-confetti preview
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
 │   │       ├── AiPane.tsx       # AI 服务：已连接/可添加服务、能力标签、Key 遮罩与测试日期、账户问题与重测、移除前说明、隐私要点
 │   │       ├── FeatureControls.tsx # 智能输入/洞察共用：功能总开关状态卡与处理服务单选（只列能运行该模型的服务）
@@ -61,10 +61,11 @@ renderer/
 │   │   ├── Board.tsx        # Unified periods with current month/week countdowns, inline QuickAdd, dismissible weekly guides/current-period invitations, independent gestures, virtual source pinning and preserved focus
 │   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
-│   │   ├── useBoardDrag.ts # Middle-row nesting with expanded hot zones (16px vertical margins, left 60%/200px horizontal), edge sorting, complete group movement and guarded pending projections
+│   │   ├── ColumnOrderMenu.tsx # Accessible current/future column action for one-shot parent arrangement
+│   │   ├── useBoardDrag.ts # Free pointer/keyboard edge sorting, usable middle-row nesting and guarded saved-order projections
 │   │   ├── NestingPicker.tsx # Keyboard root selection, bounded current/future/Later search, placement revalidation and source focus return
 │   │   ├── TaskContext.tsx # Compact archived/cancelled parent context shared by current and past groups
-│   │   ├── nesting.css # Stable 24px leading inset, enhanced middle-row preview with 2px outline/left icon/glowing underline and bounded accessible choices
+│   │   ├── nesting.css # Stable 24px inset, nesting containers, insertion lines, accessible arrangement actions and bounded choices
 │   │   ├── RelationDrag.tsx # Flow-valid pointer linking, root-promotion preview, clipped targeting/autoscroll, source pinning and guarded menu adoption
 │   │   ├── relation-drag.css # Copy-free linking preview: connector, ports, eligible-row fading, target flow tint and adoption chip
 │   │   ├── usePeriodMotion.ts # Cancellable directional content entry after data readiness; reduced-motion/visibility cleanup and overlay synchronization
@@ -79,7 +80,7 @@ renderer/
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # Role-aware flow menus with a single parent-panel heading, intrinsic choice width, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
-│   │   ├── QuickAdd.tsx     # Title-aligned growing/wrapping input with first-line markers and flow context below, no keyboard prompt, explicit-period creation, per-period drafts, expired-input recovery and horizon-valid flow choices
+│   │   ├── QuickAdd.tsx     # Title-aligned input, flow choices, explicit-period/tail insertion, per-period drafts and expired-input recovery
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
 │   │   ├── period-labels.ts # Mode-aware adjacent/distant headings, natural Q/year lists and year-disambiguated anchored ranges
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
@@ -119,14 +120,14 @@ renderer/
 │   └── ui/                 # shadcn Button, Radix Select and Context Menu; shared menu tokens and MIT attribution
 ├── state/
 │   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
-│   ├── board-periods.ts    # Generation/selection/revision-isolated future reads retained for hidden columns, atomic return from history, transitive parent ordering and shared candidates
+│   ├── board-periods.ts    # Generation/selection/revision-isolated future reads, hidden selections, persisted manual outline order and shared candidates
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
 │   ├── flows.ts            # Layout-aware board-ordered flow filters, topology/color caches and shared active graph/chain for relation lines and preview actions
 │   ├── completed-layout.ts # Default-inline completed-task layout, local persistence and remote preference application without echoes
 │   ├── device-prefs.ts     # Live remote display preferences and non-default local seed through the existing settings log
 │   ├── columns.ts          # Independent device-local Later/planning visibility; six default columns, at-least-one guard and explicit-target reveal controls
 │   ├── relation-lines.ts   # 本机关系线开关（localStorage，默认开，只存关闭，不入工作区）
-│   ├── parent-order.ts    # Device-only preference and generation/revision-bound completion of materialization
+│   ├── parent-order.ts    # Synced automatic-placement preference captured on submission; toggles do not write task order
 │   ├── celebration.ts      # 本机七栏撒花偏好（默认年/半年/3个月/月/周）、设置页预览、复盘完成信号与减少动态效果
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）
@@ -138,7 +139,7 @@ renderer/
 │   ├── review-summary.ts   # Up to 24 device-local period summaries, exact-prompt fingerprints, shared requests and generation invalidation
 │   ├── review-drafts.ts    # Up to 24 review-only destination suggestion batches, exact-prompt fingerprints, pending reuse and generation invalidation
 │   ├── feedback.ts         # Command feedback policy (moves/advances/nesting are silent), committed destinations, partial-restore warnings and reading durations
-│   └── use-workspace.ts    # Authoritative snapshots, post-layout feedback, completion events, session undo, reserved detail writes and receipt recovery
+│   └── use-workspace.ts    # Authoritative snapshots, captured placement policy, post-layout feedback, session undo, prepared writes and receipt recovery
 ├── i18n/
 │   ├── index.ts             # 唯一文案入口：当前语言的实时视图（原地替换，不重挂载）、setLocale/useLocale
 │   ├── format.ts            # 按当前语言的 Intl 日期/星期/时间/数字格式

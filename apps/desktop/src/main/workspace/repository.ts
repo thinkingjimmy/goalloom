@@ -98,7 +98,7 @@ export class Repository {
       case 'nest': return nestItem(context, command)
       case 'unnest': return unnestItem(context, command)
       case 'move': return moveItem(context, command)
-      case 'materializeParentOrder': return materializeParentOrder(context)
+      case 'materializeParentOrder': return materializeParentOrder(context, command)
       case 'link': return linkItems(context, command)
       case 'status': return setStatus(context, command)
       case 'archive': return setArchive(context, command)

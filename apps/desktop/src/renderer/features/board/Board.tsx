@@ -2,13 +2,13 @@
  * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later/planning visibility, guarded actions, PeriodPicker/PeriodReturn controls, input-aware focus return and flow-insight hooks.
  * [OUTPUT]: A single-row title-as-switcher period header (header B: period panel, ←/→ stepping and a return icon with localized guidance), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
- *           Owns independent relation dragging/prepared writes and virtual source pinning; exposes filter/linking states for row styling.
+ *           Owns independent relation dragging/prepared writes, virtual source pinning and scoped one-shot column arrangement.
  *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
  *           Double-clicking a card edits its title in place; the write keeps the description and due date.
  *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly reminders support persistent dismissal without completion.
  *           "Write my own" opens this column's inline entry, the same one as ＋.
  *           Current month/week headers share the trailing add slot with a rounded calendar-day countdown badge.
- * [POS]: Main board view; group-aware optimistic drops and virtual-row FLIP follow the shared parent order, with authoritative transaction validation.
+ * [POS]: Main board view; explicit optimistic drops and virtual-row FLIP follow saved order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { outlineSections } from '../../../domain/nesting'
@@ -44,6 +44,7 @@ import { BoardLayout } from './BoardLayout'
 import { usePeriodMotion } from './usePeriodMotion'
 import { PeriodPicker } from './PeriodPicker'
 import { PeriodReturn } from './PeriodReturn'
+import { ColumnOrderMenu } from './ColumnOrderMenu'
 import { Breakpoints } from '../insight/Breakpoints'
 import { EmptyCard } from '../insight/EmptyCard'
 import { emptyColumns, shorter } from '../insight/signals'
@@ -87,7 +88,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     if (!reply.ok) { onError(reply.message); return false }
     return true
   }, [write, onError, snapshot.workspace.generation])
-  const [adding, setAdding] = useState<{ horizon: ItemHorizon; period: PlanningPeriod | null; split: SplitParent | null; key: number } | null>(null)
+  const [adding, setAdding] = useState<{ horizon: ItemHorizon; period: PlanningPeriod | null; split: SplitParent | null; key: number; beforeId?: null } | null>(null)
   const handled = useRef(addRequest?.seq ?? 0)
   useEffect(() => {
     if (!addRequest || addRequest.seq === handled.current) return
@@ -100,7 +101,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     setAdding({ horizon, period, split: addRequest.split, key: addRequest.seq })
     document.querySelector(`[data-horizon="${horizon}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [addRequest])
-  const onAdding = useCallback((horizon: ItemHorizon, open: boolean) => setAdding(open ? { horizon, period: view.periods[horizon] ?? null, split: null, key: Date.now() } : null), [view.periods])
+  const onAdding = useCallback((horizon: ItemHorizon, open: boolean, atEnd = false) => setAdding(open ? { horizon, period: view.periods[horizon] ?? null, split: null, key: Date.now(), ...(atEnd ? { beforeId: null } : {}) } : null), [view.periods])
   const onFocus = useCallback((horizon: ItemHorizon, editable: boolean) => setFocused(editable ? horizon : 'later'), [])
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
   // A dot starts the preview; its flow rows and breakpoint controls keep it reachable until pointer/focus leaves.
@@ -132,7 +133,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
     onNest={setNestingItemId} dragging={dragging} relationSource={relationDrag.sourceId} editingId={editingId} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
     adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? (horizon === 'later' || horizon === 'year' ? undefined : empty.get(horizon)) ?? null : null} />
-  return <RelationDragContext.Provider value={relationDrag.actions}><DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: () => messages.dragEnded, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
+  return <RelationDragContext.Provider value={relationDrag.actions}><DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: event => event.over ? messages.dragEnded : messages.dragCancelled, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
     <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null} data-linking={relationDrag.sourceId ? 'true' : undefined}
       onPointerOver={holdPreview} onPointerOut={leavePreview} onFocus={holdPreview} onBlur={leavePreview}>
       {/* Keyed by the filtered flow so switching flows replays the draw-in; a hover preview never animates in. */}
@@ -153,15 +154,15 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   sources: ItemSummary[] | null
   active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
   horizon: ItemHorizon; items: ItemSummary[]; today: string; visible: boolean
-  adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number } | null
-  dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean) => void
+  adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number; beforeId?: null } | null
+  dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean, atEnd?: boolean) => void
   onNest: (id: string) => void
   relationSource: string | null; editingId: string | null
   beginEdit: (id: string) => void; endEdit: (id: string) => void; renameTitle: (itemId: string, title: string) => Promise<boolean>
   onFocus: (horizon: ItemHorizon, editable: boolean) => void
 }) {
   useLocale()
-  const setAdding = (open: boolean) => { if (open) section.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); onAdding(horizon, open) }, focus = (editable: boolean) => onFocus(horizon, editable)
+  const setAdding = (open: boolean, atEnd = false) => { if (open) section.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); onAdding(horizon, open, atEnd) }, focus = (editable: boolean) => onFocus(horizon, editable)
   const [doneOpen, setDoneOpen] = useState(false), [backlog, setBacklog] = useState(false)
   const [menuItem, setMenuItem] = useState<string | null>(null)
   const drafts = useRef(new Map<string, QuickAddDraft>())
@@ -233,7 +234,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const openAdd = () => {
     if (history || disabled || dragging || relationSource) return
     if (adding) section.current?.querySelector<HTMLTextAreaElement>('.quick-add-title')?.focus()
-    else setAdding(true)
+    else setAdding(true, true)
   }
   const addFromBlank = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target
@@ -315,6 +316,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
           } />
         {mode !== 'current' && <PeriodReturn label={returnLabel} disabled={busy} onReturn={pointer => switchTo(null, pointer)} />}
       </div> : <><h2>{name}</h2><span className="column-spacer" /></>}
+      {!history && period && horizon !== 'year' && <ColumnOrderMenu period={period} name={displayName} disabled={disabled || !!dragging || !!relationSource} submit={submit} />}
       <span className="column-add-slot">
         {daysLeft !== null && <span className="period-countdown" aria-hidden="true">{daysLeft}</span>}
         {!history && addButton}
@@ -340,11 +342,11 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
           {!adding && todo.length > 0 && <button type="button" className="column-add-task" data-column-add aria-label={messages.newToColumn(displayName)} disabled={disabled || !!dragging || !!relationSource} onClick={openAdd}>
             <Icon name="add" size={18} /><span>{messages.addTask}</span>
           </button>}
-          {adding && <QuickAdd key={`${adding.period?.id ?? 'later'}:${adding.key}`} horizon={horizon} period={adding.period} periodName={adding.period ? planningLabel(adding.period, calendar, snapshot.observedAt) : name}
+          {adding && <QuickAdd key={`${adding.period?.id ?? 'later'}:${adding.key}`} horizon={horizon} period={adding.period} beforeId={adding.beforeId} periodName={adding.period ? planningLabel(adding.period, calendar, snapshot.observedAt) : name}
             expired={!!adding.period && compareInstants(adding.period.endAt, snapshot.observedAt) <= 0} drafts={drafts.current} retarget={() => {
               const draft = drafts.current.get(adding.period?.id ?? 'later')
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
-              setAdding(true)
+              setAdding(true, adding.beforeId === null)
             }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} />}
           {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} render={row} />}</details>}
         </SortableContext>

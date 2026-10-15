@@ -8,7 +8,7 @@ domain/
 ├── temporal.ts   # 锁定 Electron 44 原生 Temporal 边界；polyfill 仅供开发期类型，不进入运行包
 ├── relations.ts  # DAG/horizon validation, effective-flow link eligibility and isolated-parent root promotion
 ├── nesting.ts    # Effective inherited goal edges, combined ancestry, valid two-level targets and context-aware outline rows
-├── parent-order.ts # Deterministic nearest-parent ordering, outline-aware ancestor comparisons and historical/manual boundaries
+├── parent-order.ts # Nearest-parent groups using stored parent order for local placement/one-shot arrangement; no cascading projection
 ├── flows.ts      # 流程归属：图内祖先缓存解析流程根，图外条目共享空结果，不保留累计访问身份
 ├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断
 ├── undo.ts       # Owned fields, relation/color effects and semantic-order matching, independent of whole-item versions
@@ -17,7 +17,7 @@ domain/
 ├── execution-history.ts # Indexed ownership for every event effect and chronological guidance/clear/undo replay
 ├── import-nesting.ts # Inheritance provenance, group ownership and commit-order relationship/lifecycle replay
 ├── import-guidance.ts # Indexed guidance head/receipt/sequence integrity, tombstones and logical ownership without per-event batch scans
-├── import-validation.ts # Strict v1–v9 datasets, DAGs, adoption colors, guarded discard visibility, inverse-event indexes, plans and legacy milestone receipts
+├── import-validation.ts # Strict v1–v9 datasets, DAGs, adoption colors, guarded discard visibility, inverse-event indexes, atomic link/placement receipts, plans and legacy milestone receipts
 ├── plan.ts       # createPlan 批内约束与稳定拓扑序（父在前、同级保持草稿顺序）
 ├── status.ts     # 独立状态时间组、效果匹配与差量逆转
 ├── items.ts      # Pure title-only discard eligibility shared by detail drafts and authoritative lifecycle writes

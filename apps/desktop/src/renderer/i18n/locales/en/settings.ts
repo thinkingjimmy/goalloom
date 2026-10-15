@@ -13,8 +13,8 @@ export const settingsMessages: SettingsCatalog = {
   backupSection: 'Backup & restore',
   enabledMeta: 'On',
   board: "Board",
-  parentOrder: "Sort by parent",
-  parentOrderNote: 'Half-years, three-month periods, months, weeks, days and future periods follow their nearest parents. Drag within groups. Turning this off keeps the current order.',
+  parentOrder: "Place by parent automatically",
+  parentOrderNote: "Place only the task being created or given a different ordering parent. Reorder freely afterward. Changing this setting keeps existing positions.",
   subtitles: {
     ai: 'Add a key once and let smart input and insight each pick a service; keys sync end-to-end encrypted, stay in this device’s keychain, and go only to the service you choose',
     board: 'Ordering and completion feedback sync between computers',
