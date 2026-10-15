@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Production Electron build and an isolated Repository/SQLite planning fixture.
+ * [INPUT]: Production Electron build and an isolated Repository/SQLite planning fixture, with explicit completed-layout controls.
  * [OUTPUT]: Period interactions, compact menu/source-row activation assertions, screenshots, environment/boundary JSON and app-local failure diagnostics in output/tests/periods.
  * [POS]: Focused desktop acceptance; fixture refresh emits a main-process notification without native activation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { setCompletedLayout } from './fixtures/completed-layout.mjs'
 import { finishDetailEditing } from './fixtures/detail-save.mjs'
 import assert from 'node:assert/strict'
 import { stepPeriod } from './fixtures/period-step.mjs'
@@ -52,6 +53,7 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1880, 1000))
   await page.locator('.board').waitFor()
+  await setCompletedLayout(page, true)
   await application.evaluate(({ shell }) => {
     globalThis.periodExternalCalls = []
     shell.openExternal = async url => { globalThis.periodExternalCalls.push(url) }
@@ -265,7 +267,11 @@ try {
   await page.locator('dialog.detail .title-input').fill('Edited future task')
   await finishDetailEditing(page)
   await pollPage(page, async id => (await window.goalloom.getItem(id)).item.title === 'Edited future task', ids.week)
-  assert.match(await page.locator('dialog.detail .detail-context').innerText(), new RegExp(further.startDate.slice(0, 4)))
+  const rangeStart = new Date(`${further.startDate}T00:00:00Z`), rangeEnd = new Date(Date.parse(further.endDate) - 86400000)
+  const rangeFormat = new Intl.DateTimeFormat('zh-CN', { timeZone: 'UTC', month: 'short', day: 'numeric',
+    ...(rangeStart.getUTCFullYear() !== rangeEnd.getUTCFullYear() ? { year: 'numeric' } : {}) })
+  const rangeLabel = `${rangeFormat.format(rangeStart)} – ${rangeFormat.format(rangeEnd)}`
+  assert((await page.locator('dialog.detail .detail-context').innerText()).includes(rangeLabel), 'Future details show the actual target range under the year-boundary rule')
   const detailMove = await page.evaluate(async id => {
     const { workspace } = await window.goalloom.getSnapshot(), { item } = await window.goalloom.getItem(id)
     const reply = await window.goalloom.execute({ type: 'move', itemId: id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon: 'week', generation: workspace.generation, operationId: crypto.randomUUID() })

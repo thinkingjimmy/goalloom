@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: French settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages.
+ * [OUTPUT]: French settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout.
  * [POS]: French settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,8 @@ export const settingsMessages: SettingsCatalog = {
   board: "Tableau",
   parentOrder: "Placer automatiquement selon le parent",
   parentOrderNote: "Place uniquement la tâche créée ou dont le parent de classement change. Vous pouvez ensuite réordonner librement. Ce réglage conserve les positions existantes.",
+  collapseCompleted: 'Replier les tâches terminées',
+  collapseCompletedNote: 'Désactivé : conserve leur position. Activé : regroupe en bas de la colonne. Les tâches et sous-tâches restent ensemble.',
   subtitles: {
     ai: 'Ajoutez une clé une fois, puis la saisie intelligente et les Aperçus choisissent chacun leur service ; les clés se synchronisent chiffrées de bout en bout, restent dans le trousseau de cet appareil et ne vont qu’au service choisi',
     board: 'L’ordre et les retours de fin se synchronisent entre ordinateurs',

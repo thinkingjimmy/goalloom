@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Built Electron, real production IPC and a fresh synthetic workspace; --baseline/--style-baseline preserve initial failures, --menu narrows development checks.
+ * [INPUT]: Built Electron, real production IPC and a fresh synthetic workspace; --baseline/--style-baseline preserve initial failures, --menu narrows development checks, with explicit completed-layout controls.
  * [OUTPUT]: Repeatable column-menu/period-panel appearance, state, geometry, focus, persistence and locale evidence under output/tests/column-visibility.
  * [POS]: Owning desktop E2E; no personal workspace, external service or unrelated screen capture.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { setCompletedLayout } from './fixtures/completed-layout.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir, arch, cpus, release, version } from 'node:os'
@@ -26,6 +27,7 @@ async function run() {
   app = await electron.launch(options); page = await app.firstWindow()
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 840))
   await finishSetup(page)
+  await setCompletedLayout(page, true)
   Object.assign(report.environment, await page.evaluate(() => window.goalloom.getRuntime()))
   const check = text => { report.checks.push(text); console.log(text) }
   const shot = async name => { const path = join(evidence, `${name}.png`); await page.screenshot({ path }); report.screenshots.push(path) }

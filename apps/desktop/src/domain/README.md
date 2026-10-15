@@ -7,7 +7,7 @@ domain/
 ├── calendar.ts   # 日/周/月/原锚点年/半年/三个月区间、固定 IANA 边界
 ├── temporal.ts   # 锁定 Electron 44 原生 Temporal 边界；polyfill 仅供开发期类型，不进入运行包
 ├── relations.ts  # DAG/horizon validation, effective-flow link eligibility and isolated-parent root promotion
-├── nesting.ts    # Effective inherited goal edges, combined ancestry, valid two-level targets and context-aware outline rows
+├── nesting.ts    # Effective inherited goal edges, combined ancestry, valid targets and mixed/separated context-aware outline rows
 ├── parent-order.ts # Nearest-parent groups using stored parent order for local placement/one-shot arrangement; no cascading projection
 ├── flows.ts      # 流程归属：图内祖先缓存解析流程根，图外条目共享空结果，不保留累计访问身份
 ├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断

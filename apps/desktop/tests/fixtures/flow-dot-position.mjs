@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Real Electron, an isolated workspace with a longer-horizon flow root and a screenshot directory.
+ * [INPUT]: Real Electron, isolated flow roots, explicit bottom clearances and a screenshot directory.
  * [OUTPUT]: Heading-only parent panels, checked links, measured bounds and screenshots for intrinsic choice width, bottom-edge menus, content changes, scrolling and resizing.
  * [POS]: Relation acceptance fixture using production IPC and real board controls without replacing layout or renderer APIs.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -36,13 +36,13 @@ export async function verifyFlowDotPosition(application, page, shots) {
     assert.equal(await parents.locator('.relation-note').innerText(), '所属上级流程：')
     assert.equal(await parents.locator('.relation-rule, .flow-dot-owners, .relation-note .flow-dot').count(), 0)
   }
-  const alignNearBottom = async id => {
+  const alignNearBottom = async (id, clearance = 170) => {
     await page.locator('[data-horizon="week"] .column-content').evaluate(node => { node.scrollTop = node.scrollHeight })
     await page.locator(`#item-${id}`).scrollIntoViewIfNeeded()
-    await dot(id).evaluate(node => {
+    await dot(id).evaluate((node, clearance) => {
       const content = node.closest('.column-content')
-      content.scrollTop += node.getBoundingClientRect().bottom - (innerHeight - 170)
-    })
+      content.scrollTop += node.getBoundingClientRect().bottom - (innerHeight - clearance)
+    }, clearance)
     await page.locator(`#item-${id} .task-title`).hover()
   }
   const check = async (id, side, label) => {
@@ -112,7 +112,7 @@ export async function verifyFlowDotPosition(application, page, shots) {
   await close()
 
   // The same dot can still open either menu after its previous panel has been removed.
-  await alignNearBottom(items.loose)
+  await alignNearBottom(items.loose, 120)
   await dot(items.loose).click()
   await page.getByRole('menuitem', { name: /设为流程起点/ }).click()
   await panel.locator('.flow-menu').waitFor()

@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Real Electron, an isolated profile, production IPC fixtures and board interactions.
+ * [INPUT]: Real Electron, an isolated profile, production IPC fixtures and board interactions, with explicit completed-layout controls.
  * [OUTPUT]: Relation-line/flow-dot assertions, full-title geometry, endpoint dimensions, dynamic popover bounds, board-ordered filter evidence and app-local diagnostics; --flow-dot selects parent-panel/positioning acceptance only.
  * [POS]: Desktop flow acceptance; exercises live snapshots, keyboard moves and positional filter shortcuts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { setCompletedLayout } from './fixtures/completed-layout.mjs'
 import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { stepPeriod } from './fixtures/period-step.mjs'
@@ -32,6 +33,7 @@ try {
   // Use the actual native viewport, including the host's screen-size constraints.
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1600, 900))
   await finishSetup(page)
+  await setCompletedLayout(page, true)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
 
   // One flow from 3个月 down to 今天: a two-parent item, a skip-level child (本月 → 今天) and a done leaf. Later only parks a loose item.

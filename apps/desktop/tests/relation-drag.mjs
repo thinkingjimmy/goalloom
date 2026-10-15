@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Production Electron build, native pointer input and isolated production Repository fixtures.
+ * [INPUT]: Production Electron build, native pointer input and isolated production Repository fixtures, with explicit completed-layout controls.
  * [OUTPUT]: Drag linking, flow-valid picking, root promotion/adoption/undo, receipt recovery, ordering and locale evidence in output/tests/relation-drag.
  * [POS]: Relation feature acceptance; no renderer bridge replacement or real user data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { setCompletedLayout } from './fixtures/completed-layout.mjs'
 import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -37,6 +38,7 @@ try {
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1500, 900))
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await finishSetup(page)
+  await setCompletedLayout(page, true)
   await page.locator('.board').waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
   report.flowPolicy = { rejected: [] }

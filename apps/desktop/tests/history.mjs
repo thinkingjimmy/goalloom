@@ -1,10 +1,11 @@
 /**
- * [INPUT]: Production Electron build, or a packaged executable copied outside the checkout, and isolated history/rollover fixtures.
+ * [INPUT]: Completed-layout settings, Production Electron build, or a packaged executable copied outside the checkout, and isolated history/rollover fixtures.
  * [OUTPUT]: Compact timeline and filter navigation, past rows/paging, backlog and restore assertions; repeatable screenshots and history.json.
  * [POS]: Focused desktop acceptance using the production bridge and database; setup only sizes the native window.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { setCompletedLayout } from './fixtures/completed-layout.mjs'
 import { stepEnabled, stepPeriod } from './fixtures/period-step.mjs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir, version } from 'node:os'
@@ -84,6 +85,8 @@ try {
   await page.mouse.move(1, 1)
   await switcher(day).focus()
   await page.keyboard.press('Tab')
+  assert.equal(await day.locator('[data-column-actions]').evaluate(button => button === document.activeElement), true)
+  await page.keyboard.press('Tab')
   assert.equal(await day.locator('[data-add-item]').evaluate(button => button === document.activeElement), true)
   assert.deepEqual(await controlOpacity(day), ['0', '1'], 'Keyboard focus in the header reveals quick add without hover')
   await switcher(day).focus()
@@ -113,6 +116,12 @@ try {
   assert.equal(await day.locator('.past-period-row').count(), 50)
   assert.equal(await day.locator('details, summary').count(), 0, 'History groups are always expanded')
   assert.equal(await day.locator('.past-period-row:visible').count(), 50)
+  const pastRows = await day.locator('.past-period-rows').innerText()
+  await setCompletedLayout(page, true)
+  assert.equal(await day.locator('.past-period-rows').innerText(), pastRows)
+  await setCompletedLayout(page, false)
+  assert.equal(await day.locator('.past-period-rows').innerText(), pastRows)
+  assert.equal(await day.locator('details, summary').count(), 0, 'Board layout does not change past-period groups')
   await day.locator('.pagination').getByRole('button', { name: '下页', exact: true }).click()
   await page.waitForFunction(() => document.querySelector('[data-horizon="day"] .pagination')?.textContent.includes('51–55/55'))
   assert.equal(await day.locator('.past-period-row').count(), 5)

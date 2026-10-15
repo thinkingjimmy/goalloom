@@ -71,6 +71,7 @@ Electron scenarios (this directory)
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
 ├── subtasks.mjs         # Native nesting/cancel/focus, quiet drag/menu nesting and receipt recovery, keyboard undo feedback, complete-group status, future search, virtual details and five locales; --data selects transaction/recovery fixtures; output/tests/subtasks/
 ├── ordering.mjs         # Local placement/free manual ordering/scoped arrangement (--auto-placement), 12 edge drops (--edge-sorting), atomic undo/recovery, nesting, five locales and complete drag titles; output/tests/ordering
+├── completed-layout.mjs # Default-inline seven-column completion/reopen/undo, folds, restart, remote deferral/no echo, mixed drag/flows, outlines, future periods, virtual focus and five-locale/four-appearance evidence; output/tests/completed-layout/
 ├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、看板移动后的目标列偏好、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
 ├── updates.mjs        # Settings › About: menu routing/re-targeting, real version and icon, update phases via the production event, top-bar/nav dots, menu relabelling; output/tests/updates/
 ├── update-install.mjs # Optional macOS: signed 90.0.0 app + 90.0.1 zip/latest-mac.yml on a 127.0.0.1 feed; UI check → native staging before ready → immediate quit/install, retained failure evidence; outside verify
@@ -78,6 +79,7 @@ Electron scenarios (this directory)
 ├── review/              # 已确认缺陷、输入/维护竞态、长列、wire、增长曲线和大备份回归
 └── fixtures/
     ├── setup.mjs        # Shared welcome local-use choice, then real calendar → annual direction → AI setup; optional mode/timezone/week-start/anchor
+    ├── completed-layout.mjs # Localized native settings driver for explicit inline/folded completion coverage
     ├── legacy-v5.ts     # Frozen v5/v6 DDL used only to construct synthetic legacy import fixtures
     ├── subtasks-data.ts # Two-level/effective graph, group order/movement/hold, bounded inherited AI context, scoped undo, source-aware import and protected v8 upgrade
     ├── edge-sorting.mjs # Native before/after insertion previews, 12 manual/automatic adjacent-row drops, cancellation and undo
@@ -98,7 +100,7 @@ Electron scenarios (this directory)
     ├── past-period-editing.mjs # Native past-task editing, completion/reopening, restore, move/undo, focus, query guards and last-page recovery
     ├── filter-navigation.mjs # Top-bar/shortcut return from history, flow identity, input guards, scroll reset and future-draft retention
     ├── periods-seed.ts  # Production Repository/SQLite clock-boundary, atomicity and recovery assertions plus the planning UI fixture
-    ├── period-navigation.mjs # Current month/week countdown badges in the trailing add slot and stable column-hover/keyboard swaps, title/checkbox alignment across idle/hover/focus, inline/date-only dates, contextual return labels, paused motion frames and reduced-motion acceptance
+    ├── period-navigation.mjs # Current month/week countdown badges in the trailing add slot and stable column-hover/keyboard swaps, title/checkbox alignment across idle/hover/focus, inline/date-only dates and year-boundary tooltips, contextual return labels, paused motion frames and reduced-motion acceptance
     ├── link-preview-cache.mjs # Fresh production preview-cache records and locally generated PNG; no renderer API replacement
     ├── favicon-transport.mjs # Real preview IPC with deterministic HTTP/DNS fixtures: declared/fallback raster/ICO icons and unsafe/oversized/malformed responses
     ├── poll.mjs         # pollPage：轮询 renderer 里的异步桥接读取（page.waitForFunction 会把 async 谓词的 Promise 当作真值立即返回）
@@ -106,7 +108,7 @@ Electron scenarios (this directory)
     ├── detail-rail.mjs   # Permanent activity calendar, visible lifecycle actions, native hit testing and no item writes at wide/narrow sizes in four themes; output/tests/detail-rail
     ├── detail-discard.mjs # Native empty-title close/undo, content/lifecycle guards and failed/unknown/racing writes; autosave.mjs --discard
     ├── discard-data.ts  # Production discard transactions, past-period holds, atomic guards, five locales and JSON/SQLite recovery; output/tests/autosave/discard/
-    ├── flow-dot-position.mjs # Heading-only parent panels/checked links, intrinsic choice width, bottom-edge menus, mode/search size changes and scroll/resize geometry; focused via relations.mjs --flow-dot
+    ├── flow-dot-position.mjs # Heading-only parent panels/checked links, intrinsic choice width, explicit bottom-edge clearances, mode/search size changes and scroll/resize geometry; focused via relations.mjs --flow-dot
     ├── relation-drag-data.ts # Production Repository/SQLite flow-policy guards, promotion/adoption rollback, receipts, branch-safe undo and durable JSON/SQLite round trips under Electron
     ├── relation-visibility.mjs # Raw Electron/CDP native hide/show cancellation without foreground emulation; called by relation-drag.mjs
     └── performance.ts   # 10,000 条目/1,000 活跃及真实历史，测恢复与延迟

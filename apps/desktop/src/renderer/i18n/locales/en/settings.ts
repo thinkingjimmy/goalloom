@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: English settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages.
+ * [OUTPUT]: English settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout.
  * [POS]: English settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,8 @@ export const settingsMessages: SettingsCatalog = {
   board: "Board",
   parentOrder: "Place by parent automatically",
   parentOrderNote: "Place only the task being created or given a different ordering parent. Reorder freely afterward. Changing this setting keeps existing positions.",
+  collapseCompleted: 'Collapse completed tasks',
+  collapseCompletedNote: 'Keep completed tasks in place when off; group them at the bottom when on. Parent tasks and subtasks stay together.',
   subtitles: {
     ai: 'Add a key once and let smart input and insight each pick a service; keys sync end-to-end encrypted, stay in this device’s keychain, and go only to the service you choose',
     board: 'Ordering and completion feedback sync between computers',

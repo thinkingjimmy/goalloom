@@ -2,6 +2,7 @@
  * [INPUT]: Remote renderer settings and the local stores that own them.
  * [OUTPUT]: Live application of those settings, then a seed of local customizations the log does not already have.
  * [POS]: Renderer coordinator for settings sync. It does not emit while applying, and it does not upload untouched defaults.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { horizons, periodHorizons } from '../../shared/contracts/values'
 import type { ItemHorizon } from '../../shared/contracts/entities'
@@ -11,6 +12,7 @@ import { applyCelebration, celebrationDefaults, currentCelebration } from './cel
 import { applyColumnsLater, applyColumnsPlanning, currentColumns } from './columns'
 import { applyInsightReviews, applyInsightBreakpoints, applyInsightPrefs, defaultPrefs, insightSettings } from './insight'
 import { applyParentOrder, currentParentOrder } from './parent-order'
+import { applyCollapseCompleted, currentCollapseCompleted } from './completed-layout'
 import { applyRelationLines, currentRelationLines } from './relation-lines'
 import { applyShortcuts, currentShortcutOverrides } from './shortcuts'
 
@@ -24,6 +26,7 @@ function isDefault(entry: DevicePrefEntry): boolean {
   if (entry.key === 'relationLines') return entry.value === true
   if (entry.key === 'shortcuts') return !!entry.value && typeof entry.value === 'object' && !Object.keys(entry.value).length
   if (entry.key === 'parentOrder') return entry.value === false
+  if (entry.key === 'collapseCompleted') return entry.value === false
   if (entry.key === 'celebration') {
     const value = entry.value as Partial<Record<ItemHorizon, boolean>> | null
     return !!value && horizons.every(horizon => value[horizon] === celebrationDefaults[horizon])
@@ -42,6 +45,7 @@ function localEntries(): DevicePrefEntry[] {
     { key: 'relationLines', value: currentRelationLines() },
     { key: 'shortcuts', value: currentShortcutOverrides() },
     { key: 'parentOrder', value: currentParentOrder() },
+    { key: 'collapseCompleted', value: currentCollapseCompleted() },
     { key: 'celebration', value: currentCelebration() },
     { key: 'insight.prefs', value: insight.prefs },
     { key: 'insight.breakpoints', value: insight.breakpoints },
@@ -56,6 +60,7 @@ export function applyDevicePrefEntries(entries: DevicePrefEntry[]): void {
     else if (entry.key === 'relationLines' && typeof entry.value === 'boolean') applyRelationLines(entry.value)
     else if (entry.key === 'shortcuts') applyShortcuts(entry.value)
     else if (entry.key === 'parentOrder' && typeof entry.value === 'boolean') applyParentOrder(entry.value)
+    else if (entry.key === 'collapseCompleted' && typeof entry.value === 'boolean') applyCollapseCompleted(entry.value)
     else if (entry.key === 'celebration' && entry.value && typeof entry.value === 'object') applyCelebration(entry.value as Record<ItemHorizon, boolean>)
     else if (entry.key === 'insight.prefs' && entry.value && typeof entry.value === 'object') applyInsightPrefs(entry.value as typeof defaultPrefs)
     else if (entry.key === 'insight.breakpoints' && typeof entry.value === 'boolean') applyInsightBreakpoints(entry.value)

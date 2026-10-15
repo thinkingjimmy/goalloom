@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: Spanish settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages.
+ * [OUTPUT]: Spanish settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout.
  * [POS]: Spanish settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,8 @@ export const settingsMessages: SettingsCatalog = {
   board: "Tablero",
   parentOrder: "Colocar automáticamente por superior",
   parentOrderNote: "Coloca solo la tarea nueva o aquella cuyo superior de ordenación cambia. Después puedes reordenar libremente. Cambiar este ajuste conserva las posiciones existentes.",
+  collapseCompleted: 'Plegar tareas completadas',
+  collapseCompletedNote: 'Desactivado: conserva su posición. Activado: agrupa al final de la columna. Las tareas y subtareas permanecen juntas.',
   subtitles: {
     ai: 'Añade una clave una vez y deja que la entrada inteligente y Perspectiva elijan servicio; las claves se sincronizan cifradas de extremo a extremo, permanecen en el llavero de este equipo y solo van al servicio que elijas',
     board: 'El orden y los avisos al completar se sincronizan entre ordenadores',

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Settings categories, display preferences and interpolation parameters.
- * [OUTPUT]: Source settings catalog, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update copy.
+ * [OUTPUT]: Source settings catalog, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update copy, including completed-task layout.
  * [POS]: Chinese settings copy and shared SettingsCatalog shape; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,8 @@ export const settingsMessages = widen({
   board: "看板",
   parentOrder: "按上级自动放置",
   parentOrderNote: "新增或更换有效上级时，只调整这条任务的位置。之后可自由手动排序；开关切换不改变已有排列。",
+  collapseCompleted: '折叠已完成任务',
+  collapseCompletedNote: '关闭时保留原位置；开启时收纳到列底部。父子任务保持在一起。',
   subtitles: {
     ai: '添加一次 Key，智能输入和洞察各自选用；Key 经端到端加密同步，保存在本机钥匙串，只发给你选中的服务',
     board: '排序与完成反馈会在电脑之间同步',

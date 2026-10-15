@@ -36,7 +36,7 @@
 | 顺延策略 | 确认时插入四条：日 auto，周 / 月 / 3个月 manual；3个月 不能改成 auto；自动顺延只遍历 auto 策略 | `confirmSetup`、`commands/settings.ts`、`reconcile.ts` |
 | Onboarding | 方向（写进 3个月）→ 日历（时区 / 周起始 / 3个月起点：今天·本月初·本季度初·自选）→ AI；「确认并开始」锁定日历，随后把方向创建为 3个月 的流程根 | `apps/desktop/src/renderer/features/setup/*`、`apps/desktop/src/renderer/App.tsx` |
 | 看板 | Later 侧栏 + 四个时间列固定显示，不提供时间列显隐；最小列宽 320px，放不下时横向滚动；拖动到右缘会自动滚动 | `apps/desktop/src/renderer/state/columns.ts`、`styles.css`、`docs/features/later-sidebar.md` |
-| 列头年份 | 列头日期一律省略年份，悬停看完整日期；3个月 面板列表只在跨年时给结束日加两位年份 | `apps/desktop/src/renderer/features/board/period-labels.ts` |
+| 列头年份 | 列头日期一律省略年份；悬停的区间同年省略年份、跨年两端带年份，日／月单值保留年份；3个月 面板列表按规则 2 补年份 | `apps/desktop/src/renderer/features/board/period-labels.ts` |
 | 导入导出 | 数据集 v1–v5；要求恰好 4 条策略；逐条用 `currentPeriod` 复核每个周期边界 | `apps/desktop/src/domain/import-validation.ts`、`apps/desktop/src/shared/contracts/transfer.ts` |
 | Jev | 执行时间选项只有 day / week / month / cycle / later / future / unclear，推测选项只有 day / week / month / cycle / later；提示词只用中文 | `apps/desktop/src/domain/smart/questions.ts`、`preview.ts` |
 | 洞察 | 链条写死 3个月 → 本月 → 本周 → 今天；空列卡只在本月 / 本周 / 今天出现，且只看当期；AI 起草目标只有 month / week / day | `apps/desktop/src/renderer/features/insight/signals.ts`、`EmptyCard.tsx`、`apps/desktop/src/domain/smart/insight.ts` |
@@ -137,7 +137,7 @@
 1. **有相对名就不带年份。** 本期、上一期、下一期的列头用列名或相对名，旁边的日期不带年份。年 / 半年的相邻期也用相对名作列头，不沿用 3个月「非本期直接用日期作标题」的做法，因为年 / 半年的日期每年都重复。自然年的年列只显示「今年 / 去年 / 明年」，不另写日期。
 2. **没有相对名时，把不带年份的日期视为「今年」。** 适用于两期以外的列头和周期面板的列表行：日期哪一端不在今年，就只给那一端加两位年份；两端落在同一个其他年份时，只在开头加一次。
 3. **自然年的年列以年份命名**，更远的期直接写「2028」；季度、半年不在今年时写「2027 Q1」「2027年1月–6月」。
-4. 悬停始终显示带年份的完整日期（现状不变）。
+4. 悬停显示完整月日：日期区间同年省略年份、跨年两端显示年份；日与月的单值仍显示年份。区间规则与复盘日期一致。
 
 示例（今天 2026-10-02；365 天模式的起点设为 2025-10-02，以便出现往期；日期按中文格式，其他语言沿用 Intl 短日期）：
 

@@ -1,7 +1,8 @@
 /**
  * [INPUT]: Untrusted pref.set values from a SyncOp.
- * [OUTPUT]: The allowlist of user-facing settings that sync, and a strict parse of one key.
+ * [OUTPUT]: The allowlist of synced settings, including completed-task layout, and a strict parse of one key.
  * [POS]: Settings sync boundary. Device-local state is not a key here, so it cannot enter the op log.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  *
  * Week start, timezone, calendar mode and cycle anchor travel with the locked calendar
  * (`calendar.setup`), not as a separate preference. Rollover policy travels as `policy.set`.
@@ -61,6 +62,7 @@ export const settingSchema = z.discriminatedUnion('key', [
     if (new Set(entry.value).size !== entry.value.length) ctx.addIssue({ code: 'custom', message: 'duplicate column' })
   }),
   z.strictObject({ key: z.literal('parentOrder'), value: z.boolean() }),
+  z.strictObject({ key: z.literal('collapseCompleted'), value: z.boolean() }),
   z.strictObject({
     key: z.literal('celebration'),
     value: z.strictObject({
@@ -85,7 +87,7 @@ export type SettingValue = Setting['value']
 
 export const syncedSettingKeys = [
   'language', 'theme', 'style', 'checkStyle', 'backup.enabled', 'backup.retention',
-  'relationLines', 'shortcuts', 'columns.later', 'columns.planning', 'parentOrder', 'celebration',
+  'relationLines', 'shortcuts', 'columns.later', 'columns.planning', 'parentOrder', 'collapseCompleted', 'celebration',
   'insight.prefs', 'insight.breakpoints', 'insight.reviews',
   'ai.key.openrouter', 'ai.key.vercel-gateway', 'ai.meta.openrouter', 'ai.meta.vercel-gateway',
   'ai.feature.smart', 'ai.feature.insight',
@@ -93,7 +95,7 @@ export const syncedSettingKeys = [
 
 export const workspaceSettingKeys = ['theme', 'style', 'checkStyle', 'backup.enabled', 'backup.retention'] as const satisfies readonly SettingKey[]
 export const rendererSettingKeys = [
-  'relationLines', 'shortcuts', 'columns.later', 'columns.planning', 'parentOrder', 'celebration',
+  'relationLines', 'shortcuts', 'columns.later', 'columns.planning', 'parentOrder', 'collapseCompleted', 'celebration',
   'insight.prefs', 'insight.breakpoints', 'insight.reviews',
 ] as const satisfies readonly SettingKey[]
 export const secretSettingKeys = ['ai.key.openrouter', 'ai.key.vercel-gateway'] as const satisfies readonly SettingKey[]

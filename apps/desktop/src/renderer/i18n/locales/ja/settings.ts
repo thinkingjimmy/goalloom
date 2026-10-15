@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: Japanese settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages.
+ * [OUTPUT]: Japanese settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout.
  * [POS]: Japanese settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,8 @@ export const settingsMessages: SettingsCatalog = {
   board: "ボード",
   parentOrder: "親に合わせて自動配置",
   parentOrderNote: "新規作成時や並び順の基準となる親の変更時に、そのタスクだけを配置します。その後は自由に並べ替えられます。設定の切り替えで既存の位置は変わりません。",
+  collapseCompleted: '完了したタスクを折りたたむ',
+  collapseCompletedNote: 'オフでは元の位置に残し、オンでは列の下部にまとめます。親タスクとサブタスクは一緒に表示します。',
   subtitles: {
     ai: 'キーを一度追加すれば、スマート入力とインサイトがそれぞれサービスを選べます。キーは端末間で端から端まで暗号化して同期され、この端末のキーチェーンに残り、選んだサービスにだけ送られます',
     board: '並び順と完了時の表示は、パソコンの間で同期されます',

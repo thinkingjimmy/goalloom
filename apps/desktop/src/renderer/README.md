@@ -21,7 +21,7 @@ renderer/
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
 │   │       ├── AppearancePane.tsx # Language, visual styles, theme and device relation-line switch
-│   │       ├── BoardPane.tsx      # Synced automatic-placement preference without task writes and per-column completion-confetti preview
+│   │       ├── BoardPane.tsx      # Synced automatic-placement/completed-layout preferences without task writes and per-column confetti preview
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
 │   │       ├── AiPane.tsx       # AI 服务：已连接/可添加服务、能力标签、Key 遮罩与测试日期、账户问题与重测、移除前说明、隐私要点
 │   │       ├── FeatureControls.tsx # 智能输入/洞察共用：功能总开关状态卡与处理服务单选（只列能运行该模型的服务）
@@ -58,7 +58,7 @@ renderer/
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
-│   │   ├── Board.tsx        # Unified periods with current month/week countdowns, inline QuickAdd, dismissible weekly guides/current-period invitations, independent gestures, virtual source pinning and preserved focus
+│   │   ├── Board.tsx        # Unified periods, default-inline/optional folded completion, QuickAdd, review guides, independent gestures, virtual source pinning and preserved focus
 │   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
 │   │   ├── ColumnOrderMenu.tsx # Accessible current/future column action for one-shot parent arrangement

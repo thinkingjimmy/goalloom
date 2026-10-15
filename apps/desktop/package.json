@@ -48,6 +48,7 @@
     "eval:smart": "node scripts/eval/run.mjs",
     "test:composer-live": "node tests/composer-live.mjs",
     "test:subtasks": "node tests/subtasks.mjs",
+    "test:completed-layout": "node tests/completed-layout.mjs",
     "test:ordering": "node tests/ordering.mjs",
     "test:periods": "node tests/periods.mjs",
     "test:insight": "node tests/insight.mjs",

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Explicit goal edges, independent placements, live nesting links and an injected stable virtual-ID factory.
- * [OUTPUT]: Effective incoming goal edges, combined ancestry and stable two-level row projections.
+ * [OUTPUT]: Effective incoming goal edges, combined ancestry and stable mixed/separated two-level row projections.
  * [POS]: Shared outline rules; nesting never changes task lifecycle or creates a goal edge to its container.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -49,7 +49,7 @@ export function outlineRows<T extends Pick<ItemSummary, 'id' | 'placement'>>(ite
   return [...roots.values()].sort(compare ? (a, b) => compare(a.id, b.id) : manual)
     .flatMap(root => [...visible.has(root.id) ? [root] : [], ...(children.get(root.id) ?? []).sort(manual)])
 }
-export function outlineSections(items: ItemSummary[], contexts: ItemSummary[] = []): { todo: ItemSummary[]; done: ItemSummary[] } {
+export function outlineSections(items: ItemSummary[], contexts: ItemSummary[] = []): { rows: ItemSummary[]; todo: ItemSummary[]; done: ItemSummary[] } {
   const visible = new Map(items.map(item => [item.id, item]))
   const context = new Map(contexts.map(item => [item.id, item]))
   const groups = new Map<string, ItemSummary[]>()
@@ -57,11 +57,12 @@ export function outlineSections(items: ItemSummary[], contexts: ItemSummary[] = 
     const root = item.placement.nestingParentId ?? item.id
     const group = groups.get(root) ?? []; group.push(item); groups.set(root, group)
   }
-  const todo: ItemSummary[] = [], done: ItemSummary[] = []
+  const rows: ItemSummary[] = [], todo: ItemSummary[] = [], done: ItemSummary[] = []
   for (const [rootId, members] of groups) {
     const root = visible.get(rootId) ?? context.get(rootId)
-    const rows = outlineRows(root && !visible.has(rootId) ? [root, ...members] : members)
-    ;(members.some(item => item.status === 'todo') ? todo : done).push(...rows)
+    const groupRows = outlineRows(root && !visible.has(rootId) ? [root, ...members] : members)
+    rows.push(...groupRows)
+    ;(members.some(item => item.status === 'todo') ? todo : done).push(...groupRows)
   }
-  return { todo, done }
+  return { rows, todo, done }
 }

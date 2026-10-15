@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Built Electron and a fresh synthetic workspace through production IPC.
+ * [INPUT]: Built Electron and a fresh synthetic workspace through production IPC, with explicit completed-layout controls.
  * [OUTPUT]: Default planning columns, independent sidebar, parent unlinking on Later moves, scrolling, drag, motion, localization and restart evidence under output/tests/later-sidebar.
  * [POS]: Focused desktop E2E acceptance; never opens the owner's workspace or captures unrelated desktop content.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { setCompletedLayout } from './fixtures/completed-layout.mjs'
 import { finishSetup } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -24,6 +25,7 @@ try {
   page = await app.firstWindow()
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 840))
   await finishSetup(page)
+  await setCompletedLayout(page, true)
   Object.assign(report.environment, await page.evaluate(() => window.goalloom.getRuntime()))
   const check = message => { report.checks.push(message); console.log(message) }
   const shot = async name => { const path = join(evidence, `${name}.png`); await page.screenshot({ path }); report.screenshots.push(path) }

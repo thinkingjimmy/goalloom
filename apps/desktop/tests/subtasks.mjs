@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Current production build, native Electron input and isolated transaction fixtures.
+ * [INPUT]: Current production build, native Electron input and isolated transaction fixtures, with explicit completed-layout controls.
  * [OUTPUT]: Repeatable subtask checks, quiet nesting/keyboard undo, native screenshots and runtime/platform evidence in output/tests/subtasks.
  * [POS]: Subtask E2E entry; --data runs transaction feedback without foreground interaction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { setCompletedLayout } from './fixtures/completed-layout.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -31,6 +32,7 @@ try {
   const errors = []; report.pageErrors = errors; page.on('pageerror', error => errors.push(error.message))
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1450, 900))
   await page.emulateMedia({ reducedMotion: 'reduce' }); await finishSetup(page); await page.locator('.board').waitFor()
+  await setCompletedLayout(page, true)
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
   const boardSettings = page.locator('dialog.settings-modal')

@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Real Electron, isolated synthetic long columns and production board/search controls.
+ * [INPUT]: Real Electron, isolated synthetic long columns and production board/search controls, with explicit completed-layout controls.
  * [OUTPUT]: Bounded row mounting, drag/period guards, detail-close focus return and refresh evidence.
  * [POS]: Review virtual-list regression; does not use a separate board-location action.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { setCompletedLayout } from '../fixtures/completed-layout.mjs'
 import { finishSetup } from '../fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { stepPeriod } from '../fixtures/period-step.mjs'
@@ -30,6 +31,7 @@ try {
   const source = await app.evaluate(({ app }) => ({ appPath:app.getAppPath(), packaged:app.isPackaged, executable:process.execPath }))
   console.log('APPLICATION_SOURCE',JSON.stringify(source))
   await finishSetup(page, { anchor: `${new Date().getFullYear()-1}-01-01` })
+  await setCompletedLayout(page, true)
   const rows = await page.evaluate(async () => {
     const { workspace } = await window.goalloom.getSnapshot(), rows = []
     for (let i = 0; i < 150; i++) {

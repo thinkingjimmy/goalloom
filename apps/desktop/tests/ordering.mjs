@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Current production Electron build, isolated SQLite ordering acceptance and native input.
+ * [INPUT]: Current production Electron build, isolated SQLite ordering acceptance and native input, with explicit completed-layout controls.
  * [OUTPUT]: Repeatable placement/manual-sort/one-shot-sort evidence, screenshots and runtime/platform scope.
  * [POS]: Ordering E2E entry; --auto-placement and --edge-sorting select the changed feature scenarios.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { setCompletedLayout } from './fixtures/completed-layout.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir, cpus, release, version, arch } from 'node:os'
@@ -37,6 +38,7 @@ try {
   page.on('pageerror', error => report.errors.push(error.message))
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1880, 1000))
   await page.locator('.board').waitFor()
+  await setCompletedLayout(page, true)
   if (!edgeOnly) await autoPlacement({ page, application, ids, report, evidence })
   if (!edgeOnly) await dragTitles({ page, report, evidence })
   if (!placementOnly) await edgeSorting({ page, report, evidence })

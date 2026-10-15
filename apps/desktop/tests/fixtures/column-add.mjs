@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Built Electron, an optional packaged executable and a fresh synthetic workspace.
+ * [INPUT]: Built Electron, an optional packaged executable and a fresh synthetic workspace, with explicit completed-layout controls.
  * [OUTPUT]: Repeatable blank-space/todo-tail creation and growing-title acceptance, native app diagnostics and screenshots in output/tests/column-add/.
  * [POS]: Composer-owned desktop fixture; real preload/main/SQLite with controlled main-process read/write gates.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { setCompletedLayout } from './completed-layout.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { cpus, release, tmpdir } from 'node:os'
@@ -36,6 +37,7 @@ export async function runColumnAdd(packaged) {
     })
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await finishSetup(page)
+    await setCompletedLayout(page, true)
     report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
     const column = horizon => page.locator(`.board-column[data-horizon="${horizon}"]`)
     const footer = horizon => column(horizon).locator('[data-column-add]')

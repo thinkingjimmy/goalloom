@@ -8,14 +8,16 @@
  *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly reminders support persistent dismissal without completion.
  *           "Write my own" opens this column's inline entry, the same one as ＋.
  *           Current month/week headers share the trailing add slot with a rounded calendar-day countdown badge.
+ *           Completed tasks remain inline by default; the synced board preference can group fully completed outlines below.
  * [POS]: Main board view; explicit optimistic drops and virtual-row FLIP follow saved order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { outlineSections } from '../../../domain/nesting'
 import './nesting.css'
 import { TaskContext } from './TaskContext'
+import { holdCompletedLayout, useCollapseCompleted } from '../../state/completed-layout'
 import { NestingPicker } from './NestingPicker'
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { compareInstants, currentPeriod, precedingPeriod, workspaceDate, type Horizon } from '../../../domain/calendar'
@@ -76,6 +78,8 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   useEffect(() => setNestingItemId(null), [snapshot.workspace.generation])
   const [focused, setFocused] = useState<ItemHorizon>('later')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const layoutBusy = !!editingId || !!dragging
+  useLayoutEffect(() => layoutBusy ? holdCompletedLayout() : undefined, [layoutBusy])
   useEffect(() => { setEditingId(null) }, [snapshot.workspace.generation])
   const beginEdit = useCallback((id: string) => setEditingId(id), [])
   const endEdit = useCallback((id: string) => setEditingId(current => current === id ? null : current), [])
@@ -164,6 +168,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   useLocale()
   const setAdding = (open: boolean, atEnd = false) => { if (open) section.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); onAdding(horizon, open, atEnd) }, focus = (editable: boolean) => onFocus(horizon, editable)
   const [doneOpen, setDoneOpen] = useState(false), [backlog, setBacklog] = useState(false)
+  const collapseCompleted = useCollapseCompleted()
   const [menuItem, setMenuItem] = useState<string | null>(null)
   const drafts = useRef(new Map<string, QuickAddDraft>())
   const current = snapshot.periods.find(period => period.horizon === horizon)
@@ -229,8 +234,9 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     }
     refocus.current = null
   }, [period?.id, mode, history ? page.loading : false])
-  useEffect(() => { if (highlighted && items.some(item => item.id === highlighted && item.status === 'done')) setDoneOpen(true) }, [highlighted, items])
-  const { todo, done } = useMemo(() => outlineSections(items, view.nestingParents), [items, view.nestingParents])
+  useEffect(() => { if (collapseCompleted && highlighted && items.some(item => item.id === highlighted && item.status === 'done')) setDoneOpen(true) }, [collapseCompleted, highlighted, items])
+  const { rows, todo, done } = useMemo(() => outlineSections(items, view.nestingParents), [items, view.nestingParents])
+  const mainRows = collapseCompleted ? todo : rows
   const openAdd = () => {
     if (history || disabled || dragging || relationSource) return
     if (adding) section.current?.querySelector<HTMLTextAreaElement>('.quick-add-title')?.focus()
@@ -245,19 +251,19 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     openAdd()
   }
   const onMoved = useCallback((id: string) => {
-    const index = todo.findIndex(item => item.id === id)
-    setFocusAfterMove([...todo.slice(index + 1), ...todo.slice(0, index).reverse()].map(item => item.id))
-  }, [todo])
+    const index = mainRows.findIndex(item => item.id === id)
+    setFocusAfterMove([...mainRows.slice(index + 1), ...mainRows.slice(0, index).reverse()].map(item => item.id))
+  }, [mainRows])
   useEffect(() => {
     if (disabled || !focusAfterMove) return
-    const id = focusAfterMove.find(value => todo.some(item => item.id === value))
+    const id = focusAfterMove.find(value => mainRows.some(item => item.id === value))
     const frame = requestAnimationFrame(() => {
       if (id) revealRow(id, '.task-title')
       else section.current?.querySelector<HTMLElement>('[data-add-item]')?.focus()
       setFocusAfterMove(null)
     })
     return () => cancelAnimationFrame(frame)
-  }, [disabled, todo, focusAfterMove])
+  }, [disabled, mainRows, focusAfterMove])
   const leaveOnEscape = (event: KeyboardEvent) => {
     if (mode !== 'current' && !busy && event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) { event.preventDefault(); switchTo(null) }
   }
@@ -338,7 +344,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
         {loading && items.length === 0 && <p className="period-loading" role="status">{messages.loadingPeriod}</p>}
         {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <button className="text-button" onClick={view.retry}>{messages.retryPeriod}</button></p>}
         <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
-          <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:todo`} items={todo} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} alsoPinned={editingId} render={row} />
+          <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:main`} items={mainRows} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} alsoPinned={editingId} render={row} />
           {!adding && todo.length > 0 && <button type="button" className="column-add-task" data-column-add aria-label={messages.newToColumn(displayName)} disabled={disabled || !!dragging || !!relationSource} onClick={openAdd}>
             <Icon name="add" size={18} /><span>{messages.addTask}</span>
           </button>}
@@ -348,7 +354,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
               setAdding(true, adding.beforeId === null)
             }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} />}
-          {done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} render={row} />}</details>}
+          {collapseCompleted && done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} render={row} />}</details>}
         </SortableContext>
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} onWrite={openAdd} />}
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}

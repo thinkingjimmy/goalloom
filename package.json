@@ -53,6 +53,7 @@
     "eval:smart": "pnpm --filter @goalloom/desktop exec -- node scripts/eval/run.mjs",
     "test:composer-live": "pnpm --filter @goalloom/desktop exec -- node tests/composer-live.mjs",
     "test:subtasks": "pnpm --filter @goalloom/desktop exec -- node tests/subtasks.mjs",
+    "test:completed-layout": "pnpm --filter @goalloom/desktop exec -- node tests/completed-layout.mjs",
     "test:ordering": "pnpm --filter @goalloom/desktop exec -- node tests/ordering.mjs",
     "test:periods": "pnpm --filter @goalloom/desktop exec -- node tests/periods.mjs",
     "test:insight": "pnpm --filter @goalloom/desktop exec -- node tests/insight.mjs",

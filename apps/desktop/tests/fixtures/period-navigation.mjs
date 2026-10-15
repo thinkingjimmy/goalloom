@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Native Electron page, isolated period fixture and the owning period suite's artifact directory.
- * [OUTPUT]: Trailing countdown badges and stable add-button swaps, title/checkbox alignment, inline dates, accessible return-icon labels, week-row selection and directional-motion assertions with repeatable screenshots.
+ * [OUTPUT]: Trailing countdown badges, stable add-button swaps, title/checkbox alignment, year-boundary tooltips, accessible return labels, week-row selection and motion evidence.
  * [POS]: Period-navigation scenarios shared by the focused selector and full period acceptance; no production API replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -203,7 +203,15 @@ export async function verifyPeriodNavigation(page, column, evidence) {
     const title = header.locator('.period-title')
     assert.match(await title.innerText(), /\d/)
     assert(!/20\d{2}/.test(await title.innerText()), 'Compact heading omits years')
-    assert.match(await title.getAttribute('title'), /20\d{2}/, 'Absolute year stays available in the tooltip')
+    const period = await target.evaluate(async node => {
+      const { workspace } = await window.goalloom.getSnapshot()
+      const result = await window.goalloom.getBoardPeriods({ type: 'boardPeriods', generation: workspace.generation,
+        periods: [{ horizon: node.dataset.horizon, startDate: node.dataset.periodId.slice(-10) }] })
+      return result.periods.find(period => period.id === node.dataset.periodId)
+    })
+    const inclusiveEnd = new Date(Date.parse(period.endDate) - 86400000).toISOString().slice(0, 10)
+    const showsYear = horizon === 'day' || period.startDate.slice(0, 4) !== inclusiveEnd.slice(0, 4)
+    assert.equal(/20\d{2}/.test(await title.getAttribute('title')), showsYear, 'Single dates include a year; date ranges include years only across a year boundary')
     assert.equal(await header.locator('[data-return-current]').getAttribute('aria-label'), label)
     assert.equal(await header.locator('[data-return-current] > svg').count(), 1, 'Return uses one decorative icon')
     const screenshot = join(evidence, `header-date-only-${horizon}.png`)
