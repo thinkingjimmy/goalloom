@@ -11,8 +11,9 @@
 - `large-backup.mjs`: production storage worker; 360 long descriptions, protective reset and complete recovery above 100 MiB.
 - `large-workspace.mjs`: production commands and worker snapshots above SQLite's variable limit and at 100,000 items; latest-move and archive semantics.
 - `package-report.mjs`: real report CLI with isolated synthetic ASAR/package trees; exact current archive, missing archive and stale unpacked version checks.
+- `notarization.mjs`: real CLI and builder hook loader with synthetic Apple tools; upload/wait limits, saved IDs, rejection/pending diagnostics, secret redaction and app stapling before archive creation. Reports: `output/tests/notarization-fixture/`. No Apple requests or real signing credentials.
 
-`pnpm test:review` runs six regression groups and is included in `pnpm verify`. The large-backup, scaling and performance suites are separate explicit commands. Artifacts go to ignored `output/tests/review-fixes/`, `output/tests/review-followup/`, `output/tests/performance/` and `output/tests/packages/`.
+`pnpm test:review` runs seven regression groups and is included in `pnpm verify`. The large-backup, scaling and performance suites are separate explicit commands. Artifacts go to ignored `output/tests/review-fixes/`, `output/tests/review-followup/`, `output/tests/performance/` and `output/tests/packages/`.
 
 Large-backup comparisons accept `GOALLOOM_LARGE_SEED` (only a closed synthetic workspace), `GOALLOOM_LARGE_WORKER` (a frozen production worker) and `GOALLOOM_LARGE_LABEL`. Launch each repetition as a new process. `GOALLOOM_BENCH_REUSE=1` reuses the performance suite's synthetic seed; its original seed-time storage timings are not fresh phase measurements. `GOALLOOM_BENCH_LABEL` preserves each run, and `GOALLOOM_BENCH_ENTRY` can target a frozen build.
 

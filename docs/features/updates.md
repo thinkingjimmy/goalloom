@@ -14,6 +14,8 @@
 
 ## 工程契约
 
+- macOS archive creation waits for the `afterSign` notarization hook to approve and staple the app. The bounded API-key flow and diagnostics are defined in the [hosted packaging guide](../development.md#托管打包与草稿-release); update ZIP hashes and blockmaps are generated after stapling.
+
 - `shared/contracts/update.ts`：`goalloom:update` 只接受 `status | check | install`；回复与推送同为 `{ version, state }`，`state.phase` 为 `unsupported | idle | checking | latest | downloading | ready | failed`。不跨桥传 URL、路径或发布说明。
 - `main/update.ts`：`UpdateService` 包装 electron-updater（logger 关闭，`autoDownload`、`autoInstallOnAppQuit` 开启），事件映射为上述阶段并经 `goalloom:update-state` 推送；macOS 的库级下载事件只暂存版本，原生 `autoUpdater` 的 `update-downloaded` 才进入 `ready`，失败清除待就绪版本；`check(manual)` 在检查/下载/就绪时直接返回当前状态；只有手动检查把错误显示为 `failed`。`install()` 仅在 `ready` 时 `quitAndInstall(true, true)`（Windows 静默复用原安装目录后重启）。非打包环境为 `unsupported`，不触网。
 - `main/window/menu.ts`：仅 macOS `Menu.setApplicationMenu`；`LanguagePreference.onChange` 触发重建。菜单点击经 `goalloom:open-about` 通知 renderer；窗口已关闭时先重建窗口。
