@@ -242,7 +242,7 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 .task-row > :not(.drag-handle) { transition: opacity .18s ease-out; }
 /* Only the content fades, so a row keeps its ground and still hides relation lines passing behind it. */
 .task-row[data-dimmed='true'] > :not(.drag-handle), .task-row[data-chain-out='true'] > :not(.drag-handle) { opacity: .28; }
-.task-row.dragging { opacity: .3; }
+.task-row.dragging { opacity: 0; pointer-events: none; }
 /* Rows open on a single click, edit on a double click, and drag on press: point on hover, grab on the handle, grabbing everywhere while a drag is live. */
 .task-row { cursor: pointer; }
 .task-row .drag-handle:not(:disabled) { cursor: grab; }

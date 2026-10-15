@@ -4,12 +4,12 @@
 
 ## Product rules
 
-- Drop a leaf task on the middle of a root row to nest it; move it to the root's horizon/period and append it. Row edges reorder. Keep the 6px drag threshold and use a 24px indent.
+- Drop a leaf task on the middle of a root row to nest it; move it to the root's horizon/period and append it. Row edges reorder. Keep the 6px drag threshold and use a 24px indent. The nesting hot zone covers the central vertical area (16px margins from top/bottom) and the left 60% of the row width (at least 200px), focusing the gesture on the title/indent area while keeping edge reordering clear.
 - A root with children cannot be nested. A nested task cannot receive nested children. Keyboard menus provide equivalent nest/unnest actions.
 - Successful nesting stays quiet for drag, menu and recovered receipts. Keep keyboard/command undo and its confirmation, plus existing failure feedback.
 - The selector searches current, future and Later tasks, including periods outside the displayed board. Expired or changed targets are rejected.
 - Nested tasks inherit all current goal parents and flow colors from their root. Their own outgoing goal links, text, dates and lifecycle remain independent.
-- Keep a group in the todo section while any visible member is todo; otherwise show it in completed. Hidden roots retain a two-line context with a visible lifecycle label above their children. Details show the complete container name.
+- Keep each outline in its sorted position by default, including completed members. With completed folding enabled, keep a group in the todo section while any visible member is todo; otherwise show it in completed. Hidden roots retain a two-line context with a visible lifecycle label above their children. Details show the complete container name. See [completed-task layout](completion-feedback.md#已完成任务显示).
 - Root moves and period rollover move the complete live group without changing status timestamps. A current-period hold on any unfinished member blocks automatic group rollover.
 - Moving a child out of its group makes it independent. Unnesting or deleting the root materializes its current inherited goal parents; a colored root with no goal parents leaves detached children colorless.
 - Delete only the selected task. Undo restores owned fields and relations atomically without overwriting later text/status edits. Item restore never steals moved or reparented children.

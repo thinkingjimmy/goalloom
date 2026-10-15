@@ -108,7 +108,15 @@ export function moveItem(context: Context, command: CommandOf<'move'>, keepNesti
   const targetParent = command.beforeId ? context.store.item(command.beforeId).placement.nestingParentId ?? null : null
   const sameContainer = item.placement.nestingParentId && command.horizon === item.placement.horizon && destinationPeriod?.id === item.placement.periodId && (targetParent === item.placement.nestingParentId || command.keepNesting && !command.beforeId)
   if (command.keepNesting && !sameContainer) throw new DomainError('conflict', nestingText().changed)
-  if (item.placement.nestingParentId && !keepNesting && !sameContainer) changeNesting(context, item, null)
+  let nestingChanged = false
+  if (item.placement.nestingParentId && !keepNesting && !sameContainer) {
+    nestingChanged = changeNesting(context, item, null)
+    // If unnesting and no specific position requested, changeNesting already handled the move
+    if (!command.beforeId && item.placement.horizon === command.horizon) {
+      context.itemId = item.id
+      return nestingChanged
+    }
+  }
   const children = !item.placement.nestingParentId ? context.store.nestedItems(item.id) : []
   const before = structuredClone(item)
   const previous = context.store.position(item)

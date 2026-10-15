@@ -9,13 +9,66 @@
 .task-row[data-nested='true'] .flow-dot-slot { left: 24px; }
 .task-row[data-nested='true'] .drag-handle { left: 26px; }
 .task-row[data-context='true'] { color: var(--secondary); }
-.task-row[data-nesting-target='true'] { background: var(--hover) !important; outline: 1px solid var(--focus); outline-offset: -1px; }
-.task-row[data-nesting-target='true']::after { content: ''; position: absolute; left: calc(var(--flow-gutter) + 24px); right: 12px; bottom: 1px; height: 2px; background: var(--focus); border-radius: 2px; pointer-events: none; }
+/* Nesting target: highlight the parent row with a clear border */
+.task-row[data-nesting-target='true'] {
+  outline: 2px solid var(--focus) !important;
+  outline-offset: -2px;
+  background: var(--hover) !important;
+  transition: outline 0.15s ease, background 0.15s ease;
+}
+
+/* Sorting insertion line: shows where the item will be inserted */
+.task-row[data-sort-position='before']::before,
+.task-row[data-sort-position='after']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--focus);
+  box-shadow: 0 0 8px var(--focus);
+  pointer-events: none;
+  z-index: 10;
+}
+.task-row[data-sort-position='before']::before {
+  top: -1px;
+}
+.task-row[data-sort-position='after']::after {
+  bottom: -1px;
+}
+
+/* Blocked indicator: shows when trying to move to a different dependency group */
+.task-row[data-sort-position='blocked']::before {
+  content: '⚠️ 无法移动到此处 (不同的依赖组)';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ground);
+  border: 2px solid var(--secondary);
+  border-radius: 4px;
+  color: var(--secondary);
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
 .nesting-picker { max-width: 480px; padding-bottom: 12px; }
 .nesting-choices { max-height: min(60vh, 480px); overflow-y: auto; padding: 6px 12px; }
 .detail-props .nesting-parent-chip { display: block; height: auto; min-height: 28px; max-width: 100%; padding: 4px 10px; line-height: 20px; white-space: normal; overflow-wrap: anywhere; text-align: left; }
 
 :root[data-nesting-drag='true'] .task-row:not(.dragging) { transform: none !important; }
+/* Prevent sorting animation - keep rows in place and show insertion line instead */
+:root[data-dragging='true'] .task-row:not(.dragging) { transform: none !important; }
+/* Dim rows in different dependency groups when parent order is enabled */
+:root[data-dragging='true'] .task-row[data-different-group='true'] {
+  opacity: 0.3;
+  pointer-events: none;
+}
 .nesting-context .task-title { display: flex; align-items: baseline; gap: 6px; text-indent: 0; padding-block: 3px; }
 .nesting-context .task-title > span { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .nesting-context .task-title > small { flex-shrink: 0; font-size: 12px; }
