@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, isolated profiles and an optional packaged executable or --column-add selector.
- * [OUTPUT]: Composer/setup/column creation acceptance, absence of entry guidance, measured keyboard paths and repeatable private evidence.
+ * [OUTPUT]: Composer/setup/column creation acceptance, measured input growth/shrink and keyboard paths, and repeatable private evidence.
  * [POS]: Desktop smart-input entry; includes the isolated column-add fixture after the base composer journey.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -23,6 +23,7 @@ await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'z
 const options = packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }
 const application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 const tabSteps = {}
+const composerLayout = {}
 try {
   const page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
@@ -88,6 +89,44 @@ try {
   // --- 全局 composer 会话草稿：关闭保留，重新打开恢复，清空放弃。 ---
   await page.getByRole('button', { name: '新建', exact: true }).click()
   const composer = page.getByRole('textbox', { name: '写下想法', exact: true })
+  const measureComposer = async state => {
+    const layout = await page.locator('.composer-modal').evaluate(dialog => {
+      const header = dialog.querySelector('.modal-header'), input = dialog.querySelector('textarea')
+      const bounds = dialog.getBoundingClientRect(), headerBounds = header.getBoundingClientRect()
+      return {
+        height: bounds.height,
+        inputHeight: input.getBoundingClientRect().height,
+        lineHeight: Number.parseFloat(getComputedStyle(input).lineHeight),
+        spaceBelowHeader: bounds.bottom - headerBounds.bottom,
+        dividerWidth: Number.parseFloat(getComputedStyle(header).borderBottomWidth),
+      }
+    })
+    composerLayout[state] = layout
+    await page.screenshot({ path: `output/tests/screenshots/composer-${state}.png` })
+    return layout
+  }
+  const empty = await measureComposer('empty')
+  assert.equal(empty.inputHeight, empty.lineHeight, 'An empty composer starts with one input line')
+  assert(empty.spaceBelowHeader <= 1, 'An empty composer reserves no space below the input row')
+  assert.equal(empty.dividerWidth, 0, 'An empty composer has no divider')
+  await composer.fill('An idea')
+  await page.locator('.composer-cand').waitFor()
+  const singleLine = await measureComposer('single-line')
+  assert.equal(singleLine.inputHeight, empty.inputHeight)
+  assert(singleLine.height > empty.height, 'Typing reveals the candidate strip and expands the dialog')
+  assert(singleLine.dividerWidth > 0, 'A candidate strip keeps the input divider')
+  await composer.fill('First idea\nSecond idea\nThird idea')
+  const multiline = await measureComposer('multiline')
+  assert(multiline.inputHeight >= 3 * multiline.lineHeight, 'Multiline text expands the input')
+  assert(multiline.height > singleLine.height, 'The dialog grows with the input')
+  await composer.fill('An idea')
+  const shortened = await measureComposer('shortened')
+  assert.equal(shortened.inputHeight, singleLine.inputHeight, 'Shortening text shrinks the input')
+  assert.equal(shortened.height, singleLine.height)
+  await composer.fill('')
+  await page.locator('.composer-cand').waitFor({ state: 'hidden' })
+  const cleared = await measureComposer('cleared')
+  assert.deepEqual(cleared, empty, 'Clearing text returns to the compact empty layout')
   await composer.fill('本月发布内测版；本周完成登录功能；今天写文案')
   assert.equal(await page.locator('.composer-tip').count(), 0, 'The composer does not show entry guidance')
   await page.screenshot({ path: 'output/tests/screenshots/composer-without-entry-tip.png' })
@@ -154,7 +193,7 @@ try {
   assert.deepEqual([parent?.title, parent?.placement.horizon, child.placement.horizon], ['前方任务 3', 'week', 'day'])
   await page.locator('.seeded-composer').waitFor({ state: 'hidden' })
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
-  const record = { packaged: Boolean(packaged), runtime, tabStepsToTodayAdd: tabSteps, checks: ['direction draft not written before confirm', 'direction becomes 3-month flow root', 'onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar', 'settings entry', 'composer without entry guidance', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent'] }
+  const record = { packaged: Boolean(packaged), runtime, composerLayout, tabStepsToTodayAdd: tabSteps, checks: ['direction draft not written before confirm', 'direction becomes 3-month flow root', 'onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar', 'settings entry', 'compact empty composer', 'composer grows and shrinks with text', 'composer without entry guidance', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent'] }
   await mkdir('output/tests', { recursive: true })
   await writeFile('output/tests/composer.json', JSON.stringify(record, null, 2))
   console.log(JSON.stringify(record))

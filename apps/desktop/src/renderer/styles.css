@@ -1,6 +1,7 @@
 /**
  * [INPUT]: Theme tokens and shared renderer component classes and state attributes.
  * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
+ *           Placement drag cards keep full titles and wrap long URLs within their width.
  * [POS]: Renderer-wide stylesheet; feature-specific styles live beside their components.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -260,7 +261,7 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 .row-icon.overdue { color: var(--danger); }
 .drag-handle { position: absolute; left: 2px; top: 0; width: 16px; height: 28px; display: grid; place-items: center; color: var(--secondary); opacity: 0; pointer-events: none; }
 .drag-handle:focus-visible { opacity: 1; }
-.drag-overlay { background: var(--raised); padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); font-size: 14px; max-width: 320px; }
+.drag-overlay { background: var(--raised); padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); font-size: 14px; max-width: 320px; overflow-wrap: anywhere; }
 .completed-fold { margin-top: 6px; }
 .completed-fold > summary { list-style: none; height: 40px; padding-left: var(--row-inset); display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--secondary); }
 .completed-fold > summary::-webkit-details-marker { display: none; }

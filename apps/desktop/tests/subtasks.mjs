@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current production build, native Electron input and isolated transaction fixtures.
- * [OUTPUT]: Repeatable subtask checks, native screenshots and runtime/platform evidence in output/tests/subtasks.
+ * [OUTPUT]: Repeatable subtask checks, quiet nesting/keyboard undo, native screenshots and runtime/platform evidence in output/tests/subtasks.
  * [POS]: Subtask E2E entry; --data runs transaction feedback without foreground interaction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -77,6 +77,9 @@ try {
     return check(ids.child) - check(ids.parent)
   }, ids)
   assert.equal(indentation, 24); checks.push('Native middle-row nesting bypasses parent-order group restrictions, retains focus and indents by 24px')
+  await page.waitForFunction(() => !document.querySelector('.fab').disabled)
+  assert.equal(await page.locator('.toast').count(), 0, 'Drag nesting succeeds without a Toast')
+  checks.push('Drag nesting is quiet after the committed placement is visible')
   const nested = join(evidence, 'nested-task.png'); await page.screenshot({ path: nested }); screenshots.push(nested)
   await row(ids.child).locator('.task-title').focus(); await page.keyboard.press('Enter')
   const detail = page.getByRole('dialog', { name: '当前条目', exact: true })
@@ -108,6 +111,8 @@ try {
   await application.evaluate(() => { globalThis.nestingProbe.unknown = false })
   await page.locator('.error-banner').getByRole('button', { name: '重试核对', exact: true }).click()
   await page.locator('.error-banner').waitFor({ state: 'detached' })
+  await page.waitForFunction(() => !document.querySelector('.fab').disabled)
+  assert.equal(await page.locator('.toast').count(), 0, 'Recovering a nesting receipt stays quiet')
   assert.equal(await application.evaluate(() => globalThis.nestingProbe.writes.length), 1)
   checks.push('An unknown nesting outcome retains its receipt and retry recovers it without a duplicate write')
   checks.push('Complete ordinary detail and keyboard-equivalent nesting')
@@ -207,9 +212,10 @@ try {
   checks.push('Virtual outlines keep bounded mounted rows, logical keyboard traversal and dependency-safe full detail dismissal')
   const future = await page.evaluate(async sourceId => {
     const snapshot = await window.goalloom.getSnapshot(), current = snapshot.periods.find(period => period.horizon === 'week')
+    const placement = (await window.goalloom.getItem(sourceId)).item.placement
     const reply = await window.goalloom.execute({ type: 'create', title: 'Future search container', horizon: 'week', period: { kind: 'date', startDate: current.endDate }, generation: snapshot.workspace.generation, operationId: crypto.randomUUID() })
     if (!reply.ok) throw Error(reply.message)
-    return { parent: reply.result.itemId, source: sourceId }
+    return { parent: reply.result.itemId, source: sourceId, placement }
   }, ids.child)
   await row(future.source).locator('.task-title').focus(); await page.keyboard.press('Shift+F10')
   await page.getByRole('menuitem', { name: '设为二级 todo', exact: true }).click()
@@ -217,7 +223,16 @@ try {
   await picker.getByRole('button', { name: /Future search container/ }).click()
   await picker.waitFor({ state: 'detached' })
   await pollPage(page, async future => (await window.goalloom.getItem(future.source)).item.placement.nestingParentId === future.parent, future)
+  await page.waitForFunction(() => !document.querySelector('.fab').disabled)
+  assert.equal(await page.locator('.toast').count(), 0, 'Menu nesting succeeds without a Toast')
   checks.push('Keyboard search can choose a future container outside the displayed periods')
+  await page.keyboard.press('ControlOrMeta+z')
+  await page.locator('.toast').filter({ hasText: '已撤销' }).waitFor()
+  await pollPage(page, async id => (await window.goalloom.getItem(id)).item.placement.nestingParentId === null, future.source)
+  const restored = (await page.evaluate(id => window.goalloom.getItem(id), future.source)).item.placement
+  assert.deepEqual([restored.horizon, restored.periodId], [future.placement.horizon, future.placement.periodId])
+  const undo = join(evidence, 'nest-keyboard-undo.png'); await page.screenshot({ path: undo }); screenshots.push(undo)
+  checks.push('Menu nesting is quiet; keyboard undo restores the original period and confirms the reversal')
   assert.deepEqual(errors, []); report.passed = true
 } catch (error) {
   report.error = error.stack

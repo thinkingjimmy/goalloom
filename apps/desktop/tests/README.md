@@ -59,7 +59,7 @@ Electron scenarios (this directory)
 ├── insight-live.mjs     # Authorized real OpenRouter: annual → half → cycle drafts, Settings trial/no writes, seven weekly drafts and review summary; outside verify
 ├── recovery.mjs         # 保护备份/维护/重置/SQLite 恢复与重启暂停
 ├── composer-live.mjs    # 可选：真实 OpenRouter Jev（需 .env.local Key）连接、默认采用 Jev 的上级推荐、↵ 创建并核对看板/关联/说明，截图作证据；不进 verify
-├── composer.mjs         # Setup, global composer/drafts without entry guidance, header keyboard paths and split; includes fixtures/column-add.mjs for seven-column blank/tail creation without keyboard prompts, retained flow context, title wrapping/growth/shrink/resize, paste/IME, guards, title/input alignment, inactive header Add, virtual lists and locales/themes; --column-add selects it; output/tests/column-add/, composer.json and screenshots/composer-without-entry-tip.png
+├── composer.mjs         # Setup, compact empty composer, measured input/dialog growth/shrink, drafts without entry guidance, header keyboard paths and split; includes fixtures/column-add.mjs for seven-column blank/tail creation without keyboard prompts, retained flow context, title wrapping/growth/shrink/resize, paste/IME, guards, title/input alignment, inactive header Add, virtual lists and locales/themes; --column-add selects it; output/tests/column-add/, composer.json and screenshots/composer-*.png
 ├── due-dates.mjs        # Deadline calendar: real Electron draft/save boundaries, leap/month/week keyboard navigation, focus/info layers, five locales and four themes; output/tests/due-calendar/
 ├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
@@ -69,8 +69,8 @@ Electron scenarios (this directory)
 ├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and flow-valid partial-restore warnings; feedback.json and feedback-*.png
 ├── link-previews.mjs    # Link text, full-width cards under overlay controls, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
-├── subtasks.mjs         # Native nesting/cancel/focus, receipt recovery, complete-group status, future search, virtual details and five locales; --data selects transaction/recovery fixtures; output/tests/subtasks/
-├── ordering.mjs         # Parent ordering, group-aware drag, future materialization/undo, receipt-first recovery, local preference restart and measured motion (output/tests/ordering)
+├── subtasks.mjs         # Native nesting/cancel/focus, quiet drag/menu nesting and receipt recovery, keyboard undo feedback, complete-group status, future search, virtual details and five locales; --data selects transaction/recovery fixtures; output/tests/subtasks/
+├── ordering.mjs         # Parent ordering, group-aware drag, pointer/keyboard drag-card URL/token wrapping, future materialization/undo, receipt-first recovery, local preference restart and measured motion (output/tests/ordering)
 ├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、看板移动后的目标列偏好、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
 ├── updates.mjs        # Settings › About: menu routing/re-targeting, real version and icon, update phases via the production event, top-bar/nav dots, menu relabelling; output/tests/updates/
 ├── update-install.mjs # Optional macOS: signed 90.0.0 app + 90.0.1 zip/latest-mac.yml on a 127.0.0.1 feed; UI check → native staging before ready → immediate quit/install, retained failure evidence; outside verify

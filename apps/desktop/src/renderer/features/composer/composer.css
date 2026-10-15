@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Shared appearance tokens, palette modal styles and composer content states.
- * [OUTPUT]: Composer layout without an empty-state divider, candidate strips, draft controls and provider forms.
+ * [OUTPUT]: Compact empty composer, content-sized input, candidate strips, draft controls and provider forms.
  * [POS]: Shared presentation for global and seeded composers, plus onboarding/settings provider forms.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,7 +8,8 @@
 .modal.palette.composer-modal { width: min(600px, calc(100vw - 40px)); max-height: none; overflow: visible; }
 .modal.palette.composer-modal .modal-header { position: static; height: auto; min-height: 56px; align-items: flex-start; gap: 4px; padding: 16px 10px 14px 18px; }
 .modal.palette.composer-modal .modal-header { border-top-left-radius: inherit; border-top-right-radius: inherit; }
-.modal.palette.composer-modal:has(> .composer-body:empty) .modal-header { border-bottom: 0; }
+.modal.palette.composer-modal:has(> .composer-body:empty) { padding-bottom: 0; }
+.modal.palette.composer-modal:has(> .composer-body:empty) .modal-header { margin-bottom: 0; border-bottom: 0; border-radius: inherit; }
 .modal.palette.composer-modal .modal-header > .icon-button { margin-top: -6px; }
 .palette-search.composer-search { align-items: flex-start; }
 .composer-search > svg { margin-top: 3px; flex-shrink: 0; }

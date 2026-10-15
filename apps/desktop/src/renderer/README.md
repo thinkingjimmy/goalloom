@@ -8,7 +8,7 @@ renderer/
 ├── main.tsx                 # React 挂载
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
-├── styles.css               # Tailwind, theme tokens, readable empty-column hints, single-row period headers with return icons and trailing countdown/add swaps, board/dialog/menu layout, column action visibility, scrollbars and accessibility
+├── styles.css               # Tailwind, theme tokens, readable empty-column hints, single-row period headers with return icons and trailing countdown/add swaps, board/dialog/menu layout, full drag titles with bounded URL wrapping, column action visibility, scrollbars and accessibility
 ├── assets/app-icon.png      # 关于页的应用图标（apps/desktop/resources/icon.png 的 256px 版本）
 ├── features/                # 按用户功能聚合页面及其专属组件
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
@@ -41,7 +41,7 @@ renderer/
 │   │   ├── suggestions.ts   # 纯函数：上级关联与移列规则、片段合并、Jev 拿不准的判断（doubts）
 │   │   ├── draft.ts         # 纯草稿模型：手动优先合并、推测列、orphan、计划负载与本地复核
 │   │   ├── Seeded.tsx       # Displayed-period child creation / checked createPlan with horizon-specific headings, including future half/cycle; typed-text precedence and manual fallback
-│   │   └── composer.css     # Token-based composer/provider form styles; empty global input has no header divider
+│   │   └── composer.css     # Token-based composer/provider form styles; compact single-line empty input, content growth/shrink and candidate-only spacing/divider
 │   ├── insight/             # 流程洞察（docs/features/flow-insight.md）
 │   │   ├── signals.ts       # Six-scale childless-parent gaps/digests and highlighted-chain scope; displayed-period empty sources exclude active children and constrain future half/cycle to the displayed parent
 │   │   ├── Breakpoints.tsx  # Highlighted-chain childless-parent pills centered on complete rows, row-size/motion tracking, child creation and loading/destination state and a guide bounded to the timeline viewport
@@ -135,7 +135,7 @@ renderer/
 │   ├── insight-context.ts # Consent-scoped program facts and stable dependency keys for existing caches
 │   ├── review-summary.ts   # Up to 24 device-local period summaries, exact-prompt fingerprints, shared requests and generation invalidation
 │   ├── review-drafts.ts    # Up to 24 review-only destination suggestion batches, exact-prompt fingerprints, pending reuse and generation invalidation
-│   ├── feedback.ts         # Command feedback policy (moves/advances are silent), committed destinations, partial-restore warnings and reading durations
+│   ├── feedback.ts         # Command feedback policy (moves/advances/nesting are silent), committed destinations, partial-restore warnings and reading durations
 │   └── use-workspace.ts    # Authoritative snapshots, post-layout feedback, completion events, session undo, reserved detail writes and receipt recovery
 ├── i18n/
 │   ├── index.ts             # 唯一文案入口：当前语言的实时视图（原地替换，不重挂载）、setLocale/useLocale
