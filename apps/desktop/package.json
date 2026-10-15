@@ -1,6 +1,6 @@
 {
   "name": "@goalloom/desktop",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "private": true,
   "description": "把三个月的方向，连接到今天的行动。",
   "author": "Goalloom",
@@ -57,7 +57,8 @@
     "test:insight-generation": "node tests/insight-generation.mjs",
     "test:calendar": "node tests/calendar-modes.mjs",
     "test:assistance": "node tests/assistance/run.mjs",
-    "eval:assistance": "node scripts/eval/assistance/run.mjs"
+    "eval:assistance": "node scripts/eval/assistance/run.mjs",
+    "test:sync-replay": "node tests/sync-replay.mjs"
   },
   "dependencies": {
     "@goalloom/contracts": "workspace:*",

@@ -1,6 +1,11 @@
-/** Stable sync error codes. Business codes roll back one op; workspace codes pause; storage codes stop writes. */
+/**
+ * [INPUT]: Sync application and workspace/push failure categories.
+ * [OUTPUT]: Stable error-code lists, types and the business-code guard, including duplicate relationships.
+ * [POS]: Shared sync failure contract. Business errors reject one op; unknown storage errors stop the batch.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 export const businessErrorCodes = [
-  'parent_unavailable', 'relation_cycle', 'horizon_order', 'flow_root_parent', 'flow_color_taken', 'item_deleted', 'outline_conflict',
+  'parent_unavailable', 'relation_cycle', 'relation_exists', 'horizon_order', 'flow_root_parent', 'flow_color_taken', 'item_deleted', 'outline_conflict',
   'discard_not_empty', 'restore_superseded', 'guidance_stale', 'calendar_locked', 'stale_preview',
   'revert_superseded', 'rollover_stale', 'period_scale_mismatch', 'item_exists',
 ] as const

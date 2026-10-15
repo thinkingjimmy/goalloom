@@ -46,6 +46,7 @@ Electron scenarios (this directory)
 ├── later-sidebar.mjs    # Default planning columns, legacy preference handling, Later count and parent unlinking on moves, independent scrolling, drag/undo, preserved drafts, motion, themes/locales and restart; output/tests/later-sidebar
 ├── column-visibility.mjs # Six-column checkbox menu sized to the longest label, right-aligned checks, gray locked check with a hover tip, independent preferences, retained hidden drafts/scroll/periods, explicit-target reveal, keyboard drag, geometry/locales/themes; --menu narrows development checks, --baseline/--style-baseline preserve initial failures; output/tests/column-visibility
 ├── sqlite.mjs           # 单独构建/启动真实 main 的内置 SQLite 探针
+├── sync-replay.mjs      # Encrypted two-peer duplicate relationship replay, pending receipts, atomic rejection and storage retry; synthetic remote, Electron SQLite; output/tests/sync-replay/
 ├── workspace.mjs        # 看板业务、实际流程候选的详情关联、单面板详情／顶部操作按钮／窄窗口（fixtures/detail-rail.mjs）、流程筛选快捷键与设置、协议/CSP/IPC、主题与窄窗口
 ├── task-focus.mjs       # Pointer/Escape/close and keyboard detail-focus returns, plain/rich titles, four themes and no task writes; output/tests/task-focus/
 ├── history.mjs          # Live past-task editing/groups, filter return to current, paging recovery, focus/feedback, immutable history, backlog/hold and replacement isolation; history.json and history/past-task screenshots
@@ -79,6 +80,7 @@ Electron scenarios (this directory)
 ├── dialogs.mjs          # 操控真实原生保存/打开对话框的验收入口，保存 JSON 证据和恢复后截图
 ├── review/              # 已确认缺陷、输入/维护竞态、长列、wire、增长曲线和大备份回归
 └── fixtures/
+    ├── sync-replay.ts    # Two isolated repositories, encrypted duplicate-link replay, atomic conflicts and storage retry
     ├── setup.mjs        # Shared welcome local-use choice, then real calendar → annual direction → AI setup; optional mode/timezone/week-start/anchor
     ├── credential-entry.mjs # Pre-main cipher call counting, synthetic cloud/browser transport and disabled system protocol registration for isolated credential scenarios
     ├── completed-layout.mjs # Localized native settings driver for explicit inline/folded completion coverage

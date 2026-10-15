@@ -119,6 +119,20 @@ Tests: `packages/tests/sync/applier-review.test.ts`. Case 11 places the parent o
 
 Business (one op rolls back, cursor advances): `packages/contracts/src/errors.ts` `businessErrorCodes`. Case 14 expects `rollover_stale`. `outline_conflict` is the two-level / same-period nesting rejection.
 
+### Duplicate relationship replay
+
+The 1.9.0 owner report reproduced an SQLite active-edge uniqueness failure during both pending replay and canonical application. The database was valid; an unclassified duplicate stopped the whole batch. A duplicate active pair or a reused relationship id is `relation_exists`: reject the complete op, keep the existing edge, and continue with the next canonical sequence. Other storage failures still roll back the batch and leave the cursor unchanged.
+
+Failure cases to verify before changing the applier:
+
+- Two offline computers link the same pair under different edge ids. Both must converge on one edge and record the rejected op.
+- Pulling the first link while a duplicate local link is pending must rebuild the visible board without changing the pending receipt. Later local edits must remain visible.
+- An op edits a task and then creates a duplicate link. Reject the complete op, including its text edits; apply later valid ops.
+- A link reuses an existing edge id for a different pair. Preserve the existing edge and reject only that op.
+- An unrelated storage error occurs after an earlier valid op in the same batch. Roll back both ops, retain the cursor, and allow retry after the storage error is removed.
+
+Repeatable engine evidence: `pnpm test:sync-replay` writes `apps/desktop/output/tests/sync-replay/report.json`. It uses two isolated desktop repositories, Electron SQLite and the encrypted sync engine with a synthetic remote. It does not establish live Google/Supabase or packaged-desktop acceptance.
+
 Pause the workspace and stop applying: `key_missing`, `unsupported_version`, `auth`, `generation`, `storage`, `blob_missing`. Case 8.
 
 Push results, per op: `op_id_reused`, `stale_epoch`, `rate_limited`, `payload_too_large`, `protocol_too_old`. Cases 1 and the SQL stale-epoch check.
