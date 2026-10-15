@@ -75,6 +75,7 @@
 - [x] 发布公开 Release 1.4.0 并将 `apps/website/lib/release.ts` 指向 1.4.0 资产。
 - [x] 发布公开 Release 1.5.0 并将 `apps/website/lib/release.ts` 指向 1.5.0 资产。
 - [x] 发布公开 Release 1.6.0 并将 `apps/website/lib/release.ts` 指向 1.6.0 资产。
+- [x] 发布公开 Release 1.9.0，将下载指向 1.9.0，并更新五语言的同步、Apple 公证及公开版 macOS 1.8.0 手动升级说明。
 
 ## 验收
 

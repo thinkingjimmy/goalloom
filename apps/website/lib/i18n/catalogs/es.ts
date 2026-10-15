@@ -136,10 +136,10 @@ const es: SiteCatalog = {
       { q: '¿Goalloom es gratis?', a: 'Sí. Es gratis y de código abierto. La entrada inteligente usa la clave de tu propio proveedor de IA y la factura ese proveedor; todo lo demás funciona sin ella.' },
       { q: '¿En qué se diferencia de una app de tareas normal?', a: 'Cada tarea vive en una columna de tiempo (Later, 3 meses, este mes, esta semana, hoy) y puede enlazarse con metas de horizontes más largos, así el trabajo diario sigue conectado a las metas del trimestre en vez de enterrarlas.' },
       { q: '¿Qué es Jev y lo necesito?', a: 'Jev es la entrada inteligente opcional: lee tus metas y tareas anteriores para colocar lo nuevo y sugerir un superior. Al usarlo, tu texto va al proveedor que elegiste; sin él, el tablero funciona totalmente sin conexión.' },
-      { q: '¿Dónde se guardan mis datos?', a: 'En un espacio de trabajo SQLite local en tu ordenador, con copias de seguridad diarias. Sin cuenta, sin sincronización en la nube y sin telemetría de contenido.' },
+      { q: '¿Dónde se guardan mis datos?', a: 'En un espacio de trabajo SQLite local en tu ordenador, con copias de seguridad diarias y sin telemetría de contenido. La sincronización opcional cifra los datos antes de que salgan del dispositivo.' },
       { q: '¿Qué sistemas son compatibles?', a: 'macOS 14 o posterior en Apple Silicon y Windows 11 x64. La app está en chino, inglés, japonés, español y francés.' },
-      { q: '¿Hay app móvil o sincronización?', a: 'Todavía no. Por ahora Goalloom es una app de escritorio local.' },
-      { q: 'macOS dice que la app está dañada o que no puede verificarla. ¿Qué hago?', a: 'Las versiones aún no están notarizadas por Apple. Tras arrastrar Goalloom a Aplicaciones, ejecuta xattr -dr com.apple.quarantine /Applications/Goalloom.app en Terminal y ábrela. En Windows, elige Más información → Ejecutar de todas formas en SmartScreen.' },
+      { q: '¿Hay app móvil o sincronización?', a: 'Hay sincronización opcional entre ordenadores. Inicia sesión con Google y define una contraseña de sincronización. Esta versión no incluye una app móvil.' },
+      { q: '¿Cómo instalo Goalloom?', a: 'La descarga para macOS está firmada con Developer ID y notarizada por Apple. Arrastra Goalloom a Aplicaciones y ábrela. Si usas la versión pública 1.8.0 para Mac, ciérrala y sustitúyela manualmente por 1.9.0 una vez; se conservan tu espacio de trabajo y tus ajustes. El instalador de Windows no está firmado; si aparece SmartScreen, elige Más información → Ejecutar de todas formas.' },
     ],
   },
   footer: {

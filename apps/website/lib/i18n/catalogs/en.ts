@@ -140,10 +140,10 @@ const en = {
       { q: 'Is Goalloom free?', a: 'Yes. Goalloom is free and open source. Smart input uses your own AI provider key and is billed by that provider; everything else works without it.' },
       { q: 'How is it different from a regular to-do app?', a: 'Every item sits in a time column — Later, 3 months, this month, this week, today — and can link to goals in longer horizons, so daily work stays connected to the quarter’s goals instead of burying them.' },
       { q: 'What is Jev, and do I need it?', a: 'Jev is the optional smart input. It reads your goals and past to-dos to place new items and suggest a parent. When you use it, your text goes to the provider you chose; skip it and the board works fully offline.' },
-      { q: 'Where is my data stored?', a: 'In a local SQLite workspace on your computer, with daily backups. There is no account, no cloud sync and no content telemetry.' },
+      { q: 'Where is my data stored?', a: 'In a local SQLite workspace on your computer, with daily backups and no content telemetry. Optional sync encrypts your data before it leaves your device.' },
       { q: 'Which systems are supported?', a: 'macOS 14 or later on Apple Silicon, and Windows 11 x64. The app speaks Chinese, English, Japanese, Spanish and French.' },
-      { q: 'Is there a mobile app or sync?', a: 'Not yet. Goalloom is a local desktop app for now.' },
-      { q: 'macOS says the app is damaged or can’t be verified. What now?', a: 'Builds are not notarized by Apple yet. After dragging Goalloom to Applications, run xattr -dr com.apple.quarantine /Applications/Goalloom.app in Terminal, then open it. On Windows, choose More info → Run anyway in SmartScreen.' },
+      { q: 'Is there a mobile app or sync?', a: 'Optional sync is available between computers. Sign in with Google and set a sync password. A mobile app is not included in the current release.' },
+      { q: 'How do I install Goalloom?', a: 'The macOS download is Developer ID signed and notarized by Apple. Drag Goalloom into Applications, then open it. If you use the published Mac 1.8.0 build, quit it and replace it with 1.9.0 manually once; your workspace and settings are kept. The Windows installer is unsigned; choose More info → Run anyway if SmartScreen appears.' },
     ],
   },
   footer: {

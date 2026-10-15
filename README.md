@@ -41,7 +41,7 @@
 - **Write it down; Jev places it.** Optional smart input reads your goals and past to-dos, puts each new item in the right column and suggests the goal it belongs under. Preview and edit before creating, and undo a whole batch in one step. Bring your own key.
 - **Nothing slips quietly.** Unfinished items roll over to the next period, and past periods stay readable and can be cleared in batches.
 - **Undo anything, lose nothing.** Every change can be undone without touching your later edits; daily backups, plus safe restore and reset with a protective copy first.
-- **Local-first and private.** Your workspace is a SQLite database on your computer: no account, no cloud, no content telemetry.
+- **Local-first and private.** Your workspace is a SQLite database on your computer, with no content telemetry. Optional sync encrypts data before it leaves your device.
 - **Made for the keyboard, in five languages.** ⌘N to capture, ⌘K to search, ⌘Z to undo. Chinese, English, Japanese, Spanish and French; paper or minimal style, light or dark.
 
 # Get started
@@ -55,15 +55,11 @@
 | macOS 14+ (Apple silicon) | `Goalloom-<version>-mac-arm64.dmg` |
 | Windows 11 (x64) | `Goalloom-<version>-win-x64.exe` |
 
-The macOS build is **Developer ID signed but not notarized**; the Windows installer is **not code-signed**. Each platform needs a one-time step.
+The macOS build is **Developer ID signed and notarized by Apple**. The Windows installer is **not code-signed**.
 
-**macOS.** Open the DMG and drag Goalloom into `Applications`. macOS will otherwise report that the app "is damaged" or "can't be verified": that is Gatekeeper's quarantine flag on an un-notarized download, not a broken file. Clear it once from Terminal, then launch normally:
+**macOS.** Open the DMG, drag Goalloom into `Applications`, then open it.
 
-```bash
-xattr -dr com.apple.quarantine /Applications/Goalloom.app
-```
-
-If it is still blocked, choose **Open Anyway** under System Settings → Privacy & Security.
+**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.0 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
 
 **Windows.** SmartScreen shows "Windows protected your PC". Choose **More info**, then **Run anyway**, and follow the installer.
 
@@ -88,7 +84,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.8.0 adds optional sync between computers. Sign in with Google and your board stays in sync; your data is encrypted before it leaves your device. Setup asks you to set a sync password. See the [1.8.0 release notes](./docs/releases/v1.8.0.md). Build-time sync configuration is in the [development guide](./docs/development.md).
+Version 1.9.0 keeps completed tasks in place, improves task sorting and syncs preferences and saved AI provider keys between computers. Sign in with Google and set a sync password to use encrypted sync. See the [1.9.0 release notes](./docs/releases/v1.9.0.md). Build-time sync configuration is in the [development guide](./docs/development.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 
