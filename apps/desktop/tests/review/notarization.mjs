@@ -1,4 +1,8 @@
 /**
+ * [INPUT]: Production notarization CLI/hook and synthetic Apple command responses.
+ * [OUTPUT]: Bounded-command, diagnostics, redaction and archive-order evidence.
+ * [POS]: Packaging regression fixture; no Apple requests or real credentials.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  * Failure cases: incomplete credentials; upload failure, timeout or missing ID;
  * Apple rejection, pending review or unavailable status; failed staple/validation;
  * duplicate submissions; secrets in diagnostics; ZIP creation before app stapling.
@@ -97,8 +101,8 @@ appendFileSync(process.env.FIXTURE_CALLS,JSON.stringify({action:'archives-create
       APPLE_API_KEY_P8: '', CSC_LINK: '', CSC_KEY_PASSWORD: '',
       GOALLOOM_REQUIRE_NOTARIZATION: optional ? '' : '1',
       GOALLOOM_NOTARIZE_EVIDENCE_DIR: join(root, 'diagnostics'),
-      GOALLOOM_NOTARIZE_UPLOAD_TIMEOUT_MS: '300',
-      GOALLOOM_NOTARIZE_WAIT_TIMEOUT_MS: '300',
+      GOALLOOM_NOTARIZE_UPLOAD_TIMEOUT_MS: scenario === 'upload-timeout' ? '300' : '3000',
+      GOALLOOM_NOTARIZE_WAIT_TIMEOUT_MS: scenario === 'wait-timeout' ? '300' : '3000',
       GOALLOOM_NOTARIZE_COMMAND_TIMEOUT_MS: '3000',
       FIXTURE_SCENARIO: scenario, FIXTURE_CALLS: callsPath,
       FIXTURE_REPORT: app ? 'app.json' : 'dmg.json', FIXTURE_APP_DIR: root, FIXTURE_PLATFORM: platform,

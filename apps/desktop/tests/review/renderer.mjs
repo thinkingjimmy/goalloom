@@ -5,7 +5,7 @@
 // not packaged-desktop acceptance. All regressions assert the repaired behavior.
 /**
  * [INPUT]: Current renderer, deterministic browser IPC fixtures and synthetic composer analysis.
- * [OUTPUT]: Review regression report/screenshots, including the shared composer deadline calendar's draft boundary.
+ * [OUTPUT]: Review reports/screenshots and active-page failure diagnostics, including local setup and composer calendar boundaries.
  * [POS]: Browser interaction acceptance; native deadline persistence is covered by desktop/due-dates.mjs.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,6 +13,7 @@ import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { writeFile, mkdir } from 'node:fs/promises'
+import { chooseLocalStart } from '../fixtures/setup.mjs'
 const repo=resolve('.')
 const evidence=resolve('output/tests/review-fixes')
 await mkdir(evidence,{recursive:true})
@@ -50,6 +51,10 @@ const initReview = ()=>{
   const {requestId,draftSessionId,inputRevision,manualRevision,generation,providerRevision,contextRevision,referenceTime}=action.request
   return {type:'analysis',reply:{status:'ready',echo:{requestId,draftSessionId,inputRevision,manualRevision,generation,providerRevision,contextRevision,referenceTime},preview:{layout:{value:'list',certain:true,metrics:null},referenceDate:previewSnapshot.observedAt.slice(0,10),periods:Object.fromEntries(previewSnapshot.periods.map(p=>[p.horizon,p])),drafts:['Alpha','Beta'].map((title,index)=>({draftId:`d${index}`,source:title,title,description:'',roleCertain:true,horizon:{value:'day',certain:true,metrics:null},due:{value:null,certain:true,metrics:null}})),candidates:r.suggestParent?[{ref:'g0',itemId:'parent-existing',title:'Existing suggested parent',status:'todo',horizon:'month',archived:false,flowColor:null,version:7,named:true}]:[],relations:r.suggestParent?[{parent:{kind:'existing',itemId:'parent-existing'},childDraftId:'d0',state:'maybe',probability:.7}]:[],warnings:[],questionCount:1,requests:1},diagnostics:[]}}
  },execute:async command=>{r.commands.push(command);if(command.type==='confirmSetup')return {ok:false,code:'stale_preview',message:'Date changed. Confirm the refreshed start date.'};if(r.delayExecute)await new Promise(resolve=>r.executeWaiters.push(resolve));if(r.failExecute)return {ok:false,code:'invalid',message:'Synthetic save failure'};if(command.type==='edit'){Object.assign(r.snapshot.items[0],{title:command.title,description:command.description,dueDate:command.dueDate,version:r.snapshot.items[0].version+1})};r.snapshot.workspace.revision++;return {ok:true,result:{operationId:command.operationId,generation:command.generation,changed:true,undoable:false,outcome:'committed',itemId:command.type==='edit'?'item-a':null,itemIds:[],label:'Saved',warnings:[],restoreSource:null,originalOperationId:null}}},getReceipt:async()=>null}
+ Object.assign(window.goalloom,{
+  pullDevicePrefs:async()=>[],reportDevicePrefs:async()=>{},onDevicePrefs:()=>()=>{},onLanguage:()=>()=>{},onAiRefresh:()=>()=>{},onSync:()=>()=>{},
+  sync:async()=>({status:{phase:'signed-out',email:null,pending:0,conflicts:0,paused:null,lastSyncedAt:null,error:null,localItems:r.snapshot.items.length,offline:false,syncing:false}}),
+ })
 }
 await page.addInitScript(initReview)
 const result={scope:'Current source rendered in Chromium, mocked IPC, no production data or external service',checks:[]}
@@ -57,9 +62,11 @@ const calendarOnly=process.argv.includes('--calendar')
 try{
  if(!calendarOnly){
  const setupPage=await browser.newPage({viewport:{width:1280,height:840},timezoneId:'UTC'})
+ setupPage.on('pageerror',error=>errors.push(error.message))
  await setupPage.addInitScript(initReview)
  await setupPage.clock.install({time:new Date('2026-12-31T23:59:40Z')})
  await setupPage.goto(`${server.resolvedUrls.local[0]}?setup`)
+ await chooseLocalStart(setupPage)
  assert.equal(await setupPage.locator('[data-mode="rolling"]').getAttribute('aria-checked'),'true')
  await setupPage.locator('[data-mode="natural"]').click()
  await setupPage.locator('.onboarding-actions button').last().click()
@@ -318,7 +325,9 @@ try{
  await writeFile(`${evidence}/${calendarOnly?'calendar':'renderer'}.json`,JSON.stringify(result,null,2))
  console.log(calendarOnly?'Composer calendar checks passed':'Renderer review regressions passed')
 }catch(error){
- await page.screenshot({path:`${evidence}/${calendarOnly?'calendar':'renderer'}-failure.png`}).catch(()=>undefined)
- await writeFile(`${evidence}/${calendarOnly?'calendar':'renderer'}-failure.json`,JSON.stringify({error:String(error),errors,state:await page.evaluate(()=>({commands:review.commands,analyses:review.analyses.length,active:document.activeElement?.outerHTML.slice(0,500),focused:document.hasFocus(),visibility:document.visibilityState,content:document.querySelector('.composer-modal')?.textContent}))},null,2))
+ const failurePage=browser.contexts().flatMap(context=>context.pages()).at(-1)??page
+ await failurePage.screenshot({path:`${evidence}/${calendarOnly?'calendar':'renderer'}-failure.png`}).catch(()=>undefined)
+ const state=await failurePage.evaluate(()=>({url:location.href,commands:window.review?.commands,analyses:window.review?.analyses.length,active:document.activeElement?.outerHTML.slice(0,500),focused:document.hasFocus(),visibility:document.visibilityState,content:document.body.innerText.slice(0,4000)})).catch(()=>null)
+ await writeFile(`${evidence}/${calendarOnly?'calendar':'renderer'}-failure.json`,JSON.stringify({error:String(error),errors,state},null,2))
  throw error
 }finally{await browser.close();await server.close()}
