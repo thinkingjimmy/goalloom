@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { closestCenter, KeyboardSensor, pointerWithin, PointerSensor, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragStartEvent, type KeyboardCoordinateGetter } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { buildParentOrder, parentOrderedHorizon } from '../../../domain/parent-order'
+import { buildParentOrder } from '../../../domain/parent-order'
 import { nestingTargets, outlineRows } from '../../../domain/nesting'
 import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
@@ -35,7 +35,7 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
   const activeGesture = useRef(false)
   const sourceFocus = useRef<string | null>(null)
   const nestTarget = useRef<string | null>(null)
-  const sortTarget = useRef<{ id: string; position: 'before' | 'after' | 'blocked' } | null>(null)
+  const sortTarget = useRef<{ id: string; position: 'before' | 'after' } | null>(null)
   const clearNest = () => {
     if (nestTarget.current) {
       document.getElementById(`item-${nestTarget.current}`)?.removeAttribute('data-nesting-target')
@@ -72,50 +72,20 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
     const frame = requestAnimationFrame(() => { revealRow(nestFocus.id, nestFocus.selector, 'pointer'); setNestFocus(null) })
     return () => cancelAnimationFrame(frame)
   }, [nestFocus, busy, view.items, generation, selection])
-  const orders = useMemo(() => {
-    const active = view.items.find(item => item.id === dragging)
-    return new Map(columns.map(horizon => {
-      if (!active || !view.parentOrder || !parentOrderedHorizon(horizon)) return [horizon, undefined]
-      const period = view.periods[horizon]
-      const nodes = view.orderNodes.map(node => node.id === active.id ? { ...node, horizon, periodId: period?.id ?? null, periodStart: period?.startDate ?? null, periodEnd: period?.endAt ?? null } : node)
-      return [horizon, buildParentOrder(nodes, snapshot.relations, snapshot.observedAt)]
-    }))
-  }, [dragging, view.items, view.parentOrder, view.orderNodes, selection, snapshot.relations, snapshot.observedAt, columns])
   useEffect(() => {
     if (!dragging) return
     document.documentElement.dataset.dragging = 'true'
     const board = document.querySelector('.board'), release = board ? beginBoardMotion(board) : null
 
-    // Mark rows in different groups when parent order is enabled
-    const active = view.items.find(item => item.id === dragging)
-    if (active && view.parentOrder && !active.placement.nestingParentId) {
-      view.items.forEach(row => {
-        const node = document.getElementById(`item-${row.id}`)
-        if (!node) return
-        const order = orders.get(row.placement.horizon)
-        if (order && row.placement.horizon === active.placement.horizon && !row.placement.nestingParentId) {
-          const sameGroup = order.group(row.id) === order.group(active.id)
-          if (!sameGroup) {
-            node.setAttribute('data-different-group', 'true')
-          }
-        }
-      })
-    }
-
     return () => {
       delete document.documentElement.dataset.dragging
       release?.()
-      // Clean up group markers
-      document.querySelectorAll('[data-different-group]').forEach(node => {
-        node.removeAttribute('data-different-group')
-      })
     }
-  }, [dragging, view.items, view.parentOrder, orders])
+  }, [dragging])
   const todoGroups = new Set(view.items.filter(row => row.status === 'todo').map(row => row.placement.nestingParentId ?? row.id))
   const rowsIn = (horizon: ItemHorizon, active: ItemSummary) => view.items.filter(row => row.placement.horizon === horizon
     && (!row.placement.nestingParentId || row.placement.nestingParentId === active.placement.nestingParentId)
-    && (!collapseCompleted || todoGroups.has(row.placement.nestingParentId ?? row.id) === todoGroups.has(active.placement.nestingParentId ?? active.id))
-    && (!orders.get(horizon) || orders.get(horizon)!.group(row.id) === orders.get(horizon)!.group(active.id)))
+    && (!collapseCompleted || todoGroups.has(row.placement.nestingParentId ?? row.id) === todoGroups.has(active.placement.nestingParentId ?? active.id)))
   const collision: CollisionDetection = args => {
     const active = view.items.find(row => row.id === args.active.id), point = args.pointerCoordinates
     // Nest the row under the pointer. Sortable rectangles can precede a panel scroll or guide layout change.
@@ -142,42 +112,31 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
     // For sorting: show insertion line only when NOT in nest zone
     // Use only 'before' position to avoid duplicate lines between rows
     if (active && targetAtPointer && targetAtPointer.id !== active.id && point && bounds && !inNestZone) {
-      // Check if target is in a different group (when parent order is enabled)
-      const order = orders.get(targetAtPointer.placement.horizon)
-      const isDifferentGroup = order && !active.placement.nestingParentId && !targetAtPointer.placement.nestingParentId
-        && order.group(active.id) !== order.group(targetAtPointer.id)
+      const midY = bounds.top + bounds.height / 2
+      const insertBefore = point.y < midY
 
-      if (isDifferentGroup) {
-        // Show blocked indicator instead of insertion line
-        sortTarget.current = { id: targetAtPointer.id, position: 'blocked' }
-        node?.setAttribute('data-sort-position', 'blocked')
+      if (insertBefore) {
+        // Insert before this row
+        sortTarget.current = { id: targetAtPointer.id, position: 'before' }
+        node?.setAttribute('data-sort-position', 'before')
       } else {
-        const midY = bounds.top + bounds.height / 2
-        const insertBefore = point.y < midY
+        // Insert after this row = before the next row
+        // Find the next row in the same column
+        const currentIndex = view.items.findIndex(item => item.id === targetAtPointer.id)
+        const nextRow = view.items.slice(currentIndex + 1).find(item =>
+          item.placement.horizon === targetAtPointer.placement.horizon &&
+          item.placement.periodId === targetAtPointer.placement.periodId &&
+          item.placement.nestingParentId === targetAtPointer.placement.nestingParentId
+        )
 
-        if (insertBefore) {
-          // Insert before this row
-          sortTarget.current = { id: targetAtPointer.id, position: 'before' }
-          node?.setAttribute('data-sort-position', 'before')
+        if (nextRow) {
+          const nextNode = document.getElementById(`item-${nextRow.id}`)
+          sortTarget.current = { id: nextRow.id, position: 'before' }
+          nextNode?.setAttribute('data-sort-position', 'before')
         } else {
-          // Insert after this row = before the next row
-          // Find the next row in the same column
-          const currentIndex = view.items.findIndex(item => item.id === targetAtPointer.id)
-          const nextRow = view.items.slice(currentIndex + 1).find(item =>
-            item.placement.horizon === targetAtPointer.placement.horizon &&
-            item.placement.periodId === targetAtPointer.placement.periodId &&
-            item.placement.nestingParentId === targetAtPointer.placement.nestingParentId
-          )
-
-          if (nextRow) {
-            const nextNode = document.getElementById(`item-${nextRow.id}`)
-            sortTarget.current = { id: nextRow.id, position: 'before' }
-            nextNode?.setAttribute('data-sort-position', 'before')
-          } else {
-            // Last row in column, show 'after' on current row
-            sortTarget.current = { id: targetAtPointer.id, position: 'after' }
-            node?.setAttribute('data-sort-position', 'after')
-          }
+          // Last row in column, show 'after' on current row
+          sortTarget.current = { id: targetAtPointer.id, position: 'after' }
+          node?.setAttribute('data-sort-position', 'after')
         }
       }
     }
