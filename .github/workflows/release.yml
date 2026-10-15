@@ -81,7 +81,7 @@ jobs:
     name: Package and notarize macOS
     needs: test-mac
     runs-on: macos-15
-    timeout-minutes: 90
+    timeout-minutes: 110
     environment: release
     permissions:
       contents: read
@@ -115,9 +115,10 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash .github/scripts/macos-signing.sh prepare
       - name: Package macOS
+        timeout-minutes: 50
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          DEBUG: electron-osx-sign*,electron-builder
+          GOALLOOM_REQUIRE_NOTARIZATION: "1"
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -125,25 +126,38 @@ jobs:
           GOALLOOM_SUPABASE_URL: ${{ secrets.GOALLOOM_SUPABASE_URL || 'https://asqyvcnxdltzzfutbbqy.supabase.co' }}
         run: |
           set -euo pipefail
-          unset CSC_IDENTITY_AUTO_DISCOVERY
+          unset CSC_IDENTITY_AUTO_DISCOVERY CSC_LINK CSC_KEY_PASSWORD
+          if [[ -z "${CSC_KEYCHAIN:-}" || ! -f "${CSC_KEYCHAIN}" ]]; then
+            echo "::error::CSC_KEYCHAIN is not the prepared keychain path."
+            exit 1
+          fi
           if [[ -z "${APPLE_API_KEY:-}" || ! -f "${APPLE_API_KEY}" ]]; then
             echo "::error::APPLE_API_KEY is not the AuthKey.p8 path from the prepare step."
             exit 1
           fi
+          bash .github/scripts/macos-signing.sh unlock
+          watchdog() {
+            while true; do
+              sleep 60
+              echo "--- codesign watchdog ---"
+              ps -axo pid,etime,pcpu,command | grep -E 'codesign|SecurityAgent|notarytool' | grep -v grep || true
+            done
+          }
+          watchdog &
+          watchdog_pid=$!
+          trap 'kill "$watchdog_pid" 2>/dev/null || true; wait "$watchdog_pid" 2>/dev/null || true' EXIT
           if [[ -z "${GOALLOOM_SUPABASE_ANON_KEY}" ]]; then
             echo "::warning title=Sync unconfigured::GOALLOOM_SUPABASE_ANON_KEY is empty. The build continues and the packaged app leaves sync unconfigured."
           fi
           log="${RUNNER_TEMP}/electron-builder-mac.log"
           pnpm run package:mac 2>&1 | tee "$log"
-          if grep -E -q 'skipped macOS (application code signing|notarization)' "$log"; then
-            echo "::error::electron-builder skipped macOS signing or notarization. This workflow does not ship an unsigned build."
+          if grep -E -q 'skipped macOS (application )?code signing' "$log"; then
+            echo "::error::electron-builder skipped macOS signing."
             exit 1
           fi
-          if ! grep -q 'notarization successful' "$log"; then
-            echo "::error::electron-builder did not report a successful macOS notarization."
-            exit 1
-          fi
+          node -e "const r=require('./apps/desktop/output/tests/notarization/app.json'); if(r.stage!=='complete'||r.status!=='Accepted'||r.ticket!=='validated') throw Error('Application notarization and stapling did not finish')"
       - name: Notarize the macOS disk image
+        timeout-minutes: 45
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
@@ -187,6 +201,14 @@ jobs:
       - name: Remove macOS signing material
         if: always()
         run: bash .github/scripts/macos-signing.sh cleanup
+      - name: Upload notarization diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: macos-notarization-diagnostics
+          retention-days: 7
+          if-no-files-found: ignore
+          path: apps/desktop/output/tests/notarization/*.json
 
   package-win:
     name: Package Windows

@@ -2,15 +2,20 @@
 # macOS Developer ID signing and notarization for the release workflow.
 # Prints secret names only. Never prints CSC_LINK, CSC_KEY_PASSWORD,
 # APPLE_API_KEY_P8, the keychain password, or the .p8 contents.
+# [INPUT]: Release signing secrets, a temporary keychain and signed builder artifacts.
+# [OUTPUT]: Signing setup, timestamp-signed/notarized DMG, verification and credential cleanup.
+# [POS]: Hosted release adapter; shared build/notarize.mjs owns Apple submission/wait/stapling.
+# [PROTOCOL]: Update this header when making changes, then check README.md.
 #
 # Usage (from the repository root, on the macOS runner):
 #   macos-signing.sh prepare
+#   macos-signing.sh unlock
 #   macos-signing.sh notarize-dmg
 #   macos-signing.sh verify
 #   macos-signing.sh cleanup
 set -euo pipefail
 
-command="${1:?prepare|notarize-dmg|verify|cleanup}"
+command="${1:?prepare|unlock|notarize-dmg|verify|cleanup}"
 
 key_path="${RUNNER_TEMP:?}/AuthKey.p8"
 p12_path="${RUNNER_TEMP}/developer-id.p12"
@@ -32,9 +37,9 @@ require_secrets() {
 
 prepare() {
   require_secrets CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_P8 APPLE_API_KEY_ID APPLE_API_ISSUER APPLE_TEAM_ID
-  # API-key notarization is selected only when the Apple ID password flow is unset.
-  # APPLE_TEAM_ID stays set for the workflow; electron-builder 26 passes teamId to
-  # notarytool only for Apple ID credentials, and combining it with an API key is rejected.
+  # Keep release notarization credentials separate from inherited Apple ID settings.
+  # APPLE_TEAM_ID stays set for signature verification. The notarization helper
+  # uses API-key credentials without --team-id.
   unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_KEYCHAIN APPLE_KEYCHAIN_PROFILE CSC_IDENTITY_AUTO_DISCOVERY
 
   umask 077
@@ -65,7 +70,16 @@ prepare() {
   security unlock-keychain -p "$password" "$keychain_path"
   security import "$p12_path" -k "$keychain_path" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security >/dev/null
   rm -f "$p12_path"
-  security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain_path" >/dev/null
+  # unsigned: lets a non-Apple caller (electron-builder's node) use the key without a SecurityAgent prompt.
+  local partition_out partition_status=0
+  partition_out="$(security set-key-partition-list -S apple-tool:,apple:,codesign:,unsigned: -s -k "$password" "$keychain_path" 2>&1)" || partition_status=$?
+  if [[ "$partition_status" -eq 0 ]]; then
+    echo "set-key-partition-list succeeded."
+  else
+    echo "::error::set-key-partition-list failed."
+    printf '%s\n' "$partition_out" | grep -F -v -- "$password" || true
+    exit 1
+  fi
   # shellcheck disable=SC2046
   security list-keychains -d user -s "$keychain_path" $(security list-keychains -d user | tr -d '"')
 
@@ -81,10 +95,64 @@ prepare() {
 
   if [[ -n "${GITHUB_ENV:-}" ]]; then
     printf 'APPLE_API_KEY=%s\n' "$key_path" >> "$GITHUB_ENV"
-    # Keep the Apple ID flow from stealing notarization if a runner image sets it.
+    # electron-builder 26.15.3, with CSC_LINK unset: MacPackager.codeSigningInfo
+    # reads CSC_KEYCHAIN, buildSignOptions sets SignOptions.keychain, and
+    # @electron/osx-sign adds `codesign --keychain`. mac.keychain is not a config key.
+    printf 'CSC_KEYCHAIN=%s\n' "$keychain_path" >> "$GITHUB_ENV"
+    # Keep alternate Apple credentials out of later release steps.
+    # APPLE_KEYCHAIN is that flow's keychain name, not CSC_KEYCHAIN.
     printf 'APPLE_ID=\nAPPLE_APP_SPECIFIC_PASSWORD=\nAPPLE_KEYCHAIN=\nAPPLE_KEYCHAIN_PROFILE=\n' >> "$GITHUB_ENV"
   fi
-  echo "Developer ID signing uses CSC_NAME (${CSC_NAME}). Notarytool will use the App Store Connect API key at \$RUNNER_TEMP/AuthKey.p8."
+  echo "Developer ID signing uses CSC_NAME (${CSC_NAME}) in the prepared keychain. Notarytool will use the App Store Connect API key at \$RUNNER_TEMP/AuthKey.p8."
+}
+
+unlock() {
+  [[ -f "$password_path" && -f "$keychain_path" ]] || {
+    echo "::error::Signing keychain is missing. The prepare step did not finish."
+    exit 1
+  }
+  if [[ -z "${CSC_NAME:-}" || "$CSC_NAME" == *"Developer ID Application:"* ]]; then
+    echo "::error::CSC_NAME must be the Developer ID common name, without the certificate prefix."
+    exit 1
+  fi
+  local password identity probe entitlements pid i
+  password="$(cat "$password_path")"
+  security unlock-keychain -p "$password" "$keychain_path"
+  # shellcheck disable=SC2046
+  security list-keychains -d user -s "$keychain_path" $(security list-keychains -d user | tr -d '"')
+  security default-keychain -s "$keychain_path"
+  identity="Developer ID Application: ${CSC_NAME}"
+  # Same flags as the codesign that hung (--timestamp --options runtime --entitlements)
+  # on a Mach-O copy, and no --keychain so this uses the search list. osx-sign itself
+  # still receives --keychain from CSC_KEYCHAIN; see the note in prepare.
+  entitlements="apps/desktop/build/entitlements.mac.inherit.plist"
+  [[ -f "$entitlements" ]] || {
+    echo "::error::Missing ${entitlements}"
+    exit 1
+  }
+  probe="${RUNNER_TEMP}/goalloom-sign-probe"
+  cp /usr/bin/true "$probe"
+  chmod u+w "$probe"
+  codesign --sign "$identity" --force --timestamp --options runtime --entitlements "$entitlements" "$probe" &
+  pid=$!
+  for i in $(seq 1 20); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      if wait "$pid"; then
+        rm -f "$probe"
+        echo "codesign can use the prepared keychain."
+        return
+      fi
+      rm -f "$probe"
+      echo "::error::codesign could not sign a probe file with CSC_NAME."
+      exit 1
+    fi
+    sleep 1
+  done
+  kill -9 "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  rm -f "$probe"
+  echo "::error::codesign did not finish in 20s. The keychain is probably waiting for an access prompt."
+  exit 1
 }
 
 notarize_dmg() {
@@ -111,19 +179,11 @@ notarize_dmg() {
     echo "::error::No Developer ID Application identity for CSC_NAME is available to sign the disk image."
     exit 1
   fi
-  # electron-builder 26 signs a DMG only when dmg.sign is true, and then without a
-  # secure timestamp, which notarytool rejects. Sign it here, then notarize the
-  # container. The .app was already notarized by electron-builder.
+  # The afterSign hook already notarized the app. Sign the container with the
+  # secure timestamp missing from electron-builder 26's DMG signing path.
   echo "Signing the disk image with ${identity} and a secure timestamp."
   codesign --force --sign "$identity" --keychain "$keychain_path" --timestamp --verbose=2 "$dmg"
-  echo "Submitting the disk image to notarytool."
-  xcrun notarytool submit "$dmg" \
-    --key "$APPLE_API_KEY" \
-    --key-id "$APPLE_API_KEY_ID" \
-    --issuer "$APPLE_API_ISSUER" \
-    --wait \
-    --timeout 30m
-  xcrun stapler staple "$dmg"
+  node apps/desktop/scripts/build/notarize.mjs "$dmg"
 }
 
 verify() {
@@ -222,6 +282,7 @@ cleanup() {
 
 case "$command" in
   prepare) prepare ;;
+  unlock) unlock ;;
   notarize-dmg) notarize_dmg ;;
   verify) verify ;;
   cleanup) cleanup ;;

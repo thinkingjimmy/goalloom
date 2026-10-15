@@ -14,6 +14,8 @@ files:
 asar: true
 compression: normal
 npmRebuild: false
+# Complete app notarization and stapling before DMG/auto-update ZIP creation.
+afterSign: ./scripts/build/notarize.mjs
 toolsets:
   nsis: '1.2.1'
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
@@ -58,16 +60,13 @@ mac:
   minimumSystemVersion: '14.0'
   category: public.app-category.productivity
   # Hardened Runtime is required for Developer ID notarization.
-  # electron-builder 26 accepts `notarize` as a boolean only. notarytool runs when
-  # APPLE_API_KEY (path to the .p8), APPLE_API_KEY_ID and APPLE_API_ISSUER are set.
-  # Team id is the APPLE_TEAM_ID secret. This version sends teamId to notarytool
-  # only for Apple ID password credentials; passing it together with an API key is
-  # rejected, so it is not nested under `notarize`.
+  # The afterSign hook owns bounded API-key notarization and its diagnostics.
+  # Disable the built-in submit --wait, which has no processing timeout.
   # gatekeeperAssess stays off while signing. The ticket is stapled afterwards, and
   # the release workflow runs codesign, spctl and stapler.
   hardenedRuntime: true
   gatekeeperAssess: false
-  notarize: true
+  notarize: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
   target:
