@@ -15,12 +15,9 @@ import { periodHorizons } from '../../../shared/contracts/values'
 export function assertParentOrderTarget(context: Context, item: Item, horizon: ItemHorizon, period: PlanningPeriod | null, beforeId: string | null): void {
   if (!parentOrderedHorizon(horizon) || !period || !beforeId) return
   const rows = context.store.summaries("i.deletedAt IS NULL AND i.archivedAt IS NULL AND p.horizon=? AND p.periodId=?", [horizon, period.id])
-  const nodes = orderNodes(context.store, [...rows.map(row => row.id), item.id])
-  const moved = nodes.find(node => node.id === item.id)!
-  Object.assign(moved, { horizon, periodId: period.id, periodStart: period.startDate, periodEnd: period.endAt })
-  const order = buildParentOrder(nodes, context.store.effectiveRelations(), context.now)
   const todo = (task: Pick<Item, 'id' | 'status'>) => task.status === 'todo' || context.store.summaries("i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status='todo' AND p.nestingParentId=?", [task.id]).length > 0
-  if (!rows.some(row => row.id === beforeId && !row.placement.nestingParentId && todo(row) === todo(item) && order.group(row.id) === order.group(item.id))) throw new DomainError('conflict', serverText().errors.sortTargetGone)
+  // Allow moving within the column as long as target exists with matching todo status and no nesting parent
+  if (!rows.some(row => row.id === beforeId && !row.placement.nestingParentId && todo(row) === todo(item))) throw new DomainError('conflict', serverText().errors.sortTargetGone)
 }
 
 export function materializeParentOrder(context: Context): boolean {
