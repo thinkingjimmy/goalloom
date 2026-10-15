@@ -1,10 +1,10 @@
 /**
- * [INPUT]: Displayed editable period, localized column name and guarded workspace submission.
- * [OUTPUT]: Accessible one-shot parent arrangement for this column, with keyboard focus return.
+ * [INPUT]: Displayed editable period, localized column name, write availability and guarded workspace submission.
+ * [OUTPUT]: Accessible one-shot parent arrangement, restoring focus after the guarded write re-enables its trigger.
  * [POS]: Column-header action; automatic placement preferences remain independent.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Action } from '../../state/use-workspace'
 import { messages } from '../../i18n'
@@ -14,8 +14,8 @@ import { returnFocus } from '../../lib/focus'
 
 export function ColumnOrderMenu({ period, name, disabled, submit }: { period: PlanningPeriod; name: string; disabled: boolean; submit: (action: Action) => Promise<unknown> }) {
   const [open, setOpen] = useState(false)
+  const [focusReturn, setFocusReturn] = useState<{ periodId: string; origin: 'pointer' | 'keyboard' } | null>(null)
   const trigger = useRef<HTMLButtonElement>(null), action = useRef<HTMLButtonElement>(null)
-  const currentPeriod = useRef(period.id); currentPeriod.current = period.id
   const close = () => {
     setOpen(false)
     if (action.current === document.activeElement) trigger.current?.focus({ preventScroll: true })
@@ -26,6 +26,14 @@ export function ColumnOrderMenu({ period, name, disabled, submit }: { period: Pl
     return () => cancelAnimationFrame(frame)
   }, [open])
   useEffect(() => setOpen(false), [period.id, disabled])
+  useLayoutEffect(() => {
+    if (!focusReturn) return
+    if (focusReturn.periodId !== period.id) { setFocusReturn(null); return }
+    if (disabled) return
+    setFocusReturn(null)
+    const control = trigger.current
+    if (control && !control.disabled && (document.activeElement === document.body || document.activeElement === control)) returnFocus(control, focusReturn.origin)
+  }, [disabled, period.id, focusReturn])
   const horizon = period.horizon
   if (horizon === 'year') return null
   return <Popover open={open} onClose={close} floating align="end" anchor={
@@ -37,13 +45,10 @@ export function ColumnOrderMenu({ period, name, disabled, submit }: { period: Pl
       if (event.key === 'Tab') close()
     }}>
       <button ref={action} type="button" className="menu-item" role="menuitem" disabled={disabled} onClick={async event => {
-        const focused = action.current === document.activeElement, origin = event.detail > 0 ? 'pointer' : 'keyboard'
+        const origin = event.detail > 0 ? 'pointer' : 'keyboard'
         close()
         const result = await submit({ type: 'materializeParentOrder', horizon, period: { kind: 'date', startDate: period.startDate } })
-        if (result && focused) requestAnimationFrame(() => {
-          const control = trigger.current
-          if (currentPeriod.current === period.id && control && !control.disabled && (document.activeElement === document.body || document.activeElement === control)) returnFocus(control, origin)
-        })
+        if (result) setFocusReturn({ periodId: period.id, origin })
       }}><Icon name="refresh" size={16} /><span>{messages.sortByParent}</span></button>
     </div>
   </Popover>

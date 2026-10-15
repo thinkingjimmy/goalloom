@@ -61,7 +61,7 @@ renderer/
 │   │   ├── Board.tsx        # Unified periods, default-inline/optional folded completion, QuickAdd, review guides, independent gestures, virtual source pinning and preserved focus
 │   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
-│   │   ├── ColumnOrderMenu.tsx # Accessible current/future column action for one-shot parent arrangement
+│   │   ├── ColumnOrderMenu.tsx # One-shot arrangement; focus returns after guarded writes re-enable the trigger
 │   │   ├── useBoardDrag.ts # Free pointer/keyboard edge sorting, usable middle-row nesting and guarded saved-order projections
 │   │   ├── NestingPicker.tsx # Keyboard root selection, bounded current/future/Later search, placement revalidation and source focus return
 │   │   ├── TaskContext.tsx # Compact archived/cancelled parent context shared by current and past groups
