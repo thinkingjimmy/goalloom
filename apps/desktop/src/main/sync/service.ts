@@ -1,8 +1,9 @@
 /**
  * [INPUT]: OS cipher, storage worker, system browser and an optional anon key.
- * [OUTPUT]: Google sign-in, a sync password, and an encrypted op exchange. The board stays usable when sync is off.
+ * [OUTPUT]: On-demand Google sign-in, automatic saved-session restoration, a sync password, and encrypted op exchange. Unused/signed-out sync does not access the keychain at startup.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
  * The password is held in memory only until a join finishes or ten minutes pass.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { hostname } from 'node:os'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
@@ -17,7 +18,7 @@ import { redactSyncOp, type RemoteEnvelope } from '@goalloom/store-core'
 import { DomainError } from '../../shared/contracts/commands'
 import { syncActionSchema, syncReplySchema, type SyncAction, type SyncReply, type SyncStatus } from '../../shared/contracts/sync'
 import type { StorageClient } from '../storage/client'
-import type { Cipher } from '../smart/credentials'
+import { CredentialError, type Cipher } from '../smart/credentials'
 import { readSyncConfig } from './config'
 import { googleSignIn, supabaseClient, type OAuthListenOptions } from './oauth'
 import { SyncVault, type VaultSecrets } from './vault'
@@ -94,14 +95,23 @@ export class SyncService {
   }
 
   async start(): Promise<void> {
+    await this.initialize(false)
+  }
+
+  private async initialize(interactive: boolean, signal?: AbortSignal): Promise<void> {
+    if (this.client) return
     const config = readSyncConfig(this.deps.userData)
     if (!config.anonKey) { this.phase = 'unconfigured'; this.publish(); return }
-    if (!this.vault.available) { this.phase = 'locked'; this.publish(); return }
     this.started = true
-    try { this.secrets = await this.vault.load() }
-    catch {
+    try {
+      this.secrets = await this.vault.load({ resumeOnly: !interactive, ...(signal ? { signal } : {}) })
+      if (signal?.aborted) return
+      if (!this.secrets && !interactive) { this.phase = 'signed-out'; this.publish(); return }
+      if (!this.secrets && !this.vault.available) throw new CredentialError('unavailable')
+    } catch (error) {
+      if (signal?.aborted) return
       this.phase = 'locked'
-      this.error = 'storage'
+      this.error = error instanceof CredentialError ? null : 'storage'
       this.secrets = null
       this.publish()
       return
@@ -110,7 +120,7 @@ export class SyncService {
     this.client = supabaseClient(config.url, config.anonKey, this.sessionStorage())
     this.remote = createFetchRemote({ url: config.url, anonKey: config.anonKey, accessToken: () => this.accessToken() })
     this.client.auth.onAuthStateChange((_event, session) => { void this.keepSession(session).catch(() => undefined) })
-    if (this.secrets.refreshToken) {
+    if (!interactive && this.secrets.refreshToken) {
       const refreshed = await this.client.auth.refreshSession({ refresh_token: this.secrets.refreshToken }).catch(() => null)
       if (refreshed?.data.session) {
         this.email = refreshed.data.session.user.email ?? null
@@ -120,7 +130,7 @@ export class SyncService {
         this.error = refreshed ? 'auth' : 'network'
         this.offline = !refreshed
       }
-    } else this.phase = 'signed-out'
+    } else if (!interactive) this.phase = 'signed-out'
     this.poll = setInterval(() => { void this.tick() }, 8_000)
     this.poll.unref()
     this.publish()
@@ -172,13 +182,14 @@ export class SyncService {
   }
 
   private async signIn(): Promise<void> {
-    if (!this.client || !this.remote || !this.secrets) return
     const abort = new AbortController()
     this.signInAbort = abort
     this.phase = 'signing-in'
     this.error = null
     this.publish()
     try {
+      if (!this.client) await this.initialize(true, abort.signal)
+      if (abort.signal.aborted || !this.client || !this.remote || !this.secrets) return
       const session = await this.requestSignIn(abort.signal)
       if (abort.signal.aborted) return
       this.email = session.user.email ?? null

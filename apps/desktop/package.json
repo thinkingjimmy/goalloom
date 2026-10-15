@@ -31,6 +31,7 @@
     "test:recovery": "node tests/recovery.mjs",
     "test:performance": "node tests/performance.mjs",
     "test:startup": "node tests/startup.mjs",
+    "test:credentials": "node tests/credentials.mjs",
     "test:composer": "node tests/composer.mjs",
     "test:due-dates": "node tests/due-dates.mjs",
     "test:language": "node tests/language.mjs",

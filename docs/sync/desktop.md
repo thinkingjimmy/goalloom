@@ -10,6 +10,14 @@ Preferences and API keys use that same log. A theme, language, shortcut or saved
 
 `collapseCompleted` uses the existing encrypted `pref.set` log and renderer settings IPC. Missing/invalid local values default to `false`; untouched defaults are not seeded. Remote application does not echo a local write and waits for active inline edits/drags to end before changing the board projection. It never changes task data, history or undo membership.
 
+## Credential access at startup
+
+Startup reads the local vault file before accessing the OS cipher. A missing vault or a saved signed-out session does not check, encrypt or decrypt through the keychain. Opening Settings or reading sync status also does not request access. Clicking Google sign-in authorizes the first cipher access. Saved signed-in sessions still refresh automatically. Saved AI keys keep their existing independent restoration path.
+
+The vault stores a public resume flag beside the encrypted bytes in one atomic file replacement. The flag only controls automatic access; it is not an authentication or encryption boundary. Signing out clears that flag while preserving the encrypted device and account keys. Legacy vaults have no public flag, so they must be opened once and rewritten in the current format after successful decryption. Missing access or a damaged vault must never replace the encrypted data with new keys or plaintext.
+
+Failure cases for acceptance: unused sync touches the cipher at launch or when Settings opens; Google sign-in does not initialize on demand; cancellation during initialization still opens the browser; unavailable or denied access opens OAuth or replaces saved keys; active sessions stop restoring; signed-out sessions request access again; a legacy vault loses its keys; saved AI credentials stop restoring. The source Electron scenario is `pnpm test:credentials`; its synthetic cipher and cloud transport do not verify the macOS authorization dialog or packaged upgrades.
+
 ## What the owner configures
 
 Do not commit the anon key or the Google client secret.

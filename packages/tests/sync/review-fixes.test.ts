@@ -422,6 +422,8 @@ it('cancels an in-flight sign-in without an auth notice and resets cloud data ba
   await writeFile(join(userData, 'sync-config.json'), JSON.stringify({ anonKey: 'test-anon-key' }))
   let resets = 0
   let release: (() => void) | null = null
+  let signInStarted!: () => void
+  const startingSignIn = new Promise<void>(resolve => { signInStarted = resolve })
   const service = new SyncService({
     userData, cipher,
     storage: { call: async () => ({ workspaceId: null, deviceId: null, generation: '', keyEpoch: null, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 0 }) } as unknown as StorageClient,
@@ -429,11 +431,12 @@ it('cancels an in-flight sign-in without an auth notice and resets cloud data ba
     beginSignIn: (_client, _open, options) => new Promise((resolve, reject) => {
       options?.signal?.addEventListener('abort', () => reject(new SyncFailure('auth', 'cancelled')))
       release = () => resolve({ user: { email: 'jimmy@example.com' } } as never)
+      signInStarted()
     }),
   })
   await service.start()
   const pending = service.handle({ type: 'sign-in' })
-  await new Promise(resolve => setImmediate(resolve))
+  await startingSignIn
   const cancelled = await service.handle({ type: 'cancel' })
   expect(cancelled.status.phase).toBe('signed-out')
   expect(cancelled.status.error).toBeNull()

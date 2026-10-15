@@ -126,6 +126,8 @@ macOS still verifies `.app` and `.dmg` with codesign, expected TeamIdentifier, G
 
 日常功能验收范围 = **本次新增／修改场景的 E2E ＋ 所属功能的全部 E2E**。不要求运行其他功能，也不以仓库全量通过作为功能完成、提交、push 或合入 `main` 的条件。执行规则以 [AGENTS.md](../AGENTS.md#validation-scope) 为准，下表维护功能与现有脚本的映射。
 
+Credential startup/sign-in changes use `pnpm test:credentials` after `pnpm build`, in addition to the desktop sync row below. It covers unused/signed-out startup without OS cipher access, explicit sign-in/cancellation, existing/legacy session restoration, independent saved AI keys and unavailable/denied/corrupt vault preservation. Reports and native-window screenshots: `apps/desktop/output/tests/credentials/`. OS cipher and cloud responses are synthetic; native permission dialogs and packaged upgrades remain manual acceptance.
+
 - 开发中只跑当前需要验证的场景；完成后跑齐受影响功能。新增／修改场景若已在该功能脚本中通过，无需重复跑；多个功能共用的命令只执行一次。通过后仅在相关代码变化或出现失败时重跑。
 - 运行前简述受影响功能、所选命令及理由。按用户行为和共享契约判断影响，不按改动文件数量扩大范围；共用组件、状态、IPC、存储只追加实际受影响的功能。其他脚本仅把某功能作为初始化步骤，不算该功能的专门覆盖。
 - 优先使用脚本实际支持的场景／分组入口，例如 `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs virtual`；不要默认执行整个 `test:review`。没有筛选能力的混合脚本按完整脚本运行，并说明粒度限制，不因此追加其他套件。新增或迁移用例时同步更新下表。

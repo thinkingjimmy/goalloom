@@ -63,6 +63,7 @@ Electron scenarios (this directory)
 ├── due-dates.mjs        # Deadline calendar: real Electron draft/save boundaries, leap/month/week keyboard navigation, focus/info layers, five locales and four themes; output/tests/due-calendar/
 ├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
+├── credentials.mjs      # Native startup/Settings without cipher access, explicit sign-in, saved-session/AI restoration, sign-out/reconnect and denied/corrupt vault preservation; synthetic cipher/cloud, real IPC/SQLite; output/tests/credentials/
 ├── relations.mjs        # Relation lines/dots, geometry and board-ordered filters; --flow-dot selects parent-panel headings/search/checked links and positioning; full mode retains moves/undo/shortcuts/reload and gesture acceptance
 ├── relation-drag.mjs    # Native flow-valid parent/child search, colorless rejection, root promotion/adoption/undo, receipt recovery, ordering, clipped autoscroll and five locales; output/tests/relation-drag
 ├── language.mjs         # System language, setup/settings switching, 720/1280px single-line settings navigation (real paused state with synthetic credentials, localized icons and no service/backup/trash metadata) and content-sized review choices, main/worker copy, persistence, flow/detail menus and reviews; five-locale screenshots and output/tests/language.json
@@ -79,6 +80,7 @@ Electron scenarios (this directory)
 ├── review/              # 已确认缺陷、输入/维护竞态、长列、wire、增长曲线和大备份回归
 └── fixtures/
     ├── setup.mjs        # Shared welcome local-use choice, then real calendar → annual direction → AI setup; optional mode/timezone/week-start/anchor
+    ├── credential-entry.mjs # Pre-main cipher call counting, synthetic cloud/browser transport and disabled system protocol registration for isolated credential scenarios
     ├── completed-layout.mjs # Localized native settings driver for explicit inline/folded completion coverage
     ├── legacy-v5.ts     # Frozen v5/v6 DDL used only to construct synthetic legacy import fixtures
     ├── subtasks-data.ts # Two-level/effective graph, group order/movement/hold, bounded inherited AI context, scoped undo, source-aware import and protected v8 upgrade

@@ -1,13 +1,16 @@
 /**
  * [INPUT]: OS cipher and the device directory.
- * [OUTPUT]: Device keys, the workspace key, and the refresh token. Missing keychain refuses to persist.
- * [POS]: Desktop secret store. The workspace database does not contain these keys.
+ * [OUTPUT]: Encrypted device/account keys and a public session-resume flag in one atomic file. Missing/inactive sessions can be checked without the OS cipher.
+ * [POS]: Desktop secret store. Legacy bytes migrate only after successful decryption; unavailable access never replaces saved keys.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { hex, unhex, type RosterBody } from '@goalloom/crypto'
-import type { Cipher } from '../smart/credentials'
+import { CredentialError, type Cipher } from '../smart/credentials'
+
+const vaultHeader = Buffer.from('Goalloom sync vault 1\n')
 
 const accountSchema = z.strictObject({
   deviceId: z.string().nullable(),
@@ -67,14 +70,21 @@ export interface VaultSecrets {
 export class SyncVault {
   constructor(private directory: string, private cipher: Cipher) {}
   get available(): boolean { return this.cipher.available() }
-  async load(): Promise<VaultSecrets | null> {
-    if (!this.available) return null
+  async load({ resumeOnly = false, signal }: { resumeOnly?: boolean; signal?: AbortSignal } = {}): Promise<VaultSecrets | null> {
     let bytes: Buffer
-    try { bytes = await readFile(join(this.directory, 'sync-vault.bin')) }
+    try { bytes = await readFile(join(this.directory, 'sync-vault.bin'), { signal }) }
     catch (error) {
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return null
       throw error
     }
+    const legacy = !bytes.subarray(0, vaultHeader.length).equals(vaultHeader)
+    if (!legacy) {
+      const resume = bytes[vaultHeader.length]
+      if (resume !== 0 && resume !== 1) throw new Error('Invalid sync vault header')
+      if (resumeOnly && resume === 0) return null
+      bytes = bytes.subarray(vaultHeader.length + 1)
+    }
+    if (!this.available) throw new CredentialError('unavailable')
     const parsed = fileSchema.parse(JSON.parse(this.cipher.decrypt(bytes)))
     const accounts: Record<string, AccountSecrets> = {}
     for (const [userId, account] of Object.entries(parsed.accounts)) {
@@ -85,7 +95,7 @@ export class SyncVault {
         recoverySignSk: account.recoverySignSk ? unhex(account.recoverySignSk) : null,
       }
     }
-    return {
+    const secrets: VaultSecrets = {
       deviceId: parsed.deviceId, signSk: unhex(parsed.signSk), boxSk: unhex(parsed.boxSk),
       workspaceKey: parsed.workspaceKey ? unhex(parsed.workspaceKey) : null,
       workspaceId: parsed.workspaceId, generation: parsed.generation, epoch: parsed.epoch,
@@ -94,9 +104,11 @@ export class SyncVault {
       recoverySignSk: parsed.recoverySignSk ? unhex(parsed.recoverySignSk) : null,
       refreshToken: parsed.refreshToken, userId: parsed.userId, accounts,
     }
+    if (legacy) await this.save(secrets)
+    return secrets
   }
   async save(secrets: VaultSecrets): Promise<void> {
-    if (!this.available) throw new Error('keychain')
+    if (!this.available) throw new CredentialError('unavailable')
     const accounts: Record<string, z.infer<typeof accountSchema>> = {}
     for (const [userId, account] of Object.entries(secrets.accounts)) {
       accounts[userId] = {
@@ -117,7 +129,7 @@ export class SyncVault {
     })
     const encrypted = this.cipher.encrypt(body)
     const path = join(this.directory, 'sync-vault.bin')
-    await writeFile(`${path}.tmp`, encrypted)
+    await writeFile(`${path}.tmp`, Buffer.concat([vaultHeader, Buffer.from([secrets.refreshToken ? 1 : 0]), encrypted]), { mode: 0o600 })
     await rename(`${path}.tmp`, path)
   }
   async clear(): Promise<void> {
