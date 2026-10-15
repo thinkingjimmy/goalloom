@@ -75,7 +75,7 @@ pnpm package:dir          # 当前平台本地目录包
 
 桌面安装包可以在 GitHub Actions 上打出，不必在本机 Mac 上执行 `package:mac` / `package:win`。工作流是 [`.github/workflows/release.yml`](../.github/workflows/release.yml)，汇总脚本是 [`.github/scripts/draft-release.sh`](../.github/scripts/draft-release.sh)。
 
-- 触发：Actions 页手动运行 `workflow_dispatch`，或推送匹配 `v*` 的 tag（例如 `v1.8.0`）。没有 `pull_request` 或 `pull_request_target`，fork 的拉取请求拿不到签名 secret。手动运行默认只上传 Actions artifact，不创建、不更新、也不发布 Release；勾选 `update_draft` 后才会和 tag 推送一样去创建或更新草稿。tag 必须等于 `v` 加上 `apps/desktop/package.json` 的版本，且根 `package.json` 版本相同。对不上就失败，不创建 Release。
+- 触发：只在 Actions 页手动运行 `workflow_dispatch`。推送 tag 不触发工作流。没有 `pull_request` 或 `pull_request_target`，fork 的拉取请求拿不到签名 secret。手动运行默认只上传 Actions artifact，不创建、不更新、也不发布 Release；勾选 `update_draft` 后才会创建或更新草稿。tag 必须等于 `v` 加上 `apps/desktop/package.json` 的版本，且根 `package.json` 版本相同。对不上就失败，不创建 Release。
 - Runner：macOS 与 Windows 先各自做 `typecheck` / `pnpm test` / `pnpm build`，这两个测试 job 不声明 environment、也不读取签名 secret。通过后 `macos-15`（arm64）才签名并公证，`windows-2025`（x64）另行打包。需要草稿时，`ubuntu-latest` 校验文件、写 `SHA256SUMS.txt` 并更新草稿；只做签名测试时这个 job 不运行。同一时间只跑一个这样的工作流。
 - 托管门禁，用来代替本机完整 `pnpm verify` 里能在托管 runner 上跑的部分：`pnpm typecheck`、`pnpm test`、`pnpm build`，然后 `package:mac` / `package:win`（仍 `--publish never`，并跑现有包体报告），再跑 `ci.yml` 里已有的打包后冒烟（`tests/workspace.mjs`、`tests/history.mjs`、`tests/recovery.mjs` 指向打好的应用）。macOS job 在冒烟之前检查 `.app` 与 `.dmg`：两者都做 `codesign --verify --deep --strict`、`codesign -dv` 和 `xcrun stapler validate`。`codesign -dv` 打出签名里的 TeamIdentifier，并与 `APPLE_TEAM_ID` 比较；不相等就失败，日志不打印这个 secret。`.app` 的 Gatekeeper 评估是 `spctl -a -vv --type execute`。`.dmg` 是 `spctl -a -vvv -t open --context context:primary-signature`；不带这个 context 时，已装订的映像会被报成 `source=Insufficient Context`。包体报告在比对语言白名单前把相对路径里的反斜杠换成正斜杠。1.8.0 的 ASAR 基线按实测写在 `apps/desktop/scripts/build/package-budgets.json`（darwin-arm64 3170678 字节，win32-x64 3170712 字节）。主进程打包了 `@supabase/supabase-js`，不再把它留成运行时依赖。这不是完整 `pnpm verify`，也不代替 Windows 11 实机或负责人的安装验收。
 - 上传的文件：`Goalloom-<v>-mac-arm64.dmg`、`Goalloom-<v>-mac-arm64.zip`、`Goalloom-<v>-mac-arm64.zip.blockmap`、`latest-mac.yml`、`Goalloom-<v>-win-x64.exe`、`Goalloom-<v>-win-x64.exe.blockmap`、`latest.yml`，以及与 1.6.0 相同两空格格式的 `SHA256SUMS.txt`（覆盖这七个文件，不含校验文件自身）。缺任何一个都会失败。
@@ -91,7 +91,7 @@ Environment 由仓库管理员创建，工作流不会替你建：
 2. Deployment branches and tags 选 Selected branches and tags。加上分支 `main`，再加上 tag 规则 `v*`。不要选 All branches。
 3. 把下面六个 secret 建在这个 environment 里，然后从仓库级 Actions secrets 删掉同名项。留在仓库级的话，没有 `environment: release` 的 job 仍然读得到。
 4. `GOALLOOM_SUPABASE_ANON_KEY` 和 `GOALLOOM_SUPABASE_URL` 仍是仓库级 secret。Windows job 不进入 `release` environment，放进去会让 Windows 包读不到。
-5. 限制生效之后，手动测试必须从 `main`（或该 environment 允许的其他分支）跑。不在允许列表里的分支（例如尚未合并的功能分支）会让 macOS 签名 job 在环境规则处被拒绝，准备步骤里的「缺 secret 只报名字」检查不会执行。合并前要试跑，就把该分支临时加进 deployment branches，跑完删掉。推送 `v*` tag 本身在允许范围内。
+5. 限制生效之后，手动测试必须从 `main`（或该 environment 允许的其他分支或 tag）跑。不在允许列表里的分支（例如尚未合并的功能分支）会让 macOS 签名 job 在环境规则处被拒绝，准备步骤里的「缺 secret 只报名字」检查不会执行。合并前要试跑，就把该分支临时加进 deployment branches，跑完删掉。
 
 缺任何一个签名 secret，macOS job 失败并只打印 secret 名字，不打未签名包。
 
@@ -185,7 +185,7 @@ macOS still verifies `.app` and `.dmg` with codesign, expected TeamIdentifier, G
 - 失败时先看应用自身的焦点／可见性、活动元素、输入目标及已有截图／日志，不采集其他应用的屏幕内容。有证据确认环境干扰且消除原因后，只补跑受影响场景一次；不支持单场景入口时跑最小包含脚本，使用全新隔离测试数据，不重跑其他已通过的功能。
 - 环境仍不满足前提时，将相应用例明确标为“环境干扰，尚未验证”；原因不明则保留待排查，不能直接跳过、标为通过或认定产品缺陷。依赖前台的测试优先放到隔离桌面运行，不靠反复抢焦点或要求负责人停止使用电脑维持测试；其他独立工作继续推进。
 
-`.github/workflows/ci.yml` 仅手动触发，做更宽的桌面检查，不创建 Release，macOS 打包保持未签名，也不使用 `release` environment。`release.yml` 由手动运行或推送 `v*` tag 触发，在托管 macOS arm64 与 Windows x64 上打包；只有 macOS 签名 job 进入 `release` environment 并公证。只有 tag 推送或手动勾选 `update_draft` 时才更新草稿 Release，见上文「托管打包与草稿 Release」。Windows 11 实机输入、安装与升级验收仍由负责人完成。
+`.github/workflows/ci.yml` 仅手动触发，做更宽的桌面检查，不创建 Release，macOS 打包保持未签名，也不使用 `release` environment。`release.yml` 同样只手动运行，在托管 macOS arm64 与 Windows x64 上打包；只有 macOS 签名 job 进入 `release` environment 并公证。只有手动勾选 `update_draft` 时才更新草稿 Release，见上文「托管打包与草稿 Release」。Windows 11 实机输入、安装与升级验收仍由负责人完成。
 
 ## 代码地图
 

@@ -1,8 +1,8 @@
 name: Draft desktop release
 
 # Manual dispatch builds artifacts and does not publish. Leave `update_draft`
-# off for a signing test (Actions artifacts only). Check it, or push a v* tag,
-# to also create or update a draft Release. The draft job never publishes and
+# off for a signing test (Actions artifacts only). Check it to create or update
+# a draft Release. The draft job never publishes and
 # never changes the prerelease flag.
 # Hosted gates are typecheck, pnpm test, build, packaging, and the packaged
 # smokes from ci.yml. Full local `pnpm verify` is unchanged.
@@ -17,9 +17,6 @@ on:
         required: false
         type: boolean
         default: false
-  push:
-    tags:
-      - "v*"
 
 permissions:
   contents: read
@@ -277,7 +274,7 @@ jobs:
   draft:
     name: Draft GitHub Release
     needs: [package-mac, package-win]
-    if: github.event_name == 'push' || inputs.update_draft == true
+    if: inputs.update_draft == true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
