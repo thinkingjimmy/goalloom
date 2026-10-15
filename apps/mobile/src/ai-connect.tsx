@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   tag: { fontSize: 12, fontWeight: '600', overflow: 'hidden', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   connected: { fontSize: 17, fontWeight: '600' },
   link: { fontSize: 16 },
-  primary: { height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: INK },
+  primary: { minHeight: 52, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: INK },
   disabled: { opacity: 0.38 },
   primaryText: { color: INK_TEXT, fontSize: 17, fontWeight: '600' },
   sheetWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },

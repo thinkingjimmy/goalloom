@@ -1,4 +1,5 @@
 .expo/
 node_modules/
-ios/
-android/
+# Prebuild output only. A bare ios/ or android/ also hides local Expo module sources.
+/ios/
+/android/

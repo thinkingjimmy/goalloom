@@ -70,6 +70,9 @@ const minimalDark: Theme = {
   cardRadius: 10, controlRadius: 6, rowRadius: 6, sheetRadius: 12,
 }
 
+/** Orange mark on the selected setup card, today, and a timezone search hit. */
+export const accentOrange = '#E36B2E'
+
 export function themeFor(scheme: Scheme, style: BoardStyle = 'paper'): Theme {
   if (style === 'minimal') return scheme === 'dark' ? minimalDark : minimalLight
   return scheme === 'dark' ? paperDark : paperLight
