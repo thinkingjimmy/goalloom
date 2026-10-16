@@ -10,15 +10,26 @@ import { pathToFileURL } from 'node:url'
 
 const fixture = globalThis.credentialFixture = {
   mode: process.env.GOALLOOM_CREDENTIAL_MODE ?? 'available',
-  available: 0, encrypt: 0, decrypt: 0, refreshed: 0, browser: 0, unexpected: [],
+  available: 0, encrypt: 0, decrypt: 0, refreshed: 0, browser: 0, unexpected: [], cipherAppNames: [],
 }
+if (process.env.GOALLOOM_CREDENTIAL_APP_DATA) app.setPath('appData', process.env.GOALLOOM_CREDENTIAL_APP_DATA)
 app.setAsDefaultProtocolClient = () => false
-safeStorage.isEncryptionAvailable = () => { fixture.available++; return fixture.mode !== 'unavailable' }
+if (fixture.mode === 'missing-policy') {
+  const dlopen = process.dlopen
+  process.dlopen = function (module, filename, flags) {
+    if (filename.endsWith('/keychain-policy.node')) throw Error('Synthetic native policy load failure')
+    return dlopen.call(this, module, filename, flags)
+  }
+}
+const recordCipherName = () => { if (!fixture.cipherAppNames.includes(app.name)) fixture.cipherAppNames.push(app.name) }
+safeStorage.isEncryptionAvailable = () => { recordCipherName(); fixture.available++; return fixture.mode !== 'unavailable' }
 safeStorage.encryptString = text => {
+  recordCipherName()
   fixture.encrypt++
   return Buffer.from(text).map(byte => byte ^ 0x5a)
 }
 safeStorage.decryptString = data => {
+  recordCipherName()
   fixture.decrypt++
   if (fixture.mode === 'denied') throw Error('Synthetic keychain denial')
   return Buffer.from(data).map(byte => byte ^ 0x5a).toString()

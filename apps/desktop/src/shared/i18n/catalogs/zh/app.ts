@@ -202,7 +202,7 @@ export const appMessages = widen({
       malformed_response: () => 'Jev 返回的结果不符合约定，未使用；草稿已保留',
       request_failed: (_name: string, status: number | null) => `调用未成功${status ? `（HTTP ${status}）` : ''}，这不代表 Key 失效`,
       too_large: () => '内容超过本次可发送的大小，请缩短或分批整理',
-      credential_unreadable: () => '无法读取已保存的密钥：可能拒绝了系统钥匙串授权，或应用更新后身份变化。可重试授权或重新填写',
+      credential_unreadable: () => '无法读取已保存的密钥，加密文件已保留。请检查系统凭据访问权限后重试',
       credential_unavailable: () => '系统凭据保护暂不可用，未保存或读取密钥；请稍后重试',
       not_enabled: () => '智能输入未启用或配置已变化，本次内容没有发送',
     },

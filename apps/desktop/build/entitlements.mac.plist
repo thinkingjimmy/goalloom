@@ -10,9 +10,9 @@
     <true/>
     <!--
       com.apple.security.cs.disable-library-validation is intentionally absent.
-      SQLite is Electron's built-in node:sqlite. The package ships no unsigned
-      native addon such as better-sqlite3, and electron-builder re-signs the
-      Electron frameworks with the same Developer ID.
+      SQLite is Electron's built-in node:sqlite. The Keychain policy module and
+      Electron frameworks are re-signed with the same Developer ID. The package
+      does not depend on unsigned native modules.
     -->
   </dict>
 </plist>

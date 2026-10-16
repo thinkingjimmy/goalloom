@@ -123,7 +123,7 @@ export const smartMessages = widen({
   capabilityOk: (name: string) => `${name} 可用`,
   capabilityFailed: (name: string, reason: string) => `${name}：${reason}`,
   sampleMismatch: '连接成功；样例判断与预期不同，这属于判断质量，不代表 Key 无效。',
-  unsigned: '当前为未签名的私测版：更新应用后系统可能再次请求钥匙串授权，或需要重新填写 Key。',
+  unsigned: '开发版使用独立的凭据，请为此版本单独配置 Key。',
   // --- Settings › AI services ---
   aiGroup: 'AI',
   aiSection: 'AI 服务',

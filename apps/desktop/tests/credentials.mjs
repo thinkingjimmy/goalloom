@@ -41,8 +41,8 @@ const waitForBrowser = () => application.evaluate(async () => {
   }
 })
 async function close() { await application?.close(); application = null; page = null }
-async function launch(profile, mode = 'available') {
-  application = await electron.launch({ args: [resolve('tests/fixtures/credential-entry.mjs'), `--user-data-dir=${profile}`], env: { ...environment, GOALLOOM_CREDENTIAL_MODE: mode }, timeout: 30_000 })
+async function launch(profile, mode = 'available', appData = null) {
+  application = await electron.launch({ args: [resolve('tests/fixtures/credential-entry.mjs'), ...(profile ? [`--user-data-dir=${profile}`] : [])], env: { ...environment, GOALLOOM_CREDENTIAL_MODE: mode, ...(appData ? { GOALLOOM_CREDENTIAL_APP_DATA: appData } : {}) }, timeout: 30_000 })
   page = await application.firstWindow()
   page.on('pageerror', error => { report.rendererErrors ??= []; report.rendererErrors.push(error.message) })
   await page.locator('.start-cards, .board').first().waitFor()
@@ -74,10 +74,27 @@ async function googleFromSettings() {
 }
 
 try {
+  const appData = join(temporary, 'default-app-data')
+  const productionData = join(appData, 'Goalloom')
+  await mkdir(productionData, { recursive: true })
+  await writeFile(join(productionData, 'production-marker'), 'Synthetic production data stays untouched')
+  await launch(null, 'available', appData)
+  const identity = await application.evaluate(({ app }) => ({ name: app.name, userData: app.getPath('userData') }))
+  assert.equal(identity.name, 'Goalloom Development')
+  assert.equal(identity.userData, join(appData, 'Goalloom Development'))
+  assert.equal(await readFile(join(productionData, 'production-marker'), 'utf8'), 'Synthetic production data stays untouched')
+  await noCipher()
+  await record('development-identity')
+  report.identity = identity
+  check('source launches use a separate application/keychain name and default data directory')
+  await close()
+
   const local = join(temporary, 'local')
   await mkdir(local)
   await writeFile(join(local, 'preferences.json'), JSON.stringify({ language: 'zh' }))
   await launch(local)
+  assert.equal(await application.evaluate(({ app }) => app.getPath('userData')), local)
+  check('explicit isolated profile paths remain unchanged')
   assert.equal((await metrics()).available, 0, 'Unused sync must not check the keychain at startup')
   await finishSetup(page)
   await page.locator('.board').waitFor()
@@ -171,6 +188,20 @@ try {
   check('a damaged vault stays recoverable and is never replaced with fresh keys')
   await close()
 
+  if (process.platform === 'darwin') {
+    const blocked = await clone('missing-native-policy', template)
+    await legacyVault(blocked)
+    const original = await readFile(join(blocked, 'sync-vault.bin'))
+    await launch(blocked, 'missing-policy')
+    assert.equal((await status()).phase, 'locked')
+    await noCipher()
+    assert.deepEqual(await readFile(join(blocked, 'sync-vault.bin')), original)
+    await page.locator('.board').waitFor()
+    await record('missing-native-policy')
+    check('a missing native policy keeps the board usable and never calls the cipher or replaces saved secrets')
+    await close()
+  }
+
   const ai = await clone('ai', template)
   const aiDirectory = join(ai, 'smart-input')
   await mkdir(aiDirectory, { recursive: true })
@@ -188,6 +219,21 @@ try {
   assert.equal((await metrics()).refreshed, 0)
   await record('ai-restored-without-sync')
   check('saved AI credentials remain readable while sync stays signed out')
+  assert.deepEqual((await metrics()).cipherAppNames, ['Goalloom Development'])
+  await close()
+  for (const mode of ['denied', 'unavailable']) {
+    const original = await readFile(join(aiDirectory, 'openrouter.key'))
+    await launch(ai, mode)
+    const reply = await page.evaluate(async () => window.goalloom.smart({ type: 'status', generation: (await window.goalloom.getSnapshot()).workspace.generation }))
+    assert.equal(reply.type, 'status')
+    assert.equal(reply.status.providers.openrouter.credential, mode === 'denied' ? 'unreadable' : 'unavailable')
+    assert.equal(reply.status.features.smart.enabled, false)
+    assert.deepEqual(await readFile(join(aiDirectory, 'openrouter.key')), original)
+    assert.equal((await metrics()).encrypt, 0)
+    await record(`ai-${mode}`)
+    check(`${mode} AI credentials stay encrypted while the app remains usable`)
+    await close()
+  }
   assert.deepEqual(report.rendererErrors ?? [], [])
   report.ok = true
 } catch (error) {

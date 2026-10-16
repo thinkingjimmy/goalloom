@@ -64,7 +64,9 @@ Electron scenarios (this directory)
 ├── due-dates.mjs        # Deadline calendar: real Electron draft/save boundaries, leap/month/week keyboard navigation, focus/info layers, five locales and four themes; output/tests/due-calendar/
 ├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
-├── credentials.mjs      # Native startup/Settings without cipher access, explicit sign-in, saved-session/AI restoration, sign-out/reconnect and denied/corrupt vault preservation; synthetic cipher/cloud, real IPC/SQLite; output/tests/credentials/
+├── credentials.mjs      # Startup/Settings without cipher access, sign-in/session/AI restoration, denied/corrupt preservation and missing-native fail-closed startup; synthetic cipher/cloud, real IPC/SQLite; output/tests/credentials/
+├── keychain-native.mjs  # Real macOS Security through the production policy: first-use/restart, silent identity/lock rejection, trust and cleanup in disposable private keychains; output/tests/keychain-native/
+├── keychain-package.mjs # Optional local ad-hoc package outside the checkout: native ASAR unpack/sign/load, first use/restart/lock and cleanup; no production signing/notarization; output/tests/keychain-package/
 ├── relations.mjs        # Relation lines/dots, geometry and board-ordered filters; --flow-dot selects parent-panel headings/search/checked links and positioning; full mode retains moves/undo/shortcuts/reload and gesture acceptance
 ├── relation-drag.mjs    # Native flow-valid parent/child search, colorless rejection, root promotion/adoption/undo, receipt recovery, ordering, clipped autoscroll and five locales; output/tests/relation-drag
 ├── language.mjs         # System language, setup/settings switching, 720/1280px single-line settings navigation (real paused state with synthetic credentials, localized icons and no service/backup/trash metadata) and content-sized review choices, main/worker copy, persistence, flow/detail menus and reviews; five-locale screenshots and output/tests/language.json
@@ -83,6 +85,8 @@ Electron scenarios (this directory)
     ├── sync-replay.ts    # Two isolated repositories, encrypted duplicate-link replay, atomic conflicts and storage retry
     ├── setup.mjs        # Shared welcome local-use choice, then real calendar → annual direction → AI setup; optional mode/timezone/week-start/anchor
     ├── credential-entry.mjs # Pre-main cipher call counting, synthetic cloud/browser transport and disabled system protocol registration for isolated credential scenarios
+    ├── keychain-entry.mjs # Source app entry loading the private native probe; startup policy stays owned by production code
+    ├── keychain-native.m # CLI and test-only Node-API private-keychain probe; refuses access if production leaves UI enabled, never packaged
     ├── completed-layout.mjs # Localized native settings driver for explicit inline/folded completion coverage
     ├── legacy-v5.ts     # Frozen v5/v6 DDL used only to construct synthetic legacy import fixtures
     ├── subtasks-data.ts # Two-level/effective graph, group order/movement/hold, bounded inherited AI context, scoped undo, source-aware import and protected v8 upgrade

@@ -123,7 +123,7 @@ export const smartMessages: SmartCatalog = {
   capabilityOk: (name: string) => `${name} works`,
   capabilityFailed: (name: string, reason: string) => `${name}: ${reason}`,
   sampleMismatch: 'Connected. The sample result differs from what was expected; that’s about analysis quality, not an invalid key.',
-  unsigned: 'This is an unsigned private test build: after an update, the system may ask for keychain access again, or you may need to enter the key again.',
+  unsigned: 'Development builds use separate credentials. Configure this build with its own key.',
   // --- Settings › AI services ---
   aiGroup: 'AI',
   aiSection: 'AI services',

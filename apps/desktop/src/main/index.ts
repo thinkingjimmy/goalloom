@@ -1,12 +1,12 @@
 /**
- * [INPUT]: Electron lifecycle, security, storage, smart-input, link-preview and software-update services.
- * [OUTPUT]: Single window, startup/write gates, visible-change notifications, macOS app menu, update notifications, renderer-session cleanup, and focus when a goalloom:// link or the OAuth callback returns.
+ * [INPUT]: Electron lifecycle, application identity, noninteractive Keychain policy, security, storage and desktop services.
+ * [OUTPUT]: Stable packaged identity, isolated development credentials, disabled Keychain dialogs, single window, write gates, notifications and session cleanup.
  * [POS]: Application composition root; the renderer parse overlaps guarded storage startup, and migrations remain protected before writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { app, BrowserWindow, clipboard, dialog, powerMonitor, protocol, screen, session, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { StorageClient } from './storage/client'
 import { registerIpc } from './ipc'
@@ -28,17 +28,19 @@ import { projectSettingRows } from './sync/project-settings'
 import { syncEvent } from '../shared/contracts/sync'
 import { aiRefreshEvent, devicePrefsEvent, languageEvent } from '../shared/contracts/runtime'
 import { isGoalloomProtocol, protocolRegistration, protocolUrlFromArgv, secondInstanceFocus } from './protocol'
+import { applicationIdentity } from './identity'
+import { protectKeychainAccess } from './keychain'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
 const trustedUrl = developmentUrl ?? `${appOrigin}/index.html`
-app.setName('Goalloom')
+const identity = applicationIdentity(app.isPackaged, app.getPath('appData'), app.commandLine.getSwitchValue('user-data-dir'))
+protectKeychainAccess()
+app.setName(identity.name)
 // The native macOS About panel (reachable outside our menu) must name Goalloom, not the development Electron binary.
 app.setAboutPanelOptions({ applicationName: 'Goalloom', applicationVersion: app.getVersion(), version: '' })
-app.setAppUserModelId('com.goalloom.desktop')
-// --- 默认身份稳定；标准 Chromium profile 参数用于隔离运行，不通过 IPC 暴露。 ---
-const profile = app.commandLine.getSwitchValue('user-data-dir')
-app.setPath('userData', profile ? resolve(profile) : join(app.getPath('appData'), 'Goalloom'))
+app.setAppUserModelId(identity.appUserModelId)
+app.setPath('userData', identity.userData)
 protocol.registerSchemesAsPrivileged([{ scheme: 'goalloom', privileges: { standard: true, secure: true, supportFetchAPI: true } }])
 
 let window: BrowserWindow | null = null

@@ -296,9 +296,11 @@ Vercel官方另提供 `https://ai-gateway.vercel.sh/typesafe`，示例仅改变K
 
 Key由main的OS保护凭据层加密保存，不进入业务SQLite、localStorage、应用导出/数据库备份或Git；renderer粘贴后经有限IPC提交并清空，后续只读遮罩。禁SDK/HTTP正文、Authorization、完整响应日志；固定HTTPS、校验证书，不给renderer通用fetch代理或任意endpoint。
 
-**macOS私测已知风险：** 当前README说明包未签名/未公证；unsigned或ad-hoc构建可能因系统无法稳定识别应用身份，在更新后再次请求Keychain权限或无法使用原加密凭据。不是断言每次升级都会丢Key，也不能承诺“改成ad-hoc就解决”。[C9][R6]
+**macOS credential identity:** Published builds use a stable Developer ID identity. Unpackaged development uses `Goalloom Development`, a separate default profile and a separate Safe Storage service, so development/E2E cannot create the production credential item. An explicit test profile does not opt into the production cipher namespace. A valid current signature does not grant access to an old entry created by another identity. [C9][R6]
 
-拒绝授权、暂时无法读取和损坏/失效凭据需区分提示；保留加密文件、允许重试/重新授权，确实不可用再重填。禁止自动明文回退，不能把OS权限错误误报为远端401。私测连接页提示升级可能需重新授权或填写；正式分发前使用有效且一致的签名身份，实际跨版本验证，未获授权不代用户购买签名服务。Windows按实际DPAPI边界测试。记录所有结果，不以开发模式能加密证明升级可靠。[R6]
+**No Keychain dialogs, including first use:** A native Node-API policy disables macOS Keychain interaction before app readiness and before every `safeStorage` availability/encrypt/decrypt call. If the policy cannot load or confirm the setting, the cipher is not called. Allowed first use and saved keys work with OS encryption. Locked or untrusted credentials use the existing in-app unavailable/unreadable state and keep their encrypted files. The app does not ask for a system password, erase keys, edit ACLs or use plaintext. An inaccessible historical credential cannot be restored silently until its system access is repaired outside the app.
+
+Native acceptance uses private synthetic keychains through the production policy to verify first creation, trusted restart, silent identity/lock rejection and cleanup. Missing-native startup and AI/sync ciphertext preservation are source Electron scenarios. Signed packaged upgrades remain a separate acceptance scope. Windows retains its DPAPI boundary. System access errors must not be reported as remote authentication failures. [R6]
 
 ## 8. createPlan、效果和回执
 

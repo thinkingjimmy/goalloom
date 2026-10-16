@@ -1,3 +1,9 @@
+/**
+ * [INPUT]: Built desktop files and package metadata.
+ * [OUTPUT]: Rejection of development entry points, unexpected native modules and unsupported runtime dependencies.
+ * [POS]: Production artifact boundary; macOS must include the noninteractive Keychain policy.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import assert from 'node:assert/strict'
@@ -14,6 +20,10 @@ const bareSupabaseImport = /(?:from|import\()\s*["']@supabase\/supabase-js["']|r
 const output = await files('out')
 for (const path of output) {
   assert(!path.endsWith('.map'), `正式产物不应含源码映射: ${path}`)
+  if (path.endsWith('.node')) {
+    assert.equal(path.replaceAll('\\', '/'), 'out/main/keychain-policy.node', `Unexpected native module: ${path}`)
+    continue
+  }
   const text = await readFile(path, 'utf8')
   const parts = path.split(/[/\\]/)
   const mainBundle = parts[0] === 'out' && parts[1] === 'main'
@@ -21,6 +31,7 @@ for (const path of output) {
   assert(!devEntry.test(scanned), `正式产物含开发/测试入口: ${path}`)
   assert(!bareSupabaseImport.test(text), `正式产物不得在运行时解析 @supabase/supabase-js: ${path}`)
 }
+if (process.platform === 'darwin') assert(output.includes('out/main/keychain-policy.node'), 'macOS build must include the noninteractive Keychain policy')
 const preload = await readFile('out/preload/index.cjs', 'utf8')
 assert(!/require\(["'](?:node:|zod)/.test(preload), '沙箱 preload 不得依赖 Node 或未打包 npm 模块')
 for (const [, dependency] of preload.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)) assert.equal(dependency, 'electron', `Unexpected sandbox dependency: ${dependency}`)

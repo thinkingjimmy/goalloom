@@ -203,7 +203,7 @@ export const appMessages: typeof source = {
       malformed_response: () => 'La respuesta de Jev no cumple el formato acordado y no se usó. El borrador se conserva',
       request_failed: (_name: string, status: number | null) => `La llamada no tuvo éxito${status ? ` (HTTP ${status})` : ''}. Esto no significa que la Key no sea válida`,
       too_large: () => 'El contenido supera el tamaño que se puede enviar. Acórtalo u organízalo por partes',
-      credential_unreadable: () => 'No se puede leer la clave guardada: quizá se denegó el acceso al llavero del sistema o la identidad de la aplicación cambió tras actualizarla. Puedes volver a autorizar o introducirla de nuevo',
+      credential_unreadable: () => 'No se puede leer la clave guardada. El archivo cifrado se conserva. Comprueba el acceso a las credenciales del sistema y vuelve a intentarlo',
       credential_unavailable: () => 'La protección de credenciales del sistema no está disponible por ahora; no se guardó ni se leyó la clave. Vuelve a intentarlo más tarde',
       not_enabled: () => 'La entrada inteligente no está activada o su configuración cambió; este contenido no se envió',
     },

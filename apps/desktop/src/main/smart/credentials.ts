@@ -102,7 +102,7 @@ export class DeviceStore {
     let data: Buffer
     try { data = await readFile(this.keyPath(provider)) } catch { return { state: 'missing' } }
     if (!this.cipher.available()) return { state: 'unavailable' }
-    // A denied Keychain prompt or a changed app identity lands here; the encrypted file stays for a later retry.
+    // Noninteractive denial or a changed identity leaves the encrypted file for a later retry.
     try { return { state: 'saved', key: this.cipher.decrypt(data) } } catch { return { state: 'unreadable' } }
   }
   async removeKey(provider: AiProvider): Promise<void> { await rm(this.keyPath(provider), { force: true }) }

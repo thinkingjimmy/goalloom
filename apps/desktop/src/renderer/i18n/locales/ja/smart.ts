@@ -123,7 +123,7 @@ export const smartMessages: SmartCatalog = {
   capabilityOk: (name: string) => `${name}：利用可能`,
   capabilityFailed: (name: string, reason: string) => `${name}：${reason}`,
   sampleMismatch: '接続できました。サンプルの判断が想定と異なりますが、これは判断の品質の問題で、キーが無効という意味ではありません。',
-  unsigned: '未署名のプライベートテスト版です。更新後にキーチェーンへのアクセスを再度求められたり、キーの再入力が必要になったりすることがあります。',
+  unsigned: '開発版では資格情報を別に保存します。この版専用のキーを設定してください。',
   // --- Settings › AI services ---
   aiGroup: 'AI',
   aiSection: 'AI サービス',

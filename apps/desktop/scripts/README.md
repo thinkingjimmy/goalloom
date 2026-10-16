@@ -11,6 +11,7 @@ scripts/
 │   ├── run.mjs                # `pnpm eval:smart [case-id…]`
 │   └── assistance/            # `pnpm eval:assistance`
 └── build/
+    ├── keychain-policy.ts      # macOS Node-API module compiled and emitted by the main Vite build; Windows skips it
     ├── third-party-notices.mjs
     ├── check-production.mjs
     ├── debug-artifacts.mjs
@@ -24,6 +25,8 @@ scripts/
 这些脚本的路径相对于 `apps/desktop`。根目录的 `/build/` 忽略规则不会屏蔽 `scripts/build/`。正式打包只纳入 `out/` 和 package 元数据。
 
 Calendar code uses native Temporal from the pinned Electron runtime. The polyfill package supplies development types only; the build rejects its runtime and JSBI in all bundles, and rejects Zod in the renderer.
+
+The macOS build also needs Xcode command-line tools. `build/keychain-policy.ts` uses the official `node-api-headers` build dependency and emits `out/main/keychain-policy.node`. The packager unpacks and signs it with the app. The production check requires this exact native module on macOS and rejects other native modules. No runtime compiler or download is required.
 
 `build/notarize.mjs` runs after app signing and before archive creation. With an App Store Connect API key, it uploads once, saves the submission ID, waits for approval, then staples and validates the ticket. The release workflow requires it through `GOALLOOM_REQUIRE_NOTARIZATION=1`; a local build without API-key credentials skips it. The same CLI notarizes the timestamp-signed DMG. Diagnostics go to `output/tests/notarization/`, with credentials redacted. `GOALLOOM_NOTARIZE_UPLOAD_TIMEOUT_MS` (5 minutes), `GOALLOOM_NOTARIZE_WAIT_TIMEOUT_MS` (30 minutes) and `GOALLOOM_NOTARIZE_COMMAND_TIMEOUT_MS` (2 minutes) set command limits; `GOALLOOM_NOTARIZE_EVIDENCE_DIR` can select an isolated report directory. A pending submission continues at Apple after a timeout; use its saved ID to check status before starting another build.
 

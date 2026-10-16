@@ -12,6 +12,8 @@ files:
   - package.json
   - '!node_modules/**/*'
 asar: true
+asarUnpack:
+  - out/main/keychain-policy.node
 compression: normal
 npmRebuild: false
 # Complete app notarization and stapling before DMG/auto-update ZIP creation.
@@ -88,6 +90,8 @@ dmg:
     - { x: 140, y: 180 }
     - { x: 400, y: 180, type: link, path: /Applications }
 win:
+  files:
+    - '!out/main/keychain-policy.node'
   # Declared for the Windows package. NSIS in electron-builder 26 does not emit a protocol registry script;
   # app.setAsDefaultProtocolClient writes the current-user handler when the app starts, and second-instance focuses the window.
   protocols:

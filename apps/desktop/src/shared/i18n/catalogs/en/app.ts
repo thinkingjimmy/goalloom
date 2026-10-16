@@ -203,7 +203,7 @@ export const appMessages: typeof source = {
       malformed_response: () => 'Jev returned a result that doesn’t match the contract, so it wasn’t used. Your draft is kept.',
       request_failed: (_name: string, status: number | null) => `The request didn’t succeed${status ? ` (HTTP ${status})` : ''}. This doesn’t mean the key is invalid.`,
       too_large: () => 'The content is larger than can be sent at once. Shorten it or split it up.',
-      credential_unreadable: () => 'Can’t read the saved key: keychain access may have been denied, or the app identity changed after an update. Retry authorization or enter it again.',
+      credential_unreadable: () => 'The saved key cannot be read. Its encrypted file is unchanged. Check system credential access and try again.',
       credential_unavailable: () => 'System credential protection is unavailable, so the key wasn’t saved or read. Try again later.',
       not_enabled: () => 'Smart input isn’t enabled or its settings changed, so this content wasn’t sent',
     },

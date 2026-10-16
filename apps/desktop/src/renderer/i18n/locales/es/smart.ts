@@ -123,7 +123,7 @@ export const smartMessages: SmartCatalog = {
   capabilityOk: (name: string) => `${name} funciona`,
   capabilityFailed: (name: string, reason: string) => `${name}: ${reason}`,
   sampleMismatch: 'Conectado. El resultado del ejemplo no es el esperado; eso tiene que ver con la calidad del análisis, no con una clave no válida.',
-  unsigned: 'Esta es una versión de prueba privada sin firmar: tras una actualización, el sistema puede volver a pedir acceso al llavero o puede que tengas que introducir la clave de nuevo.',
+  unsigned: 'Las versiones de desarrollo usan credenciales separadas. Configura una clave para esta versión.',
   // --- Settings › AI services ---
   aiGroup: 'IA',
   aiSection: 'Servicios de IA',

@@ -1,3 +1,9 @@
+/**
+ * [INPUT]: Desktop entries, dependency boundaries, sync build configuration and macOS native policy compiler.
+ * [OUTPUT]: Main/preload/renderer bundles with platform-specific native credentials support.
+ * [POS]: Desktop build composition; development/debug output follows the same runtime boundaries.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import { resolve } from 'node:path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
@@ -5,6 +11,7 @@ import tailwindcss from '@tailwindcss/vite'
 import type { RollupLog, LoggingFunction } from 'rollup'
 import type { Plugin } from 'vite'
 import { syncBuildDefine } from './scripts/build/sync-define'
+import { keychainPolicy } from './scripts/build/keychain-policy'
 
 // zod ships /*#__PURE__*/ hints Rollup cannot place; the notice is harmless noise in every build.
 const onwarn = (warning: RollupLog, warn: LoggingFunction) => { if (warning.code !== 'INVALID_ANNOTATION' || !warning.id?.includes('/zod/')) warn(warning) }
@@ -23,7 +30,7 @@ export default defineConfig({
   main: {
     // Separate identifiers from process.env so a runtime env var still wins, and a missing secret stays an empty string.
     define: syncBuildDefine(),
-    plugins: [runtimeBoundary()],
+    plugins: [runtimeBoundary(), keychainPolicy()],
     esbuild: { keepNames: true },
     build: {
       externalizeDeps: false,

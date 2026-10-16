@@ -5,6 +5,8 @@
 ```text
 main/
 ├── index.ts       # 单实例、goalloom:// 唤回前台、先展示后日常备份/核对、首次写入门控、renderer 会话释放与退出排空
+├── identity.ts    # Stable packaged identity/data paths; separate development application name, model ID, default profile and macOS Safe Storage namespace
+├── keychain.ts    # Disable macOS Keychain UI before app readiness and every credential call; missing native policy blocks credentials while preserving the local workspace
 ├── protocol.ts    # 系统协议注册参数与启动参数里的 goalloom:// URL；应用内页面仍走 security.ts 的 goalloom://app
 ├── ipc.ts         # 固定读写入口、来源/会话检查、会话释放取消智能请求/缓存、原生选择后仅向 worker 传受控路径
 ├── security.ts    # 本地协议白名单、生产 CSP、权限/导航/下载拒绝
@@ -24,5 +26,9 @@ main/
 `index.ts` 装配窗口、StorageClient（启动保护失败时显示副本位置与重试/退出）与 SmartInputService；`storage/worker.ts` 装配 SQLite 与 workspace 服务。业务规则由 `workspace → domain / shared/contracts` 消费，持久化通过 storage 落地。storage 的底层适配器不依赖 workspace；worker 是跨层组合入口。
 
 main 只接受唯一窗口主 frame 的已知请求。网络 HTTP 只在 main 的独立智能/链接预览通道与软件更新服务中发生，从不进入存储 worker 串行队列。链接通道只接收 HTTP(S) URL，预览返回惰性文本/受限图片，打开动作交给系统浏览器。renderer 无任意路径、SQL、shell 或原始 IPC。运行时诊断来自真实存储 worker，失败不回退浏览器 mock。`com.goalloom.desktop` 与默认 `appData/Goalloom` 是稳定身份/数据目录。
+
+Unpackaged development and source E2E use `Goalloom Development` and `com.goalloom.desktop.development`. Their default profile and macOS Safe Storage service stay separate from installed production credentials. Explicit test profile paths remain supported. Packaged upgrades keep the existing production identity and data paths.
+
+`keychain.ts` loads the small [native policy](../../native/README.md) shipped beside the main bundle. `smart/electron.ts` checks that policy before availability, encryption and decryption. Keychain authorization/unlock UI stays disabled, including first use. Unavailable protection or access preserves ciphertext and uses existing in-app failure states; it never falls back to plaintext or edits an item's ACL.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

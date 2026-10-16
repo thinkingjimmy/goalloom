@@ -204,7 +204,7 @@ export const appMessages: typeof source = {
       malformed_response: () => 'Le résultat renvoyé par Jev ne respecte pas le format attendu et n’a pas été utilisé. Le brouillon est conservé',
       request_failed: (_name: string, status: number | null) => `L’appel a échoué${status ? ` (HTTP ${status})` : ''}. Cela ne signifie pas que la Key est invalide`,
       too_large: () => 'Le contenu dépasse la taille autorisée pour cet envoi. Raccourcissez-le ou traitez-le en plusieurs fois',
-      credential_unreadable: () => 'Impossible de lire la clé enregistrée : l’accès au trousseau système a peut-être été refusé, ou l’identité de l’application a changé après une mise à jour. Réautorisez ou saisissez-la à nouveau',
+      credential_unreadable: () => 'Impossible de lire la clé enregistrée. Le fichier chiffré est conservé. Vérifiez l’accès aux identifiants du système, puis réessayez',
       credential_unavailable: () => 'La protection des identifiants du système est indisponible. La clé n’a été ni enregistrée ni lue. Réessayez plus tard',
       not_enabled: () => 'La saisie intelligente n’est pas activée ou sa configuration a changé. Ce contenu n’a pas été envoyé',
     },
