@@ -24,6 +24,7 @@ scripts/        # audit-seo.mjs（构建门禁）、e2e.mjs（端到端验收与
 ## 发布
 
 - Vercel 项目 Root Directory = `apps/website`，生产域名 `https://www.goalloom.com`。
+- 本地项目关联与环境配置保存在本目录的 `.vercel/`，保持 Git 忽略；在此目录运行 `vercel pull --yes --environment=production` 可刷新当前项目设置，不触发部署。
 - 新版本发布后更新 `lib/release.ts`（版本、资产名、`published`），规则见功能规格的「工程契约」。
 
 ## 命令

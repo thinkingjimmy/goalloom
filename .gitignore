@@ -36,4 +36,3 @@ todo/
 *.db-wal
 backups/
 exports/
-/website/
