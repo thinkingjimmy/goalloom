@@ -29,7 +29,11 @@ export class CaptureCoordinator {
     }
     this.cancelDraft(request.draftSessionId)
     // Bound retained drafts. Claimed requests are released on completion or session replacement.
-    for (const [id, job] of this.jobs) if (!job.operationId && this.jobs.size >= 32) { job.active = false; this.options.abort(id); this.jobs.delete(id) }
+    if (this.jobs.size >= 32) {
+      for (const [id, job] of this.jobs) {
+        if (!job.operationId) { job.active = false; this.options.abort(id); this.jobs.delete(id); break }
+      }
+    }
     if (this.jobs.size >= 32) {
       const { requestId, draftSessionId, inputRevision, manualRevision, generation, providerRevision, contextRevision, referenceTime } = request
       return Promise.resolve({ status: 'cancelled', echo: { requestId, draftSessionId, inputRevision, manualRevision, generation, providerRevision, contextRevision, referenceTime } })

@@ -56,8 +56,8 @@ export function mergePreview(preview: SmartPreview, previous: EditableDraft[], r
     const keep = <T>(field: Field, value: T, current: T | undefined) => manual.includes(field) && current !== undefined ? current : value
     const horizon = scheduled(draft.horizon.value)
     const edges = preview.relations.filter(row => ids.get(row.childDraftId) === id)
-    const parents = edges.filter(row => row.state === 'yes').map(row => mapKey(row.parent)).filter(key => key !== null)
-    const suggestions = edges.filter(row => row.state === 'maybe').map(row => mapKey(row.parent)).filter(key => key !== null)
+    const parents = edges.flatMap(row => row.state === 'yes' ? [mapKey(row.parent)].filter((key): key is NonNullable<typeof key> => key !== null) : [])
+    const suggestions = edges.flatMap(row => row.state === 'maybe' ? [mapKey(row.parent)].filter((key): key is NonNullable<typeof key> => key !== null) : [])
     return {
       id, source: draft.source, roleCertain: draft.roleCertain, orphan: false, manual, periods: preview.periods,
       title: keep('title', draft.title, old?.title), description: keep('description', draft.description, old?.description),
