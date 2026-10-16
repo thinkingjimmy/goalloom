@@ -4,6 +4,8 @@
  * [POS]: Keyboard shell for the composer's inline T/D/P menus; holds no state of its own.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react'
 
 const controls = 'button:not(:disabled), input'
@@ -26,5 +28,5 @@ export function KeyMenu({ label, children }: { label: string; children: ReactNod
     // The row's own shortcuts must not fire while a menu is open; Esc still reaches Popover to close it.
     if (event.key !== 'Escape') event.stopPropagation()
   }
-  return <div ref={root} className="menu key-menu" role="menu" aria-label={label} onKeyDown={keys}>{children}</div>
+  return <div ref={root} className={cn(menuStyles.surface, cn('menu key-menu', 'min-w-60'))} role="menu" aria-label={label} onKeyDown={keys}>{children}</div>
 }

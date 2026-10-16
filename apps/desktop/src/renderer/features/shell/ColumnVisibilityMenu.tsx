@@ -4,6 +4,7 @@
  * [POS]: TopBar presentation control; reuses the shared popover and icon primitives without workspace writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { IconButton } from '../../components/ui/button'
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { CalendarConfig } from '../../../shared/contracts/entities'
 import { periodHorizons } from '../../../shared/contracts/values'
@@ -43,14 +44,14 @@ export function ColumnVisibilityMenu({ columns, calendar, blocked }: { columns: 
     if (next !== null) { event.preventDefault(); controls[next]?.focus() }
   }
   return <Popover open={open} onClose={() => close()} align="end" floating anchor={
-    <button ref={trigger} id="column-toggle" type="button" className="icon-button" aria-label={messages.visibleColumns} title={messages.visibleColumns}
+    <IconButton ref={trigger} id="column-toggle" type="button" aria-label={messages.visibleColumns} title={messages.visibleColumns}
       aria-haspopup="menu" aria-expanded={open} aria-controls={open ? 'column-visibility-menu' : undefined} onClick={() => { first.current = 0; setOpen(!open) }}
       onBlur={event => { if (!menu.current?.contains(event.relatedTarget)) close() }}
       onKeyDown={event => {
         if (event.key === 'Tab' && open) { close(); return }
         if (event.nativeEvent.isComposing || event.metaKey || event.ctrlKey || event.altKey || !['ArrowDown', 'ArrowUp'].includes(event.key)) return
         event.preventDefault(); first.current = event.key === 'ArrowUp' ? periodHorizons.length - 1 : 0; setOpen(true)
-      }}><Icon name="views" size={18} /></button>
+      }}><Icon name="views" size={18} /></IconButton>
   }>
     <div ref={menu} id="column-visibility-menu" className="picker-panel column-visibility-menu" role="menu" aria-label={messages.visibleColumns} onKeyDown={keys}
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== trigger.current) close() }}>

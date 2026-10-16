@@ -7,6 +7,7 @@
  * [POS]: Board column header switcher; Column owns switching, directional motion, focus return and Esc-to-current.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { TextButton } from '../../components/ui/button'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { CalendarConfig, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { HistoryIndex } from '../../../shared/contracts/history'
@@ -116,7 +117,7 @@ export function PeriodPicker({ horizon, name, period, current, calendar, today, 
           onClick={event => pick(target, event.detail > 0)}>{label}{review === target.id && <span className="period-picker-review" aria-hidden="true" />}</button>)}
       </div>
       <div className="period-picker-body">{body()}</div>
-      {failed && <p className="inline-error" role="alert">{calendarMessages.periodRecordsFailed} <button className="text-button" onClick={() => setAttempt(value => value + 1)}>{messages.retryPeriod}</button></p>}
+      {failed && <p className="inline-error" role="alert">{calendarMessages.periodRecordsFailed} <TextButton onClick={() => setAttempt(value => value + 1)}>{messages.retryPeriod}</TextButton></p>}
     </div>
   </Popover>
 }

@@ -1,8 +1,11 @@
 /**
- * [INPUT]: Copy, the signed-in address, and the password draft. Sync calls stay in StartGate.
+ * [INPUT]: Copy, the signed-in address, password draft and shared Tailwind fields. Sync calls stay in StartGate.
  * [OUTPUT]: The choice cards, inline browser wait, password forms, reset dialog and syncing state.
  * [POS]: Presentational first-run screens. Joining never mounts Setup.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { Input } from '../../components/ui/fields'
+import { cn } from '../../lib/utils'
 import { useId, useState, type ReactNode } from 'react'
 import { messages, settingsMessages as settings } from '../../i18n'
 import { Icon } from '../../components/icons'
@@ -16,31 +19,31 @@ function GoogleMark() {
 }
 
 function Frame({ back, children, wide = false }: { back?: ReactNode; children: ReactNode; wide?: boolean }) {
-  return <div className="onboarding start-entry">
-    <header className="onboarding-header">
+  return <div className="onboarding start-entry flex-1 min-h-0 flex flex-col">
+    <header className="onboarding-header w-full h-11 shrink-0 mx-auto my-0 flex items-center justify-between gap-4">
       {back ?? <span />}
       <LanguageSelect id="start-language" className="onboarding-language" />
     </header>
-    <main className="onboarding-main"><div className={`onboarding-content start-column${wide ? ' wide' : ''}`}>{children}</div></main>
+    <main className="onboarding-main flex-1 min-h-0 overflow-y-auto"><div className={cn(`onboarding-content start-column${wide ? ' wide' : ''}`, 'w-full mx-auto my-0 flex flex-col gap-8 max-w-105')}>{children}</div></main>
   </div>
 }
 
 function BackButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
-  return <button type="button" className="start-back" disabled={disabled} onClick={onClick}><Icon name="previous" size={16} />{messages.start.back}</button>
+  return <button type="button" className="start-back h-8 pt-0 pr-2.5 pb-0 pl-1.5 inline-flex items-center gap-1 rounded-[8px] text-[13px] text-soft" disabled={disabled} onClick={onClick}><Icon name="previous" size={16} />{messages.start.back}</button>
 }
 
 function Account({ email }: { email: string }) {
   const letter = email.trim().charAt(0).toUpperCase() || '?'
-  return <span className="start-account"><span className="start-avatar" aria-hidden="true">{letter}</span>{email}</span>
+  return <span className="start-account inline-flex items-center gap-2 h-7.5 pt-0 pr-3 pb-0 pl-1 rounded-[15px] bg-hover text-[13px] text-soft"><span className="start-avatar w-5.5 h-5.5 rounded-[11px] bg-focus text-background grid place-items-center text-[11px] font-semibold" aria-hidden="true">{letter}</span>{email}</span>
 }
 
 function SecretField({ label, value, onChange, invalid, autoComplete }: {
   label: string; value: string; onChange: (value: string) => void; invalid?: boolean; autoComplete: string
 }) {
   const [shown, setShown] = useState(false)
-  return <div className="start-field" data-invalid={invalid || undefined}>
-    <input type={shown ? 'text' : 'password'} aria-label={label} aria-invalid={invalid || undefined} autoComplete={autoComplete} value={value} onChange={event => onChange(event.target.value)} />
-    <button type="button" className="start-eye" aria-label={shown ? messages.start.hidePassword : messages.start.showPassword} onClick={() => setShown(current => !current)}>
+  return <div className="start-field h-11 flex items-center gap-2 pt-0 pr-2 pb-0 pl-3 bg-raised rounded-[8px]" data-invalid={invalid || undefined}>
+    <Input type={shown ? 'text' : 'password'} aria-label={label} aria-invalid={invalid || undefined} autoComplete={autoComplete} value={value} onChange={event => onChange(event.target.value)} />
+    <button type="button" className="start-eye w-8 h-8 grid place-items-center text-muted-foreground rounded-[8px]" aria-label={shown ? messages.start.hidePassword : messages.start.showPassword} onClick={() => setShown(current => !current)}>
       <Icon name={shown ? 'viewOff' : 'view'} size={18} />
     </button>
   </div>
@@ -51,23 +54,23 @@ export function ChoiceScreen({ waiting, onLocal, onGoogle, onCancel }: {
 }) {
   const copy = messages.start
   return <Frame wide>
-    <header className="onboarding-intro">
-      <p className="onboarding-eyebrow"><span className="onboarding-mark" aria-hidden="true"><img src={appIcon} alt="" draggable={false} /></span>{messages.welcome}</p>
-      <h1 className="onboarding-title">{copy.title}</h1>
+    <header className="onboarding-intro flex flex-col items-start gap-3">
+      <p className="onboarding-eyebrow m-0 flex items-center gap-2 text-[13px] font-medium text-muted-foreground"><span className="onboarding-mark relative w-5.5 h-5.5 shrink-0 rounded-[6px] overflow-hidden" aria-hidden="true"><img src={appIcon} alt="" draggable={false} /></span>{messages.welcome}</p>
+      <h1 className="onboarding-title m-0 text-[32px] leading-[1.25] font-semibold tracking-[-.02em] text-balance">{copy.title}</h1>
     </header>
-    <div className="start-cards">
-      <button type="button" className="start-card" data-dim={waiting || undefined} disabled={waiting} onClick={onLocal}>
-        <span className="start-card-icon" aria-hidden="true"><Icon name="monitor" size={20} /></span>
+    <div className="start-cards grid grid-cols-2 gap-4">
+      <button type="button" className="start-card min-h-37.5 px-6 py-5.5 flex flex-col items-start gap-2.5 rounded-[16px] bg-raised text-left" data-dim={waiting || undefined} disabled={waiting} onClick={onLocal}>
+        <span className="start-card-icon w-9 h-9 rounded-[10px] grid place-items-center bg-hover text-soft" aria-hidden="true"><Icon name="monitor" size={20} /></span>
         <b>{copy.local}</b>
         <small>{copy.localNote}</small>
       </button>
-      {waiting ? <div className="start-card" data-selected="true" data-waiting="true" role="status">
-        <span className="start-card-icon" aria-hidden="true"><GoogleMark /></span>
+      {waiting ? <div className="start-card min-h-37.5 px-6 py-5.5 flex flex-col items-start gap-2.5 rounded-[16px] bg-raised text-left" data-selected="true" data-waiting="true" role="status">
+        <span className="start-card-icon w-9 h-9 rounded-[10px] grid place-items-center bg-hover text-soft" aria-hidden="true"><GoogleMark /></span>
         <b>{copy.google}</b>
-        <span className="start-wait"><span className="start-spinner" aria-hidden="true" />{copy.browser}</span>
-        <span className="start-card-foot"><button type="button" className="start-quiet" onClick={onCancel}>{settings.sync.cancel}</button></span>
-      </div> : <button type="button" className="start-card" onClick={onGoogle}>
-        <span className="start-card-icon" aria-hidden="true"><GoogleMark /></span>
+        <span className="start-wait flex items-center gap-2.5 text-[13.5px] text-soft"><span className="start-spinner" aria-hidden="true" />{copy.browser}</span>
+        <span className="start-card-foot mt-auto self-end"><button type="button" className="start-quiet text-[13px] text-muted-foreground" onClick={onCancel}>{settings.sync.cancel}</button></span>
+      </div> : <button type="button" className="start-card min-h-37.5 px-6 py-5.5 flex flex-col items-start gap-2.5 rounded-[16px] bg-raised text-left" onClick={onGoogle}>
+        <span className="start-card-icon w-9 h-9 rounded-[10px] grid place-items-center bg-hover text-soft" aria-hidden="true"><GoogleMark /></span>
         <b>{copy.google}</b>
         <small>{copy.googleNote}</small>
       </button>}
@@ -81,18 +84,18 @@ export function JoinPasswordScreen({ email, wrong, busy, onBack, onSubmit, onRes
   const copy = messages.start
   const [password, setPassword] = useState('')
   return <Frame back={<BackButton disabled={busy} onClick={onBack} />}>
-    <form className="start-form" onSubmit={event => { event.preventDefault(); if (password.trim().length >= 8) onSubmit(password.trim()) }}>
-      <header className="onboarding-intro">
+    <form className="start-form flex flex-col gap-5.5" onSubmit={event => { event.preventDefault(); if (password.trim().length >= 8) onSubmit(password.trim()) }}>
+      <header className="onboarding-intro flex flex-col items-start gap-3">
         {email && <Account email={email} />}
-        <h2 className="start-heading">{copy.enterTitle}</h2>
-        <p className="onboarding-subtitle">{copy.enterNote}</p>
+        <h2 className="start-heading m-0 text-[24px] leading-[1.3] font-semibold tracking-[-.01em]">{copy.enterTitle}</h2>
+        <p className="onboarding-subtitle m-0 text-[14.5px] leading-[1.75] text-soft text-pretty">{copy.enterNote}</p>
       </header>
-      <label className="start-label">
-        <span className="start-label-row"><span>{settings.sync.password}</span><button type="button" className="start-link" onClick={onReset}>{settings.sync.resetSync}</button></span>
+      <label className="start-label flex flex-col gap-2 text-[13px] font-medium">
+        <span className="start-label-row flex justify-between items-baseline"><span>{settings.sync.password}</span><button type="button" className="start-link text-focus text-[13px] font-normal" onClick={onReset}>{settings.sync.resetSync}</button></span>
         <SecretField label={settings.sync.password} autoComplete="current-password" value={password} invalid={wrong} onChange={setPassword} />
-        {wrong && <p className="start-error" role="alert"><Icon name="warning" size={14} />{settings.sync.errors.password}</p>}
+        {wrong && <p className="start-error m-0 flex items-center gap-1.5 text-[12.5px] font-normal text-destructive" role="alert"><Icon name="warning" size={14} />{settings.sync.errors.password}</p>}
       </label>
-      <Button type="submit" className="start-continue" disabled={busy || password.trim().length < 8}>{settings.sync.continue}</Button>
+      <Button type="submit" className="start-continue w-full" disabled={busy || password.trim().length < 8}>{settings.sync.continue}</Button>
     </form>
   </Frame>
 }
@@ -107,23 +110,23 @@ export function NewPasswordScreen({ email, busy, onBack, onContinue, initialPass
   const ready = passwordReady(password, again)
   const longEnough = password.trim().length >= 8
   return <Frame back={<BackButton disabled={busy} onClick={onBack} />}>
-    <form className="start-form" onSubmit={event => { event.preventDefault(); if (ready) onContinue(password.trim()) }}>
-      <header className="onboarding-intro">
+    <form className="start-form flex flex-col gap-5.5" onSubmit={event => { event.preventDefault(); if (ready) onContinue(password.trim()) }}>
+      <header className="onboarding-intro flex flex-col items-start gap-3">
         {email && <Account email={email} />}
-        <h2 className="start-heading">{copy.newTitle}</h2>
-        <p className="onboarding-subtitle">{copy.newNote}</p>
+        <h2 className="start-heading m-0 text-[24px] leading-[1.3] font-semibold tracking-[-.01em]">{copy.newTitle}</h2>
+        <p className="onboarding-subtitle m-0 text-[14.5px] leading-[1.75] text-soft text-pretty">{copy.newNote}</p>
       </header>
-      <label className="start-label">
+      <label className="start-label flex flex-col gap-2 text-[13px] font-medium">
         <span>{settings.sync.password}</span>
         <SecretField label={settings.sync.password} autoComplete="new-password" value={password} onChange={setPassword} />
-        <p className="start-hint" data-ok={longEnough || undefined}>{longEnough && <Icon name="check" size={14} />}{settings.sync.passwordRule}</p>
+        <p className="start-hint m-0 flex items-center gap-1.5 text-[12.5px] font-normal text-muted-foreground" data-ok={longEnough || undefined}>{longEnough && <Icon name="check" size={14} />}{settings.sync.passwordRule}</p>
       </label>
-      <label className="start-label">
+      <label className="start-label flex flex-col gap-2 text-[13px] font-medium">
         <span>{settings.sync.confirmPassword}</span>
         <SecretField label={settings.sync.confirmPassword} autoComplete="new-password" value={again} invalid={mismatch} onChange={setAgain} />
-        {mismatch && <p className="start-error" role="alert"><Icon name="warning" size={14} />{copy.mismatch}</p>}
+        {mismatch && <p className="start-error m-0 flex items-center gap-1.5 text-[12.5px] font-normal text-destructive" role="alert"><Icon name="warning" size={14} />{copy.mismatch}</p>}
       </label>
-      <Button type="submit" className="start-continue" disabled={busy || !ready}>{settings.sync.continue}</Button>
+      <Button type="submit" className="start-continue w-full" disabled={busy || !ready}>{settings.sync.continue}</Button>
     </form>
   </Frame>
 }
@@ -133,13 +136,13 @@ export function ResetSyncDialog({ acknowledged, busy, onAcknowledge, onCancel, o
 }) {
   const copy = messages.start
   const titleId = useId()
-  return <div className="start-scrim">
-    <div className="start-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+  return <div className="start-scrim fixed grid place-items-center">
+    <div className="start-dialog w-100 bg-surface rounded-[14px] pt-5.5 pr-5.5 pb-4.5 pl-5.5 flex flex-col gap-3.5" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <h3 id={titleId}>{copy.resetTitle}</h3>
       <p>{copy.resetUnknown}</p>
       <p>{copy.resetBody}</p>
-      <label className="start-check"><input type="checkbox" checked={acknowledged} onChange={event => onAcknowledge(event.target.checked)} />{copy.resetAck}</label>
-      <div className="start-dialog-actions">
+      <label className="start-check flex gap-2 items-center text-[13px] font-normal text-soft"><input type="checkbox" checked={acknowledged} onChange={event => onAcknowledge(event.target.checked)} />{copy.resetAck}</label>
+      <div className="start-dialog-actions flex justify-end gap-2 mt-1.5">
         <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>{settings.sync.cancel}</Button>
         <Button type="button" className="start-danger" disabled={busy || !acknowledged} onClick={onConfirm}>{copy.resetConfirm}</Button>
       </div>
@@ -149,10 +152,10 @@ export function ResetSyncDialog({ acknowledged, busy, onAcknowledge, onCancel, o
 
 export function SyncingScreen() {
   return <Frame>
-    <div className="start-syncing" role="status">
-      <span className="onboarding-mark start-mark-large" aria-hidden="true"><img src={appIcon} alt="" draggable={false} /></span>
-      <h2 className="start-heading">{messages.start.syncing}</h2>
-      <span className="start-bar" aria-hidden="true"><i /></span>
+    <div className="start-syncing flex flex-col items-center text-center gap-4.5" role="status">
+      <span className="onboarding-mark start-mark-large relative shrink-0 overflow-hidden w-12 h-12 rounded-[12px]" aria-hidden="true"><img src={appIcon} alt="" draggable={false} /></span>
+      <h2 className="start-heading m-0 text-[24px] leading-[1.3] font-semibold tracking-[-.01em]">{messages.start.syncing}</h2>
+      <span className="start-bar h-1 w-60 rounded-[2px] bg-hover overflow-hidden" aria-hidden="true"><i /></span>
     </div>
   </Frame>
 }

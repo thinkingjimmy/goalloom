@@ -7,6 +7,8 @@
  *        cycles, invalid roots, colorless pairs and horizon violations.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { useEffect, useState, type ReactNode } from 'react'
 import { horizons } from '../../../shared/contracts/values'
@@ -58,7 +60,7 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
     .filter(item => item.id !== self.id && item.status !== 'cancelled' && (!!edgeFor(item.id) || eligible(item)))
     .sort((a, b) => Number(!!edgeFor(b.id)) - Number(!!edgeFor(a.id)) || distance(a) - distance(b) || boardOrder(a, b))
     .slice(0, 8)
-  return <div className="menu relation-picker" role="dialog" aria-label={side === 'parent' ? messages.linkParent : messages.linkChild}>
+  return <div className={cn(menuStyles.surface, 'menu relation-picker')} role="dialog" aria-label={side === 'parent' ? messages.linkParent : messages.linkChild}>
     <input className="menu-search" autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder={messages.searchItems} aria-label={side === 'parent' ? messages.searchParents : messages.searchChildren} />
     {note ? <div className="menu-note relation-note">{note}</div>
       : <p className="menu-note relation-rule">{side === 'parent' ? messages.longerOnly : messages.shorterOnly}</p>}
@@ -67,11 +69,11 @@ export function RelationPicker({ side, self, edges, flows, candidates, submit, o
         const linked = !!edgeFor(item.id)
         const inherited = !!edgeFor(item.id)?.inheritedFrom
         const blocked = inherited || side === 'child' && roots.has(item.id) && !linked
-        return <button key={item.id} type="button" role="menuitemcheckbox" aria-checked={linked} className="menu-item" disabled={blocked} title={inherited ? nestingText().inherited : blocked ? messages.flowRootNoParent : undefined} onClick={() => void toggle(item)}>
+        return <button key={item.id} type="button" role="menuitemcheckbox" aria-checked={linked} className={cn(menuStyles.item, 'menu-item')} disabled={blocked} title={inherited ? nestingText().inherited : blocked ? messages.flowRootNoParent : undefined} onClick={() => void toggle(item)}>
           <FlowMark colors={flows.colorsOf(item.id)} />
-          <span className="menu-text">{item.title}{item.archivedAt ? messages.archivedSuffix : ''}</span>
-          <span className="menu-hint">{blocked ? messages.flowRootTag : horizonNames[item.placement.horizon]}</span>
-          <span className="menu-check">{linked && <Icon name="check" size={14} strokeWidth={2} />}</span>
+          <span className={cn(menuStyles.text, 'menu-text')}>{item.title}{item.archivedAt ? messages.archivedSuffix : ''}</span>
+          <span className={cn(menuStyles.hint, 'menu-hint')}>{blocked ? messages.flowRootTag : horizonNames[item.placement.horizon]}</span>
+          <span className={cn(menuStyles.check, 'menu-check')}>{linked && <Icon name="check" size={14} strokeWidth={2} />}</span>
         </button>
       })}
       {!rows.length && <p className="menu-note">{messages.noResults}</p>}

@@ -1,0 +1,122 @@
+/**
+ * [INPUT]: Appearance attributes and the existing paper/minimal color palettes.
+ * [OUTPUT]: One semantic color vocabulary for Tailwind, shadcn and retained feature CSS.
+ * [POS]: Renderer theme boundary; values remain CSS variables so runtime preferences need no generated classes.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+@theme inline {
+  --radius-control: var(--control-radius);
+  --radius-action: var(--action-radius);
+  --radius-icon-small: var(--icon-small-radius);
+  --radius-menu: var(--menu-radius);
+  --radius-menu-item: var(--menu-item-radius);
+  --radius-settings-card: var(--settings-card-radius);
+  --spacing-menu-inset: var(--menu-inset);
+  --shadow-floating: var(--shadow);
+  --shadow-settings-card: var(--settings-card-shadow);
+  --color-background: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-foreground: var(--fg);
+  --color-soft: var(--fg-soft);
+  --color-muted-foreground: var(--secondary);
+  --color-subtle: var(--faint);
+  --color-hover: var(--hover);
+  --color-pressed: var(--pressed);
+  --color-hairline: var(--hairline);
+  --color-destructive: var(--danger);
+  --color-destructive-tint: var(--danger-tint);
+  --color-warning: var(--backlog);
+  --color-focus: var(--focus);
+  --color-success: var(--ok);
+  --color-success-tint: var(--ok-tint);
+  --color-success-mark: var(--ok-mark);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-ring: var(--focus);
+}
+
+/* --- Tokens: warm neutral ground, one ink, colour for flows, warnings and the activity summary. --- */
+:root {
+  --control-radius: 8px; --action-radius: 9px; --icon-small-radius: 7px;
+  --menu-radius: 12px; --menu-item-radius: 8px; --menu-inset: 6px;
+  --settings-card-radius: 12px; --settings-card-shadow: 0 0 0 .5px var(--edge), 0 1px 2px rgba(60, 40, 20, .05);
+  color-scheme: light;
+  --check-size: 18px;
+  --bg: #f5f1eb; --surface: #fbf9f6; --raised: #fffdfa; --fg: #2b2621; --fg-soft: #4a433c; --secondary: #6f665c; --faint: #b3a99e;
+  --line: rgba(90, 70, 50, .14); --hairline: rgba(90, 70, 50, .08); --hover: rgba(70, 50, 30, .06); --pressed: rgba(70, 50, 30, .09);
+  --check-fill: #e7e2db; --check-edge: rgba(90, 70, 50, .3); --checked: #a39a8f; --edit-line: rgba(43, 38, 33, .32); --edge: rgba(40, 25, 10, .14);
+  --danger: #b4382f; --danger-tint: #f8e4df; --backlog: #8a5a22; --focus: #547aaa;
+  --activity-rollover: #244979; --activity-stay: #225650; --activity-done: #285128; --activity-move: #754713;
+  --scrim: rgba(40, 25, 10, .16); --shadow: 0 0 0 .5px var(--edge), 0 12px 32px rgba(60, 40, 20, .14); --shadow-lg: 0 0 0 .5px var(--edge), 0 24px 64px rgba(60, 40, 20, .22);
+  --primary: var(--fg); --primary-foreground: var(--bg); --card: var(--raised); --muted: var(--hover); --border: var(--line);
+  --scrollbar: rgba(70, 50, 30, .18); --scrollbar-hover: rgba(70, 50, 30, .32);
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #1c1916; --surface: #24201c; --raised: #2b2621; --fg: #ede7df; --fg-soft: #d6cec4; --secondary: #a89e93; --faint: #6e655c;
+  --line: rgba(255, 240, 220, .13); --hairline: rgba(255, 240, 220, .07); --hover: rgba(255, 240, 220, .06); --pressed: rgba(255, 240, 220, .1);
+  --check-fill: #3a342e; --check-edge: rgba(255, 240, 220, .28); --checked: #7d746a; --edit-line: rgba(237, 231, 223, .38); --edge: rgba(255, 240, 220, .12);
+  --danger: #f08a7e; --danger-tint: #3d2522; --backlog: #d9a760; --focus: #85a8d9;
+  --activity-rollover: #c1d9ff; --activity-stay: #b7e6dc; --activity-done: #c5e7bf; --activity-move: #f4d7ad;
+  --scrim: rgba(0, 0, 0, .45); --shadow: 0 0 0 .5px var(--edge), 0 12px 32px rgba(0, 0, 0, .4); --shadow-lg: 0 0 0 .5px var(--edge), 0 24px 64px rgba(0, 0, 0, .5);
+  --scrollbar: rgba(255, 240, 220, .16); --scrollbar-hover: rgba(255, 240, 220, .3);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='system'] {
+    color-scheme: dark;
+    --bg: #1c1916; --surface: #24201c; --raised: #2b2621; --fg: #ede7df; --fg-soft: #d6cec4; --secondary: #a89e93; --faint: #6e655c;
+    --line: rgba(255, 240, 220, .13); --hairline: rgba(255, 240, 220, .07); --hover: rgba(255, 240, 220, .06); --pressed: rgba(255, 240, 220, .1);
+    --check-fill: #3a342e; --check-edge: rgba(255, 240, 220, .28); --checked: #7d746a; --edit-line: rgba(237, 231, 223, .38); --edge: rgba(255, 240, 220, .12);
+    --danger: #f08a7e; --danger-tint: #3d2522; --backlog: #d9a760; --focus: #85a8d9;
+  --activity-rollover: #c1d9ff; --activity-stay: #b7e6dc; --activity-done: #c5e7bf; --activity-move: #f4d7ad;
+    --scrim: rgba(0, 0, 0, .45); --shadow: 0 0 0 .5px var(--edge), 0 12px 32px rgba(0, 0, 0, .4); --shadow-lg: 0 0 0 .5px var(--edge), 0 24px 64px rgba(0, 0, 0, .5);
+  --scrollbar: rgba(255, 240, 220, .16); --scrollbar-hover: rgba(255, 240, 220, .3);
+  }
+}
+
+/* --- Minimal style: neutral zinc scale, 1px borders over soft shadows, tighter radii. --- */
+:root[data-style='minimal'] {
+  --control-radius: 6px; --action-radius: 6px; --icon-small-radius: 5px;
+  --menu-radius: 8px; --menu-item-radius: 4px; --menu-inset: 4px;
+  --settings-card-radius: 10px; --settings-card-shadow: 0 0 0 1px var(--line), var(--shadow-xs);
+  color-scheme: light;
+  --check-size: 16px;
+  --bg: #ffffff; --surface: #ffffff; --raised: #ffffff; --fg: #09090b; --fg-soft: #3f3f46; --secondary: #71717a; --faint: #a1a1aa;
+  --line: #e4e4e7; --hairline: #f4f4f5; --hover: #f4f4f5; --pressed: #e4e4e7;
+  --check-fill: #ffffff; --checked: #a1a1aa; --edit-line: #a1a1aa; --edge: #e4e4e7;
+  --danger: #dc2626; --danger-tint: #fef2f2; --backlog: #b45309; --focus: #18181b;
+  --activity-rollover: #244979; --activity-stay: #225650; --activity-done: #285128; --activity-move: #754713;
+  --scrim: rgba(0, 0, 0, .32); --shadow: 0 0 0 1px var(--line), 0 4px 6px -1px rgba(0, 0, 0, .08), 0 2px 4px -2px rgba(0, 0, 0, .06); --shadow-lg: 0 0 0 1px var(--line), 0 25px 50px -12px rgba(0, 0, 0, .25);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, .05); --nav: #fafafa; --check-edge: #d4d4d8;
+  --scrollbar: rgba(0, 0, 0, .14); --scrollbar-hover: rgba(0, 0, 0, .28);
+}
+:root[data-style='minimal'][data-theme='dark'] {
+    color-scheme: dark;
+    --bg: #09090b; --surface: #09090b; --raised: #18181b; --fg: #fafafa; --fg-soft: #d4d4d8; --secondary: #a1a1aa; --faint: #52525b;
+    --line: #27272a; --hairline: #1c1c1f; --hover: #27272a; --pressed: #3f3f46;
+    --check-fill: #09090b; --checked: #52525b; --edit-line: #71717a; --edge: #27272a;
+    --danger: #f87171; --danger-tint: #2b1113; --backlog: #fbbf24; --focus: #fafafa;
+  --activity-rollover: #c1d9ff; --activity-stay: #b7e6dc; --activity-done: #c5e7bf; --activity-move: #f4d7ad;
+    --scrim: rgba(0, 0, 0, .6); --shadow: 0 0 0 1px var(--line), 0 8px 16px -4px rgba(0, 0, 0, .5); --shadow-lg: 0 0 0 1px var(--line), 0 25px 50px -12px rgba(0, 0, 0, .7);
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, .3); --nav: #111113; --check-edge: #3f3f46;
+    --scrollbar: rgba(255, 255, 255, .14); --scrollbar-hover: rgba(255, 255, 255, .28);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style='minimal'][data-theme='system'] {
+    color-scheme: dark;
+    --bg: #09090b; --surface: #09090b; --raised: #18181b; --fg: #fafafa; --fg-soft: #d4d4d8; --secondary: #a1a1aa; --faint: #52525b;
+    --line: #27272a; --hairline: #1c1c1f; --hover: #27272a; --pressed: #3f3f46;
+    --check-fill: #09090b; --checked: #52525b; --edit-line: #71717a; --edge: #27272a;
+    --danger: #f87171; --danger-tint: #2b1113; --backlog: #fbbf24; --focus: #fafafa;
+  --activity-rollover: #c1d9ff; --activity-stay: #b7e6dc; --activity-done: #c5e7bf; --activity-move: #f4d7ad;
+    --scrim: rgba(0, 0, 0, .6); --shadow: 0 0 0 1px var(--line), 0 8px 16px -4px rgba(0, 0, 0, .5); --shadow-lg: 0 0 0 1px var(--line), 0 25px 50px -12px rgba(0, 0, 0, .7);
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, .3); --nav: #111113; --check-edge: #3f3f46;
+    --scrollbar: rgba(255, 255, 255, .14); --scrollbar-hover: rgba(255, 255, 255, .28);
+  }
+}
+
+:where(.settings-modal, .onboarding) { --ok: light-dark(#285128, #c5e7bf); --ok-tint: light-dark(#e8f0e6, #263927); --ok-mark: light-dark(#567a53, #83af7b); }

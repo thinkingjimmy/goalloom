@@ -5,6 +5,8 @@
  *        Later items render nothing: the parking lot takes no part in flows or links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { useContext, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { horizons } from '../../../shared/contracts/values'
@@ -70,9 +72,9 @@ export function FlowDot({ item, flows, relations, candidates, disabled, submit, 
         {role === 'loose' && <Icon name="add" size={12} strokeWidth={2} />}
       </button>
     }>
-      {mode === 'inherited' && <div className="menu" role="dialog" aria-label={nestingText().inherits}><p className="menu-note">{nestingText().inherited}</p></div>}
+      {mode === 'inherited' && <div className={cn(menuStyles.surface, 'menu')} role="dialog" aria-label={nestingText().inherits}><p className="menu-note">{nestingText().inherited}</p></div>}
       {mode === 'color' && <><FlowColorMenu itemId={item.id} color={item.flowColor} flows={flows} busy={disabled} impact={impact} onChoose={chooseColor} />
-        {role === 'root' && !topmost && linking && <div className="flow-adoption-entry"><button type="button" role="menuitem" className="menu-item" disabled={disabled} onClick={() => setMode('relation')}>
+        {role === 'root' && !topmost && linking && <div className="flow-adoption-entry"><button type="button" role="menuitem" className={cn(menuStyles.item, 'menu-item')} disabled={disabled} onClick={() => setMode('relation')}>
           <Icon name="link" size={14} /><span className="menu-rich"><span>{messages.linkToParent}</span><small>{messages.adoptParentFlowHint}</small></span>
         </button></div>}
       </>}
@@ -82,12 +84,12 @@ export function FlowDot({ item, flows, relations, candidates, disabled, submit, 
           note={<span>{messages.flowFromParents}</span>} />
         {error && <p className="inline-error" role="alert">{error}</p>}
       </div>}
-      {mode === 'choose' && <div className="menu flow-choose" role="menu" aria-label={messages.joinFlow}>
-        <button type="button" role="menuitem" className="menu-item" onClick={() => setMode('color')}>
+      {mode === 'choose' && <div className={cn(menuStyles.surface, 'menu flow-choose')} role="menu" aria-label={messages.joinFlow}>
+        <button type="button" role="menuitem" className={cn(menuStyles.item, 'menu-item')} onClick={() => setMode('color')}>
           <span className="flow-dot" data-empty="true" />
           <span className="menu-rich"><span>{messages.startFlow}</span></span>
         </button>
-        <button type="button" role="menuitem" className="menu-item" disabled={topmost} onClick={() => setMode('relation')}>
+        <button type="button" role="menuitem" className={cn(menuStyles.item, 'menu-item')} disabled={topmost} onClick={() => setMode('relation')}>
           <Icon name="link" size={14} />
           <span className="menu-rich"><span>{messages.linkToParent}</span>{topmost && <small>{messages.noLongerHorizon(horizonNames[item.placement.horizon])}</small>}</span>
         </button>

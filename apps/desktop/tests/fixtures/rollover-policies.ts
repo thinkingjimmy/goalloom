@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Production Repository/SQLite, explicit rolling/natural clocks and a synthetic evidence directory.
+ * [INPUT]: Production Repository/SQLite, current schemaVersion, explicit rolling/natural clocks and a synthetic evidence directory.
  * [OUTPUT]: Six-policy defaults, boundary/eligibility/version/undo checks and JSON/SQLite round-trip evidence.
  * [POS]: Storage half of calendar desktop acceptance; the native journey checks editing and restart persistence.
  * [PROTOCOL]: Update this header when making changes, then check README.md.

@@ -4,6 +4,7 @@
  * [POS]: Workspace-scoped composer session; draft.ts owns ready adjustments and main owns completion after a successful save.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { IconButton } from '../../components/ui/button'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { workspaceDate } from '../../../domain/calendar'
 import type { Snapshot } from '../../../shared/contracts/queries'
@@ -232,51 +233,51 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
     else if (event.code === 'KeyM' && doubts(selectedDraft, drafts, parents).some(row => row.kind === 'role')) { event.preventDefault(); merge(selectedDraft.id) }
   }
 
-  const hint = (keys: string, label: string) => <span className="composer-hint"><kbd className="keycap">{keys}</kbd>{label}</span>
+  const hint = (keys: string, label: string) => <span className="composer-hint inline-flex items-center gap-[5px]"><kbd className="keycap">{keys}</kbd>{label}</span>
   const enter = formatCombo('Enter'), altEnter = formatCombo('Alt+Enter')
-  const primaryButton = <button type="button" className="composer-primary" disabled={busy || !primary.ready} onClick={runPrimary}>{primary.label}<kbd className="keycap">{enter}</kbd></button>
+  const primaryButton = <button type="button" className="composer-primary shrink-0 inline-flex items-center gap-2 h-7.5 pt-0 pr-2 pb-0 pl-3 rounded-[8px] bg-foreground text-surface text-[13px] font-semibold" disabled={busy || !primary.ready} onClick={runPrimary}>{primary.label}<kbd className="keycap">{enter}</kbd></button>
   const keepHint = plain && !fallback ? hint(altEnter, t.keepAsLater) : null
   const globalWarnings = warnings.filter(row => row.draftId === null && row.kind !== 'layout').map(row => row.text)
   const futureNote = drafts.some(row => row.future && row.horizon === 'later') ? warnings.find(row => row.kind === 'future')?.text : undefined
   const notes = [...globalWarnings, ...(drafts.some(row => row.orphan) ? [t.orphanNote] : []), ...(futureNote ? [futureNote] : []), ...(failed && canConfirm ? [t.frozenNote] : [])]
-  const strip = (tone: string, line: ReactNode, hints: ReactNode, body?: ReactNode) => <section className="composer-cand" data-tone={tone} aria-live="polite">
-    <div className="cand-line">{line}</div>
+  const strip = (tone: string, line: ReactNode, hints: ReactNode, body?: ReactNode) => <section className="composer-cand flex flex-col gap-2.5 pt-3 pr-3 pb-2.5 pl-3.5 rounded-[10px]" data-tone={tone} aria-live="polite">
+    <div className="cand-line flex items-start gap-2.5 min-h-7.5 text-[14px] leading-[22px]">{line}</div>
     {body}
-    {notes.map((note, index) => <p key={index} className="cand-note"><Icon name="warning" size={14} />{note}</p>)}
-    {hints && <div className="cand-hints">{hints}</div>}
+    {notes.map((note, index) => <p key={index} className="cand-note flex items-start gap-2 m-0 text-[12px] leading-[1.6] text-warning"><Icon name="warning" size={14} />{note}</p>)}
+    {hints && <div className="cand-hints flex flex-wrap items-center gap-y-1.5 gap-x-3.5 text-[12px] text-muted-foreground">{hints}</div>}
   </section>
 
   let content: ReactNode = null
   if (!text.trim()) content = null
-  else if (fallback) content = strip('plain', <><span className="cand-text">{t.fallbackBody(edited(drafts))}</span>{primaryButton}</>, hint('Esc', t.back))
-  else if (!smartMode && !enabled) content = strip('plain', <><button type="button" className="cand-link" onClick={() => { close(); openSettings() }}>{t.connectJev} →</button>{primaryButton}</>,
-    null, plain?.description ? <p className="cand-note">{t.descriptionKept}</p> : undefined)
-  else if (!smartMode) content = strip('plain', <><span className="cand-text" role="status">{t.providerChanged}<button type="button" className="cand-link" onClick={resend}>{t.resend}</button></span>{primaryButton}</>, keepHint)
-  else if (failed && !canConfirm) content = strip('failed', <><JevBadge /><span className="cand-text" role="alert">{failed.message}</span>
-    <button type="button" className="cand-link" onClick={() => void analyze()}>{t.retry}</button>
-    {consoleFailures.includes(failed.kind) && provider && <button type="button" className="cand-link" onClick={() => ai.openConsole(provider)}>{t.getKey}</button>}{primaryButton}</>, keepHint)
-  else if (hasPlan && adjusting) content = strip('jev', <><JevBadge /><span className="cand-text">{t.adjustHeading}</span>{primaryButton}</>,
+  else if (fallback) content = strip('plain', <><span className="cand-text flex-1 min-w-0 pt-1">{t.fallbackBody(edited(drafts))}</span>{primaryButton}</>, hint('Esc', t.back))
+  else if (!smartMode && !enabled) content = strip('plain', <><button type="button" className="cand-link self-center flex-1 text-left text-[13px] text-focus" onClick={() => { close(); openSettings() }}>{t.connectJev} →</button>{primaryButton}</>,
+    null, plain?.description ? <p className="cand-note flex items-start gap-2 m-0 text-[12px] leading-[1.6] text-warning">{t.descriptionKept}</p> : undefined)
+  else if (!smartMode) content = strip('plain', <><span className="cand-text flex-1 min-w-0 pt-1" role="status">{t.providerChanged}<button type="button" className="cand-link self-center flex-1 text-left text-[13px] text-focus" onClick={resend}>{t.resend}</button></span>{primaryButton}</>, keepHint)
+  else if (failed && !canConfirm) content = strip('failed', <><JevBadge /><span className="cand-text flex-1 min-w-0 pt-1" role="alert">{failed.message}</span>
+    <button type="button" className="cand-link self-center flex-1 text-left text-[13px] text-focus" onClick={() => void analyze()}>{t.retry}</button>
+    {consoleFailures.includes(failed.kind) && provider && <button type="button" className="cand-link self-center flex-1 text-left text-[13px] text-focus" onClick={() => ai.openConsole(provider)}>{t.getKey}</button>}{primaryButton}</>, keepHint)
+  else if (hasPlan && adjusting) content = strip('jev', <><JevBadge /><span className="cand-text flex-1 min-w-0 pt-1">{t.adjustHeading}</span>{primaryButton}</>,
     <>{hint('↑↓', t.hintSelect)}{hint('T D P', t.hintFields)}{hint('E', t.hintEdit)}{hint(formatCombo('Backspace'), t.hintRemove)}{hint('Esc', t.back)}</>,
-    <div ref={list} className="plan-list" role="listbox" aria-label={t.adjustHeading} onKeyDown={listKeys}>
+    <div ref={list} className="plan-list flex flex-col gap-0.5 mx-[-6px] my-0" role="listbox" aria-label={t.adjustHeading} onKeyDown={listKeys}>
       {drafts.map(draft => <DraftRow key={draft.id} draft={draft} drafts={drafts} parents={parents} flows={flows} usedColors={usedColors} periods={snapshot.periods} today={today} weekStart={snapshot.workspace.calendar!.weekStart} disabled={busy}
         selected={draft.id === selected} menu={draft.id === selected ? menu : null} editing={draft.id === selected && editing}
         select={() => { setSelected(draft.id); setMenu(null); setEditing(false) }} openMenu={setMenu} stopEditing={() => setEditing(false)}
         change={(patch, ...fields) => change(draft.id, patch, ...fields)} replace={replace} remember={info => setParents(previous => new Map(previous).set(info.itemId, info))} merge={() => merge(draft.id)} />)}
     </div>)
   // While a newer text is being organized, the last recommendation stays (dimmed) instead of flickering away.
-  else if (hasPlan) content = strip(current ? 'jev' : 'stale', <><JevBadge /><div className="cand-text"><Plan drafts={drafts} parents={parents} /></div>{primaryButton}</>, <>{hint('Tab', t.adjust)}{keepHint}</>)
-  else content = strip('jev', <><JevBadge /><span className="cand-text cand-pending" role="status"><span className="cand-skeleton" /><span className="cand-skeleton" data-long="true" /></span>{primaryButton}</>, <><span className="cand-state">{t.smartPending}</span>{keepHint}</>)
+  else if (hasPlan) content = strip(current ? 'jev' : 'stale', <><JevBadge /><div className="cand-text flex-1 min-w-0 pt-1"><Plan drafts={drafts} parents={parents} /></div>{primaryButton}</>, <>{hint('Tab', t.adjust)}{keepHint}</>)
+  else content = strip('jev', <><JevBadge /><span className="cand-text cand-pending flex-1 min-w-0 flex gap-1.5 pt-2.5" role="status"><span className="cand-skeleton" /><span className="cand-skeleton" data-long="true" /></span>{primaryButton}</>, <><span className="cand-state self-center shrink-0 text-[12.5px] text-muted-foreground">{t.smartPending}</span>{keepHint}</>)
 
   if (!open) return null
   return <Modal title={t.composer} close={close} className="palette composer-modal"
-    actions={text.trim() ? <button type="button" className="icon-button" aria-label={t.discard} title={t.discard} onClick={finish}><Icon name="delete" size={16} /></button> : null}
+    actions={text.trim() ? <IconButton type="button" aria-label={t.discard} title={t.discard} onClick={finish}><Icon name="delete" size={16} /></IconButton> : null}
     heading={<div className="palette-search composer-search">
       <Icon name="add" size={18} />
-      <textarea ref={field} className="composer-input" aria-label={t.inputLabel} placeholder={t.placeholder} autoFocus value={text} rows={1} maxLength={20_000}
+      <textarea ref={field} className="composer-input flex-1 min-w-0 w-auto min-h-6 max-h-42 p-0 text-[15px] leading-[24px] text-foreground" aria-label={t.inputLabel} placeholder={t.placeholder} autoFocus value={text} rows={1} maxLength={20_000}
         onChange={event => changeText(event.target.value)} onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)} onKeyDown={fieldKeys} />
     </div>}>
-    <div className="composer-body">
-      {(error || problem) && <p className="inline-error composer-error" role="alert">{problem ?? error}</p>}
+    <div className="composer-body flex flex-col gap-1.5">
+      {(error || problem) && <p className="inline-error composer-error mt-0.5 mr-2.5 mb-0 ml-2.5" role="alert">{problem ?? error}</p>}
       {content}
     </div>
   </Modal>

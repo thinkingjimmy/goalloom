@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Production Repository, Electron SQLite, transfer/upgrade boundaries and an injected clock.
+ * [INPUT]: Production Repository, Electron SQLite, current schemaVersion, transfer/upgrade boundaries and an injected clock.
  * [OUTPUT]: Repeatable two-level topology, lifecycle, group rollover, undo and recovery evidence.
  * [POS]: Subtask E2E transaction fixture; failures are recorded in docs/features/subtasks.md.
  * [PROTOCOL]: Update this header when making changes, then check README.md.

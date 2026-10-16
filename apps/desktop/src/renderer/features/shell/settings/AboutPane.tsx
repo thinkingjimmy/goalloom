@@ -5,6 +5,7 @@
  * [POS]: Settings › About; also the target of the macOS app menu's About / Check for Updates items. Holds no state of its own.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { SettingsButton } from '../../../components/ui/button'
 import { intlTags } from '../../../../shared/i18n/locale'
 import type { UpdateInfo } from '../../../../shared/contracts/update'
 import { currentLocale, settingsMessages as s } from '../../../i18n'
@@ -39,26 +40,26 @@ export function AboutPane({ info }: { info: UpdateInfo | null }) {
   const a = s.about, phase = info?.state.phase
   const open = (url: string) => { void desktopApi().openExternal(url).catch(() => false) }
   return <>
-    <div className="about-hero">
+    <div className="about-hero flex items-center gap-4 pt-1 pr-0.5 pb-1.5 pl-0.5">
       {/* The bundled icon carries a macOS drop shadow; the frame crops to the icon body so the page adds only a hairline. */}
-      <span className="about-icon"><img src={appIcon} alt="" draggable={false} /></span>
+      <span className="about-icon relative w-16 h-16 shrink-0 rounded-[14px] overflow-hidden"><img src={appIcon} alt="" draggable={false} /></span>
       <div>
-        <div className="about-name"><h3>Goalloom</h3>{info && <span className="about-version tabular" title={a.version(info.version)}>{info.version}</span>}</div>
+        <div className="about-name flex items-center gap-2"><h3>Goalloom</h3>{info && <span className="about-version tabular h-5 px-2 py-0 inline-flex items-center rounded-[10px] bg-hover text-[11.5px] text-muted-foreground" title={a.version(info.version)}>{info.version}</span>}</div>
         <p>{a.tagline}</p>
       </div>
     </div>
     {info && phase && <SettingsGroup>
-      <div className="settings-row about-update">
-        <span className="about-status" data-phase={phase} aria-hidden="true"><span className="about-refresh" data-spinning={phase === 'checking'}><Icon name={phaseIcon[phase]} size={14} strokeWidth={2} /></span></span>
-        <div className="settings-row-text"><span>{a.updates}</span><small role="status" data-phase={phase}>{status(info)}</small></div>
+      <div className="settings-row about-update min-h-14 pt-2.5 pr-4 pb-2.5 pl-4.5 flex items-center gap-3">
+        <span className="about-status w-7 h-7 shrink-0 grid place-items-center rounded-[8px] bg-hover text-muted-foreground" data-phase={phase} aria-hidden="true"><span className="about-refresh inline-grid place-items-center" data-spinning={phase === 'checking'}><Icon name={phaseIcon[phase]} size={14} strokeWidth={2} /></span></span>
+        <div className="settings-row-text flex-1 min-w-0 flex flex-col gap-[3px] text-[14px]"><span>{a.updates}</span><small role="status" data-phase={phase}>{status(info)}</small></div>
         {phase === 'ready'
-          ? <button type="button" className="settings-button primary" onClick={installUpdate}>{a.restart}</button>
-          : phase !== 'unsupported' && <button type="button" className="settings-button" disabled={phase === 'checking' || phase === 'downloading'} onClick={checkForUpdate}>{a.check}</button>}
+          ? <SettingsButton variant="primary" type="button" onClick={installUpdate}>{a.restart}</SettingsButton>
+          : phase !== 'unsupported' && <SettingsButton type="button" disabled={phase === 'checking' || phase === 'downloading'} onClick={checkForUpdate}>{a.check}</SettingsButton>}
       </div>
     </SettingsGroup>}
-    <p className="about-links">
-      <button type="button" className="settings-button link" onClick={() => open(websiteUrl)}>{a.website} <span className="about-external"><Icon name="forward" size={12} /></span></button>
-      <button type="button" className="settings-button link" onClick={() => open(releasesUrl)}>{a.releaseNotes} <span className="about-external"><Icon name="forward" size={12} /></span></button>
+    <p className="about-links m-0 flex gap-1 ml-[-10px]">
+      <SettingsButton variant="link" type="button" onClick={() => open(websiteUrl)}>{a.website} <span className="about-external inline-flex"><Icon name="forward" size={12} /></span></SettingsButton>
+      <SettingsButton variant="link" type="button" onClick={() => open(releasesUrl)}>{a.releaseNotes} <span className="about-external inline-flex"><Icon name="forward" size={12} /></span></SettingsButton>
     </p>
   </>
 }

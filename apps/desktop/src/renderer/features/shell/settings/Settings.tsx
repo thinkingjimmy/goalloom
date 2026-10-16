@@ -4,6 +4,7 @@
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { IconButton } from '../../../components/ui/button'
 import { useEffect, useState } from 'react'
 import type { Snapshot } from '../../../../shared/contracts/queries'
 import type { BackupStatus, DataAction, TransferPreview } from '../../../../shared/contracts/transfer'
@@ -135,7 +136,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
   const title = preview ? (preview.mode === 'reset' ? messages.resetWorkspace : messages.restoreWorkspace) : groups().flatMap(group => group.entries).find(entry => entry.id === section)!.label
   const subtitle = preview || section === 'done' || section === 'sync' ? '' : section === 'shortcuts' ? shortcutMessages.subtitle : s.subtitles[section]
   const heading = <>
-    <div className="settings-heading">
+    <div className="settings-heading flex-1 min-w-0 flex flex-col gap-[3px]">
       <h2>{title}</h2>{subtitle && <p>{subtitle}</p>}
       {!preview && section === 'shortcuts' && <p className="settings-shortcut-note">{shortcutMessages.conflictNote}</p>}
     </div>
@@ -145,31 +146,31 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
   </>
   const items = section === 'done' ? ending : section === 'trash' ? 'trash' : null
   const status = <>
-    {error && <div className="settings-alert" role="alert"><span>{error}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={() => setError('')}><Icon name="close" size={16} /></button></div>}
-    {working && <p className="settings-footnote" role="status">{messages.checkingData}</p>}
+    {error && <div className="settings-alert m-0 flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-destructive-tint text-destructive text-[12.5px] leading-[1.6]" role="alert"><span>{error}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={() => setError('')}><Icon name="close" size={16} /></IconButton></div>}
+    {working && <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground" role="status">{messages.checkingData}</p>}
   </>
 
   return <Modal title={messages.settings} heading={heading} close={() => void dismiss()} className="settings-modal">
-    <nav className="settings-nav" aria-label={messages.settingsSections} data-locked={!!preview}>
-      <p className="settings-nav-title">{messages.settings}</p>
-      {groups().map(group => <div key={group.label} className="settings-nav-group">
+    <nav className="settings-nav min-w-55 flex flex-col gap-4.5 pt-5 pr-3 pb-4 pl-3 bg-background overflow-y-auto" aria-label={messages.settingsSections} data-locked={!!preview}>
+      <p className="settings-nav-title m-0 px-2.5 py-0 text-[15px] font-semibold">{messages.settings}</p>
+      {groups().map(group => <div key={group.label} className="settings-nav-group flex flex-col gap-0.5">
         <p>{group.label}</p>
         {group.entries.map(entry => {
           const status = meta[entry.id]
           return <button key={entry.id} type="button" aria-current={!preview && section === entry.id ? 'page' : undefined} aria-description={status?.text} disabled={!!preview} onClick={() => navigate(entry.id)}>
-            <Icon name={entry.icon} size={16} /><span className="settings-nav-label">{entry.label}</span>
+            <Icon name={entry.icon} size={16} /><span className="settings-nav-label flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">{entry.label}</span>
             {/* The section name stays the button's accessible name; status is its description. */}
-            {status && <span className="settings-nav-meta" data-dot={status.dot ?? false} data-icon={status.icon} title={status.icon ? status.text : undefined} aria-hidden="true">
+            {status && <span className="settings-nav-meta shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] font-normal text-muted-foreground tabular-nums" data-dot={status.dot ?? false} data-icon={status.icon} title={status.icon ? status.text : undefined} aria-hidden="true">
               {status.icon ? <Icon name={status.icon} size={14} /> : status.text}
             </span>}
           </button>
         })}
       </div>)}
-      {preview && <p className="settings-nav-note"><Icon name="lock" size={14} /><span>{messages.maintenanceNav}</span></p>}
+      {preview && <p className="settings-nav-note mt-auto mr-0 mb-0 ml-0 p-2.5 flex items-start gap-2 rounded-[8px] bg-hover text-[12px] leading-[1.5] text-soft"><Icon name="lock" size={14} /><span>{messages.maintenanceNav}</span></p>}
     </nav>
     {preview
       ? <TransferReview preview={preview} working={working} acknowledged={acknowledged} acknowledge={setAcknowledged} timezone={timezone} generation={generation} data={data}>{status}</TransferReview>
-      : <div className="settings-body">
+      : <div className="settings-body min-h-0 overflow-y-auto pt-0.5 pr-9 pb-8 pl-9 flex flex-col gap-5.5">
         {status}
         {section === 'appearance' && <AppearancePane workspace={snapshot.workspace} disabled={disabled} submit={submit} />}
         {section === 'board' && <BoardPane disabled={disabled} />}
@@ -179,7 +180,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
         {section === 'insight' && <InsightPane snapshot={snapshot} ai={ai} goto={next => navigate(next)} />}
         {section === 'calendar' && (calendar
           ? <CalendarPane calendar={calendar} policies={snapshot.policies} observedAt={snapshot.observedAt} today={today} disabled={disabled} submit={submit} goReset={() => navigate('backup', true)} />
-          : <p className="settings-footnote">{messages.setupUnconfirmed}</p>)}
+          : <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{messages.setupUnconfirmed}</p>)}
         {section === 'backup' && <BackupPane status={backups} enabled={snapshot.workspace.backupEnabled} retention={snapshot.workspace.backupRetention} timezone={timezone} today={today} generation={generation} configured={!!calendar} disabled={disabled} submit={submit} data={data} revealReset={revealReset}
           exportJson={() => void desktopApi().exportWorkspace().catch(() => setError(messages.exportUnknown))} />}
         {section === 'sync' && <SyncPane status={sync} today={today} {...(timezone ? { timezone } : {})} />}

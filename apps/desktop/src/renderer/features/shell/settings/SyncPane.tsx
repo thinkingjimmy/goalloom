@@ -1,8 +1,11 @@
 /**
- * [INPUT]: Sync status from the main process, workspace today, and the existing JSON export.
+ * [INPUT]: Main-process sync status, workspace today, existing JSON export and shared Tailwind controls/fields.
  * [OUTPUT]: Plain settings rows for sign-in, the sync password, a local-data choice, and live sync status.
  * [POS]: Settings › Sync. The password stays in this pane and is not part of the polled status.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { SettingsButton, IconButton } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/fields'
 import { useState, type ReactNode } from 'react'
 import type { SyncAction, SyncStatus } from '../../../../shared/contracts/sync'
 import { messages, settingsMessages as s } from '../../../i18n'
@@ -51,15 +54,15 @@ function GoogleMark() {
 }
 
 function StatusLine({ state, label, detail }: { state: 'ok' | 'run' | 'bad' | 'off'; label: string; detail?: string }) {
-  return <span className="sync-status" data-state={state} role="status"><i aria-hidden="true" /><b>{label}</b>{detail && <><span className="sep" aria-hidden="true">·</span><span>{detail}</span></>}</span>
+  return <span className="sync-status inline-flex items-center gap-1.5 text-[12px] text-muted-foreground whitespace-nowrap" data-state={state} role="status"><i aria-hidden="true" /><b>{label}</b>{detail && <><span className="sep" aria-hidden="true">·</span><span>{detail}</span></>}</span>
 }
 
 function PasswordField({ label, value, onChange, autoComplete, invalid = false }: { label: string; value: string; onChange: (value: string) => void; autoComplete: string; invalid?: boolean }) {
-  return <input className="sync-password" type="password" aria-label={label} autoComplete={autoComplete} value={value} data-invalid={invalid || undefined} onChange={event => onChange(event.target.value)} />
+  return <Input className="sync-password w-50 max-w-full h-8 box-border rounded-[8px] px-2.5 py-0 bg-background text-foreground text-[13px]" type="password" aria-label={label} autoComplete={autoComplete} value={value} data-invalid={invalid || undefined} onChange={event => onChange(event.target.value)} />
 }
 
 function Account({ note, children }: { note?: ReactNode; children?: ReactNode }) {
-  return <SettingsRow className="sync-account" title={s.sync.account} note={note}>{children && <div className="sync-row-actions">{children}</div>}</SettingsRow>
+  return <SettingsRow className="sync-account" title={s.sync.account} note={note}>{children && <div className="sync-row-actions ml-auto flex-wrap justify-end">{children}</div>}</SettingsRow>
 }
 
 export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus | null; timezone?: string; today?: string }) {
@@ -92,29 +95,29 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
     }
     finally { setWorking(false) }
   }
-  if (!status) return <p className="settings-footnote">{t.loading}</p>
+  if (!status) return <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.loading}</p>
   const onRow = status.phase === 'ready' || status.phase === 'locked'
   const error = status.error && !onRow && hiddenError !== status.error ? t.errors[status.error] : ''
-  const signOut = <button type="button" className="settings-button" disabled={working} onClick={() => void run({ type: 'sign-out' })}>{t.signOut}</button>
+  const signOut = <SettingsButton type="button" disabled={working} onClick={() => void run({ type: 'sign-out' })}>{t.signOut}</SettingsButton>
   const accountNote = status.email
   const line = status.phase === 'ready' ? readyLine(status, today, timezone) : null
   const failed = line?.state === 'bad'
   const syncing = line?.state === 'run'
-  return <div className="sync-pane">
-    {error && <div className="settings-alert" role="alert"><span>{error}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status.error)}><Icon name="close" size={16} /></button></div>}
-    {conflictNotice.open && <div className="settings-alert" role="status"><span>{t.conflicts(status.conflicts)}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={conflictNotice.dismiss}><Icon name="close" size={16} /></button></div>}
-    {status.phase === 'unconfigured' && <p className="settings-footnote">{t.unconfigured}</p>}
+  return <div className="sync-pane flex flex-col gap-5.5">
+    {error && <div className="settings-alert m-0 flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-destructive-tint text-destructive text-[12.5px] leading-[1.6]" role="alert"><span>{error}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status.error)}><Icon name="close" size={16} /></IconButton></div>}
+    {conflictNotice.open && <div className="settings-alert m-0 flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-destructive-tint text-destructive text-[12.5px] leading-[1.6]" role="status"><span>{t.conflicts(status.conflicts)}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={conflictNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
+    {status.phase === 'unconfigured' && <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.unconfigured}</p>}
     {status.phase === 'locked' && <SettingsGroup>
       <Account note={accountNote}>
         <StatusLine state="off" label={t.lockedStatus} detail={status.error ? t.errors[status.error] : t.lockedReason} />
         {status.email && signOut}
       </Account>
-      <SettingsRow title={t.password}><button type="button" className="settings-button" disabled>{t.change}</button></SettingsRow>
+      <SettingsRow title={t.password}><SettingsButton type="button" disabled>{t.change}</SettingsButton></SettingsRow>
     </SettingsGroup>}
     {(status.phase === 'signed-out' || status.phase === 'signing-in') && <SettingsGroup>
       <Account note={status.email ?? t.notSignedIn}>
         {status.phase === 'signing-in' && !status.error && <StatusLine state="run" label={t.signingIn} />}
-        <button type="button" className="settings-button" disabled={working || status.phase === 'signing-in'} onClick={() => void run({ type: 'sign-in' })}><GoogleMark />{t.signIn}</button>
+        <SettingsButton type="button" disabled={working || status.phase === 'signing-in'} onClick={() => void run({ type: 'sign-in' })}><GoogleMark />{t.signIn}</SettingsButton>
       </Account>
     </SettingsGroup>}
     {status.phase === 'setup' && <>
@@ -127,7 +130,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
           <PasswordField label={t.confirmPassword} autoComplete="new-password" value={createdAgain} invalid={status.error === 'password'} onChange={setCreatedAgain} />
         </SettingsRow>
       </SettingsGroup>
-      <div className="sync-end"><button type="button" className="settings-button primary" disabled={working || !passwordOk(created, createdAgain)} onClick={() => void run({ type: 'create', password: created.trim() })}>{t.start}</button></div>
+      <div className="sync-end justify-end"><SettingsButton variant="primary" type="button" disabled={working || !passwordOk(created, createdAgain)} onClick={() => void run({ type: 'create', password: created.trim() })}>{t.start}</SettingsButton></div>
     </>}
     {status.phase === 'enter-key' && <>
       <SettingsGroup>
@@ -139,11 +142,11 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
       {forgot && <SettingsGroup danger>
         <SettingsRow title={t.newPassword}><PasswordField label={t.newPassword} autoComplete="new-password" value={resetPassword} onChange={setResetPassword} /></SettingsRow>
         <SettingsRow title={t.confirmPassword}><PasswordField label={t.confirmPassword} autoComplete="new-password" value={resetAgain} onChange={setResetAgain} /></SettingsRow>
-        <SettingsRow title={t.resetSync}><button type="button" className="settings-button sync-danger" disabled={working || !passwordOk(resetPassword, resetAgain)} onClick={() => void run({ type: 'reset-sync', password: resetPassword.trim() })}>{t.reset}</button></SettingsRow>
+        <SettingsRow title={t.resetSync}><SettingsButton type="button" className="sync-danger" disabled={working || !passwordOk(resetPassword, resetAgain)} onClick={() => void run({ type: 'reset-sync', password: resetPassword.trim() })}>{t.reset}</SettingsButton></SettingsRow>
       </SettingsGroup>}
-      <div className="sync-end">
-        <button type="button" className="settings-button ghost" onClick={() => setForgot(value => !value)}>{t.forgot}</button>
-        <button type="button" className="settings-button primary" disabled={working || entry.trim().length < 8} onClick={() => void run({ type: 'submit-password', password: entry.trim() })}>{t.continue}</button>
+      <div className="sync-end justify-end">
+        <SettingsButton variant="ghost" type="button" onClick={() => setForgot(value => !value)}>{t.forgot}</SettingsButton>
+        <SettingsButton variant="primary" type="button" disabled={working || entry.trim().length < 8} onClick={() => void run({ type: 'submit-password', password: entry.trim() })}>{t.continue}</SettingsButton>
       </div>
     </>}
     {status.phase === 'choose' && <>
@@ -155,26 +158,26 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
         <SettingsRow title={t.merge} note={t.mergeNote}>
           <input type="radio" name="sync-choice" aria-label={t.merge} checked={choice === 'merge'} onChange={() => setChoice('merge')} />
         </SettingsRow>
-        <label className="sync-ack"><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)} />{t.acknowledge}</label>
+        <label className="sync-ack flex items-center gap-2 m-0 px-4 py-3 text-[13px]"><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)} />{t.acknowledge}</label>
       </SettingsGroup>
-      <div className="sync-end">
-        <button type="button" className="settings-button" onClick={() => void desktopApi().exportWorkspace()}>{t.exportJson}</button>
-        <button type="button" className="settings-button ghost" disabled={working} onClick={() => void run({ type: 'cancel' })}>{t.cancel}</button>
-        <button type="button" className="settings-button primary" disabled={working || !acknowledged} onClick={() => void run({ type: 'join', choice, acknowledged })}>{t.continue}</button>
+      <div className="sync-end justify-end">
+        <SettingsButton type="button" onClick={() => void desktopApi().exportWorkspace()}>{t.exportJson}</SettingsButton>
+        <SettingsButton variant="ghost" type="button" disabled={working} onClick={() => void run({ type: 'cancel' })}>{t.cancel}</SettingsButton>
+        <SettingsButton variant="primary" type="button" disabled={working || !acknowledged} onClick={() => void run({ type: 'join', choice, acknowledged })}>{t.continue}</SettingsButton>
       </div>
     </>}
     {status.phase === 'ready' && line && <>
       <SettingsGroup>
         <Account note={accountNote}>
           <StatusLine state={line.state} label={line.label} {...(line.detail ? { detail: line.detail } : {})} />
-          {failed && <button type="button" className="settings-button" disabled={working} onClick={() => void run({ type: 'retry' })}>{t.retry}</button>}
+          {failed && <SettingsButton type="button" disabled={working} onClick={() => void run({ type: 'retry' })}>{t.retry}</SettingsButton>}
           {signOut}
         </Account>
-        <SettingsRow title={t.password}><button type="button" className="settings-button" disabled={syncing || working} aria-expanded={changing} onClick={() => setChanging(value => !value)}>{t.change}</button></SettingsRow>
+        <SettingsRow title={t.password}><SettingsButton type="button" disabled={syncing || working} aria-expanded={changing} onClick={() => setChanging(value => !value)}>{t.change}</SettingsButton></SettingsRow>
         {changing && <>
           <SettingsRow title={t.newPassword}><PasswordField label={t.newPassword} autoComplete="new-password" value={nextPassword} onChange={setNextPassword} /></SettingsRow>
           <SettingsRow title={t.confirmPassword}><PasswordField label={t.confirmPassword} autoComplete="new-password" value={nextAgain} onChange={setNextAgain} /></SettingsRow>
-          <SettingsRow title={t.changePassword}><button type="button" className="settings-button" disabled={working || syncing || !passwordOk(nextPassword, nextAgain)} onClick={() => void run({ type: 'change-password', password: nextPassword.trim() })}>{t.changePassword}</button></SettingsRow>
+          <SettingsRow title={t.changePassword}><SettingsButton type="button" disabled={working || syncing || !passwordOk(nextPassword, nextAgain)} onClick={() => void run({ type: 'change-password', password: nextPassword.trim() })}>{t.changePassword}</SettingsButton></SettingsRow>
         </>}
       </SettingsGroup>
       <SettingsGroup danger>
@@ -183,9 +186,9 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
           <SettingsRow title={t.confirmPassword}><PasswordField label={t.confirmPassword} autoComplete="new-password" value={resetAgain} onChange={setResetAgain} /></SettingsRow>
         </>}
         <SettingsRow title={t.resetSync}>
-          <div className="sync-row-actions">
-            {resetting && <button type="button" className="settings-button ghost" disabled={working} onClick={() => { setResetting(false); setResetPassword(''); setResetAgain('') }}>{t.cancel}</button>}
-            <button type="button" className="settings-button sync-danger" disabled={working || (resetting && !passwordOk(resetPassword, resetAgain))} onClick={() => resetting ? void run({ type: 'reset-sync', password: resetPassword.trim() }) : setResetting(true)}>{t.reset}</button>
+          <div className="sync-row-actions ml-auto flex-wrap justify-end">
+            {resetting && <SettingsButton variant="ghost" type="button" disabled={working} onClick={() => { setResetting(false); setResetPassword(''); setResetAgain('') }}>{t.cancel}</SettingsButton>}
+            <SettingsButton type="button" className="sync-danger" disabled={working || (resetting && !passwordOk(resetPassword, resetAgain))} onClick={() => resetting ? void run({ type: 'reset-sync', password: resetPassword.trim() }) : setResetting(true)}>{t.reset}</SettingsButton>
           </div>
         </SettingsRow>
       </SettingsGroup>

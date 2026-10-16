@@ -4,6 +4,7 @@
  * [POS]: Board backlog dialog; storage revalidates membership, versions and holds.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { ActionButton } from '../../components/ui/button'
 import { messages, horizonNames } from '../../i18n'
 import { fullDate, yearMonth, count } from '../../i18n/format'
 import { useEffect, useRef, useState } from 'react'
@@ -68,16 +69,16 @@ export function Backlog({ horizon, revision, submit, busy, close, select }: { ho
       })}
     </ul>}
     {total > pageSize && <nav className="backlog-pages">
-      <button type="button" className="button quiet" disabled={!offset} onClick={() => setOffset(offset - pageSize)}>{messages.previousPage}</button>
+      <ActionButton variant="quiet" type="button" disabled={!offset} onClick={() => setOffset(offset - pageSize)}>{messages.previousPage}</ActionButton>
       <span>{count(offset + 1)}–{count(Math.min(offset + pageSize, total))} / {count(total)}</span>
-      <button type="button" className="button quiet" disabled={offset + pageSize >= total} onClick={() => setOffset(offset + pageSize)}>{messages.nextPage}</button>
+      <ActionButton variant="quiet" type="button" disabled={offset + pageSize >= total} onClick={() => setOffset(offset + pageSize)}>{messages.nextPage}</ActionButton>
     </nav>}
     <footer className="modal-footer">
-      <button type="button" className="button quiet" onClick={close}>{empty ? messages.close : messages.deferBacklog}</button>
+      <ActionButton variant="quiet" type="button" onClick={close}>{empty ? messages.close : messages.deferBacklog}</ActionButton>
       <span className="footer-spacer" />
       {!empty && <>
-        <button type="button" className="button soft" disabled={busy || !selected.size} onClick={() => void arrange('later')}>{messages.moveLater}</button>
-        <button type="button" className="button primary" disabled={busy || !selected.size} onClick={() => void arrange(horizon)}>{messages.arrangeCurrent}{horizonNames[horizon]}</button>
+        <ActionButton variant="soft" type="button" disabled={busy || !selected.size} onClick={() => void arrange('later')}>{messages.moveLater}</ActionButton>
+        <ActionButton variant="primary" type="button" disabled={busy || !selected.size} onClick={() => void arrange(horizon)}>{messages.arrangeCurrent}{horizonNames[horizon]}</ActionButton>
       </>}
     </footer>
   </Modal>

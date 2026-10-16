@@ -2,8 +2,10 @@
  * [INPUT]: useAi 状态与动作、固定服务、是否复用已存 Key、提交按钮文案、成功回调、可选提交按钮渲染（onboarding 放进底部按钮行）。
  * [OUTPUT]: 一个服务的连接表单：Key 标签旁的官方控制台入口、密码输入（提交即清空）、点名该服务且默认未勾选的发送同意、「测试」及逐能力结果。
  * [POS]: Onboarding 与「设置 › AI 服务」共用的唯一配置表单；任一能力测试通过才保存 Key，失败始终可跳过。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { Input } from '../../components/ui/fields'
+import { SettingsButton, TextButton } from '../../components/ui/button'
 import { useId, useState, type ReactNode } from 'react'
 import { providerCapabilities } from '../../../shared/contracts/values'
 import type { AiProvider, TestOutcome } from '../../../shared/contracts/smart-input'
@@ -11,7 +13,7 @@ import { providerNames, smartMessages as t } from '../../i18n'
 import type { Ai } from '../../state/ai'
 
 export interface SubmitProps { type: 'submit'; form: string; disabled: boolean; children: string }
-const inlineSubmit = (props: SubmitProps) => <div className="jev-actions"><button className="settings-button primary" {...props} /></div>
+const inlineSubmit = (props: SubmitProps) => <div className="jev-actions flex gap-2 mt-2"><SettingsButton variant="primary" {...props} /></div>
 const consoleFailures = ['account_verification_required', 'quota_exhausted', 'payment_required', 'permission_denied']
 
 export function ProviderConnect({ ai, provider, reuseSaved = false, submitLabel = t.testSave, done, actions = inlineSubmit }: {
@@ -36,17 +38,17 @@ export function ProviderConnect({ ai, provider, reuseSaved = false, submitLabel 
     finally { setWorking(false) }
   }
   const results = outcome ? providerCapabilities[provider].filter(capability => outcome.results[capability]).map(capability => ({ capability, ...outcome.results[capability]! })) : []
-  return <form id={formId} className="jev-connect" onSubmit={event => { event.preventDefault(); if (consent && (useSaved || key.trim().length >= 8) && !working) void test() }}>
-    <div className="jev-key-head"><label htmlFor={keyId}>{t.keyLabel(provider)}</label><button type="button" className="text-button small" onClick={() => ai.openConsole(provider)}>{t.getKey}</button></div>
-    <input id={keyId} type="password" autoComplete="off" spellCheck={false} value={key} maxLength={512} placeholder={saved ? `${ai.status?.providers[provider].keyHint ?? ''}` : t.keyPlaceholder} disabled={working} onChange={event => setKey(event.target.value)} />
+  return <form id={formId} className="jev-connect flex flex-col gap-1" onSubmit={event => { event.preventDefault(); if (consent && (useSaved || key.trim().length >= 8) && !working) void test() }}>
+    <div className="jev-key-head flex items-baseline justify-between gap-3 text-[12px] text-muted-foreground"><label htmlFor={keyId}>{t.keyLabel(provider)}</label><TextButton type="button" className="small" onClick={() => ai.openConsole(provider)}>{t.getKey}</TextButton></div>
+    <Input id={keyId} type="password" autoComplete="off" spellCheck={false} value={key} maxLength={512} placeholder={saved ? `${ai.status?.providers[provider].keyHint ?? ''}` : t.keyPlaceholder} disabled={working} onChange={event => setKey(event.target.value)} />
     <label className="check-label"><input type="checkbox" checked={consent} disabled={working} onChange={event => setConsent(event.target.checked)} />{t.consent(providerNames[provider])}</label>
     {actions({ type: 'submit', form: formId, disabled: working || !consent || (!useSaved && key.trim().length < 8), children: working ? t.testing : submitLabel })}
-    <div className="jev-result" role="status" data-ok={outcome?.ok ?? undefined}>
+    <div className="jev-result min-h-5 mt-1.5 mr-0 mb-0 ml-0 text-[12.5px] leading-[1.6] text-destructive flex flex-col flex-wrap items-center gap-2" role="status" data-ok={outcome?.ok ?? undefined}>
       {results.length > 0
         ? results.map(({ capability, ok, failure }) => <p key={capability} data-ok={ok}>{ok ? t.capabilityOk(t.capabilityNames[capability]) : t.capabilityFailed(t.capabilityNames[capability], failure?.message ?? t.testFailed)}</p>)
         : outcome?.failure && <p data-ok="false">{outcome.failure.message}</p>}
       {outcome?.ok && outcome.sampleMatched === false && <p data-ok="true">{t.sampleMismatch}</p>}
-      {outcome?.failure && consoleFailures.includes(outcome.failure.kind) && <button type="button" className="text-button small" onClick={() => ai.openConsole(provider)}>{t.getKey}</button>}
+      {outcome?.failure && consoleFailures.includes(outcome.failure.kind) && <TextButton type="button" className="small" onClick={() => ai.openConsole(provider)}>{t.getKey}</TextButton>}
     </div>
   </form>
 }

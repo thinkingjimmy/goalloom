@@ -4,6 +4,9 @@
  * [POS]: Column-header action; automatic placement preferences remain independent.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
+import { IconButton } from '../../components/ui/button'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Action } from '../../state/use-workspace'
@@ -37,14 +40,14 @@ export function ColumnOrderMenu({ period, name, disabled, submit }: { period: Pl
   const horizon = period.horizon
   if (horizon === 'year') return null
   return <Popover open={open} onClose={close} floating align="end" anchor={
-    <button ref={trigger} type="button" className="icon-button small" data-column-actions aria-label={messages.columnActions(name)} title={messages.columnActions(name)}
-      aria-haspopup="menu" aria-expanded={open} disabled={disabled} onClick={() => setOpen(!open)}><Icon name="more" size={16} /></button>
+    <IconButton size="small" ref={trigger} type="button" data-column-actions aria-label={messages.columnActions(name)} title={messages.columnActions(name)}
+      aria-haspopup="menu" aria-expanded={open} disabled={disabled} onClick={() => setOpen(!open)}><Icon name="more" size={16} /></IconButton>
   }>
-    <div className="menu column-order-menu" role="menu" aria-label={messages.columnActions(name)} onKeyDown={event => {
+    <div className={cn(menuStyles.surface, 'menu column-order-menu')} role="menu" aria-label={messages.columnActions(name)} onKeyDown={event => {
       if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) { event.preventDefault(); action.current?.focus() }
       if (event.key === 'Tab') close()
     }}>
-      <button ref={action} type="button" className="menu-item" role="menuitem" disabled={disabled} onClick={async event => {
+      <button ref={action} type="button" className={cn(menuStyles.item, 'menu-item')} role="menuitem" disabled={disabled} onClick={async event => {
         const origin = event.detail > 0 ? 'pointer' : 'keyboard'
         close()
         const result = await submit({ type: 'materializeParentOrder', horizon, period: { kind: 'date', startDate: period.startDate } })

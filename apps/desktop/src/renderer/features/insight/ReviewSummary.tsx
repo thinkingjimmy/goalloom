@@ -37,13 +37,13 @@ export function ReviewSummary({ due, snapshot, flows, ready }: { due: ReviewDue;
   }, [ready])
   const { value, pending, error } = state
   return <div className="review-summary" aria-busy={ready && pending}>
-    <div className="review-summary-header">
+    <div className="review-summary-header flex items-center justify-between gap-4 min-h-7">
       <h3><Icon name="smart" size={14} />{t.summaryTitle}</h3>
-      {ready && <button type="button" className="review-summary-refresh" disabled={pending}
+      {ready && <button type="button" className="review-summary-refresh inline-flex items-center justify-center shrink-0 w-10 min-h-10 mt-[-6px] mr-[-10px] mb-[-6px] ml-0 px-2.5 py-0 rounded-[6px] text-muted-foreground" disabled={pending}
         aria-label={pending ? t.summaryPending : t.summaryRefresh} title={pending ? t.summaryPending : t.summaryRefresh}
         onClick={() => { if (!working.current) load(true) }}><Icon name="refresh" size={14} /></button>}
     </div>
-    {ready && <div className="review-summary-content" aria-live="polite">
+    {ready && <div className="review-summary-content min-w-0 mt-2.5" aria-live="polite">
       {value ? <><p className="review-headline">{value.headline}</p>{value.advice && <p className="review-advice">{value.advice}</p>}</> : pending && <p>{t.summaryPending}</p>}
       {error && <p className="review-summary-error" role="alert"><Icon name="warning" size={14} />{value ? t.summaryRefreshFailed : t.summaryFailed}</p>}
     </div>}

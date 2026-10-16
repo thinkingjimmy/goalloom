@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build, native pointer input and isolated production Repository fixtures, with explicit completed-layout controls.
- * [OUTPUT]: Drag linking, flow-valid picking, root promotion/adoption/undo, receipt recovery, ordering and locale evidence in output/tests/relation-drag.
+ * [OUTPUT]: Drag linking, flow-valid picking, root promotion/adoption/undo, receipt recovery, ordering, locale and native pointer/viewport evidence in output/tests/relation-drag.
  * [POS]: Relation feature acceptance; no renderer bridge replacement or real user data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -332,8 +332,17 @@ try {
   await start(ids.peer)
   const timeline = await page.locator('.board-timeline').boundingBox()
   const initialLeft = await page.locator('.board-timeline').evaluate(node => node.scrollLeft)
+  report.horizontalAutoscroll = await page.evaluate(({ initialLeft, timeline }) => {
+    const panel = document.querySelector('.board-timeline'), board = document.querySelector('.board')
+    const trace = { pointer: [], initialLeft, timeline, panel: panel.getBoundingClientRect().toJSON(), board: board.getBoundingClientRect().toJSON(), clientWidth: panel.clientWidth, viewport: { width: innerWidth, height: innerHeight } }
+    window.__relationScrollTrace = trace
+    const observe = event => { trace.pointer.push({ x: event.clientX, y: event.clientY, buttons: event.buttons }); if (trace.pointer.length > 20) trace.pointer.shift() }
+    window.addEventListener('pointermove', observe)
+    return trace
+  }, { initialLeft, timeline })
   await page.mouse.move(timeline.x + 5, timeline.y + 180, { steps: 12 })
   await page.waitForFunction(before => document.querySelector('.board-timeline').scrollLeft < before - 100, initialLeft)
+  report.horizontalAutoscroll.result = await page.evaluate(() => ({ ...window.__relationScrollTrace, scrollLeft: document.querySelector('.board-timeline').scrollLeft }))
   await shot('horizontal-autoscroll'); await page.keyboard.press('Escape'); await page.mouse.up()
   checks.push('Vertical and horizontal edge scrolling, clipped targets and source retention in virtual lists')
   await start(ids.peer)
@@ -363,7 +372,7 @@ try {
   const page = application.windows()[0]
   if (page && !page.isClosed()) {
     report.native = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(w => ({ focused: w.isFocused(), visible: w.isVisible(), bounds: w.getContentBounds() })))
-    report.renderer = await page.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML.slice(0, 500), text: document.body.innerText.slice(-2500) }))
+    report.renderer = await page.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML.slice(0, 500), text: document.body.innerText.slice(-2500), horizontal: window.__relationScrollTrace && { ...window.__relationScrollTrace, scrollLeft: document.querySelector('.board-timeline')?.scrollLeft, linking: document.querySelector('.board')?.dataset.linking } }))
     await page.screenshot({ path: join(evidence, 'failure.png') }).catch(() => undefined)
   }
   throw error

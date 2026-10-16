@@ -11,7 +11,7 @@ import { Icon } from '../../components/icons'
 import type { EditableDraft, ParentInfo } from './draft'
 import { doubts, parentTitle, type Doubt } from './suggestions'
 
-export const JevBadge = () => <span className="jev-badge"><Icon name="smart" size={12} />Jev</span>
+export const JevBadge = () => <span className="jev-badge inline-flex items-center gap-[3px] h-5 pt-0 pr-[7px] pb-0 pl-[5px] rounded-[10px] shrink-0 text-focus text-[11.5px] font-semibold"><Icon name="smart" size={12} />Jev</span>
 export const column = (horizon: ItemHorizon) => horizon === 'later' ? 'Later' : horizonNames[horizon]
 export function doubtText(doubt: Doubt): string {
   if (doubt.kind === 'role') return t.maybeMerge(doubt.previous)
@@ -30,18 +30,18 @@ export function Plan({ drafts, parents }: { drafts: EditableDraft[]; parents: Ma
     const draft = drafts[0]!, doubt = doubts(draft, drafts, parents)[0]
     const under = draft.parents.map(key => parentTitle(key, drafts, parents))
     const sentence = [t.placeTo(column(draft.horizon)), draft.due ? t.dueOn(shortDate(draft.due)) : null, under.length ? t.under(under) : null].filter(Boolean).join(t.comma)
-    return <div className="composer-plan" data-single="true">
-      <p className="plan-sentence">{sentence}</p>
-      {doubt && <p className="plan-doubt">{doubtText(doubt)}</p>}
+    return <div className="composer-plan m-0 p-0 list-none flex flex-col" data-single="true">
+      <p className="plan-sentence m-0">{sentence}</p>
+      {doubt && <p className="plan-doubt m-0 text-[12.5px] text-muted-foreground">{doubtText(doubt)}</p>}
     </div>
   }
-  return <ul className="composer-plan" aria-label={t.planLabel(drafts.length)}>
+  return <ul className="composer-plan m-0 p-0 list-none flex flex-col" aria-label={t.planLabel(drafts.length)}>
     {drafts.map(draft => {
       const doubt = doubts(draft, drafts, parents)[0]
-      return <li key={draft.id} className="plan-line" data-indent={draft.parents.some(key => key.kind === 'draft')} data-orphan={draft.orphan}>
+      return <li key={draft.id} className="plan-line flex flex-wrap items-baseline gap-y-0 gap-x-1.5 leading-[26px]" data-indent={draft.parents.some(key => key.kind === 'draft')} data-orphan={draft.orphan}>
         <span className="plan-title">{draft.title || t.titleRequired}</span>
-        <span className="plan-where">· {where(draft, drafts, parents)}</span>
-        {doubt && <span className="plan-doubt">{doubtText(doubt)}</span>}
+        <span className="plan-where text-[13px] text-muted-foreground">· {where(draft, drafts, parents)}</span>
+        {doubt && <span className="plan-doubt m-0 text-[12.5px] text-muted-foreground">{doubtText(doubt)}</span>}
       </li>
     })}
   </ul>

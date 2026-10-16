@@ -4,6 +4,7 @@
  * [POS]: Review session owner; read contexts separate historical facts from current command versions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { IconButton, TextButton, SettingsButton } from '../../components/ui/button'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { nestingText } from '../../../shared/i18n/nesting'
 import type { ItemSummary } from '../../../shared/contracts/entities'
@@ -196,23 +197,23 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
   const label = step.startsWith('plan') && count ? t.planConfirm(count) : nextStep ? t.nextStep(stepName(nextStep)) : t.reviewFinish
 
   return <dialog ref={dialog} className="review-drawer" aria-labelledby="review-title" onCancel={event => { event.preventDefault(); if (!working && !pendingWrite) close() }}>
-    <div className="review-layout">
-      <header className="review-head"><div><h2 id="review-title">{started && !hasHistory ? t.reviewArrange(periodName(target.horizon, true)) : title}</h2>
+    <div className="review-layout flex flex-col h-full">
+      <header className="review-head flex items-start gap-6 pt-7 pr-7 pb-[21px] pl-7 shrink-0"><div><h2 id="review-title">{started && !hasHistory ? t.reviewArrange(periodName(target.horizon, true)) : title}</h2>
         <p>{started && !hasHistory ? periodDates(target.next) : target.lastDay ? t.reviewEnds(periodDates(target.period)) : t.reviewEnded(periodDates(target.period))}</p></div>
-        <button className="icon-button" aria-label={t.closeReview} disabled={working || pendingWrite} onClick={close}><Icon name="close" size={18} /></button>
+        <IconButton aria-label={t.closeReview} disabled={working || pendingWrite} onClick={close}><Icon name="close" size={18} /></IconButton>
       </header>
-      <ol className="review-steps">{steps.map((value, index) => <li key={value} aria-current={value === step ? 'step' : undefined} data-done={steps.indexOf(value) < steps.indexOf(step)}><span className="review-step-number">{index + 1}</span><span>{stepName(value)}</span></li>)}</ol>
-      <div className="review-body" ref={body} aria-busy={!contextReady}>
-        {loadError && <p className="review-note" role="alert">{t.reviewLoadFailed} <button className="text-button" onClick={() => void load()}>{messages.retry}</button></p>}
-        {!contextReady && !loadError && <p className="review-note" role="status">{messages.opening}</p>}
+      <ol className="review-steps m-0 pt-0 pr-7 pb-5.5 pl-7 flex gap-3 items-start list-none shrink-0">{steps.map((value, index) => <li key={value} aria-current={value === step ? 'step' : undefined} data-done={steps.indexOf(value) < steps.indexOf(step)}><span className="review-step-number inline-flex items-center justify-center w-5.5 h-5.5 text-[11px] shrink-0">{index + 1}</span><span>{stepName(value)}</span></li>)}</ol>
+      <div className="review-body flex-1 min-h-0 overflow-y-auto pt-6.5 pr-7 pb-8 pl-7" ref={body} aria-busy={!contextReady}>
+        {loadError && <p className="review-note m-0 text-[12px] leading-[1.8] text-muted-foreground" role="alert">{t.reviewLoadFailed} <TextButton onClick={() => void load()}>{messages.retry}</TextButton></p>}
+        {!contextReady && !loadError && <p className="review-note m-0 text-[12px] leading-[1.8] text-muted-foreground" role="status">{messages.opening}</p>}
         {context && started && <>
           {step === 'review' && open && contextReady && <ReviewOverview due={due} context={context} ready={ready} />}
-          {step === 'close' && <section className="review-section">
-            <h3 className="review-intro">{t.reviewHandle}</h3><p className="review-note">{t.reviewMoveNote}</p>
-            {targets.map(value => <div className="review-close-group" key={value.horizon}>
+          {step === 'close' && <section className="review-section flex flex-col gap-3">
+            <h3 className="review-intro text-foreground m-0 text-[19px] leading-[1.5] font-semibold">{t.reviewHandle}</h3><p className="review-note m-0 text-[12px] leading-[1.8] text-muted-foreground">{t.reviewMoveNote}</p>
+            {targets.map(value => <div className="review-close-group flex flex-col gap-1" key={value.horizon}>
               {context.closing.filter(item => item.placement.horizon === value.horizon && !processed.current.has(item.id)).map(item => {
-                return <div key={item.id} className="review-close-row" data-choice={choiceFor(item.id)}>
-                  <div id={`review-choice-title-${item.id}`} className="review-goal-title"><span className="check review-todo-check" aria-hidden="true" style={flowVars(flows.colorsOf(item.id))} /><span className="review-item-title"><LinkText text={item.title} /></span></div>
+                return <div key={item.id} className="review-close-row flex justify-between items-start gap-3 min-h-8.5 px-0 py-0.5" data-choice={choiceFor(item.id)}>
+                  <div id={`review-choice-title-${item.id}`} className="review-goal-title flex-1 min-w-0 text-[14px] leading-[1.5] text-left [overflow-wrap:anywhere]"><span className="check review-todo-check" aria-hidden="true" style={flowVars(flows.colorsOf(item.id))} /><span className="review-item-title min-w-0 [overflow-wrap:anywhere] whitespace-pre-wrap"><LinkText text={item.title} /></span></div>
                   <Select disabled={disabled} value={choiceFor(item.id)} onValueChange={choice => setDecisions(previous => {
                     const next = new Map(previous).set(item.id, choice as Decision)
                     if (choice !== 'archive') for (const peer of context.closing) if ((peer.placement.nestingParentId ?? peer.id) === (item.placement.nestingParentId ?? item.id) && next.get(peer.id) !== 'archive') next.set(peer.id, choice as Decision)
@@ -229,14 +230,14 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
               })}
             </div>)}
           </section>}
-          {step.startsWith('plan') && <section className="review-section">
-            <h3 className="review-intro">{t.reviewArrange(periodName(planHorizon, true))}</h3>
-            {!hasHistory && <p className="review-note">{t.reviewNoHistory}</p>}
+          {step.startsWith('plan') && <section className="review-section flex flex-col gap-3">
+            <h3 className="review-intro text-foreground m-0 text-[19px] leading-[1.5] font-semibold">{t.reviewArrange(periodName(planHorizon, true))}</h3>
+            {!hasHistory && <p className="review-note m-0 text-[12px] leading-[1.8] text-muted-foreground">{t.reviewNoHistory}</p>}
             <h3>{t.reviewNewPlans}</h3>
-            <p className="review-note">{rows?.length ? ready ? t.planNote(parentName, periodName(planHorizon, true)) : t.planManual(parentName, periodName(planHorizon, true)) : t.planNone}</p>
-            <div className="review-plan-list">{rows?.map((row, index) => <div key={row.parent.id} className="review-plan-row" data-on={row.on}>
-              <div className="review-plan-head">
-                <div className="review-plan-source"><span className="check review-todo-check" aria-hidden="true" style={flowVars(flows.colorsOf(row.parent.id))} /><span id={`review-plan-title-${row.parent.id}`} className="review-item-title"><LinkText text={row.parent.title} /></span></div>
+            <p className="review-note m-0 text-[12px] leading-[1.8] text-muted-foreground">{rows?.length ? ready ? t.planNote(parentName, periodName(planHorizon, true)) : t.planManual(parentName, periodName(planHorizon, true)) : t.planNone}</p>
+            <div className="review-plan-list flex flex-col">{rows?.map((row, index) => <div key={row.parent.id} className="review-plan-row relative" data-on={row.on}>
+              <div className="review-plan-head flex items-start justify-between gap-4">
+                <div className="review-plan-source flex items-start gap-2 min-w-0 flex-1 text-[14px] leading-[21px] text-foreground [overflow-wrap:anywhere]"><span className="check review-todo-check" aria-hidden="true" style={flowVars(flows.colorsOf(row.parent.id))} /><span id={`review-plan-title-${row.parent.id}`} className="review-item-title min-w-0 [overflow-wrap:anywhere] whitespace-pre-wrap"><LinkText text={row.parent.title} /></span></div>
                 <Select disabled={disabled} value={row.on ? 'include' : 'exclude'} onValueChange={value => setRow(index, { on: value === 'include' })}>
                   <SelectTrigger className="review-choice" aria-labelledby={`review-plan-title-${row.parent.id}`}><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -245,18 +246,18 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
                   </SelectContent>
                 </Select>
               </div>
-              <div className="review-plan-child" style={flowVars(flows.colorsOf(row.parent.id))}><span className="check review-todo-check" aria-hidden="true" /><input className="seed-title" disabled={disabled} aria-label={row.parent.title} value={row.title} maxLength={500} placeholder={currentDrafting ? t.seedBatchPending : t.seedPlaceholder} onChange={event => setRow(index, { title: event.target.value, typed: true })} /></div>
+              <div className="review-plan-child flex items-center gap-2" style={flowVars(flows.colorsOf(row.parent.id))}><span className="check review-todo-check" aria-hidden="true" /><input className="seed-title flex-1 min-w-0 h-7.5 px-2 py-0 rounded-[6px] text-[14px] text-foreground" disabled={disabled} aria-label={row.parent.title} value={row.title} maxLength={500} placeholder={currentDrafting ? t.seedBatchPending : t.seedPlaceholder} onChange={event => setRow(index, { title: event.target.value, typed: true })} /></div>
             </div>)}</div>
           </section>}
         </>}
-        {saveError && <p className="review-note review-error" role="alert">{t.reviewSaveFailed}</p>}
+        {saveError && <p className="review-note review-error m-0 text-[12px] leading-[1.8] text-muted-foreground" role="alert">{t.reviewSaveFailed}</p>}
       </div>
-      <footer className="review-foot">
-        {steps.indexOf(step) > 0 ? <button className="settings-button review-text-button" disabled={disabled || pendingWrite} onClick={() => setStep(steps[steps.indexOf(step) - 1]!)}>{t.back}</button>
-          : <button className="settings-button review-text-button" disabled={working || pendingWrite} onClick={close}>{t.later}</button>}
+      <footer className="review-foot flex items-center gap-3 pt-4 pr-7 pb-5 pl-7 shrink-0">
+        {steps.indexOf(step) > 0 ? <SettingsButton className="review-text-button" disabled={disabled || pendingWrite} onClick={() => setStep(steps[steps.indexOf(step) - 1]!)}>{t.back}</SettingsButton>
+          : <SettingsButton className="review-text-button" disabled={working || pendingWrite} onClick={close}>{t.later}</SettingsButton>}
         <span className="column-spacer" />
-        {step.startsWith('plan') && <button className="settings-button review-text-button review-skip-plan" disabled={disabled || pendingWrite || !started || !contextReady || loadError} onClick={() => void primary(true)}>{t.planSkip}</button>}
-        <button className="settings-button primary" disabled={disabled || !started || !contextReady || loadError || currentDrafting} onClick={() => void primary()}>{pendingWrite ? messages.retry : label}</button>
+        {step.startsWith('plan') && <SettingsButton className="review-text-button review-skip-plan" disabled={disabled || pendingWrite || !started || !contextReady || loadError} onClick={() => void primary(true)}>{t.planSkip}</SettingsButton>}
+        <SettingsButton variant="primary" disabled={disabled || !started || !contextReady || loadError || currentDrafting} onClick={() => void primary()}>{pendingWrite ? messages.retry : label}</SettingsButton>
       </footer>
     </div>
   </dialog>

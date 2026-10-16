@@ -4,6 +4,7 @@
  * [POS]: Detail boundary; ordinary edits stay local while generating, guarded rewrites own only the description.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { TextButton, ActionButton } from '../../components/ui/button'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { useMemo } from 'react'
 import type { CalendarConfig, ItemSummary } from '../../../shared/contracts/entities'
@@ -60,7 +61,7 @@ export function ItemDetail({ itemId, generation, close, write, retryWrite, revis
     <button type="button" className="detail-rail-action danger" disabled={busy} title={messages.deleteVerb} aria-label={messages.deleteVerb} onClick={remove}><Icon name="delete" size={16} /><span>{messages.deleteVerb}</span></button>
   </div>
   return <Modal title={readOnly ? messages.trashItem : messages.currentItem} heading={heading} actions={actions} close={dismiss} className="detail">
-    {error && <p className="inline-error detail-save-error" role="alert">{error} <button type="button" className="text-button" disabled={autosave.saving} onClick={() => void autosave.retry().then(discarded => { if (discarded) close() })}>{messages.retryAutosave}</button></p>}
+    {error && <p className="inline-error detail-save-error" role="alert">{error} <TextButton type="button" disabled={autosave.saving} onClick={() => void autosave.retry().then(discarded => { if (discarded) close() })}>{messages.retryAutosave}</TextButton></p>}
     {item && detail && <div className="detail-layout"><div className="detail-main">
       <div className="detail-body" data-save-state={error ? 'error' : autosave.saving ? 'saving' : autosave.dirty ? 'pending' : 'saved'} onCompositionStart={() => autosave.composition(true)} onCompositionEnd={() => autosave.composition(false)}
         onBlur={event => { if ((event.target as HTMLElement).closest('.title-input, .description-editor')) queueMicrotask(() => { void autosave.flush() }) }}
@@ -88,7 +89,7 @@ export function ItemDetail({ itemId, generation, close, write, retryWrite, revis
         {/* Keep a node after the editor so Chromium sends checklist Space to its marker. */}
         <div className="detail-sentinel" aria-hidden="true" />
       </div>
-      {readOnly && <footer className="modal-footer"><span className="footer-spacer" /><button className="button" disabled={busy} onClick={() => void submit({ type: 'restoreItem', itemId, expectedVersion: item.version })}>{messages.restoreItemAction}</button></footer>}
+      {readOnly && <footer className="modal-footer"><span className="footer-spacer" /><ActionButton disabled={busy} onClick={() => void submit({ type: 'restoreItem', itemId, expectedVersion: item.version })}>{messages.restoreItemAction}</ActionButton></footer>}
     </div></div>}
   </Modal>
 }

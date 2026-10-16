@@ -4,6 +4,7 @@
  * [POS]: Workspace navigation's board pane. Ordering and completion feedback sync between computers.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { SettingsButton } from '../../../components/ui/button'
 import { horizons } from '../../../../shared/contracts/values'
 import { horizonNames, settingsMessages as t, useLocale } from '../../../i18n'
 import { Icon } from '../../../components/icons'
@@ -26,9 +27,9 @@ export function BoardPane({ disabled }: { disabled: boolean }) {
     </SettingsRow>
     <SettingsRow title={t.celebration} note={anyCelebration ? t.celebrationNote : t.celebrationOff} below={<>
       <div className="celebration-chips"><ToggleChips label={t.celebrationColumns} options={horizons.map(horizon => ({ value: horizon, label: horizonNames[horizon], pressed: celebration.enabled[horizon] }))} onToggle={celebration.setEnabled} /></div>
-      {reducedMotion && <p className="settings-row-status" role="status"><Icon name="info" size={14} />{t.celebrationReducedMotion}</p>}
+      {reducedMotion && <p className="settings-row-status m-0 flex items-center gap-1.5 text-[12px] leading-[1.5] text-warning" role="status"><Icon name="info" size={14} />{t.celebrationReducedMotion}</p>}
     </>}>
-      <button type="button" className="settings-button subtle" disabled={reducedMotion} onClick={previewCelebration}><Icon name="confetti" size={14} />{t.celebrationTry}</button>
+      <SettingsButton variant="subtle" type="button" disabled={reducedMotion} onClick={previewCelebration}><Icon name="confetti" size={14} />{t.celebrationTry}</SettingsButton>
     </SettingsRow>
   </SettingsGroup>
 }

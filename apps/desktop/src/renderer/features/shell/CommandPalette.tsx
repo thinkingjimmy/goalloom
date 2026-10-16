@@ -4,6 +4,8 @@
  * [POS]: Read-only global search; never presents a stale response as current.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
 import { messages, horizonNames, statusNames, shortcutMessages } from '../../i18n'
 import { useEffect, useState } from 'react'
 import type { CalendarConfig, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
@@ -46,9 +48,9 @@ export function CommandPalette({ close, select, undo, canUndo, create, openSetti
   return <Modal title={messages.commands} heading={<div className="palette-search"><Icon name="search" size={18} /><input autoFocus aria-label={messages.searchItems} value={query} onChange={event => setQuery(event.target.value)} onCompositionStart={() => setComposing(true)} onCompositionEnd={event => { setQuery(event.currentTarget.value); setComposing(false) }} placeholder={messages.searchOrCommand}
     onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); const first = entries.find(entry => !entry.disabled); first?.run() } }} /></div>} close={close} className="palette">
     {error && <p className="inline-error" role="alert">{error}</p>}
-    <p className="menu-heading">{query.trim() ? messages.itemsHeading : messages.commandsHeading}</p>
+    <p className={cn(menuStyles.heading, 'menu-heading')}>{query.trim() ? messages.itemsHeading : messages.commandsHeading}</p>
     <div className="command-results">
-      {entries.map(entry => <button key={entry.key} className="menu-item" disabled={entry.disabled} onClick={entry.run}><span className="menu-text">{entry.label}</span>{entry.hint && <span className="menu-hint">{entry.hint}</span>}</button>)}
+      {entries.map(entry => <button key={entry.key} className={cn(menuStyles.item, 'menu-item')} disabled={entry.disabled} onClick={entry.run}><span className={cn(menuStyles.text, 'menu-text')}>{entry.label}</span>{entry.hint && <span className={cn(menuStyles.hint, 'menu-hint')}>{entry.hint}</span>}</button>)}
       {query.trim() && presented === query && !composing && !items.length && <p className="menu-note">{messages.noResults}</p>}
     </div>
   </Modal>

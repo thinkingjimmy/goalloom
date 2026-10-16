@@ -4,6 +4,9 @@
  * [POS]: Composer adjust list row; Composer owns selection and letter shortcuts, transaction validation stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { Input, Textarea } from '../../components/ui/fields'
+import { cn } from '../../lib/utils'
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { horizons } from '../../../shared/contracts/values'
 import type { ItemSummary, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
@@ -34,8 +37,8 @@ interface Props {
 export function DraftRow({ draft, drafts, parents, flows, usedColors, periods, today, weekStart, disabled, selected, menu, editing, select, openMenu, stopEditing, change, replace, remember, merge }: Props) {
   const indent = draft.parents.some(key => key.kind === 'draft')
   const title = draft.title || t.titleRequired
-  if (!selected) return <button type="button" role="option" aria-selected="false" tabIndex={-1} className="plan-row" data-indent={indent} data-orphan={draft.orphan} onClick={select}>
-    <span className="plan-title">{title}</span><span className="plan-where">{where(draft, drafts, parents)}</span>
+  if (!selected) return <button type="button" role="option" aria-selected="false" tabIndex={-1} className="plan-row flex items-center gap-2 min-h-9.5 px-2 py-0 rounded-[8px] text-[14px] text-left" data-indent={indent} data-orphan={draft.orphan} onClick={select}>
+    <span className="plan-title">{title}</span><span className="plan-where text-[13px] text-muted-foreground">{where(draft, drafts, parents)}</span>
   </button>
 
   const list = doubts(draft, drafts, parents)
@@ -45,15 +48,15 @@ export function DraftRow({ draft, drafts, parents, flows, usedColors, periods, t
   const toggle = (next: RowMenu) => openMenu(menu === next ? null : next)
   const labels = draft.parents.map(key => parentTitle(key, drafts, parents))
   const token = (key: string, kind: RowMenu, label: ReactNode, empty: boolean, jev: boolean) =>
-    <button type="button" className="plan-token" data-empty={empty} data-doubt={doubtOf(kind)} aria-haspopup={kind === 'due' ? 'dialog' : 'menu'} aria-expanded={menu === kind} aria-keyshortcuts={key} disabled={disabled} onClick={() => toggle(kind)}>
-      <kbd className="plan-key">{key}</kbd>{label}{jev && <span className="plan-jev" aria-label={t.fromJev}><Icon name="smart" size={12} /></span>}
+    <button type="button" className="plan-token inline-flex items-center gap-[5px] h-6.5 px-2 py-0 rounded-[6px] bg-hover text-[12.5px] text-soft whitespace-nowrap" data-empty={empty} data-doubt={doubtOf(kind)} aria-haspopup={kind === 'due' ? 'dialog' : 'menu'} aria-expanded={menu === kind} aria-keyshortcuts={key} disabled={disabled} onClick={() => toggle(kind)}>
+      <kbd className="plan-key text-[10px] font-semibold text-subtle">{key}</kbd>{label}{jev && <span className="plan-jev inline-flex text-focus" aria-label={t.fromJev}><Icon name="smart" size={12} /></span>}
     </button>
 
-  return <div className="plan-row" data-selected="true" data-indent={indent} data-orphan={draft.orphan}>
+  return <div className="plan-row flex items-center gap-2 min-h-9.5 px-2 py-0 rounded-[8px] text-[14px] text-left" data-selected="true" data-indent={indent} data-orphan={draft.orphan}>
     {editing ? <EditFields draft={draft} disabled={disabled} change={change} done={stopEditing} /> : <>
-      <button type="button" role="option" aria-selected="true" className="plan-title plan-focus" onClick={() => openMenu(null)}>{title}</button>
-      <span className="plan-tokens">
-        {doubtOf('role') && <button type="button" className="plan-token" data-doubt="true" aria-keyshortcuts="M" disabled={disabled} onClick={merge}><kbd className="plan-key">M</kbd>{t.mergeShort}</button>}
+      <button type="button" role="option" aria-selected="true" className="plan-title plan-focus font-semibold text-left rounded-[4px]" onClick={() => openMenu(null)}>{title}</button>
+      <span className="plan-tokens flex flex-wrap gap-1 ml-auto">
+        {doubtOf('role') && <button type="button" className="plan-token inline-flex items-center gap-[5px] h-6.5 px-2 py-0 rounded-[6px] bg-hover text-[12.5px] text-soft whitespace-nowrap" data-doubt="true" aria-keyshortcuts="M" disabled={disabled} onClick={merge}><kbd className="plan-key text-[10px] font-semibold text-subtle">M</kbd>{t.mergeShort}</button>}
         <Popover open={menu === 'horizon'} onClose={close} align="end" anchor={token('T', 'horizon', column(draft.horizon), false, fromJev('horizon') && draft.horizon !== 'later')}>
           <HorizonMenu draft={draft} periods={periods} pick={horizon => { change({ horizon, horizonSuggestion: null, horizonInferred: false }, 'horizon'); close() }} />
         </Popover>
@@ -80,10 +83,10 @@ function HorizonMenu({ draft, periods, pick }: { draft: EditableDraft; periods: 
     return horizon === 'day' ? longDate(period.startDate) : `${shortDate(period.startDate)} – ${shortDate(end.toISOString().slice(0, 10))}`
   }
   return <KeyMenu label={t.horizonLabel}>
-    {[...horizons].reverse().map((horizon, index) => <button key={horizon} type="button" role="menuitemradio" aria-checked={draft.horizon === horizon} data-key={index + 1} className="menu-item" onClick={() => pick(horizon)}>
-      <kbd className="plan-key">{index + 1}</kbd><span className="menu-text">{column(horizon)}</span>
+    {[...horizons].reverse().map((horizon, index) => <button key={horizon} type="button" role="menuitemradio" aria-checked={draft.horizon === horizon} data-key={index + 1} className={cn(menuStyles.item, 'menu-item')} onClick={() => pick(horizon)}>
+      <kbd className="plan-key text-[10px] font-semibold text-subtle">{index + 1}</kbd><span className={cn(menuStyles.text, 'menu-text')}>{column(horizon)}</span>
       {draft.horizonSuggestion === horizon && <JevBadge />}
-      <span className="menu-hint">{range(horizon)}</span>
+      <span className={cn(menuStyles.hint, 'menu-hint')}>{range(horizon)}</span>
     </button>)}
   </KeyMenu>
 }
@@ -111,25 +114,25 @@ function ParentMenu({ draft, drafts, parents, flows, usedColors, disabled, close
   const free = relationColors.map((_, index) => index).filter(index => !usedColors.includes(index) || draft.flowColor === index)
   const takenByDraft = drafts.filter(row => row.id !== draft.id).map(row => row.flowColor).filter(value => value !== null)
   return <KeyMenu label={t.parentToken}>
-    <input className="menu-search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t.searchParents} aria-label={t.searchParents} disabled={blocked} />
+    <Input className="menu-search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t.searchParents} aria-label={t.searchParents} disabled={blocked} />
     {blocked && <p className="menu-note">{t.parentBlockedByFlow}</p>}
-    {!blocked && (query.trim() ? found.map(item => <button key={item.id} type="button" className="menu-item" onClick={() => link({ kind: 'existing', itemId: item.id }, info(item))}>
-      <FlowMark colors={item.flowColor !== null ? [item.flowColor] : flows.colorsOf(item.id)} /><span className="menu-text">{item.title}</span><span className="menu-hint">{item.archivedAt ? t.archivedTag : horizonNames[item.placement.horizon]}</span>
+    {!blocked && (query.trim() ? found.map(item => <button key={item.id} type="button" className={cn(menuStyles.item, 'menu-item')} onClick={() => link({ kind: 'existing', itemId: item.id }, info(item))}>
+      <FlowMark colors={item.flowColor !== null ? [item.flowColor] : flows.colorsOf(item.id)} /><span className={cn(menuStyles.text, 'menu-text')}>{item.title}</span><span className={cn(menuStyles.hint, 'menu-hint')}>{item.archivedAt ? t.archivedTag : horizonNames[item.placement.horizon]}</span>
     </button>) : <>
-      {suggested.map(row => <button key={`jev-${row.key.kind === 'existing' ? row.key.itemId : row.key.draftId}`} type="button" className="menu-item" onClick={() => link(row.key, null)}>
-        <FlowMark colors={colorsOf(row.key)} /><span className="menu-text">{row.title}</span><JevBadge />{row.move && <span className="menu-hint">{t.movesTo(horizonNames[row.move])}</span>}
+      {suggested.map(row => <button key={`jev-${row.key.kind === 'existing' ? row.key.itemId : row.key.draftId}`} type="button" className={cn(menuStyles.item, 'menu-item')} onClick={() => link(row.key, null)}>
+        <FlowMark colors={colorsOf(row.key)} /><span className={cn(menuStyles.text, 'menu-text')}>{row.title}</span><JevBadge />{row.move && <span className={cn(menuStyles.hint, 'menu-hint')}>{t.movesTo(horizonNames[row.move])}</span>}
       </button>)}
-      {draft.parents.map(key => <button key={`on-${key.kind === 'existing' ? key.itemId : key.draftId}`} type="button" className="menu-item" aria-label={t.removeParent(parentTitle(key, drafts, parents))} onClick={() => change({ parents: draft.parents.filter(row => !sameParent(row, key)) }, 'parents')}>
-        <Icon name="check" size={14} /><span className="menu-text">{parentTitle(key, drafts, parents)}</span><span className="menu-hint">{t.removeShort}</span>
+      {draft.parents.map(key => <button key={`on-${key.kind === 'existing' ? key.itemId : key.draftId}`} type="button" className={cn(menuStyles.item, 'menu-item')} aria-label={t.removeParent(parentTitle(key, drafts, parents))} onClick={() => change({ parents: draft.parents.filter(row => !sameParent(row, key)) }, 'parents')}>
+        <Icon name="check" size={14} /><span className={cn(menuStyles.text, 'menu-text')}>{parentTitle(key, drafts, parents)}</span><span className={cn(menuStyles.hint, 'menu-hint')}>{t.removeShort}</span>
       </button>)}
-      {others.length > 0 && <p className="menu-heading">{t.batchDrafts}</p>}
-      {others.map(row => <button key={row.id} type="button" className="menu-item" onClick={() => link({ kind: 'draft', draftId: row.id }, null)}><FlowMark colors={row.flowColor !== null ? [row.flowColor] : []} /><span className="menu-text">{row.title}</span></button>)}
-      {known.length > 0 && <p className="menu-heading">{t.candidates}</p>}
-      {known.map(row => <button key={row.itemId} type="button" className="menu-item" onClick={() => link({ kind: 'existing', itemId: row.itemId }, null)}><FlowMark colors={row.flowColor !== null ? [row.flowColor] : flows.colorsOf(row.itemId)} /><span className="menu-text">{row.title}</span><span className="menu-hint">{row.archived ? t.archivedTag : horizonNames[row.horizon]}</span></button>)}
+      {others.length > 0 && <p className={cn(menuStyles.heading, 'menu-heading')}>{t.batchDrafts}</p>}
+      {others.map(row => <button key={row.id} type="button" className={cn(menuStyles.item, 'menu-item')} onClick={() => link({ kind: 'draft', draftId: row.id }, null)}><FlowMark colors={row.flowColor !== null ? [row.flowColor] : []} /><span className={cn(menuStyles.text, 'menu-text')}>{row.title}</span></button>)}
+      {known.length > 0 && <p className={cn(menuStyles.heading, 'menu-heading')}>{t.candidates}</p>}
+      {known.map(row => <button key={row.itemId} type="button" className={cn(menuStyles.item, 'menu-item')} onClick={() => link({ kind: 'existing', itemId: row.itemId }, null)}><FlowMark colors={row.flowColor !== null ? [row.flowColor] : flows.colorsOf(row.itemId)} /><span className={cn(menuStyles.text, 'menu-text')}>{row.title}</span><span className={cn(menuStyles.hint, 'menu-hint')}>{row.archived ? t.archivedTag : horizonNames[row.horizon]}</span></button>)}
     </>)}
     {!draft.parents.length && <>
-      <div className="menu-separator" />
-      <p className="menu-heading">{t.newFlow}</p>
+      <div className={cn(menuStyles.separator, 'menu-separator')} />
+      <p className={cn(menuStyles.heading, 'menu-heading')}>{t.newFlow}</p>
       <div className="swatches" role="radiogroup" aria-label={t.newFlowHint}>
         <button type="button" role="radio" aria-checked={draft.flowColor === null} aria-label={t.noColor} title={t.noColor} className="swatch" onClick={() => { change({ flowColor: null }, 'flowColor'); close() }}><FlowMark colors={[]} dashed /></button>
         {free.map(index => <button key={index} type="button" role="radio" aria-checked={draft.flowColor === index} aria-label={messages.colorNames[index]!} title={messages.colorNames[index]!} className="swatch" disabled={disabled || takenByDraft.includes(index) || draft.horizon === 'later'} onClick={() => { change({ flowColor: index }, 'flowColor'); close() }}><FlowMark colors={[index]} /></button>)}
@@ -146,8 +149,8 @@ function EditFields({ draft, disabled, change, done }: { draft: EditableDraft; d
     if (event.nativeEvent.isComposing) return
     if (event.key === 'Escape' || (event.key === 'Enter' && event.target instanceof HTMLInputElement)) { event.preventDefault(); done() }
   }
-  return <div className="plan-edit" onKeyDown={keys}>
-    <input className="plan-edit-title" aria-label={t.titleLabel} value={draft.title} maxLength={500} disabled={disabled} autoFocus onChange={event => change({ title: event.target.value }, 'title')} />
-    <textarea className="plan-edit-note" aria-label={t.descriptionLabel} placeholder={t.addDescription} value={draft.description} rows={2} disabled={disabled} onChange={event => change({ description: event.target.value }, 'description')} />
+  return <div className="plan-edit flex-1 flex flex-col gap-1" onKeyDown={keys}>
+    <Input className="plan-edit-title h-7.5 text-[14px] font-medium" aria-label={t.titleLabel} value={draft.title} maxLength={500} disabled={disabled} autoFocus onChange={event => change({ title: event.target.value }, 'title')} />
+    <Textarea className="plan-edit-note text-[12.5px]" aria-label={t.descriptionLabel} placeholder={t.addDescription} value={draft.description} rows={2} disabled={disabled} onChange={event => change({ description: event.target.value }, 'description')} />
   </div>
 }

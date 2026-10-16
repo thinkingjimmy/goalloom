@@ -5,6 +5,8 @@
  * [POS]: items detail property row; relationship writes stay in RelationPicker and are revalidated by storage.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
 import { useState } from 'react'
 import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
 import type { ItemDetail } from '../../../shared/contracts/queries'
@@ -31,16 +33,16 @@ export function RelationChip({ side, self, edges, open, setOpen, canLink, flows,
     </button>
   }>
     {picking ? <RelationPicker side={side} self={self} edges={edges} flows={flows} candidates={candidates} submit={submit} onError={onError} />
-      : <div className="menu relation-menu" role="menu" aria-label={label}>
+      : <div className={cn(menuStyles.surface, 'menu relation-menu')} role="menu" aria-label={label}>
         {mine.map(edge => {
           const other = side === 'parent' ? edge.parentId : edge.childId
-          return <button type="button" role="menuitem" key={edge.id} className="menu-item" onClick={() => { setOpen(false); navigate(other) }}>
-            <FlowMark colors={flows.colorsOf(other)} /><span className="menu-text">{side === 'parent' ? edge.parentTitle : edge.childTitle}{(side === 'parent' ? edge.parentArchived : edge.childArchived) ? messages.archivedSuffix : ''}</span>
+          return <button type="button" role="menuitem" key={edge.id} className={cn(menuStyles.item, 'menu-item')} onClick={() => { setOpen(false); navigate(other) }}>
+            <FlowMark colors={flows.colorsOf(other)} /><span className={cn(menuStyles.text, 'menu-text')}>{side === 'parent' ? edge.parentTitle : edge.childTitle}{(side === 'parent' ? edge.parentArchived : edge.childArchived) ? messages.archivedSuffix : ''}</span>
           </button>
         })}
         {canLink && <>
-          <div className="menu-separator" />
-          <button type="button" role="menuitem" className="menu-item" onClick={() => setPicking(true)}><Icon name="link" size={14} />{side === 'parent' ? messages.linkParent : messages.linkExisting}</button>
+          <div className={cn(menuStyles.separator, 'menu-separator')} />
+          <button type="button" role="menuitem" className={cn(menuStyles.item, 'menu-item')} onClick={() => setPicking(true)}><Icon name="link" size={14} />{side === 'parent' ? messages.linkParent : messages.linkExisting}</button>
         </>}
       </div>}
   </Popover>

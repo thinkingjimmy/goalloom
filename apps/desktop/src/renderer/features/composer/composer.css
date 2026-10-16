@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Shared appearance tokens, palette modal styles and composer content states.
- * [OUTPUT]: Compact empty composer, content-sized input, candidate strips, draft controls and provider forms.
- * [POS]: Shared presentation for global and seeded composers, plus onboarding/settings provider forms.
+ * [OUTPUT]: Content-sized input, coordinated empty/selection states, candidate motion and nested field exceptions.
+ * [POS]: Composer-specific CSS; Tailwind owns static layout and shared controls.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 /* Short by design (≤ 8 one-line drafts), so inline menus may overflow the dialog instead of being clipped. */
@@ -13,87 +13,50 @@
 .modal.palette.composer-modal .modal-header > .icon-button { margin-top: -6px; }
 .palette-search.composer-search { align-items: flex-start; }
 .composer-search > svg { margin-top: 3px; flex-shrink: 0; }
-.composer-input { flex: 1; min-width: 0; width: auto; field-sizing: content; min-height: 24px; max-height: 168px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 15px; line-height: 24px; resize: none; color: var(--fg); }
+.composer-input { field-sizing: content; border: 0; border-radius: 0; background: transparent; resize: none; }
 .composer-input:focus-visible { outline: none; }
-.composer-body { display: flex; flex-direction: column; gap: 6px; }
-.composer-error { margin: 2px 10px 0; }
-.jev-badge { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px 0 5px; border-radius: 10px; flex-shrink: 0; background: color-mix(in oklab, var(--focus) 14%, transparent); color: var(--focus); font-size: 11.5px; font-weight: 600; }
+.jev-badge { background: color-mix(in oklab, var(--focus) 14%, transparent); }
 /* The strip: Jev tinted, red when the call failed, neutral without Jev. */
-.composer-cand { display: flex; flex-direction: column; gap: 10px; padding: 12px 12px 10px 14px; border-radius: 10px; background: color-mix(in oklab, var(--focus) 6%, transparent); }
+.composer-cand { background: color-mix(in oklab, var(--focus) 6%, transparent); }
 .composer-cand[data-tone='failed'] { background: color-mix(in oklab, var(--danger) 6%, transparent); }
 .composer-cand[data-tone='failed'] .jev-badge { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
 .composer-cand[data-tone='plain'] { background: var(--hover); }
 .composer-cand[data-tone='stale'] .cand-text { opacity: .55; }
-.cand-line { display: flex; align-items: flex-start; gap: 10px; min-height: 30px; font-size: 14px; line-height: 22px; }
 .cand-line > .jev-badge { margin-top: 5px; }
-.cand-text { flex: 1; min-width: 0; padding-top: 4px; }
-.cand-link { align-self: center; flex: 1; text-align: left; font-size: 13px; color: var(--focus); }
 .cand-link:hover { text-decoration: underline; }
-.cand-state { align-self: center; flex-shrink: 0; font-size: 12.5px; color: var(--secondary); }
-.cand-pending { display: flex; gap: 6px; padding-top: 10px; }
 .cand-skeleton { width: 90px; height: 10px; border-radius: 5px; background: color-mix(in oklab, var(--focus) 16%, transparent); animation: cand-pulse 1.2s ease-in-out infinite alternate; }
 .cand-skeleton[data-long='true'] { width: 150px; }
 @keyframes cand-pulse { from { opacity: .45; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .cand-skeleton { animation: none; } }
-.cand-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 12px; line-height: 1.6; color: var(--backlog); }
-.cand-hints { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; color: var(--secondary); }
-.composer-hint { display: inline-flex; align-items: center; gap: 5px; }
 .composer-hint .keycap, .composer-primary .keycap { min-width: 18px; height: 18px; }
-.composer-primary { flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px 0 12px; border-radius: 8px; background: var(--fg); color: var(--surface); font-size: 13px; font-weight: 600; }
 .composer-primary .keycap { background: color-mix(in oklab, var(--surface) 16%, transparent); border-color: transparent; color: inherit; }
 .composer-primary:hover:not(:disabled) { background: var(--fg-soft); }
 .composer-primary:disabled { opacity: .45; }
 /* Recommendation: a sentence for one draft, a line per draft otherwise; doubts stay a muted aside. */
-.composer-plan { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
-.plan-sentence { margin: 0; }
-.plan-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; line-height: 26px; }
 .plan-line[data-indent='true'] { padding-left: 18px; }
 .plan-line[data-indent='true']::before { content: '└'; margin-left: -16px; width: 10px; color: var(--faint); }
 .plan-line[data-orphan='true'] .plan-title { color: var(--secondary); }
-.plan-where { font-size: 13px; color: var(--secondary); }
-.plan-doubt { margin: 0; font-size: 12.5px; color: var(--secondary); }
 .plan-line .plan-doubt { flex-basis: 100%; }
 /* Adjust list: one line per draft; the selected one shows its T/D/P tokens inline. */
-.plan-list { display: flex; flex-direction: column; gap: 2px; margin: 0 -6px; }
-.plan-row { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 8px; border-radius: 8px; font-size: 14px; text-align: left; }
 button.plan-row:hover { background: var(--hover); }
 .plan-row[data-indent='true'] { padding-left: 26px; }
 .plan-row[data-orphan='true'] .plan-title { color: var(--secondary); }
 .plan-row[data-selected='true'] { flex-wrap: wrap; row-gap: 4px; padding-top: 4px; padding-bottom: 4px; background: var(--surface); box-shadow: 0 0 0 1px color-mix(in oklab, var(--focus) 40%, transparent); }
 .plan-row .plan-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plan-row .plan-where { flex-shrink: 0; }
-.plan-focus { font-weight: 600; text-align: left; border-radius: 4px; }
 /* The selected row's own outline already marks keyboard focus. */
 .plan-focus:focus-visible { outline: none; }
-.plan-tokens { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
-.plan-token { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 8px; border-radius: 6px; background: var(--hover); font-size: 12.5px; color: var(--fg-soft); white-space: nowrap; }
 .plan-token[data-empty='true'] { background: transparent; color: var(--secondary); box-shadow: inset 0 0 0 1px var(--line); }
 .plan-token[data-doubt='true'] { color: var(--focus); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--focus) 45%, transparent); }
 .plan-token:hover:not(:disabled), .plan-token[aria-expanded='true'] { background: var(--pressed); }
-.plan-key { font: inherit; font-size: 10px; font-weight: 600; color: var(--faint); }
-.plan-jev { display: inline-flex; color: var(--focus); }
-.plan-edit { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.plan-edit-title { height: 30px; font-size: 14px; font-weight: 500; }
-.plan-edit-note { font-size: 12.5px; }
-.key-menu { min-width: 240px; }
 .key-menu .menu-item .plan-key { width: 12px; }
 .key-menu .menu-item .jev-badge { margin-left: 4px; }
 /* --- Jev connect form shared by onboarding and settings. --- */
-.jev-connect { display: flex; flex-direction: column; gap: 4px; }
 .jev-connect .segmented { align-self: flex-start; margin-bottom: 4px; }
 .jev-connect .field-note { margin: 2px 0; }
-.jev-actions { display: flex; gap: 8px; margin-top: 8px; }
-.jev-result { min-height: 20px; margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--danger); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .jev-result[data-ok='true'] { color: var(--secondary); }
-.settings-form { padding: 14px 16px; }
 /* Prefilled mode (flow insight): context chips under the field, a checked list of drafted steps for a batch. */
-.seed-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px 2px 36px; }
-.seed-chip { display: inline-flex; align-items: center; height: 24px; max-width: 320px; padding: 0 8px; border-radius: 6px; background: var(--hover); font-size: 12px; color: var(--fg-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.seed-heading { color: var(--fg-soft); }
-.seed-list { display: flex; flex-direction: column; gap: 2px; }
-.seed-row { display: flex; align-items: center; gap: 10px; min-height: 34px; }
 .seed-row input[type='checkbox'] { width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--fg); }
 .seed-row[data-on='false'] .seed-title { color: var(--faint); }
-.seed-title { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font-size: 14px; color: var(--fg); }
+.seed-title { border: 0; background: transparent; }
 .seed-title:focus-visible { outline: none; background: var(--surface); box-shadow: 0 0 0 1px color-mix(in oklab, var(--focus) 40%, transparent); }
-.seed-parent { flex-shrink: 0; max-width: 40%; font-size: 12px; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

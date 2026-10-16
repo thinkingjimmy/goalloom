@@ -42,6 +42,7 @@ packages/tests/sync/         # 跨包同步；workspace 包只提供 @goalloom/*
 
 ```text
 Electron scenarios (this directory)
+├── style-migration.mjs  # 68 four-appearance setup/settings/menu/composer snapshots, computed geometry/styles and keyboard/portal/no-write checks; --record before a styling change, --compare after rebuilding; output/tests/style-migration
 ├── calendar-modes.mjs   # Rolling/natural setup, short annual target/future half drafting, Settings › Calendar next starts and the change-calendar route to reset, six pickers, longest-parent dragging, legacy JSON/SQLite fidelity and five-locale/four-theme evidence; output/tests/calendar-modes
 ├── later-sidebar.mjs    # Default planning columns, legacy preference handling, Later count and parent unlinking on moves, independent scrolling, drag/undo, preserved drafts, motion, themes/locales and restart; output/tests/later-sidebar
 ├── column-visibility.mjs # Six-column checkbox menu sized to the longest label, right-aligned checks, gray locked check with a hover tip, independent preferences, retained hidden drafts/scroll/periods, explicit-target reveal, keyboard drag, geometry/locales/themes; --menu narrows development checks, --baseline/--style-baseline preserve initial failures; output/tests/column-visibility

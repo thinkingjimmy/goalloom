@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Isolated evidence directory, frozen v5/v6 DDL and production Repository/transfer APIs.
+ * [INPUT]: Isolated evidence directory, frozen v5/v6 DDL, current schemaVersion and production Repository/transfer APIs.
  * [OUTPUT]: Legacy transfer fidelity with independent v9 placements, historical milestone validation/undo, manual year/half defaults and pre-anchor review guards.
  * [POS]: Calendar storage acceptance under Electron's actual Node/SQLite, with an injected clock.
  * [PROTOCOL]: Update this header when making changes, then check README.md.

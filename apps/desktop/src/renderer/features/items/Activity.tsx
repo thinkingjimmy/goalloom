@@ -4,6 +4,7 @@
  * [POS]: Read-only presentation; main computes all counts, pressure and elapsed time.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { TextButton } from '../../components/ui/button'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PlanningPeriod } from '../../../shared/contracts/entities'
 import type { ActivityEntries, ActivityMonth, ExecutionFacts } from '../../../shared/contracts/execution'
@@ -99,9 +100,9 @@ export function ActivityDrawer({ itemId, generation, revision, observedAt, perio
   const firstMonth = `${facts?.createdAt.value ? workspaceDate(facts.timezone, facts.createdAt.value).slice(0, 7) : today.slice(0, 7)}-01`
   const when = (at: string) => new Intl.DateTimeFormat(intlTags[locale], { timeZone: facts?.timezone ?? 'UTC', dateStyle: 'short', timeStyle: 'short' }).format(new Date(at))
   return <div className="activity-drawer" data-insight="true" data-facts-as-of={displayedFacts?.asOf} data-facts-revision={displayedFacts?.sourceRevision}><div className="activity-scroll">
-    {error && <p className="inline-error" role="alert">{error} {facts && t.notUpdated} <button type="button" className="text-button" onClick={() => setRetry(value => value + 1)}>{t.retry}</button></p>}
+    {error && <p className="inline-error" role="alert">{error} {facts && t.notUpdated} <TextButton type="button" onClick={() => setRetry(value => value + 1)}>{t.retry}</TextButton></p>}
     {displayedFacts ? <FactsView facts={displayedFacts} period={period} /> : !error && <p role="status">{t.loading}</p>}
-    {(assist || move) && <div className="execution-help" data-emphasis={facts?.pressure.level.value === 'reconfirm'}>{assist && <button type="button" className="text-button" disabled={helpDisabled} onClick={assist}>{t.title}</button>}{move && <button type="button" className="text-button" disabled={helpDisabled} onClick={move}>{t.move}</button>}</div>}
+    {(assist || move) && <div className="execution-help" data-emphasis={facts?.pressure.level.value === 'reconfirm'}>{assist && <TextButton type="button" disabled={helpDisabled} onClick={assist}>{t.title}</TextButton>}{move && <TextButton type="button" disabled={helpDisabled} onClick={move}>{t.move}</TextButton>}</div>}
     <hr className="activity-rule" />
     {selection !== 'all' ? <>
       <div className="activity-month"><button type="button" className="activity-month-button" aria-label={messages.duePreviousMonth} disabled={month <= firstMonth} onClick={() => { setMonth(addMonths(month, -1)); setSelection(null) }}><Icon name="previous" size={14} /></button>
@@ -117,18 +118,18 @@ export function ActivityDrawer({ itemId, generation, revision, observedAt, perio
             if (next) { event.preventDefault(); next.focus() }
           }}><span className="activity-day-num">{Number(date.slice(8))}</span><span className="activity-dot" data-kind={marks.has(date) ? 'move' : undefined} aria-hidden="true" /></button>}
         </span>)}</div>)}
-      </div><button type="button" className="activity-all text-button" onClick={() => setSelection('all')}>{t.all}</button>
-    </> : <button type="button" className="activity-all text-button" onClick={() => setSelection(null)}><Icon name="previous" size={14} />{t.calendar}</button>}
+      </div><TextButton type="button" className="activity-all" onClick={() => setSelection('all')}>{t.all}</TextButton>
+    </> : <TextButton type="button" className="activity-all" onClick={() => setSelection(null)}><Icon name="previous" size={14} />{t.calendar}</TextButton>}
     {selection && <section className="activity-day-details" aria-label={selection === 'all' ? t.all : calendarDate(selection)}>
       <h4>{selection === 'all' ? t.all : calendarDate(selection)}</h4>
-      {pageError && <p className="inline-error" role="alert">{pageError}<button type="button" className="text-button" onClick={() => setRetry(value => value + 1)}>{t.retry}</button></p>}
+      {pageError && <p className="inline-error" role="alert">{pageError}<TextButton type="button" onClick={() => setRetry(value => value + 1)}>{t.retry}</TextButton></p>}
       {pageLoading && <p role="status">{t.loading}</p>}{page && page.entries.length === 0 && !pageError && <p>{t.empty}</p>}
       <ol className="activity-list">{page?.entries.map(({ event, evidence }) => <li key={event.id}>
         <strong>{event.undoOf ? activityNames.undo : evidence.category === 'other' ? activityNames[event.type] : t.categories[evidence.category]} {evidence.effective === false && <em>{t.undone}</em>}</strong>
         <span><time dateTime={event.at}>{when(event.at)}</time> · {t.sources(evidence.source === 'user' ? 1 : 0, evidence.source === 'system' ? 1 : 0, evidence.source === 'unknown' ? 1 : 0)}</span>
         {(evidence.fromPeriod || evidence.toPeriod) && evidence.fromPeriodId !== evidence.toPeriodId && <span>{evidence.fromPeriod ? `${horizonNames[evidence.fromPeriod.horizon]} ${periodDates(evidence.fromPeriod)}` : 'Later'} → {evidence.toPeriod ? `${horizonNames[evidence.toPeriod.horizon]} ${periodDates(evidence.toPeriod)}` : 'Later'}</span>}
-      </li>)}</ol>{pageNumber > 0 && <button type="button" className="text-button" onClick={() => setRetry(value => value + 1)}>{t.firstRecords}</button>}
-      {page?.cursor && <button type="button" className="text-button" disabled={pageLoading} onClick={() => void loadMore()}>{t.more}</button>}
+      </li>)}</ol>{pageNumber > 0 && <TextButton type="button" onClick={() => setRetry(value => value + 1)}>{t.firstRecords}</TextButton>}
+      {page?.cursor && <TextButton type="button" disabled={pageLoading} onClick={() => void loadMore()}>{t.more}</TextButton>}
     </section>}
   </div></div>
 }

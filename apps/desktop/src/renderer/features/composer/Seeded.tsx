@@ -85,32 +85,32 @@ export function Seeded({ seed, snapshot, flows, submit, busy, error, close }: { 
     if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void run() }
   }
   const label = seed.mode === 'batch' ? t.seedCreateCount(chosen.length) : t.seedCreate
-  const primary = <button type="button" className="composer-primary" disabled={busy || !ready} onClick={() => void run()}>{label}<kbd className="keycap">{formatCombo('Enter')}</kbd></button>
+  const primary = <button type="button" className="composer-primary shrink-0 inline-flex items-center gap-2 h-7.5 pt-0 pr-2 pb-0 pl-3 rounded-[8px] bg-foreground text-surface text-[13px] font-semibold" disabled={busy || !ready} onClick={() => void run()}>{label}<kbd className="keycap">{formatCombo('Enter')}</kbd></button>
   const whereText = seed.parent ? t.seedWhereParent(where, seed.parent.title) : t.seedWhere(where)
-  const chip = (text: string, key: string) => <span key={key} className="seed-chip">{text}</span>
+  const chip = (text: string, key: string) => <span key={key} className="seed-chip inline-flex items-center h-6 max-w-80 px-2 py-0 rounded-[6px] bg-hover text-[12px] text-soft whitespace-nowrap overflow-hidden text-ellipsis">{text}</span>
   return <Modal title={smartMessages.composer} close={close} className="palette composer-modal seeded-composer"
     heading={<div className="palette-search composer-search">
       <Icon name="add" size={18} />
-      {seed.mode === 'batch' ? <span className="composer-input seed-heading">{t.emptyDraft[seed.horizon]}</span>
-        : <textarea className="composer-input" aria-label={smartMessages.inputLabel} autoFocus rows={1} maxLength={500} value={text} onChange={event => setText(event.target.value)} onKeyDown={keys}
+      {seed.mode === 'batch' ? <span className="composer-input seed-heading flex-1 min-w-0 w-auto min-h-6 max-h-42 p-0 text-[15px] leading-[24px] text-soft">{t.emptyDraft[seed.horizon]}</span>
+        : <textarea className="composer-input flex-1 min-w-0 w-auto min-h-6 max-h-42 p-0 text-[15px] leading-[24px] text-foreground" aria-label={smartMessages.inputLabel} autoFocus rows={1} maxLength={500} value={text} onChange={event => setText(event.target.value)} onKeyDown={keys}
           placeholder={seed.parent ? t.seedPlaceholder : t.seedFreePlaceholder} />}
     </div>}>
-    <div className="composer-body">
-      <div className="seed-chips">
+    <div className="composer-body flex flex-col gap-1.5">
+      <div className="seed-chips flex flex-wrap gap-1.5 pt-0 pr-2 pb-0.5 pl-9">
         {seed.parent && chip(t.seedParent(seed.parent.title), 'parent')}
         {chip(where, 'period')}
       </div>
-      {(error || note) && <p className="inline-error composer-error" role="alert">{error ?? note}</p>}
-      <section className="composer-cand" data-tone={seed.mode === 'batch' ? 'jev' : 'plain'} aria-live="polite">
-        {seed.mode === 'batch' ? <div className="seed-list" role="group" aria-label={t.seedBatchHint} onKeyDown={keys}>
-          {rows.map((row, index) => <div key={row.parent.id} className="seed-row" data-on={row.on}>
+      {(error || note) && <p className="inline-error composer-error mt-0.5 mr-2.5 mb-0 ml-2.5" role="alert">{error ?? note}</p>}
+      <section className="composer-cand flex flex-col gap-2.5 pt-3 pr-3 pb-2.5 pl-3.5 rounded-[10px]" data-tone={seed.mode === 'batch' ? 'jev' : 'plain'} aria-live="polite">
+        {seed.mode === 'batch' ? <div className="seed-list flex flex-col gap-0.5" role="group" aria-label={t.seedBatchHint} onKeyDown={keys}>
+          {rows.map((row, index) => <div key={row.parent.id} className="seed-row flex items-center gap-2.5 min-h-8.5" data-on={row.on}>
             <input type="checkbox" aria-label={t.seedInclude(row.title || row.parent.title)} checked={row.on} onChange={event => setRows(previous => previous.map((value, at) => at === index ? { ...value, on: event.target.checked } : value))} />
-            <input className="seed-title" aria-label={t.seedParent(row.parent.title)} value={row.title} placeholder={drafting ? t.seedBatchPending : t.seedPlaceholder} maxLength={500} autoFocus={index === 0}
+            <input className="seed-title flex-1 min-w-0 h-7.5 px-2 py-0 rounded-[6px] text-[14px] text-foreground" aria-label={t.seedParent(row.parent.title)} value={row.title} placeholder={drafting ? t.seedBatchPending : t.seedPlaceholder} maxLength={500} autoFocus={index === 0}
               onChange={event => setRows(previous => previous.map((value, at) => at === index ? { ...value, title: event.target.value, typed: true } : value))} />
-            <span className="seed-parent">{t.seedParent(row.parent.title)}</span>
+            <span className="seed-parent shrink-0 max-w-[40%] text-[12px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">{t.seedParent(row.parent.title)}</span>
           </div>)}
-        </div> : <div className="cand-line"><span className="cand-text">{whereText}</span>{primary}</div>}
-        {seed.mode === 'batch' && <div className="cand-hints"><span>{drafting ? t.seedBatchPending : t.seedBatchHint}</span><span className="column-spacer" />{primary}</div>}
+        </div> : <div className="cand-line flex items-start gap-2.5 min-h-7.5 text-[14px] leading-[22px]"><span className="cand-text flex-1 min-w-0 pt-1">{whereText}</span>{primary}</div>}
+        {seed.mode === 'batch' && <div className="cand-hints flex flex-wrap items-center gap-y-1.5 gap-x-3.5 text-[12px] text-muted-foreground"><span>{drafting ? t.seedBatchPending : t.seedBatchHint}</span><span className="column-spacer" />{primary}</div>}
       </section>
     </div>
   </Modal>

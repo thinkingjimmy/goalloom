@@ -12,7 +12,7 @@ import type { PastPeriodPage } from '../../../shared/contracts/history'
 import { messages } from '../../i18n'
 import { count } from '../../i18n/format'
 import { desktopApi, type Action } from '../../state/use-workspace'
-import { Button } from '../../components/ui/button'
+import { Button, TextButton } from '../../components/ui/button'
 import { Icon } from '../../components/icons'
 import { LinkTitle } from '../../components/links/LinkText'
 import { LinkPreviews } from '../../components/links/LinkPreviews'
@@ -68,7 +68,7 @@ function PastRow({ item, outcome, disabled, select, act }: { item: ItemSummary; 
       </div>
       {hasLinks && <LinkPreviews text={item.title} />}
     </div>
-    {outcome === 'deleted' && <button className="text-button past-period-restore" data-state-action aria-disabled={disabled} onClick={event => act(item, event.currentTarget)}>{messages.restoreItem}</button>}
+    {outcome === 'deleted' && <TextButton className="past-period-restore" data-state-action aria-disabled={disabled} onClick={event => act(item, event.currentTarget)}>{messages.restoreItem}</TextButton>}
   </article>
 }
 
@@ -98,7 +98,7 @@ export function PastPeriod({ history, select, submit, busy }: { history: ReturnT
   const groups = { open: sections.todo, done: sections.done, deleted: items.filter(item => outcomeOf(item) === 'deleted') }
   return <div className="past-period-rows" ref={root}>
     {loading && !page && <p className="period-loading" role="status">{messages.loadingPeriod}</p>}
-    {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <button className="text-button" onClick={retry}>{messages.retryPeriod}</button></p>}
+    {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <TextButton onClick={retry}>{messages.retryPeriod}</TextButton></p>}
     {(['open', 'done', 'deleted'] as const).map(outcome => groups[outcome].length > 0 && <section className="past-period-group" data-outcome={outcome} aria-label={messages.periodOutcomes[outcome]} key={outcome}>
       <h3>{messages.periodOutcomes[outcome]} <span>{count(groups[outcome].length)}</span></h3>
       {groups[outcome].map(item => <PastRow key={item.id} item={item} outcome={outcome} disabled={disabled} select={select} act={act} />)}

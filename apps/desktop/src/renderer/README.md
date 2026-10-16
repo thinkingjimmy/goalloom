@@ -8,7 +8,8 @@ renderer/
 ├── main.tsx                 # React 挂载
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
-├── styles.css               # Tailwind, theme tokens, readable empty-column hints, single-row period headers with return icons and trailing countdown/add swaps, board/dialog/menu layout, full drag titles with bounded URL wrapping, column action visibility, scrollbars and accessibility
+├── styles.css               # Tailwind entry and retained coordinated board/dialog states, platform rules, motion, scrollbars and accessibility
+├── styles/                  # Shared semantic theme aliases and native defaults; see styles/README.md
 ├── assets/app-icon.png      # 关于页的应用图标（apps/desktop/resources/icon.png 的 256px 版本）
 ├── features/                # 按用户功能聚合页面及其专属组件
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
@@ -117,7 +118,7 @@ renderer/
 │   ├── LanguageSelect.tsx   # 首次配置与设置外观共用的语言下拉（语言名用各自原文）
 │   ├── YearTimeline.tsx     # 当前一年的四段 3个月 / 两个半年时间轴与今天标记（首次配置模式卡与设置 › 日历共用，year-timeline.css）
 │   ├── icons/index.tsx      # Explicit free Hugeicons entry, shared React/loading/pause icons and checklist CSS checkmark mask
-│   └── ui/                 # shadcn Button, Radix Select and Context Menu; shared menu tokens and MIT attribution
+│   └── ui/                 # Shared Tailwind/CVA buttons, fields, switch and menu styles; shadcn/Radix selection and context menus; see ui/README.md
 ├── state/
 │   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
 │   ├── board-periods.ts    # Generation/selection/revision-isolated future reads, hidden selections, persisted manual outline order and shared candidates
@@ -151,7 +152,7 @@ renderer/
     ├── dates.ts             # UTC day/month arithmetic, month-end clamping and weekdays; locale formatting stays in i18n/format
     ├── periods.ts           # Mode-aware relative names, natural-year/Q labels and year-disambiguated ranges shared by board/search/detail/feedback
     ├── timezones.ts         # IANA 时区的 GMT 偏移标签
-    └── utils.ts             # Tailwind class 合并
+    └── utils.ts             # Conditional Tailwind merging, including named radius/shadow/menu-spacing tokens
 ```
 
 `App → features → components / state / i18n / lib`；跨功能数据类型来自 `shared/contracts`，不从另一个功能的组件反向导入。通用 UI 不依赖 features，业务规则属于 domain/main。仅一个功能使用的组件放在该功能内，多处复用时再提升到 components。

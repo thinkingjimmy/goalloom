@@ -1,8 +1,10 @@
 /**
- * [INPUT]: An unconfirmed workspace, sync status, and the existing setup confirmation.
+ * [INPUT]: An unconfirmed workspace, sync status, existing setup confirmation and shared icon controls.
  * [OUTPUT]: Choice, inline Google wait, join or new-password, then the original setup. A join installs the cloud calendar and skips setup.
  * [POS]: First-run entry in front of Setup. Direct use adds one back step; the first device uploads only after confirmation.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { IconButton } from '../../components/ui/button'
 import { useEffect, useRef, useState } from 'react'
 import type { PlanningPeriod } from '../../../shared/contracts/entities'
 import type { SyncAction, SyncReply, SyncStatus } from '../../../shared/contracts/sync'
@@ -54,7 +56,7 @@ export function StartGate({ confirm, busy, errorCode, status: override, sync = a
     await run({ type: 'create', password: held })
   }
   const bannerError = status?.error && status.error !== 'auth' && status.error !== 'password' && hiddenError !== status.error ? settings.sync.errors[status.error] : ''
-  const banner = bannerError ? <div className="start-alert" role="alert"><span>{bannerError}</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status?.error ?? null)}><Icon name="close" size={16} /></button></div> : null
+  const banner = bannerError ? <div className="start-alert fixed top-4 left-[50%] flex items-start gap-2.5 pt-3 pr-3 pb-3 pl-3.5 rounded-[10px] bg-raised text-[13px] leading-[1.6] text-soft" role="alert"><span>{bannerError}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status?.error ?? null)}><Icon name="close" size={16} /></IconButton></div> : null
   if (screen === 'setup') return <Setup confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} {...(direct ? { back: () => setDirect(false) } : {})} />
   if (screen === 'syncing') return <SyncingScreen />
   if (screen === 'password') return <>

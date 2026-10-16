@@ -4,6 +4,8 @@
  * [POS]: Board-only action wrapper; the main process resolves and validates the actual next period.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
@@ -58,13 +60,13 @@ export function TaskMenu({ item, upcoming, relations, disabled, submit, select, 
         onMenu(null)
       }}>
       {next && <><ContextMenuItem disabled={disabled} onSelect={() => move({ kind: 'next' })}>
-        <Icon name="forward" size={16} /><span className="context-menu-label">{messages.moveToPeriod(next.label)}</span>{next.hint && <span className="menu-hint">{next.hint}</span>}
+        <Icon name="forward" size={16} /><span className="context-menu-label">{messages.moveToPeriod(next.label)}</span>{next.hint && <span className={cn(menuStyles.hint, 'menu-hint')}>{next.hint}</span>}
       </ContextMenuItem>
       <ContextMenuSub>
         <ContextMenuSubTrigger disabled={disabled}><Icon name="calendar" size={16} /><span className="context-menu-label">{t.menuMoveTo}</span><Icon name="next" size={14} /></ContextMenuSubTrigger>
         <ContextMenuSubContent onKeyDown={event => event.stopPropagation()}>
           {upcoming.map(value => <ContextMenuItem key={value.period.id} disabled={disabled} onSelect={() => move({ kind: 'date', startDate: value.period.startDate })}>
-            <span className="context-menu-label">{value.label}</span>{value.hint && <span className="menu-hint">{value.hint}</span>}
+            <span className="context-menu-label">{value.label}</span>{value.hint && <span className={cn(menuStyles.hint, 'menu-hint')}>{value.hint}</span>}
           </ContextMenuItem>)}
         </ContextMenuSubContent>
       </ContextMenuSub>

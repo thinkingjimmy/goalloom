@@ -65,7 +65,7 @@ it('七种同步状态都是普通设置行，状态和退出登录在同一行'
   const failed = page({ phase: 'ready', email: 'jimmy@example.com', offline: true, error: 'network', lastSyncedAt: '2026-10-13T09:12:00.000Z' })
   expect(failed).toContain('网络不可用')
   expect(failed).toContain('上次同步 今天 09:12')
-  const actions = failed.match(/<div class="sync-row-actions">[\s\S]*?<\/div>/)?.[0] ?? ''
+  const actions = failed.match(/<div class="[^"]*\bsync-row-actions\b[^"]*">[\s\S]*?<\/div>/)?.[0] ?? ''
   expect(actions).toContain('重试')
   expect(actions).toContain('退出登录')
   expect(syncNavBadge(status({ phase: 'ready', offline: true, error: 'network' }))).toEqual({ text: '出错', dot: 'err' })

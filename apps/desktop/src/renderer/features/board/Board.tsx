@@ -12,6 +12,7 @@
  * [POS]: Main board view; explicit optimistic drops and virtual-row FLIP follow saved order, with authoritative transaction validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { IconButton, SettingsButton, TextButton } from '../../components/ui/button'
 import { outlineSections } from '../../../domain/nesting'
 import './nesting.css'
 import { TaskContext } from './TaskContext'
@@ -284,22 +285,22 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const reviewName = (period: PlanningPeriod) => period.horizon === 'week' ? planningLabel(period, calendar, snapshot.observedAt)
     : periodDates(period, period.startDate.slice(0, 4) !== today.slice(0, 4))
   const reviewPeriodName = review ? reviewName(review.period) : ''
-  const guide = review && <div className="review-guide">
-    <div className="review-guide-head">
-      <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(review.period)}</span>
-      {due?.week && <button type="button" className="icon-button small review-guide-dismiss" data-dismiss-review aria-label={insightMessages.reviewDismiss} title={insightMessages.reviewDismiss} disabled={busy} onClick={event => {
+  const guide = review && <div className="review-guide p-3 rounded-[9px]">
+    <div className="review-guide-head flex items-start gap-2">
+      <span className="review-guide-meta flex items-center gap-1.5 text-muted-foreground text-[12px] leading-[18px] tabular-nums"><Icon name="calendar" size={14} />{periodDates(review.period)}</span>
+      {due?.week && <IconButton size="small" type="button" className="review-guide-dismiss" data-dismiss-review aria-label={insightMessages.reviewDismiss} title={insightMessages.reviewDismiss} disabled={busy} onClick={event => {
         insight.dismiss(due)
         const control = section.current?.querySelector<HTMLElement>('[data-period-switch]')
         if (control) returnFocus(control, event.detail > 0 ? 'pointer' : 'keyboard')
-      }}><Icon name="close" size={14} /></button>}
+      }}><Icon name="close" size={14} /></IconButton>}
     </div>
     <h3>{insightMessages.reviewGuide(reviewPeriodName, reviewName(review.next))}</h3>
     {pendingCount > 0 && <p>{insightMessages.reviewGuidePending(pendingCount)}</p>}
-    <button className="settings-button primary review-guide-action" data-review={horizon} title={insightMessages.reviewEntryAfter(reviewPeriodName)} disabled={busy} onClick={() => insight.review(due!)}>
+    <SettingsButton variant="primary" className="review-guide-action" data-review={horizon} title={insightMessages.reviewEntryAfter(reviewPeriodName)} disabled={busy} onClick={() => insight.review(due!)}>
       <span>{insight.started?.[review.horizon]?.key === review.key ? insightMessages.reviewContinue : insightMessages.reviewStart(reviewPeriodName)}</span><Icon name="next" size={14} />
-    </button>
+    </SettingsButton>
   </div>
-  const addButton = <button className="icon-button small" data-add-item aria-label={messages.newInColumn(displayName)} disabled={disabled} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></button>
+  const addButton = <IconButton size="small" data-add-item aria-label={messages.newInColumn(displayName)} disabled={disabled} onClick={() => setAdding(!adding)}><Icon name="add" size={16} /></IconButton>
   const back = history ? earlier : previous
   const returnLabel = horizon === 'later' ? '' : returnPeriodName(horizon, calendar)
   const heading = period && current ? periodTitle(period, current, calendar) : name
@@ -333,17 +334,17 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}
     <div className="column-content" onDoubleClick={addFromBlank}>
       {guide}
-      {completedReview && items.length === 0 && !adding && <div className="review-guide review-plan-invitation">
-        <span className="review-guide-meta"><Icon name="calendar" size={14} />{periodDates(current!)}</span>
+      {completedReview && items.length === 0 && !adding && <div className="review-guide review-plan-invitation p-3 rounded-[9px]">
+        <span className="review-guide-meta flex items-center gap-1.5 text-muted-foreground text-[12px] leading-[18px] tabular-nums"><Icon name="calendar" size={14} />{periodDates(current!)}</span>
         <h3>{insightMessages.reviewArrange(reviewName(current!))}</h3>
-        <button className="settings-button primary review-guide-action" disabled={disabled} onClick={() => sources?.length
+        <SettingsButton variant="primary" className="review-guide-action" disabled={disabled} onClick={() => sources?.length
           ? insight.seed({ horizon: recentReview!.horizon, period: current!, next: false, parent: null, note: null, mode: 'batch', parents: sources, draft: insight.ready })
-          : openAdd()}><span>{sources?.length ? insightMessages.emptyDraft[recentReview!.horizon] : insightMessages.emptyOwn}</span><Icon name="next" size={14} /></button>
+          : openAdd()}><span>{sources?.length ? insightMessages.emptyDraft[recentReview!.horizon] : insightMessages.emptyOwn}</span><Icon name="next" size={14} /></SettingsButton>
       </div>}
       <div className="period-body" ref={body}>
       {history ? <PastPeriod key={history.id} history={page} select={select} submit={submit} busy={busy} /> : <>
         {loading && items.length === 0 && <p className="period-loading" role="status">{messages.loadingPeriod}</p>}
-        {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <button className="text-button" onClick={view.retry}>{messages.retryPeriod}</button></p>}
+        {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <TextButton onClick={view.retry}>{messages.retryPeriod}</TextButton></p>}
         <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
           <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:main`} items={mainRows} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} alsoPinned={editingId} render={row} />
           {!adding && todo.length > 0 && <button type="button" className="column-add-task" data-column-add aria-label={messages.newToColumn(displayName)} disabled={disabled || !!dragging || !!relationSource} onClick={openAdd}>

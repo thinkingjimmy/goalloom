@@ -4,6 +4,9 @@
  * [POS]: setup 日历句中的时区胶囊，替代原生 datalist，避免输入任意文本和系统下拉样式。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
+import { Input } from '../../components/ui/fields'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { messages } from '../../i18n'
 import { Popover } from '../../components/Popover'
@@ -34,16 +37,16 @@ export function TimezoneSelect({ value, zones, onChange, labelId, describedBy, c
   const choose = (zone: string) => { onChange(zone); close() }
 
   return <Popover open={open} onClose={() => setOpen(false)} className="timezone-popover" anchor={
-    <button ref={trigger} type="button" className={className ? `select-trigger ${className}` : 'select-trigger'} aria-haspopup="listbox" aria-expanded={open} aria-labelledby={labelId} aria-describedby={describedBy}
+    <button ref={trigger} type="button" className={cn(className ? `select-trigger ${className}` : 'select-trigger', 'w-full flex items-center gap-2.5 px-3 py-[9px] border border-border rounded-control bg-raised text-foreground text-[14px] font-normal text-left hover:border-[var(--edit-line,var(--line))]')} aria-haspopup="listbox" aria-expanded={open} aria-labelledby={labelId} aria-describedby={describedBy}
       onClick={() => open ? close() : show()}
       onKeyDown={event => { if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) { event.preventDefault(); show() } }}>
-      <span className="select-value">{value}</span>
+      <span className={cn('select-value', 'flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis')}>{value}</span>
       <span className="select-hint">{gmtOffset(value)}</span>
       <Icon name="expand" size={16} />
     </button>
   }>
-    <div className="menu timezone-menu">
-      <input className="menu-search" autoFocus value={query} placeholder={messages.searchTimezones} aria-label={messages.searchTimezones}
+    <div className={cn(menuStyles.surface, 'menu timezone-menu')}>
+      <Input className="menu-search" autoFocus value={query} placeholder={messages.searchTimezones} aria-label={messages.searchTimezones}
         role="combobox" aria-expanded="true" aria-controls={listId} aria-activedescendant={matches[active] ? `${listId}-${active}` : undefined}
         onChange={event => { setQuery(event.target.value); setActive(0) }}
         onKeyDown={event => {
@@ -56,11 +59,11 @@ export function TimezoneSelect({ value, zones, onChange, labelId, describedBy, c
         }} />
       <div ref={list} id={listId} className="timezone-list" role="listbox" aria-labelledby={labelId}>
         {matches.map((option, index) => <div key={option.zone} id={`${listId}-${index}`} data-index={index} role="option" aria-selected={option.zone === value}
-          className={`menu-item ${index === active ? 'menu-item-active' : ''}`}
+          className={cn(menuStyles.item, `menu-item ${index === active ? 'menu-item-active' : ''}`)}
           onMouseMove={() => { if (index !== active) setActive(index) }} onMouseDown={event => event.preventDefault()} onClick={() => choose(option.zone)}>
-          <span className="menu-check">{option.zone === value && <Icon name="check" size={14} />}</span>
-          <span className="menu-text">{option.zone.replaceAll('_', ' ')}</span>
-          <span className="menu-hint">{option.offset}</span>
+          <span className={cn(menuStyles.check, 'menu-check')}>{option.zone === value && <Icon name="check" size={14} />}</span>
+          <span className={cn(menuStyles.text, 'menu-text')}>{option.zone.replaceAll('_', ' ')}</span>
+          <span className={cn(menuStyles.hint, 'menu-hint')}>{option.offset}</span>
         </div>)}
         {matches.length === 0 && <p className="menu-note">{messages.noTimezoneMatch}</p>}
       </div>

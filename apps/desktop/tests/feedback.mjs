@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Real Electron, an isolated profile, flow-valid authoritative IPC fixtures and renderer UI actions.
- * [OUTPUT]: Contextual Toast, preserved keyboard undo, duration and partial-restore evidence in JSON and screenshots.
+ * [OUTPUT]: Contextual Toast, preserved keyboard undo, duration, partial restore and initial-data/native-input diagnostics in JSON and screenshots.
  * [POS]: Desktop feedback acceptance; the batch driver calls the mounted renderer submit without replacing IPC or receipts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -34,6 +34,7 @@ try {
   await finishSetup(page)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+  report.setupItems = await page.evaluate(async () => (await window.goalloom.getSnapshot()).items.map(item => ({ id: item.id, title: item.title, horizon: item.placement.horizon })))
   const toast = page.locator('.toast')
   const detail = () => page.getByRole('dialog', { name: '当前条目', exact: true })
   const settings = () => page.getByRole('dialog', { name: '设置与数据', exact: true })
@@ -291,6 +292,8 @@ try {
 } catch (error) {
   report.passed = false; report.failure = String(error)
   const page = await application.firstWindow().catch(() => null)
+  report.nativeWindows = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))).catch(() => null)
+  report.inputState = await page?.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML.slice(0, 500) })).catch(() => null)
   await page?.screenshot({ path: 'output/tests/screenshots/feedback-failure.png' }).catch(() => undefined)
   await writeFile('output/tests/feedback.json', JSON.stringify(report, null, 2))
   throw error

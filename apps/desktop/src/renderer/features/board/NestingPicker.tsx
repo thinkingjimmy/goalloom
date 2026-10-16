@@ -4,6 +4,8 @@
  * [POS]: Board outline dialog; authoritative transactions revalidate endpoints and periods.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
 import { useEffect, useMemo, useState } from 'react'
 import { nestingTargets } from '../../../domain/nesting'
 import { compareInstants } from '../../../domain/calendar'
@@ -47,8 +49,8 @@ export function NestingPicker({ itemId, snapshot, candidates, submit, close }: {
   return <Modal title={t.choose} close={() => close()} className="nesting-picker">
     <input className="menu-search" autoFocus value={query} onChange={event => setQuery(event.target.value)} aria-label={t.search} placeholder={t.search} disabled={busy} />
     {error && <p className="inline-error" role="alert">{error}</p>}
-    <div className="nesting-choices">{rows.map(item => <button key={item.id} type="button" className="menu-item" disabled={busy} onClick={event => void choose(item.id, event.detail > 0 ? 'pointer' : 'keyboard')}>
-      <span className="menu-text">{item.title}</span><span className="menu-hint">{item.placement.periodId && periods.has(item.placement.periodId) ? planningLabel(periods.get(item.placement.periodId)!, snapshot.workspace.calendar!, snapshot.observedAt) : horizonNames[item.placement.horizon]}</span>
+    <div className="nesting-choices">{rows.map(item => <button key={item.id} type="button" className={cn(menuStyles.item, 'menu-item')} disabled={busy} onClick={event => void choose(item.id, event.detail > 0 ? 'pointer' : 'keyboard')}>
+      <span className={cn(menuStyles.text, 'menu-text')}>{item.title}</span><span className={cn(menuStyles.hint, 'menu-hint')}>{item.placement.periodId && periods.has(item.placement.periodId) ? planningLabel(periods.get(item.placement.periodId)!, snapshot.workspace.calendar!, snapshot.observedAt) : horizonNames[item.placement.horizon]}</span>
     </button>)}{!rows.length && <p className="menu-note">{messages.noResults}</p>}</div>
   </Modal>
 }

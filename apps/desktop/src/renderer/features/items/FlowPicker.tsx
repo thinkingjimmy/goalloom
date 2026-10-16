@@ -2,8 +2,10 @@
  * [INPUT]: 流程色序号、占用情况和选择回调。
  * [OUTPUT]: FlowDot 色点，以及 FlowColorMenu：4×2 命名色板加「不设流程」。详情流程芯片和看板圆点共用色板。
  * [POS]: 流程色的视觉与选择菜单；详情上的触发芯片在 DetailFlowChip。改色由事务校验。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
 import type { CSSProperties, ReactNode } from 'react'
 import { messages } from '../../i18n'
 import type { Flows } from '../../state/flows'
@@ -20,7 +22,7 @@ export function FlowDot({ colors }: { colors: number[] }) {
 export function FlowColorMenu({ itemId, color, flows, busy, impact = 0, onChoose, extra }: {
   itemId: string; color: number | null; flows: Flows; busy: boolean; impact?: number; onChoose: (index: number | null) => void; extra?: ReactNode
 }) {
-  return <div className="menu flow-menu">
+  return <div className={cn(menuStyles.surface, 'menu flow-menu')}>
     <div className="flow-menu-header">
       <span>{messages.flowColor}</span>
       {color !== null && impact > 0 && <p>{messages.flowImpact(impact)}</p>}
@@ -37,8 +39,8 @@ export function FlowColorMenu({ itemId, color, flows, busy, impact = 0, onChoose
       })}
     </div>
     {color !== null && <>
-      <div className="menu-separator" />
-      <button className="menu-item" disabled={busy} onClick={() => onChoose(null)}><Icon name="close" size={14} />{impact ? messages.clearFlowCount(impact + 1) : messages.noFlowColor}</button>
+      <div className={cn(menuStyles.separator, 'menu-separator')} />
+      <button className={cn(menuStyles.item, 'menu-item')} disabled={busy} onClick={() => onChoose(null)}><Icon name="close" size={14} />{impact ? messages.clearFlowCount(impact + 1) : messages.noFlowColor}</button>
     </>}
     {extra}
   </div>

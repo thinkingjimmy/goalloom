@@ -4,6 +4,7 @@
  * [POS]: Task assistance presentation; settings gate network access, the main process owns context and output validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { TextButton, ActionButton } from '../../components/ui/button'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AssistancePrepared } from '../../../shared/contracts/assistance'
 import type { ExecutionFacts } from '../../../shared/contracts/execution'
@@ -141,16 +142,16 @@ export function AssistancePanel({ itemId, generation, revision, observedAt, acti
             {selected === 3 && <Icon name="check" size={16} />}
           </label>
         </div>
-        {error && <p className="inline-error" role="alert">{error} {!prepared && !loading && <button type="button" className="text-button" onClick={() => setAttempt(value => value + 1)}>{assistanceMessages().retry}</button>}</p>}
-        {!loading && prepared && !prepared.enabled && <p className="assistance-unavailable">{t.unavailable} {connect && <button type="button" className="text-button" disabled={locked} onClick={() => void openSettings()}>{t.settings}</button>}</p>}
-        <div className="assistance-actions">{busy || locked ? <><span role="status">{t.pending}</span><button type="button" className="button" disabled={locked} onClick={close}>{t.cancel}</button></> : <>
-          <button type="button" className="text-button" onClick={close}>{t.later}</button><button type="submit" className="button primary" disabled={loading || !prepared?.enabled || selected === null || selected === 3 && !text.trim()}>{t.generate}<Icon name="forward" size={16} /></button>
+        {error && <p className="inline-error" role="alert">{error} {!prepared && !loading && <TextButton type="button" onClick={() => setAttempt(value => value + 1)}>{assistanceMessages().retry}</TextButton>}</p>}
+        {!loading && prepared && !prepared.enabled && <p className="assistance-unavailable">{t.unavailable} {connect && <TextButton type="button" disabled={locked} onClick={() => void openSettings()}>{t.settings}</TextButton>}</p>}
+        <div className="assistance-actions">{busy || locked ? <><span role="status">{t.pending}</span><ActionButton type="button" disabled={locked} onClick={close}>{t.cancel}</ActionButton></> : <>
+          <TextButton type="button" onClick={close}>{t.later}</TextButton><ActionButton variant="primary" type="submit" disabled={loading || !prepared?.enabled || selected === null || selected === 3 && !text.trim()}>{t.generate}<Icon name="forward" size={16} /></ActionButton>
         </>}</div>
       </form> : <button ref={trigger} type="button" className="action-invitation" aria-label={t.title} disabled={locked} onClick={() => setExpanded(true)}>
         <span className="invitation-symbol"><Icon name="smart" size={20} /></span><span className="action-invitation-copy">{carry > 0 && <span>{t.carried(carry)}</span>}<span>{t.invitation}</span></span><span className="action-invitation-cta">{t.title}<Icon name="forward" size={18} /></span>
       </button>}
     </div>}
     {children}
-    {active && hasResult && !showing && <div className="rewrite-actions"><button ref={trigger} type="button" className="text-button help-link" disabled={locked} onClick={() => setExpanded(true)}><Icon name="smart" size={14} />{t.rethink}</button></div>}
+    {active && hasResult && !showing && <div className="rewrite-actions"><TextButton ref={trigger} type="button" className="help-link" disabled={locked} onClick={() => setExpanded(true)}><Icon name="smart" size={14} />{t.rethink}</TextButton></div>}
   </section>
 }

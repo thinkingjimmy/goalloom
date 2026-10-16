@@ -4,6 +4,7 @@
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { TextButton, IconButton } from './components/ui/button'
 import { messages, smartMessages, useLocale } from './i18n'
 import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { currentPeriod, workspaceDate } from '../domain/calendar'
@@ -212,11 +213,11 @@ export function App() {
       calendar={snapshot?.workspace.calendar ?? null} menuBlocked={!!selected || settings || palette || composing || !!seed || reviewOpen}
       laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
       updateAvailable={hasUpdate(update)} openSearch={openPalette} openSettings={() => openSettings()} />
-    {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</button></div>}
-    {timezoneNotice.open && workspaceZone && <div className="notice-banner"><span>{messages.timezoneMismatch} {workspaceZone}。</span><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={timezoneNotice.dismiss}><Icon name="close" size={16} /></button></div>}
-    {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">{messages.restorePaused}<button className="text-button" disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>{messages.confirmRollover}</button></div>}
-    {backupNotice.open && snapshot?.backupError && <div className="notice-banner"><span>{snapshot.backupError}</span><button className="text-button" onClick={() => openSettings('backup')}>{messages.viewBackups}</button><button type="button" className="icon-button small" aria-label={messages.dismissNotice} onClick={backupNotice.dismiss}><Icon name="close" size={16} /></button></div>}
-    {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <button className="text-button" onClick={() => void retry()}>{messages.retry}</button>}<button className="icon-button small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></button></div>}
+    {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<TextButton disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</TextButton></div>}
+    {timezoneNotice.open && workspaceZone && <div className="notice-banner"><span>{messages.timezoneMismatch} {workspaceZone}。</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={timezoneNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
+    {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">{messages.restorePaused}<TextButton disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>{messages.confirmRollover}</TextButton></div>}
+    {backupNotice.open && snapshot?.backupError && <div className="notice-banner"><span>{snapshot.backupError}</span><TextButton onClick={() => openSettings('backup')}>{messages.viewBackups}</TextButton><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={backupNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
+    {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <TextButton onClick={() => void retry()}>{messages.retry}</TextButton>}<IconButton size="small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></IconButton></div>}
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
       : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>
@@ -269,7 +270,7 @@ export function App() {
         try { const detail = await desktopApi().getItem(feedback.result.itemId); await submit({ type: 'restoreItem', itemId: detail.item.id, expectedVersion: detail.item.version, deletionSource: feedback.result.restoreSource }) }
         catch { setError(messages.restoreItemFailed) }
       }}>{messages.restoreItem}</button>}
-      <button className="icon-button small" aria-label={messages.closeFeedback} onClick={() => setFeedback(null)}><Icon name="close" size={14} /></button>
+      <IconButton size="small" aria-label={messages.closeFeedback} onClick={() => setFeedback(null)}><Icon name="close" size={14} /></IconButton>
     </div></FeedbackLayer>}
     <CompletionCelebration event={completion} generation={snapshot?.workspace.generation ?? ''} />
     <span className="sr-only" role="status">{busy ? messages.saving : snapshot ? messages.connected : messages.connecting}</span>

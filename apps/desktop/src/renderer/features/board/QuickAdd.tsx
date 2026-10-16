@@ -5,6 +5,9 @@
  * [POS]: Immediate board creation; CaptureInput binds draft revisions, main completes optional parents and storage owns relationship constraints.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
+import { TextButton } from '../../components/ui/button'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import { mayParent } from '../../../domain/relations'
@@ -82,13 +85,13 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
     {flowless ? <span className="check check-dashed" aria-hidden="true" /> : <Popover open={picking} onClose={() => setPicking(false)} anchor={
       <button type="button" className={`check ${ring ? '' : 'check-dashed'}`} style={ring} aria-label={messages.chooseFlow(label)} aria-haspopup="listbox" aria-expanded={picking} onMouseDown={event => event.preventDefault()} onClick={() => setPicking(!picking)} />
     }>
-      <div className="menu flow-picker" role="listbox" aria-label={messages.flow}>
-        {joinable.length > 0 && <p className="menu-heading">{messages.joinFlow}</p>}
-        {joinable.map(flow => <button key={flow.id} role="option" aria-selected={choice.kind === 'join' && choice.id === flow.id} className="menu-item" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'join', id: flow.id })}>
-          <FlowMark colors={[flow.flowColor]} /><span className="menu-text">{flow.title}</span>
+      <div className={cn(menuStyles.surface, 'menu flow-picker')} role="listbox" aria-label={messages.flow}>
+        {joinable.length > 0 && <p className={cn(menuStyles.heading, 'menu-heading')}>{messages.joinFlow}</p>}
+        {joinable.map(flow => <button key={flow.id} role="option" aria-selected={choice.kind === 'join' && choice.id === flow.id} className={cn(menuStyles.item, 'menu-item')} onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'join', id: flow.id })}>
+          <FlowMark colors={[flow.flowColor]} /><span className={cn(menuStyles.text, 'menu-text')}>{flow.title}</span>
         </button>)}
-        {joinable.length > 0 && <div className="menu-separator" />}
-        <p className="menu-heading">{messages.newFlow}</p>
+        {joinable.length > 0 && <div className={cn(menuStyles.separator, 'menu-separator')} />}
+        <p className={cn(menuStyles.heading, 'menu-heading')}>{messages.newFlow}</p>
         <div className="swatches">
           <button role="option" aria-selected={choice.kind === 'none'} aria-label={messages.noFlow} title={messages.noFlow} className="swatch" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'none' })}><FlowMark colors={[]} dashed /></button>
           {free.map(index => <button key={index} role="option" aria-selected={choice.kind === 'new' && choice.color === index} aria-label={messages.newFlowName(messages.colorNames[index]!)} title={messages.colorNames[index]!} className="swatch" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'new', color: index })}><FlowMark colors={[index]} /></button>)}
@@ -103,7 +106,7 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
         if (event.key === 'Enter') { event.preventDefault(); void create() }
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close() }
       }} />
-    {expired ? <span className="quick-add-expired" role="status">{messages.expiredDraft}<button type="button" className="text-button" disabled={busy} onClick={retarget}>{messages.useDisplayedPeriod}</button></span>
+    {expired ? <span className="quick-add-expired" role="status">{messages.expiredDraft}<TextButton type="button" disabled={busy} onClick={retarget}>{messages.useDisplayedPeriod}</TextButton></span>
       : choice.kind !== 'none' && <span className="quick-add-hint" aria-hidden="true">{label}</span>}
   </div>
 }

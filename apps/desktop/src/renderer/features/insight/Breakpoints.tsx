@@ -8,6 +8,7 @@
  * [POS]: Board insight overlay with a guide bounded to the planning viewport; pending actions survive hover exits and finite motion tracking.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { SettingsButton } from '../../components/ui/button'
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
@@ -159,7 +160,7 @@ export function Breakpoints({ snapshot, view, flows, flowIds, previewChain, colu
       <p className="breakpoint-guide-title">{t.onboardTitle}</p>
       <p>{t.onboardBody}</p>
       <ul><li>{t.onboardGap}</li></ul>
-      <button type="button" className="settings-button" onClick={() => updateInsight(value => ({ ...value, onboarded: true }))}>{t.onboardDone}</button>
+      <SettingsButton type="button" onClick={() => updateInsight(value => ({ ...value, onboarded: true }))}>{t.onboardDone}</SettingsButton>
     </div>}
   </div>
 }

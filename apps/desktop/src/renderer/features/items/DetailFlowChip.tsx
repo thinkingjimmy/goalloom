@@ -4,6 +4,8 @@
  * [POS]: Detail property control matching the board flow dot. RelationPicker and flowColor transactions validate writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { menuStyles } from '../../components/ui/menu'
+import { cn } from '../../lib/utils'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { useMemo, useState } from 'react'
 import { horizons } from '../../../shared/contracts/values'
@@ -58,10 +60,10 @@ export function DetailFlowChip({ item, edges, flows, candidates, busy, readOnly,
       {role === 'loose' && (item.placement.nestingParentId ? nestingText().inherits : messages.joinFlow)}
     </button>
   }>
-    {mode === 'inherited' && <div className="menu" role="dialog" aria-label={nestingText().inherits}><p className="menu-note">{nestingText().inherited}</p>{parents.map(parent => <p key={parent.id} className="menu-note">{parent.parentTitle}{parent.parentArchived ? messages.archivedSuffix : ''}</p>)}</div>}
+    {mode === 'inherited' && <div className={cn(menuStyles.surface, 'menu')} role="dialog" aria-label={nestingText().inherits}><p className="menu-note">{nestingText().inherited}</p>{parents.map(parent => <p key={parent.id} className="menu-note">{parent.parentTitle}{parent.parentArchived ? messages.archivedSuffix : ''}</p>)}</div>}
     {mode === 'color' && <FlowColorMenu itemId={item.id} color={item.flowColor} flows={flows} busy={busy} impact={impact} onChoose={choose} extra={role === 'root' && !topmost && <>
-      <div className="menu-separator" />
-      <button type="button" className="menu-item" disabled={busy} onClick={() => setMode('relation')}>
+      <div className={cn(menuStyles.separator, 'menu-separator')} />
+      <button type="button" className={cn(menuStyles.item, 'menu-item')} disabled={busy} onClick={() => setMode('relation')}>
         <Icon name="link" size={14} /><span className="menu-rich"><span>{messages.linkToParent}</span><small>{messages.adoptParentFlowHint}</small></span>
       </button>
     </>} />}
@@ -69,12 +71,12 @@ export function DetailFlowChip({ item, edges, flows, candidates, busy, readOnly,
       <RelationPicker side="parent" self={{ id: item.id, horizon: item.placement.horizon }} edges={edges} flows={flows} candidates={candidates} submit={submit} onError={message => { setError(message); onError(message) }} adoptParentFlow={role === 'root'} note={<span>{messages.flowFromParents}</span>} />
       {error && <p className="inline-error" role="alert">{error}</p>}
     </div>}
-    {mode === 'choose' && <div className="menu flow-choose" role="menu" aria-label={messages.joinFlow}>
-      <button type="button" role="menuitem" className="menu-item" onClick={() => setMode('color')}>
+    {mode === 'choose' && <div className={cn(menuStyles.surface, 'menu flow-choose')} role="menu" aria-label={messages.joinFlow}>
+      <button type="button" role="menuitem" className={cn(menuStyles.item, 'menu-item')} onClick={() => setMode('color')}>
         <span className="flow-dot" data-empty="true" />
         <span className="menu-rich"><span>{messages.startFlow}</span></span>
       </button>
-      <button type="button" role="menuitem" className="menu-item" disabled={topmost || busy} onClick={() => setMode('relation')}>
+      <button type="button" role="menuitem" className={cn(menuStyles.item, 'menu-item')} disabled={topmost || busy} onClick={() => setMode('relation')}>
         <Icon name="link" size={14} />
         <span className="menu-rich"><span>{messages.linkToParent}</span>{topmost && <small>{messages.noLongerHorizon(horizonNames[item.placement.horizon])}</small>}</span>
       </button>

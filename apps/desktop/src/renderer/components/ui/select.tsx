@@ -1,10 +1,11 @@
 /**
- * [INPUT]: @radix-ui/react-select 的 Root/Trigger/Content/Item；renderer icons 的 Hugeicons。
- * [OUTPUT]: shadcn/ui Select 组合件：Select、SelectTrigger、SelectValue、SelectContent、SelectItem。
- * [POS]: components/ui 的通用单选下拉，替代系统原生 select；外观复用 .select-trigger / .menu / .menu-item，与时区下拉一致。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [INPUT]: Radix Select primitives, shared Tailwind menu styles and explicit Hugeicons.
+ * [OUTPUT]: Select, SelectTrigger, SelectValue, SelectContent and SelectItem with caller style overrides.
+ * [POS]: Shared shadcn selection control; preserves native-dialog portal ownership and focus behavior.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 // shadcn/ui Select, MIT; Radix primitives with Hugeicons instead of lucide.
+import { menuStyles } from './menu'
 import * as React from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { cn } from '../../lib/utils'
@@ -20,31 +21,31 @@ export function Select(props: React.ComponentProps<typeof SelectPrimitive.Root>)
 }
 
 export function SelectValue(props: React.ComponentProps<typeof SelectPrimitive.Value>) {
-  return <span className="select-value"><SelectPrimitive.Value data-slot="select-value" {...props} /></span>
+  return <span className="select-value min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap"><SelectPrimitive.Value data-slot="select-value" {...props} /></span>
 }
 
 export function SelectTrigger({ className, children, ...props }: Omit<React.ComponentProps<typeof SelectPrimitive.Trigger>, 'ref'>) {
   const { track } = React.useContext(PortalContainer)
-  return <SelectPrimitive.Trigger ref={track} data-slot="select-trigger" className={cn('select-trigger', className)} {...props}>
+  return <SelectPrimitive.Trigger ref={track} data-slot="select-trigger" className={cn('select-trigger flex w-full items-center gap-2.5 rounded-control border border-border bg-raised px-3 py-[9px] text-left text-[14px] font-normal text-foreground hover:border-[var(--edit-line,var(--line))] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring aria-expanded:outline-2 aria-expanded:outline-offset-1 aria-expanded:outline-ring', className)} {...props}>
     {children}
-    <SelectPrimitive.Icon className="select-icon"><Icon name="expand" size={16} /></SelectPrimitive.Icon>
+    <SelectPrimitive.Icon className="select-icon flex shrink-0"><Icon name="expand" size={16} /></SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 }
 
 export function SelectContent({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   const { container } = React.useContext(PortalContainer)
   return <SelectPrimitive.Portal container={container ?? undefined}>
-    <SelectPrimitive.Content data-slot="select-content" position="popper" sideOffset={6} align="start" collisionPadding={8} className={cn('menu select-menu', className)} {...props}>
+    <SelectPrimitive.Content data-slot="select-content" position="popper" sideOffset={6} align="start" collisionPadding={8} className={cn(menuStyles.surface, 'menu select-menu', className)} {...props}>
       <SelectPrimitive.ScrollUpButton className="select-scroll"><Icon name="up" size={14} /></SelectPrimitive.ScrollUpButton>
-      <SelectPrimitive.Viewport className="select-viewport">{children}</SelectPrimitive.Viewport>
+      <SelectPrimitive.Viewport className="select-viewport flex flex-col">{children}</SelectPrimitive.Viewport>
       <SelectPrimitive.ScrollDownButton className="select-scroll"><Icon name="expand" size={14} /></SelectPrimitive.ScrollDownButton>
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
 }
 
 export function SelectItem({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Item>) {
-  return <SelectPrimitive.Item data-slot="select-item" className={cn('menu-item select-item', className)} {...props}>
-    <span className="menu-check"><SelectPrimitive.ItemIndicator><Icon name="check" size={14} /></SelectPrimitive.ItemIndicator></span>
-    <span className="menu-text"><SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText></span>
+  return <SelectPrimitive.Item data-slot="select-item" className={cn(menuStyles.item, 'menu-item select-item shrink-0 cursor-default outline-none select-none', className)} {...props}>
+    <span className={cn(menuStyles.check, 'menu-check')}><SelectPrimitive.ItemIndicator><Icon name="check" size={14} /></SelectPrimitive.ItemIndicator></span>
+    <span className={cn(menuStyles.text, 'menu-text')}><SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText></span>
   </SelectPrimitive.Item>
 }

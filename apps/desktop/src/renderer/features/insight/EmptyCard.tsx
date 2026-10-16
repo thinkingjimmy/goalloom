@@ -4,6 +4,7 @@
  * [POS]: Empty-state insight for current periods and future half/cycle inside a displayed future parent; batch drafts write through Composer, manual writing uses the column QuickAdd.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { SettingsButton } from '../../components/ui/button'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import { horizonNames, insightMessages as t } from '../../i18n'
 import { Icon } from '../../components/icons'
@@ -19,8 +20,8 @@ export function EmptyCard({ horizon, sources, period, insight, disabled, onWrite
     <p className="insight-empty-title">{t.emptyTitle(horizonNames[horizon])}</p>
     <p className="insight-empty-body">{t.emptyBody(horizonNames[above[horizon]], sources.length)}</p>
     <div className="insight-empty-actions">
-      <button type="button" className="settings-button primary" disabled={disabled} onClick={() => insight.seed({ ...base, mode: 'batch', parents: sources, draft: insight.ready })}><Icon name="smart" size={14} /><span>{t.emptyDraft[horizon]}</span></button>
-      <button type="button" className="settings-button" disabled={disabled} onClick={onWrite}><span>{t.emptyOwn}</span></button>
+      <SettingsButton variant="primary" type="button" disabled={disabled} onClick={() => insight.seed({ ...base, mode: 'batch', parents: sources, draft: insight.ready })}><Icon name="smart" size={14} /><span>{t.emptyDraft[horizon]}</span></SettingsButton>
+      <SettingsButton type="button" disabled={disabled} onClick={onWrite}><span>{t.emptyOwn}</span></SettingsButton>
     </div>
   </div>
 }

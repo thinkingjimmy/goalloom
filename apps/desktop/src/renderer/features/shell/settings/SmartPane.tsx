@@ -10,7 +10,7 @@ import { FeatureHero, ProviderChoice } from './FeatureControls'
 import type { Section } from './Settings'
 
 export function SmartPane({ ai, goto }: { ai: Ai; goto: (section: Section) => void }) {
-  if (!ai.status) return <p className="settings-footnote">{t.testing}</p>
+  if (!ai.status) return <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.testing}</p>
   return <>
     <FeatureHero ai={ai} feature="smart" label={t.sectionTitle} icon="smart" goto={goto} />
     <ProviderChoice ai={ai} feature="smart" goto={goto} />
