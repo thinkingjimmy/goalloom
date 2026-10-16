@@ -164,6 +164,11 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash .github/scripts/macos-signing.sh verify
+      - name: Signed Keychain first use and previous-version restoration
+        working-directory: apps/desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tests/keychain-signed.mjs release/mac-arm64/Goalloom.app/Contents/MacOS/Goalloom
       - name: Packaged macOS smoke
         working-directory: apps/desktop
         run: |
@@ -206,6 +211,14 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
           path: apps/desktop/output/tests/notarization/*.json
+      - name: Upload signed Keychain evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: macos-signed-keychain-evidence
+          retention-days: 7
+          if-no-files-found: ignore
+          path: apps/desktop/output/tests/keychain-signed/
 
   package-win:
     name: Package Windows

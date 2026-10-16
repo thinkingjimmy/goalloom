@@ -114,6 +114,8 @@ The macOS package step has a 50-minute limit; DMG notarization has 45 minutes; t
 
 macOS still verifies `.app` and `.dmg` with codesign, expected TeamIdentifier, Gatekeeper and stapler. The app uses `spctl --type execute`; the DMG uses `spctl -t open --context context:primary-signature`. The CI workflow keeps unsigned private checks; Windows packages remain unsigned and do not read macOS signing secrets.
 
+The signed macOS job also runs `tests/keychain-signed.mjs` before packaged smokes. A same-team signed probe verifies that the production main disabled Keychain UI under Hardened Runtime. Actual Electron `safeStorage` checks first use/restart and reads synthetic AI ciphertext created by the public 1.9.1 app. This hosted-only gate requires the runner's disposable signing keychain to be the default, never uses a local user's keychain, and uploads `macos-signed-keychain-evidence`. Old-version seeding receives a test-only noninteractive guard; the new app must set the policy itself. It does not call a live AI provider or replace physical-machine/Windows acceptance.
+
 打包步骤把 `GOALLOOM_SUPABASE_ANON_KEY` 和 `GOALLOOM_SUPABASE_URL` 传给 `package:mac` / `package:win` 里的 `electron-vite build`。运行时先看环境变量 `GOALLOOM_SUPABASE_ANON_KEY`，再看用户数据目录里 `sync-config.json` 的 `anonKey`（可选字段 `url`），最后用打进包里的值。macOS 用户数据目录是 `~/Library/Application Support/Goalloom/`。anon key 为空只打警告，不让构建失败。`pnpm test` 不接收这把 key。
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。同步时 Key 只在内存里放进密封的 `pref.set`，工作区里留下的是 `sha256` 指纹；备份会删掉这些行和动作再 `VACUUM`，文件里不留 Key 的字节。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
