@@ -3,6 +3,8 @@ export { rejectStaleEpoch, runLocalPrototype, snapshotPlaintext, type ProtoBox, 
 export { rejectMissingKey, rejectUnknownFormat } from './pause'
 export { maxOpCiphertextBytes, missingBlobHoldsCursor, planPushBatches, type PushCandidate } from './push'
 export { SyncFailure } from './failure'
+export { joinPlan, pristineHistory } from './join'
+export { prepareFirstConnection } from './first-connection'
 export { openOpWire, sealOpWire } from './codec'
 export { createFetchRemote } from './fetch-remote'
 export { createMemoryWorld, memoryCiphertext, memoryRemote, type MemoryWorld } from './memory-remote'

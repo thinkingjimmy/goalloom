@@ -1,7 +1,8 @@
 /**
  * [INPUT]: base_* rows, or a captured visible board.
  * [OUTPUT]: SyncOps that replay that board. Calendar and policies are their own ops. A failed baseline rolls back and pauses sync.
- * [POS]: Upgrade path for data that predates sync. Pending ops stay ahead of the baseline and are not rewritten. Kept edges are not re-checked as new links.
+ * [POS]: Upgrade path for data that predates sync. Pending ops keep their order. First-join import can preserve item identities and the source calendar. Kept edges are not re-checked as new links.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { parseSyncOp, syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
@@ -211,20 +212,23 @@ export function queueVisibleBaseline(driver: SqlDriver, host: ApplyHost, deviceI
 
 /** Turns a pre-sync base projection into never_sent ops and replays them onto an empty base. Pending ops keep their relative order. */
 export function queueBaseline(driver: SqlDriver, host: ApplyHost, deviceId: string, at: string): number {
-  return baselineTransaction(driver, at, () => {
-    const board = readBoard(driver, 'base_')
-    const meaningful = board.calendar || board.items.length || board.policies.length
-    if (!meaningful) return 0
-    const ops = opsForBoard(board, deviceId, at, 'baseline')
-    if (!ops.length) return 0
-    driver.prepare('UPDATE sync_ops SET localOrder = -localOrder WHERE localOrder IS NOT NULL').run()
-    driver.prepare('UPDATE sync_ops SET localOrder = -localOrder + ? WHERE localOrder IS NOT NULL').run(ops.length)
-    ops.forEach((op, index) => insertOp(driver, op, at, index + 1))
-    clearBase(driver)
-    rebuildVisibleFull(driver, host, { strictOpIds: new Set(ops.map(op => op.opId)) })
-    assertBaselineKept(board, driver)
-    return ops.length
-  })
+  return baselineTransaction(driver, at, () => queueBaselineInTransaction(driver, host, deviceId, at))
+}
+
+/** Caller owns the join transaction, including rollback of baseline preparation. */
+export function queueBaselineInTransaction(driver: SqlDriver, host: ApplyHost, deviceId: string, at: string): number {
+  const board = readBoard(driver, 'base_')
+  const meaningful = board.calendar || board.items.length || board.policies.length
+  if (!meaningful) return 0
+  const ops = opsForBoard(board, deviceId, at, 'baseline')
+  if (!ops.length) return 0
+  driver.prepare('UPDATE sync_ops SET localOrder = -localOrder WHERE localOrder IS NOT NULL').run()
+  driver.prepare('UPDATE sync_ops SET localOrder = -localOrder + ? WHERE localOrder IS NOT NULL').run(ops.length)
+  ops.forEach((op, index) => insertOp(driver, op, at, index + 1))
+  clearBase(driver)
+  rebuildVisibleFull(driver, host, { strictOpIds: new Set(ops.map(op => op.opId)) })
+  assertBaselineKept(board, driver)
+  return ops.length
 }
 
 function baselineTransaction<T>(driver: SqlDriver, at: string, work: () => T): T {
@@ -306,12 +310,17 @@ function placedBoard(host: ApplyHost, board: LocalBoard, at: string): LocalBoard
 }
 
 /** Writes the captured board as new local ops. Caller owns the transaction. */
-export function applyImportedBoard(driver: SqlDriver, host: ApplyHost, board: LocalBoard, deviceId: string, at: string): number {
-  const source = placedBoard(host, board, at)
-  const imported: LocalBoard = { calendar: null, setupConfirmedAt: null, policies: [], guidance: source.guidance, edges: [], items: [] }
+export function applyImportedBoard(driver: SqlDriver, host: ApplyHost, board: LocalBoard, deviceId: string, at: string, options?: { preserveIds: boolean; adoptCalendar: boolean }): number {
+  const source = options?.adoptCalendar ? board : placedBoard(host, board, at)
+  const known = options?.preserveIds ? new Set(driver.prepare('SELECT id FROM items').all().map(row => String(row.id))) : new Set<string>()
+  const selected = source.items.filter(item => (options?.adoptCalendar || !item.deletedAt) && !known.has(item.id))
+  const imported: LocalBoard = {
+    calendar: options?.adoptCalendar ? source.calendar : null, setupConfirmedAt: options?.adoptCalendar ? source.setupConfirmedAt : null,
+    policies: options?.adoptCalendar ? source.policies : [], guidance: source.guidance, edges: [], items: [],
+  }
   const map = new Map<string, string>()
-  for (const item of source.items.filter(item => !item.deletedAt)) map.set(item.id, id())
-  imported.items = source.items.filter(item => !item.deletedAt).map(item => ({
+  for (const item of selected) map.set(item.id, options?.preserveIds ? item.id : id())
+  imported.items = selected.map(item => ({
     ...item,
     id: map.get(item.id)!,
     nestingParentId: item.nestingParentId && map.has(item.nestingParentId) ? map.get(item.nestingParentId)! : null,
@@ -323,7 +332,8 @@ export function applyImportedBoard(driver: SqlDriver, host: ApplyHost, board: Lo
     return parentId && childId ? [{ id: id(), parentId, childId }] : []
   })
   imported.guidance = source.guidance.flatMap(note => map.has(note.itemId) ? [{ itemId: map.get(note.itemId)!, value: note.value }] : [])
-  const ops = opsForBoard(imported, deviceId, at, 'import')
+  const ops = opsForBoard(imported, deviceId, at, options?.adoptCalendar ? 'baseline' : 'import')
+    .map(op => imported.calendar ? { ...op, importedCalendar: imported.calendar } : op)
   if (!ops.length) return 0
   let order = Number(driver.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()?.n ?? 0)
   for (const op of ops) {

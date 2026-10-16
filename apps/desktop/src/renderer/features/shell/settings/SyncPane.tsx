@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Main-process sync status, workspace today, existing JSON export and shared Tailwind controls/fields.
- * [OUTPUT]: Plain settings rows for sign-in, the sync password, a local-data choice, and live sync status.
+ * [INPUT]: Main-process sync status, workspace today and shared Tailwind controls/fields.
+ * [OUTPUT]: Plain settings rows for sign-in/sign-out (including locked credentials), the sync password, a local-data choice, live sync status and recovery guidance.
  * [POS]: Settings › Sync. The password stays in this pane and is not part of the polled status.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -76,7 +76,6 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
   const [resetAgain, setResetAgain] = useState('')
   const [nextPassword, setNextPassword] = useState('')
   const [nextAgain, setNextAgain] = useState('')
-  const [choice, setChoice] = useState<'use-remote' | 'merge'>('use-remote')
   const [acknowledged, setAcknowledged] = useState(false)
   const [working, setWorking] = useState(false)
   const [changing, setChanging] = useState(false)
@@ -93,6 +92,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
         if (action.type === 'create') { setCreated(''); setCreatedAgain('') }
         if (action.type === 'reset-sync') { setResetting(false); setForgot(false); setResetPassword(''); setResetAgain('') }
         if (action.type === 'submit-password') setEntry('')
+        if (action.type === 'join' || action.type === 'cancel' || action.type === 'sign-out') setAcknowledged(false)
       }
     }
     finally { setWorking(false) }
@@ -109,13 +109,22 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
     {error && <div className="settings-alert m-0 flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-destructive-tint text-destructive text-[12.5px] leading-[1.6]" role="alert"><span>{error}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status.error)}><Icon name="close" size={16} /></IconButton></div>}
     {conflictNotice.open && <div className="settings-alert m-0 flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-destructive-tint text-destructive text-[12.5px] leading-[1.6]" role="status"><span>{t.conflicts(status.conflicts)}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={conflictNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
     {status.phase === 'unconfigured' && <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.unconfigured}</p>}
-    {status.phase === 'locked' && <SettingsGroup>
+    {status.phase === 'locked' && <><SettingsGroup>
       <Account note={accountNote}>
         <StatusLine state="off" label={t.lockedStatus} detail={status.error ? t.errors[status.error] : t.lockedReason} />
-        {status.email && signOut}
+        {signOut}
       </Account>
       <SettingsRow title={t.password}><SettingsButton type="button" disabled>{t.change}</SettingsButton></SettingsRow>
-    </SettingsGroup>}
+    </SettingsGroup>
+      <div className="sync-recovery text-[12px] leading-[1.7] text-muted-foreground">
+        <p className="m-0">{status.error === 'storage' ? t.lockedStorage : t.locked}</p>
+        {!status.error && typeof navigator !== 'undefined' && navigator.userAgent.includes('Mac') && <details className="mt-3">
+          <summary className="cursor-pointer text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">{t.lockedHelp}</summary>
+          <ol className="mt-2 mb-2 list-decimal pl-5 space-y-1">{t.lockedSteps.map(step => <li key={step}>{step}</li>)}</ol>
+          <p className="m-0">{t.lockedPreserve}</p>
+        </details>}
+      </div>
+    </>}
     {(status.phase === 'signed-out' || status.phase === 'signing-in') && <SettingsGroup>
       <Account note={status.email ?? t.notSignedIn}>
         {status.phase === 'signing-in' && !status.error && <StatusLine state="run" label={t.signingIn} />}
@@ -154,19 +163,23 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
     {status.phase === 'choose' && <>
       <SettingsGroup><Account note={accountNote}>{signOut}</Account></SettingsGroup>
       <SettingsGroup title={t.localItems}>
-        <SettingsRow title={t.useRemote} note={t.useRemoteNote}>
-          <input type="radio" name="sync-choice" aria-label={t.useRemote} checked={choice === 'use-remote'} onChange={() => setChoice('use-remote')} />
-        </SettingsRow>
-        <SettingsRow title={t.merge} note={t.mergeNote}>
-          <input type="radio" name="sync-choice" aria-label={t.merge} checked={choice === 'merge'} onChange={() => setChoice('merge')} />
-        </SettingsRow>
-        <label className="sync-ack flex items-center gap-2 m-0 px-4 py-3 text-[13px]"><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)} />{t.acknowledge}</label>
+        <SettingsRow title={t.merge} note={t.mergeNote} />
       </SettingsGroup>
+      <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.automaticBackup}</p>
       <div className="sync-end justify-end">
-        <SettingsButton type="button" onClick={() => void desktopApi().exportWorkspace()}>{t.exportJson}</SettingsButton>
         <SettingsButton variant="ghost" type="button" disabled={working} onClick={() => void run({ type: 'cancel' })}>{t.cancel}</SettingsButton>
-        <SettingsButton variant="primary" type="button" disabled={working || !acknowledged} onClick={() => void run({ type: 'join', choice, acknowledged })}>{t.continue}</SettingsButton>
+        <SettingsButton variant="primary" type="button" disabled={working} onClick={() => void run({ type: 'join', choice: 'merge', acknowledged: true })}>{t.mergeStart}</SettingsButton>
       </div>
+      <details onToggle={event => { if (!event.currentTarget.open) setAcknowledged(false) }}>
+        <summary className="cursor-pointer text-[12px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">{t.otherOptions}</summary>
+        <div className="mt-3"><SettingsGroup danger>
+          <SettingsRow title={t.useRemote} note={t.useRemoteNote} />
+          <label className="sync-ack flex items-start gap-2 m-0 px-4 py-3 text-[13px]"><input type="checkbox" className="mt-1 shrink-0" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)} />{t.acknowledge}</label>
+          <SettingsRow title={t.useRemote}>
+            <SettingsButton type="button" className="sync-danger" disabled={working || !acknowledged} onClick={() => void run({ type: 'join', choice: 'use-remote', acknowledged })}>{t.useRemote}</SettingsButton>
+          </SettingsRow>
+        </SettingsGroup></div>
+      </details>
     </>}
     {status.phase === 'ready' && line && <>
       <SettingsGroup>
@@ -182,6 +195,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
           <SettingsRow title={t.changePassword}><SettingsButton type="button" disabled={working || syncing || !passwordOk(nextPassword, nextAgain)} onClick={() => void run({ type: 'change-password', password: nextPassword.trim() })}>{t.changePassword}</SettingsButton></SettingsRow>
         </>}
       </SettingsGroup>
+      {status.awaitingTasks && !failed && <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.awaitingTasks}</p>}
       {status.uploadWait && <p className="settings-footnote" role="status">{t.uploadWaitingDetail}</p>}
       <SettingsGroup danger>
         {resetting && <>

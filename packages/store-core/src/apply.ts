@@ -10,6 +10,7 @@ import type { ApplyHost, SqlDriver, SqlValue } from './driver'
 import { SyncApplyError } from './driver'
 import { writeSetting } from './settings'
 import { checkCreationCompletion, checkUndoCreate } from './undo-create'
+import { alignImportAction, canAdoptCalendar, followsImportedPlacement } from './import-calendar'
 
 export interface CanonChange { itemId: string | null; dim: string; before: unknown; after: unknown }
 export interface AppliedOp { kind: string; outcome: 'applied' | 'partial'; changes: CanonChange[] }
@@ -29,7 +30,9 @@ export function applySyncOp(driver: SqlDriver, input: unknown, scope: 'base' | '
   let partial = false
   checkCreationCompletion(driver, prefix, op)
   for (const action of op.actions) if (action.t === 'item.undoCreate') checkUndoCreate(driver, prefix, op, action)
-  for (const action of op.actions) {
+  for (const original of op.actions) {
+    const action = alignImportAction(driver, prefix, op, original, host)
+    if (!action) continue
     const result = applyAction(driver, prefix, op, action, host, changes)
     if (result === 'partial') partial = true
   }
@@ -78,7 +81,8 @@ function ensurePeriod(driver: SqlDriver, prefix: string, host: ApplyHost, horizo
   if (!startDate) throw new SyncApplyError('period_scale_mismatch')
   const existing = driver.prepare(`SELECT id FROM ${prefix}planning_periods WHERE horizon=? AND startDate=?`).get(horizon, startDate)
   if (existing) return String(existing.id)
-  const period = host.materializePeriod(horizon, startDate)
+  const calendar = text(driver.prepare(`SELECT calendar FROM ${prefix}workspace WHERE id=1`).get(), 'calendar')
+  const period = host.materializePeriod(horizon, startDate, calendar ?? undefined)
   if (period.horizon !== horizon || period.startDate !== startDate) throw new SyncApplyError('period_scale_mismatch')
   driver.prepare(`INSERT INTO ${prefix}planning_periods (id,horizon,startDate,endDate,startAt,endAt) VALUES (?,?,?,?,?,?)`)
     .run(period.id, period.horizon, period.startDate, period.endDate, period.startAt, period.endAt)
@@ -271,7 +275,9 @@ function rolloverItem(driver: SqlDriver, prefix: string, op: SyncOp, action: Ext
   if (!placement) throw new SyncApplyError('rollover_stale')
   const policy = driver.prepare(`SELECT mode FROM ${prefix}rollover_policies WHERE horizon=?`).get(action.from.periodKey.horizon)
   const samePlace = text(placement, 'horizon') === action.from.periodKey.horizon && text(placement, 'startDate') === action.from.periodKey.startDate
-  if (!samePlace || lastPlacementSeq(driver, action.id) !== action.from.placementSeq || text(item, 'status') !== 'todo' || text(policy, 'mode') !== 'auto') {
+  const seq = lastPlacementSeq(driver, action.id)
+  const samePredecessor = seq === action.from.placementSeq || action.from.placementSeq === 0 && followsImportedPlacement(driver, op, seq)
+  if (!samePlace || !samePredecessor || text(item, 'status') !== 'todo' || text(policy, 'mode') !== 'auto') {
     throw new SyncApplyError('rollover_stale')
   }
   return placeItem(driver, prefix, op, { id: action.id, horizon: action.to.horizon, periodKey: action.to, sortHint: { afterId: null, beforeId: null } }, host, changes, 'rollover')
@@ -347,10 +353,15 @@ function setPolicy(driver: SqlDriver, prefix: string, op: SyncOp, action: Extrac
 
 function setupCalendar(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Action, { t: 'calendar.setup' }>, changes: CanonChange[]): 'applied' {
   const workspace = driver.prepare(`SELECT calendar FROM ${prefix}workspace WHERE id=1`).get()
-  if (text(workspace, 'calendar')) throw new SyncApplyError('calendar_locked')
+  const previous = text(workspace, 'calendar')
+  if (previous) {
+    if (!op.importedCalendar || op.importedCalendar.id !== action.calendar.id) throw new SyncApplyError('calendar_locked')
+    if (!canAdoptCalendar(driver, prefix, op)) return 'applied'
+    driver.exec(`DELETE FROM ${prefix}rollover_policies; DELETE FROM ${prefix}planning_periods;`)
+  }
   const calendar = JSON.stringify(action.calendar)
   driver.prepare(`UPDATE ${prefix}workspace SET calendar=?, setupConfirmedAt=? WHERE id=1`).run(calendar, action.confirmedAt ?? op.at)
-  changes.push({ itemId: null, dim: 'calendar', before: null, after: action.calendar })
+  changes.push({ itemId: null, dim: 'calendar', before: previous ? JSON.parse(previous) : null, after: action.calendar })
   return 'applied'
 }
 

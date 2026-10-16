@@ -44,8 +44,9 @@ it('七种同步状态都是普通设置行，状态和退出登录在同一行'
   expect(choose).toContain('本机已有条目')
   expect(choose).toContain('使用另一台电脑的看板')
   expect(choose).toContain('合并两边的条目')
-  expect(choose).toContain('type="radio"')
-  expect(choose).toContain('导出 JSON')
+  expect(choose).not.toContain('type="radio"')
+  expect(choose).toContain('合并并开始同步')
+  expect(choose).toContain('自动备份')
 
   const synced = page({ phase: 'ready', email: 'jimmy@example.com', lastSyncedAt: '2026-10-13T15:28:00.000Z' })
   expect(synced).toContain('已同步')

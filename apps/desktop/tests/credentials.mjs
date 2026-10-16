@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built production app, isolated synthetic profiles and a counted OS cipher fixture.
- * [OUTPUT]: Repeatable credential startup/sign-in/sign-out/restart reports and native window screenshots.
+ * [OUTPUT]: Repeatable credential startup/sign-in/sign-out/recovery/restart reports and native window screenshots.
  * [POS]: Real Electron/preload/storage acceptance of lazy sync access and independent AI restoration.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -60,6 +60,29 @@ async function clone(name, template) {
   return profile
 }
 const seal = text => Buffer.from(text).map(byte => byte ^ 0x5a)
+const vaultHeader = Buffer.from('Goalloom sync vault 1\n')
+const ciphertext = bytes => bytes.subarray(0, vaultHeader.length).equals(vaultHeader) ? bytes.subarray(vaultHeader.length + 1) : bytes
+async function signOutFromSettings(settings, profile) {
+  const saved = await readFile(join(profile, 'sync-vault.bin')).catch(error => { if (error.code === 'ENOENT') return null; throw error })
+  const { requests: beforeRequests, ...before } = await metrics()
+  const snapshot = await page.evaluate(() => window.goalloom.getSnapshot())
+  await settings.getByRole('button', { name: '退出登录', exact: true }).click()
+  await settings.getByRole('button', { name: /Google/ }).waitFor()
+  assert.equal((await status()).phase, 'signed-out')
+  assert.equal((await status()).email, null)
+  assert.equal((await status()).error, null)
+  const { requests, ...afterMetrics } = await metrics()
+  assert.deepEqual(afterMetrics, before, 'Sign-out must not request OS credentials')
+  assert(requests.slice(beforeRequests.length).every(path => path === '/auth/v1/logout'), 'Sign-out may only revoke this local session')
+  const after = await page.evaluate(() => window.goalloom.getSnapshot())
+  assert.deepEqual(after.items, snapshot.items)
+  assert.equal(after.workspace.generation, snapshot.workspace.generation)
+  if (saved) {
+    const bytes = await readFile(join(profile, 'sync-vault.bin'))
+    assert.equal(bytes[vaultHeader.length], 0)
+    assert.deepEqual(ciphertext(bytes), ciphertext(saved))
+  }
+}
 async function legacyVault(profile, refreshToken = 'synthetic-refresh') {
   const body = { v: 1, deviceId: null, signSk: '11'.repeat(32), boxSk: '22'.repeat(32), workspaceKey: null,
     workspaceId: null, generation: null, epoch: null, roster: null, recoveryBoxSk: null, recoverySignSk: null,
@@ -71,6 +94,14 @@ async function googleFromSettings() {
   const settings = page.locator('dialog.settings-modal')
   await settings.getByRole('button', { name: /^同步/, exact: false }).click()
   return settings
+}
+async function recoveryLocale(settings, locale) {
+  const names = { zh: '简体中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }
+  await settings.locator('.settings-nav-label').filter({ hasText: /^(外观|Appearance|外観|Apariencia|Apparence)$/ }).click()
+  await settings.locator('.settings-select').click()
+  await page.getByRole('option', { name: names[locale], exact: true }).click()
+  await settings.locator('.settings-nav-label').filter({ hasText: /^(同步|Sync|同期|Sincronizar|Synchro)$/ }).click()
+  await settings.locator('.sync-recovery summary').click()
 }
 
 try {
@@ -99,6 +130,11 @@ try {
   await finishSetup(page)
   await page.locator('.board').waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+  const created = await page.evaluate(async () => window.goalloom.execute({
+    type: 'create', operationId: crypto.randomUUID(), generation: (await window.goalloom.getSnapshot()).workspace.generation,
+    title: 'Keep this local task after sign-out', horizon: 'day',
+  }))
+  assert(created.ok)
   const generation = (await page.evaluate(() => window.goalloom.getSnapshot())).workspace.generation
   let settings = await googleFromSettings()
   await noCipher()
@@ -130,15 +166,20 @@ try {
   assert.equal((await metrics()).refreshed, 1)
   await record('current-session-restored')
   check('the current vault format restores a saved session after restart')
-  await page.evaluate(() => window.goalloom.sync({ type: 'sign-out' }))
+  settings = await googleFromSettings()
+  await application.evaluate(() => { globalThis.credentialFixture.mode = 'unavailable'; globalThis.credentialFixture.holdLogout = true })
+  await signOutFromSettings(settings, active)
   const signedOutVault = await readFile(join(active, 'sync-vault.bin'))
   await close()
-  await launch(active)
+  await launch(active, 'unavailable')
   assert.equal((await status()).phase, 'signed-out')
   assert.equal((await metrics()).available, 0)
   assert.equal((await metrics()).decrypt, 0)
   await record('signed-out-restart')
-  check('sign-out preserves encrypted keys and skips cipher access on restart')
+  check('an active session can sign out despite failed OS access and a stalled logout request; keys and tasks survive restart')
+  await close()
+  await launch(active)
+  await noCipher()
   settings = await googleFromSettings()
   await settings.getByRole('button', { name: /Google/ }).click()
   await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'signing-in')
@@ -148,6 +189,25 @@ try {
   assert.deepEqual(await readFile(join(active, 'sync-vault.bin')), signedOutVault)
   await record('signed-out-reconnect')
   check('reconnecting opens the preserved vault without replacing its keys')
+  await close()
+  await launch(active)
+  assert.equal((await status()).phase, 'signed-out')
+  await noCipher()
+  settings = await googleFromSettings()
+  await settings.getByRole('button', { name: /Google/ }).click()
+  await waitForBrowser()
+  assert.equal((await metrics()).refreshed, 0)
+  const callback = await fetch('http://127.0.0.1:53682/callback?code=synthetic-reconnect')
+  assert.equal(callback.status, 200)
+  await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'setup')
+  const reconnected = await readFile(join(active, 'sync-vault.bin'))
+  const reconnectedSecrets = JSON.parse(seal(ciphertext(reconnected)).toString())
+  assert.equal(reconnected[vaultHeader.length], 1)
+  assert.equal(reconnectedSecrets.signSk, '11'.repeat(32))
+  assert.equal(reconnectedSecrets.boxSk, '22'.repeat(32))
+  assert((await page.evaluate(() => window.goalloom.getSnapshot())).items.some(item => item.title === 'Keep this local task after sign-out'))
+  await record('signed-out-authenticated-again')
+  check('cancelled reconnect stays signed out after restart; a later completed OAuth reuses the original keys and board')
   await close()
 
   const unavailableFirstUse = await clone('unavailable-first-use', template)
@@ -160,6 +220,9 @@ try {
   assert.equal((await metrics()).encrypt, 0)
   await record('unavailable-first-use')
   check('a missing keychain is checked only after the first explicit sign-in')
+  await signOutFromSettings(settings, unavailableFirstUse)
+  await record('unused-locked-sign-out')
+  check('failed first-use sign-in can return to signed out without a saved email or vault')
   await close()
 
   for (const mode of ['unavailable', 'denied']) {
@@ -171,8 +234,63 @@ try {
     assert.equal((await metrics()).browser, 0)
     assert.equal((await metrics()).encrypt, 0)
     assert.deepEqual(await readFile(join(blocked, 'sync-vault.bin')), original)
+    settings = await googleFromSettings()
+    const recovery = settings.locator('.sync-recovery')
+    await recovery.waitFor()
+    const beforeGuide = await metrics()
+    if (mode === 'unavailable' && process.platform === 'darwin') {
+      const titles = { zh: '如何恢复同步', en: 'How to restore sync', ja: '同期を復旧する方法', es: 'Cómo restablecer la sincronización', fr: 'Comment rétablir la synchronisation' }
+      for (const [locale, title] of Object.entries(titles)) {
+        await recoveryLocale(settings, locale)
+        await recovery.getByText(title, { exact: true }).waitFor()
+        assert.equal(await recovery.locator('li').count(), 4)
+        assert.match(await recovery.innerText(), /Goalloom Safe Storage/)
+        assert.match(await recovery.innerText(), /Goalloom\.app/)
+        if (['en', 'es', 'fr'].includes(locale)) assert.doesNotMatch(await recovery.innerText(), /[一-鿿]/)
+        await record(`locked-help-${locale}`)
+      }
+      await recoveryLocale(settings, 'zh')
+      await recovery.getByText(titles.zh, { exact: true }).waitFor()
+      check('locked sync provides readable recovery steps in five languages without accessing credentials')
+    } else assert.equal(await recovery.locator('details').count(), 0, 'Do not prescribe macOS permission changes for storage errors or other platforms')
+    assert.deepEqual(await metrics(), beforeGuide)
+    assert.deepEqual(await readFile(join(blocked, 'sync-vault.bin')), original)
     await record(mode)
     check(`${mode} keychain access keeps the encrypted vault and local board intact`)
+    await close()
+    const disconnected = await clone(`${mode}-sign-out`, blocked)
+    const journal = join(disconnected, 'sync-send-preserve.bin')
+    await writeFile(journal, 'Synthetic preserved send journal')
+    await launch(disconnected, mode)
+    settings = await googleFromSettings()
+    await signOutFromSettings(settings, disconnected)
+    await record(`${mode}-signed-out`)
+    await close()
+    await launch(disconnected, mode)
+    assert.equal((await status()).phase, 'signed-out')
+    await noCipher()
+    assert.equal((await metrics()).refreshed, 0)
+    settings = await googleFromSettings()
+    await settings.getByRole('button', { name: /Google/ }).click()
+    await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'locked')
+    assert.equal((await metrics()).browser, 0)
+    assert.deepEqual(ciphertext(await readFile(join(disconnected, 'sync-vault.bin'))), original)
+    assert.equal(await readFile(journal, 'utf8'), 'Synthetic preserved send journal')
+    await signOutFromSettings(settings, disconnected)
+    await record(`${mode}-reconnect-still-locked`)
+    check(`${mode} legacy credentials can sign out without OS access; restart and failed reconnect preserve tasks, keys and send data`)
+    await close()
+    await launch(blocked)
+    await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'setup')
+    const bytes = await readFile(join(blocked, 'sync-vault.bin'))
+    const restored = JSON.parse(seal(bytes.subarray(Buffer.byteLength('Goalloom sync vault 1\n') + 1)).toString())
+    assert.equal(restored.signSk, '11'.repeat(32))
+    assert.equal(restored.boxSk, '22'.repeat(32))
+    assert.equal((await metrics()).refreshed, 1)
+    assert.equal((await metrics()).browser, 0)
+    assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.generation, generation)
+    await record(`${mode}-access-restored`)
+    check(`${mode} credentials resume after access is restored and the app restarts, preserving device keys and the workspace`)
     await close()
   }
 
@@ -184,8 +302,33 @@ try {
   assert.equal((await status()).error, 'storage')
   assert.equal((await metrics()).encrypt, 0)
   assert.deepEqual(await readFile(join(corrupt, 'sync-vault.bin')), corruptBytes)
+  settings = await googleFromSettings()
+  await settings.locator('.sync-recovery').waitFor()
+  assert.equal(await settings.locator('.sync-recovery details').count(), 0)
+  assert.match(await settings.locator('.sync-recovery').innerText(), /凭据文件/)
   await record('corrupt-vault')
   check('a damaged vault stays recoverable and is never replaced with fresh keys')
+  await signOutFromSettings(settings, corrupt)
+  await close()
+  await launch(corrupt)
+  assert.equal((await status()).phase, 'signed-out')
+  await noCipher()
+  await record('corrupt-vault-signed-out')
+  check('sign-out suppresses automatic access to an unreadable vault without deleting its ciphertext')
+  await close()
+
+  const writeFailure = await clone('sign-out-write-failure', template)
+  await legacyVault(writeFailure)
+  await mkdir(join(writeFailure, 'sync-vault.bin.tmp'))
+  const writeFailureBytes = await readFile(join(writeFailure, 'sync-vault.bin'))
+  await launch(writeFailure, 'unavailable')
+  settings = await googleFromSettings()
+  await settings.getByRole('button', { name: '退出登录', exact: true }).click()
+  await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.error === 'storage')
+  assert.equal((await status()).phase, 'locked')
+  assert.deepEqual(await readFile(join(writeFailure, 'sync-vault.bin')), writeFailureBytes)
+  await record('sign-out-write-failure')
+  check('a failed sign-out write reports storage failure and preserves the previous state and bytes')
   await close()
 
   if (process.platform === 'darwin') {

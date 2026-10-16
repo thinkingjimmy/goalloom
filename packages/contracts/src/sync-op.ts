@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted sync payloads (formatVersion 1).
- * [OUTPUT]: A strict SyncOp, including causal creation/completion and grouped undo. payloadHash covers canonicalJson(op).
+ * [OUTPUT]: A strict SyncOp, including causal creation/completion, grouped undo and encrypted first-import calendar metadata. payloadHash covers canonicalJson(op).
  * [POS]: Protocol boundary shared by desktop, mobile and tests. Command replay is intentionally not this schema.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -81,6 +81,7 @@ export const syncOpSchema = z.strictObject({
   at: instant,
   actions: z.array(actionSchema).min(1).max(500),
   creationOperationId: z.uuid().optional(),
+  importedCalendar: calendarSchema.optional(),
 })
 
 export type PeriodKey = z.infer<typeof periodKeySchema>

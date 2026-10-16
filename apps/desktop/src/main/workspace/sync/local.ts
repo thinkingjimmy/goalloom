@@ -10,7 +10,7 @@ import { nodeSqlDriver } from '@goalloom/store-core/node'
 import type { RemoteEnvelope } from '@goalloom/store-core'
 import { enqueueSettings, readSettings, SyncApplyError } from '@goalloom/store-core'
 import {
-  absorbOpened, acceptPushResults, bindWorkspace, captureVisibleBoard, conflictCount, installJoined, localLiveCount, queueBaseline, queueVisibleBaseline,
+  absorbOpened, acceptPushResults, bindWorkspace, captureVisibleBoard, conflictCount, installJoined, joinPlan, localLiveCount, prepareFirstConnection, queueVisibleBaseline,
   stageImportedBoard, syncCursor, takePending, peekPending, markPending, type LocalBoard, type PendingPlain, type PushResultWire,
 } from '@goalloom/sync'
 import { syncHost } from '../../sync/host'
@@ -35,7 +35,8 @@ const command = z.discriminatedUnion('type', [
     opId: z.uuid(), seq: z.number().int().positive().optional(), duplicate: z.boolean().optional(), error: z.string().optional(),
   })), at: z.string() }),
   z.strictObject({ type: z.literal('absorb'), scope: scope.optional(), ops: z.array(opened), at: z.string() }),
-  z.strictObject({ type: z.literal('install'), binding, ops: z.array(opened), at: z.string(), merge: z.boolean() }),
+  z.strictObject({ type: z.literal('join-plan'), workspaceId: z.uuid(), ops: z.array(opened) }),
+  z.strictObject({ type: z.literal('install'), binding, ops: z.array(opened), at: z.string(), merge: z.boolean(), automatic: z.boolean().optional(), expectedGeneration: z.uuid().optional() }),
   z.strictObject({ type: z.literal('import'), deviceId: z.uuid(), board: z.unknown(), at: z.string() }),
   z.strictObject({ type: z.literal('hold'), closed: z.boolean() }),
   z.strictObject({ type: z.literal('protect'), at: z.string() }),
@@ -80,11 +81,12 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
       pending: Number(db.prepare(`SELECT count(*) AS n FROM sync_ops WHERE origin='local' AND state IN ('never_sent','send_unknown','accepted')`).get()?.n ?? 0),
       conflicts: conflictCount(driver),
       localItems: localLiveCount(driver),
+      hasTaskHistory: Boolean(db.prepare('SELECT 1 FROM items LIMIT 1').get() || db.prepare("SELECT 1 FROM canon_changes WHERE dim='create' LIMIT 1").get()),
     }
   }
   if (action.type === 'capture') return captureVisibleBoard(driver)
   if (action.type === 'bind') { bindWorkspace(driver, action.binding, action.at); return null }
-  if (action.type === 'baseline') return queueBaseline(driver, host, action.deviceId, action.at)
+  if (action.type === 'baseline') { prepareFirstConnection(driver, host, action.deviceId, action.at); return null }
   if (action.type === 'rebaseline') return queueVisibleBaseline(driver, host, action.deviceId, action.at)
   if (action.type === 'peek') return peekPending(driver, action.unknownOnly)
   if (action.type === 'mark') {
@@ -105,10 +107,12 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
     }), action.at)
   }
   if (action.type === 'absorb') return absorbOpened(driver, host, action.ops as RemoteEnvelope[], action.at)
-  if (action.type === 'install') {
-    installJoined(driver, host, { binding: action.binding, ops: action.ops as RemoteEnvelope[], at: action.at, merge: action.merge })
-    return null
-  }
+  if (action.type === 'join-plan') return joinPlan(driver, action.workspaceId, action.ops as RemoteEnvelope[])
+  if (action.type === 'install') return installJoined(driver, host, {
+    binding: action.binding, ops: action.ops as RemoteEnvelope[], at: action.at, merge: action.merge,
+    ...(action.automatic !== undefined ? { automatic: action.automatic } : {}),
+    ...(action.expectedGeneration ? { expectedGeneration: action.expectedGeneration } : {}),
+  })
   if (action.type === 'hold') { hooks?.hold?.(action.closed); return null }
   if (action.type === 'protect') {
     if (!hooks?.protect) throw new DomainError('backup', 'backup')

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Sync actions from the settings pane.
- * [OUTPUT]: A status snapshot with active exchange and independent upload-wait metadata. The sync password is never returned.
+ * [OUTPUT]: A status snapshot with active exchange, first-use empty guidance and independent upload-wait metadata. The sync password is never returned.
  * [POS]: Preload boundary for desktop sync. The renderer imports the types and does not bundle this schema.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -23,6 +23,7 @@ export const syncStatusSchema = z.strictObject({
   localItems: z.number().int().nonnegative(),
   offline: z.boolean(),
   syncing: z.boolean(),
+  awaitingTasks: z.boolean().optional(),
   uploadWait: z.strictObject({ retryAt: z.iso.datetime(), reason: z.enum(['quota', 'network']) }).optional(),
 })
 

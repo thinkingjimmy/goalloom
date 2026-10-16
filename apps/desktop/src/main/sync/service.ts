@@ -1,6 +1,6 @@
 /**
  * [INPUT]: OS cipher, storage worker, system browser and an optional anon key.
- * [OUTPUT]: On-demand Google sign-in, automatic saved-session restoration, a sync password, and encrypted op exchange. Unused/signed-out sync does not access the keychain at startup.
+ * [OUTPUT]: On-demand Google sign-in, automatic saved-session restoration, a sync password, safe automatic first joins and encrypted op exchange. Local sign-out and unused/signed-out startup do not access the keychain.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
  * The password is held in memory only until a join finishes or ten minutes pass.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -58,6 +58,7 @@ export class SyncService {
   private heldTimer: ReturnType<typeof setTimeout> | null = null
   private operation: Promise<void> | null = null
   private signInAbort: AbortController | null = null
+  private signingOut = false
   private ticking = false
   private pendingCache: PendingCache
   private cooldown: UploadCooldown
@@ -119,13 +120,15 @@ export class SyncService {
     if (!config.anonKey) { this.phase = 'unconfigured'; this.publish(); return }
     this.started = true
     const initializing = this.lifecycleId
+    const loading = signal ? AbortSignal.any([signal, this.lifecycle.signal]) : this.lifecycle.signal
     try {
-      this.secrets = await this.vault.load({ resumeOnly: !interactive, ...(signal ? { signal } : {}) })
-      if (signal?.aborted || this.stopped) return
+      const secrets = await this.vault.load({ resumeOnly: !interactive, signal: loading })
+      if (loading.aborted || this.stopped) return
+      this.secrets = secrets
       if (!this.secrets && !interactive) { this.phase = 'signed-out'; this.publish(); return }
       if (!this.secrets && !this.vault.available) throw new CredentialError('unavailable')
     } catch (error) {
-      if (signal?.aborted || this.stopped) return
+      if (loading.aborted || this.stopped) return
       this.phase = 'locked'
       this.error = error instanceof CredentialError ? null : 'storage'
       this.secrets = null
@@ -141,7 +144,8 @@ export class SyncService {
         return new Response(body || null, { status: response.status, statusText: response.statusText, headers: response.headers })
       }))
     this.remote = createFetchRemote({ url: config.url, anonKey: config.anonKey, accessToken: () => this.accessToken(), signal: () => this.requestSignal(), clock: this.clock })
-    const { data } = this.client.auth.onAuthStateChange((_event, session) => { if (!this.stopped) void this.keepSession(session).catch(() => undefined) })
+    const client = this.client
+    const { data } = client.auth.onAuthStateChange((_event, session) => { if (!this.stopped && this.client === client) void this.keepSession(session).catch(() => undefined) })
     this.authDispose = () => data.subscription.unsubscribe()
     if (!interactive && this.secrets.refreshToken) {
       const refreshed = await this.client.auth.refreshSession({ refresh_token: this.secrets.refreshToken }).catch(() => null)
@@ -309,15 +313,30 @@ export class SyncService {
   }
 
   private async signOut(): Promise<void> {
+    this.signingOut = true
+    try {
+      await this.vault.signOut()
+    } catch {
+      throw new SyncFailure('storage')
+    } finally {
+      this.signingOut = false
+    }
+    this.authDispose?.(); this.authDispose = null
+    this.closeChannel()
+    const client = this.client
+    this.client = null
+    this.remote = null
+    this.secrets = null
+    client?.auth.stopAutoRefresh?.()
+    client?.realtime?.disconnect()
+    // Remote revocation is best effort; local sign-out must also finish offline.
+    void client?.auth.signOut({ scope: 'local' }).catch(() => undefined)
     this.pendingCache.clear()
     this.phase = 'signed-out'
     this.email = null
     this.error = null
     this.offline = false
     this.dropPassword()
-    if (this.secrets) { this.secrets.refreshToken = null; await this.persist() }
-    await this.client?.auth.signOut({ scope: 'local' }).catch(() => undefined)
-    this.closeChannel()
     this.publish()
   }
 
@@ -362,9 +381,7 @@ export class SyncService {
     if (!passwordAccepted(password)) throw new SyncFailure('password')
     this.heldPassword = password
     this.armPassword()
-    const view = await this.readView()
-    if (view.localItems > 0) { this.phase = 'choose'; this.error = null; this.publish(); return }
-    await this.finishJoin('use-remote', true)
+    await this.finishJoin('merge', false)
   }
 
   private async changePassword(password: string): Promise<void> {
@@ -453,40 +470,47 @@ export class SyncService {
   }
 
   private async finishJoin(choice: 'use-remote' | 'merge', acknowledged: boolean): Promise<void> {
+    if (this.phase === 'ready') return
+    if (choice === 'use-remote' && !acknowledged) return
     const remote = this.requireRemote()
     const secrets = this.requireSecrets()
     const deviceId = this.requireDevice()
     const view = await this.readView()
-    if (view.localItems > 0 && !acknowledged) return
-    await this.storage({ type: 'hold', closed: true })
     let bound: BoundWorkspace
     let ops: RemoteEnvelope[]
     let writeRecovery = true
+    if (this.heldPassword) {
+      const unlocked = await unlockWithPassword({ remote, deviceId, secret: this.deviceSecret(), password: this.heldPassword })
+      bound = unlocked.bound
+      ops = unlocked.ops
+    } else if (secrets.workspaceKey && secrets.workspaceId && secrets.epoch && secrets.roster && secrets.generation) {
+      const recovery = this.recoveryFromVault()
+      writeRecovery = Boolean(recovery)
+      bound = {
+        workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
+        workspaceKey: secrets.workspaceKey, roster: secrets.roster, recovery: recovery ?? emptyRecovery(),
+      }
+      ops = await downloadWorkspace({ remote, deviceId, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey })
+    } else throw new SyncFailure('password')
+    const opened = ops.map(entry => ({ ...entry, op: redactSyncOp(entry.op) }))
+    // Persist recovered keys before installation so a restart resumes the binding instead of importing again.
+    await this.remember(bound, writeRecovery)
+    this.dropPassword()
+    const plan = await this.storage<'resume' | 'automatic' | 'choose'>({ type: 'join-plan', workspaceId: bound.workspaceId, ops: opened })
+    if (!acknowledged && plan === 'choose') { this.phase = 'choose'; this.error = null; this.publish(); return }
+    await this.storage({ type: 'hold', closed: true })
     try {
       await this.storage({ type: 'protect', at: this.deps.now() })
-      if (this.heldPassword) {
-        const unlocked = await unlockWithPassword({ remote, deviceId, secret: this.deviceSecret(), password: this.heldPassword })
-        bound = unlocked.bound
-        ops = unlocked.ops
-      } else if (secrets.workspaceKey && secrets.workspaceId && secrets.epoch && secrets.roster && secrets.generation) {
-        const recovery = this.recoveryFromVault()
-        writeRecovery = Boolean(recovery)
-        bound = {
-          workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
-          workspaceKey: secrets.workspaceKey, roster: secrets.roster, recovery: recovery ?? emptyRecovery(),
-        }
-        ops = await downloadWorkspace({ remote, deviceId, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey })
-      } else throw new SyncFailure('password')
       const at = this.deps.now()
-      await this.deliverSecrets(ops)
-      await this.storage({
+      const installed = await this.storage<string>({
         type: 'install', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch },
-        ops: ops.map(entry => ({ ...entry, op: redactSyncOp(entry.op) })), at, merge: choice === 'merge',
+        ops: opened, at, merge: choice === 'merge', automatic: !acknowledged, expectedGeneration: view.generation,
       })
+      if (installed === 'choose') { this.phase = 'choose'; this.error = null; this.publish(); return }
+      await this.deliverSecrets(ops, 'installed')
     } finally {
       await this.storage({ type: 'hold', closed: false }).catch(() => undefined)
     }
-    await this.remember(bound, writeRecovery)
     this.becomeReady()
     this.deps.onApplied()
     await this.runTurn()
@@ -542,9 +566,7 @@ export class SyncService {
       await this.tick()
       return
     }
-    this.phase = view.localItems > 0 ? 'choose' : 'enter-key'
-    if (this.phase === 'enter-key' && view.localItems === 0) await this.finishJoin('use-remote', true)
-    else this.publish()
+    await this.finishJoin('merge', false)
   }
 
   private async ensureDevice(): Promise<void> {
@@ -707,8 +729,8 @@ export class SyncService {
     return key => (map.has(key) ? map.get(key) : undefined)
   }
 
-  /** Writes incoming API keys to the OS keychain before the redacted op is stored. */
-  private async deliverSecrets(ops: RemoteEnvelope[], preserveLocal = false): Promise<void> {
+  /** Applies secret winners before incremental replay, or from the committed first-join projection. */
+  private async deliverSecrets(ops: RemoteEnvelope[], preserveLocal: boolean | 'installed' = false): Promise<void> {
     const apply = this.deps.applySecret
     if (!apply) return
     const winners = new Map((preserveLocal ? await this.storage<{ key: string; updatedAt: string; opId: string }[]>({ type: 'settings' }) : []).map(row => [row.key, row]))
@@ -718,7 +740,9 @@ export class SyncService {
         if (typeof action.value === 'string' && isSecretFingerprint(action.value)) continue
         if (action.value !== null && typeof action.value !== 'string') continue
         const winner = winners.get(action.key)
-        if (winner && !isLaterSetting(entry.op.at, entry.op.opId, winner.updatedAt, winner.opId)) continue
+        if (preserveLocal === 'installed') {
+          if (winner?.opId !== entry.op.opId || winner.updatedAt !== entry.op.at) continue
+        } else if (winner && !isLaterSetting(entry.op.at, entry.op.opId, winner.updatedAt, winner.opId)) continue
         await apply(action.key, action.value)
         winners.set(action.key, { key: action.key, updatedAt: entry.op.at, opId: entry.op.opId })
       }
@@ -824,7 +848,7 @@ export class SyncService {
   }
 
   private async keepSession(session: Session | null): Promise<void> {
-    if (!this.secrets || !session?.refresh_token || session.refresh_token === this.secrets.refreshToken) return
+    if (this.signingOut || !this.secrets || !session?.refresh_token || session.refresh_token === this.secrets.refreshToken) return
     this.secrets.refreshToken = session.refresh_token
     this.email = session.user.email ?? this.email
     if (!this.secrets.userId) this.secrets.userId = session.user.id
@@ -944,6 +968,7 @@ export class SyncService {
       localItems: this.view.localItems,
       offline: this.offline,
       syncing: this.ticking,
+      ...(this.phase === 'ready' && this.view.hasTaskHistory === false ? { awaitingTasks: true } : {}),
       ...(ready && this.view.pending > 0 && this.exchangeState.uploadRetryAt > this.clock.now() ? {
         uploadWait: { retryAt: new Date(Date.now() + this.exchangeState.uploadRetryAt - this.clock.now()).toISOString(), reason: this.exchangeState.uploadReason },
       } : {}),

@@ -63,7 +63,8 @@
     "test:assistance": "node tests/assistance/run.mjs",
     "eval:assistance": "node scripts/eval/assistance/run.mjs",
     "test:sync-replay": "node tests/sync-replay.mjs",
-    "test:sync-scheduling": "node tests/sync-cost.mjs baseline && node tests/sync-cost.mjs scheduling && node tests/sync-cost.mjs batching && node tests/sync-cost.mjs protection && node tests/sync-cost-native.mjs && node tests/sync-cost-report.mjs"
+    "test:sync-scheduling": "node tests/sync-cost.mjs baseline && node tests/sync-cost.mjs scheduling && node tests/sync-cost.mjs batching && node tests/sync-cost.mjs protection && node tests/sync-cost-native.mjs && node tests/sync-cost-report.mjs",
+    "test:sync-join": "node tests/sync-join.mjs && node tests/sync-join-native.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

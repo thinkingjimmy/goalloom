@@ -8,4 +8,6 @@ POS: shared sync core. It does not open files, does not import Electron, and doe
 
 `undo-create.ts` preflights causal creation completions and `item.undoCreate` groups. A completion needs its creator and untouched item/placement guards. Group undo validates the net placement, lifecycle and owned edges for every item before deletion. A peer edit followed by edit-back still rejects a late completion. `apply.ts` runs these checks inside the caller's atomic transaction/savepoint. Two-peer encrypted evidence is produced by the desktop `test:sync-replay` fixture.
 
+`import-calendar.ts` guards initial calendar adoption using items and canonical creation history. Later concurrent imports align to the established calendar. Offline rollover follows only its imported placement predecessor; ordinary intervening moves retain the stale guard. `apply.ts` supplies the target projection calendar to the host period materializer.
+
 [PROTOCOL]: Update this header when making changes, then check README.md.

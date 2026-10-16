@@ -1,7 +1,7 @@
 /**
  * [INPUT]: OS cipher and the device directory.
- * [OUTPUT]: Encrypted device/account keys and a public session-resume flag in one atomic file. Missing/inactive sessions can be checked without the OS cipher.
- * [POS]: Desktop secret store. Legacy bytes migrate only after successful decryption; unavailable access never replaces saved keys.
+ * [OUTPUT]: Encrypted device/account keys and a public session-resume flag with serialized atomic writes. Sign-out and inactive-session checks do not use the OS cipher.
+ * [POS]: Desktop secret store. Sign-out preserves ciphertext, including legacy bytes; unavailable access never replaces saved keys.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { readFile, rename, rm, writeFile } from 'node:fs/promises'
@@ -68,20 +68,26 @@ export interface VaultSecrets {
 }
 
 export class SyncVault {
+  private writing: Promise<void> = Promise.resolve()
   constructor(private directory: string, private cipher: Cipher) {}
   get available(): boolean { return this.cipher.available() }
   async load({ resumeOnly = false, signal }: { resumeOnly?: boolean; signal?: AbortSignal } = {}): Promise<VaultSecrets | null> {
+    await this.writing
+    signal?.throwIfAborted()
     let bytes: Buffer
     try { bytes = await readFile(join(this.directory, 'sync-vault.bin'), { signal }) }
     catch (error) {
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return null
       throw error
     }
+    signal?.throwIfAborted()
     const legacy = !bytes.subarray(0, vaultHeader.length).equals(vaultHeader)
+    let active = true
     if (!legacy) {
       const resume = bytes[vaultHeader.length]
       if (resume !== 0 && resume !== 1) throw new Error('Invalid sync vault header')
-      if (resumeOnly && resume === 0) return null
+      active = resume === 1
+      if (resumeOnly && !active) return null
       bytes = bytes.subarray(vaultHeader.length + 1)
     }
     if (!this.available) throw new CredentialError('unavailable')
@@ -102,7 +108,7 @@ export class SyncVault {
       roster: parsed.roster as RosterBody | null,
       recoveryBoxSk: parsed.recoveryBoxSk ? unhex(parsed.recoveryBoxSk) : null,
       recoverySignSk: parsed.recoverySignSk ? unhex(parsed.recoverySignSk) : null,
-      refreshToken: parsed.refreshToken, userId: parsed.userId, accounts,
+      refreshToken: active ? parsed.refreshToken : null, userId: parsed.userId, accounts,
     }
     if (legacy) await this.save(secrets)
     return secrets
@@ -128,11 +134,37 @@ export class SyncVault {
       refreshToken: secrets.refreshToken, userId: secrets.userId, accounts,
     })
     const encrypted = this.cipher.encrypt(body)
+    const bytes = Buffer.concat([vaultHeader, Buffer.from([secrets.refreshToken ? 1 : 0]), encrypted])
+    await this.mutate(() => this.replace(bytes))
+  }
+  async signOut(): Promise<void> {
+    await this.mutate(async () => {
+      let bytes: Buffer
+      try { bytes = await readFile(join(this.directory, 'sync-vault.bin')) }
+      catch (error) {
+        if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return
+        throw error
+      }
+      if (bytes.subarray(0, vaultHeader.length).equals(vaultHeader)) {
+        const resume = bytes[vaultHeader.length]
+        if (resume === 0) return
+        if (resume !== 1) throw new Error('Invalid sync vault header')
+        bytes = bytes.subarray(vaultHeader.length + 1)
+      }
+      await this.replace(Buffer.concat([vaultHeader, Buffer.from([0]), bytes]))
+    })
+  }
+  private async replace(bytes: Buffer): Promise<void> {
     const path = join(this.directory, 'sync-vault.bin')
-    await writeFile(`${path}.tmp`, Buffer.concat([vaultHeader, Buffer.from([secrets.refreshToken ? 1 : 0]), encrypted]), { mode: 0o600 })
+    await writeFile(`${path}.tmp`, bytes, { mode: 0o600 })
     await rename(`${path}.tmp`, path)
   }
+  private mutate(operation: () => Promise<void>): Promise<void> {
+    const result = this.writing.then(operation)
+    this.writing = result.catch(() => undefined)
+    return result
+  }
   async clear(): Promise<void> {
-    await rm(join(this.directory, 'sync-vault.bin'), { force: true })
+    await this.mutate(() => rm(join(this.directory, 'sync-vault.bin'), { force: true }))
   }
 }

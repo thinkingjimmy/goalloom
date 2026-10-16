@@ -11,6 +11,7 @@ import { redactSyncOp, type RemoteEnvelope } from '@goalloom/store-core'
 export interface LocalView {
   workspaceId: string | null; deviceId: string | null; generation: string; keyEpoch: number | null
   paused: string | null; lastAppliedSeq: number; pending: number; conflicts: number; localItems: number
+  hasTaskHistory?: boolean
 }
 
 export interface ExchangeState {

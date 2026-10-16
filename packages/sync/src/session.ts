@@ -2,6 +2,7 @@
  * [INPUT]: Device keys, a sync password, and a SyncRemote. The password exists only inside these calls.
  * [OUTPUT]: A bound workspace key, sealed pushes, and opened remote ops.
  * [POS]: Shared sync session. Desktop and mobile supply the remote and the SQL driver; neither UI lives here.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { isSecretFingerprint, isSecretSettingKey, syncOpPayload, type SyncOp } from '@goalloom/contracts'
 import {
@@ -9,11 +10,13 @@ import {
   signRecoveryChallenge, signRoster, systemRandom, unhex, unwrap, utf8, verifyRecoveryJoin, verifyRosterExtension, wrap,
   type Envelope, type RandomSource, type RecoverySecrets, type RosterBody, type SyncKdfParams,
 } from '@goalloom/crypto'
-import { applyRemoteBatch, markAccepted, markSendUnknown, mergeRemoteOps, type ApplyHost, type RemoteEnvelope, type SqlDriver } from '@goalloom/store-core'
+import { markAccepted, markSendUnknown, mergeRemoteOps, type ApplyHost, type RemoteEnvelope, type SqlDriver } from '@goalloom/store-core'
 import { planPushBatches } from './push'
 import { openOpWire, sealOpWire } from './codec'
 import { SyncFailure } from './failure'
-import { applyImportedBoard, bindWorkspace, captureVisibleBoard, clearProjection, conflictCount, queueBaseline, syncCursor } from './board'
+import { bindWorkspace, conflictCount, queueBaseline, syncCursor } from './board'
+import { installJoined } from './join'
+export { installJoined } from './join'
 import type { EnvelopeWire, PullWire, PushResultWire, RosterWire, SyncRemote } from './remote'
 
 export interface DeviceSecret { signSk: Uint8Array; boxSk: Uint8Array }
@@ -243,7 +246,7 @@ export function workspaceKeyFromEnvelope(input: {
   })
 }
 
-/** Installs a recovered log. `merge` keeps the local board as new items after the remote log is applied. */
+/** Installs a recovered log. `merge` keeps unknown local item identities after the remote log is applied. */
 export async function joinWorkspace(input: {
   remote: SyncRemote; driver: SqlDriver; host: ApplyHost; deviceId: string; secret: DeviceSecret; password: string
   choice: 'use-remote' | 'merge'; at: string; random?: RandomSource
@@ -254,21 +257,6 @@ export async function joinWorkspace(input: {
     ops, at: input.at, merge: input.choice === 'merge',
   })
   return bound
-}
-
-/** Clears, applies the remote log, and imports the board captured inside that same transaction. */
-export function installJoined(driver: SqlDriver, host: ApplyHost, input: {
-  binding: { workspaceId: string; deviceId: string; keyEpoch: number }
-  ops: RemoteEnvelope[]
-  at: string
-  merge: boolean
-}): void {
-  driver.transaction(() => {
-    const captured = input.merge ? captureVisibleBoard(driver) : null
-    clearProjection(driver, input.binding, input.at)
-    applyRemoteBatch(driver, input.ops, host, input.at)
-    if (captured) applyImportedBoard(driver, host, captured, input.binding.deviceId, input.at)
-  })
 }
 
 export function acceptRosterAdvance(pinned: RosterBody, chain: RosterWire[], deviceId: string): RosterBody {

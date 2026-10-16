@@ -65,7 +65,7 @@ Electron scenarios (this directory)
 ├── due-dates.mjs        # Deadline calendar: real Electron draft/save boundaries, leap/month/week keyboard navigation, focus/info layers, five locales and four themes; output/tests/due-calendar/
 ├── performance.mjs      # Release-only: 真实规模性能基准（500历史+200活跃）、存储延迟与窗口启动/内存
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
-├── credentials.mjs      # Startup/Settings without cipher access, sign-in/session/AI restoration, denied/corrupt preservation and missing-native fail-closed startup; synthetic cipher/cloud, real IPC/SQLite; output/tests/credentials/
+├── credentials.mjs      # Startup/Settings without cipher access, keychain-independent sign-out/reconnect and write failure, sign-in/session/AI restoration, five-language recovery guidance, access-restored restart, denied/corrupt preservation and missing-native fail-closed startup; synthetic cipher/cloud, real IPC/SQLite; output/tests/credentials/
 ├── keychain-native.mjs  # Real macOS Security through the production policy: first-use/restart, silent identity/lock rejection, trust and cleanup in disposable private keychains; output/tests/keychain-native/
 ├── keychain-package.mjs # Optional local ad-hoc package outside the checkout: native ASAR unpack/sign/load, first use/restart/lock and cleanup; no production signing/notarization; output/tests/keychain-package/
 ├── keychain-signed.mjs # Hosted-only Developer ID/Hardened Runtime gate: actual safeStorage first use/restart and signed 1.9.1 AI credential restoration; synthetic profiles, disposable runner keychain; output/tests/keychain-signed/
@@ -189,6 +189,8 @@ Failure scenarios specified before writing the probe:
 - Remounting a successfully cached URL in saved task details must show its metadata in the first DOM insertion, with no transient pending state or repeated network work. Expired successful renderer metadata must remain visible while it is revalidated.
 - Opening old, completed or archived tasks must render their links without a migration or write. Editing must expose the raw URL/Markdown and save the user's text unchanged.
 - The five supported locales must translate preview controls, retain the same URLs and show no renderer exceptions. The report must distinguish source-Electron coverage from packaged-desktop acceptance.
+
+`sync-join/`, `sync-join.mjs` and `sync-join-native.mjs` exercise first connection, stable IDs/calendar/policies and offline rollover, logout/login, deleted-task protection, rollback and concurrent joining through the real service/SDK/storage and native renderer. Reports and screenshots: `output/tests/sync-join/`.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
 

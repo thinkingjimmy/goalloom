@@ -18,10 +18,12 @@
 Zod schema: `packages/contracts/src/sync-op.ts`. A payload that fails the schema is not applied.
 
 ```ts
-{ v: 1, opId: uuid, deviceId: string, at: iso, actions: Action[], creationOperationId?: uuid }
+{ v: 1, opId: uuid, deviceId: string, at: iso, actions: Action[], creationOperationId?: uuid, importedCalendar?: Calendar }
 ```
 
 `at` is display and injection time. It is not a sort key. Server order is `seq`.
+
+`importedCalendar` is encrypted, validated source-calendar metadata for a first import. The first populated import may replace an initial empty calendar only before any item or canonical creation history exists; tombstones also prevent adoption. Once populated, the canonical calendar wins. Later concurrent imports skip their calendar/policy setup and deterministically align their placements to that calendar. The applier uses the target projection's calendar, including while the base and visible projections differ. An offline rollover with source sequence zero can follow its own imported placement chain, identified by the source calendar; an intervening ordinary placement cannot satisfy that guard. Current source period, todo status and auto policy are still checked. Both peers need this metadata-capable build; older strict schemas reject it without advancing their cursor. No server schema or plaintext metadata is added.
 
 Actions (one user command is one atomic op):
 
@@ -93,6 +95,8 @@ Automatic creation completion is causal. `undo-create.ts` requires the reference
 - Tests: `apps/desktop/tests/integration/upgrade-v9.test.ts` (trigger), `packages/tests/sync/phase0.test.ts` cases 2, 3, 10, 20.
 
 ## Baseline
+
+First-join planning reads the complete verified history. A cloud with only calendar, policy and preference operations is pristine. Zero live items alone is not sufficient. Same-cloud bound devices resume their existing cursor/outbox; paused/restored devices require a decision. An unbound source joining a pristine cloud keeps its never-sent operation and task IDs, attaches its source calendar, and installs atomically with the remote metadata. Only never-sent payloads may be changed. First connection also preserves implicit setup policies and already-applied offline placements that were absent from the ordinary outbox. The desktop host reads immutable local rollover effects, excludes effects already undone, and inserts missing operations before subsequent user commands, so later ordering and deletions remain valid. Preparation replays the source log, fills remaining defaults, and rejects a changed task projection atomically. Explicit merges into established boards preserve unknown item IDs and exclude known IDs, including tombstones, instead of allocating new identities. A repeated install on the same binding resumes and never imports again. The storage transaction rechecks the plan and captured local generation; backup preparation precedes installation.
 
 Confirmed state lives in `base_*`, cloned from the seven business tables (constraints included). Visible rows are `base_*` plus pending ops (`never_sent`, `send_unknown`, and `accepted` with `seq > lastAppliedSeq`).
 

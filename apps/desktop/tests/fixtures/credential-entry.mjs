@@ -10,7 +10,7 @@ import { pathToFileURL } from 'node:url'
 
 const fixture = globalThis.credentialFixture = {
   mode: process.env.GOALLOOM_CREDENTIAL_MODE ?? 'available',
-  available: 0, encrypt: 0, decrypt: 0, refreshed: 0, browser: 0, unexpected: [], cipherAppNames: [],
+  available: 0, encrypt: 0, decrypt: 0, refreshed: 0, browser: 0, holdLogout: false, requests: [], unexpected: [], cipherAppNames: [],
 }
 if (process.env.GOALLOOM_CREDENTIAL_APP_DATA) app.setPath('appData', process.env.GOALLOOM_CREDENTIAL_APP_DATA)
 app.setAsDefaultProtocolClient = () => false
@@ -43,6 +43,8 @@ const jwt = [
 ].map(value => Buffer.from(JSON.stringify(value)).toString('base64url')).join('.') + '.synthetic'
 globalThis.fetch = async input => {
   const url = new URL(typeof input === 'string' ? input : input.url ?? input.toString())
+  fixture.requests.push(url.pathname)
+  if (url.pathname === '/auth/v1/logout' && fixture.holdLogout) return new Promise(() => {})
   let body
   if (url.pathname === '/auth/v1/token') {
     fixture.refreshed++
