@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Licensed under the GNU Affero General Public License v3.0 only. See supabase/LICENSE.
 #
-# Hosted project asqyvcnxdltzzfutbbqy. db push and test db use --db-url
-# and do not start Docker. Link needs the coordinator's access token.
+# INPUT: Hosted PostgreSQL 17 and operator-provided deployment credentials.
+# OUTPUT: Project identity, database major version and snapshot JWT verification.
+# POS: Supabase CLI configuration; hosted commands do not start Docker.
+# [PROTOCOL]: Update this header when making changes, then check README.md.
 
 project_id = "asqyvcnxdltzzfutbbqy"
 
 [db]
-major_version = 15
+major_version = 17
 
 [functions.snapshot-url]
 verify_jwt = true

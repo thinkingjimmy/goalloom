@@ -78,8 +78,8 @@ insert into public.rpc_buckets(device_id,kind,window_start,hits)
 select dev,'cost-current',date_trunc('minute',now()),1 from sync_cost_fixture union all
 select dev,'cost-old',now()-interval '2 days',1 from sync_cost_fixture;
 insert into public.control_events(device_id,topic,event,payload,created_at)
-select dev,'cost-fixture','head','{}',now()-interval '8 days' from sync_cost_fixture union all
-select dev,'cost-fixture','other','{}',now()-interval '8 days' from sync_cost_fixture;
+select dev,'cost-fixture','head','{}'::jsonb,now()-interval '8 days' from sync_cost_fixture union all
+select dev,'cost-fixture','other','{}'::jsonb,now()-interval '8 days' from sync_cost_fixture;
 create temp table sync_cost_durable as select
   (select count(*) from public.ops) as ops, (select count(*) from public.op_receipts) as receipts,
   (select count(*) from public.device_roster) as roster, (select count(*) from public.key_envelopes) as envelopes,

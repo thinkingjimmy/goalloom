@@ -8,10 +8,47 @@ Security of the hosted service is end-to-end encryption plus secrets kept in the
 
 Project ref `asqyvcnxdltzzfutbbqy`. Migrations and tests run against that hosted database. Nothing in this folder starts Docker.
 
-The coordinator's machine exports:
+## Local deployment credentials
+
+Create a scoped token in [Supabase Access Tokens](https://supabase.com/dashboard/account/tokens), limited to this project, with an expiry. Grant **Edge Functions: Read and Read-write** for function deployment. Add **Database: Read and Read-write** only for SQL through the Management API. See the official [permission table](https://supabase.com/docs/guides/platform/personal-access-tokens#permission-scopes).
+
+Create the local file from the repository root, then fill it in with a local editor:
 
 ```sh
-export SUPABASE_DB_URL='postgresql://...'          # database password, direct or pooler session mode
+umask 077
+touch .env.deploy.local
+chmod 600 .env.deploy.local
+open -e .env.deploy.local
+```
+
+```sh
+SUPABASE_ACCESS_TOKEN='replace-with-your-scoped-token'
+SUPABASE_PROJECT_REF='asqyvcnxdltzzfutbbqy'
+SUPABASE_DB_URL='postgresql://...'
+```
+
+The token authenticates CLI / Management API deployments. `SUPABASE_DB_URL` is optional for token-only deployment; `psql` and database tests need it. Copy the URI from the project's **Connect** dialog, use the existing database password, and require SSL. Use the session pooler when the machine cannot reach the direct IPv6 address. URL-encode special characters in the password.
+
+Load the file only in the shell used for deployment:
+
+```sh
+set -a
+source .env.deploy.local
+set +a
+supabase functions list --project-ref "$SUPABASE_PROJECT_REF"
+```
+
+Install the CLI with the [official macOS instructions](https://supabase.com/docs/guides/local-development/cli/getting-started) if needed (`brew install supabase/tap/supabase`). The [CLI accepts `SUPABASE_ACCESS_TOKEN`](https://supabase.com/docs/reference/cli/introduction#supabase-login), so no browser login or saved CLI token is needed. Deploy the checked-in function with:
+
+```sh
+supabase functions deploy snapshot-url --project-ref "$SUPABASE_PROJECT_REF" --use-api
+```
+
+`.gitignore` excludes `.env.deploy.local`; verify with `git check-ignore .env.deploy.local`. Keep it out of app builds, screenshots and chat. The file has private permissions but is not encrypted. Revoke the token in Supabase when it expires or is no longer needed. Publishable/anon keys and service-role keys do not replace this deployment token.
+
+Hosted API integration tests separately require:
+
+```sh
 export SUPABASE_URL='https://asqyvcnxdltzzfutbbqy.supabase.co'
 export SUPABASE_ANON_KEY='...'
 export SUPABASE_SERVICE_ROLE_KEY='...'
@@ -21,7 +58,9 @@ export SUPABASE_SERVICE_ROLE_KEY='...'
 
 ## Migrations
 
-From the repository root, with the [Supabase CLI](https://supabase.com/docs/guides/cli) logged in (`supabase login`):
+The existing hosted project was deployed through SQL, without CLI migration history. Apply reviewed pending definitions with `psql` or the Management API. Do not replay `0001` through `0008` with `db push` on that project. Establish and verify a matching migration-history baseline before using CLI-managed schema deployments.
+
+For a new project, from the repository root with the [Supabase CLI](https://supabase.com/docs/guides/cli) authenticated:
 
 ```sh
 supabase link --project-ref asqyvcnxdltzzfutbbqy
@@ -41,6 +80,7 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0004_roster_si
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0005_desktop_client.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0006_envelope_ambiguity.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0007_reset_sync.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/0008_sync_cost.sql
 ```
 
 `0004_roster_signers.sql` depends on `_roster_message` from `0003`. `commit_roster` and `rotate_epoch` then accept only the calling device's authorized signing key. `complete_recovery` accepts only the current roster's `recoverySignPub`. A mismatch raises `roster_signature_rejected` (`42501`).
@@ -156,10 +196,12 @@ Current development targets `0001` through `0008_sync_cost.sql` as one schema de
 
 The default limit version is 1, with enforcement **off**. Observe aggregate synthetic/developer usage first. Defaults: 6,000 ops/32 MiB per minute, 200,000 ops/512 MiB per UTC day, 64 registrations per UTC day. Hosted baseline/import/long-description/concurrency checks must pass before an operator enables enforcement. These limits do not assert compute capacity or justify purchasing a larger instance.
 
-The core pgTAP transaction includes `tests/sync-cost-cases.sql` and rolls everything back. Run it only against an isolated development database initialized with the target definitions. It checks session/device/owner guards, no per-status counter writes, duplicate receipt accounting, upload blocking with read access, account separation, and bounded cleanup preserving durable data. This local task has not executed hosted SQL, quota concurrency, permission, cleanup/Cron or live broadcast acceptance because credentials are unavailable.
+The core pgTAP transaction includes `tests/sync-cost-cases.sql` and rolls everything back. Run it only against an isolated development database initialized with the target definitions. It checks session/device/owner guards, no per-status counter writes, duplicate receipt accounting, upload blocking with read access, account separation, and bounded cleanup preserving durable data.
 
 After verifying `pg_cron`, inspect existing jobs before installing `sync-cost-cron.sql`. It creates/updates one named job (`goalloom-sync-runtime-cleanup`) and sets a five-second caller statement limit. Inspect `cron.job` and `cron.job_run_details` for one active job and failures; do not create a GitHub schedule. Manual cleanup callers also set `statement_timeout='5s'`. Each call deletes at most 5,000 rows in each of five indexed categories. Existing disk allocation and the bill do not automatically decrease.
 
-The owner deferred hosted acceptance until credentials are available. No hosted resources, paid plans or Cron jobs were changed by the local implementation. Synthetic client reports under `apps/desktop/output/tests/sync-cost/` do not prove SQL execution, capacity or a bill reduction.
+On 2026-10-16, release 1.9.3 deployed the exact `0008` definition to the hosted development project (PostgreSQL 17.11, Linux x86_64). All 47 existing core/cost pgTAP assertions passed in a rolled-back transaction after correcting the synthetic cleanup payload's JSONB type. The 159 operations and 159 receipts remained intact. `pg_cron` 1.6.4 has one active five-minute cleanup job; its first scheduled run succeeded with the five-second statement limit. `snapshot-url` was redeployed, downloaded and matched to the repository byte-for-byte; JWT verification remained enabled and the unauthorized smoke returned 401.
+
+Evidence is under ignored `apps/desktop/output/tests/release-1.9.3/backend/`: `deployment.json`, `hosted-pgtap.json`, `cron-deployment.json`, `acceptance.json`, `edge-source-validation.json` and `edge-smoke.json`. Hosted quota concurrency, capacity, successful signed Storage round trips and live multi-client broadcasts were not rerun. Enforcement remains off. No paid resources changed. Synthetic client reports under `apps/desktop/output/tests/sync-cost/` do not prove hosted capacity or a bill reduction.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
