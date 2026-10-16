@@ -90,7 +90,11 @@ dmg:
     - { x: 140, y: 180 }
     - { x: 400, y: 180, type: link, path: /Applications }
 win:
+  # A platform file list replaces the shared whitelist; keep the production inputs explicit.
   files:
+    - out/**/*
+    - package.json
+    - '!node_modules/**/*'
     - '!out/main/keychain-policy.node'
   # Declared for the Windows package. NSIS in electron-builder 26 does not emit a protocol registry script;
   # app.setAsDefaultProtocolClient writes the current-user handler when the app starts, and second-instance focuses the window.
