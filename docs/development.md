@@ -62,14 +62,15 @@ pnpm test:language        # 系统语言侦测、配置页/设置即时切换、
 pnpm test:relations       # 单流程筛选的关系线、悬停链、滚出视野标记与设置开关持久化
 pnpm test:celebration     # 逐列完成撒花、静默移动／完成、撤销、减少动态效果与重启偏好
 pnpm test:review          # Review 缺陷、长列键盘/拖放、真实 preload 边界回归
-pnpm test:performance     # 四组启动、页面搜索、110 次面板往返及传输峰值
-pnpm test:large-backup    # 360 条长说明、超过 100 MiB 备份的重置/完整恢复
-pnpm test:scaling         # 200/400/800 项批次增长曲线
+pnpm test:performance     # 可选：四组启动、页面搜索、50 次面板往返及传输峰值（仅 release 前）
+pnpm test:scaling         # 可选：200/400/800 项批次增长曲线（仅 release 前）
 pnpm build:debug          # 正式构建 + 不入包的私有源码映射与逐字节匹配检查
 pnpm package:dir          # 当前平台本地目录包
 ```
 
 `package:mac` / `package:win` 只生成私人测试产物，默认不发布；完成后自动校验语言白名单、包内文件与体积预算。`package:experiment <label> [normal|maximum]` 生成两平台独立清单、SHA256、构建/DMG 安装时间。产物位于 `apps/desktop/release/Goalloom-<版本>-mac-arm64.dmg` 与 `apps/desktop/release/Goalloom-<版本>-win-x64.exe`；前者为拖拽安装的磁盘映像，后者为中文 x64 安装器。macOS 包在本机有 Developer ID 证书时会签名；没有 Apple API key 时 electron-builder 跳过公证。Windows 包未签名。托管 Release 工作流则必须签名并公证，见下方。安装方式见[中文 README 的「首次打开」](README.zh-CN.md#首次打开)。1.9.0 是首个通过 Apple 公证的公开版本，README 与官网已使用正常拖拽安装说明。公开版 macOS 1.8.0 使用 ad-hoc 签名，需退出后手动安装当前正式版一次，工作区与设置保留。应用图标来自 `apps/desktop/resources/icon.png`。公开版本以 [GitHub Releases](https://github.com/thinkingjimmy/goalloom/releases) 分发（首个公开版本 1.0.0），官网下载按钮指向同一批资产。正式包经 electron-updater 从 GitHub Releases 自动更新：打包同时生成 macOS zip 与 `latest-mac.yml` / `latest.yml`。托管打包把这些资产放上草稿 Release，见下方「托管打包与草稿 Release」；自动更新要等该草稿被发布为正式版。清单见[关于与软件更新](features/updates.md#工程契约)。桌面安装包许可证：[MIT](../LICENSE)。`supabase/` 为 [AGPL-3.0-only](../supabase/LICENSE)，路径划分见根 README 的 License 一节。
+
+性能与压力测试（`test:performance`、`test:scaling`）仅在 release 前运行，不作为日常功能验收的必要条件。
 
 ## 托管打包与草稿 Release
 
@@ -185,7 +186,9 @@ Identity and noninteractive Keychain changes also run `pnpm test:ui` and `pnpm t
 
 **例：只改 Onboarding。** 先完成快速检查与构建，再运行 `pnpm test:ui`、`pnpm test:composer`、`pnpm test:language`、`pnpm test:calendar`，包括本次修改的场景。这些脚本覆盖跳过方向／日历配置、方向保存／Jev 可跳过流程、首次语言切换和双模式／年底方向；修改日期刷新或跨夜确认时，另跑 `pnpm --filter @goalloom/desktop exec -- node tests/review/renderer.mjs` 的模拟时钟场景。目前没有 Onboarding 专用筛选入口，因此以包含这些断言的脚本为最小可运行范围。无需追加历史、恢复、关系线、撒花、洞察等独立套件；只有其行为实际受影响时才追加。其他套件启动时经过向导不构成追加理由。
 
-完整 `pnpm verify` 仅在发布新版本前或负责人明确要求全量验证时运行。性能、增长曲线、大备份、真实服务联调按改动需要或明确要求单独执行，不作为每个功能的固定门槛。功能规格里已勾选的全量验收是历史记录，不要求后续每次修改重跑全量。
+**完整 `pnpm verify` 仅在发布新版本前或负责人明确要求全量验证时运行。** 性能、增长曲线、真实服务联调按改动需要或明确要求单独执行，不作为每个功能的固定门槛。功能规格里已勾选的全量验收是历史记录，不要求后续每次修改重跑全量。
+
+**日常功能开发不运行性能测试：** `test:performance` 和 `test:scaling` 是 release-only 验证，用于在发布前确认整体性能边界。功能开发、提交、push 和合入 `main` 均不需要运行这些测试。
 
 交付时记录测试范围、实际命令、结果和可重复验证的报告／截图路径（忽略的 `output/tests/`）；执行桌面测试时同时记录 Electron / Node / SQLite 版本和 OS / CPU / VM／实机范围。未运行的无关套件属于范围外，需运行但失败或受阻的用例如实标明，不能将局部通过表述为全量或安装包验收通过。
 

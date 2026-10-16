@@ -3,6 +3,8 @@
 Thumbs.db
 .idea/
 .vscode/
+.cursor/
+.claude/
 
 # Dependencies / build output
 node_modules/

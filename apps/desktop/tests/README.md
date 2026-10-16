@@ -63,7 +63,7 @@ Electron scenarios (this directory)
 ├── composer-live.mjs    # 可选：真实 OpenRouter Jev（需 .env.local Key）连接、默认采用 Jev 的上级推荐、↵ 创建并核对看板/关联/说明，截图作证据；不进 verify
 ├── composer.mjs         # Setup, compact empty composer, measured input/dialog growth/shrink, drafts without entry guidance, header keyboard paths and split; includes fixtures/column-add.mjs for seven-column blank/tail creation without keyboard prompts, retained flow context, title wrapping/growth/shrink/resize, paste/IME, guards, title/input alignment, inactive header Add, virtual lists and locales/themes; --column-add selects it; output/tests/column-add/, composer.json and screenshots/composer-*.png
 ├── due-dates.mjs        # Deadline calendar: real Electron draft/save boundaries, leap/month/week keyboard navigation, focus/info layers, five locales and four themes; output/tests/due-calendar/
-├── performance.mjs      # 大数据夹具、存储延迟与窗口启动/内存
+├── performance.mjs      # Release-only: 真实规模性能基准（500历史+200活跃）、存储延迟与窗口启动/内存
 ├── startup.mjs          # 隔离空看板/100 条目的三次启动与自然空闲内存、按需弹窗和会话草稿证据
 ├── credentials.mjs      # Startup/Settings without cipher access, sign-in/session/AI restoration, denied/corrupt preservation and missing-native fail-closed startup; synthetic cipher/cloud, real IPC/SQLite; output/tests/credentials/
 ├── keychain-native.mjs  # Real macOS Security through the production policy: first-use/restart, silent identity/lock rejection, trust and cleanup in disposable private keychains; output/tests/keychain-native/
@@ -121,10 +121,10 @@ Electron scenarios (this directory)
     ├── flow-dot-position.mjs # Heading-only parent panels/checked links, intrinsic choice width, explicit bottom-edge clearances, mode/search size changes and scroll/resize geometry; focused via relations.mjs --flow-dot
     ├── relation-drag-data.ts # Production Repository/SQLite flow-policy guards, promotion/adoption rollback, receipts, branch-safe undo and durable JSON/SQLite round trips under Electron
     ├── relation-visibility.mjs # Raw Electron/CDP native hide/show cancellation without foreground emulation; called by relation-drag.mjs
-    └── performance.ts   # 10,000 条目/1,000 活跃及真实历史，测恢复与延迟
+    └── performance.ts   # Release-only: 500历史/200活跃的真实规模基准，测恢复与延迟
 ```
 
-按[功能测试映射](../../../docs/development.md#测试范围)从仓库根选择脚本：完成一次改动只需本次场景与所属功能的全部 E2E，命令去重；这里的成员清单不是每次必须全部执行的清单。Onboarding 专门覆盖位于 `workspace.mjs`、`composer.mjs`、`language.mjs`、`calendar-modes.mjs`，跨午夜场景位于 `review/renderer.mjs`；其他脚本仅经过向导初始化不算相关覆盖。Review 回归按所需分组调用 `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs <group>`，不默认运行所有分组。全量 `pnpm verify` 只在发布前或明确要求时运行。
+按[功能测试映射](../../../docs/development.md#测试范围)从仓库根选择脚本：完成一次改动只需本次场景与所属功能的全部 E2E，命令去重；这里的成员清单不是每次必须全部执行的清单。Onboarding 专门覆盖位于 `workspace.mjs`、`composer.mjs`、`language.mjs`、`calendar-modes.mjs`，跨午夜场景位于 `review/renderer.mjs`；其他脚本仅经过向导初始化不算相关覆盖。Review 回归按所需分组调用 `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs <group>`，不默认运行所有分组。**全量 `pnpm verify` 和性能测试（`test:performance`、`test:scaling`）只在发布前或明确要求时运行，不作为日常功能开发的必要条件。**
 
 同机操作引起的失焦／遮挡按[桌面测试干扰](../../../docs/development.md#桌面测试干扰)处理：先确认原因，不自动增加失焦用例或等待／重试；消除已确认的环境干扰后只补跑最小范围一次。新增回归必须有产品契约或受控复现依据，现有真实焦点与可见性需求继续保留。
 
@@ -137,6 +137,10 @@ History, periods, ordering, relations and link-preview setup only sizes the nati
 `pnpm build` followed by `pnpm test:periods [packaged-executable]` reproduces planning acceptance. The production Repository/SQLite fixture injects its own clock for calendar boundaries, expired commands, version/generation conflicts, receipts, undo holds and export/restore; the native window keeps the real clock and production bridge. It covers current/future keyboard and pointer drops, past/current/future draft round trips, menu focus in a virtual list, five-locale navigation geometry, restart and workspace replacement. Transfer IPC fixtures emit the main window's `focus` notification to invoke production reconciliation without changing native activation; this is fixture refresh, not native focus acceptance. The navigation fixture captures paused directional-motion frames, checks rapid reversal and reduced-motion cleanup, and verifies inline/date-only headings. Other screenshots use reduced motion. `--navigation` selects only the navigation fixture during development; completion runs the full script. Screenshots, `boundaries.json` and `report.json` are written to `output/tests/periods/`, including Electron/Node/SQLite and host OS/CPU. No production test clock or renderer API replacement is added. Source-Electron acceptance does not claim packaged, Windows or manual sleep/IME acceptance. Failure scenarios were recorded in [period planning](../../../docs/features/period-planning.md) before implementation.
 
 `pnpm test:startup [packaged-executable]` separately measures three production launches each for configured empty and synthetic 100-item boards. `GOALLOOM_STARTUP_ENTRY` selects a frozen app entry; `GOALLOOM_STARTUP_LABEL` names the report; `GOALLOOM_STARTUP_SAMPLES` and `GOALLOOM_STARTUP_IDLE_MS` default to 3 and 2000. `GOALLOOM_STARTUP_PANELS=0` skips optional Settings/search/composer/detail checks. JSON and screenshots go to `output/tests/performance/startup/`. Each launch gets fresh app caches and a closed synthetic database, with daily backups enabled; OS caches are not flushed. Startup/idle memory uses natural GC; post-panel forced GC is reported separately. Summed process working sets can include shared pages, so they are not unique physical memory. No real workspace or credential is used; this optional benchmark is outside `verify`.
+
+`pnpm test:performance [packaged-executable]` is a **release-only** benchmark measuring isolated production performance with 500 historical + 200 active tasks (realistic user scale). Run only before releases or when explicitly requested; not required for feature development, commits, or merges into `main`.
+
+`pnpm test:scaling` is a **release-only** batch growth benchmark (200/400/800 items). Run only before releases or when explicitly requested.
 
 Panel latency records the browser input event through the dialog's open mutation and two animation frames, separately from Playwright's polling-dependent automation time. `GOALLOOM_STARTUP_ITEMS=0` or `100` narrows a diagnostic run; `GOALLOOM_STARTUP_SCRIPTS=0` disables debugger-based script inspection when isolating measurement overhead.
 

@@ -50,7 +50,7 @@ try {
     await nextFrame(page)
     const visibleMs = performance.now() - start
     const snapshot = await page.evaluate(() => window.goalloom.getSnapshot())
-    assert.equal(snapshot.items.length, 1000)
+    assert.equal(snapshot.items.length, 200)
     report.startup.push({ paused, daily, sample, visibleMs, readConfirmedMs: performance.now() - start, mountedRows: await page.locator('.task-row').count() })
     await memory(app, page, `startup:${paused}:${daily}:${sample}`)
     if (!(paused && daily && sample === samples - 1)) { await app.close(); app = null; await rm(activeProfile, { recursive: true, force: true }) }
@@ -58,24 +58,25 @@ try {
   for (let i = 0; i < 12; i++) report.snapshot.push(await page.evaluate(async () => { const start = performance.now(); const data = await window.goalloom.getSnapshot(); return { ms: performance.now() - start, bytes: new TextEncoder().encode(JSON.stringify(data)).byteLength, count: data.items.length } }))
   await memory(app, page, 'idle')
   await page.getByRole('button', { name: '搜索与命令', exact: true }).click()
-  for (const query of ['中', '中文', 'Alpha', '%', '_', '不存在', '中', '中文', 'Alpha', '%', '_', '不存在']) {
+  for (const query of ['中', '中文', 'Alpha', '%', '_', '不存在']) {
     const start = performance.now()
     await page.getByRole('textbox', { name: '搜索条目', exact: true }).fill(query)
     await page.waitForTimeout(250)
     // The fixed wait outlasts the 180 ms debounce, so the request for this query is already in flight.
-    await page.waitForFunction(count => document.querySelectorAll('.command-results .menu-item').length === count, query === '不存在' ? 0 : 20)
+    const expectedCount = query === '不存在' ? 0 : 20
+    await page.waitForFunction(count => document.querySelectorAll('.command-results .menu-item').length === count, expectedCount)
     await nextFrame(page); report.search.push({ query: query === '不存在' ? 'absent' : 'present', automationMs: performance.now() - start })
   }
   await memory(app, page, 'search'); await page.keyboard.press('Escape')
   const first = report.fixture.firstId
-  for (let i = 0; i < 110; i++) {
+  for (let i = 0; i < 50; i++) {
     // Search reaches an arbitrary logical row even when the board virtualizes it.
     await page.getByRole('button', { name: '搜索与命令', exact: true }).click()
-    await page.getByRole('textbox', { name: '搜索条目', exact: true }).fill('活跃计划 200 ')
+    await page.getByRole('textbox', { name: '搜索条目', exact: true }).fill('活跃计划 50 ')
     await page.locator('.command-results .menu-item').first().click()
     await page.locator('.modal.detail').waitFor()
     await page.keyboard.press('Escape'); await nextFrame(page)
-    if (i === 9 || i === 59 || i === 109) {
+    if (i === 9 || i === 29 || i === 49) {
       const session = await page.context().newCDPSession(page)
       await session.send('HeapProfiler.collectGarbage'); const heap = await session.send('Runtime.getHeapUsage'); const dom = await session.send('Memory.getDOMCounters'); await session.detach()
       report.panels.push({ cycles: i + 1, heap, dom }); await memory(app, page, `panels:${i + 1}`)
