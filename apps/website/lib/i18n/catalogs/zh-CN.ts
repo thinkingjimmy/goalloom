@@ -139,7 +139,7 @@ const zhCN: SiteCatalog = {
       { q: '我的数据存在哪里？', a: '存在你电脑上的本地 SQLite 工作区，并每日自动备份，没有内容遥测。可选同步会在数据离开设备之前加密。' },
       { q: '支持哪些系统？', a: 'Apple Silicon 上的 macOS 14 及以上，以及 Windows 11 x64。界面支持中文、英文、日文、西班牙文和法文。' },
       { q: '有手机版或云同步吗？', a: '支持可选的电脑间同步。用 Google 登录，并设置同步密码即可。当前发布不包含移动版。' },
-      { q: '如何安装 Goalloom？', a: 'macOS 安装包已通过 Developer ID 签名和 Apple 公证。把 Goalloom 拖进「应用程序」后打开即可。公开版 Mac 1.8.0 用户需先退出应用，再手动用 1.9.1 替换一次，工作区和设置会保留。Windows 安装包未签名，若出现 SmartScreen，点「更多信息 → 仍要运行」。' },
+      { q: '如何安装 Goalloom？', a: 'macOS 安装包已通过 Developer ID 签名和 Apple 公证。把 Goalloom 拖进「应用程序」后打开即可。公开版 Mac 1.8.0 用户需先退出应用，再手动用 1.9.2 替换一次，工作区和设置会保留。Windows 安装包未签名，若出现 SmartScreen，点「更多信息 → 仍要运行」。' },
     ],
   },
   footer: {

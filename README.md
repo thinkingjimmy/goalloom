@@ -59,7 +59,7 @@ The macOS build is **Developer ID signed and notarized by Apple**. The Windows i
 
 **macOS.** Open the DMG, drag Goalloom into `Applications`, then open it.
 
-**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.1 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
+**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.2 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
 
 **Windows.** SmartScreen shows "Windows protected your PC". Choose **More info**, then **Run anyway**, and follow the installer.
 
@@ -84,7 +84,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.9.1 fixes sync replay of duplicate goal links and defers keychain access for unused sync. Sign in with Google and set a sync password to use encrypted sync. See the [1.9.1 release notes](./docs/releases/v1.9.1.md). Build-time sync configuration is in the [development guide](./docs/development.md).
+Version 1.9.2 removes macOS Keychain password dialogs, including first use and saved-credential restoration. Credentials keep system encryption; inaccessible credentials remain encrypted while the local board stays usable. Sign in with Google and set a sync password to use encrypted sync. See the [1.9.2 release notes](./docs/releases/v1.9.2.md). Build-time sync configuration is in the [development guide](./docs/development.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 
