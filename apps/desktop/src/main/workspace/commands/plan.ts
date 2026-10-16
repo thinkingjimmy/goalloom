@@ -16,6 +16,13 @@ import { serverText } from '../../../shared/i18n/server'
 import { placeByParent } from './ordering'
 
 export function createPlan(context: Context, command: CommandOf<'createPlan'>): boolean {
+  // Optional model suggestions must never make an otherwise valid capture fail.
+  command = { ...command, items: command.items.map(item => ({ ...item, parentRefs: item.parentRefs.filter(ref => {
+    if (ref.kind !== 'existing' || !ref.automatic) return true
+    if (!context.store.db.prepare('SELECT 1 FROM items WHERE id=?').get(ref.itemId)) return false
+    const parent = context.store.item(ref.itemId)
+    return parent.version === ref.expectedVersion && !parent.deletedAt && !parent.archivedAt && parent.status === 'todo' && !horizonProblem(parent.placement.horizon, item.horizon)
+  }) })) }
   const problem = planProblem(command.items)
   if (problem) throw new DomainError('invalid', problem)
   // --- Every guard runs before the first write, so a parent touched by child one never looks stale to child two. ---

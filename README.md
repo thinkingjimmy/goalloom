@@ -38,7 +38,7 @@
 - **Goals and today on one board.** Four time columns—3 months, this month, this week, today—put the quarter's goals beside today's work. A collapsible Later sidebar keeps unplanned ideas close at hand.
 - **Two task levels, complete tasks.** Drag a task onto another to indent it. Subtasks inherit goals and colors, keep their own details and status, and move with their parent.
 - **Every to-do knows why.** Link an item to goals in longer horizons. Filter one goal (⌘1–⌘9) and relation lines draw its whole chain; hover any row to light its path. Links explain, they never roll up progress.
-- **Write it down; Jev places it.** Optional smart input reads your goals and past to-dos, puts each new item in the right column and suggests the goal it belongs under. Preview and edit before creating, and undo a whole batch in one step. Bring your own key.
+- **Write it down; Jev places it.** Optional Jev 1.14 smart input matches new tasks to your goals from Cmd+N and inline column entry. Enter saves immediately; a late answer can fill the column and parents. Manual edits win, and creation plus its automatic completion remains one undo step. Bring your own key.
 - **Nothing slips quietly.** Unfinished items roll over to the next period, and past periods stay readable and can be cleared in batches.
 - **Undo anything, lose nothing.** Every change can be undone without touching your later edits; daily backups, plus safe restore and reset with a protective copy first.
 - **Local-first and private.** Your workspace is a SQLite database on your computer, with no content telemetry. Optional sync encrypts data before it leaves your device.

@@ -1,0 +1,755 @@
+{
+  "referenceTime": "2026-10-16T02:00:00Z",
+  "calendar": {
+    "id": "eval-calendar",
+    "mode": "rolling",
+    "cycleAnchor": "2026-07-01",
+    "timezone": "Asia/Singapore",
+    "weekStart": 1
+  },
+  "split": "holdout",
+  "goals": [
+    {
+      "id": "lumen",
+      "title": "Ship Lumen Notes 2.0",
+      "horizon": "cycle",
+      "color": 0
+    },
+    {
+      "id": "fitness",
+      "title": "完成春季十公里路跑",
+      "horizon": "cycle",
+      "color": 1
+    },
+    {
+      "id": "money",
+      "title": "家庭财务月度整理",
+      "horizon": "month",
+      "color": 2
+    },
+    {
+      "id": "career",
+      "title": "Find a backend engineering job",
+      "horizon": "cycle",
+      "color": 3
+    },
+    {
+      "id": "reading",
+      "title": "完成产品研究阅读计划",
+      "horizon": "month",
+      "color": 4
+    },
+    {
+      "id": "tokyo",
+      "title": "Plan a family trip to Tokyo",
+      "horizon": "month",
+      "color": 5
+    },
+    {
+      "id": "harbor",
+      "title": "Harbor 商店春季营销活动",
+      "horizon": "cycle",
+      "color": 6
+    },
+    {
+      "id": "academy",
+      "title": "Improve spoken English for a B2 exam",
+      "horizon": "cycle",
+      "color": 7
+    },
+    {
+      "id": "passkey",
+      "title": "Lumen: finish passkey sign-in",
+      "horizon": "week",
+      "parent": "lumen"
+    },
+    {
+      "id": "export",
+      "title": "Lumen：完成 Markdown 导出",
+      "horizon": "week",
+      "parent": "lumen"
+    },
+    {
+      "id": "sync",
+      "title": "Lumen: fix offline sync conflicts",
+      "horizon": "week",
+      "parent": "lumen"
+    },
+    {
+      "id": "billing",
+      "title": "Lumen：接通 Stripe 订阅支付",
+      "horizon": "month",
+      "parent": "lumen"
+    },
+    {
+      "id": "setup",
+      "title": "Lumen: simplify first-run setup",
+      "horizon": "week",
+      "parent": "lumen"
+    },
+    {
+      "id": "release",
+      "title": "Lumen：发布经过签名的 macOS 安装包",
+      "horizon": "week",
+      "parent": "lumen"
+    },
+    {
+      "id": "bills",
+      "title": "核对本月家庭信用卡账单",
+      "horizon": "week",
+      "parent": "money"
+    },
+    {
+      "id": "budget-plan",
+      "title": "制定下月家庭开销预算",
+      "horizon": "week",
+      "parent": "money"
+    },
+    {
+      "id": "resume",
+      "title": "Update backend engineering resume and portfolio",
+      "horizon": "week",
+      "parent": "career"
+    },
+    {
+      "id": "interview",
+      "title": "Prepare for backend system design interviews",
+      "horizon": "week",
+      "parent": "career"
+    },
+    {
+      "id": "hotel",
+      "title": "Book family accommodation in Tokyo",
+      "horizon": "week",
+      "parent": "tokyo"
+    },
+    {
+      "id": "itinerary",
+      "title": "安排东京旅行路线与交通",
+      "horizon": "week",
+      "parent": "tokyo"
+    },
+    {
+      "id": "email",
+      "title": "Harbor: launch the spring promotion email",
+      "horizon": "week",
+      "parent": "harbor"
+    },
+    {
+      "id": "conversion",
+      "title": "Harbor：分析春季活动转化数据",
+      "horizon": "week",
+      "parent": "harbor"
+    },
+    {
+      "id": "workouts",
+      "title": "完成本周三次十公里训练",
+      "horizon": "week",
+      "parent": "fitness"
+    },
+    {
+      "id": "speaking",
+      "title": "Practice B2 speaking prompts",
+      "horizon": "week",
+      "parent": "academy"
+    }
+  ],
+  "cases": [
+    {
+      "id": "passkey-callback-zh",
+      "family": "passkey-callback",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "修复 Lumen 通行密钥登录回调后的空白页 https://github.com/lumen-notes/desktop/issues/214",
+      "parents": [
+        "passkey"
+      ]
+    },
+    {
+      "id": "passkey-callback-en",
+      "family": "passkey-callback",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Fix the blank screen after the Lumen passkey sign-in callback. https://github.com/lumen-notes/desktop/issues/214",
+      "parents": [
+        "passkey"
+      ]
+    },
+    {
+      "id": "sync-reproduction-zh",
+      "family": "sync-reproduction",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "给 Lumen 的离线合并冲突加一个可复现的测试：https://github.com/lumen-notes/desktop/issues/231#reproduction",
+      "parents": [
+        "sync"
+      ]
+    },
+    {
+      "id": "sync-reproduction-en",
+      "family": "sync-reproduction",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Add a reproducible test for the Lumen offline merge conflict: https://github.com/lumen-notes/desktop/issues/231#reproduction",
+      "parents": [
+        "sync"
+      ]
+    },
+    {
+      "id": "markdown-fences-zh",
+      "family": "markdown-fences",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "修复 Lumen 导出的 Markdown 代码块语言标记，参考 https://www.markdownguide.org/extended-syntax/#fenced-code-blocks",
+      "parents": [
+        "export"
+      ]
+    },
+    {
+      "id": "markdown-fences-en",
+      "family": "markdown-fences",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Fix the fenced-code language tags in Lumen Markdown exports; reference https://www.markdownguide.org/extended-syntax/#fenced-code-blocks",
+      "parents": [
+        "export"
+      ]
+    },
+    {
+      "id": "stripe-webhook-zh",
+      "family": "stripe-webhook",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "给 Lumen 的 Stripe webhook 增加重复事件处理 https://docs.stripe.com/webhooks?utm_source=notes&utm_medium=todo#handle-duplicate-events",
+      "parents": [
+        "billing"
+      ]
+    },
+    {
+      "id": "stripe-webhook-en",
+      "family": "stripe-webhook",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Handle duplicate Stripe webhook events in Lumen. https://docs.stripe.com/webhooks?utm_source=notes&utm_medium=todo#handle-duplicate-events",
+      "parents": [
+        "billing"
+      ]
+    },
+    {
+      "id": "setup-language-zh",
+      "family": "setup-language",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "把 Lumen 首次使用时的语言选择合并成一步 https://design.example.org/lumen/onboarding?frame=setup-2",
+      "parents": [
+        "setup"
+      ]
+    },
+    {
+      "id": "setup-language-en",
+      "family": "setup-language",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Reduce the Lumen first-run language selection to one step. https://design.example.org/lumen/onboarding?frame=setup-2",
+      "parents": [
+        "setup"
+      ]
+    },
+    {
+      "id": "mac-signing-zh",
+      "family": "mac-signing",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "检查 Lumen 的 macOS 安装包公证结果并重新签名 https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution",
+      "parents": [
+        "release"
+      ]
+    },
+    {
+      "id": "mac-signing-en",
+      "family": "mac-signing",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Check notarization results and re-sign the Lumen macOS installer. https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution",
+      "parents": [
+        "release"
+      ]
+    },
+    {
+      "id": "card-duplicate-zh",
+      "family": "card-duplicate",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "核对信用卡账单里的两笔重复消费 https://bank.example.com/statement/october?entry=SYNTHETIC-42",
+      "parents": [
+        "bills"
+      ]
+    },
+    {
+      "id": "card-duplicate-en",
+      "family": "card-duplicate",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Check two duplicate purchases on my household credit card statement. https://bank.example.com/statement/october?entry=SYNTHETIC-42",
+      "parents": [
+        "bills"
+      ]
+    },
+    {
+      "id": "childcare-budget-zh",
+      "family": "childcare-budget",
+      "group": "positive",
+      "language": "zh",
+      "text": "下个月托育费用涨了，今天重做家庭支出预算",
+      "parents": [
+        "budget-plan"
+      ]
+    },
+    {
+      "id": "childcare-budget-en",
+      "family": "childcare-budget",
+      "group": "positive",
+      "language": "en",
+      "text": "Childcare will cost more next month; revise the household spending budget today.",
+      "parents": [
+        "budget-plan"
+      ]
+    },
+    {
+      "id": "job-resume-zh",
+      "family": "job-resume",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "对照这个后端职位修改我的简历 https://www.linkedin.com/jobs/view/123456789/",
+      "parents": [
+        "resume"
+      ]
+    },
+    {
+      "id": "job-resume-en",
+      "family": "job-resume",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Tailor my resume to this backend role. https://www.linkedin.com/jobs/view/123456789/",
+      "parents": [
+        "resume"
+      ]
+    },
+    {
+      "id": "system-design-zh",
+      "family": "system-design",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "准备后端系统设计面试，练习数据库分片 https://github.com/donnemartin/system-design-primer#database",
+      "parents": [
+        "interview"
+      ]
+    },
+    {
+      "id": "system-design-en",
+      "family": "system-design",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Prepare for a backend system design interview by practicing database sharding. https://github.com/donnemartin/system-design-primer#database",
+      "parents": [
+        "interview"
+      ]
+    },
+    {
+      "id": "family-hotel-zh",
+      "family": "family-hotel",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "为东京旅行预订能住一家四口的新宿酒店 https://booking.example.org/tokyo/shinjuku?adults=2&children=2",
+      "parents": [
+        "hotel"
+      ]
+    },
+    {
+      "id": "family-hotel-en",
+      "family": "family-hotel",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Book a Shinjuku hotel for our family of four on the Tokyo trip. https://booking.example.org/tokyo/shinjuku?adults=2&children=2",
+      "parents": [
+        "hotel"
+      ]
+    },
+    {
+      "id": "tokyo-route-zh",
+      "family": "tokyo-route",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "安排东京上野到浅草的地铁路线 https://maps.google.com/?q=Ueno%20Park&destination=Asakusa#transit",
+      "parents": [
+        "itinerary"
+      ]
+    },
+    {
+      "id": "tokyo-route-en",
+      "family": "tokyo-route",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Plan the subway route from Ueno to Asakusa for the Tokyo trip. https://maps.google.com/?q=Ueno%20Park&destination=Asakusa#transit",
+      "parents": [
+        "itinerary"
+      ]
+    },
+    {
+      "id": "promotion-email-zh",
+      "family": "promotion-email",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "给 Harbor 春季促销邮件改标题并发送测试邮件 https://mail.example.org/campaigns/harbor-spring?utm_source=todo",
+      "parents": [
+        "email"
+      ]
+    },
+    {
+      "id": "promotion-email-en",
+      "family": "promotion-email",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Revise the Harbor spring promotion email subject and send a test email. https://mail.example.org/campaigns/harbor-spring?utm_source=todo",
+      "parents": [
+        "email"
+      ]
+    },
+    {
+      "id": "campaign-analysis-zh",
+      "family": "campaign-analysis",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "看 Harbor 春季促销落地页的付费转化漏斗 https://analytics.example.com/harbor/spring?from=2026-10-01&to=2026-10-15&utm_campaign=very-long-tracking-value-for-a-synthetic-test#paid-conversion",
+      "parents": [
+        "conversion"
+      ]
+    },
+    {
+      "id": "campaign-analysis-en",
+      "family": "campaign-analysis",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Analyze the paid conversion funnel for the Harbor spring promotion landing page. https://analytics.example.com/harbor/spring?from=2026-10-01&to=2026-10-15&utm_campaign=very-long-tracking-value-for-a-synthetic-test#paid-conversion",
+      "parents": [
+        "conversion"
+      ]
+    },
+    {
+      "id": "run-session-zh",
+      "family": "run-session",
+      "group": "positive",
+      "language": "zh",
+      "text": "今天按十公里路跑训练计划完成六公里轻松跑",
+      "parents": [
+        "workouts"
+      ]
+    },
+    {
+      "id": "run-session-en",
+      "family": "run-session",
+      "group": "positive",
+      "language": "en",
+      "text": "Complete the six-kilometer easy run from my 10K training plan today.",
+      "parents": [
+        "workouts"
+      ]
+    },
+    {
+      "id": "speaking-drill-zh",
+      "family": "speaking-drill",
+      "group": "url-positive",
+      "language": "zh",
+      "text": "练习 B2 口语考试里的图片描述题，录音后自查 https://learnenglish.britishcouncil.org/skills/speaking",
+      "parents": [
+        "speaking"
+      ]
+    },
+    {
+      "id": "speaking-drill-en",
+      "family": "speaking-drill",
+      "group": "url-positive",
+      "language": "en",
+      "text": "Practice B2 speaking picture-description questions, record myself and review the recording. https://learnenglish.britishcouncil.org/skills/speaking",
+      "parents": [
+        "speaking"
+      ]
+    },
+    {
+      "id": "login-setup-integration-zh",
+      "family": "login-setup-integration",
+      "group": "multiple-url",
+      "language": "zh",
+      "text": "修复 Lumen 登录后的欢迎页：完成通行密钥回调处理，并让已登录用户跳过首次配置 https://github.com/lumen-notes/desktop/issues/250",
+      "parents": [
+        "passkey",
+        "setup"
+      ]
+    },
+    {
+      "id": "login-setup-integration-en",
+      "family": "login-setup-integration",
+      "group": "multiple-url",
+      "language": "en",
+      "text": "Fix the Lumen post-login welcome flow: implement the passkey callback and let signed-in users skip first-run setup. https://github.com/lumen-notes/desktop/issues/250",
+      "parents": [
+        "passkey",
+        "setup"
+      ]
+    },
+    {
+      "id": "sync-export-integration-zh",
+      "family": "sync-export-integration",
+      "group": "multiple-url",
+      "language": "zh",
+      "text": "让 Lumen 的离线冲突历史可以随 Markdown 导出：实现冲突元数据保留和导出序列化 https://github.com/lumen-notes/desktop/issues/266",
+      "parents": [
+        "sync",
+        "export"
+      ]
+    },
+    {
+      "id": "sync-export-integration-en",
+      "family": "sync-export-integration",
+      "group": "multiple-url",
+      "language": "en",
+      "text": "Include Lumen offline conflict history in Markdown exports: implement conflict metadata retention and export serialization. https://github.com/lumen-notes/desktop/issues/266",
+      "parents": [
+        "sync",
+        "export"
+      ]
+    },
+    {
+      "id": "release-announcement-zh",
+      "family": "release-announcement",
+      "group": "root-url",
+      "language": "zh",
+      "text": "为 Lumen Notes 2.0 写公开发布公告 https://github.com/lumen-notes/desktop/releases/tag/v2.0.0",
+      "parents": [
+        "lumen"
+      ]
+    },
+    {
+      "id": "release-announcement-en",
+      "family": "release-announcement",
+      "group": "root-url",
+      "language": "en",
+      "text": "Write the public launch announcement for Lumen Notes 2.0. https://github.com/lumen-notes/desktop/releases/tag/v2.0.0",
+      "parents": [
+        "lumen"
+      ]
+    },
+    {
+      "id": "household-assets-zh",
+      "family": "household-assets",
+      "group": "root-positive",
+      "language": "zh",
+      "text": "汇总这个月家庭资产负债和净值变化",
+      "parents": [
+        "money"
+      ]
+    },
+    {
+      "id": "household-assets-en",
+      "family": "household-assets",
+      "group": "root-positive",
+      "language": "en",
+      "text": "Summarize household assets, liabilities and net-worth changes for this month.",
+      "parents": [
+        "money"
+      ]
+    },
+    {
+      "id": "other-app-login-zh",
+      "family": "other-app-login",
+      "group": "negative-url",
+      "language": "zh",
+      "text": "帮朋友排查 Nimbus 的登录故障 https://github.com/nimbus-demo/mobile/issues/214",
+      "parents": []
+    },
+    {
+      "id": "other-app-login-en",
+      "family": "other-app-login",
+      "group": "negative-url",
+      "language": "en",
+      "text": "Help a friend debug Nimbus sign-in failures. https://github.com/nimbus-demo/mobile/issues/214",
+      "parents": []
+    },
+    {
+      "id": "bookmark-reference-zh",
+      "family": "bookmark-reference",
+      "group": "negative-url",
+      "language": "zh",
+      "text": "先存一下这篇技术文档，以后有空再看，和当前项目无关 https://docs.stripe.com/webhooks",
+      "parents": []
+    },
+    {
+      "id": "bookmark-reference-en",
+      "family": "bookmark-reference",
+      "group": "negative-url",
+      "language": "en",
+      "text": "Save this technical reference for someday; it is unrelated to my current projects. https://docs.stripe.com/webhooks",
+      "parents": []
+    },
+    {
+      "id": "other-install-zh",
+      "family": "other-install",
+      "group": "negative-url",
+      "language": "zh",
+      "text": "帮朋友安装另一款应用的新版安装包 https://downloads.example.net/nova/latest.dmg",
+      "parents": []
+    },
+    {
+      "id": "other-install-en",
+      "family": "other-install",
+      "group": "negative-url",
+      "language": "en",
+      "text": "Help a friend install the latest version of a different app. https://downloads.example.net/nova/latest.dmg",
+      "parents": []
+    },
+    {
+      "id": "other-customer-zh",
+      "family": "other-customer",
+      "group": "negative",
+      "language": "zh",
+      "text": "处理东京客户的售后退款申请",
+      "parents": []
+    },
+    {
+      "id": "other-customer-en",
+      "family": "other-customer",
+      "group": "negative",
+      "language": "en",
+      "text": "Process an after-sales refund request from a customer in Tokyo.",
+      "parents": []
+    },
+    {
+      "id": "friend-paper-zh",
+      "family": "friend-paper",
+      "group": "negative-url",
+      "language": "zh",
+      "text": "帮朋友润色他的英语研究论文 https://papers.example.org/draft/b2-analysis",
+      "parents": []
+    },
+    {
+      "id": "friend-paper-en",
+      "family": "friend-paper",
+      "group": "negative-url",
+      "language": "en",
+      "text": "Polish my friend's English research paper. https://papers.example.org/draft/b2-analysis",
+      "parents": []
+    },
+    {
+      "id": "frontend-role-zh",
+      "family": "frontend-role",
+      "group": "negative-url",
+      "language": "zh",
+      "text": "给朋友准备他应聘前端岗位的面试资料 https://jobs.example.org/frontend",
+      "parents": []
+    },
+    {
+      "id": "frontend-role-en",
+      "family": "frontend-role",
+      "group": "negative-url",
+      "language": "en",
+      "text": "Prepare frontend job interview materials for a friend. https://jobs.example.org/frontend",
+      "parents": []
+    },
+    {
+      "id": "reading-fiction-zh",
+      "family": "reading-fiction",
+      "group": "negative-url",
+      "language": "zh",
+      "text": "读完这篇科幻短篇 https://fiction.example.org/story/notes-from-tokyo",
+      "parents": []
+    },
+    {
+      "id": "reading-fiction-en",
+      "family": "reading-fiction",
+      "group": "negative-url",
+      "language": "en",
+      "text": "Finish reading this science-fiction short story. https://fiction.example.org/story/notes-from-tokyo",
+      "parents": []
+    },
+    {
+      "id": "shopping-run-zh",
+      "family": "shopping-run",
+      "group": "negative",
+      "language": "zh",
+      "text": "去超市买牛奶和给猫的零食",
+      "parents": []
+    },
+    {
+      "id": "shopping-run-en",
+      "family": "shopping-run",
+      "group": "negative",
+      "language": "en",
+      "text": "Buy milk and cat treats at the supermarket.",
+      "parents": []
+    },
+    {
+      "id": "vague-issue-link-zh",
+      "family": "vague-issue-link",
+      "group": "ambiguous-url",
+      "language": "zh",
+      "text": "看一下这个 https://github.com/lumen-notes/desktop/issues/430",
+      "parents": []
+    },
+    {
+      "id": "vague-issue-link-en",
+      "family": "vague-issue-link",
+      "group": "ambiguous-url",
+      "language": "en",
+      "text": "Take a look at this. https://github.com/lumen-notes/desktop/issues/430",
+      "parents": []
+    },
+    {
+      "id": "bare-url-zh",
+      "family": "bare-url",
+      "group": "ambiguous-url",
+      "language": "zh",
+      "text": "https://github.com/lumen-notes/desktop/issues/214",
+      "parents": []
+    },
+    {
+      "id": "bare-url-en",
+      "family": "bare-url",
+      "group": "ambiguous-url",
+      "language": "en",
+      "text": "https://github.com/lumen-notes/desktop/issues/214",
+      "parents": []
+    },
+    {
+      "id": "tracking-noise-zh",
+      "family": "tracking-noise",
+      "group": "ambiguous-url",
+      "language": "zh",
+      "text": "https://example.org/notes?q=login&goal=marketing&ref=billing#onboarding",
+      "parents": []
+    },
+    {
+      "id": "tracking-noise-en",
+      "family": "tracking-noise",
+      "group": "ambiguous-url",
+      "language": "en",
+      "text": "https://example.org/notes?q=login&goal=marketing&ref=billing#onboarding",
+      "parents": []
+    },
+    {
+      "id": "multiple-references-zh",
+      "family": "multiple-references",
+      "group": "ambiguous-url",
+      "language": "zh",
+      "text": "稍后看看这两个链接 https://docs.stripe.com/webhooks https://www.markdownguide.org/extended-syntax/",
+      "parents": []
+    },
+    {
+      "id": "multiple-references-en",
+      "family": "multiple-references",
+      "group": "ambiguous-url",
+      "language": "en",
+      "text": "Look at these two links later: https://docs.stripe.com/webhooks https://www.markdownguide.org/extended-syntax/",
+      "parents": []
+    }
+  ]
+}

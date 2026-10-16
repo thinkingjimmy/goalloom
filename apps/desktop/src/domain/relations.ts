@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Explicit endpoints, active topology, effective flow membership and planning horizons.
- * [OUTPUT]: DAG/horizon validation, flow-link eligibility and safe color promotion to an isolated parent.
+ * [OUTPUT]: DAG/horizon validation, independent parent sets, flow-link eligibility and isolated-parent color promotion.
  * [POS]: Shared transaction/renderer relationship rules; undo, restore and import retain existing edges.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,22 @@ export const mayParent = (parent: ItemHorizon, child: ItemHorizon): boolean =>
   parent !== 'later' && child !== 'later' && horizons.indexOf(parent) < horizons.indexOf(child)
 
 export const mayLinkFlows = (parentHasFlow: boolean, childHasFlow: boolean): boolean => parentHasFlow || childHasFlow
+
+export function independentParentIds(selected: readonly string[], edges: readonly Pick<Relation, 'parentId' | 'childId'>[], explicit = new Set<string>()): Set<string> {
+  const parents = new Map<string, string[]>(), redundant = new Set<string>()
+  for (const edge of edges) { const ids = parents.get(edge.childId) ?? []; ids.push(edge.parentId); parents.set(edge.childId, ids) }
+  for (const child of selected) {
+    const pending = [...parents.get(child) ?? []], seen = new Set<string>()
+    while (pending.length) {
+      const id = pending.pop()!
+      if (seen.has(id)) continue
+      seen.add(id)
+      if (!explicit.has(id)) redundant.add(id)
+      pending.push(...parents.get(id) ?? [])
+    }
+  }
+  return new Set(selected.filter(id => !redundant.has(id)))
+}
 
 export function promotedFlowColor(parent: Pick<Item, 'id' | 'flowColor'>, child: Pick<Item, 'flowColor'>, activeEdges: readonly Pick<Relation, 'parentId' | 'childId'>[]): number | null {
   return child.flowColor !== null && parent.flowColor === null && !activeEdges.some(edge => edge.parentId === parent.id || edge.childId === parent.id)

@@ -16,6 +16,7 @@ import { serverText } from '../../../shared/i18n/server'
 import { assistanceServerText } from '../../../shared/i18n/assistance'
 import { nestingTargets } from '../../../domain/nesting'
 import { guidanceIdentity } from './assistance'
+import { creationCompletions, creationEffects } from '../../../domain/creation'
 
 function conflict(message: string): never { throw new DomainError('conflict', message) }
 export function undoOperation(context: Context, command: CommandOf<'undo'>): boolean {
@@ -25,15 +26,19 @@ export function undoOperation(context: Context, command: CommandOf<'undo'>): boo
   context.label = original.result.label
   context.itemId = original.result.itemId
   if (original.result.itemIds) context.itemIds = original.result.itemIds
+  const completions = ['create', 'createPlan'].includes(original.kind) ? creationCompletions(original,
+    context.store.prepare("SELECT id FROM operations WHERE kind='completeCreation' AND json_extract(result,'$.creationOperationId')=? ORDER BY rowid").all(original.id).map(row => context.store.operation(String(row.id))!)) : []
+  for (const completion of completions) if (context.store.db.prepare('SELECT 1 FROM undo_effects WHERE originalId=? LIMIT 1').get(completion.id)) conflict(serverText().undo.alreadyUndone)
+  const effects = creationEffects(original, completions)
   const checked = new Set<Effect>()
-  for (const effect of original.effects) if (effect.kind === 'nesting' && !original.effects.some(other => other.kind === 'position' && other.itemId === effect.itemId)) {
+  for (const effect of effects) if (effect.kind === 'nesting' && !effects.some(other => other.kind === 'position' && other.itemId === effect.itemId)) {
     const item = context.store.item(effect.itemId)
     const problem = effectProblem(effect, item, context.store.relations(false), context.store.position(item))
     if (problem) conflict(problem)
     checked.add(effect)
   }
-  for (const effect of [...original.effects].reverse()) reverseEffect(context, effect, original.id, checked.has(effect))
-  context.undone = original.effects.map((_, index) => ({ originalId: original.id, index }))
+  for (const effect of [...effects].reverse()) reverseEffect(context, effect, original.id, checked.has(effect))
+  context.undone = [original, ...completions].flatMap(operation => operation.effects.map((_, index) => ({ originalId: operation.id, index })))
   return true
 }
 export function reverseEffect(context: Context, effect: Effect, originalId: string, prechecked = false): void {

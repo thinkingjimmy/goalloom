@@ -1,11 +1,11 @@
 /**
- * [INPUT]: Displayed period, optional explicit insertion, period-keyed drafts, flow views, visible candidates and guarded submission.
+ * [INPUT]: Displayed period/insertion, period-keyed drafts, shared AI state, workspace snapshot and guarded submission.
  * [OUTPUT]: Continuous inline creation with a title that grows with content/column width, normalized paste, preserved drafts and expired-period recovery;
  *           shows flow context without a keyboard prompt, offers only flows whose root is in a longer horizon, and no flow choice at all in Later.
- * [POS]: Board creation entry; input revision controls clearing, storage owns relationship constraints.
+ * [POS]: Immediate board creation; CaptureInput binds draft revisions, main completes optional parents and storage owns relationship constraints.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import { mayParent } from '../../../domain/relations'
 import { messages } from '../../i18n'
@@ -14,16 +14,34 @@ import type { Flows } from '../../state/flows'
 import { flowVars, relationColors } from '../../lib/colors'
 import { FlowMark } from '../../components/FlowMark'
 import { Popover } from '../../components/Popover'
+import type { Snapshot } from '../../../shared/contracts/queries'
+import type { Ai } from '../../state/ai'
+import { CaptureInput } from '../../state/capture-input'
 
 export interface SplitParent { id: string; title: string }
 type Choice = { kind: 'none' } | { kind: 'join'; id: string } | { kind: 'new'; color: number } | { kind: 'split'; parent: SplitParent }
-export interface QuickAddDraft { title: string; choice: Choice }
+export interface QuickAddDraft { title: string; choice: Choice; manualFlow?: boolean; smartConsent?: number | null }
 
-export function QuickAdd({ horizon, period, beforeId, periodName, expired, retarget, drafts, flows, items, split, submit, busy, close }: { horizon: ItemHorizon; period: PlanningPeriod | null; beforeId?: string | null | undefined; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void }) {
+export function QuickAdd({ horizon, period, beforeId, periodName, expired, retarget, drafts, flows, items, split, submit, busy, close, snapshot, ai }: { horizon: ItemHorizon; period: PlanningPeriod | null; beforeId?: string | null | undefined; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void; snapshot?: Snapshot; ai?: Ai | undefined }) {
   const draftKey = period?.id ?? 'later'
   const [title, setTitle] = useState(() => drafts.get(draftKey)?.title ?? '')
   const [choice, setChoice] = useState<Choice>(() => split ? { kind: 'split', parent: split } : drafts.get(draftKey)?.choice ?? { kind: 'none' })
-  useLayoutEffect(() => { drafts.set(draftKey, { title, choice }) }, [drafts, draftKey, title, choice])
+  const status = ai?.status?.features.smart
+  const [manualFlow, setManualFlow] = useState(() => !!split || drafts.get(draftKey)?.manualFlow || choice.kind !== 'none')
+  const [smartConsent, setSmartConsent] = useState(() => drafts.get(draftKey)?.smartConsent !== undefined ? drafts.get(draftKey)!.smartConsent! : status?.enabled ? status.revision : null)
+  const [composing, setComposing] = useState(false)
+  const capture = useRef(new CaptureInput()), manualRevision = useRef(0)
+  useLayoutEffect(() => { drafts.set(draftKey, { title, choice, manualFlow, smartConsent }) }, [drafts, draftKey, title, choice, manualFlow, smartConsent])
+  const canMatch = !!snapshot && !!status?.enabled && smartConsent === status.revision && !manualFlow && horizon !== 'later' && !expired
+  const request = () => capture.current.request(snapshot!, status!.revision, title, revision.current, manualRevision.current, { horizon, startDate: period?.startDate ?? null })
+  useEffect(() => { if (!title.trim()) setSmartConsent(status?.enabled ? status.revision : null) }, [title, status?.enabled, status?.revision])
+  useEffect(() => {
+    capture.current.cancel()
+    if (!canMatch || composing || !title.trim()) return
+    const timer = setTimeout(() => { void desktopApi().smart({ type: 'analyze', request: request() }).catch(() => {}) }, 600)
+    return () => clearTimeout(timer)
+  }, [title, canMatch, composing, snapshot?.workspace.revision, status?.revision, period?.id])
+  useEffect(() => () => capture.current.cancel(), [])
   const [picking, setPicking] = useState(false)
   const input = useRef<HTMLTextAreaElement>(null), root = useRef<HTMLDivElement>(null)
   const revision = useRef(0), saving = useRef(false), choiceRef = useRef(choice)
@@ -38,7 +56,7 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
   const label = choice.kind === 'new' ? messages.newFlowName(messages.colorNames[choice.color]!)
     : choice.kind === 'join' ? messages.joinHint(flows.all.find(flow => flow.id === choice.id)?.title ?? '')
     : choice.kind === 'split' ? messages.splitHint(choice.parent.title) : messages.noFlow
-  const pick = (next: Choice) => { setChoice(next); setPicking(false); input.current?.focus() }
+  const pick = (next: Choice) => { manualRevision.current++; setManualFlow(true); setChoice(next); setPicking(false); input.current?.focus() }
   const create = async () => {
     const text = title.trim()
     if (!text || busy || saving.current) return
@@ -47,8 +65,10 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
     try {
       const expectedParentVersion = parentId ? (await desktopApi().getItem(parentId).catch(() => null))?.item.version ?? null : null
       if (parentId && expectedParentVersion === null) return
-      const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), ...(beforeId !== undefined ? { beforeId } : {}), parentId, expectedParentVersion, flowColor: choice.kind === 'new' ? choice.color : null })
+      const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), ...(beforeId !== undefined ? { beforeId } : {}), parentId, expectedParentVersion, flowColor: choice.kind === 'new' ? choice.color : null,
+        ...(canMatch ? { smartCapture: { request: request(), allowPlacement: false, allowParents: true } } : {}) })
       if (!result) return
+      capture.current.rotate()
       if (revision.current === submittedRevision) setTitle('')
       // The new item now owns the colour, so following entries join that flow.
       const created = (result as { itemId: string | null }).itemId
@@ -76,6 +96,7 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
       </div>
     </Popover>}
     <textarea ref={input} className="quick-add-title" aria-label={messages.newToColumn(periodName)} placeholder={messages.titlePlaceholder} autoFocus value={title} rows={1} maxLength={500}
+      onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)}
       onChange={event => { revision.current++; setTitle(event.target.value.replace(/\r?\n/g, ' ')) }}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return

@@ -1,13 +1,15 @@
 /**
  * [INPUT]: A validated SyncOp, a base_ or visible table prefix, and a period materializer.
- * [OUTPUT]: Canonical field changes, or a stable business error. Trigger failures map to those codes.
+ * [OUTPUT]: Atomic canonical changes with causal completion/grouped-creation preflight, or a stable business error.
  * [POS]: Reference applier. It does not touch operations, item_events or undo_effects.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Action, SyncOp } from '@goalloom/contracts'
 import { parseSetting, parseSyncOp } from '@goalloom/contracts'
 import type { ApplyHost, SqlDriver, SqlValue } from './driver'
 import { SyncApplyError } from './driver'
 import { writeSetting } from './settings'
+import { checkCreationCompletion, checkUndoCreate } from './undo-create'
 
 export interface CanonChange { itemId: string | null; dim: string; before: unknown; after: unknown }
 export interface AppliedOp { kind: string; outcome: 'applied' | 'partial'; changes: CanonChange[] }
@@ -25,6 +27,8 @@ export function applySyncOp(driver: SqlDriver, input: unknown, scope: 'base' | '
   const prefix = scope === 'base' ? 'base_' : ''
   const changes: CanonChange[] = []
   let partial = false
+  checkCreationCompletion(driver, prefix, op)
+  for (const action of op.actions) if (action.t === 'item.undoCreate') checkUndoCreate(driver, prefix, op, action)
   for (const action of op.actions) {
     const result = applyAction(driver, prefix, op, action, host, changes)
     if (result === 'partial') partial = true
@@ -41,6 +45,7 @@ function applyAction(driver: SqlDriver, prefix: string, op: SyncOp, action: Acti
     case 'item.nest': return nestItem(driver, prefix, op, action, host, changes)
     case 'item.archive': return setArchive(driver, prefix, op, action, changes)
     case 'item.delete': return deleteItem(driver, prefix, op, action.id, changes)
+    case 'item.undoCreate': return deleteItem(driver, prefix, op, action.id, changes)
     case 'item.discardIfEmpty': return discardIfEmpty(driver, prefix, op, action, changes)
     case 'item.restore': return restoreItem(driver, prefix, op, action, changes)
     case 'item.rollover': return rolloverItem(driver, prefix, op, action, host, changes)

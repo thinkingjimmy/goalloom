@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase } from '../../src/main/storage/database'
-import { migrate } from '../../src/main/storage/schema'
+import { migrate, schemaVersion } from '../../src/main/storage/schema'
 import { Repository } from '../../src/main/workspace/repository'
 import { readBoardPeriods } from '../../src/main/workspace/periods'
 import { readReviewContext } from '../../src/main/workspace/review'
@@ -122,7 +122,7 @@ describe('Authoritative calendar transactions and shared consumers', () => {
     setup(mode, mode === 'natural' ? { kind: 'today', expected: '2026-01-01' } : undefined)
     for (const h of horizons) create(h)
     const data = exportDataset(repo.store, now)
-    expect(data.schemaVersion).toBe(10)
+    expect(data.schemaVersion).toBe(schemaVersion)
     replaceDataset(repo.store, validateDataset(data, now), 'restore', now)
     const after = exportDataset(repo.store, now)
     for (const key of ['items', 'placements', 'periods', 'relations', 'policies', 'events', 'operations', 'undoEffects'] as const) expect(after[key]).toEqual(data[key])

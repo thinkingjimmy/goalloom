@@ -18,13 +18,15 @@ import { serverText } from '../../shared/i18n/server'
 const payloadHeadroom = 512, tokenHeadroom = 128
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 export type NeutralQuestion =
-  | { type: 'choice'; instructions: string; criteria: Record<string, string> }
-  | { type: 'boolean'; instructions: string; criteria: { true: string; false: string } }
+  | { type: 'choice'; instructions: string | { [key: string]: Json }; criteria: Record<string, string> }
+  | { type: 'boolean'; instructions: string | { [key: string]: Json }; criteria: { true: string; false: string } }
 export interface SmartContext {
   text: string; referenceDate: string; weekdayName: string; timezone: string; weekStart: number
   calendar: Calendar
   periods: Record<PeriodHorizon, { id: string; startDate: string; endDate: string }>
   candidates: Candidate[]
+  targetPeriod?: { id: string; startDate: string; endDate: string }
+  relations?: { parentId: string; childId: string }[]
 }
 export interface DateSlot extends DateCandidate { id: string; slotId: string }
 export type PairParent = { kind: 'existing'; ref: string } | { kind: 'slot'; slotId: string }

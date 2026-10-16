@@ -45,7 +45,7 @@ export function validateNestingOperation(operation: Operation, operations: Map<s
 }
 
 /** Exported operation order, rather than wall time, remains valid across clock rollback. */
-export function validateNestingHistory(data: Dataset): void {
+export function validateNestingHistory(data: Dataset, creationInverses = new Map<string, Effect[]>()): void {
   if (!data.operations.some(operation => operation.effectsVersion === 3)) return
   const physical = new Map(data.relations.map(edge => [edge.id, edge])), state = new Map<string, Relation>()
   const operations = new Map(data.operations.map(operation => [operation.id, operation]))
@@ -85,7 +85,9 @@ export function validateNestingHistory(data: Dataset): void {
       if (effect.kind === 'visibility') effect.after.deletedAt ? alive.delete(effect.itemId) : alive.add(effect.itemId)
     }
     for (const marker of [...markers.get(operation.id) ?? []].sort((a, b) => b.effectIndex - a.effectIndex)) {
-      const effect = operations.get(marker.originalId)?.effects[marker.effectIndex]
+      const original = operations.get(marker.originalId)
+      if (original?.kind === 'completeCreation') continue
+      const effect = (creationInverses.get(marker.originalId) ?? original?.effects)?.[marker.effectIndex]
       if (!effect) continue
       for (const edge of inverseEdges(deltas(effect), operation.id, operation.at)) state.set(edge.id, edge)
       if (effect.kind === 'visibility') effect.before.deletedAt ? alive.delete(effect.itemId) : alive.add(effect.itemId)

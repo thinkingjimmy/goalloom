@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated actions, DeviceStore, adapters, a workspace reader and injected clock.
- * [OUTPUT]: Revision-guarded configuration, connection tests, typed preflight cancellation, cancellable analysis, provider failures and renderer-session previews/drafts/reviews.
+ * [OUTPUT]: Revision-guarded services, budgeted analysis, claimed creation completion, provider failures and session previews/drafts/reviews.
  * [POS]: Lightweight main-process service; analysis loads its planner on demand and HTTP never holds a storage transaction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -20,14 +20,18 @@ import { AssistanceService } from './assistance'
 import type { AssistanceContext } from '../../shared/contracts/assistance'
 import type { CommandOf } from '../../shared/contracts/commands'
 import { serverText } from '../../shared/i18n/server'
+import { CaptureCoordinator } from './capture'
+import type { CreationSelection } from '../../shared/contracts/capture'
+import type { Command, CommandResult } from '../../shared/contracts/commands'
+import { EvaluationQueue } from './queue'
 
 export interface WorkspaceReader {
   generation(): Promise<string>
   insightEvidence?(itemId: string, generation: string, cutoff?: string): Promise<import('zod').infer<typeof insightEvidenceSchema>>
   assistance?(itemId: string, generation: string): Promise<AssistanceContext>
-  context(text: string, hints: string[], referenceTime: string): Promise<SmartContext | null>
+  context(text: string, hints: string[], referenceTime: string, target?: AnalyzeRequest['target']): Promise<SmartContext | null>
 }
-export interface ServiceOptions { store: DeviceStore; adapters: Record<AiProvider, Adapter>; chat?: Partial<Record<ChatProvider, ChatAdapter>>; reader: WorkspaceReader; now?: () => number; unsignedBuild: boolean; openExternal?: (url: string) => void; onSyncedSettings?: (entries: { key: string; value: unknown }[]) => void }
+export interface ServiceOptions { store: DeviceStore; adapters: Record<AiProvider, Adapter>; chat?: Partial<Record<ChatProvider, ChatAdapter>>; reader: WorkspaceReader; now?: () => number; unsignedBuild: boolean; openExternal?: (url: string) => void; onSyncedSettings?: (entries: { key: string; value: unknown }[]) => void; completeCreation?: (command: CommandOf<'completeCreation'>) => Promise<CommandResult> }
 
 // Fixed, non-private sample: a real judgement plus schema check, so a key string alone never counts as connected.
 const sample = {
@@ -48,6 +52,9 @@ const metaOf = (provider: ProviderConfig) => ({
 })
 
 export class SmartInputService {
+  private readonly captures: CaptureCoordinator
+  private readonly evaluations = new EvaluationQueue()
+  private completionChanged?: () => void
   private readonly assistance: AssistanceService
   private insightControllers = new Set<AbortController>()
   private chains = new Map<string, AbortController>()
@@ -61,6 +68,8 @@ export class SmartInputService {
   private readonly now: () => number
   constructor(private readonly options: ServiceOptions) {
     this.now = options.now ?? Date.now
+    this.captures = new CaptureCoordinator({ analyze: request => this.runAnalysis(request), abort: id => this.chains.get(id)?.abort(),
+      ...(options.completeCreation ? { write: options.completeCreation } : {}), changed: () => this.completionChanged?.() })
     this.assistance = new AssistanceService({
       config: () => options.store.config(), generation: () => options.reader.generation(),
       context: (itemId, generation) => options.reader.assistance ? options.reader.assistance(itemId, generation) : Promise.reject(new Error('Assistance reader unavailable')),
@@ -69,6 +78,11 @@ export class SmartInputService {
     })
   }
   validateAssistanceApply(command: CommandOf<'applyAssistance'>): Promise<void> { return this.assistance.validateApply(command) }
+  onCaptureChanged(callback: () => void): void { this.completionChanged = callback }
+  prepareCreation(command: Command): CreationSelection | undefined { return this.captures.prepare(command) }
+  created(command: Command, receipt: CommandResult): void { this.captures.created(command, receipt) }
+  creationFailed(command: Command): void { this.captures.failed(command) }
+  observeCommand(command: Command): void { this.captures.observe(command) }
 
   /** Saved keys only. A missing key is not seeded as null, so another computer's key is not deleted. */
   async syncedSettingEntries(): Promise<{ key: string; value: unknown }[]> {
@@ -184,7 +198,7 @@ export class SmartInputService {
       case 'dismiss': await this.update(config => { if (!config.dismissed.includes(action.notice)) config.dismissed.push(action.notice) }); return this.reply(action.generation, null)
       case 'openConsole': this.options.openExternal?.(JEV_PROVIDERS[action.provider].console); return { type: 'cancelled' }
       case 'analyze': return { type: 'analysis', reply: await this.analyze(action.request) }
-      case 'cancel': this.chains.get(action.draftSessionId)?.abort(); this.chains.delete(action.draftSessionId); return { type: 'cancelled' }
+      case 'cancel': this.captures.cancelDraft(action.draftSessionId); return { type: 'cancelled' }
       case 'draft': return { type: 'draft', reply: await this.insight(action.request, async request => {
         const { draftPrompt, parseDraft } = await import('../../domain/smart/insight')
         const projected = await this.projectInsight(request)
@@ -227,6 +241,7 @@ export class SmartInputService {
     })
   }
   private abortAll(): void {
+    this.captures.clear()
     this.assistance.release()
     for (const chain of [...this.chains.values(), ...this.connections]) chain.abort()
     this.chains.clear(); this.connections.clear(); this.clearCache()
@@ -344,14 +359,14 @@ export class SmartInputService {
     catch (error) { return { ok: false, failure: error instanceof ProviderFailure ? error.failure : failure('unavailable', provider), matched: null } }
   }
 
-  async analyze(request: AnalyzeRequest): Promise<AnalyzeReply> {
+  analyze(request: AnalyzeRequest): Promise<AnalyzeReply> { return this.captures.analyze(request) }
+  private async runAnalysis(request: AnalyzeRequest): Promise<AnalyzeReply> {
     const revision = this.configurationRevision
     const echo: AnalyzeEcho = { requestId: request.requestId, draftSessionId: request.draftSessionId, inputRevision: request.inputRevision, manualRevision: request.manualRevision, generation: request.generation, providerRevision: request.providerRevision, contextRevision: request.contextRevision, referenceTime: request.referenceTime }
     const failed = (value: Failure): AnalyzeReply => ({ status: 'failed', echo, failure: value })
     // Register before file reads: cancel/release must also cover a request still in preflight.
-    this.chains.get(request.draftSessionId)?.abort()
     const controller = new AbortController()
-    this.chains.set(request.draftSessionId, controller)
+    this.chains.set(request.requestId, controller)
     let provider: AiProvider = 'openrouter'
     try {
       const checkCurrent = () => { if (revision !== this.configurationRevision || controller.signal.aborted) throw new Aborted() }
@@ -369,38 +384,41 @@ export class SmartInputService {
       checkCurrent()
       if (read.state !== 'saved') return failed(credentialFailure(read.state, provider, 'not_enabled'))
       if ([...request.text].length > textLimit) return failed({ ...failure('too_large', provider), message: serverText().smart.textTooLong(textLimit) })
-      const context = await this.options.reader.context(request.text, request.parentHints, request.referenceTime)
+      const context = await this.options.reader.context(request.text, request.parentHints, request.referenceTime, request.target)
       checkCurrent()
       if (!context) return failed(failure('not_enabled', provider))
-      const [{ planQuestions, relationRound }, { buildPreview, taskSlots }] = await Promise.all([import('../../domain/smart/questions'), import('../../domain/smart/preview')])
+      if (request.generation !== await this.options.reader.generation()) return { status: 'cancelled', echo }
       checkCurrent()
-      const plan = planQuestions(context)
+      const { matchingPlan, matchedPreview, plainPreview, urlOnly } = await import('../../domain/smart/matching')
+      checkCurrent()
+      if (urlOnly(request.text)) return { status: 'ready', echo, preview: plainPreview(context, request.text), diagnostics: [] }
+      const plan = matchingPlan(context, request)
       if ('kind' in plan) return failed({ ...failure('too_large', provider), message: plan.message })
       checkCurrent()
       if (this.cacheGeneration !== request.generation) { this.clearCache(); this.cacheGeneration = request.generation }
-      const cacheKey = createHash('sha256').update(JSON.stringify([request.generation, provider, setting.revision, JEV_PROVIDERS[provider].model, plan.state, plan.questions, context.periods, context.candidates])).digest('hex')
+      const cacheKey = createHash('sha256').update(JSON.stringify([request.generation, provider, setting.revision, JEV_PROVIDERS[provider].model, request.target, plan.state, plan.batches, context.periods, context.candidates, context.relations])).digest('hex')
       const cached = this.cache.get(cacheKey)
       if (cached?.reply.status === 'ready') { this.cache.delete(cacheKey); this.cache.set(cacheKey, cached); return { ...cached.reply, echo } }
       const diagnostics: Diagnostics[] = []
-      let questionsSent = 0
-      const call = async (state: typeof plan.state, questions: typeof plan.questions): Promise<Round> => {
+      const call = async (state: typeof plan.state, questions: typeof plan.core.questions): Promise<Round> => {
         checkCurrent()
         const size = payloadSize(state, questions)
-        questionsSent += Object.keys(questions).length
-        if (size.bytes > payloadLimit || size.tokens > tokenBudget || questionsSent > questionBudget) throw new ProviderFailure(failure('too_large', provider))
+        if (size.bytes > payloadLimit || size.tokens > tokenBudget || Object.keys(questions).length > questionBudget) throw new ProviderFailure(failure('too_large', provider))
         const started = this.now()
-        const output = await this.options.adapters[provider](read.key, { state, questions, signal: controller.signal })
+        const output = await this.evaluations.run(controller.signal, () => this.options.adapters[provider](read.key, { state, questions, signal: controller.signal }))
         checkCurrent()
         diagnostics.push({ provider, ...output.meta, estimatedInputTokens: size.tokens, latencyMs: Math.max(0, Math.round(this.now() - started)) })
         return { answers: output.answers, precision: output.precision }
       }
-      const first = await call(plan.state, plan.questions)
-      let supplement: Parameters<typeof buildPreview>[3] = null
-      if (plan.deferredRelations) {
-        const next = relationRound(plan, taskSlots(plan, first), context.candidates, Object.keys(plan.questions).length)!
-        supplement = { pairs: next.pairs, round: Object.keys(next.questions).length ? await call(next.state, next.questions) : { answers: {}, precision: first.precision } }
-      }
-      const reply: AnalyzeReply = { status: 'ready', echo, preview: buildPreview(context, plan, first, supplement), diagnostics }
+      const rounds: Round[] = new Array(plan.batches.length)
+      let next = 0
+      await Promise.all(Array.from({ length: Math.min(2, plan.batches.length) }, async () => {
+        for (;;) { const index = next++; if (index >= plan.batches.length) break; const batch = plan.batches[index]!; rounds[index] = await call(batch.state, batch.questions) }
+      }))
+      const precision = rounds[0]?.precision ?? { decimals: null, source: null }
+      if (rounds.some(round => round.precision.decimals !== precision.decimals)) throw new ContractError('Inconsistent probability precision')
+      const combined: Round = { answers: Object.assign({}, ...rounds.map(round => round.answers)), precision }
+      const reply: AnalyzeReply = { status: 'ready', echo, preview: matchedPreview(context, request, plan, combined), diagnostics }
       if (config.providers[provider].lastFailure) await this.record(provider, null)
       const bytes = Buffer.byteLength(JSON.stringify(reply))
       while (this.cache.size && (this.cache.size >= 32 || this.cacheBytes + bytes > 512 * 1024)) { const key = this.cache.keys().next().value!; this.cacheBytes -= this.cache.get(key)!.bytes; this.cache.delete(key) }
@@ -408,10 +426,11 @@ export class SmartInputService {
       return reply
     } catch (error) {
       if (error instanceof Aborted || controller.signal.aborted) return { status: 'cancelled', echo }
+      controller.abort()
       if (error instanceof ContractError) return failed(failure('malformed_response', provider))
       if (error instanceof ProviderFailure) { await this.record(provider, error.failure); return failed(error.failure) }
       return failed(failure('unavailable', provider))
-    } finally { if (this.chains.get(request.draftSessionId) === controller) this.chains.delete(request.draftSessionId) }
+    } finally { if (this.chains.get(request.requestId) === controller) this.chains.delete(request.requestId) }
   }
 
   private async projectInsight<R extends DraftRequest | ReviewRequest>(request: R): Promise<R> {

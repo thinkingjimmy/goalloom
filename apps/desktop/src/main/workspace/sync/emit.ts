@@ -1,7 +1,8 @@
 /**
  * [INPUT]: A committed command, its effects, and item rows captured before dispatch.
- * [OUTPUT]: One sync_ops row in the same transaction. Clock confirmation and rollover resume write nothing. Appearance and backup preferences write pref.set.
+ * [OUTPUT]: Transaction-owned SyncOps, causal creation completion and guarded grouped creation undo. Clock confirmation/rollover resume write nothing.
  * [POS]: Desktop adapter from command effects to SyncOp. applySyncOp is the other direction.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
@@ -36,7 +37,8 @@ export function emitSyncOp(db: DatabaseSync, input: { command: Command; effects:
   }
   const actions = actionsFor(db, input)
   if (!actions.length) return
-  insertOp(db, { v: 1, opId: input.command.operationId, deviceId: deviceId(db), at: input.at, actions })
+  insertOp(db, { v: 1, opId: input.command.operationId, deviceId: deviceId(db), at: input.at, actions,
+    ...(input.command.type === 'completeCreation' ? { creationOperationId: input.command.creationOperationId } : {}) })
 }
 
 export function emitRolloverOp(db: DatabaseSync, input: { itemId: string; fromPeriodId: string; toPeriodId: string; placementSeq: number; at: string }): void {
@@ -58,6 +60,15 @@ export function emitRolloverOp(db: DatabaseSync, input: { itemId: string; fromPe
 }
 
 function emitUndo(db: DatabaseSync, originalId: string, undoId: string, at: string): void {
+  const original = db.prepare('SELECT kind,result,effects FROM operations WHERE id=?').get(originalId)
+  const completions = db.prepare("SELECT id FROM operations WHERE kind='completeCreation' AND json_extract(result,'$.creationOperationId')=? AND json_extract(result,'$.changed')=1 ORDER BY rowid").all(originalId)
+  if (original && ['create', 'createPlan'].includes(String(original.kind)) && (JSON.parse(String(original.result)).capture || completions.length)) {
+    const effects = JSON.parse(String(original.effects)) as Effect[]
+    const ids = completions.map(row => String(row.id))
+    insertOp(db, { v: 1, opId: undoId, deviceId: deviceId(db), at, actions: [...effects].reverse().flatMap(effect => effect.kind === 'create'
+      ? [{ t: 'item.undoCreate' as const, id: effect.itemId, creationOperationId: originalId, completionOperationIds: ids }] : []) })
+    return
+  }
   const row = db.prepare('SELECT state FROM sync_ops WHERE opId=?').get(originalId)
   if (!row) {
     emitRolloverUndo(db, originalId, undoId, at)

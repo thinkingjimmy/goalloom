@@ -8,7 +8,7 @@ import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } f
 import { randomUUID } from 'node:crypto'
 import { extname } from 'node:path'
 import { isRendererSettingKey, parseSetting } from '@goalloom/contracts'
-import { commandSchema, DomainError, type CommandResult } from '../shared/contracts/commands'
+import { commandSchema, DomainError, type Command, type CommandResult } from '../shared/contracts/commands'
 import { querySchema, type WorkspaceMetadata } from '../shared/contracts/queries'
 import { devicePrefsChannel, devicePrefsReportSchema, languageChannel, languageSchema, runtimeChannel, runtimeInfoSchema } from '../shared/contracts/runtime'
 import type { LanguagePreference } from './window/language'
@@ -27,6 +27,7 @@ import type { SyncService } from './sync/service'
 
 export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, links: LinkPreviewService, updates: UpdateService, sync: SyncService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
   let rendererSession = 0
+  smart.onCaptureChanged(() => { window()?.webContents.send('goalloom:changed', null); changed() })
   const guard = (event: IpcMainInvokeEvent) => {
     const current = window()
     if (!current || event.sender !== current.webContents || event.senderFrame !== current.webContents.mainFrame || !isTrustedFrameUrl(event.senderFrame.url, trustedUrl)) throw new Error(serverText().storage.invalidSource)
@@ -75,18 +76,28 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
   })
   ipcMain.handle('goalloom:command', async (event, input: unknown) => {
     guard(event)
+    let parsed: Command | null = null
     try {
       await firstWrite
       const command = commandSchema.parse(input)
+      parsed = command
+      smart.observeCommand(command)
+      const selection = smart.prepareCreation(command)
       if (command.type === 'applyAssistance' && command.contextId) {
         const receipt = await storage.call<CommandResult | null>('query', { type: 'receipt', operationId: command.operationId, generation: command.generation })
         if (!receipt) await smart.validateAssistanceApply(command)
       }
-      const result = await storage.call<CommandResult>('command', command)
+      const captured = (command.type === 'create' || command.type === 'createPlan') && command.smartCapture
+      const result = captured ? await storage.call<CommandResult>('capturedCommand', { command, ...(selection ? { selection } : {}) })
+        : await storage.call<CommandResult>('command', command)
+      smart.created(command, result)
       if (result.changed) { window()?.webContents.send('goalloom:changed', null); changed() }
       return { ok: true, result }
     }
-    catch (error) { return { ok: false, code: error instanceof DomainError ? error.code : 'invalid', message: error instanceof DomainError ? error.message : serverText().storage.invalidRequest } }
+    catch (error) {
+      if (parsed && error instanceof DomainError && ['invalid', 'stale', 'stale_preview', 'conflict', 'generation', 'setup', 'maintenance'].includes(error.code)) smart.creationFailed(parsed)
+      return { ok: false, code: error instanceof DomainError ? error.code : 'invalid', message: error instanceof DomainError ? error.message : serverText().storage.invalidRequest }
+    }
   })
   // Separate async channel: cloud waits never enter the serial storage queue or hold a transaction.
   ipcMain.handle(smartChannel, async (event, input: unknown) => { guard(event); return smart.handle(input) })

@@ -9,7 +9,9 @@ smart/
 ├── service.ts      # 状态/配置、逐能力连接测试（任一通过即保存，自动开启尚无服务的功能）、按需加载题单/预览；取消、按服务冷却、32 项/512 KiB 缓存，会话释放清空
 ├── insight.ts      # 流程洞察：OpenRouter / AI Gateway chat completions（固定 DeepSeek flash、关推理、JSON、Gateway 只路由到 DeepSeek）与能力样例
 ├── assistance.ts   # Local preflight tickets or normal cancellation, identity-owned cleanup across async reads, provider consent, three accepted turns and eight/512 KiB sessions including pending reads
-├── context.ts      # 经 StorageClient 短只读查询构造 SmartContext（模式、起点、六尺度日期/周期、≤8 候选）
+├── capture.ts      # Bounded main-owned draft/creation handoff, ready-result reuse, manual-intent cancellation and late completion without an undo-stack entry
+├── queue.ts        # Two concurrent abortable Jev calls across capture sessions; local writes never wait on the queue
+├── context.ts      # Current/explicit-future dates across legal longer horizons; full ancestry, period identities and direct parent/child title summaries; no eight-goal cutoff
 └── electron.ts     # Shared noninteractive OS cipher for AI and sync, guarded by ../keychain.ts; composes AI services and fixed console links
 ```
 

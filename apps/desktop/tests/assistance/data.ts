@@ -284,7 +284,7 @@ async function recoveryCases() {
     const id = f.create(), adopted = f.apply(id, guidance('Saved offline'))
     f.apply(id, null); f.run({ type: 'undo', originalOperationId: adopted.operationId })
     const data = exportDataset(f.repo.store, f.now()), roundTrip = validateImport(JSON.parse(JSON.stringify(data)), f.now())
-    assert.equal(roundTrip.schemaVersion, 10)
+    assert.equal(roundTrip.schemaVersion, schemaVersion)
     replaceDataset(f.repo.store, roundTrip, 'restore', f.now())
     assert.deepEqual(f.repo.store.guidance(id), data.guidance[0])
     assert.equal(f.repo.store.workspace().pausedAfterRestore, true)

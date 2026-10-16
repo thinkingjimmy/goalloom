@@ -39,6 +39,8 @@
     "test:keychain-native": "pnpm --filter @goalloom/desktop exec -- node tests/keychain-native.mjs",
     "test:keychain-package": "pnpm --filter @goalloom/desktop exec -- node tests/keychain-package.mjs",
     "test:composer": "pnpm --filter @goalloom/desktop exec -- node tests/composer.mjs",
+    "test:auto-link": "pnpm --filter @goalloom/desktop exec -- node tests/auto-link.mjs",
+    "eval:capture": "pnpm --filter @goalloom/desktop exec -- node scripts/eval/capture/run.mjs",
     "test:due-dates": "pnpm --filter @goalloom/desktop exec -- node tests/due-dates.mjs",
     "test:language": "pnpm --filter @goalloom/desktop exec -- node tests/language.mjs",
     "test:relations": "pnpm --filter @goalloom/desktop exec -- node tests/relations.mjs",

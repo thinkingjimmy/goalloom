@@ -1,14 +1,14 @@
 # Goalloom 智能输入需求文档
 
-**版本：** Smart Input v1.4（功能规格，替代 v1.3）  
-**日期：** 2026-09-23  
+**版本：** Smart Input v1.5（功能规格）
+**日期：** 2026-10-16
 **只读代码基线：** `thinkingjimmy/goalloom@dbbd1ebe0d23b4397da4b360b8c10bc6ac9579c0`  
 **交付范围：** 全局输入、Jev 双渠道、Onboarding、计划创建与同代次撤销、完整导出恢复及迁移前保护。  
 **实施状态（2026-09-23）：** 代码与自动化已完成，见 §11 勾选与 §14 实施记录；两渠道真实 Key 联调（A02）、标注样例评估（T01）与双平台安装包验收（T02）待负责人执行。
 
 ## 0. 阅读与文档归属
 
-**当前开发数据版本：schema v8。** 本文 v3 描述首次引入计划事务的历史里程碑；v6 起不再原地升级，旧数据通过导入恢复（兼读 v1–v8）。v8 为独立推进说明/新 effect 提供显式启动恢复，见 [智能辅助规格](Goalloom-Smart-Assistance-PRD-TODO-v1.1.md)。普通输入仍只记录新任务，不自动修改已有任务。旧日历缺省为 365 天模式，原起点、周期、历史和回执不变。见 [双日历模式升级步骤](calendar-modes.md#63-存储不做原地迁移d10srcmainstorage)。
+**当前开发数据版本：schema v11。** v11 为创建／异步补全的不可变回执归属和组合撤销提供版本边界，兼读 v1–v11；v8–v10 启动升级先创建并验证保护副本，旧版本沿用显式恢复流程。普通输入只创建新任务；本次 Enter 授权的晚到结果只能补该新任务的列和上级。旧日历缺省为 365 天模式，原起点、周期、历史和回执不变。
 
 本文是供产品、开发和评审共同使用的唯一功能规格，已按 D01 入库为 `docs/features/smart-input.md`。§1–4 为体验与业务规则，§5–10 为工程契约，§11–12 为任务和验收。
 
@@ -18,9 +18,26 @@
 
 ## 1. 目标、已定方向与范围
 
+### 2026-10-16: Immediate capture and Jev 1.14
+
+Owner-approved behavior: Enter never waits for Jev. A ready result joins creation; a pending result completes the saved item. Global capture without a current preview saves the original text as one Later item, then fills only its column and parents. Inline capture keeps its explicit column, period and insertion. Manual choices win. Creation and its automatic completion are one undo step, with immutable receipts and scoped restore.
+
+Failure cases fixed before implementation: Enter before debounce; provider result before/after the creation receipt; closed dialog; continuous drafts crossing requests; duplicate/unknown replies; manual no-parent/new-flow choices; edit/move/order/status/archive/delete/link/unlink followed by undo; undo before completion; completion after another creation; stale parent/period/provider/generation; DAG ancestors and independent parents; more than eight candidates; failed/oversized batches; Chinese/English/URL-only and URL-with-action input; timeout/offline; grouped undo/restore; JSON/SQLite round trips and encrypted peer replay. Tests must hold provider responses until SQLite creation is observed, and preserve evidence under ignored output/tests/.
+
+This section and §§5.2–5.3 supersede the earlier waiting/candidate-budget behavior. The dated records in §14 remain historical evidence.
+
+- Enter creates from a current valid preview, or saves the original input as one Later item. A late result fills only a non-conflicting current column and legal parents; it never splits, rewrites or assigns a deadline to the saved item. Inline entry retains its explicit column, future period and insertion. Alt+Enter remains an explicit plain Later save.
+- Matching uses one independent Noul per candidate, the action/outcome prompt, parent/child summaries, a 0.60 precision lower-bound gate and deterministic full-DAG ancestor removal. Independent parents and unambiguous explicit references remain. URLs are inert data; URL-only input makes no inference request.
+- Explicit references require a positive, complete relation phrase. Chinese negation and English words such as `relink` cannot become forced manual references. A positive explicit parent remains selected independently of the probability gate.
+- An explicit future date includes that date's longer-horizon periods as well as current goals. Direct parent/child summaries include related archived or off-board titles, but those items do not become automatic candidates. Before writing, candidate period identity and expiry are checked again.
+- Column entry normally needs one matching request. Global time/grouping and minimal per-task matching contexts run in the same independent round, with up to two calls in flight. They are not a sequential classification/verification cascade. Each candidate/task pair is judged once; oversized groups use budgeted batches.
+- A main-owned request is claimed before the create write and binds to the transaction's item/version/placement guard. Closing the dialog cancels only unsaved draft work. Manual changes after saving cancel all late fields, including edit-back; manual flow/parent choices before saving disable automatic replacement. Expired periods, replaced generations and changed providers cannot write. Failed batches leave the saved item usable and unlinked.
+- `create` / `createPlan` accept optional `smartCapture`; the receipt's `capture` stores only the request identity, item guards and allowed completion fields. Internal-only `completeCreation` appends a system receipt with `creationOperationId` / `captureRequestId` and real position/relation effects. It has no independent undo entry. Undo validates the net creation, deletes in one transaction and marks every group receipt; scoped restore retains the final position, edited text and eligible parents. Original receipts and versions are never rebased.
+- Schema v11 import validates completion provenance, effect ownership and complete group markers. Sync emits causal completion metadata and guarded `item.undoCreate`; remote manual writes, including edit-back, reject stale completion atomically. Restart never resumes old model jobs. Main retains at most 32 jobs; unavailable/busy automation does not block local creation.
+
 **写下想法，输入窗口直接变成可确认的行动预览。**
 
-右下角「＋」及应用内 Cmd/Ctrl+N 打开全局输入窗口。已启用 Jev 时，原文直接作为 state，一次默认请求并行回答独立问题；代码计算具体值、组成预览，用户确认后写入。没有 Jev 时，普通保存一条 Later。
+右下角「＋」及应用内 Cmd/Ctrl+N 打开全局输入窗口。已启用 Jev 时，原文作为 state，同一轮按预算分批回答独立问题；代码组成预览。Enter 立即保存，晚到结果按本节规则补全新项。没有 Jev 时，普通保存一条 Later。
 
 | 已确定的产品决定 | 实施要求 |
 | --- | --- |
@@ -150,13 +167,13 @@ Enter 像输入法上屏一样执行当前主操作（Cmd/Ctrl+Enter 同义）�
 ### 5.1 默认一轮，无前置语义分类器
 
 ```text
-原始输入 + 工作区日期 + 有限原文片段/日期/目标候选
+Original input + calendar + text/date/goal candidates
                          ↓
-             一次 Jev 请求，并行判断独立问题
+One independent round, budgeted batches, at most two calls in flight
                          ↓
-          代码复制原文、计算日期、校验并更新预览
+Deterministic preview and creation-bound completion selection
                          ↓
-                   用户确认 → worker事务
+Enter → immediate worker transaction → optional late completion
 ```
 
 「＋」已表示创建，不再先识别创建/修改/删除。原文直接作为 state；辅助代码可枚举无损片段、日期值或读取候选，但不先断定它们的业务意图。每题 instructions 明确引用 state 的字段和假设，同轮问题互相看不到答案；已知候选的问题可同轮询问，代码只消费实际适用分支。[R1][R2]
@@ -169,7 +186,7 @@ Choice 用于布局、位置、片段角色、日期用途等单选；Noul 用�
 
 ### 5.2 预算不靠单父化解决
 
-**应用预算为一次输入修订累计最多64题（包括可选补充请求），不是每个片段64题，也不是服务商上限。** 默认最多8个候选槽位、8个任务、8个自动日期候选。超出核心解析能力时提示分批或手动整理，保留全部原文，不能静默删句。
+**应用预算为每请求最多64题、64 KiB 和24,000估算输入 token；不是服务商上限，也不是一次修订的候选总数上限。** 默认最多8个文本槽位、8个任务、8个自动日期候选。上级候选不固定截断为8个：覆盖当前周期和指定未来周期中合法的未完成、未归档目标。显式搜索／手选仍可使用归档目标。超出核心解析能力时保留原文，仍可立即存为一条 Later。
 
 设 S 为槽位数（单任务 S=1），D 为日期候选数：
 
@@ -179,17 +196,17 @@ Choice 用于布局、位置、片段角色、日期用途等单选；Noul 用�
 | 每槽位角色、执行列、截止候选选择 | 3S | 截止选择从原文日期候选及none/unclear选一项；题目自含上下文，候选槽位尚非已确定事项 |
 | 每日期候选用途 | D | deadline/execution/other/unclear，覆盖日期被错误拿作截止的情况 |
 | 三类未支持要求 | 3 | 提醒、重复、具体时刻；作为各自警示，不吞掉可保存的任务 |
-| 上级关系对 | R | 逐对Noul，包括已有目标与本批条目；只问剩余预算允许的对 |
+| 上级关系对 | R | 逐对 Noul，已有目标使用成果推进题；本批结构题保留原文依据。每对只判断一次 |
 
-**总数 `Q = 1 + 4S + D + 3 + R ≤ 64`（2026-09-25 起每槽位加一道执行时间推测题，见§14.4）。** 最大 S=8、D=8 时，核心44题，关系最多20题。8项×8个已有候选再加本批56个有向对，一共需156题，不能全问。即使把本批关系压成8道单父Choice，也仍要108题，且会改变多父语义；首版不采用这种替代。
+**总题数 `Q = 1 + 4S + D + 3 + R` 可以超过64。** 调度器先定义全部独立题目，再按每请求预算分批。全局输入另保留完整原文的单条收集匹配，供 Enter 提前保存后使用；单槽位直接复用，不重复判断。
 
-**分配顺序：** 先完整保留核心题；已由用户明确选定的边无需再问；关系按原文明确点名的候选对优先，再按条目轮转分配给已有候选和本批候选，避免前几项耗光预算。候选发现可以使用原文引用、用户选择和位置索引，不先做另一套语义分类。预算耗尽的边返回 `not_evaluated`，不能记为false或“无关联”；预览显示“部分关系未自动评估，可手动补充”，所有合法的多父关系仍可手动建立。
+**分配与覆盖：** 核心题与最小匹配上下文独立封装，保持原文完整，不先使用另一套模型检索。每组按字节、token 和题数预算切分，全部批次完成后统一筛选。任一批失败不自动写入部分关系，也不把未回答的候选记为 false。用户可继续手动关联。
 
-“最多8个流程根”只约束非删除有色根，不限制普通目标总量。允许集合小、正文预算够时，所有可用根可以同时放入上下文；但**放入上下文不等于已向每个任务评估该根**。非流程目标按显式引用/用户搜索加入有限候选，不发送全库，不强制取前六个。
+“最多8个流程根”只约束非删除有色根，不限制普通目标总量。自动匹配读取当前／指定未来周期的目标摘要及其直接父子语境，不读取全库正文。候选判断包含全部合法普通目标，不再依赖项目名重合。
 
-### 5.3 补充请求与覆盖
+### 5.3 单轮分批与覆盖
 
-常规单任务、已知片段/候选只请求一次。仅当第一轮确定新分组、确实需要新状态才能定义后续问题时，可追加一次具名补充请求；记录原因并继续受累计64题约束。预算耗尽不为“问完所有关系”自动拆更多请求，改为手动确认。每轮实际问题清单由调度器先计算、校验再发送。补充轮同样检查序列化 payload/token 预算并预留供应商封装空间，裁剪的关系标为未评估。
+单轮指每个关系判断不经过第二次语义复核。所有问题可独立定义，同轮最多两个请求并发；列内录入通常一次请求，全局录入通常为时间／分组和上级匹配各一次并行请求。每个批次检查完整序列化预算并预留供应商封装空间；不截断正文。单候选父子语境过大而无法成题时，自动判断失败并保留已保存内容。
 
 工程默认：原文4,000字符、题目64、每道Choice不超过32个选项（含兜底）、序列化请求64 KiB以内，并设置24,000估算输入token的安全预算。总payload包括state、questions、criteria；字节数/题数不能替代token测算，接入测试须验证所选服务的实际计量方式与限制，预算估算无法可靠覆盖时降低payload或要求缩短，不保证“64题必定能塞下”。模型目录和当前协议限额是A01/A02复核项，不把任何“32K”宣传直接当成32K原文或所有问题无限扇出的保证。adapter按§6.1读取实际 `usage`，输入token估算仅供发送前预算，实际值缺失时记null而非0；统计不回传任务正文。[R5][R7]
 
@@ -206,7 +223,7 @@ Choice 用于布局、位置、片段角色、日期用途等单选；Noul 用�
 | 凭据 | OpenRouter API Key | AI Gateway API Key |
 | 协议 | `@typesafe-ai/sdk` 的 systemOne | HTTPS `POST /v1/evaluate` |
 | 固定地址 | `https://openrouter.ai/api`（SDK 追加 `/v1/systemone`） | `https://ai-gateway.vercel.sh/v1/evaluate` |
-| 显式requestedModel | `typesafe/jev-1.13` | `typesafe-ai/jev` |
+| 显式requestedModel | `typesafe/jev-1.14` | `typesafe-ai/jev-1.14.0` |
 | Choice数据 | `choice`、`probabilities`；额外confidence不进入统一业务答案 | `choice`、`probabilities`；不读取或要求confidence |
 | 是非数据 | `noul`概率 | `probability`概率，问题类型为boolean |
 | 输入用量 | `usage.input_tokens` | `usage.inputTokens` |
@@ -214,7 +231,7 @@ Choice 用于布局、位置、片段角色、日期用途等单选；Noul 用�
 
 **TypeSafe 原生已下线（2026-10-03，负责人决定）：** 它只提供 Jev、不能运行洞察，`api.typesafe.ai` 渠道连同设置入口一并移除。旧设备配置读取时丢弃该服务条目，绑定它的功能关闭并递增修订（用户需在 OpenRouter 或 Gateway 重新连接），其加密 Key 文件删除。
 
-**OpenRouter 渠道：** 使用 `@typesafe-ai/sdk` 的 systemOne，baseURL 为 `https://openrouter.ai/api`（SDK 追加 `/v1/systemone`）、凭据为 OpenRouter API Key，requestedModel 固定 `typesafe/jev-1.13`（带作者前缀原样使用，不随 `~typesafe/jev-latest` 漂移）。请求/响应沿用 TypeSafe 形状（choice/probabilities、noul、`usage.input_tokens`）；响应 `model` 记为 modelVersion，响应体 `id` 作为 requestId，额外的 `provider`、`usage.cost` 不进入统一答案。精度沿用原生 adapter d=2（OpenRouter 直接转发 TypeSafe 答案），A02 真实 Key 联调时核对。控制台入口 `https://openrouter.ai/settings/keys`。[R13]
+**OpenRouter 渠道：** 使用 `@typesafe-ai/sdk` 的 systemOne，baseURL 为 `https://openrouter.ai/api`（SDK 追加 `/v1/systemone`）、凭据为 OpenRouter API Key，requestedModel 固定 `typesafe/jev-1.14`（带作者前缀原样使用，不随 `~typesafe/jev-latest` 漂移）。请求/响应沿用 TypeSafe 形状（choice/probabilities、noul、`usage.input_tokens`）；响应 `model` 记为 modelVersion，响应体 `id` 作为 requestId，额外的 `provider`、`usage.cost` 不进入统一答案。精度沿用原生 adapter d=2（OpenRouter 直接转发 TypeSafe 答案），真实联调记录实际返回版本。控制台入口 `https://openrouter.ai/settings/keys`。[R13][R14]
 
 provider、protocol、endpoint和requestedModel是应用预设，不允许用户任填，不跨服务复用Key，不改成chat/completions。兼容路径地位见§6.2。[R1][R3][R7]
 
@@ -223,12 +240,12 @@ export const JEV_PROVIDERS = {
   openrouter: {
     protocol: 'typesafe-system-one',
     baseURL: 'https://openrouter.ai/api',
-    model: 'typesafe/jev-1.13',
+    model: 'typesafe/jev-1.14',
   },
   'vercel-gateway': {
     protocol: 'gateway-evaluate',
     endpoint: 'https://ai-gateway.vercel.sh/v1/evaluate',
-    model: 'typesafe-ai/jev',
+    model: 'typesafe-ai/jev-1.14.0',
     providerOptions: { gateway: { only: ['typesafe-ai'] } },
   },
 } as const;
@@ -376,11 +393,11 @@ type ParentRef =
 
 ### 9.2 数据集版本与旧版导入
 
-**计划事务从数据集 v3 起增加 createPlan 及多 ID 回执，不是 Jev 开关或 Key。** 当前读取器支持 v1–v6；旧格式按源版本约束验证，v3 起增加计划例外。旧操作 ID、requestHash、事件和回执保持原值；需要兼容字段时用非破坏的读取层，不重写过去的回执。
+**计划事务从数据集 v3 起增加 createPlan 及多 ID 回执，不是 Jev 开关或 Key。** 当前读取器支持 v1–v11；旧格式按源版本约束验证，v3 起增加计划例外，v11 起验证创建／补全组合。旧操作 ID、requestHash、事件和回执保持原值，不重写过去的回执。
 
-当前 exportDataset 使用 `storage/schema.ts` 的版本常量 v6，SQLite 读取同时检查 user_version；`transfer/dataset.ts`、备份读取与 datasetSchema 保持一致。不能把新数据标成旧版本或静默允许降级读取。[C8]
+当前 exportDataset 使用 `storage/schema.ts` 的版本常量 v11，SQLite 读取同时检查 user_version；`transfer/dataset.ts`、备份读取与 datasetSchema 保持一致。v11 保留创建／补全的不可变归属和整组撤销标记。不能把新数据标成旧版本或静默允许降级读取。[C8]
 
-**现行启动与恢复（v6）：** 启动只读探测版本；v1–v5 明确拒绝、原文件未修改且不创建保护副本。新库直接建 v6。原地升级分支不再启用；历史备份、JSON 与 SQLite v1–v6 仍可通过验证后整体恢复到新库，保留源版本验证、历史和回执；恢复更换代次并暂停顺延。设备 AI 配置不进入数据集。完整操作与错误边界见 [双日历模式](calendar-modes.md#48-兼容与升级)。
+**现行启动与恢复（v11）：** 启动先只读探测版本。v8–v10 创建并验证保护副本后，在事务内升级。v1–v7 保留源库，沿用用户确认保护副本与临时库替换的恢复流程。新库直接建 v11。历史 JSON/SQLite 按源版本验证，保留操作与回执；整库恢复更换代次并暂停顺延，取消所有旧请求。设备 AI 配置不进入数据集。完整操作边界见 [开发说明](../development.md)。
 
 ### 9.3 分开验收同代次撤销与跨代次恢复
 
@@ -519,6 +536,7 @@ type ParentRef =
 - [R10] [SQLite Online Backup API](https://www.sqlite.org/backup.html)、[WAL文件](https://www.sqlite.org/wal.html)和[Node sqlite](https://nodejs.org/api/sqlite.html)：DatabaseSync的readOnly选项、一致性备份及WAL依据。应在项目锁定的Electron/Node中验证只读源备份，不依赖宿主Node代替；readOnly打开失败不等于文件不存在。
 - [R11] [Vercel官方概率验证实现](https://github.com/vercel/ai/blob/21b2d6c3658bb397014bbcac4e7108468ce1f9e4/packages/ai/src/evaluate/validate-evaluation.ts)：已读回；d范围0–15、每项舍入误差0.5×10^-d、总和容差1e-6＋K×误差，choice最大值使用独立1e-6检查，保留供应商值。blob `879466122a7c93158011012a807bfc729a8b297c`。本规格只为派生熵使用归一化副本，不改原答案。
 - [R13] [OpenRouter Jev 文档](https://openrouter.ai/docs/guides/community/jev)、[TypeSafe SDK 指向 OpenRouter](https://openrouter.ai/docs/guides/community/typesafe-sdk)、[模型页](https://openrouter.ai/typesafe/jev-1.13)：System One API 基址、模型 ID 映射与响应附加字段；2026-09-25 读取。
+- [R14] [Jev 1.14 发布说明](https://typesafe.ai/blog/jev-1-14)：2026-10-16 升级的模型版本。OpenRouter 固定 `typesafe/jev-1.14`；AI Gateway 固定 `typesafe-ai/jev-1.14.0`。冻结双语／URL 样例和生产 matcher 的复跑入口见 [scripts/eval/capture](../../apps/desktop/scripts/eval/capture/README.md)。
 - [R12] [Vercel官方TypeSafe适配器](https://github.com/vercel/ai/blob/21b2d6c3658bb397014bbcac4e7108468ce1f9e4/packages/typesafe-ai/src/typesafe-ai-evaluation-model.ts)：已读回；声明原生响应两位概率/分数精度并校验Choice最多255项，blob `ea0926c520e9173226d3143d5f25353def140414`。这是有版本范围的适配器事实，不推断所有Gateway协议的缺省精度；本功能不因此新增对该包的依赖。
 
 官方源说明接口设计，不等于已使用真实账户验证。本版新增核对BackupManager、consistentBackup、Store.workspace、现有设置恢复通道、任务行焦点控件，以及R11/R12的舍入验证与适配器代码。其余渠道调用、HTTP元数据和平台行为仍按A01/A02及P05验证；未直接读到的网页不冒充本轮直接访问，独立规范演算不作为应用测试。

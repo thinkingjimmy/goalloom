@@ -12,7 +12,7 @@ import {
 } from '@goalloom/sync'
 import { consistentBackup } from '../../../apps/desktop/src/main/storage/backup/snapshot'
 import { openDatabase } from '../../../apps/desktop/src/main/storage/database'
-import { migrate, userVersion } from '../../../apps/desktop/src/main/storage/schema'
+import { migrate, schemaVersion, userVersion } from '../../../apps/desktop/src/main/storage/schema'
 import { Repository } from '../../../apps/desktop/src/main/workspace/repository'
 import { syncHost } from '../../../apps/desktop/src/main/sync/host'
 import type { CommandInput } from '../../../apps/desktop/src/shared/contracts/commands'
@@ -124,7 +124,7 @@ it('rejects device-local keys and creates the settings table once', () => {
   const db = openDatabase(':memory:')
   migrate(db)
   migrate(db)
-  expect(userVersion(db)).toBe(10)
+  expect(userVersion(db)).toBe(schemaVersion)
   expect(Number(db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name='sync_settings'").get()!.n)).toBe(1)
   db.prepare('INSERT INTO sync_settings (key, value, updatedAt, opId) VALUES (\'theme\', \'"dark"\', ?, ?)').run(now, randomUUID())
   migrate(db)

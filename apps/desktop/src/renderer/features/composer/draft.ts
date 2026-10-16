@@ -7,6 +7,7 @@
 import { planProblem } from '../../../domain/plan'
 import { mayParent } from '../../../domain/relations'
 import { plainLater } from '../../../domain/smart/segments'
+import { explicitlyReferences } from '../../../domain/smart/terms'
 import type { ParentRef } from '../../../shared/contracts/commands'
 import { horizons } from '../../../shared/contracts/values'
 import type { ItemHorizon } from '../../../shared/contracts/entities'
@@ -107,7 +108,8 @@ export function candidateInfo(candidates: Candidate[]): Map<string, ParentInfo> 
 export function planItems(drafts: EditableDraft[], parents: Map<string, ParentInfo>) {
   return drafts.map(draft => ({
     draftId: draft.id, title: draft.title.trim(), description: draft.description, dueDate: draft.due, horizon: draft.horizon, previewPeriodId: draft.horizon === 'later' ? null : draft.periods?.[draft.horizon].id ?? null, flowColor: draft.flowColor,
-    parentRefs: draft.parents.map((key): ParentRef => key.kind === 'draft' ? key : { kind: 'existing', itemId: key.itemId, expectedVersion: parents.get(key.itemId)!.version }),
+    parentRefs: draft.parents.map((key): ParentRef => key.kind === 'draft' ? key : { kind: 'existing', itemId: key.itemId, expectedVersion: parents.get(key.itemId)!.version,
+      ...(!draft.manual.includes('parents') && !parents.get(key.itemId)!.archived && !explicitlyReferences(`${draft.source ?? ''}\n${draft.description}`, parents.get(key.itemId)!.title) ? { automatic: true } : {}) }),
   }))
 }
 export function draftProblem(drafts: EditableDraft[], parents: Map<string, ParentInfo>, usedColors: number[]): string | null {

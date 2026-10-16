@@ -1,15 +1,18 @@
 /**
- * [INPUT]: OPENROUTER_API_KEY from the git-ignored .env.local; evalCases; the product's real planQuestions/adapter/buildPreview.
+ * [INPUT]: OPENROUTER_API_KEY from the git-ignored root .env.local, frozen cases and the production single-round planner.
  * [OUTPUT]: output/eval/smart-<timestamp>.{json,md}: per-case preview, expectation checks, question count and latency; exit code 1 on any failed check.
  * [POS]: Repeatable live evaluation of the smart-input pipeline against a real provider; never prints or stores the key or the request body.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { planQuestions, relationRound, type SmartContext } from '../../src/domain/smart/questions'
-import { buildPreview, taskSlots, type Round } from '../../src/domain/smart/preview'
+import type { SmartContext } from '../../src/domain/smart/questions'
+import type { Round } from '../../src/domain/smart/preview'
+import { matchingPlan, matchedPreview } from '../../src/domain/smart/matching'
+import type { Answer } from '../../src/domain/smart/distribution'
 import { systemOneAdapter, ProviderFailure, type Adapter } from '../../src/main/smart/providers'
 import type { Candidate, SmartPreview } from '../../src/shared/contracts/smart-input'
-import { sharedTerm } from '../../src/domain/smart/terms'
+import { randomUUID } from 'node:crypto'
+import { resolve } from 'node:path'
 import { currentPeriod, parseDate } from '../../src/domain/calendar'
 import { mapPeriodHorizons } from '../../src/shared/contracts/values'
 import { evalCases, type EvalCase } from './cases'
@@ -17,15 +20,14 @@ import { evalCases, type EvalCase } from './cases'
 
 
 async function key(): Promise<string> {
-  const line = (await readFile('.env.local', 'utf8')).split(/\r?\n/).find(row => row.startsWith('OPENROUTER_API_KEY='))
+  const line = (await readFile(resolve('../..', '.env.local'), 'utf8')).split(/\r?\n/).find(row => row.startsWith('OPENROUTER_API_KEY='))
   const value = line?.slice('OPENROUTER_API_KEY='.length).trim().replace(/^["']|["']$/g, '')
   if (!value) throw new Error('OPENROUTER_API_KEY missing in .env.local')
   return value
 }
 function context(item: EvalCase): SmartContext {
-  // Mirrors the product reader: a board goal reaches Jev when named in full or sharing a distinctive term.
+  // These fixture goals are the current board; all are eligible for judgement.
   const candidates: Candidate[] = (item.goals ?? []).map(goal => typeof goal === 'string' ? { title: goal, horizon: 'cycle' as const } : goal)
-    .filter(goal => item.text.includes(goal.title) || sharedTerm(item.text, goal.title) > 0 || (item.goals ?? []).every(row => typeof row === 'string'))
     .map((goal, index) => ({ ref: `g${index + 1}`, itemId: `goal-${goal.title}`, title: goal.title, status: 'todo', horizon: goal.horizon, archived: false, flowColor: null, version: 1, named: item.text.includes(goal.title) }))
   const observation = item.calendar ?? { mode: 'rolling', anchor: '2026-07-01', today: '2026-09-23', timezone: 'Asia/Shanghai', weekStart: 1 }
   const calendar = { id: 'eval', mode: observation.mode, cycleAnchor: observation.anchor, timezone: observation.timezone, weekStart: observation.weekStart }
@@ -36,16 +38,23 @@ function context(item: EvalCase): SmartContext {
 
 async function run(adapter: Adapter, apiKey: string, item: EvalCase) {
   const ctx = context(item)
-  const plan = planQuestions(ctx)
+  const request = { requestId: randomUUID(), draftSessionId: randomUUID(), inputRevision: 1, manualRevision: 0, generation: 'eval', providerRevision: 1, contextRevision: 1,
+    referenceTime: parseDate(ctx.referenceDate).toZonedDateTime(ctx.timezone).toInstant().toString(), text: item.text, parentHints: [] }
+  const plan = matchingPlan(ctx, request)
   if ('kind' in plan) return { error: plan.message }
   const calls: { questions: number; ms: number; inputTokens: number | null }[] = []
-  const call = async (state: typeof plan.state, questions: typeof plan.questions): Promise<Round> => {
+  const call = async (state: typeof plan.state, questions: typeof plan.core.questions): Promise<Round> => {
     const started = performance.now()
     const output = await adapter(apiKey, { state, questions, signal: AbortSignal.timeout(60_000) })
     calls.push({ questions: Object.keys(questions).length, ms: Math.round(performance.now() - started), inputTokens: output.meta.inputTokens })
     return { answers: output.answers, precision: output.precision }
   }
-  const first = await call(plan.state, plan.questions)
+  const rounds: Round[] = new Array(plan.batches.length)
+  let next = 0
+  await Promise.all(Array.from({ length: Math.min(2, plan.batches.length) }, async () => {
+    for (;;) { const index = next++; if (index >= plan.batches.length) return; const batch = plan.batches[index]!; rounds[index] = await call(batch.state, batch.questions) }
+  }))
+  const first = { answers: Object.assign({}, ...rounds.map(round => round.answers)) as Record<string, Answer>, precision: rounds[0]!.precision }
   // Contract violations are recorded per answer, so a rejected response stays diagnosable.
   const violations = Object.entries(first.answers).flatMap(([id, answer]) => {
     if (answer.type !== 'choice' || !answer.probabilities) return []
@@ -53,15 +62,10 @@ async function run(adapter: Adapter, apiKey: string, item: EvalCase) {
     return top - (answer.probabilities[answer.choice] ?? 0) > 1e-6 ? [`${id}: choice=${answer.choice} ${JSON.stringify(answer.probabilities)}`] : []
   })
   if (violations.length) console.log(`  ! ${item.id} choice-not-max: ${violations.join(' | ')}`)
-  let supplement: Parameters<typeof buildPreview>[3] = null
-  if (plan.deferredRelations) {
-    const next = relationRound(plan, taskSlots(plan, first), ctx.candidates, Object.keys(plan.questions).length)!
-    supplement = { pairs: next.pairs, round: Object.keys(next.questions).length ? await call(next.state, next.questions) : { answers: {}, precision: first.precision } }
-  }
-  const preview = buildPreview(ctx, plan, first, supplement)
+  const preview = matchedPreview(ctx, request, plan, first)
   // Raw choices for the slot-level questions make a wrong split diagnosable without re-running.
   const raw = Object.fromEntries(Object.entries(first.answers).filter(([id]) => /^(layout|role_|horizon_|infer_|due_|use_|rel_)/.test(id)).map(([id, answer]) => [id, answer.type === 'choice' ? `${answer.choice} ${JSON.stringify(answer.probabilities)}` : answer.probability]))
-  return { preview, calls, slots: plan.slots.map(slot => slot.text), raw }
+  return { preview, calls, slots: plan.core.slots.map(slot => slot.text), raw }
 }
 
 function check(item: EvalCase, preview: SmartPreview): string[] {
@@ -115,8 +119,8 @@ for (const item of evalCases.filter(row => !only.length || only.includes(row.id)
 const passed = results.filter(row => !row.failures.length).length
 const stamp = new Date().toISOString().replace(/[:.]/g, '-')
 await mkdir('output/eval', { recursive: true })
-await writeFile(`output/eval/smart-${stamp}.json`, JSON.stringify({ provider: 'openrouter', model: 'typesafe/jev-1.13', referenceDate: '2026-09-23', passed, total: results.length, results }, null, 2))
-const md = [`# Smart input eval ${stamp}`, '', `OpenRouter · typesafe/jev-1.13 · ${passed}/${results.length} passed`, '', '| case | result | drafts | calls (questions / ms) |', '| --- | --- | --- | --- |',
+await writeFile(`output/eval/smart-${stamp}.json`, JSON.stringify({ provider: 'openrouter', model: 'typesafe/jev-1.14', referenceDate: '2026-09-23', passed, total: results.length, results }, null, 2))
+const md = [`# Smart input eval ${stamp}`, '', `OpenRouter · typesafe/jev-1.14 · ${passed}/${results.length} passed`, '', '| case | result | drafts | calls (questions / ms) |', '| --- | --- | --- | --- |',
   ...results.map(row => `| ${row.id} | ${row.failures.length ? `✗ ${row.failures.join('; ')}` : '✓'} | ${'drafts' in row ? (row.drafts ?? []).map(d => `${d.title} [${d.horizon}${d.inferred ? ` → 推测 ${d.inferred}` : ''}${d.due ? ` · ${d.due}` : ''}]`).join(' / ') : ''} | ${'calls' in row ? (row.calls ?? []).map(c => `${c.questions}/${c.ms}`).join(', ') : ''} |`)].join('\n')
 await writeFile(`output/eval/smart-${stamp}.md`, md)
 console.log(`\n${passed}/${results.length} passed → output/eval/smart-${stamp}.md`)

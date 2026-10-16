@@ -80,7 +80,7 @@ renderer/
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # Role-aware flow menus with a single parent-panel heading, intrinsic choice width, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
-│   │   ├── QuickAdd.tsx     # Title-aligned input, flow choices, explicit-period/tail insertion, per-period drafts and expired-input recovery
+│   │   ├── QuickAdd.tsx     # Immediate continuous capture, shared background matching, explicit flow/period/insertion priority, period-keyed consent/drafts and expired-input recovery
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
 │   │   ├── period-labels.ts # Mode-aware adjacent/distant headings, natural Q/year lists and year-disambiguated anchored ranges
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排
@@ -122,6 +122,7 @@ renderer/
 │   ├── snapshot.ts         # 按身份/内容共享未变快照分支，忽略不可见核对变化
 │   ├── board-periods.ts    # Generation/selection/revision-isolated future reads, hidden selections, persisted manual outline order and shared candidates
 │   ├── session.ts          # 纯会话撤销成员、代次隔离、反馈去重
+│   ├── capture-input.ts    # Stable typing/submission request identity, provider/period revisions and draft-only cancellation
 │   ├── flows.ts            # Layout-aware board-ordered flow filters, topology/color caches and shared active graph/chain for relation lines and preview actions
 │   ├── completed-layout.ts # Default-inline completed-task layout, local persistence and remote preference application without echoes
 │   ├── device-prefs.ts     # Live remote display preferences and non-default local seed through the existing settings log

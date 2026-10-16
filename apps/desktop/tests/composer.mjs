@@ -199,3 +199,7 @@ try {
   console.log(JSON.stringify(record))
 } finally { await application.close(); await rm(profile, { recursive: true, force: true }) }
 await runColumnAdd(packaged)
+if (!packaged) {
+  await import('./auto-link-storage.mjs')
+  await import('./auto-link.mjs')
+}

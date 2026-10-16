@@ -1,7 +1,8 @@
 /**
  * [INPUT]: Untrusted sync payloads (formatVersion 1).
- * [OUTPUT]: A strict SyncOp. Canonical bytes are canonicalJson(op); payloadHash covers v, opId, deviceId, at and actions.
+ * [OUTPUT]: A strict SyncOp, including causal creation/completion and grouped undo. payloadHash covers canonicalJson(op).
  * [POS]: Protocol boundary shared by desktop, mobile and tests. Command replay is intentionally not this schema.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { canonicalJson } from './canonical'
@@ -60,6 +61,7 @@ export const actionSchema = z.discriminatedUnion('t', [
   }),
   z.strictObject({ t: z.literal('item.archive'), id, archivedAt: instant.nullable() }),
   z.strictObject({ t: z.literal('item.delete'), id }),
+  z.strictObject({ t: z.literal('item.undoCreate'), id, creationOperationId: z.uuid(), completionOperationIds: z.array(z.uuid()).max(8) }),
   z.strictObject({ t: z.literal('item.discardIfEmpty'), id, expectVersion: z.number().int().positive() }),
   z.strictObject({ t: z.literal('item.restore'), id, expectedDeleteOpId: id }),
   z.strictObject({ t: z.literal('item.rollover'), id, from: rolloverFromSchema, to: periodKeySchema, position: z.literal('append') }),
@@ -78,6 +80,7 @@ export const syncOpSchema = z.strictObject({
   deviceId: z.string().min(1).max(64),
   at: instant,
   actions: z.array(actionSchema).min(1).max(500),
+  creationOperationId: z.uuid().optional(),
 })
 
 export type PeriodKey = z.infer<typeof periodKeySchema>

@@ -25,8 +25,8 @@ export const providerCapabilities: Record<typeof aiProviders[number], readonly t
 export const featureCapability = { smart: 'jev', insight: 'chat' } as const
 // Fixed per provider and capability; main sends exactly these and Settings shows them read-only.
 export const providerModels = {
-  openrouter: { jev: 'typesafe/jev-1.13', chat: '~deepseek/deepseek-flash-latest' },
-  'vercel-gateway': { jev: 'typesafe-ai/jev', chat: 'deepseek/deepseek-v4.1-flash' },
+  openrouter: { jev: 'typesafe/jev-1.14', chat: '~deepseek/deepseek-flash-latest' },
+  'vercel-gateway': { jev: 'typesafe-ai/jev-1.14.0', chat: 'deepseek/deepseek-v4.1-flash' },
 } as const satisfies Record<typeof aiProviders[number], Partial<Record<typeof aiCapabilities[number], string>>>
 
 export const aiFailureKinds = ['account_verification_required', 'rate_limited', 'quota_exhausted', 'payment_required', 'authentication_failed', 'permission_denied', 'routing_policy', 'timeout', 'unavailable', 'malformed_response', 'request_failed', 'too_large', 'credential_unreadable', 'credential_unavailable', 'not_enabled'] as const

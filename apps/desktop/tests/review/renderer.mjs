@@ -252,7 +252,7 @@ try{
  await page.locator('.composer-plan').getByText(/Existing suggested parent/).waitFor()
  await page.locator('.composer-primary').click()
  await page.waitForFunction(()=>review.commands.length>0)
- assert.deepEqual(await page.evaluate(()=>review.commands.at(-1).items[0].parentRefs),[{kind:'existing',itemId:'parent-existing',expectedVersion:7}])
+ assert.deepEqual(await page.evaluate(()=>review.commands.at(-1).items[0].parentRefs),[{kind:'existing',itemId:'parent-existing',expectedVersion:7,automatic:true}])
  result.checks.push({case:'suggested-parent-metadata',version:7})
  // Failure cases: closing during a save retains submitted text; an old receipt
  // clears newer reopened input or failed input, or retains an old-generation draft.

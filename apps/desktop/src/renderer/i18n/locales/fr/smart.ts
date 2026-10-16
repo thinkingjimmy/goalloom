@@ -14,6 +14,7 @@ export const smartMessages: SmartCatalog = {
   placeholder: 'Notez une idée, une chose par ligne si vous voulez…',
   smartIdle: 'Jev organise dès que vous arrêtez de taper',
   smartPending: 'Jev organise…',
+  captureNow: 'Créer maintenant',
   providerChanged: 'La configuration du service a changé. Le contenu existant ne sera pas envoyé automatiquement au nouveau service.',
   resend: 'Envoyer au service actuel',
   saveLater: 'Enregistrer dans Later',

@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { writeFileSync, mkdtempSync, rmSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { migrate } from '../../src/main/storage/schema'
+import { migrate, schemaVersion } from '../../src/main/storage/schema'
 import { openDatabase, verifyDatabase } from '../../src/main/storage/database'
 import { Repository } from '../../src/main/workspace/repository'
 import { exportDataset, readSqliteDataset, replaceDataset } from '../../src/main/workspace/transfer/dataset'
@@ -150,7 +150,7 @@ function world(path = ':memory:') {
     assert.equal(restored.item(w.leaf).placement.nestingParentId, w.root); restored.db.close()
     w.db.close()
     const sqlite = await readSqliteDataset(path, w.now())
-    assert.equal(sqlite.schemaVersion, 10)
+    assert.equal(sqlite.schemaVersion, schemaVersion)
     assert.equal(sqlite.placements.find(p => p.itemId === w.leaf)!.nestingParentId, w.root)
     const reopened = openDatabase(path), repo = new Repository(reopened, { now: w.now })
     assert.equal(repo.store.item(w.leaf).placement.nestingParentId, w.root); reopened.close()
@@ -174,7 +174,7 @@ function world(path = ':memory:') {
     assert.deepEqual(readFileSync(legacyPath), original)
     await upgrade.commit(prepared.token)
     const upgraded = await readSqliteDataset(legacyPath, w.now())
-    assert.equal(upgraded.schemaVersion, 10)
+    assert.equal(upgraded.schemaVersion, schemaVersion)
     assert(upgraded.placements.every(p => !p.nestingParentId))
     checks.push('Validated JSON/SQLite round trips, restart, pre-v8 read-only startup, verified protective backup and explicit upgrade commit')
   } finally { rmSync(directory, { recursive: true, force: true }) }

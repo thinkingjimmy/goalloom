@@ -159,6 +159,62 @@ async function run(): Promise<void> {
   assert.equal(first.repo.store.item(other).title, 'Retry after storage recovery')
   assert.deepEqual(board(first), board(second))
   checks.push('Unknown storage errors roll back the entire batch and cursor; a later retry succeeds')
+
+  const capture = (title: string) => {
+    const generation = first.repo.store.workspace().generation
+    const request = { requestId: randomUUID(), draftSessionId: randomUUID(), inputRevision: 1, manualRevision: 0, generation, providerRevision: 1,
+      contextRevision: first.repo.store.workspace().revision, referenceTime: at, text: title, parentHints: [] }
+    const receipt = first.run({ type: 'create', title, horizon: 'later', smartCapture: { request, allowPlacement: true, allowParents: true } })
+    return { request, receipt }
+  }
+  const complete = (value: ReturnType<typeof capture>) => first.repo.execute({ type: 'completeCreation', operationId: randomUUID(), generation: first.repo.store.workspace().generation,
+    creationOperationId: value.receipt.operationId, requestId: value.request.requestId, itemId: value.receipt.itemId,
+    expectedVersion: value.receipt.capture!.itemVersion, expectedPlacementVersion: value.receipt.capture!.placementVersion,
+    selection: { horizon: 'day', previewPeriodId: first.repo.snapshot().periods.find(period => period.horizon === 'day')!.id,
+      parents: [{ itemId: parent, title: 'Shared monthly goal', horizon: 'month', parentIds: [] }] } })
+  const saved = capture('Async bilingual delivery 中文 URL https://example.test/delivery')
+  await push(first, alpha, bound); await push(second, beta, joined)
+  const completed = complete(saved)
+  assert(completed.changed && !completed.undoable)
+  await push(first, alpha, bound); await push(second, beta, joined)
+  assert.equal(second.repo.store.item(saved.receipt.itemId!).placement.horizon, 'day')
+  assert(second.repo.store.relations().some(edge => edge.childId === saved.receipt.itemId && edge.parentId === parent))
+  const peerEdit = second.repo.store.item(saved.receipt.itemId!)
+  second.run({ type: 'edit', itemId: peerEdit.id, expectedVersion: peerEdit.version, title: 'Peer text survives grouped undo', description: 'Peer notes', dueDate: null })
+  await push(second, beta, joined); await push(first, alpha, bound)
+  const undone = first.run({ type: 'undo', originalOperationId: saved.receipt.operationId })
+  assert.equal(undone.outcome, 'committed')
+  await push(first, alpha, bound); await push(second, beta, joined)
+  for (const machine of [first, second]) {
+    const item = machine.repo.store.item(saved.receipt.itemId!)
+    assert(item.deletedAt)
+    assert.equal(item.title, 'Peer text survives grouped undo')
+    assert.equal(item.placement.horizon, 'day')
+    assert(!machine.repo.store.relations().some(edge => edge.childId === item.id))
+  }
+  first.run({ type: 'restoreItem', itemId: saved.receipt.itemId!, expectedVersion: first.repo.store.item(saved.receipt.itemId!).version, deletionSource: undone.operationId })
+  await push(first, alpha, bound); await push(second, beta, joined)
+  assert(second.repo.store.relations().some(edge => edge.childId === saved.receipt.itemId && edge.parentId === parent))
+  assert.equal(second.repo.store.item(saved.receipt.itemId!).description, 'Peer notes')
+  checks.push('Encrypted late completion, grouped creation undo and scoped restore converge while preserving a later peer text edit')
+
+  const race = capture('Pending capture before a peer edit')
+  await push(first, alpha, bound); await push(second, beta, joined)
+  for (const title of ['Peer changed this', 'Pending capture before a peer edit']) {
+    const item = second.repo.store.item(race.receipt.itemId!)
+    second.run({ type: 'edit', itemId: item.id, expectedVersion: item.version, title, description: 'Manual notes win', dueDate: null })
+  }
+  await push(second, beta, joined)
+  const staleCompletion = complete(race)
+  assert(staleCompletion.changed, 'The offline writer has not seen the peer edit yet')
+  await push(first, alpha, bound); await push(second, beta, joined)
+  for (const machine of [first, second]) {
+    assert.equal(machine.repo.store.item(race.receipt.itemId!).placement.horizon, 'later')
+    assert.equal(machine.repo.store.item(race.receipt.itemId!).description, 'Manual notes win')
+    assert(!machine.repo.store.relations().some(edge => edge.childId === race.receipt.itemId))
+    assert.equal(machine.db.prepare('SELECT code FROM sync_conflicts WHERE opId=?').get(staleCompletion.operationId)?.code, 'revert_superseded')
+  }
+  checks.push('A remote edit and edit-back atomically reject stale automatic placement and parents')
   for (const machine of [first, second]) verifyDatabase(machine.db)
   assert.equal(Buffer.from(unhex(memoryCiphertext(world))).includes(Buffer.from(utf8('Shared monthly goal'))), false)
   checks.push('Both workspaces pass integrity/foreign-key checks; remote ciphertext does not contain task text')

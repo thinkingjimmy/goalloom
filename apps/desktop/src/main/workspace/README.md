@@ -18,6 +18,7 @@ workspace/
 │   ├── items.ts      # Setup/date guards, explicit creation, local automatic placement, root/group moves and atomic link placement
 │   ├── nesting.ts    # Guarded nest/unnest, inherited-parent materialization and combined outline/goal validation
 │   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
+│   ├── capture.ts    # Optional ready matches and late column/parent completion, guarded by creation identity, task versions and live periods
 │   ├── assistance.ts # Atomic guarded note rewrites (description-only v2 effects), legacy guidance/placement and receipt-first undo
 │   ├── lifecycle.ts  # Independent lifecycle, parent deletion promotion, non-stealing outline restore, guarded discard and unlink
 │   ├── undo.ts       # Owned-field inverses including atomic flow adoption/promotion, color/branch guards, events and holds
@@ -25,7 +26,7 @@ workspace/
 │   ├── ordering.ts   # Local root placement on creation/effective-parent changes and atomic arrangement of one current/future column
 │   └── settings.ts   # Six-horizon policy versions/non-retroactive boundaries, explicit resume and independent batch undo
 └── transfer/
-    ├── dataset.ts    # v1–v9 validation/export, legacy defaults and atomic replacement; upgrades retain source appearance, restores/reset retain target appearance
+    ├── dataset.ts    # v1-v11 validation/export, immutable capture groups and atomic replacement; upgrades retain source appearance, restores/reset retain target appearance
     ├── rows.ts       # 导出/恢复共用逐行 schema 与数量上限
     ├── files.ts      # worker 内受限 JSON 读取与一致视图的分块原子导出
     └── service.ts    # 源数据校验、预览/保护备份/持续维护/显式提交

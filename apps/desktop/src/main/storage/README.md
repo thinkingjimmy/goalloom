@@ -5,11 +5,11 @@
 ```text
 storage/
 ├── client.ts       # main 的请求关联、worker 故障隔离与退出排空
-├── worker.ts       # Serial RPC root for commands, current/future/live-past reads, immutable history, period-scoped reviews and transfer after guarded startup
-├── startup.ts      # Read-only version probe; legacy versions return an explicit recovery state, new databases initialize v9
-├── upgrade.ts      # Verified legacy copy, temporary v9 database preserving source appearance and confirmed atomic file handoff
+├── worker.ts       # Serial RPC root for guarded captures, bounded body-free goal labels, current/future/live-past reads, immutable history, period reviews and transfer
+├── startup.ts      # Read-only version probe; verified protection before v8-v10 upgrades to v11, explicit recovery for older sources
+├── upgrade.ts      # Verified legacy copy, temporary current-version database preserving source appearance and confirmed atomic file handoff
 ├── database.ts     # node:sqlite 连接、外键/WAL、同步事务与完整性校验
-├── schema.ts       # Schema v9 with two-level placements, guidance heads and v1/v2/v3 effects, six configurable rollover policies, DAG/placement/history constraints; no in-place upgrades
+├── schema.ts       # Schema v11, sync/nesting projections, immutable creation-completion ownership index and guarded additive upgrades
 ├── store.ts        # Bounded statements and body-free summaries, indexed outline children/neighbors, stable inheritedRelationId, versioned writes and receipts
 ├── atomic-json.ts  # 窗口偏好、分块导出、备份回执共用的 fsync/原子文件写入
 └── backup/
@@ -17,6 +17,6 @@ storage/
     └── manager.ts  # 工作区外回执、流式 hash、指纹复用日常校验、保护边界完整复核
 ```
 
-`worker.ts` 是本目录唯一装配 workspace 的入口；启动先由 `startup.ts` 以 readOnly 连接探测，v1–v8 不原地迁移；启动界面先让用户选择创建并校验保护副本，再明确确认临时 v9 新库替换。取消保留原库，副本保持可恢复。旧源也可通过 JSON/SQLite 导入读取；其余模块提供持久化能力，不调度业务命令。事务规则和恢复流程见 [workspace](../workspace/README.md)。备份副本名由受控代码生成，失败不删除旧副本；回执位于整库替换范围之外。
+`worker.ts` 是本目录唯一装配 workspace 的入口。`startup.ts` 先以 readOnly 连接探测；v8–v10 创建并验证保护副本后，在事务内升级至 v11。v1–v7 沿用显式恢复：用户确认保护副本后转换为临时当前版本数据库，再原子替换。取消保留原库，副本保持可恢复。JSON/SQLite 导入同时验证创建与补全的归属、净效果和整组撤销标记。事务规则见 [workspace](../workspace/README.md)。备份副本名由受控代码生成，失败不删除旧副本；回执位于整库替换范围之外。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

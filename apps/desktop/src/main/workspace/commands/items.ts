@@ -41,12 +41,22 @@ export function confirmSetup(context: Context, command: CommandOf<'confirmSetup'
 }
 
 export function createItem(context: Context, command: CommandOf<'create'>): boolean {
-  const parent = command.parentId ? context.store.item(command.parentId, command.expectedParentVersion ?? -1) : null
-  if (parent) assertAvailable(parent)
-  const horizonIssue = parent ? horizonProblem(parent.placement.horizon, command.horizon) : command.flowColor !== null && command.horizon === 'later' ? serverText().relations.laterEndpoint : null
+  const refs = [...(command.parentRefs ?? []), ...(command.parentId ? [{ itemId: command.parentId, expectedVersion: command.expectedParentVersion ?? -1 }] : [])]
+  const parents = [...new Map(refs.flatMap(ref => {
+    if ('automatic' in ref && ref.automatic) {
+      if (!context.store.db.prepare('SELECT 1 FROM items WHERE id=?').get(ref.itemId)) return []
+      const item = context.store.item(ref.itemId)
+      if (item.version !== ref.expectedVersion || item.deletedAt || item.archivedAt || item.status !== 'todo' || horizonProblem(item.placement.horizon, command.horizon)) return []
+      return [[item.id, item] as const]
+    }
+    const item = context.store.item(ref.itemId, ref.expectedVersion)
+    assertAvailable(item)
+    return [[item.id, item] as const]
+  })).values()]
+  const horizonIssue = parents.map(parent => horizonProblem(parent.placement.horizon, command.horizon)).find(Boolean) ?? (command.flowColor !== null && command.horizon === 'later' ? serverText().relations.laterEndpoint : null)
   if (horizonIssue) throw new DomainError('conflict', horizonIssue)
   if (command.flowColor !== null) {
-    if (parent) throw new DomainError('invalid', serverText().errors.parentFollowsFlow)
+    if (parents.length) throw new DomainError('invalid', serverText().errors.parentFollowsFlow)
     assertFlowColorFree(context, command.flowColor, null)
   }
   const id = randomUUID()
@@ -56,14 +66,14 @@ export function createItem(context: Context, command: CommandOf<'create'>): bool
     createdAt: context.now, updatedAt: context.now, version: 1, flowColor: command.flowColor,
     placement: { itemId: id, horizon: command.horizon, periodId: period?.id ?? null, sortKey: nextSortKey(context, command.horizon, period?.id ?? null, command.beforeId ?? null), version: 1, holdPeriodId: null } }
   context.store.insertItem(item)
-  const relation = parent ? newRelation(parent.id, id, context.now) : null
-  if (relation) context.store.saveRelation(relation)
-  if (parent) touch(context, parent)
+  const relations = parents.map(parent => newRelation(parent.id, id, context.now))
+  for (const relation of relations) context.store.saveRelation(relation)
+  for (const parent of parents) touch(context, parent)
   if (command.autoPlace && command.beforeId === undefined) placeByParent(context, item, false)
-  context.effects.push({ kind: 'create', itemId: id, status: statusGroup(item), horizon: command.horizon, periodId: period?.id ?? null, initialRelations: relation ? [relation.id] : [] })
+  context.effects.push({ kind: 'create', itemId: id, status: statusGroup(item), horizon: command.horizon, periodId: period?.id ?? null, initialRelations: relations.map(relation => relation.id) })
   context.store.event(command.operationId, context.now, 'created', null, item)
   context.itemId = id
-  context.label = parent ? serverText().labels.decompose : serverText().labels.create
+  context.label = parents.length ? serverText().labels.decompose : serverText().labels.create
   return true
 }
 

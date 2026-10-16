@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { openDatabase } from '../../src/main/storage/database'
-import { migrate } from '../../src/main/storage/schema'
+import { migrate, schemaVersion } from '../../src/main/storage/schema'
 import { Repository } from '../../src/main/workspace/repository'
 import { reconcile } from '../../src/main/workspace/reconcile'
 import { exportDataset, readSqliteDataset, replaceDataset } from '../../src/main/workspace/transfer/dataset'
@@ -86,7 +86,7 @@ for (const [mode, anchor, observation] of [
     run({ type: 'policy', horizon, mode: 'auto', expectedVersion: 3 })
     assert.equal(reconcile(repo), null, 'Re-enabling starts a new non-retroactive boundary')
     const data = exportDataset(repo.store, now)
-    assert.equal(data.schemaVersion, 10)
+    assert.equal(data.schemaVersion, schemaVersion)
     assert.equal(data.policies.length, 6)
     assert.deepEqual(validateImport(data, now), data)
     const missing = structuredClone(data); missing.policies.pop()

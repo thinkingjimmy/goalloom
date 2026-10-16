@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Workspace snapshot/calendar, visibility, the smart-input feature of useAi (switch, provider, revision, cooldown) and guarded submission.
- * [OUTPUT]: An input-method shaped composer: the text field, then one candidate strip — Jev's recommendation (↵ creates it), Tab to adjust drafts inline (T/D/P/E/M/⌫), ⌥↵ to keep the text as one Later; revision-aware previews and saves whose receipts survive closing the dialog.
- * [POS]: Workspace-scoped composer session; its modal unmounts while draft and in-flight save state remain owned here. Half-sure column and parent reads arrive already adopted (draft.ts); the rest stay doubts until chosen.
+ * [OUTPUT]: Immediate Enter capture, editable ready previews, explicit plain Later saves and revision-bound requests whose saved work survives closing.
+ * [POS]: Workspace-scoped composer session; draft.ts owns ready adjustments and main owns completion after a successful save.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
@@ -20,6 +20,7 @@ import { DraftRow, type RowMenu } from './DraftRow'
 import { JevBadge, Plan } from './Plan'
 import { doubts, mergeIntoPrevious } from './suggestions'
 import './composer.css'
+import { CaptureInput } from '../../state/capture-input'
 
 interface Props {
   snapshot: Snapshot; flows: Flows; ai: Ai; submit: (action: Action) => Promise<unknown>; busy: boolean; error: string | null; errorCode: string | null
@@ -48,7 +49,7 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
   // Adjust mode: one selected draft line, at most one open inline menu or title editor.
   const [adjusting, setAdjusting] = useState(false), [selected, setSelected] = useState<string | null>(null)
   const [menu, setMenu] = useState<RowMenu | null>(null), [editing, setEditing] = useState(false)
-  const session = useRef(crypto.randomUUID()), input = useRef(0), manual = useRef(0), field = useRef<HTMLTextAreaElement>(null), list = useRef<HTMLDivElement>(null)
+  const session = useRef(new CaptureInput()), input = useRef(0), manual = useRef(0), field = useRef<HTMLTextAreaElement>(null), list = useRef<HTMLDivElement>(null)
   const latestRequest = useRef<string | null>(null), alive = useRef(true), saving = useRef(false)
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
   const smartMode = enabled && consentRevision === status?.revision
@@ -63,13 +64,13 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
 
   useEffect(() => { alive.current = true; return () => {
     alive.current = false
-    void desktopApi().smart({ type: 'cancel', draftSessionId: session.current }).catch(() => null)
+    session.current.cancel()
   } }, [])
   useEffect(() => {
     if (open) return
     latestRequest.current = null
     setPhase({ kind: 'idle' }); setComposing(false); setAdjusting(false); setMenu(null); setEditing(false)
-    void desktopApi().smart({ type: 'cancel', draftSessionId: session.current }).catch(() => null)
+    session.current.cancel()
   }, [open])
   useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => { if (stateRef.current.text.trim()) event.preventDefault() }
@@ -80,8 +81,7 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
   const analyze = async () => {
     const value = text.trim()
     if (!open || !status || !smartMode || !value) return
-    const request = { requestId: crypto.randomUUID(), draftSessionId: session.current, inputRevision: input.current, manualRevision: manual.current, generation: snapshot.workspace.generation,
-      providerRevision: status.revision, contextRevision: snapshot.workspace.revision, referenceTime: snapshot.observedAt, text: value, parentHints: [] }
+    const request = session.current.request(snapshot, status.revision, value, input.current, manual.current)
     latestRequest.current = request.requestId
     const applicable = () => alive.current && contextRef.current.open && latestRequest.current === request.requestId && input.current === request.inputRevision && contextRef.current.contextKey === contextKey && contextRef.current.smartMode
     setPhase({ kind: 'pending' })
@@ -138,18 +138,33 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
   }
   const finish = () => {
     input.current++; manual.current++; latestRequest.current = null
+    session.current.rotate()
     setText(''); stateRef.current.text = ''; setDrafts([]); setRemoved([]); setParents(new Map()); setWarnings([])
     setPreviewText(null); setPreviewContext(null); setPhase({ kind: 'idle' }); setFallback(false); setProblem(null)
     setAdjusting(false); setSelected(null); setMenu(null); setEditing(false)
     setConsentRevision(enabled ? status!.revision : null)
     close()
   }
-  const saveLater = async () => {
+  const saveLater = async (complete = false) => {
     if (!plain || busy || saving.current) return
     const revision = input.current, manualRevision = manual.current
     saving.current = true
     try {
-      const result = await submit({ type: 'createPlan', items: [{ draftId: 'later', title: plain.title, description: plain.description, dueDate: null, horizon: 'later', previewPeriodId: null, parentRefs: [], flowColor: null }] })
+      const currentDraft = drafts.length === 1 ? drafts[0]! : null
+      const manualFields = currentDraft?.manual ?? []
+      const preservePlacement = manualFields.some(field => ['horizon', 'parents', 'flowColor'].includes(field))
+      const base = { draftId: 'later', title: manualFields.includes('title') ? currentDraft!.title : plain.title,
+        description: manualFields.includes('description') ? currentDraft!.description : plain.description,
+        dueDate: manualFields.includes('due') ? currentDraft!.due : null,
+        horizon: preservePlacement ? currentDraft!.horizon : 'later' as const,
+        previewPeriodId: preservePlacement && currentDraft!.horizon !== 'later' ? currentDraft!.periods?.[currentDraft!.horizon].id ?? null : null,
+        parentRefs: manualFields.includes('parents') && currentDraft ? planItems([currentDraft], parents)[0]!.parentRefs : [],
+        flowColor: manualFields.includes('flowColor') ? currentDraft!.flowColor : null }
+      const automatic = complete && smartMode && !!status && phase.kind !== 'failed' && !manualFields.some(field => ['title', 'description', 'parents', 'flowColor'].includes(field))
+      const result = await submit({ type: 'createPlan', items: [complete ? base : { draftId: 'later', title: plain.title, description: plain.description, dueDate: null, horizon: 'later', previewPeriodId: null, parentRefs: [], flowColor: null }],
+        ...(automatic ? { smartCapture: { request: session.current.request(snapshot, status.revision, text, input.current, manual.current),
+          allowPlacement: !manualFields.includes('horizon') && !manualFields.includes('parents') && !manualFields.includes('flowColor'),
+          allowParents: !manualFields.includes('parents') && !manualFields.includes('flowColor') } } : {}) })
       if (result && alive.current && revision === input.current && manualRevision === manual.current) finish()
     } finally { saving.current = false }
   }
@@ -175,10 +190,9 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
   const resend = () => { setConsentRevision(status!.revision); setPreviewText(null) }
   const total = drafts.length, lands = total === 1 ? drafts[0]!.horizon : null
   const primary: { label: string; run: () => void; ready: boolean } = fallback ? { label: t.fallbackConfirm, run: () => void saveLater(), ready: !!plain }
-    : !smartMode ? enabled ? { label: t.resend, run: resend, ready: !!plain } : { label: t.saveLater, run: () => void saveLater(), ready: !!plain }
+    : !smartMode ? { label: t.saveLater, run: () => void saveLater(), ready: !!plain }
     : canConfirm ? { label: total > 1 ? t.createCount(total) : lands && lands !== 'later' ? t.createTo(horizonNames[lands]) : t.saveLater, run: () => void confirm(), ready: true }
-    : failed ? { label: t.retry, run: () => void analyze(), ready: true }
-    : { label: t.smartPending, run: () => undefined, ready: false }
+    : { label: t.captureNow, run: () => void saveLater(true), ready: !!plain }
   const runPrimary = () => { if (primary.ready && !busy) primary.run() }
   const keepText = () => { if (smartMode && edited(drafts) > 0) setFallback(true); else void saveLater() }
 
@@ -237,8 +251,9 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
   else if (fallback) content = strip('plain', <><span className="cand-text">{t.fallbackBody(edited(drafts))}</span>{primaryButton}</>, hint('Esc', t.back))
   else if (!smartMode && !enabled) content = strip('plain', <><button type="button" className="cand-link" onClick={() => { close(); openSettings() }}>{t.connectJev} →</button>{primaryButton}</>,
     null, plain?.description ? <p className="cand-note">{t.descriptionKept}</p> : undefined)
-  else if (!smartMode) content = strip('plain', <><span className="cand-text" role="status">{t.providerChanged}</span>{primaryButton}</>, keepHint)
+  else if (!smartMode) content = strip('plain', <><span className="cand-text" role="status">{t.providerChanged}<button type="button" className="cand-link" onClick={resend}>{t.resend}</button></span>{primaryButton}</>, keepHint)
   else if (failed && !canConfirm) content = strip('failed', <><JevBadge /><span className="cand-text" role="alert">{failed.message}</span>
+    <button type="button" className="cand-link" onClick={() => void analyze()}>{t.retry}</button>
     {consoleFailures.includes(failed.kind) && provider && <button type="button" className="cand-link" onClick={() => ai.openConsole(provider)}>{t.getKey}</button>}{primaryButton}</>, keepHint)
   else if (hasPlan && adjusting) content = strip('jev', <><JevBadge /><span className="cand-text">{t.adjustHeading}</span>{primaryButton}</>,
     <>{hint('↑↓', t.hintSelect)}{hint('T D P', t.hintFields)}{hint('E', t.hintEdit)}{hint(formatCombo('Backspace'), t.hintRemove)}{hint('Esc', t.back)}</>,
@@ -250,7 +265,7 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
     </div>)
   // While a newer text is being organized, the last recommendation stays (dimmed) instead of flickering away.
   else if (hasPlan) content = strip(current ? 'jev' : 'stale', <><JevBadge /><div className="cand-text"><Plan drafts={drafts} parents={parents} /></div>{primaryButton}</>, <>{hint('Tab', t.adjust)}{keepHint}</>)
-  else content = strip('jev', <><JevBadge /><span className="cand-text cand-pending" role="status"><span className="cand-skeleton" /><span className="cand-skeleton" data-long="true" /></span><span className="cand-state">{t.smartPending}</span></>, keepHint)
+  else content = strip('jev', <><JevBadge /><span className="cand-text cand-pending" role="status"><span className="cand-skeleton" /><span className="cand-skeleton" data-long="true" /></span>{primaryButton}</>, <><span className="cand-state">{t.smartPending}</span>{keepHint}</>)
 
   if (!open) return null
   return <Modal title={t.composer} close={close} className="palette composer-modal"

@@ -7,13 +7,14 @@ contracts/
 ├── values.ts     # Seven ordered horizons, six period/policy horizons, anchored subsets and the shared next-horizon map
 ├── entities.ts   # 工作区、rolling/natural 日历、实体 summary/detail、唯一位置与 nestingParentId、DAG 边和周期 schema
 ├── wire-calendar.ts # Gregorian 日期与 IANA 时区的轻量边界校验，不引入 Temporal
-├── commands.ts   # Finite writes including guarded empty-title discard, expected-date setup, opt-in link adoption, outline nest/unnest, explicit insertion, opt-in placement, period-scoped arrangement and receipts
+├── commands.ts   # Public finite writes, optional capture refs/automatic parents and immutable guards; internal-only completeCreation, scoped undo and explicit placement
+├── capture.ts    # Shared input revisions/explicit target, capture intent, transaction-created guards and bounded semantic completion selections
 ├── assistance.ts # Strict Markdown rewrite/guidance outputs, full echoes, bounded context and dependency guards
 ├── execution.ts  # Per-metric quality, authoritative pressure and frozen activity cursor DTOs
 ├── insight-preferences.ts # Shared leaf preference schema for existing and new writing paths
 ├── effects.ts    # Immutable relation-owned adoption/promotion color deltas and body-free events plus v2 guidance/description and v3 nesting/group-placement effects for precise undo
 ├── history.ts    # Strict events, immutable period-end projections/activity and separate revision-bound live past-task pages
-├── transfer.ts   # v1–v9 datasets with guidance/tombstones with up to six policies, adoption/promotion effect whitelist, backup/restore/reset confirmations and batch DTOs
+├── transfer.ts   # v1–v11 datasets, immutable capture/completion receipts and grouped inverses, guidance/nesting, backup/restore/reset confirmations and batch DTOs
 ├── smart-input.ts # Jev 服务、设备状态、六尺度周期 / child-only 起草 DTO、智能动作与修订回声
 ├── link-preview.ts # Strict public link preview/open actions and bounded inert metadata; lightweight syntax lives in ../links.ts
 ├── queries.ts    # Up to six selected periods, effective topology and hidden-parent context, generation-guarded reviewContext/pastPeriod pages, detail dependency guards/assisted notes, immutable history and counts

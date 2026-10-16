@@ -1,7 +1,7 @@
 /**
  * [INPUT]: The user's source text and one existing item title.
- * [OUTPUT]: sharedTermText: the longest distinctive term both contain (Latin word ≥4 letters or CJK run ≥4 chars) or null; sharedTerm: its length, 0 if none.
- * [POS]: Deterministic candidate discovery for smart input; decides which goals Jev may see, never whether they are parents.
+ * [OUTPUT]: Shared distinctive terms and an exact explicit parent-reference check.
+ * [POS]: Lightweight text helpers; lexical overlap never decides automatic goal membership.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 const latin = /[A-Za-z][A-Za-z0-9+#.-]{3,}/g
@@ -21,3 +21,11 @@ export function sharedTermText(text: string, title: string): string | null {
   return best
 }
 export function sharedTerm(text: string, title: string): number { return sharedTermText(text, title)?.length ?? 0 }
+export function explicitlyReferences(text: string, title: string): boolean {
+  const prose = text.replace(/https?:\/\/[^\s<>「」“”]+/g, ' ')
+  const pattern = new RegExp(`(?:关联|属于|归入|归到|加入|挂到|\\blink\\s+to|\\bput\\s+under)\\s*[「『“"']?${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[」』”"'\\s，,。；;.!?])`, 'gi')
+  return [...prose.matchAll(pattern)].some(match => {
+    const prefix = prose.slice(Math.max(0, match.index - 24), match.index).split(/[，,。.!?;；\n]/).at(-1) ?? ''
+    return !/(?:不|未|无|没有|无需|拒绝|别|勿).{0,8}$|(?:do\s+not|don't|not|never)\s+(?:\w+\s+){0,3}$/i.test(prefix)
+  })
+}

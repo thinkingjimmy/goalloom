@@ -18,7 +18,7 @@
 Zod schema: `packages/contracts/src/sync-op.ts`. A payload that fails the schema is not applied.
 
 ```ts
-{ v: 1, opId: uuid, deviceId: string, at: iso, actions: Action[] }
+{ v: 1, opId: uuid, deviceId: string, at: iso, actions: Action[], creationOperationId?: uuid }
 ```
 
 `at` is display and injection time. It is not a sort key. Server order is `seq`.
@@ -34,6 +34,7 @@ Actions (one user command is one atomic op):
 | `item.nest` | Set or clear `nestingParentId` and the resulting horizon, period and sort. `parentId` null makes the task independent. |
 | `item.archive` | `archivedAt` set or cleared. |
 | `item.delete` / `item.restore` | Soft delete. Restore requires `expectedDeleteOpId`. |
+| `item.undoCreate` | Delete a creation group after checking its `creationOperationId`, `completionOperationIds`, net placement, lifecycle and owned edges. All members are checked before any write. |
 | `item.discardIfEmpty` | Delete only when the domain empty-card predicate matches `expectVersion`. |
 | `item.rollover` | System op. Deterministic UUIDv5. See rollover below. |
 | `rel.link` / `rel.unlink` | Edge id is allocated on the writer and copied into the action. |
@@ -50,6 +51,8 @@ Local commands run first. The SyncOp is the diff plus the intent, written in the
 | --- | --- | --- |
 | `confirmSetup` | `calendar.setup` | `apps/desktop/tests/integration/sync-emit.test.ts` (setup row exists before other actions) |
 | `create` / `createPlan` | one SyncOp: `item.create` and, when a parent edge was inserted, `rel.link` | sync-emit create; `apps/desktop/tests/integration/sync-emit-commands.test.ts` |
+| `completeCreation` | `item.place` / `rel.link`, with top-level `creationOperationId`. No model request or write command is synced | `tests/fixtures/sync-replay.ts` |
+| `undo` of a captured creation | one atomic op with `item.undoCreate` per created item, referencing its creator and completions. Keep queued creator/completion ops even when never sent | `tests/fixtures/sync-replay.ts` |
 | `edit` | `item.set` with only the changed fields | sync-emit “field diff” |
 | `flowColor` | `item.set` flowColor | sync-emit “maps move, colour…” |
 | `move` | `item.place` reason `move`. A child leaving its group is `item.nest` (parent cleared) plus `rel.link` for each materialized goal edge, then `item.place`. Live children that follow a root are extra `item.place` actions in the same op and keep their parent | sync-emit move; sync-emit nesting |
@@ -79,6 +82,8 @@ Week start, timezone, calendar mode and the cycle anchor stay on `calendar.setup
 These stay on the device: window size and position, the sync refresh token and session tokens, device id, the sync password and every key derived from it, clock anomaly, restore pause, workspace generation, review drafts and summary cache, dismissed notices, insight reviewed / dismissed / onboarded marks, and the link preview cache.
 
 ## Send states
+
+Automatic creation completion is causal. `undo-create.ts` requires the referenced creation, an independent live todo with its original item/placement guards, and only placement/parent-link actions. An intervening peer edit, including edit-back, rejects the entire completion. `item.undoCreate` validates the combined creator/completion effect and allows unrelated text edits; it rejects lifecycle, placement, outline or relation conflicts. Local creation and completion receipts remain immutable. The grouped undo has one user-visible history entry; its delete provenance lets scoped restore recover the final placement and eligible edges. Encrypted two-peer evidence is in `output/tests/sync-replay/`.
 
 `never_sent → send_unknown → accepted → applied`, plus `reverted_local` and `quarantined`.
 

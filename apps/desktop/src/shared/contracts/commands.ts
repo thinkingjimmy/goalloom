@@ -9,6 +9,7 @@ import { dateSchema, flowColorSchema, horizonSchema, idSchema, statusSchema, the
 import { validationText } from '../i18n/validation'
 import { calendarModes, policyHorizons } from './values'
 import { assistanceGuardSchema, guidanceChangeSchema } from './assistance'
+import { captureGuardSchema, creationSelectionSchema, smartCaptureSchema } from './capture'
 
 const envelope = { operationId: idSchema, generation: idSchema }
 const target = { itemId: idSchema, expectedVersion: z.number().int().positive() }
@@ -24,13 +25,13 @@ export type CreatePeriodTarget = z.infer<typeof createPeriodTargetSchema>
 export type MovePeriodTarget = z.infer<typeof movePeriodTargetSchema>
 // Existing parents carry the version confirmed in the preview; draft parents only reference this batch.
 export const parentRefSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('existing'), itemId: idSchema, expectedVersion: z.number().int().positive() }),
+  z.strictObject({ kind: z.literal('existing'), itemId: idSchema, expectedVersion: z.number().int().positive(), automatic: z.boolean().optional() }),
   z.strictObject({ kind: z.literal('draft'), draftId: idSchema }),
 ])
 export type ParentRef = z.infer<typeof parentRefSchema>
 export const planItemSchema = z.strictObject({
   draftId: idSchema, title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null),
-  horizon: horizonSchema, previewPeriodId: idSchema.nullable(), parentRefs: z.array(parentRefSchema).max(16).default([]), flowColor: flowColorSchema.nullable().default(null),
+  horizon: horizonSchema, previewPeriodId: idSchema.nullable(), parentRefs: z.array(parentRefSchema).max(500).default([]), flowColor: flowColorSchema.nullable().default(null),
   // Absent = the current period; a date target lets a review write straight into the next week or month.
   period: createPeriodTargetSchema.optional(),
 })
@@ -51,8 +52,8 @@ export const commandSchema = z.discriminatedUnion('type', [
     .refine(value => value.description === undefined || !!value.guard && !!value.contextId && value.guidance.kind === 'keep' && !value.move)
     .refine(value => value.guidance.kind !== 'set' || value.guidance.value.authorship !== 'ai_assisted' || !!value.guard && !!value.contextId),
   z.strictObject({ ...envelope, type: z.literal('confirmSetup'), mode: z.enum(calendarModes), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), anchor: setupAnchorSchema, confirmed: z.literal(true) }),
-  z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null), autoPlace: z.boolean().optional(), beforeId: idSchema.nullable().optional() }),
-  z.strictObject({ ...envelope, type: z.literal('createPlan'), items: z.array(planItemSchema).min(1).max(planLimit), autoPlace: z.boolean().optional() }),
+  z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null), autoPlace: z.boolean().optional(), beforeId: idSchema.nullable().optional(), parentRefs: z.array(parentRefSchema.options[0]).max(500).optional(), smartCapture: smartCaptureSchema.optional() }),
+  z.strictObject({ ...envelope, type: z.literal('createPlan'), items: z.array(planItemSchema).min(1).max(planLimit), autoPlace: z.boolean().optional(), smartCapture: smartCaptureSchema.optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('edit'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000), dueDate: dateSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), keepNesting: z.literal(true).optional(), group: z.literal(true).optional() }),
@@ -75,9 +76,17 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('backupPreferences'), enabled: z.boolean(), retention: z.number().int().min(1).max(100) }),
   z.strictObject({ ...envelope, type: z.literal('undoBatch'), originalOperationId: idSchema }),
 ])
-export type Command = z.infer<typeof commandSchema>
+// Completion can only enter through main's internal storage RPC, never renderer execute().
+export const internalCommandSchema = z.discriminatedUnion('type', [
+  ...commandSchema.options,
+  z.strictObject({ ...envelope, type: z.literal('completeCreation'), itemId: idSchema, expectedVersion: z.number().int().positive(), expectedPlacementVersion: z.number().int().positive(), creationOperationId: idSchema, requestId: z.uuid(), selection: creationSelectionSchema }),
+])
+export type Command = z.infer<typeof internalCommandSchema>
 export type CommandInput = z.input<typeof commandSchema>
 export type CommandOf<T extends Command['type']> = Extract<Command, { type: T }>
+export function isCaptureCommand(command: Command): command is (CommandOf<'create'> | CommandOf<'createPlan'>) & { smartCapture: NonNullable<CommandOf<'create'>['smartCapture']> } {
+  return (command.type === 'create' || command.type === 'createPlan') && !!command.smartCapture
+}
 export const resultSchema = z.strictObject({
   operationId: idSchema, generation: idSchema, changed: z.boolean(), undoable: z.boolean(),
   outcome: z.enum(['committed', 'conflict_skipped']), itemId: idSchema.nullable(),
@@ -85,6 +94,7 @@ export const resultSchema = z.strictObject({
   originalOperationId: idSchema.nullable(),
   // Plan receipts only: ordered topological item IDs; absent on every other operation.
   itemIds: z.array(idSchema).max(planLimit).optional(),
+  capture: captureGuardSchema.optional(), creationOperationId: idSchema.optional(), captureRequestId: z.uuid().optional(),
 })
 export type CommandResult = z.infer<typeof resultSchema>
 export class DomainError extends Error {

@@ -55,12 +55,13 @@ import { reviewTarget, type ReviewDue } from '../insight/review'
 import '../insight/review.css'
 import { useInsightSettings } from '../../state/insight'
 import type { ComposerSeed } from '../composer/Seeded'
+import type { Ai } from '../../state/ai'
 
 export interface AddRequest { seq: number; horizon: ItemHorizon | null; split: SplitParent | null }
 export interface BoardInsight { assist?: (itemId: string) => void; ready: boolean; seed: (seed: Omit<ComposerSeed, 'key'>) => void; due: ReviewDue[]; started: ReviewDue | null; reviewed: string[]; review: (due: ReviewDue) => void; dismiss: (due: ReviewDue) => void }
-interface BoardProps { snapshot: Snapshot; view: BoardView; flows: Flows; filter: string | null; columns: ItemHorizon[]; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void; insight: BoardInsight; write: PreparedWrite; relationBlocked: boolean; onError: (message: string) => void }
+interface BoardProps { snapshot: Snapshot; view: BoardView; flows: Flows; filter: string | null; columns: ItemHorizon[]; highlighted: string | null; addRequest: AddRequest | null; submit: (action: Action) => Promise<unknown>; busy: boolean; select: (id: string) => void; insight: BoardInsight; write: PreparedWrite; relationBlocked: boolean; onError: (message: string) => void; ai?: Ai | undefined }
 
-export const Board = memo(function Board({ snapshot, view, flows, filter, columns, highlighted, addRequest, submit, busy, select, insight, write, relationBlocked, onError }: BoardProps) {
+export const Board = memo(function Board({ snapshot, view, flows, filter, columns, highlighted, addRequest, submit, busy, select, insight, write, relationBlocked, onError, ai }: BoardProps) {
   useLocale()
   useEffect(() => { if (highlighted) { const frame = requestAnimationFrame(() => revealRow(highlighted)); return () => cancelAnimationFrame(frame) } }, [highlighted])
   const drag = useBoardDrag({ snapshot, view, columns, busy, submit })
@@ -134,7 +135,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const displayed = useMemo(() => ({ ...snapshot, periods: Object.values(view.periods), items: view.items }), [snapshot, view.periods, view.items])
   const empty = useMemo(() => emptyColumns(displayed, columns, view.mode), [displayed, columns, view.mode])
   const column = (horizon: ItemHorizon) => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!} visible={columns.includes(horizon)}
-    snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select}
+    snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select} ai={ai}
     onNest={setNestingItemId} dragging={dragging} relationSource={relationDrag.sourceId} editingId={editingId} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
     adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? (horizon === 'later' || horizon === 'year' ? undefined : empty.get(horizon)) ?? null : null} />
   return <RelationDragContext.Provider value={relationDrag.actions}><DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: event => event.over ? messages.dragEnded : messages.dragCancelled, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
@@ -154,7 +155,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   </DndContext></RelationDragContext.Provider>
 })
 
-const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, relationSource, editingId, beginEdit, endEdit, renameTitle, insight, sources, onNest }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
+const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, relationSource, editingId, beginEdit, endEdit, renameTitle, insight, sources, onNest, ai }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
   sources: ItemSummary[] | null
   active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
   horizon: ItemHorizon; items: ItemSummary[]; today: string; visible: boolean
@@ -353,7 +354,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
               const draft = drafts.current.get(adding.period?.id ?? 'later')
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
               setAdding(true, adding.beforeId === null)
-            }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} />}
+            }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} snapshot={snapshot} ai={ai} />}
           {collapseCompleted && done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} render={row} />}</details>}
         </SortableContext>
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} onWrite={openAdd} />}

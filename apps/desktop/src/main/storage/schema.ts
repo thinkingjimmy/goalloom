@@ -1,6 +1,6 @@
 /**
- * [INPUT]: A new or current-version SQLite database. v8 and Phase 0 v9 files upgrade in place after the caller has taken a backup. Older files stay read-only until confirmed recovery.
- * [OUTPUT]: Atomic schema v10: the v9 sync projection and base_* shadow, plus two-level nesting mirrored onto those shadow tables. sync_settings is added with IF NOT EXISTS and does not change user_version.
+ * [INPUT]: A new/current SQLite database, or a v8-v10 source with a verified protective backup. Older files require confirmed recovery.
+ * [OUTPUT]: Atomic schema v11, retaining sync/nesting projections and indexing immutable creation-completion receipt ownership.
  * [POS]: Sole production DDL owner. Statements come from @goalloom/schema so they do not depend on node:sqlite types.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,9 +12,9 @@ import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { transaction } from './database'
 import { serverText } from '../../shared/i18n/server'
 
-export const schemaVersion = 10
-export const supportedVersions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-export const upgradableVersions = [8, 9]
+export const schemaVersion = 11
+export const supportedVersions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+export const upgradableVersions = [8, 9, 10]
 export const requiredTables = ['workspace', 'items', 'item_placements', 'planning_periods', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects', 'schema_migrations']
 const syncTables = ['sync_ops', 'sync_state', 'sync_conflicts', 'canon_ops', 'canon_changes']
 export function sourceTables(version: number, present?: readonly string[]): string[] {
@@ -46,6 +46,7 @@ export function migrate(db: DatabaseSync): void {
     transaction(db, () => installFromV9(db))
     return
   }
+  if (version === 10) { transaction(db, () => finish(db)); return }
   throw new Error(serverText().storage.unsupportedDatabase)
 }
 
@@ -142,6 +143,7 @@ CREATE INDEX events_to_period ON item_events(toPeriodId,itemId,seq);
 
 function finish(db: DatabaseSync): void {
   ensureSyncSettings(db)
+  db.exec("CREATE INDEX IF NOT EXISTS operations_creation_completion ON operations(json_extract(result,'$.creationOperationId')) WHERE kind='completeCreation'")
   db.prepare('INSERT INTO schema_migrations VALUES (?, ?)').run(schemaVersion, new Date().toISOString())
   db.exec(`PRAGMA user_version = ${schemaVersion}`)
   const integrity = db.prepare('PRAGMA integrity_check').all()

@@ -29,6 +29,14 @@ export function createSmartService(directory: string, storage: () => StorageClie
     store: new DeviceStore(directory, deviceCipher), reader: storageReader(storage),
     adapters: { 'vercel-gateway': gatewayAdapter(), openrouter: systemOneAdapter('openrouter') }, chat: { openrouter: chatAdapter('openrouter'), 'vercel-gateway': chatAdapter('vercel-gateway') },
     unsignedBuild: process.platform === 'darwin' && !app.isPackaged, openExternal: url => { void shell.openExternal(url) },
+    completeCreation: async command => {
+      try { return await storage().call('command', command) }
+      catch (error) {
+        const receipt = await storage().call<import('../../shared/contracts/commands').CommandResult | null>('query', { type: 'receipt', operationId: command.operationId, generation: command.generation }).catch(() => null)
+        if (receipt) return receipt
+        throw error
+      }
+    },
     ...(onSyncedSettings ? { onSyncedSettings } : {}),
   })
 }

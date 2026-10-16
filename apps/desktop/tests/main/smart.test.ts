@@ -24,15 +24,15 @@ const input = (): EvaluateInput => ({ state: { text: '今天写文案' }, signal
 const header = (init: RequestInit, name: string) => new Headers(init.headers).get(name)
 
 describe('两渠道 adapter', () => {
-  it('OpenRouter：System One 形状发往 openrouter.ai/api、固定 typesafe/jev-1.13；requestId 取响应 id，402 归为付费', async () => {
+  it('OpenRouter uses System One with Jev 1.14, response request identity and payment errors', async () => {
     const { fetch, calls } = fakeFetch(() => json({ id: 'gen-dec-1', model: 'typesafe/jev-1.13-20260917', provider: 'TypeSafe', answers: { horizon: { type: 'choice', choice: 'day', confidence: 0.9, probabilities: { day: 0.97, later: 0.03 } }, task: { type: 'noul', noul: 0.98 } }, usage: { input_tokens: 275, output_tokens: 20, cost: 0.00003 } }))
     const output = await systemOneAdapter('openrouter', fetch)('or-key-CCCC', input())
     expect(calls[0]!.url).toBe('https://openrouter.ai/api/v1/systemone')
-    expect(calls[0]!.body.model).toBe('typesafe/jev-1.13')
+    expect(calls[0]!.body.model).toBe('typesafe/jev-1.14')
     expect(header(calls[0]!.init, 'authorization')).toContain('or-key-CCCC')
     expect(calls[0]!.body.questions).toMatchObject({ task: { type: 'noul' } })
     expect(output.answers.task).toEqual({ type: 'boolean', probability: 0.98 })
-    expect(output.meta).toEqual({ requestedModel: 'typesafe/jev-1.13', routingCanonicalSlug: null, modelVersion: 'typesafe/jev-1.13-20260917', inputTokens: 275, requestId: 'gen-dec-1' })
+    expect(output.meta).toEqual({ requestedModel: 'typesafe/jev-1.14', routingCanonicalSlug: null, modelVersion: 'typesafe/jev-1.13-20260917', inputTokens: 275, requestId: 'gen-dec-1' })
     const paid = await systemOneAdapter('openrouter', fakeFetch(() => json({ error: { code: 402, message: 'Insufficient credits' } }, 402)).fetch)('or-key-CCCC', input()).catch((error: ProviderFailure) => error.failure)
     expect(paid).toMatchObject({ kind: 'payment_required', status: 402, message: expect.stringContaining('OpenRouter') })
   })
@@ -40,7 +40,7 @@ describe('两渠道 adapter', () => {
     const { fetch, calls } = fakeFetch(() => json({ model: 'typesafe-ai/jev', answers: { horizon: { type: 'choice', choice: 'day', probabilities: { day: 0.97, later: 0.03 } }, task: { type: 'boolean', probability: 0.98 } }, rounding: { probabilityDecimals: 2 }, usage: { inputTokens: 275 }, providerMetadata: { gateway: { routing: { canonicalSlug: 'typesafe-ai/jev', finalProvider: 'typesafe-ai' }, generationId: 'gen_1' } } }))
     const output = await gatewayAdapter(fetch)('gw-key-BBBB', input())
     expect(calls[0]!.url).toBe('https://ai-gateway.vercel.sh/v1/evaluate')
-    expect(calls[0]!.body).toMatchObject({ model: 'typesafe-ai/jev', providerOptions: { gateway: { only: ['typesafe-ai'] } }, questions: { task: { type: 'boolean' } } })
+    expect(calls[0]!.body).toMatchObject({ model: 'typesafe-ai/jev-1.14.0', providerOptions: { gateway: { only: ['typesafe-ai'] } }, questions: { task: { type: 'boolean' } } })
     expect(JSON.stringify(calls[0]!.body)).not.toContain('zeroDataRetention')
     expect(header(calls[0]!.init, 'authorization')).toBe('Bearer gw-key-BBBB')
     expect(output.precision).toEqual({ decimals: 2, source: 'response' })
@@ -339,7 +339,7 @@ describe('判断流程', () => {
     await analyze(request('推进 Parent'))
     candidates = [{ ...parent, version: 2 }]
     const second = await analyze(request('推进 Parent'))
-    expect(calls).toHaveLength(2)
+    expect(calls).toHaveLength(4)
     expect(second.status === 'ready' && second.preview.candidates[0]!.version).toBe(2)
   })
   it('8 项计划：核心一轮后按分组发一次具名补充，预览题数等于实际发送', async () => {

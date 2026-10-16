@@ -9,7 +9,8 @@ import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { z, ZodError } from 'zod'
 import { locales } from '../../shared/i18n/locale'
-import { DomainError } from '../../shared/contracts/commands'
+import { commandSchema, DomainError } from '../../shared/contracts/commands'
+import { creationSelectionSchema } from '../../shared/contracts/capture'
 import { querySchema } from '../../shared/contracts/queries'
 import type { DatabaseSync } from 'node:sqlite'
 import { openWorkspace, StartupError } from './startup'
@@ -56,9 +57,17 @@ function handle(method: string, argument: unknown): unknown {
   if (!startup.ok) { if (method === 'close') return null; throw new DomainError('startup', startup.message) }
   if (method === 'close') { db.close(); return null }
   if (method === 'candidate') return repository.store.summaries('i.id=?', [z.string().max(180).parse(argument)])[0] ?? null
+  if (method === 'candidateLabels') {
+    const ids = z.array(z.string().max(180)).max(1000).parse(argument)
+    return db.prepare('SELECT id AS itemId,title FROM items WHERE deletedAt IS NULL AND id IN (SELECT value FROM json_each(?))').all(JSON.stringify(ids))
+  }
   if (method === 'metadata') return { ...repository.metadata(), backupError: service.backups.lastError }
   if (method === 'runtime') return { sqlite: String(db.prepare('SELECT sqlite_version() AS version').get()!.version) }
   if (method === 'command') return repository.execute(argument)
+  if (method === 'capturedCommand') {
+    const input = z.strictObject({ command: commandSchema, selection: creationSelectionSchema.optional() }).parse(argument)
+    return repository.execute(input.command, input.selection)
+  }
   if (method === 'sync') return runSyncLocal(db, argument, {
     hold: closed => { repository.maintenance = closed },
     protect: () => protectSyncBackup(db, workerData.backupDirectory, clock.now()),

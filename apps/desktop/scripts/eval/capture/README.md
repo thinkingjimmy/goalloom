@@ -1,0 +1,11 @@
+# Capture matching evaluation
+
+INPUT: frozen synthetic development (72) and holdout (64) bilingual cases, production matching planner and the owner's OpenRouter key.
+OUTPUT: exact parent sets, false/missed edges, per-language/URL results, complete-case P50/P95 and model metadata under ignored `output/tests/auto-link/live/`.
+POS: repeatable live-provider acceptance. No production workspace is opened and no linked web page is fetched.
+
+Failure cases are fixed in `docs/features/smart-input.md`: candidate omission, topic-only false links, duplicate ancestors, independent parents, explicit choices, Chinese/English mismatch, URL injection/URL-only speculation, partial batches, incorrect model routing, network errors and misleading timing that omits a request. Labels and the 0.60 gate remain frozen. API errors count as failures. Timings include every provider batch and local selection; they exclude keyboard debounce and report IO. Historical network timings are not a same-window speed control.
+
+Run from `apps/desktop`: `node scripts/eval/capture/run.mjs`. Add `--prepare` to build with zero API calls, or `--limit=8` for a bounded smoke. The fixture files are byte-identical to the pre-implementation Jev 1.14 study. The production inline planner is used with a fixed Today placement, so this evaluates matching, not execution-time classification.
+
+[PROTOCOL]: Update this header when making changes, then check README.md.

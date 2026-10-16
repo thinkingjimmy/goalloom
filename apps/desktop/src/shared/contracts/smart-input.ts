@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Zod, entity schemas and the lightweight AI provider / feature / capability values.
  * [OUTPUT]: AI 服务标识、设备侧状态（每服务凭据/能力/失败/冷却，每功能所选服务与启用）、受限设置/判断动作、带修订回声的判断回复与可编辑预览 DTO；流程洞察的起草/复盘请求（有界看板文本、代码算出的信号、本机偏好）与回复。
- * [POS]: main 智能服务 ↔ preload ↔ renderer 的唯一契约；不含凭据明文，也不进入 workspace 表、导出或迁移。
+ * [POS]: Smart-service IPC contract; capture.ts also supplies the finite request/receipt metadata persisted by creation commands. No plaintext credentials.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
@@ -11,6 +11,8 @@ import { assistancePrepareSchema, assistancePreparedSchema, assistanceReplySchem
 import { insightPrefsSchema } from './insight-preferences'
 export { insightPrefsSchema, type InsightPrefs } from './insight-preferences'
 import { executionFactsSchema, factSchema } from './execution'
+import { analyzeRequestSchema, creationSelectionSchema } from './capture'
+export { analyzeRequestSchema, type AnalyzeRequest } from './capture'
 
 export const smartChannel = 'goalloom:smart'
 export const aiProviderSchema = z.enum(aiProviders)
@@ -53,13 +55,6 @@ export const testOutcomeSchema = z.strictObject({
   results: z.partialRecord(aiCapabilitySchema, capabilityResultSchema), enabled: z.array(aiFeatureSchema),
 })
 export type TestOutcome = z.infer<typeof testOutcomeSchema>
-
-export const analyzeRequestSchema = z.strictObject({
-  requestId: z.uuid(), draftSessionId: z.uuid(), inputRevision: z.number().int().nonnegative(), manualRevision: z.number().int().nonnegative(),
-  generation: idSchema, providerRevision: z.number().int().nonnegative(), contextRevision: z.number().int().nonnegative(), referenceTime: instantSchema,
-  text: z.string().max(20_000), parentHints: z.array(idSchema).max(8).default([]),
-})
-export type AnalyzeRequest = z.infer<typeof analyzeRequestSchema>
 
 // --- Flow insight: renderer-built, bounded text context; code computes the signals, the model only words them. ---
 const line = z.string().max(500)
@@ -119,7 +114,8 @@ export const metricsSchema = z.strictObject({ top: z.number(), margin: z.number(
 export const horizonChoiceSchema = z.union([horizonSchema, z.literal('future')])
 export type HorizonChoice = z.infer<typeof horizonChoiceSchema>
 const suggestion = <T extends z.ZodType>(value: T) => z.strictObject({ value, certain: z.boolean(), metrics: metricsSchema.nullable() })
-export const candidateSchema = z.strictObject({ ref: z.string().max(8), itemId: idSchema, title: z.string(), status: statusSchema, horizon: horizonSchema, archived: z.boolean(), flowColor: flowColorSchema.nullable(), version: z.number().int().positive(), named: z.boolean() })
+const goalLabelSchema = z.strictObject({ itemId: idSchema, title: z.string().max(500) })
+export const candidateSchema = z.strictObject({ ref: z.string().max(16), itemId: idSchema, title: z.string(), status: statusSchema, horizon: horizonSchema, periodId: idSchema.nullable().optional(), archived: z.boolean(), flowColor: flowColorSchema.nullable(), version: z.number().int().positive(), named: z.boolean(), parents: z.array(goalLabelSchema).optional(), children: z.array(goalLabelSchema).optional() })
 export type Candidate = z.infer<typeof candidateSchema>
 export const parentKeySchema = z.discriminatedUnion('kind', [z.strictObject({ kind: z.literal('existing'), itemId: idSchema }), z.strictObject({ kind: z.literal('draft'), draftId: idSchema })])
 export type ParentKey = z.infer<typeof parentKeySchema>
@@ -138,8 +134,9 @@ export const periodRangeSchema = z.strictObject({ id: idSchema, startDate: dateS
 export const smartPreviewSchema = z.strictObject({
   layout: suggestion(z.enum(['single', 'list', 'plan', 'unclear'])), referenceDate: dateSchema,
   periods: z.record(z.enum(periodHorizons), periodRangeSchema),
-  drafts: z.array(previewDraftSchema).min(1).max(8), candidates: z.array(candidateSchema).max(16), relations: z.array(relationSuggestionSchema).max(200),
-  warnings: z.array(warningSchema).max(40), questionCount: z.number().int().nonnegative(), requests: z.number().int().min(1).max(2),
+  drafts: z.array(previewDraftSchema).min(1).max(8), candidates: z.array(candidateSchema).max(100_000), relations: z.array(relationSuggestionSchema).max(1_000_000),
+  warnings: z.array(warningSchema).max(40), questionCount: z.number().int().nonnegative(), requests: z.number().int().nonnegative(),
+  capture: creationSelectionSchema.optional(),
 })
 export type SmartPreview = z.infer<typeof smartPreviewSchema>
 export const diagnosticsSchema = z.strictObject({ provider: aiProviderSchema, requestedModel: z.string(), routingCanonicalSlug: z.string().nullable(), modelVersion: z.string().nullable(), inputTokens: z.number().int().nullable(), estimatedInputTokens: z.number().int(), requestId: z.string().max(200).nullable(), latencyMs: z.number().int() })
@@ -147,7 +144,7 @@ export type Diagnostics = z.infer<typeof diagnosticsSchema>
 const echo = z.strictObject({ requestId: z.uuid(), draftSessionId: z.uuid(), inputRevision: z.number().int(), manualRevision: z.number().int(), generation: idSchema, providerRevision: z.number().int(), contextRevision: z.number().int(), referenceTime: instantSchema })
 export type AnalyzeEcho = z.infer<typeof echo>
 export const analyzeReplySchema = z.discriminatedUnion('status', [
-  z.strictObject({ status: z.literal('ready'), echo, preview: smartPreviewSchema, diagnostics: z.array(diagnosticsSchema).max(2) }),
+  z.strictObject({ status: z.literal('ready'), echo, preview: smartPreviewSchema, diagnostics: z.array(diagnosticsSchema).max(100_000) }),
   z.strictObject({ status: z.literal('failed'), echo, failure: failureSchema }),
   z.strictObject({ status: z.literal('cancelled'), echo }),
 ])

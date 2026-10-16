@@ -14,6 +14,7 @@ export const smartMessages = widen({
   placeholder: '写下想法，一行一件事也可以…',
   smartIdle: 'Jev 会在你停下输入后整理',
   smartPending: 'Jev 整理中…',
+  captureNow: '立即创建',
   providerChanged: '服务配置已变化，已有内容不会自动发给新的处理方。',
   resend: '发送给当前服务整理',
   saveLater: '保存到 Later',

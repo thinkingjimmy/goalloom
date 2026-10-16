@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Strict commands/queries, injected clock, Store and bounded ExecutionQueries.
- * [OUTPUT]: Authoritative atomic writes, v1/v2/v3 receipts and effective outline relationships, facts caches and detail projections including non-undone note rewrites.
+ * [OUTPUT]: Authoritative atomic writes, immutable creation/completion groups, v1/v2/v3 receipts, effective outline relationships and detail/fact projections.
  * [POS]: Sole workspace write boundary called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,7 +9,9 @@ import { nestItem, unnestItem, assertOutline } from './commands/nesting'
 import { createHash } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import { compareInstants, currentPeriod, workspaceDate, type Clock } from '../../domain/calendar'
-import { commandSchema, DomainError, type Command, type CommandResult } from '../../shared/contracts/commands'
+import { internalCommandSchema, DomainError, type Command, type CommandResult } from '../../shared/contracts/commands'
+import type { CreationSelection } from '../../shared/contracts/capture'
+import { completeCreation, createdGuard, isCapture, readyCreation } from './commands/capture'
 import type { ItemDetail, ItemPage, Query, Snapshot, WorkspaceMetadata } from '../../shared/contracts/queries'
 import type { Context } from './context'
 import { confirmSetup, createItem, editItem, linkItems, moveItem, setFlowColor } from './commands/items'
@@ -34,12 +36,12 @@ export class Repository {
   readonly execution: ExecutionQueries
   maintenance = false
   constructor(readonly db: DatabaseSync, readonly clock: Clock) { this.store = new Store(db); this.execution = new ExecutionQueries(this.store) }
-  execute(input: unknown): CommandResult {
-    const command = commandSchema.parse(input)
+  execute(input: unknown, selection?: CreationSelection): CommandResult {
+    const command = internalCommandSchema.parse(input)
     if (this.maintenance) throw new DomainError('maintenance', serverText().errors.maintenance)
-    return transaction(this.db, () => this.apply(command))
+    return transaction(this.db, () => this.apply(command, selection))
   }
-  private apply(command: Command): CommandResult {
+  private apply(command: Command, selection?: CreationSelection): CommandResult {
     const workspace = this.store.workspace()
     if (workspace.generation !== command.generation) throw new DomainError('generation', serverText().errors.workspaceReplaced)
     const hash = createHash('sha256').update(JSON.stringify(command)).digest('hex')
@@ -52,7 +54,8 @@ export class Repository {
     const syncBefore = captureSyncBefore(this.db, command)
     const now = this.clock.now()
     const context: Context = { store: this.store, workspace, command, now, effects: [], warnings: [], itemId: null, label: '' }
-    const changed = command.type === 'undo' ? this.undo(context, command) : this.dispatch(context, command)
+    const dispatched = isCapture(command) ? readyCreation(context, command, selection) : command
+    const changed = command.type === 'undo' ? this.undo(context, command) : this.dispatch(context, dispatched)
     if (command.type === 'delete' || command.type === 'restoreItem') for (const effect of context.effects) if (effect.kind === 'nesting') {
       const position = this.store.position(this.store.item(effect.itemId))
       effect.after.previousId = position.previousId; effect.after.nextId = position.nextId
@@ -61,10 +64,13 @@ export class Repository {
     if (workspace.lastObservedAt && compareInstants(now, workspace.lastObservedAt) < 0) workspace.clockAnomaly = true
     else workspace.lastObservedAt = now
     this.store.saveWorkspace(workspace)
-    const result: CommandResult = { operationId: command.operationId, generation: command.generation, changed, undoable: context.effects.length > 0,
+    const system = command.type === 'completeCreation'
+    const result: CommandResult = { operationId: command.operationId, generation: command.generation, changed, undoable: !system && context.effects.length > 0,
       outcome: context.outcome ?? 'committed', itemId: context.itemId, label: context.label, warnings: context.warnings, restoreSource: context.restoreSource ?? null, originalOperationId: command.type === 'undo' || command.type === 'undoBatch' ? command.originalOperationId : null,
-      ...(context.itemIds ? { itemIds: context.itemIds } : {}) }
-    this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: 'user', at: now, effectsVersion: effectsVersion(context.effects), effects: context.effects, result })
+      ...(context.itemIds ? { itemIds: context.itemIds } : {}),
+      ...(isCapture(command) ? { capture: createdGuard(context, command, !selection) } : {}),
+      ...(system ? { creationOperationId: command.creationOperationId, captureRequestId: command.requestId } : {}) }
+    this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: system ? 'system' : 'user', at: now, effectsVersion: effectsVersion(context.effects), effects: context.effects, result })
     for (const effect of context.undone ?? []) this.db.prepare('INSERT INTO undo_effects VALUES (?,?,?)').run(effect.originalId, effect.index, command.operationId)
     emitSyncOp(this.db, { command, effects: context.effects, before: syncBefore, at: now, changed })
     return result
@@ -93,6 +99,7 @@ export class Repository {
       case 'confirmSetup': return confirmSetup(context, command)
       case 'create': return createItem(context, command)
       case 'createPlan': return createPlan(context, command)
+      case 'completeCreation': return completeCreation(context, command)
       case 'edit': return editItem(context, command)
       case 'flowColor': return setFlowColor(context, command)
       case 'nest': return nestItem(context, command)

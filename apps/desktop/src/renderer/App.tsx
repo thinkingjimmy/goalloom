@@ -220,7 +220,7 @@ export function App() {
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
       : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>
-      <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={null} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight}
+      <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={null} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight} ai={ai}
         write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || reviewOpen} /></div>
       <button className="fab" aria-label={messages.newItem} title={[messages.newItem, formatCombo(bindings.compose)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.compose)} disabled={busy} onClick={compose}><Icon name="add" size={24} strokeWidth={1.8} /></button>
     </>}

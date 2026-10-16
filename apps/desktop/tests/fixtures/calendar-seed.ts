@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createLegacyV5, createLegacyV6 } from './legacy-v5'
 import { openDatabase } from '../../src/main/storage/database'
-import { migrate } from '../../src/main/storage/schema'
+import { migrate, schemaVersion } from '../../src/main/storage/schema'
 import { Store } from '../../src/main/storage/store'
 import { Repository } from '../../src/main/workspace/repository'
 import { exportDataset, readSqliteDataset, replaceDataset } from '../../src/main/workspace/transfer/dataset'
@@ -104,7 +104,7 @@ for (const version of [5, 6]) {
     const destination = new Repository(target, { now: () => now })
     replaceDataset(destination.store, dataset, 'restore', now)
     const roundTrip = exportDataset(destination.store, now)
-    assert.equal(roundTrip.schemaVersion, 10)
+    assert.equal(roundTrip.schemaVersion, schemaVersion)
     assert.equal(roundTrip.workspace.calendar!.mode, 'rolling')
     assert.equal(roundTrip.workspace.calendar!.cycleAnchor, '2026-01-31')
     for (const field of fields) {
