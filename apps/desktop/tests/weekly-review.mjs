@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build, real workspace date and first/last-day weekly history fixtures.
- * [OUTPUT]: Retained previous-week reminders, persistent dismissal, planning invitations, current-week destinations, custom menu/focus, read-only titles, resume and creation evidence in output/tests/insight/weekly-review/.
+ * [OUTPUT]: Weekly review acceptance, creation evidence and hover hit/transition diagnostics in output/tests/insight/weekly-review/.
  * [POS]: Flow-insight desktop regression using real renderer/preload/SQLite and isolated synthetic records.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -202,10 +202,14 @@ async function verify(mode, variant) {
       await footer.hover()
       const hover = await footer.evaluate(async node => {
         await Promise.all(node.getAnimations().map(animation => animation.finished.catch(() => undefined)))
-        return { background: getComputedStyle(node).backgroundColor, expected: getComputedStyle(node).getPropertyValue('--hover').trim() }
+        const box = node.getBoundingClientRect(), style = getComputedStyle(node)
+        return { background: style.backgroundColor, expected: style.getPropertyValue('--hover').trim(), hovered: node.matches(':hover'), disabled: node.disabled,
+          hit: node.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)),
+          mediaHover: matchMedia('(hover: hover)').matches, transition: style.transitionProperty,
+          animations: node.getAnimations().map(animation => ({ state: animation.playState, currentTime: animation.currentTime })) }
       })
-      assert.notEqual(hover.background, 'rgba(0, 0, 0, 0)', 'Back has a hover surface in each appearance')
       geometry.footerHover = hover
+      assert.notEqual(hover.background, 'rgba(0, 0, 0, 0)', 'Back has a hover surface in each appearance')
       await drawer.screenshot({ path: `${out}/${mode}-closing-${style}-${theme}.png` })
       await drawer.locator('.review-head h2').hover()
     }

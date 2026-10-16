@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build and an isolated Repository/SQLite planning fixture, with explicit completed-layout controls.
- * [OUTPUT]: Period interactions, compact menu/source-row activation assertions, screenshots, environment/boundary JSON and app-local failure diagnostics in output/tests/periods.
+ * [OUTPUT]: Period assertions, screenshots, environment/boundary JSON and app-local pointer, focus and media failure diagnostics in output/tests/periods.
  * [POS]: Focused desktop acceptance; fixture refresh emits a main-process notification without native activation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -42,6 +42,11 @@ try {
   page.setDefaultTimeout(12000)
   await page.evaluate(() => {
     window.periodTestInputs = []
+    window.periodTestPointer = null
+    document.addEventListener('pointermove', event => {
+      window.periodTestPointer = { x: event.clientX, y: event.clientY, at: performance.now(), trusted: event.isTrusted,
+        target: event.target instanceof Element ? event.target.outerHTML.slice(0, 300) : null }
+    }, true)
     for (const type of ['pointerdown', 'click', 'keydown']) document.addEventListener(type, event => {
       const target = event.target instanceof Element ? event.target : null
       window.periodTestInputs.push({ type, key: event.key, detail: event.detail, trusted: event.isTrusted, at: performance.now(),
@@ -429,7 +434,11 @@ try {
     const page = await application.firstWindow().catch(() => null)
     report.failureContext = {
       native: await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getBounds() }))).catch(() => null),
-      renderer: await page?.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML.slice(0, 500), inputs: window.periodTestInputs, dialogs: [...document.querySelectorAll('dialog[open]')].map(node => node.className) })).catch(() => null),
+      renderer: await page?.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML.slice(0, 500), inputs: window.periodTestInputs, pointer: window.periodTestPointer,
+        viewport: { width: innerWidth, height: innerHeight }, media: { hover: matchMedia('(hover: hover)').matches, touch: matchMedia('(hover: none)').matches },
+        headers: [...document.querySelectorAll('.board-column')].map(node => ({ horizon: node.dataset.horizon, hovered: node.matches(':hover'),
+          expanded: node.querySelector('[data-period-switch]')?.getAttribute('aria-expanded'), chevronOpacity: node.querySelector('.period-chevron') ? getComputedStyle(node.querySelector('.period-chevron')).opacity : null })),
+        dialogs: [...document.querySelectorAll('dialog[open]')].map(node => node.className) })).catch(() => null),
     }
     await page?.screenshot({ path: join(evidence, 'failure.png') }).catch(() => undefined)
     if (page) await writeFile(join(evidence, 'failure.txt'), await page.locator('body').ariaSnapshot().catch(() => 'Unavailable'))

@@ -172,6 +172,10 @@ Playwright 控制真实窗口，并关闭 CDP 默认的 unsafe-eval 绕过再验
 
 `recovery.mjs`: Protective reset, maintenance, generation guards, SQLite restore, restart and rollover pause. After reset it completes the empty-workspace setup before opening Settings to restore, matching the onboarding and upgrade contract. Reports and screenshots are written to `output/tests/recovery/`; an optional executable argument verifies the packaged app.
 
+`periods.mjs` records the last pointer position, viewport, hover media and each column's hover/chevron state on failure, alongside native focus and renderer input evidence. Use `--navigation` for isolated period-navigation diagnosis; it preserves the same assertions as full period acceptance.
+
+`weekly-review.mjs` records hover matching, disabled state, hit testing and active CSS transitions before asserting the footer surface. `--week-first` and `--week-last` select one isolated calendar scenario without changing its assertions.
+
 `relation-drag.mjs` uses `fixtures/relation-visibility.mjs` for its explicit native hide/show contract: raw Electron and CDP `noDefaults` preserve actual `document.visibilityState`. Relation fault injection wraps main IPC while retaining production transactions and receipts; it never replaces the renderer bridge.
 
 The link probe sizes the native Electron window before wheel input without forcing activation. CDP viewport emulation alone can put a visible screenshot target outside the native compositor's bounds; the report records both geometries, focus, wheel delivery and the resulting scroll offset.
