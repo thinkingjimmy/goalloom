@@ -31,8 +31,9 @@ const memory = () => {
   }
 }
 
-export function supabaseClient(url: string, anonKey: string, persist = memory()): SupabaseClient {
+export function supabaseClient(url: string, anonKey: string, persist = memory(), transport?: typeof fetch): SupabaseClient {
   return createClient(url, anonKey, {
+    ...(transport ? { global: { fetch: transport } } : {}),
     auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: persist },
   })
 }

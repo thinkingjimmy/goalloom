@@ -299,6 +299,16 @@ export function takePending(driver: SqlDriver, at: string, attemptId: string): P
   return rows.map(row => ({ opId: String(row.opId), localOrder: Number(row.localOrder), payload: String(row.payload), payloadHash: String(row.payloadHash) }))
 }
 
+export function peekPending(driver: SqlDriver, unknownOnly = false): PendingPlain[] {
+  return driver.prepare(`SELECT opId, localOrder, payload, payloadHash FROM sync_ops
+    WHERE origin='local' AND state IN (${unknownOnly ? "'send_unknown'" : "'never_sent','send_unknown'"}) ORDER BY localOrder LIMIT 200`).all()
+    .map(row => ({ opId: String(row.opId), localOrder: Number(row.localOrder), payload: String(row.payload), payloadHash: String(row.payloadHash) }))
+}
+
+export function markPending(driver: SqlDriver, ids: string[], at: string, attemptId: string): void {
+  markSendUnknown(driver, ids, attemptId, at)
+}
+
 export type SecretLookup = (key: string) => string | null | undefined
 
 /**
@@ -385,23 +395,23 @@ export async function exchange(input: {
   epoch: number; workspaceKey: Uint8Array; at: string; random?: RandomSource
   secrets?: SecretLookup
 }): Promise<{ pushed: number; pulled: number; conflicts: number }> {
-  const pending = restorePendingSecrets(takePending(input.driver, input.at, globalThis.crypto.randomUUID()), input.secrets ?? (() => undefined)).rows
-  const sealed = sealPending(pending, input)
-  const batches = planPushBatches(sealed.map(row => ({ opId: row.opId, localOrder: row.localOrder, bytes: row.wire.ciphertext.length / 2, blobReady: true })))
-  let pushed = 0
-  let held: string | null = null
-  for (const ids of batches) {
-    if (held) break
-    const wires = ids.map(opId => sealed.find(row => row.opId === opId)!.wire)
-    const results = await input.remote.pushOps({ workspaceId: input.workspaceId, deviceId: input.deviceId, generation: input.generation, ops: wires })
-    held = acceptPushResults(input.driver, pending, results, input.at)
-    pushed += results.length
-  }
   const pulledRows = await pullAll(input.remote, input.workspaceId, input.deviceId, syncCursor(input.driver))
   const pulled = absorbPulled(input.driver, input.host, pulledRows, input)
+  const pending = restorePendingSecrets(peekPending(input.driver), input.secrets ?? (() => undefined)).rows
+  const sealed = sealPending(pending, input)
+  const ids = planPushBatches(sealed.map(row => ({ opId: row.opId, localOrder: row.localOrder, bytes: row.wire.ciphertext.length / 2, blobReady: true })))[0] ?? []
+  let pushed = 0
+  let held: string | null = null
+  if (ids.length) {
+    markPending(input.driver, ids, input.at, globalThis.crypto.randomUUID())
+    const results = await input.remote.pushOps({ workspaceId: input.workspaceId, deviceId: input.deviceId, generation: input.generation, ops: ids.map(opId => sealed.find(row => row.opId === opId)!.wire) })
+    held = acceptPushResults(input.driver, pending, results, input.at)
+    pushed = results.length
+  }
   if (held === 'stale_epoch') throw new SyncFailure('key', held)
   if (held) throw new SyncFailure('rejected', held)
-  return { pushed, pulled, conflicts: conflictCount(input.driver) }
+  const own = await pullAll(input.remote, input.workspaceId, input.deviceId, syncCursor(input.driver))
+  return { pushed, pulled: pulled + absorbPulled(input.driver, input.host, own, input), conflicts: conflictCount(input.driver) }
 }
 
 export function rebindMessage(deviceId: string): Uint8Array {

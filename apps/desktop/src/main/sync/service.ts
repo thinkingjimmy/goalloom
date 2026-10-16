@@ -10,11 +10,11 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { isSecretFingerprint, isSecretSettingKey, secretSettingKeys } from '@goalloom/contracts'
 import { newRecovery, passwordAccepted, publicFromSeed, signDetached, systemRandom, type RecoverySecrets } from '@goalloom/crypto'
 import {
-  acceptRosterAdvance, changeSyncPassword, createFetchRemote, createRemoteWorkspace, downloadWorkspace, newDeviceSecret, planPushBatches, pullOpened,
-  rebindMessage, restorePendingSecrets, sealPending, unlockWithPassword, workspaceKeyFromEnvelope, SyncFailure, type BoundWorkspace, type DevicePlatform,
-  type DeviceSecret, type PendingPlain, type SyncRemote,
+  acceptRosterAdvance, changeSyncPassword, createFetchRemote, createRemoteWorkspace, downloadWorkspace, newDeviceSecret,
+  rebindMessage, unlockWithPassword, workspaceKeyFromEnvelope, SyncFailure, type BoundWorkspace, type DevicePlatform,
+  type DeviceSecret, type SyncRemote, scopedRemote, boundedRequest, requestLimits, syncClock, type SyncClock,
 } from '@goalloom/sync'
-import { redactSyncOp, type RemoteEnvelope } from '@goalloom/store-core'
+import { isLaterSetting, redactSyncOp, type RemoteEnvelope } from '@goalloom/store-core'
 import { DomainError } from '../../shared/contracts/commands'
 import { syncActionSchema, syncReplySchema, type SyncAction, type SyncReply, type SyncStatus } from '../../shared/contracts/sync'
 import type { StorageClient } from '../storage/client'
@@ -22,21 +22,13 @@ import { CredentialError, type Cipher } from '../smart/credentials'
 import { readSyncConfig } from './config'
 import { googleSignIn, supabaseClient, type OAuthListenOptions } from './oauth'
 import { SyncVault, type VaultSecrets } from './vault'
+import { PendingCache } from './pending-cache'
+import { UploadCooldown } from './cooldown'
+import { SyncSchedule } from './schedule'
+import { exchangeTurn, type ExchangeState, type LocalView } from './exchange'
 
 type Phase = SyncStatus['phase']
 type SyncError = NonNullable<SyncStatus['error']>
-interface LocalView {
-  workspaceId: string | null
-  deviceId: string | null
-  generation: string
-  keyEpoch: number | null
-  paused: string | null
-  lastAppliedSeq: number
-  pending: number
-  conflicts: number
-  localItems: number
-}
-
 const emptyView = (): LocalView => ({
   workspaceId: null, deviceId: null, generation: '', keyEpoch: null, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 0,
 })
@@ -67,8 +59,23 @@ export class SyncService {
   private operation: Promise<void> | null = null
   private signInAbort: AbortController | null = null
   private ticking = false
-  private poll: ReturnType<typeof setInterval> | null = null
+  private pendingCache: PendingCache
+  private cooldown: UploadCooldown
+  private schedule: SyncSchedule
+  private lifecycle = new AbortController()
+  private lifecycleId = 0
+  private turnDeadline = Infinity
+  private turnSignal: AbortSignal | null = null
+  private stopped = false
+  private suspended = false
+  private authDispose: (() => void) | null = null
+  private exchangeState: ExchangeState = { uploadRetryAt: 0, uploadFailures: 0, receiptRetryAt: 0, receiptFailed: false, verifyRoster: true, uploadReason: 'network' }
   private channel: { unsubscribe: () => Promise<unknown> } | null = null
+  private channelContext = ''
+  private subscriptionId = 0
+  private connecting = false
+  private channelClosed: Promise<unknown> = Promise.resolve()
+  private headHint = 0
   private started = false
   private seedPending = false
   private appliedSetting = new Map<string, string>()
@@ -87,15 +94,23 @@ export class SyncService {
     language?: () => string
     clipboard: (text: string) => void
     now: () => string
+    clock?: SyncClock
+    random?: () => number
     /** Focus the desktop window once the loopback page has been sent. */
     onBrowserReturn?: () => void
     beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>, options?: OAuthListenOptions) => Promise<Session>
   }) {
     this.vault = new SyncVault(deps.userData, deps.cipher)
+    this.pendingCache = new PendingCache(deps.userData, deps.cipher)
+    this.cooldown = new UploadCooldown(deps.userData)
+    this.schedule = new SyncSchedule({ run: () => this.runTurn(), onError: error => { this.setError(error); this.publish() },
+      ...(deps.clock ? { clock: deps.clock } : {}), ...(deps.random ? { random: deps.random } : {}) })
   }
 
   async start(): Promise<void> {
-    await this.initialize(false)
+    this.stopped = false
+    try { await this.initialize(false) }
+    catch (error) { if (this.stopped || error instanceof SyncFailure && error.code === 'cancelled') return; if (this.phase === 'unconfigured') this.phase = 'signed-out'; this.setError(error); this.publish() }
   }
 
   private async initialize(interactive: boolean, signal?: AbortSignal): Promise<void> {
@@ -103,13 +118,14 @@ export class SyncService {
     const config = readSyncConfig(this.deps.userData)
     if (!config.anonKey) { this.phase = 'unconfigured'; this.publish(); return }
     this.started = true
+    const initializing = this.lifecycleId
     try {
       this.secrets = await this.vault.load({ resumeOnly: !interactive, ...(signal ? { signal } : {}) })
-      if (signal?.aborted) return
+      if (signal?.aborted || this.stopped) return
       if (!this.secrets && !interactive) { this.phase = 'signed-out'; this.publish(); return }
       if (!this.secrets && !this.vault.available) throw new CredentialError('unavailable')
     } catch (error) {
-      if (signal?.aborted) return
+      if (signal?.aborted || this.stopped) return
       this.phase = 'locked'
       this.error = error instanceof CredentialError ? null : 'storage'
       this.secrets = null
@@ -117,11 +133,19 @@ export class SyncService {
       return
     }
     this.secrets = this.secrets ?? this.freshSecrets()
-    this.client = supabaseClient(config.url, config.anonKey, this.sessionStorage())
-    this.remote = createFetchRemote({ url: config.url, anonKey: config.anonKey, accessToken: () => this.accessToken() })
-    this.client.auth.onAuthStateChange((_event, session) => { void this.keepSession(session).catch(() => undefined) })
+    this.client = supabaseClient(config.url, config.anonKey, this.sessionStorage(), async (url, init) =>
+      boundedRequest({ ms: requestLimits.write, clock: this.clock, signals: [this.lifecycle.signal, init?.signal ?? undefined] }, async signal => {
+        const response = await fetch(url, { ...init, signal })
+        const body = await response.text()
+        signal.throwIfAborted()
+        return new Response(body || null, { status: response.status, statusText: response.statusText, headers: response.headers })
+      }))
+    this.remote = createFetchRemote({ url: config.url, anonKey: config.anonKey, accessToken: () => this.accessToken(), signal: () => this.requestSignal(), clock: this.clock })
+    const { data } = this.client.auth.onAuthStateChange((_event, session) => { if (!this.stopped) void this.keepSession(session).catch(() => undefined) })
+    this.authDispose = () => data.subscription.unsubscribe()
     if (!interactive && this.secrets.refreshToken) {
       const refreshed = await this.client.auth.refreshSession({ refresh_token: this.secrets.refreshToken }).catch(() => null)
+      if (this.stopped || initializing !== this.lifecycleId) return
       if (refreshed?.data.session) {
         this.email = refreshed.data.session.user.email ?? null
         await this.afterAuth()
@@ -131,21 +155,68 @@ export class SyncService {
         this.offline = !refreshed
       }
     } else if (!interactive) this.phase = 'signed-out'
-    this.poll = setInterval(() => { void this.tick() }, 8_000)
-    this.poll.unref()
+    if (this.phase === 'ready' && !this.stopped && !this.suspended) this.schedule.start()
     this.publish()
   }
 
+  private get clock(): SyncClock { return this.deps.clock ?? syncClock }
+  private requestSignal(): AbortSignal {
+    return this.turnSignal ? AbortSignal.any([this.lifecycle.signal, this.turnSignal]) : this.lifecycle.signal
+  }
+  private invalidate(): void {
+    this.lifecycle.abort(new SyncFailure('cancelled'))
+    this.lifecycle = new AbortController()
+    this.lifecycleId++
+    this.headHint = 0
+    this.exchangeState.verifyRoster = true
+  }
   stop(): void {
-    if (this.poll) clearInterval(this.poll)
-    this.poll = null
+    this.stopped = true
+    this.invalidate()
+    this.schedule.stop()
+    this.pendingCache.clear()
     this.dropPassword()
-    void this.channel?.unsubscribe()
-    this.channel = null
+    this.signInAbort?.abort()
+    this.authDispose?.(); this.authDispose = null
+    this.closeChannel()
+    this.client?.auth.stopAutoRefresh?.()
+    this.client?.realtime?.disconnect()
   }
 
-  nudge(): void {
-    if (this.phase === 'ready') void this.tick()
+  setForeground(value: boolean): void { this.schedule.setForeground(value) }
+  suspend(): void { this.suspended = true; this.invalidate(); this.schedule.suspend() }
+  async resume(): Promise<void> {
+    this.invalidate()
+    const id = this.lifecycleId
+    await this.schedule.settle()
+    this.suspended = false
+    try {
+      await this.restoreCooldown()
+      this.checkLifecycle(id)
+      if (this.phase === 'ready') this.schedule.resume()
+    } catch (error) { this.setError(error); this.publish() }
+  }
+
+  private async restoreCooldown(): Promise<void> {
+    const userId = this.secrets?.userId
+    if (!userId) return
+    const id = this.lifecycleId
+    const signal = this.requestSignal()
+    const wait = await this.cooldown.load(userId, signal)
+    this.checkLifecycle(id, signal)
+    this.exchangeState.uploadRetryAt = wait ? this.clock.now() + Math.max(0, wait.until - Date.now()) : 0
+    this.exchangeState.uploadReason = wait?.reason ?? 'network'
+    this.exchangeState.uploadFailures = 0; this.exchangeState.receiptRetryAt = 0; this.exchangeState.receiptFailed = false
+  }
+  workspaceReplaced(): void {
+    this.invalidate(); this.schedule.stop(); this.closeChannel(); this.view = emptyView()
+    if (this.phase === 'ready' || this.phase === 'choose') this.phase = 'enter-key'
+    this.publish()
+  }
+  nudge(reason: 'write' | 'event' = 'event'): void {
+    if (this.phase !== 'ready' || this.operation || this.stopped || this.suspended) return
+    if (reason === 'write') this.schedule.changed()
+    void this.schedule.wake(reason === 'write' ? 200 : 0)
   }
 
   async handle(input: unknown): Promise<SyncReply> {
@@ -175,8 +246,13 @@ export class SyncService {
 
   private async exclusive(work: () => Promise<void>): Promise<void> {
     if (this.operation) { this.error = 'busy'; return }
+    this.schedule.stop()
+    this.invalidate()
     let current: Promise<void> = Promise.resolve()
-    current = work().finally(() => { if (this.operation === current) this.operation = null })
+    current = this.schedule.settle().then(work).finally(() => {
+      if (this.operation === current) this.operation = null
+      if (this.phase === 'ready' && !this.stopped && !this.suspended) { this.listen(); this.schedule.start(); this.nudge() }
+    })
     this.operation = current
     await current
   }
@@ -233,6 +309,7 @@ export class SyncService {
   }
 
   private async signOut(): Promise<void> {
+    this.pendingCache.clear()
     this.phase = 'signed-out'
     this.email = null
     this.error = null
@@ -240,8 +317,7 @@ export class SyncService {
     this.dropPassword()
     if (this.secrets) { this.secrets.refreshToken = null; await this.persist() }
     await this.client?.auth.signOut({ scope: 'local' }).catch(() => undefined)
-    void this.channel?.unsubscribe()
-    this.channel = null
+    this.closeChannel()
     this.publish()
   }
 
@@ -277,7 +353,7 @@ export class SyncService {
     await this.storage({ type: 'baseline', deviceId, at })
     await this.storage({ type: 'bind', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch }, at: this.deps.now() })
     this.becomeReady()
-    await this.pushAndPull()
+    await this.runTurn()
     this.publish()
   }
 
@@ -372,7 +448,7 @@ export class SyncService {
     await this.remember(bound)
     await this.storage({ type: 'bind', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch }, at: this.deps.now() })
     this.becomeReady()
-    await this.pushAndPull()
+    await this.runTurn()
     this.publish()
   }
 
@@ -413,7 +489,7 @@ export class SyncService {
     await this.remember(bound, writeRecovery)
     this.becomeReady()
     this.deps.onApplied()
-    await this.pushAndPull()
+    await this.runTurn()
     this.publish()
   }
 
@@ -422,15 +498,19 @@ export class SyncService {
     this.phase = 'ready'
     this.error = null
     this.seedPending = true
+    if (!this.operation) this.schedule.start()
     this.listen()
   }
 
   private async afterAuth(): Promise<void> {
+    const id = this.lifecycleId
     const remote = this.requireRemote()
     const userId = (await this.client?.auth.getSession())?.data.session?.user.id ?? null
     await this.activateAccount(userId)
+    await this.restoreCooldown()
     const secrets = this.requireSecrets()
     const account = await remote.account()
+    this.checkLifecycle(id)
     if (secrets.workspaceId && account && account.workspaceId !== secrets.workspaceId) {
       this.phase = 'signed-out'
       this.error = 'mismatch'
@@ -456,6 +536,7 @@ export class SyncService {
       this.phase = 'ready'
       this.error = null
       this.seedPending = true
+      this.schedule.start()
       this.listen()
       this.publish()
       await this.tick()
@@ -467,6 +548,7 @@ export class SyncService {
   }
 
   private async ensureDevice(): Promise<void> {
+    const id = this.lifecycleId
     const remote = this.requireRemote()
     const secrets = this.requireSecrets()
     const signPub = publicFromSeed('ed25519', secrets.signSk)
@@ -475,15 +557,18 @@ export class SyncService {
       try {
         const message = rebindMessage(secrets.deviceId)
         await remote.rebindDevice(secrets.deviceId, message, signDetached(message, secrets.signSk))
+        this.checkLifecycle(id)
         return
       } catch (error) {
         if (!(error instanceof SyncFailure) || error.code !== 'auth') throw error
         secrets.deviceId = null
       }
     }
-    secrets.deviceId = await remote.registerDevice({
+    const registered = await remote.registerDevice({
       name: hostname().slice(0, 64) || 'Goalloom', platform: desktopPlatform(), signPub, boxPub,
     })
+    this.checkLifecycle(id)
+    secrets.deviceId = registered
     await this.persist()
   }
 
@@ -517,28 +602,45 @@ export class SyncService {
   }
 
   private async tick(): Promise<void> {
-    if (this.ticking || this.operation || this.phase !== 'ready') return
-    this.ticking = true
-    this.publish()
-    try {
-      await this.pushAndPull()
-    } catch (error) {
-      this.setError(error)
-    } finally {
-      this.ticking = false
-      this.publish()
-    }
+    if (this.phase === 'ready' && !this.operation && !this.stopped) await this.schedule.retry()
   }
 
-  private async pushAndPull(): Promise<void> {
+  private async runTurn(): Promise<{ more: boolean; sendable: boolean }> {
+    if (this.phase !== 'ready' || this.stopped || this.suspended) return { more: false, sendable: false }
+    const id = this.lifecycleId
+    if (!this.channel && !this.connecting) this.listen()
+    try {
+      return await boundedRequest({ ms: requestLimits.turn, clock: this.clock, signals: [this.lifecycle.signal] }, async signal => {
+        this.turnSignal = signal
+        this.turnDeadline = this.clock.now() + requestLimits.turn
+        try {
+          const result = await this.pushAndPull()
+          this.checkLifecycle(id, signal)
+          this.error = null; this.offline = false
+          this.lastSyncedAt = this.deps.now()
+          return result
+        } finally { if (this.turnSignal === signal) this.turnSignal = null }
+      })
+    } finally { this.turnSignal = null; this.turnDeadline = Infinity; this.ticking = false; if (id === this.lifecycleId) this.publish() }
+  }
+
+  private checkLifecycle(id: number, signal = this.requestSignal()): void {
+    if (id !== this.lifecycleId || this.stopped) throw new SyncFailure('cancelled')
+    signal.throwIfAborted()
+  }
+
+  private async pushAndPull(): Promise<{ more: boolean; sendable: boolean }> {
+    const id = this.lifecycleId
+    const signal = this.requestSignal()
     if (this.deps.onSettings) await this.projectRemote()
+    this.checkLifecycle(id, signal)
     if (this.seedPending && this.deps.collectSeed && this.deps.language) await this.seedLocal()
+    this.checkLifecycle(id, signal)
     this.seedPending = false
-    await this.exchangeOnce()
+    const result = await this.exchangeOnce(signal)
+    this.checkLifecycle(id, signal)
     if (this.deps.onSettings) await this.projectRemote()
-    this.error = null
-    this.offline = false
-    this.lastSyncedAt = this.deps.now()
+    return result
   }
 
   private async seedLocal(): Promise<void> {
@@ -559,52 +661,42 @@ export class SyncService {
   }
 
   private async projectRemote(): Promise<void> {
+    const id = this.lifecycleId, signal = this.requestSignal()
     const onSettings = this.deps.onSettings
     if (!onSettings) return
     const rows = await this.storage<{ key: string; value: unknown; updatedAt: string; opId: string }[]>({ type: 'settings' })
     if (!Array.isArray(rows)) return
     const fresh = rows.filter(row => this.appliedSetting.get(row.key) !== row.opId)
     if (!fresh.length) return
+    this.checkLifecycle(id, signal)
     const applied = await onSettings(fresh)
+    this.checkLifecycle(id, signal)
     for (const key of applied) {
       const row = fresh.find(item => item.key === key)
       if (row) this.appliedSetting.set(key, row.opId)
     }
   }
 
-  private async exchangeOnce(): Promise<void> {
+  private async exchangeOnce(signal = this.requestSignal()): Promise<{ more: boolean; sendable: boolean }> {
     const remote = this.requireRemote()
-    const secrets = this.requireSecrets()
-    if (!secrets.workspaceId || !secrets.workspaceKey || !secrets.deviceId || !secrets.generation || secrets.epoch === null || !secrets.roster) return
-    const view = await this.readView()
-    if (view.paused || view.workspaceId !== secrets.workspaceId) {
-      this.phase = view.localItems > 0 ? 'choose' : 'enter-key'
-      return
+    const id = this.lifecycleId
+    const binding = () => {
+      const secrets = this.requireSecrets()
+      if (!secrets.workspaceId || !secrets.workspaceKey || !secrets.deviceId || !secrets.generation || !secrets.epoch || !secrets.roster) throw new SyncFailure('key')
+      return { workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey, deviceId: secrets.deviceId,
+        generation: secrets.generation, epoch: secrets.epoch, rosterVersion: secrets.roster.version }
     }
-    await this.followRoster()
-    const at = this.deps.now()
-    const pending = restorePendingSecrets(
-      await this.storage<PendingPlain[]>({ type: 'take', at, attemptId: globalThis.crypto.randomUUID() }),
-      await this.secretLookup(),
-    ).rows
-    const sealed = sealPending(pending, { workspaceKey: secrets.workspaceKey, workspaceId: secrets.workspaceId, epoch: secrets.epoch })
-    const batches = planPushBatches(sealed.map(row => ({ opId: row.opId, localOrder: row.localOrder, bytes: row.wire.ciphertext.length / 2, blobReady: true })))
-    let held: string | null = null
-    for (const ids of batches) {
-      if (held) break
-      const ops = ids.map(opId => sealed.find(row => row.opId === opId)!.wire)
-      const results = await remote.pushOps({ workspaceId: secrets.workspaceId, deviceId: secrets.deviceId, generation: secrets.generation, ops })
-      held = await this.storage<string | null>({ type: 'accept', pending, results, at })
-    }
-    const cursor = (await this.readView()).lastAppliedSeq
-    const opened = await pullOpened({
-      remote, deviceId: secrets.deviceId, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey, after: cursor,
-    })
-    await this.deliverSecrets(opened)
-    const applied = Number(await this.storage({ type: 'absorb', ops: opened.map(entry => ({ ...entry, op: redactSyncOp(entry.op) })), at }) ?? 0)
-    if (applied > 0) this.deps.onApplied()
-    if (held === 'stale_epoch') throw new SyncFailure('key', held)
-    if (held) throw new SyncFailure('rejected', held)
+    return exchangeTurn({ remote, signal, cache: this.pendingCache, account: this.secrets?.userId ?? '', binding, view: () => this.readView(), storage: command => this.storage(command),
+      followRoster: () => this.followRoster(), lookup: () => this.secretLookup(), deliver: ops => this.deliverSecrets(ops, true),
+      applied: this.deps.onApplied, busy: () => { this.ticking = true; this.publish() }, check: () => this.checkLifecycle(id, signal),
+      remaining: () => this.turnDeadline - this.clock.now(), random: this.deps.random ?? Math.random,
+      at: this.deps.now, now: () => this.clock.now(), cooldown: async () => {
+        this.checkLifecycle(id, signal)
+        const account = this.secrets?.userId
+        if (account) await this.cooldown.save(account, this.exchangeState.uploadRetryAt > this.clock.now()
+          ? { until: Date.now() + this.exchangeState.uploadRetryAt - this.clock.now(), reason: this.exchangeState.uploadReason } : null)
+      },
+    }, this.exchangeState)
   }
 
   private async secretLookup(): Promise<(key: string) => string | null | undefined> {
@@ -616,15 +708,19 @@ export class SyncService {
   }
 
   /** Writes incoming API keys to the OS keychain before the redacted op is stored. */
-  private async deliverSecrets(ops: RemoteEnvelope[]): Promise<void> {
+  private async deliverSecrets(ops: RemoteEnvelope[], preserveLocal = false): Promise<void> {
     const apply = this.deps.applySecret
     if (!apply) return
+    const winners = new Map((preserveLocal ? await this.storage<{ key: string; updatedAt: string; opId: string }[]>({ type: 'settings' }) : []).map(row => [row.key, row]))
     for (const entry of ops) {
       for (const action of entry.op.actions) {
         if (action.t !== 'pref.set' || !isSecretSettingKey(action.key)) continue
         if (typeof action.value === 'string' && isSecretFingerprint(action.value)) continue
         if (action.value !== null && typeof action.value !== 'string') continue
+        const winner = winners.get(action.key)
+        if (winner && !isLaterSetting(entry.op.at, entry.op.opId, winner.updatedAt, winner.opId)) continue
         await apply(action.key, action.value)
+        winners.set(action.key, { key: action.key, updatedAt: entry.op.at, opId: entry.op.opId })
       }
     }
   }
@@ -633,11 +729,14 @@ export class SyncService {
     const remote = this.requireRemote()
     const secrets = this.requireSecrets()
     if (!secrets.roster || !secrets.workspaceId || !secrets.deviceId || !secrets.workspaceKey || secrets.epoch === null) return
+    const id = this.lifecycleId
     const chain = await remote.getRoster(secrets.workspaceId, secrets.deviceId)
+    this.checkLifecycle(id)
     const next = acceptRosterAdvance(secrets.roster, chain, secrets.deviceId)
     if (next.version === secrets.roster.version && next.epoch === secrets.epoch) return
     if (next.epoch !== secrets.epoch) {
       const envelopes = await remote.getEnvelopes(secrets.workspaceId, secrets.deviceId)
+      this.checkLifecycle(id)
       const wire = envelopes.find(item => item.recipient === secrets.deviceId && item.epoch === next.epoch)
       if (!wire) throw new SyncFailure('key')
       secrets.workspaceKey = workspaceKeyFromEnvelope({
@@ -679,14 +778,43 @@ export class SyncService {
     await this.vault.save(secrets)
   }
 
+  private closeChannel(): void {
+    const previous = this.channel
+    this.channel = null; this.channelContext = ''; this.connecting = false
+    this.subscriptionId++
+    this.schedule.connection(false)
+    if (previous) this.channelClosed = previous.unsubscribe().catch(() => undefined)
+  }
+
   private listen(): void {
-    const id = this.secrets?.workspaceId
-    if (!this.client || !id) return
-    void this.channel?.unsubscribe()
-    const channel = this.client.channel(`ws:${id}`, { config: { private: true } })
-    channel.on('broadcast', { event: 'head' }, () => this.nudge())
-    channel.subscribe()
-    this.channel = channel
+    const id = this.secrets?.workspaceId, client = this.client
+    if (!client || !id || this.stopped) return
+    const context = `${this.secrets?.userId}|${id}|${this.secrets?.generation}`
+    // The SDK reuses a topic object; subscribing twice to it throws.
+    if (context === this.channelContext && (this.channel || this.connecting)) return
+    this.closeChannel()
+    const subscription = this.subscriptionId
+    this.channelContext = context; this.connecting = true; this.headHint = 0
+    void this.channelClosed.then(() => {
+      if (this.stopped || subscription !== this.subscriptionId) return
+      const channel = client.channel(`ws:${id}`, { config: { private: true } })
+      channel.on('broadcast', { event: 'head' }, ({ payload }: { payload: { head?: number } }) => {
+        if (this.phase !== 'ready' || this.suspended || this.stopped || subscription !== this.subscriptionId) return
+        if (this.channel === channel && Number.isSafeInteger(payload?.head) && payload.head! > Math.max(this.headHint, this.view.lastAppliedSeq)) {
+          this.headHint = payload.head!; this.nudge()
+        }
+      })
+      client.realtime?.onHeartbeat(status => {
+        if (this.stopped || subscription !== this.subscriptionId || status === 'sent') return
+        this.schedule.heartbeat(status === 'ok')
+      })
+      this.channel = channel; this.connecting = false
+      channel.subscribe(status => {
+        if (subscription !== this.subscriptionId || this.channel !== channel || this.stopped) return
+        this.exchangeState.verifyRoster = true
+        this.schedule.connection(status === 'SUBSCRIBED')
+      })
+    }).catch(() => { if (subscription === this.subscriptionId) this.closeChannel() })
   }
 
   private async accessToken(): Promise<string> {
@@ -728,10 +856,11 @@ export class SyncService {
 
   private requireRemote(): SyncRemote {
     if (!this.remote) throw new SyncFailure('auth')
-    return this.remote
+    return scopedRemote(this.remote, this.requestSignal())
   }
 
   private requireSecrets(): VaultSecrets {
+    if (this.stopped) throw new SyncFailure('cancelled')
     if (!this.secrets) throw new SyncFailure('auth')
     return this.secrets
   }
@@ -749,6 +878,7 @@ export class SyncService {
   }
 
   private storage<T>(argument: unknown): Promise<T> {
+    if (this.stopped) return Promise.reject(new SyncFailure('cancelled'))
     return this.deps.storage.call<T>('sync', argument)
   }
 
@@ -784,13 +914,16 @@ export class SyncService {
 
   private setError(error: unknown): void {
     if (error instanceof SyncFailure) {
-      if (error.message === 'port') this.error = 'port'
+      if (error.code === 'cancelled') return
+      if (error.code === 'configuration') this.error = 'configuration'
+      else if (error.code === 'timeout' || error.code === 'rate_limited') this.error = 'network'
+      else if (error.message === 'port') this.error = 'port'
       else if (error.code === 'version') this.error = 'key'
       else if (error.code === 'storage') this.error = 'storage'
       else if (error.code === 'rejected' && error.message.includes('workspace')) this.error = 'mismatch'
       else if (error.code === 'rejected') this.error = 'key'
       else this.error = error.code
-      this.offline = error.code === 'network'
+      this.offline = error.code === 'network' || error.code === 'timeout'
       return
     }
     if (error instanceof DomainError) { this.error = 'storage'; return }
@@ -811,6 +944,9 @@ export class SyncService {
       localItems: this.view.localItems,
       offline: this.offline,
       syncing: this.ticking,
+      ...(ready && this.view.pending > 0 && this.exchangeState.uploadRetryAt > this.clock.now() ? {
+        uploadWait: { retryAt: new Date(Date.now() + this.exchangeState.uploadRetryAt - this.clock.now()).toISOString(), reason: this.exchangeState.uploadReason },
+      } : {}),
     }
   }
 

@@ -142,6 +142,10 @@ export const settingsMessages: SettingsCatalog = {
     lastSync: (when: string) => `前回の同期 ${when}`,
     ready: '同期済み',
     syncing: '同期しています…',
+    uploadWaitingNav: '待機中',
+    uploadWaiting: 'アップロード待ち',
+    uploadWaitingDetail: 'アップロードを待機中です。他のデバイスの変更は受信できます',
+    uploadRetry: (time: string) => `${time} に自動で再試行します`,
     syncingNav: '同期中',
     errorNav: 'エラー',
     lockedStatus: '同期はオフです',
@@ -149,6 +153,7 @@ export const settingsMessages: SettingsCatalog = {
     lockedNav: 'オフ',
     cancel: 'キャンセル',
     errors: {
+      configuration: '同期サービスの設定を更新する必要があります。後で再試行してください。',
       network: 'ネットワークを利用できません',
       password: 'パスワードが違います',
       auth: 'ログインが完了しませんでした',

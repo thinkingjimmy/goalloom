@@ -142,6 +142,10 @@ export const settingsMessages: SettingsCatalog = {
     lastSync: (when: string) => `Última sincronización ${when}`,
     ready: 'Sincronizado',
     syncing: 'Sincronizando…',
+    uploadWaitingNav: 'En espera',
+    uploadWaiting: 'Esperando para subir',
+    uploadWaitingDetail: 'La subida está en pausa. Puedes recibir cambios de otros dispositivos',
+    uploadRetry: (time: string) => `Reintento automático: ${time}`,
     syncingNav: 'Sincronizando',
     errorNav: 'Error',
     lockedStatus: 'Sincronización desactivada',
@@ -149,6 +153,7 @@ export const settingsMessages: SettingsCatalog = {
     lockedNav: 'Desactivada',
     cancel: 'Cancelar',
     errors: {
+      configuration: 'La configuración del servicio de sincronización necesita una actualización. Inténtalo más tarde.',
       network: 'Red no disponible',
       password: 'La contraseña no coincide',
       auth: 'El acceso no terminó',

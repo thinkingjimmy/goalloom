@@ -541,5 +541,6 @@ begin
 end $$;
 select pass('commit_roster, rotate_epoch and complete_recovery accept only the roster signer');
 
+\ir sync-cost-cases.sql
 select * from finish();
 rollback;

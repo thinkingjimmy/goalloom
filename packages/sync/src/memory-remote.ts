@@ -2,8 +2,10 @@
  * [INPUT]: Two sessions that share one user. No sockets and no clock beyond the caller.
  * [OUTPUT]: A SyncRemote that assigns seq, rejects a bad roster signature, and keeps ciphertext opaque.
  * [POS]: The simulated second computer for convergence tests.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { hex, rosterHash, unhex, verifyDetached, verifyRosterSignature } from '@goalloom/crypto'
+import type { RequestOptions } from './request'
 import { SyncFailure } from './failure'
 import { maxOpCiphertextBytes } from './push'
 import type { AccountView, CheckpointWire, EnvelopeWire, PullWire, PushResultWire, PushWire, RecoveryChallenge, RosterWire, SyncRemote } from './remote'
@@ -69,6 +71,23 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       const workspace = world.workspace
       if (!workspace) return null
       return { workspaceId: workspace.id, generation: workspace.generation, keyEpoch: workspace.keyEpoch, headSeq: workspace.headSeq, rosterVersion: workspace.rosterVersion }
+    },
+    async getSyncStatus(workspaceId, deviceId, options) {
+      options?.signal?.throwIfAborted()
+      failIfOffline(world); device(world, sessionId, deviceId, false)
+      const workspace = workspaceFor(world)
+      if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
+      return { workspaceId, generation: workspace.generation, keyEpoch: workspace.keyEpoch, headSeq: workspace.headSeq,
+        rosterVersion: workspace.rosterVersion, minRetainedSeq: 0, minProtocolRead: 1, minProtocolWrite: 1 }
+    },
+    async receiptsFor(workspaceId, deviceId, opIds, options) {
+      options?.signal?.throwIfAborted()
+      await remote.getSyncStatus(workspaceId, deviceId, options)
+      if (opIds.length > 200) throw new SyncFailure('rejected')
+      return opIds.flatMap(opId => {
+        const row = workspaceFor(world).receipts.get(opId)
+        return row ? [{ opId, payloadHash: row.hash, seq: row.seq }] : []
+      })
     },
     async resetSync(deviceId) {
       failIfOffline(world)
@@ -172,7 +191,18 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       return workspace.ops.filter(row => row.seq > input.after).slice(0, input.limit).map(row => ({ ...row }))
     },
   }
-  return remote
+  return new Proxy(remote, { get(target, key) {
+    const method = Reflect.get(target, key)
+    if (typeof method !== 'function') return method
+    return (...args: unknown[]) => {
+      const signal = (args.at(-1) as RequestOptions | undefined)?.signal
+      if (signal?.aborted) return Promise.reject(new SyncFailure('cancelled'))
+      return Promise.resolve(Reflect.apply(method, target, args)).then(result => {
+        if (signal?.aborted) throw new SyncFailure('cancelled')
+        return result
+      })
+    }
+  } })
 }
 
 function acceptOp(workspace: WorkspaceRow, _deviceId: string, op: PushWire, measure: () => number): PushResultWire {

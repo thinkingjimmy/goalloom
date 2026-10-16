@@ -202,3 +202,11 @@ Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls 
 - `apps/mobile` is the Hermes runner. It was not executed here (no iOS simulator). P0.6b, P0.6c and P0.7 stay open.
 - Reconcile still writes one local `operations` receipt, and also one deterministic `item.rollover` SyncOp per moved item.
 - A dataset replace clears sync projection tables, pauses with `generation`, and copies the new projection into `base_*`. Exports do not include the sync tables.
+
+## Target-version control reads and bounded sends
+
+`get_sync_status(workspace, device)` returns only workspace/generation, head, roster/epoch, retained boundary and minimum read/write versions. It verifies the authenticated session, device authorization, ownership and entitlement without updating counters or last-seen timestamps. The client rejects unsupported versions, mismatched bindings and missing retained operations. Metadata never substitutes for roster signatures or authoritative write checks.
+
+A desktop turn reads independently of upload success, applies one continuous page, and sends at most one original ordered batch. Peek does not change state. Only chosen IDs transition to `send_unknown`; accepted receipts cannot skip the replay cursor. Unknown receipts must match the restored plaintext payload hash, including secret preferences. The local workspace generation guards storage writes; the cloud generation guards remote binding. They can differ after join.
+
+All remote methods accept an optional cancellation context. The HTTP adapter combines it with lifecycle cancellation and a request deadline covering token/headers/body. Late callbacks cannot apply results. Deadlines and independent upload/read recovery are specified in [desktop sync](desktop.md#adaptive-synchronization). The E2E failure matrix is maintained with the local cost plan; repeatable production-service evidence is produced by `pnpm test:sync-scheduling`.

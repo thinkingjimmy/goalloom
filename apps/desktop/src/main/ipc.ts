@@ -130,7 +130,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     if (action.type !== 'backupStatus') await firstWrite
     if (action.type !== 'chooseImport') {
       const reply = await storage.call<DataReply>('data', action)
-      if (reply.type === 'replaced') { smart.releaseSession(); links.releaseSession() }
+      if (reply.type === 'replaced') { sync.workspaceReplaced(); smart.releaseSession(); links.releaseSession() }
       return reply
     }
     const session = rendererSession

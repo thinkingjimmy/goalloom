@@ -75,7 +75,8 @@ it('documents the deployed envelope name clash and replaces it in 0006', () => {
   expect(replaced).toContain('v_epoch')
   expect(replaced).toContain('v_signature')
   expect(replaced).toContain('v_roster_version')
-  const push = next.slice(next.indexOf('function public.push_ops'))
+  const cost = readFileSync(new URL('../../../supabase/migrations/0008_sync_cost.sql', import.meta.url), 'utf8')
+  const push = cost.slice(cost.indexOf('function public.push_ops'))
   expect(push).toContain(`octet_length(v_ct) > ${maxOpCiphertextBytes}`)
   expect(push).not.toContain('65536')
   const reset = readFileSync(new URL('../../../supabase/migrations/0007_reset_sync.sql', import.meta.url), 'utf8')
@@ -360,6 +361,7 @@ it('writes a protective backup and asks for one transaction before replacing the
     recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
   }
   opened.remote = {
+    receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
     pullOps: async () => [], pushOps: async () => [], getRoster: async () => { throw new SyncFailure('network') },
     getEnvelopes: async () => [], account: async () => null, registerDevice: async () => randomUUID(), rebindDevice: async () => undefined,
     bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
@@ -379,6 +381,7 @@ it('writes a protective backup and asks for one transaction before replacing the
 
 it('backs up the board before the first device baselines and before a reset upload', async () => {
   const remote = (): SyncRemote => ({
+    receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
     pullOps: async () => [], pushOps: async () => [], getRoster: async () => { throw new SyncFailure('network') },
     getEnvelopes: async () => [], account: async () => null, registerDevice: async () => randomUUID(), rebindDevice: async () => undefined,
     bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
@@ -464,6 +467,7 @@ it('cancels an in-flight sign-in without an auth notice and resets cloud data ba
     generation: null, epoch: null, roster: null, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
   }
   opened.remote = {
+    receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
     pullOps: async () => [], pushOps: async () => [], getRoster: async () => { throw new SyncFailure('network') },
     getEnvelopes: async () => [], account: async () => null, registerDevice: async () => randomUUID(), rebindDevice: async () => undefined,
     bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
@@ -571,6 +575,7 @@ it('keeps the previous Google account key when another account signs in', async 
   })
   opened.client = sessionFor('user-a')
   opened.remote = {
+    receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
     account: async () => account(workspaceA),
     rebindDevice: async () => { throw new SyncFailure('auth') },
     registerDevice: async () => randomUUID(),
@@ -584,7 +589,8 @@ it('keeps the previous Google account key when another account signs in', async 
   await vault.save(stored)
   opened.secrets = (await vault.load())!
   opened.client = sessionFor('user-b')
-  opened.remote = { ...opened.remote, account: async () => account(randomUUID()), rebindDevice: async () => undefined }
+  opened.remote = {
+    ...opened.remote, account: async () => account(randomUUID()), rebindDevice: async () => undefined }
   await opened.afterAuth()
   const parked = await vault.load()
   expect(parked?.accounts['user-a']?.workspaceId).toBe(workspaceA)
@@ -642,6 +648,7 @@ it('seeds settings when an already-bound account resumes', async () => {
     channel: () => ({ on() { return this }, subscribe() { return undefined }, async unsubscribe() { return undefined } }),
   }
   opened.remote = {
+    receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
     account: async () => ({ workspaceId, generation: workspaceId, keyEpoch: 1, headSeq: 0, rosterVersion: 1 }),
     rebindDevice: async () => undefined, registerDevice: async () => randomUUID(),
     getRoster: async () => { throw new SyncFailure('network') },
@@ -684,9 +691,9 @@ it('seals an API key from the keychain and writes the fingerprint on absorb', as
   const service = new SyncService({
     userData, cipher,
     storage: { call: async (_method: string, argument?: unknown) => {
-      const action = argument as { type?: string; ops?: unknown[] }
+      const action = argument as { type?: string; ops?: unknown[]; unknownOnly?: boolean }
       if (action?.type === 'view') return { workspaceId, deviceId, generation: workspaceId, keyEpoch: 1, paused: null, lastAppliedSeq: 0, pending: 1, conflicts: 0, localItems: 0 }
-      if (action?.type === 'take') return [pending]
+      if (action?.type === 'peek') return action.unknownOnly ? [] : [pending]
       if (action?.type === 'accept') return null
       if (action?.type === 'absorb') { absorbed.push(...(action.ops ?? [])); return 1 }
       if (action?.type === 'settings') return []
@@ -704,6 +711,7 @@ it('seals an API key from the keychain and writes the fingerprint on absorb', as
     generation: workspaceId, epoch: 1, roster, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
   }
   opened.remote = {
+    receiptsFor: async () => [], getSyncStatus: async () => ({ workspaceId, generation: workspaceId, headSeq: 1, keyEpoch: 1, rosterVersion: 1, minRetainedSeq: 0, minProtocolRead: 1, minProtocolWrite: 1 }),
     account: async () => null,
     rebindDevice: async () => undefined, registerDevice: async () => deviceId,
     getRoster: async () => [{ version: 1, roster, bodyHash: rosterHash(roster), signature: 'aa', signerType: 'device', signerDevice: deviceId }],

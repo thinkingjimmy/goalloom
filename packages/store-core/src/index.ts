@@ -6,6 +6,6 @@ export { applyRemoteBatch, assertForeignKeys, copyProjectionToBase, mergeRemoteO
 export { exportCanonicalSnapshot, installCanonicalSnapshot, type SnapshotBody } from './snapshot'
 export { cancelIfNeverSent, markAccepted, markSendUnknown, pauseWorkspace } from './state'
 export {
-  clearSyncSettings, enqueueSettings, projectWorkspaceSettings, readSettings, scrubSecretMaterial, settingsBaselineOp, syncSettingsReady, writeSetting, type SettingEntry, type SettingRow,
+  clearSyncSettings, isLaterSetting, enqueueSettings, projectWorkspaceSettings, readSettings, scrubSecretMaterial, settingsBaselineOp, syncSettingsReady, writeSetting, type SettingEntry, type SettingRow,
 } from './settings'
 export { persistedSecret, redactSyncOp, secretFingerprint } from './secrets'

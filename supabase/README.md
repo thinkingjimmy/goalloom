@@ -147,3 +147,19 @@ Run the Node script when a remote run was killed before its `finally`, or before
 | This directory: migrations, RPCs, Edge Functions, pgTAP, `reset.sql`, `config.toml`, this README, [`LICENSE`](./LICENSE) | AGPL-3.0-only |
 
 `@goalloom/contracts`, `@goalloom/crypto`, `@goalloom/schema`, `@goalloom/store-core`, and `@goalloom/sync` declare `"license": "MIT"` and depend only on each other plus pinned libraries (`zod`, `@noble/*`, `@scure/bip39`). Their sources do not import `supabase/`.
+
+## Target-version cost controls
+
+Current development targets `0001` through `0008_sync_cost.sql` as one schema definition. There are no external users and no legacy-version rollout requirement. `0006` now contains the envelope correction; the final push definition lives in `0008`. Preserve and verify the developer's local backup before an explicit rebuild. The app does not deploy or reset the database.
+
+`0008` adds the read-only `get_sync_status`, account usage/configuration, upload-only quota, registration protection, head-change-only notifications and bounded runtime cleanup. Accepted new bytes/ops are aggregated once per batch in the same transaction as operations and receipts. Fixed-order account bucket locks serialize devices; duplicate receipts do not update accepted usage. A quota exception rolls back the whole request and carries an upload retry timestamp. Download/status/receipts remain independently accessible.
+
+The default limit version is 1, with enforcement **off**. Observe aggregate synthetic/developer usage first. Defaults: 6,000 ops/32 MiB per minute, 200,000 ops/512 MiB per UTC day, 64 registrations per UTC day. Hosted baseline/import/long-description/concurrency checks must pass before an operator enables enforcement. These limits do not assert compute capacity or justify purchasing a larger instance.
+
+The core pgTAP transaction includes `tests/sync-cost-cases.sql` and rolls everything back. Run it only against an isolated development database initialized with the target definitions. It checks session/device/owner guards, no per-status counter writes, duplicate receipt accounting, upload blocking with read access, account separation, and bounded cleanup preserving durable data. This local task has not executed hosted SQL, quota concurrency, permission, cleanup/Cron or live broadcast acceptance because credentials are unavailable.
+
+After verifying `pg_cron`, inspect existing jobs before installing `sync-cost-cron.sql`. It creates/updates one named job (`goalloom-sync-runtime-cleanup`) and sets a five-second caller statement limit. Inspect `cron.job` and `cron.job_run_details` for one active job and failures; do not create a GitHub schedule. Manual cleanup callers also set `statement_timeout='5s'`. Each call deletes at most 5,000 rows in each of five indexed categories. Existing disk allocation and the bill do not automatically decrease.
+
+The owner deferred hosted acceptance until credentials are available. No hosted resources, paid plans or Cron jobs were changed by the local implementation. Synthetic client reports under `apps/desktop/output/tests/sync-cost/` do not prove SQL execution, capacity or a bill reduction.
+
+[PROTOCOL]: Update this header when making changes, then check README.md.

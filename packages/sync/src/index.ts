@@ -10,6 +10,8 @@ export { bindWorkspace, captureVisibleBoard, clearProjection, conflictCount, loc
 export {
   acceptPushResults, acceptRosterAdvance, absorbOpened, absorbPulled, bootstrapWorkspace, createRemoteWorkspace, downloadWorkspace,
   changeSyncPassword, exchange, installJoined, joinWorkspace, newDeviceSecret, pullOpened, rebindMessage, restorePendingSecrets, sealPending, takePending, unlockWithPassword, workspaceKeyFromEnvelope,
-  type BoundWorkspace, type DeviceSecret, type PendingPlain, type SecretLookup,
+  type BoundWorkspace, type DeviceSecret, peekPending, markPending, type PendingPlain, type SecretLookup,
 } from './session'
-export type { AccountView, DevicePlatform, PushResultWire, SyncRemote } from './remote'
+export type { AccountView, DevicePlatform, PushResultWire, SyncHead, ReceiptWire, SyncRemote } from './remote'
+
+export { scopedRemote, boundedRequest, requestLimits, syncClock, type RequestOptions, type SyncClock } from './request'

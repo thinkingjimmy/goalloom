@@ -142,6 +142,10 @@ export const settingsMessages: SettingsCatalog = {
     lastSync: (when: string) => `Last sync ${when}`,
     ready: 'Synced',
     syncing: 'Syncing…',
+    uploadWaitingNav: 'Waiting',
+    uploadWaiting: 'Waiting to upload',
+    uploadWaitingDetail: 'Upload paused; changes from other devices can still arrive',
+    uploadRetry: (time: string) => `Automatic retry: ${time}`,
     syncingNav: 'Syncing',
     errorNav: 'Error',
     lockedStatus: 'Sync is off',
@@ -149,6 +153,7 @@ export const settingsMessages: SettingsCatalog = {
     lockedNav: 'Off',
     cancel: 'Cancel',
     errors: {
+      configuration: 'Sync service configuration needs an update. Try again later.',
       network: 'Network unavailable',
       password: 'Password does not match',
       auth: 'Sign-in did not finish',

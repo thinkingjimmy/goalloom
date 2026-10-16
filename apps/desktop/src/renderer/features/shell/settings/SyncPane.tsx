@@ -31,6 +31,7 @@ export function syncNavBadge(status: SyncStatus | null): { text: string; dot?: t
   if (status.phase !== 'ready') return null
   if (status.syncing) return { text: t.syncingNav }
   if (status.error || status.offline) return { text: t.errorNav, dot: 'err' }
+  if (status.uploadWait) return { text: t.uploadWaitingNav }
   if (status.pending > 0) return { text: t.syncingNav }
   if (status.paused) return { text: t.pausedNav }
   return { text: t.ready, dot: true }
@@ -44,6 +45,7 @@ function readyLine(status: SyncStatus, today: string, timezone?: string): { stat
     const label = status.error && status.error !== 'network' ? t.errors[status.error] : t.errors.network
     return { state: 'bad', label, ...(when ? { detail: when } : {}) }
   }
+  if (status.uploadWait) return { state: 'off', label: t.uploadWaiting, detail: t.uploadRetry(syncClock(status.uploadWait.retryAt, today, timezone)) }
   if (status.pending > 0) return { state: 'run', label: t.syncing }
   if (status.paused) return { state: 'off', label: t.paused, ...(when ? { detail: when } : {}) }
   return { state: 'ok', label: t.ready, ...(when ? { detail: when } : {}) }
@@ -53,8 +55,8 @@ function GoogleMark() {
   return <svg width="14" height="14" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
 }
 
-function StatusLine({ state, label, detail }: { state: 'ok' | 'run' | 'bad' | 'off'; label: string; detail?: string }) {
-  return <span className="sync-status inline-flex items-center gap-1.5 text-[12px] text-muted-foreground whitespace-nowrap" data-state={state} role="status"><i aria-hidden="true" /><b>{label}</b>{detail && <><span className="sep" aria-hidden="true">·</span><span>{detail}</span></>}</span>
+function StatusLine({ state, label, detail, wrap = false }: { wrap?: boolean; state: 'ok' | 'run' | 'bad' | 'off'; label: string; detail?: string }) {
+  return <span className={`sync-status inline-flex items-center gap-1.5 text-[12px] text-muted-foreground ${wrap ? 'max-w-full flex-wrap whitespace-normal justify-end' : 'whitespace-nowrap'}`} data-state={state} role="status"><i aria-hidden="true" /><b>{label}</b>{detail && <><span className="sep" aria-hidden="true">·</span><span>{detail}</span></>}</span>
 }
 
 function PasswordField({ label, value, onChange, autoComplete, invalid = false }: { label: string; value: string; onChange: (value: string) => void; autoComplete: string; invalid?: boolean }) {
@@ -169,7 +171,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
     {status.phase === 'ready' && line && <>
       <SettingsGroup>
         <Account note={accountNote}>
-          <StatusLine state={line.state} label={line.label} {...(line.detail ? { detail: line.detail } : {})} />
+          <StatusLine wrap={!!status.uploadWait} state={line.state} label={line.label} {...(line.detail ? { detail: line.detail } : {})} />
           {failed && <SettingsButton type="button" disabled={working} onClick={() => void run({ type: 'retry' })}>{t.retry}</SettingsButton>}
           {signOut}
         </Account>
@@ -180,6 +182,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
           <SettingsRow title={t.changePassword}><SettingsButton type="button" disabled={working || syncing || !passwordOk(nextPassword, nextAgain)} onClick={() => void run({ type: 'change-password', password: nextPassword.trim() })}>{t.changePassword}</SettingsButton></SettingsRow>
         </>}
       </SettingsGroup>
+      {status.uploadWait && <p className="settings-footnote" role="status">{t.uploadWaitingDetail}</p>}
       <SettingsGroup danger>
         {resetting && <>
           <SettingsRow title={t.newPassword}><PasswordField label={t.newPassword} autoComplete="new-password" value={resetPassword} onChange={setResetPassword} /></SettingsRow>

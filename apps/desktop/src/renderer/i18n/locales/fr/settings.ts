@@ -142,6 +142,10 @@ export const settingsMessages: SettingsCatalog = {
     lastSync: (when: string) => `Dernière synchro ${when}`,
     ready: 'Synchronisé',
     syncing: 'Synchronisation…',
+    uploadWaitingNav: 'En attente',
+    uploadWaiting: 'En attente d’envoi',
+    uploadWaitingDetail: 'Envoi en pause. Les modifications des autres appareils peuvent être reçues',
+    uploadRetry: (time: string) => `Nouvel essai automatique : ${time}`,
     syncingNav: 'Synchro…',
     errorNav: 'Erreur',
     lockedStatus: 'Synchro arrêtée',
@@ -149,6 +153,7 @@ export const settingsMessages: SettingsCatalog = {
     lockedNav: 'Arrêtée',
     cancel: 'Annuler',
     errors: {
+      configuration: 'La configuration du service de synchronisation doit être mise à jour. Réessayez plus tard.',
       network: 'Réseau indisponible',
       password: 'Le mot de passe ne correspond pas',
       auth: 'La connexion ne s’est pas terminée',

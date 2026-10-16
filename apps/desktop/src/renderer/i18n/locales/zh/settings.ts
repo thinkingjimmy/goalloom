@@ -141,6 +141,10 @@ export const settingsMessages = widen({
     lastSync: (when: string) => `上次同步 ${when}`,
     ready: '已同步',
     syncing: '正在同步…',
+    uploadWaitingNav: '待上传',
+    uploadWaiting: '等待上传',
+    uploadWaitingDetail: '上传暂缓，仍可接收其他设备的更改',
+    uploadRetry: (time: string) => `将在 ${time} 自动重试`,
     syncingNav: '同步中',
     errorNav: '出错',
     lockedStatus: '同步已关闭',
@@ -148,6 +152,7 @@ export const settingsMessages = widen({
     lockedNav: '已关闭',
     cancel: '取消',
     errors: {
+      configuration: '同步服务配置需要更新，请稍后重试',
       network: '网络不可用',
       password: '密码不对',
       auth: '登录没有完成',

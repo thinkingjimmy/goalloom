@@ -1,16 +1,17 @@
 /**
  * [INPUT]: Sync commands from the main process. Opened ops cross this boundary only inside the app.
  * [OUTPUT]: Cursor, pending ops, and merged rows. Network and workspace keys stay in the main process.
- * [POS]: Storage-worker adapter over the shared sync engine.
+ * [POS]: Storage-worker adapter; scoped writes reject replaced workspaces.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { z } from 'zod'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import type { RemoteEnvelope } from '@goalloom/store-core'
-import { enqueueSettings, readSettings } from '@goalloom/store-core'
+import { enqueueSettings, readSettings, SyncApplyError } from '@goalloom/store-core'
 import {
   absorbOpened, acceptPushResults, bindWorkspace, captureVisibleBoard, conflictCount, installJoined, localLiveCount, queueBaseline, queueVisibleBaseline,
-  stageImportedBoard, syncCursor, takePending, type LocalBoard, type PendingPlain, type PushResultWire,
+  stageImportedBoard, syncCursor, takePending, peekPending, markPending, type LocalBoard, type PendingPlain, type PushResultWire,
 } from '@goalloom/sync'
 import { syncHost } from '../../sync/host'
 import { DomainError } from '../../../shared/contracts/commands'
@@ -20,17 +21,20 @@ import { Store } from '../../storage/store'
 const binding = z.strictObject({ workspaceId: z.uuid(), deviceId: z.uuid(), keyEpoch: z.number().int().positive() })
 const pending = z.strictObject({ opId: z.uuid(), localOrder: z.number().int(), payload: z.string(), payloadHash: z.string() })
 const opened = z.strictObject({ seq: z.number().int().positive(), op: z.unknown() })
+const scope = z.strictObject({ workspaceId: z.uuid(), generation: z.uuid() })
 const command = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('view') }),
   z.strictObject({ type: z.literal('capture') }),
   z.strictObject({ type: z.literal('bind'), binding, at: z.string() }),
   z.strictObject({ type: z.literal('baseline'), deviceId: z.uuid(), at: z.string() }),
   z.strictObject({ type: z.literal('rebaseline'), deviceId: z.uuid(), at: z.string() }),
+  z.strictObject({ type: z.literal('peek'), unknownOnly: z.boolean().optional() }),
+  z.strictObject({ type: z.literal('mark'), ids: z.array(z.uuid()).min(1).max(200), at: z.string(), attemptId: z.uuid(), scope }),
   z.strictObject({ type: z.literal('take'), at: z.string(), attemptId: z.uuid() }),
-  z.strictObject({ type: z.literal('accept'), pending: z.array(pending), results: z.array(z.strictObject({
+  z.strictObject({ type: z.literal('accept'), scope: scope.optional(), pending: z.array(pending), results: z.array(z.strictObject({
     opId: z.uuid(), seq: z.number().int().positive().optional(), duplicate: z.boolean().optional(), error: z.string().optional(),
   })), at: z.string() }),
-  z.strictObject({ type: z.literal('absorb'), ops: z.array(opened), at: z.string() }),
+  z.strictObject({ type: z.literal('absorb'), scope: scope.optional(), ops: z.array(opened), at: z.string() }),
   z.strictObject({ type: z.literal('install'), binding, ops: z.array(opened), at: z.string(), merge: z.boolean() }),
   z.strictObject({ type: z.literal('import'), deviceId: z.uuid(), board: z.unknown(), at: z.string() }),
   z.strictObject({ type: z.literal('hold'), closed: z.boolean() }),
@@ -60,6 +64,10 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
   const action = command.parse(argument)
   const driver = nodeSqlDriver(db)
   const host = syncHost(db)
+  if ('scope' in action && action.scope) {
+    const current = db.prepare('SELECT s.workspaceId, w.generation FROM sync_state s CROSS JOIN workspace w WHERE s.id=1 AND w.id=1').get()
+    if (current?.workspaceId !== action.scope.workspaceId || current?.generation !== action.scope.generation) throw new DomainError('invalid', 'sync generation')
+  }
   if (action.type === 'view') {
     const state = db.prepare('SELECT workspaceId, deviceId, keyEpoch, paused FROM sync_state WHERE id=1').get()
     return {
@@ -78,6 +86,14 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
   if (action.type === 'bind') { bindWorkspace(driver, action.binding, action.at); return null }
   if (action.type === 'baseline') return queueBaseline(driver, host, action.deviceId, action.at)
   if (action.type === 'rebaseline') return queueVisibleBaseline(driver, host, action.deviceId, action.at)
+  if (action.type === 'peek') return peekPending(driver, action.unknownOnly)
+  if (action.type === 'mark') {
+    try { markPending(driver, action.ids, action.at, action.attemptId); return true }
+    catch (error) {
+      if (error instanceof SyncApplyError && error.message === 'send transition rejected') return false
+      throw error
+    }
+  }
   if (action.type === 'take') return takePending(driver, action.at, action.attemptId)
   if (action.type === 'accept') {
     return acceptPushResults(driver, action.pending as PendingPlain[], action.results.map(result => {

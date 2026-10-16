@@ -1,7 +1,8 @@
 /**
  * [INPUT]: A validated pref.set and the sync_settings side table.
- * [OUTPUT]: Last-writer-wins rows, workspace-column projection, and one local SyncOp.
- * [POS]: Settings log beside the board. v8 business tables are not altered. An API key is stored as a sha256 fingerprint. The key itself stays in the OS keychain and is sealed only in memory.
+ * [OUTPUT]: Last-writer-wins comparison/rows, workspace-column projection and one local SyncOp.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ * [POS]: Settings log beside the board. v8 business tables are not altered. An API key is stored as a sha256 fingerprint. The key stays outside SQLite; desktop keeps any unknown-send retry payload in an OS-protected journal.
  */
 import { canonicalJson, isSecretSettingKey, parseSetting, parseSyncOp, syncOpPayload, type SettingKey, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
@@ -14,7 +15,7 @@ export function syncSettingsReady(driver: SqlDriver): boolean {
   return Boolean(driver.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_settings'").get())
 }
 
-function later(at: string, opId: string, storedAt: string, storedOpId: string): boolean {
+export function isLaterSetting(at: string, opId: string, storedAt: string, storedOpId: string): boolean {
   const incoming = Date.parse(at)
   const stored = Date.parse(storedAt)
   if (Number.isFinite(incoming) && Number.isFinite(stored) && incoming !== stored) return incoming > stored
@@ -29,7 +30,7 @@ function encoded(value: unknown): string | null {
 /** Returns true when this writer replaces the stored value. Equal op ids are replays and do not write. Secret keys are stored as fingerprints. */
 export function writeSetting(driver: SqlDriver, key: SettingKey, value: unknown, at: string, opId: string): boolean {
   const existing = driver.prepare('SELECT updatedAt, opId FROM sync_settings WHERE key=?').get(key)
-  if (existing && !later(at, opId, String(existing.updatedAt), String(existing.opId))) return false
+  if (existing && !isLaterSetting(at, opId, String(existing.updatedAt), String(existing.opId))) return false
   const stored = isSecretSettingKey(key) ? persistedSecret(value) : value
   driver.prepare(`INSERT INTO sync_settings (key, value, updatedAt, opId) VALUES (?,?,?,?)
     ON CONFLICT(key) DO UPDATE SET value=excluded.value, updatedAt=excluded.updatedAt, opId=excluded.opId`)

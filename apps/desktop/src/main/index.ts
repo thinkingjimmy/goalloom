@@ -166,7 +166,10 @@ async function createWindow(): Promise<void> {
   window.on('resize', changed); window.on('move', changed)
   window.on('close', persist)
   window.once('ready-to-show', () => { window?.show(); firstVisible = true; startInitialReconcile(); if (returnFocus) focusMainWindow() })
-  window.on('focus', () => { void requestReconcile(); sync?.nudge() })
+  window.on('focus', () => { void requestReconcile(); sync?.setForeground(true) })
+  window.on('blur', () => sync?.setForeground(false))
+  window.on('hide', () => sync?.setForeground(false))
+  window.on('show', () => { sync?.setForeground(window?.isFocused() ?? false); sync?.nudge() })
   window.on('closed', () => { window = null })
   await window.loadURL(trustedUrl)
 }
@@ -204,7 +207,7 @@ if (!app.requestSingleInstanceLock()) {
     } as StorageClient
     let client!: StorageClient
     const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client, entries => {
-      void storageProxy.call('sync', { type: 'emit-settings', entries, at: new Date().toISOString(), opId: randomUUID(), mode: 'change' }).then(() => sync?.nudge()).catch(() => undefined)
+      void storageProxy.call('sync', { type: 'emit-settings', entries, at: new Date().toISOString(), opId: randomUUID(), mode: 'change' }).then(() => sync?.nudge('write')).catch(() => undefined)
     })
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
     const syncing = sync = new SyncService({
@@ -226,7 +229,7 @@ if (!app.requestSingleInstanceLock()) {
       clipboard: text => clipboard.writeText(text),
       now: () => new Date().toISOString(),
     })
-    releaseRenderer = registerIpc(() => window, trustedUrl, storageProxy, smart, language, links, updates, syncing, () => { void requestReconcile(false); syncing.nudge() }, firstWrite, meta => {
+    releaseRenderer = registerIpc(() => window, trustedUrl, storageProxy, smart, language, links, updates, syncing, () => { void requestReconcile(false); syncing.nudge('write') }, firstWrite, meta => {
       if (firstSnapshotRead) return
       firstSnapshotRead = true; lastVisible = visibleKey(meta); lastRevision = meta.workspace.revision; startInitialReconcile()
     })
@@ -240,7 +243,9 @@ if (!app.requestSingleInstanceLock()) {
     const openedWindow = await windowing
     if (!openedWindow.ok) throw openedWindow.error
     updates.start()
-    powerMonitor.on('resume', () => { void requestReconcile(); sync?.nudge() })
+    syncing.setForeground(window?.isVisible() === true && window.isFocused())
+    powerMonitor.on('suspend', () => sync?.suspend())
+    powerMonitor.on('resume', () => { void requestReconcile(); sync?.resume() })
     const timer = setInterval(() => { void requestReconcile() }, 30_000)
     timer.unref()
     app.on('activate', () => { if (!window) void createWindow() })
