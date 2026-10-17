@@ -27,7 +27,7 @@
 
 ### 1.9.5 update: persistent sync sessions
 
-Release preparation is in progress. [The release notes](../releases/v1.9.5.md) cover automatic session restoration, noninteractive macOS credential storage, password recovery, and preserved task identities/deletions. Workspace format remains v11. Publication requires local release verification, both platform packages, macOS provisioning/signing/notarization, and the signed session restart/replacement gate.
+Released on 2026-10-17. [The release notes](../releases/v1.9.5.md) cover automatic session restoration, noninteractive macOS credential storage, password recovery, and preserved task identities/deletions. Workspace format remains v11. Full local release coverage completed after correcting two test fixtures; performance and scaling checks passed. Both hosted platform packages and all eight download files passed verification. macOS provisioning, signing, notarization, and the signed session restart/replacement gate passed. Windows 11 and second physical Mac acceptance remain separate.
 
 ### 1.9.4 更新说明：同步与恢复更安全
 
@@ -100,6 +100,7 @@ Release preparation is in progress. [The release notes](../releases/v1.9.5.md) c
 
 ### 软件更新功能
 
+- [x] 1.9.5 is public with both installers, complete auto-update assets and SHA256SUMS. Signed macOS restart/replacement checks and Case 1 / relogin / deletion regression coverage passed.
 - [x] 1.9.4 正式发布，本机发布验证覆盖已补齐，两平台打包、macOS 签名与公证和 8 个发布文件核验通过。官网五语言下载已更新并完成线上核对，见 [官网规格](website.md)。
 - [x] 设置 › 关于、真实版本与图标、macOS 菜单改道、五语言文案。
 - [x] electron-updater + GitHub Releases、后台检查/下载、手动检查、重启更新、顶栏与导航红点。
