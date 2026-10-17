@@ -43,7 +43,7 @@
     "test:feedback": "node tests/feedback.mjs",
     "test:updates": "node tests/updates.mjs",
     "test:update-install": "node tests/update-install.mjs",
-    "test:review": "node tests/review/run.mjs renderer lifecycle virtual wire large-workspace package-report",
+    "test:review": "node tests/review/run.mjs renderer lifecycle virtual wire large-workspace package-report session-profile",
     "test:large-backup": "node tests/review/run.mjs large-backup",
     "test:scaling": "node tests/review/run.mjs scaling",
     "build:debug": "pnpm build && node scripts/build/debug-artifacts.mjs",

@@ -2,6 +2,7 @@
  * [INPUT]: Optional packaged executable, isolated profile directory, and the test process environment.
  * [OUTPUT]: Playwright Electron launch options. A packaged build is copied outside the checkout.
  * [POS]: Shared launch for the release smokes. Source runs stay in the project directory.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { access, cp, mkdtemp, rm } from 'node:fs/promises'
@@ -42,6 +43,7 @@ export async function packagedElectronOptions(executable, profile, environment) 
   await assertPackageUnreachable(executablePath)
   return {
     options: { executablePath, cwd: dirname(executablePath), args: [`--user-data-dir=${profile}`], env },
-    cleanup: () => rm(destination, { recursive: true, force: true }),
+    // Windows can retain an executable handle briefly after Electron has closed.
+    cleanup: () => rm(destination, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }),
   }
 }
