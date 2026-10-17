@@ -189,6 +189,7 @@ export const settingsMessages: SettingsCatalog = {
     errorNav: 'Error',
     lockedStatus: 'Sincronización desactivada',
     lockedReason: 'El llavero no está disponible',
+    passwordStorage: 'Tu contraseña de sincronización protege las credenciales en este ordenador. No se necesita autorización del sistema. Al volver a abrir la app, inicia sesión e introduce de nuevo la contraseña de sincronización.',
     lockedNav: 'Desactivada',
     cancel: 'Cancelar',
     errors: {

@@ -7,6 +7,7 @@
 import { app, safeStorage, shell } from 'electron'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { createRequire } from 'node:module'
 
 const fixture = globalThis.credentialFixture = {
   mode: process.env.GOALLOOM_CREDENTIAL_MODE ?? 'available',
@@ -22,6 +23,15 @@ if (fixture.mode === 'missing-policy') {
   }
 }
 const recordCipherName = () => { if (!fixture.cipherAppNames.includes(app.name)) fixture.cipherAppNames.push(app.name) }
+if (process.platform === 'darwin' && fixture.mode !== 'missing-policy') {
+  const native = createRequire(import.meta.url)(resolve('out/main/keychain-policy.node'))
+  native.sessionKey = (_scope, create) => {
+    recordCipherName(); fixture.available++
+    if (fixture.mode === 'unavailable' || fixture.mode === 'denied') throw Error('Synthetic session key denial')
+    if (create) fixture.encrypt++; else fixture.decrypt++
+    return Buffer.alloc(32, 0x6d)
+  }
+}
 safeStorage.isEncryptionAvailable = () => { recordCipherName(); fixture.available++; return fixture.mode !== 'unavailable' }
 safeStorage.encryptString = text => {
   recordCipherName()

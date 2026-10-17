@@ -11,6 +11,7 @@ import { tmpdir, cpus, release, arch } from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { build } from 'vite'
 import { _electron as electron } from 'playwright'
+import { pollPage } from './fixtures/poll.mjs'
 
 const out = resolve('output/tests/sync-join'); await mkdir(join(out, 'screenshots'), { recursive: true })
 const root = await mkdtemp(join(tmpdir(), 'goalloom-sync-join-ui-'))
@@ -37,7 +38,7 @@ try {
   await settings.getByRole('button', { name: /Google/ }).click()
   await settings.locator('input[type="password"]').fill('synthetic-sync-password')
   await settings.getByRole('button', { name: '继续', exact: true }).click()
-  await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
+  await pollPage(page, async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
   await settings.locator('.sync-status').waitFor()
   assert.equal(await settings.getByText('本机已有条目', { exact: true }).count(), 0)
   await application.evaluate(async () => {
@@ -56,7 +57,9 @@ try {
   await settings.getByRole('button', { name: '退出登录', exact: true }).click()
   await page.locator('.sync-signout-modal button[type="submit"]').click()
   await settings.getByRole('button', { name: /Google/ }).click()
-  await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
+  await settings.locator('input[type="password"]').fill('synthetic-sync-password')
+  await settings.getByRole('button', { name: '继续', exact: true }).click()
+  await pollPage(page, async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
   await application.evaluate(async () => {
     const f = globalThis.syncJoinFixture
     await f.a.service.handle({ type: 'retry' })
@@ -68,6 +71,8 @@ try {
   await page.locator('.sync-signout-modal button[type="submit"]').click()
   await application.evaluate(async () => { await globalThis.syncJoinFixture.a.storage.call('sync', { type: 'pause', reason: 'restore', at: new Date().toISOString() }) })
   await settings.getByRole('button', { name: /Google/ }).click()
+  await settings.locator('input[type="password"]').fill('synthetic-sync-password')
+  await settings.getByRole('button', { name: '继续', exact: true }).click()
   await settings.getByRole('button', { name: '合并并开始同步', exact: true }).waitFor()
   assert.equal(await settings.getByRole('button', { name: '合并并开始同步', exact: true }).isEnabled(), true)
   assert.equal(await settings.locator('input[type="radio"]').count(), 0)
@@ -99,7 +104,7 @@ try {
   await page.screenshot({ path: join(out, 'screenshots/replace-acknowledgement.png') })
   report.checks.push('Paused/restored join requires a decision; merge needs no checkbox; replacement is secondary and acknowledgement resets')
   await settings.getByRole('button', { name: '合并并开始同步', exact: true }).click()
-  await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
+  await pollPage(page, async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
   report.ok = true
 } catch (error) {
   report.error = error?.stack ?? String(error)

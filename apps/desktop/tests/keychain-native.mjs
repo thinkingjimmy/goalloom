@@ -6,6 +6,7 @@
  */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { cpus, release } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -80,6 +81,13 @@ if (process.platform !== 'darwin') {
     let page = await launch()
     assert.equal(await appOperation('policy', appKeychain), 0)
     check('production Electron startup disables Keychain dialogs before credential access')
+    const deniedSession = await application.evaluate((_, input) => {
+      const native = process.getBuiltinModule('module').createRequire(process.execPath)(input.native)
+      try { native.sessionKey(input.scope, true); return null }
+      catch (error) { return error.code }
+    }, { native: resolve('out/main/keychain-policy.node'), scope: createHash('sha256').update(temporary).digest('hex') })
+    assert.equal(deniedSession, 'KEYCHAIN_-34018')
+    check('Data Protection session storage rejects an unprovisioned source app without authorization UI')
     assert.equal(await appOperation('create', appKeychain), 0)
     assert.equal(await appOperation('read', appKeychain), 0)
     await page.screenshot({ path: join(out, 'first-use.png') })

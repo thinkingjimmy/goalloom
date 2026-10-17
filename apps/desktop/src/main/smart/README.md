@@ -12,7 +12,7 @@ smart/
 ├── capture.ts      # Bounded main-owned draft/creation handoff, ready-result reuse, manual-intent cancellation and late completion without an undo-stack entry
 ├── queue.ts        # Two concurrent abortable Jev calls across capture sessions; local writes never wait on the queue
 ├── context.ts      # Current/explicit-future dates across legal longer horizons; full ancestry, period identities and direct parent/child title summaries; no eight-goal cutoff
-└── electron.ts     # Shared noninteractive OS cipher for AI and sync, guarded by ../keychain.ts; composes AI services and fixed console links
+└── electron.ts     # Shared noninteractive OS cipher for AI and sync, typed native-access failures, guarded by ../keychain.ts; composes AI services and fixed console links
 ```
 
 语义题单、预算、日期与概率策略是 `apps/desktop/src/domain/smart` 的纯函数；本目录只负责网络、凭据、取消和门控。Key 不进入业务 SQLite、导出、备份或日志，读取失败保留加密文件、绝不明文回退。设备配置不进入 workspace 表；智能输入与洞察各自绑定 generation，整库恢复/重置后都自动暂停，需在各自设置页重新打开。账户级失败（认证、额度、付款、权限、路由）记在服务上，下一次成功或重测后清除。新辅助通过 worker 的相同执行事实装配上下文；仅显式生成才发网络。起草/复盘扩展信息按 purpose consent 投影，历史按固定 cutoff。确认后的写入仍走 worker → Repository：原计划使用 `createPlan`，推进说明与可选移动使用 `applyAssistance`。

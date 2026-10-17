@@ -189,6 +189,7 @@ export const settingsMessages: SettingsCatalog = {
     errorNav: 'Error',
     lockedStatus: 'Sync is off',
     lockedReason: 'Keychain unavailable',
+    passwordStorage: 'Your sync password protects credentials on this computer. No system authorization is needed. Sign in and enter the sync password again after reopening the app.',
     lockedNav: 'Off',
     cancel: 'Cancel',
     errors: {

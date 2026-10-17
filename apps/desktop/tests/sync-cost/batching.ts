@@ -21,10 +21,14 @@ async function main() {
   await mkdir(out, { recursive: true }); await seed(profile, 'alpha', cloud.world, cloud.url)
   const storage = await worker(profile)
   let status: any
-  let onEncrypt: (() => void) | null = null
-  const protectedCipher = { ...cipher, encrypt: (text: string) => { const bytes = cipher.encrypt(text); const work = onEncrypt; onEncrypt = null; work?.(); return bytes } }
-  const service: any = new SyncService({ userData: profile, storage, cipher: protectedCipher, clock, random: () => 1, openExternal: async () => {},
+  let onPrepared: (() => void) | null = null
+  const service: any = new SyncService({ userData: profile, storage, cipher, clock, random: () => 1, openExternal: async () => {},
     notify: value => { status = value }, onApplied: () => {}, clipboard: () => {}, now: () => new Date().toISOString() })
+  const remember = service.pendingCache.remember.bind(service.pendingCache)
+  service.pendingCache.remember = async (rows: unknown) => {
+    await remember(rows)
+    const work = onPrepared; onPrepared = null; work?.()
+  }
   const sql = (statement: string) => { const db = new DatabaseSync(join(profile, 'workspace.sqlite'), { readOnly: true }); try { return db.prepare(statement).all() } finally { db.close() } }
   const count = () => cloud.requests.filter(row => row.rpc === 'push_ops').length
   const drain = async () => { for (let n = 0; n < 15; n++) { await clock.advance(0); await service.schedule.settle(); if (status.pending === 0) return }; throw Error('Queue did not drain') }
@@ -59,7 +63,7 @@ async function main() {
 
     const racing: any = await create('Undo during send preparation')
     let undoPrepared: Promise<unknown> | null = null
-    onEncrypt = () => { undoPrepared = storage.call('command', { type: 'undo', originalOperationId: racing.operationId, operationId: randomUUID(), generation: view.generation }) }
+    onPrepared = () => { undoPrepared = storage.call('command', { type: 'undo', originalOperationId: racing.operationId, operationId: randomUUID(), generation: view.generation }) }
     await service.handle({ type: 'retry' }); await undoPrepared; await drain()
     assert.equal(count(), beforeUndo)
     assert.equal(status.error, null)

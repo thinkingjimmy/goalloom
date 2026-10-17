@@ -1,13 +1,13 @@
 /**
- * [INPUT]: The packaged macOS native interaction policy; other platforms need no native policy.
- * [OUTPUT]: protectKeychainAccess(): whether credential operations can run without system dialogs.
+ * [INPUT]: The packaged macOS native policy and application-private Data Protection session keys.
+ * [OUTPUT]: protectKeychainAccess() and protectedSessionKey(); other platforms retain their existing cipher.
  * [POS]: Main-process guard. Missing native code disables credential access while the local workspace stays available.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
-interface KeychainPolicy { disableInteraction(): boolean }
+interface KeychainPolicy { disableInteraction(): boolean; sessionKey(scope: string, create: boolean): Buffer | null }
 let policy: KeychainPolicy | null | undefined
 
 export function protectKeychainAccess(): boolean {
@@ -19,4 +19,9 @@ export function protectKeychainAccess(): boolean {
     policy = null
     return false
   }
+}
+
+export function protectedSessionKey(scope: string, create: boolean): Buffer | null {
+  if (process.platform !== 'darwin' || !protectKeychainAccess() || !policy) throw Error('Protected session storage is unavailable')
+  return policy.sessionKey(scope, create)
 }

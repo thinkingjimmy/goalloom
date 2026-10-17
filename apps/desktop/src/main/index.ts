@@ -17,6 +17,7 @@ import { loadWindowState, saveWindowState } from './window/state'
 import { LanguagePreference } from './window/language'
 import { protectWindowClose } from './window/close'
 import { createSmartService, deviceCipher } from './smart/electron'
+import { sessionCipher } from './sync/session-cipher'
 import { serverText } from '../shared/i18n/server'
 import { LinkPreviewService } from './link-preview/service'
 import { UpdateService } from './update'
@@ -213,6 +214,7 @@ if (!app.requestSingleInstanceLock()) {
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
     const syncing = sync = new SyncService({
       userData: app.getPath('userData'), cipher: deviceCipher, storage: storageProxy,
+      sessionCipher: sessionCipher(app.getPath('userData'), deviceCipher),
       monitorNetwork: createNetworkMonitor,
       onLocalCleared: () => { smart.releaseSession(); links.releaseSession() },
       openExternal: url => shell.openExternal(url),

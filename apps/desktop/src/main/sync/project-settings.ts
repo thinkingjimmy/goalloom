@@ -1,7 +1,8 @@
 /**
  * [INPUT]: Winning sync_settings rows and the device language, keychain and renderer window.
  * [OUTPUT]: Live application of those rows. Workspace columns are already projected in SQL.
- * [POS]: Desktop side of settings sync. API keys are already in the OS keychain. A fingerprint is not written again. Renderer preferences and AI status update live.
+ * [POS]: Desktop settings projection. API keys are delivered or deferred in the encrypted vault before projection; fingerprints are not written as keys. Renderer preferences and AI status update live.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { isRendererSettingKey, isSecretFingerprint, isSecretSettingKey, isWorkspaceSettingKey, parseSetting } from '@goalloom/contracts'
 import type { Language } from '../../shared/i18n/locale'

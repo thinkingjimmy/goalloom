@@ -189,6 +189,7 @@ export const settingsMessages: SettingsCatalog = {
     errorNav: 'Erreur',
     lockedStatus: 'Synchro arrêtée',
     lockedReason: 'Trousseau indisponible',
+    passwordStorage: 'Votre mot de passe de synchronisation protège les identifiants sur cet ordinateur. Aucune autorisation système n’est nécessaire. Après avoir rouvert l’application, reconnectez-vous et saisissez ce mot de passe.',
     lockedNav: 'Arrêtée',
     cancel: 'Annuler',
     errors: {

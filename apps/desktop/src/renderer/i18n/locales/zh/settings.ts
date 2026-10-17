@@ -188,6 +188,7 @@ export const settingsMessages = widen({
     errorNav: '出错',
     lockedStatus: '同步已关闭',
     lockedReason: '钥匙串不可用',
+    passwordStorage: '本机使用同步密码保护凭据，无需系统授权。重新打开应用后，需要再次登录并输入同步密码。',
     lockedNav: '已关闭',
     cancel: '取消',
     errors: {

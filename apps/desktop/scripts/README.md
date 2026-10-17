@@ -12,6 +12,7 @@ scripts/
 │   └── assistance/            # `pnpm eval:assistance`
 └── build/
     ├── keychain-policy.ts      # macOS Node-API module compiled and emitted by the main Vite build; Windows skips it
+    ├── session-profile.mjs     # Developer ID profile validation and private session entitlements before signing
     ├── third-party-notices.mjs
     ├── check-production.mjs
     ├── debug-artifacts.mjs

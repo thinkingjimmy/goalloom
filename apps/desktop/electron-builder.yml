@@ -18,6 +18,7 @@ compression: normal
 npmRebuild: false
 # Complete app notarization and stapling before DMG/auto-update ZIP creation.
 afterSign: ./scripts/build/notarize.mjs
+afterPack: ./scripts/build/session-profile.mjs
 toolsets:
   nsis: '1.2.1'
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
