@@ -139,7 +139,7 @@ const es: SiteCatalog = {
       { q: '¿Dónde se guardan mis datos?', a: 'En un espacio de trabajo SQLite local en tu ordenador, con copias de seguridad diarias y sin telemetría de contenido. La sincronización opcional cifra los datos antes de que salgan del dispositivo.' },
       { q: '¿Qué sistemas son compatibles?', a: 'macOS 14 o posterior en Apple Silicon y Windows 11 x64. La app está en chino, inglés, japonés, español y francés.' },
       { q: '¿Hay app móvil o sincronización?', a: 'Hay sincronización opcional entre ordenadores. Inicia sesión con Google y define una contraseña de sincronización. Esta versión no incluye una app móvil.' },
-      { q: '¿Cómo instalo Goalloom?', a: 'La descarga para macOS está firmada con Developer ID y notarizada por Apple. Arrastra Goalloom a Aplicaciones y ábrela. Si usas la versión pública 1.8.0 para Mac, ciérrala y sustitúyela manualmente por 1.9.4 una vez; se conservan tu espacio de trabajo y tus ajustes. El instalador de Windows no está firmado; si aparece SmartScreen, elige Más información → Ejecutar de todas formas.' },
+      { q: '¿Cómo instalo Goalloom?', a: 'La descarga para macOS está firmada con Developer ID y notarizada por Apple. Arrastra Goalloom a Aplicaciones y ábrela. Si usas la versión pública 1.8.0 para Mac, ciérrala y sustitúyela manualmente por 1.9.5 una vez; se conservan tu espacio de trabajo y tus ajustes. El instalador de Windows no está firmado; si aparece SmartScreen, elige Más información → Ejecutar de todas formas.' },
     ],
   },
   footer: {

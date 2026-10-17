@@ -143,7 +143,7 @@ const en = {
       { q: 'Where is my data stored?', a: 'In a local SQLite workspace on your computer, with daily backups and no content telemetry. Optional sync encrypts your data before it leaves your device.' },
       { q: 'Which systems are supported?', a: 'macOS 14 or later on Apple Silicon, and Windows 11 x64. The app speaks Chinese, English, Japanese, Spanish and French.' },
       { q: 'Is there a mobile app or sync?', a: 'Optional sync is available between computers. Sign in with Google and set a sync password. A mobile app is not included in the current release.' },
-      { q: 'How do I install Goalloom?', a: 'The macOS download is Developer ID signed and notarized by Apple. Drag Goalloom into Applications, then open it. If you use the published Mac 1.8.0 build, quit it and replace it with 1.9.4 manually once; your workspace and settings are kept. The Windows installer is unsigned; choose More info → Run anyway if SmartScreen appears.' },
+      { q: 'How do I install Goalloom?', a: 'The macOS download is Developer ID signed and notarized by Apple. Drag Goalloom into Applications, then open it. If you use the published Mac 1.8.0 build, quit it and replace it with 1.9.5 manually once; your workspace and settings are kept. The Windows installer is unsigned; choose More info → Run anyway if SmartScreen appears.' },
     ],
   },
   footer: {
