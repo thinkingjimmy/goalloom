@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current/legacy OS ciphers, storage worker, browser, connectivity signals and an optional anon key.
- * [OUTPUT]: Persistent account-bound sessions, noninteractive password recovery, explicit cleanup and encrypted exchange. Sign-out and unused/signed-out startup do not access the keychain.
+ * [OUTPUT]: Persistent sessions, noninteractive recovery, explicit cleanup, encrypted exchange and bounded sync review reads. Sign-out and unused/signed-out startup do not access the keychain.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
  * The password is held in memory only until a join finishes or ten minutes pass.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -285,6 +285,12 @@ export class SyncService {
 
   async handle(input: unknown): Promise<SyncReply> {
     const action = syncActionSchema.parse(input)
+    if (action.type === 'reviews') {
+      const reviews = await this.deps.storage.call('sync', { ...action, at: this.deps.now() })
+      await this.readView()
+      this.publish()
+      return syncReplySchema.parse({ status: this.status(), reviews })
+    }
     try {
       if (action.type === 'status') await this.readView().catch(() => undefined)
       else if (action.type === 'cancel') this.cancelJoin()

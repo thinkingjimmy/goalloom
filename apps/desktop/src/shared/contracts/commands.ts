@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted finite commands, entity/guidance schemas and explicit dependency/version guards.
- * [OUTPUT]: Guarded writes, opt-in local placement, explicit insertion, scoped parent arrangement and immutable receipts.
+ * [OUTPUT]: Guarded writes, token-bound sync decisions, opt-in placement, explicit insertion, scoped parent arrangement and immutable receipts.
  * [POS]: Write contract accepting neither arbitrary effects nor model-generated commands.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -43,6 +43,7 @@ export const setupAnchorSchema = z.discriminatedUnion('kind', [
 ])
 export type SetupAnchor = z.infer<typeof setupAnchorSchema>
 export const commandSchema = z.discriminatedUnion('type', [
+  z.strictObject({ ...envelope, type: z.literal('resolveSyncReview'), itemId: idSchema, token: z.string().regex(/^[a-f0-9]{64}$/), choice: z.enum(['current', 'local']) }),
   z.strictObject({ ...envelope, ...target, type: z.literal('applyAssistance'), expectedGuidanceRevision: z.number().int().nonnegative(),
     guidance: guidanceChangeSchema, guard: assistanceGuardSchema.optional(), contextId: z.uuid().optional(),
     description: z.string().trim().min(1).max(16_000).optional(),

@@ -10,4 +10,6 @@ POS: shared sync core. It does not open files, does not import Electron, and doe
 
 `import-calendar.ts` guards initial calendar adoption using items and canonical creation history. Later concurrent imports align to the established calendar. Offline rollover follows only its imported placement predecessor; ordinary intervening moves retain the stale guard. `apply.ts` supplies the target projection calendar to the host period materializer.
 
+`conflicts.ts` uses encrypted `basisSeq` metadata and canonical predecessor changes to retain overwritten local actions. It groups local rejected/lost actions by task, suppresses already-applied duplicates and stores per-task acknowledgement in the existing `sync_conflicts.detail`/`seenAt` fields. Remote rejected operations and causal later edits do not create local review steps. Business projection and original receipts stay intact.
+
 [PROTOCOL]: Update this header when making changes, then check README.md.

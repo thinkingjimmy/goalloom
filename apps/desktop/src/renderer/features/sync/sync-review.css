@@ -1,0 +1,39 @@
+/**
+ * [INPUT]: Shared paper/minimal theme, board task geometry and native modal controls.
+ * [OUTPUT]: Compact read-only comparisons with one scroll area and stable body styles.
+ * [POS]: Sync feedback skin; radio selection only changes the outer frame.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.sync-review-modal[open] { display: flex; flex-direction: column; width: min(760px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
+.sync-review-modal .modal-header { flex-shrink: 0; position: static; margin: 0; padding: 0 14px 0 20px; height: 56px; }
+.sync-review-progress { font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sync-review-scroll { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 20px 16px; }
+.sync-review-reason { margin: 0 0 12px; color: var(--secondary); font-size: 12px; }
+.sync-review-compare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin: 0; padding: 0; min-width: 0; border: 0; }
+.sync-review-compare .sync-review-side { min-width: 0; margin: 0; border: 1.5px solid var(--edge); border-radius: 10px; background: var(--bg); }
+.sync-review-side[data-selected='true'] { border-color: var(--fg); }
+.sync-review-choice { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 12px 14px; cursor: pointer; }
+.sync-review-choice input { width: 18px; height: 18px; margin: 0; flex: 0 0 18px; accent-color: var(--fg); }
+.sync-review-choice strong { display: block; font-size: 14px; font-weight: 500; }
+.sync-review-choice small { display: block; color: var(--secondary); font-size: 12px; }
+.sync-review-board { --flow-gutter: 20px; --title-gap: 7.2px; padding: 0 14px 14px; }
+.sync-review-period { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 32px; margin: 0 0 4px 6px; }
+.sync-review-period strong { font-size: 15px; font-weight: 500; }
+.sync-review-period > span { font-size: 12px; color: var(--secondary); }
+.sync-review-modal .sync-review-task { margin: 0; padding-left: 16px; cursor: default; background: transparent; transition: none; }
+.sync-review-modal .sync-review-task:hover { background: transparent; }
+.sync-review-task > .flow-dot { position: absolute; left: 1px; top: 11px; width: 6px; height: 6px; }
+.sync-review-task-content { flex: 1; min-width: 0; margin-left: -30px; }
+.sync-review-task-content .task-line { margin-left: 0; }
+.sync-review-note { margin: -1px 0 0; color: var(--secondary); font-size: 12px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sync-review-meta, .sync-review-parents { display: block; margin: 6px 0 0 16px; color: var(--secondary); font-size: 12px; overflow-wrap: anywhere; }
+.sync-review-board mark { background: color-mix(in srgb, var(--backlog) 14%, transparent); color: inherit; border-radius: 2px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.sync-review-deleted { padding: 8px 10px; border-radius: 6px; background: var(--danger-tint); }
+.sync-review-deleted p { margin: 0; font-size: 14px; line-height: 22px; overflow-wrap: anywhere; }
+.sync-review-deleted span { font-size: 12px; color: var(--danger); }
+.sync-review-deleted[data-missing] { background: var(--hover); }
+.sync-review-deleted[data-missing] span { color: var(--secondary); }
+.sync-review-error { margin: 12px 0 0; font-size: 12px; color: var(--danger); }
+.sync-review-footer { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 20px 16px; }
+.sync-review-footer > button { min-height: 44px; min-width: 44px; }
+@media (max-width: 600px) { .sync-review-compare { grid-template-columns: minmax(0, 1fr); gap: 12px; } }

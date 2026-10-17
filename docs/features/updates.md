@@ -25,6 +25,10 @@
 
 ## TODO
 
+### 1.9.6 update: task-level sync difference review
+
+Prepared for release on 2026-10-18. [The release notes](../releases/v1.9.6.md) cover the selection-only task comparison, durable confirmations, and explicit recovery of rejected offline creations. All computers sharing a sync workspace must upgrade together because the encrypted operation format now includes causal metadata. Workspace format remains v11. Release gates are pending.
+
 ### 1.9.5 update: persistent sync sessions
 
 Released on 2026-10-17. [The release notes](../releases/v1.9.5.md) cover automatic session restoration, noninteractive macOS credential storage, password recovery, and preserved task identities/deletions. Workspace format remains v11. Full local release coverage completed after correcting two test fixtures; performance and scaling checks passed. Both hosted platform packages and all eight download files passed verification. macOS provisioning, signing, notarization, and the signed session restart/replacement gate passed. Windows 11 and second physical Mac acceptance remain separate. The five-language production website points to 1.9.5 and its downloads were checked online.

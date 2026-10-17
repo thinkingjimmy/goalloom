@@ -19,6 +19,8 @@ POS: Main-process network coordinator. SQLite transactions remain in the storage
 - `oauth.ts`, `callback-page.ts`, `config.ts`: OAuth callback, local configuration and authentication boundary.
 - `host.ts`: Deterministic periods and import alignment using the applier’s target calendar.
 
+Generation-bound task-review reads pass through `service.ts` to storage; the service publishes the pending local task count after acknowledgement. Review writes remain normal repository commands.
+
 The product contract is [desktop sync](../../../../../docs/sync/desktop.md). Protocol rules are in [protocol v1](../../../../../docs/sync/protocol-v1.md). Synthetic E2E uses real SyncService, SDK and storage. Separate hosted SQL and `test:sync-security:live` acceptance verify real server guards and development Auth/HTTP/private-Realtime client journeys.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

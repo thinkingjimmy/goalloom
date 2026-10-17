@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Strict commands/queries, injected clock, Store and bounded ExecutionQueries.
- * [OUTPUT]: Authoritative atomic writes, immutable creation/completion groups, v1/v2/v3 receipts, effective outline relationships and detail/fact projections.
+ * [OUTPUT]: Authoritative atomic writes, owned-value-guarded sync decisions, immutable creation/completion groups, v1/v2/v3 receipts and detail/fact projections.
  * [POS]: Sole workspace write boundary called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -30,6 +30,7 @@ import { trashWhere } from './queries'
 import { applyAssistance } from './commands/assistance'
 import { ExecutionQueries } from './execution'
 import { captureSyncBefore, emitSyncOp } from './sync/emit'
+import { resolveSyncReview } from './sync/review'
 
 export class Repository {
   readonly store: Store
@@ -95,6 +96,7 @@ export class Repository {
   }
   private dispatch(context: Context, command: Command): boolean {
     switch (command.type) {
+      case 'resolveSyncReview': return resolveSyncReview(context, command)
       case 'applyAssistance': return applyAssistance(context, command)
       case 'confirmSetup': return confirmSetup(context, command)
       case 'create': return createItem(context, command)

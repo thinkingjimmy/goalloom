@@ -78,9 +78,10 @@ it('七种同步状态都是普通设置行，状态和退出登录在同一行'
   expect(syncNavBadge(status({ phase: 'locked', email: 'jimmy@example.com' }))).toEqual({ text: '已关闭', dot: 'err' })
 })
 
-it('同步冲突用白话说明，并且可以关闭', () => {
+it('同步差异使用中性提醒，并提供独立查看入口', () => {
   const markup = page({ phase: 'ready', email: 'jimmy@example.com', conflicts: 3, lastSyncedAt: '2026-10-13T15:28:00.000Z' })
-  expect(markup).toContain('有 3 处改动没有同步，这台电脑上的任务保持原样')
+  expect(markup).toContain('有 3 项任务需要确认同步结果')
+  expect(markup).toContain('查看详情')
   expect(markup).toContain('关闭提示')
   expect(markup).not.toContain('幸存的条目')
   expect(page({ phase: 'ready', email: 'jimmy@example.com', conflicts: 0 })).not.toContain('没有同步')

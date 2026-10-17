@@ -36,6 +36,8 @@ packages/tests/sync/         # 跨包同步；workspace 包只提供 @goalloom/*
 
 `pnpm test` 使用锁定 Electron 自带的 Node 运行全部 Vitest 测试（桌面层、加密构造、跨包同步）；`test:domain` 只运行纯领域层，`test:integration` 运行 SQLite 集成测试（保留 `test:repository` 别名）。不要用 `npx vitest`：系统 Node 没有原生 Temporal。临时工作区由测试创建并清理，不访问用户任务。桌面自动化独立运行，正式应用没有测试 IPC 或时钟控制口。
 
+`sync-review.mjs` runs `sync-review/cases.ts` against production service/SDK/SQLite with encrypted peers. `sync-review-native.mjs` uses `sync-review/native-entry.ts` around the existing isolated native composition to cover selection-only task groups, five languages, failure retention, lost-reply receipt recovery and direct Finish close. Evidence is in `output/tests/sync-review/`; root entry: `pnpm test:sync-review`. Product rules and predeclared failure cases are in `docs/sync/desktop.md`.
+
 `apps/desktop/tests/main/smart.test.ts` 只用受控 fixture 验证请求/响应契约，不代表各渠道真实 Key 已联调。纯函数与集成测试通过不表示打包桌面、Windows 安装、IME 或睡眠验收通过。实际命令、运行版本和平台范围记录于开发提交/PR。
 
 `pnpm test:calendar` includes six ordered policy controls in both calendar modes, automatic/manual save and process restart, all five locales and four themes. `fixtures/rollover-policies.ts` exercises the production Repository and SQLite with injected boundary clocks; `calendar-seed.ts` covers frozen v5/v6 JSON/SQLite import and v7 round trips, including historical multi-effect receipts from `fixtures/legacy-milestone.ts`, malformed-effect rejection, preserved undo history and old-generation undo rejection after restore. Repeatable evidence is in `output/tests/calendar-modes/` (`report.json`, `rollover-report.json`, `legacy-report.json` and policy screenshots).

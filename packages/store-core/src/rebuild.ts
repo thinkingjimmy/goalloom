@@ -1,7 +1,8 @@
 /**
  * [INPUT]: base_* projection, pending local sync_ops, and device-local workspace columns to preserve.
- * [OUTPUT]: Visible projection equals base plus replay of pending ops. Receipts and canon rows are not deleted.
+ * [OUTPUT]: Visible projection equals base plus pending replay, with local overwritten-action review metadata. Receipts and canon rows are not deleted.
  * [POS]: Reference rebase. A foreign-key failure aborts the caller transaction (storage pause). Baseline op ids rethrow business errors so a bad snapshot rolls back.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { parseSyncOp, syncOpPayload, type SyncOp } from '@goalloom/contracts'
 import { redactSyncOp } from './secrets'
@@ -9,6 +10,7 @@ import { sha256Hex } from '@goalloom/crypto'
 import { applySyncOp } from './apply'
 import { projectWorkspaceSettings } from './settings'
 import { businessCode } from './classify'
+import { recordOverwrittenConflicts } from './conflicts'
 import type { ApplyHost, SqlDriver } from './driver'
 import { SyncApplyError } from './driver'
 
@@ -103,6 +105,7 @@ export function applyRemoteBatch(driver: SqlDriver, batch: RemoteEnvelope[], hos
         errorCode = code
       }
       rememberOp(driver, entry, outcome, errorCode, at)
+      if (outcome !== 'rejected') recordOverwrittenConflicts(driver, entry.op, changes)
       if (errorCode) {
         const first = entry.op.actions[0]
         const itemId = first && 'id' in first ? first.id : first && 'itemId' in first ? first.itemId : null

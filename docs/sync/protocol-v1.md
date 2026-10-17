@@ -18,10 +18,12 @@
 Zod schema: `packages/contracts/src/sync-op.ts`. A payload that fails the schema is not applied.
 
 ```ts
-{ v: 1, opId: uuid, deviceId: string, at: iso, actions: Action[], creationOperationId?: uuid, importedCalendar?: Calendar }
+{ v: 1, opId: uuid, deviceId: string, at: iso, actions: Action[], basisSeq?: number, creationOperationId?: uuid, importedCalendar?: Calendar }
 ```
 
 `at` is display and injection time. It is not a sort key. Server order is `seq`.
+
+`basisSeq` is the writer's observed apply cursor, captured in the same local command transaction and carried only inside ciphertext. It does not change canonical ordering or reject a field update. When an incoming change overwrites a local canonical predecessor whose sequence exceeds that cursor, the losing local actions become a task-grouped review. Causally later remote edits stay silent. Missing metadata retains legacy rejected-operation review. Both peers need this metadata-capable build; older strict parsers reject an unknown field without advancing. Review acknowledgement uses existing local `sync_conflicts` metadata; an explicit local resolution is a new ordinary op guarded against the displayed owned values/deletion identity. See `tests/sync-review/cases.ts` and [desktop sync](desktop.md#sync-difference-review).
 
 `importedCalendar` is encrypted, validated source-calendar metadata for a first import. The first populated import may replace an initial empty calendar only before any item or canonical creation history exists; tombstones also prevent adoption. Once populated, the canonical calendar wins. Later concurrent imports skip their calendar/policy setup and deterministically align their placements to that calendar. The applier uses the target projection's calendar, including while the base and visible projections differ. An offline rollover with source sequence zero can follow its own imported placement chain, identified by the source calendar; an intervening ordinary placement cannot satisfy that guard. Current source period, todo status and auto policy are still checked. Both peers need this metadata-capable build; older strict schemas reject it without advancing their cursor. No server schema or plaintext metadata is added.
 
