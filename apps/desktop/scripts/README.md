@@ -19,7 +19,7 @@ scripts/
     ├── package-report.mjs
     ├── package-experiment.mjs
     ├── package-locales.json
-    └── package-budgets.json
+    └── package-budgets.json    # 5% growth limit; ASAR anchors use measured public 1.9.3 packages, with the 1.9.4 growth review recorded in the file
 ```
 
 这些脚本的路径相对于 `apps/desktop`。根目录的 `/build/` 忽略规则不会屏蔽 `scripts/build/`。正式打包只纳入 `out/` 和 package 元数据。
