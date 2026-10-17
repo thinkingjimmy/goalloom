@@ -192,7 +192,7 @@ Run the Node script when a remote run was killed before its `finally`, or before
 
 ## Target-version cost controls
 
-Current development targets `0001` through `0008_sync_cost.sql` as one schema definition. There are no external users and no legacy-version rollout requirement. `0006` now contains the envelope correction; the final push definition lives in `0008`. Preserve and verify the developer's local backup before an explicit rebuild. The app does not deploy or reset the database.
+Current development targets `0001` through `0009_sync_security.sql` as one schema definition. There are no external users and no legacy-version rollout requirement. `0006` now contains the envelope correction; the final push definition lives in `0008`. Preserve and verify the developer's local backup before an explicit rebuild. The app does not deploy or reset the database.
 
 `0008` adds the read-only `get_sync_status`, account usage/configuration, upload-only quota, registration protection, head-change-only notifications and bounded runtime cleanup. Accepted new bytes/ops are aggregated once per batch in the same transaction as operations and receipts. Fixed-order account bucket locks serialize devices; duplicate receipts do not update accepted usage. A quota exception rolls back the whole request and carries an upload retry timestamp. Download/status/receipts remain independently accessible.
 

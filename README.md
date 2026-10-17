@@ -59,7 +59,7 @@ The macOS build is **Developer ID signed and notarized by Apple**. The Windows i
 
 **macOS.** Open the DMG, drag Goalloom into `Applications`, then open it.
 
-**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.3 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
+**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.4 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
 
 **Windows.** SmartScreen shows "Windows protected your PC". Choose **More info**, then **Run anyway**, and follow the installer.
 
@@ -84,7 +84,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.9.3 adds immediate capture with Jev 1.14 goal matching, reduces idle sync requests and unifies app controls. A verified protective backup precedes the workspace upgrade to v11. See the [1.9.3 release notes](./docs/releases/v1.9.3.md). Build-time sync configuration is in the [development guide](./docs/development.md).
+Version 1.9.4 protects account switching, adds clear choices on sign-out, preserves old cloud workspaces during password recovery, and resumes sync when connectivity returns. The workspace format stays v11. See the [1.9.4 release notes](./docs/releases/v1.9.4.md). Build-time sync configuration is in the [development guide](./docs/development.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 
