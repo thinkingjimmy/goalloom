@@ -30,10 +30,11 @@ export interface MemoryWorld {
   online: boolean
   devices: Map<string, DeviceRow>
   workspace: WorkspaceRow | null
+  workspaces: Map<string, WorkspaceRow>
 }
 
 export function createMemoryWorld(): MemoryWorld {
-  return { online: true, devices: new Map(), workspace: null }
+  return { online: true, devices: new Map(), workspace: null, workspaces: new Map() }
 }
 
 function failIfOffline(world: MemoryWorld): void {
@@ -47,9 +48,10 @@ function device(world: MemoryWorld, sessionId: string, deviceId: string, allowPe
   return row
 }
 
-function workspaceFor(world: MemoryWorld): WorkspaceRow {
-  if (!world.workspace) throw new SyncFailure('mismatch')
-  return world.workspace
+function workspaceFor(world: MemoryWorld, id?: string): WorkspaceRow {
+  const workspace = id ? world.workspaces.get(id) ?? (world.workspace?.id === id ? world.workspace : null) : world.workspace
+  if (!workspace) throw new SyncFailure('mismatch')
+  return workspace
 }
 
 export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote {
@@ -66,16 +68,16 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       if (!row || row.status === 'revoked' || !verifyDetached(message, signature, row.signPub)) throw new SyncFailure('auth')
       row.sessionId = sessionId
     },
-    async account(): Promise<AccountView | null> {
+    async account(options): Promise<AccountView | null> {
       failIfOffline(world)
-      const workspace = world.workspace
+      const workspace = options?.workspaceId ? world.workspaces.get(options.workspaceId) ?? (world.workspace?.id === options.workspaceId ? world.workspace : null) : world.workspace
       if (!workspace) return null
       return { workspaceId: workspace.id, generation: workspace.generation, keyEpoch: workspace.keyEpoch, headSeq: workspace.headSeq, rosterVersion: workspace.rosterVersion }
     },
     async getSyncStatus(workspaceId, deviceId, options) {
       options?.signal?.throwIfAborted()
       failIfOffline(world); device(world, sessionId, deviceId, false)
-      const workspace = workspaceFor(world)
+      const workspace = workspaceFor(world, workspaceId)
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       return { workspaceId, generation: workspace.generation, keyEpoch: workspace.keyEpoch, headSeq: workspace.headSeq,
         rosterVersion: workspace.rosterVersion, minRetainedSeq: 0, minProtocolRead: 1, minProtocolWrite: 1 }
@@ -85,19 +87,22 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       await remote.getSyncStatus(workspaceId, deviceId, options)
       if (opIds.length > 200) throw new SyncFailure('rejected')
       return opIds.flatMap(opId => {
-        const row = workspaceFor(world).receipts.get(opId)
+        const row = workspaceFor(world, workspaceId).receipts.get(opId)
         return row ? [{ opId, payloadHash: row.hash, seq: row.seq }] : []
       })
     },
-    async resetSync(deviceId) {
+    async resetSync(deviceId, options) {
       failIfOffline(world)
       device(world, sessionId, deviceId, true)
-      world.workspace = null
+      if (options?.workspaceId) {
+        world.workspaces.delete(options.workspaceId)
+        if (world.workspace?.id === options.workspaceId) world.workspace = [...world.workspaces.values()].at(-1) ?? null
+      } else { world.workspace = null; world.workspaces.clear() }
     },
     async bootstrap(input) {
       failIfOffline(world)
       device(world, sessionId, input.deviceId, true)
-      if (world.workspace) throw new SyncFailure('rejected', 'workspace exists')
+      if (world.workspaces.has(input.workspaceId) || world.workspace && !input.createNew) throw new SyncFailure('rejected', 'workspace exists')
       const row = world.devices.get(input.deviceId)!
       if (!verifyRosterSignature(input.roster, input.rosterSig, row.signPub)) throw new SyncFailure('rejected', 'roster signature rejected')
       if (rosterHash(input.roster) !== input.rosterHash) throw new SyncFailure('rejected', 'roster hash')
@@ -108,11 +113,12 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
         envelopes: [], ops: [], receipts: new Map(), challenges: [],
         checkpoint: { cpVersion: 1, body: input.checkpoint, recSig: hex(input.recSig), devSig: hex(input.devSig) },
       }
+      world.workspaces.set(input.workspaceId, world.workspace)
     },
     async putEnvelopes(workspaceId, deviceId, envelopes) {
       failIfOffline(world)
       device(world, sessionId, deviceId, false)
-      const workspace = workspaceFor(world)
+      const workspace = workspaceFor(world, workspaceId)
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       for (const envelope of envelopes) {
         if (unhex(envelope.ciphertext).length > 65536) throw new SyncFailure('rejected', 'payload_too_large')
@@ -125,28 +131,28 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
     async getEnvelopes(workspaceId, deviceId) {
       failIfOffline(world)
       device(world, sessionId, deviceId, true)
-      const workspace = workspaceFor(world)
+      const workspace = workspaceFor(world, workspaceId)
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       return workspace.envelopes.map(item => ({ ...item }))
     },
     async getCheckpoint(workspaceId, deviceId): Promise<CheckpointWire | null> {
       failIfOffline(world)
       device(world, sessionId, deviceId, true)
-      const workspace = workspaceFor(world)
+      const workspace = workspaceFor(world, workspaceId)
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       return workspace.checkpoint
     },
     async getRoster(workspaceId, deviceId) {
       failIfOffline(world)
       device(world, sessionId, deviceId, true)
-      const workspace = workspaceFor(world)
+      const workspace = workspaceFor(world, workspaceId)
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       return workspace.rosters.map(item => ({ ...item, roster: structuredClone(item.roster) }))
     },
     async startRecovery(workspaceId, deviceId): Promise<RecoveryChallenge> {
       failIfOffline(world)
       device(world, sessionId, deviceId, true)
-      const workspace = workspaceFor(world)
+      const workspace = workspaceFor(world, workspaceId)
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       const head = workspace.rosters[workspace.rosters.length - 1]
       if (!head) throw new SyncFailure('rejected', 'no roster')
@@ -157,7 +163,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
     async completeRecovery(input) {
       failIfOffline(world)
       device(world, sessionId, input.deviceId, true)
-      const workspace = workspaceFor(world)
+      const workspace = workspaceFor(world, input.workspaceId)
       if (workspace.id !== input.workspaceId) throw new SyncFailure('mismatch')
       const challenge = workspace.challenges.find(item => item.id === input.challengeId && item.deviceId === input.deviceId)
       const head = workspace.rosters[workspace.rosters.length - 1]
@@ -174,7 +180,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
     async pushOps(input): Promise<PushResultWire[]> {
       failIfOffline(world)
       device(world, sessionId, input.deviceId, false)
-      const workspace = workspaceFor(world)
+      const workspace = workspaceFor(world, input.workspaceId)
       if (workspace.id !== input.workspaceId || workspace.generation !== input.generation) throw new SyncFailure('mismatch')
       if (input.ops.length > 200) throw new SyncFailure('rejected', 'batch limit')
       const results: PushResultWire[] = []
@@ -185,7 +191,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
     async pullOps(input): Promise<PullWire[]> {
       failIfOffline(world)
       device(world, sessionId, input.deviceId, false)
-      const workspace = workspaceFor(world)
+      const workspace = workspaceFor(world, input.workspaceId)
       if (workspace.id !== input.workspaceId) throw new SyncFailure('mismatch')
       if (input.limit < 1 || input.limit > 200) throw new SyncFailure('rejected', 'bad limit')
       return workspace.ops.filter(row => row.seq > input.after).slice(0, input.limit).map(row => ({ ...row }))

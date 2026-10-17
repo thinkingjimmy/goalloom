@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An authenticated session. Payloads are ciphertext; this interface never sees a workspace key.
- * [OUTPUT]: The RPC surface desktop and mobile share. Tests substitute an in-memory server.
+ * [OUTPUT]: Shared RPCs including pinned workspace discovery and non-destructive creation. Tests substitute an in-memory server.
  * [POS]: Network port for the sync engine. It does not import supabase/ or a Supabase client.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -84,10 +84,10 @@ export interface RecoveryChallenge {
 export interface SyncRemote {
   registerDevice(input: { name: string; platform: DevicePlatform; signPub: Uint8Array; boxPub: Uint8Array }, options?: RequestOptions): Promise<string>
   rebindDevice(deviceId: string, message: Uint8Array, signature: Uint8Array, options?: RequestOptions): Promise<void>
-  account(options?: RequestOptions): Promise<AccountView | null>
+  account(options?: RequestOptions & { workspaceId?: string }): Promise<AccountView | null>
   bootstrap(input: {
     deviceId: string; workspaceId: string; generation: string; roster: RosterBody; rosterHash: string
-    rosterSig: Uint8Array; checkpoint: CheckpointBody; recSig: Uint8Array; devSig: Uint8Array
+    rosterSig: Uint8Array; checkpoint: CheckpointBody; recSig: Uint8Array; devSig: Uint8Array; createNew?: boolean
   }, options?: RequestOptions): Promise<void>
   putEnvelopes(workspaceId: string, deviceId: string, envelopes: EnvelopeWire[], options?: RequestOptions): Promise<void>
   getEnvelopes(workspaceId: string, deviceId: string, options?: RequestOptions): Promise<EnvelopeWire[]>
@@ -102,5 +102,5 @@ export interface SyncRemote {
   }, options?: RequestOptions): Promise<void>
   pushOps(input: { workspaceId: string; deviceId: string; generation: string; ops: PushWire[] }, options?: RequestOptions): Promise<PushResultWire[]>
   pullOps(input: { workspaceId: string; deviceId: string; after: number; limit: number }, options?: RequestOptions): Promise<PullWire[]>
-  resetSync(deviceId: string, options?: RequestOptions): Promise<void>
+  resetSync(deviceId: string, options?: RequestOptions & { workspaceId?: string }): Promise<void>
 }

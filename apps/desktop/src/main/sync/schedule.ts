@@ -14,6 +14,7 @@ export class SyncSchedule {
   private foreground = true
   private subscribed = false
   private heartbeatAt = -Infinity
+  private heartbeatTimer: (() => void) | null = null
   private quietSince = 0
   private idleStep = 0
   private failures = 0
@@ -29,10 +30,11 @@ export class SyncSchedule {
   }) { this.quietSince = this.clock.now() }
 
   private get clock() { return this.input.clock ?? syncClock }
+  get realtimeConnected(): boolean { return this.subscribed && this.clock.now() - this.heartbeatAt <= 60_000 }
   private jitter(ms: number) { return ms * (0.9 + (this.input.random ?? Math.random)() * 0.1) }
-  start(): void { if (this.enabled) return; this.enabled = true; this.suspended = false; this.arm(8_000) }
+  start(): void { if (this.enabled) return; this.enabled = true; this.suspended = false; this.arm(this.wanted ? 0 : 8_000) }
   async retry(): Promise<void> { if (!this.enabled) this.start(); await this.wake() }
-  stop(): void { this.enabled = false; this.wanted = false; this.clear() }
+  stop(): void { this.enabled = false; this.wanted = false; this.clear(); this.heartbeatTimer?.(); this.heartbeatTimer = null }
   async settle(): Promise<void> { await this.running }
   suspend(): void { this.suspended = true; this.wanted = false; this.clear() }
   resume(): void { this.suspended = false; this.retryAt = 0; this.resetQuiet(); void this.wake() }
@@ -44,12 +46,15 @@ export class SyncSchedule {
   connection(subscribed: boolean): void {
     const changed = subscribed !== this.subscribed
     this.subscribed = subscribed
-    if (!subscribed) { this.heartbeatAt = -Infinity; this.resetQuiet() }
-    if (changed) { this.retryAt = 0; void this.wake() }
+    if (!subscribed) { this.heartbeatAt = -Infinity; this.heartbeatTimer?.(); this.heartbeatTimer = null; this.resetQuiet() }
+    if (changed || subscribed) { this.retryAt = 0; this.wanted = true; void this.wake() }
   }
   heartbeat(ok: boolean): void {
-    if (ok) this.heartbeatAt = this.clock.now()
-    else { this.heartbeatAt = -Infinity; this.resetQuiet(); if (this.enabled) this.arm(8_000) }
+    this.heartbeatTimer?.(); this.heartbeatTimer = null
+    if (ok) {
+      this.heartbeatAt = this.clock.now()
+      this.heartbeatTimer = this.clock.after(60_000, () => { this.heartbeatTimer = null; this.heartbeat(false) })
+    } else { this.heartbeatAt = -Infinity; this.resetQuiet(); if (this.enabled) this.arm(8_000) }
   }
   changed(): void { this.resetQuiet() }
   private resetQuiet() { this.quietSince = this.clock.now(); this.idleStep = 0 }

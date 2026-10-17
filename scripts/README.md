@@ -9,6 +9,9 @@ scripts/
 ├── supabase-remote.mjs    # 对托管库做 Realtime / Storage 检查
 ├── supabase-reset.mjs     # 托管库重置辅助
 ├── pg-sync-test.mjs       # 用 psql 跑 supabase/tests pgTAP
+├── sync-security-hosted.mjs # Rollback-only real PostgreSQL/pgTAP acceptance; optional tested development migration apply, no API-key retrieval
+├── sync-security-live.mjs # Authorized memory-only keys, disposable real Auth/HTTP/Realtime/SQLite journeys and scoped cleanup
+├── gen-sync-security-fixtures.mjs # Deterministic signed recovery proofs with --check
 ├── gen-ed25519-fixtures.mjs
 └── gen-vectors.ts         # 重写 packages/crypto/test/vectors.json
 ```

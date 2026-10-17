@@ -28,6 +28,7 @@ const command = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('bind'), binding, at: z.string() }),
   z.strictObject({ type: z.literal('baseline'), deviceId: z.uuid(), at: z.string() }),
   z.strictObject({ type: z.literal('rebaseline'), deviceId: z.uuid(), at: z.string() }),
+  z.strictObject({ type: z.literal('recover-bind'), binding, at: z.string(), expectedGeneration: z.uuid() }),
   z.strictObject({ type: z.literal('peek'), unknownOnly: z.boolean().optional() }),
   z.strictObject({ type: z.literal('mark'), ids: z.array(z.uuid()).min(1).max(200), at: z.string(), attemptId: z.uuid(), scope }),
   z.strictObject({ type: z.literal('take'), at: z.string(), attemptId: z.uuid() }),
@@ -88,6 +89,13 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
   if (action.type === 'bind') { bindWorkspace(driver, action.binding, action.at); return null }
   if (action.type === 'baseline') { prepareFirstConnection(driver, host, action.deviceId, action.at); return null }
   if (action.type === 'rebaseline') return queueVisibleBaseline(driver, host, action.deviceId, action.at)
+  if (action.type === 'recover-bind') {
+    const generation = String(db.prepare('SELECT generation FROM workspace WHERE id=1').get()?.generation ?? '')
+    if (generation !== action.expectedGeneration) throw new DomainError('generation', 'sync generation')
+    const current = db.prepare('SELECT workspaceId FROM sync_state WHERE id=1').get()?.workspaceId
+    if (current === action.binding.workspaceId) return null
+    return queueVisibleBaseline(driver, host, action.binding.deviceId, action.at, action.binding)
+  }
   if (action.type === 'peek') return peekPending(driver, action.unknownOnly)
   if (action.type === 'mark') {
     try { markPending(driver, action.ids, action.at, action.attemptId); return true }

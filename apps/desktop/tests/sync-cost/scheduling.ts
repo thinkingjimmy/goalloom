@@ -114,10 +114,12 @@ async function main() {
     cloud.controls.dropped = true
     await create(b, 'Fallback after a lost notification'); await b.service.handle({ type: 'retry' }); await settle(b)
     b.service.schedule.stop()
-    const nextCheck = Math.min(...[...clock.timers.values()].map(row => row.at))
-    assert(nextCheck - clock.now() <= 300_000)
-    await clock.advance(nextCheck - clock.now()); await settle(a)
-    assert.equal(sql(a, "SELECT id FROM items WHERE title='Fallback after a lost notification'").length, 1)
+    const fallbackDeadline = clock.now() + 300_000
+    while (!sql(a, "SELECT id FROM items WHERE title='Fallback after a lost notification'").length) {
+      const nextCheck = Math.min(...[...clock.timers.values()].map(row => row.at))
+      assert(Number.isFinite(nextCheck) && nextCheck <= fallbackDeadline, 'Lost notification must be recovered within 300 seconds')
+      await clock.advance(nextCheck - clock.now()); await settle(a)
+    }
     cloud.controls.dropped = false
     check('S04: a missed broadcast is recovered by the healthy background fallback within 300 seconds')
     a.service.setForeground(true); b.service.schedule.start(); await settle(a)

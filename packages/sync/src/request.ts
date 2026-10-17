@@ -39,7 +39,7 @@ export function scopedRemote(remote: SyncRemote, signal: AbortSignal): SyncRemot
       if (signal.aborted) return Promise.reject(new SyncFailure('cancelled'))
       const position = contextPosition[key]
       const options = args[position] as RequestOptions | undefined
-      args[position] = { signal: options?.signal ? AbortSignal.any([signal, options.signal]) : signal }
+      args[position] = { ...options, signal: options?.signal ? AbortSignal.any([signal, options.signal]) : signal }
       return Reflect.apply(method, target, args)
     }
   } })

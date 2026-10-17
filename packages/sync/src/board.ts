@@ -1,6 +1,6 @@
 /**
  * [INPUT]: base_* rows, or a captured visible board.
- * [OUTPUT]: SyncOps that replay that board. Calendar and policies are their own ops. A failed baseline rolls back and pauses sync.
+ * [OUTPUT]: SyncOps that replay that board. Calendar and policies are their own ops. Recovery can bind atomically with its baseline. A failed baseline rolls back and pauses sync.
  * [POS]: Upgrade path for data that predates sync. Pending ops keep their order. First-join import can preserve item identities and the source calendar. Kept edges are not re-checked as new links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -195,7 +195,7 @@ function clearBase(driver: SqlDriver): void {
 }
 
 /** Replaces the op log with the visible board. Used when cloud ciphertext is abandoned and this computer uploads again. */
-export function queueVisibleBaseline(driver: SqlDriver, host: ApplyHost, deviceId: string, at: string): number {
+export function queueVisibleBaseline(driver: SqlDriver, host: ApplyHost, deviceId: string, at: string, binding?: { workspaceId: string; keyEpoch: number }): number {
   return baselineTransaction(driver, at, () => {
     const board = captureVisibleBoard(driver)
     driver.exec('DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops;')
@@ -206,6 +206,7 @@ export function queueVisibleBaseline(driver: SqlDriver, host: ApplyHost, deviceI
     assertBaselineKept(board, driver)
     const settings = settingsBaselineOp(driver, deviceId, at)
     driver.prepare('UPDATE sync_state SET lastAppliedSeq=0, lastUploadedSeq=0, paused=NULL, updatedAt=? WHERE id=1').run(at)
+    if (binding) bindWorkspace(driver, { ...binding, deviceId }, at)
     return ops.length + (settings ? 1 : 0)
   })
 }

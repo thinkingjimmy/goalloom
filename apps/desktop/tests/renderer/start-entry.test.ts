@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import type { SyncStatus } from '../../src/shared/contracts/sync'
 import { passwordReady, startScreen } from '../../src/renderer/features/setup/entry'
-import { ChoiceScreen, NewPasswordScreen, ResetSyncDialog, SyncingScreen } from '../../src/renderer/features/setup/StartScreens'
+import { ChoiceScreen, NewPasswordScreen, SyncingScreen } from '../../src/renderer/features/setup/StartScreens'
 import { StartGate } from '../../src/renderer/features/setup/StartGate'
 import { Setup } from '../../src/renderer/features/setup/Setup'
 import { en } from '../../src/renderer/i18n/locales/en'
@@ -57,9 +57,8 @@ it('加入设备只出现同步密码，不出现设置向导', () => {
   const join = gate({ phase: 'enter-key' })
   expect(join).toContain('输入同步密码')
   expect(join).toContain('使用在第一台设备上设置的密码。')
-  expect(join).toContain('重置同步')
+  expect(join).toContain('忘记密码…')
   expect(join).toContain('返回')
-  expect(join).not.toContain('忘记密码')
   expect(join).not.toContain(calendarTitle)
   const wrong = gate({ phase: 'enter-key', error: 'password' })
   expect(wrong).toContain('密码不对')
@@ -68,22 +67,7 @@ it('加入设备只出现同步密码，不出现设置向导', () => {
   expect(renderToStaticMarkup(createElement(SyncingScreen))).not.toContain('128 / 206')
 })
 
-it('重置确认在勾选前不能继续，首台设备密码不一致时不能继续', () => {
-  const blocked = renderToStaticMarkup(createElement(ResetSyncDialog, {
-    acknowledged: false, busy: false, onAcknowledge: () => undefined, onCancel: () => undefined, onConfirm: () => undefined,
-  }))
-  expect(blocked).toContain('重置同步？')
-  expect(blocked).toContain('我们不知道你的同步密码，所以无法找回或更改它。')
-  expect(blocked).toContain('重置会删除所有设备共用的云端数据。之后你会在这台设备上设置新密码，并重新完成 3 步设置。')
-  expect(blocked).toContain('我知道云端数据会被永久删除')
-  expect(blocked).toContain('重置并设置新密码')
-  expect(blocked).toMatch(/重置并设置新密码<\/button>/)
-  expect(disabledButton(blocked, '重置并设置新密码')).toBe(true)
-  const open = renderToStaticMarkup(createElement(ResetSyncDialog, {
-    acknowledged: true, busy: false, onAcknowledge: () => undefined, onCancel: () => undefined, onConfirm: () => undefined,
-  }))
-  expect(disabledButton(open, '重置并设置新密码')).toBe(false)
-
+it('blocks first-device setup when passwords do not match', () => {
   expect(passwordReady('short', 'short')).toBe(false)
   expect(passwordReady('sync-pass', 'other-pass')).toBe(false)
   expect(passwordReady('sync-pass', 'sync-pass')).toBe(true)
@@ -115,13 +99,10 @@ function disabledButton(html: string, label: string): boolean {
 }
 
 it('五种语言都有开始页文案，中文与定稿一致', () => {
-  expect(zh.messages.start.resetUnknown).toBe('我们不知道你的同步密码，所以无法找回或更改它。')
   expect(zh.messages.start.mismatch).toBe('两次输入不一致')
   expect(zh.messages.start.browser).toBe('在浏览器中继续…')
   for (const catalog of [en, ja, es, fr]) {
     expect(catalog.messages.start.title.length).toBeGreaterThan(0)
-    expect(catalog.messages.start.resetUnknown).not.toBe(zh.messages.start.resetUnknown)
-    expect(catalog.messages.start.resetBody).not.toBe(zh.messages.start.resetBody)
     expect(catalog.messages.start.mismatch).not.toBe(zh.messages.start.mismatch)
   }
 })

@@ -76,7 +76,7 @@ export interface BoundWorkspace {
 
 export async function createRemoteWorkspace(input: {
   remote: SyncRemote; deviceId: string; secret: DeviceSecret; password: string; generation: string; random?: RandomSource
-  workspaceId?: string; workspaceKey?: Uint8Array; recovery?: RecoverySecrets
+  workspaceId?: string; workspaceKey?: Uint8Array; recovery?: RecoverySecrets; createNew?: boolean
 }): Promise<BoundWorkspace> {
   if (!passwordAccepted(input.password)) throw new SyncFailure('password')
   if (Boolean(input.workspaceId) !== Boolean(input.workspaceKey)) throw new SyncFailure('storage', 'pending workspace')
@@ -112,10 +112,11 @@ export async function createRemoteWorkspace(input: {
       deviceId: input.deviceId, workspaceId, generation, roster, rosterHash: rosterHash(roster),
       rosterSig: signRoster(roster, input.secret.signSk), checkpoint,
       recSig: signCheckpoint(checkpoint, recovery.signSk), devSig: signCheckpoint(checkpoint, input.secret.signSk),
+      ...(input.createNew ? { createNew: true } : {}),
     })
   } catch (error) {
     if (!input.workspaceId || !(error instanceof SyncFailure) || !error.message.includes('workspace')) throw error
-    const account = await input.remote.account()
+    const account = await input.remote.account({ workspaceId })
     if (!account || account.workspaceId !== workspaceId) throw error
     const saved = await input.remote.getCheckpoint(workspaceId, input.deviceId)
     if (!saved || saved.body.recoverySignPub !== hex(recovery.signPub)) throw new SyncFailure('password')
@@ -136,11 +137,11 @@ export async function bootstrapWorkspace(input: {
 }
 
 export async function unlockWithPassword(input: {
-  remote: SyncRemote; deviceId: string; secret: DeviceSecret; password: string; random?: RandomSource
+  remote: SyncRemote; deviceId: string; secret: DeviceSecret; password: string; random?: RandomSource; workspaceId?: string
 }): Promise<{ bound: BoundWorkspace; ops: RemoteEnvelope[] }> {
   if (!passwordAccepted(input.password)) throw new SyncFailure('password')
   const random = input.random ?? systemRandom()
-  const account = await input.remote.account()
+  const account = await input.remote.account(input.workspaceId ? { workspaceId: input.workspaceId } : undefined)
   if (!account) throw new SyncFailure('mismatch')
   const checkpoint = await input.remote.getCheckpoint(account.workspaceId, input.deviceId)
   const chain = await input.remote.getRoster(account.workspaceId, input.deviceId)

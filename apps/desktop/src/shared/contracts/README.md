@@ -18,6 +18,7 @@ contracts/
 ├── smart-input.ts # Jev 服务、设备状态、六尺度周期 / child-only 起草 DTO、智能动作与修订回声
 ├── link-preview.ts # Strict public link preview/open actions and bounded inert metadata; lightweight syntax lives in ../links.ts
 ├── queries.ts    # Up to six selected periods, effective topology and hidden-parent context, generation-guarded reviewContext/pastPeriod pages, detail dependency guards/assisted notes, immutable history and counts
+├── sync.ts       # Strict keep/clear sign-out, non-destructive recovery, exact destructive phrase and Realtime/upload-wait status
 ├── update.ts     # Fixed update actions (status/check/install), app version + updater phase DTO and About event names
 ├── window-close.ts # Token-bound native close requests and drain acknowledgements; no task content
 └── runtime.ts    # Fixed preload API including bounded execution/activity/insight-context reads and getBoardPeriods/getReviewContext/getPastPeriod, smart input, language preferences, software updates, close-time draining and runtime diagnostics

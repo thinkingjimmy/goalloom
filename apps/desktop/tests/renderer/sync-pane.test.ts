@@ -52,15 +52,15 @@ it('七种同步状态都是普通设置行，状态和退出登录在同一行'
   expect(synced).toContain('已同步')
   expect(synced).toContain('上次同步 今天 15:28')
   expect(synced).toContain('更改…')
-  expect(synced).toContain('重置同步')
-  expect(synced).toContain('重置…')
+  expect(synced).toContain('忘记同步密码？')
+  expect(synced).toContain('忘记密码…')
   expect(synced).not.toContain('重试')
   expect(syncNavBadge(status({ phase: 'ready', email: 'jimmy@example.com' }))).toEqual({ text: '已同步', dot: true })
 
   const syncing = page({ phase: 'ready', email: 'jimmy@example.com', syncing: true })
   expect(syncing).toContain('正在同步…')
   expect(syncing).toMatch(/<button[^>]*disabled[^>]*>更改…<\/button>/)
-  expect(syncing).toContain('重置…')
+  expect(syncing).toContain('忘记密码…')
   expect(syncNavBadge(status({ phase: 'ready', syncing: true }))).toEqual({ text: '同步中' })
 
   const failed = page({ phase: 'ready', email: 'jimmy@example.com', offline: true, error: 'network', lastSyncedAt: '2026-10-13T09:12:00.000Z' })

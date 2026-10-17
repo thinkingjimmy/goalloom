@@ -40,8 +40,8 @@ export async function seed(profile: string, name: string, world: MemoryWorld, ur
   db.close()
   return { deviceId, bound }
 }
-export async function worker(profile: string) {
-  const storage = new StorageClient(resolve('out/main/storage.js'), join(profile, 'workspace.sqlite'), join(profile, 'backups'), 'en')
+export async function worker(profile: string, workerPath = resolve('out/main/storage.js')) {
+  const storage = new StorageClient(workerPath, join(profile, 'workspace.sqlite'), join(profile, 'backups'), 'en')
   const startup = await storage.call<{ ok: boolean }>('startup')
   if (!startup.ok) throw new Error('Synthetic storage startup failed')
   return storage

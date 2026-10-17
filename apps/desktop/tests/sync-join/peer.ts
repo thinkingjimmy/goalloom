@@ -43,8 +43,8 @@ export function sql(profile: string, query: string) {
 }
 export const tasks = (profile: string) => sql(profile, 'SELECT id,title,status,deletedAt FROM items ORDER BY id')
 export const calendar = (profile: string) => JSON.parse(String(sql(profile, 'SELECT calendar FROM workspace')[0]!.calendar))
-export async function openPeer(profile: string, name: string) {
-  const storage = await worker(profile), clock = new Clock()
+export async function openPeer(profile: string, name: string, workerPath?: string) {
+  const storage = await worker(profile, workerPath), clock = new Clock()
   const peer: any = { profile, storage, clock, status: null, keys: new Map<string, string | null>() }
   peer.service = new SyncService({ userData: profile, storage, cipher, clock, random: () => 1,
     openExternal: async () => {}, notify: status => { peer.status = status }, onApplied: () => {}, clipboard: () => {}, now: () => new Date().toISOString(),

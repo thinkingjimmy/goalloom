@@ -4,6 +4,7 @@
 
 ```text
 storage/
+├── clear-local.ts  # Explicit sign-out file handoff, rollback receipts, fresh verified database and removal of local task copies
 ├── client.ts       # main 的请求关联、worker 故障隔离与退出排空
 ├── worker.ts       # Serial RPC root for guarded captures, bounded body-free goal labels, current/future/live-past reads, immutable history, period reviews and transfer
 ├── startup.ts      # Read-only version probe; verified protection before v8-v10 upgrades to v11, explicit recovery for older sources

@@ -37,12 +37,12 @@ function Account({ email }: { email: string }) {
   return <span className="start-account inline-flex items-center gap-2 h-7.5 pt-0 pr-3 pb-0 pl-1 rounded-[15px] bg-hover text-[13px] text-soft"><span className="start-avatar w-5.5 h-5.5 rounded-[11px] bg-focus text-background grid place-items-center text-[11px] font-semibold" aria-hidden="true">{letter}</span>{email}</span>
 }
 
-function SecretField({ label, value, onChange, invalid, autoComplete }: {
-  label: string; value: string; onChange: (value: string) => void; invalid?: boolean; autoComplete: string
+function SecretField({ id, label, value, onChange, invalid, autoComplete }: {
+  id?: string; label: string; value: string; onChange: (value: string) => void; invalid?: boolean; autoComplete: string
 }) {
   const [shown, setShown] = useState(false)
   return <div className="start-field h-11 flex items-center gap-2 pt-0 pr-2 pb-0 pl-3 bg-raised rounded-[8px]" data-invalid={invalid || undefined}>
-    <Input type={shown ? 'text' : 'password'} aria-label={label} aria-invalid={invalid || undefined} autoComplete={autoComplete} value={value} onChange={event => onChange(event.target.value)} />
+    <Input id={id} type={shown ? 'text' : 'password'} aria-label={label} aria-invalid={invalid || undefined} autoComplete={autoComplete} value={value} onChange={event => onChange(event.target.value)} />
     <button type="button" className="start-eye w-8 h-8 grid place-items-center text-muted-foreground rounded-[8px]" aria-label={shown ? messages.start.hidePassword : messages.start.showPassword} onClick={() => setShown(current => !current)}>
       <Icon name={shown ? 'viewOff' : 'view'} size={18} />
     </button>
@@ -83,6 +83,7 @@ export function JoinPasswordScreen({ email, wrong, busy, onBack, onSubmit, onRes
 }) {
   const copy = messages.start
   const [password, setPassword] = useState('')
+  const passwordId = useId()
   return <Frame back={<BackButton disabled={busy} onClick={onBack} />}>
     <form className="start-form flex flex-col gap-5.5" onSubmit={event => { event.preventDefault(); if (password.trim().length >= 8) onSubmit(password.trim()) }}>
       <header className="onboarding-intro flex flex-col items-start gap-3">
@@ -90,11 +91,11 @@ export function JoinPasswordScreen({ email, wrong, busy, onBack, onSubmit, onRes
         <h2 className="start-heading m-0 text-[24px] leading-[1.3] font-semibold tracking-[-.01em]">{copy.enterTitle}</h2>
         <p className="onboarding-subtitle m-0 text-[14.5px] leading-[1.75] text-soft text-pretty">{copy.enterNote}</p>
       </header>
-      <label className="start-label flex flex-col gap-2 text-[13px] font-medium">
-        <span className="start-label-row flex justify-between items-baseline"><span>{settings.sync.password}</span><button type="button" className="start-link text-focus text-[13px] font-normal" onClick={onReset}>{settings.sync.resetSync}</button></span>
-        <SecretField label={settings.sync.password} autoComplete="current-password" value={password} invalid={wrong} onChange={setPassword} />
+      <div className="start-label flex flex-col gap-2 text-[13px] font-medium">
+        <span className="start-label-row flex justify-between items-baseline"><label htmlFor={passwordId}>{settings.sync.password}</label><button type="button" className="start-link text-focus text-[13px] font-normal" onClick={onReset}>{settings.sync.forgot}</button></span>
+        <SecretField id={passwordId} label={settings.sync.password} autoComplete="current-password" value={password} invalid={wrong} onChange={setPassword} />
         {wrong && <p className="start-error m-0 flex items-center gap-1.5 text-[12.5px] font-normal text-destructive" role="alert"><Icon name="warning" size={14} />{settings.sync.errors.password}</p>}
-      </label>
+      </div>
       <Button type="submit" className="start-continue w-full" disabled={busy || password.trim().length < 8}>{settings.sync.continue}</Button>
     </form>
   </Frame>
@@ -129,25 +130,6 @@ export function NewPasswordScreen({ email, busy, onBack, onContinue, initialPass
       <Button type="submit" className="start-continue w-full" disabled={busy || !ready}>{settings.sync.continue}</Button>
     </form>
   </Frame>
-}
-
-export function ResetSyncDialog({ acknowledged, busy, onAcknowledge, onCancel, onConfirm }: {
-  acknowledged: boolean; busy: boolean; onAcknowledge: (value: boolean) => void; onCancel: () => void; onConfirm: () => void
-}) {
-  const copy = messages.start
-  const titleId = useId()
-  return <div className="start-scrim fixed grid place-items-center">
-    <div className="start-dialog w-100 bg-surface rounded-[14px] pt-5.5 pr-5.5 pb-4.5 pl-5.5 flex flex-col gap-3.5" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-      <h3 id={titleId}>{copy.resetTitle}</h3>
-      <p>{copy.resetUnknown}</p>
-      <p>{copy.resetBody}</p>
-      <label className="start-check flex gap-2 items-center text-[13px] font-normal text-soft"><input type="checkbox" checked={acknowledged} onChange={event => onAcknowledge(event.target.checked)} />{copy.resetAck}</label>
-      <div className="start-dialog-actions flex justify-end gap-2 mt-1.5">
-        <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>{settings.sync.cancel}</Button>
-        <Button type="button" className="start-danger" disabled={busy || !acknowledged} onClick={onConfirm}>{copy.resetConfirm}</Button>
-      </div>
-    </div>
-  </div>
 }
 
 export function SyncingScreen() {

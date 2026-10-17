@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An unconfirmed workspace, sync status, existing setup confirmation and shared icon controls.
- * [OUTPUT]: Choice, inline Google wait, join or new-password, then the original setup. A join installs the cloud calendar and skips setup.
+ * [OUTPUT]: Choice, Google wait, join or new-password and safe recovery after explicit setup confirmation. A normal join installs the cloud calendar and skips setup.
  * [POS]: First-run entry in front of Setup. Direct use adds one back step; the first device uploads only after confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,7 +14,9 @@ import { desktopApi } from '../../state/use-workspace'
 import { useSync } from '../../state/sync'
 import { Setup, type CalendarChoice } from './Setup'
 import { startScreen } from './entry'
-import { ChoiceScreen, JoinPasswordScreen, NewPasswordScreen, ResetSyncDialog, SyncingScreen } from './StartScreens'
+import { ChoiceScreen, JoinPasswordScreen, NewPasswordScreen, SyncingScreen } from './StartScreens'
+import { SyncRecovery } from '../shell/settings/SyncRecovery'
+import { Modal } from '../../components/Modal'
 
 export function StartGate({ confirm, busy, errorCode, status: override, sync = action => desktopApi().sync(action) }: {
   confirm: (calendar: CalendarChoice, direction: string, period: PlanningPeriod) => Promise<boolean>
@@ -30,7 +32,7 @@ export function StartGate({ confirm, busy, errorCode, status: override, sync = a
   const [joining, setJoining] = useState(false)
   const [working, setWorking] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
-  const [acknowledged, setAcknowledged] = useState(false)
+  const [recoveryAction, setRecoveryAction] = useState<Extract<SyncAction, { type: 'create-new-workspace' | 'reset-sync' }> | null>(null)
   const [hiddenError, setHiddenError] = useState<string | null>(null)
   const syncRef = useRef(sync)
   syncRef.current = sync
@@ -47,16 +49,18 @@ export function StartGate({ confirm, busy, errorCode, status: override, sync = a
     finally { setWorking(false) }
   }
   const leave = () => {
-    setDirect(false); setHeld(null); setJoining(false); setResetOpen(false); setAcknowledged(false)
+    setDirect(false); setHeld(null); setJoining(false); setResetOpen(false); setRecoveryAction(null)
     void run({ type: 'sign-out' })
   }
   const confirmSetup = async (calendar: CalendarChoice, direction: string, period: PlanningPeriod) => {
     const ok = await confirm(calendar, direction, period)
+    if (ok && recoveryAction) { await run(recoveryAction); return }
     if (!ok || !held) return
     await run({ type: 'create', password: held })
   }
   const bannerError = status?.error && status.error !== 'auth' && status.error !== 'password' && hiddenError !== status.error ? settings.sync.errors[status.error] : ''
   const banner = bannerError ? <div className="start-alert fixed top-4 left-[50%] flex items-start gap-2.5 pt-3 pr-3 pb-3 pl-3.5 rounded-[10px] bg-raised text-[13px] leading-[1.6] text-soft" role="alert"><span>{bannerError}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status?.error ?? null)}><Icon name="close" size={16} /></IconButton></div> : null
+  if (recoveryAction) return <Setup confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} back={() => setRecoveryAction(null)} />
   if (screen === 'setup') return <Setup confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} {...(direct ? { back: () => setDirect(false) } : {})} />
   if (screen === 'syncing') return <SyncingScreen />
   if (screen === 'password') return <>
@@ -65,17 +69,19 @@ export function StartGate({ confirm, busy, errorCode, status: override, sync = a
   </>
   if (screen === 'join') return <>
     {banner}
-    <JoinPasswordScreen email={status?.email ?? null} wrong={status?.error === 'password'} busy={working} onBack={leave} onReset={() => { setAcknowledged(false); setResetOpen(true) }} onSubmit={password => {
+    <JoinPasswordScreen email={status?.email ?? null} wrong={status?.error === 'password'} busy={working} onBack={leave} onReset={() => setResetOpen(true)} onSubmit={password => {
       setJoining(true)
       void run({ type: 'submit-password', password }).then(reply => {
         if (!reply || reply.status.error || reply.status.phase === 'enter-key' || reply.status.phase === 'choose') setJoining(false)
       }, () => setJoining(false))
     }} />
-    {resetOpen && <ResetSyncDialog acknowledged={acknowledged} busy={working} onAcknowledge={setAcknowledged} onCancel={() => setResetOpen(false)} onConfirm={() => {
-      void run({ type: 'reset-cloud' }).then(reply => {
-        if (reply?.status.phase === 'setup') { setResetOpen(false); setJoining(false); setAcknowledged(false) }
-      })
-    }} />}
+    {resetOpen && <Modal title={settings.sync.recoveryTitle} close={() => setResetOpen(false)}><div className="p-5">
+      <SyncRecovery working={working} close={() => setResetOpen(false)} run={async action => {
+        if (action.type !== 'create-new-workspace' && action.type !== 'reset-sync') return false
+        setRecoveryAction(action); setJoining(false); setResetOpen(false)
+        return true
+      }} />
+    </div></Modal>}
   </>
   return <>
     {banner}

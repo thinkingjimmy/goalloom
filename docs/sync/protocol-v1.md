@@ -181,6 +181,19 @@ Server RPCs are in `supabase/migrations/0001_core.sql`. `_ed25519_verify` calls 
 
 `public.sync_entitled(uuid)` is the only billing hook. `push_ops` and `pull_ops` call it with `auth.uid()` and reject with `42501` when it is false. The shipped body returns true because `public.entitlements` does not exist yet. When that table exists, the function reads `active` for the Supabase user id and treats a missing row as not entitled. Paid sync is RevenueCat later (web billing first); there is no payment code.
 
+## Recovery RPC reference
+
+Apply `0009_sync_security.sql` after `0008_sync_cost.sql`. Device/session ownership remains authoritative and all cloud task data stays encrypted.
+
+| RPC | Contract |
+| --- | --- |
+| `list_account(p_workspace uuid default null)` | An explicit owned ID returns that binding or null. No ID selects the newest owned workspace, ordered by creation time and ID. Returning clients must pass their pinned ID. |
+| `bootstrap_workspace(...)` | Initial account setup. Existing behavior remains available for first use. |
+| `create_new_workspace(p_device, p_workspace, p_generation, p_roster, p_roster_hash, p_roster_sig, p_checkpoint, p_rec_sig, p_dev_sig)` | Non-destructive recovery. Requires authentication, a session-bound device and entitlement. Verifies initial roster identity, canonical hashes and device/recovery checkpoint signatures. Exact signed retries are idempotent. Existing workspaces, operations, keys and devices remain unchanged. Envelopes follow through the existing authorized `put_key_envelopes` call. |
+| `reset_sync(p_device, p_workspace)` | **DESTRUCTIVE — use `create_new_workspace` instead.** Deletes only the explicitly selected owned workspace and its cascading data. Account-wide `reset_sync(uuid)` is removed. Desktop IPC requires `DELETE ALL CLOUD DATA` before calling it. |
+
+The client uses fresh cloud generations for recovered workspaces; local generation remains the storage write guard. A durable encrypted recovery draft reuses keys and identity after unknown outcomes. New-key exchange cannot start before baseline and binding commit together. Old devices retain their explicit workspace binding and can continue exchanging against it. No automatic orphan deletion is installed.
+
 ## Test index
 
 | # | Where |

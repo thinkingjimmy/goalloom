@@ -66,6 +66,7 @@ export function createFetchRemote(input: {
       } catch { signal.throwIfAborted(); throw new SyncFailure('network') }
       signal.throwIfAborted()
       if (!response.ok) {
+        if (response.status >= 500) throw new SyncFailure('network')
         let detail: { message?: string; code?: string; details?: string } = {}
         try { detail = JSON.parse(text) } catch { /* HTTP status still classifies a non-JSON failure. */ }
         const message = detail.message ?? `rpc ${response.status}`
@@ -92,8 +93,8 @@ export function createFetchRemote(input: {
       p_name: input.name.slice(0, 64), p_platform: input.platform, p_sign_pub: bytea(input.signPub), p_box_pub: bytea(input.boxPub), p_protocol: 1,
     }, options),
     rebindDevice: (deviceId, message, signature, options) => call<void>('rebind_device', { p_device: deviceId, p_message: bytea(message), p_signature: bytea(signature) }, options),
-    account: options => call<AccountView | null>('list_account', {}, options),
-    bootstrap: (input, options) => call<void>('bootstrap_workspace', {
+    account: options => call<AccountView | null>('list_account', options?.workspaceId ? { p_workspace: options.workspaceId } : {}, options),
+    bootstrap: (input, options) => call<void>(input.createNew ? 'create_new_workspace' : 'bootstrap_workspace', {
       p_device: input.deviceId, p_workspace: input.workspaceId, p_generation: input.generation, p_roster: input.roster,
       p_roster_hash: input.rosterHash, p_roster_sig: bytea(input.rosterSig), p_checkpoint: input.checkpoint,
       p_rec_sig: bytea(input.recSig), p_dev_sig: bytea(input.devSig),
@@ -142,6 +143,6 @@ export function createFetchRemote(input: {
         || !/^[a-f0-9]{64}$/.test(row.payloadHash) || !/^[a-f0-9]+$/.test(row.ciphertext) || row.ciphertext.length % 2 || row.ciphertext.length > 2097152)) throw new SyncFailure('configuration')
       return result
     },
-    resetSync: (deviceId, options) => call<void>('reset_sync', { p_device: deviceId }, options),
+    resetSync: (deviceId, options) => call<void>('reset_sync', { p_device: deviceId, ...(options?.workspaceId ? { p_workspace: options.workspaceId } : {}) }, options),
   }
 }

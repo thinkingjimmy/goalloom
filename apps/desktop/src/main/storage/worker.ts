@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Main-owned file paths, locale, injected clock and narrow internal RPC.
- * [OUTPUT]: Serialized SQLite commands, current/future/live-past reads, immutable history, period-scoped review contexts, worker-local transfer and typed failures.
+ * [OUTPUT]: Serialized SQLite commands/reads, immutable history, protected transfer, explicit crash-safe sign-out cleanup and typed failures.
  * [POS]: Storage composition root; protected migrations finish before requests and cloud work stays outside the queue.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -28,6 +28,8 @@ import { repairRejectedBaseline } from '@goalloom/sync'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { protectSyncBackup, runSyncLocal } from '../workspace/sync/local'
 import { syncHost } from '../sync/host'
+import { clearLocalFiles, recoverLocalClear } from './clear-local'
+import { openDatabase } from './database'
 
 if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort
@@ -36,7 +38,7 @@ const clock = { now: () => new Date().toISOString() }
 let db: DatabaseSync, repository: Repository, service: WorkspaceService
 const upgrade = new StartupUpgrade(workerData.databasePath, workerData.backupDirectory, clock.now)
 let startup: { ok: true; protectivePath: string | null } | { ok: false; message: string; backupPath: string | null; backupDirectory: string; legacyVersion: number | null }
-const initialized = loadServerLocale(workerData.locale).then(() => openWorkspace(workerData.databasePath, workerData.backupDirectory, clock.now)).then(opened => {
+const initialized = loadServerLocale(workerData.locale).then(() => recoverLocalClear(dirname(workerData.databasePath))).then(() => openWorkspace(workerData.databasePath, workerData.backupDirectory, clock.now)).then(opened => {
   db = opened.db
   repository = new Repository(db, clock)
   try { repairRejectedBaseline(nodeSqlDriver(db), syncHost(db)) } catch { /* A failed repair leaves the previous file untouched inside its transaction. */ }
@@ -56,6 +58,20 @@ function handle(method: string, argument: unknown): unknown {
   if (method === 'close' && !startup.ok) return upgrade.cancel()
   if (!startup.ok) { if (method === 'close') return null; throw new DomainError('startup', startup.message) }
   if (method === 'close') { db.close(); return null }
+  if (method === 'finishLocalClear') return recoverLocalClear(dirname(workerData.databasePath))
+  if (method === 'clearLocal') {
+    if (repository.maintenance) throw new DomainError('maintenance', serverText().errors.finishMaintenance)
+    repository.maintenance = true
+    return clearLocalFiles({ databasePath: workerData.databasePath, backupDirectory: workerData.backupDirectory,
+      close: () => { if (db.isOpen) db.close() },
+      reopen: () => {
+        db = openDatabase(workerData.databasePath)
+        repository = new Repository(db, clock)
+        repository.maintenance = true
+        service = new WorkspaceService(repository, workerData.backupDirectory)
+      },
+    }).finally(() => { repository.maintenance = false })
+  }
   if (method === 'candidate') return repository.store.summaries('i.id=?', [z.string().max(180).parse(argument)])[0] ?? null
   if (method === 'candidateLabels') {
     const ids = z.array(z.string().max(180)).max(1000).parse(argument)

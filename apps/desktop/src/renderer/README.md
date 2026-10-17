@@ -24,7 +24,10 @@ renderer/
 │   │       ├── AppearancePane.tsx # Language, visual styles, theme and device relation-line switch
 │   │       ├── BoardPane.tsx      # Synced automatic-placement/completed-layout preferences without task writes and per-column confetti preview
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
-│   │   │   ├── SyncPane.tsx # Account/password flow, merge-first join with secondary acknowledged replacement, empty-cloud guidance, locked-state sign-out and localized credential recovery
+│   │       ├── SyncPane.tsx # Account/password flow, merge-first join, explicit keep/clear sign-out, safe recovery and developer diagnostics
+│   │       ├── SyncSignOutDialog.tsx # Default keep-local confirmation, explicit cleanup warning and scoped Escape/focus return
+│   │       ├── SyncRecovery.tsx # Recommended new workspace, alternative destructive reset with exact phrase, password confirmation and other-device guidance
+│   │       ├── sync-security.css # Native radio geometry shared by Settings and first-run recovery
 │   │       ├── AiPane.tsx       # AI 服务：已连接/可添加服务、能力标签、Key 遮罩与测试日期、账户问题与重测、移除前说明、隐私要点
 │   │       ├── FeatureControls.tsx # 智能输入/洞察共用：功能总开关状态卡与处理服务单选（只列能运行该模型的服务）
 │   │       ├── SmartPane.tsx    # 智能输入：总开关 + 处理服务（Jev）

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: OS cipher and the device directory.
- * [OUTPUT]: Encrypted device/account keys and a public session-resume flag with serialized atomic writes. Sign-out and inactive-session checks do not use the OS cipher.
+ * [OUTPUT]: Encrypted device/account keys, retryable recovery drafts and a public session-resume flag with serialized atomic writes. Sign-out and inactive-session checks do not use the OS cipher.
  * [POS]: Desktop secret store. Sign-out preserves ciphertext, including legacy bytes; unavailable access never replaces saved keys.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -38,6 +38,10 @@ const fileSchema = z.strictObject({
   refreshToken: z.string().nullable(),
   userId: z.string().nullable().default(null),
   accounts: z.record(z.string(), accountSchema).default({}),
+  pendingRecovery: z.strictObject({
+    sourceWorkspaceId: z.uuid(), destructive: z.boolean(), localGeneration: z.uuid(), workspaceId: z.uuid(), generation: z.uuid(),
+    workspaceKey: z.string(), recoveryBoxSk: z.string(), recoverySignSk: z.string(),
+  }).nullable().default(null),
 })
 
 export interface AccountSecrets {
@@ -65,6 +69,12 @@ export interface VaultSecrets {
   refreshToken: string | null
   userId: string | null
   accounts: Record<string, AccountSecrets>
+  pendingRecovery?: PendingRecovery | null
+}
+
+export interface PendingRecovery {
+  sourceWorkspaceId: string; destructive: boolean; localGeneration: string; workspaceId: string; generation: string
+  workspaceKey: Uint8Array; recoveryBoxSk: Uint8Array; recoverySignSk: Uint8Array
 }
 
 export class SyncVault {
@@ -109,6 +119,8 @@ export class SyncVault {
       recoveryBoxSk: parsed.recoveryBoxSk ? unhex(parsed.recoveryBoxSk) : null,
       recoverySignSk: parsed.recoverySignSk ? unhex(parsed.recoverySignSk) : null,
       refreshToken: active ? parsed.refreshToken : null, userId: parsed.userId, accounts,
+      pendingRecovery: parsed.pendingRecovery ? { ...parsed.pendingRecovery, workspaceKey: unhex(parsed.pendingRecovery.workspaceKey),
+        recoveryBoxSk: unhex(parsed.pendingRecovery.recoveryBoxSk), recoverySignSk: unhex(parsed.pendingRecovery.recoverySignSk) } : null,
     }
     if (legacy) await this.save(secrets)
     return secrets
@@ -132,6 +144,8 @@ export class SyncVault {
       recoveryBoxSk: secrets.recoveryBoxSk ? hex(secrets.recoveryBoxSk) : null,
       recoverySignSk: secrets.recoverySignSk ? hex(secrets.recoverySignSk) : null,
       refreshToken: secrets.refreshToken, userId: secrets.userId, accounts,
+      pendingRecovery: secrets.pendingRecovery ? { ...secrets.pendingRecovery, workspaceKey: hex(secrets.pendingRecovery.workspaceKey),
+        recoveryBoxSk: hex(secrets.pendingRecovery.recoveryBoxSk), recoverySignSk: hex(secrets.pendingRecovery.recoverySignSk) } : null,
     })
     const encrypted = this.cipher.encrypt(body)
     const bytes = Buffer.concat([vaultHeader, Buffer.from([secrets.refreshToken ? 1 : 0]), encrypted])

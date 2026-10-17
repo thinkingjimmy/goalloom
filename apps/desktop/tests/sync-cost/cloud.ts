@@ -12,14 +12,17 @@ import { createMemoryWorld, memoryRemote } from '@goalloom/sync'
 export const userId = '11111111-1111-4111-8111-111111111111'
 export async function createCloud() {
   const world = createMemoryWorld()
+  const otherUserId = '22222222-2222-4222-8222-222222222222'
+  const worlds = new Map([[userId, world], [otherUserId, createMemoryWorld()]])
+  const accountFor = (session: string) => session.startsWith('other-') ? otherUserId : userId
   const requests: { rpc: string; peer: string; bytes: number; uploadedBytes: number; aborted: boolean }[] = []
   const replies: (() => void)[] = []
   const delayed: (() => Promise<void>)[] = []
   const sockets = new Set<any>()
-  const controls = { fault: '', session: '', blocked: '', retryAt: 0, broadcasts: 0, dropped: false }
+  const controls = { fault: '', session: '', blocked: '', retryAt: 0, broadcasts: 0, dropped: false, subscriptions: 0, topics: [] as string[] }
   const jwt = (session: string) => [
     { alg: 'HS256', typ: 'JWT' },
-    { sub: userId, exp: Math.floor(Date.now() / 1000) + 3600, role: 'authenticated', session_id: session },
+    { sub: accountFor(session), exp: Math.floor(Date.now() / 1000) + 3600, role: 'authenticated', session_id: session },
   ].map(value => Buffer.from(JSON.stringify(value)).toString('base64url')).join('.') + '.synthetic'
   const sessionOf = (authorization: string) => {
     try { return JSON.parse(Buffer.from(authorization.split('.')[1]!, 'base64url').toString()).session_id }
@@ -41,19 +44,22 @@ export async function createCloud() {
       row.bytes = Buffer.byteLength(json)
       response.writeHead(status, { 'content-type': 'application/json' }); response.end(json)
     }
+    if (fault === 'offline') { send({ message: 'Synthetic offline transport' }, 503); return }
     if (request.url!.includes('/auth/v1/token')) {
       send({ access_token: jwt(body.refresh_token), refresh_token: body.refresh_token, token_type: 'bearer', expires_in: 3600,
-        user: { id: userId, email: 'sync@example.invalid', aud: 'authenticated', role: 'authenticated' } })
+        user: { id: accountFor(body.refresh_token), email: accountFor(body.refresh_token) === userId ? 'sync@example.invalid' : 'other@example.invalid', aud: 'authenticated', role: 'authenticated' } })
       return
     }
     if (request.url!.includes('/auth/')) { send(null); return }
     if (fault === `missing:${rpc}`) { send({ code: 'PGRST202', message: 'Missing target RPC' }, 404); return }
     if (fault === `headers:${rpc}`) return
     if (fault === `body:${rpc}`) { response.writeHead(200, { 'content-type': 'application/json' }); response.write('['); return }
-    const remote = memoryRemote(world, sessionOf(request.headers.authorization ?? ''))
+    const activeWorld = worlds.get(accountFor(sessionOf(request.headers.authorization ?? '')))!
+    const remote = memoryRemote(activeWorld, sessionOf(request.headers.authorization ?? ''))
     const b = body
     const handlers: Record<string, () => Promise<unknown>> = {
-      list_account: () => remote.account(),
+      list_account: () => remote.account(b.p_workspace ? { workspaceId: b.p_workspace } : undefined),
+      reset_sync: () => remote.resetSync(b.p_device, b.p_workspace ? { workspaceId: b.p_workspace } : undefined),
       register_device: () => remote.registerDevice({ name: b.p_name, platform: b.p_platform, signPub: wire(b.p_sign_pub), boxPub: wire(b.p_box_pub) }),
       rebind_device: () => remote.rebindDevice(b.p_device, wire(b.p_message), wire(b.p_signature)),
       get_roster: () => remote.getRoster(b.p_workspace, b.p_device),
@@ -66,20 +72,14 @@ export async function createCloud() {
       bootstrap_workspace: () => remote.bootstrap({ deviceId: b.p_device, workspaceId: b.p_workspace, generation: b.p_generation,
         roster: b.p_roster, rosterHash: b.p_roster_hash, rosterSig: wire(b.p_roster_sig), checkpoint: b.p_checkpoint,
         recSig: wire(b.p_rec_sig), devSig: wire(b.p_dev_sig) }),
+      create_new_workspace: () => remote.bootstrap({ deviceId: b.p_device, workspaceId: b.p_workspace, generation: b.p_generation, createNew: true,
+        roster: b.p_roster, rosterHash: b.p_roster_hash, rosterSig: wire(b.p_roster_sig), checkpoint: b.p_checkpoint,
+        recSig: wire(b.p_rec_sig), devSig: wire(b.p_dev_sig) }),
       pull_ops: () => remote.pullOps({ workspaceId: b.p_workspace, deviceId: b.p_device, after: b.p_after, limit: b.p_limit }),
       push_ops: () => remote.pushOps({ workspaceId: b.p_workspace, deviceId: b.p_device, generation: b.p_generation,
         ops: b.p_ops.map((op: any) => ({ opId: op.op_id, payloadHash: op.payload_hash, formatVersion: op.format_version, keyEpoch: op.key_epoch, ciphertext: op.ciphertext })) }),
-      get_sync_status: async () => {
-        await remote.pullOps({ workspaceId: b.p_workspace, deviceId: b.p_device, after: world.workspace?.headSeq ?? 0, limit: 1 })
-        return { ...(await remote.account()), minRetainedSeq: 0, minProtocolRead: 1, minProtocolWrite: 1 }
-      },
-      receipts_for: async () => {
-        await remote.pullOps({ workspaceId: b.p_workspace, deviceId: b.p_device, after: world.workspace?.headSeq ?? 0, limit: 1 })
-        return b.p_op_ids.flatMap((id: string) => {
-          const receipt = world.workspace?.receipts.get(id)
-          return receipt ? [{ op_id: id, payload_hash: receipt.hash, seq: receipt.seq }] : []
-        })
-      },
+      get_sync_status: () => remote.getSyncStatus(b.p_workspace, b.p_device),
+      receipts_for: () => remote.receiptsFor(b.p_workspace, b.p_device, b.p_op_ids),
     }
     try {
       if (fault === `gate-limit:${rpc}`) {
@@ -96,7 +96,7 @@ export async function createCloud() {
       if (fault === `commit:${rpc}`) { response.destroy(); return }
       if (fault === `gate:${rpc}`) { replies.push(() => send(result ?? null)); return }
       send(result ?? null)
-    } catch (error) { send({ message: (error as Error).message, code: '42501' }, 403) }
+    } catch (error) { send({ message: (error as Error).message, code: '42501' }, (error as { code?: string }).code === 'network' ? 503 : 403) }
   })
   function frame(value: unknown) {
     const bytes = Buffer.from(JSON.stringify(value))
@@ -107,7 +107,7 @@ export async function createCloud() {
   function broadcast() {
     controls.broadcasts++
     if (controls.dropped) return
-    for (const socket of sockets) if (socket.topic) socket.write(frame([socket.joinRef, null, socket.topic, 'broadcast', { event: 'head', payload: { head: world.workspace?.headSeq }, type: 'broadcast' }]))
+    for (const socket of sockets) if (socket.topic) socket.write(frame([socket.joinRef, null, socket.topic, 'broadcast', { event: 'head', payload: { head: [...worlds.values()].flatMap(value => [...value.workspaces.values()]).find(value => `realtime:ws:${value.id}` === socket.topic)?.headSeq ?? world.workspace?.headSeq }, type: 'broadcast' }]))
   }
   server.on('upgrade', (request, socket) => {
     const accept = createHash('sha1').update(request.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64')
@@ -131,12 +131,12 @@ export async function createCloud() {
         if (opcode === 8) { socket.end(); return }
         if (opcode !== 1) continue
         const [joinRef, ref, topic, event] = JSON.parse(message.toString())
-        if (event === 'phx_join') { (socket as any).topic = topic; (socket as any).joinRef = joinRef }
+        if (event === 'phx_join') { controls.subscriptions++; controls.topics.push(topic); (socket as any).topic = topic; (socket as any).joinRef = joinRef }
         socket.write(frame([joinRef, ref, topic, 'phx_reply', { status: 'ok', response: {} }]))
       }
     })
   })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
-  return { world, requests, controls, broadcast, releaseReplies() { for (const reply of replies.splice(0)) reply() }, disconnectSockets() { for (const socket of sockets) socket.destroy() }, async commitDelayed() { for (const commit of delayed.splice(0)) await commit() }, url: `http://127.0.0.1:${(server.address() as any).port}`,
+  return { world, worlds, requests, controls, broadcast, releaseReplies() { for (const reply of replies.splice(0)) reply() }, disconnectSockets() { for (const socket of sockets) socket.destroy() }, async commitDelayed() { for (const commit of delayed.splice(0)) await commit() }, url: `http://127.0.0.1:${(server.address() as any).port}`,
     async close() { for (const socket of sockets) socket.destroy(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())) } }
 }

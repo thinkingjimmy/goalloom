@@ -54,6 +54,7 @@ try {
   await page.screenshot({ path: join(out, 'screenshots/case-1-ready.png') })
   report.checks.push('Real Google sign-in UI and sync password automatically join Case 1; all task IDs reach B')
   await settings.getByRole('button', { name: '退出登录', exact: true }).click()
+  await page.locator('.sync-signout-modal button[type="submit"]').click()
   await settings.getByRole('button', { name: /Google/ }).click()
   await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
   await application.evaluate(async () => {
@@ -64,6 +65,7 @@ try {
   report.checks.push('Real sign-out/relogin controls resume without new operations or a repeated merge decision')
   // A restored workspace must explicitly choose, even when its current task IDs are already known.
   await settings.getByRole('button', { name: '退出登录', exact: true }).click()
+  await page.locator('.sync-signout-modal button[type="submit"]').click()
   await application.evaluate(async () => { await globalThis.syncJoinFixture.a.storage.call('sync', { type: 'pause', reason: 'restore', at: new Date().toISOString() }) })
   await settings.getByRole('button', { name: /Google/ }).click()
   await settings.getByRole('button', { name: '合并并开始同步', exact: true }).waitFor()

@@ -18,7 +18,7 @@ main/
 │   └── close.ts   # Token-bound detail autosave drain before close/quit; composer confirmation and cancellation keep storage alive
 ├── storage/       # SQLite、启动迁移保护、备份与文件适配器、worker 通道，见局部地图
 ├── smart/         # Jev 智能输入：三渠道 adapter、设备凭据、独立异步服务，见局部地图
-├── sync/          # Saved-session restoration and on-demand Google sign-in; atomic encrypted vault with a public resume flag, settings projection, bounded adaptive sync, independent upload recovery and protected retry payloads
+├── sync/          # Saved-session restoration and on-demand Google sign-in; atomic encrypted vault with a public resume flag, settings projection, safe recovery and explicit cleanup, bounded adaptive sync, independent upload recovery and protected retry payloads
 ├── link-preview/  # Bounded public link metadata/image fetching and disposable device cache; separate from workspace writes
 └── workspace/     # 权威事务、业务命令、历史/顺延与整库服务，见局部地图
 ```

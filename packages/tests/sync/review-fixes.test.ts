@@ -415,15 +415,15 @@ it('backs up the board before the first device baselines and before a reset uplo
   await created.service.handle({ type: 'create', password: 'sync-pass' })
   expect(created.calls.map(call => call.type).filter(type => type === 'protect' || type === 'baseline')).toEqual(['protect', 'baseline'])
   const reset = open('enter-key')
-  await reset.service.handle({ type: 'reset-sync', password: 'sync-pass' })
-  expect(reset.calls.map(call => call.type).filter(type => type === 'protect' || type === 'rebaseline')).toEqual(['protect', 'rebaseline'])
+  ;(reset.service as unknown as { selectedWorkspace: string }).selectedWorkspace = randomUUID()
+  await reset.service.handle({ type: 'create-new-workspace', password: 'sync-pass' })
+  expect(reset.calls.map(call => call.type).filter(type => type === 'protect' || type === 'recover-bind')).toEqual(['protect', 'recover-bind'])
 })
 
-it('cancels an in-flight sign-in without an auth notice and resets cloud data back to setup', async () => {
+it('cancels an in-flight sign-in without an auth notice', async () => {
   const cipher = identityCipher()
   const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-cancel-'))
   await writeFile(join(userData, 'sync-config.json'), JSON.stringify({ anonKey: 'test-anon-key' }))
-  let resets = 0
   let release: (() => void) | null = null
   let signInStarted!: () => void
   const startingSignIn = new Promise<void>(resolve => { signInStarted = resolve })
@@ -458,35 +458,7 @@ it('cancels an in-flight sign-in without an auth notice and resets cloud data ba
   expect((await failed.handle({ type: 'sign-in' })).status.error).toBe('auth')
   expect((await failed.handle({ type: 'cancel' })).status).toMatchObject({ phase: 'signed-out', error: null })
 
-  const secret = newDeviceSecret()
-  const opened = service as unknown as { started: boolean; secrets: VaultSecrets; remote: SyncRemote; phase: string }
-  opened.started = true
-  opened.phase = 'enter-key'
-  opened.secrets = {
-    deviceId: randomUUID(), signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: null, workspaceId: randomUUID(),
-    generation: null, epoch: null, roster: null, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
-  }
-  opened.remote = {
-    receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
-    pullOps: async () => [], pushOps: async () => [], getRoster: async () => { throw new SyncFailure('network') },
-    getEnvelopes: async () => [], account: async () => null, registerDevice: async () => randomUUID(), rebindDevice: async () => undefined,
-    bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
-    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined,
-    resetSync: async () => { resets += 1 },
-  }
-  const calls: string[] = []
-  const resetting = service as unknown as { deps: { storage: StorageClient } }
-  const storage = resetting.deps.storage
-  resetting.deps.storage = { call: async (_method: string, argument?: unknown) => {
-    calls.push((argument as { type?: string } | undefined)?.type ?? '')
-    return storage.call('sync', argument)
-  } } as StorageClient
-  const reset = await service.handle({ type: 'reset-cloud' })
-  expect(resets).toBe(1)
-  expect(reset.status.phase).toBe('setup')
-  expect(calls).not.toContain('protect')
-  expect(calls).not.toContain('baseline')
-  expect(calls).not.toContain('rebaseline')
+
 })
 
 it('signs out of this computer only and leaves a failed sign-in retryable', async () => {
@@ -536,78 +508,7 @@ it('does not replace a vault that cannot be decrypted', async () => {
   expect(await new SyncVault(mkdtempSync(join(tmpdir(), 'goalloom-sync-empty-')), identityCipher()).load()).toBeNull()
 })
 
-it('keeps the previous Google account key when another account signs in', async () => {
-  const cipher = identityCipher()
-  const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-acct-'))
-  const vault = new SyncVault(userData, cipher)
-  const secret = newDeviceSecret()
-  const workspaceA = randomUUID()
-  const deviceA = randomUUID()
-  const key = randomBytes(32)
-  const stored: VaultSecrets = {
-    deviceId: deviceA, signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: key, workspaceId: workspaceA,
-    generation: randomUUID(), epoch: 1,
-    roster: { workspaceId: workspaceA, version: 1, epoch: 1, prevHash: null, devices: [], recoverySignPub: 'aa', recoveryBoxPub: 'bb' },
-    recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: 'user-a', accounts: {},
-  }
-  await vault.save(stored)
-  const service = new SyncService({
-    userData, cipher,
-    storage: { call: async () => {
-      const current = (service as unknown as { secrets: VaultSecrets }).secrets
-      return { workspaceId: current.workspaceId, deviceId: current.deviceId, generation: current.generation ?? '', keyEpoch: current.epoch, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 0 }
-    } } as unknown as StorageClient,
-    openExternal: async () => undefined, notify: () => undefined, onApplied: () => undefined, clipboard: () => undefined, now: () => now,
-  })
-  const opened = service as unknown as {
-    started: boolean
-    secrets: VaultSecrets
-    remote: SyncRemote
-    client: { auth: { getSession: () => Promise<{ data: { session: { user: { id: string, email?: string } } | null } }> } }
-    afterAuth: () => Promise<void>
-  }
-  opened.started = true
-  opened.secrets = (await vault.load())!
-  const account = (workspaceId: string) => ({ workspaceId, generation: workspaceA, keyEpoch: 1, headSeq: 0, rosterVersion: 1 })
-  const sessionFor = (id: string) => ({
-    auth: { getSession: async () => ({ data: { session: { user: { id } } } }) },
-    channel: () => ({ on() { return this }, subscribe() { return undefined }, async unsubscribe() { return undefined } }),
-  })
-  opened.client = sessionFor('user-a')
-  opened.remote = {
-    receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
-    account: async () => account(workspaceA),
-    rebindDevice: async () => { throw new SyncFailure('auth') },
-    registerDevice: async () => randomUUID(),
-    getRoster: async () => { throw new SyncFailure('network') },
-    pullOps: async () => [], pushOps: async () => [], getEnvelopes: async () => [],
-    bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
-    startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined, resetSync: async () => undefined,
-  }
-  await opened.afterAuth()
-  expect(hex(opened.secrets.workspaceKey!)).toBe(hex(key))
-  await vault.save(stored)
-  opened.secrets = (await vault.load())!
-  opened.client = sessionFor('user-b')
-  opened.remote = {
-    ...opened.remote, account: async () => account(randomUUID()), rebindDevice: async () => undefined }
-  await opened.afterAuth()
-  const parked = await vault.load()
-  expect(parked?.accounts['user-a']?.workspaceId).toBe(workspaceA)
-  expect(hex(parked!.accounts['user-a']!.workspaceKey!)).toBe(hex(key))
-  expect(parked?.workspaceKey).toBeNull()
-  let rebound = ''
-  opened.client = sessionFor('user-a')
-  opened.remote = {
-    ...opened.remote,
-    account: async () => account(workspaceA),
-    rebindDevice: async id => { rebound = id },
-    registerDevice: async () => { throw new Error('should keep the saved device') },
-  }
-  await opened.afterAuth()
-  expect(rebound).toBe(deviceA)
-  expect(hex(opened.secrets.workspaceKey!)).toBe(hex(key))
-})
+
 
 it('seeds settings when an already-bound account resumes', async () => {
   const cipher = identityCipher()

@@ -24,6 +24,7 @@ import { installMenu } from './window/menu'
 import { openAboutEvent, updateEvent } from '../shared/contracts/update'
 import { assistanceServerText } from '../shared/i18n/assistance'
 import { SyncService } from './sync/service'
+import { createNetworkMonitor } from './sync/network-monitor'
 import { projectSettingRows } from './sync/project-settings'
 import { syncEvent } from '../shared/contracts/sync'
 import { aiRefreshEvent, devicePrefsEvent, languageEvent } from '../shared/contracts/runtime'
@@ -212,6 +213,8 @@ if (!app.requestSingleInstanceLock()) {
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
     const syncing = sync = new SyncService({
       userData: app.getPath('userData'), cipher: deviceCipher, storage: storageProxy,
+      monitorNetwork: createNetworkMonitor,
+      onLocalCleared: () => { smart.releaseSession(); links.releaseSession() },
       openExternal: url => shell.openExternal(url),
       onBrowserReturn: () => focusMainWindow(),
       notify: status => send(syncEvent, status),
