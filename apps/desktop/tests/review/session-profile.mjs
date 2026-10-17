@@ -1,6 +1,6 @@
 /**
  * [INPUT]: The real provisioning CLI with synthetic Apple HTTP, CMS and signing-identity boundaries.
- * [OUTPUT]: Repeatable profile reuse/creation and failure evidence in output/tests/session-profile/.
+ * [OUTPUT]: Repeatable profile reuse/creation and failure evidence, including malformed CMS payload rejection.
  * [POS]: Release CLI acceptance; no Apple account, real credential or user keychain is accessed.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,7 +15,7 @@ import { join, resolve } from 'node:path'
 if (process.platform !== 'darwin') { console.log('macOS provisioning CLI fixture skipped on this platform'); process.exit(0) }
 const out = resolve('output/tests/session-profile'), directory = await mkdtemp(join(tmpdir(), 'goalloom-profile-cli-'))
 await mkdir(out, { recursive: true })
-const report = { ok: false, checks: [], scope: 'Real Node CLI and plutil; synthetic Apple HTTP/CMS/signing identity. No signed native or live Apple acceptance.' }
+const report = { ok: false, checks: [], scope: 'Real Node CLI and Python plist parser; synthetic Apple HTTP/CMS/signing identity. No signed native or live Apple acceptance.' }
 try {
   const cert = join(directory, 'certificate.pem')
   execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-subj', '/CN=Fixture', '-days', '1', '-keyout', join(directory, 'certificate.key'), '-out', cert], { stdio: 'pipe' })
@@ -34,7 +34,7 @@ const mode = process.env.PROFILE_CASE, xml = ${JSON.stringify(xml)}, fingerprint
 const original = child.execFileSync;
 child.execFileSync = (command, args, options) => {
   if (command === '/usr/bin/security' && args[0] === 'find-identity') return '  1) ' + fingerprint + ' "Developer ID Application: ziming wang (947MAGH97Q)"\\n' + (mode === 'ambiguous' ? '  2) ' + 'A'.repeat(40) + ' "Developer ID Application: ziming wang (947MAGH97Q)"\\n' : '');
-  if (command === '/usr/bin/security' && args[0] === 'cms') return mode === 'invalid-profile' ? xml.replaceAll('947MAGH97Q.com.goalloom.desktop', '947MAGH97Q.invalid') : xml;
+  if (command === '/usr/bin/security' && args[0] === 'cms') return mode === 'malformed-plist' ? '<invalid>' : mode === 'invalid-profile' ? xml.replaceAll('947MAGH97Q.com.goalloom.desktop', '947MAGH97Q.invalid') : xml;
   return original(command, args, options);
 };
 syncBuiltinESMExports();
@@ -57,14 +57,14 @@ globalThis.fetch = async (url, options = {}) => {
   if (parsed.pathname === '/v1/certificates') return Response.json({ data: [certificate], links: {} });
   if (parsed.pathname === '/v1/bundleIds') return Response.json({ data: mode === 'new-bundle' ? [] : [bundle], links: {} });
   assert.equal(parsed.pathname, '/v1/profiles');
-  return Response.json({ data: ['existing', 'stale-certificate', 'invalid-profile'].includes(mode) ? [profile] : [], included: [bundle, certificate], links: mode === 'foreign-pagination' ? { next: 'https://example.invalid/steal' } : {} });
+  return Response.json({ data: ['existing', 'stale-certificate', 'invalid-profile', 'malformed-plist'].includes(mode) ? [profile] : [], included: [bundle, certificate], links: mode === 'foreign-pagination' ? { next: 'https://example.invalid/steal' } : {} });
 };
 `)
   for (const [mode, create, success, posts] of [
     ['existing', false, true, []], ['missing', false, false, []], ['create', true, true, ['/v1/profiles']],
     ['new-bundle', true, true, ['/v1/bundleIds', '/v1/profiles']], ['ambiguous', true, false, []],
     ['wrong-certificate', true, false, []], ['stale-certificate', true, true, ['/v1/profiles']],
-    ['invalid-profile', false, false, []], ['denied', true, false, []], ['foreign-pagination', true, false, []],
+    ['invalid-profile', false, false, []], ['malformed-plist', false, false, []], ['denied', true, false, []], ['foreign-pagination', true, false, []],
     ['unknown-post', true, false, ['/v1/profiles']],
   ]) {
     const runDirectory = join(directory, mode); await mkdir(runDirectory)

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Developer ID profile, fixed app/team identity and electron-builder's macOS pack context.
+ * [INPUT]: Developer ID profile, native CMS decoding, Xcode's Python plist parser and macOS pack context.
  * [OUTPUT]: Validated profile and private keychain entitlements for the main executable only.
  * [POS]: Signed-package gate. Ad-hoc fixtures retain their separate, unrestricted entitlements.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -14,17 +14,17 @@ export function validateSessionProfile(path) {
   let profile
   try {
     const xml = execFileSync('/usr/bin/security', ['cms', '-D', '-i', path], { encoding: 'utf8', timeout: 15_000, stdio: ['ignore', 'pipe', 'pipe'] })
-    const extract = (key, format = 'json') => {
-      try {
-        const value = execFileSync('/usr/bin/plutil', ['-extract', key, format, '-o', '-', '-'], { input: xml, encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] })
-        return format === 'json' ? JSON.parse(value) : value.trim()
-      } catch { return null }
-    }
-    profile = Object.fromEntries(['Platform', 'TeamIdentifier', 'Entitlements'].map(key => [key, extract(key)]))
-    profile.ProvisionsAllDevices = extract('ProvisionsAllDevices', 'raw') === 'true'
-    profile.ExpirationDate = extract('ExpirationDate', 'raw')
+    // Parse once across build-host OS versions. Never serialize certificate bytes or other profile data.
+    const parser = `import datetime, json, plistlib, sys
+value = plistlib.loads(sys.stdin.buffer.read())
+result = {key: value.get(key) for key in ['Platform', 'TeamIdentifier', 'Entitlements', 'ProvisionsAllDevices']}
+expires = value.get('ExpirationDate')
+result['ExpirationDate'] = expires.isoformat() + 'Z' if isinstance(expires, datetime.datetime) else None
+print(json.dumps(result))`
+    const decoded = execFileSync('/usr/bin/python3', ['-c', parser], { input: xml, encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] })
+    profile = JSON.parse(decoded)
   }
-  catch { throw Error('Cannot decode the macOS Developer ID provisioning profile') }
+  catch { throw Error('Cannot decode the macOS Developer ID provisioning profile; security CMS and Xcode Python 3 are required') }
   const permissions = profile.Entitlements ?? {}
   const allows = value => value === applicationId || value === '947MAGH97Q.*'
   assert(profile.Platform?.includes('OSX') && profile.ProvisionsAllDevices === true, 'A macOS Developer ID distribution profile is required')
