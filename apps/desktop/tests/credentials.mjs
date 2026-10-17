@@ -104,10 +104,12 @@ async function googleFromSettings() {
 }
 async function recoveryLocale(settings, locale) {
   const names = { zh: '简体中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }
+  const syncNames = { zh: '同步', en: 'Sync', ja: '同期', es: 'Sincronizar', fr: 'Synchro' }
   await settings.locator('.settings-nav-label').filter({ hasText: /^(外观|Appearance|外観|Apariencia|Apparence)$/ }).click()
   await settings.locator('.settings-select').click()
   await page.getByRole('option', { name: names[locale], exact: true }).click()
-  await settings.locator('.settings-nav-label').filter({ hasText: /^(同步|Sync|同期|Sincronizar|Synchro)$/ }).click()
+  // Locale catalogs load asynchronously; the previous language is not a completion signal.
+  await settings.locator('.settings-nav-label').filter({ hasText: new RegExp(`^${syncNames[locale]}$`) }).click()
   if (await settings.locator('.sync-recovery summary').count()) await settings.locator('.sync-recovery summary').click()
 }
 
