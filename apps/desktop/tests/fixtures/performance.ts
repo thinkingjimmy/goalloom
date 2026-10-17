@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 隔离临时 profile 路径、真实今天与正式 Repository 命令。
- * [OUTPUT]: 500 条历史/200 活跃任务的可重复延迟和恢复测量，贴近真实用户使用规模。
- * [POS]: 测试专用性能夹具；不读取私人工作区，不进入生产包。
+ * [INPUT]: Isolated profile path, the current date and production Repository commands.
+ * [OUTPUT]: Repeatable storage/restore timings for 500 historical and 200 active tasks with a valid flow DAG.
+ * [POS]: Release benchmark seed. Never reads a user workspace or enters the production package.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
@@ -49,17 +49,21 @@ async function main() {
   }
   now = today.subtract({ days: 1 }).toInstant().toString()
   const oldDay = Temporal.Instant.from(now).toZonedDateTimeISO('Asia/Shanghai').toPlainDate().toString()
-  // 0-50 roll over; 50-150 are children (shorter horizons) of the cycle parents 150-170; 170+ mix every column.
+  // Keep the flow root inside the 200 active items; its cycle children supply the two-parent DAG.
   const active: string[] = [], horizons: ItemHorizon[] = ['later', 'cycle', 'month', 'week', 'day'], childHorizons: ItemHorizon[] = ['month', 'week', 'day']
-  const horizonOf = (i: number): ItemHorizon => i < 50 ? 'day' : i < 150 ? childHorizons[i % 3]! : i < 170 ? 'cycle' : horizons[i % 5]!
-  for (let i = 0; i < 200; i++) active.push(run({ type: 'create', title: `活跃计划 ${i} Alpha %_`, description, horizon: horizonOf(i) }).itemId!)
+  const horizonOf = (i: number): ItemHorizon => i === 199 ? 'year' : i < 50 ? 'day' : i < 150 ? childHorizons[i % 3]! : i < 170 ? 'cycle' : horizons[i % 5]!
+  for (let i = 0; i < 200; i++) active.push(run({ type: 'create', title: `活跃计划 ${i} Alpha %_`, description, horizon: horizonOf(i), ...(i === 199 ? { flowColor: 0 } : {}) }).itemId!)
   now = today.toInstant().toString()
-  // 边界可能恰逢周/月初；其余活跃计划显式安排今天所在的当前列。
+  // A sample can cross a week/month boundary; explicitly keep the other active plans current.
   for (let i = 50; i < active.length; i++) {
     const item = repo.store.item(active[i]!)
     run({ type: 'move', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version, horizon: horizonOf(i) })
   }
-  for (let i = 50; i < 150; i++) for (const parentId of [active[150 + (i - 50) % 20]!, active[160 + (i - 50) % 10]!]) {
+  const rootId = active[199]!
+  for (const childId of active.slice(150, 170)) {
+    run({ type: 'link', parentId: rootId, childId, expectedParentVersion: repo.store.item(rootId).version, expectedChildVersion: repo.store.item(childId).version })
+  }
+  for (let i = 50; i < 150; i++) for (const parentId of [active[150 + (i - 50) % 20]!, active[150 + (i - 40) % 20]!]) {
     const childId = active[i]!
     run({ type: 'link', parentId, childId, expectedParentVersion: repo.store.item(parentId).version, expectedChildVersion: repo.store.item(childId).version })
   }
@@ -83,11 +87,11 @@ async function main() {
   const backup = await measureAsync('backupMs', () => service.backups.create('manual', repo.store.workspace(), now))
   const restored = await measureAsync('readValidateSqliteMs', () => readSqliteDataset(service.backups.path(backup.id), now))
   measure('atomicRestoreMs', () => replaceDataset(repo.store, restored, 'restore', now))
-  assert.equal(repo.snapshot().items.length, 1000)
+  assert.equal(repo.snapshot().items.length, active.length)
   assert.equal(exportDataset(repo.store, now).events.length, data.events.length)
   const queryPlans = [
     ["SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? ORDER BY p.sortKey DESC,p.itemId DESC LIMIT 1", ['day', snapshot.periods.find(period => period.horizon === 'day')!.id]],
-    ["SELECT seq FROM item_events WHERE itemId=? AND fromPeriodId IS NOT toPeriodId ORDER BY seq DESC LIMIT 1", [active[200]!]],
+    ["SELECT seq FROM item_events WHERE itemId=? AND fromPeriodId IS NOT toPeriodId ORDER BY seq DESC LIMIT 1", [active[0]!]],
     ["SELECT count(*) FROM item_events WHERE operationId=?", [batch.operationId]],
   ].map(([sql, parameters]) => ({ sql, plan: db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...parameters as string[]) }))
   const report = { queryPlans, environment: { electron: process.versions.electron, node: process.versions.node, sqlite: db.prepare('SELECT sqlite_version() AS v').get()!.v, os: release(), arch: process.arch, cpu: cpus()[0]!.model }, counts: { total: data.items.length, active: 200, relations: data.relations.length, events: data.events.length, operations: data.operations.length, rollover: repo.store.operation(batch.operationId)!.effects.length }, measured, sqliteBytes: (await stat(service.backups.path(backup.id))).size, processRssBytes: process.memoryUsage().rss, historyStart: oldDay, firstId: active[50] }

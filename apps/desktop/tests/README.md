@@ -143,6 +143,8 @@ History, periods, ordering, relations and link-preview setup only sizes the nati
 
 `pnpm test:performance [packaged-executable]` is a **release-only** benchmark measuring isolated production performance with 500 historical + 200 active tasks (realistic user scale). Run only before releases or when explicitly requested; not required for feature development, commits, or merges into `main`.
 
+Performance fixture failure cases: current flow rules reject colorless links; duplicate parent IDs invalidate a seed; stale restore counts or out-of-range query-plan IDs fail after reducing the workload. Keep 500 historical and 200 active items, including a colored year root for the seeded DAG, two distinct parents per measured child, and valid IDs for query plans. All data still goes through production commands.
+
 `pnpm test:scaling` is a **release-only** batch growth benchmark (200/400/800 items). Run only before releases or when explicitly requested.
 
 Panel latency records the browser input event through the dialog's open mutation and two animation frames, separately from Playwright's polling-dependent automation time. `GOALLOOM_STARTUP_ITEMS=0` or `100` narrows a diagnostic run; `GOALLOOM_STARTUP_SCRIPTS=0` disables debugger-based script inspection when isolating measurement overhead.
