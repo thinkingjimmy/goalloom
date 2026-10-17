@@ -113,7 +113,9 @@ try {
   await pollPage(page, async () => (await window.goalloom.sync({ type: 'status' })).status.error === 'mismatch')
   await shot('account-switch-rejected')
   await application.evaluate(() => { globalThis.syncSecurityFixture.identity = 'alpha' })
-  await settings.getByRole('button', { name: /Google/ }).click(); await ready()
+  await settings.getByRole('button', { name: /Google/ }).click()
+  await settings.locator('input[type="password"]').fill('synthetic-sync-password')
+  await settings.getByRole('button', { name: '继续', exact: true }).click(); await ready()
   check('Real keep-local IPC preserves tasks; a different account cannot upload the bound board')
 
   await settings.getByRole('button', { name: '忘记密码…', exact: true }).click()

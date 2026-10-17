@@ -30,7 +30,7 @@ export async function exchangeTurn(input: {
   signal: AbortSignal
   cache: PendingCache
   account: string
-  binding: () => { workspaceId: string; generation: string; deviceId: string; workspaceKey: Uint8Array; epoch: number; rosterVersion: number }
+  binding: () => { workspaceId: string; generation: string; deviceId: string; workspaceKey: Uint8Array; journalKey?: Uint8Array; epoch: number; rosterVersion: number }
   view: () => Promise<LocalView>
   storage: <T>(command: unknown) => Promise<T>
   followRoster: () => Promise<void>
@@ -61,7 +61,7 @@ export async function exchangeTurn(input: {
     if (binding.epoch !== head.keyEpoch || binding.rosterVersion !== head.rosterVersion) throw new SyncFailure('key')
     state.verifyRoster = false
   }
-  await input.cache.open(`${input.account}|${binding.workspaceId}|${view.generation}`, input.signal)
+  await input.cache.open(`${input.account}|${binding.workspaceId}|${view.generation}`, input.signal, binding.journalKey ?? binding.workspaceKey)
   const lookup = view.pending ? await input.lookup() : () => undefined
   input.check()
   let receiptBlocked = state.receiptFailed

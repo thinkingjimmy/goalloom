@@ -6,7 +6,7 @@
 main/
 ├── index.ts       # 单实例、goalloom:// 唤回前台、先展示后日常备份/核对、首次写入门控、renderer 会话释放与退出排空
 ├── identity.ts    # Stable packaged identity/data paths; separate development application name, model ID, default profile and macOS Safe Storage namespace
-├── keychain.ts    # Disable macOS Keychain UI before app readiness and every credential call; missing native policy blocks credentials while preserving the local workspace
+├── keychain.ts    # Disable macOS Keychain UI and expose application-private Data Protection session keys; missing native access preserves the local workspace
 ├── protocol.ts    # 系统协议注册参数与启动参数里的 goalloom:// URL；应用内页面仍走 security.ts 的 goalloom://app
 ├── ipc.ts         # 固定读写入口、来源/会话检查、会话释放取消智能请求/缓存、原生选择后仅向 worker 传受控路径
 ├── security.ts    # 本地协议白名单、生产 CSP、权限/导航/下载拒绝
@@ -30,5 +30,7 @@ main 只接受唯一窗口主 frame 的已知请求。网络 HTTP 只在 main �
 Unpackaged development and source E2E use `Goalloom Development` and `com.goalloom.desktop.development`. Their default profile and macOS Safe Storage service stay separate from installed production credentials. Explicit test profile paths remain supported. Packaged upgrades keep the existing production identity and data paths.
 
 `keychain.ts` loads the small [native policy](../../native/README.md) shipped beside the main bundle. `smart/electron.ts` checks that policy before availability, encryption and decryption. Keychain authorization/unlock UI stays disabled, including first use. Unavailable protection or access preserves ciphertext and uses existing in-app failure states; it never falls back to plaintext or edits an item's ACL.
+
+Sync uses `sync/session-cipher.ts` for new protected sessions and retains the old OS adapter only for migration/journals. macOS session keys use the provisioned private app group; automatic restoration survives a signed replacement of the app. Explicit account sign-out disables restoration before reporting success, and Google plus a sync-password proof enables it again.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

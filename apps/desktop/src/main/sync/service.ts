@@ -1,6 +1,6 @@
 /**
- * [INPUT]: OS cipher, storage worker, system browser, connectivity signals and an optional anon key.
- * [OUTPUT]: Account-bound joins, explicit local cleanup, non-destructive recovery and encrypted exchange. Keep-local sign-out and unused/signed-out startup do not access the keychain.
+ * [INPUT]: Current/legacy OS ciphers, storage worker, browser, connectivity signals and an optional anon key.
+ * [OUTPUT]: Persistent account-bound sessions, noninteractive password recovery, explicit cleanup and encrypted exchange. Sign-out and unused/signed-out startup do not access the keychain.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
  * The password is held in memory only until a join finishes or ten minutes pass.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -21,7 +21,9 @@ import type { StorageClient } from '../storage/client'
 import { CredentialError, type Cipher } from '../smart/credentials'
 import { readSyncConfig } from './config'
 import { googleSignIn, supabaseClient, type OAuthListenOptions } from './oauth'
-import { SyncVault, type VaultSecrets } from './vault'
+import { type VaultSecrets } from './vault'
+import { SessionVault } from './session-vault'
+import { PasswordVault } from './password-vault'
 import { PendingCache } from './pending-cache'
 import { UploadCooldown } from './cooldown'
 import { SyncSchedule } from './schedule'
@@ -46,7 +48,12 @@ function desktopPlatform(): DevicePlatform {
 }
 
 export class SyncService {
-  private vault: SyncVault
+  private vault: SessionVault
+  private passwordVault: PasswordVault
+  private passwordMode = false
+  private passwordReady = false
+  private manualUnlock = false
+  private credentialBlocked = false
   private secrets: VaultSecrets | null = null
   private client: SupabaseClient | null = null
   private remote: SyncRemote | null = null
@@ -89,6 +96,7 @@ export class SyncService {
   constructor(private deps: {
     userData: string
     cipher: Cipher
+    sessionCipher?: Cipher
     storage: StorageClient
     openExternal: (url: string) => Promise<void>
     notify: (status: SyncStatus) => void
@@ -108,7 +116,8 @@ export class SyncService {
     onBrowserReturn?: () => void
     beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>, options?: OAuthListenOptions) => Promise<Session>
   }) {
-    this.vault = new SyncVault(deps.userData, deps.cipher)
+    this.vault = new SessionVault(deps.userData, deps.cipher, deps.sessionCipher)
+    this.passwordVault = new PasswordVault(deps.userData)
     this.pendingCache = new PendingCache(deps.userData, deps.cipher)
     this.cooldown = new UploadCooldown(deps.userData)
     this.schedule = new SyncSchedule({ run: () => this.runTurn(), onError: error => { this.setError(error); this.publish() },
@@ -129,19 +138,27 @@ export class SyncService {
     this.started = true
     const initializing = this.lifecycleId
     const loading = signal ? AbortSignal.any([signal, this.lifecycle.signal]) : this.lifecycle.signal
+    this.manualUnlock = Boolean(interactive && this.deps.sessionCipher)
+    this.credentialBlocked = false
     try {
-      const secrets = await this.vault.load({ resumeOnly: !interactive, signal: loading })
+      this.passwordMode = Boolean(await this.passwordVault.identity())
+      const secrets = this.deps.sessionCipher || !this.passwordMode
+        ? await this.vault.load({ resumeOnly: !interactive, signal: loading, passwordFallback: this.passwordMode }) : null
       if (loading.aborted || this.stopped) return
       this.secrets = secrets
+      if (secrets) this.passwordMode = false
       if (!this.secrets && !interactive) { this.phase = 'signed-out'; this.publish(); return }
-      if (!this.secrets && !this.vault.available) throw new CredentialError('unavailable')
+      if (!this.secrets && !this.passwordMode && !this.vault.available) throw new CredentialError('unavailable')
     } catch (error) {
       if (loading.aborted || this.stopped) return
-      this.phase = 'locked'
-      this.error = error instanceof CredentialError ? null : 'storage'
       this.secrets = null
-      this.publish()
-      return
+      if (error instanceof CredentialError) {
+        this.passwordMode = true
+        this.credentialBlocked = !interactive
+        if (!interactive) { this.phase = 'signed-out'; this.error = null; this.publish(); return }
+      } else {
+        this.phase = 'locked'; this.error = 'storage'; this.publish(); return
+      }
     }
     this.secrets = this.secrets ?? this.freshSecrets()
     this.client = supabaseClient(config.url, config.anonKey, this.sessionStorage(), async (url, init) =>
@@ -185,7 +202,11 @@ export class SyncService {
 
   private async reconnect(): Promise<void> {
     if (this.operation || this.stopped || this.suspended) return
-    if (this.phase === 'ready') {
+    if (this.credentialBlocked && !this.client) {
+      try { await this.initialize(false) }
+      catch (error) { if (!this.stopped) { this.setError(error); this.publish() } }
+    }
+    else if (this.phase === 'ready') {
       // Connectivity is a retry hint, never permission to bypass a server upload quota.
       if (this.exchangeState.uploadReason === 'network') this.exchangeState.uploadRetryAt = 0
       this.exchangeState.receiptRetryAt = 0
@@ -217,6 +238,7 @@ export class SyncService {
     this.schedule.stop()
     this.pendingCache.clear()
     this.dropPassword()
+    this.passwordVault.forget()
     this.signInAbort?.abort()
     this.authDispose?.(); this.authDispose = null
     this.closeChannel()
@@ -235,7 +257,7 @@ export class SyncService {
       await this.restoreCooldown()
       this.checkLifecycle(id)
       if (this.phase === 'ready') this.schedule.resume()
-      else if (this.error === 'network') await this.reconnect()
+      else if (this.error === 'network' || this.credentialBlocked) await this.reconnect()
     } catch (error) { this.setError(error); this.publish() }
   }
 
@@ -305,6 +327,7 @@ export class SyncService {
     const abort = new AbortController()
     this.signInAbort = abort
     this.phase = 'signing-in'
+    this.manualUnlock = Boolean(this.deps.sessionCipher)
     this.error = null
     this.publish()
     try {
@@ -357,8 +380,12 @@ export class SyncService {
     let cleanupPending = false
     try {
       if (clearLocal) {
-        // Unavailable/corrupt ciphertext must never be erased as a side effect of sign-out.
-        await this.vault.load()
+        // Cleanup requires an unlocked credential store, not Google authorization alone.
+        if (this.passwordMode) {
+          const secrets = this.requireSecrets()
+          if (!this.passwordReady || !secrets.recoveryBoxSk || !secrets.userId || !secrets.workspaceId) throw new SyncFailure('storage')
+          if (!await this.passwordVault.recover(secrets.recoveryBoxSk, secrets.userId, secrets.workspaceId)) throw new SyncFailure('storage')
+        } else await this.vault.load()
         const result = await this.deps.storage.call<{ cleanupPending: boolean }>('clearLocal')
         cleanupPending = result.cleanupPending
         this.cleanupBlocked = cleanupPending
@@ -375,6 +402,10 @@ export class SyncService {
     this.client = null
     this.remote = null
     this.secrets = null
+    this.passwordReady = false
+    this.manualUnlock = false
+    this.credentialBlocked = false
+    this.passwordVault.forget()
     client?.auth.stopAutoRefresh?.()
     client?.realtime?.disconnect()
     // Remote revocation is best effort; local sign-out must also finish offline.
@@ -393,6 +424,12 @@ export class SyncService {
   private async createWorkspace(password: string): Promise<void> {
     if (this.phase !== 'setup') return
     if (!passwordAccepted(password)) throw new SyncFailure('password')
+    this.manualUnlock = false
+    if (this.passwordMode && !this.passwordReady) {
+      await this.passwordVault.prepare(password)
+      this.passwordReady = true
+      await this.ensureDevice()
+    }
     const remote = this.requireRemote()
     const deviceId = this.requireDevice()
     const secrets = this.requireSecrets()
@@ -406,8 +443,8 @@ export class SyncService {
       secrets.generation = view.generation
       secrets.epoch = 1
       secrets.roster = null
-      await this.persist()
     }
+    await this.persist()
     const recovery = this.recoveryFromVault()
     const workspaceId = secrets.workspaceId
     const workspaceKey = secrets.workspaceKey
@@ -429,6 +466,21 @@ export class SyncService {
   private async submitPassword(password: string): Promise<void> {
     if (this.phase !== 'enter-key') return
     if (!passwordAccepted(password)) throw new SyncFailure('password')
+    if (this.passwordMode && !this.passwordReady) {
+      const current = this.requireSecrets()
+      if (!current.userId) throw new SyncFailure('auth')
+      const restored = await this.passwordVault.unlock(password, current.userId)
+      if (restored) {
+        if (this.selectedWorkspace && restored.workspaceId && restored.workspaceId !== this.selectedWorkspace) throw new SyncFailure('mismatch')
+        this.secrets = { ...restored, refreshToken: current.refreshToken }
+        this.passwordReady = true
+        this.manualUnlock = false
+        await this.persist()
+        await this.afterAuth()
+        return
+      }
+      await this.ensureDevice()
+    }
     this.heldPassword = password
     this.armPassword()
     await this.finishJoin('merge', false)
@@ -443,6 +495,7 @@ export class SyncService {
     await changeSyncPassword({
       remote: this.requireRemote(), deviceId: secrets.deviceId, workspaceId: secrets.workspaceId, recovery, password,
     })
+    if (this.passwordMode) { await this.passwordVault.prepare(password); await this.persist() }
     this.error = null
     this.publish()
   }
@@ -450,6 +503,12 @@ export class SyncService {
   private async resetAndUpload(password: string, destructive = true): Promise<void> {
     if (this.phase !== 'enter-key' && this.phase !== 'ready') return
     if (!passwordAccepted(password)) throw new SyncFailure('password')
+    this.manualUnlock = false
+    if (this.passwordMode) {
+      await this.passwordVault.prepare(password)
+      this.passwordReady = true
+      await this.ensureDevice()
+    }
     const remote = this.requireRemote()
     const deviceId = this.requireDevice()
     const secrets = this.requireSecrets()
@@ -483,8 +542,8 @@ export class SyncService {
     if (this.phase === 'ready') return
     if (choice === 'use-remote' && !acknowledged) return
     const remote = this.requireRemote()
-    const secrets = this.requireSecrets()
-    const deviceId = this.requireDevice()
+    let secrets = this.requireSecrets()
+    let deviceId = this.requireDevice()
     const view = await this.readView()
     let bound: BoundWorkspace
     let ops: RemoteEnvelope[]
@@ -494,6 +553,7 @@ export class SyncService {
         ...(this.selectedWorkspace ? { workspaceId: this.selectedWorkspace } : {}) })
       bound = unlocked.bound
       ops = unlocked.ops
+      this.manualUnlock = false
     } else if (secrets.workspaceKey && secrets.workspaceId && secrets.epoch && secrets.roster && secrets.generation) {
       const recovery = this.recoveryFromVault()
       writeRecovery = Boolean(recovery)
@@ -503,6 +563,17 @@ export class SyncService {
       }
       ops = await downloadWorkspace({ remote, deviceId, workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey })
     } else throw new SyncFailure('password')
+    if (this.passwordMode && !this.passwordReady) {
+      if (!secrets.userId) throw new SyncFailure('auth')
+      // Recovery keys survive password changes and workspace-key rotation.
+      const restored = await this.passwordVault.recover(bound.recovery.boxSk, secrets.userId, bound.workspaceId)
+      if (restored) {
+        this.secrets = secrets = { ...restored, refreshToken: secrets.refreshToken }
+        await this.ensureDevice()
+        deviceId = this.requireDevice()
+      }
+      this.passwordReady = true
+    }
     const opened = ops.map(entry => ({ ...entry, op: redactSyncOp(entry.op) }))
     // Persist recovered keys before installation so a restart resumes the binding instead of importing again.
     await this.remember(bound, writeRecovery)
@@ -548,25 +619,39 @@ export class SyncService {
       this.publish()
       return
     }
+    const savedIdentity = this.passwordMode && !this.passwordReady ? await this.passwordVault.identity() : null
+    if (savedIdentity && savedIdentity.userId !== userId) {
+      await this.signOut(); this.error = 'mismatch'; this.publish(); return
+    }
     await this.activateAccount(userId)
     await this.restoreCooldown()
     const secrets = this.requireSecrets()
-    const account = await remote.account(secrets.workspaceId ? { workspaceId: secrets.workspaceId } : undefined)
+    const pinned = secrets.workspaceId ?? (this.passwordMode ? local.workspaceId ?? savedIdentity?.workspaceId : null)
+    const account = await remote.account(pinned ? { workspaceId: pinned } : undefined)
     this.checkLifecycle(id)
     this.selectedWorkspace = account?.workspaceId ?? null
-    if (secrets.workspaceId && account && account.workspaceId !== secrets.workspaceId) {
+    if (pinned && account && account.workspaceId !== pinned) {
       this.phase = 'signed-out'
       this.error = 'mismatch'
       this.publish()
       return
     }
-    if (secrets.workspaceId && !account) {
-      this.phase = 'signed-out'
+    if (pinned && !account) {
+      // A local password proof is still required before trusting an unfinished creation draft.
+      if (savedIdentity) { this.phase = 'enter-key'; this.error = null; this.publish(); return }
+      if (secrets.workspaceKey && !secrets.roster && !local.workspaceId) {
+        await this.ensureDevice(); this.phase = 'setup'; this.error = null; this.publish(); return
+      }
+      await this.signOut()
       this.error = 'mismatch'
       this.publish()
       return
+    }
+    if (this.passwordMode && !this.passwordReady) {
+      this.phase = account ? 'enter-key' : 'setup'; this.error = null; this.publish(); return
     }
     await this.ensureDevice()
+    if (this.manualUnlock && account) { this.phase = 'enter-key'; this.error = null; this.publish(); return }
     if (secrets.pendingRecovery?.workspaceId === secrets.workspaceId && secrets.roster) await this.installRecovery()
     if (!account) { this.phase = 'setup'; this.error = null; this.publish(); return }
     if (!secrets.workspaceKey || secrets.workspaceId !== account.workspaceId) {
@@ -623,6 +708,7 @@ export class SyncService {
     if (secrets.userId) secrets.accounts[secrets.userId] = this.accountSecrets()
     const stored = secrets.accounts[userId]
     secrets.pendingRecovery = null
+    secrets.pendingSecrets = {}
     secrets.userId = userId
     secrets.deviceId = stored?.deviceId ?? null
     secrets.workspaceKey = stored?.workspaceKey ?? null
@@ -709,6 +795,17 @@ export class SyncService {
     if (!onSettings) return
     const rows = await this.storage<{ key: string; value: unknown; updatedAt: string; opId: string }[]>({ type: 'settings' })
     if (!Array.isArray(rows)) return
+    const deferred = this.secrets?.pendingSecrets
+    if (deferred && this.deps.applySecret) {
+      let changed = false
+      for (const [key, value] of Object.entries(deferred)) {
+        try {
+          if (rows.some(row => row.key === key && row.opId === value.opId)) await this.deps.applySecret(key, value.value)
+          delete deferred[key]; changed = true
+        } catch { /* The encrypted copy stays available until the OS store accepts it. */ }
+      }
+      if (changed) await this.persist()
+    }
     const fresh = rows.filter(row => this.appliedSetting.get(row.key) !== row.opId)
     if (!fresh.length) return
     this.checkLifecycle(id, signal)
@@ -727,6 +824,7 @@ export class SyncService {
       const secrets = this.requireSecrets()
       if (!secrets.workspaceId || !secrets.workspaceKey || !secrets.deviceId || !secrets.generation || !secrets.epoch || !secrets.roster) throw new SyncFailure('key')
       return { workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey, deviceId: secrets.deviceId,
+        journalKey: secrets.recoveryBoxSk ?? secrets.boxSk,
         generation: secrets.generation, epoch: secrets.epoch, rosterVersion: secrets.roster.version }
     }
     return exchangeTurn({ remote, signal, cache: this.pendingCache, account: this.secrets?.userId ?? '', binding, view: () => this.readView(), storage: command => this.storage(command),
@@ -764,7 +862,14 @@ export class SyncService {
         if (preserveLocal === 'installed') {
           if (winner?.opId !== entry.op.opId || winner.updatedAt !== entry.op.at) continue
         } else if (winner && !isLaterSetting(entry.op.at, entry.op.opId, winner.updatedAt, winner.opId)) continue
-        await apply(action.key, action.value)
+        try { await apply(action.key, action.value) }
+        catch (error) {
+          if (!this.passwordMode && !this.deps.sessionCipher) throw error
+          const secrets = this.requireSecrets()
+          secrets.pendingSecrets ??= {}
+          secrets.pendingSecrets[action.key] = { value: action.value, opId: entry.op.opId, updatedAt: entry.op.at }
+          await this.persist()
+        }
         winners.set(action.key, { key: action.key, updatedAt: entry.op.at, opId: entry.op.opId })
       }
     }
@@ -818,9 +923,22 @@ export class SyncService {
   }
 
   private async persist(): Promise<void> {
+    if (this.signingOut || this.stopped) return
     const secrets = this.requireSecrets()
     if (secrets.userId) secrets.accounts[secrets.userId] = this.accountSecrets()
-    await this.vault.save(secrets)
+    if (this.passwordMode) {
+      if (this.passwordReady && (secrets.workspaceKey || secrets.pendingRecovery)) {
+        await this.passwordVault.save(secrets)
+        if (this.signingOut || this.stopped || this.secrets !== secrets) return
+        if (this.deps.sessionCipher && !this.manualUnlock) {
+          try { await this.vault.save(secrets) }
+          catch (error) { if (error instanceof CredentialError) return; throw error }
+          this.passwordMode = false
+          this.passwordReady = false
+          this.passwordVault.forget()
+        }
+      }
+    } else await this.vault.save(this.manualUnlock ? { ...secrets, refreshToken: null } : secrets)
   }
 
   private closeChannel(): void {
@@ -992,6 +1110,7 @@ export class SyncService {
       offline: this.offline,
       syncing: this.ticking,
       realtimeConnected: this.schedule.realtimeConnected,
+      ...(this.passwordMode ? { credentialStorage: 'password' as const } : {}),
       ...(this.phase === 'ready' && this.view.hasTaskHistory === false ? { awaitingTasks: true } : {}),
       ...(ready && this.view.pending > 0 && this.exchangeState.uploadRetryAt > this.clock.now() ? {
         uploadWait: { retryAt: new Date(Date.now() + this.exchangeState.uploadRetryAt - this.clock.now()).toISOString(), reason: this.exchangeState.uploadReason },

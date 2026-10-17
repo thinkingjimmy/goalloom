@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Electron safeStorage/shell, noninteractive Keychain policy, fixed device directory and StorageClient.
- * [OUTPUT]: Shared OS cipher guarded against macOS system dialogs and the AI service composition.
+ * [OUTPUT]: Shared OS cipher with typed native-access failures, guarded against macOS system dialogs, and the AI service composition.
  * [POS]: AI and sync credential boundary; policy failure blocks the cipher without plaintext fallback.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -21,7 +21,8 @@ export const deviceCipher: Cipher = {
   },
   decrypt: data => {
     if (!protectKeychainAccess()) throw new CredentialError('unavailable')
-    return safeStorage.decryptString(data)
+    try { return safeStorage.decryptString(data) }
+    catch { throw new CredentialError('unavailable') }
   },
 }
 export function createSmartService(directory: string, storage: () => StorageClient, onSyncedSettings?: (entries: { key: string; value: unknown }[]) => void): SmartInputService {

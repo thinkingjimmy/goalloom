@@ -25,6 +25,10 @@
 
 ## TODO
 
+### 1.9.5 update: persistent sync sessions
+
+Release preparation is in progress. [The release notes](../releases/v1.9.5.md) cover automatic session restoration, noninteractive macOS credential storage, password recovery, and preserved task identities/deletions. Workspace format remains v11. Publication requires local release verification, both platform packages, macOS provisioning/signing/notarization, and the signed session restart/replacement gate.
+
 ### 1.9.4 更新说明：同步与恢复更安全
 
 已于 2026-10-17 发布。完整中英文说明见 [v1.9.4 发布说明](../releases/v1.9.4.md)。包含保留／清除本地任务的退出选择、账号切换隔离、保留旧云端空间的安全恢复、固定工作区重启和网络恢复后自动补传。工作区格式保持 v11；配套 `0009_sync_security.sql` 已部署，27 项真实数据库检查和 8 项真实云端客户端场景通过。

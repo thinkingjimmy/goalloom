@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Main-process sync status, workspace today and shared Tailwind controls/fields.
- * [OUTPUT]: Account-bound sign-in, explicit keep/clear sign-out, safe password recovery, live sync state and development diagnostics.
+ * [OUTPUT]: Account-bound sign-in, explicit keep/clear sign-out, safe password recovery without system authorization, live sync state and development diagnostics.
  * [POS]: Settings › Sync. The password stays in this pane and is not part of the polled status.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -108,8 +108,9 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
   const failed = line?.state === 'bad'
   const syncing = line?.state === 'run'
   return <div className="sync-pane flex flex-col gap-5.5">
-    {signingOut && <SyncSignOutDialog email={status.email} canClear={status.phase !== 'locked'} confirm={clearLocal => run({ type: 'sign-out', clearLocal })} close={() => setSigningOut(false)} />}
+    {signingOut && <SyncSignOutDialog email={status.email} canClear={status.phase !== 'locked' && (status.credentialStorage !== 'password' || status.phase === 'ready' || status.phase === 'choose')} confirm={clearLocal => run({ type: 'sign-out', clearLocal })} close={() => setSigningOut(false)} />}
     {requestFailed && <p className="m-0 text-sm text-destructive" role="alert">{t.errors.storage}</p>}
+    {status.credentialStorage === 'password' && <p className="sync-password-storage m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.passwordStorage}</p>}
     {import.meta.env.DEV && <p className="sync-diagnostics m-0 text-xs text-muted-foreground" role="status">{t.networkLabel}: {status.offline ? t.networkOffline : t.networkOnline} · {t.realtimeLabel}: {status.realtimeConnected ? t.realtimeOnline : t.realtimeOffline}</p>}
     {error && <div className="settings-alert m-0 flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-destructive-tint text-destructive text-[12.5px] leading-[1.6]" role="alert"><span>{error}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status.error)}><Icon name="close" size={16} /></IconButton></div>}
     {conflictNotice.open && <div className="settings-alert m-0 flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-destructive-tint text-destructive text-[12.5px] leading-[1.6]" role="status"><span>{t.conflicts(status.conflicts)}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={conflictNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}

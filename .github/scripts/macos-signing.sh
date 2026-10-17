@@ -275,7 +275,7 @@ verify() {
 cleanup() {
   set +e
   security delete-keychain "$keychain_path" >/dev/null 2>&1
-  rm -f "$key_path" "$p12_path" "$password_path" "$keychain_path"
+  rm -f "$key_path" "$p12_path" "$password_path" "$keychain_path" "${RUNNER_TEMP}/goalloom.provisionprofile"
   set -e
   echo "Removed the temporary Apple API key, certificate, and signing keychain."
 }

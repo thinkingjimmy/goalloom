@@ -189,6 +189,7 @@ export const settingsMessages: SettingsCatalog = {
     errorNav: 'エラー',
     lockedStatus: '同期はオフです',
     lockedReason: 'キーチェーンを利用できません',
+    passwordStorage: 'このパソコンでは同期パスワードで認証情報を保護します。システムの許可は不要です。アプリを開き直した後は、再度ログインして同期パスワードを入力してください。',
     lockedNav: 'オフ',
     cancel: 'キャンセル',
     errors: {

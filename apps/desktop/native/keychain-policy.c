@@ -1,11 +1,14 @@
 /**
  * [INPUT]: macOS Security framework and stable Node-API v8.
- * [OUTPUT]: disableInteraction(): whether Keychain UI is disabled for this process.
- * [POS]: Credential interaction policy only; it never reads secrets or changes keychain access controls.
+ * [OUTPUT]: disableInteraction() and application-private sessionKey() from session-key.m.
+ * [POS]: Native credential boundary; legacy policy and modern noninteractive storage share one signed module.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 #include <Security/Security.h>
 #include <node_api.h>
+
+extern napi_value session_key(napi_env env, napi_callback_info info);
+extern napi_value delete_session_key(napi_env env, napi_callback_info info);
 
 static napi_value disable_interaction(napi_env env, napi_callback_info info) {
   (void)info;
@@ -22,7 +25,11 @@ static napi_value disable_interaction(napi_env env, napi_callback_info info) {
 static napi_value initialize(napi_env env, napi_value exports) {
   napi_value callback;
   if (napi_create_function(env, "disableInteraction", NAPI_AUTO_LENGTH, disable_interaction, NULL, &callback) != napi_ok ||
-      napi_set_named_property(env, exports, "disableInteraction", callback) != napi_ok) return NULL;
+      napi_set_named_property(env, exports, "disableInteraction", callback) != napi_ok ||
+      napi_create_function(env, "sessionKey", NAPI_AUTO_LENGTH, session_key, NULL, &callback) != napi_ok ||
+      napi_set_named_property(env, exports, "sessionKey", callback) != napi_ok ||
+      napi_create_function(env, "deleteSessionKey", NAPI_AUTO_LENGTH, delete_session_key, NULL, &callback) != napi_ok ||
+      napi_set_named_property(env, exports, "deleteSessionKey", callback) != napi_ok) return NULL;
   return exports;
 }
 

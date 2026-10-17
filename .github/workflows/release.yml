@@ -111,6 +111,12 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash .github/scripts/macos-signing.sh prepare
+      - name: Resolve the macOS session provisioning profile
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          GOALLOOM_MAC_PROVISIONING_PROFILE_B64: ${{ secrets.GOALLOOM_MAC_PROVISIONING_PROFILE_B64 }}
+        run: node .github/scripts/macos-profile.mjs
       - name: Package macOS
         timeout-minutes: 50
         env:

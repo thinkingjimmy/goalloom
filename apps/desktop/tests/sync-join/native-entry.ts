@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { app, safeStorage } from 'electron'
+import { installSessionKey } from '../fixtures/session-key'
 import { join } from 'node:path'
 import { SyncService } from '../../src/main/sync/service'
 import { cipher } from '../sync-cost/peer'
@@ -18,6 +19,7 @@ app.setAsDefaultProtocolClient = () => false
 safeStorage.isEncryptionAvailable = cipher.available
 safeStorage.encryptString = cipher.encrypt
 safeStorage.decryptString = cipher.decrypt
+installSessionKey(new URL('keychain-policy.node', import.meta.url))
 const cloud = await createCloud()
 await seedLocal(profile, 'alpha', 4, cloud)
 await seedLocal(join(root, 'beta'), 'beta', 0, cloud)

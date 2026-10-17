@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Sync actions from the settings pane.
- * [OUTPUT]: Strict keep/clear and recovery actions, exact destructive confirmation and status including Realtime/upload-wait metadata. Passwords are never returned.
+ * [OUTPUT]: Strict keep/clear and recovery actions, exact destructive confirmation and status including password-storage, Realtime and upload-wait metadata. Passwords are never returned.
  * [POS]: Preload boundary for desktop sync. The renderer imports the types and does not bundle this schema.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -26,6 +26,7 @@ export const syncStatusSchema = z.strictObject({
   awaitingTasks: z.boolean().optional(),
   uploadWait: z.strictObject({ retryAt: z.iso.datetime(), reason: z.enum(['quota', 'network']) }).optional(),
   realtimeConnected: z.boolean().optional(),
+  credentialStorage: z.literal('password').optional(),
 })
 
 const password = z.string().max(128)
