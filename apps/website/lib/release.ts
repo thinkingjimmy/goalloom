@@ -15,8 +15,8 @@ export type Platform = 'mac' | 'windows'
 // Releases page while a new version is not yet uploaded.
 export const RELEASE = {
   published: true,
-  version: '1.9.5',
-  assets: { mac: 'Goalloom-1.9.5-mac-arm64.dmg', windows: 'Goalloom-1.9.5-win-x64.exe' },
+  version: '1.9.6',
+  assets: { mac: 'Goalloom-1.9.6-mac-arm64.dmg', windows: 'Goalloom-1.9.6-win-x64.exe' },
 } satisfies { published: boolean; version: string; assets: Record<Platform, string> }
 
 export function downloadUrl(platform: Platform): string {
