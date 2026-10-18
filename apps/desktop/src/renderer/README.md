@@ -74,7 +74,7 @@ renderer/
 │   │   ├── useBoardDrag.ts # Shared pointer intents, whole-group middle previews, atomic child insertion and guarded pointer/keyboard sorting
 │   │   ├── NestingPicker.tsx # Keyboard root selection, bounded current/future/Later search, placement revalidation and source focus return
 │   │   ├── TaskContext.tsx # Compact archived/cancelled parent context shared by current and past groups
-│   │   ├── nesting.css # Stable 24px inset, whole-group borders, level-aware insertion lines, accessible arrangement actions and bounded choices
+│   │   ├── nesting.css # Stable 24px inset, whole-group borders, checkbox-aligned child insertion lines, accessible arrangement actions and bounded choices
 │   │   ├── RelationDrag.tsx # Flow-valid pointer linking, root-promotion preview, clipped targeting/autoscroll, source pinning and guarded menu adoption
 │   │   ├── relation-drag.css # Copy-free linking preview: connector, ports, eligible-row fading, target flow tint and adoption chip
 │   │   ├── usePeriodMotion.ts # Cancellable directional content entry after data readiness; reduced-motion/visibility cleanup and overlay synchronization
