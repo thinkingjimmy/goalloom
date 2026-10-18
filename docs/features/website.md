@@ -66,7 +66,7 @@
 
 ## TODO
 
-- [ ] Publish the 1.9.6 download snapshot after the GitHub Release is public; verify five-language pages and live download links.
+- [x] Published the 1.9.6 download snapshot after the GitHub Release became public. Website typecheck, build/SEO audit and 27 E2E checks passed. Vercel production deployment and all five live pages, canonical/hreflang metadata and 1.9.6 download links passed verification.
 
 - [x] Pointed all five website locales and the older Mac manual-upgrade instructions to public Release 1.9.5. Vercel production deployment, five-language pages, canonical/hreflang metadata and live download links passed verification.
 - [x] 官网首版：五语言静态站、可操作首屏、关系线轮播、Jev 动图、明暗主题、平台感知下载、窄屏布局、滚动动效。
