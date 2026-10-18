@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Signed app/DMG, App Store Connect API-key environment and Xcode tools.
- * [OUTPUT]: Bounded notarization, validated stapled ticket and redacted diagnostics; throws on incomplete approval.
+ * [OUTPUT]: One submission, bounded ticket connection-loss recovery, validated stapled ticket and redacted diagnostics; throws on incomplete approval.
  * [POS]: Shared afterSign hook and DMG CLI; app notarization finishes before builder creates update archives.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -97,8 +97,21 @@ async function notarize(target) {
     report.stage = 'staple'
     await save()
     for (const action of ['staple', 'validate']) {
-      const result = await run('xcrun', ['stapler', action, target], commandTimeout)
-      if (result.code !== 0) throw new Error(failure(`Ticket ${action}`, result))
+      const deadline = performance.now() + commandTimeout
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const result = await run('xcrun', ['stapler', action, target], Math.max(1, Math.ceil(deadline - performance.now())))
+        const error = result.code !== 0 || result.timedOut ? failure(`Ticket ${action}`, result) : undefined
+        ;(report.ticketAttempts ??= []).push({ action, attempt, code: result.code, timedOut: result.timedOut, ...(error ? { error } : {}) })
+        await save()
+        if (!error) break
+        // Ticket delivery is idempotent; retry only Apple's explicit connection-loss error after acceptance.
+        const delay = 250 * attempt
+        if (attempt === 3 || result.timedOut || result.code !== 68
+          || !/Error Domain=NSURLErrorDomain Code=-1005\b/.test(result.stderr + result.stdout)
+          || deadline - performance.now() <= delay) throw new Error(error)
+        console.log(`Ticket ${action} lost its network connection; retrying attempt ${attempt + 1}/3 within the command deadline.`)
+        await new Promise(resolveDelay => setTimeout(resolveDelay, delay))
+      }
     }
     report.stage = 'complete'
     report.ticket = 'validated'

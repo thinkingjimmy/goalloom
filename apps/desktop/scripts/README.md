@@ -16,7 +16,7 @@ scripts/
     ├── third-party-notices.mjs
     ├── check-production.mjs
     ├── debug-artifacts.mjs
-    ├── notarize.mjs            # Bounded afterSign/DMG notarization; redacted submission diagnostics
+    ├── notarize.mjs            # One-submission afterSign/DMG notarization; bounded ticket network recovery and redacted diagnostics
     ├── package-report.mjs
     ├── package-experiment.mjs
     ├── package-locales.json
@@ -30,5 +30,7 @@ Calendar code uses native Temporal from the pinned Electron runtime. The polyfil
 The macOS build also needs Xcode command-line tools. `build/keychain-policy.ts` uses the official `node-api-headers` build dependency and emits `out/main/keychain-policy.node`. The packager unpacks and signs it with the app. The production check requires this exact native module on macOS and rejects other native modules. No runtime compiler or download is required.
 
 `build/notarize.mjs` runs after app signing and before archive creation. With an App Store Connect API key, it uploads once, saves the submission ID, waits for approval, then staples and validates the ticket. The release workflow requires it through `GOALLOOM_REQUIRE_NOTARIZATION=1`; a local build without API-key credentials skips it. The same CLI notarizes the timestamp-signed DMG. Diagnostics go to `output/tests/notarization/`, with credentials redacted. `GOALLOOM_NOTARIZE_UPLOAD_TIMEOUT_MS` (5 minutes), `GOALLOOM_NOTARIZE_WAIT_TIMEOUT_MS` (30 minutes) and `GOALLOOM_NOTARIZE_COMMAND_TIMEOUT_MS` (2 minutes) set command limits; `GOALLOOM_NOTARIZE_EVIDENCE_DIR` can select an isolated report directory. A pending submission continues at Apple after a timeout; use its saved ID to check status before starting another build.
+
+After acceptance, stapling and validation each allow at most three attempts within the existing command deadline. Only exit 68 with `NSURLErrorDomain Code=-1005` is retried. Other failures stop immediately. Reports retain each redacted ticket attempt; retries never submit another archive or allow update ZIP creation before ticket validation.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

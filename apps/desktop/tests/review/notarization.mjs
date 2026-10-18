@@ -1,11 +1,13 @@
 /**
  * [INPUT]: Production notarization CLI/hook and synthetic Apple command responses.
- * [OUTPUT]: Bounded-command, diagnostics, redaction and archive-order evidence.
+ * [OUTPUT]: Bounded-command/network-recovery, diagnostics, redaction and archive-order evidence.
  * [POS]: Packaging regression fixture; no Apple requests or real credentials.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  * Failure cases: incomplete credentials; upload failure, timeout or missing ID;
  * Apple rejection, pending review or unavailable status; failed staple/validation;
  * duplicate submissions; secrets in diagnostics; ZIP creation before app stapling.
+ * Accepted ticket delivery loses its network connection; retries resubmit, exceed
+ * the action deadline, repeat permanent failures or allow unvalidated archives.
  * Runs the real notarization CLI/hook with synthetic Apple command responses.
  */
 import assert from 'node:assert/strict'
@@ -64,6 +66,15 @@ if (action === 'zip') {
     out({jobId:'${id}', status:scenario === 'rejected' ? 'Invalid' : 'Accepted', issues:[{message:'Synthetic diagnostic ' + process.env.APPLE_TEAM_ID}]})
   } else fail('Unexpected notarytool command')
 } else if (args[0] === 'stapler') {
+  const count = readFileSync(process.env.FIXTURE_CALLS, 'utf8').trim().split('\n').map(line => JSON.parse(line)).filter(call => call.action === action).length
+  const disconnected = () => { console.error('error is Error Domain=NSURLErrorDomain Code=-1005 "The network connection was lost." ' + process.env.APPLE_API_KEY_ID); process.exit(68) }
+  if (scenario === 'staple-network-recovered' && action === 'staple' && count === 1) disconnected()
+  if (scenario === 'validate-network-recovered' && action === 'validate' && count <= 2) disconnected()
+  if (scenario === 'ticket-network-exhausted') disconnected()
+  if (scenario === 'ticket-network-budget' && action === 'staple') {
+    if (count === 1) { await new Promise(resolve => setTimeout(resolve, 2600)); disconnected() }
+    else hang()
+  }
   if (scenario === action + '-failure') fail('Ticket ' + action + ' failed')
 } else fail('Unexpected tool')
 `
@@ -107,14 +118,16 @@ appendFileSync(process.env.FIXTURE_CALLS,JSON.stringify({action:'archives-create
       FIXTURE_SCENARIO: scenario, FIXTURE_CALLS: callsPath,
       FIXTURE_REPORT: app ? 'app.json' : 'dmg.json', FIXTURE_APP_DIR: root, FIXTURE_PLATFORM: platform,
     }
+    const started = performance.now()
     const result = spawnSync(process.execPath, app ? [hookDriver] : [script, target], { env, encoding: 'utf8', timeout: 15_000 })
+    const elapsedMs = performance.now() - started
     assert.ifError(result.error)
     const output = result.stdout + result.stderr
     await writeFile(join(root, 'console.txt'), output)
     const calls = (await readFile(callsPath, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line))
     const report = await readFile(join(root, 'diagnostics', env.FIXTURE_REPORT), 'utf8').then(text => JSON.parse(text)).catch(() => undefined)
     const skipped = platform !== 'darwin' || optional && missing
-    const accepted = ['accepted-app', 'accepted-dmg', 'recovered', 'log-unavailable'].includes(scenario)
+    const accepted = ['accepted-app', 'accepted-dmg', 'recovered', 'log-unavailable', 'staple-network-recovered', 'validate-network-recovered'].includes(scenario)
     assert.equal(result.status, accepted || skipped ? 0 : 1, output)
     assert(calls.filter(call => call.action === 'submit').length <= 1, 'Do not resubmit a pending upload')
     if (skipped) assert.equal(calls.filter(call => call.action !== 'archives-created').length, 0)
@@ -128,22 +141,34 @@ appendFileSync(process.env.FIXTURE_CALLS,JSON.stringify({action:'archives-create
     } else {
       assert.notEqual(report?.stage, 'complete')
       assert(!calls.some(call => call.action === 'archives-created'))
-      if (!['staple-failure', 'validate-failure'].includes(scenario)) assert(!calls.some(call => call.action === 'staple'))
+      if (!['staple-failure', 'validate-failure', 'ticket-network-exhausted', 'ticket-network-budget'].includes(scenario)) assert(!calls.some(call => call.action === 'staple'))
       if (['pending', 'wait-timeout'].includes(scenario)) {
         assert.equal(report.submissionId, id)
         assert.equal(report.status, 'In Progress')
         assert.match(output, /continues after this run stops/)
       }
     }
+    if (scenario === 'staple-network-recovered') assert.equal(calls.filter(call => call.action === 'staple').length, 2)
+    if (scenario === 'validate-network-recovered') assert.equal(calls.filter(call => call.action === 'validate').length, 3)
+    if (scenario === 'ticket-network-exhausted') assert.equal(calls.filter(call => call.action === 'staple').length, 3)
+    if (scenario === 'ticket-network-budget') {
+      assert(calls.filter(call => call.action === 'staple').length <= 2)
+      assert(elapsedMs < 5000, 'All ticket attempts share the existing three-second command budget')
+    }
+    if (['staple-failure', 'validate-failure'].includes(scenario)) assert.equal(calls.filter(call => call.action === scenario.split('-')[0]).length, 1, 'Permanent ticket failures are not retried')
     for (const secret of [key, 'synthetic-secret-key-id', 'synthetic-secret-issuer', 'synthetic-secret-team']) {
       assert(!output.includes(secret), 'Console must redact credentials')
       assert(!(JSON.stringify(report) ?? '').includes(secret), 'Artifacts must redact credentials')
     }
-    checks.push({ scenario, exitCode: result.status, stage: report?.stage, status: report?.status, calls: calls.map(call => call.action) })
+    checks.push({ scenario, exitCode: result.status, stage: report?.stage, status: report?.status, elapsedMs, ticketAttempts: report?.ticketAttempts, calls: calls.map(call => call.action) })
   }
 
   await check('accepted-app', { app: true })
   await check('accepted-dmg')
+  await check('staple-network-recovered', { app: true })
+  await check('validate-network-recovered')
+  await check('ticket-network-exhausted')
+  await check('ticket-network-budget')
   for (const scenario of ['upload-failure', 'upload-timeout', 'missing-id', 'rejected', 'pending', 'wait-timeout', 'status-unavailable', 'failed-status-accepted', 'recovered', 'log-unavailable', 'staple-failure', 'validate-failure']) await check(scenario)
   await check('zip-failure', { app: true })
   await check('missing-credentials', { app: true, missing: true })
