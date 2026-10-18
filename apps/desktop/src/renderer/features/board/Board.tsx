@@ -2,7 +2,7 @@
  * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later/planning visibility, guarded actions, PeriodPicker/PeriodReturn controls, input-aware focus return and flow-insight hooks.
  * [OUTPUT]: A single-row title-as-switcher period header (header B: period panel, ←/→ stepping and a return icon with localized guidance), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
- *           Owns independent relation dragging/prepared writes, virtual source pinning and scoped one-shot column arrangement.
+ *           Owns independent relation dragging/prepared writes, virtual source pinning, whole-group drop previews, pointer overlays below insertion lines and scoped one-shot column arrangement.
  *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
  *           Double-clicking a card edits its title in place; the write keeps the description and due date.
  *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly reminders support persistent dismissal without completion.
@@ -19,7 +19,7 @@ import { TaskContext } from './TaskContext'
 import { holdCompletedLayout, useCollapseCompleted } from '../../state/completed-layout'
 import { NestingPicker } from './NestingPicker'
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
-import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
+import { DndContext, DragOverlay, useDroppable, type Modifier } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { compareInstants, currentPeriod, precedingPeriod, workspaceDate, type Horizon } from '../../../domain/calendar'
 import { horizons, periodHorizons } from '../../../shared/contracts/values'
@@ -57,6 +57,12 @@ import '../insight/review.css'
 import { useInsightSettings } from '../../state/insight'
 import type { ComposerSeed } from '../composer/Seeded'
 import type { Ai } from '../../state/ai'
+
+// Leave the pointer's insertion line visible, independent of where the source row was grabbed.
+const overlayModifiers: Modifier[] = [({ activatorEvent, activeNodeRect, transform }) =>
+  activatorEvent instanceof MouseEvent && activeNodeRect
+    ? { ...transform, y: transform.y + activatorEvent.clientY - activeNodeRect.top + 12 }
+    : transform]
 
 export interface AddRequest { seq: number; horizon: ItemHorizon | null; split: SplitParent | null }
 export interface BoardInsight { assist?: (itemId: string) => void; ready: boolean; seed: (seed: Omit<ComposerSeed, 'key'>) => void; due: ReviewDue[]; started: ReviewDue | null; reviewed: string[]; review: (due: ReviewDue) => void; dismiss: (due: ReviewDue) => void }
@@ -137,9 +143,9 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const empty = useMemo(() => emptyColumns(displayed, columns, view.mode), [displayed, columns, view.mode])
   const column = (horizon: ItemHorizon) => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!} visible={columns.includes(horizon)}
     snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select} ai={ai}
-    onNest={setNestingItemId} dragging={dragging} relationSource={relationDrag.sourceId} editingId={editingId} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
+    onNest={setNestingItemId} dragging={dragging} nestingPreview={drag.nestingPreview} relationSource={relationDrag.sourceId} editingId={editingId} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
     adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? (horizon === 'later' || horizon === 'year' ? undefined : empty.get(horizon)) ?? null : null} />
-  return <RelationDragContext.Provider value={relationDrag.actions}><DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: event => event.over ? messages.dragEnded : messages.dragCancelled, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
+  return <RelationDragContext.Provider value={relationDrag.actions}><DndContext sensors={drag.sensors} collisionDetection={drag.collision} onDragStart={drag.start} onDragMove={drag.move} onDragOver={drag.move} onDragCancel={drag.cancel} onDragEnd={drag.end} accessibility={{ announcements: { onDragStart: () => messages.dragStarted, onDragOver: () => messages.dragOver, onDragEnd: event => event.over ? messages.dragEnded : messages.dragCancelled, onDragCancel: () => messages.dragCancelled }, screenReaderInstructions: { draggable: messages.dragInstructions } }}>
     <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null} data-linking={relationDrag.sourceId ? 'true' : undefined}
       onPointerOver={holdPreview} onPointerOut={leavePreview} onFocus={holdPreview} onBlur={leavePreview}>
       {/* Keyed by the filtered flow so switching flows replays the draw-in; a hover preview never animates in. */}
@@ -152,16 +158,16 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     </main>
     {/* The placement preview owns the drop; outer rows animate from the release position. */}
     {nestingItemId && <NestingPicker itemId={nestingItemId} snapshot={displayed} candidates={view.items.filter(item => columns.includes(item.placement.horizon))} submit={submit} close={origin => { const id = nestingItemId; setNestingItemId(null); if (id) requestAnimationFrame(() => revealRow(id, '.task-title', origin)) }} />}
-    <DragOverlay dropAnimation={null} style={{ pointerEvents: 'none' }}>{dragging ? <div className="drag-overlay">{items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
+    <DragOverlay modifiers={overlayModifiers} dropAnimation={null} style={{ pointerEvents: 'none' }}>{dragging ? <div className="drag-overlay">{items.find(item => item.id === dragging)?.title}</div> : null}</DragOverlay>
   </DndContext></RelationDragContext.Provider>
 })
 
-const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, relationSource, editingId, beginEdit, endEdit, renameTitle, insight, sources, onNest, ai }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
+const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, nestingPreview, relationSource, editingId, beginEdit, endEdit, renameTitle, insight, sources, onNest, ai }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
   sources: ItemSummary[] | null
   active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
   horizon: ItemHorizon; items: ItemSummary[]; today: string; visible: boolean
   adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number; beforeId?: null } | null
-  dragging: string | null; onAdding: (horizon: ItemHorizon, open: boolean, atEnd?: boolean) => void
+  dragging: string | null; nestingPreview: string | null; onAdding: (horizon: ItemHorizon, open: boolean, atEnd?: boolean) => void
   onNest: (id: string) => void
   relationSource: string | null; editingId: string | null
   beginEdit: (id: string) => void; endEdit: (id: string) => void; renameTitle: (itemId: string, title: string) => Promise<boolean>
@@ -346,7 +352,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
         {loading && items.length === 0 && <p className="period-loading" role="status">{messages.loadingPeriod}</p>}
         {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <TextButton onClick={view.retry}>{messages.retryPeriod}</TextButton></p>}
         <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
-          <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:main`} items={mainRows} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} alsoPinned={editingId} render={row} />
+          <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:main`} items={mainRows} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} alsoPinned={editingId} nestingPreview={nestingPreview} render={row} />
           {!adding && todo.length > 0 && <button type="button" className="column-add-task" data-column-add aria-label={messages.newToColumn(displayName)} disabled={disabled || !!dragging || !!relationSource} onClick={openAdd}>
             <Icon name="add" size={18} /><span>{messages.addTask}</span>
           </button>}
@@ -356,7 +362,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
               setAdding(true, adding.beforeId === null)
             }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} snapshot={snapshot} ai={ai} />}
-          {collapseCompleted && done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} render={row} />}</details>}
+          {collapseCompleted && done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} nestingPreview={nestingPreview} render={row} />}</details>}
         </SortableContext>
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} onWrite={openAdd} />}
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}

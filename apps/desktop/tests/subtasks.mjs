@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Current production build, native Electron input and isolated transaction fixtures, with explicit completed-layout controls.
  * [OUTPUT]: Repeatable subtask checks, quiet nesting/keyboard undo, native screenshots and runtime/platform evidence in output/tests/subtasks.
- * [POS]: Subtask E2E entry; --data runs transaction feedback without foreground interaction.
+ * [POS]: Subtask E2E entry; --data selects transactions and --drops selects native group-drop interactions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { setCompletedLayout } from './fixtures/completed-layout.mjs'
@@ -15,6 +15,7 @@ import electronPath from 'electron'
 import { _electron as electron } from 'playwright'
 import { finishSetup } from './fixtures/setup.mjs'
 import { pollPage } from './fixtures/poll.mjs'
+import { nestingDrops } from './fixtures/nesting-drops.mjs'
 
 const evidence = resolve('output/tests/subtasks'), checks = [], screenshots = []
 await mkdir(evidence, { recursive: true })
@@ -39,6 +40,8 @@ try {
   await boardSettings.getByRole('button', { name: '看板', exact: true }).click()
   await boardSettings.getByRole('switch', { name: '按上级自动放置', exact: true }).click()
   await boardSettings.getByRole('button', { name: '关闭', exact: true }).click()
+  await nestingDrops({ page, application, report, evidence })
+  if (!process.argv.includes('--drops')) {
   const ids = await page.evaluate(async () => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation
     const run = async action => { const reply = await window.goalloom.execute({ generation, operationId: crypto.randomUUID(), ...action }); if (!reply.ok) throw Error(reply.message); return reply.result }
@@ -235,6 +238,7 @@ try {
   assert.deepEqual([restored.horizon, restored.periodId], [future.placement.horizon, future.placement.periodId])
   const undo = join(evidence, 'nest-keyboard-undo.png'); await page.screenshot({ path: undo }); screenshots.push(undo)
   checks.push('Menu nesting is quiet; keyboard undo restores the original period and confirms the reversal')
+  }
   assert.deepEqual(errors, []); report.passed = true
 } catch (error) {
   report.error = error.stack

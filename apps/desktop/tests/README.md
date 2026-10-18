@@ -77,7 +77,7 @@ Electron scenarios (this directory)
 ├── feedback.mjs         # Contextual success Toasts, keyboard undo, duration/hover/focus, original restore destination and flow-valid partial-restore warnings; feedback.json and feedback-*.png
 ├── link-previews.mjs    # Link text, full-width cards under overlay controls, cached previews, carousel gestures, external opening, unchanged legacy records and five locales; output/tests/link-previews/
 ├── descriptions.mjs     # Native Lexical Markdown/task lists, source preservation, clipboard, formatting, save receipts and length guards; output/tests/descriptions/
-├── subtasks.mjs         # Native nesting/cancel/focus, quiet drag/menu nesting and receipt recovery, keyboard undo feedback, complete-group status, future search, virtual details and five locales; --data selects transaction/recovery fixtures; output/tests/subtasks/
+├── subtasks.mjs         # Native whole-group previews/ordered insertion, cancel/focus, quiet drag/menu nesting and receipt recovery, keyboard undo feedback, complete-group status, future search, virtual details and five locales; --data selects transaction/recovery fixtures; --drops selects group-drop scenarios; output/tests/subtasks/
 ├── ordering.mjs         # Local placement/free manual ordering/scoped arrangement (--auto-placement), 12 edge drops (--edge-sorting), atomic undo/recovery, nesting, five locales and complete drag titles; output/tests/ordering
 ├── completed-layout.mjs # Default-inline seven-column completion/reopen/undo, folds, restart, remote deferral/no echo, mixed drag/flows, outlines, future periods, virtual focus and five-locale/four-appearance evidence; output/tests/completed-layout/
 ├── celebration.mjs      # 完成撒花逐列按钮偏好/重启、看板移动后的目标列偏好、设置页预览、真实双角起点与大小窗口四分区覆盖、详情动效、静默完成/撤销及清理（celebration.json 与截图）
@@ -86,7 +86,7 @@ Electron scenarios (this directory)
 ├── dialogs.mjs          # 操控真实原生保存/打开对话框的验收入口，保存 JSON 证据和恢复后截图
 ├── review/              # 已确认缺陷、输入/维护竞态、长列、wire、增长曲线和大备份回归
 └── fixtures/
-    ├── sync-replay.ts    # Two isolated repositories, encrypted duplicate-link replay, atomic conflicts and storage retry
+    ├── sync-replay.ts    # Two isolated repositories, encrypted ordered nesting/undo, duplicate-link replay, atomic conflicts and storage retry
     ├── setup.mjs        # Shared welcome local-use choice, then real calendar → annual direction → AI setup; optional mode/timezone/week-start/anchor
     ├── credential-entry.mjs # Pre-main cipher call counting, synthetic cloud/browser transport and disabled system protocol registration for isolated credential scenarios
     ├── session-key.ts  # Synthetic profile-scoped native session key for isolated sync UI fixtures; production encryption/files remain active
@@ -94,7 +94,8 @@ Electron scenarios (this directory)
     ├── keychain-native.m # CLI and test-only Node-API private-keychain probe; refuses access if production leaves UI enabled, never packaged
     ├── completed-layout.mjs # Localized native settings driver for explicit inline/folded completion coverage
     ├── legacy-v5.ts     # Frozen v5/v6 DDL used only to construct synthetic legacy import fixtures
-    ├── subtasks-data.ts # Two-level/effective graph, group order/movement/hold, bounded inherited AI context, scoped undo, source-aware import and protected v8 upgrade
+    ├── subtasks-data.ts # Two-level/effective graph, atomic sibling insertion, group order/movement/hold, bounded inherited AI context, scoped undo, source-aware import and protected v8 upgrade
+    ├── nesting-drops.mjs # Native child hit zones, whole-group geometry, first/middle/last insertion, receipt recovery, future/Later groups and unmounted-root clipping
     ├── edge-sorting.mjs # Native before/after insertion previews, 12 manual/automatic adjacent-row drops, cancellation and undo
     ├── drag-titles.mjs # Retained pointer/keyboard wrapping of raw URLs and 500-character titles, with no-write cancellation
     ├── auto-placement.mjs # Native create/link placement, explicit tail, free pointer/keyboard sorting, one-shot arrange/undo/recovery, usable nesting and five locales

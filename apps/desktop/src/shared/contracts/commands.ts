@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted finite commands, entity/guidance schemas and explicit dependency/version guards.
- * [OUTPUT]: Guarded writes, token-bound sync decisions, opt-in placement, explicit insertion, scoped parent arrangement and immutable receipts.
+ * [OUTPUT]: Guarded writes, token-bound sync decisions, opt-in placement, explicit root/subtask insertion, scoped parent arrangement and immutable receipts.
  * [POS]: Write contract accepting neither arbitrary effects nor model-generated commands.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -58,7 +58,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, ...target, type: z.literal('edit'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000), dueDate: dateSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), keepNesting: z.literal(true).optional(), group: z.literal(true).optional() }),
-  z.strictObject({ ...envelope, ...target, type: z.literal('nest'), parentId: idSchema, expectedParentVersion: z.number().int().positive(), expectedPlacementVersion: z.number().int().positive(), expectedParentPlacementVersion: z.number().int().positive() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('nest'), parentId: idSchema, beforeId: idSchema.nullable().optional(), expectedParentVersion: z.number().int().positive(), expectedPlacementVersion: z.number().int().positive(), expectedParentPlacementVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('unnest'), expectedPlacementVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('materializeParentOrder'), horizon: z.enum(['half', 'cycle', 'month', 'week', 'day']), period: z.strictObject({ kind: z.literal('date'), startDate: dateSchema }) }),
   z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), adoptParentFlow: z.literal(true).optional(), autoPlace: z.boolean().optional() }),

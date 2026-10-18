@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Ordered identities, viewport, render function, drag/selection/menu/editing pins and shared input-aware focus restoration.
- * [OUTPUT]: Resize-observed rows (observers follow the mounted window, not every parent render) with bounded motion retention, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
+ * [INPUT]: Ordered identities, viewport, render function, drag/selection/menu/editing pins, nesting-preview root and shared input-aware focus restoration.
+ * [OUTPUT]: Resize-observed rows with bounded motion retention, offset-based whole-group borders, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -20,7 +20,7 @@ const overscan = 5
 const estimatedRowHeight = 32
 const controlSelector = 'button:not(:disabled), a[href], [tabindex="0"]'
 
-export function VirtualRows({ scope = 'board', items, dragging, highlighted, pinned = null, alsoPinned = null, render }: { scope?: string; items: ItemSummary[]; dragging: string | null; highlighted: string | null; pinned?: string | null; alsoPinned?: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
+export function VirtualRows({ scope = 'board', items, dragging, highlighted, pinned = null, alsoPinned = null, nestingPreview = null, render }: { scope?: string; items: ItemSummary[]; dragging: string | null; highlighted: string | null; pinned?: string | null; alsoPinned?: string | null; nestingPreview?: string | null; render: (item: ItemSummary, index: number, total: number) => ReactNode }) {
   const list = useRef<HTMLDivElement>(null), heights = useRef(new Map<string, number>())
   const [measured, setMeasured] = useState(0), [focused, setFocused] = useState<string | null>(null)
   const [range, setRange] = useState({ start: 0, end: 20 })
@@ -115,6 +115,9 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
     previous = index + 1
   }
   if (previous < items.length) children.push(<div key="tail" aria-hidden="true" style={{ height: offsets.at(-1)! - offsets[previous]! }} />)
+  const previewStart = nestingPreview ? items.findIndex(item => item.id === nestingPreview || item.placement.nestingParentId === nestingPreview) : -1
+  let previewEnd = previewStart
+  while (previewEnd >= 0 && previewEnd + 1 < items.length && items[previewEnd + 1]!.placement.nestingParentId === nestingPreview) previewEnd++
   return <RowMotion scope={scope} orderKey={orderKey} offsets={motionOffsets} dragging={!!dragging}><div ref={list} role="list" className="virtual-rows"
     onFocusCapture={event => { const id = (event.target as HTMLElement).closest<HTMLElement>('[data-item-id]')?.dataset.itemId; if (id) setFocused(id) }}
     onKeyDownCapture={event => {
@@ -129,5 +132,6 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
       if (event.key === 'Tab' && event.shiftKey && target === controls[0] && index > 0) { next = index - 1; selector = ':last-control' }
       if (next === undefined) return
       event.preventDefault(); reveal({ id: items[next]!.id, focus: selector })
-    }}>{children}</div></RowMotion>
+    }}>{children}{previewStart >= 0 && <div aria-hidden="true" className="nesting-drop-preview" data-nesting-group={nestingPreview}
+      style={{ top: offsets[previewStart]!, height: offsets[previewEnd + 1]! - offsets[previewStart]! }} />}</div></RowMotion>
 }
