@@ -27,6 +27,7 @@ Read the relevant feature spec under [docs/features/](docs/features/) before imp
 - Run the full `pnpm verify` locally on macOS only **before cutting a release** (before publishing `package:mac` / `package:win` artifacts), or when the owner explicitly requests full verification.
 - Performance/scaling/stress tests (`test:performance`, `test:scaling`) are **release-only verification**, not routine feature acceptance. Run them only before releases or when explicitly requested.
 - Feature completion, commits, pushes and merges into `main` do **not** require full verification.
+- The 100,000-task workspace check is manual-only: `pnpm test:large-workspace`. It is excluded from `pnpm verify`, `pnpm test:review` and the review runner defaults. Do not restore it to a default release gate.
 
 **General rules:**
 - Select by behavior and feature ownership, not just file paths. Before running E2E, briefly state the affected features, commands and selection reason. Add another feature only when the change affects its behavior or shared contract; merely passing through Onboarding as test setup does not make a suite Onboarding coverage.

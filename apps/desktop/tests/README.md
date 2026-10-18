@@ -149,6 +149,8 @@ Performance fixture failure cases: current flow rules reject colorless links; du
 
 `pnpm test:scaling` is a **release-only** batch growth benchmark (200/400/800 items). Run only before releases or when explicitly requested.
 
+`pnpm test:large-workspace` manually runs the 32,769/100,000-task storage check. It is excluded from `pnpm verify`, `pnpm test:review` and the review runner defaults, including during release verification. Evidence: `output/tests/review-followup/large-workspace.json`.
+
 Panel latency records the browser input event through the dialog's open mutation and two animation frames, separately from Playwright's polling-dependent automation time. `GOALLOOM_STARTUP_ITEMS=0` or `100` narrows a diagnostic run; `GOALLOOM_STARTUP_SCRIPTS=0` disables debugger-based script inspection when isolating measurement overhead.
 
 Playwright 控制真实窗口，并关闭 CDP 默认的 unsafe-eval 绕过再验证 CSP。退出草稿的消息框回答桩只验证逻辑；原生对话框、IME、安装/升级与睡眠仍由负责人验收。

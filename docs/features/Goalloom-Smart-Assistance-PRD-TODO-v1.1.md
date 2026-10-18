@@ -860,7 +860,7 @@ renderer 用 `PreparedWrite` 预留写槽位，再读取权威版本。不能先
 | 移动、目标周期与 Later | `pnpm test:periods`、`pnpm test:later`；关系显隐／线条确有影响再加 `pnpm test:relations` |
 | 新 schema、启动与恢复 | `pnpm test:startup`、`pnpm test:recovery`、`pnpm test:calendar` 中旧版恢复相关覆盖 |
 | 多语言 | `pnpm test:language`，新辅助需新增五语言场景 |
-| 大量有界记录／备份分块改变 | 按改动追加 `pnpm test:large-backup` 或 `pnpm test:scaling`；没有触及相应能力时不机械执行 |
+| 大量有界记录／备份分块改变 | 按实际影响选择 `pnpm test:recovery`；`pnpm test:scaling` 保持发布前按需运行，`pnpm test:large-workspace` 仅手动选择，不纳入默认发布验证 |
 
 本版不会主动改变链接预览、更新器或装包行为；没有真实影响则不将这些功能全部追加。若指导摘要影响链接／Markdown 元素，必须追加相应功能覆盖并说明原因。
 
