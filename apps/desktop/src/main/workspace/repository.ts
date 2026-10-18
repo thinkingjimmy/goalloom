@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Strict commands/queries, injected clock, Store and bounded ExecutionQueries.
- * [OUTPUT]: Authoritative atomic writes, owned-value-guarded sync decisions, immutable creation/completion groups, v1/v2/v3 receipts and detail/fact projections.
+ * [OUTPUT]: Atomic writes, final outline-neighbor receipts, guarded sync decisions, immutable creation/completion groups and detail/fact projections.
  * [POS]: Sole workspace write boundary called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -57,7 +57,7 @@ export class Repository {
     const context: Context = { store: this.store, workspace, command, now, effects: [], warnings: [], itemId: null, label: '' }
     const dispatched = isCapture(command) ? readyCreation(context, command, selection) : command
     const changed = command.type === 'undo' ? this.undo(context, command) : this.dispatch(context, dispatched)
-    if (command.type === 'delete' || command.type === 'restoreItem') for (const effect of context.effects) if (effect.kind === 'nesting') {
+    if (command.type === 'nest' || command.type === 'delete' || command.type === 'restoreItem') for (const effect of context.effects) if (effect.kind === 'nesting') {
       const position = this.store.position(this.store.item(effect.itemId))
       effect.after.previousId = position.previousId; effect.after.nextId = position.nextId
     }

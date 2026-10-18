@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Untrusted v1-v9 with two-level placements and source-aware nesting effects datasets or exclusively owned normalized rows, plus an observation time.
+ * [INPUT]: Untrusted versioned datasets with two-level placements and owned leaf/group nesting effects, plus an observation time.
  * [OUTPUT]: Entity, version-specific policies, DAG, adoption/promotion effect identity, bulk-order receipt, inverse and event-chain integrity validation.
  *          Moves/backlog may drop Later parent edges; legacy milestones retain atomic create/reparenting history.
  *          Empty-detail discards retain guarded visibility receipts for undo.
@@ -272,7 +272,7 @@ function validateKind(operation: Dataset['operations'][number], version: Dataset
         && !['later', 'year'].includes(position.before.horizon) && !position.before.nestingParentId && !position.after.nestingParentId, serverText().import.effectKindNotAllowed)
     }
   }
-  else if (!['rollover', 'materializeParentOrder', 'delete', 'restoreItem', 'completeCreation'].includes(operation.kind)) requireValid(operation.effects.length <= 1, serverText().import.extraEffects)
+  else if (!['nest', 'rollover', 'materializeParentOrder', 'delete', 'restoreItem', 'completeCreation'].includes(operation.kind)) requireValid(operation.effects.length <= 1, serverText().import.extraEffects)
   if (operation.kind === 'discardEmpty') requireValid(operation.effects.every(effect => effect.kind === 'visibility' && effect.before.deletedAt === null && effect.after.deletedAt === operation.at && effect.after.deletedBy === operation.id && effect.edges.length === 0), serverText().import.visibilityReceiptMismatch)
 }
 function validateLegacyMilestone(operation: Dataset['operations'][number], edges: Map<string | number, Relation>): void {

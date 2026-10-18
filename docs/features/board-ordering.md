@@ -11,6 +11,7 @@
 - 关联变化只有在有效排序上级变化时才移动当前任务；新增次要上级不覆盖手动位置。解除最后一个上级后放列尾。关联修改与自动移位同事务、同回执、同一次撤销。已有父子 todo 作为一个整体放置。
 - 「按上级自动放置」只控制此后新建和关联变化，不在开关切换、刷新、重启、编辑正文、状态变化或上级手排时重排已有任务。半年、3个月、月、周、日及其未来周期适用；Later、年和过去周期不自动放置。
 - 当前／未来列菜单的「按上级整理」将该周期的当前列一次性按上级排序；不整理其他列、其他周期或自动关闭放置开关。保留父子结构、关系、正文及生命周期，可一次撤销。Later、年和过去周期不显示此动作。
+- The column More button sits immediately left of Add in the trailing action group. Both stay hidden at rest on desktop and appear on column hover or header keyboard focus. An open More menu keeps the controls visible. Hidden controls retain their space; touch controls stay visible with 44px targets.
 - [二级 todo](subtasks.md)先排列一级任务组，再排列组内子项；组的展示区由可见成员状态决定。合法的中部嵌套目标按层级规则校验。
 - 看板圆点和详情中的关联选择器同步使用看板候选顺序，保留已绑定置顶与最近一级优先；搜索命中的当前／已加载未来候选同样跟随。
 - Later、年和历史不自动排序；历史上级使用保存顺序。失效边及移动后不再满足上长下短的边不参与。

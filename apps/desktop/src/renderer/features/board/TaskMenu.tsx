@@ -1,6 +1,6 @@
 /**
- * [INPUT]: A visible task, outline membership, eligible upcoming periods, guarded submission, detail navigation and optional todo assistance/decomposition.
- * [OUTPUT]: Compact pointer/keyboard hierarchy and lifecycle actions with yearless dates, source-row activation, virtual pinning and deterministic focus return.
+ * [INPUT]: A visible task, eligible upcoming periods, guarded submission, detail navigation and optional todo assistance/decomposition.
+ * [OUTPUT]: Leaf/group nesting and lifecycle actions with yearless dates, source-row activation, virtual pinning and deterministic focus return.
  * [POS]: Board-only action wrapper; the main process resolves and validates the actual next period.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,8 +18,7 @@ import { revealRow } from './VirtualRows'
 
 export interface Upcoming { period: PlanningPeriod; label: string; hint: string | null }
 
-export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, assist, onMenu, onMoved, children, onNest, hasNestedChildren }: {
-  hasNestedChildren: boolean
+export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, assist, onMenu, onMoved, children, onNest }: {
   onNest: () => void
   item: ItemSummary; upcoming: Upcoming[]; relations: number; disabled: boolean; children: ReactElement
   submit: (action: Action) => Promise<unknown>; select: (id: string) => void; decompose: (() => void) | null; assist?: (() => void) | undefined
@@ -71,7 +70,7 @@ export function TaskMenu({ item, upcoming, relations, disabled, submit, select, 
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSeparator /></>}
-      <ContextMenuItem disabled={disabled || hasNestedChildren} title={hasNestedChildren ? nestingText().levels : undefined} onSelect={() => { selecting.current = true; onNest() }}><Icon name="split" size={16} /><span>{nestingText().nest}</span></ContextMenuItem>
+      <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; onNest() }}><Icon name="split" size={16} /><span>{nestingText().nest}</span></ContextMenuItem>
       {item.placement.nestingParentId && <ContextMenuItem disabled={disabled} onSelect={() => void submit({ type: 'unnest', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version })}><Icon name="forward" size={16} /><span>{nestingText().unnest}</span></ContextMenuItem>}
       <ContextMenuSeparator />
       {assist && <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; assist() }}><Icon name="smart" size={16} /><span className="context-menu-label">{assistanceMessages().title}</span></ContextMenuItem>}

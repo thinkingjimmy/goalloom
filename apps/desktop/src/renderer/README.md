@@ -70,7 +70,7 @@ renderer/
 │   │   ├── Board.tsx        # Unified periods, default-inline/optional folded completion, QuickAdd, review guides, independent gestures, virtual source pinning and preserved focus
 │   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
-│   │   ├── ColumnOrderMenu.tsx # One-shot arrangement; focus returns after guarded writes re-enable the trigger
+│   │   ├── ColumnOrderMenu.tsx # One-shot arrangement immediately left of Add; shared column-hover/keyboard/menu reveal; focus returns after guarded writes re-enable the trigger
 │   │   ├── useBoardDrag.ts # Free pointer/keyboard edge sorting, usable middle-row nesting and guarded saved-order projections
 │   │   ├── NestingPicker.tsx # Keyboard root selection, bounded current/future/Later search, placement revalidation and source focus return
 │   │   ├── TaskContext.tsx # Compact archived/cancelled parent context shared by current and past groups
@@ -86,7 +86,7 @@ renderer/
 │   │   ├── period-picker.css # Period switches/lists/calendars, stable chevron slots, return focus/hint styling and touch targets
 │   │   ├── PeriodPicker.tsx # Header B: six-row year/half/cycle lists, week/day/month selection, visible history errors/retry and mode-aware labels
 │   │   ├── NoteSignal.tsx   # D5 description signal under a row title and its read-only hover/focus peek (body and Lexical load on open)
-│   │   ├── TaskMenu.tsx     # Compact TODO context menu with non-redundant yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
+│   │   ├── TaskMenu.tsx     # Compact TODO context menu with leaf/group nesting, yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # Role-aware flow menus with a single parent-panel heading, intrinsic choice width, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
 │   │   ├── QuickAdd.tsx     # Immediate continuous capture, shared background matching, explicit flow/period/insertion priority, period-keyed consent/drafts and expired-input recovery

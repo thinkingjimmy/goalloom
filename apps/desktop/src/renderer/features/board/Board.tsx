@@ -3,7 +3,7 @@
  * [OUTPUT]: A single-row title-as-switcher period header (header B: period panel, ←/→ stepping and a return icon with localized guidance), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Owns independent relation dragging/prepared writes, virtual source pinning and scoped one-shot column arrangement.
- *           Column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
+ *           Right-aligned More/Add controls share header reveal states; column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
  *           Double-clicking a card edits its title in place; the write keeps the description and due date.
  *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly reminders support persistent dismissal without completion.
  *           "Write my own" opens this column's inline entry, the same one as ＋.
@@ -272,7 +272,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const row = (item: ItemSummary, index: number, total: number) => {
     if (item.archivedAt || item.status === 'cancelled') return <TaskContext item={item} select={select} />
     const lit = active.length ? flows.of(item.id).find(flow => active.includes(flow.id)) : undefined
-    return <TaskRow hasNestedChildren={(snapshot.nesting ?? []).some(link => link.parentId === item.id)} nestingParentTitle={view.nestingParents.find(parent => parent.id === item.placement.nestingParentId)?.title} index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
+    return <TaskRow nestingParentTitle={view.nestingParents.find(parent => parent.id === item.placement.nestingParentId)?.title} index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
       // Later never joins flows, so a flow filter leaves the parking lot readable instead of greying it out.
       dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} editing={editingId === item.id} editLocked={disabled || !!dragging || !!relationSource} select={select} submit={submit} onPreview={onPreview}
       onNest={onNest} upcoming={upcoming} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle} />
@@ -324,11 +324,13 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
           } />
         {mode !== 'current' && <PeriodReturn label={returnLabel} disabled={busy} onReturn={pointer => switchTo(null, pointer)} />}
       </div> : <><h2>{name}</h2><span className="column-spacer" /></>}
-      {!history && period && horizon !== 'year' && <ColumnOrderMenu period={period} name={displayName} disabled={disabled || !!dragging || !!relationSource} submit={submit} />}
-      <span className="column-add-slot">
-        {daysLeft !== null && <span className="period-countdown" aria-hidden="true">{daysLeft}</span>}
-        {!history && addButton}
-      </span>
+      <div className="column-header-actions">
+        {!history && period && horizon !== 'year' && <ColumnOrderMenu period={period} name={displayName} disabled={disabled || !!dragging || !!relationSource} submit={submit} />}
+        <span className="column-add-slot">
+          {daysLeft !== null && <span className="period-countdown" aria-hidden="true">{daysLeft}</span>}
+          {!history && addButton}
+        </span>
+      </div>
     </header>
     {!review && mode === 'current' && !!snapshot.backlog[horizon] && <button className="backlog-entry" onClick={() => setBacklog(true)}>{messages.backlogCount} {snapshot.backlog[horizon]}<Icon name="next" size={14} /></button>}
     {backlog && <Backlog horizon={horizon} revision={snapshot.workspace.revision} submit={submit} busy={busy} close={() => setBacklog(false)} select={select} />}

@@ -16,7 +16,7 @@ workspace/
 ├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/
 │   ├── items.ts      # Setup/date guards, explicit creation, local automatic placement, root/group moves and atomic link placement
-│   ├── nesting.ts    # Guarded nest/unnest, inherited-parent materialization and combined outline/goal validation
+│   ├── nesting.ts    # Guarded leaf/group nesting with ordered flattening, inherited-parent materialization and combined outline/goal validation
 │   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
 │   ├── capture.ts    # Optional ready matches and late column/parent completion, guarded by creation identity, task versions and live periods
 │   ├── assistance.ts # Atomic guarded note rewrites (description-only v2 effects), legacy guidance/placement and receipt-first undo

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Explicit goal edges, independent placements, live nesting links and an injected stable virtual-ID factory.
- * [OUTPUT]: Effective incoming goal edges, combined ancestry and stable mixed/separated two-level row projections.
+ * [OUTPUT]: Effective goal edges, cycle-safe leaf/group targets and stable mixed/separated two-level rows.
  * [POS]: Shared outline rules; nesting never changes task lifecycle or creates a goal edge to its container.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,7 +8,6 @@ import type { ItemSummary, Relation } from '../shared/contracts/entities'
 
 export interface NestingLink { parentId: string; childId: string }
 export function nestingTargets(itemId: string, edges: readonly NestingLink[], nesting: readonly NestingLink[]): (parentId: string) => boolean {
-  if (nesting.some(link => link.parentId === itemId)) return () => false
   const children = new Map<string, string[]>()
   for (const edge of combinedTopology(edges, nesting)) {
     const group = children.get(edge.parentId) ?? []; group.push(edge.childId); children.set(edge.parentId, group)

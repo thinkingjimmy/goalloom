@@ -1,7 +1,7 @@
 /**
  * [INPUT]: styles/theme.css, styles/base.css, shared component markers and feature state attributes.
  * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
- *           Placement drag cards keep full titles and wrap long URLs within their width.
+ *           Trailing More/Add controls stay adjacent and reveal together on column hover, header keyboard focus or an open column menu. Placement drag cards keep full titles and wrap long URLs within their width.
  * [POS]: Renderer entry and coordinated feature/platform styles; ordinary layout and shared controls use Tailwind.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -74,7 +74,8 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 .column-header h2 { font-size: 15px; white-space: nowrap; }
 .column-meta { font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .column-spacer { flex: 1; }
-.column-add-slot { display: grid; place-items: center; flex: 0 0 28px; margin-left: auto; margin-right: -6px; }
+.column-header-actions { display: flex; align-items: center; flex-shrink: 0; margin-left: auto; margin-right: -6px; }
+.column-add-slot { display: grid; place-items: center; flex: 0 0 28px; }
 .column-add-slot > * { grid-area: 1 / 1; }
 .period-countdown { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: var(--hover); color: var(--secondary); font-size: 13px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; opacity: 0; pointer-events: none; }
 /* Header B: the title is the period switcher; it keeps its full width and aligns with the row checkboxes. */
@@ -90,14 +91,15 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 .period-title:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 .period-nav button { touch-action: manipulation; }
 @media (hover: hover) and (pointer: fine) {
-  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) :is([data-add-item], [data-return-current]) { opacity: 0; }
-  .board-column:not(:hover) > .column-header:not(:has(:focus-visible)) .period-countdown { opacity: 1; }
+  .board-column:not(:hover) > .column-header:not(:has(:focus-visible, [data-column-actions][aria-expanded='true'])) :is([data-add-item], [data-return-current], [data-column-actions]) { opacity: 0; }
+  .board-column:not(:hover) > .column-header:not(:has(:focus-visible, [data-column-actions][aria-expanded='true'])) .period-countdown { opacity: 1; }
   .board-column:not(:hover) .column-add-task:not(:focus-visible) { opacity: 0; pointer-events: none; }
 }
 @media (pointer: coarse) {
   .period-header { height: 48px; }
   .period-header .column-add-slot { flex-basis: 44px; }
   .period-header .column-add-slot .icon-button { width: 44px; height: 44px; }
+  .period-header [data-column-actions] { width: 44px; height: 44px; }
   .period-switch { min-height: 44px; }
 }
 .period-loading { padding: 14px var(--row-inset); color: var(--secondary); font-size: 13px; }

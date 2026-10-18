@@ -78,8 +78,8 @@ function TitleField({ title, itemId, renameTitle, endEdit }: {
     }} />
 }
 
-export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle, onNest, hasNestedChildren, nestingParentTitle }: {
-  hasNestedChildren: boolean; nestingParentTitle: string | undefined
+export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle, onNest, nestingParentTitle }: {
+  nestingParentTitle: string | undefined
   onNest: (id: string) => void
   index: number; total: number; item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]; today: string
   selected: boolean; dimmed: boolean; tint: string | undefined; disabled: boolean; editing: boolean; editLocked: boolean
@@ -140,6 +140,6 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
     {hasLinks || item.note || item.guidance ? <div className="task-content">{line}{(item.note || item.guidance) && <NoteSignal itemId={item.id} title={item.title} note={item.note} guidance={item.guidance} />}{hasLinks && <LinkPreviews text={item.title} />}</div> : line}
   </article>
   const links = relations.filter(edge => edge.parentId === item.id || edge.childId === item.id).length
-  return !item.archivedAt && item.status !== 'cancelled' ? <TaskMenu onNest={() => onNest(item.id)} hasNestedChildren={hasNestedChildren} item={item} upcoming={item.status === 'todo' || candidates.some(candidate => candidate.placement.nestingParentId === item.id && candidate.status === 'todo') ? upcoming ?? [] : []} relations={links} disabled={disabled || isDragging} submit={submit} select={select}
+  return !item.archivedAt && item.status !== 'cancelled' ? <TaskMenu onNest={() => onNest(item.id)} item={item} upcoming={item.status === 'todo' || candidates.some(candidate => candidate.placement.nestingParentId === item.id && candidate.status === 'todo') ? upcoming ?? [] : []} relations={links} disabled={disabled || isDragging} submit={submit} select={select}
     assist={item.status === 'todo' && assist ? () => assist(item.id) : undefined} decompose={item.status === 'todo' && decompose ? () => decompose(item) : null} onMenu={onMenu} onMoved={onMoved}>{row}</TaskMenu> : row
 })

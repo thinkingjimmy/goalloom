@@ -61,7 +61,7 @@ function world(path = ':memory:') {
   assert.deepEqual(new Set(w.flows(w.leaf)), new Set([w.goal, secondGoal]))
   w.run({ type: 'flowColor', itemId: w.goal, expectedVersion: w.item(w.goal).version, flowColor: 3 })
   assert(w.repo.snapshot().flows.some(flow => flow.id === w.goal && flow.flowColor === 3))
-  w.rejected(() => w.nest(w.root, secondGoal)); w.rejected(() => w.nest(lower, w.leaf)); w.rejected(() => w.nest(w.leaf, w.leaf))
+  w.rejected(() => w.nest(w.root, w.leaf)); w.rejected(() => w.nest(lower, w.leaf)); w.rejected(() => w.nest(w.leaf, w.leaf))
   w.rejected(() => w.run({ type: 'flowColor', itemId: w.leaf, expectedVersion: w.item(w.leaf).version, flowColor: 4 }))
   const directLower = w.create('Direct child', 'day', { parentId: w.leaf, expectedParentVersion: w.item(w.leaf).version })
   w.move(directLower, 'cycle')
@@ -79,6 +79,82 @@ function world(path = ':memory:') {
   assert.equal(w.item(w.leaf).placement.horizon, 'month')
   validateImport(w.data(), w.now()); verifyDatabase(w.db); w.db.close()
   checks.push('Cross-horizon nesting, complete details, existing/outgoing links, live multi-parent/color inheritance, third-level/self/mixed-cycle rejection, provenance and undo')
+}
+for (const horizon of ['month', 'later']) {
+  const w = world(), target = w.create('A destination', horizon, horizon === 'later' ? {} : { flowColor: 2 }), existing = w.create('Existing sibling', 'day'), second = w.create('D child', 'day')
+  w.nest(existing, target); w.nest(); w.nest(second)
+  w.status(w.leaf, 'done'); w.run({ type: 'archive', itemId: w.leaf, expectedVersion: w.item(w.leaf).version, archived: true })
+  w.status(second, 'cancelled')
+  const members = [w.root, w.leaf, second], originals = members.map(id => structuredClone(w.item(id)))
+  w.rejected(() => w.nest(w.root, w.leaf))
+  const grouped = w.nest(w.root, target)
+  const order = () => w.repo.store.nestedItems(target).map(item => item.id)
+  assert.deepEqual(order(), [existing, ...members])
+  for (const [index, id] of members.entries()) {
+    const item = w.item(id), original = originals[index]!
+    assert.equal(item.placement.nestingParentId, target)
+    assert.equal(item.placement.periodId, w.item(target).placement.periodId)
+    assert.equal(item.placement.horizon, horizon)
+    assert.deepEqual(w.flows(id), horizon === 'later' ? [] : [target])
+    for (const key of ['title', 'description', 'dueDate', 'status', 'completedAt', 'cancelledAt', 'archivedAt'] as const) assert.equal(item[key], original[key])
+  }
+  const receipt = w.repo.store.operation(grouped.operationId)!
+  assert.equal(receipt.effects.length, members.length)
+  const forged = structuredClone(w.data()), forgedEffect = forged.operations.find(operation => operation.id === grouped.operationId)!.effects[0]!
+  if (forgedEffect.kind === 'nesting') forgedEffect.before.nestingParentId = w.goal
+  assert.throws(() => validateImport(forged, w.now()))
+  assert.equal(w.repo.execute({ type: 'nest', itemId: w.root, parentId: target, expectedVersion: originals[0]!.version,
+    expectedPlacementVersion: originals[0]!.placement.version, expectedParentVersion: w.item(target).version,
+    expectedParentPlacementVersion: w.item(target).placement.version, operationId: grouped.operationId, generation: w.repo.store.workspace().generation }).operationId, grouped.operationId)
+  const restored = world(); replaceDataset(restored.repo.store, validateImport(w.data(), w.now()), 'restore', w.now())
+  assert.deepEqual(restored.repo.store.nestedItems(target).map(item => item.id), order()); restored.db.close()
+  w.run({ type: 'edit', itemId: w.leaf, expectedVersion: w.item(w.leaf).version, title: 'Later child edit', description: 'Retain this edit', dueDate: null })
+  assert.equal(w.undo(grouped.operationId).outcome, 'committed')
+  assert.equal(w.item(w.root).placement.nestingParentId, null)
+  assert.deepEqual(w.repo.store.nestedItems(w.root).map(item => item.id), [w.leaf, second])
+  assert.deepEqual(order(), [existing]); assert.equal(w.item(w.leaf).title, 'Later child edit')
+  for (const [index, id] of members.entries()) assert.equal(w.item(id).placement.periodId, originals[index]!.placement.periodId)
+  validateImport(w.data(), w.now()); verifyDatabase(w.db); w.db.close()
+  checks.push(`Flatten a complete mixed-lifecycle group into ${horizon}, preserve order/details, retry safely, restore JSON and undo once without losing later edits`)
+}
+{
+  const w = world(), target = w.create('Group destination', 'month'); w.nest()
+  const grouped = w.nest(w.root, target); w.move(w.leaf, 'day')
+  const before = w.data()
+  assert.equal(w.undo(grouped.operationId).outcome, 'conflict_skipped')
+  const after = w.data()
+  for (const key of ['items', 'placements', 'relations', 'events', 'undoEffects'] as const) assert.deepEqual(after[key], before[key])
+  validateImport(after, w.now()); w.db.close()
+  checks.push('A moved group member rejects the complete group undo without partial restoration')
+}
+{
+  const w = world(), container = w.create('Colorless container', 'week'), child = w.create('Later nested child', 'day')
+  w.nest(w.leaf, container)
+  const detached = w.unnest(); w.nest(child, w.leaf)
+  const before = w.data()
+  assert.equal(w.undo(detached.operationId).outcome, 'conflict_skipped')
+  const after = w.data()
+  for (const key of ['items', 'placements', 'relations', 'events', 'undoEffects'] as const) assert.deepEqual(after[key], before[key])
+  validateImport(after, w.now()); w.db.close()
+  checks.push('Undo never flattens children acquired after an unnest; it rejects the changed outline atomically')
+}
+{
+  const directory = mkdtempSync(join(tmpdir(), 'goalloom-flattened-group-'))
+  try {
+    const path = join(directory, 'group.sqlite'), w = world(path), target = w.create('Persistent group destination', 'month')
+    w.nest()
+    w.db.exec(`CREATE TRIGGER reject_group_root BEFORE UPDATE ON item_placements WHEN NEW.itemId='${w.root}' AND NEW.nestingParentId='${target}' BEGIN SELECT RAISE(ABORT,'Synthetic group write failure'); END`)
+    w.rejected(() => w.nest(w.root, target))
+    w.db.exec('DROP TRIGGER reject_group_root')
+    const grouped = w.nest(w.root, target); w.db.close()
+    const data = await readSqliteDataset(path, w.now())
+    for (const id of [w.root, w.leaf]) assert.equal(data.placements.find(placement => placement.itemId === id)!.nestingParentId, target)
+    const reopened = openDatabase(path), repo = new Repository(reopened, { now: w.now })
+    assert.equal(repo.execute({ type: 'undo', operationId: randomUUID(), generation: repo.store.workspace().generation, originalOperationId: grouped.operationId }).outcome, 'committed')
+    assert.equal(repo.store.item(w.root).placement.nestingParentId, null); assert.equal(repo.store.item(w.leaf).placement.nestingParentId, w.root)
+    validateImport(exportDataset(repo.store, w.now()), w.now()); verifyDatabase(reopened); reopened.close()
+  } finally { rmSync(directory, { recursive: true, force: true }) }
+  checks.push('A late group write failure rolls back children; SQLite round trip and restart retain a reversible group receipt')
 }
 {
   const w = world(); const n = w.nest()

@@ -201,6 +201,8 @@ Failure scenarios specified before writing the probe:
 
 `sync-join/`, `sync-join.mjs` and `sync-join-native.mjs` exercise first connection, stable IDs/calendar/policies and offline rollover, logout/login, deleted-task protection, rollback and concurrent joining through the real service/SDK/storage and native renderer. Reports and screenshots: `output/tests/sync-join/`.
 
+`pnpm test:subtasks` also covers dragging or selecting a root with children to flatten the group into another root, sibling order and one-step outline undo. Its `--data` fixture checks mixed lifecycle states, Later/period placement, inherited flows, late-write rollback, retry identity, child-move undo conflicts, forged group receipts and JSON/SQLite restart recovery. `pnpm test:sync-replay` verifies ordered flattening and undo on two encrypted peers. Evidence stays under `output/tests/subtasks/` and `output/tests/sync-replay/`.
+
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
 `pnpm build` followed by `pnpm test:ordering [packaged-executable]` runs the production Repository/SQLite boundary fixture and real Electron ordering journey, including relation-picker ordering, rejected saves, lost receipts, protected replacement with a delayed future response and a 129-row focus/draft/scroll check. After reset, the scenario completes empty-workspace setup before checking the retained device preference in Settings. It records transaction checks, observed WAAPI frames, relation endpoint error and both-axis breakpoint alignment, screenshots, video and Electron/Node/SQLite/OS/CPU in `output/tests/ordering/`. Only isolated synthetic data is used.

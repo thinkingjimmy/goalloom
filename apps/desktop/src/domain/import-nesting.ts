@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Parsed operation receipts, physical edge identities and the complete operation index.
- * [OUTPUT]: Source-aware validation of nesting, detached inherited links and group placement ownership.
+ * [OUTPUT]: Source-aware validation of leaf/group nesting, detached inherited links and group placement ownership.
  * [POS]: Import integrity extension; neither a client nor an imported receipt may invent inheritance provenance.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,6 +13,18 @@ import { serverText } from '../shared/i18n/server'
 type Operation = Dataset['operations'][number]
 export function validateNestingOperation(operation: Operation, operations: Map<string | number, Operation>): void {
   const valid = (condition: unknown) => { if (!condition) throw new Error(serverText().import.effectKindNotAllowed) }
+  if (operation.kind === 'nest' && operation.effects.length) {
+    const root = operation.effects.at(-1)!
+    valid(root.kind === 'nesting' && root.itemId === operation.result.itemId)
+    valid(new Set(operation.effects.map(effect => effect.itemId)).size === operation.effects.length)
+    if (root.kind === 'nesting') for (const child of operation.effects.slice(0, -1)) {
+      valid(child.kind === 'nesting' && !root.before.nestingParentId
+        && child.before.nestingParentId === root.itemId
+        && child.before.horizon === root.before.horizon && child.before.periodId === root.before.periodId
+        && child.after.nestingParentId === root.after.nestingParentId
+        && child.after.horizon === root.after.horizon && child.after.periodId === root.after.periodId)
+    }
+  }
   const groups = operation.effects.filter(effect => effect.kind === 'groupPlacement')
   valid(new Set(groups.map(effect => effect.itemId)).size === groups.length)
   for (const effect of groups) {

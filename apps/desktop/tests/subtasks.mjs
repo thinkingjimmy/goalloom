@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current production build, native Electron input and isolated transaction fixtures, with explicit completed-layout controls.
- * [OUTPUT]: Repeatable subtask checks, quiet nesting/keyboard undo, native screenshots and runtime/platform evidence in output/tests/subtasks.
+ * [OUTPUT]: Leaf/group drag and menu checks, atomic flatten/undo evidence, native screenshots and runtime/platform evidence in output/tests/subtasks.
  * [POS]: Subtask E2E entry; --data runs transaction feedback without foreground interaction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -235,6 +235,60 @@ try {
   assert.deepEqual([restored.horizon, restored.periodId], [future.placement.horizon, future.placement.periodId])
   const undo = join(evidence, 'nest-keyboard-undo.png'); await page.screenshot({ path: undo }); screenshots.push(undo)
   checks.push('Menu nesting is quiet; keyboard undo restores the original period and confirms the reversal')
+  const group = await page.evaluate(async () => {
+    const generation = (await window.goalloom.getSnapshot()).workspace.generation
+    const run = async action => { const reply = await window.goalloom.execute({ generation, operationId: crypto.randomUUID(), ...action }); if (!reply.ok) throw Error(reply.message); return reply.result }
+    const target = (await run({ type: 'create', title: 'A group destination', horizon: 'week' })).itemId
+    const source = (await run({ type: 'create', title: 'B source group', horizon: 'day' })).itemId
+    const children = []
+    for (const title of ['C first child', 'D second child']) {
+      const child = (await run({ type: 'create', title, horizon: 'day', description: `${title} notes` })).itemId
+      const item = (await window.goalloom.getItem(child)).item, parent = (await window.goalloom.getItem(source)).item
+      await run({ type: 'nest', itemId: child, parentId: source, expectedVersion: item.version, expectedPlacementVersion: item.placement.version,
+        expectedParentVersion: parent.version, expectedParentPlacementVersion: parent.placement.version })
+      children.push(child)
+    }
+    return { source, target, children }
+  })
+  await row(group.source).waitFor(); await row(group.target).waitFor()
+  await row(group.source).scrollIntoViewIfNeeded(); await row(group.target).scrollIntoViewIfNeeded()
+  await row(group.source).locator('.task-title').focus()
+  const sourceBox = await row(group.source).boundingBox()
+  await page.mouse.move(sourceBox.x + 95, sourceBox.y + sourceBox.height / 2); await page.mouse.down()
+  await page.mouse.move(sourceBox.x + 105, sourceBox.y + sourceBox.height / 2)
+  await page.locator('.drag-overlay').waitFor()
+  const targetBox = await row(group.target).boundingBox()
+  await page.mouse.move(targetBox.x + 100, targetBox.y + targetBox.height / 2, { steps: 12 })
+  await row(group.target).locator(':scope[data-nesting-target="true"]').waitFor()
+  await page.mouse.up()
+  const flattened = async () => {
+    await pollPage(page, async group => {
+      const items = await Promise.all([group.source, ...group.children].map(id => window.goalloom.getItem(id)))
+      return items.every(({ item }) => item.placement.nestingParentId === group.target && item.placement.horizon === 'week')
+    }, group)
+    const members = [group.source, ...group.children]
+    assert.deepEqual(await page.locator(`[data-nesting-parent="${group.target}"]`).evaluateAll(nodes => nodes.map(node => node.dataset.itemId)), members)
+    for (const id of members) assert.equal(await row(id).getAttribute('aria-level'), '2')
+  }
+  await flattened()
+  await page.waitForFunction(id => document.activeElement?.closest('.task-row')?.dataset.itemId === id, group.source)
+  const groupShot = join(evidence, 'flattened-group.png'); await page.screenshot({ path: groupShot }); screenshots.push(groupShot)
+  const restoreGroup = async () => {
+    await page.keyboard.press('ControlOrMeta+z')
+    await pollPage(page, async group => {
+      const root = (await window.goalloom.getItem(group.source)).item
+      const children = await Promise.all(group.children.map(id => window.goalloom.getItem(id)))
+      return root.placement.nestingParentId === null && root.placement.horizon === 'day'
+        && children.every(({ item }) => item.placement.nestingParentId === group.source && item.placement.horizon === 'day')
+    }, group)
+    await page.locator('.toast').filter({ hasText: '已撤销' }).waitFor()
+  }
+  await restoreGroup()
+  await row(group.source).locator('.task-title').focus(); await page.keyboard.press('Shift+F10')
+  await page.getByRole('menuitem', { name: '设为二级 todo', exact: true }).click()
+  await picker.getByRole('button', { name: /A group destination/ }).click()
+  await picker.waitFor({ state: 'detached' }); await flattened(); await restoreGroup()
+  checks.push('Native group drag and keyboard menu flatten B/C/D directly under A in source order, retain drag focus and restore B with C/D in one undo')
   assert.deepEqual(errors, []); report.passed = true
 } catch (error) {
   report.error = error.stack

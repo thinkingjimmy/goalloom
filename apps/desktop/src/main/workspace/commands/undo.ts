@@ -71,7 +71,7 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
       reverseRelations(context, inverseEdges(effect.edges, context.command.operationId, context.now), item)
       const p = effect.before
       if (p.nestingParentId) {
-        if (item.flowColor !== null || hasActiveParent(context, item.id)) conflict(serverText().undo.relationUnsafe)
+        if (item.flowColor !== null || hasActiveParent(context, item.id) || context.store.hasNestedChildren(item.id)) conflict(serverText().undo.relationUnsafe)
         const parent = context.store.item(p.nestingParentId)
         if (parent.deletedAt || parent.placement.nestingParentId || parent.placement.horizon !== p.horizon || parent.placement.periodId !== p.periodId
           || !nestingTargets(item.id, context.store.relations(), context.store.nestingLinks())(parent.id)) conflict(serverText().undo.relationUnsafe)
