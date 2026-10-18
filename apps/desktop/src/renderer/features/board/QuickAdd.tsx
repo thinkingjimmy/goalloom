@@ -1,8 +1,8 @@
 /**
- * [INPUT]: Displayed period/insertion and preceding outline root, period-keyed drafts, shared AI state, workspace snapshot and guarded submission.
+ * [INPUT]: Displayed period and preceding outline root, period-keyed drafts, shared AI state, workspace snapshot and guarded submission.
  * [OUTPUT]: Immediate inline creation, visible revision-bound matching/retry/consent feedback, preserved drafts and explicit manual flow priority;
  *           retains two-level Tab drafts and inherited flow context, grows with content/column width and offers only longer-horizon flow roots.
- * [POS]: Immediate board creation; CaptureInput binds draft revisions, main completes optional parents and storage owns relationship constraints.
+ * [POS]: Immediate board creation without an implicit tail override; CaptureInput binds draft revisions, main completes optional parents and storage owns relationship constraints/placement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
@@ -30,7 +30,7 @@ interface NestingDraft extends SplitParent { version: number; placementVersion: 
 export interface QuickAddDraft { title: string; choice: Choice; manualFlow?: boolean; smartConsent?: number | null; nesting?: NestingDraft | null }
 type Matching = { key: string } & ({ kind: 'pending' } | { kind: 'ready'; parents: SemanticParent[] } | { kind: 'failed'; message: string })
 
-export function QuickAdd({ horizon, period, beforeId, periodName, expired, retarget, drafts, flows, items, split, nestingTarget, submit, busy, close, snapshot, ai }: { horizon: ItemHorizon; period: PlanningPeriod | null; beforeId?: string | null | undefined; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; nestingTarget?: ItemSummary | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void; snapshot?: Snapshot; ai?: Ai | undefined }) {
+export function QuickAdd({ horizon, period, periodName, expired, retarget, drafts, flows, items, split, nestingTarget, submit, busy, close, snapshot, ai }: { horizon: ItemHorizon; period: PlanningPeriod | null; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; nestingTarget?: ItemSummary | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void; snapshot?: Snapshot; ai?: Ai | undefined }) {
   const draftKey = period?.id ?? 'later'
   const [title, setTitle] = useState(() => drafts.get(draftKey)?.title ?? '')
   const [choice, setChoice] = useState<Choice>(() => split ? { kind: 'split', parent: split } : drafts.get(draftKey)?.choice ?? { kind: 'none' })
@@ -99,7 +99,7 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
     try {
       const expectedParentVersion = parentId ? (await desktopApi().getItem(parentId).catch(() => null))?.item.version ?? null : null
       if (parentId && expectedParentVersion === null) return
-      const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), ...(beforeId !== undefined ? { beforeId } : {}), parentId, expectedParentVersion, flowColor: !nesting && choice.kind === 'new' ? choice.color : null,
+      const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), parentId, expectedParentVersion, flowColor: !nesting && choice.kind === 'new' ? choice.color : null,
         ...(nesting ? { nesting: { parentId: nesting.id, expectedParentVersion: nestingParent?.version ?? nesting.version, expectedParentPlacementVersion: nestingParent?.placement.version ?? nesting.placementVersion } } : {}),
         ...(canMatch ? { smartCapture: { request: request(), allowPlacement: false, allowParents: true } } : {}) })
       if (!result) return

@@ -4,6 +4,7 @@
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Owns independent relation dragging/prepared writes, virtual source pinning, whole-group drop previews, pointer overlays below insertion lines and scoped one-shot column arrangement.
  *           Right-aligned More/Add controls share header reveal states; column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and two-level Tab drafts; hidden columns stay mounted and inert.
+ *           Every inline entry follows the captured parent-placement preference; opening at the tail does not pin the saved position.
  *           Double-clicking a card edits its title in place; the write keeps the description and due date.
  *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly reminders support persistent dismissal without completion.
  *           "Write my own" opens this column's inline entry, the same one as ＋.
@@ -100,7 +101,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     if (!reply.ok) { onError(reply.message); return false }
     return true
   }, [write, onError, snapshot.workspace.generation])
-  const [adding, setAdding] = useState<{ horizon: ItemHorizon; period: PlanningPeriod | null; split: SplitParent | null; key: number; beforeId?: null } | null>(null)
+  const [adding, setAdding] = useState<{ horizon: ItemHorizon; period: PlanningPeriod | null; split: SplitParent | null; key: number } | null>(null)
   const handled = useRef(addRequest?.seq ?? 0)
   useEffect(() => {
     if (!addRequest || addRequest.seq === handled.current) return
@@ -113,7 +114,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     setAdding({ horizon, period, split: addRequest.split, key: addRequest.seq })
     document.querySelector(`[data-horizon="${horizon}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [addRequest])
-  const onAdding = useCallback((horizon: ItemHorizon, open: boolean, atEnd = false) => setAdding(open ? { horizon, period: view.periods[horizon] ?? null, split: null, key: Date.now(), ...(atEnd ? { beforeId: null } : {}) } : null), [view.periods])
+  const onAdding = useCallback((horizon: ItemHorizon, open: boolean) => setAdding(open ? { horizon, period: view.periods[horizon] ?? null, split: null, key: Date.now() } : null), [view.periods])
   const onFocus = useCallback((horizon: ItemHorizon, editable: boolean) => setFocused(editable ? horizon : 'later'), [])
   const today = workspaceDate(snapshot.workspace.calendar!.timezone, snapshot.observedAt)
   // A dot starts the preview; its flow rows and breakpoint controls keep it reachable until pointer/focus leaves.
@@ -166,15 +167,15 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   sources: ItemSummary[] | null
   active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
   horizon: ItemHorizon; items: ItemSummary[]; today: string; visible: boolean
-  adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number; beforeId?: null } | null
-  dragging: string | null; nestingPreview: string | null; onAdding: (horizon: ItemHorizon, open: boolean, atEnd?: boolean) => void
+  adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number } | null
+  dragging: string | null; nestingPreview: string | null; onAdding: (horizon: ItemHorizon, open: boolean) => void
   onNest: (id: string) => void
   relationSource: string | null; editingId: string | null
   beginEdit: (id: string) => void; endEdit: (id: string) => void; renameTitle: (itemId: string, title: string) => Promise<boolean>
   onFocus: (horizon: ItemHorizon, editable: boolean) => void
 }) {
   useLocale()
-  const setAdding = (open: boolean, atEnd = false) => { if (open) section.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); onAdding(horizon, open, atEnd) }, focus = (editable: boolean) => onFocus(horizon, editable)
+  const setAdding = (open: boolean) => { if (open) section.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); onAdding(horizon, open) }, focus = (editable: boolean) => onFocus(horizon, editable)
   const [doneOpen, setDoneOpen] = useState(false), [backlog, setBacklog] = useState(false)
   const collapseCompleted = useCollapseCompleted()
   const [menuItem, setMenuItem] = useState<string | null>(null)
@@ -250,7 +251,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const openAdd = () => {
     if (history || disabled || dragging || relationSource) return
     if (adding) section.current?.querySelector<HTMLTextAreaElement>('.quick-add-title')?.focus()
-    else setAdding(true, true)
+    else setAdding(true)
   }
   const addFromBlank = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target
@@ -360,11 +361,11 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
           {!adding && todo.length > 0 && <button type="button" className="column-add-task" data-column-add aria-label={messages.newToColumn(displayName)} disabled={disabled || !!dragging || !!relationSource} onClick={openAdd}>
             <Icon name="add" size={18} /><span>{messages.addTask}</span>
           </button>}
-          {adding && <QuickAdd key={`${adding.period?.id ?? 'later'}:${adding.key}`} horizon={horizon} period={adding.period} beforeId={adding.beforeId} periodName={adding.period ? planningLabel(adding.period, calendar, snapshot.observedAt) : name}
+          {adding && <QuickAdd key={`${adding.period?.id ?? 'later'}:${adding.key}`} horizon={horizon} period={adding.period} periodName={adding.period ? planningLabel(adding.period, calendar, snapshot.observedAt) : name}
             expired={!!adding.period && compareInstants(adding.period.endAt, snapshot.observedAt) <= 0} drafts={drafts.current} retarget={() => {
               const draft = drafts.current.get(adding.period?.id ?? 'later')
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
-              setAdding(true, adding.beforeId === null)
+              setAdding(true)
             }} flows={flows} items={view.candidates} split={adding.split} nestingTarget={nestingTarget ?? null} submit={submit} busy={disabled} close={() => setAdding(false)} snapshot={snapshot} ai={ai} />}
           {collapseCompleted && done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} nestingPreview={nestingPreview} render={row} />}</details>}
         </SortableContext>

@@ -8,6 +8,7 @@
 - 最近一级有效上级优先；同尺度多个上级取排最前者，仅作为排序依据，不改变多父关系。不同尺度先近后远，同尺度跨周期按起点；最后按手动排序键与 ID 稳定排列。无有效上级的条目排最后。
 - Owner decision, 2026-10-15, superseding continuous grouped sorting: automatic placement changes only a newly created task or a task whose effective ordering parent changes. It never reorders other tasks. Pointer/keyboard sorting is free across goal-parent groups and persists across reload. Explicit insertion/drop positions take priority and do not change goal links. Nesting keeps its two-level container behavior.
 - 新建任务放到同一有效上级的最后一条任务之后；无上级放列尾。首次出现的上级按现有上级优先级选落点。同组任务即使已被手动分散，也不移动其他任务。
+- 列头「＋」、列表底部「＋ 添加任务…」与空白双击共用自动放置设置。输入框出现在列表底部不代表用户指定了保存位置；关闭自动放置时才按普通列尾追加。Jev 建议已返回时随创建放置，晚到时沿用创建提交时的设置，关联与位置仍属于同一次创建撤销。
 - 关联变化只有在有效排序上级变化时才移动当前任务；新增次要上级不覆盖手动位置。解除最后一个上级后放列尾。关联修改与自动移位同事务、同回执、同一次撤销。已有父子 todo 作为一个整体放置。
 - 「按上级自动放置」只控制此后新建和关联变化，不在开关切换、刷新、重启、编辑正文、状态变化或上级手排时重排已有任务。半年、3个月、月、周、日及其未来周期适用；Later、年和过去周期不自动放置。
 - 当前／未来列菜单的「按上级整理」将该周期的当前列一次性按上级排序；不整理其他列、其他周期或自动关闭放置开关。保留父子结构、关系、正文及生命周期，可一次撤销。Later、年和过去周期不显示此动作。
@@ -32,6 +33,7 @@
 
 - Enabling/disabling placement or reloading reorders existing tasks; cross-group pointer/keyboard drops snap back or change goal links.
 - Creating/linking moves unrelated tasks, a secondary parent resets manual position, explicit insertion loses to automatic placement, or a plan reorders old tasks.
+- A bottom/blank-space entry silently submits an explicit tail position and suppresses placement for ready or late Jev parents; changing the setting after Enter changes a pending item's captured policy; placement separates creation undo/restore or steals the next draft's focus.
 - Relation and position changes commit/undo separately; retries duplicate moves; a failed write leaves half-applied positions/relations; undo overwrites later text edits.
 - JSON/SQLite import rejects a valid combined relation/placement receipt, accepts a foreign task or cross-period placement effect, or permits partial undo of the combined operation.
 - One-shot sorting touches another column/period, accepts a closed/stale period, splits nested tasks, changes lifecycle/relations or leaves the setting disabled.

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Native Electron page, production IPC, isolated ordering fixture and evidence directory.
- * [OUTPUT]: Free pointer/keyboard sorting, event placement, scoped sort/undo/recovery, usable nesting and five-locale evidence.
+ * [OUTPUT]: Free pointer/keyboard sorting, shared header/tail placement, scoped sort/undo/recovery, usable nesting and five-locale evidence.
  * [POS]: Native acceptance for automatic placement; all tasks are synthetic.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -67,11 +67,12 @@ export async function autoPlacement({ page, application, ids, report, evidence }
   assert.deepEqual(await saved(), manual, 'Creating a task preserves every older task relative position')
   await shot('new-task-placed'); await page.keyboard.press('ControlOrMeta+z'); await order(manual)
   await column.locator('[data-column-add]').click()
-  await entry.locator('textarea').fill('Explicit tail task'); await entry.locator('textarea').press('Enter')
-  await page.waitForFunction(() => [...document.querySelectorAll('[data-horizon="month"] .task-title')].some(node => node.textContent === 'Explicit tail task'))
+  await entry.locator('textarea').fill('Bottom B task'); await entry.locator('textarea').press('Enter')
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-horizon="month"] .task-title')].some(node => node.textContent === 'Bottom B task'))
   await entry.locator('textarea').press('Escape'); await settled()
-  assert.equal((await snapshot()).items.filter(item => item.placement.horizon === 'month').at(-1).title, 'Explicit tail task', 'The explicit tail entry takes priority over placement beside its selected parent')
-  await shot('explicit-tail-placement'); await page.keyboard.press('ControlOrMeta+z'); await order(manual)
+  const bottom = (await snapshot()).items.find(item => item.title === 'Bottom B task')
+  assert.deepEqual((await snapshot()).items.filter(item => item.placement.horizon === 'month').map(item => item.id), [ids.B1, bottom.id, ids.A1, ids.A2, ids.loose], 'The bottom entry uses the same parent placement policy as the column header')
+  await shot('bottom-task-placed'); await page.keyboard.press('ControlOrMeta+z'); await order(manual)
   await row(ids.loose).locator('.flow-dot-button').focus(); await row(ids.loose).locator('.flow-dot-button').press('Enter')
   await page.getByRole('menuitem', { name: '关联到上级', exact: true }).click()
   const picker = page.locator('.relation-picker')

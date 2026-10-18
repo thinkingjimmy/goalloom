@@ -98,7 +98,8 @@ Electron scenarios (this directory)
     ├── nesting-drops.mjs # Native child hit zones, whole-group geometry, first/middle/last insertion, receipt recovery, future/Later groups and unmounted-root clipping
     ├── edge-sorting.mjs # Native before/after insertion previews, 12 manual/automatic adjacent-row drops, cancellation and undo
     ├── drag-titles.mjs # Retained pointer/keyboard wrapping of raw URLs and 500-character titles, with no-write cancellation
-    ├── auto-placement.mjs # Native create/link placement, explicit tail, free pointer/keyboard sorting, one-shot arrange/undo/recovery, usable nesting and five locales
+    ├── auto-placement.mjs # Native header/tail create and link placement, free pointer/keyboard sorting, one-shot arrange/undo/recovery, usable nesting and five locales
+    ├── capture-placement.mjs # Bottom-entry ready/late Jev placement, captured on/off policy, preserved older rows/drafts and one-step creation undo/restore
     ├── calendar-seed.ts # Legacy holds/history/undo/plan fidelity, read-only startup refusal, manual policy defaults, v7 round trips and pre-anchor review guards
     ├── rollover-policies.ts # Six-policy defaults, rolling/natural month-end/leap boundaries, eligibility, stale writes, undo holds and JSON/SQLite round trips
     ├── calendar-history.ts # Recorded year/half/cycle counts, earlier periods and reversed half/cycle parent groups for native restart acceptance
@@ -215,6 +216,8 @@ Note-rewrite acceptance: `pnpm test:assistance` covers the choice-first single-p
 `pnpm test:sync-replay` also verifies causal automatic completion and `item.undoCreate` across two encrypted peers. Remote edits and edit-back reject stale completion atomically; unrelated later text is preserved by creation undo and scoped restore. Evidence: `output/tests/sync-replay/report.json`.
 
 `pnpm eval:capture` runs only Jev 1.14 against frozen synthetic development/holdout bilingual cases plus 18 fictional development-scope regressions, with URLs treated as unknown text sources. It reports complete parent-set accuracy, false/missed edges, errors, request counts and complete-case P50/P95. Details and the zero-network `--prepare` option are in [the evaluation README](../scripts/eval/capture/README.md). Live quality and transport timing are separate from synthetic desktop acceptance.
+
+`node tests/auto-link.mjs --placement` selects `fixtures/capture-placement.mjs` with evidence in `output/tests/auto-link/placement/`; the full Composer run includes it. It covers bottom entry with ready/late suggestions, submission-time on/off preference across later toggles, unchanged older placements, continued input/focus and one-step undo/restore. `test:ordering` also checks the same bottom entry with a manually selected goal. Actual explicit insertion remains covered at the Repository boundary.
 
 `pnpm test:sync-scheduling` runs the frozen pre-change baseline, production SyncService/SDK/storage fault scenarios, burst/bulk batches, quota recovery and a real native window with five-language waiting feedback. The cloud, OS cipher and monotonic clock are controlled boundaries. Reports, source hashes, request/body-byte totals and screenshots are under `output/tests/sync-cost/`. The runner needs baseline Git object `7b2f91148673637fa32b1dd68faf25f6a80a6084`. It does not deploy SQL, query billing, test real sleep, or replace hosted quota/Cron acceptance.
 

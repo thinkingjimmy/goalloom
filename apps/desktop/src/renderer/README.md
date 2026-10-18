@@ -67,7 +67,7 @@ renderer/
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
-│   │   ├── Board.tsx        # Unified periods, completion layout, QuickAdd/review guides, independent gestures, group previews, unobscured pointer insertion and virtual focus pinning
+│   │   ├── Board.tsx        # Unified periods/completion layout, shared header/tail/blank capture placement, review guides, group gestures and virtual focus pinning
 │   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
 │   │   ├── ColumnOrderMenu.tsx # One-shot arrangement immediately left of Add; shared column-hover/keyboard/menu reveal; focus returns after guarded writes re-enable the trigger
@@ -89,7 +89,7 @@ renderer/
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with leaf/group nesting, yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # Role-aware flow menus with a single parent-panel heading, intrinsic choice width, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
-│   │   ├── QuickAdd.tsx     # Continuous capture, caret-preserving Tab/Shift+Tab nesting and inherited colors, revision-bound AI matching/retry and period-scoped text/flow/container drafts
+│   │   ├── QuickAdd.tsx     # Continuous capture without implicit tail pinning, Tab nesting/inherited colors, revision-bound AI matching and period-scoped drafts
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
 │   │   ├── period-labels.ts # Mode-aware adjacent/distant headings, natural Q/year lists and year-disambiguated anchored ranges
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排

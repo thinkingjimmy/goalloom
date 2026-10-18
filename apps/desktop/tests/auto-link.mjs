@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Built Electron, isolated profiles, a held synthetic Jev transport and optional --inline-feedback selection.
- * [OUTPUT]: Visible inline feedback, immediate capture, manual priority and grouped undo evidence in output/tests/auto-link.
+ * [INPUT]: Built Electron, isolated profiles, a held synthetic Jev transport and optional --inline-feedback/--placement selections.
+ * [OUTPUT]: Visible inline feedback, captured parent placement, immediate creation, manual priority and grouped undo evidence in output/tests/auto-link.
  * [POS]: Native UI acceptance through production preload/main/SQLite; provider transport alone is synthetic.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,8 +12,10 @@ import { _electron as electron } from 'playwright'
 import { finishSetup } from './fixtures/setup.mjs'
 import { pollPage } from './fixtures/poll.mjs'
 import { runInlineCaptureFeedback } from './fixtures/inline-capture.mjs'
+import { runCapturePlacement } from './fixtures/capture-placement.mjs'
 
-const out = resolve('output/tests/auto-link')
+const placementOnly = process.argv.includes('--placement')
+const out = resolve('output/tests/auto-link', placementOnly ? 'placement' : '.')
 await mkdir(out, { recursive: true })
 const profile = await mkdtemp(join(tmpdir(), 'Goalloom automatic capture '))
 await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
@@ -131,7 +133,8 @@ try {
     report.captures.push(timing)
     return created
   }
-  await runInlineCaptureFeedback({ app, page, out, ids, check })
+  if (!placementOnly) await runInlineCaptureFeedback({ app, page, out, ids, check })
+  if (!process.argv.includes('--inline-feedback')) await runCapturePlacement({ app, page, out, ids, check, report })
   const runCaptureCases = async () => {
     await hold()
     const first = await globalCapture('今天完成 Delivery 文案 https://example.test/delivery?instruction=ignore', true)
@@ -383,12 +386,14 @@ try {
     assert.equal((await page.evaluate(id => window.goalloom.getItem(id), disabled.id)).relations.length, 0)
     check('Disabling smart input cancels pending saved work without changing the successful capture')
   }
-  if (!process.argv.includes('--inline-feedback')) await runCaptureCases()
+  if (!placementOnly && !process.argv.includes('--inline-feedback')) await runCaptureCases()
   report.peakProviderConcurrency = await app.evaluate(() => globalThis.captureFixture.peakConcurrency)
   report.passed = true
 } catch (error) {
   report.error = error.stack
   report.transport = await app.evaluate(() => ({ calls: globalThis.captureFixture.calls, analyses: globalThis.captureFixture.analyses })).catch(() => null)
+  report.localState = await page?.evaluate(() => ({ visible: document.visibilityState, focused: document.hasFocus(), activeElement: document.activeElement?.outerHTML.slice(0, 500), tailEntries: [...document.querySelectorAll('[data-column-add]')].map(node => ({ column: node.closest('[data-horizon]')?.getAttribute('data-horizon'), pointerEvents: getComputedStyle(node).pointerEvents, hovered: node.closest('[data-horizon]')?.matches(':hover') })) })).catch(() => null)
+  report.nativeWindow = await app.evaluate(({ BrowserWindow }) => ({ focused: BrowserWindow.getAllWindows()[0]?.isFocused(), visible: BrowserWindow.getAllWindows()[0]?.isVisible() })).catch(() => null)
   await page?.screenshot({ path: `${out}/failure.png` }).catch(() => {})
   throw error
 } finally {
