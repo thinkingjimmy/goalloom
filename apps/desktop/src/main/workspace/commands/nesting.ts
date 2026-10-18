@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Generation/version-guarded nest/unnest commands and current explicit goals/placements.
- * [OUTPUT]: Atomic two-level membership, placement, incoming-edge/color effects and inherited-edge provenance.
+ * [INPUT]: Generation/version-guarded nest/unnest commands, optional sibling insertion and current explicit goals/placements.
+ * [OUTPUT]: Atomic two-level membership, ordered placement, incoming-edge/color effects and inherited-edge provenance.
  * [POS]: Authoritative outline writes shared by dragging, lifecycle and ordinary moves.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,7 +11,7 @@ import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import type { Item, Relation } from '../../../shared/contracts/entities'
 import type { EdgeDelta, NestingPosition } from '../../../shared/contracts/effects'
 import { nestingText } from '../../../shared/i18n/nesting'
-import { assertAvailable, touch, type Context } from '../context'
+import { assertAvailable, nextSortKey, touch, type Context } from '../context'
 
 export function assertOutline(context: Context): void {
   const links = context.store.nestingLinks()
@@ -32,7 +32,7 @@ export function assertOutline(context: Context): void {
 export function nestingPosition(context: Context, item: Item): NestingPosition {
   return { ...context.store.position(item), nestingParentId: item.placement.nestingParentId ?? null }
 }
-export function changeNesting(context: Context, item: Item, parent: Item | null): boolean {
+export function changeNesting(context: Context, item: Item, parent: Item | null, beforeId: string | null = null): boolean {
   const oldParent = item.placement.nestingParentId ?? null
   if (oldParent === (parent?.id ?? null)) return false
   if (parent && (parent.id === item.id || parent.placement.nestingParentId || context.store.hasNestedChildren(item.id))) throw new DomainError('conflict', nestingText().levels)
@@ -45,6 +45,8 @@ export function changeNesting(context: Context, item: Item, parent: Item | null)
     catch { throw new DomainError('conflict', nestingText().cycle) }
   }
   const beforeItem = structuredClone(item), before = nestingPosition(context, item)
+  const sortKey = nextSortKey(context, parent?.placement.horizon ?? item.placement.horizon,
+    parent ? parent.placement.periodId : item.placement.periodId, beforeId, item.id, parent?.id ?? null)
   const incoming = context.store.relations().filter(edge => edge.childId === item.id)
   const inherited = !parent && oldParent ? context.store.relations().filter(edge => edge.childId === oldParent) : []
   const edges: EdgeDelta[] = incoming.map(edge => ({ before: edge, after: { ...edge, invalidatedAt: context.now, invalidatedBy: context.command.operationId, reason: 'unlink' } }))
@@ -54,8 +56,7 @@ export function changeNesting(context: Context, item: Item, parent: Item | null)
   const p = item.placement, version = p.version
   p.nestingParentId = parent?.id ?? null
   if (parent) { p.horizon = parent.placement.horizon; p.periodId = parent.placement.periodId }
-  const last = context.store.insertion(p.horizon, p.periodId, null, item.id, p.nestingParentId).previous
-  p.sortKey = (last?.sortKey ?? 0) + 1024; p.version++; if (parent) p.holdPeriodId = null
+  p.sortKey = sortKey; p.version++; if (parent) p.holdPeriodId = null
   context.store.savePlacement(p, version)
   for (const source of inherited) {
     const edge: Relation = { id: randomUUID(), parentId: source.parentId, childId: item.id, createdAt: context.now, invalidatedAt: null, invalidatedBy: null, reason: null }
@@ -74,7 +75,7 @@ export function nestItem(context: Context, command: CommandOf<'nest'>): boolean 
   if (item.placement.version !== command.expectedPlacementVersion || parent.placement.version !== command.expectedParentPlacementVersion) throw new DomainError('stale', nestingText().changed)
   for (const endpoint of [item, parent]) if (endpoint.placement.periodId && compareInstants(context.store.period(endpoint.placement.periodId).endAt, context.now) <= 0) throw new DomainError('stale_preview', nestingText().expired)
   if (item.archivedAt || item.status === 'cancelled' || parent.archivedAt || parent.status === 'cancelled') throw new DomainError('conflict', nestingText().changed)
-  return changeNesting(context, item, parent)
+  return changeNesting(context, item, parent, command.beforeId ?? null)
 }
 export function unnestItem(context: Context, command: CommandOf<'unnest'>): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion); assertAvailable(item)
