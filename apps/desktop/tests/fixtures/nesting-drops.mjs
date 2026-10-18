@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Native Electron page, production IPC and isolated subtask evidence.
- * [OUTPUT]: Whole-group geometry, ordered group flattening, unobscured insertion lines, guarded receipts and clipped virtual-list evidence.
+ * [OUTPUT]: Whole-group geometry, ordered group flattening, checkbox-aligned insertion lines, guarded receipts and clipped virtual-list evidence.
  * [POS]: Subtask drag journey; all tasks and injected transport failures are synthetic.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -66,7 +66,28 @@ export async function nestingDrops({ page, application, report, evidence }) {
     const path = join(evidence, `group-${name}.png`)
     await page.screenshot({ path }); report.screenshots.push(path)
   }
+  const insertionLine = async (id, side) => {
+    const geometry = await row(id).evaluate((node, side) => {
+      const bounds = node.getBoundingClientRect(), rowStyle = getComputedStyle(node)
+      const line = getComputedStyle(node, side === 'before' ? '::before' : '::after')
+      return { horizon: node.closest('[data-horizon]').dataset.horizon, side, nested: node.dataset.sortNested,
+        row: bounds.toJSON(), checkbox: node.querySelector('.check').getBoundingClientRect().toJSON(), inset: line.left,
+        line: { x: bounds.left + parseFloat(rowStyle.borderLeftWidth) + parseFloat(line.left),
+          y: side === 'before' ? bounds.top + parseFloat(rowStyle.borderTopWidth) + parseFloat(line.top)
+            : bounds.bottom - parseFloat(rowStyle.borderBottomWidth) - parseFloat(line.bottom) - parseFloat(line.height) } }
+    }, side)
+    report.insertionLines.push(geometry)
+    return geometry
+  }
+  const childInsertion = async (id, side) => {
+    await row(id).locator(`:scope[data-sort-position="${side}"][data-sort-nested="true"]`).waitFor()
+    const geometry = await insertionLine(id, side)
+    await shot(`${geometry.horizon}-${report.insertionLines.length}-insertion-preview`)
+    assert(Math.abs(geometry.line.x - geometry.checkbox.x) < 1, 'A child insertion line starts at the child checkbox, including the column flow gutter')
+    return geometry
+  }
   report.groupDrops = []
+  report.insertionLines = []
   const parent = await create('Container A'), first = await create('Child A1'), second = await create('Child A2')
   const source = await create('Independent B', 'day'), other = await create('Container C'), cousin = await create('Child C1')
   await nest(first, parent); await nest(second, parent); await nest(cousin, other)
@@ -97,12 +118,9 @@ export async function nestingDrops({ page, application, report, evidence }) {
   ]
   for (const test of cases) {
     await begin(source, test.target, test.position)
-    await row(test.marker).locator(`:scope[data-sort-position="${test.side}"][data-sort-nested="true"]`).waitFor()
+    const geometry = await childInsertion(test.marker, test.side)
     assert.equal(await page.locator('.nesting-drop-preview, [data-nesting-target]').count(), 0)
-    const inset = await row(test.marker).evaluate((node, side) => getComputedStyle(node, side === 'before' ? '::before' : '::after').left, test.side)
-    assert.equal(inset, '24px')
-    const markerBounds = await row(test.marker).boundingBox(), overlay = await page.locator('.drag-overlay').boundingBox()
-    const lineY = test.side === 'before' ? markerBounds.y : markerBounds.y + markerBounds.height
+    const inset = geometry.inset, lineY = geometry.line.y, overlay = await page.locator('.drag-overlay').boundingBox()
     assert(overlay.y > lineY + 1 || overlay.y + overlay.height < lineY - 1, 'The pointer overlay must not cover the insertion line')
     if (test.name === 'middle-from-above') await shot('insertion-preview')
     await page.mouse.up(); await order(parent, test.expected); await clean()
@@ -123,6 +141,8 @@ export async function nestingDrops({ page, application, report, evidence }) {
   await undo(); await order(parent, [first, second]); await order(other, [cousin])
   await begin(source, parent, 'after')
   await row(other).locator(':scope[data-sort-position="before"][data-sort-nested="false"]').waitFor()
+  const rootLine = await insertionLine(other, 'before')
+  assert.equal(rootLine.line.x, rootLine.row.x, 'Root insertion keeps the full row width')
   assert(Math.abs((await row(other).boundingBox()).y - ((await row(second).boundingBox()).y + (await row(second).boundingBox()).height)) < 1)
   await page.mouse.up(); await settled()
   assert.equal((await item(source)).placement.nestingParentId ?? null, null)
@@ -218,7 +238,8 @@ export async function nestingDrops({ page, application, report, evidence }) {
   })
   const futureParent = await create('Future group', 'week', { period: { kind: 'date', startDate } })
   const futureChild = await create('Future child', 'day'); await nest(futureChild, futureParent)
-  await row(futureChild).waitFor(); await begin(source, futureChild, 'before'); await page.mouse.up()
+  await row(futureChild).waitFor(); await begin(source, futureChild, 'before')
+  await childInsertion(futureChild, 'before'); await page.mouse.up()
   await pollPage(page, async ({ source, futureParent }) => {
     const item = (await window.goalloom.getItem(source)).item
     return item.placement.nestingParentId === futureParent
@@ -252,6 +273,22 @@ export async function nestingDrops({ page, application, report, evidence }) {
   await page.mouse.up(); await settled(); await clean()
   assert.equal((await item(source)).placement.nestingParentId, laterParent)
   await undo(); assert.equal((await item(source)).placement.nestingParentId ?? null, null)
+  for (const { index, side, slot } of [{ index: 42, side: 'before', slot: 42 }, { index: 74, side: 'after', slot: 75 }]) {
+    await scroll.evaluate((node, index) => { node.scrollTop = index === 74 ? node.scrollHeight : 32 * index }, index)
+    await row(children[index]).waitFor()
+    await begin(source, children[index], side)
+    await childInsertion(children[index], side)
+    assert.equal(await row(laterParent).count(), 0)
+    await page.mouse.up(); await settled(); await clean()
+    const expected = [...children]
+    expected.splice(slot, 0, source)
+    await pollPage(page, async ({ parentId, expected }) => {
+      const snapshot = await window.goalloom.getSnapshot()
+      return JSON.stringify(snapshot.items.filter(item => item.placement.nestingParentId === parentId).map(item => item.id)) === JSON.stringify(expected)
+    }, { parentId: laterParent, expected })
+    report.groupDrops.push({ kind: `later-${side}`, expected })
+    await undo()
+  }
   await scroll.evaluate(node => { node.scrollTop = 0 })
   await row(laterParent).waitFor()
   await begin(source, children[0]); await page.locator('.nesting-drop-preview').waitFor()
@@ -262,5 +299,5 @@ export async function nestingDrops({ page, application, report, evidence }) {
     await execute({ type: 'delete', itemId: id, expectedVersion: value.version })
   }
   await settled(); await scroll.evaluate(node => { node.scrollTop = 0 })
-  report.checks.push('Child middles outline the whole group; indented first/middle/last insertion, cross-group/column/future/Later placement, same-group no-ops, cancellation, guarded receipts, persistence and unmounted-root clipping')
+  report.checks.push('Child middles outline the whole group; checkbox-aligned first/middle/last insertion in current/future/Later columns, full-width root insertion, cross-group placement, same-group no-ops, cancellation, guarded receipts, persistence and unmounted-root clipping')
 }

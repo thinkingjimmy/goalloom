@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Existing theme/row tokens, virtual group offsets and outline drag/membership attributes.
- * [OUTPUT]: Stable row/draft indentation, whole-group nesting borders, level-aware insertion lines, accessible arrangement actions and bounded choices.
+ * [OUTPUT]: Stable row/draft indentation, whole-group nesting borders, checkbox-aligned child insertion lines, accessible arrangement actions and bounded choices.
  * [POS]: Board-only nesting styles; row backgrounds and relation exits keep their original bounds.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -35,7 +35,7 @@
   bottom: -1px;
 }
 .task-row[data-sort-nested='true'][data-sort-position='before']::before,
-.task-row[data-sort-nested='true'][data-sort-position='after']::after { left: 24px; }
+.task-row[data-sort-nested='true'][data-sort-position='after']::after { left: calc(var(--flow-gutter) + 24px); }
 .column-order-menu .menu-item { min-height: 44px; }
 .nesting-picker { max-width: 480px; padding-bottom: 12px; }
 .nesting-choices { max-height: min(60vh, 480px); overflow-y: auto; padding: 6px 12px; }
