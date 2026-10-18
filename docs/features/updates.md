@@ -27,7 +27,7 @@
 
 ### 1.9.6 update: task-level sync difference review
 
-Prepared for release on 2026-10-18. [The release notes](../releases/v1.9.6.md) cover the selection-only task comparison, durable confirmations, and explicit recovery of rejected offline creations. All computers sharing a sync workspace must upgrade together because the encrypted operation format now includes causal metadata. Workspace format remains v11. Release gates are pending.
+Released on 2026-10-18. [The release notes](../releases/v1.9.6.md) cover the selection-only task comparison, durable confirmations, and explicit recovery of rejected offline creations. All computers sharing a sync workspace must upgrade together because the encrypted operation format now includes causal metadata. Workspace format remains v11. Full local release coverage completed, including 100,000-task acceptance and two isolated replays after recorded native interruptions; performance and scaling passed. [The hosted release workflow](https://github.com/thinkingjimmy/goalloom/actions/runs/39085119940) passed both platform packages, signed macOS credential restart/replacement checks, notarization and packaged smokes. All eight public download files and both update manifests passed checksum verification. Windows 11 physical-machine acceptance remains separate.
 
 ### 1.9.5 update: persistent sync sessions
 
@@ -103,6 +103,8 @@ Released on 2026-10-17. [The release notes](../releases/v1.9.5.md) cover automat
 - TypeSafe 原生渠道已下线；Jev 与洞察继续通过 OpenRouter 或 Vercel AI Gateway 使用。
 
 ### 软件更新功能
+
+- [x] 1.9.6 is public with task-level sync difference review, durable confirmations, both installers, complete auto-update assets and verified checksums.
 
 - [x] 1.9.5 is public with both installers, complete auto-update assets and SHA256SUMS. Signed macOS restart/replacement checks and Case 1 / relogin / deletion regression coverage passed.
 - [x] 1.9.4 正式发布，本机发布验证覆盖已补齐，两平台打包、macOS 签名与公证和 8 个发布文件核验通过。官网五语言下载已更新并完成线上核对，见 [官网规格](website.md)。
