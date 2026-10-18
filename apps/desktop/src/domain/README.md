@@ -28,7 +28,7 @@ domain/
     ├── dates.ts        # 工作区 weekStart 的星期、绝对/月底日期与完整/省略终点的范围歧义
     ├── calendar-phrases.ts # Pure Chinese execution-period phrases resolved against mode, anchor and injected today
     ├── questions.ts    # 原文直接作 state 的题单，Q=1+3S+D+3+R≤64，payload/token 预算与补充轮
-    ├── matching.ts     # Jev 1.14 minimal per-task state, structured per-goal Noul, independent budgeted batches, explicit choices and 0.60 ancestor-reduced parent sets
+    ├── matching.ts     # Jev 1.14 partial-progress/development scope, explicit legacy boundaries, structured per-goal Noul, budgeted batches and 0.60 ancestor-reduced parent sets
     ├── budget.ts       # 不依赖日期规划的 payload/token/题数上限与估算，题单和 provider 共用
     ├── distribution.ts # 统一 Choice/boolean 契约校验、K×d 总和容差、top/margin/集中度与确定性
     ├── preview.ts      # 答案组装为可编辑预览：角色归并（说明取原文原句）、执行/截止、多父建议去环、`关联「X」` 直接确认、警示

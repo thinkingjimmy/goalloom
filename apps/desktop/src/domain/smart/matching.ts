@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current candidate DAG, original/segmented text, fixed periods and provider-neutral answers.
- * [OUTPUT]: Budgeted independent batches, 0.60 precision-guarded parent sets and a single-item capture projection.
+ * [OUTPUT]: Budgeted independent batches, broad-development scope, 0.60 precision-guarded parent sets and a single-item capture projection.
  * [POS]: Shared Jev 1.14 matcher for global and inline capture; no retrieval model, URL fetching or second judgement round.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -21,6 +21,11 @@ const criteria = {
   true: '任务动作确实推进候选目标所描述的成果，或推进它的某项已有下级工作。',
   false: '仅话题、项目或对象相同；任务做的是不同工作；只是引用已有成果作为别项工作的输入；属于别人或其他项目；信息不足。',
 }
+const scopeExamples = [
+  { goal: '完成某软件新版的整体开发', task: '改进该软件的一项交互或实现一个功能，未重复版本号', supports: true, reason: '具体开发工作推进整体开发目标中的一部分，不必独立完成整个目标。' },
+  { goal: '完成某软件的登录功能', task: '改进同一软件独立的报表功能', supports: false, reason: '目标限定登录成果，不能因同产品就推测报表改动推进登录。' },
+  { goal: '维护某软件的旧版', task: '开发该软件新功能，没有指向旧版本', supports: false, reason: '旧版维护需要明确的旧版范围，不能从产品名推测。' },
+]
 export function taskContext(text: string): { [key: string]: Json } {
   const matches = [...text.matchAll(/https?:\/\/[^\s<>「」“”]+/g)].map(match => match[0].replace(/[，。；、）)]+$/, ''))
   let prose = text
@@ -59,6 +64,7 @@ export function matchingPlan(context: SmartContext, request: AnalyzeRequest): Ma
     questions[key] = { type: 'boolean', instructions: {
       question: actionQuestion,
       candidate: { id: candidate.itemId, title: candidate.title, horizon: candidate.horizon },
+      scopeExamples,
       ...(parent.length <= 1 ? { parent: parent[0] ? { id: parent[0].itemId, title: parent[0].title } : null } : { parents: parent.map(row => ({ id: row.itemId, title: row.title })) }),
       existingChildren: children.slice(0, 32).map(row => ({ id: row.itemId, title: row.title })),
       ...(children.length > 32 ? { omittedChildren: children.length - 32 } : {}),
