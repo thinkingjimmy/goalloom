@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Generation/version-guarded nest/unnest commands and current explicit goals/placements.
+ * [INPUT]: Generation/version-guarded nest/unnest commands, optional sibling insertion and current explicit goals/placements.
  * [OUTPUT]: Atomic flattened group membership, ordered placement, incoming-edge/color effects and inherited-edge provenance.
  * [POS]: Authoritative outline writes shared by dragging, lifecycle and ordinary moves.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -46,6 +46,8 @@ export function changeNesting(context: Context, item: Item, parent: Item | null,
     catch { throw new DomainError('conflict', nestingText().cycle) }
   }
   const beforeItem = structuredClone(item), before = nestingPosition(context, item)
+  const sortKey = nextSortKey(context, parent?.placement.horizon ?? item.placement.horizon,
+    parent ? parent.placement.periodId : item.placement.periodId, beforeId, item.id, parent?.id ?? null)
   const incoming = context.store.relations().filter(edge => edge.childId === item.id)
   const inherited = !parent && oldParent ? context.store.relations().filter(edge => edge.childId === oldParent) : []
   const edges: EdgeDelta[] = incoming.map(edge => ({ before: edge, after: { ...edge, invalidatedAt: context.now, invalidatedBy: context.command.operationId, reason: 'unlink' } }))
@@ -55,7 +57,7 @@ export function changeNesting(context: Context, item: Item, parent: Item | null,
   const p = item.placement, version = p.version
   p.nestingParentId = parent?.id ?? null
   if (parent) { p.horizon = parent.placement.horizon; p.periodId = parent.placement.periodId }
-  p.sortKey = nextSortKey(context, p.horizon, p.periodId, beforeId, item.id, p.nestingParentId); p.version++; if (parent) p.holdPeriodId = null
+  p.sortKey = sortKey; p.version++; if (parent) p.holdPeriodId = null
   context.store.savePlacement(p, version)
   for (const source of inherited) {
     const edge: Relation = { id: randomUUID(), parentId: source.parentId, childId: item.id, createdAt: context.now, invalidatedAt: null, invalidatedBy: null, reason: null }
@@ -77,8 +79,8 @@ export function nestItem(context: Context, command: CommandOf<'nest'>): boolean 
   if (!nestingTargets(item.id, context.store.relations(), context.store.nestingLinks())(parent.id)) throw new DomainError('conflict', nestingText().cycle)
   // Reparent children first so neither SQLite nor sync replay sees a third level.
   const children = context.store.nestedItems(item.id)
-  for (const child of children) changeNesting(context, child, parent)
-  return changeNesting(context, item, parent, children[0]?.id ?? null)
+  for (const child of children) changeNesting(context, child, parent, command.beforeId ?? null)
+  return changeNesting(context, item, parent, children[0]?.id ?? command.beforeId ?? null)
 }
 export function unnestItem(context: Context, command: CommandOf<'unnest'>): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion); assertAvailable(item)

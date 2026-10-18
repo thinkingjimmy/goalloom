@@ -257,6 +257,11 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 .quick-add-title:focus-visible { outline: none; }
 .quick-add-hint, .quick-add-expired { grid-column: 2; margin-top: 2px; }
 .quick-add-hint { min-width: 0; font-size: 12px; line-height: 18px; color: var(--secondary); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quick-add-smart { grid-column: 2; display: flex; align-items: flex-start; gap: 5px; min-width: 0; margin-top: 3px; color: var(--secondary); font-size: 12px; line-height: 18px; }
+.quick-add-smart > svg { flex: none; margin-top: 3px; color: var(--focus); }
+.quick-add-smart > span { min-width: 0; overflow-wrap: anywhere; }
+.quick-add-smart > button { flex: none; }
+.quick-add-smart[data-phase='failed'] { color: var(--danger); }
 
 /* --- Popover & menus --- */
 .popover-root { position: relative; display: inline-flex; }

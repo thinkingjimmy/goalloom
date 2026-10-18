@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Frozen bilingual synthetic fixtures, production planner/adapter and ignored root API key.
- * [OUTPUT]: Exact-set accuracy and full-case timing/model evidence without secrets or user workspace access.
+ * [OUTPUT]: Per-split exact-set accuracy, candidate judgements and full-case timing/model evidence without user workspace access.
  * [POS]: Live matching acceptance; labels and threshold are never tuned on the holdout.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,6 +22,8 @@ const env = await readFile(resolve(root, '.env.local'), 'utf8')
 const key = env.split(/\r?\n/).find(line => line.startsWith('OPENROUTER_API_KEY='))?.slice('OPENROUTER_API_KEY='.length).trim().replace(/^["']|["']$/g, '')
 if (!key) throw Error('OPENROUTER_API_KEY missing')
 const limit = Number(process.argv.find(arg => arg.startsWith('--limit='))?.split('=')[1] ?? Infinity)
+const selectedSplit = ['regressions', 'development', 'holdout'].find(split => process.argv.includes(`--${split}`))
+const splits = selectedSplit === 'development' ? ['development', 'regressions'] : selectedSplit ? [selectedSplit] : ['development', 'holdout', 'regressions']
 const report: any = { status: 'running', model: 'typesafe/jev-1.14', gate: 0.60, datasetHashes: {}, sourceHashes: {},
   runtime: { electron: process.versions.electron, node: process.versions.node, os: release(), arch: process.arch, cpu: cpus()[0]?.model, machineScope: 'Physical/VM status not independently verified' }, rows: [], requests: [] }
 const adapter = systemOneAdapter('openrouter')
@@ -35,7 +37,7 @@ function metrics(rows: any[]) {
     requests: rows.reduce((n, row) => n + row.requests, 0) }
 }
 async function save() {
-  report.summary = Object.fromEntries(['development', 'holdout'].map(split => [split, metrics(report.rows.filter(row => row.split === split))]))
+  report.summary = Object.fromEntries(splits.map(split => [split, metrics(report.rows.filter(row => row.split === split))]))
   report.languages = Object.fromEntries(['zh', 'en'].map(language => [language, metrics(report.rows.filter(row => row.language === language))]))
   report.urls = metrics(report.rows.filter(row => row.url))
   await writeFile(`${directory}/report.json`, JSON.stringify(report, null, 2))
@@ -48,7 +50,7 @@ async function save() {
   await writeFile(`${directory}/report.md`, lines.join('\n'))
 }
 try {
-  for (const split of ['development', 'holdout']) {
+  for (const split of splits) {
     const source = await readFile(`scripts/eval/capture/${split}.json`, 'utf8'), data = JSON.parse(source)
     report.datasetHashes[split] = createHash('sha256').update(source).digest('hex')
     const calendar = data.calendar, referenceTime = data.referenceTime, referenceDate = workspaceDate(calendar.timezone, referenceTime)
@@ -83,6 +85,8 @@ try {
             }
           }))
           const round: Round = { answers: Object.assign({}, ...rounds.map(value => value.answers)), precision: rounds[0]?.precision ?? { decimals: null, source: null } }
+          row.judgements = plan.matches.map(match => ({ candidate: match.candidate.itemId, answer: round.answers[match.key] }))
+          row.precision = round.precision
           row.actual = matchedPreview(context, request, plan, round).capture!.parents.map(parent => parent.itemId).sort()
         }
         row.exact = JSON.stringify(row.actual) === JSON.stringify(row.expected)

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Repository, Electron SQLite, current schemaVersion, transfer/upgrade boundaries and an injected clock.
- * [OUTPUT]: Repeatable two-level topology, lifecycle, group rollover, undo and recovery evidence.
+ * [OUTPUT]: Repeatable two-level topology, atomic ordered nesting, lifecycle, group rollover, undo and recovery evidence.
  * [POS]: Subtask E2E transaction fixture; failures are recorded in docs/features/subtasks.md.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -36,8 +36,8 @@ function world(path = ':memory:') {
   const goal = create('Quarter goal', 'cycle', { flowColor: 0 })
   const root = create('Parent task', 'week', { parentId: goal, expectedParentVersion: item(goal).version })
   const leaf = create('Independent source', 'month', { flowColor: 1, description: 'Saved notes', dueDate: '2026-10-31' })
-  const nest = (child = leaf, parent = root) => run({ type: 'nest', itemId: child, parentId: parent, expectedVersion: item(child).version, expectedParentVersion: item(parent).version,
-    expectedPlacementVersion: item(child).placement.version, expectedParentPlacementVersion: item(parent).placement.version })
+  const nest = (child = leaf, parent = root, extra = {}) => run({ type: 'nest', itemId: child, parentId: parent, expectedVersion: item(child).version, expectedParentVersion: item(parent).version,
+    expectedPlacementVersion: item(child).placement.version, expectedParentPlacementVersion: item(parent).placement.version, ...extra })
   const unnest = (child = leaf) => run({ type: 'unnest', itemId: child, expectedVersion: item(child).version, expectedPlacementVersion: item(child).placement.version })
   const move = (id: string, horizon: string, extra = {}) => run({ type: 'move', itemId: id, horizon, expectedVersion: item(id).version, expectedPlacementVersion: item(id).placement.version, ...extra })
   const status = (id: string, value: string) => run({ type: 'status', itemId: id, expectedVersion: item(id).version, status: value })
@@ -46,6 +46,43 @@ function world(path = ':memory:') {
   const rejected = (action: () => unknown) => { const before = JSON.stringify(data()); assert.throws(action); assert.equal(JSON.stringify(data()), before) }
   const flows = (id: string) => { const s = repo.snapshot(); return flowIndex(combinedTopology(s.relations, s.nesting ?? []), s.flows.map(flow => flow.id))(id) }
   return { db, repo, run, item, create, goal, root, leaf, nest, unnest, move, status, undo, data, rejected, flows, now: () => now, time: (next: string) => { now = next } }
+}
+{
+  const w = world(), first = w.create('First child', 'day'), second = w.create('Second child', 'day')
+  w.nest(first); w.nest(second)
+  const order = () => w.repo.store.nestedItems(w.root).sort((a, b) => a.placement.sortKey - b.placement.sortKey).map(item => item.id)
+  for (const beforeId of [first, second, null]) {
+    const original = structuredClone(w.item(w.leaf)), count = w.data().operations.length
+    const result = w.nest(w.leaf, w.root, { beforeId })
+    const expected = [first, second]; expected.splice(beforeId ? expected.indexOf(beforeId) : expected.length, 0, w.leaf)
+    assert.deepEqual(order(), expected)
+    assert.equal(w.data().operations.length, count + 1)
+    assert.deepEqual(w.repo.store.operation(result.operationId)!.effects.map(effect => effect.kind), ['nesting'])
+    assert.equal(w.item(w.leaf).placement.horizon, 'week'); assert.deepEqual(w.flows(w.leaf), [w.goal])
+    validateImport(w.data(), w.now())
+    const restored = openDatabase(':memory:'); migrate(restored)
+    const restoredRepo = new Repository(restored, { now: w.now })
+    replaceDataset(restoredRepo.store, validateImport(w.data(), w.now()), 'restore', w.now())
+    assert.deepEqual(restoredRepo.store.nestedItems(w.root).sort((a, b) => a.placement.sortKey - b.placement.sortKey).map(item => item.id), expected)
+    restored.close()
+    assert.equal(w.undo(result.operationId).outcome, 'committed')
+    assert.deepEqual(order(), [first, second])
+    assert.equal(w.item(w.leaf).flowColor, original.flowColor)
+    assert.equal(w.item(w.leaf).placement.horizon, original.placement.horizon)
+    assert.equal(w.item(w.leaf).placement.nestingParentId ?? null, null)
+  }
+  const other = w.create('Other group', 'week'), outsider = w.create('Other child', 'day')
+  w.nest(outsider, other)
+  for (const beforeId of [w.leaf, w.root, outsider]) w.rejected(() => w.nest(w.leaf, w.root, { beforeId }))
+  const deleted = w.create('Deleted neighbor', 'day'); w.nest(deleted)
+  w.run({ type: 'delete', itemId: deleted, expectedVersion: w.item(deleted).version })
+  w.rejected(() => w.nest(w.leaf, w.root, { beforeId: deleted }))
+  const original = structuredClone(w.item(outsider)), inserted = w.nest(outsider, w.root, { beforeId: second })
+  assert.deepEqual(order(), [first, outsider, second])
+  assert.equal(w.undo(inserted.operationId).outcome, 'committed')
+  assert.equal(w.item(outsider).placement.nestingParentId, original.placement.nestingParentId)
+  validateImport(w.data(), w.now()); verifyDatabase(w.db); w.db.close()
+  checks.push('Ordered nesting inserts first/middle/last in one receipt, survives import, undoes placement/inheritance and rejects foreign/deleted/self neighbors atomically')
 }
 {
   const w = world(), original = structuredClone(w.item(w.leaf))
@@ -80,16 +117,17 @@ function world(path = ':memory:') {
   validateImport(w.data(), w.now()); verifyDatabase(w.db); w.db.close()
   checks.push('Cross-horizon nesting, complete details, existing/outgoing links, live multi-parent/color inheritance, third-level/self/mixed-cycle rejection, provenance and undo')
 }
-for (const horizon of ['month', 'later']) {
+for (const horizon of ['month', 'later']) for (const insertBefore of [false, true]) {
   const w = world(), target = w.create('A destination', horizon, horizon === 'later' ? {} : { flowColor: 2 }), existing = w.create('Existing sibling', 'day'), second = w.create('D child', 'day')
   w.nest(existing, target); w.nest(); w.nest(second)
   w.status(w.leaf, 'done'); w.run({ type: 'archive', itemId: w.leaf, expectedVersion: w.item(w.leaf).version, archived: true })
   w.status(second, 'cancelled')
   const members = [w.root, w.leaf, second], originals = members.map(id => structuredClone(w.item(id)))
   w.rejected(() => w.nest(w.root, w.leaf))
-  const grouped = w.nest(w.root, target)
+  w.rejected(() => w.nest(w.root, target, { beforeId: w.leaf }))
+  const grouped = w.nest(w.root, target, { beforeId: insertBefore ? existing : null })
   const order = () => w.repo.store.nestedItems(target).map(item => item.id)
-  assert.deepEqual(order(), [existing, ...members])
+  assert.deepEqual(order(), insertBefore ? [...members, existing] : [existing, ...members])
   for (const [index, id] of members.entries()) {
     const item = w.item(id), original = originals[index]!
     assert.equal(item.placement.nestingParentId, target)
@@ -103,7 +141,7 @@ for (const horizon of ['month', 'later']) {
   const forged = structuredClone(w.data()), forgedEffect = forged.operations.find(operation => operation.id === grouped.operationId)!.effects[0]!
   if (forgedEffect.kind === 'nesting') forgedEffect.before.nestingParentId = w.goal
   assert.throws(() => validateImport(forged, w.now()))
-  assert.equal(w.repo.execute({ type: 'nest', itemId: w.root, parentId: target, expectedVersion: originals[0]!.version,
+  assert.equal(w.repo.execute({ type: 'nest', itemId: w.root, parentId: target, beforeId: insertBefore ? existing : null, expectedVersion: originals[0]!.version,
     expectedPlacementVersion: originals[0]!.placement.version, expectedParentVersion: w.item(target).version,
     expectedParentPlacementVersion: w.item(target).placement.version, operationId: grouped.operationId, generation: w.repo.store.workspace().generation }).operationId, grouped.operationId)
   const restored = world(); replaceDataset(restored.repo.store, validateImport(w.data(), w.now()), 'restore', w.now())

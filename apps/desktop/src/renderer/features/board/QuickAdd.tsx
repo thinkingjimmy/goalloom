@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Displayed period/insertion, period-keyed drafts, shared AI state, workspace snapshot and guarded submission.
- * [OUTPUT]: Continuous inline creation with a title that grows with content/column width, normalized paste, preserved drafts and expired-period recovery;
- *           shows flow context without a keyboard prompt, offers only flows whose root is in a longer horizon, and no flow choice at all in Later.
+ * [OUTPUT]: Immediate inline creation, visible revision-bound matching/retry/consent feedback, preserved drafts and explicit manual flow priority;
+ *           grows with content/column width, offers only longer-horizon flow roots, and no flow choice in Later.
  * [POS]: Immediate board creation; CaptureInput binds draft revisions, main completes optional parents and storage owns relationship constraints.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,7 +11,7 @@ import { TextButton } from '../../components/ui/button'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ItemHorizon, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import { mayParent } from '../../../domain/relations'
-import { messages } from '../../i18n'
+import { messages, smartMessages as t } from '../../i18n'
 import { desktopApi, type Action } from '../../state/use-workspace'
 import type { Flows } from '../../state/flows'
 import { flowVars, relationColors } from '../../lib/colors'
@@ -20,10 +20,13 @@ import { Popover } from '../../components/Popover'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import type { Ai } from '../../state/ai'
 import { CaptureInput } from '../../state/capture-input'
+import type { SemanticParent } from '../../../shared/contracts/capture'
+import { Icon } from '../../components/icons'
 
 export interface SplitParent { id: string; title: string }
 type Choice = { kind: 'none' } | { kind: 'join'; id: string } | { kind: 'new'; color: number } | { kind: 'split'; parent: SplitParent }
 export interface QuickAddDraft { title: string; choice: Choice; manualFlow?: boolean; smartConsent?: number | null }
+type Matching = { key: string } & ({ kind: 'pending' } | { kind: 'ready'; parents: SemanticParent[] } | { kind: 'failed'; message: string })
 
 export function QuickAdd({ horizon, period, beforeId, periodName, expired, retarget, drafts, flows, items, split, submit, busy, close, snapshot, ai }: { horizon: ItemHorizon; period: PlanningPeriod | null; beforeId?: string | null | undefined; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void; snapshot?: Snapshot; ai?: Ai | undefined }) {
   const draftKey = period?.id ?? 'later'
@@ -34,31 +37,50 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
   const [smartConsent, setSmartConsent] = useState(() => drafts.get(draftKey)?.smartConsent !== undefined ? drafts.get(draftKey)!.smartConsent! : status?.enabled ? status.revision : null)
   const [composing, setComposing] = useState(false)
   const capture = useRef(new CaptureInput()), manualRevision = useRef(0)
+  const revision = useRef(0), saving = useRef(false), choiceRef = useRef(choice)
+  const [matching, setMatching] = useState<Matching | null>(null), [attempt, setAttempt] = useState(0)
   useLayoutEffect(() => { drafts.set(draftKey, { title, choice, manualFlow, smartConsent }) }, [drafts, draftKey, title, choice, manualFlow, smartConsent])
   const canMatch = !!snapshot && !!status?.enabled && smartConsent === status.revision && !manualFlow && horizon !== 'later' && !expired
   const request = () => capture.current.request(snapshot!, status!.revision, title, revision.current, manualRevision.current, { horizon, startDate: period?.startDate ?? null })
+  const matchingKey = JSON.stringify([capture.current.sessionId, title.trim(), revision.current, manualRevision.current, snapshot?.workspace.generation, snapshot?.workspace.revision, snapshot?.periods.map(period => period.id), status?.revision, period?.id])
+  const currentMatch = canMatch && !composing && matching?.key === matchingKey ? matching : null
+  const needsConsent = !!snapshot && !!status?.enabled && smartConsent !== status.revision && !manualFlow && horizon !== 'later' && !expired && !!title.trim()
   useEffect(() => { if (!title.trim()) setSmartConsent(status?.enabled ? status.revision : null) }, [title, status?.enabled, status?.revision])
   useEffect(() => {
     capture.current.cancel()
     if (!canMatch || composing || !title.trim()) return
-    const timer = setTimeout(() => { void desktopApi().smart({ type: 'analyze', request: request() }).catch(() => {}) }, 600)
-    return () => clearTimeout(timer)
-  }, [title, canMatch, composing, snapshot?.workspace.revision, status?.revision, period?.id])
+    let active = true
+    const timer = setTimeout(async () => {
+      const submitted = request()
+      setMatching({ key: matchingKey, kind: 'pending' })
+      try {
+        const result = await desktopApi().smart({ type: 'analyze', request: submitted })
+        if (!active || result.type !== 'analysis' || result.reply.echo.requestId !== submitted.requestId) return
+        const reply = result.reply
+        if (reply.status === 'cancelled') { setMatching(null); return }
+        if (reply.status === 'failed') {
+          setMatching({ key: matchingKey, kind: 'failed', message: reply.failure.message })
+          if (reply.failure.kind === 'rate_limited') void ai?.refresh()
+        } else setMatching({ key: matchingKey, kind: 'ready', parents: reply.preview.capture?.parents ?? [] })
+      } catch { if (active) setMatching({ key: matchingKey, kind: 'failed', message: t.analyzeFailed }) }
+    }, 600)
+    return () => { active = false; clearTimeout(timer) }
+  }, [matchingKey, canMatch, composing, attempt])
   useEffect(() => () => capture.current.cancel(), [])
   const [picking, setPicking] = useState(false)
   const input = useRef<HTMLTextAreaElement>(null), root = useRef<HTMLDivElement>(null)
-  const revision = useRef(0), saving = useRef(false), choiceRef = useRef(choice)
   choiceRef.current = choice
   // Joining links the new item under the flow root, so the root must sit in a longer horizon; Later starts no flow.
   const joinable = flows.visible.filter(flow => { const root = items.find(item => item.id === flow.id); return !!root && mayParent(root.placement.horizon, horizon) })
   const free = horizon === 'later' ? [] : relationColors.map((_, index) => index).filter(index => !flows.owner(index))
   const flowless = horizon === 'later' && !split
   const parentId = choice.kind === 'join' ? choice.id : choice.kind === 'split' ? choice.parent.id : null
-  const colors = choice.kind === 'new' ? [choice.color] : parentId ? flows.colorsOf(parentId) : []
+  const suggested = currentMatch?.kind === 'ready' ? currentMatch.parents : []
+  const colors = choice.kind === 'new' ? [choice.color] : parentId ? flows.colorsOf(parentId) : [...new Set(suggested.flatMap(parent => flows.colorsOf(parent.itemId)))]
   const ring = flowVars(colors)
   const label = choice.kind === 'new' ? messages.newFlowName(messages.colorNames[choice.color]!)
     : choice.kind === 'join' ? messages.joinHint(flows.all.find(flow => flow.id === choice.id)?.title ?? '')
-    : choice.kind === 'split' ? messages.splitHint(choice.parent.title) : messages.noFlow
+    : choice.kind === 'split' ? messages.splitHint(choice.parent.title) : suggested.length ? t.under(suggested.map(parent => parent.title)) : messages.noFlow
   const pick = (next: Choice) => { manualRevision.current++; setManualFlow(true); setChoice(next); setPicking(false); input.current?.focus() }
   const create = async () => {
     const text = title.trim()
@@ -73,6 +95,7 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
       if (!result) return
       capture.current.rotate()
       if (revision.current === submittedRevision) setTitle('')
+      else setAttempt(value => value + 1)
       // The new item now owns the colour, so following entries join that flow.
       const created = (result as { itemId: string | null }).itemId
       if (choice.kind === 'new' && created && choiceRef.current === choice) setChoice({ kind: 'join', id: created })
@@ -93,7 +116,7 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
         {joinable.length > 0 && <div className={cn(menuStyles.separator, 'menu-separator')} />}
         <p className={cn(menuStyles.heading, 'menu-heading')}>{messages.newFlow}</p>
         <div className="swatches">
-          <button role="option" aria-selected={choice.kind === 'none'} aria-label={messages.noFlow} title={messages.noFlow} className="swatch" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'none' })}><FlowMark colors={[]} dashed /></button>
+          <button role="option" aria-selected={choice.kind === 'none' && !suggested.length} aria-label={messages.noFlow} title={messages.noFlow} className="swatch" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'none' })}><FlowMark colors={[]} dashed /></button>
           {free.map(index => <button key={index} role="option" aria-selected={choice.kind === 'new' && choice.color === index} aria-label={messages.newFlowName(messages.colorNames[index]!)} title={messages.colorNames[index]!} className="swatch" onMouseDown={event => event.preventDefault()} onClick={() => pick({ kind: 'new', color: index })}><FlowMark colors={[index]} /></button>)}
         </div>
       </div>
@@ -108,5 +131,17 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
       }} />
     {expired ? <span className="quick-add-expired" role="status">{messages.expiredDraft}<TextButton type="button" disabled={busy} onClick={retarget}>{messages.useDisplayedPeriod}</TextButton></span>
       : choice.kind !== 'none' && <span className="quick-add-hint" aria-hidden="true">{label}</span>}
+    {(needsConsent || currentMatch) && <div className="quick-add-smart" role="status" aria-live="polite" aria-atomic="true" data-phase={needsConsent ? 'consent' : currentMatch?.kind}>
+      <Icon name="smart" size={12} />
+      <span>{needsConsent ? smartConsent === null ? t.inlineConsent : t.providerChanged
+        : currentMatch?.kind === 'pending' ? t.inlinePending
+        : currentMatch?.kind === 'failed' ? currentMatch.message
+        : suggested.length ? `Jev · ${t.under(suggested.map(parent => parent.title))}` : t.inlineNoMatch}</span>
+      {(needsConsent || currentMatch?.kind === 'failed') && <TextButton type="button" disabled={busy} onClick={() => {
+        if (needsConsent) setSmartConsent(status!.revision)
+        else setAttempt(value => value + 1)
+        input.current?.focus()
+      }}>{needsConsent ? t.resend : t.retry}</TextButton>}
+    </div>}
   </div>
 }

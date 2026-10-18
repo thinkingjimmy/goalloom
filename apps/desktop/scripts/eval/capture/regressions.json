@@ -1,0 +1,196 @@
+{
+  "referenceTime": "2026-10-18T06:00:00Z",
+  "calendar": {
+    "id": "regression-calendar",
+    "mode": "natural",
+    "cycleAnchor": "2026-01-01",
+    "timezone": "Asia/Singapore",
+    "weekStart": 1
+  },
+  "goals": [
+    {
+      "id": "notes",
+      "title": "完成 Nimbus Notes 3.0 开发",
+      "horizon": "week",
+      "color": 0
+    },
+    {
+      "id": "marketing",
+      "title": "Nimbus Notes 产品增长与内容推广",
+      "horizon": "month",
+      "color": 1
+    },
+    {
+      "id": "legacy",
+      "title": "维护 Nimbus Notes 1.x 旧版",
+      "horizon": "week",
+      "color": 2
+    },
+    {
+      "id": "harbor",
+      "title": "完成 Task Harbor 2.0 开发",
+      "horizon": "cycle",
+      "color": 3
+    }
+  ],
+  "cases": [
+    {
+      "id": "zh-feature",
+      "family": "broad-development",
+      "language": "zh",
+      "text": "给 Nimbus Notes 添加离线搜索功能",
+      "parents": [
+        "notes"
+      ]
+    },
+    {
+      "id": "en-feature",
+      "family": "broad-development",
+      "language": "en",
+      "text": "Add offline search to Nimbus Notes",
+      "parents": [
+        "notes"
+      ]
+    },
+    {
+      "id": "zh-ux",
+      "family": "broad-development",
+      "language": "zh",
+      "text": "改进 Nimbus Notes 的列表滚动和键盘导航体验",
+      "parents": [
+        "notes"
+      ]
+    },
+    {
+      "id": "en-ux",
+      "family": "broad-development",
+      "language": "en",
+      "text": "Improve list scrolling and keyboard navigation in Nimbus Notes",
+      "parents": [
+        "notes"
+      ]
+    },
+    {
+      "id": "zh-fix",
+      "family": "broad-development",
+      "language": "zh",
+      "text": "修复 Nimbus Notes 拖放后卡片丢失的问题",
+      "parents": [
+        "notes"
+      ]
+    },
+    {
+      "id": "en-fix",
+      "family": "broad-development",
+      "language": "en",
+      "text": "Fix cards disappearing after drag and drop in Nimbus Notes",
+      "parents": [
+        "notes"
+      ]
+    },
+    {
+      "id": "zh-validation",
+      "family": "broad-development",
+      "language": "zh",
+      "text": "为 Nimbus Notes 的 Windows 安装包补上离线启动验收",
+      "parents": [
+        "notes"
+      ]
+    },
+    {
+      "id": "en-validation",
+      "family": "broad-development",
+      "language": "en",
+      "text": "Verify that Nimbus Notes installs and starts offline on Windows",
+      "parents": [
+        "notes"
+      ]
+    },
+    {
+      "id": "zh-other-product",
+      "family": "broad-development",
+      "language": "zh",
+      "text": "给 Task Harbor 实现批量选择任务的功能",
+      "parents": [
+        "harbor"
+      ]
+    },
+    {
+      "id": "en-other-product",
+      "family": "broad-development",
+      "language": "en",
+      "text": "Implement bulk task selection in Task Harbor",
+      "parents": [
+        "harbor"
+      ]
+    },
+    {
+      "id": "zh-marketing",
+      "family": "broad-development",
+      "language": "zh",
+      "text": "写一篇 Nimbus Notes 宣传推文，不做开发改动",
+      "parents": [
+        "marketing"
+      ]
+    },
+    {
+      "id": "en-marketing",
+      "family": "broad-development",
+      "language": "en",
+      "text": "Write a promotional post for Nimbus Notes without making development changes",
+      "parents": [
+        "marketing"
+      ]
+    },
+    {
+      "id": "zh-other-version",
+      "family": "broad-development",
+      "language": "zh",
+      "text": "只为 Nimbus Notes 1.x 旧版修复导出，不改 3.0",
+      "parents": [
+        "legacy"
+      ]
+    },
+    {
+      "id": "en-other-version",
+      "family": "broad-development",
+      "language": "en",
+      "text": "Fix export only in Nimbus Notes 1.x legacy; do not change 3.0",
+      "parents": [
+        "legacy"
+      ]
+    },
+    {
+      "id": "zh-reference",
+      "family": "broad-development",
+      "language": "zh",
+      "text": "参考 Nimbus Notes 的搜索截图，给 Task Harbor 实现搜索功能",
+      "parents": [
+        "harbor"
+      ]
+    },
+    {
+      "id": "en-reference",
+      "family": "broad-development",
+      "language": "en",
+      "text": "Use a Nimbus Notes search screenshot as a reference to implement search in Task Harbor",
+      "parents": [
+        "harbor"
+      ]
+    },
+    {
+      "id": "zh-reading",
+      "family": "broad-development",
+      "language": "zh",
+      "text": "读一下 Nimbus Notes 的新闻，了解市场动态",
+      "parents": []
+    },
+    {
+      "id": "en-reading",
+      "family": "broad-development",
+      "language": "en",
+      "text": "Read Nimbus Notes news to keep up with the market",
+      "parents": []
+    }
+  ]
+}

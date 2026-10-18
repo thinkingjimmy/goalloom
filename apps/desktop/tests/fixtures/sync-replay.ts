@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production repository, encrypted sync exchange and two isolated SQLite workspaces.
- * [OUTPUT]: Relationship/group nesting convergence, atomic rejection and storage-failure retry evidence.
+ * [OUTPUT]: Ordered leaf/group nesting convergence, atomic rejection and storage-failure retry evidence.
  * [POS]: Sync replay E2E fixture; the remote is synthetic and never receives plaintext.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -218,14 +218,14 @@ async function run(): Promise<void> {
   const groupTarget = first.run({ type: 'create', title: 'A synced destination', horizon: 'week' }).itemId!
   const groupRoot = first.run({ type: 'create', title: 'B synced group', horizon: 'day' }).itemId!
   const groupChildren = ['C synced child', 'D synced child'].map(title => first.run({ type: 'create', title, horizon: 'day' }).itemId!)
-  const nest = (id: string, parentId: string) => {
+  const nestGroupMember = (id: string, parentId: string) => {
     const item = first.repo.store.item(id), target = first.repo.store.item(parentId)
     return first.run({ type: 'nest', itemId: id, parentId, expectedVersion: item.version, expectedPlacementVersion: item.placement.version,
       expectedParentVersion: target.version, expectedParentPlacementVersion: target.placement.version })
   }
-  for (const id of groupChildren) nest(id, groupRoot)
+  for (const id of groupChildren) nestGroupMember(id, groupRoot)
   await push(first, alpha, bound); await push(second, beta, joined)
-  const flattened = nest(groupRoot, groupTarget)
+  const flattened = nestGroupMember(groupRoot, groupTarget)
   await push(first, alpha, bound); await push(second, beta, joined)
   for (const machine of [first, second]) assert.deepEqual(machine.repo.store.nestedItems(groupTarget).map(item => item.id), [groupRoot, ...groupChildren])
   assert.equal(first.run({ type: 'undo', originalOperationId: flattened.operationId }).outcome, 'committed')
@@ -236,6 +236,28 @@ async function run(): Promise<void> {
     assert.deepEqual(machine.repo.store.nestedItems(groupRoot).map(item => item.id), groupChildren)
   }
   checks.push('Encrypted group nesting flattens B/C/D under A in order and one undo restores the original group on both peers')
+
+  const container = first.run({ type: 'create', title: 'Ordered outline', horizon: 'week' }).itemId!
+  const siblings = ['First outline child', 'Second outline child', 'Inserted outline child'].map(title => first.run({ type: 'create', title, horizon: 'day' }).itemId!)
+  const nest = (id: string, beforeId: string | null = null) => {
+    const item = first.repo.store.item(id), root = first.repo.store.item(container)
+    return first.run({ type: 'nest', itemId: id, parentId: container, beforeId, expectedVersion: item.version, expectedParentVersion: root.version,
+      expectedPlacementVersion: item.placement.version, expectedParentPlacementVersion: root.placement.version })
+  }
+  nest(siblings[0]!); nest(siblings[1]!)
+  const inserted = nest(siblings[2]!, siblings[1]!)
+  await push(first, alpha, bound); await push(second, beta, joined)
+  for (const machine of [first, second]) {
+    assert.deepEqual(machine.repo.store.nestedItems(container).sort((a, b) => a.placement.sortKey - b.placement.sortKey).map(item => item.id), [siblings[0], siblings[2], siblings[1]])
+  }
+  assert.equal(first.run({ type: 'undo', originalOperationId: inserted.operationId }).outcome, 'committed')
+  await push(first, alpha, bound); await push(second, beta, joined)
+  for (const machine of [first, second]) {
+    assert.equal(machine.repo.store.item(siblings[2]!).placement.nestingParentId ?? null, null)
+    assert.equal(machine.repo.store.item(siblings[2]!).placement.horizon, 'day')
+  }
+  assert.deepEqual(board(first), board(second))
+  checks.push('Ordered two-level nesting and one-step undo converge through the existing encrypted item.nest protocol')
   for (const machine of [first, second]) verifyDatabase(machine.db)
   assert.equal(Buffer.from(unhex(memoryCiphertext(world))).includes(Buffer.from(utf8('Shared monthly goal'))), false)
   checks.push('Both workspaces pass integrity/foreign-key checks; remote ciphertext does not contain task text')

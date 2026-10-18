@@ -4,8 +4,11 @@
 
 ## Product rules
 
-- Drop a task on the middle of a root row to nest it; move it to the root's horizon/period and append it. Row edges reorder. Keep the 6px drag threshold and use a 24px indent. Each vertical sorting margin is the smaller of 16px and one quarter of the full row height, leaving at least the middle half for nesting, including 32px single-line rows. The nesting zone covers the left 60% of the row width (at least 200px). Clip these zones to the visible viewport without moving their boundaries within the row.
-- Nesting a root with children flattens its complete live group under the target root: append the source first, then its children in their current order. All members move to the target horizon/period and inherit its goals/colors. A nested task cannot receive nested children. Keyboard menus provide equivalent nest/unnest actions.
+- Drop a task on the middle of a root or any of its children to join that root's horizon/period at the end. One border encloses the complete displayed group. A middle drop within the same group leaves its order unchanged.
+- Child row edges insert into that group at the shown position, including the first and last slots; the insertion line has the same 24px indent as the children. Root row edges sort outside the whole group with a full-width line. Group borders and insertion lines are mutually exclusive.
+- Pointer drag cards stay 12px below the pointer to expose insertion feedback; keyboard drag cards keep their existing row anchor.
+- Keep the 6px drag threshold and 24px indent. Each vertical sorting margin is the smaller of 16px and one quarter of the full row height, leaving at least the middle half for nesting, including 32px single-line rows. The nesting zone covers the left 60% of the row width (at least 200px). Clip these zones to the visible viewport without moving their boundaries within the row.
+- Nesting a root with children flattens its complete live group under the target root: insert the source first, then its children in their current order, at the selected child slot or at the end. All members move to the target horizon/period and inherit its goals/colors. A nested task cannot receive nested children. Keyboard menus provide equivalent nest/unnest actions.
 - Successful nesting stays quiet for drag, menu and recovered receipts. Keep keyboard/command undo and its confirmation, plus existing failure feedback.
 - The selector searches current, future and Later tasks, including periods outside the displayed board. Expired or changed targets are rejected.
 - Nested tasks inherit all current goal parents and flow colors from their root. Their own outgoing goal links, text, dates and lifecycle remain independent.
@@ -19,16 +22,21 @@
 
 - Schema/dataset v10: optional legacy/default-null placement nesting parent, body-free hierarchy history and v3 owned nesting effects. v10 sits on the Phase 0 v9 chain and mirrors the column and triggers onto `base_*`. v8 and Phase 0 v9 upgrade in place after a protective backup; v1–v7 keep the verified protective-copy and explicit-confirmation workflow. `nest` / `unnest` map to SyncOp `item.nest` (placement dimension, plus relation and color actions in the same op).
 - Nesting and explicit goal links are distinct. Shared effective-topology rules drive flow membership, relation rendering, ordering, queries and AI context. Validate cycles in their combined graph inside authoritative writes and import.
-- Nest/unnest are finite generation/version-guarded commands. Their placement, incoming-link and color changes share one receipt. Existing inherited links materialized on detach retain their source provenance.
+- Nest/unnest are finite generation/version-guarded commands. `nest.beforeId` optionally inserts before a live child of the destination root; absent/null appends. Validate its group, horizon and period in the write transaction. Membership, insertion, incoming-link and color changes share one receipt and one undo. Existing inherited links materialized on detach retain their source provenance; no dataset or sync format change is needed.
 - Group nesting reparents children before nesting their former root so SQLite and sync actions remain valid. The receipt records final sibling positions; one undo restores the original outline atomically.
-- Root ordering precedes child ordering. Flatten groups into the existing virtual list; preserve task identity, drafts, focus and scroll.
+- Root ordering precedes child ordering. Flatten groups into the existing virtual list; preserve task identity, drafts, focus and scroll. Draw group borders from virtual offsets, including an unmounted root, without mounting extra group members. Borders ignore pointer events and clip to the column viewport. Cancellation, focus loss, period changes and generation changes clear previews.
 - All user-visible copy is translated into Chinese, English, Japanese, Spanish and French.
 
 ## Failure cases recorded before implementation
 
 - Nesting B with children C/D under A leaves a third level, reverses sibling order, splits periods, loses archived/cancelled members, changes content/status or omits a member from the receipt.
+- Group insertion ignores its selected sibling, splits the source group or partially reparents children when its insertion neighbor is invalid.
 - Group nesting accepts itself, its own children or a combined goal/outline cycle, partially commits on failure, duplicates a retry or fails JSON/SQLite and encrypted sync round trips.
 - One undo fails because effects record intermediate neighbors, restores children before B is independent, overwrites later edits, steals a subsequently moved child or flattens children acquired after a previous unnest.
+- Hovering a child rejects its root as a nesting target, or outlines only one row instead of the complete visible group. A scrolled, unmounted root must still have a clipped group preview without mounting its children outside the virtual window.
+- Child-edge insertion appends instead of inserting, uses a full-width root marker, or saves membership and order as separate operations. Cover first/middle/last positions, cross-group/cross-column insertion, same-group reordering and a single undo.
+- The pointer overlay covers the insertion line. Keep it below the pointer so the line stays visible; keyboard overlays retain their row anchor.
+- A same-group middle drop changes order; a deleted/reparented insertion neighbor or stale parent partially changes membership, relations or colors. Failed, unknown and cancelled drops must clear feedback and keep the receipt rules.
 - Middle-row drops reorder instead of nesting; edge drops nest accidentally; invalid/hidden/history targets write; cancellation or a stale generation leaves an outline preview.
 - Fixed 16px edge zones consume a 32px row's nesting area. Native drops at 35% and 65% of the row height must preview nesting; committing across automatic parent groups must nest, retain focus and support undo.
 - Edge insertion lines and persisted order must match in either direction, including adjacent unchanged slots, the last sibling and one-step undo; ending or cancelling clears all drag markers.
@@ -45,6 +53,7 @@
 
 ## Acceptance
 
+- [x] Whole-group child hit zones, visible indented insertion, atomic first/middle/last placement, one-step undo and clipped virtual previews in native Electron.
 - [x] Native Electron gestures, keyboard menus, detail edits, inheritance, independent children and mixed statuses.
 - [x] Transactions, group moves/rollover/hold, deletion/restoration, scoped undo, restart and failed/unknown receipts.
 - [x] JSON/SQLite round trips, invalid imports and protected legacy upgrade.

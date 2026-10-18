@@ -1,7 +1,7 @@
 # Goalloom 智能输入需求文档
 
-**版本：** Smart Input v1.5（功能规格）
-**日期：** 2026-10-16
+**版本：** Smart Input v1.6（功能规格）
+**日期：** 2026-10-18
 **只读代码基线：** `thinkingjimmy/goalloom@dbbd1ebe0d23b4397da4b360b8c10bc6ac9579c0`  
 **交付范围：** 全局输入、Jev 双渠道、Onboarding、计划创建与同代次撤销、完整导出恢复及迁移前保护。  
 **实施状态（2026-09-23）：** 代码与自动化已完成，见 §11 勾选与 §14 实施记录；两渠道真实 Key 联调（A02）、标注样例评估（T01）与双平台安装包验收（T02）待负责人执行。
@@ -34,6 +34,14 @@ This section and §§5.2–5.3 supersede the earlier waiting/candidate-budget be
 - A main-owned request is claimed before the create write and binds to the transaction's item/version/placement guard. Closing the dialog cancels only unsaved draft work. Manual changes after saving cancel all late fields, including edit-back; manual flow/parent choices before saving disable automatic replacement. Expired periods, replaced generations and changed providers cannot write. Failed batches leave the saved item usable and unlinked.
 - `create` / `createPlan` accept optional `smartCapture`; the receipt's `capture` stores only the request identity, item guards and allowed completion fields. Internal-only `completeCreation` appends a system receipt with `creationOperationId` / `captureRequestId` and real position/relation effects. It has no independent undo entry. Undo validates the net creation, deletes in one transaction and marks every group receipt; scoped restore retains the final position, edited text and eligible parents. Original receipts and versions are never rebased.
 - Schema v11 import validates completion provenance, effect ownership and complete group markers. Sync emits causal completion metadata and guarded `item.undoCreate`; remote manual writes, including edit-back, reject stale completion atomically. Restart never resumes old model jobs. Main retains at most 32 jobs; unavailable/busy automation does not block local creation.
+
+### 2026-10-18: Inline matching feedback and broad development goals
+
+Failure cases fixed before this correction: a successful inline answer is discarded instead of displayed; no-match and provider failure look identical; a draft typed before provider status arrives stays silently ineligible; an older answer reaches a newer draft; retries lose text or focus; a loading/error indicator blocks immediate Enter; a specific feature, bug fix or UX improvement is rejected under the same product's broader version-development goal because the task does not repeat the version number. Negative controls must retain explicit other-version/project boundaries, reference-only text and topic-only tasks. Model regression fixtures use fictional products; reported private task text remains in ignored local evidence.
+
+Inline matching displays pending, current suggested parents, no-match and retryable failure below the title. Automatic parent colours preview in the flow dot without becoming manual choices. Feedback is bound to the draft session, input/manual revision, provider, workspace revision and displayed period; stale replies never change a newer draft. A draft typed before AI status arrives, or before a provider change, offers explicit resend. Enter keeps the immediate creation/late-completion contract in every state.
+
+Matching keeps the original strict action/outcome criterion and adds structured scope contrasts inside each candidate question. Concrete features, bug fixes, UX improvements and validation can make partial progress toward the same product's broader development/version goal. The task need not repeat a version number or complete the entire goal. Explicit different-version/project scopes remain excluded; legacy maintenance needs an explicit legacy task. The 0.60 precision lower-bound gate and one-round/batch rules stay fixed.
 
 **写下想法，输入窗口直接变成可确认的行动预览。**
 
@@ -536,6 +544,7 @@ type ParentRef =
 - [R10] [SQLite Online Backup API](https://www.sqlite.org/backup.html)、[WAL文件](https://www.sqlite.org/wal.html)和[Node sqlite](https://nodejs.org/api/sqlite.html)：DatabaseSync的readOnly选项、一致性备份及WAL依据。应在项目锁定的Electron/Node中验证只读源备份，不依赖宿主Node代替；readOnly打开失败不等于文件不存在。
 - [R11] [Vercel官方概率验证实现](https://github.com/vercel/ai/blob/21b2d6c3658bb397014bbcac4e7108468ce1f9e4/packages/ai/src/evaluate/validate-evaluation.ts)：已读回；d范围0–15、每项舍入误差0.5×10^-d、总和容差1e-6＋K×误差，choice最大值使用独立1e-6检查，保留供应商值。blob `879466122a7c93158011012a807bfc729a8b297c`。本规格只为派生熵使用归一化副本，不改原答案。
 - [R13] [OpenRouter Jev 文档](https://openrouter.ai/docs/guides/community/jev)、[TypeSafe SDK 指向 OpenRouter](https://openrouter.ai/docs/guides/community/typesafe-sdk)、[模型页](https://openrouter.ai/typesafe/jev-1.13)：System One API 基址、模型 ID 映射与响应附加字段；2026-09-25 读取。
+- [R15] [TypeSafe Noul primitive](https://docs.typesafe.ai/primitives/noul) and [official question-design guidance](https://github.com/typesafe-ai/skills/blob/main/skills/typesafe-ai/SKILL.md): read on 2026-10-18. A candidate remains one yes/no judgement; structured instructions can carry scope contrasts, while the application validates thresholds, batches and write freshness. No second semantic round is added.
 - [R14] [Jev 1.14 发布说明](https://typesafe.ai/blog/jev-1-14)：2026-10-16 升级的模型版本。OpenRouter 固定 `typesafe/jev-1.14`；AI Gateway 固定 `typesafe-ai/jev-1.14.0`。冻结双语／URL 样例和生产 matcher 的复跑入口见 [scripts/eval/capture](../../apps/desktop/scripts/eval/capture/README.md)。
 - [R12] [Vercel官方TypeSafe适配器](https://github.com/vercel/ai/blob/21b2d6c3658bb397014bbcac4e7108468ce1f9e4/packages/typesafe-ai/src/typesafe-ai-evaluation-model.ts)：已读回；声明原生响应两位概率/分数精度并校验Choice最多255项，blob `ea0926c520e9173226d3143d5f25353def140414`。这是有版本范围的适配器事实，不推断所有Gateway协议的缺省精度；本功能不因此新增对该包的依赖。
 
