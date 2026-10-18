@@ -28,7 +28,7 @@
 
 ### 1.9.7 update: inline subtasks and ordered task groups
 
-Release preparation started on 2026-10-18. [The release notes](../releases/v1.9.7.md) cover Tab-based inline subtask creation, ordered group nesting, inline AI feedback and broader development-goal matching. Workspace format remains v11. Local `pnpm verify`, mapped supplemental feature coverage, performance and scaling passed without interrupted scenarios. The manual 100,000-task check was excluded. Frozen live Jev evaluation completed with 66/72 development, 61/64 holdout and 17/18 regression exact matches and no provider errors. Hosted signed packages and public download verification are pending.
+Released on 2026-10-18. [The release notes](../releases/v1.9.7.md) cover Tab-based inline subtask creation, ordered group nesting, inline AI feedback and broader development-goal matching. Workspace format remains v11. Local `pnpm verify`, mapped supplemental feature coverage, performance and scaling passed without interrupted scenarios; the manual 100,000-task check was excluded. Frozen live Jev evaluation completed with 66/72 development, 61/64 holdout and 17/18 regression exact matches and no provider errors. Two initial hosted attempts failed after Apple acceptance because CloudKit disconnected during ticket delivery. A packaging-only fix retains one submission and adds bounded ticket recovery; its 23 CLI/hook scenarios, package-report checks, typecheck and 339 existing tests passed. [The final hosted workflow](https://github.com/thinkingjimmy/goalloom/actions/runs/39115592278) passed both packages, macOS signing/notarization, signed credential restoration and packaged smokes. All eight public files and both update manifests passed checksum verification. The five-language production website points to 1.9.7 and passed live checks. Windows 11 manual installation/upgrade and physical-machine packaged acceptance remain separate; date-gated month-review commands covered historical APIs on this run.
 
 ### 1.9.6 update: task-level sync difference review
 
@@ -109,6 +109,7 @@ Released on 2026-10-17. [The release notes](../releases/v1.9.5.md) cover automat
 
 ### 软件更新功能
 
+- [x] 1.9.7 is public with inline subtask creation, ordered group nesting, both installers, complete verified auto-update assets and the five-language website update.
 - [x] 1.9.6 is public with task-level sync difference review, durable confirmations, both installers, complete auto-update assets and verified checksums.
 
 - [x] 1.9.5 is public with both installers, complete auto-update assets and SHA256SUMS. Signed macOS restart/replacement checks and Case 1 / relogin / deletion regression coverage passed.

@@ -66,6 +66,8 @@
 
 ## TODO
 
+- [x] Published the 1.9.7 download snapshot after the GitHub Release became public. Website typecheck, build/SEO audit and 27 E2E checks passed. Vercel production deployment and all five live pages, canonical/hreflang metadata and 1.9.7 download links passed verification.
+
 - [x] Published the 1.9.6 download snapshot after the GitHub Release became public. Website typecheck, build/SEO audit and 27 E2E checks passed. Vercel production deployment and all five live pages, canonical/hreflang metadata and 1.9.6 download links passed verification.
 
 - [x] Pointed all five website locales and the older Mac manual-upgrade instructions to public Release 1.9.5. Vercel production deployment, five-language pages, canonical/hreflang metadata and live download links passed verification.
