@@ -1,9 +1,16 @@
+/**
+ * [INPUT]: Optional review group names and the desktop test working directory.
+ * [OUTPUT]: Serial default regressions or explicitly selected stress checks, with isolated build evidence.
+ * [POS]: Review command dispatcher; large-workspace and scaling require explicit selection.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import { build } from 'esbuild'
 import electron from 'electron'
 import { spawn } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
+const defaultGroups = ['renderer', 'lifecycle', 'virtual', 'wire', 'package-report', 'session-profile']
 const evidence = resolve('output/tests/review-fixes')
 await mkdir(evidence, { recursive: true })
 const run = (command, args, env = process.env) => new Promise((resolve, reject) => {
@@ -11,7 +18,7 @@ const run = (command, args, env = process.env) => new Promise((resolve, reject) 
   child.on('error', reject)
   child.on('exit', code => code === 0 ? resolve() : reject(new Error(`${args.join(' ')} exited ${code}`)))
 })
-for (const name of process.argv.slice(2).length ? process.argv.slice(2) : ['renderer', 'lifecycle', 'virtual', 'wire', 'large-workspace', 'package-report', 'notarization']) {
+for (const name of process.argv.slice(2).length ? process.argv.slice(2) : defaultGroups) {
   if (['scaling', 'large-workspace'].includes(name)) {
     const outfile = `${evidence}/${name}.cjs`
     await build({ entryPoints: [`tests/review/${name}.mjs`], outfile, bundle: true, platform: 'node', format: 'esm' })
@@ -19,6 +26,5 @@ for (const name of process.argv.slice(2).length ? process.argv.slice(2) : ['rend
     const { rename } = await import('node:fs/promises')
     await rename(outfile, `${evidence}/${name}.mjs`)
     await run(electron, [`${evidence}/${name}.mjs`], { ...process.env, ELECTRON_RUN_AS_NODE: '1' })
-  } else if (name === 'large-backup') await run(electron, [`tests/review/${name}.mjs`], { ...process.env, ELECTRON_RUN_AS_NODE: '1' })
-  else await run(process.execPath, [`tests/review/${name}.mjs`])
+  } else await run(process.execPath, [`tests/review/${name}.mjs`])
 }

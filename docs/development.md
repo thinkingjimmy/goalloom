@@ -64,6 +64,7 @@ pnpm test:celebration     # 逐列完成撒花、静默移动／完成、撤销�
 pnpm test:review          # Review 缺陷、长列键盘/拖放、真实 preload 边界回归
 pnpm test:performance     # 可选：四组启动、页面搜索、50 次面板往返及传输峰值（仅 release 前）
 pnpm test:scaling         # 可选：200/400/800 项批次增长曲线（仅 release 前）
+pnpm test:large-workspace # Manual: 32,769/100,000 tasks; excluded from verify and test:review
 pnpm build:debug          # 正式构建 + 不入包的私有源码映射与逐字节匹配检查
 pnpm package:dir          # 当前平台本地目录包
 ```
@@ -179,7 +180,7 @@ Identity and noninteractive Keychain changes also run `pnpm test:ui` and `pnpm t
 | 顶栏流程筛选、数字快捷键及启停 | `pnpm test:ui` ＋ `pnpm test:relations` ＋ `pnpm test:history`（从往期返回当期、重复选择、输入保护与未来草稿）；周期选择逻辑受影响时追加 `pnpm test:periods` |
 | 完成反馈、撒花（复盘完成的自动退出／单次播放开发可用 `pnpm --filter @goalloom/desktop exec -- node tests/weekly-review.mjs --completion`） | `pnpm test:celebration` ＋ `pnpm test:feedback`；影响往期还原反馈时追加 `pnpm test:history` |
 | 长列、虚拟滚动、拖放、键盘移动 | `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs virtual` |
-| SQLite 驱动、存储 worker、旧库只读拒绝与导入 | `pnpm test:electron` ＋ 实际受影响功能的脚本；v5/v6 导入 v7 保真追加 `test:calendar`，大数据量相关再跑 `pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs large-workspace` |
+| SQLite 驱动、存储 worker、旧库只读拒绝与导入 | `pnpm test:electron` ＋ 实际受影响功能的脚本；v5/v6 导入 v7 保真追加 `test:calendar`，大数据量检查通过 `pnpm test:large-workspace` 手动选择，不纳入默认验证 |
 | 同步协议 v1：SyncOp、v9、影子基线、发送状态、加密构造 | `pnpm test` 中的 `apps/desktop/tests/integration/upgrade-v9.test.ts`、`apps/desktop/tests/integration/sync-emit.test.ts`、`apps/desktop/tests/integration/sync-emit-commands.test.ts`、`packages/tests/sync/phase0.test.ts`、`packages/tests/sync/applier-review.test.ts`、`packages/tests/sync/phase0-prototype.test.ts`、`packages/tests/sync/adversarial.test.ts`、`packages/tests/sync/desktop-engine.test.ts`、`packages/tests/sync/settings-sync.test.ts`、`packages/tests/sync/review-fixes.test.ts`、`packages/crypto/test/constructs.test.ts`、`packages/crypto/test/parity.test.ts`。Node 摘要是 `pnpm parity:digest`。托管双端原型是 `pnpm test:phase0`（需要 `supabase/README.md` 里的三个 API 变量）。托管库用例见 `supabase/README.md`（`supabase db push`、`supabase test db --db-url`、`node scripts/supabase-remote.mjs`），不是桌面 E2E。schema 变化仍追加 `pnpm test:electron` 与 `pnpm test:recovery` |
 | 桌面同步：Google 登录、同步密码、两台电脑汇合（含 `item.nest`） | `pnpm test:sync-join` 验证空 B 先注册、已有任务 A 自动接入、编号/日历保留、退出重登去重、删除保留、失败回滚、并发接入和原生合并界面；证据 `apps/desktop/output/tests/sync-join/`。`pnpm test:sync-replay` 验证双端加密重放中的重复关联、原子拒绝、待发回执保留、存储失败重试，以及创建／补全／整组撤销／还原和远端修改后撤回的补全保护，使用 Electron SQLite 和合成 remote，证据在 `apps/desktop/output/tests/sync-replay/`。`pnpm test` 保留 `packages/tests/sync/desktop-engine.test.ts`、`packages/tests/sync/settings-sync.test.ts`、`packages/tests/sync/review-fixes.test.ts`、`apps/desktop/tests/main/sync-config.test.ts`、`apps/desktop/tests/main/oauth-callback.test.ts`、`apps/desktop/tests/main/protocol.test.ts`、`apps/desktop/tests/main/smart.test.ts` 与 `apps/desktop/tests/renderer/sync-pane.test.ts`。设置文案变化追加 `pnpm test:language`。`sync_settings` 用 `CREATE TABLE IF NOT EXISTS` 追加，不改 `user_version`，因此不单为同步追加 `test:electron` / `test:recovery`。操作清单见 [docs/sync/desktop.md](sync/desktop.md) |
 | 同步差异确认：并发本机修改、按任务只读对比、逐项确认 | `pnpm test:sync-review` 验证生产 service/SDK/SQLite 的因果判断、字段保护、明确恢复、过期预览、原子确认、重登/重启持久化，以及真实 renderer/preload/IPC 的默认 radio、无编辑、同任务归组、丢回包查回执、失败停留、五语言和完成直接关闭；证据 `output/tests/sync-review/`。所属覆盖为 `test:sync-replay`、`test:sync-join`、`test:language` 和常规 `pnpm test`/`pnpm build`。不改 schema 版本或登录/安全存储规则。 |
@@ -193,6 +194,8 @@ Identity and noninteractive Keychain changes also run `pnpm test:ui` and `pnpm t
 **例：只改 Onboarding。** 先完成快速检查与构建，再运行 `pnpm test:ui`、`pnpm test:composer`、`pnpm test:language`、`pnpm test:calendar`，包括本次修改的场景。这些脚本覆盖跳过方向／日历配置、方向保存／Jev 可跳过流程、首次语言切换和双模式／年底方向；修改日期刷新或跨夜确认时，另跑 `pnpm --filter @goalloom/desktop exec -- node tests/review/renderer.mjs` 的模拟时钟场景。目前没有 Onboarding 专用筛选入口，因此以包含这些断言的脚本为最小可运行范围。无需追加历史、恢复、关系线、撒花、洞察等独立套件；只有其行为实际受影响时才追加。其他套件启动时经过向导不构成追加理由。
 
 **完整 `pnpm verify` 仅在发布新版本前或负责人明确要求全量验证时运行。** 性能、增长曲线、真实服务联调按改动需要或明确要求单独执行，不作为每个功能的固定门槛。功能规格里已勾选的全量验收是历史记录，不要求后续每次修改重跑全量。
+
+**10 万任务检查仅保留手动入口：** `pnpm test:large-workspace` 不随 `pnpm verify`、`pnpm test:review` 或 review runner 的默认场景执行，发布时也不会自动追加。
 
 **日常功能开发不运行性能测试：** `test:performance` 和 `test:scaling` 是 release-only 验证，用于在发布前确认整体性能边界。功能开发、提交、push 和合入 `main` 均不需要运行这些测试。
 
