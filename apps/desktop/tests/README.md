@@ -95,7 +95,7 @@ Electron scenarios (this directory)
     ├── completed-layout.mjs # Localized native settings driver for explicit inline/folded completion coverage
     ├── legacy-v5.ts     # Frozen v5/v6 DDL used only to construct synthetic legacy import fixtures
     ├── subtasks-data.ts # Two-level/effective graph, atomic sibling insertion, group order/movement/hold, bounded inherited AI context, scoped undo, source-aware import and protected v8 upgrade
-    ├── nesting-drops.mjs # Native child hit zones, whole-group geometry, first/middle/last insertion, receipt recovery, future/Later groups and unmounted-root clipping
+    ├── nesting-drops.mjs # Native child hit zones, whole-group geometry, checkbox-aligned first/middle/last insertion, full-width root markers, receipt recovery, future/Later groups and unmounted-root clipping
     ├── edge-sorting.mjs # Native before/after insertion previews, 12 manual/automatic adjacent-row drops, cancellation and undo
     ├── drag-titles.mjs # Retained pointer/keyboard wrapping of raw URLs and 500-character titles, with no-write cancellation
     ├── auto-placement.mjs # Native create/link placement, explicit tail, free pointer/keyboard sorting, one-shot arrange/undo/recovery, usable nesting and five locales
