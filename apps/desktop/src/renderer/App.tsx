@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Workspace/current-period state, guarded prepared writes, selected board periods, undo session, flows, preferences, features and the unconfirmed start choice.
+ * [INPUT]: Workspace/current-period state, guarded writes, selected board periods, undo, flows, preferences and independent sync feedback.
  * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -26,6 +26,7 @@ import { boardItemVisibility } from './features/board/visibility'
 import { TopBar } from './features/shell/TopBar'
 import { CompletionCelebration } from './features/shell/CompletionCelebration'
 import { FeedbackLayer } from './features/shell/FeedbackLayer'
+import { SyncFeedback } from './features/sync/SyncReview'
 import { startDevicePrefs } from './state/device-prefs'
 import { desktopApi, useWorkspace } from './state/use-workspace'
 import { useFlows } from './state/flows'
@@ -186,6 +187,7 @@ export function App() {
       if (event.defaultPrevented || (event.target instanceof Element && event.target.closest('.context-menu'))) return
       const combo = event.isComposing ? null : parseEvent(event)
       if (!combo) return
+      if (document.querySelector('.sync-review-modal[open]')) return
       const editing = editingTarget(event.target)
       if (reviewOpen) return
       if (combo === bindings.undo && !editing) { event.preventDefault(); if (!pending && !snapshot?.maintenance) requestUndo() }
@@ -218,6 +220,7 @@ export function App() {
     {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">{messages.restorePaused}<TextButton disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>{messages.confirmRollover}</TextButton></div>}
     {backupNotice.open && snapshot?.backupError && <div className="notice-banner"><span>{snapshot.backupError}</span><TextButton onClick={() => openSettings('backup')}>{messages.viewBackups}</TextButton><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={backupNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
     {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <TextButton onClick={() => void retry()}>{messages.retry}</TextButton>}<IconButton size="small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></IconButton></div>}
+    {setupReady && snapshot && <SyncFeedback key={snapshot.workspace.generation} generation={snapshot.workspace.generation} />}
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
       : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>

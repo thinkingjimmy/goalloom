@@ -38,6 +38,10 @@ renderer/
 │   │       ├── TransferReview.tsx # 来源日历模式预览、三步进度与整库替换的两阶段确认
 │   │       ├── parts.tsx        # 分组/行（可带整行下方控件）/分段选择（色块、数量）/多选按钮组/开关原语，工作区时区时间与相对日期
 │   │       └── settings.css     # Content-sized, single-line navigation with a bounded pane; settings-only theme-token styles
+│   ├── sync/                # Independent task-grouped sync difference review
+│   │   ├── SyncReview.tsx   # Quiet notice, synced-default radios, sequential writes, receipt recovery and direct final close
+│   │   ├── TaskComparison.tsx # Read-only board task classes, flow marks, lifecycle/context and text difference highlights
+│   │   └── sync-review.css  # Content-sized comparison; selection changes only the radio and outer frame
 │   ├── composer/            # 全局新建：输入法式（输入 → 一条 Jev 推荐 → ↵ 创建 / Tab 调整 / ⌥↵ 原样存 Later）
 │   │   ├── Composer.tsx     # Input, debounce/IME, revision guards, candidate strip without entry guidance, keyboard adjustment, fallback, session drafts and createPlan confirmation
 │   │   ├── Plan.tsx         # 推荐的只读呈现（单件一句话、多件一行一件）、拿不准的「可能…」旁注、Jev 标记

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Sync commands from the main process. Opened ops cross this boundary only inside the app.
- * [OUTPUT]: Cursor, pending ops, and merged rows. Network and workspace keys stay in the main process.
+ * [OUTPUT]: Cursor, pending ops, merged rows and generation-bound read-only conflict comparisons. Network and workspace keys stay in the main process.
  * [POS]: Storage-worker adapter; scoped writes reject replaced workspaces.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,6 +17,7 @@ import { syncHost } from '../../sync/host'
 import { DomainError } from '../../../shared/contracts/commands'
 import { BackupManager } from '../../storage/backup/manager'
 import { Store } from '../../storage/store'
+import { readSyncReviews } from './review'
 
 const binding = z.strictObject({ workspaceId: z.uuid(), deviceId: z.uuid(), keyEpoch: z.number().int().positive() })
 const pending = z.strictObject({ opId: z.uuid(), localOrder: z.number().int(), payload: z.string(), payloadHash: z.string() })
@@ -24,6 +25,7 @@ const opened = z.strictObject({ seq: z.number().int().positive(), op: z.unknown(
 const scope = z.strictObject({ workspaceId: z.uuid(), generation: z.uuid() })
 const command = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('view') }),
+  z.strictObject({ type: z.literal('reviews'), generation: z.uuid(), at: z.string() }),
   z.strictObject({ type: z.literal('capture') }),
   z.strictObject({ type: z.literal('bind'), binding, at: z.string() }),
   z.strictObject({ type: z.literal('baseline'), deviceId: z.uuid(), at: z.string() }),
@@ -86,6 +88,7 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
     }
   }
   if (action.type === 'capture') return captureVisibleBoard(driver)
+  if (action.type === 'reviews') return readSyncReviews(db, action.generation, action.at)
   if (action.type === 'bind') { bindWorkspace(driver, action.binding, action.at); return null }
   if (action.type === 'baseline') { prepareFirstConnection(driver, host, action.deviceId, action.at); return null }
   if (action.type === 'rebaseline') return queueVisibleBaseline(driver, host, action.deviceId, action.at)

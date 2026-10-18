@@ -1,12 +1,12 @@
 /**
  * [INPUT]: base_* rows, or a captured visible board.
- * [OUTPUT]: SyncOps that replay that board. Calendar and policies are their own ops. Recovery can bind atomically with its baseline. A failed baseline rolls back and pauses sync.
+ * [OUTPUT]: Board replay SyncOps and pending local task-review counts. Recovery binds atomically with its baseline; failure rolls back and pauses sync.
  * [POS]: Upgrade path for data that predates sync. Pending ops keep their order. First-join import can preserve item identities and the source calendar. Kept edges are not re-checked as new links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { parseSyncOp, syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
-import { applySyncOp, clearSyncSettings, rebuildVisibleFull, settingsBaselineOp, type ApplyHost, type SqlDriver, type SqlValue } from '@goalloom/store-core'
+import { applySyncOp, clearSyncSettings, pendingConflicts, rebuildVisibleFull, settingsBaselineOp, type ApplyHost, type SqlDriver, type SqlValue } from '@goalloom/store-core'
 import { SyncFailure } from './failure'
 
 export interface BoardItem {
@@ -370,7 +370,7 @@ export function syncCursor(driver: SqlDriver): number {
 }
 
 export function conflictCount(driver: SqlDriver): number {
-  return Number(driver.prepare('SELECT count(*) AS n FROM sync_conflicts').get()?.n ?? 0)
+  return pendingConflicts(driver).length
 }
 
 /** Used when a baseline op cannot be parsed. Callers surface it as a storage pause. */

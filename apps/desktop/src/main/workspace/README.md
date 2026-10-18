@@ -34,6 +34,10 @@ workspace/
 
 `sync/local.ts` owns first-join planning, history-aware empty state, protected installation, atomic recovery baseline/binding and generation guards at the storage boundary. `sync/offline.ts` reads immutable pre-sync rollover effects, excludes undone effects, and orders missing sync operations before later user edits/deletions. Returning devices preserve cursor and pending receipts.
 
+`sync/review.ts` reads one task group at a time, previews lost actions inside a rolled-back savepoint and hashes only owned values/lifecycle/dependencies. `Repository` dispatches `resolveSyncReview` in its normal generation/receipt transaction. A local choice appends one new SyncOp and history event with the acknowledgement; a synced choice only acknowledges. Invalid relations remain unavailable, and only an explicit local choice can restore the target deletion.
+
+Rejected offline creations retain their later local edits in that same group. The preview can keep the original task ID as an independent task after its parent was deleted; the missing/deleted parent is not recreated. A changed normalized action plan invalidates the preview token.
+
 `storage/worker.ts` 负责装配和串行调用；本目录不依赖 Electron 窗口、IPC 或 renderer。普通命令由 Repository 在权威事务内复核；整库服务维护保护备份与显式确认边界。关键数据、事件与回执全成全败，纯日历/DAG/撤销规则仍在 `apps/desktop/src/domain`。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

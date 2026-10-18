@@ -1,10 +1,11 @@
 /**
  * [INPUT]: Sync actions from the settings pane.
- * [OUTPUT]: Strict keep/clear and recovery actions, exact destructive confirmation and status including password-storage, Realtime and upload-wait metadata. Passwords are never returned.
+ * [OUTPUT]: Strict lifecycle/review actions, bounded comparison replies and status including password-storage, Realtime and upload-wait metadata. Passwords are never returned.
  * [POS]: Preload boundary for desktop sync. The renderer imports the types and does not bundle this schema.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
+import { syncReviewPageSchema } from './sync-review'
 
 export const syncChannel = 'goalloom:sync'
 export const syncEvent = 'goalloom:sync-state'
@@ -33,6 +34,7 @@ const password = z.string().max(128)
 
 export const syncActionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('status') }),
+  z.strictObject({ type: z.literal('reviews'), generation: z.uuid() }),
   z.strictObject({ type: z.literal('sign-in') }),
   z.strictObject({ type: z.literal('sign-out'), clearLocal: z.boolean().optional() }),
   z.strictObject({ type: z.literal('create'), password }),
@@ -47,6 +49,7 @@ export const syncActionSchema = z.discriminatedUnion('type', [
 
 export const syncReplySchema = z.strictObject({
   status: syncStatusSchema,
+  reviews: syncReviewPageSchema.optional(),
 })
 
 export type SyncStatus = z.infer<typeof syncStatusSchema>

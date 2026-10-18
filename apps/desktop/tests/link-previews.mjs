@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Real Electron, a fresh profile, a seeded production preview cache and authoritative IPC fixtures.
- * [OUTPUT]: Repeatable link rendering, full-row-centered next-step pills that stay hidden until row hover or focus-within, width stability, cache remount, carousel, offline, lifecycle and locale evidence under output/tests/link-previews.
+ * [OUTPUT]: Repeatable link rendering, row-centered next-step pills, width stability, cache/lifecycle/locale evidence and app-local failure diagnostics under output/tests/link-previews.
  * [POS]: Focused desktop acceptance with native sizing only; transport and external-browser boundaries are disabled in the test process.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -452,6 +452,10 @@ try {
   }
 } catch (error) {
   report.result = 'failed'; report.failure = error.stack ?? String(error)
+  if (application) report.nativeFailure = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), minimized: window.isMinimized(), bounds: window.getBounds(), contentBounds: window.getContentBounds() }))).catch(() => null)
+  if (page && !page.isClosed()) report.rendererFailure = await page.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState,
+    activeElement: document.activeElement?.outerHTML.slice(0, 1000), hovered: [...document.querySelectorAll(':hover')].map(node => ({ tag: node.tagName, id: node.id, class: node.className })),
+    breakpoints: [...document.querySelectorAll('.breakpoint')].map(node => ({ key: node.dataset.spotKey, rowHovered: node.closest('.task-row')?.matches(':hover'), visibility: getComputedStyle(node).visibility, inlineVisibility: node.style.visibility })) })).catch(() => null)
   if (page && !page.isClosed()) await shot('failure').catch(() => {})
   throw error
 } finally {

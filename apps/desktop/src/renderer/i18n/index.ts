@@ -50,6 +50,7 @@ function apply(catalog: Catalog): void {
   Object.assign(horizonNames, { later: 'Later', year: catalog.calendar.year, half: catalog.calendar.half, cycle: m.cycle, month: m.month, week: m.week, day: m.day })
   Object.assign(activityNames, { nesting_changed: nestingText().nest, created: m.create, baseline: m.baseline, moved: m.move, rolled_over: m.rollover, status_changed: m.statusChanged, archived: m.archive, unarchived: m.unarchive, deleted: m.delete, item_restored: m.restoreItem, undo: m.undo })
   Object.assign(statusNames, { todo: m.todo, done: m.done, cancelled: m.cancelled })
+  activityNames.sync_resolved = catalog.settings.sync.reviewTitle
 }
 apply(zh)
 

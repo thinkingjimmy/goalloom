@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A committed command, its effects, and item rows captured before dispatch.
- * [OUTPUT]: Transaction-owned SyncOps, causal creation completion and guarded grouped creation undo. Clock confirmation/rollover resume write nothing.
+ * [OUTPUT]: Transaction-owned SyncOps with the observed basisSeq, causal completion and guarded grouped creation undo. Clock confirmation/rollover resume write nothing.
  * [POS]: Desktop adapter from command effects to SyncOp. applySyncOp is the other direction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -241,7 +241,7 @@ function deviceId(db: DatabaseSync): string {
 }
 
 function insertOp(db: DatabaseSync, op: SyncOp): void {
-  const payload = syncOpPayload(op)
+  const payload = syncOpPayload({ ...op, basisSeq: Number(db.prepare('SELECT lastAppliedSeq FROM sync_state WHERE id=1').get()?.lastAppliedSeq ?? 0) })
   const order = Number(db.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()!.n) + 1
   db.prepare(`INSERT INTO sync_ops (opId, localOrder, origin, formatVersion, payload, payloadHash, deviceId, at, state, createdAt, updatedAt)
     VALUES (?, ?, 'local', 1, ?, ?, ?, ?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, op.at, op.at)

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Main-process sync status, workspace today and shared Tailwind controls/fields.
- * [OUTPUT]: Account-bound sign-in, explicit keep/clear sign-out, safe password recovery without system authorization, live sync state and development diagnostics.
+ * [OUTPUT]: Account-bound sign-in, explicit keep/clear sign-out, safe password recovery, live sync state and a neutral entry into independent task review.
  * [POS]: Settings › Sync. The password stays in this pane and is not part of the polled status.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,7 @@ import { Icon } from '../../../components/icons'
 import { SyncSignOutDialog } from './SyncSignOutDialog'
 import { SyncRecovery } from './SyncRecovery'
 import { SettingsGroup, SettingsRow, relativeDay, stamp } from './parts'
+import { requestSyncReview } from '../../sync/SyncReview'
 
 function passwordOk(value: string, again: string): boolean {
   const text = value.trim()
@@ -113,7 +114,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
     {status.credentialStorage === 'password' && <p className="sync-password-storage m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.passwordStorage}</p>}
     {import.meta.env.DEV && <p className="sync-diagnostics m-0 text-xs text-muted-foreground" role="status">{t.networkLabel}: {status.offline ? t.networkOffline : t.networkOnline} · {t.realtimeLabel}: {status.realtimeConnected ? t.realtimeOnline : t.realtimeOffline}</p>}
     {error && <div className="settings-alert m-0 flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-destructive-tint text-destructive text-[12.5px] leading-[1.6]" role="alert"><span>{error}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status.error)}><Icon name="close" size={16} /></IconButton></div>}
-    {conflictNotice.open && <div className="settings-alert m-0 flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-destructive-tint text-destructive text-[12.5px] leading-[1.6]" role="status"><span>{t.conflicts(status.conflicts)}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={conflictNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
+    {conflictNotice.open && <div className="settings-alert m-0 flex items-center gap-2 text-[12.5px] leading-[1.6] text-muted-foreground" role="status"><span>{t.reviewNotice(status.conflicts)}</span><SettingsButton type="button" onClick={requestSyncReview}>{t.reviewDetails}</SettingsButton><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={conflictNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
     {status.phase === 'unconfigured' && <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.unconfigured}</p>}
     {status.phase === 'locked' && <><SettingsGroup>
       <Account note={accountNote}>
