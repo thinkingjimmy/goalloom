@@ -2,14 +2,14 @@
  * [INPUT]: Validated commands, current transaction context and explicit current/date/next targets.
  * [OUTPUT]: Atomic setup with six policies (only day defaults to automatic), placement and flow-valid links, including opt-in adoption or isolated-parent root promotion with one undo effect.
  *          Entering Later unlinks that item's parents in the same operation; child edges stay.
- *          Creation and changed ordering parents can place only the affected root, with explicit insertion taking priority.
+ *          Creation and changed ordering parents can place only the affected root; nested creation validates its container and commits one create-plus-nesting receipt.
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { changeNesting } from './nesting'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { randomUUID } from 'node:crypto'
-import { currentPeriod, workspaceDate } from '../../../domain/calendar'
+import { compareInstants, currentPeriod, workspaceDate } from '../../../domain/calendar'
 import { horizonProblem, mayLinkFlows, promotedFlowColor, relationProblem } from '../../../domain/relations'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { calendarSchema, type Item, type Relation } from '../../../shared/contracts/entities'
@@ -41,6 +41,16 @@ export function confirmSetup(context: Context, command: CommandOf<'confirmSetup'
 }
 
 export function createItem(context: Context, command: CommandOf<'create'>): boolean {
+  if (command.nesting && (command.parentId || command.parentRefs?.length || command.flowColor !== null || command.smartCapture || command.beforeId)) throw new DomainError('invalid', nestingText().inherited)
+  const period = targetPeriod(context, command.horizon, command.period)
+  const container = command.nesting ? context.store.item(command.nesting.parentId, command.nesting.expectedParentVersion) : null
+  if (container && command.nesting) {
+    assertAvailable(container)
+    if (container.archivedAt || container.status === 'cancelled' || container.placement.nestingParentId
+      || container.placement.version !== command.nesting.expectedParentPlacementVersion
+      || container.placement.horizon !== command.horizon || container.placement.periodId !== (period?.id ?? null)) throw new DomainError('conflict', nestingText().changed)
+    if (period && compareInstants(period.endAt, context.now) <= 0) throw new DomainError('stale_preview', nestingText().expired)
+  }
   const refs = [...(command.parentRefs ?? []), ...(command.parentId ? [{ itemId: command.parentId, expectedVersion: command.expectedParentVersion ?? -1 }] : [])]
   const parents = [...new Map(refs.flatMap(ref => {
     if ('automatic' in ref && ref.automatic) {
@@ -60,7 +70,6 @@ export function createItem(context: Context, command: CommandOf<'create'>): bool
     assertFlowColorFree(context, command.flowColor, null)
   }
   const id = randomUUID()
-  const period = targetPeriod(context, command.horizon, command.period)
   const item: Item = { id, title: command.title, description: command.description, dueDate: command.dueDate,
     status: 'todo', completedAt: null, cancelledAt: null, archivedAt: null, deletedAt: null, deletedBy: null,
     createdAt: context.now, updatedAt: context.now, version: 1, flowColor: command.flowColor,
@@ -69,9 +78,10 @@ export function createItem(context: Context, command: CommandOf<'create'>): bool
   const relations = parents.map(parent => newRelation(parent.id, id, context.now))
   for (const relation of relations) context.store.saveRelation(relation)
   for (const parent of parents) touch(context, parent)
-  if (command.autoPlace && command.beforeId === undefined) placeByParent(context, item, false)
+  if (!container && command.autoPlace && command.beforeId === undefined) placeByParent(context, item, false)
   context.effects.push({ kind: 'create', itemId: id, status: statusGroup(item), horizon: command.horizon, periodId: period?.id ?? null, initialRelations: relations.map(relation => relation.id) })
   context.store.event(command.operationId, context.now, 'created', null, item)
+  if (container) changeNesting(context, item, container)
   context.itemId = id
   context.label = parents.length ? serverText().labels.decompose : serverText().labels.create
   return true

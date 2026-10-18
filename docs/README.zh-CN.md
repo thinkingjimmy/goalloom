@@ -60,7 +60,7 @@ macOS 安装包已通过 Developer ID 签名和 Apple 公证。Windows 版仍未
 
 **macOS。** 打开 DMG，把 Goalloom 拖进「应用程序」后打开即可。
 
-**从公开版 macOS 1.8.0 升级：** 退出 Goalloom，用 1.9.6 替换「应用程序」中的旧版一次。旧版的 ad-hoc 签名无法通过内置更新切换到本次 Developer ID 签名，工作区和设置会保留。
+**从公开版 macOS 1.8.0 升级：** 退出 Goalloom，用 1.9.7 替换「应用程序」中的旧版一次。旧版的 ad-hoc 签名无法通过内置更新切换到本次 Developer ID 签名，工作区和设置会保留。
 
 **Windows。** 出现 SmartScreen「Windows 已保护你的电脑」时，点「更多信息 → 仍要运行」，再按安装向导完成。
 
@@ -85,7 +85,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<版本>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<版本>-win-x64.exe
 ```
 
-1.9.6 使用熟悉的看板任务样式，逐项确认同步差异。可以选择这台电脑的修改或同步后的结果，默认使用同步后的结果。重启和升级后仍保持登录。继续编辑前，请将同一同步空间的所有电脑升级到 1.9.6。工作区格式保持 v11。说明见 [v1.9.6 发布说明](./releases/v1.9.6.md)。构建期的同步配置见[开发文档](./development.md)。
+1.9.7 支持在列内用 Tab 直接创建二级任务、按原顺序归入整组任务，并显示 AI 匹配建议，改进开发任务与版本目标的匹配。请将同一同步空间的所有电脑升级到 1.9.7。工作区格式保持 v11。说明见 [v1.9.7 发布说明](./releases/v1.9.7.md)。构建期的同步配置见[开发文档](./development.md)。
 
 完整测试、打包检查、代码地图以及贡献者与开发代理的约定见[开发文档](./development.md)。官网代码在 [`apps/website/`](../apps/website/README.md)。
 

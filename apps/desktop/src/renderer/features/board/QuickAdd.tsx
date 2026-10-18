@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Displayed period/insertion, period-keyed drafts, shared AI state, workspace snapshot and guarded submission.
+ * [INPUT]: Displayed period/insertion and preceding outline root, period-keyed drafts, shared AI state, workspace snapshot and guarded submission.
  * [OUTPUT]: Immediate inline creation, visible revision-bound matching/retry/consent feedback, preserved drafts and explicit manual flow priority;
- *           grows with content/column width, offers only longer-horizon flow roots, and no flow choice in Later.
+ *           retains two-level Tab drafts and inherited flow context, grows with content/column width and offers only longer-horizon flow roots.
  * [POS]: Immediate board creation; CaptureInput binds draft revisions, main completes optional parents and storage owns relationship constraints.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,16 +22,20 @@ import type { Ai } from '../../state/ai'
 import { CaptureInput } from '../../state/capture-input'
 import type { SemanticParent } from '../../../shared/contracts/capture'
 import { Icon } from '../../components/icons'
+import { nestingText } from '../../../shared/i18n/nesting'
 
 export interface SplitParent { id: string; title: string }
 type Choice = { kind: 'none' } | { kind: 'join'; id: string } | { kind: 'new'; color: number } | { kind: 'split'; parent: SplitParent }
-export interface QuickAddDraft { title: string; choice: Choice; manualFlow?: boolean; smartConsent?: number | null }
+interface NestingDraft extends SplitParent { version: number; placementVersion: number }
+export interface QuickAddDraft { title: string; choice: Choice; manualFlow?: boolean; smartConsent?: number | null; nesting?: NestingDraft | null }
 type Matching = { key: string } & ({ kind: 'pending' } | { kind: 'ready'; parents: SemanticParent[] } | { kind: 'failed'; message: string })
 
-export function QuickAdd({ horizon, period, beforeId, periodName, expired, retarget, drafts, flows, items, split, submit, busy, close, snapshot, ai }: { horizon: ItemHorizon; period: PlanningPeriod | null; beforeId?: string | null | undefined; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void; snapshot?: Snapshot; ai?: Ai | undefined }) {
+export function QuickAdd({ horizon, period, beforeId, periodName, expired, retarget, drafts, flows, items, split, nestingTarget, submit, busy, close, snapshot, ai }: { horizon: ItemHorizon; period: PlanningPeriod | null; beforeId?: string | null | undefined; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; nestingTarget?: ItemSummary | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void; snapshot?: Snapshot; ai?: Ai | undefined }) {
   const draftKey = period?.id ?? 'later'
   const [title, setTitle] = useState(() => drafts.get(draftKey)?.title ?? '')
   const [choice, setChoice] = useState<Choice>(() => split ? { kind: 'split', parent: split } : drafts.get(draftKey)?.choice ?? { kind: 'none' })
+  const [nesting, setNesting] = useState<NestingDraft | null>(() => drafts.get(draftKey)?.nesting ?? null)
+  const nestingParent = nesting ? items.find(item => item.id === nesting.id) : undefined
   const status = ai?.status?.features.smart
   const [manualFlow, setManualFlow] = useState(() => !!split || drafts.get(draftKey)?.manualFlow || choice.kind !== 'none')
   const [smartConsent, setSmartConsent] = useState(() => drafts.get(draftKey)?.smartConsent !== undefined ? drafts.get(draftKey)!.smartConsent! : status?.enabled ? status.revision : null)
@@ -39,12 +43,12 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
   const capture = useRef(new CaptureInput()), manualRevision = useRef(0)
   const revision = useRef(0), saving = useRef(false), choiceRef = useRef(choice)
   const [matching, setMatching] = useState<Matching | null>(null), [attempt, setAttempt] = useState(0)
-  useLayoutEffect(() => { drafts.set(draftKey, { title, choice, manualFlow, smartConsent }) }, [drafts, draftKey, title, choice, manualFlow, smartConsent])
-  const canMatch = !!snapshot && !!status?.enabled && smartConsent === status.revision && !manualFlow && horizon !== 'later' && !expired
+  useLayoutEffect(() => { drafts.set(draftKey, { title, choice, manualFlow, smartConsent, nesting }) }, [drafts, draftKey, title, choice, manualFlow, smartConsent, nesting])
+  const canMatch = !!snapshot && !!status?.enabled && smartConsent === status.revision && !manualFlow && !nesting && horizon !== 'later' && !expired
   const request = () => capture.current.request(snapshot!, status!.revision, title, revision.current, manualRevision.current, { horizon, startDate: period?.startDate ?? null })
   const matchingKey = JSON.stringify([capture.current.sessionId, title.trim(), revision.current, manualRevision.current, snapshot?.workspace.generation, snapshot?.workspace.revision, snapshot?.periods.map(period => period.id), status?.revision, period?.id])
   const currentMatch = canMatch && !composing && matching?.key === matchingKey ? matching : null
-  const needsConsent = !!snapshot && !!status?.enabled && smartConsent !== status.revision && !manualFlow && horizon !== 'later' && !expired && !!title.trim()
+  const needsConsent = !!snapshot && !!status?.enabled && smartConsent !== status.revision && !manualFlow && !nesting && horizon !== 'later' && !expired && !!title.trim()
   useEffect(() => { if (!title.trim()) setSmartConsent(status?.enabled ? status.revision : null) }, [title, status?.enabled, status?.revision])
   useEffect(() => {
     capture.current.cancel()
@@ -73,15 +77,20 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
   // Joining links the new item under the flow root, so the root must sit in a longer horizon; Later starts no flow.
   const joinable = flows.visible.filter(flow => { const root = items.find(item => item.id === flow.id); return !!root && mayParent(root.placement.horizon, horizon) })
   const free = horizon === 'later' ? [] : relationColors.map((_, index) => index).filter(index => !flows.owner(index))
-  const flowless = horizon === 'later' && !split
-  const parentId = choice.kind === 'join' ? choice.id : choice.kind === 'split' ? choice.parent.id : null
+  const flowless = !!nesting || horizon === 'later' && !split
+  const parentId = nesting ? null : choice.kind === 'join' ? choice.id : choice.kind === 'split' ? choice.parent.id : null
   const suggested = currentMatch?.kind === 'ready' ? currentMatch.parents : []
-  const colors = choice.kind === 'new' ? [choice.color] : parentId ? flows.colorsOf(parentId) : [...new Set(suggested.flatMap(parent => flows.colorsOf(parent.itemId)))]
+  const colors = horizon === 'later' ? [] : nesting ? flows.colorsOf(nesting.id) : choice.kind === 'new' ? [choice.color] : parentId ? flows.colorsOf(parentId) : [...new Set(suggested.flatMap(parent => flows.colorsOf(parent.itemId)))]
   const ring = flowVars(colors)
   const label = choice.kind === 'new' ? messages.newFlowName(messages.colorNames[choice.color]!)
     : choice.kind === 'join' ? messages.joinHint(flows.all.find(flow => flow.id === choice.id)?.title ?? '')
     : choice.kind === 'split' ? messages.splitHint(choice.parent.title) : suggested.length ? t.under(suggested.map(parent => parent.title)) : messages.noFlow
   const pick = (next: Choice) => { manualRevision.current++; setManualFlow(true); setChoice(next); setPicking(false); input.current?.focus() }
+  const changeNesting = (next: ItemSummary | null) => {
+    revision.current++; manualRevision.current++; capture.current.cancel(); setMatching(null); setPicking(false)
+    setNesting(next ? { id: next.id, title: next.title, version: next.version, placementVersion: next.placement.version } : null)
+  }
+  const nestingLabel = nesting ? `${nestingText().belongsTo} ${nestingParent?.title ?? nesting.title}` : undefined
   const create = async () => {
     const text = title.trim()
     if (!text || busy || saving.current) return
@@ -90,7 +99,8 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
     try {
       const expectedParentVersion = parentId ? (await desktopApi().getItem(parentId).catch(() => null))?.item.version ?? null : null
       if (parentId && expectedParentVersion === null) return
-      const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), ...(beforeId !== undefined ? { beforeId } : {}), parentId, expectedParentVersion, flowColor: choice.kind === 'new' ? choice.color : null,
+      const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), ...(beforeId !== undefined ? { beforeId } : {}), parentId, expectedParentVersion, flowColor: !nesting && choice.kind === 'new' ? choice.color : null,
+        ...(nesting ? { nesting: { parentId: nesting.id, expectedParentVersion: nestingParent?.version ?? nesting.version, expectedParentPlacementVersion: nestingParent?.placement.version ?? nesting.placementVersion } } : {}),
         ...(canMatch ? { smartCapture: { request: request(), allowPlacement: false, allowParents: true } } : {}) })
       if (!result) return
       capture.current.rotate()
@@ -98,14 +108,14 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
       else setAttempt(value => value + 1)
       // The new item now owns the colour, so following entries join that flow.
       const created = (result as { itemId: string | null }).itemId
-      if (choice.kind === 'new' && created && choiceRef.current === choice) setChoice({ kind: 'join', id: created })
+      if (!nesting && choice.kind === 'new' && created && choiceRef.current === choice) setChoice({ kind: 'join', id: created })
       input.current?.focus()
     } finally { saving.current = false }
   }
-  return <div className="quick-add" ref={root} onBlur={event => {
+  return <div className="quick-add" data-nested={!!nesting} data-nesting-parent={nesting?.id} ref={root} onBlur={event => {
     if (!root.current?.contains(event.relatedTarget as Node | null) && !title.trim() && !picking) close()
   }}>
-    {flowless ? <span className="check check-dashed" aria-hidden="true" /> : <Popover open={picking} onClose={() => setPicking(false)} anchor={
+    {flowless ? <span className={`check ${ring ? '' : 'check-dashed'}`} style={ring} aria-hidden="true" /> : <Popover open={picking} onClose={() => setPicking(false)} anchor={
       <button type="button" className={`check ${ring ? '' : 'check-dashed'}`} style={ring} aria-label={messages.chooseFlow(label)} aria-haspopup="listbox" aria-expanded={picking} onMouseDown={event => event.preventDefault()} onClick={() => setPicking(!picking)} />
     }>
       <div className={cn(menuStyles.surface, 'menu flow-picker')} role="listbox" aria-label={messages.flow}>
@@ -121,15 +131,22 @@ export function QuickAdd({ horizon, period, beforeId, periodName, expired, retar
         </div>
       </div>
     </Popover>}
-    <textarea ref={input} className="quick-add-title" aria-label={messages.newToColumn(periodName)} placeholder={messages.titlePlaceholder} autoFocus value={title} rows={1} maxLength={500}
+    <textarea ref={input} className="quick-add-title" aria-label={messages.newToColumn(periodName)} aria-description={nestingLabel} placeholder={messages.titlePlaceholder} autoFocus value={title} rows={1} maxLength={500}
       onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)}
       onChange={event => { revision.current++; setTitle(event.target.value.replace(/\r?\n/g, ' ')) }}
       onKeyDown={event => {
-        if (event.nativeEvent.isComposing) return
+        if (event.nativeEvent.isComposing || composing) return
+        if (event.key === 'Tab' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          if (event.shiftKey && nesting) { event.preventDefault(); changeNesting(null) }
+          else if (!event.shiftKey && !nesting && !expired && nestingTarget && !nestingTarget.archivedAt && nestingTarget.status !== 'cancelled' && !nestingTarget.placement.nestingParentId && nestingTarget.placement.horizon === horizon && nestingTarget.placement.periodId === (period?.id ?? null)) {
+            event.preventDefault(); changeNesting(nestingTarget)
+          }
+        }
         if (event.key === 'Enter') { event.preventDefault(); void create() }
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close() }
       }} />
     {expired ? <span className="quick-add-expired" role="status">{messages.expiredDraft}<TextButton type="button" disabled={busy} onClick={retarget}>{messages.useDisplayedPeriod}</TextButton></span>
+      : nesting ? <span className="quick-add-hint" role="status">{nestingLabel}</span>
       : choice.kind !== 'none' && <span className="quick-add-hint" aria-hidden="true">{label}</span>}
     {(needsConsent || currentMatch) && <div className="quick-add-smart" role="status" aria-live="polite" aria-atomic="true" data-phase={needsConsent ? 'consent' : currentMatch?.kind}>
       <Icon name="smart" size={12} />

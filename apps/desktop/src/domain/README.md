@@ -12,12 +12,12 @@ domain/
 ├── flows.ts      # 流程归属：图内祖先缓存解析流程根，图外条目共享空结果，不保留累计访问身份
 ├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断
 ├── undo.ts       # Owned fields, relation/color effects and semantic-order matching, independent of whole-item versions
-├── creation.ts   # Immutable net creation projection across causally owned system completion receipts
+├── creation.ts   # Immutable net creation projection and original-receipt nesting provenance for scoped restore after creation undo
 ├── import-creation.ts # v11 capture provenance, completion whitelist and atomic grouped undo-marker validation
 ├── history.ts    # 顺序流式投影期末与有界后续明细，缺失/回拨为 unknown；期末结果（完成/未完成/移出/取消/未知）
 ├── execution-facts.ts # Effective counts versus real state seconds, replayed guidance pressure and clock-only projections
 ├── execution-history.ts # Indexed ownership for every event effect and chronological guidance/clear/undo replay
-├── import-nesting.ts # Inheritance provenance, flattened group ownership and commit-order relationship/lifecycle replay
+├── import-nesting.ts # Nested creation/restore provenance, flattened group ownership and commit-order relationship/lifecycle replay
 ├── import-guidance.ts # Indexed guidance head/receipt/sequence integrity, tombstones and logical ownership without per-event batch scans
 ├── import-validation.ts # Strict v1-v11 datasets, grouped creation inverses, DAGs, colors, discard visibility, plans and legacy milestone receipts
 ├── plan.ts       # createPlan 批内约束与稳定拓扑序（父在前、同级保持草稿顺序）

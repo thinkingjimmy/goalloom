@@ -48,6 +48,72 @@ function world(path = ':memory:') {
   return { db, repo, run, item, create, goal, root, leaf, nest, unnest, move, status, undo, data, rejected, flows, now: () => now, time: (next: string) => { now = next } }
 }
 {
+  const directory = mkdtempSync(join(tmpdir(), 'goalloom-nested-create-')), path = join(directory, 'workspace.sqlite')
+  const w = world(path)
+  const nesting = () => ({ parentId: w.root, expectedParentVersion: w.item(w.root).version, expectedParentPlacementVersion: w.item(w.root).placement.version })
+  const count = w.data().operations.length
+  const saved = w.run({ type: 'create', title: 'Inline child', horizon: 'week', autoPlace: true, nesting: nesting() })
+  const id = saved.itemId!
+  assert.equal(w.data().operations.length, count + 1)
+  assert.deepEqual(w.repo.store.operation(saved.operationId)!.effects.map(effect => effect.kind), ['create', 'nesting'])
+  assert.equal(w.item(id).placement.nestingParentId, w.root)
+  assert.deepEqual(w.flows(id), [w.goal])
+  const second = w.run({ type: 'create', title: 'Next inline child', horizon: 'week', nesting: nesting() })
+  assert.deepEqual(w.repo.store.nestedItems(w.root).map(item => item.id), [id, second.itemId])
+  assert.equal(w.undo(second.operationId).outcome, 'committed')
+  w.run({ type: 'edit', itemId: id, expectedVersion: w.item(id).version, title: 'Later title', description: 'Later notes', dueDate: '2026-10-31' })
+  const undone = w.undo(saved.operationId)
+  assert.equal(undone.outcome, 'committed')
+  assert(w.item(id).deletedAt)
+  w.create('Unrelated root added after undo', 'week')
+  w.run({ type: 'restoreItem', itemId: id, expectedVersion: w.item(id).version, deletionSource: undone.operationId })
+  assert.equal(w.item(id).placement.nestingParentId, w.root)
+  assert.equal(w.item(id).title, 'Later title'); assert.equal(w.item(id).description, 'Later notes')
+  const data = w.data()
+  validateImport(JSON.parse(JSON.stringify(data)), w.now())
+  w.db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+  const sqlite = await readSqliteDataset(path, w.now())
+  assert.equal(sqlite.placements.find(placement => placement.itemId === id)!.nestingParentId, w.root)
+  const forged = structuredClone(data), operation = forged.operations.find(operation => operation.id === saved.operationId)!
+  const effect = operation.effects.find(effect => effect.kind === 'nesting')!
+  if (effect.kind === 'nesting') effect.itemId = w.leaf
+  assert.throws(() => validateImport(forged, w.now()))
+  const before = nesting()
+  w.move(w.root, 'day')
+  w.rejected(() => w.run({ type: 'create', title: 'Stale inline parent', horizon: 'week', nesting: before }))
+  w.rejected(() => w.run({ type: 'create', title: 'Wrong period', horizon: 'week', nesting: nesting() }))
+  for (const extra of [{ flowColor: 2 }, { parentId: w.goal, expectedParentVersion: w.item(w.goal).version }, { beforeId: w.leaf }]) {
+    w.rejected(() => w.run({ type: 'create', title: 'Conflicting inline intent', horizon: 'day', nesting: nesting(), ...extra }))
+  }
+  const retry = { type: 'create', title: 'Idempotent inline child', horizon: 'day', nesting: nesting(), operationId: randomUUID() }
+  const receipt = w.run(retry)
+  assert.deepEqual(w.run(retry), receipt)
+  assert.equal(w.data().items.filter(item => item.title === retry.title).length, 1)
+  const deletion = w.undo(receipt.operationId)
+  w.move(w.root, 'month')
+  const restored = w.run({ type: 'restoreItem', itemId: receipt.itemId, expectedVersion: w.item(receipt.itemId!).version, deletionSource: deletion.operationId })
+  assert.equal(w.item(receipt.itemId!).placement.nestingParentId ?? null, null)
+  assert(restored.warnings.length)
+  validateImport(w.data(), w.now()); verifyDatabase(w.db); w.db.close(); rmSync(directory, { recursive: true, force: true })
+  checks.push('Inline nested creation is atomic, inherits goals, appends siblings, undoes/restores once with later text, round-trips JSON/SQLite and rejects stale/conflicting intent without partial writes')
+}
+{
+  const w = world()
+  const startDate = w.repo.store.period(w.item(w.root).placement.periodId!).startDate
+  const create = () => w.run({ type: 'create', title: 'Guarded child', horizon: 'week', period: { kind: 'date', startDate }, nesting: {
+    parentId: w.root, expectedParentVersion: w.item(w.root).version, expectedParentPlacementVersion: w.item(w.root).placement.version,
+  } })
+  w.run({ type: 'archive', itemId: w.root, expectedVersion: w.item(w.root).version, archived: true }); w.rejected(create)
+  w.run({ type: 'archive', itemId: w.root, expectedVersion: w.item(w.root).version, archived: false })
+  w.status(w.root, 'cancelled'); w.rejected(create); w.status(w.root, 'todo')
+  w.nest(w.root, w.leaf); w.rejected(create); w.unnest(w.root); w.move(w.root, 'week')
+  w.run({ type: 'delete', itemId: w.root, expectedVersion: w.item(w.root).version }); w.rejected(create)
+  w.run({ type: 'restoreItem', itemId: w.root, expectedVersion: w.item(w.root).version })
+  w.time('2026-10-19T12:00:00.000Z'); w.rejected(create)
+  verifyDatabase(w.db); w.db.close()
+  checks.push('Inline parent guards atomically reject archived/cancelled/deleted/nested containers and an expired period')
+}
+{
   const w = world(), first = w.create('First child', 'day'), second = w.create('Second child', 'day')
   w.nest(first); w.nest(second)
   const order = () => w.repo.store.nestedItems(w.root).sort((a, b) => a.placement.sortKey - b.placement.sortKey).map(item => item.id)

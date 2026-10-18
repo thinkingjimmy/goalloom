@@ -12,6 +12,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron } from 'playwright'
 import { finishSetup } from './setup.mjs'
 import { stepPeriod } from './period-step.mjs'
+import { runInlineNesting, runInlineNestingSaves } from './inline-nesting.mjs'
 
 export async function runColumnAdd(packaged) {
   const evidence = resolve('output/tests/column-add')
@@ -133,6 +134,9 @@ export async function runColumnAdd(packaged) {
 
     await column('later').locator('.empty-column').dblclick({ position: { x: 40, y: 40 } })
     assert.equal(await active(input('later')), true)
+    await input('later').fill('Empty column draft'); await input('later').press('Tab')
+    assert.equal(await active(input('later')), false, 'Tab without a preceding task keeps native focus navigation')
+    await input('later').focus(); await input('later').fill('')
     await close('later')
     await column('later').locator('.empty-column p').dblclick()
     assert.equal(await page.locator('.quick-add').count(), 0)
@@ -161,6 +165,12 @@ export async function runColumnAdd(packaged) {
       report.placements.push({ horizon, blank: blank.id, footer: tail.id, periodId: tail.placement.periodId })
     }
     report.checks.push('Both entries create in all seven columns; empty columns, insight-card exclusion, focus and continuous input')
+
+    await runInlineNesting({ page, column, input, openFooter, close, save, shot, report })
+    // Keep the existing plain-entry checks independent from the retained nesting drafts.
+    for (const horizon of ['later', 'year', 'half', 'cycle', 'month', 'week', 'day']) {
+      await openFooter(horizon); await input(horizon).press('Shift+Tab'); await close(horizon)
+    }
 
     for (const horizon of ['later', 'year', 'half', 'cycle', 'month', 'week', 'day']) {
       await openFooter(horizon)
@@ -258,6 +268,8 @@ export async function runColumnAdd(packaged) {
     }
     report.checks.push('Hovering the header reveals the button without shifting completed tasks; Tab, Enter and Space work without pointer hover')
 
+    await runInlineNestingSaves({ app, page, column, input, openFooter, close, shot, report })
+
     await app.evaluate(({ ipcMain }) => {
       const command = ipcMain._invokeHandlers.get('goalloom:command'), query = ipcMain._invokeHandlers.get('goalloom:query')
       const probe = globalThis.columnAddProbe = { writeGate: null, queryGate: null, failQuery: false }
@@ -300,7 +312,17 @@ export async function runColumnAdd(packaged) {
     await app.evaluate(() => { globalThis.columnAddProbe.queryGate.resolve(); globalThis.columnAddProbe.queryGate = null })
     await settled('week')
     await doubleBlank('week'); await save('week', 'Future blank'); await close('week')
-    await openFooter('week'); await save('week', 'Future footer'); await close('week')
+    await openFooter('week')
+    const futureRoot = await save('week', 'Future footer')
+    await input('week').press('Tab')
+    const futureChild = await save('week', 'Future nested')
+    assert.equal(futureChild.placement.nestingParentId, futureRoot.id)
+    await input('week').fill('Future nested draft'); await close('week')
+    await column('week').locator('[data-return-current]').click()
+    await stepPeriod(column('week'), 'next'); await settled('week'); await openFooter('week')
+    assert.equal(await input('week').inputValue(), 'Future nested draft')
+    assert.equal(await column('week').locator('.quick-add').getAttribute('data-nesting-parent'), futureRoot.id)
+    await input('week').fill(''); await input('week').press('Shift+Tab'); await close('week')
     await app.evaluate(() => { globalThis.columnAddProbe.failQuery = true })
     await stepPeriod(column('week'), 'next')
     await column('week').locator('.inline-error').waitFor(); await settled('week')
@@ -356,7 +378,9 @@ export async function runColumnAdd(packaged) {
       assert.deepEqual(surface, { background: 'rgba(0, 0, 0, 0)', border: '0px', height: 40 })
       await alignedEntry('day')
       await shot(`${style}-${theme}`)
-      await openFooter('day'); await alignedEntry('day'); await wrappedInput('day'); await shot(`${style}-${theme}-input`); await input('day').fill(''); await close('day')
+      await openFooter('day'); await alignedEntry('day'); await wrappedInput('day'); await shot(`${style}-${theme}-input`)
+      await input('day').press('Tab'); assert.equal(await column('day').locator('.quick-add').getAttribute('data-nested'), 'true'); await shot(`${style}-${theme}-nested`)
+      await input('day').press('Shift+Tab'); await input('day').fill(''); await close('day')
     }
     const labels = { zh: '添加任务…', en: 'Add task…', ja: 'タスクを追加…', es: 'Añadir tarea…', fr: 'Ajouter une tâche…' }
     for (const [locale, label] of Object.entries(labels)) {
@@ -368,6 +392,9 @@ export async function runColumnAdd(packaged) {
       await alignedEntry('day')
       await openFooter('day'); assert.equal(await active(input('day')), true); await alignedEntry('day')
       assert.equal(await column('day').locator('.quick-add-hint').count(), 0, 'The keyboard hint stays absent in every locale')
+      await input('day').press('Tab')
+      assert.match(await input('day').getAttribute('aria-description'), new RegExp({ zh: '所属任务：', en: 'Parent task:', ja: '親タスク：', es: 'Tarea principal:', fr: 'Tâche parente :' }[locale]))
+      await shot(`locale-${locale}-nested`); await input('day').press('Shift+Tab')
       if (locale === 'en') await shot('english-empty-input')
       await wrappedInput('day'); await shot(`locale-${locale}-input`); await input('day').fill(''); await close('day')
       await shot(`locale-${locale}`)

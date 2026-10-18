@@ -89,7 +89,7 @@ renderer/
 │   │   ├── TaskMenu.tsx     # Compact TODO context menu with leaf/group nesting, yearless dates, persistent source-row activation, virtual pinning, keyboard access and focus restoration
 │   │   ├── FlowDot.tsx      # Role-aware flow menus with a single parent-panel heading, intrinsic choice width, pointer linking, keyboard root adoption and hover previews without native tooltips; absent in Later
 │   │   ├── RelationLines.tsx # 单流程筛选或圆点预览时的只读关系线层：按流程着色、终点落在下级圆点、跨级沿行间穿过、链高亮、滚出视野标记
-│   │   ├── QuickAdd.tsx     # Immediate continuous capture, visible revision-bound parent matching/retry/resend, automatic flow-colour preview, explicit flow/period/insertion priority and period drafts
+│   │   ├── QuickAdd.tsx     # Continuous capture, caret-preserving Tab/Shift+Tab nesting and inherited colors, revision-bound AI matching/retry and period-scoped text/flow/container drafts
 │   │   ├── PastPeriod.tsx   # Live past-task groups with tooltip-free titles, completion/reopening/restore, guarded paging and focus retention
 │   │   ├── period-labels.ts # Mode-aware adjacent/distant headings, natural Q/year lists and year-disambiguated anchored ranges
 │   │   └── Backlog.tsx      # 往期分页、选择和批量安排

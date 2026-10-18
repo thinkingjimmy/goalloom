@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Existing theme/row tokens, virtual group offsets and outline drag/membership attributes.
- * [OUTPUT]: Stable indentation, whole-group nesting borders, level-aware insertion lines, accessible arrangement actions and bounded choices.
+ * [OUTPUT]: Stable row/draft indentation, whole-group nesting borders, level-aware insertion lines, accessible arrangement actions and bounded choices.
  * [POS]: Board-only nesting styles; row backgrounds and relation exits keep their original bounds.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 /* Outline membership changes the leading content inset, leaving relation exits and row backgrounds stable. */
 .task-row[data-nested='true'] { padding-left: calc(var(--flow-gutter) + 24px); }
+.quick-add[data-nested='true'] { padding-left: calc(var(--row-inset) + 24px); }
 .task-row[data-nested='true'] .flow-dot-slot { left: 24px; }
 .task-row[data-nested='true'] .drag-handle { left: 26px; }
 .task-row[data-context='true'] { color: var(--secondary); }

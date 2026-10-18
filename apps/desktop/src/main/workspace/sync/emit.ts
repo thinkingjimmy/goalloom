@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A committed command, its effects, and item rows captured before dispatch.
- * [OUTPUT]: Transaction-owned SyncOps with the observed basisSeq, causal completion and guarded grouped creation undo. Clock confirmation/rollover resume write nothing.
+ * [OUTPUT]: Transaction-owned SyncOps with the observed basisSeq, atomic nested creation, causal completion and guarded grouped creation undo. Clock confirmation/rollover resume write nothing.
  * [POS]: Desktop adapter from command effects to SyncOp. applySyncOp is the other direction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,7 +10,7 @@ import { enqueueSettings } from '@goalloom/store-core'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { sha256Hex, uuidv5 } from '@goalloom/crypto'
 import type { Command } from '../../../shared/contracts/commands'
-import type { Effect } from '../../../shared/contracts/effects'
+import type { Effect, PositionEffect } from '../../../shared/contracts/effects'
 
 interface BeforeItem { title: string; description: string; dueDate: string | null; deletedBy: string | null; version: number }
 
@@ -143,7 +143,10 @@ function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect
     return actions
   }
   for (const effect of input.effects) {
-    if (effect.kind === 'create') actions.push(...createActions(db, effect.itemId, effect.initialRelations))
+    if (effect.kind === 'create') {
+      const nesting = input.effects.find(candidate => candidate.kind === 'nesting' && candidate.itemId === effect.itemId)
+      actions.push(...createActions(db, effect.itemId, effect.initialRelations, nesting?.kind === 'nesting' ? nesting.before : undefined))
+    }
     if (effect.kind === 'description') actions.push({ t: 'item.set', id: effect.itemId, fields: { description: effect.after } })
     if (effect.kind === 'status') actions.push({ t: 'item.status', id: effect.itemId, status: effect.after.status, completedAt: effect.after.completedAt, cancelledAt: effect.after.cancelledAt })
     if (effect.kind === 'position') actions.push(placeAction(db, effect.itemId, effect.after.horizon, effect.after.periodId, effect.after.previousId, effect.after.nextId, input.command.type === 'arrangeBacklog' || input.command.type === 'materializeParentOrder' ? 'arrange' : 'move'))
@@ -179,7 +182,7 @@ function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect
   return actions
 }
 
-function createActions(db: DatabaseSync, itemId: string, relations: string[]): Action[] {
+function createActions(db: DatabaseSync, itemId: string, relations: string[], initialPosition?: PositionEffect): Action[] {
   const item = db.prepare('SELECT * FROM items WHERE id=?').get(itemId)
   const placement = db.prepare('SELECT * FROM item_placements WHERE itemId=?').get(itemId)
   if (!item || !placement) return []
@@ -190,7 +193,7 @@ function createActions(db: DatabaseSync, itemId: string, relations: string[]): A
   const action: Action = {
     t: 'item.create', id: itemId, title: String(item.title), description: String(item.description), dueDate: item.dueDate === null ? null : String(item.dueDate),
     horizon: String(placement.horizon) as 'later', periodKey: period ? { horizon: String(period.horizon) as 'week', startDate: String(period.startDate) } : null,
-    sortHint: { afterId: previous ? String(previous.itemId) : null, beforeId: null },
+    sortHint: initialPosition ? { afterId: initialPosition.previousId, beforeId: initialPosition.nextId } : { afterId: previous ? String(previous.itemId) : null, beforeId: null },
     ...(item.flowColor === null ? {} : { flowColor: Number(item.flowColor) }),
     ...(parent ? { parentId: String(parent.parentId) } : {}),
   }

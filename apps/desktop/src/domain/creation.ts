@@ -1,10 +1,18 @@
 /**
  * [INPUT]: Immutable creation receipts and their causally owned system completions.
- * [OUTPUT]: A read-only net creation projection and the receipts resolved by one creation undo.
+ * [OUTPUT]: A read-only net creation projection, creation-owned nesting restore provenance and receipts resolved by one creation undo.
  * [POS]: Shared undo/import ownership; never edits persisted effects or rolls versions back.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Effect, Operation } from '../shared/contracts/effects'
+
+/** A creation undo detaches before deletion; its original receipt retains the group's identity. */
+export function creationNestingRestore(deletion: Operation | null | undefined, original: Operation | null | undefined, itemId: string): Extract<Effect, { kind: 'nesting' }> | undefined {
+  if (deletion?.kind !== 'undo' || !deletion.result.changed || deletion.result.originalOperationId !== original?.id || original?.kind !== 'create') return
+  const effect = original.effects.find(effect => effect.kind === 'nesting' && effect.itemId === itemId)
+  if (effect?.kind !== 'nesting' || effect.before.nestingParentId || !effect.after.nestingParentId) return
+  return { ...effect, before: effect.after, after: effect.before }
+}
 
 export function creationCompletions(original: Operation, operations: Iterable<Operation>): Operation[] {
   return [...operations].filter(operation => operation.kind === 'completeCreation' && operation.source === 'system'

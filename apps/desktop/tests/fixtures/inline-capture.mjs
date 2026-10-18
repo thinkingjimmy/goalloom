@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Isolated Electron capture transport, mounted board and synthetic goal identities.
- * [OUTPUT]: Visible inline matching, failure/retry, stale-answer and delayed-status evidence without live calls.
+ * [OUTPUT]: Visible inline matching, Tab-nesting priority, failure/retry, stale-answer and delayed-status evidence without live calls.
  * [POS]: Composer-owned acceptance; real renderer, IPC and SQLite with only the Jev transport controlled.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -63,6 +63,27 @@ export async function runInlineCaptureFeedback({ app, page, out, ids, check }) {
   assert.equal(receipt.capture.pending, false)
   assert.equal(await app.evaluate(() => globalThis.captureFixture.calls.length), callsBeforeSave, 'Saving reuses the displayed matching result')
   check('Inline pending and parent suggestions are visible in five languages and the ready result joins creation')
+
+  await set({ hold: true })
+  const nestedTitle = 'Nested Delivery draft overrides a held match'
+  await field.fill(nestedTitle)
+  await feedback.filter({ hasText: 'Jev 正在匹配上级' }).waitFor()
+  const callsBeforeNesting = await app.evaluate(() => globalThis.captureFixture.calls.length)
+  await field.press('Tab')
+  assert.equal(await page.locator('[data-horizon="day"] .quick-add').getAttribute('data-nesting-parent'), created.id)
+  assert.equal(await feedback.count(), 0)
+  const inheritedColors = await field.evaluate(node => node.parentElement.querySelector('.check').getAttribute('style'))
+  assert(inheritedColors, 'The nested draft displays its root flow color')
+  await release()
+  const nested = await save(nestedTitle)
+  assert.equal(nested.placement.nestingParentId, created.id)
+  const nestedReceipt = await app.evaluate((_, id) => globalThis.captureFixture.receipts.find(row => row.itemId === id), nested.id)
+  assert.equal(nestedReceipt.capture, undefined, 'Manual nesting never registers an automatic creation completion')
+  assert.equal(await app.evaluate(() => globalThis.captureFixture.calls.length), callsBeforeNesting)
+  assert((await snapshot()).relations.filter(edge => edge.childId === nested.id).every(edge => edge.inheritedFrom?.rootId === created.id))
+  await page.screenshot({ path: `${out}/inline-nested.png` })
+  await field.press('Shift+Tab')
+  check('Tab cancels pending matching, inherits the root color and creates one nested item without independent AI parents or a capture completion')
 
   await set({ hold: true })
   await field.fill('Old Delivery draft with a held answer')

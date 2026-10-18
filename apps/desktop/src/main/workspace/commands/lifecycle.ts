@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Transaction-local items/relations, strict lifecycle commands and injected time.
- * [OUTPUT]: Independent lifecycle effects, scoped restore and atomic unlink/placement when the effective parent changes.
+ * [OUTPUT]: Independent lifecycle effects, creation-owned group restore and atomic unlink/placement when the effective parent changes.
  * [POS]: Lifecycle commands; deletion retains saved text/placement for undo without cascading state.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,13 +9,14 @@ import { orderingParent, placeByParent } from './ordering'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { samePosition } from '../../../domain/undo'
 import { nestingTargets } from '../../../domain/nesting'
+import { creationNestingRestore } from '../../../domain/creation'
 import { changeStatus } from '../../../domain/status'
 import { relationProblem } from '../../../domain/relations'
 import { canDiscardEmptyTitle } from '../../../domain/items'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { statusGroup, type EdgeDelta } from '../../../shared/contracts/effects'
 import type { Item, Relation } from '../../../shared/contracts/entities'
-import { assertAvailable, flowColorOwner, touch, type Context } from '../context'
+import { assertAvailable, flowColorOwner, hasActiveParent, touch, type Context } from '../context'
 import { serverText } from '../../../shared/i18n/server'
 
 export function setStatus(context: Context, command: CommandOf<'status'>): boolean {
@@ -79,12 +80,20 @@ export function restoreItem(context: Context, command: CommandOf<'restoreItem'>)
   const item = context.store.item(command.itemId, command.expectedVersion)
   if (!item.deletedAt || (command.deletionSource !== null && item.deletedBy !== command.deletionSource)) throw new DomainError('conflict', serverText().errors.deletionExpired)
   const before = structuredClone(item)
-  const originalEffects = context.store.operation(item.deletedBy!)?.effects ?? []
+  const deletion = context.store.operation(item.deletedBy!)
+  const originalEffects = deletion?.effects ?? []
+  const creation = deletion?.result.originalOperationId ? context.store.operation(deletion.result.originalOperationId) : undefined
+  const creationOutline = creationNestingRestore(deletion, creation, item.id)
   const ownOutline = originalEffects.find(effect => effect.kind === 'nesting' && effect.itemId === item.id && effect.before.nestingParentId !== null)
+    ?? creationOutline
   const ownParent = ownOutline?.kind === 'nesting' ? context.store.item(ownOutline.before.nestingParentId!) : null
+  // The creation's temporary root neighbors are not part of its saved group.
+  const ownPlacementUnchanged = ownOutline?.kind === 'nesting' && (ownOutline === creationOutline
+    ? !item.placement.nestingParentId && item.placement.horizon === ownOutline.after.horizon && item.placement.periodId === ownOutline.after.periodId && item.flowColor === null && !hasActiveParent(context, item.id)
+    : samePosition(context.store.position(item), ownOutline.after))
   const ownEligible = ownOutline?.kind === 'nesting' && ownParent && !ownParent.deletedAt && !ownParent.placement.nestingParentId
     && ownParent.placement.horizon === ownOutline.before.horizon && ownParent.placement.periodId === ownOutline.before.periodId
-    && samePosition(context.store.position(item), ownOutline.after)
+    && ownPlacementUnchanged
   const outline = originalEffects.flatMap(effect => effect.kind === 'nesting' && effect.before.nestingParentId === item.id && effect.after.nestingParentId === null ? [effect] : [])
   const eligible = new Set(outline.filter(effect => {
     const child = context.store.item(effect.itemId)

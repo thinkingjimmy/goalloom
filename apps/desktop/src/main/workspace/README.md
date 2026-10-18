@@ -15,12 +15,12 @@ workspace/
 ├── history.ts        # Immutable period-end projections and activity; separate generation-guarded live past-task pages filtered by current placement
 ├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/
-│   ├── items.ts      # Setup/date guards, explicit creation, local automatic placement, root/group moves and atomic link placement
+│   ├── items.ts      # Setup/date guards, atomic create-plus-nesting with container versions, local automatic placement, root/group moves and atomic link placement
 │   ├── nesting.ts    # Guarded leaf/group nesting with ordered flattening and atomic sibling insertion, inherited-parent materialization and combined outline/goal validation
 │   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
 │   ├── capture.ts    # Optional ready matches and late column/parent completion, guarded by creation identity, task versions and live periods
 │   ├── assistance.ts # Atomic guarded note rewrites (description-only v2 effects), legacy guidance/placement and receipt-first undo
-│   ├── lifecycle.ts  # Independent lifecycle, parent deletion promotion, non-stealing outline restore, guarded discard and unlink
+│   ├── lifecycle.ts  # Independent lifecycle, parent deletion promotion, creation-receipt group restore, non-stealing outline restore, guarded discard and unlink
 │   ├── undo.ts       # Owned-field inverses including atomic flow adoption/promotion, color/branch guards, events and holds
 │   ├── backlog.ts    # 往期候选复核与批量安排，一个原子用户操作
 │   ├── ordering.ts   # Local root placement on creation/effective-parent changes and atomic arrangement of one current/future column

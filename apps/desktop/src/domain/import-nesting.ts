@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Parsed operation receipts, physical edge identities and the complete operation index.
- * [OUTPUT]: Source-aware validation of leaf/group nesting, detached inherited links and group placement ownership.
+ * [OUTPUT]: Source-aware validation of leaf/group nesting, atomic nested creation/restore, detached inherited links and group placement ownership.
  * [POS]: Import integrity extension; neither a client nor an imported receipt may invent inheritance provenance.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,6 +9,7 @@ import type { Relation } from '../shared/contracts/entities'
 import type { Effect } from '../shared/contracts/effects'
 import { sameEdge, inverseEdges } from './undo'
 import { serverText } from '../shared/i18n/server'
+import { creationNestingRestore } from './creation'
 
 type Operation = Dataset['operations'][number]
 export function validateNestingOperation(operation: Operation, operations: Map<string | number, Operation>): void {
@@ -38,13 +39,24 @@ export function validateNestingOperation(operation: Operation, operations: Map<s
     valid(effect.before.nestingParentId !== effect.after.nestingParentId)
     valid(!effect.flowColor || !effect.before.nestingParentId && effect.after.nestingParentId !== null)
     if (operation.kind === 'nest') valid(effect.after.nestingParentId !== null)
+    if (operation.kind === 'create') {
+      const created = operation.effects[0]
+      valid(operation.effects.length === 2 && created?.kind === 'create' && operation.effects[1] === effect
+        && created.itemId === effect.itemId && operation.result.itemId === effect.itemId && !created.initialRelations.length
+        && effect.before.nestingParentId === null && effect.after.nestingParentId !== null
+        && effect.before.horizon === created.horizon && effect.after.horizon === created.horizon
+        && effect.before.periodId === created.periodId && effect.after.periodId === created.periodId && !effect.flowColor && !effect.edges.length)
+    }
     if (operation.kind === 'unnest') valid(effect.before.nestingParentId !== null && effect.after.nestingParentId === null)
     if (operation.kind === 'move' || operation.kind === 'applyAssistance') valid(effect.after.nestingParentId === null && operation.effects.some(candidate => candidate.kind === 'position' && candidate.itemId === effect.itemId))
     if (operation.kind === 'delete') valid(effect.after.nestingParentId === null && operation.effects.some(candidate => candidate.kind === 'visibility' && [effect.itemId, effect.before.nestingParentId].includes(candidate.itemId)))
     if (operation.kind === 'restoreItem') {
       const restored = operation.effects.find(candidate => candidate.kind === 'visibility')
       const original = restored?.kind === 'visibility' && restored.before.deletedBy ? operations.get(restored.before.deletedBy) : undefined
-      valid(effect.before.nestingParentId === null && effect.after.nestingParentId !== null && original?.effects.some(candidate => candidate.kind === 'nesting' && candidate.itemId === effect.itemId && candidate.before.nestingParentId === effect.after.nestingParentId))
+      const creation = original?.result.originalOperationId ? operations.get(original.result.originalOperationId) : undefined
+      const fromCreation = creationNestingRestore(original, creation, effect.itemId)
+      valid(effect.before.nestingParentId === null && effect.after.nestingParentId !== null && (original?.effects.some(candidate => candidate.kind === 'nesting' && candidate.itemId === effect.itemId && candidate.before.nestingParentId === effect.after.nestingParentId)
+        || fromCreation?.before.nestingParentId === effect.after.nestingParentId))
     }
     if (effect.before.nestingParentId && !effect.after.nestingParentId) valid(effect.inheritedFrom?.rootId === effect.before.nestingParentId)
     const inherited = new Set(effect.inheritedFrom?.relations.map(edge => edge.parentId) ?? [])

@@ -3,7 +3,7 @@
  * [OUTPUT]: A single-row title-as-switcher period header (header B: period panel, ←/→ stepping and a return icon with localized guidance), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
  *           Owns independent relation dragging/prepared writes, virtual source pinning, whole-group drop previews, pointer overlays below insertion lines and scoped one-shot column arrangement.
- *           Right-aligned More/Add controls share header reveal states; column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and drafts; hidden columns stay mounted and inert.
+ *           Right-aligned More/Add controls share header reveal states; column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and two-level Tab drafts; hidden columns stay mounted and inert.
  *           Double-clicking a card edits its title in place; the write keeps the description and due date.
  *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly reminders support persistent dismissal without completion.
  *           "Write my own" opens this column's inline entry, the same one as ＋.
@@ -245,6 +245,8 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   useEffect(() => { if (collapseCompleted && highlighted && items.some(item => item.id === highlighted && item.status === 'done')) setDoneOpen(true) }, [collapseCompleted, highlighted, items])
   const { rows, todo, done } = useMemo(() => outlineSections(items, view.nestingParents), [items, view.nestingParents])
   const mainRows = collapseCompleted ? todo : rows
+  const previousRow = mainRows.at(-1)
+  const nestingTarget = previousRow?.placement.nestingParentId ? mainRows.find(item => item.id === previousRow.placement.nestingParentId) : previousRow
   const openAdd = () => {
     if (history || disabled || dragging || relationSource) return
     if (adding) section.current?.querySelector<HTMLTextAreaElement>('.quick-add-title')?.focus()
@@ -363,7 +365,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
               const draft = drafts.current.get(adding.period?.id ?? 'later')
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
               setAdding(true, adding.beforeId === null)
-            }} flows={flows} items={view.candidates} split={adding.split} submit={submit} busy={disabled} close={() => setAdding(false)} snapshot={snapshot} ai={ai} />}
+            }} flows={flows} items={view.candidates} split={adding.split} nestingTarget={nestingTarget ?? null} submit={submit} busy={disabled} close={() => setAdding(false)} snapshot={snapshot} ai={ai} />}
           {collapseCompleted && done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} nestingPreview={nestingPreview} render={row} />}</details>}
         </SortableContext>
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} onWrite={openAdd} />}

@@ -258,6 +258,33 @@ async function run(): Promise<void> {
   }
   assert.deepEqual(board(first), board(second))
   checks.push('Ordered two-level nesting and one-step undo converge through the existing encrypted item.nest protocol')
+  const root = first.repo.store.item(container)
+  const nested = first.run({ type: 'create', title: 'Atomic inline child', horizon: 'week', nesting: {
+    parentId: container, expectedParentVersion: root.version, expectedParentPlacementVersion: root.placement.version,
+  } })
+  const payload = JSON.parse(String(first.db.prepare('SELECT payload FROM sync_ops WHERE opId=?').get(nested.operationId)!.payload)) as SyncOp
+  assert.deepEqual(payload.actions.map(action => action.t), ['item.create', 'item.nest'])
+  await push(first, alpha, bound); await push(second, beta, joined)
+  for (const machine of [first, second]) {
+    assert.equal(machine.repo.store.item(nested.itemId!).placement.nestingParentId, container)
+    assert.deepEqual(machine.repo.store.nestedItems(container).sort((a, b) => a.placement.sortKey - b.placement.sortKey).map(item => item.id), [siblings[0], siblings[1], nested.itemId])
+  }
+  const edited = second.repo.store.item(nested.itemId!)
+  second.run({ type: 'edit', itemId: edited.id, expectedVersion: edited.version, title: 'Peer-edited inline child', description: 'Retained nested notes', dueDate: null })
+  await push(second, beta, joined); await push(first, alpha, bound)
+  const undoNested = first.run({ type: 'undo', originalOperationId: nested.operationId })
+  assert.equal(undoNested.outcome, 'committed')
+  await push(first, alpha, bound); await push(second, beta, joined)
+  for (const machine of [first, second]) {
+    assert(machine.repo.store.item(nested.itemId!).deletedAt)
+    assert.equal(machine.repo.store.item(nested.itemId!).title, 'Peer-edited inline child')
+  }
+  first.run({ type: 'restoreItem', itemId: nested.itemId!, expectedVersion: first.repo.store.item(nested.itemId!).version, deletionSource: undoNested.operationId })
+  await push(first, alpha, bound); await push(second, beta, joined)
+  assert.equal(second.repo.store.item(nested.itemId!).placement.nestingParentId, container)
+  assert.equal(second.repo.store.item(nested.itemId!).description, 'Retained nested notes')
+  assert.deepEqual(board(first), board(second))
+  checks.push('Atomic inline create-plus-nest, sibling order and scoped creation undo/restore converge after unrelated peer text edits without a protocol change')
   for (const machine of [first, second]) verifyDatabase(machine.db)
   assert.equal(Buffer.from(unhex(memoryCiphertext(world))).includes(Buffer.from(utf8('Shared monthly goal'))), false)
   checks.push('Both workspaces pass integrity/foreign-key checks; remote ciphertext does not contain task text')

@@ -25,6 +25,10 @@
 
 ## TODO
 
+### 1.9.7 update: inline subtasks and ordered task groups
+
+Release preparation started on 2026-10-18. [The release notes](../releases/v1.9.7.md) cover Tab-based inline subtask creation, ordered group nesting, inline AI feedback and broader development-goal matching. Workspace format remains v11. Local `pnpm verify`, mapped supplemental feature coverage, performance and scaling passed without interrupted scenarios. The manual 100,000-task check was excluded. Frozen live Jev evaluation completed with 66/72 development, 61/64 holdout and 17/18 regression exact matches and no provider errors. Hosted signed packages and public download verification are pending.
+
 ### 1.9.6 update: task-level sync difference review
 
 Released on 2026-10-18. [The release notes](../releases/v1.9.6.md) cover the selection-only task comparison, durable confirmations, and explicit recovery of rejected offline creations. All computers sharing a sync workspace must upgrade together because the encrypted operation format now includes causal metadata. Workspace format remains v11. Full local release coverage completed, including 100,000-task acceptance and two isolated replays after recorded native interruptions; performance and scaling passed. [The hosted release workflow](https://github.com/thinkingjimmy/goalloom/actions/runs/39085119940) passed both platform packages, signed macOS credential restart/replacement checks, notarization and packaged smokes. All eight public download files and both update manifests passed checksum verification. The five-language production website points to 1.9.6 and its live downloads passed verification. Windows 11 physical-machine acceptance remains separate.
