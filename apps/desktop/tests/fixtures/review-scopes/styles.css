@@ -1,0 +1,8 @@
+/**
+ * [INPUT]: Production renderer styles and JSX utility classes outside the test Vite root.
+ * [OUTPUT]: The same Tailwind layout utilities used by the production review components.
+ * [POS]: Native review harness stylesheet; source discovery never changes production CSS.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+@import '../../../src/renderer/styles.css';
+@source '../../../src/renderer';

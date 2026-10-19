@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Review selection, generation/revision, shared Select/link rendering, cached drafting and guarded writes.
- * [OUTPUT]: Resumable review with independent archival, synchronized group destinations, guarded writes and completion after receipts succeed.
+ * [OUTPUT]: Resumable board-ordered review with indented subtasks, independent archival, synchronized group destinations and guarded writes.
  * [POS]: Review session owner; read contexts separate historical facts from current command versions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -212,7 +212,7 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
             <h3 className="review-intro text-foreground m-0 text-[19px] leading-[1.5] font-semibold">{t.reviewHandle}</h3><p className="review-note m-0 text-[12px] leading-[1.8] text-muted-foreground">{t.reviewMoveNote}</p>
             {targets.map(value => <div className="review-close-group flex flex-col gap-1" key={value.horizon}>
               {context.closing.filter(item => item.placement.horizon === value.horizon && !processed.current.has(item.id)).map(item => {
-                return <div key={item.id} className="review-close-row flex justify-between items-start gap-3 min-h-8.5 px-0 py-0.5" data-choice={choiceFor(item.id)}>
+                return <div key={item.id} className="review-close-row flex justify-between items-start gap-3 min-h-8.5 px-0 py-0.5" data-item-id={item.id} data-nested={!!item.placement.nestingParentId} data-choice={choiceFor(item.id)}>
                   <div id={`review-choice-title-${item.id}`} className="review-goal-title flex-1 min-w-0 text-[14px] leading-[1.5] text-left [overflow-wrap:anywhere]"><span className="check review-todo-check" aria-hidden="true" style={flowVars(flows.colorsOf(item.id))} /><span className="review-item-title min-w-0 [overflow-wrap:anywhere] whitespace-pre-wrap"><LinkText text={item.title} /></span></div>
                   <Select disabled={disabled} value={choiceFor(item.id)} onValueChange={choice => setDecisions(previous => {
                     const next = new Map(previous).set(item.id, choice as Decision)

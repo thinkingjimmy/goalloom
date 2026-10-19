@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An isolated Electron profile and monthly, cache or first/last-day weekly fixture mode.
- * [OUTPUT]: Real event history for previous-week reminders throughout the current week, monthly reviews, move/keep/archive and saved-link records.
+ * [OUTPUT]: Real review history, optional overlapping outline sort keys, move/keep/archive and saved-link records.
  * [POS]: Injected-clock desktop setup; production has no test clock or renderer bridge replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -20,6 +20,21 @@ const db = openDatabase(join(profile, 'workspace.sqlite')); migrate(db)
 let now = today.subtract({ months: 2 }).with({ day: 10 }).toInstant().toString()
 const repo = new Repository(db, { now: () => now }), generation = repo.store.workspace().generation
 const run = (action: object) => repo.execute({ ...action, generation, operationId: randomUUID() })
+const seedOutline = (horizon: 'week' | 'month') => {
+  if (!process.argv.includes('--outline')) return undefined
+  const create = (title: string, parentId?: string) => {
+    const parent = parentId ? repo.store.item(parentId) : null
+    return run({ type: 'create', title: `Outline ${title}`, horizon, ...(parent ? { nesting: { parentId,
+      expectedParentVersion: parent.version, expectedParentPlacementVersion: parent.placement.version } } : {}) }).itemId!
+  }
+  const first = create('first parent'), second = create('completed parent'), solo = create('standalone')
+  const secondChild = create('child of completed parent', second)
+  const firstChild = create('first child with a long title that wraps onto another line in the review drawer', first)
+  const lastChild = create('last child', first)
+  run({ type: 'status', itemId: second, expectedVersion: repo.store.item(second).version, status: 'done' })
+  return { all: [first, firstChild, lastChild, second, secondChild, solo], closing: [first, firstChild, lastChild, secondChild, solo],
+    nested: [firstChild, lastChild, secondChild], parent: first, child: firstChild }
+}
 if (mode === 'week-first' || mode === 'week-last') {
   run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: mode === 'week-first' ? today.dayOfWeek : today.dayOfWeek % 7 + 1,
     mode: 'rolling', anchor: { kind: 'date', date: today.with({ day: 1 }).subtract({ months: 2 }).toPlainDate().toString() }, confirmed: true })
@@ -31,6 +46,7 @@ if (mode === 'week-first' || mode === 'week-last') {
   run({ type: 'create', title: 'Historical direction https://example.com/link-preview-article', horizon: 'year', flowColor: 2 })
   const unfinished = run({ type: 'create', title: 'Weekly unfinished review item https://example.com/link-preview-article', horizon: 'week' }).itemId!
   const defaultMove = run({ type: 'create', title: 'Default weekly move https://x.com/trq212/status/2103576349499855160', horizon: 'week' }).itemId!
+  const outline = seedOutline('week')
   now = current.startAt
   const parent = run({ type: 'create', title: 'Current monthly direction https://example.com/link-preview-article', horizon: 'month', flowColor: 0 }).itemId!
   const extraParent = run({ type: 'create', title: 'Additional monthly direction', horizon: 'month', flowColor: 1 }).itemId!
@@ -40,7 +56,8 @@ if (mode === 'week-first' || mode === 'week-last') {
   const invitationParent = month.id === planningMonth.id ? parent
     : run({ type: 'create', title: 'New monthly invitation source', horizon: 'month', flowColor: 3 }).itemId!
   const monthKeys = [month, precedingPeriod(calendar, month)!].map(value => `month:${value.startDate}`)
-  writeFileSync(join(profile, 'review-fixture.json'), JSON.stringify({ mode, earlier, unfinished, defaultMove, parent, extraParent, invitationParent, period, current, monthKeys }))
+  const boardOutline = seedOutline('week')
+  writeFileSync(join(profile, 'review-fixture.json'), JSON.stringify({ mode, earlier, unfinished, defaultMove, parent, extraParent, invitationParent, period, current, monthKeys, outline, boardOutline }))
 } else if (mode === 'cache' || mode === 'language') {
   const calendar = repo.store.workspace().calendar!
   const week = precedingPeriod(calendar, currentPeriod(calendar, 'week', today.toInstant().toString()))!
@@ -65,6 +82,7 @@ if (mode === 'week-first' || mode === 'week-last') {
   const move = create('Continue this work', 1), keep = create('Keep this for later', 0), archive = create('Stop this experiment', 2)
   const rolled = create('Already in the new month', 0), laterDone = create('Completed after the boundary', 0)
   const period = repo.snapshot().periods.find(value => value.horizon === 'month')!
+  const outline = seedOutline('month')
   let weekly: string | null = null
   if (combined) {
     now = (mode === 'scope-combined' ? today.with({ day: 1 }).subtract({ days: 1 }) : today.subtract({ days: 1 })).toInstant().toString()
@@ -75,6 +93,6 @@ if (mode === 'week-first' || mode === 'week-last') {
   run({ type: 'status', itemId: laterDone, expectedVersion: 1, status: 'done' })
   const existing = create('Only in the current month', 0)
   run({ type: 'create', title: scoped ? 'A new cycle goal after the boundary https://example.com/link-preview-article' : 'A new cycle goal after the boundary', horizon: 'cycle', flowColor: 4 })
-  writeFileSync(join(profile, 'review-fixture.json'), JSON.stringify({ roots, done, move, keep, archive, rolled, laterDone, earlier, existing, period, weekly }))
+  writeFileSync(join(profile, 'review-fixture.json'), JSON.stringify({ roots, done, move, keep, archive, rolled, laterDone, earlier, existing, period, weekly, outline }))
 }
 db.close()

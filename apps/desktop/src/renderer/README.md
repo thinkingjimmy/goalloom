@@ -57,8 +57,8 @@ renderer/
 │   │   ├── decompose.ts     # 「拆下一步」唯一写入路径：模型起草后 create 下级，⇧ 或无模型时打开预填新建（断点与右键共用）
 │   │   ├── EmptyCard.tsx    # Horizon-specific outcome/milestone/plan/task draft actions, or the column's inline create; counts only in the body, same-row equal-height buttons with wrapping labels
 │   │   ├── review.ts        # Previous-week reminders throughout the configured week, monthly two-day windows, matching-boundary merging, goal matrix, read-only signals and planning candidates
-│   │   ├── ReviewDrawer.tsx # Resumable closing → cached connected suggestions with inherited todo markers, shared right-side dropdowns, guarded confirm/skip/receipt recovery and completion callback
-│   │   ├── ReviewOverview.tsx # Summary-first counts, original checked/flow-coloured month task markers, read-only saved links and goal matrix
+│   │   ├── ReviewDrawer.tsx # Board-ordered closing with 24px subtask indentation → cached connected suggestions with inherited todo markers, shared right-side dropdowns, guarded confirm/skip/receipt recovery and completion callback
+│   │   ├── ReviewOverview.tsx # Summary-first counts, board-ordered month outlines with 24px subtask indentation and original checked/flow-coloured markers, read-only saved links and goal matrix
 │   │   ├── ReviewSummary.tsx # Persistent localized icon heading, optional cached AI content, header refresh and retained results on failure
 │   │   ├── review.css       # Shared review/planning guide frames/actions and independent reminder close control, compact closing rows, content-sized dropdowns, connected drafts, borderless draft focus and ghost footer actions
 │   │   └── insight.css      # Labelled breakpoint pills with full-colour loading rotation/reduced motion, hints and empty cards with same-row equal-height actions, wrapping labels and touch targets

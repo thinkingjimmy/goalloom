@@ -1,11 +1,12 @@
 /**
- * [INPUT]: Historical summaries, flow topology, selected periods and shared saved-link rendering.
- * [OUTPUT]: Summary-first brief, read-only monthly tasks with original state/flow markers and a noninteractive goal matrix.
+ * [INPUT]: Historical summaries, flow topology, selected periods, shared outline ordering and saved-link rendering.
+ * [OUTPUT]: Summary-first brief, board-ordered monthly outlines with indented subtasks, original state/flow markers and a noninteractive goal matrix.
  * [POS]: Read-only review presentation; no historical versions are submitted as commands.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ReviewContext } from '../../../shared/contracts/queries'
 import type { ItemSummary } from '../../../shared/contracts/entities'
+import { outlineRows } from '../../../domain/nesting'
 import { periodHorizons } from '../../../shared/contracts/values'
 import { horizonNames, insightMessages as t } from '../../i18n'
 import { useFlows } from '../../state/flows'
@@ -23,7 +24,7 @@ export function ReviewOverview({ due, context, ready }: { due: ReviewDue; contex
   const records = board.items.filter(item => targets.includes(item.placement.periodId!))
   const completed = records.filter(item => item.status === 'done').length
   const related = goals.filter(goal => records.some(item => flows.of(item.id).some(flow => flow.id === goal.id))).length
-  const list = (items: ItemSummary[]) => <ul className="review-records m-0 pt-0 pr-0 pb-3 pl-6 list-none">{items.map(item => <li key={item.id} data-status={item.status}>
+  const list = (items: ItemSummary[]) => <ul className="review-records m-0 pt-0 pr-0 pb-3 pl-6 list-none">{outlineRows(items, undefined, [...board.items, ...(board.nestingParents ?? [])]).map(item => <li key={item.id} data-item-id={item.id} data-nested={!!item.placement.nestingParentId} data-status={item.status}>
     <span className="check review-todo-check" aria-hidden="true" data-checked={item.status === 'done'} style={item.status === 'done' ? undefined : flowVars(flows.colorsOf(item.id))}>{item.status === 'done' && <Icon name="check" size={12} strokeWidth={2.5} />}</span>
     <span className="review-item-title min-w-0 [overflow-wrap:anywhere] whitespace-pre-wrap"><LinkText text={item.title} /></span><small>{item.status === 'done' ? t.reviewDoneCount : t.reviewOpenCount}</small>
   </li>)}</ul>

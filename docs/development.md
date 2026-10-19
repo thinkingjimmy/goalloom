@@ -132,6 +132,8 @@ The signed macOS job also runs `tests/keychain-signed.mjs` before packaged smoke
 
 ## 测试范围
 
+Review outline regressions: `pnpm --filter @goalloom/desktop exec -- node tests/weekly-review.mjs --outline` checks current-board and closing order; `pnpm --filter @goalloom/desktop exec -- node tests/review-scopes.mjs --outline` checks monthly records and closing through the native component harness. Evidence: `apps/desktop/output/tests/review-outline/`. Run these changed scenarios plus the flow-insight feature coverage below.
+
 年 / 半年与双日历模式的跨功能范围见 [功能规格 §11.1](features/calendar-modes.md#111-e2e-范围按-docsdevelopmentmd-的映射)；包含新增 `test:calendar`、向导跨午夜 renderer 场景、六列规划与年 / 半年起草，按下表去重。
 
 日常功能验收范围 = **本次新增／修改场景的 E2E ＋ 所属功能的全部 E2E**。不要求运行其他功能，也不以仓库全量通过作为功能完成、提交、push 或合入 `main` 的条件。执行规则以 [AGENTS.md](../AGENTS.md#validation-scope) 为准，下表维护功能与现有脚本的映射。

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build, real workspace date and first/last-day weekly history fixtures.
- * [OUTPUT]: Weekly review acceptance, creation evidence and hover hit/transition diagnostics in output/tests/insight/weekly-review/.
+ * [OUTPUT]: Weekly review acceptance, optional --outline order/indentation evidence, creation evidence and hover hit/transition diagnostics in output/tests/insight/weekly-review/.
  * [POS]: Flow-insight desktop regression using real renderer/preload/SQLite and isolated synthetic records.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,15 +16,17 @@ import { seedPreviewCache, urls } from './fixtures/link-preview-cache.mjs'
 import { verifyReviewDraftFocus } from './fixtures/review-draft-focus.mjs'
 import { verifyReviewCompletion } from './fixtures/review-completion.mjs'
 import { verifyReviewInvitation } from './fixtures/review-invitation.mjs'
+import { verifyReviewOutline } from './fixtures/review-outline.mjs'
 
 const args = process.argv.slice(2), focusOnly = args.includes('--draft-focus'), completionOnly = args.includes('--completion'), invitationOnly = args.includes('--invitation')
-const out = resolve(focusOnly ? 'output/tests/review-draft-focus/native' : completionOnly ? 'output/tests/review-completion/native' : invitationOnly ? 'output/tests/review-invitation/native' : 'output/tests/insight/weekly-review')
+const outlineOnly = args.includes('--outline')
+const out = resolve(outlineOnly ? 'output/tests/review-outline/weekly' : focusOnly ? 'output/tests/review-draft-focus/native' : completionOnly ? 'output/tests/review-completion/native' : invitationOnly ? 'output/tests/review-invitation/native' : 'output/tests/insight/weekly-review')
 const packaged = args.find(value => !value.startsWith('--'))
 const modes = args.includes('--week-last') ? ['week-last'] : args.includes('--week-first') ? ['week-first'] : ['week-first', 'week-last']
 await mkdir(out, { recursive: true })
 await build({ configFile: false, build: { outDir: 'output/tests/build/review', emptyOutDir: false,
   lib: { entry: 'tests/fixtures/review-seed.ts', formats: ['cjs'], fileName: () => 'review-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
-const report = { ok: false, packaged: Boolean(packaged), group: focusOnly ? 'draft-focus' : completionOnly ? 'completion' : invitationOnly ? 'invitation' : 'weekly', scope: 'Real Electron/IPC/SQLite; isolated synthetic data',
+const report = { ok: false, packaged: Boolean(packaged), group: outlineOnly ? 'outline' : focusOnly ? 'draft-focus' : completionOnly ? 'completion' : invitationOnly ? 'invitation' : 'weekly', scope: 'Real Electron/IPC/SQLite; isolated synthetic data',
   host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model, machine: 'Physical/VM status unverified' }, scenarios: [] }
 try {
   for (const mode of modes) for (const variant of completionOnly ? ['create', 'skip'] : [null]) await verify(mode, variant)
@@ -33,7 +35,7 @@ try {
 
 async function verify(mode, variant) {
   const profile = await mkdtemp(join(tmpdir(), 'goalloom-weekly-review-'))
-  const seed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, mode], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
+  const seed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, mode, ...(outlineOnly ? ['--outline'] : [])], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
   assert.equal(seed.status, 0, seed.stderr)
   await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
   await seedPreviewCache(profile)
@@ -58,6 +60,20 @@ async function verify(mode, variant) {
     await page.evaluate(keys => localStorage.setItem('goalloom.insight', JSON.stringify({ reviewed: keys })), fixture.monthKeys)
     await page.reload(); await page.locator('.board').waitFor()
     scenario.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+    if (outlineOnly) {
+      const column = page.locator('[data-horizon=week]')
+      await column.locator(`[data-item-id="${fixture.boardOutline.child}"]`).waitFor()
+      const boardOrder = await column.locator('.task-row').evaluateAll((rows, ids) => rows.map(row => row.dataset.itemId).filter(id => ids.includes(id)), fixture.boardOutline.all)
+      assert.deepEqual(boardOrder, fixture.boardOutline.all)
+      scenario.boardOrder = boardOrder
+      await column.screenshot({ path: `${out}/outline-${mode}-board.png` })
+      await column.locator('[data-review]').click()
+      await page.locator('.review-drawer[open] .review-body[aria-busy=false]').waitFor()
+      await verifyReviewOutline({ page, fixture, out, scenario, check })
+      assert.deepEqual(errors, [])
+      scenario.ok = true
+      return
+    }
     if (invitationOnly) {
       await verifyReviewInvitation({ page, fixture, mode, out, scenario, check })
       assert.deepEqual(errors, [])

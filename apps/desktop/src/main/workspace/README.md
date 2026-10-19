@@ -9,7 +9,7 @@ workspace/
 ├── periods.ts        # Read-only selected-period summaries, generation/revision guards and rollover sources; no period materialization
 ├── ordering.ts       # Body-free ancestor placement metadata shared by board reads and guarded ordering commands
 ├── queries.ts        # Count/activity/batch projections and shared trash filtering that excludes empty-detail discards
-├── review.ts         # Generation-bound period-end facts, six-scale context with pre-anchor guards, live unfinished placements and exact plans
+├── review.ts         # Generation-bound period-end facts, six-scale context with pre-anchor guards, board-ordered live unfinished outlines by source period and exact plans
 ├── execution.ts      # Indexed 5,000-event facts, all event-owned undo, replayed guidance and frozen month/day/all pages with exact local end boundaries
 ├── assistance-context.ts # Bounded task/relationship context, exact omissions and transaction dependency guards
 ├── history.ts        # Immutable period-end projections and activity; separate generation-guarded live past-task pages filtered by current placement

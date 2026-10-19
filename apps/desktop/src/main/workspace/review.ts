@@ -1,11 +1,11 @@
 /**
- * [INPUT]: Generation-bound week/month selections, Repository and its injected clock.
- * [OUTPUT]: A period-end review projection, live unfinished placements and exact destination-period planning summaries.
+ * [INPUT]: Generation-bound week/month selections, shared outline ordering, Repository and its injected clock.
+ * [OUTPUT]: A period-end review projection, board-ordered live unfinished outlines and exact destination-period planning summaries.
  * [POS]: Read-only review boundary in the serial storage worker; historical states never become write versions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { compareInstants, currentPeriod, parseDate, workspaceDate } from '../../domain/calendar'
-import { effectiveRelations } from '../../domain/nesting'
+import { effectiveRelations, outlineRows } from '../../domain/nesting'
 import { inheritedRelationId } from '../storage/store'
 import type { Relation } from '../../shared/contracts/entities'
 import { Temporal } from '../../domain/temporal'
@@ -70,8 +70,11 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
     const parents = new Set(items.flatMap(item => item.placement.nestingParentId ? [item.placement.nestingParentId] : []))
     board = { ...board, items, flows, relations, nesting, nestingParents: projected.filter(item => parents.has(item.id)), observedAt: observation, orderNodes: [], rolloverSources: {}, backlog: {} }
   }
-  const closing = targets.flatMap(period => store.summaries("i.status='todo' AND i.deletedAt IS NULL AND i.archivedAt IS NULL AND p.periodId IN (SELECT id FROM planning_periods WHERE horizon=? AND startDate<=?)", [period.horizon, period.startDate]))
-  const sourcePeriods = [...new Set(closing.map(item => item.placement.periodId!))].map(id => store.period(id))
+  const unfinished = targets.flatMap(period => store.summaries("i.status='todo' AND i.deletedAt IS NULL AND i.archivedAt IS NULL AND p.periodId IN (SELECT id FROM planning_periods WHERE horizon=? AND startDate<=?)", [period.horizon, period.startDate]))
+  const sourcePeriods = [...new Set(unfinished.map(item => item.placement.periodId!))].map(id => store.period(id))
+    .sort((a, b) => b.startDate.localeCompare(a.startDate) || a.horizon.localeCompare(b.horizon))
+  const parents = store.nestingParents(unfinished)
+  const closing = sourcePeriods.flatMap(period => outlineRows(unfinished.filter(item => item.placement.periodId === period.id), undefined, parents))
   const destinations = new Map<string, PlanningPeriod>()
   for (const period of targets) {
     const next = currentPeriod(calendar, period.horizon, period.endAt)

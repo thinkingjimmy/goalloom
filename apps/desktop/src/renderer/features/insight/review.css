@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Shared appearance tokens, Select/link classes and review progress/choice states.
- * [OUTPUT]: Review/planning guides with a distinct dismiss control for weekly reminders, responsive modal, joined task connectors, content-sized dropdowns and borderless draft editing.
+ * [INPUT]: Shared appearance tokens, Select/link classes, nested-row markers and review progress/choice states.
+ * [OUTPUT]: Review/planning guides, responsive modal, board-matched subtask indentation, joined task connectors, content-sized dropdowns and borderless draft editing.
  * [POS]: Coordinated review states and native-drawer geometry; ordinary layout and shared controls use Tailwind.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -60,6 +60,7 @@
 .review-goal-title small { display: block; margin-top: 5px; color: var(--secondary); font-size: 11px; font-weight: 400; }
 .review-mark { border: 1.6px solid; }
 .review-records li { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; font-size: 14px; line-height: 21px; color: var(--fg-soft); }
+.review-records li[data-nested='true'], .review-close-row[data-nested='true'] { padding-left: 24px; }
 .review-records .review-item-title { overflow-wrap: anywhere; min-width: 0; }
 .review-records li[data-status=done] { color: var(--secondary); }
 .review-records small { margin-left: auto; white-space: nowrap; font-size: 10px; }

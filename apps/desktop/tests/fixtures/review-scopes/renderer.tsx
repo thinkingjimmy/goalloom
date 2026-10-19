@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Real production preload/workspace state and an explicit month/combined review scope from this test-only renderer URL.
+ * [INPUT]: Real production preload/workspace state, explicit month/combined scope and harness-scoped production style discovery.
  * [OUTPUT]: Actual ReviewDrawer/Overview mounted outside calendar eligibility, with real guarded writes and observable completion callbacks.
  * [POS]: Native component harness only; it never changes the main clock, bridge, App entry rules or production bundle.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -12,7 +12,7 @@ import { reviewKey, type ReviewDue, type ReviewTarget } from '../../../src/rende
 import { useWorkspace } from '../../../src/renderer/state/use-workspace'
 import { boardItemVisibility } from '../../../src/renderer/features/board/visibility'
 import { startLanguage } from '../../../src/renderer/state/language'
-import '../../../src/renderer/styles.css'
+import './styles.css'
 
 function Harness() {
   const { snapshot, write, retryWrite, busy, pending } = useWorkspace(boardItemVisibility)

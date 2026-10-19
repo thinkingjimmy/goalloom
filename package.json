@@ -49,6 +49,7 @@
     "test:updates": "pnpm --filter @goalloom/desktop exec -- node tests/updates.mjs",
     "test:update-install": "pnpm --filter @goalloom/desktop exec -- node tests/update-install.mjs",
     "verify": "pnpm test && pnpm run test:electron && pnpm run build && pnpm run test:ui && pnpm run test:task-focus && pnpm run test:autosave && pnpm run test:later && pnpm run test:columns && pnpm run test:links && pnpm run test:history && pnpm run test:recovery && pnpm run test:sync-replay && pnpm run test:sync-review && pnpm run test:sync-join && pnpm run test:sync-security && pnpm run test:sync-scheduling && pnpm run test:credentials && pnpm run test:keychain-native && pnpm run test:composer && pnpm run test:due-dates && pnpm run test:language && pnpm run test:relations && pnpm run test:celebration && pnpm run test:feedback && pnpm run test:updates && pnpm run test:review && pnpm run test:periods && pnpm run test:ordering && pnpm run test:insight && pnpm run test:insight-generation",
+    "verify:parallel": "node scripts/verify-parallel.mjs",
     "test:review": "pnpm --filter @goalloom/desktop run test:review",
     "test:large-workspace": "pnpm --filter @goalloom/desktop run test:large-workspace",
     "test:scaling": "pnpm --filter @goalloom/desktop run test:scaling",

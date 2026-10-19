@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built production main/preload, a test-only native renderer, month/combined fixtures and real IPC/storage.
- * [OUTPUT]: Scope-specific task markers, readonly rich titles, compact choices, actual monthly/weekly plan workflows and explicit expired-window skips.
+ * [OUTPUT]: Scope-specific task markers, optional --outline order/indentation evidence, readonly rich titles, compact choices, actual monthly/weekly plan workflows and explicit expired-window skips.
  * [POS]: Focused native component acceptance outside calendar-entry windows; no production clock or bridge replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,8 +15,10 @@ import tailwind from '@tailwindcss/vite'
 import electronPath from 'electron'
 import { _electron as electron } from 'playwright'
 import { seedPreviewCache } from './fixtures/link-preview-cache.mjs'
+import { verifyReviewOutline } from './fixtures/review-outline.mjs'
 
-const out = resolve('output/tests/review-scopes')
+const outlineOnly = process.argv.includes('--outline')
+const out = resolve(outlineOnly ? 'output/tests/review-outline/month' : 'output/tests/review-scopes')
 await mkdir(out, { recursive: true })
 await build({ configFile: false, build: { outDir: 'output/tests/build/review', emptyOutDir: false,
   lib: { entry: 'tests/fixtures/review-seed.ts', formats: ['cjs'], fileName: () => 'review-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
@@ -26,13 +28,13 @@ await server.listen()
 const report = { ok: false, scope: 'Native component harness: actual ReviewDrawer/Overview, production preload/main/SQLite and real clock; explicit review-period props bypass only calendar entry eligibility. No packaged/natural-date App entry acceptance.',
   host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model, machine: 'Physical/VM status unverified' }, scenarios: [] }
 try {
-  for (const scope of process.argv.includes('--combined') ? ['both'] : ['month', 'both']) for (const skipMonth of scope === 'both' ? [false, true] : [false]) await run(scope, skipMonth)
+  for (const scope of outlineOnly ? ['month'] : process.argv.includes('--combined') ? ['both'] : ['month', 'both']) for (const skipMonth of scope === 'both' ? [false, true] : [false]) await run(scope, skipMonth)
   report.ok = true
 } finally { await writeFile(`${out}/report.json`, JSON.stringify(report, null, 2)); await server.close() }
 
 async function run(scope, skipMonth) {
   const name = `${scope}${skipMonth ? '-skip-month' : ''}`, profile = await mkdtemp(join(tmpdir(), 'goalloom-review-scopes-'))
-  const seed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, scope === 'both' ? 'scope-combined' : 'scope-month'],
+  const seed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, scope === 'both' ? 'scope-combined' : 'scope-month', ...(outlineOnly ? ['--outline'] : [])],
     { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
   assert.equal(seed.status, 0, seed.stderr)
   await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
@@ -63,6 +65,12 @@ async function run(scope, skipMonth) {
     await page.getByRole('button', { name: 'Open review', exact: true }).click()
     const drawer = page.locator('.review-drawer[open]')
     await drawer.locator('.review-body[aria-busy=false]').waitFor()
+    if (outlineOnly) {
+      await verifyReviewOutline({ page, fixture, out, scenario, check, month: true })
+      assert.deepEqual(errors, [])
+      scenario.ok = true
+      return
+    }
     await drawer.locator('.review-goal-records summary').first().click()
     const record = drawer.locator('.review-records li').filter({ hasText: 'September finished work' })
     await record.locator('.link-inline[data-status=ready]').waitFor()
