@@ -1,8 +1,13 @@
 /**
  * [INPUT]: Signed app/DMG, App Store Connect API-key environment and Xcode tools.
- * [OUTPUT]: One submission, bounded ticket connection-loss recovery, validated stapled ticket and redacted diagnostics; throws on incomplete approval.
+ * [OUTPUT]: One submission with retries, bounded ticket connection-loss recovery, validated stapled ticket and redacted diagnostics; throws on incomplete approval.
  * [POS]: Shared afterSign hook and DMG CLI; app notarization finishes before builder creates update archives.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
+ *
+ * Notarization resilience (M2.1):
+ * - Submit stage: 3 retries with exponential backoff on network errors
+ * - Wait stage: polling-based with 30s intervals, tolerates transient network failures
+ * - Staple stage: existing 3-retry logic with exit 68 detection (unchanged)
  */
 import { spawn } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -40,6 +45,134 @@ function run(command, args, timeoutMs) {
 
 const failure = (label, result) => redact(`${label} ${result.timedOut ? 'timed out' : `exited ${result.code}`}: ${result.stderr || result.stdout}`.trim())
 
+/**
+ * Submit with retry on network errors.
+ * CloudKit断线 (NSURLErrorDomain Code=-1005) 在 submit 阶段也可能发生,
+ * 实施指数退避重试, 最多 3 次.
+ */
+async function submitWithRetry(notarytool, archive, uploadTimeout, report) {
+  const maxAttempts = 3
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`Uploading ${report.artifact} for notarization (attempt ${attempt}/${maxAttempts}, limit ${uploadTimeout / 60_000} minutes).`)
+    const submitted = await notarytool(['submit', archive, '--no-wait'], uploadTimeout)
+    const submission = json(submitted.stdout)
+
+    if (typeof submission?.id === 'string' && /^[a-f0-9-]{36}$/i.test(submission.id)) {
+      report.submissionId = submission.id
+    }
+
+    if (submitted.code === 0 && report.submissionId) {
+      report.status = submission.status ?? 'Submitted'
+      report.submitAttempts = attempt
+      return submission
+    }
+
+    // 检测网络错误特征
+    const isNetworkError = submitted.code !== 0 && (
+      /Error Domain=NSURLErrorDomain Code=-1005\b/.test(submitted.stderr + submitted.stdout) ||
+      /network connection/i.test(submitted.stderr + submitted.stdout) ||
+      /timed out/i.test(submitted.stderr + submitted.stdout)
+    )
+
+    ;(report.submitAttemptHistory ??= []).push({
+      attempt,
+      code: submitted.code,
+      timedOut: submitted.timedOut,
+      isNetworkError,
+      error: failure('Notary submit', submitted),
+    })
+
+    if (attempt === maxAttempts || !isNetworkError) {
+      throw new Error(failure('Notary upload (a submission ID is required)', submitted))
+    }
+
+    // 指数退避: 2s, 5s, 不再有第4次
+    const backoff = attempt === 1 ? 2000 : 5000
+    console.log(`Submit attempt ${attempt} failed with network error; retrying in ${backoff / 1000}s...`)
+    await new Promise(resolve => setTimeout(resolve, backoff))
+  }
+}
+
+/**
+ * Wait for notarization with polling-based resilience.
+ * 替代原 `notarytool wait`, 每 30 秒轮询一次状态,
+ * 单次网络错误不中断, 仅超时或非临时错误才失败.
+ */
+async function waitForCompletion(notarytool, submissionId, waitTimeout, commandTimeout, report) {
+  const pollInterval = 30_000  // 30秒轮询一次
+  const started = performance.now()
+  const deadline = started + waitTimeout
+  let lastStatus = report.status
+  let consecutiveErrors = 0
+  const maxConsecutiveErrors = 3
+
+  console.log(`Polling submission ${submissionId} every 30s (timeout ${waitTimeout / 60_000} minutes).`)
+
+  while (performance.now() < deadline) {
+    const remaining = Math.max(1000, deadline - performance.now())
+    const pollTimeout = Math.min(commandTimeout, remaining)
+
+    const info = await notarytool(['info', submissionId], pollTimeout)
+    const infoData = json(info.stdout)
+
+    if (info.code === 0 && infoData?.status) {
+      consecutiveErrors = 0  // 重置错误计数
+      lastStatus = infoData.status
+      report.status = lastStatus
+      ;(report.statusPolls ??= []).push({
+        elapsed: Math.floor((performance.now() - started) / 1000),
+        status: lastStatus,
+      })
+
+      console.log(`Status at ${Math.floor((performance.now() - started) / 1000)}s: ${lastStatus}`)
+
+      // 终态检查
+      if (lastStatus === 'Accepted') {
+        console.log(`Notarization accepted after ${Math.floor((performance.now() - started) / 1000)}s.`)
+        return { status: 'Accepted' }
+      }
+
+      if (lastStatus === 'Invalid' || lastStatus === 'Rejected') {
+        throw new Error(`Notarization ${lastStatus.toLowerCase()} by Apple, submission ${submissionId}.`)
+      }
+
+      // 'In Progress' 或 'Submitted' 继续等待
+      if (performance.now() + pollInterval < deadline) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval))
+      }
+    } else {
+      // 网络错误或其他临时错误
+      consecutiveErrors++
+      ;(report.pollErrors ??= []).push({
+        elapsed: Math.floor((performance.now() - started) / 1000),
+        code: info.code,
+        timedOut: info.timedOut,
+        error: failure('Poll info', info),
+      })
+
+      console.warn(`Poll error ${consecutiveErrors}/${maxConsecutiveErrors}: ${failure('Poll info', info)}`)
+
+      if (consecutiveErrors >= maxConsecutiveErrors) {
+        throw new Error(`${maxConsecutiveErrors} consecutive poll errors. Last status: ${lastStatus}. Submission: ${submissionId}`)
+      }
+
+      // 临时错误，短暂退避后继续
+      const backoff = Math.min(pollInterval, 10_000)
+      if (performance.now() + backoff < deadline) {
+        await new Promise(resolve => setTimeout(resolve, backoff))
+      }
+    }
+  }
+
+  // 超时但仍在处理中
+  if (['In Progress', 'Submitted'].includes(lastStatus)) {
+    throw new Error(`Apple is still processing submission ${submissionId} after ${waitTimeout / 60_000} minutes. It continues after this run stops. Check with: xcrun notarytool info ${submissionId}`)
+  }
+
+  throw new Error(`Wait timeout (${waitTimeout / 60_000} min). Last status: ${lastStatus}. Submission: ${submissionId}`)
+}
+
+
 async function notarize(target) {
   const missing = credentials.filter(name => !process.env[name])
   if (missing.length) throw new Error(`Missing notarization credentials: ${missing.join(', ')}`)
@@ -67,33 +200,23 @@ async function notarize(target) {
     }
     report.stage = 'upload'
     await save()
-    console.log(`Uploading ${report.artifact} for notarization (limit ${uploadTimeout / 60_000} minutes).`)
-    const submitted = await notarytool(['submit', archive, '--no-wait'], uploadTimeout)
-    const submission = json(submitted.stdout)
-    if (typeof submission?.id === 'string' && /^[a-f0-9-]{36}$/i.test(submission.id)) report.submissionId = submission.id
-    if (submitted.code !== 0 || !report.submissionId) throw new Error(failure('Notary upload (a submission ID is required)', submitted))
-    report.status = submission.status ?? 'Submitted'
+
+    // M2.1: Submit with retry
+    await submitWithRetry(notarytool, archive, uploadTimeout, report)
+    await save()
+
     report.stage = 'wait'
     await save()
-    console.log(`Notarization submission ID: ${report.submissionId}. Waiting at most ${waitTimeout / 60_000} minutes for Apple.`)
-    const waited = await notarytool(['wait', report.submissionId, '--timeout', `${Math.ceil(waitTimeout / 1000)}s`], waitTimeout + Math.min(30_000, waitTimeout))
-    report.status = waited.code === 0 ? json(waited.stdout)?.status ?? 'Unknown' : 'Unknown'
-    if (waited.code !== 0 || report.status !== 'Accepted') {
-      report.waitError = failure('Notary wait', waited)
-      const info = await notarytool(['info', report.submissionId])
-      if (info.code === 0) report.status = json(info.stdout)?.status ?? report.status
-      if (info.code !== 0) report.infoError = failure('Notary status', info)
-    }
+    console.log(`Notarization submission ID: ${report.submissionId}.`)
+
+    // M2.1: Polling-based wait with resilience
+    await waitForCompletion(notarytool, report.submissionId, waitTimeout, commandTimeout, report)
+
+    // Fetch final log
     const log = await notarytool(['log', report.submissionId])
     if (log.code === 0 && json(log.stdout)) report.log = json(log.stdout)
     else report.logError = failure('Notary log', log)
     await save()
-    if (report.status !== 'Accepted') {
-      const pending = ['In Progress', 'Submitted'].includes(report.status)
-      throw new Error(pending
-        ? `Apple is still processing submission ${report.submissionId}. It continues after this run stops. Check this ID with notarytool info; diagnostics: ${reportPath}`
-        : `Notarization was not accepted (${report.status}), submission ${report.submissionId}. See ${reportPath} for Apple diagnostics.`)
-    }
     report.stage = 'staple'
     await save()
     for (const action of ['staple', 'validate']) {
