@@ -57,6 +57,12 @@ try {
   await prepareProductionProfile(profile, storage)
   assert.deepEqual(sql(profile, 'SELECT opId FROM sync_ops ORDER BY opId'), baseline)
   report.checks.push('Completed transition is stable across restart and does not regenerate pending operations')
+  const cleared = await storage.call<{ cleanupPending: boolean }>('clearLocal')
+  assert.equal(cleared.cleanupPending, false)
+  await assert.rejects(readFile(join(directory, 'transition.json')))
+  await prepareProductionProfile(profile, storage)
+  assert.equal(tasks(profile).length, 0)
+  report.checks.push('Explicit local cleanup removes project credentials and a fresh unconfigured board transitions safely')
   report.ok = true
 } catch (error) { report.error = String(error); throw error }
 finally {
