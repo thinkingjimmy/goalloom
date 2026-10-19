@@ -8,6 +8,24 @@ Security of the hosted service is end-to-end encryption plus secrets kept in the
 
 Project ref `asqyvcnxdltzzfutbbqy`. Migrations and tests run against that hosted database. Nothing in this folder starts Docker.
 
+## Production deployment
+
+Production is the separate Tokyo project `keqprrgvcefqdwnxaafv` (`https://keqprrgvcefqdwnxaafv.supabase.co`). The development project above remains unchanged. Production uses the default Supabase domain on the existing Free plan; do not enable a custom domain or upgrade billing as part of deployment.
+
+The manual entry is [`scripts/deploy/supabase.mjs`](../scripts/deploy/README.md). It reads only the ignored `.env.deploy.production.local`, verifies the exact production ref and private file permissions, and never falls back to development credentials. Grant its scoped token Database, Edge Functions and Realtime Config read/read-write, plus Project Settings and Auth Config read. It does not fetch API key secrets or change Google provider credentials.
+
+```sh
+node scripts/deploy/supabase.mjs --plan
+node scripts/deploy/supabase.mjs --check
+node scripts/deploy/supabase.mjs --apply
+```
+
+The production schema and SQL text are recorded atomically in `supabase_migrations.schema_migrations`. Already-applied SQL must match the repository exactly. A new run refuses unknown history or existing sync tables without a baseline; it never resets or rebuilds an existing production database. Concurrent history changes stop the transaction. The existing 47 core/cost and 27 security assertions run with real pgsodium in rolled-back transactions before deployment and again against the installed schema. Test fixtures do not persist.
+
+Deployment also enforces private-only Realtime, verifies downloaded `snapshot-url` source with JWT checks enabled, installs one five-minute bounded cleanup job and checks that an unauthenticated Edge request returns 401. Per-run reports are under ignored `apps/desktop/output/tests/production-environment/`. A network timeout is not proof that a write failed: inspect remote history, function source and cron inventory before explicitly resuming.
+
+Google sign-in uses the official website as Site URL and allows the current desktop callback `http://127.0.0.1:53682/callback`. Backend deployment does not switch installed clients, migrate personal workspaces, publish installers or prove a real Google/two-device journey. Those remain the next client-isolation milestone.
+
 ## Local deployment credentials
 
 Create a scoped token in [Supabase Access Tokens](https://supabase.com/dashboard/account/tokens), limited to this project, with an expiry. Grant **Edge Functions: Read and Read-write** for function deployment. Add **Database: Read and Read-write** only for SQL through the Management API. See the official [permission table](https://supabase.com/docs/guides/platform/personal-access-tokens#permission-scopes).

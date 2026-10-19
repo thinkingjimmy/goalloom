@@ -4,6 +4,7 @@
 
 ```text
 scripts/
+├── deploy/               # Guarded production Supabase deployment, migration history and rollback-only SQL acceptance
 ├── parity-digest.mjs      # Electron Node 上的加密摘要，可与 Hermes digest 对比
 ├── phase0-prototype.mjs   # 托管双端原型（需要 supabase/README.md 里的三个 API 变量）
 ├── supabase-remote.mjs    # 对托管库做 Realtime / Storage 检查
