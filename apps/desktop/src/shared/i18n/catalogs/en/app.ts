@@ -140,6 +140,7 @@ export const appMessages: typeof source = {
     relationNotRestored: (problem: string) => `One link wasn’t restored: ${problem}`,
     endpointInTrash: 'A linked item is still in the trash',
     childIsFlow: 'The child is already a flow',
+    historyRecovery: 'This backup’s current data passed validation, but its history did not. Restore keeps tasks, calendar and links and starts new history. The original backup remains unchanged.',
     baselineImport: 'The source has no history, so a history baseline will be set at the actual time of restore; past states and completion dates won’t be guessed. If policies are missing, the default policy applies from the restore date, and older backlog is still arranged manually.',
     resetScope: 'Includes archived and trashed content; all periods, the calendar and workspace settings will be replaced. Existing backup files are kept.',
   },

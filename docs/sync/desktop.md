@@ -99,6 +99,8 @@ Before implementation, acceptance must reject: a production key inherited by dev
 
 The production transition runs before the first network client is created. It protects the existing database, rebuilds only the sync baseline from the visible board, clears the old binding, and uses a project-scoped session directory. Task/history/calendar data and existing app identity stay in place. Production cloud creation still requires fresh Google sign-in and an owner-entered sync password. No password is generated or logged by release tooling.
 
+Release acceptance found two restore boundaries. An unbound, never-sent workspace must not be rebaselined during startup. A hash-verified application backup whose current projection is valid but whose old sync history is inconsistent may recover only its validated current data, with an explicit five-language warning and the existing unchecked restore acknowledgement. Keep the original backup bytes and all receipt validation for external imports. Before implementation, verify that valid history stays complete, damaged current data still fails, unverified external files never gain this fallback, cancelled restoration changes nothing, and a recovered workspace can be backed up and restored again.
+
 Do not commit the anon key or the Google client secret.
 
 1. Google Cloud: an OAuth client whose authorized redirect is `https://asqyvcnxdltzzfutbbqy.supabase.co/auth/v1/callback`. The desktop does not register its own Google redirect.

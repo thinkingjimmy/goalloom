@@ -139,6 +139,7 @@ export const appMessages = widen({
     relationNotRestored: (problem: string) => `未恢复一条关联：${problem}`,
     endpointInTrash: '关联端点仍在回收站',
     childIsFlow: '下级已设为流程',
+    historyRecovery: '此备份的当前数据已通过校验，但旧历史不一致。恢复将保留任务、日历和关联，并建立新的历史起点。原始备份文件保持不变。',
     baselineImport: '源数据没有历史，将以实际恢复时刻建立历史起点；不会猜测过去状态或完成日期。缺少策略时从恢复当天开始采用默认策略，更早积压仍手动安排。',
     resetScope: '包括已归档和回收站内容；将替换全部周期、日历与工作区设置。现有备份文件保留。',
   },

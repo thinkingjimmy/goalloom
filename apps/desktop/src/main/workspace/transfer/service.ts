@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Serial worker requests, owned source data, clock and BackupManager.
- * [OUTPUT]: Preview, sustained maintenance, verified protective copy and explicit atomic replacement.
+ * [OUTPUT]: Source-aware recovery warnings, sustained maintenance, verified protective copy and acknowledged atomic replacement.
  * [POS]: Workspace replacement service; cancellation, failure and renderer-session release drop pending data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,7 +9,7 @@ import { validateDataset, validateImport } from '../../../domain/import-validati
 import { DomainError, type CommandResult } from '../../../shared/contracts/commands'
 import { dataActionSchema, type DataReply, type Dataset, type TransferPreview } from '../../../shared/contracts/transfer'
 import { BackupManager } from '../../storage/backup/manager'
-import { emptyDataset, readSqliteDataset, replaceDataset, verifySqliteDataset } from './dataset'
+import { emptyDataset, readBackupDataset, readSqliteDataset, replaceDataset } from './dataset'
 import { reconcile } from '../reconcile'
 import type { Repository } from '../repository'
 import { serverText } from '../../../shared/i18n/server'
@@ -37,13 +37,16 @@ export class WorkspaceService {
   async previewSqlite(path: string, generation: string, source: 'external' | 'backup' = 'external'): Promise<DataReply> {
     this.guard(generation)
     if (this.repository.maintenance) throw new DomainError('maintenance', serverText().errors.finishMaintenance)
-    const data = await readSqliteDataset(path, this.repository.clock.now(), source)
-    return this.previewDataset(data, generation)
+    if (source === 'backup') {
+      const { data, historyRecovered } = await readBackupDataset(path, this.repository.clock.now())
+      return this.previewDataset(data, generation, historyRecovered)
+    }
+    return this.previewDataset(await readSqliteDataset(path, this.repository.clock.now(), source), generation)
   }
-  private previewDataset(data: Dataset, generation: string): DataReply {
+  private previewDataset(data: Dataset, generation: string, historyRecovered = false): DataReply {
     const workspace = this.repository.store.workspace()
     const preview: TransferPreview = { token: randomUUID(), mode: 'restore', generation, revision: workspace.revision, items: data.items.length, relations: data.relations.length, periods: data.periods.length, events: data.events.length, operations: data.operations.length,
-      sourceCalendar: data.workspace.calendar, warnings: data.historyMode === 'baseline' ? [serverText().warnings.baselineImport] : [], backup: null, backupPath: null }
+      sourceCalendar: data.workspace.calendar, warnings: historyRecovered ? [serverText().warnings.historyRecovery] : data.historyMode === 'baseline' ? [serverText().warnings.baselineImport] : [], backup: null, backupPath: null }
     this.pending = { preview, source: data, ready: false }
     return { type: 'preview', preview }
   }
@@ -97,7 +100,7 @@ export class WorkspaceService {
       const backup = await this.backups.create('protective', workspace, this.repository.clock.now())
       await this.backups.verify(backup)
       // The exact protective file must pass the actual restore path before replacement is offered.
-      await verifySqliteDataset(this.backups.path(backup.id), this.repository.clock.now())
+      await readBackupDataset(this.backups.path(backup.id), this.repository.clock.now(), false)
       pending.preview.backup = backup
       pending.preview.backupPath = this.backups.path(backup.id)
       pending.ready = true

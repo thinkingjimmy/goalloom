@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Schema-v11 export with grouped creation receipts, v1-v11 validation and atomic replacement; startup upgrades keep source appearance, restores keep target appearance.
+ * [OUTPUT]: Strict v1-v11 datasets, explicit current-data recovery for verified application backups, and atomic replacement.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -23,12 +23,12 @@ import { nodeSqlDriver } from '@goalloom/store-core/node'
 export function exportDataset(store: Store, now: string, version: number = schemaVersion): Dataset {
   return readDataset(store, now, version, true)
 }
-function readDataset(store: Store, now: string, version: number, keepDescriptions: boolean): Dataset {
-  return { ...datasetHeader(store, now, version),
+function readDataset(store: Store, now: string, version: number, keepDescriptions: boolean, baseline = false): Dataset {
+  return { ...datasetHeader(store, now, version), ...(baseline ? { historyMode: 'baseline' as const } : {}),
     // Each original body passes the same schema before it is discarded for protection-only validation.
     items: Array.from(datasetRows(store, 'items'), item => keepDescriptions ? item : { ...item, description: '' }), placements: [...datasetRows(store, 'placements')], periods: [...datasetRows(store, 'periods')],
-    relations: [...datasetRows(store, 'relations')], policies: [...datasetRows(store, 'policies')], events: [...datasetRows(store, 'events')],
-    guidance: [...datasetRows(store, 'guidance')], operations: [...datasetRows(store, 'operations')], undoEffects: [...datasetRows(store, 'undoEffects')],
+    relations: [...datasetRows(store, 'relations')], policies: [...datasetRows(store, 'policies')], events: baseline ? [] : [...datasetRows(store, 'events')],
+    guidance: [...datasetRows(store, 'guidance')], operations: baseline ? [] : [...datasetRows(store, 'operations')], undoEffects: baseline ? [] : [...datasetRows(store, 'undoEffects')],
   }
 }
 export async function readSqliteDataset(path: string, now: string, source: 'external' | 'backup' = 'external'): Promise<Dataset> {
@@ -37,7 +37,14 @@ export async function readSqliteDataset(path: string, now: string, source: 'exte
 export async function verifySqliteDataset(path: string, now: string): Promise<void> {
   await readSqlite(path, now, 'backup', false)
 }
-async function readSqlite(path: string, now: string, source: 'external' | 'backup', keepDescriptions: boolean): Promise<Dataset> {
+/** Caller must verify the application's backup receipt/hash before this recovery boundary. */
+export async function readBackupDataset(path: string, now: string, keepDescriptions = true): Promise<{ data: Dataset; historyRecovered: boolean }> {
+  try { return { data: await readSqlite(path, now, 'backup', keepDescriptions), historyRecovered: false } }
+  catch {
+    return { data: await readSqlite(path, now, 'backup', keepDescriptions, true), historyRecovered: true }
+  }
+}
+async function readSqlite(path: string, now: string, source: 'external' | 'backup', keepDescriptions: boolean, baseline = false): Promise<Dataset> {
   if (source === 'external' && (await stat(path)).size > 100 * 1024 * 1024) throw new DomainError('invalid', serverText().errors.fileTooLarge)
   const db = new DatabaseSync(path, { readOnly: true, allowExtension: false })
   try {
@@ -48,7 +55,7 @@ async function readSqlite(path: string, now: string, source: 'external' | 'backu
     const names = tables.map(row => String(row.name))
     if (tables.some(row => row.type === 'view') || sourceTables(version, names).some(name => !names.includes(name))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
     verifyDatabase(db)
-    const data = readDataset(new Store(db), now, version, keepDescriptions)
+    const data = readDataset(new Store(db), now, version, keepDescriptions, baseline)
     return validateDataset(data, now)
   } finally { db.close() }
 }

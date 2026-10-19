@@ -72,13 +72,16 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
   const host = syncHost(db)
   if (action.type === 'production-transition') {
     const unknownSends = Number(db.prepare("SELECT count(*) AS n FROM sync_ops WHERE state='send_unknown'").get()?.n ?? 0)
+    const bound = db.prepare('SELECT workspaceId FROM sync_state WHERE id=1').get()?.workspaceId
+    const sent = db.prepare("SELECT 1 FROM sync_ops WHERE state NOT IN ('never_sent','reverted_local') LIMIT 1").get()
+    if (!bound && !sent) return { unknownSends: 0, oldReceiptsNotReconciled: false, baselineRebuilt: false }
     const deviceId = randomUUID()
     driver.transaction(() => {
       const nested = { ...driver, transaction: <T>(work: () => T): T => work() }
       queueVisibleBaseline(nested, host, deviceId, action.at)
       db.prepare('UPDATE sync_state SET workspaceId=NULL, deviceId=NULL, keyEpoch=NULL WHERE id=1').run()
     })
-    return { unknownSends, oldReceiptsNotReconciled: unknownSends > 0 }
+    return { unknownSends, oldReceiptsNotReconciled: unknownSends > 0, baselineRebuilt: true }
   }
   if ('scope' in action && action.scope) {
     const current = db.prepare('SELECT s.workspaceId, w.generation FROM sync_state s CROSS JOIN workspace w WHERE s.id=1 AND w.id=1').get()

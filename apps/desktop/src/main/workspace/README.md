@@ -26,7 +26,7 @@ workspace/
 │   ├── ordering.ts   # Local root placement on creation/effective-parent changes and atomic arrangement of one current/future column
 │   └── settings.ts   # Six-horizon policy versions/non-retroactive boundaries, explicit resume and independent batch undo
 └── transfer/
-    ├── dataset.ts    # v1-v11 validation/export, immutable capture groups and atomic replacement; upgrades retain source appearance, restores/reset retain target appearance
+    ├── dataset.ts    # Strict v1-v11 import/export, warned current-data recovery for verified application backups, immutable source files and atomic replacement
     ├── rows.ts       # 导出/恢复共用逐行 schema 与数量上限
     ├── files.ts      # worker 内受限 JSON 读取与一致视图的分块原子导出
     └── service.ts    # 源数据校验、预览/保护备份/持续维护/显式提交
@@ -35,6 +35,8 @@ workspace/
 `sync/local.ts` owns first-join planning, history-aware empty state, protected installation, atomic recovery baseline/binding and generation guards at the storage boundary. `sync/offline.ts` reads immutable pre-sync rollover effects, excludes undone effects, and orders missing sync operations before later user edits/deletions. Returning devices preserve cursor and pending receipts.
 
 The protected production transition uses the existing visible-baseline transaction, then clears the legacy project binding in that same transaction. Business/history rows remain; old canonical receipts and ciphertext are not sent to the new project. Unknown old sends are counted in the private transition receipt.
+
+Unbound, never-sent workspaces keep their original outbox and history. Only the backup-receipt path can recover a valid current projection when its old history fails validation; previews warn that confirmed restoration starts new history. Original SQLite bytes remain unchanged. External imports and startup upgrades retain strict complete-history validation, and invalid current data still fails.
 
 `sync/review.ts` reads one task group at a time, previews lost actions inside a rolled-back savepoint and hashes only owned values/lifecycle/dependencies. `Repository` dispatches `resolveSyncReview` in its normal generation/receipt transaction. A local choice appends one new SyncOp and history event with the acknowledgement; a synced choice only acknowledges. Invalid relations remain unavailable, and only an explicit local choice can restore the target deletion.
 

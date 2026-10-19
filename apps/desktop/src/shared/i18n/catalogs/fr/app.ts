@@ -141,6 +141,7 @@ export const appMessages: typeof source = {
     relationNotRestored: (problem: string) => `Un lien n’a pas été rétabli : ${problem}`,
     endpointInTrash: 'Une extrémité du lien est encore dans la corbeille',
     childIsFlow: 'L’enfant est déjà un flux',
+    historyRecovery: 'Les données actuelles de cette sauvegarde sont valides, mais son historique ne l’est pas. La restauration conserve les tâches, le calendrier et les liens, puis démarre un nouvel historique. La sauvegarde originale reste inchangée.',
     baselineImport: 'Les données source n’ont pas d’historique. Le point de départ de l’historique sera le moment réel de la restauration, sans deviner les états ni les dates de fin passés. Sans règle, la règle par défaut s’applique à partir du jour de restauration. Les éléments plus anciens restent en organisation manuelle.',
     resetScope: 'Y compris les éléments archivés et la corbeille. Toutes les périodes, le calendrier et les réglages de l’espace de travail seront remplacés. Les fichiers de sauvegarde existants sont conservés.',
   },

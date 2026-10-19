@@ -140,6 +140,7 @@ export const appMessages: typeof source = {
     relationNotRestored: (problem: string) => `No se restauró un vínculo: ${problem}`,
     endpointInTrash: 'Un extremo del vínculo sigue en la papelera',
     childIsFlow: 'El subelemento ya es un flujo',
+    historyRecovery: 'Los datos actuales de esta copia superaron la validación, pero su historial no. La restauración conserva tareas, calendario y vínculos e inicia un historial nuevo. La copia original no se modifica.',
     baselineImport: 'Los datos de origen no tienen historial. Se creará un punto de partida del historial en el momento real de la restauración, sin suponer estados ni fechas de finalización anteriores. Si falta la política, se usará la predeterminada desde el día de la restauración; los pendientes anteriores se siguen organizando a mano.',
     resetScope: 'Incluye el contenido archivado y el de la papelera. Se reemplazarán todos los periodos, el calendario y los ajustes del espacio de trabajo. Las copias de seguridad existentes se conservan.',
   },
