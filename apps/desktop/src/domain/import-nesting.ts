@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Parsed operation receipts, physical edge identities and the complete operation index.
- * [OUTPUT]: Source-aware validation of leaf/group nesting, atomic nested creation/restore, detached inherited links and group placement ownership.
+ * [OUTPUT]: Source-aware validation of cross-period leaf/group ownership, atomic nested creation/restore, detached inherited links and group placement ownership.
  * [POS]: Import integrity extension; neither a client nor an imported receipt may invent inheritance provenance.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -21,7 +21,6 @@ export function validateNestingOperation(operation: Operation, operations: Map<s
     if (root.kind === 'nesting') for (const child of operation.effects.slice(0, -1)) {
       valid(child.kind === 'nesting' && !root.before.nestingParentId
         && child.before.nestingParentId === root.itemId
-        && child.before.horizon === root.before.horizon && child.before.periodId === root.before.periodId
         && child.after.nestingParentId === root.after.nestingParentId
         && child.after.horizon === root.after.horizon && child.after.periodId === root.after.periodId)
     }
@@ -48,7 +47,9 @@ export function validateNestingOperation(operation: Operation, operations: Map<s
         && effect.before.periodId === created.periodId && effect.after.periodId === created.periodId && !effect.flowColor && !effect.edges.length)
     }
     if (operation.kind === 'unnest') valid(effect.before.nestingParentId !== null && effect.after.nestingParentId === null)
-    if (operation.kind === 'move' || operation.kind === 'applyAssistance') valid(effect.after.nestingParentId === null && operation.effects.some(candidate => candidate.kind === 'position' && candidate.itemId === effect.itemId))
+    if (['move', 'applyAssistance', 'arrangeBacklog'].includes(operation.kind)) valid(effect.after.nestingParentId === null && operation.effects.some(candidate => candidate.kind === 'position'
+      && (candidate.itemId === effect.itemId || candidate.itemId === effect.before.nestingParentId && candidate.after.horizon === 'later' && candidate.before.horizon !== 'later'
+        && (effect.before.horizon !== candidate.before.horizon || effect.before.periodId !== candidate.before.periodId))))
     if (operation.kind === 'delete') valid(effect.after.nestingParentId === null && operation.effects.some(candidate => candidate.kind === 'visibility' && [effect.itemId, effect.before.nestingParentId].includes(candidate.itemId)))
     if (operation.kind === 'restoreItem') {
       const restored = operation.effects.find(candidate => candidate.kind === 'visibility')

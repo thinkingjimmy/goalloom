@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A validated SyncOp, a base_ or visible table prefix, and a period materializer.
- * [OUTPUT]: Atomic canonical changes with causal completion/grouped-creation preflight, or a stable business error.
+ * [OUTPUT]: Atomic canonical changes with cross-period ownership, placement-local sorting, parent lifecycle/two-level/Later validation, safe tombstones and causal creation preflight, or a stable business error.
  * [POS]: Reference applier. It does not touch operations, item_events or undo_effects.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,7 @@ import { SyncApplyError } from './driver'
 import { writeSetting } from './settings'
 import { checkCreationCompletion, checkUndoCreate } from './undo-create'
 import { alignImportAction, canAdoptCalendar, followsImportedPlacement } from './import-calendar'
+import { localParentSql } from './outline'
 
 export interface CanonChange { itemId: string | null; dim: string; before: unknown; after: unknown }
 export interface AppliedOp { kind: string; outcome: 'applied' | 'partial'; changes: CanonChange[] }
@@ -36,6 +37,13 @@ export function applySyncOp(driver: SqlDriver, input: unknown, scope: 'base' | '
     const result = applyAction(driver, prefix, op, action, host, changes)
     if (result === 'partial') partial = true
   }
+  const outlineItems = [...new Set(changes.flatMap(change => change.itemId && ['placement', 'create', 'delete', 'restore'].includes(change.dim) ? [change.itemId] : []))]
+  if (outlineItems.length && driver.prepare(`SELECT 1 FROM ${prefix}item_placements p
+    JOIN ${prefix}item_placements parent ON parent.itemId=p.nestingParentId JOIN ${prefix}items i ON i.id=p.itemId
+    JOIN ${prefix}items owner ON owner.id=parent.itemId
+    WHERE i.deletedAt IS NULL AND (p.itemId IN (SELECT value FROM json_each(?)) OR p.nestingParentId IN (SELECT value FROM json_each(?)))
+    AND (p.itemId=p.nestingParentId OR parent.nestingParentId IS NOT NULL OR owner.deletedAt IS NOT NULL OR (p.horizon='later') != (parent.horizon='later'))
+    LIMIT 1`).get(JSON.stringify(outlineItems), JSON.stringify(outlineItems))) throw new SyncApplyError('outline_conflict')
   return { kind: op.actions[0]?.t ?? 'empty', outcome: partial ? 'partial' : 'applied', changes }
 }
 
@@ -90,8 +98,9 @@ function ensurePeriod(driver: SqlDriver, prefix: string, host: ApplyHost, horizo
 }
 
 function sortKey(driver: SqlDriver, prefix: string, horizon: string, periodId: string | null, afterId: string | null, beforeId: string | null, excluded: string | null, nestingParentId: string | null): number {
+  if (nestingParentId && !driver.prepare(`SELECT 1 FROM ${prefix}item_placements WHERE itemId=? AND horizon=? AND periodId IS ?`).get(nestingParentId, horizon, periodId)) nestingParentId = null
   const rows = driver.prepare(`SELECT p.itemId AS itemId, p.sortKey AS sortKey FROM ${prefix}item_placements p JOIN ${prefix}items i ON i.id=p.itemId
-    WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.nestingParentId IS ? AND p.itemId IS NOT ? ORDER BY p.sortKey, p.itemId`).all(horizon, periodId, nestingParentId, excluded)
+    WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND ${localParentSql(prefix)} IS ? AND p.itemId IS NOT ? ORDER BY p.sortKey, p.itemId`).all(horizon, periodId, nestingParentId, excluded)
   const ids = rows.map(row => String(row.itemId))
   const indexOf = (id: string | null) => id && ids.includes(id) ? ids.indexOf(id) : -1
   const before = indexOf(beforeId)
@@ -179,7 +188,7 @@ function nestItem(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract
     requireItem(driver, prefix, action.parentId)
     const parentPlace = driver.prepare(`SELECT horizon, periodId, nestingParentId FROM ${prefix}item_placements WHERE itemId=?`).get(action.parentId)
     if (!parentPlace || text(parentPlace, 'nestingParentId')) throw new SyncApplyError('outline_conflict')
-    if (text(parentPlace, 'horizon') !== action.horizon || text(parentPlace, 'periodId') !== periodId) throw new SyncApplyError('outline_conflict')
+    if ((text(parentPlace, 'horizon') === 'later') !== (action.horizon === 'later')) throw new SyncApplyError('outline_conflict')
     const ownChild = driver.prepare(`SELECT 1 FROM ${prefix}item_placements p JOIN ${prefix}items i ON i.id=p.itemId WHERE p.nestingParentId=? AND i.deletedAt IS NULL LIMIT 1`).get(action.id)
     if (ownChild) throw new SyncApplyError('outline_conflict')
     if (child.flowColor !== null && child.flowColor !== undefined) throw new SyncApplyError('flow_root_parent')
@@ -206,6 +215,14 @@ function setArchive(driver: SqlDriver, prefix: string, op: SyncOp, action: Extra
 function deleteItem(driver: SqlDriver, prefix: string, op: SyncOp, id: string, changes: CanonChange[]): 'applied' {
   const item = driver.prepare(`SELECT * FROM ${prefix}items WHERE id=?`).get(id)
   if (!item || text(item, 'deletedAt')) return 'applied'
+  const placement = driver.prepare(`SELECT * FROM ${prefix}item_placements WHERE itemId=?`).get(id)
+  if (placement && text(placement, 'nestingParentId')) {
+    // A peer may delete without having observed the latest ownership. Tombstones must
+    // not retain a parent pointer that can become a third level during a later rebuild.
+    const before = { horizon: text(placement, 'horizon'), periodId: text(placement, 'periodId'), sortKey: num(placement, 'sortKey'), nestingParentId: text(placement, 'nestingParentId') }
+    changes.push({ itemId: id, dim: 'placement', before, after: { ...before, nestingParentId: null } })
+    driver.prepare(`UPDATE ${prefix}item_placements SET nestingParentId=NULL,version=version+1 WHERE itemId=?`).run(id)
+  }
   const edges = driver.prepare(`SELECT id, parentId, childId FROM ${prefix}item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?)`).all(id, id)
   for (const edge of edges) {
     changes.push({ itemId: String(edge.childId), dim: 'relation', before: { id: String(edge.id), parentId: String(edge.parentId), childId: String(edge.childId) }, after: null })

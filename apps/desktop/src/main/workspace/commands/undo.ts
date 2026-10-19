@@ -37,7 +37,24 @@ export function undoOperation(context: Context, command: CommandOf<'undo'>): boo
     if (problem) conflict(problem)
     checked.add(effect)
   }
-  for (const effect of [...effects].reverse()) reverseEffect(context, effect, original.id, checked.has(effect))
+  const reversed = [...effects].reverse(), groups = reversed.filter(effect => effect.kind === 'groupPlacement')
+  // Restore the root's position first. Otherwise its returning children temporarily become
+  // independent rows in the source period and invalidate the root's saved neighbors.
+  for (const effect of groups) {
+    const item = context.store.item(effect.itemId)
+    const problem = effectProblem(effect, item, [], context.store.position(item))
+    if (problem) conflict(problem)
+  }
+  const restored = new Set<Effect>()
+  for (const effect of reversed) {
+    if (effect.kind === 'groupPlacement') continue
+    reverseEffect(context, effect, original.id, checked.has(effect))
+    if (effect.kind === 'position') for (const group of groups) if (group.before.nestingParentId === effect.itemId && !restored.has(group)) {
+      reverseEffect(context, group, original.id)
+      restored.add(group)
+    }
+  }
+  for (const group of groups) if (!restored.has(group)) reverseEffect(context, group, original.id)
   context.undone = [original, ...completions].flatMap(operation => operation.effects.map((_, index) => ({ originalId: operation.id, index })))
   return true
 }
@@ -73,7 +90,7 @@ export function reverseEffect(context: Context, effect: Effect, originalId: stri
       if (p.nestingParentId) {
         if (item.flowColor !== null || hasActiveParent(context, item.id) || context.store.hasNestedChildren(item.id)) conflict(serverText().undo.relationUnsafe)
         const parent = context.store.item(p.nestingParentId)
-        if (parent.deletedAt || parent.placement.nestingParentId || parent.placement.horizon !== p.horizon || parent.placement.periodId !== p.periodId
+        if (parent.deletedAt || parent.placement.nestingParentId || (parent.placement.horizon === 'later') !== (p.horizon === 'later')
           || !nestingTargets(item.id, context.store.relations(), context.store.nestingLinks())(parent.id)) conflict(serverText().undo.relationUnsafe)
       }
       const neighbors = context.store.insertion(p.horizon, p.periodId, p.nextId, item.id, p.nestingParentId)

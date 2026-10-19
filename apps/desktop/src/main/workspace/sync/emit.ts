@@ -6,7 +6,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
-import { enqueueSettings } from '@goalloom/store-core'
+import { enqueueSettings, localParentSql } from '@goalloom/store-core'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { sha256Hex, uuidv5 } from '@goalloom/crypto'
 import type { Command } from '../../../shared/contracts/commands'
@@ -194,7 +194,7 @@ function createActions(db: DatabaseSync, itemId: string, relations: string[], un
   const exclusion = excluded.length ? `AND p.itemId NOT IN (${excluded.map(() => '?').join(',')})` : ''
   const adjacent = (comparison: '<' | '>', order: 'ASC' | 'DESC'): string | null => {
     const row = db.prepare(`SELECT p.itemId FROM item_placements p JOIN items i ON i.id=p.itemId
-      WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.nestingParentId IS NULL
+      WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND ${localParentSql()} IS NULL
       AND (p.sortKey,p.itemId) ${comparison} (?,?) ${exclusion} ORDER BY p.sortKey ${order},p.itemId ${order} LIMIT 1`)
       .get(String(placement.horizon), periodId, Number(placement.sortKey), itemId, ...excluded)
     return row ? String(row.itemId) : null
@@ -220,7 +220,7 @@ function createActions(db: DatabaseSync, itemId: string, relations: string[], un
 function nestingActions(db: DatabaseSync, effect: Extract<Effect, { kind: 'nesting' }>): Action[] {
   const unlinks = effect.edges.flatMap(edge => edge.after.invalidatedAt ? [{ t: 'rel.unlink' as const, id: edge.after.id }] : [])
   const links = effect.edges.flatMap(edge => !edge.before && !edge.after.invalidatedAt
-    ? [{ t: 'rel.link' as const, id: edge.after.id, parentId: edge.after.parentId, childId: edge.after.childId }] : [])
+    ? [{ t: 'rel.link' as const, id: edge.after.id, parentId: edge.after.parentId, childId: edge.after.childId, ...(effect.inheritedFrom ? { retain: true as const } : {}) }] : [])
   const color = effect.flowColor ? [{ t: 'item.set' as const, id: effect.itemId, fields: { flowColor: null as null } }] : []
   const period = effect.after.periodId ? db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(effect.after.periodId) : undefined
   const nest: Action = {

@@ -1,6 +1,6 @@
 # 二级 todo
 
-> Independent tasks grouped into an always-expanded, two-level outline. Goal links remain a separate graph.
+> Independent tasks with persistent two-level ownership. Only tasks scheduled in the same horizon/period form a local outline. Goal links remain a separate graph.
 
 ## Product rules
 
@@ -14,16 +14,19 @@
 - Successful nesting stays quiet for drag, menu and recovered receipts. Keep keyboard/command undo and its confirmation, plus existing failure feedback.
 - The selector searches current, future and Later tasks, including periods outside the displayed board. Expired or changed targets are rejected.
 - Nested tasks inherit all current goal parents and flow colors from their root. Their own outgoing goal links, text, dates and lifecycle remain independent.
-- Keep each outline in its sorted position by default, including completed members. With completed folding enabled, keep a group in the todo section while any visible member is todo; otherwise show it in completed. Hidden roots retain a two-line context with a visible lifecycle label above their children. Details show the complete container name. See [completed-task layout](completion-feedback.md#已完成任务显示).
-- Root moves and period rollover move the complete live group without changing status timestamps. A current-period hold on any unfinished member blocks automatic group rollover.
-- Moving a child out of its group makes it independent. Unnesting or deleting the root materializes its current inherited goal parents; a colored root with no goal parents leaves detached children colorless.
+- Owner decision, 2026-10-19: ownership names a specific parent task, independently of planning horizon/period. Moving or sorting a child between planning placements retains ownership. Explicit unnest/reparent actions change ownership; there is still only one task placement and at most two levels.
+- Keep each placement-local outline in its sorted position, including completed members. Completed folding applies to local groups only. Hidden same-period roots retain a two-line lifecycle context; cross-period children use an unindented ordinary row with a clickable, localized parent link, without a duplicate parent card. Details show the complete container name. See [completed-task layout](completion-feedback.md#已完成任务显示).
+- Root moves carry only live children in the root's source horizon/period. Independently scheduled children keep their placements and ownership. Rollover, backlog arrangement and review decisions act on source-period local groups; a remote child never moves its parent. A current-period hold blocks only the affected local group.
+- Unnesting or deleting the root materializes its current inherited goal parents; a colored root with no goal parents leaves detached children colorless. Eligible item restore retains the child's independent placement; moved/reparented children are not reclaimed. Scoped creation restore retains its existing changed-container warning.
+- A child moved alone across the Later boundary becomes independent; entering Later also clears its goal parents. A root entering Later carries its local outline; children elsewhere stay in place and become independent with their inherited goals. All effects share one undo. No ownership link crosses the Later boundary.
+- Flow dots/colors still inherit from the parent. Draw goal → parent → child directly, suppressing inherited duplicate incoming lines; preserve the child's outgoing links. Same-period ownership uses the 24px gutter; cross-column lines retain normal clipping/preview/settings rules.
 - Delete only the selected task. Undo restores owned fields and relations atomically without overwriting later text/status edits. Item restore never steals moved or reparented children.
 - Later supports nesting but has no flow colors or new goal links. Past periods retain the outline and existing lifecycle/detail actions.
 
 ## Engineering contract
 
 - Schema/dataset v10: optional legacy/default-null placement nesting parent, body-free hierarchy history and v3 owned nesting effects. v10 sits on the Phase 0 v9 chain and mirrors the column and triggers onto `base_*`. v8 and Phase 0 v9 upgrade in place after a protective backup; v1–v7 keep the verified protective-copy and explicit-confirmation workflow. `nest` / `unnest` map to SyncOp `item.nest` (placement dimension, plus relation and color actions in the same op).
-- Nesting and explicit goal links are distinct. Shared effective-topology rules drive flow membership, relation rendering, ordering, queries and AI context. Validate cycles in their combined graph inside authoritative writes and import.
+- Nesting and explicit goal links are distinct. Shared effective-topology rules drive membership/AI context; direct explicit/nesting edges drive line drawing and chain traversal. Local grouping compares horizon and period, separately from ownership, across renderer, transactional ordering and visible/base replay. Validate combined cycles, two levels and the Later boundary in authoritative writes and import. Existing fields, dataset v11, SyncOp v1 and historical receipts remain unchanged. Canonical replay validates final parent availability/two-level shape/Later boundaries, rejects owner deletion with unseen live children and clears deleted ownership before rebuilding.
 - Nest/unnest are finite generation/version-guarded commands. `nest.beforeId` optionally inserts before a live child of the destination root; absent/null appends. Validate its group, horizon and period in the write transaction. Membership, insertion, incoming-link and color changes share one receipt and one undo. Existing inherited links materialized on detach retain their source provenance; no dataset or sync format change is needed.
 - Group nesting reparents children before nesting their former root so SQLite and sync actions remain valid. The receipt records final sibling positions; one undo restores the original outline atomically.
 - `create.nesting` optionally carries `parentId`, `expectedParentVersion` and `expectedParentPlacementVersion`. The write transaction requires an available, unarchived, uncancelled root in the exact requested horizon/current-or-future period; independent goal refs/color, AI capture and non-null root insertion are rejected. Creation skips root auto-placement and records existing `create` plus `nesting` effects in one operation. Sync emits `item.create` at its independent position followed by `item.nest` in the same SyncOp. Undo preserves later text; scoped restore derives group provenance from the original immutable creation receipt, restoring independently with a warning if the group changed. Dataset v11 and SyncOp v1 are unchanged.
@@ -32,6 +35,10 @@
 
 ## Failure cases recorded before implementation
 
+- Cross-period ownership: moving/sorting a child silently detaches it, moves its remote parent, or displays a duplicate parent card in the destination. Direct lines must follow goal → parent → child without inherited sibling lines.
+- Moving a root carries remotely scheduled children; moving a child during rollover/backlog carries its parent from another horizon/period; an unrelated hold blocks a separately scheduled group.
+- Later transitions leave cross-Later ownership, lose inherited goals on children left behind, or fail to restore placement/ownership atomically on undo. Same-period groups moved together into Later retain their local outline.
+- Cross-period undo/restore steals a reparented child, relocates it to the parent, overwrites text/status, fails import validation, or diverges between visible/base encrypted replay. Sorting and insertion must use placement-local groups on every write/read path.
 - Nesting B with children C/D under A leaves a third level, reverses sibling order, splits periods, loses archived/cancelled members, changes content/status or omits a member from the receipt.
 - Group insertion ignores its selected sibling, splits the source group or partially reparents children when its insertion neighbor is invalid.
 - Group nesting accepts itself, its own children or a combined goal/outline cycle, partially commits on failure, duplicates a retry or fails JSON/SQLite and encrypted sync round trips.
@@ -60,6 +67,7 @@
 
 ## Acceptance
 
+- [x] Cross-period ownership, local-only moves/rollover/review, Later detach/undo, direct line geometry, parent navigation and JSON/SQLite/encrypted replay. Evidence: `output/tests/subtasks/`, `output/tests/sync-replay/` and `output/tests/ownership/`.
 - [x] Native inline Tab/Shift+Tab, seven columns/future periods, drafts/caret/flow retention, failed/delayed/lost replies, atomic undo/restore and encrypted replay; evidence in `output/tests/column-add/`, `output/tests/subtasks/` and `output/tests/sync-replay/`. Commands, runtime/platform scope and logs: `output/tests/inline-nesting/report.json`.
 - [x] Whole-group child hit zones, visible indented insertion, atomic first/middle/last placement, one-step undo and clipped virtual previews in native Electron.
 - [x] Native Electron gestures, keyboard menus, detail edits, inheritance, independent children and mixed statuses.

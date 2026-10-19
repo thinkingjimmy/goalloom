@@ -7,6 +7,8 @@
 
 ## 产品规则
 
+- Child coverage includes explicit goal links and two-level task ownership. A current owned child covers its parent for breakpoints, empty-column suggestions and next-period planning; inherited flow/color membership is unchanged.
+
 ### 断点 ＋（流程筛选与圆点预览）
 
 - 只补下级：当前周期没有任何活跃下级时提示「下一步」，添加到下一更短尺度；已有本周或直接关联今天的下级时不提示。无需在现有上下级之间插入任务，也不自动改挂已有下级。
@@ -35,7 +37,7 @@
 - 步骤之间以细线连接，已完成步骤的连线在浅色／深色外观下仍可见；下方目标行整行提供悬停和键盘聚焦反馈，方框与箭头对齐标题首行，完成数量位于标题下方。
 - 已结束周期的统计、目标记录与模型输入统一来自该周期截止时的历史投影；标题和说明使用当前文本，状态与位置使用截止时状态。回顾不使用本月空看板替代上月，也不将本月后来完成／顺延的状态倒填历史。无法可靠投影的记录明确提示，不伪装成无记录。
 - 收尾默认移入明确的目标周期：上周复盘在本周任何一天都移入本周，月／合并复盘分别使用对应尺度的目标周期。可手动选择保留原位或归档，关闭抽屉后继续保留选择；选择本身不写入，点击下一步才提交。收尾读取最新位置与版本，包括同尺度更早的往期待办；条目下方不重复显示日期，顶部统一说明复盘范围。已经移走／完成的条目不重复操作。写入失败停留当前步骤，可重试；不会误标复盘完成。
-- Review records and unfinished rows follow the board outline: each parent precedes its children, children keep their saved sibling order and use the same 24px indentation. Closing groups source periods newest first and preserves the position of children whose parent is already completed or archived, without adding that parent to the unfinished list. Historical records use period-end placement order; closing uses current placement order.
+- Review records and unfinished rows follow the placement-local board outline: only children sharing their parent's horizon/period use the same 24px indentation and synchronized group decisions. Independently scheduled children retain their own decisions/rollover. Closing groups source periods newest first without adding completed/archived parents to the unfinished list. Historical records use period-end placement order; closing uses current placement order and body-free `closingParents` summaries.
 - 收尾使用 Settings 共用的 Select 按钮与应用内菜单，图标保留内边距，支持键盘选择、Escape 关闭与焦点返回；弹层留在原生复盘 dialog 内。月／合并的任务记录复用看板的只读 Checkbox 状态、流程色及首行对齐，不再单独使用无色小方框；复盘记录、目标、收尾和安排页的已保存标题复用看板的 favicon／页面标题链接渲染；原始标题、历史和草稿不受展示元数据影响。
 - 2026-10-05 负责人澄清复盘中的 todo 只读：目标矩阵、回顾记录、收尾待办、已有计划和起草来源的标题不提供点击／键盘按钮，不打开详情或筛选流程。移除带 i 的流程筛选说明。URL 继续使用页面标题展示与独立外部链接；收尾下拉、起草勾选／输入与复盘步骤按钮照常使用。
 - 2026-10-05 负责人确认收尾列表使用紧凑的 todo 行：补充与看板一致的只读未勾选 Checkbox，并对齐标题首行；移除「全部移入目标周期」按钮；桌面下拉按钮高度降至 30px。按钮按文案收宽并居右，五语言常用选项保持单行；只有达到行宽上限时才换行增高。条目不设分割线，缩小行间距。

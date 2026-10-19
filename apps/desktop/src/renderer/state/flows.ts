@@ -1,12 +1,12 @@
 /**
  * [INPUT]: Stable snapshot topology, flow roots, ordered board summaries, completed-task layout, active flow ids and the focused task.
- * [OUTPUT]: Nonempty membership/color caches, top-bar flow order and a shared active graph/chain for relation lines and preview actions.
+ * [OUTPUT]: Nonempty membership/color caches, top-bar flow order and a direct goal/ownership graph and chain without duplicate inherited incoming lines.
  * [POS]: Renderer projection bounded by current topology; unrelated items share empty results without per-item retention.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useMemo } from 'react'
 import { useCollapseCompleted } from './completed-layout'
-import { combinedTopology } from '../../domain/nesting'
+import { combinedTopology, localNestingParentId } from '../../domain/nesting'
 import { flowIndex } from '../../domain/flows'
 import { horizons } from '../../shared/contracts/values'
 import type { ItemSummary } from '../../shared/contracts/entities'
@@ -14,9 +14,11 @@ import type { Flow, Snapshot } from '../../shared/contracts/queries'
 
 /** Unarchived flows in top-bar order; chip position also drives the ⌘1…⌘9 filter shortcuts. */
 export function visibleFlows(all: Flow[], items: ItemSummary[], collapseCompleted = false): Flow[] {
-  const todo = new Set(items.filter(item => item.status === 'todo').map(item => item.placement.nestingParentId ?? item.id))
+  const byId = new Map(items.map(item => [item.id, item]))
+  const group = (item: ItemSummary) => localNestingParentId(item, byId) ?? item.id
+  const todo = new Set(items.filter(item => item.status === 'todo').map(group))
   const positions = new Map(items.map((item, index) => [item.id, {
-    column: horizons.indexOf(item.placement.horizon), done: Number(collapseCompleted && !todo.has(item.placement.nestingParentId ?? item.id)), index,
+    column: horizons.indexOf(item.placement.horizon), done: Number(collapseCompleted && !todo.has(group(item))), index,
   }]))
   for (const item of items) if (item.placement.nestingParentId && !positions.has(item.placement.nestingParentId)) positions.set(item.placement.nestingParentId, positions.get(item.id)!)
   return all.filter(flow => !flow.archived).sort((a, b) => {
@@ -40,7 +42,7 @@ export interface Flows {
 export interface FlowGraph {
   traversal?: readonly { parentId: string; childId: string }[]
   members: ReadonlySet<string>
-  edges: (Snapshot['relations'][number] & { flowId: string })[]
+  edges: (Snapshot['relations'][number] & { flowId: string; kind?: 'nesting' })[]
 }
 
 export function activeFlowGraph(items: ItemSummary[], relations: Snapshot['relations'], flows: Flows, flowIds: string[], nesting: NonNullable<Snapshot['nesting']> = []): FlowGraph {
@@ -51,11 +53,15 @@ export function activeFlowGraph(items: ItemSummary[], relations: Snapshot['relat
     if (shared.length) active.set(item.id, shared)
   }
   // An edge belongs to the first active flow shared by both endpoints.
-  const edges = relations.flatMap(edge => {
+  const byId = new Map(items.map(item => [item.id, item]))
+  const planningNesting = nesting.filter(link => byId.get(link.parentId)?.placement.horizon !== 'later' && byId.get(link.childId)?.placement.horizon !== 'later')
+  // Persisted relation ids cannot contain '/', so ownership paths have a separate key space.
+  const direct = [...relations.filter(edge => !edge.inheritedFrom), ...planningNesting.map(link => ({ ...link, id: `nest/${link.childId}`, kind: 'nesting' as const }))]
+  const edges = direct.flatMap(edge => {
     const flowId = active.get(edge.childId)?.find(id => active.get(edge.parentId)?.includes(id))
     return flowId ? [{ ...edge, flowId }] : []
   })
-  return { members: new Set(active.keys()), edges, traversal: [...edges, ...nesting.filter(link => active.has(link.parentId) && active.has(link.childId))] }
+  return { members: new Set(active.keys()), edges, traversal: edges }
 }
 
 export function flowChain(graph: FlowGraph, focus: string | null): ReadonlySet<string> | null {

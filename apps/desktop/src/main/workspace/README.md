@@ -9,13 +9,13 @@ workspace/
 ├── periods.ts        # Read-only selected-period summaries, generation/revision guards and rollover sources; no period materialization
 ├── ordering.ts       # Body-free ancestor placement metadata shared by board reads and guarded ordering commands
 ├── queries.ts        # Count/activity/batch projections and shared trash filtering that excludes empty-detail discards
-├── review.ts         # Generation-bound period-end facts, six-scale context with pre-anchor guards, board-ordered live unfinished outlines by source period and exact plans
+├── review.ts         # Generation-bound period-end facts, six-scale context with pre-anchor guards, board-ordered live unfinished outlines by source period, body-free closingParents and exact plans
 ├── execution.ts      # Indexed 5,000-event facts, all event-owned undo, replayed guidance and frozen month/day/all pages with exact local end boundaries
 ├── assistance-context.ts # Bounded task/relationship context, exact omissions and transaction dependency guards
 ├── history.ts        # Immutable period-end projections and activity; separate generation-guarded live past-task pages filtered by current placement
 ├── reconcile.ts      # 自动候选重读、按候选索引查询来源周期、统一核对与原子系统顺延
 ├── commands/
-│   ├── items.ts      # Setup/date guards, atomic create-plus-nesting with container versions, local automatic placement, root/group moves and atomic link placement
+│   ├── items.ts      # Setup/date guards, atomic create-plus-nesting with container versions, local automatic placement, persistent cross-period ownership, local-only group moves, Later detach and atomic link placement
 │   ├── nesting.ts    # Guarded leaf/group nesting with ordered flattening and atomic sibling insertion, inherited-parent materialization and combined outline/goal validation
 │   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
 │   ├── capture.ts    # Optional ready matches and late column/parent completion, guarded by creation identity, task versions and live periods

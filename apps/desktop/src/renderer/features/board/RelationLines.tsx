@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Board summaries, the shared active flow graph and flow colours, an optional externally focused item (flow-dot
  *          preview), whether to draw in, and visible columns; reads mounted row geometry from the enclosing `.board`.
- * [OUTPUT]: Read-only overlay: parent→child curves between rendered rows sharing an active flow, each in that flow's colour (dashed across
+ * [OUTPUT]: Read-only overlay: direct goal/ownership parent→child curves between rendered rows sharing an active flow, each in that flow's colour (dashed across
  *           skipped horizons), joining matching 6px row dots at the first title line; hover/focus chain highlighting (other rows faded via `data-chain-out`,
  *           without a layout read) and edge markers that reveal an off-screen related row; shared panel clipping and a finite motion pulse anchor paths
  *           throughout row/sidebar translations. Geometry is read during that motion and when the graph changes, not on an idle hover.
@@ -22,7 +22,7 @@ import { busGap, dotCenter, dotEdge, firstLine, orthogonal, panelViewport } from
 
 type Panel = 'later' | 'timeline'
 interface Clip { x: number; y: number; width: number; height: number }
-interface Anchor { indent: number; left: number; right: number; y: number; mid: number; off: 'up' | 'down' | null; done: boolean; content: Element; panel: Panel; clip: Clip }
+interface Anchor { indent: number; left: number; right: number; y: number; mid: number; off: 'up' | 'down' | null; done: boolean; dot: boolean; content: Element; panel: Panel; clip: Clip }
 interface Path { id: string; d: string; skip: boolean; done: boolean; delay: number; parentId: string; childId: string; color: string; panel: Panel | null }
 interface Port { key: string; x: number; y: number; itemId: string; color: string; panel: Panel }
 interface Marker { key: string; x: number; y: number; dir: 'up' | 'down'; align: 'start' | 'end'; ids: string[]; color: string }
@@ -51,7 +51,7 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
   // Hover or focus lights a row's whole ancestor and descendant chain inside this flow.
   const chain = useMemo(() => flowChain(graph, hover), [graph, hover])
 
-  const geometryKey = useMemo(() => `${columns.join('\0')}\n${edges.map(edge => edge.id).join('\0')}\n${[...members].sort().join('\0')}\n${[...horizonOf].map(([id, horizon]) => `${id}:${horizon}`).join('\0')}`, [columns, edges, members, horizonOf])
+  const geometryKey = useMemo(() => `${columns.join('\0')}\n${edges.map(edge => `${edge.id}:${edge.parentId}:${edge.childId}`).join('\0')}\n${[...members].sort().join('\0')}\n${items.map(item => `${item.id}:${item.placement.horizon}:${item.placement.nestingParentId ?? ''}:${item.status}`).join('\0')}`, [columns, edges, members, items])
   const root = useRef<HTMLDivElement>(null), clipId = useId()
   const latest = useRef({ edges, members, horizonOf, chain, columns })
   latest.current = { edges, members, horizonOf, chain, columns }
@@ -96,7 +96,7 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
       const off = mid < c.top ? 'up' : mid > c.bottom ? 'down' : null
       const y = off === 'up' ? c.top + inset : off === 'down' ? c.bottom - inset : mid
       const panel = horizonOf.get(id) === 'later' ? 'later' : 'timeline'
-      anchors.set(id, { indent: row.dataset.nested === 'true' ? 24 : 0, left: r.left + dx, right: r.right + dx, y: y + dy, mid, off, done: row.dataset.done === 'true', content, panel, clip: clips[panel] })
+      anchors.set(id, { indent: row.dataset.nested === 'true' ? 24 : 0, left: r.left + dx, right: r.right + dx, y: y + dy, mid, off, done: row.dataset.done === 'true', dot: !!row.querySelector('.flow-dot-button'), content, panel, clip: clips[panel] })
     }
     const paths: Path[] = [], ports = new Map<string, Port>(), markers = new Map<string, Marker>()
     // A skip-level curve crosses the columns in between along a row boundary, so it never seems to leave a row it merely passes.
@@ -122,21 +122,27 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
       // Right-angle connectors: leave the side facing the other row, run down a bus in the gap beside the column rule,
       // and turn into the child. A forward line stops at the child's flow dot; loops and backward lines end on a port.
       const forward = parent.right <= child.left, backward = child.right <= parent.left, side = backward ? -1 : 1
-      const x1 = backward ? parent.left : parent.right - dotCenter
-      const x2 = forward ? child.left + dotEdge + child.indent : child.right - dotCenter
+      const nested = edge.kind === 'nesting' && !forward && !backward
+      const x1 = nested ? parent.left + dotCenter + parent.indent : backward ? parent.left : parent.right - dotCenter
+      const x2 = nested || forward ? child.left + dotEdge + child.indent : child.right - dotCenter
       // Existing cross-Later edges survive, but an obscured timeline endpoint must not land in Later.
       if (parent.panel !== child.panel && (x1 < parent.clip.x || x1 > parent.clip.x + parent.clip.width || x2 < child.clip.x || x2 > child.clip.x + child.clip.width)) continue
       const exitBus = (backward ? parent.left : parent.right) + side * busGap
       const entryBus = forward ? child.left - busGap - 1 : backward ? child.right + busGap + 1 : Math.max(parent.right, child.right) + busGap
       // A skip-level line crosses the columns in between along a row boundary, where the clear band between grounds shows it.
-      const turns: [number, number][] = skip && (forward || backward)
+      const turns: [number, number][] = nested ? [[x1, child.y]] : skip && (forward || backward)
         ? [[exitBus, lane(Math.min(x1, x2), Math.max(x1, x2), (parent.y + child.y) / 2)], [entryBus, child.y]]
         : [[forward || backward ? exitBus : entryBus, child.y]]
       const d = orthogonal(x1, parent.y, turns, x2)
       const delay = Math.min(columns.indexOf(horizonOf.get(edge.parentId)!), columns.indexOf(horizonOf.get(edge.childId)!)) * 70
       paths.push({ id: edge.id, d, skip, done: parent.done || child.done, delay: Math.max(0, delay), parentId: edge.parentId, childId: edge.childId, color: edge.color, panel: parent.panel === child.panel ? parent.panel : null })
-      if (parent.off) mark(parent, edge.parentId, backward ? 'start' : 'end', edge.color); else port(`${edge.parentId}:${x1}`, x1, parent.y, edge.parentId, edge.color, parent.panel)
-      if (child.off) mark(child, edge.childId, forward ? 'start' : 'end', edge.color); else if (!forward) port(`${edge.childId}:${x2}`, x2, child.y, edge.childId, edge.color, child.panel)
+      if (parent.off) mark(parent, edge.parentId, backward || nested ? 'start' : 'end', edge.color); else if (!nested || !parent.dot) port(`${edge.parentId}:${x1}`, x1, parent.y, edge.parentId, edge.color, parent.panel)
+      if (child.off) mark(child, edge.childId, forward || nested ? 'start' : 'end', edge.color)
+      else if (!forward && !nested) port(`${edge.childId}:${x2}`, x2, child.y, edge.childId, edge.color, child.panel)
+      else if (!child.dot) {
+        const x = child.left + dotCenter + child.indent
+        port(`${edge.childId}:${x}`, x, child.y, edge.childId, edge.color, child.panel)
+      }
     }
     for (const marker of markers.values()) marker.ids.sort((a, b) => anchors.get(a)!.mid - anchors.get(b)!.mid)
     const next: Geometry = { width: board.clientWidth, height: board.clientHeight, paths, ports: [...ports.values()], markers: [...markers.values()], clips }

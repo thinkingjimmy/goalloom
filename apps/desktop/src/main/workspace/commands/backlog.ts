@@ -2,7 +2,7 @@
  * [INPUT]: 已选往期项当前版本与目标尺度，事务最新状态。
  * [OUTPUT]: 批量安排当前同尺度/Later，一个可撤销操作，保持独立状态。
  * [POS]: 往期入口命令库；不增加隐藏/snooze 状态。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { isBacklog } from '../../../domain/rollover'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
@@ -19,10 +19,12 @@ export function arrangeBacklog(context: Context, command: CommandOf<'arrangeBack
   }).sort((a, b) => b.period.startAt.localeCompare(a.period.startAt) || a.item.placement.sortKey - b.item.placement.sortKey || a.item.id.localeCompare(b.item.id))
   const groups = new Set<string>()
   for (const { item } of selected) {
-    const rootId = item.placement.nestingParentId ?? item.id
+    if (groups.has(item.id)) continue
+    const rootId = context.store.localParentId(item.placement) ?? item.id
     if (groups.has(rootId)) continue
     groups.add(rootId)
     const root = context.store.item(rootId)
+    for (const child of context.store.nestedItems(rootId)) if (child.placement.horizon === root.placement.horizon && child.placement.periodId === root.placement.periodId) groups.add(child.id)
     moveItem(context, { ...command, type: 'move', itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version, beforeId: null })
   }
   context.label = serverText().labels.arrangeBacklog(selected.length)

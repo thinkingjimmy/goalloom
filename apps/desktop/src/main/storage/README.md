@@ -20,4 +20,6 @@ storage/
 
 `worker.ts` 是本目录唯一装配 workspace 的入口。`startup.ts` 先以 readOnly 连接探测；v8–v10 创建并验证保护副本后，在事务内升级至 v11。v1–v7 沿用显式恢复：用户确认保护副本后转换为临时当前版本数据库，再原子替换。取消保留原库，副本保持可恢复。JSON/SQLite 导入同时验证创建与补全的归属、净效果和整组撤销标记。事务规则见 [workspace](../workspace/README.md)。备份副本名由受控代码生成，失败不删除旧副本；回执位于整库替换范围之外。
 
+`Store.localParentId` and store-core's `localParentSql` resolve the same horizon/period grouping without changing the persisted owner. Remote children share ordinary placement neighbors.
+
 [PROTOCOL]: Update this header when making changes, then check README.md.

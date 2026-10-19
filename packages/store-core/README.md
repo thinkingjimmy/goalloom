@@ -12,4 +12,6 @@ POS: shared sync core. It does not open files, does not import Electron, and doe
 
 `conflicts.ts` uses encrypted `basisSeq` metadata and canonical predecessor changes to retain overwritten local actions. It groups local rejected/lost actions by task, suppresses already-applied duplicates and stores per-task acknowledgement in the existing `sync_conflicts.detail`/`seenAt` fields. Remote rejected operations and causal later edits do not create local review steps. Business projection and original receipts stay intact.
 
+`outline.ts` exports `localParentSql` for both visible/base replay and desktop ordering. Ownership persists across planning placements; only a co-scheduled child is an indented sorting member. Canonical application validates parent availability, two levels and the Later boundary after all actions commit. Peer deletion clears tombstone ownership; deleting an owner with unseen live children is rejected atomically.
+
 [PROTOCOL]: Update this header when making changes, then check README.md.

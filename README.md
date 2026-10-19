@@ -36,7 +36,7 @@
 # Key features
 
 - **Goals and today on one board.** Four time columns—3 months, this month, this week, today—put the quarter's goals beside today's work. A collapsible Later sidebar keeps unplanned ideas close at hand.
-- **Two task levels, complete tasks.** Drag a task onto another to indent it. Subtasks inherit goals and colors, keep their own details and status, and move with their parent.
+- **Two task levels, complete tasks.** Drag a task onto another to indent it. Subtasks inherit goals and colors and keep their own details and status. Reschedule them independently; moving a parent carries only children scheduled with it.
 - **Every to-do knows why.** Link an item to goals in longer horizons. Filter one goal (⌘1–⌘9) and relation lines draw its whole chain; hover any row to light its path. Links explain, they never roll up progress.
 - **Write it down; Jev places it.** Optional Jev 1.14 smart input matches new tasks to your goals from Cmd+N and inline column entry. Enter saves immediately; a late answer can fill the column and parents. Manual edits win, and creation plus its automatic completion remains one undo step. Bring your own key.
 - **Nothing slips quietly.** Unfinished items roll over to the next period, and past periods stay readable and can be cleared in batches.

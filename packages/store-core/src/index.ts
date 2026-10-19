@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Deterministic application, replay, settings, send-state and conflict metadata modules.
- * [OUTPUT]: Shared SQL-driver sync core and task-grouped review/acknowledgement APIs.
+ * [OUTPUT]: Shared SQL-driver sync core, placement-local outline SQL and task-grouped review/acknowledgement APIs.
  * [POS]: Public store-core boundary; host file, UI and network APIs stay outside this package.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,6 +8,7 @@ export { applySyncOp, type AppliedOp, type CanonChange } from './apply'
 export { businessCode } from './classify'
 export { SyncApplyError, type ApplyHost, type PeriodRow, type SqlDriver, type SqlStatement, type SqlValue } from './driver'
 export { projectionHash } from './hash'
+export { localParentSql } from './outline'
 export { applyRemoteBatch, assertForeignKeys, copyProjectionToBase, mergeRemoteOps, rebuildVisibleFull, type RemoteEnvelope } from './rebuild'
 export { exportCanonicalSnapshot, installCanonicalSnapshot, type SnapshotBody } from './snapshot'
 export { cancelIfNeverSent, markAccepted, markSendUnknown, pauseWorkspace } from './state'

@@ -1,9 +1,10 @@
 /**
- * [INPUT]: Current snapshot items/relations/periods, active flow membership, visible columns, period modes and an optional highlighted preview chain.
- * [OUTPUT]: Childless-parent breakpoints scoped to the highlighted chain, emptyColumns, draftTarget and bounded model context via boardDigest / periodText.
+ * [INPUT]: Current snapshot items/goal relations/ownership/periods, active flow membership, visible columns, period modes and an optional highlighted preview chain.
+ * [OUTPUT]: Explicit/owned-child coverage for chain breakpoints and empty columns, draftTarget and bounded model context via boardDigest / periodText.
  * [POS]: features/insight 的纯信号计算；与 domain/relations 的周期规则一致，不做网络与写入。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { combinedTopology } from '../../../domain/nesting'
 import { currentPeriod, workspaceDate } from '../../../domain/calendar'
 import type { CalendarConfig, ItemHorizon, ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
@@ -37,7 +38,7 @@ export function breakpoints(snapshot: Snapshot, flows: Flows, flowIds: string[],
   const member = (item: ItemSummary) => flows.of(item.id).some(flow => flowIds.includes(flow.id))
   const shown = (horizon: ItemHorizon) => columns.includes(horizon) && mode(horizon) === 'current'
   const covered = new Set<string>()
-  for (const edge of snapshot.relations) {
+  for (const edge of combinedTopology(snapshot.relations, snapshot.nesting ?? [])) {
     const child = byId.get(edge.childId)
     if (child && live(child) && inCurrent(child, current)) covered.add(edge.parentId)
   }
@@ -58,7 +59,7 @@ export function emptyColumns(snapshot: Snapshot, columns: ItemHorizon[], mode: M
   const current = currentIds(snapshot)
   const result = new Map<ChildHorizon, ItemSummary[]>()
   const byId = new Map(snapshot.items.map(item => [item.id, item]))
-  const covered = new Set(snapshot.relations.filter(edge => { const child = byId.get(edge.childId); return child && live(child) && inCurrent(child, current) }).map(edge => edge.parentId))
+  const covered = new Set(combinedTopology(snapshot.relations, snapshot.nesting ?? []).filter(edge => { const child = byId.get(edge.childId); return child && live(child) && inCurrent(child, current) }).map(edge => edge.parentId))
   for (const horizon of childHorizons) {
     if (!columns.includes(horizon) || mode(horizon) === 'history') continue
     const above = chain[chain.indexOf(horizon) - 1]!

@@ -1,13 +1,13 @@
 /**
  * [INPUT]: Generation/version-guarded nest/unnest commands, optional sibling insertion and current explicit goals/placements.
- * [OUTPUT]: Atomic flattened group membership, ordered placement, incoming-edge/color effects and inherited-edge provenance.
+ * [OUTPUT]: Persistent cross-period ownership, placement-local order, atomic flattened groups and inherited-edge/color provenance.
  * [POS]: Authoritative outline writes shared by dragging, lifecycle and ordinary moves.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import { compareInstants } from '../../../domain/calendar'
 import { validateDag } from '../../../domain/relations'
-import { nestingTargets } from '../../../domain/nesting'
+import { nestingTargets, sameOutlinePeriod } from '../../../domain/nesting'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import type { Item, Relation } from '../../../shared/contracts/entities'
 import type { EdgeDelta, NestingPosition } from '../../../shared/contracts/effects'
@@ -23,7 +23,7 @@ export function assertOutline(context: Context): void {
   for (const link of links) {
     const parent = byId.get(link.parentId), child = byId.get(link.childId)
     if (!parent || !child || parent.nestingParentId || parent.id === child.id
-      || parent.horizon !== child.horizon || parent.periodId !== child.periodId
+      || (parent.horizon === 'later') !== (child.horizon === 'later')
       || child.flowColor !== null || incoming.has(String(child.id))) throw new DomainError('conflict', nestingText().changed)
   }
   const topology: Relation[] = [...raw.map(edge => ({ ...edge, id: `goal:${edge.id}` })), ...links.map(link => ({ ...link, id: `nest:${link.childId}`, createdAt: context.now, invalidatedAt: null, invalidatedBy: null, reason: null }))]
@@ -33,7 +33,7 @@ export function assertOutline(context: Context): void {
 export function nestingPosition(context: Context, item: Item): NestingPosition {
   return { ...context.store.position(item), nestingParentId: item.placement.nestingParentId ?? null }
 }
-export function changeNesting(context: Context, item: Item, parent: Item | null, beforeId: string | null = null): boolean {
+export function changeNesting(context: Context, item: Item, parent: Item | null, beforeId: string | null = null, preservePlacement = false): boolean {
   const oldParent = item.placement.nestingParentId ?? null
   if (oldParent === (parent?.id ?? null)) return false
   if (parent && (parent.id === item.id || parent.placement.nestingParentId || context.store.hasNestedChildren(item.id))) throw new DomainError('conflict', nestingText().levels)
@@ -46,8 +46,11 @@ export function changeNesting(context: Context, item: Item, parent: Item | null,
     catch { throw new DomainError('conflict', nestingText().cycle) }
   }
   const beforeItem = structuredClone(item), before = nestingPosition(context, item)
-  const sortKey = nextSortKey(context, parent?.placement.horizon ?? item.placement.horizon,
-    parent ? parent.placement.periodId : item.placement.periodId, beforeId, item.id, parent?.id ?? null)
+  const remoteDetach = !parent && !!oldParent && !sameOutlinePeriod(item.placement, context.store.item(oldParent).placement)
+  const destination = parent && !preservePlacement ? parent.placement : item.placement
+  const keepPosition = remoteDetach || preservePlacement && parent && !sameOutlinePeriod(item.placement, parent.placement)
+  const sortKey = keepPosition ? item.placement.sortKey : nextSortKey(context, destination.horizon,
+    destination.periodId, beforeId, item.id, parent?.id ?? null)
   const incoming = context.store.relations().filter(edge => edge.childId === item.id)
   const inherited = !parent && oldParent ? context.store.relations().filter(edge => edge.childId === oldParent) : []
   const edges: EdgeDelta[] = incoming.map(edge => ({ before: edge, after: { ...edge, invalidatedAt: context.now, invalidatedBy: context.command.operationId, reason: 'unlink' } }))
@@ -56,7 +59,7 @@ export function changeNesting(context: Context, item: Item, parent: Item | null,
   if (flowColor) { item.flowColor = null; touch(context, item) }
   const p = item.placement, version = p.version
   p.nestingParentId = parent?.id ?? null
-  if (parent) { p.horizon = parent.placement.horizon; p.periodId = parent.placement.periodId }
+  if (parent && !preservePlacement) { p.horizon = parent.placement.horizon; p.periodId = parent.placement.periodId }
   p.sortKey = sortKey; p.version++; if (parent) p.holdPeriodId = null
   context.store.savePlacement(p, version)
   for (const source of inherited) {

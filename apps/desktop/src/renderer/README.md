@@ -57,7 +57,7 @@ renderer/
 │   │   ├── decompose.ts     # 「拆下一步」唯一写入路径：模型起草后 create 下级，⇧ 或无模型时打开预填新建（断点与右键共用）
 │   │   ├── EmptyCard.tsx    # Horizon-specific outcome/milestone/plan/task draft actions, or the column's inline create; counts only in the body, same-row equal-height buttons with wrapping labels
 │   │   ├── review.ts        # Previous-week reminders throughout the configured week, monthly two-day windows, matching-boundary merging, goal matrix, read-only signals and planning candidates
-│   │   ├── ReviewDrawer.tsx # Board-ordered closing with 24px subtask indentation → cached connected suggestions with inherited todo markers, shared right-side dropdowns, guarded confirm/skip/receipt recovery and completion callback
+│   │   ├── ReviewDrawer.tsx # Placement-local closing groups with independent remote children and 24px local indentation → cached connected suggestions with inherited todo markers, shared right-side dropdowns, guarded confirm/skip/receipt recovery and completion callback
 │   │   ├── ReviewOverview.tsx # Summary-first counts, board-ordered month outlines with 24px subtask indentation and original checked/flow-coloured markers, read-only saved links and goal matrix
 │   │   ├── ReviewSummary.tsx # Persistent localized icon heading, optional cached AI content, header refresh and retained results on failure
 │   │   ├── review.css       # Shared review/planning guide frames/actions and independent reminder close control, compact closing rows, content-sized dropdowns, connected drafts, borderless draft focus and ghost footer actions
@@ -73,7 +73,7 @@ renderer/
 │   │   ├── ColumnOrderMenu.tsx # One-shot arrangement immediately left of Add; shared column-hover/keyboard/menu reveal; focus returns after guarded writes re-enable the trigger
 │   │   ├── useBoardDrag.ts # Shared pointer intents, whole-group middle previews, atomic child insertion and guarded pointer/keyboard sorting
 │   │   ├── NestingPicker.tsx # Keyboard root selection, bounded current/future/Later search, placement revalidation and source focus return
-│   │   ├── TaskContext.tsx # Compact archived/cancelled parent context shared by current and past groups
+│   │   ├── TaskContext.tsx # Local archived/cancelled parent context and accessible cross-period parent links shared by current/past rows
 │   │   ├── nesting.css # Stable 24px inset, whole-group borders, checkbox-aligned child insertion lines, accessible arrangement actions and bounded choices
 │   │   ├── RelationDrag.tsx # Flow-valid pointer linking, root-promotion preview, clipped targeting/autoscroll, source pinning and guarded menu adoption
 │   │   ├── relation-drag.css # Copy-free linking preview: connector, ports, eligible-row fading, target flow tint and adoption chip

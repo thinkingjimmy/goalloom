@@ -35,14 +35,15 @@ export function reconcile(repository: Repository, now = repository.clock.now()):
     for (const policy of store.policies().filter(policy => policy.mode === 'auto')) {
       const current = targetPeriod(context, policy.horizon)!, effectiveFrom = store.period(policy.effectiveFromPeriodId)
       const candidates = store.summaries("i.status='todo' AND i.archivedAt IS NULL AND i.deletedAt IS NULL AND p.horizon=? AND p.periodId!=?", [policy.horizon, current.id], 'ORDER BY (SELECT julianday(startAt) FROM planning_periods WHERE id=p.periodId) DESC,p.sortKey,i.id')
-      for (const item of candidates) {
+      for (const candidate of candidates) {
+        const item = store.item(candidate.id)
         const periodId = item.placement.periodId!
         let period = periods.get(periodId)
         if (!period) { period = store.period(periodId); periods.set(periodId, period) }
         if (!canRollover({ ...item, period, holdPeriodId: item.placement.holdPeriodId }, { clock: { now: () => now }, current, mode: policy.mode, effectiveFrom, setupConfirmed: true, maintenance: false, pausedAfterRestore: false })) continue
-        const rootId = item.placement.nestingParentId ?? item.id
+        const rootId = store.localParentId(item.placement) ?? item.id
         if (processed.has(rootId)) continue
-        const root = store.item(rootId), members = [root, ...store.nestedItems(rootId)]
+        const root = store.item(rootId), members = [root, ...store.nestedItems(rootId).filter(child => child.placement.horizon === root.placement.horizon && child.placement.periodId === root.placement.periodId)]
         if (members.some(member => member.status === 'todo' && member.placement.holdPeriodId === current.id)) continue
         processed.add(rootId)
         moveItem(context, { type: 'move', operationId, generation: workspace.generation, itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version, horizon: policy.horizon, beforeId: null })

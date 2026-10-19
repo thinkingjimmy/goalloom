@@ -1,12 +1,13 @@
 /**
  * [INPUT]: Lightweight placements, active topology and an injected observation time.
- * [OUTPUT]: Nearest-parent groups and one-shot ordering based on parents' persisted positions, without writes.
+ * [OUTPUT]: Nearest goal/ownership parents and one-shot ordering with placement-local outlines and persisted parent positions, without writes.
  * [POS]: Shared board/transaction rule; lifecycle state never determines parent priority.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemHorizon } from '../shared/contracts/entities'
 import type { OrderNode } from '../shared/contracts/queries'
 import { periodHorizons } from '../shared/contracts/values'
+import { sameOutlinePeriod } from './nesting'
 
 const rank = (horizon: ItemHorizon) => periodHorizons.findIndex(value => value === horizon)
 const textOrder = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0
@@ -14,9 +15,14 @@ export const parentOrderedHorizon = (horizon: ItemHorizon) => rank(horizon) > 0
 
 export function buildParentOrder(nodes: readonly OrderNode[], edges: readonly { parentId: string; childId: string }[], now: string) {
   const byId = new Map(nodes.map(node => [node.id, node])), time = Date.parse(now)
+  const localRoot = (node: OrderNode) => {
+    const parent = node.nestingParentId ? byId.get(node.nestingParentId) : undefined
+    return parent && sameOutlinePeriod(node, parent) ? parent : node
+  }
   const parents = new Map<string, OrderNode[]>(), groups = new Map<string, string | null>()
   const editable = (node: OrderNode) => parentOrderedHorizon(node.horizon) && !!node.periodEnd && Date.parse(node.periodEnd) > time
-  for (const edge of edges) {
+  const ownership = nodes.flatMap(node => node.nestingParentId ? [{ parentId: node.nestingParentId, childId: node.id }] : [])
+  for (const edge of [...edges, ...ownership]) {
     const parent = byId.get(edge.parentId), child = byId.get(edge.childId)
     if (!parent || !child || rank(parent.horizon) < 0 || rank(parent.horizon) >= rank(child.horizon)) continue
     const list = parents.get(child.id) ?? []
@@ -26,7 +32,7 @@ export function buildParentOrder(nodes: readonly OrderNode[], edges: readonly { 
   const compareParents = (a: OrderNode, b: OrderNode): number => rank(b.horizon) - rank(a.horizon)
     || textOrder(a.periodStart ?? '', b.periodStart ?? '') || comparePlacement(a, b)
   function comparePlacement(a: OrderNode, b: OrderNode): number {
-    const rootA = a.nestingParentId ? byId.get(a.nestingParentId) : a, rootB = b.nestingParentId ? byId.get(b.nestingParentId) : b
+    const rootA = localRoot(a), rootB = localRoot(b)
     if (rootA && rootB && rootA.id !== rootB.id) return manual(rootA, rootB)
     if (rootA && rootB && (a.id === rootA.id || b.id === rootB.id) && a.id !== b.id) return a.id === rootA.id ? -1 : 1
     return manual(a, b)
@@ -43,7 +49,7 @@ export function buildParentOrder(nodes: readonly OrderNode[], edges: readonly { 
     if (a.id === b.id) return 0
     if (a.horizon !== b.horizon) return rank(a.horizon) - rank(b.horizon)
     if (a.periodId !== b.periodId) return textOrder(a.periodStart ?? '', b.periodStart ?? '') || textOrder(a.periodId ?? '', b.periodId ?? '')
-    const rootA = a.nestingParentId ? byId.get(a.nestingParentId) : a, rootB = b.nestingParentId ? byId.get(b.nestingParentId) : b
+    const rootA = localRoot(a), rootB = localRoot(b)
     if (rootA && rootB && (rootA.id !== a.id || rootB.id !== b.id)) {
       if (rootA.id !== rootB.id) return compareNodes(rootA, rootB)
       if (a.id === rootA.id || b.id === rootB.id) return a.id === rootA.id ? -1 : 1

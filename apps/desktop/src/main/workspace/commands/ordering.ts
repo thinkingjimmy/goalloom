@@ -10,15 +10,16 @@ import type { Item } from '../../../shared/contracts/entities'
 import { serverText } from '../../../shared/i18n/server'
 import { nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { orderNodes } from '../ordering'
+import { localParentSql } from '@goalloom/store-core'
 
 export function orderingParent(context: Context, itemId: string): string | null {
   return buildParentOrder(orderNodes(context.store, [itemId]), context.store.effectiveRelations(), context.now).group(itemId)
 }
 
 export function placeByParent(context: Context, item: Item, record = true): boolean {
-  if (item.placement.nestingParentId || item.archivedAt || item.status === 'cancelled') return false
+  if (context.store.localParentId(item.placement) || item.archivedAt || item.status === 'cancelled') return false
   const { horizon, periodId } = item.placement
-  const rows = context.store.summaries('i.deletedAt IS NULL AND p.nestingParentId IS NULL AND p.horizon=? AND p.periodId IS ?', [horizon, periodId])
+  const rows = context.store.summaries(`i.deletedAt IS NULL AND ${localParentSql()} IS NULL AND p.horizon=? AND p.periodId IS ?`, [horizon, periodId])
   const order = buildParentOrder(orderNodes(context.store, rows.map(row => row.id)), context.store.effectiveRelations(), context.now)
   if (!order.editable(item.id)) return false
   const others = rows.filter(row => row.id !== item.id), group = order.group(item.id)
@@ -42,7 +43,7 @@ export function placeByParent(context: Context, item: Item, record = true): bool
 export function materializeParentOrder(context: Context, command: CommandOf<'materializeParentOrder'>): boolean {
   const period = targetPeriod(context, command.horizon, command.period)!
   if (Date.parse(period.endAt) <= Date.parse(context.now)) throw new DomainError('conflict', serverText().errors.invalidPlanningPeriod)
-  const items = context.store.summaries('i.deletedAt IS NULL AND p.nestingParentId IS NULL AND p.horizon=? AND p.periodId=?', [command.horizon, period.id])
+  const items = context.store.summaries(`i.deletedAt IS NULL AND ${localParentSql()} IS NULL AND p.horizon=? AND p.periodId=?`, [command.horizon, period.id])
   const order = buildParentOrder(orderNodes(context.store, items.map(item => item.id)), context.store.effectiveRelations(), context.now)
   const full = order.sort(items).map(item => item.id)
   for (let position = full.length - 1; position >= 0; position--) {

@@ -1,10 +1,11 @@
 /**
  * [INPUT]: Controlled SQLite, validated DTOs and current transaction versions.
- * [OUTPUT]: Bounded note/guidance signals, versioned guidance heads, nested item/placement writes and effective relations and immutable events/receipts.
+ * [OUTPUT]: Bounded note/guidance signals, versioned guidance heads, ownership-preserving writes, shared local-group neighbors, effective relations and immutable events/receipts.
  * [POS]: Persistence adapter; Repository owns business policy and transactions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { effectiveRelations, type NestingLink } from '../../domain/nesting'
+import { localParentSql } from '@goalloom/store-core'
 import type { DatabaseSync, SQLInputValue, StatementSync } from 'node:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
 import { DomainError } from '../../shared/contracts/commands'
@@ -118,6 +119,11 @@ export class Store {
     return this.hasNesting && !!this.prepare('SELECT 1 FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.nestingParentId=? AND i.deletedAt IS NULL LIMIT 1').get(itemId)
   }
   nestedItems(itemId: string): Item[] { return this.hasNesting ? this.items('i.deletedAt IS NULL AND p.nestingParentId=?', [itemId]) : [] }
+  localParentId(placement: Pick<Placement, 'horizon' | 'periodId' | 'nestingParentId'>): string | null {
+    if (!placement.nestingParentId) return null
+    const parent = this.prepare('SELECT horizon,periodId FROM item_placements WHERE itemId=?').get(placement.nestingParentId)
+    return parent?.horizon === placement.horizon && parent.periodId === placement.periodId ? placement.nestingParentId : null
+  }
   effectiveRelations(): Relation[] { return effectiveRelations(this.relations(), this.nestingLinks(), inheritedRelationId) }
   nestingParents(items: readonly ItemSummary[]): ItemSummary[] {
     const ids = [...new Set(items.flatMap(item => item.placement.nestingParentId ? [item.placement.nestingParentId] : []))]
@@ -134,15 +140,16 @@ export class Store {
   neighbor(placement: Placement, direction: 'before' | 'after', excludedId: string | null = null): Placement | null {
     const comparison = direction === 'before' ? '<' : '>', order = direction === 'before' ? 'DESC' : 'ASC'
     return this.prepare(`SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ?
-      AND p.nestingParentId IS ? AND (p.sortKey,p.itemId) ${comparison} (?,?) AND p.itemId IS NOT ? ORDER BY p.sortKey ${order},p.itemId ${order} LIMIT 1`)
-      .get(placement.horizon, placement.periodId, placement.nestingParentId ?? null, placement.sortKey, placement.itemId, excludedId) as unknown as Placement ?? null
+      AND ${localParentSql()} IS ? AND (p.sortKey,p.itemId) ${comparison} (?,?) AND p.itemId IS NOT ? ORDER BY p.sortKey ${order},p.itemId ${order} LIMIT 1`)
+      .get(placement.horizon, placement.periodId, this.localParentId(placement), placement.sortKey, placement.itemId, excludedId) as unknown as Placement ?? null
   }
   insertion(horizon: Placement['horizon'], periodId: string | null, beforeId: string | null, excludedId: string | null, nestingParentId: string | null = null): { previous: Placement | null; next: Placement | null } {
+    nestingParentId = this.localParentId({ horizon, periodId, nestingParentId })
     if (beforeId === null) {
-      const previous = this.prepare('SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ? AND p.nestingParentId IS ? ORDER BY p.sortKey DESC,p.itemId DESC LIMIT 1').get(horizon, periodId, excludedId, nestingParentId) as unknown as Placement ?? null
+      const previous = this.prepare(`SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ? AND ${localParentSql()} IS ? ORDER BY p.sortKey DESC,p.itemId DESC LIMIT 1`).get(horizon, periodId, excludedId, nestingParentId) as unknown as Placement ?? null
       return { previous, next: null }
     }
-    const next = this.prepare('SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.itemId=? AND i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ? AND p.nestingParentId IS ?').get(beforeId, horizon, periodId, excludedId, nestingParentId) as unknown as Placement | undefined
+    const next = this.prepare(`SELECT p.* FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.itemId=? AND i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.itemId IS NOT ? AND ${localParentSql()} IS ?`).get(beforeId, horizon, periodId, excludedId, nestingParentId) as unknown as Placement | undefined
     if (!next) {
       console.error('[insertion] Target not found - beforeId:', beforeId, 'horizon:', horizon, 'nestingParentId:', nestingParentId)
       throw new DomainError('conflict', serverText().errors.sortTargetGone)

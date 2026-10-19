@@ -32,8 +32,16 @@ const seedOutline = (horizon: 'week' | 'month') => {
   const firstChild = create('first child with a long title that wraps onto another line in the review drawer', first)
   const lastChild = create('last child', first)
   run({ type: 'status', itemId: second, expectedVersion: repo.store.item(second).version, status: 'done' })
+  const savedNow = now, calendar = repo.store.workspace().calendar!, source = currentPeriod(calendar, horizon, now)
+  now = precedingPeriod(calendar, source)!.startAt
+  const remoteParent = create('older independently scheduled parent')
+  const local = create('older local child', remoteParent), remote = create('separately scheduled child', remoteParent)
+  const child = repo.store.item(remote)
+  run({ type: 'move', itemId: remote, expectedVersion: child.version, expectedPlacementVersion: child.placement.version,
+    horizon, period: { kind: 'date', startDate: source.startDate } })
+  now = savedNow
   return { all: [first, firstChild, lastChild, second, secondChild, solo], closing: [first, firstChild, lastChild, secondChild, solo],
-    nested: [firstChild, lastChild, secondChild], parent: first, child: firstChild }
+    nested: [firstChild, lastChild, secondChild], parent: first, child: firstChild, remote: { parent: remoteParent, local, child: remote } }
 }
 if (mode === 'week-first' || mode === 'week-last') {
   run({ type: 'confirmSetup', timezone: 'Asia/Shanghai', weekStart: mode === 'week-first' ? today.dayOfWeek : today.dayOfWeek % 7 + 1,

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Transaction-local items/relations, strict lifecycle commands and injected time.
- * [OUTPUT]: Independent lifecycle effects, creation-owned group restore and atomic unlink/placement when the effective parent changes.
+ * [OUTPUT]: Independent lifecycle effects, creation-owned and cross-period placement-preserving restore and atomic unlink/placement when the effective parent changes.
  * [POS]: Lifecycle commands; deletion retains saved text/placement for undo without cascading state.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,7 +8,7 @@ import { changeNesting } from './nesting'
 import { orderingParent, placeByParent } from './ordering'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { samePosition } from '../../../domain/undo'
-import { nestingTargets } from '../../../domain/nesting'
+import { nestingTargets, sameOutlinePeriod } from '../../../domain/nesting'
 import { creationNestingRestore } from '../../../domain/creation'
 import { changeStatus } from '../../../domain/status'
 import { relationProblem } from '../../../domain/relations'
@@ -92,7 +92,8 @@ export function restoreItem(context: Context, command: CommandOf<'restoreItem'>)
     ? !item.placement.nestingParentId && item.placement.horizon === ownOutline.after.horizon && item.placement.periodId === ownOutline.after.periodId && item.flowColor === null && !hasActiveParent(context, item.id)
     : samePosition(context.store.position(item), ownOutline.after))
   const ownEligible = ownOutline?.kind === 'nesting' && ownParent && !ownParent.deletedAt && !ownParent.placement.nestingParentId
-    && ownParent.placement.horizon === ownOutline.before.horizon && ownParent.placement.periodId === ownOutline.before.periodId
+    && (ownParent.placement.horizon === 'later') === (ownOutline.before.horizon === 'later')
+    && (ownOutline !== creationOutline || sameOutlinePeriod(ownParent.placement, ownOutline.before))
     && ownPlacementUnchanged
   const outline = originalEffects.flatMap(effect => effect.kind === 'nesting' && effect.before.nestingParentId === item.id && effect.after.nestingParentId === null ? [effect] : [])
   const eligible = new Set(outline.filter(effect => {
@@ -122,11 +123,11 @@ export function restoreItem(context: Context, command: CommandOf<'restoreItem'>)
   visibilityEffect(context, before, item, edges)
   context.store.event(command.operationId, context.now, 'item_restored', before, item)
   if (ownOutline && ownParent) {
-    if (ownEligible && nestingTargets(item.id, context.store.relations(), context.store.nestingLinks())(ownParent.id)) changeNesting(context, item, ownParent)
+    if (ownEligible && nestingTargets(item.id, context.store.relations(), context.store.nestingLinks())(ownParent.id)) changeNesting(context, item, ownParent, null, true)
     else context.warnings.push(nestingText().restored)
   }
   for (const effect of outline) {
-    if (eligible.has(effect.itemId)) changeNesting(context, context.store.item(effect.itemId), item)
+    if (eligible.has(effect.itemId) && (effect.before.horizon === 'later') === (item.placement.horizon === 'later')) changeNesting(context, context.store.item(effect.itemId), item, null, true)
     else context.warnings.push(nestingText().restored)
   }
   context.label = serverText().labels.restore

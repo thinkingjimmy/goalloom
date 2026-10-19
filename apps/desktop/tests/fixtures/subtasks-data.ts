@@ -22,6 +22,7 @@ import { StartupUpgrade } from '../../src/main/storage/upgrade'
 import { openWorkspace } from '../../src/main/storage/startup'
 import { readAssistanceContext } from '../../src/main/workspace/assistance-context'
 import { assistanceContextSchema } from '../../src/shared/contracts/assistance'
+import { subtaskOwnership } from './subtask-ownership'
 
 const checks: string[] = []
 async function main() {
@@ -449,14 +450,14 @@ for (const horizon of ['month', 'later']) for (const insertBefore of [false, tru
   assert.deepEqual(w.repo.store.nestedItems(future).sort((a, b) => a.placement.sortKey - b.placement.sortKey).map(item => item.id), [sibling, w.leaf])
   assert.equal(w.undo(reordered.operationId).outcome, 'committed')
   assert.equal(w.item(sibling).placement.nestingParentId, future)
-  w.move(w.leaf, 'day'); assert.equal(w.item(w.leaf).placement.nestingParentId, null)
+  w.move(w.leaf, 'day'); assert.equal(w.item(w.leaf).placement.nestingParentId, future)
   const source = w.item(w.leaf), target = w.item(future)
   w.move(future, 'month')
   w.rejected(() => w.run({ type: 'nest', itemId: source.id, parentId: target.id, expectedVersion: source.version, expectedParentVersion: target.version,
     expectedPlacementVersion: source.placement.version, expectedParentPlacementVersion: target.placement.version }))
   w.time('2027-01-01T12:00:00.000Z'); w.rejected(() => w.nest(w.leaf, future))
   validateImport(w.data(), w.now()); w.db.close()
-  checks.push('Cross-period reparenting, stable within-group ordering/undo, independent departure and stale/expired target rejection')
+  checks.push('Cross-period reparenting, stable within-group ordering/undo, retained departure ownership and stale/expired target rejection')
 }
 {
   for (const mutation of ['color', 'parent']) {
@@ -486,6 +487,7 @@ for (const horizon of ['month', 'later']) for (const insertBefore of [false, tru
   validateImport(w.data(), w.now()); w.db.close()
   checks.push('Inherited-source state is verified in commit order; a forged active source is rejected')
 }
+await subtaskOwnership(world, checks)
 writeFileSync(process.argv[2]!, JSON.stringify({ passed: true, checks, runtime: process.versions }, null, 2))
 
 }

@@ -17,7 +17,7 @@ contracts/
 ├── transfer.ts   # v1–v11 datasets, immutable capture/completion receipts and grouped inverses, guidance/nesting, backup/restore/reset confirmations and batch DTOs
 ├── smart-input.ts # Jev 服务、设备状态、六尺度周期 / child-only 起草 DTO、智能动作与修订回声
 ├── link-preview.ts # Strict public link preview/open actions and bounded inert metadata; lightweight syntax lives in ../links.ts
-├── queries.ts    # Up to six selected periods, effective topology and hidden-parent context, generation-guarded reviewContext/pastPeriod pages, detail dependency guards/assisted notes, immutable history and counts
+├── queries.ts    # Up to six selected periods, effective topology and hidden-parent context, generation-guarded reviewContext/pastPeriod pages with live closingParents, detail dependency guards/assisted notes, immutable history and counts
 ├── sync.ts       # Strict keep/clear sign-out, non-destructive recovery, exact destructive phrase and Realtime/upload-wait status
 ├── sync-review.ts # Bounded read-only task comparisons, pending group count and owned-value preview token
 ├── update.ts     # Fixed update actions (status/check/install), app version + updater phase DTO and About event names

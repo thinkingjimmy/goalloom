@@ -14,7 +14,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton, SettingsButton, TextButton } from '../../components/ui/button'
-import { outlineSections } from '../../../domain/nesting'
+import { outlineSections, sameOutlinePeriod } from '../../../domain/nesting'
 import './nesting.css'
 import { TaskContext } from './TaskContext'
 import { holdCompletedLayout, useCollapseCompleted } from '../../state/completed-layout'
@@ -128,7 +128,8 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const enabled = useRelationLines().enabled
   const previewKey = enabled && preview ? flows.of(preview).map(flow => flow.id).join(' ') : ''
   const active = useMemo(() => previewKey ? previewKey.split(' ') : filter ? [filter] : [], [previewKey, filter])
-  const graph = useMemo(() => activeFlowGraph(items, snapshot.relations, flows, active, snapshot.nesting ?? []), [items, snapshot.relations, flows, active, snapshot.nesting])
+  const graphItems = useMemo(() => outlineSections(items, view.nestingParents).rows, [items, view.nestingParents])
+  const graph = useMemo(() => activeFlowGraph(graphItems, snapshot.relations, flows, active, snapshot.nesting ?? []), [graphItems, snapshot.relations, flows, active, snapshot.nesting])
   const previewChain = useMemo(() => flowChain(graph, previewKey ? preview : null), [graph, previewKey, preview])
   const lines = enabled && active.length > 0
   const inPreview = (target: EventTarget | null) => {
@@ -150,7 +151,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
     <main className="board" aria-label={messages.board} data-lines={lines} data-filtered={filter !== null} data-linking={relationDrag.sourceId ? 'true' : undefined}
       onPointerOver={holdPreview} onPointerOut={leavePreview} onFocus={holdPreview} onBlur={leavePreview}>
       {/* Keyed by the filtered flow so switching flows replays the draw-in; a hover preview never animates in. */}
-      {lines && <RelationLines key={`lines:${filter ?? 'preview'}`} items={items} graph={graph} flows={flows} focus={previewKey ? preview : null} animate={filter !== null} columns={columns} />}
+      {lines && <RelationLines key={`lines:${filter ?? 'preview'}`} items={graphItems} graph={graph} flows={flows} focus={previewKey ? preview : null} animate={filter !== null} columns={columns} />}
       {insightSettings.breakpoints && <Breakpoints key={`breakpoints:${snapshot.workspace.generation}`} snapshot={snapshot} view={view} flows={flows} flowIds={active} previewChain={previewChain} columns={columns} ready={insight.ready} submit={submit} seed={insight.seed} />}
       <BoardLayout open={columns.includes('later')} columns={columns.filter((horizon): horizon is Horizon => horizon !== 'later')} sidebar={column('later')}>
         {periodHorizons.map(column)}
@@ -247,7 +248,8 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const { rows, todo, done } = useMemo(() => outlineSections(items, view.nestingParents), [items, view.nestingParents])
   const mainRows = collapseCompleted ? todo : rows
   const previousRow = mainRows.at(-1)
-  const nestingTarget = previousRow?.placement.nestingParentId ? mainRows.find(item => item.id === previousRow.placement.nestingParentId) : previousRow
+  const previousParent = previousRow?.placement.nestingParentId ? mainRows.find(item => item.id === previousRow.placement.nestingParentId) : undefined
+  const nestingTarget = previousRow?.placement.nestingParentId ? previousParent && sameOutlinePeriod(previousRow.placement, previousParent.placement) ? previousParent : null : previousRow
   const openAdd = () => {
     if (history || disabled || dragging || relationSource) return
     if (adding) section.current?.querySelector<HTMLTextAreaElement>('.quick-add-title')?.focus()
@@ -280,8 +282,8 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   }
   const row = (item: ItemSummary, index: number, total: number) => {
     if (item.archivedAt || item.status === 'cancelled') return <TaskContext item={item} select={select} />
-    const lit = active.length ? flows.of(item.id).find(flow => active.includes(flow.id)) : undefined
-    return <TaskRow nestingParentTitle={view.nestingParents.find(parent => parent.id === item.placement.nestingParentId)?.title} index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
+    const lit = horizon !== 'later' && active.length ? flows.of(item.id).find(flow => active.includes(flow.id)) : undefined
+    return <TaskRow nestingParent={view.nestingParents.find(parent => parent.id === item.placement.nestingParentId)} index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
       // Later never joins flows, so a flow filter leaves the parking lot readable instead of greying it out.
       dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} editing={editingId === item.id} editLocked={disabled || !!dragging || !!relationSource} select={select} submit={submit} onPreview={onPreview}
       onNest={onNest} upcoming={upcoming} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle} />

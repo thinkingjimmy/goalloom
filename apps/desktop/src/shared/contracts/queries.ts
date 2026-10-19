@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Finite generation/item/date/cursor requests and bounded strict response schemas.
- * [OUTPUT]: Current/past summaries, nesting/context metadata, effective relations, assisted-note details and execution facts.
+ * [OUTPUT]: Current/past summaries, cross-period ownership, live review closingParents, effective relations, assisted-note details and execution facts.
  * [POS]: Read contract; only on-demand details/context carry bounded task bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -57,7 +57,7 @@ export const detailSchema = z.strictObject({
 })
 export type Snapshot = z.infer<typeof snapshotSchema>
 export const reviewContextSchema = z.strictObject({
-  board: snapshotSchema, planning: snapshotSchema, closing: z.array(itemSummarySchema), sourcePeriods: z.array(periodSchema), unknown: z.number().int().nonnegative(),
+  board: snapshotSchema, planning: snapshotSchema, closing: z.array(itemSummarySchema), closingParents: z.array(itemSummarySchema).optional(), sourcePeriods: z.array(periodSchema), unknown: z.number().int().nonnegative(),
 })
 export type ReviewContext = z.infer<typeof reviewContextSchema>
 export type Flow = z.infer<typeof flowSchema>

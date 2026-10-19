@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
- * [OUTPUT]: Accessible root/subtask row with saved links, due/description signals, independent flow ports, placement dragging and hierarchy/lifecycle menus; titles fully wrap, lit rows carry `data-lit`/`--row-tint`, and Later checkboxes stay uncolored.
+ * [OUTPUT]: Accessible local/cross-period task row with parent navigation, saved links, due/description signals, independent flow ports, placement dragging and hierarchy/lifecycle menus; titles fully wrap, lit rows carry `data-lit`/`--row-tint`, and Later checkboxes stay uncolored.
  *           A double click edits the title in place; a single click or keyboard activation still opens details.
  * [POS]: One virtual board row; Board owns placement, preview, dimming and which row is editing; the peek and detail own description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { nestingText } from '../../../shared/i18n/nesting'
+import { sameOutlinePeriod } from '../../../domain/nesting'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEventHandler, type MouseEvent, type PointerEventHandler } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -24,6 +25,7 @@ import { LinkTitle } from '../../components/links/LinkText'
 import { LinkPreviews } from '../../components/links/LinkPreviews'
 import { linkUrls } from '../../components/links/parse'
 import { TaskMenu, type Upcoming } from './TaskMenu'
+import { TaskParentLink } from './TaskContext'
 
 // Long enough that the second click of a double-click still lands on the title.
 // Opening the detail on the first click would cover the row with the modal.
@@ -78,8 +80,8 @@ function TitleField({ title, itemId, renameTitle, endEdit }: {
     }} />
 }
 
-export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle, onNest, nestingParentTitle }: {
-  nestingParentTitle: string | undefined
+export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle, onNest, nestingParent }: {
+  nestingParent: ItemSummary | undefined
   onNest: (id: string) => void
   index: number; total: number; item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]; today: string
   selected: boolean; dimmed: boolean; tint: string | undefined; disabled: boolean; editing: boolean; editLocked: boolean
@@ -89,6 +91,8 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
   beginEdit: (id: string) => void; endEdit: (id: string) => void; renameTitle: (itemId: string, title: string) => Promise<boolean>
 }) {
   useLocale()
+  const localParent = nestingParent && sameOutlinePeriod(item.placement, nestingParent.placement)
+  const remoteParent = nestingParent && !localParent
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled, animateLayoutChanges: () => false })
   const done = item.status === 'done'
   const colored = !done && item.placement.horizon !== 'later'
@@ -128,7 +132,8 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
     {item.dueDate && !overdue && !done && <span className="row-meta tabular" title={`${messages.dueDate} ${longDate(item.dueDate)}`}>{shortDate(item.dueDate)}</span>}
     {overdue && <span className="row-icon overdue" role="img" aria-label={messages.dueOverdue(longDate(item.dueDate!))} title={messages.dueOverdue(longDate(item.dueDate!))}><Icon name="overdue" size={16} /></span>}
   </div>
-  const row = <article role="listitem" aria-posinset={index + 1} aria-setsize={total} aria-level={item.placement.nestingParentId ? 2 : 1} aria-description={item.placement.nestingParentId ? `${nestingText().belongsTo} ${nestingParentTitle ?? ''}` : undefined} id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-nested={!!item.placement.nestingParentId} data-nesting-parent={item.placement.nestingParentId ?? undefined} data-context={!!item.archivedAt || item.status === 'cancelled'} data-highlighted={selected} data-dimmed={dimmed} data-done={done} data-lit={!!tint || undefined}
+  const owner = remoteParent && <TaskParentLink item={item} parent={nestingParent} disabled={disabled} select={select} />
+  const row = <article role="listitem" aria-posinset={index + 1} aria-setsize={total} aria-level={item.placement.nestingParentId ? 2 : 1} aria-description={item.placement.nestingParentId ? `${nestingText().belongsTo} ${nestingParent?.title ?? ''}` : undefined} id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-nested={!!localParent} data-nesting-parent={item.placement.nestingParentId ?? undefined} data-context={!!item.archivedAt || item.status === 'cancelled'} data-highlighted={selected} data-dimmed={dimmed} data-done={done} data-lit={!!tint || undefined}
     style={{ transform: CSS.Transform.toString(transform), transition, '--row-tint': tint } as CSSProperties} onPointerDown={event => { if (event.button === 0 && !event.ctrlKey) (listeners?.onPointerDown as PointerEventHandler | undefined)?.(event) }}>
     <FlowDot item={item} flows={flows} relations={relations} candidates={candidates} disabled={disabled} submit={submit} onPreview={onPreview} />
     <button className="drag-handle" {...attributes} onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined} aria-label={messages.dragItem(item.title)}><Icon name="drag" size={14} /></button>
@@ -137,9 +142,9 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
       onClick={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
       {done && <Icon name="check" size={12} strokeWidth={2.5} />}
     </button>
-    {hasLinks || item.note || item.guidance ? <div className="task-content">{line}{(item.note || item.guidance) && <NoteSignal itemId={item.id} title={item.title} note={item.note} guidance={item.guidance} />}{hasLinks && <LinkPreviews text={item.title} />}</div> : line}
+    {hasLinks || item.note || item.guidance || owner ? <div className="task-content">{line}{owner}{(item.note || item.guidance) && <NoteSignal itemId={item.id} title={item.title} note={item.note} guidance={item.guidance} />}{hasLinks && <LinkPreviews text={item.title} />}</div> : line}
   </article>
   const links = relations.filter(edge => edge.parentId === item.id || edge.childId === item.id).length
-  return !item.archivedAt && item.status !== 'cancelled' ? <TaskMenu onNest={() => onNest(item.id)} item={item} upcoming={item.status === 'todo' || candidates.some(candidate => candidate.placement.nestingParentId === item.id && candidate.status === 'todo') ? upcoming ?? [] : []} relations={links} disabled={disabled || isDragging} submit={submit} select={select}
+  return !item.archivedAt && item.status !== 'cancelled' ? <TaskMenu onNest={() => onNest(item.id)} item={item} upcoming={item.status === 'todo' || candidates.some(candidate => candidate.placement.nestingParentId === item.id && sameOutlinePeriod(item.placement, candidate.placement) && candidate.status === 'todo') ? upcoming ?? [] : []} relations={links} disabled={disabled || isDragging} submit={submit} select={select}
     assist={item.status === 'todo' && assist ? () => assist(item.id) : undefined} decompose={item.status === 'todo' && decompose ? () => decompose(item) : null} onMenu={onMenu} onMoved={onMoved}>{row}</TaskMenu> : row
 })

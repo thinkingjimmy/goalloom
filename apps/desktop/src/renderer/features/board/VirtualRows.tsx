@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Ordered identities, viewport, render function, drag/selection/menu/editing pins, nesting-preview root and shared input-aware focus restoration.
- * [OUTPUT]: Resize-observed rows with bounded motion retention, offset-based whole-group borders, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
+ * [OUTPUT]: Resize-observed rows with bounded motion retention, offset-based placement-local group borders, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,6 +9,7 @@ import { flushSync } from 'react-dom'
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import { RowMotion } from './RowMotion'
 import { returnFocus } from '../../lib/focus'
+import { localNestingParentId } from '../../../domain/nesting'
 
 const revealEvent = 'goalloom:reveal-row'
 interface Reveal { id: string; focus: string | null; origin?: 'pointer' | 'keyboard' }
@@ -25,6 +26,7 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
   const [measured, setMeasured] = useState(0), [focused, setFocused] = useState<string | null>(null)
   const [range, setRange] = useState({ start: 0, end: 20 })
   const indexes = useMemo(() => new Map(items.map((item, index) => [item.id, index])), [items])
+  const byId = useMemo(() => new Map(items.map(item => [item.id, item])), [items])
   const offsets = useMemo(() => {
     const values = [0]
     for (const item of items) values.push(values.at(-1)! + (heights.current.get(item.id) ?? estimatedRowHeight))
@@ -115,9 +117,9 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
     previous = index + 1
   }
   if (previous < items.length) children.push(<div key="tail" aria-hidden="true" style={{ height: offsets.at(-1)! - offsets[previous]! }} />)
-  const previewStart = nestingPreview ? items.findIndex(item => item.id === nestingPreview || item.placement.nestingParentId === nestingPreview) : -1
+  const previewStart = nestingPreview ? items.findIndex(item => item.id === nestingPreview || localNestingParentId(item, byId) === nestingPreview) : -1
   let previewEnd = previewStart
-  while (previewEnd >= 0 && previewEnd + 1 < items.length && items[previewEnd + 1]!.placement.nestingParentId === nestingPreview) previewEnd++
+  while (previewEnd >= 0 && previewEnd + 1 < items.length && localNestingParentId(items[previewEnd + 1]!, byId) === nestingPreview) previewEnd++
   return <RowMotion scope={scope} orderKey={orderKey} offsets={motionOffsets} dragging={!!dragging}><div ref={list} role="list" className="virtual-rows"
     onFocusCapture={event => { const id = (event.target as HTMLElement).closest<HTMLElement>('[data-item-id]')?.dataset.itemId; if (id) setFocused(id) }}
     onKeyDownCapture={event => {

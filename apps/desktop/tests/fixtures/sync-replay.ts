@@ -24,6 +24,7 @@ import { Repository } from '../../src/main/workspace/repository'
 import { syncHost } from '../../src/main/sync/host'
 import type { CommandInput } from '../../src/shared/contracts/commands'
 import { syncCreationPlacement, type PlacementObservation } from './sync-creation-placement'
+import { syncSubtaskOwnership } from './sync-subtask-ownership'
 
 const at = '2026-10-15T02:00:00.000Z'
 const evidence = process.argv[2]!
@@ -289,6 +290,9 @@ async function run(): Promise<void> {
   assert.deepEqual(board(first), board(second))
   checks.push('Atomic inline create-plus-nest, sibling order and scoped creation undo/restore converge after unrelated peer text edits without a protocol change')
   await syncCreationPlacement({ first: first.repo, second: second.repo, checks, observations: creationPlacement,
+    rebuild: () => first.driver.transaction(() => rebuildVisibleFull(first.driver, first.host)),
+    sync: async () => { await push(first, alpha, bound); await push(second, beta, joined) } })
+  await syncSubtaskOwnership({ first: first.repo, second: second.repo, checks, inject,
     rebuild: () => first.driver.transaction(() => rebuildVisibleFull(first.driver, first.host)),
     sync: async () => { await push(first, alpha, bound); await push(second, beta, joined) } })
   for (const machine of [first, second]) verifyDatabase(machine.db)

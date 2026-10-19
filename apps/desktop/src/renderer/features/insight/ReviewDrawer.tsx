@@ -1,11 +1,12 @@
 /**
- * [INPUT]: Review selection, generation/revision, shared Select/link rendering, cached drafting and guarded writes.
- * [OUTPUT]: Resumable board-ordered review with indented subtasks, independent archival, synchronized group destinations and guarded writes.
+ * [INPUT]: Review selection, generation/revision, shared Select/link rendering, placement-local ownership, cached drafting and guarded writes.
+ * [OUTPUT]: Resumable board-ordered review with indented subtasks, independent archival, placement-local group destinations and guarded writes with independent remote children.
  * [POS]: Review session owner; read contexts separate historical facts from current command versions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton, TextButton, SettingsButton } from '../../components/ui/button'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { localNestingParentId } from '../../../domain/nesting'
 import { nestingText } from '../../../shared/i18n/nesting'
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { ReviewContext, Snapshot } from '../../../shared/contracts/queries'
@@ -77,6 +78,10 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
   const historyAtEntry = useRef<boolean | null>(null)
   if (context && historyAtEntry.current === null) historyAtEntry.current = context.unknown > 0 || context.board.items.some(item => targets.some(value => item.placement.periodId === value.period.id))
   const hasHistory = historyAtEntry.current === true
+  const closingById = new Map([...(context?.closingParents ?? []), ...(context?.closing ?? [])].map(item => [item.id, item]))
+  const localParent = (item: ItemSummary) => localNestingParentId(item, closingById)
+  const group = (item: ItemSummary) => localParent(item) ?? item.id
+  const grouped = (item: ItemSummary) => !!localParent(item) || !!context?.closing.some(peer => localParent(peer) === item.id)
   const hasClosing = !!context?.closing.length || processed.current.size > 0
   const steps: Step[] = [...(hasHistory ? ['review' as const] : []), ...(hasClosing ? ['close' as const] : []), ...(due.month ? ['planMonth' as const] : []), ...(due.week ? ['planWeek' as const] : [])]
   useEffect(() => {
@@ -150,7 +155,7 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
           const destination = due[live.placement.horizon as ReviewHorizon]!.next
           const confirmed = () => {
             processed.current.add(item.id)
-            if (choice === 'defer') for (const peer of context.closing) if ((peer.placement.nestingParentId ?? peer.id) === (item.placement.nestingParentId ?? item.id)) processed.current.add(peer.id)
+            if (choice === 'defer') for (const peer of context.closing) if (group(peer) === group(item)) processed.current.add(peer.id)
           }
           if (choice === 'keep') confirmed()
           else if (!await commit(choice === 'defer'
@@ -212,16 +217,16 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
             <h3 className="review-intro text-foreground m-0 text-[19px] leading-[1.5] font-semibold">{t.reviewHandle}</h3><p className="review-note m-0 text-[12px] leading-[1.8] text-muted-foreground">{t.reviewMoveNote}</p>
             {targets.map(value => <div className="review-close-group flex flex-col gap-1" key={value.horizon}>
               {context.closing.filter(item => item.placement.horizon === value.horizon && !processed.current.has(item.id)).map(item => {
-                return <div key={item.id} className="review-close-row flex justify-between items-start gap-3 min-h-8.5 px-0 py-0.5" data-item-id={item.id} data-nested={!!item.placement.nestingParentId} data-choice={choiceFor(item.id)}>
+                return <div key={item.id} className="review-close-row flex justify-between items-start gap-3 min-h-8.5 px-0 py-0.5" data-item-id={item.id} data-nested={!!localParent(item)} data-choice={choiceFor(item.id)}>
                   <div id={`review-choice-title-${item.id}`} className="review-goal-title flex-1 min-w-0 text-[14px] leading-[1.5] text-left [overflow-wrap:anywhere]"><span className="check review-todo-check" aria-hidden="true" style={flowVars(flows.colorsOf(item.id))} /><span className="review-item-title min-w-0 [overflow-wrap:anywhere] whitespace-pre-wrap"><LinkText text={item.title} /></span></div>
                   <Select disabled={disabled} value={choiceFor(item.id)} onValueChange={choice => setDecisions(previous => {
                     const next = new Map(previous).set(item.id, choice as Decision)
-                    if (choice !== 'archive') for (const peer of context.closing) if ((peer.placement.nestingParentId ?? peer.id) === (item.placement.nestingParentId ?? item.id) && next.get(peer.id) !== 'archive') next.set(peer.id, choice as Decision)
+                    if (choice !== 'archive') for (const peer of context.closing) if (group(peer) === group(item) && next.get(peer.id) !== 'archive') next.set(peer.id, choice as Decision)
                     return next
                   })}>
-                    <SelectTrigger className="review-choice" aria-labelledby={`review-choice-title-${item.id}`} aria-description={item.placement.nestingParentId || context.closing.some(peer => peer.placement.nestingParentId === item.id) ? nestingText().groupMove : undefined}><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="review-choice" aria-labelledby={`review-choice-title-${item.id}`} aria-description={grouped(item) ? nestingText().groupMove : undefined}><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="defer">{item.placement.nestingParentId || context.closing.some(peer => peer.placement.nestingParentId === item.id) ? `${nestingText().groupMove} · ` : ''}{t.reviewMove(periodName(value.horizon, true))}</SelectItem>
+                      <SelectItem value="defer">{grouped(item) ? `${nestingText().groupMove} · ` : ''}{t.reviewMove(periodName(value.horizon, true))}</SelectItem>
                       <SelectItem value="keep">{t.reviewKeep}</SelectItem>
                       <SelectItem value="archive">{t.archive}</SelectItem>
                     </SelectContent>

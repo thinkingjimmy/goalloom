@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Current production build, native Electron input and isolated transaction fixtures, with explicit completed-layout controls.
  * [OUTPUT]: Leaf/group drag and menu checks, atomic flatten/undo evidence, native screenshots and runtime/platform evidence in output/tests/subtasks.
- * [POS]: Subtask E2E entry; --data selects transactions and --drops selects native group-drop interactions.
+ * [POS]: Subtask E2E entry; --data selects transactions, --drops selects group-drop interactions and --ownership selects native cross-period ownership.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { setCompletedLayout } from './fixtures/completed-layout.mjs'
@@ -16,6 +16,7 @@ import { _electron as electron } from 'playwright'
 import { finishSetup } from './fixtures/setup.mjs'
 import { pollPage } from './fixtures/poll.mjs'
 import { nestingDrops } from './fixtures/nesting-drops.mjs'
+import { subtaskOwnershipUI } from './fixtures/subtask-ownership-ui.mjs'
 
 const evidence = resolve('output/tests/subtasks'), checks = [], screenshots = []
 await mkdir(evidence, { recursive: true })
@@ -40,6 +41,8 @@ try {
   await boardSettings.getByRole('button', { name: '看板', exact: true }).click()
   await boardSettings.getByRole('switch', { name: '按上级自动放置', exact: true }).click()
   await boardSettings.getByRole('button', { name: '关闭', exact: true }).click()
+  if (process.argv.includes('--ownership')) await subtaskOwnershipUI({ page, report, evidence })
+  else {
   await nestingDrops({ page, application, report, evidence })
   if (!process.argv.includes('--drops')) {
   const ids = await page.evaluate(async () => {
@@ -233,7 +236,7 @@ try {
   checks.push('Keyboard search can choose a future container outside the displayed periods')
   await page.keyboard.press('ControlOrMeta+z')
   await page.locator('.toast').filter({ hasText: '已撤销' }).waitFor()
-  await pollPage(page, async id => (await window.goalloom.getItem(id)).item.placement.nestingParentId === null, future.source)
+  await pollPage(page, async value => ((await window.goalloom.getItem(value.source)).item.placement.nestingParentId ?? null) === (value.placement.nestingParentId ?? null), future)
   const restored = (await page.evaluate(id => window.goalloom.getItem(id), future.source)).item.placement
   assert.deepEqual([restored.horizon, restored.periodId], [future.placement.horizon, future.placement.periodId])
   const undo = join(evidence, 'nest-keyboard-undo.png'); await page.screenshot({ path: undo }); screenshots.push(undo)
@@ -292,6 +295,8 @@ try {
   await picker.getByRole('button', { name: /A group destination/ }).click()
   await picker.waitFor({ state: 'detached' }); await flattened(); await restoreGroup()
   checks.push('Native group drag and keyboard menu flatten B/C/D directly under A in source order, retain drag focus and restore B with C/D in one undo')
+  await subtaskOwnershipUI({ page, report, evidence })
+  }
   }
   assert.deepEqual(errors, []); report.passed = true
 } catch (error) {

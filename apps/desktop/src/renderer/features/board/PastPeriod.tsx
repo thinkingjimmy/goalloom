@@ -1,12 +1,12 @@
 /**
  * [INPUT]: Selected closed period, workspace generation/revision, live task pages and guarded item actions.
- * [OUTPUT]: Always-expanded live groups with completion/reopening, restore, detail editing, focus retention and bounded paging; task titles have no native tooltip.
+ * [OUTPUT]: Placement-local live groups and cross-period parent links with completion/reopening, restore, detail editing, focus retention and bounded paging; task titles have no native tooltip.
  * [POS]: Past-period task view; edits real items through existing commands while history projections remain immutable.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { outlineSections } from '../../../domain/nesting'
-import { TaskContext } from './TaskContext'
+import { outlineSections, sameOutlinePeriod } from '../../../domain/nesting'
+import { TaskContext, TaskParentLink } from './TaskContext'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { PastPeriodPage } from '../../../shared/contracts/history'
 import { messages } from '../../i18n'
@@ -53,11 +53,11 @@ export function usePastPeriod(period: PlanningPeriod | null, generation: string,
 type PeriodOutcome = 'done' | 'open' | 'deleted'
 const outcomeOf = (item: ItemSummary): PeriodOutcome => item.deletedAt ? 'deleted' : item.status === 'done' ? 'done' : 'open'
 
-function PastRow({ item, outcome, disabled, select, act }: { item: ItemSummary; outcome: PeriodOutcome; disabled: boolean; select: (id: string) => void; act: (item: ItemSummary, control: HTMLElement) => void }) {
+function PastRow({ item, parent, outcome, disabled, select, act }: { item: ItemSummary; parent: ItemSummary | undefined; outcome: PeriodOutcome; disabled: boolean; select: (id: string) => void; act: (item: ItemSummary, control: HTMLElement) => void }) {
   if (item.archivedAt || item.status === 'cancelled') return <TaskContext item={item} select={select} />
   const done = outcome === 'done'
   const hasLinks = linkUrls(item.title).length > 0
-  return <article id={`item-${item.id}`} className="task-row past-period-row" data-item-id={item.id} data-past-item-id={item.id} data-nested={!!item.placement.nestingParentId} data-done={done} data-outcome={outcome}>
+  return <article id={`item-${item.id}`} className="task-row past-period-row" data-item-id={item.id} data-past-item-id={item.id} data-nested={!!parent && sameOutlinePeriod(item.placement, parent.placement)} data-done={done} data-outcome={outcome}>
     {outcome === 'deleted' ? <span className="check" role="img" aria-label={messages.periodOutcomes.deleted}><Icon name="close" size={12} /></span> : <button className="check" data-state-action data-checked={done} aria-disabled={disabled}
       aria-label={`${done ? messages.reopen : messages.complete} ${item.title}`} onClick={event => act(item, event.currentTarget)}>
       {done && <Icon name="check" size={12} strokeWidth={2.5} />}
@@ -66,6 +66,7 @@ function PastRow({ item, outcome, disabled, select, act }: { item: ItemSummary; 
       <div className="task-line">
         {hasLinks ? <LinkTitle text={item.title} onOpen={() => select(item.id)} /> : <button className="task-title" onClick={() => select(item.id)}><span>{item.title}</span></button>}
       </div>
+      <TaskParentLink item={item} parent={parent} disabled={disabled} select={select} />
       {hasLinks && <LinkPreviews text={item.title} />}
     </div>
     {outcome === 'deleted' && <TextButton className="past-period-restore" data-state-action aria-disabled={disabled} onClick={event => act(item, event.currentTarget)}>{messages.restoreItem}</TextButton>}
@@ -101,7 +102,7 @@ export function PastPeriod({ history, select, submit, busy }: { history: ReturnT
     {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <TextButton onClick={retry}>{messages.retryPeriod}</TextButton></p>}
     {(['open', 'done', 'deleted'] as const).map(outcome => groups[outcome].length > 0 && <section className="past-period-group" data-outcome={outcome} aria-label={messages.periodOutcomes[outcome]} key={outcome}>
       <h3>{messages.periodOutcomes[outcome]} <span>{count(groups[outcome].length)}</span></h3>
-      {groups[outcome].map(item => <PastRow key={item.id} item={item} outcome={outcome} disabled={disabled} select={select} act={act} />)}
+      {groups[outcome].map(item => <PastRow key={item.id} item={item} parent={page?.nestingParents?.find(parent => parent.id === item.placement.nestingParentId)} outcome={outcome} disabled={disabled} select={select} act={act} />)}
     </section>)}
     {page?.total === 0 && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{messages.emptyHistory}</p></div>}
     {page && page.total > pageSize && <div className="pagination">

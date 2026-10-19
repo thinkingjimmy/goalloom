@@ -1,10 +1,11 @@
 /**
- * [INPUT]: Current or review-scoped snapshots (periods, items, relations, observedAt), flows, completed period keys and generation-scoped dismissal keys.
+ * [INPUT]: Current or review-scoped snapshots (periods, items, goal/ownership relations, observedAt), flows, completed period keys and generation-scoped dismissal keys.
  * [OUTPUT]: reviewDue entries (previous-week reminders throughout the configured week; monthly last/first-day reminders, merged only at matching closing boundaries),
  *           reviewSignals (descriptive gap/skip/pace facts, independent of child creation), goalRows (flow × column counts) and planCandidates (parents needing a next-period step).
  * [POS]: features/insight 的复盘纯规则；不写入、不联网，入口显示与抽屉步骤都从这里取数。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { combinedTopology } from '../../../domain/nesting'
 import { currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
@@ -61,7 +62,7 @@ function directDayGroups(snapshot: Snapshot, flows: Flows, flowId: string): { pa
   const byId = new Map(snapshot.items.map(item => [item.id, item]))
   const member = (item: ItemSummary) => flows.of(item.id).some(flow => flow.id === flowId)
   const groups = new Map<string, { parent: ItemSummary; children: ItemSummary[] }>()
-  for (const edge of snapshot.relations) {
+  for (const edge of combinedTopology(snapshot.relations, snapshot.nesting ?? [])) {
     const parent = byId.get(edge.parentId), child = byId.get(edge.childId)
     if (!parent || !child || !open(parent) || !open(child) || !inPeriod(parent, month) || !inPeriod(child, day) || !member(parent) || !member(child)) continue
     const group = groups.get(parent.id) ?? { parent, children: [] }
@@ -113,7 +114,7 @@ export function planCandidates(snapshot: Snapshot, horizon: ReviewHorizon): Item
   const parentHorizon = horizon === 'week' ? 'month' : 'cycle'
   const parentPeriod = snapshot.periods.find(period => period.horizon === parentHorizon)
   const byId = new Map(snapshot.items.map(item => [item.id, item]))
-  const covered = (id: string) => snapshot.relations.some(edge => {
+  const covered = (id: string) => combinedTopology(snapshot.relations, snapshot.nesting ?? []).some(edge => {
     if (edge.parentId !== id) return false
     const child = byId.get(edge.childId)
     return !!child && !child.archivedAt && !child.deletedAt && child.status !== 'cancelled' && child.placement.periodId === snapshot.periods.find(period => period.horizon === horizon)?.id

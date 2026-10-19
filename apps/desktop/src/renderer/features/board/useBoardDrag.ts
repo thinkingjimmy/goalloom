@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { closestCenter, KeyboardSensor, pointerWithin, PointerSensor, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragStartEvent, type KeyboardCoordinateGetter } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { nestingTargets, outlineRows } from '../../../domain/nesting'
+import { localNestingParentId, nestingTargets, outlineRows, sameOutlinePeriod } from '../../../domain/nesting'
 import type { ItemHorizon, ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import type { BoardView } from '../../state/board-periods'
@@ -97,14 +97,17 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
       release?.()
     }
   }, [dragging])
-  const todoGroups = new Set(view.items.filter(row => row.status === 'todo').map(row => row.placement.nestingParentId ?? row.id))
+  const byId = new Map([...view.nestingParents, ...view.items].map(row => [row.id, row]))
+  const localParent = (item: Parameters<typeof localNestingParentId>[0]) => localNestingParentId(item, byId)
+  const todoGroups = new Set(view.items.filter(row => row.status === 'todo').map(row => localParent(row) ?? row.id))
   const rowsIn = (horizon: ItemHorizon, active: ItemSummary) => {
+    const parent = localParent({ ...active, placement: { ...active.placement, horizon, periodId: view.periods[horizon]?.id ?? null } })
     return view.items.filter(row => row.placement.horizon === horizon
-      && (!row.placement.nestingParentId || row.placement.nestingParentId === active.placement.nestingParentId)
-      && (!collapseCompleted || todoGroups.has(row.placement.nestingParentId ?? row.id) === todoGroups.has(active.placement.nestingParentId ?? active.id)))
+      && localParent(row) === parent
+      && (!collapseCompleted || todoGroups.has(localParent(row) ?? row.id) === todoGroups.has(localParent(active) ?? active.id)))
   }
   const sortPeers = (rows: ItemSummary[], active: ItemSummary) => rows.filter(row =>
-    (row.placement.nestingParentId ?? null) === (active.placement.nestingParentId ?? null))
+    localParent(row) === localParent(active))
   const collision: CollisionDetection = args => {
     const active = view.items.find(row => row.id === args.active.id), point = args.pointerCoordinates
     // Nest the row under the pointer. Sortable rectangles can precede a panel scroll or guide layout change.
@@ -119,18 +122,23 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
     clearPointerDrop()
     if (active && targetAtPointer && point && rect && bounds) {
       if (targetAtPointer.id === active.id || !editable.includes(active.placement.horizon) || !editable.includes(targetAtPointer.placement.horizon)) return []
-      const parentId = targetAtPointer.placement.nestingParentId ?? targetAtPointer.id
+      const parentId = localParent(targetAtPointer) ?? targetAtPointer.id
       const parent = view.items.find(row => row.id === parentId) ?? view.nestingParents.find(row => row.id === parentId)
       const sameParent = active.placement.nestingParentId === parentId
       const validParent = parent && !parent.archivedAt && parent.status !== 'cancelled' && canNest(parent.id)
       if (inNestZone) {
+        if (sameParent && parent && !sameOutlinePeriod(active.placement, parent.placement)) {
+          const last = view.items.filter(row => localParent(row) === parentId).at(-1) ?? parent
+          previewDrop({ type: 'move', targetId: parent.id, beforeId: null, marker: { id: last.id, position: 'after', nested: true } })
+          return [{ id: targetAtPointer.id }]
+        }
         if (!sameParent && validParent) {
           previewDrop({ type: 'nest', parentId, beforeId: null, marker: null })
           return [{ id: targetAtPointer.id }]
         }
         return []
       }
-      if (targetAtPointer.placement.nestingParentId) {
+      if (localParent(targetAtPointer)) {
         if (!sameParent && !validParent) return []
         const siblings = view.items.filter(row => row.id !== active.id && row.placement.nestingParentId === parentId
           && row.placement.horizon === targetAtPointer.placement.horizon && row.placement.periodId === targetAtPointer.placement.periodId)
@@ -144,13 +152,13 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
       const candidates = rowsIn(targetAtPointer.placement.horizon, active)
       if (candidates.includes(targetAtPointer)) {
         const insertBefore = point.y < rect.top + rect.height / 2
-        const siblings = candidates.filter(row => row.id !== active.id && (row.placement.nestingParentId ?? null) === (targetAtPointer.placement.nestingParentId ?? null))
+        const siblings = candidates.filter(row => row.id !== active.id && localParent(row) === localParent(targetAtPointer))
         const next = siblings[siblings.indexOf(targetAtPointer) + 1]
         const peers = sortPeers(siblings, active), positions = peers.includes(targetAtPointer) ? peers : siblings
         const beforeId = insertBefore ? targetAtPointer.id : positions[positions.indexOf(targetAtPointer) + 1]?.id ?? null
         const markerBeforeId = insertBefore ? targetAtPointer.id : next?.id ?? null
         const marker = markerBeforeId ? siblings.find(row => row.id === markerBeforeId)!
-          : view.items.filter(row => row.placement.nestingParentId === targetAtPointer.id).at(-1) ?? targetAtPointer
+          : view.items.filter(row => localParent(row) === targetAtPointer.id).at(-1) ?? targetAtPointer
         const position = markerBeforeId ? 'before' : 'after'
         previewDrop({ type: 'move', targetId: targetAtPointer.id, beforeId, marker: { id: marker.id, position, nested: false } })
         return [{ id: targetAtPointer.id }]
@@ -222,34 +230,28 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
     const siblings = rowsIn(horizon, item), same = item.placement.horizon === horizon
     const peers = sortPeers(siblings, item), positions = target && peers.includes(target) ? peers : siblings
     let beforeId = pointerTarget ? pointerTarget.beforeId : target && positions.includes(target) ? target.id : null
-    if (target && !siblings.some(row => row.id === target.id)) {
-      console.error('[DRAG FAILED] Target not in siblings', {
-        item: item.id,
-        target: target.id,
-        targetNestingParentId: target.placement.nestingParentId,
-        itemNestingParentId: item.placement.nestingParentId,
-        siblingsCount: siblings.length,
-        totalInColumn: view.items.filter(r => r.placement.horizon === horizon).length
-      })
-    }
     if (!pointerTarget && same && target && positions.indexOf(target) > positions.indexOf(item)) beforeId = positions[positions.indexOf(target) + 1]?.id ?? null
     if (beforeId === item.id) return
-    const keepNesting = !!item.placement.nestingParentId && target?.placement.nestingParentId === item.placement.nestingParentId && same
+    const keepNesting = !!localParent(item) && !!target && localParent(target) === localParent(item) && same
     if (same && (!item.placement.nestingParentId || keepNesting) && beforeId === (peers[peers.indexOf(item) + 1]?.id ?? null)) return
     const period = view.periods[horizon]
     const moved = { ...view.orderNodes.find(node => node.id === item.id)!, horizon, periodId: period?.id ?? null, periodStart: period?.startDate ?? null, periodEnd: period?.endAt ?? null }
     // Hidden ancestors must keep their relative slots while visible rows preview a drop.
     const targetNodes = view.orderNodes.filter(node => node.id !== item.id && node.horizon === horizon && node.periodId === moved.periodId)
+      .filter(node => localParent({ id: node.id, placement: node }) === localParent({ ...item, placement: { ...item.placement, horizon, periodId: moved.periodId } }))
       .sort((a, b) => a.sortKey - b.sortKey || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     const insertion = beforeId ? targetNodes.findIndex(node => node.id === beforeId) : targetNodes.length
     targetNodes.splice(insertion < 0 ? targetNodes.length : insertion, 0, moved)
     const replacements = new Map(targetNodes.map((node, index) => [node.id, { ...node, sortKey: (index + 1) * 1024 }]))
-    const children = new Set((snapshot.nesting ?? []).filter(link => link.parentId === item.id).map(link => link.childId))
+    const children = new Set(view.rawItems.filter(row => row.placement.nestingParentId === item.id && sameOutlinePeriod(row.placement, item.placement)).map(row => row.id))
+    const owner = item.placement.nestingParentId ? byId.get(item.placement.nestingParentId) : undefined
+    const detach = !!owner && (horizon === 'later') !== (owner.placement.horizon === 'later')
     const projected = view.rawItems.map(row => {
       const node = replacements.get(row.id)
       if (children.has(row.id)) return { ...row, placement: { ...row.placement, horizon, periodId: moved.periodId } }
+      if (horizon === 'later' && row.placement.nestingParentId === item.id) return { ...row, placement: { ...row.placement, nestingParentId: null } }
       return node ? { ...row, placement: { ...row.placement, horizon: node.horizon, periodId: node.periodId, sortKey: node.sortKey,
-        nestingParentId: row.id === item.id && (horizon !== item.placement.horizon || target?.placement.nestingParentId !== item.placement.nestingParentId) ? null : row.placement.nestingParentId } } : row
+        nestingParentId: row.id === item.id && detach ? null : row.placement.nestingParentId } } : row
     })
     const ordered = outlineRows(projected, undefined, view.nestingParents)
     const rect = document.querySelector('.drag-overlay')?.getBoundingClientRect()

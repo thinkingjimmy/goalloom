@@ -1,12 +1,13 @@
 /**
  * [INPUT]: Validated commands, current transaction context and explicit current/date/next targets.
  * [OUTPUT]: Atomic setup with six policies (only day defaults to automatic), placement and flow-valid links, including opt-in adoption or isolated-parent root promotion with one undo effect.
- *          Entering Later unlinks that item's parents in the same operation; child edges stay.
+ *          Planning moves retain ownership; root moves carry only co-scheduled children. Later entry atomically detaches remote ownership and unlinks incoming goals.
  *          Creation and changed ordering parents can place only the affected root; nested creation validates its container and commits one create-plus-nesting receipt.
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { changeNesting } from './nesting'
+import { sameOutlinePeriod } from '../../../domain/nesting'
 import { nestingText } from '../../../shared/i18n/nesting'
 import { randomUUID } from 'node:crypto'
 import { compareInstants, currentPeriod, workspaceDate } from '../../../domain/calendar'
@@ -115,31 +116,28 @@ export function setFlowColor(context: Context, command: CommandOf<'flowColor'>):
   return true
 }
 
-export function moveItem(context: Context, command: CommandOf<'move'>, keepNesting = false): boolean {
+export function moveItem(context: Context, command: CommandOf<'move'>): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion)
   assertAvailable(item)
   if (item.placement.version !== command.expectedPlacementVersion) throw new DomainError('stale', serverText().errors.placementChanged)
-  if (command.group && item.placement.nestingParentId) {
+  if (command.group && context.store.localParentId(item.placement)) {
     if (command.beforeId) throw new DomainError('invalid', nestingText().changed)
-    const root = context.store.item(item.placement.nestingParentId)
+    const root = context.store.item(item.placement.nestingParentId!)
     const changed = moveItem(context, { ...command, itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version })
     context.itemId = item.id
     return changed
   }
+  if (command.beforeId === item.id) return false
   const destinationPeriod = targetPeriod(context, command.horizon, command.period?.kind === 'next' ? undefined : command.period)
-  const targetParent = command.beforeId ? context.store.item(command.beforeId).placement.nestingParentId ?? null : null
-  const sameContainer = item.placement.nestingParentId && command.horizon === item.placement.horizon && destinationPeriod?.id === item.placement.periodId && (targetParent === item.placement.nestingParentId || command.keepNesting && !command.beforeId)
+  const owner = item.placement.nestingParentId ? context.store.item(item.placement.nestingParentId) : null
+  const sameContainer = owner && sameOutlinePeriod(item.placement, owner.placement) && command.horizon === item.placement.horizon && (destinationPeriod?.id ?? null) === item.placement.periodId
   if (command.keepNesting && !sameContainer) throw new DomainError('conflict', nestingText().changed)
   let nestingChanged = false
-  if (item.placement.nestingParentId && !keepNesting && !sameContainer) {
+  if (owner && (command.horizon === 'later' && item.placement.horizon !== 'later' || owner.placement.horizon === 'later' && command.horizon !== 'later')) {
     nestingChanged = changeNesting(context, item, null)
-    // If unnesting and no specific position requested, changeNesting already handled the move
-    if (!command.beforeId && item.placement.horizon === command.horizon) {
-      context.itemId = item.id
-      return nestingChanged
-    }
   }
-  const children = !item.placement.nestingParentId ? context.store.nestedItems(item.id) : []
+  const ownedChildren = !item.placement.nestingParentId ? context.store.nestedItems(item.id) : []
+  const children = ownedChildren.filter(child => sameOutlinePeriod(item.placement, child.placement))
   const before = structuredClone(item)
   const previous = context.store.position(item)
   let destination = command.period
@@ -153,8 +151,10 @@ export function moveItem(context: Context, command: CommandOf<'move'>, keepNesti
   }
   const target = targetPeriod(context, command.horizon, destination)
   const periodId = target?.id ?? null
-  if (command.beforeId === item.id) return false
-  if (item.placement.horizon === command.horizon && item.placement.periodId === periodId && previous.nextId === command.beforeId) return false
+  if (item.placement.horizon === command.horizon && item.placement.periodId === periodId && previous.nextId === command.beforeId) return nestingChanged
+  if (command.horizon === 'later') for (const child of ownedChildren) {
+    if (!sameOutlinePeriod(item.placement, child.placement)) changeNesting(context, child, null)
+  }
   const key = nextSortKey(context, command.horizon, periodId, command.beforeId, item.id, item.placement.nestingParentId ?? null)
   const priorVersion = item.placement.version
   Object.assign(item.placement, { horizon: command.horizon, periodId, sortKey: key, version: priorVersion + 1, holdPeriodId: null })

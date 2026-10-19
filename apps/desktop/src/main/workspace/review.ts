@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Generation-bound week/month selections, shared outline ordering, Repository and its injected clock.
- * [OUTPUT]: A period-end review projection, board-ordered live unfinished outlines and exact destination-period planning summaries.
+ * [OUTPUT]: A period-end review projection, placement-local live unfinished outlines, their current parent summaries and exact destination-period planning summaries.
  * [POS]: Read-only review boundary in the serial storage worker; historical states never become write versions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -84,5 +84,5 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
   }
   const planning = readBoardPeriods(store, { type: 'boardPeriods', generation: query.generation,
     periods: [...destinations.values()].map(({ horizon, startDate }) => ({ horizon, startDate })) }, now)
-  return { board, planning: { ...snapshot, periods: planning.periods, items: planning.items, nestingParents: planning.nestingParents, orderNodes: planning.orderNodes, rolloverSources: planning.rolloverSources }, closing, sourcePeriods, unknown: unknown.size }
+  return { board, planning: { ...snapshot, periods: planning.periods, items: planning.items, nestingParents: planning.nestingParents, orderNodes: planning.orderNodes, rolloverSources: planning.rolloverSources }, closing, closingParents: parents, sourcePeriods, unknown: unknown.size }
 }

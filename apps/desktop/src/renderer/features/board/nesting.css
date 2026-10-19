@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Existing theme/row tokens, virtual group offsets and outline drag/membership attributes.
- * [OUTPUT]: Stable row/draft indentation, whole-group nesting borders, checkbox-aligned child insertion lines, accessible arrangement actions and bounded choices.
+ * [OUTPUT]: Local row/draft indentation, cross-period parent links, whole-group nesting borders, checkbox-aligned child insertion lines, accessible arrangement actions and bounded choices.
  * [POS]: Board-only nesting styles; row backgrounds and relation exits keep their original bounds.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -50,3 +50,7 @@
 
 .nesting-choices .menu-item { min-height: 44px; }
 .nesting-choices .menu-text { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.task-parent-link { display: block; max-width: 100%; min-height: 24px; padding: 1px 0; color: var(--secondary); font-size: 12px; line-height: 20px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.task-parent-link:hover { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
+.task-parent-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+@media (pointer: coarse) { .task-parent-link { min-height: 44px; } }

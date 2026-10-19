@@ -1,12 +1,20 @@
 /**
  * [INPUT]: Explicit goal edges, independent placements, live nesting links and an injected stable virtual-ID factory.
- * [OUTPUT]: Effective goal edges, cycle-safe leaf/group targets and stable mixed/separated two-level rows.
+ * [OUTPUT]: Effective goal edges, placement-local groups, cycle-safe targets and two-level rows with independent cross-period ownership.
  * [POS]: Shared outline rules; nesting never changes task lifecycle or creates a goal edge to its container.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemSummary, Relation } from '../shared/contracts/entities'
 
 export interface NestingLink { parentId: string; childId: string }
+type OutlineItem = { id: string; placement: Pick<ItemSummary['placement'], 'horizon' | 'periodId' | 'nestingParentId'> }
+export function sameOutlinePeriod(a: Pick<OutlineItem['placement'], 'horizon' | 'periodId'>, b: Pick<OutlineItem['placement'], 'horizon' | 'periodId'>): boolean {
+  return a.horizon === b.horizon && a.periodId === b.periodId
+}
+export function localNestingParentId(item: OutlineItem, byId: ReadonlyMap<string, OutlineItem>): string | null {
+  const parentId = item.placement.nestingParentId, parent = parentId ? byId.get(parentId) : undefined
+  return parent && sameOutlinePeriod(item.placement, parent.placement) ? parent.id : null
+}
 export function nestingTargets(itemId: string, edges: readonly NestingLink[], nesting: readonly NestingLink[]): (parentId: string) => boolean {
   const children = new Map<string, string[]>()
   for (const edge of combinedTopology(edges, nesting)) {
@@ -39,8 +47,8 @@ export function outlineRows<T extends Pick<ItemSummary, 'id' | 'placement'>>(ite
   const byId = new Map([...contexts, ...items].map(item => [item.id, item])), children = new Map<string, T[]>(), roots = new Map<string, T>()
   const visible = new Set(items.map(item => item.id))
   for (const item of items) {
-    const parent = item.placement.nestingParentId
-    if (parent && byId.has(parent)) {
+    const parent = localNestingParentId(item, byId)
+    if (parent) {
       const list = children.get(parent) ?? []; list.push(item); children.set(parent, list); roots.set(parent, byId.get(parent)!)
     } else roots.set(item.id, item)
   }
@@ -51,9 +59,10 @@ export function outlineRows<T extends Pick<ItemSummary, 'id' | 'placement'>>(ite
 export function outlineSections(items: ItemSummary[], contexts: ItemSummary[] = []): { rows: ItemSummary[]; todo: ItemSummary[]; done: ItemSummary[] } {
   const visible = new Map(items.map(item => [item.id, item]))
   const context = new Map(contexts.map(item => [item.id, item]))
+  const byId = new Map([...contexts, ...items].map(item => [item.id, item]))
   const groups = new Map<string, ItemSummary[]>()
   for (const item of items) {
-    const root = item.placement.nestingParentId ?? item.id
+    const root = localNestingParentId(item, byId) ?? item.id
     const group = groups.get(root) ?? []; group.push(item); groups.set(root, group)
   }
   const rows: ItemSummary[] = [], todo: ItemSummary[] = [], done: ItemSummary[] = []
