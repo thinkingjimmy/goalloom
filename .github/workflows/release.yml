@@ -51,9 +51,32 @@ jobs:
       - name: Record hosted VM scope
         run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0]?.model})); if(process.arch !== 'arm64') process.exit(1)"
       - run: pnpm install --frozen-lockfile
+
+      # M2.2: Cache build artifacts
+      - name: Cache build output
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        with:
+          path: |
+            apps/desktop/out
+            apps/desktop/node_modules/.vite
+          key: ${{ runner.os }}-build-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/src/**', 'apps/desktop/electron.vite.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+      # M2.3: Upload build artifact for package job
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: build-mac-arm64
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            apps/desktop/out/
+            apps/desktop/package.json
 
   test-win:
     name: Test Windows
@@ -75,9 +98,32 @@ jobs:
       - name: Record hosted VM scope
         run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0]?.model})); if(process.arch !== 'x64') process.exit(1)"
       - run: pnpm install --frozen-lockfile
+
+      # M2.2: Cache build artifacts
+      - name: Cache build output
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        with:
+          path: |
+            apps/desktop/out
+            apps/desktop/node_modules/.vite
+          key: ${{ runner.os }}-build-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/src/**', 'apps/desktop/electron.vite.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+      # M2.3: Upload build artifact for package job
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: build-win-x64
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            apps/desktop/out/
+            apps/desktop/package.json
 
   package-mac:
     name: Package and notarize macOS
@@ -107,6 +153,14 @@ jobs:
       - name: Record hosted VM scope
         run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0]?.model})); if(process.arch !== 'arm64') process.exit(1)"
       - run: pnpm install --frozen-lockfile
+
+      # M2.3: Download pre-built artifacts from test job
+      - name: Download build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: build-mac-arm64
+          path: apps/desktop/
+
       - name: Prepare macOS signing
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -254,6 +308,14 @@ jobs:
       - name: Record hosted VM scope
         run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0]?.model})); if(process.arch !== 'x64') process.exit(1)"
       - run: pnpm install --frozen-lockfile
+
+      # M2.3: Download pre-built artifacts from test job
+      - name: Download build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: build-win-x64
+          path: apps/desktop/
+
       - name: Package Windows
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
