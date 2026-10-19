@@ -26,6 +26,7 @@
 
 - 纯排序函数用于权威放置／整理事务，时钟由调用方注入。Renderer 直接展示持久化顺序。摘要仅补充相关祖先的 ID、位置、周期与排序键，无正文。
 - `create` / `createPlan` / `link` / `unlink` 的 `autoPlace` 由提交时的本机偏好决定，在权威事务中计算落点；显式 `create.beforeId` 优先。新增只记录创建效果，关联变化记录该任务的位置效果和关系效果。未知结果保留原请求及偏好值，先查回执。
+- 创建的同步指令记录事务提交后的真实位置，不将上级自动放置或显式插入改成列尾。排序邻居限同列、同周期的未删除一级任务，排除同一批中尚未发出创建动作的任务；待发送重放、服务器确认和另一端接收均保留该位置。现有已生成的同步载荷与回执保持不可变。
 - `materializeParentOrder` 必须指定列和当前／未来周期，事务内复核时间并保存顺序；不改变其他列、状态、关系、周期或 hold。持久化位置沿用现有同步操作和撤销，不新增持续派生排序。
 - 外层 FLIP／WAAPI 与内层 dnd-kit 分工；仅暂留前后可见窗口，动效可打断且无闲置逐帧任务。工作区代次变化清理缓存与待完成动作。
 
@@ -34,6 +35,7 @@
 - Enabling/disabling placement or reloading reorders existing tasks; cross-group pointer/keyboard drops snap back or change goal links.
 - Creating/linking moves unrelated tasks, a secondary parent resets manual position, explicit insertion loses to automatic placement, or a plan reorders old tasks.
 - A bottom/blank-space entry silently submits an explicit tail position and suppresses placement for ready or late Jev parents; changing the setting after Enter changes a pending item's captured policy; placement separates creation undo/restore or steals the next draft's focus.
+- A correctly placed creation returns to the tail when pending operations rebuild or the server confirms it. Verify ready/late Jev parents, disabled placement, explicit head/middle/tail insertion, future periods, deleted/nested anchor exclusion and multi-item plans on two encrypted peers. Emitted creation anchors must describe the committed root position and refer only to rows already available at that point in the operation.
 - Relation and position changes commit/undo separately; retries duplicate moves; a failed write leaves half-applied positions/relations; undo overwrites later text edits.
 - JSON/SQLite import rejects a valid combined relation/placement receipt, accepts a foreign task or cross-period placement effect, or permits partial undo of the combined operation.
 - One-shot sorting touches another column/period, accepts a closed/stale period, splits nested tasks, changes lifecycle/relations or leaves the setting disabled.

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A committed command, its effects, and item rows captured before dispatch.
- * [OUTPUT]: Transaction-owned SyncOps with the observed basisSeq, atomic nested creation, causal completion and guarded grouped creation undo. Clock confirmation/rollover resume write nothing.
+ * [OUTPUT]: Transaction-owned SyncOps with committed root-position anchors, observed basisSeq, atomic nesting, causal completion and grouped creation undo. Clock confirmation/rollover resume write nothing.
  * [POS]: Desktop adapter from command effects to SyncOp. applySyncOp is the other direction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -142,10 +142,12 @@ function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect
     if (period) actions.push({ t: 'policy.set', horizon: input.command.horizon, mode: input.command.mode, effectiveFromKey: { horizon: String(period.horizon) as 'day', startDate: String(period.startDate) } })
     return actions
   }
+  const pendingCreates = new Set(input.effects.flatMap(effect => effect.kind === 'create' ? [effect.itemId] : []))
   for (const effect of input.effects) {
     if (effect.kind === 'create') {
+      pendingCreates.delete(effect.itemId)
       const nesting = input.effects.find(candidate => candidate.kind === 'nesting' && candidate.itemId === effect.itemId)
-      actions.push(...createActions(db, effect.itemId, effect.initialRelations, nesting?.kind === 'nesting' ? nesting.before : undefined))
+      actions.push(...createActions(db, effect.itemId, effect.initialRelations, pendingCreates, nesting?.kind === 'nesting' ? nesting.before : undefined))
     }
     if (effect.kind === 'description') actions.push({ t: 'item.set', id: effect.itemId, fields: { description: effect.after } })
     if (effect.kind === 'status') actions.push({ t: 'item.status', id: effect.itemId, status: effect.after.status, completedAt: effect.after.completedAt, cancelledAt: effect.after.cancelledAt })
@@ -182,18 +184,29 @@ function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect
   return actions
 }
 
-function createActions(db: DatabaseSync, itemId: string, relations: string[], initialPosition?: PositionEffect): Action[] {
+function createActions(db: DatabaseSync, itemId: string, relations: string[], unavailable: ReadonlySet<string>, initialPosition?: PositionEffect): Action[] {
   const item = db.prepare('SELECT * FROM items WHERE id=?').get(itemId)
   const placement = db.prepare('SELECT * FROM item_placements WHERE itemId=?').get(itemId)
   if (!item || !placement) return []
   const periodId = placement.periodId ?? null
   const period = periodId ? db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(periodId) : undefined
-  const previous = db.prepare('SELECT itemId FROM item_placements WHERE horizon=? AND periodId IS ? AND itemId!=? ORDER BY sortKey DESC, itemId DESC LIMIT 1').get(placement.horizon ?? null, periodId, itemId)
+  const excluded = [...unavailable]
+  const exclusion = excluded.length ? `AND p.itemId NOT IN (${excluded.map(() => '?').join(',')})` : ''
+  const adjacent = (comparison: '<' | '>', order: 'ASC' | 'DESC'): string | null => {
+    const row = db.prepare(`SELECT p.itemId FROM item_placements p JOIN items i ON i.id=p.itemId
+      WHERE i.deletedAt IS NULL AND p.horizon=? AND p.periodId IS ? AND p.nestingParentId IS NULL
+      AND (p.sortKey,p.itemId) ${comparison} (?,?) ${exclusion} ORDER BY p.sortKey ${order},p.itemId ${order} LIMIT 1`)
+      .get(String(placement.horizon), periodId, Number(placement.sortKey), itemId, ...excluded)
+    return row ? String(row.itemId) : null
+  }
+  // A later create in this op is not available when the receiver applies this action.
+  const sortHint = initialPosition ? { afterId: initialPosition.previousId, beforeId: initialPosition.nextId }
+    : { afterId: adjacent('<', 'DESC'), beforeId: adjacent('>', 'ASC') }
   const parent = relations[0] ? db.prepare('SELECT parentId FROM item_relations WHERE id=?').get(relations[0]) : undefined
   const action: Action = {
     t: 'item.create', id: itemId, title: String(item.title), description: String(item.description), dueDate: item.dueDate === null ? null : String(item.dueDate),
     horizon: String(placement.horizon) as 'later', periodKey: period ? { horizon: String(period.horizon) as 'week', startDate: String(period.startDate) } : null,
-    sortHint: initialPosition ? { afterId: initialPosition.previousId, beforeId: initialPosition.nextId } : { afterId: previous ? String(previous.itemId) : null, beforeId: null },
+    sortHint,
     ...(item.flowColor === null ? {} : { flowColor: Number(item.flowColor) }),
     ...(parent ? { parentId: String(parent.parentId) } : {}),
   }

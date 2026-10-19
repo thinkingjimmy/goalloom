@@ -51,6 +51,8 @@ Actions (one user command is one atomic op):
 
 Local commands run first. The SyncOp is the diff plus the intent, written in the same `BEGIN IMMEDIATE` transaction (`apps/desktop/src/main/workspace/sync/emit.ts`).
 
+Creation sort hints must preserve the committed position, including automatic parent placement and explicit insertion. They use active root neighbours in the same column/period; nested or deleted rows and items created later in that same op cannot be anchors. A create-plus-nest keeps its existing pre-nesting root position followed by the ordered nesting action. Failure cases: local placement is correct but pending rebuild/canonical echo appends it; a multi-item plan refers forward and changes order; future periods leak into current anchors; undo/restore loses a synced creation's final position. Two-peer evidence belongs to `test:sync-replay`.
+
 | Command | SyncOp | Test |
 | --- | --- | --- |
 | `confirmSetup` | `calendar.setup` | `apps/desktop/tests/integration/sync-emit.test.ts` (setup row exists before other actions) |

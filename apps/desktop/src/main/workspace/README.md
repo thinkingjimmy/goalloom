@@ -32,6 +32,8 @@ workspace/
     └── service.ts    # 源数据校验、预览/保护备份/持续维护/显式提交
 ```
 
+`sync/emit.ts` preserves committed creation positions with active same-period root anchors, excluding later creates in the same op. Atomic create-plus-nest retains its pre-nesting position and ordered nesting action. Existing receipts and queued payloads remain immutable.
+
 `sync/local.ts` owns first-join planning, history-aware empty state, protected installation, atomic recovery baseline/binding and generation guards at the storage boundary. `sync/offline.ts` reads immutable pre-sync rollover effects, excludes undone effects, and orders missing sync operations before later user edits/deletions. Returning devices preserve cursor and pending receipts.
 
 The protected production transition uses the existing visible-baseline transaction, then clears the legacy project binding in that same transaction. Business/history rows remain; old canonical receipts and ciphertext are not sent to the new project. Unknown old sends are counted in the private transition receipt.

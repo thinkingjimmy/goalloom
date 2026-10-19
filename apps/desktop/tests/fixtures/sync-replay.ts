@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production repository, encrypted sync exchange and two isolated SQLite workspaces.
- * [OUTPUT]: Ordered leaf/group nesting convergence, atomic rejection and storage-failure retry evidence.
+ * [OUTPUT]: Stable creation/parent placement, ordered leaf/group nesting, atomic rejection and storage-failure retry evidence.
  * [POS]: Sync replay E2E fixture; the remote is synthetic and never receives plaintext.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process'
 import { type Action, type SyncOp } from '@goalloom/contracts'
 import { publicFromSeed, unhex, utf8 } from '@goalloom/crypto'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
+import { rebuildVisibleFull } from '@goalloom/store-core'
 import {
   absorbOpened, bootstrapWorkspace, createMemoryWorld, exchange, joinWorkspace, memoryCiphertext, memoryRemote,
   newDeviceSecret, pullOpened, sealOpWire, syncCursor, type BoundWorkspace, type MemoryWorld,
@@ -22,6 +23,7 @@ import { migrate } from '../../src/main/storage/schema'
 import { Repository } from '../../src/main/workspace/repository'
 import { syncHost } from '../../src/main/sync/host'
 import type { CommandInput } from '../../src/shared/contracts/commands'
+import { syncCreationPlacement, type PlacementObservation } from './sync-creation-placement'
 
 const at = '2026-10-15T02:00:00.000Z'
 const evidence = process.argv[2]!
@@ -29,8 +31,9 @@ const temporary = mkdtempSync(join(tmpdir(), 'goalloom-sync-replay-'))
 mkdirSync(evidence, { recursive: true })
 type LocalCommand<T> = T extends unknown ? Omit<T, 'operationId' | 'generation'> : never
 const checks: string[] = []
+const creationPlacement: PlacementObservation[] = []
 const report = {
-  passed: false, checks,
+  passed: false, checks, creationPlacement,
   scope: 'Two isolated desktop repositories, real Electron SQLite and encrypted protocol; synthetic remote, no native UI, live provider or packaged acceptance.',
   runtime: { electron: process.versions.electron, node: process.versions.node, sqlite: '' },
   environment: {
@@ -285,6 +288,9 @@ async function run(): Promise<void> {
   assert.equal(second.repo.store.item(nested.itemId!).description, 'Retained nested notes')
   assert.deepEqual(board(first), board(second))
   checks.push('Atomic inline create-plus-nest, sibling order and scoped creation undo/restore converge after unrelated peer text edits without a protocol change')
+  await syncCreationPlacement({ first: first.repo, second: second.repo, checks, observations: creationPlacement,
+    rebuild: () => first.driver.transaction(() => rebuildVisibleFull(first.driver, first.host)),
+    sync: async () => { await push(first, alpha, bound); await push(second, beta, joined) } })
   for (const machine of [first, second]) verifyDatabase(machine.db)
   assert.equal(Buffer.from(unhex(memoryCiphertext(world))).includes(Buffer.from(utf8('Shared monthly goal'))), false)
   checks.push('Both workspaces pass integrity/foreign-key checks; remote ciphertext does not contain task text')
