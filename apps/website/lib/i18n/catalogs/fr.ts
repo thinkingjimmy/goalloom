@@ -139,7 +139,7 @@ const fr: SiteCatalog = {
       { q: 'Où sont stockées mes données ?', a: 'Dans un espace de travail SQLite local sur votre ordinateur, avec des sauvegardes quotidiennes et sans télémétrie du contenu. La synchronisation facultative chiffre les données avant leur sortie de l’appareil.' },
       { q: 'Quels systèmes sont pris en charge ?', a: 'macOS 14 ou ultérieur sur Apple Silicon, et Windows 11 x64. L’app parle chinois, anglais, japonais, espagnol et français.' },
       { q: 'Existe-t-il une app mobile ou une synchronisation ?', a: 'La synchronisation entre ordinateurs est facultative. Connectez-vous avec Google et définissez un mot de passe de synchronisation. Cette version ne comprend pas d’app mobile.' },
-      { q: 'Comment installer Goalloom ?', a: 'La version macOS est signée avec Developer ID et notariée par Apple. Glissez Goalloom dans Applications, puis ouvrez-la. Si vous utilisez la version publique 1.8.0 pour Mac, quittez-la et remplacez-la une fois par 1.9.7 manuellement ; votre espace de travail et vos réglages sont conservés. L’installateur Windows n’est pas signé ; si SmartScreen apparaît, choisissez Informations complémentaires → Exécuter quand même.' },
+      { q: 'Comment installer Goalloom ?', a: 'La version macOS est signée avec Developer ID et notariée par Apple. Glissez Goalloom dans Applications, puis ouvrez-la. Si vous utilisez la version publique 1.8.0 pour Mac, quittez-la et remplacez-la une fois par 1.9.8 manuellement ; votre espace de travail et vos réglages sont conservés. L’installateur Windows n’est pas signé ; si SmartScreen apparaît, choisissez Informations complémentaires → Exécuter quand même.' },
     ],
   },
   footer: {
