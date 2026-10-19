@@ -1,6 +1,6 @@
 {
   "name": "@goalloom/desktop",
-  "version": "1.9.7",
+  "version": "1.9.8",
   "private": true,
   "description": "把三个月的方向，连接到今天的行动。",
   "author": "Goalloom",
@@ -22,8 +22,8 @@
     "test:columns": "node tests/column-visibility.mjs",
     "build": "pnpm run typecheck && electron-vite build && node scripts/build/third-party-notices.mjs && node scripts/build/check-production.mjs",
     "package:dir": "pnpm run build && electron-builder --dir --publish never",
-    "package:mac": "pnpm run build && electron-builder --mac --arm64 --publish never && node scripts/build/package-report.mjs release latest darwin-arm64",
-    "package:win": "pnpm run build && electron-builder --win --x64 --publish never && node scripts/build/package-report.mjs release latest win32-x64",
+    "package:mac": "pnpm run typecheck && pnpm run build:production && electron-builder --mac --arm64 --publish never && node scripts/build/package-report.mjs release latest darwin-arm64",
+    "package:win": "pnpm run typecheck && pnpm run build:production && electron-builder --win --x64 --publish never && node scripts/build/package-report.mjs release latest win32-x64",
     "test:history": "node tests/history.mjs",
     "test:autosave": "node tests/autosave.mjs",
     "test:descriptions": "node tests/descriptions.mjs",
@@ -66,7 +66,10 @@
     "test:sync-scheduling": "node tests/sync-cost.mjs baseline && node tests/sync-cost.mjs scheduling && node tests/sync-cost.mjs batching && node tests/sync-cost.mjs protection && node tests/sync-cost-native.mjs && node tests/sync-cost-report.mjs",
     "test:sync-join": "node tests/sync-join.mjs && node tests/sync-join-native.mjs",
     "test:sync-security": "node tests/sync-security.mjs && node tests/sync-security-native.mjs",
-    "test:sync-security:packaged": "node tests/sync-security-native.mjs --packaged"
+    "test:sync-security:packaged": "node tests/sync-security-native.mjs --packaged",
+    "build:production": "node scripts/build/production.mjs",
+    "package:mac:prepared": "node scripts/build/prepared-build.mjs check && electron-builder --mac --arm64 --publish never && node scripts/build/package-report.mjs release latest darwin-arm64",
+    "package:win:prepared": "node scripts/build/prepared-build.mjs check && electron-builder --win --x64 --publish never && node scripts/build/package-report.mjs release latest win32-x64"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

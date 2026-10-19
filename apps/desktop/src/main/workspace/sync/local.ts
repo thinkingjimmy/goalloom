@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import type { RemoteEnvelope } from '@goalloom/store-core'
@@ -25,6 +26,7 @@ const opened = z.strictObject({ seq: z.number().int().positive(), op: z.unknown(
 const scope = z.strictObject({ workspaceId: z.uuid(), generation: z.uuid() })
 const command = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('view') }),
+  z.strictObject({ type: z.literal('production-transition'), at: z.string() }),
   z.strictObject({ type: z.literal('reviews'), generation: z.uuid(), at: z.string() }),
   z.strictObject({ type: z.literal('capture') }),
   z.strictObject({ type: z.literal('bind'), binding, at: z.string() }),
@@ -68,6 +70,16 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
   const action = command.parse(argument)
   const driver = nodeSqlDriver(db)
   const host = syncHost(db)
+  if (action.type === 'production-transition') {
+    const unknownSends = Number(db.prepare("SELECT count(*) AS n FROM sync_ops WHERE state='send_unknown'").get()?.n ?? 0)
+    const deviceId = randomUUID()
+    driver.transaction(() => {
+      const nested = { ...driver, transaction: <T>(work: () => T): T => work() }
+      queueVisibleBaseline(nested, host, deviceId, action.at)
+      db.prepare('UPDATE sync_state SET workspaceId=NULL, deviceId=NULL, keyEpoch=NULL WHERE id=1').run()
+    })
+    return { unknownSends, oldReceiptsNotReconciled: unknownSends > 0 }
+  }
   if ('scope' in action && action.scope) {
     const current = db.prepare('SELECT s.workspaceId, w.generation FROM sync_state s CROSS JOIN workspace w WHERE s.id=1 AND w.id=1').get()
     if (current?.workspaceId !== action.scope.workspaceId || current?.generation !== action.scope.generation) throw new DomainError('invalid', 'sync generation')

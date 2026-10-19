@@ -5,6 +5,7 @@ OUTPUT: Repeatable service/SQLite and native-window reports under `output/tests/
 POS: Feature acceptance fixtures. Product rules remain in [desktop sync](../../../../docs/sync/desktop.md).
 
 - `cases.ts`: Production service/SDK/storage failure and lifecycle journeys, including workspace discovery, retries, cleanup and reconnection.
+- `environment-cases.ts`: Real-worker production transition, backup failure, preserved business/history data, fresh binding and restart stability. Select with `node tests/sync-security.mjs environment`.
 - `password-cases.ts`: Denied-Keychain Case 1, fresh Google authorization, password/cloud-key recovery, stable devices, pending sends, interrupted creation, failed file writes, account guards and complete cleanup. Select with `node tests/sync-security.mjs password`.
 - `resume-cases.ts`: Persistent Case 1, restart/upgrade migration, Google/password-gated relogin, retained task/device IDs and tombstones, offline recovery, unknown sends, durable logout failures and late token-save races. Select with `node tests/sync-security.mjs resume`.
 - `native-entry.ts`: Test-only multi-account composition around the production application. It never loads real credentials or changes Wi-Fi.

@@ -30,6 +30,7 @@ import { SyncSchedule } from './schedule'
 import { exchangeTurn, type ExchangeState, type LocalView } from './exchange'
 import type { NetworkEventHandler } from './network-monitor'
 import { createRecoveryWorkspace } from './recovery'
+import { prepareProductionProfile } from './environment'
 
 type Phase = SyncStatus['phase']
 type SyncError = NonNullable<SyncStatus['error']>
@@ -95,6 +96,7 @@ export class SyncService {
 
   constructor(private deps: {
     userData: string
+    packaged?: boolean
     cipher: Cipher
     sessionCipher?: Cipher
     storage: StorageClient
@@ -133,8 +135,15 @@ export class SyncService {
 
   private async initialize(interactive: boolean, signal?: AbortSignal): Promise<void> {
     if (this.client) return
-    const config = readSyncConfig(this.deps.userData)
+    const config = readSyncConfig(this.deps.userData, this.deps.packaged)
     if (!config.anonKey) { this.phase = 'unconfigured'; this.publish(); return }
+    if (this.deps.packaged) {
+      const directory = await prepareProductionProfile(this.deps.userData, this.deps.storage)
+      this.vault = new SessionVault(directory, this.deps.cipher, this.deps.sessionCipher)
+      this.passwordVault = new PasswordVault(directory)
+      this.pendingCache = new PendingCache(directory, this.deps.cipher)
+      this.cooldown = new UploadCooldown(directory)
+    }
     this.started = true
     const initializing = this.lifecycleId
     const loading = signal ? AbortSignal.any([signal, this.lifecycle.signal]) : this.lifecycle.signal
@@ -371,7 +380,9 @@ export class SyncService {
       const onAbort = () => reject(new SyncFailure('auth', 'cancelled'))
       signal.addEventListener('abort', onAbort, { once: true })
       const onCallback = this.deps.onBrowserReturn
-      void (this.deps.beginSignIn ?? googleSignIn)(this.client!, this.deps.openExternal, { signal, ...(onCallback ? { onCallback } : {}) }).then(session => {
+      void (this.deps.beginSignIn ?? googleSignIn)(this.client!, this.deps.openExternal, {
+        signal, ...(this.deps.language ? { language: this.deps.language() } : {}), returnToApp: this.deps.packaged === true, ...(onCallback ? { onCallback } : {}),
+      }).then(session => {
         signal.removeEventListener('abort', onAbort)
         resolve(session)
       }, error => {

@@ -7,8 +7,10 @@
  */
 import { pathToFileURL } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
+import { assertDevelopmentTarget } from './development-target.mjs'
 
 async function admin(url, serviceKey, path, init = {}) {
+  assertDevelopmentTarget(url)
   const response = await fetch(`${url}${path}`, {
     ...init,
     headers: {
@@ -24,6 +26,7 @@ async function admin(url, serviceKey, path, init = {}) {
 }
 
 export async function removeSnapshotObjects(client) {
+  assertDevelopmentTarget(client.supabaseUrl)
   const root = await client.storage.from('snapshots').list('workspaces', { limit: 1000 })
   if (root.error) throw new Error(root.error.message)
   let removed = 0
@@ -46,6 +49,7 @@ async function mustDelete(label, result) {
 }
 
 export async function deleteUserData(client, userId) {
+  assertDevelopmentTarget(client.supabaseUrl)
   const devices = await client.from('devices').select('id').eq('user_id', userId)
   if (devices.error) throw new Error(devices.error.message)
   const deviceIds = (devices.data ?? []).map(row => row.id)
@@ -81,6 +85,7 @@ if (isMain) {
     console.error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required. See supabase/README.md.')
     process.exit(1)
   }
+  assertDevelopmentTarget(url)
   const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const removed = await removeSnapshotObjects(service)
   const users = await listTestUsers(url, serviceKey)

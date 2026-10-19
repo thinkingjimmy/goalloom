@@ -423,7 +423,7 @@ it('backs up the board before the first device baselines and before a reset uplo
 it('cancels an in-flight sign-in without an auth notice', async () => {
   const cipher = identityCipher()
   const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-cancel-'))
-  await writeFile(join(userData, 'sync-config.json'), JSON.stringify({ anonKey: 'test-anon-key' }))
+  await writeFile(join(userData, 'sync-config.json'), JSON.stringify({ url: 'https://sync-fixture.invalid', anonKey: 'test-anon-key' }))
   let release: (() => void) | null = null
   let signInStarted!: () => void
   const startingSignIn = new Promise<void>(resolve => { signInStarted = resolve })
@@ -464,7 +464,7 @@ it('cancels an in-flight sign-in without an auth notice', async () => {
 it('signs out of this computer only and leaves a failed sign-in retryable', async () => {
   const cipher = identityCipher()
   const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-auth-'))
-  await writeFile(join(userData, 'sync-config.json'), JSON.stringify({ anonKey: 'test-anon-key' }))
+  await writeFile(join(userData, 'sync-config.json'), JSON.stringify({ url: 'https://sync-fixture.invalid', anonKey: 'test-anon-key' }))
   let scope = 'unset'
   const service = new SyncService({
     userData, cipher,
@@ -484,7 +484,7 @@ it('signs out of this computer only and leaves a failed sign-in retryable', asyn
 
 it('does not replace a vault that cannot be decrypted', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'goalloom-sync-vault-'))
-  await writeFile(join(userData, 'sync-config.json'), JSON.stringify({ anonKey: 'test-anon-key' }))
+  await writeFile(join(userData, 'sync-config.json'), JSON.stringify({ url: 'https://sync-fixture.invalid', anonKey: 'test-anon-key' }))
   const file = join(userData, 'sync-vault.bin')
   await writeFile(file, Buffer.from('still-recoverable'))
   let writes = 0

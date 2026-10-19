@@ -14,6 +14,8 @@
 
 ## 工程契约
 
+- Release builds use production-only sync configuration and a commit/platform/version/file-hash manifest. Each platform builds once in its test job; prepared packaging validates and reuses that output. Missing production configuration or a stale artifact stops publication. Actual local/Actions stage times and retries are recorded for each release; estimates are not measured savings.
+
 - macOS archive creation waits for the `afterSign` notarization hook to approve and staple the app. The bounded API-key flow and diagnostics are defined in the [hosted packaging guide](../development.md#托管打包与草稿-release); update ZIP hashes and blockmaps are generated after stapling.
 - Ticket-delivery failure cases, recorded before recovery changes: Apple accepts the app or DMG but CloudKit disconnects during stapling or validation; a retry repeats submission, exceeds the existing command deadline, retries a permanent error, exposes credentials or creates archives before validation. Recover only explicit connection-loss errors after acceptance, cap attempts and total action time, and fail if ticket validation remains incomplete.
 

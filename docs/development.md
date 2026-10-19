@@ -92,7 +92,7 @@ Environment 由仓库管理员创建，工作流不会替你建：
 1. 打开仓库 Settings → Environments → New environment，名称填 `release`。
 2. Deployment branches and tags 选 Selected branches and tags。加上分支 `main`，再加上 tag 规则 `v*`。不要选 All branches。
 3. 把下面六个 secret 建在这个 environment 里，然后从仓库级 Actions secrets 删掉同名项。留在仓库级的话，没有 `environment: release` 的 job 仍然读得到。
-4. `GOALLOOM_SUPABASE_ANON_KEY` 和 `GOALLOOM_SUPABASE_URL` 仍是仓库级 secret。Windows job 不进入 `release` environment，放进去会让 Windows 包读不到。
+4. `GOALLOOM_PRODUCTION_SUPABASE_ANON_KEY` 使用独立仓库级 secret；测试构建和 Windows 打包不进入签名 environment。
 5. 限制生效之后，手动测试必须从 `main`（或该 environment 允许的其他分支或 tag）跑。不在允许列表里的分支（例如尚未合并的功能分支）会让 macOS 签名 job 在环境规则处被拒绝，准备步骤里的「缺 secret 只报名字」检查不会执行。合并前要试跑，就把该分支临时加进 deployment branches，跑完删掉。
 
 缺任何一个签名 secret，macOS job 失败并只打印 secret 名字，不打未签名包。
@@ -105,8 +105,8 @@ Environment 由仓库管理员创建，工作流不会替你建：
 | `APPLE_API_KEY_ID` | 该 API key 的 Key ID。 |
 | `APPLE_API_ISSUER` | App Store Connect Issuer ID。 |
 | `APPLE_TEAM_ID` | Apple Team ID（`947MAGH97Q`）。用于验证应用和 DMG 的签名团队。公证脚本使用 API key，不向 notarytool 传 `--team-id`。 |
-| `GOALLOOM_SUPABASE_ANON_KEY` | Supabase anon key。只在打包步骤作为构建期环境变量传给 `electron-vite`，打进主进程。不要写入仓库。未设置或为空时构建仍成功，安装包里的同步保持未配置。 |
-| `GOALLOOM_SUPABASE_URL` | 可选。未设置时工作流使用 `https://asqyvcnxdltzzfutbbqy.supabase.co`。 |
+| `GOALLOOM_PRODUCTION_SUPABASE_ANON_KEY` | 生产项目 anon-role JWT；仅构建期使用。缺失或项目不匹配阻止发布。不要写入仓库。 |
+| Production URL | workflow 固定 `https://keqprrgvcefqdwnxaafv.supabase.co`，不回退开发项目。 |
 
 macOS job 要求全部签名和公证 secret 有值。`CSC_NAME` 固定为 `ziming wang (947MAGH97Q)`（不含 `Developer ID Application:` 前缀）。准备步骤设置 key partition list 并通过 `CSC_KEYCHAIN` 交给 electron-builder，避免重复导入证书。打包前解锁钥匙串，并对 `/usr/bin/true` 的副本执行带时间戳、hardened runtime 和 entitlements 的签名探针；20 秒未完成就失败。`package:mac` 保持 `--publish never`，辅助进程权限保持 JIT 与未签名可执行内存。主进程还需固定的应用标识与私有钥匙串访问组，以及匹配的 Developer ID provisioning profile。
 
@@ -124,7 +124,11 @@ Provisioning failure cases, defined before adding profile creation: default look
 
 The signed macOS job also runs `tests/keychain-signed.mjs` before packaged smokes. A same-team signed probe verifies that the production main disabled Keychain UI under Hardened Runtime. Actual Data Protection Keychain checks create a synthetic private session key, restore it after a full process restart, and restore it from a replacement bundle with a different signed version and the same app/access-group identity. The fixture deletes that synthetic key. Actual Electron `safeStorage` also checks first use/restart and reads synthetic AI ciphertext created by the public 1.9.1 app. This hosted-only gate requires the runner's disposable signing keychain to be the default, never uses a local user's keychain, and uploads `macos-signed-keychain-evidence`. Old-version seeding receives a test-only noninteractive guard; the new app must set the policy itself. It does not call a live AI provider or replace physical-machine/Windows acceptance.
 
-打包步骤把 `GOALLOOM_SUPABASE_ANON_KEY` 和 `GOALLOOM_SUPABASE_URL` 传给 `package:mac` / `package:win` 里的 `electron-vite build`。运行时先看环境变量 `GOALLOOM_SUPABASE_ANON_KEY`，再看用户数据目录里 `sync-config.json` 的 `anonKey`（可选字段 `url`），最后用打进包里的值。macOS 用户数据目录是 `~/Library/Application Support/Goalloom/`。anon key 为空只打警告，不让构建失败。`pnpm test` 不接收这把 key。
+1.9.8 起，`pnpm dev` 和普通 `pnpm build` 只读取根目录忽略文件 `.env.sync.development.local`；完整配置为开发 URL `https://asqyvcnxdltzzfutbbqy.supabase.co` 与同项目 anon JWT，缺失时保持本地可用。`pnpm build:production`、`package:mac`、`package:win` 读取独立的 `.env.sync.production.local`，生产 URL 必须为 `https://keqprrgvcefqdwnxaafv.supabase.co`，anon JWT 的 role/ref 必须匹配；缺失或混用会失败。变量名均为 `GOALLOOM_SUPABASE_URL`、`GOALLOOM_SUPABASE_ANON_KEY`，不提交配置文件。
+
+正式运行时只使用内嵌生产配置，环境变量和旧 `sync-config.json` 不再覆盖正式目标。开发版按完整配置对解析环境、当前开发 profile 文件与内嵌开发配置，不跨层补字段，也不连接生产。开发版不注册正式 OS 协议；同时登录遇到固定回调端口占用会明确失败。正式升级先保护本地库，再将可见看板建立为新基线；独立凭据目录为 `sync/keqprrgvcefqdwnxaafv/`。旧密文保持原位，重新 Google 登录并由负责人设置同步密码。任务内容、状态、有效关系、同级顺序、日历和本地不可变历史应保留；新云基线重建版本与创建/删除时间，不迁入旧云回执或失效关系行，原始副本用于恢复。
+
+发布 workflow 的测试 job 各构建一次生产产物，再传给对应打包 job。`*:prepared` 入口验证提交、版本、平台、公开配置指纹及全部文件 SHA256 后复用产物，不重新构建。GitHub 使用专用仓库 secret `GOALLOOM_PRODUCTION_SUPABASE_ANON_KEY`，原开发 secret 保持独立。源码测试不接收生产 key。发布计时同时保存本地尝试与 Actions job/step 的实际 UTC 时间；公证等待、排队、重试和发布动作分别记录，缓存收益只在实际命中时报告。
 
 默认工作区位于 macOS `~/Library/Application Support/Goalloom/` 或 Windows `%APPDATA%\Goalloom\`，备份位于其中的 `backups/`。应用内“设置与数据”可查看位置和恢复副本；卸载不主动删除工作区，覆盖升级保持同一应用身份和数据目录。智能输入的 Jev Key 由系统钥匙串/凭据保护加密保存在 `smart-input/`，不进入工作区数据库、导出或备份。同步时 Key 只在内存里放进密封的 `pref.set`，工作区里留下的是 `sha256` 指纹；备份会删掉这些行和动作再 `VACUUM`，文件里不留 Key 的字节。真机、原生对话框、安装/升级、IME、睡眠与各渠道真实 Key 验收由负责人完成，待验项集中在功能规格。
 

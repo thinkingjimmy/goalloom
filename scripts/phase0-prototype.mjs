@@ -13,6 +13,9 @@ import { spawn } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import electron from 'electron'
+import { assertDevelopmentTarget } from './development-target.mjs'
+
+assertDevelopmentTarget(process.env.SUPABASE_URL)
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const vitest = join(repoRoot, 'node_modules/vitest/vitest.mjs')

@@ -1,64 +1,15 @@
-# GitHub Actions Workflows
+# GitHub Actions workflows
 
-## Release Workflow Architecture (M2.2 + M2.3 Optimized)
+> Parent: [Development](../../docs/development.md). Manual release and CI entry points.
 
-### Test Jobs (Parallel, with Build Cache)
+`release.yml` runs only through `workflow_dispatch`. The test jobs run typecheck, existing Vitest and one production build per platform. Production requires the dedicated `GOALLOOM_PRODUCTION_SUPABASE_ANON_KEY` for `keqprrgvcefqdwnxaafv`; development credentials are not a fallback.
 
-**test-mac** and **test-win** run in parallel:
-1. Checkout + install dependencies
-2. **Cache build output** (M2.2)
-   - Cache key includes: pnpm-lock.yaml, src files, config
-   - Restores previous build if unchanged
-   - Saves ~7 min/job on cache hit
-3. typecheck + test + build
-4. **Upload build artifacts** (M2.3)
-   - `apps/desktop/out/` + `package.json`
-   - Retention: 1 day
-   - Enables package jobs to skip rebuild
+Each test job uploads `out/` plus package metadata. The corresponding package job downloads that artifact and uses `package:mac:prepared` or `package:win:prepared`. Before packaging, the prepared-build gate checks the exact Git commit, version, platform, public configuration fingerprint and every output file hash. It then packages without another build. Signing, Apple app/DMG notarization, stapling, signed Keychain acceptance and packaged smokes remain required.
 
-### Package Jobs (Depend on Test, Reuse Build)
+The cache is an input optimization only: restored output does not skip the production build or its manifest gate. Do not claim a cache speedup from a cache declaration. Preserve production configuration checks when changing cache keys or artifact reuse.
 
-**package-mac** and **package-win** depend on their test jobs:
-1. Checkout + install dependencies
-2. **Download build artifacts** (M2.3)
-   - Reuses `out/` from test job
-   - Skips `pnpm build` (already done)
-3. Sign + notarize (macOS) or package (Windows)
-4. Smoke tests on packaged artifacts
-5. Upload update assets
+The draft job stages exact-version update assets and SHA256SUMS. It never publishes. Publication is an explicitly authorized separate action. GitHub Actions remains manual-only.
 
-### Benefits
+For performance evidence, save the run and jobs API responses, including UTC start/end of every job and step, plus local verification and publication times. Report elapsed wall time separately from summed job time; list queue time, Apple waiting and failed/interrupted attempts. Compare with the previous successful release under the same scope. The prior successful run 39115592278 took 489 seconds from run start to final update; its untested cache estimates are not measurements.
 
-**M2.2 Build Cache:**
-- First run: ~10 min build
-- Cache hit: ~3 min (70% faster)
-- Per-platform savings: ~7 min
-- Total savings: ~14 min (macOS + Windows)
-
-**M2.3 Test/Package Decoupling:**
-- Test failure feedback: 60 min → 15 min
-- Package retry without re-testing: 60 min → 35 min
-- True parallel execution (macOS + Windows)
-
-**Combined Effect:**
-- Clean run: similar duration (cache miss)
-- Incremental run: 14 min faster (cache hit)
-- Failure recovery: 45 min faster (test-only or package-only retry)
-
-### Cache Invalidation
-
-Cache automatically invalidates when:
-- `pnpm-lock.yaml` changes (dependency update)
-- `apps/desktop/src/**` changes (source code)
-- `electron.vite.config.ts` changes (build config)
-
-Fallback key `${{ runner.os }}-build-` allows partial cache reuse.
-
-### Artifact Flow
-
-```
-test-mac ──→ build-mac-arm64 ──→ package-mac
-test-win ──→ build-win-x64   ──→ package-win
-```
-
-Artifacts automatically deleted after 1 day (no manual cleanup needed).
+[PROTOCOL]: Update this header when making changes, then check README.md.

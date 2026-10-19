@@ -8,4 +8,6 @@ POS: Shared desktop/mobile protocol engine. It has no Electron or server-source 
 
 Desktop scheduling lives in `apps/desktop/src/main/sync/`. See [protocol v1](../../docs/sync/protocol-v1.md) for operation invariants.
 
+Baseline nesting actions follow sibling sort order, so every preceding sibling is already nested when its successor uses it as an insertion anchor. Database row order is not a placement order.
+
 [PROTOCOL]: Update this header when making changes, then check README.md.

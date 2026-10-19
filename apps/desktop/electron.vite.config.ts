@@ -5,6 +5,8 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { parseEnv } from 'node:util'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -16,6 +18,11 @@ import { keychainPolicy } from './scripts/build/keychain-policy'
 // zod ships /*#__PURE__*/ hints Rollup cannot place; the notice is harmless noise in every build.
 const onwarn = (warning: RollupLog, warn: LoggingFunction) => { if (warning.code !== 'INVALID_ANNOTATION' || !warning.id?.includes('/zod/')) warn(warning) }
 const debugRoot = process.env.GOALLOOM_DEBUG_BUILD ? resolve('output/private-debug') : null
+const syncEnvironment = process.env.GOALLOOM_BUILD_ENV === 'production' ? 'production' : 'development'
+let localSync: NodeJS.ProcessEnv = {}
+try { localSync = parseEnv(readFileSync(resolve(`../../.env.sync.${syncEnvironment}.local`), 'utf8')) } catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+}
 
 function runtimeBoundary(renderer = false): Plugin {
   return { name: 'runtime-dependency-boundary', generateBundle() {
@@ -28,8 +35,7 @@ function runtimeBoundary(renderer = false): Plugin {
 
 export default defineConfig({
   main: {
-    // Separate identifiers from process.env so a runtime env var still wins, and a missing secret stays an empty string.
-    define: syncBuildDefine(),
+    define: syncBuildDefine({ ...localSync, ...process.env }),
     plugins: [runtimeBoundary(), keychainPolicy()],
     esbuild: { keepNames: true },
     build: {

@@ -15,7 +15,7 @@ import { atomicJson } from './atomic-json'
 const receiptName = 'sync-clear.json'
 const receiptSchema = z.strictObject({
   stage: z.string().regex(/^sync-clear-[0-9a-f-]{36}$/),
-  files: z.array(z.string().regex(/^(workspace\.sqlite(?:-wal|-shm)?|backups|sync-(?:vault|password|session)\.bin(?:\.tmp)?|sync-send-(?:v2-)?[a-f0-9]{64}\.bin(?:\.tmp)?)$/)),
+  files: z.array(z.string().regex(/^(workspace\.sqlite(?:-wal|-shm)?|backups|sync|sync-(?:vault|password|session)\.bin(?:\.tmp)?|sync-send-(?:v2-)?[a-f0-9]{64}\.bin(?:\.tmp)?)$/)),
   committed: z.boolean(),
 })
 type Receipt = z.infer<typeof receiptSchema>

@@ -55,6 +55,7 @@ function focusMainWindow(): void {
   window.focus()
 }
 function registerDesktopProtocol(): void {
+  if (!app.isPackaged) return
   const entry = process.argv[1]
   const registration = protocolRegistration({ defaultApp: process.defaultApp === true, execPath: process.execPath, ...(entry ? { entry } : {}) })
   if (registration.command && registration.args) app.setAsDefaultProtocolClient(registration.scheme, registration.command, registration.args)
@@ -213,7 +214,7 @@ if (!app.requestSingleInstanceLock()) {
     })
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
     const syncing = sync = new SyncService({
-      userData: app.getPath('userData'), cipher: deviceCipher, storage: storageProxy,
+      userData: app.getPath('userData'), packaged: app.isPackaged, cipher: deviceCipher, storage: storageProxy,
       sessionCipher: sessionCipher(app.getPath('userData'), deviceCipher),
       monitorNetwork: createNetworkMonitor,
       onLocalCleared: () => { smart.releaseSession(); links.releaseSession() },

@@ -15,6 +15,8 @@ scripts/
     ├── session-profile.mjs     # Native CMS + Xcode Python plist validation and private session entitlements before signing
     ├── third-party-notices.mjs
     ├── check-production.mjs
+    ├── prepared-build.mjs      # Production commit/platform/configuration/file hashes; package jobs reuse the validated build
+    ├── production.mjs          # Dedicated production configuration loader and one-build entry
     ├── debug-artifacts.mjs
     ├── notarize.mjs            # One-submission afterSign/DMG notarization; bounded ticket network recovery and redacted diagnostics
     ├── package-report.mjs

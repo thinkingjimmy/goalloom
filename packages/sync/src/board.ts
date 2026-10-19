@@ -1,6 +1,6 @@
 /**
  * [INPUT]: base_* rows, or a captured visible board.
- * [OUTPUT]: Board replay SyncOps and pending local task-review counts. Recovery binds atomically with its baseline; failure rolls back and pauses sync.
+ * [OUTPUT]: Board replay SyncOps with sibling-ordered nesting and pending task-review counts. Recovery binds atomically with its baseline; failure rolls back and pauses sync.
  * [POS]: Upgrade path for data that predates sync. Pending ops keep their order. First-join import can preserve item identities and the source calendar. Kept edges are not re-checked as new links.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -100,7 +100,7 @@ export function actionsForBoard(board: LocalBoard, scope: 'baseline' | 'import')
     if (item.deletedAt || !item.archivedAt) continue
     actions.push({ t: 'item.archive', id: item.id, archivedAt: item.archivedAt })
   }
-  for (const item of board.items) {
+  for (const item of [...board.items].sort((left, right) => left.sortKey - right.sortKey || left.id.localeCompare(right.id))) {
     if (!item.nestingParentId || item.deletedAt) continue
     const siblings = siblingOrder(board.items, item.nestingParentId)
     const index = siblings.findIndex(sibling => sibling.id === item.id)

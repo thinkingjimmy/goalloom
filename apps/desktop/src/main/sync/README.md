@@ -17,6 +17,8 @@ POS: Main-process network coordinator. SQLite transactions remain in the storage
 - `session-cipher.ts`: Profile-bound AES-GCM with a macOS Data Protection Keychain key; Windows retains DPAPI. Startup restores keys/tokens silently; explicit sign-in requires a new password proof.
 - `password-vault.ts`, `sealed-file.ts`: Account-bound password recovery, verified-cloud-key credential restoration and domain-separated authenticated local encryption. No native authorization UI.
 - `oauth.ts`, `callback-page.ts`, `config.ts`: OAuth callback, local configuration and authentication boundary.
+- `environment.ts`: Protected one-time production transition before network startup; separate session/password/send-journal directory, retained legacy ciphertext and an atomic transition receipt.
+- `callback-copy.ts`: Five-language static browser-return copy. Development returns directly to its own window and does not register or open the production OS scheme.
 - `host.ts`: Deterministic periods and import alignment using the applier’s target calendar.
 
 Generation-bound task-review reads pass through `service.ts` to storage; the service publishes the pending local task count after acknowledgement. Review writes remain normal repository commands.

@@ -34,6 +34,8 @@ workspace/
 
 `sync/local.ts` owns first-join planning, history-aware empty state, protected installation, atomic recovery baseline/binding and generation guards at the storage boundary. `sync/offline.ts` reads immutable pre-sync rollover effects, excludes undone effects, and orders missing sync operations before later user edits/deletions. Returning devices preserve cursor and pending receipts.
 
+The protected production transition uses the existing visible-baseline transaction, then clears the legacy project binding in that same transaction. Business/history rows remain; old canonical receipts and ciphertext are not sent to the new project. Unknown old sends are counted in the private transition receipt.
+
 `sync/review.ts` reads one task group at a time, previews lost actions inside a rolled-back savepoint and hashes only owned values/lifecycle/dependencies. `Repository` dispatches `resolveSyncReview` in its normal generation/receipt transaction. A local choice appends one new SyncOp and history event with the acknowledgement; a synced choice only acknowledges. Invalid relations remain unavailable, and only an explicit local choice can restore the target deletion.
 
 Rejected offline creations retain their later local edits in that same group. The preview can keep the original task ID as an independent task after its parent was deleted; the missing/deleted parent is not recreated. A changed normalized action plan invalidates the preview token.

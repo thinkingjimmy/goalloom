@@ -1,6 +1,6 @@
 {
   "name": "goalloom",
-  "version": "1.9.7",
+  "version": "1.9.8",
   "private": true,
   "description": "把三个月的方向，连接到今天的行动。",
   "author": "Goalloom",
@@ -74,6 +74,7 @@
     "test:sync-join": "pnpm --filter @goalloom/desktop run test:sync-join",
     "test:sync-security": "pnpm --filter @goalloom/desktop run test:sync-security",
     "test:sync-security:packaged": "pnpm --filter @goalloom/desktop exec -- node tests/sync-security-native.mjs --packaged",
-    "test:sync-security:live": "node scripts/sync-security-live.mjs"
+    "test:sync-security:live": "node scripts/sync-security-live.mjs",
+    "build:production": "pnpm --filter @goalloom/desktop run build:production"
   }
 }

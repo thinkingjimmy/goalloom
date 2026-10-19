@@ -7,6 +7,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { deleteUserData } from './supabase-reset.mjs'
+import { assertDevelopmentTarget } from './development-target.mjs'
 
 if (typeof WebSocket === 'undefined') {
   console.error('This script needs a global WebSocket. Use Node.js 22 or newer (`package.json` engines).')
@@ -21,6 +22,7 @@ if (!url || !anonKey || !serviceKey) {
   process.exit(1)
 }
 
+assertDevelopmentTarget(url)
 const email = `p0-${randomUUID()}@goalloom.test`
 const password = randomBytes(24).toString('base64url')
 const workspaceId = randomUUID()

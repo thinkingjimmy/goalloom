@@ -1,10 +1,12 @@
 /**
- * [INPUT]: Whether the Google code exchange succeeded.
+ * [INPUT]: Google code-exchange outcome, device language and packaged-app return policy.
  * [OUTPUT]: One self-contained HTML document for the loopback tab. No remote assets.
  *          Success also opens goalloom://signed-in and offers a button if the browser blocks that navigation.
- * [POS]: The browser page at 127.0.0.1:53682/callback. Header and footer follow the public site.
+ * [POS]: Loopback sign-in result; development focuses its own window without opening the production protocol.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { signedInUrl } from '../protocol'
+import { callbackCopy } from './callback-copy'
 
 export const callbackLinks = {
   home: 'https://goalloom.com/',
@@ -23,10 +25,10 @@ const globe = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-
 const mark = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.1 10V17a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h10.4c1.6 0 2.5 1.9 1.4 3.1L12.6 14c-.5.55-1.2.55-1.7 0L8.4 11.2"/></svg>`
 
 /** Success and failure are both in the document; `class="error"` on the root reveals the failure copy. Only success returns to the app. */
-export function callbackPage(failed: boolean): string {
-  const openApp = failed ? '' : `<p class="open"><a class="open-app" href="${signedInUrl}">打开 Goalloom</a></p>`
-  const returnToApp = failed ? '' : `<script>try{location.href=${JSON.stringify(signedInUrl)}}catch(e){}</script>`
-  return `<!doctype html><html lang="zh-CN" data-theme="light" data-platform="mac"${failed ? ' class="error"' : ''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Goalloom</title>
+export function callbackPage(failed: boolean, options?: { language?: string; returnToApp?: boolean }): string {
+  const openApp = failed || options?.returnToApp === false ? '' : `<p class="open"><a class="open-app" href="${signedInUrl}">打开 Goalloom</a></p>`
+  const returnToApp = failed || options?.returnToApp === false ? '' : `<script>try{location.href=${JSON.stringify(signedInUrl)}}catch(e){}</script>`
+  let html = `<!doctype html><html lang="zh-CN" data-theme="light" data-platform="mac"${failed ? ' class="error"' : ''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Goalloom</title>
 <script>(function(){var r=document.documentElement,q=matchMedia('(prefers-color-scheme: dark)');r.dataset.theme=q.matches?'dark':'light';r.dataset.platform=/Win/.test(navigator.platform)?'windows':'mac';q.addEventListener('change',function(){if(r.dataset.themeMode!=='chosen')r.dataset.theme=q.matches?'dark':'light'})})()</script><style>
 :root {
   color-scheme: light;
@@ -77,4 +79,15 @@ main{flex:1;display:grid;place-items:center;padding:48px 16px;text-align:center}
 <main><div><p class="zh ok">已登录，可以关闭此页面</p><p class="en ok">Signed in. You can close this tab.</p>${openApp}<p class="zh err">登录未完成</p><p class="en err">Sign-in didn't finish. Please try again in the app.</p></div></main>
 <footer class="site-footer"><span>© 2026 Goalloom</span><nav aria-label="页脚链接"><a href="${callbackLinks.releases}">版本发布</a><a href="${callbackLinks.repo}">GitHub</a><a href="${callbackLinks.issues}">反馈</a><details class="menu-pop"><summary class="lang-button" aria-label="语言: 简体中文">${globe}<span>简体中文</span></summary></details></nav></footer>
 ${returnToApp}</body></html>`
+  html = html.replaceAll(/<details class="menu-pop">[\s\S]*?<\/details>/g, '')
+  if (options?.language) {
+    const locale = options.language.split('-')[0] as keyof typeof callbackCopy
+    const copy = callbackCopy[locale] ?? callbackCopy.en
+    const [lang, success, failure, open, board, jev, releases, download, feedback, theme, next, retry] = copy
+    html = html.replace('lang="zh-CN"', `lang="${lang}"`)
+      .replace('Signed in. You can close this tab.', next)
+      .replace("Sign-in didn't finish. Please try again in the app.", retry)
+    for (const [before, after] of [['已登录，可以关闭此页面', success], ['登录未完成', failure], ['打开 Goalloom', open], ['目标看板', board], ['智能输入', jev], ['版本发布', releases], ['下载', download], ['反馈', feedback], ['切换主题', theme]]) html = html.replaceAll(before!, after!)
+  }
+  return html
 }

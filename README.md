@@ -59,7 +59,7 @@ The macOS build is **Developer ID signed and notarized by Apple**. The Windows i
 
 **macOS.** Open the DMG, drag Goalloom into `Applications`, then open it.
 
-**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.7 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
+**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.8 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
 
 **Windows.** SmartScreen shows "Windows protected your PC". Choose **More info**, then **Run anyway**, and follow the installer.
 
@@ -84,7 +84,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.9.7 adds Tab to create subtasks directly in a column, ordered group nesting, visible inline AI suggestions and better matching to development goals. Upgrade every computer using the same sync workspace to 1.9.7. The workspace format stays v11. See the [1.9.7 release notes](./docs/releases/v1.9.7.md). Build-time sync configuration is in the [development guide](./docs/development.md).
+Version 1.9.8 separates production sync from development. Local tasks, history and calendar stay in place, with a protective backup before transition. Sign in to Google again and set a sync password to upload to the new production workspace. Update every computer using sync to 1.9.8. Workspace format remains v11. See the [1.9.8 release notes](./docs/releases/v1.9.8.md). Build-time configuration is in the [development guide](./docs/development.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 

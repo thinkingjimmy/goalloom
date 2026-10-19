@@ -14,6 +14,8 @@ export const oauthTimeoutMs = 180_000
 export const oauthRedirect = `http://127.0.0.1:${oauthPort}/callback`
 
 export interface OAuthListenOptions {
+  language?: string
+  returnToApp?: boolean
   port?: number
   timeoutMs?: number
   onReady?: (port: number) => void
@@ -47,14 +49,14 @@ export async function googleSignIn(client: SupabaseClient, open: (url: string) =
   return listenForSession(client, open, started.data.url, options)
 }
 
-function sendPage(response: ServerResponse, failed: boolean): void {
+function sendPage(response: ServerResponse, failed: boolean, options?: OAuthListenOptions): void {
   if (response.writableEnded || response.destroyed) return
   response.writeHead(200, {
     'content-type': 'text/html; charset=utf-8',
     'cache-control': 'no-store',
     'content-security-policy': callbackCsp,
   })
-  response.end(callbackPage(failed))
+  response.end(callbackPage(failed, options))
 }
 
 function listenForSession(client: SupabaseClient, open: (url: string) => Promise<void>, url: string, options?: OAuthListenOptions): Promise<Session> {
@@ -75,7 +77,7 @@ function listenForSession(client: SupabaseClient, open: (url: string) => Promise
       else resolve(session)
     }
     const reply = (response: ServerResponse, failed: boolean) => {
-      sendPage(response, failed)
+      sendPage(response, failed, options)
       try { options?.onCallback?.() } catch { /* Focusing the window must not change the session result. */ }
     }
     const onAbort = () => finish(new SyncFailure('auth', 'cancelled'))
