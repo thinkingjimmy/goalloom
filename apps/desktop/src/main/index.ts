@@ -232,6 +232,7 @@ if (!app.requestSingleInstanceLock()) {
       readSecret: key => smart.syncedSecret(key),
       applySecret: (key, value) => smart.applyRemoteSetting(key, value),
       language: () => language.state.language,
+      locale: () => language.state.locale,
       clipboard: text => clipboard.writeText(text),
       now: () => new Date().toISOString(),
     })

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Current/legacy OS ciphers, storage worker, browser, connectivity signals and an optional anon key.
+ * [INPUT]: Current/legacy OS ciphers, storage worker, browser, resolved device locale, connectivity signals and an optional anon key.
  * [OUTPUT]: Persistent sessions, noninteractive recovery, explicit cleanup, encrypted exchange and bounded sync review reads. Sign-out and unused/signed-out startup do not access the keychain.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
  * The password is held in memory only until a join finishes or ten minutes pass.
@@ -108,6 +108,7 @@ export class SyncService {
     readSecret?: (key: string) => Promise<string | null | undefined>
     applySecret?: (key: string, value: string | null) => Promise<void>
     language?: () => string
+    locale?: () => string
     clipboard: (text: string) => void
     now: () => string
     clock?: SyncClock
@@ -381,7 +382,7 @@ export class SyncService {
       signal.addEventListener('abort', onAbort, { once: true })
       const onCallback = this.deps.onBrowserReturn
       void (this.deps.beginSignIn ?? googleSignIn)(this.client!, this.deps.openExternal, {
-        signal, ...(this.deps.language ? { language: this.deps.language() } : {}), returnToApp: this.deps.packaged === true, ...(onCallback ? { onCallback } : {}),
+        signal, language: this.deps.locale?.() ?? this.deps.language?.() ?? 'en', returnToApp: this.deps.packaged === true, ...(onCallback ? { onCallback } : {}),
       }).then(session => {
         signal.removeEventListener('abort', onAbort)
         resolve(session)
