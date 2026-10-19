@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Depends on lib/i18n (locale paths, SiteCatalog), lib/release, ./icons and ./theme
+ * [INPUT]: Depends on lib/i18n (locale paths, SiteCatalog), lib/release, ./icons, ./theme and an optional logical page path
  * [OUTPUT]: Exports SiteHeader, LanguageMenu and PlatformDownload
  * [POS]: components' only site navigation. The hero mounts it twice (stage band and floating bar); only one is ever
  *        visible. The download control renders both platforms and <html data-platform> picks one before paint.
@@ -10,7 +10,7 @@ import { RELEASES_URL, REPO, downloadUrl } from '@/lib/release'
 import { Icon, Mark } from './icons'
 import { ThemeToggle } from './theme'
 
-export function LanguageMenu({ locale, label, className, up = false }: { locale: Locale; label: string; className: string; up?: boolean }) {
+export function LanguageMenu({ locale, label, className, up = false, logicalPath = '/' }: { locale: Locale; label: string; className: string; up?: boolean; logicalPath?: string }) {
   const current = LANGUAGE_OPTIONS.find(option => option.value === locale)!
   return (
     <details className="menu-pop">
@@ -19,7 +19,7 @@ export function LanguageMenu({ locale, label, className, up = false }: { locale:
       </summary>
       <div className="menu-panel" data-up={up}>
         {LANGUAGE_OPTIONS.map(option => (
-          <a key={option.value} href={localizedPath(option.value, '/')} hrefLang={option.value} lang={option.value} aria-current={option.value === locale ? 'page' : undefined}>
+          <a key={option.value} href={localizedPath(option.value, logicalPath)} hrefLang={option.value} lang={option.value} aria-current={option.value === locale ? 'page' : undefined}>
             {option.label}{option.value === locale && <Icon name="check" size={14} />}
           </a>
         ))}
@@ -36,18 +36,19 @@ export function PlatformDownload({ copy }: { copy: SiteCatalog['nav'] }) {
   </>
 }
 
-export function SiteHeader({ locale, copy, className }: { locale: Locale; copy: SiteCatalog['nav']; className: string }) {
+export function SiteHeader({ locale, copy, className, logicalPath = '/' }: { locale: Locale; copy: SiteCatalog['nav']; className: string; logicalPath?: string }) {
+  const home = logicalPath === '/' ? '' : localizedPath(locale, '/')
   return (
     <header className={`site-header ${className}`}>
       <a className="brand" href={localizedPath(locale, '/')} aria-label={copy.home}>
         <span className="brand-tile"><Mark size={20} /></span>Goalloom
       </a>
       <nav className="site-nav" aria-label={copy.main}>
-        <a className="nav-link desktop-only" href="#board">{copy.board}</a>
-        <a className="nav-link desktop-only" href="#jev">{copy.jev}</a>
+        <a className="nav-link desktop-only" href={`${home}#board`}>{copy.board}</a>
+        <a className="nav-link desktop-only" href={`${home}#jev`}>{copy.jev}</a>
         <a className="nav-link desktop-only" href={RELEASES_URL}>{copy.releases}</a>
         <a className="nav-link desktop-only" href={REPO}>{copy.github}</a>
-        <LanguageMenu locale={locale} label={copy.language} className="nav-link" />
+        <LanguageMenu locale={locale} label={copy.language} className="nav-link" logicalPath={logicalPath} />
         <ThemeToggle toDark={copy.themeToDark} toLight={copy.themeToLight} className="nav-link nav-icon" />
         <PlatformDownload copy={copy} />
       </nav>

@@ -143,6 +143,8 @@ const es: SiteCatalog = {
     ],
   },
   footer: {
+    privacy: 'Privacidad',
+    terms: 'Términos',
     rights: '© 2026 Goalloom',
     links: 'Pie de página',
     feedback: 'Comentarios',

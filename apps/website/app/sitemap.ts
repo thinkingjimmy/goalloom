@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Depends on lib/i18n/locale and lib/seo/site
- * [OUTPUT]: A static sitemap: one self-canonical URL per locale, each listing every hreflang alternate
+ * [OUTPUT]: A static sitemap for home, privacy and terms in five locales, with reciprocal hreflang alternates
  * [POS]: app's search discovery map
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,8 @@ import { absoluteUrl } from '@/lib/seo/site'
 export const dynamic = 'force-static'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const languages = Object.fromEntries([['x-default', absoluteUrl('/')], ...LOCALES.map(locale => [locale, absoluteUrl(localizedPath(locale, '/'))])])
-  return LOCALES.map(locale => ({ url: absoluteUrl(localizedPath(locale, '/')), alternates: { languages } }))
+  return ['/', '/privacy/', '/terms/'].flatMap(path => {
+    const languages = Object.fromEntries([['x-default', absoluteUrl(path)], ...LOCALES.map(locale => [locale, absoluteUrl(localizedPath(locale, path))])])
+    return LOCALES.map(locale => ({ url: absoluteUrl(localizedPath(locale, path)), alternates: { languages } }))
+  })
 }

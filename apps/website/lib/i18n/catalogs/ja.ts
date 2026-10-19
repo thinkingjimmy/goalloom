@@ -143,6 +143,8 @@ const ja: SiteCatalog = {
     ],
   },
   footer: {
+    privacy: 'プライバシー',
+    terms: '利用規約',
     rights: '© 2026 Goalloom',
     links: 'フッター',
     feedback: 'フィードバック',

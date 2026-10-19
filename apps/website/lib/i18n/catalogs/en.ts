@@ -147,6 +147,8 @@ const en = {
     ],
   },
   footer: {
+    privacy: 'Privacy policy',
+    terms: 'Terms of service',
     rights: '© 2026 Goalloom',
     links: 'Footer',
     feedback: 'Feedback',

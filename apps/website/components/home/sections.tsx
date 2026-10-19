@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Depends on lib/i18n, lib/release, ../icons, ../motion, ../site-header and the client stories/demos
- * [OUTPUT]: Exports Hero, MakerNote, OkrGroup, JevGroup, DownloadFaq and SiteFooter
+ * [OUTPUT]: Exports Hero, MakerNote, OkrGroup, JevGroup and DownloadFaq
  * [POS]: components/home's page sections, in page order; copy comes only from the SiteCatalog so all five locales
  *        render the same structure
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -9,7 +9,7 @@ import type { Locale, SiteCatalog } from '@/lib/i18n'
 import { RELEASES_URL, REPO, downloadUrl } from '@/lib/release'
 import { Icon } from '../icons'
 import { Reveal } from '../motion'
-import { LanguageMenu, SiteHeader } from '../site-header'
+import { SiteHeader } from '../site-header'
 import { CopyLink } from './copy-link'
 import { HeroDemo } from './hero-demo'
 import { JevDemo } from './jev-demo'
@@ -139,19 +139,5 @@ export function DownloadFaq({ t }: Props) {
         ))}
       </div>
     </Reveal>
-  )
-}
-
-export function SiteFooter({ locale, t }: Props) {
-  return (
-    <footer className="site-footer">
-      <span>{t.footer.rights}</span>
-      <nav aria-label={t.footer.links}>
-        <a href={RELEASES_URL}>{t.nav.releases}</a>
-        <a href={REPO}>{t.nav.github}</a>
-        <a href={`${REPO}/issues`}>{t.footer.feedback}</a>
-        <LanguageMenu locale={locale} label={t.nav.language} className="lang-button" up />
-      </nav>
-    </footer>
   )
 }

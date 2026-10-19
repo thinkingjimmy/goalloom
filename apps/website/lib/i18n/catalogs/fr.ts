@@ -143,6 +143,8 @@ const fr: SiteCatalog = {
     ],
   },
   footer: {
+    privacy: 'Confidentialité',
+    terms: 'Conditions',
     rights: '© 2026 Goalloom',
     links: 'Pied de page',
     feedback: 'Retours',

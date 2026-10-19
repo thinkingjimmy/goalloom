@@ -55,6 +55,11 @@
 ### 隐私
 
 - 不加载分析脚本、第三方字体或任何第三方请求。
+- 官网 `/privacy/` 与 `/terms/` 提供正式英文隐私政策和服务条款；其余四种语言沿用既有前缀，内容完整，不回退英文。全部为静态正文，未登录、禁用 JavaScript 时仍可阅读。
+- 政策描述实际数据流：本地 SQLite／备份、Google 基本账号信息、可选端到端加密同步及未加密运行元数据、可选 AI 上下文、链接预览、更新与基础设施日志；不承诺退出即删除、无日志或即时清除所有备份。
+- 隐私与服务联系邮箱为负责人确认的 `hellojimmywong@gmail.com`；政策生效日期为 2026-10-19。服务条款保留 MIT 和服务端 AGPL 的既有权利，不引入订阅、法律管辖地或强制仲裁安排。
+- 首页与法律页面复用页脚，桌面和手机均显示隐私与条款入口。法律页面语言切换保留当前文档，顶部产品导航返回对应语言首页的段落。
+- 法律页面沿用纸感明暗主题，提供目录锚点、联系邮箱和服务商政策链接；canonical、hreflang、WebPage JSON-LD 和 sitemap 覆盖全部十个文档地址。
 
 ## 工程契约
 
@@ -65,6 +70,8 @@
 - 生产域名为 `https://www.goalloom.com`，`goalloom.com` 由 Vercel 308 跳转；canonical、hreflang、sitemap、og 一律使用 www。
 
 ## TODO
+
+- [x] 上线五语言隐私政策和服务条款，提供公开静态地址、双端页脚入口、保留文档的语言切换、目录与联系邮箱；同步页面元数据及 sitemap，不改变既有开源许可。
 
 - [x] Published the 1.9.7 download snapshot after the GitHub Release became public. Website typecheck, build/SEO audit and 27 E2E checks passed. Vercel production deployment and all five live pages, canonical/hreflang metadata and 1.9.7 download links passed verification.
 

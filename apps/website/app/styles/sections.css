@@ -95,8 +95,9 @@
 .faq details[open] summary svg { transform: rotate(180deg); }
 .faq p { padding: 0 0 20px; font-size: 14px; line-height: 1.75; color: var(--secondary); max-width: 640px; }
 
-.site-footer { height: 80px; padding: 0 var(--edge); border-top: 1px solid var(--hairline); display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--secondary); }
-.site-footer nav { display: flex; align-items: center; gap: 18px; }
+.site-footer { min-height: 80px; padding: 20px var(--edge); border-top: 1px solid var(--hairline); display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--secondary); }
+.site-footer nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; }
+.site-footer nav > a { min-height: 44px; display: inline-flex; align-items: center; }
 .site-footer a:hover { color: var(--fg); }
 .site-footer .menu-panel { top: auto; bottom: calc(100% + 6px); }
 .lang-button { height: 32px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--raised); color: var(--fg); display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
@@ -131,7 +132,7 @@
   .download { grid-template-columns: minmax(0, 1fr); row-gap: 36px; padding-top: 56px; padding-bottom: 56px; }
   .dl-title { font-size: 30px; }
   .site-footer { height: auto; padding: 24px 16px; }
-  .site-footer nav a { display: none; }
+  .site-footer nav a:not(.legal-link) { display: none; }
 }
 @media (min-width: 901px) {
   .dl-copy { display: none; }

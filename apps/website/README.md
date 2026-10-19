@@ -9,16 +9,17 @@ Next.js 16 App Router · React 19 · TypeScript · 纯 CSS · Hugeicons · 静�
 ## 目录
 
 ```text
-app/            # 两棵根布局：(default)=英文无前缀（x-default），[locale]=zh-CN/ja/es/fr；sitemap、robots、globals.css
-app/styles/     # tokens（纸感明暗）→ base → board（产品同款看板/composer/toast）→ hero（header、收缩舞台）→ sections → motion
-components/     # site-document（html lang、首帧主题/平台脚本）、boot、theme、motion、icons、site-header
+app/            # 两棵根布局：(default)=英文无前缀（x-default），[locale]=zh-CN/ja/es/fr；首页、privacy/、terms/、sitemap、robots
+app/styles/     # tokens → base → board → hero → sections → legal（静态长文）→ motion
+components/     # site-document、boot、theme、motion、icons、site-header；共享 site-footer 与 legal-page
 components/board/  # Board（列/行/关系线）与 Composer，三处演示共用
 components/home/   # stage（滚动收缩/浮动 header）、hero-demo、lines-story、jev-demo、sections、home-page、copy-link
 lib/            # board.ts（演示工作区 + deriveView 规则）、release.ts（仓库与下载快照）
 lib/i18n/       # locale 路径、metadata（canonical/hreflang/OG）、catalogs/ 五语言（en 定义结构，其余由类型强制对齐）
+lib/legal/      # types.ts 内容契约、联系邮箱与生效日期；catalogs/ 五语言政策及条款；index.ts 页面元数据
 lib/seo/        # 站点身份与 JSON-LD
 public/         # 明暗壁纸、og.png、icon.svg、app-icon.png
-scripts/        # audit-seo.mjs（构建门禁）、e2e.mjs（端到端验收与截图产物）
+scripts/        # audit-seo.mjs（15 页构建门禁）、e2e.mjs + legal-cases.mjs（端到端验收与截图产物）
 ```
 
 ## 发布

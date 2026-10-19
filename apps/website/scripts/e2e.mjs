@@ -3,7 +3,7 @@
  * [OUTPUT]: Exit code 0/1, and a repeatable artifact in output/e2e/: report.json plus screenshots of every checked state
  * [POS]: website's end-to-end acceptance: serves the export exactly as a static host would and drives it like a
  *        visitor — scroll choreography, the playable hero, relation-line carousel, Jev film, theme, platform-aware
- *        download, five locales with SEO tags, narrow layout, reduced motion
+ *        download, five locales with SEO tags, legal documents, narrow layout, reduced motion
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { execFileSync } from 'node:child_process'
@@ -11,6 +11,7 @@ import { createReadStream, existsSync, mkdirSync, rmSync, statSync, writeFileSyn
 import { createServer } from 'node:http'
 import { extname, join, resolve } from 'node:path'
 import { chromium } from 'playwright'
+import { runLegalCases } from './legal-cases.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const out = join(root, 'out')
@@ -80,6 +81,7 @@ try {
     for (const [, path] of LOCALES) assert(sitemap.includes(`<loc>${SITE}${path}</loc>`), `sitemap ${path}`)
   })
   await seo.close()
+  await runLegalCases({ browser, base, SITE, LOCALES, check, assert, shot })
 
   // --- Desktop, Chinese, light theme ---
   const desk = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: 'light' })

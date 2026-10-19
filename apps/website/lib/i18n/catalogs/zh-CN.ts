@@ -143,6 +143,8 @@ const zhCN: SiteCatalog = {
     ],
   },
   footer: {
+    privacy: '隐私政策',
+    terms: '服务条款',
     rights: '© 2026 Goalloom',
     links: '页脚',
     feedback: '反馈',
