@@ -36,7 +36,7 @@
 # Key features
 
 - **Goals and today on one board.** Four time columns—3 months, this month, this week, today—put the quarter's goals beside today's work. A collapsible Later sidebar keeps unplanned ideas close at hand.
-- **Two task levels, complete tasks.** Drag a task onto another to indent it. Subtasks inherit goals and colors and keep their own details and status. Reschedule them independently; moving a parent carries only children scheduled with it.
+- **Two task levels, complete tasks.** Drag a task onto another, or press Tab in inline entry or the board title editor, to indent it. Shift+Tab makes it independent. Subtasks inherit goals and colors and keep their own details and status. Reschedule them independently; moving a parent carries only children scheduled with it.
 - **Every to-do knows why.** Link an item to goals in longer horizons. Filter one goal (⌘1–⌘9) and relation lines draw its whole chain; hover any row to light its path. Links explain, they never roll up progress.
 - **Write it down; Jev places it.** Optional Jev 1.14 smart input matches new tasks to your goals from Cmd+N and inline column entry. Enter saves immediately; a late answer can fill the column and parents. Manual edits win, and creation plus its automatic completion remains one undo step. Bring your own key.
 - **Nothing slips quietly.** Unfinished items roll over to the next period, and past periods stay readable and can be cleared in batches.
@@ -59,7 +59,7 @@ The macOS build is **Developer ID signed and notarized by Apple**. The Windows i
 
 **macOS.** Open the DMG, drag Goalloom into `Applications`, then open it.
 
-**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.8 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
+**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.9 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
 
 **Windows.** SmartScreen shows "Windows protected your PC". Choose **More info**, then **Run anyway**, and follow the installer.
 
@@ -84,7 +84,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.9.8 separates production sync from development. Local tasks, history and calendar stay in place, with a protective backup before transition. Sign in to Google again and set a sync password to upload to the new production workspace. Update every computer using sync to 1.9.8. Workspace format remains v11. See the [1.9.8 release notes](./docs/releases/v1.9.8.md). Build-time configuration is in the [development guide](./docs/development.md).
+Version 1.9.8 separates production sync from development. Local tasks, history and calendar stay in place, with a protective backup before transition. Sign in to Google again and set a sync password to upload to the new production workspace. Update every computer using sync to 1.9.9. Workspace format remains v11. See the [1.9.9 release notes](./docs/releases/v1.9.9.md). Build-time configuration is in the [development guide](./docs/development.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 

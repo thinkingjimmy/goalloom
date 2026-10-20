@@ -71,6 +71,8 @@
 
 ## TODO
 
+- [x] Published the 1.9.9 download snapshot after the GitHub Release became public. Website typecheck, build/15-page SEO audit and 41 E2E checks passed. A production build was prepared without changing the public domain, then promoted after release publication. Browser checks passed for all 15 live pages, all five homepages' 1.9.9 links and both public downloads.
+
 - [x] Published the 1.9.8 download snapshot after the GitHub Release became public. Website typecheck, build/15-page SEO audit and 41 E2E checks passed. Vercel production deployment and browser checks of all 15 live pages passed; all five homepages link to 1.9.8.
 
 - [x] 上线五语言隐私政策和服务条款，提供公开静态地址、双端页脚入口、保留文档的语言切换、目录与联系邮箱；同步页面元数据及 sitemap，不改变既有开源许可。

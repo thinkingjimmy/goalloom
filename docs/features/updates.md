@@ -32,7 +32,7 @@
 
 ### 1.9.9 update: title keyboard levels and independent subtask scheduling
 
-Release preparation: [notes](../releases/v1.9.9.md) and [timing/validation record](../releases/v1.9.9-timing.md). Local pre-release verification and hosted native nesting/signing/packaged gates must complete before publication. Workspace format remains v11.
+Published [1.9.9](https://github.com/thinkingjimmy/goalloom/releases/tag/v1.9.9) with [notes](../releases/v1.9.9.md) and a [timing/validation record](../releases/v1.9.9-timing.md). Local pre-release verification stopped at an externally interrupted pointer check; the interrupted and remaining source suites passed on an isolated hosted macOS desktop. Both packaged smokes, macOS signing/notarization, signed Keychain acceptance, downloaded checksums and exact build identity passed. Workspace format remains v11; Windows 11 manual acceptance remains separate.
 
 ### 1.9.7 update: inline subtasks and ordered task groups
 
