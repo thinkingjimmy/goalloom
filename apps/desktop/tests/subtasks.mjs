@@ -142,7 +142,8 @@ try {
   const doneGroup = join(evidence, 'completed-group.png'); await page.screenshot({ path: doneGroup }); screenshots.push(doneGroup)
   await row(ids.child).locator('.check').click()
   await pollPage(page, async ids => (await window.goalloom.getItem(ids.child)).item.status === 'todo', ids)
-  assert.equal(await row(ids.parent).locator('xpath=ancestor::details').count(), 0)
+  // The storage receipt can precede the renderer snapshot that relocates the group.
+  await page.waitForFunction(id => { const row = document.getElementById(`item-${id}`); return !!row && !row.closest('details') }, ids.parent)
   checks.push('All completed visible members enter the completed section together; reopening one member returns the complete group')
   await row(ids.parent).locator('.task-title').focus(); await page.keyboard.press('Enter')
   await detail.locator('.detail-title-display').click()
