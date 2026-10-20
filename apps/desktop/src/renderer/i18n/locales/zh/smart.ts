@@ -134,6 +134,8 @@ export const smartMessages = widen({
   connectedGroup: '已连接',
   addGroup: '添加服务',
   pausedMeta: '已暂停',
+  connectedStatus: '已连接',
+  disconnectedStatus: '未连接',
   needsAttention: '需处理',
   notAdded: '未添加 Key',
   addKey: '添加 Key',

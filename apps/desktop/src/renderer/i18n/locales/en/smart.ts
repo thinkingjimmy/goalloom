@@ -134,6 +134,8 @@ export const smartMessages: SmartCatalog = {
   connectedGroup: 'Connected',
   addGroup: 'Add a service',
   pausedMeta: 'Paused',
+  connectedStatus: 'Connected',
+  disconnectedStatus: 'Not connected',
   needsAttention: 'Needs attention',
   notAdded: 'No key added',
   addKey: 'Add key',

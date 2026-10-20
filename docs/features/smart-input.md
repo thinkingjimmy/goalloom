@@ -129,7 +129,9 @@ Matching keeps the original strict action/outcome criterion and adds structured 
 
 - 设置侧栏的 AI 服务、备份与恢复、回收站只显示图标和名称。智能输入与洞察暂停时，右侧显示琥珀色暂停图标，不显示状态文字；悬停提示及无障碍说明使用当前语言。已启用状态与关于页更新提示保留。
 
-- **AI 服务**只管服务本身：已连接服务显示能力标签、Key 遮罩与测试日期、正在使用它的功能；可添加、更换 Key、重测、移除（正在被使用时先说明会停用哪些功能）。账户级失败（认证、账户验证、额度、付款、权限、Gateway 路由）记在服务上，显示「需处理」与官方控制台/重新测试入口，直到下一次成功调用或重测；隐私要点与私测提示也在这里。
+- **AI 服务**只管服务本身：全部服务放在同一个紧凑列表中，已连接的排在前面。每行使用随应用离线打包的官方网站标识，显示服务名、连接状态、Key 遮罩与测试日期；不显示能力标签或正在使用它的功能。添加、更换和移除均为常驻图标按钮，悬停和键盘聚焦显示当前语言的提示；展开表单时原按钮改为收起。移除正在被使用的服务时，仍先说明会停用哪些功能。账户级失败（认证、账户验证、额度、付款、权限、Gateway 路由）记在服务上，显示「需处理」与官方控制台/重新测试入口，直到下一次成功调用或重测；隐私要点与私测提示也在这里。
+
+  Compact-list failure cases: missing/offline logos, hidden or overlapping icon actions, untranslated labels or hints, hints clipped by the native dialog, Escape closing Settings instead of the hint, stale hints after a click, lost connection drafts, unsupported capability claims, silent removal of an active service, and lost account-recovery controls. Acceptance extends the owning AI-service journey in `tests/insight-generation.mjs`, checks localized icon labels/hints in `tests/language.mjs`, and captures all four appearances.
 - **智能输入**与**洞察**结构一致：顶部是功能总开关状态卡（已启用 · 由某服务处理 / 需处理 / 已暂停 / 未启用，没有可用服务时引导添加），下方是处理服务单选，只列出能运行该功能模型的服务。
 
 三个服务可各存凭据；每个功能各选一个服务。新凭据测试并保存成功前，旧可用配置保持不变；一个服务的 Key 不发送给另一服务。

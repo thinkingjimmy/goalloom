@@ -10,7 +10,7 @@ renderer/
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
 ├── styles.css               # Tailwind entry and retained coordinated board/dialog states, platform rules, motion, scrollbars and accessibility
 ├── styles/                  # Shared semantic theme aliases and native defaults; see styles/README.md
-├── assets/app-icon.png      # 关于页的应用图标（apps/desktop/resources/icon.png 的 256px 版本）
+├── assets/                  # About icon and offline provider branding; see assets/ai/README.md
 ├── features/                # 按用户功能聚合页面及其专属组件
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
 │   │   ├── TopBar.tsx       # Draggable titlebar: independent Later/count toggle, flow filters, search, column visibility and settings
@@ -28,7 +28,8 @@ renderer/
 │   │       ├── SyncSignOutDialog.tsx # Default keep-local confirmation, explicit cleanup warning and scoped Escape/focus return
 │   │       ├── SyncRecovery.tsx # Recommended new workspace, alternative destructive reset with exact phrase, password confirmation and other-device guidance
 │   │       ├── sync-security.css # Native radio geometry shared by Settings and first-run recovery
-│   │       ├── AiPane.tsx       # AI 服务：已连接/可添加服务、能力标签、Key 遮罩与测试日期、账户问题与重测、移除前说明、隐私要点
+│   │       ├── AiPane.tsx       # Compact AI service list: bundled website marks, connection state, key/date, icon actions, account recovery and removal confirmation
+│   │       ├── ProviderAction.tsx # Service icon actions with localized pointer/keyboard hints, native-dialog portals and scoped Escape
 │   │       ├── FeatureControls.tsx # 智能输入/洞察共用：功能总开关状态卡与处理服务单选（只列能运行该模型的服务）
 │   │       ├── SmartPane.tsx    # 智能输入：总开关 + 处理服务（Jev）
 │   │       ├── InsightPane.tsx  # Insight: switch + DeepSeek provider, breakpoint/review switches, personalization tabs (about me / drafting / review / read-only prompt)

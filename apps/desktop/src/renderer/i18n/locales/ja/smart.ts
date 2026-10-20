@@ -134,6 +134,8 @@ export const smartMessages: SmartCatalog = {
   connectedGroup: '接続済み',
   addGroup: 'サービスを追加',
   pausedMeta: '一時停止中',
+  connectedStatus: '接続済み',
+  disconnectedStatus: '未接続',
   needsAttention: '要対応',
   notAdded: 'キー未追加',
   addKey: 'キーを追加',

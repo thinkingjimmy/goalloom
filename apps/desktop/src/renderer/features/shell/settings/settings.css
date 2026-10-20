@@ -1,5 +1,5 @@
 /* [INPUT]: Settings navigation, localized labels/status and shared theme tokens.
- * [OUTPUT]: Native-dialog geometry, coordinated navigation/card states, content skins and localized control exceptions.
+ * [OUTPUT]: Native-dialog geometry, coordinated navigation/card states, compact provider rows with floating action hints, content skins and localized control exceptions.
  * [POS]: Settings-specific CSS; shared primitives and ordinary layout use Tailwind.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -151,12 +151,28 @@
 .backup-kind[data-kind='manual'] { background: color-mix(in oklab, var(--focus) 16%, transparent); color: var(--focus); }
 .backup-kind[data-kind='protective'] { background: color-mix(in oklab, var(--backlog) 16%, transparent); color: var(--backlog); }
 
-/* AI services: provider rows with capability chips; the connect form opens under its row. */
+/* AI services: compact connection rows; the connect form opens under its row. */
 .smart-provider > * + * { border-top: 1px solid var(--hairline); }
 .smart-provider-form { background: color-mix(in oklab, var(--hover) 45%, transparent); }
-.capability-chip[data-state='pending'] { background: var(--hover); color: var(--fg-soft); }
-.capability-chip[data-state='issue'] { background: color-mix(in oklab, var(--backlog) 14%, transparent); color: var(--backlog); }
-.capability-chip[data-state='unsupported'] { background: transparent; color: var(--secondary); box-shadow: inset 0 0 0 1px var(--line); }
+.provider-name > span:first-child { overflow-wrap: anywhere; }
+.provider-state { color: var(--secondary); white-space: nowrap; }
+.provider-state::before { content: ''; width: 5px; height: 5px; border: 1px solid currentColor; border-radius: 50%; }
+.provider-state[data-state='connected'] { color: var(--ok); }
+.provider-state[data-state='connected']::before, .provider-state[data-state='issue']::before { background: currentColor; }
+.provider-state[data-state='issue'] { color: var(--backlog); }
+:root[data-theme='dark'] .provider-logo[data-provider='openrouter'] { filter: invert(1); }
+.provider-logo[data-provider='vercel-gateway'] { border-radius: 5px; }
+.provider-action { transition: background-color .15s ease-out, color .15s ease-out; }
+.provider-action:focus-visible { background: var(--hover); }
+@media (hover: hover) and (pointer: fine) { .provider-action[data-danger='true']:hover { color: var(--danger); } }
+.popover.provider-action-tooltip { width: max-content; min-width: 0; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 6px; background: var(--fg); color: var(--bg); box-shadow: var(--shadow); font-size: 12px; line-height: 18px; white-space: nowrap; pointer-events: none; }
+@media (pointer: coarse) { .provider-action { width: 44px; height: 44px; } }
+@media (max-width: 600px) {
+  .provider-row { flex-wrap: wrap; gap: 10px; padding: 16px; }
+  .provider-row .settings-row-text { flex-basis: calc(100% - 50px); }
+  .provider-actions { margin-left: auto; }
+  .smart-provider-form { padding-left: 16px; padding-right: 16px; }
+}
 .settings-row-text small[data-issue='true'] { color: var(--backlog); }
 .settings-row.provider-remove { min-height: 48px; padding-left: 62px; gap: 8px; font-size: 12.5px; color: var(--fg-soft); background: color-mix(in oklab, var(--danger-tint) 55%, transparent); }
 .provider-remove > span { flex: 1; min-width: 0; }

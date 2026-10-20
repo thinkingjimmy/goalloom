@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron main/preload, development or built renderer, isolated profiles, an explicit week-start choice and synthetic provider responses.
- * [OUTPUT]: Repeatable generation reports and screenshots (onboarding connection, Settings › AI services, breakpoint loading/completion/fallback, drafting, reviews) in output/tests/insight/generation/.
+ * [OUTPUT]: Repeatable generation reports and screenshots (onboarding connection, compact AI services with offline logos/icon hints, breakpoint loading/completion/fallback, drafting, reviews) in output/tests/insight/generation/.
  * [POS]: Desktop acceptance of the AI-service onboarding path, per-feature switches, drafting and review persistence/refresh/restart/replacement through real IPC/storage; provider transport is controlled.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,6 +17,7 @@ import react from '@vitejs/plugin-react'
 import tailwind from '@tailwindcss/vite'
 import { pollPage } from './fixtures/poll.mjs'
 import { verifyReviewDrafts } from './fixtures/review-drafts.mjs'
+import { verifyAiServices } from './fixtures/ai-services.mjs'
 
 const out = resolve('output/tests/insight/generation')
 await mkdir(out, { recursive: true })
@@ -80,10 +81,7 @@ async function run(mode) {
     const settings = page.locator('dialog.settings-modal')
     const nav = settings.getByRole('navigation', { name: '设置分类' })
     await nav.getByRole('button', { name: 'AI 服务', exact: true }).click()
-    const openrouter = settings.locator('.smart-provider').filter({ hasText: 'OpenRouter' })
-    await openrouter.getByText('✓ Jev', { exact: true }).waitFor()
-    await openrouter.getByText('✓ DeepSeek', { exact: true }).waitFor()
-    await openrouter.getByText(/智能输入、洞察正在使用/).waitFor()
+    report.aiServices = await verifyAiServices(page, mode, out)
     assert.equal(await nav.getByRole('button', { name: 'AI 服务', exact: true }).innerText(), 'AI 服务')
     await page.screenshot({ path: `${out}/${mode}-settings-ai.png` })
     await nav.getByRole('button', { name: '洞察', exact: true }).click()
@@ -108,7 +106,7 @@ async function run(mode) {
     await settings.getByRole('switch', { name: '周复盘 · 月复盘', exact: true }).click()
     assert.equal(await revision(), beforeSettings)
     assert.equal((await calls()).length, 0, 'capability tests are not drafting calls')
-    check('Settings › AI services shows the key per capability; insight switches off and on independently without workspace writes')
+    check('Settings › AI services uses compact rows and icon hints; insight switches off and on independently without workspace writes')
     await page.keyboard.press('Escape')
     await settings.waitFor({ state: 'detached' })
 
@@ -158,7 +156,7 @@ async function run(mode) {
     await issueRow.getByText(/OpenRouter 要求在其官方页面处理付款方式/).waitFor()
     await page.screenshot({ path: `${out}/${mode}-settings-ai-issue.png` })
     await issueRow.getByRole('button', { name: '重新测试', exact: true }).click()
-    await issueRow.getByText(/智能输入、洞察正在使用/).waitFor()
+    await issueRow.getByText('已连接', { exact: true }).waitFor()
     assert.doesNotMatch(await issueNav.getByRole('button', { name: 'AI 服务', exact: true }).innerText(), /需处理/)
     check('an account-level failure shows on the provider and the feature header until a retest clears it')
     await page.keyboard.press('Escape')

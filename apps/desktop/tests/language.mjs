@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, isolated profiles with synthetic paused AI credentials, injected review history, an explicit week-start choice and the five supported locale catalogs.
- * [OUTPUT]: Language-switching acceptance, single-line navigation and content-sized review choices, localized reminder dismissal/pause icons, app-local diagnostics and screenshots.
+ * [OUTPUT]: Language-switching acceptance, single-line navigation and content-sized review choices, localized AI-service action hints and pause icons, app-local diagnostics and screenshots.
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -79,6 +79,11 @@ const weeklyGuides = {
   fr: { heading: 'Bilan de La semaine dernière, préparer Cette semaine', start: 'Bilan de La semaine dernière', continue: 'Poursuivre le bilan', dismiss: 'Masquer ce bilan' },
 }
 const parentLabels = { zh: '关联到上级', en: 'Link to a parent', ja: '上位に関連付け', es: 'Vincular a un superior', fr: 'Lier à un parent' }
+const aiActions = {
+  zh: ['添加 Key', '更换 Key', '移除', '已连接', '未连接'], en: ['Add key', 'Replace key', 'Remove', 'Connected', 'Not connected'],
+  ja: ['キーを追加', 'キーを変更', '削除', '接続済み', '未接続'], es: ['Añadir clave', 'Cambiar clave', 'Quitar', 'Conectado', 'Sin conectar'],
+  fr: ['Ajouter une clé', 'Remplacer la clé', 'Retirer', 'Connecté', 'Non connecté'],
+}
 
 let application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 try {
@@ -227,6 +232,23 @@ try {
     for (let index = 0; index < panes; index++) {
       await dialog.locator('.settings-nav button').nth(index).click()
       if (['en', 'es', 'fr'].includes(code)) await assertTranslated(page, `${code} settings pane ${index + 1}`)
+      if (await dialog.locator('.smart-provider').count()) {
+        const connected = dialog.locator('.smart-provider').filter({ hasText: 'OpenRouter' })
+        const available = dialog.locator('.smart-provider').filter({ hasText: 'Vercel AI Gateway' })
+        const [add, replace, remove, online, offline] = aiActions[code]
+        await connected.getByText(online, { exact: true }).waitFor()
+        await available.getByText(offline, { exact: true }).waitFor()
+        for (const [row, label] of [[available, add], [connected, replace], [connected, remove]]) {
+          const action = row.getByRole('button', { name: label, exact: true })
+          assert.equal(await action.innerText(), '')
+          await action.hover()
+          await dialog.getByRole('tooltip', { name: label, exact: true }).waitFor()
+          await page.keyboard.press('Escape')
+          assert.equal(await dialog.isVisible(), true)
+          await page.mouse.move(1, 1)
+        }
+        await dialog.screenshot({ path: `${shots}/language-ai-services-${code}.png` })
+      }
       if (await dialog.locator('.calendar-facts').count()) await dialog.screenshot({ path: `${shots}/language-calendar-${code}.png` })
     }
     await dialog.locator('.settings-nav button').first().click()
