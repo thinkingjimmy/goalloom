@@ -72,6 +72,10 @@ jobs:
           GOALLOOM_SUPABASE_URL: https://keqprrgvcefqdwnxaafv.supabase.co
           GOALLOOM_SUPABASE_ANON_KEY: ${{ secrets.GOALLOOM_PRODUCTION_SUPABASE_ANON_KEY }}
 
+      - name: Prepare native test display
+        run: |
+          mkdir -p apps/desktop/output/tests/ci-display
+          swift .github/scripts/macos-display.swift | tee apps/desktop/output/tests/ci-display/display.json
       - name: Native interaction acceptance
         run: |
           pnpm test:subtasks
@@ -91,6 +95,7 @@ jobs:
             apps/desktop/output/tests/insight/
             apps/desktop/output/tests/empty-card-layout/
             apps/desktop/output/tests/insight-generation/
+            apps/desktop/output/tests/ci-display/
 
       # M2.3: Upload build artifact for package job
       - name: Upload build artifacts
@@ -262,6 +267,10 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash .github/scripts/macos-signing.sh verify
+      - name: Prepare packaged test display
+        run: |
+          mkdir -p apps/desktop/output/tests/ci-display
+          swift .github/scripts/macos-display.swift | tee apps/desktop/output/tests/ci-display/display.json
       - name: Signed Keychain first use and previous-version restoration
         working-directory: apps/desktop
         env:
@@ -316,7 +325,9 @@ jobs:
           name: macos-signed-keychain-evidence
           retention-days: 7
           if-no-files-found: ignore
-          path: apps/desktop/output/tests/keychain-signed/
+          path: |
+            apps/desktop/output/tests/keychain-signed/
+            apps/desktop/output/tests/ci-display/
 
   package-win:
     name: Package Windows

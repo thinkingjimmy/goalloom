@@ -6,6 +6,9 @@
 - `macos-profile.mjs`: authenticates Apple requests, resolves and validates the private session provisioning profile, and exports its path without exposing its contents.
 - `apple-profile.mjs`: matches the imported signing certificate, reuses its active macOS profile, or creates the fixed app profile only when explicitly enabled.
 - `draft-release.sh`: stages exact-version update assets and checksums in a GitHub release draft; public release remains a separate action.
+- `macos-display.swift`: selects a supported native CI desktop mode, persists it only for the login session and records dimension evidence before native acceptance.
+
+Display preparation failure cases: accidentally changing an owner's desktop; no supported mode large enough for the native fixtures; pixel dimensions mistaken for logical desktop bounds; a rejected or incomplete display transaction; and a mode reverting when the helper exits. CI display preparation must be GitHub-Actions-only, select an existing desktop mode, commit for the login session, record before/available/after dimensions and fail before acceptance when the required bounds are unavailable. It must not change app behavior, emulate a browser viewport or retry focus.
 
 Profile CLI acceptance: `pnpm --filter @goalloom/desktop exec -- node tests/review/session-profile.mjs`. Synthetic boundaries do not establish signed package acceptance.
 
