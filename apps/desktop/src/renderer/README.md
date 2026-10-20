@@ -71,7 +71,7 @@ renderer/
 │   │   ├── Board.tsx        # Unified periods/completion layout, shared header/tail/blank capture placement, title-edit nesting targets/section retention, review guides, group gestures and virtual focus pinning
 │   │   ├── inline-nesting.ts # Shared eligible preceding-root selection for column capture and existing-title Tab nesting
 │   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
-│   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
+│   │   ├── geometry.ts     # Shared panel/drop clipping and rounded connector routes; each bend clamps independently so vertical outline starts retain the child-entry curve
 │   │   ├── ColumnOrderMenu.tsx # One-shot arrangement immediately left of Add; shared column-hover/keyboard/menu reveal; focus returns after guarded writes re-enable the trigger
 │   │   ├── useBoardDrag.ts # Shared pointer intents, whole-group middle previews, atomic child insertion and guarded pointer/keyboard sorting
 │   │   ├── NestingPicker.tsx # Keyboard root selection, bounded current/future/Later search, placement revalidation and source focus return

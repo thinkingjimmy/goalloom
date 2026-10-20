@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Native Electron page with an isolated workspace and the current Chinese locale.
- * [OUTPUT]: Direct outline-line geometry, real cross-column dragging, owner navigation and repeatable screenshots.
+ * [OUTPUT]: Rounded direct outline-line geometry/endpoints in four appearances, real cross-column dragging, owner navigation and repeatable screenshots.
  * [POS]: Subtask E2E UI extension; selected with --ownership or included in the complete subtask feature run.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -40,16 +40,49 @@ export async function subtaskOwnershipUI({ page, report, evidence }) {
   await page.waitForFunction(id => document.querySelector(`[data-edge-id="nest/${id}"]`)?.getAttribute('d')?.length > 5, ids.child)
   assert.equal(await row(ids.child).getAttribute('data-nested'), 'true')
   const samePeriodGeometry = await line.evaluate(path => {
-    const box = path.getBBox()
-    return { d: path.getAttribute('d'), width: box.width, height: box.height }
+    const box = path.getBBox(), length = path.getTotalLength(), start = path.getPointAtLength(0), end = path.getPointAtLength(length)
+    const bend = Array.from({ length: 64 }, (_, index) => path.getPointAtLength(length * index / 63))
+      .find(point => point.x > start.x + .25 && point.y > start.y && point.y < end.y - .25)
+    return { d: path.getAttribute('d'), width: box.width, height: box.height,
+      start: { x: start.x, y: start.y }, end: { x: end.x, y: end.y }, bend: bend ? { x: bend.x, y: bend.y } : null }
   })
   assert(samePeriodGeometry.width > 0 && samePeriodGeometry.width <= 25, 'Local ownership line stays in the 24px indentation gutter')
+  assert.match(samePeriodGeometry.d, /Q/, 'The vertical-start ownership line retains its rounded child-entry corner')
+  assert(samePeriodGeometry.bend,
+    'The rendered corner curves through both axes instead of forming a sharp L')
+  const anchors = await page.evaluate(value => {
+    const parent = document.querySelector(`#item-${value.parent} .flow-dot-button`).getBoundingClientRect()
+    const child = document.querySelector(`#item-${value.child} .flow-dot-button`).getBoundingClientRect()
+    const origin = document.querySelector('.board').getBoundingClientRect()
+    return { start: { x: parent.left + parent.width / 2 - origin.left, y: parent.top + parent.height / 2 - origin.top },
+      end: { x: child.left + child.width / 2 - 3 - origin.left, y: child.top + child.height / 2 - origin.top } }
+  }, ids)
+  for (const endpoint of ['start', 'end']) for (const axis of ['x', 'y']) {
+    assert(Math.abs(samePeriodGeometry[endpoint][axis] - anchors[endpoint][axis]) < .75, `${endpoint} remains aligned with the flow dot`)
+  }
   assert.equal(await page.locator('[data-edge-id^="inherit:"]').count(), 0)
   assert.equal(await row(ids.parent).locator('.breakpoint').count(), 0, 'An owned current child covers its parent without an extra next-step prompt')
   const guide = page.locator('.breakpoint-guide')
   if (await guide.count()) await guide.getByRole('button').click()
   const same = join(evidence, 'ownership-same-period.png')
   await page.screenshot({ path: same }); report.screenshots.push(same)
+  const appearance = await page.evaluate(() => ({ style: document.documentElement.dataset.style, theme: document.documentElement.dataset.theme }))
+  const curves = []
+  const group = page.locator('.board-column[data-horizon="week"]')
+  for (const style of ['paper', 'minimal']) for (const theme of ['light', 'dark']) {
+    await page.evaluate(value => Object.assign(document.documentElement.dataset, value), { style, theme })
+    const curve = await line.evaluate(path => {
+      const style = getComputedStyle(path)
+      return { d: path.getAttribute('d'), strokeWidth: style.strokeWidth, linejoin: style.strokeLinejoin }
+    })
+    assert.match(curve.d, /Q/)
+    assert.equal(curve.d, samePeriodGeometry.d, 'Appearance changes keep the endpoints and curve route fixed')
+    curves.push({ style, theme, ...curve })
+    const shot = join(evidence, `ownership-rounded-${style}-${theme}.png`)
+    await group.screenshot({ path: shot }); report.screenshots.push(shot)
+  }
+  await page.evaluate(value => Object.assign(document.documentElement.dataset, value), appearance)
+  report.ownershipCurves = { samePeriodGeometry, anchors, curves }
   const source = await row(ids.child).boundingBox()
   await row(ids.child).locator('.task-title').focus()
   await page.mouse.move(source.x + 95, source.y + 16); await page.mouse.down()

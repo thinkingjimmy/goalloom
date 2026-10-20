@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Mounted board nodes and their independent panel/column scroll viewports.
  * [OUTPUT]: Shared clipped rectangles for drops, overlay anchors and readable-result feedback; the relation connector
- *           route (`orthogonal`) and its row anchor constants, shared by drawn lines and the drag preview.
+ *           route (`orthogonal`) with independently clamped corners, including vertical starts, and its row anchor constants, shared by drawn lines and the drag preview.
  * [POS]: Renderer-only geometry; fixed Later never shares the timeline's horizontal scroll coordinates.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -30,19 +30,18 @@ export const firstLine = 32
 // that dot inside the row's right gutter, so both ends sit on the row's ground.
 export const busGap = 3, dotEdge = 6, dotCenter = 9
 
-/** Horizontal–vertical path from (x, y) through a vertical bus at each turn's x (reaching that turn's y), ending
- *  horizontally at x2. Corners are rounded to fit the shortest adjoining segment. */
+/** Horizontal–vertical path through vertical buses, ending horizontally at x2.
+ *  Each corner fits its own adjoining segments, so a vertical start still rounds into the destination. */
 export function orthogonal(x: number, y: number, turns: [number, number][], x2: number): string {
   let d = `M${x} ${y}`
   turns.forEach(([bus, to], index) => {
     const next = turns[index + 1]?.[0] ?? x2
-    const r = Math.min(5, Math.abs(to - y) / 2, Math.abs(bus - x), Math.abs(next - bus))
-    if (r < .5) d += `H${bus}V${to}`
-    else {
-      const dy = Math.sign(to - y), dx = Math.sign(next - bus)
-      d += `H${bus - Math.sign(bus - x) * r}Q${bus} ${y} ${bus} ${y + dy * r}V${to - dy * r}Q${bus} ${to} ${bus + dx * r} ${to}`
-    }
-    x = r < .5 ? bus : bus + Math.sign(next - bus) * r; y = to
+    const vertical = Math.abs(to - y) / 2
+    const entry = Math.min(5, vertical, Math.abs(bus - x)), exit = Math.min(5, vertical, Math.abs(next - bus))
+    const dy = Math.sign(to - y), dx = Math.sign(next - bus)
+    d += entry < .5 ? `H${bus}` : `H${bus - Math.sign(bus - x) * entry}Q${bus} ${y} ${bus} ${y + dy * entry}`
+    d += exit < .5 ? `V${to}` : `V${to - dy * exit}Q${bus} ${to} ${bus + dx * exit} ${to}`
+    x = exit < .5 ? bus : bus + dx * exit; y = to
   })
   return `${d}H${x2}`
 }
