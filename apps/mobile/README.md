@@ -89,6 +89,14 @@ pnpm test
 
 from the repository root. `packages/local-store/test` is part of that Vitest run.
 
+## Board and task details
+
+`src/tasks/` shares compact task rows and flow-colored checkboxes between the board and child lists. Nesting adds 24pt; completion stays independent. Board title URLs have offline source cards, including a horizontal strip for multiple links. These cards display the saved domain and URL without fetching metadata. Details keep link actions inline.
+
+Task details use grouped cards and icon-and-value properties. Title and description save silently after editing and drain before navigation/dismissal; failed writes keep the draft visible. The expanded detail sheet has a grabber, accessible dismiss action and scrim, without a visible Close/Save row. Horizon, related-goal, due-date and child-create routes retain that height and provide Back. iOS keyboard events reduce the usable sheet height. `src/anchor-calendar.tsx` exports the shared month grid; onboarding retains its today maximum, while task deadlines allow future dates and use the workspace week start.
+
+The flow screen is unchanged. Native keyboard and drag-dismiss acceptance still require a simulator/device run. Repeatable browser verification instructions and evidence live under ignored `output/tests/mobile-board-ui/` at the repository root.
+
 ## Screens
 
 iOS and Android keep the workspace in expo-sqlite (WAL, foreign keys). The web preview uses sql.js in the page (same schema and statements) because the browser build of expo-sqlite waits on origin private file storage, which does not finish in this environment.
@@ -108,3 +116,5 @@ When `ios/` already exists, run `pod install` there after a native dependency ch
 `src/phase0.js` and `src/phase0-app.js` still run the pinned crypto vectors and a store-core rebuild. They are not the product UI. The Metro entry is `index.js`, which mounts `src/root.tsx`.
 
 This app is MIT. It does not import `supabase/` and it does not ship secrets.
+
+[PROTOCOL]: Update this header when making changes, then check README.md.

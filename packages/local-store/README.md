@@ -5,3 +5,7 @@ OUTPUT: schema v10 install (the same DDL as desktop), board/flow queries, and lo
 POS: offline workspace for the mobile app. It does not open files, talk to Supabase, or change the desktop process.
 
 Phase 2 sync can read this database. Device language, column visibility, relation lines, parent order and celebration live in a separate database, outside the workspace.
+
+`src/copy.ts` supplies the five localized mobile task-property, calendar-navigation, save-error and offline-link labels.
+
+[PROTOCOL]: Update this header when making changes, then check README.md.

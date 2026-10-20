@@ -1,6 +1,7 @@
 /**
  * [INPUT]: LocaleId from device preferences.
  * [OUTPUT]: The five UI catalogs and a system-language guess.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  * [POS]: Shared product copy. The mobile app re-exports this module; tests import it here so they never load the Expo tsconfig.
  */
 import type { LocaleId } from './prefs'
@@ -62,6 +63,7 @@ const zh = {
   periodBack: '回到当期',
   belongs: '属于',
   close: '关闭',
+  task: { detail: '任务详情', title: '任务名称', horizon: '所在跨度', required: '请输入任务名称', retry: '重试', previousMonth: '上个月', nextMonth: '下个月', savedLink: '保存的链接', openLink: '打开链接', previousLink: '上一个链接', nextLink: '下一个链接', linkFailed: '无法打开链接，请重试' },
   reviewOpen: '未完成', reviewDone: '已完成',
   linkNone: '描述里还没有链接',
   exportReady: 'JSON',
@@ -170,6 +172,7 @@ const en: typeof zh = {
   periodBack: 'Back to now',
   belongs: 'Belongs to',
   close: 'Close',
+  task: { detail: 'Task details', title: 'Task title', horizon: 'Time horizon', required: 'Enter a task title', retry: 'Retry', previousMonth: 'Previous month', nextMonth: 'Next month', savedLink: 'Saved link', openLink: 'Open link', previousLink: 'Previous link', nextLink: 'Next link', linkFailed: 'Could not open the link. Try again.' },
   reviewOpen: 'Open', reviewDone: 'Done',
   linkNone: 'No links in descriptions yet',
   exportReady: 'JSON',
@@ -279,6 +282,7 @@ const ja: typeof zh = {
   periodBack: '今に戻る',
   belongs: '所属',
   close: '閉じる',
+  task: { detail: 'タスク詳細', title: 'タスク名', horizon: '期間', required: 'タスク名を入力してください', retry: '再試行', previousMonth: '前の月', nextMonth: '次の月', savedLink: '保存したリンク', openLink: 'リンクを開く', previousLink: '前のリンク', nextLink: '次のリンク', linkFailed: 'リンクを開けませんでした。再試行してください。' },
   reviewOpen: '未完了', reviewDone: '完了',
   linkNone: '説明にリンクはまだありません',
   weekStart: '週の開始は月曜日',
@@ -387,6 +391,7 @@ const es: typeof zh = {
   periodBack: 'Volver al actual',
   belongs: 'Pertenece a',
   close: 'Cerrar',
+  task: { detail: 'Detalles de la tarea', title: 'Nombre de la tarea', horizon: 'Horizonte', required: 'Introduce un nombre para la tarea', retry: 'Reintentar', previousMonth: 'Mes anterior', nextMonth: 'Mes siguiente', savedLink: 'Enlace guardado', openLink: 'Abrir enlace', previousLink: 'Enlace anterior', nextLink: 'Enlace siguiente', linkFailed: 'No se pudo abrir el enlace. Inténtalo de nuevo.' },
   reviewOpen: 'Abiertas', reviewDone: 'Hechas',
   linkNone: 'Todavía no hay enlaces en las descripciones',
   weekStart: 'La semana empieza el lunes',
@@ -495,6 +500,7 @@ const fr: typeof zh = {
   periodBack: 'Revenir à maintenant',
   belongs: 'Appartient à',
   close: 'Fermer',
+  task: { detail: 'Détails de la tâche', title: 'Nom de la tâche', horizon: 'Horizon', required: 'Saisissez un nom de tâche', retry: 'Réessayer', previousMonth: 'Mois précédent', nextMonth: 'Mois suivant', savedLink: 'Lien enregistré', openLink: 'Ouvrir le lien', previousLink: 'Lien précédent', nextLink: 'Lien suivant', linkFailed: 'Impossible d’ouvrir le lien. Réessayez.' },
   reviewOpen: 'Ouverts', reviewDone: 'Terminés',
   linkNone: 'Pas encore de lien dans les descriptions',
   weekStart: 'La semaine commence le lundi',

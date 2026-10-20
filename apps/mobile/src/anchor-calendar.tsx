@@ -1,11 +1,12 @@
 /**
- * [INPUT]: Workspace today, the current draft anchor, and the active locale.
- * [OUTPUT]: A month grid. Tapping an allowed day selects it. Dates after today are rejected.
- * [POS]: Onboarding start-date grid. The sheet chrome (grabber and 确定) lives in onboarding.
+ * [INPUT]: Workspace today, selected date, locale and an optional maximum date/week start.
+ * [OUTPUT]: An accessible month grid; the anchor wrapper keeps its existing today limit.
+ * [POS]: Shared date presentation for onboarding anchors and task deadlines; callers own saving.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { calendarMonthTitle, calendarWeekStart, monthGrid, type MonthCell } from '@goalloom/local-store'
+import { calendarMonthTitle, calendarWeekStart, catalogs, monthGrid, type MonthCell } from '@goalloom/local-store'
 import type { LocaleId } from '@goalloom/local-store'
 import { Icon } from './icons'
 import { accentOrange, type Theme } from './theme'
@@ -18,22 +19,29 @@ export function AnchorCalendar({ theme, locale, today, value, onSelect }: {
   theme: Theme; locale: LocaleId; today: string; value: string
   onSelect: (ymd: string) => void
 }) {
+  return <MonthCalendar theme={theme} locale={locale} today={today} value={value} maximum={today} onSelect={onSelect} />
+}
+
+export function MonthCalendar({ theme, locale, today, value, onSelect, maximum = null, weekStartsOn }: {
+  theme: Theme; locale: LocaleId; today: string; value: string; onSelect: (ymd: string) => void
+  maximum?: string | null; weekStartsOn?: 0 | 1
+}) {
   const [shown, setShown] = useState(() => value.slice(0, 7))
   const [yearText, monthText] = shown.split('-')
   const year = Number(yearText)
   const month = Number(monthText)
-  const weekStart = calendarWeekStart(locale)
-  const cells = monthGrid(year, month, today, weekStart)
+  const weekStart = weekStartsOn ?? calendarWeekStart(locale)
+  const cells = monthGrid(year, month, today, weekStart).map(cell => ({ ...cell, allowed: maximum === null || cell.ymd <= maximum }))
   const title = calendarMonthTitle(year, month, locale)
-  const canNext = shown < today.slice(0, 7)
-  const choose = (ymd: string) => { if (ymd <= today) onSelect(ymd) }
+  const canNext = maximum === null || shown < maximum.slice(0, 7)
+  const choose = (ymd: string) => { if (maximum === null || ymd <= maximum) onSelect(ymd) }
   return <View>
     <View style={styles.monthNav}>
-      <Pressable onPress={() => setShown(shiftMonth(year, month, -1))} hitSlop={8} style={styles.monthStep} accessibilityLabel={title}>
+      <Pressable accessibilityRole="button" onPress={() => setShown(shiftMonth(year, month, -1))} style={styles.monthStep} accessibilityLabel={catalogs[locale].task.previousMonth}>
         <Icon name="back" size={22} color={theme.fg} />
       </Pressable>
       <Text style={[styles.monthTitle, { color: theme.fg }]}>{title}</Text>
-      <Pressable onPress={() => { if (canNext) setShown(shiftMonth(year, month, 1)) }} hitSlop={8} disabled={!canNext} style={styles.monthStep}>
+      <Pressable accessibilityRole="button" onPress={() => { if (canNext) setShown(shiftMonth(year, month, 1)) }} disabled={!canNext} style={styles.monthStep} accessibilityLabel={catalogs[locale].task.nextMonth}>
         <Icon name="next" size={22} color={canNext ? theme.fg : theme.faint} />
       </Pressable>
     </View>
@@ -41,17 +49,18 @@ export function AnchorCalendar({ theme, locale, today, value, onSelect }: {
       {weekdayLabels(locale, weekStart).map((label, index) => <Text key={`${label}-${index}`} style={[styles.weekday, { color: theme.secondary }]}>{label}</Text>)}
     </View>
     <View style={styles.grid}>
-      {cells.map(cell => <Day key={cell.ymd} theme={theme} cell={cell} selected={cell.ymd === value} today={cell.ymd === today} onPress={() => choose(cell.ymd)} />)}
+      {cells.map(cell => <Day key={cell.ymd} theme={theme} cell={cell} locale={locale} selected={cell.ymd === value} today={cell.ymd === today} onPress={() => choose(cell.ymd)} />)}
     </View>
   </View>
 }
 
-function Day({ theme, cell, selected, today, onPress }: {
-  theme: Theme; cell: MonthCell; selected: boolean; today: boolean; onPress: () => void
+function Day({ theme, cell, locale, selected, today, onPress }: {
+  theme: Theme; cell: MonthCell; locale: LocaleId; selected: boolean; today: boolean; onPress: () => void
 }) {
   const day = Number(cell.ymd.slice(8))
   const color = selected ? theme.onAccent : !cell.allowed || !cell.inMonth ? theme.faint : theme.fg
-  return <Pressable onPress={onPress} disabled={!cell.allowed} accessibilityRole="button" accessibilityState={{ selected, disabled: !cell.allowed }} style={styles.day}>
+  const label = new Intl.DateTimeFormat(PICKER_LOCALE[locale], { dateStyle: 'full', timeZone: 'UTC' }).format(new Date(`${cell.ymd}T12:00:00Z`))
+  return <Pressable onPress={onPress} disabled={!cell.allowed} accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ selected, disabled: !cell.allowed }} style={styles.day}>
     <View style={[
       styles.mark,
       selected && { backgroundColor: theme.fg },

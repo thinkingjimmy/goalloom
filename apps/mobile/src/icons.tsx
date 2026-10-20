@@ -1,15 +1,21 @@
+/**
+ * [INPUT]: Explicit Hugeicons free geometry, local colors and task completion state.
+ * [OUTPUT]: Shared mobile icons and diagonal flow-color checkboxes.
+ * [POS]: Local SVG presentation adapter; no remote icon loading.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
 import { useId } from 'react'
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import {
   Add01Icon, AlarmClockIcon, AppleIcon, ArrowDown01Icon, ArrowLeft01Icon, ArrowRight01Icon, ArrowUp01Icon, Cancel01Icon,
-  ComputerPhoneSyncIcon, Delete02Icon, GitBranchIcon, GridViewIcon, InboxIcon, InformationCircleIcon, Search01Icon,
+  Calendar03Icon, Layers01Icon, ComputerPhoneSyncIcon, Delete02Icon, GitBranchIcon, GridViewIcon, InboxIcon, InformationCircleIcon, Search01Icon,
   Link01Icon, Login01Icon, MoreHorizontalIcon, Note01Icon, PaintBoardIcon, SlidersHorizontalIcon,
   SmartPhone01Icon, SquareLock01Icon, Tick02Icon, ViewIcon, ViewOffIcon,
 } from '@hugeicons/core-free-icons'
 
 type SvgNode = readonly [string, { readonly [key: string]: string | number }]
 const icons = {
-  add: Add01Icon, overdue: AlarmClockIcon, back: ArrowLeft01Icon, down: ArrowDown01Icon, next: ArrowRight01Icon, send: ArrowUp01Icon, close: Cancel01Icon,
+  calendar: Calendar03Icon, layers: Layers01Icon, add: Add01Icon, overdue: AlarmClockIcon, back: ArrowLeft01Icon, down: ArrowDown01Icon, next: ArrowRight01Icon, send: ArrowUp01Icon, close: Cancel01Icon,
   trash: Delete02Icon, board: GridViewIcon, later: InboxIcon, info: InformationCircleIcon, link: Link01Icon,
   more: MoreHorizontalIcon, note: Note01Icon, appearance: PaintBoardIcon, settings: SlidersHorizontalIcon,
   flow: GitBranchIcon, check: Tick02Icon, phone: SmartPhone01Icon, eye: ViewIcon, eyeOff: ViewOffIcon,
