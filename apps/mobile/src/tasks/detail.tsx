@@ -1,11 +1,11 @@
 /**
  * [INPUT]: Saved task, workspace graph, localized copy and guarded mutation callbacks.
- * [OUTPUT]: Editable grouped task details, independent child checks and flush-before-navigation.
+ * [OUTPUT]: Rounded task details with semantic properties, horizon-labelled goals, child progress and flush-before-navigation.
  * [POS]: Mobile task-detail presentation; persistence and graph validation remain in the store.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createContext, useContext, useEffect, useRef, useState, type RefObject } from 'react'
-import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
 import { flowColors, flowStroke, type ItemRow, type LocaleId, type Snapshot } from '@goalloom/local-store'
 import type { Copy } from '../copy'
 import { Icon, type IconName } from '../icons'
@@ -14,6 +14,7 @@ import type { Sheet } from '../view'
 import { TaskCheckbox } from './checkbox'
 import { DescriptionLinks } from './links'
 import { TaskRow } from './row'
+import { GrowingTaskInput } from './input'
 
 export const DetailCommit = createContext<RefObject<(() => boolean) | null> | null>(null)
 type Fields = { title?: string; description?: string; dueDate?: string | null }
@@ -27,7 +28,6 @@ export function TaskDetail({ item, snap, theme, copy, locale, onSheet, onEdit, o
   const commit = useContext(DetailCommit)
   const [draft, setDraft] = useState({ title: item.title, description: item.description })
   const [error, setError] = useState<string | null>(null)
-  const [titleHeight, setTitleHeight] = useState(44), [descriptionHeight, setDescriptionHeight] = useState(72)
   const current = useRef(draft), saved = useRef(draft), edit = useRef(onEdit)
   edit.current = onEdit
   const flush = () => {
@@ -64,63 +64,90 @@ export function TaskDetail({ item, snap, theme, copy, locale, onSheet, onEdit, o
   const children = snap.items.filter(row => row.nestingParentId === item.id).sort((a, b) => a.sortKey - b.sortKey)
   const due = item.dueDate ? new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : locale, { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${item.dueDate}T12:00:00Z`)) : copy.noDue
   const names: Record<string, string> = { created: copy.activityCreated, moved: copy.activityMoved, status_changed: copy.activityStatus, deleted: copy.activityDeleted, item_restored: copy.activityRestored, nesting_changed: copy.activityNest, edited: copy.activityEdit, rolled_over: copy.activityRoll, undo: copy.undo }
-  const card = { backgroundColor: theme.raised, borderRadius: theme.cardRadius, borderColor: theme.line, borderWidth: theme.style === 'minimal' ? StyleSheet.hairlineWidth : 0 }
+  const card = { backgroundColor: theme.raised, borderRadius: theme.style === 'paper' ? 22 : theme.cardRadius, paddingHorizontal: 14, paddingVertical: 4, overflow: 'hidden' as const, borderColor: theme.line, borderWidth: theme.style === 'minimal' ? StyleSheet.hairlineWidth : 0 }
   return <View testID="task-detail" style={styles.body}>
-    <View style={card}>
+    <View testID="task-detail-main-card" style={card}>
       <View style={styles.titleRow}>
         <TaskCheckbox item={item} colors={colors} theme={theme} copy={copy} checkStyle={snap.checkStyle} onCheck={() => { if (flush()) onCheck(item) }} />
-        <TextInput testID="task-detail-title" accessibilityLabel={copy.task.title} multiline maxLength={500} onContentSizeChange={event => setTitleHeight(Math.max(44, event.nativeEvent.contentSize.height))} value={draft.title} onChangeText={text => update('title', text)} onBlur={flush}
-          style={[styles.title, { height: titleHeight, color: theme.fg, textDecorationLine: item.status === 'done' ? 'line-through' : 'none' }]} />
+        <GrowingTaskInput containerStyle={{ flex: 1 }} testID="task-detail-title" accessibilityLabel={copy.task.title} maxLength={500} value={draft.title} onChangeText={text => update('title', text)} onBlur={flush}
+          style={[styles.title, { color: theme.fg, textDecorationLine: item.status === 'done' ? 'line-through' : 'none' }]} />
       </View>
       <View style={styles.description}>
-        <Icon name="note" color={theme.secondary} size={20} />
-        <TextInput testID="task-detail-description" accessibilityLabel={copy.description} multiline onContentSizeChange={event => setDescriptionHeight(Math.max(72, event.nativeEvent.contentSize.height))} value={draft.description} placeholder={copy.describe} placeholderTextColor={theme.secondary}
-          onChangeText={text => update('description', text)} onBlur={flush} style={[styles.descriptionInput, { height: descriptionHeight, color: theme.fg }]} />
+        <GrowingTaskInput testID="task-detail-description" accessibilityLabel={copy.description} value={draft.description} placeholder={copy.describe} placeholderTextColor={theme.secondary}
+          onChangeText={text => update('description', text)} onBlur={flush} style={[styles.descriptionInput, { color: theme.fg }]} />
       </View>
       <View style={styles.inlineLinks}><DescriptionLinks text={`${draft.title}\n${draft.description}`} theme={theme} copy={copy} /></View>
       {owner && <Property icon="board" label={copy.belongs} value={owner.title} theme={theme} onPress={() => onSheet({ kind: 'detail', id: owner.id })} />}
-      <Property icon="layers" label={copy.task.horizon} value={copy[item.horizon]} theme={theme} onPress={() => onSheet({ kind: 'move', id: item.id, fromDetail: true })} />
-      <Property icon="calendar" label={copy.due} value={due} theme={theme} danger={!!item.dueDate && item.status !== 'done' && item.dueDate < snap.today} onPress={() => onSheet({ kind: 'due', id: item.id, fromDetail: true })} />
+      <Property testID="task-detail-horizon" iconColor={flowStroke(1, theme.scheme)} icon="layers" label={copy.task.horizon} value={copy[item.horizon]} theme={theme} onPress={() => onSheet({ kind: 'move', id: item.id, fromDetail: true })} />
+      <Property testID="task-detail-due" separator iconColor={flowStroke(2, theme.scheme)} icon="calendar" label={copy.due} value={due} theme={theme} danger={!!item.dueDate && item.status !== 'done' && item.dueDate < snap.today} onPress={() => onSheet({ kind: 'due', id: item.id, fromDetail: true })} />
     </View>
     {error && <Pressable accessibilityRole="button" onPress={flush} style={styles.error}><Text accessibilityRole="alert" style={{ color: theme.danger }}>{error} · {copy.task.retry}</Text></Pressable>}
     {!owner && item.horizon !== 'later' && <>
-      <Text style={[styles.section, { color: theme.secondary }]}>{copy.parent}</Text>
-      <View style={card}>
-        {parents.map(parent => <Property key={parent.id} icon="flow" label={copy.parent} value={parent.title} theme={theme} onPress={() => onSheet({ kind: 'detail', id: parent.id })} />)}
-        <Property icon="link" label={copy.parent} value={parents.length ? copy.parent : copy.noParent} theme={theme} onPress={() => onSheet({ kind: 'parent', id: item.id, fromDetail: true })} />
+      <SectionHeading title={copy.task.relatedGoals} count={copy.itemCount(parents.length)} theme={theme}
+        actionLabel={copy.parent} onAction={() => onSheet({ kind: 'parent', id: item.id, fromDetail: true })} />
+      <View testID="task-detail-goals" style={card}>
+        {parents.map(parent => <Pressable key={parent.id} testID={`task-detail-goal-${parent.id}`} accessibilityRole="button"
+          accessibilityLabel={`${copy[parent.horizon]} · ${parent.title}`} onPress={() => onSheet({ kind: 'detail', id: parent.id })}
+          style={({ pressed }) => [styles.goal, pressed && { backgroundColor: theme.hover }]}>
+          <Text style={[styles.goalHorizon, { color: theme.secondary }]}>{copy[parent.horizon]}</Text>
+          <Text style={[styles.goalTitle, { color: theme.fg }]}>{parent.title}</Text>
+        </Pressable>)}
+        {!parents.length && <Text style={[styles.empty, { color: theme.secondary }]}>{copy.noParent}</Text>}
         {!parents.length && <View style={styles.palette} accessibilityLabel={copy.flowField}>{Array.from({ length: 8 }, (_, index) => <Pressable key={index} accessibilityRole="button" accessibilityLabel={`${copy.flowField} ${index + 1}`} accessibilityState={{ selected: item.flowColor === index }} onPress={() => { if (flush()) onFlow(item.id, item.flowColor === index ? null : index) }} style={styles.swatchHit}>
           <View style={[styles.swatch, { backgroundColor: flowStroke(index, theme.scheme), borderColor: theme.fg, borderWidth: item.flowColor === index ? 2 : 0 }]} />
         </Pressable>)}</View>}
       </View>
     </>}
     {!owner && <>
-      <View style={styles.sectionLine}><Text style={[styles.section, { color: theme.secondary }]}>{copy.subtasks}</Text><Text style={{ color: theme.secondary, fontSize: 13 }}>{children.filter(row => row.status === 'done').length}/{children.length}</Text></View>
-      <View style={card}>
-        {children.map(child => <TaskRow key={child.id} item={child} theme={theme} copy={copy} colors={flowColors(child.id, nodes, snap.relations)} today={snap.today} checkStyle={snap.checkStyle} preview={false} onOpen={() => onSheet({ kind: 'detail', id: child.id })} onCheck={() => { if (flush()) onCheck(child) }} />)}
-        <Property icon="add" label={copy.addSub} value={copy.addSub} theme={theme} onPress={() => onSheet({ kind: 'add', horizon: item.horizon, periodId: item.periodId, nestingParentId: item.id, returnTo: item.id })} />
+      <SectionHeading title={copy.task.children} count={`${children.filter(row => row.status === 'done').length}/${children.length}`} theme={theme} />
+      <View testID="task-detail-children" style={card}>
+        <View style={styles.children}>{children.map(child => <TaskRow key={child.id} inset={4} item={child} theme={theme} copy={copy} colors={flowColors(child.id, nodes, snap.relations)} today={snap.today} checkStyle={snap.checkStyle} preview={false} onOpen={() => onSheet({ kind: 'detail', id: child.id })} onCheck={() => { if (flush()) onCheck(child) }} />)}</View>
+        <Property testID="task-detail-add-child" icon="add" label={copy.task.addChild} value={copy.task.addChild} theme={theme} onPress={() => onSheet({ kind: 'add', horizon: item.horizon, periodId: item.periodId, nestingParentId: item.id, returnTo: item.id })} />
       </View>
     </>}
-    <Text style={[styles.section, { color: theme.secondary }]}>{copy.activity}</Text>
+    <SectionHeading title={copy.activity} theme={theme} />
     {activity(item.id).map((event, index) => <View key={`${event.at}-${index}`} style={styles.event}><Text style={{ color: theme.secondary, flex: 1, fontSize: 13 }}>{names[event.type] ?? event.type}</Text><Text style={{ color: theme.secondary, fontSize: 12 }}>{event.at.slice(5, 10)}</Text></View>)}
   </View>
 }
 
-function Property({ icon, label, value, theme, onPress, danger = false }: { icon: IconName; label: string; value: string; theme: Theme; onPress: () => void; danger?: boolean }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${value}`} onPress={onPress} style={styles.property}>
-    <Icon name={icon} color={danger ? theme.danger : theme.secondary} size={21} />
+function SectionHeading({ title, count, theme, actionLabel, onAction }: {
+  title: string; count?: string; theme: Theme; actionLabel?: string; onAction?: () => void
+}) {
+  return <View style={styles.sectionLine}>
+    <Text accessibilityRole="header" style={[styles.section, { color: theme.fg }]}>{title}</Text>
+    {onAction ? <Pressable testID="task-detail-edit-goals" accessibilityRole="button" accessibilityLabel={actionLabel} onPress={onAction} style={styles.sectionAction}>
+      <Text style={[styles.count, { color: theme.secondary }]}>{count}</Text><Icon name="link" size={16} color={theme.secondary} />
+    </Pressable> : count !== undefined && <Text testID="task-detail-child-progress" style={[styles.count, { color: theme.secondary }]}>{count}</Text>}
+  </View>
+}
+
+function Property({ icon, label, value, theme, onPress, danger = false, iconColor, separator = false, testID }: {
+  icon: IconName; label: string; value: string; theme: Theme; onPress: () => void
+  danger?: boolean; iconColor?: string; separator?: boolean; testID?: string
+}) {
+  return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${label}: ${value}`} onPress={onPress}
+    style={({ pressed }) => [styles.property, separator && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }, pressed && { backgroundColor: theme.hover }]}>
+    <Icon name={icon} color={danger ? theme.danger : iconColor ?? theme.secondary} size={21} />
     <Text style={[styles.propertyValue, { color: danger ? theme.danger : theme.fg }]}>{value}</Text>
-    <Icon name="next" size={15} color={theme.secondary} />
   </Pressable>
 }
 
 const styles = StyleSheet.create({
-  body: { paddingBottom: 24 }, titleRow: { flexDirection: 'row', alignItems: 'flex-start', paddingLeft: 1, paddingRight: 14, paddingTop: 8 },
-  title: { flex: 1, fontSize: 21, lineHeight: 28, fontWeight: '600', paddingVertical: 7, minHeight: 44 },
-  description: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingLeft: 13, paddingRight: 14, paddingVertical: 8 },
-  descriptionInput: { flex: 1, fontSize: 16, lineHeight: 23, minHeight: 44, paddingVertical: 0 }, inlineLinks: { marginLeft: 46, marginRight: 14 },
-  property: { minHeight: 52, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  propertyValue: { flex: 1, fontSize: 16, lineHeight: 22 }, section: { fontSize: 13, fontWeight: '600', marginTop: 22, marginBottom: 9, marginLeft: 12 },
-  sectionLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 }, palette: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 6, paddingBottom: 6 },
+  body: { marginHorizontal: -3, paddingTop: 8, paddingBottom: 24 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', marginLeft: -10, paddingTop: 4 },
+  title: { fontSize: 21, lineHeight: 28, fontWeight: '600', paddingVertical: 7, minHeight: 44 },
+  description: { paddingTop: 3, paddingBottom: 10 },
+  descriptionInput: { fontSize: 16, lineHeight: 23, minHeight: 44, paddingVertical: 0 }, inlineLinks: { marginBottom: 2 },
+  property: { minHeight: 50, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 13 },
+  propertyValue: { flex: 1, fontSize: 16, lineHeight: 22 },
+  section: { flex: 1, fontSize: 15, lineHeight: 21, fontWeight: '600' },
+  sectionLine: { minHeight: 44, marginTop: 8, marginBottom: 0, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sectionAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
+  count: { fontSize: 13, lineHeight: 18, fontVariant: ['tabular-nums'] },
+  goal: { minHeight: 56, paddingVertical: 10, borderRadius: 8 },
+  goalHorizon: { fontSize: 12, lineHeight: 17, marginBottom: 2 }, goalTitle: { fontSize: 16, lineHeight: 22 },
+  empty: { fontSize: 15, paddingVertical: 12 }, children: { marginHorizontal: -14 },
+  palette: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, paddingBottom: 6 },
   swatchHit: { width: '25%', height: 44, alignItems: 'center', justifyContent: 'center' }, swatch: { width: 24, height: 24, borderRadius: 8 },
-  event: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 6, gap: 12 }, error: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
+  event: { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 6, gap: 12 }, error: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
 })

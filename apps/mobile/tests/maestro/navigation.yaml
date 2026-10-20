@@ -1,0 +1,35 @@
+appId: app.goalloom.mobile
+---
+# Use only a dedicated demo-seeded E2E simulator; never clear personal app data.
+- launchApp
+- assertVisible:
+    id: bottom-navigation-${MATERIAL}
+- assertVisible:
+    id: capture-material-${MATERIAL}
+- assertVisible:
+    id: board-horizon-trigger
+- takeScreenshot: navigation-board
+- tapOn:
+    id: app-tab-flow
+- assertVisible:
+    id: app-tab-flow
+    selected: true
+- assertVisible:
+    id: app-tab-board
+    selected: false
+- takeScreenshot: navigation-flow
+- tapOn:
+    id: app-tab-settings
+- assertVisible:
+    id: app-tab-settings
+    selected: true
+- assertVisible: 外观
+- takeScreenshot: navigation-settings
+- tapOn:
+    id: app-tab-board
+- assertVisible:
+    id: board-horizon-trigger
+- tapOn:
+    id: capture-open
+- assertVisible: 写一句，比如：周五前交设计稿
+- takeScreenshot: navigation-capture

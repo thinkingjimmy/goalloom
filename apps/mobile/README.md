@@ -18,7 +18,7 @@ npx expo run:ios --no-install
 
 `npx expo run:ios` by itself also works, but Expo hides `pod install` output and that step can look stuck. The three commands above install the pods where you can see them, then build a development client and launch the booted iOS Simulator.
 
-The home-screen icon and launch splash come from `app.json` (`icon`, `ios.icon`, `android.adaptiveIcon`, `splash`). They are baked in by prebuild. A Metro reload does not change the icon; run the commands above again after an icon or splash change. The iOS icon is `assets/icon.png`, a 1024×1024 PNG with no alpha, flattened from `apps/desktop/resources/icon.png`.
+The home-screen icon and launch splash come from `app.json` (`icon`, `ios.icon`, `android.adaptiveIcon`, `splash`). They are baked in by prebuild. A Metro reload does not change the icon; run the commands above again after an icon or splash change. The iOS icon is `assets/icon.png`, a 1024×1024 opaque RGB export of the editable `assets/icon.svg`. It reuses the existing brand mark on a full-bleed background; iOS supplies the outer shape and effects. The finished desktop tile must not be flattened into the iOS source because its inset corners/shadow produce a second frame. See `assets/README.md` for export rules.
 
 After the first native build, start the same client again with:
 
@@ -91,11 +91,13 @@ from the repository root. `packages/local-store/test` is part of that Vitest run
 
 ## Board and task details
 
+`src/navigation/` owns the floating bottom controls. iOS 26+ uses native Liquid Glass through `expo-glass-effect`; older iOS and web use `expo-blur`, while Android supplies a dedicated content blur target. Reduce Transparency replaces effects with an opaque surface. A native-driver spring moves the selected tab capsule; rapid taps interrupt it and Reduce Motion disables it. The capture action uses the same material. Install Pods and rebuild the native client after adding this native dependency; a Metro reload is insufficient.
+
 `src/board/header.tsx` keeps the horizon heading above its date range, with 20pt side insets and a 48pt heading target. The app shell applies the native top safe area once. Tapping the heading opens the shared bottom sheet titled Choose a time horizon, with stacked names/date ranges, a checkmark on the selected horizon and task counts on other horizons. Selection closes the sheet and switches the board viewport; dismissing leaves it unchanged. Visible-column preferences and viewed periods remain the source of truth.
 
 `src/tasks/` shares compact task rows and flow-colored checkboxes between the board and child lists. Nesting adds 24pt; completion stays independent. Board title URLs have offline source cards, including a horizontal strip for multiple links. These cards display the saved domain and URL without fetching metadata. Details keep link actions inline.
 
-Task details use grouped cards and icon-and-value properties. Title and description save silently after editing and drain before navigation/dismissal; failed writes keep the draft visible. The expanded detail sheet has a grabber, accessible dismiss action and scrim, without a visible Close/Save row. Horizon, related-goal, due-date and child-create routes retain that height and provide Back. iOS keyboard events reduce the usable sheet height. `src/anchor-calendar.tsx` exports the shared month grid; onboarding retains its today maximum, while task deadlines allow future dates and use the workspace week start.
+Task details match the retained review artifact with 22pt paper cards on the warm sheet background, plain descriptions, colored icon-and-value properties without trailing arrows, horizon-labelled related goals and right-aligned section counts. Goal editing remains available from the section heading; child tasks reuse the board checkbox/row with a detail inset. Title and description save silently after editing and drain before navigation/dismissal; failed writes keep the draft visible. The expanded detail sheet has a grabber, accessible dismiss action and scrim, without a visible Close/Save row. Horizon, related-goal, due-date and child-create routes retain that height and provide Back. iOS keyboard events reduce the usable sheet height. `src/anchor-calendar.tsx` exports the shared month grid; onboarding retains its today maximum, while task deadlines allow future dates and use the workspace week start.
 
 The flow screen is unchanged. Native keyboard and drag-dismiss acceptance still require a simulator/device run. Repeatable browser verification instructions and evidence live under ignored `output/tests/mobile-board-ui/` at the repository root.
 

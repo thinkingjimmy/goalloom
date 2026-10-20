@@ -1,0 +1,43 @@
+appId: app.goalloom.mobile
+---
+- launchApp
+- repeat:
+    times: 2
+    commands:
+      - tapOn:
+          id: app-tab-flow
+          waitToSettleTimeoutMs: 0
+      - tapOn:
+          id: app-tab-settings
+          waitToSettleTimeoutMs: 0
+      - tapOn:
+          id: app-tab-board
+          waitToSettleTimeoutMs: 0
+- assertVisible:
+    id: app-tab-board
+    selected: true
+- tapOn:
+    id: app-tab-settings
+- swipe:
+    start: 50%, 75%
+    end: 50%, 35%
+    duration: 450
+- assertNotVisible:
+    id: app-tab-board
+- assertVisible:
+    id: app-tab-settings
+    selected: true
+- assertVisible:
+    id: capture-open
+- takeScreenshot: navigation-compact-controls
+- tapOn:
+    id: app-tab-settings
+- assertVisible:
+    id: app-tab-board
+- assertVisible:
+    id: app-tab-flow
+- tapOn:
+    id: app-tab-board
+- assertVisible:
+    id: board-horizon-trigger
+- takeScreenshot: navigation-expanded-controls

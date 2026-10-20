@@ -1,5 +1,5 @@
 /**
- * [INPUT]: A saved task, inherited colors and optional board placement gestures.
+ * [INPUT]: A saved task, inherited colors optional detail insets and optional board placement gestures.
  * [OUTPUT]: Compact task rows with 24pt nesting, note/deadline signals and offline title-link cards.
  * [POS]: Board and child-task presentation; completion, ownership and persistence stay in the caller.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -13,9 +13,9 @@ import type { Theme } from '../theme'
 import { TaskCheckbox } from './checkbox'
 import { TaskLinkPreviews } from './links'
 
-export function TaskRow({ item, copy, theme, nested = false, lifted = false, colors, checkStyle, today, onCheck, onOpen, onMenu, onDrag, onDrop, preview = true, owner }: {
+export function TaskRow({ item, copy, theme, nested = false, lifted = false, colors, checkStyle, today, onCheck, onOpen, onMenu, onDrag, onDrop, preview = true, owner, inset = 9 }: {
   item: ItemRow; copy: Copy; theme: Theme; nested?: boolean; lifted?: boolean; colors: number[]; checkStyle: CheckStyle; today: string
-  onCheck: () => void; onOpen: () => void; onMenu?: () => void; onDrag?: (y: number) => void; onDrop?: () => void; preview?: boolean; owner?: ItemRow
+  onCheck: () => void; onOpen: () => void; onMenu?: () => void; onDrag?: (y: number) => void; onDrop?: () => void; preview?: boolean; owner?: ItemRow; inset?: number
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const origin = useRef({ x: 0, y: 0, t: 0 })
@@ -45,7 +45,7 @@ export function TaskRow({ item, copy, theme, nested = false, lifted = false, col
   return <View testID={`task-row-${item.id}`}>
     <Pressable onPress={() => { if (!consumed.current) onOpen() }} onPressIn={event => begin(event.nativeEvent.pageX, event.nativeEvent.pageY)}
       onPressOut={end} onTouchMove={event => move(event.nativeEvent.pageX, event.nativeEvent.pageY)}
-      style={[styles.row, { paddingLeft: 9 + (nested ? NEST_INDENT : 0) }, theme.style === 'minimal' && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.hairline },
+      style={[styles.row, { paddingLeft: inset + (nested ? NEST_INDENT : 0) }, theme.style === 'minimal' && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.hairline },
         lifted && { transform: [{ translateY: -28 }, { scale: 1.02 }], backgroundColor: theme.raised, borderRadius: theme.rowRadius, zIndex: 2 }]}>
       <TaskCheckbox item={item} colors={colors} checkStyle={checkStyle} theme={theme} copy={copy} onCheck={onCheck} />
       <View style={styles.content}>

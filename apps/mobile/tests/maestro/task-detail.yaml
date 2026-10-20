@@ -1,0 +1,71 @@
+appId: app.goalloom.mobile
+---
+# Run only against a dedicated demo-seeded E2E simulator.
+- launchApp
+- tapOn:
+    text: 完成 评审看板手势冲突方案, .*
+- assertVisible:
+    id: task-detail-main-card
+- assertVisible: 关联目标
+- assertVisible:
+    id: task-detail-child-progress
+    text: 0/2
+- takeScreenshot: detail-initial
+- tapOn:
+    id: task-detail-horizon
+- assertVisible: 所在跨度
+- tapOn: 今天
+- assertVisible:
+    id: task-detail
+- tapOn:
+    id: task-detail-due
+- assertVisible:
+    id: task-deadline-calendar
+- tapOn: 今天
+- assertVisible:
+    id: task-detail
+- tapOn:
+    id: task-detail-edit-goals
+- assertVisible: 关联上级
+- tapOn: 返回
+- assertVisible:
+    id: task-detail
+- tapOn:
+    id: task-detail-description
+- eraseText: 150
+- inputText: Detail layout verification
+- hideKeyboard
+- tapOn:
+    id: task-detail-horizon
+- tapOn: 今天
+- assertVisible:
+    id: task-detail-description
+    text: (?s)Detail layout verification.*
+- scrollUntilVisible:
+    element:
+      text: 完成 对照 PRD 10.2
+    direction: DOWN
+- tapOn: 完成 对照 PRD 10.2
+- assertVisible:
+    id: task-detail-child-progress
+    text: 1/2
+- scrollUntilVisible:
+    element:
+      text: 完成 评审看板手势冲突方案
+    direction: UP
+- assertVisible:
+    text: 完成 评审看板手势冲突方案
+    checked: false
+- takeScreenshot: detail-child-completion
+- scrollUntilVisible:
+    element:
+      text: 完成 录屏演示, .*
+    direction: DOWN
+- tapOn:
+    text: 完成 录屏演示, .*
+- assertVisible:
+    id: task-detail-title
+    text: 录屏演示
+- assertNotVisible:
+    id: task-detail-children
+- takeScreenshot: detail-child

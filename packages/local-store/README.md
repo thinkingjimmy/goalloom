@@ -6,6 +6,6 @@ POS: offline workspace for the mobile app. It does not open files, talk to Supab
 
 Phase 2 sync can read this database. Device language, column visibility, relation lines, parent order and celebration live in a separate database, outside the workspace.
 
-`src/copy.ts` supplies the five localized mobile board-horizon, task-property, calendar-navigation, save-error and offline-link labels.
+`src/copy.ts` supplies the five localized mobile board-horizon, task-property, detail-section, calendar-navigation, save-error and offline-link labels.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.

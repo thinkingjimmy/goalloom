@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Workspace snapshot, device preferences and guarded store callbacks.
+ * [INPUT]: Workspace snapshot, device preferences, guarded store callbacks and the native content blur target.
  * [OUTPUT]: Mobile board, flow, settings and sheet navigation.
- * [POS]: Mobile screen composition; task presentation lives in tasks/.
+ * [POS]: Mobile screen composition; task presentation lives in tasks/, bottom chrome in navigation/.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
@@ -16,7 +16,8 @@ import {
   pageFromOffset, periodMeta, sheetRelease, shouldDragSheet, type AiConnection, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
   type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot,
 } from '@goalloom/local-store'
-import { BlurView } from 'expo-blur'
+import { BlurTargetView } from 'expo-blur'
+import { TabBar, TAB_HEIGHT } from './navigation/bar'
 import Svg, { Line } from 'react-native-svg'
 import { BoardHeader, BoardHorizonOptions } from './board/header'
 import { TaskRow as Row } from './tasks/row'
@@ -67,7 +68,6 @@ function surface(theme: Theme, radius: number): ViewStyle {
     ...(minimal ? { elevation: 0 } : { shadowColor: theme.scheme === 'dark' ? '#000' : '#3c2814', shadowOpacity: theme.scheme === 'dark' ? 0.35 : 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 1 }, elevation: 1 }),
   }
 }
-const TAB_HEIGHT = 62
 const scrollInset = { contentInsetAdjustmentBehavior: 'never' as const }
 
 function chrome(bottomInset: number): { barBottom: number; contentBottom: number } {
@@ -150,7 +150,7 @@ function BottomSheet({ theme, paddingBottom, onDismiss, children, expanded = fal
     onPanResponderTerminate: () => release(0, 0),
   })).current
   return <SheetScrollY.Provider value={scrollY}><SheetBodyHeight.Provider value={Math.max(0, panelHeight - paddingBottom - SHEET_GRABBER)}>
-    <Animated.View accessibilityViewIsModal onAccessibilityEscape={onDismiss} ref={host} collapsable={false} onLayout={measure} {...pan.panHandlers} style={[styles.sheet, expanded && { height: availableHeight }, { bottom: keyboardHeight, maxHeight: availableHeight, backgroundColor: theme.surface, borderTopLeftRadius: theme.sheetRadius, borderTopRightRadius: theme.sheetRadius, paddingBottom, transform: [{ translateY }] }]}>
+    <Animated.View accessibilityViewIsModal onAccessibilityEscape={onDismiss} ref={host} collapsable={false} onLayout={measure} {...pan.panHandlers} style={[styles.sheet, expanded && { height: availableHeight }, { bottom: keyboardHeight, maxHeight: availableHeight, backgroundColor: expanded && theme.style === 'paper' ? theme.bg : theme.surface, borderTopLeftRadius: expanded && theme.style === 'paper' ? 30 : theme.sheetRadius, borderTopRightRadius: expanded && theme.style === 'paper' ? 30 : theme.sheetRadius, paddingBottom, transform: [{ translateY }] }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={closeLabel} onPress={onDismiss} style={styles.grabHit} {...grabber.panHandlers}>
         <View style={[styles.grab, { backgroundColor: theme.line }]} />
       </Pressable>
@@ -175,6 +175,7 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
   activity: (id: string) => { type: string; at: string }[]; periodsAround: (horizon: PeriodHorizon) => Period[]
 }) {
   const insets = useSafeAreaInsets()
+  const blurTarget = useRef<View>(null)
   // Font changes invalidate native text measurements; editable sheets keep their drafts.
   const { fontScale } = useWindowDimensions()
   const [boardHeadingHeight, setBoardHeadingHeight] = useState(44)
@@ -210,10 +211,12 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
     lastY.current = y
   }
   return <DetailCommit.Provider value={commit}><View style={[styles.app, { backgroundColor: theme.bg, paddingTop: Platform.OS === 'web' ? 47 : insets.top }]}>
+    <BlurTargetView ref={blurTarget} style={styles.flex}>
     {tab === 'board' && <Board key={fontScale} copy={copy} theme={theme} locale={locale} snap={snap} columns={columns} column={column} hide={hide} shot={shot} viewed={viewed} nodes={nodes} contentBottom={contentBottom} {...(prefs.parentOrder ? { compare: order.compare } : {})} onColumn={onColumn} onSheet={navigate} onCheck={celebrate} onNest={onNest} onReorder={onReorder} onScroll={scroll} />}
     {tab === 'flow' && <Flow copy={copy} theme={theme} snap={snap} prefs={prefs} nodes={nodes} shot={shot} contentBottom={contentBottom} onSheet={navigate} onCheck={celebrate} onScroll={scroll} />}
     {tab === 'settings' && <Settings copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} ai={ai} contentBottom={contentBottom} onSheet={navigate} onOpenAi={onOpenAi} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
-    <TabBar key={fontScale} copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => navigate({ kind: 'composer', horizon: columns[column] ?? 'day' })} />
+    </BlurTargetView>
+    <TabBar blurTarget={blurTarget} key={fontScale} copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => navigate({ kind: 'composer', horizon: columns[column] ?? 'day' })} />
     {toast && <View style={[styles.toast, theme.style === 'minimal' ? { ...surface(theme, theme.controlRadius), bottom: barBottom + TAB_HEIGHT + 12 } : { backgroundColor: theme.fg, borderRadius: 22, bottom: barBottom + TAB_HEIGHT + 12 }]}>
       <View style={styles.flex}>
         <Text style={{ color: theme.style === 'minimal' ? theme.fg : theme.onAccent }}>{toast.text}</Text>
@@ -524,21 +527,6 @@ function Field({ theme, label, value, onPress, disabled = false, valueColor }: {
   return <Pressable disabled={disabled} onPress={onPress} style={[styles.field, disabled && { opacity: 0.45 }]}><Text style={{ color: theme.fg, flex: 1 }}>{label}</Text><Text style={{ color: valueColor ?? theme.secondary }}>{value}{disabled ? '' : ' ›'}</Text></Pressable>
 }
 
-function TabBar({ copy, theme, tab, minimized, barBottom, onTab, onPlus }: { copy: Copy; theme: Theme; tab: 'board' | 'flow' | 'settings'; minimized: boolean; barBottom: number; onTab: (tab: 'board' | 'flow' | 'settings') => void; onPlus: () => void }) {
-  const tabs = [['board', 'board', copy.board], ['flow', 'flow', copy.flow], ['settings', 'settings', copy.settings]] as const
-  const bottom = minimized ? barBottom + 4 : barBottom
-  return <View pointerEvents="box-none" style={styles.tabs}>
-    <View style={[styles.bar, minimized ? styles.barMin : styles.barPlus, { bottom, borderColor: theme.style === 'minimal' ? theme.line : theme.edge, borderWidth: theme.style === 'minimal' ? 1 : StyleSheet.hairlineWidth }]}>
-      <BlurView intensity={theme.style === 'minimal' ? 28 : 72} tint={theme.scheme === 'dark' ? 'dark' : 'light'} style={[StyleSheet.absoluteFill, { backgroundColor: theme.style === 'minimal' ? (theme.scheme === 'dark' ? 'rgba(9,9,11,0.82)' : 'rgba(255,255,255,0.82)') : (theme.scheme === 'dark' ? 'rgba(43,38,33,0.45)' : 'rgba(255,253,250,0.45)') }]} />
-      {tabs.filter((entry) => !minimized || entry[0] === tab).map(([id, icon, label]) => <Pressable accessibilityLabel={label} accessibilityState={{ selected: id === tab }} key={id} onPress={() => onTab(id)} style={[styles.tab, id === tab && { backgroundColor: theme.hover }]}>
-        <Icon name={icon} size={minimized ? 22 : 20} color={id === tab ? theme.focus : theme.fgSoft} />
-        {!minimized && <Text maxFontSizeMultiplier={1.3} style={{ fontSize: 10.5, fontWeight: '600', color: id === tab ? theme.focus : theme.fgSoft }}>{label}</Text>}
-      </Pressable>)}
-    </View>
-    <Pressable onPress={onPlus} style={[styles.plus, minimized && styles.plusMin, { bottom }]} accessibilityLabel={copy.capture}><Icon name="add" size={minimized ? 26 : 30} color="#fbf9f6" /></Pressable>
-  </View>
-}
-
 function Menu({ copy, theme, item, onSheet, onCheck, onTrash, onMove }: { copy: Copy; theme: Theme; item: ItemRow | undefined; onSheet: (sheet: Sheet) => void; onCheck: (item: ItemRow) => void; onTrash: (id: string) => void; onMove: (id: string, horizon: Horizon) => boolean }) {
   if (!item) return null
   const next = nextHorizon(item.horizon)
@@ -714,13 +702,6 @@ const styles = StyleSheet.create({
   themeSegmentItem: { flex: 1, alignItems: 'center', paddingVertical: 6, paddingHorizontal: 4, borderRadius: 5 },
   segment: { flexDirection: 'row', borderRadius: 7, padding: 2 },
   segmentItem: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5 },
-  tabs: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120 },
-  bar: { position: 'absolute', left: 16, height: 62, borderRadius: 31, flexDirection: 'row', padding: 4, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  barPlus: { right: 86 },
-  barMin: { width: 62, height: 52, right: undefined },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 27, gap: 2 },
-  plus: { position: 'absolute', right: 16, width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2b2621' },
-  plusMin: { width: 52, height: 52 },
   toast: { position: 'absolute', left: 16, right: 16, bottom: 108, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   confetti: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 40 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
