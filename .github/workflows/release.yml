@@ -4,8 +4,8 @@ name: Draft desktop release
 # off for a signing test (Actions artifacts only). Check it to create or update
 # a draft Release. The draft job never publishes and
 # never changes the prerelease flag.
-# Hosted gates are typecheck, pnpm test, build, packaging, and the packaged
-# smokes from ci.yml. Full local `pnpm verify` is unchanged.
+# Hosted gates are typecheck, pnpm test, build, native macOS interactions,
+# packaging, and the packaged smokes from ci.yml. Full local `pnpm verify` is unchanged.
 #
 # Do not add pull_request or pull_request_target. Fork pull requests must never
 # receive the release environment's signing secrets.
@@ -71,6 +71,26 @@ jobs:
           GOALLOOM_BUILD_ENV: production
           GOALLOOM_SUPABASE_URL: https://keqprrgvcefqdwnxaafv.supabase.co
           GOALLOOM_SUPABASE_ANON_KEY: ${{ secrets.GOALLOOM_PRODUCTION_SUPABASE_ANON_KEY }}
+
+      - name: Native interaction acceptance
+        run: |
+          pnpm test:subtasks
+          pnpm test:completed-layout
+          pnpm test:insight
+          pnpm test:insight-generation
+      - name: Upload native interaction evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: macos-native-interaction-evidence
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            apps/desktop/output/tests/subtasks/
+            apps/desktop/output/tests/completed-layout/
+            apps/desktop/output/tests/insight/
+            apps/desktop/output/tests/empty-card-layout/
+            apps/desktop/output/tests/insight-generation/
 
       # M2.3: Upload build artifact for package job
       - name: Upload build artifacts

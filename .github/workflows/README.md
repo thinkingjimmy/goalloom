@@ -6,6 +6,8 @@
 
 Each test job uploads `out/` plus package metadata. The corresponding package job downloads that artifact and uses `package:mac:prepared` or `package:win:prepared`. Before packaging, the prepared-build gate checks the exact Git commit, version, platform, public configuration fingerprint and every output file hash. It then packages without another build. Signing, Apple app/DMG notarization, stapling, signed Keychain acceptance and packaged smokes remain required.
 
+The macOS test job also runs the full native task-nesting, completed-layout, insight and insight-generation acceptance after its production build. This provides an isolated hosted desktop for title-edit Tab/Shift+Tab, pointer grouping, undo, editor retention and pointer-sensitive insight/period guidance before signing. Its synthetic reports/screenshots are uploaded as `macos-native-interaction-evidence`, including failure evidence. A failed acceptance step stops macOS packaging. Hosted checks do not replace owner Windows 11 acceptance.
+
 The cache action is pinned to the official [v4.2.0 commit](https://github.com/actions/cache/releases/tag/v4.2.0), which supports the current cache service. The previous pointer resolved to a retired implementation and stopped run 39216739835 before checkout.
 
 The cache is an input optimization only: restored output does not skip the production build or its manifest gate. Do not claim a cache speedup from a cache declaration. Preserve production configuration checks when changing cache keys or artifact reuse.

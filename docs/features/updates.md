@@ -15,6 +15,7 @@
 ## 工程契约
 
 - Release builds use production-only sync configuration and a commit/platform/version/file-hash manifest. Each platform builds once in its test job; prepared packaging validates and reuses that output. Missing production configuration or a stale artifact stops publication. Actual local/Actions stage times and retries are recorded for each release; estimates are not measured savings.
+- The hosted macOS release test job runs native subtask, completed-layout, insight and insight-generation acceptance before packaging, preserving synthetic reports/screenshots as a separate artifact. Title keyboard changes, existing pointer grouping and pointer-sensitive guidance must pass on that isolated desktop; a local focus-loss observation is not a reason to skip the gate.
 
 - macOS archive creation waits for the `afterSign` notarization hook to approve and staple the app. The bounded API-key flow and diagnostics are defined in the [hosted packaging guide](../development.md#托管打包与草稿-release); update ZIP hashes and blockmaps are generated after stapling.
 - Ticket-delivery failure cases, recorded before recovery changes: Apple accepts the app or DMG but CloudKit disconnects during stapling or validation; a retry repeats submission, exceeds the existing command deadline, retries a permanent error, exposes credentials or creates archives before validation. Recover only explicit connection-loss errors after acceptance, cap attempts and total action time, and fail if ticket validation remains incomplete.
@@ -27,6 +28,10 @@
 - 发布一个可自动更新的版本：把 `Goalloom-<v>-mac-arm64.dmg`、`Goalloom-<v>-mac-arm64.zip`、`Goalloom-<v>-mac-arm64.zip.blockmap`、`latest-mac.yml`、`Goalloom-<v>-win-x64.exe`、`Goalloom-<v>-win-x64.exe.blockmap`、`latest.yml` 与 `SHA256SUMS.txt` 放到 tag `v<v>`。自动更新只认正式（非 draft / prerelease）Release，因此工作流只更新草稿，由负责人再发布该草稿。缺少 yml 时客户端手动检查会显示失败。
 
 ## TODO
+
+### 1.9.9 update: title keyboard levels and independent subtask scheduling
+
+Release preparation: [notes](../releases/v1.9.9.md) and [timing/validation record](../releases/v1.9.9-timing.md). Local pre-release verification and hosted native nesting/signing/packaged gates must complete before publication. Workspace format remains v11.
 
 ### 1.9.7 update: inline subtasks and ordered task groups
 

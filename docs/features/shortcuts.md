@@ -13,6 +13,7 @@
 - 看板快捷键在详情、设置、composer、搜索弹窗打开时或 Onboarding 期间不生效；新建/设置/筛选在输入框中不生效；搜索仍可在输入框中用 ⌘K（Windows Ctrl+K）打开；撤销在输入框外任意位置可用；上一个写入尚未落定时按下的撤销不会丢弃，落定后执行一次（维护中或结果未知时不执行）；IME 组字期间不触发任何快捷键。
 - Todo 详情关闭后，焦点回到对应标题，保留虚拟行与键盘续接。鼠标打开时，无论 Esc 或关闭按钮退出，都不因焦点返回出现蓝色描边；后续键盘输入恢复正常焦点提示。键盘打开与 Tab 导航继续显示焦点提示。普通与链接标题、四种主题一致；纯打开／关闭不写任务数据。
 - Todo 详情标题的原生文本撤销／重做保留至本次详情关闭，自动保存与退出／重新编辑不会清除。标题清空后，焦点在详情内非文本控件上时，⌘Z／Ctrl+Z 优先恢复标题草稿并返回标题编辑；说明等其他输入框仍使用自己的文本撤销。
+- Existing board-title editing supports Tab to nest under the preceding displayed root and Shift+Tab to become independent, retaining text, selection and focus. These keys share inline creation's level/native-navigation rules; detail titles and the global composer retain their existing behavior. See [subtasks](subtasks.md).
 - 标题清空且没有其他有效数据的待办，关闭详情后直接移除，不进入回收站；此时 ⌘Z／Ctrl+Z 使用会话撤销，一步恢复最后保存的原标题和原位置。关闭前仍使用原生文本撤销；有其他数据的条目继续保留详情与输入校验。
 - 改键：点击行尾键帽进入录制，按下新组合即保存；Esc 或点击别处取消，录制期间不触发全局快捷键、不关闭弹窗。组合必须包含 ⌘/Ctrl 或 ⌥/Alt；复制/粘贴/剪切/全选与默认菜单占用的组合（退出、关闭、隐藏、最小化、重载、缩放、开发者工具、重做）会被拒绝并行内提示。
 - 相同按键的快捷键显示警告图标并列出冲突对象（通用键落在已启用的 ⌘1…⌘9 上时冲突对象为「顶栏数字键」），不阻止保存（仅在特定弹窗生效的快捷键可以合理共用）。可清除单个快捷键（未设置），页头「恢复默认」清除全部自定义并重新打开流程筛选。

@@ -67,7 +67,8 @@ renderer/
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
 │   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
 │   ├── board/
-│   │   ├── Board.tsx        # Unified periods/completion layout, shared header/tail/blank capture placement, review guides, group gestures and virtual focus pinning
+│   │   ├── Board.tsx        # Unified periods/completion layout, shared header/tail/blank capture placement, title-edit nesting targets/section retention, review guides, group gestures and virtual focus pinning
+│   │   ├── inline-nesting.ts # Shared eligible preceding-root selection for column capture and existing-title Tab nesting
 │   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop viewport clipping for drag, overlays and result visibility
 │   │   ├── ColumnOrderMenu.tsx # One-shot arrangement immediately left of Add; shared column-hover/keyboard/menu reveal; focus returns after guarded writes re-enable the trigger
@@ -81,7 +82,7 @@ renderer/
 │   │   ├── RowMotion.tsx  # Interruptible outer-row FLIP and finite overlay geometry updates
 │   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, offset-based group borders, logical keyboard traversal and input-aware focus/drag/menu pinning
 │   │   ├── visibility.ts  # Post-layout title visibility in the selected current/future/past period, with pending reads and offscreen destination feedback
-│   │   ├── TaskRow.tsx      # Task rows with flow dots, flow-colored checkboxes, tooltip-free titles, due indicators, description signals and flow-tinted highlights
+│   │   ├── TaskRow.tsx      # Task rows with flow dots, title editing with serialized Tab/Shift+Tab nesting, due indicators, description signals and flow-tinted highlights
 │   │   ├── PeriodReturn.tsx # Compact return icon, localized floating pointer/keyboard hint, scoped Escape and preserved return motion
 │   │   ├── period-picker.css # Period switches/lists/calendars, stable chevron slots, return focus/hint styling and touch targets
 │   │   ├── PeriodPicker.tsx # Header B: six-row year/half/cycle lists, week/day/month selection, visible history errors/retry and mode-aware labels

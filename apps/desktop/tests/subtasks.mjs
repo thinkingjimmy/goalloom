@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Current production build, native Electron input and isolated transaction fixtures, with explicit completed-layout controls.
- * [OUTPUT]: Leaf/group drag and menu checks, atomic flatten/undo evidence, native screenshots and runtime/platform evidence in output/tests/subtasks.
- * [POS]: Subtask E2E entry; --data selects transactions, --drops selects group-drop interactions and --ownership selects native cross-period ownership.
+ * [OUTPUT]: Title-edit keyboard nesting, leaf/group drag and menu checks, atomic flatten/undo evidence, native screenshots and runtime/platform evidence in output/tests/subtasks.
+ * [POS]: Subtask E2E entry; --data selects transactions, --drops selects group drops, --ownership selects cross-period ownership and --title-editing selects existing-title keys.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { setCompletedLayout } from './fixtures/completed-layout.mjs'
@@ -17,6 +17,7 @@ import { finishSetup } from './fixtures/setup.mjs'
 import { pollPage } from './fixtures/poll.mjs'
 import { nestingDrops } from './fixtures/nesting-drops.mjs'
 import { subtaskOwnershipUI } from './fixtures/subtask-ownership-ui.mjs'
+import { titleNesting } from './fixtures/title-nesting.mjs'
 
 const evidence = resolve('output/tests/subtasks'), checks = [], screenshots = []
 await mkdir(evidence, { recursive: true })
@@ -41,10 +42,12 @@ try {
   await boardSettings.getByRole('button', { name: '看板', exact: true }).click()
   await boardSettings.getByRole('switch', { name: '按上级自动放置', exact: true }).click()
   await boardSettings.getByRole('button', { name: '关闭', exact: true }).click()
-  if (process.argv.includes('--ownership')) await subtaskOwnershipUI({ page, report, evidence })
+  if (process.argv.includes('--title-editing')) await titleNesting({ page, application, report, evidence })
+  else if (process.argv.includes('--ownership')) await subtaskOwnershipUI({ page, report, evidence })
   else {
   await nestingDrops({ page, application, report, evidence })
   if (!process.argv.includes('--drops')) {
+  await titleNesting({ page, application, report, evidence })
   const ids = await page.evaluate(async () => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation
     const run = async action => { const reply = await window.goalloom.execute({ generation, operationId: crypto.randomUUID(), ...action }); if (!reply.ok) throw Error(reply.message); return reply.result }

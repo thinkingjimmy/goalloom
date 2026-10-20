@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Ordered identities, viewport, render function, drag/selection/menu/editing pins, nesting-preview root and shared input-aware focus restoration.
- * [OUTPUT]: Resize-observed rows with bounded motion retention, offset-based placement-local group borders, FLIP, keyboard traversal and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
+ * [OUTPUT]: Resize-observed rows with bounded motion retention, offset-based placement-local group borders, FLIP, keyboard traversal outside text editors and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,6 +10,7 @@ import type { ItemSummary } from '../../../shared/contracts/entities'
 import { RowMotion } from './RowMotion'
 import { returnFocus } from '../../lib/focus'
 import { localNestingParentId } from '../../../domain/nesting'
+import { editingTarget } from '../../state/session'
 
 const revealEvent = 'goalloom:reveal-row'
 interface Reveal { id: string; focus: string | null; origin?: 'pointer' | 'keyboard' }
@@ -123,7 +124,7 @@ export function VirtualRows({ scope = 'board', items, dragging, highlighted, pin
   return <RowMotion scope={scope} orderKey={orderKey} offsets={motionOffsets} dragging={!!dragging}><div ref={list} role="list" className="virtual-rows"
     onFocusCapture={event => { const id = (event.target as HTMLElement).closest<HTMLElement>('[data-item-id]')?.dataset.itemId; if (id) setFocused(id) }}
     onKeyDownCapture={event => {
-      if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing || document.documentElement.dataset.dragging) return
+      if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing || editingTarget(event.target) || document.documentElement.dataset.dragging) return
       const target = event.target as HTMLElement, row = target.closest<HTMLElement>('[data-item-id]'), index = row ? indexes.get(row.dataset.itemId!) : undefined
       if (index === undefined || !row) return
       const controls = [...row.querySelectorAll<HTMLElement>(controlSelector)]

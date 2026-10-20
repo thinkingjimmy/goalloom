@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
  * [OUTPUT]: Accessible local/cross-period task row with parent navigation, saved links, due/description signals, independent flow ports, placement dragging and hierarchy/lifecycle menus; titles fully wrap, lit rows carry `data-lit`/`--row-tint`, and Later checkboxes stay uncolored.
- *           A double click edits the title in place; a single click or keyboard activation still opens details.
+ *           A double click edits the title in place with guarded Tab nesting/Shift+Tab detachment; pending level writes retain drafts and serialize title commits.
  * [POS]: One virtual board row; Board owns placement, preview, dimming and which row is editing; the peek and detail own description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -32,8 +32,9 @@ import { TaskParentLink } from './TaskContext'
 const detailClickDelay = 400
 const singleLine = (value: string) => value.replace(/\r?\n/g, ' ')
 
-function TitleField({ title, itemId, renameTitle, endEdit }: {
+function TitleField({ title, itemId, renameTitle, endEdit, nest, unnest, submit }: {
   title: string; itemId: string
+  nest: Action | null; unnest: Action | null; submit: (action: Action) => Promise<unknown>
   renameTitle: (itemId: string, title: string) => Promise<boolean>
   endEdit: (itemId: string) => void
 }) {
@@ -42,9 +43,11 @@ function TitleField({ title, itemId, renameTitle, endEdit }: {
   const draftRef = useRef(draft)
   draftRef.current = draft
   const settled = useRef(false)
+  const composing = useRef(false), levelWrite = useRef<Promise<boolean> | null>(null)
   const commit = async (save: boolean) => {
     if (settled.current) return
     settled.current = true
+    if (levelWrite.current && !await levelWrite.current) { settled.current = false; return }
     const next = draftRef.current.trim()
     if (save && next && next !== title) {
       const ok = await renameTitle(itemId, next)
@@ -67,12 +70,23 @@ function TitleField({ title, itemId, renameTitle, endEdit }: {
     node.setSelectionRange(end, end)
   }, [])
   return <textarea ref={input} className="task-title-input" aria-label={messages.editTitle} value={draft} rows={1} maxLength={500}
+    onCompositionStart={() => { composing.current = true }} onCompositionEnd={() => { composing.current = false }}
     onPointerDown={event => event.stopPropagation()}
     onChange={event => setDraft(singleLine(event.target.value))}
     onBlur={() => { window.setTimeout(() => { void commit(true) }, 0) }}
     onKeyDown={event => {
-      if (event.nativeEvent.isComposing) return
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); void commit(false) }
+      if (event.defaultPrevented || event.nativeEvent.isComposing || composing.current) return
+      if (event.key === 'Tab' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const action = event.shiftKey ? unnest : nest
+        if (levelWrite.current || action) {
+          event.preventDefault(); event.stopPropagation()
+          if (!levelWrite.current && !settled.current && action) {
+            const pending = submit(action).then(Boolean).catch(() => false)
+            levelWrite.current = pending
+            void pending.finally(() => { if (levelWrite.current === pending) levelWrite.current = null })
+          }
+        }
+      } else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); void commit(false) }
       else if (event.key === 'Enter') {
         event.preventDefault()
         if (!event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) void commit(true)
@@ -80,7 +94,8 @@ function TitleField({ title, itemId, renameTitle, endEdit }: {
     }} />
 }
 
-export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle, onNest, nestingParent }: {
+export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle, onNest, nestingParent, nestingTarget = null }: {
+  nestingTarget?: ItemSummary | null
   nestingParent: ItemSummary | undefined
   onNest: (id: string) => void
   index: number; total: number; item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]; today: string
@@ -123,7 +138,10 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
     openTimer.current = window.setTimeout(() => select(item.id), detailClickDelay)
   }
   const title = editing
-    ? <TitleField title={item.title} itemId={item.id} renameTitle={renameTitle} endEdit={endEdit} />
+    ? <TitleField title={item.title} itemId={item.id} renameTitle={renameTitle} endEdit={endEdit} submit={submit}
+      nest={!frozen && nestingTarget ? { type: 'nest', itemId: item.id, parentId: nestingTarget.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version,
+        expectedParentVersion: nestingTarget.version, expectedParentPlacementVersion: nestingTarget.placement.version } : null}
+      unnest={!frozen && item.placement.nestingParentId ? { type: 'unnest', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version } : null} />
     : hasLinks
       ? <LinkTitle text={item.title} onOpen={activate} onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); startEdit() }} />
       : <button type="button" className="task-title" onClick={activate} onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); startEdit() }}><span>{item.title}</span></button>
@@ -142,7 +160,7 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
       onClick={() => void submit({ type: 'status', itemId: item.id, expectedVersion: item.version, status: done ? 'todo' : 'done' })}>
       {done && <Icon name="check" size={12} strokeWidth={2.5} />}
     </button>
-    {hasLinks || item.note || item.guidance || owner ? <div className="task-content">{line}{owner}{(item.note || item.guidance) && <NoteSignal itemId={item.id} title={item.title} note={item.note} guidance={item.guidance} />}{hasLinks && <LinkPreviews text={item.title} />}</div> : line}
+    {editing || hasLinks || item.note || item.guidance || owner ? <div className="task-content">{line}{owner}{(item.note || item.guidance) && <NoteSignal itemId={item.id} title={item.title} note={item.note} guidance={item.guidance} />}{hasLinks && <LinkPreviews text={item.title} />}</div> : line}
   </article>
   const links = relations.filter(edge => edge.parentId === item.id || edge.childId === item.id).length
   return !item.archivedAt && item.status !== 'cancelled' ? <TaskMenu onNest={() => onNest(item.id)} item={item} upcoming={item.status === 'todo' || candidates.some(candidate => candidate.placement.nestingParentId === item.id && sameOutlinePeriod(item.placement, candidate.placement) && candidate.status === 'todo') ? upcoming ?? [] : []} relations={links} disabled={disabled || isDragging} submit={submit} select={select}

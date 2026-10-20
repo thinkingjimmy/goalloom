@@ -5,7 +5,7 @@
  *           Owns independent relation dragging/prepared writes, virtual source pinning, whole-group drop previews, pointer overlays below insertion lines and scoped one-shot column arrangement.
  *           Right-aligned More/Add controls share header reveal states; column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and two-level Tab drafts; hidden columns stay mounted and inert.
  *           Every inline entry follows the captured parent-placement preference; opening at the tail does not pin the saved position.
- *           Double-clicking a card edits its title in place; the write keeps the description and due date.
+ *           Double-clicking a card edits its title in place; Tab/Shift+Tab reuse guarded nesting while retaining the editor and its completed section.
  *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly reminders support persistent dismissal without completion.
  *           "Write my own" opens this column's inline entry, the same one as ＋.
  *           Current month/week headers share the trailing add slot with a rounded calendar-day countdown badge.
@@ -14,7 +14,8 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton, SettingsButton, TextButton } from '../../components/ui/button'
-import { outlineSections, sameOutlinePeriod } from '../../../domain/nesting'
+import { localNestingParentId, nestingTargets, outlineSections, sameOutlinePeriod } from '../../../domain/nesting'
+import { precedingNestingRoot } from './inline-nesting'
 import './nesting.css'
 import { TaskContext } from './TaskContext'
 import { holdCompletedLayout, useCollapseCompleted } from '../../state/completed-layout'
@@ -246,10 +247,24 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   }, [period?.id, mode, history ? page.loading : false])
   useEffect(() => { if (collapseCompleted && highlighted && items.some(item => item.id === highlighted && item.status === 'done')) setDoneOpen(true) }, [collapseCompleted, highlighted, items])
   const { rows, todo, done } = useMemo(() => outlineSections(items, view.nestingParents), [items, view.nestingParents])
-  const mainRows = collapseCompleted ? todo : rows
-  const previousRow = mainRows.at(-1)
-  const previousParent = previousRow?.placement.nestingParentId ? mainRows.find(item => item.id === previousRow.placement.nestingParentId) : undefined
-  const nestingTarget = previousRow?.placement.nestingParentId ? previousParent && sameOutlinePeriod(previousRow.placement, previousParent.placement) ? previousParent : null : previousRow
+  const editingSection = useRef<{ id: string | null; done: boolean }>({ id: null, done: false })
+  if (editingSection.current.id !== editingId) editingSection.current = { id: editingId, done: done.some(item => item.id === editingId) }
+  const { mainRows, doneRows } = useMemo(() => {
+    if (!collapseCompleted) return { mainRows: rows, doneRows: done }
+    if (!editingId) return { mainRows: todo, doneRows: done }
+    const heldDone = new Set(done.map(item => item.id)), byId = new Map(rows.map(item => [item.id, item]))
+    const edited = byId.get(editingId)
+    if (edited) {
+      // Keep the editor mounted when detaching a completed child from an unfinished group.
+      const rootId = localNestingParentId(edited, byId) ?? edited.id
+      for (const item of rows) if ((localNestingParentId(item, byId) ?? item.id) === rootId) {
+        if (editingSection.current.done) heldDone.add(item.id)
+        else heldDone.delete(item.id)
+      }
+    }
+    return { mainRows: rows.filter(item => !heldDone.has(item.id)), doneRows: rows.filter(item => heldDone.has(item.id)) }
+  }, [rows, todo, done, collapseCompleted, editingId])
+  const nestingTarget = precedingNestingRoot(mainRows)
   const openAdd = () => {
     if (history || disabled || dragging || relationSource) return
     if (adding) section.current?.querySelector<HTMLTextAreaElement>('.quick-add-title')?.focus()
@@ -283,7 +298,12 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const row = (item: ItemSummary, index: number, total: number) => {
     if (item.archivedAt || item.status === 'cancelled') return <TaskContext item={item} select={select} />
     const lit = horizon !== 'later' && active.length ? flows.of(item.id).find(flow => active.includes(flow.id)) : undefined
-    return <TaskRow nestingParent={view.nestingParents.find(parent => parent.id === item.placement.nestingParentId)} index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
+    const displayed = editingSection.current.done && collapseCompleted ? doneRows : mainRows
+    const preceding = editingId === item.id ? precedingNestingRoot(displayed, index) : null
+    const canNest = editingId === item.id && !history && !disabled && !dragging && !relationSource && !item.placement.nestingParentId && preceding
+      && sameOutlinePeriod(item.placement, preceding.placement)
+      && nestingTargets(item.id, snapshot.relations.filter(edge => !edge.inheritedFrom), snapshot.nesting ?? [])(preceding.id)
+    return <TaskRow nestingTarget={canNest ? preceding : null} nestingParent={view.nestingParents.find(parent => parent.id === item.placement.nestingParentId)} index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
       // Later never joins flows, so a flow filter leaves the parking lot readable instead of greying it out.
       dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} editing={editingId === item.id} editLocked={disabled || !!dragging || !!relationSource} select={select} submit={submit} onPreview={onPreview}
       onNest={onNest} upcoming={upcoming} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle} />
@@ -369,7 +389,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
               if (draft) drafts.current.set(period?.id ?? 'later', draft)
               setAdding(true)
             }} flows={flows} items={view.candidates} split={adding.split} nestingTarget={nestingTarget ?? null} submit={submit} busy={disabled} close={() => setAdding(false)} snapshot={snapshot} ai={ai} />}
-          {collapseCompleted && done.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {done.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={done} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} nestingPreview={nestingPreview} render={row} />}</details>}
+          {collapseCompleted && doneRows.length > 0 && <details className="completed-fold" open={doneOpen} onToggle={event => setDoneOpen(event.currentTarget.open)}><summary>{messages.done} {doneRows.filter(item => !item.archivedAt && item.status === 'done').length}<Icon name="next" size={14} /></summary>{doneOpen && <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:done`} items={doneRows} dragging={dragging} highlighted={highlighted} pinned={relationSource} alsoPinned={editingId} nestingPreview={nestingPreview} render={row} />}</details>}
         </SortableContext>
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && sources && horizon !== 'year' && horizon !== 'later' && <EmptyCard horizon={horizon} sources={sources} period={period!} insight={insight} disabled={disabled} onWrite={openAdd} />}
         {!review && !completedReview && items.length === 0 && !adding && !loading && !failed && !sources && <div className="empty-column"><Icon name="empty" size={44} strokeWidth={1.1} /><p>{horizon === 'later' ? messages.emptyLater : horizon === 'day' ? messages.emptyDay : messages.emptyDirection}</p></div>}
