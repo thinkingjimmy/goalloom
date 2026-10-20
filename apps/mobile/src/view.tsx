@@ -4,21 +4,21 @@
  * [POS]: Mobile screen composition; task presentation lives in tasks/.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import {
   AccessibilityInfo, Animated, Easing, Keyboard, KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
-  BOARD_COLUMNS, FLOW_INDENT, LONG_PRESS_MS, NEST_INDENT, SHEET_GRABBER, buildParentOrder, canNest, columnMenuDismiss, columnMenuIndex, columnSections,
-  columnRange, completionLabel, currentPeriod, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon, orderFlowItems,
-  pageFromOffset, periodMeta, precedingPeriod, sheetRelease, shouldDragSheet, type AiConnection, type CalendarConfig, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
+  BOARD_COLUMNS, FLOW_INDENT, NEST_INDENT, SHEET_GRABBER, buildParentOrder, canNest, columnSections,
+  completionLabel, dropOnRows, flowColors, flowLeftLinks, flowSections, flowStroke, linkHost, mayLink, neighborsAfterRemoval, nextHorizon, orderFlowItems,
+  pageFromOffset, periodMeta, sheetRelease, shouldDragSheet, type AiConnection, type CaptureDraft, type DevicePrefs, type DropTarget, type Horizon, type Notice,
   type ItemRow, type Period,   type LocaleId, type PeriodHorizon, type RowBox, type Snapshot,
 } from '@goalloom/local-store'
 import { BlurView } from 'expo-blur'
-import * as Haptics from 'expo-haptics'
 import Svg, { Line } from 'react-native-svg'
+import { BoardHeader, BoardHorizonOptions } from './board/header'
 import { TaskRow as Row } from './tasks/row'
 import { TaskDetail, DetailCommit } from './tasks/detail'
 import { TaskDeadline } from './tasks/deadline'
@@ -31,17 +31,12 @@ export type Sheet =
   | { kind: 'detail'; id: string } | { kind: 'composer'; horizon?: Horizon } | { kind: 'backlog'; horizon: PeriodHorizon }
   | { kind: 'menu'; id: string } | { kind: 'add'; horizon: Horizon; periodId: string | null; parentId?: string | null; nestingParentId?: string | null; returnTo?: string }
   | { kind: 'move'; id: string; fromDetail?: boolean } | { kind: 'due'; id: string; fromDetail?: boolean } | { kind: 'parent'; id: string; fromDetail?: boolean }
-  | { kind: 'period'; horizon: PeriodHorizon }
+  | { kind: 'period'; horizon: PeriodHorizon } | { kind: 'board-horizons' }
   | { kind: 'trash' } | { kind: 'done' } | { kind: 'links' } | { kind: 'export'; json: string }
   | { kind: 'language' } | { kind: 'columns' } | { kind: 'check' } | { kind: 'style' } | { kind: 'celebrate' }
   | null
 
 const languageNames: Record<LocaleId, string> = { zh: '中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }
-const MENU_DOT = { light: '#e08a2f', dark: '#f0a24a' }
-
-function menuTick() {
-  void Haptics.selectionAsync().catch(() => undefined)
-}
 const previous: Partial<Record<PeriodHorizon, PeriodHorizon>> = { half: 'year', cycle: 'half', month: 'cycle', week: 'month', day: 'week' }
 const CONFETTI = ['#F5BA35', '#EE715B', '#E16EAA', '#8874DE', '#55A9E3', '#46B8A0', '#F2D77B']
 
@@ -81,14 +76,16 @@ function chrome(bottomInset: number): { barBottom: number; contentBottom: number
 }
 
 const SheetScrollY = createContext<RefObject<number> | null>(null)
+const SheetBodyHeight = createContext(0)
 
-function SheetScrollView({ children }: { children: ReactNode }) {
+function SheetScrollView({ children, headerHeight }: { children: ReactNode; headerHeight?: number }) {
   const scrollY = useContext(SheetScrollY)
+  const bodyHeight = useContext(SheetBodyHeight)
   useEffect(() => {
     if (scrollY) scrollY.current = 0
     return () => { if (scrollY) scrollY.current = 0 }
   }, [scrollY])
-  return <ScrollView {...scrollInset} bounces={false} scrollEventThrottle={16} onScroll={event => { if (scrollY) scrollY.current = event.nativeEvent.contentOffset.y }}>{children}</ScrollView>
+  return <ScrollView {...scrollInset} style={headerHeight !== undefined && bodyHeight > 0 ? { maxHeight: Math.max(0, bodyHeight - headerHeight) } : undefined} bounces={false} scrollEventThrottle={16} onScroll={event => { if (scrollY) scrollY.current = event.nativeEvent.contentOffset.y }}>{children}</ScrollView>
 }
 
 function BottomSheet({ theme, paddingBottom, onDismiss, children, expanded = false, closeLabel }: { theme: Theme; paddingBottom: number; onDismiss: () => boolean; children: ReactNode; expanded?: boolean; closeLabel: string }) {
@@ -105,6 +102,7 @@ function BottomSheet({ theme, paddingBottom, onDismiss, children, expanded = fal
   const host = useRef<View>(null)
   const top = useRef(0)
   const height = useRef(480)
+  const [panelHeight, setPanelHeight] = useState(0)
   const scrollY = useRef(0)
   const lead = useRef(0)
   const dismiss = useRef(onDismiss)
@@ -112,7 +110,7 @@ function BottomSheet({ theme, paddingBottom, onDismiss, children, expanded = fal
   const measure = () => {
     host.current?.measureInWindow((_x, y, _width, measured) => {
       top.current = y
-      if (measured > 0) height.current = measured
+      if (measured > 0) { height.current = measured; setPanelHeight(measured) }
     })
   }
   const release = (distance: number, velocity: number) => {
@@ -151,14 +149,14 @@ function BottomSheet({ theme, paddingBottom, onDismiss, children, expanded = fal
     onPanResponderRelease: (_event, gesture) => release(Math.max(0, lead.current + gesture.dy), gesture.vy),
     onPanResponderTerminate: () => release(0, 0),
   })).current
-  return <SheetScrollY.Provider value={scrollY}>
+  return <SheetScrollY.Provider value={scrollY}><SheetBodyHeight.Provider value={Math.max(0, panelHeight - paddingBottom - SHEET_GRABBER)}>
     <Animated.View accessibilityViewIsModal onAccessibilityEscape={onDismiss} ref={host} collapsable={false} onLayout={measure} {...pan.panHandlers} style={[styles.sheet, expanded && { height: availableHeight }, { bottom: keyboardHeight, maxHeight: availableHeight, backgroundColor: theme.surface, borderTopLeftRadius: theme.sheetRadius, borderTopRightRadius: theme.sheetRadius, paddingBottom, transform: [{ translateY }] }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={closeLabel} onPress={onDismiss} style={styles.grabHit} {...grabber.panHandlers}>
         <View style={[styles.grab, { backgroundColor: theme.line }]} />
       </Pressable>
       {children}
     </Animated.View>
-  </SheetScrollY.Provider>
+  </SheetBodyHeight.Provider></SheetScrollY.Provider>
 }
 
 export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimized, sheet, toast, shot, viewed, captureSeed, ai, onOpenAi, onTab, onColumn, onMinimize, onSheet, onDismissToast, onCheck, onTrash, onMove, onNest, onReorder, onCreate, onEdit, onFlow, onLink, onUnlink, onPolicy, onAppearance, onBackup, onPrefs, onUndo, onRestore, onViewPeriod, activity, periodsAround }: {
@@ -177,6 +175,9 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
   activity: (id: string) => { type: string; at: string }[]; periodsAround: (horizon: PeriodHorizon) => Period[]
 }) {
   const insets = useSafeAreaInsets()
+  // Font changes invalidate native text measurements; editable sheets keep their drafts.
+  const { fontScale } = useWindowDimensions()
+  const [boardHeadingHeight, setBoardHeadingHeight] = useState(44)
   const { barBottom, contentBottom } = chrome(insets.bottom)
   const commit = useRef<(() => boolean) | null>(null)
   const navigate = (next: Sheet) => { if (commit.current && !commit.current()) return false; onSheet(next); return true }
@@ -209,10 +210,10 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
     lastY.current = y
   }
   return <DetailCommit.Provider value={commit}><View style={[styles.app, { backgroundColor: theme.bg, paddingTop: Platform.OS === 'web' ? 47 : insets.top }]}>
-    {tab === 'board' && <Board copy={copy} theme={theme} locale={locale} snap={snap} columns={columns} column={column} hide={hide} shot={shot} viewed={viewed} nodes={nodes} contentBottom={contentBottom} {...(prefs.parentOrder ? { compare: order.compare } : {})} onColumn={onColumn} onSheet={navigate} onCheck={celebrate} onNest={onNest} onReorder={onReorder} onScroll={scroll} />}
+    {tab === 'board' && <Board key={fontScale} copy={copy} theme={theme} locale={locale} snap={snap} columns={columns} column={column} hide={hide} shot={shot} viewed={viewed} nodes={nodes} contentBottom={contentBottom} {...(prefs.parentOrder ? { compare: order.compare } : {})} onColumn={onColumn} onSheet={navigate} onCheck={celebrate} onNest={onNest} onReorder={onReorder} onScroll={scroll} />}
     {tab === 'flow' && <Flow copy={copy} theme={theme} snap={snap} prefs={prefs} nodes={nodes} shot={shot} contentBottom={contentBottom} onSheet={navigate} onCheck={celebrate} onScroll={scroll} />}
     {tab === 'settings' && <Settings copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} ai={ai} contentBottom={contentBottom} onSheet={navigate} onOpenAi={onOpenAi} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
-    <TabBar copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => navigate({ kind: 'composer', horizon: columns[column] ?? 'day' })} />
+    <TabBar key={fontScale} copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => navigate({ kind: 'composer', horizon: columns[column] ?? 'day' })} />
     {toast && <View style={[styles.toast, theme.style === 'minimal' ? { ...surface(theme, theme.controlRadius), bottom: barBottom + TAB_HEIGHT + 12 } : { backgroundColor: theme.fg, borderRadius: 22, bottom: barBottom + TAB_HEIGHT + 12 }]}>
       <View style={styles.flex}>
         <Text style={{ color: theme.style === 'minimal' ? theme.fg : theme.onAccent }}>{toast.text}</Text>
@@ -228,7 +229,10 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
         <Text style={{ flex: 1, textAlign: 'center', color: theme.fg, fontSize: 17, fontWeight: '600' }}>{sheet.kind === 'detail' ? copy.task.detail : sheet.kind === 'due' ? copy.due : sheet.kind === 'move' ? copy.task.horizon : sheet.kind === 'add' ? copy.addSub : copy.parent}</Text>
         <View style={styles.sheetBack} />
       </View>}
-      <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} sheet={sheet} scheme={scheme} nodes={nodes} onSheet={navigate} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={celebrate} />
+      {sheet.kind === 'board-horizons' ? <Fragment key={fontScale}>
+        <View style={styles.sheetHeader} onLayout={event => setBoardHeadingHeight(event.nativeEvent.layout.height)}><Text accessibilityRole="header" style={{ flex: 1, textAlign: 'center', color: theme.fg, fontSize: 17, fontWeight: '600' }}>{copy.task.chooseHorizon}</Text></View>
+        <SheetScrollView headerHeight={boardHeadingHeight + 12}><BoardHorizonOptions copy={copy} theme={theme} locale={locale} snap={snap} columns={columns} horizon={columns[column] ?? 'day'} viewed={viewed} onPick={horizon => { onColumn(columns.indexOf(horizon)); navigate(null) }} /></SheetScrollView>
+      </Fragment> : <SheetBody copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} sheet={sheet} scheme={scheme} nodes={nodes} onSheet={navigate} onCreate={onCreate} onEdit={onEdit} onFlow={onFlow} onLink={onLink} onUnlink={onUnlink} onMove={onMove} onTrash={onTrash} onRestore={onRestore} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onViewPeriod={onViewPeriod} activity={activity} periodsAround={periodsAround} onCheck={celebrate} />}
     </BottomSheet>}
     {sheet?.kind === 'composer' && <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.composerHost} pointerEvents="box-none">
       <Composer copy={copy} theme={theme} snap={snap} seed={captureSeed} horizon={sheet.horizon ?? columns[column] ?? 'day'} columns={columns} bottom={Math.max(insets.bottom, 8)} onCreate={onCreate} onDismiss={() => navigate(null)} />
@@ -256,17 +260,8 @@ function Board({ copy, theme, locale, snap, columns, column, hide, shot, viewed,
   const [dragId, setDragId] = useState<string | null>(null)
   const [nestUnder, setNestUnder] = useState<string | null>(null)
   const [doneOpen, setDoneOpen] = useState<Partial<Record<Horizon, boolean>>>({})
-  const [menu, setMenu] = useState(false)
-  const [hover, setHover] = useState<number | null>(null)
-  const anchorY = useRef(0)
-  const armed = useRef(false)
-  const entered = useRef(false)
-  const hoverRef = useRef<number | null>(null)
-  const columnRef = useRef(column)
-  columnRef.current = column
   const [pageWidth, setPageWidth] = useState(0)
   const [pageHeight, setPageHeight] = useState(0)
-  const [headerHeight, setHeaderHeight] = useState(56)
   const pager = useRef<ScrollView>(null)
   const fromPager = useRef(false)
   const pagerReady = useRef(false)
@@ -309,61 +304,12 @@ function Board({ copy, theme, locale, snap, columns, column, hide, shot, viewed,
     const next = pageFromOffset(x, pageWidth, columns.length)
     if (next === column) return
     fromPager.current = true
-    hoverRef.current = null
-    setHover(null)
-    setMenu(false)
     onColumn(next)
   }
-  const pick = (index: number) => {
-    setHover(null)
-    hoverRef.current = null
-    setMenu(false)
-    if (index !== column) onColumn(index)
-  }
-  const closeMenu = () => { setHover(null); hoverRef.current = null; setMenu(false) }
-  const rememberAnchor = (bottom: number) => { anchorY.current = bottom + 4 }
-  const moveHover = (y: number) => {
-    if (!armed.current) return
-    const index = columnMenuIndex(y, anchorY.current, columns.length)
-    if (index !== null) entered.current = true
-    if (index === hoverRef.current) return
-    hoverRef.current = index
-    setHover(index)
-    if (index !== null) menuTick()
-  }
-  const releaseHover = (y: number) => {
-    if (!armed.current) return
-    armed.current = false
-    const index = columnMenuIndex(y, anchorY.current, columns.length)
-    const dragged = entered.current
-    entered.current = false
-    hoverRef.current = null
-    setHover(null)
-    if (index !== null) pick(index)
-    else if (dragged) closeMenu()
-  }
-  const pickRef = useRef(pick)
-  const closeRef = useRef(closeMenu)
-  const countRef = useRef(columns.length)
-  pickRef.current = pick
-  closeRef.current = closeMenu
-  countRef.current = columns.length
-  const dismissPan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponderCapture: (_event, gesture) => (gesture.dy < -12 && Math.abs(gesture.dy) > Math.abs(gesture.dx)) || (Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy)),
-    onPanResponderRelease: (_event, gesture) => {
-      if (columnMenuDismiss(gesture.dy, gesture.dx)) { closeRef.current(); return }
-      if (Math.abs(gesture.dx) > 48 && Math.abs(gesture.dx) > Math.abs(gesture.dy)) {
-        const next = columnRef.current + (gesture.dx < 0 ? 1 : -1)
-        if (next >= 0 && next < countRef.current) pickRef.current(next)
-      }
-    },
-  })).current
-  const shown = hover === null ? horizon : columns[hover] ?? horizon
-  const shownPeriod = shown === 'later' ? null : viewed[shown] ?? snap.periods[shown] ?? null
   return <View style={styles.flex}>
-    <BoardTitle copy={copy} theme={theme} locale={locale} horizon={shown} period={shownPeriod} calendar={snap.calendar} today={snap.today} current={shown === 'later' ? null : snap.periods[shown] ?? null} open={menu} onPress={() => { if (menu) closeMenu(); else setMenu(true) }} onArm={() => { armed.current = true; entered.current = false; setMenu(true) }} onMove={moveHover} onRelease={releaseHover} onLayout={height => { setHeaderHeight(height) }} onAnchor={rememberAnchor} />
+    <BoardHeader copy={copy} theme={theme} locale={locale} horizon={horizon} period={horizon === 'later' ? null : viewed[horizon] ?? snap.periods[horizon] ?? null} calendar={snap.calendar} today={snap.today} current={horizon === 'later' ? null : snap.periods[horizon] ?? null} onOpen={() => onSheet({ kind: 'board-horizons' })} />
     <View style={styles.flex} onLayout={event => { setPageWidth(event.nativeEvent.layout.width); setPageHeight(event.nativeEvent.layout.height) }}>
-      {pageWidth > 0 && pageHeight > 0 && <ScrollView ref={pager} horizontal pagingEnabled directionalLockEnabled nestedScrollEnabled scrollEnabled={!dragId && !menu} showsHorizontalScrollIndicator={false} style={styles.flex} onMomentumScrollEnd={event => settle(event.nativeEvent.contentOffset.x)}>
+      {pageWidth > 0 && pageHeight > 0 && <ScrollView ref={pager} horizontal pagingEnabled directionalLockEnabled nestedScrollEnabled scrollEnabled={!dragId} showsHorizontalScrollIndicator={false} style={styles.flex} onMomentumScrollEnd={event => settle(event.nativeEvent.contentOffset.x)}>
         {columns.map(page => {
           const pagePeriod = page === 'later' ? null : viewed[page] ?? snap.periods[page] ?? null
           const sections = hide && (shot === 'empty' || page === 'week') ? { todo: [], done: [] } : columnSections(snap.items.filter(item => item.horizon === page && (page === 'later' || item.periodId === pagePeriod?.id) && item.status !== 'cancelled'), compare)
@@ -405,78 +351,7 @@ function Board({ copy, theme, locale, snap, columns, column, hide, shot, viewed,
         })}
       </ScrollView>}
     </View>
-    {menu && <>
-      <View style={[styles.menuScrim, { top: headerHeight, backgroundColor: theme.scheme === 'dark' ? 'rgba(0,0,0,0.12)' : 'rgba(40,25,10,0.05)' }]} {...dismissPan.panHandlers}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={closeMenu} />
-      </View>
-      <View style={[styles.columnMenu, { top: headerHeight + 4, borderColor: theme.line }]}>
-        <BlurView intensity={theme.style === 'minimal' ? 40 : 80} tint={theme.scheme === 'dark' ? 'dark' : 'light'} style={[StyleSheet.absoluteFill, { backgroundColor: theme.scheme === 'dark' ? 'rgba(36,32,28,0.62)' : 'rgba(255,253,250,0.72)' }]} />
-        {columns.map((page, index) => {
-          const pagePeriod = page === 'later' ? null : viewed[page] ?? snap.periods[page] ?? null
-          const label = columnLabel(copy, locale, page, pagePeriod, snap.calendar, snap.today, page === 'later' ? null : snap.periods[page] ?? null)
-          const open = hide && (shot === 'empty' || page === 'week') ? 0 : snap.items.filter(item => item.horizon === page && (page === 'later' || item.periodId === pagePeriod?.id) && item.status === 'todo').length
-          return <Pressable key={page} onPress={() => pick(index)} accessibilityRole="menuitem" accessibilityState={{ selected: index === column }} style={[styles.columnRow, hover === index && { backgroundColor: theme.hover }]}>
-            <View style={styles.menuDot}>{index === column && <View style={[styles.menuMark, { backgroundColor: MENU_DOT[theme.scheme] }]} />}</View>
-            <Text numberOfLines={1} style={[styles.menuName, { color: theme.fg }]}>{label.title}</Text>
-            <Text numberOfLines={1} style={[styles.menuRange, { color: theme.secondary }]}>{label.range}</Text>
-            <Text style={[styles.menuCount, { color: theme.secondary }]}>{open}</Text>
-          </Pressable>
-        })}
-      </View>
-    </>}
-  </View>
-}
 
-function columnLabel(copy: Copy, locale: LocaleId, horizon: Horizon, period: Period | null, calendar: CalendarConfig | null, today: string, current: Period | null): { title: string; range: string } {
-  if (horizon === 'later' || !period) return { title: copy.later, range: '' }
-  const title = horizon === 'year' ? period.startDate.slice(0, 4) : copy[horizon]
-  return { title, range: columnRange(horizon, period, calendar, today, locale, headingRelative(horizon, period, calendar, current)) }
-}
-
-/** Current, previous, and next headings keep year digits off, except a rolling cycle that is not current. Matches the desktop column header. */
-function headingRelative(horizon: Horizon, period: Period, calendar: CalendarConfig | null, current: Period | null): boolean {
-  if (!calendar || !current?.startAt || !current.endAt) return true
-  if (period.id === current.id) return true
-  if (horizon === 'later') return true
-  if (horizon === 'cycle' && calendar.mode !== 'natural') return false
-  try {
-    if (precedingPeriod(calendar, current)?.id === period.id) return true
-    return currentPeriod(calendar, horizon, current.endAt).id === period.id
-  } catch { return false }
-}
-
-function BoardTitle({ copy, theme, locale, horizon, period, calendar, today, current, open, onPress, onArm, onMove, onRelease, onLayout, onAnchor }: {
-  copy: Copy; theme: Theme; locale: LocaleId; horizon: Horizon; period: Period | null; calendar: CalendarConfig | null; today: string; current: Period | null
-  open: boolean; onPress: () => void; onArm: () => void; onMove: (y: number) => void; onRelease: (y: number) => void
-  onLayout: (height: number) => void
-  onAnchor: (bottom: number) => void
-}) {
-  const label = columnLabel(copy, locale, horizon, period, calendar, today, current)
-  const node = useRef<View>(null)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const armed = useRef(false)
-  const consumed = useRef(false)
-  const begin = () => {
-    armed.current = false
-    consumed.current = false
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => { armed.current = true; onArm() }, LONG_PRESS_MS)
-  }
-  const end = (y: number) => {
-    if (timer.current) clearTimeout(timer.current)
-    if (armed.current) { consumed.current = true; onRelease(y) }
-    armed.current = false
-  }
-  const place = (height: number) => {
-    onLayout(height)
-    node.current?.measureInWindow((_x, y, _width, measured) => onAnchor(y + measured))
-  }
-  return <View ref={node} style={styles.header} onLayout={event => place(event.nativeEvent.layout.height)}>
-    <Pressable onPress={() => { if (consumed.current) { consumed.current = false; return } onPress() }} onPressIn={begin} onPressOut={event => end(event.nativeEvent.pageY)} onTouchMove={event => { if (armed.current) onMove(event.nativeEvent.pageY) }} style={styles.titlePress} accessibilityRole="button" accessibilityState={{ expanded: open }}>
-      <Text numberOfLines={1} style={[styles.periodTitle, { color: theme.fg }]}>{label.title}</Text>
-      <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}><Icon name="down" size={14} color={theme.faint} /></View>
-    </Pressable>
-    {!!label.range && <Text numberOfLines={1} style={[styles.range, { color: theme.secondary }]}>{label.range}</Text>}
   </View>
 }
 
@@ -655,9 +530,9 @@ function TabBar({ copy, theme, tab, minimized, barBottom, onTab, onPlus }: { cop
   return <View pointerEvents="box-none" style={styles.tabs}>
     <View style={[styles.bar, minimized ? styles.barMin : styles.barPlus, { bottom, borderColor: theme.style === 'minimal' ? theme.line : theme.edge, borderWidth: theme.style === 'minimal' ? 1 : StyleSheet.hairlineWidth }]}>
       <BlurView intensity={theme.style === 'minimal' ? 28 : 72} tint={theme.scheme === 'dark' ? 'dark' : 'light'} style={[StyleSheet.absoluteFill, { backgroundColor: theme.style === 'minimal' ? (theme.scheme === 'dark' ? 'rgba(9,9,11,0.82)' : 'rgba(255,255,255,0.82)') : (theme.scheme === 'dark' ? 'rgba(43,38,33,0.45)' : 'rgba(255,253,250,0.45)') }]} />
-      {tabs.filter((entry) => !minimized || entry[0] === tab).map(([id, icon, label]) => <Pressable key={id} onPress={() => onTab(id)} style={[styles.tab, id === tab && { backgroundColor: theme.hover }]}>
+      {tabs.filter((entry) => !minimized || entry[0] === tab).map(([id, icon, label]) => <Pressable accessibilityLabel={label} accessibilityState={{ selected: id === tab }} key={id} onPress={() => onTab(id)} style={[styles.tab, id === tab && { backgroundColor: theme.hover }]}>
         <Icon name={icon} size={minimized ? 22 : 20} color={id === tab ? theme.focus : theme.fgSoft} />
-        {!minimized && <Text style={{ fontSize: 10.5, fontWeight: '600', color: id === tab ? theme.focus : theme.fgSoft }}>{label}</Text>}
+        {!minimized && <Text maxFontSizeMultiplier={1.3} style={{ fontSize: 10.5, fontWeight: '600', color: id === tab ? theme.focus : theme.fgSoft }}>{label}</Text>}
       </Pressable>)}
     </View>
     <Pressable onPress={onPlus} style={[styles.plus, minimized && styles.plusMin, { bottom }]} accessibilityLabel={copy.capture}><Icon name="add" size={minimized ? 26 : 30} color="#fbf9f6" /></Pressable>
@@ -803,21 +678,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   chipStrip: { flexGrow: 0 },
   strip: { paddingHorizontal: 14, paddingTop: 6, paddingBottom: 2, gap: 4, alignItems: 'center' },
-  header: { minHeight: 52, paddingLeft: 20, paddingRight: 16, paddingTop: 2, paddingBottom: 8, flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
-  titlePress: { flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 1 },
-  periodTitle: { fontSize: 34, fontWeight: '700', letterSpacing: -0.6 },
-  range: { fontSize: 15, lineHeight: 20, marginBottom: 5, flexShrink: 1 },
-  menuScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 4 },
-  columnMenu: { position: 'absolute', left: 20, width: 260, zIndex: 6, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden', shadowColor: '#3c2814', shadowOpacity: 0.16, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
-  columnRow: { height: 40, paddingRight: 12, flexDirection: 'row', alignItems: 'center' },
-  menuDot: { width: 16, alignItems: 'center' },
-  menuMark: { width: 7, height: 7, borderRadius: 4 },
-  menuName: { width: 84, fontSize: 16 },
-  menuRange: { flex: 1, fontSize: 15 },
-  menuCount: { minWidth: 18, marginLeft: 8, fontSize: 15, textAlign: 'right', fontVariant: ['tabular-nums'] },
-  entry: { marginLeft: 20, height: 30, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  entry: { marginLeft: 20, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4 },
   row: { minHeight: 44, paddingVertical: 5, paddingRight: 16, paddingLeft: 20, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  fold: { height: 40, paddingLeft: 20, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  fold: { minHeight: 44, paddingLeft: 20, flexDirection: 'row', alignItems: 'center', gap: 6 },
   checkHit: { marginTop: 6 },
   titleLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   title: { flex: 1, fontSize: 15, lineHeight: 22, paddingVertical: 6 },
