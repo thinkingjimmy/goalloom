@@ -22,4 +22,13 @@ config.resolver.unstable_enablePackageExports = true
 if (!config.resolver.assetExts.includes('wasm')) config.resolver.assetExts.push('wasm')
 if (!config.resolver.platforms.includes('web')) config.resolver.platforms.push('web')
 
+if (process.env.GOALLOOM_MOBILE_E2E === '1') {
+  if (process.env.GOALLOOM_MOBILE_ENV === 'production') throw Error('E2E cannot target production')
+  config.resolver.resolveRequest = (context, moduleName, platform) => {
+    if (platform === 'ios' && context.originModulePath.endsWith('/account/service.ts') && moduleName === './platform') {
+      return { type: 'sourceFile', filePath: path.join(projectRoot, 'tests/platform.ts') }
+    }
+    return context.resolveRequest(context, moduleName, platform)
+  }
+}
 module.exports = config

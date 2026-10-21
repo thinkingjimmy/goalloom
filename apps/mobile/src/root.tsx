@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+/**
+ * [INPUT]: Local SQLite workspace, device preferences, account lifecycle and explicit UI intents.
+ * [OUTPUT]: Mobile boot, offline commands, onboarding and guarded account/settings navigation.
+ * [POS]: Mobile composition root; account credentials stay outside the workspace database.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { ActivityIndicator, AppState, Linking, Platform, StyleSheet, Text, useColorScheme, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { randomUUID } from 'expo-crypto'
@@ -7,6 +13,9 @@ import {
   nearbyPeriods, readPrefs, seedDemo, writePrefs, type CaptureDraft, type DevicePrefs, type Glance, type Horizon, type ItemRow,
   type AiConnection, type LocaleId, type Notice, type Period, type PeriodHorizon, type Snapshot, type UndoToken,
 } from '@goalloom/local-store'
+import { accountService } from './account/service'
+import { AccountScreen } from './account/screen'
+import { accountCopy } from './account/copy'
 import { loadAiConnection } from './ai-account'
 import { AiConnect } from './ai-connect'
 import { catalogs, systemLocale } from './copy'
@@ -86,6 +95,9 @@ function initialTab(shot: string): 'board' | 'flow' | 'settings' {
 
 export default function Root() {
   const systemScheme = useColorScheme()
+  const account = useSyncExternalStore(accountService.subscribe, accountService.snapshot)
+  const [accountOpen, setAccountOpen] = useState(false)
+  useEffect(() => { void accountService.start() }, [])
   const [boot, setBoot] = useState<Boot | null>(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<'board' | 'flow' | 'settings'>('board')
@@ -144,6 +156,7 @@ export default function Root() {
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', state => {
+      accountService.setForeground(state === 'active')
       if (state !== 'active') return
       const current = bootRef.current
       if (!current?.snap.setupConfirmedAt) return
@@ -188,7 +201,7 @@ export default function Root() {
   const glance: Glance = { tab, horizon: openHorizon, periodId: openPeriod?.id ?? null, columns, doneOpen: false }
 
   if (!boot.snap.setupConfirmedAt) {
-    return <Onboarding copy={copy} scheme={scheme} locale={locale} now={clock()} onConfirm={input => guard(() => {
+    return <Onboarding copy={copy} scheme={scheme} locale={locale} now={clock()} account={account} onSignIn={provider => { void accountService.signIn(provider) }} onConfirm={input => guard(() => {
       const at = clock()
       boot.store.confirm(at, {
         mode: input.mode, timezone: input.timezone, weekStart: input.weekStart,
@@ -203,6 +216,7 @@ export default function Root() {
     <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     <Goalloom
       copy={copy} theme={theme} snap={boot.snap} prefs={boot.prefs} locale={locale} tab={tab} column={column}
+      accountLabel={accountService.platform.supported ? account.email ?? accountCopy(locale).signedOut : null} onOpenAccount={() => setAccountOpen(true)}
       minimized={minimized} sheet={sheet} toast={toast} shot={shot} viewed={viewed} ai={ai} onOpenAi={() => setAiOpen(true)}
       captureSeed={shot === 'capture' ? CAPTURE_SEED : ''}
       onTab={next => { setTab(next); setMinimized(false) }} onColumn={index => { const next = columns[index]; if (next) setBoardHorizon(next) }} onMinimize={setMinimized} onSheet={setSheet}
@@ -264,6 +278,9 @@ export default function Root() {
       activity={id => boot.store.activity(id)}
       periodsAround={horizon => boot.snap.calendar ? nearbyPeriods(boot.snap.calendar, horizon, clock()) : []}
     />
+    {accountOpen && <View style={[StyleSheet.absoluteFill, styles.ai, { backgroundColor: theme.bg }]}>
+      <AccountScreen state={account} copy={copy} locale={locale} theme={theme} onBack={() => setAccountOpen(false)} />
+    </View>}
     {aiOpen && <View style={[StyleSheet.absoluteFill, styles.ai, { backgroundColor: theme.bg }]}>
       <AiConnect copy={copy} theme={theme} connection={ai} onConnection={setAi} onBack={() => setAiOpen(false)} />
     </View>}

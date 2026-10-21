@@ -20,12 +20,25 @@
     "paths": {
       "@goalloom/local-store": [
         "../../packages/local-store/src/index.ts"
+      ],
+      "@goalloom/contracts": [
+        "../../packages/contracts/src/index.ts"
+      ],
+      "@goalloom/crypto": [
+        "../../packages/crypto/src/index.ts"
+      ],
+      "@goalloom/store-core": [
+        "../../packages/store-core/src/index.ts"
+      ],
+      "@goalloom/sync": [
+        "../../packages/sync/src/index.ts"
       ]
     }
   },
   "include": [
     "src/**/*.ts",
-    "src/**/*.tsx"
+    "src/**/*.tsx",
+    "tests/**/*.ts"
   ],
   "extends": "expo/tsconfig.base"
 }

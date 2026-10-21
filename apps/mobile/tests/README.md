@@ -1,10 +1,47 @@
-# Mobile UI acceptance
+# Native account acceptance
 
-INPUT: A demo-seeded native build, a dedicated E2E simulator, local Maestro and Java 21.
-OUTPUT: Local JUnit reports, screenshots and motion captures under root `output/tests/`.
-POS: Native visual and interaction acceptance for bottom navigation and task details. No Auth or sync acceptance is implied.
+INPUT: A development-only E2E simulator build, a dedicated `Goalloom … E2E` simulator, local Maestro and Java 21.
+OUTPUT: Local JUnit, screenshots, logs and environment/scenario reports under root `output/tests/mobile-sync/`.
+POS: Native acceptance boundary. Providers and Auth are synthetic; encrypted SQLite, Keychain, Supabase SDK, onboarding and settings are real.
 
-Build the demo with `EXPO_PUBLIC_DEMO=1` and install it on an explicitly isolated simulator. These UI flows do not clear app state. Keep Maestro analytics/update checks disabled and its API endpoint local. Never use a personal workspace for the task-detail editing flow.
+`platform.ts` replaces only the account platform import in explicit iOS E2E bundles. It injects cancellation, authorization failure and a deleted wrapping key. Production rejects the E2E flag. `auth-server.mjs` listens only on loopback and returns sessions larger than the historical Keychain item limit. `run.mjs` validates the simulator and build before installing or clearing app state. It runs `maestro/` flows sequentially and disables analytics, update checks and remote Maestro API access.
+
+Create an isolated simulator. Do not use a personal simulator or physical device for these `clearState` flows:
+
+```sh
+xcrun simctl create 'Goalloom Account E2E' com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-26-5
+xcrun simctl boot "$GOALLOOM_E2E_DEVICE"
+xcrun simctl bootstatus "$GOALLOOM_E2E_DEVICE" -b
+```
+
+Set `GOALLOOM_E2E_DEVICE` to the returned UUID. Prepare/build from the repository root:
+
+```sh
+GOALLOOM_MOBILE_E2E=1 pnpm --dir apps/mobile exec expo prebuild --platform ios --no-install
+cd apps/mobile/ios
+pod install
+cd ../../..
+GOALLOOM_MOBILE_E2E=1 xcodebuild \
+  -workspace apps/mobile/ios/Goalloom.xcworkspace -scheme Goalloom \
+  -configuration Release -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath /private/tmp/goalloom-ios-build \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=E2ELOCAL01 \
+  ONLY_ACTIVE_ARCH=YES ARCHS=arm64
+```
+
+Xcode must generate the simulated application identifier embedded in Mach-O. `CODE_SIGNING_ALLOWED=NO` cannot exercise Keychain. Do not inject device entitlements with a later `codesign` command. Prebuild may recreate the native project; always install Pods afterwards.
+
+```sh
+GOALLOOM_E2E_DEVICE='<isolated simulator UUID>' \
+GOALLOOM_E2E_APP=/private/tmp/goalloom-ios-build/Build/Products/Release-iphonesimulator/Goalloom.app \
+MAESTRO_BIN='<local Maestro executable>' JAVA_HOME='<local Java 21 home>' \
+node apps/mobile/tests/run.mjs auth
+```
+
+Append scenario names to replay only affected flows, for example `auth auth-sign-out`. Cases: `auth-cancel`, `auth-failure`, `auth-success` (large session plus restart and ciphertext inspection), `auth-sign-out` (local setup, durable logout, restart, login again and the original SQLite task), `auth-storage-failure` (missing wrapping key with retained ciphertext; no successful account or plaintext session).
+
+Real Apple/Google authorization, nonce rejection by hosted Auth, verified-email linking, signed physical-device builds and Windows desktop acceptance remain separate. The next sync milestone also needs its own offline/convergence/conflict/receipt/password/merge/backup E2E; Auth flows do not cover those behaviors.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
 

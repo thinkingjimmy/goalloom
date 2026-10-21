@@ -88,6 +88,8 @@ Version 1.9.8 separates production sync from development. Local tasks, history a
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 
+Current source supports desktop Apple/Google sign-in through Supabase PKCE and native iOS provider adapters with protected session storage. Encrypted mobile workspace sync is pending its next milestone. See the [mobile configuration and acceptance guide](./apps/mobile/README.md#native-account-configuration).
+
 # Collaboration
 
 Please use [GitHub Issues](https://github.com/thinkingjimmy/goalloom/issues) for bugs, feedback and proposals.

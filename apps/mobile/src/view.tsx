@@ -159,9 +159,9 @@ function BottomSheet({ theme, paddingBottom, onDismiss, children, expanded = fal
   </SheetBodyHeight.Provider></SheetScrollY.Provider>
 }
 
-export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimized, sheet, toast, shot, viewed, captureSeed, ai, onOpenAi, onTab, onColumn, onMinimize, onSheet, onDismissToast, onCheck, onTrash, onMove, onNest, onReorder, onCreate, onEdit, onFlow, onLink, onUnlink, onPolicy, onAppearance, onBackup, onPrefs, onUndo, onRestore, onViewPeriod, activity, periodsAround }: {
+export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimized, sheet, toast, shot, viewed, captureSeed, ai, onOpenAi, accountLabel, onOpenAccount, onTab, onColumn, onMinimize, onSheet, onDismissToast, onCheck, onTrash, onMove, onNest, onReorder, onCreate, onEdit, onFlow, onLink, onUnlink, onPolicy, onAppearance, onBackup, onPrefs, onUndo, onRestore, onViewPeriod, activity, periodsAround }: {
   copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; tab: 'board' | 'flow' | 'settings'; column: number; minimized: boolean; sheet: Sheet
-  ai: AiConnection | null; onOpenAi: () => void
+  ai: AiConnection | null; onOpenAi: () => void; accountLabel: string | null; onOpenAccount: () => void
   toast: Notice | null; shot: string
   viewed: Partial<Record<PeriodHorizon, Period>>; captureSeed: string
   onTab: (tab: 'board' | 'flow' | 'settings') => void; onColumn: (index: number) => void; onMinimize: (value: boolean) => void; onSheet: (sheet: Sheet) => void
@@ -214,7 +214,7 @@ export function Goalloom({ copy, theme, snap, prefs, locale, tab, column, minimi
     <BlurTargetView ref={blurTarget} style={styles.flex}>
     {tab === 'board' && <Board key={fontScale} copy={copy} theme={theme} locale={locale} snap={snap} columns={columns} column={column} hide={hide} shot={shot} viewed={viewed} nodes={nodes} contentBottom={contentBottom} {...(prefs.parentOrder ? { compare: order.compare } : {})} onColumn={onColumn} onSheet={navigate} onCheck={celebrate} onNest={onNest} onReorder={onReorder} onScroll={scroll} />}
     {tab === 'flow' && <Flow copy={copy} theme={theme} snap={snap} prefs={prefs} nodes={nodes} shot={shot} contentBottom={contentBottom} onSheet={navigate} onCheck={celebrate} onScroll={scroll} />}
-    {tab === 'settings' && <Settings copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} ai={ai} contentBottom={contentBottom} onSheet={navigate} onOpenAi={onOpenAi} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
+    {tab === 'settings' && <Settings accountLabel={accountLabel} onOpenAccount={onOpenAccount} copy={copy} theme={theme} snap={snap} prefs={prefs} locale={locale} ai={ai} contentBottom={contentBottom} onSheet={navigate} onOpenAi={onOpenAi} onPolicy={onPolicy} onAppearance={onAppearance} onBackup={onBackup} onPrefs={onPrefs} onScroll={scroll} />}
     </BlurTargetView>
     <TabBar blurTarget={blurTarget} key={fontScale} copy={copy} theme={theme} tab={tab} minimized={minimized || shot === 'min' || shot === 'mindark'} barBottom={barBottom} onTab={onTab} onPlus={() => navigate({ kind: 'composer', horizon: columns[column] ?? 'day' })} />
     {toast && <View style={[styles.toast, theme.style === 'minimal' ? { ...surface(theme, theme.controlRadius), bottom: barBottom + TAB_HEIGHT + 12 } : { backgroundColor: theme.fg, borderRadius: 22, bottom: barBottom + TAB_HEIGHT + 12 }]}>
@@ -458,8 +458,8 @@ function Flow({ copy, theme, snap, prefs, nodes, shot, contentBottom, onSheet, o
   </ScrollView>
 }
 
-function Settings({ copy, theme, snap, prefs, locale, ai, contentBottom, onSheet, onOpenAi, onPolicy, onAppearance, onBackup, onPrefs, onScroll }: {
-  copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; ai: AiConnection | null; contentBottom: number; onSheet: (sheet: Sheet) => void; onOpenAi: () => void
+function Settings({ copy, theme, snap, prefs, locale, ai, accountLabel, onOpenAccount, contentBottom, onSheet, onOpenAi, onPolicy, onAppearance, onBackup, onPrefs, onScroll }: {
+  copy: Copy; theme: Theme; snap: Snapshot; prefs: DevicePrefs; locale: LocaleId; ai: AiConnection | null; accountLabel: string | null; onOpenAccount: () => void; contentBottom: number; onSheet: (sheet: Sheet) => void; onOpenAi: () => void
   onPolicy: (horizon: PeriodHorizon, mode: 'auto' | 'manual') => void
   onAppearance: (fields: { theme?: 'system' | 'light' | 'dark'; style?: 'paper' | 'minimal'; checkStyle?: 'outline' | 'paper' | 'tint' }) => void
   onBackup: () => void; onPrefs: (prefs: DevicePrefs) => void; onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void
@@ -471,6 +471,10 @@ function Settings({ copy, theme, snap, prefs, locale, ai, contentBottom, onSheet
   const check = snap.checkStyle === 'outline' ? copy.outline : snap.checkStyle === 'tint' ? copy.tint : copy.paper
   return <ScrollView onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: contentBottom }} {...scrollInset}>
     <Text style={[styles.screenTitle, { color: theme.fg }]}>{copy.settings}</Text>
+    {accountLabel !== null && <>
+      <Text style={[styles.section, { color: theme.secondary }]}>{copy.sync}</Text>
+      <Card theme={theme}><Field theme={theme} testID="account-open" label={copy.login} value={accountLabel} onPress={onOpenAccount} /></Card>
+    </>}
     <Text style={[styles.section, { color: theme.secondary }]}>{copy.appearance}</Text>
     <Card theme={theme}>
       <Field theme={theme} label={copy.language} value={localeName} onPress={() => onSheet({ kind: 'language' })} />
@@ -523,8 +527,8 @@ function Settings({ copy, theme, snap, prefs, locale, ai, contentBottom, onSheet
 function Card({ theme, children }: { theme: Theme; children: ReactNode }) {
   return <View style={[styles.card, surface(theme, theme.cardRadius), { overflow: 'visible' }]}>{children}</View>
 }
-function Field({ theme, label, value, onPress, disabled = false, valueColor }: { theme: Theme; label: string; value: string; onPress: () => void; disabled?: boolean; valueColor?: string }) {
-  return <Pressable disabled={disabled} onPress={onPress} style={[styles.field, disabled && { opacity: 0.45 }]}><Text style={{ color: theme.fg, flex: 1 }}>{label}</Text><Text style={{ color: valueColor ?? theme.secondary }}>{value}{disabled ? '' : ' ›'}</Text></Pressable>
+function Field({ theme, label, value, onPress, disabled = false, valueColor, testID }: { theme: Theme; label: string; value: string; onPress: () => void; disabled?: boolean; valueColor?: string; testID?: string }) {
+  return <Pressable testID={testID} accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.field, disabled && { opacity: 0.45 }]}><Text style={{ color: theme.fg, flex: 1 }}>{label}</Text><Text style={{ color: valueColor ?? theme.secondary }}>{value}{disabled ? '' : ' ›'}</Text></Pressable>
 }
 
 function Menu({ copy, theme, item, onSheet, onCheck, onTrash, onMove }: { copy: Copy; theme: Theme; item: ItemRow | undefined; onSheet: (sheet: Sheet) => void; onCheck: (item: ItemRow) => void; onTrash: (id: string) => void; onMove: (id: string, horizon: Horizon) => boolean }) {

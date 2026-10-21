@@ -1,21 +1,20 @@
 /**
- * [INPUT]: Locale copy, the device clock, and an explicit confirm callback.
- * [OUTPUT]: Choice, calendar, and direction. Password screens render but do not call sync.
+ * [INPUT]: Locale copy, shared account state, explicit provider intents, the device clock and setup confirmation.
+ * [OUTPUT]: Native provider/local choices, calendar and direction. Password screens do not call sync yet.
  * [POS]: First-run UI. Calendar lock and the year item happen only in onConfirm, when the direction step continues.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import {
-  ActivityIndicator, Alert, Animated, Easing, Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
+  Alert, Animated, Easing, Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View,
   type KeyboardEvent, type StyleProp, type ViewStyle,
 } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Svg, { Path } from 'react-native-svg'
 import {
-  calendarAnchorVisible, clampAnchorDate, friendlyZoneName, highlightSpans, keyboardDuration, keyboardFrameTop, readTimeZones, runtimeZoneName, signInButtons,
+  calendarAnchorVisible, clampAnchorDate, friendlyZoneName, highlightSpans, keyboardDuration, keyboardFrameTop, readTimeZones, runtimeZoneName,
   sheetRelease, shouldDragSheet, suggestionShift, syncPasswordReady, timeZonePickerList, workspaceDate, zoneLocalizedNames, zoneOffsetLabel, zoneOffsetMinutes,
 } from '@goalloom/local-store'
-import type { SignInProvider } from '@goalloom/local-store'
 import { applyContinueReturnKey } from 'continue-return-key'
 import { SetupScreen as Screen } from './setup-screen'
 import type { Copy } from './copy'
@@ -23,17 +22,18 @@ import type { LocaleId } from '@goalloom/local-store'
 import { Icon } from './icons'
 import { accentOrange, type Scheme, type Theme } from './theme'
 import { themeFor } from './theme'
+import { AccountButtons } from './account/buttons'
+import type { AccountState, AuthProvider } from './account/types'
 import { AnchorCalendar } from './anchor-calendar'
 
 type Step = 'choice' | 'calendar' | 'direction' | 'join' | 'create-password'
 type Picker = 'anchor' | 'zone' | null
-type GooglePhase = 'idle' | 'pending' | 'failed'
 interface WeekAnchor { x: number; y: number; width: number; height: number }
 
 const SheetScrollY = createContext<RefObject<number> | null>(null)
 
-export function Onboarding({ copy, scheme, locale, now, onConfirm }: {
-  copy: Copy; scheme: Scheme; locale: LocaleId; now: string
+export function Onboarding({ copy, scheme, locale, now, account, onSignIn, onConfirm }: {
+  copy: Copy; scheme: Scheme; locale: LocaleId; now: string; account: AccountState; onSignIn: (provider: AuthProvider) => void
   onConfirm: (input: { mode: 'rolling' | 'natural'; timezone: string; weekStart: number; anchor: string; direction: string }) => void
 }) {
   const theme = themeFor(scheme)
@@ -41,7 +41,6 @@ export function Onboarding({ copy, scheme, locale, now, onConfirm }: {
   const titleGap = Math.round(height / 6)
   const detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   const [step, setStep] = useState<Step>('choice')
-  const [google, setGoogle] = useState<GooglePhase>('idle')
   const [mode, setMode] = useState<'rolling' | 'natural'>('rolling')
   const [timezone, setTimezone] = useState(detected)
   const [weekStart, setWeekStart] = useState(1)
@@ -67,7 +66,7 @@ export function Onboarding({ copy, scheme, locale, now, onConfirm }: {
   }
   return <View style={{ flex: 1, backgroundColor: theme.bg }}>
     <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-    {step === 'choice' && <Choice copy={copy} theme={theme} titleGap={titleGap} google={google} onLocal={() => { setGoogle('idle'); setStep('calendar') }} onGoogle={() => setGoogle('pending')} onCancel={() => setGoogle('failed')} />}
+    {step === 'choice' && <Choice copy={copy} theme={theme} locale={locale} titleGap={titleGap} account={account} onLocal={() => setStep('calendar')} onSignIn={onSignIn} />}
     {step === 'calendar' && <Calendar copy={copy} theme={theme} locale={locale} titleGap={titleGap} mode={mode} timezone={timezone} weekStart={weekStart} anchor={anchor} today={today} onBack={back!} onMode={setMode} onOpen={setPicker} onWeekMenu={rect => { setWeekAnchor(rect); setWeekOpen(true) }} onNext={() => setStep('direction')} />}
     {step === 'direction' && <Direction copy={copy} theme={theme} titleGap={titleGap} value={direction} onChange={setDirection} onBack={back!} onNext={finish} />}
     {step === 'join' && <JoinPassword copy={copy} theme={theme} titleGap={titleGap} email={null} onBack={back!} onReset={askReset} />}
@@ -81,73 +80,31 @@ export function Onboarding({ copy, scheme, locale, now, onConfirm }: {
 function Primary({ label, disabled, theme, onPress }: { label: string; disabled?: boolean; theme: Theme; onPress: () => void }) {
   const fill = disabled ? (theme.scheme === 'dark' ? '#3f3832' : '#cfc6bb') : theme.fg
   const ink = disabled ? (theme.scheme === 'dark' ? '#8d847b' : '#8a8178') : theme.onAccent
-  return <Pressable disabled={disabled} onPress={onPress} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} style={[styles.primary, { backgroundColor: fill }]}>
+  return <Pressable testID="onboarding-next" disabled={disabled} onPress={onPress} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} style={[styles.primary, { backgroundColor: fill }]}>
     <Text style={[styles.primaryText, { color: ink }]}>{label}</Text>
   </Pressable>
 }
 
 const BENEFIT_ICONS = ['sync', 'phone'] as const
-/** Apple is omitted until sign-in exists. `signInButtons` still places it above Google. */
-const SIGN_IN_ENABLED = ['google'] as const satisfies readonly SignInProvider[]
-
-function Choice({ copy, theme, titleGap, google, onLocal, onGoogle, onCancel }: {
-  copy: Copy; theme: Theme; titleGap: number; google: GooglePhase; onLocal: () => void; onGoogle: () => void; onCancel: () => void
+function Choice({ copy, theme, locale, titleGap, account, onLocal, onSignIn }: {
+  copy: Copy; theme: Theme; locale: LocaleId; titleGap: number; account: AccountState; onLocal: () => void; onSignIn: (provider: AuthProvider) => void
 }) {
   const s = copy.start
-  const pending = google === 'pending'
+  const pending = account.phase === 'signing-in'
   return <Screen theme={theme} title={s.title} titleGap={titleGap} cta={<View style={styles.authStack}>
-    {google === 'failed' && <View style={styles.errorRow} accessibilityLiveRegion="polite">
-      <Icon name="info" size={18} color={theme.danger} />
-      <Text style={[styles.errorText, { color: theme.danger }]}>{s.googleError}</Text>
-    </View>}
-    {signInButtons(SIGN_IN_ENABLED).map(id => id === 'apple'
-      ? <AppleButton key={id} label={s.apple} />
-      : <GoogleButton key={id} label={google === 'failed' ? s.googleRetry : s.google} pending={pending} browser={s.browser} back={s.back} focus={theme.focus} onPress={onGoogle} onCancel={onCancel} />)}
-    <Pressable disabled={pending} onPress={onLocal} accessibilityRole="button" style={[styles.authButton, { backgroundColor: theme.checkFill }, pending && styles.dimmed]}>
+    <AccountButtons state={account} copy={copy} locale={locale} theme={theme} onSignIn={onSignIn} />
+    <Pressable testID="account-local" disabled={pending} onPress={onLocal} accessibilityRole="button" style={[styles.authButton, { backgroundColor: theme.checkFill }, pending && styles.dimmed]}>
       <View style={styles.slot}><Icon name="phone" size={20} color={theme.fg} /></View>
-      <Text style={[styles.authLabel, { color: theme.fg }]}>{s.local}</Text>
+      <Text style={[styles.authLabel, { color: theme.fg }]}>{account.phase === 'signed-in' ? s.continue : s.local}</Text>
     </Pressable>
   </View>}>
     <View style={styles.benefits}>
       {s.benefits.map((line, index) => <View key={line.lead} style={styles.benefit}>
         <View style={styles.benefitIcon}><Icon name={BENEFIT_ICONS[index] ?? 'info'} size={22} color={theme.fg} /></View>
-        <View style={styles.benefitCopy}>
-          <Text style={[styles.benefitLead, { color: theme.fg }]}>{line.lead}</Text>
-          <Text style={[styles.benefitBody, { color: theme.secondary }]}>{line.body}</Text>
-        </View>
+        <View style={styles.benefitCopy}><Text style={[styles.benefitLead, { color: theme.fg }]}>{line.lead}</Text><Text style={[styles.benefitBody, { color: theme.secondary }]}>{line.body}</Text></View>
       </View>)}
     </View>
   </Screen>
-}
-
-function AppleButton({ label }: { label: string }) {
-  return <Pressable accessibilityRole="button" style={[styles.authButton, styles.appleButton]}>
-    <View style={styles.slot}><Icon name="apple" size={20} color="#fff" /></View>
-    <Text style={[styles.authLabel, styles.appleLabel]}>{label}</Text>
-  </Pressable>
-}
-
-function GoogleButton({ label, pending, browser, back, focus, onPress, onCancel }: {
-  label: string; pending: boolean; browser: string; back: string; focus: string; onPress: () => void; onCancel: () => void
-}) {
-  if (pending) return <View style={[styles.authButton, styles.googleButton]}>
-    <View style={styles.slot}><ActivityIndicator color="#1f1f1f" /></View>
-    <Text style={[styles.authLabel, styles.googleLabel, styles.authLabelWait]}>{browser}</Text>
-    <Pressable onPress={onCancel} hitSlop={8}><Text style={[styles.link, { color: focus }]}>{back}</Text></Pressable>
-  </View>
-  return <Pressable onPress={onPress} accessibilityRole="button" style={[styles.authButton, styles.googleButton]}>
-    <View style={styles.slot}><GoogleMark /></View>
-    <Text style={[styles.authLabel, styles.googleLabel]}>{label}</Text>
-  </Pressable>
-}
-
-function GoogleMark() {
-  return <Svg width={18} height={18} viewBox="0 0 48 48">
-    <Path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
-    <Path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-    <Path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-    <Path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
-  </Svg>
 }
 
 function Calendar({ copy, theme, locale, titleGap, mode, timezone, weekStart, anchor, today, onBack, onMode, onOpen, onWeekMenu, onNext }: {
