@@ -206,6 +206,8 @@ export const messages = widen({
   itemUnit: "项",
   welcome: "欢迎来到 Goalloom",
   start: {
+    apple: "使用 Apple 登录",
+    sync: "多设备同步",
     title: "怎么开始？",
     local: "直接使用",
     localNote: "看板只存在这台设备上",

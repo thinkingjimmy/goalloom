@@ -206,6 +206,8 @@ export const messages: MessageCatalog = {
   itemUnit: "items",
   welcome: "Welcome to Goalloom",
   start: {
+    apple: "Sign in with Apple",
+    sync: "Sync across devices",
     title: "How do you want to start?",
     local: "Use this device",
     localNote: "The board stays on this device",

@@ -73,7 +73,7 @@ renderer/
 │   │   ├── BoardLayout.tsx # Persistent equal-width Later sidebar, visible-column width/scroll retention, separate horizontal timeline, interruptible WAAPI and drag measurement synchronization
 │   │   ├── geometry.ts     # Shared panel/drop clipping and rounded connector routes; each bend clamps independently so vertical outline starts retain the child-entry curve
 │   │   ├── ColumnOrderMenu.tsx # One-shot arrangement immediately left of Add; shared column-hover/keyboard/menu reveal; focus returns after guarded writes re-enable the trigger
-│   │   ├── useBoardDrag.ts # Shared pointer intents, whole-group middle previews, atomic child insertion and guarded pointer/keyboard sorting
+│   │   ├── useBoardDrag.ts # Shared pointer intents, whole-group middle previews, atomic child insertion/root-edge detachment and guarded pointer/keyboard sorting
 │   │   ├── NestingPicker.tsx # Keyboard root selection, bounded current/future/Later search, placement revalidation and source focus return
 │   │   ├── TaskContext.tsx # Local archived/cancelled parent context and accessible cross-period parent links shared by current/past rows
 │   │   ├── nesting.css # Stable 24px inset, whole-group borders, checkbox-aligned child insertion lines, accessible arrangement actions and bounded choices
@@ -196,3 +196,5 @@ Review uses a todo-scale board guide and a resumable native modal with connected
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
 Note assistance uses the approved rewrite-notes design: no detail activity rail, rescheduling form, task consent checkbox or result adoption step. Generated Markdown replaces only the unchanged source notes; description effects retain one-step workspace undo. Rethink persists through reload via non-undone rewrite events. Automatic note writes are quiet, while keyboard undo keeps normal feedback. Local editor history still owns manual typing.
+
+`components/AuthMark.tsx` shares offline Apple/Google branding between the first-run provider buttons and Settings › Sync. Both entry points use the same provider-scoped authorization and cancellation state.

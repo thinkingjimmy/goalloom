@@ -16,11 +16,11 @@ import {
 } from '@goalloom/sync'
 import { isLaterSetting, redactSyncOp, type RemoteEnvelope } from '@goalloom/store-core'
 import { DomainError } from '../../shared/contracts/commands'
-import { syncActionSchema, syncReplySchema, type SyncAction, type SyncReply, type SyncStatus } from '../../shared/contracts/sync'
+import { syncActionSchema, syncReplySchema, type AuthProvider, type SyncAction, type SyncReply, type SyncStatus } from '../../shared/contracts/sync'
 import type { StorageClient } from '../storage/client'
 import { CredentialError, type Cipher } from '../smart/credentials'
 import { readSyncConfig } from './config'
-import { googleSignIn, supabaseClient, type OAuthListenOptions } from './oauth'
+import { oauthSignIn, supabaseClient, type OAuthListenOptions } from './oauth'
 import { type VaultSecrets } from './vault'
 import { SessionVault } from './session-vault'
 import { PasswordVault } from './password-vault'
@@ -68,6 +68,7 @@ export class SyncService {
   private heldTimer: ReturnType<typeof setTimeout> | null = null
   private operation: Promise<void> | null = null
   private signInAbort: AbortController | null = null
+  private signingInProvider: AuthProvider | undefined
   private signingOut = false
   private ticking = false
   private pendingCache: PendingCache
@@ -314,7 +315,7 @@ export class SyncService {
   }
 
   private async perform(action: SyncAction): Promise<void> {
-    if (action.type === 'sign-in') await this.signIn()
+    if (action.type === 'sign-in') await this.signIn(action.provider)
     else if (action.type === 'sign-out') await this.signOut(action.clearLocal)
     else if (action.type === 'create') await this.createWorkspace(action.password)
     else if (action.type === 'submit-password') await this.submitPassword(action.password)
@@ -337,19 +338,20 @@ export class SyncService {
     await current
   }
 
-  private async signIn(): Promise<void> {
+  private async signIn(provider: AuthProvider): Promise<void> {
     if (this.cleanupBlocked) { await this.deps.storage.call('finishLocalClear'); this.cleanupBlocked = false }
     this.watchNetwork()
     const abort = new AbortController()
     this.signInAbort = abort
     this.phase = 'signing-in'
+    this.signingInProvider = provider
     this.manualUnlock = Boolean(this.deps.sessionCipher)
     this.error = null
     this.publish()
     try {
       if (!this.client) await this.initialize(true, abort.signal)
       if (abort.signal.aborted || !this.client || !this.remote || !this.secrets) return
-      const session = await this.requestSignIn(abort.signal)
+      const session = await this.requestSignIn(provider, abort.signal)
       if (abort.signal.aborted) return
       this.email = session.user.email ?? null
       await this.keepSession(session)
@@ -371,17 +373,20 @@ export class SyncService {
       throw error
     } finally {
       if (this.signInAbort === abort) this.signInAbort = null
+      this.signingInProvider = undefined
     }
   }
 
-  private requestSignIn(signal: AbortSignal): Promise<Session> {
+  private requestSignIn(provider: AuthProvider, signal: AbortSignal): Promise<Session> {
     if (!this.client) return Promise.reject(new SyncFailure('auth'))
     return new Promise((resolve, reject) => {
       if (signal.aborted) { reject(new SyncFailure('auth', 'cancelled')); return }
       const onAbort = () => reject(new SyncFailure('auth', 'cancelled'))
       signal.addEventListener('abort', onAbort, { once: true })
       const onCallback = this.deps.onBrowserReturn
-      void (this.deps.beginSignIn ?? googleSignIn)(this.client!, this.deps.openExternal, {
+      const begin = this.deps.beginSignIn ?? ((client, open, options) => oauthSignIn(provider, client, open, options))
+      void begin(this.client!, this.deps.openExternal, {
+        provider,
         signal, language: this.deps.locale?.() ?? this.deps.language?.() ?? 'en', returnToApp: this.deps.packaged === true, ...(onCallback ? { onCallback } : {}),
       }).then(session => {
         signal.removeEventListener('abort', onAbort)
@@ -1118,6 +1123,7 @@ export class SyncService {
     const ready = this.phase === 'ready' || this.phase === 'choose'
     return {
       phase: this.phase,
+      ...(this.phase === 'signing-in' && this.signingInProvider ? { signingInProvider: this.signingInProvider } : {}),
       email: this.email,
       pending: ready ? this.view.pending : 0,
       conflicts: ready ? this.view.conflicts : 0,

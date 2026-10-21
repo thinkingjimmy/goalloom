@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Native Electron page, production IPC and isolated subtask evidence.
- * [OUTPUT]: Whole-group geometry, ordered group flattening, checkbox-aligned insertion lines, guarded receipts and clipped virtual-list evidence.
+ * [OUTPUT]: Whole-group geometry, atomic root-edge detachment, ordered flattening, checkbox-aligned insertion, guarded receipts and clipped virtual-list evidence.
  * [POS]: Subtask drag journey; all tasks and injected transport failures are synthetic.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -88,6 +88,58 @@ export async function nestingDrops({ page, application, report, evidence }) {
   }
   report.groupDrops = []
   report.insertionLines = []
+  const todayGoal = await create('Today outline goal', 'week', { flowColor: 1 })
+  const todayParent = await create('Today container', 'day', { parentId: todayGoal, expectedParentVersion: (await item(todayGoal)).version })
+  const todayChild = await create('Today child to make independent', 'day', { description: 'Keep these notes', dueDate: '2030-01-01' })
+  const todaySibling = await create('Today remaining child', 'day')
+  const todayOther = await create('Today other root', 'day')
+  await nest(todayChild, todayParent); await nest(todaySibling, todayParent)
+  const todayOrder = async expected => {
+    await page.waitForFunction(expected => JSON.stringify([...document.querySelectorAll('[data-horizon="day"] .task-row')]
+      .map(node => node.dataset.itemId).filter(id => expected.includes(id))) === JSON.stringify(expected), expected)
+    await settled()
+  }
+  const originalToday = [todayParent, todayChild, todaySibling, todayOther]
+  await todayOrder(originalToday)
+  for (const test of [
+    { name: 'head', target: todayParent, side: 'before', expected: [todayChild, todayParent, todaySibling, todayOther] },
+    { name: 'middle', target: todayParent, side: 'after', expected: [todayParent, todaySibling, todayChild, todayOther] },
+    { name: 'tail', target: todayOther, side: 'after', expected: [todayParent, todaySibling, todayOther, todayChild] },
+  ]) {
+    const before = await item(todayChild)
+    await begin(todayChild, test.target, test.side)
+    const marker = page.locator('[data-sort-position][data-sort-nested="false"]')
+    await marker.waitFor()
+    const geometry = await insertionLine(await marker.getAttribute('data-item-id'), await marker.getAttribute('data-sort-position'))
+    assert.equal(geometry.line.x, geometry.row.x)
+    await shot(`today-independent-${test.name}-preview`)
+    await page.mouse.up(); await todayOrder(test.expected); await clean()
+    const independent = await item(todayChild)
+    assert.equal(independent.placement.nestingParentId, null)
+    assert.equal(await page.locator('.toast').count(), 0, 'Root-edge detachment stays quiet like other placement drags')
+    assert.deepEqual([independent.title, independent.description, independent.dueDate, independent.status, independent.placement.periodId],
+      [before.title, before.description, before.dueDate, before.status, before.placement.periodId])
+    const snapshot = await page.evaluate(() => window.goalloom.getSnapshot())
+    assert(snapshot.relations.some(edge => edge.parentId === todayGoal && edge.childId === todayChild && !edge.inheritedFrom))
+    assert.equal((await item(todaySibling)).placement.nestingParentId, todayParent)
+    await shot(`today-independent-${test.name}`)
+    await undo(); await todayOrder(originalToday)
+    report.groupDrops.push({ kind: `today-independent-${test.name}`, expected: test.expected, geometry })
+  }
+  const unchangedToday = await item(todayChild)
+  await begin(todayChild, todayOther, 'after'); await page.keyboard.press('Escape'); await page.mouse.up(); await settled(); await clean()
+  assert.deepEqual(await item(todayChild), unchangedToday)
+  await begin(todayChild, todayOther, 'after'); await page.mouse.up()
+  await todayOrder([todayParent, todaySibling, todayOther, todayChild])
+  await page.reload(); await page.locator('.board').waitFor()
+  await todayOrder([todayParent, todaySibling, todayOther, todayChild])
+  assert.equal((await item(todayChild)).placement.nestingParentId, null)
+  report.checks.push('Today child root-edge drops detach at head/middle/tail with full-width markers, inherited goals, unchanged content and one-step undo')
+  for (const id of created.splice(0).reverse()) {
+    const value = await item(id)
+    await execute({ type: 'delete', itemId: id, expectedVersion: value.version })
+  }
+  await settled()
   const parent = await create('Container A'), first = await create('Child A1'), second = await create('Child A2')
   const source = await create('Independent B', 'day'), other = await create('Container C'), cousin = await create('Child C1')
   await nest(first, parent); await nest(second, parent); await nest(cousin, other)

@@ -14,7 +14,7 @@
 - 当前／未来列菜单的「按上级整理」将该周期的当前列一次性按上级排序；不整理其他列、其他周期或自动关闭放置开关。保留父子结构、关系、正文及生命周期，可一次撤销。Later、年和过去周期不显示此动作。
 - The column More button sits immediately left of Add in the trailing action group. Both stay hidden at rest on desktop and appear on column hover or header keyboard focus. An open More menu keeps the controls visible. Hidden controls retain their space; touch controls stay visible with 44px targets.
 - [二级 todo](subtasks.md)先排列一级任务组，再排列组内子项；组的展示区由可见成员状态决定。根任务及其子项中部均指向整个组并追加；子项边缘按缩进横线插入组内，横线从二级复选框起始（一级复选框向右 24px，含列内流程留白）；根任务边缘按全宽横线排列整个组之外的位置。归入与插入共享一次事务和撤销，合法目标按层级规则校验。
-- Task ownership and ordering groups are separate: only a child sharing its parent's horizon/period belongs to the indented local group. Children scheduled elsewhere sort as ordinary rows, retaining ownership. Creation anchors, insertion, one-shot arrangement, undo and canonical replay use this same placement-local grouping.
+- Same-placement root-edge drops explicitly detach a locally nested child into the shown root slot, atomically with inherited goals and one-step undo. Ordinary cross-placement moves retain ownership. Task ownership and ordering groups are separate: only a child sharing its parent's horizon/period belongs to the indented local group. Children scheduled elsewhere sort as ordinary rows, retaining ownership. Creation anchors, insertion, one-shot arrangement, undo and canonical replay use this same placement-local grouping.
 - 看板圆点和详情中的关联选择器同步使用看板候选顺序，保留已绑定置顶与最近一级优先；搜索命中的当前／已加载未来候选同样跟随。
 - Later、年和历史不自动排序；历史上级使用保存顺序。失效边及移动后不再满足上长下短的边不参与。
 - 看板和关联候选使用持久化的手动顺序；上级拓扑只用于自动放置和单次整理。隐藏或归档上级仍可作为排序依据，不强制级联调整下级列。

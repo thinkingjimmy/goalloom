@@ -15,6 +15,7 @@ import { Icon } from '../../../components/icons'
 import { SyncSignOutDialog } from './SyncSignOutDialog'
 import { SyncRecovery } from './SyncRecovery'
 import { SettingsGroup, SettingsRow, relativeDay, stamp } from './parts'
+import { AuthMark } from '../../../components/AuthMark'
 import { requestSyncReview } from '../../sync/SyncReview'
 
 function passwordOk(value: string, again: string): boolean {
@@ -54,9 +55,6 @@ function readyLine(status: SyncStatus, today: string, timezone?: string): { stat
   return { state: 'ok', label: t.ready, ...(when ? { detail: when } : {}) }
 }
 
-function GoogleMark() {
-  return <svg width="14" height="14" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
-}
 
 function StatusLine({ state, label, detail, wrap = false }: { wrap?: boolean; state: 'ok' | 'run' | 'bad' | 'off'; label: string; detail?: string }) {
   return <span className={`sync-status inline-flex items-center gap-1.5 text-[12px] text-muted-foreground ${wrap ? 'max-w-full flex-wrap whitespace-normal justify-end' : 'whitespace-nowrap'}`} data-state={state} role="status"><i aria-hidden="true" /><b>{label}</b>{detail && <><span className="sep" aria-hidden="true">·</span><span>{detail}</span></>}</span>
@@ -86,6 +84,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
   const [hiddenError, setHiddenError] = useState<string | null>(null)
   const conflictNotice = useDismissedNotice('sync-conflicts', status?.conflicts ? String(status.conflicts) : null)
   const run = async (action: SyncAction) => {
+    setHiddenError(null)
     setWorking(true); setRequestFailed(false)
     try {
       const reply = await desktopApi().sync(action)
@@ -134,8 +133,9 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
     </>}
     {(status.phase === 'signed-out' || status.phase === 'signing-in') && <SettingsGroup>
       <Account note={status.email ?? t.notSignedIn}>
-        {status.phase === 'signing-in' && !status.error && <StatusLine state="run" label={t.signingIn} />}
-        <SettingsButton type="button" disabled={working || status.phase === 'signing-in'} onClick={() => void run({ type: 'sign-in' })}><GoogleMark />{t.signIn}</SettingsButton>
+        {status.phase === 'signing-in' && !status.error && <StatusLine state="run" label={t.signingIn} detail={status.signingInProvider === 'apple' ? t.signInApple : t.signIn} />}
+        {(['apple', 'google'] as const).map(provider => <SettingsButton key={provider} type="button" disabled={working || status.phase === 'signing-in'} onClick={() => void run({ type: 'sign-in', provider })}><AuthMark provider={provider} size={14} />{provider === 'apple' ? t.signInApple : t.signIn}</SettingsButton>)}
+        {status.phase === 'signing-in' && <SettingsButton type="button" onClick={() => void desktopApi().sync({ type: 'cancel' })}>{t.cancel}</SettingsButton>}
       </Account>
     </SettingsGroup>}
     {status.phase === 'setup' && <>

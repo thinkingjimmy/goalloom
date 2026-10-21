@@ -4,15 +4,20 @@
  * [POS]: Credential timing instrumentation installed before the production composition root runs.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { app, safeStorage, shell } from 'electron'
+import { app, ipcMain, safeStorage, shell } from 'electron'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 
 const fixture = globalThis.credentialFixture = {
   mode: process.env.GOALLOOM_CREDENTIAL_MODE ?? 'available',
-  available: 0, encrypt: 0, decrypt: 0, refreshed: 0, browser: 0, holdLogout: false, requests: [], unexpected: [], cipherAppNames: [],
+  available: 0, encrypt: 0, decrypt: 0, refreshed: 0, browser: 0, browserUrls: [], actions: [], holdLogout: false, requests: [], unexpected: [], cipherAppNames: [],
 }
+const handle = ipcMain.handle.bind(ipcMain)
+ipcMain.handle = (channel, listener) => handle(channel, (event, ...args) => {
+  if (process.env.GOALLOOM_APPLE_FIXTURE === '1' && channel === 'goalloom:sync' && args[0]?.type !== 'status') fixture.actions.push({ type: args[0]?.type, provider: args[0]?.provider })
+  return listener(event, ...args)
+})
 if (process.env.GOALLOOM_CREDENTIAL_APP_DATA) app.setPath('appData', process.env.GOALLOOM_CREDENTIAL_APP_DATA)
 app.setAsDefaultProtocolClient = () => false
 if (fixture.mode === 'missing-policy') {
@@ -44,7 +49,7 @@ safeStorage.decryptString = data => {
   if (fixture.mode === 'denied') throw Error('Synthetic keychain denial')
   return Buffer.from(data).map(byte => byte ^ 0x5a).toString()
 }
-shell.openExternal = async () => { fixture.browser++ }
+shell.openExternal = async url => { fixture.browser++; fixture.browserUrls.push(url) }
 
 const userId = '11111111-1111-4111-8111-111111111111'
 const jwt = [

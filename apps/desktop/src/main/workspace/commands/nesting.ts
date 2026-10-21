@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Generation/version-guarded nest/unnest commands, optional sibling insertion and current explicit goals/placements.
+ * [INPUT]: Generation/version-guarded nest/unnest commands, optional child/root insertion and current explicit goals/placements.
  * [OUTPUT]: Persistent cross-period ownership, placement-local order, atomic flattened groups and inherited-edge/color provenance.
  * [POS]: Authoritative outline writes shared by dragging, lifecycle and ordinary moves.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -33,7 +33,7 @@ export function assertOutline(context: Context): void {
 export function nestingPosition(context: Context, item: Item): NestingPosition {
   return { ...context.store.position(item), nestingParentId: item.placement.nestingParentId ?? null }
 }
-export function changeNesting(context: Context, item: Item, parent: Item | null, beforeId: string | null = null, preservePlacement = false): boolean {
+export function changeNesting(context: Context, item: Item, parent: Item | null, beforeId?: string | null, preservePlacement = false): boolean {
   const oldParent = item.placement.nestingParentId ?? null
   if (oldParent === (parent?.id ?? null)) return false
   if (parent && (parent.id === item.id || parent.placement.nestingParentId || context.store.hasNestedChildren(item.id))) throw new DomainError('conflict', nestingText().levels)
@@ -48,9 +48,9 @@ export function changeNesting(context: Context, item: Item, parent: Item | null,
   const beforeItem = structuredClone(item), before = nestingPosition(context, item)
   const remoteDetach = !parent && !!oldParent && !sameOutlinePeriod(item.placement, context.store.item(oldParent).placement)
   const destination = parent && !preservePlacement ? parent.placement : item.placement
-  const keepPosition = remoteDetach || preservePlacement && parent && !sameOutlinePeriod(item.placement, parent.placement)
+  const keepPosition = remoteDetach && beforeId === undefined || preservePlacement && parent && !sameOutlinePeriod(item.placement, parent.placement)
   const sortKey = keepPosition ? item.placement.sortKey : nextSortKey(context, destination.horizon,
-    destination.periodId, beforeId, item.id, parent?.id ?? null)
+    destination.periodId, beforeId ?? null, item.id, parent?.id ?? null)
   const incoming = context.store.relations().filter(edge => edge.childId === item.id)
   const inherited = !parent && oldParent ? context.store.relations().filter(edge => edge.childId === oldParent) : []
   const edges: EdgeDelta[] = incoming.map(edge => ({ before: edge, after: { ...edge, invalidatedAt: context.now, invalidatedBy: context.command.operationId, reason: 'unlink' } }))
@@ -88,5 +88,6 @@ export function nestItem(context: Context, command: CommandOf<'nest'>): boolean 
 export function unnestItem(context: Context, command: CommandOf<'unnest'>): boolean {
   const item = context.store.item(command.itemId, command.expectedVersion); assertAvailable(item)
   if (item.placement.version !== command.expectedPlacementVersion) throw new DomainError('stale', nestingText().changed)
-  return changeNesting(context, item, null)
+  if (command.beforeId !== undefined && item.placement.periodId && compareInstants(context.store.period(item.placement.periodId).endAt, context.now) <= 0) throw new DomainError('stale_preview', nestingText().expired)
+  return changeNesting(context, item, null, command.beforeId)
 }

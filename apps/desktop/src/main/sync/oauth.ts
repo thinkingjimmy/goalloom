@@ -1,19 +1,22 @@
 /**
  * [INPUT]: Supabase URL, anon key, and the system browser.
- * [OUTPUT]: An auth session from the Google PKCE redirect on 127.0.0.1:53682.
+ * [OUTPUT]: An auth session from an explicitly selected Apple/Google PKCE redirect on 127.0.0.1:53682.
  *          The loopback page is sent only after the code exchange, so it shows success or failure.
  * [POS]: Desktop sign-in. The loopback page is the site header and footer; success asks the OS to focus the app.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
 import { SyncFailure } from '@goalloom/sync'
 import { callbackCsp, callbackPage } from './callback-page'
+import type { AuthProvider } from '../../shared/contracts/sync'
 
 export const oauthPort = 53682
 export const oauthTimeoutMs = 180_000
 export const oauthRedirect = `http://127.0.0.1:${oauthPort}/callback`
 
 export interface OAuthListenOptions {
+  provider?: AuthProvider
   language?: string
   returnToApp?: boolean
   port?: number
@@ -40,10 +43,10 @@ export function supabaseClient(url: string, anonKey: string, persist = memory(),
   })
 }
 
-export async function googleSignIn(client: SupabaseClient, open: (url: string) => Promise<void>, options?: OAuthListenOptions): Promise<Session> {
+export async function oauthSignIn(provider: AuthProvider, client: SupabaseClient, open: (url: string) => Promise<void>, options?: OAuthListenOptions): Promise<Session> {
   const started = await client.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: oauthRedirect, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
+    provider,
+    options: { redirectTo: oauthRedirect, skipBrowserRedirect: true, ...(provider === 'google' ? { queryParams: { prompt: 'select_account' } } : {}) },
   })
   if (started.error || !started.data.url) throw new SyncFailure('auth', started.error?.message ?? 'oauth')
   return listenForSession(client, open, started.data.url, options)

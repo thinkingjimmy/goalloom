@@ -206,6 +206,8 @@ export const messages: MessageCatalog = {
   itemUnit: "件",
   welcome: "Goalloom へようこそ",
   start: {
+    apple: "Apple でログイン",
+    sync: "複数のデバイスで同期",
     title: "どこから始めますか？",
     local: "このまま使う",
     localNote: "ボードはこのデバイスだけに残ります",

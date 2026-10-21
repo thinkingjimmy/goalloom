@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Two encrypted-replay repositories, exchange/rebuild callbacks and shared evidence checks.
- * [OUTPUT]: Converged cross-period ownership, local-only group moves, Later detach, peer-edit-safe undo and restore.
+ * [OUTPUT]: Converged cross-period ownership, root-slot detachment, local-only moves, Later detach, peer-edit-safe undo and restore.
  * [POS]: Product-level extension of the existing two-peer sync E2E.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -69,6 +69,25 @@ export async function syncSubtaskOwnership({ first, second, sync, rebuild, injec
   assert.equal(item(child).placement.nestingParentId, root)
   assert.equal(item(child).placement.periodId, scheduledPeriod)
   checks.push('Encrypted cross-period ownership survives canonical rebuild, local-only parent moves, both Later paths, peer text edits, atomic undo and child delete/restore')
+  const rootAnchor = create('Explicit independent insertion anchor', 'week')
+  for (const beforeId of [root, rootAnchor, null]) {
+    const current = item(local)
+    const detached = run(first, { type: 'unnest', itemId: local, expectedVersion: current.version,
+      expectedPlacementVersion: current.placement.version, beforeId })
+    await sync(); rebuild()
+    for (const repo of [first, second]) {
+      const value = repo.store.item(local)
+      assert.equal(value.placement.nestingParentId, null)
+      const roots = repo.db.prepare('SELECT itemId FROM item_placements WHERE horizon=? AND periodId=? AND nestingParentId IS NULL ORDER BY sortKey,itemId')
+        .all(value.placement.horizon, value.placement.periodId).map(row => String(row.itemId))
+      assert.equal(roots[roots.indexOf(local) + 1] ?? null, beforeId)
+      assert(repo.store.relations().some(edge => edge.parentId === goal && edge.childId === local))
+    }
+    run(first, { type: 'undo', originalOperationId: detached.operationId })
+    await sync(); rebuild()
+    for (const repo of [first, second]) assert.equal(repo.store.item(local).placement.nestingParentId, root)
+  }
+  checks.push('Explicit root-slot detachment preserves head/middle/tail placement and inherited goals through encrypted replay, canonical rebuild and one-step undo')
   const rejected = await inject([{ t: 'item.delete', id: root }])
   await sync(); rebuild()
   for (const repo of [first, second]) {

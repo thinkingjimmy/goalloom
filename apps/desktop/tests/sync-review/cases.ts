@@ -50,9 +50,9 @@ async function run(): Promise<void> {
     const alpha = join(root, 'alpha'), beta = join(root, 'beta')
     await seedLocal(alpha, 'alpha', 3, cloud); await seedLocal(beta, 'beta', 0, cloud)
     let a = await openPeer(alpha, 'alpha'); peers.push(a)
-    await a.service.handle({ type: 'sign-in' }); await a.service.handle({ type: 'create', password }); await settle(a)
+    await a.service.handle({ type: 'sign-in', provider: 'google' }); await a.service.handle({ type: 'create', password }); await settle(a)
     const b = await openPeer(beta, 'beta'); peers.push(b)
-    await b.service.handle({ type: 'sign-in' }); await b.service.handle({ type: 'submit-password', password }); await settle(a, b)
+    await b.service.handle({ type: 'sign-in', provider: 'google' }); await b.service.handle({ type: 'submit-password', password }); await settle(a, b)
     report.runtime.sqlite = (await a.storage.call('runtime')).sqlite
     const ids = tasks(alpha).map(row => String(row.id)), first = ids[0]!, second = ids[1]!, third = ids[2]!
     await concurrent(a, b, first, 'title')
@@ -107,10 +107,10 @@ async function run(): Promise<void> {
     await resume(b); await pause(b); await resume(a)
     page = await reviews(a); assert(page.review?.current.deleted)
     await resolveReview(a, 'current', page); assert((await item(a, third)).deletedAt)
-    await a.service.handle({ type: 'sign-out' }); await a.service.handle({ type: 'sign-in' }); await a.service.handle({ type: 'submit-password', password }); await settle(a)
+    await a.service.handle({ type: 'sign-out' }); await a.service.handle({ type: 'sign-in', provider: 'google' }); await a.service.handle({ type: 'submit-password', password }); await settle(a)
     assert.equal((await reviews(a)).remaining, 0); assert((await item(a, third)).deletedAt)
     await closePeer(a); peers.splice(peers.indexOf(a), 1); a = await openPeer(alpha, 'alpha'); peers.push(a)
-    if (a.status.phase !== 'ready') { await a.service.handle({ type: 'sign-in' }); await a.service.handle({ type: 'submit-password', password }) }
+    if (a.status.phase !== 'ready') { await a.service.handle({ type: 'sign-in', provider: 'google' }); await a.service.handle({ type: 'submit-password', password }) }
     await settle(a); assert.equal((await reviews(a)).remaining, 0); assert((await item(a, third)).deletedAt)
     check('Default acknowledgement survives logout/login and process reconstruction without repeating a review or restoring deleted tasks')
 

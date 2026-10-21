@@ -206,6 +206,8 @@ export const messages: MessageCatalog = {
   itemUnit: "elementos",
   welcome: "Te damos la bienvenida a Goalloom",
   start: {
+    apple: "Entrar con Apple",
+    sync: "Sincronizar dispositivos",
     title: "¿Cómo quieres empezar?",
     local: "Usar solo aquí",
     localNote: "El tablero se queda en este dispositivo",

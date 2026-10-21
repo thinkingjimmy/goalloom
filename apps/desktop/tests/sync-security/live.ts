@@ -142,13 +142,13 @@ async function main() {
 
   try {
     let a = await open('alpha', 0, { value: true }, 3)
-    expectPhase(await a.service.handle({ type: 'sign-in' }), 'setup')
+    expectPhase(await a.service.handle({ type: 'sign-in', provider: 'google' }), 'setup')
     expectPhase(await a.service.handle({ type: 'create', password: 'live-primary-password' }), 'ready')
     await drained(a)
     report.runtime.sqlite = (await a.storage.call('runtime')).sqlite
     const oldId = a.service.secrets.workspaceId
     let b = await open('beta', 0)
-    expectPhase(await b.service.handle({ type: 'sign-in' }), 'enter-key')
+    expectPhase(await b.service.handle({ type: 'sign-in', provider: 'google' }), 'enter-key')
     expectPhase(await b.service.handle({ type: 'submit-password', password: 'live-primary-password' }), 'ready')
     await drained(a); await drained(b)
     sameTasks(a.profile, b.profile)
@@ -168,7 +168,7 @@ async function main() {
     check('Hosted private Realtime head broadcast triggers a real peer download', { elapsedMs: Math.round(performance.now() - broadcastAt), headSeq: b.service.headHint })
 
     const other = await open('other', 1, { value: true }, 1)
-    expectPhase(await other.service.handle({ type: 'sign-in' }), 'setup')
+    expectPhase(await other.service.handle({ type: 'sign-in', provider: 'google' }), 'setup')
     expectPhase(await other.service.handle({ type: 'create', password: 'live-other-password' }), 'ready')
     await drained(other)
     const beforeOther = await rows('workspaces', users[1]!.id), otherDevices = await rows('devices', users[1]!.id)
@@ -176,13 +176,13 @@ async function main() {
     expectPhase(await a.service.handle({ type: 'sign-out' }), 'signed-out')
     assert.equal(JSON.stringify(tasks(a.profile)) === keptTasks, true, 'Keep-local sign-out must retain the board')
     a.account = 1
-    const switched = await a.service.handle({ type: 'sign-in' })
+    const switched = await a.service.handle({ type: 'sign-in', provider: 'google' })
     expectPhase(switched, 'signed-out'); assert.equal(switched.status.error, 'mismatch')
     assert.equal(JSON.stringify(await rows('workspaces', users[1]!.id)) === JSON.stringify(beforeOther), true, 'Wrong account cloud must stay unchanged')
     assert.equal(JSON.stringify(await rows('devices', users[1]!.id)) === JSON.stringify(otherDevices), true, 'Wrong account must not register a device')
     assert.equal(JSON.stringify(tasks(a.profile)) === keptTasks, true)
     a.account = 0
-    expectPhase(await a.service.handle({ type: 'sign-in' }), 'ready'); await drained(a)
+    expectPhase(await a.service.handle({ type: 'sign-in', provider: 'google' }), 'ready'); await drained(a)
     check('Kept local data blocks a real second account before registration or cloud upload')
 
     const preserved = await state(oldId), localCalendar = calendar(a.profile)
@@ -201,7 +201,7 @@ async function main() {
     await command(b, { type: 'create', title: 'Preserved workspace only', horizon: 'day' }); b.service.nudge('write'); await drained(b)
     assert.equal(tasks(a.profile).length, 4); assert.equal(tasks(b.profile).length, 5)
     const fresh = await open('fresh', 0)
-    expectPhase(await fresh.service.handle({ type: 'sign-in' }), 'enter-key')
+    expectPhase(await fresh.service.handle({ type: 'sign-in', provider: 'google' }), 'enter-key')
     assert.equal(fresh.service.selectedWorkspace, newId)
     expectPhase(await fresh.service.handle({ type: 'submit-password', password: 'live-new-password' }), 'ready'); await drained(fresh)
     sameTasks(a.profile, fresh.profile); await close(fresh)
@@ -256,7 +256,7 @@ async function main() {
     assert(firstAfterOnline && firstAfterOnline.at - restoredAt <= 4000, 'Connectivity must trigger refresh within one two-second poll')
     assert(a.network.some((event: any) => event.event === 'online'))
     const offlinePeer = await open('offline-peer', 0)
-    expectPhase(await offlinePeer.service.handle({ type: 'sign-in' }), 'enter-key')
+    expectPhase(await offlinePeer.service.handle({ type: 'sign-in', provider: 'google' }), 'enter-key')
     expectPhase(await offlinePeer.service.handle({ type: 'submit-password', password: 'live-reset-password' }), 'ready'); await drained(offlinePeer)
     sameTasks(a.profile, offlinePeer.profile); await close(offlinePeer)
     check('Offline startup resumes a real saved Auth session and uploads offline writes automatically after an OS connectivity hint', {
@@ -270,7 +270,7 @@ async function main() {
     const freshView = await a.storage.call('sync', { type: 'view' })
     assert.notEqual(freshView.generation, oldGeneration)
     await close(a); a = await open('alpha', 1)
-    expectPhase(await a.service.handle({ type: 'sign-in' }), 'enter-key')
+    expectPhase(await a.service.handle({ type: 'sign-in', provider: 'google' }), 'enter-key')
     expectPhase(await a.service.handle({ type: 'submit-password', password: 'live-other-password' }), 'ready'); await drained(a)
     assert.equal(tasks(a.profile).length, 1)
     assert.equal(tasks(a.profile).some(row => row.id === tasks(join(root, 'other'))[0]!.id), true)

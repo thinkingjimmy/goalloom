@@ -438,7 +438,7 @@ it('cancels an in-flight sign-in without an auth notice', async () => {
     }),
   })
   await service.start()
-  const pending = service.handle({ type: 'sign-in' })
+  const pending = service.handle({ type: 'sign-in', provider: 'google' })
   await startingSignIn
   const cancelled = await service.handle({ type: 'cancel' })
   expect(cancelled.status.phase).toBe('signed-out')
@@ -455,7 +455,7 @@ it('cancels an in-flight sign-in without an auth notice', async () => {
     beginSignIn: async () => { throw new SyncFailure('auth', 'timeout') },
   })
   await failed.start()
-  expect((await failed.handle({ type: 'sign-in' })).status.error).toBe('auth')
+  expect((await failed.handle({ type: 'sign-in', provider: 'google' })).status.error).toBe('auth')
   expect((await failed.handle({ type: 'cancel' })).status).toMatchObject({ phase: 'signed-out', error: null })
 
 
@@ -473,7 +473,7 @@ it('signs out of this computer only and leaves a failed sign-in retryable', asyn
     beginSignIn: async () => { throw new SyncFailure('auth', 'timeout') },
   })
   await service.start()
-  const failed = await service.handle({ type: 'sign-in' })
+  const failed = await service.handle({ type: 'sign-in', provider: 'google' })
   expect(failed.status.phase).toBe('signed-out')
   expect(failed.status.error).toBe('auth')
   const opened = service as unknown as { client: { auth: { signOut: (options?: { scope?: string }) => Promise<void> } } }

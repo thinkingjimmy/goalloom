@@ -42,7 +42,7 @@ async function main() {
   }
   async function close(peer: any) { peer.service.stop(); await peer.service.schedule.settle(); await peer.storage.close(); peers.splice(peers.indexOf(peer), 1) }
   async function login(peer: any, value = password) {
-    await peer.service.handle({ type: 'sign-in' }); assert.equal(peer.status.phase, 'enter-key', JSON.stringify(peer.status))
+    await peer.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(peer.status.phase, 'enter-key', JSON.stringify(peer.status))
     await peer.service.handle({ type: 'submit-password', password: value }); await settle(peer)
     assert.equal(peer.status.phase, 'ready', JSON.stringify(peer.status)); assert.equal(peer.status.error, null)
   }
@@ -52,7 +52,7 @@ async function main() {
     const original = tasks(alpha), originalCalendar = calendar(alpha)
     let a = await open(alpha, 'alpha'), b = await open(beta, 'beta')
     assert.equal(a.reads + b.reads, 0)
-    await b.service.handle({ type: 'sign-in' }); assert.equal(b.status.phase, 'setup')
+    await b.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(b.status.phase, 'setup')
     await b.service.handle({ type: 'create', password }); await settle(b)
     await login(a); await settle(a, b)
     assert.deepEqual(tasks(beta), original); assert.deepEqual(calendar(beta), originalCalendar)
@@ -70,7 +70,7 @@ async function main() {
     await command(b, { type: 'delete', itemId: original[0]!.id, expectedVersion: Number(sql(beta, `SELECT version FROM items WHERE id='${original[0]!.id}'`)[0]!.version) }); await settle(b)
     await close(a); a = await open(alpha, 'alpha')
     assert.equal(a.status.phase, 'signed-out'); assert.equal(a.signIns, 0); assert.equal(a.reads, 0)
-    await a.service.handle({ type: 'sign-in' }); assert.equal(a.signIns, 1); assert.equal(a.status.phase, 'enter-key')
+    await a.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(a.signIns, 1); assert.equal(a.status.phase, 'enter-key')
     await a.service.handle({ type: 'submit-password', password: 'incorrect-password' }); assert.equal(a.status.error, 'password')
     await close(a); a = await open(alpha, 'alpha')
     assert.equal(a.status.phase, 'signed-out'); assert.equal(a.reads, 0)

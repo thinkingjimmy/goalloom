@@ -60,7 +60,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), keepNesting: z.literal(true).optional(), group: z.literal(true).optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('nest'), parentId: idSchema, beforeId: idSchema.nullable().optional(), expectedParentVersion: z.number().int().positive(), expectedPlacementVersion: z.number().int().positive(), expectedParentPlacementVersion: z.number().int().positive() }),
-  z.strictObject({ ...envelope, ...target, type: z.literal('unnest'), expectedPlacementVersion: z.number().int().positive() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('unnest'), beforeId: idSchema.nullable().optional(), expectedPlacementVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('materializeParentOrder'), horizon: z.enum(['half', 'cycle', 'month', 'week', 'day']), period: z.strictObject({ kind: z.literal('date'), startDate: dateSchema }) }),
   z.strictObject({ ...envelope, type: z.literal('link'), parentId: idSchema, childId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), adoptParentFlow: z.literal(true).optional(), autoPlace: z.boolean().optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('status'), status: statusSchema }),

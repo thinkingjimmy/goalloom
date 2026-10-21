@@ -51,12 +51,12 @@ try {
   const alpha = join(root, 'alpha'), beta = join(root, 'beta')
   await seedLocal(alpha, 'alpha', 3, cloud); await seedLocal(beta, 'beta', 0, cloud)
   let a = await open(alpha, 'alpha')
-  await a.service.handle({ type: 'sign-in' }); await a.service.handle({ type: 'create', password }); await settle(a)
+  await a.service.handle({ type: 'sign-in', provider: 'google' }); await a.service.handle({ type: 'create', password }); await settle(a)
   assert.equal(a.status.phase, 'ready')
   report.runtime.sqlite = (await a.storage.call('runtime')).sqlite
   const originalId = cloud.world.workspace!.id
   let b = await open(beta, 'beta')
-  await b.service.handle({ type: 'sign-in' }); await b.service.handle({ type: 'submit-password', password }); await settle(a, b)
+  await b.service.handle({ type: 'sign-in', provider: 'google' }); await b.service.handle({ type: 'submit-password', password }); await settle(a, b)
   const originalTasks = tasks(alpha), originalCalendar = calendar(alpha)
   const originalVault = await new SyncVault(alpha, cipher).load()
   const keep = await a.service.handle({ type: 'sign-out' })
@@ -70,14 +70,14 @@ try {
 
   a.service.deps.beginSignIn = async (client: any) => (await client.auth.refreshSession({ refresh_token: 'other-alpha' })).data.session
   const beforeSwitch = cloud.requests.length
-  const switched = await a.service.handle({ type: 'sign-in' })
+  const switched = await a.service.handle({ type: 'sign-in', provider: 'google' })
   assert.equal(switched.status.error, 'mismatch'); assert.equal(switched.status.phase, 'signed-out')
   assert.equal(cloud.worlds.get('22222222-2222-4222-8222-222222222222')!.workspace, null)
   assert(!cloud.requests.slice(beforeSwitch).some(row => ['push_ops', 'bootstrap_workspace', 'create_new_workspace'].includes(row.rpc)))
   assert.deepEqual(tasks(alpha), originalTasks)
   check('A different account is rejected before device setup, workspace creation or upload')
   a.service.deps.beginSignIn = async (client: any) => (await client.auth.refreshSession({ refresh_token: 'alpha' })).data.session
-  await a.service.handle({ type: 'sign-in' }); await settle(a)
+  await a.service.handle({ type: 'sign-in', provider: 'google' }); await settle(a)
   assert.equal(a.status.phase, 'ready'); assert.equal(a.service.secrets.workspaceId, originalId)
 
   const oldRows = structuredClone(cloud.world.workspace!.ops)
@@ -170,7 +170,7 @@ try {
   check('Explicit clear replaces the closed database, removes backups/vault/send files and rejects old-generation writes')
 
   await close(a); a = await open(alpha, 'other-alpha')
-  await a.service.handle({ type: 'sign-in' }); assert.equal(a.status.phase, 'setup')
+  await a.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(a.status.phase, 'setup')
   assert.deepEqual(tasks(alpha), [])
   // The new account cannot receive the old board, even after restart and creating sync.
   const setup = await command(a, { type: 'confirmSetup', timezone: 'UTC', weekStart: 1, mode: 'rolling', anchor: { kind: 'date', date: '2026-01-01' }, confirmed: true })

@@ -1,6 +1,6 @@
 {
   "name": "@goalloom/desktop",
-  "version": "1.9.9",
+  "version": "1.9.10",
   "private": true,
   "description": "把三个月的方向，连接到今天的行动。",
   "author": "Goalloom",
@@ -31,6 +31,7 @@
     "test:recovery": "node tests/recovery.mjs",
     "test:performance": "node tests/performance.mjs",
     "test:startup": "node tests/startup.mjs",
+    "test:apple-login": "node tests/apple-login.mjs",
     "test:credentials": "node tests/credentials.mjs",
     "test:keychain-native": "node tests/keychain-native.mjs",
     "test:keychain-package": "node tests/keychain-package.mjs",

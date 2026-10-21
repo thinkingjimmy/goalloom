@@ -41,7 +41,7 @@ async function main() {
   async function close(peer: any) { peer.service.stop(); await peer.service.schedule.settle(); await peer.storage.close(); peers.splice(peers.indexOf(peer), 1) }
   async function signIn(peer: any, value = password) {
     const before = peer.signIns
-    await peer.service.handle({ type: 'sign-in' })
+    await peer.service.handle({ type: 'sign-in', provider: 'google' })
     assert.equal(peer.signIns, before + 1, 'Explicit sign-in must reach Google authorization')
     assert.equal(peer.status.phase, 'enter-key', JSON.stringify(peer.status))
     await peer.service.handle({ type: 'submit-password', password: value }); await settle(peer)
@@ -51,7 +51,7 @@ async function main() {
     const fresh = join(root, 'fresh')
     await seedLocal(fresh, 'fresh', 1, cloud)
     let c = await open(fresh, 'other-fresh')
-    await c.service.handle({ type: 'sign-in' }); assert.equal(c.status.phase, 'setup')
+    await c.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(c.status.phase, 'setup')
     await mkdir(join(fresh, 'sync-password.bin.tmp'))
     await c.service.handle({ type: 'create', password }); assert.equal(c.status.error, 'storage')
     assert.equal(cloud.worlds.get('22222222-2222-4222-8222-222222222222')!.workspaces.size, 0)
@@ -61,7 +61,7 @@ async function main() {
     const draft = c.service.secrets.workspaceId
     await close(c); cloud.controls.fault = ''; cloud.controls.session = ''
     c = await open(fresh, 'other-fresh')
-    await c.service.handle({ type: 'sign-in' }); assert.equal(c.status.phase, 'enter-key', JSON.stringify(c.status))
+    await c.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(c.status.phase, 'enter-key', JSON.stringify(c.status))
     await c.service.handle({ type: 'submit-password', password }); assert.equal(c.status.phase, 'setup', JSON.stringify(c.status))
     await c.service.handle({ type: 'create', password }); await settle(c)
     assert.equal(c.status.phase, 'ready'); assert.equal(c.service.secrets.workspaceId, draft); assert.equal(tasks(fresh).length, 1)
@@ -84,12 +84,12 @@ async function main() {
     const opaque = Buffer.from('Synthetic inaccessible old OS ciphertext')
     await writeFile(join(alpha, 'sync-vault.bin'), opaque)
     let b = await open(beta, 'beta'), a = await open(alpha, 'alpha')
-    await b.service.handle({ type: 'sign-in' }); assert.equal(b.signIns, 1)
+    await b.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(b.signIns, 1)
     assert.equal(b.status.phase, 'setup')
     await b.service.handle({ type: 'create', password }); await settle(b)
     assert.equal(b.status.phase, 'ready', JSON.stringify(b.status)); assert.equal(b.status.error, null)
     const original = tasks(alpha)
-    await a.service.handle({ type: 'sign-out' }); await a.service.handle({ type: 'sign-in' })
+    await a.service.handle({ type: 'sign-out' }); await a.service.handle({ type: 'sign-in', provider: 'google' })
     assert.equal(a.signIns, 1); assert.equal(a.status.phase, 'enter-key')
     const saved = await readFile(join(alpha, 'sync-vault.bin'))
     await a.service.handle({ type: 'submit-password', password: 'incorrect-password' })
@@ -114,7 +114,7 @@ async function main() {
 
     await a.service.handle({ type: 'sign-out' }); a.name = 'other-alpha'
     const beforeSwitch = cloud.requests.length
-    await a.service.handle({ type: 'sign-in' })
+    await a.service.handle({ type: 'sign-in', provider: 'google' })
     assert.equal(a.status.error, 'mismatch'); assert.equal(a.status.phase, 'signed-out')
     assert(!cloud.requests.slice(beforeSwitch).some(row => ['register_device', 'push_ops', 'bootstrap_workspace'].includes(row.rpc)))
     a.name = 'alpha'; await signIn(a)
@@ -147,7 +147,7 @@ async function main() {
     check('A password changed on another device recovers the original local keys and pending work through the verified cloud key')
 
     let old = await open(legacy, 'legacy', false)
-    await old.service.handle({ type: 'sign-in' }); await old.service.handle({ type: 'submit-password', password: changed }); await settle(old)
+    await old.service.handle({ type: 'sign-in', provider: 'google' }); await old.service.handle({ type: 'submit-password', password: changed }); await settle(old)
     await command(old, { type: 'create', title: 'Legacy offline edit', horizon: 'day' })
     const legacyVault = await readFile(join(legacy, 'sync-vault.bin'))
     await close(old); old = await open(legacy, 'legacy', true)

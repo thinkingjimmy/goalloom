@@ -7,7 +7,7 @@ contracts/
 ├── values.ts     # Seven ordered horizons, six period/policy horizons, anchored subsets and the shared next-horizon map
 ├── entities.ts   # 工作区、rolling/natural 日历、实体 summary/detail、唯一位置与 nestingParentId、DAG 边和周期 schema
 ├── wire-calendar.ts # Gregorian 日期与 IANA 时区的轻量边界校验，不引入 Temporal
-├── commands.ts   # Public finite writes, guarded atomic nested creation, optional capture refs/automatic parents; internal-only completeCreation, scoped undo and root/subtask insertion
+├── commands.ts   # Public finite writes, guarded atomic nested creation, optional capture refs/automatic parents; internal-only completeCreation, scoped undo and atomic root/subtask insertion on nest/unnest
 ├── capture.ts    # Shared input revisions/explicit target, capture intent, transaction-created guards and bounded semantic completion selections
 ├── assistance.ts # Strict Markdown rewrite/guidance outputs, full echoes, bounded context and dependency guards
 ├── execution.ts  # Per-metric quality, authoritative pressure and frozen activity cursor DTOs
@@ -18,7 +18,7 @@ contracts/
 ├── smart-input.ts # Jev 服务、设备状态、六尺度周期 / child-only 起草 DTO、智能动作与修订回声
 ├── link-preview.ts # Strict public link preview/open actions and bounded inert metadata; lightweight syntax lives in ../links.ts
 ├── queries.ts    # Up to six selected periods, effective topology and hidden-parent context, generation-guarded reviewContext/pastPeriod pages with live closingParents, detail dependency guards/assisted notes, immutable history and counts
-├── sync.ts       # Strict keep/clear sign-out, non-destructive recovery, exact destructive phrase and Realtime/upload-wait status
+├── sync.ts       # Strict Apple/Google provider selection, authorization status, keep/clear sign-out, non-destructive recovery, exact destructive phrase and Realtime/upload-wait status
 ├── sync-review.ts # Bounded read-only task comparisons, pending group count and owned-value preview token
 ├── update.ts     # Fixed update actions (status/check/install), app version + updater phase DTO and About event names
 ├── window-close.ts # Token-bound native close requests and drain acknowledgements; no task content

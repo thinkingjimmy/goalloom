@@ -22,14 +22,14 @@ export async function runColumnAdd(packaged) {
   const environment = { ...process.env }
   delete environment.ELECTRON_RUN_AS_NODE
   const report = {
-    ok: false, packaged: Boolean(packaged), checks: [], placements: [], alignment: [], wrapping: [], screenshots: [],
+    ok: false, packaged: Boolean(packaged), rendererErrors: [], checks: [], placements: [], alignment: [], wrapping: [], screenshots: [],
     host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model, machineScope: 'Host OS; physical/VM status not independently verified' },
   }
   let app, page
   try {
     app = await electron.launch({ ...(packaged ? { executablePath: resolve(packaged), args: [`--user-data-dir=${profile}`] } : { args: ['.', `--user-data-dir=${profile}`] }), env: environment, timeout: 30_000 })
     page = await app.firstWindow()
-    const errors = []
+    const errors = report.rendererErrors
     page.on('pageerror', error => errors.push(error.message))
     await app.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0]

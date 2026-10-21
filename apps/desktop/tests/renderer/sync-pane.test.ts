@@ -22,7 +22,7 @@ function page(partial: Partial<SyncStatus> & Pick<SyncStatus, 'phase'>): string 
 
 it('七种同步状态都是普通设置行，状态和退出登录在同一行', () => {
   const signedOut = page({ phase: 'signed-out' })
-  expect(signedOut).toContain('Google 账号')
+  expect(signedOut).toContain('账号')
   expect(signedOut).toContain('未登录')
   expect(signedOut).toContain('使用 Google 登录')
   expect(signedOut).not.toContain('退出登录')

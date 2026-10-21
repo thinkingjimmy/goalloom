@@ -9,12 +9,15 @@ import { syncReviewPageSchema } from './sync-review'
 
 export const syncChannel = 'goalloom:sync'
 export const syncEvent = 'goalloom:sync-state'
+export const authProviderSchema = z.enum(['google', 'apple'])
+export type AuthProvider = z.infer<typeof authProviderSchema>
 
 export const syncPhases = ['unconfigured', 'locked', 'signed-out', 'signing-in', 'setup', 'enter-key', 'choose', 'ready'] as const
 export const syncErrors = ['network', 'password', 'auth', 'key', 'mismatch', 'busy', 'port', 'storage', 'cleanup', 'configuration'] as const
 
 export const syncStatusSchema = z.strictObject({
   phase: z.enum(syncPhases),
+  signingInProvider: authProviderSchema.optional(),
   email: z.string().nullable(),
   pending: z.number().int().nonnegative(),
   conflicts: z.number().int().nonnegative(),
@@ -35,7 +38,7 @@ const password = z.string().max(128)
 export const syncActionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('status') }),
   z.strictObject({ type: z.literal('reviews'), generation: z.uuid() }),
-  z.strictObject({ type: z.literal('sign-in') }),
+  z.strictObject({ type: z.literal('sign-in'), provider: authProviderSchema }),
   z.strictObject({ type: z.literal('sign-out'), clearLocal: z.boolean().optional() }),
   z.strictObject({ type: z.literal('create'), password }),
   z.strictObject({ type: z.literal('cancel') }),

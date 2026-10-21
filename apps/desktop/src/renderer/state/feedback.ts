@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Accepted receipts, committed placement/period and post-refresh board visibility.
- * [OUTPUT]: Success feedback, quiet nesting and automatic note rewrites, actual destinations and reading durations; no undo membership changes.
+ * [OUTPUT]: Success feedback, quiet nesting/root-edge detachment and automatic note rewrites, actual destinations and reading durations; no undo membership changes.
  * [POS]: Renderer feedback projection, shared by useWorkspace and the application shell.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -23,6 +23,7 @@ export function feedbackKind(command: CommandInput, result: CommandResult): Feed
   switch (command.type) {
     case 'applyAssistance': return command.description !== undefined ? null : 'standard'
     case 'move': return null
+    case 'unnest': return command.beforeId !== undefined ? null : 'standard'
     case 'create': case 'arrangeBacklog': case 'link': case 'unlink': case 'nest': case 'materializeParentOrder': return null
     case 'status': return command.status === 'done' ? null : command.status === 'todo' ? 'conditional' : 'standard'
     case 'archive': return command.archived ? 'standard' : 'conditional'

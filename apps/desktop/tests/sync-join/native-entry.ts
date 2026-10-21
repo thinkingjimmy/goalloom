@@ -24,7 +24,7 @@ const cloud = await createCloud()
 await seedLocal(profile, 'alpha', 4, cloud)
 await seedLocal(join(root, 'beta'), 'beta', 0, cloud)
 const b = await openPeer(join(root, 'beta'), 'beta')
-await b.service.handle({ type: 'sign-in' })
+await b.service.handle({ type: 'sign-in', provider: 'google' })
 await b.service.handle({ type: 'create', password })
 await settle(b)
 const fixture: any = { cloud, b, a: null }

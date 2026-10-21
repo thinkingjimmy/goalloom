@@ -36,10 +36,10 @@ it('选择页、内联等待和返回后的登录失败都不出现登录提示'
   expect(choice).toContain('看板只存在这台设备上')
   expect(choice).toContain('用 Google 登录')
   expect(choice).toContain('在多台设备间加密同步')
-  expect(choice).not.toContain(authNotice)
+  expect(choice).toContain(authNotice)
   expect(choice).not.toContain(calendarTitle)
 
-  const waiting = renderToStaticMarkup(createElement(ChoiceScreen, { waiting: true, onLocal: () => undefined, onGoogle: () => undefined, onCancel: () => undefined }))
+  const waiting = renderToStaticMarkup(createElement(ChoiceScreen, { waiting: true, onLocal: () => undefined, onSignIn: () => undefined, onCancel: () => undefined }))
   expect(waiting).toContain('在浏览器中继续…')
   expect(waiting).toContain('取消')
   expect(waiting).toContain('data-dim="true"')

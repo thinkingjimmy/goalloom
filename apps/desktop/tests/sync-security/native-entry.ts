@@ -30,7 +30,7 @@ await seedLocal(profile, 'alpha', 3, cloud)
 await seedLocal(join(root, 'beta'), 'beta', 0, cloud)
 await seedLocal(join(root, 'other'), 'beta', 0, cloud)
 const other = await openPeer(join(root, 'other'), 'other-beta', workerPath)
-await other.service.handle({ type: 'sign-in' }); await other.service.handle({ type: 'create', password })
+await other.service.handle({ type: 'sign-in', provider: 'google' }); await other.service.handle({ type: 'create', password })
 await command(other, { type: 'create', title: 'Other account cloud task', horizon: 'day' }); await settle(other)
 const fixture: any = { cloud, a: null, b: null, other, online: true, identity: 'alpha', root, profile, tasks,
   cloudTaskTitles() {
@@ -41,7 +41,7 @@ const fixture: any = { cloud, a: null, b: null, other, online: true, identity: '
   },
   async connectB() {
     const b = fixture.b = await openPeer(join(root, 'beta'), 'beta', workerPath)
-    await b.service.handle({ type: 'sign-in' }); await b.service.handle({ type: 'submit-password', password }); await settle(b)
+    await b.service.handle({ type: 'sign-in', provider: 'google' }); await b.service.handle({ type: 'submit-password', password }); await settle(b)
   },
   async settle() {
     for (let turn = 0; turn < 5; turn++) for (const peer of [fixture.a, fixture.b, other].filter(Boolean)) {

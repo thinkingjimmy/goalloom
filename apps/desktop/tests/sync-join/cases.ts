@@ -23,7 +23,7 @@ async function open(name: string, count = 0, aged = false) {
   const profile = join(temporary, name); await seedLocal(profile, name, count, cloud, aged)
   const peer = await openPeer(profile, name); peers.push(peer); return peer
 }
-async function signIn(peer: any) { await peer.service.handle({ type: 'sign-in' }); assert.equal(peer.status.error, null) }
+async function signIn(peer: any) { await peer.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(peer.status.error, null) }
 try {
   const a = await open('alpha', 24, true), b = await open('beta')
   const row = (title: string) => sql(a.profile, `SELECT id,version FROM items WHERE title='${title}'`)[0]!
@@ -154,7 +154,7 @@ async function concurrentJoin(root: string, check: (label: string) => void) {
     for (const [name, count] of [['beta', 0], ['alpha', 3], ['delta', 3]] as const) {
       const profile = join(root, 'concurrent', name); await seedLocal(profile, name, count, cloud, name === 'alpha' ? 'baseline' : false)
       const peer = await openPeer(profile, name); peers.push(peer)
-      await peer.service.handle({ type: 'sign-in' })
+      await peer.service.handle({ type: 'sign-in', provider: 'google' })
       if (name === 'beta') { await peer.service.handle({ type: 'create', password }); await settle(peer) }
     }
     const [empty, first, second] = peers
@@ -194,9 +194,9 @@ async function creatorFirst(root: string, check: (label: string) => void) {
     }
     const before = tasks(a.profile)
     const placements = sql(a.profile, 'SELECT itemId,horizon,periodId FROM item_placements ORDER BY itemId')
-    await a.service.handle({ type: 'sign-in' }); await a.service.handle({ type: 'create', password }); await settle(a)
+    await a.service.handle({ type: 'sign-in', provider: 'google' }); await a.service.handle({ type: 'create', password }); await settle(a)
     assert.equal(a.status.phase, 'ready'); assert.equal(a.status.error, null)
-    await b.service.handle({ type: 'sign-in' }); await b.service.handle({ type: 'submit-password', password }); await settle(a, b)
+    await b.service.handle({ type: 'sign-in', provider: 'google' }); await b.service.handle({ type: 'submit-password', password }); await settle(a, b)
     for (const peer of peers) {
       assert.deepEqual(tasks(peer.profile), before)
       assert.deepEqual(sql(peer.profile, 'SELECT itemId,horizon,periodId FROM item_placements ORDER BY itemId'), placements)

@@ -2,7 +2,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { expect, it } from 'vitest'
 import { signedInUrl } from '../../src/main/protocol'
 import { callbackCsp, callbackLinks, callbackPage } from '../../src/main/sync/callback-page'
-import { googleSignIn, oauthTimeoutMs } from '../../src/main/sync/oauth'
+import { oauthSignIn, oauthTimeoutMs } from '../../src/main/sync/oauth'
 
 const session = { access_token: 'token', refresh_token: 'refresh', user: { email: 'jimmy@example.com' } } as Session
 const allowed = new Set<string>(Object.values(callbackLinks))
@@ -21,7 +21,7 @@ function client(exchange: (code: string) => Promise<{ session: Session | null; m
 
 async function start(exchange: (code: string) => Promise<{ session: Session | null; message?: string }>, timeoutMs = 5_000, onCallback?: () => void) {
   let port = 0
-  const done = googleSignIn(client(exchange), async () => {}, { port: 0, timeoutMs, onReady: value => { port = value }, ...(onCallback ? { onCallback } : {}) })
+  const done = oauthSignIn('google', client(exchange), async () => {}, { port: 0, timeoutMs, onReady: value => { port = value }, ...(onCallback ? { onCallback } : {}) })
   void done.then(() => undefined, () => undefined)
   const deadline = Date.now() + 2_000
   while (port === 0 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10))
@@ -146,5 +146,5 @@ it('一次登录只接受一个回调', async () => {
 })
 
 it('三分钟内没有回调就超时，测试用更短的时限', async () => {
-  await expect(googleSignIn(client(async () => ({ session })), async () => {}, { port: 0, timeoutMs: 30 })).rejects.toMatchObject({ code: 'auth', message: 'timeout' })
+  await expect(oauthSignIn('google', client(async () => ({ session })), async () => {}, { port: 0, timeoutMs: 30 })).rejects.toMatchObject({ code: 'auth', message: 'timeout' })
 })
