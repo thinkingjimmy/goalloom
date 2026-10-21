@@ -30,6 +30,11 @@
 
 ## TODO
 
+### 1.9.10 update: Apple sign-in and ordered subtask detachment
+
+Published [1.9.10](https://github.com/thinkingjimmy/goalloom/releases/tag/v1.9.10) with [notes](../releases/v1.9.10.md) and a [timing/validation record](../releases/v1.9.10-timing.md). Full local `pnpm verify` and Apple/calendar supplemental acceptance passed. Both hosted packages, signed macOS credential restoration, downloaded file/build identity checks and the five-language live website passed after the recorded provisioning and Apple network recoveries. Workspace format remains v11; app identity and signing certificate are preserved. Mobile progress is committed in source only. Windows 11 manual acceptance remains separate.
+
+
 ### 1.9.9 update: title keyboard levels and independent subtask scheduling
 
 Published [1.9.9](https://github.com/thinkingjimmy/goalloom/releases/tag/v1.9.9) with [notes](../releases/v1.9.9.md) and a [timing/validation record](../releases/v1.9.9-timing.md). Local pre-release verification stopped at an externally interrupted pointer check; the interrupted and remaining source suites passed on an isolated hosted macOS desktop. Both packaged smokes, macOS signing/notarization, signed Keychain acceptance, downloaded checksums and exact build identity passed. Workspace format remains v11; Windows 11 manual acceptance remains separate.

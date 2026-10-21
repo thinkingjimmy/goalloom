@@ -71,6 +71,8 @@
 
 ## TODO
 
+- [x] Published the 1.9.10 download snapshot and five-language manual-upgrade copy after the GitHub Release became public. Website typecheck, static build/15-page SEO audit and 41 E2E checks passed. The prepared deployment was promoted after publication; all 15 live pages, all five homepages' 1.9.10 links and both public installer responses passed verification. See the [release timing record](../releases/v1.9.10-timing.md).
+
 - [x] Published the 1.9.9 download snapshot after the GitHub Release became public. Website typecheck, build/15-page SEO audit and 41 E2E checks passed. A production build was prepared without changing the public domain, then promoted after release publication. Browser checks passed for all 15 live pages, all five homepages' 1.9.9 links and both public downloads.
 
 - [x] Published the 1.9.8 download snapshot after the GitHub Release became public. Website typecheck, build/15-page SEO audit and 41 E2E checks passed. Vercel production deployment and browser checks of all 15 live pages passed; all five homepages link to 1.9.8.
