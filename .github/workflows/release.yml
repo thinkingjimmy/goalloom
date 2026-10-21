@@ -4,6 +4,8 @@ name: Draft desktop release
 # off for a signing test (Actions artifacts only). Check it to create or update
 # a draft Release. The draft job never publishes and
 # never changes the prerelease flag.
+# A lightweight release-environment preflight gates both source test jobs.
+# preflight_only checks credentials/profile access without packaging or draft changes.
 # Hosted gates are typecheck, pnpm test, build, native macOS interactions,
 # packaging, and the packaged smokes from ci.yml. Full local `pnpm verify` is unchanged.
 #
@@ -14,6 +16,11 @@ on:
     inputs:
       update_draft:
         description: Create or update the draft Release. Never publishes. Leave off to only upload Actions artifacts.
+        required: false
+        type: boolean
+        default: false
+      preflight_only:
+        description: Check existing macOS signing credentials and provisioning only. Skip tests, packaging and draft changes.
         required: false
         type: boolean
         default: false
@@ -31,8 +38,68 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight-mac:
+    name: Preflight macOS signing and provisioning
+    runs-on: macos-15
+    timeout-minutes: 8
+    environment: release
+    permissions:
+      contents: read
+    env:
+      CSC_NAME: "ziming wang (947MAGH97Q)"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.21.0"
+          architecture: arm64
+      - name: Prepare macOS signing
+        id: signing
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash .github/scripts/macos-signing.sh prepare
+      - name: Resolve the macOS session provisioning profile
+        id: profile
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          GOALLOOM_MAC_PROVISIONING_PROFILE_B64: ${{ secrets.GOALLOOM_MAC_PROVISIONING_PROFILE_B64 }}
+          GOALLOOM_CREATE_MAC_PROFILE: ${{ inputs.create_session_profile && '1' || '0' }}
+        run: node .github/scripts/macos-profile.mjs
+      - name: Check noninteractive signing access
+        id: probe
+        run: bash .github/scripts/macos-signing.sh unlock
+      - name: Remove temporary signing credentials
+        if: always()
+        run: bash .github/scripts/macos-signing.sh cleanup
+      - name: Record preflight result
+        if: always()
+        env:
+          SIGNING_RESULT: ${{ steps.signing.outcome }}
+          PROFILE_RESULT: ${{ steps.profile.outcome }}
+          PROBE_RESULT: ${{ steps.probe.outcome }}
+        run: |
+          {
+            echo '### macOS release preflight'
+            echo "Existing signing identity: ${SIGNING_RESULT}"
+            echo "Matching Developer ID profile: ${PROFILE_RESULT}"
+            echo "Noninteractive signing probe: ${PROBE_RESULT}"
+            echo 'Profile lookup is read-only unless create_session_profile was explicitly enabled.'
+            echo 'If provisioning failed, repair it and rerun preflight_only before full verification.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   test-mac:
     name: Test macOS
+    needs: preflight-mac
+    if: ${{ !inputs.preflight_only }}
     runs-on: macos-15
     timeout-minutes: 40
     permissions:
@@ -51,6 +118,8 @@ jobs:
       - name: Record hosted VM scope
         run: node -e "console.log(JSON.stringify({scope:'GitHub-hosted VM; not physical-machine acceptance',image:process.env.ImageOS,imageVersion:process.env.ImageVersion,node:process.version,os:require('os').release(),arch:process.arch,cpu:require('os').cpus()[0]?.model})); if(process.arch !== 'arm64') process.exit(1)"
       - run: pnpm install --frozen-lockfile
+      - name: Release script acceptance
+        run: pnpm --filter @goalloom/desktop exec -- node tests/review/run.mjs package-report notarization session-profile release-workflow
 
       # M2.2: Cache build artifacts
       - name: Cache build output
@@ -96,6 +165,10 @@ jobs:
             apps/desktop/output/tests/empty-card-layout/
             apps/desktop/output/tests/insight-generation/
             apps/desktop/output/tests/ci-display/
+            apps/desktop/output/tests/notarization-fixture/
+            apps/desktop/output/tests/session-profile/
+            apps/desktop/output/tests/release-workflow/
+            apps/desktop/output/tests/packages/
 
       # M2.3: Upload build artifact for package job
       - name: Upload build artifacts
@@ -110,6 +183,8 @@ jobs:
 
   test-win:
     name: Test Windows
+    needs: preflight-mac
+    if: ${{ !inputs.preflight_only }}
     runs-on: windows-2025
     timeout-minutes: 40
     permissions:
@@ -210,7 +285,7 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           GOALLOOM_MAC_PROVISIONING_PROFILE_B64: ${{ secrets.GOALLOOM_MAC_PROVISIONING_PROFILE_B64 }}
-          GOALLOOM_CREATE_MAC_PROFILE: ${{ inputs.create_session_profile && '1' || '0' }}
+          GOALLOOM_CREATE_MAC_PROFILE: "0"
         run: node .github/scripts/macos-profile.mjs
       - name: Package macOS
         timeout-minutes: 50

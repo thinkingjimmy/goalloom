@@ -51,6 +51,7 @@ globalThis.fetch = async (url, options = {}) => {
     if (parsed.pathname === '/v1/bundleIds') { assert.equal(body.data.attributes.identifier, 'com.goalloom.desktop'); assert.equal(body.data.attributes.platform, 'MAC_OS'); return Response.json({ data: bundle }); }
     assert.equal(parsed.pathname, '/v1/profiles'); assert.equal(body.data.attributes.profileType, 'MAC_APP_DIRECT');
     assert.equal(body.data.relationships.bundleId.data.id, 'bundle'); assert.deepEqual(body.data.relationships.certificates.data, [{ type: 'certificates', id: 'certificate' }]);
+    if (mode === 'create-denied') return new Response('{}', { status: 403 });
     if (mode === 'unknown-post') throw Error('Synthetic lost response');
     return Response.json({ data: profile });
   }
@@ -65,7 +66,7 @@ globalThis.fetch = async (url, options = {}) => {
     ['new-bundle', true, true, ['/v1/bundleIds', '/v1/profiles']], ['ambiguous', true, false, []],
     ['wrong-certificate', true, false, []], ['stale-certificate', true, true, ['/v1/profiles']],
     ['invalid-profile', false, false, []], ['malformed-plist', false, false, []], ['denied', true, false, []], ['foreign-pagination', true, false, []],
-    ['unknown-post', true, false, ['/v1/profiles']],
+    ['unknown-post', true, false, ['/v1/profiles']], ['create-denied', true, false, ['/v1/profiles']],
   ]) {
     const runDirectory = join(directory, mode); await mkdir(runDirectory)
     const requests = join(runDirectory, 'requests.jsonl'); await writeFile(requests, '')
@@ -76,6 +77,8 @@ globalThis.fetch = async (url, options = {}) => {
     assert.equal(result.status === 0, success, `${mode}: ${result.stderr}`)
     assert.deepEqual(calls.filter(row => row.method === 'POST').map(row => row.path), posts, mode)
     assert(!result.stdout.includes('PRIVATE KEY')); assert(!result.stderr.includes('PRIVATE KEY'))
+    if (mode === 'create-denied') assert.match(result.stderr, /POST \/v1\/profiles.*403.*regenerate the existing profile/i)
+    if (mode === 'missing') assert.match(result.stderr, /preflight_only/)
     if (success) assert((await readFile(join(runDirectory, 'goalloom.provisionprofile'))).length > 0)
     report.checks.push({ mode, success, calls: calls.map(({ path, method }) => ({ path, method })) })
     console.log(`PASS ${mode}`)

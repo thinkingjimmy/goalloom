@@ -43,7 +43,7 @@ export async function resolveAppleProfile(api, create = false) {
     && Date.parse(row.attributes.expirationDate) > Date.now())
   candidates.sort((a, b) => Date.parse(b.attributes.expirationDate) - Date.parse(a.attributes.expirationDate))
   if (candidates[0]?.attributes.profileContent) return candidates[0].attributes.profileContent
-  assert(create, 'No matching Developer ID profile exists. Enable the one-time create_session_profile workflow option or supply GOALLOOM_MAC_PROVISIONING_PROFILE_B64.')
+  assert(create, 'No matching Developer ID profile exists. Regenerate the existing profile in Apple Developer, then run preflight_only before full verification. Alternatively supply GOALLOOM_MAC_PROVISIONING_PROFILE_B64; create_session_profile requires separate Apple write permission.')
 
   const registered = await list(api, `/v1/bundleIds?filter[identifier]=${identifier}&limit=200`)
   let bundle = registered.data.find(row => row.attributes?.identifier === identifier)

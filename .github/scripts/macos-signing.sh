@@ -258,17 +258,8 @@ verify() {
     exit 1
   fi
 
-  staple() {
-    local result
-    result="$(xcrun stapler validate "$1" 2>&1)" || {
-      printf '%s\n' "$result"
-      return 1
-    }
-    printf '%s\n' "$result"
-    grep -q 'The validate action worked' <<<"$result"
-  }
-  staple "$app"
-  staple "$dmg"
+  node apps/desktop/scripts/build/notarize.mjs --validate-ticket "$app"
+  node apps/desktop/scripts/build/notarize.mjs --validate-ticket "$dmg"
   echo "macOS code signing, Gatekeeper assessment, and stapled notarization tickets passed."
 }
 

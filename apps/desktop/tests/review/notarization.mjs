@@ -12,7 +12,7 @@
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import yaml from 'js-yaml'
 
@@ -39,7 +39,11 @@ appendFileSync(process.env.FIXTURE_CALLS, JSON.stringify({tool, action, args}) +
 const out = value => console.log(JSON.stringify(value))
 const fail = message => { console.error(message); process.exit(1) }
 const hang = () => setInterval(() => {}, 1000)
-if (action === 'zip') {
+if (tool === 'codesign') {
+  if (args.includes('-dv')) console.log('Authority=Developer ID Application: Fixture\nTeamIdentifier=' + process.env.APPLE_TEAM_ID + '\nflags=0x10000(runtime)')
+} else if (tool === 'spctl') {
+  console.log('accepted\nsource=Notarized Developer ID')
+} else if (action === 'zip') {
   if (scenario === 'zip-failure') fail('ZIP creation failed')
   writeFileSync(args.at(-1), 'Synthetic notarization archive')
 } else if (args[0] === 'notarytool') {
@@ -47,6 +51,10 @@ if (action === 'zip') {
   if (action === 'submit') {
     if (!args.includes('--no-wait') || args.includes('--wait')) fail('Upload must finish before waiting')
     if (scenario === 'upload-timeout') hang()
+    else if (scenario === 'upload-disconnected' || scenario === 'known-id-error') {
+      if (scenario === 'known-id-error') out({id:'${id}', status:'In Progress'})
+      console.error('Error Domain=NSURLErrorDomain Code=-1005'); process.exit(1)
+    }
     else if (scenario === 'upload-failure') fail('Upload rejected: ' + process.env.APPLE_API_KEY_ID)
     else if (scenario === 'missing-id') out({status:'In Progress'})
     else out({id:'${id}', status:'In Progress'})
@@ -58,6 +66,8 @@ if (action === 'zip') {
     else if (['pending', 'status-unavailable', 'failed-status-accepted', 'recovered'].includes(scenario)) fail('Wait stopped: ' + process.env.APPLE_API_KEY_ID)
     else out({id:'${id}', status: scenario === 'rejected' ? 'Invalid' : 'Accepted'})
   } else if (action === 'info') {
+    const receipt = JSON.parse(readFileSync(join(process.env.GOALLOOM_NOTARIZE_EVIDENCE_DIR, process.env.FIXTURE_REPORT), 'utf8'))
+    if (receipt.submissionId !== '${id}' || receipt.stage !== 'wait') fail('Submission ID was not persisted before polling')
     if (scenario === 'status-unavailable') fail('Status unavailable: ' + process.env.APPLE_API_ISSUER)
     out({id:'${id}', status: ['pending', 'wait-timeout'].includes(scenario) ? 'In Progress' : scenario === 'rejected' ? 'Invalid' : 'Accepted'})
     if (scenario === 'failed-status-accepted') process.exit(1)
@@ -66,23 +76,30 @@ if (action === 'zip') {
     out({jobId:'${id}', status:scenario === 'rejected' ? 'Invalid' : 'Accepted', issues:[{message:'Synthetic diagnostic ' + process.env.APPLE_TEAM_ID}]})
   } else fail('Unexpected notarytool command')
 } else if (args[0] === 'stapler') {
-  const count = readFileSync(process.env.FIXTURE_CALLS, 'utf8').trim().split('\n').map(line => JSON.parse(line)).filter(call => call.action === action).length
+  const count = readFileSync(process.env.FIXTURE_CALLS, 'utf8').trim().split('\n').map(line => JSON.parse(line)).filter(call => call.action === action && call.args.at(-1) === args.at(-1)).length
   const disconnected = () => { console.error('error is Error Domain=NSURLErrorDomain Code=-1005 "The network connection was lost." ' + process.env.APPLE_API_KEY_ID); process.exit(68) }
   if (scenario === 'staple-network-recovered' && action === 'staple' && count === 1) disconnected()
   if (scenario === 'validate-network-recovered' && action === 'validate' && count <= 2) disconnected()
-  if (scenario === 'ticket-network-exhausted') disconnected()
+  if (scenario === 'ticket-network-exhausted' || scenario === 'verify-network-exhausted') disconnected()
+  if (scenario === 'verify-network-recovered' && count <= 2) disconnected()
+  if (scenario === 'verify-timeout') hang()
+  if (scenario === 'verify-network-budget') {
+    if (count === 1) { await new Promise(resolve => setTimeout(resolve, 2600)); disconnected() }
+    else hang()
+  }
   if (scenario === 'ticket-network-budget' && action === 'staple') {
     if (count === 1) { await new Promise(resolve => setTimeout(resolve, 2600)); disconnected() }
     else hang()
   }
-  if (scenario === action + '-failure') fail('Ticket ' + action + ' failed')
+  if (scenario === action + '-failure' || scenario === 'verify-permanent') fail('Ticket ' + action + ' failed')
+  if (scenario !== 'verify-unexpected-success') console.log(action === 'staple' ? 'The staple and validate action worked!' : 'The validate action worked!')
 } else fail('Unexpected tool')
 `
 
 try {
   const bin = join(fixture, 'bin')
   await mkdir(bin)
-  for (const command of ['xcrun', 'ditto']) await writeFile(join(bin, command), shim, { mode: 0o755 })
+  for (const command of ['xcrun', 'ditto', 'codesign', 'spctl']) await writeFile(join(bin, command), shim, { mode: 0o755 })
   const key = join(fixture, 'AuthKey.p8')
   await writeFile(key, 'Synthetic private key; not a credential')
   const hookDriver = join(fixture, 'hook.mjs')
@@ -135,8 +152,8 @@ appendFileSync(process.env.FIXTURE_CALLS,JSON.stringify({action:'archives-create
       assert.equal(report?.stage, 'complete', output)
       assert.equal(report.status, 'Accepted')
       assert.equal(report.ticket, 'validated')
-      assert(calls.findIndex(call => call.action === 'wait') > calls.findIndex(call => call.action === 'submit'))
-      assert(calls.findIndex(call => call.action === 'staple') > calls.findIndex(call => call.action === 'wait'))
+      assert(calls.findIndex(call => ['wait', 'info'].includes(call.action)) > calls.findIndex(call => call.action === 'submit'))
+      assert(calls.findIndex(call => call.action === 'staple') > calls.findIndex(call => ['wait', 'info'].includes(call.action)))
       if (app) assert(calls.findIndex(call => call.action === 'archives-created') > calls.findIndex(call => call.action === 'validate'))
     } else {
       assert.notEqual(report?.stage, 'complete')
@@ -163,13 +180,56 @@ appendFileSync(process.env.FIXTURE_CALLS,JSON.stringify({action:'archives-create
     checks.push({ scenario, exitCode: result.status, stage: report?.stage, status: report?.status, elapsedMs, ticketAttempts: report?.ticketAttempts, calls: calls.map(call => call.action) })
   }
 
+  async function verifyPackage(scenario, success, attempts) {
+    const root = join(fixture, scenario), desktop = join(root, 'apps/desktop'), release = join(desktop, 'release')
+    await mkdir(join(release, 'mac-arm64/Goalloom.app'), { recursive: true })
+    await mkdir(join(desktop, 'scripts/build'), { recursive: true })
+    for (const name of ['notarize.mjs', 'apple-tools.mjs']) await copyFile(resolve('scripts/build', name), join(desktop, 'scripts/build', name))
+    await writeFile(join(desktop, 'package.json'), JSON.stringify({ version: '0.0.0' }))
+    for (const suffix of ['dmg', 'zip', 'zip.blockmap']) await writeFile(join(release, 'Goalloom-0.0.0-mac-arm64.' + suffix), 'Synthetic signed artifact')
+    await writeFile(join(release, 'latest-mac.yml'), 'path: Goalloom-0.0.0-mac-arm64.zip')
+    const callsPath = join(root, 'calls.jsonl'), diagnostics = join(evidence, scenario)
+    await writeFile(callsPath, '')
+    await rm(diagnostics, { recursive: true, force: true })
+    const started = performance.now()
+    const result = spawnSync('bash', [resolve('../../.github/scripts/macos-signing.sh'), 'verify'], {
+      cwd: root, encoding: 'utf8', timeout: 15000,
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, RUNNER_TEMP: root,
+        APPLE_TEAM_ID: 'FIXTURETEAM', APPLE_API_KEY_ID: 'synthetic-secret-key-id',
+        GOALLOOM_NOTARIZE_COMMAND_TIMEOUT_MS: scenario === 'verify-timeout' ? '300' : '3000',
+        GOALLOOM_NOTARIZE_EVIDENCE_DIR: diagnostics, FIXTURE_SCENARIO: scenario, FIXTURE_CALLS: callsPath },
+    })
+    assert.ifError(result.error)
+    const elapsedMs = performance.now() - started, output = result.stdout + result.stderr
+    await mkdir(diagnostics, { recursive: true }); await writeFile(join(diagnostics, 'console.txt'), output)
+    const calls = (await readFile(callsPath, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line))
+    assert.equal(result.status === 0, success, `${scenario}: ${output}`)
+    assert(!calls.some(call => call.args?.[0] === 'notarytool'), 'Independent verification never submits or checks a submission')
+    assert(!output.includes('synthetic-secret-key-id'), 'Ticket diagnostics redact credentials')
+    const validation = calls.filter(call => call.tool === 'xcrun' && call.action === 'validate')
+    assert.equal(validation.length, attempts)
+    assert(calls.some(call => call.tool === 'codesign') && calls.some(call => call.tool === 'spctl'), 'Signature and Gatekeeper gates remain active')
+    if (['verify-network-budget', 'verify-timeout'].includes(scenario)) assert(elapsedMs < 5000, 'Validation shares a bounded deadline')
+    const report = JSON.parse(await readFile(join(diagnostics, 'verify-app.json'), 'utf8'))
+    assert.equal(report.ok, success)
+    assert.equal(report.ticketAttempts.length, success ? attempts / 2 : attempts)
+    checks.push({ scenario, exitCode: result.status, elapsedMs, calls: calls.map(call => `${call.tool}:${call.action}`), ticketAttempts: report.ticketAttempts })
+  }
+  await verifyPackage('verify-network-recovered', true, 6)
+  await verifyPackage('verify-accepted', true, 2)
+  await verifyPackage('verify-network-exhausted', false, 3)
+  await verifyPackage('verify-permanent', false, 1)
+  await verifyPackage('verify-timeout', false, 1)
+  await verifyPackage('verify-network-budget', false, 2)
+  await verifyPackage('verify-unexpected-success', false, 1)
+
   await check('accepted-app', { app: true })
   await check('accepted-dmg')
   await check('staple-network-recovered', { app: true })
   await check('validate-network-recovered')
   await check('ticket-network-exhausted')
   await check('ticket-network-budget')
-  for (const scenario of ['upload-failure', 'upload-timeout', 'missing-id', 'rejected', 'pending', 'wait-timeout', 'status-unavailable', 'failed-status-accepted', 'recovered', 'log-unavailable', 'staple-failure', 'validate-failure']) await check(scenario)
+  for (const scenario of ['upload-disconnected', 'known-id-error', 'upload-failure', 'upload-timeout', 'missing-id', 'rejected', 'pending', 'wait-timeout', 'status-unavailable', 'failed-status-accepted', 'recovered', 'log-unavailable', 'staple-failure', 'validate-failure']) await check(scenario)
   await check('zip-failure', { app: true })
   await check('missing-credentials', { app: true, missing: true })
   await check('partial-credentials', { app: true, partial: true })

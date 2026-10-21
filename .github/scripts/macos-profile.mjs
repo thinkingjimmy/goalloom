@@ -27,7 +27,7 @@ if (!process.env.GOALLOOM_MAC_PROVISIONING_PROFILE) {
       assert(url.origin === origin, 'Unexpected provisioning API origin')
       const response = await fetch(url.href, { method: data ? 'POST' : 'GET', headers: { Authorization: `Bearer ${claims}.${signature}`, 'Content-Type': 'application/json' },
         ...(data ? { body: JSON.stringify(data) } : {}), redirect: 'error', signal: AbortSignal.timeout(30_000) })
-      assert(response.ok, `Apple provisioning request failed (${response.status}); check Certificates, Identifiers & Profiles permissions and the account configuration`)
+      assert(response.ok, `Apple provisioning ${data ? 'POST' : 'GET'} ${url.pathname} failed (${response.status}); ${data && response.status === 403 ? 'read access does not grant creation permission; regenerate the existing profile in Apple Developer and rerun preflight_only, without creation' : 'check Certificates, Identifiers & Profiles access and account configuration; inspect an unknown write outcome before retrying'}`)
       return response.json()
     }
     bytes = Buffer.from(await resolveAppleProfile(api, process.env.GOALLOOM_CREATE_MAC_PROFILE === '1'), 'base64')
