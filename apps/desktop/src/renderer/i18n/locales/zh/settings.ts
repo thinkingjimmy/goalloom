@@ -13,7 +13,7 @@ export const settingsMessages = widen({
   enabledMeta: '已启用',
   board: "看板",
   parentOrder: "按上级自动放置",
-  parentOrderNote: "新增或更换有效上级时，只调整这条任务的位置。之后可自由手动排序；开关切换不改变已有排列。",
+  parentOrderNote: "新建、更换有效上级或顺延时，只调整相关任务或任务组的位置。其他任务的相对顺序不变；开关切换不改变已有排列，仍可自由手动排序。",
   collapseCompleted: '折叠已完成任务',
   collapseCompletedNote: '关闭时保留原位置；开启时收纳到列底部。父子任务保持在一起。',
   subtitles: {

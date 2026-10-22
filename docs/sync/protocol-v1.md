@@ -34,13 +34,13 @@ Actions (one user command is one atomic op):
 | `item.create` | Insert one item and its placement. `id` is the local id. Optional `parentId` does not itself insert an edge when a `rel.link` for the same pair is present. |
 | `item.set` | Field diff: `title`, `description`, `dueDate`, `flowColor`. Only changed keys are present. |
 | `item.status` | `todo` / `done` / `cancelled` plus the matching timestamps. |
-| `item.place` | Horizon, period key and sort hint. `reason` is `move`, `arrange` or `rollover`. Sort is among items with the same nesting parent. The parent id itself is not changed. |
+| `item.place` | Horizon, period key and sort hint. `reason` is `move`, `arrange` or `rollover`. Sort uses placement-local root/sibling scope; ownership is unchanged. A carried child supplies both `groupRootId` and `groupFrom: { horizon, periodKey }`; its period changes without reallocating its sibling sort key. |
 | `item.nest` | Set or clear `nestingParentId` and the resulting horizon, period and sort. `parentId` null makes the task independent. |
 | `item.archive` | `archivedAt` set or cleared. |
 | `item.delete` / `item.restore` | Soft delete. Restore requires `expectedDeleteOpId`. |
 | `item.undoCreate` | Delete a creation group after checking its `creationOperationId`, `completionOperationIds`, net placement, lifecycle and owned edges. All members are checked before any write. |
 | `item.discardIfEmpty` | Delete only when the domain empty-card predicate matches `expectVersion`. |
-| `item.rollover` | System op. Deterministic UUIDv5. See rollover below. |
+| `item.rollover` | System op with deterministic UUIDv5. Optional `sortHint` preserves committed neighbors; optional `groupRootId` identifies the source-local group. See rollover below. |
 | `rel.link` / `rel.unlink` | Edge id is allocated on the writer and copied into the action. |
 | `guidance.set` | Note body plus `baseRevision`. |
 | `policy.set` | One horizon, `auto` or `manual`, effective from a period key. |
@@ -52,6 +52,10 @@ Actions (one user command is one atomic op):
 Local commands run first. The SyncOp is the diff plus the intent, written in the same `BEGIN IMMEDIATE` transaction (`apps/desktop/src/main/workspace/sync/emit.ts`).
 
 Creation sort hints must preserve the committed position, including automatic parent placement and explicit insertion. They use active root neighbours in the same column/period; nested or deleted rows and items created later in that same op cannot be anchors. A create-plus-nest keeps its existing pre-nesting root position followed by the ordered nesting action. Failure cases: local placement is correct but pending rebuild/canonical echo appends it; a multi-item plan refers forward and changes order; future periods leak into current anchors; undo/restore loses a synced creation's final position. Two-peer evidence belongs to `test:sync-replay`.
+
+Forward-period movement and backlog arrangement also capture the committed root neighbors after parent placement. Replay does not consult the receiving device's preference. Writers identify carried children from the source horizon/period before moving the root; separately scheduled children retain their placement and ownership. Carried `item.place` actions include `groupRootId` and the child's original `groupFrom` scope. Replay requires that owner at the target placement and the child still in its declared source scope before preserving its sibling key. Missing source metadata or a concurrent independent child move rejects the whole op with `outline_conflict`; it cannot copy a root-scope key into a sibling group. `groupFrom.periodKey` is null only for Later. Imported-calendar mapping aligns the source guard as well as the target, including moves to Later.
+
+The root position and carried children remain in one manual command op. Pre-sync recovery reads anchors, group identities and source scopes from immutable receipts. Every child carries its own source guard, including when a recovered rollover is split at the 200-action boundary and its root is in an earlier op. Coverage: encrypted manual/backlog concurrent-child rejection and offline group replay in `tests/fixtures/sync-rollover-placement.ts` through `pnpm test:sync-replay`.
 
 | Command | SyncOp | Test |
 | --- | --- | --- |
@@ -72,7 +76,7 @@ Creation sort hints must preserve the committed position, including automatic pa
 | `applyAssistance` | `guidance.set` | sync-emit-commands |
 | `undo` of `never_sent` | no new op; that row becomes `reverted_local` | sync-emit undo; cases 10 and 20 |
 | `undo` of `send_unknown` or `accepted` | new `revert` op, `all_or_nothing` | cases 10 and 20 |
-| `undoBatch` of a system rollover | each undone `item.rollover`: `never_sent` becomes `reverted_local`; `send_unknown`, `accepted` or `applied` gets its own `revert` op. Skipped effects are left alone | sync-emit-commands |
+| `undoBatch` of a system rollover | each undone `item.rollover`: `never_sent` becomes `reverted_local`; `send_unknown`, `accepted` or `applied` gets its own `revert` op. Shared reverse-effect ordering returns the source root before its carried children; skipped effects are left alone | sync-emit-commands; `tests/fixtures/sync-rollover-placement.ts` |
 | `preferences`, `backupPreferences` | `pref.set`, one action per changed key. Last writer wins per key (`at`, then `opId`) | sync-emit; `packages/tests/sync/settings-sync.test.ts` |
 | `confirmClock`, `confirmRollover` | none | sync-emit; confirmRollover in sync-emit-commands |
 | reconcile rollover | one local `operations` receipt, plus one `item.rollover` per moved root and per grouped child whose `base_item_placements` period still matches the source | cases 13 and 14 |
@@ -110,21 +114,23 @@ A first-device baseline writes `calendar.setup` (with `confirmedAt` when the boa
 
 `rebuildVisibleFull` preserves device-local workspace columns, copies `base_*` back, then replays pending ops. `operations` rows are not deleted. Visible `workspace.revision` becomes the greater of the visible counter and `base_workspace.revision`, so a local command does not roll the renderer guard backward. Tests: cases 9, 11, 12, 19 and `packages/tests/sync/applier-review.test.ts`.
 
-`canon_ops` / `canon_changes` are appended only at the canonical seq. `dim` is one of `create`, `delete`, `restore`, `title`, `description`, `dueDate`, `flowColor`, `status`, `archive`, `placement`, `relation`, `guidance`, `policy`, `calendar`. A revert walks that op's canon rows from the last index backward and writes the inverted value under the original `dim`. Outline membership is the `placement` dimension: `before` / `after` include `nestingParentId` when the writer recorded it. A placement row written before nesting leaves that field untouched.
+`canon_ops` / `canon_changes` are appended only at the canonical seq. `dim` is one of `create`, `delete`, `restore`, `title`, `description`, `dueDate`, `flowColor`, `status`, `archive`, `placement`, `relation`, `guidance`, `policy`, `calendar`. A revert walks that op's canon rows from the last index backward and writes the inverted value under the original `dim`. For a group-period move, it restores the root's guarded source slot before its carried children; other dimensions keep their reverse order. This prevents temporarily independent children from becoming false root neighbors. Outline membership is the `placement` dimension: `before` / `after` include `nestingParentId` when the writer recorded it. A placement row written before nesting leaves that field untouched.
+
+Desktop writes and replay share `packages/store-core/src/sort.ts`. When a numeric gap is exhausted or a key is unsafe, normalize only the affected visible/base root or sibling scope in its existing order, then allocate the new key. Placement versions increase; old operations, payloads and receipts are not rewritten. New canonical placement/nesting `before` values include semantic `sortHint` neighbors. Revert validates their current adjacency and allocates a fresh key, so normalization alone does not invalidate undo; a changed slot still conflicts. Carried-child effects own period and ownership only, preserving their sibling key during movement and undo. Deterministic gap and earlier-undo coverage lives in `tests/fixtures/sync-sort-gaps.ts`.
 
 The reference applier (`packages/store-core/src/apply.ts`) additionally:
 
 - `rel.link` rejects Later and any parent that is not in a strictly longer horizon (`horizon_order`). `retain: true`, or a `calendar.setup` in the same op, keeps an edge that a move, undo, restore or import already kept. Cycles stay on the SQLite trigger (`relation_cycle`).
 - `calendar.setup` may include `confirmedAt`. When it is absent, the op's `at` is stored as the confirmation time.
 - A colored child requires `adoptParentFlow`. The color is cleared on the child and copied to the parent only when that parent is uncolored and has no active edge.
-- `item.place` into Later records a relation change for each parent edge it invalidates. A `rel.unlink` for an edge this same op already invalidated does not record a second change. Sort is scoped to the current nesting parent, which `item.place` does not change.
+- `item.place` into Later records a relation change for each parent edge it invalidates. A `rel.unlink` for an edge this same op already invalidated does not record a second change. Sort is scoped to the placement-local parent; a remotely owned child sorts among root rows without changing its owner.
 - `item.nest` requires the same horizon and period as the parent, a root parent, and a child with no live children, flow color or incoming goal edge. Two-level and same-period failures are `outline_conflict`. The SQL triggers remain the cycle and color backstop.
 - `item.restore` revives edges with `reason='delete'` and `invalidatedBy` equal to `expectedDeleteOpId`, skipping a deleted other endpoint, a flow-root child, a duplicate, or a cycle. A flow color taken by a live item stays with that item.
 - `item.delete` records a relation change for each edge it invalidates, before the delete change. Revert restores those edges after the item is live again. A trigger failure rejects the whole revert.
 - Revert of `item.create` is `revert_superseded` when an active relation still touches the item. A link in the same op is inverted first, so that edge does not block the revert.
 - `guidance` revert writes the previous value and increments `item_guidance.revision`.
 - `item.set` of a non-null `flowColor`, and `item.create` into Later with a flow color, are `horizon_order`. Clearing a color is allowed.
-- Placement revert writes `sortKey`. A relation whose `before` is null is invalidated; a relation whose `before` is the edge is made active again.
+- Placement revert restores semantic neighbors when recorded, otherwise the recorded `sortKey`; carried children retain their existing sibling key. A relation whose `before` is null is invalidated; a relation whose `before` is the edge is made active again.
 
 Tests: `packages/tests/sync/applier-review.test.ts`. Case 11 places the parent on year and the child on month.
 
@@ -152,9 +158,15 @@ Push results, per op: `op_id_reused`, `stale_epoch`, `rate_limited`, `payload_to
 
 ## Rollover identity
 
-`opId = UUIDv5("rollover:<itemId>:<fromHorizon>:<fromStart>@<placementSeq>:<toHorizon>:<toStart>", workspaceId or generation)`.
+`opId = UUIDv5("rollover:<itemId>:<fromHorizon>:<fromStart>@<placementSeq>:<toHorizon>:<toStart><intent>", workspaceId or generation)`.
 
-Two devices that observe the same canonical placement emit the same hash (case 13). A rollover whose `placementSeq` or period does not match the base placement is `rollover_stale` (case 14). Pending placement edits do not emit a rollover.
+`intent` is empty when both optional placement fields are absent. Otherwise it is `":" + JSON.stringify({ sortHint: sortHint ?? null, groupRootId: groupRootId ?? null })`, with those fixed property names/order and `sortHint` normalized as `{ afterId, beforeId }`. Identical source and placement intents deduplicate. Different device placements create distinct causal candidates; after one wins, a stale candidate rolls back with `rollover_stale`, rather than reusing an op ID with a different payload.
+
+System rollover sets top-level `basisSeq` to `from.placementSeq`, and outbox insertion preserves that explicit value. Equal rollover identities therefore produce equal payloads even when the devices have observed different unrelated canonical changes.
+
+`position: 'append'` remains on the wire; absent `sortHint` uses that fallback. A present hint carries the committed target neighbors. Group actions include `groupRootId` on the root and its carried children. Replay checks each source period and predecessor, the root's source/target placement, ownership and auto policy. A root requires an active todo member in the source placement; a carried child can use a member in source or target after the root has moved. This lets hidden roots and inactive siblings travel with an eligible local child without accepting a preexisting remote child as the source group. Older strict schemas reject these optional fields; queued payloads are not rewritten.
+
+A rollover whose `placementSeq` or period does not match the base placement is `rollover_stale` (case 14). Pending placement edits do not emit a rollover. Deterministic legacy identity remains covered by case 13; parent-placement identity, concurrent candidates, group replay and undo belong to `tests/fixtures/sync-rollover-placement.ts`.
 
 ## Snapshots and compaction
 

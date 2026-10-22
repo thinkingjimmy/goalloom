@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An authenticated binding, verified roster, scoped storage and bounded remote.
- * [OUTPUT]: One read-first page/batch turn; independent receipt and upload recovery.
+ * [OUTPUT]: One read-first page/batch turn; awaited post-apply projection before uploads, independent receipt and upload recovery.
  * [POS]: Desktop exchange policy. Scheduling and account lifecycle belong to SyncService.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -36,7 +36,7 @@ export async function exchangeTurn(input: {
   followRoster: () => Promise<void>
   lookup: () => Promise<(key: string) => string | null | undefined>
   deliver: (ops: RemoteEnvelope[]) => Promise<void>
-  applied: () => void
+  applied: () => void | Promise<void>
   busy: () => void
   check: () => void
   at: () => string
@@ -101,7 +101,7 @@ export async function exchangeTurn(input: {
     const applied = Number(await save({ type: 'absorb', ops: opened.map(row => ({ ...row, op: redactSyncOp(row.op) })), at: input.at() }) ?? 0)
     input.check()
     await input.cache.forget(opened.map(row => row.op.opId))
-    if (applied) input.applied()
+    if (applied) { await input.applied(); input.check() }
     view = await input.view(); input.check()
     more = view.lastAppliedSeq < target
   }

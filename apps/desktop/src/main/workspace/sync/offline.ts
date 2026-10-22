@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated local operation effects, pending sync rows and original planning periods.
- * [OUTPUT]: Missing pre-sync rollover operations placed before subsequent user commands.
+ * [OUTPUT]: Missing pre-sync rollover operations with each carried child's owner/source scope, placed before subsequent user commands.
  * [POS]: Desktop history adapter for first connection. It preserves later edits, order and deletion without restoring any task.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -32,7 +32,8 @@ export function offlineRolloverOperations(db: DatabaseSync): { op: SyncOp; befor
       const from = period(effect.before.periodId), to = period(effect.after.periodId)
       if (represented.has(`${effect.itemId}|${from.horizon}|${from.startDate}|${to.startDate}`)) continue
       actions.push({ t: 'item.place', id: effect.itemId, horizon: effect.after.horizon, periodKey: to, reason: 'rollover',
-        sortHint: { afterId: effect.kind === 'position' ? effect.after.previousId : null, beforeId: effect.kind === 'position' ? effect.after.nextId : null } })
+        sortHint: { afterId: effect.kind === 'position' ? effect.after.previousId : null, beforeId: effect.kind === 'position' ? effect.after.nextId : null },
+        ...(effect.kind === 'groupPlacement' ? { groupRootId: effect.after.nestingParentId, groupFrom: { horizon: effect.before.horizon, periodKey: from } } : {}) })
     }
     const next = pending.find(row => row.position !== null && Number(row.position) > Number(operation.position))
     for (let index = 0; index < actions.length; index += 200) {

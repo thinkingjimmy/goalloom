@@ -8,10 +8,10 @@ POS: Main-process network coordinator. SQLite transactions remain in the storage
 - `recovery.ts`: Encrypted retry drafts and signed non-destructive cloud creation before atomic local installation.
 - `network-monitor.ts`: Two-second OS connectivity transitions with scoped cleanup; no DNS probes.
 - `schedule.ts`: Single executor, retained triggers, monotonic deadlines and adaptive checks.
-- `exchange.ts`: Read-first bounded turns, receipt confirmation and upload cooldown.
+- `exchange.ts`: Read-first bounded turns, awaited preference projection before reconciliation/uploads, receipt confirmation and upload cooldown.
 - `cooldown.ts`: Account-scoped retry deadlines that survive restart.
 - `pending-cache.ts`: Stable recovery-key-protected prepared payloads and preserved legacy OS journals; unknown secret operations keep their original hash.
-- `project-settings.ts`: Device preference projection without echoing local writes.
+- `project-settings.ts`: Device preference projection without echoing local writes; parent-order policy reaches main and its device file before renderer notification. A revision captured before the settings read and deferred secret writes lets newer local toggles invalidate stale projection/notifications.
 - `vault.ts`: Serialized atomic account/device ciphertext, encrypted recovery drafts and public resume flag; sign-out preserves current/legacy ciphertext without decryption.
 - `session-vault.ts`: Authoritative `sync-session.bin`, preserved legacy-vault migration and durable sign-out. A password-only recovery promotes after verification when secure storage is available.
 - `session-cipher.ts`: Profile-bound AES-GCM with a macOS Data Protection Keychain key; Windows retains DPAPI. Startup restores keys/tokens silently; explicit sign-in requires a new password proof.

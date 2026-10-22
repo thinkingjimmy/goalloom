@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated first-import metadata, target projection and deterministic period mapping.
- * [OUTPUT]: Safe calendar adoption before task history, or placements aligned to the established calendar.
+ * [OUTPUT]: Safe calendar adoption before task history, or placement targets and carried-child source guards aligned to the established calendar.
  * [POS]: Canonical import policy shared by pending and remote replay. Tombstones also lock the calendar.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,15 +18,18 @@ export function alignImportAction(driver: SqlDriver, prefix: string, op: SyncOp,
   const raw = driver.prepare(`SELECT calendar FROM ${prefix}workspace WHERE id=1`).get()?.calendar
   if (!raw || JSON.parse(String(raw)).id === op.importedCalendar.id) return action
   if (action.t === 'policy.set') return null
-  if (action.t === 'item.rollover' && host.alignImportedPeriod) {
-    const align = (key: PeriodKey): PeriodKey => ({ ...key,
-      startDate: host.alignImportedPeriod!(JSON.stringify(op.importedCalendar), key.horizon, key.startDate, op.at, String(raw)),
-    })
+  if (!host.alignImportedPeriod) return action
+  const align = (key: PeriodKey): PeriodKey => ({ ...key,
+    startDate: host.alignImportedPeriod!(JSON.stringify(op.importedCalendar), key.horizon, key.startDate, op.at, String(raw)),
+  })
+  if (action.t === 'item.rollover') {
     return { ...action, from: { ...action.from, periodKey: align(action.from.periodKey) }, to: align(action.to) }
   }
-  if (!('periodKey' in action) || !action.periodKey || !host.alignImportedPeriod) return action
-  const startDate = host.alignImportedPeriod(JSON.stringify(op.importedCalendar), action.periodKey.horizon, action.periodKey.startDate, op.at, String(raw))
-  return { ...action, periodKey: { ...action.periodKey, startDate } }
+  if (!('periodKey' in action)) return action
+  return { ...action, periodKey: action.periodKey ? align(action.periodKey) : null,
+    ...(action.t === 'item.place' && action.groupFrom ? { groupFrom: { ...action.groupFrom,
+      periodKey: action.groupFrom.periodKey ? align(action.groupFrom.periodKey) : null } } : {}),
+  }
 }
 
 /** Offline rollovers had no server sequence. Only their own imported placement chain can supply that predecessor. */

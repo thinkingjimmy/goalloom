@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 当前条目/关系/语义位置，以及不可变操作效果。
- * [OUTPUT]: Owned-field conflicts, including relation-owned color changes, and inverse edge deltas.
+ * [OUTPUT]: Owned-field conflicts, inverse edge deltas and root-first effect ordering for group restoration.
  * [POS]: 纯撤销规则库；事务层负责生命周期、DAG 和原子提交。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,6 +9,26 @@ import type { Item, Relation } from '../shared/contracts/entities'
 import { matchesStatus } from './status'
 import { serverText } from '../shared/i18n/server'
 import { assistanceServerText } from '../shared/i18n/assistance'
+
+export function undoEffectOrder(effects: Effect[]): number[] {
+  const reversed = effects.map((_, index) => index).reverse()
+  const groups = reversed.filter(index => effects[index]!.kind === 'groupPlacement')
+  const restored = new Set<number>()
+  const order: number[] = []
+  for (const index of reversed) {
+    const effect = effects[index]!
+    if (effect.kind === 'groupPlacement') continue
+    order.push(index)
+    if (effect.kind === 'position') for (const childIndex of groups) {
+      const child = effects[childIndex]!
+      if (child.kind === 'groupPlacement' && child.before.nestingParentId === effect.itemId && !restored.has(childIndex)) {
+        order.push(childIndex)
+        restored.add(childIndex)
+      }
+    }
+  }
+  return [...order, ...groups.filter(index => !restored.has(index))]
+}
 
 export function samePosition(a: PositionEffect, b: PositionEffect): boolean {
   return a.horizon === b.horizon && a.periodId === b.periodId && a.previousId === b.previousId && a.nextId === b.nextId && (a.nestingParentId ?? null) === (b.nestingParentId ?? null)

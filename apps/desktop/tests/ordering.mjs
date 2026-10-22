@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Current production Electron build, isolated SQLite ordering acceptance and native input, with explicit completed-layout controls.
- * [OUTPUT]: Repeatable placement/manual-sort/one-shot-sort evidence, screenshots and runtime/platform scope.
- * [POS]: Ordering E2E entry; --auto-placement and --edge-sorting select the changed feature scenarios.
+ * [OUTPUT]: Repeatable placement/manual-sort/one-shot-sort evidence, plus source startup/rollover preference and projection-race evidence in the full run.
+ * [POS]: Ordering E2E entry; --auto-placement and --edge-sorting stay narrow, while full source acceptance includes parent-placement.mjs and parent-preferences.mjs.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { setCompletedLayout } from './fixtures/completed-layout.mjs'
@@ -42,7 +42,23 @@ try {
   if (!edgeOnly) await autoPlacement({ page, application, ids, report, evidence })
   if (!edgeOnly) await dragTitles({ page, report, evidence })
   if (!placementOnly) await edgeSorting({ page, report, evidence })
-  assert.deepEqual(report.errors, []); report.passed = true
+  assert.deepEqual(report.errors, [])
+  if (!edgeOnly && !placementOnly && !executable) {
+    await application.close(); application = null; page = null
+    await import('./parent-placement.mjs')
+    const path = resolve('output/tests/parent-placement/report.json')
+    const placement = JSON.parse(await readFile(path, 'utf8'))
+    assert.equal(placement.passed, true)
+    report.parentPlacement = { report: path, checks: placement.checks.length }
+    report.checks.push('Full source ordering acceptance includes native startup, immediate preference, manual rollover and backlog placement')
+    await import('./parent-preferences.mjs')
+    const preferencePath = resolve('output/tests/parent-placement/preferences-report.json')
+    const preferences = JSON.parse(await readFile(preferencePath, 'utf8'))
+    assert.equal(preferences.passed, true)
+    report.parentPreferences = { report: preferencePath, checks: preferences.checks.length }
+    report.checks.push('Full source ordering acceptance includes preference projection, local acknowledgement and pull-before-reconcile races')
+  }
+  report.passed = true
 } catch (error) {
   report.failure = error.stack ?? String(error)
   if (page && !page.isClosed()) {

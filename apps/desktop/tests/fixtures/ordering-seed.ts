@@ -16,8 +16,10 @@ import { openDatabase, verifyDatabase } from '../../src/main/storage/database'
 import { migrate } from '../../src/main/storage/schema'
 import { Repository } from '../../src/main/workspace/repository'
 import { exportDataset, replaceDataset } from '../../src/main/workspace/transfer/dataset'
+import { hiddenGroupPlacement } from './ordering-hidden-groups'
+import { rolloverPlacement } from './rollover-placement'
 
-const checks: string[] = []
+const checks: string[] = [...hiddenGroupPlacement(), ...rolloverPlacement()]
 function workspace(now: string, path = ':memory:') {
   const db = openDatabase(path); migrate(db)
   const clock = { now }, repo = new Repository(db, { now: () => clock.now })

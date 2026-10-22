@@ -1,16 +1,17 @@
 /**
  * [INPUT]: A committed command, its effects, and item rows captured before dispatch.
- * [OUTPUT]: Transaction-owned SyncOps with committed root-position anchors, observed basisSeq, atomic nesting, causal completion and grouped creation undo. Clock confirmation/rollover resume write nothing.
+ * [OUTPUT]: Transaction-owned SyncOps with root anchors, carried-child source scopes, placement-aware rollover identities, observed basisSeq, atomic nesting and root-first group undo. Clock confirmation/rollover resume write nothing.
  * [POS]: Desktop adapter from command effects to SyncOp. applySyncOp is the other direction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
-import { syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
+import { syncOpPayload, type Action, type PeriodKey, type SyncOp, type SortHint } from '@goalloom/contracts'
 import { enqueueSettings, localParentSql } from '@goalloom/store-core'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { sha256Hex, uuidv5 } from '@goalloom/crypto'
 import type { Command } from '../../../shared/contracts/commands'
 import type { Effect, PositionEffect } from '../../../shared/contracts/effects'
+import { undoEffectOrder } from '../../../domain/undo'
 
 interface BeforeItem { title: string; description: string; dueDate: string | null; deletedBy: string | null; version: number }
 
@@ -41,7 +42,7 @@ export function emitSyncOp(db: DatabaseSync, input: { command: Command; effects:
     ...(input.command.type === 'completeCreation' ? { creationOperationId: input.command.creationOperationId } : {}) })
 }
 
-export function emitRolloverOp(db: DatabaseSync, input: { itemId: string; fromPeriodId: string; toPeriodId: string; placementSeq: number; at: string }): void {
+export function emitRolloverOp(db: DatabaseSync, input: { itemId: string; fromPeriodId: string; toPeriodId: string; placementSeq: number; at: string; sortHint?: SortHint; groupRootId?: string }): void {
   const from = db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(input.fromPeriodId)
   const to = db.prepare('SELECT horizon, startDate, startAt FROM planning_periods WHERE id=?').get(input.toPeriodId)
   const base = db.prepare('SELECT periodId FROM base_item_placements WHERE itemId=?').get(input.itemId)
@@ -51,11 +52,15 @@ export function emitRolloverOp(db: DatabaseSync, input: { itemId: string; fromPe
   const namespace = workspace?.workspaceId ? String(workspace.workspaceId) : generation
   const fromKey = { horizon: String(from.horizon) as 'week', startDate: String(from.startDate) }
   const toKey = { horizon: String(to.horizon) as 'week', startDate: String(to.startDate) }
-  const opId = uuidv5(`rollover:${input.itemId}:${fromKey.horizon}:${fromKey.startDate}@${input.placementSeq}:${toKey.horizon}:${toKey.startDate}`, namespace)
+  const intent = input.sortHint || input.groupRootId ? `:${JSON.stringify({
+    sortHint: input.sortHint ?? null, groupRootId: input.groupRootId ?? null,
+  })}` : ''
+  const opId = uuidv5(`rollover:${input.itemId}:${fromKey.horizon}:${fromKey.startDate}@${input.placementSeq}:${toKey.horizon}:${toKey.startDate}${intent}`, namespace)
   if (db.prepare('SELECT 1 FROM sync_ops WHERE opId=?').get(opId)) return
   insertOp(db, {
-    v: 1, opId, deviceId: 'system', at: String(to.startAt),
-    actions: [{ t: 'item.rollover', id: input.itemId, from: { periodKey: fromKey, placementSeq: input.placementSeq }, to: toKey, position: 'append' }],
+    v: 1, opId, deviceId: 'system', at: String(to.startAt), basisSeq: input.placementSeq,
+    actions: [{ t: 'item.rollover', id: input.itemId, from: { periodKey: fromKey, placementSeq: input.placementSeq }, to: toKey, position: 'append',
+      ...(input.sortHint ? { sortHint: input.sortHint } : {}), ...(input.groupRootId ? { groupRootId: input.groupRootId } : {}) }],
   })
 }
 
@@ -86,9 +91,10 @@ function emitRolloverUndo(db: DatabaseSync, originalId: string, undoId: string, 
   const original = db.prepare('SELECT kind, source, effects FROM operations WHERE id=?').get(originalId)
   if (!original || String(original.source) !== 'system' || String(original.kind) !== 'rollover') return
   const effects = JSON.parse(String(original.effects)) as Effect[]
-  const undone = db.prepare('SELECT effectIndex FROM undo_effects WHERE originalId=? AND undoId=?').all(originalId, undoId)
-  for (const marker of undone) {
-    const effect = effects[Number(marker.effectIndex)]
+  const undone = new Set(db.prepare('SELECT effectIndex FROM undo_effects WHERE originalId=? AND undoId=?').all(originalId, undoId).map(row => Number(row.effectIndex)))
+  for (const index of undoEffectOrder(effects)) {
+    if (!undone.has(index)) continue
+    const effect = effects[index]
     if (!effect || (effect.kind !== 'position' && effect.kind !== 'groupPlacement') || effect.before.periodId === effect.after.periodId) continue
     const from = periodKey(db, effect.before.periodId)
     const to = periodKey(db, effect.after.periodId)
@@ -113,10 +119,10 @@ function emitRolloverUndo(db: DatabaseSync, originalId: string, undoId: string, 
   }
 }
 
-function periodKey(db: DatabaseSync, periodId: string | null): { horizon: string; startDate: string } | null {
+function periodKey(db: DatabaseSync, periodId: string | null): PeriodKey | null {
   if (!periodId) return null
   const row = db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(periodId)
-  return row ? { horizon: String(row.horizon), startDate: String(row.startDate) } : null
+  return row ? { horizon: String(row.horizon) as PeriodKey['horizon'], startDate: String(row.startDate) } : null
 }
 
 function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect[]; before: Map<string, BeforeItem> }): Action[] {
@@ -152,7 +158,10 @@ function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect
     if (effect.kind === 'description') actions.push({ t: 'item.set', id: effect.itemId, fields: { description: effect.after } })
     if (effect.kind === 'status') actions.push({ t: 'item.status', id: effect.itemId, status: effect.after.status, completedAt: effect.after.completedAt, cancelledAt: effect.after.cancelledAt })
     if (effect.kind === 'position') actions.push(placeAction(db, effect.itemId, effect.after.horizon, effect.after.periodId, effect.after.previousId, effect.after.nextId, input.command.type === 'arrangeBacklog' || input.command.type === 'materializeParentOrder' ? 'arrange' : 'move'))
-    if (effect.kind === 'groupPlacement') actions.push(placeAction(db, effect.itemId, effect.after.horizon, effect.after.periodId, null, null, input.command.type === 'arrangeBacklog' || input.command.type === 'materializeParentOrder' ? 'arrange' : 'move'))
+    if (effect.kind === 'groupPlacement') actions.push({
+      ...placeAction(db, effect.itemId, effect.after.horizon, effect.after.periodId, null, null, input.command.type === 'arrangeBacklog' || input.command.type === 'materializeParentOrder' ? 'arrange' : 'move'),
+      groupRootId: effect.after.nestingParentId, groupFrom: { horizon: effect.before.horizon, periodKey: periodKey(db, effect.before.periodId) },
+    })
     if (effect.kind === 'nesting') actions.push(...nestingActions(db, effect))
     if (effect.kind === 'archive') actions.push({ t: 'item.archive', id: effect.itemId, archivedAt: effect.after })
     if (effect.kind === 'visibility' && effect.after.deletedAt) {
@@ -232,7 +241,7 @@ function nestingActions(db: DatabaseSync, effect: Extract<Effect, { kind: 'nesti
   return effect.after.nestingParentId ? [...unlinks, ...color, nest] : [...unlinks, ...color, nest, ...links]
 }
 
-function placeAction(db: DatabaseSync, itemId: string, horizon: string, periodId: string | null, previousId: string | null, nextId: string | null, reason: 'move' | 'arrange' | 'rollover'): Action {
+function placeAction(db: DatabaseSync, itemId: string, horizon: string, periodId: string | null, previousId: string | null, nextId: string | null, reason: 'move' | 'arrange' | 'rollover'): Extract<Action, { t: 'item.place' }> {
   const period = periodId ? db.prepare('SELECT horizon, startDate FROM planning_periods WHERE id=?').get(periodId) : undefined
   return {
     t: 'item.place', id: itemId, horizon: horizon as 'later', periodKey: period ? { horizon: String(period.horizon) as 'week', startDate: String(period.startDate) } : null,
@@ -257,7 +266,7 @@ function deviceId(db: DatabaseSync): string {
 }
 
 function insertOp(db: DatabaseSync, op: SyncOp): void {
-  const payload = syncOpPayload({ ...op, basisSeq: Number(db.prepare('SELECT lastAppliedSeq FROM sync_state WHERE id=1').get()?.lastAppliedSeq ?? 0) })
+  const payload = syncOpPayload({ ...op, basisSeq: op.basisSeq ?? Number(db.prepare('SELECT lastAppliedSeq FROM sync_state WHERE id=1').get()?.lastAppliedSeq ?? 0) })
   const order = Number(db.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()!.n) + 1
   db.prepare(`INSERT INTO sync_ops (opId, localOrder, origin, formatVersion, payload, payloadHash, deviceId, at, state, createdAt, updatedAt)
     VALUES (?, ?, 'local', 1, ?, ?, ?, ?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, op.at, op.at)

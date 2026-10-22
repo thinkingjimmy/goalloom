@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Serial worker requests, owned source data, clock and BackupManager.
+ * [INPUT]: Serial worker requests, device placement preference, owned source data, clock and BackupManager.
  * [OUTPUT]: Source-aware recovery warnings, sustained maintenance, verified protective copy and acknowledged atomic replacement.
  * [POS]: Workspace replacement service; cancellation, failure and renderer-session release drop pending data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -20,11 +20,11 @@ export class WorkspaceService {
   private pending: Pending | null = null
   private completed = new Map<string, { originalGeneration: string; generation: string }>()
   constructor(readonly repository: Repository, directory: string) { this.backups = new BackupManager(repository.db, directory) }
-  async reconcile(): Promise<CommandResult | null> {
+  async reconcile(autoPlace = false): Promise<CommandResult | null> {
     if (this.repository.maintenance) return null
     const now = this.repository.clock.now(), workspace = this.repository.store.workspace()
     try { await this.backups.daily(workspace, now) } catch { /* A failed daily attempt is visible but does not prevent editing. */ }
-    return reconcile(this.repository, now)
+    return reconcile(this.repository, now, autoPlace)
   }
   previewImport(source: unknown, generation: string): DataReply {
     this.guard(generation)

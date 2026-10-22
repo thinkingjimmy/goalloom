@@ -139,7 +139,8 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
         command = { ...action, operationId: crypto.randomUUID(), generation } as CommandInput
       }
       if (!command) return { ok: true, result: null }
-      if (['create', 'createPlan', 'link', 'unlink'].includes(command.type) && !('autoPlace' in command)) {
+      if ((['create', 'createPlan', 'link', 'unlink', 'arrangeBacklog'].includes(command.type)
+        || command.type === 'move' && command.beforeId === undefined) && !('autoPlace' in command)) {
         command = { ...command, autoPlace: currentParentOrder() } as CommandInput
       }
       if (inline && pendingRef.current?.operationId === command.operationId) {
