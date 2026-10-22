@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
- * [OUTPUT]: Accessible local/cross-period task row with parent navigation, saved links, due/description signals, independent flow ports, placement dragging and hierarchy/lifecycle menus; titles fully wrap, lit rows carry `data-lit`/`--row-tint`, and Later checkboxes stay uncolored.
+ * [OUTPUT]: Accessible local/cross-period task row with parent navigation, saved links, calendar deadline capsules, description signals, independent flow ports, placement dragging and hierarchy/lifecycle menus; titles fully wrap, lit rows carry `data-lit`/`--row-tint`, and Later checkboxes stay uncolored.
  *           A double click edits the title in place with guarded Tab nesting/Shift+Tab detachment; pending level writes retain drafts and serialize title commits.
  * [POS]: One virtual board row; Board owns placement, preview, dimming and which row is editing; the peek and detail own description bodies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -14,7 +14,7 @@ import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { messages, useLocale } from '../../i18n'
 import { flowVars } from '../../lib/colors'
-import { longDate, shortDate } from '../../i18n/format'
+import { DueDateBadge } from '../../components/due-date/DueDateBadge'
 import { returnFocus } from '../../lib/focus'
 import type { Flows } from '../../state/flows'
 import type { Action } from '../../state/use-workspace'
@@ -113,7 +113,6 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
   const colored = !done && item.placement.horizon !== 'later'
   const ring = colored ? flowVars(flows.colorsOf(item.id)) : undefined
   const owners = flows.of(item.id).map(flow => flow.title).join(messages.listJoin)
-  const overdue = !done && item.dueDate !== null && item.dueDate < today
   const hasLinks = useMemo(() => linkUrls(item.title).length > 0, [item.title])
   const openTimer = useRef(0)
   const wasEditing = useRef(false)
@@ -147,8 +146,7 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
       : <button type="button" className="task-title" onClick={activate} onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); startEdit() }}><span>{item.title}</span></button>
   const line = <div className="task-line">
     {title}
-    {item.dueDate && !overdue && !done && <span className="row-meta tabular" title={`${messages.dueDate} ${longDate(item.dueDate)}`}>{shortDate(item.dueDate)}</span>}
-    {overdue && <span className="row-icon overdue" role="img" aria-label={messages.dueOverdue(longDate(item.dueDate!))} title={messages.dueOverdue(longDate(item.dueDate!))}><Icon name="overdue" size={16} /></span>}
+    {item.dueDate && !done && <DueDateBadge date={item.dueDate} today={today} />}
   </div>
   const owner = remoteParent && <TaskParentLink item={item} parent={nestingParent} disabled={disabled} select={select} />
   const row = <article role="listitem" aria-posinset={index + 1} aria-setsize={total} aria-level={item.placement.nestingParentId ? 2 : 1} aria-description={item.placement.nestingParentId ? `${nestingText().belongsTo} ${nestingParent?.title ?? ''}` : undefined} id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-nested={!!localParent} data-nesting-parent={item.placement.nestingParentId ?? undefined} data-context={!!item.archivedAt || item.status === 'cancelled'} data-highlighted={selected} data-dimmed={dimmed} data-done={done} data-lit={!!tint || undefined}

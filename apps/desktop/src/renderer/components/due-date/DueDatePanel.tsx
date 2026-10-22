@@ -1,10 +1,9 @@
 /**
  * [INPUT]: Draft deadline, workspace calendar, optional suggested date and a selection callback.
- * [OUTPUT]: dueOptions and a calendar-first deadline panel with compact presets, accessible guidance and optional numeric shortcuts.
+ * [OUTPUT]: dueOptions and a calendar-first deadline panel with compact presets and optional numeric shortcuts.
  * [POS]: Shared deadline content for detail and composer; callers own opening, focus return and saving.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useEffect, useId, useRef, useState } from 'react'
 import { messages } from '../../i18n'
 import { longDate } from '../../i18n/format'
 import { addDays, monthEnd, weekday } from '../../lib/dates'
@@ -37,7 +36,7 @@ export function DueDatePanel({ id, value, today, weekStart, onSelect, suggestion
     // Calendar keys must not submit the surrounding form or operate the composer's draft list.
     if (event.key !== 'Escape') event.stopPropagation()
   }}>
-    <div className="due-panel-heading"><span>{messages.dueDate}</span><DueInfo /></div>
+    <div className="due-panel-heading">{messages.dueDate}</div>
     {suggestion && <button type="button" className="due-suggestion" onClick={() => onSelect(suggestion.date)}>
       <Icon name="smart" size={14} /><span>{longDate(suggestion.date)}</span><small>{suggestion.label}</small>
     </button>}
@@ -48,29 +47,4 @@ export function DueDatePanel({ id, value, today, weekStart, onSelect, suggestion
     <div className="due-separator" />
     <Calendar value={value} today={today} weekStart={weekStart} onSelect={onSelect} />
   </div>
-}
-
-function DueInfo() {
-  const id = useId(), timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const [hovered, setHovered] = useState(false), [focused, setFocused] = useState(false)
-  const [pinned, setPinned] = useState(false), [dismissed, setDismissed] = useState(false)
-  const visible = !dismissed && (hovered || focused || pinned)
-  useEffect(() => () => clearTimeout(timer.current), [])
-  useEffect(() => {
-    if (!visible) return
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.isComposing) return
-      event.preventDefault(); event.stopPropagation(); clearTimeout(timer.current); setPinned(false); setDismissed(true)
-    }
-    window.addEventListener('keydown', escape, true)
-    return () => window.removeEventListener('keydown', escape, true)
-  }, [visible])
-  return <span className="due-info" onPointerEnter={event => {
-    if (event.pointerType !== 'touch') timer.current = setTimeout(() => { setDismissed(false); setHovered(true) }, 200)
-  }} onPointerLeave={() => { clearTimeout(timer.current); setHovered(false) }}>
-    <button type="button" className="due-icon" aria-label={messages.dueInfo} aria-describedby={visible ? id : undefined}
-      onFocus={() => { setFocused(true); setDismissed(false) }} onBlur={() => { setFocused(false); setPinned(false) }}
-      onClick={() => { setPinned(!pinned); setDismissed(pinned) }}><Icon name="info" size={16} /></button>
-    {visible && <span id={id} role="tooltip" className="due-tooltip">{messages.dueDateNote}</span>}
-  </span>
 }

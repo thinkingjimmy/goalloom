@@ -312,6 +312,7 @@ export const messages: MessageCatalog = {
   noDue: "未設定",
   addDue: "期限を追加",
   dueToday: "今日",
+  dueOverdueShort: "期限切れ",
   dueTomorrow: "明日",
   dueFriday: "今週金曜",
   dueNextMonday: "来週月曜",

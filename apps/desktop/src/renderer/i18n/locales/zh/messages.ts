@@ -312,6 +312,7 @@ export const messages = widen({
   noDue: "未设置",
   addDue: "添加截止日期",
   dueToday: "今天",
+  dueOverdueShort: "逾期",
   dueTomorrow: "明天",
   dueFriday: "本周五",
   dueNextMonday: "下周一",

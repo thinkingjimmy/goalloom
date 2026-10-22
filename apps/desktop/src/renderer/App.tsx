@@ -245,7 +245,7 @@ export function App() {
     {seed && snapshot && setupReady && <Seeded key={seed.key} seed={seed} snapshot={snapshot} flows={flows} submit={submit} busy={busy} error={error} close={() => setSeed(null)} />}
     </Suspense>
     <Suspense fallback={null}>
-    {selected && snapshot && <ItemDetail navigate={setSelected} key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} decompose={async () => {
+    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} decompose={async () => {
         try {
           const detail = await desktopApi().getItem(selected), target = shorter(detail.item.placement.horizon)
           if (!target) return

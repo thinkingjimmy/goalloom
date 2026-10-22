@@ -1,6 +1,6 @@
 /**
  * [INPUT]: styles/theme.css, styles/base.css, shared component markers and feature state attributes.
- * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
+ * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, compact task rows with localized calendar deadline capsules and overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
  *           Trailing More/Add controls stay adjacent and reveal together on column hover, header keyboard focus or an open column menu. Placement drag cards keep full titles and wrap long URLs within their width.
  * [POS]: Renderer entry and coordinated feature/platform styles; ordinary layout and shared controls use Tailwind.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -144,9 +144,10 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 .task-line > .task-title-input { flex: 1 1 auto; width: auto; min-width: 0; max-width: 100%; margin: 0; padding: 3px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 14px; line-height: 22px; text-align: left; text-indent: calc(var(--check-space) - 12px + var(--title-gap)); color: inherit; resize: none; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; cursor: text; }
 .task-line > .task-title-input:focus-visible { outline: none; }
 .task-row[data-done='true'] .task-title, .task-row[data-done='true'] .task-title-input { color: var(--secondary); text-decoration: line-through; }
-.row-meta { flex-shrink: 0; height: 28px; display: flex; align-items: center; font-size: 12px; color: var(--secondary); }
-.row-icon { flex-shrink: 0; height: 28px; display: flex; align-items: center; color: var(--faint); }
-.row-icon.overdue { color: var(--danger); }
+.due-badge { flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; min-height: 24px; margin-top: 2px; padding: 0 7px; border: 1px solid var(--line); border-radius: 6px; background: color-mix(in srgb, var(--fg-soft) 7%, var(--bg)); color: var(--fg-soft); font-size: 12px; font-weight: 500; line-height: 20px; white-space: nowrap; cursor: default; }
+.due-badge > svg { flex-shrink: 0; }
+.due-badge[data-state='tomorrow'] { color: var(--backlog); border-color: color-mix(in srgb, var(--backlog) 25%, transparent); background: color-mix(in srgb, var(--backlog) 12%, var(--bg)); }
+.due-badge[data-state='overdue'] { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 25%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--bg)); }
 .drag-handle { position: absolute; left: 2px; top: 0; width: 16px; height: 28px; display: grid; place-items: center; color: var(--secondary); opacity: 0; pointer-events: none; }
 .drag-handle:focus-visible { opacity: 1; }
 .drag-overlay { background: var(--raised); padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); font-size: 14px; max-width: 320px; overflow-wrap: anywhere; }

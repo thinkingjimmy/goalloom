@@ -84,7 +84,7 @@ renderer/
 │   │   ├── RowMotion.tsx  # Interruptible outer-row FLIP and finite overlay geometry updates
 │   │   ├── VirtualRows.tsx # Measured heights, bounded DOM, offset-based group borders, logical keyboard traversal and input-aware focus/drag/menu pinning
 │   │   ├── visibility.ts  # Post-layout title visibility in the selected current/future/past period, with pending reads and offscreen destination feedback
-│   │   ├── TaskRow.tsx      # Task rows with flow dots, title editing with serialized Tab/Shift+Tab nesting, due indicators, description signals and flow-tinted highlights
+│   │   ├── TaskRow.tsx      # Task rows with flow dots, title editing with serialized Tab/Shift+Tab nesting, calendar deadline capsules, description signals and flow-tinted highlights
 │   │   ├── PeriodReturn.tsx # Compact return icon, localized floating pointer/keyboard hint, scoped Escape and preserved return motion
 │   │   ├── period-picker.css # Period switches/lists/calendars, stable chevron slots, return focus/hint styling and touch targets
 │   │   ├── PeriodPicker.tsx # Header B: six-row year/half/cycle lists, week/day/month selection, visible history errors/retry and mode-aware labels
@@ -99,9 +99,9 @@ renderer/
 │   ├── assistance/        # Inline choice-first note rewrites, bounded memory drafts and guarded automatic persistence (see its README)
 │   ├── items/
 │   │   ├── use-item-autosave.ts # Serialized saves/actions, guarded note rewrites, dependency-safe empty-title dismissal, receipt-first retry and native draining
-│   │   ├── ItemDetail.tsx   # Single-pane detail with outline ownership/unnest, guarded parent navigation, header actions and inline note rewrites; the Markdown editor stays mounted
+│   │   ├── ItemDetail.tsx   # Single-pane detail with deadline/goal properties, inherited goal/color provenance, header actions and inline note rewrites; the Markdown editor stays mounted
 │   │   ├── DetailTitle.tsx  # Unclipped shared link display, growing raw-title editor with persistent native undo/redo and empty-draft recovery, saved-only metadata and keyboard focus handoff
-│   │   ├── DuePicker.tsx    # Width-bounded deadline label with full accessible/hover date, shared calendar and focus restoration; selection/clear immediately autosaves
+│   │   ├── DuePicker.tsx    # Width-bounded deadline button with hover/focus guidance, a full accessible date, shared calendar and focus restoration; selection/clear immediately autosaves
 │   │   ├── RelationPicker.tsx # Board-ordered parent/child search shared by detail/flow-dot menus; optional guidance replacement, horizon/effective-flow guards and linked-first removal
 │   │   ├── DetailFlowChip.tsx # Goal/color controls and read-only inherited provenance, sharing board flow menus
 │   │   ├── FlowPicker.tsx   # FlowDot 与 FlowColorMenu；详情芯片和看板圆点共用色板
@@ -118,7 +118,7 @@ renderer/
 │       ├── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择；展开时才计算完整 GMT 偏移列表
 │       └── onboarding.css   # 首次流程样式（仅 token）
 ├── components/              # 可跨功能使用的 UI 原语
-│   ├── due-date/            # Calendar-first deadlines shared by detail/composer: localized presets, day/month navigation, keyboard focus and info guidance
+│   ├── due-date/            # Calendar deadline capsules for board rows and calendar-first editing shared by detail/composer: localized presets, day/month navigation, keyboard focus and first-level button guidance
 │   ├── links/               # Saved-text link rendering, visible-only metadata requests, fixed-height preview cards and keyboard/swipe carousel
 │   ├── description/         # Lazy Lexical Markdown/task-list editor, authored URL nodes, selection tools, safe clipboard and save/undo boundaries
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉

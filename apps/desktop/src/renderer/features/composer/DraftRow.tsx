@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Editable draft, peer drafts, parent metadata, periods, workspace calendar, flows, selection/menu/editing state and change callbacks.
- * [OUTPUT]: One adjust-mode row: a single line (title + where) that, when selected, shows inline T/D/P tokens (column, deadline, parent) opening keyboard menus, an M token for an uncertain split, and E-mode title/description editing. Jev's values and doubts carry the Jev mark.
+ * [OUTPUT]: One adjust-mode row with T/D/P keyboard menus, first-level deadline guidance, uncertain-split merging and title/description editing. Jev's values and doubts carry the Jev mark.
  * [POS]: Composer adjust list row; Composer owns selection and letter shortcuts, transaction validation stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -20,6 +20,7 @@ import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
 import { Popover } from '../../components/Popover'
 import { DueDatePanel } from '../../components/due-date/DueDatePanel'
+import { DueDateHint } from '../../components/due-date/DueDateHint'
 import { sameParent, type EditableDraft, type Field, type ParentInfo } from './draft'
 import { KeyMenu } from './KeyMenu'
 import { column, JevBadge, where } from './Plan'
@@ -60,7 +61,7 @@ export function DraftRow({ draft, drafts, parents, flows, usedColors, periods, t
         <Popover open={menu === 'horizon'} onClose={close} align="end" anchor={token('T', 'horizon', column(draft.horizon), false, fromJev('horizon') && draft.horizon !== 'later')}>
           <HorizonMenu draft={draft} periods={periods} pick={horizon => { change({ horizon, horizonSuggestion: null, horizonInferred: false }, 'horizon'); close() }} />
         </Popover>
-        <Popover floating open={menu === 'due'} onClose={close} align="end" anchor={token('D', 'due', draft.due ? shortDate(draft.due) : t.dueToken, !draft.due, fromJev('due') && !!draft.due)}>
+        <Popover floating open={menu === 'due'} onClose={close} align="end" anchor={<DueDateHint inactive={disabled || menu !== null}>{token('D', 'due', draft.due ? shortDate(draft.due) : t.dueToken, !draft.due, fromJev('due') && !!draft.due)}</DueDateHint>}>
           <DueDatePanel value={draft.due ?? ''} today={today} weekStart={weekStart} numericShortcuts
             suggestion={draft.dueSuggestion ? { date: draft.dueSuggestion, label: t.fromJev } : undefined}
             onSelect={due => { change({ due: due || null, dueSuggestion: null }, 'due'); close() }} />
