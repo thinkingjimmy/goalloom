@@ -42,7 +42,7 @@
 - **Nothing slips quietly.** Unfinished items roll over to the next period, and past periods stay readable and can be cleared in batches.
 - **Undo anything, lose nothing.** Every change can be undone without touching your later edits; daily backups, plus safe restore and reset with a protective copy first.
 - **Local-first and private.** Your workspace is a SQLite database on your computer, with no content telemetry. Optional sync encrypts data before it leaves your device.
-- **Made for the keyboard, in five languages.** ⌘N to capture, ⌘K to search, ⌘Z to undo. Chinese, English, Japanese, Spanish and French; paper or minimal style, light or dark.
+- **Made for the keyboard, in five languages.** ⌘N to capture, ⌘K to search, ⌘Z to undo. Chinese, English, Japanese, Spanish and French; paper, minimal or macOS 27 style, light or dark.
 
 # Get started
 
@@ -84,7 +84,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.9.8 separates production sync from development. Local tasks, history and calendar stay in place, with a protective backup before transition. Sign in to Google again and set a sync password to upload to the new production workspace. Update every computer using sync to 1.9.10. Workspace format remains v11. See the [1.9.10 release notes](./docs/releases/v1.9.10.md). Build-time configuration is in the [development guide](./docs/development.md).
+Version 1.9.8 separates production sync from development. Local tasks, history and calendar stay in place, with a protective backup before transition. Sign in to Google again and set a sync password to upload to the new production workspace. Update every computer using sync to 1.9.10. Current source uses workspace format v12 for the macOS 27 appearance; published 1.9.10 uses v11. See the [1.9.10 release notes](./docs/releases/v1.9.10.md). Build-time configuration is in the [development guide](./docs/development.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 

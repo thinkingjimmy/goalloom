@@ -29,7 +29,7 @@ export const settingsMessages = widen({
     sync: '用 Apple 或 Google 登录，并用同步密码在设备间加密同步',
   },
   // Appearance
-  styleNotes: { paper: '暖色纸面，虚线分隔，柔和投影', minimal: '中性灰阶，实线细描边' },
+  styleNotes: { paper: '暖色纸面，虚线分隔，柔和投影', minimal: '中性灰阶，实线细描边', macos: '冷灰底色，磨砂浮层，蓝色主操作' },
   checkNotes: { outline: '只留流程色描边，最安静', paper: '白底衬出流程色', tint: '同色淡底，分组最明显' },
   relationLines: '关系线',
   relationLinesNote: '筛选单个流程时，用线连起它的上下级',

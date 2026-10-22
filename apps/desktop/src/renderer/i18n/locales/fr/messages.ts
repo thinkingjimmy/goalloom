@@ -38,6 +38,7 @@ export const messages: MessageCatalog = {
   darkTheme: "Sombre",
   style: "Style",
   paperStyle: "Papier",
+  macosStyle: "macOS 27",
   minimalStyle: "Minimal",
   workspaceViews: "Vues de l’espace de travail",
   clockWarning: "L’heure système a reculé. Le traitement automatique est suspendu. Vérifiez l’heure système.",

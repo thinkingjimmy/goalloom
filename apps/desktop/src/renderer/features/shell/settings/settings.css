@@ -52,6 +52,11 @@
 .settings-row-status svg { flex-shrink: 0; }
 .settings-row-text > span { font-weight: 500; }
 .settings-row-text small { font-size: 12px; line-height: 1.5; font-weight: 400; color: var(--secondary); text-wrap: pretty; }
+.settings-row-stacked > .segmented { align-self: flex-start; max-width: 100%; flex-wrap: wrap; }
+@media (max-width: 850px) {
+  .appearance-choice { flex-direction: column; align-items: stretch; gap: 10px; }
+  .appearance-choice > .segmented { align-self: flex-start; max-width: 100%; flex-wrap: wrap; }
+}
 .settings-warning > span { flex: 1; min-width: 0; }
 .settings-warning > svg { flex-shrink: 0; margin-top: 3px; }
 .settings-alert > span { flex: 1; min-width: 0; }

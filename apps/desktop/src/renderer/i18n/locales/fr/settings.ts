@@ -30,7 +30,7 @@ export const settingsMessages: SettingsCatalog = {
     sync: 'Connectez-vous avec Apple ou Google et protégez la synchro avec un mot de passe',
   },
   // Appearance
-  styleNotes: { paper: 'Papier chaud, séparateurs pointillés, ombres douces', minimal: 'Gris neutres, contours fins et pleins' },
+  styleNotes: { paper: 'Papier chaud, séparateurs pointillés, ombres douces', minimal: 'Gris neutres, contours fins et pleins', macos: 'Gris froids, surfaces dépolies et actions bleues' },
   checkNotes: { outline: 'Seul le contour à la couleur du flux, le plus discret', paper: 'Fond blanc qui fait ressortir la couleur du flux', tint: 'Fond teinté de la même couleur, groupes les plus visibles' },
   relationLines: 'Lignes de relation',
   relationLinesNote: 'Quand un seul flux est filtré, des lignes relient ses parents et ses enfants',

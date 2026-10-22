@@ -22,7 +22,7 @@ export type PeriodHorizon = typeof periodHorizons[number]
 export type Horizon = typeof horizons[number]
 export type Status = 'todo' | 'done' | 'cancelled'
 export type Theme = 'system' | 'light' | 'dark'
-export type BoardStyle = 'paper' | 'minimal'
+export type BoardStyle = 'paper' | 'minimal' | 'macos'
 export type CheckStyle = 'outline' | 'paper' | 'tint'
 export type PolicyMode = 'auto' | 'manual'
 

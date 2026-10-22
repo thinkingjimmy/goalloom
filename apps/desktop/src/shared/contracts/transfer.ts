@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted source-aware JSON/SQLite data and explicit maintenance actions.
- * [OUTPUT]: Validated v1-v11 datasets, grouped creation receipts, guidance/tombstones, v2/v3 effects and protected replacement previews.
+ * [OUTPUT]: Validated v1-v12 datasets, grouped creation receipts, guidance/tombstones, v2/v3 effects and protected replacement previews.
  * [POS]: Transfer boundary preserving old receipts and rejecting inconsistent heads/history.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -39,7 +39,7 @@ export const operationSchema = z.strictObject({
 }).refine(value => value.effectsVersion === effectsVersion(value.effects))
 export const undoMarkerSchema = z.strictObject({ originalId: idSchema, effectIndex: z.number().int().nonnegative(), undoId: idSchema })
 export const datasetSchema = z.strictObject({
-  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,
   workspace: workspaceSchema, items: z.array(itemRecordSchema).max(100_000), placements: z.array(placementSchema).max(100_000),
   periods: z.array(periodSchema).max(100_000), relations: z.array(relationSchema).max(500_000), policies: z.array(policySchema).max(policyHorizons.length),
   events: z.array(eventSchema).max(1_000_000), operations: z.array(operationSchema).max(500_000), undoEffects: z.array(undoMarkerSchema).max(500_000),

@@ -30,7 +30,7 @@ export const settingsMessages: SettingsCatalog = {
     sync: 'Apple または Google でログインし、同期パスワードでデバイス間を暗号化して同期します',
   },
   // Appearance
-  styleNotes: { paper: '温かみのある紙面、点線の区切り、やわらかな影', minimal: 'ニュートラルなグレー、細い実線の枠' },
+  styleNotes: { paper: '温かみのある紙面、点線の区切り、やわらかな影', minimal: 'ニュートラルなグレー、細い実線の枠', macos: 'クールなグレー、すりガラスのパネル、青い主要ボタン' },
   checkNotes: { outline: 'フローの色の枠線だけで、最も控えめ', paper: '白地でフローの色を引き立てる', tint: '同系色の淡い地で、グループが最も分かりやすい' },
   relationLines: '関係線',
   relationLinesNote: 'フローを 1 つに絞り込むと、上位と下位を線でつなぎます',

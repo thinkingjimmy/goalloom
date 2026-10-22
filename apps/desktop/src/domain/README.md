@@ -19,7 +19,7 @@ domain/
 ├── execution-history.ts # Indexed ownership for every event effect and chronological guidance/clear/undo replay
 ├── import-nesting.ts # Cross-period nesting/restore provenance, local group moves, Later detach ownership and commit-order relationship/lifecycle replay
 ├── import-guidance.ts # Indexed guidance head/receipt/sequence integrity, tombstones and logical ownership without per-event batch scans
-├── import-validation.ts # Strict v1-v11 datasets, grouped creation inverses, DAGs, colors, discard visibility, plans and legacy milestone receipts
+├── import-validation.ts # Strict v1-v12 datasets, grouped creation inverses, DAGs, colors, discard visibility, plans and legacy milestone receipts
 ├── plan.ts       # createPlan 批内约束与稳定拓扑序（父在前、同级保持草稿顺序）
 ├── status.ts     # 独立状态时间组、效果匹配与差量逆转
 ├── items.ts      # Pure title-only discard eligibility shared by detail drafts and authoritative lifecycle writes

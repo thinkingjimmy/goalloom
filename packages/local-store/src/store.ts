@@ -20,7 +20,7 @@ export interface Snapshot {
   calendar: CalendarConfig | null
   setupConfirmedAt: string | null
   theme: 'system' | 'light' | 'dark'
-  style: 'paper' | 'minimal'
+  style: 'paper' | 'minimal' | 'macos'
   checkStyle: 'outline' | 'paper' | 'tint'
   backupEnabled: boolean
   backupRetention: number

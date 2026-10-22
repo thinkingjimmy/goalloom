@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Flows, unfiltered Later TODO count, calendar, device column preferences and shortcut/dialog controls.
- * [OUTPUT]: Independent Later/count toggle, flow filters, search, the six-column visibility menu and settings with an update dot; setup retains an empty drag region.
+ * [OUTPUT]: Independent Later/count toggle, flow filters and a shared search/column/settings action group with an update dot; setup retains an empty drag region.
  * [POS]: Renderer shell; controls presentation without writing workspace data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -34,10 +34,12 @@ export function TopBar({ ready, flows, filter, setFilter, columns, calendar, men
       </button>)}
     </nav>}
     <div className="titlebar-spacer" />
-    {ready && <IconButton aria-label={messages.commands} title={[messages.commands, formatCombo(bindings.palette)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.palette)} aria-pressed={active === 'search'} onClick={openSearch}><Icon name="search" size={18} /></IconButton>}
-    {ready && calendar && <ColumnVisibilityMenu columns={columns} calendar={calendar} blocked={menuBlocked} />}
-    {ready && <IconButton className="settings-toggle" aria-label={updateAvailable ? settingsMessages.about.settingsWithUpdate(messages.settings) : messages.settings} aria-pressed={active === 'settings'} onClick={openSettings}>
-      <Icon name="settings" size={18} />{updateAvailable && <span className="update-dot" aria-hidden="true" />}
-    </IconButton>}
+    {ready && <div className="titlebar-actions flex shrink-0 items-center gap-1">
+      <IconButton aria-label={messages.commands} title={[messages.commands, formatCombo(bindings.palette)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.palette)} aria-pressed={active === 'search'} onClick={openSearch}><Icon name="search" size={18} /></IconButton>
+      {calendar && <ColumnVisibilityMenu columns={columns} calendar={calendar} blocked={menuBlocked} />}
+      <IconButton className="settings-toggle" aria-label={updateAvailable ? settingsMessages.about.settingsWithUpdate(messages.settings) : messages.settings} aria-pressed={active === 'settings'} onClick={openSettings}>
+        <Icon name="settings" size={18} />{updateAvailable && <span className="update-dot" aria-hidden="true" />}
+      </IconButton>
+    </div>}
   </header>
 }

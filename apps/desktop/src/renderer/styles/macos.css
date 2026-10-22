@@ -1,0 +1,87 @@
+/**
+ * [INPUT]: Apple UI kit contracts, macos appearance attributes and the control/surface/feature skins.
+ * [OUTPUT]: macOS 27 inspired neutral tokens, readable content and frosted navigation/floating surfaces.
+ * [POS]: Opt-in Electron theme boundary; imported skins share these tokens and preserve feature state ownership.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+@import './macos-controls.css';
+@import './macos-surfaces.css';
+@import './macos-features.css';
+
+:root[data-style='macos'] {
+  color-scheme: light;
+  --control-radius: 6px; --action-radius: 6px; --icon-small-radius: 6px;
+  --menu-radius: 12px; --menu-item-radius: 8px; --menu-inset: 5px;
+  --settings-card-radius: 12px; --check-size: 18px;
+  --bg: light-dark(oklch(.965 .004 260), oklch(.205 .006 260));
+  --surface: light-dark(oklch(.985 .002 260), oklch(.245 .006 260));
+  --raised: light-dark(oklch(1 0 0), oklch(.29 .006 260));
+  --fg: light-dark(oklch(.22 .008 260), oklch(.96 .002 260));
+  --fg-soft: light-dark(oklch(.36 .008 260), oklch(.86 .005 260));
+  --secondary: light-dark(oklch(.49 .008 260), oklch(.73 .008 260));
+  --faint: light-dark(oklch(.59 .008 260), oklch(.6 .008 260));
+  --line: light-dark(oklch(.22 .008 260 / .14), oklch(1 0 0 / .15));
+  --hairline: light-dark(oklch(.22 .008 260 / .08), oklch(1 0 0 / .08));
+  --edge: light-dark(oklch(.22 .008 260 / .16), oklch(1 0 0 / .17));
+  --hover: light-dark(oklch(.22 .008 260 / .055), oklch(1 0 0 / .075));
+  --pressed: light-dark(oklch(.22 .008 260 / .095), oklch(1 0 0 / .12));
+  --check-fill: var(--raised); --check-edge: light-dark(oklch(.22 .008 260 / .38), oklch(1 0 0 / .4));
+  --checked: var(--secondary); --edit-line: var(--check-edge);
+  --danger: light-dark(oklch(.51 .18 27), oklch(.77 .13 27));
+  --danger-tint: light-dark(oklch(.96 .02 27), oklch(.3 .045 27));
+  --backlog: light-dark(oklch(.46 .09 70), oklch(.8 .09 70));
+  --focus: light-dark(oklch(.52 .2 255), oklch(.76 .12 255));
+  --primary: oklch(.6321 .2018 254.088); --primary-foreground: oklch(1 0 0);
+  --menu-selection: oklch(.5641 .2301 259.998);
+  --sidebar-selection: light-dark(oklch(.9612 0 0), oklch(1 0 0 / .1));
+  --activity-rollover: light-dark(oklch(.4 .1 255), oklch(.85 .07 255));
+  --activity-stay: light-dark(oklch(.4 .06 180), oklch(.85 .06 180));
+  --activity-done: light-dark(oklch(.4 .08 145), oklch(.85 .07 145));
+  --activity-move: light-dark(oklch(.43 .09 70), oklch(.85 .07 70));
+  --scrim: light-dark(oklch(.18 .008 260 / .12), oklch(0 0 0 / .38));
+  --shadow: 0 0 0 .5px var(--edge), 0 8px 28px light-dark(oklch(.2 .008 260 / .16), oklch(0 0 0 / .42));
+  --shadow-lg: 0 0 0 .5px var(--edge), 0 24px 72px light-dark(oklch(.2 .008 260 / .24), oklch(0 0 0 / .55));
+  --settings-card-shadow: none;
+  --scrollbar: light-dark(oklch(.22 .008 260 / .2), oklch(1 0 0 / .2));
+  --scrollbar-hover: light-dark(oklch(.22 .008 260 / .35), oklch(1 0 0 / .35));
+  --glass: light-dark(oklch(.8853 0 0 / .8), oklch(.2178 0 0 / .92));
+  --glass-rim: light-dark(oklch(1 0 0 / .8), oklch(1 0 0 / .09));
+  --nav: light-dark(oklch(.945 .006 260), oklch(.225 .006 260));
+  --card: var(--raised); --muted: var(--hover); --border: var(--line);
+  --macos-control: light-dark(oklch(0 0 0 / .08), oklch(1 0 0 / .1));
+  --macos-field: light-dark(oklch(1 0 0), oklch(.27 0 0));
+  --macos-group: light-dark(oklch(0 0 0 / .03), oklch(1 0 0 / .045));
+  --macos-chrome: light-dark(oklch(.97 0 0 / .88), oklch(.245 0 0 / .94));
+  --macos-popover: light-dark(oklch(.985 0 0 / .97), oklch(.27 0 0 / .97));
+  --macos-tooltip: light-dark(oklch(.94 0 0 / .94), oklch(.3 0 0 / .96));
+  --macos-material-blur: blur(24px) saturate(1.3);
+  --macos-focus-ring: 0 0 0 3.5px color-mix(in srgb, var(--primary) 50%, transparent);
+  --macos-glass-fill: light-dark(oklch(.83 0 0 / .35), oklch(.34 0 0 / .5));
+  --macos-glass-light: light-dark(oklch(1 0 0 / .48), oklch(1 0 0 / .12));
+  --macos-glass-shade: light-dark(oklch(0 0 0 / .08), oklch(0 0 0 / .18));
+  --macos-glass-rim: light-dark(oklch(.93 0 0 / .8), oklch(1 0 0 / .13));
+  --macos-glass-side: light-dark(oklch(.72 0 0 / .5), oklch(0 0 0 / .35));
+  --macos-glass-reflection: linear-gradient(180deg, var(--macos-glass-light), transparent 24%, transparent 70%, var(--macos-glass-shade));
+  --macos-control-shadow: inset 0 1px 1px var(--macos-glass-light), inset 0 -1px 1px var(--macos-glass-shade), 1.25px 0 0 -.75px var(--macos-glass-side), -1.25px 0 0 -.75px var(--macos-glass-side), 0 0 0 .5px var(--macos-glass-rim), 0 8px 15px light-dark(oklch(0 0 0 / .02), oklch(0 0 0 / .14));
+}
+:root[data-style='macos'][data-theme='dark'] { color-scheme: dark; }
+@media (prefers-color-scheme: dark) {
+  :root[data-style='macos'][data-theme='system'] { color-scheme: dark; }
+}
+
+.segmented-swatch[data-swatch='style-macos'] { background: linear-gradient(135deg, oklch(.96 .006 260), oklch(.78 .025 260)); border-color: oklch(.65 .015 260); }
+
+@media (forced-colors: active) {
+  :root[data-style='macos'] {
+    --bg: Canvas; --surface: Canvas; --raised: Canvas; --nav: Canvas; --glass: Canvas;
+    --fg: CanvasText; --fg-soft: CanvasText; --secondary: GrayText; --faint: GrayText;
+    --line: CanvasText; --hairline: CanvasText; --check-edge: CanvasText; --focus: Highlight;
+    --primary: Highlight; --primary-foreground: HighlightText; --menu-selection: Highlight;
+    --macos-group: Canvas; --macos-control: ButtonFace; --macos-field: Field;
+    --macos-chrome: Canvas; --macos-popover: Canvas; --macos-tooltip: Canvas; --macos-material-blur: none;
+    --macos-glass-fill: ButtonFace; --macos-glass-reflection: none;
+    .settings-nav button[aria-current='page'], .picker-row[data-selected='true'] { background: Highlight; color: HighlightText; }
+    .switch { outline: 1px solid ButtonText; }
+    .switch[aria-checked='true'] { outline-color: Highlight; }
+  }
+}

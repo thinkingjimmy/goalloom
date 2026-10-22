@@ -1,9 +1,10 @@
 /**
- * [INPUT]: An empty SQL driver.
- * [OUTPUT]: Schema v10, the same DDL chain desktop migrate() installs on a new file.
- * [POS]: Shared install. Desktop remains the only writer of user_version for desktop files.
+ * [INPUT]: An empty SQL driver or the current mobile v10 database.
+ * [OUTPUT]: Mobile schema v10 with live/base macos appearance constraints from the shared desktop DDL chain.
+ * [POS]: Shared offline install; current mobile appearance widening runs in one transaction. Desktop owns desktop versions.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { nestingMigrationSql, shadowStatements, v8Ddl, v9HistoryRewrite, v9SyncDdl } from '@goalloom/schema'
+import { nestingMigrationSql, shadowStatements, v8Ddl, v9HistoryRewrite, v9SyncDdl, widenWorkspaceStyles } from '@goalloom/schema'
 import type { SqlDriver } from './types'
 
 export function userVersion(driver: SqlDriver): number {
@@ -13,7 +14,7 @@ export function userVersion(driver: SqlDriver): number {
 
 export function installSchema(driver: SqlDriver, deviceId: string, at: string): void {
   const version = userVersion(driver)
-  if (version === 10) return
+  if (version === 10) { driver.transaction(() => widenWorkspaceStyles(driver)); return }
   if (version !== 0) throw new Error('unsupported database')
   driver.transaction(() => {
     driver.exec(v8Ddl.replace('CHECK(effectsVersion IN (1,2))', 'CHECK(effectsVersion IN (1,2,3))'))
@@ -34,6 +35,7 @@ export function installSchema(driver: SqlDriver, deviceId: string, at: string): 
     driver.exec('INSERT INTO base_item_guidance SELECT * FROM item_guidance')
     driver.prepare('INSERT INTO sync_state (id, deviceId, lastAppliedSeq, lastUploadedSeq, protocolVersion, updatedAt) VALUES (1, ?, 0, 0, 1, ?)').run(deviceId, at)
     driver.prepare('INSERT INTO schema_migrations VALUES (?, ?)').run(10, at)
+    widenWorkspaceStyles(driver)
     driver.exec('PRAGMA user_version = 10')
     const integrity = driver.prepare('PRAGMA integrity_check').all()
     if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') throw new Error('integrity')

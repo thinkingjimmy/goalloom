@@ -48,7 +48,7 @@ const apiKey = z.string().min(8).max(512).nullable()
 export const settingSchema = z.discriminatedUnion('key', [
   z.strictObject({ key: z.literal('language'), value: z.enum(['system', 'zh', 'en', 'ja', 'es', 'fr']) }),
   z.strictObject({ key: z.literal('theme'), value: z.enum(['system', 'light', 'dark']) }),
-  z.strictObject({ key: z.literal('style'), value: z.enum(['paper', 'minimal']) }),
+  z.strictObject({ key: z.literal('style'), value: z.enum(['paper', 'minimal', 'macos']) }),
   z.strictObject({ key: z.literal('checkStyle'), value: z.enum(['outline', 'paper', 'tint']) }),
   z.strictObject({ key: z.literal('backup.enabled'), value: z.boolean() }),
   z.strictObject({ key: z.literal('backup.retention'), value: z.number().int().min(1).max(100) }),

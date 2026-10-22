@@ -9,11 +9,11 @@ renderer/
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
 ├── styles.css               # Tailwind entry and retained coordinated board/dialog states, platform rules, motion, scrollbars and accessibility
-├── styles/                  # Shared semantic theme aliases and native defaults; see styles/README.md
+├── styles/                  # Shared semantic aliases, native defaults and macOS 27 tokens/control/surface/feature skins; see styles/README.md
 ├── assets/                  # About icon and offline provider branding; see assets/ai/README.md
 ├── features/                # 按用户功能聚合页面及其专属组件
 │   ├── shell/               # 应用外壳：常驻顶栏及其打开的全局弹窗
-│   │   ├── TopBar.tsx       # Draggable titlebar: independent Later/count toggle, flow filters, search, column visibility and settings
+│   │   ├── TopBar.tsx       # Draggable titlebar: independent Later/count toggle, flow filters and a shared search/column/settings action group
 │   │   ├── ColumnVisibilityMenu.tsx # Six planning-column checkboxes in the shared period-picker skin, minimum guard, calendar labels and keyboard/focus dismissal
 │   │   ├── CommandPalette.tsx # Debounced search with actual-period hints, commands and detail navigation
 │   │   ├── CompletionCelebration.tsx # Shared item/review corner bursts; nonmodal Canvas, column/motion guards, generation invalidation and cleanup
@@ -21,7 +21,7 @@ renderer/
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
-│   │       ├── AppearancePane.tsx # Language, visual styles, theme and device relation-line switch
+│   │       ├── AppearancePane.tsx # Language, three visual styles, theme and device relation-line switch
 │   │       ├── BoardPane.tsx      # Synced automatic-placement/completed-layout preferences without task writes and per-column confetti preview
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
 │   │       ├── SyncPane.tsx # Account/password flow, merge-first join, explicit keep/clear sign-out, safe recovery and developer diagnostics

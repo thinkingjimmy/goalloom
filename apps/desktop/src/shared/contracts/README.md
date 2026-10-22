@@ -5,7 +5,7 @@
 ```text
 contracts/
 ├── values.ts     # Seven ordered horizons, six period/policy horizons, anchored subsets and the shared next-horizon map
-├── entities.ts   # 工作区、rolling/natural 日历、实体 summary/detail、唯一位置与 nestingParentId、DAG 边和周期 schema
+├── entities.ts   # Three visual styles and 工作区、rolling/natural 日历、实体 summary/detail、唯一位置与 nestingParentId、DAG 边和周期 schema
 ├── wire-calendar.ts # Gregorian 日期与 IANA 时区的轻量边界校验，不引入 Temporal
 ├── commands.ts   # Public finite writes, guarded atomic nested creation, optional capture refs/automatic parents; internal-only completeCreation, scoped undo and atomic root/subtask insertion on nest/unnest
 ├── capture.ts    # Shared input revisions/explicit target, capture intent, transaction-created guards and bounded semantic completion selections
@@ -14,7 +14,7 @@ contracts/
 ├── insight-preferences.ts # Shared leaf preference schema for existing and new writing paths
 ├── effects.ts    # Immutable relation-owned adoption/promotion color deltas and body-free events plus v2 guidance/description and v3 nesting/group-placement effects for precise undo
 ├── history.ts    # Strict events, immutable period-end projections/activity and separate revision-bound live past-task pages
-├── transfer.ts   # v1–v11 datasets, immutable capture/completion receipts and grouped inverses, guidance/nesting, backup/restore/reset confirmations and batch DTOs
+├── transfer.ts   # v1–v12 datasets, immutable capture/completion receipts and grouped inverses, guidance/nesting, backup/restore/reset confirmations and batch DTOs
 ├── smart-input.ts # Jev 服务、设备状态、六尺度周期 / child-only 起草 DTO、智能动作与修订回声
 ├── link-preview.ts # Strict public link preview/open actions and bounded inert metadata; lightweight syntax lives in ../links.ts
 ├── queries.ts    # Up to six selected periods, effective topology and hidden-parent context, generation-guarded reviewContext/pastPeriod pages with live closingParents, detail dependency guards/assisted notes, immutable history and counts

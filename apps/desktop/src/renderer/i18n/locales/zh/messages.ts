@@ -38,6 +38,7 @@ export const messages = widen({
   darkTheme: "深色",
   style: "风格",
   paperStyle: "纸感",
+  macosStyle: "macOS 27",
   minimalStyle: "简约",
   workspaceViews: "工作区视图",
   clockWarning: "检测到系统时间回拨，自动处理已暂停。请核对系统时间。",

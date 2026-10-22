@@ -1,0 +1,77 @@
+/**
+ * [INPUT]: macos control/surface tokens and existing settings, calendar, composer, detail, review and setup markers.
+ * [OUTPUT]: Feature-specific selection and content skins that complete the shared macOS 27 vocabulary.
+ * [POS]: Theme integration layer; product geometry, flow colors and editor focus contracts stay feature-owned.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+:root[data-style='macos'] {
+  .settings-modal { background: var(--surface); }
+  .settings-nav { background: var(--nav); }
+  .settings-nav button { min-height: 32px; border-radius: 8px; font-size: 13px; }
+  .settings-nav button[aria-current='page'] { background: var(--sidebar-selection); color: var(--fg); box-shadow: none; }
+  .settings-nav button > svg { color: var(--focus); }
+  .settings-nav button[aria-current='page'] .settings-nav-meta { color: inherit; }
+  .settings-card { background: var(--macos-group); box-shadow: none; }
+  .settings-row { min-height: 42px; }
+  .settings-row-text { font-size: 13px; }
+  .settings-card > * + * { border-color: var(--hairline); }
+  .settings-group[data-danger='true'] .settings-card { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 28%, transparent); }
+  .settings-hero { border-radius: 12px; }
+  .stepper { background: var(--macos-field); box-shadow: inset 0 0 0 1px var(--hairline); }
+  .stepper button { background: var(--macos-control); }
+  .insight-tabs button[aria-selected='true'] { color: var(--focus); box-shadow: inset 0 -2px 0 var(--primary); }
+  .items-search { background: var(--macos-field); border-radius: 100px; box-shadow: inset 0 0 0 1px var(--hairline); }
+  .items-search:focus-within { box-shadow: var(--macos-focus-ring); }
+  .sync-review-side[data-selected='true'] { border-color: var(--primary); }
+  .sync-review-choice input[type='radio'] { accent-color: var(--primary); }
+  .transfer-steps li[aria-current='step'], .onboarding-steps li[data-state='current'] { color: var(--focus); }
+  .transfer-steps li[aria-current='step'] .transfer-step-mark, .onboarding-steps li[data-state='current'] .onboarding-step-mark { background: var(--primary); color: var(--primary-foreground); }
+
+  .picker-panel { padding: 6px; }
+  .picker-row { border-radius: 8px; }
+  .picker-row[data-selected='true'] { background: var(--primary); color: var(--primary-foreground); }
+  .column-visibility-menu .picker-row[data-selected='true'] { background: transparent; color: var(--fg); }
+  .column-visibility-menu .picker-row:not(:disabled, [aria-disabled='true']):is(:hover, :focus-visible) { background: var(--menu-selection); color: var(--primary-foreground); }
+  .column-visibility-menu .picker-row:is(:hover, :focus-visible) .column-visibility-check { color: inherit; }
+  .period-picker-quick button[aria-pressed='true'], :is(button.period-picker-week, .period-picker-week > button, .period-picker-months > button)[data-selected='true'], .due-day[data-selected='true'], .due-month-grid > button[aria-pressed='true'], .due-shortcuts > button[aria-pressed='true'] { background: var(--primary); color: var(--primary-foreground); }
+  .due-day { border-radius: 100px; }
+  .due-day[data-today='true']:not([data-selected='true']) { color: var(--focus); box-shadow: inset 0 0 0 1px var(--primary); }
+  .period-picker-day.today { color: var(--focus); box-shadow: inset 0 0 0 1px var(--primary); }
+  .period-picker-week[data-selected='true'] .period-picker-day.today { color: inherit; box-shadow: none; }
+  button.period-picker-week[data-selected='true'] .period-picker-day.outside, :is(.period-picker-months > button, .period-picker-row)[data-selected='true'] small { color: color-mix(in srgb, var(--primary-foreground) 75%, transparent); }
+
+  .modal.palette:not(.composer-modal) .palette-search { padding: 6px 10px; border-radius: 100px; background: var(--macos-field); box-shadow: inset 0 0 0 1px var(--hairline); }
+  .modal.palette:not(.composer-modal) .palette-search:focus-within { box-shadow: var(--macos-focus-ring); }
+  .modal.palette:not(.composer-modal) .palette-search input { font-size: 14px; }
+  .composer-primary { border-radius: 6px; }
+  .composer-primary .keycap { background: oklch(1 0 0 / .18); color: inherit; box-shadow: none; }
+  .detail-props :is(.detail-chip, .field-button) { border-radius: 6px; background: var(--macos-control); box-shadow: none; }
+  .detail-props .detail-chip[data-ghost='true'] { background: transparent; }
+  .detail .modal-header { box-shadow: 0 1px 0 var(--hairline); }
+  .activity-date[aria-pressed='true'] { background: var(--primary); color: var(--primary-foreground); }
+  .activity-date:focus-visible, .execution-explanation summary:focus-visible { outline-color: var(--focus); }
+  .review-drawer { border-radius: 16px; box-shadow: var(--shadow-lg); }
+  .review-guide { border-radius: 12px; background: var(--macos-group); border-color: var(--hairline); }
+  .review-steps li[aria-current] { color: var(--focus); }
+  .review-steps li[aria-current] .review-step-number { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+  .help-option[aria-pressed='true'], .help-option.is-selected { background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--fg); }
+  .help-option[aria-pressed='true'] .option-letter, .help-option.is-selected .option-letter { background: var(--primary); color: var(--primary-foreground); box-shadow: none; }
+
+  .calendar-mode-card, .start-card, .ai-option { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--hairline); }
+  .calendar-mode-card[data-selected='true'], .ai-option[data-selected='true'], .start-card[data-selected='true'] { box-shadow: inset 0 0 0 1.5px var(--primary); }
+  .calendar-mode { border-radius: 12px; }
+  .direction-example[data-active='true'] { color: var(--focus); box-shadow: inset 0 0 0 1px var(--primary); }
+  .ai-results { box-shadow: inset 0 0 0 1px var(--hairline); }
+  .jev-demo-caret, .start-bar i { background: var(--primary); }
+  .start-spinner { border-top-color: var(--primary); }
+  .start-dialog { border-radius: 16px; background: var(--surface); }
+  .start-dialog .start-danger { color: oklch(1 0 0); }
+  .start-field { background: var(--macos-field); border-radius: 6px; }
+  .start-field:focus-within:not([data-invalid='true']) { outline: none; box-shadow: var(--macos-focus-ring); }
+}
+@media (max-width: 850px) {
+  :root[data-style='macos'] .settings-row :is(.segmented, .select-trigger) { max-width: 100%; }
+}
+@media (max-width: 560px) {
+  :root[data-style='macos'] .review-drawer { border-radius: 0; }
+}

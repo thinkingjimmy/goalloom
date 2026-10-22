@@ -1,5 +1,5 @@
 /**
- * [INPUT]: styles/theme.css, styles/base.css, shared component markers and feature state attributes.
+ * [INPUT]: Semantic theme tokens, native defaults, the opt-in macOS skin, shared component markers and feature state attributes.
  * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
  *           Trailing More/Add controls stay adjacent and reveal together on column hover, header keyboard focus or an open column menu. Placement drag cards keep full titles and wrap long URLs within their width.
  * [POS]: Renderer entry and coordinated feature/platform styles; ordinary layout and shared controls use Tailwind.
@@ -9,6 +9,7 @@
 
 @import './styles/theme.css';
 @import './styles/base.css';
+@import './styles/macos.css';
 
 /* --- Shell --- */
 .app-shell { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -17,6 +18,7 @@
 body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 :root[data-platform='mac'] .titlebar { padding-left: 88px; }
 .titlebar-spacer { flex: 1; align-self: stretch; }
+.titlebar-actions { -webkit-app-region: no-drag; }
 .flow-filter { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
 .later-toggle { height: 32px; padding: 0 10px 0 8px; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; border-radius: 8px; font-size: 13px; color: var(--fg-soft); }
 .later-toggle:hover { background: var(--hover); color: var(--fg); }

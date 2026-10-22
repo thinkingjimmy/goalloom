@@ -30,7 +30,7 @@ export const settingsMessages: SettingsCatalog = {
     sync: 'Sign in with Apple or Google and protect sync with a sync password',
   },
   // Appearance
-  styleNotes: { paper: 'Warm paper, dashed dividers, soft shadows', minimal: 'Neutral grays, thin solid borders' },
+  styleNotes: { paper: 'Warm paper, dashed dividers, soft shadows', minimal: 'Neutral grays, thin solid borders', macos: 'Cool neutrals, frosted surfaces, blue primary actions' },
   checkNotes: { outline: 'Flow-color outline only, the quietest', paper: 'White fill sets off the flow color', tint: 'Tinted fill, clearest grouping' },
   relationLines: 'Relation lines',
   relationLinesNote: 'When one flow is filtered, lines connect its parents and children',

@@ -38,6 +38,7 @@ export const messages: MessageCatalog = {
   darkTheme: "Dark",
   style: "Style",
   paperStyle: "Paper",
+  macosStyle: "macOS 27",
   minimalStyle: "Minimal",
   workspaceViews: "Workspace views",
   clockWarning: "The system clock moved backward, so automatic handling is paused. Please check the system time.",

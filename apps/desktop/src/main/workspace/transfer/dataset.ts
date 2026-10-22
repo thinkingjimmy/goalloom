@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Strict v1-v11 datasets, explicit current-data recovery for verified application backups, and atomic replacement.
+ * [OUTPUT]: Strict v1-v12 datasets, explicit current-data recovery for verified application backups, and atomic replacement.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

@@ -26,7 +26,7 @@ workspace/
 │   ├── ordering.ts   # Local root placement on creation/effective-parent changes and atomic arrangement of one current/future column
 │   └── settings.ts   # Six-horizon policy versions/non-retroactive boundaries, explicit resume and independent batch undo
 └── transfer/
-    ├── dataset.ts    # Strict v1-v11 import/export, warned current-data recovery for verified application backups, immutable source files and atomic replacement
+    ├── dataset.ts    # Strict v1-v12 import/export, warned current-data recovery for verified application backups, immutable source files and atomic replacement
     ├── rows.ts       # 导出/恢复共用逐行 schema 与数量上限
     ├── files.ts      # worker 内受限 JSON 读取与一致视图的分块原子导出
     └── service.ts    # 源数据校验、预览/保护备份/持续维护/显式提交

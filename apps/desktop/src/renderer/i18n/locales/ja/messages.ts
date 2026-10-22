@@ -38,6 +38,7 @@ export const messages: MessageCatalog = {
   darkTheme: "ダーク",
   style: "スタイル",
   paperStyle: "ペーパー",
+  macosStyle: "macOS 27",
   minimalStyle: "ミニマル",
   workspaceViews: "ワークスペースの表示",
   clockWarning: "システム時刻の巻き戻りを検出したため、自動処理を一時停止しました。システム時刻を確認してください。",
