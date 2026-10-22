@@ -2,7 +2,7 @@
  * [INPUT]: Validated commands, current transaction context and explicit current/date/next targets.
  * [OUTPUT]: Atomic setup with six policies (only day defaults to automatic), placement and flow-valid links, including opt-in adoption or isolated-parent root promotion with one undo effect.
  *          Planning moves retain ownership; root moves carry only co-scheduled children. Later entry atomically detaches remote ownership and unlinks incoming goals.
- *          Creation and changed ordering parents can place only the affected root; nested creation validates its container and commits one create-plus-nesting receipt.
+ *          Creation, changed ordering parents and forward-period moves can place only the affected root; explicit insertion wins. Nested creation validates its container and commits one create-plus-nesting receipt.
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,7 +14,7 @@ import { compareInstants, currentPeriod, workspaceDate } from '../../../domain/c
 import { horizonProblem, mayLinkFlows, promotedFlowColor, relationProblem } from '../../../domain/relations'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { calendarSchema, type Item, type Relation } from '../../../shared/contracts/entities'
-import { statusGroup } from '../../../shared/contracts/effects'
+import { statusGroup, type Effect } from '../../../shared/contracts/effects'
 import { assertAvailable, assertFlowColorFree, hasActiveParent, hasFlow, nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { serverText } from '../../../shared/i18n/server'
 import { writeEdges } from './lifecycle'
@@ -117,6 +117,7 @@ export function setFlowColor(context: Context, command: CommandOf<'flowColor'>):
 }
 
 export function moveItem(context: Context, command: CommandOf<'move'>): boolean {
+  const beforeId = command.beforeId ?? null
   const item = context.store.item(command.itemId, command.expectedVersion)
   assertAvailable(item)
   if (item.placement.version !== command.expectedPlacementVersion) throw new DomainError('stale', serverText().errors.placementChanged)
@@ -127,7 +128,7 @@ export function moveItem(context: Context, command: CommandOf<'move'>): boolean 
     context.itemId = item.id
     return changed
   }
-  if (command.beforeId === item.id) return false
+  if (beforeId === item.id) return false
   const destinationPeriod = targetPeriod(context, command.horizon, command.period?.kind === 'next' ? undefined : command.period)
   const owner = item.placement.nestingParentId ? context.store.item(item.placement.nestingParentId) : null
   const sameContainer = owner && sameOutlinePeriod(item.placement, owner.placement) && command.horizon === item.placement.horizon && (destinationPeriod?.id ?? null) === item.placement.periodId
@@ -142,7 +143,7 @@ export function moveItem(context: Context, command: CommandOf<'move'>): boolean 
   const previous = context.store.position(item)
   let destination = command.period
   if (destination?.kind === 'next') {
-    if ((item.status !== 'todo' && !children.some(child => child.status === 'todo' && !child.archivedAt)) || (item.archivedAt && !children.some(child => child.status === 'todo' && !child.archivedAt)) || item.placement.horizon === 'later' || item.placement.horizon !== command.horizon || !item.placement.periodId || command.beforeId !== null) {
+    if ((item.status !== 'todo' && !children.some(child => child.status === 'todo' && !child.archivedAt)) || (item.archivedAt && !children.some(child => child.status === 'todo' && !child.archivedAt)) || item.placement.horizon === 'later' || item.placement.horizon !== command.horizon || !item.placement.periodId || beforeId !== null) {
       throw new DomainError('conflict', serverText().errors.cannotAdvancePeriod)
     }
     const source = context.store.period(item.placement.periodId)
@@ -151,19 +152,19 @@ export function moveItem(context: Context, command: CommandOf<'move'>): boolean 
   }
   const target = targetPeriod(context, command.horizon, destination)
   const periodId = target?.id ?? null
-  if (item.placement.horizon === command.horizon && item.placement.periodId === periodId && previous.nextId === command.beforeId) return nestingChanged
+  if (item.placement.horizon === command.horizon && item.placement.periodId === periodId && previous.nextId === beforeId) return nestingChanged
   if (command.horizon === 'later') for (const child of ownedChildren) {
     if (!sameOutlinePeriod(item.placement, child.placement)) changeNesting(context, child, null)
   }
-  const key = nextSortKey(context, command.horizon, periodId, command.beforeId, item.id, item.placement.nestingParentId ?? null)
+  const key = nextSortKey(context, command.horizon, periodId, beforeId, item.id, item.placement.nestingParentId ?? null)
   const priorVersion = item.placement.version
   Object.assign(item.placement, { horizon: command.horizon, periodId, sortKey: key, version: priorVersion + 1, holdPeriodId: null })
   context.store.savePlacement(item.placement, priorVersion)
   touch(context, item)
-  context.effects.push({ kind: 'position', itemId: item.id, before: previous, after: context.store.position(item) })
+  const positionEffect: Extract<Effect, { kind: 'position' }> = { kind: 'position', itemId: item.id, before: previous, after: context.store.position(item) }
+  context.effects.push(positionEffect)
   const samePeriod = previous.horizon === command.horizon && previous.periodId === periodId
   const rollover = !samePeriod && previous.horizon === command.horizon && previous.periodId !== null && target !== null && context.store.period(previous.periodId).startAt < target.startAt
-  if (!samePeriod) context.store.event(command.operationId, context.now, rollover ? 'rolled_over' : 'moved', before, item)
   if (!samePeriod) for (const child of children) {
     const prior = structuredClone(child), version = child.placement.version
     const childBefore = { horizon: child.placement.horizon, periodId: child.placement.periodId, nestingParentId: item.id }
@@ -172,6 +173,11 @@ export function moveItem(context: Context, command: CommandOf<'move'>): boolean 
     context.effects.push({ kind: 'groupPlacement', itemId: child.id, before: childBefore, after: { horizon: command.horizon, periodId, nestingParentId: item.id } })
     context.store.event(command.operationId, context.now, rollover ? 'rolled_over' : 'moved', prior, child)
   }
+  if (rollover && command.autoPlace && command.beforeId === undefined) {
+    placeByParent(context, item, false)
+    positionEffect.after = context.store.position(item)
+  }
+  if (!samePeriod) context.store.event(command.operationId, context.now, rollover ? 'rolled_over' : 'moved', before, item)
   if (before.placement.horizon !== 'later'  && item.placement.horizon === 'later') releaseLaterParents(context, item)
   context.itemId = item.id
   context.label = samePeriod ? serverText().labels.sort : rollover ? serverText().labels.rollover : serverText().labels.move

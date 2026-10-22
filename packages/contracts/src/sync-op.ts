@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted sync payloads (formatVersion 1).
- * [OUTPUT]: A strict SyncOp, including an optional observed basisSeq for concurrent-change review, causal completion, grouped undo and encrypted first-import calendar metadata. payloadHash covers canonicalJson(op).
+ * [OUTPUT]: A strict SyncOp with observed basisSeq, causal completion, grouped undo, rollover anchors, carried-child source guards and encrypted first-import calendar metadata. payloadHash covers canonicalJson(op).
  * [POS]: Protocol boundary shared by desktop, mobile and tests. Command replay is intentionally not this schema.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,8 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const instant = z.string().min(20).max(40)
 
 export const periodKeySchema = z.strictObject({ horizon: periodHorizon, startDate: date })
+const placementScopeSchema = z.strictObject({ horizon, periodKey: periodKeySchema.nullable() })
+  .refine(scope => scope.horizon === 'later' ? scope.periodKey === null : scope.periodKey?.horizon === scope.horizon)
 export const sortHintSchema = z.strictObject({ afterId: id.nullable(), beforeId: id.nullable() })
 export const rolloverFromSchema = z.strictObject({ periodKey: periodKeySchema, placementSeq: z.number().int().nonnegative() })
 export const blobRefSchema = z.strictObject({
@@ -54,7 +56,7 @@ export const actionSchema = z.discriminatedUnion('t', [
   }),
   z.strictObject({
     t: z.literal('item.place'), id, horizon, periodKey: periodKeySchema.nullable(), sortHint: sortHintSchema,
-    reason: z.enum(['move', 'arrange', 'rollover']),
+    reason: z.enum(['move', 'arrange', 'rollover']), groupRootId: id.optional(), groupFrom: placementScopeSchema.optional(),
   }),
   z.strictObject({
     t: z.literal('item.nest'), id, parentId: id.nullable(), horizon, periodKey: periodKeySchema.nullable(), sortHint: sortHintSchema,
@@ -64,7 +66,7 @@ export const actionSchema = z.discriminatedUnion('t', [
   z.strictObject({ t: z.literal('item.undoCreate'), id, creationOperationId: z.uuid(), completionOperationIds: z.array(z.uuid()).max(8) }),
   z.strictObject({ t: z.literal('item.discardIfEmpty'), id, expectVersion: z.number().int().positive() }),
   z.strictObject({ t: z.literal('item.restore'), id, expectedDeleteOpId: id }),
-  z.strictObject({ t: z.literal('item.rollover'), id, from: rolloverFromSchema, to: periodKeySchema, position: z.literal('append') }),
+  z.strictObject({ t: z.literal('item.rollover'), id, from: rolloverFromSchema, to: periodKeySchema, position: z.literal('append'), sortHint: sortHintSchema.optional(), groupRootId: id.optional() }),
   z.strictObject({ t: z.literal('rel.link'), id, parentId: id, childId: id, adoptParentFlow: z.boolean().optional(), retain: z.literal(true).optional() }),
   z.strictObject({ t: z.literal('rel.unlink'), id }),
   z.strictObject({ t: z.literal('guidance.set'), itemId: id, value: guidanceValueSchema.nullable(), baseRevision: z.number().int().nonnegative() }),

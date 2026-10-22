@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Trusted window sender, strict DTOs and an internal StorageClient.
- * [OUTPUT]: Narrow commands/queries, native-picker transfers, validated link preview/browser actions, fixed update actions and session cancellation.
+ * [OUTPUT]: Narrow commands/queries, immediate device placement preference updates, native-picker transfers, validated link preview/browser actions, fixed update actions and session cancellation.
  * [POS]: Renderer permission boundary; paths never come from renderer input and stale sessions cannot resume maintenance.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,8 +10,9 @@ import { extname } from 'node:path'
 import { isRendererSettingKey, parseSetting } from '@goalloom/contracts'
 import { commandSchema, DomainError, type Command, type CommandResult } from '../shared/contracts/commands'
 import { querySchema, type WorkspaceMetadata } from '../shared/contracts/queries'
-import { devicePrefsChannel, devicePrefsReportSchema, languageChannel, languageSchema, runtimeChannel, runtimeInfoSchema } from '../shared/contracts/runtime'
+import { devicePrefsChannel, devicePrefsReportSchema, languageChannel, languageSchema, parentOrderChannel, parentOrderRequestSchema, runtimeChannel, runtimeInfoSchema } from '../shared/contracts/runtime'
 import type { LanguagePreference } from './window/language'
+import type { ParentOrderPreference } from './window/parent-order'
 import { isTrustedFrameUrl } from './security'
 import type { StorageClient } from './storage/client'
 import { dataActionSchema, type DataReply } from '../shared/contracts/transfer'
@@ -25,7 +26,7 @@ import type { UpdateService } from './update'
 import { syncChannel } from '../shared/contracts/sync'
 import type { SyncService } from './sync/service'
 
-export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, links: LinkPreviewService, updates: UpdateService, sync: SyncService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
+export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, parentOrder: ParentOrderPreference, links: LinkPreviewService, updates: UpdateService, sync: SyncService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
   let rendererSession = 0
   smart.onCaptureChanged(() => { window()?.webContents.send('goalloom:changed', null); changed() })
   const guard = (event: IpcMainInvokeEvent) => {
@@ -54,7 +55,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     guard(event)
     if (args.length === 0) {
       const rows = await storage.call<{ key: string; value: unknown }[]>('sync', { type: 'settings' })
-      return (Array.isArray(rows) ? rows : []).filter(row => isRendererSettingKey(row.key)).map(row => ({ key: row.key, value: row.value }))
+      return (Array.isArray(rows) ? rows : []).filter(row => isRendererSettingKey(row.key)).map(row => ({ key: row.key, value: row.key === 'parentOrder' ? parentOrder.enabled : row.value }))
     }
     if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
     const report = devicePrefsReportSchema.parse(args[0])
@@ -63,9 +64,25 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
       const setting = parseSetting(entry.key, entry.value)
       return { key: setting.key, value: setting.value }
     })
+    const placement = entries.find(entry => entry.key === 'parentOrder')
+    if (report.mode === 'change' && placement && typeof placement.value === 'boolean') await parentOrder.set(placement.value)
     await storage.call('sync', { type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: report.mode, entries })
     changed()
     return null
+  })
+  ipcMain.handle(parentOrderChannel, async (event, ...args: unknown[]) => {
+    guard(event)
+    if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
+    const request = parentOrderRequestSchema.parse(args[0])
+    if (request.type === 'initialize') return parentOrder.initialize(request.enabled)
+    const at = new Date().toISOString(), opId = randomUUID()
+    const enabled = await parentOrder.set(request.enabled)
+    try {
+      await firstWrite
+      await storage.call('sync', { type: 'emit-settings', opId, at, mode: 'change', entries: [{ key: 'parentOrder', value: enabled }] })
+      sync.nudge('write')
+    } catch { /* The device preference remains saved; a later change can report it again. */ }
+    return parentOrder.enabled
   })
   ipcMain.handle('goalloom:query', async (event, input: unknown) => {
     guard(event)

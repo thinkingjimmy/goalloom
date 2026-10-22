@@ -5,7 +5,7 @@
 ```text
 renderer/
 ├── App.tsx                  # Board/dialog composition, explicit draft-target visibility, shortcuts/feedback, input-aware detail focus and generation-scoped drafts, atomic review completion/exit and celebration requests; selected flows follow root promotion/undo
-├── main.tsx                 # React 挂载
+├── main.tsx                 # React mounts after device language/placement hydration, before the first workspace snapshot
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
 ├── styles.css               # Tailwind entry and retained coordinated board/dialog states, platform rules, motion, scrollbars and accessibility
@@ -140,7 +140,7 @@ renderer/
 │   ├── device-prefs.ts     # Live remote display preferences and non-default local seed through the existing settings log
 │   ├── columns.ts          # Independent device-local Later/planning visibility; six default columns, at-least-one guard and explicit-target reveal controls
 │   ├── relation-lines.ts   # 本机关系线开关（localStorage，默认开，只存关闭，不入工作区）
-│   ├── parent-order.ts    # Synced automatic-placement preference captured on submission; toggles do not write task order
+│   ├── parent-order.ts    # Main-owned automatic-placement mirror, startup migration and immediate preference updates; toggles do not write task order
 │   ├── celebration.ts      # 本机七栏撒花偏好（默认年/半年/3个月/月/周）、设置页预览、复盘完成信号与减少动态效果
 │   ├── language.ts         # 语言偏好镜像：首次渲染前装载、choose 写入 main 并即时切换
 │   ├── shortcuts.ts        # 本机快捷键：定义表、按物理键解析/校验/格式化、流程筛选开关、改键存储（localStorage，不入工作区）

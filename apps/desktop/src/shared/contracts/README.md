@@ -22,7 +22,7 @@ contracts/
 ├── sync-review.ts # Bounded read-only task comparisons, pending group count and owned-value preview token
 ├── update.ts     # Fixed update actions (status/check/install), app version + updater phase DTO and About event names
 ├── window-close.ts # Token-bound native close requests and drain acknowledgements; no task content
-└── runtime.ts    # Fixed preload API including bounded execution/activity/insight-context reads and getBoardPeriods/getReviewContext/getPastPeriod, smart input, language preferences, software updates, close-time draining and runtime diagnostics
+└── runtime.ts    # Fixed preload API including bounded execution/activity/insight-context reads and getBoardPeriods/getReviewContext/getPastPeriod, smart input, device language/placement preferences, software updates, close-time draining and runtime diagnostics
 ```
 
 Zod 在 main/worker 拒绝额外字段；preload 校验返回 DTO。renderer 只导入轻量 values 和类型，不构造 schema；构建门槛拒绝 renderer 引入 Zod。renderer 不能传入 SQL、路径、时钟或任意撤销字段。

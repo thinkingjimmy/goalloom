@@ -1,16 +1,18 @@
 # 按上级自动放置与单次整理
 
-> 设置 → 工作区 → 看板：新增或更换有效上级时自动放置当前任务；列菜单的「按上级整理」只整理一次。
+> 设置 → 工作区 → 看板：新增、更换有效上级或顺延进入新周期时自动放置当前任务；列菜单的「按上级整理」只整理一次。
 
 ## 产品规则
 
 - 单一本机开关，默认关闭，不进入备份或导出。「完成撒花」迁入同页，保持七列选择、预览与本机偏好。
 - 最近一级有效上级优先；同尺度多个上级取排最前者，仅作为排序依据，不改变多父关系。不同尺度先近后远，同尺度跨周期按起点；最后按手动排序键与 ID 稳定排列。无有效上级的条目排最后。
 - Owner decision, 2026-10-15, superseding continuous grouped sorting: automatic placement changes only a newly created task or a task whose effective ordering parent changes. It never reorders other tasks. Pointer/keyboard sorting is free across goal-parent groups and persists across reload. Explicit insertion/drop positions take priority and do not change goal links. Nesting keeps its two-level container behavior.
+- Owner decision, 2026-10-22: automatic rollover, manual forward movement within the same horizon and backlog arrangement into the current period also follow this switch. Place only the arriving task or placement-local group; keep existing destination tasks in their relative order. Explicit insertion/drop positions, including an explicit tail, keep priority. Disabled placement retains tail insertion. Same-period manual ordering and cross-horizon moves keep their existing behavior.
 - 新建任务放到同一有效上级的最后一条任务之后；无上级放列尾。首次出现的上级按现有上级优先级选落点。同组任务即使已被手动分散，也不移动其他任务。
 - 列头「＋」、列表底部「＋ 添加任务…」与空白双击共用自动放置设置。输入框出现在列表底部不代表用户指定了保存位置；关闭自动放置时才按普通列尾追加。Jev 建议已返回时随创建放置，晚到时沿用创建提交时的设置，关联与位置仍属于同一次创建撤销。
 - 关联变化只有在有效排序上级变化时才移动当前任务；新增次要上级不覆盖手动位置。解除最后一个上级后放列尾。关联修改与自动移位同事务、同回执、同一次撤销。已有父子 todo 作为一个整体放置。
-- 「按上级自动放置」只控制此后新建和关联变化，不在开关切换、刷新、重启、编辑正文、状态变化或上级手排时重排已有任务。半年、3个月、月、周、日及其未来周期适用；Later、年和过去周期不自动放置。
+- An archived/cancelled container with visible local children remains an eligible group and an insertion anchor. Children in another placement do not make a hidden container visible. Placement does not change lifecycle, ownership or goal links.
+- 「按上级自动放置」控制此后新建、关联变化和顺延，不在开关切换、刷新、重启、编辑正文、状态变化或上级手排时重排已有任务。半年、3个月、月、周、日及其未来周期适用；Later、年和过去周期不自动放置。
 - 当前／未来列菜单的「按上级整理」将该周期的当前列一次性按上级排序；不整理其他列、其他周期或自动关闭放置开关。保留父子结构、关系、正文及生命周期，可一次撤销。Later、年和过去周期不显示此动作。
 - The column More button sits immediately left of Add in the trailing action group. Both stay hidden at rest on desktop and appear on column hover or header keyboard focus. An open More menu keeps the controls visible. Hidden controls retain their space; touch controls stay visible with 44px targets.
 - [二级 todo](subtasks.md)先排列一级任务组，再排列组内子项；组的展示区由可见成员状态决定。根任务及其子项中部均指向整个组并追加；子项边缘按缩进横线插入组内，横线从二级复选框起始（一级复选框向右 24px，含列内流程留白）；根任务边缘按全宽横线排列整个组之外的位置。归入与插入共享一次事务和撤销，合法目标按层级规则校验。
@@ -26,13 +28,18 @@
 ## 工程契约
 
 - 纯排序函数用于权威放置／整理事务，时钟由调用方注入。Renderer 直接展示持久化顺序。摘要仅补充相关祖先的 ID、位置、周期与排序键，无正文。
-- `create` / `createPlan` / `link` / `unlink` 的 `autoPlace` 由提交时的本机偏好决定，在权威事务中计算落点；显式 `create.beforeId` 优先。新增只记录创建效果，关联变化记录该任务的位置效果和关系效果。未知结果保留原请求及偏好值，先查回执。
+- `create` / `createPlan` / `link` / `unlink` / eligible `move` / `arrangeBacklog` capture `autoPlace` at submission. System reconciliation captures the initialized main-process preference when it enters the worker queue. The main-owned device file remains outside workspace backup/export; first initialization imports the existing renderer preference. Explicit `beforeId`, including null, takes priority. Rollover and placement remain one atomic effect and one applicable undo. Unknown outcomes retain the original policy and request for receipt recovery.
+- Rollover sync actions retain the committed neighbor anchors; peers never recompute placement from their own preference or implicitly append a positioned group. Existing payloads and receipts remain immutable. Local commands and replay share finite, gap-safe sort-key allocation within the same root/sibling scope; normalization preserves other rows' relative order. New canonical undo records retain neighbor anchors so normalization does not invalidate semantic positions.
 - 创建的同步指令记录事务提交后的真实位置，不将上级自动放置或显式插入改成列尾。排序邻居限同列、同周期的未删除一级任务，排除同一批中尚未发出创建动作的任务；待发送重放、服务器确认和另一端接收均保留该位置。现有已生成的同步载荷与回执保持不可变。
 - `materializeParentOrder` 必须指定列和当前／未来周期，事务内复核时间并保存顺序；不改变其他列、状态、关系、周期或 hold。持久化位置沿用现有同步操作和撤销，不新增持续派生排序。
 - 外层 FLIP／WAAPI 与内层 dnd-kit 分工；仅暂留前后可见窗口，动效可打断且无闲置逐帧任务。工作区代次变化清理缓存与待完成动作。
 
 ## 实现前失败场景
 
+- Enabled rollover appends after another parent group; disabled rollover places by parent; startup runs before legacy preference hydration; a rapid toggle or remote preference is missed by background reconciliation.
+- Manual next/date/backlog bypasses placement, explicit tail drops lose priority, batch arrivals rearrange existing destination tasks, or group rollover splits local children and moves remote children. Verify undo, holds, current/future/year/Later boundaries and unchanged relations/lifecycle.
+- Archived/cancelled roots with visible local children cannot move or serve as final group anchors. Remote-only, deleted, cancelled or archived children incorrectly make a hidden root eligible.
+- Repeated insertion exhausts numeric gaps during pending/canonical replay; normalization rekeys another local outline, changes existing relative order, mutates old receipts, or breaks an earlier move/nesting undo. Verify deterministic creation, manual link and child insertion on encrypted peers.
 - Enabling/disabling placement or reloading reorders existing tasks; cross-group pointer/keyboard drops snap back or change goal links.
 - Creating/linking moves unrelated tasks, a secondary parent resets manual position, explicit insertion loses to automatic placement, or a plan reorders old tasks.
 - A bottom/blank-space entry silently submits an explicit tail position and suppresses placement for ready or late Jev parents; changing the setting after Enter changes a pending item's captured policy; placement separates creation undo/restore or steals the next draft's focus.

@@ -187,12 +187,17 @@
 
 2026-10-05 负责人更新顺延规则：六个尺度均可独立选择手动／自动，顺序固定为年 → 半年 → 3个月 → 本月 → 本周 → 今天。只有今天默认自动，其余默认手动；开启自动从当前源周期生效，不追溯更早积压。此规则替代下文历史方案中「年／半年无策略、3个月始终手动」的约束。
 
+2026-10-22 负责人补充落点规则：自动顺延、同尺度手动移到后续周期，以及往期安排到本期，均遵循[按上级自动放置](board-ordering.md)开关。开启时只放置进入目标周期的任务或同位置任务组，不改变目标列已有任务的相对顺序；关闭时追加到列尾。显式拖放位置（包括列尾）优先。年和 Later 不按上级放置；顺延资格、日历边界和 hold 规则不变。
+
+任务组按来源尺度／周期确定。归档或取消的根任务仍随其可见未完成子项整组顺延；另行排期的子项保持原位置和归属。启动核对须先完成本机放置偏好的初始化；手动命令捕获提交时的开关，系统核对捕获进入 worker 队列时的开关。切换开关不重排已有任务。
+
 Implementation failure cases to cover before changing production code:
 
 - Settings must render six editable rows in horizon order, retain choices after restart and show translated mode descriptions in every locale.
 - Manual policies must leave expired items in place; automatic policies must move eligible items once at the correct rolling/natural boundary, including month-end clamping and leap years.
 - Enabling or re-enabling automatic rollover must not sweep older backlog, future items, completed/cancelled/archived/deleted items or Later.
 - Stale policy versions must fail without writes; rollover must preserve text, dates and relationships, and batch undo must restore positions with current-period holds.
+- Enabled placement must position only incoming tasks/groups in the current/future target, preserve existing relative order and retain explicit drop positions. Disabled placement must append. Test native startup preference migration, immediate toggles, manual next-period actions and backlog arrangement; transaction fixtures cover batch order, hidden roots, remote children, stale selected placements, rollback, receipt replay and expired-period undo holds.
 - Current JSON/SQLite exports must round-trip all six policies; v1–v6 sources must retain their four policies and business history while receiving manual year/half defaults. Missing/duplicate/mismatched policies must still fail validation.
 - Schema v7 must refuse older workspace files without modifying them, retaining the existing explicit export/import upgrade workflow.
 
@@ -291,6 +296,7 @@ Implementation failure cases to cover before changing production code:
 - `relations.ts`：逻辑不变（依赖 `horizons` 顺序），补测试。
 - `parent-order.ts`：`rank` 增加年 / 半年（或改为从 `horizons` 推导）。之后 `parentOrderedHorizon`（`rank > 0`）会把半年、3个月 也纳入自动排序；保存排列的 SQL 必须用同一个判断（§6.4、BUG-10）。
 - `rollover.ts`：沿用通用候选与撤销 hold 规则；年／半年／3个月开启自动后也按所锁定日历的实际边界顺延。
+- `reconcile.ts` / `commands/items.ts` / `commands/backlog.ts`：在权威事务内移动来源周期的局部任务组，再按捕获的 `autoPlace` 放置根任务。根任务只记录一个最终位置效果，关联、子项、生命周期和撤销边界不变。同步保存最终邻居和来源组身份；整组撤销先恢复根任务的受保护位置，再恢复随行子项，避免临时独立子项污染根任务邻居。
 - `import-validation.ts`：按来源版本校验策略，v1–v6 必须有原四条且 cycle 手动，v7 必须有完整六条；周期边界按数据集日历复核。来源校验不改历史，新增默认策略仅在替换事务中写入目标库。
 - `smart/questions.ts`：`horizonOptions`、`inferOptions` 增加 year / half，执行时间题的说明补充「这一年 / 这半年」；`SmartContext.periods` 增加两个键；`state` 带上口语周期的解析结果。
 - `smart/` 新增口语周期解析：只处理中文的纯函数，按模式、起点和今天把「今年 / 这半年 / 上半年 / 下半年 / 下个半年 / 明年」解析成选项与实际日期（规则见 §4.6）。

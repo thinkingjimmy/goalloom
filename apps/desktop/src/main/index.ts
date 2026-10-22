@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Electron lifecycle, application identity, noninteractive Keychain policy, security, storage and desktop services.
- * [OUTPUT]: Stable packaged identity, isolated development credentials, disabled Keychain dialogs, single window, write gates, notifications and session cleanup.
+ * [OUTPUT]: Stable packaged identity, isolated development credentials, disabled Keychain dialogs, device-aware reconciliation, single window, write gates, notifications and session cleanup.
  * [POS]: Application composition root; the renderer parse overlaps guarded storage startup, and migrations remain protected before writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -15,6 +15,7 @@ import type { CommandResult } from '../shared/contracts/commands'
 import type { WorkspaceMetadata } from '../shared/contracts/queries'
 import { loadWindowState, saveWindowState } from './window/state'
 import { LanguagePreference } from './window/language'
+import { ParentOrderPreference } from './window/parent-order'
 import { protectWindowClose } from './window/close'
 import { createSmartService, deviceCipher } from './smart/electron'
 import { sessionCipher } from './sync/session-cipher'
@@ -62,6 +63,7 @@ function registerDesktopProtocol(): void {
   else app.setAsDefaultProtocolClient(registration.scheme)
 }
 let language: LanguagePreference
+let parentOrder: ParentOrderPreference
 let releaseRenderer: (() => void) | undefined
 let updates: UpdateService
 
@@ -87,7 +89,7 @@ async function requestReconcile(notifyRevision = true): Promise<void> {
   if (!storage || !initialStarted || reconciling || quitting) return
   reconciling = true
   try {
-    const result = await storage.call<CommandResult | null>('reconcile')
+    const result = await storage.call<CommandResult | null>('reconcile', parentOrder.enabled)
     const meta = await storage.call<WorkspaceMetadata>('metadata')
     const key = visibleKey(meta)
     if ((result?.changed || key !== lastVisible || (notifyRevision && meta.workspace.revision !== lastRevision)) && window && !window.isDestroyed()) window.webContents.send('goalloom:changed', result)
@@ -198,7 +200,8 @@ if (!app.requestSingleInstanceLock()) {
     protocol.handle('goalloom', request => serveResource(join(directory, '../renderer'), request))
     // Before storage: startup-protection dialogs already speak the chosen language.
     language = new LanguagePreference(join(app.getPath('userData'), 'preferences.json'), () => app.getPreferredSystemLanguages())
-    await language.load()
+    parentOrder = new ParentOrderPreference(join(app.getPath('userData'), 'parent-order.json'))
+    await Promise.all([language.load(), parentOrder.load()])
     installMenu(openAbout)
     language.onChange(() => installMenu(openAbout))
     updates = new UpdateService(info => send(updateEvent, info))
@@ -222,12 +225,13 @@ if (!app.requestSingleInstanceLock()) {
       onBrowserReturn: () => focusMainWindow(),
       notify: status => send(syncEvent, status),
       onApplied: () => { send('goalloom:changed', null); void requestReconcile(false) },
-      onSettings: rows => projectSettingRows(rows, {
-        language, smart,
+      settingsRevision: () => parentOrder.revision,
+      onSettings: (rows, revision) => projectSettingRows(rows, {
+        language, parentOrder, smart,
         notifyLanguage: state => send(languageEvent, state),
         notifyDevicePrefs: entries => send(devicePrefsEvent, entries),
         notifyAi: () => send(aiRefreshEvent, null),
-      }),
+      }, revision),
       collectSeed: () => smart.syncedSettingEntries(),
       readSecret: key => smart.syncedSecret(key),
       applySecret: (key, value) => smart.applyRemoteSetting(key, value),
@@ -236,7 +240,7 @@ if (!app.requestSingleInstanceLock()) {
       clipboard: text => clipboard.writeText(text),
       now: () => new Date().toISOString(),
     })
-    releaseRenderer = registerIpc(() => window, trustedUrl, storageProxy, smart, language, links, updates, syncing, () => { void requestReconcile(false); syncing.nudge('write') }, firstWrite, meta => {
+    releaseRenderer = registerIpc(() => window, trustedUrl, storageProxy, smart, language, parentOrder, links, updates, syncing, () => { void requestReconcile(false); syncing.nudge('write') }, firstWrite, meta => {
       if (firstSnapshotRead) return
       firstSnapshotRead = true; lastVisible = visibleKey(meta); lastRevision = meta.workspace.revision; startInitialReconcile()
     })

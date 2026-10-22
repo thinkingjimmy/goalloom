@@ -14,7 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   enabledMeta: 'On',
   board: "Board",
   parentOrder: "Place by parent automatically",
-  parentOrderNote: "Place only the task being created or given a different ordering parent. Reorder freely afterward. Changing this setting keeps existing positions.",
+  parentOrderNote: "Place only tasks or groups being created, given a different ordering parent, or rolled into a later period. Other tasks keep their order. You can reorder freely; changing this setting keeps existing positions.",
   collapseCompleted: 'Collapse completed tasks',
   collapseCompletedNote: 'Keep completed tasks in place when off; group them at the bottom when on. Parent tasks and subtasks stay together.',
   subtitles: {

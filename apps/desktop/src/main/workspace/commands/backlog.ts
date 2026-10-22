@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 已选往期项当前版本与目标尺度，事务最新状态。
- * [OUTPUT]: 批量安排当前同尺度/Later，一个可撤销操作，保持独立状态。
- * [POS]: 往期入口命令库；不增加隐藏/snooze 状态。
+ * [INPUT]: Selected backlog item/placement versions, target horizon and automatic-placement preference.
+ * [OUTPUT]: One atomic undoable move to the current period or Later, with local groups placed without reordering existing roots.
+ * [POS]: Backlog command boundary; item state and cross-period ownership remain independent.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { isBacklog } from '../../../domain/rollover'
@@ -13,6 +13,7 @@ export function arrangeBacklog(context: Context, command: CommandOf<'arrangeBack
   if (new Set(command.items.map(item => item.itemId)).size !== command.items.length) throw new DomainError('invalid', serverText().errors.duplicateSelection)
   const selected = command.items.map(expected => {
     const item = context.store.item(expected.itemId, expected.expectedVersion)
+    if (item.placement.version !== expected.expectedPlacementVersion) throw new DomainError('stale', serverText().errors.placementChanged)
     const period = item.placement.periodId ? context.store.period(item.placement.periodId) : null
     if (!isBacklog({ ...item, period, holdPeriodId: item.placement.holdPeriodId }, context.now) || (command.horizon !== 'later' && command.horizon !== item.placement.horizon)) throw new DomainError('conflict', serverText().errors.notInBacklog)
     return { expected, item, period: period! }
@@ -25,7 +26,7 @@ export function arrangeBacklog(context: Context, command: CommandOf<'arrangeBack
     groups.add(rootId)
     const root = context.store.item(rootId)
     for (const child of context.store.nestedItems(rootId)) if (child.placement.horizon === root.placement.horizon && child.placement.periodId === root.placement.periodId) groups.add(child.id)
-    moveItem(context, { ...command, type: 'move', itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version, beforeId: null })
+    moveItem(context, { ...command, type: 'move', itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version })
   }
   context.label = serverText().labels.arrangeBacklog(selected.length)
   return true

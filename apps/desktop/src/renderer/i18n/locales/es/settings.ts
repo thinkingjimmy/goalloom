@@ -14,7 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   enabledMeta: 'Activada',
   board: "Tablero",
   parentOrder: "Colocar automáticamente por superior",
-  parentOrderNote: "Coloca solo la tarea nueva o aquella cuyo superior de ordenación cambia. Después puedes reordenar libremente. Cambiar este ajuste conserva las posiciones existentes.",
+  parentOrderNote: "Coloca solo las tareas o grupos nuevos, con un superior de ordenación distinto o trasladados a un período posterior. Las demás tareas conservan su orden. Puedes reordenar libremente; cambiar este ajuste conserva las posiciones existentes.",
   collapseCompleted: 'Plegar tareas completadas',
   collapseCompletedNote: 'Desactivado: conserva su posición. Activado: agrupa al final de la columna. Las tareas y subtareas permanecen juntas.',
   subtitles: {

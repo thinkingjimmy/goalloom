@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted finite commands, entity/guidance schemas and explicit dependency/version guards.
- * [OUTPUT]: Guarded writes, token-bound sync decisions, atomic nested creation, opt-in placement, explicit root/subtask insertion and immutable receipts.
+ * [OUTPUT]: Guarded writes, token-bound sync decisions, atomic nested creation, opt-in creation/rollover placement, explicit insertion (including tail) and immutable receipts.
  * [POS]: Write contract accepting neither arbitrary effects nor model-generated commands.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -58,7 +58,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('createPlan'), items: z.array(planItemSchema).min(1).max(planLimit), autoPlace: z.boolean().optional(), smartCapture: smartCaptureSchema.optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('edit'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000), dueDate: dateSchema.nullable() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('flowColor'), flowColor: flowColorSchema.nullable() }),
-  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().default(null), expectedPlacementVersion: z.number().int().positive(), keepNesting: z.literal(true).optional(), group: z.literal(true).optional() }),
+  z.strictObject({ ...envelope, ...target, type: z.literal('move'), horizon: horizonSchema, period: movePeriodTargetSchema.optional(), beforeId: idSchema.nullable().optional(), autoPlace: z.boolean().optional(), expectedPlacementVersion: z.number().int().positive(), keepNesting: z.literal(true).optional(), group: z.literal(true).optional() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('nest'), parentId: idSchema, beforeId: idSchema.nullable().optional(), expectedParentVersion: z.number().int().positive(), expectedPlacementVersion: z.number().int().positive(), expectedParentPlacementVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, ...target, type: z.literal('unnest'), beforeId: idSchema.nullable().optional(), expectedPlacementVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('materializeParentOrder'), horizon: z.enum(['half', 'cycle', 'month', 'week', 'day']), period: z.strictObject({ kind: z.literal('date'), startDate: dateSchema }) }),
@@ -71,7 +71,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('unlink'), relationId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), autoPlace: z.boolean().optional() }),
   z.strictObject({ ...envelope, type: z.literal('undo'), originalOperationId: idSchema }),
   z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: styleSchema.unwrap().optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => validationText().missingPreference }),
-  z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),
+  z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, autoPlace: z.boolean().optional(), items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),
   z.strictObject({ ...envelope, type: z.literal('policy'), horizon: z.enum(policyHorizons), mode: z.enum(['auto', 'manual']), expectedVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('confirmRollover'), confirmed: z.literal(true) }),
   z.strictObject({ ...envelope, type: z.literal('confirmClock'), confirmed: z.literal(true) }),

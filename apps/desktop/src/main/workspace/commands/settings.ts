@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated settings/system-batch commands and authoritative policy versions/effects.
- * [OUTPUT]: Six-horizon policy changes with non-retroactive boundaries, explicit resume and partial batch undo.
+ * [OUTPUT]: Six-horizon policy changes, explicit resume and effect-scoped batch undo with group roots restored first.
  * [POS]: Workspace settings transactions; calendar configuration remains locked.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,6 +8,7 @@ import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { targetPeriod, type Context } from '../context'
 import { reverseEffect } from './undo'
 import { workspaceDate } from '../../../domain/calendar'
+import { undoEffectOrder } from '../../../domain/undo'
 import { serverText } from '../../../shared/i18n/server'
 
 export function setPolicy(context: Context, command: CommandOf<'policy'>): boolean {
@@ -46,7 +47,7 @@ export function undoBatch(context: Context, command: CommandOf<'undoBatch'>): bo
   if (!original || original.source !== 'system' || original.kind !== 'rollover') throw new DomainError('invalid', serverText().errors.batchMissing)
   let skipped = 0
   context.undone = []
-  for (let index = original.effects.length - 1; index >= 0; index--) {
+  for (const index of undoEffectOrder(original.effects)) {
     if (context.store.db.prepare('SELECT 1 FROM undo_effects WHERE originalId=? AND effectIndex=?').get(original.id, index)) { skipped++; continue }
     context.store.db.exec('SAVEPOINT batch_effect')
     try {

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current/legacy OS ciphers, storage worker, browser, resolved device locale, connectivity signals and an optional anon key.
- * [OUTPUT]: Persistent sessions, noninteractive recovery, explicit cleanup, encrypted exchange and bounded sync review reads. Sign-out and unused/signed-out startup do not access the keychain.
+ * [OUTPUT]: Persistent sessions, noninteractive recovery, explicit cleanup, encrypted exchange with preference projection before reconciliation, and bounded sync review reads. Sign-out and unused/signed-out startup do not access the keychain.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
  * The password is held in memory only until a join finishes or ten minutes pass.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -104,7 +104,8 @@ export class SyncService {
     openExternal: (url: string) => Promise<void>
     notify: (status: SyncStatus) => void
     onApplied: () => void
-    onSettings?: (rows: { key: string; value: unknown; updatedAt: string; opId: string }[]) => Promise<string[]>
+    settingsRevision?: () => number
+    onSettings?: (rows: { key: string; value: unknown; updatedAt: string; opId: string }[], revision?: number) => Promise<string[]>
     collectSeed?: () => Promise<{ key: string; value: unknown }[]>
     readSecret?: (key: string) => Promise<string | null | undefined>
     applySecret?: (key: string, value: string | null) => Promise<void>
@@ -617,6 +618,7 @@ export class SyncService {
       await this.storage({ type: 'hold', closed: false }).catch(() => undefined)
     }
     this.becomeReady()
+    if (this.deps.onSettings) await this.projectRemote()
     this.deps.onApplied()
     await this.runTurn()
     this.publish()
@@ -816,6 +818,7 @@ export class SyncService {
     const id = this.lifecycleId, signal = this.requestSignal()
     const onSettings = this.deps.onSettings
     if (!onSettings) return
+    const revision = this.deps.settingsRevision?.()
     const rows = await this.storage<{ key: string; value: unknown; updatedAt: string; opId: string }[]>({ type: 'settings' })
     if (!Array.isArray(rows)) return
     const deferred = this.secrets?.pendingSecrets
@@ -832,7 +835,7 @@ export class SyncService {
     const fresh = rows.filter(row => this.appliedSetting.get(row.key) !== row.opId)
     if (!fresh.length) return
     this.checkLifecycle(id, signal)
-    const applied = await onSettings(fresh)
+    const applied = await onSettings(fresh, revision)
     this.checkLifecycle(id, signal)
     for (const key of applied) {
       const row = fresh.find(item => item.key === key)
@@ -852,7 +855,11 @@ export class SyncService {
     }
     return exchangeTurn({ remote, signal, cache: this.pendingCache, account: this.secrets?.userId ?? '', binding, view: () => this.readView(), storage: command => this.storage(command),
       followRoster: () => this.followRoster(), lookup: () => this.secretLookup(), deliver: ops => this.deliverSecrets(ops, true),
-      applied: this.deps.onApplied, busy: () => { this.ticking = true; this.publish() }, check: () => this.checkLifecycle(id, signal),
+      applied: async () => {
+        if (this.deps.onSettings) await this.projectRemote()
+        this.checkLifecycle(id, signal)
+        this.deps.onApplied()
+      }, busy: () => { this.ticking = true; this.publish() }, check: () => this.checkLifecycle(id, signal),
       remaining: () => this.turnDeadline - this.clock.now(), random: this.deps.random ?? Math.random,
       at: this.deps.now, now: () => this.clock.now(), cooldown: async () => {
         this.checkLifecycle(id, signal)

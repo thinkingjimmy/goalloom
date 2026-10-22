@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Zod, lightweight locale/language values and minimum runtime diagnostics.
- * [OUTPUT]: Fixed GoalloomApi for selected-period reads, historical review contexts, editable past-task pages, immutable history, language preferences, bounded links/browser opening, software updates and a close-time drain callback.
+ * [OUTPUT]: Fixed GoalloomApi for selected-period reads, historical review contexts, editable past-task pages, immutable history, device language/placement preferences, bounded links/browser opening, software updates and a close-time drain callback.
  * [POS]: Shared main/preload/renderer boundary without generic IPC, SQL or file access.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -29,6 +29,9 @@ export const runtimeInfoSchema = z.strictObject({
 export type RuntimeInfo = z.infer<typeof runtimeInfoSchema>
 export const languageChannel = 'goalloom:language'
 export const languageEvent = 'goalloom:language-state'
+export const parentOrderChannel = 'goalloom:parent-order'
+export const parentOrderRequestSchema = z.strictObject({ type: z.enum(['initialize', 'set']), enabled: z.boolean() })
+export const parentOrderValueSchema = z.boolean()
 export const devicePrefsChannel = 'goalloom:device-prefs'
 export const devicePrefsEvent = 'goalloom:device-prefs'
 export const aiRefreshEvent = 'goalloom:ai-refresh'
@@ -46,6 +49,8 @@ export interface GoalloomApi {
   getLanguage(): Promise<LanguageState>
   setLanguage(language: Language): Promise<LanguageState>
   onLanguage(listener: (state: LanguageState) => void): () => void
+  initializeParentOrder(enabled: boolean): Promise<boolean>
+  setParentOrder(enabled: boolean): Promise<boolean>
   pullDevicePrefs(): Promise<DevicePrefEntry[]>
   reportDevicePrefs(entries: DevicePrefEntry[], mode: 'change' | 'seed'): Promise<void>
   onDevicePrefs(listener: (entries: DevicePrefEntry[]) => void): () => void
