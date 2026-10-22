@@ -80,6 +80,21 @@ jobs:
       - name: Remove temporary signing credentials
         if: always()
         run: bash .github/scripts/macos-signing.sh cleanup
+      - name: Run comprehensive preflight checks
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          GOALLOOM_REQUIRE_NOTARIZATION: "1"
+        run: |
+          # Install pnpm for preflight script
+          npm install -g pnpm@latest
+          pnpm install --frozen-lockfile
+
+          # Run preflight checks
+          bash scripts/preflight-release.sh
       - name: Record preflight result
         if: always()
         env:
@@ -123,6 +138,7 @@ jobs:
 
       # M2.2: Cache build artifacts
       - name: Cache build output
+        id: cache-build
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: |
@@ -132,9 +148,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-
 
+      - name: Report cache status
+        run: |
+          if [ "${{ steps.cache-build.outputs.cache-hit }}" == "true" ]; then
+            echo "✓ Build cache HIT: restored from key ${{ runner.os }}-build-*"
+            echo "Expected ~30-60s time savings from skipped build."
+          else
+            echo "✗ Build cache MISS: will build from scratch"
+            echo "First run with this source/config combination or cache expired."
+          fi
+
       - run: pnpm typecheck
       - run: pnpm test
       - name: Build production once
+        if: steps.cache-build.outputs.cache-hit != 'true'
         run: pnpm --filter @goalloom/desktop run build:production
         env:
           GOALLOOM_BUILD_ENV: production
@@ -183,6 +210,7 @@ jobs:
 
   test-win:
     name: Test Windows
+    needs: preflight
     needs: preflight-mac
     if: ${{ !inputs.preflight_only }}
     runs-on: windows-2025
@@ -206,6 +234,7 @@ jobs:
 
       # M2.2: Cache build artifacts
       - name: Cache build output
+        id: cache-build
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: |
@@ -215,9 +244,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-
 
+      - name: Report cache status
+        run: |
+          if [ "${{ steps.cache-build.outputs.cache-hit }}" == "true" ]; then
+            echo "✓ Build cache HIT: restored from key ${{ runner.os }}-build-*"
+            echo "Expected ~30-60s time savings from skipped build."
+          else
+            echo "✗ Build cache MISS: will build from scratch"
+            echo "First run with this source/config combination or cache expired."
+          fi
+
       - run: pnpm typecheck
       - run: pnpm test
       - name: Build production once
+        if: steps.cache-build.outputs.cache-hit != 'true'
         run: pnpm --filter @goalloom/desktop run build:production
         env:
           GOALLOOM_BUILD_ENV: production
