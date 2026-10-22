@@ -1,12 +1,12 @@
 /**
  * [INPUT]: Sandboxed Electron bridge and shared wire schemas.
- * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, period-scoped review contexts, live past-period pages, actual-period details, bounded link responses, update state/events and token-bound close draining.
+ * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, period-scoped review contexts, live past-period pages, device placement preferences, actual-period details, bounded link responses, update state/events and token-bound close draining.
  * [POS]: Only renderer/main bridge; no Node capabilities, generic channels or file paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { z } from 'zod'
 import { contextBridge, ipcRenderer } from 'electron'
-import { aiRefreshEvent, devicePrefEntrySchema, devicePrefsChannel, devicePrefsEvent, devicePrefsReportSchema, languageChannel, languageEvent, languageStateSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
+import { aiRefreshEvent, devicePrefEntrySchema, devicePrefsChannel, devicePrefsEvent, devicePrefsReportSchema, languageChannel, languageEvent, languageStateSchema, parentOrderChannel, parentOrderRequestSchema, parentOrderValueSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
 import { activitySummarySchema, backupSummarySchema, boardPeriodsSchema, reviewContextSchema, itemCountsSchema, detailSchema, itemPageSchema, snapshotSchema } from '../shared/contracts/queries'
 import { replySchema, resultSchema } from '../shared/contracts/commands'
 import { activitySchema, historyIndexSchema, historyPageSchema, pastPeriodPageSchema } from '../shared/contracts/history'
@@ -43,6 +43,8 @@ const api: GoalloomApi = {
   getRuntime: async () => runtimeInfoSchema.parse(await ipcRenderer.invoke(runtimeChannel)),
   getLanguage: () => language(ipcRenderer.invoke(languageChannel)),
   setLanguage: input => language(ipcRenderer.invoke(languageChannel, input)),
+  initializeParentOrder: async enabled => parentOrderValueSchema.parse(await ipcRenderer.invoke(parentOrderChannel, parentOrderRequestSchema.parse({ type: 'initialize', enabled }))),
+  setParentOrder: async enabled => parentOrderValueSchema.parse(await ipcRenderer.invoke(parentOrderChannel, parentOrderRequestSchema.parse({ type: 'set', enabled }))),
   onLanguage: listener => {
     const receive = (_event: unknown, value: unknown) => {
       const parsed = languageStateSchema.safeParse(value)

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production repository, encrypted sync exchange and two isolated SQLite workspaces.
- * [OUTPUT]: Stable creation/parent placement, ordered leaf/group nesting, atomic rejection and storage-failure retry evidence.
+ * [OUTPUT]: Stable creation/rollover parent placement, exhausted-gap normalization/undo, ordered leaf/group nesting, atomic rejection and storage-failure retry evidence.
  * [POS]: Sync replay E2E fixture; the remote is synthetic and never receives plaintext.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -25,6 +25,8 @@ import { syncHost } from '../../src/main/sync/host'
 import type { CommandInput } from '../../src/shared/contracts/commands'
 import { syncCreationPlacement, type PlacementObservation } from './sync-creation-placement'
 import { syncSubtaskOwnership } from './sync-subtask-ownership'
+import { syncSortGaps, type SortGapObservation } from './sync-sort-gaps'
+import { syncRolloverPlacement, type RolloverPlacementObservation } from './sync-rollover-placement'
 
 const at = '2026-10-15T02:00:00.000Z'
 const evidence = process.argv[2]!
@@ -33,8 +35,10 @@ mkdirSync(evidence, { recursive: true })
 type LocalCommand<T> = T extends unknown ? Omit<T, 'operationId' | 'generation'> : never
 const checks: string[] = []
 const creationPlacement: PlacementObservation[] = []
+const sortGaps: SortGapObservation[] = []
+const rolloverPlacement: RolloverPlacementObservation[] = []
 const report = {
-  passed: false, checks, creationPlacement,
+  passed: false, checks, creationPlacement, sortGaps, rolloverPlacement,
   scope: 'Two isolated desktop repositories, real Electron SQLite and encrypted protocol; synthetic remote, no native UI, live provider or packaged acceptance.',
   runtime: { electron: process.versions.electron, node: process.versions.node, sqlite: '' },
   environment: {
@@ -295,6 +299,10 @@ async function run(): Promise<void> {
   await syncSubtaskOwnership({ first: first.repo, second: second.repo, checks, inject,
     rebuild: () => first.driver.transaction(() => rebuildVisibleFull(first.driver, first.host)),
     sync: async () => { await push(first, alpha, bound); await push(second, beta, joined) } })
+  await syncSortGaps({ first: first.repo, second: second.repo, checks, observations: sortGaps,
+    rebuild: () => first.driver.transaction(() => rebuildVisibleFull(first.driver, first.host)),
+    sync: async () => { await push(first, alpha, bound); await push(second, beta, joined) } })
+  await syncRolloverPlacement({ checks, observations: rolloverPlacement })
   for (const machine of [first, second]) verifyDatabase(machine.db)
   assert.equal(Buffer.from(unhex(memoryCiphertext(world))).includes(Buffer.from(utf8('Shared monthly goal'))), false)
   checks.push('Both workspaces pass integrity/foreign-key checks; remote ciphertext does not contain task text')

@@ -14,7 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   enabledMeta: 'Activé',
   board: "Tableau",
   parentOrder: "Placer automatiquement selon le parent",
-  parentOrderNote: "Place uniquement la tâche créée ou dont le parent de classement change. Vous pouvez ensuite réordonner librement. Ce réglage conserve les positions existantes.",
+  parentOrderNote: "Place uniquement les tâches ou groupes créés, dont le parent de classement change ou qui sont reportés à une période ultérieure. Les autres tâches gardent leur ordre. Vous pouvez réordonner librement ; modifier ce réglage conserve les positions existantes.",
   collapseCompleted: 'Replier les tâches terminées',
   collapseCompletedNote: 'Désactivé : conserve leur position. Activé : regroupe en bas de la colonne. Les tâches et sous-tâches restent ensemble.',
   subtitles: {

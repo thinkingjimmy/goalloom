@@ -14,7 +14,7 @@ export const settingsMessages: SettingsCatalog = {
   enabledMeta: '有効',
   board: "ボード",
   parentOrder: "親に合わせて自動配置",
-  parentOrderNote: "新規作成時や並び順の基準となる親の変更時に、そのタスクだけを配置します。その後は自由に並べ替えられます。設定の切り替えで既存の位置は変わりません。",
+  parentOrderNote: "新規作成、並び順の基準となる親の変更、繰り越し時に、対象のタスクやグループだけを配置します。他のタスクの順序は変わりません。手動で自由に並べ替えられ、設定の切り替えで既存の位置は変わりません。",
   collapseCompleted: '完了したタスクを折りたたむ',
   collapseCompletedNote: 'オフでは元の位置に残し、オンでは列の下部にまとめます。親タスクとサブタスクは一緒に表示します。',
   subtitles: {

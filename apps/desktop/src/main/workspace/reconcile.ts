@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Repository and one observation time after the daily-backup attempt.
- * [OUTPUT]: Revalidated rollover candidates, indexed source-period reads, atomic system batches and clock-anomaly state.
+ * [INPUT]: Repository, main-owned placement preference and one observation time after the daily-backup attempt.
+ * [OUTPUT]: Revalidated local-group rollover, committed sync anchors, atomic system batches and clock-anomaly state.
  * [POS]: Common reconcile path for startup, focus, wake and time boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -18,7 +18,7 @@ import type { Repository } from './repository'
 import { serverText } from '../../shared/i18n/server'
 import { emitRolloverOp } from './sync/emit'
 
-export function reconcile(repository: Repository, now = repository.clock.now()): CommandResult | null {
+export function reconcile(repository: Repository, now = repository.clock.now(), autoPlace = false): CommandResult | null {
   if (repository.maintenance) return null
   return transaction(repository.db, () => {
     const store = repository.store, workspace = store.workspace()
@@ -46,13 +46,17 @@ export function reconcile(repository: Repository, now = repository.clock.now()):
         const root = store.item(rootId), members = [root, ...store.nestedItems(rootId).filter(child => child.placement.horizon === root.placement.horizon && child.placement.periodId === root.placement.periodId)]
         if (members.some(member => member.status === 'todo' && member.placement.holdPeriodId === current.id)) continue
         processed.add(rootId)
-        moveItem(context, { type: 'move', operationId, generation: workspace.generation, itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version, horizon: policy.horizon, beforeId: null })
+        const start = context.effects.length
+        moveItem(context, { type: 'move', operationId, generation: workspace.generation, itemId: root.id, expectedVersion: root.version, expectedPlacementVersion: root.placement.version, horizon: policy.horizon, autoPlace })
+        for (const effect of context.effects.slice(start)) {
+          if ((effect.kind !== 'position' && effect.kind !== 'groupPlacement') || !effect.before.periodId || !effect.after.periodId || effect.before.periodId === effect.after.periodId) continue
+          const seq = store.db.prepare(`SELECT MAX(seq) AS seq FROM canon_changes WHERE itemId=? AND dim IN ('placement','create')`).get(effect.itemId)
+          const position = store.position(store.item(effect.itemId))
+          emitRolloverOp(store.db, { itemId: effect.itemId, fromPeriodId: effect.before.periodId, toPeriodId: effect.after.periodId,
+            placementSeq: seq?.seq == null ? 0 : Number(seq.seq), at: now,
+            sortHint: { afterId: position.previousId, beforeId: position.nextId }, ...(members.length > 1 ? { groupRootId: root.id } : {}) })
+        }
       }
-    }
-    for (const effect of context.effects) {
-      if ((effect.kind !== 'position' && effect.kind !== 'groupPlacement') || !effect.before.periodId || !effect.after.periodId || effect.before.periodId === effect.after.periodId) continue
-      const seq = store.db.prepare(`SELECT MAX(seq) AS seq FROM canon_changes WHERE itemId=? AND dim IN ('placement','create')`).get(effect.itemId)
-      emitRolloverOp(store.db, { itemId: effect.itemId, fromPeriodId: effect.before.periodId, toPeriodId: effect.after.periodId, placementSeq: seq?.seq == null ? 0 : Number(seq.seq), at: now })
     }
     if (!context.effects.length) return null
     assertOutline(context)

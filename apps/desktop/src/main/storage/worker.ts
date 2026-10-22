@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Main-owned file paths, locale, injected clock and narrow internal RPC.
+ * [INPUT]: Main-owned file paths, locale, placement preference, injected clock and narrow internal RPC.
  * [OUTPUT]: Serialized SQLite commands/reads, immutable history, protected transfer, explicit crash-safe sign-out cleanup and typed failures.
  * [POS]: Storage composition root; protected migrations finish before requests and cloud work stays outside the queue.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -91,7 +91,7 @@ function handle(method: string, argument: unknown): unknown {
   if (method === 'export') return writeDataset(repository.store, z.string().min(1).parse(argument), repository.clock.now())
   if (method === 'data') return service.action(argument)
   if (method === 'releaseTransfer') { service.release(); return null }
-  if (method === 'reconcile') return service.reconcile()
+  if (method === 'reconcile') return service.reconcile(z.boolean().optional().parse(argument) ?? false)
   if (method === 'previewImport') {
     const source = z.strictObject({ generation: z.string(), format: z.enum(['json', 'sqlite']), path: z.string().min(1) }).parse(argument)
     if (source.format === 'sqlite') return service.previewSqlite(source.path!, source.generation)

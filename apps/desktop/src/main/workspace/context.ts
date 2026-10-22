@@ -1,10 +1,11 @@
 /**
  * [INPUT]: Authoritative workspace, command, injected observation time and Store.
- * [OUTPUT]: Validated current/explicit periods, ancestor-based flow membership, color and indexed ordering primitives.
+ * [OUTPUT]: Validated current/explicit periods, ancestor-based flow membership, color and gap-safe placement-local ordering primitives.
  * [POS]: Command context with transaction-local calculations and rollback-safe period insertion.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { flowIndex } from '../../domain/flows'
+import { SORT_KEY_STEP, sortKeyBetween } from '@goalloom/store-core'
 import { combinedTopology } from '../../domain/nesting'
 import { currentPeriod } from '../../domain/calendar'
 import { DomainError, type Command, type CreatePeriodTarget } from '../../shared/contracts/commands'
@@ -57,20 +58,18 @@ export function touch(context: Context, item: Item): void {
 }
 export function nextSortKey(context: Context, horizon: ItemHorizon, periodId: string | null, beforeId: string | null, excludedId?: string, nestingParentId: string | null = null): number {
   let neighbors = context.store.insertion(horizon, periodId, beforeId, excludedId ?? null, nestingParentId)
-  const calculate = (): number => {
-    const previous = neighbors.previous?.sortKey, next = neighbors.next?.sortKey
-    return previous === undefined ? (next ?? 1024) - 1024 : next === undefined ? previous + 1024 : previous + (next - previous) / 2
-  }
+  const calculate = () => sortKeyBetween(neighbors.previous?.sortKey, neighbors.next?.sortKey)
   let key = calculate()
-  if (!Number.isFinite(key) || Math.abs(key) > 1e15 || key === neighbors.previous?.sortKey || key === neighbors.next?.sortKey) {
-    // Only exhausted gaps need a complete order. Exclude the moving row, preserving all other membership rules.
-    context.store.order(horizon, periodId).filter(item => item.id !== excludedId).forEach((item, index) => {
+  if (key === null) {
+    const localParentId = context.store.localParentId({ horizon, periodId, nestingParentId })
+    // Normalization belongs to one sibling scope and does not change semantic order or receipts.
+    context.store.order(horizon, periodId).filter(item => item.id !== excludedId && context.store.localParentId(item.placement) === localParentId).forEach((item, index) => {
       const previous = item.placement.version
-      item.placement.sortKey = (index + 1) * 1024; item.placement.version++
+      item.placement.sortKey = (index + 1) * SORT_KEY_STEP; item.placement.version++
       context.store.savePlacement(item.placement, previous)
     })
     neighbors = context.store.insertion(horizon, periodId, beforeId, excludedId ?? null, nestingParentId)
     key = calculate()
   }
-  return key
+  return key!
 }

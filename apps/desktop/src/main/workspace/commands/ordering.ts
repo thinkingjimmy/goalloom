@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Authoritative placements/effective parents, explicit column/period and the transaction clock.
- * [OUTPUT]: Local placement of one root and atomic, reversible arrangement of one current/future column.
+ * [INPUT]: Authoritative placements/effective parents, placement-local group visibility and the transaction clock.
+ * [OUTPUT]: Local placement of one visible group and atomic, reversible arrangement of one current/future column.
  * [POS]: Ordering command boundary; other tasks retain their relative order during automatic placement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,13 +17,18 @@ export function orderingParent(context: Context, itemId: string): string | null 
 }
 
 export function placeByParent(context: Context, item: Item, record = true): boolean {
-  if (context.store.localParentId(item.placement) || item.archivedAt || item.status === 'cancelled') return false
+  if (context.store.localParentId(item.placement)) return false
   const { horizon, periodId } = item.placement
+  const visibleRoots = new Set(context.store.prepare(`SELECT DISTINCT COALESCE(${localParentSql()},p.itemId) AS id
+    FROM item_placements p JOIN items i ON i.id=p.itemId
+    WHERE i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status!='cancelled' AND p.horizon=? AND p.periodId IS ?`)
+    .all(horizon, periodId).map(row => String(row.id)))
+  if (!visibleRoots.has(item.id)) return false
   const rows = context.store.summaries(`i.deletedAt IS NULL AND ${localParentSql()} IS NULL AND p.horizon=? AND p.periodId IS ?`, [horizon, periodId])
   const order = buildParentOrder(orderNodes(context.store, rows.map(row => row.id)), context.store.effectiveRelations(), context.now)
   if (!order.editable(item.id)) return false
   const others = rows.filter(row => row.id !== item.id), group = order.group(item.id)
-  const visible = others.filter(row => !row.archivedAt && row.status !== 'cancelled')
+  const visible = others.filter(row => visibleRoots.has(row.id))
   const last = group ? visible.filter(row => order.group(row.id) === group).at(-1) : null
   const beforeId = !group ? null : last ? others[others.indexOf(last) + 1]?.id ?? null
     : visible.find(row => order.compare(item.id, row.id) < 0)?.id ?? null

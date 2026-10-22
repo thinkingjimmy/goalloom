@@ -4,7 +4,7 @@
  * [POS]: Undo transaction rules; Repository handles SAVEPOINT conflict rollback.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { effectProblem, insertionProblem, inverseEdges } from '../../../domain/undo'
+import { effectProblem, insertionProblem, inverseEdges, undoEffectOrder } from '../../../domain/undo'
 import { undoHold } from '../../../domain/rollover'
 import { validateDag } from '../../../domain/relations'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
@@ -37,24 +37,17 @@ export function undoOperation(context: Context, command: CommandOf<'undo'>): boo
     if (problem) conflict(problem)
     checked.add(effect)
   }
-  const reversed = [...effects].reverse(), groups = reversed.filter(effect => effect.kind === 'groupPlacement')
   // Restore the root's position first. Otherwise its returning children temporarily become
   // independent rows in the source period and invalidate the root's saved neighbors.
-  for (const effect of groups) {
+  for (const effect of effects.filter(effect => effect.kind === 'groupPlacement')) {
     const item = context.store.item(effect.itemId)
     const problem = effectProblem(effect, item, [], context.store.position(item))
     if (problem) conflict(problem)
   }
-  const restored = new Set<Effect>()
-  for (const effect of reversed) {
-    if (effect.kind === 'groupPlacement') continue
+  for (const index of undoEffectOrder(effects)) {
+    const effect = effects[index]!
     reverseEffect(context, effect, original.id, checked.has(effect))
-    if (effect.kind === 'position') for (const group of groups) if (group.before.nestingParentId === effect.itemId && !restored.has(group)) {
-      reverseEffect(context, group, original.id)
-      restored.add(group)
-    }
   }
-  for (const group of groups) if (!restored.has(group)) reverseEffect(context, group, original.id)
   context.undone = [original, ...completions].flatMap(operation => operation.effects.map((_, index) => ({ originalId: operation.id, index })))
   return true
 }
