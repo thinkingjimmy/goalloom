@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: Japanese settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout.
+ * [OUTPUT]: Japanese settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout and flat sync-password dialogs.
  * [POS]: Japanese settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -116,12 +116,12 @@ export const settingsMessages: SettingsCatalog = {
     signingOut: 'ログアウト中…',
     recoveryTitle: '同期パスワードを忘れましたか？',
     recoverOtherDevice: '別の端末で同期できる場合は、まずその端末の設定で同期パスワードを変更してください。',
-    createNewWorkspace: '新しいクラウド領域を作成（推奨）',
-    createNewNote: '古い領域を保持し、この端末のタスクを独立した新しい領域に送信します。',
+    createNewWorkspace: '新しい同期ワークスペースを作成',
+    createNewNote: 'この端末のデータで再開します。古いクラウドデータは保持され、自動的には統合されません。',
     oldWorkspaceKept: '古いデータと他の端末は引き続き使えます。この端末は新しい領域に接続し、古いデータは自動で統合されません。',
-    createWorkspace: '新しい領域を作成',
-    destructiveReset: 'クラウドをリセットして再送信',
-    destructiveNote: '現在のクラウド領域を削除し、この端末のタスクから作成します。',
+    createWorkspace: '作成して同期',
+    destructiveReset: 'クラウドデータを消去して再同期',
+    destructiveNote: 'この端末のデータは保持され、新しい同期ワークスペースに送信されます。他の端末は同期に再参加する必要があります。',
     destructiveWarning: '選択した領域のクラウドデータを完全に削除し、使用中の全端末の同期を中断します。他の領域は保持されます。',
     typeDeleteConfirmation: '削除を確定するには下の文字列を入力',
     rememberPassword: 'パスワードを思い出した場合は、キャンセルして入力し直してください。',
@@ -153,11 +153,14 @@ export const settingsMessages: SettingsCatalog = {
     passwordRule: '8 文字以上',
     confirmPassword: 'もう一度入力',
     newPassword: '新しいパスワード',
+    changePasswordNote: 'この端末はロック解除済みのため、古いパスワードは不要です。既存の同期データは保持されます。',
+    changingPassword: 'パスワードを変更中…',
+    recoveryOptions: 'その他の復旧方法',
     changePassword: 'パスワードを変更',
     change: '変更…',
     resetSync: '同期をリセット',
     reset: 'リセット…',
-    forgot: 'パスワードを忘れた…',
+    forgot: 'パスワードを忘れた？',
     start: '同期を始める',
     enterNote: 'パスワードがなければクラウドのデータは復号できません。',
     continue: '続ける',

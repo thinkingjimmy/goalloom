@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Production Repository/transfer modules and isolated Electron SQLite with an injected clock.
+ * [INPUT]: Production Repository/transfer modules, current schema version and isolated Electron SQLite with an injected clock.
  * [OUTPUT]: Persistent grouped-completion, cancellation and export/restore evidence.
  * [POS]: Storage E2E probe; exercises actual transactions rather than a mocked repository.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { migrate } from '../../src/main/storage/schema'
+import { migrate, schemaVersion } from '../../src/main/storage/schema'
 import { Repository } from '../../src/main/workspace/repository'
 import { exportDataset, readSqliteDataset, replaceDataset } from '../../src/main/workspace/transfer/dataset'
 import { validateImport } from '../../src/domain/import-validation'
@@ -190,11 +190,11 @@ try {
     anchor: { kind: 'today', expected: '2026-10-16' }, confirmed: true })
   const oldReceipt = old.execute({ type: 'create', operationId: randomUUID(), generation: old.store.workspace().generation, title: 'Preserved v10 task', horizon: 'day' })
   const beforeUpgrade = JSON.stringify(old.store.operation(oldReceipt.operationId))
-  legacy.exec('DROP INDEX operations_creation_completion; DELETE FROM schema_migrations WHERE version=11; PRAGMA user_version=10')
+  legacy.exec('DROP INDEX operations_creation_completion; DELETE FROM schema_migrations WHERE version>10; PRAGMA user_version=10')
   legacy.close()
   const opened = await openWorkspace(path, join(temporary, 'protective'), () => now)
   assert(opened.protective)
-  assert.equal(opened.db.prepare('PRAGMA user_version').get()!.user_version, 11)
+  assert.equal(opened.db.prepare('PRAGMA user_version').get()!.user_version, schemaVersion)
   const upgraded = new Repository(opened.db, { now: () => now })
   assert.equal(JSON.stringify(upgraded.store.operation(oldReceipt.operationId)), beforeUpgrade)
   const guardRequest = { ...futureRequest, requestId: randomUUID(), generation: upgraded.store.workspace().generation, text: 'Cross-midnight pending capture', target: { horizon: 'day', startDate: '2026-10-16' } }

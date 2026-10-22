@@ -11,7 +11,7 @@ POS: Feature acceptance fixtures. Product rules remain in [desktop sync](../../.
 - `native-entry.ts`: Test-only multi-account composition around the production application. It never loads real credentials or changes Wi-Fi.
 - `live.ts`: Production service/SDK/SQLite journeys against real development Auth, HTTP/RPC and private Realtime. Only disposable accounts are used.
 - `../sync-security.mjs`: Service/SQLite runner.
-- `../sync-security-native.mjs`: Native renderer/IPC runner; `--packaged` selects an isolated ad-hoc macOS ASAR app and records its hash/artifact.
+- `../sync-security-native.mjs`: Native renderer/IPC runner with five-language flat password/recovery dialogs, exact destructive confirmation, focus return and unchanged task/sync actions; `--packaged` selects an isolated ad-hoc macOS ASAR app and records its hash/artifact.
 
 Run `pnpm build` first. Root commands are `pnpm test:sync-security` and `pnpm test:sync-security:packaged`. Hosted SQL is separate: `node scripts/sync-security-hosted.mjs`. Synthetic OAuth/HTTP, instrumented packages, Developer ID installers and Windows are distinct acceptance scopes.
 

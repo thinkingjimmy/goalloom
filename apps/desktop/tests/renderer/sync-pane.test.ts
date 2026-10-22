@@ -36,7 +36,7 @@ it('七种同步状态都是普通设置行，状态和退出登录在同一行'
   expect(setup).not.toContain(banned)
 
   const enter = page({ phase: 'enter-key', email: 'jimmy@example.com' })
-  expect(enter).toContain('忘记密码…')
+  expect(enter).toContain('忘记密码？')
   expect(enter).toContain('继续')
   expect(enter).toContain('type="password"')
 
@@ -51,16 +51,16 @@ it('七种同步状态都是普通设置行，状态和退出登录在同一行'
   const synced = page({ phase: 'ready', email: 'jimmy@example.com', lastSyncedAt: '2026-10-13T15:28:00.000Z' })
   expect(synced).toContain('已同步')
   expect(synced).toContain('上次同步 今天 15:28')
-  expect(synced).toContain('更改…')
-  expect(synced).toContain('忘记同步密码？')
-  expect(synced).toContain('忘记密码…')
+  expect(synced).toContain('更改密码')
+  expect(synced).not.toContain('忘记同步密码？')
+  expect(synced).not.toContain('忘记密码？')
   expect(synced).not.toContain('重试')
   expect(syncNavBadge(status({ phase: 'ready', email: 'jimmy@example.com' }))).toEqual({ text: '已同步', dot: true })
 
   const syncing = page({ phase: 'ready', email: 'jimmy@example.com', syncing: true })
   expect(syncing).toContain('正在同步…')
-  expect(syncing).toMatch(/<button[^>]*disabled[^>]*>更改…<\/button>/)
-  expect(syncing).toContain('忘记密码…')
+  expect(syncing).toMatch(/<button[^>]*disabled[^>]*>更改密码<\/button>/)
+  expect(syncing).not.toContain('忘记密码？')
   expect(syncNavBadge(status({ phase: 'ready', syncing: true }))).toEqual({ text: '同步中' })
 
   const failed = page({ phase: 'ready', email: 'jimmy@example.com', offline: true, error: 'network', lastSyncedAt: '2026-10-13T09:12:00.000Z' })
@@ -74,7 +74,7 @@ it('七种同步状态都是普通设置行，状态和退出登录在同一行'
   const locked = page({ phase: 'locked', email: 'jimmy@example.com' })
   expect(locked).toContain('同步已关闭')
   expect(locked).toContain('钥匙串不可用')
-  expect(locked).toMatch(/<button[^>]*disabled[^>]*>更改…<\/button>/)
+  expect(locked).toMatch(/<button[^>]*disabled[^>]*>更改密码<\/button>/)
   expect(syncNavBadge(status({ phase: 'locked', email: 'jimmy@example.com' }))).toEqual({ text: '已关闭', dot: 'err' })
 })
 

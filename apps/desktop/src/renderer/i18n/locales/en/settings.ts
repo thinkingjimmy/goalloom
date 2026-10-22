@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: English settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout.
+ * [OUTPUT]: English settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout and flat sync-password dialogs.
  * [POS]: English settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -116,12 +116,12 @@ export const settingsMessages: SettingsCatalog = {
     signingOut: 'Signing out…',
     recoveryTitle: 'Forgot your sync password?',
     recoverOtherDevice: 'If another device still syncs, change the sync password in Settings on that device first.',
-    createNewWorkspace: 'Create a new cloud workspace (recommended)',
-    createNewNote: 'Keep the old workspace and upload local tasks to an independent new one.',
+    createNewWorkspace: 'Create a new sync workspace',
+    createNewNote: 'Start again with local data. Old cloud data stays and is not merged automatically.',
     oldWorkspaceKept: 'Old data and other devices stay available. This device connects to the new workspace; old data is not merged automatically.',
-    createWorkspace: 'Create workspace',
-    destructiveReset: 'Reset cloud and re-upload',
-    destructiveNote: 'Delete the current cloud workspace and create one from local tasks.',
+    createWorkspace: 'Create and sync',
+    destructiveReset: 'Clear cloud data and sync again',
+    destructiveNote: 'Local data stays and is uploaded to a new sync workspace. Other devices must join sync again.',
     destructiveWarning: 'This permanently deletes all cloud data in the selected workspace and disconnects every device using it. Other workspaces stay.',
     typeDeleteConfirmation: 'Type the text below to confirm deletion',
     rememberPassword: 'If you remember the password, cancel and enter it again.',
@@ -153,11 +153,14 @@ export const settingsMessages: SettingsCatalog = {
     passwordRule: 'At least 8 characters',
     confirmPassword: 'Enter it again',
     newPassword: 'New password',
+    changePasswordNote: 'This device is unlocked. No old password is needed. Existing sync data stays.',
+    changingPassword: 'Changing password…',
+    recoveryOptions: 'Other recovery options',
     changePassword: 'Change password',
     change: 'Change…',
     resetSync: 'Reset sync',
     reset: 'Reset…',
-    forgot: 'Forgot password…',
+    forgot: 'Forgot password?',
     start: 'Start sync',
     enterNote: 'Cloud data cannot be decrypted without the password.',
     continue: 'Continue',
