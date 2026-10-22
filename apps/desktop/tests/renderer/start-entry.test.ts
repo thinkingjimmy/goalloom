@@ -57,7 +57,7 @@ it('加入设备只出现同步密码，不出现设置向导', () => {
   const join = gate({ phase: 'enter-key' })
   expect(join).toContain('输入同步密码')
   expect(join).toContain('使用在第一台设备上设置的密码。')
-  expect(join).toContain('忘记密码…')
+  expect(join).toContain('忘记密码？')
   expect(join).toContain('返回')
   expect(join).not.toContain(calendarTitle)
   const wrong = gate({ phase: 'enter-key', error: 'password' })

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: Spanish settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout.
+ * [OUTPUT]: Spanish settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout and flat sync-password dialogs.
  * [POS]: Spanish settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -116,12 +116,12 @@ export const settingsMessages: SettingsCatalog = {
     signingOut: 'Saliendo…',
     recoveryTitle: '¿Olvidaste la contraseña de sincronización?',
     recoverOtherDevice: 'Si otro dispositivo aún sincroniza, cambia primero la contraseña en sus ajustes.',
-    createNewWorkspace: 'Crear un espacio nuevo en la nube (recomendado)',
-    createNewNote: 'Conserva el espacio anterior y sube las tareas locales a uno nuevo e independiente.',
+    createNewWorkspace: 'Crear un nuevo espacio de sincronización',
+    createNewNote: 'Empieza de nuevo con los datos locales. Los datos anteriores de la nube se conservan y no se combinan automáticamente.',
     oldWorkspaceKept: 'Los datos anteriores y los otros dispositivos siguen disponibles. Este equipo se conecta al espacio nuevo; los datos anteriores no se unen automáticamente.',
-    createWorkspace: 'Crear espacio',
-    destructiveReset: 'Restablecer nube y volver a subir',
-    destructiveNote: 'Elimina el espacio actual de la nube y crea uno con las tareas locales.',
+    createWorkspace: 'Crear y sincronizar',
+    destructiveReset: 'Borrar los datos de la nube y sincronizar de nuevo',
+    destructiveNote: 'Los datos locales se conservan y se suben a un nuevo espacio. Los otros dispositivos deben volver a unirse a la sincronización.',
     destructiveWarning: 'Esto elimina para siempre todos los datos del espacio seleccionado y desconecta los dispositivos que lo usan. Los otros espacios se conservan.',
     typeDeleteConfirmation: 'Escribe el texto siguiente para confirmar',
     rememberPassword: 'Si recuerdas la contraseña, cancela y vuelve a introducirla.',
@@ -153,11 +153,14 @@ export const settingsMessages: SettingsCatalog = {
     passwordRule: 'Al menos 8 caracteres',
     confirmPassword: 'Escríbela de nuevo',
     newPassword: 'Nueva contraseña',
+    changePasswordNote: 'Este dispositivo está desbloqueado. No necesitas la contraseña anterior. Los datos sincronizados se conservan.',
+    changingPassword: 'Cambiando contraseña…',
+    recoveryOptions: 'Otras opciones de recuperación',
     changePassword: 'Cambiar contraseña',
     change: 'Cambiar…',
     resetSync: 'Restablecer sincronización',
     reset: 'Restablecer…',
-    forgot: 'Olvidé la contraseña…',
+    forgot: '¿Olvidaste la contraseña?',
     start: 'Empezar a sincronizar',
     enterNote: 'Sin la contraseña no se pueden descifrar los datos en la nube.',
     continue: 'Continuar',

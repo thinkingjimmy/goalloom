@@ -24,10 +24,11 @@ renderer/
 │   │       ├── AppearancePane.tsx # Language, three visual styles, theme and device relation-line switch
 │   │       ├── BoardPane.tsx      # Synced automatic-placement/completed-layout preferences without task writes and per-column confetti preview
 │   │       ├── ShortcutsPane.tsx # 快捷键：通用组点键帽录制、冲突警告与清除；流程筛选开关 + 位置示意
-│   │       ├── SyncPane.tsx # Account/password flow, merge-first join, explicit keep/clear sign-out, safe recovery and developer diagnostics
+│   │       ├── SyncPane.tsx # Account/password flow, phase-scoped native password dialogs, merge-first join, explicit keep/clear sign-out and developer diagnostics
+│   │       ├── SyncPasswordDialog.tsx # Shared flat native password shell/fields, focus return, localized failures and the existing change-password action
 │   │       ├── SyncSignOutDialog.tsx # Default keep-local confirmation, explicit cleanup warning and scoped Escape/focus return
-│   │       ├── SyncRecovery.tsx # Recommended new workspace, alternative destructive reset with exact phrase, password confirmation and other-device guidance
-│   │       ├── sync-security.css # Native radio geometry shared by Settings and first-run recovery
+│   │       ├── SyncRecovery.tsx # Flat native recovery dialog, recommended new workspace, in-dialog destructive confirmation/Back and unchanged recovery actions
+│   │       ├── sync-security.css # Compact password modal geometry shared by Settings/first-run and native sign-out radios
 │   │       ├── AiPane.tsx       # Compact AI service list: bundled website marks, connection state, key/date, icon actions, account recovery and removal confirmation
 │   │       ├── ProviderAction.tsx # Service icon actions with localized pointer/keyboard hints, native-dialog portals and scoped Escape
 │   │       ├── FeatureControls.tsx # 智能输入/洞察共用：功能总开关状态卡与处理服务单选（只列能运行该模型的服务）

@@ -1,4 +1,16 @@
-/* Shared recovery controls also render before the Settings module is opened. */
+/**
+ * [INPUT]: Shared modal geometry, theme tokens and native sign-out controls.
+ * [OUTPUT]: Content-sized flat password dialogs and native sign-out radio geometry.
+ * [POS]: Sync presentation shared by Settings and first-run recovery.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.sync-password-modal { width: min(460px, calc(100vw - 40px)); }
+.sync-password-modal .modal-header { height: auto; min-height: 60px; padding-top: 12px; padding-bottom: 12px; }
+.sync-password-modal .modal-header h2 { min-width: 0; }
+.sync-password-modal .modal-header .icon-button { flex-shrink: 0; }
+.sync-password-modal .modal-footer { justify-content: flex-end; flex-wrap: wrap; margin-top: 0; }
+.sync-password-modal .modal-footer .settings-button { white-space: normal; }
+
 :is(.sync-recovery-form, .sync-signout-modal) input[type='radio'] {
   appearance: none;
   box-sizing: border-box;

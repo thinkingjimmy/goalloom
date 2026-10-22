@@ -1,6 +1,6 @@
 /**
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
- * [OUTPUT]: French settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout.
+ * [OUTPUT]: French settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout and flat sync-password dialogs.
  * [POS]: French settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -116,12 +116,12 @@ export const settingsMessages: SettingsCatalog = {
     signingOut: 'Déconnexion…',
     recoveryTitle: 'Mot de passe de synchro oublié ?',
     recoverOtherDevice: 'Si un autre appareil synchronise encore, changez d’abord le mot de passe dans ses réglages.',
-    createNewWorkspace: 'Créer un nouvel espace cloud (recommandé)',
-    createNewNote: 'Conservez l’ancien espace et envoyez les tâches locales dans un nouvel espace indépendant.',
+    createNewWorkspace: 'Créer un nouvel espace de synchronisation',
+    createNewNote: 'Repartez avec les données locales. Les anciennes données cloud sont conservées, sans fusion automatique.',
     oldWorkspaceKept: 'Les anciennes données et les autres appareils restent disponibles. Cet appareil rejoint le nouvel espace ; les anciennes données ne sont pas fusionnées automatiquement.',
-    createWorkspace: 'Créer un espace',
-    destructiveReset: 'Réinitialiser le cloud et renvoyer',
-    destructiveNote: 'Supprimez l’espace cloud actuel et créez-en un avec les tâches locales.',
+    createWorkspace: 'Créer et synchroniser',
+    destructiveReset: 'Effacer les données cloud et synchroniser à nouveau',
+    destructiveNote: 'Les données locales sont conservées et envoyées dans un nouvel espace. Les autres appareils doivent rejoindre à nouveau la synchronisation.',
     destructiveWarning: 'Cela supprime définitivement les données de l’espace sélectionné et déconnecte tous les appareils qui l’utilisent. Les autres espaces sont conservés.',
     typeDeleteConfirmation: 'Saisissez le texte ci-dessous pour confirmer',
     rememberPassword: 'Si vous retrouvez le mot de passe, annulez et saisissez-le à nouveau.',
@@ -153,11 +153,14 @@ export const settingsMessages: SettingsCatalog = {
     passwordRule: 'Au moins 8 caractères',
     confirmPassword: 'Saisissez-le encore',
     newPassword: 'Nouveau mot de passe',
+    changePasswordNote: 'Cet appareil est déverrouillé. L’ancien mot de passe n’est pas nécessaire. Les données synchronisées sont conservées.',
+    changingPassword: 'Modification du mot de passe…',
+    recoveryOptions: 'Autres options de récupération',
     changePassword: 'Changer le mot de passe',
     change: 'Modifier…',
     resetSync: 'Réinitialiser la synchro',
     reset: 'Réinitialiser…',
-    forgot: 'Mot de passe oublié…',
+    forgot: 'Mot de passe oublié ?',
     start: 'Démarrer la synchro',
     enterNote: 'Sans le mot de passe, les données cloud restent illisibles.',
     continue: 'Continuer',

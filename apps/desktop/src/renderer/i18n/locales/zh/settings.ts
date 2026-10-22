@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Settings categories, display preferences and interpolation parameters.
- * [OUTPUT]: Source settings catalog, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update copy, including completed-task layout.
+ * [OUTPUT]: Source settings catalog, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update copy, including completed-task layout and flat sync-password dialogs.
  * [POS]: Chinese settings copy and shared SettingsCatalog shape; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -115,12 +115,12 @@ export const settingsMessages = widen({
     signingOut: '正在退出…',
     recoveryTitle: '忘记同步密码？',
     recoverOtherDevice: '如果另一台设备仍可同步，请先在那台设备的设置中更改同步密码。',
-    createNewWorkspace: '创建新的云端空间（推荐）',
-    createNewNote: '保留旧空间，将本机任务上传到独立的新空间。',
+    createNewWorkspace: '新建同步工作区',
+    createNewNote: '用本机数据重新开始。旧云端数据会保留，但不会自动合并。',
     oldWorkspaceKept: '旧空间的数据和其他设备保持可用。本机将连接新空间，旧数据不会自动合并。',
-    createWorkspace: '创建新空间',
-    destructiveReset: '重置云端并重新上传',
-    destructiveNote: '删除当前云端空间，并用本机任务重新创建。',
+    createWorkspace: '新建并同步',
+    destructiveReset: '清空云端数据并重新同步',
+    destructiveNote: '本机数据会保留，并上传到新的同步工作区。其他设备需要重新加入同步。',
     destructiveWarning: '这将永久删除选定空间的全部云端数据，并中断仍在使用它的所有设备。其他空间不受影响。',
     typeDeleteConfirmation: '输入下方文字以确认删除',
     rememberPassword: '如果记起密码，请取消并重新输入。',
@@ -152,11 +152,14 @@ export const settingsMessages = widen({
     passwordRule: '至少 8 位',
     confirmPassword: '再输入一次',
     newPassword: '新密码',
+    changePasswordNote: '本机已解锁，无需输入旧密码。更改后，现有同步数据会保留。',
+    changingPassword: '正在更改密码…',
+    recoveryOptions: '其他恢复方式',
     changePassword: '更改密码',
     change: '更改…',
     resetSync: '重置同步',
     reset: '重置…',
-    forgot: '忘记密码…',
+    forgot: '忘记密码？',
     start: '开始同步',
     enterNote: '没有密码就无法解密云端数据。',
     continue: '继续',

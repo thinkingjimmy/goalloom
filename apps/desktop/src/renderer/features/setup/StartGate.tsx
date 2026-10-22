@@ -1,5 +1,5 @@
 /**
- * [INPUT]: An unconfirmed workspace, sync status, existing setup confirmation and shared icon controls.
+ * [INPUT]: An unconfirmed workspace, sync status, existing setup confirmation, shared icon controls and the native recovery dialog.
  * [OUTPUT]: Choice, provider wait, join or new-password and safe recovery after explicit setup confirmation. A normal join installs the cloud calendar and skips setup.
  * [POS]: First-run entry in front of Setup. Direct use adds one back step; the first device uploads only after confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -16,7 +16,6 @@ import { Setup, type CalendarChoice } from './Setup'
 import { startScreen } from './entry'
 import { ChoiceScreen, JoinPasswordScreen, NewPasswordScreen, SyncingScreen } from './StartScreens'
 import { SyncRecovery } from '../shell/settings/SyncRecovery'
-import { Modal } from '../../components/Modal'
 
 export function StartGate({ confirm, busy, errorCode, status: override, sync = action => desktopApi().sync(action) }: {
   confirm: (calendar: CalendarChoice, direction: string, period: PlanningPeriod) => Promise<boolean>
@@ -70,13 +69,11 @@ export function StartGate({ confirm, busy, errorCode, status: override, sync = a
         if (!reply || reply.status.error || reply.status.phase === 'enter-key' || reply.status.phase === 'choose') setJoining(false)
       }, () => setJoining(false))
     }} />
-    {resetOpen && <Modal title={settings.sync.recoveryTitle} close={() => setResetOpen(false)}><div className="p-5">
-      <SyncRecovery working={working} close={() => setResetOpen(false)} run={async action => {
-        if (action.type !== 'create-new-workspace' && action.type !== 'reset-sync') return false
-        setRecoveryAction(action); setJoining(false); setResetOpen(false)
-        return true
-      }} />
-    </div></Modal>}
+    {resetOpen && <SyncRecovery working={working} close={() => setResetOpen(false)} run={async action => {
+      if (action.type !== 'create-new-workspace' && action.type !== 'reset-sync') return false
+      setRecoveryAction(action); setJoining(false); setResetOpen(false)
+      return true
+    }} />}
   </>
   return <>
     {banner}

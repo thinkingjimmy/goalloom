@@ -79,6 +79,10 @@ Successful cleanup creates a fresh database file and generation, invalidates old
 
 ## Forgotten sync password
 
+Settings shows only “Change password” while the device is ready. It opens a native dialog with the new password and its confirmation; the existing action does not ask for the old password. “Forgot password?” is available at password entry, in Settings and first-run setup. Recovery opens one native dialog with a flat form, other-device guidance and the new-workspace path. The destructive alternative replaces that dialog's content with its warning, new password and exact deletion phrase; Back returns to the recommended path. No cards or additional dialogs are nested inside the recovery dialog. Cancel/Escape returns focus to its entry; an in-flight write blocks dismissal. Errors remain visible inside the active dialog and retain the draft.
+
+UI failure cases recorded before implementation: ready exposes both password actions; an entry still has an ellipsis; fields expand inside Settings; recovery nests cards or a second dialog; destructive navigation submits the recommended form or clears typed passwords; an incorrect or differently cased deletion phrase enables submission; Cancel/Escape closes Settings or performs a sync action; an in-flight request can be submitted twice or dismissed; a failed request hides its error behind the dialog or loses the draft; a locale clips controls; first-run recovery bypasses explicit calendar confirmation. Extend the existing native sync-security journey and retain reports/screenshots under `output/tests/sync-security/`.
+
 Recovery has three paths:
 
 1. If another device still syncs, change the sync password in Settings on that unlocked device, then use that password here.
@@ -133,7 +137,7 @@ For a true first-use macOS credential test, create a temporary standard macOS us
 5. Sign out. The board remains editable. Quit and reopen without ever signing in: capture, search and the Later sidebar still work.
 6. Sign in with a different Google account on a machine that already joined. Sync reports a mismatch and does not upload that board.
 7. On A, while sync is ready, change the password and enter it again. An already unlocked B retains its workspace key and keeps syncing. A fresh device must use the new password. A did not have to type the old one.
-8. Open Forgot password and keep the recommended Create new workspace option. Confirm that B still syncs the preserved old workspace after A creates a new one. Restart both and confirm that each keeps its own binding. The destructive alternative requires the exact phrase and removes only its selected workspace.
+8. Sign out and sign in again. At password entry, open Forgot password and keep the recommended Create new workspace path. Confirm that B still syncs the preserved old workspace after A creates a new one. Restart both and confirm that each keeps its own binding. The destructive alternative requires the exact phrase and removes only its selected workspace.
 
 A missing anon key — no runtime env, no `sync-config.json`, and nothing baked — leaves the Sync pane unconfigured. An unavailable OS cipher offers Apple/Google authorization and password recovery. Neither state blocks the rest of the app.
 
