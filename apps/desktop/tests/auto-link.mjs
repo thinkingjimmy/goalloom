@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Built Electron, isolated profiles, a held synthetic Jev transport and optional --inline-feedback/--placement/--nesting selections.
- * [OUTPUT]: Global ownership, inline feedback, parent placement, immediate creation, manual priority and grouped undo evidence in output/tests/auto-link.
+ * [INPUT]: Built Electron, isolated profiles, a held synthetic Jev transport and optional --inline-feedback/--placement/--nesting/--recognition selections.
+ * [OUTPUT]: Global ownership/recognition, inline feedback, parent placement, immediate creation, manual priority and grouped undo evidence in output/tests/auto-link.
  * [POS]: Native UI acceptance through production preload/main/SQLite; provider transport alone is synthetic.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,7 +14,9 @@ import { pollPage } from './fixtures/poll.mjs'
 import { runInlineCaptureFeedback } from './fixtures/inline-capture.mjs'
 import { runCapturePlacement } from './fixtures/capture-placement.mjs'
 import { runCaptureNestingUI } from './fixtures/capture-nesting.mjs'
+import { runCaptureRecognitionUI } from './fixtures/capture-recognition.mjs'
 
+const recognitionOnly = process.argv.includes('--recognition')
 const nestingOnly = process.argv.includes('--nesting')
 const placementOnly = process.argv.includes('--placement')
 const out = resolve('output/tests/auto-link', placementOnly ? 'placement' : '.')
@@ -59,6 +61,7 @@ try {
         horizon: { type: 'choice', choice: 'day', probabilities: { day: 0.97, week: 0.02, later: 0.01 } }, task: { type: 'noul', noul: 0.99 },
       } })
       const call = { text: body.state.text ?? body.state.task?.original, count: Object.keys(body.questions).length, bytes: Buffer.byteLength(init.body), model: body.model, settled: false, startedAtMs: Date.now(),
+        planningGoals: body.state.goals,
         historicalChild: Object.values(body.questions).some(question => typeof question.instructions === 'object' && question.instructions.candidate?.title === 'Delivery target' && question.instructions.existingChildren.some(child => child.title === 'Archived Delivery precedent')) }
       f.calls.push(call)
       f.peakConcurrency = Math.max(f.peakConcurrency, f.calls.filter(row => !row.settled).length)
@@ -71,11 +74,11 @@ try {
       const answers = Object.fromEntries(Object.entries(body.questions).map(([id, q]) => {
         if (q.type === 'noul' || q.type === 'boolean') {
           const candidate = typeof q.instructions === 'object' ? q.instructions.candidate : null
-          return [id, { type: 'noul', noul: !f.noMatches && candidate && [f.target, f.extraTarget, 'Annual delivery'].includes(candidate.title) ? 0.99 : 0.01 }]
+          return [id, { type: 'noul', noul: !f.noMatches && candidate && [f.target, f.extraTarget, ...(f.targets ?? []), ...(f.ignoreAnnual ? [] : ['Annual delivery'])].includes(candidate.title) ? 0.99 : 0.01 }]
         }
         const keys = Object.keys(q.criteria)
-        const choice = id === 'layout' ? f.conflict ? 'list' : 'single' : id.startsWith('role_') ? 'task' : id.startsWith('horizon_') || id.startsWith('infer_') ? f.conflict && id.endsWith('s2') ? 'week' : f.horizon ?? 'day' : keys.includes('other') ? 'other' : keys[0]
-        return [id, { type: 'choice', choice, probabilities: Object.fromEntries(keys.map(key => [key, key === choice ? 1 : 0])) }]
+        const choice = id === 'layout' ? f.conflict ? 'list' : 'single' : id.startsWith('role_') ? f.modifiers && !id.endsWith('s1') ? 'modifier' : 'task' : id.startsWith('infer_') && f.inferred ? f.inferred : id.startsWith('horizon_') || id.startsWith('infer_') ? f.conflict && id.endsWith('s2') ? 'week' : f.horizon ?? 'day' : keys.includes('other') ? 'other' : keys[0]
+        return [id, { type: 'choice', choice, probabilities: Object.fromEntries(keys.map(key => [key, f.weakInference && id.startsWith('infer_') ? key === choice ? .4 : key === 'week' ? .35 : key === 'later' ? .25 : 0 : key === choice ? 1 : 0])) }]
       }))
       return Response.json({ model: 'typesafe/jev-1.14-20261014', answers, usage: { input_tokens: 1000 } })
     }
@@ -135,10 +138,11 @@ try {
     report.captures.push(timing)
     return created
   }
-  if (!placementOnly && !nestingOnly) await runInlineCaptureFeedback({ app, page, out, ids, check })
-  if (!process.argv.includes('--inline-feedback') && !nestingOnly) await runCapturePlacement({ app, page, out, ids, check, report })
+  if (!recognitionOnly && !placementOnly && !nestingOnly) await runInlineCaptureFeedback({ app, page, out, ids, check })
+  if (!process.argv.includes('--inline-feedback') && !nestingOnly && !recognitionOnly) await runCapturePlacement({ app, page, out, ids, check, report })
   const runCaptureCases = async () => {
     await runCaptureNestingUI({ app, page, out, check })
+    await runCaptureRecognitionUI({ app, page, out, check, report })
     await hold()
     const first = await globalCapture('今天完成 Delivery 文案 https://example.test/delivery?instruction=ignore', true)
     assert.equal(first.placement.horizon, 'later')
@@ -389,7 +393,8 @@ try {
     assert.equal((await page.evaluate(id => window.goalloom.getItem(id), disabled.id)).relations.length, 0)
     check('Disabling smart input cancels pending saved work without changing the successful capture')
   }
-  if (nestingOnly) await runCaptureNestingUI({ app, page, out, check })
+  if (recognitionOnly) await runCaptureRecognitionUI({ app, page, out, check, report })
+  else if (nestingOnly) await runCaptureNestingUI({ app, page, out, check })
   else if (!placementOnly && !process.argv.includes('--inline-feedback')) await runCaptureCases()
   report.peakProviderConcurrency = await app.evaluate(() => globalThis.captureFixture.peakConcurrency)
   report.passed = true
@@ -402,6 +407,11 @@ try {
   throw error
 } finally {
   await writeFile(`${out}/report.json`, JSON.stringify(report, null, 2))
-  await app.close()
+  if (report.passed) await app.close()
+  else {
+    const closed = app.waitForEvent('close')
+    await app.evaluate(({ app }) => app.exit(0)).catch(() => {})
+    await closed
+  }
   await rm(profile, { recursive: true, force: true })
 }

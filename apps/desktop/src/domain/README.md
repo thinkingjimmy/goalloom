@@ -27,15 +27,15 @@ domain/
     ├── segments.ts     # 强/弱边界无损槽位（≤8）与普通模式单条 Later
     ├── dates.ts        # 工作区 weekStart 的星期、绝对/月底日期与完整/省略终点的范围歧义
     ├── calendar-phrases.ts # Pure Chinese execution-period phrases resolved against mode, anchor and injected today
-    ├── questions.ts    # 原文直接作 state 的题单，Q=1+3S+D+3+R≤64，payload/token 预算与补充轮
-    ├── matching.ts     # Jev 1.14 budgeted per-candidate Noul, 0.60 ancestor-reduced goals and unique same-period ownership for single global capture
+    ├── questions.ts    # Bounded source/planning-candidate state, optional existing-pair questions, payload/token budgets and supplemental rounds
+    ├── matching.ts     # Jev 1.14 budgeted per-candidate Noul, 0.60 ancestor-reduced goals, context-aware time and explicit/unique eligible-root ownership before ancestor reduction
     ├── budget.ts       # 不依赖日期规划的 payload/token/题数上限与估算，题单和 provider 共用
     ├── distribution.ts # 统一 Choice/boolean 契约校验、K×d 总和容差、top/margin/集中度与确定性
     ├── preview.ts      # 答案组装为可编辑预览：角色归并（说明取原文原句）、执行/截止、多父建议去环、`关联「X」` 直接确认、警示
     ├── insight.ts      # Child-only drafting and review prompts（中文、用户偏好追加末尾）与起草/复盘输出清洗、按任务 id 对齐
     ├── assistance.ts   # Complete-note rewrite routing plus legacy proposals/clarification, strict output and 16,000-unit/64 KiB budgets
     ├── rewrite-notes.ts # Complete-source Markdown rewrite prompts; retained completion/link checks; refuses truncation
-    └── terms.ts        # 共享专有词（拉丁词 ≥4 / 中文连续 ≥4 字），决定哪些看板目标可作为候选送给 Jev
+    └── terms.ts        # Distinctive shared terms plus negation-aware explicit goal-link and task-ownership phrases
 ```
 
 调用方注入观察时间及已经校验的快照；smart/ 不做网络请求，也不读取供应商 confidence。权威事务仍须重读并复核。`reverseStatus` 只是一种效果的原语，不代表完整撤销命令。D06 为多父 DAG；D07 的年 / 半年 / 3个月从原锚点按 12 / 6 / 3 个日历月推导，月底截断而不逐轮漂移；自然年模式锁定确认年 1 月 1 日起点。Six horizons support manual or automatic rollover; only day defaults to automatic. Import validates four policies for v1–v6 and six for v7.

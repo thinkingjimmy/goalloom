@@ -1,7 +1,7 @@
 # Capture matching evaluation
 
-INPUT: frozen synthetic development (72), holdout (64) and development-scope regression (18) bilingual cases, production matching planner and the owner's OpenRouter key.
-OUTPUT: exact parent sets, false/missed edges, per-language/URL results, complete-case P50/P95 and model metadata under ignored `output/tests/auto-link/live/`.
+INPUT: frozen synthetic development (72), holdout (64), development-scope regression (18), ownership (8) and recognition (14) bilingual cases, production matching planner and the owner's OpenRouter key.
+OUTPUT: exact goal/owner sets, execution columns, ready/late parity, false/missed edges, per-language/URL results, complete-case P50/P95 and model metadata under ignored `output/tests/auto-link/live/`.
 POS: repeatable live-provider acceptance. No production workspace is opened and no linked web page is fetched.
 
 Failure cases are fixed in `docs/features/smart-input.md`: candidate omission, topic-only false links, duplicate ancestors, independent parents, explicit choices, Chinese/English mismatch, URL injection/URL-only speculation, partial batches, incorrect model routing, network errors and misleading timing that omits a request. Labels and the 0.60 gate remain frozen. API errors count as failures. Timings include every provider batch and local selection; they exclude keyboard debounce and report IO. Historical network timings are not a same-window speed control.
@@ -11,3 +11,5 @@ Run from `apps/desktop`: `node scripts/eval/capture/run.mjs`. Add `--prepare` to
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
 `--ownership` runs eight frozen fictional global-capture cases from `ownership.json`, with Chinese/English development, UX, marketing, another product, explicit-goal and unrelated controls. `nest:<id>` denotes an owning task; ordinary ids denote goal links. This split evaluates both execution column selection and same-period ownership. Development/holdout/regressions remain unchanged and use the fixed Today target. Real-model calls require explicit owner authorization. `--prepare` builds without network access.
+
+`--recognition` selects the separate 14-case `recognition.json` split: bilingual untimed input, existing similar subtasks, explicit ownership/goal links, future execution, negation and unrelated/other-version controls. It checks the execution column and exact goal/owner set, and compares the ready composer with the capture completion selection. Reports retain complete normalized answers, planning context and written/inferred distributions. Existing frozen splits stay unchanged. `GOALLOOM_EVAL_ENV_FILE` can explicitly select an ignored credentials file when evaluating from an isolated checkout; credentials are never written to reports.
