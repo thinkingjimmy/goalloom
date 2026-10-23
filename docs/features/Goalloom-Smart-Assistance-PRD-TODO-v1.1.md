@@ -1408,3 +1408,7 @@ v1.1 保留原 100 项核心开发任务的 ID 和原 AC01—AC42；新增 B11-0
 [PROTOCOL]: 实现后按实际代码与验收结果维护本规格、来源基线和 TODO；不要用文档完成代替功能完成。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+### 2026-10-23: Hosted assistance transport
+
+Current source can use the explicitly selected Goalloom AI account through the existing Insight switch and consent. It sends the bounded authoritative context to the finite assistance endpoint; note rewriting omits unused siblings and recent-guidance text. Shared pure prompt/output validation remains the same, including UTF-8 limits. Account/source changes release preflights and exact-output tickets; cloud success never authorizes a local write. Provider keys stay on the server; no fallback or extra task-level checkbox is added. Cost, recovery and cache contracts are in [hosted AI](hosted-ai.md).

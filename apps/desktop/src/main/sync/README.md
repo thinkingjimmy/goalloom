@@ -26,3 +26,5 @@ Generation-bound task-review reads pass through `service.ts` to storage; the ser
 The product contract is [desktop sync](../../../../../docs/sync/desktop.md). Protocol rules are in [protocol v1](../../../../../docs/sync/protocol-v1.md). Synthetic E2E uses real SyncService, SDK and storage. Separate hosted SQL and `test:sync-security:live` acceptance verify real server guards and development Auth/HTTP/private-Realtime client journeys.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+Account-only Apple/Google login uses `sign-in` with `purpose: ai`. Protected sessions retain that intent across restart and return phase `account`; they perform no cloud discovery, device registration, password setup or upload. `accountId()` and `accountSession()` expose identity and credentials only inside main. Explicit `prepare-sync` continues the existing sync flow and retains linked-workspace account guards. Renderer status contains only the account UUID, never tokens.

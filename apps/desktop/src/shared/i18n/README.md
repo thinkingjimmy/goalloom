@@ -14,3 +14,5 @@ i18n/
 偏好由 main 保存在 `userData/preferences.json`（工作区之外），启动时先于存储解析，经 `workerData` 与 `locale` 消息同步 worker，经 `goalloom:language` 通道同步 renderer。错误、警告与操作标签在产生时按当前语言生成；已写入回执的标签保留当时的语言。备份失败只持久化种类，读取时再翻译。Jev 提示词与中文日期解析不属于界面文案。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+`hosted.ts` provides all five locales for account-only AI login, scope-v3 data consent, one-response delivery, result-loss feedback and explicit regeneration, cost protection and recoverable service failures. It is shared by renderer controls and main-process feedback.

@@ -250,3 +250,17 @@ Note-rewrite acceptance: `pnpm test:assistance` covers the choice-first single-p
 `pnpm test:apple-login` verifies native first-run/settings Apple and Google routing, PKCE, cancellation, shared authorization locking, visible failure/retry, invalid-provider rejection and password setup through the production loopback callback. Reports/screenshots: `output/tests/apple-login/`. Provider responses and cipher are synthetic.
 
 `macos-theme.mjs` and `fixtures/macos-storage.ts` own macOS 27 appearance acceptance: protected v11 upgrade, live/base style constraints, transfer validation, native selection and restart. Evidence belongs in `output/tests/macos-theme/`. Run only when E2E is requested for the UI pass; pre-refinement artifacts do not verify later skin changes.
+
+`hosted-ai.mjs` uses the real renderer/preload/main/SQLite with synthetic OAuth, cipher and provider responses. It checks account-only onboarding, explicit consent, five locales, Enter before a held model response, A/B/A isolation, protected restart and preserved BYOK ciphertext. Evidence: repository-root `output/tests/hosted-ai/desktop/`. Backend HTTP and rollback-only SQL acceptance are in `scripts/hosted-ai/`; these scopes are recorded separately.
+
+`hosted-ai-cache.mjs` loads the real development cache modules through Electron and validates A/B/A result isolation, main-session rejection, and newer-ticket cleanup against held synthetic provider responses. It does not add production test hooks.
+
+Hosted content-minimization acceptance: `hosted-ai-cache.mjs` verifies dropped-result/context/date/remount guards, explicit attempt identity, immediate creation/completion/undo, manual-note retention, initial-explicit review locks and both device cache restart paths. Reports omit task text and screenshots. `fixtures/review-drafts.mjs` checks keyboard regeneration preserves edits/choices. Root `scripts/hosted-ai/content-minimization/features.mjs` orchestrates the affected ownership map; detector, controlled HTTP and real rollback SQL remain separate from deployed/live acceptance.
+
+The hosted account scenario also rejects a persisted scope-v1 supplier consent and a scope-v1 IPC action before accepting scope-v2. Its five-language evidence includes the actual DeepInfra draft/review and DeepSeek assistance notices. Reconsent does not enable a feature or call a model.
+
+Scope-v3 hosted consent acceptance rejects both earlier scope files/actions before a model call, then checks all five provider retention/training notices. Hosted cache fixtures use the current explicit consent version; existing cache data remains device-only.
+
+Hosted cache acceptance covers real A-B-A edits, a new same-title draft after creation, same-draft remount/reconstruction without replay, and explicit regeneration during localStorage write failure. Context refresh/Enter must retain the same attempt; existing late completion and one-step undo checks remain. The synthetic transport requires the current consent scope in every POST.
+
+The hosted account journey records app-local draft/focus/visibility booleans before failure cleanup. Failed isolated windows are destroyed before app shutdown so an unsaved-draft dialog cannot hide the original evidence. No assertion, product focus behavior or timeout is changed.

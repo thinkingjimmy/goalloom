@@ -199,3 +199,11 @@ Review uses a todo-scale board guide and a resumable native modal with connected
 Note assistance uses the approved rewrite-notes design: no detail activity rail, rescheduling form, task consent checkbox or result adoption step. Generated Markdown replaces only the unchanged source notes; description effects retain one-step workspace undo. Rethink persists through reload via non-undone rewrite events. Automatic note writes are quiet, while keyboard undo keeps normal feedback. Local editor history still owns manual typing.
 
 `components/AuthMark.tsx` shares offline Apple/Google branding between the first-run provider buttons and Settings › Sync. Both entry points use the same provider-scoped authorization and cancellation state.
+
+Hosted AI uses `features/shell/settings/HostedAiSettings.tsx` for account-only sign-in and separate data consent. Existing feature controls keep source selection and enabling explicit. `state/ai.ts` clears stale account state and assistance drafts on account transitions. Onboarding shows two steps only when the current account has a verified hosted eligibility result; unknown eligibility retains the local/BYOK route.
+
+`state/ai-scope.ts` separates account/source cache identity from prompt text and supplies finite feature/session guards to model actions. Review summary/draft caches reject old-owner replies; source changes clear unadopted generated text while preserving manually typed plan rows. Existing composer and inline drafts require explicit resend after a source/session transition.
+
+Hosted capture separates context-bound previews from persisted explicit retry nonces. Review caches retain validated unadopted results across restart; stable period intent keys prevent automatic inference after cache misses or context refresh. Regeneration preserves edited text and is an explicit keyboard-accessible action.
+
+Hosted capture intent is advanced by real text-input events or explicit regeneration, never by context/manual refresh. CaptureInput snapshots the nonce/session before queued preparation and keeps the active nonce in memory if optional localStorage recovery writes fail. Reconstructed unchanged input still meets main-process sent-attempt guards.

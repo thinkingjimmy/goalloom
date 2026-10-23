@@ -4,21 +4,22 @@
  * [POS]: Flow-insight network boundary beside providers.ts; never logs prompt or reply bodies and follows no URL from responses.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import type { HostedInput } from '../../shared/contracts/hosted-ai'
 import type { ChatPrompt } from '../../domain/smart/insight'
 import { providerModels } from '../../shared/contracts/values'
 import { Aborted, classifyFailure, failure, ProviderFailure } from './providers'
 
-export type ChatProvider = 'openrouter' | 'vercel-gateway'
+export type ChatProvider = 'openrouter' | 'vercel-gateway' | 'hosted'
 // Reasoning must stay off: with it on, flash spent the token budget thinking and returned empty content in 9 of 12 runs.
 // Gateway routes only to DeepSeek's own endpoint; `deepseek/deepseek-v4.1-flash` is what OpenRouter's flash alias resolved to on 2026-09-29.
-export const CHAT_PROVIDERS: Record<ChatProvider, { endpoint: string; model: string; options: Record<string, unknown> }> = {
+export const CHAT_PROVIDERS: Record<Exclude<ChatProvider, 'hosted'>, { endpoint: string; model: string; options: Record<string, unknown> }> = {
   openrouter: { endpoint: 'https://openrouter.ai/api/v1/chat/completions', model: providerModels.openrouter.chat, options: { reasoning: { enabled: false } } },
   'vercel-gateway': { endpoint: 'https://ai-gateway.vercel.sh/v1/chat/completions', model: providerModels['vercel-gateway'].chat, options: { reasoning: { enabled: false }, providerOptions: { gateway: { only: ['deepseek'] } } } },
 }
 // Flash usually answers in 1–3 s; the observed tail reached ~10 s, so allow a little more than that.
 export const insightTimeoutMs = 15_000
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>
-export type ChatAdapter = (apiKey: string, prompt: ChatPrompt, signal: AbortSignal) => Promise<string>
+export type ChatAdapter = (apiKey: string, prompt: ChatPrompt, signal: AbortSignal, request?: HostedInput) => Promise<string>
 
 // Fixed, non-private capability sample: the reply must be the JSON object the prompt asks for.
 export const chatSample: ChatPrompt = { system: 'Reply with the JSON object {"ok":true} and nothing else.', user: '{"check":"goalloom"}', maxTokens: 20 }
@@ -26,7 +27,7 @@ export function sampleAnswered(content: string): boolean {
   try { return (JSON.parse(content) as { ok?: unknown }).ok === true } catch { return false }
 }
 
-export function chatAdapter(provider: ChatProvider, fetch?: Fetch): ChatAdapter {
+export function chatAdapter(provider: Exclude<ChatProvider, 'hosted'>, fetch?: Fetch): ChatAdapter {
   const preset = CHAT_PROVIDERS[provider]
   return async (apiKey, prompt, signal) => {
     if (signal.aborted) throw new Aborted()

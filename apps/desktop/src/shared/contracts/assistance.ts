@@ -69,12 +69,12 @@ export const assistanceContextSchema = z.strictObject({
 export type AssistanceContext = z.infer<typeof assistanceContextSchema>
 export const assistancePreparedSchema = z.strictObject({
   contextId: z.uuid(), sessionId: z.uuid(), itemId: idSchema, generation: idSchema, locale: z.enum(locales), expiresAt: instantSchema,
-  featureRevision: z.number().int().nonnegative(), provider: z.enum(['openrouter', 'vercel-gateway']).nullable(),
+  featureRevision: z.number().int().nonnegative(), provider: z.enum(['openrouter', 'vercel-gateway', 'hosted']).nullable(),
   enabled: z.boolean(), consented: z.boolean(), context: assistanceContextSchema,
 })
 export type AssistancePrepared = z.infer<typeof assistancePreparedSchema>
 export const assistanceReplySchema = z.discriminatedUnion('status', [
-  z.strictObject({ status: z.literal('ready'), echo: assistanceEchoSchema, provider: z.enum(['openrouter', 'vercel-gateway']),
+  z.strictObject({ status: z.literal('ready'), echo: assistanceEchoSchema, provider: z.enum(['openrouter', 'vercel-gateway', 'hosted']),
     value: assistanceOutputSchema, facts: executionFactsSchema, truncatedSections: z.array(z.string().max(80)).max(12) }),
   z.strictObject({ status: z.enum(['cancelled', 'stale']), echo: assistanceEchoSchema }),
   z.strictObject({ status: z.literal('failed'), echo: assistanceEchoSchema, failure: z.strictObject({ kind: z.enum(aiFailureKinds), message: z.string().max(500), status: z.number().int().nullable(), retryAt: instantSchema.nullable() }) }),

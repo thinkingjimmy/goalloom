@@ -25,6 +25,7 @@ const accountSchema = z.strictObject({
 
 const fileSchema = z.strictObject({
   v: z.literal(1),
+  accountOnly: z.boolean().default(false),
   deviceId: z.string().nullable(),
   signSk: z.string(),
   boxSk: z.string(),
@@ -57,6 +58,7 @@ export interface AccountSecrets {
 }
 
 export interface VaultSecrets {
+  accountOnly?: boolean
   deviceId: string | null
   signSk: Uint8Array
   boxSk: Uint8Array
@@ -173,7 +175,7 @@ export function decodeVault(text: string): VaultSecrets {
     roster: parsed.roster as RosterBody | null,
     recoveryBoxSk: parsed.recoveryBoxSk ? unhex(parsed.recoveryBoxSk) : null,
     recoverySignSk: parsed.recoverySignSk ? unhex(parsed.recoverySignSk) : null,
-    refreshToken: parsed.refreshToken, userId: parsed.userId, accounts, pendingSecrets: parsed.pendingSecrets,
+    accountOnly: parsed.accountOnly, refreshToken: parsed.refreshToken, userId: parsed.userId, accounts, pendingSecrets: parsed.pendingSecrets,
     pendingRecovery: parsed.pendingRecovery ? { ...parsed.pendingRecovery, workspaceKey: unhex(parsed.pendingRecovery.workspaceKey),
       recoveryBoxSk: unhex(parsed.pendingRecovery.recoveryBoxSk), recoverySignSk: unhex(parsed.pendingRecovery.recoverySignSk) } : null,
   }
@@ -191,7 +193,7 @@ export function encodeVault(secrets: VaultSecrets): string {
     }
   }
   return JSON.stringify({
-    v: 1, deviceId: secrets.deviceId, signSk: hex(secrets.signSk), boxSk: hex(secrets.boxSk),
+    v: 1, accountOnly: secrets.accountOnly ?? false, deviceId: secrets.deviceId, signSk: hex(secrets.signSk), boxSk: hex(secrets.boxSk),
     workspaceKey: secrets.workspaceKey ? hex(secrets.workspaceKey) : null,
     workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
     roster: secrets.roster,

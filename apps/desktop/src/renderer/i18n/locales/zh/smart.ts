@@ -7,7 +7,7 @@
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import { widen } from '../../../../shared/i18n/locale'
 
-export const providerNames: Record<AiProvider, string> = { 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
+export const providerNames: Record<AiProvider, string> = { hosted: 'Goalloom 内置 AI', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages = widen({
   composer: '新建',
   inputLabel: '写下想法',
@@ -21,7 +21,8 @@ export const smartMessages = widen({
   providerChanged: '服务配置已变化，已有内容不会自动发给新的处理方。',
   resend: '发送给当前服务整理',
   saveLater: '保存到 Later',
-  retry: '重试',
+  retry: '重新生成',
+  retryHint: '重新生成会发起新的 AI 请求。',
   frozenNote: '网络中断，已冻结当前预览为手动草稿；确认前仍可修改。',
   discard: '清空草稿',
   descriptionKept: '完整原文将保存在说明中',
@@ -106,7 +107,7 @@ export const smartMessages = widen({
   connectFootnote: '不连接也能完整使用看板和日历。测试会分别检查每项能力。',
   backToDemo: '返回示例',
   providerLabel: 'AI 服务',
-  providerPitch: (provider: AiProvider) => ({ openrouter: '按量付费，一个账户用多家模型', 'vercel-gateway': '已有 Vercel 账户时最省事' })[provider],
+  providerPitch: (provider: AiProvider) => ({ hosted: 'Goalloom AI', openrouter: '按量付费，一个账户用多家模型', 'vercel-gateway': '已有 Vercel 账户时最省事' })[provider],
   recommended: '推荐',
   testEnable: '测试并开启',
   doneTitle: (name: string) => `已连接 ${name}`,
@@ -117,7 +118,7 @@ export const smartMessages = widen({
   doneFootnote: 'Key 只在加密通道里同步，保存在本机钥匙串，不进入工作区备份。',
   enterBoard: '进入看板',
   // --- Connect form (onboarding and Settings › AI services) ---
-  keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
+  keyLabel: (provider: AiProvider) => ({ hosted: 'Goalloom AI', 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: '粘贴 API Key',
   getKey: '打开官方控制台获取 Key',
   consent: (name: string) => `我同意把智能输入和洞察需要的内容发送给 ${name}`,

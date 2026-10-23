@@ -35,7 +35,7 @@ it('选择页、内联等待和返回后的登录失败都不出现登录提示'
   expect(choice).toContain('直接使用')
   expect(choice).toContain('看板只存在这台设备上')
   expect(choice).toContain('用 Google 登录')
-  expect(choice).toContain('在多台设备间加密同步')
+  expect(choice).toContain('无需自己的 Key 即可使用 AI，需要时再设置同步。')
   expect(choice).toContain(authNotice)
   expect(choice).not.toContain(calendarTitle)
 

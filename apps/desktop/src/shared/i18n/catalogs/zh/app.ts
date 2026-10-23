@@ -206,6 +206,7 @@ export const appMessages = widen({
       credential_unreadable: () => '无法读取已保存的密钥，加密文件已保留。请检查系统凭据访问权限后重试',
       credential_unavailable: () => '系统凭据保护暂不可用，未保存或读取密钥；请稍后重试',
       not_enabled: () => '智能输入未启用或配置已变化，本次内容没有发送',
+      result_not_delivered: () => 'AI 结果未送达，输入和已保存的任务已保留。',
     },
     textTooLong: (limit: number) => `原文超过 ${limit} 字，请分批整理或先存到 Later`,
     tooManyItems: '一次最多整理 8 项，请分批输入或先存到 Later',

@@ -4,6 +4,7 @@
  * [POS]: renderer/state 的流程洞察入口。偏好、断点和复盘开关会同步；已复盘、已忽略和引导标记留在本机。模型调用经 main 的 smart 通道。
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { aiSourceOptions } from './ai-scope'
 import { useSyncExternalStore } from 'react'
 import type { DraftRequest, DraftTitle, Failure, InsightPrefs, ReviewRequest, ReviewText, SmartStatus } from '../../shared/contracts/smart-input'
 import { noteDevicePref } from './device-pref-bus'
@@ -80,16 +81,16 @@ export function insightReady(status: SmartStatus | null): boolean {
 }
 
 export type InsightResult<T> = { ok: true; value: T } | { ok: false; failure: Failure | null }
-export async function requestDraft(request: Omit<DraftRequest, 'requestId' | 'prefs'>, prefs: InsightPrefs = current.prefs): Promise<InsightResult<DraftTitle[]>> {
+export async function requestDraft(request: Omit<DraftRequest, 'requestId' | 'prefs'>, prefs: InsightPrefs = current.prefs, regenerate = false): Promise<InsightResult<DraftTitle[]>> {
   try {
-    const reply = await desktopApi().smart({ type: 'draft', request: { ...request, requestId: crypto.randomUUID(), prefs } })
+    const reply = await desktopApi().smart({ type: 'draft', ...aiSourceOptions('insight'), request: { ...request, requestId: crypto.randomUUID(), ...(regenerate ? { retryId: crypto.randomUUID() } : {}), prefs } })
     if (reply.type !== 'draft') return { ok: false, failure: null }
     return reply.reply.status === 'ready' ? { ok: true, value: reply.reply.value } : { ok: false, failure: reply.reply.failure }
   } catch { return { ok: false, failure: null } }
 }
-export async function requestReview(request: Omit<ReviewRequest, 'requestId' | 'prefs'>, prefs: InsightPrefs = current.prefs): Promise<InsightResult<ReviewText>> {
+export async function requestReview(request: Omit<ReviewRequest, 'requestId' | 'prefs'>, prefs: InsightPrefs = current.prefs, regenerate = false): Promise<InsightResult<ReviewText>> {
   try {
-    const reply = await desktopApi().smart({ type: 'review', request: { ...request, requestId: crypto.randomUUID(), prefs } })
+    const reply = await desktopApi().smart({ type: 'review', ...aiSourceOptions('insight'), request: { ...request, requestId: crypto.randomUUID(), ...(regenerate ? { retryId: crypto.randomUUID() } : {}), prefs } })
     if (reply.type !== 'review') return { ok: false, failure: null }
     return reply.reply.status === 'ready' ? { ok: true, value: reply.reply.value } : { ok: false, failure: reply.reply.failure }
   } catch { return { ok: false, failure: null } }

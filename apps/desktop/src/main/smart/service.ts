@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated actions, DeviceStore, adapters, a workspace reader and injected clock.
- * [OUTPUT]: Revision-guarded services, budgeted analysis, claimed creation completion, provider failures and session previews/drafts/reviews.
+ * [OUTPUT]: Revision-guarded services, durable hosted-attempt authorization, budgeted analysis, claimed completion and session previews/drafts/reviews.
  * [POS]: Lightweight main-process service; analysis loads its planner on demand and HTTP never holds a storage transaction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,7 +10,8 @@ import { payloadSize, payloadLimit, tokenBudget, questionBudget, textLimit } fro
 import type { SmartContext } from '../../domain/smart/questions'
 import type { Round } from '../../domain/smart/preview'
 import { aiFeatures, aiProviders, featureCapability, providerCapabilities } from '../../shared/contracts/values'
-import { smartActionSchema, type AiFeature, type AiProvider, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type DraftRequest, type Failure, type FailureKind, type ReviewRequest, type SmartReply, type SmartStatus, type TestOutcome, insightEvidenceSchema } from '../../shared/contracts/smart-input'
+import { smartActionSchema, type AiFeature, type AiProvider, type AnalyzeEcho, type AnalyzeReply, type AnalyzeRequest, type Diagnostics, type DraftRequest, type Failure, type FailureKind, type ReviewRequest, type SmartAction, type SmartReply, type SmartStatus, type TestOutcome, insightEvidenceSchema } from '../../shared/contracts/smart-input'
+import type { HostedInput } from '../../shared/contracts/hosted-ai'
 import type { ChatPrompt } from '../../domain/smart/insight'
 import { chatSample, sampleAnswered, type ChatAdapter, type ChatProvider } from './insight'
 import { isSecretFingerprint, parseSetting } from '@goalloom/contracts'
@@ -23,6 +24,7 @@ import { serverText } from '../../shared/i18n/server'
 import { CaptureCoordinator } from './capture'
 import type { CreationSelection } from '../../shared/contracts/capture'
 import type { Command, CommandResult } from '../../shared/contracts/commands'
+import { HostedAttempts } from './attempts'
 import { EvaluationQueue } from './queue'
 
 export interface WorkspaceReader {
@@ -31,7 +33,7 @@ export interface WorkspaceReader {
   assistance?(itemId: string, generation: string): Promise<AssistanceContext>
   context(text: string, hints: string[], referenceTime: string, target?: AnalyzeRequest['target']): Promise<SmartContext | null>
 }
-export interface ServiceOptions { store: DeviceStore; adapters: Record<AiProvider, Adapter>; chat?: Partial<Record<ChatProvider, ChatAdapter>>; reader: WorkspaceReader; now?: () => number; unsignedBuild: boolean; openExternal?: (url: string) => void; onSyncedSettings?: (entries: { key: string; value: unknown }[]) => void; completeCreation?: (command: CommandOf<'completeCreation'>) => Promise<CommandResult> }
+export interface ServiceOptions { hostedAttempts?: HostedAttempts; store: DeviceStore; hostedEligibility?: () => Promise<boolean | null>; adapters: Partial<Record<AiProvider, Adapter>>; chat?: Partial<Record<ChatProvider, ChatAdapter>>; reader: WorkspaceReader; now?: () => number; unsignedBuild: boolean; openExternal?: (url: string) => void; onSyncedSettings?: (entries: { key: string; value: unknown }[]) => void; completeCreation?: (command: CommandOf<'completeCreation'>) => Promise<CommandResult> }
 
 // Fixed, non-private sample: a real judgement plus schema check, so a key string alone never counts as connected.
 const sample = {
@@ -51,7 +53,21 @@ const metaOf = (provider: ProviderConfig) => ({
   capabilities: provider.capabilities, assistanceConsent: provider.assistanceConsent,
 })
 
+const analyzeEcho = (request: AnalyzeRequest): AnalyzeEcho => ({ requestId: request.requestId, draftSessionId: request.draftSessionId, inputRevision: request.inputRevision, manualRevision: request.manualRevision, generation: request.generation, providerRevision: request.providerRevision, contextRevision: request.contextRevision, referenceTime: request.referenceTime })
+function cancelledModelReply(action: SmartAction, provider: AiProvider): SmartReply {
+  if (action.type === 'analyze') return { type: 'analysis', reply: { status: 'cancelled', echo: analyzeEcho(action.request) } }
+  if (action.type === 'assist') {
+    const { mode: _mode, prefs: _prefs, text: _text, answer: _answer, adjustment: _adjustment, ...echo } = action.request
+    return { type: 'assistance', reply: { status: 'cancelled', echo } }
+  }
+  const failed = { status: 'failed' as const, requestId: 'request' in action && 'requestId' in action.request ? action.request.requestId : '', failure: failure('not_enabled', provider) }
+  if (action.type === 'draft') return { type: 'draft', reply: failed }
+  if (action.type === 'review') return { type: 'review', reply: failed }
+  return { type: 'cancelled' }
+}
+
 export class SmartInputService {
+  private readonly hostedAttempts: HostedAttempts
   private readonly captures: CaptureCoordinator
   private readonly evaluations = new EvaluationQueue()
   private completionChanged?: () => void
@@ -68,6 +84,7 @@ export class SmartInputService {
   private readonly now: () => number
   constructor(private readonly options: ServiceOptions) {
     this.now = options.now ?? Date.now
+    this.hostedAttempts = options.hostedAttempts ?? new HostedAttempts()
     this.captures = new CaptureCoordinator({ analyze: request => this.runAnalysis(request), abort: id => this.chains.get(id)?.abort(),
       ...(options.completeCreation ? { write: options.completeCreation } : {}), changed: () => this.completionChanged?.() })
     this.assistance = new AssistanceService({
@@ -88,7 +105,7 @@ export class SmartInputService {
   async syncedSettingEntries(): Promise<{ key: string; value: unknown }[]> {
     const config = await this.options.store.config()
     const entries: { key: string; value: unknown }[] = []
-    for (const provider of aiProviders) {
+    for (const provider of aiProviders.filter(value => value !== 'hosted')) {
       const read = await this.options.store.readKey(provider)
       if (read.state === 'saved') entries.push({ key: `ai.key.${provider}`, value: read.key })
       if (config.providers[provider].consentedAt || config.providers[provider].verifiedAt) entries.push({ key: `ai.meta.${provider}`, value: metaOf(config.providers[provider]) })
@@ -96,7 +113,7 @@ export class SmartInputService {
     }
     for (const feature of aiFeatures) {
       const setting = config.features[feature]
-      if (setting.provider || setting.enabledForGeneration) entries.push({ key: `ai.feature.${feature}`, value: { provider: setting.provider, enabled: setting.enabledForGeneration !== null } })
+      if (setting.provider !== 'hosted' && (setting.provider || setting.enabledForGeneration)) entries.push({ key: `ai.feature.${feature}`, value: { provider: setting.provider, enabled: setting.enabledForGeneration !== null } })
     }
     return entries
   }
@@ -134,12 +151,15 @@ export class SmartInputService {
     if (setting.key === 'ai.feature.smart' || setting.key === 'ai.feature.insight') {
       const feature = setting.key.slice('ai.feature.'.length) as AiFeature
       const generation = await this.options.reader.generation()
+      let changed = false
       await this.update(config => {
         const current = config.features[feature]
         const enabledForGeneration = setting.value.enabled ? generation : null
         if (current.provider === setting.value.provider && current.enabledForGeneration === enabledForGeneration) return
+        changed = true
         config.features[feature] = { provider: setting.value.provider, revision: current.revision + 1, enabledForGeneration }
       })
+      if (changed) this.releaseSession()
     }
   }
 
@@ -149,6 +169,7 @@ export class SmartInputService {
 
   private async publishProvider(provider: AiProvider): Promise<void> {
     const config = await this.options.store.config()
+    if (provider === 'hosted') return
     this.publish([{ key: `ai.meta.${provider}`, value: metaOf(config.providers[provider]) }])
   }
 
@@ -156,6 +177,16 @@ export class SmartInputService {
 
   async handle(input: unknown): Promise<SmartReply> {
     const action = smartActionSchema.parse(input)
+    if (['feature', 'forget', 'consentAssistance'].includes(action.type) && 'provider' in action && action.provider === 'hosted'
+      && (!('accountId' in action) || !action.accountId || action.accountId !== this.options.store.accountId())) return { type: 'cancelled' }
+    if (['analyze', 'draft', 'review', 'assist'].includes(action.type) && 'request' in action) {
+      const revision = this.configurationRevision
+      const config = await this.options.store.config(), feature = action.type === 'analyze' ? 'smart' : 'insight'
+      const setting = config.features[feature], source = 'source' in action ? action.source : undefined
+      if (revision !== this.configurationRevision || source && (source.provider !== setting.provider || source.revision !== setting.revision || source.sessionRevision !== this.configurationRevision
+        || source.provider === 'hosted' && (!source.accountId || source.accountId !== this.options.store.accountId()))
+        || !source && setting.provider === 'hosted') return cancelledModelReply(action, setting.provider ?? source?.provider ?? 'openrouter')
+    }
     switch (action.type) {
       case 'prepareAssistance': {
         const prepared = await this.assistance.prepare(action.request)
@@ -167,6 +198,16 @@ export class SmartInputService {
         if (action.generation === await this.options.reader.generation()) {
           await this.update(config => { config.providers[action.provider].assistanceConsent = { version: 1, at: new Date(this.now()).toISOString() } })
           await this.publishProvider(action.provider)
+        }
+        return this.reply(action.generation, null)
+      }
+      case 'consentHosted': {
+        if (action.accountId === this.options.store.accountId() && action.generation === await this.options.reader.generation()) {
+          await this.update(config => {
+            if (action.accountId !== this.options.store.accountId()) return
+            const stamp = new Date(this.now()).toISOString()
+            config.providers.hosted = { ...blankProvider(), consentedAt: stamp, capabilities: { jev: stamp, chat: stamp } }
+          })
         }
         return this.reply(action.generation, null)
       }
@@ -188,7 +229,7 @@ export class SmartInputService {
         })
         this.cooldownUntil.delete(action.provider)
         const config = await this.options.store.config()
-        this.publish([
+        if (action.provider !== 'hosted') this.publish([
           { key: `ai.key.${action.provider}`, value: null },
           { key: `ai.meta.${action.provider}`, value: metaOf(config.providers[action.provider]) },
           ...cleared.map(feature => ({ key: `ai.feature.${feature}`, value: { provider: null, enabled: false } })),
@@ -196,23 +237,30 @@ export class SmartInputService {
         return this.reply(action.generation, null)
       }
       case 'dismiss': await this.update(config => { if (!config.dismissed.includes(action.notice)) config.dismissed.push(action.notice) }); return this.reply(action.generation, null)
-      case 'openConsole': this.options.openExternal?.(JEV_PROVIDERS[action.provider].console); return { type: 'cancelled' }
+      case 'openConsole': if (action.provider === 'hosted') return { type: 'cancelled' }; this.options.openExternal?.(JEV_PROVIDERS[action.provider].console); return { type: 'cancelled' }
       case 'analyze': return { type: 'analysis', reply: await this.analyze(action.request) }
       case 'cancel': this.captures.cancelDraft(action.draftSessionId); return { type: 'cancelled' }
       case 'draft': return { type: 'draft', reply: await this.insight(action.request, async request => {
         const { draftPrompt, parseDraft } = await import('../../domain/smart/insight')
         const projected = await this.projectInsight(request)
-        return { prompt: draftPrompt(projected), parse: (content: string) => parseDraft(content, request) }
+        return { hosted: { capability: 'draft', input: projected }, prompt: draftPrompt(projected), parse: (content: string) => parseDraft(content, request) }
       }) }
       case 'review': return { type: 'review', reply: await this.insight(action.request, async request => {
         const { reviewPrompt, parseReview } = await import('../../domain/smart/insight')
         const projected = await this.projectInsight(request)
-        return { prompt: reviewPrompt(projected), parse: parseReview }
+        return { hosted: { capability: 'review', input: projected }, prompt: reviewPrompt(projected), parse: parseReview }
       }) }
     }
   }
 
+  accountChanged(): Promise<void> {
+    this.releaseSession()
+    return this.configure(() => this.options.store.activateAccount())
+  }
   async status(generation: string): Promise<SmartStatus> {
+    await this.configurationQueue
+    const owner = this.options.store.accountId()
+    const hostedEligible = owner ? await this.options.hostedEligibility?.() ?? null : null
     const config = await this.options.store.config()
     const reads = Object.fromEntries(await Promise.all(aiProviders.map(async provider => [provider, (await this.options.store.readKey(provider)).state] as const))) as Record<AiProvider, SmartStatus['providers'][AiProvider]['credential']>
     const providers = Object.fromEntries(aiProviders.map(provider => {
@@ -222,10 +270,10 @@ export class SmartInputService {
     })) as SmartStatus['providers']
     const features = Object.fromEntries(aiFeatures.map(feature => {
       const { provider, revision, enabledForGeneration } = config.features[feature]
-      const ready = usable(config, feature, provider) && reads[provider] === 'saved'
-      return [feature, { provider, revision, enabled: ready && enabledForGeneration === generation, paused: ready && enabledForGeneration !== null && enabledForGeneration !== generation }]
+      const ready = usable(config, feature, provider) && reads[provider] === 'saved' && (provider !== 'hosted' || hostedEligible === true)
+      return [feature, { provider, revision, enabled: ready && enabledForGeneration === generation, paused: provider === 'hosted' && !owner || ready && enabledForGeneration !== null && enabledForGeneration !== generation }]
     })) as SmartStatus['features']
-    return { providers, features, dismissed: config.dismissed, unsignedBuild: this.options.unsignedBuild }
+    return { sessionRevision: this.configurationRevision, hostedEligible: owner === this.options.store.accountId() ? hostedEligible : null, hostedAccountId: this.options.store.accountId(), providers, features, dismissed: config.dismissed, unsignedBuild: this.options.unsignedBuild }
   }
   private async reply(generation: string, test: TestOutcome | null): Promise<SmartReply> { return { type: 'status', status: await this.status(generation), test } }
   private configure<T>(action: () => Promise<T>): Promise<T> {
@@ -277,13 +325,14 @@ export class SmartInputService {
     })
     const stored = await this.options.store.config()
     const setting = stored.features[feature]
-    this.publish([{ key: `ai.feature.${feature}`, value: { provider: setting.provider, enabled: setting.enabledForGeneration !== null } }])
+    if (provider !== 'hosted') this.publish([{ key: `ai.feature.${feature}`, value: { provider: setting.provider, enabled: setting.enabledForGeneration !== null } }])
     if (feature === 'insight') { this.assistance.release(); for (const controller of this.insightControllers) controller.abort() }
     if (feature === 'smart') { this.configurationRevision++; this.abortAll() }
   }
 
   // --- Test every capability the provider offers with the candidate key; any pass saves it, and switches on features that had no provider yet. ---
   private async connect(generation: string, provider: AiProvider, apiKey: string | null): Promise<TestOutcome> {
+    if (provider === 'hosted') return { ok: false, failure: failure('not_enabled', provider), sampleMatched: null, results: {}, enabled: [] }
     const revision = ++this.configurationRevision
     this.abortAll()
     const controller = new AbortController()
@@ -344,7 +393,7 @@ export class SmartInputService {
   }
   private async testJev(provider: AiProvider, key: string, signal: AbortSignal): Promise<{ ok: boolean; failure: Failure | null; matched: boolean | null }> {
     let output: EvaluateOutput
-    try { output = await this.options.adapters[provider](key, { ...sample, signal }) }
+    try { output = await this.options.adapters[provider]!(key, { ...sample, signal }) }
     catch (error) { return { ok: false, failure: error instanceof ProviderFailure ? error.failure : failure('unavailable', provider), matched: null } }
     try {
       const horizon = checkChoice(output.answers.horizon, Object.keys(sample.questions.horizon.criteria), output.precision)
@@ -362,7 +411,7 @@ export class SmartInputService {
   analyze(request: AnalyzeRequest): Promise<AnalyzeReply> { return this.captures.analyze(request) }
   private async runAnalysis(request: AnalyzeRequest): Promise<AnalyzeReply> {
     const revision = this.configurationRevision
-    const echo: AnalyzeEcho = { requestId: request.requestId, draftSessionId: request.draftSessionId, inputRevision: request.inputRevision, manualRevision: request.manualRevision, generation: request.generation, providerRevision: request.providerRevision, contextRevision: request.contextRevision, referenceTime: request.referenceTime }
+    const echo = analyzeEcho(request)
     const failed = (value: Failure): AnalyzeReply => ({ status: 'failed', echo, failure: value })
     // Register before file reads: cancel/release must also cover a request still in preflight.
     const controller = new AbortController()
@@ -396,16 +445,28 @@ export class SmartInputService {
       if ('kind' in plan) return failed({ ...failure('too_large', provider), message: plan.message })
       checkCurrent()
       if (this.cacheGeneration !== request.generation) { this.clearCache(); this.cacheGeneration = request.generation }
-      const cacheKey = createHash('sha256').update(JSON.stringify([request.generation, provider, setting.revision, JEV_PROVIDERS[provider].model, request.target, plan.state, plan.batches, context.periods, context.candidates, context.relations])).digest('hex')
+      const cacheKey = createHash('sha256').update(JSON.stringify([request.generation, provider, setting.revision, JEV_PROVIDERS[provider].model, request.retryId, request.target, plan.state, plan.batches, context.periods, context.candidates, context.relations])).digest('hex')
       const cached = this.cache.get(cacheKey)
       if (cached?.reply.status === 'ready') { this.cache.delete(cacheKey); this.cache.set(cacheKey, cached); return { ...cached.reply, echo } }
       const diagnostics: Diagnostics[] = []
+      let batchIndex = 0
+      let authorization: Promise<void> | undefined
       const call = async (state: typeof plan.state, questions: typeof plan.core.questions): Promise<Round> => {
         checkCurrent()
         const size = payloadSize(state, questions)
         if (size.bytes > payloadLimit || size.tokens > tokenBudget || Object.keys(questions).length > questionBudget) throw new ProviderFailure(failure('too_large', provider))
+        const identity = createHash('sha256').update(`hosted-batch-v1:${request.requestId}:${batchIndex++}`).digest('hex')
+        const actionId = `${identity.slice(0, 8)}-${identity.slice(8, 12)}-4${identity.slice(13, 16)}-8${identity.slice(17, 20)}-${identity.slice(20, 32)}`
         const started = this.now()
-        const output = await this.evaluations.run(controller.signal, () => this.options.adapters[provider](read.key, { state, questions, signal: controller.signal }))
+        const output = await this.evaluations.run(controller.signal, async () => {
+          checkCurrent()
+          if (provider === 'hosted') {
+            authorization ??= this.authorizeHosted(['smart', this.options.store.accountId(), request.generation, request.text.trim(), request.target?.horizon ?? null, request.parentHints], request.retryId)
+            await authorization
+            checkCurrent()
+          }
+          return this.options.adapters[provider]!(read.key, { actionId, state, questions, signal: controller.signal })
+        })
         checkCurrent()
         diagnostics.push({ provider, ...output.meta, estimatedInputTokens: size.tokens, latencyMs: Math.max(0, Math.round(this.now() - started)) })
         return { answers: output.answers, precision: output.precision }
@@ -420,6 +481,7 @@ export class SmartInputService {
       const combined: Round = { answers: Object.assign({}, ...rounds.map(round => round.answers)), precision }
       const reply: AnalyzeReply = { status: 'ready', echo, preview: matchedPreview(context, request, plan, combined), diagnostics }
       if (config.providers[provider].lastFailure) await this.record(provider, null)
+      checkCurrent()
       const bytes = Buffer.byteLength(JSON.stringify(reply))
       while (this.cache.size && (this.cache.size >= 32 || this.cacheBytes + bytes > 512 * 1024)) { const key = this.cache.keys().next().value!; this.cacheBytes -= this.cache.get(key)!.bytes; this.cache.delete(key) }
       if (bytes <= 512 * 1024) { this.cache.set(cacheKey, { reply, bytes }); this.cacheBytes += bytes }
@@ -431,6 +493,15 @@ export class SmartInputService {
       if (error instanceof ProviderFailure) { await this.record(provider, error.failure); return failed(error.failure) }
       return failed(failure('unavailable', provider))
     } finally { if (this.chains.get(request.requestId) === controller) this.chains.delete(request.requestId) }
+  }
+
+  private async authorizeHosted(identity: unknown, retryId?: string): Promise<void> {
+    let entry
+    try {
+      const original = await this.hostedAttempts.reserve(['intent', identity])
+      entry = retryId ? await this.hostedAttempts.reserve(['explicit-attempt', identity, retryId]) : original
+    } catch { throw new ProviderFailure(failure('unavailable', 'hosted')) }
+    if (!entry.fresh) throw new ProviderFailure(failure('result_not_delivered', 'hosted'))
   }
 
   private async projectInsight<R extends DraftRequest | ReviewRequest>(request: R): Promise<R> {
@@ -450,7 +521,7 @@ export class SmartInputService {
   }
 
   // --- Flow insight: one chat call per request on the insight feature's provider; gated like analysis, never cached or logged. ---
-  private async insight<R extends DraftRequest | ReviewRequest, T>(request: R, build: (request: R) => Promise<{ prompt: ChatPrompt; parse: (content: string) => T }>):
+  private async insight<R extends DraftRequest | ReviewRequest, T>(request: R, build: (request: R) => Promise<{ hosted: HostedInput; prompt: ChatPrompt; parse: (content: string) => T }>):
     Promise<{ status: 'ready'; requestId: string; value: T } | { status: 'failed'; requestId: string; failure: Failure }> {
     const failed = (value: Failure) => ({ status: 'failed' as const, requestId: request.requestId, failure: value })
     const revision = this.configurationRevision
@@ -469,13 +540,20 @@ export class SmartInputService {
       const read = await this.options.store.readKey(provider)
       if (read.state !== 'saved') return failed(credentialFailure(read.state, provider, 'not_enabled'))
       if (controller.signal.aborted || revision !== this.configurationRevision) throw new Aborted()
-      const { prompt, parse } = await build(request)
-      const content = await chat(read.key, prompt, controller.signal)
+      const { prompt, parse, hosted } = await build(request)
+      if (provider === 'hosted') {
+        const intent = 'tasks' in request ? ['draft', request.intentKey ?? null, request.tasks.map(task => ({ id: task.id, targetHorizon: task.targetHorizon }))] : ['review', request.scope, request.intentKey ?? null]
+        await this.authorizeHosted([this.options.store.accountId(), request.generation, intent], request.retryId)
+        if (controller.signal.aborted || revision !== this.configurationRevision) throw new Aborted()
+      }
+      const content = await chat(read.key, prompt, controller.signal, hosted)
       if (controller.signal.aborted || revision !== this.configurationRevision || request.generation !== await this.options.reader.generation()) return failed(failure('not_enabled', provider))
       if (config.providers[provider].lastFailure) await this.record(provider, null)
+      if (controller.signal.aborted || revision !== this.configurationRevision) return failed(failure('not_enabled', provider))
       try { return { status: 'ready' as const, requestId: request.requestId, value: parse(content) } }
       catch { return failed(failure('malformed_response', provider)) }
     } catch (error) {
+      if (controller.signal.aborted || revision !== this.configurationRevision) return failed(failure('not_enabled', provider))
       if (error instanceof ProviderFailure) { await this.record(provider, error.failure); return failed(error.failure) }
       return failed(failure(error instanceof Aborted || controller.signal.aborted ? 'not_enabled' : 'unavailable', provider))
     } finally { this.connections.delete(controller); this.insightControllers.delete(controller) }

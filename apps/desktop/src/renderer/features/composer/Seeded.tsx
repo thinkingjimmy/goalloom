@@ -20,6 +20,7 @@ import './composer.css'
 
 export interface ComposerSeed {
   key: number
+  attemptId?: string
   mode: 'next' | 'batch' | 'free'
   horizon: ChildHorizon
   period: PlanningPeriod
@@ -52,7 +53,7 @@ export function Seeded({ seed, snapshot, flows, submit, busy, error, close }: { 
     const siblings = (id: string) => snapshot.relations.filter(edge => edge.parentId === id).map(edge => snapshot.items.find(item => item.id === edge.childId)?.title).filter((value): value is string => !!value).slice(0, 20)
     const root = (item: ItemSummary) => flows.of(item.id).find(flow => flow.id !== item.id)?.title ?? null
     // StrictMode replays this effect; reuse the request while subscribing only the current effect to its result.
-    pendingDraft.current ??= requestDraft({ generation: snapshot.workspace.generation, board: boardDigest(snapshot, flows), tasks: seed.parents.map(parent => ({
+    pendingDraft.current ??= requestDraft({ ...(seed.attemptId ? { retryId: seed.attemptId } : {}), generation: snapshot.workspace.generation, board: boardDigest(snapshot, flows), tasks: seed.parents.map(parent => ({
       id: parent.id, parent: parent.title, goal: root(parent), target: periodText(seed.period, seed.next), targetHorizon: seed.horizon, siblings: siblings(parent.id) })) })
     void pendingDraft.current.then(result => {
       if (!active) return

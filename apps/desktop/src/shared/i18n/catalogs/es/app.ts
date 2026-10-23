@@ -207,6 +207,7 @@ export const appMessages: typeof source = {
       credential_unreadable: () => 'No se puede leer la clave guardada. El archivo cifrado se conserva. Comprueba el acceso a las credenciales del sistema y vuelve a intentarlo',
       credential_unavailable: () => 'La protección de credenciales del sistema no está disponible por ahora; no se guardó ni se leyó la clave. Vuelve a intentarlo más tarde',
       not_enabled: () => 'La entrada inteligente no está activada o su configuración cambió; este contenido no se envió',
+      result_not_delivered: () => 'No se recibió el resultado de IA. Se conservan la entrada y las tareas guardadas.',
     },
     textTooLong: (limit: number) => `El texto supera los ${limit} caracteres. Organízalo por partes o guárdalo antes en Later`,
     tooManyItems: 'Se pueden organizar hasta 8 elementos a la vez. Escríbelos por partes o guárdalos antes en Later',

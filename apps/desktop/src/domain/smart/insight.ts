@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated draft/review requests (bounded board text, code-computed signals, device preferences) and raw model text.
- * [OUTPUT]: draftPrompt / reviewPrompt (system + user messages), parseDraft / parseReview (sanitised, id-aligned output), prefsText.
+ * [OUTPUT]: draftPrompt / reviewPrompt (system + user messages only), parseDraft / parseReview (sanitised, id-aligned output), prefsText.
  * [POS]: Pure Chinese insight prompts and output validation; callers compute signals, providers perform network calls.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

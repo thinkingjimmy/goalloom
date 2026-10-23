@@ -207,6 +207,7 @@ export const appMessages: typeof source = {
       credential_unreadable: () => 'The saved key cannot be read. Its encrypted file is unchanged. Check system credential access and try again.',
       credential_unavailable: () => 'System credential protection is unavailable, so the key wasn’t saved or read. Try again later.',
       not_enabled: () => 'Smart input isn’t enabled or its settings changed, so this content wasn’t sent',
+      result_not_delivered: () => 'The AI result was not delivered. Your input and saved tasks are kept.',
     },
     textTooLong: (limit: number) => `The text exceeds ${limit} characters. Split it up, or save to Later for now.`,
     tooManyItems: 'Up to 8 items at a time. Split your input, or save to Later for now.',

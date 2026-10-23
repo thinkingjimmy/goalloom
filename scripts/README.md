@@ -21,3 +21,13 @@ scripts/
 从仓库根目录调用。`pnpm parity:digest` 与 `pnpm test:phase0` 仍是根脚本。桌面命令（`pnpm test`、`pnpm build`、`pnpm test:ui` 等）是转到 `@goalloom/desktop` 的薄封装，工作目录为 `apps/desktop`。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+`hosted-ai/` contains manual development Edge deployment, rollback-only PostgreSQL checks, controlled HTTP acceptance, affected-feature acceptance and a read-only UTC usage report. See [tool contracts](hosted-ai/README.md). No model calls occur in deployment, SQL checks, status checks or usage reporting.
+
+`hosted-ai/production.mjs` is the separate explicitly authorized production Edge entry after the guarded SQL/history deployment. It verifies source/JWT checks without configuring Secrets or allocating a second budget. `deploy/transport.mjs` shares credential-free, bounded read-only transport recovery between the isolated clients.
+
+`hosted-ai/activate-production.mjs` separately freezes settled development admissions before allocating the original shared remainder to production. It requires owner-confirmed Secrets, verifies source/history/JWT, preserves fees, and records resumable activation evidence without model calls.
+
+`hosted-ai/acceptance-target.mjs` binds manual Auth/live/receipt runners to an explicit environment, isolated private session and evidence prefix. Production runs retain their original actions and fees; partial receipt checks report missing capability acceptance explicitly.
+
+`hosted-ai/content-rollout.mjs` provides explicit environment audit/pause/migrate/enable with existing-budget preservation. `hosted-ai/schema-state.mjs` verifies standalone hosted RPC source without inventing core migration history. `hosted-ai/content-minimization/` contains metadata-only privacy controls and the affected feature runner. Production activation from the older allocation script is retired for this rollout.

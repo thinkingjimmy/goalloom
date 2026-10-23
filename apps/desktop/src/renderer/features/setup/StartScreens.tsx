@@ -7,11 +7,12 @@
 import { Input } from '../../components/ui/fields'
 import { cn } from '../../lib/utils'
 import { useId, useState, type ReactNode } from 'react'
-import { messages, settingsMessages as settings } from '../../i18n'
+import { currentLocale, messages, settingsMessages as settings } from '../../i18n'
 import { Icon } from '../../components/icons'
 import { LanguageSelect } from '../../components/LanguageSelect'
 import { Button } from '../../components/ui/button'
 import appIcon from '../../assets/app-icon.png'
+import { hostedCatalog } from '../../../shared/i18n/hosted'
 import { passwordReady } from './entry'
 import { AuthMark } from '../../components/AuthMark'
 import type { AuthProvider } from '../../../shared/contracts/sync'
@@ -65,8 +66,8 @@ export function ChoiceScreen({ waiting, provider, busy = false, onLocal, onSignI
       </button>
       <div className="start-card min-h-37.5 px-6 py-5.5 flex flex-col items-start gap-2.5 rounded-[16px] bg-raised text-left" data-selected={waiting || undefined} data-waiting={waiting || undefined}>
         <span className="start-card-icon w-9 h-9 rounded-[10px] grid place-items-center bg-hover text-soft" aria-hidden="true"><Icon name="cloud" size={20} /></span>
-        <b>{copy.sync}</b>
-        {!waiting && <small>{copy.googleNote}</small>}
+        <b>{hostedCatalog[currentLocale()].startTitle}</b>
+        {!waiting && <small>{hostedCatalog[currentLocale()].startNote}</small>}
         <div className="start-providers flex flex-col gap-2 w-full mt-1">
           {(['apple', 'google'] as const).map(id => <Button key={id} type="button" disabled={waiting || busy} onClick={() => onSignIn(id)}>
             <AuthMark provider={id} />{id === 'apple' ? copy.apple : copy.google}

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Review selection, generation/revision, shared Select/link rendering, placement-local ownership, cached drafting and guarded writes.
- * [OUTPUT]: Resumable board-ordered review with indented subtasks, independent archival, placement-local group destinations and guarded writes with independent remote children.
+ * [OUTPUT]: Resumable board-ordered review with indented subtasks, independent archival, placement-local group destinations and guarded writes with independent remote children and explicit regeneration that retains edits.
  * [POS]: Review session owner; read contexts separate historical facts from current command versions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,9 +10,10 @@ import { localNestingParentId } from '../../../domain/nesting'
 import { nestingText } from '../../../shared/i18n/nesting'
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { ReviewContext, Snapshot } from '../../../shared/contracts/queries'
-import { insightMessages as t, messages, horizonNames } from '../../i18n'
+import { insightMessages as t, smartMessages, messages, horizonNames } from '../../i18n'
 import { desktopApi, type Action, type PreparedWrite, type WriteResult } from '../../state/use-workspace'
 import { useFlows } from '../../state/flows'
+import { aiScope, useAiScope } from '../../state/ai-scope'
 import { requestReviewDraft } from '../../state/review-drafts'
 import { periodDates, planningLabel } from '../../lib/periods'
 import { flowVars } from '../../lib/colors'
@@ -34,6 +35,7 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
   due: ReviewDue; snapshot: Snapshot; open: boolean; ready: boolean
   write: PreparedWrite; retryWrite: (generation: string) => Promise<WriteResult>; busy: boolean; close: () => void; complete: () => void
 }) {
+  const scope = useAiScope(), previousScope = useRef(scope)
   const [context, setContext] = useState<ReviewContext | null>(null)
   const [contextReady, setContextReady] = useState(false)
   const [loadError, setLoadError] = useState(false), [saveError, setSaveError] = useState(false)
@@ -42,11 +44,21 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
   const choiceFor = (id: string): Decision => decisions.get(id) ?? 'defer'
   const [plans, setPlans] = useState<Record<ReviewHorizon, PlanRow[] | null>>({ week: null, month: null })
   const [drafting, setDrafting] = useState<Record<ReviewHorizon, boolean>>({ week: false, month: false }), [working, setWorking] = useState(false)
+  const [draftErrors, setDraftErrors] = useState<Record<ReviewHorizon, string | null>>({ week: null, month: null })
+  const draftTickets = useRef({ week: 0, month: 0 })
   const [pendingWrite, setPendingWrite] = useState(false)
   const pendingCommit = useRef<(() => void) | null>(null)
   const dialog = useRef<HTMLDialogElement>(null), body = useRef<HTMLDivElement>(null)
   const alive = useRef(true), reading = useRef(0), writing = useRef(false), processed = useRef(new Set<string>())
   useEffect(() => { alive.current = true; return () => { alive.current = false; reading.current++ } }, [])
+  useEffect(() => {
+    if (previousScope.current === scope) return
+    previousScope.current = scope
+    setDrafting({ week: false, month: false })
+    draftTickets.current.week++; draftTickets.current.month++
+    setDraftErrors({ week: null, month: null })
+    setPlans(previous => ({ week: previous.week?.map(row => row.typed ? row : { ...row, title: '' }) ?? null, month: previous.month?.map(row => row.typed ? row : { ...row, title: '' }) ?? null }))
+  }, [scope])
   const generation = snapshot.workspace.generation
   const target = due.month ?? due.week!, targets = [due.month, due.week].flatMap(value => value ? [value] : [])
   const periodName = (horizon: ReviewHorizon, next = false) => {
@@ -97,22 +109,28 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
     if (!open || !planning || !step.startsWith('plan')) return
     const horizon = step === 'planMonth' ? 'month' : 'week'
     if (plans[horizon]) return
-    const parents = planCandidates(planning, horizon), next = due[horizon]!.next
+    const parents = planCandidates(planning, horizon)
     const rows = parents.map(parent => ({ parent, title: '', on: true, typed: false }))
     setPlans(previous => ({ ...previous, [horizon]: rows }))
     if (!ready || !rows.length) return
-    setDrafting(previous => ({ ...previous, [horizon]: true }))
-    void requestReviewDraft({ generation, board: boardDigest(planning, flows), tasks: parents.map(parent => ({ id: parent.id,
-      parent: parent.title, goal: flows.of(parent.id).find(flow => flow.id !== parent.id)?.title ?? null,
-      target: periodText(next, next.id !== snapshot.periods.find(period => period.horizon === horizon)?.id), targetHorizon: horizon, siblings: [] })) }, `${horizon}:${next.startDate}`)
-      .then(reply => {
-        if (!alive.current) return
-        setDrafting(previous => ({ ...previous, [horizon]: false }))
-        if (!reply.ok) return
-        const titles = new Map(reply.value.map(value => [value.id, value.title]))
-        setPlans(previous => ({ ...previous, [horizon]: previous[horizon]!.map(row => row.typed ? row : { ...row, title: titles.get(row.parent.id) ?? row.title }) }))
-      })
+    void generatePlan(horizon, false)
   }, [open, step, planning, plans, ready, generation, due, flows])
+
+  const generatePlan = async (horizon: ReviewHorizon, regenerate: boolean) => {
+    if (!planning || !due[horizon] || drafting[horizon]) return
+    const ticket = ++draftTickets.current[horizon], owner = aiScope(), next = due[horizon]!.next
+    const parents = planCandidates(planning, horizon)
+    setDrafting(previous => ({ ...previous, [horizon]: true }))
+    setDraftErrors(previous => ({ ...previous, [horizon]: null }))
+    const reply = await requestReviewDraft({ generation, board: boardDigest(planning, flows), tasks: parents.map(parent => ({ id: parent.id,
+      parent: parent.title, goal: flows.of(parent.id).find(flow => flow.id !== parent.id)?.title ?? null,
+      target: periodText(next, next.id !== snapshot.periods.find(period => period.horizon === horizon)?.id), targetHorizon: horizon, siblings: [] })) }, `${horizon}:${next.startDate}`, undefined, regenerate)
+    if (!alive.current || owner !== aiScope() || draftTickets.current[horizon] !== ticket) return
+    setDrafting(previous => ({ ...previous, [horizon]: false }))
+    if (!reply.ok) { setDraftErrors(previous => ({ ...previous, [horizon]: reply.failure?.message ?? t.summaryFailed })); return }
+    const titles = new Map(reply.value.map(value => [value.id, value.title]))
+    setPlans(previous => ({ ...previous, [horizon]: previous[horizon]?.map(row => row.typed ? row : { ...row, title: titles.get(row.parent.id) ?? row.title }) ?? null }))
+  }
 
   const commit = async (action: Action | (() => Promise<Action | null>), confirmed: () => void) => {
     const reply = await write(typeof action === 'function' ? action : async () => action, generation)
@@ -238,7 +256,10 @@ export function ReviewDrawer({ due, snapshot, open, ready, write, retryWrite, bu
           {step.startsWith('plan') && <section className="review-section flex flex-col gap-3">
             <h3 className="review-intro text-foreground m-0 text-[19px] leading-[1.5] font-semibold">{t.reviewArrange(periodName(planHorizon, true))}</h3>
             {!hasHistory && <p className="review-note m-0 text-[12px] leading-[1.8] text-muted-foreground">{t.reviewNoHistory}</p>}
-            <h3>{t.reviewNewPlans}</h3>
+            <div className="flex items-center justify-between gap-3"><h3>{t.reviewNewPlans}</h3>
+              {ready && !!rows?.length && <TextButton disabled={currentDrafting || disabled} aria-description={smartMessages.retryHint} onClick={() => void generatePlan(planHorizon, true)}>{smartMessages.retry}</TextButton>}
+            </div>
+            {draftErrors[planHorizon] && <p className="review-note" role="alert">{draftErrors[planHorizon]}</p>}
             <p className="review-note m-0 text-[12px] leading-[1.8] text-muted-foreground">{rows?.length ? ready ? t.planNote(parentName, periodName(planHorizon, true)) : t.planManual(parentName, periodName(planHorizon, true)) : t.planNone}</p>
             <div className="review-plan-list flex flex-col">{rows?.map((row, index) => <div key={row.parent.id} className="review-plan-row relative" data-on={row.on}>
               <div className="review-plan-head flex items-start justify-between gap-4">

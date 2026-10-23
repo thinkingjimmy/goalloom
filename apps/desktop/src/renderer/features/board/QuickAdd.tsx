@@ -5,6 +5,7 @@
  * [POS]: Immediate board creation without an implicit tail override; CaptureInput binds draft revisions, main completes optional parents and storage owns relationship constraints/placement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { aiSource, aiSourceOptions } from '../../state/ai-scope'
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'
 import { TextButton } from '../../components/ui/button'
@@ -27,7 +28,7 @@ import { nestingText } from '../../../shared/i18n/nesting'
 export interface SplitParent { id: string; title: string }
 type Choice = { kind: 'none' } | { kind: 'join'; id: string } | { kind: 'new'; color: number } | { kind: 'split'; parent: SplitParent }
 interface NestingDraft extends SplitParent { version: number; placementVersion: number }
-export interface QuickAddDraft { title: string; choice: Choice; manualFlow?: boolean; smartConsent?: number | null; nesting?: NestingDraft | null }
+export interface QuickAddDraft { title: string; choice: Choice; manualFlow?: boolean; smartConsent?: number | null; smartSource?: string | null; nesting?: NestingDraft | null }
 type Matching = { key: string } & ({ kind: 'pending' } | { kind: 'ready'; parents: SemanticParent[] } | { kind: 'failed'; message: string })
 
 export function QuickAdd({ horizon, period, periodName, expired, retarget, drafts, flows, items, split, nestingTarget, submit, busy, close, snapshot, ai }: { horizon: ItemHorizon; period: PlanningPeriod | null; periodName: string; expired: boolean; retarget: () => void; drafts: Map<string, QuickAddDraft>; flows: Flows; items: ItemSummary[]; split: SplitParent | null; nestingTarget?: ItemSummary | null; submit: (action: Action) => Promise<unknown>; busy: boolean; close: () => void; snapshot?: Snapshot; ai?: Ai | undefined }) {
@@ -37,29 +38,34 @@ export function QuickAdd({ horizon, period, periodName, expired, retarget, draft
   const [nesting, setNesting] = useState<NestingDraft | null>(() => drafts.get(draftKey)?.nesting ?? null)
   const nestingParent = nesting ? items.find(item => item.id === nesting.id) : undefined
   const status = ai?.status?.features.smart
+  const sourceIdentity = JSON.stringify(aiSource('smart') ?? null)
+  const [smartSource, setSmartSource] = useState(() => drafts.get(draftKey)?.smartSource ?? (title.trim() ? null : sourceIdentity))
   const [manualFlow, setManualFlow] = useState(() => !!split || drafts.get(draftKey)?.manualFlow || choice.kind !== 'none')
   const [smartConsent, setSmartConsent] = useState(() => drafts.get(draftKey)?.smartConsent !== undefined ? drafts.get(draftKey)!.smartConsent! : status?.enabled ? status.revision : null)
   const [composing, setComposing] = useState(false)
   const capture = useRef(new CaptureInput()), manualRevision = useRef(0)
   const revision = useRef(0), saving = useRef(false), choiceRef = useRef(choice)
   const [matching, setMatching] = useState<Matching | null>(null), [attempt, setAttempt] = useState(0)
-  useLayoutEffect(() => { drafts.set(draftKey, { title, choice, manualFlow, smartConsent, nesting }) }, [drafts, draftKey, title, choice, manualFlow, smartConsent, nesting])
-  const canMatch = !!snapshot && !!status?.enabled && smartConsent === status.revision && !manualFlow && !nesting && horizon !== 'later' && !expired
+  useLayoutEffect(() => { drafts.set(draftKey, { title, choice, manualFlow, smartConsent, smartSource, nesting }) }, [drafts, draftKey, title, choice, manualFlow, smartConsent, smartSource, nesting])
+  const canMatch = !!snapshot && !!status?.enabled && smartConsent === status.revision && smartSource === sourceIdentity && !manualFlow && !nesting && horizon !== 'later' && !expired
   const request = () => capture.current.request(snapshot!, status!.revision, title, revision.current, manualRevision.current, { horizon, startDate: period?.startDate ?? null })
-  const matchingKey = JSON.stringify([capture.current.sessionId, title.trim(), revision.current, manualRevision.current, snapshot?.workspace.generation, snapshot?.workspace.revision, snapshot?.periods.map(period => period.id), status?.revision, period?.id])
+  const matchingKey = JSON.stringify([capture.current.sessionId, title.trim(), revision.current, manualRevision.current, snapshot?.workspace.generation, snapshot?.workspace.revision, snapshot?.periods.map(period => period.id), status?.revision, sourceIdentity, period?.id])
   const currentMatch = canMatch && !composing && matching?.key === matchingKey ? matching : null
-  const needsConsent = !!snapshot && !!status?.enabled && smartConsent !== status.revision && !manualFlow && !nesting && horizon !== 'later' && !expired && !!title.trim()
-  useEffect(() => { if (!title.trim()) setSmartConsent(status?.enabled ? status.revision : null) }, [title, status?.enabled, status?.revision])
+  const needsConsent = !!snapshot && !!status?.enabled && (smartConsent !== status.revision || smartSource !== sourceIdentity) && !manualFlow && !nesting && horizon !== 'later' && !expired && !!title.trim()
+  useEffect(() => { if (!title.trim()) { setSmartConsent(status?.enabled ? status.revision : null); setSmartSource(sourceIdentity) } }, [title, status?.enabled, status?.revision, sourceIdentity])
   useEffect(() => {
     capture.current.cancel()
     if (!canMatch || composing || !title.trim()) return
     let active = true
     const timer = setTimeout(async () => {
-      const submitted = request()
+      const submitted = await request()
+      if (!active) return
       setMatching({ key: matchingKey, kind: 'pending' })
       try {
-        const result = await desktopApi().smart({ type: 'analyze', request: submitted })
-        if (!active || result.type !== 'analysis' || result.reply.echo.requestId !== submitted.requestId) return
+        const result = await desktopApi().smart({ type: 'analyze', ...aiSourceOptions('smart'), request: submitted })
+        if (!active) return
+        if (result.type !== 'analysis') { setMatching(null); return }
+        if (result.reply.echo.requestId !== submitted.requestId) return
         const reply = result.reply
         if (reply.status === 'cancelled') { setMatching(null); return }
         if (reply.status === 'failed') {
@@ -101,7 +107,7 @@ export function QuickAdd({ horizon, period, periodName, expired, retarget, draft
       if (parentId && expectedParentVersion === null) return
       const result = await submit({ type: 'create', title: text, horizon, ...(period ? { period: { kind: 'date' as const, startDate: period.startDate } } : {}), parentId, expectedParentVersion, flowColor: !nesting && choice.kind === 'new' ? choice.color : null,
         ...(nesting ? { nesting: { parentId: nesting.id, expectedParentVersion: nestingParent?.version ?? nesting.version, expectedParentPlacementVersion: nestingParent?.placement.version ?? nesting.placementVersion } } : {}),
-        ...(canMatch ? { smartCapture: { request: request(), allowPlacement: false, allowParents: true } } : {}) })
+        ...(canMatch ? { smartCapture: { request: await request(), allowPlacement: false, allowParents: true } } : {}) })
       if (!result) return
       capture.current.rotate()
       if (revision.current === submittedRevision) setTitle('')
@@ -133,7 +139,7 @@ export function QuickAdd({ horizon, period, periodName, expired, retarget, draft
     </Popover>}
     <textarea ref={input} className="quick-add-title" aria-label={messages.newToColumn(periodName)} aria-description={nestingLabel} placeholder={messages.titlePlaceholder} autoFocus value={title} rows={1} maxLength={500}
       onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)}
-      onChange={event => { revision.current++; setTitle(event.target.value.replace(/\r?\n/g, ' ')) }}
+      onChange={event => { const value = event.target.value.replace(/\r?\n/g, ' '); if (value.trim() !== title.trim()) capture.current.inputChanged(); revision.current++; setTitle(value) }}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing || composing) return
         if (event.key === 'Tab' && !event.metaKey && !event.ctrlKey && !event.altKey) {
@@ -154,8 +160,9 @@ export function QuickAdd({ horizon, period, periodName, expired, retarget, draft
         : currentMatch?.kind === 'pending' ? t.inlinePending
         : currentMatch?.kind === 'failed' ? currentMatch.message
         : suggested.length ? `Jev · ${t.under(suggested.map(parent => parent.title))}` : t.inlineNoMatch}</span>
-      {(needsConsent || currentMatch?.kind === 'failed') && <TextButton type="button" disabled={busy} onClick={() => {
-        if (needsConsent) setSmartConsent(status!.revision)
+      {(needsConsent || currentMatch?.kind === 'failed') && <TextButton type="button" aria-description={t.retryHint} title={t.retryHint} disabled={busy} onClick={() => {
+        capture.current.retry()
+        if (needsConsent) { setSmartSource(sourceIdentity); setSmartConsent(status!.revision) }
         else setAttempt(value => value + 1)
         input.current?.focus()
       }}>{needsConsent ? t.resend : t.retry}</TextButton>}

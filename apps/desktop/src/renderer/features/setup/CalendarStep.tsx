@@ -19,8 +19,8 @@ import { OnboardingFrame } from './OnboardingFrame'
 import { TimezoneSelect } from './TimezoneSelect'
 import type { CalendarDraft, useSetupCalendar } from './use-setup-calendar'
 
-export function CalendarStep({ draft, change, live, zones, next, busy, back }: {
-  draft: CalendarDraft; change: (patch: Partial<CalendarDraft>) => void; live: ReturnType<typeof useSetupCalendar>; zones: string[]; next: () => void; busy: boolean; back?: () => void
+export function CalendarStep({ draft, change, live, zones, next, busy, back, skipAi = false }: {
+  skipAi?: boolean; draft: CalendarDraft; change: (patch: Partial<CalendarDraft>) => void; live: ReturnType<typeof useSetupCalendar>; zones: string[]; next: () => void; busy: boolean; back?: () => void
 }) {
   const timezoneLabel = useId(), [changing, setChanging] = useState(draft.anchorMode !== 'today')
   const cards = useRef<HTMLDivElement>(null)
@@ -41,7 +41,7 @@ export function CalendarStep({ draft, change, live, zones, next, busy, back }: {
     <SelectTrigger className="pill-trigger" aria-label={messages.weekStart}><SelectValue /></SelectTrigger>
     <SelectContent>{[1, 2, 3, 4, 5, 6, 7].map(day => <SelectItem key={day} value={String(day)}>{weekdayName(day)}</SelectItem>)}</SelectContent>
   </Select>
-  return <OnboardingFrame step={0} label={messages.stepCalendar} note={messages.calendarLockNote} lock
+  return <OnboardingFrame skipAi={skipAi} step={0} label={messages.stepCalendar} note={messages.calendarLockNote} lock
     actions={<>{back && <Button type="button" variant="ghost" disabled={busy} onClick={back}>{messages.previousStep}</Button>}<Button type="button" disabled={busy || !live.periods} onClick={next}>{messages.nextStep}<Icon name="forward" size={16} /></Button></>}>
     <section className="onboarding-calendar calendar-choice flex flex-col gap-7">
       <header className="onboarding-intro flex flex-col items-start gap-3">

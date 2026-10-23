@@ -101,10 +101,10 @@ export async function runInlineCaptureFeedback({ app, page, out, ids, check }) {
   await set({ noMatches: false, failAll: true })
   const retryTitle = 'Retry the Delivery validation task'
   await field.fill(retryTitle)
-  await feedback.getByRole('button', { name: '重试', exact: true }).waitFor()
+  await feedback.getByRole('button', { name: '重新生成', exact: true }).waitFor()
   await page.screenshot({ path: `${out}/inline-failed.png` })
   await set({ failAll: false })
-  await feedback.getByRole('button', { name: '重试', exact: true }).click()
+  await feedback.getByRole('button', { name: '重新生成', exact: true }).click()
   await feedback.filter({ hasText: 'Delivery target' }).waitFor()
   assert.equal(await field.inputValue(), retryTitle)
   assert.equal(await field.evaluate(node => node === document.activeElement), true)
@@ -114,7 +114,7 @@ export async function runInlineCaptureFeedback({ app, page, out, ids, check }) {
   await set({ failAll: true })
   const failedTitle = 'Save Delivery locally after a failed match'
   await field.fill(failedTitle)
-  await feedback.getByRole('button', { name: '重试', exact: true }).waitFor()
+  await feedback.getByRole('button', { name: '重新生成', exact: true }).waitFor()
   const savedAfterFailure = await save(failedTitle)
   assert.equal(savedAfterFailure.placement.horizon, 'day')
   await set({ failAll: false })

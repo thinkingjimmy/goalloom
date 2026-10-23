@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Step, content, note/actions, shared language control and optional portal action ref.
- * [OUTPUT]: Three-step calendar/direction/AI frame: progress at the top left, one centred scrolling content column (titles stay put between steps) and a note/actions row pinned to the bottom without a bar.
+ * [OUTPUT]: Eligibility-aware two/three-step calendar/direction/AI frame: progress at the top left, one centred scrolling content column (titles stay put between steps) and a note/actions row pinned to the bottom without a bar.
  * [POS]: Shared setup layout; keeps confirmation controls in a stable position.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -10,10 +10,10 @@ import { Icon } from '../../components/icons'
 import { LanguageSelect } from '../../components/LanguageSelect'
 import './onboarding.css'
 
-export function OnboardingFrame({ step, label, children, note, lock = false, actions, actionsRef }: {
-  step: 0 | 1 | 2; label: string; children: ReactNode; note: ReactNode; lock?: boolean; actions: ReactNode; actionsRef?: Ref<HTMLDivElement>
+export function OnboardingFrame({ step, label, children, note, lock = false, actions, actionsRef, skipAi = false }: {
+  skipAi?: boolean; step: 0 | 1 | 2; label: string; children: ReactNode; note: ReactNode; lock?: boolean; actions: ReactNode; actionsRef?: Ref<HTMLDivElement>
 }) {
-  const steps = [messages.stepCalendar, messages.stepDirection, messages.stepAi]
+  const steps = skipAi ? [messages.stepCalendar, messages.stepDirection] : [messages.stepCalendar, messages.stepDirection, messages.stepAi]
   return <div className="onboarding flex-1 min-h-0 flex flex-col">
     <header className="onboarding-header w-full h-11 shrink-0 mx-auto my-0 flex items-center justify-between gap-4">
       <ol className="onboarding-steps flex items-center gap-10 m-0 p-0 list-none text-[13px] text-muted-foreground" aria-label={messages.onboardingProgress}>

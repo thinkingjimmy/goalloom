@@ -225,3 +225,11 @@ On 2026-09-28 the owner requested alternatives to the orange review pill because
 Start with `node output/prototypes/descriptions/serve.mjs`. Reproduce browser checks with `node output/prototypes/descriptions/review-entry/verify.mjs`; `--compact` selects compact/touch coverage. Synthetic local data and a destination preview exercise opening, closing, completion and dismissal without production writes or model requests. Evidence is in `output/tests/review-entry-prototypes/`. These checks do not replace the desktop acceptance above.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+### 2026-10-23: Authenticated hosted transport
+
+Current source can bind Insight to Goalloom AI after account-only login, new scope-v1 consent and explicit feature enabling. The fixed OpenRouter/DeepSeek route receives the same bounded draft/review projection; enrichment still needs its existing separate purpose consent. Shared domain functions build and validate prompts/results on both boundaries. Hosted failures never select BYOK automatically. Existing cache ownership, generation, manual-write and transaction rules remain authoritative. Authorization, cost and retention are owned by [hosted AI](hosted-ai.md).
+
+### 2026-10-23: Hosted content minimization (source only)
+
+Hosted call authorization is independent of preview/context applicability. Sent attempts survive cancellation, context refresh, cache misses, remount and restart. Explicit regeneration creates a fresh attempt while Enter creation/late completion/undo keep their original receipt ownership. Review summary/arrangement results and prompt fingerprints remain in the existing bounded device caches. [Hosted AI](hosted-ai.md) defines protocol v2 and the separate deployment/verification limits.

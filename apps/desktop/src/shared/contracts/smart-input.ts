@@ -1,11 +1,11 @@
 /**
  * [INPUT]: Zod, entity schemas and the lightweight AI provider / feature / capability values.
  * [OUTPUT]: AI 服务标识、设备侧状态（每服务凭据/能力/失败/冷却，每功能所选服务与启用）、受限设置/判断动作、带修订回声的判断回复与可编辑预览 DTO；流程洞察的起草/复盘请求（有界看板文本、代码算出的信号、本机偏好）与回复。
- * [POS]: Smart-service IPC contract; capture.ts also supplies the finite request/receipt metadata persisted by creation commands. No plaintext credentials.
+ * [POS]: Smart-service IPC contract; capture.ts also supplies the finite request/receipt metadata persisted by creation commands. Writing requests separate stable period intent keys and explicit retry nonces from context; no plaintext credentials.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
-import { aiCapabilities, aiFailureKinds, aiFeatures, aiProviders, childHorizons, periodHorizons } from './values'
+import { aiCapabilities, aiFailureKinds, aiFeatures, aiProviders, hostedScopeVersion, childHorizons, periodHorizons } from './values'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, statusSchema } from './entities'
 import { assistancePrepareSchema, assistancePreparedSchema, assistanceReplySchema, assistanceRequestSchema, guidanceValueSchema } from './assistance'
 import { insightPrefsSchema } from './insight-preferences'
@@ -17,6 +17,8 @@ export { analyzeRequestSchema, type AnalyzeRequest } from './capture'
 export const smartChannel = 'goalloom:smart'
 export const aiProviderSchema = z.enum(aiProviders)
 export type AiProvider = z.infer<typeof aiProviderSchema>
+export const aiSourceSchema = z.strictObject({ provider: aiProviderSchema, accountId: z.uuid().nullable(), revision: z.number().int().nonnegative(), sessionRevision: z.number().int().nonnegative() })
+export type AiSource = z.infer<typeof aiSourceSchema>
 export const aiFeatureSchema = z.enum(aiFeatures)
 export type AiFeature = z.infer<typeof aiFeatureSchema>
 export const aiCapabilitySchema = z.enum(aiCapabilities)
@@ -29,7 +31,7 @@ export const failureSchema = z.strictObject({ kind: failureKindSchema, message: 
 export type Failure = z.infer<typeof failureSchema>
 
 export const credentialStateSchema = z.enum(['missing', 'saved', 'unreadable', 'unavailable'])
-// capabilities: when each model last passed its fixed sample with this key; lastFailure: the latest account-level problem, cleared by the next success.
+// capabilities: BYOK sample verification or hosted scope authorization; hosted status never claims a key test. lastFailure: the latest account-level problem, cleared by the next success.
 export const providerStatusSchema = z.strictObject({
   credential: credentialStateSchema, keyHint: z.string().max(12).nullable(), consentedAt: instantSchema.nullable(), verifiedAt: instantSchema.nullable(),
   capabilities: z.strictObject({ jev: instantSchema.nullable(), chat: instantSchema.nullable() }), lastFailure: failureSchema.nullable(), cooldownUntil: instantSchema.nullable(),
@@ -42,7 +44,10 @@ export type FeatureStatus = z.infer<typeof featureStatusSchema>
 export const noticeSchema = z.enum(['globalEntry', 'smartSetup'])
 export type Notice = z.infer<typeof noticeSchema>
 export const smartStatusSchema = z.strictObject({
-  providers: z.strictObject({ openrouter: providerStatusSchema, 'vercel-gateway': providerStatusSchema }),
+  providers: z.strictObject({ openrouter: providerStatusSchema, 'vercel-gateway': providerStatusSchema, hosted: providerStatusSchema }),
+  sessionRevision: z.number().int().nonnegative().default(0),
+  hostedAccountId: z.uuid().nullable().default(null),
+  hostedEligible: z.boolean().nullable().default(null),
   features: z.strictObject({ smart: featureStatusSchema, insight: featureStatusSchema }),
   dismissed: z.array(noticeSchema), unsignedBuild: z.boolean(),
 })
@@ -75,10 +80,10 @@ export const insightSignalSchema = z.strictObject({ kind: z.enum(['gap', 'skip',
 export type InsightSignal = z.infer<typeof insightSignalSchema>
 export const insightEvidenceSchema = z.strictObject({ itemId: idSchema, cutoff: instantSchema.nullable(), guidance: factSchema(guidanceValueSchema), executionFacts: executionFactsSchema })
 const evidenceRequestSchema = z.strictObject({ itemId: idSchema, cutoff: instantSchema })
-export const draftRequestSchema = z.strictObject({ requestId: z.uuid(), generation: idSchema, board: insightBoardSchema, tasks: z.array(draftTaskSchema).min(1).max(8), prefs: insightPrefsSchema,
+export const draftRequestSchema = z.strictObject({ requestId: z.uuid(), retryId: z.uuid().optional(), intentKey: z.string().max(256).optional(), generation: idSchema, board: insightBoardSchema, tasks: z.array(draftTaskSchema).min(1).max(8), prefs: insightPrefsSchema,
   executionContext: z.array(insightEvidenceSchema).max(8).optional() })
 export type DraftRequest = z.infer<typeof draftRequestSchema>
-export const reviewRequestSchema = z.strictObject({ requestId: z.uuid(), generation: idSchema, scope: z.enum(['week', 'month', 'both']), board: insightBoardSchema, signals: z.array(insightSignalSchema).max(16), prefs: insightPrefsSchema,
+export const reviewRequestSchema = z.strictObject({ requestId: z.uuid(), retryId: z.uuid().optional(), intentKey: z.string().max(256).optional(), generation: idSchema, scope: z.enum(['week', 'month', 'both']), board: insightBoardSchema, signals: z.array(insightSignalSchema).max(16), prefs: insightPrefsSchema,
   evidenceRequests: z.array(evidenceRequestSchema).max(8).optional(), executionContext: z.array(insightEvidenceSchema).max(8).optional() })
 export type ReviewRequest = z.infer<typeof reviewRequestSchema>
 export const draftTitleSchema = z.strictObject({ id: z.string().max(64), title: z.string().min(1).max(60), why: z.string().max(80) })
@@ -91,20 +96,21 @@ export const insightReplySchema = <T extends z.ZodType>(value: T) => z.discrimin
 ])
 
 export const smartActionSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('consentHosted'), generation: idSchema, accountId: z.uuid(), scopeVersion: z.literal(hostedScopeVersion), consent: z.literal(true) }),
   z.strictObject({ type: z.literal('prepareAssistance'), request: assistancePrepareSchema }),
-  z.strictObject({ type: z.literal('assist'), request: assistanceRequestSchema }),
+  z.strictObject({ type: z.literal('assist'), source: aiSourceSchema.optional(), request: assistanceRequestSchema }),
   z.strictObject({ type: z.literal('cancelAssistance'), sessionId: z.uuid() }),
-  z.strictObject({ type: z.literal('consentAssistance'), generation: idSchema, provider: aiProviderSchema, consentVersion: z.literal(1), consent: z.literal(true) }),
-  z.strictObject({ type: z.literal('draft'), request: draftRequestSchema }),
-  z.strictObject({ type: z.literal('review'), request: reviewRequestSchema }),
+  z.strictObject({ type: z.literal('consentAssistance'), generation: idSchema, provider: aiProviderSchema, accountId: z.uuid().nullable().optional(), consentVersion: z.literal(1), consent: z.literal(true) }),
+  z.strictObject({ type: z.literal('draft'), source: aiSourceSchema.optional(), request: draftRequestSchema }),
+  z.strictObject({ type: z.literal('review'), source: aiSourceSchema.optional(), request: reviewRequestSchema }),
   z.strictObject({ type: z.literal('status'), generation: idSchema }),
   z.strictObject({ type: z.literal('connect'), generation: idSchema, provider: aiProviderSchema, apiKey: z.string().trim().min(8).max(512).nullable(), consent: z.literal(true) }),
   // Chooses a feature's provider and switches it on or off; enabling requires that provider's verified capability.
-  z.strictObject({ type: z.literal('feature'), generation: idSchema, feature: aiFeatureSchema, provider: aiProviderSchema.nullable(), enabled: z.boolean() }),
-  z.strictObject({ type: z.literal('forget'), generation: idSchema, provider: aiProviderSchema }),
+  z.strictObject({ type: z.literal('feature'), generation: idSchema, feature: aiFeatureSchema, provider: aiProviderSchema.nullable(), accountId: z.uuid().nullable().optional(), enabled: z.boolean() }),
+  z.strictObject({ type: z.literal('forget'), generation: idSchema, provider: aiProviderSchema, accountId: z.uuid().nullable().optional() }),
   z.strictObject({ type: z.literal('dismiss'), generation: idSchema, notice: noticeSchema }),
   z.strictObject({ type: z.literal('openConsole'), provider: aiProviderSchema }),
-  z.strictObject({ type: z.literal('analyze'), request: analyzeRequestSchema }),
+  z.strictObject({ type: z.literal('analyze'), source: aiSourceSchema.optional(), request: analyzeRequestSchema }),
   z.strictObject({ type: z.literal('cancel'), draftSessionId: z.uuid() }),
 ])
 export type SmartAction = z.infer<typeof smartActionSchema>

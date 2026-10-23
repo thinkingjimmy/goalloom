@@ -15,13 +15,14 @@ import { monthDay } from '../../../i18n/format'
 import { connectedProviders, featureUsers, providerIssue, type Ai } from '../../../state/ai'
 import { Icon } from '../../../components/icons'
 import { ProviderConnect } from '../../smart/ProviderConnect'
+import { HostedAiSettings } from './HostedAiSettings'
 import { SettingsGroup } from './parts'
 import { issueText } from './FeatureControls'
 import { ProviderAction } from './ProviderAction'
 import openRouterLogo from '../../../assets/ai/openrouter.svg'
 import vercelLogo from '../../../assets/ai/vercel.png'
 
-const logos: Record<AiProvider, string> = { openrouter: openRouterLogo, 'vercel-gateway': vercelLogo }
+const logos: Partial<Record<AiProvider, string>> = { openrouter: openRouterLogo, 'vercel-gateway': vercelLogo }
 
 export function AiPane({ ai }: { ai: Ai }) {
   const [open, setOpen] = useState<AiProvider | null>(null), [removing, setRemoving] = useState<AiProvider | null>(null)
@@ -29,7 +30,7 @@ export function AiPane({ ai }: { ai: Ai }) {
   const status = ai.status
   const unsigned = useDismissedNotice('unsigned', status?.unsignedBuild ? 'unsigned' : null)
   if (!status) return <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.testing}</p>
-  const connected = connectedProviders(status), others = aiProviders.filter(provider => !connected.includes(provider))
+  const connected: AiProvider[] = connectedProviders(status).filter(provider => provider !== 'hosted'), others: AiProvider[] = aiProviders.filter(provider => provider !== 'hosted' && !connected.includes(provider))
   const featureName = { smart: t.sectionTitle, insight: insightMessages.settingsSection }
   const row = (provider: AiProvider) => {
     const value = status.providers[provider], isConnected = connected.includes(provider), issue = isConnected ? providerIssue(status, provider) : null
@@ -63,6 +64,7 @@ export function AiPane({ ai }: { ai: Ai }) {
     </div>
   }
   return <>
+    <HostedAiSettings ai={ai} />
     <SettingsGroup>{[...connected, ...others].map(row)}</SettingsGroup>
     <section className="settings-group shrink-0 flex flex-col gap-2">
       <header className="settings-group-header flex items-baseline justify-between gap-3 px-0.5 py-0"><h3>{settingsMessages.privacy}</h3></header>

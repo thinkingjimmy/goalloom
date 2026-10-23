@@ -112,5 +112,18 @@ export async function verifyReviewDrafts({ page, application, mode, out, calls, 
   await remount()
   assert.equal(await draftCount(), before + 5)
   check('corrupt cache data degrades to generation, failed attempts remain retryable and successful recovery is reused')
+  const field=rows().first().locator('.seed-title'), previousTitle=await field.inputValue()
+  await field.fill('Manual suggestion retained during regeneration')
+  const choice=await rows().first().getByRole('combobox').innerText(), regenerate=drawer().getByRole('button',{name:'重新生成',exact:true})
+  assert.equal(await regenerate.getAttribute('aria-description'),'重新生成会发起新的 AI 请求。')
+  const regenerateBefore=await draftCount()
+  await regenerate.focus();await regenerate.press('Enter')
+  await application.evaluate(async before=>{const end=Date.now()+5000;while(globalThis.generationFixture.calls.filter(call=>call.kind==='draft').length===before){if(Date.now()>end)throw Error('No explicit arrangement regeneration');await new Promise(resolve=>setTimeout(resolve,10))}},regenerateBefore)
+  await settled()
+  assert.equal(await draftCount(),regenerateBefore+1)
+  assert.equal(await field.inputValue(),'Manual suggestion retained during regeneration')
+  assert.equal(await rows().first().getByRole('combobox').innerText(),choice)
+  await field.fill(previousTitle)
+  check('keyboard regeneration sends one new arrangement request and retains typed suggestions and choices with an accessible explanation')
   return { initialDraftCalls: before, finalDraftCalls: await draftCount(), cachedTitles, storage: await stored() }
 }

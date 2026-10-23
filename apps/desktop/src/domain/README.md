@@ -41,3 +41,5 @@ domain/
 调用方注入观察时间及已经校验的快照；smart/ 不做网络请求，也不读取供应商 confidence。权威事务仍须重读并复核。`reverseStatus` 只是一种效果的原语，不代表完整撤销命令。D06 为多父 DAG；D07 的年 / 半年 / 3个月从原锚点按 12 / 6 / 3 个日历月推导，月底截断而不逐轮漂移；自然年模式锁定确认年 1 月 1 日起点。Six horizons support manual or automatic rollover; only day defaults to automatic. Import validates four policies for v1–v6 and six for v7.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+Main attaches finite hosted transport inputs outside the pure writing prompts, preserving their existing cache identity. Shared assistance and note-rewrite byte checks use TextEncoder, so Edge and desktop apply the same UTF-8 limits without a Node global. Rewrite transport excludes unused sibling/recent-guidance text; local guards and writes remain in main/worker.

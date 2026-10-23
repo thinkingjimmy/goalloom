@@ -7,7 +7,7 @@
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
-export const providerNames: typeof source = { 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
+export const providerNames: typeof source = { hosted: 'IA de Goalloom', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
   composer: 'Nuevo',
   inputLabel: 'Escribe una idea',
@@ -21,7 +21,8 @@ export const smartMessages: SmartCatalog = {
   providerChanged: 'La configuración del servicio cambió; el contenido existente no se enviará automáticamente al nuevo proveedor.',
   resend: 'Enviar al servicio actual',
   saveLater: 'Guardar en Later',
-  retry: 'Reintentar',
+  retry: 'Volver a generar',
+  retryHint: 'Volver a generar envía una nueva solicitud de IA.',
   frozenNote: 'Se perdió la conexión; la vista previa actual quedó como borrador manual. Aún puedes editarla antes de confirmar.',
   discard: 'Vaciar borrador',
   descriptionKept: 'El texto completo se guardará en la descripción',
@@ -106,7 +107,7 @@ export const smartMessages: SmartCatalog = {
   connectFootnote: 'El tablero y el calendario funcionan por completo sin conectar. La prueba comprueba cada capacidad por separado.',
   backToDemo: 'Volver al ejemplo',
   providerLabel: 'Servicio de IA',
-  providerPitch: (provider: AiProvider) => ({ openrouter: 'Pago por uso, muchos modelos en una cuenta', 'vercel-gateway': 'Lo más sencillo si ya usas Vercel' })[provider],
+  providerPitch: (provider: AiProvider) => ({ hosted: 'Goalloom AI', openrouter: 'Pago por uso, muchos modelos en una cuenta', 'vercel-gateway': 'Lo más sencillo si ya usas Vercel' })[provider],
   recommended: 'Recomendado',
   testEnable: 'Probar y activar',
   doneTitle: (name: string) => `Conectado a ${name}`,
@@ -117,7 +118,7 @@ export const smartMessages: SmartCatalog = {
   doneFootnote: 'La clave solo se sincroniza dentro del canal cifrado, permanece en el llavero de este equipo y no entra en las copias del espacio de trabajo.',
   enterBoard: 'Ir al tablero',
   // --- Connect form (onboarding and Settings › AI services) ---
-  keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
+  keyLabel: (provider: AiProvider) => ({ hosted: 'Goalloom AI', 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: 'Pega la API Key',
   getKey: 'Obtener una clave en la consola oficial',
   consent: (name: string) => `Acepto enviar a ${name} lo que necesitan la entrada inteligente y Perspectiva`,

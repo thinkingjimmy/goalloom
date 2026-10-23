@@ -18,6 +18,7 @@ import { LanguagePreference } from './window/language'
 import { ParentOrderPreference } from './window/parent-order'
 import { protectWindowClose } from './window/close'
 import { createSmartService, deviceCipher } from './smart/electron'
+import { readSyncConfig } from './sync/config'
 import { sessionCipher } from './sync/session-cipher'
 import { serverText } from '../shared/i18n/server'
 import { LinkPreviewService } from './link-preview/service'
@@ -212,9 +213,10 @@ if (!app.requestSingleInstanceLock()) {
       close: () => pendingStorage.then(client => client.close()),
     } as StorageClient
     let client!: StorageClient
+    let hostedOwner: string | null = null
     const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client, entries => {
       void storageProxy.call('sync', { type: 'emit-settings', entries, at: new Date().toISOString(), opId: randomUUID(), mode: 'change' }).then(() => sync?.nudge('write')).catch(() => undefined)
-    })
+    }, { id: () => sync?.accountId() ?? null, session: () => sync ? sync.accountSession() : Promise.reject(new Error('Signed out')), config: () => readSyncConfig(app.getPath('userData'), app.isPackaged) })
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
     const syncing = sync = new SyncService({
       userData: app.getPath('userData'), packaged: app.isPackaged, cipher: deviceCipher, storage: storageProxy,
@@ -223,7 +225,11 @@ if (!app.requestSingleInstanceLock()) {
       onLocalCleared: () => { smart.releaseSession(); links.releaseSession() },
       openExternal: url => shell.openExternal(url),
       onBrowserReturn: () => focusMainWindow(),
-      notify: status => send(syncEvent, status),
+      notify: status => {
+        const owner = status.accountId ?? null
+        if (owner !== hostedOwner) { hostedOwner = owner; void smart.accountChanged().catch(() => undefined).finally(() => send('goalloom:ai-refresh', null)) }
+        send(syncEvent, status)
+      },
       onApplied: () => { send('goalloom:changed', null); void requestReconcile(false) },
       settingsRevision: () => parentOrder.revision,
       onSettings: (rows, revision) => projectSettingRows(rows, {

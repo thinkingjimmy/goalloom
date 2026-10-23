@@ -1,12 +1,13 @@
 /**
- * [INPUT]: Finite smart actions and the active workspace generation.
- * [OUTPUT]: Provider/feature state, scoped connect/forget/dismiss actions and assistance-draft cleanup on forget.
+ * [INPUT]: Finite smart actions, shared operator-consent version and the active workspace generation.
+ * [OUTPUT]: Account-owned provider/feature state, explicit hosted consent, scoped configuration and stale account/assistance cleanup.
  * [POS]: Shared device AI state for setup, settings and existing/new writing features.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useCallback, useEffect, useState } from 'react'
-import { aiProviders, featureCapability, providerCapabilities } from '../../shared/contracts/values'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { aiProviders, hostedScopeVersion, featureCapability, providerCapabilities } from '../../shared/contracts/values'
 import type { AiFeature, AiProvider, Failure, Notice, SmartAction, SmartStatus, TestOutcome } from '../../shared/contracts/smart-input'
+import { updateAiScope, suspendHostedScope } from './ai-scope'
 import { clearAssistanceDrafts } from './assistance-drafts'
 import { desktopApi } from './use-workspace'
 
@@ -18,12 +19,17 @@ export interface Ai {
   dismiss: (notice: Notice) => Promise<void>
   openConsole: (provider: AiProvider) => void
   refresh: () => Promise<void>
+  consentHosted: () => Promise<void>
 }
 export function useAi(generation: string | undefined): Ai {
   const [status, setStatus] = useState<SmartStatus | null>(null)
+  const sequence = useRef(0)
+  const owner = useRef<string | null>(null)
   const send = useCallback(async (action: SmartAction): Promise<TestOutcome | null> => {
+    const revision = ++sequence.current
     const reply = await desktopApi().smart(action)
-    if (reply.type === 'status') { setStatus(reply.status); return reply.test }
+    if (revision !== sequence.current) return null
+    if (reply.type === 'status') { updateAiScope(reply.status); setStatus(reply.status); return reply.test }
     return null
   }, [])
   const refresh = useCallback(async () => { if (generation) await send({ type: 'status', generation }).catch(() => null) }, [generation, send])
@@ -33,11 +39,20 @@ export function useAi(generation: string | undefined): Ai {
     if (!generation || !api?.onAiRefresh) return
     return api.onAiRefresh(() => { void refresh() })
   }, [generation, refresh])
+  useEffect(() => {
+    const api = window.goalloom
+    if (!api?.onSync) return
+    return api.onSync(next => {
+      if ((next.accountId ?? null) === owner.current) return
+      owner.current = next.accountId ?? null; sequence.current++; suspendHostedScope(); setStatus(null); clearAssistanceDrafts(); void refresh()
+    })
+  }, [refresh])
   return {
     status, refresh,
+    consentHosted: async () => { if (generation && status?.hostedAccountId) await send({ type: 'consentHosted', generation, accountId: status.hostedAccountId, scopeVersion: hostedScopeVersion, consent: true }) },
     connect: (provider, apiKey) => generation ? send({ type: 'connect', generation, provider, apiKey, consent: true }) : Promise.resolve(null),
-    setFeature: async (feature, provider, enabled) => { if (generation) await send({ type: 'feature', generation, feature, provider, enabled }) },
-    forget: async provider => { clearAssistanceDrafts(); if (generation) await send({ type: 'forget', generation, provider }) },
+    setFeature: async (feature, provider, enabled) => { if (generation) await send({ type: 'feature', generation, feature, provider, ...(provider === 'hosted' ? { accountId: status?.hostedAccountId ?? null } : {}), enabled }) },
+    forget: async provider => { clearAssistanceDrafts(); if (generation) await send({ type: 'forget', generation, provider, ...(provider === 'hosted' ? { accountId: status?.hostedAccountId ?? null } : {}) }) },
     dismiss: async notice => { if (generation) await send({ type: 'dismiss', generation, notice }).catch(() => null) },
     openConsole: provider => { void desktopApi().smart({ type: 'openConsole', provider }).catch(() => null) },
   }
@@ -45,11 +60,11 @@ export function useAi(generation: string | undefined): Ai {
 
 // --- Read-only derivations shared by Settings, onboarding and the composer. ---
 export const connectedProviders = (status: SmartStatus): AiProvider[] =>
-  aiProviders.filter(provider => status.providers[provider].credential !== 'missing' && !!status.providers[provider].consentedAt)
+  aiProviders.filter(provider => !!status.providers[provider] && status.providers[provider].credential !== 'missing' && !!status.providers[provider].consentedAt)
 // A provider can serve a feature once its key is readable and that model passed its sample.
 export const canServe = (status: SmartStatus, provider: AiProvider, feature: AiFeature): boolean => {
   const value = status.providers[provider], capability = featureCapability[feature]
-  return providerCapabilities[provider].includes(capability) && value.credential === 'saved' && !!value.consentedAt && !!value.capabilities[capability]
+  return providerCapabilities[provider].includes(capability) && value.credential === 'saved' && (provider !== 'hosted' || status.hostedEligible === true) && !!value.consentedAt && !!value.capabilities[capability]
 }
 export const capableProviders = (feature: AiFeature): AiProvider[] => aiProviders.filter(provider => providerCapabilities[provider].includes(featureCapability[feature]))
 export const featureUsers = (status: SmartStatus, provider: AiProvider): AiFeature[] =>

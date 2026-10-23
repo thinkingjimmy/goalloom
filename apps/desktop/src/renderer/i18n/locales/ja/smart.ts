@@ -7,7 +7,7 @@
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
-export const providerNames: typeof source = { 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
+export const providerNames: typeof source = { hosted: 'Goalloom 内蔵 AI', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
   composer: '新規',
   inputLabel: '考えを書く',
@@ -21,7 +21,8 @@ export const smartMessages: SmartCatalog = {
   providerChanged: 'サービスの設定が変わりました。既存の内容は新しい処理先に自動送信されません。',
   resend: '現在のサービスに送って整理',
   saveLater: 'Later に保存',
-  retry: '再試行',
+  retry: '再生成',
+  retryHint: '再生成すると、新しい AI リクエストを送信します。',
   frozenNote: 'ネットワークが切断されたため、現在のプレビューを手動の下書きとして固定しました。確定前ならまだ編集できます。',
   discard: '下書きをクリア',
   descriptionKept: '原文全体はメモに保存されます',
@@ -106,7 +107,7 @@ export const smartMessages: SmartCatalog = {
   connectFootnote: '接続しなくてもボードとカレンダーはすべて使えます。テストは機能ごとに確認します。',
   backToDemo: '例に戻る',
   providerLabel: 'AI サービス',
-  providerPitch: (provider: AiProvider) => ({ openrouter: '従量課金、1 つのアカウントで多くのモデル', 'vercel-gateway': 'Vercel をすでに使っているなら最も手軽' })[provider],
+  providerPitch: (provider: AiProvider) => ({ hosted: 'Goalloom AI', openrouter: '従量課金、1 つのアカウントで多くのモデル', 'vercel-gateway': 'Vercel をすでに使っているなら最も手軽' })[provider],
   recommended: 'おすすめ',
   testEnable: 'テストしてオンにする',
   doneTitle: (name: string) => `${name} に接続しました`,
@@ -117,7 +118,7 @@ export const smartMessages: SmartCatalog = {
   doneFootnote: 'キーは暗号化された通信の中だけで同期され、この端末のキーチェーンに残り、ワークスペースのバックアップには入りません。',
   enterBoard: 'ボードへ',
   // --- Connect form (onboarding and Settings › AI services) ---
-  keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
+  keyLabel: (provider: AiProvider) => ({ hosted: 'Goalloom AI', 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: 'API Key を貼り付け',
   getKey: '公式コンソールでキーを取得',
   consent: (name: string) => `スマート入力とインサイトに必要な内容を ${name} に送ることに同意します`,

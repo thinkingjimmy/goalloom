@@ -65,7 +65,7 @@ export function AiStep({ ai, finish, busy = false }: { ai: Ai; finish: () => voi
         : <ol className="jev-points m-0 pt-1 pr-0 pb-0 pl-0 list-none flex flex-col gap-1 text-[14px] leading-[1.6] text-soft">{t.demoPoints.map((point, index) => <li key={point}><span className="jev-point-mark w-6 h-6 shrink-0 grid place-items-center rounded-[12px] bg-raised text-[12px] font-semibold text-soft tabular-nums" aria-hidden="true">{index + 1}</span>{point}</li>)}</ol>}
       {connecting
         ? <div className="ai-options min-w-0 flex flex-col gap-2.5" role="radiogroup" aria-label={t.providerLabel}>
-          {aiProviders.map(value => {
+          {aiProviders.filter(provider => provider !== 'hosted').map(value => {
             const selected = value === provider
             return <div key={value} className="ai-option rounded-[12px] bg-raised" data-selected={selected}>
               <button type="button" role="radio" aria-checked={selected} className="ai-option-head w-full min-h-15 px-4 py-3 flex items-center gap-3 text-left rounded-[12px]" onClick={() => setProvider(value)}>

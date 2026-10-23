@@ -4,6 +4,7 @@
  * [POS]: Task assistance presentation; settings gate network access, the main process owns context and output validation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { aiSourceOptions } from '../../state/ai-scope'
 import { TextButton, ActionButton } from '../../components/ui/button'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AssistancePrepared } from '../../../shared/contracts/assistance'
@@ -94,7 +95,7 @@ export function AssistancePanel({ itemId, generation, revision, observedAt, acti
       if (!value?.enabled) { setError(t.unavailable); return }
       if (value.context.truncatedSections.includes('description')) { setError(t.tooLong); return }
       const editRevision = callbacks.current.captureRevision()
-      const response = await desktopApi().smart({ type: 'assist', request: { mode: 'rewrite', requestId: crypto.randomUUID(),
+      const response = await desktopApi().smart({ type: 'assist', ...aiSourceOptions('insight'), request: { mode: 'rewrite', requestId: crypto.randomUUID(),
         sessionId: value.sessionId, contextId: value.contextId, itemId, generation, locale, featureRevision: value.featureRevision,
         inputRevision: token, manualRevision: editRevision, turn: 1, prefs: insightSettings().prefs,
         text: selected === 3 ? text.trim() : t.choices[selected]!, answer: null, adjustment: null } })

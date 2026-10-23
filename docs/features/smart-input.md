@@ -107,7 +107,7 @@ Matching keeps the original strict action/outcome criterion and adds structured 
 
 ### 3.1 新用户和已有用户
 
-首次流程为：**选择日历 → 写下一年的方向并确认 → 可选连接 AI 服务 → 看板**。三步共用同一外框：进度在左上、语言在右上（与内容列对齐），向导期间顶栏不显示设置按钮；内容在同一居中列内顶部对齐，各步标题位置不跳动；说明与按钮固定在窗口底部（按钮在右侧），与内容列对齐，不画底栏的边框和底色。
+本地流程为：**选择日历 → 写下一年的方向并确认 → 可选连接 BYOK AI 服务 → 看板**。当前源代码中，当前账号已登录且服务端确认可用内置 AI 时，确认方向后直接进入看板，进度仅显示日历和方向两步。未知资格保留本地流程；跳过不会自动同意、选择、启用或调用内置 AI。迟到资格不重播配置。账号与费用合同见 [hosted AI](hosted-ai.md)。三步共用同一外框：进度在左上、语言在右上（与内容列对齐），向导期间顶栏不显示设置按钮；内容在同一居中列内顶部对齐，各步标题位置不跳动；说明与按钮固定在窗口底部（按钮在右侧），与内容列对齐，不画底栏的边框和底色。
 
 1. **日历**：选择 365 天（默认）或自然年，每张卡片实时预览年 / 半年 / 3个月日期，并用时间轴显示今天在这一年中的位置；时区与周起始在卡片下方的一句话里修改。365 天起点（今天 / 本月 1 日 / 过去自选日期）折叠在 365 天卡片内，自然年固定当年 1 月 1 日。此步不锁定。
 2. **方向与确认**：写下这一年的方向，摘要注明确认后不可修改。「修改」回到日历并保留草稿。输入框 Enter 只聚焦确认按钮；显式「确认并开始」在事务内解析起点，与预览不一致则以 stale_preview 拒绝并刷新、保留草稿。方向作为独立可撤销流程根写入年列，当期不足 14 天默认写入下一年；完成向导时定位到该年及同日起的半年。所选时区午夜、窗口获焦与唤醒刷新所有日期。详见 [双日历模式](calendar-modes.md#44-onboarding三步d9-已确认)。
@@ -628,3 +628,11 @@ type ParentRef =
 Jev 拿不准的执行列与上级默认直接采用进推荐（负责人 2026-09-25 决定）：需要时按新关联规则把事项移到上级之下最长的合法列；已手动改过该字段、或移列会破坏本批下级的关联时，保留为建议。拿不准的截止（可能是日期范围）与片段角色（是否并入上一件）不自动采用，以灰字「可能……」附在对应事项后。采用的值与普通判断一样带 ✦，可在调整菜单里改回。
 
 Tab 进入逐项调整：每件事一行，选中行在行内露出 **T 列 / D 截止 / P 上级** 三个标签（Jev 给出的值带 ✦，拿不准的标签描蓝边），按字母弹出小菜单——列 1–7 直选（今天 1、本周 2、本月 3、3个月 4、半年 5、年 6、Later 7）、截止使用[日历直达方案](due-dates.md)（顶部快捷日期，下方月历，保留数字直选与 Jev 建议）、上级搜索（Jev 建议排在最前并标 Jev，需要时注明“会移到本周”），无上级时设为新流程的颜色在 P 菜单底部；E 就地改标题与说明，⌫ 移除，M 把拿不准的片段并入上一件；↑↓ 换事项，Esc 回到输入框。整理新文本期间保留上一版推荐（变淡）而不闪烁，仍可调整，但要等整理完成才能创建。未启用 Jev 时只有「连接 Jev 自动整理 →」和「保存到 Later ↵」。设计稿见 canvas「Composer 新增弹窗重设计」的“输入法式”与“逐项调整 · 新方案 1 行内标签”画板。
+
+### 2026-10-23: Hosted smart-input transport
+
+Jev can use the separately consented Goalloom account source. Batch action IDs derive from request identity and batch position, never task text. Enter, ready-result reuse, late completion, manual-intent guards and one-step undo keep the existing local contract. Account/source transitions release old capture ownership and caches. No platform key enters the app, database, backups or sync preferences.
+
+### 2026-10-23: Hosted content minimization (source only)
+
+Hosted call authorization is independent of preview/context applicability. Sent attempts survive cancellation, context refresh, cache misses, remount and restart. Explicit regeneration creates a fresh attempt while Enter creation/late completion/undo keep their original receipt ownership. Review summary/arrangement results and prompt fingerprints remain in the existing bounded device caches. [Hosted AI](hosted-ai.md) defines protocol v2 and the separate deployment/verification limits.
