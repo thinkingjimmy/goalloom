@@ -201,3 +201,5 @@ Note assistance uses the approved rewrite-notes design: no detail activity rail,
 `components/AuthMark.tsx` shares offline Apple/Google branding between the first-run provider buttons and Settings › Sync. Both entry points use the same provider-scoped authorization and cancellation state.
 
 Global single-task capture previews distinguish goal links from same-period task ownership. The composer retains owner version/placement guards, exposes an explicit independent-task choice, and clears ownership on manual placement/goal/color edits. Unedited ownership uses the main-owned ready/late capture path; edited single drafts use guarded atomic nested `createPlan`. Existing five-language nesting labels are reused.
+
+Single global-capture previews reuse the matcher's column and ownership/goal selection for ready/late parity. Automatic goal adoption never overrides a written current/future period; explicit adjustment menus retain manual control.
