@@ -60,6 +60,7 @@ try{
   await notice.getByRole('button').click()
   const modal=page.locator('.sync-review-modal'),current=modal.locator('input[value="current"]'),local=modal.locator('input[value="local"]'),next=modal.locator('.sync-review-footer .primary')
   await modal.locator('.sync-review-compare').waitFor();assert(await current.isChecked())
+  assert.equal(await notice.count(),0,'An open review hides its redundant corner entry and leaves footer actions clear')
   assert.equal(await modal.locator('textarea,select,[contenteditable],input:not([type="radio"])').count(),0)
   assert.equal(await modal.locator('.sync-review-progress').textContent(),'1 / 3')
   assert((await modal.boundingBox()).height<500)

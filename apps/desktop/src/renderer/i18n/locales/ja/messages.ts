@@ -47,6 +47,7 @@ export const messages: MessageCatalog = {
   confirmRollover: "設定どおりに処理",
   viewBackups: "バックアップを表示",
   retry: "再確認",
+  checking: "確認中…",
   closeError: "エラー表示を閉じる",
   dismissNotice: "通知を閉じる",
   opening: "ローカルワークスペースを開いています…",

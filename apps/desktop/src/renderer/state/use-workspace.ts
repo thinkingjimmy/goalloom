@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Finite preload API, user commands, UndoSession and post-refresh live board visibility across all periods.
  * [OUTPUT]: Authoritative snapshots, typed prepared-write outcomes, visibility-aware success/undo feedback, deduplicated completion events after committed writes and a
- *           keyboard undo request that waits for an in-flight own write; placement preferences are captured once per command.
+ *           keyboard undo request that waits for an in-flight own write; placement preferences are captured once per command, and working distinguishes active execution from a pending recovery lock.
  * [POS]: Renderer state boundary; reserves prepared detail writes before version reads, returns typed outcomes and preserves unknown receipts without redundant refreshes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -45,7 +45,7 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
     const version = epoch.current
     const promise = desktopApi().getSnapshot().then(next => {
       if (version !== epoch.current) return next
-      if (session.current.reset(next.workspace.generation)) { setFeedback(null); setCandidate(null); setCompletion(null); setUndoCount(0); setPending(null); pendingRef.current = null; deferredUndo.current = false }
+      if (session.current.reset(next.workspace.generation)) { setError(null); setErrorCode(null); setFeedback(null); setCandidate(null); setCompletion(null); setUndoCount(0); setPending(null); pendingRef.current = null; deferredUndo.current = false }
       const key = (value: Snapshot) => {
         const { lastObservedAt: _observed, ...workspace } = value.workspace
         return JSON.stringify([workspace, value.periods, value.maintenance, value.backupError])
@@ -203,5 +203,5 @@ export function useWorkspace(itemVisibility: (item: FeedbackItem) => ItemVisibil
     if (reply && !reply.ok) { setError(reply.message); setErrorCode(reply.code) }
     return reply?.ok ? reply.result : null
   }
-  return { snapshot, error, errorCode, setError, busy: busy || pending !== null || !!snapshot?.maintenance, submit, write, retryWrite, refresh, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry }
+  return { snapshot, error, errorCode, setError, working: busy, busy: busy || pending !== null || !!snapshot?.maintenance, submit, write, retryWrite, refresh, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry }
 }
