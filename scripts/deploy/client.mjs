@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Private production environment file and explicit Management API requests.
+ * [INPUT]: Private production environment file, explicit Management requests and credential-free HTTP transport.
  * [OUTPUT]: Fixed-project client with bounded requests and credential-safe errors.
  * [POS]: Deployment transport; never loads development credentials or fetches API keys.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -7,6 +7,7 @@
 import assert from 'node:assert/strict'
 import { readFile, stat } from 'node:fs/promises'
 import { parseEnv } from 'node:util'
+import { requestTransport } from './transport.mjs'
 
 export const productionRef = 'keqprrgvcefqdwnxaafv'
 export const productionUrl = `https://${productionRef}.supabase.co`
@@ -25,10 +26,10 @@ export async function productionClient() {
     const target = `https://api.supabase.com/v1/projects/${productionRef}${pathname}`
     let response
     try {
-      response = await fetch(target, {
+      response = await requestTransport(target, {
         method, headers: { authorization: `Bearer ${token}`, ...(json ? { 'content-type': 'application/json' } : {}) },
         body: form ?? (json ? JSON.stringify(json) : undefined), signal: AbortSignal.timeout(60000), redirect: 'error',
-      })
+      }, method === 'GET' || method === 'POST' && pathname === '/database/query' && json?.read_only === true)
     } catch (error) {
       throw Error(`${method} ${pathname}: request failed (${safe(error.cause?.code ?? error.name)}). A write outcome may be unknown; inspect remote state before retrying.`)
     }

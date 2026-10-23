@@ -147,6 +147,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
         {status.phase === 'signing-in' && <SettingsButton type="button" onClick={() => void desktopApi().sync({ type: 'cancel' })}>{t.cancel}</SettingsButton>}
       </Account>
     </SettingsGroup>}
+    {status.phase === 'account' && <SettingsGroup><Account note={accountNote}>{signOut}<SettingsButton type="button" disabled={working} onClick={() => void run({ type: 'prepare-sync' })}>{t.start}</SettingsButton></Account></SettingsGroup>}
     {status.phase === 'setup' && <>
       <SettingsGroup>
         <Account note={accountNote}>{signOut}</Account>

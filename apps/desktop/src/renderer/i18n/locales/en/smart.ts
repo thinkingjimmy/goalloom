@@ -7,7 +7,7 @@
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
-export const providerNames: typeof source = { 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
+export const providerNames: typeof source = { hosted: 'Goalloom AI', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
   composer: 'New',
   inputLabel: 'Write down an idea',
@@ -21,7 +21,8 @@ export const smartMessages: SmartCatalog = {
   providerChanged: 'Service settings changed. Existing content won’t be sent to the new service automatically.',
   resend: 'Send to current service',
   saveLater: 'Save to Later',
-  retry: 'Retry',
+  retry: 'Regenerate',
+  retryHint: 'Regenerate sends a new AI request.',
   frozenNote: 'Connection lost. The current preview is frozen as a manual draft; you can still edit it before confirming.',
   discard: 'Clear draft',
   descriptionKept: 'The full original text will be saved in the description',
@@ -106,7 +107,7 @@ export const smartMessages: SmartCatalog = {
   connectFootnote: 'The board and calendar work fully without connecting. The test checks each capability separately.',
   backToDemo: 'Back to example',
   providerLabel: 'AI service',
-  providerPitch: (provider: AiProvider) => ({ openrouter: 'Pay as you go, many models on one account', 'vercel-gateway': 'Easiest if you already use Vercel' })[provider],
+  providerPitch: (provider: AiProvider) => ({ hosted: 'Goalloom AI', openrouter: 'Pay as you go, many models on one account', 'vercel-gateway': 'Easiest if you already use Vercel' })[provider],
   recommended: 'Recommended',
   testEnable: 'Test and turn on',
   doneTitle: (name: string) => `Connected to ${name}`,
@@ -117,7 +118,7 @@ export const smartMessages: SmartCatalog = {
   doneFootnote: 'The key syncs only inside the encrypted channel, stays in this device’s keychain, and never enters workspace backups.',
   enterBoard: 'Go to board',
   // --- Connect form (onboarding and Settings › AI services) ---
-  keyLabel: (provider: AiProvider) => ({ 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
+  keyLabel: (provider: AiProvider) => ({ hosted: 'Goalloom AI', 'vercel-gateway': 'Vercel AI Gateway API Key', openrouter: 'OpenRouter API Key' })[provider],
   keyPlaceholder: 'Paste API Key',
   getKey: 'Get a key in the official console',
   consent: (name: string) => `I agree to send what smart input and insight need to ${name}`,

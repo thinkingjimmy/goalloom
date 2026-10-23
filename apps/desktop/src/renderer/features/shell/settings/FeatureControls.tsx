@@ -42,7 +42,7 @@ export function ProviderChoice({ ai, feature, goto }: { ai: Ai; feature: AiFeatu
   const pick = (provider: AiProvider) => { if (provider !== setting.provider) void ai.setFeature(feature, provider, setting.enabled) }
   return <SettingsGroup title={t.processing} aside={<SettingsButton variant="link" type="button" onClick={() => goto('ai')}>{t.manage}</SettingsButton>}>
     <div role="radiogroup" aria-label={t.processing} className="provider-choices">
-      {capableProviders(feature).map(provider => {
+      {capableProviders(feature).filter(provider => provider !== 'hosted' || !!status.hostedAccountId).map(provider => {
         const ready = canServe(status, provider, feature), current = setting.provider === provider, missing = status.providers[provider].credential === 'missing'
         return <div key={provider} className="settings-row provider-choice min-h-14 pt-2.5 pr-4 pb-2.5 pl-4.5 flex items-center gap-4" data-ready={ready}>
           <button type="button" role="radio" aria-checked={current} disabled={!ready} onClick={() => pick(provider)}>
@@ -50,7 +50,7 @@ export function ProviderChoice({ ai, feature, goto }: { ai: Ai; feature: AiFeatu
             <span className="settings-row-text flex-1 min-w-0 flex flex-col gap-[3px] text-[14px]"><span>{providerNames[provider]}{current && <span className="settings-tag ml-2 h-4.5 px-1.5 py-0 inline-flex items-center rounded-[5px] bg-hover text-[11px] font-medium text-soft">{t.current}</span>}</span>
               <small>{ready ? `${t.capabilityNames[capability]} · ${(providerModels[provider] as Record<string, string>)[capability]}` : missing ? t.notAdded : t.needsAttention}</small></span>
           </button>
-          {!ready && (missing
+          {!ready && (provider === 'hosted' ? <SettingsButton type="button" onClick={() => goto('ai')}>{t.manage}</SettingsButton> : missing
             ? <SettingsButton type="button" onClick={() => goto('ai')}>{t.addKey}</SettingsButton>
             : <SettingsButton type="button" onClick={() => void ai.connect(provider, null)}>{t.retest}</SettingsButton>)}
         </div>

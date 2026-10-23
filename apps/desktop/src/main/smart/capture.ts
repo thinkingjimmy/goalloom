@@ -23,7 +23,7 @@ export class CaptureCoordinator {
   constructor(private readonly options: Options) {}
   analyze(request: AnalyzeRequest): Promise<AnalyzeReply> {
     const current = this.jobs.get(request.requestId)
-    if (current?.active && (!current.reply || current.reply.status === 'ready')) {
+    if (current) {
       if (JSON.stringify(current.request) !== JSON.stringify(request)) throw new DomainError('invalid', 'Smart request identity was reused.')
       return current.promise
     }

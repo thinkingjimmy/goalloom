@@ -13,6 +13,7 @@ Failure cases fixed before implementation:
 - A concurrent deployment must not apply a migration twice; schema and its history commit together.
 - SQL acceptance failures must roll back every fixture and temporary function change. Production Auth users and business records must remain unchanged.
 - A timeout has an unknown outcome. Stop; inspect migration history, deployed function source or existing jobs before any rerun. Never automatically retry a write.
+- A failed metadata GET or explicitly read-only SQL transport may retry once. Permission/service responses and every mutation are returned without automatic retry.
 - Google settings and secrets must not appear in output or be overwritten by deployment.
 - Realtime must reject public channels; Edge JWT verification must stay enabled. A downloaded source mismatch fails acceptance.
 - Cleanup must have one named bounded job and must not remove durable workspace data. No reset or account-wide cleanup is permitted.
@@ -22,6 +23,7 @@ Failure cases fixed before implementation:
 Members:
 
 - `client.mjs`: fixed production identity, private environment loading and bounded/redacted Management API requests.
+- `transport.mjs`: credential-free HTTP transport with one optional caller-proven read-only recovery attempt.
 - `schema.mjs`: migration manifest, transaction guards and existing rollback-only SQL acceptance.
 - `edge-source.mjs`: bounded, non-executing source-map inspection for the current Supabase ESZIP 2.3 response.
 - `supabase.mjs`: operator entry, configuration/deployment sequence and evidence reports.

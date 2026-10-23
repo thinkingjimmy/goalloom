@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Reviewed period keys, bounded review context/preferences, localStorage and the existing review IPC helper.
- * [OUTPUT]: Prepared summary identities, generation-scoped persistence and shared pending requests with optional refresh.
+ * [OUTPUT]: Prepared summary identities, generation/source/account-scoped persistence and shared pending requests with optional refresh.
  * [POS]: Device-only review cache; stores at most 24 results and prompt hashes, never prompts, keys or workspace writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { parseReview, reviewPrompt } from '../../domain/smart/insight'
 import type { InsightPrefs, ReviewRequest, ReviewText } from '../../shared/contracts/smart-input'
+import { aiScope } from './ai-scope'
 import { enrichInsightRequest, insightDependencyKey } from './insight-context'
 import { requestReview, type InsightResult } from './insight'
 
@@ -14,7 +15,7 @@ interface Entry { key: string; fingerprint: string; value: ReviewText }
 interface Cache { version: 1; generation: string; entries: Entry[] }
 const storageKey = 'goalloom.review-summaries'
 let cache: Cache | null = null
-const pending = new Map<string, { input: string; ticket: object; promise: Promise<InsightResult<ReviewText>> }>()
+const pending = new Map<string, { scope: string | null; input: string; ticket: object; promise: Promise<InsightResult<ReviewText>> }>()
 const failed = (): InsightResult<ReviewText> => ({ ok: false, failure: null })
 
 function persist(value: Cache): void {
@@ -51,23 +52,30 @@ export function loadReviewSummary(prepared: ReturnType<typeof prepareReviewSumma
   syncReviewSummaryGeneration(request.generation)
   const current = cache!
   const existing = pending.get(key)
-  if (existing?.input === input) return existing.promise
+  if (existing?.input === input && existing.scope === aiScope()) return existing.promise
   const ticket = {}
-  const ownsRequest = () => cache === current && pending.get(key)?.ticket === ticket
+  let scope = aiScope()
+  const ownsTicket = () => cache === current && pending.get(key)?.ticket === ticket
+  const ownsRequest = () => scope === aiScope() && ownsTicket()
   const promise = (async (): Promise<InsightResult<ReviewText>> => {
     const projected = await enrichInsightRequest(request)
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([input, insightDependencyKey(projected)])))
+    if (scope !== null && scope !== aiScope()) return failed()
+    scope = aiScope()
+    const entry = pending.get(key)
+    if (entry?.ticket === ticket) entry.scope = scope
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([input, scope, insightDependencyKey(projected)])))
     if (!ownsRequest()) return failed()
     const fingerprint = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
     const saved = current.entries.find(entry => entry.key === key && entry.fingerprint === fingerprint)
     if (saved && !refresh) return { ok: true, value: saved.value }
-    const result = await requestReview(projected, prefs)
-    if (result.ok && ownsRequest()) {
+    const result = await requestReview({ ...projected, intentKey: key }, prefs, refresh)
+    if (!ownsRequest()) return failed()
+    if (result.ok) {
       current.entries = [...current.entries.filter(entry => entry.key !== key), { key, fingerprint, value: result.value }].slice(-24)
       persist(current)
     }
     return result
-  })().catch(failed).finally(() => { if (ownsRequest()) pending.delete(key) })
-  pending.set(key, { input, ticket, promise })
+  })().catch(failed).finally(() => { if (ownsTicket()) pending.delete(key) })
+  pending.set(key, { scope, input, ticket, promise })
   return promise
 }

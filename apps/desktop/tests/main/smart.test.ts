@@ -170,7 +170,7 @@ describe('设备配置与凭据', () => {
       features: { smart: { provider: 'typesafe', revision: 3, enabledForGeneration: generation }, insight: { provider: 'openrouter', revision: 1, enabledForGeneration: generation } }, dismissed: ['globalEntry'] }))
     await writeFile(join(directory, 'typesafe.key'), 'encrypted')
     const { status: current } = await status()
-    expect(Object.keys(current.providers)).toEqual(['openrouter', 'vercel-gateway'])
+    expect(Object.keys(current.providers)).toEqual(['openrouter', 'vercel-gateway', 'hosted'])
     expect(current.providers.openrouter).toMatchObject({ consentedAt: provider.consentedAt, keyHint: '••••5678' })
     expect(current.features.smart).toMatchObject({ provider: null, enabled: false, revision: 4 })
     expect(current.features.insight).toMatchObject({ provider: 'openrouter', revision: 1 })

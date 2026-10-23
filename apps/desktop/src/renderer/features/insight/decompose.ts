@@ -27,7 +27,7 @@ export async function decompose({ snapshot, flows, ready, submit, seed }: Decomp
   const siblings = combinedTopology(snapshot.relations, snapshot.nesting ?? []).filter(edge => edge.parentId === parent.id).map(edge => snapshot.items.find(item => item.id === edge.childId)?.title).filter((value): value is string => !!value).slice(0, 20)
   const task: DraftTask = { id: parent.id, parent: parent.title, goal: flows.of(parent.id).find(value => value.id !== parent.id)?.title ?? null,
     target: periodText(period, next, snapshot.workspace.calendar!), targetHorizon: target, siblings }
-  const result = await requestDraft({ generation: snapshot.workspace.generation, board: boardDigest(snapshot, flows), tasks: [task] })
+  const result = await requestDraft({ generation: snapshot.workspace.generation, board: boardDigest(snapshot, flows), tasks: [task] }, undefined, true)
   if (!result.ok) { seed({ ...base, note: result.failure ? t.seedDraftFailed(result.failure.message) : null }); return }
   const title = result.value[0]!.title
   const where = { period: { kind: 'date' as const, startDate: period.startDate } }

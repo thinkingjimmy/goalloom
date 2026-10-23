@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current/legacy OS ciphers, storage worker, browser, resolved device locale, connectivity signals and an optional anon key.
- * [OUTPUT]: Persistent sessions, noninteractive recovery, explicit cleanup, encrypted exchange with preference projection before reconciliation, and bounded sync review reads. Sign-out and unused/signed-out startup do not access the keychain.
+ * [OUTPUT]: Independent account-only sessions, explicit sync preparation, noninteractive recovery, explicit cleanup, encrypted exchange with preference projection before reconciliation, and bounded sync review reads. Sign-out and unused/signed-out startup do not access the keychain.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
  * The password is held in memory only until a join finishes or ten minutes pass.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -60,6 +60,14 @@ export class SyncService {
   private remote: SyncRemote | null = null
   private phase: Phase = 'unconfigured'
   private email: string | null = null
+  private identity: { userId: string; expiresAt: number } | null = null
+  accountId(): string | null { return this.identity && this.identity.expiresAt > Date.parse(this.deps.now()) ? this.identity.userId : null }
+  async accountSession(): Promise<{ userId: string; accessToken: string }> {
+    const client = this.client
+    const session = (await client?.auth.getSession())?.data.session
+    if (!client || this.client !== client || !session || !this.accountId() || session.user.id !== this.accountId()) throw new SyncFailure('auth')
+    return { userId: session.user.id, accessToken: session.access_token }
+  }
   private error: SyncError | null = null
   private offline = false
   private lastSyncedAt: string | null = null
@@ -189,8 +197,9 @@ export class SyncService {
       const refreshed = await this.client.auth.refreshSession({ refresh_token: this.secrets.refreshToken }).catch(() => null)
       if (this.stopped || initializing !== this.lifecycleId) return
       if (refreshed?.data.session) {
+        await this.keepSession(refreshed.data.session)
         this.email = refreshed.data.session.user.email ?? null
-        await this.afterAuth()
+        await this.afterAccountAuth()
       } else {
         this.phase = 'signed-out'
         const network = !refreshed || refreshed.error?.name === 'AuthRetryableFetchError'
@@ -226,7 +235,7 @@ export class SyncService {
     } else if (this.client && this.secrets?.refreshToken && this.error === 'network') {
       await this.exclusive(async () => {
         const result = await this.client!.auth.refreshSession({ refresh_token: this.secrets!.refreshToken! })
-        if (result.data.session) { this.email = result.data.session.user.email ?? null; await this.afterAuth() }
+        if (result.data.session) { this.email = result.data.session.user.email ?? null; await this.afterAccountAuth() }
         else throw new SyncFailure('network')
       }).catch(error => { this.setError(error); this.publish() })
     }
@@ -316,7 +325,15 @@ export class SyncService {
   }
 
   private async perform(action: SyncAction): Promise<void> {
-    if (action.type === 'sign-in') await this.signIn(action.provider)
+    if (action.type === 'sign-in') await this.signIn(action.provider, action.purpose)
+    else if (action.type === 'prepare-sync') {
+      if (!this.accountId() || !this.secrets) throw new SyncFailure('auth')
+      if (this.phase !== 'account') { this.error = 'busy'; this.publish(); return }
+      this.manualUnlock = Boolean(this.deps.sessionCipher)
+      this.secrets.accountOnly = false
+      await this.persist()
+      await this.afterAuth()
+    }
     else if (action.type === 'sign-out') await this.signOut(action.clearLocal)
     else if (action.type === 'create') await this.createWorkspace(action.password)
     else if (action.type === 'submit-password') await this.submitPassword(action.password)
@@ -339,7 +356,7 @@ export class SyncService {
     await current
   }
 
-  private async signIn(provider: AuthProvider): Promise<void> {
+  private async signIn(provider: AuthProvider, purpose: 'sync' | 'ai' = 'sync'): Promise<void> {
     if (this.cleanupBlocked) { await this.deps.storage.call('finishLocalClear'); this.cleanupBlocked = false }
     this.watchNetwork()
     const abort = new AbortController()
@@ -355,7 +372,14 @@ export class SyncService {
       const session = await this.requestSignIn(provider, abort.signal)
       if (abort.signal.aborted) return
       this.email = session.user.email ?? null
+      this.secrets.accountOnly = purpose === 'ai'
+      if (purpose === 'ai') {
+        this.manualUnlock = false
+        // Keep a linked workspace's sync owner until its explicit sync flow validates the account.
+        if (!(await this.readView()).workspaceId) await this.activateAccount(session.user.id)
+      }
       await this.keepSession(session)
+      await this.persist()
       if (abort.signal.aborted) {
         await this.client.auth.signOut({ scope: 'local' }).catch(() => undefined)
         this.phase = 'signed-out'
@@ -363,7 +387,7 @@ export class SyncService {
         this.error = null
         return
       }
-      await this.afterAuth()
+      await this.afterAccountAuth()
     } catch (error) {
       if (abort.signal.aborted || (error instanceof SyncFailure && error.message === 'cancelled')) {
         this.phase = 'signed-out'
@@ -400,6 +424,8 @@ export class SyncService {
   }
 
   private async signOut(clearLocal = false): Promise<void> {
+    this.identity = null
+    this.publish()
     this.signingOut = true
     let cleanupPending = false
     try {
@@ -500,7 +526,7 @@ export class SyncService {
         this.passwordReady = true
         this.manualUnlock = false
         await this.persist()
-        await this.afterAuth()
+        await this.afterAccountAuth()
         return
       }
       await this.ensureDevice()
@@ -631,6 +657,11 @@ export class SyncService {
     this.seedPending = true
     if (!this.operation) this.schedule.start()
     this.listen()
+  }
+
+  private async afterAccountAuth(): Promise<void> {
+    if (this.secrets?.accountOnly) { this.phase = 'account'; this.error = null; this.publish(); return }
+    await this.afterAuth()
   }
 
   private async afterAuth(): Promise<void> {
@@ -1018,6 +1049,8 @@ export class SyncService {
   }
 
   private async keepSession(session: Session | null): Promise<void> {
+    this.identity = session && !this.signingOut ? { userId: session.user.id, expiresAt: (session.expires_at ?? 0) * 1000 } : null
+    this.publish()
     if (this.signingOut || !this.secrets || !session?.refresh_token || session.refresh_token === this.secrets.refreshToken) return
     this.secrets.refreshToken = session.refresh_token
     this.email = session.user.email ?? this.email
@@ -1128,7 +1161,7 @@ export class SyncService {
 
   private status(): SyncStatus {
     const ready = this.phase === 'ready' || this.phase === 'choose'
-    return {
+    return { accountId: this.accountId(),
       phase: this.phase,
       ...(this.phase === 'signing-in' && this.signingInProvider ? { signingInProvider: this.signingInProvider } : {}),
       email: this.email,

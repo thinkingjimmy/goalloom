@@ -11,9 +11,12 @@ import type { Json, NeutralQuestion } from '../../domain/smart/questions'
 import { estimateTokens, payloadLimit, tokenBudget } from '../../domain/smart/budget'
 import type { Failure, FailureKind, AiProvider } from '../../shared/contracts/smart-input'
 import { serverText } from '../../shared/i18n/server'
+import { hostedCatalog } from '../../shared/i18n/hosted'
+import { serverLocale } from '../../shared/i18n/server'
 import { providerModels } from '../../shared/contracts/values'
 
 export const JEV_PROVIDERS = {
+  hosted: { model: providerModels.hosted.jev, console: 'https://www.goalloom.com' },
   // OpenRouter serves TypeSafe's System One shapes at /api/v1/systemone; the SDK appends /v1/systemone to this base.
   openrouter: { protocol: 'typesafe-system-one', baseURL: 'https://openrouter.ai/api', model: providerModels.openrouter.jev, console: 'https://openrouter.ai/settings/keys' },
   'vercel-gateway': { protocol: 'gateway-evaluate', endpoint: 'https://ai-gateway.vercel.sh/v1/evaluate', model: providerModels['vercel-gateway'].jev, providerOptions: { gateway: { only: ['typesafe-ai'] } }, console: 'https://vercel.com/dashboard' },
@@ -23,7 +26,7 @@ export const cooldownMs = 30_000
 // Official TypeSafe adapter declares two-decimal probabilities for System One (OpenRouter forwards TypeSafe's answers); Gateway must state its own.
 const nativeDecimals = 2
 
-export interface EvaluateInput { state: { [key: string]: Json }; questions: Record<string, NeutralQuestion>; signal: AbortSignal }
+export interface EvaluateInput { actionId?: string; state: { [key: string]: Json }; questions: Record<string, NeutralQuestion>; signal: AbortSignal }
 export interface EvaluateOutput {
   answers: Record<string, Answer>; precision: Precision
   meta: { requestedModel: string; routingCanonicalSlug: string | null; modelVersion: string | null; inputTokens: number | null; requestId: string | null }
@@ -33,9 +36,13 @@ export class Aborted extends Error {}
 export type Adapter = (apiKey: string, input: EvaluateInput) => Promise<EvaluateOutput>
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 
-const names: Record<AiProvider, string> = { 'vercel-gateway': 'AI Gateway', openrouter: 'OpenRouter' }
+const names: Record<AiProvider, string> = { hosted: 'Goalloom AI', 'vercel-gateway': 'AI Gateway', openrouter: 'OpenRouter' }
 export function failure(kind: FailureKind, provider: AiProvider, status: number | null = null, retryAt: string | null = null): Failure {
   const name = names[provider]
+  if (provider === 'hosted') {
+    const t = hostedCatalog[serverLocale()]
+    return { kind, message: kind === 'result_not_delivered' ? t.resultLost : kind === 'authentication_failed' ? t.auth : ['quota_exhausted', 'permission_denied', 'rate_limited'].includes(kind) ? t.protection : t.unavailable, status, retryAt }
+  }
   return { kind, message: serverText().smart.failures[kind](name, status), status, retryAt }
 }
 

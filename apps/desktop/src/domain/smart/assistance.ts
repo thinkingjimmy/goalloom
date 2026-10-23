@@ -36,10 +36,10 @@ Never output identities, commands, callbacks, file paths, SQL, tool calls, delet
   }
   const user = serialize()
   if (user.length > 16_000) throw new Error('Assistance request exceeds the text budget')
-  if (Buffer.byteLength(user, 'utf8') > 64 * 1024) throw new Error('Assistance request exceeds the byte budget')
+  if (new TextEncoder().encode(user).byteLength > 64 * 1024) throw new Error('Assistance request exceeds the byte budget')
   return { system, user, maxTokens: 1600, maxOutputBytes: 64 * 1024 }
 }
 export function parseAssistance(content: string): AssistanceOutput {
-  if (!content.trim() || Buffer.byteLength(content, 'utf8') > 64 * 1024) throw new Error('Assistance output exceeds the byte budget')
+  if (!content.trim() || new TextEncoder().encode(content).byteLength > 64 * 1024) throw new Error('Assistance output exceeds the byte budget')
   return assistanceOutputSchema.parse(JSON.parse(content))
 }

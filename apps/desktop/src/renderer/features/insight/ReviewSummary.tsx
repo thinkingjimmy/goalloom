@@ -8,44 +8,50 @@ import { useEffect, useRef, useState } from 'react'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import type { ReviewText } from '../../../shared/contracts/smart-input'
 import { Icon } from '../../components/icons'
-import { insightMessages as t } from '../../i18n'
+import { insightMessages as t, smartMessages } from '../../i18n'
 import type { Flows } from '../../state/flows'
+import { useAiScope } from '../../state/ai-scope'
 import { useInsightSettings } from '../../state/insight'
 import { loadReviewSummary, prepareReviewSummary } from '../../state/review-summary'
 import { reviewDigest, reviewSignals, type ReviewDue } from './review'
 
 export function ReviewSummary({ due, snapshot, flows, ready }: { due: ReviewDue; snapshot: Snapshot; flows: Flows; ready: boolean }) {
+  const scope = useAiScope(), previousScope = useRef(scope), needsAction = useRef(false)
   const { prefs } = useInsightSettings()
   const prepared = prepareReviewSummary({ generation: snapshot.workspace.generation, scope: due.scope, board: reviewDigest(snapshot, flows), signals: reviewSignals(snapshot, flows, due), evidenceRequests: snapshot.items.slice(0, 8).flatMap(item => { const period = [due.week?.period, due.month?.period].find(period => period?.id === item.placement.periodId); return period ? [{ itemId: item.id, cutoff: period.endAt < snapshot.observedAt ? period.endAt : snapshot.observedAt }] : [] }) },
     [due.week?.key, due.month?.key].filter((key): key is string => !!key), prefs)
-  const [state, setState] = useState<{ value: ReviewText | null; pending: boolean; error: boolean }>({ value: null, pending: ready, error: false })
+  const [state, setState] = useState<{ value: ReviewText | null; pending: boolean; error: string | null }>({ value: null, pending: ready, error: null })
   const sequence = useRef(0), working = useRef(false)
   const load = (refresh = false) => {
+    needsAction.current = false
     const attempt = ++sequence.current
     working.current = true
-    setState(previous => ({ value: refresh ? previous.value : null, pending: true, error: false }))
+    setState(previous => ({ value: refresh ? previous.value : null, pending: true, error: null }))
     void loadReviewSummary(prepared, refresh).then(reply => {
       if (sequence.current !== attempt) return
       working.current = false
-      setState(previous => ({ value: reply.ok ? reply.value : previous.value, pending: false, error: !reply.ok }))
+      setState(previous => ({ value: reply.ok ? reply.value : previous.value, pending: false, error: reply.ok ? null : reply.failure?.message ?? (previous.value ? t.summaryRefreshFailed : t.summaryFailed) }))
     })
   }
   useEffect(() => {
     // Revalidate on entry; editing preferences behind Settings must not send a request per keystroke.
-    if (ready) load()
+    if (previousScope.current !== scope) {
+      previousScope.current = scope; needsAction.current = true
+      setState({ value: null, pending: false, error: null })
+    } else if (ready && !needsAction.current) load()
     return () => { sequence.current++; working.current = false }
-  }, [ready])
+  }, [ready, scope])
   const { value, pending, error } = state
   return <div className="review-summary" aria-busy={ready && pending}>
     <div className="review-summary-header flex items-center justify-between gap-4 min-h-7">
       <h3><Icon name="smart" size={14} />{t.summaryTitle}</h3>
       {ready && <button type="button" className="review-summary-refresh inline-flex items-center justify-center shrink-0 w-10 min-h-10 mt-[-6px] mr-[-10px] mb-[-6px] ml-0 px-2.5 py-0 rounded-[6px] text-muted-foreground" disabled={pending}
-        aria-label={pending ? t.summaryPending : t.summaryRefresh} title={pending ? t.summaryPending : t.summaryRefresh}
+        aria-label={pending ? t.summaryPending : t.summaryRefresh} aria-description={smartMessages.retryHint} title={pending ? t.summaryPending : smartMessages.retryHint}
         onClick={() => { if (!working.current) load(true) }}><Icon name="refresh" size={14} /></button>}
     </div>
     {ready && <div className="review-summary-content min-w-0 mt-2.5" aria-live="polite">
       {value ? <><p className="review-headline">{value.headline}</p>{value.advice && <p className="review-advice">{value.advice}</p>}</> : pending && <p>{t.summaryPending}</p>}
-      {error && <p className="review-summary-error" role="alert"><Icon name="warning" size={14} />{value ? t.summaryRefreshFailed : t.summaryFailed}</p>}
+      {error && <p className="review-summary-error" role="alert"><Icon name="warning" size={14} />{error}</p>}
     </div>}
   </div>
 }

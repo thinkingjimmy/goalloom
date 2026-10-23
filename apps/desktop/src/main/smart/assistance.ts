@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto'
 import type { AssistanceContext, AssistanceEcho, AssistancePrepare, AssistancePrepared, AssistanceReply, AssistanceRequest } from '../../shared/contracts/assistance'
 import type { CommandOf } from '../../shared/contracts/commands'
 import { DomainError } from '../../shared/contracts/commands'
+import type { HostedInput } from '../../shared/contracts/hosted-ai'
 import type { AiProvider, Failure } from '../../shared/contracts/smart-input'
 import type { DeviceConfig, KeyRead } from './credentials'
 import type { ChatAdapter } from './insight'
@@ -113,7 +114,9 @@ export class AssistanceService {
       let prompt
       try { prompt = assistancePrompt(context, request, session.conversation) } catch { return failed(failure('too_large', provider)) }
       if (controller.signal.aborted) throw new Aborted()
-      const content = await chat(key.key, prompt, controller.signal)
+      const projected = request.mode === 'rewrite' ? { ...context, siblings: [], recentGuidance: [], period: null, omitted: {}, truncatedSections: [] } : context
+      const hosted: HostedInput = { capability: 'assistance', input: { context: projected, request: request.mode === 'rewrite' ? { ...request, answer: null, adjustment: null } : request, conversation: request.mode === 'rewrite' ? [] : session.conversation } }
+      const content = await chat(key.key, prompt, controller.signal, hosted)
       if (controller.signal.aborted || this.sessions.get(request.sessionId) !== session) throw new Aborted()
       if (!await this.current(prepared, controller.signal)) return stale()
       let value

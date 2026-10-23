@@ -28,3 +28,13 @@ contracts/
 Zod 在 main/worker 拒绝额外字段；preload 校验返回 DTO。renderer 只导入轻量 values 和类型，不构造 schema；构建门槛拒绝 renderer 引入 Zod。renderer 不能传入 SQL、路径、时钟或任意撤销字段。
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+`hosted-ai.ts` owns protocol-v2 finite evaluate/draft/review/assistance requests and re-exports the scope-v3 consent version, shared with the Edge bundle. `smart-input.ts` adds explicit hosted consent and account-owned feature actions; `values.ts` gives hosted its own provider/model identity. `sync.ts` separates account-only sign-in from explicit sync preparation.
+
+Model IPC envelopes carry optional `AiSource` metadata (provider, hosted account, feature revision and main session revision). Hosted model actions require it; main rejects stale source/session ownership before any model dispatch. The metadata is not persisted with tasks or used as server billing identity.
+
+Hosted protocol v2 accepts UUIDv7 actions and no server result recovery. Capture/writing DTOs retain local `retryId` (explicit regeneration); writing `intentKey` binds automatic review requests to the reviewed/destination period without using board revisions as call authorization.
+
+`values.ts` owns the lightweight `hostedScopeVersion` shared by device-file validation, IPC consent and renderer actions. Scope-v3 names the assistance operator and possible provider retention/training; both earlier scopes fail closed.
+
+Protocol-v2 POST additionally requires `consentScopeVersion: hostedScopeVersion`. Missing/older scopes fail the authoritative Edge schema before any reservation or provider request; receipt-only GET remains available for accounting. Capture `retryId` also identifies a real new hosted input intent; it stays separate from preview request IDs and creation receipts.

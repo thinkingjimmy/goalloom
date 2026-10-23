@@ -203,3 +203,11 @@ Note assistance uses the approved rewrite-notes design: no detail activity rail,
 Global single-task capture previews distinguish goal links from same-period task ownership. The composer retains owner version/placement guards, exposes an explicit independent-task choice, and clears ownership on manual placement/goal/color edits. Unedited ownership uses the main-owned ready/late capture path; edited single drafts use guarded atomic nested `createPlan`. Existing five-language nesting labels are reused.
 
 Single global-capture previews reuse the matcher's column and ownership/goal selection for ready/late parity. Automatic goal adoption never overrides a written current/future period; explicit adjustment menus retain manual control.
+
+Hosted AI uses `features/shell/settings/HostedAiSettings.tsx` for account-only sign-in and separate data consent. Existing feature controls keep source selection and enabling explicit. `state/ai.ts` clears stale account state and assistance drafts on account transitions. Onboarding shows two steps only when the current account has a verified hosted eligibility result; unknown eligibility retains the local/BYOK route.
+
+`state/ai-scope.ts` separates account/source cache identity from prompt text and supplies finite feature/session guards to model actions. Review summary/draft caches reject old-owner replies; source changes clear unadopted generated text while preserving manually typed plan rows. Existing composer and inline drafts require explicit resend after a source/session transition.
+
+Hosted capture separates context-bound previews from persisted explicit retry nonces. Review caches retain validated unadopted results across restart; stable period intent keys prevent automatic inference after cache misses or context refresh. Regeneration preserves edited text and is an explicit keyboard-accessible action.
+
+Hosted capture intent is advanced by real text-input events or explicit regeneration, never by context/manual refresh. CaptureInput snapshots the nonce/session before queued preparation and keeps the active nonce in memory if optional localStorage recovery writes fail. Reconstructed unchanged input still meets main-process sent-attempt guards.

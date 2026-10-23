@@ -16,8 +16,8 @@ import { OnboardingFrame } from './OnboardingFrame'
 import type { useSetupCalendar } from './use-setup-calendar'
 
 export const directionLimit = 500
-export function DirectionStep({ value, change, live, confirm, back, busy, useCurrent, setUseCurrent }: {
-  useCurrent: boolean; setUseCurrent: (value: boolean) => void; value: string; change: (value: string) => void; live: ReturnType<typeof useSetupCalendar>; confirm: (period: PlanningPeriod) => void; back: () => void; busy: boolean
+export function DirectionStep({ value, change, live, confirm, back, busy, useCurrent, setUseCurrent, skipAi = false }: {
+  skipAi?: boolean; useCurrent: boolean; setUseCurrent: (value: boolean) => void; value: string; change: (value: string) => void; live: ReturnType<typeof useSetupCalendar>; confirm: (period: PlanningPeriod) => void; back: () => void; busy: boolean
 }) {
   const button = useRef<HTMLButtonElement>(null)
   const current = live.periods?.find(period => period.horizon === 'year')
@@ -25,7 +25,7 @@ export function DirectionStep({ value, change, live, confirm, back, busy, useCur
   const next = !!current && remaining < 14 && !useCurrent
   const target = current && (next ? currentPeriod(live.calendar, 'year', current.endAt) : current)
   const summary = c.lockedSummary(live.calendar.mode === 'natural' ? c.naturalMode : c.rollingMode, fullDate(live.calendar.cycleAnchor), live.calendar.timezone, weekdayName(live.calendar.weekStart))
-  return <OnboardingFrame step={1} label={messages.stepDirection} lock
+  return <OnboardingFrame skipAi={skipAi} step={1} label={messages.stepDirection} lock
     note={<><span className="onboarding-note-main text-foreground">{summary} <TextButton type="button" onClick={back} disabled={busy}>{c.modify}</TextButton></span>
       <span className="onboarding-note-sub text-[12px] text-muted-foreground">{messages.calendarLockNote}</span></>}
     actions={<><Button type="button" variant="ghost" disabled={busy} onClick={back}>{messages.previousStep}</Button>

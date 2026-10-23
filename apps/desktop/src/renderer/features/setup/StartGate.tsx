@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An unconfirmed workspace, sync status, existing setup confirmation, shared icon controls and the native recovery dialog.
- * [OUTPUT]: Choice, provider wait, join or new-password and safe recovery after explicit setup confirmation. A normal join installs the cloud calendar and skips setup.
+ * [OUTPUT]: Account-only login into explicit calendar setup, plus existing explicit sync join/password/recovery phases. A normal join installs the cloud calendar and skips setup.
  * [POS]: First-run entry in front of Setup. Direct use adds one back step; the first device uploads only after confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,8 +17,9 @@ import { startScreen } from './entry'
 import { ChoiceScreen, JoinPasswordScreen, NewPasswordScreen, SyncingScreen } from './StartScreens'
 import { SyncRecovery } from '../shell/settings/SyncRecovery'
 
-export function StartGate({ confirm, busy, errorCode, status: override, sync = action => desktopApi().sync(action) }: {
+export function StartGate({ confirm, busy, errorCode, skipAi = false, status: override, sync = action => desktopApi().sync(action) }: {
   confirm: (calendar: CalendarChoice, direction: string, period: PlanningPeriod) => Promise<boolean>
+  skipAi?: boolean
   busy: boolean
   errorCode: string | null
   status?: SyncStatus | null
@@ -54,8 +55,8 @@ export function StartGate({ confirm, busy, errorCode, status: override, sync = a
   }
   const bannerError = status?.phase !== 'signing-in' && status?.error && status.error !== 'password' && hiddenError !== status.error ? settings.sync.errors[status.error] : ''
   const banner = bannerError ? <div className="start-alert fixed top-4 left-[50%] flex items-start gap-2.5 pt-3 pr-3 pb-3 pl-3.5 rounded-[10px] bg-raised text-[13px] leading-[1.6] text-soft" role="alert"><span>{bannerError}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status?.error ?? null)}><Icon name="close" size={16} /></IconButton></div> : null
-  if (recoveryAction) return <Setup confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} back={() => setRecoveryAction(null)} />
-  if (screen === 'setup') return <Setup confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} {...(direct ? { back: () => setDirect(false) } : {})} />
+  if (recoveryAction) return <Setup skipAi={skipAi} confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} back={() => setRecoveryAction(null)} />
+  if (screen === 'setup') return <Setup skipAi={skipAi} confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} {...(direct ? { back: () => setDirect(false) } : {})} />
   if (screen === 'syncing') return <SyncingScreen />
   if (screen === 'password') return <>
     {banner}
@@ -77,6 +78,6 @@ export function StartGate({ confirm, busy, errorCode, status: override, sync = a
   </>
   return <>
     {banner}
-    <ChoiceScreen waiting={screen === 'waiting'} provider={status?.signingInProvider ?? 'google'} busy={working} onLocal={() => setDirect(true)} onSignIn={provider => void run({ type: 'sign-in', provider })} onCancel={() => void run({ type: 'cancel' })} />
+    <ChoiceScreen waiting={screen === 'waiting'} provider={status?.signingInProvider ?? 'google'} busy={working} onLocal={() => setDirect(true)} onSignIn={provider => void run({ type: 'sign-in', provider, purpose: 'ai' })} onCancel={() => void run({ type: 'cancel' })} />
   </>
 }

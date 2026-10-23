@@ -11,7 +11,7 @@ import { DirectionStep } from './DirectionStep'
 import { useSetupCalendar, type CalendarChoice, type CalendarDraft } from './use-setup-calendar'
 
 export type { CalendarChoice } from './use-setup-calendar'
-export function Setup({ confirm, busy, errorCode, back }: { confirm: (calendar: CalendarChoice, direction: string, period: PlanningPeriod) => void; busy: boolean; errorCode: string | null; back?: () => void }) {
+export function Setup({ confirm, busy, errorCode, back, skipAi = false }: { confirm: (calendar: CalendarChoice, direction: string, period: PlanningPeriod) => void; busy: boolean; errorCode: string | null; skipAi?: boolean; back?: () => void }) {
   const detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   const zones = useMemo(() => [...new Set(['UTC', detected, ...Intl.supportedValuesOf('timeZone')])], [detected])
   const [step, setStep] = useState<'calendar' | 'direction'>('calendar')
@@ -21,6 +21,6 @@ export function Setup({ confirm, busy, errorCode, back }: { confirm: (calendar: 
   const live = useSetupCalendar(draft)
   useEffect(() => { if (errorCode === 'stale_preview') live.refresh() }, [errorCode, live.refresh])
   return step === 'calendar'
-    ? <CalendarStep draft={draft} change={patch => setDraft(current => ({ ...current, ...patch }))} live={live} zones={zones} busy={busy} next={() => setStep('direction')} {...(back ? { back } : {})} />
-    : <DirectionStep useCurrent={useCurrentYear} setUseCurrent={setUseCurrentYear} value={text} change={setText} live={live} busy={busy} back={() => setStep('calendar')} confirm={period => confirm(live.choice, text.trim(), period)} />
+    ? <CalendarStep skipAi={skipAi} draft={draft} change={patch => setDraft(current => ({ ...current, ...patch }))} live={live} zones={zones} busy={busy} next={() => setStep('direction')} {...(back ? { back } : {})} />
+    : <DirectionStep skipAi={skipAi} useCurrent={useCurrentYear} setUseCurrent={setUseCurrentYear} value={text} change={setText} live={live} busy={busy} back={() => setStep('calendar')} confirm={period => confirm(live.choice, text.trim(), period)} />
 }

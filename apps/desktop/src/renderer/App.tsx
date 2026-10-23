@@ -4,6 +4,7 @@
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { useSync } from './state/sync'
 import { TextButton, IconButton } from './components/ui/button'
 import { messages, smartMessages, useLocale } from './i18n'
 import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -55,6 +56,7 @@ export function App() {
   useLocale()
   const { snapshot, error, errorCode, setError, busy, submit, write, retryWrite, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(item => boardItemVisibility(item))
   const ai = useAi(snapshot?.workspace.generation)
+  const account = useSync()
   const [composing, setComposing] = useState(false), [onboarding, setOnboarding] = useState(false)
   const [composerGeneration, setComposerGeneration] = useState<string | null>(null)
   const columns = useColumns()
@@ -108,7 +110,7 @@ export function App() {
     },
     seed: value => {
       columns.setVisible(value.horizon, true)
-      startTransition(() => setSeed(previous => ({ ...value, key: (previous?.key ?? 0) + 1 })))
+      startTransition(() => setSeed(previous => ({ ...value, attemptId: crypto.randomUUID(), key: (previous?.key ?? 0) + 1 })))
     } }), [ready, due, reviewing, insightSettings.reviewed, columns.setVisible, snapshot?.workspace.generation])
   const [toastHeld, setToastHeld] = useState(false)
   const toastRef = useCallback((node: HTMLDivElement | null) => { setToastHeld(!!node && (node.matches(':hover') || node.contains(document.activeElement))) }, [])
@@ -162,7 +164,7 @@ export function App() {
     const confirmed = await write(async () => ({ type: 'confirmSetup', ...calendar, confirmed: true }), snapshot!.workspace.generation)
     if (!confirmed.ok) { setSetupErrorCode(confirmed.code); setError(confirmed.message); return false }
     if (!confirmed.result) return false
-    startTransition(() => setOnboarding(true))
+    startTransition(() => setOnboarding(!(account?.accountId === ai.status?.hostedAccountId && ai.status?.hostedEligible === true)))
     if (direction) {
       setDirectionPending(true)
       try {
@@ -222,7 +224,7 @@ export function App() {
     {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <TextButton onClick={() => void retry()}>{messages.retry}</TextButton>}<IconButton size="small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></IconButton></div>}
     {setupReady && snapshot && <SyncFeedback key={snapshot.workspace.generation} generation={snapshot.workspace.generation} />}
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
-    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
+    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate skipAi={!!account?.accountId && account.accountId === ai.status?.hostedAccountId && ai.status?.hostedEligible === true} confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
       : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>
       <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={null} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight} ai={ai}
         write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || reviewOpen} /></div>

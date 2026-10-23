@@ -14,7 +14,7 @@ export function startScreen(input: {
   phase: SyncStatus['phase'] | null
   error: SyncStatus['error'] | null
 }): StartScreen {
-  if (input.direct) return 'setup'
+  if (input.direct || input.phase === 'account') return 'setup'
   if (input.passwordReady && input.phase === 'setup') return 'setup'
   if (input.phase === 'ready' || (input.joining && input.error !== 'password' && input.phase !== 'choose')) return 'syncing'
   if (input.phase === 'signing-in') return 'waiting'

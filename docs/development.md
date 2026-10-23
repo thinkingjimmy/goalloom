@@ -8,6 +8,7 @@
 
 | 文档 | 用途 |
 | --- | --- |
+| [Authenticated hosted AI](features/hosted-ai.md) | Account-only login, finite Edge transport, shared cost protection and read-only statistics |
 | [智能输入功能规格](features/smart-input.md) | 全局输入、Jev 两渠道、Onboarding、计划创建/撤销与旧版导入恢复的规则、工程契约、TODO 与验收 |
 | [关系线功能规格](features/relation-lines.md) | 单流程筛选时的上下级连线、悬停链、跨级与滚出视野规则、设置开关、工程契约与验收 |
 | [快捷键功能规格](features/shortcuts.md) | 默认键位、流程筛选位置键、改键与冲突规则、工程契约与验收 |
@@ -276,3 +277,11 @@ apps/desktop/output/private-debug/ # 忽略：本机诊断源码映射，不随�
 按职责维护边界：业务服务在 `apps/desktop/src/main/workspace`，持久化适配器在 `apps/desktop/src/main/storage`；前端专属组件随 feature 放置，共用 UI 才进入 components。桌面测试场景放在 `apps/desktop/tests`，跨包同步测试放在 `packages/tests/sync`（`packages/tests` 是 workspace 包，只为把 `@goalloom/*` 链到该目录的 `node_modules`），加密构造测试放在 `packages/crypto/test`。桌面运行/构建工具放在 `apps/desktop/scripts`；仓库级脚本留在根目录 `scripts/`。官网保持独立安装，避免 Next.js 依赖进入 Electron 的扁平 `node_modules`。
 
 Apple/Google authentication changes additionally run `pnpm test:apple-login`, with reports and screenshots under `apps/desktop/output/tests/apple-login/`. The first-run provider card belongs to the complete Onboarding coverage above. Synthetic native acceptance does not replace live provider verification.
+
+### Hosted AI feature acceptance
+
+`node scripts/hosted-ai/feature-acceptance.mjs` runs only the complete affected ownership map: hosted desktop, existing Vitest, UI, composer, language, calendar, insight/generation, assistance, month/combined review, Apple login, credentials, sync join and replay. It runs serially and stops for inspection on failure. Optional arguments select named owning scripts for development feedback. Build current code first. Root `output/tests/hosted-ai/` holds new reports; existing suites retain their original evidence paths. Backend HTTP, real rollback-only SQL and live provider acceptance must remain distinct. No full verify, stress or performance command is included.
+
+Manual hosted live acceptance uses `scripts/hosted-ai/live-session.mjs`, `live-acceptance.mjs`, `receipt-acceptance.mjs` and `reconciliation-acceptance.mjs`; see [tooling](../scripts/hosted-ai/README.md) for fixed development scope, action ownership, explicit charged attempts and cleanup. These commands are excluded from default test/release runners. Controlled HTTP owns malformed result envelopes/schema errors; the reporting CLI E2E owns bounded read-only metadata recovery. Live reports preserve actual failed-attempt fees and omit generated text.
+
+Hosted content-minimization source acceptance: `node scripts/hosted-ai/content-minimization/features.mjs` runs hosted cache/capture, hosted account transport, composer, insight/generation, assistance, language and the smart-input ownership row (relations, periods, ordering, feedback, history, recovery, electron, UI, sync replay, review renderer), plus month/combined review. Select names for development feedback. Build first. Evidence: root `output/tests/hosted-ai/content-minimization/features/`; cache/restart evidence: `output/tests/hosted-ai/cache/`. No unchanged Onboarding/account/sync-login suites, full verify, stress or performance run is added. Controlled detector/HTTP, real rollback SQL and deployed/live platform acceptance are distinct.
