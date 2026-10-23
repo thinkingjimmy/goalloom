@@ -17,7 +17,9 @@ renderer/
 │   │   ├── ColumnVisibilityMenu.tsx # Six planning-column checkboxes in the shared period-picker skin, minimum guard, calendar labels and keyboard/focus dismissal
 │   │   ├── CommandPalette.tsx # Debounced search with actual-period hints, commands and detail navigation
 │   │   ├── CompletionCelebration.tsx # Shared item/review corner bursts; nonmodal Canvas, column/motion guards, generation invalidation and cleanup
-│   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable Toast actions
+│   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable notification/Toast actions
+│   │   ├── WorkspaceNotice.tsx # Persistent bottom-left cards with trailing primary actions, full copy and owner-controlled dismissal
+│   │   ├── workspace-notice.css # Bounded bottom-left stack, no folding, theme-aware cards and separate centered Toasts
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
@@ -41,7 +43,7 @@ renderer/
 │   │       ├── parts.tsx        # 分组/行（可带整行下方控件）/分段选择（色块、数量）/多选按钮组/开关原语，工作区时区时间与相对日期
 │   │       └── settings.css     # Content-sized, single-line navigation with a bounded pane; settings-only theme-token styles
 │   ├── sync/                # Independent task-grouped sync difference review
-│   │   ├── SyncReview.tsx   # Quiet notice, synced-default radios, sequential writes, receipt recovery and direct final close
+│   │   ├── SyncReview.tsx   # Independent corner-notice export and native review dialog, synced-default radios, sequential writes and receipt recovery
 │   │   ├── TaskComparison.tsx # Read-only board task classes, flow marks, lifecycle/context and text difference highlights
 │   │   └── sync-review.css  # Content-sized comparison; selection changes only the radio and outer frame
 │   ├── composer/            # 全局新建：输入法式（输入 → 一条 Jev 推荐 → ↵ 创建 / Tab 调整 / ⌥↵ 原样存 Later）
@@ -152,7 +154,7 @@ renderer/
 │   ├── review-summary.ts   # Up to 24 device-local period summaries, exact-prompt fingerprints, shared requests and generation invalidation
 │   ├── review-drafts.ts    # Up to 24 review-only destination suggestion batches, exact-prompt fingerprints, pending reuse and generation invalidation
 │   ├── feedback.ts         # Command feedback policy (moves/advances/nesting are silent), committed destinations, partial-restore warnings and reading durations
-│   └── use-workspace.ts    # Authoritative snapshots, captured placement policy, post-layout feedback, session undo, prepared writes and receipt recovery
+│   └── use-workspace.ts    # Authoritative snapshots, captured placement policy, post-layout feedback, session undo, prepared writes, active execution state and receipt recovery
 ├── i18n/
 │   ├── index.ts             # 唯一文案入口：当前语言的实时视图（原地替换，不重挂载）、setLocale/useLocale
 │   ├── format.ts            # 按当前语言的 Intl 日期/星期/时间/数字格式

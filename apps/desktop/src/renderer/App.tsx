@@ -1,11 +1,11 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded writes, selected board periods, undo, flows, preferences and independent sync feedback.
- * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
+ * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Persistent bottom-left notices use trailing primary actions without folding; pending receipts cannot be dismissed. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSync } from './state/sync'
-import { TextButton, IconButton } from './components/ui/button'
+import { IconButton } from './components/ui/button'
 import { messages, smartMessages, useLocale } from './i18n'
 import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { currentPeriod, workspaceDate } from '../domain/calendar'
@@ -27,7 +27,8 @@ import { boardItemVisibility } from './features/board/visibility'
 import { TopBar } from './features/shell/TopBar'
 import { CompletionCelebration } from './features/shell/CompletionCelebration'
 import { FeedbackLayer } from './features/shell/FeedbackLayer'
-import { SyncFeedback } from './features/sync/SyncReview'
+import { WorkspaceNotice } from './features/shell/WorkspaceNotice'
+import { SyncNotice, SyncFeedback } from './features/sync/SyncReview'
 import { startDevicePrefs } from './state/device-prefs'
 import { desktopApi, useWorkspace } from './state/use-workspace'
 import { useFlows } from './state/flows'
@@ -54,7 +55,7 @@ const AiStep = lazy(() => import('./features/smart/AiStep').then(module => ({ de
 export function App() {
   // Re-render the whole tree on a language switch; state (drafts, undo stack, open dialogs) is kept.
   useLocale()
-  const { snapshot, error, errorCode, setError, busy, submit, write, retryWrite, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(item => boardItemVisibility(item))
+  const { snapshot, error, errorCode, setError, busy, working, submit, write, retryWrite, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(item => boardItemVisibility(item))
   const ai = useAi(snapshot?.workspace.generation)
   const account = useSync()
   const [composing, setComposing] = useState(false), [onboarding, setOnboarding] = useState(false)
@@ -71,6 +72,7 @@ export function App() {
   const [initialHelp, setInitialHelp] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [palette, setPalette] = useState(false)
+  const [syncReviewOpen, setSyncReviewOpen] = useState(false)
   const openPalette = () => startTransition(() => setPalette(true))
   const [filter, setFilter] = useState<string | null>(null)
   const previousFlows = useRef(snapshot)
@@ -217,12 +219,7 @@ export function App() {
       calendar={snapshot?.workspace.calendar ?? null} menuBlocked={!!selected || settings || palette || composing || !!seed || reviewOpen}
       laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
       updateAvailable={hasUpdate(update)} openSearch={openPalette} openSettings={() => openSettings()} />
-    {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<TextButton disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</TextButton></div>}
-    {timezoneNotice.open && workspaceZone && <div className="notice-banner"><span>{messages.timezoneMismatch} {workspaceZone}。</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={timezoneNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
-    {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">{messages.restorePaused}<TextButton disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>{messages.confirmRollover}</TextButton></div>}
-    {backupNotice.open && snapshot?.backupError && <div className="notice-banner"><span>{snapshot.backupError}</span><TextButton onClick={() => openSettings('backup')}>{messages.viewBackups}</TextButton><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={backupNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
-    {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <TextButton onClick={() => void retry()}>{messages.retry}</TextButton>}<IconButton size="small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></IconButton></div>}
-    {setupReady && snapshot && <SyncFeedback key={snapshot.workspace.generation} generation={snapshot.workspace.generation} />}
+    {setupReady && snapshot && <SyncFeedback key={snapshot.workspace.generation} generation={snapshot.workspace.generation} onOpenChange={setSyncReviewOpen} />}
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
     {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate skipAi={!!account?.accountId && account.accountId === ai.status?.hostedAccountId && ai.status?.hostedEligible === true} confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
       : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>
@@ -259,7 +256,18 @@ export function App() {
       }} connect={() => { closeDetail(); openSettings('ai') }} initialAssistance={initialHelp} close={closeDetail} generation={snapshot.workspace.generation} write={write} retryWrite={retryWrite} revision={snapshot.workspace.revision} blocked={!!pending || !!snapshot.maintenance}
       flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} />}
     </Suspense>
-    {feedback && <FeedbackLayer><div ref={toastRef} className="toast" key={feedback.result.operationId} data-warning={!!feedback.warning}
+    <FeedbackLayer><div className="feedback-layout">
+      <div className="workspace-notices">
+        {(pending || error) && <WorkspaceNotice severity="error"
+          action={pending ? { label: working ? messages.checking : messages.retry, onClick: () => void retry(), disabled: working, checking: working } : undefined}
+          dismiss={pending ? undefined : { label: messages.closeError, onClick: () => setError(null) }}>{pending ? messages.saveUnknown : error}</WorkspaceNotice>}
+        {snapshot?.workspace.clockAnomaly && <WorkspaceNotice action={{ label: messages.confirmClock, disabled: busy, onClick: () => void submit({ type: 'confirmClock', confirmed: true }) }}>{messages.clockWarning}</WorkspaceNotice>}
+        {snapshot?.workspace.pausedAfterRestore && <WorkspaceNotice action={{ label: messages.confirmRollover, disabled: busy, onClick: () => void submit({ type: 'confirmRollover', confirmed: true }) }}>{messages.restorePaused}</WorkspaceNotice>}
+        {backupNotice.open && snapshot?.backupError && <WorkspaceNotice action={{ label: messages.viewBackups, onClick: () => openSettings('backup') }} dismiss={{ label: messages.dismissNotice, onClick: backupNotice.dismiss }}>{snapshot.backupError}</WorkspaceNotice>}
+        {timezoneNotice.open && workspaceZone && <WorkspaceNotice dismiss={{ label: messages.dismissNotice, onClick: timezoneNotice.dismiss }}>{messages.timezoneMismatch} {workspaceZone}。</WorkspaceNotice>}
+        {setupReady && snapshot && !syncReviewOpen && <SyncNotice />}
+      </div>
+    {feedback && <div ref={toastRef} className="toast" key={feedback.result.operationId} data-warning={!!feedback.warning}
       onMouseEnter={() => setToastHeld(true)} onMouseLeave={event => setToastHeld(event.currentTarget.contains(document.activeElement))}
       onFocus={() => setToastHeld(true)} onBlur={event => setToastHeld(event.currentTarget.matches(':hover') || event.currentTarget.contains(event.relatedTarget))}>
       <div className="toast-copy" role={feedback.warning ? 'alert' : 'status'}>
@@ -276,7 +284,8 @@ export function App() {
         catch { setError(messages.restoreItemFailed) }
       }}>{messages.restoreItem}</button>}
       <IconButton size="small" aria-label={messages.closeFeedback} onClick={() => setFeedback(null)}><Icon name="close" size={14} /></IconButton>
-    </div></FeedbackLayer>}
+    </div>}
+    </div></FeedbackLayer>
     <CompletionCelebration event={completion} generation={snapshot?.workspace.generation ?? ''} />
     <span className="sr-only" role="status">{busy ? messages.saving : snapshot ? messages.connected : messages.connecting}</span>
   </div>

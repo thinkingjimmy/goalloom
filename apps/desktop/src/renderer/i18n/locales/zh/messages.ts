@@ -47,6 +47,7 @@ export const messages = widen({
   confirmRollover: "确认按设置处理",
   viewBackups: "查看备份",
   retry: "重试核对",
+  checking: "核对中…",
   closeError: "关闭错误提示",
   dismissNotice: "关闭提示",
   opening: "正在打开本地工作区…",

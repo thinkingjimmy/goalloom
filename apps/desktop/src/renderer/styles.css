@@ -35,9 +35,6 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 /* New-version dot: sits on the gear's upper-right, ringed with the bar colour so it reads on hover/pressed backgrounds too. */
 .settings-toggle { position: relative; }
 .update-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 0 2px var(--bg); pointer-events: none; }
-.notice-banner, .error-banner { flex-shrink: 0; display: flex; align-items: center; gap: 12px; margin: 0 20px 8px; padding: 9px 14px; border-radius: 10px; background: var(--hover); font-size: 12.5px; line-height: 1.6; }
-.notice-banner > span, .error-banner > span { flex: 1; min-width: 0; }
-.error-banner { background: var(--danger-tint); color: var(--danger); }
 .inline-error { color: var(--danger); font-size: 13px; margin: 0 0 12px; }
 .fab { position: fixed; right: 28px; bottom: 28px; width: 52px; height: 52px; border-radius: 26px; background: var(--raised); color: var(--fg); display: grid; place-items: center; box-shadow: 0 1px 2px rgba(60, 40, 20, .08), 0 6px 20px rgba(60, 40, 20, .12); z-index: 10; }
 .fab:hover { transform: translateY(-1px); }
