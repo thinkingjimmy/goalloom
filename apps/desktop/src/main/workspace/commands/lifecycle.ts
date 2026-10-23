@@ -83,7 +83,9 @@ export function restoreItem(context: Context, command: CommandOf<'restoreItem'>)
   const deletion = context.store.operation(item.deletedBy!)
   const originalEffects = deletion?.effects ?? []
   const creation = deletion?.result.originalOperationId ? context.store.operation(deletion.result.originalOperationId) : undefined
-  const creationOutline = creationNestingRestore(deletion, creation, item.id)
+  const completions = creation ? context.store.prepare("SELECT id FROM operations WHERE kind='completeCreation' AND json_extract(result,'$.creationOperationId')=? ORDER BY rowid")
+    .all(creation.id).map(row => context.store.operation(String(row.id))!).filter(operation => operation.result.changed) : []
+  const creationOutline = creationNestingRestore(deletion, creation, item.id, completions)
   const ownOutline = originalEffects.find(effect => effect.kind === 'nesting' && effect.itemId === item.id && effect.before.nestingParentId !== null)
     ?? creationOutline
   const ownParent = ownOutline?.kind === 'nesting' ? context.store.item(ownOutline.before.nestingParentId!) : null

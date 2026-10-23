@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Frozen bilingual synthetic fixtures, production planner/adapter and ignored root API key.
+ * [INPUT]: Frozen bilingual inline/global ownership fixtures, production planner/adapter and an explicitly authorized ignored API key.
  * [OUTPUT]: Per-split exact-set accuracy, candidate judgements and full-case timing/model evidence without user workspace access.
  * [POS]: Live matching acceptance; labels and threshold are never tuned on the holdout.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -22,7 +22,7 @@ const env = await readFile(resolve(root, '.env.local'), 'utf8')
 const key = env.split(/\r?\n/).find(line => line.startsWith('OPENROUTER_API_KEY='))?.slice('OPENROUTER_API_KEY='.length).trim().replace(/^["']|["']$/g, '')
 if (!key) throw Error('OPENROUTER_API_KEY missing')
 const limit = Number(process.argv.find(arg => arg.startsWith('--limit='))?.split('=')[1] ?? Infinity)
-const selectedSplit = ['regressions', 'development', 'holdout'].find(split => process.argv.includes(`--${split}`))
+const selectedSplit = ['ownership', 'regressions', 'development', 'holdout'].find(split => process.argv.includes(`--${split}`))
 const splits = selectedSplit === 'development' ? ['development', 'regressions'] : selectedSplit ? [selectedSplit] : ['development', 'holdout', 'regressions']
 const report: any = { status: 'running', model: 'typesafe/jev-1.14', gate: 0.60, datasetHashes: {}, sourceHashes: {},
   runtime: { electron: process.versions.electron, node: process.versions.node, os: release(), arch: process.arch, cpu: cpus()[0]?.model, machineScope: 'Physical/VM status not independently verified' }, rows: [], requests: [] }
@@ -41,7 +41,7 @@ async function save() {
   report.languages = Object.fromEntries(['zh', 'en'].map(language => [language, metrics(report.rows.filter(row => row.language === language))]))
   report.urls = metrics(report.rows.filter(row => row.url))
   await writeFile(`${directory}/report.json`, JSON.stringify(report, null, 2))
-  const lines = ['# Production Jev 1.14 capture evaluation', '', 'Synthetic frozen labels; production inline matcher; no user workspace or web-page fetches. Complete-case timings include all batches and failures.', '', '| Split | Exact sets | False / missed parents | Errors | P50 / P95 ms | Requests |', '| --- | --- | --- | --- | --- | --- |',
+  const lines = ['# Production Jev 1.14 capture evaluation', '', 'Synthetic frozen labels; production global/inline matcher; no user workspace or web-page fetches. Complete-case timings include all batches and failures.', '', '| Split | Exact sets | False / missed parents | Errors | P50 / P95 ms | Requests |', '| --- | --- | --- | --- | --- | --- |',
     ...Object.entries(report.summary).map(([split, value]: [string, any]) => `| ${split} | ${value.exact}/${value.cases} | ${value.falseParents} / ${value.missedParents} | ${value.errors} | ${value.p50Ms} / ${value.p95Ms} | ${value.requests} |`), '',
     '| Slice | Exact sets | False / missed parents | Errors | P50 / P95 ms | Requests |', '| --- | --- | --- | --- | --- | --- |',
     ...Object.entries({ ...report.languages, urls: report.urls }).map(([slice, value]: [string, any]) => `| ${slice} | ${value.exact}/${value.cases} | ${value.falseParents} / ${value.missedParents} | ${value.errors} | ${value.p50Ms} / ${value.p95Ms} | ${value.requests} |`), '',
@@ -57,6 +57,7 @@ try {
     const periods = mapPeriodHorizons(horizon => currentPeriod(calendar, horizon, referenceTime))
     const candidates: Candidate[] = data.goals.map((goal, index) => ({ ref: `g${index + 1}`, itemId: goal.id, title: goal.title, horizon: goal.horizon,
       status: 'todo', archived: false, flowColor: goal.color ?? null, version: 1, named: false,
+      ...(split === 'ownership' ? { periodId: periods[goal.horizon].id, placementVersion: 1, nestingParentId: null } : {}),
       parents: data.goals.filter(other => other.id === goal.parent).map(other => ({ itemId: other.id, title: other.title })),
       children: data.goals.filter(other => other.parent === goal.id).map(other => ({ itemId: other.id, title: other.title })) }))
     for (const item of data.cases.slice(0, limit)) {
@@ -64,7 +65,7 @@ try {
       const row: any = { split, id: item.id, family: item.family, language: item.language, url: item.text.includes('http'), expected: [...item.parents].sort(), actual: [], exact: false }
       try {
         const context: SmartContext = { text: item.text, calendar, referenceDate, weekdayName: '周五', timezone: calendar.timezone, weekStart: calendar.weekStart, periods, candidates }
-        const request: AnalyzeRequest = { requestId: randomUUID(), draftSessionId: randomUUID(), generation: 'synthetic', providerRevision: 1, inputRevision: 1, manualRevision: 0, contextRevision: 1, referenceTime, text: item.text, parentHints: [], target: { horizon: 'day', startDate: referenceDate } }
+        const request: AnalyzeRequest = { requestId: randomUUID(), draftSessionId: randomUUID(), generation: 'synthetic', providerRevision: 1, inputRevision: 1, manualRevision: 0, contextRevision: 1, referenceTime, text: item.text, parentHints: [], ...(split === 'ownership' ? {} : { target: { horizon: 'day' as const, startDate: referenceDate } }) }
         if (urlOnly(item.text)) row.actual = plainPreview(context, item.text).capture!.parents.map(parent => parent.itemId)
         else {
           const plan = matchingPlan(context, request)
@@ -87,7 +88,9 @@ try {
           const round: Round = { answers: Object.assign({}, ...rounds.map(value => value.answers)), precision: rounds[0]?.precision ?? { decimals: null, source: null } }
           row.judgements = plan.matches.map(match => ({ candidate: match.candidate.itemId, answer: round.answers[match.key] }))
           row.precision = round.precision
-          row.actual = matchedPreview(context, request, plan, round).capture!.parents.map(parent => parent.itemId).sort()
+          const capture = matchedPreview(context, request, plan, round).capture!
+          row.horizon = capture.horizon
+          row.actual = [...capture.parents.map(parent => parent.itemId), ...(capture.nesting ? [`nest:${capture.nesting.itemId}`] : [])].sort()
         }
         row.exact = JSON.stringify(row.actual) === JSON.stringify(row.expected)
       } catch (error) { row.error = error instanceof ProviderFailure ? error.failure.kind : error instanceof Error ? error.message : String(error) }

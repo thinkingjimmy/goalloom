@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Smart preview, previous edits, original preview periods and flow constraints.
- * [OUTPUT]: Manual-priority draft merging that adopts Jev's half-sure column and parent reads (moving a draft to childHorizon of its parent when the new-link rule needs it; manual fields or rule conflicts keep them as suggestions), orphan handling and versioned createPlan payloads.
+ * [OUTPUT]: Manual-priority schedule/goal merging, guarded single-task ownership, orphan handling and versioned createPlan payloads.
  * [POS]: Pure composer state; preserves period identity instead of rebasing stale previews.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,6 +9,7 @@ import { mayParent } from '../../../domain/relations'
 import { plainLater } from '../../../domain/smart/segments'
 import { explicitlyReferences } from '../../../domain/smart/terms'
 import type { ParentRef } from '../../../shared/contracts/commands'
+import type { CreationSelection } from '../../../shared/contracts/capture'
 import { horizons } from '../../../shared/contracts/values'
 import type { ItemHorizon } from '../../../shared/contracts/entities'
 import type { Candidate, HorizonChoice, ParentKey, SmartPreview } from '../../../shared/contracts/smart-input'
@@ -24,6 +25,7 @@ export interface EditableDraft {
   parents: ParentKey[]; parentSuggestions: ParentKey[]
   flowColor: number | null; manual: Field[]; roleCertain: boolean; orphan: boolean
   periods: SmartPreview['periods'] | null
+  nesting?: CreationSelection['nesting']
 }
 
 let sequence = 0
@@ -98,6 +100,10 @@ export function mergePreview(preview: SmartPreview, previous: EditableDraft[], r
   // A manually shaped draft whose source no longer maps stays visible instead of being silently dropped.
   const orphans = pool.filter(row => row.manual.length && !removed.includes(row.source ?? '')).map(row => ({ ...row, orphan: true, periods: preview.periods }))
   const all = [...merged, ...orphans]
+  const owner = preview.capture?.nesting
+  if (owner && all.length === 1 && !all[0]!.manual.some(field => ['horizon', 'parents', 'flowColor'].includes(field))) {
+    Object.assign(all[0]!, { nesting: owner, horizon: owner.horizon, horizonSuggestion: null, parents: [], parentSuggestions: [] })
+  }
   const live = new Set(all.map(row => row.id))
   return all.map(row => ({ ...row, parents: row.parents.filter(key => key.kind === 'existing' || live.has(key.draftId)), parentSuggestions: row.parentSuggestions.filter(key => key.kind === 'existing' || live.has(key.draftId)) }))
 }
@@ -108,6 +114,7 @@ export function candidateInfo(candidates: Candidate[]): Map<string, ParentInfo> 
 export function planItems(drafts: EditableDraft[], parents: Map<string, ParentInfo>) {
   return drafts.map(draft => ({
     draftId: draft.id, title: draft.title.trim(), description: draft.description, dueDate: draft.due, horizon: draft.horizon, previewPeriodId: draft.horizon === 'later' ? null : draft.periods?.[draft.horizon].id ?? null, flowColor: draft.flowColor,
+    ...(draft.nesting ? { nesting: { parentId: draft.nesting.itemId, expectedParentVersion: draft.nesting.version, expectedParentPlacementVersion: draft.nesting.placementVersion } } : {}),
     parentRefs: draft.parents.map((key): ParentRef => key.kind === 'draft' ? key : { kind: 'existing', itemId: key.itemId, expectedVersion: parents.get(key.itemId)!.version,
       ...(!draft.manual.includes('parents') && !parents.get(key.itemId)!.archived && !explicitlyReferences(`${draft.source ?? ''}\n${draft.description}`, parents.get(key.itemId)!.title) ? { automatic: true } : {}) }),
   }))

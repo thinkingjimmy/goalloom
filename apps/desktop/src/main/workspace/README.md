@@ -17,8 +17,8 @@ workspace/
 ├── commands/
 │   ├── items.ts      # Setup/date guards, atomic creation/nesting/link placement, forward-period auto-placement with explicit-slot priority, source-local group moves and persistent remote ownership
 │   ├── nesting.ts    # Guarded leaf/group nesting with ordered flattening and atomic sibling insertion, explicit root-slot detachment, inherited-parent materialization and combined outline/goal validation
-│   ├── plan.ts       # createPlan：写前统一验证既有上级版本，拓扑序每项一个 create、入边归下级；条目可指定未来周期
-│   ├── capture.ts    # Optional ready matches and late column/parent completion, guarded by creation identity, task versions and live periods
+│   ├── plan.ts       # createPlan: guarded single-task nesting or topological batch creation, versioned goals and current/future periods
+│   ├── capture.ts    # Ready/late global ownership and column/goal completion, guarded by immutable creation identity, owner versions and live periods
 │   ├── assistance.ts # Atomic guarded note rewrites (description-only v2 effects), legacy guidance/placement and receipt-first undo
 │   ├── lifecycle.ts  # Independent lifecycle, parent deletion promotion, creation-receipt group restore, non-stealing outline restore, guarded discard and unlink
 │   ├── undo.ts       # Owned-field inverses including atomic flow adoption/promotion, color/branch guards, events and holds
