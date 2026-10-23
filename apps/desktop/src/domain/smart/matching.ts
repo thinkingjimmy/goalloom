@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current candidate DAG, original/segmented text, fixed periods and provider-neutral answers.
- * [OUTPUT]: Budgeted independent batches, broad-development scope, 0.60 precision-guarded parent sets and a single-item capture projection.
+ * [OUTPUT]: Budgeted independent batches, precision-guarded goals and unambiguous same-period ownership for single global captures.
  * [POS]: Shared Jev 1.14 matcher for global and inline capture; no retrieval model, URL fetching or second judgement round.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -58,7 +58,7 @@ export function matchingPlan(context: SmartContext, request: AnalyzeRequest): Ma
   for (const task of tasks) {
     const questions: Batch['questions'] = {}
     for (const candidate of context.candidates) {
-    if (candidate.archived || candidate.status !== 'todo' || candidate.horizon === 'later' || candidate.horizon === 'day'
+    if (candidate.archived || candidate.status !== 'todo' || candidate.horizon === 'later' || request.target && candidate.horizon === 'day'
       || request.target && !mayParent(candidate.horizon, request.target.horizon) || urlOnly(task.text)) continue
     const key = `support_${matches.length}`, parent = candidate.parents ?? [], children = candidate.children ?? []
     questions[key] = { type: 'boolean', instructions: {
@@ -117,8 +117,15 @@ export function matchedPreview(context: SmartContext, request: AnalyzeRequest, p
     return removeAncestors(all, context.candidates, explicit, context.relations)
   }
   const parents = selected('capture', horizon)
+  const explicit = explicitParents(context.text, context.candidates)
+  const owners = !request.target && preview.drafts.length === 1 && horizon !== 'later' && !explicit.size
+    ? selected('capture').filter(candidate => candidate.horizon === horizon && candidate.periodId === context.periods[horizon].id
+      && candidate.nestingParentId === null && candidate.placementVersion !== undefined) : []
+  const taskOwner = owners.length === 1 ? owners[0] : undefined
   const capture: CreationSelection = { horizon, previewPeriodId: horizon === 'later' ? null : request.target && context.targetPeriod ? context.targetPeriod.id : context.periods[horizon].id,
-    parents: parents.map(parent => ({ itemId: parent.itemId, title: parent.title, horizon: parent.horizon, ...(parent.periodId !== undefined ? { periodId: parent.periodId } : {}), parentIds: (parent.parents ?? []).map(row => row.itemId),
+    ...(taskOwner ? { nesting: { itemId: taskOwner.itemId, title: taskOwner.title, horizon: taskOwner.horizon, periodId: taskOwner.periodId!,
+      version: taskOwner.version, placementVersion: taskOwner.placementVersion!, parentIds: (taskOwner.parents ?? []).map(row => row.itemId) } } : {}),
+    parents: (taskOwner ? [] : parents).map(parent => ({ itemId: parent.itemId, title: parent.title, horizon: parent.horizon, ...(parent.periodId !== undefined ? { periodId: parent.periodId } : {}), parentIds: (parent.parents ?? []).map(row => row.itemId),
       ...(explicitParents(context.text, context.candidates).has(parent.itemId) ? { explicit: true } : {}) })) }
   const relations = [...preview.relations]
   const draftIds = new Set(preview.drafts.map(draft => draft.draftId)), owner = new Map<string, string>()
@@ -127,9 +134,10 @@ export function matchedPreview(context: SmartContext, request: AnalyzeRequest, p
   for (const draft of preview.drafts) {
     const members = plan.core.slots.filter(slot => owner.get(slot.id) === draft.draftId)
     const explicit = explicitParents(members.map(slot => slot.text).join('\n'), context.candidates)
-    const targets = plan.core.slots.length === 1 || request.target ? selected('capture')
+    const targets = taskOwner ? [] : plan.core.slots.length === 1 || request.target ? selected('capture', owners.length ? horizon : undefined)
       : removeAncestors([...new Map(members.flatMap(slot => selected(slot.id)).map(parent => [parent.itemId, parent])).values()], context.candidates, explicit, context.relations)
     for (const parent of targets) {
+      if (parent.horizon === 'day') continue
       const match = plan.matches.filter(match => match.candidate.itemId === parent.itemId && (plan.core.slots.length === 1 || request.target ? match.slotId === 'capture' : owner.get(match.slotId) === draft.draftId))
         .sort((a, b) => checkBoolean(round.answers[b.key]) - checkBoolean(round.answers[a.key]))[0]
       relations.push({ parent: { kind: 'existing', itemId: parent.itemId }, childDraftId: draft.draftId, state: 'yes', probability: match ? checkBoolean(round.answers[match.key]) : null })

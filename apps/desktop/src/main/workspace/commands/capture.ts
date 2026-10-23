@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A main-owned completion, immutable creation guard and current transactional task/goal state.
- * [OUTPUT]: Optional immediate enrichment, version-bound late placement/parents and creation-owned system effects.
+ * [OUTPUT]: Optional immediate enrichment, guarded late placement/goals/ownership and creation-owned system effects.
  * [POS]: Authoritative automatic-capture rules; user edits invalidate pending work, not creation undo.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -14,6 +14,7 @@ import { nextSortKey, targetPeriod, touch, type Context } from '../context'
 import { newRelation } from './items'
 import { writeEdges } from './lifecycle'
 import { placeByParent } from './ordering'
+import { changeNesting } from './nesting'
 
 type CreationCommand = CommandOf<'create'> | CommandOf<'createPlan'>
 export function isCapture(command: Command): command is CreationCommand & { smartCapture: NonNullable<CreationCommand['smartCapture']> } {
@@ -39,6 +40,18 @@ function selectionPeriod(context: Context, selection: CreationSelection): boolea
     && currentPeriod(context.workspace.calendar, selection.horizon, context.now).id === selection.previewPeriodId }
   catch { return false }
 }
+function validOwner(context: Context, selection: CreationSelection): Item | null {
+  const candidate = selection.nesting
+  if (!candidate || selection.parents.length || selection.horizon === 'later' || candidate.horizon !== selection.horizon
+    || candidate.periodId !== selection.previewPeriodId || !selectionPeriod(context, selection)
+    || !context.store.db.prepare('SELECT 1 FROM items WHERE id=?').get(candidate.itemId)) return null
+  const item = context.store.item(candidate.itemId)
+  const parents = [...context.store.effectiveRelations(), ...context.store.nestingLinks()].filter(edge => edge.childId === item.id).map(edge => edge.parentId).sort()
+  return item.deletedAt || item.archivedAt || item.status !== 'todo' || item.placement.nestingParentId
+    || item.version !== candidate.version || item.placement.version !== candidate.placementVersion || item.title !== candidate.title
+    || item.placement.horizon !== selection.horizon || item.placement.periodId !== selection.previewPeriodId
+    || JSON.stringify(parents) !== JSON.stringify([...candidate.parentIds].sort()) ? null : item
+}
 export function readyCreation(context: Context, command: CreationCommand, selection?: CreationSelection): CreationCommand {
   if (!isCapture(command) || !selection) return command
   const intent = command.smartCapture
@@ -46,6 +59,15 @@ export function readyCreation(context: Context, command: CreationCommand, select
   if (!item) return command
   const placement = intent.allowPlacement && selectionPeriod(context, selection)
   const horizon = placement ? selection.horizon : item.horizon
+  const manualParents = command.type === 'create' ? command.parentId || command.parentRefs?.length || command.nesting : item.parentRefs?.length || item.nesting
+  const owner = placement && intent.allowParents && !intent.request.target && item.flowColor === null && !manualParents ? validOwner(context, selection) : null
+  if (owner) {
+    const nesting = { parentId: owner.id, expectedParentVersion: owner.version, expectedParentPlacementVersion: owner.placement.version }
+    // The main-owned capture metadata stays on the original receipt, not on the nested create primitive.
+    if (command.type === 'create') { const { smartCapture: _, ...plain } = command; return { ...plain, horizon, nesting } }
+    const { smartCapture: _, ...plain } = command
+    return { ...plain, items: [{ ...command.items[0]!, horizon, previewPeriodId: selection.previewPeriodId, nesting }] }
+  }
   const parents = intent.allowParents && item.flowColor === null && !(command.type === 'create' ? command.parentId || command.parentRefs?.length : command.items[0]!.parentRefs.length)
     ? validParents(context, selection.parents, horizon).map(parent => ({ kind: 'existing' as const, itemId: parent.id, expectedVersion: parent.version, automatic: !selection.parents.find(candidate => candidate.itemId === parent.id)?.explicit })) : []
   if (command.type === 'create') return { ...command, horizon, ...(parents.length ? { parentRefs: parents } : {}) }
@@ -74,6 +96,7 @@ export function completeCreation(context: Context, command: CommandOf<'completeC
   if (guard.allowPlacement && !selectionPeriod(context, selection)) return false
   const horizon = guard.allowPlacement ? selection.horizon : item.placement.horizon
   const parents = guard.allowParents && item.flowColor === null ? validParents(context, selection.parents, horizon) : []
+  const owner = guard.allowPlacement && guard.allowParents && item.flowColor === null ? validOwner(context, selection) : null
   if (horizon !== item.placement.horizon) {
     const before = structuredClone(item), position = context.store.position(item), period = targetPeriod(context, horizon)
     const version = item.placement.version
@@ -82,6 +105,10 @@ export function completeCreation(context: Context, command: CommandOf<'completeC
     touch(context, item)
     context.effects.push({ kind: 'position', itemId: item.id, before: position, after: context.store.position(item) })
     context.store.event(command.operationId, context.now, 'moved', before, item)
+  }
+  if (owner) {
+    changeNesting(context, item, owner)
+    return true
   }
   const edges = parents.flatMap(parent => relationProblem(parent.id, item.id, context.store.relations()) ? [] : [newRelation(parent.id, item.id, context.now)])
   if (edges.length) {

@@ -206,6 +206,41 @@ async function run(): Promise<void> {
   assert.equal(second.repo.store.item(saved.receipt.itemId!).description, 'Peer notes')
   checks.push('Encrypted late completion, grouped creation undo and scoped restore converge while preserving a later peer text edit')
 
+  const captureOwner = first.run({ type: 'create', title: 'Complete Aurora development', horizon: 'week', parentId: parent,
+    expectedParentVersion: first.repo.store.item(parent).version }).itemId!
+  await push(first, alpha, bound); await push(second, beta, joined)
+  for (const ready of [true, false]) {
+    const generation = first.repo.store.workspace().generation, owner = first.repo.store.item(captureOwner)
+    const request = { requestId: randomUUID(), draftSessionId: randomUUID(), inputRevision: 1, manualRevision: 0, generation, providerRevision: 1,
+      contextRevision: first.repo.store.workspace().revision, referenceTime: at, text: `Aurora AI ${ready ? 'ready' : 'late'}`, parentHints: [] }
+    const selection = { horizon: 'week' as const, previewPeriodId: owner.placement.periodId, parents: [], nesting: { itemId: owner.id, title: owner.title,
+      horizon: 'week' as const, periodId: owner.placement.periodId, parentIds: [parent], version: owner.version, placementVersion: owner.placement.version } }
+    const created = first.repo.execute({ type: 'createPlan', operationId: randomUUID(), generation, items: [{ draftId: 'owned', title: request.text, horizon: 'later', previewPeriodId: null }],
+      smartCapture: { request, allowPlacement: true, allowParents: true } }, ready ? selection : undefined)
+    await push(first, alpha, bound); await push(second, beta, joined)
+    if (!ready) {
+      const completed = first.repo.execute({ type: 'completeCreation', operationId: randomUUID(), generation,
+        creationOperationId: created.operationId, requestId: request.requestId, itemId: created.itemId,
+        expectedVersion: created.capture!.itemVersion, expectedPlacementVersion: created.capture!.placementVersion, selection })
+      assert(completed.changed)
+      await push(first, alpha, bound); await push(second, beta, joined)
+    }
+    const id = created.itemId!, remote = second.repo.store.item(id)
+    assert.equal(remote.placement.nestingParentId, owner.id)
+    second.run({ type: 'edit', itemId: id, expectedVersion: remote.version, title: 'Peer-owned child text', description: 'Preserve ownership notes', dueDate: null })
+    await push(second, beta, joined); await push(first, alpha, bound)
+    const undone = first.run({ type: 'undo', originalOperationId: created.operationId })
+    assert.equal(undone.outcome, 'committed')
+    await push(first, alpha, bound); await push(second, beta, joined)
+    for (const machine of [first, second]) assert(machine.repo.store.item(id).deletedAt)
+    first.run({ type: 'restoreItem', itemId: id, expectedVersion: first.repo.store.item(id).version, deletionSource: undone.operationId })
+    await push(first, alpha, bound); await push(second, beta, joined)
+    assert.equal(second.repo.store.item(id).placement.nestingParentId, owner.id)
+    assert.equal(second.repo.store.item(id).description, 'Preserve ownership notes')
+    assert.deepEqual(board(first), board(second))
+  }
+  checks.push('Encrypted ready/late capture ownership, grouped undo and scoped restore converge without losing peer text')
+
   const race = capture('Pending capture before a peer edit')
   await push(first, alpha, bound); await push(second, beta, joined)
   for (const title of ['Peer changed this', 'Pending capture before a peer edit']) {

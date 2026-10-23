@@ -13,20 +13,26 @@ type Operation = Dataset['operations'][number]
 export function validateCreationHistory(data: Dataset, operations: Map<string | number, Operation>): Map<string, Effect[]> {
   const valid = (condition: unknown) => { if (!condition) throw new Error(serverText().import.invalidInverseReference) }
   const completed = new Map<string, Operation[]>()
-  const originalEvents = new Map(data.events.filter(event => event.type === 'created').map(event => [event.itemId, event]))
+  const finalEvents = new Map<string, Dataset['events'][number]>()
+  for (const event of data.events) {
+    const key = `${event.operationId}:${event.itemId}`
+    if (!finalEvents.has(key) || event.eventIndex > finalEvents.get(key)!.eventIndex) finalEvents.set(key, event)
+  }
   for (const operation of data.operations) {
     const { capture, creationOperationId, captureRequestId } = operation.result
     if (capture) {
       valid(data.schemaVersion >= 11 && ['create', 'createPlan'].includes(operation.kind) && operation.source === 'user' && operation.result.changed)
       const created = operation.effects.find(effect => effect.kind === 'create' && effect.itemId === capture.itemId)
-      valid(operation.effects.length === 1 && created && operation.result.itemId === capture.itemId && originalEvents.get(capture.itemId)?.after.version === capture.itemVersion)
+      valid(created && operation.result.itemId === capture.itemId && finalEvents.get(`${operation.id}:${capture.itemId}`)?.after.version === capture.itemVersion
+        && (operation.effects.length === 1 || !capture.pending && operation.effects.length === 2 && operation.effects[1]?.kind === 'nesting'))
     }
     if (operation.kind !== 'completeCreation') { valid(creationOperationId === undefined && captureRequestId === undefined); continue }
     valid(data.schemaVersion >= 11 && creationOperationId && captureRequestId && operation.source === 'system' && !operation.result.undoable)
     const original = operations.get(creationOperationId!), guard = original?.result.capture
     valid(original && guard?.pending && original.generation === operation.generation && guard.requestId === captureRequestId && guard.itemId === operation.result.itemId)
-    const effects = operation.effects, positions = effects.filter(effect => effect.kind === 'position'), relations = effects.filter(effect => effect.kind === 'relations')
-    valid(effects.every(effect => effect.itemId === guard!.itemId && ['position', 'relations'].includes(effect.kind)) && positions.length <= 2 && relations.length <= 1)
+    const effects = operation.effects, positions = effects.filter(effect => effect.kind === 'position'), relations = effects.filter(effect => effect.kind === 'relations'), nesting = effects.filter(effect => effect.kind === 'nesting')
+    valid(effects.every(effect => effect.itemId === guard!.itemId && ['position', 'relations', 'nesting'].includes(effect.kind)) && positions.length <= 2 && relations.length <= 1 && nesting.length <= 1)
+    valid(!nesting.length || guard!.allowPlacement && guard!.allowParents && !relations.length && effects.at(-1) === nesting[0])
     valid(!relations.length || guard!.allowParents)
     for (const effect of positions) valid(!effect.before.nestingParentId && !effect.after.nestingParentId
       && (guard!.allowPlacement || effect.before.horizon === effect.after.horizon && effect.before.periodId === effect.after.periodId))

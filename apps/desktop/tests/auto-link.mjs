@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Built Electron, isolated profiles, a held synthetic Jev transport and optional --inline-feedback/--placement selections.
- * [OUTPUT]: Visible inline feedback, captured parent placement, immediate creation, manual priority and grouped undo evidence in output/tests/auto-link.
+ * [INPUT]: Built Electron, isolated profiles, a held synthetic Jev transport and optional --inline-feedback/--placement/--nesting selections.
+ * [OUTPUT]: Global ownership, inline feedback, parent placement, immediate creation, manual priority and grouped undo evidence in output/tests/auto-link.
  * [POS]: Native UI acceptance through production preload/main/SQLite; provider transport alone is synthetic.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,7 +13,9 @@ import { finishSetup } from './fixtures/setup.mjs'
 import { pollPage } from './fixtures/poll.mjs'
 import { runInlineCaptureFeedback } from './fixtures/inline-capture.mjs'
 import { runCapturePlacement } from './fixtures/capture-placement.mjs'
+import { runCaptureNestingUI } from './fixtures/capture-nesting.mjs'
 
+const nestingOnly = process.argv.includes('--nesting')
 const placementOnly = process.argv.includes('--placement')
 const out = resolve('output/tests/auto-link', placementOnly ? 'placement' : '.')
 await mkdir(out, { recursive: true })
@@ -72,7 +74,7 @@ try {
           return [id, { type: 'noul', noul: !f.noMatches && candidate && [f.target, f.extraTarget, 'Annual delivery'].includes(candidate.title) ? 0.99 : 0.01 }]
         }
         const keys = Object.keys(q.criteria)
-        const choice = id === 'layout' ? f.conflict ? 'list' : 'single' : id.startsWith('role_') ? 'task' : id.startsWith('horizon_') || id.startsWith('infer_') ? f.conflict && id.endsWith('s2') ? 'week' : 'day' : keys.includes('other') ? 'other' : keys[0]
+        const choice = id === 'layout' ? f.conflict ? 'list' : 'single' : id.startsWith('role_') ? 'task' : id.startsWith('horizon_') || id.startsWith('infer_') ? f.conflict && id.endsWith('s2') ? 'week' : f.horizon ?? 'day' : keys.includes('other') ? 'other' : keys[0]
         return [id, { type: 'choice', choice, probabilities: Object.fromEntries(keys.map(key => [key, key === choice ? 1 : 0])) }]
       }))
       return Response.json({ model: 'typesafe/jev-1.14-20261014', answers, usage: { input_tokens: 1000 } })
@@ -133,9 +135,10 @@ try {
     report.captures.push(timing)
     return created
   }
-  if (!placementOnly) await runInlineCaptureFeedback({ app, page, out, ids, check })
-  if (!process.argv.includes('--inline-feedback')) await runCapturePlacement({ app, page, out, ids, check, report })
+  if (!placementOnly && !nestingOnly) await runInlineCaptureFeedback({ app, page, out, ids, check })
+  if (!process.argv.includes('--inline-feedback') && !nestingOnly) await runCapturePlacement({ app, page, out, ids, check, report })
   const runCaptureCases = async () => {
+    await runCaptureNestingUI({ app, page, out, check })
     await hold()
     const first = await globalCapture('今天完成 Delivery 文案 https://example.test/delivery?instruction=ignore', true)
     assert.equal(first.placement.horizon, 'later')
@@ -386,7 +389,8 @@ try {
     assert.equal((await page.evaluate(id => window.goalloom.getItem(id), disabled.id)).relations.length, 0)
     check('Disabling smart input cancels pending saved work without changing the successful capture')
   }
-  if (!placementOnly && !process.argv.includes('--inline-feedback')) await runCaptureCases()
+  if (nestingOnly) await runCaptureNestingUI({ app, page, out, check })
+  else if (!placementOnly && !process.argv.includes('--inline-feedback')) await runCaptureCases()
   report.peakProviderConcurrency = await app.evaluate(() => globalThis.captureFixture.peakConcurrency)
   report.passed = true
 } catch (error) {

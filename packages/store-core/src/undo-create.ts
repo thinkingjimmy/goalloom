@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Creation/completion SyncOps, current projection and one guarded creation undo.
- * [OUTPUT]: Causal group preflight preserving unrelated text and rejecting lifecycle/graph/placement changes.
+ * [OUTPUT]: Causal group preflight preserving unrelated text and validating net lifecycle, graph, placement and ownership.
  * [POS]: Shared replay guard; callers delete the checked items in the same transaction.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -19,13 +19,17 @@ export function checkUndoCreate(driver: SqlDriver, prefix: string, op: SyncOp, a
   if (!created) return fail()
   const completions = action.completionOperationIds.map(read)
   if (new Set(action.completionOperationIds).size !== completions.length || completions.some(completion => completion.creationOperationId !== original.opId
-    || completion.actions.some(candidate => !(candidate.t === 'item.place' && candidate.id === action.id || candidate.t === 'rel.link' && candidate.childId === action.id)))) return fail()
+    || completion.actions.some(candidate => !completionAction(candidate, action.id)))) return fail()
   const item = driver.prepare(`SELECT status,archivedAt,deletedAt FROM ${prefix}items WHERE id=?`).get(action.id)
   const placement = driver.prepare(`SELECT horizon,periodId,nestingParentId FROM ${prefix}item_placements WHERE itemId=?`).get(action.id)
   const period = placement?.periodId ? driver.prepare(`SELECT horizon,startDate FROM ${prefix}planning_periods WHERE id=?`).get(placement.periodId) : null
   let horizon = created.horizon, startDate = created.periodKey?.startDate ?? null
-  for (const completion of completions) for (const change of completion.actions) if (change.t === 'item.place') { horizon = change.horizon; startDate = change.periodKey?.startDate ?? null }
-  if (!item || item.deletedAt || item.archivedAt || item.status !== 'todo' || !placement || placement.nestingParentId
+  let parentId: string | null = null
+  for (const member of [original, ...completions]) for (const change of member.actions) {
+    if ((change.t === 'item.place' || change.t === 'item.nest') && change.id === action.id) { horizon = change.horizon; startDate = change.periodKey?.startDate ?? null }
+    if (change.t === 'item.nest' && change.id === action.id) parentId = change.parentId
+  }
+  if (!item || item.deletedAt || item.archivedAt || item.status !== 'todo' || !placement || (placement.nestingParentId ?? null) !== parentId
     || placement.horizon !== horizon || (period?.startDate ?? null) !== startDate) return fail()
   if (driver.prepare(`SELECT 1 FROM ${prefix}item_placements p JOIN ${prefix}items i ON i.id=p.itemId WHERE p.nestingParentId=? AND i.deletedAt IS NULL LIMIT 1`).get(action.id)) return fail()
   const owned = new Set([original, ...completions].flatMap(member => member.actions.flatMap(candidate => candidate.t === 'rel.link' && candidate.childId === action.id ? [candidate.id] : [])))
@@ -44,9 +48,14 @@ export function checkCreationCompletion(driver: SqlDriver, prefix: string, op: S
   const created = original.actions.filter((action): action is Extract<Action, { t: 'item.create' }> => action.t === 'item.create')
   if (created.length !== 1) throw new SyncApplyError('revert_superseded')
   const id = created[0]!.id
-  if (op.actions.some(action => !(action.t === 'item.place' && action.id === id || action.t === 'rel.link' && action.childId === id))) throw new SyncApplyError('revert_superseded')
+  if (op.actions.some(action => !completionAction(action, id))) throw new SyncApplyError('revert_superseded')
   const item = driver.prepare(`SELECT version,status,archivedAt,deletedAt FROM ${prefix}items WHERE id=?`).get(id)
   const placement = driver.prepare(`SELECT version,nestingParentId FROM ${prefix}item_placements WHERE itemId=?`).get(id)
   if (!item || Number(item.version) !== 1 || item.status !== 'todo' || item.archivedAt || item.deletedAt || !placement || Number(placement.version) !== 1 || placement.nestingParentId
     || driver.prepare(`SELECT 1 FROM ${prefix}item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?) LIMIT 1`).get(id, id)) throw new SyncApplyError('revert_superseded')
+}
+
+function completionAction(action: Action, id: string): boolean {
+  return action.t === 'item.place' && action.id === id || action.t === 'rel.link' && action.childId === id
+    || action.t === 'item.nest' && action.id === id && action.parentId !== null
 }

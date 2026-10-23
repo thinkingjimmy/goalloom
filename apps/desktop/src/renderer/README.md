@@ -199,3 +199,5 @@ Review uses a todo-scale board guide and a resumable native modal with connected
 Note assistance uses the approved rewrite-notes design: no detail activity rail, rescheduling form, task consent checkbox or result adoption step. Generated Markdown replaces only the unchanged source notes; description effects retain one-step workspace undo. Rethink persists through reload via non-undone rewrite events. Automatic note writes are quiet, while keyboard undo keeps normal feedback. Local editor history still owns manual typing.
 
 `components/AuthMark.tsx` shares offline Apple/Google branding between the first-run provider buttons and Settings › Sync. Both entry points use the same provider-scoped authorization and cancellation state.
+
+Global single-task capture previews distinguish goal links from same-period task ownership. The composer retains owner version/placement guards, exposes an explicit independent-task choice, and clears ownership on manual placement/goal/color edits. Unedited ownership uses the main-owned ready/late capture path; edited single drafts use guarded atomic nested `createPlan`. Existing five-language nesting labels are reused.

@@ -7,8 +7,8 @@ contracts/
 ├── values.ts     # Seven ordered horizons, six period/policy horizons, anchored subsets and the shared next-horizon map
 ├── entities.ts   # 工作区、rolling/natural 日历、实体 summary/detail、唯一位置与 nestingParentId、DAG 边和周期 schema
 ├── wire-calendar.ts # Gregorian 日期与 IANA 时区的轻量边界校验，不引入 Temporal
-├── commands.ts   # Public finite writes, guarded atomic nested creation, optional capture refs/automatic parents; internal-only completeCreation, scoped undo and atomic root/subtask insertion on nest/unnest
-├── capture.ts    # Shared input revisions/explicit target, capture intent, transaction-created guards and bounded semantic completion selections
+├── commands.ts   # Public finite writes, guarded atomic single/plan nested creation, optional capture refs/automatic parents; internal-only completeCreation, scoped undo and atomic root/subtask insertion on nest/unnest
+├── capture.ts    # Shared input revisions/explicit target, capture intent, transaction-created guards, bounded semantic goal/owner selections and owner placement versions
 ├── assistance.ts # Strict Markdown rewrite/guidance outputs, full echoes, bounded context and dependency guards
 ├── execution.ts  # Per-metric quality, authoritative pressure and frozen activity cursor DTOs
 ├── insight-preferences.ts # Shared leaf preference schema for existing and new writing paths

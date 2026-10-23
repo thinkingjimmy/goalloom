@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated createPlan entries, versioned parent references and current transaction context.
- * [OUTPUT]: Revalidated periods/parents/colors, optional local placement of new rows only, topological creation effects, events and ordered item IDs.
+ * [OUTPUT]: Revalidated periods/parents/colors, single nested creation or topological batch creation with ordered item IDs.
  * [POS]: Atomic batch creation sharing single-item primitives; stale previews have a stable error code.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,11 +11,21 @@ import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import type { Item } from '../../../shared/contracts/entities'
 import { statusGroup } from '../../../shared/contracts/effects'
 import { assertAvailable, assertFlowColorFree, nextSortKey, targetPeriod, touch, type Context } from '../context'
-import { newRelation } from './items'
+import { createItem, newRelation } from './items'
 import { serverText } from '../../../shared/i18n/server'
 import { placeByParent } from './ordering'
 
 export function createPlan(context: Context, command: CommandOf<'createPlan'>): boolean {
+  if (command.items.some(item => item.nesting)) {
+    const item = command.items[0]!
+    if (command.items.length !== 1 || item.parentRefs.length || command.smartCapture) throw new DomainError('invalid', serverText().errors.planPeriodChanged)
+    const period = targetPeriod(context, item.horizon, item.period)
+    if ((period?.id ?? null) !== item.previewPeriodId) throw new DomainError('stale_preview', serverText().errors.planPeriodChanged)
+    const changed = createItem(context, { ...item, type: 'create', operationId: command.operationId, generation: command.generation,
+      parentId: null, expectedParentVersion: null, parentRefs: item.parentRefs.filter(ref => ref.kind === 'existing') })
+    context.itemIds = [context.itemId!]
+    return changed
+  }
   // Optional model suggestions must never make an otherwise valid capture fail.
   command = { ...command, items: command.items.map(item => ({ ...item, parentRefs: item.parentRefs.filter(ref => {
     if (ref.kind !== 'existing' || !ref.automatic) return true

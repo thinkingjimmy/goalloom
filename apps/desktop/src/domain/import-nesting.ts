@@ -9,7 +9,7 @@ import type { Relation } from '../shared/contracts/entities'
 import type { Effect } from '../shared/contracts/effects'
 import { sameEdge, inverseEdges } from './undo'
 import { serverText } from '../shared/i18n/server'
-import { creationNestingRestore } from './creation'
+import { creationCompletions, creationNestingRestore } from './creation'
 
 type Operation = Dataset['operations'][number]
 export function validateNestingOperation(operation: Operation, operations: Map<string | number, Operation>): void {
@@ -38,7 +38,7 @@ export function validateNestingOperation(operation: Operation, operations: Map<s
     valid(effect.before.nestingParentId !== effect.after.nestingParentId)
     valid(!effect.flowColor || !effect.before.nestingParentId && effect.after.nestingParentId !== null)
     if (operation.kind === 'nest') valid(effect.after.nestingParentId !== null)
-    if (operation.kind === 'create') {
+    if (operation.kind === 'create' || operation.kind === 'createPlan') {
       const created = operation.effects[0]
       valid(operation.effects.length === 2 && created?.kind === 'create' && operation.effects[1] === effect
         && created.itemId === effect.itemId && operation.result.itemId === effect.itemId && !created.initialRelations.length
@@ -46,6 +46,8 @@ export function validateNestingOperation(operation: Operation, operations: Map<s
         && effect.before.horizon === created.horizon && effect.after.horizon === created.horizon
         && effect.before.periodId === created.periodId && effect.after.periodId === created.periodId && !effect.flowColor && !effect.edges.length)
     }
+    if (operation.kind === 'completeCreation') valid(effect.before.nestingParentId === null && effect.after.nestingParentId !== null
+      && effect.before.horizon === effect.after.horizon && effect.before.periodId === effect.after.periodId && !effect.edges.length && !effect.flowColor)
     if (operation.kind === 'unnest') valid(effect.before.nestingParentId !== null && effect.after.nestingParentId === null)
     if (['move', 'applyAssistance', 'arrangeBacklog'].includes(operation.kind)) valid(effect.after.nestingParentId === null && operation.effects.some(candidate => candidate.kind === 'position'
       && (candidate.itemId === effect.itemId || candidate.itemId === effect.before.nestingParentId && candidate.after.horizon === 'later' && candidate.before.horizon !== 'later'
@@ -55,7 +57,7 @@ export function validateNestingOperation(operation: Operation, operations: Map<s
       const restored = operation.effects.find(candidate => candidate.kind === 'visibility')
       const original = restored?.kind === 'visibility' && restored.before.deletedBy ? operations.get(restored.before.deletedBy) : undefined
       const creation = original?.result.originalOperationId ? operations.get(original.result.originalOperationId) : undefined
-      const fromCreation = creationNestingRestore(original, creation, effect.itemId)
+      const fromCreation = creationNestingRestore(original, creation, effect.itemId, creation ? creationCompletions(creation, operations.values()) : [])
       valid(effect.before.nestingParentId === null && effect.after.nestingParentId !== null && (original?.effects.some(candidate => candidate.kind === 'nesting' && candidate.itemId === effect.itemId && candidate.before.nestingParentId === effect.after.nestingParentId)
         || fromCreation?.before.nestingParentId === effect.after.nestingParentId))
     }

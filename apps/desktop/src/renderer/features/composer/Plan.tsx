@@ -8,6 +8,7 @@ import type { ItemHorizon } from '../../../shared/contracts/entities'
 import { horizonNames, smartMessages as t } from '../../i18n'
 import { shortDate } from '../../i18n/format'
 import { Icon } from '../../components/icons'
+import { nestingText } from '../../../shared/i18n/nesting'
 import type { EditableDraft, ParentInfo } from './draft'
 import { doubts, parentTitle, type Doubt } from './suggestions'
 
@@ -22,14 +23,15 @@ export function doubtText(doubt: Doubt): string {
 // Short trailing label: column, deadline and any existing parent (a draft parent shows as indentation instead).
 export function where(draft: EditableDraft, drafts: EditableDraft[], parents: Map<string, ParentInfo>): string {
   const outside = draft.parents.filter(key => key.kind === 'existing').map(key => parentTitle(key, drafts, parents))
-  return [outside.length ? `↑ ${outside.join(t.comma)}` : null, column(draft.horizon), draft.due ? t.dueShort(shortDate(draft.due)) : null].filter(Boolean).join(' · ')
+  return [draft.nesting ? `${nestingText().belongsTo} ${draft.nesting.title}` : outside.length ? `↑ ${outside.join(t.comma)}` : null, column(draft.horizon), draft.due ? t.dueShort(shortDate(draft.due)) : null].filter(Boolean).join(' · ')
 }
 
 export function Plan({ drafts, parents }: { drafts: EditableDraft[]; parents: Map<string, ParentInfo> }) {
   if (drafts.length === 1) {
     const draft = drafts[0]!, doubt = doubts(draft, drafts, parents)[0]
     const under = draft.parents.map(key => parentTitle(key, drafts, parents))
-    const sentence = [t.placeTo(column(draft.horizon)), draft.due ? t.dueOn(shortDate(draft.due)) : null, under.length ? t.under(under) : null].filter(Boolean).join(t.comma)
+    const sentence = [t.placeTo(column(draft.horizon)), draft.due ? t.dueOn(shortDate(draft.due)) : null,
+      draft.nesting ? `${nestingText().drop} ${draft.nesting.title}` : under.length ? t.under(under) : null].filter(Boolean).join(t.comma)
     return <div className="composer-plan m-0 p-0 list-none flex flex-col" data-single="true">
       <p className="plan-sentence m-0">{sentence}</p>
       {doubt && <p className="plan-doubt m-0 text-[12.5px] text-muted-foreground">{doubtText(doubt)}</p>}

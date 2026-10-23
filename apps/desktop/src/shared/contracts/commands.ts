@@ -35,6 +35,7 @@ export const planItemSchema = z.strictObject({
   horizon: horizonSchema, previewPeriodId: idSchema.nullable(), parentRefs: z.array(parentRefSchema).max(500).default([]), flowColor: flowColorSchema.nullable().default(null),
   // Absent = the current period; a date target lets a review write straight into the next week or month.
   period: createPeriodTargetSchema.optional(),
+  nesting: creationNestingSchema.optional(),
 })
 export const planLimit = 8
 export const setupAnchorSchema = z.discriminatedUnion('kind', [

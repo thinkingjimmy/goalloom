@@ -115,7 +115,7 @@ export const horizonChoiceSchema = z.union([horizonSchema, z.literal('future')])
 export type HorizonChoice = z.infer<typeof horizonChoiceSchema>
 const suggestion = <T extends z.ZodType>(value: T) => z.strictObject({ value, certain: z.boolean(), metrics: metricsSchema.nullable() })
 const goalLabelSchema = z.strictObject({ itemId: idSchema, title: z.string().max(500) })
-export const candidateSchema = z.strictObject({ ref: z.string().max(16), itemId: idSchema, title: z.string(), status: statusSchema, horizon: horizonSchema, periodId: idSchema.nullable().optional(), archived: z.boolean(), flowColor: flowColorSchema.nullable(), version: z.number().int().positive(), named: z.boolean(), parents: z.array(goalLabelSchema).optional(), children: z.array(goalLabelSchema).optional() })
+export const candidateSchema = z.strictObject({ ref: z.string().max(16), itemId: idSchema, title: z.string(), status: statusSchema, horizon: horizonSchema, periodId: idSchema.nullable().optional(), archived: z.boolean(), flowColor: flowColorSchema.nullable(), version: z.number().int().positive(), placementVersion: z.number().int().positive().optional(), nestingParentId: idSchema.nullable().optional(), named: z.boolean(), parents: z.array(goalLabelSchema).optional(), children: z.array(goalLabelSchema).optional() })
 export type Candidate = z.infer<typeof candidateSchema>
 export const parentKeySchema = z.discriminatedUnion('kind', [z.strictObject({ kind: z.literal('existing'), itemId: idSchema }), z.strictObject({ kind: z.literal('draft'), draftId: idSchema })])
 export type ParentKey = z.infer<typeof parentKeySchema>
