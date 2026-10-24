@@ -1,31 +1,28 @@
 /**
- * [INPUT]: Semantic theme tokens, feedback layout and persistent notice/action states.
- * [OUTPUT]: Bounded bottom-left cards, trailing primary actions and non-overlapping bottom Toasts.
+ * [INPUT]: Shared Toast surfaces/actions, feedback layout and persistent notice states.
+ * [OUTPUT]: Content-sized bottom-center notifications, adaptive trailing actions and non-overlapping Undo Toasts.
  * [POS]: Workspace feedback presentation; does not change board geometry or own notification lifetimes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-.feedback-layout { position: fixed; inset: 72px 24px 28px; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 16px; pointer-events: none; }
-.workspace-notices { display: flex; flex-direction: column; gap: 8px; width: min(372px, 100%); min-height: 0; padding: 6px; overflow-y: auto; overscroll-behavior: contain; pointer-events: auto; }
+.feedback-layout { position: fixed; inset: 72px 24px 28px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 16px; container: workspace-feedback / inline-size; pointer-events: none; }
+.workspace-notices { display: flex; flex-direction: column; align-items: center; gap: 8px; width: fit-content; max-width: min(632px, 100%); min-height: 0; margin-bottom: -6px; padding: 6px; overflow-y: auto; overscroll-behavior: contain; pointer-events: auto; }
 .workspace-notices:empty { display: none; }
-.feedback-layout .toast { position: relative; left: auto; bottom: auto; transform: none; align-self: center; flex-shrink: 0; max-width: 100%; }
-.workspace-notice { position: relative; display: block; flex-shrink: 0; width: 100%; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 11px; background: var(--raised); color: var(--fg); font-size: 13px; line-height: 1.6; box-shadow: 0 2px 4px color-mix(in srgb, var(--fg) 8%, transparent); pointer-events: auto; }
-.workspace-notice-content { display: flex; align-items: flex-start; gap: 9px; padding: 13px 14px; }
-.workspace-notice-icon { display: flex; flex-shrink: 0; padding-top: 2px; color: var(--secondary); }
-.workspace-notice[data-severity='error'] .workspace-notice-icon { color: var(--danger); }
+.feedback-layout .toast { position: relative; left: auto; bottom: auto; transform: none; align-self: center; flex-shrink: 0; max-width: min(620px, 100%); }
+.workspace-notice { display: flex; align-items: center; gap: 12px; flex-shrink: 0; width: max-content; max-width: 100%; margin: 0; padding: 6px 6px 6px 18px; }
+.workspace-notice-content { display: flex; flex: 1; min-width: 0; align-items: flex-start; gap: 9px; padding: 4px 0; }
+.workspace-notice-icon { display: flex; flex-shrink: 0; padding-top: 1px; color: color-mix(in srgb, currentColor 75%, transparent); }
+.workspace-notice[data-severity='error'] .workspace-notice-icon { color: color-mix(in srgb, currentColor 70%, var(--danger)); }
 .workspace-notice-copy { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.workspace-notice:has(.workspace-notice-dismiss) .workspace-notice-copy { padding-right: 22px; }
-.workspace-notice .workspace-notice-dismiss { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; }
-.workspace-notice-dismiss::before { content: ''; position: absolute; inset: -4px; }
-.workspace-notice-actions { display: flex; justify-content: flex-end; padding: 0 14px 12px 41px; }
-.workspace-notice .workspace-notice-action { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 30px; height: auto; max-width: 100%; padding: 4px 12px; border: 1px solid var(--fg); border-radius: 6px; background: var(--fg); color: var(--bg); font-size: 12px; font-weight: 500; line-height: 20px; white-space: normal; text-align: start; }
-.workspace-notice-action::before { content: ''; position: absolute; inset: -5px 0; }
-.workspace-notice .workspace-notice-action:enabled:hover { background: color-mix(in srgb, var(--fg) 88%, var(--bg)); opacity: 1; }
-.workspace-notice .workspace-notice-action:disabled { background: var(--hover); border-color: var(--line); color: var(--secondary); opacity: 1; cursor: default; }
-@media (pointer: coarse) {
-  .workspace-notice .workspace-notice-action { min-height: 44px; }
-  .workspace-notice-action::before { inset: 0; }
-  .workspace-notice .workspace-notice-dismiss { top: 0; right: 0; width: 44px; height: 44px; }
-  .workspace-notice-dismiss::before { inset: 0; }
-  .workspace-notice:has(.workspace-notice-dismiss) .workspace-notice-copy { padding-right: 30px; }
+.workspace-notice-actions { display: flex; flex: 0 1 auto; justify-content: flex-end; min-width: 0; max-width: 50%; }
+@container workspace-feedback (max-width: 540px) {
+  .workspace-notice:has(.workspace-notice-action) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; padding: 12px; border-radius: 16px; }
+  .workspace-notice:has(.workspace-notice-action) .workspace-notice-content { grid-column: 1; grid-row: 1; padding: 0; }
+  .workspace-notice:has(.workspace-notice-action):not(:has(.workspace-notice-dismiss)) .workspace-notice-content { grid-column: 1 / -1; }
+  .workspace-notice-actions { grid-column: 1 / -1; grid-row: 2; max-width: 100%; }
+  .workspace-notice:has(.workspace-notice-action) .workspace-notice-dismiss { grid-column: 2; grid-row: 1; align-self: start; margin: -4px -4px 0 0; }
+  .toast { flex-wrap: wrap; padding: 12px; border-radius: 16px; }
+  .toast-copy { flex: 1 1 calc(100% - 40px); max-width: none; }
+  .toast .icon-button.small { order: 1; align-self: flex-start; }
+  .toast-action { order: 2; margin-left: auto; }
 }
 @media (max-width: 600px) { .feedback-layout { right: 12px; left: 12px; } }

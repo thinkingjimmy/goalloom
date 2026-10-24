@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded writes, selected board periods, undo, flows, preferences and independent sync feedback.
- * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Persistent bottom-left notices use trailing primary actions without folding; pending receipts cannot be dismissed. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
+ * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Persistent bottom-center notices share Undo Toast surfaces with adaptive trailing actions and no folding; pending receipts cannot be dismissed. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -267,7 +267,7 @@ export function App() {
         {timezoneNotice.open && workspaceZone && <WorkspaceNotice dismiss={{ label: messages.dismissNotice, onClick: timezoneNotice.dismiss }}>{messages.timezoneMismatch} {workspaceZone}。</WorkspaceNotice>}
         {setupReady && snapshot && !syncReviewOpen && <SyncNotice />}
       </div>
-    {feedback && <div ref={toastRef} className="toast" key={feedback.result.operationId} data-warning={!!feedback.warning}
+    {feedback && <div ref={toastRef} className="toast feedback-surface" key={feedback.result.operationId} data-warning={!!feedback.warning}
       onMouseEnter={() => setToastHeld(true)} onMouseLeave={event => setToastHeld(event.currentTarget.contains(document.activeElement))}
       onFocus={() => setToastHeld(true)} onBlur={event => setToastHeld(event.currentTarget.matches(':hover') || event.currentTarget.contains(event.relatedTarget))}>
       <div className="toast-copy" role={feedback.warning ? 'alert' : 'status'}>
@@ -275,10 +275,10 @@ export function App() {
         {feedback.detail && <span className="toast-detail">{feedback.detail}</span>}
         {feedback.warning && <span className="toast-warning">{feedback.warning}</span>}
       </div>
-      {!feedback.result.undoable && !feedback.result.originalOperationId && <button className="toast-action" onClick={() => openSettings('calendar')}>{messages.viewBatches}</button>}
-      {feedback.result.undoable && <button className="toast-action" disabled={busy} onClick={() => void undo(feedback.result.operationId)}>{messages.undo}{bindings.undo && <kbd>{formatCombo(bindings.undo)}</kbd>}</button>}
-      {feedback.result.restoreSource && !feedback.result.itemId && (feedback.result.itemIds?.length ?? 0) > 1 && <button className="toast-action" onClick={() => { setFeedback(null); openSettings('trash') }}>{smartMessages.viewTrash}</button>}
-      {feedback.result.restoreSource && feedback.result.itemId && <button className="toast-action" disabled={busy} onClick={async () => {
+      {!feedback.result.undoable && !feedback.result.originalOperationId && <button className="toast-action feedback-action" onClick={() => openSettings('calendar')}>{messages.viewBatches}</button>}
+      {feedback.result.undoable && <button className="toast-action feedback-action" disabled={busy} onClick={() => void undo(feedback.result.operationId)}>{messages.undo}{bindings.undo && <kbd>{formatCombo(bindings.undo)}</kbd>}</button>}
+      {feedback.result.restoreSource && !feedback.result.itemId && (feedback.result.itemIds?.length ?? 0) > 1 && <button className="toast-action feedback-action" onClick={() => { setFeedback(null); openSettings('trash') }}>{smartMessages.viewTrash}</button>}
+      {feedback.result.restoreSource && feedback.result.itemId && <button className="toast-action feedback-action" disabled={busy} onClick={async () => {
         if (!feedback.result.itemId || feedback.result.generation !== snapshot?.workspace.generation) return
         try { const detail = await desktopApi().getItem(feedback.result.itemId); await submit({ type: 'restoreItem', itemId: detail.item.id, expectedVersion: detail.item.version, deletionSource: feedback.result.restoreSource }) }
         catch { setError(messages.restoreItemFailed) }

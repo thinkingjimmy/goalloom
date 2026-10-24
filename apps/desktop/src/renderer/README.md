@@ -18,8 +18,8 @@ renderer/
 │   │   ├── CommandPalette.tsx # Debounced search with actual-period hints, commands and detail navigation
 │   │   ├── CompletionCelebration.tsx # Shared item/review corner bursts; nonmodal Canvas, column/motion guards, generation invalidation and cleanup
 │   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable notification/Toast actions
-│   │   ├── WorkspaceNotice.tsx # Persistent bottom-left cards with trailing primary actions, full copy and owner-controlled dismissal
-│   │   ├── workspace-notice.css # Bounded bottom-left stack, no folding, theme-aware cards and separate centered Toasts
+│   │   ├── WorkspaceNotice.tsx # Persistent bottom-center Toast surfaces with full copy, adaptive tonal actions and owner-controlled dismissal
+│   │   ├── workspace-notice.css # Content-sized 620px notices, narrow-window action rows, no folding and separate centered Toasts
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
