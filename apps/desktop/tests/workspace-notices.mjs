@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron/IPC, an isolated workspace and controlled query/transport failures.
- * [OUTPUT]: Repeatable bottom-left/trailing-primary geometry, modal recovery, duplicate-write and locale/theme evidence.
+ * [OUTPUT]: Repeatable adaptive Toast geometry, shared surface/action states, modal recovery and locale/theme evidence.
  * [POS]: Shared notification E2E; SQLite writes and receipts remain authoritative, system notice conditions are synthetic.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -74,6 +74,14 @@ try {
     const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom } }
     return { board: box('.board'), stack: box('.workspace-notices'), card: box('.workspace-notice'), fab: box('.fab'), width: innerWidth, height: innerHeight }
   })
+  const assertReadable = async () => {
+    const layout = await cards.evaluateAll(nodes => nodes.map(node => {
+      const box = node.getBoundingClientRect(), copy = node.querySelector('.workspace-notice-copy'), action = node.querySelector('.workspace-notice-action'), close = node.querySelector('.workspace-notice-dismiss')
+      const fits = child => !child || (child.getBoundingClientRect().left >= box.left - 1 && child.getBoundingClientRect().right <= box.right + 1 && (child === close || child.scrollWidth <= child.clientWidth + 1))
+      return { width: box.width, fits: [node, copy, action, close].every(fits), wraps: getComputedStyle(copy).whiteSpace === 'pre-wrap', trailing: !action || Math.abs((close ?? node).getBoundingClientRect().right - action.getBoundingClientRect().right) < 52 }
+    }))
+    assert(layout.every(card => card.width <= 620 && card.fits && card.wraps && card.trailing), JSON.stringify(layout))
+  }
   const before = await page.locator('.board').boundingBox()
   await toggle(); await notice.waitFor()
   assert.deepEqual(await page.locator('.board').boundingBox(), before, 'Notices do not resize the board')
@@ -86,16 +94,22 @@ try {
   assert.equal(await notice.locator('.workspace-notice-dismiss').count(), 0)
   assert.equal(await notice.locator('[aria-expanded]').count(), 0)
   const geometry = await measure()
-  assert(geometry.card.width <= 360 && geometry.card.x < 40 && geometry.card.x >= 0)
-  assert(geometry.height - geometry.card.bottom < 40, 'Notification sits at the bottom left')
+  assert(geometry.card.width <= 620 && Math.abs(geometry.card.x + geometry.card.width / 2 - geometry.width / 2) < 1)
+  assert.equal(geometry.height - geometry.card.bottom, 28, 'Notification uses the Undo Toast bottom anchor')
   assert(geometry.card.right < geometry.fab.x, 'Notification clears the new-item button')
   assert(await notice.locator('.workspace-notice-action').evaluate(button => {
     const card = button.closest('.workspace-notice'), edge = card.getBoundingClientRect().right - button.getBoundingClientRect().right
-    return edge > 0 && edge < 18 && getComputedStyle(button).backgroundColor === getComputedStyle(card).color
-  }), 'The filled primary action aligns to the card trailing edge')
+    const action = button.getBoundingClientRect(), copy = card.querySelector('.workspace-notice-copy').getBoundingClientRect()
+    return edge > 0 && edge < 18 && action.left >= copy.right && getComputedStyle(button).backgroundColor !== getComputedStyle(card).color
+  }), 'The tonal action stays inline at the trailing edge in a wide window')
   assert.equal(await notice.locator('.workspace-notice-action svg').count(), 0)
   report.geometry.push(geometry)
-  await shot('pending-bottom-left-primary')
+  await shot('pending-bottom-center-toast')
+  await page.setViewportSize({ width: 360, height: 640 })
+  await assertReadable()
+  assert(await notice.locator('.workspace-notice-action').evaluate(button => button.getBoundingClientRect().top >= button.closest('.workspace-notice').querySelector('.workspace-notice-content').getBoundingClientRect().bottom), 'Narrow recovery action moves below the full-width copy')
+  await shot('pending-narrow-action-below')
+  await page.setViewportSize({ width: 1280, height: 840 })
   await page.getByRole('button', { name: '设置与数据', exact: true }).click()
   await page.waitForFunction(() => document.querySelector('dialog:modal .feedback-layer .error-banner'))
   await app.evaluate(() => { const p = globalThis.noticeProbe; p.receiptBlocked = false; p.hold = true })
@@ -132,7 +146,7 @@ try {
   await pollPage(page, () => document.querySelectorAll('.workspace-notice').length === 2)
   await page.reload(); await page.locator('.board').waitFor()
   assert.equal(await cards.count(), 2, 'Condition-token dismissals survive reload')
-  await app.evaluate(() => { globalThis.noticeProbe.flags.backup = 'Changed backup failure'; globalThis.noticeProbe.flags.zone = 'Europe/Paris' })
+  await app.evaluate(() => { globalThis.noticeProbe.flags.backup = 'Automatic backup could not be completed. The backup folder is unavailable. Check its permissions and available storage before trying again. /Volumes/Workspace/Backups/' + 'long-folder-name/'.repeat(8); globalThis.noticeProbe.flags.zone = 'Europe/Paris' })
   await refresh(); await pollPage(page, () => document.querySelectorAll('.workspace-notice').length === 4)
   report.checks.push('Clock/restore retain confirmations; timezone/backup dismissal survives refresh/reload and changed conditions return')
 
@@ -146,14 +160,20 @@ try {
       await shot(`${locale}-${theme}`)
       const bounds = await measure(); report.geometry.push({ locale, theme, ...bounds })
       assert(bounds.card.right <= bounds.width && bounds.stack.y >= 72)
+      await assertReadable()
     }
+    await page.setViewportSize({ width: 360, height: 640 })
+    await assertReadable()
+    assert(await cards.locator('.workspace-notice-action').evaluateAll(buttons => buttons.every(button => button.getBoundingClientRect().top >= button.closest('.workspace-notice').querySelector('.workspace-notice-content').getBoundingClientRect().bottom)))
+    await shot(`${locale}-narrow`)
+    await page.setViewportSize({ width: 1280, height: 840 })
   }
   for (const style of ['minimal']) {
     await app.evaluate((_, style) => { globalThis.noticeProbe.flags.style = style }, style)
     await refresh(); await page.waitForFunction(style => document.documentElement.dataset.style === style, style)
     await shot(`${style}-dark`)
   }
-  await page.setViewportSize({ width: 736, height: 480 })
+  await page.setViewportSize({ width: 736, height: 320 })
   await shot('short-window-scroll')
   assert(await page.locator('.workspace-notices').evaluate(node => node.scrollHeight > node.clientHeight))
   await page.locator('.workspace-notices').evaluate(node => { node.scrollTop = node.scrollHeight })
@@ -171,10 +191,19 @@ try {
   await refresh(); await cards.waitFor()
   assert(await page.locator('.toast').evaluate(node => {
     const toast = node.getBoundingClientRect(), card = document.querySelector('.workspace-notice').getBoundingClientRect()
-    return card.bottom + 8 <= toast.top
+    return card.bottom + 8 <= toast.top && Math.abs(card.x + card.width / 2 - (toast.x + toast.width / 2)) < 1 && innerHeight - toast.bottom === 28
   }))
+  assert(await page.locator('.toast').evaluate(node => {
+    const notice = document.querySelector('.workspace-notice'), toast = getComputedStyle(node), card = getComputedStyle(notice)
+    const action = getComputedStyle(node.querySelector('.toast-action')), other = getComputedStyle(notice.querySelector('.workspace-notice-action'))
+    return ['backgroundColor', 'color', 'boxShadow', 'borderRadius'].every(key => toast[key] === card[key]) && ['backgroundColor', 'color', 'borderRadius'].every(key => action[key] === other[key])
+  }), 'Notifications and Undo use the same surface and action treatment')
+  assert((await cards.boundingBox()).width < 400, 'Short copy does not stretch to the maximum width')
   await shot('notice-and-toast')
-  report.checks.push('Five locales and both themes wrap completely; short-window stack scrolls; Toast and notice remain separate')
+  await page.setViewportSize({ width: 360, height: 640 })
+  assert(await page.locator('.toast-action').evaluate(button => button.getBoundingClientRect().top >= button.closest('.toast').querySelector('.toast-copy').getBoundingClientRect().bottom))
+  await shot('notice-and-toast-narrow')
+  report.checks.push('Content-sized Toast surfaces and tonal actions match Undo; five locales and long paths wrap without overflow; narrow actions move below copy; short-window stack scrolls; notice and Toast remain separate')
   assert.deepEqual(report.errors, [])
   report.passed = true
 } catch (error) {
