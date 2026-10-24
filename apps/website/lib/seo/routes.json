@@ -1,0 +1,8 @@
+[
+  { "path": "/", "kind": "home", "index": true },
+  { "path": "/privacy/", "kind": "legal", "index": true },
+  { "path": "/terms/", "kind": "legal", "index": true },
+  { "path": "/pricing/", "kind": "pricing", "index": true },
+  { "path": "/billing/continue/", "kind": "billing", "index": false },
+  { "path": "/billing/return/", "kind": "billing", "index": false }
+]

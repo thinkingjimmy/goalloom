@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Depends on Next's Metadata type, ./locale paths, a SiteCatalog and lib/seo/site
+ * [INPUT]: Depends on Next's Metadata type, ./locale paths, a SiteCatalog, explicit indexing policy and lib/seo/site
  * [OUTPUT]: Exports languageAlternates and buildMetadata (canonical, hreflang, robots, Open Graph, Twitter, icons)
  * [POS]: lib/i18n's localized metadata authority, shared by both route trees and mirrored by the export audit
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -18,7 +18,7 @@ export function languageAlternates(logicalPath: string): Record<string, string> 
   }
 }
 
-export function buildMetadata(locale: Locale, catalog: SiteCatalog, logicalPath = '/'): Metadata {
+export function buildMetadata(locale: Locale, catalog: SiteCatalog, logicalPath = '/', index = true): Metadata {
   const canonical = absoluteUrl(localizedPath(locale, logicalPath))
   const image = { ...SOCIAL_IMAGE, url: absoluteUrl(SOCIAL_IMAGE.url), alt: catalog.meta.socialAlt }
   return {
@@ -26,7 +26,7 @@ export function buildMetadata(locale: Locale, catalog: SiteCatalog, logicalPath 
     title: catalog.meta.title,
     description: catalog.meta.description,
     alternates: { canonical, languages: languageAlternates(logicalPath) },
-    robots: { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 } },
+    robots: { index, follow: true, googleBot: { index, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 } },
     openGraph: {
       title: catalog.meta.title,
       description: catalog.meta.description,

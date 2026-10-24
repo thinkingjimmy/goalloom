@@ -2,7 +2,7 @@
 /**
  * [INPUT]: Depends on react
  * [OUTPUT]: Exports CopyLink
- * [POS]: components/home's phone-only download fallback: the app is desktop-only, so a phone visitor copies the link
+ * [POS]: Shared phone-only fallback inside the Header download menu; copies the desktop release page.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useState } from 'react'

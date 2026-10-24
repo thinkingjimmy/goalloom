@@ -1,8 +1,7 @@
 /**
  * [INPUT]: Depends on ./tokens.css; markup from components/board
- * [OUTPUT]: The board look (chips, flow marks, columns, 48px rows, 18px checks, flow dots, relation lines), the
- *           composer and the toast
- * [POS]: app/styles' product-faithful layer; metrics copy src/renderer/styles.css so the demo reads as the real app
+ * [OUTPUT]: Product board chrome, growing 32px rows, URL previews, 24px outlines, measured connectors, composer and toast
+ * [POS]: Product demo layer; metrics follow desktop styles.css, board/nesting.css and components/links/links.css
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 
@@ -14,7 +13,7 @@
 .chip { height: 30px; min-width: 30px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; flex-shrink: 0; color: var(--fg); white-space: nowrap; }
 button.chip:hover { background: var(--hover); }
 .chip[aria-pressed='true'], .chip[data-on='true'] { background: var(--pressed); }
-.chip-label { font-weight: 500; }
+.chip-label { max-width: 240px; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .mark { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--check-edge); flex-shrink: 0; }
 .ib { position: relative; width: 36px; height: 36px; border-radius: 8px; display: inline-grid; place-items: center; color: var(--secondary); flex-shrink: 0; }
 button.ib:hover { background: var(--hover); color: var(--fg); }
@@ -25,19 +24,23 @@ button.ib.sm:hover { color: var(--secondary); }
 /* --- Board --- */
 .board { position: relative; padding: 0 8px; font-size: 14px; }
 .board-grid { position: relative; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); }
-.bcol { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 4px 20px 0; border-left: 1px solid var(--hairline); container-type: inline-size; }
-/* A narrow column gives the period dates the room of the decorative history icon; the + stays. */
-@container (max-width: 236px) { .bhead .ib-history { display: none; } }
+.bcol { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 4px 14px 0; border-left: 1px solid var(--hairline); container-type: inline-size; }
+/* Compact illustrations keep the date readable while the playable window uses product-width columns. */
+@container (max-width: 236px) { .bhead .bhead-more { display: none; } }
 .bcol:first-child { border-left: 0; }
 /* Header text lines up with the checkbox, which sits 10px in after the flow-dot gutter, as in the app. */
-.bhead { height: 40px; padding-left: 10px; display: flex; align-items: center; gap: 8px; }
+.bhead { height: 40px; flex-shrink: 0; padding-left: 9px; display: flex; align-items: center; gap: 8px; }
 .bhead h3 { font-size: 15px; font-weight: 600; white-space: nowrap; }
-.bmeta { flex: 1; font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bmeta { min-width: 0; font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bhead-spacer { flex: 1; }
+.bhead-chevron { flex-shrink: 0; color: var(--secondary); opacity: 0; }
+.bhead-more { opacity: 0; }
+.bcol:is(:hover, :focus-within) :is(.bhead-chevron, .bhead-more) { opacity: 1; }
 .bhead .ib.sm:last-child { margin-right: -6px; }
-.rows { margin: 0 -12px 0 -20px; padding: 0 8px 0 20px; }
+.rows { margin: 0 -14px; padding: 0 10px 0 14px; }
 /* A 2px clear band above and below keeps neighbouring grounds from merging and is the only row separation, as in the app. */
 .trow {
-  position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 40px; margin: 0 -8px 0 -12px; padding: 0 8px 0 22px;
+  position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 32px; margin: 0 -7px 0 -11px; padding: 0 6px 0 20px;
   border-block: 2px solid transparent; background-clip: padding-box; border-radius: 10px; transition: background-color .18s ease-out;
 }
 .trow[data-interactive='true']:hover { background-color: var(--hover-half); }
@@ -46,14 +49,18 @@ button.ib.sm:hover { color: var(--secondary); }
 .trow[data-state='dim'] > :not(.fdot), .trow[data-state='out'] > :not(.fdot) { opacity: .28; }
 .trow[data-state='lit'] { background-color: color-mix(in srgb, var(--row-tint) 65%, var(--bg)); }
 .trow[data-state='hot'] { background-color: var(--row-tint); }
-.check { margin-top: 9px; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--row-stroke, var(--check-edge)); flex-shrink: 0; display: grid; place-items: center; color: #fff; }
+.check { position: relative; z-index: 1; margin-top: 5px; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--row-stroke, var(--check-edge)); flex-shrink: 0; display: grid; place-items: center; color: #fff; }
 button.check:hover { filter: brightness(.96); }
 .trow[data-done='true'] .check { background: var(--checked); border-color: var(--checked); }
+.tcontent { flex: 1; min-width: 0; margin-left: -30px; }
 .tline { position: relative; flex: 1; min-width: 0; align-self: stretch; display: flex; }
-.ttitle { flex: 1; min-width: 0; padding: 7px 0; font-size: 14px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trow > .tline { margin-left: -30px; }
+.ttitle { display: block; flex: 1; min-width: 0; padding: 3px 0; font-size: 14px; line-height: 22px; text-indent: 25.2px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .trow[data-done='true'] .ttitle { color: var(--secondary); text-decoration: line-through; }
-.fdot { position: absolute; left: 2px; top: 9px; width: 18px; height: 18px; display: grid; place-items: center; opacity: 0; transition: opacity .12s ease-out; }
-.fdot > span { width: 8px; height: 8px; border-radius: 50%; background: var(--row-stroke); }
+.fdot { position: absolute; left: 0; top: 5px; width: 18px; height: 18px; display: grid; place-items: center; opacity: 0; transition: opacity .12s ease-out; }
+.fdot > span { width: 6px; height: 6px; border-radius: 50%; background: var(--row-stroke); }
+.trow[data-nested='true'] { padding-left: 44px; }
+.trow[data-nested='true'] .fdot { left: 24px; }
 .trow[data-interactive='true']:hover .fdot, .trow[data-state='lit'] .fdot, .trow[data-state='hot'] .fdot { opacity: 1; }
 .trow[data-state='out'] .fdot { opacity: .28; }
 .trow[data-new='true'] { animation: row-new 1.6s ease-out both; }
@@ -66,6 +73,24 @@ button.check:hover { filter: brightness(.96); }
 .edge[data-state='faded'] { stroke-opacity: .12; }
 .port { fill: var(--stroke-a); transition: opacity .15s ease-out; }
 .port[data-state='faded'] { opacity: .2; }
+
+/* Saved URLs use the product's inline page titles and fixed preview-card geometry. */
+.demo-link-inline { display: inline; padding: 1px 4px; margin-inline: 1px; border-radius: 3px; background: color-mix(in srgb, var(--focus) 8%, transparent); color: var(--focus); font-size: .93em; white-space: normal; overflow-wrap: anywhere; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.demo-link-inline:hover { text-decoration: underline; text-underline-offset: 3px; }
+.demo-link-favicon { margin-inline-end: 4px; }
+.demo-link-favicon::after { content: '\2060'; }
+.demo-link-favicon :is(img, svg) { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; object-fit: contain; }
+.demo-link-previews { padding: 2px; margin: 0 -2px 9px; }
+.demo-link-preview { display: flex; height: 128px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); text-align: left; transition: border-color .14s ease-out, background-color .14s ease-out; }
+.demo-link-preview:hover { border-color: var(--check-edge); background: var(--raised); }
+.demo-link-preview-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 11px 12px; }
+.demo-link-preview-source { display: flex; align-items: center; gap: 2px; color: var(--secondary); font-size: 10px; line-height: 14px; }
+.demo-link-preview-source svg { margin-left: auto; flex-shrink: 0; }
+.demo-link-preview-title { font-size: 13px; line-height: 19.5px; font-weight: 500; }
+.demo-link-preview-description { color: var(--secondary); font-size: 11px; line-height: 15px; }
+.demo-link-preview-title, .demo-link-preview-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.demo-link-preview-image { flex: 0 0 88px; order: 1; overflow: hidden; background: var(--hover); }
+.demo-link-preview-image img { width: 100%; height: 100%; object-fit: cover; }
 
 /* --- Floating controls --- */
 .fab { position: absolute; right: 24px; bottom: 24px; width: 52px; height: 52px; border-radius: 26px; background: var(--raised); color: var(--fg); display: grid; place-items: center; box-shadow: 0 1px 2px rgba(60, 40, 20, .08), 0 6px 20px rgba(60, 40, 20, .12); transition: transform .15s, box-shadow .15s; z-index: 2; }

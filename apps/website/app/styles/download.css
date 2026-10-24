@@ -1,0 +1,51 @@
+/**
+ * [INPUT]: Paper tokens, pre-paint data-platform and DownloadButton markup.
+ * [OUTPUT]: Split download buttons, a viewport-safe alternate-platform menu and phone copy-link placement.
+ * [POS]: Shared download surfaces after section/service styles; platform selection stays usable without hydration.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.download-split { position: relative; display: inline-flex; align-self: flex-start; max-width: 100%; border-radius: 12px; background: var(--fg); color: var(--bg); }
+.download-split[data-size='compact'] { margin-left: 8px; border-radius: 9px; }
+.download-primary { min-width: 0; min-height: 56px; padding: 0 22px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; color: inherit; border-radius: 12px 0 0 12px; font-size: 16px; font-weight: 500; line-height: 1.4; }
+.download-primary svg { flex-shrink: 0; }
+.download-short { display: none; }
+.download-split .download-menu { position: static; flex-shrink: 0; }
+.download-toggle { min-width: 48px; min-height: 56px; height: 100%; padding: 0 14px; display: flex; align-items: center; justify-content: center; border-left: 1px solid color-mix(in srgb, var(--bg) 24%, transparent); border-radius: 0 12px 12px 0; list-style: none; cursor: pointer; }
+.download-toggle::-webkit-details-marker { display: none; }
+.download-primary, .download-toggle { touch-action: manipulation; transition: background-color .15s ease-out; }
+.download-split[data-size='compact'] .download-primary { min-width: 44px; min-height: 36px; padding: 0 16px; border-radius: 9px 0 0 9px; font-size: 14px; gap: 10px; }
+.download-split[data-size='compact'] .download-toggle { min-height: 36px; min-width: 36px; padding: 0 10px; border-radius: 0 9px 9px 0; }
+.download-panel { min-width: 260px; max-width: calc(100vw - 16px); top: calc(100% + 8px); }
+.download-split[data-size='regular'] .download-panel { left: 0; right: auto; }
+.download-panel a { height: auto; min-height: 64px; justify-content: flex-start; padding: 10px 12px; gap: 12px; touch-action: manipulation; }
+.download-panel a > svg { flex-shrink: 0; }
+.download-panel a > span { display: flex; flex-direction: column; gap: 3px; }
+.download-panel strong { font-size: 14px; line-height: 1.5; font-weight: 500; }
+.download-panel small { font-size: 12px; line-height: 1.5; color: var(--secondary); }
+.download-panel .dl-copy { display: none; width: 100%; min-height: 44px; padding: 12px; margin-top: 6px; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; color: var(--fg-soft); text-align: start; font-size: 13px; line-height: 1.6; touch-action: manipulation; }
+:root:not([data-platform='windows']) [data-download-option='mac'],
+:root[data-platform='windows'] [data-download-option='windows'] { display: none !important; }
+.download-menu[open] .download-toggle { background: var(--fg-soft); }
+.home-plan-free .download-split { width: 100%; align-self: auto; border: 1px solid var(--line-strong); border-radius: 8px; background: transparent; color: var(--fg); }
+.home-plan-free .download-primary { flex: 1; min-height: 44px; padding: 8px 12px; font-size: 14px; border-radius: 7px 0 0 7px; }
+.home-plan-free .download-toggle { min-height: 44px; min-width: 44px; padding: 0 12px; border-color: var(--line-strong); border-radius: 0 7px 7px 0; }
+.home-plan-free .download-menu[open] .download-toggle { background: var(--hover); }
+@media (hover: hover) and (pointer: fine) {
+  .download-primary:hover, .download-toggle:hover { background: var(--fg-soft); }
+  .home-plan-free .download-primary:hover, .home-plan-free .download-toggle:hover { background: var(--hover); }
+}
+@media (max-width: 900px) {
+  .download-panel .dl-copy { display: block; }
+  .download-split[data-size='compact'] { margin-left: 2px; }
+  .download-split[data-size='compact'] .download-primary { min-height: 44px; padding: 0 10px; gap: 8px; }
+  .download-split[data-size='compact'] .download-toggle { min-height: 44px; min-width: 44px; padding: 0 12px; }
+  .download-split[data-size='compact'] .download-label { display: none; }
+  .download-split[data-size='compact'] .download-short { display: inline; }
+}
+@media (max-width: 480px) {
+  .download-split[data-size='compact'] .download-short { display: none; }
+  .download-split[data-size='compact'] .download-primary { min-width: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .download-primary, .download-toggle { transition: none; }
+}

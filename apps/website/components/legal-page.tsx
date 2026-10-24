@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Localized legal copy, shared navigation and public site identity.
- * [OUTPUT]: Static LegalPage with contents, accessible sections, contact and policy links.
+ * [OUTPUT]: Static LegalPage with contents, contact and provider/purchase-policy links.
  * [POS]: Shared rendering for the ten privacy/terms pages; no analytics or remote assets.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,6 +12,14 @@ import { SiteFooter } from './site-footer'
 import { SiteHeader } from './site-header'
 
 const resources = [
+  ['Apple Privacy Policy', 'https://www.apple.com/legal/privacy/'],
+  ['Stripe Privacy Policy', 'https://stripe.com/privacy'],
+  ['RevenueCat Privacy Policy', 'https://www.revenuecat.com/privacy'],
+  ['Apple subscriptions', 'https://apps.apple.com/account/subscriptions/'],
+  ['Apple refunds', 'https://support.apple.com/118223'],
+  ['TypeSafe Privacy Policy', 'https://typesafe.ai/legal/privacy-policy'],
+  ['DeepInfra Privacy Policy', 'https://deepinfra.com/privacy'],
+  ['Vercel AI Gateway', 'https://vercel.com/docs/ai-gateway'],
   ['Google Privacy Policy', 'https://policies.google.com/privacy'],
   ['Google API Services User Data Policy', 'https://developers.google.com/terms/api-services-user-data-policy'],
   ['Supabase Privacy Policy', 'https://supabase.com/privacy'],
@@ -36,7 +44,7 @@ export function LegalPage({ locale, kind }: { locale: Locale; kind: LegalKind })
   }).replace(/</gu, '\\u003c')
   return <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
-    <SiteHeader locale={locale} copy={t.nav} className="float-bar legal-header" logicalPath={logicalPath} />
+    <SiteHeader locale={locale} copy={t.nav} className="site-bar legal-header" logicalPath={logicalPath} />
     <main className="legal-main">
       <header className="legal-intro">
         <p className="eyebrow">Goalloom</p>

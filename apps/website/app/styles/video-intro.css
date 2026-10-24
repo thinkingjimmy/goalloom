@@ -1,0 +1,50 @@
+/**
+ * [INPUT]: Paper tokens, original maker-note markup and the native product-video figure.
+ * [OUTPUT]: Top-aligned maker/video columns matching pricing/FAQ widths, continuous copy and contained playback states.
+ * [POS]: First body section after Hero; responsive layout retains the shared outer content edges.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.video-intro { container-type: inline-size; display: grid; grid-template-columns: minmax(200px,.3fr) minmax(0,1fr); align-items: start; column-gap: 80px; row-gap: 32px; padding: 60px var(--edge); scroll-margin-top: var(--header-height); }
+.intro-copy { min-width: 0; max-width: 340px; }
+.intro-copy .eyebrow { font-size: 12px; font-weight: 400; }
+.intro-quote { margin-top: 22px; color: var(--secondary); font-size: 17px; font-weight: 400; line-height: 1.7; text-wrap: pretty; }
+.intro-author { display: flex; align-items: center; gap: 10px; min-height: 44px; width: fit-content; max-width: 100%; margin-top: 28px; color: var(--secondary); font-size: 13px; line-height: 1.6; touch-action: manipulation; }
+.intro-author img { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; }
+.intro-content { min-width: 0; }
+.intro-media { width: 100%; min-width: 0; margin: 0; }
+.intro-cover-title > span { display: block; }
+.intro-player { position: relative; isolation: isolate; aspect-ratio: 16 / 9; border-radius: 12px; background: var(--fg); scroll-margin-top: calc(var(--header-height) + 16px); }
+.intro-player > summary { position: absolute; inset: 0; display: block; border-radius: 12px; list-style: none; cursor: pointer; touch-action: manipulation; }
+.intro-player > summary::-webkit-details-marker { display: none; }
+.intro-cover { position: absolute; inset: 0; padding: 26px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 12px; background: var(--fg); color: var(--bg); }
+.intro-brand { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; letter-spacing: -.02em; }
+.intro-brand img { width: 22px; height: 22px; border-radius: 6px; background: var(--raised); }
+.intro-cover-title { font-size: clamp(24px,3.8cqw,38px); line-height: 1.35; font-weight: 500; letter-spacing: -.035em; }
+.intro-cover-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 11px; line-height: 1.5; }
+.intro-play { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 17px; flex-shrink: 0; border-radius: 24px; background: var(--bg); color: var(--fg); font-size: 13px; line-height: 1.4; font-weight: 500; white-space: nowrap; transition: opacity 150ms ease-out; }
+.intro-player video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; border-radius: 12px; background: var(--fg); }
+.intro-player:not([open]) video, .intro-player:not([open]) .intro-reset, .intro-player[open] .intro-cover, .intro-player[open] .intro-play-label { display: none; }
+.intro-player[open] > summary { inset: 0 0 auto auto; z-index: 1; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; max-width: 65%; padding: 0 14px; border-radius: 0 12px 0 8px; background: var(--fg); color: var(--bg); font-size: 12px; line-height: 1.5; text-decoration: underline; text-underline-offset: 4px; }
+.intro-status { margin-top: 8px; color: var(--secondary); font-size: 12px; line-height: 1.6; }
+.intro-player video:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+@media (hover: hover) and (pointer: fine) {
+ .intro-author:hover { color: var(--fg); }
+ .intro-player:not([open]) > summary:hover .intro-play { opacity: .85; }
+ .intro-player[open] > summary:hover { text-decoration-thickness: 2px; }
+}
+@media (max-width: 900px) {
+ .video-intro { grid-template-columns: minmax(0,1fr); padding-block: 44px; }
+ .intro-copy { max-width: 420px; }
+ .intro-quote { margin-top: 18px; }
+ .intro-author { margin-top: 24px; }
+ .intro-cover { padding: 20px; }
+ .intro-cover-title { font-size: 26px; }
+}
+@media (max-width: 360px) {
+ .intro-cover { padding: 12px; }
+ .intro-quote { font-size: 16px; }
+ .intro-cover-footer { gap: 8px; }
+ .intro-play { padding-inline: 14px; }
+ .intro-cover-title { font-size: 18px; line-height: 1.35; }
+}
+@media (prefers-reduced-motion: reduce) { .intro-play { transition: none; } }

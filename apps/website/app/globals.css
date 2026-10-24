@@ -8,6 +8,10 @@
 @import './styles/base.css';
 @import './styles/board.css';
 @import './styles/hero.css';
+@import './styles/hero-phone.css';
 @import './styles/sections.css';
+@import './styles/video-intro.css';
 @import './styles/legal.css';
+@import './styles/services.css';
+@import './styles/download.css';
 @import './styles/motion.css';

@@ -1,56 +1,32 @@
 /**
- * [INPUT]: Depends on lib/i18n (locale paths, SiteCatalog), lib/release, ./icons, ./theme and an optional logical page path
- * [OUTPUT]: Exports SiteHeader, LanguageMenu and PlatformDownload
- * [POS]: components' only site navigation. The hero mounts it twice (stage band and floating bar); only one is ever
- *        visible. The download control renders both platforms and <html data-platform> picks one before paint.
+ * [INPUT]: Locale paths/copy, service facts, shared icons/theme/download controls and optional page/preferences placement.
+ * [OUTPUT]: Exports SiteHeader
+ * [POS]: Shared site navigation; homepage delegates language/theme controls to the Hero status bar.
+ *        The download control renders both platforms and <html data-platform> picks one before paint.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { LANGUAGE_OPTIONS, localizedPath, type Locale, type SiteCatalog } from '@/lib/i18n'
-import { RELEASES_URL, REPO, downloadUrl } from '@/lib/release'
-import { Icon, Mark } from './icons'
+import { getCatalog, localizedPath, type Locale, type SiteCatalog } from '@/lib/i18n'
+import { getServiceCatalog } from '@/lib/services'
+import { REPO } from '@/lib/release'
+import { Mark } from './icons'
+import { DownloadButton } from './download-button'
+import { LanguageMenu } from './language-menu'
 import { ThemeToggle } from './theme'
 
-export function LanguageMenu({ locale, label, className, up = false, logicalPath = '/' }: { locale: Locale; label: string; className: string; up?: boolean; logicalPath?: string }) {
-  const current = LANGUAGE_OPTIONS.find(option => option.value === locale)!
-  return (
-    <details className="menu-pop">
-      <summary className={className} aria-label={`${label}: ${current.label}`}>
-        <Icon name="globe" size={16} /><span>{current.label}</span>
-      </summary>
-      <div className="menu-panel" data-up={up}>
-        {LANGUAGE_OPTIONS.map(option => (
-          <a key={option.value} href={localizedPath(option.value, logicalPath)} hrefLang={option.value} lang={option.value} aria-current={option.value === locale ? 'page' : undefined}>
-            {option.label}{option.value === locale && <Icon name="check" size={14} />}
-          </a>
-        ))}
-      </div>
-    </details>
-  )
-}
-
-/** The header's download action: one anchor per platform, the visitor's platform shown (see boot.ts). */
-export function PlatformDownload({ copy }: { copy: SiteCatalog['nav'] }) {
-  return <>
-    <a className="nav-cta" data-for="mac" href={downloadUrl('mac')}><Icon name="apple" size={15} />{copy.download}</a>
-    <a className="nav-cta" data-for="windows" href={downloadUrl('windows')}><Icon name="windows" size={14} />{copy.download}</a>
-  </>
-}
-
-export function SiteHeader({ locale, copy, className, logicalPath = '/' }: { locale: Locale; copy: SiteCatalog['nav']; className: string; logicalPath?: string }) {
-  const home = logicalPath === '/' ? '' : localizedPath(locale, '/')
+export function SiteHeader({ locale, copy, className, logicalPath = '/', showPreferences = true }: { locale: Locale; copy: SiteCatalog['nav']; className: string; logicalPath?: string; showPreferences?: boolean }) {
   return (
     <header className={`site-header ${className}`}>
       <a className="brand" href={localizedPath(locale, '/')} aria-label={copy.home}>
         <span className="brand-tile"><Mark size={20} /></span>Goalloom
       </a>
       <nav className="site-nav" aria-label={copy.main}>
-        <a className="nav-link desktop-only" href={`${home}#board`}>{copy.board}</a>
-        <a className="nav-link desktop-only" href={`${home}#jev`}>{copy.jev}</a>
-        <a className="nav-link desktop-only" href={RELEASES_URL}>{copy.releases}</a>
+        <a className="nav-link pricing-link" href={localizedPath(locale, '/pricing/')} aria-current={logicalPath === '/pricing/' ? 'page' : undefined}>{getServiceCatalog(locale).navPricing}</a>
         <a className="nav-link desktop-only" href={REPO}>{copy.github}</a>
-        <LanguageMenu locale={locale} label={copy.language} className="nav-link" logicalPath={logicalPath} />
-        <ThemeToggle toDark={copy.themeToDark} toLight={copy.themeToLight} className="nav-link nav-icon" />
-        <PlatformDownload copy={copy} />
+        {showPreferences && <>
+          <LanguageMenu locale={locale} label={copy.language} className="nav-link" logicalPath={logicalPath} />
+          <ThemeToggle toDark={copy.themeToDark} toLight={copy.themeToLight} className="nav-link nav-icon" />
+        </>}
+        <DownloadButton copy={getCatalog(locale).download} compactLabel={copy.download} size="compact" />
       </nav>
     </header>
   )

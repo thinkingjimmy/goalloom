@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Depends on @hugeicons/react and @hugeicons/core-free-icons (the app's icon set)
- * [OUTPUT]: Exports Icon (named Hugeicons, decorative by default) and Mark (the Goalloom logo glyph)
+ * [OUTPUT]: Exports Icon, IconName (named Hugeicons, decorative by default) and Mark (the Goalloom logo glyph)
  * [POS]: components' only icon source; names match src/renderer/components/icons where the app has the same glyph
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,7 +8,8 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon, AppleIcon, Cancel01Icon, Cursor02Icon, Delete02Icon, Download04Icon, FilterIcon, GitBranchIcon, Globe02Icon,
   GridViewIcon, HistoryIcon, KeyboardIcon, LayoutThreeColumnIcon, Menu01Icon, Moon02Icon, Search01Icon, SlidersHorizontalIcon,
-  SparklesIcon, Sun01Icon, Tick02Icon, WindowsNewIcon, ArrowDown01Icon,
+  SparklesIcon, Sun01Icon, Tick02Icon, WindowsNewIcon, ArrowDown01Icon, Link01Icon, ArrowUpRight01Icon, MoreHorizontalIcon, MinusSignIcon, InformationCircleIcon,
+  BatteryFullIcon, CellularNetworkIcon, PlayIcon,
 } from '@hugeicons/core-free-icons'
 
 const ICONS = {
@@ -16,6 +17,8 @@ const ICONS = {
   filter: FilterIcon, split: GitBranchIcon, globe: Globe02Icon, all: GridViewIcon, history: HistoryIcon, keyboard: KeyboardIcon,
   views: LayoutThreeColumnIcon, menu: Menu01Icon, moon: Moon02Icon, search: Search01Icon, settings: SlidersHorizontalIcon,
   smart: SparklesIcon, sun: Sun01Icon, check: Tick02Icon, windows: WindowsNewIcon, expand: ArrowDown01Icon,
+  link: Link01Icon, external: ArrowUpRight01Icon, more: MoreHorizontalIcon, minus: MinusSignIcon, info: InformationCircleIcon,
+  battery: BatteryFullIcon, signal: CellularNetworkIcon, play: PlayIcon,
 } as const
 
 export type IconName = keyof typeof ICONS
