@@ -61,7 +61,7 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
         assert(await free.locator('li').count() === 4 && await plus.locator('li').count() === 2, 'homepage benefits missing')
         assert((await free.locator('.download-primary[data-for="mac"]').getAttribute('href')).endsWith('-mac-arm64.dmg'), 'Free is missing the direct installer')
         assert(await plus.locator('.service-action').getAttribute('href') === `${prefix}pricing/#service-trial`, 'trial CTA must lead to the localized trial explanation')
-        const trialLabels = { en: 'Try now', 'zh-CN': '立即试用', ja: '今すぐ試す', es: 'Probar ahora', fr: 'Essayer maintenant' }
+        const trialLabels = { en: 'How to start your trial', 'zh-CN': '如何开始试用', ja: '無料体験の始め方', es: 'Cómo iniciar la prueba', fr: 'Comment démarrer l’essai' }
         assert(await plus.locator('.service-action').innerText() === trialLabels[locale], 'localized trial label drift')
         const geometry = await section.evaluate(node => {
           const plans = [...node.querySelectorAll('.home-plan')]
@@ -103,7 +103,7 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
         if (width === 768) {
           await plus.locator('.service-action').click()
           assert(new URL(page.url()).pathname === `${prefix}pricing/` && new URL(page.url()).hash === '#service-trial', 'trial CTA lost its localized explanation anchor')
-          assert(await page.locator('#service-trial').isVisible() && await page.locator('main[data-stage="unavailable"]').count() === 1, 'trial CTA must explain the trial without granting access')
+          assert(await page.locator('#service-trial').isVisible() && await page.locator('main[data-stage="live"]').count() === 1, 'trial CTA must explain the trial without granting access')
         }
       }
       await page.setViewportSize({ width: 1440, height: 1000 })
@@ -114,7 +114,7 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
       const homepageQuestions = await page.locator('#faq').evaluate(readQuestions)
       await page.locator('.site-header .pricing-link').click()
       assert(new URL(page.url()).pathname === `${prefix}pricing/`, 'header pricing link')
-      assert(await page.locator('main[data-stage="unavailable"]').count() === 1, 'purchase stage must remain closed')
+      assert(await page.locator('main[data-stage="live"]').count() === 1, 'published Plus guidance is missing')
       const plans = page.locator('.home-plan-grid'), plus = plans.locator('.home-plan-plus')
       assert(await plans.locator('.home-plan').count() === 2, 'expected shared Free and Plus cards')
       assert((await plans.locator('.home-plan-free .home-plan-price').innerText()).startsWith('$0'), 'local software is free')
@@ -406,6 +406,6 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
     }
     scan(out)
     assert(violations.length === 0, `unsafe build paths: ${violations.join(', ')}`)
-    writeFileSync(join(artifact, 'service-boundaries.json'), JSON.stringify({ at: new Date().toISOString(), stage: 'unavailable', publicClient: '1.9.10', states, externalRequests: external, browserErrors: errors, staticScan: { counts, violations }, providerLifecycle: 'not connected; BILL-12 and live configuration required', policyText: 'finalized v1.0 incorporated; provider configuration and lifecycle not verified' }, null, 2))
+    writeFileSync(join(artifact, 'service-boundaries.json'), JSON.stringify({ at: new Date().toISOString(), stage: 'live', publicClient: '1.10.0', windowsFreeClient: '1.9.10', windowsPlusAvailable: false, states, externalRequests: external, browserErrors: errors, staticScan: { counts, violations }, providerLifecycle: 'Desktop starts authenticated purchase; local web E2E does not establish provider readiness', policyText: 'finalized v1.0 incorporated; provider configuration and lifecycle not verified' }, null, 2))
   })
 }

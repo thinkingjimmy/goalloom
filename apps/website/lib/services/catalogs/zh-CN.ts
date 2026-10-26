@@ -9,12 +9,12 @@ import type { ServiceCatalog } from '../types'
 export default {
   "mobile": {
     "q": "有 iPhone 版吗？",
-    "a": "尚未发布。当前公开下载支持 macOS 14+ Apple Silicon 和 Windows 11 x64。手机可复制下载链接，到电脑上打开。未来的 Apple 购买由 Apple 管理，这里尚无 iPhone 购买或 App Store 下载入口。"
+    "a": "尚未推出。macOS 1.10.0 支持 macOS 14 及以上的 Apple Silicon 设备；Windows 11 x64 下载仍为旧版免费客户端 1.9.10，不提供 Plus 付费功能。这里不提供 iPhone 购买或 App Store 下载入口。可在手机复制下载链接，再到电脑打开。"
   },
   "navPricing": "定价",
   "meta": {
     "title": "Goalloom 定价 — 本地免费，可选 Plus 服务",
-    "description": "本地任务、历史、备份及自带 AI Key 保持免费。了解 Goalloom Plus 计划价格、八天免绑卡试用、加密同步与内置 AI 的实际开放状态。"
+    "description": "本地任务、历史、备份和 BYOK 免费。macOS Goalloom Plus 提供加密同步和内置 AI，可主动激活同一账号一次八天试用。"
   },
   "heading": "本地工具，始终免费。",
   "intro": "需要时再选择云服务。无论是否订阅，任务、历史和备份都可以留在你的设备上。",
@@ -60,7 +60,7 @@ export default {
     "byokInfoLabel": "了解模型服务商费用",
     "byokNote": "模型费用由服务商另行收取",
     "annualSavings": "年付省 {amount}（约 {percent}）",
-    "tryNow": "立即试用",
+    "tryNow": "如何开始试用",
     "plusIncludes": "包含 Free 的全部功能，以及",
     "plusFeatures": [
       {
@@ -77,14 +77,14 @@ export default {
     "encryptionNote": "端到端加密用于同步数据；AI 推理不在同步加密范围内。",
     "encryptionInfoLabel": "了解 AI 与同步加密的区别"
   },
-  "summaryBody": "Goalloom 的本地功能和 BYOK 保持免费。计划中的 Plus 将加密同步与内置 AI 放在同一套餐；当前下载版本与未来云服务的开放状态分别说明。",
-  "statusTitle": "Plus 尚未开放",
-  "statusBody": "当前不提供购买或试用激活。公开下载 {version} 保持免费，AI 使用自己的 Key。托管 AI 正在受控登录测试中，不包含在该公开客户端内；本页不改变当前同步资格。",
+  "summaryBody": "本地功能和 BYOK 保持免费。macOS {version} 的 Plus 提供加密同步和内置 AI；Windows Plus 与 iPhone 购买暂未开放。",
+  "statusTitle": "macOS Plus",
+  "statusBody": "在 macOS {version} 中登录，再主动激活试用或购买 Plus。Windows 下载仍为旧版免费客户端，不提供 Plus 付费功能。下载或登录不会启动试用或付款。",
   "support": "私密支持",
   "supportBody": "账单、隐私、删除数据或账号问题，请通过邮箱联系。不要在公开 issues 中提交密码、API Key、任务正文或付款信息。",
   "technical": "在 GitHub 提交技术问题",
   "manageTitle": "按原购买渠道管理",
-  "manageBody": "本站尚不能购买或管理订阅。开放后请回到原购买渠道；恢复购买不会重新发放试用。",
+  "manageBody": "在 macOS Goalloom {version} 中发起购买或管理 Plus。使用同一个 Goalloom 账号，再按应用指引前往安全的付款或订阅管理页面。Windows Plus 与 iPhone 购买暂未开放。",
   "stripeManage": "网页购买：通过 Goalloom 账单管理入口取消续费或更改下期周期。受验证的 Stripe 门户处理支持的付款方式和发票操作，不能作为唯一取消路径。",
   "appleManage": "未来 iPhone 购买：在 Apple 订阅设置管理。删除 Goalloom 账号不会自动取消 Apple 续费；iPhone 版尚未发布。",
   "terms": "服务条款",
@@ -99,7 +99,7 @@ export default {
     },
     {
       "q": "试用如何开始？",
-      "a": "开放后，由你主动激活同一账号一次 {trialDays} 天（{trialHours} 小时）试用。无需绑卡，不自动扣费；下载、登录或浏览方案不会启动计时。 目前尚未开放激活。",
+      "a": "在 macOS Goalloom {version} 中打开「设置 → 同步」并登录账号，再在 Goalloom Plus 区域点击「开始 8 天免费试用」。同一账号可主动激活一次 {trialDays} 天（{trialHours} 小时）试用。无需绑卡，不自动扣费；下载、登录或浏览方案不会启动计时。Windows Plus 暂缓开放。",
       "id": "trial"
     },
     {
@@ -109,12 +109,12 @@ export default {
     },
     {
       "q": "Plus 会自动续订吗？",
-      "a": "开放后订阅自动续费，可随时通过原渠道取消，并用至当前付费期结束。月转年、年转月都在下次续订生效，本期不立即补差价、不按比例退款。卸载或退出账号不等于取消。 取消本身不产生退款或删除云数据。免费试用不会自动转付费。",
+      "a": "订阅自动续费，可随时通过原渠道取消，并用至当前付费期结束。月转年、年转月都在下次续订生效，本期不立即补差价、不按比例退款。卸载或退出账号不等于取消。 取消本身不产生退款或删除云数据。免费试用不会自动转付费。",
       "id": "renewal"
     },
     {
       "q": "到期后数据怎么办？",
-      "a": "按上线政策，全部有效试用、付费及宽限结束后，云副本保留 {retentionDays} 天。取回生成独立本地副本，需要账号授权与解密凭据。截止即关闭取回，随后 {onlineDeleteDays} 天内完成在线删除。截止后购买不能恢复旧副本。这些服务尚未上线；本地数据和 BYOK 继续可用。",
+      "a": "全部有效试用、付费及适用宽限结束后，云副本保留 {retentionDays} 天。取回生成独立本地副本，需要账号授权和解密材料；截止即关闭，随后 {onlineDeleteDays} 天内完成在线删除。截止后新购不能恢复旧副本。本地数据和 BYOK 继续可用。",
       "id": "expiry"
     },
     {
@@ -124,7 +124,7 @@ export default {
     },
     {
       "q": "账号、同步密码和付费是什么关系？",
-      "a": "账号证明身份；同步密码解密数据；未来服务资格允许云端动作，三者独立。公开桌面版仍有可选同步，本页不会提前增加付费门槛。",
+      "a": "账号证明身份，同步密码解锁加密数据，有效试用或付费资格允许云端操作，三者分别核对。仅登录不会启动试用、购买、同步或 AI 请求。受支持的 macOS 客户端提供 Plus 付费功能，Windows Plus 暂缓开放。",
       "id": "account"
     },
     {
@@ -145,7 +145,7 @@ export default {
   ],
   "billing": {
     "title": "Goalloom 账单",
-    "description": "安全继续 Goalloom 的购买或核对状态；账单尚未开放时，仍可查看说明、免费下载和联系私密支持。",
+    "description": "返回 Goalloom，使用发起购买的账号核对原购买和订阅状态。官网不处理登录，不创建结账会话，也不会根据链接内容判断付款结果。",
     "continueTitle": "继续使用 Goalloom",
     "returnTitle": "核对购买状态",
     "states": {
@@ -173,23 +173,23 @@ export default {
     "accountTitle": "Apple / Google 登录与账号",
     "account": "Apple 或 Google 与 Supabase 处理账号标识、邮箱、已提供的基本资料和会话。账号可用于可选 AI 及同步；登录本身不授权上传、开启 AI、启动试用或证明付款。我们不接收 Apple 或 Google 密码。",
     "hosted": [
-      "BYOK 使用你配置的 OpenRouter 或 Vercel AI Gateway Key。受支持客户端在你明确开启 Goalloom 托管 AI 后，需要登录与账号绑定的同意，相关任务输入、目标、说明或有限活动上下文才会经 Goalloom、OpenRouter 发送：智能输入由 TypeSafe/Jev 处理，起草和复盘由 DeepInfra 处理，笔记重写由 DeepSeek 官方运行 DeepSeek V4.1 Flash 1017。DeepSeek 可能留存发送的内容，并可能用于模型训练。公开下载 {version} 不包含此托管来源。服务商处理可读内容，这不是同步端到端加密。",
+      "BYOK 使用你配置的 OpenRouter 或 Vercel AI Gateway Key。受支持客户端在你明确开启 Goalloom 托管 AI 后，需要登录与账号绑定的同意，相关任务输入、目标、说明或有限活动上下文才会经 Goalloom、OpenRouter 发送：智能输入由 TypeSafe/Jev 处理，起草和复盘由 DeepInfra 处理，笔记重写由 DeepSeek 官方运行 DeepSeek V4.1 Flash 1017。DeepSeek 可能留存发送的内容，并可能用于模型训练。macOS {version} 在具备服务资格并取得同意后可使用此托管来源；旧版 Windows 客户端不提供 Plus 付费功能。服务商处理可读内容，这不是同步端到端加密。",
       "Goalloom 在原请求内临时处理 AI 内容，不持久化保存到服务器。结果仅返回一次，无法重新下载；仅保留必要的调用、成本和安全元数据。移除旧加密缓存不等于日志、副本或备份立即完成物理擦除。",
       "设备可在有界本地缓存中保留未采纳的 AI 草稿、复盘小结及其指纹，包括退出账号之后。本地副本与服务商处理有不同的保留边界。服务商保留和训练规则以其政策为准，Goalloom 不承诺每个处理方零保留。"
     ],
     "paymentsTitle": "付款与订阅信息",
     "payments": [
-      "付费 Plus 和结账尚未上线。网页计划使用 Stripe，RevenueCat 汇总可信付费事实；Apple 仅在 iPhone 渠道发布后处理对应购买。这些信息页不加载支付 SDK 或发送付款请求。",
-      "渠道开放后，处理方可为计费、核验和支持处理付款方式信息、交易/订阅标识、购买来源、金额、币种、账期与必要账号绑定元数据。支付元数据不得包含任务正文、prompt、同步密码或 API Key；我们不宣称任何形式的付款信息都不经过 Goalloom。"
+      "macOS Goalloom 通过 Stripe 发起网页购买，RevenueCat 汇总核实后的支付事实。Windows Plus 和 iPhone 购买暂缓开放。信息页面不加载支付 SDK，也不发送付款请求。",
+      "在已开放的购买渠道中，处理方可为计费、核验和支持处理付款方式信息、交易/订阅标识、购买来源、金额、币种、账期与必要账号绑定元数据。支付元数据不得包含任务正文、prompt、同步密码或 API Key；我们不宣称任何形式的付款信息都不经过 Goalloom。"
     ],
-    "retention": "Plus 定稿上线政策从全部试用、付费及宽限结束起保留云副本 {retentionDays} 天；截止关闭取回，随后 {onlineDeleteDays} 天内完成在线删除，之后新购不能恢复旧副本。主动删除不另加普通保留期，确认后立即停止访问，{onlineDeleteDays} 天内完成在线删除。在线删除后，受限灾难恢复副本可能保留至适用基础设施服务商的保留政策规定的到期时间。新增取回和按时删除服务尚未上线；本地副本及托管 AI 的保留边界分别说明。",
-    "paidTitle": "计划中的 Plus 服务——尚未开售",
+    "retention": "Plus 定稿上线政策从全部试用、付费及宽限结束起保留云副本 {retentionDays} 天；截止关闭取回，随后 {onlineDeleteDays} 天内完成在线删除，之后新购不能恢复旧副本。主动删除不另加普通保留期，确认后立即停止访问，{onlineDeleteDays} 天内完成在线删除。在线删除后，受限灾难恢复副本可能保留至适用基础设施服务商的保留政策规定的到期时间。本地副本及托管 AI 的保留规则独立。上述 Plus 服务由受支持的 macOS 客户端提供，Windows Plus 暂缓开放。",
+    "paidTitle": "macOS Goalloom Plus",
     "paid": [
-      "本地任务、历史、备份、导入导出和 BYOK 保持免费。计划中的 Plus 含同步和内置 AI，月付 {monthly}，年付每年一次收取 {annual}，已含依法应收适用税费；无仅同步档、首发促销或自动超额收费。",
+      "本地任务、历史、备份、导入导出和 BYOK 保持免费。macOS Plus 含同步和内置 AI，月付 {monthly}，年付每年一次收取 {annual}，已含依法应收适用税费；无仅同步档、首发促销或自动超额收费。",
       "一次账号试用从主动激活起 {trialDays} 天（{trialHours} 小时），免绑卡、不自动收费。确认购买立即消耗剩余试用，退款不恢复；失败或未确认保留原截止。",
-      "服务开放后自动续订，可通过原渠道取消并用至本期结束；周期更改下次续订生效。除适用法律、平台规则及下述错误收费/服务问题处理外，付款和未用时间不予退款。"
+      "订阅自动续订，可通过原渠道取消并用至本期结束；周期更改下次续订生效。除适用法律、平台规则及下述错误收费/服务问题处理外，付款和未用时间不予退款。"
     ],
-    "sources": "Apple/Google 提供登录，Supabase 提供账号与加密同步基础设施，Vercel 托管官网，GitHub 分发桌面版本。OpenRouter 与选定模型供应商处理 AI 请求；Stripe、RevenueCat 和 Apple 为计划中的支付/核验服务商，不是这些页面正在加载的支付 SDK。",
+    "sources": "Apple/Google 提供登录，Supabase 提供账号与加密同步基础设施，Vercel 托管官网，GitHub 分发桌面版本。OpenRouter 与选定模型供应商处理 AI 请求；Stripe 处理网页支付，RevenueCat 核验支付事实；Apple 购买暂缓。这些页面不运行支付 SDK。",
     "support": "账单、隐私、账号或删除数据请求，请通过下方邮箱私密联系，不要公开发布到 GitHub issues。运营者可能核实账号归属；请勿发送密码、同步密钥、API Key 或完整付款凭据。"
   },
   "policy": {
@@ -267,8 +267,8 @@ export default {
           "在全部有效试用、付费服务及适用宽限期结束后，云端副本保留 {retentionDays} 天。仅取消自动续费不会提前开始这 {retentionDays} 天。保留期内停止新的云端上传和内置 AI；你仍可在完成账号验证并持有所需同步密码或其他解密凭据后，受限取回已有云数据。Goalloom 不能代替你恢复遗失的解密凭据。",
           "在保留期内恢复有效订阅，可以继续使用尚未删除的云端副本。{retentionDays} 天结束后，取回入口关闭，并开始删除在线副本，在线系统删除在其后 {onlineDeleteDays} 天内完成。截止后重新订阅，即使删除任务尚未完成，也不能恢复旧副本，需要从你保留的数据重新建立同步。",
           "普通到期、退款和支付争议采用同一 {retentionDays} 天云端保留期限。本地任务、本地历史及你自己保存的备份不会因订阅到期而被删除。",
-          "开放后，受限取回会生成独立本地副本，不恢复同步或上传更改。替换当前工作区需要你明确选择，并先完成保护性本地备份。仅登录账号不能解密副本；所需解密凭据保留在你的设备上。",
-          "开放后，账号设置会显示服务截止、取回截止及在线删除状态。必要提醒仅在 Goalloom 应用内显示，不打断本地编辑。提醒不延长期限，不通过邮件或系统推送发送。"
+          "受限取回生成独立本地副本，不恢复同步或上传更改。替换当前工作区需要你明确选择，并先完成保护性本地备份。仅登录账号不能解密副本；所需解密凭据保留在你的设备上。",
+          "账号设置显示服务截止、取回截止及在线删除状态。必要提醒仅在 Goalloom 应用内显示，不打断本地编辑。提醒不延长期限，不通过邮件或系统推送发送。"
         ]
       },
       {
