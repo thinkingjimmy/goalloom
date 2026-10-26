@@ -55,6 +55,8 @@
 - 设置是看板卡片中的一行：标题与说明右侧为「试一下」，下方为与看板同序（Later → 今天）的五个多选列按钮；全部取消即关闭，说明随之提示。「试一下」立即播放一轮预览，不受列开关影响、不写入任何数据；系统减少动态效果时不可用。
 - 看板和详情内主动完成均适用，包括详情中不在当前看板的往期／归档事项。完成提交确认成功且确实改变状态后，只播放一次。刷新、重复回执、无变化的请求、失败、撤销和数据恢复不播放；撤销完成后再次主动完成可再次播放。
 - 左右下角同时向上、向内喷出彩纸，每侧约 90 片，约 2.5 秒散尽；无声音，不阻止输入、点击、拖拽或快捷键，不移动焦点。详情打开时撒花仍在其上方。起点严格贴合窗口下角，不内缩或藏在下沿外；第一帧立即绘制角落粒子，头几帧在角上形成密集一团，并持续喷出约半秒，让起点在余光里也能落在角上；慢粒子在角旁散落，快粒子以更宽的扇面覆盖两侧、中央及窗口上部，按窗口尺寸缩放。
+- 每轮从默认彩纸和 🎉、❤️、✨、🎊、⭐️、🌈、🔥、🥳 九种效果中等概率随机选择，各占 1/9，允许相邻重复。只在开始一轮时选择一次；左右两侧始终使用同一种效果。emoji 轮只喷出多个相同 emoji，不混入彩纸或其他 emoji。任务完成、复盘完成与设置预览共用规则，无新增设置或持久化随机结果。
+- 桌面彩纸保留每侧 90 片和 2.5 秒生命周期；emoji 每侧 48 枚、20–28px，保持系统原色、等比尺寸和轻微旋转，不采用彩纸的横向压扁。移动端保留原有入口与轨迹，每侧 14 片、1.6 秒，emoji 字号 18–24pt；逐列开关继续生效，系统开启减少动态效果时停止播放。系统字形可随平台不同。
 - 连续完成重新开始一轮，不累积无限粒子。窗口隐藏、工作区更换、组件卸载或系统开启「减少动态效果」时立即结束，不在恢复可见或关闭减少动态效果后重播。
 - 设置即时生效，在本机重启后保留；不进入工作区历史、导出或备份。系统减少动态效果优先于各列偏好，设置显示原因但保留用户选择。文案覆盖中、英、日、西、法。
 
@@ -68,6 +70,7 @@
 - `state/use-workspace.ts` 在权威刷新与 `UndoSession.accept` 去重后生成 renderer 内部 `CompletionEvent { operationId, generation, horizon }`；保留原命令上下文处理未知结果的回执恢复。优先从刷新快照读取列，缺失时查询详情；查询失败只跳过动效，不将已提交操作报为失败。代次变化清除旧事件。
 - `state/celebration.ts` 提供逐列外部存储、设置页预览、绑定工作区代次的复盘完成信号与系统减少动态效果订阅；预览复用同一画布与生命周期。localStorage `goalloom.celebration` 只保存与默认不同的已知布尔字段；非法字段各自回退默认，存储不可用时仍保留本次会话设置。
 - `CompletionCelebration` 只消费新事件身份。Canvas 2D 与单个 requestAnimationFrame 驱动有限粒子，DPR 上限 2，无闲置绘制、无逐帧 React 更新。非模态 manual popover 位于 top layer；画布与 backdrop 均透明且不拦截指针，装饰内容不进入可访问树。
+- 桌面 emoji 在每轮开始时以最高支持 DPR 的清晰度绘制到一个临时画布，逐帧通过 `drawImage` 复用；每轮结束／替换／取消释放主画布和字形画布。只修改装饰绘制，不修改完成事件或回执契约。移动端 `src/celebration.tsx` 使用系统 Text 和原生 Animated，`src/celebration-shape.ts` 集中选择本轮图案；装饰不进入可访问树，不随系统文字大小缩放。
 - 粒子出生位置为 CSS 像素坐标 `(0, innerHeight)` 和 `(innerWidth, innerHeight)`；摆动在出生时为零。每侧独立分层采样发射角（22°–82°）与速度，让每轮同时包含陡、平、慢和横跨中央的粒子；位置由线性空气阻力加重力的闭式解计算（水平以窗口宽、垂直以窗口高为单位），阻力让快粒子在前半秒后趋于悬停，慢粒子留在角旁，锥形整体锚定在出生角。每侧一枚零延迟种子在首帧出现，其余延迟按三次方分布集中在头几帧、尾部持续到约 450 ms。
 - 不增加动画依赖，不更改数据库、IPC、CSP、备份格式或撤销成员。渲染失败不影响保存或撤销。设置变化不重播旧事件。
 
@@ -76,6 +79,8 @@
 - Final review confirmation celebrates before the modal closes, fires twice, or plays after a rejected/lost write; disabled review-column or reduced-motion preferences are ignored; a stale-generation request plays after replacement; cancelling motion or reloading replays the result. Observe actual Canvas corner translations through the native completion group; preserve the existing player, cleanup and item-completion path.
 
 ## 验收
+
+- [x] 2026-10-26：桌面与移动端随机图案。默认彩纸与八种 emoji 各占 1/9；每轮左右一致、不混合。桌面类型检查、339 项既有测试、构建、撒花与完成反馈 E2E、周初／周末完成与跳过定向场景通过；iOS 26.5 / iPhone 17 独立模拟器的九种图案、关闭本周开关和实际系统 Reduce Motion 场景通过，核对真实 SQLite 状态、截图与录屏，系统开关已恢复。桌面实际环境 Electron 44.4.4 / Node 24.21.0 / SQLite 3.53.4，macOS 26.4.1 arm64；物理机／VM 未独立确认。命令、初次测试设置失败与修正、源码哈希及范围：`apps/desktop/output/tests/celebration-emoji/validation.json`；移动端报告／录屏：根目录 `output/tests/mobile-celebration/validation.json` 及各场景时间戳目录。Windows、Android、真机与安装包未验收；移动端亚秒级替换及播放中开启减少动态效果未单独计时，桌面对应生命周期已覆盖。
 
 - 2026-10-24：通知与撤销 Toast 统一为底部居中，共用表面与轻量按钮；内容宽度最大 620px，窄窗口操作下移。`pnpm typecheck`、`pnpm test`（339 项）、`pnpm build`、通知专项和 `pnpm test:feedback` 通过；覆盖五语言、明暗、长路径、窄窗口、滚动堆叠、原生弹窗核对及撤销计时。命令、运行环境、范围与截图见 `apps/desktop/output/tests/workspace-notices/toast-unification-validation.md`。本次未改文案、通知状态路由或同步协议，未运行无关功能套件；Windows／安装包未验收。
 - 2026-10-23：按最终选择采用左下角通知，主操作实色靠右，无折叠；通知专项与既有 Toast 回归通过，覆盖位置／按钮对齐、核对禁用、五语言／明暗与三种外观。前次状态路由调整的 Toast、同步核对与看板 E2E 已通过。同步核对打开时隐藏重复入口，窄窗口操作区不被遮挡。完整语言套件停在 AI 服务「添加 Key」悬停提示，原因未定；未将该项记为通过。实际命令、平台与证据见 `apps/desktop/output/tests/workspace-notices/validation.md`。

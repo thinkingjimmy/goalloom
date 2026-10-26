@@ -101,6 +101,12 @@ Task details match the retained review artifact with 22pt paper cards on the war
 
 The flow screen is unchanged. Native keyboard and drag-dismiss acceptance still require a simulator/device run. Repeatable browser verification instructions and evidence live under ignored `output/tests/mobile-board-ui/` at the repository root.
 
+## Completion decoration
+
+`src/celebration.tsx` owns the noninteractive native-driver player; `src/celebration-shape.ts` chooses once per burst from confetti and 🎉、❤️、✨、🎊、⭐️、🌈、🔥、🥳 with equal probability. Both sides share that choice. Confetti retains its 28 pieces and 1.6-second motion; emoji uses 28 system-color glyphs at 18–24pt with gentle rotation and no horizontal squash. `view.tsx` retains existing completion/column guards. New completions replace the old burst; Reduce Motion cancels decoration without replay. Text scaling and screen readers exclude the decoration. No settings or workspace schema changes.
+
+The desktop and mobile renderers use the same catalog and selection rule with platform-specific density and trajectories. See [completion feedback](../../docs/features/completion-feedback.md) and [native acceptance](tests/README.md#completion-decoration).
+
 ## Screens
 
 iOS and Android keep the workspace in expo-sqlite (WAL, foreign keys). The web preview uses sql.js in the page (same schema and statements) because the browser build of expo-sqlite waits on origin private file storage, which does not finish in this environment.

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A source or packaged Electron executable, production IPC fixtures and real UI actions.
- * [OUTPUT]: Completion feedback after board moves, per-column preferences, exact rendered origins, viewport coverage and lifecycle evidence.
+ * [OUTPUT]: Nine deterministic burst shapes, completion feedback, column preferences, rendered origins, coverage and lifecycle evidence.
  * [POS]: Isolated desktop acceptance; no mocked receipts, synthetic completion events or real workspace data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -12,6 +12,7 @@ import { join, resolve } from 'node:path'
 import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
 import { verifyNativeCelebrationVisibility } from './fixtures/celebration-visibility.mjs'
+import { observeCelebrationShapes, verifyCelebrationShapes } from './fixtures/celebration-shapes.mjs'
 
 const environment = { ...process.env }; delete environment.ELECTRON_RUN_AS_NODE
 const packaged = process.argv[2], profile = await mkdtemp(join(tmpdir(), 'goalloom-celebration-'))
@@ -26,6 +27,7 @@ const report = {
   packaged: Boolean(packaged), runtime: null,
   environment: { platform: platform(), release: release(), version: version(), arch: arch(), cpu: cpus()[0]?.model, machineScope: process.env.GOALLOOM_TEST_MACHINE_SCOPE ?? 'Host OS reported; physical/VM status not independently verified' },
   checks, screenshots: [], pixels: {}, origins: {},
+  shapes: [],
 }
 let application = await electron.launch({ ...options, env: environment, timeout: 30_000 })
 let applicationClosed = false
@@ -38,7 +40,10 @@ const setting = horizon => settings().getByRole('group', { name: '在这些列�
 const state = id => page.evaluate(async id => (await window.goalloom.getItem(id)).item, id)
 
 async function dragTo(title, horizon) {
-  const source = await page.getByRole('button', { name: title, exact: true }).boundingBox()
+  const item = page.getByRole('button', { name: title, exact: true })
+  // Seven visible horizons can leave the source outside the horizontal viewport after the preceding completion.
+  await item.scrollIntoViewIfNeeded()
+  const source = await item.boundingBox()
   const column = page.getByRole('region', { name: `${labels[horizon]}列`, exact: true })
   const destination = await column.boundingBox()
   assert(source && destination)
@@ -211,6 +216,7 @@ try {
   await page.reload()
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   await observe()
+  await observeCelebrationShapes(page)
   assert.equal(await openCanvas().count(), 0, 'Initial and external fixture snapshots never celebrate')
 
   await openSettings()
@@ -222,6 +228,8 @@ try {
   await settings().getByRole('button', { name: '试一下', exact: true }).click()
   await openCanvas().waitFor()
   await waitForCleanup(4000)
+  report.shapes = await verifyCelebrationShapes({ page, preview: settings().getByRole('button', { name: '试一下', exact: true }), waitForCleanup, shot })
+  checks.push('Nine equally spaced random selections render confetti or one repeated emoji across both corners; one rasterization per emoji, square transforms, bounded particles and released sprites')
   assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.revision, previewRevision)
   await closeSettings()
   for (const [horizon, enabled] of Object.entries(defaults)) {
@@ -433,6 +441,13 @@ try {
   checks.push('Raw native window hide clears animation within one second and showing it does not replay')
   await writeFile('output/tests/celebration.json', JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
+} catch (error) {
+  report.error = String(error)
+  report.rendererErrors = errors
+  report.failureState = await page?.evaluate(() => ({ visibility: document.visibilityState, focus: document.hasFocus(), activeElement: document.activeElement?.outerHTML.slice(0, 500) })).catch(() => null)
+  if (page && !applicationClosed) await shot('completion-celebration-failure').catch(() => undefined)
+  await writeFile('output/tests/celebration-failure.json', JSON.stringify(report, null, 2))
+  throw error
 } finally {
   if (!applicationClosed) await application.close()
   await rm(profile, { recursive: true, force: true })

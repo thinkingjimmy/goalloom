@@ -73,7 +73,7 @@ export async function verifyReviewCompletion({ page, app, fixture, mode, variant
       })
     }, mode)
     await drawer.locator('.review-foot .primary').click()
-    await drawer.getByRole('alert').waitFor()
+    await drawer.locator('.review-error[role="alert"]').waitFor()
     assert.equal(await page.locator('canvas.completion-celebration:popover-open').count(), 0, 'Unconfirmed review never celebrates')
     assert.equal(await reviewed(), false, 'A failed or unknown write must not mark completion')
     assert.equal(await entry.innerText(), '继续复盘')
