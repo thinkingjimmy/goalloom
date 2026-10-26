@@ -167,7 +167,7 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
       }
       await common.locator('#support summary').press('Enter')
       assert(await common.locator('#support p').isVisible() && !await common.locator('details').first().locator('p').isVisible(), 'common support disclosure must close the previous common answer')
-      assert(await common.locator('#support a[href="mailto:hellojimmywong@gmail.com"]').isVisible() && await common.locator('#support a[href$="/issues"]').isVisible(), 'shared private and technical support links missing')
+      assert(await common.locator('#support a[href="mailto:hellojimmywong.ai@gmail.com"]').isVisible() && await common.locator('#support a[href$="/issues"]').isVisible(), 'shared private and technical support links missing')
       assert(await details.first().locator('p').isVisible(), 'common questions must not close the billing disclosure')
       if (locale === 'zh-CN') await common.screenshot({ path: join(artifact, 'pricing-common-faq-zh-support.png'), style: '.site-header { visibility: hidden !important; }' })
       await faq.locator('#manage summary').press('Space')
@@ -269,7 +269,7 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
       }
       await phone.locator('.site-footer').scrollIntoViewIfNeeded()
       for (const link of await phone.locator('.site-footer .service-link').all()) assert(await link.isVisible(), 'mobile service link hidden')
-      assert(await phone.locator('.site-footer a[href="mailto:hellojimmywong@gmail.com"]').count() === 1, 'private support missing')
+      assert(await phone.locator('.site-footer a[href="mailto:hellojimmywong.ai@gmail.com"]').count() === 1, 'private support missing')
       if (path === 'pricing/') {
         await phone.locator('label[for="pricing-cycle-year"]').click()
         const box = await phone.locator('label[for="pricing-cycle-year"]').boundingBox()
