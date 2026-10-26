@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Static export in out/, Chromium and optional hero-demo/hero-sync/video-intro/services/billing/faq/download/legal selectors.
- * [OUTPUT]: Exit code 0/1 and repeatable reports/screenshots in output/tests/e2e/ or the selected feature's directory.
+ * [OUTPUT]: Exit code 0/1 and repeatable reports/screenshots in output/tests/, optionally isolated by a fresh output prefix.
  * [POS]: website's end-to-end acceptance: serves the export exactly as a static host would and drives it like a
  *        visitor — capped layout, static hero, sticky navigation, playable demos with a mirrored mobile sync concept, relation-line carousel, Jev film, theme, platform-aware
  *        split local-video introduction, download, dismissible language menus, five locales with SEO tags, legal documents, planned pricing, finalized billing policy, sealed billing states, narrow layout, reduced motion
@@ -32,7 +32,11 @@ const billingOnly = process.argv.includes('--only=billing')
 const faqOnly = process.argv.includes('--only=faq')
 const downloadOnly = process.argv.includes('--only=download')
 const legalOnly = process.argv.includes('--only=legal')
-const artifact = join(root, 'output', 'tests', heroDemoOnly ? 'hero-demo' : heroSyncOnly ? 'hero-sync' : videoIntroOnly ? 'video-intro' : servicesOnly ? 'services' : billingOnly ? 'billing' : faqOnly ? 'faq' : downloadOnly ? 'download' : legalOnly ? 'legal' : 'e2e')
+const outputPrefixes = process.argv.filter(value => value.startsWith('--output-prefix='))
+const outputPrefix = outputPrefixes[0]?.slice('--output-prefix='.length)
+if (outputPrefixes.length > 1 || outputPrefix !== undefined && !/^[a-z0-9][a-z0-9-]{0,79}$/u.test(outputPrefix)) throw new Error('Use one finite output prefix')
+const artifact = join(root, 'output', 'tests', ...(outputPrefix ? [outputPrefix] : []), heroDemoOnly ? 'hero-demo' : heroSyncOnly ? 'hero-sync' : videoIntroOnly ? 'video-intro' : servicesOnly ? 'services' : billingOnly ? 'billing' : faqOnly ? 'faq' : downloadOnly ? 'download' : legalOnly ? 'legal' : 'e2e')
+if (outputPrefix && existsSync(artifact)) throw new Error('Prefixed feature evidence must use a fresh directory')
 const SITE = 'https://www.goalloom.com'
 const SITE_MAX_WIDTH = 1296
 const HERO_MAX_WIDTH = SITE_MAX_WIDTH
@@ -41,7 +45,7 @@ const LOCALES = [['en', '/'], ['zh-CN', '/zh-CN/'], ['ja', '/ja/'], ['es', '/es/
 const WINDOWS_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
 
 if (!process.argv.includes('--no-build') || !existsSync(out)) execFileSync('pnpm', ['run', 'build'], { cwd: root, stdio: 'inherit' })
-rmSync(artifact, { recursive: true, force: true })
+if (!outputPrefix) rmSync(artifact, { recursive: true, force: true })
 mkdirSync(artifact, { recursive: true })
 
 // --- a static host: directory URLs resolve to index.html, like Vercel serving the export ---

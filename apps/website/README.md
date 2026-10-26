@@ -36,7 +36,9 @@ scripts/        # audit-seo.mjs（20 个公开页 + 10 个不索引辅助页）�
 
 `output/tests/e2e/service-boundaries.json` 保存受控状态、网络与静态 Secret 扫描，`billing-policy.json` 保存五语言政策验收证据；不等同于提供商付费生命周期或客户端验收。
 
-D2 的五语言政策按上线范围说明：受限取回生成独立本地副本，解密材料留在设备，替换当前工作区须明确选择并有保护性备份；账号设置中的期限和应用内提醒不延长取回窗口。续费失败宽限从原续订截止计算。7 天在线删除、35 天备份上限和恢复后重新应用删除仍是上线要求，文案不代表供应商或生产执行已获验收。官网不处理账号删除，也不增加邮件或系统推送。
+The shared support contact is `hellojimmywong.ai@gmail.com`, defined by `SERVICE.supportEmail`. All five locales use it for pricing, FAQ, footer, privacy and terms contact links.
+
+D2 的五语言政策按上线范围说明：受限取回生成独立本地副本，解密材料留在设备，替换当前工作区须明确选择并有保护性备份；账号设置中的期限和应用内提醒不延长取回窗口。续费失败宽限从原续订截止计算。7 天在线删除仍是上线要求。在线删除后，受限灾难恢复副本可能保留至适用基础设施服务商的保留政策规定的到期时间，不作为账号恢复或继续服务的入口；基础设施恢复后，须在恢复访问前重新应用删除记录，不承诺请求时即物理擦除。文案不代表供应商或生产备份/恢复执行已获验收，也不新增每日备份承诺。官网不处理账号删除，也不增加邮件或系统推送。
 
 ## 命令
 
@@ -53,6 +55,7 @@ pnpm test:e2e --no-build --only=legal # 隐私/条款与政策专项，产物在
 pnpm test:e2e --no-build --only=faq # FAQ layout, disclosures and downloads; output/tests/faq/
 pnpm test:e2e --no-build --only=download # Header/home/pricing downloads; output/tests/download/
 pnpm test:e2e --no-build --only=services # 定价/服务与政策导航专项，产物在 output/tests/services/
+pnpm test:e2e --no-build --only=legal --output-prefix=contact-review-001 # Preserve prior evidence in a fresh output/tests/contact-review-001/legal/ directory; reusing that directory is rejected
 pnpm test:e2e --no-build --only=billing # D1 有限回跳/会话恢复专项；canonical 受控拦截，无提供商或原生 App 调用，产物在 output/tests/billing/
 pnpm test:e2e         # 构建 → 本地静态服务 → Playwright 端到端验收；报告与截图写入 output/tests/e2e/
 ```

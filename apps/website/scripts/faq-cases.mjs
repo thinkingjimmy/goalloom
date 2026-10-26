@@ -51,7 +51,7 @@ export async function runFaqCases({ browser, base, LOCALES, check, assert, artif
       await details.first().locator('summary').focus()
       await details.first().locator('summary').press('Space')
       assert(await details.first().evaluate(node => node.open), 'Space did not open the question')
-      assert(await section.locator('a[href="mailto:hellojimmywong@gmail.com"]').count() === 1, 'private support missing')
+      assert(await section.locator('a[href="mailto:hellojimmywong.ai@gmail.com"]').count() === 1, 'private support missing')
       assert(await section.locator('a[href="https://github.com/thinkingjimmy/goalloom/issues"]').count() === 1, 'technical support missing')
       const policyPage = await context.newPage()
       try {

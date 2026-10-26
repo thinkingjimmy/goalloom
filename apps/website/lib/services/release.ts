@@ -28,13 +28,13 @@ export const SERVICE = {
   trialDays: 8, trialHours: 8 * 24, retentionDays: 30,
   commercialPolicy: {
     version: '1.0', finalizedOn: '2026-10-23', webTaxBehavior: 'inclusive',
-    graceDays: 3, onlineDeleteDays: 7, backupDays: 35, billingYears: 7, abuseDays: 180,
+    graceDays: 3, onlineDeleteDays: 7, billingYears: 7, abuseDays: 180,
     cycleChange: 'next-renewal', refundRestoresTrial: false,
   },
   // A finite app return does not establish public purchase or lifecycle readiness.
   stage: publicationStage('unavailable', RELEASE_GATES),
-  operator: 'Augmenting Human Intellect, LLC', supportEmail: 'hellojimmywong@gmail.com',
-  statementDescriptor: 'GOALLOOM', policyDate: '2026-10-23',
+  operator: 'Augmenting Human Intellect, LLC', supportEmail: 'hellojimmywong.ai@gmail.com',
+  statementDescriptor: 'GOALLOOM', policyDate: '2026-10-25',
   publicClientVersion: RELEASE.version, publicClientHostedAi: false, iphonePublished: false,
 } as const
 
@@ -49,8 +49,8 @@ export function interpolateServiceText(text: string): string {
     trialHours: String(SERVICE.trialHours), retentionDays: String(SERVICE.retentionDays),
     operator: SERVICE.operator, version: SERVICE.publicClientVersion,
     supportEmail: SERVICE.supportEmail, graceDays: String(SERVICE.commercialPolicy.graceDays),
-    onlineDeleteDays: String(SERVICE.commercialPolicy.onlineDeleteDays), backupDays: String(SERVICE.commercialPolicy.backupDays),
+    onlineDeleteDays: String(SERVICE.commercialPolicy.onlineDeleteDays),
     billingYears: String(SERVICE.commercialPolicy.billingYears), abuseDays: String(SERVICE.commercialPolicy.abuseDays),
   }
-  return text.replace(/\{(monthly|annual|trialDays|trialHours|retentionDays|operator|version|supportEmail|graceDays|onlineDeleteDays|backupDays|billingYears|abuseDays)\}/gu, (_, key: string) => values[key]!)
+  return text.replace(/\{(monthly|annual|trialDays|trialHours|retentionDays|operator|version|supportEmail|graceDays|onlineDeleteDays|billingYears|abuseDays)\}/gu, (_, key: string) => values[key]!)
 }

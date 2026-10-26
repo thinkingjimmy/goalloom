@@ -17,11 +17,11 @@ const EXPECTED = {
   fr: { tax: 'sans ajout', trial: 'Un remboursement ne restaure', change: 'prochain renouvellement', rights: 'rétractation', apple: 'ne s’annule pas automatiquement' },
 }
 const LIFECYCLE = {
-  en: { copy: 'separate local copy', notices: 'inside Goalloom', push: 'system push', boundary: 'original renewal', scope: 'launch policy' },
-  'zh-CN': { copy: '独立本地副本', notices: 'Goalloom 应用内', push: '系统推送', boundary: '原续订', scope: '上线政策' },
-  ja: { copy: '独立したローカルコピー', notices: 'Goalloom アプリ内', push: 'システム通知', boundary: '元の更新', scope: '提供開始時の方針' },
-  es: { copy: 'copia local independiente', notices: 'dentro de Goalloom', push: 'notificaciones del sistema', boundary: 'renovación original', scope: 'política de lanzamiento' },
-  fr: { copy: 'copie locale indépendante', notices: 'dans Goalloom', push: 'notifications système', boundary: 'renouvellement initial', scope: 'politique de lancement' },
+  en: { copy: 'separate local copy', notices: 'inside Goalloom', push: 'system push', boundary: 'original renewal', scope: 'launch policy', backupProvider: 'infrastructure provider', disaster: 'disaster-recovery copies', nonRecovery: 'not an account-recovery or continuing-service feature', restore: 'before access resumes', physical: 'physically erased' },
+  'zh-CN': { copy: '独立本地副本', notices: 'Goalloom 应用内', push: '系统推送', boundary: '原续订', scope: '上线政策', backupProvider: '基础设施服务商', disaster: '灾难恢复副本', nonRecovery: '不作为账号恢复或继续服务', restore: '恢复访问前', physical: '物理擦除' },
+  ja: { copy: '独立したローカルコピー', notices: 'Goalloom アプリ内', push: 'システム通知', boundary: '元の更新', scope: '提供開始時の方針', backupProvider: 'インフラ提供者', disaster: '災害復旧用コピー', nonRecovery: 'アカウント復旧やサービス継続', restore: 'アクセスを再開する前', physical: '物理消去' },
+  es: { copy: 'copia local independiente', notices: 'dentro de Goalloom', push: 'notificaciones del sistema', boundary: 'renovación original', scope: 'política de lanzamiento', backupProvider: 'proveedor de infraestructura', disaster: 'copias de recuperación ante desastres', nonRecovery: 'no sirven para recuperar cuentas ni continuar el servicio', restore: 'antes de reanudar el acceso', physical: 'borrado físico' },
+  fr: { copy: 'copie locale indépendante', notices: 'dans Goalloom', push: 'notifications système', boundary: 'renouvellement initial', scope: 'politique de lancement', backupProvider: 'fournisseur d’infrastructure', disaster: 'copies de reprise après sinistre', nonRecovery: 'ne servent ni à récupérer un compte ni à continuer le service', restore: 'avant de rétablir l’accès', physical: 'effacement physique' },
 }
 async function openSection(page, id) {
   await page.locator(`.legal-contents a[href="#${id}"]`).click()
@@ -69,7 +69,9 @@ export async function runPolicyCases({ browser, base, LOCALES, check, assert, sh
     assert(cloud.includes('30') && cloud.includes('7'), 'ordinary expiry/deletion windows missing')
     assert(cloud.includes(lifecycle.copy) && cloud.includes(lifecycle.notices) && cloud.includes(lifecycle.push), 'retrieval or in-app notice scope missing')
     assert(deletion.includes('30') && deletion.includes('7'), 'explicit deletion exception missing')
-    for (const value of ['35', '7', '180']) assert(records.includes(value), `limited-retention value missing ${value}`)
+    for (const value of ['7', '180']) assert(records.includes(value), `limited-retention value missing ${value}`)
+    for (const key of ['backupProvider', 'disaster', 'nonRecovery', 'restore', 'physical']) assert(records.includes(lifecycle[key]), `backup policy missing ${key}`)
+    assert(!/\b(?:35|840)\b/u.test(records), 'removed full-copy deletion deadline remains')
     assert(records.includes(lifecycle.scope), 'backup requirement reads as verified current service')
     assert((await page.locator('#license').innerText()).includes('MIT'), 'license changed')
     assert(!/\{(?:monthly|graceDays|onlineDeleteDays|backupDays|billingYears|abuseDays|supportEmail)\}/u.test(await page.locator('body').innerText()), 'unexpanded policy token')
@@ -85,10 +87,12 @@ export async function runPolicyCases({ browser, base, LOCALES, check, assert, sh
     await page.goto(`${base}${prefix}privacy/`)
     for (const id of ['cloud-retention', 'deletion', 'records']) assert(await page.locator(`#billing-${id}`).count() === 1, 'privacy lifecycle rules missing')
     assert((await page.locator('#billing-cloud-retention').innerText()).includes(lifecycle.copy), 'privacy lost independent-copy retrieval')
+    assert((await page.locator('#retention').innerText()).includes(lifecycle.backupProvider), 'privacy summary lost provider-governed backup retention')
+    assert(!/\b(?:35|840)\b/u.test(await page.locator('main').innerText()), 'privacy retains removed full-copy deletion deadline')
     assert(await page.locator('.legal-policy-notice, [data-policy-status]').count() === 0, 'removed privacy banner remains')
     const schema = JSON.parse(await page.locator('script[type="application/ld+json"]').first().textContent())
     assert(schema.dateModified === await page.locator('time').getAttribute('datetime'), 'policy date mismatch')
-    facts.push({ locale, policy: '1.0', sections: SECTION_IDS, stage: 'unavailable', tax: 'inclusive', graceDays: 3, retrievalDays: 30, onlineDeleteDays: 7, backupDays: 35, billingYears: 7, abuseDays: 180, retrievalCopy: 'independent', lifecycleNotices: 'in-app only', providerRetentionVerified: false })
+    facts.push({ locale, policy: '1.0', sections: SECTION_IDS, stage: 'unavailable', tax: 'inclusive', graceDays: 3, retrievalDays: 30, onlineDeleteDays: 7, backupExpiry: 'applicable infrastructure provider retention policy', backupPurpose: 'restricted disaster recovery only', restoreDeletionRecords: 'before access resumes', billingYears: 7, abuseDays: 180, retrievalCopy: 'independent', lifecycleNotices: 'in-app only', providerRetentionVerified: false })
   })
   await check('policy: narrow dark documents and tall desktop contents remain navigable', async () => {
     await page.goto(`${base}/fr/terms/`)
@@ -121,8 +125,9 @@ export async function runPolicyCases({ browser, base, LOCALES, check, assert, sh
       await openSection(staticPage, 'billing-deletion')
       assert(new URL(staticPage.url()).hash === '#billing-deletion', 'static deletion anchor failed')
       assert((await staticPage.locator('#billing-records').innerText()).includes('180'), 'static records policy missing')
+      assert((await staticPage.locator('#billing-records').innerText()).includes(LIFECYCLE[locale].backupProvider), 'static backup retention policy missing')
       assert((await staticPage.locator('#billing-cloud-retention').innerText()).includes(LIFECYCLE[locale].notices), 'static lifecycle notice scope missing')
-      assert(await staticPage.locator('#contact a[href="mailto:hellojimmywong@gmail.com"]').count() === 1, 'private support missing')
+      assert(await staticPage.locator('#contact a[href="mailto:hellojimmywong.ai@gmail.com"]').count() === 1, 'private support missing')
     }
     writeFileSync(join(artifact, 'billing-policy.json'), JSON.stringify({ at: new Date().toISOString(), policyVersion: '1.0', scope: 'content-only website acceptance; lifecycle and provider configuration unverified', facts, externalRequests: requests }, null, 2))
   })

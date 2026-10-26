@@ -58,11 +58,11 @@ export async function runLegalCases({ browser, base, SITE, LOCALES, check, asser
       for (const [other, path] of LOCALES) assert(facts.alternates[other] === `${SITE}${path}${kind}/`, `alternate ${other}`)
       assert(facts.alternates['x-default'] === `${SITE}/${kind}/`, 'wrong x-default')
       assert(facts.schema['@type'] === 'WebPage' && facts.schema.url === facts.canonical, 'wrong document schema')
-      assert(await page.locator('article a[href="mailto:hellojimmywong@gmail.com"]').count() === 1, 'missing contact')
+      assert(await page.locator('article a[href="mailto:hellojimmywong.ai@gmail.com"]').count() === 1, 'missing contact')
       const required = kind === 'privacy' ? ['local', 'google', 'sync', 'ai', 'payments', 'retention', 'contact'] : ['license', 'account', 'optional', 'ai', 'paid-service', 'availability', 'contact']
       for (const id of required) assert(await page.locator(`article section#${id} p`).count() > 0, `missing semantic section ${id}`)
       assert((await page.locator('.legal-summary').innerText()).includes('Augmenting Human Intellect, LLC'), 'operator missing')
-      assert(await page.locator('time').getAttribute('datetime') === '2026-10-23' && facts.schema.dateModified === '2026-10-23', 'policy dates disagree')
+      assert(await page.locator('time').getAttribute('datetime') === '2026-10-25' && facts.schema.dateModified === '2026-10-25', 'policy dates disagree')
       if (kind === 'privacy') {
         const ai = await page.locator('article #ai').innerText()
         for (const provider of ['OpenRouter', 'TypeSafe', 'DeepInfra', 'DeepSeek', '1017', '1.9.10']) assert(ai.includes(provider), `AI scope missing ${provider}`)
