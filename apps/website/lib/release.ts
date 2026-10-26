@@ -1,25 +1,21 @@
 /**
- * [INPUT]: Has no runtime dependencies
- * [OUTPUT]: Exports REPO, RELEASES_URL, Platform, RELEASE and downloadUrl
- * [POS]: The single source of truth for the public repository and the build every download control points at
+ * [INPUT]: Independently verified public releases for each desktop platform.
+ * [OUTPUT]: REPO, RELEASES_URL, Platform, RELEASE and downloadUrl.
+ * [POS]: Public download snapshot; platform versions do not imply shared Plus availability.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-
 export const REPO = 'https://github.com/thinkingjimmy/goalloom'
 export const RELEASES_URL = `${REPO}/releases`
-
 export type Platform = 'mac' | 'windows'
 
-// Asset names carry the version (electron-builder artifactName), so GitHub's /releases/latest/download/<name>
-// shortcut cannot be used. Update this snapshot with every published release; `published: false` falls back to the
-// Releases page while a new version is not yet uploaded.
+// Update only the platform whose reviewed installer has been published.
 export const RELEASE = {
-  published: true,
-  version: '1.9.10',
-  assets: { mac: 'Goalloom-1.9.10-mac-arm64.dmg', windows: 'Goalloom-1.9.10-win-x64.exe' },
-} satisfies { published: boolean; version: string; assets: Record<Platform, string> }
+  mac: { published: true, version: '1.10.0', asset: 'Goalloom-1.10.0-mac-arm64.dmg' },
+  windows: { published: true, version: '1.9.10', asset: 'Goalloom-1.9.10-win-x64.exe' },
+} satisfies Record<Platform, { published: boolean; version: string; asset: string }>
 
 export function downloadUrl(platform: Platform): string {
-  if (!RELEASE.published) return RELEASES_URL
-  return `${RELEASES_URL}/download/v${RELEASE.version}/${RELEASE.assets[platform]}`
+  const release = RELEASE[platform]
+  if (!release.published) return RELEASES_URL
+  return `${RELEASES_URL}/download/v${release.version}/${release.asset}`
 }

@@ -9,7 +9,7 @@
 - `index.ts`: Five-language copy loading and centralized value interpolation.
 - `catalogs/`: `en.ts`, `zh-CN.ts`, `ja.ts`, `es.ts`, `fr.ts`; identical service and policy keys.
 
-The active snapshot is unavailable for purchase. A live Stripe account is not a configured price, a working BILL-12 backend or a launch authorization. Final policy v1.0 is incorporated in all five catalogs: inclusive web tax, end-of-period cancellation and cycle changes, three-day eligible renewal grace, no restored trial after refunds, and distinct cloud/deletion/record deadlines and provider-governed disaster-recovery retention. Policy approval alone cannot open sales; provider settings and lifecycle must still be verified. Payments and eligibility remain a trusted-backend responsibility.
+The active snapshot advertises Plus in the supported macOS client only after the reviewed unified cutover. Windows Plus and mobile purchases remain deferred. A live Stripe account is not a configured price, a working BILL-12 backend or a launch authorization. Final policy v1.0 is incorporated in all five catalogs: inclusive web tax, end-of-period cancellation and cycle changes, three-day eligible renewal grace, no restored trial after refunds, and distinct cloud/deletion/record deadlines and provider-governed disaster-recovery retention. Policy approval alone cannot open sales; provider settings and lifecycle must still be verified. Payments and eligibility remain a trusted-backend responsibility.
 
 The owner-confirmed support address is `hellojimmywong.ai@gmail.com`. `SERVICE.supportEmail` is the shared source for pricing, billing/refund/deletion copy, FAQ, footer and legal contact links in every locale.
 

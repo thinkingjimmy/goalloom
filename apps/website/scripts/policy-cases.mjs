@@ -41,7 +41,7 @@ export async function runPolicyCases({ browser, base, LOCALES, check, assert, sh
     const expected = EXPECTED[locale]
     const lifecycle = LIFECYCLE[locale]
     await page.goto(`${base}${prefix}pricing/`)
-    assert(await page.locator('main[data-stage="unavailable"]').count() === 1, 'policy approval opened sales')
+    assert(await page.locator('main[data-stage="live"]').count() === 1, 'reviewed cutover stage is missing')
     for (const id of ['renewal', 'grace', 'refunds', 'expiry']) {
       const answer = page.locator(`.service-faq #service-${id}`)
       await answer.locator('..').locator('summary').click()
@@ -92,7 +92,7 @@ export async function runPolicyCases({ browser, base, LOCALES, check, assert, sh
     assert(await page.locator('.legal-policy-notice, [data-policy-status]').count() === 0, 'removed privacy banner remains')
     const schema = JSON.parse(await page.locator('script[type="application/ld+json"]').first().textContent())
     assert(schema.dateModified === await page.locator('time').getAttribute('datetime'), 'policy date mismatch')
-    facts.push({ locale, policy: '1.0', sections: SECTION_IDS, stage: 'unavailable', tax: 'inclusive', graceDays: 3, retrievalDays: 30, onlineDeleteDays: 7, backupExpiry: 'applicable infrastructure provider retention policy', backupPurpose: 'restricted disaster recovery only', restoreDeletionRecords: 'before access resumes', billingYears: 7, abuseDays: 180, retrievalCopy: 'independent', lifecycleNotices: 'in-app only', providerRetentionVerified: false })
+    facts.push({ locale, policy: '1.0', sections: SECTION_IDS, stage: 'live', tax: 'inclusive', graceDays: 3, retrievalDays: 30, onlineDeleteDays: 7, backupExpiry: 'applicable infrastructure provider retention policy', backupPurpose: 'restricted disaster recovery only', restoreDeletionRecords: 'before access resumes', billingYears: 7, abuseDays: 180, retrievalCopy: 'independent', lifecycleNotices: 'in-app only', providerRetentionVerified: false })
   })
   await check('policy: narrow dark documents and tall desktop contents remain navigable', async () => {
     await page.goto(`${base}/fr/terms/`)
