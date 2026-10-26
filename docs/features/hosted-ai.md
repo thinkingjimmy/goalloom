@@ -1,12 +1,16 @@
 # Authenticated hosted AI
 
-INPUT: A verified project session, an explicit account-bound scope-v3 consent, and existing bounded AI inputs.
+INPUT: A verified project session, current trial/paid eligibility, explicit account-bound scope-v3 consent, and existing bounded AI inputs.
 OUTPUT: Fixed Jev judgments or existing draft/review/assistance results. No workspace writes, sync authorization or billing records.
 POS: Hosted transport and cost protection contract; feature behavior remains in smart-input, flow-insight and assistance specifications.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
-## Source implementation status (2026-10-23)
+## Current service status (2026-10-26)
+
+Production now uses `trial_or_paid` under the owner's approved macOS Plus opening. Missing service eligibility refuses new AI admission without treating the session as expired. Scope-v3 consent, model routing, cost records, unknown reservations and the original combined USD 10 integration cap are unchanged. No new model call or key was needed for this switch. The published macOS 1.10.0 client includes this flow; Windows remains on the older free 1.9.10 release. See the current [billing contract](billing.md#authorized-continuous-opening-2026-10-26-asiasingapore) for the installed billing migrations, exact production readback and ongoing-service boundary. The earlier deployment versions and costs below describe their recorded rollout, not a fresh production inventory.
+
+## Hosted AI rollout record (2026-10-23)
 
 Initial delivery and three review follow-ups are complete. Development acceptance preceded production deployment. Both environments now match source `e6985e1fdf2e7a3ab8f52214c4bff7dc30ba2ee92dc0c48733fb33cd84cccfa6`: development Edge v19 is frozen/paused; production Edge v7 is enabled with JWT verification. Both retain privacy/identity migrations `0011`–`0013`. The separate, uninstalled billing migration `0014` was deferred; this rollout did not apply it. Development uses exact standalone RPC readback; production has exact full migration history. Both legacy result columns/overloads and cache Secrets are absent; provider-secret digests were preserved.
 
@@ -26,7 +30,7 @@ On 2026-10-23 the owner explicitly accepted DeepSeek's retention/training condit
 
 - `POST /functions/v1/hosted-ai`: `version: 2`, `consentScopeVersion: 3`, timestamped UUIDv7 `actionId` and exactly one finite `evaluate`, `draft`, `review` or `assistance` input. Missing or older consent scopes reject before admission/provider access. No client URL, model, user ID, tools or raw chat messages. The backend builds writing prompts from shared domain functions.
 - `GET ?actionId=UUID`: retrieve only the caller's status/fee-confirmation receipt, with no result or recovery URL. Repeated POSTs use the original action, including a failed or expired action. Completed duplicate POST and GET return HTTP 409 `result_not_delivered`; running/unknown receipts return HTTP 202. Only the original settled POST can return `status: ready` with a result. A changed input never causes a second call for the same ID. No content digest is retained.
-- Session identity comes from the configured project's Auth `/user` verification. `authenticated` is the initial eligibility policy. Missing/unknown policy fails closed; `trial_or_paid` is a future authorization adapter, denied until implemented.
+- Session identity comes from the configured project's Auth `/user` verification. The initial `authenticated` policy was replaced by the implemented `trial_or_paid` billing adapter in the authorized production opening. New AI admission requires current service eligibility as well as consent, budget and protection checks. Missing/unknown policy fails closed; the existing caller-bound receipt path remains separate from a new inference request.
 - A logical action currently owns exactly one provider attempt. There are no automatic provider retries. Explicit new attempts require a new action ID and a new atomic reservation. The durable action/attempt ID is also sent as provider request metadata.
 - OpenRouter is the fixed route: Jev `typesafe/jev-1.14`; draft/review `deepseek/deepseek-v4.1-flash`; assistance `deepseek/deepseek-v4.1-flash-1017` (owner-selected on 2026-10-23), reasoning off. Draft/review and legacy guidance use `deepinfra/fp8`; only explicit note rewriting uses the first-party `deepseek` endpoint. No automatic fallback. Rates and worst-case reservation are server-owned, versioned and checked against provider metadata before live acceptance.
 - Maximum inbound/outbound HTTP bodies: 256/256 KiB. Provider timeout: 25 seconds. Running receipt lease: 90 seconds. Reconciliation cutoff: 10 minutes; unresolved usage then closes at the reserved upper bound. It never becomes a free retry.

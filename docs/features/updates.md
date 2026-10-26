@@ -31,6 +31,12 @@
 
 ## TODO
 
+### 1.10.0 update: macOS Plus subscriptions
+
+Published [macOS 1.10.0](https://github.com/thinkingjimmy/goalloom/releases/tag/v1.10.0) with [five-language notes](../releases/v1.10.0.md) on 2026-10-26 from accepted source `f63fae6082eed4fa3ee23a941ea44097650bcc2f`. This release adds the explicit eight-day trial, Stripe subscriptions, paid sync/hosted AI admission and retained-data access. Local use and BYOK remain free. Windows stays on 1.9.10, with its physical-machine acceptance deferred by the owner; native Apple purchases remain separate.
+
+The accepted signed/notarized candidate was published without rebuilding or changing the original profile. All eight anonymous public files match their expected sizes/SHA256, and the actual `electron-updater 6.8.10` provider resolves macOS 1.10.0 and unchanged Windows 1.9.10 with matching payload sizes/SHA512. Both platform files must remain in the shared latest Release while their versions differ. The first DMG TLS failure is retained and its one-file replay passed. Existing composed pre-release verification, signed-package and native browser-return evidence are recorded in [billing](billing.md); do not report one uninterrupted full verification command, a new native updater installation, Windows acceptance or a Live payment test. See [publication evidence](../../output/tests/billing/desktop/bill29-reopen/macos/publication/publication-result.json).
+
 ### 1.9.10 update: Apple sign-in and ordered subtask detachment
 
 Published [1.9.10](https://github.com/thinkingjimmy/goalloom/releases/tag/v1.9.10) with [notes](../releases/v1.9.10.md) and a [timing/validation record](../releases/v1.9.10-timing.md). Full local `pnpm verify` and Apple/calendar supplemental acceptance passed. Both hosted packages, signed macOS credential restoration, downloaded file/build identity checks and the five-language live website passed after the recorded provisioning and Apple network recoveries. Workspace format remains v11; app identity and signing certificate are preserved. Mobile progress is committed in source only. Windows 11 manual acceptance remains separate.

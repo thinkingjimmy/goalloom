@@ -9,12 +9,12 @@ import type { ServiceCatalog } from '../types'
 export default {
   "mobile": {
     "q": "Is an iPhone app available?",
-    "a": "Not yet. The public download supports macOS 14+ on Apple Silicon and Windows 11 x64. Copy the download link on your phone to open it on your computer. Future Apple purchases will be managed through Apple; no iPhone purchase or App Store download is available here."
+    "a": "Not yet. macOS 1.10.0 supports Apple Silicon on macOS 14 or later. The Windows 11 x64 download remains the older free 1.9.10 client, without Plus billing. No iPhone purchase or App Store download is available here. Copy the download link on your phone to open it on your computer."
   },
   "navPricing": "Pricing",
   "meta": {
     "title": "Goalloom pricing — free local tools, optional Plus",
-    "description": "Keep local tasks, history, backups and your own AI key free. Explore planned Goalloom Plus pricing, an optional eight-day trial, encrypted sync and built-in AI."
+    "description": "Keep local tasks, history, backups and BYOK free. Goalloom Plus adds encrypted sync and built-in AI on macOS, with an optional eight-day account trial."
   },
   "heading": "Your local tools stay free.",
   "intro": "Choose cloud services when they help. Keep your tasks, history and backups on your device either way.",
@@ -60,7 +60,7 @@ export default {
     "byokInfoLabel": "About model provider fees",
     "byokNote": "Your model provider charges separately.",
     "annualSavings": "Save {amount}/year (about {percent})",
-    "tryNow": "Try now",
+    "tryNow": "How to start your trial",
     "plusIncludes": "Everything in Free, plus",
     "plusFeatures": [
       {
@@ -77,14 +77,14 @@ export default {
     "encryptionNote": "End-to-end encryption protects sync data. It does not cover AI processing.",
     "encryptionInfoLabel": "About AI and sync encryption"
   },
-  "summaryBody": "Goalloom stays free for local work and BYOK. Planned Plus combines encrypted sync and built-in AI. The current download and future cloud service have separate availability.",
-  "statusTitle": "Plus is not open yet",
-  "statusBody": "Purchases and trial activation are not available. Download {version} remains free with BYOK AI. Hosted AI is in limited authenticated testing and is not included in that public client. This page does not change current sync access.",
+  "summaryBody": "Local tools and BYOK stay free. Plus adds encrypted sync and built-in AI on macOS {version}. Windows Plus and iPhone purchases are not available yet.",
+  "statusTitle": "Plus for macOS",
+  "statusBody": "Use macOS {version} to sign in and explicitly activate a trial or purchase Plus in the app. The Windows download is the older free client and does not offer Plus billing. Downloading or signing in does not start a trial or payment.",
   "support": "Private support",
   "supportBody": "For billing, privacy, deletion or account questions, email us. Do not post passwords, API keys, task content or payment details in public issues.",
   "technical": "Technical questions on GitHub",
   "manageTitle": "Manage the original purchase",
-  "manageBody": "No subscription can be purchased or managed on this site yet. Once available, use the channel where you bought it; restoring a purchase does not start another trial.",
+  "manageBody": "Start or manage Plus in Goalloom {version} for macOS. Use the same Goalloom account, then follow the app to its secure payment or subscription-management page. Windows Plus and iPhone purchases are not available yet.",
   "stripeManage": "Web purchases: use Goalloom billing management to cancel renewal or change the next billing period. A verified Stripe portal handles supported payment-method and invoice actions; it is not the only cancellation path.",
   "appleManage": "Future iPhone purchases: manage renewal in Apple subscription settings. Deleting a Goalloom account does not cancel Apple renewal. The iPhone app is not published yet.",
   "terms": "Service terms",
@@ -99,7 +99,7 @@ export default {
     },
     {
       "q": "How does the trial work?",
-      "a": "When launched, an explicit action starts one {trialDays}-day ({trialHours}-hour) trial per account. No card and no automatic charge. Downloading, signing in or viewing plans does not start it. Trial activation is not open yet.",
+      "a": "In Goalloom {version} for macOS, open Settings → Sync and sign in. In the Goalloom Plus section, choose “Start 8-day free trial”. Each account can activate one {trialDays}-day ({trialHours}-hour) trial. No card and no automatic charge. Downloading, signing in and viewing plans do not start it. Windows Plus is deferred.",
       "id": "trial"
     },
     {
@@ -109,12 +109,12 @@ export default {
     },
     {
       "q": "Does Plus renew automatically?",
-      "a": "When launched, subscriptions renew automatically. Cancel through the original channel and keep access until the paid period ends. Both monthly/annual changes take effect at the next renewal, without an immediate adjustment or prorated refund. Uninstalling or signing out does not cancel. Cancellation is not a refund or cloud-deletion request. The free trial does not convert itself into a paid subscription.",
+      "a": "Subscriptions renew automatically. Cancel through the original channel and keep access until the paid period ends. Both monthly/annual changes take effect at the next renewal, without an immediate adjustment or prorated refund. Uninstalling or signing out does not cancel. Cancellation is not a refund or cloud-deletion request. The free trial does not convert itself into a paid subscription.",
       "id": "renewal"
     },
     {
       "q": "What happens after access ends?",
-      "a": "Under the launch policy, cloud copies remain for {retentionDays} days after all valid trial, paid and grace access ends. Retrieval makes a separate local copy and requires account authorization and decryption credentials. It closes at the deadline; online deletion completes within a further {onlineDeleteDays} days. A later purchase cannot restore the old copy. These services are not launched. Local data and BYOK remain available.",
+      "a": "Cloud copies remain for {retentionDays} days after all valid trial, paid and grace access ends. Retrieval makes a separate local copy and requires account authorization and decryption credentials. It closes at the deadline; online deletion completes within a further {onlineDeleteDays} days. A later purchase cannot restore the old copy. Local data and BYOK remain available.",
       "id": "expiry"
     },
     {
@@ -124,7 +124,7 @@ export default {
     },
     {
       "q": "How do account, sync and payment differ?",
-      "a": "An account proves identity; a sync password unlocks encrypted data; future service eligibility permits cloud actions. They are separate. The public desktop version still has optional sync, and this page does not impose a new payment gate.",
+      "a": "An account proves identity; your sync password unlocks encrypted data; a valid trial or paid service permits cloud actions. These are separate. Sign-in alone does not start a trial, purchase, sync or AI request. Plus billing is available in the supported macOS client; Windows Plus is deferred.",
       "id": "account"
     },
     {
@@ -145,7 +145,7 @@ export default {
   ],
   "billing": {
     "title": "Goalloom billing",
-    "description": "Safely continue a Goalloom purchase or check its status, with support and free downloads available while billing is not open.",
+    "description": "Return to Goalloom to check the original purchase with the same account. The website does not determine payment status.",
     "continueTitle": "Continue with Goalloom",
     "returnTitle": "Check your purchase",
     "states": {
@@ -173,23 +173,23 @@ export default {
     "accountTitle": "Apple / Google sign-in and your account",
     "account": "Apple or Google and Supabase process account identifiers, email, basic profile information when provided, and sessions. Sign-in can identify you for optional AI as well as sync; it does not itself authorize upload, activate AI, start a trial or prove payment. We do not receive your Apple or Google password.",
     "hosted": [
-      "BYOK requests use your configured OpenRouter or Vercel AI Gateway key. Where an explicitly enabled client supports Goalloom-hosted AI, sign-in and account-bound consent are required before relevant task input, goals, descriptions or bounded activity context is sent through Goalloom to OpenRouter: TypeSafe/Jev handles smart input, DeepInfra handles drafts and reviews, and DeepSeek runs DeepSeek V4.1 Flash 1017 for note rewrites. DeepSeek may retain submitted content and use it for model training. The public {version} download does not include this hosted source. Providers process readable context; this is not sync end-to-end encryption.",
+      "BYOK requests use your configured OpenRouter or Vercel AI Gateway key. Where an explicitly enabled client supports Goalloom-hosted AI, sign-in and account-bound consent are required before relevant task input, goals, descriptions or bounded activity context is sent through Goalloom to OpenRouter: TypeSafe/Jev handles smart input, DeepInfra handles drafts and reviews, and DeepSeek runs DeepSeek V4.1 Flash 1017 for note rewrites. DeepSeek may retain submitted content and use it for model training. The macOS {version} client supports this hosted source when service eligibility and consent permit it; the older Windows client does not offer Plus billing. Providers process readable context; this is not sync end-to-end encryption.",
       "Goalloom processes AI content within the original request without persistent server storage. Results are returned once and cannot be downloaded again; only necessary call, cost and security metadata is kept. Removal of the old encrypted cache does not prove immediate physical erasure from infrastructure logs, replicas or backups.",
       "The device may keep unadopted AI drafts, review summaries and their fingerprints in bounded local caches, including after sign-out. Local copies and provider processing have separate retention boundaries. Provider retention and training practices follow their policies; Goalloom does not promise zero retention by every processor."
     ],
     "paymentsTitle": "Payments and subscription information",
     "payments": [
-      "Paid Plus and checkout are not launched. The planned web channel is Stripe, with RevenueCat aggregating verified payment facts; Apple will process iPhone purchases only after that channel launches. These informational pages do not load payment SDKs or send payment requests.",
-      "When a channel is enabled, its providers may process payment method information, transaction/subscription identifiers, purchase source, amounts, currency, billing periods and account-binding metadata needed for billing, verification and support. Payment metadata must not contain task text, prompts, sync passwords or API keys. We do not claim that every form of payment information bypasses Goalloom."
+      "macOS Goalloom starts web purchases through Stripe; RevenueCat aggregates verified payment facts. Windows Plus and iPhone purchases are deferred. These informational pages do not load payment SDKs or send payment requests.",
+      "For enabled purchase channels, providers may process payment method information, transaction/subscription identifiers, purchase source, amounts, currency, billing periods and account-binding metadata needed for billing, verification and support. Payment metadata must not contain task text, prompts, sync passwords or API keys. We do not claim that every form of payment information bypasses Goalloom."
     ],
-    "retention": "The finalized Plus launch policy provides {retentionDays} days from the end of all valid trial, paid and grace access. Retrieval closes at the deadline and online deletion finishes within {onlineDeleteDays} additional days; later purchases cannot restore the old copy. Explicit deletion instead stops access immediately and deletes online data within {onlineDeleteDays} days. After online deletion, restricted disaster-recovery copies may remain until they expire under the applicable infrastructure provider’s retention policy. These new retrieval and timed-deletion services are not launched; local copies and hosted-AI retention are separate.",
-    "paidTitle": "Planned Plus service — not yet for sale",
+    "retention": "The finalized Plus launch policy provides {retentionDays} days from the end of all valid trial, paid and grace access. Retrieval closes at the deadline and online deletion finishes within {onlineDeleteDays} additional days; later purchases cannot restore the old copy. Explicit deletion instead stops access immediately and deletes online data within {onlineDeleteDays} days. After online deletion, restricted disaster-recovery copies may remain until they expire under the applicable infrastructure provider’s retention policy. Local copies and hosted-AI retention have separate boundaries. These Plus services are available through the supported macOS client; Windows Plus is deferred.",
+    "paidTitle": "Goalloom Plus for macOS",
     "paid": [
-      "Local tasks, history, backups, import/export and BYOK stay free. Planned Plus includes sync and built-in AI at {monthly} monthly or {annual} once yearly, including applicable taxes we must collect. No sync-only plan, launch promotion or automatic overage charge.",
+      "Local tasks, history, backups, import/export and BYOK stay free. Plus on macOS includes sync and built-in AI at {monthly} monthly or {annual} once yearly, including applicable taxes we must collect. No sync-only plan, launch promotion or automatic overage charge.",
       "One account trial lasts {trialDays} days ({trialHours} hours) from explicit activation, with no card or automatic billing. A confirmed early purchase consumes its remaining trial; a refund does not restore it. Unconfirmed or failed payment preserves the original deadline.",
-      "At launch, renewal is automatic until cancelled through the original channel; paid access continues to the current period end. Billing-cycle changes take effect at the next renewal. Payments and unused time are non-refundable except for mandatory law/platform remedies, billing errors or service issues handled under the policy below."
+      "Renewal is automatic until cancelled through the original channel; paid access continues to the current period end. Billing-cycle changes take effect at the next renewal. Payments and unused time are non-refundable except for mandatory law/platform remedies, billing errors or service issues handled under the policy below."
     ],
-    "sources": "Apple/Google provide sign-in; Supabase provides account and encrypted-sync infrastructure; Vercel hosts the website; GitHub distributes desktop releases. OpenRouter and the selected model providers process AI requests. Stripe, RevenueCat and Apple are planned payment processors/verification providers, not active payment SDKs on these pages.",
+    "sources": "Apple/Google provide sign-in; Supabase provides account and encrypted-sync infrastructure; Vercel hosts the website; GitHub distributes desktop releases. OpenRouter and the selected model providers process AI requests. Stripe processes web payments and RevenueCat verifies purchase facts. Apple purchases are deferred. These pages do not run payment SDKs.",
     "support": "For private billing, privacy, account or deletion requests, contact the support email below. Do not publish personal billing information in GitHub issues. The operator may verify account ownership; do not send passwords, sync secrets, API keys or full payment credentials."
   },
   "policy": {
@@ -267,8 +267,8 @@ export default {
           "Cloud copies are retained for {retentionDays} days after all valid trials, paid access and applicable grace periods end. Cancelling renewal alone does not start this period. New cloud uploads and built-in AI stop during retention. Restricted retrieval of existing cloud data requires account authorization and the necessary sync password or other decryption credentials. Goalloom cannot replace lost decryption credentials.",
           "Renewing during retention can resume use of a cloud copy that has not been deleted. At the {retentionDays}-day deadline, retrieval closes and online deletion begins. Online deletion completes within a further {onlineDeleteDays} days. Subscribing after the deadline cannot restore that copy, even if deletion is still in progress. Sync must be rebuilt from data you kept.",
           "Ordinary expiry, refunds and payment disputes use the same {retentionDays}-day cloud-retention period. Subscription expiry does not delete local tasks, local history or backups you keep yourself.",
-          "When launched, restricted retrieval will create a separate local copy without resuming sync or uploading changes. Replacing your current workspace will require an explicit choice and a protective local backup. Account sign-in alone cannot decrypt the copy; the necessary decryption credentials stay on your device.",
-          "When launched, account settings will show service and retrieval deadlines and online-deletion status. Necessary reminders will appear only inside Goalloom, without interrupting local editing. They do not extend a deadline. No email or system push notifications are sent."
+          "Restricted retrieval creates a separate local copy without resuming sync or uploading changes. Replacing your current workspace requires an explicit choice and a protective local backup. Account sign-in alone cannot decrypt the copy; the necessary decryption credentials stay on your device.",
+          "Account settings show service and retrieval deadlines and online-deletion status. Necessary reminders appear only inside Goalloom, without interrupting local editing. They do not extend a deadline. No email or system push notifications are sent."
         ]
       },
       {

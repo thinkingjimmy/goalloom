@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Existing bill29 Docker socket/image, exact migrations and the new generated window SQL.
- * [OUTPUT]: Focused real PostgreSQL/pg_cron window evidence in one disposable network-none container.
- * [POS]: Recovery-window E2E only. Original installation/rollback acceptance is not rerun.
+ * [INPUT]: Existing bill29 Docker socket/image, exact migrations and selected recovery SQL.
+ * [OUTPUT]: Focused real PostgreSQL/pg_cron window, role or continuous-recovery evidence in one disposable network-none container.
+ * [POS]: Selected recovery E2E only. Original installation/rollback acceptance is not rerun.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
@@ -15,9 +15,11 @@ import {save} from '../io.mjs'
 import {windowSql,OUTPUT} from './recovery.mjs'
 import {assertIsolated,recoveryLabel,temporaryPaths} from '../../../../lifecycle/recovery/isolation.mjs'
 import {roleLockCases} from './recovery-role-acceptance.mjs'
+import {reopenCases} from './reopen-postgres-cases.mjs'
 const roleOnly=process.argv.length===3&&process.argv[2]==='--role-lock'
-if(process.argv.length!==2&&!roleOnly)throw Error('invalid_arguments')
-const socket='unix:///Users/jimmywong/.colima/bill29/docker.sock',id=randomUUID(),out=resolve(OUTPUT,`postgres-${id}`),name=`goalloom-bill29-window-${id}`,commands=[],checks=[]
+const reopenOnly=process.argv.length===3&&process.argv[2]==='--reopen'
+if(process.argv.length!==2&&!roleOnly&&!reopenOnly)throw Error('invalid_arguments')
+const socket='unix:///Users/jimmywong/.colima/bill29/docker.sock',id=randomUUID(),out=resolve(reopenOnly?resolve(ROOT,'output/tests/billing/desktop/bill29-reopen/backend'):OUTPUT,`postgres-${id}`),name=`goalloom-bill29-window-${id}`,commands=[],checks=[]
 await mkdir(out,{recursive:true,mode:0o700})
 let container,identity,report,cronEvidence=null,executionRole='postgres'
 async function docker(args,input,{allowFailure=false}={}){
@@ -64,7 +66,7 @@ try{
  const protectedBefore=(await query(`select jsonb_build_object('protected',protected) from(${preservationSql(false).replace(/;\s*$/,'')}) p;`)).protected
  const historyDigest=(await query("select jsonb_build_object('digest',encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(h) order by version),'[]'::jsonb)::text,'UTF8')),'hex')) from supabase_migrations.schema_migrations h;")).digest
  await sql(schemaSql(source,{history:source.migrations.slice(0,13),historyDigest,protected:protectedBefore},`bill29-install:${randomUUID()}`))
- if(roleOnly){
+ if(roleOnly||reopenOnly){
   await sql(`create role window_operator login nosuperuser nocreatedb nocreaterole noinherit;
   grant usage on schema cron,auth,storage,net,extensions,service_private to window_operator;
   grant select on all tables in schema auth,storage,net to window_operator;
@@ -74,6 +76,7 @@ try{
    for r in select c.oid::regclass name from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in('public','service_private') and c.relkind in('r','p') loop execute format('alter table %s owner to window_operator',r.name);end loop;
    for r in select p.oid::regprocedure name from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','service_private') loop execute format('alter function %s owner to window_operator',r.name);end loop;
   end $ownership$;`)
+  if(reopenOnly)await sql('alter role window_operator bypassrls;')
   executionRole='window_operator'
  }
  await sql(jobsSql)
@@ -81,7 +84,10 @@ try{
  select cron.schedule('goalloom-sync-runtime-cleanup','*/5 * * * *','select 1;');`)
  const inspection={state:await query(snapshot)},window=windowSql(inspection,randomUUID()),originalCleanup=await query("select jsonb_build_object('command',command,'active',active,'schedule',schedule) from cron.job where jobname='goalloom-sync-runtime-cleanup';")
  await save(resolve(out,'inputs.json'),{image:image.Id,initializerSha256:hash(initializer),migrationSetup:source.migrations.map(({version,sha256})=>({version,sha256})),generated:Object.fromEntries(['arm','restore','finalize','read'].map(k=>[k,hash(window[k])])),recoverySourceSha256:hash(await readFile(resolve(ROOT,'scripts/billing/production/install/operations/recovery.mjs'))),setupOnly:'Exact migration load is fixture setup, not a rerun of installer31/rollback18 acceptance'})
- if(roleOnly){
+ if(reopenOnly){
+  const result=await reopenCases({sql,query,check,flags,snapshot,inspection,originalCleanup,out})
+  report={ok:true,at:new Date().toISOString(),checks,commands,scope:'Only new continuous-recovery SQL, legacy-owner isolation and AI qualification cases. Exact migration load is fixture setup; historical installation/window/role/restore suites are not rerun.',...result,containerId:container,image:image.Id,platform:{node:process.version,os:process.platform,arch:process.arch,postgres:await query("select jsonb_build_object('version',version());")},productionWrites:0,providerCalls:0,modelCalls:0,realCredentialReads:0,launchReady:false}
+ }else if(roleOnly){
   const result=await roleLockCases({sql,query,check,flags,snapshot,inspection,window,originalCleanup})
   report={ok:true,at:new Date().toISOString(),checks,commands,scope:'Focused non-superuser cron SELECT-only lock correction cases only; accepted13/22/9 suites not rerun.',...result,containerId:container,image:image.Id,platform:{node:process.version,os:process.platform,arch:process.arch,postgres:await query("select jsonb_build_object('version',version());")},productionWrites:0,providerCalls:0,modelCalls:0,realCredentialReads:0,launchReady:false}
  }else{

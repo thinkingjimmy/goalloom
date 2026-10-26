@@ -32,7 +32,7 @@ scripts/        # audit-seo.mjs（20 个公开页 + 10 个不索引辅助页）�
 
 ## 服务发布边界
 
-当前 Plus 为未开放快照。五语言定价页可读，购买和试用均无入口。D1 辅助页仅接收有限继续标识，在用户点击后返回固定 App 或开发 loopback 地址；不会核对账号、推断付款状态或赋予权益。参数从地址栏清除，仅在当前标签页会话内保存最多 24 小时供语言切换/刷新恢复；不可用时给出手动回 App 核对路径。BILL-12 受保护后端、含税可售价格、公开商户资料、客户端与生产生命周期验收及上线授权齐备后，才可开放购买流程。当前页面不改变公开 1.9.10 的同步访问。定稿政策 v1.0 已接入五语言定价、FAQ 与法律正文，取消/周期切换、宽限、退款和删除规则不再待定；新增取回与删除期限有明确的上线适用范围。
+Plus purchase and explicit account-trial actions are available only in the supported macOS client after the unified production cutover. The static site provides localized information and finite, explicit app continuation; it does not authenticate accounts, create Checkout sessions or determine payment status. Public availability follows the reviewed release snapshot and production evidence. Historical closed-gate reports retain their original scope. Windows Plus and mobile purchases are deferred.
 
 `output/tests/e2e/service-boundaries.json` 保存受控状态、网络与静态 Secret 扫描，`billing-policy.json` 保存五语言政策验收证据；不等同于提供商付费生命周期或客户端验收。
 
@@ -61,3 +61,5 @@ pnpm test:e2e         # 构建 → 本地静态服务 → Playwright 端到端�
 ```
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+The release snapshot stores each platform independently. Current Plus availability applies to macOS 1.10.0 only; the Windows 1.9.10 installer remains the older free client. Website purchase guidance directs users to explicit actions in the supported desktop app. The static site does not create Checkout sessions or activate trials.

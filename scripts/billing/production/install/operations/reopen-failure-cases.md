@@ -1,0 +1,16 @@
+# Continuous recovery failure contract
+
+Recorded before implementation. Only local preparation and read-only production inspection are authorized in this task.
+
+- Preparation must not dispatch SQL, enable jobs, change eligibility, start trials, create financial objects, run cleanup or load a provider credential. There is no apply mode.
+- Reject changed inspection/source/evidence bytes, wrong production identity, open/drifted baseline, unknown work, changed job commands, unaccepted recovery scope or missing original-key custody. Reuse accepted evidence; do not rerun historical suites or require unavailable old JWT/URL samples.
+- `billing_source()` returns NULL while either Billing/source switch is closed. Enable both, validate the exact returned row, then compute its database-native JSONB/text MD5 in the same service transaction. Never hash JavaScript JSON or bind the disabled row.
+- Four lifecycle flags need distinct evidence: deployed/verified wiring, independent ledger, supported permanent-isolation restore with original key, and bounded cleanup wiring. Evidence does not prove physical deletion or hosted restore cutover. Preserve restore barriers.
+- Existing retained/unverified workspace data must remain unchanged. A trial or global switch cannot manufacture its retained boundary or activate a row with NULL retrieval dates. Record the actual rejection and client handoff; do not delete/reset/reseed it.
+- Three jobs retain exact reviewed commands and minute schedules. Only cron API writes are allowed; no direct cron.job lock/grant. One coordinated cron writer is required. Persist dispatch identities, observe finite outcomes and close manually on outage; scheduling alone is not a health result.
+- A close must work after either planned stage, refuse foreign configuration/commands or an active restore barrier, preserve accepted work/receipts/accounting, pause exact owned jobs and close owned admissions. It does not cancel a request already accepted by a worker.
+- AI `authenticated` bypasses paid-service admission. Parent has directed the paid-service restoration to change only policy to `trial_or_paid` in the service transaction. Preserve all monetary, blocked and protection fields. Closing service must retain that qualification rule rather than restoring the broader authenticated admission. Do not mislabel authenticated AI as closed by cloud flags.
+- Real isolated PostgreSQL cases must precede any production execution: atomic bind ordering, closed-source NULL, drift/staleness refusal, stage transitions, close from each stage, original boundary preserved, and actual AI policy differences with no model call. Use only the existing image/VM, own disposable container and cleanup; no original installer/window/restore suite rerun.
+- Parent review identified the distinct explicit `create_new_workspace` path after the first cases passed. Verify the same-owner bootstrap rejection, explicit-new guard passage and an actual signed new-cloud creation with the old generation unchanged. No pending original initialization exists in production. Do not generalize bootstrap's owner guard to every product transaction or claim that creating a new cloud copy restores the old boundary.
+
+[PROTOCOL]: Update this header when making changes, then check README.md.

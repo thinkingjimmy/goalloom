@@ -19,12 +19,12 @@ export function publicationStage(requested: PublicationStage, gates: ReleaseGate
 }
 
 export const RELEASE_GATES: Readonly<ReleaseGates> = {
-  policiesApproved: true, backendVerified: false, publicClientVerified: false,
-  stripePricesVerified: false, lifecycleVerified: false, launchAuthorized: false,
+  policiesApproved: true, backendVerified: true, publicClientVerified: true,
+  stripePricesVerified: true, lifecycleVerified: true, launchAuthorized: true,
 }
 
 export const SERVICE = {
-  checkedOn: '2026-10-23', currency: 'USD', monthlyCents: 899, annualCents: 7900,
+  checkedOn: '2026-10-26', currency: 'USD', monthlyCents: 899, annualCents: 7900,
   trialDays: 8, trialHours: 8 * 24, retentionDays: 30,
   commercialPolicy: {
     version: '1.0', finalizedOn: '2026-10-23', webTaxBehavior: 'inclusive',
@@ -32,10 +32,10 @@ export const SERVICE = {
     cycleChange: 'next-renewal', refundRestoresTrial: false,
   },
   // A finite app return does not establish public purchase or lifecycle readiness.
-  stage: publicationStage('unavailable', RELEASE_GATES),
+  stage: publicationStage('live', RELEASE_GATES),
   operator: 'Augmenting Human Intellect, LLC', supportEmail: 'hellojimmywong.ai@gmail.com',
   statementDescriptor: 'GOALLOOM', policyDate: '2026-10-25',
-  publicClientVersion: RELEASE.version, publicClientHostedAi: false, iphonePublished: false,
+  publicClientVersion: RELEASE.mac.version, publicClientHostedAi: true, iphonePublished: false,
 } as const
 
 export function priceText(cycle: BillingCycle) {

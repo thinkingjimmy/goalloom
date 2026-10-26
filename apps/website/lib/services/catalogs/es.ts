@@ -9,12 +9,12 @@ import type { ServiceCatalog } from '../types'
 export default {
   "mobile": {
     "q": "¿Hay una app para iPhone?",
-    "a": "Aún no. La descarga pública admite macOS 14+ Apple Silicon y Windows 11 x64. Copia el enlace desde el móvil y ábrelo en tu ordenador. Las futuras compras Apple se gestionarán con Apple; no hay compra iPhone ni descarga App Store aquí."
+    "a": "Todavía no. macOS 1.10.0 es compatible con Apple Silicon y macOS 14 o posterior. La descarga para Windows 11 x64 sigue siendo el cliente gratuito anterior 1.9.10, sin compras de Plus. Aquí no hay compras para iPhone ni descarga de App Store. Copia el enlace en el teléfono y ábrelo en el ordenador."
   },
   "navPricing": "Precios",
   "meta": {
     "title": "Precios de Goalloom — herramientas locales gratis y Plus opcional",
-    "description": "Conserva gratis las tareas locales, el historial, las copias y tu propia clave de IA. Consulta el futuro plan Plus, su prueba de ocho días, la sincronización cifrada y la IA integrada."
+    "description": "Tareas locales, historial, copias y BYOK gratis. Goalloom Plus añade sincronización cifrada e IA integrada en macOS, con una prueba opcional de ocho días por cuenta."
   },
   "heading": "Tus herramientas locales siguen gratis.",
   "intro": "Elige servicios en la nube cuando te ayuden. Tus tareas, historial y copias pueden quedarse en tu dispositivo.",
@@ -60,7 +60,7 @@ export default {
     "byokInfoLabel": "Sobre los costes del proveedor del modelo",
     "byokNote": "El proveedor del modelo cobra por separado.",
     "annualSavings": "Ahorra {amount} al año (≈ {percent})",
-    "tryNow": "Probar ahora",
+    "tryNow": "Cómo iniciar la prueba",
     "plusIncludes": "Todo lo de Free, más",
     "plusFeatures": [
       {
@@ -77,14 +77,14 @@ export default {
     "encryptionNote": "El cifrado de extremo a extremo protege la sincronización, no el procesamiento de IA.",
     "encryptionInfoLabel": "Sobre la IA y el cifrado de sincronización"
   },
-  "summaryBody": "El uso local y BYOK siguen gratis. El futuro Plus reúne sincronización cifrada e IA integrada; la descarga actual y el servicio futuro tienen disponibilidades distintas.",
-  "statusTitle": "Plus aún no está abierto",
-  "statusBody": "No hay compras ni activación de prueba. La descarga {version} sigue gratis y usa tu propia clave de IA. La IA alojada está en pruebas limitadas con acceso y no está en ese cliente público. Esta página no cambia el acceso actual a sincronización.",
+  "summaryBody": "Las funciones locales y BYOK siguen gratis. Plus añade sincronización cifrada e IA integrada en macOS {version}. Windows Plus y las compras de iPhone aún no están disponibles.",
+  "statusTitle": "Plus para macOS",
+  "statusBody": "En macOS {version}, inicia sesión y activa la prueba o compra Plus de forma explícita en la app. La descarga de Windows es el cliente gratuito anterior y no ofrece compras de Plus. Descargar o iniciar sesión no inicia una prueba ni un pago.",
   "support": "Soporte privado",
   "supportBody": "Para facturación, privacidad, eliminación o cuenta, escríbenos. No publiques contraseñas, claves, tareas o datos de pago en incidencias públicas.",
   "technical": "Cuestiones técnicas en GitHub",
   "manageTitle": "Gestiona la compra original",
-  "manageBody": "Este sitio aún no vende ni gestiona suscripciones. Cuando se habilite, usa el canal original; restaurar una compra no concede otra prueba.",
+  "manageBody": "Inicia o gestiona Plus en Goalloom {version} para macOS. Usa la misma cuenta de Goalloom y sigue las indicaciones de la app para abrir su página segura de pago o gestión de suscripciones. Windows Plus y las compras de iPhone aún no están disponibles.",
   "stripeManage": "Web: usa la gestión Goalloom para cancelar renovación o cambiar el próximo ciclo. El portal Stripe verificado gestiona métodos y facturas compatibles; no es la única vía de cancelación.",
   "appleManage": "Futuro iPhone: gestiona en suscripciones Apple. Borrar la cuenta Goalloom no cancela Apple. La app iPhone aún no está publicada.",
   "terms": "Condiciones del servicio",
@@ -99,7 +99,7 @@ export default {
     },
     {
       "q": "¿Cómo empieza la prueba?",
-      "a": "Al abrirse el servicio, una acción explícita iniciará una prueba de {trialDays} días ({trialHours} horas), una vez por cuenta. Sin tarjeta ni cobro automático. Descargar, acceder y ver planes no inician el plazo. La activación de la prueba aún no está disponible.",
+      "a": "En Goalloom {version} para macOS, abre Ajustes → Sincronización e inicia sesión. En Goalloom Plus, elige «Iniciar prueba gratuita de 8 días». Cada cuenta puede activar una prueba de {trialDays} días ({trialHours} horas). Sin tarjeta ni cobro automático. Descargar, acceder y ver planes no inician el plazo. Windows Plus se aplaza.",
       "id": "trial"
     },
     {
@@ -109,12 +109,12 @@ export default {
     },
     {
       "q": "¿Plus se renueva automáticamente?",
-      "a": "Al lanzar, se renueva automáticamente. Cancela en el canal original y mantén acceso hasta el fin pagado. Ambos cambios mensual/anual rigen en la siguiente renovación, sin ajuste inmediato ni reembolso proporcional. Desinstalar o salir no cancela. Cancelar no reembolsa ni borra los datos en la nube. La prueba no se convierte sola en suscripción.",
+      "a": "La suscripción se renueva automáticamente. Cancela en el canal original y mantén acceso hasta el fin pagado. Ambos cambios mensual/anual rigen en la siguiente renovación, sin ajuste inmediato ni reembolso proporcional. Desinstalar o salir no cancela. Cancelar no reembolsa ni borra los datos en la nube. La prueba no se convierte sola en suscripción.",
       "id": "renewal"
     },
     {
       "q": "¿Qué pasa con los datos al vencer?",
-      "a": "La política de lanzamiento conserva las copias cloud {retentionDays} días tras terminar toda prueba, pago y gracia válidos. La recuperación crea una copia local independiente y exige autorización de cuenta y credenciales de descifrado. Se cierra al límite; el borrado en línea termina en otros {onlineDeleteDays} días. Una compra posterior no restaura la copia. Estos servicios aún no están disponibles. Lo local y BYOK siguen disponibles.",
+      "a": "Las copias en la nube se conservan {retentionDays} días tras terminar todo acceso válido de prueba, pago y gracia. La recuperación crea una copia local independiente y requiere autorización de cuenta y credenciales de descifrado. Se cierra al vencer el plazo; el borrado en línea termina en otros {onlineDeleteDays} días. Una compra posterior no restaura la copia antigua. Los datos locales y BYOK siguen disponibles.",
       "id": "expiry"
     },
     {
@@ -124,7 +124,7 @@ export default {
     },
     {
       "q": "¿Qué diferencia cuenta, contraseña de sincronización y pago?",
-      "a": "La cuenta identifica; la contraseña descifra; la futura elegibilidad habilita servicios. Son independientes. La versión pública aún incluye sincronización opcional; esta página no activa un nuevo requisito de pago.",
+      "a": "La cuenta acredita tu identidad; la contraseña de sincronización abre los datos cifrados; una prueba o servicio de pago válido permite acciones en la nube. Son elementos separados. Acceder no inicia pruebas, compras, sincronización ni IA. Las compras de Plus se ofrecen en el cliente compatible de macOS; Windows Plus se aplaza.",
       "id": "account"
     },
     {
@@ -145,7 +145,7 @@ export default {
   ],
   "billing": {
     "title": "Facturación de Goalloom",
-    "description": "Continúa una compra o consulta su estado de forma segura, con soporte y descarga gratuita mientras la facturación permanece cerrada.",
+    "description": "Vuelve a Goalloom y comprueba la compra original con la misma cuenta. La web no determina el estado del pago.",
     "continueTitle": "Continuar con Goalloom",
     "returnTitle": "Consultar la compra",
     "states": {
@@ -173,23 +173,23 @@ export default {
     "accountTitle": "Acceso Apple / Google y cuenta",
     "account": "Apple o Google y Supabase procesan identificadores, correo, perfil facilitado y sesiones. La cuenta sirve también para IA opcional; acceder no autoriza subir datos, activar IA, iniciar prueba ni acreditar pago. No recibimos tu contraseña de Apple o Google.",
     "hosted": [
-      "BYOK usa tu clave de OpenRouter o Vercel AI Gateway. En clientes compatibles, la IA alojada requiere selección explícita, acceso y consentimiento por cuenta antes de enviar el contexto necesario mediante Goalloom y OpenRouter. TypeSafe/Jev procesa la entrada inteligente, DeepInfra los borradores y revisiones, y DeepSeek ejecuta DeepSeek V4.1 Flash 1017 para reescribir notas. DeepSeek puede conservar el contenido enviado y usarlo para entrenar modelos. La descarga pública {version} no incorpora esta fuente. Los proveedores procesan contexto legible, independiente del cifrado de sincronización.",
+      "BYOK usa tu clave de OpenRouter o Vercel AI Gateway. En clientes compatibles, la IA alojada requiere selección explícita, acceso y consentimiento por cuenta antes de enviar el contexto necesario mediante Goalloom y OpenRouter. TypeSafe/Jev procesa la entrada inteligente, DeepInfra los borradores y revisiones, y DeepSeek ejecuta DeepSeek V4.1 Flash 1017 para reescribir notas. DeepSeek puede conservar el contenido enviado y usarlo para entrenar modelos. El cliente macOS {version} admite esta fuente si la elegibilidad y el consentimiento lo permiten; el cliente anterior de Windows no ofrece compras de Plus. Los proveedores procesan contexto legible, independiente del cifrado de sincronización.",
       "Goalloom procesa el contenido de IA dentro de la solicitud original sin almacenarlo en el servidor. Los resultados se entregan una vez y no se pueden descargar de nuevo; solo se conservan metadatos necesarios de llamadas, costes y seguridad. Eliminar la caché cifrada anterior no acredita el borrado físico inmediato de registros, réplicas o copias.",
       "El dispositivo puede conservar borradores y resúmenes no adoptados y sus huellas en cachés locales acotadas, incluso tras cerrar sesión. Sus límites difieren de los del proveedor. Las prácticas de retención y entrenamiento dependen de cada proveedor; no prometemos retención cero por todos ellos."
     ],
     "paymentsTitle": "Información de pagos y suscripciones",
     "payments": [
-      "Plus de pago y el pago web no están lanzados. Se prevé Stripe para la web, RevenueCat para hechos de pago verificados y Apple para futuras compras iPhone. Estas páginas informativas no cargan SDK de pago ni solicitan pagos.",
-      "Al habilitar un canal, sus proveedores podrán procesar métodos de pago, identificadores de transacción/suscripción, origen, importes, moneda, periodos y vínculos de cuenta necesarios. Los metadatos de pago no deben contener tareas, prompts, contraseñas de sincronización ni claves. No afirmamos que ningún dato de pago pase por Goalloom."
+      "Goalloom para macOS inicia compras web mediante Stripe; RevenueCat agrega los pagos verificados. Windows Plus y las compras de iPhone se aplazan. Estas páginas informativas no cargan SDK de pago ni envían solicitudes de pago.",
+      "En los canales de compra disponibles, sus proveedores pueden procesar métodos de pago, identificadores de transacción/suscripción, origen, importes, moneda, periodos y vínculos de cuenta necesarios. Los metadatos de pago no deben contener tareas, prompts, contraseñas de sincronización ni claves. No afirmamos que ningún dato de pago pase por Goalloom."
     ],
-    "retention": "La política final Plus prevé {retentionDays} días desde el fin de toda prueba, pago y gracia. Al límite se cierra recuperación; el borrado en línea termina en otros {onlineDeleteDays} días y una compra posterior no restaura la copia. El borrado explícito cesa acceso al confirmar y borra en línea en {onlineDeleteDays} días sin ventana ordinaria. Tras el borrado en línea, pueden quedar copias de recuperación ante desastres con acceso restringido hasta que caduquen según la política de retención del proveedor de infraestructura correspondiente. Estas funciones aún no están lanzadas; lo local y la retención IA son distintos.",
-    "paidTitle": "Futuro Plus — aún no se vende",
+    "retention": "La política final Plus prevé {retentionDays} días desde el fin de toda prueba, pago y gracia. Al límite se cierra recuperación; el borrado en línea termina en otros {onlineDeleteDays} días y una compra posterior no restaura la copia. El borrado explícito cesa acceso al confirmar y borra en línea en {onlineDeleteDays} días sin ventana ordinaria. Tras el borrado en línea, pueden quedar copias de recuperación ante desastres con acceso restringido hasta que caduquen según la política de retención del proveedor de infraestructura correspondiente. Las copias locales y la retención de IA alojada son independientes. Estos servicios Plus se ofrecen en el cliente compatible de macOS; Windows Plus se aplaza.",
+    "paidTitle": "Goalloom Plus para macOS",
     "paid": [
-      "Lo local y BYOK siguen gratis. Plus prevé sincronización e IA por {monthly} mensual o {annual} una vez al año, incluidos impuestos recaudables. Sin plan de solo sincronización, promoción inicial ni sobrecargos automáticos.",
+      "Lo local y BYOK siguen gratis. Plus para macOS ofrece sincronización e IA por {monthly} mensual o {annual} una vez al año, incluidos impuestos recaudables. Sin plan de solo sincronización, promoción inicial ni sobrecargos automáticos.",
       "Una prueba por cuenta dura {trialDays} días ({trialHours} horas) desde activación, sin tarjeta ni cobro automático. La compra confirmada consume el resto; el reembolso no lo restaura. Fallo o falta de confirmación conserva el plazo.",
-      "Al lanzar, se renueva hasta cancelar en origen y mantiene acceso al fin pagado. Cambios rigen en la próxima renovación. No se reembolsan pagos ni tiempo no usado salvo ley, plataforma y remedios por errores o servicio según lo siguiente."
+      "La suscripción se renueva hasta cancelar en origen y mantiene acceso al fin pagado. Cambios rigen en la próxima renovación. No se reembolsan pagos ni tiempo no usado salvo ley, plataforma y remedios por errores o servicio según lo siguiente."
     ],
-    "sources": "Apple/Google ofrecen acceso; Supabase, cuenta y sincronización; Vercel, alojamiento; GitHub, versiones de escritorio. OpenRouter y proveedores elegidos procesan IA. Stripe, RevenueCat y Apple son futuros proveedores de pago/verificación, no SDK activos en estas páginas.",
+    "sources": "Apple/Google ofrecen acceso; Supabase, cuenta y sincronización; Vercel, alojamiento; GitHub, versiones de escritorio. OpenRouter y proveedores elegidos procesan IA. Stripe procesa los pagos web y RevenueCat verifica las compras. Las compras de Apple se aplazan. Estas páginas no ejecutan SDK de pago.",
     "support": "Contacta por el correo privado para facturación, privacidad, cuenta o eliminación. No publiques datos personales en GitHub. Podemos verificar titularidad; no envíes contraseñas, secretos, claves ni credenciales completas de pago."
   },
   "policy": {
@@ -267,8 +267,8 @@ export default {
           "Se conservan {retentionDays} días desde que terminan todas las pruebas, pagos y gracias válidas. Cancelar renovación no inicia el plazo. Se paran nuevas subidas e IA integrada. Recuperar lo existente requiere autorización de cuenta y contraseña de sincronización u otras credenciales de descifrado; no podemos sustituirlas si se pierden.",
           "Reactivar antes del límite permite continuar con una copia no borrada. Al llegar a {retentionDays} días se cierra recuperación y empieza el borrado en línea, que termina en otros {onlineDeleteDays} días. Comprar después no recupera la copia aunque el borrado siga pendiente; se reconstruye desde tus datos.",
           "Vencimiento ordinario, reembolsos y disputas usan los mismos {retentionDays} días. No se borran tareas, historial ni copias locales que conserves.",
-          "Al lanzar, la recuperación limitada creará una copia local independiente sin reanudar la sincronización ni subir cambios. Reemplazar el espacio actual exigirá una decisión explícita y una copia local de protección. Acceder a la cuenta no basta para descifrarla; las credenciales necesarias permanecen en el dispositivo.",
-          "Al lanzar, los ajustes de cuenta mostrarán los plazos de servicio y recuperación y el estado del borrado en línea. Los recordatorios necesarios aparecerán solo dentro de Goalloom, sin interrumpir la edición local. No amplían los plazos ni se envían por correo o notificaciones del sistema."
+          "La recuperación limitada crea una copia local independiente sin reanudar la sincronización ni subir cambios. Reemplazar el espacio actual exige una decisión explícita y una copia local de protección. Acceder a la cuenta no basta para descifrarla; las credenciales necesarias permanecen en el dispositivo.",
+          "Los ajustes de cuenta muestran los plazos de servicio y recuperación y el estado del borrado en línea. Los recordatorios necesarios aparecen solo dentro de Goalloom, sin interrumpir la edición local. No amplían los plazos ni se envían por correo o notificaciones del sistema."
         ]
       },
       {

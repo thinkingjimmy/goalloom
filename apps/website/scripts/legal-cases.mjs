@@ -65,7 +65,7 @@ export async function runLegalCases({ browser, base, SITE, LOCALES, check, asser
       assert(await page.locator('time').getAttribute('datetime') === '2026-10-25' && facts.schema.dateModified === '2026-10-25', 'policy dates disagree')
       if (kind === 'privacy') {
         const ai = await page.locator('article #ai').innerText()
-        for (const provider of ['OpenRouter', 'TypeSafe', 'DeepInfra', 'DeepSeek', '1017', '1.9.10']) assert(ai.includes(provider), `AI scope missing ${provider}`)
+        for (const provider of ['OpenRouter', 'TypeSafe', 'DeepInfra', 'DeepSeek', '1017', '1.10.0']) assert(ai.includes(provider), `AI scope missing ${provider}`)
         const policy={en:['model training','cannot be downloaded again'],'zh-CN':['模型训练','无法重新下载'],ja:['モデルの学習','再取得できません'],es:['entrenar modelos','no se pueden descargar de nuevo'],fr:['entraîner ses modèles','ne peuvent plus être téléchargés']}
         for(const text of policy[locale])assert(ai.includes(text),'Current hosted provider/delivery policy missing')
       } else {
