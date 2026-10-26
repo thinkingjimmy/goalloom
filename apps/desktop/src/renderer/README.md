@@ -16,7 +16,7 @@ renderer/
 │   │   ├── TopBar.tsx       # Draggable titlebar: independent Later/count toggle, flow filters, search, column visibility and settings
 │   │   ├── ColumnVisibilityMenu.tsx # Six planning-column checkboxes in the shared period-picker skin, minimum guard, calendar labels and keyboard/focus dismissal
 │   │   ├── CommandPalette.tsx # Debounced search with actual-period hints, commands and detail navigation
-│   │   ├── CompletionCelebration.tsx # Shared item/review corner bursts; nonmodal Canvas, column/motion guards, generation invalidation and cleanup
+│   │   ├── CompletionCelebration.tsx # Shared item/review/preview corner bursts; one random confetti/emoji shape per round, cached glyphs, nonmodal Canvas, column/motion guards and cleanup
 │   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable notification/Toast actions
 │   │   ├── WorkspaceNotice.tsx # Persistent bottom-center Toast surfaces with full copy, adaptive tonal actions and owner-controlled dismissal
 │   │   ├── workspace-notice.css # Content-sized 620px notices, narrow-window action rows, no folding and separate centered Toasts
