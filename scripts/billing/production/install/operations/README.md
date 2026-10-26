@@ -1,8 +1,8 @@
-# Private configuration and limited gateway checks
+# Private configuration, gateway checks and recovery preparation
 
-INPUT: Explicit private runtime handoffs, exact reviewed installation source and closed production metadata.
-OUTPUT: Durable owner-only configuration or twelve bounded authentication/signature denials with protected-state readback.
-POS: Two focused BILL-29 operator helpers. No deployment, key generation, valid business mutation, provider/model call or service activation.
+INPUT: Explicit private runtime handoffs, exact reviewed source and closed production metadata.
+OUTPUT: Durable owner-only configuration, twelve bounded authentication/signature denials, or read-only recovery facts and bounded SQL preparation.
+POS: Focused BILL-29 operator helpers. No deployment, key generation, valid business mutation, provider/model call or service activation by preparation.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
@@ -27,3 +27,39 @@ The run has a shared45-second probe budget, per-request8-second limit,4KiB respo
 Run the negative gateway checks in the existing coordinated installation window. Normal empty-queue business-worker200 and actual signed callbacks can share the later source-enabled window; these helpers add no extra framework or launch gate. Closed canary billing503 remains the expected closed-path result. The already accepted local PostgreSQL/schema tests are not repeated by these helpers, and no VM is started.
 
 `acceptance.mjs` runs real child processes and loopback HTTP with synthetic credentials and an isolated filesystem mapping for the fixed destination. It never creates a synthetic `.env.billing.production.local` in the actual checkout, reads real credentials or calls production/provider services.
+
+`recovery.mjs` reads the current installed state without loading or rewriting an old installation plan. It verifies33 exact migration statements/private fingerprints, six downloaded Edge bundles/JWT modes, private schema exclusion, actual Auth JWT lifetime, original work aggregates, preserved owner facts and exact jobs. The Auth config response remains in memory; reports retain only `jwt_exp`. SQL uses the existing operator with `BEGIN READ ONLY`. Inspection does not observe original expired JWTs/sockets/Storage URLs and never sets transfer-drain readiness.
+
+```sh
+node scripts/billing/production/install/operations/recovery.mjs --inspect
+node scripts/billing/production/install/operations/recovery.mjs --plan <new-inspection.json> --output output/tests/billing/desktop/bill29-continuation/backend/<new-window-directory>
+node scripts/billing/production/install/operations/recovery-acceptance.mjs
+```
+
+The second command is offline. It refuses changed source/history, open/drifted policies, pending/unknown work and changed job commands. It emits immutable `plan.json`, inspection, `arm.sql`, `restore.sql`, `finalize.sql` and `read.sql`. The plan includes exact hashes and the original arm transaction identity. It does not execute SQL. Root must review the actual exposure, record one durable SQL-hash intent, then dispatch exactly one `POST /database/query` with the reviewed SQL and `read_only:false`. Lost responses require the original transaction/job/request readback; never replay arm. Original installation plans, evidence and freezes remain historical.
+
+**This window opens authenticated billing APIs.** Both `billing_policy.enabled` and the existing production Stripe source must be true for `billing_source` to let workers/receivers proceed. The same flags permit authenticated billing status, trial, Checkout, Portal and subscription actions. Ordinary cloud, hosted AI admission, all four lifecycle flags, restore admission and public website purchase gates stay closed. A closed website does not close its authenticated backend. Root must align authorization for this exact temporary exposure before dispatch. No runtime flag, handler modification, migration, new credential or provider fixture is introduced to simplify testing.
+
+Review the generator first; take a fresh inspection and prepare just before dispatch. Arm expires two minutes after inspection. The three existing jobs embed an absolute dispatch deadline five minutes after inspection; HTTP admission remains open until an actual cron/manual close commits. Each resumed job checks expiry before dispatch. At expiry, closed-policy drift or newly actionable work, each job closes only source/billing policy and restores/pauses its own exact command. A missed cron run cannot dispatch after expiry when resumed; a project/cron outage can delay closing the flags themselves, so Root must use `restore.sql` if timely closure is needed. A timer does not independently disable HTTP ingress. Do not claim a hard five-minute HTTP admission lease. There is no fourth job/controller/schema. Each empty Billing call makes four actual configured Stripe GETs; a real event arriving between the SQL check and worker claim can cause normal reconciliation. Never claim this asynchronous window guarantees no business work under concurrent ingress.
+
+`restore.sql` accepts mixed exact original/this-window job commands, closes the two owned flags and restores/pauses all three. Foreign command or binding drift refuses without overwriting it. `read.sql` is SQL read-only and returns finite exact request/response metadata, never response bodies. After closure and actual request completion, `finalize.sql` invokes the existing observer only with all lifecycle flags closed; product retention remains skipped. A new read must confirm completed request IDs, actual HTTP200/counters, empty/unresolved queues, exact paused commands, unchanged owner/AI facts and original cleanup job. Queuing an HTTP request or an HTTP200 with retry/pending counters is not successful business-worker acceptance. Preserve all historical503/canceled cron results.
+
+See `recovery-failure-cases.md` for the pre-implementation failure contract. This local CLI/HTTP acceptance does not execute generated SQL in PostgreSQL and does not establish production worker success, legacy natural expiry, signed provider delivery, service reopening or packaged-desktop acceptance.
+
+`recovery-postgres.mjs` is the separate focused SQL acceptance requested by Root review. It uses only the prepared `bill29` image/socket and the existing recovery isolation guard. Exact migrations are disposable fixture setup, not a rerun of original installer31/rollback18 acceptance. It executes arm/refusal/restore/finalize/read SQL, verifies TEST ignored and pending-row preservation, checks whole-query versus substring `current_query()` behavior, and schedules one already-expired observer wrapper through real pg_cron. The report records actual cron status/message plus committed final flags and commands. It never invokes a worker HTTP dispatch or requires a Vault credential. The fixture keeps ordinary cron launching off until the single expired scheduling case; no network/ports/host mounts/image pull are used. Any failed fixture report remains intact.
+
+```sh
+node scripts/billing/production/install/operations/recovery-postgres.mjs
+```
+
+Root selected the smallest combined production acceptance: empty workers plus one existing RC Dashboard TEST. Both Stripe endpoints stay disabled throughout; Live Stripe has no existing event to resend, so temporary enable/disable adds no delivery evidence. Their already authorized activation waits for continuous receiver readiness. No Stripe financial fixture is created.
+
+The original production arm failed before commit because the hosted non-superuser postgres role has only SELECT on supabase_admin-owned cron.job. The original isolated13-case fixture used a superuser and did not represent this boundary. `cron-api-production-readback.json` records hosted pg_cron1.6.4 and actual API execute privilege. Its upstream [AlterJob implementation](https://github.com/citusdata/pg_cron/blob/v1.6.4/src/job_metadata.c) rejects all-NULL optional parameters, so the API is not used as a fictitious no-op row lock.
+
+The corrected generator directly locks only its four owned policy/source tables and retains the existing advisory lock, exact job checks and lawful cron API calls. Root approved this bounded operation with one cron writer. Exact guards reject observed drift; advisory locking serializes participating operators. An independent administrator bypassing this coordination can race the job check/API write. The package explicitly states this limit; it does not promise serialization of arbitrary external cron editors. No production grant, new RPC/function/schema or isolation-level change is added. Failed/expired v1/v2 packages and their original intents remain immutable and must not be replayed.
+
+```sh
+node scripts/billing/production/install/operations/recovery-postgres.mjs --role-lock
+```
+
+This selector uses `recovery-role-acceptance.mjs` and only the new non-superuser/SELECT-only cases. It proves the original direct-lock refusal, all-NULL API refusal, unchanged failed-call metadata, corrected arm/restore, observed command-drift rejection, expired wrappers, finalize/read and one actual expired cron run under the restricted owner. Application-schema migration load is fixture setup. Accepted13/22/9 suites are reused and not rerun by this selector. Root must review the corrected generator hash and new role evidence before dispatching another fresh window; v2's failed original arm is never replayed.
