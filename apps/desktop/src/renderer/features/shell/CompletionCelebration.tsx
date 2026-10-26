@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Accepted item completions, confirmed review signals, workspace generation, column/motion preferences and settings previews.
- * [OUTPUT]: Two confetti cannons anchored at the exact viewport bottom corners, above board and native dialogs; no business writes.
+ * [OUTPUT]: Two corner cannons sharing one randomly selected confetti or emoji shape per burst; no business writes.
  * [POS]: Shared renderer celebration player; review signals reuse the same particles and lifecycle without synthetic business writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,7 @@ import './completion-celebration.css'
 
 const duration = 2500
 const colors = ['#F5BA35', '#EE715B', '#E16EAA', '#8874DE', '#55A9E3', '#46B8A0', '#F2D77B']
+const shapes = [null, '🎉', '❤️', '✨', '🎊', '⭐️', '🌈', '🔥', '🥳'] as const
 
 // Cannon model in viewport units: linear drag settles every piece towards its own reach while gravity takes over,
 // so slow pieces spill beside the corner, fast ones cross the centre and the cone stays anchored where it was born.
@@ -20,7 +21,6 @@ const reach = 2
 const lift = 2.1
 const angleMin = 22 * Math.PI / 180
 const angleMax = 82 * Math.PI / 180
-const perSide = 90
 
 interface Particle {
   side: number
@@ -35,21 +35,23 @@ interface Particle {
   color: string
 }
 
-function particles(): Particle[] {
+function particles(emoji: boolean): Particle[] {
+  const perSide = emoji ? 48 : 90
   return Array.from({ length: perSide * 2 }, (_, index) => {
     // Stratify launch angle and speed independently so every burst has steep, flat, slow and far-reaching pieces.
     const angle = angleMin + (angleMax - angleMin) * ((index % perSide + Math.random()) / perSide)
     const speed = 0.14 + 0.86 * (((index * 37) % perSide + Math.random()) / perSide)
+    const size = emoji ? 20 + Math.random() * 8 : 0
     return {
       side: index < perSide ? 1 : -1,
       // One seed per side leaves on the first frame; the rest form a dense burst with a tail streaming until ~450 ms.
       delay: index % perSide === 0 ? 0 : 0.005 + 0.45 * Math.random() ** 3,
       velocityX: speed * Math.cos(angle) * reach,
       velocityY: speed * Math.sin(angle) * lift,
-      width: 5 + Math.random() * 4,
-      height: 8 + Math.random() * 6,
-      rotation: Math.random() * Math.PI,
-      spin: (3 + Math.random() * 6) * (Math.random() < 0.5 ? -1 : 1),
+      width: emoji ? size : 5 + Math.random() * 4,
+      height: emoji ? size : 8 + Math.random() * 6,
+      rotation: emoji ? (Math.random() - 0.5) * 0.5 : Math.random() * Math.PI,
+      spin: (emoji ? 0.15 + Math.random() * 0.2 : 3 + Math.random() * 6) * (Math.random() < 0.5 ? -1 : 1),
       flutter: Math.random() * Math.PI * 2,
       color: colors[index % colors.length]!,
     }
@@ -66,6 +68,7 @@ function celebrate(canvas: HTMLCanvasElement, operationId: string): () => void {
   let width = 0
   let height = 0
   let scale = 1
+  let sprite: HTMLCanvasElement | null = null
 
   const stop = () => {
     if (stopped) return
@@ -73,6 +76,7 @@ function celebrate(canvas: HTMLCanvasElement, operationId: string): () => void {
     cancelAnimationFrame(frame)
     window.removeEventListener('resize', resize)
     delete canvas.dataset.operationId
+    if (sprite) { sprite.width = 1; sprite.height = 1; sprite = null }
     // Release the backing store as soon as this short-lived effect finishes.
     canvas.width = 1
     canvas.height = 1
@@ -94,8 +98,21 @@ function celebrate(canvas: HTMLCanvasElement, operationId: string): () => void {
     canvas.dataset.operationId = operationId
     resize()
     if (stopped) return stop
+    const emoji = shapes[Math.floor(Math.random() * shapes.length)]
+    if (emoji) {
+      // Rasterize once at the maximum supported DPR; frames only copy this native-color glyph.
+      sprite = document.createElement('canvas')
+      sprite.width = 64
+      sprite.height = 64
+      const glyph = sprite.getContext('2d')
+      if (!glyph) { stop(); return stop }
+      glyph.font = '56px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'
+      glyph.textAlign = 'center'
+      glyph.textBaseline = 'middle'
+      glyph.fillText(emoji, 32, 32)
+    }
     window.addEventListener('resize', resize)
-    const pieces = particles()
+    const pieces = particles(Boolean(emoji))
     const started = performance.now()
 
     const draw = (now: number) => {
@@ -122,9 +139,13 @@ function celebrate(canvas: HTMLCanvasElement, operationId: string): () => void {
           context.save()
           context.translate(x, y)
           context.rotate(piece.rotation + piece.spin * time)
-          context.scale(0.25 + Math.abs(Math.cos(time * 7 + piece.flutter)) * 0.75, 1)
-          context.fillStyle = piece.color
-          context.fillRect(-piece.width / 2, -piece.height / 2, piece.width, piece.height)
+          if (sprite) {
+            context.drawImage(sprite, -piece.width / 2, -piece.height / 2, piece.width, piece.height)
+          } else {
+            context.scale(0.25 + Math.abs(Math.cos(time * 7 + piece.flutter)) * 0.75, 1)
+            context.fillStyle = piece.color
+            context.fillRect(-piece.width / 2, -piece.height / 2, piece.width, piece.height)
+          }
           context.restore()
         }
 

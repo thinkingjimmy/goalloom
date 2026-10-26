@@ -271,3 +271,5 @@ Scope-v3 hosted consent acceptance rejects both earlier scope files/actions befo
 Hosted cache acceptance covers real A-B-A edits, a new same-title draft after creation, same-draft remount/reconstruction without replay, and explicit regeneration during localStorage write failure. Context refresh/Enter must retain the same attempt; existing late completion and one-step undo checks remain. The synthetic transport requires the current consent scope in every POST.
 
 The hosted account journey records app-local draft/focus/visibility booleans before failure cleanup. Failed isolated windows are destroyed before app shutdown so an unsaved-draft dialog cannot hide the original evidence. No assertion, product focus behavior or timeout is changed.
+
+`fixtures/celebration-shapes.mjs` extends `celebration.mjs` with nine controlled shape selections through real settings clicks. It observes Canvas calls, one glyph rasterization, uniform transforms, dual-corner origins, particle bounds and released sprite buffers; it does not replace receipts or particle motion. Reports stay in `output/tests/celebration.json`, with `output/tests/screenshots/completion-shape-*.png`.

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace snapshot, device preferences, guarded store callbacks and the native content blur target.
- * [OUTPUT]: Mobile board, flow, settings and sheet navigation.
+ * [OUTPUT]: Mobile board, flow, settings and sheet navigation with guarded randomized completion decoration.
  * [POS]: Mobile screen composition; task presentation lives in tasks/, bottom chrome in navigation/.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -24,6 +24,7 @@ import { TaskRow as Row } from './tasks/row'
 import { TaskDetail, DetailCommit } from './tasks/detail'
 import { TaskDeadline } from './tasks/deadline'
 import { Composer } from './composer'
+import { Confetti } from './celebration'
 import type { Copy } from './copy'
 import { CheckBox, Icon } from './icons'
 import type { Theme } from './theme'
@@ -39,7 +40,6 @@ export type Sheet =
 
 const languageNames: Record<LocaleId, string> = { zh: '中文', en: 'English', ja: '日本語', es: 'Español', fr: 'Français' }
 const previous: Partial<Record<PeriodHorizon, PeriodHorizon>> = { half: 'year', cycle: 'half', month: 'cycle', week: 'month', day: 'week' }
-const CONFETTI = ['#F5BA35', '#EE715B', '#E16EAA', '#8874DE', '#55A9E3', '#46B8A0', '#F2D77B']
 
 function checkboxFill(theme: Theme, checkStyle: Snapshot['checkStyle'], done: boolean, tint: string | null): string {
   if (done) return theme.checked
@@ -636,33 +636,6 @@ function Choice({ theme, label, selected, onPress }: { theme: Theme; label: stri
   </Pressable>
 }
 
-function Confetti({ token }: { token: number }) {
-  const progress = useRef(new Animated.Value(0)).current
-  const [pieces, setPieces] = useState<{ side: 1 | -1; x: number; y: number; w: number; h: number; color: string }[]>([])
-  useEffect(() => {
-    if (!token) return
-    setPieces(Array.from({ length: 28 }, (_, index) => {
-      const side: 1 | -1 = index < 14 ? 1 : -1
-      const angle = (24 + (index % 14) * 4) * Math.PI / 180
-      const speed = 100 + (index * 19) % 150
-      return { side, x: Math.cos(angle) * speed * side, y: -Math.sin(angle) * speed * 1.35, w: 5 + (index % 4), h: 8 + (index % 5), color: CONFETTI[index % CONFETTI.length]! }
-    }))
-    progress.setValue(0)
-    const anim = Animated.timing(progress, { toValue: 1, duration: 1600, easing: Easing.out(Easing.cubic), useNativeDriver: true })
-    anim.start(({ finished }) => { if (finished) setPieces([]) })
-    return () => anim.stop()
-  }, [token, progress])
-  if (pieces.length === 0) return null
-  return <View pointerEvents="none" style={styles.confetti}>
-    {pieces.map((piece, index) => {
-      const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, piece.x] })
-      const translateY = progress.interpolate({ inputRange: [0, 0.62, 1], outputRange: [0, piece.y, piece.y + 140] })
-      const opacity = progress.interpolate({ inputRange: [0, 0.08, 0.7, 1], outputRange: [0, 1, 1, 0] })
-      return <Animated.View key={`${token}-${index}`} style={{ position: 'absolute', bottom: 18, ...(piece.side === 1 ? { left: 8 } : { right: 8 }), width: piece.w, height: piece.h, borderRadius: 1, backgroundColor: piece.color, opacity, transform: [{ translateX }, { translateY }] }} />
-    })}
-  </View>
-}
-
 const styles = StyleSheet.create({
   app: { flex: 1 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', minHeight: 44, marginBottom: 12 },
@@ -707,7 +680,6 @@ const styles = StyleSheet.create({
   segment: { flexDirection: 'row', borderRadius: 7, padding: 2 },
   segmentItem: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5 },
   toast: { position: 'absolute', left: 16, right: 16, bottom: 108, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  confetti: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 40 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   composerHost: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'flex-end' },
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '88%', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: 18, paddingBottom: 28 },

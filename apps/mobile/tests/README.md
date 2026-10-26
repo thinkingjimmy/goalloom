@@ -65,3 +65,18 @@ Repeat on the compact phone, in dark appearance and at large text. With Reduce M
 ## Task detail design parity
 
 `maestro/task-detail.yaml` opens the real demo review task, captures the rounded property/goal/child layout, checks horizon/date/goal routes, flushes an edited description through property navigation, checks independent child completion and opens child details. Use the navigation runner command with this filename and separate output paths under root `output/tests/mobile-detail-parity/`. The flow edits only disposable demo data and never clears a personal workspace. Repeat layout inspection on the compact simulator in dark appearance and at accessibility text size. Counts and inherited checkbox colors must come from saved task data.
+
+## Completion decoration
+
+`celebration.mjs shapes` runs `maestro/celebration.yaml` against the real demo task checkbox in native details. It records video while completing and reopening the task nine times. `disabled` runs `celebration-disabled.yaml`, turns off the week column through Settings and completes the same task. `reduced-motion` runs `celebration-reduced-motion.yaml`, enables the actual English iOS Settings Reduce Motion switch, performs the same nine completions, then restores the switch. Use a dedicated English iPhone 17 simulator at standard text size with Reduce Motion initially off. The system-switch flow uses its inspected switch coordinates; adapt them before using another device. The runner checks the saved SQLite task and status-event count after each flow.
+
+Under `GOALLOOM_MOBILE_E2E=1`, Metro replaces only the iOS player's shape selector with `tests/celebration-shape.ts`: default confetti, then 🎉、❤️、✨、🎊、⭐️、🌈、🔥、🥳, one per new burst. Production keeps equal random selection. Motion, task writes, preferences and native Text are not replaced. This E2E-only selector never resolves in normal builds; production configuration rejects the E2E flag. Build using the simulator command above with `EXPO_PUBLIC_DEMO=1`, `EXPO_OFFLINE=1` and `EXPO_NO_TELEMETRY=1`. No dependency or Pod change is needed for decoration alone.
+
+```sh
+GOALLOOM_E2E_DEVICE='<dedicated booted Goalloom E2E UUID>' \
+GOALLOOM_E2E_APP=/private/tmp/goalloom-board-ios-build/Build/Products/Release-iphonesimulator/Goalloom.app \
+MAESTRO_BIN='<local Maestro executable>' JAVA_HOME='<local Java 21 home>' \
+node apps/mobile/tests/celebration.mjs shapes
+```
+
+Replace `shapes` with `disabled` or `reduced-motion` for the other scenarios. Each run saves JUnit, logs, a native video, screenshots, the bundle hash, host/simulator metadata and SQLite results under root `output/tests/mobile-celebration/<scenario>/<timestamp>/`. Decoration stays outside the accessibility tree: inspect the video to verify same-glyph dual bursts, gentle rotation, no mixing and cleanup. JUnit and persisted checkbox state alone do not prove glyph rendering. Android, physical-device and packaged acceptance remain separate. The system-switch flow does not verify enabling Reduce Motion midway through a burst; that needs a separate recorded native interaction.
