@@ -8,6 +8,7 @@ Thumbs.db
 
 # Dependencies / build output
 node_modules/
+.pnpm-store/
 /dist/
 /out/
 /release/

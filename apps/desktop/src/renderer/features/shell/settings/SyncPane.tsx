@@ -18,6 +18,10 @@ import { SyncPasswordDialog } from './SyncPasswordDialog'
 import { SettingsGroup, SettingsRow, relativeDay, stamp } from './parts'
 import { AuthMark } from '../../../components/AuthMark'
 import { requestSyncReview } from '../../sync/SyncReview'
+import { useBilling } from '../../../state/billing'
+import { CloudData } from './CloudData'
+import type { TransferPreview } from '../../../../shared/contracts/transfer'
+import { BillingCard } from './BillingCard'
 
 function passwordOk(value: string, again: string): boolean {
   const text = value.trim()
@@ -34,6 +38,7 @@ export function syncNavBadge(status: SyncStatus | null): { text: string; dot?: t
   if (!status) return null
   if (status.phase === 'locked') return { text: t.lockedNav, dot: 'err' }
   if (status.phase !== 'ready') return null
+  if (status.initializationPending) return { text: t.initializing }
   if (status.syncing) return { text: t.syncingNav }
   if (status.error || status.offline) return { text: t.errorNav, dot: 'err' }
   if (status.uploadWait) return { text: t.uploadWaitingNav }
@@ -45,6 +50,7 @@ export function syncNavBadge(status: SyncStatus | null): { text: string; dot?: t
 function readyLine(status: SyncStatus, today: string, timezone?: string): { state: 'ok' | 'run' | 'bad' | 'off'; label: string; detail?: string } {
   const t = s.sync
   const when = status.lastSyncedAt ? t.lastSync(syncClock(status.lastSyncedAt, today, timezone)) : undefined
+  if (status.initializationPending) return { state: 'run', label: t.initializing }
   if (status.syncing) return { state: 'run', label: t.syncing }
   if (status.error || status.offline) {
     const label = status.error && status.error !== 'network' ? t.errors[status.error] : t.errors.network
@@ -69,8 +75,10 @@ function Account({ note, children }: { note?: ReactNode; children?: ReactNode })
   return <SettingsRow className="sync-account" title={s.sync.account} note={note}>{children && <div className="sync-row-actions ml-auto flex-wrap justify-end">{children}</div>}</SettingsRow>
 }
 
-export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus | null; timezone?: string; today?: string }) {
+export function SyncPane({ status, timezone, today = '', generation, onPreview }: { generation: string; onPreview: (preview: TransferPreview) => void; status: SyncStatus | null; timezone?: string; today?: string }) {
   const t = s.sync
+  const billing = useBilling()
+  const eligible = !!status?.accountId && billing.state?.accountId === status.accountId && billing.state.access?.eligible === true
   const [created, setCreated] = useState('')
   const [createdAgain, setCreatedAgain] = useState('')
   const [entry, setEntry] = useState('')
@@ -107,6 +115,8 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
   const failed = line?.state === 'bad'
   const syncing = line?.state === 'run'
   return <div className="sync-pane flex flex-col gap-5.5">
+    <CloudData generation={generation} onPreview={onPreview} />
+    {status.accountId && <BillingCard state={billing.state} run={billing.run} />}
     {changing && status.phase === 'ready' && <SyncPasswordDialog working={working} syncing={syncing} error={status.error ? t.errors[status.error] : undefined} run={run} close={() => setChanging(false)} />}
     {forgot && status.phase === 'enter-key' && <SyncRecovery working={working} error={status.error ? t.errors[status.error] : undefined} run={run} close={() => setForgot(false)} />}
     {signingOut && <SyncSignOutDialog email={status.email} canClear={status.phase !== 'locked' && (status.credentialStorage !== 'password' || status.phase === 'ready' || status.phase === 'choose')} confirm={clearLocal => run({ type: 'sign-out', clearLocal })} close={() => setSigningOut(false)} />}
@@ -135,11 +145,11 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
     {(status.phase === 'signed-out' || status.phase === 'signing-in') && <SettingsGroup>
       <Account note={status.email ?? t.notSignedIn}>
         {status.phase === 'signing-in' && !status.error && <StatusLine state="run" label={t.signingIn} detail={status.signingInProvider === 'apple' ? t.signInApple : t.signIn} />}
-        {(['apple', 'google'] as const).map(provider => <SettingsButton key={provider} type="button" disabled={working || status.phase === 'signing-in'} onClick={() => void run({ type: 'sign-in', provider })}><AuthMark provider={provider} size={14} />{provider === 'apple' ? t.signInApple : t.signIn}</SettingsButton>)}
+        {(['apple', 'google'] as const).map(provider => <SettingsButton key={provider} type="button" disabled={working || status.phase === 'signing-in'} onClick={() => void run({ type: 'sign-in', provider, purpose: 'ai' })}><AuthMark provider={provider} size={14} />{provider === 'apple' ? t.signInApple : t.signIn}</SettingsButton>)}
         {status.phase === 'signing-in' && <SettingsButton type="button" onClick={() => void desktopApi().sync({ type: 'cancel' })}>{t.cancel}</SettingsButton>}
       </Account>
     </SettingsGroup>}
-    {status.phase === 'account' && <SettingsGroup><Account note={accountNote}>{signOut}<SettingsButton type="button" disabled={working} onClick={() => void run({ type: 'prepare-sync' })}>{t.start}</SettingsButton></Account></SettingsGroup>}
+    {status.phase === 'account' && <SettingsGroup><Account note={accountNote}>{signOut}<SettingsButton type="button" disabled={working || !eligible} onClick={() => void run({ type: 'prepare-sync' })}>{t.start}</SettingsButton></Account></SettingsGroup>}
     {status.phase === 'setup' && <>
       <SettingsGroup>
         <Account note={accountNote}>{signOut}</Account>
@@ -192,7 +202,7 @@ export function SyncPane({ status, timezone, today = '' }: { status: SyncStatus 
           {failed && <SettingsButton type="button" disabled={working} onClick={() => void run({ type: 'retry' })}>{t.retry}</SettingsButton>}
           {signOut}
         </Account>
-        <SettingsRow title={t.password}><SettingsButton type="button" disabled={syncing || working} aria-haspopup="dialog" onClick={() => setChanging(true)}>{t.changePassword}</SettingsButton></SettingsRow>
+        <SettingsRow title={t.password}><SettingsButton type="button" disabled={syncing || working || status.initializationPending} aria-haspopup="dialog" onClick={() => setChanging(true)}>{t.changePassword}</SettingsButton></SettingsRow>
       </SettingsGroup>
       {status.awaitingTasks && !failed && <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{t.awaitingTasks}</p>}
       {status.uploadWait && <p className="settings-footnote" role="status">{t.uploadWaitingDetail}</p>}

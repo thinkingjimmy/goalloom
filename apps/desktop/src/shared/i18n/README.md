@@ -16,3 +16,7 @@ i18n/
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
 `hosted.ts` provides all five locales for account-only AI login, scope-v3 data consent, one-response delivery, result-loss feedback and explicit regeneration, cost protection and recoverable service failures. It is shared by renderer controls and main-process feedback.
+
+`billing.ts` provides five-language trial/purchase and subscription-management copy, trusted dates/prices and explicit service-pause/upgrade messages. Settings and main AI failures reuse the same service-denial text.
+
+`cloud.ts` supplies five-language cloud privacy, retention notice, copy and deletion-progress text. Content deletion and account deletion have separate completion labels; renewal remains an independent status.

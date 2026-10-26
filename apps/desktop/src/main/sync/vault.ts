@@ -1,13 +1,15 @@
 /**
  * [INPUT]: OS cipher, device directory and a main-owned vault filename.
- * [OUTPUT]: Shared serialization for device/account keys, deferred AI secrets and recovery drafts; atomic OS-vault writes and a public resume flag. Sign-out and inactive-session checks do not use the OS cipher.
+ * [OUTPUT]: Native scope-key maps plus explicitly filtered scoped recovery serialization, deferred AI secrets and recovery drafts; atomic OS-vault writes and a public resume flag. Sign-out and inactive-session checks do not use the OS cipher.
  * [POS]: Desktop secret store. Sign-out preserves ciphertext, including legacy bytes; unavailable access never replaces saved keys.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
+import { atomicFile } from '../storage/atomic-json'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { hex, unhex, type RosterBody } from '@goalloom/crypto'
+import { keyScopeSchema, scopeContext, scopeId, type KeyScope } from './key-scope'
 import { CredentialError, type Cipher } from '../smart/credentials'
 
 const vaultHeader = Buffer.from('Goalloom sync vault 1\n')
@@ -25,6 +27,8 @@ const accountSchema = z.strictObject({
 
 const fileSchema = z.strictObject({
   v: z.literal(1),
+  bindingJournalKey: z.string().regex(/^[a-f0-9]{64}$/).nullable().default(null),
+  bindingJournalKeys: z.record(z.string().regex(/^[a-f0-9]{64}$/), z.string().regex(/^[a-f0-9]{64}$/)).default({}).refine(keys => Object.keys(keys).length <= 100),
   accountOnly: z.boolean().default(false),
   deviceId: z.string().nullable(),
   signSk: z.string(),
@@ -58,6 +62,8 @@ export interface AccountSecrets {
 }
 
 export interface VaultSecrets {
+  bindingJournalKey?: Uint8Array | null
+  bindingJournalKeys?: Record<string, Uint8Array>
   accountOnly?: boolean
   deviceId: string | null
   signSk: Uint8Array
@@ -144,8 +150,7 @@ export class SyncVault {
   }
   private async replace(bytes: Buffer): Promise<void> {
     const path = join(this.directory, this.filename)
-    await writeFile(`${path}.tmp`, bytes, { mode: 0o600 })
-    await rename(`${path}.tmp`, path)
+    await atomicFile(path, file => file.writeFile(bytes))
   }
   private mutate(operation: () => Promise<void>): Promise<void> {
     const result = this.writing.then(operation)
@@ -175,6 +180,8 @@ export function decodeVault(text: string): VaultSecrets {
     roster: parsed.roster as RosterBody | null,
     recoveryBoxSk: parsed.recoveryBoxSk ? unhex(parsed.recoveryBoxSk) : null,
     recoverySignSk: parsed.recoverySignSk ? unhex(parsed.recoverySignSk) : null,
+    bindingJournalKey: parsed.bindingJournalKey ? unhex(parsed.bindingJournalKey) : null,
+    bindingJournalKeys: Object.fromEntries(Object.entries(parsed.bindingJournalKeys).map(([id, key]) => [id, unhex(key)])),
     accountOnly: parsed.accountOnly, refreshToken: parsed.refreshToken, userId: parsed.userId, accounts, pendingSecrets: parsed.pendingSecrets,
     pendingRecovery: parsed.pendingRecovery ? { ...parsed.pendingRecovery, workspaceKey: unhex(parsed.pendingRecovery.workspaceKey),
       recoveryBoxSk: unhex(parsed.pendingRecovery.recoveryBoxSk), recoverySignSk: unhex(parsed.pendingRecovery.recoverySignSk) } : null,
@@ -193,7 +200,7 @@ export function encodeVault(secrets: VaultSecrets): string {
     }
   }
   return JSON.stringify({
-    v: 1, accountOnly: secrets.accountOnly ?? false, deviceId: secrets.deviceId, signSk: hex(secrets.signSk), boxSk: hex(secrets.boxSk),
+    v: 1, bindingJournalKey: secrets.bindingJournalKey ? hex(secrets.bindingJournalKey) : null, bindingJournalKeys: Object.fromEntries(Object.entries(secrets.bindingJournalKeys ?? {}).map(([id, key]) => [id, hex(key)])), accountOnly: secrets.accountOnly ?? false, deviceId: secrets.deviceId, signSk: hex(secrets.signSk), boxSk: hex(secrets.boxSk),
     workspaceKey: secrets.workspaceKey ? hex(secrets.workspaceKey) : null,
     workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
     roster: secrets.roster,
@@ -203,4 +210,28 @@ export function encodeVault(secrets: VaultSecrets): string {
     pendingRecovery: secrets.pendingRecovery ? { ...secrets.pendingRecovery, workspaceKey: hex(secrets.pendingRecovery.workspaceKey),
       recoveryBoxSk: hex(secrets.pendingRecovery.recoveryBoxSk), recoverySignSk: hex(secrets.pendingRecovery.recoverySignSk) } : null,
   })
+}
+
+// Recovery payloads deliberately cannot express another account, an Auth token or a complete key map.
+const scopedSchema = fileSchema.omit({ v: true, bindingJournalKey: true, bindingJournalKeys: true, refreshToken: true, accounts: true }).extend({
+  scope: keyScopeSchema, journalKey: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+})
+export function encodeScopedVault(secrets: VaultSecrets, scope: KeyScope): string {
+  if (secrets.userId !== scope.accountId) throw new Error('scoped_vault_identity')
+  const encoded = JSON.parse(encodeVault(secrets))
+  const payload = scopedSchema.parse({ scope, journalKey: secrets.bindingJournalKeys?.[scopeId(scope)] ? hex(secrets.bindingJournalKeys[scopeId(scope)]!) : null,
+    accountOnly: encoded.accountOnly, deviceId: encoded.deviceId, signSk: encoded.signSk, boxSk: encoded.boxSk,
+    workspaceKey: encoded.workspaceKey, workspaceId: encoded.workspaceId, generation: encoded.generation, epoch: encoded.epoch, roster: encoded.roster,
+    recoveryBoxSk: encoded.recoveryBoxSk, recoverySignSk: encoded.recoverySignSk, userId: encoded.userId,
+    pendingSecrets: encoded.pendingSecrets, pendingRecovery: encoded.pendingRecovery })
+  return JSON.stringify(payload)
+}
+export function decodeScopedVault(text: string, scope: KeyScope): VaultSecrets {
+  const payload = scopedSchema.parse(JSON.parse(text)), { scope: actual, journalKey, ...fields } = payload
+  if (scopeContext(actual) !== scopeContext(scope) || fields.userId !== scope.accountId) throw new Error('scoped_vault_identity')
+  return decodeVault(JSON.stringify({ v: 1, ...fields, refreshToken: null, accounts: {}, bindingJournalKey: null,
+    bindingJournalKeys: journalKey ? { [scopeId(scope)]: journalKey } : {} }))
+}
+export function filteredLegacyVault(secrets: VaultSecrets, scope: KeyScope): VaultSecrets {
+  return decodeScopedVault(encodeScopedVault({ ...secrets, bindingJournalKeys: {} }, scope), scope)
 }

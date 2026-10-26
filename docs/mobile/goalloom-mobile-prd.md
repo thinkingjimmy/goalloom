@@ -843,8 +843,8 @@ unwrap：先确认 ctx 和 recipientId 匹配 → 用"当前可信名单"里 sen
 7. **新设备从压缩后的快照加入** → workspaceId 和 generation 不变，canon_ops/canon_changes 历史可见，状态哈希与老设备一致。
 8. **旧客户端遇到新的 op 格式或缺少密钥** → 工作区进入 paused（unsupported_version / key_missing），本地数据不变，提示升级或配对。
 ## 13. 发布
-- **EAS**：`eas.json` 里配置 development / preview / production 三个 profile；bundle id 暂定 `com.goalloom.app`【待定】。
-- **iOS**：Apple 开发者账号（$99/年）；开启 Sign in with Apple；App Store 审核注意 4.8 条（已同时提供 Apple 登录）以及账号删除要求；用 TestFlight 内测。
+- **EAS**：`eas.json` 里规划 development / preview / production 三个profile；当前iOS Bundle ID已固定为`app.goalloom.mobile`，与`apps/mobile/app.json`一致，不再使用历史暂定`com.goalloom.app`。
+- **iOS**：负责人于2026-10-23确认先使用现有个人Apple Developer会员完成开发、上架及首次内购，之后再通过现有会员申请转为Atlas组织；组织转换不是本阶段前置。当前Apple协议/税务/收款按个人真实身份，Stripe网页渠道保持公司主体。保留Sign in with Apple、账号删除及TestFlight要求，按实际提交时规则验收，不从个人/组织身份推导审核豁免。
 - **Android**：Play Console（一次性 $25）；内部测试轨道；新账号的个人开发者需要先完成**封闭测试**才能上线（具体人数和天数【未核实最新要求】）。
 - **OTA**：EAS Update，channel 和 profile 对应。`runtimeVersion` 由"原生版本号加 protocolVersion"组成；**同步语义（`packages/store-core/src/sync/**`、`packages/crypto/**`）发生变化时禁止发 OTA**，CI 会检查这一点（8.6）。
 - **CI**：GitHub Actions 在 ubuntu 上跑 typecheck、test、pgTAP；打 tag 时执行 `eas build --profile production --auto-submit`。现有 `ci.yml` 保持手动触发不变。

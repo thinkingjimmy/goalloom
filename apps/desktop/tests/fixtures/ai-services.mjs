@@ -7,6 +7,26 @@
 import assert from 'node:assert/strict'
 
 export async function verifyAiServices(page, mode, out) {
+  await page.evaluate(() => {
+    const observation = () => {
+      const button = document.querySelector('.smart-provider button[aria-label="更换 Key"]'), hint = document.querySelector('.provider-action-tooltip [role="tooltip"]')
+      const box = hint?.getBoundingClientRect()
+      return { at: Date.now(), hintVisible: !!box && box.width > 0 && box.height > 0 && getComputedStyle(hint).visibility !== 'hidden',
+        describedBy: button?.getAttribute('aria-describedby') ?? null, hovered: button?.matches(':hover') ?? false,
+        activeLabel: document.activeElement?.getAttribute('aria-label') ?? null, focused: document.hasFocus(), visibility: document.visibilityState,
+        settingsOpen: document.querySelector('dialog.settings-modal')?.open ?? false }
+    }
+    window.readAiHintObservation = observation
+    window.aiServiceHintDiagnostics = { events: [], beforeEscape: null }
+    for (const type of ['pointerenter', 'pointerleave', 'focus', 'blur', 'keydown', 'cancel']) document.addEventListener(type, event => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const entry = { ...observation(), type, tag: target.tagName, label: target.getAttribute('aria-label'), key: event instanceof KeyboardEvent ? event.key : null,
+        defaultPreventedBefore: event.defaultPrevented, defaultPreventedAfter: null }
+      window.aiServiceHintDiagnostics.events.push(entry); window.aiServiceHintDiagnostics.events = window.aiServiceHintDiagnostics.events.slice(-200)
+      queueMicrotask(() => { entry.defaultPreventedAfter = event.defaultPrevented })
+    }, true)
+  })
   const settings = page.locator('dialog.settings-modal')
   const rows = settings.locator('.smart-provider')
   const connected = rows.filter({ hasText: 'OpenRouter' })
@@ -40,11 +60,16 @@ export async function verifyAiServices(page, mode, out) {
   }
   await page.evaluate(value => Object.assign(document.documentElement.dataset, value), originalAppearance)
   const replace = connected.getByRole('button', { name: '更换 Key', exact: true })
-  await replace.hover()
   const hint = settings.getByRole('tooltip', { name: '更换 Key', exact: true })
-  await hint.waitFor()
+  // Visual capture is independent: element screenshots can change the hover precondition.
+  await replace.hover(); await hint.waitFor()
+  assert.equal(await replace.evaluate(node => node.matches(':hover') && !!node.getAttribute('aria-describedby')), true)
+  await page.screenshot({ path: `${out}/${mode}-ai-services-tooltip.png` })
+  await page.mouse.move(1, 1); await hint.waitFor({ state: 'hidden' })
+  await replace.hover(); await hint.waitFor()
   assert.equal(await hint.evaluate(node => !!node.closest('dialog[open]')), true)
-  await settings.screenshot({ path: `${out}/${mode}-ai-services-tooltip.png` })
+  assert.equal(await replace.evaluate(node => node.matches(':hover') && !!node.getAttribute('aria-describedby')), true)
+  await page.evaluate(() => { window.aiServiceHintDiagnostics.beforeEscape = window.readAiHintObservation() })
   await page.keyboard.press('Escape')
   await hint.waitFor({ state: 'hidden' })
   assert.equal(await settings.isVisible(), true)
@@ -75,5 +100,5 @@ export async function verifyAiServices(page, mode, out) {
   await connected.locator('form').waitFor({ state: 'detached' })
   await connected.getByText('已连接', { exact: true }).waitFor()
   await settings.screenshot({ path: `${out}/${mode}-settings-ai.png` })
-  return { geometry, logos: 'Bundled official website assets', hints: ['pointer', 'keyboard', 'scoped Escape'], actions: ['add form', 'replace with consent and test', 'remove warning', 'keep'] }
+  return { hintDiagnostics: await page.evaluate(() => window.aiServiceHintDiagnostics), geometry, logos: 'Bundled official website assets', hints: ['pointer', 'keyboard', 'scoped Escape'], actions: ['add form', 'replace with consent and test', 'remove warning', 'keep'] }
 }

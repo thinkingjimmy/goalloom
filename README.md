@@ -84,7 +84,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.9.8 separates production sync from development. Local tasks, history and calendar stay in place, with a protective backup before transition. Sign in to Google again and set a sync password to upload to the new production workspace. Update every computer using sync to 1.9.10. Current source uses workspace format v12 for the macOS 27 appearance; published 1.9.10 uses v11. See the [1.9.10 release notes](./docs/releases/v1.9.10.md). Build-time configuration is in the [development guide](./docs/development.md).
+Version 1.9.8 separates production sync from development. Local tasks, history and calendar stay in place, with a protective backup before transition. Sign in to Google again and set a sync password to upload to the new production workspace. Update every computer using sync to 1.9.10. Current source uses workspace format v14 for exact cloud baselines and binding-epoch receipts, retaining the v12 macOS 27 appearance support; published 1.9.10 uses v11. See the [1.9.10 release notes](./docs/releases/v1.9.10.md). Build-time configuration is in the [development guide](./docs/development.md).
 
 The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 

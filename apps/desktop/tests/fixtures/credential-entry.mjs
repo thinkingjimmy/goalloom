@@ -8,12 +8,30 @@ import { app, dialog, ipcMain, safeStorage, shell } from 'electron'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
+import { randomUUID } from 'node:crypto'
 
 if (process.env.GOALLOOM_HOSTED_FIXTURE === '1') dialog.showMessageBoxSync = () => 1
 
 const fixture = globalThis.credentialFixture = {
   mode: process.env.GOALLOOM_CREDENTIAL_MODE ?? 'available',
   available: 0, encrypt: 0, decrypt: 0, refreshed: 0, browser: 0, browserUrls: [], actions: [], holdLogout: false, requests: [], unexpected: [], cipherAppNames: [],
+}
+if (process.env.GOALLOOM_BILLING_FIXTURE === '1') {
+  fixture.billingStatus = 'none'; fixture.billingNow = Date.now(); fixture.billingEnd = fixture.billingNow + 192 * 3600_000
+  const schedule = globalThis.setTimeout, cancel = globalThis.clearTimeout, minuteTimers = new Map()
+  const started = performance.now.bind(performance); let advanced = 0
+  Object.defineProperty(performance, 'now', { value: () => started() + advanced })
+  globalThis.setTimeout = (work, ms, ...args) => {
+    const timer = schedule(work, ms, ...args)
+    if (ms === 60_000) minuteTimers.set(timer, () => work(...args))
+    return timer
+  }
+  globalThis.clearTimeout = timer => { minuteTimers.delete(timer); return cancel(timer) }
+  fixture.advanceBillingMinute = () => {
+    advanced += 60_000; fixture.billingNow += 60_000
+    const pending = [...minuteTimers]; minuteTimers.clear()
+    for (const [timer, work] of pending) { cancel(timer); work() }
+  }
 }
 const handle = ipcMain.handle.bind(ipcMain)
 ipcMain.handle = (channel, listener) => handle(channel, (event, ...args) => {
@@ -56,17 +74,37 @@ safeStorage.decryptString = data => {
 }
 shell.openExternal = async url => { fixture.browser++; fixture.browserUrls.push(url) }
 
+fixture.cloudSessionId = '77777777-7777-4777-8777-777777777777'
 const userId = process.env.GOALLOOM_HOSTED_USER ?? '11111111-1111-4111-8111-111111111111'
 const makeJwt = (id = userId) => [
   { alg: 'HS256', typ: 'JWT' },
-  { sub: id, exp: Math.floor(Date.now() / 1000) + 3600, role: 'authenticated' },
+  { sub: id, ...(process.env.GOALLOOM_CLOUD_FIXTURE ? { session_id: fixture.cloudSessionId } : {}), exp: Math.floor(Date.now() / 1000) + 3600, role: 'authenticated' },
 ].map(value => Buffer.from(JSON.stringify(value)).toString('base64url')).join('.') + '.synthetic'
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(typeof input === 'string' ? input : input.url ?? input.toString())
   fixture.requests.push(url.pathname)
   if (url.pathname === '/auth/v1/logout' && fixture.holdLogout) return new Promise(() => {})
   let body
-  if (process.env.GOALLOOM_HOSTED_FIXTURE === '1' && url.pathname === '/functions/v1/hosted-ai' && init.method === 'POST') {
+  if (url.pathname === '/functions/v1/billing') {
+    fixture.billingActions ??= []
+    const action = init.body ? JSON.parse(init.body) : null
+    if (action) fixture.billingActions.push(action)
+    const now = fixture.billingNow ?? Date.now(), end = fixture.billingEnd ?? now + 192 * 3600_000
+    if (action?.action === 'claim_trial') { fixture.billingStatus = 'trialing'; fixture.billingTrialId ??= action.requestId }
+    const state = fixture.billingStatus ?? 'active', cycle = fixture.billingCycle ?? 'annual'
+    body = { version: 1, environment: 'development', status: state, eligible: ['trialing', 'active'].includes(state),
+      serverNow: new Date(now).toISOString(), effectiveEnd: ['trialing', 'active'].includes(state) ? new Date(end).toISOString() : null,
+      trialEligible: state === 'none', grace: false,
+      priceCatalog: { monthly: { amount: 899, currency: 'USD', taxBehavior: 'inclusive' }, annual: { amount: 7900, currency: 'USD', taxBehavior: 'inclusive' } },
+      subscriptions: state === 'active' ? [{ id: 'sub_fixture', status: 'active', cycle, nextCycle: fixture.billingNextCycle ?? null, endsAt: new Date(end).toISOString(), cancelAtPeriodEnd: false }] : [] }
+    if (action?.action === 'checkout' || action?.action === 'portal') {
+      fixture.billingContinuation = action.continuation
+      fixture.billingCanonicalRequests ??= {}
+      const sameDevice = fixture.billingReturnToThisDevice ?? true
+      body = { status: action.action, url: action.action === 'checkout' ? 'https://checkout.stripe.com/c/pay/cs_test_fixture' : 'https://billing.stripe.com/p/session/test_fixture',
+        requestId: sameDevice ? action.requestId : fixture.billingCanonicalRequests[action.requestId] ??= randomUUID(), continuationExpiresAt: new Date(now + 24 * 3600_000).toISOString(), returnToThisDevice: sameDevice }
+    }
+  } else if (process.env.GOALLOOM_HOSTED_FIXTURE === '1' && url.pathname === '/functions/v1/hosted-ai' && init.method === 'POST') {
     fixture.modelCalls = (fixture.modelCalls ?? 0) + 1
     const action = JSON.parse(init.body), request = action.request, requestOwner = fixture.activeUserId ?? userId
     if (action.version !== 2) throw Error('Expected hosted protocol v2')
@@ -100,3 +138,4 @@ globalThis.fetch = async (input, init = {}) => {
 }
 
 await import(pathToFileURL(resolve('out/main/index.js')).href)
+if (process.env.GOALLOOM_CLOUD_FIXTURE) await import(pathToFileURL(resolve(process.env.GOALLOOM_CLOUD_FIXTURE)).href)

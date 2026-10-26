@@ -81,11 +81,11 @@ try {
   assert.equal(a.status.phase, 'ready'); assert.equal(a.service.secrets.workspaceId, originalId)
 
   const oldRows = structuredClone(cloud.world.workspace!.ops)
-  const recovered = await a.service.handle({ type: 'create-new-workspace', password: 'independent-password' })
+  const recovered = await createGeneration(a, 'independent-password')
   assert.equal(recovered.status.phase, 'ready', JSON.stringify(recovered))
   await settle(a, b)
   const newId = a.service.secrets.workspaceId
-  assert.notEqual(newId, originalId); assert.equal(cloud.world.workspaces.size, 2)
+  assert.notEqual(newId, originalId, JSON.stringify({ recovered, pending: (await a.service.bindingJournal.pending(a.service.accountId()))?.binding.workspaceId, initializations: [...cloud.world.workspaces.values()].map(row => ({ id: row.id, final: row.initialization?.finalSeq, finished: !!row.initialization?.receipt })), finishCalls: cloud.requests.filter(row => row.rpc === 'finish-initialization').length })); assert.equal(cloud.world.workspaces.size, 2)
   assert.deepEqual(cloud.world.workspaces.get(originalId)!.ops, oldRows)
   assert.deepEqual(tasks(alpha), originalTasks); assert.deepEqual(calendar(alpha), originalCalendar)
   await close(a); a = await open(alpha, 'alpha'); await settle(a)
@@ -103,39 +103,40 @@ try {
     if (method === 'sync' && action?.type === 'protect') throw new DomainError('backup', 'Synthetic protective-copy failure')
     return storageCall(method, action)
   }
-  assert.equal((await a.service.handle({ type: 'create-new-workspace', password: 'installation-password' })).status.error, 'storage')
+  assert.equal((await createGeneration(a, 'installation-password')).status.error, 'storage')
   assert.equal(cloud.world.workspaces.size, countBeforeProtection)
   a.storage.call = async (method: string, action: any) => {
-    if (method === 'sync' && action?.type === 'recover-bind') throw new DomainError('storage', 'Synthetic baseline-install failure')
+    if (method === 'sync' && action?.type === 'transition-commit') throw new DomainError('storage', 'Synthetic baseline-install failure')
     return storageCall(method, action)
   }
-  const failedInstall = await a.service.handle({ type: 'create-new-workspace', password: 'installation-password' })
+  const failedInstall = await createGeneration(a, 'installation-password')
   assert.equal(failedInstall.status.error, 'storage'); assert.equal(failedInstall.status.phase, 'enter-key')
-  const installationId = a.service.secrets.pendingRecovery.workspaceId
+  const installationId = (await a.service.bindingJournal.pending(a.service.accountId()))!.binding.workspaceId
   assert.equal(cloud.world.workspaces.get(installationId)!.ops.length, 0, 'Old local operations cannot exchange under the new cloud key')
   assert.equal(sql(alpha, 'SELECT workspaceId FROM sync_state')[0]!.workspaceId, newId)
   assert.deepEqual(tasks(alpha), originalTasks)
   a.storage.call = storageCall
-  const installed = await a.service.handle({ type: 'create-new-workspace', password: 'installation-password' })
+  const installed = await createGeneration(a, 'installation-password')
   assert.equal(installed.status.phase, 'ready'); assert.equal(a.service.secrets.workspaceId, installationId)
   check('Protection and installation failures preserve the board and prevent exchange until atomic baseline/binding succeeds')
 
   // The server may accept creation while its response is lost. The encrypted draft is the retry identity.
   const beforeRetryWorkspace = a.service.secrets.workspaceId
   cloud.controls.fault = 'commit:create_new_workspace'; cloud.controls.session = 'alpha'
-  const failedCreate = await a.service.handle({ type: 'create-new-workspace', password: 'third-password' })
+  const failedCreate = await createGeneration(a, 'third-password')
   assert.equal(failedCreate.status.error, 'network')
-  const draftId = a.service.secrets.pendingRecovery.workspaceId
+  const draftId = (await a.service.bindingJournal.pending(a.service.accountId()))!.binding.workspaceId
   const count = cloud.world.workspaces.size
   assert(cloud.world.workspaces.has(draftId)); assert.equal(a.service.secrets.workspaceId, beforeRetryWorkspace)
   await close(a); cloud.controls.fault = ''; cloud.controls.session = ''; a = await open(alpha, 'alpha')
-  const retried = await a.service.handle({ type: 'create-new-workspace', password: 'third-password' })
+  const retried = await createGeneration(a, 'third-password')
   assert.equal(retried.status.phase, 'ready'); assert.equal(a.service.secrets.workspaceId, draftId)
   assert.equal(cloud.world.workspaces.size, count)
   check('Lost creation response and restart reuse one encrypted recovery draft without duplicate workspaces')
 
   await assert.rejects(a.service.handle({ type: 'reset-sync', password: 'reset-password' }))
   await assert.rejects(a.service.handle({ type: 'reset-sync', password: 'reset-password', confirmation: 'delete all cloud data' }))
+  await settle(a)
   const reset = await a.service.handle({ type: 'reset-sync', password: 'reset-password', confirmation: 'DELETE ALL CLOUD DATA' })
   assert.equal(reset.status.phase, 'ready'); assert(!cloud.world.workspaces.has(draftId))
   assert(cloud.world.workspaces.has(originalId)); assert(cloud.world.workspaces.has(newId))
@@ -152,7 +153,7 @@ try {
   await rm(receipt, { recursive: true })
   check('Failed cleanup preparation retains the signed-in runtime, database and vault')
 
-  const oldGeneration = (await a.storage.call('sync', { type: 'view' })).generation
+  const oldGeneration = (await a.service.local({ type: 'view' })).generation
   const marker = join(alpha, `sync-send-${'f'.repeat(64)}.bin`)
   await writeFile(marker, 'Synthetic prepared send')
   const backupFiles = await readdir(join(alpha, 'backups')); assert(backupFiles.length > 0)
@@ -227,11 +228,11 @@ try {
   assert.equal(offline.status.phase, 'ready', 'A connectivity transition during suspension must resume the saved session after wake')
   check('Wake recovers an offline-start session when connectivity changed while monitoring was suspended')
 
-  const subscriptions = cloud.controls.topics.filter(topic => topic === `realtime:ws:${originalId}`).length
+  const subscriptions = cloud.controls.topics.filter(topic => topic === `realtime:cloud:v1:ws:${originalId}`).length
   const reads = cloud.requests.filter(row => row.rpc === 'get_sync_status' && row.peer === 'beta').length
   cloud.disconnectSockets()
   const deadline = Date.now() + 5_000
-  while (cloud.controls.topics.filter(topic => topic === `realtime:ws:${originalId}`).length <= subscriptions || cloud.requests.filter(row => row.rpc === 'get_sync_status' && row.peer === 'beta').length <= reads) {
+  while (cloud.controls.topics.filter(topic => topic === `realtime:cloud:v1:ws:${originalId}`).length <= subscriptions || cloud.requests.filter(row => row.rpc === 'get_sync_status' && row.peer === 'beta').length <= reads) {
     await offline.clock.advance(0)
     await offline.service.schedule.settle()
     assert(Date.now() < deadline, 'Realtime did not reconnect and request control metadata')
@@ -259,3 +260,11 @@ finally {
 
 }
 void main().catch(error => { console.error(error); process.exitCode = 1 })
+
+async function createGeneration(peer: any, password: string) {
+  await settle(peer)
+  const expectedAccountId = peer.service.accountId()
+  const preview = await peer.service.handle({ type: 'generation-preview', expectedAccountId })
+  assert(preview.generationPreview, JSON.stringify(preview))
+  return peer.service.handle({ type: 'create-new-workspace', password, expectedAccountId, previewToken: preview.generationPreview.token, acknowledged: true })
+}

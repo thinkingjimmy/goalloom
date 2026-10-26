@@ -21,6 +21,8 @@ function status(partial: Partial<SyncStatus> & Pick<SyncStatus, 'phase'>): SyncS
 
 function gate(partial: Partial<SyncStatus> & Pick<SyncStatus, 'phase'>): string {
   return renderToStaticMarkup(createElement(StartGate, {
+    generation: '11111111-1111-4111-8111-111111111111',
+    onRecoveryReady: async () => {},
     status: status(partial),
     busy: false,
     errorCode: null,

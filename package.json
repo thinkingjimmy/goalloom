@@ -1,6 +1,6 @@
 {
   "name": "goalloom",
-  "version": "1.9.10",
+  "version": "1.10.0",
   "private": true,
   "description": "把三个月的方向，连接到今天的行动。",
   "author": "Goalloom",
@@ -12,6 +12,8 @@
   "scripts": {
     "postinstall": "node node_modules/electron/install.js",
     "dev": "pnpm --filter @goalloom/desktop run dev",
+    "review:errors": "pnpm --filter @goalloom/desktop exec vite --config review/vite.config.mts",
+    "review:errors:typecheck": "pnpm --filter @goalloom/desktop exec tsc -p review/tsconfig.json",
     "typecheck": "pnpm --filter @goalloom/desktop run typecheck",
     "test": "pnpm --filter @goalloom/desktop exec -- node scripts/test.mjs",
     "parity:digest": "node scripts/parity-digest.mjs",

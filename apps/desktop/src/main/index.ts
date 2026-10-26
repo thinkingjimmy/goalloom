@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Electron lifecycle, application identity, noninteractive Keychain policy, security, storage and desktop services.
- * [OUTPUT]: Stable packaged identity, isolated development credentials, disabled Keychain dialogs, device-aware reconciliation, single window, write gates, notifications and session cleanup.
+ * [INPUT]: Electron lifecycle, application identity, noninteractive Keychain policy, security, workspace calendar clock, storage and desktop services.
+ * [OUTPUT]: Stable identity, isolated credentials, disabled Keychain dialogs, device-aware reconciliation, guarded billing/return, single window, write gates and session cleanup.
  * [POS]: Application composition root; the renderer parse overlaps guarded storage startup, and migrations remain protected before writes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { StorageClient } from './storage/client'
+import { workspaceClock } from './storage/workspace-clock'
 import { registerIpc } from './ipc'
 import { appOrigin, restrictSession, restrictWindow, serveResource } from './security'
 import type { CommandResult } from '../shared/contracts/commands'
@@ -34,6 +35,10 @@ import { aiRefreshEvent, devicePrefsEvent, languageEvent } from '../shared/contr
 import { isGoalloomProtocol, protocolRegistration, protocolUrlFromArgv, secondInstanceFocus } from './protocol'
 import { applicationIdentity } from './identity'
 import { protectKeychainAccess } from './keychain'
+import { CloudService } from './cloud/service'
+import { BillingService } from './billing/service'
+import { parseBillingReturn } from './billing/return'
+import { billingEvent } from '../shared/contracts/billing'
 
 const directory = fileURLToPath(new URL('.', import.meta.url))
 const developmentUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -70,6 +75,16 @@ let updates: UpdateService
 
 let storage: StorageClient | null = null
 let sync: SyncService | undefined
+let billing: BillingService | undefined
+let pendingBillingReturn: string | null = null
+function receiveProtocol(url: string): void {
+  if (parseBillingReturn(url, app.isPackaged)) {
+    if (!billing || !sync?.accountId()) pendingBillingReturn = url
+    else void billing.acceptReturn(url).catch(() => undefined)
+    return
+  }
+  if (isGoalloomProtocol(url) && new URL(url).hostname !== 'billing-return') focusMainWindow()
+}
 let reconciling = false
 let boundaryTimer: ReturnType<typeof setTimeout> | undefined
 let quitting = false
@@ -98,7 +113,7 @@ async function requestReconcile(notifyRevision = true): Promise<void> {
     const next = Math.min(...meta.periods.map(period => Date.parse(period.endAt)))
     if (boundaryTimer) clearTimeout(boundaryTimer)
     if (Number.isFinite(next)) {
-      boundaryTimer = setTimeout(() => { void requestReconcile() }, Math.max(100, Math.min(2_147_483_647, next - Date.now() + 20)))
+      boundaryTimer = setTimeout(() => { void requestReconcile() }, Math.max(100, Math.min(2_147_483_647, next - workspaceClock.nowMs() + 20)))
       boundaryTimer.unref()
     }
   } catch { /* 存储错误由有限查询/命令反馈，不记录正文。 */ }
@@ -186,15 +201,18 @@ if (!app.requestSingleInstanceLock()) {
   // macOS delivers goalloom://signed-in here. The URL is not loaded; the existing window comes forward.
   app.on('open-url', (event, url) => {
     event.preventDefault()
-    if (isGoalloomProtocol(url)) focusMainWindow()
+    receiveProtocol(url)
   })
   // Windows delivers the same URL on argv. Any other second launch still focuses the open window.
   app.on('second-instance', (_event, argv) => {
-    if (secondInstanceFocus(argv)) focusMainWindow()
+    const url = protocolUrlFromArgv(argv)
+    if (url) receiveProtocol(url)
+    else if (secondInstanceFocus(argv)) focusMainWindow()
   })
   app.whenReady().then(async () => {
     registerDesktopProtocol()
-    if (protocolUrlFromArgv(process.argv)) focusMainWindow()
+    const startupUrl = protocolUrlFromArgv(process.argv)
+    if (startupUrl) receiveProtocol(startupUrl)
     // Packaged builds take the icon from the bundle; the dev Electron binary would otherwise show its own.
     if (!app.isPackaged) app.dock?.setIcon(join(directory, '../../resources/icon.png'))
     restrictSession(session.defaultSession)
@@ -215,17 +233,21 @@ if (!app.requestSingleInstanceLock()) {
     let client!: StorageClient
     let hostedOwner: string | null = null
     const smart = createSmartService(join(app.getPath('userData'), 'smart-input'), () => client, entries => {
-      void storageProxy.call('sync', { type: 'emit-settings', entries, at: new Date().toISOString(), opId: randomUUID(), mode: 'change' }).then(() => sync?.nudge('write')).catch(() => undefined)
+      void (sync?.local({ type: 'emit-settings', entries, at: new Date().toISOString(), opId: randomUUID(), mode: 'change' }) ?? Promise.resolve()).then(() => sync?.nudge('write')).catch(() => undefined)
     }, { id: () => sync?.accountId() ?? null, session: () => sync ? sync.accountSession() : Promise.reject(new Error('Signed out')), config: () => readSyncConfig(app.getPath('userData'), app.isPackaged) })
     const links = new LinkPreviewService(join(app.getPath('userData'), 'link-previews'))
+    let cloudService: CloudService | null = null
     const syncing = sync = new SyncService({
       userData: app.getPath('userData'), packaged: app.isPackaged, cipher: deviceCipher, storage: storageProxy,
       sessionCipher: sessionCipher(app.getPath('userData'), deviceCipher),
       monitorNetwork: createNetworkMonitor,
+      beforeLocalClear: () => cloudService?.beforeLocalClear() ?? Promise.resolve(),
+      afterLocalClearAttempt: () => cloudService?.afterLocalClearAttempt(),
       onLocalCleared: () => { smart.releaseSession(); links.releaseSession() },
       openExternal: url => shell.openExternal(url),
       onBrowserReturn: () => focusMainWindow(),
       notify: status => {
+        billing?.accountChanged()
         const owner = status.accountId ?? null
         if (owner !== hostedOwner) { hostedOwner = owner; void smart.accountChanged().catch(() => undefined).finally(() => send('goalloom:ai-refresh', null)) }
         send(syncEvent, status)
@@ -246,17 +268,39 @@ if (!app.requestSingleInstanceLock()) {
       clipboard: text => clipboard.writeText(text),
       now: () => new Date().toISOString(),
     })
+    const subscription = billing = new BillingService({
+      userData: app.getPath('userData'), packaged: app.isPackaged,
+      account: { id: () => syncing.accountId(), session: () => syncing.accountSession() },
+      config: () => readSyncConfig(app.getPath('userData'), app.isPackaged), locale: () => language.state.locale,
+      openExternal: url => shell.openExternal(url), notify: state => send(billingEvent, state), returned: focusMainWindow,
+      checked: eligible => { void syncing.billingChecked(eligible).catch(() => undefined); send(aiRefreshEvent, null) },
+    })
+    const cloud = cloudService = new CloudService({
+      directory: join(app.getPath('userData'), 'cloud'), workerPath: join(directory, 'retrieval.js'),
+      cipher: sessionCipher(join(app.getPath('userData'), 'cloud'), deviceCipher), environment: app.isPackaged ? 'production' : 'development',
+      config: () => readSyncConfig(app.getPath('userData'), app.isPackaged), storage: storageProxy,
+      account: { id: () => syncing.accountId(), context: () => syncing.cloudContext(), session: () => syncing.accountSession() },
+      choose: async format => {
+        const result = await dialog.showSaveDialog({ defaultPath: `Goalloom-copy.${format === 'json' ? 'json' : 'sqlite'}`, filters: [{ name: format.toUpperCase(), extensions: [format === 'json' ? 'json' : 'sqlite'] }] })
+        return result.canceled ? null : result.filePath ?? null
+      },
+      closed: target => { syncing.privacyClosed(target); send(aiRefreshEvent, null) },
+    })
     releaseRenderer = registerIpc(() => window, trustedUrl, storageProxy, smart, language, parentOrder, links, updates, syncing, () => { void requestReconcile(false); syncing.nudge('write') }, firstWrite, meta => {
       if (firstSnapshotRead) return
       firstSnapshotRead = true; lastVisible = visibleKey(meta); lastRevision = meta.workspace.revision; startInitialReconcile()
-    })
+    }, subscription, cloud)
     const opening = openStorage()
     const windowing = createWindow().then(() => ({ ok: true as const }), error => ({ ok: false as const, error }))
     const opened = await opening
     if (!opened) { window?.destroy(); app.exit(0); return }
     storage = client = opened
     unlockStorage(opened)
-    void syncing.start()
+    void syncing.start().then(() => {
+      subscription.accountChanged()
+      const pending = pendingBillingReturn; pendingBillingReturn = null
+      if (pending) void subscription.acceptReturn(pending).catch(() => undefined)
+    })
     const openedWindow = await windowing
     if (!openedWindow.ok) throw openedWindow.error
     updates.start()
@@ -274,6 +318,7 @@ if (!app.requestSingleInstanceLock()) {
     event.preventDefault()
     quitting = true
     sync?.stop()
+    billing?.stop()
     if (boundaryTimer) clearTimeout(boundaryTimer)
     void storage.close().catch(() => undefined).finally(() => { drained = true; app.quit() })
   })

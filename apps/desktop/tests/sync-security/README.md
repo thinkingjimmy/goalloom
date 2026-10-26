@@ -4,14 +4,16 @@ INPUT: Current desktop build, isolated test profiles, controlled boundaries or e
 OUTPUT: Repeatable service/SQLite and native-window reports under `output/tests/sync-security/`.
 POS: Feature acceptance fixtures. Product rules remain in [desktop sync](../../../../docs/sync/desktop.md).
 
-- `cases.ts`: Production service/SDK/storage failure and lifecycle journeys, including workspace discovery, retries, cleanup and reconnection.
+- `cases.ts`: Production service/SDK/storage failure and lifecycle journeys, including workspace discovery, retries, cleanup and reconnection. Select with `node tests/sync-security.mjs cases`.
 - `environment-cases.ts`: Real-worker production transition, backup failure, preserved business/history data, fresh binding and restart stability. Select with `node tests/sync-security.mjs environment`.
 - `password-cases.ts`: Denied-Keychain Case 1, fresh Google authorization, password/cloud-key recovery, stable devices, pending sends, interrupted creation, failed file writes, account guards and complete cleanup. Select with `node tests/sync-security.mjs password`.
-- `resume-cases.ts`: Persistent Case 1, restart/upgrade migration, Google/password-gated relogin, retained task/device IDs and tombstones, offline recovery, unknown sends, durable logout failures and late token-save races. Select with `node tests/sync-security.mjs resume`.
+- `resume-cases.ts`: Persistent Case 1, restart/upgrade migration, Google/password-gated relogin, retained task/device IDs and tombstones, offline recovery, unknown sends, durable logout failures, native/password late-save races and cancellation during committed password/journal promotion. Select with `node tests/sync-security.mjs resume`.
+- `epoch.ts`: Password/native epoch preparation and CAS failures, original-request restart, missing-proof rejection and a sanitized SQLite artifact; included in the password group.
+- `custody.ts`: Actual scoped password/journal payload filtering, account/project/environment substitution rejection, lock/key replacement guards and captured-key reads during account changes; included in the password group.
 - `native-entry.ts`: Test-only multi-account composition around the production application. It never loads real credentials or changes Wi-Fi.
 - `live.ts`: Production service/SDK/SQLite journeys against real development Auth, HTTP/RPC and private Realtime. Only disposable accounts are used.
 - `../sync-security.mjs`: Service/SQLite runner.
-- `../sync-security-native.mjs`: Native renderer/IPC runner with five-language flat password/recovery dialogs, exact destructive confirmation, focus return and unchanged task/sync actions; `--packaged` selects an isolated ad-hoc macOS ASAR app and records its hash/artifact.
+- `../sync-security-native.mjs`: Native renderer/IPC runner with two isolated setup-first recovery profiles: direct App confirmation and cancel-with-local-setup preservation, plus complete initialization evidence and five-language flat password/recovery dialogs, exact destructive confirmation, focus return and unchanged task/sync actions; `--onboarding-recovery` selects both recovery cases; `--packaged` selects an isolated ad-hoc macOS ASAR app and records its hash/artifact.
 
 Run `pnpm build` first. Root commands are `pnpm test:sync-security` and `pnpm test:sync-security:packaged`. Hosted SQL is separate: `node scripts/sync-security-hosted.mjs`. Synthetic OAuth/HTTP, instrumented packages, Developer ID installers and Windows are distinct acceptance scopes.
 

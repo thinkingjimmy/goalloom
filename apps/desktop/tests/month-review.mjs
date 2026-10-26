@@ -1,40 +1,54 @@
 /**
- * [INPUT]: Production Electron build, real local date and an injected-clock history fixture.
- * [OUTPUT]: Historical-period, unified-entry, resume, live write and duplicate-plan evidence in output/tests/insight/month-review.
+ * [INPUT]: Production Electron build, real date or explicit fixed workspace-clock composition, and injected-clock history.
+ * [OUTPUT]: Historical-period, actual App entry, resume, guarded writes and receipt evidence; fixed runs use independent directories.
  * [POS]: Focused desktop acceptance through the real renderer/preload/worker/database, isolated from user data.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { cpus, release, tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { build } from 'vite'
 import electronPath from 'electron'
 import { _electron as electron } from 'playwright'
+import { fixedReviewClock } from './fixtures/review-clock/build.mjs'
 
-const combined = process.argv.includes('--combined')
-const out = resolve(`output/tests/insight/${combined ? 'combined-review' : 'month-review'}`)
+let fixed, app, profile, page
+const combined = process.argv.includes('--combined'), requestedFixed = process.argv.some(value => value.startsWith('--fixed-at'))
+const evidenceRoot = resolve(`output/tests/insight/${combined ? 'combined-review' : 'month-review'}`)
+const out = requestedFixed ? join(evidenceRoot, 'runs', `fixed-${Date.now()}`) : evidenceRoot
 await mkdir(out, { recursive: true })
-await build({ configFile: false, build: { outDir: 'output/tests/build/review', emptyOutDir: false,
-  lib: { entry: 'tests/fixtures/review-seed.ts', formats: ['cjs'], fileName: () => 'review-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
-const profile = await mkdtemp(join(tmpdir(), 'Goalloom monthly review '))
-const seed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, combined ? 'combined' : 'month'], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
-assert.equal(seed.status, 0, seed.stderr)
-await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
-const fixture = JSON.parse(await readFile(join(profile, 'review-fixture.json'), 'utf8'))
-const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE; delete env.ELECTRON_RENDERER_URL
-const app = await electron.launch({ args: ['.', `--user-data-dir=${profile}`], env })
-const report = { ok: false, scope: 'Source Electron; real IPC and SQLite; synthetic isolated records; no packaged or Windows acceptance', profile, host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model }, checks: [] }
+const report = { ok: false, artifactRoot: out, clockScope: requestedFixed ? 'Actual App with test-only fixed workspace clock; no natural-wall-clock claim' : 'Production real clock', scope: 'Source Electron; real IPC and SQLite; synthetic isolated records; no packaged or Windows acceptance', host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model }, checks: [] }
 const check = value => { report.checks.push(value); console.log(`✓ ${value}`) }
 try {
-  const page = await app.firstWindow(), errors = []
+  fixed = await fixedReviewClock(process.argv); report.fixedClock = fixed?.manifest
+  await build({ configFile: false, build: { outDir: 'output/tests/build/review', emptyOutDir: false,
+    lib: { entry: 'tests/fixtures/review-seed.ts', formats: ['cjs'], fileName: () => 'review-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
+  profile = await mkdtemp(join(tmpdir(), fixed ? 'goalloom-review-fixed-' : 'Goalloom monthly review '))
+  const seed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, combined ? 'combined' : 'month', ...(fixed?.seedArguments ?? [])], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
+  assert.equal(seed.status, 0, seed.stderr)
+  await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
+  const fixture = JSON.parse(await readFile(join(profile, 'review-fixture.json'), 'utf8'))
+  const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE; delete env.ELECTRON_RENDERER_URL
+  const launch = () => electron.launch({ args: [fixed?.mainPath ?? '.', `--user-data-dir=${profile}`], env })
+  app = await launch()
+  report.profile = profile
+  page = await app.firstWindow(); const errors = []
   page.setDefaultTimeout(12000)
   page.on('pageerror', error => errors.push(error.message))
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1480, 940))
   await page.locator('.board').waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+  if (fixed) {
+    report.clock = { initial: await fixed.verify(app, page, fixture), expiredWrite: await fixed.expiredWrite(app, page, fixture) }
+    await app.close(); app = await launch(); page = await app.firstWindow(); page.on('pageerror', error => errors.push(error.message))
+    page.setDefaultTimeout(12000); await page.emulateMedia({ reducedMotion: 'reduce' }); await page.locator('.board').waitFor()
+    report.clock.reopened = await fixed.verify(app, page, fixture)
+    assert.equal(report.clock.reopened.generation, report.clock.initial.generation)
+    check('Fixed workspace clock survives normal Electron quit/relaunch and rejects a real expired-period command without business changes')
+  }
   const fault = async (type, drop = false) => app.evaluate(({ ipcMain }, { type, drop }) => {
     const command = ipcMain._invokeHandlers.get('goalloom:command'), query = ipcMain._invokeHandlers.get('goalloom:query')
     let first = true, lostReceipt = drop
@@ -75,6 +89,7 @@ try {
     const snapshot = await window.goalloom.getSnapshot()
     return snapshot.periods.find(period => period.horizon === 'day').startDate === snapshot.periods.find(period => period.horizon === 'month').startDate
   })
+  if (fixed) { assert.equal(firstDay, true); assert.equal(await guide.count(), 1, 'Actual App must expose the combined guide') }
   if (firstDay && await guide.count()) {
     assert.equal(await month.locator('.backlog-entry, .insight-empty, .review-entry').count(), 0)
     assert.equal(await guide.locator('[data-review]').count(), 1)
@@ -112,7 +127,7 @@ try {
     await page.screenshot({ path: `${out}/03-unfinished.png` })
     await fault('archive')
     await drawer.locator('.review-foot .primary').click()
-    await drawer.getByRole('alert').waitFor()
+    await drawer.locator('.review-error[role="alert"]').waitFor()
     assert(await drawer.locator('.review-close-row').count(), 'A rejected write stays on unfinished items')
     await drawer.locator('.review-foot .primary').click()
     await drawer.locator('.review-plan-row').first().waitFor()
@@ -126,10 +141,10 @@ try {
     await page.screenshot({ path: `${out}/04-plan-and-resume.png` })
     await fault('createPlan', true)
     await drawer.locator('.review-foot .primary').click()
-    await drawer.getByRole('alert').waitFor()
+    await drawer.locator('.review-error[role="alert"]').waitFor()
     await page.screenshot({ path: `${out}/05-receipt-retry.png` })
-    await drawer.getByRole('button', { name: '重试核对', exact: true }).click()
-    await drawer.getByRole('alert').waitFor({ state: 'hidden' })
+    await drawer.locator('.review-foot').getByRole('button', { name: '重试核对', exact: true }).click()
+    await drawer.locator('.review-error[role="alert"]').waitFor({ state: 'hidden' })
     check('A lost plan reply is resolved from its receipt without creating duplicate tasks')
     if (combined) {
       await drawer.getByRole('textbox', { name: 'A realistic first step', exact: true }).fill('Start the new monthly plan this week')
@@ -160,5 +175,19 @@ try {
   } else check('Monthly UI is outside this first-day scenario; historical API assertions still executed')
   assert.deepEqual(errors, [])
   report.ok = true
-} catch (error) { report.error = String(error); throw error }
-finally { await writeFile(`${out}/report.json`, JSON.stringify(report, null, 2)); await app.close() }
+} catch (error) {
+  report.error = String(error)
+  await page?.screenshot({ path: `${out}/failure.png` }).catch(() => undefined)
+  throw error
+}
+finally {
+  let cleanupError
+  try { await app?.close() } catch (error) { cleanupError = error; report.closeError = String(error) }
+  try {
+    if (fixed) { report.stability = await fixed.finish(); if (!report.stability.sourceStable) cleanupError ??= Error('Production source/build changed during fixed review acceptance') }
+  } catch (error) { cleanupError ??= error; report.cleanupError = String(error) }
+  try { if (fixed && profile) await rm(profile, { recursive: true, force: true }) } catch (error) { cleanupError ??= error; report.profileCleanupError = String(error) }
+  if (cleanupError) report.ok = false
+  try { await writeFile(`${out}/report.json`, JSON.stringify(report, null, 2)) } catch (error) { cleanupError ??= error; report.reportWriteError = String(error) }
+  if (cleanupError && !report.error) throw cleanupError
+}

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Bundled production handler, controlled Auth/ledger/provider HTTP dependencies and synthetic accounts.
+ * [INPUT]: Bundled production handler, controlled Auth/ledger/lifecycle-delivery/provider HTTP dependencies and synthetic accounts.
  * [OUTPUT]: Repeatable HTTP journey evidence for finite API validation, ownership, receipt-only recovery, content exclusion and usage settlement.
  * [POS]: Controlled integration acceptance. It does not claim real Supabase/Postgres concurrency or model quality.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -24,11 +24,18 @@ const marker=randomUUID(), privateText=`Private fixture ${marker}`
 const rows=new Map(),events=[],writes=[]
 let providerGate=null,providerStarted=null
 let spent=0,limit=10000000,providerCalls=0,providerMode='success',settlementMode='ready',policy=true,metadataMode='ready'
+let admissionPolicy='authenticated',serviceState='none',metadataCalls=0,authStatus=200
+const access=headers=>!policy?{eligible:false,error:'permission_denied'}:admissionPolicy==='authenticated'?{eligible:true,policy:admissionPolicy}
+  :headers['x-goalloom-service-version']!=='1'?{eligible:false,error:'upgrade_required',minServiceVersion:1}
+  :serviceState==='configuration'?{eligible:false,error:'billing_configuration'}
+  :['trialing','active','grace'].includes(serviceState)?{eligible:true,policy:admissionPolicy}
+  :{eligible:false,error:serviceState==='expired'?'service_expired':serviceState==='revoked'?'service_revoked':'service_not_started',billingStatus:serviceState}
 const key=(user,action)=>`${user}/${action}`
 const fetchFixture=async (target,init={})=>{
   const path=new URL(target).pathname
   const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json'}})
   if(path==='/auth/v1/user') {
+    if(authStatus!==200)return json({},authStatus)
     const auth=init.headers.authorization
     if(!auth?.endsWith('.verified-fixture'))return json({},401)
     return json({id:JSON.parse(Buffer.from(auth.split('.')[1],'base64url')).sub})
@@ -37,14 +44,19 @@ const fetchFixture=async (target,init={})=>{
     const input=JSON.parse(init.body)
     assert(metadataOnly(input,[marker]),'Persistence boundary rejected')
     writes.push(input)
+    if(path.endsWith('lifecycle_delivery_allowed')) {
+      assert.deepEqual(Object.keys(input).sort(),['p_environment','p_owner']);assert.equal(input.p_environment,'development');assert([owner,stranger].includes(input.p_owner))
+      return json(true)
+    }
     const id=key(input.p_user,input.p_action)
     if(path.endsWith('ai_eligibility'))return json(policy)
+    if(path.endsWith('ai_service_status'))return json(access(init.headers))
     if(path.endsWith('ai_receipt')) {
       const row=rows.get(id)
       return json(row??null)
     }
     if(path.endsWith('ai_admit')) {
-      if(!policy)return json({error:'permission_denied'})
+      const eligibility=access(init.headers);if(!eligibility.eligible)return json(eligibility)
       if(rows.has(id))return json({existing:true,receipt:rows.get(id)})
       const issued=parseInt(input.p_action.replaceAll('-','').slice(0,12),16)
       if(issued<Date.now()-300000 || issued>Date.now()+60000)return json({error:'action_expired'})
@@ -64,7 +76,7 @@ const fetchFixture=async (target,init={})=>{
   }
   assert.equal(new URL(target).origin,'https://openrouter.ai')
   if (path === '/api/v1/generation') return json({data:{id:new URL(target).searchParams.get('id'),total_cost:0.00005,tokens_prompt:60,tokens_completion:2,native_tokens_prompt:50,native_tokens_completion:0}})
-  if (path.endsWith('/endpoints')) return json({data:{endpoints:(path.includes('typesafe')?['typesafe']:path.includes('flash-1017')?['deepseek','deepinfra/fp8']:['deepinfra/fp8']).map(tag=>({tag,status:0,supported_parameters:metadataMode==='no-effort'?['response_format','structured_outputs']:metadataMode==='no-format'?['reasoning_effort']:['response_format','structured_outputs','reasoning_effort'],pricing:{prompt:metadataMode==='unknown'?null:metadataMode==='expensive'?'1':'0.000000042',completion:'0',...(metadataMode==='request-fee'?{request:'1'}:{})}}))}})
+  if (path.endsWith('/endpoints')) {metadataCalls++;if(metadataMode==='expire-after-access')serviceState='expired';return json({data:{endpoints:(path.includes('typesafe')?['typesafe']:path.includes('flash-1017')?['deepseek','deepinfra/fp8']:['deepinfra/fp8']).map(tag=>({tag,status:0,supported_parameters:metadataMode==='no-effort'?['response_format','structured_outputs']:metadataMode==='no-format'?['reasoning_effort']:['response_format','structured_outputs','reasoning_effort'],pricing:{prompt:metadataMode==='unknown'?null:metadataMode==='expensive'?'1':'0.000000042',completion:'0',...(metadataMode==='request-fee'?{request:'1'}:{})}}))}})}
   providerCalls++
   if(providerGate){providerStarted?.();await providerGate}
   const input=JSON.parse(init.body)
@@ -100,10 +112,13 @@ await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0
 const endpoint=`http://127.0.0.1:${server.address().port}`
 const checks=[]
 const check=name=>{checks.push(name);console.log(`pass ${name}`)}
-const call=(body,token=jwt(owner),path='')=>fetch(endpoint+path,{method:body===undefined?'GET':'POST',headers:{...(token?{authorization:`Bearer ${token}`}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})})
+const call=(body,token=jwt(owner),path='',headers={})=>fetch(endpoint+path,{method:body===undefined?'GET':'POST',headers:{...(token?{authorization:`Bearer ${token}`}:{}) ,...headers},...(body===undefined?{}:{body:JSON.stringify(body)})})
 const evaluate=(id=actionId())=>({version:2,consentScopeVersion:3,actionId:id,request:{capability:'evaluate',input:{state:{text:privateText},questions:{task:{type:'boolean',instructions:'Is this a task?',criteria:{true:'yes',false:'no'}}}}}})
 const report={ok:false,scope:'Controlled HTTP with real production handler, shared schemas/prompts and full fixture-owned metadata boundaries; synthetic Auth, SQL ledger and provider dependencies. No live SQL concurrency, model quality or real cost claim.',runtime:{node:process.version,platform:process.platform,arch:process.arch},checks}
 try {
+  assert(metadataOnly({p_environment:'development',p_owner:owner},[marker]))
+  for(const payload of [{p_owner:privateText},{p_owner:'-'.repeat(36)},{p_owner:owner,unexpected:owner}]) assert.equal(metadataOnly(payload,[marker]),false)
+  check('Lifecycle metadata accepts only a UUID owner and rejects private text, malformed identities and unknown fields')
   assert.equal((await call(evaluate(),null)).status,401)
   assert.equal((await call(evaluate(),jwt(owner,{iss:'https://wrong-project.invalid/auth/v1'}))).status,401)
   assert.equal((await call(evaluate(),jwt(owner,{exp:1}))).status,401)
@@ -201,6 +216,27 @@ try {
   check('Original POST response is dropped only after ledger settlement; transport GET and repeated attempt cannot recover content or repeat inference')
   const callsBeforePolicy=providerCalls
   policy=false;assert.equal((await call(evaluate())).status,403);assert.equal(providerCalls,callsBeforePolicy);check('Unknown or unavailable authorization policy fails closed')
+  policy=true;admissionPolicy='trial_or_paid';const serviceHeaders={'x-goalloom-service-version':'1'}
+  const paidBefore={calls:providerCalls,metadata:metadataCalls,spent,rows:rows.size}
+  assert.equal((await call(evaluate())).status,409)
+  for(const [state,error,status] of [['none','service_not_started',403],['expired','service_expired',403],['revoked','service_revoked',403],['configuration','billing_configuration',503]]){
+    serviceState=state;const denied=await call(evaluate(),jwt(owner),'',serviceHeaders);assert.equal(denied.status,status);assert.equal((await denied.json()).error,error)
+    assert.equal((await call(undefined,jwt(owner),'?status=1',serviceHeaders)).status,status)
+  }
+  assert.deepEqual({calls:providerCalls,metadata:metadataCalls,spent,rows:rows.size},paidBefore)
+  check('Paid-mode version, inactive/revoked and missing-configuration denials precede model metadata, inference and reservation')
+  for(const state of ['trialing','active','grace']){serviceState=state;assert.equal((await (await call(undefined,jwt(owner),'?status=1',serviceHeaders)).json()).eligible,true)}
+  serviceState='trialing';providerMode='success';limit=10000000;const trialAction=evaluate();assert.equal((await call(trialAction,jwt(owner),'',serviceHeaders)).status,200)
+  serviceState='expired';const receiptCalls=providerCalls,receiptSpent=spent
+  assert.equal((await call(undefined,jwt(owner),`?actionId=${trialAction.actionId}`)).status,409)
+  assert.equal((await call(trialAction,jwt(owner),'',serviceHeaders)).status,403);assert.equal(providerCalls,receiptCalls);assert.equal(spent,receiptSpent)
+  check('Trial/paid/grace eligibility uses the original fee path; receipt-only recovery remains available after expiry without a second inference')
+  serviceState='active';metadataMode='expire-after-access';const atomicBefore={calls:providerCalls,spent,rows:rows.size}
+  const atomicDenied=await call(evaluate(),jwt(owner),'',serviceHeaders);assert.equal(atomicDenied.status,403);assert.equal((await atomicDenied.json()).error,'service_expired')
+  assert.deepEqual({calls:providerCalls,spent,rows:rows.size},atomicBefore);metadataMode='ready'
+  check('Atomic admission rechecks service after the early gate and retains all existing accounting when access changes')
+  for(const status of [429,503]){authStatus=status;assert.equal((await call(evaluate(),jwt(owner),'',serviceHeaders)).status,503)}authStatus=200
+  check('Transient Auth failures remain unavailable rather than authentication expiry')
   assert(metadataOnly([...rows.values()],[marker]));assert(writes.every(write=>metadataOnly(write,[marker])));check('Full nested persistence inputs and records contain only approved metadata, including failed upstream bodies')
   report.ok=true;report.providerCalls=providerCalls;report.realProviderCalls=0;report.realCostUsd=0;report.syntheticLedgerMicro=spent
 } catch(error){report.error='acceptance_failed';report.location=error.stack?.match(/http-acceptance\.mjs:\d+:\d+/)?.[0]??null;process.exitCode=1} finally {await new Promise(resolve=>server.close(resolve));await writeFile(resolve(out,'http-acceptance.json'),JSON.stringify(report,null,2)+'\n');console.log(`Evidence: ${resolve(out,'http-acceptance.json')}`)}

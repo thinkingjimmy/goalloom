@@ -52,7 +52,7 @@ async function main() {
     await peer.service.schedule.settle()
   }
   async function create(peer: any, title: string) {
-    const view: any = await peer.storage.call('sync', { type: 'view' })
+    const view: any = await peer.service.local({ type: 'view' })
     return peer.storage.call('command', { type: 'create', operationId: randomUUID(), generation: view.generation, title, horizon: 'day' })
   }
   try {
@@ -246,7 +246,7 @@ async function main() {
     check('S05/S06: lost socket returns to short HTTP fallback; actual SDK resubscription immediately revalidates')
 
     b.service.schedule.stop()
-    await a.storage.call('sync', { type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: 'change', entries: [{ key: 'theme', value: 'dark' }] })
+    await a.service.local({ type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: 'change', entries: [{ key: 'theme', value: 'dark' }] })
     let releaseProjection!: (rows: string[]) => void
     a.service.deps.onSettings = () => new Promise<string[]>(resolve => { releaseProjection = resolve })
     const project = a.service.projectRemote.bind(a.service)
@@ -269,7 +269,7 @@ async function main() {
     cloud.controls.dropped = false
     const changed = await a.service.handle({ type: 'change-password', password: 'synthetic-updated-password' })
     assert.equal(changed.status.error, null)
-    assert.equal(a.service.client.getChannels().filter((channel: any) => channel.topic === `realtime:ws:${a.service.secrets.workspaceId}`).length, 1)
+    assert.equal(a.service.client.getChannels().filter((channel: any) => channel.topic === `realtime:cloud:v1:ws:${a.service.secrets.workspaceId}`).length, 1)
     await create(b, 'Notification after password change'); await b.service.handle({ type: 'retry' }); await settle(b)
     await until(async () => { await clock.advance(0); await a.service.schedule.settle(); return sql(a, "SELECT id FROM items WHERE title='Notification after password change'").length === 1 }, 'head after same-binding lifecycle change')
     check('S06/S10: changing the sync password reuses one SDK subscription and subsequent notifications still download immediately')

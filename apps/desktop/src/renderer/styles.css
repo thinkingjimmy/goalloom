@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Semantic theme tokens, native defaults, the opt-in macOS skin, shared component markers and feature state attributes.
  * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
- *           Trailing More/Add controls stay adjacent and reveal together on column hover, header keyboard focus or an open column menu. Placement drag cards keep full titles and wrap long URLs within their width.
+ *           Trailing More/Add controls stay adjacent and reveal together on column hover, header keyboard focus or an open column menu. Placement drag cards keep full titles and wrap long URLs within their width. Persistent notifications and Undo Toasts share surfaces and action states.
  * [POS]: Renderer entry and coordinated feature/platform styles; ordinary layout and shared controls use Tailwind.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -37,23 +37,31 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 /* New-version dot: sits on the gear's upper-right, ringed with the bar colour so it reads on hover/pressed backgrounds too. */
 .settings-toggle { position: relative; }
 .update-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 0 2px var(--bg); pointer-events: none; }
-.notice-banner, .error-banner { flex-shrink: 0; display: flex; align-items: center; gap: 12px; margin: 0 20px 8px; padding: 9px 14px; border-radius: 10px; background: var(--hover); font-size: 12.5px; line-height: 1.6; }
-.notice-banner > span, .error-banner > span { flex: 1; min-width: 0; }
-.error-banner { background: var(--danger-tint); color: var(--danger); }
 .inline-error { color: var(--danger); font-size: 13px; margin: 0 0 12px; }
 .fab { position: fixed; right: 28px; bottom: 28px; width: 52px; height: 52px; border-radius: 26px; background: var(--raised); color: var(--fg); display: grid; place-items: center; box-shadow: 0 1px 2px rgba(60, 40, 20, .08), 0 6px 20px rgba(60, 40, 20, .12); z-index: 10; }
 .fab:hover { transform: translateY(-1px); }
 .feedback-layer { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; overflow: visible; background: transparent; pointer-events: none; }
 .feedback-layer::backdrop { background: transparent; pointer-events: none; }
-.toast { position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%); z-index: 40; min-height: 44px; max-width: calc(100vw - 48px); display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 18px; border-radius: 22px; background: var(--fg); color: var(--bg); font-size: 13px; box-shadow: 0 8px 24px rgba(40, 25, 10, .18); pointer-events: auto; }
+.feedback-surface { min-height: 44px; border-radius: 22px; background: var(--fg); color: var(--bg); font-size: 13px; line-height: 1.55; box-shadow: 0 8px 24px rgba(40, 25, 10, .18); pointer-events: auto; }
+.toast { position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%); z-index: 40; max-width: calc(100vw - 48px); display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 18px; }
 .toast-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; max-width: 420px; padding: 4px 0; }
-.toast-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast-title { white-space: pre-wrap; overflow-wrap: anywhere; }
 .toast-detail, .toast-warning { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .toast-detail { opacity: .8; }
 .toast-warning { max-height: 30vh; overflow-y: auto; }
-.toast-action { height: 32px; padding: 0 12px; border-radius: 16px; background: color-mix(in srgb, var(--bg) 14%, transparent); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-.toast .icon-button.small { color: inherit; opacity: .7; }
-.toast .icon-button.small:hover { background: transparent; opacity: 1; }
+.feedback-action { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-height: 32px; max-width: 100%; padding: 5px 12px; border-radius: 16px; background: color-mix(in srgb, currentColor 14%, transparent); font-weight: 600; line-height: 20px; white-space: normal; overflow-wrap: anywhere; }
+.feedback-action::before { content: ''; position: absolute; inset: -4px 0; }
+.feedback-action:enabled:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
+.feedback-action:disabled { opacity: .65; }
+.feedback-surface .icon-button.small { position: relative; color: inherit; opacity: .7; }
+.feedback-surface .icon-button.small::before { content: ''; position: absolute; inset: -6px; }
+.feedback-surface .icon-button.small:hover { background: transparent; opacity: 1; }
+.feedback-surface button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+@media (pointer: coarse) {
+  .feedback-action { min-height: 44px; }
+  .feedback-surface .icon-button.small { width: 44px; height: 44px; }
+  .feedback-action::before, .feedback-surface .icon-button.small::before { inset: 0; }
+}
 
 /* --- Board --- */
 .board-host { display: flex; flex: 1; min-width: 0; min-height: 0; }
@@ -543,9 +551,9 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
   .backlog-entry { align-self: flex-start; height: 24px; margin: 10px 0 0 var(--row-inset); padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 500;
     border: 1px solid color-mix(in oklab, var(--backlog) 30%, transparent); background: color-mix(in oklab, var(--backlog) 8%, transparent); }
   .backlog-entry:hover { text-decoration: none; background: color-mix(in oklab, var(--backlog) 14%, transparent); }
-  .toast { border-radius: 10px; background: var(--raised); color: var(--fg); box-shadow: var(--shadow-lg); padding-left: 16px; }
-  .toast-action { height: 30px; border-radius: 6px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--line), var(--shadow-xs); font-size: 12px; }
-  .toast-action:hover { background: var(--hover); }
+  .feedback-surface { border-radius: 10px; background: var(--raised); color: var(--fg); box-shadow: var(--shadow-lg); padding-left: 16px; }
+  .feedback-action { border-radius: 6px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--line), var(--shadow-xs); font-size: 12px; }
+  .feedback-action:enabled:hover { background: var(--hover); }
   .fab { width: 44px; height: 44px; border-radius: 22px; background: var(--fg); color: var(--bg); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .15), 0 4px 6px -4px rgba(0, 0, 0, .1); }
   .inline-link { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--faint); }
 }

@@ -31,3 +31,5 @@ scripts/
 `hosted-ai/acceptance-target.mjs` binds manual Auth/live/receipt runners to an explicit environment, isolated private session and evidence prefix. Production runs retain their original actions and fees; partial receipt checks report missing capability acceptance explicitly.
 
 `hosted-ai/content-rollout.mjs` provides explicit environment audit/pause/migrate/enable with existing-budget preservation. `hosted-ai/schema-state.mjs` verifies standalone hosted RPC source without inventing core migration history. `hosted-ai/content-minimization/` contains metadata-only privacy controls and the affected feature runner. Production activation from the older allocation script is retired for this rollout.
+
+`billing/` contains isolated D0 SQL/HTTP acceptance, scoped fixture recovery, test-only Stripe catalog/notification preparation and guarded development billing schema deployment. Real provider setup and controlled lifecycle evidence are distinct. These tools never invoke models, charge a live payment, change Apple configuration or activate production billing. See [billing tooling](billing/README.md).

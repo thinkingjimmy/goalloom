@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { configureSync } from './fixtures/billing.mjs'
 import { mkdir, mkdtemp, readFile, writeFile, readdir, unlink, rm } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
@@ -16,7 +17,17 @@ import { finishSetup } from './fixtures/setup.mjs'
 import { pollPage } from './fixtures/poll.mjs'
 
 const packaged = process.argv.includes('--packaged')
-const out = resolve('output/tests/sync-security', packaged ? 'packaged' : '.'); await mkdir(join(out, 'screenshots'), { recursive: true })
+const onboardingOnly = process.argv.includes('--onboarding-recovery')
+const directRecovery = process.argv.includes('--direct-first-recovery')
+const evidenceRoot = resolve('output/tests/sync-security', packaged ? 'packaged' : '.')
+const out = join(evidenceRoot, 'native-runs', String(Date.now())); await mkdir(join(out, 'screenshots'), { recursive: true })
+let directRecoveryEvidence
+if (!directRecovery) {
+  execFileSync(process.execPath, [resolve('tests/sync-security-native.mjs'), '--onboarding-recovery', '--direct-first-recovery', ...(packaged ? ['--packaged'] : [])], { stdio: 'inherit' })
+  const direct = JSON.parse(await readFile(join(evidenceRoot, 'native.json'), 'utf8'))
+  assert.equal(direct.ok, true)
+  directRecoveryEvidence = { artifactRoot: direct.artifactRoot, firstRunRecovery: direct.firstRunRecovery, checks: direct.checks }
+}
 const root = await mkdtemp(join(tmpdir(), 'goalloom-sync-security-ui-'))
 await build({ configFile: false, ssr: { noExternal: true }, define: { __GOALLOOM_BAKED_SUPABASE_ANON_KEY__: '""', __GOALLOOM_BAKED_SUPABASE_URL__: '""' }, build: {
   ssr: true, target: 'node24', minify: false, outDir: 'out/main', emptyOutDir: false,
@@ -44,7 +55,7 @@ const env = { ...process.env, GOALLOOM_SYNC_TEST_PROFILE: root }
 for (const name of ['ELECTRON_RUN_AS_NODE', 'ELECTRON_RENDERER_URL', 'GOALLOOM_SUPABASE_URL', 'GOALLOOM_SUPABASE_ANON_KEY']) delete env[name]
 let hypervisor = 'unknown'
 try { hypervisor = execFileSync('sysctl', ['-n', 'kern.hv_vmm_present'], { encoding: 'utf8' }).trim() } catch {}
-const report = { ok: false, checks: [], runtime: null, host: { os: release(), arch: arch(), cpu: cpus()[0]?.model,
+const report = { ok: false, directRecoveryEvidence, recoveryCase: directRecovery ? 'app-direct-confirmation' : 'cancel-then-settings', selection: onboardingOnly ? 'onboarding-recovery' : 'all', artifactRoot: out, checks: [], runtime: null, host: { os: release(), arch: arch(), cpu: cpus()[0]?.model,
   machine: hypervisor === '0' ? 'Physical host (no hypervisor reported)' : hypervisor === '1' ? 'VM' : 'Unknown' },
   scope: 'Source Electron main/renderer/preload/IPC/SQLite and native window. Synthetic Google, encrypted HTTP cloud, OS cipher and OS connectivity. No real Wi-Fi toggle, live OAuth, packaged or Windows acceptance.' }
 if (packaged) {
@@ -56,7 +67,10 @@ if (packaged) {
 let application, page
 const check = label => { report.checks.push(label); console.log(`PASS ${label}`) }
 const status = () => page.evaluate(async () => (await window.goalloom.sync({ type: 'status' })).status)
-const ready = () => pollPage(page, async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
+const ready = () => pollPage(page, async () => {
+  const status = (await window.goalloom.sync({ type: 'status' })).status
+  return status.phase === 'ready' && !status.syncing && status.pending === 0
+})
 const shot = name => page.screenshot({ path: join(out, `screenshots/${name}.png`) })
 async function signOut(settings, clear = false) {
   await settings.locator('.sync-account').getByRole('button').filter({ hasText: /^(退出登录|Sign out|ログアウト|Salir|Se déconnecter)$/ }).click()
@@ -70,18 +84,47 @@ try {
   page = await application.firstWindow(); await page.locator('.board').waitFor()
   page.on('pageerror', error => { report.rendererErrors ??= []; report.rendererErrors.push(error.message) })
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+  await application.context().tracing.start({ screenshots: true, snapshots: true, sources: false })
+  await application.evaluate(({ BrowserWindow }) => {
+    globalThis.syncSecurityNativeTimeline = []
+    for (const window of BrowserWindow.getAllWindows()) for (const type of ['focus', 'blur', 'show', 'hide']) window.on(type, () => {
+      globalThis.syncSecurityNativeTimeline.push({ at: Date.now(), type, focused: window.isFocused(), visible: window.isVisible() })
+    })
+  })
+  await page.evaluate(() => {
+    window.syncSecurityInteractions = []
+    const describe = node => node instanceof Element ? { tag: node.tagName, id: node.id, text: node.textContent?.slice(0, 80),
+      disabled: 'disabled' in node ? node.disabled : null, dialog: node.closest('dialog')?.getAttribute('aria-label') ?? null } : null
+    const record = (type, event) => {
+      const change = [...document.querySelectorAll('.sync-pane button')].find(node => /^(更改密码|Change password|パスワードを変更|Cambiar contraseña|Changer le mot de passe)$/.test(node.textContent ?? ''))
+      const entry = { at: Date.now(), type, target: describe(event?.target), active: describe(document.activeElement),
+        hit: event && 'clientX' in event ? describe(document.elementFromPoint(event.clientX, event.clientY)) : null,
+        documentFocused: document.hasFocus(), visibility: document.visibilityState, change: describe(change),
+        busy: [...document.querySelectorAll('.sync-pane [aria-busy],.sync-password-modal [aria-busy]')].map(node => node.getAttribute('aria-busy')),
+        dialogs: [...document.querySelectorAll('dialog')].map(node => ({ name: node.getAttribute('aria-label'), open: node.open })) }
+      window.syncSecurityInteractions.push(entry); window.syncSecurityInteractions = window.syncSecurityInteractions.slice(-250)
+      if (window.goalloom) void window.goalloom.sync({ type: 'status' }).then(reply => { entry.sync = { phase: reply.status.phase, syncing: reply.status.syncing, pending: reply.status.pending, error: reply.status.error } })
+    }
+    for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'focusin', 'focusout', 'visibilitychange']) document.addEventListener(type, event => record(type, event), true)
+    for (const type of ['focus', 'blur']) window.addEventListener(type, event => record(type, event))
+    new MutationObserver(changes => {
+      if (changes.some(change => change.type === 'attributes' || [...change.addedNodes, ...change.removedNodes].some(node => node instanceof Element && (node.matches('dialog') || node.querySelector('dialog'))))) record('modal-mutation')
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] })
+  })
   report.packaged = await application.evaluate(({ app }) => app.isPackaged)
   assert.equal(report.packaged, packaged)
   await page.locator('.settings-toggle').click()
   let settings = page.locator('dialog.settings-modal')
   await settings.locator('.settings-nav-label').filter({ hasText: /^同步$/ }).click()
   await settings.getByRole('button', { name: /Google/ }).click()
+  await configureSync(settings)
   await settings.locator('input[type="password"]').nth(0).fill('synthetic-sync-password')
   await settings.locator('input[type="password"]').nth(1).fill('synthetic-sync-password')
   await settings.getByRole('button', { name: '开始同步', exact: true }).click(); await ready()
   await application.evaluate(async () => { const f = globalThis.syncSecurityFixture; await f.connectB(); await f.settle(); f.originalId = f.a.service.secrets.workspaceId })
   assert.equal(await page.locator('.sync-diagnostics').count(), 0, 'Production renderer hides diagnostic status')
 
+  if (!onboardingOnly) {
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(800, 720))
   for (const [locale, language] of [['en', 'English'], ['ja', '日本語'], ['es', 'Español'], ['fr', 'Français'], ['zh', '简体中文']]) {
     await settings.locator('.settings-nav-label').filter({ hasText: /^(外观|Appearance|外観|Apariencia|Apparence)$/ }).click()
@@ -94,10 +137,14 @@ try {
     assert.equal(await modal.evaluate(node => node.scrollWidth <= node.clientWidth + 1), true)
     await shot(`signout-${locale}`)
     await page.keyboard.press('Escape'); assert.equal((await status()).phase, 'ready')
-    assert.equal(await settings.locator('.sync-account button').evaluate(node => node === document.activeElement), true)
+    await pollPage(page, label => document.activeElement?.textContent === label, await settings.locator('.sync-account button').textContent())
     assert.equal(await settings.locator('[aria-haspopup="dialog"]').filter({ hasText: /^(更改密码|Change password|パスワードを変更|Cambiar contraseña|Changer le mot de passe)$/ }).count(), 1)
     assert.equal(await settings.getByRole('button').filter({ hasText: /^(忘记密码|Forgot password|パスワードを忘れた|Olvidé la contraseña|Mot de passe oublié)/ }).count(), 0)
     const changeTrigger = settings.getByRole('button').filter({ hasText: /^(更改密码|Change password|パスワードを変更|Cambiar contraseña|Changer le mot de passe)$/ })
+    await ready()
+    const readiness = await status()
+    report.passwordReadiness ??= []
+    report.passwordReadiness.push({ locale, phase: readiness.phase, syncing: readiness.syncing, pending: readiness.pending, disabled: await changeTrigger.isDisabled() })
     await changeTrigger.click()
     const change = page.locator('dialog.sync-change-password-modal')
     await change.locator('input[type="password"]').nth(0).fill('new-sync-password')
@@ -106,9 +153,10 @@ try {
     assert.equal(await change.evaluate(node => node.scrollWidth <= node.clientWidth + 1), true)
     await shot(`change-password-${locale}`)
     await page.keyboard.press('Escape'); await change.waitFor({ state: 'detached' })
-    assert.equal(await changeTrigger.evaluate(node => node === document.activeElement), true)
+    await pollPage(page, label => document.activeElement?.textContent === label, await changeTrigger.textContent())
     await signOut(settings)
     await settings.getByRole('button', { name: /Google/ }).click()
+    await configureSync(settings)
     await pollPage(page, async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'enter-key')
     const forgot = settings.getByRole('button').filter({ hasText: /^(忘记密码？|Forgot password\?|パスワードを忘れた？|¿Olvidaste la contraseña\?|Mot de passe oublié \?)$/ })
     await forgot.click()
@@ -174,20 +222,26 @@ try {
   assert.deepEqual((await page.evaluate(() => window.goalloom.getSnapshot())).items, before.items)
   await application.evaluate(() => { globalThis.syncSecurityFixture.identity = 'other-alpha' })
   await settings.getByRole('button', { name: /Google/ }).click()
+  await configureSync(settings)
   await pollPage(page, async () => (await window.goalloom.sync({ type: 'status' })).status.error === 'mismatch')
   await shot('account-switch-rejected')
   await application.evaluate(() => { globalThis.syncSecurityFixture.identity = 'alpha' })
   await settings.getByRole('button', { name: /Google/ }).click()
+  await configureSync(settings)
   await settings.locator('input[type="password"]').fill('changed-ui-password')
   await settings.getByRole('button', { name: '继续', exact: true }).click(); await ready()
   check('Real keep-local IPC preserves tasks; a different account cannot upload the bound board')
 
   await signOut(settings)
   await settings.getByRole('button', { name: /Google/ }).click()
+  await configureSync(settings)
   await settings.getByRole('button', { name: '忘记密码？', exact: true }).click()
   let recovery = page.locator('dialog.sync-recovery-modal .sync-recovery-form')
   await recovery.locator('input[type="password"]').nth(0).fill('independent-password')
   await recovery.locator('input[type="password"]').nth(1).fill('independent-password')
+  assert.equal(await recovery.getByRole('checkbox').isChecked(), false)
+  assert.equal(await recovery.locator('button[type="submit"]').isEnabled(), false)
+  await recovery.getByRole('checkbox').check()
   await recovery.locator('button[type="submit"]').click(); await recovery.waitFor({ state: 'detached' }); await ready()
   await application.evaluate(async () => {
     const f = globalThis.syncSecurityFixture; await f.settle()
@@ -199,6 +253,7 @@ try {
 
   await signOut(settings)
   await settings.getByRole('button', { name: /Google/ }).click()
+  await configureSync(settings)
   await settings.getByRole('button', { name: '忘记密码？', exact: true }).click()
   recovery = page.locator('dialog.sync-recovery-modal .sync-recovery-form')
   await recovery.locator('summary').click()
@@ -235,7 +290,7 @@ try {
   report.networkEvidence = await application.evaluate(async () => {
     const f = globalThis.syncSecurityFixture
     return { view: await f.a.storage.call('sync', { type: 'view' }), status: (await f.a.service.handle({ type: 'status' })).status,
-      pending: await f.a.storage.call('sync', { type: 'peek' }), requests: f.cloud.requests.slice(-15),
+      pending: await f.a.service.local({ type: 'peek' }), requests: f.cloud.requests.slice(-15),
       selected: f.a.service.secrets.workspaceId, cloud: f.cloud.world.workspace.id }
   })
   assert(report.uploadedTaskTitles.includes('Native offline edit'), `Upload not verified: ${JSON.stringify(report.uploadedTaskTitles)}`)
@@ -248,6 +303,7 @@ try {
   assert.deepEqual((await page.evaluate(() => window.goalloom.getSnapshot())).items, [])
   await application.evaluate(() => { globalThis.syncSecurityFixture.identity = 'other-alpha' })
   await page.getByRole('button', { name: /Google/ }).click()
+  await configureSync(page)
   await page.locator('input[type="password"]').fill('synthetic-sync-password')
   await page.getByRole('button', { name: '继续', exact: true }).click()
   await page.locator('.board').waitFor()
@@ -261,6 +317,7 @@ try {
   await signOut(settings, true); await page.locator('.start-cards').waitFor()
   await application.evaluate(() => { globalThis.syncSecurityFixture.identity = 'alpha' })
   await page.getByRole('button', { name: /Google/ }).click()
+  await configureSync(page)
   await page.locator('input[type="password"]').fill('reset-password')
   await page.getByRole('button', { name: '继续', exact: true }).click(); await page.locator('.board').waitFor()
   const restoredTasks = (await page.evaluate(() => window.goalloom.getSnapshot())).items
@@ -269,31 +326,73 @@ try {
   assert(!restoredTasks.some(item => item.title === 'Other account cloud task'))
   check('The original account can sign in again and recover its cloud tasks after another account used the computer')
 
+  } else {
+    await page.keyboard.press('Escape'); await settings.waitFor({ state: 'detached' })
+  }
+
   await page.locator('.settings-toggle').click(); settings = page.locator('dialog.settings-modal')
   await settings.locator('.settings-nav-label').filter({ hasText: /^同步$/ }).click()
   await signOut(settings, true); await page.locator('.start-cards').waitFor()
   await page.getByRole('button', { name: /Google/ }).click()
+  await configureSync(page)
+  const beforeSetupRecovery = await application.evaluate(() => globalThis.syncSecurityFixture.cloud.world.workspaces.size)
   await page.getByRole('button', { name: '忘记密码？', exact: true }).click()
-  const onboardingRecovery = page.locator('dialog').filter({ has: page.locator('.sync-recovery-form') })
+  await page.locator('.calendar-modes').waitFor()
+  assert.equal(await page.locator('.sync-recovery-modal').count(), 0)
+  assert.equal(await application.evaluate(() => globalThis.syncSecurityFixture.cloud.world.workspaces.size), beforeSetupRecovery)
+  const direction = 'Confirmed recovery direction'
+  await finishSetup(page, { skipAi: false, direction }); await page.locator('.board').waitFor()
+  const onboardingRecovery = page.locator('.sync-recovery-modal')
+  await onboardingRecovery.waitFor()
+  const configured = await page.evaluate(() => window.goalloom.getSnapshot())
+  assert(configured.workspace.setupConfirmedAt); assert(configured.items.some(item => item.title === direction))
+  await onboardingRecovery.getByText(/仅含当前云端状态，不含原设备的本地历史和撤销记录。\s+1 · \d+$/).waitFor()
+  assert.deepEqual(await onboardingRecovery.locator('input[type="password"]').evaluateAll(inputs => inputs.map(input => input.value)), ['', ''])
+  assert.equal(await onboardingRecovery.getByRole('checkbox').isChecked(), false)
+  assert.equal(await onboardingRecovery.locator('button[type="submit"]').isEnabled(), false)
+  assert.equal(await application.evaluate(() => globalThis.syncSecurityFixture.cloud.world.workspaces.size), beforeSetupRecovery)
+  if (!directRecovery) {
+  await onboardingRecovery.getByRole('button', { name: '取消', exact: true }).click(); await onboardingRecovery.waitFor({ state: 'detached' })
+  const afterCancel = await page.evaluate(() => window.goalloom.getSnapshot())
+  assert.equal(afterCancel.workspace.generation, configured.workspace.generation); assert.deepEqual(afterCancel.workspace.calendar, configured.workspace.calendar)
+  assert(afterCancel.workspace.setupConfirmedAt); assert(afterCancel.items.some(item => item.title === direction)); assert.equal(await page.locator('.calendar-modes, .start-cards').count(), 0)
+  assert.equal(await application.evaluate(() => globalThis.syncSecurityFixture.cloud.world.workspaces.size), beforeSetupRecovery)
+  await page.locator('.settings-toggle').click(); settings = page.locator('dialog.settings-modal')
+  await settings.locator('.settings-nav-label').filter({ hasText: /^同步$/ }).click()
+  await settings.getByRole('button', { name: '忘记密码？', exact: true }).click(); await onboardingRecovery.waitFor()
+  assert.deepEqual(await onboardingRecovery.locator('input[type="password"]').evaluateAll(inputs => inputs.map(input => input.value)), ['', ''])
+  assert.equal(await onboardingRecovery.getByRole('checkbox').isChecked(), false)
+  }
   await onboardingRecovery.locator('input[type="password"]').nth(0).fill('first-run-recovery-password')
   await onboardingRecovery.locator('input[type="password"]').nth(1).fill('first-run-recovery-password')
-  const beforeSetupRecovery = await application.evaluate(() => globalThis.syncSecurityFixture.cloud.world.workspaces.size)
-  await onboardingRecovery.locator('button[type="submit"]').click()
-  await page.locator('.calendar-modes').waitFor()
-  assert.equal(await application.evaluate(() => globalThis.syncSecurityFixture.cloud.world.workspaces.size), beforeSetupRecovery)
-  await finishSetup(page); await ready()
+  await onboardingRecovery.getByRole('checkbox').check(); await onboardingRecovery.locator('button[type="submit"]').click()
+  await onboardingRecovery.waitFor({ state: 'detached' }); await ready()
   assert.equal(await application.evaluate(() => globalThis.syncSecurityFixture.cloud.world.workspaces.size), beforeSetupRecovery + 1)
+  report.firstRunRecovery = await application.evaluate(() => {
+    const f = globalThis.syncSecurityFixture, workspace = f.cloud.world.workspaces.get(f.a.service.secrets.workspaceId)
+    return { workspaceId: workspace.id, generation: workspace.generation, headSeq: workspace.headSeq, receipt: workspace.initialization?.receipt, titles: f.cloudTaskTitles(), incomplete: [...f.cloud.world.workspaces.values()].filter(row => row.initialization && !row.initialization.receipt).length }
+  })
+  assert(report.firstRunRecovery.receipt); assert(report.firstRunRecovery.titles.includes(direction)); assert.equal(report.firstRunRecovery.incomplete, 0)
   await shot('recovery-explicit-calendar-confirmation')
-  check('First-run recovery waits for explicit calendar/setup confirmation before creating the new cloud workspace')
+  check(directRecovery
+    ? 'App-owned first recovery directly confirms fresh setup review and creates exactly one complete seed with the annual direction'
+    : 'Separate recovery profile cancels without initialization, preserves local setup and later confirms fresh Settings recovery')
   assert.deepEqual(report.rendererErrors ?? [], [])
   report.ok = true
 } catch (error) {
+  report.syncFailureState = await page?.evaluate(() => window.goalloom.sync({ type: 'status' })).catch(() => null)
+  report.initializationEvidence = await application?.evaluate(() => [...globalThis.syncSecurityFixture.cloud.world.workspaces.values()].map(workspace => ({ workspaceId: workspace.id, generation: workspace.generation, headSeq: workspace.headSeq, initialization: workspace.initialization ? { requestId: workspace.initialization.requestId, finalOpId: workspace.initialization.finalOpId, finalSeq: workspace.initialization.finalSeq ?? null, complete: !!workspace.initialization.receipt } : null }))).catch(() => null)
+  report.interactions = await page?.evaluate(() => window.syncSecurityInteractions).catch(() => null)
   report.error = error?.stack ?? String(error)
   if (application) report.appState = await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible() }))).catch(() => null)
   if (page) { report.activeElement = await page.evaluate(() => ({ tag: document.activeElement?.tagName, className: document.activeElement?.className })).catch(() => null); await shot('failure').catch(() => {}) }
   throw error
 } finally {
+  report.interactions = await page?.evaluate(() => window.syncSecurityInteractions).catch(() => null)
+  report.nativeTimeline = await application?.evaluate(() => globalThis.syncSecurityNativeTimeline).catch(() => null)
+  await application?.context().tracing.stop({ path: join(out, 'trace.zip') }).catch(() => {})
   await writeFile(join(out, 'native.json'), JSON.stringify(report, null, 2))
+  await writeFile(join(evidenceRoot, 'native.json'), JSON.stringify(report, null, 2))
   await application?.close().catch(() => {})
   for (const file of await readdir('out/main')) if (file.startsWith('sync-security-')) await unlink(join('out/main', file))
   await rm(root, { recursive: true, force: true })

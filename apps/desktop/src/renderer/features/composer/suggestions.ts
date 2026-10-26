@@ -28,7 +28,7 @@ export function linkParent(draft: EditableDraft, key: ParentKey, drafts: Editabl
   const move = moveFor(draft, key, drafts, parents)
   if (move === null) return null
   const moved = move ? touch(draft, { horizon: move, horizonSuggestion: null, horizonInferred: false }, 'horizon') : draft
-  return touch(moved, { parents: [...moved.parents, key], parentSuggestions: moved.parentSuggestions.filter(row => !sameParent(row, key)) }, 'parents')
+  return touch(moved, { nesting: undefined, parents: [...moved.parents, key], parentSuggestions: moved.parentSuggestions.filter(row => !sameParent(row, key)) }, 'parents')
 }
 
 // An uncertain fragment folded into the draft before it: its text joins that description, links to it follow.

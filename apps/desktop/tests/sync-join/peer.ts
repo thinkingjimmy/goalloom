@@ -68,7 +68,7 @@ export async function settle(...peers: any[]) {
 }
 export async function closePeer(peer: any) { peer.service.stop(); await peer.service.schedule.settle(); await peer.storage.close() }
 export async function command(peer: any, input: object) {
-  const view = await peer.storage.call('sync', { type: 'view' })
+  const view = await (peer.service ? peer.service.local({ type: 'view' }) : peer.storage.call('sync', { type: 'view' }))
   const result = await peer.storage.call('command', { ...input, generation: view.generation, operationId: randomUUID() })
   assert(result.outcome === 'committed', JSON.stringify(result))
   return result

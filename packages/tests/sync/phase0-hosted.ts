@@ -4,9 +4,12 @@
  * [POS]: Hosted half of P0.7. Two Electron SQLite clients. No OAuth and no secrets in the log.
  */
 import { randomBytes, randomUUID } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { cleanupD1FixtureBilling } from '../../../scripts/billing/d1-fixture-cleanup'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { ed25519, x25519 } from '@noble/curves/ed25519.js'
-import { parseSyncOp, syncOpPayload, type SyncOp } from '@goalloom/contracts'
+import { parseSyncOp, cloudServiceHeaders, syncOpPayload, type SyncOp } from '@goalloom/contracts'
 import {
   hex, openOp, openSnapshot, rosterHash, sealOp, sealSnapshot, sha256Hex, signRoster, systemRandom, unhex, utf8,
 } from '@goalloom/crypto'
@@ -77,6 +80,7 @@ async function admin(url: string, serviceKey: string, path: string, init: Reques
 }
 
 export async function runHostedPrototype(input: { url: string; anonKey: string; serviceKey: string }): Promise<void> {
+  if (input.url !== 'https://asqyvcnxdltzzfutbbqy.supabase.co') throw Error('Prototype acceptance requires the isolated development project')
   const email = `p0-proto-${randomUUID()}@goalloom.test`
   const password = randomBytes(24).toString('base64url')
   const workspaceId = randomUUID()
@@ -86,6 +90,15 @@ export async function runHostedPrototype(input: { url: string; anonKey: string; 
   const sessions: Session[] = []
   let userId: string | null = null
   let objectPath = ''
+  let originalFailure: unknown = null
+  const cleanup = { billing: false, workspace: false, auth: false, errors: [] as string[] }
+  const evidence = resolve('output/tests/billing/desktop/d1-client/phase0')
+  const saveFixture = async () => {
+    if (!userId) return
+    await mkdir(evidence, { recursive: true, mode: 0o700 })
+    await writeFile(join(evidence, `${userId}.json`), JSON.stringify({ version: 1, project: input.url,
+      userId, email, scope: 'Exact synthetic phase0 fixture; no provider payment or AI calls', cleanup }, null, 2) + '\n', { mode: 0o600 })
+  }
 
   const pass = (name: string) => console.log(`pass  ${name}`)
 
@@ -96,11 +109,18 @@ export async function runHostedPrototype(input: { url: string; anonKey: string; 
     })
     userId = created.id ?? null
     assert(userId, 'admin creates a confirmed test user')
+    await saveFixture()
 
     for (const name of ['electron-a', 'electron-b']) {
-      const user = createClient(input.url, input.anonKey, { auth: { persistSession: false, autoRefreshToken: false } })
+      const user = createClient(input.url, input.anonKey, { global: { headers: cloudServiceHeaders }, auth: { persistSession: false, autoRefreshToken: false } })
       const signedIn = await user.auth.signInWithPassword({ email, password })
       if (signedIn.error || !signedIn.data.session) throw new Error(detail(signedIn.error))
+      if (sessions.length === 0) {
+        const trial = await fetch(`${input.url}/functions/v1/billing`, { method: 'POST',
+          headers: { authorization: `Bearer ${signedIn.data.session.access_token}`, apikey: input.anonKey, 'content-type': 'application/json', ...cloudServiceHeaders },
+          body: JSON.stringify({ action: 'claim_trial', requestId: randomUUID() }), redirect: 'error', signal: AbortSignal.timeout(30_000) })
+        if (!trial.ok || !(await trial.json()).eligible) throw Error('Synthetic account trial was not confirmed')
+      }
       const signSk = ed25519.utils.randomSecretKey()
       const boxPub = hex(x25519.getPublicKey(x25519.utils.randomSecretKey()))
       const registered = await user.rpc('register_device', {
@@ -215,7 +235,7 @@ export async function runHostedPrototype(input: { url: string; anonKey: string; 
     const lost = (await push(left, [sealedRecovery]))[0]
     assert(lost?.seq === 5 && lost.duplicate === false, 'server accepted the op whose response was discarded')
     const receipts = await left.user.rpc('receipts_for', {
-      p_workspace: workspaceId, p_device: left.deviceId, p_op_ids: [recovered.opId],
+      p_workspace: workspaceId, p_device: left.deviceId, p_op_ids: [recovered.opId], p_payload_hashes: [sealedRecovery.payload_hash],
     })
     if (receipts.error) throw new Error(detail(receipts.error))
     const found = (typeof receipts.data === 'string' ? JSON.parse(receipts.data) : receipts.data)?.[0]
@@ -273,20 +293,19 @@ export async function runHostedPrototype(input: { url: string; anonKey: string; 
     const body = exportCanonicalSnapshot(left.box.driver, { workspaceId, uptoSeq, keyEpoch: 2 })
     const plain = snapshotPlaintext(body)
     const ciphertext = sealSnapshot({ workspaceKey, workspaceId, uptoSeq, epoch: 2, plaintext: utf8(plain), random: systemRandom() })
-    objectPath = `workspaces/${workspaceId}/${uptoSeq}.bin`
+    objectPath = `workspaces/${workspaceId}/${generation}/${uptoSeq}.bin`
     const published = await service.from('snapshots').insert({
       workspace_id: workspaceId, upto_seq: uptoSeq, format_version: 1, key_epoch: 2,
       object_path: objectPath, sha256: sha256Hex(ciphertext), size: ciphertext.length, state: 'published', created_by: left.deviceId,
     }).select('upto_seq')
     if (published.error) throw new Error(detail(published.error))
-    const upload = await edge(input, left, 'upload')
     const bytes = new ArrayBuffer(ciphertext.byteLength)
     new Uint8Array(bytes).set(ciphertext)
-    const put = await fetch(upload.signedUrl, { method: 'PUT', headers: { 'content-type': 'application/octet-stream', 'x-upsert': 'true' }, body: new Blob([bytes]) })
-    if (!put.ok) throw new Error(`snapshot upload ${put.status} ${redact(await put.text())}`)
-    const download = await edge(input, right, 'download')
-    const downloaded = await fetch(download.signedUrl)
-    if (!downloaded.ok) throw new Error(`snapshot download ${downloaded.status} ${redact(await downloaded.text())}`)
+    const put = await edge(input, left, 'PUT', objectPath, bytes)
+    const receipt = await put.json()
+    assert(receipt.sha256 === sha256Hex(ciphertext) && receipt.size === ciphertext.length, 'upload receipt matches original bytes')
+    const downloaded = await edge(input, right, 'GET', objectPath)
+    assert(downloaded.headers.get('x-goalloom-content-sha256') === sha256Hex(ciphertext), 'download is bound to the approved hash')
     const got = new Uint8Array(await downloaded.arrayBuffer())
     assert(hex(got) === hex(ciphertext), 'downloaded snapshot bytes match the upload')
     const opened = new TextDecoder().decode(openSnapshot({ workspaceKey, workspaceId, uptoSeq, epoch: 2, ciphertext: got }))
@@ -302,14 +321,30 @@ export async function runHostedPrototype(input: { url: string; anonKey: string; 
       joiner.db.close()
     }
     pass('snapshot join')
-  } finally {
-    for (const session of sessions) session.box.db.close()
+  } catch (error) { originalFailure = error; throw error }
+  finally {
+    const failures: unknown[] = []
+    const failed = (stage: string, error: unknown) => { cleanup.errors.push(stage); failures.push(error) }
+    for (const session of sessions) { try { session.box.db.close() } catch (error) { failed('local_database', error) } }
     if (userId) {
-      if (objectPath) await service.storage.from('snapshots').remove([objectPath]).catch(() => {})
-      await deleteHostedUser(service, userId).catch((error: unknown) => console.error(`row cleanup failed: ${detail(error)}`))
-      await admin(input.url, input.serviceKey, `/auth/v1/admin/users/${userId}`, { method: 'DELETE' }).catch((error: unknown) => console.error(`user cleanup failed: ${detail(error)}`))
+      if (objectPath) {
+        try { const result = await service.storage.from('snapshots').remove([objectPath]); if (result.error) throw result.error }
+        catch (error) { failed('snapshot', error) }
+      }
+      try { await cleanupD1FixtureBilling({ url: input.url, client: service, userId, email }); cleanup.billing = true }
+      catch (error) { failed('billing', error) }
+      try { await deleteHostedUser(service, userId); cleanup.workspace = true }
+      catch (error) { failed('workspace', error) }
+      try {
+        await admin(input.url, input.serviceKey, `/auth/v1/admin/users/${userId}`, { method: 'DELETE' })
+        const identity = await service.auth.admin.getUserById(userId)
+        if (identity.data.user || !identity.error || identity.error.status !== 404) throw Error('Synthetic Auth deletion was not confirmed')
+        cleanup.auth = true
+      } catch (error) { failed('auth', error) }
     }
-    await Promise.all(sessions.map(session => session.user.realtime.disconnect().catch(() => {})))
+    await Promise.all(sessions.map(async session => { try { await session.user.realtime.disconnect() } catch (error) { failed('realtime', error) } }))
+    await saveFixture()
+    if (failures.length) throw new AggregateError(originalFailure ? [originalFailure, ...failures] : failures, 'Exact synthetic phase0 cleanup failed; inspect its retained manifest')
   }
 }
 
@@ -342,21 +377,18 @@ function redact(text: string): string {
   return text.replace(/token=[^&\s"]+/g, 'token=redacted').slice(0, 180)
 }
 
-async function edge(input: { url: string; anonKey: string }, session: Session, method: 'upload' | 'download'): Promise<{ signedUrl: string }> {
+async function edge(input: { url: string; anonKey: string }, session: Session, method: 'GET' | 'PUT', path: string, bytes?: ArrayBuffer): Promise<Response> {
   const access = (await session.user.auth.getSession()).data.session?.access_token
   assert(access, 'session expired')
   const upto = cursor(session.box)
-  const response = await fetch(`${input.url}/functions/v1/snapshot-url`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${access}`, apikey: input.anonKey, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      deviceId: session.deviceId, workspaceId: (session.box.driver.prepare('SELECT workspaceId FROM sync_state WHERE id=1').get()?.workspaceId),
-      seq: upto, path: `workspaces/${session.box.driver.prepare('SELECT workspaceId FROM sync_state WHERE id=1').get()?.workspaceId}/${upto}.bin`, method,
-    }),
+  const query = new URLSearchParams({ v: '1', deviceId: session.deviceId,
+    workspaceId: String(session.box.driver.prepare('SELECT workspaceId FROM sync_state WHERE id=1').get()?.workspaceId),
+    generation: String(session.box.driver.prepare('SELECT generation FROM workspace WHERE id=1').get()?.generation), seq: String(upto), path })
+  const response = await fetch(`${input.url}/functions/v1/snapshot-url?${query}`, {
+    method,
+    headers: { authorization: `Bearer ${access}`, apikey: input.anonKey, ...cloudServiceHeaders, ...(method === 'PUT' ? { 'content-type': 'application/octet-stream' } : {}) },
+    ...(bytes ? { body: bytes } : {}), redirect: 'error', signal: AbortSignal.timeout(30_000),
   })
-  const text = await response.text()
-  if (!response.ok) throw new Error(`snapshot-url ${method} ${response.status} ${redact(text)}`)
-  const body = JSON.parse(text) as { signedUrl?: string }
-  if (!body.signedUrl?.startsWith('http')) throw new Error('signed url missing')
-  return { signedUrl: body.signedUrl }
+  if (!response.ok) throw new Error(`snapshot transfer ${method} ${response.status} ${redact(await response.text())}`)
+  return response
 }

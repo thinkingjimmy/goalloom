@@ -1,17 +1,22 @@
 /**
- * [INPUT]: Workspace/current-period state, guarded writes, selected board periods, undo, flows, preferences and independent sync feedback.
- * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
- * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
+ * [INPUT]: Workspace/current-period state, guarded writes, setup recovery intent, selected periods, undo, flows, preferences, account-bound eligibility and sync feedback.
+ * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Persistent bottom-center notices share Undo Toast surfaces with adaptive trailing actions and no folding; pending receipts cannot be dismissed. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
+ * [POS]: Renderer root; owns setup-to-recovery intent, guards dialogs/shortcuts, keeps cloud cards outside Settings/recovery and retains the composer until generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { useCloud, runCloud } from './state/cloud'
+import { cloudCatalog } from '../shared/i18n/cloud'
+import { currentLocale } from './i18n'
 import { useSync } from './state/sync'
-import { TextButton, IconButton } from './components/ui/button'
-import { messages, smartMessages, useLocale } from './i18n'
+import { useBilling } from './state/billing'
+import { IconButton } from './components/ui/button'
+import { messages, settingsMessages, smartMessages, useLocale } from './i18n'
 import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { currentPeriod, workspaceDate } from '../domain/calendar'
 import type { ItemSummary, PlanningPeriod } from '../shared/contracts/entities'
 import { Icon } from './components/icons'
 import type { CalendarChoice } from './features/setup/Setup'
+import type { SetupRecoveryIntent } from './features/setup/StartGate'
 import { revealRow } from './features/board/VirtualRows'
 import { Board, type BoardInsight } from './features/board/Board'
 import type { ComposerSeed } from './features/composer/Seeded'
@@ -27,7 +32,8 @@ import { boardItemVisibility } from './features/board/visibility'
 import { TopBar } from './features/shell/TopBar'
 import { CompletionCelebration } from './features/shell/CompletionCelebration'
 import { FeedbackLayer } from './features/shell/FeedbackLayer'
-import { SyncFeedback } from './features/sync/SyncReview'
+import { WorkspaceNotice } from './features/shell/WorkspaceNotice'
+import { SyncNotice, SyncFeedback } from './features/sync/SyncReview'
 import { startDevicePrefs } from './state/device-prefs'
 import { desktopApi, useWorkspace } from './state/use-workspace'
 import { useFlows } from './state/flows'
@@ -43,6 +49,7 @@ import { timezoneNoticeToken, useDismissedNotice } from './state/notices'
 import { resetLinkPreviewCache } from './components/links/cache'
 
 const StartGate = lazy(() => import('./features/setup/StartGate').then(module => ({ default: module.StartGate })))
+const SyncRecovery = lazy(() => import('./features/shell/settings/SyncRecovery').then(module => ({ default: module.SyncRecovery })))
 const ItemDetail = lazy(() => import('./features/items/ItemDetail').then(module => ({ default: module.ItemDetail })))
 const Settings = lazy(() => import('./features/shell/settings/Settings').then(module => ({ default: module.Settings })))
 const CommandPalette = lazy(() => import('./features/shell/CommandPalette').then(module => ({ default: module.CommandPalette })))
@@ -54,10 +61,15 @@ const AiStep = lazy(() => import('./features/smart/AiStep').then(module => ({ de
 export function App() {
   // Re-render the whole tree on a language switch; state (drafts, undo stack, open dialogs) is kept.
   useLocale()
-  const { snapshot, error, errorCode, setError, busy, submit, write, retryWrite, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(item => boardItemVisibility(item))
+  const { snapshot, error, errorCode, setError, busy, working, submit, write, retryWrite, feedback, setFeedback, completion, undo, requestUndo, undoCount, pending, retry, refresh } = useWorkspace(item => boardItemVisibility(item))
   const ai = useAi(snapshot?.workspace.generation)
   const account = useSync()
+  const cloud = useCloud(account?.accountId ?? null)
+  const cloudText = cloudCatalog[currentLocale()]
+  const billing = useBilling()
+  const plusReady = !!account?.accountId && account.accountId === billing.state?.accountId && billing.state.access?.eligible === true
   const [composing, setComposing] = useState(false), [onboarding, setOnboarding] = useState(false)
+  const [setupRecovery, setSetupRecovery] = useState<SetupRecoveryIntent | null>(null), [setupRecoveryWorking, setSetupRecoveryWorking] = useState(false)
   const [composerGeneration, setComposerGeneration] = useState<string | null>(null)
   const columns = useColumns()
   const boardView = useBoardPeriods(snapshot, columns.visible)
@@ -71,6 +83,7 @@ export function App() {
   const [initialHelp, setInitialHelp] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [palette, setPalette] = useState(false)
+  const [syncReviewOpen, setSyncReviewOpen] = useState(false)
   const openPalette = () => startTransition(() => setPalette(true))
   const [filter, setFilter] = useState<string | null>(null)
   const previousFlows = useRef(snapshot)
@@ -140,7 +153,10 @@ export function App() {
   }, [theme])
   useEffect(() => { document.documentElement.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other' }, [])
   useEffect(() => startDevicePrefs(), [])
-  useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null); setReviewOpen(false) }, [snapshot?.workspace.generation])
+  useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null); setReviewOpen(false); setSetupRecovery(null) }, [snapshot?.workspace.generation])
+  useEffect(() => {
+    if (setupRecovery && (setupRecovery.accountId !== account?.accountId || setupRecovery.localGeneration !== snapshot?.workspace.generation)) setSetupRecovery(null)
+  }, [account?.accountId, snapshot?.workspace.generation, setupRecovery])
   // A promoted root keeps the selected flow; unrelated disappearance still returns to the full board.
   useEffect(() => {
     const previous = previousFlows.current; previousFlows.current = snapshot
@@ -164,7 +180,7 @@ export function App() {
     const confirmed = await write(async () => ({ type: 'confirmSetup', ...calendar, confirmed: true }), snapshot!.workspace.generation)
     if (!confirmed.ok) { setSetupErrorCode(confirmed.code); setError(confirmed.message); return false }
     if (!confirmed.result) return false
-    startTransition(() => setOnboarding(!(account?.accountId === ai.status?.hostedAccountId && ai.status?.hostedEligible === true)))
+    startTransition(() => setOnboarding(!plusReady))
     if (direction) {
       setDirectionPending(true)
       try {
@@ -174,6 +190,7 @@ export function App() {
     }
     return true
   }
+  const openSetupRecovery = async (intent: SetupRecoveryIntent): Promise<void> => { setSetupRecovery(intent) }
   useEffect(() => {
     if (directionLocation.current && directionLocation.current.generation !== snapshot?.workspace.generation) directionLocation.current = null
     const detail = directionLocation.current?.detail
@@ -189,6 +206,7 @@ export function App() {
       if (event.defaultPrevented || (event.target instanceof Element && event.target.closest('.context-menu'))) return
       const combo = event.isComposing ? null : parseEvent(event)
       if (!combo) return
+      if (setupRecovery) return
       if (document.querySelector('.sync-review-modal[open]')) return
       const editing = editingTarget(event.target)
       if (reviewOpen) return
@@ -206,7 +224,7 @@ export function App() {
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, reviewOpen, bindings, filterKeys, flows, selectFilter, columns])
+  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, setupRecovery, onboarding, composing, palette, seed, reviewOpen, bindings, filterKeys, flows, selectFilter, columns])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
   const workspaceZone = snapshot?.workspace.calendar?.timezone ?? null
   const timezoneNotice = useDismissedNotice('timezone', workspaceZone ? timezoneNoticeToken(Intl.DateTimeFormat().resolvedOptions().timeZone, workspaceZone) : null)
@@ -214,17 +232,12 @@ export function App() {
   return <div className="app-shell" onPointerDownCapture={() => { inputOrigin.current = 'pointer' }}
     onKeyDownCapture={event => { if (!event.nativeEvent.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) inputOrigin.current = 'keyboard' }}>
     <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
-      calendar={snapshot?.workspace.calendar ?? null} menuBlocked={!!selected || settings || palette || composing || !!seed || reviewOpen}
+      calendar={snapshot?.workspace.calendar ?? null} menuBlocked={!!selected || settings || !!setupRecovery || palette || composing || !!seed || reviewOpen}
       laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
       updateAvailable={hasUpdate(update)} openSearch={openPalette} openSettings={() => openSettings()} />
-    {snapshot?.workspace.clockAnomaly && <div className="notice-banner">{messages.clockWarning}<TextButton disabled={busy} onClick={() => void submit({ type: 'confirmClock', confirmed: true })}>{messages.confirmClock}</TextButton></div>}
-    {timezoneNotice.open && workspaceZone && <div className="notice-banner"><span>{messages.timezoneMismatch} {workspaceZone}。</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={timezoneNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
-    {snapshot?.workspace.pausedAfterRestore && <div className="notice-banner">{messages.restorePaused}<TextButton disabled={busy} onClick={() => void submit({ type: 'confirmRollover', confirmed: true })}>{messages.confirmRollover}</TextButton></div>}
-    {backupNotice.open && snapshot?.backupError && <div className="notice-banner"><span>{snapshot.backupError}</span><TextButton onClick={() => openSettings('backup')}>{messages.viewBackups}</TextButton><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={backupNotice.dismiss}><Icon name="close" size={16} /></IconButton></div>}
-    {error && <div className="error-banner" role="alert"><span>{error}</span>{pending && <TextButton onClick={() => void retry()}>{messages.retry}</TextButton>}<IconButton size="small" aria-label={messages.closeError} onClick={() => setError(null)}><Icon name="close" size={16} /></IconButton></div>}
-    {setupReady && snapshot && <SyncFeedback key={snapshot.workspace.generation} generation={snapshot.workspace.generation} />}
+    {setupReady && snapshot && <SyncFeedback key={snapshot.workspace.generation} generation={snapshot.workspace.generation} onOpenChange={setSyncReviewOpen} />}
     <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
-    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate skipAi={!!account?.accountId && account.accountId === ai.status?.hostedAccountId && ai.status?.hostedEligible === true} confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
+    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate generation={snapshot.workspace.generation} onRecoveryReady={openSetupRecovery} skipAi={plusReady} confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
       : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>
       <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={null} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight} ai={ai}
         write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || reviewOpen} /></div>
@@ -233,6 +246,11 @@ export function App() {
     </Suspense>
     <Suspense fallback={null}>
     {settings && snapshot && <Settings snapshot={snapshot} ai={ai} initial={settingsRequest.section} request={settingsRequest.at} submit={submit} refresh={refresh} busy={busy} select={select} close={() => setSettings(false)} />}
+    {setupReady && setupRecovery && setupRecovery.localGeneration === snapshot?.workspace.generation && setupRecovery.accountId === account?.accountId && <SyncRecovery expectedAccountId={setupRecovery.accountId} working={setupRecoveryWorking} error={account?.error ? settingsMessages.sync.errors[account.error] : undefined} close={() => setSetupRecovery(null)} run={async action => {
+      setSetupRecoveryWorking(true)
+      try { const reply = await desktopApi().sync(action); return !reply.status.error && reply.status.phase === 'ready' }
+      finally { setSetupRecoveryWorking(false) }
+    }} />}
     </Suspense>
     <Suspense fallback={null}>
     {palette && <CommandPalette close={() => setPalette(false)} select={select} undo={() => void undo()} canUndo={!busy && undoCount > 0} create={compose} openSettings={openSettings} bindings={bindings} calendar={snapshot?.workspace.calendar ?? null} observedAt={snapshot?.observedAt ?? ''} />}
@@ -247,7 +265,7 @@ export function App() {
     {seed && snapshot && setupReady && <Seeded key={seed.key} seed={seed} snapshot={snapshot} flows={flows} submit={submit} busy={busy} error={error} close={() => setSeed(null)} />}
     </Suspense>
     <Suspense fallback={null}>
-    {selected && snapshot && <ItemDetail navigate={setSelected} key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} decompose={async () => {
+    {selected && snapshot && <ItemDetail key={`${snapshot.workspace.generation}:${selected}`} itemId={selected} decompose={async () => {
         try {
           const detail = await desktopApi().getItem(selected), target = shorter(detail.item.placement.horizon)
           if (!target) return
@@ -259,7 +277,19 @@ export function App() {
       }} connect={() => { closeDetail(); openSettings('ai') }} initialAssistance={initialHelp} close={closeDetail} generation={snapshot.workspace.generation} write={write} retryWrite={retryWrite} revision={snapshot.workspace.revision} blocked={!!pending || !!snapshot.maintenance}
       flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} />}
     </Suspense>
-    {feedback && <FeedbackLayer><div ref={toastRef} className="toast" key={feedback.result.operationId} data-warning={!!feedback.warning}
+    <FeedbackLayer><div className="feedback-layout">
+      <div className="workspace-notices">
+        {!settings && !setupRecovery && cloud?.notices.map(notice => <WorkspaceNotice className="cloud-notice" key={`${notice.target.workspaceId}:${notice.target.generation}`} action={{ label: cloudText.settings, onClick: () => openSettings('sync') }} dismiss={{ label: cloudText.dismiss, onClick: () => { if (cloud.accountId) void runCloud({ type: 'dismiss', expectedAccountId: cloud.accountId, target: notice.target, stage: notice.stage }) } }}>{cloudText[notice.stage]}{notice.retrieveUntil && <> {cloudText.deadline} {new Date(notice.retrieveUntil).toLocaleDateString(currentLocale())}</>}</WorkspaceNotice>)}
+        {(pending || error) && <WorkspaceNotice severity="error"
+          action={pending ? { label: working ? messages.checking : messages.retry, onClick: () => void retry(), disabled: working, checking: working } : undefined}
+          dismiss={pending ? undefined : { label: messages.closeError, onClick: () => setError(null) }}>{pending ? messages.saveUnknown : error}</WorkspaceNotice>}
+        {snapshot?.workspace.clockAnomaly && <WorkspaceNotice action={{ label: messages.confirmClock, disabled: busy, onClick: () => void submit({ type: 'confirmClock', confirmed: true }) }}>{messages.clockWarning}</WorkspaceNotice>}
+        {snapshot?.workspace.pausedAfterRestore && <WorkspaceNotice action={{ label: messages.confirmRollover, disabled: busy, onClick: () => void submit({ type: 'confirmRollover', confirmed: true }) }}>{messages.restorePaused}</WorkspaceNotice>}
+        {backupNotice.open && snapshot?.backupError && <WorkspaceNotice action={{ label: messages.viewBackups, onClick: () => openSettings('backup') }} dismiss={{ label: messages.dismissNotice, onClick: backupNotice.dismiss }}>{snapshot.backupError}</WorkspaceNotice>}
+        {timezoneNotice.open && workspaceZone && <WorkspaceNotice dismiss={{ label: messages.dismissNotice, onClick: timezoneNotice.dismiss }}>{messages.timezoneMismatch} {workspaceZone}。</WorkspaceNotice>}
+        {setupReady && snapshot && !syncReviewOpen && <SyncNotice />}
+      </div>
+    {feedback && <div ref={toastRef} className="toast feedback-surface" key={feedback.result.operationId} data-warning={!!feedback.warning}
       onMouseEnter={() => setToastHeld(true)} onMouseLeave={event => setToastHeld(event.currentTarget.contains(document.activeElement))}
       onFocus={() => setToastHeld(true)} onBlur={event => setToastHeld(event.currentTarget.matches(':hover') || event.currentTarget.contains(event.relatedTarget))}>
       <div className="toast-copy" role={feedback.warning ? 'alert' : 'status'}>
@@ -267,16 +297,17 @@ export function App() {
         {feedback.detail && <span className="toast-detail">{feedback.detail}</span>}
         {feedback.warning && <span className="toast-warning">{feedback.warning}</span>}
       </div>
-      {!feedback.result.undoable && !feedback.result.originalOperationId && <button className="toast-action" onClick={() => openSettings('calendar')}>{messages.viewBatches}</button>}
-      {feedback.result.undoable && <button className="toast-action" disabled={busy} onClick={() => void undo(feedback.result.operationId)}>{messages.undo}{bindings.undo && <kbd>{formatCombo(bindings.undo)}</kbd>}</button>}
-      {feedback.result.restoreSource && !feedback.result.itemId && (feedback.result.itemIds?.length ?? 0) > 1 && <button className="toast-action" onClick={() => { setFeedback(null); openSettings('trash') }}>{smartMessages.viewTrash}</button>}
-      {feedback.result.restoreSource && feedback.result.itemId && <button className="toast-action" disabled={busy} onClick={async () => {
+      {!feedback.result.undoable && !feedback.result.originalOperationId && <button className="toast-action feedback-action" onClick={() => openSettings('calendar')}>{messages.viewBatches}</button>}
+      {feedback.result.undoable && <button className="toast-action feedback-action" disabled={busy} onClick={() => void undo(feedback.result.operationId)}>{messages.undo}{bindings.undo && <kbd>{formatCombo(bindings.undo)}</kbd>}</button>}
+      {feedback.result.restoreSource && !feedback.result.itemId && (feedback.result.itemIds?.length ?? 0) > 1 && <button className="toast-action feedback-action" onClick={() => { setFeedback(null); openSettings('trash') }}>{smartMessages.viewTrash}</button>}
+      {feedback.result.restoreSource && feedback.result.itemId && <button className="toast-action feedback-action" disabled={busy} onClick={async () => {
         if (!feedback.result.itemId || feedback.result.generation !== snapshot?.workspace.generation) return
         try { const detail = await desktopApi().getItem(feedback.result.itemId); await submit({ type: 'restoreItem', itemId: detail.item.id, expectedVersion: detail.item.version, deletionSource: feedback.result.restoreSource }) }
         catch { setError(messages.restoreItemFailed) }
       }}>{messages.restoreItem}</button>}
       <IconButton size="small" aria-label={messages.closeFeedback} onClick={() => setFeedback(null)}><Icon name="close" size={14} /></IconButton>
-    </div></FeedbackLayer>}
+    </div>}
+    </div></FeedbackLayer>
     <CompletionCelebration event={completion} generation={snapshot?.workspace.generation ?? ''} />
     <span className="sr-only" role="status">{busy ? messages.saving : snapshot ? messages.connected : messages.connecting}</span>
   </div>

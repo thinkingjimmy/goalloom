@@ -19,11 +19,12 @@ import { pollPage } from './fixtures/poll.mjs'
 import { verifyReviewDrafts } from './fixtures/review-drafts.mjs'
 import { verifyAiServices } from './fixtures/ai-services.mjs'
 
-const out = resolve('output/tests/insight/generation')
+const evidenceRoot = resolve('output/tests/insight/generation')
+const out = join(evidenceRoot, 'runs', String(Date.now()))
 await mkdir(out, { recursive: true })
 await build({ configFile: false, build: { outDir: 'output/tests/build/review', emptyOutDir: false,
   lib: { entry: 'tests/fixtures/review-seed.ts', formats: ['cjs'], fileName: () => 'review-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
-const modes = process.argv.includes('--development') ? ['development'] : ['development', 'production']
+const modes = process.argv.includes('--development') ? ['development'] : process.argv.includes('--production') ? ['production'] : ['development', 'production']
 for (const mode of modes) await run(mode)
 
 async function run(mode) {
@@ -33,7 +34,7 @@ async function run(mode) {
   delete env.ELECTRON_RUN_AS_NODE
   delete env.ELECTRON_RENDERER_URL
   let server, application, page
-  const report = { mode, ok: false, scope: 'Source Electron, real preload/main/SQLite, synthetic provider transport, isolated profile; no packaged or Windows acceptance', host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model }, checks: [] }
+  const report = { mode, ok: false, artifactRoot: out, scope: 'Source Electron, real preload/main/SQLite, synthetic provider transport, isolated profile; no packaged or Windows acceptance', host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model }, checks: [] }
   const check = label => { report.checks.push(label); console.log(`✓ ${mode}: ${label}`) }
   try {
     if (mode === 'development') {
@@ -251,6 +252,18 @@ async function run(mode) {
     assert.equal(await headline(), initialSummary)
     assert.equal(await reviewCount(), before + 1)
     await drawer().getByRole('button', { name: /下一步/ }).click()
+    report.reviewFeedbackGeometry = await drawer().evaluate(node => {
+      const box = element => element.getBoundingClientRect().toJSON()
+      const footer = node.querySelector('.review-foot')
+      const notices = [...node.querySelectorAll('.workspace-notice')].map(box)
+      const buttons = [...footer.querySelectorAll('button')].map(button => {
+        const rect = button.getBoundingClientRect()
+        return { label: button.textContent, disabled: button.disabled, ...rect.toJSON(), hit: button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)) }
+      })
+      return { footer: box(footer), notices, buttons, controlsClear: buttons.every(button => notices.every(notice => button.right <= notice.left || button.left >= notice.right || button.bottom <= notice.top || button.top >= notice.bottom)) }
+    })
+    assert(report.reviewFeedbackGeometry.controlsClear, 'Review controls must not overlap persistent notices')
+    assert(report.reviewFeedbackGeometry.buttons.filter(button => !button.disabled).every(button => button.hit), 'Review controls remain pointer-accessible above the reserved feedback area')
     await drawer().getByRole('button', { name: '上一步', exact: true }).click()
     await drawer().locator('.review-summary[aria-busy="false"]').waitFor()
     assert.equal(await headline(), initialSummary)
@@ -455,6 +468,7 @@ async function run(mode) {
     }
     report.ok = true
   } catch (error) {
+    report.hintDiagnostics = await page?.evaluate(() => window.aiServiceHintDiagnostics).catch(() => null)
     report.error = error.message
     report.nativeWindow = await application?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(window => ({ focused: window.isFocused(), visible: window.isVisible(), bounds: window.getContentBounds() }))).catch(() => null)
     report.document = await page?.evaluate(() => ({ focused: document.hasFocus(), visibility: document.visibilityState, active: document.activeElement?.outerHTML, viewport: { width: innerWidth, height: innerHeight } })).catch(() => null)
@@ -462,6 +476,7 @@ async function run(mode) {
     throw error
   } finally {
     await writeFile(`${out}/${mode}-report.json`, JSON.stringify(report, null, 2))
+    await writeFile(`${evidenceRoot}/${mode}-report.json`, JSON.stringify(report, null, 2))
     await application?.close()
     await server?.close()
     await rm(profile, { recursive: true, force: true })

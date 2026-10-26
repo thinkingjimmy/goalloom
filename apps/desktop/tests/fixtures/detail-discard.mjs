@@ -80,7 +80,7 @@ export async function verifyDetailDiscard(app, page, output) {
     }, target)
     assert.equal(rejected.ok, false, `Authoritative discard rejects ${name}`)
     assert.deepEqual(await stored(target), committed)
-    await clear(); await close(); await dialog.getByRole('alert').waitFor()
+    await clear(); await close(); await dialog.locator('.detail-save-error[role="alert"]').waitFor()
     assert.equal(await title.inputValue(), ''); assert.equal((await stored(target)).deletedAt, null)
     await page.keyboard.press('ControlOrMeta+z')
     assert.equal(await title.inputValue(), committed.title)
@@ -91,7 +91,7 @@ export async function verifyDetailDiscard(app, page, output) {
   const draftId = await create('Protect the unsaved note')
   await open(draftId)
   await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill('Unsaved content must stay')
-  await clear(); await close(); await dialog.getByRole('alert').waitFor()
+  await clear(); await close(); await dialog.locator('.detail-save-error[role="alert"]').waitFor()
   assert.equal((await stored(draftId)).deletedAt, null)
   assert.equal(await dialog.getByRole('textbox', { name: 'Description', exact: true }).innerText(), 'Unsaved content must stay')
   await page.keyboard.press('ControlOrMeta+z'); await close(); await dialog.waitFor({ state: 'hidden' })
@@ -112,12 +112,12 @@ export async function verifyDetailDiscard(app, page, output) {
 
   for (const failure of ['failure', 'unknown', 'unknown-before']) {
     const target = await create(`Discard ${failure}`)
-    await open(target); await clear(); await mode(failure); await close(); await dialog.getByRole('alert').waitFor()
+    await open(target); await clear(); await mode(failure); await close(); await dialog.locator('.detail-save-error[role="alert"]').waitFor()
     assert.equal(await dialog.count(), 1)
     if (failure !== 'unknown') assert.equal((await stored(target)).deletedAt, null)
     if (failure === 'unknown-before') {
       await mode('failure'); await dialog.getByRole('button', { name: 'Retry', exact: true }).click()
-      await dialog.getByRole('alert').filter({ hasText: 'Synthetic autosave failure' }).waitFor()
+      await dialog.locator('.detail-save-error[role="alert"]').filter({ hasText: 'Synthetic autosave failure' }).waitFor()
     }
     await mode('normal'); await dialog.getByRole('button', { name: 'Retry', exact: true }).click()
     await dialog.waitFor({ state: 'hidden' }); assert((await stored(target)).deletedAt)
@@ -130,7 +130,7 @@ export async function verifyDetailDiscard(app, page, output) {
   checks.push('Known failure, lost committed receipt and unknown-before-write retry keep the dialog; successful Retry closes with exactly one deletion/undo')
 
   const race = await create('Concurrent content guard')
-  await open(race); await clear(); await mode('add-content'); await close(); await dialog.getByRole('alert').waitFor()
+  await open(race); await clear(); await mode('add-content'); await close(); await dialog.locator('.detail-save-error[role="alert"]').waitFor()
   assert.equal((await stored(race)).deletedAt, null)
   assert.equal((await stored(race)).description, 'Concurrent note must survive')
   await mode('normal'); await page.keyboard.press('ControlOrMeta+z'); await close(); await dialog.waitFor({ state: 'hidden' })

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Production preference projection, SyncService/SQLite, a synthetic encrypted HTTP cloud and explicit deferred completions.
+ * [INPUT]: Production preference projection, binding-guarded SyncService/SQLite, a synthetic encrypted HTTP cloud and explicit deferred completions.
  * [OUTPUT]: Repeatable stale-notification and pull-before-reconcile evidence, including a blocked later upload.
  * [POS]: Parent-placement race acceptance; failure cases are declared before their implementation below.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -147,7 +147,7 @@ try {
   await service.start()
   await (service as any).schedule.settle()
   applied.length = 0
-  await storage.call('sync', { type: 'emit-settings', mode: 'change', opId: randomUUID(), at: new Date().toISOString(), entries: [{ key: 'relationLines', value: false }] })
+  await service.local({ type: 'emit-settings', mode: 'change', opId: randomUUID(), at: new Date().toISOString(), entries: [{ key: 'relationLines', value: false }] })
   const op = { v: 1 as const, opId: randomUUID(), deviceId: source.deviceId, at: new Date().toISOString(), actions: [{ t: 'pref.set' as const, key: 'parentOrder' as const, value: true }] }
   const wire = sealOpWire({ op, workspaceId: source.bound.workspaceId, workspaceKey: source.bound.workspaceKey, epoch: source.bound.epoch })
   await memoryRemote(cloud.world, 'alpha').pushOps({ workspaceId: source.bound.workspaceId, deviceId: source.deviceId, generation: source.bound.generation, ops: [wire] })
@@ -168,7 +168,7 @@ try {
   report.appliedPreference = applied
   holdProjection = false
   const staleId = randomUUID(), staleAt = new Date().toISOString()
-  await storage.call('sync', { type: 'emit-settings', mode: 'change', opId: staleId, at: staleAt,
+  await service.local({ type: 'emit-settings', mode: 'change', opId: staleId, at: staleAt,
     entries: [{ key: 'parentOrder', value: false }, { key: 'ai.key.openrouter', value: 'synthetic-key' }] })
   ;(service as any).secrets.pendingSecrets = { 'ai.key.openrouter': { opId: staleId, updatedAt: staleAt, value: 'synthetic-key' } }
   await targetPreference.set(false)

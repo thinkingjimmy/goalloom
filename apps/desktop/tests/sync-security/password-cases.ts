@@ -8,6 +8,8 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, release, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { verifyScopedCustody } from './custody'
+import { verifyEpochCustody } from './epoch'
 import { createCloud } from '../sync-cost/cloud'
 import { Clock } from '../sync-cost/clock'
 import { cipher, worker } from '../sync-cost/peer'
@@ -39,41 +41,46 @@ async function main() {
     peers.push(peer); await peer.service.start(); return peer
   }
   async function close(peer: any) { peer.service.stop(); await peer.service.schedule.settle(); await peer.storage.close(); peers.splice(peers.indexOf(peer), 1) }
-  async function signIn(peer: any, value = password) {
+  async function signIn(peer: any, value = password, expectedPhase = 'ready') {
     const before = peer.signIns
     await peer.service.handle({ type: 'sign-in', provider: 'google' })
     assert.equal(peer.signIns, before + 1, 'Explicit sign-in must reach Google authorization')
     assert.equal(peer.status.phase, 'enter-key', JSON.stringify(peer.status))
     await peer.service.handle({ type: 'submit-password', password: value }); await settle(peer)
-    assert.equal(peer.status.phase, 'ready', JSON.stringify(peer.status)); assert.equal(peer.status.error, null)
+    assert.equal(peer.status.phase, expectedPhase, JSON.stringify(peer.status)); assert.equal(peer.status.error, null)
   }
   try {
+    for (const label of await verifyEpochCustody(root, out, open, close, signIn)) check(label)
     const fresh = join(root, 'fresh')
     await seedLocal(fresh, 'fresh', 1, cloud)
     let c = await open(fresh, 'other-fresh')
     await c.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(c.status.phase, 'setup')
-    await mkdir(join(fresh, 'sync-password.bin.tmp'))
+    await mkdir(c.service.passwordVault.path, { recursive: true })
     await c.service.handle({ type: 'create', password }); assert.equal(c.status.error, 'storage')
     assert.equal(cloud.worlds.get('22222222-2222-4222-8222-222222222222')!.workspaces.size, 0)
-    await rm(join(fresh, 'sync-password.bin.tmp'), { recursive: true })
+    await rm(c.service.passwordVault.path, { recursive: true })
     cloud.controls.fault = 'missing:bootstrap_workspace'; cloud.controls.session = 'other-fresh'
     await c.service.handle({ type: 'create', password }); assert(c.status.error)
-    const draft = c.service.secrets.workspaceId
+    const protectedDraft = (await c.service.bindingJournal.pending(c.service.accountId()))!
+    const draft = protectedDraft.binding.workspaceId, originalEnvelopes = structuredClone(protectedDraft.envelopes), journalKey = Buffer.from(Object.values(c.service.secrets.bindingJournalKeys)[0] as Uint8Array)
+    assert(originalEnvelopes?.length); assert(c.denied)
     await close(c); cloud.controls.fault = ''; cloud.controls.session = ''
     c = await open(fresh, 'other-fresh')
     await c.service.handle({ type: 'sign-in', provider: 'google' }); assert.equal(c.status.phase, 'enter-key', JSON.stringify(c.status))
     await c.service.handle({ type: 'submit-password', password }); assert.equal(c.status.phase, 'setup', JSON.stringify(c.status))
     await c.service.handle({ type: 'create', password }); await settle(c)
     assert.equal(c.status.phase, 'ready'); assert.equal(c.service.secrets.workspaceId, draft); assert.equal(tasks(fresh).length, 1)
-    check('Failed protected writes leave cloud untouched; interrupted first creation resumes the same encrypted draft after restart')
+    assert.deepEqual(Buffer.from(Object.values(c.service.secrets.bindingJournalKeys)[0] as Uint8Array), journalKey)
+    assert.deepEqual((await c.service.bindingJournal.forBinding(c.service.activeBinding)).envelopes, originalEnvelopes)
+    check('Failed PasswordVault writes leave cloud untouched; OS-denied restart restores the same protected key and exact creation envelopes')
 
     cloud.controls.fault = 'commit:create_new_workspace'; cloud.controls.session = 'other-fresh'
-    await c.service.handle({ type: 'create-new-workspace', password: 'new-workspace-password' })
+    await createGeneration(c, 'new-workspace-password')
     assert.equal(c.status.error, 'network')
-    const recoveryDraft = c.service.secrets.pendingRecovery.workspaceId
+    const recoveryDraft = (await c.service.bindingJournal.pending(c.service.accountId()))!.binding.workspaceId
     await close(c); cloud.controls.fault = ''; cloud.controls.session = ''
-    c = await open(fresh, 'other-fresh'); await signIn(c, 'new-workspace-password')
-    await c.service.handle({ type: 'create-new-workspace', password: 'new-workspace-password' }); await settle(c)
+    c = await open(fresh, 'other-fresh'); await signIn(c, 'new-workspace-password', 'enter-key')
+    await createGeneration(c, 'new-workspace-password'); await settle(c)
     assert.equal(c.status.phase, 'ready'); assert.equal(c.service.secrets.workspaceId, recoveryDraft)
     assert.equal(cloud.worlds.get('22222222-2222-4222-8222-222222222222')!.workspaces.size, 2)
     check('Password-mode recovery reuses a committed creation draft after a lost response and preserves the old workspace')
@@ -101,6 +108,7 @@ async function main() {
     assert.deepEqual(await readFile(join(alpha, 'sync-vault.bin')), saved)
     report.runtime.sqlite = (await a.storage.call('runtime')).sqlite
     check('Case 1 works with OS access denied on both devices; wrong passwords and recovery preserve legacy ciphertext and tasks')
+    for (const label of await verifyScopedCustody(a, c, root)) check(label)
 
     const device = a.service.secrets.deviceId, count = cloud.world.devices.size
     await a.service.handle({ type: 'sign-out' })
@@ -157,7 +165,7 @@ async function main() {
     check('A previously bound OS-vault device recovers into the same workspace and retains unsent local edits')
 
     b.keys.set('ai.key.openrouter', 'synthetic-private-api-key')
-    await b.storage.call('sync', { type: 'emit-settings', entries: [{ key: 'ai.key.openrouter', value: 'synthetic-private-api-key' }],
+    await b.service.local({ type: 'emit-settings', entries: [{ key: 'ai.key.openrouter', value: 'synthetic-private-api-key' }],
       at: new Date().toISOString(), opId: crypto.randomUUID(), mode: 'change' })
     await command(b, { type: 'create', title: 'Tasks pass an unavailable AI key store', horizon: 'day' }); await settle(b, a)
     report.aiDelivery = { a: a.status, b: b.status }
@@ -170,13 +178,13 @@ async function main() {
     a.denied = true
     check('Denied AI-key storage does not block task sync; a protected deferred copy stays outside SQLite')
 
-    const fallback = await readFile(join(alpha, 'sync-password.bin'))
+    const fallback = await readFile(a.service.passwordVault.path)
     assert(!fallback.includes(Buffer.from(changed))); assert(!fallback.includes(Buffer.from('Preserve an unknown send')))
     const bytes = await new SyncVault(legacy, cipher).load()
     assert(bytes, 'The original OS vault remains readable with its original cipher')
     await a.service.handle({ type: 'sign-out', clearLocal: true })
     assert.equal(a.status.phase, 'signed-out'); assert.equal(a.status.error, null)
-    await assert.rejects(readFile(join(alpha, 'sync-password.bin')), { code: 'ENOENT' })
+    await assert.rejects(readFile(a.service.passwordVault.path), { code: 'ENOENT' })
     assert.deepEqual(tasks(alpha), [])
     check('Fallback files contain no plaintext secrets and explicit cleanup removes the password vault with local tasks')
     report.ok = true
@@ -188,3 +196,11 @@ async function main() {
   }
 }
 void main().catch(error => { console.error(error); process.exitCode = 1 })
+
+async function createGeneration(peer: any, password: string) {
+  await settle(peer)
+  const expectedAccountId = peer.service.accountId()
+  const preview = await peer.service.handle({ type: 'generation-preview', expectedAccountId })
+  assert(preview.generationPreview, JSON.stringify(preview))
+  return peer.service.handle({ type: 'create-new-workspace', password, expectedAccountId, previewToken: preview.generationPreview.token, acknowledged: true })
+}

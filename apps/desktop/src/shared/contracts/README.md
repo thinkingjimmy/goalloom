@@ -7,14 +7,14 @@ contracts/
 ├── values.ts     # Seven ordered horizons, six period/policy horizons, anchored subsets and the shared next-horizon map
 ├── entities.ts   # Three visual styles and 工作区、rolling/natural 日历、实体 summary/detail、唯一位置与 nestingParentId、DAG 边和周期 schema
 ├── wire-calendar.ts # Gregorian 日期与 IANA 时区的轻量边界校验，不引入 Temporal
-├── commands.ts   # Public finite writes, guarded atomic nested creation, optional capture refs/automatic parents; internal-only completeCreation, scoped undo and atomic root/subtask insertion on nest/unnest
-├── capture.ts    # Shared input revisions/explicit target, capture intent, transaction-created guards and bounded semantic completion selections
+├── commands.ts   # Public finite writes, guarded atomic single/plan nested creation, optional capture refs/automatic parents; internal-only completeCreation, scoped undo and atomic root/subtask insertion on nest/unnest
+├── capture.ts    # Shared input revisions/explicit target, capture intent, transaction-created guards, bounded semantic goal/owner selections and owner placement versions
 ├── assistance.ts # Strict Markdown rewrite/guidance outputs, full echoes, bounded context and dependency guards
 ├── execution.ts  # Per-metric quality, authoritative pressure and frozen activity cursor DTOs
 ├── insight-preferences.ts # Shared leaf preference schema for existing and new writing paths
 ├── effects.ts    # Immutable relation-owned adoption/promotion color deltas and body-free events plus v2 guidance/description and v3 nesting/group-placement effects for precise undo
 ├── history.ts    # Strict events, immutable period-end projections/activity and separate revision-bound live past-task pages
-├── transfer.ts   # v1–v12 datasets, immutable capture/completion receipts and grouped inverses, guidance/nesting, backup/restore/reset confirmations and batch DTOs
+├── transfer.ts   # v1–v14 datasets, immutable capture/completion receipts and grouped inverses, guidance/nesting, backup/restore/reset confirmations and batch DTOs
 ├── smart-input.ts # Jev 服务、设备状态、六尺度周期 / child-only 起草 DTO、智能动作与修订回声
 ├── link-preview.ts # Strict public link preview/open actions and bounded inert metadata; lightweight syntax lives in ../links.ts
 ├── queries.ts    # Up to six selected periods, effective topology and hidden-parent context, generation-guarded reviewContext/pastPeriod pages with live closingParents, detail dependency guards/assisted notes, immutable history and counts
@@ -29,6 +29,8 @@ Zod 在 main/worker 拒绝额外字段；preload 校验返回 DTO。renderer 只
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
+`billing.ts` defines finite account-owned billing IPC/actions/events, trusted access/catalogue projections and immutable browser continuation shapes. It carries no token, task or URL. The initiating account ID is a local stale-action guard, never a backend identity selector. `sync.ts` includes typed service refusal separately from authentication; `hosted-ai.ts` carries the same finite HTTP failures.
+
 `hosted-ai.ts` owns protocol-v2 finite evaluate/draft/review/assistance requests and re-exports the scope-v3 consent version, shared with the Edge bundle. `smart-input.ts` adds explicit hosted consent and account-owned feature actions; `values.ts` gives hosted its own provider/model identity. `sync.ts` separates account-only sign-in from explicit sync preparation.
 
 Model IPC envelopes carry optional `AiSource` metadata (provider, hosted account, feature revision and main session revision). Hosted model actions require it; main rejects stale source/session ownership before any model dispatch. The metadata is not persisted with tasks or used as server billing identity.
@@ -38,3 +40,5 @@ Hosted protocol v2 accepts UUIDv7 actions and no server result recovery. Capture
 `values.ts` owns the lightweight `hostedScopeVersion` shared by device-file validation, IPC consent and renderer actions. Scope-v3 names the assistance operator and possible provider retention/training; both earlier scopes fail closed.
 
 Protocol-v2 POST additionally requires `consentScopeVersion: hostedScopeVersion`. Missing/older scopes fail the authoritative Edge schema before any reservation or provider request; receipt-only GET remains available for accounting. Capture `retryId` also identifies a real new hosted input intent; it stays separate from preview request IDs and creation receipts.
+
+`cloud.ts` defines finite account-guarded privacy/retrieval actions and ready-only non-secret copy grants.

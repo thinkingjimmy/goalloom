@@ -1,0 +1,12 @@
+{
+  "name": "goalloom-deletion-ledger-production",
+  "main": "worker.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "durable_objects": { "bindings": [{ "name": "LEDGER", "class_name": "DeletionLedgerObject" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DeletionLedgerObject"] }],
+  "vars": { "ENVIRONMENT": "production" }
+}

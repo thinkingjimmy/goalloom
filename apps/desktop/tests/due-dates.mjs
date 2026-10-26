@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, isolated profiles, real workspace dates and production IPC/storage.
- * [OUTPUT]: Deadline-calendar interaction reports and localized/theme screenshots under output/tests/due-calendar/.
+ * [OUTPUT]: First-level deadline-guidance/calendar interaction reports and localized/theme screenshots under output/tests/due-calendar/.
  * [POS]: Native desktop acceptance of immediate detail date persistence, keyboard navigation, focus, clipping and persistence.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -44,12 +44,30 @@ for (const weekStart of [1, 7]) {
     await page.getByRole('button', { name: 'Deadline sample', exact: true }).click()
     const detail = page.locator('dialog.detail'), trigger = detail.locator('.field-button[aria-haspopup="dialog"]')
     const panel = detail.locator('.due-panel'), selected = panel.locator('[data-date="2028-01-31"]')
+    const hint = detail.getByRole('tooltip')
     const focusedDate = () => page.evaluate(() => document.activeElement?.getAttribute('data-date'))
     const snapshot = await page.evaluate(() => window.goalloom.getSnapshot())
     const today = snapshot.periods.find(period => period.horizon === 'day').startDate
     const placement = (await stored()).placement
+    await trigger.hover()
+    await hint.waitFor()
+    assert.equal(await hint.innerText(), '截止日独立于所在列。选择未来日期不会移动任务。')
+    assert.equal(await trigger.getAttribute('aria-describedby'), await hint.getAttribute('id'))
+    assert.equal(await panel.count(), 0)
+    await page.screenshot({ path: `${out}/info-hover.png` })
+    await page.keyboard.press('Escape')
+    assert.equal(await hint.count(), 0)
+    assert.equal(await detail.count(), 1)
+    await trigger.focus()
+    await hint.waitFor()
+    await page.keyboard.press('Escape')
+    assert.equal(await hint.count(), 0)
+    assert.equal(await detail.count(), 1)
+    check('first-level deadline button reveals guidance on hover/focus; Escape dismisses it without opening the calendar or closing details')
     await trigger.click()
     await selected.waitFor()
+    assert.equal(await hint.count(), 0)
+    assert.equal(await panel.getByRole('button', { name: '关于截止日期' }).count(), 0)
     await page.waitForFunction(() => document.activeElement?.getAttribute('data-date') === '2028-01-31')
     assert.equal(await panel.locator('input[type="date"]').count(), 0)
     assert.equal(await panel.locator('.due-day[tabindex="0"]').count(), 1)
@@ -83,33 +101,6 @@ for (const weekStart of [1, 7]) {
     check('month/year keys clamp at leap boundaries; Enter autosaves the selected date and preserves placement')
 
     await trigger.click()
-    await panel.evaluate(element => {
-      const events = window.dueHintTrace = []
-      const record = (kind, event) => events.push({ kind, key: event?.key, focused: document.hasFocus(), tooltip: !!element.querySelector('[role=tooltip]'), active: document.activeElement?.className, at: performance.now() })
-      const info = element.querySelector('.due-info')
-      for (const kind of ['pointerenter', 'pointerleave']) info.addEventListener(kind, event => record(kind, event))
-      element.addEventListener('keydown', event => record('keydown', event), true)
-      new MutationObserver(() => record('mutation')).observe(info, { childList: true, subtree: true })
-    })
-    await panel.getByRole('button', { name: '关于截止日期' }).hover()
-    await panel.getByRole('tooltip').waitFor()
-    assert.match(await panel.getByRole('tooltip').innerText(), /不会移动任务/)
-    // Element screenshots may scroll the floating panel and end hover before Escape; capture without moving its viewport.
-    await page.screenshot({ path: `${out}/info-hover.png` })
-    await page.keyboard.press('Escape')
-    assert.equal(await panel.getByRole('tooltip').count(), 0)
-    assert.equal(await panel.count(), 1)
-    await panel.getByRole('button', { name: '关于截止日期' }).focus()
-    await panel.getByRole('tooltip').waitFor()
-    await page.keyboard.press('Escape')
-    assert.equal(await panel.getByRole('tooltip').count(), 0)
-    assert.equal(await panel.count(), 1)
-    await page.keyboard.press('Escape')
-    await panel.waitFor({ state: 'detached' })
-    assert.equal(await detail.count(), 1)
-    check('info supports pointer hover and keyboard focus; Escape dismisses the hint before the calendar')
-
-    await trigger.click()
     await panel.getByRole('button', { name: '选择月份' }).click()
     await panel.getByRole('button', { name: '下一年' }).click()
     await panel.locator('[data-month="4"]').click()
@@ -123,6 +114,14 @@ for (const weekStart of [1, 7]) {
     await panel.getByRole('button', { name: '清除截止日期', exact: true }).click()
     await waitForDetailSave(page)
     await pollPage(page, async id => (await window.goalloom.getItem(id)).item.dueDate === null, itemId)
+    const clearedItem = await stored()
+    await detail.locator('.detail-title').hover()
+    await trigger.hover()
+    await hint.waitFor()
+    assert.equal(await hint.innerText(), '截止日独立于所在列。选择未来日期不会移动任务。')
+    await page.screenshot({ path: `${out}/empty-date-hint.png` })
+    await page.keyboard.press('Escape')
+    assert.deepEqual(await stored(), clearedItem)
     await trigger.click()
     assert.equal(await panel.getByRole('button', { name: '清除截止日期', exact: true }).isDisabled(), true)
     await panel.getByRole('button', { name: /^明天 ·/ }).click()
@@ -140,33 +139,48 @@ for (const weekStart of [1, 7]) {
     assert.equal(await detail.getByRole('textbox', { name: '说明', exact: true }).evaluate(node => node === document.activeElement), true)
     check('outside presses close only the calendar and keep focus at the clicked field')
 
-    for (const style of ['paper', 'minimal']) for (const theme of ['light', 'dark']) {
+    for (const style of ['paper', 'minimal', 'macos']) for (const theme of ['light', 'dark']) {
       await page.evaluate(async ([style, theme]) => {
         const snapshot = await window.goalloom.getSnapshot()
         const reply = await window.goalloom.execute({ type: 'preferences', style, theme, generation: snapshot.workspace.generation, operationId: crypto.randomUUID() })
         if (!reply.ok) throw Error(reply.message)
       }, [style, theme])
       await page.waitForFunction(([style, theme]) => document.documentElement.dataset.style === style && document.documentElement.dataset.theme === theme, [style, theme])
+      await detail.locator('.detail-title').hover()
+      await trigger.hover()
+      await hint.waitFor()
+      await page.screenshot({ path: `${out}/${style}-${theme}-hint.png` })
       await trigger.click()
       await panel.screenshot({ path: `${out}/${style}-${theme}.png` })
       report.themes.push({ style, theme, color: await panel.evaluate(node => getComputedStyle(node).backgroundColor) })
       await page.keyboard.press('Escape')
     }
-    check('paper/minimal and light/dark reuse theme tokens')
+    check('paper/minimal/macOS and light/dark guidance/calendars reuse theme tokens')
 
     for (const locale of ['zh', 'en', 'ja', 'es', 'fr']) {
       await page.evaluate(async locale => { await window.goalloom.setLanguage(locale) }, locale)
       await page.reload()
       await page.getByRole('button', { name: 'Deadline sample', exact: true }).click()
+      await trigger.hover()
+      await hint.waitFor()
+      assert(await hint.innerText())
+      assert.equal(await trigger.getAttribute('aria-describedby'), await hint.getAttribute('id'))
+      const hintGeometry = await hint.evaluate(node => {
+        const rect = node.getBoundingClientRect()
+        return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: innerWidth, height: innerHeight }
+      })
+      assert(hintGeometry.left >= 0 && hintGeometry.top >= 0 && hintGeometry.right <= hintGeometry.width && hintGeometry.bottom <= hintGeometry.height, JSON.stringify(hintGeometry))
+      await page.screenshot({ path: `${out}/locale-${locale}-hint.png` })
       await trigger.click()
       await panel.getByRole('grid').waitFor()
       const text = await panel.innerText()
       if (['en', 'es', 'fr'].includes(locale)) assert(!/[一-鿿]/.test(text), `${locale} must not contain untranslated Chinese`)
-      assert(await panel.locator('.due-info button').getAttribute('aria-label'))
+      assert.equal(await panel.locator('.due-info').count(), 0)
+      assert.equal(await hint.count(), 0)
       const bounds = await panel.evaluate(node => ({ width: node.clientWidth, content: node.scrollWidth }))
       assert(bounds.content <= bounds.width, `${locale} has horizontal overflow`)
       await panel.screenshot({ path: `${out}/locale-${locale}.png` })
-      report.locales[locale] = { heading: await panel.getAttribute('aria-label'), bounds }
+      report.locales[locale] = { heading: await panel.getAttribute('aria-label'), bounds, hint: hintGeometry }
       await page.keyboard.press('Escape')
       await detail.locator('.modal-header .icon-button').last().click()
     }

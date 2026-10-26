@@ -1,17 +1,18 @@
 'use client'
 /**
- * [INPUT]: Depends on react, lib/board, ../board/board, ../board/composer and ../icons
+ * [INPUT]: Depends on react, lib/board, shared Board/Composer/icons and ./hero-phone's read-only device illustration.
  * [OUTPUT]: Exports HeroDemo and HeroDemoCopy
  * [POS]: components/home's playable app window inside the hero: hover rows, filter by goal from the top bar, complete
  *        items, create one through the composer (placed by the app's own Jev sentence) and undo it from the toast.
- *        The scene switcher below jumps between the board, the composer and a filtered relation-line view.
+ *        Three scenes omit the repository-review task and default to relation lines; sync mirrors the same Today list in a foreground phone.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { FLOWS, SEED, deriveView, type DemoItem, type FlowId, type Horizon, type ItemId } from '@/lib/board'
 import { Board, type BoardCopy } from '../board/board'
 import { Composer, type ComposerCopy } from '../board/composer'
 import { Icon } from '../icons'
+import { HeroPhone, type HeroSyncCopy } from './hero-phone'
 
 export type HeroDemoCopy = BoardCopy & {
   all: string
@@ -29,24 +30,29 @@ export type HeroDemoCopy = BoardCopy & {
   undo: string
   dismiss: string
   scenes: string
-  sceneBoard: string
   sceneJev: string
   sceneLines: string
+  sync: HeroSyncCopy
 }
 
 // Later is hidden, as a narrow window would show it: the four planning horizons carry the story.
 const SHOWN: readonly Horizon[] = ['cycle', 'month', 'week', 'day']
+const SYNC_SHOWN: readonly Horizon[] = ['month', 'week', 'day']
 // The created item mirrors the composer's sentence: Today, under the "Finish the site & downloads" goal.
 const CREATED: DemoItem = { id: 'n1', horizon: 'day', flow: 'a', parents: ['m1'] }
-type Scene = 'board' | 'jev' | 'lines'
+const SCENES = ['lines', 'jev', 'sync'] as const
+type Scene = (typeof SCENES)[number]
 
 export function HeroDemo({ copy }: { copy: HeroDemoCopy }) {
-  const [items, setItems] = useState<DemoItem[]>(() => [...SEED])
-  const [filter, setFilter] = useState<FlowId | null>(null)
+  const [items, setItems] = useState<DemoItem[]>(() => SEED.filter(item => item.id !== 'd7'))
+  const [filter, setFilter] = useState<FlowId | null>('a')
   const [hover, setHover] = useState<ItemId | null>(null)
   const [composer, setComposer] = useState(false)
+  const [boardScene, setBoardScene] = useState<'lines' | 'sync'>('lines')
+  const [animateScene, setAnimateScene] = useState(false)
   const [toast, setToast] = useState<'created' | 'undone' | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const sceneId = useId()
   useEffect(() => () => clearTimeout(timer.current), [])
 
   const show = (next: 'created' | 'undone') => {
@@ -62,17 +68,20 @@ export function HeroDemo({ copy }: { copy: HeroDemoCopy }) {
   const undo = () => { setItems(list => list.filter(item => item.id !== CREATED.id)); show('undone') }
   const toggle = (id: ItemId) => setItems(list => list.map(item => (item.id === id ? { ...item, done: !item.done } : item)))
   const pickFlow = (flow: FlowId | null) => { setFilter(current => (flow && current === flow ? null : flow)); setHover(null); setComposer(false) }
-  const scene: Scene = composer ? 'jev' : filter === 'a' ? 'lines' : 'board'
-  const goScene = (next: Scene) => {
+  const scene: Scene = composer ? 'jev' : boardScene
+  const goScene = (next: Scene, animate = false) => {
+    setAnimateScene(animate)
     setHover(null)
     setComposer(next === 'jev')
-    setFilter(next === 'lines' ? 'a' : null)
+    if (next !== 'jev') setBoardScene(next)
+    if (next === 'lines') setFilter('a')
+    if (next === 'sync') setFilter(null)
   }
   const { rows, edges } = deriveView(items, filter, hover)
   const created = items.some(item => item.id === CREATED.id)
 
   return <>
-    <div className="window">
+    <div className="window" data-sync-preview={scene === 'sync'} role="tabpanel" id={`${sceneId}-panel`} aria-labelledby={`${sceneId}-${scene}`}>
       <div className="bar">
         <div className="lights" aria-hidden="true"><span /><span /><span /></div>
         <button type="button" className="chip" aria-pressed={filter === null} onClick={() => pickFlow(null)}>
@@ -86,11 +95,11 @@ export function HeroDemo({ copy }: { copy: HeroDemoCopy }) {
         ))}
         <span style={{ flex: 1 }} />
         <span className="ib" aria-hidden="true" title={copy.search}><Icon name="search" size={18} /></span>
-        <span className="ib" aria-hidden="true" title={copy.columns}><Icon name="views" size={18} /><span className="ib-dot" /></span>
+        <span className="ib" aria-hidden="true" title={copy.columns}><Icon name="views" size={18} /></span>
         <span className="ib" aria-hidden="true" title={copy.settings}><Icon name="settings" size={18} /></span>
       </div>
       <Board
-        horizons={SHOWN} items={items} rows={rows} edges={edges} copy={copy} headActions
+        horizons={scene === 'sync' ? SYNC_SHOWN : SHOWN} items={items} rows={rows} edges={scene === 'sync' ? [] : edges} copy={copy} headActions
         newId={toast === 'created' ? CREATED.id : null}
         interaction={{ onHover: setHover, onToggle: toggle, onAdd: () => setComposer(true) }}
       />
@@ -108,13 +117,21 @@ export function HeroDemo({ copy }: { copy: HeroDemoCopy }) {
         <div className="scrim" onClick={() => setComposer(false)} />
         <Composer
           copy={copy.composer} text={copy.composer.heroText} phase="suggest" sentence={copy.sentence} createLabel={copy.createTo}
-          onCreate={create} onClose={() => setComposer(false)}
+          onCreate={create} onClose={() => setComposer(false)} tip={false}
         />
       </>}
     </div>
-    <div className="tabs" role="tablist" aria-label={copy.scenes}>
-      {([['board', copy.sceneBoard], ['jev', copy.sceneJev], ['lines', copy.sceneLines]] as const).map(([id, label]) => (
-        <button key={id} type="button" role="tab" className="tab" aria-selected={scene === id} onClick={() => goScene(id)}>{label}</button>
+    <HeroPhone items={items} rows={rows} copy={copy} sync={copy.sync} visible={scene === 'sync'} animate={animateScene} />
+    <div className="tabs" role="tablist" aria-label={copy.scenes} onKeyDown={event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+      event.preventDefault()
+      const direction = event.key === 'ArrowLeft' ? -1 : 1
+      const next = event.key === 'Home' ? 'lines' : event.key === 'End' ? 'sync' : SCENES[(SCENES.indexOf(scene) + direction + SCENES.length) % SCENES.length]!
+      goScene(next)
+      document.getElementById(`${sceneId}-${next}`)?.focus()
+    }}>
+      {([['lines', copy.sceneLines], ['jev', copy.sceneJev], ['sync', copy.sync.title]] as const).map(([id, label]) => (
+        <button key={id} id={`${sceneId}-${id}`} type="button" role="tab" className="tab" aria-controls={`${sceneId}-panel`} aria-selected={scene === id} tabIndex={scene === id ? 0 : -1} onClick={event => goScene(id, event.detail > 0)}>{label}</button>
       ))}
     </div>
   </>

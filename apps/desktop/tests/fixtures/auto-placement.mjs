@@ -41,6 +41,7 @@ export async function autoPlacement({ page, application, ids, report, evidence }
     await page.mouse.move(target.x + 100, target.y + target.height * fraction, { steps: 12 })
   }
   await begin(ids.A1, ids.B1, 0.92)
+  await page.locator('[data-sort-position]').waitFor()
   assert.equal(await page.locator('[data-nesting-target], .task-row[data-sort-blocked]').count(), 0)
   assert.equal(await page.locator('[data-sort-position]').count(), 1)
   await shot('cross-parent-insertion'); await page.mouse.up()

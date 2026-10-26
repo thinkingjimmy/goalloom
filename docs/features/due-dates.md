@@ -5,15 +5,15 @@ The owner selected the calendar-first prototype on 2026-09-28. Item details and 
 ## Product rules
 
 - Open directly to the selected date's month, or workspace today when unset. Compact presets stay above the calendar; the month heading opens month/year navigation. Clear removes the draft deadline; return to today changes only the viewed month and focus.
-- Use existing paper/minimal and light/dark tokens. Distinguish today, selected dates and adjacent-month dates. Localize labels, month names, weekdays and accessible date names in all five locales. Weekday order follows the workspace's ISO week start.
-- The info icon reveals a short explanation on hover, focus or activation. It explains that deadlines do not move tasks between columns. Escape first dismisses an open explanation or month chooser, then the calendar, then the surrounding dialog.
+- Use existing paper/minimal/macOS and light/dark tokens. Distinguish today, selected dates and adjacent-month dates. Localize labels, month names, weekdays and accessible date names in all five locales. Weekday order follows the workspace's ISO week start.
+- The first-level deadline button reveals a short explanation on hover or focus, before the calendar opens. It explains that deadlines do not move tasks between columns, without repeating the selected date. The calendar has no info icon, and opening it hides the explanation. Escape first dismisses an open explanation or month chooser, then the calendar, then the surrounding dialog.
 - Arrow keys move by day/week; Home/End use the workspace week; Page Up/Down move by month and Shift adds a year, clamping at month end. Only one day is in the Tab order. Enter/Space select; opening and closing preserve usable keyboard focus.
 - The panel changes only the caller's draft. Detail selection/clear immediately autosaves; composer confirmation retains ownership of its writes. A future deadline never changes placement, period, parents or status. Existing composer numeric preset shortcuts and explicit Jev suggestions remain available.
 - Floating calendars stay inside their native dialog's focus boundary, escape scrolling content and remain within the window.
 
 ## Engineering contract
 
-- `components/due-date/DueDatePanel.tsx` owns shared presets, optional suggested dates, numeric shortcuts and the info explanation. `Calendar.tsx` owns viewport/focus state. Neither writes through IPC.
+- `components/due-date/DueDatePanel.tsx` owns shared presets, optional suggested dates and numeric shortcuts. `DueDateHint.tsx` attaches the explanation to detail/composer deadline buttons. `Calendar.tsx` owns viewport/focus state. None writes through IPC.
 - `features/items/DuePicker.tsx` owns the detail trigger and restores focus. `features/composer/DraftRow.tsx` supplies the same panel with local draft callbacks and workspace week start.
 - `lib/dates.ts` provides UTC calendar arithmetic, preserving years below 100 and clamping month changes. `i18n/format.ts` provides locale-aware presentation. The workspace supplies today; the browser's local date never determines it.
 - Floating `Popover` content portals to its nearest native dialog when present, otherwise the document body. Board flow menus retain their body host.

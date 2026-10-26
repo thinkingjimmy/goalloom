@@ -1,6 +1,6 @@
 /**
  * [INPUT]: One indexed item, event/operation/undo metadata, calendar and injected observation time.
- * [OUTPUT]: Cached shared facts and exact half-open local date activity pages with revision-bound frozen upper sequences.
+ * [OUTPUT]: Cached shared facts with item-local observation gaps, finite guidance checkpoints and half-open revision-bound activity pages.
  * [POS]: Worker read adapter; reads are bounded and never create periods, writes or network requests.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto'
 import { prepareExecutionFacts, projectExecutionFacts, classifyExecutionEvent, type ExecutionInput, type ExecutionProjection } from '../../domain/execution-facts'
 import { compareInstants, parseDate, workspaceDate } from '../../domain/calendar'
 import { indexExecutionHistory, replayExecutionGuidance } from '../../domain/execution-history'
+import { guidanceCheckpointSchema } from '../../shared/contracts/provenance'
 import { DomainError } from '../../shared/contracts/commands'
 import type { Query } from '../../shared/contracts/queries'
 import type { ActivityEntries, ActivityMonth, ExecutionFacts } from '../../shared/contracts/execution'
@@ -30,12 +31,12 @@ export class ExecutionQueries {
     if (workspace.generation !== generation) throw new DomainError('generation', serverText().errors.workspaceReplaced)
     if (cutoff) {
       const row = this.store.prepare('SELECT seq FROM item_events WHERE itemId=? AND execution_instant_order(at,?)<0 ORDER BY seq DESC LIMIT 1').get(itemId, cutoff)
-      return createHash('sha256').update(JSON.stringify([generation, workspace.calendar, this.store.item(itemId).createdAt, cutoff, row?.seq ?? null])).digest('hex')
+      return createHash('sha256').update(JSON.stringify([generation, workspace.calendar, this.store.item(itemId).createdAt, cutoff, row?.seq ?? null, this.observationGap(itemId, cutoff), this.guidanceObservation(itemId, cutoff)])).digest('hex')
     }
     const item = this.store.item(itemId), guidance = this.store.guidance(itemId)
     const tail = this.store.prepare('SELECT seq FROM item_events WHERE itemId=? ORDER BY seq DESC LIMIT 1').get(itemId)?.seq ?? 0
     return createHash('sha256').update(JSON.stringify([generation, workspace.calendar, workspace.clockAnomaly, item.status, item.archivedAt, item.deletedAt,
-      item.dueDate, item.createdAt, item.placement, guidance?.revision ?? 0, tail])).digest('hex')
+      item.dueDate, item.createdAt, item.placement, guidance?.revision ?? 0, tail, this.guidanceObservation(itemId)])).digest('hex')
   }
   summary(query: Extract<Query, { type: 'executionSummary' }>, now: string): ExecutionFacts {
     const revision = this.revision(query.itemId, query.generation, query.cutoff)
@@ -61,8 +62,28 @@ export class ExecutionQueries {
     const facts = this.summary({ ...query, type: 'executionSummary' }, now)
     if (!query.cutoff) return { itemId: query.itemId, cutoff: null, executionFacts: facts, guidance: { value: this.store.guidance(query.itemId)?.value ?? null, quality: 'complete' as const, reason: null } }
     const cached = this.cache.get(`${query.generation}:${query.itemId}:${query.cutoff}`)!
-    const { value, known } = replayExecutionGuidance(cached.input!.events, indexExecutionHistory(cached.input!))
+    const { value, known: replayKnown } = replayExecutionGuidance(cached.input!.guidanceObservation ? cached.input!.events.filter(event => event.seq > cached.input!.guidanceObservation!.afterEventSeq) : cached.input!.events, indexExecutionHistory(cached.input!), cached.input!.guidanceObservation?.state)
+    const known = replayKnown && !cached.input!.observationGap && !cached.input!.guidanceObservation?.futureGap
     return { itemId: query.itemId, cutoff: query.cutoff, executionFacts: facts, guidance: { value: known ? value : null, quality: known ? 'complete' as const : 'unknown' as const, reason: known ? null : 'incomplete_guidance_history' } }
+  }
+  private guidanceObservation(itemId: string, cutoff?: string) {
+    const query = `SELECT g.position,g.record,json_extract(g.record,'$.afterEventSeq') AS seq,json_extract(g.record,'$.at') AS at,
+      (SELECT at FROM item_events WHERE itemId=? AND seq<=json_extract(g.record,'$.afterEventSeq') ORDER BY seq DESC LIMIT 1) AS boundaryAt
+      FROM guidance_baselines g WHERE EXISTS (SELECT 1 FROM json_each(g.record,'$.changes') c WHERE json_extract(c.value,'$.itemId')=?)`
+    const previous = this.store.prepare(`${query} ${cutoff ? "AND execution_instant_order(json_extract(g.record,'$.at'),?)<0" : ''} ORDER BY g.position DESC LIMIT 1`).get(itemId, itemId, ...(cutoff ? [cutoff] : []))
+    const future = cutoff ? this.store.prepare(`${query} AND execution_instant_order(json_extract(g.record,'$.at'),?)>=0 ORDER BY g.position LIMIT 1`).get(itemId, itemId, cutoff) : undefined
+    const priorObservation = future ? this.store.prepare(`${query} AND g.position<? ORDER BY g.position DESC LIMIT 1`).get(itemId, itemId, Number(future.position)) : undefined
+    const evidence = [future?.boundaryAt, priorObservation?.at].filter((at): at is string => typeof at === 'string').sort(compareInstants).at(-1)
+    const futureGap = !!future && (!evidence || compareInstants(evidence, cutoff!) < 0)
+    const observed = previous ? guidanceCheckpointSchema.parse(JSON.parse(String(previous.record))).changes.find(change => change.itemId === itemId)?.after : undefined
+    return previous || futureGap ? { afterEventSeq: Number(previous?.seq ?? 0), futureGap,
+      state: previous ? { value: observed?.head.value ?? null, identity: observed?.identity ?? null } : undefined,
+      revision: Number(previous?.position ?? 0), futureRevision: futureGap ? Number(future!.position) : 0 } : undefined
+  }
+  private observationGap(itemId: string, cutoff: string) {
+    const next = this.store.prepare(`SELECT seq,at,(SELECT at FROM item_events prior WHERE prior.itemId=e.itemId AND prior.seq<e.seq ORDER BY seq DESC LIMIT 1) AS previousAt
+      FROM item_events e WHERE itemId=? AND type='baseline' AND execution_instant_order(at,?)>=0 ORDER BY seq LIMIT 1`).get(itemId, cutoff)
+    return next && (!next.previousAt || compareInstants(String(next.previousAt), cutoff) < 0) ? Number(next.seq) : null
   }
   private read(itemId: string, generation: string, sourceRevision: string, cutoff?: string): ExecutionInput {
     this.scans++
@@ -74,7 +95,7 @@ export class ExecutionQueries {
     const events = this.store.eventRows(rows.slice(0, executionEventBudget).reverse()).filter(event => !cutoff || compareInstants(event.at, cutoff) < 0)
     const metadata = this.metadata(events.flatMap(event => event.undoOf ? [event.operationId, event.undoOf] : [event.operationId]), events.flatMap(event => [event.before?.periodId ?? null, event.after.periodId]))
     return { item, generation, sourceRevision, calendar: workspace.calendar, guidance: this.store.guidance(itemId),
-      events, ...metadata, scanLimited }
+      events, ...metadata, scanLimited, guidanceObservation: this.guidanceObservation(itemId, cutoff), observationGap: cutoff ? this.observationGap(itemId, cutoff) !== null : false }
   }
   private metadata(operationIds: string[], periodIds: (string | null)[]) {
     const operations: Operation[] = [], undo: ExecutionInput['undo'] = []

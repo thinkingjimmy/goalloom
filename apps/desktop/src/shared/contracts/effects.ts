@@ -42,6 +42,12 @@ export function businessState(item: Item): BusinessState {
     archivedAt: item.archivedAt, deletedAt: item.deletedAt, deletedBy: item.deletedBy, version: item.version,
     horizon: item.placement.horizon, periodId: item.placement.periodId, sortKey: item.placement.sortKey, holdPeriodId: item.placement.holdPeriodId, nestingParentId: item.placement.nestingParentId ?? null }
 }
+/** Business continuity excludes revision counters and presentation-only placement fields. */
+export function sameBusinessState(a: BusinessState, b: BusinessState): boolean {
+  return a.status === b.status && a.completedAt === b.completedAt && a.cancelledAt === b.cancelledAt
+    && a.horizon === b.horizon && a.periodId === b.periodId && a.archivedAt === b.archivedAt
+    && a.deletedAt === b.deletedAt && a.deletedBy === b.deletedBy && (a.nestingParentId ?? null) === (b.nestingParentId ?? null)
+}
 export function effectsVersion(effects: Effect[]): Operation['effectsVersion'] {
   return effects.some(effect => effect.kind === 'nesting' || effect.kind === 'groupPlacement' || effect.kind === 'position' && !!(effect.before.nestingParentId || effect.after.nestingParentId)) ? 3
     : effects.some(effect => effect.kind === 'guidance' || effect.kind === 'description') ? 2 : 1

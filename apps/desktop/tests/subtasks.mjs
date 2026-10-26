@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current production build, native Electron input and isolated transaction fixtures, with explicit completed-layout controls.
- * [OUTPUT]: Title-edit keyboard nesting, leaf/group drag and menu checks, atomic flatten/undo evidence, native screenshots and runtime/platform evidence in output/tests/subtasks.
+ * [OUTPUT]: Title-edit keyboard nesting, details without redundant ownership properties, leaf/group drag and menu checks, atomic flatten/undo evidence, native screenshots and runtime/platform evidence in output/tests/subtasks.
  * [POS]: Subtask E2E entry; --data selects transactions, --drops selects group drops, --ownership selects cross-period ownership and --title-editing selects existing-title keys.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -94,7 +94,10 @@ try {
   const nested = join(evidence, 'nested-task.png'); await page.screenshot({ path: nested }); screenshots.push(nested)
   await row(ids.child).locator('.task-title').focus(); await page.keyboard.press('Enter')
   const detail = page.getByRole('dialog', { name: '当前条目', exact: true })
-  await detail.waitFor(); await detail.getByRole('button', { name: /所属任务.*Parent task/ }).waitFor()
+  await detail.waitFor()
+  await detail.locator('.detail-props').waitFor()
+  assert.equal(await detail.locator('.nesting-parent-chip, .nesting-parent-menu').count(), 0)
+  assert.equal((await detail.locator('.detail-props').innerText()).includes('Parent task'), false)
   assert.equal((await detail.locator('.description-editor').innerText()).trim(), 'Saved child notes')
   await detail.getByRole('button', { name: '关闭', exact: true }).click()
   await application.evaluate(({ ipcMain }) => {
@@ -180,8 +183,12 @@ try {
     await changeLanguage(locale)
     await row(ids.second).locator('.task-title').focus(); await page.keyboard.press('Enter')
     const dialog = page.locator('dialog.detail')
-    await dialog.getByRole('button', { name: copy.independent, exact: true }).waitFor()
-    assert.equal(await dialog.locator('.nesting-parent-chip').evaluate(node => node.scrollWidth <= node.clientWidth), true, 'The full container title wraps inside its detail control')
+    await dialog.locator('.detail-props').waitFor()
+    assert.equal(await dialog.locator('.nesting-parent-chip, .nesting-parent-menu').count(), 0)
+    assert.equal(await dialog.getByRole('button', { name: copy.independent, exact: true }).count(), 0)
+    assert.equal((await dialog.locator('.detail-props').innerText()).includes('Parent task'), false)
+    assert.equal((await page.evaluate(id => window.goalloom.getItem(id), ids.second)).item.placement.nestingParentId, ids.parent)
+    const propertiesPath = join(evidence, `detail-properties-${locale}.png`); await page.screenshot({ path: propertiesPath }); screenshots.push(propertiesPath)
     await dialog.locator('.detail-chip[data-empty]').click()
     await page.getByText(copy.note, { exact: true }).waitFor()
     assert.equal(await page.getByText(copy.note, { exact: true }).evaluate(node => !!node.closest('.menu') && getComputedStyle(node.closest('.menu')).backgroundColor !== 'rgba(0, 0, 0, 0)'), true)
@@ -189,13 +196,13 @@ try {
     await page.keyboard.press('Escape'); await dialog.getByRole('button', { name: copy.close, exact: true }).click()
   }
   await changeLanguage('zh')
-  checks.push('Five-language independent-task actions and read-only inherited goals/color in the complete detail')
-  await row(ids.child).locator('.task-title').click(); await detail.getByRole('button', { name: '恢复为一级', exact: true }).click()
+  checks.push('Five-language details omit parent-task metadata and detach controls while preserving ownership and inherited goals/color')
+  await row(ids.child).locator('.task-title').focus(); await page.keyboard.press('Shift+F10')
+  await page.getByRole('menuitem', { name: '恢复为一级', exact: true }).click()
   await pollPage(page, async ids => !(await window.goalloom.getItem(ids.child)).item.placement.nestingParentId, ids)
-  await detail.getByRole('button', { name: '关闭', exact: true }).click()
   await page.reload(); await completed.locator('summary').click()
   await row(ids.second).waitFor(); assert.equal(await row(ids.second).getAttribute('data-nested'), 'true')
-  checks.push('Detail unnest preserves inherited goal parents; reload preserves the remaining outline')
+  checks.push('The board context menu still makes tasks independent with inherited goal parents; reload preserves the remaining outline')
   const virtual = await page.evaluate(async () => {
     const generation = (await window.goalloom.getSnapshot()).workspace.generation, roots = []
     const run = async action => { const reply = await window.goalloom.execute({ generation, operationId: crypto.randomUUID(), ...action }); if (!reply.ok) throw Error(reply.message); return reply.result }

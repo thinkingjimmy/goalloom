@@ -4,8 +4,10 @@
  * [POS]: Shared cancellable HTTP adapter. OAuth stays in the desktop shell.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { createCloudRemote } from './cloud-remote'
 import { hex } from '@goalloom/crypto'
-import { SyncFailure } from './failure'
+import { cloudServiceHeaders } from '@goalloom/contracts'
+import { isServiceFailureCode, SyncFailure } from './failure'
 import { boundedRequest, requestLimits, syncClock, type RequestOptions, type SyncClock } from './request'
 import type { AccountView, CheckpointWire, EnvelopeWire, PullWire, PushResultWire, RecoveryChallenge, ReceiptWire, RosterWire, SyncHead, SyncRemote } from './remote'
 
@@ -59,17 +61,20 @@ export function createFetchRemote(input: {
       try {
         response = await fetch(`${input.url.replace(/\/$/, '')}/rest/v1/rpc/${name}`, {
           method: 'POST', signal,
-          headers: { apikey: input.anonKey, authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          headers: { apikey: input.anonKey, authorization: `Bearer ${token}`, 'content-type': 'application/json', ...cloudServiceHeaders },
+          redirect: 'error',
           body: JSON.stringify(body),
         })
         text = await response.text()
       } catch { signal.throwIfAborted(); throw new SyncFailure('network') }
       signal.throwIfAborted()
       if (!response.ok) {
-        if (response.status >= 500) throw new SyncFailure('network')
         let detail: { message?: string; code?: string; details?: string } = {}
         try { detail = JSON.parse(text) } catch { /* HTTP status still classifies a non-JSON failure. */ }
         const message = detail.message ?? `rpc ${response.status}`
+        if (message === 'initialization_pending' || message === 'initialization_conflict') throw new SyncFailure(message)
+        if (isServiceFailureCode(message)) throw new SyncFailure(message)
+        if (response.status >= 500) throw new SyncFailure('network')
         if (message.includes('rate_limited') || response.status === 429) {
           let rate: { retryAt?: number; scope?: string } = {}
           try { rate = JSON.parse(detail.details ?? '{}') } catch { /* Use a bounded retry when no hint is supplied. */ }
@@ -89,6 +94,7 @@ export function createFetchRemote(input: {
   }
   const bytea = (bytes: Uint8Array) => `\\x${hex(bytes)}`
   return {
+    finishInitialization: (value, options) => createCloudRemote(input).finishInitialization(value, options),
     registerDevice: (input, options) => call<string>('register_device', {
       p_name: input.name.slice(0, 64), p_platform: input.platform, p_sign_pub: bytea(input.signPub), p_box_pub: bytea(input.boxPub), p_protocol: 1,
     }, options),
@@ -98,6 +104,7 @@ export function createFetchRemote(input: {
       p_device: input.deviceId, p_workspace: input.workspaceId, p_generation: input.generation, p_roster: input.roster,
       p_roster_hash: input.rosterHash, p_roster_sig: bytea(input.rosterSig), p_checkpoint: input.checkpoint,
       p_rec_sig: bytea(input.recSig), p_dev_sig: bytea(input.devSig),
+      ...(input.initialization ? { p_initialization: input.initialization } : {}),
     }, options),
     putEnvelopes: (workspaceId, deviceId, envelopes, options) => call<void>('put_key_envelopes', { p_workspace: workspaceId, p_device: deviceId, p_envelopes: envelopes }, options),
     getEnvelopes: (workspaceId, deviceId, options) => call<EnvelopeWire[]>('get_key_envelopes', { p_workspace: workspaceId, p_device: deviceId }, options).then(rows => rows ?? []),
@@ -110,13 +117,15 @@ export function createFetchRemote(input: {
         || numbers.some(key => !Number.isSafeInteger(value[key]) || value[key] < (key === 'headSeq' || key === 'minRetainedSeq' ? 0 : 1))) throw new SyncFailure('configuration')
       return value
     },
-    receiptsFor: async (workspaceId, deviceId, opIds, options) => {
-      const rows = await call<unknown[]>('receipts_for', { p_workspace: workspaceId, p_device: deviceId, p_op_ids: opIds }, options)
-      if (!Array.isArray(rows) || rows.length > opIds.length) throw new SyncFailure('configuration')
+    receiptsFor: async (workspaceId, deviceId, operations, options) => {
+      const opIds = operations.map(row => row.opId)
+      if (operations.length > 200 || new Set(opIds).size !== opIds.length || operations.some(row => !/^[a-f0-9]{64}$/.test(row.payloadHash))) throw new SyncFailure('configuration')
+      const rows = await call<unknown[]>('receipts_for', { p_workspace: workspaceId, p_device: deviceId, p_op_ids: opIds, p_payload_hashes: operations.map(row => row.payloadHash) }, options)
+      if (!Array.isArray(rows) || rows.length > operations.length) throw new SyncFailure('configuration')
       const seen = new Set<string>()
       return rows.map(row => {
         const receipt: ReceiptWire = { opId: String(field(row, 'opId', 'op_id') ?? ''), payloadHash: String(field(row, 'payloadHash', 'payload_hash') ?? ''), seq: Number(field(row, 'seq', 'seq')) }
-        if (!opIds.includes(receipt.opId) || seen.has(receipt.opId) || !/^[a-f0-9]{64}$/.test(receipt.payloadHash) || !Number.isSafeInteger(receipt.seq) || receipt.seq < 1) throw new SyncFailure('configuration')
+        if (operations.find(row => row.opId === receipt.opId)?.payloadHash !== receipt.payloadHash || seen.has(receipt.opId) || !/^[a-f0-9]{64}$/.test(receipt.payloadHash) || !Number.isSafeInteger(receipt.seq) || receipt.seq < 1) throw new SyncFailure('configuration')
         seen.add(receipt.opId)
         return receipt
       })

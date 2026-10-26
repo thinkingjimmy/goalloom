@@ -18,3 +18,5 @@ Members:
 Log field reference: [Supabase log constants](https://github.com/supabase/supabase/blob/master/packages/shared-data/log-constants.ts). Hidden platform trace stores, managed WAL/backup physical retention and historical physical erasure remain outside the public log API. Unknown fields fail closed; failure reports contain fixed categories only.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+The controlled HTTP adapter covers `lifecycle_delivery_allowed` with exactly the development environment and a known fixture owner. Its metadata scanner permits `p_owner` only as a UUID; existing HTTP acceptance rejects private text, malformed owner values and unknown fields. This adapter does not change production lifecycle decisions.

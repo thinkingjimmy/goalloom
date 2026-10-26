@@ -17,7 +17,7 @@ function status(partial: Partial<SyncStatus> & Pick<SyncStatus, 'phase'>): SyncS
 }
 
 function page(partial: Partial<SyncStatus> & Pick<SyncStatus, 'phase'>): string {
-  return renderToStaticMarkup(createElement(SyncPane, { status: status(partial), timezone: 'UTC', today: '2026-10-13' }))
+  return renderToStaticMarkup(createElement(SyncPane, { generation: '00000000-0000-4000-8000-000000000001', onPreview: () => undefined, status: status(partial), timezone: 'UTC', today: '2026-10-13' }))
 }
 
 it('七种同步状态都是普通设置行，状态和退出登录在同一行', () => {

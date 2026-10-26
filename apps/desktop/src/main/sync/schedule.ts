@@ -4,7 +4,7 @@
  * [POS]: Desktop scheduling policy. It does not change operation payloads or business clocks.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { SyncFailure, syncClock, type SyncClock } from '@goalloom/sync'
+import { isServiceFailureCode, SyncFailure, syncClock, type SyncClock } from '@goalloom/sync'
 
 export class SyncSchedule {
   private timer: (() => void) | null = null
@@ -91,7 +91,7 @@ export class SyncSchedule {
       this.wanted = false
       if (error instanceof SyncFailure && error.code === 'cancelled') return
       this.input.onError(error)
-      if (error instanceof SyncFailure && ['configuration', 'auth', 'key', 'version', 'mismatch', 'storage', 'rejected'].includes(error.code)) {
+      if (error instanceof SyncFailure && (isServiceFailureCode(error.code) || ['configuration', 'auth', 'key', 'version', 'mismatch', 'storage', 'rejected'].includes(error.code))) {
         this.stop(); return
       }
       const delay = this.jitter([8_000, 16_000, 32_000, 60_000][Math.min(this.failures++, 3)]!)

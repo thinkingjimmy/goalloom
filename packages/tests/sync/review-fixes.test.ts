@@ -358,9 +358,10 @@ it('writes a protective backup and asks for one transaction before replacing the
   opened.secrets = {
     deviceId: randomUUID(), signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: randomBytes(32), workspaceId,
     generation: randomUUID(), epoch: 1, roster: { workspaceId, version: 1, epoch: 1, prevHash: null, devices: [], recoverySignPub: 'aa', recoveryBoxPub: 'bb' },
-    recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
+    recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: '11111111-1111-4111-8111-111111111111', accounts: {},
   }
   opened.remote = {
+    finishInitialization: async () => { throw new Error('not expected') },
     receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
     pullOps: async () => [], pushOps: async () => [], getRoster: async () => { throw new SyncFailure('network') },
     getEnvelopes: async () => [], account: async () => null, registerDevice: async () => randomUUID(), rebindDevice: async () => undefined,
@@ -381,43 +382,49 @@ it('writes a protective backup and asks for one transaction before replacing the
 
 it('backs up the board before the first device baselines and before a reset upload', async () => {
   const remote = (): SyncRemote => ({
+    finishInitialization: async () => { throw new Error('not expected') },
     receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
     pullOps: async () => [], pushOps: async () => [], getRoster: async () => { throw new SyncFailure('network') },
     getEnvelopes: async () => [], account: async () => null, registerDevice: async () => randomUUID(), rebindDevice: async () => undefined,
     bootstrap: async () => undefined, putEnvelopes: async () => undefined, getCheckpoint: async () => null,
     startRecovery: async () => { throw new SyncFailure('network') }, completeRecovery: async () => undefined, resetSync: async () => undefined,
   })
+  const accountId = randomUUID()
   const open = (phase: 'setup' | 'enter-key') => {
     const calls: { type?: string }[] = []
-    const secret = newDeviceSecret()
+    const secret = newDeviceSecret(), generation = randomUUID()
     const service = new SyncService({
       userData: mkdtempSync(join(tmpdir(), 'goalloom-sync-baseline-')), cipher: identityCipher(),
       storage: { call: async (_method: string, argument?: unknown) => {
         const action = argument as { type?: string }
         calls.push(action)
-        if (action.type === 'view') return { workspaceId: null, deviceId: null, generation: randomUUID(), keyEpoch: null, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 2 }
+        if (action.type === 'view') return { workspaceId: null, deviceId: null, generation, keyEpoch: null, paused: null, lastAppliedSeq: 0, pending: 0, conflicts: 0, localItems: 2 }
+        if (action.type === 'transition-preview') return { sourceDigest: 'a'.repeat(64), revision: 0, localGeneration: generation, rowBytes: 1, counts: { workspace: 1, periods: 0, policies: 0, items: 2, guidance: 0, relations: 0 }, retired: { counts: { sync_op: 0 }, digest: 'b'.repeat(64) } }
+        if (action.type === 'retired-summary') return []
         if (action.type === 'take') return []
         return null
       } } as unknown as StorageClient,
       openExternal: async () => undefined, notify: () => undefined, onApplied: () => undefined, clipboard: () => undefined, now: () => now,
     })
-    const opened = service as unknown as { started: boolean; secrets: VaultSecrets; remote: SyncRemote; phase: string }
+    const opened = service as unknown as { started: boolean; secrets: VaultSecrets; remote: SyncRemote; phase: string; identity: { userId: string; email: string; expiresAt: number } }
     opened.started = true
     opened.phase = phase
+    opened.identity = { userId: accountId, email: 'fixture@example.invalid', expiresAt: Date.parse(now) + 3600000 }
     opened.secrets = {
       deviceId: randomUUID(), signSk: secret.signSk, boxSk: secret.boxSk, workspaceKey: null, workspaceId: null,
-      generation: null, epoch: null, roster: null, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
+      generation: null, epoch: null, roster: null, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: accountId, accounts: {},
     }
     opened.remote = remote()
     return { service, calls }
   }
   const created = open('setup')
   await created.service.handle({ type: 'create', password: 'sync-pass' })
-  expect(created.calls.map(call => call.type).filter(type => type === 'protect' || type === 'baseline')).toEqual(['protect', 'baseline'])
+  expect(created.calls.map(call => call.type).filter(type => type === 'protect' || type === 'transition-commit')).toEqual(['protect', 'transition-commit'])
   const reset = open('enter-key')
   ;(reset.service as unknown as { selectedWorkspace: string }).selectedWorkspace = randomUUID()
-  await reset.service.handle({ type: 'create-new-workspace', password: 'sync-pass' })
-  expect(reset.calls.map(call => call.type).filter(type => type === 'protect' || type === 'recover-bind')).toEqual(['protect', 'recover-bind'])
+  const preview = await reset.service.handle({ type: 'generation-preview', expectedAccountId: accountId })
+  await reset.service.handle({ type: 'create-new-workspace', password: 'sync-pass', expectedAccountId: accountId, previewToken: preview.generationPreview!.token, acknowledged: true })
+  expect(reset.calls.map(call => call.type).filter(type => type === 'protect' || type === 'transition-commit')).toEqual(['protect', 'transition-commit'])
 })
 
 it('cancels an in-flight sign-in without an auth notice', async () => {
@@ -542,13 +549,14 @@ it('seeds settings when an already-bound account resumes', async () => {
     deviceId, signSk: deviceSecret.signSk, boxSk: deviceSecret.boxSk, workspaceKey: randomBytes(32), workspaceId,
     generation: workspaceId, epoch: 1,
     roster: { workspaceId, version: 1, epoch: 1, prevHash: null, devices: [{ id: deviceId, signPub: 'aa', boxPub: 'bb' }], recoverySignPub: 'aa', recoveryBoxPub: 'bb' },
-    recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: 'user-a', accounts: {},
+    recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: '11111111-1111-4111-8111-111111111111', accounts: {},
   }
   opened.client = {
-    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-a' } } } }) },
+    auth: { getSession: async () => ({ data: { session: { user: { id: '11111111-1111-4111-8111-111111111111' } } } }) },
     channel: () => ({ on() { return this }, subscribe() { return undefined }, async unsubscribe() { return undefined } }),
   }
   opened.remote = {
+    finishInitialization: async () => { throw new Error('not expected') },
     receiptsFor: async () => [], getSyncStatus: async () => { throw new SyncFailure('network') },
     account: async () => ({ workspaceId, generation: workspaceId, keyEpoch: 1, headSeq: 0, rosterVersion: 1 }),
     rebindDevice: async () => undefined, registerDevice: async () => randomUUID(),
@@ -609,9 +617,10 @@ it('seals an API key from the keychain and writes the fingerprint on absorb', as
   opened.phase = 'ready'
   opened.secrets = {
     deviceId, signSk: deviceSecret.signSk, boxSk: deviceSecret.boxSk, workspaceKey, workspaceId,
-    generation: workspaceId, epoch: 1, roster, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: null, accounts: {},
+    generation: workspaceId, epoch: 1, roster, recoveryBoxSk: null, recoverySignSk: null, refreshToken: null, userId: '11111111-1111-4111-8111-111111111111', accounts: {},
   }
   opened.remote = {
+    finishInitialization: async () => { throw new Error('not expected') },
     receiptsFor: async () => [], getSyncStatus: async () => ({ workspaceId, generation: workspaceId, headSeq: 1, keyEpoch: 1, rosterVersion: 1, minRetainedSeq: 0, minProtocolRead: 1, minProtocolWrite: 1 }),
     account: async () => null,
     rebindDevice: async () => undefined, registerDevice: async () => deviceId,

@@ -12,14 +12,14 @@ domain/
 ├── flows.ts      # 流程归属：图内祖先缓存解析流程根，图外条目共享空结果，不保留累计访问身份
 ├── rollover.ts   # 往期可发现性、自动候选与撤销 hold 的纯判断
 ├── undo.ts       # Owned fields, relation/color effects and semantic-order matching, independent of whole-item versions
-├── creation.ts   # Immutable net creation projection and original-receipt nesting provenance for scoped restore after creation undo
-├── import-creation.ts # v11 capture provenance, completion whitelist and atomic grouped undo-marker validation
+├── creation.ts   # Immutable net creation/completion projection and nesting provenance for scoped restore after grouped creation undo
+├── import-creation.ts # Capture provenance, guarded nesting completions and atomic grouped undo-marker validation
 ├── history.ts    # 顺序流式投影期末与有界后续明细，缺失/回拨为 unknown；期末结果（完成/未完成/移出/取消/未知）
-├── execution-facts.ts # Effective counts versus real state seconds, replayed guidance pressure and clock-only projections
-├── execution-history.ts # Indexed ownership for every event effect and chronological guidance/clear/undo replay
+├── execution-facts.ts # Effective counts and known state seconds, observation-gap uncertainty, guidance pressure and clock-only projections
+├── execution-history.ts # Indexed effect ownership and guidance/clear/undo replay from finite observed value/identity; confirmations require real local events
 ├── import-nesting.ts # Cross-period nesting/restore provenance, local group moves, Later detach ownership and commit-order relationship/lifecycle replay
 ├── import-guidance.ts # Indexed guidance head/receipt/sequence integrity, tombstones and logical ownership without per-event batch scans
-├── import-validation.ts # Strict v1-v12 datasets, grouped creation inverses, DAGs, colors, discard visibility, plans and legacy milestone receipts
+├── import-validation.ts # Strict v1-v13 segmented datasets, grouped creation inverses, DAGs, colors, discard visibility, plans and legacy milestone receipts
 ├── plan.ts       # createPlan 批内约束与稳定拓扑序（父在前、同级保持草稿顺序）
 ├── status.ts     # 独立状态时间组、效果匹配与差量逆转
 ├── items.ts      # Pure title-only discard eligibility shared by detail drafts and authoritative lifecycle writes
@@ -28,7 +28,7 @@ domain/
     ├── dates.ts        # 工作区 weekStart 的星期、绝对/月底日期与完整/省略终点的范围歧义
     ├── calendar-phrases.ts # Pure Chinese execution-period phrases resolved against mode, anchor and injected today
     ├── questions.ts    # 原文直接作 state 的题单，Q=1+3S+D+3+R≤64，payload/token 预算与补充轮
-    ├── matching.ts     # Jev 1.14 partial-progress/development scope, explicit legacy boundaries, structured per-goal Noul, budgeted batches and 0.60 ancestor-reduced parent sets
+    ├── matching.ts     # Jev 1.14 budgeted per-candidate Noul, 0.60 ancestor-reduced goals and unique same-period ownership for single global capture
     ├── budget.ts       # 不依赖日期规划的 payload/token/题数上限与估算，题单和 provider 共用
     ├── distribution.ts # 统一 Choice/boolean 契约校验、K×d 总和容差、top/margin/集中度与确定性
     ├── preview.ts      # 答案组装为可编辑预览：角色归并（说明取原文原句）、执行/截止、多父建议去环、`关联「X」` 直接确认、警示

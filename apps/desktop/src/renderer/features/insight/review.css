@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Shared appearance tokens, Select/link classes, nested-row markers and review progress/choice states.
- * [OUTPUT]: Review/planning guides, responsive modal, board-matched subtask indentation, joined task connectors, content-sized dropdowns and borderless draft editing.
+ * [INPUT]: Measured feedback clearance, shared appearance tokens, Select/link classes, nested-row markers and review progress/choice states.
+ * [OUTPUT]: Review/planning guides, responsive modal with feedback-safe footer controls, board-matched subtask indentation, joined task connectors, content-sized dropdowns and borderless draft editing.
  * [POS]: Coordinated review states and native-drawer geometry; ordinary layout and shared controls use Tailwind.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -92,7 +92,7 @@
 .review-plan-row .seed-title { flex: 1; min-width: 0; height: var(--plan-child-height); padding: 2px 0; border: 0; border-radius: 3px; font-size: 14px; line-height: 22px; background: none; color: var(--fg); }
 .review-plan-row .seed-title:focus-visible { outline: none; box-shadow: none; background: none; }
 .review-plan-row[data-on=false] .seed-title { color: var(--secondary); }
-.review-foot { border-top: 1px solid var(--line); }
+.review-foot { border-top: 1px solid var(--line); padding-bottom: max(20px, var(--feedback-clearance, 0px)); }
 .review-foot .settings-button { height: auto; min-height: 40px; white-space: normal; }
 .review-foot .review-text-button { display: inline-flex; align-items: center; justify-content: flex-start; min-width: 44px; margin-inline-start: -10px; padding: 8px 10px; border: 0; background: transparent; color: var(--secondary); text-align: left; }
 .review-foot .review-skip-plan { margin-inline-start: 0; }

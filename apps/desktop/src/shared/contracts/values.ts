@@ -31,4 +31,4 @@ export const providerModels = {
   'vercel-gateway': { jev: 'typesafe-ai/jev-1.14.0', chat: 'deepseek/deepseek-v4.1-flash' },
 } as const satisfies Record<typeof aiProviders[number], Partial<Record<typeof aiCapabilities[number], string>>>
 
-export const aiFailureKinds = ['account_verification_required', 'rate_limited', 'quota_exhausted', 'payment_required', 'authentication_failed', 'permission_denied', 'routing_policy', 'timeout', 'unavailable', 'malformed_response', 'request_failed', 'too_large', 'credential_unreadable', 'credential_unavailable', 'not_enabled', 'result_not_delivered'] as const
+export const aiFailureKinds = ['account_verification_required', 'rate_limited', 'quota_exhausted', 'payment_required', 'authentication_failed', 'permission_denied', 'routing_policy', 'timeout', 'unavailable', 'malformed_response', 'request_failed', 'too_large', 'credential_unreadable', 'credential_unavailable', 'not_enabled', 'result_not_delivered', 'service_not_started', 'service_expired', 'service_revoked', 'upgrade_required', 'billing_configuration'] as const

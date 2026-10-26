@@ -110,7 +110,7 @@ async function main() {
     await peer.service.operation
     await peer.service.handle({ type: 'retry' })
     await until(`${peer.name} pending operations drain`, async () => {
-      const view = await peer.storage.call('sync', { type: 'view' })
+      const view = await peer.service.local({ type: 'view' })
       return peer.status.phase === 'ready' && !peer.status.error && view.pending === 0
     })
     await peer.service.schedule.settle()
@@ -186,7 +186,7 @@ async function main() {
     check('Kept local data blocks a real second account before registration or cloud upload')
 
     const preserved = await state(oldId), localCalendar = calendar(a.profile)
-    expectPhase(await a.service.handle({ type: 'create-new-workspace', password: 'live-new-password' }), 'ready')
+    expectPhase(await createGeneration(a, 'live-new-password'), 'ready')
     await drained(a)
     const newId = a.service.secrets.workspaceId
     assert.notEqual(newId, oldId)
@@ -210,15 +210,15 @@ async function main() {
     check('Non-destructive recovery preserves cloud bytes, both restart pins and old-device writes; fresh discovery selects newest and rejects foreign pins', { oldWorkspaceId: oldId, newWorkspaceId: newId, coexist: 2 })
 
     transport.loseCreationReply = true
-    const lost = await a.service.handle({ type: 'create-new-workspace', password: 'live-retry-password' })
+    const lost = await createGeneration(a, 'live-retry-password')
     assert.equal(lost.status.error, 'network')
     assert.equal(transport.loseCreationReply, false, 'The real server must commit before losing its response')
-    const draftId = a.service.secrets.pendingRecovery.workspaceId
+    const draftId = (await a.service.bindingJournal.pending(a.service.accountId()))!.binding.workspaceId
     assert.equal(a.service.secrets.workspaceId, newId)
     assert.equal(sql(a.profile, 'SELECT workspaceId FROM sync_state')[0]!.workspaceId, newId)
     assert(await state(draftId)); assert.equal((await rows('workspaces', users[0]!.id)).length, 3)
     await close(a); a = await open('alpha', 0); await drained(a)
-    expectPhase(await a.service.handle({ type: 'create-new-workspace', password: 'live-retry-password' }), 'ready'); await drained(a)
+    expectPhase(await createGeneration(a, 'live-retry-password'), 'ready'); await drained(a)
     assert.equal(a.service.secrets.workspaceId, draftId)
     assert.equal((await rows('workspaces', users[0]!.id)).length, 3)
     const attempts = requests.filter(row => row.path.endsWith('/create_new_workspace') && row.workspaceId === draftId)
@@ -251,7 +251,7 @@ async function main() {
     const restoredAt = performance.now()
     transport.offline = false; online.value = true
     await until('automatic real session refresh after network restoration', () => a.status.phase === 'ready' && !a.status.error)
-    await until('automatic pending upload after network restoration', async () => (await a.storage.call('sync', { type: 'view' })).pending === 0)
+    await until('automatic pending upload after network restoration', async () => (await a.service.local({ type: 'view' })).pending === 0)
     const firstAfterOnline = requests.slice(beforeOffline)[0]
     assert(firstAfterOnline && firstAfterOnline.at - restoredAt <= 4000, 'Connectivity must trigger refresh within one two-second poll')
     assert(a.network.some((event: any) => event.event === 'online'))
@@ -262,12 +262,12 @@ async function main() {
     check('Offline startup resumes a real saved Auth session and uploads offline writes automatically after an OS connectivity hint', {
       firstRefreshMs: Math.round(firstAfterOnline.at - restoredAt), completionMs: Math.round(performance.now() - restoredAt), manualRetries: 0 })
 
-    const oldGeneration = (await a.storage.call('sync', { type: 'view' })).generation
+    const oldGeneration = (await a.service.local({ type: 'view' })).generation
     const primaryCloud = await rows('workspaces', users[0]!.id)
     expectPhase(await a.service.handle({ type: 'sign-out', clearLocal: true }), 'signed-out')
     assert.equal(tasks(a.profile).length, 0)
     assert.equal(await exists(join(a.profile, 'sync-vault.bin')), false)
-    const freshView = await a.storage.call('sync', { type: 'view' })
+    const freshView = await a.service.local({ type: 'view' })
     assert.notEqual(freshView.generation, oldGeneration)
     await close(a); a = await open('alpha', 1)
     expectPhase(await a.service.handle({ type: 'sign-in', provider: 'google' }), 'enter-key')
@@ -301,3 +301,10 @@ async function main() {
   }
 }
 void main().catch(error => { console.error(error.message); process.exitCode = 1 })
+
+async function createGeneration(peer: any, password: string) {
+  const expectedAccountId = peer.service.accountId()
+  const preview = await peer.service.handle({ type: 'generation-preview', expectedAccountId })
+  assert(preview.generationPreview, JSON.stringify(preview))
+  return peer.service.handle({ type: 'create-new-workspace', password, expectedAccountId, previewToken: preview.generationPreview.token, acknowledged: true })
+}

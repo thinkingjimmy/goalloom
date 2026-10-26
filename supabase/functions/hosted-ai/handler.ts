@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
  * [INPUT]: Project-verified sessions, finite shared feature schemas, server secrets and atomic ledger RPCs.
- * [OUTPUT]: Capability-bound provider policies, request-local results, receipt-only recovery and conservative cost settlement.
+ * [OUTPUT]: Capability-bound results, deletion-aware delivery, receipt recovery and unchanged conservative cost settlement.
  * [POS]: Trusted hosted AI boundary. No workspace writes, entitlement side effects, body logs or automatic retries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -16,6 +16,7 @@ import { payloadSize, payloadLimit, tokenBudget } from '../../../apps/desktop/sr
 
 type Config = { url: string; serviceKey: string; providerKey: string; environment: string; fetch?: typeof fetch }
 type Receipt = { user_id: string; action_id: string; status: string; failure: string | null; provider_request_id: string | null; confirmed: boolean; created_at?: string; input_tokens?: number | null; output_tokens?: number | null }
+type ServiceAccess = { eligible?: boolean; error?: string; billingStatus?: string; serverNow?: string; effectiveEnd?: string | null; minServiceVersion?: number }
 const modelFor = (request: HostedInput) => request.capability === 'evaluate' ? 'typesafe/jev-1.14' : request.capability === 'assistance' ? 'deepseek/deepseek-v4.1-flash-1017' : 'deepseek/deepseek-v4.1-flash'
 const rewritesNotes = (request: HostedInput) => request.capability === 'assistance' && request.input.request.mode === 'rewrite'
 const routeFor = (request: HostedInput) => request.capability === 'evaluate' ? 'typesafe' : rewritesNotes(request) ? 'deepseek' : 'deepinfra/fp8'
@@ -34,12 +35,13 @@ async function boundedJson(response: Response | Request, max = 256 * 1024): Prom
 }
 export function createHostedHandler(config: Config): (request: Request) => Promise<Response> {
   const http = config.fetch ?? fetch
-  const rpc = async <T>(name: string, args: unknown): Promise<T> => {
-    const response = await http(`${config.url}/rest/v1/rpc/${name}`, { method: 'POST', headers: { authorization: `Bearer ${config.serviceKey}`, apikey: config.serviceKey, 'content-type': 'application/json' }, body: JSON.stringify(args), signal: AbortSignal.timeout(10_000), redirect: 'error' })
+  const rpc = async <T>(name: string, args: unknown, serviceVersion?: string): Promise<T> => {
+    const response = await http(`${config.url}/rest/v1/rpc/${name}`, { method: 'POST', headers: { authorization: `Bearer ${config.serviceKey}`, apikey: config.serviceKey, 'content-type': 'application/json', ...(serviceVersion ? { 'x-goalloom-service-version': serviceVersion } : {}) }, body: JSON.stringify(args), signal: AbortSignal.timeout(10_000), redirect: 'error' })
     if (!response.ok) throw new Error('ledger_unavailable')
     return await boundedJson(response, 512 * 1024) as T
   }
-  const receiptReply = async (receipt: Receipt | null): Promise<Response> => {
+  const receiptReply = async (receipt: Receipt | null, owner: string): Promise<Response> => {
+    if (!await rpc<boolean>('lifecycle_delivery_allowed', { p_environment: config.environment, p_owner: owner })) return serviceReply({ eligible: false, error: 'service_revoked' })
     if (!receipt) return json({ error: 'not_found' }, 404)
     if (receipt.status === 'ready' || receipt.status === 'expired') return json({ status: receipt.status, confirmed: receipt.confirmed, error: 'result_not_delivered' }, 409)
     if (receipt.status === 'running' || receipt.status === 'unknown') return json({ status: receipt.status, confirmed: receipt.confirmed, error: 'outcome_pending', retryAt: new Date(Date.now() + 5000).toISOString() }, 202)
@@ -55,12 +57,16 @@ export function createHostedHandler(config: Config): (request: Request) => Promi
       try { claims = JSON.parse(Buffer.from(authorization.slice(7).split('.')[1] ?? '', 'base64url').toString()) } catch { return json({ error: 'authentication_failed' }, 401) }
       if (!claims || typeof claims !== 'object' || claims.iss !== `${config.url}/auth/v1` || claims.role !== 'authenticated' || typeof claims.exp !== 'number' || !Number.isFinite(claims.exp) || claims.exp * 1000 <= Date.now()) return json({ error: 'authentication_failed' }, 401)
       const auth = await http(`${config.url}/auth/v1/user`, { headers: { authorization, apikey: config.serviceKey }, signal: AbortSignal.timeout(10_000), redirect: 'error' })
-      if (!auth.ok) return json({ error: 'authentication_failed' }, 401)
+      if (!auth.ok) return json({ error: [401,403].includes(auth.status) ? 'authentication_failed' : 'unavailable' }, [401,403].includes(auth.status) ? 401 : 503)
       const user = await boundedJson(auth) as { id?: string }
       if (!user.id || !uuid.test(user.id) || user.id !== claims.sub) return json({ error: 'authentication_failed' }, 401)
       const owner = user.id
+      const serviceVersion = request.headers.get('x-goalloom-service-version') === '1' ? '1' : undefined
       if (request.method === 'GET') {
-        if (new URL(request.url).searchParams.get('status') === '1') return json({ eligible: !!config.providerKey && await rpc<boolean>('ai_eligibility', { p_environment: config.environment }) })
+        if (new URL(request.url).searchParams.get('status') === '1') {
+          const access = await rpc<ServiceAccess>('ai_service_status', { p_user: owner, p_environment: config.environment }, serviceVersion)
+          return access.error ? serviceReply(access) : json({ version: 1, eligible: !!config.providerKey && access.eligible === true })
+        }
         const id = new URL(request.url).searchParams.get('actionId') ?? ''
         if (!uuid.test(id)) return json({ error: 'invalid_request' }, 400)
         let receipt = await rpc<Receipt | null>('ai_receipt', { p_user: owner, p_action: id })
@@ -82,11 +88,13 @@ export function createHostedHandler(config: Config): (request: Request) => Promi
             }
           } catch { /* Retain the conservative reservation until the bounded reconciliation cutoff. */ }
         }
-        return await receiptReply(receipt)
+        return await receiptReply(receipt, owner)
       }
       let action
       try { action = hostedActionSchema.parse(await boundedJson(request)) }
       catch (error) { return json({ error: error instanceof Error && error.message === 'too_large' ? 'too_large' : 'invalid_request' }, error instanceof Error && error.message === 'too_large' ? 413 : 400) }
+      const access = await rpc<ServiceAccess>('ai_service_status', { p_user: owner, p_environment: config.environment }, serviceVersion)
+      if (access.error || access.eligible !== true) return serviceReply(access)
       const input = action.request
       const model = modelFor(input)
       let payload: Record<string, unknown>
@@ -147,9 +155,10 @@ export function createHostedHandler(config: Config): (request: Request) => Promi
         || !Number.isFinite(Number(selected.pricing.prompt)) || !Number.isFinite(Number(selected.pricing.completion))
         || Number(selected.pricing.prompt) < 0 || Number(selected.pricing.prompt) > 0.000001
         || Number(selected.pricing.completion) < 0 || Number(selected.pricing.completion) > (input.capability === 'evaluate' ? 0 : 0.00001)) return json({ error: 'routing_policy' }, 503)
-      const admitted = await rpc<{ error?: string; retryAt?: string; existing?: boolean; receipt: Receipt }>('ai_admit', { p_user: owner, p_action: action.actionId, p_capability: input.capability, p_environment: config.environment, p_model: model, p_rate: 'openrouter-2026-10-23-v1', p_reserve: 500000 })
+      const admitted = await rpc<ServiceAccess & { retryAt?: string; existing?: boolean; receipt: Receipt }>('ai_admit', { p_user: owner, p_action: action.actionId, p_capability: input.capability, p_environment: config.environment, p_model: model, p_rate: 'openrouter-2026-10-23-v1', p_reserve: 500000 }, serviceVersion)
+      if (admitted.error && serviceErrors.has(admitted.error)) return serviceReply(admitted)
       if (admitted.error) return json({ error: safeAdmission(admitted.error), retryAt: admitted.retryAt }, admitted.error === 'permission_denied' || admitted.error === 'account_protection' ? 403 : admitted.error === 'action_expired' ? 409 : admitted.error.includes('budget') ? 402 : 429)
-      if (admitted.existing) return await receiptReply(admitted.receipt)
+      if (admitted.existing) return await receiptReply(admitted.receipt, owner)
       let data: Record<string, unknown> | null = null, result: unknown, error: string | null = null, providerId: string | null = null
       try {
         const response = await http(input.capability === 'evaluate' ? 'https://openrouter.ai/api/v1/systemone' : 'https://openrouter.ai/api/v1/chat/completions', {
@@ -172,8 +181,11 @@ export function createHostedHandler(config: Config): (request: Request) => Promi
         p_failure: error,
       })
       // Delivery is possible only on this original POST after the ledger commit is acknowledged.
-      if (result !== undefined && settled.status === 'ready') return json({ status: 'ready', result })
-      return await receiptReply(settled)
+      if (result !== undefined && settled.status === 'ready') {
+        if (!await rpc<boolean>('lifecycle_delivery_allowed', { p_environment: config.environment, p_owner: owner })) return serviceReply({ eligible: false, error: 'service_revoked' })
+        return json({ status: 'ready', result })
+      }
+      return await receiptReply(settled, owner)
     } catch { return json({ error: 'unavailable' }, 503) }
   }
 }
@@ -185,4 +197,11 @@ function token(usage: unknown, field: string): number | null {
 const failures = new Set(['malformed_response','provider_failed','too_large','outcome_unknown','outcome_lost','reconciliation_closed','result_not_delivered'])
 function safeFailure(value: unknown): string | null { return typeof value === 'string' && failures.has(value) ? value : null }
 function safeAdmission(value: string): string { return ['permission_denied','account_protection','platform_budget','account_budget','platform_concurrency','account_concurrency','platform_rate','account_rate','action_expired'].includes(value) ? value : 'unavailable' }
+const serviceErrors = new Set(['service_not_started','service_expired','service_revoked','upgrade_required','billing_configuration'])
+function serviceReply(access: ServiceAccess): Response {
+  const error = access.error && (serviceErrors.has(access.error) || access.error === 'permission_denied') ? access.error : 'unavailable'
+  return json({ version: 1, eligible: false, error, billingStatus: access.billingStatus,
+    serverNow: access.serverNow, effectiveEnd: access.effectiveEnd, minServiceVersion: access.minServiceVersion },
+    error === 'upgrade_required' ? 409 : ['billing_configuration','unavailable'].includes(error) ? 503 : 403)
+}
 function safeProviderId(value: unknown): string | null { return typeof value === 'string' && /^gen-(?:dec-)?\d{10,16}-[A-Za-z0-9]{1,80}$/.test(value) ? value : null }

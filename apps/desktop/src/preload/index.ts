@@ -1,9 +1,10 @@
 /**
  * [INPUT]: Sandboxed Electron bridge and shared wire schemas.
- * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, period-scoped review contexts, live past-period pages, device placement preferences, actual-period details, bounded link responses, update state/events and token-bound close draining.
+ * [OUTPUT]: Fixed window.goalloom API with validated current/future summaries, period-scoped review contexts, live past-period pages, device placement preferences, actual-period details, structured transfer failures, bounded link responses, update/billing state/events and token-bound close draining.
  * [POS]: Only renderer/main bridge; no Node capabilities, generic channels or file paths.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { cloudChannel, cloudActionSchema, cloudReplySchema } from '../shared/contracts/cloud'
 import type { z } from 'zod'
 import { contextBridge, ipcRenderer } from 'electron'
 import { aiRefreshEvent, devicePrefEntrySchema, devicePrefsChannel, devicePrefsEvent, devicePrefsReportSchema, languageChannel, languageEvent, languageStateSchema, parentOrderChannel, parentOrderRequestSchema, parentOrderValueSchema, runtimeChannel, runtimeInfoSchema, type GoalloomApi } from '../shared/contracts/runtime'
@@ -18,6 +19,7 @@ import { openAboutEvent, updateChannel, updateEvent, updateInfoSchema } from '..
 import { closeRequestEvent, closeReplyEvent, closeRequestSchema } from '../shared/contracts/window-close'
 import { activityEntriesSchema, activityMonthSchema, executionFactsSchema } from '../shared/contracts/execution'
 import { syncChannel, syncEvent, syncReplySchema, syncStatusSchema } from '../shared/contracts/sync'
+import { billingActionSchema, billingChannel, billingEvent, billingStateSchema } from '../shared/contracts/billing'
 
 const closeGuards = new Set<() => Promise<boolean>>()
 ipcRenderer.on(closeRequestEvent, (_event, input: unknown) => {
@@ -89,7 +91,11 @@ const api: GoalloomApi = {
   getCounts: async () => query({ type: 'counts' }, itemCountsSchema),
   getActivitySummary: async itemId => query({ type: 'activitySummary', itemId }, activitySummarySchema),
   getBatchItems: async input => query(input, batchPageSchema),
-  data: async action => dataReplySchema.parse(await ipcRenderer.invoke('goalloom:data', action)),
+  data: async action => {
+    const reply = await ipcRenderer.invoke('goalloom:data', action), failure = replySchema.safeParse(reply)
+    if (failure.success && !failure.data.ok) throw Object.assign(new Error(failure.data.message), { code: failure.data.code })
+    return dataReplySchema.parse(reply)
+  },
   onChanged: listener => {
     const receive = (_event: unknown, value: unknown) => { const parsed = resultSchema.nullable().safeParse(value); if (parsed.success) listener(parsed.data) }
     ipcRenderer.on('goalloom:changed', receive)
@@ -103,6 +109,13 @@ const api: GoalloomApi = {
   openExternal: async url => (await ipcRenderer.invoke(linkChannel, { type: 'open', url })) === true,
   update: async action => updateInfoSchema.parse(await ipcRenderer.invoke(updateChannel, action)),
   sync: async action => syncReplySchema.parse(await ipcRenderer.invoke(syncChannel, action)),
+  cloud: async action => cloudReplySchema.parse(await ipcRenderer.invoke(cloudChannel, cloudActionSchema.parse(action))),
+  billing: async action => billingStateSchema.parse(await ipcRenderer.invoke(billingChannel, billingActionSchema.parse(action))),
+  onBilling: listener => {
+    const receive = (_event: unknown, value: unknown) => { const parsed = billingStateSchema.safeParse(value); if (parsed.success) listener(parsed.data) }
+    ipcRenderer.on(billingEvent, receive)
+    return () => { ipcRenderer.removeListener(billingEvent, receive) }
+  },
   onSync: listener => {
     const receive = (_event: unknown, value: unknown) => { const parsed = syncStatusSchema.safeParse(value); if (parsed.success) listener(parsed.data) }
     ipcRenderer.on(syncEvent, receive)

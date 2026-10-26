@@ -1,6 +1,6 @@
 /**
  * [INPUT]: None; <html data-theme> is set before first paint by components/boot.ts
- * [OUTPUT]: Paper theme tokens (light and dark) and flow colours for the whole site
+ * [OUTPUT]: Paper themes, flow colours, 1296px shared site width, shared gutter and window radius
  * [POS]: First layer of app/styles; values mirror src/renderer/styles.css (paper) and src/renderer/lib/colors.ts
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,7 +22,10 @@
   --stroke-d: #9065a3;
   --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Hiragino Sans', 'Segoe UI', 'Microsoft YaHei', sans-serif;
   --mono: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
-  --edge: 120px;
+  --edge: 0px;
+  --site-max-width: 1296px;
+  --header-height: 72px;
+  --window-radius: 12px;
 }
 
 :root[data-theme='dark'] {
@@ -43,5 +46,5 @@
 }
 
 @media (max-width: 900px) {
-  :root { --edge: 16px; }
+  :root { --header-height: 60px; }
 }

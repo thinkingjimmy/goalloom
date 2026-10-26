@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Depends on ./tokens.css
- * [OUTPUT]: Element defaults and shared type primitives (.eyebrow, .h2, .h3, .lead, .body, .kc, .sr-only)
+ * [OUTPUT]: Centered header/main/footer containers, element defaults and shared type primitives (.eyebrow, .h2, .h3, .lead, .body, .kc, .sr-only)
  * [POS]: Second layer of app/styles; every section styles itself on top of these
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -11,6 +11,7 @@ body {
   margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 16px; line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+body > :is(.site-header, main, .site-footer) { max-width: var(--site-max-width); margin-inline: auto; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 :where(a, button, summary):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }

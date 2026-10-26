@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace snapshot, bounded candidate queries, source text and reference time; calendar loads on use.
- * [OUTPUT]: Current/future legal goal summaries and their direct DAG context, without a fixed candidate-count cutoff.
+ * [OUTPUT]: Current/future goal and root-task summaries, placement guards and direct DAG context without a fixed candidate cutoff.
  * [POS]: Only smart-service workspace reader; no descriptions, history or database ownership during HTTP waits.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -63,6 +63,7 @@ export function storageReader(storage: () => StorageClient): WorkspaceReader {
       const candidates: Candidate[] = [...ordered.values()].filter(item => item.deletedAt === null).map((item, index) => ({
         ref: `g${index + 1}`, itemId: item.id, title: item.title, status: item.status, horizon: item.placement.horizon,
         archived: item.archivedAt !== null, flowColor: item.flowColor, version: item.version, periodId: item.placement.periodId, named: named(item),
+        placementVersion: item.placement.version, nestingParentId: item.placement.nestingParentId ?? null,
         parents: parents.get(item.id) ?? [], children: children.get(item.id) ?? [],
       }))
       const referenceDate = workspaceDate(calendar.timezone, referenceTime)

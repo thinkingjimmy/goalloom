@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Editable draft, peer drafts, parent metadata, periods, workspace calendar, flows, selection/menu/editing state and change callbacks.
- * [OUTPUT]: One adjust-mode row: a single line (title + where) that, when selected, shows inline T/D/P tokens (column, deadline, parent) opening keyboard menus, an M token for an uncertain split, and E-mode title/description editing. Jev's values and doubts carry the Jev mark.
+ * [OUTPUT]: One adjust-mode row with T/D/P keyboard menus, first-level deadline guidance, uncertain-split merging and title/description editing. Jev's values and doubts carry the Jev mark.
  * [POS]: Composer adjust list row; Composer owns selection and letter shortcuts, transaction validation stays authoritative.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -20,7 +20,9 @@ import { FlowMark } from '../../components/FlowMark'
 import { Icon } from '../../components/icons'
 import { Popover } from '../../components/Popover'
 import { DueDatePanel } from '../../components/due-date/DueDatePanel'
+import { DueDateHint } from '../../components/due-date/DueDateHint'
 import { sameParent, type EditableDraft, type Field, type ParentInfo } from './draft'
+import { nestingText } from '../../../shared/i18n/nesting'
 import { KeyMenu } from './KeyMenu'
 import { column, JevBadge, where } from './Plan'
 import { doubts, linkParent, parentTitle } from './suggestions'
@@ -46,7 +48,7 @@ export function DraftRow({ draft, drafts, parents, flows, usedColors, periods, t
   const fromJev = (field: Field) => !draft.manual.includes(field)
   const close = () => openMenu(null)
   const toggle = (next: RowMenu) => openMenu(menu === next ? null : next)
-  const labels = draft.parents.map(key => parentTitle(key, drafts, parents))
+  const labels = draft.nesting ? [draft.nesting.title] : draft.parents.map(key => parentTitle(key, drafts, parents))
   const token = (key: string, kind: RowMenu, label: ReactNode, empty: boolean, jev: boolean) =>
     <button type="button" className="plan-token inline-flex items-center gap-[5px] h-6.5 px-2 py-0 rounded-[6px] bg-hover text-[12.5px] text-soft whitespace-nowrap" data-empty={empty} data-doubt={doubtOf(kind)} aria-haspopup={kind === 'due' ? 'dialog' : 'menu'} aria-expanded={menu === kind} aria-keyshortcuts={key} disabled={disabled} onClick={() => toggle(kind)}>
       <kbd className="plan-key text-[10px] font-semibold text-subtle">{key}</kbd>{label}{jev && <span className="plan-jev inline-flex text-focus" aria-label={t.fromJev}><Icon name="smart" size={12} /></span>}
@@ -60,7 +62,7 @@ export function DraftRow({ draft, drafts, parents, flows, usedColors, periods, t
         <Popover open={menu === 'horizon'} onClose={close} align="end" anchor={token('T', 'horizon', column(draft.horizon), false, fromJev('horizon') && draft.horizon !== 'later')}>
           <HorizonMenu draft={draft} periods={periods} pick={horizon => { change({ horizon, horizonSuggestion: null, horizonInferred: false }, 'horizon'); close() }} />
         </Popover>
-        <Popover floating open={menu === 'due'} onClose={close} align="end" anchor={token('D', 'due', draft.due ? shortDate(draft.due) : t.dueToken, !draft.due, fromJev('due') && !!draft.due)}>
+        <Popover floating open={menu === 'due'} onClose={close} align="end" anchor={<DueDateHint inactive={disabled || menu !== null}>{token('D', 'due', draft.due ? shortDate(draft.due) : t.dueToken, !draft.due, fromJev('due') && !!draft.due)}</DueDateHint>}>
           <DueDatePanel value={draft.due ?? ''} today={today} weekStart={weekStart} numericShortcuts
             suggestion={draft.dueSuggestion ? { date: draft.dueSuggestion, label: t.fromJev } : undefined}
             onSelect={due => { change({ due: due || null, dueSuggestion: null }, 'due'); close() }} />
@@ -119,6 +121,9 @@ function ParentMenu({ draft, drafts, parents, flows, usedColors, disabled, close
     {!blocked && (query.trim() ? found.map(item => <button key={item.id} type="button" className={cn(menuStyles.item, 'menu-item')} onClick={() => link({ kind: 'existing', itemId: item.id }, info(item))}>
       <FlowMark colors={item.flowColor !== null ? [item.flowColor] : flows.colorsOf(item.id)} /><span className={cn(menuStyles.text, 'menu-text')}>{item.title}</span><span className={cn(menuStyles.hint, 'menu-hint')}>{item.archivedAt ? t.archivedTag : horizonNames[item.placement.horizon]}</span>
     </button>) : <>
+      {draft.nesting && <button type="button" className={cn(menuStyles.item, 'menu-item')} aria-label={nestingText().unnest} onClick={() => { change({ nesting: undefined }, 'parents'); close() }}>
+        <Icon name="check" size={14} /><span className={cn(menuStyles.text, 'menu-text')}>{draft.nesting.title}</span><span className={cn(menuStyles.hint, 'menu-hint')}>{nestingText().unnest}</span>
+      </button>}
       {suggested.map(row => <button key={`jev-${row.key.kind === 'existing' ? row.key.itemId : row.key.draftId}`} type="button" className={cn(menuStyles.item, 'menu-item')} onClick={() => link(row.key, null)}>
         <FlowMark colors={colorsOf(row.key)} /><span className={cn(menuStyles.text, 'menu-text')}>{row.title}</span><JevBadge />{row.move && <span className={cn(menuStyles.hint, 'menu-hint')}>{t.movesTo(horizonNames[row.move])}</span>}
       </button>)}

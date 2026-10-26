@@ -4,6 +4,8 @@
 
 `release.yml` runs only through `workflow_dispatch`. The test jobs run typecheck, existing Vitest and one production build per platform. Production requires the dedicated `GOALLOOM_PRODUCTION_SUPABASE_ANON_KEY` for `keqprrgvcefqdwnxaafv`; development credentials are not a fallback.
 
+Both platform test jobs depend on `preflight-mac`. That lightweight job checks existing signing/profile access, always removes temporary credentials and records public status. It does not install dependencies, build or submit notarization; those operations belong to the later test/package jobs.
+
 Each test job uploads `out/` plus package metadata. The corresponding package job downloads that artifact and uses `package:mac:prepared` or `package:win:prepared`. Before packaging, the prepared-build gate checks the exact Git commit, version, platform, public configuration fingerprint and every output file hash. It then packages without another build. Signing, Apple app/DMG notarization, stapling, signed Keychain acceptance and packaged smokes remain required.
 
 The macOS test job also runs the full native task-nesting, completed-layout, insight and insight-generation acceptance after its production build. This provides an isolated hosted desktop for title-edit Tab/Shift+Tab, pointer grouping, undo, editor retention and pointer-sensitive insight/period guidance before signing. Its synthetic reports/screenshots are uploaded as `macos-native-interaction-evidence`, including failure evidence. A failed acceptance step stops macOS packaging. Hosted checks do not replace owner Windows 11 acceptance.

@@ -2,6 +2,8 @@
 
 > 父级：[项目地图](../../../../docs/development.md)。只消费 `window.goalloom` 的 React 视图。
 
+The development-only [error UI review](../../review/README.md) imports these components and styles unchanged into an isolated, synthetic workspace. Run `pnpm review:errors` from the repository root. It is separate from this renderer's packaged entry.
+
 ```text
 renderer/
 ├── App.tsx                  # Board/dialog composition, explicit draft-target visibility, shortcuts/feedback, input-aware detail focus and generation-scoped drafts, atomic review completion/exit and celebration requests; selected flows follow root promotion/undo
@@ -17,7 +19,9 @@ renderer/
 │   │   ├── ColumnVisibilityMenu.tsx # Six planning-column checkboxes in the shared period-picker skin, minimum guard, calendar labels and keyboard/focus dismissal
 │   │   ├── CommandPalette.tsx # Debounced search with actual-period hints, commands and detail navigation
 │   │   ├── CompletionCelebration.tsx # Shared item/review corner bursts; nonmodal Canvas, column/motion guards, generation invalidation and cleanup
-│   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable Toast actions
+│   │   ├── FeedbackLayer.tsx # Nonmodal feedback inside the active dialog/page; measured clearance preserves modal and Onboarding footer controls, focus and usable notification/Toast actions
+│   │   ├── WorkspaceNotice.tsx # Persistent bottom-center Toast surfaces with full copy, adaptive tonal actions and owner-controlled dismissal
+│   │   ├── workspace-notice.css # Content-sized 620px notices, narrow-window actions, scrollable modal feedback and separate centered Toasts
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
@@ -27,7 +31,7 @@ renderer/
 │   │       ├── SyncPane.tsx # Account/password flow, phase-scoped native password dialogs, merge-first join, explicit keep/clear sign-out and developer diagnostics
 │   │       ├── SyncPasswordDialog.tsx # Shared flat native password shell/fields, focus return, localized failures and the existing change-password action
 │   │       ├── SyncSignOutDialog.tsx # Default keep-local confirmation, explicit cleanup warning and scoped Escape/focus return
-│   │       ├── SyncRecovery.tsx # Flat native recovery dialog, recommended new workspace, in-dialog destructive confirmation/Back and unchanged recovery actions
+│   │       ├── SyncRecovery.tsx # Fresh account-scoped preview with blank password fields/unchecked approval, explicit new workspace and destructive confirmation/Back
 │   │       ├── sync-security.css # Compact password modal geometry shared by Settings/first-run and native sign-out radios
 │   │       ├── AiPane.tsx       # Compact AI service list: bundled website marks, connection state, key/date, icon actions, account recovery and removal confirmation
 │   │       ├── ProviderAction.tsx # Service icon actions with localized pointer/keyboard hints, native-dialog portals and scoped Escape
@@ -41,7 +45,7 @@ renderer/
 │   │       ├── parts.tsx        # 分组/行（可带整行下方控件）/分段选择（色块、数量）/多选按钮组/开关原语，工作区时区时间与相对日期
 │   │       └── settings.css     # Content-sized, single-line navigation with a bounded pane; settings-only theme-token styles
 │   ├── sync/                # Independent task-grouped sync difference review
-│   │   ├── SyncReview.tsx   # Quiet notice, synced-default radios, sequential writes, receipt recovery and direct final close
+│   │   ├── SyncReview.tsx   # Independent corner-notice export and native review dialog, synced-default radios, sequential writes and receipt recovery
 │   │   ├── TaskComparison.tsx # Read-only board task classes, flow marks, lifecycle/context and text difference highlights
 │   │   └── sync-review.css  # Content-sized comparison; selection changes only the radio and outer frame
 │   ├── composer/            # 全局新建：输入法式（输入 → 一条 Jev 推荐 → ↵ 创建 / Tab 调整 / ⌥↵ 原样存 Later）
@@ -62,7 +66,7 @@ renderer/
 │   │   ├── ReviewDrawer.tsx # Placement-local closing groups with independent remote children and 24px local indentation → cached connected suggestions with inherited todo markers, shared right-side dropdowns, guarded confirm/skip/receipt recovery and completion callback
 │   │   ├── ReviewOverview.tsx # Summary-first counts, board-ordered month outlines with 24px subtask indentation and original checked/flow-coloured markers, read-only saved links and goal matrix
 │   │   ├── ReviewSummary.tsx # Persistent localized icon heading, optional cached AI content, header refresh and retained results on failure
-│   │   ├── review.css       # Shared review/planning guide frames/actions and independent reminder close control, compact closing rows, content-sized dropdowns, connected drafts, borderless draft focus and ghost footer actions
+│   │   ├── review.css       # Shared review/planning guide frames/actions and independent reminder close control, compact closing rows, content-sized dropdowns, connected drafts, borderless draft focus and feedback-safe ghost footer actions
 │   │   └── insight.css      # Labelled breakpoint pills with full-colour loading rotation/reduced motion, hints and empty cards with same-row equal-height actions, wrapping labels and touch targets
 │   ├── smart/
 │   │   ├── ProviderConnect.tsx # 单个服务的 Key（标签旁官方控制台入口）、点名该服务的同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底部按钮行）
@@ -99,9 +103,9 @@ renderer/
 │   ├── assistance/        # Inline choice-first note rewrites, bounded memory drafts and guarded automatic persistence (see its README)
 │   ├── items/
 │   │   ├── use-item-autosave.ts # Serialized saves/actions, guarded note rewrites, dependency-safe empty-title dismissal, receipt-first retry and native draining
-│   │   ├── ItemDetail.tsx   # Single-pane detail with outline ownership/unnest, guarded parent navigation, header actions and inline note rewrites; the Markdown editor stays mounted
+│   │   ├── ItemDetail.tsx   # Single-pane detail with deadline/goal properties, inherited goal/color provenance, header actions and inline note rewrites; the Markdown editor stays mounted
 │   │   ├── DetailTitle.tsx  # Unclipped shared link display, growing raw-title editor with persistent native undo/redo and empty-draft recovery, saved-only metadata and keyboard focus handoff
-│   │   ├── DuePicker.tsx    # Width-bounded deadline label with full accessible/hover date, shared calendar and focus restoration; selection/clear immediately autosaves
+│   │   ├── DuePicker.tsx    # Width-bounded deadline button with hover/focus guidance, a full accessible date, shared calendar and focus restoration; selection/clear immediately autosaves
 │   │   ├── RelationPicker.tsx # Board-ordered parent/child search shared by detail/flow-dot menus; optional guidance replacement, horizon/effective-flow guards and linked-first removal
 │   │   ├── DetailFlowChip.tsx # Goal/color controls and read-only inherited provenance, sharing board flow menus
 │   │   ├── FlowPicker.tsx   # FlowDot 与 FlowColorMenu；详情芯片和看板圆点共用色板
@@ -118,7 +122,7 @@ renderer/
 │       ├── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择；展开时才计算完整 GMT 偏移列表
 │       └── onboarding.css   # 首次流程样式（仅 token）
 ├── components/              # 可跨功能使用的 UI 原语
-│   ├── due-date/            # Calendar-first deadlines shared by detail/composer: localized presets, day/month navigation, keyboard focus and info guidance
+│   ├── due-date/            # Calendar-first deadlines shared by detail/composer: localized presets, day/month navigation, keyboard focus and first-level button guidance
 │   ├── links/               # Saved-text link rendering, visible-only metadata requests, fixed-height preview cards and keyboard/swipe carousel
 │   ├── description/         # Lazy Lexical Markdown/task-list editor, authored URL nodes, selection tools, safe clipboard and save/undo boundaries
 │   ├── Modal.tsx            # 原生 dialog 焦点限制、Esc/背景关闭与统一页眉
@@ -152,7 +156,7 @@ renderer/
 │   ├── review-summary.ts   # Up to 24 device-local period summaries, exact-prompt fingerprints, shared requests and generation invalidation
 │   ├── review-drafts.ts    # Up to 24 review-only destination suggestion batches, exact-prompt fingerprints, pending reuse and generation invalidation
 │   ├── feedback.ts         # Command feedback policy (moves/advances/nesting are silent), committed destinations, partial-restore warnings and reading durations
-│   └── use-workspace.ts    # Authoritative snapshots, captured placement policy, post-layout feedback, session undo, prepared writes and receipt recovery
+│   └── use-workspace.ts    # Authoritative snapshots, captured placement policy, post-layout feedback, session undo, prepared writes, active execution state and receipt recovery
 ├── i18n/
 │   ├── index.ts             # 唯一文案入口：当前语言的实时视图（原地替换，不重挂载）、setLocale/useLocale
 │   ├── format.ts            # 按当前语言的 Intl 日期/星期/时间/数字格式
@@ -196,6 +200,8 @@ Review uses a todo-scale board guide and a resumable native modal with connected
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
 
+`state/billing.ts` subscribes to account-bound main billing state and exposes only explicit finite actions. `features/shell/settings/BillingCard.tsx` is reused by Sync, AI services and first-run entry. Trusted eligibility can skip the optional AI setup step, while the entered calendar/direction form survives qualification refresh/expiry. Payment never confirms the calendar, initializes sync or grants AI consent.
+
 Note assistance uses the approved rewrite-notes design: no detail activity rail, rescheduling form, task consent checkbox or result adoption step. Generated Markdown replaces only the unchanged source notes; description effects retain one-step workspace undo. Rethink persists through reload via non-undone rewrite events. Automatic note writes are quiet, while keyboard undo keeps normal feedback. Local editor history still owns manual typing.
 
 `components/AuthMark.tsx` shares offline Apple/Google branding between the first-run provider buttons and Settings › Sync. Both entry points use the same provider-scoped authorization and cancellation state.
@@ -206,4 +212,10 @@ Hosted AI uses `features/shell/settings/HostedAiSettings.tsx` for account-only s
 
 Hosted capture separates context-bound previews from persisted explicit retry nonces. Review caches retain validated unadopted results across restart; stable period intent keys prevent automatic inference after cache misses or context refresh. Regeneration preserves edited text and is an explicit keyboard-accessible action.
 
+Global single-task capture previews distinguish goal links from same-period task ownership. The composer retains owner version/placement guards, exposes an explicit independent-task choice, and clears ownership on manual placement/goal/color edits. Unedited ownership uses the main-owned ready/late capture path; edited single drafts use guarded atomic nested `createPlan`. Existing five-language nesting labels are reused.
+
 Hosted capture intent is advanced by real text-input events or explicit regeneration, never by context/manual refresh. CaptureInput snapshots the nonce/session before queued preparation and keeps the active nonce in memory if optional localStorage recovery writes fail. Reconstructed unchanged input still meets main-process sent-attempt guards.
+
+First-run recovery carries only account/local-generation UI intent through Setup. App opens the existing SyncRecovery after calendar and annual-direction writes complete; account/generation changes clear the intent. Cancelling leaves confirmed local setup intact. No approved action, preview token or password crosses Setup.
+
+Cloud privacy Settings require trusted onlineDeletedAt metadata before claiming a generation is deleted. Privacy receipts render content and account completion independently from renewal.

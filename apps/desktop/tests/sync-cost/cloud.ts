@@ -19,7 +19,7 @@ export async function createCloud() {
   const replies: (() => void)[] = []
   const delayed: (() => Promise<void>)[] = []
   const sockets = new Set<any>()
-  const controls = { fault: '', session: '', blocked: '', retryAt: 0, broadcasts: 0, dropped: false, subscriptions: 0, topics: [] as string[] }
+  const controls = { fault: '', session: '', blocked: '', serviceError: '', retryAt: 0, broadcasts: 0, dropped: false, subscriptions: 0, topics: [] as string[] }
   const jwt = (session: string) => [
     { alg: 'HS256', typ: 'JWT' },
     { sub: accountFor(session), exp: Math.floor(Date.now() / 1000) + 3600, role: 'authenticated', session_id: session },
@@ -51,6 +51,15 @@ export async function createCloud() {
       return
     }
     if (request.url!.includes('/auth/')) { send(null); return }
+    if (request.url!.includes('/functions/v1/billing')) {
+      const now = Date.now()
+      send({ version: 1, environment: 'development', status: 'active', eligible: true, serverNow: new Date(now).toISOString(),
+        effectiveEnd: new Date(now + 86_400_000).toISOString(), trialEligible: false, grace: false,
+        priceCatalog: { monthly: { amount: 899, currency: 'USD', taxBehavior: 'inclusive' }, annual: { amount: 7900, currency: 'USD', taxBehavior: 'inclusive' } }, subscriptions: [] }); return
+    }
+    if (controls.serviceError && !['receipts_for', 'rebind_device', 'reset_sync'].includes(rpc)) {
+      send({ code: controls.serviceError === 'billing_configuration' ? 'PT503' : 'PT403', message: controls.serviceError }, controls.serviceError === 'billing_configuration' ? 503 : 403); return
+    }
     if (fault === `missing:${rpc}`) { send({ code: 'PGRST202', message: 'Missing target RPC' }, 404); return }
     if (fault === `headers:${rpc}`) return
     if (fault === `body:${rpc}`) { response.writeHead(200, { 'content-type': 'application/json' }); response.write('['); return }
@@ -71,15 +80,16 @@ export async function createCloud() {
       put_key_envelopes: () => remote.putEnvelopes(b.p_workspace, b.p_device, b.p_envelopes),
       bootstrap_workspace: () => remote.bootstrap({ deviceId: b.p_device, workspaceId: b.p_workspace, generation: b.p_generation,
         roster: b.p_roster, rosterHash: b.p_roster_hash, rosterSig: wire(b.p_roster_sig), checkpoint: b.p_checkpoint,
-        recSig: wire(b.p_rec_sig), devSig: wire(b.p_dev_sig) }),
+        recSig: wire(b.p_rec_sig), devSig: wire(b.p_dev_sig), ...(b.p_initialization ? { initialization: b.p_initialization } : {}) }),
       create_new_workspace: () => remote.bootstrap({ deviceId: b.p_device, workspaceId: b.p_workspace, generation: b.p_generation, createNew: true,
         roster: b.p_roster, rosterHash: b.p_roster_hash, rosterSig: wire(b.p_roster_sig), checkpoint: b.p_checkpoint,
-        recSig: wire(b.p_rec_sig), devSig: wire(b.p_dev_sig) }),
+        recSig: wire(b.p_rec_sig), devSig: wire(b.p_dev_sig), ...(b.p_initialization ? { initialization: b.p_initialization } : {}) }),
       pull_ops: () => remote.pullOps({ workspaceId: b.p_workspace, deviceId: b.p_device, after: b.p_after, limit: b.p_limit }),
       push_ops: () => remote.pushOps({ workspaceId: b.p_workspace, deviceId: b.p_device, generation: b.p_generation,
         ops: b.p_ops.map((op: any) => ({ opId: op.op_id, payloadHash: op.payload_hash, formatVersion: op.format_version, keyEpoch: op.key_epoch, ciphertext: op.ciphertext })) }),
+      'finish-initialization': () => remote.finishInitialization(b),
       get_sync_status: () => remote.getSyncStatus(b.p_workspace, b.p_device),
-      receipts_for: () => remote.receiptsFor(b.p_workspace, b.p_device, b.p_op_ids),
+      receipts_for: () => remote.receiptsFor(b.p_workspace, b.p_device, b.p_op_ids.map((opId: string, index: number) => ({ opId, payloadHash: b.p_payload_hashes[index] }))),
     }
     try {
       if (fault === `gate-limit:${rpc}`) {
@@ -107,7 +117,7 @@ export async function createCloud() {
   function broadcast() {
     controls.broadcasts++
     if (controls.dropped) return
-    for (const socket of sockets) if (socket.topic) socket.write(frame([socket.joinRef, null, socket.topic, 'broadcast', { event: 'head', payload: { head: [...worlds.values()].flatMap(value => [...value.workspaces.values()]).find(value => `realtime:ws:${value.id}` === socket.topic)?.headSeq ?? world.workspace?.headSeq }, type: 'broadcast' }]))
+    for (const socket of sockets) if (socket.topic) socket.write(frame([socket.joinRef, null, socket.topic, 'broadcast', { event: 'head', payload: { head: [...worlds.values()].flatMap(value => [...value.workspaces.values()]).find(value => `realtime:cloud:v1:ws:${value.id}` === socket.topic)?.headSeq ?? world.workspace?.headSeq }, type: 'broadcast' }]))
   }
   server.on('upgrade', (request, socket) => {
     const accept = createHash('sha1').update(request.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64')

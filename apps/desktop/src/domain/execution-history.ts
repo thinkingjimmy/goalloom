@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated operation effects, period metadata, undo markers and ordered task events.
- * [OUTPUT]: Indexed event ownership including note rewrites, and replayed guidance with its original confirmation boundary.
+ * [OUTPUT]: Indexed event ownership and guidance replay from exact observed state; only real local events establish confirmation boundaries.
  * [POS]: Shared execution-history primitives for current facts, historical facts and activity pages.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -47,10 +47,11 @@ export function ownedExecutionEffect(event: ItemEvent, history: ExecutionHistory
   })
 }
 
-export function replayExecutionGuidance(events: ItemEvent[], history: ExecutionHistory): {
+export function replayExecutionGuidance(events: ItemEvent[], history: ExecutionHistory, observed?: { value: GuidanceValue | null; identity: string | null }): {
   value: GuidanceValue | null; known: boolean; boundary: { eventSeq: number; at: string } | null
 } {
-  let value: GuidanceValue | null = null, identity: string | null = null, known = events[0]?.type === 'created'
+  let value: GuidanceValue | null = observed?.value ?? null, identity: string | null = observed?.identity ?? null
+  let known = observed !== undefined || events[0]?.type === 'created'
   const confirmations = new Map<string, ItemEvent>()
   for (const event of events) {
     const guidanceUndo = event.type === 'undo' && !!event.before && samePlace(event.before, event.after)

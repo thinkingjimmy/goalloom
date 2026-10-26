@@ -33,8 +33,8 @@
   .description-tools button:active { transform: none; }
   :is(.popover.period-return-tooltip, .popover.provider-action-tooltip, .column-visibility-tip) { border-radius: 2px; background: var(--macos-tooltip); color: var(--fg); backdrop-filter: var(--macos-material-blur); box-shadow: 0 0 0 .5px var(--edge), 0 2px 4px oklch(0 0 0 / .2); font-size: 11px; line-height: 15px; padding: 3px 6px; }
   .due-tooltip { background: var(--macos-tooltip); color: var(--fg); box-shadow: var(--shadow); }
-  .toast { background: var(--macos-popover); color: var(--fg); box-shadow: var(--shadow); backdrop-filter: var(--macos-material-blur); }
-  .toast-action { background: var(--macos-control); color: var(--focus); }
+  .feedback-surface { background: var(--macos-popover); color: var(--fg); box-shadow: var(--shadow); backdrop-filter: var(--macos-material-blur); }
+  .feedback-action { background: var(--macos-control); color: var(--focus); }
 }
 
 /* Readability and selection do not depend on blur or authored palette colors. */

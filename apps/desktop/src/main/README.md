@@ -8,7 +8,7 @@ main/
 ├── identity.ts    # Stable packaged identity/data paths; separate development application name, model ID, default profile and macOS Safe Storage namespace
 ├── keychain.ts    # Disable macOS Keychain UI and expose application-private Data Protection session keys; missing native access preserves the local workspace
 ├── protocol.ts    # 系统协议注册参数与启动参数里的 goalloom:// URL；应用内页面仍走 security.ts 的 goalloom://app
-├── ipc.ts         # 固定读写入口、来源/会话检查、会话释放取消智能请求/缓存、原生选择后仅向 worker 传受控路径
+├── ipc.ts         # 固定读写入口、来源/会话检查、会话释放取消智能请求/缓存、原生选择后仅向 worker 传受控路径、结构化数据操作业务错误
 ├── security.ts    # 本地协议白名单、生产 CSP、权限/导航/下载拒绝
 ├── update.ts      # electron-updater（GitHub Releases）：定时后台检查/下载、手动检查、macOS 原生准备完成后就绪、重启安装；开发版 unsupported
 ├── window/
@@ -20,6 +20,7 @@ main/
 ├── storage/       # SQLite、启动迁移保护、备份与文件适配器、worker 通道，见局部地图
 ├── smart/         # Jev 智能输入：三渠道 adapter、设备凭据、独立异步服务，见局部地图
 ├── sync/          # Saved-session restoration and on-demand Google sign-in; atomic encrypted vault with a public resume flag, settings projection, safe recovery and explicit cleanup, bounded adaptive sync, independent upload recovery and protected retry payloads
+├── billing/       # Account-bound trusted Plus status, recoverable original requests and exact browser return; independent of sync setup and AI consent
 ├── link-preview/  # Bounded public link metadata/image fetching and disposable device cache; separate from workspace writes
 └── workspace/     # 权威事务、业务命令、历史/顺延与整库服务，见局部地图
 ```
@@ -35,3 +36,5 @@ Unpackaged development and source E2E use `Goalloom Development` and `com.goallo
 Sync uses `sync/session-cipher.ts` for new protected sessions and retains the old OS adapter only for migration/journals. macOS session keys use the provisioned private app group; automatic restoration survives a signed replacement of the app. Explicit account sign-out disables restoration before reporting success, and Google plus a sync-password proof enables it again.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+`cloud/` coordinates explicit privacy, retained-copy grants and trusted in-app retention notices. Status secrets remain outside account/workspace exports.

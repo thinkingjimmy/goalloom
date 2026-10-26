@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Production Electron build, real workspace date and first/last-day weekly history fixtures.
- * [OUTPUT]: Weekly review acceptance, optional --outline order/indentation evidence, creation evidence and hover hit/transition diagnostics in output/tests/insight/weekly-review/.
+ * [OUTPUT]: Weekly review acceptance, optional --outline order/indentation evidence, creation evidence and bounded app-local pointer/focus and hover hit/transition diagnostics in output/tests/insight/weekly-review/.
  * [POS]: Flow-insight desktop regression using real renderer/preload/SQLite and isolated synthetic records.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -60,6 +60,14 @@ async function verify(mode, variant) {
     await page.evaluate(keys => localStorage.setItem('goalloom.insight', JSON.stringify({ reviewed: keys })), fixture.monthKeys)
     await page.reload(); await page.locator('.board').waitFor()
     scenario.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+    await page.evaluate(() => {
+      window.reviewHoverEvents=[]
+      for(const type of ['pointermove','pointerover','pointerout'])document.addEventListener(type,event=>{
+        const target=event.target instanceof Element && event.target.closest('.review-foot .review-text-button')?'footer':'other'
+        window.reviewHoverEvents.push({type,target,x:Math.round(event.clientX),y:Math.round(event.clientY),focused:document.hasFocus(),at:Math.round(performance.now())})
+        if(window.reviewHoverEvents.length>24)window.reviewHoverEvents.shift()
+      },{passive:true})
+    })
     if (outlineOnly) {
       const column = page.locator('[data-horizon=week]')
       await column.locator(`[data-item-id="${fixture.boardOutline.child}"]`).waitFor()
@@ -221,7 +229,8 @@ async function verify(mode, variant) {
         const box = node.getBoundingClientRect(), style = getComputedStyle(node)
         return { background: style.backgroundColor, expected: style.getPropertyValue('--hover').trim(), hovered: node.matches(':hover'), disabled: node.disabled,
           hit: node.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)),
-          mediaHover: matchMedia('(hover: hover)').matches, transition: style.transitionProperty,
+          mediaHover: matchMedia('(hover: hover)').matches, pointerFine: matchMedia('(pointer: fine)').matches,
+          focused:document.hasFocus(),visibility:document.visibilityState,events:window.reviewHoverEvents??[],transition: style.transitionProperty,
           animations: node.getAnimations().map(animation => ({ state: animation.playState, currentTime: animation.currentTime })) }
       })
       geometry.footerHover = hover

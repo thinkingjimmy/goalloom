@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Built production main/preload, a test-only native renderer, month/combined fixtures and real IPC/storage.
- * [OUTPUT]: Scope-specific task markers, optional --outline order/indentation evidence, readonly rich titles, compact choices, actual monthly/weekly plan workflows and explicit expired-window skips.
- * [POS]: Focused native component acceptance outside calendar-entry windows; no production clock or bridge replacement.
+ * [INPUT]: Built main/preload, a test-only native renderer, real or fixed workspace clock, month/combined fixtures and actual IPC/storage.
+ * [OUTPUT]: Task markers, outline/title/choice evidence and monthly/weekly plans; fixed runs require both branches without date skips.
+ * [POS]: Native component acceptance outside App entry eligibility; the renderer bridge and production clock controls stay unchanged.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
@@ -16,36 +16,52 @@ import electronPath from 'electron'
 import { _electron as electron } from 'playwright'
 import { seedPreviewCache } from './fixtures/link-preview-cache.mjs'
 import { verifyReviewOutline } from './fixtures/review-outline.mjs'
+import { fixedReviewClock } from './fixtures/review-clock/build.mjs'
 
-const outlineOnly = process.argv.includes('--outline')
-const out = resolve(outlineOnly ? 'output/tests/review-outline/month' : 'output/tests/review-scopes')
+let fixed, server
+const outlineOnly = process.argv.includes('--outline'), requestedFixed = process.argv.some(value => value.startsWith('--fixed-at'))
+const evidenceRoot = resolve(outlineOnly ? 'output/tests/review-outline/month' : 'output/tests/review-scopes')
+const out = requestedFixed ? join(evidenceRoot, 'runs', `fixed-${Date.now()}`) : evidenceRoot
 await mkdir(out, { recursive: true })
-await build({ configFile: false, build: { outDir: 'output/tests/build/review', emptyOutDir: false,
-  lib: { entry: 'tests/fixtures/review-seed.ts', formats: ['cjs'], fileName: () => 'review-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
-const server = await createServer({ root: resolve('tests/fixtures/review-scopes'), configFile: false,
-  plugins: [react(), tailwind()], server: { host: '127.0.0.1', port: 0, fs: { allow: [resolve('.')] } } })
-await server.listen()
-const report = { ok: false, scope: 'Native component harness: actual ReviewDrawer/Overview, production preload/main/SQLite and real clock; explicit review-period props bypass only calendar entry eligibility. No packaged/natural-date App entry acceptance.',
+const report = { ok: false, artifactRoot: out, scope: 'Native component harness: actual ReviewDrawer/Overview and production preload/main/SQLite; explicit review-period props bypass calendar entry only. No packaged/natural-date App entry acceptance.',
+  clockScope: requestedFixed ? 'Test-only fixed workspace clock with actual observedAt' : 'Production real clock',
   host: { platform: process.platform, arch: process.arch, os: release(), cpu: cpus()[0]?.model, machine: 'Physical/VM status unverified' }, scenarios: [] }
 try {
+  fixed = await fixedReviewClock(process.argv); report.fixedClock = fixed?.manifest
+  await build({ configFile: false, build: { outDir: 'output/tests/build/review', emptyOutDir: false,
+    lib: { entry: 'tests/fixtures/review-seed.ts', formats: ['cjs'], fileName: () => 'review-seed.cjs' }, rollupOptions: { external: [/^node:/] }, minify: false } })
+  server = await createServer({ root: resolve('tests/fixtures/review-scopes'), configFile: false,
+    plugins: [react(), tailwind()], server: { host: '127.0.0.1', port: 0, fs: { allow: [resolve('.')] } } })
+  await server.listen()
   for (const scope of outlineOnly ? ['month'] : process.argv.includes('--combined') ? ['both'] : ['month', 'both']) for (const skipMonth of scope === 'both' ? [false, true] : [false]) await run(scope, skipMonth)
   report.ok = true
-} finally { await writeFile(`${out}/report.json`, JSON.stringify(report, null, 2)); await server.close() }
+} catch (error) { report.error = String(error); throw error }
+finally {
+  let cleanupError
+  try { await server?.close() } catch (error) { cleanupError = error; report.serverCloseError = String(error) }
+  try {
+    if (fixed) { report.stability = await fixed.finish(); if (!report.stability.sourceStable) cleanupError ??= Error('Production source/build changed during fixed review acceptance') }
+  } catch (error) { cleanupError ??= error; report.cleanupError = String(error) }
+  if (cleanupError) report.ok = false
+  try { await writeFile(`${out}/report.json`, JSON.stringify(report, null, 2)) } catch (error) { cleanupError ??= error; report.reportWriteError = String(error) }
+  if (cleanupError && !report.error) throw cleanupError
+}
 
 async function run(scope, skipMonth) {
-  const name = `${scope}${skipMonth ? '-skip-month' : ''}`, profile = await mkdtemp(join(tmpdir(), 'goalloom-review-scopes-'))
-  const seed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, scope === 'both' ? 'scope-combined' : 'scope-month', ...(outlineOnly ? ['--outline'] : [])],
-    { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
-  assert.equal(seed.status, 0, seed.stderr)
-  await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
-  await seedPreviewCache(profile)
-  const fixture = JSON.parse(await readFile(join(profile, 'review-fixture.json'), 'utf8'))
-  const env = { ...process.env, ELECTRON_RENDERER_URL: `${server.resolvedUrls.local[0]}?scope=${scope}` }; delete env.ELECTRON_RUN_AS_NODE
-  const app = await electron.launch({ args: ['.', `--user-data-dir=${profile}`], env })
+  const name = `${scope}${skipMonth ? '-skip-month' : ''}`, profile = await mkdtemp(join(tmpdir(), fixed ? 'goalloom-review-fixed-' : 'goalloom-review-scopes-'))
+  let app, page
   const scenario = { scope, skipMonth, ok: false, checks: [] }; report.scenarios.push(scenario)
   const check = value => { scenario.checks.push(value); console.log(`✓ ${name}: ${value}`) }
-  let page
   try {
+    const seed = spawnSync(electronPath, ['output/tests/build/review/review-seed.cjs', profile, scope === 'both' ? 'scope-combined' : 'scope-month', ...(outlineOnly ? ['--outline'] : []), ...(fixed?.seedArguments ?? [])],
+      { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8' })
+    assert.equal(seed.status, 0, seed.stderr)
+    await writeFile(join(profile, 'preferences.json'), JSON.stringify({ language: 'zh' }))
+    await seedPreviewCache(profile)
+    const fixture = JSON.parse(await readFile(join(profile, 'review-fixture.json'), 'utf8'))
+    const env = { ...process.env, ELECTRON_RENDERER_URL: `${server.resolvedUrls.local[0]}?scope=${scope}` }; delete env.ELECTRON_RUN_AS_NODE
+    const launch = () => electron.launch({ args: [fixed?.mainPath ?? '.', `--user-data-dir=${profile}`], env })
+    app = await launch()
     page = await app.firstWindow()
     await app.evaluate(({ BrowserWindow, shell }) => {
       BrowserWindow.getAllWindows()[0].setContentSize(1440, 900)
@@ -54,8 +70,18 @@ async function run(scope, skipMonth) {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     scenario.runtime = await page.evaluate(() => window.goalloom.getRuntime())
+    if (fixed) {
+      scenario.clock = { initial: await fixed.verify(app, page, fixture), expiredWrite: await fixed.expiredWrite(app, page, fixture) }
+      await app.close(); app = await launch(); page = await app.firstWindow()
+      page.on('pageerror', error => errors.push(error.message)); await page.getByRole('button', { name: 'Open review', exact: true }).waitFor()
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      scenario.clock.reopened = await fixed.verify(app, page, fixture)
+      assert.equal(scenario.clock.reopened.generation, scenario.clock.initial.generation)
+      check('Fixed main/worker/observedAt survives normal Electron quit/relaunch; real expired-period planning rejects without row or revision changes')
+    }
     const snapshot = await page.evaluate(() => window.goalloom.getSnapshot())
     if (scope === 'both' && snapshot.periods.find(period => period.horizon === 'week').startAt !== snapshot.periods.find(period => period.horizon === 'month').startAt) {
+      assert.equal(!!fixed, false, 'Fixed combined review must execute without a date skip')
       scenario.skipped = true
       scenario.reason = 'The month-start week has expired. Production planning rejects its destination; no clock or guard is replaced.'
       scenario.observedAt = snapshot.observedAt
@@ -139,5 +165,10 @@ async function run(scope, skipMonth) {
     scenario.error = String(error)
     if (page && !page.isClosed()) await page.screenshot({ path: `${out}/${name}-failure.png` }).catch(() => {})
     throw error
-  } finally { await app.close(); await rm(profile, { recursive: true, force: true }) }
+  } finally {
+    let cleanupError
+    try { await app?.close() } catch (error) { cleanupError = error; scenario.closeError = String(error) }
+    try { await rm(profile, { recursive: true, force: true }) } catch (error) { cleanupError ??= error; scenario.cleanupError = String(error) }
+    if (cleanupError) { scenario.ok = false; if (!scenario.error) throw cleanupError }
+  }
 }

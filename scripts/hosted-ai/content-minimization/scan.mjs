@@ -1,11 +1,11 @@
 /**
- * [INPUT]: Complete fixture-owned persistence/log/write payloads and memory-only synthetic markers.
+ * [INPUT]: Complete fixture-owned persistence/log/write payloads, strict lifecycle-owner UUIDs and memory-only synthetic markers.
  * [OUTPUT]: A boolean rejection decision; no payload, dynamic key or matched fragment leaves the scanner.
  * [POS]: Acceptance boundary for server metadata, separate from permitted device result caches.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { gunzipSync, inflateSync } from 'node:zlib'
-const fields = new Set(`user_id action_id capability environment eligibility status model rate_version reserved_micro charged_micro confirmed provider_request_id input_tokens output_tokens failure created_at updated_at p_user p_action p_capability p_environment p_model p_rate p_reserve p_status p_cost p_confirmed p_provider p_input p_output p_failure existing receipt error retryAt eligible id limit_micro spent_micro policy blocked reason`.split(' '))
+const fields = new Set(`user_id action_id capability environment eligibility status model rate_version reserved_micro charged_micro confirmed provider_request_id input_tokens output_tokens failure created_at updated_at p_user p_owner p_action p_capability p_environment p_model p_rate p_reserve p_status p_cost p_confirmed p_provider p_input p_output p_failure existing receipt error retryAt eligible id limit_micro spent_micro policy blocked reason`.split(' '))
 const failures = new Set(['outcome_unknown', 'outcome_lost', 'reconciliation_closed', 'malformed_response', 'provider_failed', 'too_large', 'result_not_delivered', 'action_expired'])
 const enums = {
   capability: ['evaluate','draft','review','assistance'], environment: ['development','production'],
@@ -40,6 +40,7 @@ export function metadataOnly(payload, markers = []) {
       if (name === 'failure') return failures.has(value)
       if (name === 'provider_request_id') return /^gen-(?:dec-)?\d{10,16}-[A-Za-z0-9]{1,80}$/.test(value)
       if (name === 'id') return value === 'integration-shared'
+      if (name === 'p_owner') return /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value)
       if (/^(?:user_id|action_id|p_user|p_action)$/.test(name)) return /^[a-f0-9-]{36}$/i.test(value)
       if (/^(?:created_at|updated_at|retryAt)$/.test(name)) return /^\d{4}-\d\d-\d\d[T ][\d:.+-]+Z?$/.test(value) && Number.isFinite(Date.parse(value))
       return false

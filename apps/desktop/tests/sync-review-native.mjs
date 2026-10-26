@@ -11,6 +11,7 @@ import { tmpdir, arch, cpus, release } from 'node:os'
 import { build } from 'vite'
 import { _electron as electron } from 'playwright'
 import { pollPage } from './fixtures/poll.mjs'
+import { configureSync } from './fixtures/billing.mjs'
 
 const out=resolve('output/tests/sync-review'),root=await mkdtemp(join(tmpdir(),'goalloom-sync-review-ui-'))
 await mkdir(join(out,'screenshots'),{recursive:true})
@@ -34,6 +35,7 @@ try{
   const settings=page.locator('dialog.settings-modal')
   await settings.locator('.settings-nav-label').filter({hasText:/^同步$/}).click()
   await settings.getByRole('button',{name:/Google/}).click()
+  await configureSync(settings)
   await settings.locator('input[type="password"]').nth(0).fill('synthetic-sync-password')
   await settings.locator('input[type="password"]').nth(1).fill('synthetic-sync-password')
   await settings.getByRole('button',{name:'开始同步',exact:true}).click()
@@ -60,6 +62,7 @@ try{
   await notice.getByRole('button').click()
   const modal=page.locator('.sync-review-modal'),current=modal.locator('input[value="current"]'),local=modal.locator('input[value="local"]'),next=modal.locator('.sync-review-footer .primary')
   await modal.locator('.sync-review-compare').waitFor();assert(await current.isChecked())
+  assert.equal(await notice.count(),0,'An open review hides its redundant corner entry and leaves footer actions clear')
   assert.equal(await modal.locator('textarea,select,[contenteditable],input:not([type="radio"])').count(),0)
   assert.equal(await modal.locator('.sync-review-progress').textContent(),'1 / 3')
   assert((await modal.boundingBox()).height<500)
@@ -71,12 +74,20 @@ try{
   check('Multiple lost fields group into one task. Read-only selected/unselected bodies match, default is synced, and Defer preserves the choice')
 
   for(const locale of ['en','ja','es','fr','zh']){
-    await page.evaluate(locale=>window.goalloom.setLanguage(locale),locale)
+    await page.keyboard.press('Escape');await modal.waitFor({state:'hidden'})
+    await page.locator('.settings-toggle').click()
+    await settings.locator('.settings-nav button').first().click()
+    await settings.getByRole('combobox').first().click()
+    const names={en:'English',ja:'日本語',es:'Español',fr:'Français',zh:'简体中文'},tags={en:'en',ja:'ja-JP',es:'es',fr:'fr-FR',zh:'zh-CN'}
+    await page.getByRole('option',{name:names[locale],exact:true}).click()
+    await page.waitForFunction(tag=>document.documentElement.lang===tag,tags[locale])
+    await settings.locator('.modal-header > button').last().click()
+    await notice.getByRole('button').click();await modal.waitFor()
     await application.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(800,720))
     assert(await modal.evaluate(node=>node.scrollWidth<=node.clientWidth+1))
     assert(await local.isChecked());await shot(`review-${locale}`)
   }
-  check('The open review keeps its decision across five languages and fits an 800 px native window')
+  check('A deferred review keeps its decision across five real Settings language changes and fits an 800 px native window')
   await application.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.setMinimumSize(360,400);win.setContentSize(520,720)})
   assert(await modal.evaluate(node=>node.scrollWidth<=node.clientWidth+1));await shot('review-narrow')
   await application.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1000,760))

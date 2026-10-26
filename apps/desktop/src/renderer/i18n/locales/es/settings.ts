@@ -4,6 +4,7 @@
  * [POS]: Spanish settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { billingCatalog } from '../../../../shared/i18n/billing'
 import type { SettingsCatalog } from '../zh/settings'
 
 export const settingsMessages: SettingsCatalog = {
@@ -101,6 +102,7 @@ export const settingsMessages: SettingsCatalog = {
   },
   resetNote: 'Vacía los elementos y vuelve a configurar el calendario; se conservan el tema y las copias existentes',
   sync: {
+    initializing: "Preparando el espacio en la nube…",
     section: 'Sincronizar',
     signIn: 'Entrar con Google',
     signInApple: 'Entrar con Apple',
@@ -205,6 +207,14 @@ export const settingsMessages: SettingsCatalog = {
     lockedNav: 'Desactivada',
     cancel: 'Cancelar',
     errors: {
+      initialization_pending: "El dispositivo original aún prepara este espacio. Tu trabajo local se conserva.",
+      initialization_conflict: "No se pudo verificar la inicialización original. Se conservan tu trabajo local y la solicitud original.",
+      service_not_started: billingCatalog.es.notStarted,
+      service_expired: billingCatalog.es.ended,
+      service_revoked: billingCatalog.es.stopped,
+      upgrade_required: billingCatalog.es.upgrade,
+      billing_configuration: billingCatalog.es.configuration,
+      retrieval_closed: billingCatalog.es.ended,
       cleanup: 'No se pudieron borrar algunas copias locales. Cierra las aplicaciones que usan esos archivos y vuelve a entrar. El acceso a cuentas sigue bloqueado hasta terminar la limpieza.',
       configuration: 'La configuración del servicio de sincronización necesita una actualización. Inténtalo más tarde.',
       network: 'Red no disponible',

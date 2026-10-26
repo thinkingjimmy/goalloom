@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
+import { serviceFailureCodes } from '@goalloom/contracts'
 import { syncReviewPageSchema } from './sync-review'
 
 export const syncChannel = 'goalloom:sync'
@@ -13,7 +14,7 @@ export const authProviderSchema = z.enum(['google', 'apple'])
 export type AuthProvider = z.infer<typeof authProviderSchema>
 
 export const syncPhases = ['unconfigured', 'locked', 'signed-out', 'signing-in', 'account', 'setup', 'enter-key', 'choose', 'ready'] as const
-export const syncErrors = ['network', 'password', 'auth', 'key', 'mismatch', 'busy', 'port', 'storage', 'cleanup', 'configuration'] as const
+export const syncErrors = ['network', 'password', 'auth', 'key', 'mismatch', 'busy', 'port', 'storage', 'cleanup', 'configuration', 'initialization_pending', 'initialization_conflict', ...serviceFailureCodes] as const
 
 export const syncStatusSchema = z.strictObject({
   phase: z.enum(syncPhases),
@@ -28,6 +29,7 @@ export const syncStatusSchema = z.strictObject({
   localItems: z.number().int().nonnegative(),
   offline: z.boolean(),
   syncing: z.boolean(),
+  initializationPending: z.boolean().optional(),
   awaitingTasks: z.boolean().optional(),
   uploadWait: z.strictObject({ retryAt: z.iso.datetime(), reason: z.enum(['quota', 'network']) }).optional(),
   realtimeConnected: z.boolean().optional(),
@@ -46,7 +48,8 @@ export const syncActionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('cancel') }),
   z.strictObject({ type: z.literal('submit-password'), password }),
   z.strictObject({ type: z.literal('change-password'), password }),
-  z.strictObject({ type: z.literal('create-new-workspace'), password }),
+  z.strictObject({ type: z.literal('generation-preview'), expectedAccountId: z.uuid() }),
+  z.strictObject({ type: z.literal('create-new-workspace'), password, expectedAccountId: z.uuid(), previewToken: z.uuid(), acknowledged: z.literal(true) }),
   z.strictObject({ type: z.literal('reset-sync'), password, confirmation: z.literal('DELETE ALL CLOUD DATA') }),
   z.strictObject({ type: z.literal('join'), choice: z.enum(['use-remote', 'merge']), acknowledged: z.boolean() }),
   z.strictObject({ type: z.literal('retry') }),
@@ -55,6 +58,7 @@ export const syncActionSchema = z.discriminatedUnion('type', [
 export const syncReplySchema = z.strictObject({
   status: syncStatusSchema,
   reviews: syncReviewPageSchema.optional(),
+  generationPreview: z.strictObject({ token: z.uuid(), accountId: z.uuid(), generation: z.uuid(), revision: z.number().int().nonnegative(), items: z.number().int().nonnegative(), operations: z.number().int().nonnegative(), unknown: z.number().int().nonnegative() }).optional(),
 })
 
 export type SyncStatus = z.infer<typeof syncStatusSchema>

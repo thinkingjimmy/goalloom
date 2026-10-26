@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process'
 import { build } from 'vite'
 import electron from 'electron'
 const selected = process.argv[2]
-const suites = selected === 'environment' ? ['environment-cases'] : selected === 'password' ? ['password-cases'] : selected === 'resume' ? ['resume-cases'] : ['cases', 'password-cases', 'resume-cases', 'environment-cases']
+const suites = selected === 'cases' ? ['cases'] : selected === 'environment' ? ['environment-cases'] : selected === 'password' ? ['password-cases'] : selected === 'resume' ? ['resume-cases'] : ['cases', 'password-cases', 'resume-cases', 'environment-cases']
 const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
 delete env.GOALLOOM_SUPABASE_URL; delete env.GOALLOOM_SUPABASE_ANON_KEY
 for (const suite of suites) {

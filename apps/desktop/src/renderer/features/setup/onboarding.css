@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Setup content, shared theme tokens, native field state and viewport size.
- * [OUTPUT]: Coordinated step/selection states, bounded content geometry, platform controls and reduced-motion rules.
+ * [INPUT]: Setup content, measured feedback clearance, shared theme tokens, native field state and viewport size.
+ * [OUTPUT]: Coordinated step/selection states, bounded content geometry, feedback-safe footer controls and reduced-motion rules.
  * [POS]: Setup-specific CSS; ordinary layout lives in the consuming components' Tailwind classes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,7 +17,7 @@
 .onboarding-content { max-width: var(--onboarding-width); padding: clamp(16px, 5vh, 48px) 0 40px; animation: onboarding-enter .2s ease-out; }
 @keyframes onboarding-enter { from { opacity: 0; transform: translateY(6px); } }
 /* Pinned below the scrolling content, but without a bar: no border or fill, aligned to the content column. */
-.onboarding-footer { max-width: calc(var(--onboarding-width) + 2 * var(--onboarding-gutter)); padding: 16px var(--onboarding-gutter) 28px; }
+.onboarding-footer { max-width: calc(var(--onboarding-width) + 2 * var(--onboarding-gutter)); padding: 16px var(--onboarding-gutter) max(28px, var(--feedback-clearance, 0px)); }
 .onboarding-note-main .text-button { margin-left: 4px; font-size: inherit; color: var(--focus); }
 .onboarding-note-main .text-button:hover:not(:disabled) { color: var(--focus); text-decoration: underline; text-underline-offset: 3px; }
 .onboarding-actions svg { margin-right: -4px; }

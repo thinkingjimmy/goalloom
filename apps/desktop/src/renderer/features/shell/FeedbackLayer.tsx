@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Feedback content and the current native modal dialog stack.
- * [OUTPUT]: A nonmodal top-layer portal whose controls remain interactive inside the active dialog.
+ * [OUTPUT]: A nonmodal top-layer portal with interactive feedback and measured page/modal clearance.
  * [POS]: Shell presentation boundary; App retains feedback state, timers and actions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -41,6 +41,32 @@ export function FeedbackLayer({ children }: FeedbackLayerProps) {
     }
     return () => {
       try { if (node.matches(':popover-open')) node.hidePopover() } catch { /* The host may already be detached. */ }
+    }
+  }, [host])
+
+  useLayoutEffect(() => {
+    const node = layer.current
+    if (!node) return
+    const resize = new ResizeObserver(syncClearance)
+    function syncClearance() {
+      const children = [...(node?.firstElementChild?.children ?? [])]
+      const visible = children.map(child => child.getBoundingClientRect()).filter(box => box.height > 0)
+      const top = Math.min(innerHeight, ...visible.map(box => box.top))
+      // Keep screen and dialog controls above persistent feedback without hiding its recovery actions.
+      host.style.setProperty('--feedback-clearance', `${Math.ceil(innerHeight - top + (visible.length ? 16 : 0))}px`)
+      for (const child of children) resize.observe(child)
+    }
+    host.setAttribute('data-feedback-host', '')
+    const mutation = new MutationObserver(syncClearance)
+    mutation.observe(node, { childList: true, subtree: true })
+    addEventListener('resize', syncClearance)
+    syncClearance()
+    return () => {
+      resize.disconnect()
+      mutation.disconnect()
+      removeEventListener('resize', syncClearance)
+      host.removeAttribute('data-feedback-host')
+      host.style.removeProperty('--feedback-clearance')
     }
   }, [host])
 

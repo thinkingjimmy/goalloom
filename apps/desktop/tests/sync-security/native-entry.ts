@@ -37,7 +37,7 @@ const fixture: any = { cloud, a: null, b: null, other, online: true, identity: '
     const secrets = fixture.a.service.secrets
     const workspace = cloud.world.workspaces.get(secrets.workspaceId)
     return workspace?.ops.flatMap(row => openOpWire(row, { workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey }).actions
-      .flatMap(action => action.t === 'item.create' ? [action.title] : [])) ?? []
+      .flatMap(action => action.t === 'item.create' ? [action.title] : action.t === 'seed.rows' ? action.records.flatMap(record => record.kind === 'item' ? [record.row.title] : []) : [])) ?? []
   },
   async connectB() {
     const b = fixture.b = await openPeer(join(root, 'beta'), 'beta', workerPath)

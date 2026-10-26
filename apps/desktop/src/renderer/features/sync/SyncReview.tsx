@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Live sync status, workspace generation and guarded IPC comparisons/receipts.
- * [OUTPUT]: A quiet board notice and a sequential, selection-only native review dialog.
+ * [OUTPUT]: A quiet corner notice and an independently mounted sequential, selection-only native review dialog; visibility suppresses its redundant entry card.
  * [POS]: Sync feedback owner; only explicit Next/Finish can resolve a task group.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -13,10 +13,18 @@ import { ActionButton, TextButton } from '../../components/ui/button'
 import { desktopApi } from '../../state/use-workspace'
 import { useSync } from '../../state/sync'
 import { TaskComparison } from './TaskComparison'
+import { WorkspaceNotice } from '../shell/WorkspaceNotice'
 import './sync-review.css'
 
 const openEvent = 'goalloom:review-sync'
 export function requestSyncReview(): void { window.dispatchEvent(new Event(openEvent)) }
+
+export function SyncNotice() {
+  const status = useSync(), t = s.sync
+  return status?.phase === 'ready' && status.conflicts > 0
+    ? <WorkspaceNotice className="sync-review-notice" action={{ label: t.reviewDetails, onClick: requestSyncReview }}>{t.reviewNotice(status.conflicts)}</WorkspaceNotice>
+    : null
+}
 
 function choiceCaption(review: SyncReview, side: 'local' | 'current'): string {
   const t = s.sync
@@ -26,7 +34,7 @@ function choiceCaption(review: SyncReview, side: 'local' | 'current'): string {
   return ''
 }
 
-export function SyncFeedback({ generation }: { generation: string }) {
+export function SyncFeedback({ generation, onOpenChange }: { generation: string; onOpenChange: (open: boolean) => void }) {
   const status = useSync(), t = s.sync
   const [open, setOpen] = useState(false), [page, setPage] = useState<SyncReviewPage | null>(null)
   const [selected, setSelected] = useState<'current' | 'local'>('current')
@@ -36,6 +44,7 @@ export function SyncFeedback({ generation }: { generation: string }) {
   const currentPage = useRef(page); currentPage.current = page
   const trigger = useRef<Element | null>(null), choiceRef = useRef<HTMLInputElement>(null), scroll = useRef<HTMLDivElement>(null)
   const opened = useRef(false)
+  useEffect(() => { onOpenChange(open); return () => onOpenChange(false) }, [open, onOpenChange])
   const close = useCallback(() => {
     if (locked.current) return
     setOpen(false); opened.current = false; epoch.current++
@@ -91,7 +100,6 @@ export function SyncFeedback({ generation }: { generation: string }) {
   }
   const review = page?.review
   return <>
-    {status?.phase === 'ready' && status.conflicts > 0 && <div className="notice-banner sync-review-notice" role="status"><span>{t.reviewNotice(status.conflicts)}</span><TextButton onClick={requestSyncReview}>{t.reviewDetails}</TextButton></div>}
     {open && <Modal title={t.reviewTitle} close={close} className="sync-review-modal" actions={review && <span className="sync-review-progress">{processed + 1} / {processed + page.remaining}</span>}>
       <div ref={scroll} className="sync-review-scroll" aria-busy={working}>
         {review ? <><p className="sync-review-reason">{t.reviewReasons[review.reason]}</p><fieldset className="sync-review-compare" disabled={working || !!pending.current}>

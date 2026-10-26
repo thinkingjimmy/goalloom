@@ -7,7 +7,7 @@
 import { compareInstants, currentPeriod, parseDate, workspaceDate } from './calendar'
 import type { BusinessState, ItemEvent, Operation } from '../shared/contracts/effects'
 import type { CalendarConfig, Item, PlanningPeriod } from '../shared/contracts/entities'
-import type { GuidanceRecord } from '../shared/contracts/assistance'
+import type { GuidanceRecord, GuidanceValue } from '../shared/contracts/assistance'
 import type { CountBreakdown, ExecutionEvidence, ExecutionFacts, Fact, FactQuality } from '../shared/contracts/execution'
 import { periodHorizons, type PeriodHorizon } from '../shared/contracts/values'
 import { indexExecutionHistory, ownedExecutionEffect, replayExecutionGuidance, type ExecutionHistory } from './execution-history'
@@ -16,7 +16,7 @@ export interface ExecutionInput {
   item: Item; calendar: CalendarConfig; generation: string; sourceRevision: string
   events: ItemEvent[]; operations: Operation[]; periods: PlanningPeriod[]
   undo: { originalId: string; effectIndex: number; undoId: string; at: string; seq: number }[]
-  clockAnomaly?: boolean; guidance: GuidanceRecord | null; scanLimited: boolean; effectsLimited: boolean
+  guidanceObservation?: { afterEventSeq: number; futureGap: boolean; state?: { value: GuidanceValue | null; identity: string | null } | undefined } | undefined; observationGap?: boolean; clockAnomaly?: boolean; guidance: GuidanceRecord | null; scanLimited: boolean; effectsLimited: boolean
 }
 const active = (state: Pick<BusinessState, 'status' | 'archivedAt' | 'deletedAt'>) => state.status === 'todo' && !state.archivedAt && !state.deletedAt
 const ms = (at: string) => Date.parse(at)
@@ -57,8 +57,11 @@ export function prepareExecutionFacts(input: ExecutionInput, asOf: string, histo
   const classificationInput = historical ? { ...input, undo: input.undo.filter(marker => compareInstants(marker.at, asOf) < 0) } : input
   const history: ExecutionHistory = indexExecutionHistory(classificationInput), { periods, operations } = history
   const reasons: string[] = []
-  const baseline = events[0]?.type !== 'created'
-  if (baseline) reasons.push('incomplete_origin')
+  const incompleteOrigin = events[0]?.type !== 'created'
+  const observation = events.some(event => event.type === 'baseline') || !!input.observationGap
+  const baseline = incompleteOrigin || observation
+  if (incompleteOrigin) reasons.push('incomplete_origin')
+  if (observation) reasons.push('external_observation_gap')
   if (input.scanLimited) reasons.push('event_budget')
   if (input.effectsLimited) reasons.push('effect_budget')
   if (events.some(event => !operations.has(event.operationId))) reasons.push('missing_operation')
@@ -71,7 +74,7 @@ export function prepareExecutionFacts(input: ExecutionInput, asOf: string, histo
   const quality: FactQuality = anomalous ? 'anomalous' : reasons.length ? 'partial' : 'complete'
   let unknownCounts = bounded || missing || anomalous && input.events.some(event => compareInstants(event.at, asOf) > 0)
   const countQuality: FactQuality = anomalous ? 'anomalous' : unknownCounts || baseline ? 'partial' : 'complete'
-  const currentState = historical ? events.at(-1)?.after ?? null : {
+  const currentState = historical ? input.observationGap ? null : events.at(-1)?.after ?? null : {
     status: item.status, horizon: item.placement.horizon, periodId: item.placement.periodId, archivedAt: item.archivedAt, deletedAt: item.deletedAt,
   }
   if (historical && !currentState) unknownCounts = true
@@ -90,6 +93,13 @@ export function prepareExecutionFacts(input: ExecutionInput, asOf: string, histo
     if (ms(until) > start) durationSeconds[state.horizon] += (ms(until) - start) / 1000
   }
   for (const event of events) {
+    if (event.type === 'baseline') {
+      // The interval before observation is unknown, including when both endpoints look unchanged.
+      episodeAt = null; episodeSeq = null; episodeKnown = !active(event.after)
+      enteredAt = null; enteredKnown = false
+      state = event.after; intervalAt = event.at
+      continue
+    }
     accumulate(event.at)
     if (!state || !samePlace(state, event.after)) { enteredAt = event.at; enteredKnown = !!state || event.type === 'created' }
     if (active(event.after) && (!state || !active(state))) {
@@ -98,7 +108,7 @@ export function prepareExecutionFacts(input: ExecutionInput, asOf: string, histo
     } else if (!active(event.after)) { episodeAt = null; episodeSeq = null; episodeKnown = true }
     state = event.after; intervalAt = event.at
   }
-  accumulate(asOf)
+  if (!input.observationGap) accumulate(asOf)
   const live = currentState !== null && active(currentState)
   if (!live) { episodeAt = null; episodeSeq = null }
   const evidence = events.map(event => classifyExecutionEvent(event, classificationInput, asOf, history))
@@ -122,9 +132,11 @@ export function prepareExecutionFacts(input: ExecutionInput, asOf: string, histo
       : fact<NonNullable<ExecutionFacts['currentEpisode']['value']>>(null, anomalous ? 'anomalous' : 'unknown', 'incomplete_episode')
   const deadline = historical ? fact<NonNullable<ExecutionFacts['deadlineNow']['value']>>(null, 'unknown', 'historical_deadline_unrecorded')
     : live && item.dueDate && item.dueDate < today ? fact({ overdueDays: parseDate(item.dueDate).until(parseDate(today), { largestUnit: 'days' }).days }) : fact<NonNullable<ExecutionFacts['deadlineNow']['value']>>(null)
-  const windowQuality: FactQuality = currentCountQuality !== 'complete' || anomalous ? anomalous ? 'anomalous' : 'unknown' : 'complete'
+  const guidanceReplay = replayExecutionGuidance(input.guidanceObservation ? events.filter(event => event.seq > input.guidanceObservation!.afterEventSeq) : events, history, input.guidanceObservation?.state)
+  const guidanceKnown = !input.guidanceObservation || !input.guidanceObservation.futureGap && guidanceReplay.known && (!guidanceReplay.value || guidanceReplay.boundary !== null)
+  const windowQuality: FactQuality = !guidanceKnown || currentCountQuality !== 'complete' || anomalous ? anomalous ? 'anomalous' : 'unknown' : 'complete'
   // A guidance confirmation suppresses the same source periods, rather than the six displayed examples.
-  const { boundary } = replayExecutionGuidance(events, history)
+  const { boundary } = guidanceReplay
   const projection = { calendar, period: period ?? null, live, episodeTotal: episode.total, windowQuality, boundary, historical, createdAt: item.createdAt,
     carries: carries.map(row => ({ seq: row.seq, horizon: row.horizon, at: row.evidence.at, fromPeriodId: row.evidence.fromPeriodId })) }
   const pressure = projectPressure(projection, asOf, current.horizon, deadline.value !== null)
@@ -134,9 +146,9 @@ export function prepareExecutionFacts(input: ExecutionInput, asOf: string, histo
     calculationVersion: 1, itemId: item.id, generation: input.generation, asOf, timezone, sourceRevision: input.sourceRevision,
     coverage: { quality, earliestKnownAt: events[0]?.at ?? null, reasons }, current,
     createdAt: fact(item.createdAt), createdAgeDays: createdAge >= 0 ? fact(createdAge, anomalous ? 'anomalous' : 'complete', anomalous ? 'clock_anomaly' : null) : fact(null, 'anomalous', 'creation_after_observation'),
-    currentEpisode: episodeFact, currentPlacement: enteredKnown && enteredAt && !bounded && !anomalous ? fact({ enteredAt, eligibleSince }) : fact(null, anomalous ? 'anomalous' : 'unknown', 'incomplete_placement'),
+    currentEpisode: episodeFact, currentPlacement: currentState && enteredKnown && enteredAt && !bounded && !anomalous ? fact({ enteredAt, eligibleSince }) : fact(null, anomalous ? 'anomalous' : 'unknown', 'incomplete_placement'),
     carryovers: { currentEpisode: unknownCounts || live && !episodeKnown ? fact(null, currentCountQuality, 'incomplete_episode') : fact(episode, currentCountQuality),
-      lifetime: unknownCounts ? fact(null, 'unknown', 'incomplete_effect_history') : fact(lifetime, countQuality, baseline ? 'incomplete_origin' : null) },
+      lifetime: unknownCounts ? fact(null, 'unknown', 'incomplete_effect_history') : fact(lifetime, countQuality, observation ? 'external_observation_gap' : incompleteOrigin ? 'incomplete_origin' : null) },
     scheduleChanges: { advanceReschedule: unknownCounts ? fact(null, 'unknown', 'incomplete_effect_history') : fact(advances, countQuality), otherPlacementChanges: unknownCounts ? fact(null, 'unknown', 'incomplete_effect_history') : fact(changes, countQuality) },
     placementDurations: Object.fromEntries(periodHorizons.map(h => [h, anomalous || bounded || missing || !events.length ? fact(null, anomalous ? 'anomalous' : 'unknown', 'incomplete_intervals') : fact(durationSeconds[h], baseline ? 'partial' : 'complete', baseline ? 'since_earliest_known_event' : null)])) as ExecutionFacts['placementDurations'],
     deadlineNow: deadline, pressure, evidence: evidence.slice(-6).reverse(),

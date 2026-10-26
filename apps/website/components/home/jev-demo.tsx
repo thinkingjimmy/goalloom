@@ -1,8 +1,8 @@
 'use client'
 /**
- * [INPUT]: Depends on react, lib/board, ../board/board, ../board/composer, ../motion, ../icons
+ * [INPUT]: Selection state, shared board/composer, localized demo copy and viewport/visibility/reduced-motion signals.
  * [OUTPUT]: Exports JevDemo and JevDemoCopy
- * [POS]: components/home's looping "add one item" film for the Jev story: cue the +, open the composer, type,
+ * [POS]: ProductTour's selected "add one item" film: cue the +, open the composer, type,
  *        Jev organizes, the suggestion, press "Create in Today", the item lands in Today with its goal colour and the
  *        toast. It plays only while seen and holds on the suggestion under reduced motion. Narrow screens keep the
  *        composer in place and show the landed row instead of the board.
@@ -13,7 +13,7 @@ import { SEED, type DemoItem, type Horizon } from '@/lib/board'
 import { Board, type BoardCopy } from '../board/board'
 import { Composer, type ComposerCopy } from '../board/composer'
 import { Icon } from '../icons'
-import { prefersReducedMotion, useSeen } from '../motion'
+import { useSeen } from '../motion'
 
 export type JevDemoCopy = {
   label: string
@@ -37,16 +37,33 @@ const BASE: DemoItem[] = SEED.filter(item => ['m1', 'm2', 'm3', 'w1', 'w4', 'd3'
 const LANDED: DemoItem = { id: 'n2', horizon: 'day', flow: 'a', parents: ['m1'] }
 const NO_ROWS = new Map()
 
-export function JevDemo({ copy }: { copy: JevDemoCopy }) {
+export function JevDemo({ copy, active = true }: { copy: JevDemoCopy; active?: boolean }) {
   const { ref, seen } = useSeen<HTMLDivElement>(0.35)
-  const [phase, setPhase] = useState<Phase>('idle')
-  const [typed, setTyped] = useState(0)
+  const [phase, setPhase] = useState<Phase>('suggest')
+  const [typed, setTyped] = useState(Array.from(copy.typed).length)
   const [still, setStill] = useState(false)
+  const [visible, setVisible] = useState(true)
   const chars = Array.from(copy.typed)
 
-  useEffect(() => { if (prefersReducedMotion()) { setStill(true); setPhase('suggest'); setTyped(chars.length) } }, [chars.length])
   useEffect(() => {
-    if (still || !seen) return
+    const media = matchMedia('(prefers-reduced-motion: reduce)')
+    const reset = () => {
+      setStill(media.matches)
+      setPhase(media.matches ? 'suggest' : 'idle')
+      setTyped(media.matches ? chars.length : 0)
+    }
+    reset()
+    media.addEventListener('change', reset)
+    return () => media.removeEventListener('change', reset)
+  }, [active, chars.length])
+  useEffect(() => {
+    const update = () => setVisible(!document.hidden)
+    update()
+    document.addEventListener('visibilitychange', update)
+    return () => document.removeEventListener('visibilitychange', update)
+  }, [])
+  useEffect(() => {
+    if (!active || still || !seen || !visible) return
     if (phase === 'type') {
       const timer = setTimeout(() => {
         if (typed + 1 >= chars.length) { setTyped(chars.length); setPhase('thinking') } else setTyped(typed + 1)
@@ -59,7 +76,7 @@ export function JevDemo({ copy }: { copy: JevDemoCopy }) {
       setPhase(next)
     }, STEP[phase])
     return () => clearTimeout(timer)
-  }, [phase, typed, seen, still, chars.length])
+  }, [phase, typed, seen, still, active, visible, chars.length])
 
   const open = phase !== 'idle' && phase !== 'created'
   const landed = phase === 'created'
@@ -67,7 +84,7 @@ export function JevDemo({ copy }: { copy: JevDemoCopy }) {
   const composerPhase = phase === 'thinking' ? 'thinking' : phase === 'suggest' || phase === 'press' ? 'suggest' : typed ? 'typing' : 'empty'
 
   return (
-    <div ref={ref} className="jev-stage" role="img" aria-label={copy.label}>
+    <div ref={ref} className="jev-stage" role="img" aria-label={copy.label} data-phase={phase}>
       <div className="bar">
         <span className="chip" data-on="true"><Icon name="all" size={14} strokeWidth={1.8} />{copy.all}</span>
         <span className="chip"><span className="mark" style={{ borderColor: 'var(--stroke-a)' }} /></span>

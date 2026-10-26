@@ -4,6 +4,7 @@
  * [POS]: English settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { billingCatalog } from '../../../../shared/i18n/billing'
 import type { SettingsCatalog } from '../zh/settings'
 
 export const settingsMessages: SettingsCatalog = {
@@ -101,6 +102,7 @@ export const settingsMessages: SettingsCatalog = {
   },
   resetNote: 'Clears items and sets up the calendar again; theme and existing backups are kept',
   sync: {
+    initializing: "Preparing the cloud workspace…",
     section: 'Sync',
     signIn: 'Sign in with Google',
     signInApple: 'Sign in with Apple',
@@ -205,6 +207,14 @@ export const settingsMessages: SettingsCatalog = {
     lockedNav: 'Off',
     cancel: 'Cancel',
     errors: {
+      initialization_pending: "This cloud workspace is still being prepared by its original device. Your local work is kept.",
+      initialization_conflict: "The original cloud initialization could not be verified. Your local work and original request are kept.",
+      service_not_started: billingCatalog.en.notStarted,
+      service_expired: billingCatalog.en.ended,
+      service_revoked: billingCatalog.en.stopped,
+      upgrade_required: billingCatalog.en.upgrade,
+      billing_configuration: billingCatalog.en.configuration,
+      retrieval_closed: billingCatalog.en.ended,
       cleanup: 'Some local copies could not be removed. Close apps using those files, then retry sign-in. Account access stays blocked until cleanup finishes.',
       configuration: 'Sync service configuration needs an update. Try again later.',
       network: 'Network unavailable',

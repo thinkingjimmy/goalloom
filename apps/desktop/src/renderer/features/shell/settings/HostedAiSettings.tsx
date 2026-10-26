@@ -14,9 +14,12 @@ import type { SyncAction } from '../../../../shared/contracts/sync'
 import { SettingsButton } from '../../../components/ui/button'
 import { AuthMark } from '../../../components/AuthMark'
 import { SettingsGroup, SettingsRow } from './parts'
+import { useBilling } from '../../../state/billing'
+import { BillingCard } from './BillingCard'
 
 export function HostedAiSettings({ ai }: { ai: Ai }) {
   const account = useSync(), [working, setWorking] = useState(false), [failed, setFailed] = useState(false)
+  const billing = useBilling()
   const t = hostedCatalog[currentLocale()]
   const run = async (action: SyncAction) => {
     setWorking(true); setFailed(false)
@@ -32,6 +35,7 @@ export function HostedAiSettings({ ai }: { ai: Ai }) {
         {account?.phase === 'signing-in' && <SettingsButton type="button" onClick={() => void run({ type: 'cancel' })}>{s.sync.cancel}</SettingsButton>}
       </SettingsRow>
     </SettingsGroup>
+    {signedIn && <BillingCard state={billing.state} run={billing.run} />}
     {signedIn && <SettingsGroup title={t.name}>
       <SettingsRow title={t.title} note={t.body}>
         {!ai.status?.providers.hosted.consentedAt && <SettingsButton type="button" variant="primary" disabled={working} onClick={() => {

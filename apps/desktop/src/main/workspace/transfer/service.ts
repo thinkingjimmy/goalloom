@@ -12,9 +12,11 @@ import { BackupManager } from '../../storage/backup/manager'
 import { emptyDataset, readBackupDataset, readSqliteDataset, replaceDataset } from './dataset'
 import { reconcile } from '../reconcile'
 import type { Repository } from '../repository'
+import { cloudCatalog } from '../../../shared/i18n/cloud'
+import { serverLocale } from '../../../shared/i18n/server'
 import { serverText } from '../../../shared/i18n/server'
 
-interface Pending { preview: TransferPreview; source: Dataset | null; ready: boolean }
+interface Pending { preview: TransferPreview; source: Dataset | null; ready: boolean; retrieved?: boolean }
 export class WorkspaceService {
   readonly backups: BackupManager
   private pending: Pending | null = null
@@ -42,6 +44,16 @@ export class WorkspaceService {
       return this.previewDataset(data, generation, historyRecovered)
     }
     return this.previewDataset(await readSqliteDataset(path, this.repository.clock.now(), source), generation)
+  }
+  previewRetrieved(data: Dataset, generation: string): DataReply {
+    const reply = this.previewImport(data, generation)
+    this.pending!.retrieved = true
+    return reply
+  }
+  private assertReplacementAllowed(pending: Pending): void {
+    if (pending.retrieved && this.repository.db.prepare("SELECT 1 FROM sync_ops WHERE origin='local' AND state IN ('never_sent','send_unknown','accepted') LIMIT 1").get()) {
+      throw new DomainError('conflict', cloudCatalog[serverLocale()].pendingWrites)
+    }
   }
   private previewDataset(data: Dataset, generation: string, historyRecovered = false): DataReply {
     const workspace = this.repository.store.workspace()
@@ -90,6 +102,7 @@ export class WorkspaceService {
     // worker 已排空此前接受的写入；从这一刻开始，新业务写入和 reconcile 均被拒绝。
     this.repository.maintenance = true
     try {
+      this.assertReplacementAllowed(pending)
       const workspace = this.repository.store.workspace()
       if (pending.preview.mode === 'reset') {
         const current = this.previewReset()
@@ -116,7 +129,7 @@ export class WorkspaceService {
       const now = this.repository.clock.now()
       const source = pending.source ?? emptyDataset(this.repository.store, now)
       validateDataset(source, now)
-      const generation = replaceDataset(this.repository.store, source, pending.preview.mode, now)
+      const generation = replaceDataset(this.repository.store, source, pending.preview.mode, now, pending.retrieved === true)
       this.repository.execution.clear()
       this.completed.set(token, { originalGeneration: current.generation, generation })
       this.release()

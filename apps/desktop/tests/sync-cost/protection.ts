@@ -28,7 +28,7 @@ async function main() {
   const drain = async (peer: any) => { for (let n = 0; n < 20; n++) { await clock.advance(0); await peer.service.schedule.settle(); if (!peer.status.pending) return }; throw Error('Queue did not drain') }
   const open = async (name: string) => { const profile = join(base, name); await seed(profile, name, cloud.world, cloud.url); const peer: any = { profile, storage: await worker(profile) }; peer.service = build(peer); peers.push(peer); await peer.service.start(); await drain(peer); return peer }
   const create = async (peer: any, title: string) => {
-    const view: any = await peer.storage.call('sync', { type: 'view' })
+    const view: any = await peer.service.local({ type: 'view' })
     return peer.storage.call('command', { type: 'create', operationId: randomUUID(), generation: view.generation, title, horizon: 'day' })
   }
   try {
@@ -76,11 +76,11 @@ async function main() {
     checks.push('Upload resumes in original order after expiry; both projections and continuous cursors converge without duplicate acceptance')
     const keyName = 'ai.key.openrouter', originalKey = 'sk-synthetic-original-retry-key', nextKey = 'sk-synthetic-newer-local-key'
     a.keys = { [keyName]: originalKey }
-    await a.storage.call('sync', { type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: 'change', entries: [{ key: keyName, value: originalKey }] })
+    await a.service.local({ type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: 'change', entries: [{ key: keyName, value: originalKey }] })
     cloud.controls.fault = 'commit:push_ops'
     await a.service.handle({ type: 'retry' })
     a.keys[keyName] = nextKey
-    await a.storage.call('sync', { type: 'emit-settings', opId: randomUUID(), at: new Date(Date.now() + 1).toISOString(), mode: 'change', entries: [{ key: keyName, value: nextKey }] })
+    await a.service.local({ type: 'emit-settings', opId: randomUUID(), at: new Date(Date.now() + 1).toISOString(), mode: 'change', entries: [{ key: keyName, value: nextKey }] })
     cloud.controls.fault = ''
     a.service.stop(); await a.service.schedule.settle(); a.service = build(a); await a.service.start()
     await a.service.handle({ type: 'retry' })

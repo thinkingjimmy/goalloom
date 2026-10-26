@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { configureSync } from './fixtures/billing.mjs'
 import { mkdir, mkdtemp, writeFile, readdir, unlink, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir, cpus, release, arch } from 'node:os'
@@ -36,6 +37,7 @@ try {
   const syncIndex = await syncTab.evaluate(node => [...node.closest('.settings-nav').querySelectorAll('button')].indexOf(node))
   await syncTab.click()
   await settings.getByRole('button', { name: /Google/ }).click()
+  await configureSync(settings)
   await settings.locator('input[type="password"]').fill('synthetic-sync-password')
   await settings.getByRole('button', { name: '继续', exact: true }).click()
   await pollPage(page, async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
@@ -57,6 +59,7 @@ try {
   await settings.getByRole('button', { name: '退出登录', exact: true }).click()
   await page.locator('.sync-signout-modal button[type="submit"]').click()
   await settings.getByRole('button', { name: /Google/ }).click()
+  await configureSync(settings)
   await settings.locator('input[type="password"]').fill('synthetic-sync-password')
   await settings.getByRole('button', { name: '继续', exact: true }).click()
   await pollPage(page, async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'ready')
@@ -69,13 +72,17 @@ try {
   // A restored workspace must explicitly choose, even when its current task IDs are already known.
   await settings.getByRole('button', { name: '退出登录', exact: true }).click()
   await page.locator('.sync-signout-modal button[type="submit"]').click()
-  await application.evaluate(async () => { await globalThis.syncJoinFixture.a.storage.call('sync', { type: 'pause', reason: 'restore', at: new Date().toISOString() }) })
+  await application.evaluate(async () => {
+    const storage = globalThis.syncJoinFixture.a.storage, expectedBinding = await storage.call('sync', { type: 'active-binding' })
+    await storage.call('sync', { type: 'pause', expectedBinding, reason: 'restore', at: new Date().toISOString() })
+  })
   await settings.getByRole('button', { name: /Google/ }).click()
+  await configureSync(settings)
   await settings.locator('input[type="password"]').fill('synthetic-sync-password')
   await settings.getByRole('button', { name: '继续', exact: true }).click()
   await settings.getByRole('button', { name: '合并并开始同步', exact: true }).waitFor()
   assert.equal(await settings.getByRole('button', { name: '合并并开始同步', exact: true }).isEnabled(), true)
-  assert.equal(await settings.locator('input[type="radio"]').count(), 0)
+  assert.equal(await settings.locator('.sync-pane input[type="radio"]:not(.billing-card input)').count(), 0)
   assert.equal(await settings.getByRole('checkbox').count(), 0)
   await page.screenshot({ path: join(out, 'screenshots/merge-default.png') })
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(800, 700))

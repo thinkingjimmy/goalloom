@@ -5,9 +5,10 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, release, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { canonicalJson } from '@goalloom/contracts'
 import { createCloud } from '../sync-cost/cloud'
 import { Clock } from '../sync-cost/clock'
 import { cipher, worker } from '../sync-cost/peer'
@@ -23,7 +24,7 @@ async function main() {
     host: { os: release(), arch: arch(), cpu: cpus()[0]?.model },
     scope: 'Production service/SDK/SQLite, isolated service lifetimes, synthetic OS cipher and encrypted HTTP. No signed native or physical reboot acceptance.' }
   const check = (label: string) => { report.checks.push(label); console.log(`PASS ${label}`) }
-  async function open(profile: string, name: string, allowed = true, modern = true, online = true) {
+  async function open(profile: string, name: string, allowed = true, modern = true, online = true, beforeStart?: (peer: any) => void) {
     const storage = await worker(profile), clock = new Clock()
     const peer: any = { profile, storage, clock, name, allowed, signIns: 0, reads: 0, status: null, secretDenied: false, keys: new Map() }
     const protectedCipher = { available: () => peer.allowed,
@@ -38,7 +39,7 @@ async function main() {
       readSecret: async key => peer.keys.get(key),
       applySecret: async (key, value) => { if (peer.secretDenied) throw new CredentialError('unavailable'); peer.keys.set(key, value) },
     })
-    peers.push(peer); await peer.service.start(); return peer
+    peers.push(peer); beforeStart?.(peer); await peer.service.start(); return peer
   }
   async function close(peer: any) { peer.service.stop(); await peer.service.schedule.settle(); await peer.storage.close(); peers.splice(peers.indexOf(peer), 1) }
   async function login(peer: any, value = password) {
@@ -87,11 +88,11 @@ async function main() {
     check('Repeated logout/login neither imports again nor resurrects deleted tasks, and restores automatic login afterwards')
 
     const beforeFailedLogout = await readFile(join(alpha, 'sync-session.bin'))
-    await mkdir(join(alpha, 'sync-session.bin.tmp'))
-    await a.service.handle({ type: 'sign-out' })
+    await chmod(alpha, 0o500)
+    try { await a.service.handle({ type: 'sign-out' }) }
+    finally { await chmod(alpha, 0o700) }
     assert.equal(a.status.phase, 'ready'); assert.equal(a.status.error, 'storage')
     assert.deepEqual(await readFile(join(alpha, 'sync-session.bin')), beforeFailedLogout)
-    await rm(join(alpha, 'sync-session.bin.tmp'), { recursive: true })
     check('A failed durable logout reports failure and retains the prior session and bytes')
 
     await close(a); a = await open(alpha, 'alpha', true, true, false)
@@ -104,7 +105,7 @@ async function main() {
 
     a.secretDenied = true
     b.keys.set('ai.key.openrouter', 'synthetic-session-api-key')
-    await b.storage.call('sync', { type: 'emit-settings', entries: [{ key: 'ai.key.openrouter', value: 'synthetic-session-api-key' }],
+    await b.service.local({ type: 'emit-settings', entries: [{ key: 'ai.key.openrouter', value: 'synthetic-session-api-key' }],
       at: new Date().toISOString(), opId: crypto.randomUUID(), mode: 'change' })
     await command(b, { type: 'create', title: 'Sync despite old AI key denial', horizon: 'day' }); await settle(b, a)
     assert.equal(a.status.error, null); assert.equal(a.status.credentialStorage, undefined)
@@ -166,6 +167,82 @@ async function main() {
     assert.equal(d.status.phase, 'signed-out'); assert.equal(d.signIns, 0)
     check('A token save already in flight cannot promote a password vault or reactivate a completed logout')
     await close(d)
+
+    for (const clear of [false, true]) {
+      const profile = join(root, clear ? 'native-clear-race' : 'native-logout-race'), name = clear ? 'native-clear' : 'native-logout'
+      await seedLocal(profile, name, 0, cloud)
+      let native = await open(profile, name); await login(native)
+      assert.equal(native.service.passwordMode, false)
+      const passwordPath = native.service.passwordVault.path
+      let notify!: () => void, release!: () => void
+      const saved = new Promise<void>(resolve => { notify = resolve }), held = new Promise<void>(resolve => { release = resolve })
+      const save = native.service.passwordVault.save.bind(native.service.passwordVault)
+      native.service.passwordVault.save = async (...args: any[]) => { await save(...args); notify(); await held }
+      const session = (await native.service.client.auth.getSession()).data.session!
+      const late = native.service.keepSession({ ...session, refresh_token: `${name}-late-token` })
+      await saved
+      await native.service.handle({ type: 'sign-out', ...(clear ? { clearLocal: true } : {}) })
+      assert.equal(native.status.phase, 'signed-out', JSON.stringify(native.status))
+      const signedOut = clear ? null : await readFile(join(profile, 'sync-session.bin'))
+      release(); await late
+      if (clear) {
+        await assert.rejects(readFile(join(profile, 'sync-session.bin')), { code: 'ENOENT' })
+        await assert.rejects(readFile(passwordPath), { code: 'ENOENT' })
+      } else assert.deepEqual(await readFile(join(profile, 'sync-session.bin')), signedOut)
+      await close(native); native = await open(profile, name)
+      assert.equal(native.status.phase, 'signed-out'); assert.equal(native.signIns, 0)
+      await close(native)
+    }
+    check('Native-mode late password-body persistence cannot reactivate sign-out or recreate credentials after explicit local clear')
+
+    const promoting = join(root, 'promotion-race'); await seedLocal(promoting, 'promotion-race', 0, cloud)
+    let promoted = await open(promoting, 'promotion-race'); await login(promoted)
+    const originalBinding = promoted.service.activeBinding, originalWorkspace = promoted.service.secrets.workspaceId
+    const passwordVault = promoted.service.passwordVault, read = passwordVault.readAt.bind(passwordVault)
+    let notifyRenamed!: () => void, releaseRead!: () => void, waiting = false
+    const renamed = new Promise<void>(resolve => { notifyRenamed = resolve }), heldRead = new Promise<void>(resolve => { releaseRead = resolve })
+    passwordVault.readAt = async (...args: any[]) => {
+      const file = await read(...args)
+      if (!waiting && args[0] === passwordVault.path && file?.workspaceId !== originalWorkspace && file?.workspaceId) {
+        waiting = true; notifyRenamed(); await heldRead
+      }
+      return file
+    }
+    const accountId = promoted.service.accountId(), preview = await promoted.service.handle({ type: 'generation-preview', expectedAccountId: accountId })
+    assert(preview.generationPreview)
+    const changing = promoted.service.handle({ type: 'create-new-workspace', expectedAccountId: accountId, previewToken: preview.generationPreview.token, acknowledged: true, password: 'promotion-race-password' })
+    await renamed
+    const draft = await promoted.service.bindingJournal.pending(accountId)
+    const receipt = await promoted.storage.call('sync', { type: 'transition-read', requestId: draft.transitionRequestId })
+    assert.equal(receipt.newBinding.workspaceId, draft.binding.workspaceId)
+    const originalReceipt = canonicalJson(receipt)
+    promoted.service.suspend(); releaseRead(); await changing
+    assert.equal(promoted.service.activeBinding.bindingToken, originalBinding.bindingToken)
+    assert.equal(promoted.service.secrets.workspaceId, originalWorkspace)
+    assert.equal(JSON.parse((await readFile(passwordVault.path)).toString()).workspaceId, draft.binding.workspaceId)
+    assert.equal(canonicalJson(await promoted.storage.call('sync', { type: 'transition-read', requestId: draft.transitionRequestId })), originalReceipt)
+    await close(promoted)
+    let recovering: any, notifyRemembered!: () => void, releaseRemember!: () => void
+    const remembered = new Promise<void>(resolve => { notifyRemembered = resolve }), heldRemember = new Promise<void>(resolve => { releaseRemember = resolve })
+    const reopening = open(promoting, 'promotion-race', true, true, true, peer => {
+      recovering = peer
+      const journal = peer.service.scopeCustody(accountId).journal, remember = journal.remember.bind(journal)
+      journal.remember = async (...args: any[]) => { await remember(...args); notifyRemembered(); await heldRemember }
+    })
+    await remembered
+    const recoveryWorkspace = recovering.service.secrets.workspaceId
+    recovering.service.suspend(); releaseRemember(); promoted = await reopening
+    assert.equal(promoted.service.secrets.workspaceId, recoveryWorkspace)
+    assert.equal(canonicalJson(await promoted.storage.call('sync', { type: 'transition-read', requestId: draft.transitionRequestId })), originalReceipt)
+    assert.equal(JSON.parse((await readFile(passwordVault.path)).toString()).workspaceId, draft.binding.workspaceId)
+    await close(promoted); promoted = await open(promoting, 'promotion-race'); await settle(promoted)
+    assert.equal(promoted.status.phase, 'ready', JSON.stringify(promoted.status))
+    assert.equal(promoted.service.activeBinding.bindingToken, draft.binding.bindingToken)
+    assert.equal(promoted.service.secrets.workspaceId, draft.binding.workspaceId)
+    assert.equal(canonicalJson(await promoted.storage.call('sync', { type: 'transition-read', requestId: draft.transitionRequestId })), originalReceipt)
+    await close(promoted)
+    check('Suspension during post-rename readback or committed-receipt journal recovery preserves SQL/file proof without stale runtime promotion; fresh restart completes the same receipt')
+
 
     const saved = await readFile(join(recovered, 'sync-session.bin'))
     await close(c); c = await open(recovered, 'recovered', false)

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Depends on ./locale and the five ./catalogs
+ * [INPUT]: Depends on ./locale and five ./catalogs
  * [OUTPUT]: Exports getCatalog, SiteCatalog and re-exports the locale helpers
- * [POS]: lib/i18n's entry; pages read copy only through getCatalog so every locale renders the same structure
+ * [POS]: lib/i18n's copy entry; service policy answers are composed by the FAQ component from their own catalog
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import en, { type SiteCatalog } from './catalogs/en'

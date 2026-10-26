@@ -1,9 +1,10 @@
 /**
  * [INPUT]: Has no runtime dependencies
- * [OUTPUT]: Exports the demo workspace (SEED, HORIZONS, FLOWS), deriveView and the RowState/EdgeView contracts
+ * [OUTPUT]: Exports the demo workspace, columnItems, directParents, deriveView and row/edge contracts
  * [POS]: The site's one model of the Goalloom board; the hero demo, the relation-line figures and the Jev demo all
  *        render views of it, and it mirrors the app's rules: a filtered flow lights its rows and edges, hovering a
- *        lit row keeps only its ancestor/descendant chain, skipped horizons draw dashed, relations never roll up.
+ *        lit row keeps only its ancestor/descendant chain, two-level ownership draws direct edges, skipped horizons
+ *        draw dashed, and relations never roll up. Public URL IDs select local, localized preview snapshots.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 
@@ -11,25 +12,38 @@ export const HORIZONS = ['cycle', 'month', 'week', 'day'] as const
 export type Horizon = (typeof HORIZONS)[number]
 export const FLOWS = ['a', 'b', 'c'] as const
 export type FlowId = (typeof FLOWS)[number]
-export type ItemId = 'q1' | 'q2' | 'q3' | 'm1' | 'm2' | 'm3' | 'm4' | 'w1' | 'w2' | 'w3' | 'w4' | 'w5' | 'd1' | 'd2' | 'd3' | 'd4' | 'd5' | 'q4' | 'm5' | 'w6' | 'd6' | 'n1' | 'n2'
+export type ItemId = 'q1' | 'q2' | 'q3' | 'm1' | 'm2' | 'm3' | 'm4' | 'w1' | 'w2' | 'w3' | 'w4' | 'w5' | 'd1' | 'd2' | 'd3' | 'd4' | 'd5' | 'q4' | 'm5' | 'w6' | 'd6' | 'd7' | 'd8' | 'n1' | 'n2'
 
-export type DemoItem = { id: ItemId; horizon: Horizon; flow?: FlowId; parents?: ItemId[]; done?: boolean }
+export type DemoItem = { id: ItemId; horizon: Horizon; flow?: FlowId; parents?: ItemId[]; nestingParent?: ItemId; link?: 'site' | 'repo'; done?: boolean }
 
 export const SEED: readonly DemoItem[] = [
   { id: 'q1', horizon: 'cycle', flow: 'a' }, { id: 'q2', horizon: 'cycle', flow: 'b' }, { id: 'q3', horizon: 'cycle', flow: 'c' }, { id: 'q4', horizon: 'cycle' },
   { id: 'm1', horizon: 'month', flow: 'a', parents: ['q1'] }, { id: 'm2', horizon: 'month', flow: 'a', parents: ['q1'] },
   { id: 'm3', horizon: 'month', flow: 'b', parents: ['q2'] }, { id: 'm4', horizon: 'month', flow: 'c', parents: ['q3'] },
   { id: 'm5', horizon: 'month', flow: 'c', parents: ['q3'] },
-  { id: 'w1', horizon: 'week', flow: 'a', parents: ['m1'] }, { id: 'w2', horizon: 'week', flow: 'a', parents: ['m1'] },
+  { id: 'w1', horizon: 'week', flow: 'a', parents: ['m1'], link: 'site' }, { id: 'w2', horizon: 'week', flow: 'a', parents: ['m1'] },
   { id: 'w3', horizon: 'week', flow: 'a', parents: ['m2'] }, { id: 'w4', horizon: 'week', flow: 'b', parents: ['m3'] },
   { id: 'w6', horizon: 'week', flow: 'c', parents: ['m5'] }, { id: 'w5', horizon: 'week' },
   { id: 'd1', horizon: 'day', flow: 'a', parents: ['w1'] }, { id: 'd2', horizon: 'day', flow: 'a', parents: ['w2'] },
+  { id: 'd7', horizon: 'day', flow: 'a', nestingParent: 'd1', link: 'repo' },
+  { id: 'd8', horizon: 'day', flow: 'a', nestingParent: 'd1' },
   // d3 skips the week on purpose: a relation may cross more than one horizon and then draws dashed.
   { id: 'd3', horizon: 'day', flow: 'b', parents: ['m3'] }, { id: 'd4', horizon: 'day' }, { id: 'd6', horizon: 'day' }, { id: 'd5', horizon: 'day', done: true },
 ]
 
 export type RowState = 'plain' | 'lit' | 'hot' | 'out' | 'dim'
 export type EdgeView = { from: ItemId; to: ItemId; state: 'normal' | 'hot' | 'faded'; skip: boolean }
+
+/** Ownership is a direct edge; inherited goal links are not drawn a second time. */
+export const directParents = (item: DemoItem): readonly ItemId[] => item.nestingParent ? [item.nestingParent] : item.parents ?? []
+
+/** Keep local two-level outlines together without copying their parent into another column. */
+export function columnItems(items: readonly DemoItem[], horizon: Horizon): DemoItem[] {
+  const local = items.filter(item => item.horizon === horizon)
+  const byId = new Map(local.map(item => [item.id, item]))
+  return local.filter(item => !item.nestingParent || !byId.has(item.nestingParent)).flatMap(root =>
+    [root, ...local.filter(item => item.nestingParent === root.id)])
+}
 
 function chainOf(items: readonly DemoItem[], id: ItemId): Set<ItemId> {
   const byId = new Map(items.map(item => [item.id, item]))
@@ -39,12 +53,13 @@ function chainOf(items: readonly DemoItem[], id: ItemId): Set<ItemId> {
     const next = up.pop()!
     if (chain.has(next)) continue
     chain.add(next)
-    up.push(...(byId.get(next)?.parents ?? []))
+    const item = byId.get(next)
+    if (item) up.push(...directParents(item))
   }
   const down = [id]
   while (down.length) {
     const next = down.pop()!
-    for (const item of items) if (item.parents?.includes(next) && !chain.has(item.id)) { chain.add(item.id); down.push(item.id) }
+    for (const item of items) if (directParents(item).includes(next) && !chain.has(item.id)) { chain.add(item.id); down.push(item.id) }
   }
   return chain
 }
@@ -64,7 +79,7 @@ export function deriveView(items: readonly DemoItem[], filter: FlowId | null, ho
   const edges: EdgeView[] = []
   if (filter) {
     for (const child of items) {
-      for (const parentId of child.parents ?? []) {
+      for (const parentId of directParents(child)) {
         const parent = byId.get(parentId)
         if (!parent || !lit(parent) || !lit(child)) continue
         const state = chain ? (chain.has(parentId) && chain.has(child.id) ? 'hot' : 'faded') : 'normal'

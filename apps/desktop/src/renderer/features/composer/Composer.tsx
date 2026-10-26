@@ -123,7 +123,7 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
   const changeText = (value: string) => { if (value.trim() !== text.trim()) session.current.inputChanged(); input.current++; setText(value); setProblem(null); setAdjusting(false); if (phase.kind === 'failed') setPhase({ kind: 'idle' }) }
   const change = (id: string, patch: Partial<EditableDraft>, ...keys: Field[]) => {
     manual.current++
-    setDrafts(rows => rows.map(row => row.id === id ? { ...row, ...patch, manual: [...new Set([...row.manual, ...keys])] } : row))
+    setDrafts(rows => rows.map(row => row.id === id ? { ...row, ...patch, ...(keys.some(key => ['horizon', 'parents', 'flowColor'].includes(key)) ? { nesting: undefined } : {}), manual: [...new Set([...row.manual, ...keys])] } : row))
   }
   const replace = (next: EditableDraft) => { manual.current++; setDrafts(rows => rows.map(row => row.id === next.id ? next : row)) }
   const remove = (draft: EditableDraft) => {
@@ -175,6 +175,7 @@ export function Composer({ snapshot, flows, ai, submit, busy, error, errorCode, 
   }
   const confirm = async () => {
     if (busy || saving.current || !current) return
+    if (drafts.length === 1 && drafts[0]!.nesting && !drafts[0]!.manual.length) { await saveLater(true); return }
     const issue = draftProblem(drafts, parents, usedColors)
     if (issue) { setProblem(issue); return }
     const revision = input.current, manualRevision = manual.current

@@ -1,0 +1,4 @@
+{
+  "imports": { "stripe": "npm:stripe@22.6.0" },
+  "compilerOptions": { "strict": true }
+}

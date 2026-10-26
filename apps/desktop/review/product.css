@@ -1,0 +1,8 @@
+/**
+ * [INPUT]: The production renderer stylesheet and all production component class names.
+ * [OUTPUT]: The unchanged product styles with complete utilities under the standalone review root.
+ * [POS]: Review-only CSS entry; Vite's review root does not automatically scan the sibling renderer.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+@import '../src/renderer/styles.css';
+@source '../src/renderer';

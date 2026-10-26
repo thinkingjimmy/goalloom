@@ -11,7 +11,7 @@ smart/
 ├── assistance.ts   # Local preflight tickets or normal cancellation, identity-owned cleanup across async reads, provider consent, three accepted turns and eight/512 KiB sessions including pending reads
 ├── capture.ts      # Bounded main-owned draft/creation handoff, ready-result reuse, manual-intent cancellation and late completion without an undo-stack entry
 ├── queue.ts        # Two concurrent abortable Jev calls across capture sessions; local writes never wait on the queue
-├── context.ts      # Current/explicit-future dates across legal longer horizons; full ancestry, period identities and direct parent/child title summaries; no eight-goal cutoff
+├── context.ts      # Current/explicit-future dates, goal/root-task summaries, owner placement guards and direct DAG context without a fixed candidate cutoff
 └── electron.ts     # Shared noninteractive OS cipher for AI and sync, typed native-access failures, guarded by ../keychain.ts; composes AI services and fixed console links
 ```
 

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Entity identities, horizons, periods and revision-bound smart requests.
- * [OUTPUT]: Immediate-capture intent, explicit retry nonces, transaction-created guards and bounded completion selections.
+ * [OUTPUT]: Immediate-capture intent, explicit retry nonces, transaction-created guards and bounded goal/ownership selections.
  * [POS]: Shared capture contract without provider, renderer or command dependencies.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -23,5 +23,6 @@ export const captureGuardSchema = z.strictObject({
 export type CaptureGuard = z.infer<typeof captureGuardSchema>
 export const semanticParentSchema = z.strictObject({ itemId: idSchema, title: z.string().max(500), horizon: horizonSchema, periodId: idSchema.nullable().optional(), parentIds: z.array(idSchema).max(500), explicit: z.boolean().optional() })
 export type SemanticParent = z.infer<typeof semanticParentSchema>
-export const creationSelectionSchema = z.strictObject({ horizon: horizonSchema, previewPeriodId: idSchema.nullable(), parents: z.array(semanticParentSchema).max(500) })
+export const semanticOwnerSchema = semanticParentSchema.extend({ periodId: idSchema.nullable(), version: z.number().int().positive(), placementVersion: z.number().int().positive() })
+export const creationSelectionSchema = z.strictObject({ horizon: horizonSchema, previewPeriodId: idSchema.nullable(), parents: z.array(semanticParentSchema).max(500), nesting: semanticOwnerSchema.optional() })
 export type CreationSelection = z.infer<typeof creationSelectionSchema>

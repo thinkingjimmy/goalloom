@@ -8,6 +8,7 @@
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
 import { SyncFailure } from '@goalloom/sync'
+import { cloudServiceHeaders } from '@goalloom/contracts'
 import { callbackCsp, callbackPage } from './callback-page'
 import type { AuthProvider } from '../../shared/contracts/sync'
 
@@ -38,7 +39,7 @@ const memory = () => {
 
 export function supabaseClient(url: string, anonKey: string, persist = memory(), transport?: typeof fetch): SupabaseClient {
   return createClient(url, anonKey, {
-    ...(transport ? { global: { fetch: transport } } : {}),
+    global: { headers: cloudServiceHeaders, ...(transport ? { fetch: transport } : {}) },
     auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: persist },
   })
 }

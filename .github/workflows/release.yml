@@ -80,21 +80,6 @@ jobs:
       - name: Remove temporary signing credentials
         if: always()
         run: bash .github/scripts/macos-signing.sh cleanup
-      - name: Run comprehensive preflight checks
-        env:
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          GOALLOOM_REQUIRE_NOTARIZATION: "1"
-        run: |
-          # Install pnpm for preflight script
-          npm install -g pnpm@latest
-          pnpm install --frozen-lockfile
-
-          # Run preflight checks
-          bash scripts/preflight-release.sh
       - name: Record preflight result
         if: always()
         env:
@@ -210,7 +195,6 @@ jobs:
 
   test-win:
     name: Test Windows
-    needs: preflight
     needs: preflight-mac
     if: ${{ !inputs.preflight_only }}
     runs-on: windows-2025

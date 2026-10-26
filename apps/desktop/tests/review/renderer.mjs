@@ -4,7 +4,7 @@
 // pagination while earlier rows still exist. This is a temporary browser harness,
 // not packaged-desktop acceptance. All regressions assert the repaired behavior.
 /**
- * [INPUT]: Current renderer, deterministic browser IPC fixtures and synthetic composer analysis.
+ * [INPUT]: Current renderer, deterministic browser IPC with signed-out billing/cloud status and synthetic composer analysis.
  * [OUTPUT]: Review reports/screenshots and active-page failure diagnostics, including local setup and composer calendar boundaries.
  * [POS]: Browser interaction acceptance; native deadline persistence is covered by desktop/due-dates.mjs.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -52,6 +52,9 @@ const initReview = ()=>{
   return {type:'analysis',reply:{status:'ready',echo:{requestId,draftSessionId,inputRevision,manualRevision,generation,providerRevision,contextRevision,referenceTime},preview:{layout:{value:'list',certain:true,metrics:null},referenceDate:previewSnapshot.observedAt.slice(0,10),periods:Object.fromEntries(previewSnapshot.periods.map(p=>[p.horizon,p])),drafts:['Alpha','Beta'].map((title,index)=>({draftId:`d${index}`,source:title,title,description:'',roleCertain:true,horizon:{value:'day',certain:true,metrics:null},due:{value:null,certain:true,metrics:null}})),candidates:r.suggestParent?[{ref:'g0',itemId:'parent-existing',title:'Existing suggested parent',status:'todo',horizon:'month',archived:false,flowColor:null,version:7,named:true}]:[],relations:r.suggestParent?[{parent:{kind:'existing',itemId:'parent-existing'},childDraftId:'d0',state:'maybe',probability:.7}]:[],warnings:[],questionCount:1,requests:1},diagnostics:[]}}
  },execute:async command=>{r.commands.push(command);if(command.type==='confirmSetup')return {ok:false,code:'stale_preview',message:'Date changed. Confirm the refreshed start date.'};if(r.delayExecute)await new Promise(resolve=>r.executeWaiters.push(resolve));if(r.failExecute)return {ok:false,code:'invalid',message:'Synthetic save failure'};if(command.type==='edit'){Object.assign(r.snapshot.items[0],{title:command.title,description:command.description,dueDate:command.dueDate,version:r.snapshot.items[0].version+1})};r.snapshot.workspace.revision++;return {ok:true,result:{operationId:command.operationId,generation:command.generation,changed:true,undoable:false,outcome:'committed',itemId:command.type==='edit'?'item-a':null,itemIds:[],label:'Saved',warnings:[],restoreSource:null,originalOperationId:null}}},getReceipt:async()=>null}
  Object.assign(window.goalloom,{
+  onBilling:()=>()=>{},
+  billing:async action=>{if(action.type!=='status')throw Error('Unexpected billing mutation in renderer review');return {accountId:null,environment:'development',access:null,busy:false,error:null,pending:null}},
+  cloud:async action=>{if(action.type!=='status')throw Error('Unexpected cloud mutation in renderer review');return {type:'state',state:{accountId:null,accountRevision:0,serverNow:null,entries:[],canCreateCloud:false,pendingReceipts:[],prepared:null,progress:[],copies:[],notices:[],error:null}}},
   pullDevicePrefs:async()=>[],reportDevicePrefs:async()=>{},onDevicePrefs:()=>()=>{},onLanguage:()=>()=>{},onAiRefresh:()=>()=>{},onSync:()=>()=>{},
   sync:async()=>({status:{phase:'signed-out',email:null,pending:0,conflicts:0,paused:null,lastSyncedAt:null,error:null,localItems:r.snapshot.items.length,offline:false,syncing:false}}),
  })
@@ -293,6 +296,24 @@ try{
  await page.locator('.fab').click();await page.locator('.composer-input').fill('Alpha\nBeta')
  await page.locator('.composer-plan').waitFor()
  await page.locator('.composer-input').press('Tab')
+ const dueTrigger=page.locator('.plan-token[aria-keyshortcuts="D"]'),dueHint=page.getByRole('tooltip')
+ await dueTrigger.hover()
+ await dueHint.waitFor()
+ assert.match(await dueHint.innerText(),/won’t move the task/)
+ assert.equal(await page.locator('.due-panel').count(),0)
+ assert.equal(await dueTrigger.getAttribute('aria-describedby'),await dueHint.getAttribute('id'))
+ await page.screenshot({path:`${evidence}/composer-deadline-hint.png`})
+ await page.keyboard.press('Escape')
+ assert.equal(await dueHint.count(),0)
+ assert.equal(await page.locator('.composer-modal').count(),1)
+ await dueTrigger.focus()
+ await dueHint.waitFor()
+ await dueTrigger.press('Enter')
+ await page.locator('.composer-modal .due-panel').getByRole('grid').waitFor()
+ assert.equal(await dueHint.count(),0)
+ assert.equal(await page.locator('.due-info').count(),0)
+ await page.keyboard.press('Escape')
+ await page.locator('.plan-focus').focus()
  await page.keyboard.press('d')
  const calendar=page.locator('.composer-modal .due-panel')
  await calendar.getByRole('grid').waitFor()
@@ -320,7 +341,7 @@ try{
  await page.waitForFunction(()=>review.commands.length===1)
  const calendarDraft=await page.evaluate(()=>review.commands[0].items[0])
  assert.deepEqual([calendarDraft.dueDate,calendarDraft.horizon],['2026-10-24','day'])
- result.checks.push({case:'composer-deadline-calendar',dueDate:calendarDraft.dueDate,horizon:calendarDraft.horizon,numericShortcut:true,clear:true,noEarlyWrite:true})
+ result.checks.push({case:'composer-deadline-calendar',dueDate:calendarDraft.dueDate,horizon:calendarDraft.horizon,triggerGuidance:true,numericShortcut:true,clear:true,noEarlyWrite:true})
  assert.deepEqual(errors,[])
  await writeFile(`${evidence}/${calendarOnly?'calendar':'renderer'}.json`,JSON.stringify(result,null,2))
  console.log(calendarOnly?'Composer calendar checks passed':'Renderer review regressions passed')

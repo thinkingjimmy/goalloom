@@ -6,6 +6,7 @@
  */
 import { datasetSchema, operationSchema, undoMarkerSchema, type Dataset } from '../../../shared/contracts/transfer'
 import { itemRecordSchema, periodSchema, placementSchema, policySchema, relationSchema } from '../../../shared/contracts/entities'
+import { guidanceCheckpointSchema } from '../../../shared/contracts/provenance'
 import { guidanceRecordSchema } from '../../../shared/contracts/assistance'
 import { eventSchema } from '../../../shared/contracts/history'
 import { DomainError } from '../../../shared/contracts/commands'
@@ -13,8 +14,8 @@ import { serverText } from '../../../shared/i18n/server'
 import { policyHorizons } from '../../../shared/contracts/values'
 import type { Store } from '../../storage/store'
 
-export function datasetHeader(store: Store, now: string, version: number) {
-  return datasetSchema.pick({ schemaVersion: true, historyMode: true, exportedAt: true, workspace: true }).parse({ schemaVersion: version, historyMode: 'complete', exportedAt: now, workspace: store.workspace() })
+export function datasetHeader(store: Store, now: string, version: number, baseline = false) {
+  return datasetSchema.pick({ schemaVersion: true, historyMode: true, exportedAt: true, workspace: true, guidanceCheckpoints: true }).parse({ schemaVersion: version, historyMode: 'complete', guidanceCheckpoints: !baseline && store.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='guidance_baselines'").get() ? store.prepare('SELECT record FROM guidance_baselines ORDER BY position').all().map(row => guidanceCheckpointSchema.parse(JSON.parse(String(row.record)))) : [], exportedAt: now, workspace: store.workspace() })
 }
 const tables = {
   guidance: { sql: 'SELECT * FROM item_guidance ORDER BY itemId', schema: guidanceRecordSchema, max: 100_000 },

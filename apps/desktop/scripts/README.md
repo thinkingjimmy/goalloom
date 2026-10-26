@@ -5,6 +5,7 @@
 ```text
 scripts/
 ├── test.mjs                   # 用锁定 Electron 自带 Node 运行仓库根 Vitest 配置
+├── billing-acceptance.mjs     # Serial D1 affected-feature selectors, build-bound results and retained attempt logs; no release/performance/provider gate
 ├── eval/                      # 智能输入真实服务评测（需 .env.local 中的 OPENROUTER_API_KEY，不进 CI）
 │   ├── cases.ts
 │   ├── smart.ts

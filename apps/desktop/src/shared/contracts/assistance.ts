@@ -19,8 +19,9 @@ const guidanceBody = {
 }
 export const guidanceValueSchema = z.strictObject({ ...guidanceBody, authorship: z.enum(['user', 'ai_assisted']) })
 export type GuidanceValue = z.infer<typeof guidanceValueSchema>
+export const storedGuidanceValueSchema = guidanceValueSchema.extend({ nextAction: z.string().min(1).max(600), contextNote: z.string().min(1).max(300).nullable(), scopeNote: z.string().min(1).max(300).nullable() })
 export const guidanceRecordSchema = z.strictObject({
-  itemId: idSchema, revision: z.number().int().positive(), value: guidanceValueSchema.nullable(), updatedAt: instantSchema, operationId: idSchema,
+  itemId: idSchema, revision: z.number().int().positive(), value: storedGuidanceValueSchema.nullable(), updatedAt: instantSchema, operationId: idSchema,
 })
 export type GuidanceRecord = z.infer<typeof guidanceRecordSchema>
 export const guidanceChangeSchema = z.discriminatedUnion('kind', [

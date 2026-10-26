@@ -1,32 +1,37 @@
 /**
- * [INPUT]: A new/current SQLite database, or a v8-v11 source with a verified protective backup. Older files require confirmed recovery.
- * [OUTPUT]: Atomic schema v12, retaining sync/nesting/receipt ownership and widening live/base workspace appearance constraints.
+ * [INPUT]: A new/current SQLite database, or a v8-v13 source with a verified protective backup. Older files require confirmed recovery.
+ * [OUTPUT]: Atomic schema v14, retaining sync/nesting/receipt ownership, guidance observations and same-binding epoch receipts.
  * [POS]: Sole production DDL owner. Statements come from @goalloom/schema so they do not depend on node:sqlite types.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
-import { nestingMigrationSql, shadowStatements, syncSettingsDdl, v8Ddl, v9HistoryRewrite, v9SyncDdl, widenWorkspaceStyles, type MasterRow } from '@goalloom/schema'
+import { nestingMigrationSql, shadowStatements, syncSettingsDdl, syncBaselineDdl, v8Ddl, v9HistoryRewrite, v9SyncDdl, widenWorkspaceStyles, type MasterRow } from '@goalloom/schema'
 import { scrubSecretMaterial } from '@goalloom/store-core'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { transaction } from './database'
 import { serverText } from '../../shared/i18n/server'
 
-export const schemaVersion = 12
-export const supportedVersions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-export const upgradableVersions = [8, 9, 10, 11]
+export const schemaVersion = 14
+export const supportedVersions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+export const upgradableVersions = [8, 9, 10, 11, 12, 13]
 export const requiredTables = ['workspace', 'items', 'item_placements', 'planning_periods', 'item_relations', 'rollover_policies', 'operations', 'item_events', 'undo_effects', 'schema_migrations']
 const syncTables = ['sync_ops', 'sync_state', 'sync_conflicts', 'canon_ops', 'canon_changes']
 export function sourceTables(version: number, present?: readonly string[]): string[] {
   const tables = version >= 8 ? [...requiredTables, 'item_guidance'] : [...requiredTables]
   // Phase 0 v9 has sync tables. A WIP nesting database at user_version 9 does not; callers that can see sqlite_master pass the names.
   const sync = version >= 10 || version === 9 && (!present || present.includes('sync_state'))
-  return sync ? [...tables, ...syncTables] : tables
+  const baseline = version >= 13 ? ['sync_active_binding', 'sync_binding_transitions', 'sync_retired_rows', 'sync_seed_state', 'sync_initialization_ack', 'guidance_baselines'] : []
+  return sync ? [...tables, ...syncTables, ...baseline, ...(version >= 14 ? ['sync_binding_epoch_receipts'] : [])] : tables
 }
 export function userVersion(db: DatabaseSync): number { return Number(db.prepare('PRAGMA user_version').get()?.user_version) }
 
 export function ensureSyncSettings(db: DatabaseSync): void {
   db.exec(syncSettingsDdl)
+  db.exec(syncBaselineDdl)
+  db.exec(`CREATE TABLE IF NOT EXISTS guidance_baselines(position INTEGER PRIMARY KEY CHECK(position>0), id TEXT NOT NULL UNIQUE, record TEXT NOT NULL CHECK(json_valid(record) AND json_extract(record,'$.order')=position AND json_extract(record,'$.id')=id)) STRICT`)
+  db.exec(`CREATE TRIGGER IF NOT EXISTS guidance_checkpoint_immutable BEFORE UPDATE ON guidance_baselines BEGIN SELECT RAISE(ABORT,'guidance_checkpoint_immutable'); END`)
+  db.exec('CREATE TABLE IF NOT EXISTS sync_initialization_ack(bindingToken TEXT PRIMARY KEY, requestId TEXT NOT NULL, receipt TEXT NOT NULL CHECK(json_valid(receipt))) STRICT')
 }
 
 export function migrate(db: DatabaseSync): void {
@@ -46,7 +51,7 @@ export function migrate(db: DatabaseSync): void {
     transaction(db, () => installFromV9(db))
     return
   }
-  if (version === 10 || version === 11) { transaction(db, () => finish(db)); return }
+  if (version === 10 || version === 11 || version === 12 || version === 13) { transaction(db, () => finish(db)); return }
   throw new Error(serverText().storage.unsupportedDatabase)
 }
 

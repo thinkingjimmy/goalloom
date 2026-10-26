@@ -6,11 +6,12 @@
  */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { arch, cpus, platform, release, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { _electron as electron } from 'playwright'
 import { finishSetup } from './fixtures/setup.mjs'
+import { configureSync } from './fixtures/billing.mjs'
 
 const out = resolve('output/tests/credentials')
 const temporary = await mkdtemp(join(tmpdir(), 'goalloom-credentials-'))
@@ -208,8 +209,12 @@ try {
   assert.equal((await metrics()).refreshed, 0)
   const callback = await fetch('http://127.0.0.1:53682/callback?code=synthetic-reconnect')
   assert.equal(callback.status, 200)
+  await configureSync(settings)
   await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'setup')
+  const beforeReply = await readFile(await currentVault(active))
+  await page.waitForFunction(() => [...document.querySelectorAll('.sync-account button')].some(node => !node.disabled))
   const reconnected = await readFile(await currentVault(active))
+  report.reconnectRestoration = { beforeReplyResume: beforeReply[vaultHeader.length], afterReplyResume: reconnected[vaultHeader.length], status: await status() }
   const reconnectedSecrets = JSON.parse(seal(ciphertext(await readFile(join(active, 'sync-vault.bin')))).toString())
   assert.equal(reconnected[vaultHeader.length], 0, 'Google alone must not enable restoration before password setup')
   assert.equal(reconnectedSecrets.signSk, '11'.repeat(32))
@@ -228,6 +233,7 @@ try {
   assert.equal((await status()).phase, 'signing-in')
   assert.equal((await metrics()).encrypt, 0)
   await fetch('http://127.0.0.1:53682/callback?code=synthetic-first-use')
+  await configureSync(settings)
   await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'setup')
   assert.equal((await status()).credentialStorage, 'password')
   await record('unavailable-first-use')
@@ -285,6 +291,7 @@ try {
     assert.equal((await metrics()).browser, 1)
     assert.equal((await metrics()).refreshed, 0)
     await fetch('http://127.0.0.1:53682/callback?code=synthetic-denied-reconnect')
+    await configureSync(settings)
     await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'setup')
     assert.equal((await metrics()).encrypt, 0)
     assert.deepEqual(ciphertext(await readFile(join(disconnected, 'sync-vault.bin'))), original)
@@ -294,7 +301,7 @@ try {
     check(`${mode} reconnect reaches fresh OAuth and password setup while retaining tasks, legacy keys and the send journal`)
     await close()
     await launch(blocked)
-    await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'setup')
+  await page.waitForFunction(async () => (await window.goalloom.sync({ type: 'status' })).status.phase === 'setup')
     const bytes = await readFile(join(blocked, 'sync-vault.bin'))
     const restored = JSON.parse(seal(ciphertext(bytes)).toString())
     assert.equal(restored.signSk, '11'.repeat(32))
@@ -332,14 +339,16 @@ try {
 
   const writeFailure = await clone('sign-out-write-failure', template)
   await legacyVault(writeFailure)
-  await mkdir(join(writeFailure, 'sync-vault.bin.tmp'))
   const writeFailureBytes = await readFile(join(writeFailure, 'sync-vault.bin'))
   await launch(writeFailure, 'unavailable')
   settings = await googleFromSettings()
-  await page.evaluate(() => window.goalloom.sync({ type: 'sign-out' }))
-  assert.equal((await status()).error, 'storage')
-  assert.equal((await status()).phase, 'signed-out')
-  assert.deepEqual(await readFile(join(writeFailure, 'sync-vault.bin')), writeFailureBytes)
+  await chmod(writeFailure, 0o500)
+  try {
+    await page.evaluate(() => window.goalloom.sync({ type: 'sign-out' }))
+    assert.equal((await status()).error, 'storage')
+    assert.equal((await status()).phase, 'signed-out')
+    assert.deepEqual(await readFile(join(writeFailure, 'sync-vault.bin')), writeFailureBytes)
+  } finally { await chmod(writeFailure, 0o700) }
   await record('sign-out-write-failure')
   check('a failed sign-out write reports storage failure and preserves the previous state and bytes')
   await close()

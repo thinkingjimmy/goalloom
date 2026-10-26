@@ -4,6 +4,7 @@
  * [POS]: Japanese settings catalog matching the source; common actions remain in messages.ts.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { billingCatalog } from '../../../../shared/i18n/billing'
 import type { SettingsCatalog } from '../zh/settings'
 
 export const settingsMessages: SettingsCatalog = {
@@ -101,6 +102,7 @@ export const settingsMessages: SettingsCatalog = {
   },
   resetNote: '項目を消去してカレンダーを設定し直します。テーマと既存のバックアップは保持されます',
   sync: {
+    initializing: "クラウドを準備中…",
     section: '同期',
     signIn: 'Google でログイン',
     signInApple: 'Apple でログイン',
@@ -205,6 +207,14 @@ export const settingsMessages: SettingsCatalog = {
     lockedNav: 'オフ',
     cancel: 'キャンセル',
     errors: {
+      initialization_pending: "元の端末がこのクラウドを準備中です。ローカルの作業は保持されています。",
+      initialization_conflict: "元のクラウド初期化を検証できませんでした。ローカルの作業と元のリクエストは保持されています。",
+      service_not_started: billingCatalog.ja.notStarted,
+      service_expired: billingCatalog.ja.ended,
+      service_revoked: billingCatalog.ja.stopped,
+      upgrade_required: billingCatalog.ja.upgrade,
+      billing_configuration: billingCatalog.ja.configuration,
+      retrieval_closed: billingCatalog.ja.ended,
       cleanup: '一部のローカルコピーを削除できませんでした。ファイルを使用中のアプリを閉じてログインを再試行してください。削除が完了するまでアカウントへの接続を止めます。',
       configuration: '同期サービスの設定を更新する必要があります。後で再試行してください。',
       network: 'ネットワークを利用できません',

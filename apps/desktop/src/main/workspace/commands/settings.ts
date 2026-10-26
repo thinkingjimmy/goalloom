@@ -44,6 +44,7 @@ export function setBackupPreferences(context: Context, command: CommandOf<'backu
 }
 export function undoBatch(context: Context, command: CommandOf<'undoBatch'>): boolean {
   const original = context.store.operation(command.originalOperationId)
+  if (original && original.generation !== context.workspace.generation) throw new DomainError('conflict', serverText().errors.workspaceReplaced)
   if (!original || original.source !== 'system' || original.kind !== 'rollover') throw new DomainError('invalid', serverText().errors.batchMissing)
   let skipped = 0
   context.undone = []

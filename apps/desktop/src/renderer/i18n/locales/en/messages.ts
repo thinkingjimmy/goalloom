@@ -48,6 +48,7 @@ export const messages: MessageCatalog = {
   confirmRollover: "Confirm and apply settings",
   viewBackups: "View backups",
   retry: "Check again",
+  checking: "Checking…",
   closeError: "Dismiss error",
   dismissNotice: "Dismiss notice",
   opening: "Opening local workspace…",

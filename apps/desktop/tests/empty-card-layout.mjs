@@ -40,6 +40,14 @@ try {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const start = await page.evaluate(() => Temporal.Now.zonedDateTimeISO('UTC').toPlainDate().add({ days: 7 }).subtract({ months: 12 }).toString())
   await finishSetup(page, { timezone: 'UTC', anchor: start, direction: 'Layout annual direction' })
+  const timezoneMismatch = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone !== 'UTC')
+  if (timezoneMismatch) {
+    const notice = page.locator('.workspace-notice').filter({ hasText: 'UTC' })
+    await notice.waitFor()
+    record(await notice.getByRole('button', { name: 'Dismiss notice', exact: true }).isVisible(), 'Setup completes through normal pointer input while the timezone notice stays visible and dismissible')
+    const path = join(out, 'setup-feedback-clearance.png')
+    await page.screenshot({ path }); report.screenshots.push(path)
+  }
   // Period-end guides must not replace the empty cards when this fixture runs on another date.
   await page.locator('.settings-toggle').click()
   const settings = page.locator('dialog.settings-modal')

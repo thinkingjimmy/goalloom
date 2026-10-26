@@ -1,23 +1,22 @@
 /**
  * [INPUT]: Shared paper-theme tokens and navigation styles.
- * [OUTPUT]: Responsive, readable legal documents with an in-page contents list.
+ * [OUTPUT]: Responsive legal documents with a shared sticky header, unobscured anchors and viewport-bounded contents.
  * [POS]: Static document layer; no reveal animations or hidden content.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-.legal-header { position: relative; }
 .legal-main { max-width: 1200px; margin: 0 auto; padding: 80px 48px 100px; }
 .legal-intro { max-width: 740px; margin-bottom: 56px; }
 .legal-intro h1 { margin-top: 16px; font-size: clamp(32px, 4vw, 48px); line-height: 1.18; letter-spacing: -.025em; font-weight: 600; text-wrap: balance; }
 .legal-date { margin-top: 20px; font-size: 14px; color: var(--secondary); }
 .legal-summary { margin-top: 24px; font-size: 18px; line-height: 1.8; color: var(--fg-soft); }
 .legal-layout { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); gap: 64px; align-items: start; }
-.legal-contents { position: sticky; top: 32px; font-size: 14px; line-height: 1.6; }
+.legal-contents { position: sticky; top: calc(var(--header-height) + 24px); max-height: calc(100svh - var(--header-height) - 48px); overflow-y: auto; overscroll-behavior-y: contain; font-size: 14px; line-height: 1.6; }
 .legal-contents h2 { font-size: 14px; font-weight: 600; }
 .legal-contents ol { margin: 12px 0 0; padding-left: 22px; color: var(--secondary); }
 .legal-contents a { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 0; }
 .legal-contents a:hover { color: var(--fg); }
 .legal-article { max-width: 720px; min-width: 0; }
-.legal-section { scroll-margin-top: 28px; }
+.legal-section { scroll-margin-top: calc(var(--header-height) + 24px); }
 .legal-section + .legal-section { margin-top: 36px; }
 .legal-section h2 { margin-bottom: 14px; font-size: 22px; line-height: 1.4; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
 .legal-section p { font-size: 16px; line-height: 1.85; color: var(--fg-soft); overflow-wrap: anywhere; }
@@ -32,7 +31,7 @@
   .legal-layout { grid-template-columns: minmax(0, 1fr); gap: 40px; }
   .legal-intro { margin-bottom: 36px; }
   .legal-summary { font-size: 16px; }
-  .legal-contents { position: static; padding-bottom: 24px; border-bottom: 1px solid var(--hairline); }
+  .legal-contents { position: static; max-height: none; overflow: visible; padding-bottom: 24px; border-bottom: 1px solid var(--hairline); }
   .legal-contents ol { columns: 2; column-gap: 32px; }
   .legal-contents li { break-inside: avoid; }
   .legal-section h2 { font-size: 21px; }

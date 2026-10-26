@@ -39,6 +39,7 @@ try {
   const before=await aiStatus();assert.equal(before.hostedAccountId,null)
   const a='11111111-1111-4111-8111-111111111111',b='33333333-3333-4333-8333-333333333333'
   await signIn(a)
+  await page.getByRole('button',{name:'继续本地使用',exact:true}).click()
   await page.locator('.calendar-modes').waitFor()
   await page.waitForFunction(()=>document.querySelectorAll('.onboarding-steps li').length===2)
   const logged=await aiStatus();assert.equal(logged.hostedEligible,true);assert.equal(logged.providers.hosted.consentedAt,null);assert.equal(logged.features.smart.enabled,false)

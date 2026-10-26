@@ -157,6 +157,12 @@ try {
   page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
   await page.locator('.board').waitFor()
+  // Historical seeding deliberately moves the repository clock backward. Acknowledge that fixture-only transition before testing Settings.
+  if ((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.clockAnomaly) {
+    await page.getByRole('button', { name: 'System time checked', exact: true }).click()
+    await page.waitForFunction(async () => !(await window.goalloom.getSnapshot()).workspace.clockAnomaly)
+    report.fixtureClockAcknowledged = true
+  }
 
   // 4. Settings: every pane is translated; switching language keeps the dialog open (no remount) and updates main + worker.
   {

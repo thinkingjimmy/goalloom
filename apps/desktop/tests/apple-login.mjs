@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
+import { configureSync } from './fixtures/billing.mjs'
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir, platform, arch, release } from 'node:os'
 import { resolve, join } from 'node:path'
@@ -95,6 +96,8 @@ try {
   await settings.locator('.sync-status').filter({ hasText: /Apple/ }).waitFor()
   const callback = await fetch('http://127.0.0.1:53682/callback?code=synthetic-code', { headers: { Connection: 'close' } })
   assert.equal(callback.status, 200)
+  await waitPhase('account')
+  await configureSync(settings)
   await waitPhase('setup')
   await settings.locator('.sync-password').first().waitFor()
   assert.equal(await settings.locator('.sync-password').count(), 2)

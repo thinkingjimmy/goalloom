@@ -1,11 +1,11 @@
 /**
  * [INPUT]: An isolated Electron profile and monthly, cache or first/last-day weekly fixture mode.
- * [OUTPUT]: Real review history, optional overlapping outline sort keys, move/keep/archive and saved-link records.
+ * [OUTPUT]: Real review history, optional fixed target instant and overlapping outline sort keys, move/keep/archive and saved-link records.
  * [POS]: Injected-clock desktop setup; production has no test clock or renderer bridge replacement.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Temporal } from '../../src/domain/temporal'
 import { currentPeriod, precedingPeriod } from '../../src/domain/calendar'
@@ -15,7 +15,10 @@ import { Repository } from '../../src/main/workspace/repository'
 
 const profile = process.argv[2]!, mode = process.argv[3]
 const scoped = mode === 'scope-month' || mode === 'scope-combined', combined = mode === 'combined' || mode === 'scope-combined'
-const today = Temporal.Now.zonedDateTimeISO('Asia/Shanghai')
+const fixedArgument = process.argv.find(value => value.startsWith('--fixed-at='))
+const clockAt = fixedArgument?.slice('--fixed-at='.length)
+if (clockAt && new Date(clockAt).toISOString() !== clockAt) throw Error('Invalid fixed review instant')
+const today = clockAt ? Temporal.Instant.from(clockAt).toZonedDateTimeISO('Asia/Shanghai') : Temporal.Now.zonedDateTimeISO('Asia/Shanghai')
 const db = openDatabase(join(profile, 'workspace.sqlite')); migrate(db)
 let now = today.subtract({ months: 2 }).with({ day: 10 }).toInstant().toString()
 const repo = new Repository(db, { now: () => now }), generation = repo.store.workspace().generation
@@ -102,5 +105,10 @@ if (mode === 'week-first' || mode === 'week-last') {
   const existing = create('Only in the current month', 0)
   run({ type: 'create', title: scoped ? 'A new cycle goal after the boundary https://example.com/link-preview-article' : 'A new cycle goal after the boundary', horizon: 'cycle', flowColor: 4 })
   writeFileSync(join(profile, 'review-fixture.json'), JSON.stringify({ roots, done, move, keep, archive, rolled, laterDone, earlier, existing, period, weekly, outline }))
+}
+if (clockAt) {
+  const file = join(profile, 'review-fixture.json'), fixture = JSON.parse(readFileSync(file, 'utf8'))
+  const calendar = repo.store.workspace().calendar!
+  writeFileSync(file, JSON.stringify({ ...fixture, clockAt, expiredWeek: precedingPeriod(calendar, currentPeriod(calendar, 'week', clockAt)) }))
 }
 db.close()

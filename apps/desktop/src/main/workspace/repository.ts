@@ -4,6 +4,8 @@
  * [POS]: Sole workspace write boundary called by the serial worker.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { isRetiredCommand } from '@goalloom/store-core'
+import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { effectsVersion } from '../../shared/contracts/effects'
 import { nestItem, unnestItem, assertOutline } from './commands/nesting'
 import { createHash } from 'node:crypto'
@@ -51,12 +53,24 @@ export class Repository {
       if (receipt.requestHash !== hash) throw new DomainError('conflict', serverText().errors.operationIdReused)
       return receipt.result
     }
+    const originalId = command.type === 'undo' || command.type === 'undoBatch' ? command.originalOperationId
+      : command.type === 'completeCreation' ? command.creationOperationId : null
+    const unavailableOriginal = originalId && (isRetiredCommand(nodeSqlDriver(this.db), workspace.generation, originalId)
+      || this.store.operation(originalId)?.generation !== undefined && this.store.operation(originalId)?.generation !== workspace.generation)
+    if (unavailableOriginal && command.type === 'completeCreation') {
+      throw new DomainError('conflict', serverText().errors.workspaceReplaced)
+    }
     if (!workspace.setupConfirmedAt && !['confirmSetup', 'preferences'].includes(command.type)) throw new DomainError('setup', serverText().errors.setupRequired)
     const syncBefore = captureSyncBefore(this.db, command)
     const now = this.clock.now()
     const context: Context = { store: this.store, workspace, command, now, effects: [], warnings: [], itemId: null, label: '' }
     const dispatched = isCapture(command) ? readyCreation(context, command, selection) : command
-    const changed = command.type === 'undo' ? this.undo(context, command) : this.dispatch(context, dispatched)
+    const skippedUndo = unavailableOriginal && (command.type === 'undo' || command.type === 'undoBatch')
+    if (skippedUndo) {
+      context.outcome = 'conflict_skipped'; context.warnings = [serverText().errors.workspaceReplaced]
+      if (originalId && this.store.operation(originalId)?.kind === 'createPlan') context.itemIds = []
+    }
+    const changed = skippedUndo ? false : command.type === 'undo' ? this.undo(context, command) : this.dispatch(context, dispatched)
     if (command.type === 'nest' || command.type === 'delete' || command.type === 'restoreItem') for (const effect of context.effects) if (effect.kind === 'nesting') {
       const position = this.store.position(this.store.item(effect.itemId))
       effect.after.previousId = position.previousId; effect.after.nextId = position.nextId
@@ -73,7 +87,7 @@ export class Repository {
       ...(system ? { creationOperationId: command.creationOperationId, captureRequestId: command.requestId } : {}) }
     this.store.saveOperation({ id: command.operationId, generation: command.generation, requestHash: hash, kind: command.type, source: system ? 'system' : 'user', at: now, effectsVersion: effectsVersion(context.effects), effects: context.effects, result })
     for (const effect of context.undone ?? []) this.db.prepare('INSERT INTO undo_effects VALUES (?,?,?)').run(effect.originalId, effect.index, command.operationId)
-    emitSyncOp(this.db, { command, effects: context.effects, before: syncBefore, at: now, changed })
+    if (!skippedUndo) emitSyncOp(this.db, { command, effects: context.effects, before: syncBefore, at: now, changed })
     return result
   }
   private undo(context: Context, command: Extract<Command, { type: 'undo' }>): boolean {

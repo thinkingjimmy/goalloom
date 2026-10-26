@@ -49,7 +49,7 @@ try {
   assert.equal(b.status.phase, 'ready'); assert.equal(tasks(b.profile).length, 0); assert.equal(b.status.awaitingTasks, true)
   const secretKey = 'ai.key.openrouter', secretValue = 'sk-synthetic-first-join'
   b.keys.set(secretKey, secretValue)
-  await b.storage.call('sync', { type: 'emit-settings', mode: 'change', opId: randomUUID(), at: new Date().toISOString(), entries: [{ key: secretKey, value: secretValue }] })
+  await b.service.local({ type: 'emit-settings', mode: 'change', opId: randomUUID(), at: new Date().toISOString(), entries: [{ key: secretKey, value: secretValue }] })
   await settle(b)
   await signIn(a); assert.equal(a.status.phase, 'enter-key')
   await a.service.handle({ type: 'submit-password', password: 'incorrect-password' })
@@ -115,7 +115,7 @@ try {
 
   // Simulate an old local copy without a saved device binding; identities still match cloud tombstones.
   const detached = new DatabaseSync(join(stale, 'workspace.sqlite'))
-  detached.exec('UPDATE sync_state SET workspaceId=NULL, deviceId=NULL, keyEpoch=NULL, lastAppliedSeq=0, lastUploadedSeq=0')
+  detached.exec('DELETE FROM sync_active_binding; DELETE FROM sync_initialization_ack; UPDATE sync_state SET workspaceId=NULL, deviceId=NULL, keyEpoch=NULL, lastAppliedSeq=0, lastUploadedSeq=0')
   detached.close()
   const copy = await openPeer(stale, 'alpha'); peers.push(copy)
   await signIn(copy)

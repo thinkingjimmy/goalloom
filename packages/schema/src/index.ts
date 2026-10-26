@@ -1,6 +1,6 @@
 /**
  * [INPUT]: sqlite_master rows for the seven projection tables.
- * [OUTPUT]: Historical DDL, nesting and appearance migrations, and base_* statements cloned from live schema text.
+ * [OUTPUT]: Historical DDL, nesting/appearance migrations, additive exact-seed/retirement/epoch-receipt DDL, and base_* statements cloned from live schema text.
  * [POS]: Schema package. No node:sqlite types. Desktop migrate() is the only writer of user_version.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -9,3 +9,5 @@ export { nestingMigrationSql } from './v10'
 export { syncSettingsDdl } from './settings'
 export { v8Ddl } from './v8'
 export { widenWorkspaceStyles } from './appearance'
+
+export { bindingEpochDdl, syncBaselineDdl } from './sync-baseline'

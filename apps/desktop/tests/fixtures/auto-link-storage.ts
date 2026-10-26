@@ -16,6 +16,7 @@ import { exportDataset, readSqliteDataset, replaceDataset } from '../../src/main
 import { validateImport } from '../../src/domain/import-validation'
 import { BackupManager } from '../../src/main/storage/backup/manager'
 import { openWorkspace } from '../../src/main/storage/startup'
+import { runCaptureNesting } from './capture-nesting-storage'
 const now = '2026-10-16T02:00:00Z', db = new DatabaseSync(':memory:')
 db.exec('PRAGMA foreign_keys=ON')
 migrate(db)
@@ -26,6 +27,7 @@ write({ type: 'confirmSetup', mode: 'rolling', timezone: 'UTC', weekStart: 1, an
 const root = write({ type: 'create', title: 'Root delivery', horizon: 'year', flowColor: 0 }).itemId!
 const parent = write({ type: 'create', title: 'Delivery', horizon: 'week', parentId: root, expectedParentVersion: repository.store.item(root).version }).itemId!
 const checks: string[] = []
+checks.push(...runCaptureNesting(repository, now))
 const capture = (title: string) => {
   const request = { requestId: randomUUID(), draftSessionId: randomUUID(), inputRevision: 0, manualRevision: 0, generation, providerRevision: 1, contextRevision: repository.store.workspace().revision, referenceTime: now, text: title, parentHints: [] }
   const created = write({ type: 'create', title, horizon: 'later', smartCapture: { request, allowPlacement: true, allowParents: true } })
