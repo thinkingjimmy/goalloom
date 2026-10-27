@@ -1,0 +1,13 @@
+/**
+ * [INPUT]: Native composer/insight classes within the independently clipped setup canvas.
+ * [OUTPUT]: Product-sized, inert capability demonstrations with short opacity/position arrivals.
+ * [POS]: Placement only; typography, controls, candidate rows and surfaces come from the actual product.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.setup-world .modal.palette.composer-modal.preview-composer { position: absolute; z-index: 2; left: 48px; top: 144px; width: 600px; max-width: none; max-height: none; margin: 0; overflow: visible; opacity: 0; visibility: hidden; transform: translateY(10px); transition: opacity 200ms ease-out, transform 240ms cubic-bezier(.32,.72,0,1), visibility 0s linear 240ms; }
+.setup-world .modal.palette.composer-modal.preview-composer[data-visible='true'] { opacity: 1; visibility: visible; transform: none; transition-delay: 160ms,160ms,0s; }
+.setup-world .modal.palette.composer-modal.preview-seeded { left: 360px; top: 244px; }
+.setup-world .preview-insight { display: flow-root; margin-top: 0; }
+.setup-world .setup-product-column { --row-inset: 9px; }
+.onboarding-stage[data-motion='instant'] .preview-composer { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .setup-world .preview-composer { transition: none !important; } }

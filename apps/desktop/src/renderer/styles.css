@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Semantic theme tokens, native defaults, the opt-in macOS skin, shared component markers and feature state attributes.
  * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, compact task rows with overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
- *           Trailing More/Add controls stay adjacent and reveal together on column hover, header keyboard focus or an open column menu. Placement drag cards keep full titles and wrap long URLs within their width. Persistent notifications and Undo Toasts share surfaces and action states.
+ *           Trailing More/Add controls stay adjacent and reveal together on column hover, header keyboard focus or an open column menu. Placement drag cards keep full titles and wrap long URLs within their width. Persistent notifications and Undo Toasts share surfaces and action states. Startup status is fixed outside document flow.
  * [POS]: Renderer entry and coordinated feature/platform styles; ordinary layout and shared controls use Tailwind.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -507,8 +507,8 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 .backlog-pages .button { height: 30px; padding: 0 10px; font-size: 12px; }
 
 /* --- Setup --- */
-/* Inline padding keeps focus outlines from being clipped by the scroll container. */
-.setup-page { flex: 1; min-height: 0; overflow-y: auto; width: min(468px, calc(100% - 40px)); margin: 0 auto; padding: 8vh 4px 48px; }
+/* Startup status never participates in first-run layout or intercepts window controls. */
+.setup-opening { position: fixed; inset: 56px 0 0; display: grid; place-items: center; margin: 0; padding: 0; pointer-events: none; color: var(--secondary); font-size: 13px; }
 
 /* --- Shared content and feature-skin exceptions; control bases live in components/ui. --- */
 .inline-link { color: var(--focus); font-size: inherit; }

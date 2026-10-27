@@ -5,6 +5,7 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { chooseSetupCalendar, settleSetupStep } from './fixtures/setup.mjs'
+import { verifyAiOnboarding } from './fixtures/onboarding-ai.mjs'
 import { runColumnAdd } from './fixtures/column-add.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -36,31 +37,9 @@ try {
   assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).items.length, 0)
   assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.setupConfirmedAt, null)
   await page.screenshot({ path: 'output/tests/screenshots/onboarding-calendar.png' })
+  const previewWorld = await page.locator('.setup-world').elementHandle()
   await page.getByRole('button', { name: '确认并开始', exact: true }).click()
-  // --- Onboarding 第 3 步：预设示例与两个按钮；选择连接后每个服务一张卡片（标出能开启的功能），默认选中推荐服务，同意默认未勾选，提交按钮在底栏。 ---
-  const connect = page.getByRole('button', { name: '连接 AI 服务', exact: true }), skip = page.getByRole('button', { name: '暂时跳过', exact: true })
-  await connect.waitFor()
-  assert.equal(await skip.isVisible(), true)
-  await page.getByRole('figure', { name: 'Jev 示例：一句话整理成三项行动' }).waitFor()
-  await settleSetupStep(page)
-  await page.screenshot({ path: 'output/tests/screenshots/onboarding-jev.png' })
-  assert.equal(await page.getByLabel(/API Key/).count(), 0)
-  await connect.click()
-  await page.getByLabel('OpenRouter API Key').waitFor()
-  assert.equal(await page.getByRole('radio', { name: /^OpenRouter/ }).getAttribute('aria-checked'), 'true')
-  assert.match(await page.getByRole('radio', { name: /^OpenRouter/ }).innerText(), /✓ 智能输入[\s\S]*✓ 洞察/)
-  // Two services only; the form is the key (console link beside its label) and a consent naming the service.
-  assert.equal(await page.getByRole('radiogroup', { name: 'AI 服务' }).getByRole('radio').count(), 2)
-  await page.locator('.jev-key-head').getByRole('button', { name: '打开官方控制台获取 Key', exact: true }).waitFor()
-  assert.equal(await page.getByText(/模型由应用固定|发送内容：/).count(), 0)
-  assert.equal(await page.getByRole('checkbox', { name: '我同意把智能输入和洞察需要的内容发送给 OpenRouter' }).isChecked(), false)
-  assert.equal(await page.getByRole('button', { name: '测试并开启', exact: true }).isDisabled(), true)
-  await page.screenshot({ path: 'output/tests/screenshots/onboarding-ai-openrouter.png' })
-  await page.getByRole('radio', { name: /^Vercel AI Gateway/ }).click()
-  await page.getByLabel('Vercel AI Gateway API Key').waitFor()
-  await page.getByRole('checkbox', { name: '我同意把智能输入和洞察需要的内容发送给 Vercel AI Gateway' }).waitFor()
-  assert.match(await page.getByRole('radio', { name: /^Vercel AI Gateway/ }).innerText(), /✓ 智能输入[\s\S]*✓ 洞察/)
-  await page.getByRole('button', { name: '暂时跳过', exact: true }).click()
+  await verifyAiOnboarding(page, previewWorld, application)
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   await page.getByRole('button', { name: '上线 2.0 版本', exact: true }).waitFor()
   const first = await page.evaluate(() => window.goalloom.getSnapshot())
@@ -193,7 +172,7 @@ try {
   assert.deepEqual([parent?.title, parent?.placement.horizon, child.placement.horizon], ['前方任务 3', 'week', 'day'])
   await page.locator('.seeded-composer').waitFor({ state: 'hidden' })
   const runtime = await page.evaluate(() => window.goalloom.getRuntime())
-  const record = { packaged: Boolean(packaged), runtime, composerLayout, tabStepsToTodayAdd: tabSteps, checks: ['direction draft not written before confirm', 'direction becomes 3-month flow root', 'onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar', 'settings entry', 'compact empty composer', 'composer grows and shrinks with text', 'composer without entry guidance', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent'] }
+  const record = { packaged: Boolean(packaged), runtime, composerLayout, tabStepsToTodayAdd: tabSteps, checks: ['direction draft not written before confirm', 'direction becomes annual flow root', 'onboarding two choices', 'form only after connect', 'consent unchecked', 'skip keeps calendar', 'settings entry', 'compact empty composer', 'composer grows and shrinks with text', 'composer without entry guidance', 'composer session draft', 'plain single Later', 'column + Enter/Space', 'continuous column entry', 'Cmd+N stays composer', 'split keeps parent'] }
   await mkdir('output/tests', { recursive: true })
   await writeFile('output/tests/composer.json', JSON.stringify(record, null, 2))
   console.log(JSON.stringify(record))

@@ -41,7 +41,7 @@ try {
   await signIn(a)
   await page.getByRole('button',{name:'继续本地使用',exact:true}).click()
   await page.locator('.calendar-modes').waitFor()
-  await page.waitForFunction(()=>document.querySelectorAll('.onboarding-steps li').length===2)
+  await page.waitForFunction(()=>document.querySelector('[data-setup-count="2"]') !== null)
   const logged=await aiStatus();assert.equal(logged.hostedEligible,true);assert.equal(logged.providers.hosted.consentedAt,null);assert.equal(logged.features.smart.enabled,false)
   assert.equal((await snapshot()).workspace.setupConfirmedAt,null)
   assert.equal(await app.evaluate(()=>globalThis.credentialFixture.modelCalls??0),0)

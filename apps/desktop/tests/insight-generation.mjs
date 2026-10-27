@@ -56,7 +56,7 @@ async function run(mode) {
     await page.getByLabel('OpenRouter API Key').fill('synthetic-key-only')
     await page.getByRole('checkbox', { name: '我同意把智能输入和洞察需要的内容发送给 OpenRouter' }).check()
     await page.getByRole('button', { name: '测试并开启', exact: true }).click()
-    await page.getByRole('heading', { name: '已连接 OpenRouter', exact: true }).waitFor()
+    await page.getByRole('heading', { name: /已连接\s*OpenRouter/ }).waitFor()
     await page.getByText('智能输入已开启', { exact: true }).waitFor()
     await page.getByText('洞察已开启', { exact: true }).waitFor()
     await page.screenshot({ path: `${out}/${mode}-onboarding-connected.png` })

@@ -1,0 +1,80 @@
+/**
+ * [INPUT]: Setup forms, native board labels, existing theme tokens and available window dimensions.
+ * [OUTPUT]: Compact forms and independently clipped canvas with overview/year/AI camera poses and a stationary toolbar.
+ * [POS]: Persistent first-run calendar/direction/AI stage; welcome keeps its approved illustration layout.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.setup-entry { position: relative; container: setup / inline-size; overflow: hidden; }
+.setup-scroll { position: relative; display: flex; align-items: center; width: 100%; height: 100%; min-height: 0; overflow-y: auto; overflow-x: clip; }
+.setup-entry .setup-form { position: relative; z-index: 2; flex: none; width: 300px; max-width: calc(46% - 64px); margin: auto 0 auto clamp(40px, 6vw, 72px); padding: max(40px, var(--feedback-clearance, 0px)) 0; animation: none; }
+.setup-logo { display: block; width: 64px; height: 64px; margin-bottom: 20px; user-select: none; }
+.setup-title { margin: 0 0 24px; font-size: 28px; font-weight: 600; line-height: 1.4; letter-spacing: -.025em; text-wrap: pretty; }
+.setup-hint { margin: -10px 0 20px; color: var(--secondary); font-size: 12px; line-height: 1.8; }
+.setup-hint .text-button { color: var(--calendar-primary); font-size: inherit; }
+.setup-navigation { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 28px; }
+.setup-navigation > button { height: 44px; min-height: 44px; }
+.setup-navigation .setup-back { flex: 0 0 auto; min-width: 56px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--secondary); font-size: 12px; font-weight: 400; }
+.setup-navigation .setup-next { flex: 1; min-width: 0; padding-inline: 12px; border-radius: 7px; }
+.setup-entry .setup-direction-input { display: block; height: 88px; min-height: 88px; resize: none; padding: 12px 14px; border-radius: 7px; font-size: 16px; line-height: 1.7; }
+.setup-examples { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-top: 16px; color: var(--secondary); font-size: 12px; line-height: 1.8; }
+.setup-examples .setup-example { color: var(--calendar-primary); font-size: 12px; line-height: 1.8; }
+.setup-canvas { position: absolute; z-index: 1; left: 46%; top: 160px; right: 0; bottom: 0; overflow: clip; isolation: isolate; contain: paint; pointer-events: none; border-radius: 24px 0 0 0; background: light-dark(#fcfaf6, #24201b); }
+.setup-world { position: absolute; top: 0; left: 0; width: 1984px; height: 960px; transform-origin: 0 0; transition: transform 440ms cubic-bezier(.65,0,.35,1); }
+.setup-world[data-camera='overview'] { transform: translate(26px,24px) scale(.9); }
+.setup-world[data-camera='year'] { transform: translate(28px,40px) scale(1.08); }
+.setup-board-toolbar { display: flex; align-items: center; height: 56px; padding: 0 20px; color: var(--fg-soft); }
+.setup-board-filter { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 3px 8px; border-radius: 7px; background: var(--hover); font-size: 13px; font-weight: 500; line-height: 1.5; }
+.setup-board-timeline { display: flex; height: 904px; }
+.setup-product-column { flex: 0 0 320px; min-width: 0; width: 320px; padding: 0 14px; border-left: 1px solid var(--line); }
+.setup-product-column:first-child { border-left: 0; }
+.setup-column-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px; padding-left: 9px; }
+.setup-period-heading { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; }
+.setup-period-heading svg { flex-shrink: 0; color: var(--secondary); opacity: .6; }
+.setup-period-title { flex-shrink: 0; font-size: 15px; font-weight: 600; line-height: 1.5; }
+.setup-period-date { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--secondary); font-size: 13px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.setup-column-add { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 24px; height: 28px; color: var(--secondary); opacity: .6; }
+.setup-product-empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 132px 16px 0; color: var(--secondary); }
+.setup-product-empty svg { opacity: .35; }
+.setup-product-empty p { margin: 0; white-space: pre-line; text-align: center; font-size: 13px; line-height: 1.8; opacity: .6; }
+.setup-product-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px 9px; font-size: 15px; line-height: 1.6; }
+.setup-product-checkbox { flex: 0 0 17px; width: 17px; height: 17px; margin-top: 4px; border: 1.5px solid var(--check-edge); border-radius: 4px; }
+.setup-product-task-title { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.setup-product-add { display: flex; align-items: center; gap: 10px; margin: 4px 9px; color: var(--secondary); font-size: 13px; line-height: 1.8; opacity: .55; }
+.setup-entry[data-motion='instant'] .setup-world { transition: none; }
+@container setup (max-width: 900px) { .setup-entry .setup-form { width: 280px; margin-left: 32px; max-width: calc(46% - 56px); } }
+@container setup (max-width: 700px) {
+  .setup-scroll { display: block; }
+  .setup-entry .setup-form { width: min(420px, calc(100% - 48px)); max-width: none; margin: 0 auto; padding: 32px 0 48px; }
+  .setup-canvas { position: relative; left: auto; top: auto; right: auto; bottom: auto; width: 100%; height: 360px; border-radius: 24px 0 0 0; }
+  .setup-world[data-camera='overview'] { transform: translate(16px,28px) scale(.88); }
+  .setup-world[data-camera='year'] { transform: translate(16px,42px) scale(1.04); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .setup-navigation .setup-back:hover:not(:disabled) { background: var(--hover); }
+  .setup-example:hover:not(:disabled), .setup-hint .text-button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+}
+@media (prefers-reduced-motion: reduce) { .setup-entry *, .calendar-select-menu * { animation: none !important; transition: none !important; } }
+.onboarding-stage { position: relative; flex: 1; min-height: 0; container: setup / inline-size; overflow-y: auto; overflow-x: clip; }
+.onboarding-stage-content { display: flex; flex-direction: column; width: 100%; height: 100%; }
+.onboarding-stage-content > .setup-entry { height: 100%; container-type: normal; overflow: visible; }
+.setup-world[data-camera='smart'] { transform: translate(26px,8px) scale(.98); }
+.setup-world[data-camera='insight'] { transform: translate(-300px,8px) scale(.98); }
+.setup-board-toolbar { transform: translateX(0); transition: transform 440ms cubic-bezier(.65,0,.35,1); }
+.setup-world[data-camera='insight'] .setup-board-toolbar { transform: translateX(332.653061px); }
+.preview-window-controls { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; margin-right: 16px; }
+.preview-window-controls > span { display: block; flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 .5px #00000020; }
+.preview-window-controls > [data-control='close'] { background: #ff5f57; }
+.preview-window-controls > [data-control='minimize'] { background: #febc2e; }
+.preview-window-controls > [data-control='zoom'] { background: #28c840; }
+.onboarding-stage[data-motion='instant'] .setup-world, .onboarding-stage[data-motion='instant'] .setup-board-toolbar { transition: none; }
+@container setup (max-width: 700px) {
+  .onboarding-stage { overflow-y: auto; overflow-x: clip; }
+  .onboarding-stage-content { height: auto; min-height: 0; }
+  .onboarding-stage-content > .setup-entry { height: auto; }
+  .onboarding-stage .setup-scroll { height: auto; overflow: visible; }
+  .onboarding-stage[data-ai='true'] > .setup-canvas { height: 500px; }
+  .setup-world[data-camera='smart'] { transform: translate(16px,8px) scale(.9); }
+  .setup-world[data-camera='insight'] { transform: translate(-274px,8px) scale(.9); }
+  .setup-world[data-camera='insight'] .setup-board-toolbar { transform: translateX(322.222222px); }
+}
+@media (prefers-reduced-motion: reduce) { .onboarding-stage *, .setup-board-toolbar { animation: none !important; transition: none !important; } }

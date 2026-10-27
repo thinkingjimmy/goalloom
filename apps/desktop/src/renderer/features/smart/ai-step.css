@@ -1,0 +1,47 @@
+/**
+ * [INPUT]: Optional AI forms, native controls and approved setup typography/theme tokens.
+ * [OUTPUT]: Compact centered AI pages with equal-height navigation and clear preview selection.
+ * [POS]: Onboarding only; shared Settings connection forms retain their default appearance.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.ai-entry .setup-title { white-space: pre-line; }
+.ai-entry .setup-scroll { align-items: flex-start; }
+.ai-entry .setup-form { margin-block: 0; padding-top: max(clamp(56px, 10vh, 104px), var(--feedback-clearance, 0px)); padding-bottom: 48px; }
+.onboarding-stage[data-ai='true'] > .setup-canvas { top: clamp(56px, 10vh, 104px); }
+.ai-preview-choice > p { margin: 0 0 9px; color: var(--secondary); font-size: 12px; }
+.ai-preview-switch { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; }
+.ai-preview-option { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: 1; min-width: 0; min-height: 44px; border-radius: 5px; color: var(--secondary); font-size: 13px; }
+.ai-preview-option[aria-pressed='true'] { background: var(--raised); color: var(--calendar-primary); box-shadow: 0 1px 3px #0000000a; }
+.ai-entry .ai-skip { min-width: 84px; }
+.ai-connect-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 18px; color: var(--secondary); font-size: 13px; }
+.ai-connect-heading .text-button { font-size: 12px; color: var(--secondary); }
+.ai-provider-label { display: block; margin-bottom: 6px; color: var(--secondary); font-size: 12px; }
+.ai-provider-select { height: 40px; margin-bottom: 18px; border-radius: 7px; font-size: 13px; }
+.ai-entry .jev-key-head { align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.ai-entry .jev-key-head .text-button { font-size: 11px; text-align: right; }
+.ai-entry .jev-connect > input { height: 40px; border-radius: 7px; }
+.ai-entry .check-label { align-items: flex-start; margin-top: 12px; font-size: 12px; line-height: 1.7; color: var(--secondary); }
+.ai-entry .check-label input { flex-shrink: 0; margin-top: 3px; }
+.ai-entry .jev-connect .setup-navigation { margin-top: 22px; }
+.ai-entry .jev-result { align-items: flex-start; min-height: 0; margin-top: 8px; }
+.ai-entry .jev-result:empty { display: none; }
+.ai-entry .jev-result p { margin: 0; }
+.ai-done-lead { margin: -6px 0 24px; color: var(--secondary); white-space: pre-line; font-size: 14px; line-height: 1.8; }
+.ai-onboarding-results { display: flex; flex-direction: column; gap: 20px; list-style: none; margin: 0; padding: 0; }
+.ai-onboarding-results li { display: flex; align-items: flex-start; gap: 10px; color: var(--secondary); }
+.ai-onboarding-results li[data-on='true'] > svg { color: var(--calendar-primary); }
+.ai-onboarding-results svg { flex-shrink: 0; margin-top: 2px; }
+.ai-onboarding-results span { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ai-onboarding-results b { font-size: 13px; font-weight: 500; color: var(--fg); }
+.ai-onboarding-results small { font-size: 12px; line-height: 1.7; }
+.ai-entry button:not(:disabled), .ai-entry input[type='checkbox']:not(:disabled) { cursor: pointer; }
+.ai-entry button:disabled { cursor: default; }
+.ai-entry button:focus-visible { outline: 2px solid var(--calendar-primary); outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .ai-preview-option:hover { background: var(--hover); }
+  .ai-connect-heading .text-button:hover { text-decoration: underline; text-underline-offset: 3px; }
+}
+@container setup (max-width: 700px) {
+  .ai-entry .setup-form { padding-top: 32px; }
+  .onboarding-stage[data-ai='true'] > .setup-canvas { top: auto; }
+}

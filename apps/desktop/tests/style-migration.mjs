@@ -9,7 +9,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { cpus, release, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _electron as electron } from 'playwright'
-import { chooseLocalStart, chooseSetupCalendar, settleSetupStep } from './fixtures/setup.mjs'
+import { chooseLocalStart, chooseSetupCalendar, reloadDeviceLanguage, settleSetupStep } from './fixtures/setup.mjs'
 
 // Failure cases: theme drift, changed control density/wrapping, lost DOM hooks,
 // invisible native-dialog portals, broken keyboard dismissal and unexpected task writes.
@@ -78,9 +78,8 @@ try {
   page = await application.firstWindow()
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 900))
   await page.emulateMedia({ reducedMotion: 'reduce' })
+  await reloadDeviceLanguage(page, 'en')
   await chooseLocalStart(page)
-  await page.locator('#setup-language').click()
-  await page.getByRole('option', { name: 'English', exact: true }).click()
   await settleSetupStep(page)
   await matrix('setup-calendar', '.onboarding')
   await chooseSetupCalendar(page, { timezone: 'UTC', weekStart: 1 })

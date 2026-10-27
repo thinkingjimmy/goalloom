@@ -24,8 +24,8 @@
   .items-search:focus-within { box-shadow: var(--macos-focus-ring); }
   .sync-review-side[data-selected='true'] { border-color: var(--primary); }
   .sync-review-choice input[type='radio'] { accent-color: var(--primary); }
-  .transfer-steps li[aria-current='step'], .onboarding-steps li[data-state='current'] { color: var(--focus); }
-  .transfer-steps li[aria-current='step'] .transfer-step-mark, .onboarding-steps li[data-state='current'] .onboarding-step-mark { background: var(--primary); color: var(--primary-foreground); }
+  .transfer-steps li[aria-current='step'] { color: var(--focus); }
+  .transfer-steps li[aria-current='step'] .transfer-step-mark { background: var(--primary); color: var(--primary-foreground); }
 
   .picker-panel { padding: 6px; }
   .picker-row { border-radius: 8px; }
@@ -57,9 +57,8 @@
   .help-option[aria-pressed='true'], .help-option.is-selected { background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--fg); }
   .help-option[aria-pressed='true'] .option-letter, .help-option.is-selected .option-letter { background: var(--primary); color: var(--primary-foreground); box-shadow: none; }
 
-  .calendar-mode-card, .start-card, .ai-option { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--hairline); }
-  .calendar-mode-card[data-selected='true'], .ai-option[data-selected='true'], .start-card[data-selected='true'] { box-shadow: inset 0 0 0 1.5px var(--primary); }
-  .calendar-mode { border-radius: 12px; }
+  .ai-option { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--hairline); }
+  .ai-option[data-selected='true'] { box-shadow: inset 0 0 0 1.5px var(--primary); }
   .direction-example[data-active='true'] { color: var(--focus); box-shadow: inset 0 0 0 1px var(--primary); }
   .ai-results { box-shadow: inset 0 0 0 1px var(--hairline); }
   .jev-demo-caret, .start-bar i { background: var(--primary); }

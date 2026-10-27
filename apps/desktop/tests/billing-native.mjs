@@ -39,7 +39,7 @@ try {
   await page.getByRole('button', { name: 'Set up sync', exact: true }).waitFor()
   await page.getByRole('button', { name: 'Continue locally', exact: true }).click()
   await page.locator('.calendar-modes').waitFor()
-  assert.equal(await page.locator('.onboarding-steps li').count(), 2)
+  assert.equal(await page.locator('[data-setup-count="2"]').count(), 1)
   assert.equal(await app.evaluate(() => globalThis.credentialFixture.billingActions.filter(value => value.action === 'claim_trial').length), 1)
   assert.equal((await page.evaluate(() => window.goalloom.getSnapshot())).workspace.setupConfirmedAt, null)
   await page.locator('.onboarding-actions button').last().click()

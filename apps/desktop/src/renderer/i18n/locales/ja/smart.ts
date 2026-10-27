@@ -9,6 +9,18 @@ import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
 export const providerNames: typeof source = { hosted: 'Goalloom 内蔵 AI', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
+  onboardingIntroTitle: "アイデアを、\n次の一歩に。",
+  onboardingPreviewLabel: "機能プレビュー",
+  onboardingConnectTitle: "AI サービスに\n接続する。",
+  onboardingOwnKey: "自分の Key を使用",
+  onboardingDonePrefix: "接続しました\n",
+  onboardingDoneBody: "準備ができました。\n小さな一歩から。",
+  onboardingSmartDetail: "思いついたことをタスクに整理。",
+  onboardingInsightDetail: "必要なときに提案や振り返りを下書き。",
+  onboardingDemoInput: "今月ログイン画面を改善し、今日は課題を整理して金曜日までにデザインを提出する",
+  onboardingDemoGoal: "フルマラソンを完走する",
+  onboardingDemoStage: "最初の準備段階を完了する",
+  onboardingInsightFigure: "洞察の例：段階ごとの成果を下書き",
   composer: '新規',
   inputLabel: '考えを書く',
   placeholder: '考えを書いてください。1 行に 1 件でもかまいません…',
