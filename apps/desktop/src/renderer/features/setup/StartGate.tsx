@@ -1,11 +1,11 @@
 /**
  * [INPUT]: An unconfirmed workspace, sync status, existing setup confirmation, shared icon controls and the native recovery dialog.
- * [OUTPUT]: Account-only login into explicit calendar setup, plus existing explicit sync join/password/recovery phases. A normal join installs the cloud calendar and skips setup.
+ * [OUTPUT]: Local-first welcome with retained calendar/direction drafts and existing explicit sync join/password/recovery phases. A normal join installs the cloud calendar and skips setup.
  * [POS]: First-run entry in front of Setup. Direct use adds one back step; the first device uploads only after confirmation.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton } from '../../components/ui/button'
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import type { PlanningPeriod } from '../../../shared/contracts/entities'
 import type { SyncAction, SyncReply, SyncStatus } from '../../../shared/contracts/sync'
 import { messages, settingsMessages as settings } from '../../i18n'
@@ -14,6 +14,8 @@ import { desktopApi } from '../../state/use-workspace'
 import { useSync } from '../../state/sync'
 import { Setup, type CalendarChoice } from './Setup'
 import { startScreen } from './entry'
+import { useSetupSession } from './use-setup-session'
+import { useOnboardingStage } from './OnboardingStage'
 import { ChoiceScreen, JoinPasswordScreen, NewPasswordScreen, SyncingScreen } from './StartScreens'
 import { SyncRecovery } from '../shell/settings/SyncRecovery'
 
@@ -25,6 +27,8 @@ export function StartGate({ confirm, busy, errorCode, skipAi = false, status: ov
   status?: SyncStatus | null
   sync?: (action: SyncAction) => Promise<SyncReply>
 }) {
+  const session = useSetupSession()
+  const stage = useOnboardingStage()
   const live = useSync()
   const status = override === undefined ? live : override
   const [direct, setDirect] = useState(false)
@@ -37,6 +41,7 @@ export function StartGate({ confirm, busy, errorCode, skipAi = false, status: ov
   const screen = startScreen({
     direct, passwordReady: !!held, joining, phase: status?.phase ?? null, error: status?.error ?? null,
   })
+  useLayoutEffect(() => { if (screen !== 'setup' && !recoveryAction) stage?.publish(null) }, [stage, screen, recoveryAction])
   const run = async (action: SyncAction) => {
     setHiddenError(null)
     setWorking(true)
@@ -55,8 +60,8 @@ export function StartGate({ confirm, busy, errorCode, skipAi = false, status: ov
   }
   const bannerError = status?.phase !== 'signing-in' && status?.error && status.error !== 'password' && hiddenError !== status.error ? settings.sync.errors[status.error] : ''
   const banner = bannerError ? <div className="start-alert fixed top-4 left-[50%] flex items-start gap-2.5 pt-3 pr-3 pb-3 pl-3.5 rounded-[10px] bg-raised text-[13px] leading-[1.6] text-soft" role="alert"><span>{bannerError}</span><IconButton size="small" type="button" aria-label={messages.dismissNotice} onClick={() => setHiddenError(status?.error ?? null)}><Icon name="close" size={16} /></IconButton></div> : null
-  if (recoveryAction) return <Setup skipAi={skipAi} confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} back={() => setRecoveryAction(null)} />
-  if (screen === 'setup') return <Setup skipAi={skipAi} confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} {...(direct ? { back: () => setDirect(false) } : {})} />
+  if (recoveryAction) return <Setup session={session} skipAi={skipAi} confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} back={() => setRecoveryAction(null)} />
+  if (screen === 'setup') return <Setup session={session} skipAi={skipAi} confirm={(calendar, direction, period) => void confirmSetup(calendar, direction, period)} busy={busy || working} errorCode={errorCode} {...(direct ? { back: event => { session.setEntryMotion(event.detail === 0 ? null : 'backward'); setDirect(false) } } : {})} />
   if (screen === 'syncing') return <SyncingScreen />
   if (screen === 'password') return <>
     {banner}
@@ -78,6 +83,6 @@ export function StartGate({ confirm, busy, errorCode, skipAi = false, status: ov
   </>
   return <>
     {banner}
-    <ChoiceScreen waiting={screen === 'waiting'} provider={status?.signingInProvider ?? 'google'} busy={working} onLocal={() => setDirect(true)} onSignIn={provider => void run({ type: 'sign-in', provider, purpose: 'ai' })} onCancel={() => void run({ type: 'cancel' })} />
+    <ChoiceScreen entryMotion={session.entryMotion} waiting={screen === 'waiting'} provider={status?.signingInProvider ?? 'google'} busy={working} onLocal={event => { session.setEntryMotion(event.detail === 0 ? null : 'forward'); setDirect(true) }} onSignIn={provider => void run({ type: 'sign-in', provider, purpose: 'ai' })} onCancel={() => void run({ type: 'cancel' })} />
   </>
 }

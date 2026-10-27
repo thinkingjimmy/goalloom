@@ -13,6 +13,7 @@ import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { writeFile, mkdir } from 'node:fs/promises'
+import { reviewAiOnboarding } from '../fixtures/onboarding-ai-review.mjs'
 import { chooseLocalStart } from '../fixtures/setup.mjs'
 const repo=resolve('.')
 const evidence=resolve('output/tests/review-fixes')
@@ -59,6 +60,8 @@ const initReview = ()=>{
 await page.addInitScript(initReview)
 const result={scope:'Current source rendered in Chromium, mocked IPC, no production data or external service',checks:[]}
 const calendarOnly=process.argv.includes('--calendar')
+const setupOnly=process.argv.includes('--setup')
+const reportName=setupOnly?'setup':calendarOnly?'calendar':'renderer'
 try{
  if(!calendarOnly){
  const setupPage=await browser.newPage({viewport:{width:1280,height:840},timezoneId:'UTC'})
@@ -67,15 +70,16 @@ try{
  await setupPage.clock.install({time:new Date('2026-12-31T23:59:40Z')})
  await setupPage.goto(`${server.resolvedUrls.local[0]}?setup`)
  await chooseLocalStart(setupPage)
- assert.equal(await setupPage.locator('[data-mode="rolling"]').getAttribute('aria-checked'),'true')
- await setupPage.locator('[data-mode="natural"]').click()
+ assert.match(await setupPage.locator('#setup-calendar-mode').innerText(),/365/)
+ await setupPage.locator('#setup-calendar-mode').click()
+ await setupPage.getByRole('option').nth(1).click()
  await setupPage.locator('.onboarding-actions button').last().click()
  await setupPage.locator('.direction-input').fill('Retained annual draft')
  assert.match(await setupPage.locator('.onboarding-hint').last().innerText(),/2027/)
  await setupPage.locator('.direction-input').press('Enter')
  assert.equal((await setupPage.evaluate(()=>review.commands)).length,0)
  await setupPage.clock.fastForward(30000)
- await setupPage.waitForFunction(()=>document.querySelector('.onboarding-note')?.textContent.includes('2027'))
+ await setupPage.waitForFunction(()=>document.querySelector('.setup-product-column[data-horizon=year]')?.getAttribute('data-start') === '2027-01-01')
  assert.equal(await setupPage.locator('.direction-input').inputValue(),'Retained annual draft')
  assert.match(await setupPage.locator('.onboarding-hint').first().innerText(),/365/)
  await setupPage.screenshot({path:`${evidence}/setup-natural-midnight.png`})
@@ -85,15 +89,15 @@ try{
  assert.equal(await setupPage.locator('.direction-input').inputValue(),'Retained annual draft')
  assert.equal(await setupPage.evaluate(()=>review.snapshot.workspace.setupConfirmedAt),null)
  await setupPage.locator('.onboarding-actions button').first().click()
- await setupPage.locator('[data-mode="rolling"]').click()
+ await setupPage.locator('#setup-calendar-mode').click()
+ await setupPage.getByRole('option').nth(0).click()
  await setupPage.clock.setSystemTime(new Date('2027-01-02T08:00:00Z'))
  await setupPage.evaluate(()=>window.dispatchEvent(new Event('focus')))
  await setupPage.locator('.onboarding-actions button').last().click()
  await setupPage.locator('.onboarding-actions button').last().click()
  assert.equal((await setupPage.evaluate(()=>review.commands.at(-1))).anchor.expected,'2027-01-02')
  await setupPage.locator('.onboarding-actions button').first().click()
- await setupPage.locator('.calendar-start .text-button').click()
- await setupPage.locator('.calendar-start [role="combobox"]').click()
+ await setupPage.locator('#setup-calendar-anchor').click()
  await setupPage.getByRole('option').nth(1).click()
  await setupPage.clock.setSystemTime(new Date('2027-01-31T23:59:40Z'))
  await setupPage.evaluate(()=>window.dispatchEvent(new Event('focus')))
@@ -103,8 +107,13 @@ try{
  const monthCommand=await setupPage.evaluate(()=>review.commands.at(-1))
  assert.deepEqual(monthCommand.anchor,{kind:'monthStart',expected:'2027-02-01'})
  assert.equal(await setupPage.locator('.direction-input').inputValue(),'Retained annual draft')
+ await reviewAiOnboarding(setupPage,{url:server.resolvedUrls.local[0],repo,evidence})
+ result.checks.push({case:'ai-native-preview-and-real-connection-result-routing',externalRequests:0})
  await setupPage.close()
  result.checks.push({case:'setup-midnight-focus-and-stale-confirmation',modes:['natural','rolling'],presets:['today','monthStart'],draftPreserved:true,enterDidNotLock:true})
+ }
+ if(!setupOnly){
+ if(!calendarOnly){
  await page.goto(server.resolvedUrls.local[0]);await page.getByRole('button',{name:'Original title',exact:true}).waitFor()
  // Search failure modes: opening commands queries the whole workspace unnecessarily;
  // a transient error survives a later successful query; a pending query says no results.
@@ -339,13 +348,14 @@ try{
  const calendarDraft=await page.evaluate(()=>review.commands[0].items[0])
  assert.deepEqual([calendarDraft.dueDate,calendarDraft.horizon],['2026-10-24','day'])
  result.checks.push({case:'composer-deadline-calendar',dueDate:calendarDraft.dueDate,horizon:calendarDraft.horizon,triggerGuidance:true,numericShortcut:true,clear:true,noEarlyWrite:true})
+ }
  assert.deepEqual(errors,[])
- await writeFile(`${evidence}/${calendarOnly?'calendar':'renderer'}.json`,JSON.stringify(result,null,2))
- console.log(calendarOnly?'Composer calendar checks passed':'Renderer review regressions passed')
+ await writeFile(`${evidence}/${reportName}.json`,JSON.stringify(result,null,2))
+ console.log(setupOnly?'Setup clock checks passed':calendarOnly?'Composer calendar checks passed':'Renderer review regressions passed')
 }catch(error){
  const failurePage=browser.contexts().flatMap(context=>context.pages()).at(-1)??page
- await failurePage.screenshot({path:`${evidence}/${calendarOnly?'calendar':'renderer'}-failure.png`}).catch(()=>undefined)
+ await failurePage.screenshot({path:`${evidence}/${reportName}-failure.png`}).catch(()=>undefined)
  const state=await failurePage.evaluate(()=>({url:location.href,commands:window.review?.commands,analyses:window.review?.analyses.length,active:document.activeElement?.outerHTML.slice(0,500),focused:document.hasFocus(),visibility:document.visibilityState,content:document.body.innerText.slice(0,4000)})).catch(()=>null)
- await writeFile(`${evidence}/${calendarOnly?'calendar':'renderer'}-failure.json`,JSON.stringify({error:String(error),errors,state},null,2))
+ await writeFile(`${evidence}/${reportName}-failure.json`,JSON.stringify({error:String(error),errors,state},null,2))
  throw error
 }finally{await browser.close();await server.close()}

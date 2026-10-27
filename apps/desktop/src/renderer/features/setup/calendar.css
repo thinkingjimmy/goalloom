@@ -1,0 +1,20 @@
+/**
+ * [INPUT]: Calendar sentence markup, shared Select/Popover components, viewport size and existing theme tokens.
+ * [OUTPUT]: Compact sentence controls with centered chevrons and content-sized menus.
+ * [POS]: CalendarStep-only presentation; shared controls retain their existing behavior on other screens.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.calendar-entry { --calendar-primary: light-dark(oklch(.41 .035 145), oklch(.75 .035 145)); --calendar-on-primary: light-dark(#fffdfa, oklch(.22 .025 145)); }
+.calendar-primary { --primary: var(--calendar-primary, light-dark(oklch(.41 .035 145), oklch(.75 .035 145))); --primary-foreground: var(--calendar-on-primary, light-dark(#fffdfa, oklch(.22 .025 145))); }
+.calendar-sentence { line-height: 2.8; }
+.calendar-copy { word-break: keep-all; }
+.calendar-sentence .popover-root, .calendar-anchor-root { display: inline-block; vertical-align: middle; max-width: 100%; }
+.calendar-sentence .select-trigger.calendar-select { display: inline-flex; vertical-align: middle; align-items: center; width: auto; max-width: 100%; min-height: 34px; height: auto; margin: 0 3px; padding: 5px 8px 5px 10px; gap: 8px; border-radius: 6px; background: var(--raised); color: var(--calendar-primary); font-size: 14px; line-height: 20px; }
+.calendar-select .select-value { display: inline-flex; align-items: center; flex: 0 1 auto; min-width: 0; line-height: 20px; }
+.calendar-select .select-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 16px; width: 16px; height: 16px; align-self: center; margin: 0; }
+.calendar-select .select-icon svg { display: block; width: 16px; height: 16px; margin: 0; }
+.calendar-fixed-anchor { display: inline-block; color: var(--calendar-primary); font-weight: 500; padding: 0 5px; }
+.calendar-select-menu.select-menu { min-width: var(--radix-select-trigger-width); width: max-content; max-width: calc(100vw - 16px); }
+.calendar-anchor-dialog { width: 380px; max-width: calc(100% - 40px); }
+.calendar-date-form { padding: 20px 24px 24px; }
+@media (pointer: coarse) { .calendar-sentence .select-trigger.calendar-select { min-height: 44px; font-size: 16px; } }

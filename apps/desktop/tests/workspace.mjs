@@ -5,6 +5,8 @@
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { finishSetup, waitForSetupEntry } from './fixtures/setup.mjs'
+import { verifyWelcome } from './fixtures/welcome.mjs'
+import { verifyCalendarSentence } from './fixtures/calendar-sentence.mjs'
 import { finishDetailEditing, waitForDetailSave } from './fixtures/detail-save.mjs'
 import { verifyDetailRail } from './fixtures/detail-rail.mjs'
 import { verifyInlineTitle } from './fixtures/inline-title.mjs'
@@ -30,6 +32,8 @@ try {
   page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
   await waitForSetupEntry(page)
+  await verifyWelcome(page, application)
+  await verifyCalendarSentence(page, application)
   console.log(await page.locator('body').ariaSnapshot())
   assert.deepEqual((await page.evaluate(() => Object.keys(window.goalloom))).sort(), ['data', 'execute', 'exportWorkspace', 'getActivity', 'getActivityDay', 'getActivityMonth', 'getActivityPage', 'getActivitySummary', 'getBackupSummary', 'getBatchItems', 'getBatches', 'getBoardPeriods', 'getCounts', 'getExecutionSummary', 'getHistory', 'getHistoryIndex', 'getInsightTaskContext', 'getItem', 'getLanguage', 'getLinkPreview', 'getPastPeriod', 'getReceipt', 'getReviewContext', 'getRuntime', 'getSnapshot', 'initializeParentOrder', 'listItems', 'onAiRefresh', 'onBeforeClose', 'onChanged', 'onDevicePrefs', 'onLanguage', 'onOpenAbout', 'onSync', 'onUpdate', 'openExternal', 'pullDevicePrefs', 'reportDevicePrefs', 'setLanguage', 'setParentOrder', 'smart', 'sync', 'update'])
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined')

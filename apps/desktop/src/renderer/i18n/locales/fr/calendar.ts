@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Locale-aware dates, mode and period presentation parameters.
- * [OUTPUT]: Complete calendar-mode, annual-direction and anchored-period UI copy.
+ * [OUTPUT]: Calendar modes, sentence setup and city copy, annual direction and anchored periods.
  * [POS]: Calendar catalog shared by setup, board, details and settings.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,7 +22,21 @@ export const calendarMessages: typeof source = {
   returnCurrent: "Revenir à la période",
   returnNaturalYear: "Revenir à cette année",
   returnNaturalCycle: "Revenir à ce trimestre",
-  chooseCalendar: "Quand commence votre année ?",
+  chooseCalendar: "Configurez votre calendrier",
+  setupPreview: "Aperçu du tableau Goalloom",
+  setupSentence: "Planifiez par {mode}, à partir de {anchor}. La semaine commence le {weekStart}.",
+  setupToday: "aujourd’hui",
+  setupMonthStart: "le 1er de ce mois",
+  setupNaturalStart: "le 1er janvier",
+  setupYearLabel: "Votre année",
+  setupFullYear: "Une année complète, à partir d’aujourd’hui.",
+  setupAnchoredYear: "Une année à partir de la date choisie.",
+  setupLockNote: "Le calendrier se verrouille à la confirmation de l’étape suivante.\nPour le modifier, sauvegardez puis réinitialisez l’espace de travail.",
+  setupDateTitle: "Choisissez le début de votre année",
+  setupDateNote: "L’année, le semestre et les périodes de 3 mois partent de cette date.",
+  setupUseDate: "Utiliser cette date",
+  setupInvalidDate: "Choisissez une date valide qui ne soit pas après aujourd’hui.",
+  setupCities: { 'Asia/Singapore': "Singapour", 'Asia/Shanghai': "Shanghai", 'Asia/Hong_Kong': "Hong Kong", 'Asia/Tokyo': "Tokyo", 'Europe/London': "Londres", 'Europe/Paris': "Paris", 'America/New_York': "New York", UTC: "UTC" },
   calendarLead: "Goalloom relie la direction d’une année aux actions d’aujourd’hui, pas à pas. Ce choix fixe le début de l’année, du semestre et des 3 mois ; les mois, les semaines et les jours suivent toujours le calendrier habituel.",
   defaultTag: "Par défaut",
   todayMarker: "Aujourd’hui",

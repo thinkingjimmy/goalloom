@@ -9,6 +9,18 @@ import type { SmartCatalog, providerNames as source } from '../zh/smart'
 
 export const providerNames: typeof source = { hosted: 'IA de Goalloom', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages: SmartCatalog = {
+  onboardingIntroTitle: "Convierte tus ideas\nen el siguiente paso.",
+  onboardingPreviewLabel: "Vista previa",
+  onboardingConnectTitle: "Conecta tu\nservicio de IA.",
+  onboardingOwnKey: "Usa tu propia clave",
+  onboardingDonePrefix: "Conectado a\n",
+  onboardingDoneBody: "Todo listo.\nEmpieza con algo pequeño.",
+  onboardingSmartDetail: "Convierte una idea rápida en tareas.",
+  onboardingInsightDetail: "Redacta sugerencias y revisiones cuando las necesites.",
+  onboardingDemoInput: "Rediseñar el acceso este mes, reunir problemas hoy y entregar el diseño antes del viernes",
+  onboardingDemoGoal: "Correr una maratón completa",
+  onboardingDemoStage: "Completar la primera etapa de preparación",
+  onboardingInsightFigure: "Ejemplo de ideas: redactar resultados de etapa",
   composer: 'Nuevo',
   inputLabel: 'Escribe una idea',
   placeholder: 'Escribe una idea; también puedes poner una cosa por línea…',

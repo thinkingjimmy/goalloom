@@ -4,7 +4,7 @@
 
 ```text
 renderer/
-├── App.tsx                  # Board/dialog composition, explicit draft-target visibility, shortcuts/feedback, input-aware detail focus and generation-scoped drafts, atomic review completion/exit and celebration requests; selected flows follow root promotion/undo
+├── App.tsx                  # Board/dialog composition, persistent setup/AI stage, out-of-flow startup status and early AI module loading, explicit draft-target visibility, shortcuts/feedback, input-aware detail focus and generation-scoped drafts, atomic review completion/exit and celebration requests; selected flows follow root promotion/undo
 ├── main.tsx                 # React mounts after device language/placement hydration, before the first workspace snapshot
 ├── index.html               # 本地页面；生产 CSP 由协议响应头下发
 ├── env.d.ts                 # 有限 preload API 的 Window 声明
@@ -70,7 +70,7 @@ renderer/
 │   ├── smart/
 │   │   ├── ProviderConnect.tsx # 单个服务的 Key（标签旁官方控制台入口）、点名该服务的同意、逐能力测试结果（Onboarding/设置共用；提交按钮可渲染到底部按钮行）
 │   │   ├── JevDemo.tsx      # 不调用服务的预设示例动画：逐字输入 → 整理中 → 草稿卡
-│   │   └── AiStep.tsx       # 首次流程第 3 步：先看示例，再在服务卡片里选一个并填 Key，显示实际开启的功能；随时可跳过
+│   │   └── AiStep.tsx       # Optional AI: native previews, shared provider selection/consent and actual capability results (ai-step.css)
 │   ├── board/
 │   │   ├── Board.tsx        # Unified periods/completion layout, shared header/tail/blank capture placement, title-edit nesting targets/section retention, review guides, group gestures and virtual focus pinning
 │   │   ├── inline-nesting.ts # Shared eligible preceding-root selection for column capture and existing-title Tab nesting
@@ -113,13 +113,26 @@ renderer/
 │   │   ├── activity.css    # Rail hierarchy, accessible date controls and bounded record reading
 │   │   └── activity-insight.ts # Month grid only; no renderer statistics algorithm
 │   └── setup/
+│       ├── StartGate.tsx    # First-run state owner: local setup, provider wait, billing qualification, password/recovery and join paths
+│       ├── StartScreens.tsx # Centered account/password/syncing screens, bottom return action and WelcomeScreen re-export
+│       ├── WelcomeScreen.tsx # Local-first welcome, 64px app icon, expanded Google/Apple sign-in and four bundled paper illustrations
+│       ├── welcome.css      # 760px content cap, height-aligned art, scoped sage action and narrow/zoomed reflow below 700px
 │       ├── Setup.tsx        # 日历 → 年方向与确认的草稿；返回、语言变化与日期过期均保留输入
-│       ├── OnboardingFrame.tsx # 左上三步进度、右上语言、居中内容列（各步标题位置一致），底部固定、无底栏样式的说明与按钮行
-│       ├── DirectionStep.tsx # 年尺度方向、剩余天数/下一年提示行与两行锁定摘要；不足 14 天默认下一年，Enter 只移焦点
-│       ├── CalendarStep.tsx # Welcome intro, rolling/natural cards with live dates and a year timeline, the in-card start date and a timezone/week-start sentence
+│       ├── OnboardingFrame.tsx # Legacy frame; current first-run uses OnboardingStage
+│       ├── DirectionStep.tsx # Compact annual textarea, plain examples, destination hint and equal-height Back/Confirm; Enter only focuses confirmation
+│       ├── CalendarStep.tsx # Compact calendar form, 64px mark, three sentence controls and equal-height Back/Next; Next never confirms setup
+│       ├── CalendarSentence.tsx # Three localized inline Select choices, fixed natural start and custom-date focus return; no timezone control
+│       ├── CalendarAnchorDialog.tsx # Shared Modal/Input custom-start draft, submit-time date validation and cancellation without writes
+│       ├── calendar.css     # Aligned sentence chevrons, compact menus and scoped sage action
+│       ├── OnboardingStage.tsx # Persistent calendar/annual/AI canvas owner and read-only scene context
+│       ├── preview/          # Native Plan/EmptyCard demonstrations, localized samples and placement CSS
+│       ├── SetupCanvas.tsx   # Persistent read-only product world with actual period labels/direction target, no Later or task writes
+│       ├── setup-canvas.css  # Centered form, isolated bottom/right canvas, reversible camera and narrow/zoomed reflow
+│       ├── use-setup-motion.ts # Explicit welcome arrivals, directional forms, reversible camera, keyboard/reduced-motion immediacy and cleanup
+│       ├── use-setup-session.ts # Drafts retained across welcome; follows device timezone before confirmation only
 │       ├── use-setup-calendar.ts # Workspace-timezone midnight/focus/wake refresh and pure calendar/year-target derivation
-│       ├── TimezoneSelect.tsx # 仅可选择的时区下拉：浮层搜索、键盘选择；展开时才计算完整 GMT 偏移列表
-│       └── onboarding.css   # 首次流程样式（仅 token）
+│       ├── TimezoneSelect.tsx # Searchable timezone component; optional compact city text/floating menu, disabled state and lazy offset computation
+│       └── onboarding.css   # 首次流程整体居中与滚动布局、操作区和主题 token
 ├── components/              # 可跨功能使用的 UI 原语
 │   ├── due-date/            # Calendar deadline capsules for board rows and calendar-first editing shared by detail/composer: localized presets, day/month navigation, keyboard focus and first-level button guidance
 │   ├── links/               # Saved-text link rendering, visible-only metadata requests, fixed-height preview cards and keyboard/swipe carousel

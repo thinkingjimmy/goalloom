@@ -3,7 +3,7 @@
 > L2 | Parent: [desktop](../README.md). Isolated regression and measurement fixtures; no real tasks or credentials.
 
 - `run.mjs`: serial runner with one default regression list; explicitly selected scaling/large-workspace scenarios use Electron's Node/SQLite runtime.
-- `renderer.mjs`: current-source Chromium with delayed IPC/imports; local welcome choice, input/save revisions, late previews, pagination, search recovery, nested lazy-dialog visibility and draft-only composer calendar selection with first-level hover/focus guidance. Failures preserve the active page and original error. `pnpm --filter @goalloom/desktop exec -- node tests/review/renderer.mjs --calendar` selects calendar interactions only and writes `calendar.json`.
+- `renderer.mjs`: current-source Chromium with delayed IPC/imports; local welcome choice, input/save revisions, late previews, pagination, search recovery, nested lazy-dialog visibility and draft-only composer calendar selection with first-level hover/focus guidance. Failures preserve the active page and original error. `--calendar` selects composer calendar interactions and writes `calendar.json`; `--setup` selects only setup midnight/focus/stale-confirmation and writes `setup.json`, through `pnpm --filter @goalloom/desktop exec -- node tests/review/renderer.mjs <selector>`.
 - `lifecycle.mjs`: real Electron reload, close/reopen and crash maintenance release.
 - `virtual.mjs`: real Electron long columns; bounded DOM, keyboard/pointer drag, read-only history targets, logical focus, search/detail-close focus return, folds and refresh counts.
 - `wire.mjs`: real sandboxed preload rejects invalid dates/zones/extra fields in five languages and validates nested review contexts; accepts an optional packaged executable.
@@ -19,3 +19,5 @@
 `GOALLOOM_BENCH_REUSE=1` reuses the performance suite's synthetic seed; its original seed-time storage timings are not fresh phase measurements. `GOALLOOM_BENCH_LABEL` preserves each run, and `GOALLOOM_BENCH_ENTRY` can target a frozen build.
 
 [PROTOCOL]: Update this header when making changes, then check README.md.
+
+The `renderer.mjs --setup` selector also runs `fixtures/onboarding-ai-review.mjs`: persistent native preview, keyboard camera, simulated quota failure, retry and partial success. All provider responses in this fixture are synthetic and make no external requests.

@@ -88,7 +88,7 @@ try {
   await page.getByLabel('OpenRouter API Key').fill('synthetic-capture-key')
   await page.getByRole('checkbox', { name: '我同意把智能输入和洞察需要的内容发送给 OpenRouter' }).check()
   await page.getByRole('button', { name: '测试并开启', exact: true }).click()
-  await page.getByRole('heading', { name: '已连接 OpenRouter', exact: true }).waitFor()
+  await page.getByRole('heading', { name: /已连接\s*OpenRouter/ }).waitFor()
   await page.getByRole('button', { name: '进入看板', exact: true }).click()
   await page.locator('.board').waitFor()
   if (await page.locator('#later-toggle').getAttribute('aria-expanded') !== 'true') await page.locator('#later-toggle').click()

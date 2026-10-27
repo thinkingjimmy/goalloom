@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Locale-aware dates, mode and period presentation parameters.
- * [OUTPUT]: Complete calendar-mode, annual-direction and anchored-period UI copy.
+ * [OUTPUT]: Calendar modes, sentence setup and city copy, annual direction and anchored periods.
  * [POS]: Calendar catalog shared by setup, board, details and settings.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,7 +22,21 @@ export const calendarMessages: typeof source = {
   returnCurrent: "今期に戻る",
   returnNaturalYear: "今年に戻る",
   returnNaturalCycle: "今四半期に戻る",
-  chooseCalendar: "あなたの1年は、いつから始めますか？",
+  chooseCalendar: "カレンダーを設定",
+  setupPreview: "Goalloom ボードのプレビュー",
+  setupSentence: "{mode}で1年を計画し、{anchor}から始めます。週は{weekStart}から始めます。",
+  setupToday: "今日",
+  setupMonthStart: "今月1日",
+  setupNaturalStart: "1月1日",
+  setupYearLabel: "この1年",
+  setupFullYear: "今日から、丸1年。",
+  setupAnchoredYear: "選んだ開始日から1年を計画します。",
+  setupLockNote: "次のステップで確定すると、カレンダーがロックされます。\n変更にはバックアップとワークスペースのリセットが必要です。",
+  setupDateTitle: "1年の開始日を選択",
+  setupDateNote: "1年・半年・3か月の期間は、この日から計算します。",
+  setupUseDate: "この日付を使う",
+  setupInvalidDate: "今日以前の有効な開始日を選んでください。",
+  setupCities: { 'Asia/Singapore': "シンガポール", 'Asia/Shanghai': "上海", 'Asia/Hong_Kong': "香港", 'Asia/Tokyo': "東京", 'Europe/London': "ロンドン", 'Europe/Paris': "パリ", 'America/New_York': "ニューヨーク", UTC: "UTC" },
   calendarLead: "Goalloom は1年の方向を、今日の行動へ一歩ずつつなげます。ここでは1年・半年・3か月の始まりを決めます。月・週・日はいつも通常の暦に従います。",
   defaultTag: "標準",
   todayMarker: "今日",
