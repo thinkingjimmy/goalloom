@@ -16,11 +16,12 @@
 
 ### 底部居中工作区通知
 
-- 错误、时钟异常、时区差异、恢复确认、备份失败与同步待核对使用底部居中通知，与撤销 Toast 使用相同锚点、底色、阴影和轻量操作按钮。宽度随内容增长，最大 620px，正文完整换行，不折叠、不自动消失，不占用看板高度。操作优先同行靠右，窄窗口下移到正文下一行并靠右；无额外操作图标，空闲／悬停／核对禁用态在明暗主题中均保持可读。
+- 错误、时钟异常、时区差异、恢复确认、备份失败与同步待核对使用底部居中通知，与撤销 Toast 使用相同锚点、底色、阴影和轻量操作按钮。宽度随内容增长，最大 620px，正文完整换行，不自动消失，不占用看板高度。操作优先同行靠右，窄窗口下移到正文下一行并靠右；无额外操作图标，空闲／悬停／核对禁用态在明暗主题中均保持可读。
 - 保存结果未知时持续显示原操作的「重试核对」，核对期间禁用按钮并显示进度；不提供关闭按钮。只核对原请求，不创建替代写入。普通错误可关闭；时区／备份沿用条件 token 的关闭记忆；时钟／恢复／同步保留原确认入口。同步核对弹窗打开时隐藏其重复入口，关闭后按剩余数量恢复。
-- 多条通知居中向上堆放，超出可用高度时可滚动。成功 Toast 出现时位于通知下方，彼此留出距离；原生弹窗打开时两者仍可操作，不抢焦点。
+- 2026-10-27 负责人确认：通知与当前成功 Toast 使用 Sonner 原生堆叠、悬停展开／移开收起和自动关闭。保留现有胶囊样式；前台按内容定宽，后层轮廓贴合前台宽度，展开后每条各自按内容定宽。持续提醒保留到关闭或条件解除；成功提示沿用下方时长规则。后层收起时不可点击或进入 Tab 顺序。展开后超出可用高度可滚动；原生弹窗内仍可操作且不抢焦点。整库代次变化移除旧通知与操作，单条新成功反馈仍替换当前成功反馈。
 - 实现前失败场景：待核对状态被清空的错误文案隐藏；把 pending 当作执行中导致无法重试；连点产生重复写入；核对失败后没有可关闭的错误；原生模态框阻止通知操作；多条／长文案被截断；关闭状态在普通刷新后失效；通知遮住 Toast 或看板新建；靠右主按钮错位、禁用态不清晰；主题与五语言遗漏。
 - Toast 样式统一的实现前失败场景：通知偏离撤销 Toast 的底部居中锚点；短通知被强制拉满宽度；长正文被按钮挤成窄列或省略；窄窗口按钮未换行或与关闭按钮重叠；共用样式在极简外观下失配；新布局改变撤销计时、核对禁用或原生弹窗内的焦点与操作；多条长通知超过可用高度后无法滚动。
+- Native-stack failure cases: initial notices publish before the Toaster subscribes; dismissed/resolved notices reappear after a modal transfer; removed-generation actions survive; short messages stretch to a long notice's width; collapsed controls remain focusable; hover/focus/busy holds expire early; pending receipts gain swipe dismissal; expanded long notices overflow a short window; modal clearance observes the declaration placeholders instead of visible notifications.
 
 ### 底部 Toast
 
@@ -66,7 +67,8 @@
 - 未来周期提交后先刷新对应 `getBoardPeriods` 摘要，再按布局判定可见性；响应由选择、代次和修订隔离。具体周期交互见[周期规划](period-planning.md)。
 - 位置与状态从已提交结果对应的快照或详情读取；只判断底层行与列滚动区域，不将弹窗遮挡或流程筛选淡化误判为不可见。反馈查询失败不将已提交操作报为失败，不影响保存或撤销。
 - Toast 时长由反馈类型决定：普通撤销且无 `restoreSource` 为 2.5 秒，其他普通反馈为 6 秒，还原部分成功警告不自动关闭；暂停与工作区代次清理沿用现有反馈生命周期。文案覆盖中、英、日、西、法。
-- `FeedbackLayer` 将提示挂到当前原生模态框内的非模态 top layer；弹窗关闭后回到页面。提示不抢焦点，空白区域点击穿透，在详情／回收站内可直接关闭或撤销。
+- `FeedbackLayer` 将提示挂到当前原生模态框内的非模态 top layer；弹窗关闭后回到页面。提示不抢焦点，空白区域点击穿透，在详情／回收站内可直接关闭或撤销。 原生模态框按实际通知高度保留空间。
+- `FeedbackStack` 只将现有内容和时长交给 Sonner；展开、堆叠变换和退出由原生运行时管理。`sonner/dist/styles.css` 进入本地 CSS 产物，构建时移除同一依赖重复的运行时样式注入，不放宽 CSP。宽度／滚动测量不改变任务数据、回执或撤销成员；原生退出期间的内容立即禁用。开发反馈可选 `workspace-notices.mjs --stack`，完成时运行整个通知脚本。
 - `state/use-workspace.ts` 在权威刷新与 `UndoSession.accept` 去重后生成 renderer 内部 `CompletionEvent { operationId, generation, horizon }`；保留原命令上下文处理未知结果的回执恢复。优先从刷新快照读取列，缺失时查询详情；查询失败只跳过动效，不将已提交操作报为失败。代次变化清除旧事件。
 - `state/celebration.ts` 提供逐列外部存储、设置页预览、绑定工作区代次的复盘完成信号与系统减少动态效果订阅；预览复用同一画布与生命周期。localStorage `goalloom.celebration` 只保存与默认不同的已知布尔字段；非法字段各自回退默认，存储不可用时仍保留本次会话设置。
 - `CompletionCelebration` 只消费新事件身份。Canvas 2D 与单个 requestAnimationFrame 驱动有限粒子，DPR 上限 2，无闲置绘制、无逐帧 React 更新。非模态 manual popover 位于 top layer；画布与 backdrop 均透明且不拦截指针，装饰内容不进入可访问树。
@@ -79,6 +81,8 @@
 - Final review confirmation celebrates before the modal closes, fires twice, or plays after a rejected/lost write; disabled review-column or reduced-motion preferences are ignored; a stale-generation request plays after replacement; cancelling motion or reloading replays the result. Observe actual Canvas corner translations through the native completion group; preserve the existing player, cleanup and item-completion path.
 
 ## 验收
+
+- [x] Sonner 原生堆叠、悬停展开／收起、按内容定宽、既有撤销计时与持续提醒、短窗口滚动、原生弹窗和旧代次清理；本地样式遵守现有 CSP。可重复命令、环境、范围及截图：`apps/desktop/output/tests/workspace-notices/sonner-validation.json`。
 
 - [x] 2026-10-26：桌面与移动端随机图案。默认彩纸与八种 emoji 各占 1/9；每轮左右一致、不混合。桌面类型检查、339 项既有测试、构建、撒花与完成反馈 E2E、周初／周末完成与跳过定向场景通过；iOS 26.5 / iPhone 17 独立模拟器的九种图案、关闭本周开关和实际系统 Reduce Motion 场景通过，核对真实 SQLite 状态、截图与录屏，系统开关已恢复。桌面实际环境 Electron 44.4.4 / Node 24.21.0 / SQLite 3.53.4，macOS 26.4.1 arm64；物理机／VM 未独立确认。命令、初次测试设置失败与修正、源码哈希及范围：`apps/desktop/output/tests/celebration-emoji/validation.json`；移动端报告／录屏：根目录 `output/tests/mobile-celebration/validation.json` 及各场景时间戳目录。Windows、Android、真机与安装包未验收；移动端亚秒级替换及播放中开启减少动态效果未单独计时，桌面对应生命周期已覆盖。
 

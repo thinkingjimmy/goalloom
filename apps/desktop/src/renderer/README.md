@@ -17,9 +17,10 @@ renderer/
 │   │   ├── ColumnVisibilityMenu.tsx # Six planning-column checkboxes in the shared period-picker skin, minimum guard, calendar labels and keyboard/focus dismissal
 │   │   ├── CommandPalette.tsx # Debounced search with actual-period hints, commands and detail navigation
 │   │   ├── CompletionCelebration.tsx # Shared item/review/preview corner bursts; one random confetti/emoji shape per round, cached glyphs, nonmodal Canvas, column/motion guards and cleanup
-│   │   ├── FeedbackLayer.tsx # Nonmodal feedback layer inside the active native dialog, preserving focus and usable notification/Toast actions
-│   │   ├── WorkspaceNotice.tsx # Persistent bottom-center Toast surfaces with full copy, adaptive tonal actions and owner-controlled dismissal
-│   │   ├── workspace-notice.css # Content-sized 620px notices, narrow-window action rows, no folding and separate centered Toasts
+│   │   ├── FeedbackLayer.tsx # Generation-scoped, nonmodal feedback inside the active dialog/page; measured clearance preserves footer controls and recovery actions
+│   │   ├── FeedbackStack.tsx # Sonner adapter for native stacking/hover/timers, declarative notice lifecycles, focus/busy holds and content-width silhouettes
+│   │   ├── WorkspaceNotice.tsx # Persistent content-sized Sonner notices with full copy, adaptive tonal actions and owner-controlled dismissal
+│   │   ├── workspace-notice.css # Existing 620px-max capsules, content widths, native collapsed/expanded states and short-window stack scrolling
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
@@ -205,6 +206,8 @@ Note assistance uses the approved rewrite-notes design: no detail activity rail,
 Global single-task capture previews distinguish goal links from same-period task ownership. The composer retains owner version/placement guards, exposes an explicit independent-task choice, and clears ownership on manual placement/goal/color edits. Unedited ownership uses the main-owned ready/late capture path; edited single drafts use guarded atomic nested `createPlan`. Existing five-language nesting labels are reused.
 
 Single global-capture previews reuse the matcher's column and ownership/goal selection for ready/late parity. Automatic goal adoption never overrides a written current/future period; explicit adjustment menus retain manual control.
+
+`FeedbackStack` registers existing notice/Toast content with Sonner while owners retain receipt guards, generation cleanup and dismissal tokens. `sonner/dist/styles.css` is bundled locally; the renderer build removes only the duplicate runtime stylesheet injection, preserving CSP. Native stack transforms/timers remain unchanged. Width/scroll measurements keep collapsed silhouettes aligned and expanded capsules content-sized, including native dialog hosts.
 
 Hosted AI uses `features/shell/settings/HostedAiSettings.tsx` for account-only sign-in and separate data consent. Existing feature controls keep source selection and enabling explicit. `state/ai.ts` clears stale account state and assistance drafts on account transitions. Onboarding shows two steps only when the current account has a verified hosted eligibility result; unknown eligibility retains the local/BYOK route.
 
