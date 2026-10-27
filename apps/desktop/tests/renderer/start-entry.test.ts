@@ -31,18 +31,17 @@ function gate(partial: Partial<SyncStatus> & Pick<SyncStatus, 'phase'>): string 
 
 it('选择页、内联等待和返回后的登录失败都不出现登录提示', () => {
   const choice = gate({ phase: 'signed-out', email: null, error: 'auth' })
-  expect(choice).toContain('怎么开始？')
-  expect(choice).toContain('直接使用')
-  expect(choice).toContain('看板只存在这台设备上')
-  expect(choice).toContain('用 Google 登录')
-  expect(choice).toContain('无需自己的 Key 即可使用 AI，需要时再设置同步。')
+  expect(choice).toContain('欢迎使用 Goalloom')
+  expect(choice).toContain('直接开始')
+  expect(choice).toContain('无需账号，离线可用。')
+  expect(choice).toContain('使用 Google 登录')
+  expect(choice).toContain('同步需订阅 Plus。')
   expect(choice).toContain(authNotice)
   expect(choice).not.toContain(calendarTitle)
 
   const waiting = renderToStaticMarkup(createElement(ChoiceScreen, { waiting: true, onLocal: () => undefined, onSignIn: () => undefined, onCancel: () => undefined }))
   expect(waiting).toContain('在浏览器中继续…')
   expect(waiting).toContain('取消')
-  expect(waiting).toContain('data-dim="true"')
   expect(waiting).not.toContain('在多台设备间加密同步')
   expect(waiting).not.toContain(authNotice)
   expect(gate({ phase: 'signing-in' })).toContain('在浏览器中继续…')
@@ -87,10 +86,10 @@ it('blocks first-device setup when passwords do not match', () => {
   expect(disabledButton(mismatch, '继续')).toBe(true)
   const local = renderToStaticMarkup(createElement(Setup, { confirm: () => undefined, busy: false, errorCode: null, back: () => undefined }))
   expect(local).toContain(calendarTitle)
-  expect(local).toContain('上一步')
+  expect(local).toContain('返回')
   const synced = renderToStaticMarkup(createElement(Setup, { confirm: () => undefined, busy: false, errorCode: null }))
   expect(synced).toContain(calendarTitle)
-  expect(synced).not.toContain('上一步')
+  expect(synced).not.toContain('calendar-back')
 })
 
 function disabledButton(html: string, label: string): boolean {

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 当前时区、候选 IANA 时区列表、选择回调与可选触发器样式；依赖 Popover 与 Icon。
- * [OUTPUT]: Searchable timezone selection; computes the full offset list only while the popover is open.
- * [POS]: setup 日历句中的时区胶囊，替代原生 datalist，避免输入任意文本和系统下拉样式。
+ * [INPUT]: IANA timezone, candidates, selection callback and optional compact/display/disabled presentation; shared Popover, fields and menu styles.
+ * [OUTPUT]: Searchable timezone selection; compact mode uses a floating menu and caller-localized city text. Offsets are computed only while open.
+ * [POS]: Shared setup timezone control; constrains selection to known zones and uses the application menu style.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
@@ -13,7 +13,7 @@ import { Popover } from '../../components/Popover'
 import { gmtOffset } from '../../lib/timezones'
 import { Icon } from '../../components/icons'
 
-export function TimezoneSelect({ value, zones, onChange, labelId, describedBy, className }: { value: string; zones: string[]; onChange: (zone: string) => void; labelId: string; describedBy?: string; className?: string }) {
+export function TimezoneSelect({ value, zones, onChange, labelId, describedBy, className, compact = false, displayValue, disabled = false }: { value: string; zones: string[]; onChange: (zone: string) => void; labelId: string; describedBy?: string; className?: string; compact?: boolean; displayValue?: string; disabled?: boolean }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -36,13 +36,13 @@ export function TimezoneSelect({ value, zones, onChange, labelId, describedBy, c
   const close = () => { setOpen(false); trigger.current?.focus() }
   const choose = (zone: string) => { onChange(zone); close() }
 
-  return <Popover open={open} onClose={() => setOpen(false)} className="timezone-popover" anchor={
+  return <Popover open={open} onClose={() => setOpen(false)} floating={compact} className={compact ? 'timezone-popover calendar-timezone-popover' : 'timezone-popover'} anchor={
     <button ref={trigger} type="button" className={cn(className ? `select-trigger ${className}` : 'select-trigger', 'w-full flex items-center gap-2.5 px-3 py-[9px] border border-border rounded-control bg-raised text-foreground text-[14px] font-normal text-left hover:border-[var(--edit-line,var(--line))]')} aria-haspopup="listbox" aria-expanded={open} aria-labelledby={labelId} aria-describedby={describedBy}
-      onClick={() => open ? close() : show()}
+      disabled={disabled} onClick={() => open ? close() : show()}
       onKeyDown={event => { if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) { event.preventDefault(); show() } }}>
-      <span className={cn('select-value', 'flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis')}>{value}</span>
-      <span className="select-hint">{gmtOffset(value)}</span>
-      <Icon name="expand" size={16} />
+      <span className={cn('select-value', 'flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis')}>{displayValue ?? value}</span>
+      {!compact && <span className="select-hint">{gmtOffset(value)}</span>}
+      {compact ? <span className="select-icon"><Icon name="expand" size={16} /></span> : <Icon name="expand" size={16} />}
     </button>
   }>
     <div className={cn(menuStyles.surface, 'menu timezone-menu')}>

@@ -94,7 +94,9 @@ Electron scenarios (this directory)
     ├── sync-creation-placement.ts # Committed ready/late/future creation order, explicit positions, live root anchors and topological plans through pending/canonical replay and undo/restore
     ├── sync-rollover-placement.ts # Encrypted automatic/manual/backlog arrival positions, source-local groups, immutable receipts, guarded failures and root-first group undo
     ├── sync-sort-gaps.ts # Deterministic root/sibling gap exhaustion, preserved placement order and semantic undo after normalization on encrypted peers
-    ├── setup.mjs        # Shared welcome local-use choice, then real calendar → annual direction → AI setup; optional mode/timezone/week-start/anchor
+    ├── setup.mjs        # Shared welcome local-use choice and device-language renderer reload, then calendar → annual direction → AI setup; optional mode/timezone/week-start/anchor
+    ├── welcome.mjs      # Workspace-owned welcome acceptance: five locales, theme/short-window/zoom geometry, bundled art, keyboard order and no-write evidence
+    ├── calendar-sentence.mjs # Workspace-owned sentence calendar: shared Select menus, centered chevrons, timezone search, validated custom dates, focus return and locale/theme/zoom evidence
     ├── credential-entry.mjs # Pre-main cipher call counting, synthetic cloud/browser transport and disabled system protocol registration for isolated credential scenarios
     ├── session-key.ts  # Synthetic profile-scoped native session key for isolated sync UI fixtures; production encryption/files remain active
     ├── keychain-entry.mjs # Source app entry loading the private native probe; startup policy stays owned by production code
@@ -273,3 +275,7 @@ Hosted cache acceptance covers real A-B-A edits, a new same-title draft after cr
 The hosted account journey records app-local draft/focus/visibility booleans before failure cleanup. Failed isolated windows are destroyed before app shutdown so an unsaved-draft dialog cannot hide the original evidence. No assertion, product focus behavior or timeout is changed.
 
 `fixtures/celebration-shapes.mjs` extends `celebration.mjs` with nine controlled shape selections through real settings clicks. It observes Canvas calls, one glyph rasterization, uniform transforms, dual-corner origins, particle bounds and released sprite buffers; it does not replace receipts or particle motion. Reports stay in `output/tests/celebration.json`, with `output/tests/screenshots/completion-shape-*.png`.
+
+Onboarding bottom-canvas acceptance is owned by `fixtures/calendar-sentence.mjs` through `test:ui`: five locales, themes, narrow/zoomed windows, three inline controls, automatic computer timezone via CDP device emulation, live non-writing direction row, persistent camera, 44px outlined Back, pointer cursors, reduced motion, Enter-to-focus and draft retention across welcome. Evidence: `output/tests/onboarding-calendar/`. Shared `fixtures/setup.mjs` emulates the computer timezone instead of driving a removed setting.
+
+AI Onboarding uses `fixtures/onboarding-ai.mjs` in `test:composer`: annual-to-AI DOM continuity, native Plan/EmptyCard previews, provider Key/consent reset, dark appearance, compact native windows and zoom. The source-browser fixture checks all five AI-page locales. Evidence: `output/tests/onboarding-ai/` and `output/tests/screenshots/onboarding-*.png`. `tests/review/renderer.mjs --setup` also covers mocked quota failure, retry and partial capability success; its `ai-connect-failure.png` is synthetic error evidence, not a live-provider result.

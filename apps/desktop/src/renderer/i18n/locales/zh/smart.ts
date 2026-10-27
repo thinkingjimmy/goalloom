@@ -9,6 +9,18 @@ import { widen } from '../../../../shared/i18n/locale'
 
 export const providerNames: Record<AiProvider, string> = { hosted: 'Goalloom 内置 AI', 'vercel-gateway': 'Vercel AI Gateway', openrouter: 'OpenRouter' }
 export const smartMessages = widen({
+  onboardingIntroTitle: "让想法，\n变成下一步。",
+  onboardingPreviewLabel: "功能预览",
+  onboardingConnectTitle: "连接你的\nAI 服务。",
+  onboardingOwnKey: "使用自己的 Key",
+  onboardingDonePrefix: "已连接\n",
+  onboardingDoneBody: "准备好了，\n从一件小事开始。",
+  onboardingSmartDetail: "随手写下一句，整理为任务。",
+  onboardingInsightDetail: "需要时，起草建议与复盘。",
+  onboardingDemoInput: "这个月完成登录页改版，今天整理问题，周五前交设计稿",
+  onboardingDemoGoal: "跑完一场全程马拉松",
+  onboardingDemoStage: "完成第一阶段准备",
+  onboardingInsightFigure: "洞察示例：起草阶段成果",
   composer: '新建',
   inputLabel: '写下想法',
   placeholder: '写下想法，一行一件事也可以…',

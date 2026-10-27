@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Locale-aware dates, mode and period presentation parameters.
- * [OUTPUT]: Complete calendar-mode, annual-direction and anchored-period UI copy.
+ * [OUTPUT]: Calendar modes, sentence setup and city copy, annual direction and anchored periods.
  * [POS]: Calendar catalog shared by setup, board, details and settings.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,7 +22,21 @@ export const calendarMessages = widen({
   returnCurrent: "回到当期",
   returnNaturalYear: "回到今年",
   returnNaturalCycle: "回到本季度",
-  chooseCalendar: "你的一年，从哪天开始？",
+  chooseCalendar: "设置你的日历",
+  setupPreview: "Goalloom 看板示意",
+  setupSentence: "按 {mode} 规划一年，从 {anchor} 开始。每周从 {weekStart} 开始。",
+  setupToday: "今天",
+  setupMonthStart: "本月 1 日",
+  setupNaturalStart: "1 月 1 日",
+  setupYearLabel: "你的一年",
+  setupFullYear: "从今天起，完整的一年。",
+  setupAnchoredYear: "从所选起点，连续规划一年。",
+  setupLockNote: "下一步确认后锁定日历。\n更换日历需先备份并重置工作区。",
+  setupDateTitle: "选择一年的起点",
+  setupDateNote: "年、半年和 3 个月都会从这一天起算。",
+  setupUseDate: "使用这个日期",
+  setupInvalidDate: "请选择不晚于今天的有效起点。",
+  setupCities: { 'Asia/Singapore': "新加坡", 'Asia/Shanghai': "上海", 'Asia/Hong_Kong': "香港", 'Asia/Tokyo': "东京", 'Europe/London': "伦敦", 'Europe/Paris': "巴黎", 'America/New_York': "纽约", UTC: "UTC" },
   calendarLead: "Goalloom 把一年的方向，一步步连到今天的行动。这一步决定 1年、半年和 3个月从哪天起算；本月、本周和今天始终按自然日历。",
   defaultTag: "默认",
   todayMarker: "今天",

@@ -40,7 +40,7 @@ try {
   const a='11111111-1111-4111-8111-111111111111',b='33333333-3333-4333-8333-333333333333'
   await signIn(a)
   await page.locator('.calendar-modes').waitFor()
-  await page.waitForFunction(()=>document.querySelectorAll('.onboarding-steps li').length===2)
+  await page.waitForFunction(()=>document.querySelector('[data-setup-count="2"]') !== null)
   const logged=await aiStatus();assert.equal(logged.hostedEligible,true);assert.equal(logged.providers.hosted.consentedAt,null);assert.equal(logged.features.smart.enabled,false)
   assert.equal((await snapshot()).workspace.setupConfirmedAt,null)
   assert.equal(await app.evaluate(()=>globalThis.credentialFixture.modelCalls??0),0)

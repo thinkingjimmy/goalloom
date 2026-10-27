@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Locale-aware dates, mode and period presentation parameters.
- * [OUTPUT]: Complete calendar-mode, annual-direction and anchored-period UI copy.
+ * [OUTPUT]: Calendar modes, sentence setup and city copy, annual direction and anchored periods.
  * [POS]: Calendar catalog shared by setup, board, details and settings.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,7 +22,21 @@ export const calendarMessages: typeof source = {
   returnCurrent: "Volver al actual",
   returnNaturalYear: "Volver a este año",
   returnNaturalCycle: "Volver a este trimestre",
-  chooseCalendar: "¿Cuándo empieza tu año?",
+  chooseCalendar: "Configura tu calendario",
+  setupPreview: "Vista previa del tablero de Goalloom",
+  setupSentence: "Planifica por {mode} desde {anchor}. La semana empieza el {weekStart}.",
+  setupToday: "hoy",
+  setupMonthStart: "el día 1 de este mes",
+  setupNaturalStart: "el 1 de enero",
+  setupYearLabel: "Tu año",
+  setupFullYear: "Un año completo, desde hoy.",
+  setupAnchoredYear: "Un año desde la fecha elegida.",
+  setupLockNote: "El calendario se bloquea al confirmar en el siguiente paso.\nPara cambiarlo, crea una copia y restablece el espacio de trabajo.",
+  setupDateTitle: "Elige el inicio de tu año",
+  setupDateNote: "El año, el semestre y los periodos de 3 meses empiezan en esta fecha.",
+  setupUseDate: "Usar esta fecha",
+  setupInvalidDate: "Elige una fecha válida que no sea posterior a hoy.",
+  setupCities: { 'Asia/Singapore': "Singapur", 'Asia/Shanghai': "Shanghái", 'Asia/Hong_Kong': "Hong Kong", 'Asia/Tokyo': "Tokio", 'Europe/London': "Londres", 'Europe/Paris': "París", 'America/New_York': "Nueva York", UTC: "UTC" },
   calendarLead: "Goalloom conecta la dirección de un año con las acciones de hoy, paso a paso. Aquí decides cuándo empiezan el año, el semestre y los 3 meses; los meses, las semanas y los días siguen siempre el calendario habitual.",
   defaultTag: "Predeterminado",
   todayMarker: "Hoy",

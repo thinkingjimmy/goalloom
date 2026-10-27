@@ -1,0 +1,44 @@
+/**
+ * [INPUT]: Welcome markup, existing theme tokens and the actual available window width/height.
+ * [OUTPUT]: Compact two-column layout, height-aligned art, narrow/zoomed reflow and a scoped sage primary action.
+ * [POS]: First welcome screen only; does not style calendar, password or Settings controls.
+ * [PROTOCOL]: Update this header when making changes, then check README.md.
+ */
+.welcome-entry {
+  container: welcome / inline-size;
+  --welcome-primary: light-dark(oklch(.41 .035 145), oklch(.75 .035 145));
+  --welcome-on-primary: light-dark(#fffdfa, oklch(.22 .025 145));
+}
+.welcome-scroll { display: flex; }
+.welcome-content {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 64px;
+  flex: none;
+  width: min(760px, calc(100% - 80px));
+  margin: auto;
+  padding: 40px 0;
+}
+.welcome-primary { --primary: var(--welcome-primary); --primary-foreground: var(--welcome-on-primary); }
+.welcome-provider > svg { flex-shrink: 0; }
+.welcome-benefits { position: relative; width: 100%; max-width: 320px; min-width: 0; margin-inline: auto; }
+.welcome-benefit-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 24px 26px; }
+.welcome-benefit { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 10px; min-width: 0; min-height: 0; }
+.welcome-art { display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
+.welcome-art img { display: block; width: auto; height: auto; max-width: min(94%, 156px); max-height: 156px; object-fit: contain; user-select: none; }
+@container welcome (max-width: 900px) {
+  .welcome-content { width: calc(100% - 64px); max-width: 760px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px; }
+  .welcome-benefit-grid { column-gap: 20px; }
+}
+@container welcome (max-width: 700px) {
+  .welcome-content { width: calc(100% - 48px); max-width: 340px; grid-template-columns: 1fr; gap: 32px; padding: 32px 0; }
+  .welcome-benefit-grid { position: static; grid-template-rows: auto; gap: 24px; }
+  .welcome-art { height: 120px; }
+  .welcome-art img { max-height: 120px; }
+}
+@media (max-height: 650px) {
+  .welcome-content { padding-block: 20px; }
+  .welcome-title { margin-bottom: 24px; }
+  .welcome-account { margin-top: 20px; padding-top: 16px; }
+}

@@ -1,30 +1,21 @@
 /**
  * [INPUT]: Copy, the signed-in address, password draft and shared Tailwind fields. Sync calls stay in StartGate.
- * [OUTPUT]: The choice cards, inline browser wait, password forms, reset dialog and syncing state.
- * [POS]: Presentational first-run screens. Joining never mounts Setup.
+ * [OUTPUT]: Centered password/syncing screens with account navigation below content, and the re-exported local-first welcome screen.
+ * [POS]: Presentational first-run account screens; WelcomeScreen owns the initial choice. Joining never mounts Setup.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Input } from '../../components/ui/fields'
-import { cn } from '../../lib/utils'
 import { useId, useState, type ReactNode } from 'react'
-import { currentLocale, messages, settingsMessages as settings } from '../../i18n'
+import { messages, settingsMessages as settings } from '../../i18n'
 import { Icon } from '../../components/icons'
-import { LanguageSelect } from '../../components/LanguageSelect'
 import { Button } from '../../components/ui/button'
 import appIcon from '../../assets/app-icon.png'
-import { hostedCatalog } from '../../../shared/i18n/hosted'
 import { passwordReady } from './entry'
-import { AuthMark } from '../../components/AuthMark'
-import type { AuthProvider } from '../../../shared/contracts/sync'
+export { ChoiceScreen } from './WelcomeScreen'
 
-
-function Frame({ back, children, wide = false }: { back?: ReactNode; children: ReactNode; wide?: boolean }) {
+function Frame({ back, children }: { back?: ReactNode; children: ReactNode }) {
   return <div className="onboarding start-entry flex-1 min-h-0 flex flex-col">
-    <header className="onboarding-header w-full h-11 shrink-0 mx-auto my-0 flex items-center justify-between gap-4">
-      {back ?? <span />}
-      <LanguageSelect id="start-language" className="onboarding-language" />
-    </header>
-    <main className="onboarding-main flex-1 min-h-0 overflow-y-auto"><div className={cn(`onboarding-content start-column${wide ? ' wide' : ''}`, 'w-full mx-auto my-0 flex flex-col gap-8 max-w-105')}>{children}</div></main>
+    <main className="onboarding-main onboarding-flow flex-1 min-h-0 overflow-y-auto"><div className="onboarding-content onboarding-stack start-column flex flex-col gap-8">{children}{back && <div className="start-back-footer">{back}</div>}</div></main>
   </div>
 }
 
@@ -47,39 +38,6 @@ function SecretField({ id, label, value, onChange, invalid, autoComplete }: {
       <Icon name={shown ? 'viewOff' : 'view'} size={18} />
     </button>
   </div>
-}
-
-export function ChoiceScreen({ waiting, provider, busy = false, onLocal, onSignIn, onCancel }: {
-  waiting: boolean; provider?: AuthProvider; busy?: boolean; onLocal: () => void; onSignIn: (provider: AuthProvider) => void; onCancel: () => void
-}) {
-  const copy = messages.start
-  return <Frame wide>
-    <header className="onboarding-intro flex flex-col items-start gap-3">
-      <p className="onboarding-eyebrow m-0 flex items-center gap-2 text-[13px] font-medium text-muted-foreground"><span className="onboarding-mark relative w-5.5 h-5.5 shrink-0 rounded-[6px] overflow-hidden" aria-hidden="true"><img src={appIcon} alt="" draggable={false} /></span>{messages.welcome}</p>
-      <h1 className="onboarding-title m-0 text-[32px] leading-[1.25] font-semibold tracking-[-.02em] text-balance">{copy.title}</h1>
-    </header>
-    <div className="start-cards grid grid-cols-2 gap-4">
-      <button type="button" className="start-card min-h-37.5 px-6 py-5.5 flex flex-col items-start gap-2.5 rounded-[16px] bg-raised text-left" data-dim={waiting || undefined} disabled={waiting || busy} onClick={onLocal}>
-        <span className="start-card-icon w-9 h-9 rounded-[10px] grid place-items-center bg-hover text-soft" aria-hidden="true"><Icon name="monitor" size={20} /></span>
-        <b>{copy.local}</b>
-        <small>{copy.localNote}</small>
-      </button>
-      <div className="start-card min-h-37.5 px-6 py-5.5 flex flex-col items-start gap-2.5 rounded-[16px] bg-raised text-left" data-selected={waiting || undefined} data-waiting={waiting || undefined}>
-        <span className="start-card-icon w-9 h-9 rounded-[10px] grid place-items-center bg-hover text-soft" aria-hidden="true"><Icon name="cloud" size={20} /></span>
-        <b>{hostedCatalog[currentLocale()].startTitle}</b>
-        {!waiting && <small>{hostedCatalog[currentLocale()].startNote}</small>}
-        <div className="start-providers flex flex-col gap-2 w-full mt-1">
-          {(['apple', 'google'] as const).map(id => <Button key={id} type="button" disabled={waiting || busy} onClick={() => onSignIn(id)}>
-            <AuthMark provider={id} />{id === 'apple' ? copy.apple : copy.google}
-          </Button>)}
-        </div>
-        {waiting && <div className="start-wait flex flex-wrap items-center gap-2.5 text-[13.5px] text-soft" role="status">
-          <span className="start-spinner" aria-hidden="true" /><span>{provider === 'apple' ? copy.apple : copy.google} · {copy.browser}</span>
-          <button type="button" className="start-quiet text-[13px] text-muted-foreground" onClick={onCancel}>{settings.sync.cancel}</button>
-        </div>}
-      </div>
-    </div>
-  </Frame>
 }
 
 export function JoinPasswordScreen({ email, wrong, busy, onBack, onSubmit, onReset }: {

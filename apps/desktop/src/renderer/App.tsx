@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded writes, selected board periods, undo, flows, preferences and independent sync feedback.
  * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches. Content-sized notices and Undo feedback use native Sonner stacking, hover expansion and duration rules; pending receipts cannot be dismissed. Timezone and backup dismissal follows condition tokens. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
- * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
+ * [POS]: Renderer root; owns an out-of-flow startup status and a persistent setup/AI stage with early AI module loading; guards dialogs/shortcuts and retains the composer until generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSync } from './state/sync'
@@ -11,6 +11,7 @@ import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffec
 import { currentPeriod, workspaceDate } from '../domain/calendar'
 import type { ItemSummary, PlanningPeriod } from '../shared/contracts/entities'
 import { Icon } from './components/icons'
+import { OnboardingStage } from './features/setup/OnboardingStage'
 import type { CalendarChoice } from './features/setup/Setup'
 import { revealRow } from './features/board/VirtualRows'
 import { Board, type BoardInsight } from './features/board/Board'
@@ -51,7 +52,8 @@ const CommandPalette = lazy(() => import('./features/shell/CommandPalette').then
 const Composer = lazy(() => import('./features/composer/Composer').then(module => ({ default: module.Composer })))
 const Seeded = lazy(() => import('./features/composer/Seeded').then(module => ({ default: module.Seeded })))
 const ReviewDrawer = lazy(() => import('./features/insight/ReviewDrawer').then(module => ({ default: module.ReviewDrawer })))
-const AiStep = lazy(() => import('./features/smart/AiStep').then(module => ({ default: module.AiStep })))
+const loadAiStep = () => import('./features/smart/AiStep').then(module => ({ default: module.AiStep }))
+const AiStep = lazy(loadAiStep)
 
 export function App() {
   // Re-render the whole tree on a language switch; state (drafts, undo stack, open dialogs) is kept.
@@ -117,6 +119,8 @@ export function App() {
     } }), [ready, due, reviewing, insightSettings.reviewed, columns.setVisible, snapshot?.workspace.generation])
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const setupReady = !!snapshot?.workspace.setupConfirmedAt
+  const plusReady = !!account?.accountId && account.accountId === ai.status?.hostedAccountId && ai.status?.hostedEligible === true
+  useEffect(() => { if (snapshot?.workspace.generation && !setupReady) void loadAiStep().catch(() => undefined) }, [snapshot?.workspace.generation, setupReady])
   useLayoutEffect(() => { resetLinkPreviewCache() }, [snapshot?.workspace.generation])
   useLayoutEffect(() => {
     if (!snapshot?.workspace.generation) return
@@ -154,32 +158,37 @@ export function App() {
   useEffect(() => { try { return desktopApi().onOpenAbout(openAbout) } catch { return undefined } }, [openAbout])
   const directionLocation = useRef<{ generation: string; detail: Awaited<ReturnType<ReturnType<typeof desktopApi>['getItem']>> } | null>(null)
   const [directionPending, setDirectionPending] = useState(false)
+  const [setupTransition, setSetupTransition] = useState(false)
   const [setupErrorCode, setSetupErrorCode] = useState<string | null>(null)
   const confirmSetup = async (calendar: CalendarChoice, direction: string, period: PlanningPeriod): Promise<boolean> => {
     setSetupErrorCode(null)
-    const confirmed = await write(async () => ({ type: 'confirmSetup', ...calendar, confirmed: true }), snapshot!.workspace.generation)
-    if (!confirmed.ok) { setSetupErrorCode(confirmed.code); setError(confirmed.message); return false }
-    if (!confirmed.result) return false
-    startTransition(() => setOnboarding(!(account?.accountId === ai.status?.hostedAccountId && ai.status?.hostedEligible === true)))
-    if (direction) {
-      setDirectionPending(true)
-      try {
-        const result = await submit({ type: 'create', title: direction, description: '', dueDate: null, horizon: 'year', period: { kind: 'date', startDate: period.startDate }, parentId: null, expectedParentVersion: null, flowColor: 0 })
-        if (result?.itemId) directionLocation.current = { generation: snapshot!.workspace.generation, detail: await desktopApi().getItem(result.itemId) }
-      } finally { setDirectionPending(false) }
-    }
-    return true
+    setSetupTransition(true)
+    try {
+      const confirmed = await write(async () => ({ type: 'confirmSetup', ...calendar, confirmed: true }), snapshot!.workspace.generation)
+      if (!confirmed.ok) { setSetupErrorCode(confirmed.code); setError(confirmed.message); return false }
+      if (!confirmed.result) return false
+      setOnboarding(!plusReady)
+      if (direction) {
+        setDirectionPending(true)
+        try {
+          const result = await submit({ type: 'create', title: direction, description: '', dueDate: null, horizon: 'year', period: { kind: 'date', startDate: period.startDate }, parentId: null, expectedParentVersion: null, flowColor: 0 })
+          if (result?.itemId) directionLocation.current = { generation: snapshot!.workspace.generation, detail: await desktopApi().getItem(result.itemId) }
+        } finally { setDirectionPending(false) }
+      }
+      return true
+    } finally { setSetupTransition(false) }
   }
+
   useEffect(() => {
     if (directionLocation.current && directionLocation.current.generation !== snapshot?.workspace.generation) directionLocation.current = null
     const detail = directionLocation.current?.detail
-    if (onboarding || !snapshot?.workspace.calendar || !detail?.period) return
+    if (onboarding || setupTransition || directionPending || !snapshot?.workspace.calendar || !detail?.period) return
     directionLocation.current = null
     if (detail.item.placement.horizon !== 'later') columns.setVisible(detail.item.placement.horizon, true)
     boardView.locate(detail.item, detail.period)
     const half = currentPeriod(snapshot.workspace.calendar, 'half', detail.period.startAt)
     boardView.choose('half', half.id === snapshot.periods.find(period => period.horizon === 'half')?.id ? null : half)
-  }, [onboarding, snapshot?.workspace.revision])
+  }, [onboarding, setupTransition, directionPending, snapshot?.workspace.revision])
   useEffect(() => {
     const handle = (event: KeyboardEvent) => {
       if (event.defaultPrevented || (event.target instanceof Element && event.target.closest('.context-menu'))) return
@@ -189,7 +198,7 @@ export function App() {
       const editing = editingTarget(event.target)
       if (reviewOpen) return
       if (combo === bindings.undo && !editing) { event.preventDefault(); if (!pending && !snapshot?.maintenance) requestUndo() }
-      if (!setupReady || onboarding || selected || settings || composing || palette || seed) return
+      if (!setupReady || onboarding || setupTransition || selected || settings || composing || palette || seed) return
       if (combo === bindings.palette) { event.preventDefault(); openPalette() }
       if (editing) return
       if (combo === bindings.compose) { event.preventDefault(); compose() }
@@ -202,21 +211,23 @@ export function App() {
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, composing, palette, seed, reviewOpen, bindings, filterKeys, flows, selectFilter, columns])
+  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, setupTransition, composing, palette, seed, reviewOpen, bindings, filterKeys, flows, selectFilter, columns])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
   const workspaceZone = snapshot?.workspace.calendar?.timezone ?? null
   const timezoneNotice = useDismissedNotice('timezone', workspaceZone ? timezoneNoticeToken(Intl.DateTimeFormat().resolvedOptions().timeZone, workspaceZone) : null)
   const backupNotice = useDismissedNotice('backup', snapshot?.backupError ?? null)
   return <div className="app-shell" onPointerDownCapture={() => { inputOrigin.current = 'pointer' }}
     onKeyDownCapture={event => { if (!event.nativeEvent.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) inputOrigin.current = 'keyboard' }}>
-    <TopBar ready={setupReady && !onboarding} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
+    <TopBar ready={setupReady && !onboarding && !setupTransition} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
       calendar={snapshot?.workspace.calendar ?? null} menuBlocked={!!selected || settings || palette || composing || !!seed || reviewOpen}
       laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
       updateAvailable={hasUpdate(update)} openSearch={openPalette} openSettings={() => openSettings()} />
     {setupReady && snapshot && <SyncFeedback key={snapshot.workspace.generation} generation={snapshot.workspace.generation} onOpenChange={setSyncReviewOpen} />}
-    <Suspense fallback={<main className="setup-page" role="status">{messages.opening}</main>}>
-    {!snapshot ? <main className="setup-page" role="status">{messages.opening}</main> : !setupReady ? <StartGate skipAi={!!account?.accountId && account.accountId === ai.status?.hostedAccountId && ai.status?.hostedEligible === true} confirm={confirmSetup} busy={busy} errorCode={setupErrorCode ?? errorCode} />
-      : onboarding ? <AiStep busy={directionPending} ai={ai} finish={() => setOnboarding(false)} /> : <>
+    <Suspense fallback={<main className="setup-opening" role="status">{messages.opening}</main>}>
+    {!snapshot ? <main className="setup-opening" role="status">{messages.opening}</main> : !setupReady || onboarding || setupTransition ? <OnboardingStage>
+      {!setupReady || (setupTransition && !onboarding) ? <StartGate skipAi={plusReady} confirm={confirmSetup} busy={busy || setupTransition} errorCode={setupErrorCode ?? errorCode} />
+      : <AiStep snapshot={snapshot} direction={directionLocation.current?.detail ?? null} keyboardEntry={inputOrigin.current === 'keyboard'} busy={directionPending} ai={ai} finish={() => setOnboarding(false)} />}
+    </OnboardingStage> : <>
       <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={null} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight} ai={ai}
         write={write} onError={setError} relationBlocked={busy || !!pending || !!snapshot.maintenance || !!selected || settings || palette || composing || !!seed || reviewOpen} /></div>
       <button className="fab" aria-label={messages.newItem} title={[messages.newItem, formatCombo(bindings.compose)].filter(Boolean).join(' ')} aria-keyshortcuts={ariaKeys(bindings.compose)} disabled={busy} onClick={compose}><Icon name="add" size={24} strokeWidth={1.8} /></button>

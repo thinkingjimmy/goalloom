@@ -4,7 +4,7 @@
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { chooseLocalStart, finishSetup } from './fixtures/setup.mjs'
+import { chooseLocalStart, finishSetup, reloadDeviceLanguage, settleSetupStep } from './fixtures/setup.mjs'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -90,31 +90,40 @@ try {
   let page = await application.firstWindow()
   page.on('pageerror', error => console.error(error.message))
   await chooseLocalStart(page)
-  const language = page.locator('#setup-language')
-  await language.waitFor()
+  assert.equal(await page.locator('#setup-language, #start-language').count(), 0)
 
   // 1. No preference file: the UI follows the system's preferred languages (unsupported ones fall back to English).
   const system = await application.evaluate(({ app }) => app.getPreferredSystemLanguages())
   const detected = system.map(tag => tag.toLowerCase().split(/[-_]/)[0]).find(code => code in tags) ?? 'en'
   Object.assign(report, { system, detected })
   assert.equal(await page.evaluate(() => document.documentElement.lang), tags[detected])
-  assert.match(await language.innerText(), new RegExp(`· ${names[detected]}$`))
   assert.deepEqual(await page.evaluate(() => window.goalloom.getLanguage()), { language: 'system', locale: detected, system: detected })
 
-  // 2. Setup page switches instantly, before the calendar is confirmed; typed setup values survive the switch.
-  await choose(page, language, 'en')
+  // 2. Setup follows the saved device language at renderer startup; language controls belong to Settings.
+  await reloadDeviceLanguage(page, 'en')
+  await chooseLocalStart(page)
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'en')
   await assertTranslated(page, 'en calendar step')
   await page.screenshot({ path: `${shots}/language-setup-en.png` })
   const weekStart = await page.evaluate(() => (new Date().getDay() + 1) % 7 || 7)
   await finishSetup(page, { weekStart, skipAi: false })
   await page.getByRole('button', { name: 'Connect an AI service', exact: true }).click()
+  assert.equal(await page.locator('#setup-language, #start-language').count(), 0)
   await page.getByLabel('OpenRouter API Key').waitFor()
   await assertTranslated(page, 'en AI service step')
-  await page.getByRole('radio', { name: /^Vercel AI Gateway/ }).click()
+  assert.equal(await page.locator('.onboarding-header, .onboarding-steps').count(), 0)
+  const compactAi = await page.locator('.ai-entry .setup-logo').evaluate(node => {
+    const stage = node.closest('.onboarding-stage').getBoundingClientRect()
+    return node.getBoundingClientRect().top - stage.top <= 112
+  })
+  assert(compactAi, 'AI starts near the top of the available content area without a large blank band')
+  await settleSetupStep(page)
+  await page.screenshot({ path: `${shots}/language-setup-ai-centered.png` })
+  await page.getByRole('combobox', { name: 'AI service', exact: true }).click()
+  await page.getByRole('option', { name: 'Vercel AI Gateway', exact: true }).click()
   await page.getByLabel('Vercel AI Gateway API Key').waitFor()
   await assertTranslated(page, 'en AI service step (Vercel AI Gateway)')
-  await page.getByRole('button', { name: 'Back to example', exact: true }).click()
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
   await assertTranslated(page, 'en AI example step')
   await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
   await page.getByRole('main', { name: ui.en.board }).waitFor()

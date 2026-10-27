@@ -1,23 +1,21 @@
 /**
- * [INPUT]: Setup content, shared theme tokens, native field state and viewport size.
- * [OUTPUT]: Coordinated step/selection states, bounded content geometry, platform controls and reduced-motion rules.
+ * [INPUT]: Setup content, measured feedback clearance, shared theme tokens, native field state and viewport size.
+ * [OUTPUT]: Vertically centered scrollable content groups, bounded geometry, feedback-safe controls and reduced-motion rules.
  * [POS]: Setup-specific CSS; ordinary layout lives in the consuming components' Tailwind classes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .onboarding { --onboarding-width: 1000px; --onboarding-gutter: clamp(24px, 6vw, 72px); }
-.onboarding-header { max-width: calc(var(--onboarding-width) + 2 * var(--onboarding-gutter)); padding: 0 var(--onboarding-gutter); }
-.onboarding-steps li { position: relative; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.onboarding-steps li + li::before { content: ''; position: absolute; left: -32px; width: 24px; height: 1px; background: var(--line); pointer-events: none; }
-.onboarding-steps li[data-state='current'] { color: var(--fg); font-weight: 500; }
-.onboarding-step-mark { box-shadow: inset 0 0 0 1px var(--line); }
-[data-state='current'] > .onboarding-step-mark { background: var(--fg); color: var(--bg); box-shadow: none; }
-[data-state='done'] > .onboarding-step-mark { background: var(--pressed); color: var(--fg-soft); box-shadow: none; }
-.onboarding-language.select-trigger { width: auto; height: 32px; gap: 6px; padding: 0 8px 0 10px; font-size: 13px; }
+.onboarding button:not(:disabled) { cursor: pointer; }
+.calendar-select-menu [role="option"]:not([data-disabled]) { cursor: pointer; }
 .onboarding-main { padding: 0 var(--onboarding-gutter); }
 .onboarding-content { max-width: var(--onboarding-width); padding: clamp(16px, 5vh, 48px) 0 40px; animation: onboarding-enter .2s ease-out; }
 @keyframes onboarding-enter { from { opacity: 0; transform: translateY(6px); } }
-/* Pinned below the scrolling content, but without a bar: no border or fill, aligned to the content column. */
-.onboarding-footer { max-width: calc(var(--onboarding-width) + 2 * var(--onboarding-gutter)); padding: 16px var(--onboarding-gutter) 28px; }
+.onboarding-flow { display: flex; }
+.onboarding-stack { flex: none; width: 100%; max-width: var(--onboarding-width); margin: auto; padding: max(32px, var(--feedback-clearance, 0px)) 0; }
+.onboarding-stack > .onboarding-content { padding: 0; }
+.onboarding-footer { padding: 24px 0 0; }
+.start-entry .start-column { max-width: 420px; }
+.start-billing { max-width: 600px; }
 .onboarding-note-main .text-button { margin-left: 4px; font-size: inherit; color: var(--focus); }
 .onboarding-note-main .text-button:hover:not(:disabled) { color: var(--focus); text-decoration: underline; text-underline-offset: 3px; }
 .onboarding-actions svg { margin-right: -4px; }
@@ -29,22 +27,6 @@
 .onboarding-subtitle { max-width: 64ch; }
 .onboarding-meta .text-button { font-size: inherit; color: var(--focus); }
 .onboarding-meta .text-button:hover:not(:disabled) { color: var(--focus); text-decoration: underline; text-underline-offset: 3px; }
-
-/* Step 1 · calendar: two radio cards with a live year timeline, then a sentence with inline pills. */
-.calendar-mode-card { --timeline-ground: var(--raised); box-shadow: 0 0 0 1px var(--line); transition: box-shadow .15s ease-out; }
-.calendar-mode-card:hover:not([data-selected='true']) { box-shadow: 0 0 0 1px var(--edit-line); }
-.calendar-mode-card[data-selected='true'] { box-shadow: 0 0 0 1.5px var(--fg), 0 6px 20px rgba(60, 40, 20, .07); }
-.calendar-mode-card:has(.calendar-mode:focus-visible) { outline: 2px solid color-mix(in oklab, var(--focus) 60%, transparent); outline-offset: 3px; }
-.calendar-mode:focus-visible { outline: none; }
-.calendar-mode .year-timeline { margin: 6px 0 0 30px; }
-.calendar-mode > small { padding-left: 30px; min-height: 20px; font-size: 12.5px; color: var(--secondary); font-variant-numeric: tabular-nums; }
-.calendar-mode-card[data-selected='false'] { --timeline-past: color-mix(in oklab, var(--checked) 55%, var(--raised)); }
-.calendar-start { border-top: 1px solid var(--hairline); }
-.calendar-start .select-trigger.pill-trigger, .calendar-start .pill-date { height: 32px; margin: 0; font-size: 13px; }
-.calendar-start > .text-button { flex-shrink: 0; margin-left: auto; color: var(--focus); }
-.calendar-start > .text-button:hover:not(:disabled) { color: var(--focus); text-decoration: underline; text-underline-offset: 3px; }
-.select-trigger.pill-trigger { display: inline-flex; width: auto; height: 34px; margin: 0 4px; padding: 0 10px 0 12px; font-size: 14px; font-weight: 500; }
-.calendar-sentence .timezone-popover { right: auto; width: 340px; font-size: 14px; line-height: 1.5; font-weight: 400; }
 
 /* Step 2 · direction: a large input with examples. */
 .direction-input { border: 1px solid var(--edit-line); box-shadow: 0 1px 2px rgba(60, 40, 20, .04); }
@@ -93,23 +75,13 @@
 .ai-results li[data-on='true'] .ai-result-mark { border: 0; background: var(--ok-tint); color: var(--ok); }
 
 :root[data-style='minimal'] {
-  .calendar-mode-card { border-radius: 10px; }
-  .calendar-mode { border-radius: 10px; }
-  .calendar-mode-card[data-selected='true'] { box-shadow: 0 0 0 1.5px var(--fg), var(--shadow-xs); }
   .direction-input { border-radius: 10px; }
   .onboarding-lock { border-radius: 8px; }
 }
-@media (max-width: 760px) { .calendar-modes { grid-template-columns: 1fr; } .onboarding-footer { flex-wrap: wrap; } .onboarding-note { flex-basis: 80%; } }
+@media (max-width: 760px) { .onboarding-footer { flex-wrap: wrap; } .onboarding-note { flex-basis: 80%; } }
 
-/* First page: two choices, then a password or the original setup. */
-.start-column.wide { max-width: 640px; }
+/* Account screens after the welcome choice. */
 .start-back:hover:not(:disabled) { background: var(--hover); }
-.start-card { box-shadow: 0 0 0 1px var(--line); }
-.start-card:hover:not(:disabled) { box-shadow: 0 0 0 1px var(--edit-line); }
-.start-card[data-selected='true'] { box-shadow: 0 0 0 1.5px var(--fg), 0 6px 20px rgba(60, 40, 20, .07); }
-.start-card[data-dim='true'] { opacity: .45; }
-.start-card b { font-size: 18px; font-weight: 600; }
-.start-card small { font-size: 13px; line-height: 1.6; color: var(--secondary); }
 .start-quiet:hover:not(:disabled) { color: var(--fg-soft); }
 .start-spinner { width: 14px; height: 14px; border-radius: 7px; border: 2px solid var(--line); border-top-color: var(--fg); animation: start-spin .8s linear infinite; }
 @keyframes start-spin { to { transform: rotate(360deg); } }
@@ -128,5 +100,4 @@
 .start-dialog h3 { margin: 0; font-size: 17px; font-weight: 600; }
 .start-dialog p { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--fg-soft); }
 .start-dialog .start-danger { background: var(--danger); color: var(--bg); }
-@media (max-width: 760px) { .start-cards { grid-template-columns: 1fr; } .start-card { min-height: 0; } }
 @media (prefers-reduced-motion: reduce) { .start-spinner, .start-bar i { animation: none; } }

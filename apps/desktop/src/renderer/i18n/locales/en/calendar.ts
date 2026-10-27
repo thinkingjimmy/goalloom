@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Locale-aware dates, mode and period presentation parameters.
- * [OUTPUT]: Complete calendar-mode, annual-direction and anchored-period UI copy.
+ * [OUTPUT]: Calendar modes, sentence setup and city copy, annual direction and anchored periods.
  * [POS]: Calendar catalog shared by setup, board, details and settings.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -22,7 +22,21 @@ export const calendarMessages: typeof source = {
   returnCurrent: "Back to current",
   returnNaturalYear: "Back to this year",
   returnNaturalCycle: "Back to this quarter",
-  chooseCalendar: "When does your year begin?",
+  chooseCalendar: "Set up your calendar",
+  setupPreview: "Goalloom board preview",
+  setupSentence: "Plan by {mode}, starting {anchor}. Weeks begin on {weekStart}.",
+  setupToday: "today",
+  setupMonthStart: "this month’s 1st",
+  setupNaturalStart: "January 1",
+  setupYearLabel: "Your year",
+  setupFullYear: "A full year, starting today.",
+  setupAnchoredYear: "A full year from your chosen start date.",
+  setupLockNote: "The next step locks the calendar only when you confirm.\nChanging it later requires a backup and workspace reset.",
+  setupDateTitle: "Choose your year’s start date",
+  setupDateNote: "Year, half-year and 3-month periods start from this date.",
+  setupUseDate: "Use this date",
+  setupInvalidDate: "Choose a valid start date no later than today.",
+  setupCities: { 'Asia/Singapore': "Singapore", 'Asia/Shanghai': "Shanghai", 'Asia/Hong_Kong': "Hong Kong", 'Asia/Tokyo': "Tokyo", 'Europe/London': "London", 'Europe/Paris': "Paris", 'America/New_York': "New York", UTC: "UTC" },
   calendarLead: "Goalloom connects a year’s direction to today’s actions, step by step. This choice sets when the year, half and 3-month periods begin; months, weeks and days always follow the regular calendar.",
   defaultTag: "Default",
   todayMarker: "Today",
