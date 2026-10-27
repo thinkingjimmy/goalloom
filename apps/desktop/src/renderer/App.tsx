@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace/current-period state, guarded writes, selected board periods, undo, flows, preferences and independent sync feedback.
- * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches; targeted drafting reveals its horizon. Persistent bottom-center notices share Undo Toast surfaces with adaptive trailing actions and no folding; pending receipts cannot be dismissed. Independent review reminders support local dismissal; timezone and backup notices stay closed until their condition token changes. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
+ * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches. Content-sized notices and Undo feedback use native Sonner stacking, hover expansion and duration rules; pending receipts cannot be dismissed. Timezone and backup dismissal follows condition tokens. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
  * [POS]: Renderer composition root; gates board linking during writes/maintenance/dialogs and retains the lazily loaded composer until the workspace generation changes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -27,6 +27,7 @@ import { boardItemVisibility } from './features/board/visibility'
 import { TopBar } from './features/shell/TopBar'
 import { CompletionCelebration } from './features/shell/CompletionCelebration'
 import { FeedbackLayer } from './features/shell/FeedbackLayer'
+import { FeedbackNotification } from './features/shell/FeedbackStack'
 import { WorkspaceNotice } from './features/shell/WorkspaceNotice'
 import { SyncNotice, SyncFeedback } from './features/sync/SyncReview'
 import { startDevicePrefs } from './state/device-prefs'
@@ -114,13 +115,6 @@ export function App() {
       columns.setVisible(value.horizon, true)
       startTransition(() => setSeed(previous => ({ ...value, attemptId: crypto.randomUUID(), key: (previous?.key ?? 0) + 1 })))
     } }), [ready, due, reviewing, insightSettings.reviewed, columns.setVisible, snapshot?.workspace.generation])
-  const [toastHeld, setToastHeld] = useState(false)
-  const toastRef = useCallback((node: HTMLDivElement | null) => { setToastHeld(!!node && (node.matches(':hover') || node.contains(document.activeElement))) }, [])
-  useEffect(() => {
-    if (!feedback || feedback.durationMs === null || toastHeld || busy) return
-    const timer = setTimeout(() => setFeedback(null), feedback.durationMs)
-    return () => clearTimeout(timer)
-  }, [feedback, toastHeld, busy, setFeedback])
   const theme = snapshot?.workspace.theme ?? 'system', style = snapshot?.workspace.style ?? 'paper', checkStyle = snapshot?.workspace.checkStyle ?? 'outline'
   const setupReady = !!snapshot?.workspace.setupConfirmedAt
   useLayoutEffect(() => { resetLinkPreviewCache() }, [snapshot?.workspace.generation])
@@ -256,8 +250,7 @@ export function App() {
       }} connect={() => { closeDetail(); openSettings('ai') }} initialAssistance={initialHelp} close={closeDetail} generation={snapshot.workspace.generation} write={write} retryWrite={retryWrite} revision={snapshot.workspace.revision} blocked={!!pending || !!snapshot.maintenance}
       flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} />}
     </Suspense>
-    <FeedbackLayer><div className="feedback-layout">
-      <div className="workspace-notices">
+    <FeedbackLayer key={snapshot?.workspace.generation}>
         {(pending || error) && <WorkspaceNotice severity="error"
           action={pending ? { label: working ? messages.checking : messages.retry, onClick: () => void retry(), disabled: working, checking: working } : undefined}
           dismiss={pending ? undefined : { label: messages.closeError, onClick: () => setError(null) }}>{pending ? messages.saveUnknown : error}</WorkspaceNotice>}
@@ -266,10 +259,7 @@ export function App() {
         {backupNotice.open && snapshot?.backupError && <WorkspaceNotice action={{ label: messages.viewBackups, onClick: () => openSettings('backup') }} dismiss={{ label: messages.dismissNotice, onClick: backupNotice.dismiss }}>{snapshot.backupError}</WorkspaceNotice>}
         {timezoneNotice.open && workspaceZone && <WorkspaceNotice dismiss={{ label: messages.dismissNotice, onClick: timezoneNotice.dismiss }}>{messages.timezoneMismatch} {workspaceZone}。</WorkspaceNotice>}
         {setupReady && snapshot && !syncReviewOpen && <SyncNotice />}
-      </div>
-    {feedback && <div ref={toastRef} className="toast feedback-surface" key={feedback.result.operationId} data-warning={!!feedback.warning}
-      onMouseEnter={() => setToastHeld(true)} onMouseLeave={event => setToastHeld(event.currentTarget.contains(document.activeElement))}
-      onFocus={() => setToastHeld(true)} onBlur={event => setToastHeld(event.currentTarget.matches(':hover') || event.currentTarget.contains(event.relatedTarget))}>
+    {feedback && <FeedbackNotification key={feedback.result.operationId} duration={feedback.durationMs} paused={busy} dismissible onDismiss={() => setFeedback(previous => previous?.result.operationId === feedback.result.operationId ? null : previous)}><div className="toast feedback-surface" data-warning={!!feedback.warning}>
       <div className="toast-copy" role={feedback.warning ? 'alert' : 'status'}>
         <span className="toast-title">{feedback.text}</span>
         {feedback.detail && <span className="toast-detail">{feedback.detail}</span>}
@@ -284,8 +274,8 @@ export function App() {
         catch { setError(messages.restoreItemFailed) }
       }}>{messages.restoreItem}</button>}
       <IconButton size="small" aria-label={messages.closeFeedback} onClick={() => setFeedback(null)}><Icon name="close" size={14} /></IconButton>
-    </div>}
-    </div></FeedbackLayer>
+    </div></FeedbackNotification>}
+    </FeedbackLayer>
     <CompletionCelebration event={completion} generation={snapshot?.workspace.generation ?? ''} />
     <span className="sr-only" role="status">{busy ? messages.saving : snapshot ? messages.connected : messages.connecting}</span>
   </div>

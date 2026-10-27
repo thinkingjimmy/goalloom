@@ -50,6 +50,7 @@ export const messages: MessageCatalog = {
   checking: "Checking…",
   closeError: "Dismiss error",
   dismissNotice: "Dismiss notice",
+  notificationRegion: "Notifications",
   opening: "Opening local workspace…",
   viewBatches: "View batches",
   undo: "Undo",

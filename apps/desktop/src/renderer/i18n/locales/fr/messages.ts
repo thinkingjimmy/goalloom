@@ -50,6 +50,7 @@ export const messages: MessageCatalog = {
   checking: "Vérification…",
   closeError: "Fermer le message d’erreur",
   dismissNotice: "Fermer l’avis",
+  notificationRegion: "Notifications",
   opening: "Ouverture de l’espace de travail local…",
   viewBatches: "Voir les lots",
   undo: "Annuler",
