@@ -21,7 +21,7 @@
 - 2026-10-27 负责人确认：通知与当前成功 Toast 使用 Sonner 原生堆叠、悬停展开／移开收起和自动关闭。保留现有胶囊样式；前台按内容定宽，后层轮廓贴合前台宽度，展开后每条各自按内容定宽。持续提醒保留到关闭或条件解除；成功提示沿用下方时长规则。后层收起时不可点击或进入 Tab 顺序。展开后超出可用高度可滚动；原生弹窗内仍可操作且不抢焦点。整库代次变化移除旧通知与操作，单条新成功反馈仍替换当前成功反馈。
 - 实现前失败场景：待核对状态被清空的错误文案隐藏；把 pending 当作执行中导致无法重试；连点产生重复写入；核对失败后没有可关闭的错误；原生模态框阻止通知操作；多条／长文案被截断；关闭状态在普通刷新后失效；通知遮住 Toast 或看板新建；靠右主按钮错位、禁用态不清晰；主题与五语言遗漏。
 - Toast 样式统一的实现前失败场景：通知偏离撤销 Toast 的底部居中锚点；短通知被强制拉满宽度；长正文被按钮挤成窄列或省略；窄窗口按钮未换行或与关闭按钮重叠；共用样式在极简外观下失配；新布局改变撤销计时、核对禁用或原生弹窗内的焦点与操作；多条长通知超过可用高度后无法滚动。
-- Native-stack failure cases: initial notices publish before the Toaster subscribes; dismissed/resolved notices reappear after a modal transfer; removed-generation actions survive; short messages stretch to a long notice's width; collapsed controls remain focusable; hover/focus/busy holds expire early; pending receipts gain swipe dismissal; expanded long notices overflow a short window; modal clearance observes the declaration placeholders instead of visible notifications.
+- Native-stack failure cases: initial notices publish before the Toaster subscribes; dismissed/resolved notices reappear after a modal transfer; removed-generation actions survive; short messages stretch to a long notice's width; collapsed controls remain focusable; hover/focus/busy holds expire early; pending receipts gain swipe dismissal; expanded long notices overflow a short window; modal clearance observes the declaration placeholders instead of visible notifications; persistent notices cover review footer controls.
 
 ### 底部 Toast
 
@@ -67,7 +67,7 @@
 - 未来周期提交后先刷新对应 `getBoardPeriods` 摘要，再按布局判定可见性；响应由选择、代次和修订隔离。具体周期交互见[周期规划](period-planning.md)。
 - 位置与状态从已提交结果对应的快照或详情读取；只判断底层行与列滚动区域，不将弹窗遮挡或流程筛选淡化误判为不可见。反馈查询失败不将已提交操作报为失败，不影响保存或撤销。
 - Toast 时长由反馈类型决定：普通撤销且无 `restoreSource` 为 2.5 秒，其他普通反馈为 6 秒，还原部分成功警告不自动关闭；暂停与工作区代次清理沿用现有反馈生命周期。文案覆盖中、英、日、西、法。
-- `FeedbackLayer` 将提示挂到当前原生模态框内的非模态 top layer；弹窗关闭后回到页面。提示不抢焦点，空白区域点击穿透，在详情／回收站内可直接关闭或撤销。 原生模态框按实际通知高度保留空间。
+- `FeedbackLayer` 将提示挂到当前原生模态框内的非模态 top layer；弹窗关闭后回到页面。提示不抢焦点，空白区域点击穿透，在详情／回收站内可直接关闭或撤销。原生模态框和复盘底部操作区按实际通知高度保留空间。
 - `FeedbackStack` 只将现有内容和时长交给 Sonner；展开、堆叠变换和退出由原生运行时管理。`sonner/dist/styles.css` 进入本地 CSS 产物，构建时移除同一依赖重复的运行时样式注入，不放宽 CSP。宽度／滚动测量不改变任务数据、回执或撤销成员；原生退出期间的内容立即禁用。开发反馈可选 `workspace-notices.mjs --stack`，完成时运行整个通知脚本。
 - `state/use-workspace.ts` 在权威刷新与 `UndoSession.accept` 去重后生成 renderer 内部 `CompletionEvent { operationId, generation, horizon }`；保留原命令上下文处理未知结果的回执恢复。优先从刷新快照读取列，缺失时查询详情；查询失败只跳过动效，不将已提交操作报为失败。代次变化清除旧事件。
 - `state/celebration.ts` 提供逐列外部存储、设置页预览、绑定工作区代次的复盘完成信号与系统减少动态效果订阅；预览复用同一画布与生命周期。localStorage `goalloom.celebration` 只保存与默认不同的已知布尔字段；非法字段各自回退默认，存储不可用时仍保留本次会话设置。

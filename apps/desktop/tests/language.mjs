@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Built Electron, isolated profiles with synthetic paused AI credentials, injected review history, an explicit week-start choice and the five supported locale catalogs.
- * [OUTPUT]: Language-switching acceptance, single-line navigation and content-sized review choices, localized AI-service action hints and pause icons, app-local diagnostics and screenshots.
+ * [OUTPUT]: Language-switching acceptance, review choices and notification clearance, localized AI-service action hints and pause icons, app-local diagnostics and screenshots.
  * [POS]: Desktop localization acceptance through real renderer, main process and worker boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -350,8 +350,16 @@ try {
       await page.waitForFunction(label => document.activeElement?.getAttribute('aria-labelledby') === label, await choice.getAttribute('aria-labelledby'))
       assert.equal(await choice.evaluate(node => document.activeElement === node), true)
       assert.equal(await review.isVisible(), true)
-      await review.locator('.review-foot .review-text-button').click()
-      closingMenu = { defaultMove: 'ok', optionCount: 3, keepLabel: reviewChoices[code].keep, escapeFocus: 'ok', choiceLayout, ...bounds }
+      const back = review.locator('.review-foot .review-text-button')
+      const feedbackClearance = await back.evaluate(node => {
+        const notice = document.querySelector('.feedback-stack')?.getBoundingClientRect()
+        const button = node.getBoundingClientRect()
+        return { button: button.toJSON(), notice: notice?.toJSON(), clear: !notice || !notice.height || button.bottom < notice.top }
+      })
+      assert(feedbackClearance.clear, `${code}: persistent feedback leaves the review Back button clear`)
+      await page.screenshot({ path: `${shots}/language-review-feedback-${code}.png` })
+      await back.click()
+      closingMenu = { defaultMove: 'ok', optionCount: 3, keepLabel: reviewChoices[code].keep, escapeFocus: 'ok', choiceLayout, feedbackClearance, ...bounds }
     }
     await review.locator('.review-head .icon-button').click()
     await review.waitFor({ state: 'hidden' })

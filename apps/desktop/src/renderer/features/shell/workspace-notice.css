@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Existing feedback surfaces/actions and native Sonner stack attributes and measured dimensions.
- * [OUTPUT]: Content-sized bottom-center capsules, native hover expansion, scrollable short-window stacks and modal clearance.
+ * [OUTPUT]: Content-sized capsules, native hover expansion, short-window scrolling and page/modal/review-footer clearance.
  * [POS]: Workspace feedback presentation; Sonner retains stack transforms and notification lifetimes.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,6 +8,7 @@
 .workspace-notices { width: min(652px, 100%); max-height: 100%; min-height: 0; margin-bottom: -6px; padding: 6px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable both-edges; overscroll-behavior: contain; pointer-events: auto; }
 dialog.modal[data-feedback-host][open] { inset-block-end: var(--feedback-clearance, 0px); max-height: min(760px, calc(100dvh - var(--feedback-clearance, 0px) - 80px)); }
 dialog.modal.detail[data-feedback-host][open] { min-height: min(560px, calc(100dvh - var(--feedback-clearance, 0px) - 80px)); }
+dialog.review-drawer[data-feedback-host] .review-foot { padding-bottom: max(20px, var(--feedback-clearance, 0px)); }
 dialog[data-feedback-host] .workspace-notices { max-height: min(240px, 35dvh); }
 .workspace-notices:not(:has([data-sonner-toast])) { display: none; }
 .feedback-stack [data-sonner-toaster] { position: relative; inset: auto; left: 50%; width: 100%; height: var(--feedback-stack-height, 44px); font-family: inherit; container: workspace-feedback / inline-size; pointer-events: auto; }

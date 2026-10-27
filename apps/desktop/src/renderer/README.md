@@ -20,7 +20,7 @@ renderer/
 │   │   ├── FeedbackLayer.tsx # Generation-scoped, nonmodal feedback inside the active dialog/page; measured clearance preserves footer controls and recovery actions
 │   │   ├── FeedbackStack.tsx # Sonner adapter for native stacking/hover/timers, declarative notice lifecycles, focus/busy holds and content-width silhouettes
 │   │   ├── WorkspaceNotice.tsx # Persistent content-sized Sonner notices with full copy, adaptive tonal actions and owner-controlled dismissal
-│   │   ├── workspace-notice.css # Existing 620px-max capsules, content widths, native collapsed/expanded states and short-window stack scrolling
+│   │   ├── workspace-notice.css # Existing 620px-max capsules, native stack states, short-window scrolling and modal/review-footer clearance
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
