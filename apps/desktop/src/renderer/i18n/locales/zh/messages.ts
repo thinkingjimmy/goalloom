@@ -51,6 +51,7 @@ export const messages = widen({
   checking: "核对中…",
   closeError: "关闭错误提示",
   dismissNotice: "关闭提示",
+  notificationRegion: "通知",
   opening: "正在打开本地工作区…",
   viewBatches: "查看批次",
   undo: "撤销",

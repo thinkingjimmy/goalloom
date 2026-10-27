@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Feedback content and the current native modal dialog stack.
  * [OUTPUT]: A nonmodal top-layer portal with interactive feedback and measured page/modal clearance.
- * [POS]: Shell presentation boundary; App retains feedback state, timers and actions.
+ * [POS]: Shell presentation boundary; Sonner owns feedback timers and motion, while App retains actions.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { FeedbackStack, FeedbackStackProvider } from './FeedbackStack'
 
 interface FeedbackLayerProps { children: ReactNode }
 
@@ -14,6 +15,7 @@ function activeHost(): HTMLElement {
 }
 
 export function FeedbackLayer({ children }: FeedbackLayerProps) {
+  const stackId = useId()
   const [host, setHost] = useState(activeHost)
   const currentHost = useRef(host), layer = useRef<HTMLDivElement>(null)
 
@@ -49,7 +51,7 @@ export function FeedbackLayer({ children }: FeedbackLayerProps) {
     if (!node) return
     const resize = new ResizeObserver(syncClearance)
     function syncClearance() {
-      const children = [...(node?.firstElementChild?.children ?? [])]
+      const children = [...(node?.querySelectorAll('.feedback-stack') ?? [])]
       const visible = children.map(child => child.getBoundingClientRect()).filter(box => box.height > 0)
       const top = Math.min(innerHeight, ...visible.map(box => box.top))
       // Keep screen and dialog controls above persistent feedback without hiding its recovery actions.
@@ -70,5 +72,5 @@ export function FeedbackLayer({ children }: FeedbackLayerProps) {
     }
   }, [host])
 
-  return createPortal(<div ref={layer} className="feedback-layer" popover="manual">{children}</div>, host)
+  return <FeedbackStackProvider id={stackId}>{createPortal(<div ref={layer} className="feedback-layer" popover="manual"><div className="feedback-layout"><FeedbackStack id={stackId} />{children}</div></div>, host)}</FeedbackStackProvider>
 }

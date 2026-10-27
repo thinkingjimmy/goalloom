@@ -19,9 +19,10 @@ renderer/
 │   │   ├── ColumnVisibilityMenu.tsx # Six planning-column checkboxes in the shared period-picker skin, minimum guard, calendar labels and keyboard/focus dismissal
 │   │   ├── CommandPalette.tsx # Debounced search with actual-period hints, commands and detail navigation
 │   │   ├── CompletionCelebration.tsx # Shared item/review/preview corner bursts; one random confetti/emoji shape per round, cached glyphs, nonmodal Canvas, column/motion guards and cleanup
-│   │   ├── FeedbackLayer.tsx # Nonmodal feedback inside the active dialog/page; measured clearance preserves modal and Onboarding footer controls, focus and usable notification/Toast actions
-│   │   ├── WorkspaceNotice.tsx # Persistent bottom-center Toast surfaces with full copy, adaptive tonal actions and owner-controlled dismissal
-│   │   ├── workspace-notice.css # Content-sized 620px notices, narrow-window actions, scrollable modal feedback and separate centered Toasts
+│   │   ├── FeedbackLayer.tsx # Generation-scoped, nonmodal feedback inside the active dialog/page; measured clearance preserves footer controls and recovery actions
+│   │   ├── FeedbackStack.tsx # Sonner adapter for native stacking/hover/timers, declarative notice lifecycles, focus/busy holds and content-width silhouettes
+│   │   ├── WorkspaceNotice.tsx # Persistent content-sized Sonner notices with full copy, adaptive tonal actions and owner-controlled dismissal
+│   │   ├── workspace-notice.css # Existing 620px-max capsules, content widths, native collapsed/expanded states and short-window stack scrolling
 │   │   ├── completion-celebration.css # 装饰画布和 backdrop 的全窗口透明、指针穿透样式
 │   │   └── settings/        # 左侧导航（偏好/AI/工作区/条目/Goalloom › 关于）+ 页头说明 + 分组卡片的设置弹窗；外观含语言，关于页含版本与软件更新
 │   │       ├── Settings.tsx     # Container: grouped navigation with colored pause icons, section headings, item-filter counts, pane-only backup reads, data actions and transfer previews
@@ -205,6 +206,8 @@ Review uses a todo-scale board guide and a resumable native modal with connected
 Note assistance uses the approved rewrite-notes design: no detail activity rail, rescheduling form, task consent checkbox or result adoption step. Generated Markdown replaces only the unchanged source notes; description effects retain one-step workspace undo. Rethink persists through reload via non-undone rewrite events. Automatic note writes are quiet, while keyboard undo keeps normal feedback. Local editor history still owns manual typing.
 
 `components/AuthMark.tsx` shares offline Apple/Google branding between the first-run provider buttons and Settings › Sync. Both entry points use the same provider-scoped authorization and cancellation state.
+
+`FeedbackStack` registers existing notice/Toast content with Sonner while owners retain receipt guards, generation cleanup and dismissal tokens. `sonner/dist/styles.css` is bundled locally; the renderer build removes only the duplicate runtime stylesheet injection, preserving CSP. Native stack transforms/timers remain unchanged. Width/scroll measurements keep collapsed silhouettes aligned and expanded capsules content-sized, including native dialog hosts.
 
 Hosted AI uses `features/shell/settings/HostedAiSettings.tsx` for account-only sign-in and separate data consent. Existing feature controls keep source selection and enabling explicit. `state/ai.ts` clears stale account state and assistance drafts on account transitions. Onboarding shows two steps only when the current account has a verified hosted eligibility result; unknown eligibility retains the local/BYOK route.
 

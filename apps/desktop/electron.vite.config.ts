@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Desktop entries, dependency boundaries, sync build configuration and macOS native policy compiler.
- * [OUTPUT]: Main/preload/renderer bundles with platform-specific native credentials support.
+ * [OUTPUT]: Main/preload/renderer bundles with platform-specific credentials and CSP-safe static Sonner styles.
  * [POS]: Desktop build composition; development/debug output follows the same runtime boundaries.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -33,6 +33,16 @@ function runtimeBoundary(renderer = false): Plugin {
   } }
 }
 
+function staticSonnerStyles(): Plugin {
+  return { name: 'static-sonner-styles', enforce: 'pre', transform(code, id) {
+    if (!id.split('?')[0]!.replaceAll('\\', '/').endsWith('/sonner/dist/index.mjs')) return
+    // FeedbackStack imports the same stylesheet as a local asset; runtime style injection violates CSP.
+    const result = code.replace(/\n__insertCSS\("[^\n]*"\);\n/, '\n')
+    if (result === code) this.error('Sonner changed its style injection. Review the pinned runtime before upgrading.')
+    return { code: result, map: null }
+  } }
+}
+
 export default defineConfig({
   main: {
     define: syncBuildDefine({ ...localSync, ...process.env }),
@@ -56,6 +66,7 @@ export default defineConfig({
   renderer: {
     build: { minify: true, sourcemap: debugRoot ? 'hidden' : false, outDir: resolve(debugRoot ?? 'out', 'renderer'), rollupOptions: { onwarn } },
     resolve: { alias: { '@': resolve('src/renderer') } },
-    plugins: [react(), tailwindcss(), runtimeBoundary(true)],
+    optimizeDeps: { exclude: ['sonner'] },
+    plugins: [react(), tailwindcss(), staticSonnerStyles(), runtimeBoundary(true)],
   },
 })

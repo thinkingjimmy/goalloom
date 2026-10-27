@@ -35,7 +35,7 @@ try {
   await page.getByRole('main', { name: '时间看板' }).waitFor()
   report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
   report.setupItems = await page.evaluate(async () => (await window.goalloom.getSnapshot()).items.map(item => ({ id: item.id, title: item.title, horizon: item.placement.horizon })))
-  const toast = page.locator('.toast')
+  const toast = page.locator('[data-sonner-toast]:not([data-removed="true"]) .toast')
   const detail = () => page.getByRole('dialog', { name: '当前条目', exact: true })
   const settings = () => page.getByRole('dialog', { name: '设置与数据', exact: true })
   const item = id => page.evaluate(async id => (await window.goalloom.getItem(id)).item, id)

@@ -51,6 +51,7 @@ export const messages: MessageCatalog = {
   checking: "確認中…",
   closeError: "エラー表示を閉じる",
   dismissNotice: "通知を閉じる",
+  notificationRegion: "通知",
   opening: "ローカルワークスペースを開いています…",
   viewBatches: "バッチを表示",
   undo: "取り消し",
