@@ -6,18 +6,18 @@
 - `boot.ts`: Shared theme storage key, system query and first-paint theme/platform initialization.
 - `theme.tsx`: React controls, persisted mode and system-following policy. Pointer changes delegate to the transition boundary; keyboard/system changes commit immediately.
 - `theme-transition.ts`: Native circular reveal, latest-intent guard, interruption cleanup and capability/reduced-motion fallbacks. Owns animation only; never owns stored theme policy.
-- `site-header.tsx`: Shared navigation and information-page preference controls; homepage preferences live in the Hero.
-- `language-menu.tsx`: Native locale links with shared outside-pointer dismissal and Escape focus restoration across Hero, header and footer.
-- `info-disclosure.tsx`: Inline Hugeicons information trigger, localized disclosure and shared outside/Escape dismissal; usable without JavaScript.
-- `download-button.tsx`: Header download anchor and homepage Free-plan split download link, alternate-system menu and phone copy-link fallback.
+- `site-header.tsx`: Shared navigation and information-page preference controls; homepage preferences live in the footer.
+- `language-menu.tsx`: Native locale links with shared outside-pointer dismissal and Escape focus restoration across information-page headers and footers.
+- `info-disclosure.tsx`: Inline Hugeicons information trigger, localized upward disclosure and shared outside/Escape dismissal; usable without JavaScript.
+- `download-button.tsx`: Header, Hero, closing invitation and homepage Free-plan split download link, alternate-system menu and phone copy-link fallback.
 - `copy-link.tsx`: Phone download-link copying with visible completion feedback.
 - `use-dismissible-menu.ts`: Native details dismissal shared by language, download and information controls; outside pointer preserves the target action, Escape restores summary focus.
-- `site-footer.tsx`: Shared legal, pricing, private support and language links.
+- `site-footer.tsx`: Shared legal, pricing, private support and language links, with accessible theme selection and no divider.
 - `legal-page.tsx`: Static legal documents and contents navigation with the shared sticky header; no standalone Plus policy banner.
 - `icons.tsx`: Shared Hugeicons and product mark.
 - `faq-list.tsx`: Shared native exclusive FAQ answers with first-item expansion, rich content and plus/minus indicators for homepage and pricing.
 - `motion.tsx`: Shared viewport observation and progressive section visibility without hiding no-JS content.
-- `home/`: Interactive Hero, original maker-note/video introduction and the common FAQ shared with pricing: free features, trial, security, refunds and inline support. `product-tour.tsx` pairs the original five-language ADHD motivation as one regular-weight paragraph with Jimmy’s avatar and the quiet-screening video; it has no scene controls. Relation/AI illustration components are currently not mounted in the body. `hero-phone.tsx` still mirrors the Hero task state as a read-only mobile concept.
+- `home/`: Visible five-language introduction, shared downloads and interactive Hero; `hero-frame.tsx` contracts from viewport-wide gutters to the shared reading width (1120px maximum) over the first 360px of desktop scrolling, tracks content resizing, and proportionally scales the product/phone group while preserving readable tabs. Mobile stays fixed; reduced motion uses a static aligned frame. The closing download invitation follows FAQ. It retains the original maker-note/video introduction and common FAQ shared with pricing: free features, trial, security, refunds and inline support. `product-tour.tsx` pairs the original five-language ADHD motivation as one regular-weight paragraph with Jimmy’s avatar and the quiet-screening video; it has no scene controls. Relation/AI illustration components are currently not mounted in the body. `hero-phone.tsx` still mirrors the Hero task state as a read-only mobile concept.
 - `board/`: Shared demo board, composer, link previews and relation geometry; see its README.
 - `services/`: Static pricing and closed billing/support surfaces; see its README.
 

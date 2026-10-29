@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Shared paper tokens and static service markup.
- * [OUTPUT]: Shared homepage/pricing plan prices, billing-only page gutters, compact action spacing, in-card billing, AI disclosure, shared pricing FAQ and billing support.
+ * [OUTPUT]: Shared homepage/pricing plan prices, billing-only page gutters, compact action spacing, in-card billing, upward AI/BYOK disclosures, shared pricing FAQ and billing support.
  * [POS]: Website service-information layer; keeps the site's shared outer alignment.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -68,7 +68,7 @@
 .info-disclosure > summary { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; min-height: 28px; color: var(--secondary); border-radius: 6px; cursor: pointer; list-style: none; touch-action: manipulation; }
 .info-disclosure > summary::-webkit-details-marker { display: none; }
 .info-disclosure[open] > summary { background: var(--hover); color: var(--fg); }
-.info-panel { position: absolute; left: 0; top: calc(100% + 6px); z-index: 60; width: min(300px,100%); padding: 14px 16px; border-radius: 8px; background: var(--raised); box-shadow: var(--shadow-lg); }
+.info-panel { position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 60; width: min(300px,100%); padding: 14px 16px; border-radius: 8px; background: var(--raised); box-shadow: var(--shadow-lg); }
 .info-panel p { color: var(--fg-soft); font-size: 13px; line-height: 1.8; }
 @media (hover: hover) and (pointer: fine) { .info-disclosure > summary:hover { background: var(--hover); color: var(--fg); } }
 @media (pointer: coarse) {

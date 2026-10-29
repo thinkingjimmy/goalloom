@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Localized download labels, public release assets, pre-paint platform CSS and shared menu dismissal.
  * [OUTPUT]: DownloadButton with a direct platform download and a separate other-platform disclosure.
- * [POS]: Header download anchor and shared homepage/pricing Free-plan action; native links/details work without JavaScript, phones can copy a desktop link.
+ * [POS]: Header, Hero, closing invitation and shared homepage/pricing Free-plan action; native links/details work without JavaScript, phones can copy a desktop link.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 'use client'

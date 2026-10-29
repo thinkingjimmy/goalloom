@@ -1,6 +1,6 @@
 /**
- * [INPUT]: None; <html data-theme> is set before first paint by components/boot.ts
- * [OUTPUT]: Paper themes, flow colours, 1296px shared site width, shared gutter and window radius
+ * [INPUT]: Local paper-fibers.jpg; <html data-theme> is set before first paint by components/boot.ts
+ * [OUTPUT]: Paper themes, shared fiber texture/blending, flow colours, 1120px shared reading width, shared gutter and window radius
  * [POS]: First layer of app/styles; values mirror src/renderer/styles.css (paper) and src/renderer/lib/colors.ts
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -23,13 +23,18 @@
   --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Hiragino Sans', 'Segoe UI', 'Microsoft YaHei', sans-serif;
   --mono: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
   --edge: 0px;
-  --site-max-width: 1296px;
+  --site-max-width: 1120px;
+  --page-wash: radial-gradient(ellipse at 12% 0%, color-mix(in srgb, var(--sky) 65%, transparent), transparent 65%);
+  --page-texture: url(/paper-fibers.jpg);
+  --paper-size: 420px; --paper-opacity: .42; --paper-blend: multiply; --paper-filter: none;
+  --site-gutter: clamp(16px, 3vw, 32px);
   --header-height: 72px;
   --window-radius: 12px;
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
+  --paper-opacity: .22; --paper-blend: screen; --paper-filter: invert(1);
   --bg: #1c1916; --surface: #24201c; --raised: #2b2621;
   --fg: #ede7df; --fg-soft: #d6cec4; --secondary: #a89e93; --muted: #857b70; --faint: #6e655c;
   --line: rgba(255, 240, 220, .13); --line-strong: rgba(255, 240, 220, .18); --hairline: rgba(255, 240, 220, .07);

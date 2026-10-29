@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Mounted demo rows, their grid, saved item identities and resize notifications.
- * [OUTPUT]: useBoardGeometry and connectionPath for measured first-line, rounded goal/ownership connectors.
+ * [INPUT]: Mounted demo rows, their transformed grid, saved item identities and resize notifications.
+ * [OUTPUT]: useBoardGeometry and connectionPath for scale-normalized first-line, rounded goal/ownership connectors.
  * [POS]: Website board geometry; mirrors the product's 32px first line, 6px dots, 24px outline and 5px bends.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -17,19 +17,22 @@ export function useBoardGeometry(grid: RefObject<HTMLDivElement | null>, items: 
     if (!node) return
     const measure = () => {
       const origin = node.getBoundingClientRect()
+      const style = getComputedStyle(node)
+      const width = parseFloat(style.width), height = parseFloat(style.height)
+      const scaleX = origin.width / width || 1, scaleY = origin.height / height || 1
       const anchors: Geometry['anchors'] = {}
       for (const row of node.querySelectorAll<HTMLElement>('.trow[data-item]')) {
         if (!row.getClientRects().length) continue
         const r = row.getBoundingClientRect()
         anchors[row.dataset.item as ItemId] = {
-          left: r.left - origin.left, right: r.right - origin.left,
-          top: r.top - origin.top, bottom: r.bottom - origin.top,
-          y: r.top - origin.top + Math.min(r.height, 32) / 2,
+          left: (r.left - origin.left) / scaleX, right: (r.right - origin.left) / scaleX,
+          top: (r.top - origin.top) / scaleY, bottom: (r.bottom - origin.top) / scaleY,
+          y: (r.top - origin.top) / scaleY + Math.min(r.height / scaleY, 32) / 2,
           indent: row.dataset.nested === 'true' ? 24 : 0,
           column: row.closest<HTMLElement>('.bcol')!.dataset.horizon!,
         }
       }
-      const next = { width: origin.width, height: origin.height, anchors }
+      const next = { width, height, anchors }
       setGeometry(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next)
     }
     const observer = new ResizeObserver(measure)

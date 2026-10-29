@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Locale URL helpers, shared icons and shared native-menu dismissal.
  * [OUTPUT]: LanguageMenu with outside-click dismissal and Escape focus restoration.
- * [POS]: Shared preference control for the Hero status bar, page header and footer; native links work without JavaScript.
+ * [POS]: Shared preference control for the page header and footer; native links work without JavaScript.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 'use client'

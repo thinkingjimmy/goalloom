@@ -14,7 +14,13 @@ async function settle(page, theme) {
   await expect.poll(() => page.evaluate(() => ({ theme: document.documentElement.dataset.theme, active: Boolean(document.documentElement.dataset.themeTransition), held: document.documentElement.classList.contains('no-transitions') }))).toEqual({ theme, active: false, held: false })
 }
 async function circle(page, button, target, assert, shot, name) {
-  const box = await button.boundingBox()
+  await button.scrollIntoViewIfNeeded()
+  const beforeClick = await button.boundingBox()
+  // Hero scroll scaling can move the footer between scrolling it into view and the actual click.
+  await button.evaluate(node => node.addEventListener('click', () => {
+    const box = node.getBoundingClientRect()
+    node.dataset.testThemeOrigin = JSON.stringify({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
+  }, { once: true }))
   const viewport = page.viewportSize()
   await button.click()
   await expect.poll(() => page.evaluate(clipAnimation)).not.toBeUndefined()
@@ -24,15 +30,15 @@ async function circle(page, button, target, assert, shot, name) {
     animation.currentTime = 275
     return { frames: animation.effect.getKeyframes().map(frame => frame.clipPath), timing: animation.effect.getTiming(), pseudoElement: animation.effect.pseudoElement, theme: document.documentElement.dataset.theme }
   })
-  const x = box.x + box.width / 2, y = box.y + box.height / 2
+  const { x, y } = await button.evaluate(node => { const value = JSON.parse(node.dataset.testThemeOrigin); delete node.dataset.testThemeOrigin; return value })
   const radius = Math.hypot(Math.max(x, viewport.width - x), Math.max(y, viewport.height - y))
   assert(motion.theme === target && motion.timing.duration === 550 && motion.timing.easing === 'ease-in-out', JSON.stringify(motion))
   assert(motion.pseudoElement === '::view-transition-new(root)', 'circle targeted the live page instead of the new snapshot')
   const numbers = motion.frames.map(value => value.match(/[\d.]+/gu).map(Number))
-  assert(Math.abs(numbers[0][0]) < .01 && Math.abs(numbers[1][0] - radius) < .1, 'circle does not cover every viewport corner')
+  assert(Math.abs(numbers[0][0]) < .01 && Math.abs(numbers[1][0] - radius) < .1, `circle does not cover every viewport corner: ${JSON.stringify({ beforeClick, x, y, radius, numbers })}`)
   assert(numbers.every(frame => Math.abs(frame[1] - x) < .1 && Math.abs(frame[2] - y) < .1), 'circle is not centered on the button')
   await shot(page, name)
-  evidence.push({ name, target, origin: { x, y }, viewport, motion })
+  evidence.push({ name, target, origin: { x, y }, beforeClick, viewport, motion })
   await page.evaluate(() => document.getAnimations().find(value => value.effect?.getKeyframes().some(frame => frame.clipPath)).play())
   await settle(page, target)
 }
@@ -51,15 +57,15 @@ export async function runThemeCases({ browser, base, check, assert, shot, artifa
     const { context, page } = await create()
     try {
       await open(page)
-      await circle(page, page.locator('.menubar button'), 'dark', assert, shot, 'theme-circle-dark-midpoint')
+      await circle(page, page.locator('.site-footer .footer-theme'), 'dark', assert, shot, 'theme-circle-dark-midpoint')
       assert(await page.evaluate(() => localStorage.getItem('goalloom-theme')) === 'dark', 'dark preference not persisted')
-      await circle(page, page.locator('.menubar button'), 'light', assert, shot, 'theme-circle-light-midpoint')
+      await circle(page, page.locator('.site-footer .footer-theme'), 'light', assert, shot, 'theme-circle-light-midpoint')
       assert(await page.evaluate(() => localStorage.getItem('goalloom-theme')) === null, 'returning to system theme did not restore auto')
-      assert(await page.locator('.menubar button').evaluate(node => node === document.activeElement), 'theme change lost button focus')
+      assert(await page.locator('.site-footer .footer-theme').evaluate(node => node === document.activeElement), 'theme change lost button focus')
     } finally { await context.close() }
   })
   await check('theme motion: information-page and mobile controls use their own viewport origin', async () => {
-    for (const [path, width, selector, name] of [['/fr/pricing/',1440,'.site-header .nav-icon','theme-circle-pricing'],['/zh-CN/',390,'.menubar button','theme-circle-mobile']]) {
+    for (const [path, width, selector, name] of [['/fr/pricing/',1440,'.site-header .nav-icon','theme-circle-pricing'],['/zh-CN/',390,'.site-footer .footer-theme','theme-circle-mobile']]) {
       const { context, page } = await create({ viewport: { width, height: 900 } })
       try { await open(page, path); await circle(page, page.locator(selector), 'dark', assert, shot, name) }
       finally { await context.close() }
@@ -69,7 +75,7 @@ export async function runThemeCases({ browser, base, check, assert, shot, artifa
     const { context, page } = await create()
     try {
       await open(page)
-      await page.locator('.menubar button').evaluate(button => {
+      await page.locator('.site-footer .footer-theme').evaluate(button => {
         for (let index = 0; index < 3; index++) button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
       })
       await settle(page, 'dark')
@@ -82,16 +88,16 @@ export async function runThemeCases({ browser, base, check, assert, shot, artifa
     const { context, page } = await create({ reducedMotion: 'reduce' })
     try {
       await open(page)
-      await page.locator('.menubar button').click()
+      await page.locator('.site-footer .footer-theme').click()
       await settle(page, 'dark')
       assert(await page.evaluate(clipAnimation) === undefined, 'reduced-motion preference animated')
-      await page.locator('.menubar button').click()
+      await page.locator('.site-footer .footer-theme').click()
       await settle(page, 'light')
       await page.emulateMedia({ colorScheme: 'dark' })
       await settle(page, 'dark')
       await page.emulateMedia({ reducedMotion: 'no-preference' })
-      await page.locator('.menubar button').focus()
-      await page.locator('.menubar button').press('Enter')
+      await page.locator('.site-footer .footer-theme').focus()
+      await page.locator('.site-footer .footer-theme').press('Enter')
       await settle(page, 'light')
       assert(await page.evaluate(clipAnimation) === undefined, 'keyboard theme change animated')
     } finally { await context.close() }
@@ -105,7 +111,7 @@ export async function runThemeCases({ browser, base, check, assert, shot, artifa
     ]
     for (const init of capabilities) {
       const { context, page } = await create({}, init)
-      try { await open(page); await page.locator('.menubar button').click(); await settle(page, 'dark') }
+      try { await open(page); await page.locator('.site-footer .footer-theme').click(); await settle(page, 'dark') }
       finally { await context.close() }
     }
   })
@@ -113,7 +119,7 @@ export async function runThemeCases({ browser, base, check, assert, shot, artifa
     const { context, page } = await create()
     try {
       await open(page)
-      await page.locator('.menubar button').click()
+      await page.locator('.site-footer .footer-theme').click()
       await expect.poll(() => page.evaluate(clipAnimation)).not.toBeUndefined()
       await page.evaluate(() => document.getAnimations().find(value => value.effect?.getKeyframes().some(frame => frame.clipPath)).pause())
       await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -127,7 +133,7 @@ export async function runThemeCases({ browser, base, check, assert, shot, artifa
       Storage.prototype.setItem = () => { throw new Error('controlled blocked storage') }
       Storage.prototype.removeItem = () => { throw new Error('controlled blocked storage') }
     })
-    try { await open(page); await page.locator('.menubar button').click(); await settle(page, 'dark'); assert(errors.length === 0, errors.join('\n')) }
+    try { await open(page); await page.locator('.site-footer .footer-theme').click(); await settle(page, 'dark'); assert(errors.length === 0, errors.join('\n')) }
     finally { await context.close() }
     writeFileSync(join(artifact, 'theme-motion.json'), JSON.stringify({ at: new Date().toISOString(), reference: 'https://github.com/thinkingjimmy/jimmywong-dev/blob/562751bbcaafe53218013b6b3a85bc9ab219c6b8/components/theme-toggle.tsx', evidence, errors, scope: 'native Chromium plus controlled capability/storage fallbacks; no Safari/Firefox acceptance' }, null, 2))
   })

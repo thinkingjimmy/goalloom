@@ -24,7 +24,7 @@ export async function runVideoIntroCases({ browser, base, LOCALES, check, assert
       await page.locator('.video-intro').scrollIntoViewIfNeeded()
       const layout = await page.locator('.video-intro').evaluate(node => {
         const rect = selector => { const r = node.querySelector(selector).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height } }
-        const hero = document.querySelector('.stage-frame').getBoundingClientRect()
+        const hero = document.querySelector('.hero-shell').getBoundingClientRect()
         const content = document.querySelector('main').getBoundingClientRect()
         const quote = node.querySelector('.intro-quote'), type = getComputedStyle(quote), cover = getComputedStyle(node.querySelector('.intro-cover'))
         const frame = rect('.intro-player')

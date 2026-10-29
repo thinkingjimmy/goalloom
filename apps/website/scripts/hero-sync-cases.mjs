@@ -22,11 +22,13 @@ export async function runHeroSyncCases({ browser, base, LOCALES, check, assert, 
       await page.keyboard.press('End')
       assert(await page.getByRole('tab', { name: '端到端同步' }).getAttribute('aria-selected') === 'true', 'End did not reach sync')
       assert(await page.locator('.hero-phone').isVisible(), 'phone missing')
+      // The introduction now precedes the desktop; inspect occlusion with the full demo in view.
+      await page.locator('.stage-frame').evaluate(node => scrollTo({ top: node.getBoundingClientRect().top + scrollY - document.querySelector('.site-header').getBoundingClientRect().height, behavior: 'instant' }))
       const layout = await page.evaluate(() => {
         const rect = selector => { const { x, y, width, height, right, bottom } = document.querySelector(selector).getBoundingClientRect(); return { x, y, width, height, right, bottom } }
         const clickable = selector => { const node = document.querySelector(selector), r = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)) }
         const fab = document.querySelector('.window .fab').getBoundingClientRect(), window = rect('.window')
-        return { hero: rect('.stage-frame'), window, phone: rect('.hero-phone'), tabs: rect('.tabs'), fab: clickable('.window .fab'), firstTask: clickable('.window .check'), addInset: window.right - fab.right }
+        return { hero: rect('.stage-frame'), window, phone: rect('.hero-phone'), tabs: rect('.tabs'), fab: clickable('.window .fab'), firstTask: clickable('.window .bcol[data-horizon="day"] .check'), addInset: window.right - fab.right }
       })
       assert(layout.phone.right <= layout.hero.right && layout.phone.bottom <= layout.hero.bottom && layout.phone.x > layout.window.x + layout.window.width / 2 && layout.phone.y > layout.window.y, JSON.stringify(layout))
       assert(layout.fab && layout.firstTask && layout.tabs.right < layout.phone.x, `controls obscured: ${JSON.stringify(layout)}`)

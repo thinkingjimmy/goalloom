@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Localized site/service copy, private support contact, locale paths and the current logical page path.
- * [OUTPUT]: Shared SiteFooter with accessible legal links and page-preserving language navigation.
+ * [INPUT]: Localized site/service copy, private support contact, locale paths, theme controls and the current logical page path.
+ * [OUTPUT]: Shared SiteFooter with accessible legal links and page-preserving language navigation and theme selection.
  * [POS]: Website footer used by home, pricing, legal and closed billing pages.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -8,6 +8,7 @@ import { localizedPath, type Locale, type SiteCatalog } from '@/lib/i18n'
 import { getServiceCatalog, SERVICE } from '@/lib/services'
 import { RELEASES_URL, REPO } from '@/lib/release'
 import { LanguageMenu } from './language-menu'
+import { ThemeToggle } from './theme'
 
 export function SiteFooter({ locale, t, logicalPath = '/' }: { locale: Locale; t: SiteCatalog; logicalPath?: string }) {
   return (
@@ -21,7 +22,10 @@ export function SiteFooter({ locale, t, logicalPath = '/' }: { locale: Locale; t
         <a href={`${REPO}/issues`}>{t.footer.feedback}</a>
         <a className="legal-link" href={localizedPath(locale, '/privacy/')} aria-current={logicalPath === '/privacy/' ? 'page' : undefined}>{t.footer.privacy}</a>
         <a className="legal-link" href={localizedPath(locale, '/terms/')} aria-current={logicalPath === '/terms/' ? 'page' : undefined}>{t.footer.terms}</a>
-        <LanguageMenu locale={locale} label={t.nav.language} className="lang-button" logicalPath={logicalPath} up />
+        <div className="footer-preferences">
+          <LanguageMenu locale={locale} label={t.nav.language} className="lang-button" logicalPath={logicalPath} up />
+          <ThemeToggle toDark={t.nav.themeToDark} toLight={t.nav.themeToLight} className="lang-button footer-theme" />
+        </div>
       </nav>
     </footer>
   )

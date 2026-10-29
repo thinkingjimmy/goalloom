@@ -9,7 +9,7 @@ import {
   Add01Icon, AppleIcon, Cancel01Icon, Cursor02Icon, Delete02Icon, Download04Icon, FilterIcon, GitBranchIcon, Globe02Icon,
   GridViewIcon, HistoryIcon, KeyboardIcon, LayoutThreeColumnIcon, Menu01Icon, Moon02Icon, Search01Icon, SlidersHorizontalIcon,
   SparklesIcon, Sun01Icon, Tick02Icon, WindowsNewIcon, ArrowDown01Icon, Link01Icon, ArrowUpRight01Icon, MoreHorizontalIcon, MinusSignIcon, InformationCircleIcon,
-  BatteryFullIcon, CellularNetworkIcon, PlayIcon,
+  BatteryFullIcon, CellularNetworkIcon, PlayIcon, GithubIcon,
 } from '@hugeicons/core-free-icons'
 
 const ICONS = {
@@ -18,7 +18,7 @@ const ICONS = {
   views: LayoutThreeColumnIcon, menu: Menu01Icon, moon: Moon02Icon, search: Search01Icon, settings: SlidersHorizontalIcon,
   smart: SparklesIcon, sun: Sun01Icon, check: Tick02Icon, windows: WindowsNewIcon, expand: ArrowDown01Icon,
   link: Link01Icon, external: ArrowUpRight01Icon, more: MoreHorizontalIcon, minus: MinusSignIcon, info: InformationCircleIcon,
-  battery: BatteryFullIcon, signal: CellularNetworkIcon, play: PlayIcon,
+  battery: BatteryFullIcon, signal: CellularNetworkIcon, play: PlayIcon, github: GithubIcon,
 } as const
 
 export type IconName = keyof typeof ICONS

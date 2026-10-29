@@ -2,7 +2,7 @@
 /**
  * [INPUT]: Depends on react, lib/board, shared Board/Composer/icons and ./hero-phone's read-only device illustration.
  * [OUTPUT]: Exports HeroDemo and HeroDemoCopy
- * [POS]: components/home's playable app window inside the hero: hover rows, filter by goal from the top bar, complete
+ * [POS]: components/home's proportionally scalable app/phone group inside the hero, with independent scene tabs: hover rows, filter by goal from the top bar, complete
  *        items, create one through the composer (placed by the app's own Jev sentence) and undo it from the toast.
  *        Three scenes omit the repository-review task and default to relation lines; sync mirrors the same Today list in a foreground phone.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
@@ -81,47 +81,49 @@ export function HeroDemo({ copy }: { copy: HeroDemoCopy }) {
   const created = items.some(item => item.id === CREATED.id)
 
   return <>
-    <div className="window" data-sync-preview={scene === 'sync'} role="tabpanel" id={`${sceneId}-panel`} aria-labelledby={`${sceneId}-${scene}`}>
-      <div className="bar">
-        <div className="lights" aria-hidden="true"><span /><span /><span /></div>
-        <button type="button" className="chip" aria-pressed={filter === null} onClick={() => pickFlow(null)}>
-          <Icon name="all" size={14} strokeWidth={1.8} />{copy.all}
-        </button>
-        {FLOWS.map(flow => (
-          <button key={flow} type="button" className="chip" aria-pressed={filter === flow} aria-label={copy.onlyFlow + copy.flows[flow]} title={copy.flows[flow]} onClick={() => pickFlow(flow)}>
-            <span className="mark" style={{ borderColor: `var(--stroke-${flow})` }} />
-            {filter === flow && <span className="chip-label">{copy.flows[flow]}</span>}
+    <div className="hero-devices">
+      <div className="window" data-sync-preview={scene === 'sync'} role="tabpanel" id={`${sceneId}-panel`} aria-labelledby={`${sceneId}-${scene}`}>
+        <div className="bar">
+          <div className="lights" aria-hidden="true"><span /><span /><span /></div>
+          <button type="button" className="chip" aria-pressed={filter === null} onClick={() => pickFlow(null)}>
+            <Icon name="all" size={14} strokeWidth={1.8} />{copy.all}
           </button>
-        ))}
-        <span style={{ flex: 1 }} />
-        <span className="ib" aria-hidden="true" title={copy.search}><Icon name="search" size={18} /></span>
-        <span className="ib" aria-hidden="true" title={copy.columns}><Icon name="views" size={18} /></span>
-        <span className="ib" aria-hidden="true" title={copy.settings}><Icon name="settings" size={18} /></span>
-      </div>
-      <Board
-        horizons={scene === 'sync' ? SYNC_SHOWN : SHOWN} items={items} rows={rows} edges={scene === 'sync' ? [] : edges} copy={copy} headActions
-        newId={toast === 'created' ? CREATED.id : null}
-        interaction={{ onHover: setHover, onToggle: toggle, onAdd: () => setComposer(true) }}
-      />
-      <button type="button" className="fab" aria-label={`${copy.newItem} ⌘N`} onClick={() => setComposer(true)}>
-        <Icon name="add" size={22} />
-      </button>
-      {toast && (
-        <div className="toast" role="status">
-          <span>{toast === 'created' ? copy.created : copy.undone}</span>
-          {toast === 'created' && created && <button type="button" className="toast-action" onClick={undo}>{copy.undo} <kbd>⌘Z</kbd></button>}
-          <button type="button" className="toast-close" aria-label={copy.dismiss} onClick={() => setToast(null)}><Icon name="close" size={12} /></button>
+          {FLOWS.map(flow => (
+            <button key={flow} type="button" className="chip" aria-pressed={filter === flow} aria-label={copy.onlyFlow + copy.flows[flow]} title={copy.flows[flow]} onClick={() => pickFlow(flow)}>
+              <span className="mark" style={{ borderColor: `var(--stroke-${flow})` }} />
+              {filter === flow && <span className="chip-label">{copy.flows[flow]}</span>}
+            </button>
+          ))}
+          <span style={{ flex: 1 }} />
+          <span className="ib" aria-hidden="true" title={copy.search}><Icon name="search" size={18} /></span>
+          <span className="ib" aria-hidden="true" title={copy.columns}><Icon name="views" size={18} /></span>
+          <span className="ib" aria-hidden="true" title={copy.settings}><Icon name="settings" size={18} /></span>
         </div>
-      )}
-      {composer && <>
-        <div className="scrim" onClick={() => setComposer(false)} />
-        <Composer
-          copy={copy.composer} text={copy.composer.heroText} phase="suggest" sentence={copy.sentence} createLabel={copy.createTo}
-          onCreate={create} onClose={() => setComposer(false)} tip={false}
+        <Board
+          horizons={scene === 'sync' ? SYNC_SHOWN : SHOWN} items={items} rows={rows} edges={scene === 'sync' ? [] : edges} copy={copy} headActions
+          newId={toast === 'created' ? CREATED.id : null}
+          interaction={{ onHover: setHover, onToggle: toggle, onAdd: () => setComposer(true) }}
         />
-      </>}
+        <button type="button" className="fab" aria-label={`${copy.newItem} ⌘N`} onClick={() => setComposer(true)}>
+          <Icon name="add" size={22} />
+        </button>
+        {toast && (
+          <div className="toast" role="status">
+            <span>{toast === 'created' ? copy.created : copy.undone}</span>
+            {toast === 'created' && created && <button type="button" className="toast-action" onClick={undo}>{copy.undo} <kbd>⌘Z</kbd></button>}
+            <button type="button" className="toast-close" aria-label={copy.dismiss} onClick={() => setToast(null)}><Icon name="close" size={12} /></button>
+          </div>
+        )}
+        {composer && <>
+          <div className="scrim" onClick={() => setComposer(false)} />
+          <Composer
+            copy={copy.composer} text={copy.composer.heroText} phase="suggest" sentence={copy.sentence} createLabel={copy.createTo}
+            onCreate={create} onClose={() => setComposer(false)} tip={false}
+          />
+        </>}
+      </div>
+      <HeroPhone items={items} rows={rows} copy={copy} sync={copy.sync} visible={scene === 'sync'} animate={animateScene} />
     </div>
-    <HeroPhone items={items} rows={rows} copy={copy} sync={copy.sync} visible={scene === 'sync'} animate={animateScene} />
     <div className="tabs" role="tablist" aria-label={copy.scenes} onKeyDown={event => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
       event.preventDefault()

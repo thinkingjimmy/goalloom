@@ -27,9 +27,10 @@ const zhCN: SiteCatalog = {
     themeToLight: '切换到浅色主题',
   },
   hero: {
-    h1: 'Goalloom：以 OKR 理念驱动的本地 Todo',
-    menus: ['文件', '编辑', '显示', '窗口', '帮助'],
-    clock: '9月25日 周四 9:41',
+    h1: "让长期目标，出现在每一天。",
+    lead: "把这个季度的目标，连到今天的待办。随手记下想法，找到它的位置，看清下一步。",
+    downloadNote: "免费、开源",
+    closingLead: "给重要的事留一点空间。从一个目标、今天的一小步开始。",
     scenes: '演示场景',
     sceneJev: '智能输入',
     sceneLines: '关系线',
