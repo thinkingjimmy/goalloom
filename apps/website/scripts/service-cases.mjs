@@ -9,6 +9,12 @@ import { join } from 'node:path'
 import { expect } from 'playwright/test'
 
 export async function runServiceCases({ browser, base, SITE, LOCALES, check, assert, shot, out, artifact }) {
+  const assertInfoAbove = async info => {
+    const trigger = await info.locator('summary').boundingBox()
+    const panel = await info.locator('.info-panel').boundingBox()
+    assert(panel && trigger && panel.y + panel.height <= trigger.y - 5, `information must open above its trigger: ${JSON.stringify({ trigger, panel })}`)
+  }
+
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce', colorScheme: 'light' })
   const page = await context.newPage()
   const external = [], errors = [], states = []
@@ -87,6 +93,7 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
           await trigger.focus()
           await trigger.press('Enter')
           assert(await panel.isVisible() && (await panel.innerText()).length > 8, 'plan information did not open')
+          await assertInfoAbove(info)
           const after = await plan.evaluate(cardPosition)
           assert(Math.abs(before.height - after.height) <= 1, 'information panel moved the plan content')
           await trigger.press('Escape')
@@ -257,6 +264,7 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
           await info.locator('summary').tap()
           const panel = await info.locator('.info-panel').boundingBox()
           assert(panel && panel.x >= 0 && panel.x + panel.width <= 390, 'plan information overflows the phone')
+          await assertInfoAbove(info)
           await phone.locator('.home-pricing h2').tap()
           assert(!(await info.locator('.info-panel').isVisible()), 'outside touch left plan information open')
         }
@@ -280,6 +288,7 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
           await info.locator('summary').tap()
           const panel = await info.locator('.info-panel').boundingBox()
           assert(panel && panel.x >= 0 && panel.x + panel.width <= 390, 'pricing information overflows the phone')
+          await assertInfoAbove(info)
           await phone.locator('.service-intro h1').tap()
           assert(!await info.locator('.info-panel').isVisible(), 'pricing information did not close on outside touch')
         }
@@ -363,6 +372,7 @@ export async function runServiceCases({ browser, base, SITE, LOCALES, check, ass
         const info = staticPage.locator(`.home-plan-${plan} .info-disclosure`)
         await info.locator('summary').click()
         assert(await info.locator('.info-panel').isVisible(), 'plan information unavailable without JavaScript')
+        await assertInfoAbove(info)
         await info.locator('summary').press('Enter')
         assert(!(await info.locator('.info-panel').isVisible()), 'native information disclosure did not close')
       }

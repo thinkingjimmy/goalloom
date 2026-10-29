@@ -27,9 +27,10 @@ const es: SiteCatalog = {
     themeToLight: 'Cambiar al tema claro',
   },
   hero: {
-    h1: 'Goalloom: una app de tareas local guiada por OKR',
-    menus: ['Archivo', 'Edición', 'Visualización', 'Ventana', 'Ayuda'],
-    clock: 'jue 25 sept 9:41',
+    h1: "Tus metas, presentes cada día.",
+    lead: "Conecta las metas de este trimestre con las tareas de hoy. Anota una idea, encuentra su lugar y descubre el siguiente paso.",
+    downloadNote: "Gratis y de código abierto",
+    closingLead: "Haz espacio para lo que importa. Empieza con una meta y un pequeño paso hoy.",
     scenes: 'Escenas de la demo',
     sceneJev: 'Entrada inteligente',
     sceneLines: 'Líneas de relación',

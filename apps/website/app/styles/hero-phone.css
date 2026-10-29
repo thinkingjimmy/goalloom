@@ -4,7 +4,7 @@
  * [POS]: Hero companion layer; scene-scoped layout keeps the default board and composer unchanged.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-.hero-phone { position: absolute; z-index: 2; right: 24px; bottom: 24px; width: clamp(216px,18vw,252px); height: min(500px,calc(100% - 110px)); margin: 0; padding: 6px; border-radius: 40px; background: #292827; box-shadow: 0 0 0 1px rgba(0,0,0,.25), 0 3px 8px rgba(0,0,0,.18), 0 24px 56px rgba(0,0,0,.28); visibility: hidden; opacity: 0; transform: translateY(20px) scale(.97); transform-origin: bottom right; pointer-events: none; }
+.hero-phone { position: absolute; z-index: 2; right: 0; bottom: 24px; width: clamp(216px,18vw,252px); height: min(500px,calc(100% - 110px)); margin: 0; padding: 6px; border-radius: 40px; background: #292827; box-shadow: 0 0 0 1px rgba(0,0,0,.25), 0 3px 8px rgba(0,0,0,.18), 0 24px 56px rgba(0,0,0,.28); visibility: hidden; opacity: 0; transform: translateY(20px) scale(.97); transform-origin: bottom right; pointer-events: none; }
 .hero-phone[data-animate='true'] { transition: opacity 180ms ease-out, transform 180ms cubic-bezier(.215,.61,.355,1), visibility 0s 180ms; }
 .hero-phone[data-visible='true'] { visibility: visible; opacity: 1; transform: none; }
 .hero-phone[data-visible='true'][data-animate='true'] { transition-duration: 280ms,280ms,0s; transition-delay: 0s; }
@@ -23,13 +23,18 @@
 .hero-phone-home > span { width: 80px; height: 4px; border-radius: 3px; background: var(--fg); }
 @media (min-width: 901px) {
  /* Reserve space for the device as a whole; the app's Add button keeps its normal 24px inset. */
- .window[data-sync-preview='true'] { left: 32px; width: calc(100% - clamp(216px,18vw,252px) - 40px); transform: translateY(calc(-50% - 24px)); }
+ .window[data-sync-preview='true'] { left: 0; width: calc(100% - clamp(216px,18vw,252px) - 16px); transform: none; }
  /* Three 320px columns plus the reserved phone need a wider container. */
  @container hero (max-width: 1254px) {
   .window[data-sync-preview='true'] .bcol[data-horizon='month'] { display: none; }
   .window[data-sync-preview='true'] .board-grid { grid-template-columns: repeat(2,minmax(0,1fr)); min-width: 640px; }
   .window[data-sync-preview='true'] .bcol[data-horizon='week'] { border-left: 0; }
  }
+}
+@container hero (max-width: 880px) {
+ .window[data-sync-preview='true'] .bcol[data-horizon='week'] { display: none; }
+ .window[data-sync-preview='true'] .board-grid { grid-template-columns: minmax(0,1fr); min-width: 320px; }
+ .window[data-sync-preview='true'] .bcol[data-horizon='day'] { border-left: 0; }
 }
 @media (max-width: 900px) {
  .hero-phone { display: none; }

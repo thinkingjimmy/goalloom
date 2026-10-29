@@ -1,12 +1,20 @@
 /**
  * [INPUT]: Depends on ./tokens.css and ./board.css; markup from components/site-header.tsx and components/home/sections.tsx
- * [OUTPUT]: Opaque header, rounded hero size-query container, macOS-style controls, app window and scene switcher.
- * [POS]: First screen; Header and Hero follow the shared site frame, and Hero/window share one radius.
+ * [OUTPUT]: Frosted-glass header with an opaque fallback, expanding wallpaper Hero, transparent demo size-query container, app window and scene switcher.
+ * [POS]: First screen; Header follows the reading frame; Hero starts wide and settles on scroll, the product window retains its radius and passes vertical boundary scrolling to the page.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 
 /* --- Site header: visible from first paint --- */
-.site-header { display: flex; align-items: center; gap: 4px; }
+/* A full-width glass layer keeps navigation crisp and menus outside the blur surface. */
+.site-header::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: var(--header-height); z-index: -1; pointer-events: none; background: var(--bg); }
+@supports ((backdrop-filter: blur(18px)) or (-webkit-backdrop-filter: blur(18px))) {
+  .site-header::before { background: color-mix(in srgb, var(--bg) 72%, transparent); -webkit-backdrop-filter: blur(18px) saturate(1.15); backdrop-filter: blur(18px) saturate(1.15); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .site-header::before { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+.site-header { isolation: isolate; display: flex; align-items: center; gap: 4px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; margin-right: auto; font-size: 18px; font-weight: 650; letter-spacing: -.025em; }
 .brand-tile { width: 30px; height: 30px; border-radius: 8px; background: var(--raised); color: var(--fg); display: grid; place-items: center; box-shadow: 0 0 0 1px var(--hairline), 0 1px 2px rgba(0, 0, 0, .1); }
 .site-nav { display: flex; align-items: center; gap: 2px; }
@@ -24,34 +32,34 @@
 .menu-panel a[aria-current='page'] { font-weight: 600; }
 .mobile-only { display: none; }
 
-.site-bar { position: sticky; top: 0; z-index: 50; height: var(--header-height); padding: 0; background: var(--bg); }
+.site-bar { position: sticky; top: 0; z-index: 50; height: var(--header-height); padding: 0; }
 
-/* --- Static desktop: fills the site width and scrolls with the page --- */
-.stage-frame { container: hero / inline-size; max-width: var(--site-max-width); margin-inline: auto; position: relative; height: clamp(720px, calc(100svh - var(--header-height)), 900px); overflow: hidden; border: 1px solid var(--line); border-radius: var(--window-radius); background: var(--sky); }
+/* The frame follows the measured content edges; the device canvas scales as one surface. */
+.hero-shell { --hero-preview-inset: 32px; --hero-preview-max: 1232px; position: relative; isolation: isolate; width: calc(100% - var(--hero-inset, 16px) - var(--hero-right, 16px)); margin-left: var(--hero-inset, 16px); margin-right: var(--hero-right, 16px); overflow: clip; border: 1px solid var(--line); border-radius: 28px; background: var(--sky); }
+.hero-shell > .wall { z-index: -2; object-position: center; }
+.hero-shell::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(var(--bar), transparent 70%), url(/paper-grain.svg); opacity: .55; }
+.hero-intro { position: relative; max-width: 840px; margin-inline: auto; padding: 72px 24px 28px; text-align: center; }
+.hero-app-icon { width: 56px; height: 56px; margin-inline: auto; display: grid; place-items: center; border-radius: 13px; background: var(--raised); color: var(--fg); box-shadow: 0 1px 3px var(--line); }
+.hero-intro h1 { margin: 26px auto 0; max-width: 14em; font-size: clamp(40px, 4.6vw, 64px); line-height: 1.14; font-weight: 600; letter-spacing: -.045em; text-wrap: balance; }
+.hero-intro > p { max-width: 35em; margin: 22px auto 0; font-size: 18px; line-height: 1.75; color: var(--fg-soft); text-wrap: pretty; }
+.home-download-action { margin-top: 28px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.home-download-action .download-split { align-self: center; }
+.home-download-detail { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 14px; color: var(--secondary); font-size: 12px; line-height: 1.6; }
+.home-download-action .download-panel { text-align: start; }
+
+/* --- Playable desktop inside the introduction --- */
+.stage-frame { --hero-device-height: calc(clamp(720px, calc(100svh - var(--header-height)), 900px) - 96px); width: calc(100% - 2 * var(--hero-preview-inset)); max-width: var(--hero-preview-max); margin: 0 auto 32px; position: relative; height: calc(var(--hero-device-height) * var(--hero-product-scale, 1) + 96px); overflow: visible; border: 0; background: none; }
 .wall { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity .4s; }
 .wall-dark { opacity: 0; }
 :root[data-theme='dark'] .wall-dark { opacity: 1; }
-.menubar { position: absolute; top: 0; left: 0; right: 0; z-index: 3; height: 30px; padding: 0 12px; display: flex; align-items: center; gap: 2px; background: var(--bar); box-shadow: 0 .5px 0 var(--line); font-size: 13px; color: var(--fg); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
-.menubar > span { padding: 0 9px; white-space: nowrap; }
-.menubar .app-name { font-weight: 700; }
-.menubar .spacer { flex: 1; }
-.menubar .clock { font-variant-numeric: tabular-nums; }
-.menubar-controls { display: flex; align-items: center; align-self: stretch; gap: 2px; flex-shrink: 0; }
-.menubar-controls .menu-pop { height: 100%; }
-.menubar-control { position: relative; isolation: isolate; height: 100%; min-width: 30px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 4px; font-size: 13px; white-space: nowrap; cursor: pointer; touch-action: manipulation; }
-.menubar-control::before { content: ''; position: absolute; inset: 3px 0; z-index: -1; border-radius: 4px; pointer-events: none; }
-.menubar-icon { width: 32px; }
-.menubar .menu-pop[open] > summary::before { background: var(--hover); }
-.menubar .menu-panel { top: calc(100% + 4px); left: 0; right: auto; border: 1px solid var(--line); border-radius: 8px; }
-.menubar .menu-panel a { min-height: 36px; }
-@media (hover: hover) and (pointer: fine) { .menubar-control:hover::before { background: var(--hover); } }
+.hero-devices { container: hero / inline-size; position: absolute; top: 0; left: 50%; width: var(--hero-product-width, 100%); height: var(--hero-device-height); transform: translateX(-50%) scale(var(--hero-product-scale, 1)); transform-origin: top center; }
 .window {
   /* Four product-width columns fit on wide desktops; narrower windows scroll the timeline without squeezing tasks. */
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, calc(-50% - 24px));
-  width: min(1296px, calc(100% - 96px)); height: min(680px, calc(100% - 180px));
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  width: 100%; height: 100%;
   border-radius: var(--window-radius); background: var(--bg); color: var(--fg); box-shadow: var(--shadow-win); overflow: hidden; display: flex; flex-direction: column;
 }
-.window .board { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.window .board { flex: 1; min-height: 0; overflow: auto; overscroll-behavior-x: contain; overscroll-behavior-y: auto; }
 .window .board-grid { min-width: calc(var(--cols) * 320px); min-height: 100%; }
 .tabs { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); z-index: 3; height: 44px; padding: 4px; border-radius: 22px; background: rgba(28, 25, 22, .86); display: flex; gap: 2px; box-shadow: 0 8px 24px rgba(20, 12, 5, .25); }
 .tab { height: 36px; padding: 0 16px; border-radius: 18px; font-size: 13px; color: rgba(245, 241, 235, .78); white-space: nowrap; }
@@ -62,18 +70,23 @@
   .desktop-only { display: none !important; }
   .mobile-only { display: revert; }
   .menu-pop .nav-link > span { display: none; }
-  .stage-frame { height: 588px; }
+  .hero-shell { width: calc(100% - 24px); margin-inline: 12px; border-radius: 20px; }
+  .hero-intro { padding: 48px 20px 24px; }
+  .hero-intro h1 { font-size: clamp(32px, 6vw, 48px); letter-spacing: -.035em; }
+  .hero-intro > p { font-size: 16px; }
+  .hero-intro .hero-app-icon { width: 48px; height: 48px; }
+  .stage-frame { --hero-device-height: 504px; width: calc(100% - 16px); height: 588px; margin-bottom: 8px; }
+  .home-download-action .download-primary { padding-inline: 14px; font-size: 14px; }
+  .home-download-action .download-split[data-size='regular'] .download-panel { left: 50%; transform: translateX(-50%); min-width: 250px; }
   .wall { object-position: 88% 50%; }
-  .menubar { height: 44px; padding: 0 4px; font-size: 12px; }
-  .menubar .app-menu { display: none; }
-  .menubar-language > span { display: none; }
-  .menubar-control { min-width: 44px; min-height: 44px; }
-  .menubar .menu-panel a { min-height: 44px; }
-  .menubar .clock { padding-right: 8px; }
-  .window { left: 10px; right: 10px; top: 60px; width: auto; height: 428px; transform: none; }
+  .window { left: 0; right: 0; top: 0; width: auto; height: 100%; transform: none; }
   .window .board-grid { grid-template-columns: minmax(0, 1fr); min-width: 0; }
   .window .bcol:not([data-horizon='day']), .window .lines, .window .bar .ib, .window .lights { display: none; }
   .window .bcol[data-horizon='day'] { border-left: 0; }
   .tabs { bottom: 24px; }
   .tab { padding: 0 14px; }
+}
+
+@media (min-width: 901px) and (prefers-reduced-motion: reduce) {
+  .hero-shell { width: min(var(--site-max-width), calc(100% - 2 * var(--site-gutter))); margin-inline: auto; }
 }

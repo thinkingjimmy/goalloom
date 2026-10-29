@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Localized label/text, shared Hugeicons and native disclosure dismissal.
- * [OUTPUT]: InfoDisclosure with a keyboard/touch-accessible information trigger and progressive text panel.
+ * [OUTPUT]: InfoDisclosure with a keyboard/touch-accessible information trigger and upward text panel.
  * [POS]: Shared inline information control; native disclosure remains available without JavaScript.
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */

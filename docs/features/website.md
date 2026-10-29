@@ -31,47 +31,46 @@
 
 ### 页面结构
 
-- 自上而下：站点 header → 可操作的首屏桌面 → 作者缘由与视频（左侧原始 ADHD 描述/Jimmy 头像，右侧视频）→ Free/Plus 双卡权益对照 → FAQ → 页脚。不再重复渲染原关系线和智能输入独立大段。
+- 自上而下：站点 header → 可操作的首屏桌面 → 作者缘由与视频（左侧原始 ADHD 描述/Jimmy 头像，右侧视频）→ Free/Plus 双卡权益对照 → FAQ → 页尾下载引导 → 页脚。不再重复渲染原关系线和智能输入独立大段。
 - FAQ 采用已确认的「双栏折叠」：左侧为标题与说明，右侧共五个问题，依次为「哪些功能免费使用？」「支持试用吗？」「我的数据安全吗？你们能看到我的数据吗？」「是否支持退款？」「还有其他疑问？」。不再列出普通 Todo 对比、Jev、安装方式、iPhone 版本、账号/同步密码/付费关系或支持系统问题；独立定价页政策与下载菜单不受影响。首项默认展开，原生 details 同组一次展开一项，以 Hugeicons 加减号指示状态。免费、试用和退款答案按稳定 ID 直接复用当前定价政策；试用须说明 8 天/192 小时、主动激活、免绑卡、不自动扣费及当前未开放，退款不得承诺无条件退款。数据安全回答说明本地 SQLite/备份、同步密文与密钥边界、必要账号/同步元数据、可选 AI 的可读上下文处理，以及本地数据库/导出/备份不因同步而自动加密。最后一项为带私密支持与 GitHub 技术反馈行内链接的完整正文句子，不使用独立按钮行或外链图标。900px 及以下上下排列，五语言、键盘和无 JavaScript 均可用。
 - FAQ 问题列表不显示最顶部和最底部的横线，仅保留相邻问题之间的分隔线。
 - 共用定价卡价格与按钮之间保留约 32px（包含年付节省说明行），缩小原有留白；月付/年付切换时卡片和两张卡的价格、按钮位置保持稳定。
 - 首页 FAQ 上下 padding 由桌面各 100px 减为各 50px，手机各 56px 减为各 28px；首页 Pricing 上/下由桌面 100/80px 减为 50/40px，手机各 56px 减为各 28px。独立定价页的 FAQ 留白不变。
 - FAQ 回答使用右侧问答栏的可用宽度自然换行，不单独限制字符行宽；右侧保留展开图标对应的内边距。
-- 全站 Header、Hero、正文和页脚统一使用 1296px 最大宽度，所有语言和首页/定价/法律/计费页面共用此容器并居中。Hero 直接位于 Header 下方，无额外滚动跑道。容器通过正常文档宽度限制，避免 100vw 造成传统滚动条下的横向溢出。
-- Hero 与内部产品窗口共用 12px 圆角，桌面和手机保持一致；保留 1px 主题边框，壁纸与菜单栏裁切到圆角内，边框不增加容器宽度。
-- Header 不显示底部分隔线，避免横线与 Hero 圆角边框叠加。
-- Header 使用当前主题的不透明页面背景，滚动时遮住下方内容，不使用背景模糊。
-- 全站 Header 不显示「版本发布」「目标看板」「智能输入」入口。
-- Header 不额外增加水平内边距，品牌和下载按钮对齐 1296px 正文容器两侧；Hero 使用同一宽度上限。手机均随可用宽度收缩。
-- 后续 Section 和页脚同样不额外增加水平内边距，正文列、演示图与 Header 共用 1296px 容器的两侧边界；卡片内部保留自身留白。
-- 首屏是一台桌面：macOS 菜单栏左侧模仿系统菜单，右侧放语言、主题控件及时间（不放网站产品导航与下载 CTA），窗口展示 Goalloom 看板，底部为「关系线 / 智能输入 / 端到端同步」三个场景，关系线排第一且默认选中，首帧筛选发布流程；没有「目标看板」场景标签。场景标签支持左右方向键与 Home/End。
-- 同步场景在看板右下角叠放手机外框，沿用纸感主题、32px 行、18px 复选框与 24px 子项缩进，显示相同的今天任务和完成/新建/撤销状态。手机画面只读，辅助技术说明其为移动端设计预览；可见界面不再显示「移动端预览」或加密状态提示，不连接同步后端、不表示 iPhone 已发布。桌面整体构图为手机留出空间，按实际 Hero 容器宽度聚焦月/周/今天三列；容器不宽于 1254px 时显示周/今天，保留今天的产品列宽；Add 保持看板右下角 24px 内缩，不单独左移。900px 及以下保留单列看板，不叠放第二台手机，三场景标签均保留 44px 触摸高度。
+- Header、正文和页脚使用 1120px 最大宽度并居中，视口两侧留白为 `clamp(16px, 3vw, 32px)`。所有语言及首页/定价/法律/计费页共用正文上限；保留内部列宽和卡片留白。使用正常文档宽度，避免 `100vw` 导致滚动条溢出。
+- Hero 首帧横向撑开、左右各留 16px。桌面前 360px 滚动平滑收至与正文完全相同的宽度（最大 1120px，较窄桌面共用正文响应式留白）；回到顶部恢复宽幅，不增加滚动跑道。以首页正文的明确标识和 ResizeObserver 持续跟踪实际左右边界，包含加载后的样式/容器尺寸变化。产品窗口和手机作为同一设备画布等比缩小，保留内部排版与可操作性，连线以缩放前逻辑坐标计算；场景 Tab 保持原字号和点击大小。舞台高度随设备比例收紧，避免留下额外空白。下载系统要求与产品窗口之间仅保留桌面 28px、手机 24px；产品预览不再在固定高度舞台中垂直居中。900px 及以下固定各 12px 留白；减少动态效果时桌面静态对齐正文、产品保留无缩放布局；无 JavaScript 普通模式保持宽幅静态首帧。
+- Hero 在同一明暗壁纸面中依次显示应用图标、可见 h1、说明、平台下载按钮/最低系统要求及可操作演示。文案覆盖五语言。外框桌面 28px、手机 20px 圆角，演示舞台不显示底板、边框或系统菜单栏，产品窗口保留 12px 圆角。Hero 与页尾下载区的图标使用既有矢量 Mark 和单层圆角底板，避免 PNG 自带透明边缘与外层阴影形成双层留白。
+- 页面底色采用同一纸感配色的低对比色晕和本地可平铺 `paper-fibers.jpg` 长纤维纸纹，420px 一组重复，降低叠加强度以保留细腻纸感，覆盖首页、定价、法律和计费页背景及 Footer。Header 独立使用半透明毛玻璃层，避免额外叠加纸纹遮住模糊效果；浅色 multiply、深色反相 screen，保留原有底色与正文对比。页尾下载区使用新生成的明暗纸雕山谷背景 `closing-light.jpg` / `closing-dark.jpg`，风格延续 Hero 的纸质山景，山体/植被集中底部和边角，中央留白保证文案和下载入口清晰；图片为本地 JPEG，装饰层不拦截下载菜单；Hero 保留原有纸质山景壁纸与细颗粒。装饰层不接受指针事件，不请求外部素材。
+- Header 保持无底部分隔线和吸顶行为，全宽背景层使用当前主题底色按 72% 不透明度混合透明色、18px backdrop blur 和 1.15 饱和度，导航和菜单保持清晰且可操作；不支持 backdrop-filter 或偏好减少透明度时回退为不透明主题底色；品牌/下载控件对齐正文边界。GitHub 文字前增加 Hugeicons 图标。不显示「版本发布」「目标看板」「智能输入」入口。
+- 首屏演示仅保留产品窗口及「关系线 / 智能输入 / 端到端同步」三个场景；关系线默认筛选发布流程，场景支持左右方向键和 Home/End。
+- 同步场景在看板右下角叠放手机外框，沿用纸感主题、32px 行、18px 复选框与 24px 子项缩进，显示相同的今天任务和完成/新建/撤销状态。手机画面只读，辅助技术说明其为移动端设计预览；可见界面不再显示「移动端预览」或加密状态提示，不连接同步后端、不表示 iPhone 已发布。桌面整体构图为手机留出空间，按实际 Hero 容器宽度聚焦月/周/今天三列；容器不宽于 1254px 时显示周/今天，保留今天的产品列宽；Add 保持看板右下角 24px 内缩，不单独左移。容器不宽于 880px 时进一步只显示今天，确保滚动收窄后仍完整显示时间列。900px 及以下保留单列看板，不叠放第二台手机，三场景标签均保留 44px 触摸高度。
 - 首屏演示可操作：悬停行、按目标筛选（关系线）、筛选后悬停看整条链路、完成复选框、经 composer 新建（Jev 单条句式）、Toast 撤销、Esc 关闭 composer。Hero composer 不显示「全局＋用于收集或智能整理；列头＋仍在对应列快速录入。」这条底部说明，各语言一致。
+- Hero 看板保留横向时间列滚动；纵向采用原生滚动链，内部内容滚到底后，滚轮/触控板继续带动网页滚动，不截断网页滚动。
 - 看板遵循当前产品纸感样式：18px 复选框、32px 最小行高、标题完整换行，续行与复选框左侧对齐；桌面时间列最小 320px，较窄窗口在内部横向滚动，手机仍只显示今天。
 - 演示包含官网/仓库 URL：行内图标与页面标题、128px 高预览卡及外链均复刻产品样式。卡片只使用已知公开地址、五语言静态文案及本地图片，不访问远程元数据或图标；点击链接才打开外部页面。
 - Hero 今天列移除「核对关系线与任务缩进」及仓库预览（d7），桌面三场景、手机同步镜像和无脚本首屏一致；后续关系线案例保持自身演示数据。今天列展示两级 Todo：保留「检查手机端布局」子项，子项与流程圆点缩进 24px，继承流程并各自完成，不联动父项或兄弟。连线只画目标 → 父项 → 子项，不重复画继承的目标边；使用 DOM 实测首行锚点和 5px 圆角路径，标题换行、URL 卡片与缩放后仍贴合。
 - 正文介绍区不再提供关系线/AI 切换按钮，也不挂载对应配图和动图；Hero 的关系线、智能输入和同步三场景继续保留。
-- Hero 下方采用确认的「安静放映」：左侧为最早的五语言 ADHD 作者原文，连续一段、常规字重，不加粗、不强制断行；标题为「为什么做 Goalloom」，保留 Jimmy 头像/作者链接，没有左侧按钮。右侧为反色主题的文字视频封面，包含品牌、标题、短注与文字播放按钮；影片外部不显示说明或时长。桌面与定价、FAQ 共用 minmax(200px,.3fr)/1fr 列宽及 80px 列间距，左侧内容与视频顶部对齐，保留 60px 节留白；视频左右边界和宽度与其他 Section 的右侧内容栏一致，文字栏最大 340px，正文 17px/1.7，头像 36px。900px 及以下上下排列、44px 节留白、文字栏最大 420px；360px 及以下正文 16px。两侧外边界继续与 1296px 正文容器对齐。返回封面控件位于播放器内部右上角，播放不改变节高度。原文和头像来自既有站点内容，不新增个人健康信息。无 JavaScript 时作者说明、头像和原生视频仍可访问。
+- Hero 下方采用确认的「安静放映」：左侧为最早的五语言 ADHD 作者原文，连续一段、常规字重，不加粗、不强制断行；标题为「为什么做 Goalloom」，保留 Jimmy 头像/作者链接，没有左侧按钮。右侧为反色主题的文字视频封面，包含品牌、标题、短注与文字播放按钮；影片外部不显示说明或时长。桌面与定价、FAQ 共用 minmax(200px,.3fr)/1fr 列宽及 80px 列间距，左侧内容与视频顶部对齐，保留 60px 节留白；视频左右边界和宽度与其他 Section 的右侧内容栏一致，文字栏最大 340px，正文 17px/1.7，头像 36px。900px 及以下上下排列、44px 节留白、文字栏最大 420px；360px 及以下正文 16px。两侧外边界与 1120px 正文容器对齐。返回封面控件位于播放器内部右上角，播放不改变节高度。原文和头像来自既有站点内容，不新增个人健康信息。无 JavaScript 时作者说明、头像和原生视频仍可访问。
 - 产品视频沿用确认预览中的 10.4 秒 H.264 静音中文界面演示（`public/product-tour.mp4`，约 140KiB）。原生 video 配合 details：默认封面、`preload=none`，点击播放并显示原生控制条，可返回封面、键盘操作和结尾重播；离开视口或页面隐藏时暂停，不自动恢复。失败回到封面并给出可重试反馈，过期播放请求不能覆盖当前操作。无 JavaScript 时封面仍可原生展开、控制播放和返回封面；五语言辅助说明交代演示内容及静音/中文界面。不加载外部播放器或被动媒体请求。
 
 ### 文案、语言与视觉
 
-- 语言菜单在点击或触摸外部空白处、其他控件时关闭，不阻止该控件的操作或抢走焦点；点击菜单内部留白保持展开。菜单内按 Esc 关闭并将焦点返回语言按钮。Hero、信息页 Header 与页脚共用此行为；无 JavaScript 时保留原生展开和语言链接。
+- 语言菜单在点击或触摸外部空白处、其他控件时关闭，不阻止该控件的操作或抢走焦点；点击菜单内部留白保持展开。菜单内按 Esc 关闭并将焦点返回语言按钮。信息页 Header 与页脚共用此行为；无 JavaScript 时保留原生展开和语言链接。
 
 - 语言与应用一致：en（无前缀，同时为 x-default）、zh-CN、ja、es、fr；不按浏览器语言重定向，语言切换是普通链接。
 - 演示中的界面词（列名、「全部」、Jev 的放置句式、Toast、占位符）逐字取自 `apps/desktop/src/renderer/i18n/locales/*`，不另写近义说法。
-- 视觉沿用产品纸感主题（明暗两套 token）与 Hugeicons；标题为紧凑无衬线体，章节标签为等宽大写。明暗默认跟随系统并记住选择。首页语言和主题控件位于 Hero 菜单栏右侧、时间之前，网站 Header 不重复显示；其他信息页仍在 Header 显示。菜单保留键盘和屏幕阅读器可达性，装饰文字单独隐藏，语言链接无 JavaScript 也能使用。手机状态栏高 44px，控件至少 44×44px，语言收为图标，时间保持可见。语言和主题控件的 hover／展开背景上下各内缩 3px，点击区域不缩小。
-- 下载通过 Header 和首页 Free 卡共用的分段按钮访问：左侧按访问者系统直接下载（Windows 访客首推 Windows 安装包，其余默认 macOS），文字右侧放系统图标；右侧独立箭头下拉展示其他已发布系统的安装包和最低系统要求。菜单支持外部点击/触摸收起、Esc 返回箭头焦点、选择后关闭；无 JavaScript 也能展开并访问普通下载链接。不新增未发布系统；手机「复制链接到电脑」移至下载菜单。`#download` 锚点仅定位 Header 下载控件，`#faq` 定位问答；正文不再显示独立大下载宣传区。
+- 视觉沿用产品纸感主题（明暗两套 token）与 Hugeicons；标题为紧凑无衬线体，章节标签为等宽大写。明暗默认跟随系统并记住选择。首页语言和主题控件统一放入 Footer，Hero 不再显示模拟系统菜单、时间或网站偏好控件；其他信息页 Header 的既有控件保留。Footer 不显示顶部分割线。偏好控件至少 44×44px，语言菜单向上展开，支持触摸、键盘和辅助技术，语言链接无 JavaScript 仍可使用。主题沿用现有系统跟随、持久化和原生圆形切换。
+- 下载通过 Header、Hero 文案区、首页 Free 卡及 FAQ 后的页尾引导共用的分段按钮访问：左侧按访问者系统直接下载（Windows 访客首推 Windows 安装包，其余默认 macOS），文字右侧放系统图标；右侧独立箭头下拉展示其他已发布系统的安装包和最低系统要求。菜单支持外部点击/触摸收起、Esc 返回箭头焦点、选择后关闭；无 JavaScript 也能展开并访问普通下载链接。不新增未发布系统；手机「复制链接到电脑」移至下载菜单。`#download` 锚点仅定位 Header 下载控件，`#faq` 定位问答；页尾下载区含应用图标、简短标题/说明、同一平台下载按钮和最低系统要求，不触发试用或新增下载系统。
 - Header 下载按钮在桌面高 36px，9px 圆角；900px 及以下保留 44px 控件高度和箭头宽度，保证触摸区域。
 
 ### 动效
 
 - 点击同步场景时，手机以 280ms ease-out 淡入并上移 20px、从 .97 缩放到 1；退出为 180ms，使用原生 CSS transform/opacity 过渡，可中途反向切换。隐藏时立即从辅助技术与点击目标中移除，视觉淡出结束后隐藏。键盘场景切换、首屏加载与减少动态效果时不播放；无定时器或动画依赖。
 - 主题按钮沿用个人站的圆形扩散：从按钮中心向视口最远角展开，550ms、ease-in-out，使用原生 View Transitions 与新快照的 clip-path；明暗双向相同。仅指针操作播放，键盘、系统主题变化、减少动态效果或不支持的浏览器直接切换。保留主题记忆及跟随系统，快速点击以最新意图为准；失败或中断不留下快照与输入遮挡。参考 `thinkingjimmy/jimmywong-dev` 的 `theme-toggle.tsx`，核对提交 `562751bbcaafe53218013b6b3a85bc9ab219c6b8`。
-- 首屏随页面正常滚动，不收缩、不固定、不按滚动改变尺寸或圆角。单一 header 首帧可见，首页滚动时保持在顶部，锚点标题留出 header 高度；禁用 JavaScript 时同样成立。
+- 首屏随页面正常滚动、不固定；桌面外框按上述 360px 滚动范围收窄，圆角和高度不变。单一 header 首帧可见，首页滚动时保持在顶部，锚点标题留出 header 高度；禁用 JavaScript 时同样成立。
 - 各节只在位于首屏下方时由脚本隐藏、进入视口后单向淡入；原生锚点目标直接显示且不位移，避免定位在 Header 后方；无脚本时页面完整。
 - `prefers-reduced-motion` 下：不轮播、Jev 动图停在建议态、各节直接可见。
-- 窄屏（≤900px）header 为 60px 横条，Hero 保持全宽；窗口只留「今天」一列，关系线改为缩进链路列表，Jev 段 composer 原地演示。
+- 窄屏（≤900px）header 为 60px 横条，Hero 两侧各留 12px；窗口只留「今天」一列，关系线改为缩进链路列表，Jev 段 composer 原地演示。
 
 ### 隐私
 
@@ -80,12 +79,12 @@
 - 政策描述实际数据流：本地 SQLite／备份、Apple/Google 基本账号信息、可选端到端加密同步及未加密运行元数据、可选 AI 上下文、链接预览、更新与基础设施日志；不承诺退出即删除、无日志或即时清除所有备份。
 - 隐私与服务联系邮箱为负责人确认的 `hellojimmywong.ai@gmail.com`，通过 `SERVICE.supportEmail` 统一用于五语言客服、账单、退款、删除支持、FAQ、页脚、隐私及条款联系入口；当前源码政策日期为 2026-10-25，运营者为 `Augmenting Human Intellect, LLC`。服务条款保留 MIT 和服务端 AGPL 的既有权利；免费本地使用与可选 Plus 订阅分别说明。条款不自动订阅，不新增管辖地或强制仲裁安排。
 - 首页与法律页面复用页脚，桌面和手机均显示隐私与条款入口。法律页面语言切换保留当前文档，顶部品牌链接返回对应语言首页。
-- 隐私与条款页沿用全站不透明吸顶 Header，桌面和手机滚动时均固定在视口顶部；桌面目录在 Header 下方 24px 吸顶并限制在剩余视口内，正文目录锚点同样避让 Header 24px。移除页面顶部的独立 Plus 政策提示框，现有条款正文保留。
+- 隐私与条款页沿用全站毛玻璃吸顶 Header，桌面和手机滚动时均固定在视口顶部；桌面目录在 Header 下方 24px 吸顶并限制在剩余视口内，正文目录锚点同样避让 Header 24px。移除页面顶部的独立 Plus 政策提示框，现有条款正文保留。
 - 法律页面沿用纸感明暗主题，提供目录锚点、联系邮箱和服务商政策链接；canonical、hreflang、WebPage JSON-LD 和 sitemap 覆盖全部十个文档地址。
 
 ### 服务、价格与开放状态
 
-- 本地任务、历史、备份、导入导出和 BYOK 保持免费，不强制账号或购买。首页采用所有者确认的「双卡对照」，中文标题为「提供付费同步」；Free 提供按访问者系统直接下载及其他系统菜单，Plus 根据卡片内、标题下方 12px 的月付/年付分段控件显示一个主价格：默认 $8.99/月，年付 $79/年；Free 始终 $0，端到端加密同步和内置 AI 权益不随周期变化，不显示「即将推出」标签。年付显示相对连续月付十二个月节省的金额和约整数百分比（当前 $28.88，约 27%），从集中价格计算；月付时隐藏但预留该行，防止切换移位。首页移除平台补充说明、取消续费提示和美元/含税短文案；首页不显示 Free 的「无需账号 · 无需订阅」说明，独立定价页保留；下载下拉中的系统要求及权益勾选标记保持可见。标题左栏与卡片右栏采用和 FAQ 相同的列宽及间距，900px 及以下标题置顶，600px 及以下两卡上下排列；桌面价格、操作和权益分隔线跨语言对齐，外侧边界与其他 Section 一致。浅色 Plus 卡边框为黑色，深色使用主题前景色。「模型费用由服务商另行收取」放入「使用自己的 AI API Key」旁的信息按钮，不再以第二行提示显示。首页和独立定价页共用卡片与五语言费用说明。同步加密不覆盖 AI 推理的说明移到「内置 AI」旁的信息按钮，支持点击/触摸、键盘、外部点击和 Esc 收起，无 JavaScript 时仍可原生展开；不再在卡片下方重复显示。独立五语言 `/pricing/` 保留月年方案及政策详情，月年是同一权益集合的计费周期。首页 Plus 按钮为「如何开始试用」，链接到本语言 `/pricing/#service-trial` 说明。说明引导用户在 macOS 1.10.0 的设置 → 同步登录，然后在 Goalloom Plus 中主动开始 8 天试用；网页点击本身不激活试用。
+- 本地任务、历史、备份、导入导出和 BYOK 保持免费，不强制账号或购买。首页采用所有者确认的「双卡对照」，中文标题为「提供付费同步」；Free 提供按访问者系统直接下载及其他系统菜单，Plus 根据卡片内、标题下方 12px 的月付/年付分段控件显示一个主价格：默认 $8.99/月，年付 $79/年；Free 始终 $0，端到端加密同步和内置 AI 权益不随周期变化，不显示「即将推出」标签。年付显示相对连续月付十二个月节省的金额和约整数百分比（当前 $28.88，约 27%），从集中价格计算；月付时隐藏但预留该行，防止切换移位。首页移除平台补充说明、取消续费提示和美元/含税短文案；首页不显示 Free 的「无需账号 · 无需订阅」说明，独立定价页保留；下载下拉中的系统要求及权益勾选标记保持可见。标题左栏与卡片右栏采用和 FAQ 相同的列宽及间距，900px 及以下标题置顶，600px 及以下两卡上下排列；桌面价格、操作和权益分隔线跨语言对齐，外侧边界与其他 Section 一致。浅色 Plus 卡边框为黑色，深色使用主题前景色。「模型费用由服务商另行收取」放入「使用自己的 AI API Key」旁的信息按钮，不再以第二行提示显示。首页和独立定价页共用卡片与五语言费用说明。同步加密不覆盖 AI 推理的说明移到「内置 AI」旁的信息按钮，首页与定价页的 info 提示统一在图标所在功能行上方向上展开，不挤动卡片内容；支持点击/触摸、键盘、外部点击和 Esc 收起，无 JavaScript 时仍可原生展开；不再在卡片下方重复显示。独立五语言 `/pricing/` 保留月年方案及政策详情，月年是同一权益集合的计费周期。首页 Plus 按钮为「如何开始试用」，链接到本语言 `/pricing/#service-trial` 说明。说明引导用户在 macOS 1.10.0 的设置 → 同步登录，然后在 Goalloom Plus 中主动开始 8 天试用；网页点击本身不激活试用。
 - 首页和独立定价页共用原生 radio 分段控件，支持鼠标、方向键、空格、触摸和无 JavaScript 切换；用主题浮起表面标识选中项、独立 focus-visible 环标识键盘焦点，触摸选项至少 44px 高。切换不移动卡片、不改变 Free 或权益，也不启动购买。所有者选定「卡头分段」，控件直接位于 Plus 卡内；另两个备选「价格旁选择」（下拉）和「双价选项」（并列价格）不进入正式组件。Plus 不再显示标题下的介绍句；Free 简介与 Plus 周期控件共用一行，移除独立简介行和最小高度占位。Free 和 Plus 的价格、CTA 与权益分隔线通过共享行对齐。设计参考 Mobbin 的 [Plain](https://mobbin.com/sites/sections/7e0fc745-3555-4bdf-8792-6aa8b35522ca)（卡片旁独立周期控件）、[folk](https://mobbin.com/sites/sections/f30de5ce-54ed-4daf-befe-d30c53d53ab4)（明确月/年标签）和 [Shade](https://mobbin.com/sites/sections/508ecbc2-f527-4753-b1ce-0230bdf92d38)（控件与价格紧邻）；保留本站左标题、右双卡和纸感主题。
 - 受控价格为 USD 8.99/月、USD 79/年；年付明确一次收取 USD 79，网页标价包含依法应收适用税费，不另加这些税费；银行汇兑/跨境费用可独立产生，Apple 当地币种/价格以其确认页为准。原生 radio 和 CSS 支持无 JavaScript 月年切换，不提供促销、积分、AI 次数包、仅同步档或无限容量承诺。
 - 试用为主动激活、同一账号一次 8×24 小时、免绑卡、不自动扣费。查看、下载和登录不激活。可信支付确认的提前购买立即转付费，剩余试用不补偿；取消、失败和待确认不改变原截止；成功购买后的退款不恢复试用或重新发放。购买、登录、试用不自动上传本地数据或启用 AI。
@@ -118,6 +117,20 @@
 - 生产域名为 `https://www.goalloom.com`，`goalloom.com` 由 Vercel 308 跳转；canonical、hreflang、sitemap、og 一律使用 www。
 
 ## TODO
+
+- [x] 2026-10-29 Change the shared sticky header to frosted glass: full-width 72%-opaque theme tint with 18px backdrop blur and saturate(1.15), without applying blur to navigation or menus. Keep opaque CSS fallbacks for unsupported filters/reduced-transparency preference and remove the header's independent paper overlay. Website typecheck, build/30-route SEO and diff checks passed; home-layout 12/12 and download 5/5 passed. Theme initially passed 6/7 because the test read the footer button before native click-time layout settled; actual replay origin differed by 0.234375px. Sample the real click-time center in the existing journey and replay only theme, 7/7. No product theme change or increased timeout. Evidence/commands and preserved initial reports: `apps/website/output/tests/header-glass-final/acceptance.json`; screenshots: `header-glass-001/home-layout/header-glass-{light,dark}-{1440,390}.png`. Scope: static website on macOS arm64 / Node 24.21.0 / Chromium 153.0.8010.12; no desktop tests or deployment. Unsupported/reduced-transparency branches were not forced in browser acceptance.
+
+- [x] 2026-10-29 Generate and integrate new light/dark closing-download backgrounds with built-in imagegen, using the existing Hero landscapes as visual references. New paper-cut valley compositions keep the center quiet and place hills/foliage near the bottom corners; local `public/closing-light.jpg` and `closing-dark.jpg` cover the rounded backdrop without clipping menus. Strengthen the requirements caption color over the landscape. Website typecheck, build/30-route SEO and diff checks passed; focused home-layout 11/11 and download 5/5 passed, including real local image responses, theme selection, five-language mobile crops and both installer actions. Generation prompts, saved asset paths, commands and runtime: `apps/website/output/tests/closing-artwork-final/acceptance.json`; final screenshots: `apps/website/output/tests/closing-artwork-001/home-layout/home-closing-{light,dark}-{1440,390}.png`. Scope: static website on macOS arm64 / Node 24.21.0 / Chromium 153.0.8010.12; no deployment or desktop acceptance.
+
+- [x] 2026-10-29 Follow the owner's alignment, device-scaling and paper-detail feedback. Hero tracks the explicit home-content landmark with ResizeObserver and independently measured left/right insets; reduced motion starts statically aligned. The app/phone canvas scales uniformly with scroll, its stage height follows, and tabs retain their natural size. Normalize board geometry to untransformed coordinates so live connectors stay attached. Reduce paper tile size 720→420px and opacity .72→.42 light / .38→.22 dark. Website typecheck, build/30-route SEO and diff checks passed; scoped home-layout 10/10, hero-demo 15/15 and video-intro 9/9 passed. Includes real late content-width changes, proportional width/height, independent clicks and <1px connector endpoints while scaled. Evidence and commands: `apps/website/output/tests/hero-adaptive-001/acceptance.json`; visual proof: `home-layout/hero-body-edge-alignment.png`, `hero-scaled-interaction.png` and `paper-body-light-1440.png`. Scope: static website on macOS arm64 / Node 24.21.0 / Chromium 153.0.8010.12; no full website/desktop run or deployment.
+
+- [x] 2026-10-29 Open both shared pricing information disclosures above their feature row, retaining width, native details, dismissal and stable card geometry. Website typecheck, build/30-route SEO, diff checks and `pnpm test:e2e --no-build --only=services --output-prefix=info-upward-001` passed 40/40. Existing service journeys now verify upward panel geometry for both plans across desktop, phone and no-JavaScript cases; this selector includes its existing billing/policy checks. Evidence: `apps/website/output/tests/info-upward-001/acceptance.json` and `services/home-pricing-byok-info-zh.png`. Scope: static website on macOS arm64 / Node 24.21.0 / Chromium 153.0.8010.12; no deployment, desktop tests or packaged acceptance.
+
+- [x] 2026-10-29 Replace the barely visible page noise with a locally generated, tileable long-fiber paper texture matching the owner's reference. Deliver `public/paper-fibers.jpg` at about 206KiB; share its 720px tile and viewport alignment across body/header, with theme-specific multiply/inverted-screen blending and a matching closing invitation. Website typecheck, build/30-route SEO and diff checks passed. Focused home-layout 8/8 and theme 7/7 passed; home-layout was replayed 8/8 only to save screenshots after the existing entrance animation finished. Reports, built-in imagegen prompt, asset path and runtime: `apps/website/output/tests/paper-texture-final/`. Final light/dark body screenshots: `apps/website/output/tests/paper-texture-002/home-layout/paper-body-{light,dark}-{1440,390}.png`. Scope: static website on macOS arm64 / Node 24.21.0 / Chromium 153.0.8010.12; no deployment or desktop acceptance.
+
+- [x] 2026-10-29 Refine the homepage from owner screenshots: blend the header with the page texture, replace the padded raster icon with one vector tile, remove mock OS chrome, move homepage preferences into the footer and remove its divider. Tighten download/preview spacing to 24–28px, contract the desktop Hero to the actual 1120px reading frame, and allow native vertical scroll chaining from the board. Website typecheck, build/30-route SEO and diff checks passed. Affected E2E: hero-demo 15/15, theme 7/7, download 5/5; home-layout passed 8/8 after scoped footer-menu fixes. Initial 7/8 reports remain preserved. Commands and runtime: `apps/website/output/tests/home-polish-final/acceptance.json`; screenshots and real wheel evidence: `apps/website/output/tests/home-polish-003/home-layout/`. Scope: macOS arm64, Node 24.21.0 / Chromium 153.0.8010.12 static website; no deployment or packaged acceptance. An unintended root validation command completed desktop typecheck and was stopped during desktop build; no desktop test acceptance is claimed.
+
+- [x] 2026-10-29 Adopt the Kaze-inspired wide introduction and closing download invitation while retaining Goalloom’s paper palette. Add local grain and the GitHub icon, use a 1120px reading frame, and settle the desktop Hero to 1296px over 360px of scrolling. All five locales share the existing platform download control. `cd apps/website && pnpm typecheck` and `pnpm build` / 30-route SEO passed. Website acceptance initially passed 126/128; after the narrow status-bar fix and corrected visible-control measurement, `pnpm test:e2e --no-build --only=home-layout --output-prefix=home-redesign-replay-001` passed 7/7 and `pnpm test:e2e --no-build --only=hero-sync --output-prefix=home-redesign-replay-002` passed 6/6. The complete website run was not repeated. Commands, initial failures, intermediate replays, runtime and screenshots: `apps/website/output/tests/home-redesign-final/acceptance.json`. Scope: static website on macOS arm64, Node 24.21.0 / Chromium 153.0.8010.12; controlled installer responses, physical/VM status not independently verified. No desktop tests or deployment.
 
 - [x] Restore sticky privacy/terms headers, keep contents and anchor targets below the header, and remove the standalone Plus policy banner in all five locales. Website typecheck, build/30-route SEO and legal/policy E2E 22/22 passed; desktop/mobile themes and no-JavaScript navigation are verified.
 

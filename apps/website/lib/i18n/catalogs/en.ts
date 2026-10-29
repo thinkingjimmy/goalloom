@@ -27,9 +27,10 @@ const en = {
     themeToLight: 'Switch to light theme',
   },
   hero: {
-    h1: 'Goalloom: an OKR-driven, local-first to-do app',
-    menus: ['File', 'Edit', 'View', 'Window', 'Help'],
-    clock: 'Thu Sep 25 9:41',
+    h1: "Keep your goals in view. Every day.",
+    lead: "Connect this quarter’s goals to today’s to-dos. Capture an idea, find its place, and see the next step.",
+    downloadNote: "Free and open source",
+    closingLead: "Make room for what matters. Start with one goal and one small step today.",
     scenes: 'Demo scenes',
     sceneJev: 'Smart input',
     sceneLines: 'Relation lines',

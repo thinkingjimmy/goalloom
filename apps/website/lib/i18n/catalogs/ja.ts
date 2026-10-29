@@ -27,9 +27,10 @@ const ja: SiteCatalog = {
     themeToLight: 'ライトテーマに切り替え',
   },
   hero: {
-    h1: 'Goalloom：OKR で動く、ローカル優先の ToDo アプリ',
-    menus: ['ファイル', '編集', '表示', 'ウインドウ', 'ヘルプ'],
-    clock: '9月25日(木) 9:41',
+    h1: "毎日の中に、目標が見える。",
+    lead: "今期の目標を、今日のやることへ。思いついたことを記録して、取り組む時期と次の一歩を見つけましょう。",
+    downloadNote: "無料・オープンソース",
+    closingLead: "大切なことに、時間を。ひとつの目標と、今日の小さな一歩から。",
     scenes: 'デモの場面',
     sceneJev: 'スマート入力',
     sceneLines: '関係線',

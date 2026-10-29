@@ -10,18 +10,18 @@ Next.js 16 App Router · React 19 · TypeScript · 纯 CSS · Hugeicons · 静�
 
 ```text
 app/            # 两棵根布局：(default)=英文无前缀（x-default），[locale]=zh-CN/ja/es/fr；首页、pricing/、privacy/、terms/、billing/continue/、billing/return/、sitemap、robots
-app/styles/     # tokens（1296px 全站统一上限）→ base（共享路由容器）→ board → hero → hero-phone（同步场景设备构图）→ sections → video-intro（顶部对齐的作者说明/头像与反色影片封面，右栏同定价/FAQ 列宽）→ legal（吸顶 Header、目录及正文锚点避让）→ services（定价/状态）→ download（分段按钮/平台菜单）→ motion
-components/     # site-document、boot、theme、theme-transition（原生圆形主题扩散）、motion、icons、site-header（信息页偏好控件）、download-button（分段下载）与 use-dismissible-menu（共享菜单关闭）；共享 faq-list、site-footer 与 legal-page
+app/styles/     # tokens（1120px 正文上限与响应式留白）→ base（共享路由容器）→ board → hero（宽幅首屏与滚动收窄）→ hero-phone（同步场景设备构图）→ sections → video-intro（顶部对齐的作者说明/头像与反色影片封面，右栏同定价/FAQ 列宽）→ legal（吸顶 Header、目录及正文锚点避让）→ services（定价/状态）→ download（分段按钮/平台菜单）→ motion
+components/     # site-document、boot、theme、theme-transition（原生圆形主题扩散）、motion、icons、site-header（全宽毛玻璃背景/信息页偏好控件）、download-button（分段下载）与 use-dismissible-menu（共享菜单关闭）；共享 faq-list、site-footer（语言/主题，无分割线）与 legal-page
 components/board/  # Board、实测连线几何、URL 预览与 Composer，Hero（含手机预览）及后续演示共用；见模块 README
 components/services/ # 五语言静态定价、首页/定价页共用双卡与 Free 下载、首页左标题布局、费用/AI 说明弹层、私密支持及关闭的购买状态壳；见模块 README
-components/home/   # hero-demo、hero-phone（同步场景的只读手机）、product-tour（左连续 ADHD 原文/作者头像，右安静放映）、video-intro（反色封面/原生播放器，无外部说明和时长）、lines-story/jev-demo（当前未挂载的演示组件）、sections、home-page、faq-section（免费/试用/安全/退款问答及行内支持链接）；手机复制链接位于共享 components/copy-link
+components/home/   # hero-demo、hero-phone（同步场景的只读手机）、product-tour（左连续 ADHD 原文/作者头像，右安静放映）、video-intro（反色封面/原生播放器，无外部说明和时长）、lines-story/jev-demo（当前未挂载的演示组件）、sections（首屏文案/页尾下载）、hero-frame（滚动收窄）、home-page、faq-section（免费/试用/安全/退款问答及行内支持链接）；手机复制链接位于共享 components/copy-link
 lib/            # board.ts（演示工作区 + deriveView 规则）、release.ts（仓库与下载快照）
 lib/i18n/       # locale 路径、metadata（canonical/hreflang/OG）、catalogs/ 五语言（en 定义结构，其余由类型强制对齐）
 lib/legal/      # types.ts 内容契约、联系邮箱与生效日期；catalogs/ 五语言政策及条款；index.ts 页面元数据
 lib/services/   # 受控价格/开放开关、五语言服务文案、页面 metadata；见模块 README
 lib/seo/        # 站点身份、JSON-LD 和 routes.json（公开/不索引路由清单）
-public/         # 明暗壁纸、og.png、icon.svg、app-icon.png、product-tour.mp4（确认预览中的 10.4 秒静音中文界面演示）
-scripts/        # audit-seo.mjs（20 个公开页 + 10 个不索引辅助页）、e2e.mjs + hero-demo-cases.mjs（可操作 Hero）+ hero-sync-cases.mjs + video-intro-cases.mjs + legal-cases.mjs + service-cases.mjs + policy-cases.mjs + theme-cases.mjs + download-cases.mjs + faq-cases.mjs（端到端验收与截图产物）
+public/         # closing-light/dark.jpg（页尾纸雕山景）、paper-fibers.jpg（全站本地纤维纸纹）、paper-grain.svg（Hero 细颗粒）、明暗壁纸、og.png、icon.svg、app-icon.png、product-tour.mp4（确认预览中的 10.4 秒静音中文界面演示）
+scripts/        # audit-seo.mjs（20 个公开页 + 10 个不索引辅助页）、e2e.mjs + home-layout-cases.mjs（宽幅首屏/正文列宽/五语言下载）+ hero-demo-cases.mjs（可操作 Hero）+ hero-sync-cases.mjs + video-intro-cases.mjs + legal-cases.mjs + service-cases.mjs + policy-cases.mjs + theme-cases.mjs + download-cases.mjs + faq-cases.mjs（端到端验收与截图产物）
 ```
 
 ## 发布
@@ -47,6 +47,8 @@ pnpm install          # 在 apps/website/ 内执行
 pnpm dev              # 本地开发
 pnpm build            # 静态导出到 out/ 并运行 SEO 审计
 pnpm typecheck
+pnpm test:e2e --no-build --only=theme # Theme transitions, footer origin, persistence and accessibility; output/tests/theme/
+pnpm test:e2e --no-build --only=home-layout # Homepage presentation, all route frames, five locales and accessibility; output/tests/home-layout/
 pnpm test:e2e --no-build # 已构建当前源码后，仅运行官网验收
 pnpm test:e2e --no-build --only=hero-demo # Hero 看板操作与同步专项，产物在 output/tests/hero-demo/
 pnpm test:e2e --no-build --only=hero-sync # Hero 同步场景专项，产物在 output/tests/hero-sync/

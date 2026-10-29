@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Depends on ./tokens.css and ./base.css; markup from components/home/*
- * [OUTPUT]: Tour figures, AI states, full-column FAQ answers with internal support and inner separators only, and footer.
+ * [INPUT]: Depends on ./tokens.css and ./base.css; markup from components/home/* and local closing-light/dark.jpg
+ * [OUTPUT]: Tour figures, AI states, full-column FAQ answers with internal support and inner separators only, generated paper-landscape closing invitation and footer.
  * [POS]: app/styles' body sections below the hero; content edges share the header/hero gutter
  * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
@@ -65,12 +65,15 @@
   .home-faq-list summary:hover { color: var(--secondary); }
 }
 
-.site-footer { min-height: 80px; padding: 20px var(--edge); border-top: 1px solid var(--hairline); display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--secondary); }
+.site-footer { min-height: 80px; padding: 20px var(--edge); display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--secondary); }
 .site-footer nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; }
 .site-footer nav > a { min-height: 44px; display: inline-flex; align-items: center; }
 .site-footer a:hover { color: var(--fg); }
 .site-footer .menu-panel { top: auto; bottom: calc(100% + 6px); }
-.lang-button { height: 32px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--raised); color: var(--fg); display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.footer-preferences { position: relative; min-width: 180px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.footer-preferences .menu-pop { position: static; }
+.footer-theme { width: 44px; justify-content: center; }
+.lang-button { min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--raised); color: var(--fg); display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
 
 @media (max-width: 900px) {
   .fig { min-height: 0; padding: 28px 14px; background-size: 760px auto; background-position: 0% 100%; }
@@ -90,5 +93,17 @@
   .home-faq-title { font-size: 30px; }
   .home-faq-intro { max-width: 28em; }
   .site-footer { height: auto; padding: 24px var(--edge); }
-  .site-footer nav a:not(.legal-link):not(.service-link) { display: none; }
+  .footer-preferences .menu-panel a { min-height: 44px; }
+  .site-footer nav > a:not(.legal-link):not(.service-link) { display: none; }
+}
+
+/* A quiet last invitation after the questions, with the same live download action. */
+.closing-download { --closing-background: url(/closing-light.jpg); position: relative; isolation: isolate; overflow: visible; margin: 36px 0 56px; padding: 72px 24px; border: 1px solid var(--line); border-radius: 24px; background: var(--sky); text-align: center; }
+:root[data-theme='dark'] .closing-download { --closing-background: url(/closing-dark.jpg); }
+.closing-download::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--closing-background) center bottom / cover no-repeat; pointer-events: none; }
+.closing-download .home-download-detail { color: var(--fg-soft); }
+.closing-download h2 { max-width: 18em; margin: 24px auto 0; font-size: clamp(30px, 3.5vw, 44px); font-weight: 600; line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; }
+.closing-lead { max-width: 32em; margin: 18px auto 0; font-size: 16px; line-height: 1.8; color: var(--fg-soft); text-wrap: pretty; }
+@media (max-width: 900px) {
+  .closing-download { margin-block: 24px 36px; padding: 44px 18px; border-radius: 18px; }
 }
