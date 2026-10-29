@@ -8,6 +8,7 @@
 
 | 文档 | 用途 |
 | --- | --- |
+| [仓库迁移计划与公开文件白名单](repository-migration.md) | 保留公开仓打包与下载、新建私有开发仓的迁移顺序、文件边界、配置归属和验收；方案阶段，尚未执行 |
 | [Authenticated hosted AI](features/hosted-ai.md) | Account-only login, finite Edge transport, shared cost protection and read-only statistics |
 | [Account billing](features/billing.md) | Account trial, trusted paid eligibility, recoverable desktop Checkout and service admission; retrieval and deletion contracts |
 | [智能输入功能规格](features/smart-input.md) | 全局输入、Jev 两渠道、Onboarding、计划创建/撤销与旧版导入恢复的规则、工程契约、TODO 与验收 |
