@@ -2,7 +2,6 @@
  * [INPUT]: 当前语言的预设示例文案（smartMessages.demo*）、列名与流程色；composer.css 的草稿卡样式。
  * [OUTPUT]: JevDemo：循环播放的只读示例——逐字输入 → 整理中 → 三张草稿卡依次出现（本周流程根、今天与本周的下级、截止周五）；减少动态效果时直接显示结果。
  * [POS]: Jev 步骤的价值说明，不调用任何服务、不读写工作区；与真实 composer 同一视觉语言。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState } from 'react'
 import type { ItemHorizon } from '../../../shared/contracts/entities'

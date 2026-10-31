@@ -2,7 +2,6 @@
  * [INPUT]: Explicit confirmation, optional shared drafts, device timezone and live calendar rules.
  * [OUTPUT]: Calendar/direction forms over a persistent read-only canvas; only confirmation writes data.
  * [POS]: Setup coordinator. StartGate retains drafts across welcome; standalone callers own a session.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, type MouseEventHandler } from 'react'
 import { currentPeriod } from '../../../domain/calendar'

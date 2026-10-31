@@ -2,7 +2,6 @@
  * [INPUT]: 1–8 个计划草稿的 draftId、上级引用（既有条目或本批草稿）与手选流程色。
  * [OUTPUT]: planProblem 批内约束（唯一 ID、引用存在、无自环/重复、既有版本一致、有色根无上级、色互斥）与稳定拓扑序 planOrder。
  * [POS]: createPlan 的纯图规则；事务层再复核既有端点/颜色占用，导入校验复用拓扑归属。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { ParentRef } from '../shared/contracts/commands'
 import { serverText } from '../shared/i18n/server'

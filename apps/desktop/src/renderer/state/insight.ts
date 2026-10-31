@@ -2,7 +2,6 @@
  * [INPUT]: Device-local storage, React useSyncExternalStore, the preload smart API and the current SmartStatus.
  * [OUTPUT]: useInsightSettings, insightReady, separate bounded completion/dismissal marks and draft/review IPC helpers with preference snapshots.
  * [POS]: renderer/state 的流程洞察入口。偏好、断点和复盘开关会同步；已复盘、已忽略和引导标记留在本机。模型调用经 main 的 smart 通道。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { aiSourceOptions } from './ai-scope'
 import { useSyncExternalStore } from 'react'

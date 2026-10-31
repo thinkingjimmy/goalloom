@@ -2,7 +2,6 @@
  * [INPUT]: Bounded image bytes from the public transport.
  * [OUTPUT]: Signature/dimension validation for inert raster images.
  * [POS]: Shared validation for preview covers and favicon payloads.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export function raster(bytes: Buffer, maximumSide = 8192, maximumPixels = 20_000_000): 'png' | 'jpeg' | 'webp' | null {
   let width = 0; let height = 0; let mime: 'png' | 'jpeg' | 'webp' | null = null

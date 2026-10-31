@@ -2,8 +2,8 @@
  * [INPUT]: Settings categories, display preferences and interpolation parameters.
  * [OUTPUT]: Source settings catalog, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update copy, including completed-task layout and flat sync-password dialogs.
  * [POS]: Chinese settings copy and shared SettingsCatalog shape; common actions remain in messages.ts.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { billingCatalog } from '../../../../shared/i18n/billing'
 import { widen } from '../../../../shared/i18n/locale'
 export const settingsMessages = widen({
   preferences: '偏好',
@@ -29,7 +29,7 @@ export const settingsMessages = widen({
     sync: '用 Apple 或 Google 登录，并用同步密码在设备间加密同步',
   },
   // Appearance
-  styleNotes: { paper: '暖色纸面，虚线分隔，柔和投影', minimal: '中性灰阶，实线细描边' },
+  styleNotes: { paper: '暖色纸面，虚线分隔，柔和投影', minimal: '中性灰阶，实线细描边', macos: '冷灰底色，磨砂浮层，蓝色主操作' },
   checkNotes: { outline: '只留流程色描边，最安静', paper: '白底衬出流程色', tint: '同色淡底，分组最明显' },
   relationLines: '关系线',
   relationLinesNote: '筛选单个流程时，用线连起它的上下级',
@@ -100,6 +100,7 @@ export const settingsMessages = widen({
   },
   resetNote: '清空条目并重新配置日历；主题和已有备份保留',
   sync: {
+    initializing: "正在准备云端工作区…",
     section: '同步',
     signIn: '使用 Google 登录',
     signInApple: '使用 Apple 登录',
@@ -204,6 +205,14 @@ export const settingsMessages = widen({
     lockedNav: '已关闭',
     cancel: '取消',
     errors: {
+      initialization_pending: "原设备仍在准备此云端工作区。本地内容已保留。",
+      initialization_conflict: "无法验证原始云端初始化。本地内容和原始请求已保留。",
+      service_not_started: billingCatalog.zh.notStarted,
+      service_expired: billingCatalog.zh.ended,
+      service_revoked: billingCatalog.zh.stopped,
+      upgrade_required: billingCatalog.zh.upgrade,
+      billing_configuration: billingCatalog.zh.configuration,
+      retrieval_closed: billingCatalog.zh.ended,
       cleanup: '部分本地副本未能删除。关闭占用文件的程序后重试登录；清理完成前不会连接其他账号。',
       configuration: '同步服务配置需要更新，请稍后重试',
       network: '网络不可用',

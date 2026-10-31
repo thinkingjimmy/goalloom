@@ -2,7 +2,6 @@
  * [INPUT]: A never-sent offline board and deterministic replay host.
  * [OUTPUT]: A complete first-upload log with stable operation/item IDs, policies and already-applied offline placements.
  * [POS]: First-connection preparation. Implicit setup defaults and pre-sync rollover can be absent from the ordinary outbox.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { parseSyncOp, syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'

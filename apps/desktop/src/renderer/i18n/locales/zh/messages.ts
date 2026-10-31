@@ -2,7 +2,6 @@
  * [INPUT]: UI parameters; Chinese defines the MessageCatalog shared by every locale.
  * [OUTPUT]: General UI copy and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
  * [POS]: Chinese message catalog loaded by i18n/index; no workspace access or business decisions.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { widen } from '../../../../shared/i18n/locale'
 
@@ -38,6 +37,7 @@ export const messages = widen({
   darkTheme: "深色",
   style: "风格",
   paperStyle: "纸感",
+  macosStyle: "macOS 27",
   minimalStyle: "简约",
   workspaceViews: "工作区视图",
   clockWarning: "检测到系统时间回拨，自动处理已暂停。请核对系统时间。",
@@ -321,7 +321,6 @@ export const messages = widen({
   noDue: "未设置",
   addDue: "添加截止日期",
   dueToday: "今天",
-  dueOverdueShort: "逾期",
   dueTomorrow: "明天",
   dueFriday: "本周五",
   dueNextMonday: "下周一",

@@ -2,7 +2,6 @@
  * [INPUT]: IANA timezone, candidates, selection callback and optional compact/display/disabled presentation; shared Popover, fields and menu styles.
  * [OUTPUT]: Searchable timezone selection; compact mode uses a floating menu and caller-localized city text. Offsets are computed only while open.
  * [POS]: Shared setup timezone control; constrains selection to known zones and uses the application menu style.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

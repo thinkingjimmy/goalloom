@@ -2,7 +2,6 @@
  * [INPUT]: Markdown draft source, saved URL membership, read-only state, an optional DOM id (a board peek must not reuse the detail id) and the change callback.
  * [OUTPUT]: In-place rich editing with immediately persisted task-list changes, source-preserving Markdown and local undo.
  * [POS]: Lazy detail presentation; persistence and revision ownership remain in ItemDetail.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { $addUpdateTag, $getNodeByKey, $getRoot, $getSelection, $isRangeSelection, $setSelection, BLUR_COMMAND, CLEAR_HISTORY_COMMAND, COMMAND_PRIORITY_HIGH, COPY_COMMAND, CUT_COMMAND, CUT_TAG, DROP_COMMAND, HISTORY_PUSH_TAG, KEY_ENTER_COMMAND, KEY_TAB_COMMAND, PASTE_COMMAND, PASTE_TAG, RootNode, defineExtension } from 'lexical'

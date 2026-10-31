@@ -2,7 +2,6 @@
  * [INPUT]: Displayed editable period, localized column name, write availability and guarded workspace submission.
  * [OUTPUT]: Accessible one-shot parent arrangement, restoring focus after the guarded write re-enables its trigger.
  * [POS]: Trailing column-header action immediately left of Add; Board owns shared reveal states, while automatic placement preferences remain independent.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

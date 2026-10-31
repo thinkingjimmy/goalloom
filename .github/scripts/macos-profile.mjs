@@ -2,7 +2,6 @@
  * [INPUT]: Existing Apple API/signing credentials, optional profile bytes and explicit one-time creation permission.
  * [OUTPUT]: A validated private Developer ID profile path for the subsequent package step.
  * [POS]: Default read-only provisioning; explicitly enabled creation uses the existing certificate. Never prints credentials.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { sign } from 'node:crypto'

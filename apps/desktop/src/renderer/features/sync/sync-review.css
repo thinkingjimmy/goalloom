@@ -2,7 +2,6 @@
  * [INPUT]: Shared paper/minimal theme, board task geometry and native modal controls.
  * [OUTPUT]: Compact read-only comparisons with one scroll area and stable body styles.
  * [POS]: Sync feedback skin; radio selection only changes the outer frame.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .sync-review-modal[open] { display: flex; flex-direction: column; width: min(760px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
 .sync-review-modal .modal-header { flex-shrink: 0; position: static; margin: 0; padding: 0 14px 0 20px; height: 56px; }

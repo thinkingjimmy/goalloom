@@ -2,7 +2,6 @@
  * [INPUT]: Creation/completion SyncOps, current projection and one guarded creation undo.
  * [OUTPUT]: Causal group preflight preserving unrelated text and validating net lifecycle, graph, placement and ownership.
  * [POS]: Shared replay guard; callers delete the checked items in the same transaction.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { parseSyncOp, type Action, type SyncOp } from '@goalloom/contracts'
 import { SyncApplyError, type SqlDriver } from './driver'

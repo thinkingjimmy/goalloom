@@ -2,7 +2,6 @@
  * [INPUT]: Explicit observation time, fixed IANA timezone/week start and the native Temporal boundary.
  * [OUTPUT]: Six exclusive planning ranges with fixed UTC boundaries, derived without a global clock.
  * [POS]: Pure calendar rules; rolling/natural modes share original-anchor month clamping.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Temporal, type PlainDate } from './temporal'
 import { serverText } from '../shared/i18n/server'

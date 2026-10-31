@@ -2,7 +2,6 @@
  * [INPUT]: Current server language copy and callbacks that open Settings › About (optionally starting a manual update check).
  * [OUTPUT]: installMenu: macOS application menu whose About/Check for Updates items open the in-app About page.
  * [POS]: Replaces Electron's default menu on macOS only, whose About panel shows the Electron binary in development; other platforms keep their default menu.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { app, Menu } from 'electron'
 import { serverText } from '../../shared/i18n/server'

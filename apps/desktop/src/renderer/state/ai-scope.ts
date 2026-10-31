@@ -2,7 +2,6 @@
  * [INPUT]: Authoritative AI status and immediate account-transition suspension.
  * [OUTPUT]: A stable writing-source identity and subscription, independent of prompt text/preferences.
  * [POS]: Renderer cache ownership. Account/source changes invalidate pending results without starting model work.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 import type { AiFeature, AiSource, SmartStatus } from '../../shared/contracts/smart-input'

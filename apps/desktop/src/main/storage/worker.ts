@@ -1,8 +1,7 @@
 /**
- * [INPUT]: Main-owned file paths, locale, placement preference, injected clock and narrow internal RPC.
+ * [INPUT]: Main-owned file paths, locale, placement preference, shared workspace clock and narrow internal RPC.
  * [OUTPUT]: Serialized SQLite commands/reads, immutable history, protected transfer, explicit crash-safe sign-out cleanup and typed failures.
  * [POS]: Storage composition root; protected migrations finish before requests and cloud work stays outside the queue.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { parentPort, workerData } from 'node:worker_threads'
 import { mkdirSync } from 'node:fs'
@@ -19,6 +18,7 @@ import { activitySummary, batchPage, batchSummaries, itemCounts } from '../works
 import { readActivity, readHistory, readHistoryIndex, readPastPeriod } from '../workspace/history'
 import { readBoardPeriods } from '../workspace/periods'
 import { readReviewContext } from '../workspace/review'
+import { readRetrievedDataset } from '../workspace/transfer/dataset'
 import { WorkspaceService } from '../workspace/transfer/service'
 import { readJson, writeDataset } from '../workspace/transfer/files'
 import { serverText, loadServerLocale } from '../../shared/i18n/server'
@@ -30,11 +30,11 @@ import { protectSyncBackup, runSyncLocal } from '../workspace/sync/local'
 import { syncHost } from '../sync/host'
 import { clearLocalFiles, recoverLocalClear } from './clear-local'
 import { openDatabase } from './database'
+import { workspaceClock as clock } from './workspace-clock'
 
 if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort
 mkdirSync(dirname(workerData.databasePath), { recursive: true })
-const clock = { now: () => new Date().toISOString() }
 let db: DatabaseSync, repository: Repository, service: WorkspaceService
 const upgrade = new StartupUpgrade(workerData.databasePath, workerData.backupDirectory, clock.now)
 let startup: { ok: true; protectivePath: string | null } | { ok: false; message: string; backupPath: string | null; backupDirectory: string; legacyVersion: number | null }
@@ -92,6 +92,10 @@ function handle(method: string, argument: unknown): unknown {
   if (method === 'data') return service.action(argument)
   if (method === 'releaseTransfer') { service.release(); return null }
   if (method === 'reconcile') return service.reconcile(z.boolean().optional().parse(argument) ?? false)
+  if (method === 'previewRetrieved') {
+    const source = z.strictObject({ path: z.string(), generation: z.uuid() }).parse(argument)
+    return readRetrievedDataset(source.path, clock.now()).then(data => service.previewRetrieved(data, source.generation))
+  }
   if (method === 'previewImport') {
     const source = z.strictObject({ generation: z.string(), format: z.enum(['json', 'sqlite']), path: z.string().min(1) }).parse(argument)
     if (source.format === 'sqlite') return service.previewSqlite(source.path!, source.generation)

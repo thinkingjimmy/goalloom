@@ -2,7 +2,6 @@
  * [INPUT]: Editable drafts and parent metadata.
  * [OUTPUT]: Plan: Jev's recommendation read as a result (one sentence for a single draft, one line per draft otherwise), each draft's first doubt as a muted aside; JevBadge; where/doubtText labels shared with DraftRow.
  * [POS]: Read-only view of the composer's candidate strip; editing happens in DraftRow after Tab.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemHorizon } from '../../../shared/contracts/entities'
 import { horizonNames, smartMessages as t } from '../../i18n'

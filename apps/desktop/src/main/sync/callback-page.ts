@@ -3,7 +3,6 @@
  * [OUTPUT]: One self-contained HTML document for the loopback tab. No remote assets.
  *          Success also opens goalloom://signed-in and offers a button if the browser blocks that navigation.
  * [POS]: Loopback sign-in result; development focuses its own window without opening the production protocol.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { signedInUrl } from '../protocol'
 import { callbackCopy } from './callback-copy'

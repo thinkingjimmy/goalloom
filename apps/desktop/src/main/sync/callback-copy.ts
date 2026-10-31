@@ -2,7 +2,6 @@
  * [INPUT]: Device language for a self-contained OAuth result page.
  * [OUTPUT]: Static five-language sign-in copy and navigation labels.
  * [POS]: Browser-return copy; no user data or provider response is interpolated into HTML.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export const callbackCopy = {
   zh: ['zh-CN', '已登录，可以关闭此页面', '登录未完成', '打开 Goalloom', '目标看板', '智能输入', '版本发布', '下载', '反馈', '切换主题', '请回到 Goalloom 完成同步设置。', '请回到应用重试登录。'],

@@ -2,7 +2,6 @@
  * [INPUT]: 已校验的状态时间组与调用者注入的真实时刻。
  * [OUTPUT]: 独立状态转换、状态效果匹配与保留其他字段的逆向差量。
  * [POS]: 领域库的状态原语；生命周期、回执和事务保护由命令层负责。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 export interface StatusGroup {
   status: 'todo' | 'done' | 'cancelled'

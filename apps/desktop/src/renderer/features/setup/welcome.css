@@ -2,7 +2,6 @@
  * [INPUT]: Welcome markup, existing theme tokens and the actual available window width/height.
  * [OUTPUT]: Compact two-column layout, height-aligned art, narrow/zoomed reflow and a scoped sage primary action.
  * [POS]: First welcome screen only; does not style calendar, password or Settings controls.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .welcome-entry {
   container: welcome / inline-size;

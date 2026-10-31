@@ -2,7 +2,6 @@
  * [INPUT]: preload update API (status/check/install and pushed phase changes).
  * [OUTPUT]: useUpdate: one shared app version + updater phase for the top bar dot, Settings nav and About pane; checkForUpdate / installUpdate; hasUpdate derivation.
  * [POS]: renderer/state's single software-update store; subscribes once per renderer and never polls — main owns the schedule.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 import type { UpdateInfo } from '../../shared/contracts/update'

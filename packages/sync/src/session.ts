@@ -2,12 +2,11 @@
  * [INPUT]: Device keys, a sync password, and a SyncRemote. The password exists only inside these calls.
  * [OUTPUT]: A bound workspace key, sealed pushes, and opened remote ops.
  * [POS]: Shared sync session. Desktop and mobile supply the remote and the SQL driver; neither UI lives here.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { isSecretFingerprint, isSecretSettingKey, syncOpPayload, type SyncOp } from '@goalloom/contracts'
+import { isSecretFingerprint, isSecretSettingKey, retrievalRecoveryBodySchema, syncOpPayload, type SyncOp } from '@goalloom/contracts'
 import {
   hex, newRecovery, openRecoveryLock, passwordAccepted, publicFromSeed, rosterHash, sealRecoveryLock, sha256Hex, signCheckpoint,
-  signRecoveryChallenge, signRoster, systemRandom, unhex, unwrap, utf8, verifyRecoveryJoin, verifyRosterExtension, wrap,
+  signRecoveryChallenge, signRoster, systemRandom, unhex, unwrap, utf8, verifyRecoveryJoin, verifyRosterExtension, wipeRecovery, wrap,
   type Envelope, type RandomSource, type RecoverySecrets, type RosterBody, type SyncKdfParams,
 } from '@goalloom/crypto'
 import { markAccepted, markSendUnknown, mergeRemoteOps, type ApplyHost, type RemoteEnvelope, type SqlDriver } from '@goalloom/store-core'
@@ -77,6 +76,8 @@ export interface BoundWorkspace {
 export async function createRemoteWorkspace(input: {
   remote: SyncRemote; deviceId: string; secret: DeviceSecret; password: string; generation: string; random?: RandomSource
   workspaceId?: string; workspaceKey?: Uint8Array; recovery?: RecoverySecrets; createNew?: boolean
+  beforeCreate?: () => Promise<void>
+  initialization?: { requestId: string; finalOpId: string; envelopes: EnvelopeWire[] | null; persist: (envelopes: EnvelopeWire[]) => Promise<void> }
 }): Promise<BoundWorkspace> {
   if (!passwordAccepted(input.password)) throw new SyncFailure('password')
   if (Boolean(input.workspaceId) !== Boolean(input.workspaceKey)) throw new SyncFailure('storage', 'pending workspace')
@@ -97,7 +98,7 @@ export async function createRemoteWorkspace(input: {
     workspaceId, cpVersion: 1, rosterVersion: 1, rosterHash: rosterHash(roster), epoch: 1,
     recoverySignPub: hex(recovery.signPub), recoveryBoxPub: hex(recovery.boxPub), prevCpHash: null,
   }
-  const wires = [
+  const wires = input.initialization?.envelopes ?? [
     ...envelopesFor({
       senderId: input.deviceId, signSk: input.secret.signSk, workspaceKey, workspaceId, epoch: 1, rosterVersion: 1, random,
       targets: [{ id: input.deviceId, boxPub }],
@@ -107,21 +108,37 @@ export async function createRemoteWorkspace(input: {
       recovery, password: input.password,
     }),
   ]
+  if (input.initialization && !input.initialization.envelopes) await input.initialization.persist(wires)
+  if (input.initialization?.envelopes) {
+    const wire = wires.find(wire => wire.recipient === 'recovery')
+    if (!wire) throw new SyncFailure('storage')
+    let body: ReturnType<typeof retrievalRecoveryBodySchema.parse>
+    try { body = retrievalRecoveryBodySchema.parse(JSON.parse(new TextDecoder().decode(unhex(wire.ciphertext)))) }
+    catch { throw new SyncFailure('storage') }
+    let restored: RecoverySecrets
+    try { restored = await openRecoveryLock({ password: input.password, workspaceId, lock: { kdf: body.kdf, lock: body.lock } }) }
+    catch { throw new SyncFailure('password') }
+    try { if (hex(restored.boxPub) !== hex(recovery.boxPub) || hex(restored.signPub) !== hex(recovery.signPub)) throw new SyncFailure('storage') }
+    finally { wipeRecovery(restored) }
+  }
+  await input.beforeCreate?.()
   try {
     await input.remote.bootstrap({
       deviceId: input.deviceId, workspaceId, generation, roster, rosterHash: rosterHash(roster),
       rosterSig: signRoster(roster, input.secret.signSk), checkpoint,
       recSig: signCheckpoint(checkpoint, recovery.signSk), devSig: signCheckpoint(checkpoint, input.secret.signSk),
       ...(input.createNew ? { createNew: true } : {}),
+      ...(input.initialization ? { initialization: { requestId: input.initialization.requestId, finalOpId: input.initialization.finalOpId, envelopes: wires } } : {}),
     })
   } catch (error) {
+    if (input.initialization) throw error
     if (!input.workspaceId || !(error instanceof SyncFailure) || !error.message.includes('workspace')) throw error
     const account = await input.remote.account({ workspaceId })
     if (!account || account.workspaceId !== workspaceId) throw error
     const saved = await input.remote.getCheckpoint(workspaceId, input.deviceId)
     if (!saved || saved.body.recoverySignPub !== hex(recovery.signPub)) throw new SyncFailure('password')
   }
-  await input.remote.putEnvelopes(workspaceId, input.deviceId, wires)
+  if (!input.initialization) await input.remote.putEnvelopes(workspaceId, input.deviceId, wires)
   return { workspaceId, generation, epoch: 1, workspaceKey, roster, recovery }
 }
 

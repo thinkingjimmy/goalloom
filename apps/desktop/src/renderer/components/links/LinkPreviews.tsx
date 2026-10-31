@@ -2,7 +2,6 @@
  * [INPUT]: Saved item text, lazily cached metadata and localized control labels.
  * [OUTPUT]: Fixed-height cards and a native horizontal carousel with keyboard controls.
  * [POS]: Read-only link previews shared by board, history and archive; details use inline links.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { messages, useLocale } from '../../i18n'

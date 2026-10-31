@@ -2,7 +2,6 @@
  * [INPUT]: A deadline trigger and its disabled/calendar-open state.
  * [OUTPUT]: Localized guidance on trigger hover or focus, with bounded floating placement and independent Escape dismissal.
  * [POS]: Shared first-level deadline guidance for detail and composer; the calendar contains only date controls.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Slot } from '@radix-ui/react-slot'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'

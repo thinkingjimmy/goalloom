@@ -2,7 +2,6 @@
  * [INPUT]: Valid ISO draft date, workspace today/week start and a draft selection callback.
  * [OUTPUT]: Localized day/month grids with keyboard navigation, selected/today states, clear and return-to-today actions.
  * [POS]: Calendar body shared by detail and composer deadline panels; owns navigation, never persistence.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { messages } from '../../i18n'

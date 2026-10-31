@@ -2,7 +2,6 @@
  * [INPUT]: state/shortcuts 的快捷键标识。
  * [OUTPUT]: 快捷键设置分册：行标题、作用范围说明、流程筛选开关与示意、录制/冲突/校验提示。
  * [POS]: renderer/i18n/locales/zh 的快捷键分册，与 messages.ts 同构；不决定键位。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { ConflictId, ShortcutId } from '../../../state/shortcuts'
 import { widen } from '../../../../shared/i18n/locale'

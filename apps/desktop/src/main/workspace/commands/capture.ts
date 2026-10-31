@@ -2,7 +2,6 @@
  * [INPUT]: A main-owned completion, immutable creation guard and current transactional task/goal state.
  * [OUTPUT]: Optional immediate enrichment, guarded late placement/goals/ownership and creation-owned system effects.
  * [POS]: Authoritative automatic-capture rules; user edits invalidate pending work, not creation undo.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Command, CommandOf } from '../../../shared/contracts/commands'
 import type { CaptureGuard, CreationSelection, SemanticParent } from '../../../shared/contracts/capture'

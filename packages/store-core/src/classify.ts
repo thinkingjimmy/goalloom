@@ -2,7 +2,6 @@
  * [INPUT]: Typed sync errors or SQLite constraint failures from canonical and visible replay.
  * [OUTPUT]: A stable business code, or null for errors that must abort the storage transaction.
  * [POS]: Shared replay failure boundary; relationship uniqueness rejects one op without stopping later ops.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { isBusinessErrorCode } from '@goalloom/contracts'
 import { SyncApplyError } from './driver'

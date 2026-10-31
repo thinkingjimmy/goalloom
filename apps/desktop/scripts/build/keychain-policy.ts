@@ -2,7 +2,6 @@
  * [INPUT]: macOS Xcode command-line tools, Node-API headers and the native policy/session-key sources.
  * [OUTPUT]: Vite plugin that emits the compiled Keychain interaction policy beside the main entry.
  * [POS]: Build-only native compilation; no runtime downloads, Electron ABI rebuild or user credential access.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'

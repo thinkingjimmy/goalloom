@@ -2,7 +2,6 @@
  * [INPUT]: Main-owned worker/database paths, locale and finite RPC methods.
  * [OUTPUT]: Correlated replies and pending-request rejection on failure.
  * [POS]: Internal main/worker channel, inaccessible to renderer code.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Worker } from 'node:worker_threads'
 import { DomainError } from '../../shared/contracts/commands'
@@ -27,7 +26,7 @@ export class StorageClient {
     this.worker.on('error', () => this.fail())
     this.worker.on('exit', () => this.fail())
   }
-  call<T>(method: 'finishLocalClear' | 'clearLocal' | 'prepareStartupUpgrade' | 'commitStartupUpgrade' | 'candidate' | 'candidateLabels' | 'metadata' | 'startup' | 'locale' | 'query' | 'command' | 'capturedCommand' | 'runtime' | 'export' | 'close' | 'data' | 'previewImport' | 'reconcile' | 'releaseTransfer' | 'sync', argument?: unknown): Promise<T> {
+  call<T>(method: 'finishLocalClear' | 'clearLocal' | 'prepareStartupUpgrade' | 'commitStartupUpgrade' | 'candidate' | 'candidateLabels' | 'metadata' | 'startup' | 'locale' | 'query' | 'command' | 'capturedCommand' | 'runtime' | 'export' | 'close' | 'data' | 'previewImport' | 'previewRetrieved' | 'reconcile' | 'releaseTransfer' | 'sync', argument?: unknown): Promise<T> {
     if (this.stopped || this.closing) return Promise.reject(new DomainError('storage', serverText().storage.closing))
     const id = ++this.sequence
     return new Promise<T>((resolve, reject) => {

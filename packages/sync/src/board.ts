@@ -1,12 +1,11 @@
 /**
  * [INPUT]: base_* rows, or a captured visible board.
- * [OUTPUT]: Board replay SyncOps with sibling-ordered nesting and pending task-review counts. Recovery binds atomically with its baseline; failure rolls back and pauses sync.
+ * [OUTPUT]: Legacy board replay SyncOps with sibling-ordered nesting and shared canonical-base clearing for exact seed and pending task-review counts. Recovery binds atomically with its baseline; failure rolls back and pauses sync.
  * [POS]: Upgrade path for data that predates sync. Pending ops keep their order. First-join import can preserve item identities and the source calendar. Kept edges are not re-checked as new links.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { parseSyncOp, syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
-import { applySyncOp, clearSyncSettings, pendingConflicts, rebuildVisibleFull, settingsBaselineOp, type ApplyHost, type SqlDriver, type SqlValue } from '@goalloom/store-core'
+import { applySyncOp, clearSyncSettings, pendingConflicts, rebuildVisibleFull, resetSeedState, settingsBaselineOp, type ApplyHost, type SqlDriver, type SqlValue } from '@goalloom/store-core'
 import { SyncFailure } from './failure'
 
 export interface BoardItem {
@@ -188,7 +187,7 @@ function insertOp(driver: SqlDriver, op: SyncOp, at: string, order: number): voi
     VALUES (?,?,'local',1,?,?,?,?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, at, at)
 }
 
-function clearBase(driver: SqlDriver): void {
+export function clearBase(driver: SqlDriver): void {
   driver.exec(`DELETE FROM base_item_guidance; DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies;
     DELETE FROM base_items; DELETE FROM base_planning_periods;`)
   driver.prepare('UPDATE base_workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
@@ -354,6 +353,7 @@ export function clearProjection(driver: SqlDriver, binding: { workspaceId: strin
     DELETE FROM base_item_guidance; DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies; DELETE FROM base_items; DELETE FROM base_planning_periods;
     DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops;`)
   clearSyncSettings(driver)
+  resetSeedState(driver)
   driver.prepare('UPDATE workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
   driver.prepare('UPDATE base_workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
   driver.prepare('UPDATE sync_state SET workspaceId=?, deviceId=?, keyEpoch=?, lastAppliedSeq=0, lastUploadedSeq=0, paused=NULL, updatedAt=? WHERE id=1')

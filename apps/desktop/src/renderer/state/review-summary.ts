@@ -2,7 +2,6 @@
  * [INPUT]: Reviewed period keys, bounded review context/preferences, localStorage and the existing review IPC helper.
  * [OUTPUT]: Prepared summary identities, generation/source/account-scoped persistence and shared pending requests with optional refresh.
  * [POS]: Device-only review cache; stores at most 24 results and prompt hashes, never prompts, keys or workspace writes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { parseReview, reviewPrompt } from '../../domain/smart/insight'
 import type { InsightPrefs, ReviewRequest, ReviewText } from '../../shared/contracts/smart-input'

@@ -2,7 +2,6 @@
  * [INPUT]: main 控制的数据库路径、同步事务函数；node:sqlite。
  * [OUTPUT]: 开启外键/WAL 的连接与全成全败事务，不接受 renderer SQL。
  * [POS]: storage 的连接与事务基础库；生产迁移由 schema.ts 管理。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { DatabaseSync } from 'node:sqlite'
 import { serverText } from '../../shared/i18n/server'

@@ -2,7 +2,6 @@
  * [INPUT]: Abortable provider calls from independent capture sessions.
  * [OUTPUT]: At most two concurrent Jev evaluations, with cancelled queued work removed.
  * [POS]: Main-only scheduling; never blocks the storage worker or local creation.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Aborted } from './providers'
 export class EvaluationQueue {

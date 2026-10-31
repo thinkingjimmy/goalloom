@@ -2,7 +2,6 @@
  * [INPUT]: Authenticated Apple requests, the imported Developer ID identity and explicit creation permission.
  * [OUTPUT]: A matching profile; optional creation uses only the fixed bundle ID and existing certificate.
  * [POS]: Release provisioning policy. Never creates/revokes certificates or retries an unknown mutation.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'

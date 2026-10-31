@@ -38,11 +38,11 @@
 - **Goals and today on one board.** Four time columns—3 months, this month, this week, today—put the quarter's goals beside today's work. A collapsible Later sidebar keeps unplanned ideas close at hand.
 - **Two task levels, complete tasks.** Drag a task onto another, or press Tab in inline entry or the board title editor, to indent it. Shift+Tab makes it independent. Subtasks inherit goals and colors and keep their own details and status. Reschedule them independently; moving a parent carries only children scheduled with it.
 - **Every to-do knows why.** Link an item to goals in longer horizons. Filter one goal (⌘1–⌘9) and relation lines draw its whole chain; hover any row to light its path. Links explain, they never roll up progress.
-- **Write it down; Jev places it.** Optional Jev 1.14 smart input matches new tasks to your goals from Cmd+N and inline column entry. Enter saves immediately; a late answer can fill the column and parents. Manual edits win, and creation plus its automatic completion remains one undo step. Bring your own key.
+- **Write it down; Jev places it.** Optional Jev 1.14 smart input matches new tasks to your goals from Cmd+N and inline column entry. Enter saves immediately; a late answer can fill the column and parents. Manual edits win, and creation plus its automatic completion remains one undo step. Choose built-in AI with macOS Plus or bring your own key.
 - **Nothing slips quietly.** Unfinished items roll over to the next period, and past periods stay readable and can be cleared in batches.
 - **Undo anything, lose nothing.** Every change can be undone without touching your later edits; daily backups, plus safe restore and reset with a protective copy first.
-- **Local-first and private.** Your workspace is a SQLite database on your computer, with no content telemetry. Optional sync encrypts data before it leaves your device.
-- **Made for the keyboard, in five languages.** ⌘N to capture, ⌘K to search, ⌘Z to undo. Chinese, English, Japanese, Spanish and French; paper or minimal style, light or dark.
+- **Local-first and private.** Your workspace is a SQLite database on your computer, with no content telemetry. Optional Plus sync on macOS encrypts data before it leaves your device.
+- **Made for the keyboard, in five languages.** ⌘N to capture, ⌘K to search, ⌘Z to undo. Chinese, English, Japanese, Spanish and French; paper, minimal or macOS 27 style, light or dark.
 
 # Get started
 
@@ -50,16 +50,18 @@
 
 [Download the latest release →](https://github.com/thinkingjimmy/goalloom/releases/latest)
 
-| Platform | Download |
-| --- | --- |
-| macOS 14+ (Apple silicon) | `Goalloom-<version>-mac-arm64.dmg` |
-| Windows 11 (x64) | `Goalloom-<version>-win-x64.exe` |
+| Platform | Version | Download |
+| --- | --- | --- |
+| macOS 14+ (Apple silicon) | 1.10.0 | [Goalloom-1.10.0-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.10.0/Goalloom-1.10.0-mac-arm64.dmg) |
+| Windows 11 (x64) | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
+
+Local features and BYOK stay free on both platforms. macOS 1.10.0 adds Plus encrypted sync and built-in AI for USD 8.99/month or USD 79/year. Start the one-time eight-day trial explicitly: no card is needed and it does not convert to a paid subscription automatically. Windows remains on 1.9.10 for local work and BYOK; this release does not add Windows Plus support. The iPhone app is not publicly released.
 
 The macOS build is **Developer ID signed and notarized by Apple**. The Windows installer is **not code-signed**.
 
 **macOS.** Open the DMG, drag Goalloom into `Applications`, then open it.
 
-**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.9.10 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Your workspace and settings are kept.
+**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.10.0 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Keep a local backup before upgrading.
 
 **Windows.** SmartScreen shows "Windows protected your PC". Choose **More info**, then **Run anyway**, and follow the installer.
 
@@ -84,23 +86,16 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Version 1.9.8 separates production sync from development. Local tasks, history and calendar stay in place, with a protective backup before transition. Sign in to Google again and set a sync password to upload to the new production workspace. Update every computer using sync to 1.9.10. Workspace format remains v11. See the [1.9.10 release notes](./docs/releases/v1.9.10.md). Build-time configuration is in the [development guide](./docs/development.md).
+Published macOS 1.10.0 uses workspace format v14; Windows 1.9.10 uses v11. The macOS upgrade verifies a protective local backup before upgrading a v11 workspace. Keep that backup: 1.9.10 cannot open a v14 workspace. Use the same account and sync password for Plus. Some older cloud workspaces cannot be restored automatically; signing in again does not repair those copies. Keep the original local data and backups. See the [1.10.0 release notes](./docs/releases/v1.10.0.md). Build-time configuration is in the [development guide](./docs/build.md).
 
-The [development guide](./docs/development.md) (Chinese) covers the full test suite, packaging checks, the repository map and the rules for contributors and coding agents. The marketing site lives in [`apps/website/`](./apps/website/README.md).
 
-Current source supports desktop Apple/Google sign-in through Supabase PKCE and native iOS provider adapters with protected session storage. Current source also includes the [authenticated hosted AI transport](./docs/features/hosted-ai.md), with account-only login and server cost protection; development Auth and synthetic live-model acceptance are recorded in its feature contract. Encrypted mobile workspace sync is pending its next milestone. See the [mobile configuration and acceptance guide](./apps/mobile/README.md#native-account-configuration).
 
 # Collaboration
 
 Please use [GitHub Issues](https://github.com/thinkingjimmy/goalloom/issues) for bugs, feedback and proposals.
 
+
+
 # License
 
-The desktop app, the mobile client, and the shared packages are [MIT](./LICENSE). Server-side sync code is [GNU AGPL-3.0-only](./supabase/LICENSE).
-
-| Path | License |
-|---|---|
-| [`LICENSE`](./LICENSE), `apps/desktop/` (app, tests, and desktop scripts), `apps/mobile`, `packages/` (including `packages/crypto/test` and `packages/tests`), `scripts/`, `apps/website/`, `docs/` | MIT |
-| [`supabase/`](./supabase/) (migrations, RPCs, Edge Functions, pgTAP, `reset.sql`, `config.toml`, and [`supabase/LICENSE`](./supabase/LICENSE)) | AGPL-3.0-only |
-
-`@goalloom/contracts`, `@goalloom/crypto`, `@goalloom/schema`, `@goalloom/store-core`, and `@goalloom/sync` depend only on each other and their pinned MIT-compatible libraries. Their sources stay under the repository MIT license. `scripts/supabase-remote.mjs`, `scripts/pg-sync-test.mjs`, `scripts/phase0-prototype.mjs` and `scripts/parity-digest.mjs` are MIT test clients.
+The public desktop client and shared packages are MIT. The hosted backend is maintained separately. Earlier public history retains its original licenses.

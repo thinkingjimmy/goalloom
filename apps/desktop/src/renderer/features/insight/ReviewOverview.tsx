@@ -2,7 +2,6 @@
  * [INPUT]: Historical summaries, flow topology, selected periods, shared outline ordering and saved-link rendering.
  * [OUTPUT]: Summary-first brief, board-ordered monthly outlines with placement-local subtask indentation, original state/flow markers and a noninteractive goal matrix.
  * [POS]: Read-only review presentation; no historical versions are submitted as commands.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ReviewContext } from '../../../shared/contracts/queries'
 import type { ItemSummary } from '../../../shared/contracts/entities'

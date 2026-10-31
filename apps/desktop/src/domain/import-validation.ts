@@ -5,10 +5,9 @@
  *          Empty-detail discards retain guarded visibility receipts for undo.
  *          Link/unlink may own one same-period root placement; both effects must restore together.
  * [POS]: Shared JSON/SQLite import rules; indexed references and one event ordering, without IO.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { datasetSchema, type Dataset } from '../shared/contracts/transfer'
-import type { BusinessState, Effect, ItemEvent } from '../shared/contracts/effects'
+import { sameBusinessState as sameBusiness, type BusinessState, type Effect, type ItemEvent } from '../shared/contracts/effects'
 import type { ItemHorizon, PlanningPeriod, Relation } from '../shared/contracts/entities'
 import { compareInstants, currentPeriod, parseDate, workspaceDate } from './calendar'
 import { validateDag } from './relations'
@@ -26,9 +25,6 @@ function unique<T>(rows: T[], identity: (row: T) => string | number, label: stri
   const map = new Map(rows.map(row => [identity(row), row]))
   requireValid(map.size === rows.length, serverText().import.duplicateIdentity(label))
   return map
-}
-function sameBusiness(a: BusinessState, b: BusinessState): boolean {
-  return matchesStatus(a, b) && a.horizon === b.horizon && a.periodId === b.periodId && a.archivedAt === b.archivedAt && a.deletedAt === b.deletedAt && a.deletedBy === b.deletedBy && (a.nestingParentId ?? null) === (b.nestingParentId ?? null)
 }
 function validState(state: Pick<BusinessState, 'status' | 'completedAt' | 'cancelledAt' | 'deletedAt' | 'deletedBy'>, unknownTime = false): void {
   requireValid((state.deletedAt === null) === (state.deletedBy === null), serverText().import.deletionIncomplete)
@@ -131,7 +127,7 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
     requireValid(operation.result.operationId === operation.id && operation.result.generation === operation.generation, serverText().import.receiptIdentityMismatch)
     requireValid(!operation.result.itemId || items.has(operation.result.itemId), serverText().import.operationDanglingItem)
     requireValid(operation.result.undoable === (operation.source === 'user' && operation.effects.length > 0), serverText().import.undoableFlagMismatch)
-    requireValid(operation.result.outcome !== 'conflict_skipped' || (!operation.result.changed && !operation.effects.length && operation.kind === 'undo'), serverText().import.conflictReceiptChanged)
+    requireValid(operation.result.outcome !== 'conflict_skipped' || (!operation.result.changed && !operation.effects.length && ['undo', 'undoBatch'].includes(operation.kind)), serverText().import.conflictReceiptChanged)
     validateKind(operation, data.schemaVersion, edges, operations)
     for (const effect of operation.effects) validateEffect(effect, items, periods, edges)
     if (operation.kind === 'createPlan') validatePlan(operation, edges)
@@ -174,12 +170,12 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
     requireValid(items.has(event.itemId) && operation, serverText().import.danglingEventReference)
     requireValid(compareInstants(operation.at, event.at) === 0, serverText().import.eventTimeMismatch)
     const previous = chains.get(event.itemId)
-    requireValid(previous ? event.before && sameBusiness(previous.after, event.before) && event.before.version >= previous.after.version : event.before === null && ['created', 'baseline'].includes(event.type), serverText().import.brokenEventChain)
+    requireValid(event.type === 'baseline' ? event.before === null : previous ? event.before && sameBusiness(previous.after, event.before) && event.before.version >= previous.after.version : event.before === null && event.type === 'created', serverText().import.brokenEventChain)
     for (const state of [event.before, event.after].filter(state => state !== null)) {
       placement(state.horizon, state.periodId, periods); validState(state, baselines.has(event.itemId)); validateHold(state.horizon, state.periodId, state.holdPeriodId, periods)
     }
     if (event.before) requireValid(event.after.version > event.before.version, serverText().import.eventVersionNotIncreasing)
-    if (previous && compareInstants(previous.at, event.at) > 0) requireValid(clockConfirmed, serverText().import.clockRollbackUnconfirmed)
+    if (previous && event.type !== 'baseline' && compareInstants(previous.at, event.at) > 0) requireValid(clockConfirmed, serverText().import.clockRollbackUnconfirmed)
     validateEvent(event, operation, effectsByItem, markers, periods, creationInverses, operations)
     chains.set(event.itemId, event)
   }
@@ -330,7 +326,11 @@ function validateEvent(event: ItemEvent, operation: Dataset['operations'][number
   const a = event.before, b = event.after
   const types: Record<string, string[]> = { nesting_changed: ['create', 'createPlan', 'completeCreation', 'nest', 'unnest', 'move', 'arrangeBacklog', 'applyAssistance', 'delete', 'restoreItem'], created: ['create', 'createPlan', 'insertBetween'], baseline: ['baseline'], guidance_changed: ['applyAssistance'], description_changed: ['applyAssistance'], moved: ['move', 'arrangeBacklog', 'applyAssistance', 'completeCreation'], rolled_over: ['move', 'arrangeBacklog', 'rollover', 'applyAssistance'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete', 'discardEmpty'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
   requireValid(types[event.type]?.includes(operation.kind), serverText().import.eventTypeMismatch)
-  if (event.type === 'baseline') { requireValid(!a && !event.undoOf, serverText().import.baselineNotOrigin); return }
+  if (event.type === 'baseline') {
+    requireValid(!a && !event.undoOf && operation.source === 'system' && !operation.effects.length && !operation.result.undoable
+      && operation.result.changed && operation.result.outcome === 'committed' && operation.result.originalOperationId === null, serverText().import.baselineNotOrigin)
+    return
+  }
   if (event.type === 'created') { requireValid(!a && b.status === 'todo' && !b.archivedAt && !b.deletedAt && !b.holdPeriodId, serverText().import.invalidCreatedEvent); return }
   requireValid(a, serverText().import.changeEventMissingBefore)
   if (event.type === 'undo') {

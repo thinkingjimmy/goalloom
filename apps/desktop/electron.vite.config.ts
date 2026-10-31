@@ -2,7 +2,6 @@
  * [INPUT]: Desktop entries, dependency boundaries, sync build configuration and macOS native policy compiler.
  * [OUTPUT]: Main/preload/renderer bundles with platform-specific credentials and CSP-safe static Sonner styles.
  * [POS]: Desktop build composition; development/debug output follows the same runtime boundaries.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { resolve } from 'node:path'
 import { readFileSync } from 'node:fs'
@@ -53,7 +52,7 @@ export default defineConfig({
       minify: 'esbuild', sourcemap: debugRoot ? 'hidden' : false,
       outDir: resolve(debugRoot ?? 'out', 'main'),
       // Bundle @supabase/supabase-js. electron-builder ships no node_modules, and a bare import crashes an installed app. GoTrue's unused http://localhost:9999 default is allowlisted in the production check; the desktop always passes the configured project URL.
-      rollupOptions: { onwarn, input: { index: resolve('src/main/index.ts'), storage: resolve('src/main/storage/worker.ts') } },
+      rollupOptions: { onwarn, input: { index: resolve('src/main/index.ts'), storage: resolve('src/main/storage/worker.ts'), retrieval: resolve('src/main/sync/retrieval-worker.ts') } },
     },
   },
   preload: {

@@ -3,11 +3,11 @@
  * [OUTPUT]: An auth session from an explicitly selected Apple/Google PKCE redirect on 127.0.0.1:53682.
  *          The loopback page is sent only after the code exchange, so it shows success or failure.
  * [POS]: Desktop sign-in. The loopback page is the site header and footer; success asks the OS to focus the app.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
 import { SyncFailure } from '@goalloom/sync'
+import { cloudServiceHeaders } from '@goalloom/contracts'
 import { callbackCsp, callbackPage } from './callback-page'
 import type { AuthProvider } from '../../shared/contracts/sync'
 
@@ -38,7 +38,7 @@ const memory = () => {
 
 export function supabaseClient(url: string, anonKey: string, persist = memory(), transport?: typeof fetch): SupabaseClient {
   return createClient(url, anonKey, {
-    ...(transport ? { global: { fetch: transport } } : {}),
+    global: { headers: cloudServiceHeaders, ...(transport ? { fetch: transport } : {}) },
     auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: persist },
   })
 }

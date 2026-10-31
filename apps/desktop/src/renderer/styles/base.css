@@ -2,7 +2,6 @@
  * [INPUT]: Tailwind preflight, theme variables and native desktop controls.
  * [OUTPUT]: Element defaults, keyboard focus and a narrow fallback for specialized native fields.
  * [POS]: Renderer base layer; reusable controls define their own presentation in components/ui.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 /* Element defaults live in the base layer so shadcn utility classes still win. */
 @layer base {

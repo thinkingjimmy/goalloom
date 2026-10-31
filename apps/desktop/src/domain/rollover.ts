@@ -2,7 +2,6 @@
  * [INPUT]: 注入的时钟、已经校验的当前/来源周期、状态、策略与暂停标记。
  * [OUTPUT]: 往期可发现性、自动候选和撤销 hold；纯判断，不执行调期。
  * [POS]: M1 领域契约；权威事务后续必须重读状态并再次调用。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { compareInstants, type Clock, type Period } from './calendar'
 

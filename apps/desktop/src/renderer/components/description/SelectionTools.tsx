@@ -2,7 +2,6 @@
  * [INPUT]: Lexical/DOM selection, measured floating placement, localized labels and safe URL validation.
  * [OUTPUT]: Selection formatting and explicit link edits with a preserved anchor, rendered in the owning dialog's floating layer.
  * [POS]: Local editor tools inside the owning dialog, with no persistence or network calls.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'

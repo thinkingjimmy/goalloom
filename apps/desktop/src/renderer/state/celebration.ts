@@ -2,7 +2,6 @@
  * [INPUT]: Canonical planning horizons, device-local storage, system motion preference and React useSyncExternalStore.
  * [OUTPUT]: Per-column controls, settings previews, generation-bound review celebration requests and useReducedMotion.
  * [POS]: Renderer display preferences. The per-column choice syncs and stays out of task history; only overrides are persisted locally.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 import type { ItemHorizon } from '../../shared/contracts/entities'

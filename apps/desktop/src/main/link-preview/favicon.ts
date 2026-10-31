@@ -2,7 +2,6 @@
  * [INPUT]: Inert page markup, its final public URL, optional trusted provider and cancellation signal.
  * [OUTPUT]: A bounded, validated favicon data URL or null; never executable SVG.
  * [POS]: Optional enrichment through pinned public transport or exact official provider icon endpoints.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { fetchPublic, publicUrl } from './transport'
 import { raster } from './images'

@@ -2,7 +2,6 @@
  * [INPUT]: Item identity/generation, authoritative revisions and the reserved workspace writer.
  * [OUTPUT]: Source-preserving drafts, guarded atomic note rewrites, serialized autosave/actions, dependency-safe empty-title dismissal and receipt-first retry.
  * [POS]: Detail persistence boundary; explicit dismissal can discard, while navigation/native close only drain edits.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item } from '../../../shared/contracts/entities'

@@ -2,7 +2,6 @@
  * [INPUT]: Generation-scoped feedback declarations and the active page/dialog feedback layer.
  * [OUTPUT]: Sonner-owned stacking, hover expansion and dismissal with content-sized existing surfaces.
  * [POS]: Shell notification adapter; business owners retain notice conditions, actions and receipt guards.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Toaster, toast } from 'sonner'

@@ -2,7 +2,6 @@
  * [INPUT]: Selected period identity, workspace generation, data readiness and explicit pointer navigation requests.
  * [OUTPUT]: One cancellable 220ms directional content entrance, with reduced-motion/visibility cleanup and synchronized board overlays.
  * [POS]: Board-column motion boundary; preserves mounted controls, drafts and the scroll container.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import { beginBoardMotion, boardMotionEvent } from './RowMotion'

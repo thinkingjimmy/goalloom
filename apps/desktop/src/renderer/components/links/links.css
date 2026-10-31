@@ -13,6 +13,7 @@
 .task-content { flex: 1; min-width: 0; }
 .task-line > .link-title { padding: 3px 0; }
 .task-line > .link-title .link-rich-text { text-indent: calc(var(--check-space) - 12px + var(--title-gap)); }
+.task-content > .task-line > :is(.row-meta, .row-icon) { height: 28px; }
 .task-row[data-done='true'] .link-rich-text { color: var(--secondary); text-decoration: line-through; }
 .link-previews { min-width: 0; margin: 2px 0 9px; cursor: default; }
 /* Align cards with the checkbox across its 18px width, the 12px row gap and the 2px track gutter. */

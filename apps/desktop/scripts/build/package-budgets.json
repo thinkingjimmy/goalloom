@@ -1,12 +1,15 @@
 {
   "electron": "44.4.4",
   "thresholdPercent": 5,
-  "asarBaselineVersion": "1.9.3",
-  "asarBaselineNote": "Re-anchor only ASAR size to the actual public 1.9.3 measurements from successful workflow 38871744371: 3314093 bytes on darwin-arm64 and 3313867 on win32-x64. Its ASAR size was independently checked in the downloaded public macOS package. The 1.9.4 attempt 38991209565 measured 3352248 / 3352018 bytes, about 1.15% above 1.9.3, but crossed the cumulative 5% allowance from the corrected 1.8.0 ASAR baseline (3170678 / 3170712). The current production-output audit retains 51 files and adds 38061 bytes versus public 1.9.3: renderer JS 19430, storage 9796, main 5694, shared sync session 1934, CSS 1048 and preload 159. These are the reviewed sync security, recovery, cleanup and five-language controls; no private/test files or dependency directories were added. Electron remains 44.4.4. Keep thresholdPercent at 5 and keep downloadBytes, logicalBytes and archive hashes at their existing measured baselines. Evidence: output/tests/release-1.9.4/package-growth.json and the two linked workflow logs.",
+  "asarBaselineVersion": {
+    "darwin-arm64": "1.10.0",
+    "win32-x64": "1.9.3"
+  },
+  "asarBaselineNote": "Reviewed private 1.10.0 macOS electron-builder ASAR: 3773899 bytes, SHA256 23fed6e7fa662eb6861ed615d1884fcb06a8b36d33020eafa43efe95529b087a. This is the actual signed/notarized app measurement, not the earlier 3833202-byte composition estimate. It grows 345071 bytes (10.06%) over the actual public 1.9.10 ASAR (3428828 bytes) for billing, service admission, lifecycle/retrieval, sync custody/recovery and five-language UI. The 58-file ASAR has no source/tests, dependency directory, database or private credential; packaged metadata excludes development scripts/dependencies. Runtime dependencies and Electron 44.4.4 are unchanged. The owner-reviewed baseline adjustment applies only to darwin-arm64 ASAR. Windows retains the actual public 1.9.3 ASAR baseline of 3313867 bytes until a real Windows package is measured. Keep thresholdPercent at 5; downloadBytes, logicalBytes and archive hashes remain unchanged. Evidence: output/tests/billing/desktop/bill30-release/asar-actual-review.json, asar-baseline-approval.json and private-mac-recovery.json. Earlier Windows/public baseline provenance: successful workflow 38871744371.",
   "darwin-arm64": {
     "downloadBytes": 116612529,
     "logicalBytes": 257543163,
-    "asarBytes": 3314093,
+    "asarBytes": 3773899,
     "archiveSha256": "fd3c1f0fd13cdb256f3bc2ee853da18bc801c420480392d9f72adbf5940a5305"
   },
   "win32-x64": {

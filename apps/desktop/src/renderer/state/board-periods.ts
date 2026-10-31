@@ -2,7 +2,6 @@
  * [INPUT]: Authoritative current snapshot, visible columns and explicit period selections.
  * [OUTPUT]: Generation-scoped planning views retaining hidden future selections, persisted manual outline order and shared candidates/locate requests.
  * [POS]: Board view state; current snapshots and closed-period history keep their independent read paths.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { outlineRows } from '../../domain/nesting'
 import { useCallback, useEffect, useMemo, useState } from 'react'

@@ -2,7 +2,6 @@
  * [INPUT]: Provider-neutral text and question payloads.
  * [OUTPUT]: Shared size/token limits and deterministic payload estimates.
  * [POS]: Lightweight smart-input budget boundary, independent of date planning.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export const questionBudget = 64
 export const textLimit = 4_000

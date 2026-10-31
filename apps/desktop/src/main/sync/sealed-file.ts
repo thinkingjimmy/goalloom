@@ -2,7 +2,6 @@
  * [INPUT]: A secret 32-byte key, a purpose/account scope and local bytes.
  * [OUTPUT]: Authenticated local ciphertext with a fresh nonce and a domain-separated key.
  * [POS]: Session/password-vault and send-journal protection. Keys never enter SQLite or file metadata.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { hkdfSha256, wipe } from '@goalloom/crypto'

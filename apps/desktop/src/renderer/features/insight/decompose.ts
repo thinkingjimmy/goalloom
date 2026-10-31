@@ -2,7 +2,6 @@
  * [INPUT]: Snapshot goal/ownership topology, flows, insight readiness, guarded submission, a composer-seed opener and a parent needing a child in a shorter horizon.
  * [OUTPUT]: decompose — drafts one title and creates a child in the current or next period, or opens the prefilled composer when asked (manual) or when no model/draft is available.
  * [POS]: features/insight 的「拆下一步」唯一写入路径；断点 ＋ 与右键菜单共用，写入仍走权威命令。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { combinedTopology } from '../../../domain/nesting'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'

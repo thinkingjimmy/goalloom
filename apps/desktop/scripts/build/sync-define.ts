@@ -2,7 +2,6 @@
  * [INPUT]: GOALLOOM_SUPABASE_ANON_KEY and optional GOALLOOM_SUPABASE_URL from the build environment.
  * [OUTPUT]: Validated build-time pairs; production requires matching anon-role credentials.
  * [POS]: Build-time sync boundary, shared by local and hosted release builds.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { resolveSyncConfig } from '../../src/main/sync/config'
 

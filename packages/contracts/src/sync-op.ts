@@ -1,12 +1,13 @@
 /**
  * [INPUT]: Untrusted sync payloads (formatVersion 1).
- * [OUTPUT]: A strict SyncOp with observed basisSeq, causal completion, grouped undo, rollover anchors, carried-child source guards and encrypted first-import calendar metadata. payloadHash covers canonicalJson(op).
+ * [OUTPUT]: A strict SyncOp with exact initialization rows, observed basisSeq, causal completion, grouped undo, rollover anchors, carried-child source guards and encrypted first-import calendar metadata. payloadHash covers canonicalJson(op).
  * [POS]: Protocol boundary shared by desktop, mobile and tests. Command replay is intentionally not this schema.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { canonicalJson } from './canonical'
 import { parseSetting } from './settings'
+import { seedActions } from './seed'
+export type { SeedRecord, SeedManifest } from './seed'
 
 const horizon = z.enum(['later', 'year', 'half', 'cycle', 'month', 'week', 'day'])
 const periodHorizon = z.enum(['year', 'half', 'cycle', 'month', 'week', 'day'])
@@ -44,6 +45,7 @@ const itemFields = z.strictObject({
 }).refine(fields => Object.keys(fields).length > 0)
 
 export const actionSchema = z.discriminatedUnion('t', [
+  ...seedActions,
   z.strictObject({
     t: z.literal('item.create'), id, title: z.string().trim().min(1).max(500), description, dueDate: date.nullable(),
     horizon, periodKey: periodKeySchema.nullable(), sortHint: sortHintSchema, parentId: id.optional(), flowColor: z.number().int().min(0).max(7).nullable().optional(),
@@ -96,6 +98,9 @@ export type CalendarWire = z.infer<typeof calendarSchema>
 
 export function parseSyncOp(input: unknown): SyncOp {
   const op = syncOpSchema.parse(input)
+  const seed = op.actions.some(action => action.t.startsWith('seed.'))
+  if (seed && (op.actions.length !== 1 || op.basisSeq !== undefined || op.creationOperationId !== undefined || op.importedCalendar !== undefined
+    || new TextEncoder().encode(canonicalJson(op)).length > 1_048_536)) throw new Error('Invalid seed operation envelope')
   for (const action of op.actions) if (action.t === 'pref.set') parseSetting(action.key, action.value)
   return op
 }

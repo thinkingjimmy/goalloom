@@ -2,7 +2,6 @@
  * [INPUT]: Public HTTP(S) URLs and bounded, inert metadata returned by main.
  * [OUTPUT]: Strict link action/preview DTOs and the fixed link channel.
  * [POS]: Dedicated preview/browser bridge; no HTML, file paths, headers or task bodies cross it.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { normalizeLinkUrl } from '../links'

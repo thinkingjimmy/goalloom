@@ -2,7 +2,6 @@
  * [INPUT]: Finite smart actions, shared operator-consent version and the active workspace generation.
  * [OUTPUT]: Account-owned provider/feature state, explicit hosted consent, scoped configuration and stale account/assistance cleanup.
  * [POS]: Shared device AI state for setup, settings and existing/new writing features.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { aiProviders, hostedScopeVersion, featureCapability, providerCapabilities } from '../../shared/contracts/values'

@@ -2,7 +2,6 @@
  * [INPUT]: Finite generation/item/date/cursor requests and bounded strict response schemas.
  * [OUTPUT]: Current/past summaries, cross-period ownership, live review closingParents, effective relations, assisted-note details and execution facts.
  * [POS]: Read contract; only on-demand details/context carry bounded task bodies.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, itemSchema, itemSummarySchema, periodHorizonSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'

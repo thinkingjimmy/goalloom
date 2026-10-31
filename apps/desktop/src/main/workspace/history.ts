@@ -2,7 +2,6 @@
  * [INPUT]: Validated history/activity queries, Store and observation time.
  * [OUTPUT]: Immutable history/activity and guarded live past tasks with outline context, excluding empty-detail discards.
  * [POS]: Read-only past-period adapter; live placement queries never rewrite history or materialize periods.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { compareInstants, currentPeriod, parseDate, precedingPeriod, type Period } from '../../domain/calendar'
 import { historyOutcome, projectOrderedHistory } from '../../domain/history'

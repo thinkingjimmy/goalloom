@@ -2,7 +2,6 @@
  * [INPUT]: Setup/AI scenes, real calendar data and explicit input modality.
  * [OUTPUT]: One persistent, independently clipped product canvas; lazy page changes add no loading row or layout space.
  * [POS]: App-owned first-run stage; feature forms publish read-only scenes without workspace writes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createContext, Suspense, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PlanningPeriod } from '../../../shared/contracts/entities'

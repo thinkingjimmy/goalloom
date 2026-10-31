@@ -2,7 +2,6 @@
  * [INPUT]: Ordered identities, viewport, render function, drag/selection/menu/editing pins, nesting-preview root and shared input-aware focus restoration.
  * [OUTPUT]: Resize-observed rows with bounded motion retention, offset-based placement-local group borders, FLIP, keyboard traversal outside text editors and synchronous reveal; pointer title returns preserve focus without a ring until keyboard input or blur, while inert panels ignore reveal requests.
  * [POS]: Board-only windowing. Focus, drag and open-menu rows remain mounted; persisted order stays authoritative.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'

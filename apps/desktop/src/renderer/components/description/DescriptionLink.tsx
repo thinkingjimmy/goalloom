@@ -2,7 +2,6 @@
  * [INPUT]: Authored URL/source tokens, the saved-destination context and shared inline previews.
  * [OUTPUT]: A selectable inline Lexical node whose Markdown/text always comes from its source.
  * [POS]: Editor adapter only; page metadata never enters editor state or history.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createContext, useContext, type ReactNode } from 'react'
 import { $applyNodeReplacement, DecoratorNode, type NodeKey, type SerializedLexicalNode, type Spread } from 'lexical'

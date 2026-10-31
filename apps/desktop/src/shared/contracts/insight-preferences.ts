@@ -2,7 +2,6 @@
  * [INPUT]: Explicit device-local writing preferences, never program execution facts.
  * [OUTPUT]: Shared bounded preference schema for drafting, review and task assistance.
  * [POS]: Leaf contract preventing circular dependencies between smart and assistance actions.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 export const insightPrefsSchema = z.strictObject({

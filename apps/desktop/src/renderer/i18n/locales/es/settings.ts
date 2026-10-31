@@ -2,8 +2,8 @@
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
  * [OUTPUT]: Spanish settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout and flat sync-password dialogs.
  * [POS]: Spanish settings catalog matching the source; common actions remain in messages.ts.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { billingCatalog } from '../../../../shared/i18n/billing'
 import type { SettingsCatalog } from '../zh/settings'
 
 export const settingsMessages: SettingsCatalog = {
@@ -30,7 +30,7 @@ export const settingsMessages: SettingsCatalog = {
     sync: 'Entra con Apple o Google y protege la sincronización con una contraseña',
   },
   // Appearance
-  styleNotes: { paper: 'Papel cálido, separadores punteados, sombras suaves', minimal: 'Grises neutros, bordes finos continuos' },
+  styleNotes: { paper: 'Papel cálido, separadores punteados, sombras suaves', minimal: 'Grises neutros, bordes finos continuos', macos: 'Grises fríos, superficies translúcidas y acciones azules' },
   checkNotes: { outline: 'Solo el contorno del color de flujo; el más discreto', paper: 'Fondo blanco que resalta el color de flujo', tint: 'Fondo del mismo color, suave; agrupa mejor' },
   relationLines: 'Líneas de relación',
   relationLinesNote: 'Al filtrar un solo flujo, unas líneas unen sus elementos superiores e inferiores',
@@ -101,6 +101,7 @@ export const settingsMessages: SettingsCatalog = {
   },
   resetNote: 'Vacía los elementos y vuelve a configurar el calendario; se conservan el tema y las copias existentes',
   sync: {
+    initializing: "Preparando el espacio en la nube…",
     section: 'Sincronizar',
     signIn: 'Entrar con Google',
     signInApple: 'Entrar con Apple',
@@ -205,6 +206,14 @@ export const settingsMessages: SettingsCatalog = {
     lockedNav: 'Desactivada',
     cancel: 'Cancelar',
     errors: {
+      initialization_pending: "El dispositivo original aún prepara este espacio. Tu trabajo local se conserva.",
+      initialization_conflict: "No se pudo verificar la inicialización original. Se conservan tu trabajo local y la solicitud original.",
+      service_not_started: billingCatalog.es.notStarted,
+      service_expired: billingCatalog.es.ended,
+      service_revoked: billingCatalog.es.stopped,
+      upgrade_required: billingCatalog.es.upgrade,
+      billing_configuration: billingCatalog.es.configuration,
+      retrieval_closed: billingCatalog.es.ended,
       cleanup: 'No se pudieron borrar algunas copias locales. Cierra las aplicaciones que usan esos archivos y vuelve a entrar. El acceso a cuentas sigue bloqueado hasta terminar la limpieza.',
       configuration: 'La configuración del servicio de sincronización necesita una actualización. Inténtalo más tarde.',
       network: 'Red no disponible',

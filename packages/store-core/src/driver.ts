@@ -2,7 +2,6 @@
  * [INPUT]: Synchronous SQL, deterministic period mapping and optional offline-history preparation. Promise-returning transaction bodies are rejected.
  * [OUTPUT]: exec / prepare / transaction with the same shape on node:sqlite and, later, expo-sqlite.
  * [POS]: The only database port store-core uses. File IO is not part of this interface.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { SyncOp } from '@goalloom/contracts'
 

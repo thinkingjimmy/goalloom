@@ -2,7 +2,6 @@
  * [INPUT]: Local conflict groups, current projection, preview token and injected transaction time.
  * [OUTPUT]: Read-only task comparisons or one atomic, receipt-owned resolution of lost actions.
  * [POS]: Storage-side sync review; simulation rolls back, writes reuse the production applier.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createHash } from 'node:crypto'
 import type { Action, SyncOp } from '@goalloom/contracts'

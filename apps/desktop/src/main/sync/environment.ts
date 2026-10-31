@@ -2,7 +2,6 @@
  * [INPUT]: Production profile and serialized storage worker before any network client starts.
  * [OUTPUT]: Protected one-time local transition and a separate production credential directory.
  * [POS]: Environment handoff. Legacy vaults remain in place and are never opened for production.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'

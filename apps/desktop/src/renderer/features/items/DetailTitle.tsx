@@ -2,7 +2,6 @@
  * [INPUT]: Draft/saved title strings, editability, native undo keys and the detail draft callback.
  * [OUTPUT]: Complete rich title display and a growing raw-text editor with persistent native undo/redo and empty-draft recovery.
  * [POS]: ItemDetail's title interaction; owns local text history across reading/editing, independent of workspace undo and autosave.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'

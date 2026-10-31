@@ -5,7 +5,6 @@
  *           flow colour, to the target's port; an adopting flow root shows its colour change beside its row.
  *           Colorless pairs are excluded; isolated-parent root promotion previews the retained source color.
  * [POS]: Board gesture boundary; never moves items. Pointer frames update only the overlay; transactions own all writes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createContext, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 import { mayLinkFlows, mayParent, promotedFlowColor } from '../../../domain/relations'

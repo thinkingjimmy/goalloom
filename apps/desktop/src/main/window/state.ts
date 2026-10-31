@@ -2,7 +2,6 @@
  * [INPUT]: 主进程固定路径、当前显示器可用区域和窗口正常尺寸。
  * [OUTPUT]: 原子保存的窗口偏好与屏幕内的恢复矩形；不属于可重置业务库。
  * [POS]: 应用级窗口偏好库，跨工作区替换保留。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { readFile } from 'node:fs/promises'
 import type { Rectangle } from 'electron'

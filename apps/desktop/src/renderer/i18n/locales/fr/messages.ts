@@ -2,7 +2,6 @@
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
  * [OUTPUT]: French UI copy and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
  * [POS]: French message catalog loaded by i18n/index; no workspace access or business decisions.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { MessageCatalog } from '../zh/messages'
 
@@ -38,6 +37,7 @@ export const messages: MessageCatalog = {
   darkTheme: "Sombre",
   style: "Style",
   paperStyle: "Papier",
+  macosStyle: "macOS 27",
   minimalStyle: "Minimal",
   workspaceViews: "Vues de l’espace de travail",
   clockWarning: "L’heure système a reculé. Le traitement automatique est suspendu. Vérifiez l’heure système.",
@@ -321,7 +321,6 @@ export const messages: MessageCatalog = {
   noDue: "Non défini",
   addDue: "Ajouter une échéance",
   dueToday: "Aujourd’hui",
-  dueOverdueShort: "En retard",
   dueTomorrow: "Demain",
   dueFriday: "Ce vendredi",
   dueNextMonday: "Lundi prochain",

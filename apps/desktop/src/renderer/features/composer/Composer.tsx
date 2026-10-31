@@ -2,7 +2,6 @@
  * [INPUT]: Workspace snapshot/calendar, visibility, the smart-input feature of useAi (switch, provider, revision, cooldown) and guarded submission.
  * [OUTPUT]: Immediate Enter capture, editable ready previews, explicit plain Later saves and revision-bound requests whose saved work survives closing.
  * [POS]: Workspace-scoped composer session; draft.ts owns ready adjustments and main owns completion after a successful save.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { aiSource, aiSourceOptions } from '../../state/ai-scope'
 import { IconButton } from '../../components/ui/button'

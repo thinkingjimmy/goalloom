@@ -2,7 +2,6 @@
  * [INPUT]: A hidden outline parent's body-free summary and ordinary detail navigation.
  * [OUTPUT]: A local hidden-parent context and a cross-period parent link with ordinary accessible detail navigation.
  * [POS]: Shared current/past outline anchor; this context never contributes an additional task count.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import { messages, statusNames } from '../../i18n'

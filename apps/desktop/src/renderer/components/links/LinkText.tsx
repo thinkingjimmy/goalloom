@@ -2,7 +2,6 @@
  * [INPUT]: Display text, optional saved URL membership, localized copy and external-browser IPC.
  * [OUTPUT]: Shared favicon/page-title links, authored labels and an actionable title without a native tooltip, with sibling link controls. Title activation receives the click so the board can tell a single click from a double click.
  * [POS]: Shared text rendering for current, historical and archived item surfaces.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { forwardRef, memo, useMemo, useState, type AnchorHTMLAttributes, type MouseEvent } from 'react'
 import { messages, useLocale } from '../../i18n'

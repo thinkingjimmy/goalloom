@@ -2,7 +2,6 @@
  * [INPUT]: Authoritative workspace, command, injected observation time and Store.
  * [OUTPUT]: Validated current/explicit periods, ancestor-based flow membership, color and gap-safe placement-local ordering primitives.
  * [POS]: Command context with transaction-local calculations and rollback-safe period insertion.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { flowIndex } from '../../domain/flows'
 import { SORT_KEY_STEP, sortKeyBetween } from '@goalloom/store-core'

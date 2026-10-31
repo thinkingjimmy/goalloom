@@ -2,7 +2,6 @@
  * [INPUT]: Complete environment/profile/build pairs and the packaged identity.
  * [OUTPUT]: An environment-bound URL/anon pair, or local-only unconfigured state.
  * [POS]: Sync configuration boundary. Production ignores runtime overrides; development never targets production.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

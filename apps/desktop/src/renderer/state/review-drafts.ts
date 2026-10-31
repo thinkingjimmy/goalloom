@@ -2,7 +2,6 @@
  * [INPUT]: Destination period, bounded drafting inputs/preferences, localStorage and the existing draft IPC helper.
  * [OUTPUT]: Scoped persisted suggestions, stable automatic intent keys, explicit regeneration and shared pending requests.
  * [POS]: Review-only draft cache; stores at most 24 sanitised results and prompt hashes, never prompts or keys.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { cleanTitle, draftPrompt } from '../../domain/smart/insight'
 import type { DraftRequest, DraftTitle, InsightPrefs } from '../../shared/contracts/smart-input'

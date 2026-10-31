@@ -2,7 +2,6 @@
  * [INPUT]: 流程根持久化的 0–7 色板索引。
  * [OUTPUT]: 八组固定浅/深色 token（色名在 i18n messages.colorNames），复选框描边/淡底的 CSS 值（flowStroke/flowRing/flowTint），以及一次写入两者的 flowVars。
  * [POS]: 流程颜色的视觉基础；颜色只辅助识别，名称与状态另有文字。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import type { CSSProperties } from 'react'
 

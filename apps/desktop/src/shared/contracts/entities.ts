@@ -1,8 +1,7 @@
 /**
  * [INPUT]: Zod, ordered product horizons and date/calendar wire validation.
- * [OUTPUT]: Strict workspace, item summary/detail, two-level placement, relation, period and six-horizon policy DTOs.
+ * [OUTPUT]: Strict workspace with three visual styles, item summary/detail, two-level placement, relation, period and six-horizon policy DTOs.
  * [POS]: Persistence, IPC and import schemas without Electron dependencies.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { calendarModes, horizons, periodHorizons, policyHorizons } from './values'
@@ -56,7 +55,7 @@ export const policySchema = z.strictObject({
 })
 export const themeSchema = z.enum(['system', 'light', 'dark'])
 // Pre-v4 databases and datasets carry no style column; they keep the default paper look.
-export const styleSchema = z.enum(['paper', 'minimal']).default('paper')
+export const styleSchema = z.enum(['paper', 'minimal', 'macos']).default('paper')
 // Pre-v5 databases and datasets carry no checkbox style; they get the outline default.
 export const checkStyleSchema = z.enum(['outline', 'paper', 'tint']).default('outline')
 export const workspaceSchema = z.strictObject({

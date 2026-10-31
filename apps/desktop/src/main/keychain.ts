@@ -2,7 +2,6 @@
  * [INPUT]: The packaged macOS native policy and application-private Data Protection session keys.
  * [OUTPUT]: protectKeychainAccess() and protectedSessionKey(); other platforms retain their existing cipher.
  * [POS]: Main-process guard. Missing native code disables credential access while the local workspace stays available.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'

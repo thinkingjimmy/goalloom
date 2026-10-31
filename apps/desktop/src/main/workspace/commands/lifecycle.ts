@@ -2,7 +2,6 @@
  * [INPUT]: Transaction-local items/relations, strict lifecycle commands and injected time.
  * [OUTPUT]: Independent lifecycle effects, creation-owned and cross-period placement-preserving restore and atomic unlink/placement when the effective parent changes.
  * [POS]: Lifecycle commands; deletion retains saved text/placement for undo without cascading state.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { changeNesting } from './nesting'
 import { orderingParent, placeByParent } from './ordering'

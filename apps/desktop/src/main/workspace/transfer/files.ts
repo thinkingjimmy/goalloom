@@ -2,7 +2,6 @@
  * [INPUT]: Main-owned native-picker paths and the serial worker's Store.
  * [OUTPUT]: Atomic, bounded-buffer JSON exports and size-limited external JSON reads.
  * [POS]: Worker-only file transfer; main and renderer never receive a full dataset or JSON body.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { open } from 'node:fs/promises'
 import { DomainError } from '../../../shared/contracts/commands'

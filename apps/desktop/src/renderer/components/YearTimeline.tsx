@@ -2,7 +2,6 @@
  * [INPUT]: A confirmed or draft calendar and an observation instant.
  * [OUTPUT]: yearProgress (current year, its four 3-month periods, elapsed/total days) and its decorative timeline: halves split by a wider gap, elapsed tint and a labelled today marker.
  * [POS]: Shared read-only visual for setup mode cards and Settings › Calendar; renders nothing for an invalid draft.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { CSSProperties } from 'react'
 import { currentPeriod, workspaceDate, type Period } from '../../domain/calendar'

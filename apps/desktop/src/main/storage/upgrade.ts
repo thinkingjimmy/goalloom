@@ -2,7 +2,6 @@
  * [INPUT]: Main-owned legacy workspace path, backup directory and explicit prepare/commit requests.
  * [OUTPUT]: Verified protective copy, validated temporary current-schema database retaining source appearance and confirmed atomic file replacement.
  * [POS]: Startup-only recovery; legacy content is read-only until the final confirmed file handoff.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'

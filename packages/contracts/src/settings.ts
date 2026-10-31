@@ -2,7 +2,6 @@
  * [INPUT]: Untrusted pref.set values from a SyncOp.
  * [OUTPUT]: The allowlist of synced settings, including completed-task layout, and a strict parse of one key.
  * [POS]: Settings sync boundary. Device-local state is not a key here, so it cannot enter the op log.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  *
  * Week start, timezone, calendar mode and cycle anchor travel with the locked calendar
  * (`calendar.setup`), not as a separate preference. Rollover policy travels as `policy.set`.
@@ -48,7 +47,7 @@ const apiKey = z.string().min(8).max(512).nullable()
 export const settingSchema = z.discriminatedUnion('key', [
   z.strictObject({ key: z.literal('language'), value: z.enum(['system', 'zh', 'en', 'ja', 'es', 'fr']) }),
   z.strictObject({ key: z.literal('theme'), value: z.enum(['system', 'light', 'dark']) }),
-  z.strictObject({ key: z.literal('style'), value: z.enum(['paper', 'minimal']) }),
+  z.strictObject({ key: z.literal('style'), value: z.enum(['paper', 'minimal', 'macos']) }),
   z.strictObject({ key: z.literal('checkStyle'), value: z.enum(['outline', 'paper', 'tint']) }),
   z.strictObject({ key: z.literal('backup.enabled'), value: z.boolean() }),
   z.strictObject({ key: z.literal('backup.retention'), value: z.number().int().min(1).max(100) }),

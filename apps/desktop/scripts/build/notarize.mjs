@@ -2,7 +2,6 @@
  * [INPUT]: Signed app/DMG, App Store Connect API-key environment and Xcode tools.
  * [OUTPUT]: One submission, bounded status polling and ticket connection-loss recovery, validated stapled ticket and redacted diagnostics; throws on incomplete approval.
  * [POS]: Shared afterSign hook, DMG CLI and final validation-only CLI; app notarization finishes before builder creates update archives.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

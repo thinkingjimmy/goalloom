@@ -2,7 +2,6 @@
  * [INPUT]: Shared locale/server catalogs, the eager Chinese renderer catalog and on-demand en/ja/es/fr catalogs.
  * [OUTPUT]: Live calendar/app/smart/settings/insight/shortcut text, seven horizon names and locale controls.
  * [POS]: Renderer text boundary; in-place catalog updates preserve drafts, undo and open dialogs. Unused locales stay out of the first board parse.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { nestingText } from '../../shared/i18n/nesting'
 import { useSyncExternalStore } from 'react'

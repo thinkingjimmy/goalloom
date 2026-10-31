@@ -2,7 +2,6 @@
  * [INPUT]: Renderer tokens, Lexical content classes and detail/peek containers.
  * [OUTPUT]: Shared first-line metrics, a bounded detail focus fill with editing-only text insets, flush reading text, Markdown and selection tools.
  * [POS]: Description presentation shared by editable details and read-only board peeks.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .description-editor { --description-inset: 0px; position: relative; margin-top: 4px; line-height: 1.65; }
 .description-editor .description-content { min-height: 132px; width: 100%; margin: 0; padding: 8px var(--description-inset); white-space: pre-wrap; overflow-wrap: anywhere; line-height: inherit; cursor: text; }

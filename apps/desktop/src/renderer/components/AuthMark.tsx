@@ -2,7 +2,6 @@
  * [INPUT]: An explicit authentication provider and icon size.
  * [OUTPUT]: Offline decorative provider branding shared by both login surfaces.
  * [POS]: Renderer authentication mark; accessible names belong to the buttons.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { HugeiconsIcon } from '@hugeicons/react'
 import { AppleIcon } from '@hugeicons/core-free-icons'

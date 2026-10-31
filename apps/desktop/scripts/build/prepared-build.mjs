@@ -2,7 +2,6 @@
  * [INPUT]: Production build output, exact Git commit, platform and public production client configuration.
  * [OUTPUT]: A hash manifest, or verification before packaging without another build.
  * [POS]: Release artifact handoff; stale, foreign or incomplete output fails closed.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'

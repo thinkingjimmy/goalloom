@@ -2,7 +2,6 @@
  * [INPUT]: Workspace snapshot, bounded candidate queries, source text and reference time; calendar loads on use.
  * [OUTPUT]: Current/future goal and root-task summaries, placement guards and direct DAG context without a fixed candidate cutoff.
  * [POS]: Only smart-service workspace reader; no descriptions, history or database ownership during HTTP waits.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemSummary } from '../../shared/contracts/entities'
 import type { BoardPeriods, ItemPage, Snapshot, WorkspaceMetadata } from '../../shared/contracts/queries'

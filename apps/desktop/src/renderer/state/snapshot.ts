@@ -2,7 +2,6 @@
  * [INPUT]: Consecutive authoritative snapshots from one workspace generation.
  * [OUTPUT]: Shared references for unchanged summaries, ancestor order nodes, periods, topology and flow roots.
  * [POS]: Renderer read-model reconciliation; never changes versions or business data.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Snapshot } from '../../shared/contracts/queries'
 

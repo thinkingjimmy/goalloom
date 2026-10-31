@@ -2,7 +2,6 @@
  * [INPUT]: ISO deadline, workspace today/week start, read-only state and the immediate autosave callback.
  * [OUTPUT]: Width-bounded deadline trigger with hover/focus guidance, a full accessible label, floating calendar/focus restoration and dueOptions presets.
  * [POS]: Detail field; shared calendar content stays in components/due-date and persistence stays in the detail autosave boundary.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useId, useRef, useState } from 'react'
 import { messages } from '../../i18n'

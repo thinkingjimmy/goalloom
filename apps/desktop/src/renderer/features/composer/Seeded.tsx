@@ -2,7 +2,6 @@
  * [INPUT]: A ComposerSeed (target column/period, parent or batch parents), the snapshot/flows for drafting, insight readiness and guarded submission.
  * [OUTPUT]: The ⌘N composer with prefilled context, one title or a checked batch with a horizon-specific heading; one draft request per mount, editable fallback and typed-text precedence over late results.
  * [POS]: Prefill mode of the global composer for flow-insight entries; same modal, keys and styles, but no Jev analysis — the context is already decided.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'

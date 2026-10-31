@@ -7,7 +7,6 @@
  *           throughout row/sidebar translations. Geometry is read during that motion and when the graph changes, not on an idle hover.
  * [POS]: Board decoration mounted while one flow is filtered or a flow dot is previewed, with the device preference on; never writes
  *        workspace data or undo state.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { horizons } from '../../../shared/contracts/values'

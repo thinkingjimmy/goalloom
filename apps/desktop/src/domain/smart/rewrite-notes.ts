@@ -2,7 +2,6 @@
  * [INPUT]: Complete task notes, bounded related context and the user's selected obstacle.
  * [OUTPUT]: A single Markdown rewrite prompt and checks for retained completed tasks and links.
  * [POS]: Pure assistance boundary; refuses incomplete source text before any provider call.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { AssistanceContext, AssistanceRequest } from '../../shared/contracts/assistance'
 import type { ChatPrompt } from './insight'

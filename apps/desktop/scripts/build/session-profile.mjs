@@ -2,7 +2,6 @@
  * [INPUT]: Developer ID profile, native CMS decoding, Xcode's Python plist parser and macOS pack context.
  * [OUTPUT]: Validated profile and private keychain entitlements for the main executable only.
  * [POS]: Signed-package gate. Ad-hoc fixtures retain their separate, unrestricted entitlements.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'

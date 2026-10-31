@@ -2,7 +2,6 @@
  * [INPUT]: Device storage, synced display preferences, board interaction holds and React subscriptions.
  * [OUTPUT]: A default-inline completed-task preference with local persistence and settings sync.
  * [POS]: Board display store; completion never changes task positions or undo membership.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 import { noteDevicePref } from './device-pref-bus'

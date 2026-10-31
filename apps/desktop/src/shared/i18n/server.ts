@@ -2,7 +2,6 @@
  * [INPUT]: Device locale and the five server catalogs.
  * [OUTPUT]: Current server messages and synchronized lightweight wire-validation locale.
  * [POS]: Per-process language state; zh is eager, other catalogs load on demand; messages are resolved when produced, not cached across changes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Locale } from './locale'
 import { zh, type ServerCatalog } from './catalogs/zh'

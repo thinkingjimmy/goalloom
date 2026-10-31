@@ -2,7 +2,6 @@
  * [INPUT]: Native field props, shared theme tokens and optional local class overrides.
  * [OUTPUT]: Input and Textarea with common borders, typography and keyboard focus presentation.
  * [POS]: Shared field presentation; callers retain labels, validation, drafts and persistence.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ComponentProps } from 'react'
 import { cn } from '../../lib/utils'

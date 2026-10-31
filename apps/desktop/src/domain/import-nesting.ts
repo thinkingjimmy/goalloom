@@ -2,7 +2,6 @@
  * [INPUT]: Parsed operation receipts, physical edge identities and the complete operation index.
  * [OUTPUT]: Source-aware validation of cross-period leaf/group ownership, atomic nested creation/restore, detached inherited links and group placement ownership.
  * [POS]: Import integrity extension; neither a client nor an imported receipt may invent inheritance provenance.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Dataset } from '../shared/contracts/transfer'
 import type { Relation } from '../shared/contracts/entities'

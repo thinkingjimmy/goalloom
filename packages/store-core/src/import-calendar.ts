@@ -2,7 +2,6 @@
  * [INPUT]: Validated first-import metadata, target projection and deterministic period mapping.
  * [OUTPUT]: Safe calendar adoption before task history, or placement targets and carried-child source guards aligned to the established calendar.
  * [POS]: Canonical import policy shared by pending and remote replay. Tombstones also lock the calendar.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Action, PeriodKey, SyncOp } from '@goalloom/contracts'
 import type { ApplyHost, SqlDriver } from './driver'

@@ -2,7 +2,6 @@
  * [INPUT]: Live sync status, workspace generation and guarded IPC comparisons/receipts.
  * [OUTPUT]: A quiet corner notice and an independently mounted sequential, selection-only native review dialog; visibility suppresses its redundant entry card.
  * [POS]: Sync feedback owner; only explicit Next/Finish can resolve a task group.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CommandInput } from '../../../shared/contracts/commands'

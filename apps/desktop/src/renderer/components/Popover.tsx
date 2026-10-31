@@ -3,7 +3,6 @@
  * [OUTPUT]: Anchored popovers; floating panels escape scroll clipping via the nearest native dialog or document body,
  *           updating placement when content, anchor size, scrolling or viewport size changes. Inert anchors, outside presses and Escape dismiss only the popover.
  * [POS]: Shared UI primitive for filters, deadlines, relationships, flow selection and board flow dots.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'

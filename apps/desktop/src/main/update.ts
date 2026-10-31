@@ -2,7 +2,6 @@
  * [INPUT]: electron-updater with the packaged GitHub Releases feed, Electron app identity and native macOS staging events.
  * [OUTPUT]: UpdateService: background/manual checks, download, native-ready restart/quit installation and phase notifications.
  * [POS]: main's only software-update path; development builds report `unsupported` and never load electron-updater.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { app, autoUpdater as nativeUpdater } from 'electron'
 import type { AppUpdater } from 'electron-updater'

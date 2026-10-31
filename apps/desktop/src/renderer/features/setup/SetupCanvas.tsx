@@ -2,7 +2,6 @@
  * [INPUT]: Live calendar periods, the actual direction destination, localized board labels and one persistent camera ref.
  * [OUTPUT]: Read-only product corner, decorative macOS controls, live draft row and optional inert capability overlays.
  * [POS]: Independently clipped first-run canvas, shared by calendar, direction and AI; no Later, scrolling or writes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ReactNode, Ref } from 'react'
 import { currentPeriod } from '../../../domain/calendar'

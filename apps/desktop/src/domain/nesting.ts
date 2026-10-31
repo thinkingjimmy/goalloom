@@ -2,7 +2,6 @@
  * [INPUT]: Explicit goal edges, independent placements, live nesting links and an injected stable virtual-ID factory.
  * [OUTPUT]: Effective goal edges, placement-local groups, cycle-safe targets and two-level rows with independent cross-period ownership.
  * [POS]: Shared outline rules; nesting never changes task lifecycle or creates a goal edge to its container.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemSummary, Relation } from '../shared/contracts/entities'
 

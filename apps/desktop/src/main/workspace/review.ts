@@ -2,7 +2,6 @@
  * [INPUT]: Generation-bound week/month selections, shared outline ordering, Repository and its injected clock.
  * [OUTPUT]: A period-end review projection, placement-local live unfinished outlines, their current parent summaries and exact destination-period planning summaries.
  * [POS]: Read-only review boundary in the serial storage worker; historical states never become write versions.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { compareInstants, currentPeriod, parseDate, workspaceDate } from '../../domain/calendar'
 import { effectiveRelations, outlineRows } from '../../domain/nesting'

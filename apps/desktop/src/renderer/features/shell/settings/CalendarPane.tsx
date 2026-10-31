@@ -2,7 +2,6 @@
  * [INPUT]: Workspace calendar, observation time, policies, guarded actions and the reset navigation.
  * [OUTPUT]: Locked calendar summary/timeline, reset navigation and six editable rollover policies ordered from year to day.
  * [POS]: Calendar settings; policy changes are revalidated in storage.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { CalendarConfig, Policy } from '../../../../shared/contracts/entities'
 import { policyHorizons } from '../../../../shared/contracts/values'

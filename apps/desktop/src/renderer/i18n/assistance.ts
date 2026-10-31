@@ -2,7 +2,6 @@
  * [INPUT]: Current UI locale and authoritative numeric facts.
  * [OUTPUT]: Five-language assistance, guidance and execution-fact copy.
  * [POS]: Lazy feature copy; no inferred work, diagnosis or model-generated pressure labels.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { currentLocale } from './index'
 const zh = {

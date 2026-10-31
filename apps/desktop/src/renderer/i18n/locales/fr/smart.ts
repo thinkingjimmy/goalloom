@@ -2,7 +2,6 @@
  * [INPUT]: SmartCatalog and providerNames types from ../zh/smart, service identifiers and message parameters.
  * [OUTPUT]: French smart-input messages and provider names matching the Chinese catalog.
  * [POS]: French renderer catalog for smart input and AI service views; contains no business state.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import type { SmartCatalog, providerNames as source } from '../zh/smart'

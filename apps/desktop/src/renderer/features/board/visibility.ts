@@ -2,7 +2,6 @@
  * [INPUT]: A committed item identity/column and the independent panel viewports after React layout.
  * [OUTPUT]: Readable/hidden title state for the item's selected period; independent past/future reads remain pending until ready.
  * [POS]: Board projection consumed by feedback; dialog coverage and flow dimming do not hide the underlying result.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { FeedbackItem, ItemVisibility } from '../../state/feedback'
 import { panelViewport } from './geometry'

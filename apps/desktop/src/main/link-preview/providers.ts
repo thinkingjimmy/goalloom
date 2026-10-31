@@ -2,7 +2,6 @@
  * [INPUT]: Adapter-generated fixed HTTPS metadata, media and official favicon endpoints.
  * [OUTPUT]: Bounded response bytes through an isolated, credential-free Electron session.
  * [POS]: Trusted provider transport supporting system proxy/fake-IP networks; arbitrary pages use pinned public DNS.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Session } from 'electron'
 import type { PublicResponse } from './transport'

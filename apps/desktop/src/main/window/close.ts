@@ -2,7 +2,6 @@
  * [INPUT]: Trusted window lifecycle, token-bound renderer drain replies and native quit/update intent.
  * [OUTPUT]: Autosave drains before closing; failed drains keep the window and storage alive. Composer drafts retain their confirmation.
  * [POS]: Native close coordinator; storage drains only after accepted window closure in will-quit.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import { app, autoUpdater, dialog, ipcMain, type BrowserWindow, type IpcMainEvent } from 'electron'

@@ -3,7 +3,6 @@
  * [OUTPUT]: Authoritative snapshots, typed prepared-write outcomes, visibility-aware success/undo feedback, deduplicated completion events after committed writes and a
  *           keyboard undo request that waits for an in-flight own write; placement preferences are captured once per command, and working distinguishes active execution from a pending recovery lock.
  * [POS]: Renderer state boundary; reserves prepared detail writes before version reads, returns typed outcomes and preserves unknown receipts without redundant refreshes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { messages } from '../i18n'
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'

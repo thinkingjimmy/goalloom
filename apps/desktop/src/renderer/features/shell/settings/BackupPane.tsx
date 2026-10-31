@@ -2,7 +2,6 @@
  * [INPUT]: 备份状态、工作区备份偏好、工作区时区与今天、受限提交、数据动作与导出回调；从日历「更换日历」进入时的定位标记。
  * [OUTPUT]: 「备份与恢复」：状态卡（上次备份、立即备份、每日开关、保留份数）、按时间倒序的备份列表（默认 3 份可展开，逐份预览恢复）、导出 JSON 与单一文件选择恢复（JSON/SQLite）、危险区重置入口（定位进入时滚入视口、聚焦并短暂高亮）。
  * [POS]: settings 的备份与恢复分类；备份、导入与重置都经 Settings 的 data 动作进入主进程，整库替换统一进入 TransferReview 两阶段确认。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SettingsButton } from '../../../components/ui/button'
 import { cn } from '../../../lib/utils'

@@ -2,7 +2,6 @@
  * [INPUT]: Locale-aware dates, mode and period presentation parameters.
  * [OUTPUT]: Calendar modes, sentence setup and city copy, annual direction and anchored periods.
  * [POS]: Calendar catalog shared by setup, board, details and settings.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { widen } from '../../../../shared/i18n/locale'
 

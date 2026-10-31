@@ -2,7 +2,6 @@
  * [INPUT]: Built desktop files and package metadata.
  * [OUTPUT]: Rejection of development entry points, unexpected native modules and unsupported runtime dependencies.
  * [POS]: Production artifact boundary; macOS must include the noninteractive Keychain policy.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'

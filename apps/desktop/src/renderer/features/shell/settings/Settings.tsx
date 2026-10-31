@@ -2,7 +2,6 @@
  * [INPUT]: Workspace, narrow data/actions API and device preferences.
  * [OUTPUT]: Settings navigation with colored pause icons, sync status and update status, section headings, item-filter counts, section-scoped backup reads and AI status refresh.
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton } from '../../../components/ui/button'
 import { useEffect, useState } from 'react'
@@ -109,7 +108,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
       if (reply.type === 'replaced') { close(); return }
       await reload()
     } catch (error) {
-      setError(error instanceof Error ? error.message : messages.transferUnknown)
+      setError(error instanceof Error && error.message ? error.message : messages.transferUnknown)
       const current = await refresh().catch(() => null)
       if (current && !current.maintenance && ['prepare', 'commit', 'cancel'].includes(action.type)) {
         setPreview(null); setAcknowledged(false)
@@ -183,7 +182,7 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
           : <p className="settings-footnote m-0 text-[12px] leading-[1.7] text-muted-foreground">{messages.setupUnconfirmed}</p>)}
         {section === 'backup' && <BackupPane status={backups} enabled={snapshot.workspace.backupEnabled} retention={snapshot.workspace.backupRetention} timezone={timezone} today={today} generation={generation} configured={!!calendar} disabled={disabled} submit={submit} data={data} revealReset={revealReset}
           exportJson={() => void desktopApi().exportWorkspace().catch(() => setError(messages.exportUnknown))} />}
-        {section === 'sync' && <SyncPane status={sync} today={today} {...(timezone ? { timezone } : {})} />}
+        {section === 'sync' && <SyncPane generation={generation} onPreview={value => { setPreview(value); setAcknowledged(false) }} status={sync} today={today} {...(timezone ? { timezone } : {})} />}
         {section === 'about' && <AboutPane info={update} />}
         {items && calendar && <ItemsPane key={items} view={items as ItemsView} revision={revision} timezone={calendar.timezone} today={today} disabled={disabled} select={select} submit={submit} />}
       </div>}

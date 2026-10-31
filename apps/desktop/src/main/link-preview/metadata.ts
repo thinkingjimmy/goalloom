@@ -2,7 +2,6 @@
  * [INPUT]: Public URLs and bounded responses from the pinned preview transport.
  * [OUTPUT]: Plain metadata and independent cached-icon enrichment with bounded raster/ICO data URLs.
  * [POS]: Main-process provider adapters; public embed failures fall back to ordinary page metadata.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { raster } from './images'
 import { faviconCandidates, loadFavicon } from './favicon'

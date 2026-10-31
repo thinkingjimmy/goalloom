@@ -2,7 +2,6 @@
  * [INPUT]: A SHA-256 profile scope, the host app's provisioned access group and macOS Security APIs.
  * [OUTPUT]: A 32-byte application-private key, or a silent typed OS error. Reads never create a key.
  * [POS]: Data Protection Keychain boundary. No legacy ACL edits, biometric prompts or iCloud synchronization.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 #import <Foundation/Foundation.h>
 #import <LocalAuthentication/LocalAuthentication.h>

@@ -2,7 +2,6 @@
  * [INPUT]: Authoritative bounded context, main-owned accepted turns, explicit user input, locale and bounded JSON output.
  * [OUTPUT]: Complete-note rewrite prompts or legacy assistance turns, plus strictly validated finite model output.
  * [POS]: Pure model boundary; no tools, model chaining, IO or workspace mutation.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { assistanceOutputSchema, type AssistanceContext, type AssistanceOutput, type AssistanceRequest } from '../../shared/contracts/assistance'
 import type { ChatPrompt } from './insight'

@@ -2,7 +2,6 @@
  * [INPUT]: Question plans, normalized answers, precision metadata and current candidates.
  * [OUTPUT]: Editable drafts, schedule/date/parent suggestions and explicit unevaluated warnings.
  * [POS]: Pure preview assembly; contract violations become malformed-response failures.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { HorizonChoice, PreviewDraft, PreviewWarning, RelationSuggestion, SmartPreview } from '../../shared/contracts/smart-input'
 import { planOrder } from '../plan'

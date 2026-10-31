@@ -2,7 +2,6 @@
  * [INPUT]: Validated destinations, viewport intersection and the finite preview IPC.
  * [OUTPUT]: Synchronous cached presentation, visible-only refresh and generation-scoped cache reset.
  * [POS]: Ephemeral presentation cache; no item writes, remote fetches or draft inspection.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { LinkPreview } from '../../../shared/contracts/link-preview'

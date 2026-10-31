@@ -2,7 +2,6 @@
  * [INPUT]: Zod and the fixed update actions a renderer may request.
  * [OUTPUT]: Update channel/event names, action schema and the app version + updater phase DTO.
  * [POS]: Narrow software-update bridge; no URLs, paths or release notes cross it, and only main talks to GitHub Releases.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 

@@ -2,7 +2,6 @@
  * [INPUT]: A device-local directory and public URL preview metadata.
  * [OUTPUT]: Bounded cached previews with independent favicon check times and atomic, best-effort writes.
  * [POS]: Disposable preview cache outside the workspace database, exports and history.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises'

@@ -2,7 +2,6 @@
  * [INPUT]: Dedicated local production pair or hosted release environment.
  * [OUTPUT]: One validated production build and its prepared-artifact manifest.
  * [POS]: Production build entry; source development never loads this configuration.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { readFile } from 'node:fs/promises'
 import { parseEnv } from 'node:util'

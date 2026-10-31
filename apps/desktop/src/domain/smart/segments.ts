@@ -2,7 +2,6 @@
  * [INPUT]: 用户原文（不做语义理解）。
  * [OUTPUT]: segmentSlots：换行/分号/列表标记为强边界、括号与引号外的逗号句号为弱边界的无损候选槽位（带原文偏移）；plainLater 普通模式单条标题/说明。
  * [POS]: 智能输入的片段枚举层，只保留原文位置，不断定片段是否为任务；超过槽位上限时返回 null 要求分批。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 export interface Slot { id: string; text: string; start: number; end: number }
 export const slotLimit = 8

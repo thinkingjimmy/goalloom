@@ -6,7 +6,6 @@
  *           and creating a child, ⇧-click or no model opens the prefilled composer; preview limits controls to its highlighted chain;
  *           a next-period creation leaves a destination pill; the first sighting shows a one-time guide.
  * [POS]: Board insight overlay with a guide bounded to the planning viewport; pending actions survive hover exits and finite motion tracking.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SettingsButton } from '../../components/ui/button'
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'

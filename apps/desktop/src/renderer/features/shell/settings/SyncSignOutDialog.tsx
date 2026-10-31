@@ -2,7 +2,6 @@
  * [INPUT]: Account label, credential availability and the serialized sign-out action.
  * [OUTPUT]: Explicit keep/clear confirmation, safe defaults and visible cleanup errors.
  * [POS]: Settings-owned native dialog. Cancelling never reaches IPC.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef, useState } from 'react'
 import { Modal } from '../../../components/Modal'

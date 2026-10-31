@@ -2,7 +2,6 @@
  * [INPUT]: Entity identities, horizons, periods and revision-bound smart requests.
  * [OUTPUT]: Immediate-capture intent, explicit retry nonces, transaction-created guards and bounded goal/ownership selections.
  * [POS]: Shared capture contract without provider, renderer or command dependencies.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { dateSchema, horizonSchema, idSchema, instantSchema } from './entities'

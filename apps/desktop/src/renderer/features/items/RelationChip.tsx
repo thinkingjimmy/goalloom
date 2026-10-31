@@ -3,7 +3,6 @@
  * [OUTPUT]: A compact 上级/下级 chip whose popover lists linked items for navigation and hands off to the picker;
  *           with no links (or nothing to list) it opens the picker directly.
  * [POS]: items detail property row; relationship writes stay in RelationPicker and are revalidated by storage.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

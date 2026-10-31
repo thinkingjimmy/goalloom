@@ -2,7 +2,6 @@
  * [INPUT]: Feedback content and the current native modal dialog stack.
  * [OUTPUT]: A nonmodal top-layer portal with interactive feedback and measured page/modal clearance.
  * [POS]: Shell presentation boundary; Sonner owns feedback timers and motion, while App retains actions.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'

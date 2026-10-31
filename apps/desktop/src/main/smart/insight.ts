@@ -2,7 +2,6 @@
  * [INPUT]: A saved key of a chat-capable provider, a ChatPrompt from domain/smart/insight, an abort signal and optional injected fetch.
  * [OUTPUT]: CHAT_PROVIDERS presets, chatAdapter(provider) — one chat-completions call (fixed DeepSeek flash model, reasoning off, JSON mode) returning raw message text — and the fixed capability sample; typed ProviderFailure/Aborted.
  * [POS]: Flow-insight network boundary beside providers.ts; never logs prompt or reply bodies and follows no URL from responses.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { HostedInput } from '../../shared/contracts/hosted-ai'
 import type { ChatPrompt } from '../../domain/smart/insight'

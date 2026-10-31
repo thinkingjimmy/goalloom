@@ -2,7 +2,6 @@
  * [INPUT]: Main-owned device preference, legacy local storage and synchronized changes.
  * [OUTPUT]: Hydrated automatic-placement state and immediate local preference updates without remote echoes or debounced reports; toggles never mutate existing task order.
  * [POS]: Renderer preference mirror; startup hydration precedes the first snapshot and system reconciliation.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 

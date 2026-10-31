@@ -2,7 +2,6 @@
  * [INPUT]: Repository, main-owned placement preference and one observation time after the daily-backup attempt.
  * [OUTPUT]: Revalidated local-group rollover, committed sync anchors, atomic system batches and clock-anomaly state.
  * [POS]: Common reconcile path for startup, focus, wake and time boundaries.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { effectsVersion } from '../../shared/contracts/effects'
 import { randomUUID, createHash } from 'node:crypto'

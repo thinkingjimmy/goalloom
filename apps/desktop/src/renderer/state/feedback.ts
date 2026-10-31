@@ -2,7 +2,6 @@
  * [INPUT]: Accepted receipts, committed placement/period and post-refresh board visibility.
  * [OUTPUT]: Success feedback, quiet nesting/root-edge detachment and automatic note rewrites, actual destinations and reading durations; no undo membership changes.
  * [POS]: Renderer feedback projection, shared by useWorkspace and the application shell.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { CommandInput, CommandResult } from '../../shared/contracts/commands'
 import type { Item, PlanningPeriod } from '../../shared/contracts/entities'

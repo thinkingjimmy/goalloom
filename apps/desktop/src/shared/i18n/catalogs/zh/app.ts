@@ -2,7 +2,6 @@
  * [INPUT]: Shared wire-validation messages and typed localized server copy.
  * [OUTPUT]: zh appMessages for native dialogs, the macOS app menu, storage, commands, calendar and smart-input feedback.
  * [POS]: Server catalog composed by serverText; wire errors are shared with preload without importing this module.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { validationCatalogs } from '../../validation'
 import { widen } from '../../locale'
@@ -205,8 +204,8 @@ export const appMessages = widen({
       too_large: () => '内容超过本次可发送的大小，请缩短或分批整理',
       credential_unreadable: () => '无法读取已保存的密钥，加密文件已保留。请检查系统凭据访问权限后重试',
       credential_unavailable: () => '系统凭据保护暂不可用，未保存或读取密钥；请稍后重试',
-      not_enabled: () => '智能输入未启用或配置已变化，本次内容没有发送',
       result_not_delivered: () => 'AI 结果未送达，输入和已保存的任务已保留。',
+      not_enabled: () => '智能输入未启用或配置已变化，本次内容没有发送',
     },
     textTooLong: (limit: number) => `原文超过 ${limit} 字，请分批整理或先存到 Later`,
     tooManyItems: '一次最多整理 8 项，请分批输入或先存到 Later',

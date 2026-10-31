@@ -2,7 +2,6 @@
  * [INPUT]: Board linking state, clipped SVG geometry and shared theme tokens.
  * [OUTPUT]: Copy-free linking preview: dotted/snapped connector, target port and flow tint, eligible-row ports and fading, adoption chip.
  * [POS]: Relation gesture styling; layout and ordinary placement drag styling remain independent.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .relation-drag { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; color: var(--secondary); }
 .relation-drag[data-valid='true'] { color: var(--focus); }

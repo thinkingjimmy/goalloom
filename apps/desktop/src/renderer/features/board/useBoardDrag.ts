@@ -2,7 +2,6 @@
  * [INPUT]: Persisted current/planning views, authoritative submissions and completed-task layout.
  * [OUTPUT]: Shared pointer drop intents, whole-group previews, atomic child/root insertion and guarded pointer/keyboard placement projections.
  * [POS]: Board drag coordinator; transactions remain authoritative and failed drops animate back.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { closestCenter, KeyboardSensor, pointerWithin, PointerSensor, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragStartEvent, type KeyboardCoordinateGetter } from '@dnd-kit/core'

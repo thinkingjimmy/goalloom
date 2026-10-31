@@ -3,7 +3,6 @@
  * [OUTPUT]: reviewDue entries (previous-week reminders throughout the configured week; monthly last/first-day reminders, merged only at matching closing boundaries),
  *           reviewSignals (descriptive gap/skip/pace facts, independent of child creation), goalRows (flow × column counts) and planCandidates (parents needing a next-period step).
  * [POS]: features/insight 的复盘纯规则；不写入、不联网，入口显示与抽屉步骤都从这里取数。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { combinedTopology } from '../../../domain/nesting'
 import { currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'

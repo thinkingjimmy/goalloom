@@ -2,7 +2,6 @@
  * [INPUT]: Validated settings/system-batch commands and authoritative policy versions/effects.
  * [OUTPUT]: Six-horizon policy changes, explicit resume and effect-scoped batch undo with group roots restored first.
  * [POS]: Workspace settings transactions; calendar configuration remains locked.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'
 import { targetPeriod, type Context } from '../context'
@@ -44,6 +43,7 @@ export function setBackupPreferences(context: Context, command: CommandOf<'backu
 }
 export function undoBatch(context: Context, command: CommandOf<'undoBatch'>): boolean {
   const original = context.store.operation(command.originalOperationId)
+  if (original && original.generation !== context.workspace.generation) throw new DomainError('conflict', serverText().errors.workspaceReplaced)
   if (!original || original.source !== 'system' || original.kind !== 'rollover') throw new DomainError('invalid', serverText().errors.batchMissing)
   let skipped = 0
   context.undone = []

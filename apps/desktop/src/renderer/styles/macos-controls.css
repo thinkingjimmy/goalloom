@@ -1,0 +1,67 @@
+/**
+ * [INPUT]: macos theme tokens and shared button, field, checkbox, radio, switch and menu state markers.
+ * [OUTPUT]: Complete control skins with native blue selection, field focus rings and disabled/touch states.
+ * [POS]: Theme presentation only; labels, keyboard handling, validation and writes stay with shared controls.
+ */
+:root[data-style='macos'] {
+  [data-slot='button']:not(.icon-button, .text-button) { border-radius: 6px; font-size: 13px; font-weight: 500; }
+  :is(.button, .settings-button, .field-button, .select-trigger, .toggle-chip, .stepper) { border-radius: 6px; }
+  .button:not(.primary, .quiet), .settings-button:not(.primary, .danger, .danger-solid, .subtle-danger, .ghost, .link) { background: var(--macos-control); border-color: transparent; box-shadow: none; }
+  .button:not(.primary, .quiet):hover:not(:disabled), .settings-button:not(.primary, .danger, .danger-solid, .subtle-danger, .ghost, .link):hover:not(:disabled) { background: var(--pressed); }
+  .button.primary, .settings-button.primary, .composer-primary { background: var(--primary); color: var(--primary-foreground); }
+  .button.primary:hover:not(:disabled), .settings-button.primary:hover:not(:disabled), .composer-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 94%, oklch(0 0 0)); opacity: 1; }
+  .button.primary:disabled, .settings-button.primary:disabled, .composer-primary:disabled { background: var(--macos-control); color: var(--secondary); opacity: .65; }
+  .settings-button.danger-solid { color: oklch(1 0 0); }
+  .settings-button.danger-solid:disabled { background: var(--macos-control); color: var(--secondary); }
+  :is(.button, .settings-button, .icon-button):active:not(:disabled) { filter: brightness(.94); }
+  .toggle-chip { background: var(--macos-control); }
+  .toggle-chip[aria-pressed='true'] { background: var(--primary); color: var(--primary-foreground); box-shadow: none; }
+
+  :is([data-slot='input'], [data-slot='textarea'], .description-link-form input) { background: var(--macos-field); border-color: var(--hairline); border-radius: 6px; caret-color: var(--primary); }
+  :is([data-slot='input'], [data-slot='textarea'], .description-link-form input):focus-visible { outline: none; border-color: var(--primary); box-shadow: var(--macos-focus-ring); }
+  :is([data-slot='input'], [data-slot='textarea']):disabled { color: var(--secondary); background: var(--macos-control); opacity: .6; }
+  :is([data-slot='input'], [data-slot='textarea'])[aria-invalid='true'] { border-color: var(--danger); }
+  :is([data-slot='input'], [data-slot='textarea'])[aria-invalid='true']:focus-visible { box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--danger) 35%, transparent); }
+  .settings-body [data-slot='input'], .jev-connect [data-slot='input'] { min-height: 28px; padding: 4px 8px; font-size: 13px; line-height: 18px; }
+  .settings-body [data-slot='textarea'] { padding: 8px; font-size: 13px; }
+  .direction-input { border-radius: 12px; }
+  .select-trigger { background: var(--macos-control); border-color: transparent; box-shadow: none; }
+  .select-trigger:is(:focus-visible, [aria-expanded='true']) { outline: none; box-shadow: var(--macos-focus-ring); }
+  .select-trigger:disabled { color: var(--secondary); opacity: .5; }
+  .select-trigger.settings-select { min-height: 28px; padding: 4px 8px 4px 10px; font-size: 13px; }
+
+  /* The kit uses an oval thumb. Its checked travel is the track's inner width minus that thumb. */
+  .switch { width: 44px; height: 20px; padding: 2px; background: var(--macos-control); box-shadow: none; }
+  .switch > span { width: 26px; height: 16px; flex-shrink: 0; border-radius: 100px; background: oklch(1 0 0); box-shadow: 0 1px 3px oklch(0 0 0 / .12); translate: none; }
+  .switch[aria-checked='true'] { background: var(--primary); }
+  .switch[aria-checked='true'] > span { translate: 14px 0; }
+  .switch:disabled { opacity: .4; }
+  :is(input[type='checkbox'], input[type='radio']) { accent-color: var(--primary); }
+  .settings-footer input[type='checkbox'] { accent-color: var(--danger); }
+  :is(.settings-radio, .ai-radio) { background: var(--macos-control); border-color: transparent; }
+  :is(.settings-radio, .ai-radio)[data-checked='true'] { border-color: var(--primary); background: oklch(1 0 0); }
+  :is(.sync-pane, .sync-recovery-form, .sync-signout-modal) input[type='radio']:checked { border-color: var(--primary); background: oklch(1 0 0); }
+  .check { border-radius: 5.5px; }
+  .check.large { border-radius: 6px; }
+  .description-checklist > li[aria-checked='true']::before { background: var(--primary); }
+
+  .segmented { gap: 0; padding: 0; border-radius: 6px; background: var(--macos-control); }
+  .segmented button { position: relative; height: auto; min-height: 24px; border-radius: 6px; padding: 3px 10px; font-weight: 500; line-height: 18px; color: var(--fg); }
+  .segmented button[aria-checked='true'] { background: var(--primary); color: var(--primary-foreground); box-shadow: inset 0 0 0 100px oklch(0 0 0 / .031); }
+  .segmented button:not([aria-checked='true']) + button:not([aria-checked='true'])::before { content: ''; position: absolute; left: 0; top: 5px; bottom: 5px; width: 1px; background: var(--line); }
+  .segmented button:disabled { opacity: .4; }
+  .segmented button[aria-checked='true'] .segmented-count { color: inherit; opacity: .8; }
+  .segmented button[aria-checked='true'] .segmented-swatch[data-swatch^='check'] { box-shadow: 0 0 0 1px oklch(1 0 0 / .5); }
+  .segmented-swatch[data-swatch='theme-system'] { background: linear-gradient(135deg, oklch(.965 .004 260) 50%, oklch(.205 .006 260) 50%); border-color: oklch(.65 .006 260); }
+  .segmented-swatch[data-swatch='theme-light'] { background: oklch(.965 .004 260); border-color: oklch(.65 .006 260); }
+  .segmented-swatch[data-swatch='theme-dark'] { background: oklch(.205 .006 260); border-color: oklch(.65 .006 260); }
+
+  :is(.select-item, .context-menu-item) { min-height: 24px; }
+  .menu-search { background: transparent; margin: calc(-1 * var(--menu-inset)) calc(-1 * var(--menu-inset)) var(--menu-inset); width: calc(100% + 2 * var(--menu-inset)); border-radius: 12px 12px 0 0; }
+  .menu-item:not(:disabled, [aria-disabled='true'], [data-disabled]):is(:hover, :focus-visible, [data-highlighted], [data-state='open']), .menu-item.menu-item-active { background: var(--menu-selection); color: var(--primary-foreground); }
+  .menu-item:is(:hover, :focus-visible, [data-highlighted], [data-state='open'], .menu-item-active) :is(.menu-hint, .menu-rich small, kbd) { color: inherit; }
+  .keycap { border-radius: 4px; background: var(--macos-control); box-shadow: inset 0 0 0 .5px var(--hairline); }
+}
+@media (pointer: coarse) {
+  :root[data-style='macos'] :is(.segmented button, .select-item, .context-menu-item, .select-trigger.settings-select) { min-height: 44px; }
+}

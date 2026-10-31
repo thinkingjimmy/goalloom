@@ -2,7 +2,6 @@
  * [INPUT]: Current UI locale and an authoritative carryover count.
  * [OUTPUT]: Five-language inline note assistance copy.
  * [POS]: Copy for the choice-first rewrite flow; no model-generated pressure claims.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { currentLocale } from './index'
 const en = {

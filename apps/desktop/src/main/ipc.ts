@@ -1,8 +1,7 @@
 /**
  * [INPUT]: Trusted window sender, strict DTOs and an internal StorageClient.
- * [OUTPUT]: Narrow commands/queries, immediate device placement preference updates, native-picker transfers, validated link preview/browser actions, fixed update actions and session cancellation.
+ * [OUTPUT]: Narrow commands/queries, immediate device placement preference updates, native-picker transfers with structured expected failures, validated link preview/browser actions, fixed update/billing actions and session cancellation.
  * [POS]: Renderer permission boundary; paths never come from renderer input and stale sessions cannot resume maintenance.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
@@ -25,8 +24,12 @@ import { updateActionSchema, updateChannel, updateInfoSchema } from '../shared/c
 import type { UpdateService } from './update'
 import { syncChannel } from '../shared/contracts/sync'
 import type { SyncService } from './sync/service'
+import { billingChannel } from '../shared/contracts/billing'
+import { cloudChannel, cloudActionSchema } from '../shared/contracts/cloud'
+import type { CloudService } from './cloud/service'
+import type { BillingService } from './billing/service'
 
-export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, parentOrder: ParentOrderPreference, links: LinkPreviewService, updates: UpdateService, sync: SyncService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void): () => void {
+export function registerIpc(window: () => BrowserWindow | null, trustedUrl: string, storage: StorageClient, smart: SmartInputService, language: LanguagePreference, parentOrder: ParentOrderPreference, links: LinkPreviewService, updates: UpdateService, sync: SyncService, changed: () => void, firstWrite: Promise<void>, snapshotRead: (metadata: WorkspaceMetadata) => void, billing: BillingService, cloud: CloudService): () => void {
   let rendererSession = 0
   smart.onCaptureChanged(() => { window()?.webContents.send('goalloom:changed', null); changed() })
   const guard = (event: IpcMainInvokeEvent) => {
@@ -46,7 +49,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     const state = await language.set(languageSchema.parse(args[0]))
     await storage.call('locale', state.locale)
     try {
-      await storage.call('sync', { type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: 'change', entries: [{ key: 'language', value: state.language }] })
+      await sync.local({ type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: 'change', entries: [{ key: 'language', value: state.language }] })
       changed()
     } catch { /* The language is saved on this device. The next change reports it again. */ }
     return state
@@ -54,7 +57,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
   ipcMain.handle(devicePrefsChannel, async (event, ...args: unknown[]) => {
     guard(event)
     if (args.length === 0) {
-      const rows = await storage.call<{ key: string; value: unknown }[]>('sync', { type: 'settings' })
+      const rows = await sync.local<{ key: string; value: unknown }[]>({ type: 'settings' })
       return (Array.isArray(rows) ? rows : []).filter(row => isRendererSettingKey(row.key)).map(row => ({ key: row.key, value: row.key === 'parentOrder' ? parentOrder.enabled : row.value }))
     }
     if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
@@ -66,7 +69,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     })
     const placement = entries.find(entry => entry.key === 'parentOrder')
     if (report.mode === 'change' && placement && typeof placement.value === 'boolean') await parentOrder.set(placement.value)
-    await storage.call('sync', { type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: report.mode, entries })
+    await sync.local({ type: 'emit-settings', opId: randomUUID(), at: new Date().toISOString(), mode: report.mode, entries })
     changed()
     return null
   })
@@ -79,7 +82,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     const enabled = await parentOrder.set(request.enabled)
     try {
       await firstWrite
-      await storage.call('sync', { type: 'emit-settings', opId, at, mode: 'change', entries: [{ key: 'parentOrder', value: enabled }] })
+      await sync.local({ type: 'emit-settings', opId, at, mode: 'change', entries: [{ key: 'parentOrder', value: enabled }] })
       sync.nudge('write')
     } catch { /* The device preference remains saved; a later change can report it again. */ }
     return parentOrder.enabled
@@ -126,6 +129,16 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     try { await shell.openExternal(action.url); return true } catch { return false }
   })
   ipcMain.handle(syncChannel, async (event, input: unknown) => { guard(event); return sync.handle(input) })
+  ipcMain.handle(cloudChannel, async (event, ...args: unknown[]) => {
+    guard(event)
+    if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
+    return cloud.action(cloudActionSchema.parse(args[0]))
+  })
+  ipcMain.handle(billingChannel, async (event, ...args: unknown[]) => {
+    guard(event)
+    if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
+    return billing.handle(args[0])
+  })
   ipcMain.handle(updateChannel, async (event, ...args: unknown[]) => {
     guard(event)
     if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
@@ -143,21 +156,26 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
   })
   ipcMain.handle('goalloom:data', async (event, input: unknown) => {
     guard(event)
-    const action = dataActionSchema.parse(input)
-    if (action.type !== 'backupStatus') await firstWrite
-    if (action.type !== 'chooseImport') {
-      const reply = await storage.call<DataReply>('data', action)
-      if (reply.type === 'replaced') { sync.workspaceReplaced(); smart.releaseSession(); links.releaseSession() }
-      return reply
+    try {
+      const action = dataActionSchema.parse(input)
+      if (action.type !== 'backupStatus') await firstWrite
+      if (action.type !== 'chooseImport') {
+        const reply = await storage.call<DataReply>('data', action)
+        if (reply.type === 'replaced') { sync.workspaceReplaced(); smart.releaseSession(); links.releaseSession() }
+        return reply
+      }
+      const session = rendererSession
+      const choice = await dialog.showOpenDialog(window()!, { title: serverText().dialogs.importTitle, properties: ['openFile'], filters: [{ name: 'Goalloom JSON / SQLite', extensions: ['json', 'sqlite'] }] })
+      const path = choice.filePaths[0]
+      if (choice.canceled || !path) return { type: 'cancelled' }
+      if (session !== rendererSession) return { type: 'cancelled' }
+      // One picker for both formats; the extension decides, and each importer still validates the content.
+      const format = extname(path).toLowerCase() === '.json' ? 'json' : 'sqlite'
+      return await storage.call('previewImport', { generation: action.generation, format, path })
+    } catch (error) {
+      const expected = error instanceof DomainError && !['storage', 'startup'].includes(error.code)
+      return { ok: false, code: error instanceof DomainError ? error.code : 'storage', message: expected ? error.message : '' }
     }
-    const session = rendererSession
-    const choice = await dialog.showOpenDialog(window()!, { title: serverText().dialogs.importTitle, properties: ['openFile'], filters: [{ name: 'Goalloom JSON / SQLite', extensions: ['json', 'sqlite'] }] })
-    const path = choice.filePaths[0]
-    if (choice.canceled || !path) return { type: 'cancelled' }
-    if (session !== rendererSession) return { type: 'cancelled' }
-    // One picker for both formats; the extension decides, and each importer still validates the content.
-    const format = extname(path).toLowerCase() === '.json' ? 'json' : 'sqlite'
-    return storage.call('previewImport', { generation: action.generation, format, path })
   })
   return () => {
     rendererSession++

@@ -2,7 +2,6 @@
  * [INPUT]: Current snapshot items/goal relations/ownership/periods, active flow membership, visible columns, period modes and an optional highlighted preview chain.
  * [OUTPUT]: Explicit/owned-child coverage for chain breakpoints and empty columns, draftTarget and bounded model context via boardDigest / periodText.
  * [POS]: features/insight 的纯信号计算；与 domain/relations 的周期规则一致，不做网络与写入。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { combinedTopology } from '../../../domain/nesting'
 import { currentPeriod, workspaceDate } from '../../../domain/calendar'

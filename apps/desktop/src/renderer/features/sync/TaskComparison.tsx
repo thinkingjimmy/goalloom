@@ -2,7 +2,6 @@
  * [INPUT]: Two bounded sync snapshots and the existing task-row/flow tokens.
  * [OUTPUT]: Identical read-only task bodies with minimal text difference highlights.
  * [POS]: Sync-only presentation; uses board task classes without task actions or editors.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { SyncReviewSnapshot } from '../../../shared/contracts/sync-review'
 import { horizonNames, settingsMessages as s, statusNames } from '../../i18n'

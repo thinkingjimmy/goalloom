@@ -2,7 +2,6 @@
  * [INPUT]: Device configuration, the existing chat adapters and a short authoritative context reader.
  * [OUTPUT]: Settings-authorized preflight/generation and exact-output rewrite tickets, with cancellation and bounded accepted turns.
  * [POS]: Main-only network coordinator; no raw content is logged or persisted and no write is performed here.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import type { AssistanceContext, AssistanceEcho, AssistancePrepare, AssistancePrepared, AssistanceReply, AssistanceRequest } from '../../shared/contracts/assistance'

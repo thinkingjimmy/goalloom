@@ -2,7 +2,6 @@
  * [INPUT]: Displayed placement-local outline rows and an insertion/editing index.
  * [OUTPUT]: The eligible preceding root shared by inline creation and title editing.
  * [POS]: Board-only keyboard target selection; authoritative nesting commands revalidate topology and versions.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import { sameOutlinePeriod } from '../../../domain/nesting'

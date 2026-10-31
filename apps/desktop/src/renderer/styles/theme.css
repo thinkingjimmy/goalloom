@@ -2,7 +2,6 @@
  * [INPUT]: Appearance attributes and the existing paper/minimal color palettes.
  * [OUTPUT]: One semantic color vocabulary for Tailwind, shadcn and retained feature CSS.
  * [POS]: Renderer theme boundary; values remain CSS variables so runtime preferences need no generated classes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 @theme inline {
   --radius-control: var(--control-radius);

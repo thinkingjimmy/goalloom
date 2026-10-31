@@ -2,7 +2,6 @@
  * [INPUT]: Review periods, historical period-scoped facts, device review preferences and provider readiness.
  * [OUTPUT]: Persistent review heading, optional cached AI content and accessible refresh with retained text on failure.
  * [POS]: Summary-first review brief header/content; persistence and request ownership live in state/review-summary.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { Snapshot } from '../../../shared/contracts/queries'

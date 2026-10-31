@@ -2,7 +2,6 @@
  * [INPUT]: A notice id and the token for its current condition (null when the condition is absent).
  * [OUTPUT]: Whether that notice is open, and a device-local dismissal that lasts until the token changes.
  * [POS]: Renderer display preference outside workspace history, exports and backups.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useSyncExternalStore } from 'react'
 

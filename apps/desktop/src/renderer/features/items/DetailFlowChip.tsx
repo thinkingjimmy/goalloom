@@ -2,7 +2,6 @@
  * [INPUT]: Item identity, relations, flow colors, eligible candidates and guarded submission.
  * [OUTPUT]: DetailFlowChip: parent selection, root colors, loose flow choices and read-only inherited goal provenance; hidden in Later.
  * [POS]: Detail property control matching the board flow dot. RelationPicker and flowColor transactions validate writes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

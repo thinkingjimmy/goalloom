@@ -2,7 +2,6 @@
  * [INPUT]: Shared product surface, typography, focus and editor tokens.
  * [OUTPUT]: A static action invitation, inline choices and unframed rewritten notes.
  * [POS]: Task assistance presentation; no press transform, animation or result divider.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .rewrite-notes { margin-top: 20px; min-width: 0; }
 .rewrite-notes > .description-editor { margin-top: 20px; }

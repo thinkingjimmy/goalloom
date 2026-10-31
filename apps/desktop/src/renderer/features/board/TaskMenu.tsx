@@ -2,7 +2,6 @@
  * [INPUT]: A visible task, eligible upcoming periods, guarded submission, detail navigation and optional todo assistance/decomposition.
  * [OUTPUT]: Leaf/group nesting and lifecycle actions with yearless dates, source-row activation, virtual pinning and deterministic focus return.
  * [POS]: Board-only action wrapper; the main process resolves and validates the actual next period.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

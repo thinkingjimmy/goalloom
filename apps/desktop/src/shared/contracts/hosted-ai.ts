@@ -2,10 +2,10 @@
  * [INPUT]: Existing bounded AI schemas, the current hosted consent scope and provider-neutral Jev questions.
  * [OUTPUT]: Scope-v3 operator/retention consent, protocol-v2 finite actions and separate result/receipt-only reply types; no client-selected identity, model or URL.
  * [POS]: Shared desktop/Edge transport contract. Provider secrets and cost controls remain server-owned.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { hostedScopeVersion } from './values'
+import type { ServiceFailureCode } from '@goalloom/contracts'
 import { draftRequestSchema, reviewRequestSchema } from './smart-input'
 import { assistanceContextSchema, assistanceOutputSchema, assistanceRequestSchema } from './assistance'
 
@@ -37,7 +37,7 @@ export const hostedProtocolVersion = 2
 
 export type HostedReceiptStatus = 'running' | 'unknown' | 'ready' | 'failed' | 'expired'
 export type HostedReceiptFailure = 'outcome_pending' | 'result_not_delivered' | 'malformed_response' | 'provider_failed' | 'too_large' | 'outcome_unknown' | 'outcome_lost' | 'reconciliation_closed'
-export type HostedHttpFailure = HostedReceiptFailure | 'not_found' | 'configuration' | 'unavailable' | 'authentication_failed' | 'permission_denied' | 'invalid_request' | 'method_not_allowed' | 'routing_policy' | 'action_expired' | 'account_protection' | 'platform_budget' | 'account_budget' | 'platform_concurrency' | 'account_concurrency' | 'platform_rate' | 'account_rate'
+export type HostedHttpFailure = ServiceFailureCode | HostedReceiptFailure | 'not_found' | 'configuration' | 'unavailable' | 'authentication_failed' | 'permission_denied' | 'invalid_request' | 'method_not_allowed' | 'routing_policy' | 'action_expired' | 'account_protection' | 'platform_budget' | 'account_budget' | 'platform_concurrency' | 'account_concurrency' | 'platform_rate' | 'account_rate'
 // Receipt-only replies cannot acquire a result field when the server adds metadata.
 export type HostedReceiptReply = { status: HostedReceiptStatus; error: HostedReceiptFailure; confirmed: boolean; retryAt?: string; result?: never }
 export type HostedResultReply = { status: 'ready'; result: unknown; error?: never; confirmed?: never; retryAt?: never }

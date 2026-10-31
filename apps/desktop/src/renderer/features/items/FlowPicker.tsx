@@ -2,7 +2,6 @@
  * [INPUT]: 流程色序号、占用情况和选择回调。
  * [OUTPUT]: FlowDot 色点，以及 FlowColorMenu：4×2 命名色板加「不设流程」。详情流程芯片和看板圆点共用色板。
  * [POS]: 流程色的视觉与选择菜单；详情上的触发芯片在 DetailFlowChip。改色由事务校验。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

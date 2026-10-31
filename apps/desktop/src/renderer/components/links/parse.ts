@@ -2,7 +2,6 @@
  * [INPUT]: Saved plain text and the shared HTTP URL validator.
  * [OUTPUT]: Lossless text/link tokens and ordered, normalized preview destinations.
  * [POS]: Display-only parsing; never rewrites an item or interprets HTML.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { normalizeLinkUrl } from '../../../shared/links'
 

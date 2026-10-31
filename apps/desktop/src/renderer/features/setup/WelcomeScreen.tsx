@@ -2,7 +2,6 @@
  * [INPUT]: Localized first-run copy, bundled paper illustrations and provider-scoped login state/actions.
  * [OUTPUT]: Local-first welcome with expanded Google/Apple actions and a cancellable browser wait; explicit back-entry motion, no setup or sync writes.
  * [POS]: Presentational first page of StartGate, separate from the calendar and password screens.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { AuthProvider } from '../../../shared/contracts/sync'
 import { useRef, type MouseEventHandler } from 'react'

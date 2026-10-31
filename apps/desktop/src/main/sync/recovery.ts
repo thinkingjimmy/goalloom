@@ -2,7 +2,6 @@
  * [INPUT]: An authenticated remote, device keys, password and encrypted recovery draft.
  * [OUTPUT]: A fresh cloud binding; retries reuse its identity without changing the old workspace.
  * [POS]: Desktop recovery preparation. Local baseline installation follows successful cloud creation.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { newRecovery, publicFromSeed, systemRandom } from '@goalloom/crypto'
 import { createRemoteWorkspace, SyncFailure, type BoundWorkspace, type DeviceSecret, type SyncRemote } from '@goalloom/sync'

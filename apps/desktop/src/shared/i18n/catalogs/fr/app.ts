@@ -2,7 +2,6 @@
  * [INPUT]: Shared wire-validation messages and typed localized server copy.
  * [OUTPUT]: fr appMessages for native dialogs, the macOS app menu, storage, commands, calendar and smart-input feedback.
  * [POS]: Server catalog composed by serverText; wire errors are shared with preload without importing this module.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { validationCatalogs } from '../../validation'
 import type { appMessages as source } from '../zh/app'
@@ -207,8 +206,8 @@ export const appMessages: typeof source = {
       too_large: () => 'Le contenu dépasse la taille autorisée pour cet envoi. Raccourcissez-le ou traitez-le en plusieurs fois',
       credential_unreadable: () => 'Impossible de lire la clé enregistrée. Le fichier chiffré est conservé. Vérifiez l’accès aux identifiants du système, puis réessayez',
       credential_unavailable: () => 'La protection des identifiants du système est indisponible. La clé n’a été ni enregistrée ni lue. Réessayez plus tard',
-      not_enabled: () => 'La saisie intelligente n’est pas activée ou sa configuration a changé. Ce contenu n’a pas été envoyé',
       result_not_delivered: () => 'Le résultat de l’IA n’a pas été reçu. Votre saisie et vos tâches enregistrées sont conservées.',
+      not_enabled: () => 'La saisie intelligente n’est pas activée ou sa configuration a changé. Ce contenu n’a pas été envoyé',
     },
     textTooLong: (limit: number) => `Le texte dépasse ${limit} caractères. Traitez-le en plusieurs fois ou enregistrez-le d’abord dans Later`,
     tooManyItems: 'Au plus 8 éléments à la fois. Saisissez-les en plusieurs fois ou enregistrez-les d’abord dans Later',

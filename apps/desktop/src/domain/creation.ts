@@ -2,7 +2,6 @@
  * [INPUT]: Immutable creation receipts and their causally owned system completions.
  * [OUTPUT]: A read-only net creation projection, creation-owned nesting restore provenance and receipts resolved by one creation undo.
  * [POS]: Shared undo/import ownership; never edits persisted effects or rolls versions back.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Effect, Operation } from '../shared/contracts/effects'
 

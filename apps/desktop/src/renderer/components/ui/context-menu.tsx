@@ -2,7 +2,6 @@
  * [INPUT]: Radix Context Menu primitives, shared Tailwind menu styles and caller props.
  * [OUTPUT]: Context-menu root, trigger, content, item, submenu and separator components.
  * [POS]: Shared shadcn context-menu presentation; Radix retains interaction and focus ownership.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 // shadcn/ui Context Menu, MIT.
 import { menuStyles } from './menu'

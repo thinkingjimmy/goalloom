@@ -2,7 +2,6 @@
  * [INPUT]: Caller/lifecycle cancellation and a monotonic request clock.
  * [OUTPUT]: Bounded token, HTTP and body waits with actual transport cancellation.
  * [POS]: Shared transport lifetime; it owns all listeners and timers for one RPC.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SyncFailure } from './failure'
 import type { SyncRemote } from './remote'
@@ -25,7 +24,7 @@ export interface RequestOptions { signal?: AbortSignal }
 export const requestLimits = { status: 5_000, metadata: 10_000, pull: 15_000, write: 30_000, turn: 60_000 } as const
 
 const contextPosition = {
-  registerDevice: 1, rebindDevice: 3, account: 0, bootstrap: 1, putEnvelopes: 3,
+  finishInitialization: 1, registerDevice: 1, rebindDevice: 3, account: 0, bootstrap: 1, putEnvelopes: 3,
   getEnvelopes: 2, getCheckpoint: 2, getRoster: 2, getSyncStatus: 2, receiptsFor: 3,
   startRecovery: 2, completeRecovery: 1, pushOps: 1, pullOps: 1, resetSync: 1,
 } satisfies Record<keyof SyncRemote, number>

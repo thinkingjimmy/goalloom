@@ -2,7 +2,6 @@
  * [INPUT]: Lexical Markdown transforms and the shared URL parser.
  * [OUTPUT]: A finite Markdown dialect with task-list state and authored URL serialization.
  * [POS]: Shared import/export/input-rule policy; HTML is always plain text.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { $copyNode, $createTextNode, $getRoot } from 'lexical'
 import { $isCodeNode } from '@lexical/code'

@@ -2,7 +2,6 @@
  * [INPUT]: Summary pages of overdue items, current periods and guarded batch actions.
  * [OUTPUT]: Read-only saved-text links/previews, cross-page selection (select all loads every page) and explicit current-period arrangement requests; closes once an arrangement clears every item.
  * [POS]: Board backlog dialog; storage revalidates membership, versions and holds.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { ActionButton } from '../../components/ui/button'
 import { messages, horizonNames } from '../../i18n'

@@ -2,7 +2,6 @@
  * [INPUT]: state/shortcuts 的本机绑定、流程筛选开关与改键动作。
  * [OUTPUT]: 快捷键分类：通用组每行点击键帽进入录制（Esc 或点击别处取消，非法组合行内提示）、冲突警告与清除；流程筛选组为一个开关加顶栏位置示意与图例。
  * [POS]: Settings shortcut controls; shared guidance lives in the Settings header. Writes device preferences only, restores defaults in the general group, and captures recording keys before global handlers.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SettingsButton, IconButton } from '../../../components/ui/button'
 import { useEffect, useRef, useState } from 'react'

@@ -2,7 +2,6 @@
  * [INPUT]: Date and timezone strings at a validated wire boundary.
  * [OUTPUT]: Strict Gregorian date and IANA timezone predicates without calendar arithmetic.
  * [POS]: Lightweight shared validation; domain/calendar retains Temporal calculations.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export function validDate(value: string): boolean {
   if (value.length !== 10 || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false

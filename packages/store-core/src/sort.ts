@@ -2,7 +2,6 @@
  * [INPUT]: Ordered numeric neighbors or one visible/base placement-local sibling scope and semantic anchors.
  * [OUTPUT]: Gap-safe keys, semantic undo anchors and deterministic sibling normalization with increasing placement versions.
  * [POS]: Shared allocation policy for desktop writes and sync replay; normalization preserves semantic order and receipts.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SyncApplyError, type SqlDriver } from './driver'
 import { localParentSql } from './outline'

@@ -2,7 +2,6 @@
  * [INPUT]: Localized return label, busy state, existing period-switch action and the shared floating Popover.
  * [OUTPUT]: A compact return icon with delayed pointer/immediate keyboard guidance; Escape dismisses the hint before column navigation.
  * [POS]: Board-header navigation control beside PeriodPicker; preserves pointer/keyboard return motion and never writes items.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton } from '../../components/ui/button'
 import { useEffect, useId, useRef, useState } from 'react'

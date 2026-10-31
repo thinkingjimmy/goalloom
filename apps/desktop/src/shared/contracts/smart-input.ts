@@ -2,7 +2,6 @@
  * [INPUT]: Zod, entity schemas and the lightweight AI provider / feature / capability values.
  * [OUTPUT]: AI 服务标识、设备侧状态（每服务凭据/能力/失败/冷却，每功能所选服务与启用）、受限设置/判断动作、带修订回声的判断回复与可编辑预览 DTO；流程洞察的起草/复盘请求（有界看板文本、代码算出的信号、本机偏好）与回复。
  * [POS]: Smart-service IPC contract; capture.ts also supplies the finite request/receipt metadata persisted by creation commands. Writing requests separate stable period intent keys and explicit retry nonces from context; no plaintext credentials.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { aiCapabilities, aiFailureKinds, aiFeatures, aiProviders, hostedScopeVersion, childHorizons, periodHorizons } from './values'

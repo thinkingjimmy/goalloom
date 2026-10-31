@@ -2,7 +2,6 @@
  * [INPUT]: Setup content, measured feedback clearance, shared theme tokens, native field state and viewport size.
  * [OUTPUT]: Vertically centered scrollable content groups, bounded geometry, feedback-safe controls and reduced-motion rules.
  * [POS]: Setup-specific CSS; ordinary layout lives in the consuming components' Tailwind classes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .onboarding { --onboarding-width: 1000px; --onboarding-gutter: clamp(24px, 6vw, 72px); }
 .onboarding button:not(:disabled) { cursor: pointer; }

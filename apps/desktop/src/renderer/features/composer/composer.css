@@ -2,7 +2,6 @@
  * [INPUT]: Shared appearance tokens, palette modal styles and composer content states.
  * [OUTPUT]: Content-sized input, coordinated empty/selection states, candidate motion and nested field exceptions.
  * [POS]: Composer-specific CSS; Tailwind owns static layout and shared controls.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 /* Short by design (≤ 8 one-line drafts), so inline menus may overflow the dialog instead of being clipped. */
 .modal.palette.composer-modal { width: min(600px, calc(100vw - 40px)); max-height: none; overflow: visible; }

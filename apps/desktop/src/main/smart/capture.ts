@@ -2,7 +2,6 @@
  * [INPUT]: Revision-bound analysis, user creation receipts and an internal completion writer.
  * [OUTPUT]: Main-owned draft-to-item handoff, immediate ready selections and at-most-once late completion.
  * [POS]: Ephemeral capture coordinator; submitted jobs survive dialog closure, never process/session replacement.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import type { AnalyzeReply, AnalyzeRequest } from '../../shared/contracts/smart-input'

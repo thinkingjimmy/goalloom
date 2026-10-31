@@ -2,7 +2,6 @@
  * [INPUT]: Workspace calendar, observation time and authoritative planning periods.
  * [OUTPUT]: Locale-aware absolute or yearless ranges and unambiguous previous/current/next/distant destination names.
  * [POS]: Shared presentation helpers for board, details and feedback; no view state or persistence.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { CalendarConfig, PlanningPeriod } from '../../shared/contracts/entities'
 import { currentPeriod, precedingPeriod, workspaceDate } from '../../domain/calendar'

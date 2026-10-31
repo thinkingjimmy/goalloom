@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
@@ -14,15 +18,23 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": ["node", "vite/client"],
-    "paths": { "@/*": ["./apps/desktop/src/renderer/*"] }
+    "types": [
+      "node",
+      "vite/client"
+    ],
+    "paths": {
+      "@/*": [
+        "./apps/desktop/src/renderer/*"
+      ]
+    }
   },
   "include": [
     "apps/desktop/src",
-    "apps/desktop/tests",
     "apps/desktop/electron.vite.config.ts",
-    "packages/crypto/test",
-    "packages/tests",
-    "vitest.config.ts"
+    "packages/contracts/src",
+    "packages/crypto/src",
+    "packages/schema/src",
+    "packages/store-core/src",
+    "packages/sync/src"
   ]
 }

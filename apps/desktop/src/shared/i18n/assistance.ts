@@ -2,7 +2,6 @@
  * [INPUT]: The active server locale.
  * [OUTPUT]: Five-language assistance and explicit upgrade messages without task content.
  * [POS]: Shared main/worker copy for the assistance boundary.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { serverLocale } from './server'
 const catalogs = {

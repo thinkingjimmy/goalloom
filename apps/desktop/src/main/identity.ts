@@ -2,7 +2,6 @@
  * [INPUT]: Packaged-build flag, OS app-data directory and optional explicit profile path.
  * [OUTPUT]: Stable production identity or isolated development identity and user-data path.
  * [POS]: Startup identity boundary; Electron also uses the application name for macOS Safe Storage.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { join, resolve } from 'node:path'
 

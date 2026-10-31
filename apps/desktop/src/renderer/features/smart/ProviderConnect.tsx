@@ -2,7 +2,6 @@
  * [INPUT]: Real AI actions, provider, saved-key policy, submit slot, feedback placement and working-state callback.
  * [OUTPUT]: Password input cleared on submit, explicit provider-named consent and actual per-capability feedback.
  * [POS]: Shared Onboarding/Settings connection form. Only a passing capability saves credentials; hosts own navigation.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Input } from '../../components/ui/fields'
 import { SettingsButton, TextButton } from '../../components/ui/button'

@@ -2,7 +2,6 @@
  * [INPUT]: Bounded search API with actual periods, workspace calendar, navigation callbacks and local shortcuts.
  * [OUTPUT]: IME-aware debounced results with real-period hints and recoverable errors keyed to the query.
  * [POS]: Read-only global search; never presents a stale response as current.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

@@ -2,7 +2,6 @@
  * [INPUT]: Authoritative business states, relation deltas, bounded guidance and original/rewritten note text.
  * [OUTPUT]: Immutable v1/v2/v3 owned effects, independent nesting/group positions and body-free business-state events.
  * [POS]: Shared transaction, undo and import contract; models cannot supply effects.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { StatusGroup } from '../../domain/status'
 import type { Item, ItemHorizon, Relation } from './entities'
@@ -41,6 +40,12 @@ export function businessState(item: Item): BusinessState {
   return { status: item.status, completedAt: item.completedAt, cancelledAt: item.cancelledAt,
     archivedAt: item.archivedAt, deletedAt: item.deletedAt, deletedBy: item.deletedBy, version: item.version,
     horizon: item.placement.horizon, periodId: item.placement.periodId, sortKey: item.placement.sortKey, holdPeriodId: item.placement.holdPeriodId, nestingParentId: item.placement.nestingParentId ?? null }
+}
+/** Business continuity excludes revision counters and presentation-only placement fields. */
+export function sameBusinessState(a: BusinessState, b: BusinessState): boolean {
+  return a.status === b.status && a.completedAt === b.completedAt && a.cancelledAt === b.cancelledAt
+    && a.horizon === b.horizon && a.periodId === b.periodId && a.archivedAt === b.archivedAt
+    && a.deletedAt === b.deletedAt && a.deletedBy === b.deletedBy && (a.nestingParentId ?? null) === (b.nestingParentId ?? null)
 }
 export function effectsVersion(effects: Effect[]): Operation['effectsVersion'] {
   return effects.some(effect => effect.kind === 'nesting' || effect.kind === 'groupPlacement' || effect.kind === 'position' && !!(effect.before.nestingParentId || effect.after.nestingParentId)) ? 3

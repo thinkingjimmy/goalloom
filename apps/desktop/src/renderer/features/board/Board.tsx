@@ -11,7 +11,6 @@
  *           Current month/week headers share the trailing add slot with a rounded calendar-day countdown badge.
  *           Completed tasks remain inline by default; the synced board preference can group fully completed outlines below.
  * [POS]: Main board view; explicit optimistic drops and virtual-row FLIP follow saved order, with authoritative transaction validation.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton, SettingsButton, TextButton } from '../../components/ui/button'
 import { localNestingParentId, nestingTargets, outlineSections, sameOutlinePeriod } from '../../../domain/nesting'

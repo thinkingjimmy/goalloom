@@ -2,7 +2,6 @@
  * [INPUT]: 工作区当地日期 YYYY-MM-DD。
  * [OUTPUT]: Calendar-day/month arithmetic with month-end clamping, weekdays and month ends; formatting stays in i18n/format.
  * [POS]: renderer 截止日快捷选择的日期工具，工作区“今天”由 domain/calendar 计算。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 const utc = (date: string) => new Date(`${date}T00:00:00Z`)
 const iso = (value: Date) => value.toISOString().split('T')[0]!

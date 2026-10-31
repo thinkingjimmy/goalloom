@@ -2,7 +2,6 @@
  * [INPUT]: Controlled SQLite, validated DTOs and current transaction versions.
  * [OUTPUT]: Bounded note/guidance signals, versioned guidance heads, ownership-preserving writes, shared local-group neighbors, effective relations and immutable events/receipts.
  * [POS]: Persistence adapter; Repository owns business policy and transactions.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { effectiveRelations, type NestingLink } from '../../domain/nesting'
 import { localParentSql } from '@goalloom/store-core'

@@ -2,7 +2,6 @@
  * [INPUT]: Selected backlog item/placement versions, target horizon and automatic-placement preference.
  * [OUTPUT]: One atomic undoable move to the current period or Later, with local groups placed without reordering existing roots.
  * [POS]: Backlog command boundary; item state and cross-period ownership remain independent.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { isBacklog } from '../../../domain/rollover'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'

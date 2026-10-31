@@ -2,7 +2,6 @@
  * [INPUT]: Native Apple tool arguments, positive deadlines and credential environment values.
  * [OUTPUT]: Bounded command results and redacted, bounded ticket delivery/validation attempts.
  * [POS]: Shared process boundary for notarization and final independent release validation.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { spawn } from 'node:child_process'
 

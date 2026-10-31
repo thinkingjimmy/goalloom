@@ -2,7 +2,6 @@
  * [INPUT]: Guarded replacement preview, acknowledgement, workspace timezone and data actions.
  * [OUTPUT]: Source calendar mode, data counts, verified backup receipt and replacement confirmation.
  * [POS]: Settings workspace replacement review; navigation stays locked during maintenance.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SettingsButton } from '../../../components/ui/button'
 import type { ReactNode } from 'react'

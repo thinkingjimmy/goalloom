@@ -2,7 +2,6 @@
  * [INPUT]: Step, content, note/actions and optional portal action ref; text follows the saved device language.
  * [OUTPUT]: Header-free setup frame with content, notes and actions centered together in a scrollable column.
  * [POS]: Optional AI setup layout; calendar/direction use the persistent bottom canvas.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ReactNode, Ref } from 'react'
 import { Icon } from '../../components/icons'

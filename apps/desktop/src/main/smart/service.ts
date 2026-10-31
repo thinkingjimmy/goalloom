@@ -2,7 +2,6 @@
  * [INPUT]: Validated actions, DeviceStore, adapters, a workspace reader and injected clock.
  * [OUTPUT]: Revision-guarded services, durable hosted-attempt authorization, budgeted analysis, claimed completion and session previews/drafts/reviews.
  * [POS]: Lightweight main-process service; analysis loads its planner on demand and HTTP never holds a storage transaction.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createHash } from 'node:crypto'
 import { checkBoolean, checkChoice, ContractError } from '../../domain/smart/distribution'
@@ -44,7 +43,7 @@ const sample = {
   },
 }
 // Account-level problems stay on the provider until a later call succeeds; request-level ones only reach the caller.
-const accountFailures: ReadonlySet<FailureKind> = new Set(['account_verification_required', 'quota_exhausted', 'payment_required', 'authentication_failed', 'permission_denied', 'routing_policy'])
+const accountFailures: ReadonlySet<FailureKind> = new Set(['account_verification_required', 'quota_exhausted', 'payment_required', 'authentication_failed', 'permission_denied', 'routing_policy', 'service_not_started', 'service_expired', 'service_revoked', 'upgrade_required', 'billing_configuration'])
 const credentialFailure = (state: 'missing' | 'unreadable' | 'unavailable', provider: AiProvider, missing: FailureKind) => failure(state === 'unavailable' ? 'credential_unavailable' : state === 'unreadable' ? 'credential_unreadable' : missing, provider)
 const usable = (config: DeviceConfig, feature: AiFeature, provider: AiProvider | null): provider is AiProvider =>
   !!provider && !!config.providers[provider].consentedAt && !!config.providers[provider].capabilities[featureCapability[feature]]

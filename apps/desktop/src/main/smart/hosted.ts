@@ -2,9 +2,9 @@
  * [INPUT]: Main-owned account session, fixed environment URL and existing validated feature inputs.
  * [OUTPUT]: Abortable consent-scope-bound hosted Jev/chat POSTs, receipt-only recovery and account ownership checks.
  * [POS]: Transport only. Local feature, manual-intent, generation and transaction guards remain authoritative.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
+import { isServiceFailureCode, hostedAiServiceHeaders } from '@goalloom/contracts'
 import { HostedAttempts } from './attempts'
 import { hostedProtocolVersion, hostedScopeVersion, type HostedInput, type HostedReply } from '../../shared/contracts/hosted-ai'
 import type { Adapter, EvaluateOutput } from './providers'
@@ -34,7 +34,7 @@ export function hostedAdapters(account: HostedAccount, attempts = new HostedAtte
     current()
     const actionId = reserved.actionId
     const endpoint = `${config.url}/functions/v1/hosted-ai`
-    const headers = { authorization: `Bearer ${session.accessToken}`, apikey: config.anonKey, 'content-type': 'application/json' }
+    const headers = { authorization: `Bearer ${session.accessToken}`, apikey: config.anonKey, 'content-type': 'application/json', ...hostedAiServiceHeaders }
     const send = (retrieve: boolean) => fetch(retrieve ? `${endpoint}?actionId=${actionId}` : endpoint, {
       method: retrieve ? 'GET' : 'POST', headers, ...(retrieve ? {} : { body: JSON.stringify({ version: hostedProtocolVersion, consentScopeVersion: hostedScopeVersion, actionId, request }) }), signal: AbortSignal.any([signal, AbortSignal.timeout(retrieve ? 8_000 : 35_000)]), redirect: 'error',
     })
@@ -49,6 +49,7 @@ export function hostedAdapters(account: HostedAccount, attempts = new HostedAtte
     const data = await response.json().catch(() => null) as HostedReply | null
     current()
     if (original && response.ok && data?.status === 'ready' && data.result !== undefined) return data.result
+    if (isServiceFailureCode(data?.error) && data.error !== 'retrieval_closed') throw new ProviderFailure(failure(data.error, 'hosted', response.status))
     const kind = response.status === 401 ? 'authentication_failed' : response.status === 429 ? 'rate_limited'
       : response.status === 402 ? 'quota_exhausted' : response.status === 403 ? 'permission_denied'
       : response.status === 413 ? 'too_large' : data?.error === 'malformed_response' ? 'malformed_response' : ['result_not_delivered','outcome_pending','outcome_unknown','not_found','action_expired'].includes(data?.error ?? '') || !original ? 'result_not_delivered' : 'unavailable'
@@ -72,7 +73,7 @@ export async function hostedEligibility(account: HostedAccount): Promise<boolean
   try {
     const session = await account.session(), config = account.config()
     if (!config.anonKey || session.userId !== owner || account.id() !== owner) return null
-    const response = await fetch(`${config.url}/functions/v1/hosted-ai?status=1`, { headers: { authorization: `Bearer ${session.accessToken}`, apikey: config.anonKey }, signal: AbortSignal.timeout(3000), redirect: 'error' })
+    const response = await fetch(`${config.url}/functions/v1/hosted-ai?status=1`, { headers: { authorization: `Bearer ${session.accessToken}`, apikey: config.anonKey, ...hostedAiServiceHeaders }, signal: AbortSignal.timeout(3000), redirect: 'error' })
     const data = await response.json() as { eligible?: unknown }
     return account.id() === owner && response.ok && typeof data.eligible === 'boolean' ? data.eligible : null
   } catch { return null }

@@ -4,7 +4,6 @@
  *          Planning moves retain ownership; root moves carry only co-scheduled children. Later entry atomically detaches remote ownership and unlinks incoming goals.
  *          Creation, changed ordering parents and forward-period moves can place only the affected root; explicit insertion wins. Nested creation validates its container and commits one create-plus-nesting receipt.
  * [POS]: Workspace commands; next advances the original placement, and new edges require strictly longer parent horizons outside Later.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { changeNesting } from './nesting'
 import { sameOutlinePeriod } from '../../../domain/nesting'

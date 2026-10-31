@@ -2,7 +2,6 @@
  * [INPUT]: Workspace date strings or timestamps and the active renderer locale.
  * [OUTPUT]: Intl date/time/number formats, including year-boundary ranges, year-inclusive planning destinations, 2-digit cycle ends and accessible calendar labels.
  * [POS]: Presentation-only formatting; date strings use UTC without timezone shifts, date arithmetic stays in lib/dates.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { intlTags } from '../../shared/i18n/locale'
 import { currentLocale } from './index'

@@ -1,16 +1,19 @@
 /**
  * [INPUT]: Current/legacy OS ciphers, storage worker, browser, resolved device locale, connectivity signals and an optional anon key.
- * [OUTPUT]: Independent account-only sessions, explicit sync preparation, noninteractive recovery, explicit cleanup, encrypted exchange with preference projection before reconciliation, and bounded sync review reads. Sign-out and unused/signed-out startup do not access the keychain.
+ * [OUTPUT]: Independent account-only sessions, explicit sync preparation, typed service pauses with receipt-only recovery, receipt-proven key epochs, noninteractive recovery, explicit cleanup, encrypted exchange and bounded review reads. Sign-out and unused startup do not access the keychain.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
  * The password is held in memory only until a join finishes or ten minutes pass.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { readdir } from 'node:fs/promises'
+import { keyScopeSchema, scopeContext, scopeId, type KeyScope } from './key-scope'
+import { randomBytes } from 'node:crypto'
+import { sealLocal, openLocal } from './sealed-file'
 import { hostname } from 'node:os'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
-import { isSecretFingerprint, isSecretSettingKey, secretSettingKeys } from '@goalloom/contracts'
-import { newRecovery, passwordAccepted, publicFromSeed, signDetached, systemRandom, type RecoverySecrets } from '@goalloom/crypto'
+import { canonicalJson, isSecretFingerprint, isSecretSettingKey, secretSettingKeys } from '@goalloom/contracts'
+import { passwordAccepted, publicFromSeed, signDetached, rosterHash, sha256Hex, type RecoverySecrets } from '@goalloom/crypto'
 import {
-  acceptRosterAdvance, changeSyncPassword, createFetchRemote, createRemoteWorkspace, downloadWorkspace, newDeviceSecret,
+  acceptRosterAdvance, changeSyncPassword, createCloudRemote, createFetchRemote, downloadWorkspace, newDeviceSecret, isServiceFailureCode,
   rebindMessage, unlockWithPassword, workspaceKeyFromEnvelope, SyncFailure, type BoundWorkspace, type DevicePlatform,
   type DeviceSecret, type SyncRemote, scopedRemote, boundedRequest, requestLimits, syncClock, type SyncClock,
 } from '@goalloom/sync'
@@ -21,7 +24,7 @@ import type { StorageClient } from '../storage/client'
 import { CredentialError, type Cipher } from '../smart/credentials'
 import { readSyncConfig } from './config'
 import { oauthSignIn, supabaseClient, type OAuthListenOptions } from './oauth'
-import { type VaultSecrets } from './vault'
+import { decodeVault, encodeVault, encodeScopedVault, type VaultSecrets } from './vault'
 import { SessionVault } from './session-vault'
 import { PasswordVault } from './password-vault'
 import { PendingCache } from './pending-cache'
@@ -29,8 +32,12 @@ import { UploadCooldown } from './cooldown'
 import { SyncSchedule } from './schedule'
 import { exchangeTurn, type ExchangeState, type LocalView } from './exchange'
 import type { NetworkEventHandler } from './network-monitor'
-import { createRecoveryWorkspace } from './recovery'
+import { BindingJournal, type BindingDraft, type PreparedEpoch } from './binding-journal'
+import { resolvePreparedEpoch } from './epoch-custody'
+import { createSeedBinding, finishSeedBinding, restoredSeedBinding } from './seed-binding'
+import type { BindingIdentity } from '@goalloom/store-core'
 import { prepareProductionProfile } from './environment'
+import { recoverUnknownReceipts } from './receipt-recovery'
 
 type Phase = SyncStatus['phase']
 type SyncError = NonNullable<SyncStatus['error']>
@@ -49,6 +56,15 @@ function desktopPlatform(): DevicePlatform {
 }
 
 export class SyncService {
+  private generationPreview: { token: string; accountId: string; binding: BindingIdentity | null; preview: import('@goalloom/sync').BindingTransitionPreview } | null = null
+  private activeBinding: BindingIdentity | null = null
+  private epochPending = false
+  private secretDirectory: string
+  private custody = new Map<string, { scope: KeyScope; key: Uint8Array | null; journal: BindingJournal; password: PasswordVault }>()
+  private writingScopeKeys = new Set<string>()
+  private preparedPasswords = new Set<PasswordVault>()
+  private journalProtection: Promise<void> = Promise.resolve()
+  private bindingSetup: Promise<void> = Promise.resolve()
   private vault: SessionVault
   private passwordVault: PasswordVault
   private passwordMode = false
@@ -60,13 +76,40 @@ export class SyncService {
   private remote: SyncRemote | null = null
   private phase: Phase = 'unconfigured'
   private email: string | null = null
-  private identity: { userId: string; expiresAt: number } | null = null
+  private identity: { userId: string; expiresAt: number; sessionId?: string | null } | null = null
+  cloudContext(): string { return `${this.identity?.userId}|${this.identity?.sessionId}|${this.activeBinding?.bindingToken}|${this.view.generation}` }
   accountId(): string | null { return this.identity && this.identity.expiresAt > Date.parse(this.deps.now()) ? this.identity.userId : null }
+  privacyClosed(target: { workspaceId: string; generation: string } | null): void {
+    if (target && (this.secrets?.workspaceId !== target.workspaceId || this.secrets?.generation !== target.generation)) return
+    this.invalidate(); this.generationPreview = null
+    this.error = 'service_revoked'; this.schedule.stop(); this.closeChannel(); this.publish()
+  }
   async accountSession(): Promise<{ userId: string; accessToken: string }> {
     const client = this.client
-    const session = (await client?.auth.getSession())?.data.session
+    const result = await client?.auth.getSession()
+    if (result?.error) throw new SyncFailure([401, 403].includes(result.error.status ?? 0) ? 'auth' : 'network')
+    const session = result?.data.session
     if (!client || this.client !== client || !session || !this.accountId() || session.user.id !== this.accountId()) throw new SyncFailure('auth')
     return { userId: session.user.id, accessToken: session.access_token }
+  }
+  /** Billing checks do not initialize sync. Existing devices can confirm only their original unknown sends. */
+  async billingChecked(eligible: boolean): Promise<void> {
+    if (!this.error || !isServiceFailureCode(this.error) || this.stopped || this.operation) return
+    if (eligible) {
+      if (this.phase === 'ready') await this.tick()
+      return
+    }
+    const secrets = this.secrets, remote = this.remote, id = this.lifecycleId
+    if (!remote || !secrets || secrets.userId !== this.accountId() || !secrets.workspaceId || !secrets.deviceId) return
+    const view = await this.readView()
+    this.checkLifecycle(id)
+    if (view.workspaceId !== secrets.workspaceId || view.deviceId !== secrets.deviceId) return
+    try {
+      await recoverUnknownReceipts({ remote, workspaceId: secrets.workspaceId, deviceId: secrets.deviceId,
+        generation: view.generation, signal: this.requestSignal(), storage: command => this.storage(command), at: this.deps.now,
+        check: () => this.checkLifecycle(id) })
+      await this.readView(); this.checkLifecycle(id); this.publish()
+    } catch { /* The original receipt identity stays queued for the next explicit check. */ }
   }
   private error: SyncError | null = null
   private offline = false
@@ -124,17 +167,143 @@ export class SyncService {
     clock?: SyncClock
     random?: () => number
     monitorNetwork?: (handler: NetworkEventHandler) => () => void
+    beforeLocalClear?: () => Promise<void>
+    afterLocalClearAttempt?: () => void
     onLocalCleared?: () => void
     /** Focus the desktop window once the loopback page has been sent. */
     onBrowserReturn?: () => void
     beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>, options?: OAuthListenOptions) => Promise<Session>
   }) {
+    this.secretDirectory = deps.userData
     this.vault = new SessionVault(deps.userData, deps.cipher, deps.sessionCipher)
     this.passwordVault = new PasswordVault(deps.userData)
     this.pendingCache = new PendingCache(deps.userData, deps.cipher)
     this.cooldown = new UploadCooldown(deps.userData)
     this.schedule = new SyncSchedule({ run: () => this.runTurn(), onError: error => { this.setError(error); this.publish() },
       ...(deps.clock ? { clock: deps.clock } : {}), ...(deps.random ? { random: deps.random } : {}) })
+  }
+
+  private keyScope(accountId: string): KeyScope {
+    const config = readSyncConfig(this.deps.userData, this.deps.packaged)
+    return Object.freeze(keyScopeSchema.parse({ version: 1, accountId, projectRef: new URL(config.url).hostname.split('.')[0], environment: this.deps.packaged ? 'production' : 'development' }))
+  }
+  private scopeCustody(accountId: string) {
+    const scope = this.keyScope(accountId), id = scopeId(scope)
+    let owned = this.custody.get(id)
+    if (!owned) {
+      const holder = { scope, key: null as Uint8Array | null, journal: null as unknown as BindingJournal, password: new PasswordVault(this.secretDirectory, scope) }
+      holder.journal = new BindingJournal(this.secretDirectory, scope, () => {
+        const key = holder.key, context = `binding-journal/v2|${scopeContext(scope)}`, header = Buffer.from('Goalloom scoped binding journal 1\n')
+        return { available: () => Boolean(key), encrypt: text => {
+          if (!key) throw new SyncFailure('storage')
+          return Buffer.concat([header, sealLocal(key, context, Buffer.from(text))])
+        }, decrypt: bytes => {
+          if (!key || !bytes.subarray(0, header.length).equals(header)) throw new SyncFailure('storage')
+          return openLocal(key, context, bytes.subarray(header.length)).toString()
+        } }
+      })
+      this.custody.set(id, holder); owned = holder
+    }
+    const key = this.secrets?.bindingJournalKeys?.[id]
+    if (key && !this.writingScopeKeys.has(id) && !this.signingOut && !this.stopped) {
+      if (owned.key && !Buffer.from(owned.key).equals(key)) throw new SyncFailure('storage')
+      owned.key = key
+    }
+    return owned
+  }
+  private get bindingJournal(): BindingJournal {
+    const accountId = this.requireSecrets().userId
+    if (!accountId) throw new SyncFailure('auth')
+    return this.scopeCustody(accountId).journal
+  }
+  private selectPasswordScope(accountId: string): PasswordVault {
+    const owned = this.scopeCustody(accountId)
+    if (this.passwordVault !== owned.password) { this.passwordVault.forget(); this.passwordVault = owned.password }
+    return owned.password
+  }
+  private cancelCustody(): void {
+    this.passwordVault.forget()
+    for (const owned of this.custody.values()) { owned.key = null; owned.password.forget() }
+    for (const password of this.preparedPasswords) password.forget()
+  }
+  private async settleCustody(): Promise<void> {
+    await Promise.all([...this.custody.values()].flatMap(owned => [owned.password.settle(), owned.journal.settle()]).concat([...this.preparedPasswords].map(password => password.settle())))
+  }
+  private persistJournalProtection(prepare?: () => void): Promise<void> {
+    const secrets = this.requireSecrets(), id = this.lifecycleId
+    const work = this.journalProtection.then(() => {
+      this.checkLifecycle(id)
+      if (this.secrets !== secrets) throw new SyncFailure('cancelled')
+      return this.writeJournalProtection(prepare)
+    })
+    this.journalProtection = work.catch(() => undefined)
+    return work
+  }
+  private async originalJournalExists(owned: ReturnType<SyncService['scopeCustody']>): Promise<boolean> {
+    if (await owned.journal.exists()) return true
+    try { return (await readdir(this.secretDirectory)).some(name => name === 'sync-bindings.bin' || name.startsWith('sync-bindings.bin.') && name.endsWith('.tmp')) }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error }
+  }
+  private async verifyScopeKey(secrets: VaultSecrets, scope: KeyScope, key: Uint8Array): Promise<boolean> {
+    const recovery = secrets.recoveryBoxSk ?? secrets.pendingRecovery?.recoveryBoxSk
+    const workspaceId = secrets.workspaceId ?? secrets.pendingRecovery?.workspaceId
+    if (recovery && workspaceId) {
+      try { const saved = await this.scopeCustody(scope.accountId).password.recover(recovery, scope.accountId, workspaceId)
+        const stored = saved?.bindingJournalKeys?.[scopeId(scope)]
+        if (stored && Buffer.from(stored).equals(key)) return true
+      } catch { /* Native custody can independently prove the same key. */ }
+    }
+    try {
+      const saved = await this.vault.load(), stored = saved?.bindingJournalKeys?.[scopeId(scope)]
+      return Boolean(stored && Buffer.from(stored).equals(key))
+    } catch { return false }
+  }
+  private async writeJournalProtection(prepare?: () => void): Promise<void> {
+    const secrets = this.requireSecrets(), lifecycle = this.lifecycleId
+    if (!secrets.userId) throw new SyncFailure('auth')
+    const owned = this.scopeCustody(secrets.userId), id = scopeId(owned.scope), keys = secrets.bindingJournalKeys ??= {}
+    const previousKey = keys[id], previousRecovery = secrets.pendingRecovery
+    if (!previousKey && await this.originalJournalExists(owned)) throw new SyncFailure('storage')
+    this.checkLifecycle(lifecycle)
+    prepare?.()
+    if (!previousKey && Object.keys(keys).length >= 100) throw new SyncFailure('storage')
+    const key = previousKey ?? randomBytes(32)
+    this.writingScopeKeys.add(id); keys[id] = key
+    try {
+      if (this.passwordMode && (!this.passwordReady || !secrets.workspaceKey && !secrets.pendingRecovery)) throw new SyncFailure('storage')
+      let failed: unknown
+      try { await this.persist() } catch (error) { failed = error }
+      if (!await this.verifyScopeKey(secrets, owned.scope, key)) throw failed ?? new SyncFailure('storage')
+      this.checkLifecycle(lifecycle)
+      if (this.secrets !== secrets || this.signingOut) throw new SyncFailure('cancelled')
+      owned.key = key
+    } catch (error) {
+      if (keys[id] === key) {
+        if (previousKey) keys[id] = previousKey; else delete keys[id]
+        secrets.pendingRecovery = previousRecovery ?? null
+        owned.key = previousKey ?? null
+        if (key !== previousKey) key.fill(0)
+      }
+      throw error
+    } finally { this.writingScopeKeys.delete(id) }
+  }
+  private async ensureJournalKey(): Promise<void> {
+    const secrets = this.requireSecrets(), lifecycle = this.lifecycleId
+    await this.journalProtection
+    this.checkLifecycle(lifecycle)
+    if (this.secrets !== secrets || !secrets.userId) throw new SyncFailure('cancelled')
+    const owned = this.scopeCustody(secrets.userId), id = scopeId(owned.scope), keys = secrets.bindingJournalKeys ??= {}
+    if (!keys[id]) {
+      const recovery = secrets.recoveryBoxSk ?? secrets.pendingRecovery?.recoveryBoxSk, workspaceId = secrets.workspaceId ?? secrets.pendingRecovery?.workspaceId
+      if (recovery && workspaceId) {
+        const saved = await owned.password.recover(recovery, secrets.userId, workspaceId)
+        this.checkLifecycle(lifecycle)
+        const original = saved?.bindingJournalKeys?.[id]
+        if (original) { keys[id] = original; owned.key = original }
+      }
+    }
+    if (!keys[id]) await this.persistJournalProtection()
+    else owned.key = keys[id]!
   }
 
   async start(): Promise<void> {
@@ -150,6 +319,8 @@ export class SyncService {
     if (!config.anonKey) { this.phase = 'unconfigured'; this.publish(); return }
     if (this.deps.packaged) {
       const directory = await prepareProductionProfile(this.deps.userData, this.deps.storage)
+      this.secretDirectory = directory
+      this.custody.clear()
       this.vault = new SessionVault(directory, this.deps.cipher, this.deps.sessionCipher)
       this.passwordVault = new PasswordVault(directory)
       this.pendingCache = new PendingCache(directory, this.deps.cipher)
@@ -162,7 +333,7 @@ export class SyncService {
     this.credentialBlocked = false
     try {
       this.passwordMode = Boolean(await this.passwordVault.identity())
-      const secrets = this.deps.sessionCipher || !this.passwordMode
+      const secrets = this.deps.sessionCipher || this.vault.available || !this.passwordMode
         ? await this.vault.load({ resumeOnly: !interactive, signal: loading, passwordFallback: this.passwordMode }) : null
       if (loading.aborted || this.stopped) return
       this.secrets = secrets
@@ -171,7 +342,8 @@ export class SyncService {
       if (!this.secrets && !this.passwordMode && !this.vault.available) throw new CredentialError('unavailable')
     } catch (error) {
       if (loading.aborted || this.stopped) return
-      this.secrets = null
+      this.activeBinding = null
+    this.secrets = null
       if (error instanceof CredentialError) {
         this.passwordMode = true
         this.credentialBlocked = !interactive
@@ -259,7 +431,7 @@ export class SyncService {
     this.schedule.stop()
     this.pendingCache.clear()
     this.dropPassword()
-    this.passwordVault.forget()
+    this.cancelCustody()
     this.signInAbort?.abort()
     this.authDispose?.(); this.authDispose = null
     this.closeChannel()
@@ -294,6 +466,9 @@ export class SyncService {
     this.exchangeState.uploadFailures = 0; this.exchangeState.receiptRetryAt = 0; this.exchangeState.receiptFailed = false
   }
   workspaceReplaced(): void {
+    this.generationPreview = null
+    this.activeBinding = null
+    this.epochPending = false
     this.invalidate(); this.schedule.stop(); this.closeChannel(); this.view = emptyView()
     if (this.phase === 'ready' || this.phase === 'choose') this.phase = 'enter-key'
     this.publish()
@@ -306,6 +481,23 @@ export class SyncService {
 
   async handle(input: unknown): Promise<SyncReply> {
     const action = syncActionSchema.parse(input)
+    if (action.type === 'generation-preview') {
+      const id = this.lifecycleId
+      if (action.expectedAccountId !== this.accountId()) throw new SyncFailure('auth')
+      let view = await this.readView()
+      await this.ensureActiveBinding(view)
+      if (view.initializing && this.activeBinding) {
+        await finishSeedBinding({ journal: this.bindingJournal, binding: this.activeBinding, remote: this.requireRemote(), storage: command => this.storage(command), check: () => this.checkLifecycle(id) })
+        view = await this.readView()
+        if (view.initializing) throw new SyncFailure('initialization_pending')
+      }
+      const preview = await this.storage<import('@goalloom/sync').BindingTransitionPreview & { delivery?: { unknown: number } }>({ type: 'transition-preview', expectedBinding: this.activeBinding, expectedLocalGeneration: view.generation })
+      this.checkLifecycle(id)
+      if (action.expectedAccountId !== this.accountId()) throw new SyncFailure('cancelled')
+      const token = globalThis.crypto.randomUUID()
+      this.generationPreview = { token, accountId: action.expectedAccountId, binding: this.activeBinding, preview }
+      return syncReplySchema.parse({ status: this.status(), generationPreview: { token, accountId: action.expectedAccountId, generation: view.generation, revision: preview.revision, items: preview.counts.items, operations: preview.retired.counts.sync_op, unknown: preview.delivery?.unknown ?? 0 } })
+    }
     if (action.type === 'reviews') {
       const reviews = await this.deps.storage.call('sync', { ...action, at: this.deps.now() })
       await this.readView()
@@ -339,7 +531,11 @@ export class SyncService {
     else if (action.type === 'submit-password') await this.submitPassword(action.password)
     else if (action.type === 'change-password') await this.changePassword(action.password)
     else if (action.type === 'reset-sync') await this.resetAndUpload(action.password)
-    else if (action.type === 'create-new-workspace') await this.resetAndUpload(action.password, false)
+    else if (action.type === 'create-new-workspace') {
+      const approved = this.generationPreview
+      if (!approved || approved.token !== action.previewToken || approved.accountId !== action.expectedAccountId || this.accountId() !== action.expectedAccountId) throw new SyncFailure('mismatch')
+      await this.resetAndUpload(action.password, false, approved)
+    }
     else if (action.type === 'join') await this.finishJoin(action.choice, action.acknowledged)
   }
 
@@ -394,7 +590,7 @@ export class SyncService {
         this.error = null
         return
       }
-      this.phase = 'signed-out'
+      this.phase = error instanceof SyncFailure && isServiceFailureCode(error.code) ? 'account' : 'signed-out'
       throw error
     } finally {
       if (this.signInAbort === abort) this.signInAbort = null
@@ -427,6 +623,7 @@ export class SyncService {
     this.identity = null
     this.publish()
     this.signingOut = true
+    this.cancelCustody()
     let cleanupPending = false
     try {
       if (clearLocal) {
@@ -436,7 +633,11 @@ export class SyncService {
           if (!this.passwordReady || !secrets.recoveryBoxSk || !secrets.userId || !secrets.workspaceId) throw new SyncFailure('storage')
           if (!await this.passwordVault.recover(secrets.recoveryBoxSk, secrets.userId, secrets.workspaceId)) throw new SyncFailure('storage')
         } else await this.vault.load()
-        const result = await this.deps.storage.call<{ cleanupPending: boolean }>('clearLocal')
+        await this.settleCustody()
+        await this.deps.beforeLocalClear?.()
+        let result: { cleanupPending: boolean }
+        try { result = await this.deps.storage.call<{ cleanupPending: boolean }>('clearLocal') }
+        finally { this.deps.afterLocalClearAttempt?.() }
         cleanupPending = result.cleanupPending
         this.cleanupBlocked = cleanupPending
       } else await this.vault.signOut()
@@ -451,11 +652,13 @@ export class SyncService {
     const client = this.client
     this.client = null
     this.remote = null
+    this.activeBinding = null
     this.secrets = null
+    this.epochPending = false
     this.passwordReady = false
     this.manualUnlock = false
     this.credentialBlocked = false
-    this.passwordVault.forget()
+    this.cancelCustody()
     client?.auth.stopAutoRefresh?.()
     client?.realtime?.disconnect()
     // Remote revocation is best effort; local sign-out must also finish offline.
@@ -472,42 +675,18 @@ export class SyncService {
   }
 
   private async createWorkspace(password: string): Promise<void> {
+    const lifecycle = this.lifecycleId
     if (this.phase !== 'setup') return
     if (!passwordAccepted(password)) throw new SyncFailure('password')
     this.manualUnlock = false
+    await this.passwordVault.prepare(password)
+    this.checkLifecycle(lifecycle)
     if (this.passwordMode && !this.passwordReady) {
-      await this.passwordVault.prepare(password)
       this.passwordReady = true
       await this.ensureDevice()
     }
-    const remote = this.requireRemote()
-    const deviceId = this.requireDevice()
-    const secrets = this.requireSecrets()
     const view = await this.readView()
-    if (!secrets.workspaceId || !secrets.workspaceKey || !this.recoveryFromVault()) {
-      const recovery = newRecovery(systemRandom())
-      secrets.workspaceId = globalThis.crypto.randomUUID()
-      secrets.workspaceKey = systemRandom().bytes(32)
-      secrets.recoveryBoxSk = recovery.boxSk
-      secrets.recoverySignSk = recovery.signSk
-      secrets.generation = view.generation
-      secrets.epoch = 1
-      secrets.roster = null
-    }
-    await this.persist()
-    const recovery = this.recoveryFromVault()
-    const workspaceId = secrets.workspaceId
-    const workspaceKey = secrets.workspaceKey
-    if (!recovery || !workspaceId || !workspaceKey) throw new SyncFailure('storage', 'pending workspace')
-    const bound = await createRemoteWorkspace({
-      remote, deviceId, secret: this.deviceSecret(), password, recovery,
-      generation: secrets.generation || view.generation, workspaceId, workspaceKey,
-    })
-    await this.remember(bound)
-    const at = this.deps.now()
-    await this.storage({ type: 'protect', at })
-    await this.storage({ type: 'baseline', deviceId, at })
-    await this.storage({ type: 'bind', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch }, at: this.deps.now() })
+    await this.createSeed(password, view)
     this.becomeReady()
     await this.runTurn()
     this.publish()
@@ -538,6 +717,7 @@ export class SyncService {
 
   private async changePassword(password: string): Promise<void> {
     if (this.phase !== 'ready') return
+    if ((await this.readView()).initializing) throw new SyncFailure('initialization_pending')
     if (!passwordAccepted(password)) throw new SyncFailure('password')
     const secrets = this.requireSecrets()
     const recovery = this.recoveryFromVault()
@@ -545,56 +725,193 @@ export class SyncService {
     await changeSyncPassword({
       remote: this.requireRemote(), deviceId: secrets.deviceId, workspaceId: secrets.workspaceId, recovery, password,
     })
-    if (this.passwordMode) { await this.passwordVault.prepare(password); await this.persist() }
+    await this.passwordVault.prepare(password); await this.persist()
     this.error = null
     this.publish()
   }
 
-  private async resetAndUpload(password: string, destructive = true): Promise<void> {
-    if (this.phase !== 'enter-key' && this.phase !== 'ready') return
+  private async resetAndUpload(password: string, destructive = true, approved?: NonNullable<SyncService['generationPreview']>): Promise<void> {
+    const operation = this.lifecycleId
+    if (this.phase !== 'enter-key' && this.phase !== 'ready' && !(this.phase === 'account' && approved)) return
     if (!passwordAccepted(password)) throw new SyncFailure('password')
+    if (this.phase === 'account') {
+      const lifecycle = this.lifecycleId, signal = this.lifecycle.signal, context = this.cloudContext(), accountId = this.accountId()
+      if (!approved || !accountId || accountId !== approved.accountId) throw new SyncFailure('auth')
+      const config = readSyncConfig(this.deps.userData, this.deps.packaged), auth = await this.accountSession()
+      if (auth.userId !== accountId || !config.anonKey) throw new SyncFailure('auth')
+      const remote = createCloudRemote({ ...config, anonKey: config.anonKey, accessToken: async () => auth.accessToken, signal: () => signal })
+      const status = await remote.status({ version: 1, query: { kind: 'discover', after: null } })
+      this.checkLifecycle(lifecycle)
+      if (this.accountId() !== accountId || this.cloudContext() !== context) throw new SyncFailure('cancelled')
+      if (status.environment !== (this.deps.packaged ? 'production' : 'development') || status.projectRef !== new URL(config.url).hostname.split('.')[0]) throw new SyncFailure('configuration')
+      if (!status.canCreateCloud) throw new SyncFailure('rejected', 'new cloud workspace admission denied')
+      const fresh = await this.storage<import('@goalloom/sync').BindingTransitionPreview>({ type: 'transition-preview', expectedBinding: approved.binding, expectedLocalGeneration: approved.preview.localGeneration })
+      this.checkLifecycle(lifecycle)
+      if (fresh.revision !== approved.preview.revision || fresh.sourceDigest !== approved.preview.sourceDigest) throw new SyncFailure('storage', 'source preview changed')
+      this.requireSecrets().accountOnly = false
+      await this.ensureDevice()
+    }
     this.manualUnlock = false
+    await this.passwordVault.prepare(password)
+    this.checkLifecycle(operation)
     if (this.passwordMode) {
-      await this.passwordVault.prepare(password)
       this.passwordReady = true
       await this.ensureDevice()
     }
-    const remote = this.requireRemote()
-    const deviceId = this.requireDevice()
-    const secrets = this.requireSecrets()
-    const view = await this.readView()
-    const sourceWorkspaceId = secrets.pendingRecovery?.sourceWorkspaceId ?? secrets.workspaceId ?? this.selectedWorkspace
-    if (!sourceWorkspaceId) throw new SyncFailure('mismatch')
-    await this.storage({ type: 'protect', at: this.deps.now() })
-    if (destructive) this.phase = 'enter-key'
-    const bound = await createRecoveryWorkspace({ remote, deviceId, secret: this.deviceSecret(), secrets, password,
-      sourceWorkspaceId, localGeneration: view.generation, destructive, persist: () => this.persist() })
-    // A new cloud key cannot exchange the old local log while installation is incomplete.
-    this.phase = 'enter-key'
-    await this.remember(bound)
-    this.selectedWorkspace = bound.workspaceId
-    await this.installRecovery()
+    let view = await this.readView()
+    await this.ensureActiveBinding(view)
+    if (view.initializing && this.activeBinding) {
+      const id = this.lifecycleId
+      await finishSeedBinding({ journal: this.bindingJournal, binding: this.activeBinding, remote: this.requireRemote(), storage: command => this.storage(command), check: () => this.checkLifecycle(id) })
+      view = await this.readView()
+    }
+    if (view.initializing) throw new SyncFailure('initialization_pending')
+    await this.createSeed(password, view, approved, destructive)
     this.becomeReady()
     await this.runTurn()
     this.publish()
   }
 
-  private async installRecovery(): Promise<void> {
-    const secrets = this.requireSecrets(), draft = secrets.pendingRecovery
-    if (!draft || !secrets.deviceId || secrets.workspaceId !== draft.workspaceId) throw new SyncFailure('storage')
-    await this.storage({ type: 'recover-bind', binding: { workspaceId: draft.workspaceId, deviceId: secrets.deviceId, keyEpoch: 1 },
-      at: this.deps.now(), expectedGeneration: draft.localGeneration })
+  private draftSecrets(draft: BindingDraft, secrets: VaultSecrets): VaultSecrets {
+    if (secrets.userId !== draft.binding.accountId || secrets.deviceId !== draft.binding.deviceId) throw new SyncFailure('mismatch')
+    const roster = restoredSeedBinding(draft, { signSk: secrets.signSk, boxSk: secrets.boxSk }, this.bindingJournal).roster
+    return { ...secrets, roster, workspaceId: draft.binding.workspaceId, generation: draft.binding.generation, epoch: 1,
+      workspaceKey: Buffer.from(draft.workspaceKey, 'hex'), recoveryBoxSk: Buffer.from(draft.recoveryBoxSk, 'hex'), recoverySignSk: Buffer.from(draft.recoverySignSk, 'hex'), pendingRecovery: null }
+  }
+  private async prepareDraftPassword(draft: BindingDraft, password: string, lifecycle: number): Promise<void> {
+    const secrets = this.requireSecrets(), scope = this.keyScope(draft.binding.accountId)
+    const prepared = new PasswordVault(this.secretDirectory, scope, draft.transitionRequestId)
+    this.preparedPasswords.add(prepared)
+    try { await prepared.prepare(password); this.checkLifecycle(lifecycle); await prepared.save(this.draftSecrets(draft, secrets)); this.checkLifecycle(lifecycle) }
+    finally { prepared.forget(); this.preparedPasswords.delete(prepared) }
+  }
+  private async promoteDraftPassword(draft: BindingDraft): Promise<void> {
+    const secrets = this.requireSecrets(), lifecycle = this.lifecycleId, scope = this.keyScope(draft.binding.accountId)
+    const receipt = await this.storage<import('@goalloom/sync').BindingTransitionReceipt | null>({ type: 'transition-read', requestId: draft.transitionRequestId })
+    const view = await this.readView(), active = await this.storage<BindingIdentity | null>({ type: 'active-binding' })
+    this.checkLifecycle(lifecycle)
+    if (!receipt || receipt.initializationRequestId !== draft.initializationRequestId || receipt.manifest.seedId !== draft.seedId || receipt.finalOpId !== draft.finalOpId
+      || canonicalJson(receipt.newBinding) !== canonicalJson(draft.binding) || canonicalJson(active) !== canonicalJson(draft.binding)
+      || view.generation !== draft.binding.localGeneration || view.workspaceId !== draft.binding.workspaceId) throw new SyncFailure('storage')
+    const current = this.selectPasswordScope(draft.binding.accountId), prepared = new PasswordVault(this.secretDirectory, scope, draft.transitionRequestId)
+    await current.promote(prepared, this.draftSecrets(draft, secrets), () => {
+      this.checkLifecycle(lifecycle)
+      if (this.secrets !== secrets || secrets.userId !== draft.binding.accountId) throw new SyncFailure('cancelled')
+    })
+    this.checkLifecycle(lifecycle)
+    if (this.secrets !== secrets) throw new SyncFailure('cancelled')
+  }
+
+  private async createSeed(password: string, view: LocalView, approved?: NonNullable<SyncService['generationPreview']>, destructive = false): Promise<void> {
+    const id = this.lifecycleId, secrets = this.requireSecrets(), deviceId = this.requireDevice()
+    const accountId = secrets.userId
+    if (!accountId) throw new SyncFailure('auth')
+    const config = readSyncConfig(this.deps.userData, this.deps.packaged)
+    const scope = { accountId, projectRef: new URL(config.url).hostname.split('.')[0]!, environment: this.deps.packaged ? 'production' as const : 'development' as const, localGeneration: view.generation, deviceId }
+    await this.ensureActiveBinding(view)
+    const result = await createSeedBinding({ journal: this.bindingJournal, remote: this.requireRemote(), storage: command => this.storage(command), secret: this.deviceSecret(), secrets, scope, expectedBinding: this.activeBinding, remotePrepared: () => { this.phase = 'enter-key' }, protectDraft: async draft => { await this.persistJournalProtection(() => {
+      if (this.passwordMode && !secrets.workspaceId) secrets.pendingRecovery = { sourceWorkspaceId: view.generation, destructive: false, localGeneration: view.generation, workspaceId: draft.binding.workspaceId, generation: draft.binding.generation, workspaceKey: Buffer.from(draft.workspaceKey, 'hex'), recoveryBoxSk: Buffer.from(draft.recoveryBoxSk, 'hex'), recoverySignSk: Buffer.from(draft.recoverySignSk, 'hex') }
+    }); await this.prepareDraftPassword(draft, password, id) }, promoteDraft: draft => this.promoteDraftPassword(draft), password, ...(approved ? { preview: approved.preview, approvedBinding: approved.binding } : {}), destructive, at: this.deps.now(), check: () => this.checkLifecycle(id) })
+    this.checkLifecycle(id)
+    this.activeBinding = result.binding
     secrets.pendingRecovery = null
-    await this.persist()
+    await this.remember(result.bound)
+    this.selectedWorkspace = result.bound.workspaceId
+  }
+
+  private ensureActiveBinding(view = this.view, signal = this.requestSignal()): Promise<void> {
+    const secrets = this.secrets, id = this.lifecycleId
+    const work = this.bindingSetup.then(() => {
+      this.checkLifecycle(id, signal)
+      if (this.secrets !== secrets) throw new SyncFailure('cancelled')
+      return this.initializeActiveBinding(view, signal)
+    })
+    this.bindingSetup = work.catch(() => undefined)
+    return work
+  }
+  private async resolveEpoch(prepared: PreparedEpoch, signal = this.requestSignal()): Promise<void> {
+    const secrets = this.requireSecrets(), id = this.lifecycleId, journal = this.bindingJournal
+    const scope = this.keyScope(prepared.expectedBinding.accountId), password = this.selectPasswordScope(scope.accountId), vault = this.vault
+    const passwordMode = this.passwordMode, manual = this.manualUnlock
+    const check = () => { this.checkLifecycle(id, signal); if (this.secrets !== secrets) throw new SyncFailure('cancelled') }
+    this.epochPending = true
+    const result = await resolvePreparedEpoch({ prepared, scope, secrets, journal, check, storage: command => this.storage(command), save: async next => {
+      check()
+      const snapshot = decodeVault(encodeVault(next))
+      snapshot.accounts[scope.accountId] = { deviceId: snapshot.deviceId, workspaceKey: snapshot.workspaceKey, workspaceId: snapshot.workspaceId,
+        generation: snapshot.generation, epoch: snapshot.epoch, roster: snapshot.roster, recoveryBoxSk: snapshot.recoveryBoxSk, recoverySignSk: snapshot.recoverySignSk }
+      const hasPassword = await password.exists(); check()
+      if (passwordMode || hasPassword) { await password.save(snapshot); check() }
+      if (!passwordMode) {
+        let failed: unknown
+        try { await vault.save(manual ? { ...snapshot, refreshToken: null } : snapshot) } catch (error) { failed = error }
+        check()
+        const saved = await vault.load(); check()
+        if (!saved || encodeScopedVault(saved, scope) !== encodeScopedVault(snapshot, scope)) throw failed ?? new SyncFailure('storage')
+      }
+    } })
+    check()
+    secrets.workspaceKey = result.secrets.workspaceKey; secrets.epoch = result.secrets.epoch; secrets.roster = result.secrets.roster
+    secrets.accounts[scope.accountId] = this.accountSecrets()
+    this.activeBinding = result.binding
+    this.epochPending = false
+  }
+  private async initializeActiveBinding(view: LocalView, signal = this.requestSignal()): Promise<void> {
+    const id = this.lifecycleId
+    const s = this.secrets
+    if (!s?.userId || !s.workspaceId || !s.generation || !s.deviceId || !s.epoch || view.workspaceId !== s.workspaceId) return
+    if (!this.epochPending && this.activeBinding && this.activeBinding.accountId === s.userId && this.activeBinding.workspaceId === s.workspaceId && this.activeBinding.generation === s.generation && this.activeBinding.localGeneration === view.generation && this.activeBinding.deviceId === s.deviceId && this.activeBinding.keyEpoch === s.epoch) return
+    const config = readSyncConfig(this.deps.userData, this.deps.packaged)
+    await this.ensureJournalKey()
+    const pending = await this.bindingJournal.pendingEpoch(s.userId, s.workspaceId, this.epochPending ? s.epoch : undefined)
+    this.checkLifecycle(id, signal)
+    if (this.secrets !== s) throw new SyncFailure('cancelled')
+    if (pending) { await this.resolveEpoch(pending, signal); return }
+    if (this.epochPending) throw new SyncFailure('storage', 'epoch preparation missing')
+    const existing = await this.bindingJournal.binding(s.userId, s.workspaceId)
+    this.checkLifecycle(id, signal)
+    if (this.secrets !== s) throw new SyncFailure('cancelled')
+    if (existing && existing.keyEpoch > 1) {
+      const preparation = await this.bindingJournal.epochPreparation(existing)
+      this.checkLifecycle(id, signal)
+      if (preparation) { await this.resolveEpoch(preparation, signal); return }
+      const receipt = await this.storage({ type: 'epoch-current', binding: existing })
+      this.checkLifecycle(id, signal)
+      if (receipt) throw new SyncFailure('storage', 'epoch preparation missing')
+    }
+    const identity: BindingIdentity = existing ?? { accountId: s.userId, projectRef: new URL(config.url).hostname.split('.')[0]!, environment: this.deps.packaged ? 'production' : 'development', workspaceId: s.workspaceId, generation: s.generation, localGeneration: view.generation, deviceId: s.deviceId, keyEpoch: s.epoch, bindingToken: globalThis.crypto.randomUUID() }
+    if (identity.localGeneration !== view.generation || identity.generation !== s.generation || identity.deviceId !== s.deviceId || identity.keyEpoch !== s.epoch || identity.projectRef !== new URL(config.url).hostname.split('.')[0]) throw new SyncFailure('mismatch')
+    await this.bindingJournal.remember(identity)
+    this.checkLifecycle(id, signal)
+    await this.storage({ type: 'active-binding', binding: identity })
+    this.checkLifecycle(id, signal)
+    this.activeBinding = identity
+  }
+
+  private async preparePeerBinding(bound: BoundWorkspace, deviceId: string, localGeneration: string): Promise<BindingIdentity> {
+    const id = this.lifecycleId, accountId = this.requireSecrets().userId
+    if (!accountId) throw new SyncFailure('auth')
+    const config = readSyncConfig(this.deps.userData, this.deps.packaged), projectRef = new URL(config.url).hostname.split('.')[0]!
+    const previous = await this.bindingJournal.binding(accountId, bound.workspaceId)
+    this.checkLifecycle(id)
+    const source: BindingIdentity = previous?.localGeneration === localGeneration ? previous : { accountId, projectRef,
+      environment: this.deps.packaged ? 'production' : 'development', workspaceId: bound.workspaceId, generation: bound.generation,
+      localGeneration, deviceId, keyEpoch: bound.epoch, bindingToken: globalThis.crypto.randomUUID() }
+    if (source.accountId !== accountId || source.projectRef !== projectRef || source.generation !== bound.generation || source.deviceId !== deviceId || source.keyEpoch !== bound.epoch) throw new SyncFailure('mismatch')
+    await this.bindingJournal.remember(source)
+    this.checkLifecycle(id)
+    return source
   }
 
   private async finishJoin(choice: 'use-remote' | 'merge', acknowledged: boolean): Promise<void> {
+    const lifecycle = this.lifecycleId
     if (this.phase === 'ready') return
     if (choice === 'use-remote' && !acknowledged) return
     const remote = this.requireRemote()
     let secrets = this.requireSecrets()
     let deviceId = this.requireDevice()
     const view = await this.readView()
+    this.checkLifecycle(lifecycle)
     let bound: BoundWorkspace
     let ops: RemoteEnvelope[]
     let writeRecovery = true
@@ -617,6 +934,7 @@ export class SyncService {
       if (!secrets.userId) throw new SyncFailure('auth')
       // Recovery keys survive password changes and workspace-key rotation.
       const restored = await this.passwordVault.recover(bound.recovery.boxSk, secrets.userId, bound.workspaceId)
+      this.checkLifecycle(lifecycle)
       if (restored) {
         this.secrets = secrets = { ...restored, refreshToken: secrets.refreshToken }
         await this.ensureDevice()
@@ -626,8 +944,12 @@ export class SyncService {
     }
     const opened = ops.map(entry => ({ ...entry, op: redactSyncOp(entry.op) }))
     // Persist recovered keys before installation so a restart resumes the binding instead of importing again.
+    if (this.heldPassword && !this.passwordVault.prepared) await this.passwordVault.prepare(this.heldPassword)
     await this.remember(bound, writeRecovery)
     this.dropPassword()
+    await this.ensureJournalKey()
+    if (view.workspaceId === bound.workspaceId) await this.ensureActiveBinding(view)
+    const sourceBinding = await this.preparePeerBinding(bound, deviceId, view.generation)
     const plan = await this.storage<'resume' | 'automatic' | 'choose'>({ type: 'join-plan', workspaceId: bound.workspaceId, ops: opened })
     if (!acknowledged && plan === 'choose') { this.phase = 'choose'; this.error = null; this.publish(); return }
     await this.storage({ type: 'hold', closed: true })
@@ -635,14 +957,17 @@ export class SyncService {
       await this.storage({ type: 'protect', at: this.deps.now() })
       const at = this.deps.now()
       const installed = await this.storage<string>({
-        type: 'install', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch },
+        type: 'install', binding: { workspaceId: bound.workspaceId, deviceId, keyEpoch: bound.epoch }, sourceBinding,
         ops: opened, at, merge: choice === 'merge', automatic: !acknowledged, expectedGeneration: view.generation,
       })
+      this.checkLifecycle(lifecycle)
       if (installed === 'choose') { this.phase = 'choose'; this.error = null; this.publish(); return }
+      this.activeBinding = sourceBinding
       await this.deliverSecrets(ops, 'installed')
     } finally {
       await this.storage({ type: 'hold', closed: false }).catch(() => undefined)
     }
+    await this.ensureActiveBinding(await this.readView())
     this.becomeReady()
     if (this.deps.onSettings) await this.projectRemote()
     this.deps.onApplied()
@@ -675,13 +1000,40 @@ export class SyncService {
       this.publish()
       return
     }
-    const savedIdentity = this.passwordMode && !this.passwordReady ? await this.passwordVault.identity() : null
+    if (userId) this.selectPasswordScope(userId)
+    const savedIdentity = !this.passwordReady && (this.passwordMode || !this.secrets?.recoveryBoxSk) ? await this.passwordVault.identity() : null
+    this.checkLifecycle(id)
+    if (savedIdentity && !this.secrets?.recoveryBoxSk) this.passwordMode = true
     if (savedIdentity && savedIdentity.userId !== userId) {
       await this.signOut(); this.error = 'mismatch'; this.publish(); return
     }
     await this.activateAccount(userId)
+    if (this.passwordMode && !this.passwordReady && savedIdentity) { this.selectedWorkspace = savedIdentity.workspaceId; this.phase = 'enter-key'; this.error = null; this.publish(); return }
     await this.restoreCooldown()
     const secrets = this.requireSecrets()
+    if (secrets.userId && (!this.passwordMode || this.passwordReady) && await this.bindingJournal.exists()) await this.ensureJournalKey()
+    const draft = secrets.userId && (!this.passwordMode || this.passwordReady) ? await this.bindingJournal.pending(secrets.userId) : null
+    if (draft) {
+      const receipt = await this.storage<import('@goalloom/sync').BindingTransitionReceipt | null>({ type: 'transition-read', requestId: draft.transitionRequestId })
+      this.checkLifecycle(id)
+      if (receipt) {
+        if (receipt.newBinding.bindingToken !== draft.binding.bindingToken || receipt.initializationRequestId !== draft.initializationRequestId || receipt.manifest.seedId !== draft.seedId) throw new SyncFailure('storage')
+        await this.promoteDraftPassword(draft)
+        this.checkLifecycle(id)
+        if (this.secrets !== secrets) throw new SyncFailure('cancelled')
+        this.activeBinding = draft.binding
+        secrets.pendingRecovery = null
+        await this.bindingJournal.remember(draft.binding)
+        this.checkLifecycle(id)
+        if (this.secrets !== secrets) throw new SyncFailure('cancelled')
+        await this.remember(restoredSeedBinding(draft, this.deviceSecret(), this.bindingJournal))
+      } else {
+        await this.ensureDevice()
+        this.phase = local.workspaceId ? 'enter-key' : 'setup'
+        this.selectedWorkspace = draft.binding.workspaceId
+        this.error = null; this.publish(); return
+      }
+    }
     const pinned = secrets.workspaceId ?? (this.passwordMode ? local.workspaceId ?? savedIdentity?.workspaceId : null)
     const account = await remote.account(pinned ? { workspaceId: pinned } : undefined)
     this.checkLifecycle(id)
@@ -708,7 +1060,7 @@ export class SyncService {
     }
     await this.ensureDevice()
     if (this.manualUnlock && account) { this.phase = 'enter-key'; this.error = null; this.publish(); return }
-    if (secrets.pendingRecovery?.workspaceId === secrets.workspaceId && secrets.roster) await this.installRecovery()
+    if (secrets.pendingRecovery) throw new SyncFailure('storage', 'legacy recovery needs explicit review')
     if (!account) { this.phase = 'setup'; this.error = null; this.publish(); return }
     if (!secrets.workspaceKey || secrets.workspaceId !== account.workspaceId) {
       this.phase = 'enter-key'
@@ -718,6 +1070,7 @@ export class SyncService {
     }
     const view = await this.readView()
     if (view.workspaceId === account.workspaceId && !view.paused) {
+      await this.ensureActiveBinding(view)
       this.phase = 'ready'
       this.error = null
       this.seedPending = true
@@ -877,15 +1230,22 @@ export class SyncService {
   private async exchangeOnce(signal = this.requestSignal()): Promise<{ more: boolean; sendable: boolean }> {
     const remote = this.requireRemote()
     const id = this.lifecycleId
+    const view = await this.readView()
+    this.checkLifecycle(id, signal)
+    await this.ensureActiveBinding(view, signal)
+    this.checkLifecycle(id, signal)
+    let expectedBinding = this.activeBinding
     const binding = () => {
       const secrets = this.requireSecrets()
       if (!secrets.workspaceId || !secrets.workspaceKey || !secrets.deviceId || !secrets.generation || !secrets.epoch || !secrets.roster) throw new SyncFailure('key')
       return { workspaceId: secrets.workspaceId, workspaceKey: secrets.workspaceKey, deviceId: secrets.deviceId,
         journalKey: secrets.recoveryBoxSk ?? secrets.boxSk,
+        ...(expectedBinding ? { context: `${expectedBinding.environment}|${expectedBinding.projectRef}|${expectedBinding.accountId}|${expectedBinding.workspaceId}|${expectedBinding.generation}|${expectedBinding.localGeneration}|${expectedBinding.bindingToken}` } : {}),
         generation: secrets.generation, epoch: secrets.epoch, rosterVersion: secrets.roster.version }
     }
-    return exchangeTurn({ remote, signal, cache: this.pendingCache, account: this.secrets?.userId ?? '', binding, view: () => this.readView(), storage: command => this.storage(command),
-      followRoster: () => this.followRoster(), lookup: () => this.secretLookup(), deliver: ops => this.deliverSecrets(ops, true),
+    return exchangeTurn({ remote, signal, cache: this.pendingCache, account: this.secrets?.userId ?? '', binding, view: () => this.readView(), storage: command => this.storage({ ...command as object, ...(expectedBinding ? { expectedBinding } : {}) }),
+      finishSeed: async () => { if (expectedBinding) await finishSeedBinding({ journal: this.bindingJournal, binding: expectedBinding, remote, storage: command => this.storage(command), check: () => this.checkLifecycle(id, signal) }) },
+      followRoster: async () => { await this.followRoster(); expectedBinding = this.activeBinding }, lookup: () => this.secretLookup(), deliver: ops => this.deliverSecrets(ops, true),
       applied: async () => {
         if (this.deps.onSettings) await this.projectRemote()
         this.checkLifecycle(id, signal)
@@ -940,20 +1300,31 @@ export class SyncService {
     const remote = this.requireRemote()
     const secrets = this.requireSecrets()
     if (!secrets.roster || !secrets.workspaceId || !secrets.deviceId || !secrets.workspaceKey || secrets.epoch === null) return
-    const id = this.lifecycleId
+    const id = this.lifecycleId, signal = this.requestSignal()
+    const check = () => { this.checkLifecycle(id, signal); if (this.secrets !== secrets) throw new SyncFailure('cancelled') }
+    const pending = await this.bindingJournal.pendingEpoch(secrets.userId!, secrets.workspaceId, this.epochPending ? secrets.epoch : undefined)
+    check()
+    if (pending) await this.resolveEpoch(pending, signal)
     const chain = await remote.getRoster(secrets.workspaceId, secrets.deviceId)
-    this.checkLifecycle(id)
+    check()
     const next = acceptRosterAdvance(secrets.roster, chain, secrets.deviceId)
     if (next.version === secrets.roster.version && next.epoch === secrets.epoch) return
     if (next.epoch !== secrets.epoch) {
       const envelopes = await remote.getEnvelopes(secrets.workspaceId, secrets.deviceId)
-      this.checkLifecycle(id)
+      check()
       const wire = envelopes.find(item => item.recipient === secrets.deviceId && item.epoch === next.epoch)
       if (!wire) throw new SyncFailure('key')
-      secrets.workspaceKey = workspaceKeyFromEnvelope({
+      const workspaceKey = workspaceKeyFromEnvelope({
         wire, roster: next, workspaceId: secrets.workspaceId, recipientId: secrets.deviceId, boxSk: secrets.boxSk,
       })
-      secrets.epoch = next.epoch
+      const binding = this.activeBinding
+      if (!binding || binding.keyEpoch !== secrets.epoch) throw new SyncFailure('mismatch')
+      const vault = encodeScopedVault({ ...secrets, workspaceKey, epoch: next.epoch, roster: next }, this.keyScope(binding.accountId))
+      const prepared = await this.bindingJournal.prepareEpoch({ requestId: globalThis.crypto.randomUUID(), expectedBinding: binding, nextEpoch: next.epoch,
+        rosterHash: rosterHash(next), contextDigest: sha256Hex(vault), vault, at: this.deps.now() })
+      check()
+      await this.resolveEpoch(prepared, signal)
+      return
     }
     secrets.roster = next
     await this.persist()
@@ -985,21 +1356,30 @@ export class SyncService {
 
   private async persist(): Promise<void> {
     if (this.signingOut || this.stopped) return
-    const secrets = this.requireSecrets()
+    const secrets = this.requireSecrets(), lifecycle = this.lifecycleId, vault = this.vault
+    const password = secrets.userId ? this.selectPasswordScope(secrets.userId) : this.passwordVault
     if (secrets.userId) secrets.accounts[secrets.userId] = this.accountSecrets()
-    if (this.passwordMode) {
-      if (this.passwordReady && (secrets.workspaceKey || secrets.pendingRecovery)) {
-        await this.passwordVault.save(secrets)
-        if (this.signingOut || this.stopped || this.secrets !== secrets) return
-        if (this.deps.sessionCipher && !this.manualUnlock) {
-          try { await this.vault.save(secrets) }
+    const snapshot = decodeVault(encodeVault(secrets)), passwordMode = this.passwordMode, manual = this.manualUnlock
+    const current = () => !this.signingOut && !this.stopped && this.secrets === secrets && this.lifecycleId === lifecycle
+    if (passwordMode) {
+      if (this.passwordReady && (snapshot.workspaceKey || snapshot.pendingRecovery)) {
+        await password.save(snapshot)
+        if (!current()) return
+        if (this.deps.sessionCipher && !manual) {
+          try { await vault.save(snapshot) }
           catch (error) { if (error instanceof CredentialError) return; throw error }
-          this.passwordMode = false
-          this.passwordReady = false
-          this.passwordVault.forget()
+          if (!current()) return
+          this.passwordMode = false; this.passwordReady = false; password.forget()
         }
       }
-    } else await this.vault.save(this.manualUnlock ? { ...secrets, refreshToken: null } : secrets)
+    } else {
+      if (snapshot.userId && (snapshot.workspaceKey || snapshot.pendingRecovery) && (password.prepared || await password.exists())) {
+        if (!current()) return
+        await password.save(snapshot)
+      }
+      if (!current()) return
+      await vault.save(manual ? { ...snapshot, refreshToken: null } : snapshot)
+    }
   }
 
   private closeChannel(): void {
@@ -1021,7 +1401,7 @@ export class SyncService {
     this.channelContext = context; this.connecting = true; this.headHint = 0
     void this.channelClosed.then(() => {
       if (this.stopped || subscription !== this.subscriptionId) return
-      const channel = client.channel(`ws:${id}`, { config: { private: true } })
+      const channel = client.channel(`cloud:v1:ws:${id}`, { config: { private: true } })
       channel.on('broadcast', { event: 'head' }, ({ payload }: { payload: { head?: number } }) => {
         if (this.phase !== 'ready' || this.suspended || this.stopped || subscription !== this.subscriptionId) return
         if (this.channel === channel && Number.isSafeInteger(payload?.head) && payload.head! > Math.max(this.headHint, this.view.lastAppliedSeq)) {
@@ -1049,7 +1429,9 @@ export class SyncService {
   }
 
   private async keepSession(session: Session | null): Promise<void> {
-    this.identity = session && !this.signingOut ? { userId: session.user.id, expiresAt: (session.expires_at ?? 0) * 1000 } : null
+    let sessionId: string | null = null
+    try { sessionId = session ? String(JSON.parse(Buffer.from(session.access_token.split('.')[1]!, 'base64url').toString()).session_id ?? '') : null } catch { /* An invalid session cannot authorize remote work. */ }
+    this.identity = session && !this.signingOut ? { userId: session.user.id, expiresAt: (session.expires_at ?? 0) * 1000, sessionId } : null
     this.publish()
     if (this.signingOut || !this.secrets || !session?.refresh_token || session.refresh_token === this.secrets.refreshToken) return
     this.secrets.refreshToken = session.refresh_token
@@ -1104,9 +1486,12 @@ export class SyncService {
     return this.view
   }
 
+  local<T>(argument: object): Promise<T> { return this.storage<T>(argument) }
   private storage<T>(argument: unknown): Promise<T> {
     if (this.stopped) return Promise.reject(new SyncFailure('cancelled'))
-    return this.deps.storage.call<T>('sync', argument)
+    const value = argument as { type?: string; expectedBinding?: BindingIdentity }
+    const guarded = ['peek', 'mark', 'take', 'accept', 'absorb', 'install', 'bind', 'baseline', 'rebaseline', 'recover-bind', 'pause', 'settings', 'emit-settings'].includes(value.type ?? '')
+    return this.deps.storage.call<T>('sync', guarded && this.activeBinding ? { ...value, expectedBinding: value.expectedBinding ?? this.activeBinding } : argument)
   }
 
   private armPassword(): void {
@@ -1143,6 +1528,12 @@ export class SyncService {
     if (this.cleanupBlocked) { this.error = 'cleanup'; return }
     if (error instanceof SyncFailure) {
       if (error.code === 'cancelled') return
+      if (isServiceFailureCode(error.code)) {
+        this.error = error.code; this.offline = false; this.schedule.stop(); this.closeChannel()
+        if (this.accountId() && ['signed-out', 'unconfigured', 'signing-in'].includes(this.phase)) this.phase = 'account'
+        return
+      }
+      if (error.code === 'initialization_pending' || error.code === 'initialization_conflict') { this.error = error.code; this.schedule.stop(); this.closeChannel(); return }
       if (error.code === 'configuration') this.error = 'configuration'
       else if (error.code === 'timeout' || error.code === 'rate_limited') this.error = 'network'
       else if (error.message === 'port') this.error = 'port'
@@ -1163,6 +1554,7 @@ export class SyncService {
     const ready = this.phase === 'ready' || this.phase === 'choose'
     return { accountId: this.accountId(),
       phase: this.phase,
+      ...(this.view.initializing ? { initializationPending: true } : {}),
       ...(this.phase === 'signing-in' && this.signingInProvider ? { signingInProvider: this.signingInProvider } : {}),
       email: this.email,
       pending: ready ? this.view.pending : 0,

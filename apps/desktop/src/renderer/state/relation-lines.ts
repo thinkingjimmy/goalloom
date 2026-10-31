@@ -2,7 +2,6 @@
  * [INPUT]: Device-local storage and React useSyncExternalStore.
  * [OUTPUT]: useRelationLines: whether a single-flow filter draws parent/child lines, plus its setter shared by Settings and the board.
  * [POS]: Renderer display preference. The switch syncs and stays out of task history; defaults to on and stores only `false`.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore } from 'react'
 import { noteDevicePref } from './device-pref-bus'

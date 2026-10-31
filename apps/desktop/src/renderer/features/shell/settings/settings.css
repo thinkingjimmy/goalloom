@@ -1,7 +1,6 @@
 /* [INPUT]: Settings navigation, localized labels/status and shared theme tokens.
  * [OUTPUT]: Native-dialog geometry, coordinated navigation/card states, compact provider rows with floating action hints, content skins and localized control exceptions.
  * [POS]: Settings-specific CSS; shared primitives and ordinary layout use Tailwind.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .settings-modal[open] { display: grid; grid-template-columns: fit-content(45%) minmax(0, 1fr); grid-template-rows: minmax(76px, auto) minmax(0, 1fr) auto; width: min(880px, calc(100vw - 40px)); height: min(680px, calc(100vh - 80px)); padding: 0; overflow: hidden; }
 .settings-modal section + section { margin-top: 0; }
@@ -52,6 +51,11 @@
 .settings-row-status svg { flex-shrink: 0; }
 .settings-row-text > span { font-weight: 500; }
 .settings-row-text small { font-size: 12px; line-height: 1.5; font-weight: 400; color: var(--secondary); text-wrap: pretty; }
+.settings-row-stacked > .segmented { align-self: flex-start; max-width: 100%; flex-wrap: wrap; }
+@media (max-width: 850px) {
+  .appearance-choice { flex-direction: column; align-items: stretch; gap: 10px; }
+  .appearance-choice > .segmented { align-self: flex-start; max-width: 100%; flex-wrap: wrap; }
+}
 .settings-warning > span { flex: 1; min-width: 0; }
 .settings-warning > svg { flex-shrink: 0; margin-top: 3px; }
 .settings-alert > span { flex: 1; min-width: 0; }

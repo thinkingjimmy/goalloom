@@ -2,7 +2,6 @@
  * [INPUT]: Calendar sentence markup, shared Select/Popover components, viewport size and existing theme tokens.
  * [OUTPUT]: Compact sentence controls with centered chevrons and content-sized menus.
  * [POS]: CalendarStep-only presentation; shared controls retain their existing behavior on other screens.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .calendar-entry { --calendar-primary: light-dark(oklch(.41 .035 145), oklch(.75 .035 145)); --calendar-on-primary: light-dark(#fffdfa, oklch(.22 .025 145)); }
 .calendar-primary { --primary: var(--calendar-primary, light-dark(oklch(.41 .035 145), oklch(.75 .035 145))); --primary-foreground: var(--calendar-on-primary, light-dark(#fffdfa, oklch(.22 .025 145))); }

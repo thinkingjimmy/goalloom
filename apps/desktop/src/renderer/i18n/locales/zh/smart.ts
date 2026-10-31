@@ -2,7 +2,6 @@
  * [INPUT]: AI service identifiers, message parameters and the shared locale widening helper.
  * [OUTPUT]: Chinese smart-input and AI service messages, provider names and the SmartCatalog type.
  * [POS]: Source renderer catalog for composer, draft validation, onboarding and AI settings; contains no business state.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { AiFeature, AiProvider } from '../../../../shared/contracts/smart-input'
 import { widen } from '../../../../shared/i18n/locale'

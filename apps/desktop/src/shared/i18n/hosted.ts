@@ -2,7 +2,6 @@
  * [INPUT]: Resolved device locale and scope-v3 hosted data and operator boundaries.
  * [OUTPUT]: Five-language account, consent, privacy and recoverable hosted-service feedback.
  * [POS]: Shared hosted AI copy. No usage counters or billing UI.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Locale } from './locale'
 export const hostedCatalog = {

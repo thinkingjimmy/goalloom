@@ -2,7 +2,6 @@
  * [INPUT]: Chinese source text, validated calendar and an explicit workspace reference date.
  * [OUTPUT]: Colloquial year/half expressions resolved to horizon choices and exclusive actual dates.
  * [POS]: Pure hint generation for Jev; it does not assign deadlines or overwrite the user's manual choices.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { currentPeriod, parseDate, type Calendar } from '../calendar'
 

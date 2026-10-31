@@ -2,7 +2,6 @@
  * [INPUT]: Authoritative event projections and bounded calendar/activity queries.
  * [OUTPUT]: Quality-bearing execution facts, pressure windows and frozen cursor pages.
  * [POS]: Read-only contract; the renderer and models cannot set pressure or invent facts.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { dateSchema, horizonSchema, idSchema, instantSchema, periodHorizonSchema, periodSchema, statusSchema } from './entities'

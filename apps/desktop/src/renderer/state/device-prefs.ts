@@ -2,7 +2,6 @@
  * [INPUT]: Remote renderer settings and the local stores that own them.
  * [OUTPUT]: Live application of those settings, then a seed of local customizations the log does not already have.
  * [POS]: Renderer coordinator for settings sync. It does not emit while applying, and it does not upload untouched defaults.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { horizons, periodHorizons } from '../../shared/contracts/values'
 import type { ItemHorizon } from '../../shared/contracts/entities'

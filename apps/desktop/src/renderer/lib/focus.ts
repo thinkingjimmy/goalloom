@@ -2,7 +2,6 @@
  * [INPUT]: Connected DOM controls and the pointer/keyboard origin of an opening action.
  * [OUTPUT]: returnFocus restores a control without scrolling and preserves its input-specific focus presentation.
  * [POS]: Renderer DOM focus presentation for virtual board rows and review-card dismissal.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export function returnFocus(control: HTMLElement, origin?: 'pointer' | 'keyboard'): void {
   if (origin === 'pointer') {

@@ -2,7 +2,6 @@
  * [INPUT]: Setup forms, native board labels, existing theme tokens and available window dimensions.
  * [OUTPUT]: Compact forms and independently clipped canvas with overview/year/AI camera poses and a stationary toolbar.
  * [POS]: Persistent first-run calendar/direction/AI stage; welcome keeps its approved illustration layout.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .setup-entry { position: relative; container: setup / inline-size; overflow: hidden; }
 .setup-scroll { position: relative; display: flex; align-items: center; width: 100%; height: 100%; min-height: 0; overflow-y: auto; overflow-x: clip; }

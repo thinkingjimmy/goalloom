@@ -2,7 +2,6 @@
  * [INPUT]: Native button props and the caller-owned checked state and change callback.
  * [OUTPUT]: Accessible switch with the existing 38 × 22 desktop track and native keyboard activation.
  * [POS]: Shared controlled UI primitive; feature components own persistence and labels.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ComponentProps } from 'react'
 import { cn } from '../../lib/utils'

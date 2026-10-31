@@ -2,7 +2,6 @@
  * [INPUT]: Selected closed period, workspace generation/revision, live task pages and guarded item actions.
  * [OUTPUT]: Placement-local live groups and cross-period parent links with completion/reopening, restore, detail editing, focus retention and bounded paging; task titles have no native tooltip.
  * [POS]: Past-period task view; edits real items through existing commands while history projections remain immutable.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { outlineSections, sameOutlinePeriod } from '../../../domain/nesting'

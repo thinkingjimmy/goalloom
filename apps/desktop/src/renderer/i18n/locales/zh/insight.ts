@@ -2,7 +2,6 @@
  * [INPUT]: 列名与条目标题等插值参数。
  * [OUTPUT]: Flow-insight copy and InsightCatalog: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, reminder dismissal, matrix legends and settings.
  * [POS]: renderer/i18n/locales/zh 的洞察分册，与 messages.ts 同构；发给模型的提示词不在此处（固定中文）。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { widen } from '../../../../shared/i18n/locale'
 export const insightMessages = widen({

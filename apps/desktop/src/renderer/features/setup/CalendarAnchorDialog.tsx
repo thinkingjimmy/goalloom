@@ -2,7 +2,6 @@
  * [INPUT]: Existing draft date, live workspace today, busy state and caller-owned choose/close actions.
  * [OUTPUT]: Shared native Modal/Input date selection, submit-time validation and cancellation without draft writes.
  * [POS]: CalendarSentence's custom-start editor; confirmation still belongs to the later direction step.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useId, useState } from 'react'
 import { Temporal } from '../../../domain/temporal'

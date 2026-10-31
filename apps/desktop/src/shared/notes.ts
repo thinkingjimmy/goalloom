@@ -4,7 +4,6 @@
  *           unique HTTP(S) links with their total, and a plain first-line excerpt — or null for blank text.
  * [POS]: Shared pure text helper; storage computes it per item summary so the board never receives description bodies.
  *        Code spans and fenced blocks never count as checklist items or links, matching the description editor.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { NoteSignal } from './contracts/entities'
 import { normalizeLinkUrl } from './links'

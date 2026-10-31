@@ -2,7 +2,6 @@
  * [INPUT]: Session calendar draft, native Temporal and the renderer clock/focus lifecycle.
  * [OUTPUT]: Live workspace today, validated preview periods, confirmation anchor and an explicit refresh.
  * [POS]: Setup-only clock owner; one midnight timer catches delayed wakeups without background polling.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { currentPeriod, workspaceDate } from '../../../domain/calendar'

@@ -2,7 +2,6 @@
  * [INPUT]: Validated createPlan entries, versioned parent references and current transaction context.
  * [OUTPUT]: Revalidated periods/parents/colors, single nested creation or topological batch creation with ordered item IDs.
  * [POS]: Atomic batch creation sharing single-item primitives; stale previews have a stable error code.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import { planOrder, planProblem } from '../../../domain/plan'

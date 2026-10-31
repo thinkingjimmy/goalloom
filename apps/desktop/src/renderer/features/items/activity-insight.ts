@@ -2,7 +2,6 @@
  * [INPUT]: Displayed month and workspace week start.
  * [OUTPUT]: Calendar grid cells only; authoritative execution facts live in domain/workspace.
  * [POS]: Detail calendar presentation without a second statistics algorithm.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { addDays, weekday } from '../../lib/dates'
 

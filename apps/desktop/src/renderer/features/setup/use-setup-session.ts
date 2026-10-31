@@ -2,7 +2,6 @@
  * [INPUT]: The computer's current IANA timezone and first-run navigation.
  * [OUTPUT]: In-memory drafts and navigation modality retained across welcome; device timezone refreshes on focus/wake.
  * [POS]: StartGate's unconfirmed setup session. Confirmed workspaces never use this state.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useState } from 'react'
 import type { CalendarDraft } from './use-setup-calendar'

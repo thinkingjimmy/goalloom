@@ -2,7 +2,6 @@
  * [INPUT]: Localized action labels, Hugeicons names, native button props and the shared floating Popover.
  * [OUTPUT]: Compact service actions with delayed pointer/immediate keyboard hints and scoped Escape dismissal.
  * [POS]: AI-service row control; floating hints stay inside the active native Settings dialog.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useId, useRef, useState, type ComponentProps } from 'react'
 import { Icon, type IconName } from '../../../components/icons'

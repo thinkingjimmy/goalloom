@@ -2,7 +2,6 @@
  * [INPUT]: Live Markdown editor, authoritative facts and the detail's guarded autosave writer.
  * [OUTPUT]: Inline obstacle choices, save-guarded settings navigation and one persisted note rewrite, with Rethink below the editor.
  * [POS]: Task assistance presentation; settings gate network access, the main process owns context and output validation.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { aiSourceOptions } from '../../state/ai-scope'
 import { TextButton, ActionButton } from '../../components/ui/button'

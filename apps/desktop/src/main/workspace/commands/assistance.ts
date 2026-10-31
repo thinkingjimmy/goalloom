@@ -2,7 +2,6 @@
  * [INPUT]: Strict applyAssistance, authoritative versions/guards and the current transaction.
  * [OUTPUT]: Atomic note rewrites or legacy guidance/moves, immutable owned effects and ordered events.
  * [POS]: Limited task assistance writer; reuses movement and the existing receipt/undo infrastructure.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { currentPeriod, parseDate, workspaceDate } from '../../../domain/calendar'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'

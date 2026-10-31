@@ -1,6 +1,0 @@
-# Own pnpm root, same as apps/website, so React Native is not hoisted next to Electron.
-# pnpm 11 defaults minimumReleaseAge to 1440 minutes and refuses newer packages. Expo SDK 57
-# publishes inside that window. The desktop workspace keeps the one-day gate.
-minimumReleaseAge: 0
-packages:
-  - .

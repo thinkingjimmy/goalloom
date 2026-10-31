@@ -2,7 +2,6 @@
  * [INPUT]: Validated local operation effects, pending sync rows and original planning periods.
  * [OUTPUT]: Missing pre-sync rollover operations with each carried child's owner/source scope, placed before subsequent user commands.
  * [POS]: Desktop history adapter for first connection. It preserves later edits, order and deletion without restoring any task.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { parseSyncOp, type Action, type PeriodKey, type SyncOp } from '@goalloom/contracts'

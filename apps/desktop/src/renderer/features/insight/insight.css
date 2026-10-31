@@ -2,7 +2,6 @@
  * [INPUT]: Shared appearance tokens, breakpoint states and empty-card action classes.
  * [OUTPUT]: Labelled breakpoint pills, guides and empty cards with same-row, equal-height actions. A next-step pill stays in the row and is hidden until that row is hovered or contains focus; pending and guided pills stay visible. The manual action stays one line; the draft action balances onto extra lines only when the column cannot fit it. Coarse pointers keep a 44px target.
  * [POS]: Flow-insight styles; button sizing is local to empty cards.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .board { --insight-skip: light-dark(#b8732c, #d9a760); }
 .breakpoints { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; }

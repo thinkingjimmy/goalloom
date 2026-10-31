@@ -2,7 +2,6 @@
  * [INPUT]: Shared wire-validation messages and typed localized server copy.
  * [OUTPUT]: en appMessages for native dialogs, the macOS app menu, storage, commands, calendar and smart-input feedback.
  * [POS]: Server catalog composed by serverText; wire errors are shared with preload without importing this module.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { validationCatalogs } from '../../validation'
 import type { appMessages as source } from '../zh/app'
@@ -206,8 +205,8 @@ export const appMessages: typeof source = {
       too_large: () => 'The content is larger than can be sent at once. Shorten it or split it up.',
       credential_unreadable: () => 'The saved key cannot be read. Its encrypted file is unchanged. Check system credential access and try again.',
       credential_unavailable: () => 'System credential protection is unavailable, so the key wasn’t saved or read. Try again later.',
-      not_enabled: () => 'Smart input isn’t enabled or its settings changed, so this content wasn’t sent',
       result_not_delivered: () => 'The AI result was not delivered. Your input and saved tasks are kept.',
+      not_enabled: () => 'Smart input isn’t enabled or its settings changed, so this content wasn’t sent',
     },
     textTooLong: (limit: number) => `The text exceeds ${limit} characters. Split it up, or save to Later for now.`,
     tooManyItems: 'Up to 8 items at a time. Split your input, or save to Later for now.',

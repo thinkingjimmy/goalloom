@@ -1,8 +1,7 @@
 /**
  * [INPUT]: Workspace appearance preferences, submission controls, LanguageSelect and local relation-line preferences.
- * [OUTPUT]: Language, appearance and relation-line controls.
+ * [OUTPUT]: Language, three visual styles, light/dark/system appearance and relation-line controls.
  * [POS]: Settings appearance pane. Language, theme, style and relation lines sync between computers.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Workspace } from '../../../../shared/contracts/entities'
 import { messages, settingsMessages as t } from '../../../i18n'
@@ -18,6 +17,7 @@ const blue = flowVars([1])
 const styles = (): SegmentOption<Workspace['style']>[] => [
   { value: 'paper', label: messages.paperStyle, swatch: 'style-paper' },
   { value: 'minimal', label: messages.minimalStyle, swatch: 'style-minimal' },
+  { value: 'macos', label: messages.macosStyle, swatch: 'style-macos' },
 ]
 const checks = (): SegmentOption<Workspace['checkStyle']>[] => [
   { value: 'outline', label: messages.outlineCheck, swatch: 'check-outline', swatchStyle: blue },
@@ -35,13 +35,13 @@ export function AppearancePane({ workspace, disabled, submit }: { workspace: Wor
   return <>
     <SettingsGroup>
       <SettingsRow title={messages.language}><LanguageSelect className="settings-select" /></SettingsRow>
-      <SettingsRow title={messages.style} note={t.styleNotes[workspace.style]}>
+      <SettingsRow title={messages.style} note={t.styleNotes[workspace.style]} below={
         <Segmented label={messages.style} value={workspace.style} options={styles()} disabled={disabled} onChange={style => void submit({ type: 'preferences', style })} />
-      </SettingsRow>
-      <SettingsRow title={messages.checkStyle} note={t.checkNotes[workspace.checkStyle]}>
+      } />
+      <SettingsRow className="appearance-choice" title={messages.checkStyle} note={t.checkNotes[workspace.checkStyle]}>
         <Segmented label={messages.checkStyle} value={workspace.checkStyle} options={checks()} disabled={disabled} onChange={checkStyle => void submit({ type: 'preferences', checkStyle })} />
       </SettingsRow>
-      <SettingsRow title={messages.theme}>
+      <SettingsRow className="appearance-choice" title={messages.theme}>
         <Segmented label={messages.theme} value={workspace.theme} options={themes()} disabled={disabled} onChange={theme => void submit({ type: 'preferences', theme })} />
       </SettingsRow>
       <SettingsRow title={t.relationLines} note={t.relationLinesNote}>

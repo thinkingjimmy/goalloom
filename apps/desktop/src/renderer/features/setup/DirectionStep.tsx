@@ -2,7 +2,6 @@
  * [INPUT]: Direction draft, live dates, selected year and explicit navigation/confirmation callbacks.
  * [OUTPUT]: Compact textarea, plain examples and equal-height navigation; Enter only focuses confirmation.
  * [POS]: Setup's annual form. Short years retain the next-year default and current-year override.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useRef, type MouseEventHandler } from 'react'
 import type { PlanningPeriod } from '../../../shared/contracts/entities'

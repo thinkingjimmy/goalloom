@@ -5,7 +5,6 @@
 # [INPUT]: Release signing secrets, a temporary keychain and signed builder artifacts.
 # [OUTPUT]: Signing setup, timestamp-signed/notarized DMG, verification and credential cleanup.
 # [POS]: Hosted release adapter; shared build/notarize.mjs owns Apple submission/wait/stapling.
-# [PROTOCOL]: Update this header when making changes, then check README.md.
 #
 # Usage (from the repository root, on the macOS runner):
 #   macos-signing.sh prepare

@@ -2,7 +2,6 @@
  * [INPUT]: Native button props, Radix Slot, shared theme tokens and CVA variants.
  * [OUTPUT]: Button plus action, settings, icon and text controls with the existing desktop densities.
  * [POS]: Shared shadcn button boundary; semantic classes remain stable for feature skins and DOM hooks.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'

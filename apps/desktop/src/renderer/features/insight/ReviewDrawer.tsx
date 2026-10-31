@@ -2,7 +2,6 @@
  * [INPUT]: Review selection, generation/revision, shared Select/link rendering, placement-local ownership, cached drafting and guarded writes.
  * [OUTPUT]: Resumable board-ordered review with indented subtasks, independent archival, placement-local group destinations and guarded writes with independent remote children and explicit regeneration that retains edits.
  * [POS]: Review session owner; read contexts separate historical facts from current command versions.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton, TextButton, SettingsButton } from '../../components/ui/button'
 import { useCallback, useEffect, useRef, useState } from 'react'

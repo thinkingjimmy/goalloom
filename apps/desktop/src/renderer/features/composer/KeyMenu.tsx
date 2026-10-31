@@ -2,7 +2,6 @@
  * [INPUT]: An accessible label and menu content whose choices are buttons (optionally with data-key digits) and at most a search/date input.
  * [OUTPUT]: KeyMenu: focuses its first control on mount, ↑↓ move between controls, a bare digit presses the matching [data-key] choice; Esc is left to Popover.
  * [POS]: Keyboard shell for the composer's inline T/D/P menus; holds no state of its own.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

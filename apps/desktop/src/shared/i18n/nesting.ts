@@ -2,7 +2,6 @@
  * [INPUT]: The current device locale.
  * [OUTPUT]: Five-language nesting commands, errors, provenance and accessible drag feedback.
  * [POS]: Shared renderer/domain copy for the same finite outline operations.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { serverLocale } from './server'
 const catalogs = {

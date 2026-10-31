@@ -2,7 +2,6 @@
  * [INPUT]: Draft deadline, workspace calendar, optional suggested date and a selection callback.
  * [OUTPUT]: dueOptions and a calendar-first deadline panel with compact presets and optional numeric shortcuts.
  * [POS]: Shared deadline content for detail and composer; callers own opening, focus return and saving.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { messages } from '../../i18n'
 import { longDate } from '../../i18n/format'

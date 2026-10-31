@@ -1,8 +1,7 @@
 /**
  * [INPUT]: Smart preview, previous edits, original preview periods and flow constraints.
- * [OUTPUT]: Manual-priority merging with written-time preservation, canonical single-capture placement/ownership, orphan handling and versioned createPlan payloads.
+ * [OUTPUT]: Manual-priority schedule/goal merging, guarded single-task ownership, orphan handling and versioned createPlan payloads.
  * [POS]: Pure composer state; preserves period identity instead of rebasing stale previews.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { planProblem } from '../../../domain/plan'
 import { mayParent } from '../../../domain/relations'
@@ -90,9 +89,7 @@ export function mergePreview(preview: SmartPreview, previous: EditableDraft[], r
     for (const key of row.parentSuggestions) {
       const horizon = parentHorizon(key)
       if (!horizon) continue
-      const written = fresh.find(entry => entry.id === row.id)!.draft.horizon
-      const locked = row.manual.includes('horizon') || written.value === 'future' || written.certain && written.value !== 'later'
-      const target = mayParent(horizon, row.horizon) ? row.horizon : locked ? null : childHorizon(horizon)
+      const target = mayParent(horizon, row.horizon) ? row.horizon : row.manual.includes('horizon') ? null : childHorizon(horizon)
       if (!target || !fits(row, target)) continue
       row.horizon = target
       row.parents = [...row.parents, key]
@@ -102,12 +99,9 @@ export function mergePreview(preview: SmartPreview, previous: EditableDraft[], r
   // A manually shaped draft whose source no longer maps stays visible instead of being silently dropped.
   const orphans = pool.filter(row => row.manual.length && !removed.includes(row.source ?? '')).map(row => ({ ...row, orphan: true, periods: preview.periods }))
   const all = [...merged, ...orphans]
-  const capture = preview.capture
-  // Match the main-owned late result. Waiting for Jev must not change automatic placement or relationships.
-  if (capture && preview.drafts.length === 1 && merged.length === 1 && all.length === 1 && !all[0]!.manual.some(field => ['horizon', 'parents', 'flowColor'].includes(field))) {
-    Object.assign(all[0]!, { nesting: capture.nesting, horizon: capture.horizon, horizonSuggestion: null,
-      parents: capture.parents.map(parent => ({ kind: 'existing' as const, itemId: parent.itemId })),
-      ...(capture.nesting ? { parentSuggestions: [] } : {}) })
+  const owner = preview.capture?.nesting
+  if (owner && all.length === 1 && !all[0]!.manual.some(field => ['horizon', 'parents', 'flowColor'].includes(field))) {
+    Object.assign(all[0]!, { nesting: owner, horizon: owner.horizon, horizonSuggestion: null, parents: [], parentSuggestions: [] })
   }
   const live = new Set(all.map(row => row.id))
   return all.map(row => ({ ...row, parents: row.parents.filter(key => key.kind === 'existing' || live.has(key.draftId)), parentSuggestions: row.parentSuggestions.filter(key => key.kind === 'existing' || live.has(key.draftId)) }))
@@ -142,7 +136,6 @@ export function childHorizon(parent: ItemHorizon): ItemHorizon | null {
 // A written, certain column wins; otherwise a confident guess is prefilled (labelled), and a weak one is only offered.
 function scheduleFor(draft: SmartPreview['drafts'][number], written: ItemHorizon, manual: ItemHorizon | null): Pick<EditableDraft, 'horizon' | 'horizonSuggestion' | 'horizonInferred'> {
   if (manual) return { horizon: manual, horizonSuggestion: null, horizonInferred: false }
-  if (draft.horizon.value === 'future') return { horizon: 'later', horizonSuggestion: null, horizonInferred: false }
   if (draft.horizon.certain && written !== 'later') return { horizon: written, horizonSuggestion: null, horizonInferred: false }
   const guess = draft.inferredHorizon
   if (guess?.certain) return { horizon: guess.value, horizonSuggestion: null, horizonInferred: true }

@@ -1,0 +1,45 @@
+/**
+ * [INPUT]: macos material/shadow tokens and native dialog, menu, toolbar, tooltip and editor markers.
+ * [OUTPUT]: Window/sheet hierarchy, a continuous glass toolbar action group and opaque accessibility fallbacks.
+ * [POS]: Theme surface layer; does not alter portal ownership, native titlebar behavior or panel placement.
+ */
+:root[data-style='macos'] {
+  .titlebar { background: var(--macos-chrome); box-shadow: 0 1px 0 var(--hairline); }
+  .titlebar :is(.later-toggle, .chip, .icon-button) { border-radius: 100px; color: var(--fg-soft); }
+  /* Toolbar glass has a reflective inner edge; form buttons keep the kit's plain control fill. */
+  :is(.titlebar-actions, .titlebar .later-toggle, .titlebar .chip[aria-pressed='true'], .description-tools, .fab) { background-color: var(--macos-glass-fill); background-image: var(--macos-glass-reflection); backdrop-filter: var(--macos-material-blur); box-shadow: var(--macos-control-shadow); }
+  .titlebar :is(.icon-button, .later-toggle, .chip):hover { background: var(--pressed); color: var(--fg); }
+  .titlebar :is(.icon-button, .later-toggle):hover, .titlebar .chip[aria-pressed='true']:hover { background-color: color-mix(in srgb, var(--macos-glass-fill), var(--raised) 30%); background-image: var(--macos-glass-reflection); }
+  .titlebar :is(.chip[aria-pressed='true'], .later-toggle[aria-expanded='true'], .icon-button[aria-pressed='true'], .icon-button[aria-expanded='true']) { color: var(--fg); box-shadow: var(--macos-control-shadow); }
+  .titlebar :is(.later-toggle[aria-expanded='true'], .icon-button[aria-pressed='true'], .icon-button[aria-expanded='true']) { background-color: color-mix(in srgb, var(--macos-glass-fill), var(--raised) 45%); }
+  .titlebar-actions { padding: 2px; border-radius: 100px; }
+  .titlebar .titlebar-actions .icon-button { background: transparent; box-shadow: none; }
+  .titlebar .titlebar-actions .icon-button:is(:hover, [aria-pressed='true'], [aria-expanded='true']) { background: var(--pressed); box-shadow: none; }
+  .board-timeline { border-radius: 16px 16px 0 0; background: var(--surface); box-shadow: 0 0 0 .5px var(--hairline); }
+  .board-timeline > .board-column { --ground: var(--surface); }
+  .board-later > .board-column { --ground: var(--nav); background: var(--nav); border-radius: 16px; box-shadow: none; }
+  .board-later > .board-column > .column-content { border-radius: 0 0 16px 16px; }
+  .task-row { border-radius: 8px; }
+
+  .modal { border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 .5px var(--edge), 0 18px 40px light-dark(oklch(0 0 0 / .24), oklch(0 0 0 / .5)); }
+  :is(.modal-header, .modal-footer) { background: var(--surface); }
+  :is(.menu, .picker-panel) { border-radius: 12px; background: var(--glass); backdrop-filter: var(--macos-material-blur); box-shadow: inset 0 1px 0 var(--glass-rim), var(--shadow); }
+  :is(.due-panel, .note-peek-panel) { border-radius: 12px; background: var(--raised); box-shadow: var(--shadow); }
+  .description-tools { border: 0; border-radius: 100px; }
+  .description-tools > button { border-radius: 100px; }
+  .description-tools button[aria-pressed='true'] { color: var(--focus); background: var(--pressed); }
+  .description-tools:has(.description-link-form) { border-radius: 12px; }
+  .description-tools button:active { transform: none; }
+  :is(.popover.period-return-tooltip, .popover.provider-action-tooltip, .column-visibility-tip) { border-radius: 2px; background: var(--macos-tooltip); color: var(--fg); backdrop-filter: var(--macos-material-blur); box-shadow: 0 0 0 .5px var(--edge), 0 2px 4px oklch(0 0 0 / .2); font-size: 11px; line-height: 15px; padding: 3px 6px; }
+  .due-tooltip { background: var(--macos-tooltip); color: var(--fg); box-shadow: var(--shadow); }
+  .feedback-surface { background: var(--macos-popover); color: var(--fg); box-shadow: var(--shadow); backdrop-filter: var(--macos-material-blur); }
+  .feedback-action { background: var(--macos-control); color: var(--focus); }
+}
+
+/* Readability and selection do not depend on blur or authored palette colors. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root[data-style='macos'] { --glass: var(--raised); --macos-chrome: var(--surface); --macos-popover: var(--raised); --macos-tooltip: var(--raised); --macos-glass-fill: var(--raised); --macos-glass-reflection: none; --macos-material-blur: none; }
+}
+@media (prefers-contrast: more) {
+  :root[data-style='macos'] { --primary: var(--menu-selection); --line: var(--secondary); --hairline: var(--secondary); --check-edge: var(--secondary); }
+}

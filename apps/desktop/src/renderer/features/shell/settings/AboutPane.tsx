@@ -3,7 +3,6 @@
  * [OUTPUT]: About pane (A′, left-aligned like other panes): shadow-free app icon, name with a version tag and tagline; one software-update row whose leading
  *           status icon follows the updater phase, with manual check / restart-to-update; website and release-notes links.
  * [POS]: Settings › About; also the target of the macOS app menu's About / Check for Updates items. Holds no state of its own.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SettingsButton } from '../../../components/ui/button'
 import { intlTags } from '../../../../shared/i18n/locale'

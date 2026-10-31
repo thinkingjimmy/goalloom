@@ -2,7 +2,6 @@
  * [INPUT]: The open workspace database, offline rollover history, a period key and the applier's optional target calendar.
  * [OUTPUT]: Deterministic periods, calendar alignment and missing offline operations for first connection.
  * [POS]: ApplyHost for sync replay. It reads the calendar the op just wrote, including base_ during a merge.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { Temporal } from '../../domain/temporal'

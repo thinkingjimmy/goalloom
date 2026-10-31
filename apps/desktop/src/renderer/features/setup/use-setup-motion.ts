@@ -2,7 +2,6 @@
  * [INPUT]: Ordered first-run pages, input modality, document visibility and reduced-motion preference.
  * [OUTPUT]: Explicit welcome arrivals, reversible camera, directional form transitions and cancellation on hide/unmount.
  * [POS]: Setup-only motion; keyboard and reduced-motion navigation commit immediately, without new dependencies.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 

@@ -2,7 +2,6 @@
  * [INPUT]: Untrusted public HTTP(S) URLs and a caller-owned cancellation signal.
  * [OUTPUT]: Bounded response bytes after public-address, fake-IP pin, redirect and pinned-DNS checks.
  * [POS]: Main-process preview network boundary; never uses Electron sessions or credentials.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { lookup } from 'node:dns/promises'
 import { request as httpRequest } from 'node:http'

@@ -2,7 +2,6 @@
  * [INPUT]: Original prepared operations, a stable recovery key and the legacy noninteractive OS cipher.
  * [OUTPUT]: Protected retry payloads bound to account/workspace/local generation.
  * [POS]: Send journal outside SQLite. Unknown sends never reread a changed API key.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { readFile, writeFile, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'

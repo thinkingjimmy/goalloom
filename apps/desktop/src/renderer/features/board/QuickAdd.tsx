@@ -3,7 +3,6 @@
  * [OUTPUT]: Immediate inline creation, visible revision-bound matching/retry/consent feedback, preserved drafts and explicit manual flow priority;
  *           retains two-level Tab drafts and inherited flow context, grows with content/column width and offers only longer-horizon flow roots.
  * [POS]: Immediate board creation without an implicit tail override; CaptureInput binds draft revisions, main completes optional parents and storage owns relationship constraints/placement.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { aiSource, aiSourceOptions } from '../../state/ai-scope'
 import { menuStyles } from '../../components/ui/menu'

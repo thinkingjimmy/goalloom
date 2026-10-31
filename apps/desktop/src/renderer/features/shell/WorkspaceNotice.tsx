@@ -2,7 +2,6 @@
  * [INPUT]: Complete notice copy, severity and optional action/dismiss callbacks.
  * [OUTPUT]: A persistent, accessible, content-sized Sonner notification with owner-controlled actions and dismissal.
  * [POS]: Shared presentation for workspace errors and system/sync notices; owners retain recovery and dismissal rules.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { type ReactNode } from 'react'
 import { Icon } from '../../components/icons'

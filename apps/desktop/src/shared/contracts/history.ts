@@ -2,7 +2,6 @@
  * [INPUT]: Body-free business events and current item summaries.
  * [OUTPUT]: Activity and period-end history DTOs, the past-period index and revision-bound pages of live past-period tasks.
  * [POS]: History/import boundary keeping immutable projections separate from editable task summaries.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { horizonSchema, idSchema, itemSummarySchema, periodSchema, statusSchema, instantSchema } from './entities'

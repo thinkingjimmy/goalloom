@@ -2,7 +2,6 @@
  * [INPUT]: List view, workspace revision/date, navigation and guarded restore action.
  * [OUTPUT]: Searchable saved-text links/previews and paged summaries with offset clamping after removal or restore.
  * [POS]: Settings item browser; restoreItem remains an authoritative command.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton, SettingsButton } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/fields'

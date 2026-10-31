@@ -2,7 +2,6 @@
  * [INPUT]: Current-version private builder output, platform language manifests and measured size budgets. Package-relative paths are normalized to forward slashes before locale checks.
  * [OUTPUT]: File/license checks, signing evidence, byte counts, SHA256 and a JSON package manifest.
  * [POS]: Read-only packaging gate; never modifies an application bundle or publishes artifacts.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'

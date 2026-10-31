@@ -2,7 +2,6 @@
  * [INPUT]: Public URL-only requests and a device cache directory outside the workspace.
  * [OUTPUT]: Bounded metadata replies, cached-icon enrichment, offline reuse and session-scoped cancellation.
  * [POS]: Main preview service; independent of storage transactions, task text and business history.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { LinkPreview } from '../../shared/contracts/link-preview'
 import { PreviewCache, type CachedPreview } from './cache'

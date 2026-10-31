@@ -2,8 +2,8 @@
  * [INPUT]: Two sessions that share one user. No sockets and no clock beyond the caller.
  * [OUTPUT]: A SyncRemote that assigns seq, rejects a bad roster signature, and keeps ciphertext opaque.
  * [POS]: The simulated second computer for convergence tests.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { canonicalJson, type InitializationReceipt } from '@goalloom/contracts'
 import { hex, rosterHash, unhex, verifyDetached, verifyRosterSignature } from '@goalloom/crypto'
 import type { RequestOptions } from './request'
 import { SyncFailure } from './failure'
@@ -23,6 +23,7 @@ interface WorkspaceRow {
   ops: PullWire[]
   receipts: Map<string, { hash: string; seq: number }>
   checkpoint: CheckpointWire | null
+  initialization?: { requestId: string; creatorDeviceId: string; finalOpId: string; finalSeq: number | null; finalPayloadHash: string | null; receipt: InitializationReceipt | null }
   challenges: ChallengeRow[]
 }
 
@@ -78,18 +79,28 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       options?.signal?.throwIfAborted()
       failIfOffline(world); device(world, sessionId, deviceId, false)
       const workspace = workspaceFor(world, workspaceId)
+      if (workspace.initialization && !workspace.initialization.receipt && workspace.initialization.creatorDeviceId !== deviceId) throw new SyncFailure('initialization_pending')
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       return { workspaceId, generation: workspace.generation, keyEpoch: workspace.keyEpoch, headSeq: workspace.headSeq,
         rosterVersion: workspace.rosterVersion, minRetainedSeq: 0, minProtocolRead: 1, minProtocolWrite: 1 }
     },
-    async receiptsFor(workspaceId, deviceId, opIds, options) {
+    async receiptsFor(workspaceId, deviceId, operations, options) {
       options?.signal?.throwIfAborted()
       await remote.getSyncStatus(workspaceId, deviceId, options)
-      if (opIds.length > 200) throw new SyncFailure('rejected')
-      return opIds.flatMap(opId => {
+      if (operations.length > 200) throw new SyncFailure('rejected')
+      return operations.flatMap(({ opId, payloadHash }) => {
         const row = workspaceFor(world, workspaceId).receipts.get(opId)
-        return row ? [{ opId, payloadHash: row.hash, seq: row.seq }] : []
+        return row && row.hash === payloadHash ? [{ opId, payloadHash: row.hash, seq: row.seq }] : []
       })
+    },
+    async finishInitialization(input) {
+      failIfOffline(world); device(world, sessionId, input.creatorDeviceId, false)
+      const workspace = workspaceFor(world, input.target.workspaceId), init = workspace.initialization
+      if (!init || workspace.generation !== input.target.generation || init.requestId !== input.requestId || init.creatorDeviceId !== input.creatorDeviceId || init.finalOpId !== input.finalOpId || init.finalSeq !== input.finalSeq || init.finalPayloadHash !== input.finalPayloadHash) throw new SyncFailure('initialization_conflict')
+      if (init.receipt) return { ...init.receipt, serverNow: new Date().toISOString().replace('Z', '000Z') }
+      if (workspace.headSeq !== input.finalSeq) throw new SyncFailure('initialization_conflict')
+      const now = new Date().toISOString().replace('Z', '000Z')
+      return init.receipt = { ok: true, version: 1, serverNow: now, requestId: input.requestId, target: input.target, finalOpId: input.finalOpId, finalPayloadHash: input.finalPayloadHash, finalSeq: input.finalSeq, completedAt: now, initialization: 'complete', lifecycleVersion: 2, lifecycleState: 'active' }
     },
     async resetSync(deviceId, options) {
       failIfOffline(world)
@@ -102,6 +113,9 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
     async bootstrap(input) {
       failIfOffline(world)
       device(world, sessionId, input.deviceId, true)
+      const prior = world.workspaces.get(input.workspaceId)
+      if (prior?.initialization && input.initialization && prior.generation === input.generation && prior.initialization.requestId === input.initialization.requestId && prior.initialization.creatorDeviceId === input.deviceId && prior.initialization.finalOpId === input.initialization.finalOpId && canonicalJson(prior.envelopes) === canonicalJson(input.initialization.envelopes)) return
+      if ([...world.workspaces.values()].some(row => row.initialization && !row.initialization.receipt)) throw new SyncFailure('initialization_pending')
       if (world.workspaces.has(input.workspaceId) || world.workspace && !input.createNew) throw new SyncFailure('rejected', 'workspace exists')
       const row = world.devices.get(input.deviceId)!
       if (!verifyRosterSignature(input.roster, input.rosterSig, row.signPub)) throw new SyncFailure('rejected', 'roster signature rejected')
@@ -110,7 +124,8 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       world.workspace = {
         id: input.workspaceId, generation: input.generation, keyEpoch: 1, headSeq: 0, rosterVersion: 1,
         rosters: [{ version: 1, roster: input.roster, bodyHash: input.rosterHash, signature: hex(input.rosterSig), signerType: 'device', signerDevice: input.deviceId }],
-        envelopes: [], ops: [], receipts: new Map(), challenges: [],
+        ...(input.initialization ? { initialization: { requestId: input.initialization.requestId, finalOpId: input.initialization.finalOpId, creatorDeviceId: input.deviceId, finalSeq: null, finalPayloadHash: null, receipt: null } } : {}),
+        envelopes: structuredClone(input.initialization?.envelopes ?? []), ops: [], receipts: new Map(), challenges: [],
         checkpoint: { cpVersion: 1, body: input.checkpoint, recSig: hex(input.recSig), devSig: hex(input.devSig) },
       }
       world.workspaces.set(input.workspaceId, world.workspace)
@@ -119,7 +134,9 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       failIfOffline(world)
       device(world, sessionId, deviceId, false)
       const workspace = workspaceFor(world, workspaceId)
+      if (workspace.initialization && !workspace.initialization.receipt && workspace.initialization.creatorDeviceId !== deviceId) throw new SyncFailure('initialization_pending')
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
+      if (workspace.initialization && !workspace.initialization.receipt && canonicalJson(workspace.envelopes) !== canonicalJson(envelopes)) throw new SyncFailure('initialization_conflict')
       for (const envelope of envelopes) {
         if (unhex(envelope.ciphertext).length > 65536) throw new SyncFailure('rejected', 'payload_too_large')
         const index = workspace.envelopes.findIndex(item => item.epoch === envelope.epoch && item.recipient === envelope.recipient)
@@ -132,6 +149,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       failIfOffline(world)
       device(world, sessionId, deviceId, true)
       const workspace = workspaceFor(world, workspaceId)
+      if (workspace.initialization && !workspace.initialization.receipt && workspace.initialization.creatorDeviceId !== deviceId) throw new SyncFailure('initialization_pending')
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       return workspace.envelopes.map(item => ({ ...item }))
     },
@@ -139,6 +157,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       failIfOffline(world)
       device(world, sessionId, deviceId, true)
       const workspace = workspaceFor(world, workspaceId)
+      if (workspace.initialization && !workspace.initialization.receipt && workspace.initialization.creatorDeviceId !== deviceId) throw new SyncFailure('initialization_pending')
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       return workspace.checkpoint
     },
@@ -146,6 +165,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       failIfOffline(world)
       device(world, sessionId, deviceId, true)
       const workspace = workspaceFor(world, workspaceId)
+      if (workspace.initialization && !workspace.initialization.receipt && workspace.initialization.creatorDeviceId !== deviceId) throw new SyncFailure('initialization_pending')
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       return workspace.rosters.map(item => ({ ...item, roster: structuredClone(item.roster) }))
     },
@@ -153,6 +173,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       failIfOffline(world)
       device(world, sessionId, deviceId, true)
       const workspace = workspaceFor(world, workspaceId)
+      if (workspace.initialization && !workspace.initialization.receipt && workspace.initialization.creatorDeviceId !== deviceId) throw new SyncFailure('initialization_pending')
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       const head = workspace.rosters[workspace.rosters.length - 1]
       if (!head) throw new SyncFailure('rejected', 'no roster')
@@ -164,6 +185,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       failIfOffline(world)
       device(world, sessionId, input.deviceId, true)
       const workspace = workspaceFor(world, input.workspaceId)
+      if (workspace.initialization && !workspace.initialization.receipt && workspace.initialization.creatorDeviceId !== input.deviceId) throw new SyncFailure('initialization_pending')
       if (workspace.id !== input.workspaceId) throw new SyncFailure('mismatch')
       const challenge = workspace.challenges.find(item => item.id === input.challengeId && item.deviceId === input.deviceId)
       const head = workspace.rosters[workspace.rosters.length - 1]
@@ -183,15 +205,28 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       const workspace = workspaceFor(world, input.workspaceId)
       if (workspace.id !== input.workspaceId || workspace.generation !== input.generation) throw new SyncFailure('mismatch')
       if (input.ops.length > 200) throw new SyncFailure('rejected', 'batch limit')
+      const init = workspace.initialization
+      if (init && !init.receipt) {
+        if (init.creatorDeviceId !== input.deviceId) throw new SyncFailure('initialization_pending')
+        let final = init.finalSeq !== null
+        for (const op of input.ops) {
+          const prior = workspace.receipts.get(op.opId)
+          if (prior) { if (prior.hash !== op.payloadHash) throw new SyncFailure('initialization_conflict'); continue }
+          if (final || op.keyEpoch !== 1 || op.formatVersion !== 1 || !/^[a-f0-9]{64}$/.test(op.payloadHash) || op.ciphertext.length / 2 > maxOpCiphertextBytes) throw new SyncFailure('initialization_conflict')
+          if (op.opId === init.finalOpId) final = true
+        }
+      }
       const results: PushResultWire[] = []
       let bytes = 0
       for (const op of input.ops) results.push(acceptOp(workspace, input.deviceId, op, () => { bytes += op.ciphertext.length / 2; return bytes }))
+      if (init && !init.receipt) { const receipt = workspace.receipts.get(init.finalOpId); if (receipt) { init.finalSeq = receipt.seq; init.finalPayloadHash = receipt.hash } }
       return results
     },
     async pullOps(input): Promise<PullWire[]> {
       failIfOffline(world)
       device(world, sessionId, input.deviceId, false)
       const workspace = workspaceFor(world, input.workspaceId)
+      if (workspace.initialization && !workspace.initialization.receipt && workspace.initialization.creatorDeviceId !== input.deviceId) throw new SyncFailure('initialization_pending')
       if (workspace.id !== input.workspaceId) throw new SyncFailure('mismatch')
       if (input.limit < 1 || input.limit > 200) throw new SyncFailure('rejected', 'bad limit')
       return workspace.ops.filter(row => row.seq > input.after).slice(0, input.limit).map(row => ({ ...row }))

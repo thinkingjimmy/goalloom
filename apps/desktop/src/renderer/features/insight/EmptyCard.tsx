@@ -2,7 +2,6 @@
  * [INPUT]: Empty displayed column, eligible open parents without active displayed-period children, displayed period, batch-seed opener and the column's inline create opener.
  * [OUTPUT]: EmptyCard — "X is empty" with the source count in its body and same-row, equal-height draft/write actions. The manual label stays on one line; the draft label balances when the column is too narrow. Draft opens the batch composer; write opens the same inline entry as the column ＋.
  * [POS]: Empty-state insight for current periods and future half/cycle inside a displayed future parent; batch drafts write through Composer, manual writing uses the column QuickAdd.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SettingsButton } from '../../components/ui/button'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'

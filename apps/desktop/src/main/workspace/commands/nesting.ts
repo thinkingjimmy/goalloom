@@ -2,7 +2,6 @@
  * [INPUT]: Generation/version-guarded nest/unnest commands, optional child/root insertion and current explicit goals/placements.
  * [OUTPUT]: Persistent cross-period ownership, placement-local order, atomic flattened groups and inherited-edge/color provenance.
  * [POS]: Authoritative outline writes shared by dragging, lifecycle and ordinary moves.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { randomUUID } from 'node:crypto'
 import { compareInstants } from '../../../domain/calendar'

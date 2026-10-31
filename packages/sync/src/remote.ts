@@ -1,9 +1,9 @@
 /**
  * [INPUT]: An authenticated session. Payloads are ciphertext; this interface never sees a workspace key.
- * [OUTPUT]: Shared RPCs including pinned workspace discovery and non-destructive creation. Tests substitute an in-memory server.
+ * [OUTPUT]: Shared RPCs including pinned discovery, non-destructive creation and exact original operation/hash receipt recovery. Tests substitute an in-memory server.
  * [POS]: Network port for the sync engine. It does not import supabase/ or a Supabase client.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import type { FinishInitialization, InitializationReceipt } from '@goalloom/contracts'
 import type { CheckpointBody, RosterBody } from '@goalloom/crypto'
 import type { RequestOptions } from './request'
 
@@ -82,19 +82,20 @@ export interface RecoveryChallenge {
 }
 
 export interface SyncRemote {
+  finishInitialization(input: FinishInitialization, options?: RequestOptions): Promise<InitializationReceipt>
   registerDevice(input: { name: string; platform: DevicePlatform; signPub: Uint8Array; boxPub: Uint8Array }, options?: RequestOptions): Promise<string>
   rebindDevice(deviceId: string, message: Uint8Array, signature: Uint8Array, options?: RequestOptions): Promise<void>
   account(options?: RequestOptions & { workspaceId?: string }): Promise<AccountView | null>
   bootstrap(input: {
     deviceId: string; workspaceId: string; generation: string; roster: RosterBody; rosterHash: string
-    rosterSig: Uint8Array; checkpoint: CheckpointBody; recSig: Uint8Array; devSig: Uint8Array; createNew?: boolean
+    rosterSig: Uint8Array; checkpoint: CheckpointBody; recSig: Uint8Array; devSig: Uint8Array; createNew?: boolean; initialization?: { requestId: string; finalOpId: string; envelopes: EnvelopeWire[] }
   }, options?: RequestOptions): Promise<void>
   putEnvelopes(workspaceId: string, deviceId: string, envelopes: EnvelopeWire[], options?: RequestOptions): Promise<void>
   getEnvelopes(workspaceId: string, deviceId: string, options?: RequestOptions): Promise<EnvelopeWire[]>
   getCheckpoint(workspaceId: string, deviceId: string, options?: RequestOptions): Promise<CheckpointWire | null>
   getRoster(workspaceId: string, deviceId: string, options?: RequestOptions): Promise<RosterWire[]>
   getSyncStatus(workspaceId: string, deviceId: string, options?: RequestOptions): Promise<SyncHead>
-  receiptsFor(workspaceId: string, deviceId: string, opIds: string[], options?: RequestOptions): Promise<ReceiptWire[]>
+  receiptsFor(workspaceId: string, deviceId: string, operations: { opId: string; payloadHash: string }[], options?: RequestOptions): Promise<ReceiptWire[]>
   startRecovery(workspaceId: string, deviceId: string, options?: RequestOptions): Promise<RecoveryChallenge>
   completeRecovery(input: {
     workspaceId: string; deviceId: string; challengeId: string; signature: Uint8Array

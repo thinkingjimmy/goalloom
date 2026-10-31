@@ -2,8 +2,8 @@
  * [INPUT]: SettingsCatalog from the Chinese source, settings categories and interpolation parameters.
  * [OUTPUT]: French settings copy, including calendar grouping, per-column completion-confetti, reduced-motion and About / software-update messages, including completed-task layout and flat sync-password dialogs.
  * [POS]: French settings catalog matching the source; common actions remain in messages.ts.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
+import { billingCatalog } from '../../../../shared/i18n/billing'
 import type { SettingsCatalog } from '../zh/settings'
 
 export const settingsMessages: SettingsCatalog = {
@@ -30,7 +30,7 @@ export const settingsMessages: SettingsCatalog = {
     sync: 'Connectez-vous avec Apple ou Google et protégez la synchro avec un mot de passe',
   },
   // Appearance
-  styleNotes: { paper: 'Papier chaud, séparateurs pointillés, ombres douces', minimal: 'Gris neutres, contours fins et pleins' },
+  styleNotes: { paper: 'Papier chaud, séparateurs pointillés, ombres douces', minimal: 'Gris neutres, contours fins et pleins', macos: 'Gris froids, surfaces dépolies et actions bleues' },
   checkNotes: { outline: 'Seul le contour à la couleur du flux, le plus discret', paper: 'Fond blanc qui fait ressortir la couleur du flux', tint: 'Fond teinté de la même couleur, groupes les plus visibles' },
   relationLines: 'Lignes de relation',
   relationLinesNote: 'Quand un seul flux est filtré, des lignes relient ses parents et ses enfants',
@@ -101,6 +101,7 @@ export const settingsMessages: SettingsCatalog = {
   },
   resetNote: 'Efface les éléments et reconfigure le calendrier ; le thème et les sauvegardes existantes sont conservés',
   sync: {
+    initializing: "Préparation de l’espace cloud…",
     section: 'Synchro',
     signIn: 'Se connecter avec Google',
     signInApple: 'Se connecter avec Apple',
@@ -205,6 +206,14 @@ export const settingsMessages: SettingsCatalog = {
     lockedNav: 'Arrêtée',
     cancel: 'Annuler',
     errors: {
+      initialization_pending: "L’appareil d’origine prépare encore cet espace. Votre travail local est conservé.",
+      initialization_conflict: "L’initialisation d’origine n’a pas pu être vérifiée. Votre travail local et la demande sont conservés.",
+      service_not_started: billingCatalog.fr.notStarted,
+      service_expired: billingCatalog.fr.ended,
+      service_revoked: billingCatalog.fr.stopped,
+      upgrade_required: billingCatalog.fr.upgrade,
+      billing_configuration: billingCatalog.fr.configuration,
+      retrieval_closed: billingCatalog.fr.ended,
       cleanup: 'Certaines copies locales n’ont pas pu être effacées. Fermez les applications qui utilisent ces fichiers, puis reconnectez-vous. L’accès aux comptes reste bloqué jusqu’à la fin du nettoyage.',
       configuration: 'La configuration du service de synchronisation doit être mise à jour. Réessayez plus tard.',
       network: 'Réseau indisponible',

@@ -2,7 +2,6 @@
  * [INPUT]: Calendar draft, live periods and non-persisting navigation callbacks.
  * [OUTPUT]: Three inline Select controls with equal-height outlined Back and green Next actions.
  * [POS]: Setup's calendar form; the persistent canvas and device timezone belong to Setup.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { MouseEventHandler } from 'react'
 import { calendarMessages as c, messages } from '../../i18n'

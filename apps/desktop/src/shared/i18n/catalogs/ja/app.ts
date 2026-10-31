@@ -2,7 +2,6 @@
  * [INPUT]: Shared wire-validation messages and typed localized server copy.
  * [OUTPUT]: ja appMessages for native dialogs, the macOS app menu, storage, commands, calendar and smart-input feedback.
  * [POS]: Server catalog composed by serverText; wire errors are shared with preload without importing this module.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { validationCatalogs } from '../../validation'
 import type { appMessages as source } from '../zh/app'
@@ -206,8 +205,8 @@ export const appMessages: typeof source = {
       too_large: () => '内容が今回送信できるサイズを超えています。短くするか、分けて整理してください',
       credential_unreadable: () => '保存済みのキーを読み取れません。暗号化されたファイルは保持されています。システムの資格情報へのアクセス権を確認して、再試行してください',
       credential_unavailable: () => 'システムの資格情報保護を現在利用できないため、キーの保存・読み取りを行っていません。しばらくしてから再試行してください',
-      not_enabled: () => 'スマート入力が無効か、設定が変更されました。今回の内容は送信されていません',
       result_not_delivered: () => 'AI の結果を受信できませんでした。入力と保存済みタスクは保持されています。',
+      not_enabled: () => 'スマート入力が無効か、設定が変更されました。今回の内容は送信されていません',
     },
     textTooLong: (limit: number) => `原文が ${limit} 文字を超えています。分けて整理するか、先に Later に保存してください`,
     tooManyItems: '一度に整理できるのは 8 件までです。分けて入力するか、先に Later に保存してください',

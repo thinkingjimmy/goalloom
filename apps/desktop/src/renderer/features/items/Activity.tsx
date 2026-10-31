@@ -2,7 +2,6 @@
  * [INPUT]: Generation/item identity, observed clock, write guard and bounded authoritative execution/activity reads.
  * [OUTPUT]: Stable facts/help/calendar rail, accessible daily records and frozen all-activity pagination.
  * [POS]: Read-only presentation; main computes all counts, pressure and elapsed time.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { TextButton } from '../../components/ui/button'
 import { useEffect, useMemo, useRef, useState } from 'react'

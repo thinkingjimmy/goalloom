@@ -2,7 +2,6 @@
  * [INPUT]: 无；导入完整性校验的参数化文案。
  * [OUTPUT]: importMessages：导入/恢复数据集完整性校验失败时展示给用户的原因（含实体标签）。
  * [POS]: shared/i18n/catalogs/zh 的导入校验分册，被 domain/import-validation 通过 serverText().import 读取。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 import { widen } from '../../locale'
 export const importMessages = widen({

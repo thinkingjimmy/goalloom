@@ -3,7 +3,6 @@
  * [OUTPUT]: Shared clipped rectangles for drops, overlay anchors and readable-result feedback; the relation connector
  *           route (`orthogonal`) with independently clamped corners, including vertical starts, and its row anchor constants, shared by drawn lines and the drag preview.
  * [POS]: Renderer-only geometry; fixed Later never shares the timeline's horizontal scroll coordinates.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export function intersectRect(a: DOMRectReadOnly, b: DOMRectReadOnly): DOMRect | null {
   const left = Math.max(a.left, b.left), top = Math.max(a.top, b.top), right = Math.min(a.right, b.right), bottom = Math.min(a.bottom, b.bottom)

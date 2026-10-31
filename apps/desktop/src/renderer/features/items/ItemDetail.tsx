@@ -2,7 +2,6 @@
  * [INPUT]: Authoritative task/notes, workspace clock and the shared guarded autosave writer.
  * [OUTPUT]: One detail sheet with independent lifecycle, deadline/goal properties, inherited goal/color provenance, AI note rewrites and persistent Markdown editing.
  * [POS]: Detail boundary; ordinary edits stay local while generating, guarded rewrites own only the description.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { TextButton, ActionButton } from '../../components/ui/button'
 import { useMemo } from 'react'

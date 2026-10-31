@@ -2,7 +2,6 @@
  * [INPUT]: Shared theme colors, menu radii and paper/minimal padding tokens.
  * [OUTPUT]: Common surface and row classes for Radix and custom feature menus.
  * [POS]: Menu presentation only; callers retain semantics, selection, positioning and focus behavior.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export const menuStyles = {
   surface: 'flex min-w-[208px] max-w-[380px] flex-col rounded-menu bg-raised p-menu-inset shadow-floating',

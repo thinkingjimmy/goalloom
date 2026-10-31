@@ -2,7 +2,6 @@
  * [INPUT]: 统一答案（Choice 的 choice/probabilities|null、boolean 的 probability）、请求选项与已核实的舍入精度来源。
  * [OUTPUT]: checkChoice/checkBoolean：契约校验（选项覆盖、有限 0–1；choice 非最大值只让该字段待确认）、按 K 与 d 的总和容差、topProbability/margin/熵集中度，及字段级确定性判定。
  * [POS]: 各渠道共用的判断策略；不读取供应商 confidence，不改写原分布，不把缺失分布补成概率 1。
- * [PROTOCOL]: 变更时更新此头部，然后检查 README.md
  */
 export interface Precision { decimals: number | null; source: 'response' | 'adapter' | null }
 export interface ChoiceAnswer { type: 'choice'; choice: string; probabilities: Record<string, number> | null }

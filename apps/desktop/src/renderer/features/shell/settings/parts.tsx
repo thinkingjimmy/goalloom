@@ -2,7 +2,6 @@
  * [INPUT]: Localized group/row content, controlled choices, shared switch and optional workspace timezone.
  * [OUTPUT]: SettingsGroup, SettingsRow, Segmented, ToggleChips, Switch, stamp and relativeDay.
  * [POS]: Stateless settings composition; Tailwind owns layout, feature CSS owns state and content skins.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { cn } from '../../../lib/utils'
 import type { CSSProperties, ReactNode, Ref } from 'react'

@@ -2,7 +2,6 @@
  * [INPUT]: MessageCatalog from ../zh/messages and UI parameters.
  * [OUTPUT]: Japanese UI copy and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
  * [POS]: Japanese message catalog loaded by i18n/index; no workspace access or business decisions.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { MessageCatalog } from '../zh/messages'
 
@@ -38,6 +37,7 @@ export const messages: MessageCatalog = {
   darkTheme: "ダーク",
   style: "スタイル",
   paperStyle: "ペーパー",
+  macosStyle: "macOS 27",
   minimalStyle: "ミニマル",
   workspaceViews: "ワークスペースの表示",
   clockWarning: "システム時刻の巻き戻りを検出したため、自動処理を一時停止しました。システム時刻を確認してください。",
@@ -321,7 +321,6 @@ export const messages: MessageCatalog = {
   noDue: "未設定",
   addDue: "期限を追加",
   dueToday: "今日",
-  dueOverdueShort: "期限切れ",
   dueTomorrow: "明日",
   dueFriday: "今週金曜",
   dueNextMonday: "来週月曜",

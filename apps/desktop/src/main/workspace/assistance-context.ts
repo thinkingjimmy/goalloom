@@ -2,7 +2,6 @@
  * [INPUT]: A generation-bound item, effective goal parents and nesting dependencies and the shared execution query.
  * [OUTPUT]: Deterministically trimmed task context and transaction-verifiable dependency guards.
  * [POS]: Worker-local assistance read; does not fetch URL content, scan unrelated bodies or write periods.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { workspaceDate } from '../../domain/calendar'
 import type { AssistanceContext } from '../../shared/contracts/assistance'

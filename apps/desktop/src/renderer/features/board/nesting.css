@@ -2,7 +2,6 @@
  * [INPUT]: Existing theme/row tokens, virtual group offsets and outline drag/membership attributes.
  * [OUTPUT]: Local row/draft indentation, cross-period parent links, whole-group nesting borders, checkbox-aligned child insertion lines, accessible arrangement actions and bounded choices.
  * [POS]: Board-only nesting styles; row backgrounds and relation exits keep their original bounds.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 /* Outline membership changes the leading content inset, leaving relation exits and row backgrounds stable. */
 .task-row[data-nested='true'] { padding-left: calc(var(--flow-gutter) + 24px); }

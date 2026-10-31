@@ -2,7 +2,6 @@
  * [INPUT]: Device-only intent fingerprints and an optional private journal path.
  * [OUTPUT]: Atomic pre-dispatch tombstones and timestamped action identities, retained across service release/restart.
  * [POS]: Hosted call authorization; stores no task text, prompts, results, credentials or server content hashes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, mkdir } from 'node:fs/promises'

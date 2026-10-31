@@ -2,7 +2,6 @@
  * [INPUT]: Lightweight placements, active topology and an injected observation time.
  * [OUTPUT]: Nearest goal/ownership parents and one-shot ordering with placement-local outlines and persisted parent positions, without writes.
  * [POS]: Shared board/transaction rule; lifecycle state never determines parent priority.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemHorizon } from '../shared/contracts/entities'
 import type { OrderNode } from '../shared/contracts/queries'

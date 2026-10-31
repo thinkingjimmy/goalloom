@@ -2,7 +2,6 @@
  * [INPUT]: A fixed device preference path and validated local or synchronized values.
  * [OUTPUT]: Immediate placement policy, a projection revision guard, serialized atomic persistence and one-time renderer preference migration.
  * [POS]: Main-owned device state outside the workspace; available before startup reconciliation and retained across replacement.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'

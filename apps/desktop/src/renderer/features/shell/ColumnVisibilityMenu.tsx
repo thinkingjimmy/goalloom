@@ -2,7 +2,6 @@
  * [INPUT]: Device column preferences, workspace calendar, shared picker surface/list styles and the global dialog boundary.
  * [OUTPUT]: Immediate six-column checkbox menu sized to the longest label, with right-aligned checks, keyboard navigation, dismissal/focus return and a hover tip on the locked last check.
  * [POS]: TopBar presentation control; reuses the shared popover and icon primitives without workspace writes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton } from '../../components/ui/button'
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'

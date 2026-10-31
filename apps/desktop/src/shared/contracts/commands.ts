@@ -2,10 +2,9 @@
  * [INPUT]: Untrusted finite commands, entity/guidance schemas and explicit dependency/version guards.
  * [OUTPUT]: Guarded writes, token-bound sync decisions, atomic nested creation, opt-in creation/rollover placement, explicit insertion (including tail) and immutable receipts.
  * [POS]: Write contract accepting neither arbitrary effects nor model-generated commands.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
-import { dateSchema, flowColorSchema, horizonSchema, idSchema, statusSchema, themeSchema } from './entities'
+import { dateSchema, flowColorSchema, horizonSchema, idSchema, statusSchema, styleSchema, themeSchema } from './entities'
 import { validationText } from '../i18n/validation'
 import { calendarModes, policyHorizons } from './values'
 import { assistanceGuardSchema, guidanceChangeSchema } from './assistance'
@@ -71,7 +70,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, ...target, type: z.literal('restoreItem'), deletionSource: idSchema.nullable().default(null) }),
   z.strictObject({ ...envelope, type: z.literal('unlink'), relationId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), autoPlace: z.boolean().optional() }),
   z.strictObject({ ...envelope, type: z.literal('undo'), originalOperationId: idSchema }),
-  z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: z.enum(['paper', 'minimal']).optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => validationText().missingPreference }),
+  z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: styleSchema.unwrap().optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => validationText().missingPreference }),
   z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, autoPlace: z.boolean().optional(), items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),
   z.strictObject({ ...envelope, type: z.literal('policy'), horizon: z.enum(policyHorizons), mode: z.enum(['auto', 'manual']), expectedVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('confirmRollover'), confirmed: z.literal(true) }),

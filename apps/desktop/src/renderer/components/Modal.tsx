@@ -2,7 +2,6 @@
  * [INPUT]: Accessible title, optional header content/actions, close callback and size.
  * [OUTPUT]: Native dialog focus containment, dialog-scoped Escape, shared header and close control.
  * [POS]: Shared dialog shell for details, settings, search and backlog views.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { IconButton } from './ui/button'
 import { messages } from '../i18n'

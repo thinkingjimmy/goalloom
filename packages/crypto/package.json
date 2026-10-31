@@ -8,9 +8,6 @@
     ".": "./src/index.ts"
   },
   "react-native": "./src/index.ts",
-  "scripts": {
-    "test": "node ../../apps/desktop/scripts/test.mjs packages/crypto/test"
-  },
   "dependencies": {
     "@goalloom/contracts": "workspace:*",
     "@noble/ciphers": "2.4.0",

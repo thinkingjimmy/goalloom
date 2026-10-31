@@ -2,7 +2,6 @@
  * [INPUT]: Electron safeStorage/shell, noninteractive Keychain policy, fixed device directory and StorageClient.
  * [OUTPUT]: Shared OS cipher with typed native-access failures, guarded against macOS system dialogs, and the BYOK/hosted AI service composition with main-only account access.
  * [POS]: AI and sync credential boundary; policy failure blocks the cipher without plaintext fallback.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { join } from 'node:path'
 import { HostedAttempts } from './attempts'

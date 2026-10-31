@@ -2,7 +2,6 @@
  * [INPUT]: Immutable original effects, current state, indexed neighbors and injected time.
  * [OUTPUT]: Atomic owned-field inverses, guarded nesting/group and flow reversal, and persisted expiry holds.
  * [POS]: Undo transaction rules; Repository handles SAVEPOINT conflict rollback.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { effectProblem, insertionProblem, inverseEdges, undoEffectOrder } from '../../../domain/undo'
 import { undoHold } from '../../../domain/rollover'

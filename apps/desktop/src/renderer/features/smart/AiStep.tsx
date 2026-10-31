@@ -2,7 +2,6 @@
  * [INPUT]: Confirmed workspace, actual annual direction, real AI connection state and shared first-run stage.
  * [OUTPUT]: Optional feature previews, explicit BYOK connection and real per-capability results; skip always leads to the board.
  * [POS]: Final onboarding page. Read-only demos share the preceding annual canvas; ProviderConnect owns credentials and consent.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useLayoutEffect, useRef, useState } from 'react'
 import { workspaceDate } from '../../../domain/calendar'

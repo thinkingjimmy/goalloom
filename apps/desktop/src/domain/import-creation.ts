@@ -2,7 +2,6 @@
  * [INPUT]: Parsed v11 receipts, their events and undo markers.
  * [OUTPUT]: Validated capture provenance and net creation effects for grouped inverses.
  * [POS]: Import extension for immutable asynchronous creation; forward history remains unchanged.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Dataset } from '../shared/contracts/transfer'
 import type { Effect } from '../shared/contracts/effects'

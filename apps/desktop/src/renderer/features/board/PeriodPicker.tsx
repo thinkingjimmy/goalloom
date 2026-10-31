@@ -5,7 +5,6 @@
  *           rows, day cells, a year of months, or six year/half/cycle rows with mode-aware labels.
  *           History errors expose retry; periods older than the earliest recorded history stay disabled.
  * [POS]: Board column header switcher; Column owns switching, directional motion, focus return and Esc-to-current.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { TextButton } from '../../components/ui/button'
 import { useEffect, useRef, useState, type ReactNode } from 'react'

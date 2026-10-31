@@ -3,7 +3,6 @@
  * [OUTPUT]: Mode-aware relative headings, distant anchored labels and yearless adjacent dates shared by onboarding.
  *           List ranges add a two-digit year outside the workspace's current year and at crossed year boundaries.
  * [POS]: Pure board-header presentation; destination descriptions remain in lib/periods.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { CalendarConfig, ItemHorizon, PlanningPeriod } from '../../../shared/contracts/entities'
 import { currentPeriod, precedingPeriod } from '../../../domain/calendar'

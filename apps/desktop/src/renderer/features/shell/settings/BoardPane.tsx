@@ -2,7 +2,6 @@
  * [INPUT]: Device automatic-placement, completed-task layout and celebration preferences.
  * [OUTPUT]: Automatic-placement/completed-task switches without task writes and per-column confetti controls with a preview.
  * [POS]: Workspace navigation's board pane. Ordering and completion feedback sync between computers.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SettingsButton } from '../../../components/ui/button'
 import { horizons } from '../../../../shared/contracts/values'

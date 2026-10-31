@@ -2,7 +2,6 @@
  * [INPUT]: Six Chinese calendar/app/smart/settings/shortcut/insight catalogs.
  * [OUTPUT]: Complete zh catalog and the shared type enforced by all other locales.
  * [POS]: Source-language entry loaded by renderer/i18n/index.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { calendarMessages } from './calendar'
 import { messages } from './messages'

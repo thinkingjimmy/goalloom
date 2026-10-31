@@ -2,7 +2,6 @@
  * [INPUT]: Editable draft, peer drafts, parent metadata, periods, workspace calendar, flows, selection/menu/editing state and change callbacks.
  * [OUTPUT]: One adjust-mode row with T/D/P keyboard menus, first-level deadline guidance, uncertain-split merging and title/description editing. Jev's values and doubts carry the Jev mark.
  * [POS]: Composer adjust list row; Composer owns selection and letter shortcuts, transaction validation stays authoritative.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { Input, Textarea } from '../../components/ui/fields'

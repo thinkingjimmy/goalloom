@@ -5,7 +5,6 @@
  *           `adoptParentFlow` lets a flow root link a parent in one transaction, matching the board dot.
  * [POS]: Relationship entry shared by the detail dialog and the board flow dot; storage rejects self-links, duplicates,
  *        cycles, invalid roots, colorless pairs and horizon violations.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

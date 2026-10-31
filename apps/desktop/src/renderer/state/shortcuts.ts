@@ -2,7 +2,6 @@
  * [INPUT]: Physical-key events, platform and device-local storage.
  * [OUTPUT]: Strict platform Mod mapping, bindings, conflict detection and accessible key labels.
  * [POS]: Shared shortcut source; macOS Control retains native editing behavior.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { noteDevicePref } from './device-pref-bus'

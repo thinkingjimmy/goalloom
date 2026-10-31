@@ -2,7 +2,6 @@
  * [INPUT]: 当前条目/关系/语义位置，以及不可变操作效果。
  * [OUTPUT]: Owned-field conflicts, inverse edge deltas and root-first effect ordering for group restoration.
  * [POS]: 纯撤销规则库；事务层负责生命周期、DAG 和原子提交。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Effect, EdgeDelta, PositionEffect } from '../shared/contracts/effects'
 import type { Item, Relation } from '../shared/contracts/entities'

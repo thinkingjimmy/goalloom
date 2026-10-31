@@ -2,7 +2,6 @@
  * [INPUT]: Editable drafts and parent metadata.
  * [OUTPUT]: linkParent/moveFor (the new-link horizon rule applied to one draft), mergeIntoPrevious (fold an uncertain fragment into the draft before it) and doubts (Jev's half-sure reads left over after adoption: uncertain deadlines, splits, and parents a manual column blocks).
  * [POS]: Pure composer helpers: leftover doubts are accepted only through the inline adjust menus.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { mayParent } from '../../../domain/relations'
 import type { ItemHorizon } from '../../../shared/contracts/entities'

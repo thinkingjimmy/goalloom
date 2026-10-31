@@ -2,7 +2,6 @@
  * [INPUT]: macOS Security framework and stable Node-API v8.
  * [OUTPUT]: disableInteraction() and application-private sessionKey() from session-key.m.
  * [POS]: Native credential boundary; legacy policy and modern noninteractive storage share one signed module.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 #include <Security/Security.h>
 #include <node_api.h>

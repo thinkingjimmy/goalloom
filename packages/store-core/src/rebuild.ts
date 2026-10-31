@@ -1,10 +1,9 @@
 /**
  * [INPUT]: base_* projection, pending local sync_ops, and device-local workspace columns to preserve.
- * [OUTPUT]: Visible projection equals base plus pending replay, with local overwritten-action review metadata. Receipts and canon rows are not deleted.
+ * [OUTPUT]: Visible projection equals base plus pending replay, with exact seed-state reconstruction and local overwritten-action review metadata. Receipts and canon rows are not deleted.
  * [POS]: Reference rebase. A foreign-key failure aborts the caller transaction (storage pause). Baseline op ids rethrow business errors so a bad snapshot rolls back.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
-import { parseSyncOp, syncOpPayload, type SyncOp } from '@goalloom/contracts'
+import { syncOpPayload, type SyncOp } from '@goalloom/contracts'
 import { redactSyncOp } from './secrets'
 import { sha256Hex } from '@goalloom/crypto'
 import { applySyncOp } from './apply'
@@ -13,6 +12,8 @@ import { businessCode } from './classify'
 import { recordOverwrittenConflicts } from './conflicts'
 import type { ApplyHost, SqlDriver } from './driver'
 import { SyncApplyError } from './driver'
+import { hasSeedAction } from './seed'
+import { copySeedStateToVisible, readSeedState, seedAssert, SeedIntegrityError } from './seed-types'
 
 const localColumns = ['theme', 'style', 'checkStyle', 'backupEnabled', 'backupRetention', 'clockAnomaly', 'lastObservedAt', 'pausedAfterRestore', 'generation'] as const
 
@@ -46,17 +47,19 @@ export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost, options?:
     .run(baseWorkspace?.calendar ?? null, baseWorkspace?.setupConfirmedAt ?? null, revision,
       local.theme ?? 'system', local.style ?? 'paper', local.checkStyle ?? 'outline', local.backupEnabled ?? 1, local.backupRetention ?? 7,
       local.clockAnomaly ?? 0, local.lastObservedAt ?? null, local.pausedAfterRestore ?? 0, local.generation ?? '')
+  copySeedStateToVisible(driver)
   for (const row of pending(driver)) {
     driver.exec('SAVEPOINT replay')
     try {
-      applySyncOp(driver, parseSyncOp(JSON.parse(String(row.payload))), 'visible', host)
+      applySyncOp(driver, JSON.parse(String(row.payload)), 'visible', host)
       driver.exec('RELEASE replay')
     } catch (error) {
       driver.exec('ROLLBACK TO replay'); driver.exec('RELEASE replay')
-      if (options?.strictOpIds?.has(String(row.opId))) throw error
+      if (error instanceof SeedIntegrityError || options?.strictOpIds?.has(String(row.opId))) throw error
       if (!businessCode(error)) throw error
     }
   }
+  seedAssert(readSeedState(driver, 'visible')?.phase !== 'loading', 'initialization_pending')
   projectWorkspaceSettings(driver)
 }
 
@@ -80,16 +83,29 @@ export function assertForeignKeys(driver: SqlDriver): void {
 }
 
 export type RemoteEnvelope = { seq: number; op: SyncOp }
+export interface ReplayOptions { deferIncompleteSeed?: boolean }
 
-export function applyRemoteBatch(driver: SqlDriver, batch: RemoteEnvelope[], host: ApplyHost, at: string): void {
+function assertIsolatedReplay(driver: SqlDriver): void {
+  seedAssert(driver.prepare('SELECT calendar FROM workspace WHERE id=1').get()?.calendar === null, 'partial seed requires isolated unconfigured store')
+  for (const table of ['items', 'item_placements', 'planning_periods', 'rollover_policies', 'item_relations', 'item_guidance', 'operations', 'item_events', 'undo_effects']) {
+    seedAssert(!driver.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get(), 'partial seed requires isolated empty store')
+  }
+  seedAssert(!driver.prepare("SELECT 1 FROM sync_ops WHERE origin='local' LIMIT 1").get(), 'partial seed cannot hide local operations')
+}
+
+export function applyRemoteBatch(driver: SqlDriver, batch: RemoteEnvelope[], host: ApplyHost, at: string, options?: ReplayOptions): void {
   const ordered = [...batch].sort((left, right) => left.seq - right.seq)
     for (const entry of ordered) {
       const cursor = Number(driver.prepare('SELECT lastAppliedSeq AS seq FROM sync_state WHERE id=1').get()?.seq ?? 0)
       if (entry.seq !== cursor + 1) throw new SyncApplyError('storage', 'seq gap')
+      if (hasSeedAction(entry.op)) {
+        const own = driver.prepare('SELECT payloadHash FROM sync_ops WHERE opId=?').get(entry.op.opId)
+        seedAssert(!own || own.payloadHash === sha256Hex(syncOpPayload(entry.op)), 'seed original payload mismatch')
+      }
       let outcome: 'applied' | 'rejected' | 'partial' = 'applied'
       let errorCode: string | null = null
       let changes: { itemId: string | null; dim: string; before: unknown; after: unknown }[] = []
-      let kind = entry.op.actions[0]?.t ?? 'empty'
+      let kind: string = entry.op.actions[0]?.t ?? 'empty'
       driver.exec('SAVEPOINT canon')
       try {
         const applied = applySyncOp(driver, entry.op, 'base', host)
@@ -99,6 +115,7 @@ export function applyRemoteBatch(driver: SqlDriver, batch: RemoteEnvelope[], hos
         driver.exec('RELEASE canon')
       } catch (error) {
         driver.exec('ROLLBACK TO canon'); driver.exec('RELEASE canon')
+        if (error instanceof SeedIntegrityError) throw error
         const code = businessCode(error)
         if (!code) throw error
         outcome = 'rejected'
@@ -119,12 +136,17 @@ export function applyRemoteBatch(driver: SqlDriver, batch: RemoteEnvelope[], hos
       })
       driver.prepare('UPDATE sync_state SET lastAppliedSeq=?, updatedAt=? WHERE id=1').run(entry.seq, at)
     }
+  if (options?.deferIncompleteSeed && readSeedState(driver, 'base')?.phase === 'loading') {
+    assertIsolatedReplay(driver)
+    assertForeignKeys(driver)
+    return
+  }
   rebuildVisibleFull(driver, host)
   // The board snapshot ignores item rows and refreshes when workspace.revision changes.
   if (ordered.length) driver.prepare('UPDATE workspace SET revision = revision + 1 WHERE id=1').run()
   assertForeignKeys(driver)
 }
 
-export function mergeRemoteOps(driver: SqlDriver, batch: RemoteEnvelope[], host: ApplyHost, at: string): void {
-  driver.transaction(() => applyRemoteBatch(driver, batch, host, at))
+export function mergeRemoteOps(driver: SqlDriver, batch: RemoteEnvelope[], host: ApplyHost, at: string, options?: ReplayOptions): void {
+  driver.transaction(() => applyRemoteBatch(driver, batch, host, at, options))
 }

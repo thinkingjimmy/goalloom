@@ -2,7 +2,6 @@
  * [INPUT]: A committed command, its effects, and item rows captured before dispatch.
  * [OUTPUT]: Transaction-owned SyncOps with root anchors, carried-child source scopes, placement-aware rollover identities, observed basisSeq, atomic nesting and root-first group undo. Clock confirmation/rollover resume write nothing.
  * [POS]: Desktop adapter from command effects to SyncOp. applySyncOp is the other direction.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { syncOpPayload, type Action, type PeriodKey, type SyncOp, type SortHint } from '@goalloom/contracts'

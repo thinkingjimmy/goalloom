@@ -2,7 +2,6 @@
  * [INPUT]: InsightCatalog from the Chinese source, column names and item titles.
  * [OUTPUT]: English flow-insight copy: breakpoints, onboarding, horizon-specific draft actions, period-named review entries/titles, reminder dismissal, matrix legends and settings.
  * [POS]: English insight catalog matching the source; model prompts are not here (fixed Chinese).
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { InsightCatalog } from '../zh/insight'
 

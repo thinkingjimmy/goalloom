@@ -2,7 +2,6 @@
  * [INPUT]: Optional AI forms, native controls and approved setup typography/theme tokens.
  * [OUTPUT]: Compact centered AI pages with equal-height navigation and clear preview selection.
  * [POS]: Onboarding only; shared Settings connection forms retain their default appearance.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .ai-entry .setup-title { white-space: pre-line; }
 .ai-entry .setup-scroll { align-items: flex-start; }

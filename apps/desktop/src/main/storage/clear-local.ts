@@ -2,7 +2,6 @@
  * [INPUT]: Main-owned profile paths and a drained storage connection.
  * [OUTPUT]: A fresh verified database, removal of local task copies and crash-safe file handoff.
  * [POS]: Explicit sign-out cleanup. It does not reset cloud data or remove independent AI credentials.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { access, mkdir, readFile, readdir, rename, rm } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
@@ -15,7 +14,7 @@ import { atomicJson } from './atomic-json'
 const receiptName = 'sync-clear.json'
 const receiptSchema = z.strictObject({
   stage: z.string().regex(/^sync-clear-[0-9a-f-]{36}$/),
-  files: z.array(z.string().regex(/^(workspace\.sqlite(?:-wal|-shm)?|backups|sync|sync-(?:vault|password|session)\.bin(?:\.tmp)?|sync-send-(?:v2-)?[a-f0-9]{64}\.bin(?:\.tmp)?)$/)),
+  files: z.array(z.string().regex(/^(cloud\/retrieved-copies|workspace\.sqlite(?:-wal|-shm)?|backups|sync|sync-(?:vault|password|session|bindings)\.bin(?:\.tmp)?|sync-send-(?:v2-)?[a-f0-9]{64}\.bin(?:\.tmp)?)$/)),
   committed: z.boolean(),
 })
 type Receipt = z.infer<typeof receiptSchema>
@@ -60,6 +59,7 @@ export async function clearLocalFiles(input: {
   try { migrate(blank); verifyDatabase(blank); blank.exec('PRAGMA wal_checkpoint(TRUNCATE)') }
   finally { blank.close() }
   const files = (await readdir(directory)).filter(file => receiptSchema.shape.files.element.safeParse(file).success)
+  try { await access(join(directory, 'cloud', 'retrieved-copies')); files.push('cloud/retrieved-copies'); await mkdir(join(stage, 'cloud'), { mode: 0o700 }) } catch (error) { if (!missing(error)) throw error }
   const receipt: Receipt = { stage: stageName, files, committed: false }
   await save(directory, receipt)
   let closed = false

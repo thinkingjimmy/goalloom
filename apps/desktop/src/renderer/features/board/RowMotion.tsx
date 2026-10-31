@@ -2,7 +2,6 @@
  * [INPUT]: Stable virtual-row identities, period scope, panel visibility and dnd ownership.
  * [OUTPUT]: Interruptible 240 ms FLIP translations and a finite shared geometry pulse for board overlays.
  * [POS]: Outer-row motion boundary; dnd-kit keeps ownership of the inner article transform.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Component, createRef, type ReactNode } from 'react'
 

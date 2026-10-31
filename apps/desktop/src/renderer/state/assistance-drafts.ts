@@ -2,7 +2,6 @@
  * [INPUT]: Generation-scoped, unsaved form values and explicit help/guidance/schedule entry intent.
  * [OUTPUT]: At most eight separate entry drafts within 512 KiB, plus task adoption and replacement/forget cleanup.
  * [POS]: Session-only draft storage; never localStorage, SQLite, export or logs.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { GuidanceValue } from '../../shared/contracts/assistance'
 export interface AssistanceDraft { choice?: number | null; text: string; answer: string; adjustment: string; guidance: GuidanceValue | null; manual: boolean; horizon: string | null; date: string; source: boolean }

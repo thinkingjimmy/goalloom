@@ -2,7 +2,6 @@
  * [INPUT]: Stable snapshot topology, flow roots, ordered board summaries, completed-task layout, active flow ids and the focused task.
  * [OUTPUT]: Nonempty membership/color caches, top-bar flow order and a direct goal/ownership graph and chain without duplicate inherited incoming lines.
  * [POS]: Renderer projection bounded by current topology; unrelated items share empty results without per-item retention.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useMemo } from 'react'
 import { useCollapseCompleted } from './completed-layout'

@@ -2,7 +2,6 @@
  * [INPUT]: Account identity and an upload retry deadline, without task/session content.
  * [OUTPUT]: Atomic device-level retry state that survives reconnect and process restart.
  * [POS]: Upload scheduling metadata outside the workspace; server quota remains authoritative.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { readFile, writeFile, rename } from 'node:fs/promises'
 import { join } from 'node:path'

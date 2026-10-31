@@ -2,7 +2,6 @@
  * [INPUT]: The saved DOM selection, editable root and measured floating panel.
  * [OUTPUT]: Viewport coordinates constrained by the visible editor scroll area, refreshed on layout changes.
  * [POS]: Description-only placement; the toolbar owns selection semantics and portals within its dialog.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react'
 

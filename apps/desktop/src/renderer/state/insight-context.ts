@@ -2,7 +2,6 @@
  * [INPUT]: Existing bounded insight requests, actual provider consent and finite task-context queries.
  * [OUTPUT]: Consent-scoped facts/guidance projections and dependency fingerprints for existing caches.
  * [POS]: Renderer read preparation only; main rehydrates all facts before sending a model request.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { DraftRequest, ReviewRequest } from '../../shared/contracts/smart-input'
 import { desktopApi } from './use-workspace'

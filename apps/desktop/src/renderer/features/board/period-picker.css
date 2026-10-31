@@ -2,7 +2,6 @@
  * [INPUT]: Shared theme/picker tokens and period-header action, hover, focus, touch and selection states.
  * [OUTPUT]: Period switches with stable chevron slots, compact action/return spacing, floating hints, period lists and calendar selection styles.
  * [POS]: Board period-navigation skin; temporal selection and hint state stay in PeriodPicker/PeriodReturn.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 .period-switch { height: 30px; min-width: 0; margin-left: -6px; padding: 0 6px; display: inline-flex; align-items: baseline; gap: 8px; border-radius: 8px; line-height: 30px; text-align: left; }
 .period-header:has([data-column-actions]) .period-nav:has(.period-return) { gap: 2px; }

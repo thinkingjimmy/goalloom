@@ -1,8 +1,7 @@
 /**
  * [INPUT]: A validated SyncOp, a base_ or visible table prefix, and a period materializer.
- * [OUTPUT]: Atomic canonical changes with gap-safe local sorting/semantic undo, source-guarded group carry, cross-period ownership, parent lifecycle/two-level/Later validation, safe tombstones and causal creation preflight, or a stable business error.
+ * [OUTPUT]: Exact initialization or atomic canonical changes with desktop-equivalent guidance item metadata, gap-safe sorting/semantic undo, source-guarded group carry, cross-period ownership, parent lifecycle/two-level/Later validation, safe tombstones and causal creation preflight, or a stable business error.
  * [POS]: Reference applier. It does not touch operations, item_events or undo_effects.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Action, SyncOp } from '@goalloom/contracts'
 import { parseSetting, parseSyncOp } from '@goalloom/contracts'
@@ -12,6 +11,8 @@ import { writeSetting } from './settings'
 import { checkCreationCompletion, checkUndoCreate } from './undo-create'
 import { alignImportAction, canAdoptCalendar, followsImportedPlacement } from './import-calendar'
 import { placementSortHint, sortKey } from './sort'
+import { applySeedOperation, hasSeedAction } from './seed'
+import { SeedIntegrityError } from './seed-types'
 
 export interface CanonChange { itemId: string | null; dim: string; before: unknown; after: unknown }
 export interface AppliedOp { kind: string; outcome: 'applied' | 'partial'; changes: CanonChange[] }
@@ -25,7 +26,12 @@ function text(row: Row | undefined, key: string): string | null {
 function num(row: Row, key: string): number { return Number(row[key]) }
 
 export function applySyncOp(driver: SqlDriver, input: unknown, scope: 'base' | 'visible', host: ApplyHost): AppliedOp {
-  const op = parseSyncOp(input)
+  let op: SyncOp
+  try { op = parseSyncOp(input) } catch (error) {
+    if (hasSeedAction(input)) throw new SeedIntegrityError(error instanceof Error ? error.message : 'invalid seed payload')
+    throw error
+  }
+  if (applySeedOperation(driver, op, scope, host)) return { kind: op.actions[0]!.t, outcome: 'applied', changes: [] }
   const prefix = scope === 'base' ? 'base_' : ''
   const changes: CanonChange[] = []
   let partial = false
@@ -370,6 +376,7 @@ function setGuidance(driver: SqlDriver, prefix: string, op: SyncOp, action: Extr
   changes.push({ itemId: action.itemId, dim: 'guidance', before: text(current, 'value'), after: value })
   if (current) driver.prepare(`UPDATE ${prefix}item_guidance SET revision=?, value=?, updatedAt=?, operationId=? WHERE itemId=?`).run(revision + 1, value, op.at, op.opId, action.itemId)
   else driver.prepare(`INSERT INTO ${prefix}item_guidance (itemId,revision,value,updatedAt,operationId) VALUES (?,?,?,?,?)`).run(action.itemId, 1, value, op.at, op.opId)
+  driver.prepare(`UPDATE ${prefix}items SET updatedAt=?, version=version+1 WHERE id=?`).run(op.at, action.itemId)
   return 'applied'
 }
 
@@ -480,6 +487,7 @@ function invertChange(driver: SqlDriver, prefix: string, op: SyncOp, host: Apply
     const value = parsed === null || typeof parsed === 'string' ? parsed : JSON.stringify(parsed)
     if (current) driver.prepare(`UPDATE ${prefix}item_guidance SET revision=?, value=?, updatedAt=?, operationId=? WHERE itemId=?`).run(num(current, 'revision') + 1, value, op.at, op.opId, itemId)
     else driver.prepare(`INSERT INTO ${prefix}item_guidance (itemId,revision,value,updatedAt,operationId) VALUES (?,?,?,?,?)`).run(itemId, 1, value, op.at, op.opId)
+    driver.prepare(`UPDATE ${prefix}items SET updatedAt=?, version=version+1 WHERE id=?`).run(op.at, itemId)
   } else if (dim === 'relation' && itemId) {
     const created = parsed === null
     const source = (created ? (after ? JSON.parse(after) as unknown : null) : parsed) as { id?: string } | null

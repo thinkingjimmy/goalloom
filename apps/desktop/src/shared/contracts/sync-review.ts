@@ -2,7 +2,6 @@
  * [INPUT]: Task-grouped conflict metadata from the storage worker.
  * [OUTPUT]: Bounded read-only comparisons and an owned-value preview token.
  * [POS]: Sync review IPC contract; no renderer-supplied task fields can be written.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, statusSchema } from './entities'

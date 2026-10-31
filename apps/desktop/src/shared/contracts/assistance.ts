@@ -2,7 +2,6 @@
  * [INPUT]: Untrusted assistance input, entity identities and the five UI locales.
  * [OUTPUT]: Strict complete-note rewrites, legacy guidance/proposals, request echoes and dependency guards.
  * [POS]: Assistance boundary shared by main, worker and preload; models never supply commands.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { z } from 'zod'
 import { dateSchema, horizonSchema, idSchema, instantSchema, itemSchema, periodSchema, statusSchema } from './entities'
@@ -19,8 +18,9 @@ const guidanceBody = {
 }
 export const guidanceValueSchema = z.strictObject({ ...guidanceBody, authorship: z.enum(['user', 'ai_assisted']) })
 export type GuidanceValue = z.infer<typeof guidanceValueSchema>
+export const storedGuidanceValueSchema = guidanceValueSchema.extend({ nextAction: z.string().min(1).max(600), contextNote: z.string().min(1).max(300).nullable(), scopeNote: z.string().min(1).max(300).nullable() })
 export const guidanceRecordSchema = z.strictObject({
-  itemId: idSchema, revision: z.number().int().positive(), value: guidanceValueSchema.nullable(), updatedAt: instantSchema, operationId: idSchema,
+  itemId: idSchema, revision: z.number().int().positive(), value: storedGuidanceValueSchema.nullable(), updatedAt: instantSchema, operationId: idSchema,
 })
 export type GuidanceRecord = z.infer<typeof guidanceRecordSchema>
 export const guidanceChangeSchema = z.discriminatedUnion('kind', [

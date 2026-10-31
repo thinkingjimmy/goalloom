@@ -3,7 +3,6 @@
  * [OUTPUT]: Role-aware flow menus with read-only inheritance, a single parent-panel heading, pointer linking and keyboard adoption; hover/focus previews stay active across flow rows and breakpoint controls without a native tooltip.
  * [POS]: board row decoration; writes only through flowColor/link/unlink actions, so undo toasts and revalidation stay authoritative.
  *        Later items render nothing: the parking lot takes no part in flows or links.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

@@ -1,7 +1,6 @@
 /**
  * [INPUT]: A validated pref.set and the sync_settings side table.
  * [OUTPUT]: Last-writer-wins comparison/rows, workspace-column projection and one local SyncOp.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  * [POS]: Settings log beside the board. v8 business tables are not altered. An API key is stored as a sha256 fingerprint. The key stays outside SQLite; desktop keeps any unknown-send retry payload in an OS-protected journal.
  */
 import { canonicalJson, isSecretSettingKey, parseSetting, parseSyncOp, syncOpPayload, type SettingKey, type SyncOp } from '@goalloom/contracts'

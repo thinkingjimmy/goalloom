@@ -2,7 +2,6 @@
  * [INPUT]: Canonical changes, encrypted-op causal cursors and local sync receipts.
  * [OUTPUT]: Task-grouped lost local actions and durable per-task acknowledgements.
  * [POS]: Review metadata over sync_conflicts; business projections and receipt history stay intact.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { actionSchema, parseSyncOp, type Action, type SyncOp } from '@goalloom/contracts'
 import type { CanonChange } from './apply'

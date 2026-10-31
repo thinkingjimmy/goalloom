@@ -2,7 +2,6 @@
  * [INPUT]: A synchronous DOM write, usually an appearance token on <html>.
  * [OUTPUT]: That write, with transitions suspended until the frame after next paint.
  * [POS]: Renderer-only guard so theme, style and checkbox swaps do not tween every color.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 let holds = 0
 

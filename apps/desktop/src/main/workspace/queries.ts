@@ -2,7 +2,6 @@
  * [INPUT]: A Store owned by the serial storage queue and validated page coordinates.
  * [OUTPUT]: Count-only summaries, a shared trash projection excluding empty-detail discards and bounded rollover pages.
  * [POS]: Read projections for Settings and collapsed Activity; no business writes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Store } from '../storage/store'
 import type { BatchPage, BatchSummary } from '../../shared/contracts/transfer'

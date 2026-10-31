@@ -2,7 +2,6 @@
  * [INPUT]: Independent Later/planning visibility, persistent column content and the shared drag context.
  * [OUTPUT]: Equal-width visible columns, retained hidden-column scroll and a fixed sidebar with interruptible transform-only transitions.
  * [POS]: Board layout boundary; keeps drafts/scroll mounted and pulses existing geometry observers during motion.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Component, createRef, useLayoutEffect, type CSSProperties, type ReactNode } from 'react'
 import type { Horizon } from '../../../domain/calendar'

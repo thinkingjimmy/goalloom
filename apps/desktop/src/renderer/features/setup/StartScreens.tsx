@@ -2,7 +2,6 @@
  * [INPUT]: Copy, the signed-in address, password draft and shared Tailwind fields. Sync calls stay in StartGate.
  * [OUTPUT]: Centered password/syncing screens with account navigation below content, and the re-exported local-first welcome screen.
  * [POS]: Presentational first-run account screens; WelcomeScreen owns the initial choice. Joining never mounts Setup.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Input } from '../../components/ui/fields'
 import { useId, useState, type ReactNode } from 'react'

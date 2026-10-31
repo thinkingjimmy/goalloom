@@ -2,7 +2,6 @@
  * [INPUT]: Real input/retry events, input/manual revisions, workspace/provider identity and optional column/period.
  * [OUTPUT]: Context-bound previews, memory-owned user-intent nonces with optional persistence and draft-only cancellation.
  * [POS]: Renderer capture session; main owns every request already handed to a saved item.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { aiSource } from './ai-scope'
 import type { AnalyzeRequest } from '../../shared/contracts/smart-input'

@@ -2,7 +2,6 @@
  * [INPUT]: Validated period selections, workspace calendar, observation time and Store.
  * [OUTPUT]: Read-only current/future resolution and board/ancestor summaries with generation/revision guards.
  * [POS]: Planning read boundary shared by explicit placement writes; reads never materialize periods.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { compareInstants, currentPeriod, parseDate, type Horizon, type Period } from '../../domain/calendar'
 import { DomainError } from '../../shared/contracts/commands'

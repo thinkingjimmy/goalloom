@@ -2,7 +2,6 @@
  * [INPUT]: Fixed product planning horizons, supported AI services and the capabilities each one offers.
  * [OUTPUT]: Seven horizons, six ordered period/policy horizons, anchored subsets, calendar modes, next-horizon mapping and fixed AI metadata and hosted operator-consent version.
  * [POS]: Lightweight metadata boundary; importing these values never constructs validation schemas.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export const periodHorizons = ['year', 'half', 'cycle', 'month', 'week', 'day'] as const
 export const horizons = ['later', ...periodHorizons] as const
@@ -31,4 +30,4 @@ export const providerModels = {
   'vercel-gateway': { jev: 'typesafe-ai/jev-1.14.0', chat: 'deepseek/deepseek-v4.1-flash' },
 } as const satisfies Record<typeof aiProviders[number], Partial<Record<typeof aiCapabilities[number], string>>>
 
-export const aiFailureKinds = ['account_verification_required', 'rate_limited', 'quota_exhausted', 'payment_required', 'authentication_failed', 'permission_denied', 'routing_policy', 'timeout', 'unavailable', 'malformed_response', 'request_failed', 'too_large', 'credential_unreadable', 'credential_unavailable', 'not_enabled', 'result_not_delivered'] as const
+export const aiFailureKinds = ['account_verification_required', 'rate_limited', 'quota_exhausted', 'payment_required', 'authentication_failed', 'permission_denied', 'routing_policy', 'timeout', 'unavailable', 'malformed_response', 'request_failed', 'too_large', 'credential_unreadable', 'credential_unavailable', 'not_enabled', 'result_not_delivered', 'service_not_started', 'service_expired', 'service_revoked', 'upgrade_required', 'billing_configuration'] as const

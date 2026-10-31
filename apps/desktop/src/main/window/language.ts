@@ -2,7 +2,6 @@
  * [INPUT]: 主进程固定偏好路径、系统首选语言列表、shared/i18n 的解析规则与按需服务端文案装载。
  * [OUTPUT]: LanguagePreference：读取/原子保存语言偏好（system | Locale），解析当前 Locale 并按需装载 main 的服务端文案；state 供 renderer 读取；onChange 通知原生菜单重建。
  * [POS]: 应用级设备偏好，与窗口偏好同级、不写入工作区，跨重置/恢复保留；worker 同步由组合根负责。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'

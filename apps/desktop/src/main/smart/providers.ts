@@ -2,7 +2,6 @@
  * [INPUT]: Provider-owned credentials, lightweight payload budgets, abort signals and controlled HTTP.
  * [OUTPUT]: Fixed Jev presets and adapters (System One via OpenRouter, Gateway evaluate), normalized distributions and typed failures.
  * [POS]: Provider boundary; no task-body or credential logging, and no alternate API protocols.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Questions } from '@typesafe-ai/sdk'
 import type { Answer, Precision } from '../../domain/smart/distribution'
@@ -14,6 +13,8 @@ import { serverText } from '../../shared/i18n/server'
 import { hostedCatalog } from '../../shared/i18n/hosted'
 import { serverLocale } from '../../shared/i18n/server'
 import { providerModels } from '../../shared/contracts/values'
+import { isServiceFailureCode } from '@goalloom/contracts'
+import { billingCatalog, serviceCopyKeys } from '../../shared/i18n/billing'
 
 export const JEV_PROVIDERS = {
   hosted: { model: providerModels.hosted.jev, console: 'https://www.goalloom.com' },
@@ -39,6 +40,7 @@ type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 const names: Record<AiProvider, string> = { hosted: 'Goalloom AI', 'vercel-gateway': 'AI Gateway', openrouter: 'OpenRouter' }
 export function failure(kind: FailureKind, provider: AiProvider, status: number | null = null, retryAt: string | null = null): Failure {
   const name = names[provider]
+  if (isServiceFailureCode(kind)) return { kind, message: billingCatalog[serverLocale()][serviceCopyKeys[kind]], status, retryAt }
   if (provider === 'hosted') {
     const t = hostedCatalog[serverLocale()]
     return { kind, message: kind === 'result_not_delivered' ? t.resultLost : kind === 'authentication_failed' ? t.auth : ['quota_exhausted', 'permission_denied', 'rate_limited'].includes(kind) ? t.protection : t.unavailable, status, retryAt }

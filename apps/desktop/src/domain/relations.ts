@@ -2,7 +2,6 @@
  * [INPUT]: Explicit endpoints, active topology, effective flow membership and planning horizons.
  * [OUTPUT]: DAG/horizon validation, independent parent sets, flow-link eligibility and isolated-parent color promotion.
  * [POS]: Shared transaction/renderer relationship rules; undo, restore and import retain existing edges.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { horizons } from '../shared/contracts/values'
 import type { Item, ItemHorizon, Relation } from '../shared/contracts/entities'

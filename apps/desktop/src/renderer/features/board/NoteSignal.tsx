@@ -2,7 +2,6 @@
  * [INPUT]: Bounded note/guidance signals; full approved content loads only while a read-only peek opens.
  * [OUTPUT]: One board signal with checklist/description priority and a secondary guidance view.
  * [POS]: Board decoration sharing the existing peek, without body transfer or task writes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { NoteSignal as Signal, ItemSummary } from '../../../shared/contracts/entities'

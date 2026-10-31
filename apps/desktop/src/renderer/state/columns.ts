@@ -2,7 +2,6 @@
  * [INPUT]: Canonical column order and Later/planning preferences.
  * [OUTPUT]: Persisted visibility controls, canonical visible columns and an at-least-one planning-column guard.
  * [POS]: Renderer column visibility. The choice syncs; it stays out of task history, exports and backups.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { horizons, periodHorizons } from '../../shared/contracts/values'

@@ -2,7 +2,6 @@
  * [INPUT]: Localized password copy, controlled drafts and the existing serialized sync action.
  * [OUTPUT]: Flat native password dialogs, shared password fields and scoped focus/error feedback.
  * [POS]: Settings sync presentation shared with recovery; sync commands remain owned by the caller.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'

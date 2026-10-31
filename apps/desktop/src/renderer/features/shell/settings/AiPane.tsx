@@ -2,7 +2,6 @@
  * [INPUT]: Device AI state/actions, localized labels, bundled official provider logos and ProviderAction hints.
  * [OUTPUT]: One compact service list with connection state, masked keys/test dates, icon actions, inline forms, removal confirmation and account recovery; privacy and development notices remain visible.
  * [POS]: Settings' only credential-management pane; feature selection and workspace data remain separate.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { SettingsButton, IconButton } from '../../../components/ui/button'
 import { assistanceMessages } from '../../../i18n/assistance'

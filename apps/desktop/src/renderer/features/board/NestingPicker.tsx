@@ -2,7 +2,6 @@
  * [INPUT]: A selected task, displayed candidates, bounded current/future search, effective topology and guarded submissions.
  * [OUTPUT]: Keyboard-accessible task search that commits the same nest command as pointer dragging.
  * [POS]: Board outline dialog; authoritative transactions revalidate endpoints and periods.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { menuStyles } from '../../components/ui/menu'
 import { cn } from '../../lib/utils'

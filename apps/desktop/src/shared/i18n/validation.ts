@@ -2,7 +2,6 @@
  * [INPUT]: The device-selected locale, synchronized per process and preload bridge.
  * [OUTPUT]: Five small catalogs for wire-validation errors, shared with server catalogs.
  * [POS]: Avoids pulling domain/server messages into the sandboxed preload bundle.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Locale } from './locale'
 

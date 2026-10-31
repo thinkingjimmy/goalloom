@@ -2,7 +2,6 @@
  * [INPUT]: Active parent edges and uniquely colored flow roots.
  * [OUTPUT]: Stable, deduplicated root memberships with ancestor memoization bounded by the current graph.
  * [POS]: Pure flow resolution; unrelated item lookups share an empty result without retaining their identities.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export interface FlowEdge { parentId: string; childId: string }
 

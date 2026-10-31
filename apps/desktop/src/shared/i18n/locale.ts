@@ -2,7 +2,6 @@
  * [INPUT]: System or browser BCP 47 language lists.
  * [OUTPUT]: Locale/language values and types, system-language resolution, native names, Intl tags and catalog widening.
  * [POS]: Lightweight language metadata shared by main, worker and renderer; validation belongs to contracts/runtime.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 export const locales = ['zh', 'en', 'ja', 'es', 'fr'] as const
 export type Locale = typeof locales[number]

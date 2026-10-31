@@ -2,7 +2,6 @@
  * [INPUT]: Read-only scene with live calendar periods, localized samples and native composer/insight components.
  * [OUTPUT]: Inert smart-input and insight illustrations over the persistent Todo board; no API calls or writes.
  * [POS]: Onboarding-only presentation. Native Plan, EmptyCard and composer styles keep previews aligned with the product.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { ItemSummary, PlanningPeriod } from '../../../../shared/contracts/entities'
 import { currentPeriod } from '../../../../domain/calendar'

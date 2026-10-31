@@ -2,7 +2,6 @@
  * [INPUT]: Store and item identities participating in a board read or ordering transaction.
  * [OUTPUT]: Body-free placement metadata for these items and their active ancestors.
  * [POS]: Ordering read path; UNION bounds duplicate DAG paths and retains archived ancestors.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { OrderNode } from '../../shared/contracts/queries'
 import type { Store } from '../storage/store'

@@ -2,7 +2,6 @@
  * [INPUT]: OS connectivity and an optional monotonic clock for controlled acceptance.
  * [OUTPUT]: Initial connectivity, transitions within two seconds and an idempotent cleanup function.
  * [POS]: Main-process connectivity signal. It does not probe DNS or assert server reachability.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { net } from 'electron'
 import { syncClock, type SyncClock } from '@goalloom/sync'

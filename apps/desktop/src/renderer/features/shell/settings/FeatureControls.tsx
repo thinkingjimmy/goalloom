@@ -2,7 +2,6 @@
  * [INPUT]: useAi 状态与动作、功能名（smart / insight）、图标与跳转到其他设置分类的回调。
  * [OUTPUT]: FeatureHero（功能总开关状态卡：已启用/需处理/已暂停/未启用，没有可用服务时引导添加）与 ProviderChoice（只列出能运行该功能模型的服务，单选切换，未就绪的服务可添加或重测）。
  * [POS]: 「设置 › 智能输入」与「设置 › 洞察」共用的顶部控件，两页结构保持一致；Key 与服务本身只在「AI 服务」里管理。
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { TextButton, SettingsButton } from '../../../components/ui/button'
 import { featureCapability, providerModels } from '../../../../shared/contracts/values'

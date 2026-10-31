@@ -2,7 +2,6 @@
  * [INPUT]: Accepted item completions, confirmed review signals, workspace generation, column/motion preferences and settings previews.
  * [OUTPUT]: Two corner cannons sharing one randomly selected confetti or emoji shape per burst; no business writes.
  * [POS]: Shared renderer celebration player; review signals reuse the same particles and lifecycle without synthetic business writes.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { useEffect, useRef } from 'react'
 import { onCelebrationPreview, onReviewCelebration, useCelebration, useReducedMotion } from '../../state/celebration'

@@ -2,7 +2,6 @@
  * [INPUT]: Radix Select primitives, shared Tailwind menu styles and explicit Hugeicons.
  * [OUTPUT]: Select, SelectTrigger, SelectValue, SelectContent and SelectItem with caller style overrides.
  * [POS]: Shared shadcn selection control; preserves native-dialog portal ownership and focus behavior.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 // shadcn/ui Select, MIT; Radix primitives with Hugeicons instead of lucide.
 import { menuStyles } from './menu'

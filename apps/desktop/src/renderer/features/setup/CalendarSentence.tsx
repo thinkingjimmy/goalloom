@@ -2,7 +2,6 @@
  * [INPUT]: Calendar draft, live workspace dates, locale sentence templates and the shared Select controls.
  * [OUTPUT]: Three inline calendar choices and a validated custom-date dialog with focus return; all changes remain drafts.
  * [POS]: CalendarStep's sentence editor; keeps date rules in useSetupCalendar and the main confirmation transaction.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { calendarMessages as c, messages } from '../../i18n'

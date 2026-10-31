@@ -2,7 +2,6 @@
  * [INPUT]: Localized renderer sections, calendar messages and the Chinese Catalog type.
  * [OUTPUT]: Complete Spanish Catalog with compile-time key validation.
  * [POS]: es locale entry assembled by renderer/i18n; mirrors the shared catalog contract.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import type { Catalog } from '../zh'
 import { calendarMessages } from './calendar'

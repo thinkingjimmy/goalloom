@@ -2,7 +2,6 @@
  * [INPUT]: Authoritative database, injected workspace/time and fixed backup directory.
  * [OUTPUT]: Verified copies, fingerprinted daily reuse and daily-only retention.
  * [POS]: Backup adapter with receipts outside workspace replacement; protective checks always revalidate.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'

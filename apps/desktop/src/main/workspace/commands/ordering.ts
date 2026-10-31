@@ -2,7 +2,6 @@
  * [INPUT]: Authoritative placements/effective parents, placement-local group visibility and the transaction clock.
  * [OUTPUT]: Local placement of one visible group and atomic, reversible arrangement of one current/future column.
  * [POS]: Ordering command boundary; other tasks retain their relative order during automatic placement.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { buildParentOrder } from '../../../domain/parent-order'
 import { DomainError, type CommandOf } from '../../../shared/contracts/commands'

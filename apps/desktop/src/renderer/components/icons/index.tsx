@@ -2,7 +2,6 @@
  * [INPUT]: Explicit Hugeicons free Stroke Rounded imports.
  * [OUTPUT]: Decorative Icon components, including pause, loading and period-return glyphs, and the same checkmark as a CSS mask for Lexical markers.
  * [POS]: The renderer's sole icon entry; accessible controls are named by their callers.
- * [PROTOCOL]: Update this header when making changes, then check README.md.
  */
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon, AlarmClockIcon, Archive02Icon, ArchiveRestoreIcon, ArrowDataTransferVerticalIcon, ArrowDown01Icon, ArrowDown02Icon, ArrowUp01Icon, ArrowUp02Icon, ArrowLeft01Icon, ArrowRight01Icon, ArrowRight02Icon, ArrowTurnBackwardIcon, Calendar03Icon, Cancel01Icon, CloudIcon, Delete02Icon, Download04Icon, DragDropVerticalIcon, GridViewIcon, HistoryIcon, InboxIcon, LayoutThreeColumnIcon, Loading03Icon, MinusSignIcon, MonitorIcon, MoreHorizontalIcon, Note01Icon, PaintBoardIcon, PauseCircleIcon, PartyPopperIcon, Search01Icon, SlidersHorizontalIcon, SquareLock02Icon, Tick02Icon, SparklesIcon, Key01Icon, Alert02Icon, Refresh01Icon, InformationCircleIcon, Link01Icon, GitBranchIcon, KeyboardIcon, PencilEdit02Icon, UnavailableIcon, ViewIcon, ViewOffIcon } from '@hugeicons/core-free-icons'
