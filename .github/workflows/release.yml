@@ -110,7 +110,7 @@ jobs:
           path: apps/desktop/out/
   package:
     needs: [select, build]
-    if: needs.build.result == 'success'
+    if: always() && needs.select.result == 'success' && needs.build.result == 'success'
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
@@ -233,7 +233,7 @@ jobs:
             apps/desktop/output/tests/keychain-signed/report.json
   draft:
     needs: [select, package]
-    if: inputs.mode == 'draft' && needs.package.result == 'success'
+    if: always() && inputs.mode == 'draft' && needs.package.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
