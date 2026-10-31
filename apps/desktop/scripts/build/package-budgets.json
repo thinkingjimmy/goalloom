@@ -2,20 +2,21 @@
   "electron": "44.4.4",
   "thresholdPercent": 5,
   "asarBaselineVersion": {
-    "darwin-arm64": "1.10.0",
-    "win32-x64": "1.9.3"
+    "darwin-arm64": "1.10.0 source candidate",
+    "win32-x64": "1.10.0 source candidate"
   },
-  "asarBaselineNote": "Reviewed private 1.10.0 macOS electron-builder ASAR: 3773899 bytes, SHA256 23fed6e7fa662eb6861ed615d1884fcb06a8b36d33020eafa43efe95529b087a. This is the actual signed/notarized app measurement, not the earlier 3833202-byte composition estimate. It grows 345071 bytes (10.06%) over the actual public 1.9.10 ASAR (3428828 bytes) for billing, service admission, lifecycle/retrieval, sync custody/recovery and five-language UI. The 58-file ASAR has no source/tests, dependency directory, database or private credential; packaged metadata excludes development scripts/dependencies. Runtime dependencies and Electron 44.4.4 are unchanged. The owner-reviewed baseline adjustment applies only to darwin-arm64 ASAR. Windows retains the actual public 1.9.3 ASAR baseline of 3313867 bytes until a real Windows package is measured. Keep thresholdPercent at 5; downloadBytes, logicalBytes and archive hashes remain unchanged. Evidence: output/tests/billing/desktop/bill30-release/asar-actual-review.json, asar-baseline-approval.json and private-mac-recovery.json. Earlier Windows/public baseline provenance: successful workflow 38871744371.",
+  "asarBaselineNote": "Measured production build-only candidates from public commit fbe66f3681a7ab6ced4140ac5153bbf2a88978cf, GitHub Actions run 41216147549 on 2026-10-31. The normal package-report gate observed actual ASAR sizes of 4333214 bytes on macOS arm64 and 4332860 bytes on Windows x64, after its private-content, locale, download-size and logical-size checks. The prior ASAR baselines predate the complete desktop billing/sync client and persistent onboarding canvas. Keep the 5% threshold; update only the actual ASAR composition baseline. Existing download/logical baselines and archiveSha256 values remain historical measurements. These Windows bytes are a build-only source candidate, not a Windows product release or Windows 11 acceptance. Normal size checks and signed candidate acceptance remain required.",
   "darwin-arm64": {
     "downloadBytes": 116612529,
     "logicalBytes": 257543163,
-    "asarBytes": 3773899,
+    "asarBytes": 4333214,
     "archiveSha256": "fd3c1f0fd13cdb256f3bc2ee853da18bc801c420480392d9f72adbf5940a5305"
   },
   "win32-x64": {
     "downloadBytes": 104084380,
     "logicalBytes": 342255566,
-    "asarBytes": 3313867,
+    "asarBytes": 4332860,
     "archiveSha256": "b0a1ff31b54938eb59041cbeb526c458cbd2a075239e15ced1aa894fc8846cba"
-  }
+  },
+  "asarBaselineRun": "https://github.com/thinkingjimmy/goalloom/actions/runs/41216147549"
 }
