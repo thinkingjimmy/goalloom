@@ -52,10 +52,10 @@
 
 | 平台 | 版本 | 安装包 |
 | --- | --- | --- |
-| macOS 14+（Apple 芯片） | 1.10.0 | [Goalloom-1.10.0-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.10.0/Goalloom-1.10.0-mac-arm64.dmg) |
+| macOS 14+（Apple 芯片） | 1.11.0 | [Goalloom-1.11.0-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.11.0/Goalloom-1.11.0-mac-arm64.dmg) |
 | Windows 11（x64） | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
 
-两个平台的本地功能和 BYOK 继续免费。macOS 1.10.0 提供 Plus 加密同步与内置 AI，每月 USD 8.99 或每年 USD 79。八天试用需主动领取，每个账号仅限一次，无需绑卡，也不会自动转为付费订阅。Windows 保持 1.9.10，可使用本地功能和 BYOK；本次未为 Windows 开放 Plus。iPhone 应用尚未公开发布。
+两个平台的本地功能和 BYOK 继续免费。macOS 1.11.0 提供 Plus 加密同步与内置 AI，每月 USD 8.99 或每年 USD 79。八天试用需主动领取，每个账号仅限一次，无需绑卡，也不会自动转为付费订阅。Windows 保持 1.9.10，可使用本地功能和 BYOK；本次未为 Windows 开放 Plus。iPhone 应用尚未公开发布。
 
 ## 首次打开
 
@@ -63,7 +63,7 @@ macOS 安装包已通过 Developer ID 签名和 Apple 公证。Windows 版仍未
 
 **macOS。** 打开 DMG，把 Goalloom 拖进「应用程序」后打开即可。
 
-**从公开版 macOS 1.8.0 升级：** 退出 Goalloom，用 1.10.0 替换「应用程序」中的旧版一次。旧版的 ad-hoc 签名无法通过内置更新切换到本次 Developer ID 签名。升级前请保留本地备份。
+**从公开版 macOS 1.8.0 升级：** 退出 Goalloom，用 1.11.0 替换「应用程序」中的旧版一次。旧版的 ad-hoc 签名无法通过内置更新切换到本次 Developer ID 签名。升级前请保留本地备份。
 
 **Windows。** 出现 SmartScreen「Windows 已保护你的电脑」时，点「更多信息 → 仍要运行」，再按安装向导完成。
 
@@ -88,7 +88,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<版本>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<版本>-win-x64.exe
 ```
 
-已发布的 macOS 1.10.0 使用 v14 工作区格式，Windows 1.9.10 使用 v11。macOS 升级 v11 工作区前会创建并验证保护性本地备份。请保留该备份：1.9.10 无法打开 v14 工作区。使用 Plus 时请使用同一账号和同步密码。部分旧云工作区无法自动恢复，重新登录不会修复这些副本；请保留原本地数据和备份。说明见 [v1.10.0 发布说明](./releases/v1.10.0.md)，配置见[开发文档](./build.md)。
+已发布的 macOS 1.11.0 使用 v14 工作区格式，Windows 1.9.10 使用 v11。macOS 升级 v11 工作区前会创建并验证保护性本地备份。请保留该备份：1.9.10 无法打开 v14 工作区。使用 Plus 时请使用同一账号和同步密码。部分旧云工作区无法自动恢复，重新登录不会修复这些副本；请保留原本地数据和备份。说明见 [v1.11.0 发布说明](./releases/v1.11.0.md)，配置见[开发文档](./build.md)。
 
 
 

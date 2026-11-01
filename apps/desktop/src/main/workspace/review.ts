@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Generation-bound week/month selections, shared outline ordering, Repository and its injected clock.
- * [OUTPUT]: A period-end review projection, placement-local live unfinished outlines, their current parent summaries and exact destination-period planning summaries.
+ * [OUTPUT]: A period-end review projection, live unfinished outlines, current parent summaries and active/future destination planning summaries.
  * [POS]: Read-only review boundary in the serial storage worker; historical states never become write versions.
  */
 import { compareInstants, currentPeriod, parseDate, workspaceDate } from '../../domain/calendar'
@@ -77,7 +77,9 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
   const destinations = new Map<string, PlanningPeriod>()
   for (const period of targets) {
     const next = currentPeriod(calendar, period.horizon, period.endAt)
-    const parent = currentPeriod(calendar, period.horizon === 'month' ? 'cycle' : 'month', next.startAt)
+    // A current week can outlive its starting month; planning must use an unexpired parent period.
+    const planningAt = compareInstants(next.startAt, now) < 0 ? now : next.startAt
+    const parent = currentPeriod(calendar, period.horizon === 'month' ? 'cycle' : 'month', planningAt)
     destinations.set(parent.horizon, parent)
     destinations.set(next.horizon, next)
   }
