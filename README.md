@@ -52,10 +52,12 @@
 
 | Platform | Version | Download |
 | --- | --- | --- |
-| macOS 14+ (Apple silicon) | 1.11.0 | [Goalloom-1.11.0-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.11.0/Goalloom-1.11.0-mac-arm64.dmg) |
+| macOS 14+ (Apple silicon) | 1.12.0 | [Goalloom-1.12.0-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.0/Goalloom-1.12.0-mac-arm64.dmg) |
 | Windows 11 (x64) | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
 
-Local features and BYOK stay free on both platforms. macOS 1.11.0 includes Plus encrypted sync and built-in AI for USD 8.99/month or USD 79/year. Plus requires verified payment; there is no trial. Windows remains on 1.9.10 for local work and BYOK; this release does not add Windows Plus support. The iPhone app is not publicly released.
+**Before updating:** 1.12.0 accepts only v15 workspaces, backups and exports. It does not upgrade v14 workspaces from 1.11.0 or other older formats. Keep your previous app, local data and backups if you need an older format. See the [release notes](./docs/releases/v1.12.0.md).
+
+Local features and BYOK stay free on both platforms. macOS 1.12.0 includes Plus encrypted sync and built-in AI for USD 8.99/month or USD 79/year. Plus requires verified payment; there is no trial. Windows remains on 1.9.10 for local work and BYOK; this release does not add Windows Plus support. The iPhone app is not publicly released.
 
 The macOS build is **Developer ID signed and notarized by Apple**. The Windows installer is **not code-signed**.
 
@@ -85,7 +87,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-The current source baseline uses desktop/workspace export v15, mobile v11, Billing status v2 and SyncOp v2. New databases create the current shared structure directly. Old or unknown local formats are refused before writes and remain unchanged. This source change does not deploy a service or publish a client. Encryption, app identity and user-data paths are unchanged.
+The current source baseline uses desktop/workspace export v15, mobile v11, Billing status v2 and SyncOp v2. New databases create the current shared structure directly. Old or unknown local formats are refused before writes and remain unchanged. Hosted service deployment is separate from this desktop release. Encryption, app identity and user-data paths are unchanged.
 
 
 
