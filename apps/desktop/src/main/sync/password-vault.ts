@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Trusted immutable account/project/environment scope, an explicit password or verified workspace recovery key.
- * [OUTPUT]: Scope-authenticated password/recovery custody with filtered device state and verified atomic writes.
- * [POS]: Existing recovery container; original formal v1 files remain readable and unchanged, never cross-account key stores.
+ * [OUTPUT]: Scope-authenticated password/recovery custody with filtered state, current-format promotion guards and verified atomic writes.
+ * [POS]: Current recovery container; account/project/environment custody never crosses scopes.
  */
 import { renameSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { canonicalJson } from '@goalloom/contracts'
 import { deriveSyncKek, sha256Hex, hex, syncPasswordKdf, systemRandom, wipe, type SyncKdfParams } from '@goalloom/crypto'
 import { SyncFailure } from '@goalloom/sync'
-import { decodeVault, decodeScopedVault, encodeScopedVault, filteredLegacyVault, type VaultSecrets } from './vault'
+import { decodeScopedVault, encodeScopedVault, type VaultSecrets } from './vault'
 import { keyScopeSchema, scopeContext, scopeDirectory, scopeId, type KeyScope } from './key-scope'
 import { openLocal, sealLocal } from './sealed-file'
 
@@ -20,9 +20,8 @@ const fields = {
   kdf: z.strictObject({ alg: z.literal('argon2id'), salt: z.string().regex(/^[a-f0-9]{32}$/), m: z.number().int().min(8192).max(65536), t: z.number().int().min(1).max(4), p: z.literal(1) }),
   lock: z.string().max(512), body: z.string().max(2_000_000),
 }
-const legacySchema = z.strictObject({ v: z.literal(1), ...fields })
 const schema = z.strictObject({ v: z.literal(2), scope: keyScopeSchema, ...fields })
-type File = z.infer<typeof schema> | z.infer<typeof legacySchema>
+type File = z.infer<typeof schema>
 
 export class PasswordVault {
   private kek: Uint8Array | null = null
@@ -30,16 +29,16 @@ export class PasswordVault {
   private writing: Promise<void> = Promise.resolve()
   private revision = 0
   private consumedPreparation = -1
-  readonly scope: KeyScope | undefined
-  constructor(private directory: string, scope?: KeyScope, private preparedFor?: string) {
-    this.scope = scope ? Object.freeze(keyScopeSchema.parse(scope)) : undefined
+  readonly scope: KeyScope
+  constructor(private directory: string, scope: KeyScope, private preparedFor?: string) {
+    this.scope = Object.freeze(keyScopeSchema.parse(scope))
     if (preparedFor) z.uuid().parse(preparedFor)
   }
-  get path(): string { return join(this.scope ? scopeDirectory(this.directory, this.scope) : this.directory, this.preparedFor ? `sync-password-${this.preparedFor}.bin` : 'sync-password.bin') }
-  private context(file: File): string { return file.v === 1 ? `vault|${file.userId}|${file.workspaceId}` : `vault/v2|${scopeContext(file.scope)}|${file.workspaceId}` }
-  private bodyContext(file: File): string { return file.v === 1 ? this.context(file) : `${this.context(file)}|lock:${sha256Hex(canonicalJson({ kdf: file.kdf, lock: file.lock }))}` }
+  get path(): string { return join(scopeDirectory(this.directory, this.scope), this.preparedFor ? `sync-password-${this.preparedFor}.bin` : 'sync-password.bin') }
+  private context(file: File): string { return `vault/v2|${scopeContext(file.scope)}|${file.workspaceId}` }
+  private bodyContext(file: File): string { return `${this.context(file)}|lock:${sha256Hex(canonicalJson({ kdf: file.kdf, lock: file.lock }))}` }
   get prepared(): boolean { return Boolean(this.kek && this.kdf && this.consumedPreparation !== this.revision) }
-  async exists(): Promise<boolean> { await this.writing; return Boolean(await this.readAt(this.path, false)) }
+  async exists(): Promise<boolean> { await this.writing; return Boolean(await this.readAt(this.path)) }
   async identity(): Promise<{ userId: string; workspaceId: string } | null> {
     const file = await this.read()
     return file ? { userId: file.userId, workspaceId: file.workspaceId } : null
@@ -76,11 +75,11 @@ export class PasswordVault {
     try {
       const plain = openLocal(key, this.bodyContext(file), Buffer.from(file.body, 'base64'))
       try {
-        const secrets = file.v === 2 ? decodeScopedVault(plain.toString(), this.scope!) : decodeVault(plain.toString())
+        const secrets = decodeScopedVault(plain.toString(), this.scope)
         if (secrets.userId !== file.userId || (secrets.workspaceId ?? secrets.pendingRecovery?.workspaceId) !== file.workspaceId) throw Error('Invalid vault identity')
         const storedKey = secrets.recoveryBoxSk ?? secrets.pendingRecovery?.recoveryBoxSk
         if (!storedKey || !Buffer.from(storedKey).equals(key)) throw Error('Invalid recovery key')
-        return file.v === 1 && this.scope ? filteredLegacyVault(secrets, this.scope) : secrets
+        return secrets
       } finally { wipe(plain) }
     } catch { throw new SyncFailure('storage') }
   }
@@ -93,7 +92,7 @@ export class PasswordVault {
     const path = this.path, revision = this.revision, expectedMaster = secrets.bindingJournalKeys?.[scopeId(scope)] ? Buffer.from(secrets.bindingJournalKeys[scopeId(scope)]!) : null
     const writing = this.writing.then(async () => {
       if (revision !== this.revision) throw new SyncFailure('cancelled')
-      const current = await this.readAt(path, false)
+      const current = await this.readAt(path)
       const identity = { v: 2 as const, scope, userId: scope.accountId, workspaceId }
       let lock: string, params: File['kdf']
       if (kek && kdf && this.consumedPreparation !== revision) {
@@ -108,7 +107,7 @@ export class PasswordVault {
       let failed: unknown
       try { await guardedAtomicJson(path, file, async () => {}, () => { if (revision !== this.revision) throw new SyncFailure('cancelled') }) } catch (error) { failed = error }
       // A lost write result is resolved with the original key, never a replacement master.
-      const stored = await this.readAt(path, false)
+      const stored = await this.readAt(path)
       if (!stored || stored.v !== 2 || stored.workspaceId !== workspaceId) throw failed ?? new SyncFailure('storage')
       const restored = this.decode(stored, key), actual = restored.bindingJournalKeys?.[scopeId(scope)]
       if (expectedMaster ? !actual || !Buffer.from(actual).equals(expectedMaster) : actual !== undefined) throw failed ?? new SyncFailure('storage')
@@ -133,14 +132,15 @@ export class PasswordVault {
       return saved.deviceId === deviceId && saved.generation === generation && Boolean(master && stored && Buffer.from(master).equals(stored))
     }
     const work = this.writing.then(async () => {
-      const source = await prepared.readAt(prepared.path, false)
-      if (!source) { if (!expected(await this.readAt(this.path, false))) throw new SyncFailure('storage'); guard(); return }
+      const source = await prepared.readAt(prepared.path)
+      if (!source) { if (!expected(await this.readAt(this.path))) throw new SyncFailure('storage'); guard(); return }
       if (!expected(source)) throw new SyncFailure('storage')
+      await this.readAt(this.path)
       guard()
       this.forget()
       try { renameSync(prepared.path, this.path) }
-      catch (error) { if (!expected(await this.readAt(this.path, false))) throw error }
-      if (!expected(await this.readAt(this.path, false))) throw new SyncFailure('storage')
+      catch (error) { if (!expected(await this.readAt(this.path))) throw error }
+      if (!expected(await this.readAt(this.path))) throw new SyncFailure('storage')
       guard()
     })
     this.writing = work.catch(() => {})
@@ -148,15 +148,13 @@ export class PasswordVault {
   }
   private async read(): Promise<File | null> {
     await this.writing
-    const current = await this.readAt(this.path, false)
-    if (current || !this.scope || this.preparedFor) return current
-    return this.readAt(join(this.directory, 'sync-password.bin'), true)
+    return this.readAt(this.path)
   }
-  private async readAt(path: string, legacy: boolean): Promise<File | null> {
+  private async readAt(path: string): Promise<File | null> {
     try {
       const bytes = await readFile(path)
       if (bytes.length > 2_100_000) throw Error('Invalid protected file')
-      const file = legacy || !this.scope ? legacySchema.parse(JSON.parse(bytes.toString())) : schema.parse(JSON.parse(bytes.toString()))
+      const file = schema.parse(JSON.parse(bytes.toString()))
       if (this.scope && (file.userId !== this.scope.accountId || file.v === 2 && scopeContext(file.scope) !== scopeContext(this.scope))) throw Error('Invalid protected scope')
       return file
     } catch (error) {

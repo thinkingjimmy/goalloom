@@ -62,7 +62,7 @@ export function createPlan(context: Context, command: CommandOf<'createPlan'>): 
     const item: Item = { id, title: draft.title, description: draft.description, dueDate: draft.dueDate,
       status: 'todo', completedAt: null, cancelledAt: null, archivedAt: null, deletedAt: null, deletedBy: null,
       createdAt: context.now, updatedAt: context.now, version: 1, flowColor: draft.flowColor,
-      placement: { itemId: id, horizon: draft.horizon, periodId: period?.id ?? null, sortKey: nextSortKey(context, draft.horizon, period?.id ?? null, null), version: 1, holdPeriodId: null } }
+      placement: { nestingParentId: null, itemId: id, horizon: draft.horizon, periodId: period?.id ?? null, sortKey: nextSortKey(context, draft.horizon, period?.id ?? null, null), version: 1, holdPeriodId: null } }
     context.store.insertItem(item)
     const edges = draft.parentRefs.map(ref => newRelation(ref.kind === 'existing' ? ref.itemId : ids.get(ref.draftId)!, id, context.now))
     for (const edge of edges) context.store.saveRelation(edge)

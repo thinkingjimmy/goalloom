@@ -1,16 +1,14 @@
 /**
  * [INPUT]: Untrusted source-aware JSON/SQLite data and explicit maintenance actions.
- * [OUTPUT]: Validated v1-v14 datasets, grouped creation receipts, guidance/tombstones, v2/v3 effects and protected replacement previews.
- * [POS]: Transfer boundary preserving old receipts and rejecting inconsistent heads/history.
+ * [OUTPUT]: Validated current-format datasets, grouped creation receipts/tombstones, v2/v3 effects and protected replacement previews.
+ * [POS]: Transfer boundary preserving current receipts and rejecting inconsistent heads/history.
  */
-import { guidanceCheckpointSchema } from './provenance'
 import { z } from 'zod'
 import { effectsVersion } from './effects'
 import { calendarSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, itemRecordSchema, periodSchema, placementSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 import { resultSchema } from './commands'
 import { businessStateSchema, eventSchema } from './history'
 import { policyHorizons } from './values'
-import { guidanceRecordSchema, storedGuidanceValueSchema } from './assistance'
 
 const statusGroup = businessStateSchema.pick({ status: true, completedAt: true, cancelledAt: true })
 const position = z.strictObject({ horizon: horizonSchema, periodId: idSchema.nullable(), previousId: idSchema.nullable(), nextId: idSchema.nullable(), nestingParentId: idSchema.nullable().optional() })
@@ -22,10 +20,6 @@ export const effectSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('nesting'), itemId: idSchema, before: nestingPosition, after: nestingPosition, edges: z.array(edgeDelta).max(100_000), flowColor: z.strictObject({ before: flowColorSchema, after: z.null() }).optional(), inheritedFrom: z.strictObject({ rootId: idSchema, relations: z.array(relationSchema).max(100_000) }).optional() }),
   z.strictObject({ kind: z.literal('groupPlacement'), itemId: idSchema, before: groupPlacement, after: groupPlacement }),
   z.strictObject({ kind: z.literal('description'), itemId: idSchema, before: z.string().max(100_000), after: z.string().trim().min(1).max(16_000) }).refine(value => value.before !== value.after),
-  z.strictObject({ kind: z.literal('guidance'), itemId: idSchema,
-    before: z.strictObject({ value: storedGuidanceValueSchema.nullable(), operationId: idSchema.nullable() }),
-    after: z.strictObject({ value: storedGuidanceValueSchema.nullable(), operationId: idSchema }),
-  }),
   z.strictObject({ kind: z.literal('create'), itemId: idSchema, status: statusGroup, horizon: horizonSchema, periodId: idSchema.nullable(), initialRelations: z.array(idSchema).max(100_000) }),
   z.strictObject({ kind: z.literal('status'), itemId: idSchema, before: statusGroup, after: statusGroup }),
   z.strictObject({ kind: z.literal('position'), itemId: idSchema, before: position, after: position }),
@@ -39,12 +33,10 @@ export const operationSchema = z.strictObject({
 }).refine(value => value.effectsVersion === effectsVersion(value.effects))
 export const undoMarkerSchema = z.strictObject({ originalId: idSchema, effectIndex: z.number().int().nonnegative(), undoId: idSchema })
 export const datasetSchema = z.strictObject({
-  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12), z.literal(13), z.literal(14)]), historyMode: z.enum(['complete', 'baseline']).default('complete'), exportedAt: instantSchema,
+  schemaVersion: z.literal(15), historyMode: z.enum(['complete', 'baseline']), exportedAt: instantSchema,
   workspace: workspaceSchema, items: z.array(itemRecordSchema).max(100_000), placements: z.array(placementSchema).max(100_000),
   periods: z.array(periodSchema).max(100_000), relations: z.array(relationSchema).max(500_000), policies: z.array(policySchema).max(policyHorizons.length),
   events: z.array(eventSchema).max(1_000_000), operations: z.array(operationSchema).max(500_000), undoEffects: z.array(undoMarkerSchema).max(500_000),
-  guidanceCheckpoints: z.array(guidanceCheckpointSchema).max(500_000).optional(),
-  guidance: z.array(guidanceRecordSchema).max(100_000).default([]),
 })
 export type Dataset = z.infer<typeof datasetSchema>
 export const backupRecordSchema = z.strictObject({

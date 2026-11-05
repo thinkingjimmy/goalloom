@@ -45,12 +45,12 @@ export function prepareFirstConnectionInTransaction(driver: SqlDriver, host: App
   }
   let order = Number(driver.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()?.n ?? 0)
   for (let index = 0; index < actions.length; index += 200) {
-    const op = parseSyncOp({ v: 1, opId: globalThis.crypto.randomUUID(), deviceId, at, actions: actions.slice(index, index + 200),
+    const op = parseSyncOp({ v: 2, opId: globalThis.crypto.randomUUID(), deviceId, at, actions: actions.slice(index, index + 200),
       ...(board.calendar ? { importedCalendar: board.calendar } : {}) })
     applySyncOp(driver, op, 'visible', host)
     const payload = syncOpPayload(op)
     driver.prepare(`INSERT INTO sync_ops (opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,createdAt,updatedAt)
-      VALUES (?,?,'local',1,?,?,?,?,'never_sent',?,?)`).run(op.opId, ++order, payload, sha256Hex(payload), op.deviceId, op.at, at, at)
+      VALUES (?,?,'local',2,?,?,?,?,'never_sent',?,?)`).run(op.opId, ++order, payload, sha256Hex(payload), op.deviceId, op.at, at, at)
     ops.push(op)
   }
   const final = captureVisibleBoard(driver)
@@ -67,7 +67,7 @@ function restoreOfflineOperations(driver: SqlDriver, host: ApplyHost, at: string
   for (const { op, beforeOpId } of missing) {
     const payload = syncOpPayload(op)
     driver.prepare(`INSERT INTO sync_ops (opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,createdAt,updatedAt)
-      VALUES (?,?,'local',1,?,?,?,?,'never_sent',?,?)`).run(op.opId, ++order, payload, sha256Hex(payload), op.deviceId, op.at, at, at)
+      VALUES (?,?,'local',2,?,?,?,?,'never_sent',?,?)`).run(op.opId, ++order, payload, sha256Hex(payload), op.deviceId, op.at, at, at)
     const next = beforeOpId ? ordered.indexOf(beforeOpId) : -1
     ordered.splice(next < 0 ? ordered.length : next, 0, op.opId)
   }

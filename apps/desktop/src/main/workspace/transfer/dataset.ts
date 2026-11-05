@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Strict v1-v14 datasets, explicit current-data recovery for verified application backups, and atomic replacement.
+ * [OUTPUT]: Strict current-format datasets, explicit current-data recovery for verified application backups, and atomic replacement.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  */
 import { randomUUID } from 'node:crypto'
@@ -14,24 +14,22 @@ import { DomainError } from '../../../shared/contracts/commands'
 import { addBaseline } from '../baseline'
 import { Store } from '../../storage/store'
 import { transaction, verifyDatabase } from '../../storage/database'
-import { sourceTables, schemaVersion, supportedVersions, userVersion } from '../../storage/schema'
+import { requiredTables, schemaVersion, userVersion } from '../../storage/schema'
 import { datasetHeader, datasetRows } from './rows'
 import { serverText } from '../../../shared/i18n/server'
-import { appendGuidanceCheckpoint, baselineGuidanceCheckpoint } from '../sync/provenance'
-import { currentPeriod } from '../../../domain/calendar'
 import { copyProjectionToBase } from '@goalloom/store-core'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 
-// Validate each source under its original schema version; only a new export uses the current version.
-export function exportDataset(store: Store, now: string, version: number = schemaVersion): Dataset {
-  return readDataset(store, now, version, true)
+// All export and restore boundaries require the exact current format.
+export function exportDataset(store: Store, now: string): Dataset {
+  return readDataset(store, now, true)
 }
-function readDataset(store: Store, now: string, version: number, keepDescriptions: boolean, baseline = false): Dataset {
-  return { ...datasetHeader(store, now, version, baseline), ...(baseline ? { historyMode: 'baseline' as const, guidanceCheckpoints: [] } : {}),
+function readDataset(store: Store, now: string, keepDescriptions: boolean, baseline = false): Dataset {
+  return { ...datasetHeader(store, now), ...(baseline ? { historyMode: 'baseline' as const } : {}),
     // Each original body passes the same schema before it is discarded for protection-only validation.
     items: Array.from(datasetRows(store, 'items'), item => keepDescriptions ? item : { ...item, description: '' }), placements: [...datasetRows(store, 'placements')], periods: [...datasetRows(store, 'periods')],
     relations: [...datasetRows(store, 'relations')], policies: [...datasetRows(store, 'policies')], events: baseline ? [] : [...datasetRows(store, 'events')],
-    guidance: [...datasetRows(store, 'guidance')], operations: baseline ? [] : [...datasetRows(store, 'operations')], undoEffects: baseline ? [] : [...datasetRows(store, 'undoEffects')],
+    operations: baseline ? [] : [...datasetRows(store, 'operations')], undoEffects: baseline ? [] : [...datasetRows(store, 'undoEffects')],
   }
 }
 export async function readSqliteDataset(path: string, now: string, source: 'external' | 'backup' = 'external'): Promise<Dataset> {
@@ -58,13 +56,13 @@ async function readSqlite(path: string, now: string, source: 'external' | 'backu
   try {
     db.exec('PRAGMA trusted_schema=OFF; BEGIN')
     const version = userVersion(db)
-    if (!supportedVersions.includes(version)) throw new DomainError('invalid', serverText().errors.unsupportedDatabase)
+    if (version !== schemaVersion) throw new DomainError('invalid', serverText().errors.unsupportedDatabase)
     const tables = db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
     const names = tables.map(row => String(row.name))
-    if (tables.some(row => row.type === 'view') || sourceTables(version, names).some(name => !names.includes(name))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
+    if (tables.some(row => row.type === 'view') || requiredTables.some(name => !names.includes(name))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
     verifyDatabase(db)
     const retrieved = names.includes('retrieval_copy') && db.prepare("SELECT 1 FROM retrieval_copy WHERE id=1 AND historyMode='baseline'").get()
-    const data = readDataset(new Store(db), now, version, keepDescriptions, baseline || Boolean(retrieved))
+    const data = readDataset(new Store(db), now, keepDescriptions, baseline || Boolean(retrieved))
     return validateDataset(data, now)
   } finally { db.close() }
 }
@@ -72,15 +70,15 @@ export function emptyDataset(store: Store, now: string): Dataset {
   const workspace = store.workspace()
   return { schemaVersion, historyMode: 'complete', exportedAt: now,
     workspace: { ...workspace, generation: randomUUID(), calendar: null, setupConfirmedAt: null, pausedAfterRestore: false, revision: 0, clockAnomaly: false, lastObservedAt: null, backupEnabled: true, backupRetention: 7 },
-    guidance: [], items: [], placements: [], periods: [], policies: [], relations: [], events: [], operations: [], undoEffects: [] }
+    items: [], placements: [], periods: [], policies: [], relations: [], events: [], operations: [], undoEffects: [] }
 }
-export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 'restore' | 'upgrade', now: string, retrievedCopy = false): string {
-  const generation = randomUUID(), { theme, style, checkStyle } = mode === 'upgrade' ? input.workspace : store.workspace()
+export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 'restore', now: string, retrievedCopy = false): string {
+  const generation = randomUUID(), { theme, style, checkStyle } = store.workspace()
   const data = { ...input, workspace: { ...input.workspace, generation, theme, style, checkStyle, pausedAfterRestore: mode !== 'reset', revision: input.workspace.revision + 1 } }
   return transaction(store.db, () => {
     if (retrievedCopy && store.db.prepare("SELECT 1 FROM sync_ops WHERE origin='local' AND state IN ('never_sent','send_unknown','accepted') LIMIT 1").get()) throw new DomainError('conflict', cloudCatalog[serverLocale()].pendingWrites)
     // --- 唯一连接中原子替换；任何约束/校验/磁盘错误全部回滚旧库。 ---
-    store.db.exec('PRAGMA defer_foreign_keys=ON; DELETE FROM item_guidance; DELETE FROM undo_effects; DELETE FROM item_events; DELETE FROM operations; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM planning_periods; DELETE FROM items; DELETE FROM sqlite_sequence WHERE name=\'item_events\';')
+    store.db.exec('PRAGMA defer_foreign_keys=ON; DELETE FROM undo_effects; DELETE FROM item_events; DELETE FROM operations; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM planning_periods; DELETE FROM items; DELETE FROM sqlite_sequence WHERE name=\'item_events\';')
     store.saveWorkspace(data.workspace)
     for (const period of data.periods) store.ensurePeriod(period)
     const placements = new Map(data.placements.map(p => [p.itemId, p]))
@@ -88,18 +86,7 @@ export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 're
     for (const edge of data.relations) store.saveRelation(edge)
     const insertPolicy = store.prepare('INSERT INTO rollover_policies VALUES (?,?,?,?)')
     for (const policy of data.policies) insertPolicy.run(policy.horizon, policy.mode, policy.version, policy.effectiveFromPeriodId)
-    if (data.schemaVersion < 7 && data.workspace.calendar) {
-      for (const horizon of ['year', 'half'] as const) {
-        const period = currentPeriod(data.workspace.calendar, horizon, now)
-        store.ensurePeriod(period)
-        insertPolicy.run(horizon, 'manual', 1, period.id)
-      }
-    }
-    store.db.exec('DELETE FROM guidance_baselines')
-    const checkpoints = data.historyMode === 'baseline' ? [baselineGuidanceCheckpoint(data.guidance, now)].filter(checkpoint => checkpoint !== null) : data.guidanceCheckpoints ?? []
-    for (const checkpoint of checkpoints) appendGuidanceCheckpoint(store.db, checkpoint)
     for (const operation of data.operations) store.saveOperation(operation)
-    for (const head of data.guidance ?? []) store.saveGuidance(head)
     const insertEvent = store.prepare('INSERT INTO item_events (seq,id,operationId,eventIndex,itemId,at,type,beforeState,afterState,fromPeriodId,toPeriodId,undoOf) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
     for (const event of data.events) insertEvent.run(event.seq, event.id, event.operationId, event.eventIndex, event.itemId, event.at, event.type, event.before ? JSON.stringify(event.before) : null, JSON.stringify(event.after), event.before?.periodId ?? null, event.after.periodId, event.undoOf)
     const insertMarker = store.prepare('INSERT INTO undo_effects VALUES (?,?,?)')

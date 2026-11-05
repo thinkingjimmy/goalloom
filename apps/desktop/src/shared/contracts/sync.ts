@@ -49,7 +49,6 @@ export const syncActionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('change-password'), password }),
   z.strictObject({ type: z.literal('generation-preview'), expectedAccountId: z.uuid() }),
   z.strictObject({ type: z.literal('create-new-workspace'), password, expectedAccountId: z.uuid(), previewToken: z.uuid(), acknowledged: z.literal(true) }),
-  z.strictObject({ type: z.literal('reset-sync'), password, confirmation: z.literal('DELETE ALL CLOUD DATA') }),
   z.strictObject({ type: z.literal('join'), choice: z.enum(['use-remote', 'merge']), acknowledged: z.boolean() }),
   z.strictObject({ type: z.literal('retry') }),
 ])

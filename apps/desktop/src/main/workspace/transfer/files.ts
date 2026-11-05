@@ -7,7 +7,6 @@ import { open } from 'node:fs/promises'
 import { DomainError } from '../../../shared/contracts/commands'
 import { serverText } from '../../../shared/i18n/server'
 import { atomicFile } from '../../storage/atomic-json'
-import { schemaVersion } from '../../storage/schema'
 import type { Store } from '../../storage/store'
 import { datasetHeader, datasetRows, datasetTables } from './rows'
 
@@ -40,7 +39,7 @@ export async function writeDataset(store: Store, path: string, now: string): Pro
         pieces.push(piece); size += Buffer.byteLength(piece)
         if (size >= 64 * 1024) { await file.writeFile(pieces.join('')); pieces = []; size = 0 }
       }
-      await write(JSON.stringify(datasetHeader(store, now, schemaVersion)).slice(0, -1))
+      await write(JSON.stringify(datasetHeader(store, now)).slice(0, -1))
       for (const table of datasetTables) {
         await write(`,"${table}":[`)
         let first = true

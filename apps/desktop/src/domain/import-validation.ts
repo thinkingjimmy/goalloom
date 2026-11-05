@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Untrusted versioned datasets with two-level placements and owned leaf/group nesting effects, plus an observation time.
- * [OUTPUT]: Entity, version-specific policies, DAG, adoption/promotion effect identity, bulk-order receipt, inverse and event-chain integrity validation.
- *          Moves/backlog/assistance may detach remote ownership and drop Later parent edges; creation accepts source-checked nesting and legacy milestones retain create/reparenting history.
+ * [OUTPUT]: Entity, current policies, DAG, adoption/promotion effect identity, bulk-order receipt, inverse and event-chain integrity validation.
+ *          Moves/backlog/assistance may detach remote ownership and drop Later parent edges; creation accepts source-checked nesting and current creations retain their owned history.
  *          Empty-detail discards retain guarded visibility receipts for undo.
  *          Link/unlink may own one same-period root placement; both effects must restore together.
  * [POS]: Shared JSON/SQLite import rules; indexed references and one event ordering, without IO.
@@ -17,7 +17,6 @@ import { planLimit } from '../shared/contracts/commands'
 import { policyHorizons } from '../shared/contracts/values'
 import { serverText } from '../shared/i18n/server'
 import { validateNestingHistory, validateNestingOperation } from './import-nesting'
-import { validateGuidanceHistory } from './import-guidance'
 import { validateCreationHistory } from './import-creation'
 
 function requireValid(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
@@ -42,8 +41,7 @@ export function validateImport(input: unknown, observedAt: string): Dataset {
 
 /** Internal, exclusively owned DTOs have already passed the wire schema. Recheck business integrity without cloning their text. */
 export function validateDataset(data: Dataset, observedAt: string): Dataset {
-  validateGuidanceHistory(data)
-  const requiredPolicies = data.schemaVersion < 7 ? policyHorizons.filter(horizon => horizon !== 'year' && horizon !== 'half') : policyHorizons
+  const requiredPolicies = policyHorizons
   // Baseline imports begin default policies at the restore date, without sweeping older backlog.
   if (data.historyMode === 'baseline' && data.workspace.calendar && data.policies.length === 0) {
     for (const horizon of requiredPolicies) {
@@ -94,14 +92,14 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
     requireValid(JSON.stringify(period) === JSON.stringify(expected), serverText().import.periodBoundaryMismatch)
   }
   if (calendar) requireValid(policies.size === requiredPolicies.length && requiredPolicies.every(horizon => policies.has(horizon)), serverText().import.missingRolloverPolicies)
-  for (const policy of data.policies) requireValid(periods.get(policy.effectiveFromPeriodId)?.horizon === policy.horizon && (data.schemaVersion >= 7 || policy.horizon !== 'cycle' || policy.mode === 'manual'), serverText().import.invalidPolicy)
+  for (const policy of data.policies) requireValid(periods.get(policy.effectiveFromPeriodId)?.horizon === policy.horizon, serverText().import.invalidPolicy)
   requireValid(items.size === places.size, serverText().import.itemPlacementCount)
   const baselines = new Set(data.events.filter(event => event.type === 'baseline').map(event => event.itemId))
   for (const item of data.items) {
     const p = places.get(item.id); requireValid(p, serverText().import.itemMissingPlacement)
     placement(p.horizon, p.periodId, periods)
     validState(item, data.historyMode === 'baseline' || baselines.has(item.id))
-    if (item.deletedBy && operations.get(item.deletedBy)?.kind === 'discardEmpty') requireValid(canDiscardEmptyTitle({ ...item, deletedAt: null }, 0, !!data.guidance?.find(head => head.itemId === item.id)?.value), serverText().import.visibilityReceiptMismatch)
+    if (item.deletedBy && operations.get(item.deletedBy)?.kind === 'discardEmpty') requireValid(canDiscardEmptyTitle({ ...item, deletedAt: null }, 0), serverText().import.visibilityReceiptMismatch)
     validateHold(p.horizon, p.periodId, p.holdPeriodId, periods)
   }
   for (const p of data.placements) requireValid(items.has(p.itemId), serverText().import.danglingPlacement)
@@ -109,7 +107,7 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
   const nesting = data.placements.filter(p => p.nestingParentId && !items.get(p.itemId)?.deletedAt)
   for (const p of nesting) {
     const parent = places.get(p.nestingParentId!), child = items.get(p.itemId)
-    requireValid(data.schemaVersion >= 9 && parent && parent.itemId !== p.itemId && !parent.nestingParentId && !items.get(parent.itemId)?.deletedAt
+    requireValid(parent && parent.itemId !== p.itemId && !parent.nestingParentId && !items.get(parent.itemId)?.deletedAt
       && (parent.horizon === 'later') === (p.horizon === 'later') && child?.flowColor === null && !data.relations.some(edge => !edge.invalidatedAt && edge.childId === p.itemId), serverText().import.placementMismatch)
   }
   requireValid(data.relations.every(edge => !edge.inheritedFrom), serverText().import.invalidCreateEffect)
@@ -128,7 +126,7 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
     requireValid(!operation.result.itemId || items.has(operation.result.itemId), serverText().import.operationDanglingItem)
     requireValid(operation.result.undoable === (operation.source === 'user' && operation.effects.length > 0), serverText().import.undoableFlagMismatch)
     requireValid(operation.result.outcome !== 'conflict_skipped' || (!operation.result.changed && !operation.effects.length && ['undo', 'undoBatch'].includes(operation.kind)), serverText().import.conflictReceiptChanged)
-    validateKind(operation, data.schemaVersion, edges, operations)
+    validateKind(operation, operations)
     for (const effect of operation.effects) validateEffect(effect, items, periods, edges)
     if (operation.kind === 'createPlan') validatePlan(operation, edges)
     validateItemIds(operation, operations)
@@ -197,7 +195,6 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
       if (effect.kind === 'relations' || effect.kind === 'visibility' || effect.kind === 'nesting') for (const delta of effect.edges) {
         if (['delete', 'unlink'].includes(operation.kind) && effect.kind !== 'nesting') requireValid(delta.after.invalidatedBy === operation.id && delta.after.invalidatedAt === operation.at && delta.after.reason === (operation.kind === 'delete' ? 'delete' : 'unlink'), serverText().import.relationInvalidationSourceMismatch)
         if (['move', 'arrangeBacklog', 'applyAssistance'].includes(operation.kind) && effect.kind === 'relations') requireValid(delta.before !== null && delta.after.invalidatedBy === operation.id && delta.after.invalidatedAt === operation.at && delta.after.reason === 'unlink' && delta.after.childId === effect.itemId, serverText().import.relationInvalidationSourceMismatch)
-        if (operation.kind === 'insertBetween') requireValid(delta.before === null ? delta.after.invalidatedAt === null && delta.after.reason === null : delta.after.invalidatedBy === operation.id && delta.after.invalidatedAt === operation.at && delta.after.reason === 'unlink', serverText().import.relationInvalidationSourceMismatch)
         if (['link', 'restoreItem'].includes(operation.kind) && effect.kind !== 'nesting') requireValid(delta.after.invalidatedAt === null && delta.after.invalidatedBy === null && delta.after.reason === null, serverText().import.linkEffectInvalidEdge)
       }
     }
@@ -232,9 +229,8 @@ function validateEffect(effect: Effect, items: Map<string | number, unknown>, pe
     for (const delta of effect.edges) requireValid(edges.has(delta.after.id) && edgeIdentity(edges.get(delta.after.id)!, delta.after) && (!delta.before || edgeIdentity(delta.before, delta.after)), serverText().import.relationEffectIdentityMismatch)
   }
 }
-function validateKind(operation: Dataset['operations'][number], version: Dataset['schemaVersion'], edges: Map<string | number, Relation>, operations: Map<string | number, Dataset['operations'][number]>): void {
+function validateKind(operation: Dataset['operations'][number], operations: Map<string | number, Dataset['operations'][number]>): void {
   validateNestingOperation(operation, operations)
-  requireValid(operation.effectsVersion < 3 || version >= 9, serverText().import.effectKindNotAllowed)
   for (const effect of operation.effects) if (effect.kind === 'relations' && effect.flowColor) {
     const edge = effect.edges[0]
     requireValid(operation.kind === 'link' && effect.edges.length === 1 && edge?.before === null
@@ -242,8 +238,7 @@ function validateKind(operation: Dataset['operations'][number], version: Dataset
     serverText().import.effectKindNotAllowed)
     if (effect.flowColor.transferredTo) requireValid(effect.flowColor.transferredTo === edge!.after.parentId, serverText().import.relationEffectIdentityMismatch)
   }
-  requireValid(operation.kind !== 'createPlan' || version >= 3, serverText().import.legacyPlan)
-  const allowed: Record<string, Effect['kind'][]> = { completeCreation: ['position', 'relations', 'nesting'], nest: ['nesting'], unnest: ['nesting'], applyAssistance: ['description', 'guidance', 'position', 'relations', 'nesting', 'groupPlacement'], create: ['create', 'nesting'], createPlan: ['create', 'nesting'], insertBetween: ['create', 'relations'], edit: [], flowColor: [], move: ['position', 'relations', 'nesting', 'groupPlacement'], materializeParentOrder: ['position'], link: ['relations', 'position'], status: ['status'], archive: ['archive'], delete: ['visibility', 'nesting'], discardEmpty: ['visibility'], restoreItem: ['visibility', 'nesting'], unlink: ['relations', 'position'], undo: [], undoBatch: [], arrangeBacklog: ['position', 'relations', 'nesting', 'groupPlacement'], rollover: ['position', 'groupPlacement'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
+  const allowed: Record<string, Effect['kind'][]> = { completeCreation: ['position', 'relations', 'nesting'], nest: ['nesting'], unnest: ['nesting'], applyAssistance: ['description'], create: ['create', 'nesting'], createPlan: ['create', 'nesting'], edit: [], flowColor: [], move: ['position', 'relations', 'nesting', 'groupPlacement'], materializeParentOrder: ['position'], link: ['relations', 'position'], status: ['status'], archive: ['archive'], delete: ['visibility', 'nesting'], discardEmpty: ['visibility'], restoreItem: ['visibility', 'nesting'], unlink: ['relations', 'position'], undo: [], undoBatch: [], arrangeBacklog: ['position', 'relations', 'nesting', 'groupPlacement'], rollover: ['position', 'groupPlacement'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
   requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), serverText().import.effectKindNotAllowed)
   requireValid(operation.source === (['rollover', 'baseline', 'completeCreation'].includes(operation.kind) ? 'system' : 'user'), serverText().import.operationSourceMismatch)
   const inverse = ['undo', 'undoBatch'].includes(operation.kind)
@@ -251,19 +246,15 @@ function validateKind(operation: Dataset['operations'][number], version: Dataset
   requireValid(operation.result.changed || !operation.effects.length, serverText().import.unchangedWithEffects)
   if (operation.result.changed && allowed[operation.kind]!.length) requireValid(operation.effects.length > 0, serverText().import.changedWithoutEffects)
   if (operation.kind === 'createPlan') requireValid(!operation.result.changed || (operation.effects.filter(effect => effect.kind === 'create').length >= 1 && operation.effects.filter(effect => effect.kind === 'create').length <= planLimit && new Set(operation.effects.filter(effect => effect.kind === 'create').map(effect => effect.itemId)).size === operation.effects.filter(effect => effect.kind === 'create').length), serverText().import.invalidPlanSize)
-  else if (operation.kind === 'insertBetween') validateLegacyMilestone(operation, edges)
   else if (operation.kind === 'applyAssistance') {
-    const owned = operation.effects.filter(effect => effect.kind !== 'groupPlacement' && effect.kind !== 'nesting')
-    requireValid(version >= 8 && owned.length <= (operation.effectsVersion === 3 ? 4 : 3) && new Set(owned.map(effect => effect.itemId)).size <= 1 && operation.effects.filter(effect => effect.kind === 'guidance').length <= 1 && operation.effects.filter(effect => effect.kind === 'position').length <= 1, serverText().import.extraEffects)
-    requireValid(!operation.effects.some(effect => effect.kind === 'description') || operation.effects.length === 1, serverText().import.extraEffects)
-    validateLaterEntry({ ...operation, effects: operation.effects.filter(effect => !['guidance', 'description', 'nesting', 'groupPlacement'].includes(effect.kind)) })
+    requireValid(operation.effects.length <= 1 && operation.effects.every(effect => effect.kind === 'description'), serverText().import.extraEffects)
   }
   else if (operation.kind === 'move' || operation.kind === 'arrangeBacklog') validateLaterEntry({ ...operation, effects: operation.effects.filter(effect => !['nesting', 'groupPlacement'].includes(effect.kind)) })
   else if (operation.kind === 'link' || operation.kind === 'unlink') {
     if (operation.result.changed) {
       const [relation, position] = operation.effects
       requireValid(operation.effects.length <= 2 && relation?.kind === 'relations' && relation.edges.length === 1 && relation.itemId === operation.result.itemId, serverText().import.extraEffects)
-      if (position) requireValid(version >= 10 && position.kind === 'position' && position.itemId === relation.itemId
+      if (position) requireValid(position.kind === 'position' && position.itemId === relation.itemId
         && position.before.horizon === position.after.horizon && position.before.periodId === position.after.periodId
         && !['later', 'year'].includes(position.before.horizon) && !position.before.nestingParentId && !position.after.nestingParentId, serverText().import.effectKindNotAllowed)
     }
@@ -272,23 +263,7 @@ function validateKind(operation: Dataset['operations'][number], version: Dataset
   else if (!['nest', 'rollover', 'materializeParentOrder', 'delete', 'restoreItem', 'completeCreation'].includes(operation.kind)) requireValid(operation.effects.length <= 1, serverText().import.extraEffects)
   if (operation.kind === 'discardEmpty') requireValid(operation.effects.every(effect => effect.kind === 'visibility' && effect.before.deletedAt === null && effect.after.deletedAt === operation.at && effect.after.deletedBy === operation.id && effect.edges.length === 0), serverText().import.visibilityReceiptMismatch)
 }
-function validateLegacyMilestone(operation: Dataset['operations'][number], edges: Map<string | number, Relation>): void {
-  const [created, ...children] = operation.effects
-  requireValid(created?.kind === 'create' && children.length >= 1 && children.length <= planLimit
-    && new Set(operation.effects.map(effect => effect.itemId)).size === operation.effects.length, serverText().import.extraEffects)
-  const parent = edges.get(created.initialRelations[0]!)
-  requireValid(operation.result.itemId === created.itemId && created.initialRelations.length === 1
-    && parent?.childId === created.itemId && parent.createdAt === operation.at, serverText().import.invalidCreateEffect)
-  for (const child of children) {
-    requireValid(child.kind === 'relations' && !child.flowColor && child.edges.length === 2, serverText().import.effectKindNotAllowed)
-    const [removed, added] = child.edges
-    requireValid(removed?.before && removed.before.parentId === parent.parentId && removed.before.childId === child.itemId
-      && removed.before.invalidatedAt === null && removed.before.invalidatedBy === null && removed.before.reason === null
-      && added?.before === null && added.after.parentId === created.itemId && added.after.childId === child.itemId
-      && added.after.createdAt === operation.at && added.after.invalidatedAt === null && added.after.invalidatedBy === null && added.after.reason === null,
-    serverText().import.relationEffectIdentityMismatch)
-  }
-}
+
 function validateLaterEntry(operation: Dataset['operations'][number]): void {
   const positions = operation.effects.flatMap(effect => effect.kind === 'position' ? [effect] : [])
   const relations = operation.effects.flatMap(effect => effect.kind === 'relations' ? [effect] : [])
@@ -324,7 +299,7 @@ function validateItemIds(operation: Dataset['operations'][number], operations: M
 }
 function validateEvent(event: ItemEvent, operation: Dataset['operations'][number], effectsByItem: Map<string, Map<string, Array<{ effect: Effect; index: number }>>>, markers: Map<string | number, Dataset['undoEffects'][number]>, periods: Map<string | number, PlanningPeriod>, creationInverses: Map<string, Effect[]>, operations: Map<string | number, Dataset['operations'][number]>): void {
   const a = event.before, b = event.after
-  const types: Record<string, string[]> = { nesting_changed: ['create', 'createPlan', 'completeCreation', 'nest', 'unnest', 'move', 'arrangeBacklog', 'applyAssistance', 'delete', 'restoreItem'], created: ['create', 'createPlan', 'insertBetween'], baseline: ['baseline'], guidance_changed: ['applyAssistance'], description_changed: ['applyAssistance'], moved: ['move', 'arrangeBacklog', 'applyAssistance', 'completeCreation'], rolled_over: ['move', 'arrangeBacklog', 'rollover', 'applyAssistance'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete', 'discardEmpty'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
+  const types: Record<string, string[]> = { nesting_changed: ['create', 'createPlan', 'completeCreation', 'nest', 'unnest', 'move', 'arrangeBacklog', 'applyAssistance', 'delete', 'restoreItem'], created: ['create', 'createPlan'], baseline: ['baseline'], description_changed: ['applyAssistance'], moved: ['move', 'arrangeBacklog', 'applyAssistance', 'completeCreation'], rolled_over: ['move', 'arrangeBacklog', 'rollover', 'applyAssistance'], status_changed: ['status'], archived: ['archive'], unarchived: ['archive'], deleted: ['delete', 'discardEmpty'], item_restored: ['restoreItem'], undo: ['undo', 'undoBatch'] }
   requireValid(types[event.type]?.includes(operation.kind), serverText().import.eventTypeMismatch)
   if (event.type === 'baseline') {
     requireValid(!a && !event.undoOf && operation.source === 'system' && !operation.effects.length && !operation.result.undoable
@@ -401,7 +376,6 @@ function eventMatchesEffect(event: ItemEvent, effect: Effect): boolean {
   if (effect.kind === 'status') return event.before?.status !== event.after.status
   if (effect.kind === 'archive') return event.before?.archivedAt !== event.after.archivedAt
   if (effect.kind === 'description') return event.type === 'description_changed' || event.type === 'undo' && event.before?.horizon === event.after.horizon && event.before?.periodId === event.after.periodId && event.before?.status === event.after.status && event.before?.archivedAt === event.after.archivedAt && event.before?.deletedAt === event.after.deletedAt
-  if (effect.kind === 'guidance') return event.type === 'guidance_changed' || event.type === 'undo' && event.before?.horizon === event.after.horizon && event.before?.periodId === event.after.periodId && event.before?.status === event.after.status && event.before?.archivedAt === event.after.archivedAt && event.before?.deletedAt === event.after.deletedAt
   if (effect.kind === 'nesting') return event.type === 'nesting_changed' || event.type === 'undo' && (event.before?.nestingParentId ?? null) === effect.after.nestingParentId && (event.after.nestingParentId ?? null) === effect.before.nestingParentId
   if (effect.kind === 'position' || effect.kind === 'groupPlacement') return event.before?.horizon !== event.after.horizon || event.before?.periodId !== event.after.periodId
   return true

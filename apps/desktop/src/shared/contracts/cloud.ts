@@ -12,7 +12,7 @@ const account = { expectedAccountId: z.uuid() }
 export const copyArtifactSchema = z.strictObject({ artifactId: z.uuid(), target: cloudTargetSchema,
   environment: z.enum(['development', 'production']), projectRef: z.string(), lifecycleVersion: z.number().int().positive(),
   manifestHash: z.string().regex(/^[0-9a-f]{64}$/), headSeq: z.number().int().nonnegative(), verifiedAt: z.string(),
-  historyMode: z.literal('baseline'), counts: z.strictObject({ items: z.number().int().nonnegative(), relations: z.number().int().nonnegative(), periods: z.number().int().nonnegative(), guidance: z.number().int().nonnegative() }),
+  historyMode: z.literal('baseline'), counts: z.strictObject({ items: z.number().int().nonnegative(), relations: z.number().int().nonnegative(), periods: z.number().int().nonnegative() }),
 })
 export type CopyArtifact = z.infer<typeof copyArtifactSchema>
 export const cloudActionSchema = z.discriminatedUnion('type', [

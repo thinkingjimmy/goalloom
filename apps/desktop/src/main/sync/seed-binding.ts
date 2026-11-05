@@ -20,7 +20,7 @@ export async function createSeedBinding(input: {
   remotePrepared?: () => void
   protectDraft?: (draft: BindingDraft) => Promise<void>
   promoteDraft?: (draft: BindingDraft) => Promise<void>
-  preview?: BindingTransitionPreview; approvedBinding?: BindingIdentity | null; destructive?: boolean
+  preview?: BindingTransitionPreview; approvedBinding?: BindingIdentity | null
   password: string; at: string; check: () => void
 }): Promise<{ bound: BoundWorkspace; binding: BindingIdentity }> {
   const pending = await input.journal.pending(input.scope.accountId)
@@ -44,7 +44,6 @@ export async function createSeedBinding(input: {
   input.check()
   const bound = await createRemoteWorkspace({ remote: input.remote, deviceId: draft.binding.deviceId, secret: input.secret, password: input.password,
     workspaceId: draft.binding.workspaceId, generation: draft.binding.generation, workspaceKey: unhex(draft.workspaceKey), recovery: input.journal.recovery(draft), createNew: input.expectedBinding !== null || Boolean(input.preview),
-    ...(input.destructive && input.expectedBinding ? { beforeCreate: () => input.remote.resetSync(input.scope.deviceId, { workspaceId: input.expectedBinding!.workspaceId }) } : {}),
     initialization: { requestId: draft.initializationRequestId, finalOpId: draft.finalOpId, envelopes: draft.envelopes,
       persist: wires => input.journal.envelopes(draft, wires) },
   })

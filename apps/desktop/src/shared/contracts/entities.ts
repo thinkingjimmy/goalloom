@@ -14,9 +14,8 @@ export const instantSchema = z.iso.datetime({ offset: true })
 export const horizonSchema = z.enum(horizons)
 export const periodHorizonSchema = z.enum(periodHorizons)
 export const statusSchema = z.enum(['todo', 'done', 'cancelled'])
-// Fixed palette index owned by a flow root; schema v1 data has no field and reads as null.
 export const flowColorSchema = z.number().int().min(0).max(7)
-export const calendarSchema = z.strictObject({ id: idSchema, mode: z.enum(calendarModes).default('rolling'), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema })
+export const calendarSchema = z.strictObject({ id: idSchema, mode: z.enum(calendarModes), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), cycleAnchor: dateSchema })
   .refine(value => validTimezone(value.timezone), { error: () => validationText().invalidCalendarConfig })
   .refine(value => value.mode !== 'natural' || value.cycleAnchor.endsWith('-01-01'), { error: () => validationText().invalidCalendarConfig })
 export const periodSchema = z.strictObject({
@@ -28,12 +27,12 @@ export const itemRecordSchema = z.strictObject({
   status: statusSchema, completedAt: instantSchema.nullable(), cancelledAt: instantSchema.nullable(),
   archivedAt: instantSchema.nullable(), deletedAt: instantSchema.nullable(), deletedBy: idSchema.nullable(),
   createdAt: instantSchema, updatedAt: instantSchema, version: z.number().int().positive(),
-  flowColor: flowColorSchema.nullable().default(null),
+  flowColor: flowColorSchema.nullable(),
 })
 export const placementSchema = z.strictObject({
   itemId: idSchema, horizon: horizonSchema, periodId: idSchema.nullable(), sortKey: z.number().finite(),
   version: z.number().int().positive(), holdPeriodId: idSchema.nullable(),
-  nestingParentId: idSchema.nullable().optional(),
+  nestingParentId: idSchema.nullable(),
 })
 export const itemSchema = itemRecordSchema.extend({ placement: placementSchema })
 // A bounded description digest for board rows (see shared/notes.ts); summaries never carry the description body.
@@ -42,8 +41,7 @@ export const noteSignalSchema = z.strictObject({
   next: z.string().max(120).nullable(), links: z.array(z.string().max(4096)).max(3), linkCount: z.number().int().nonnegative(), excerpt: z.string().max(120),
 })
 export type NoteSignal = z.infer<typeof noteSignalSchema>
-export const guidanceSignalSchema = z.strictObject({ kind: z.enum(['next_step', 'working_scope', 'resume_point', 'waiting_note']), nextAction: z.string().max(120), revision: z.number().int().positive(), updatedAt: instantSchema })
-export const itemSummarySchema = itemRecordSchema.omit({ description: true }).extend({ note: noteSignalSchema.nullable(), placement: placementSchema, guidance: guidanceSignalSchema.nullable().optional() })
+export const itemSummarySchema = itemRecordSchema.omit({ description: true }).extend({ note: noteSignalSchema.nullable(), placement: placementSchema })
 export type ItemSummary = z.infer<typeof itemSummarySchema>
 export const relationSchema = z.strictObject({
   id: idSchema, parentId: idSchema, childId: idSchema, invalidatedAt: instantSchema.nullable(),
@@ -54,10 +52,8 @@ export const policySchema = z.strictObject({
   horizon: z.enum(policyHorizons), mode: z.enum(['auto', 'manual']), version: z.number().int().positive(), effectiveFromPeriodId: idSchema,
 })
 export const themeSchema = z.enum(['system', 'light', 'dark'])
-// Pre-v4 databases and datasets carry no style column; they keep the default paper look.
-export const styleSchema = z.enum(['paper', 'minimal', 'macos']).default('paper')
-// Pre-v5 databases and datasets carry no checkbox style; they get the outline default.
-export const checkStyleSchema = z.enum(['outline', 'paper', 'tint']).default('outline')
+export const styleSchema = z.enum(['paper', 'minimal', 'macos'])
+export const checkStyleSchema = z.enum(['outline', 'paper', 'tint'])
 export const workspaceSchema = z.strictObject({
   generation: idSchema, calendar: calendarSchema.nullable(), setupConfirmedAt: instantSchema.nullable(),
   pausedAfterRestore: z.boolean(), revision: z.number().int().nonnegative(), lastObservedAt: instantSchema.nullable(),

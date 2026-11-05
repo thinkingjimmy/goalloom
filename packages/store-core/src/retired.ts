@@ -107,7 +107,6 @@ function* activeRows(driver: SqlDriver, localGeneration: string): Generator<Reti
     { kind: 'active_binding', table: 'sync_active_binding', keys: ['id'], key: () => '1' },
   ]
   for (const source of sources) {
-    if (!driver.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(source.table)) continue
     const names = driver.prepare(`PRAGMA table_info(${source.table})`).all().map(row => String(row.name))
     seedAssert(!driver.prepare(`SELECT 1 FROM ${source.table} WHERE ${names.map(name => `length(CAST(${name} AS BLOB))>4194304`).join(' OR ')} LIMIT 1`).get(), 'retired field exceeds supported record size')
     let after: SqlValue[] | null = null

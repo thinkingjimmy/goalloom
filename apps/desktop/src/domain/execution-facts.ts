@@ -6,16 +6,15 @@
 import { compareInstants, currentPeriod, parseDate, workspaceDate } from './calendar'
 import type { BusinessState, ItemEvent, Operation } from '../shared/contracts/effects'
 import type { CalendarConfig, Item, PlanningPeriod } from '../shared/contracts/entities'
-import type { GuidanceRecord, GuidanceValue } from '../shared/contracts/assistance'
 import type { CountBreakdown, ExecutionEvidence, ExecutionFacts, Fact, FactQuality } from '../shared/contracts/execution'
 import { periodHorizons, type PeriodHorizon } from '../shared/contracts/values'
-import { indexExecutionHistory, ownedExecutionEffect, replayExecutionGuidance, type ExecutionHistory } from './execution-history'
+import { indexExecutionHistory, ownedExecutionEffect, type ExecutionHistory } from './execution-history'
 
 export interface ExecutionInput {
   item: Item; calendar: CalendarConfig; generation: string; sourceRevision: string
   events: ItemEvent[]; operations: Operation[]; periods: PlanningPeriod[]
   undo: { originalId: string; effectIndex: number; undoId: string; at: string; seq: number }[]
-  guidanceObservation?: { afterEventSeq: number; futureGap: boolean; state?: { value: GuidanceValue | null; identity: string | null } | undefined } | undefined; observationGap?: boolean; clockAnomaly?: boolean; guidance: GuidanceRecord | null; scanLimited: boolean; effectsLimited: boolean
+  observationGap?: boolean; clockAnomaly?: boolean; scanLimited: boolean; effectsLimited: boolean
 }
 const active = (state: Pick<BusinessState, 'status' | 'archivedAt' | 'deletedAt'>) => state.status === 'todo' && !state.archivedAt && !state.deletedAt
 const ms = (at: string) => Date.parse(at)
@@ -34,8 +33,7 @@ export function classifyExecutionEvent(event: ItemEvent, input: Pick<ExecutionIn
   const owned = ownedExecutionEffect(event, history)
   const marker = owned ? history.undo.get(`${event.operationId}:${owned.index}`) : null
   const undone = !!marker && compareInstants(marker.at, asOf) <= 0
-  let category: ExecutionEvidence['category'] = event.type === 'guidance_changed' ? 'guidance'
-    : ['status_changed', 'archived', 'unarchived', 'deleted', 'item_restored'].includes(event.type) ? 'state' : 'other'
+  let category: ExecutionEvidence['category'] = ['status_changed', 'archived', 'unarchived', 'deleted', 'item_restored'].includes(event.type) ? 'state' : 'other'
   let effective: boolean | null = owned ? !undone : operation && (event.undoOf || event.type === 'baseline') ? true : null
   if (event.before && !samePlace(event.before, event.after) && !event.undoOf) {
     category = 'placement_change'
@@ -131,12 +129,8 @@ export function prepareExecutionFacts(input: ExecutionInput, asOf: string, histo
       : fact<NonNullable<ExecutionFacts['currentEpisode']['value']>>(null, anomalous ? 'anomalous' : 'unknown', 'incomplete_episode')
   const deadline = historical ? fact<NonNullable<ExecutionFacts['deadlineNow']['value']>>(null, 'unknown', 'historical_deadline_unrecorded')
     : live && item.dueDate && item.dueDate < today ? fact({ overdueDays: parseDate(item.dueDate).until(parseDate(today), { largestUnit: 'days' }).days }) : fact<NonNullable<ExecutionFacts['deadlineNow']['value']>>(null)
-  const guidanceReplay = replayExecutionGuidance(input.guidanceObservation ? events.filter(event => event.seq > input.guidanceObservation!.afterEventSeq) : events, history, input.guidanceObservation?.state)
-  const guidanceKnown = !input.guidanceObservation || !input.guidanceObservation.futureGap && guidanceReplay.known && (!guidanceReplay.value || guidanceReplay.boundary !== null)
-  const windowQuality: FactQuality = !guidanceKnown || currentCountQuality !== 'complete' || anomalous ? anomalous ? 'anomalous' : 'unknown' : 'complete'
-  // A guidance confirmation suppresses the same source periods, rather than the six displayed examples.
-  const { boundary } = guidanceReplay
-  const projection = { calendar, period: period ?? null, live, episodeTotal: episode.total, windowQuality, boundary, historical, createdAt: item.createdAt,
+  const windowQuality: FactQuality = currentCountQuality !== 'complete' || anomalous ? anomalous ? 'anomalous' : 'unknown' : 'complete'
+  const projection = { calendar, period: period ?? null, live, episodeTotal: episode.total, windowQuality, historical, createdAt: item.createdAt,
     carries: carries.map(row => ({ seq: row.seq, horizon: row.horizon, at: row.evidence.at, fromPeriodId: row.evidence.fromPeriodId })) }
   const pressure = projectPressure(projection, asOf, current.horizon, deadline.value !== null)
   if (historical && !currentState) { pressure.level = fact(null, 'unknown', 'historical_state_missing'); reasons.push('historical_state_missing') }
@@ -158,11 +152,10 @@ export function prepareExecutionFacts(input: ExecutionInput, asOf: string, histo
 export interface ExecutionProjection {
   facts: ExecutionFacts; calendar: CalendarConfig; period: PlanningPeriod | null; live: boolean; historical: boolean
   createdAt: string; episodeTotal: number; windowQuality: FactQuality
-  boundary: { eventSeq: number; at: string } | null
   carries: { seq: number; horizon: PeriodHorizon; at: string; fromPeriodId: string | null }[]
 }
 function projectPressure(projection: Omit<ExecutionProjection, 'facts'>, asOf: string, horizon: ExecutionFacts['current']['horizon'], overdue: boolean): ExecutionFacts['pressure'] {
-  const { calendar, carries, boundary, windowQuality } = projection, timezone = calendar.timezone, today = workspaceDate(timezone, asOf)
+  const { calendar, carries, windowQuality } = projection, timezone = calendar.timezone, today = workspaceDate(timezone, asOf)
   function window(horizon: 'day' | 'week', start: string, end: string, threshold: number): ExecutionFacts['pressure']['windows']['day'] {
     if (windowQuality !== 'complete') return fact(null, windowQuality, 'incomplete_pressure')
     const selected = carries.filter(row => row.horizon === horizon && workspaceDate(timezone, row.at) >= start && workspaceDate(timezone, row.at) < end)
@@ -173,18 +166,13 @@ function projectPressure(projection: Omit<ExecutionProjection, 'facts'>, asOf: s
   const week = currentPeriod(calendar, 'week', asOf)
   const dayWindow = window('day', parseDate(today).subtract({ days: 13 }).toString(), parseDate(today).add({ days: 1 }).toString(), 3)
   const weekWindow = window('week', parseDate(week.startDate).subtract({ weeks: 7 }).toString(), week.endDate, 2)
-  const priorPeriods = new Set(carries.filter(row => boundary && row.seq <= boundary.eventSeq).map(row => row.fromPeriodId))
-  const hasNewSourcePeriod = !!boundary && carries.some(row => row.seq > boundary.eventSeq && !priorPeriods.has(row.fromPeriodId))
-  const reconfirmationSuppressed = !!boundary && !hasNewSourcePeriod
-  const suppression = windowQuality === 'complete' ? fact({ guidanceBoundary: boundary, hasNewSourcePeriod, reconfirmationSuppressed })
-    : fact<NonNullable<ExecutionFacts['pressure']['suppression']['value']>>(null, windowQuality, 'incomplete_guidance_boundary')
   let level: ExecutionFacts['pressure']['level']
   if (!projection.live) level = fact('normal')
   else if (overdue) level = fact('overdue')
   else if (horizon === 'later' || projection.period && ms(projection.period.startAt) > ms(asOf)) level = fact('normal')
   else if (windowQuality !== 'complete') level = fact(null, windowQuality, 'incomplete_pressure')
-  else level = fact((dayWindow.value?.thresholdMet || weekWindow.value?.thresholdMet) && !reconfirmationSuppressed ? 'reconfirm' : projection.episodeTotal ? 'carryover' : 'normal')
-  return { level, windows: { day: dayWindow, week: weekWindow }, suppression }
+  else level = fact((dayWindow.value?.thresholdMet || weekWindow.value?.thresholdMet) ? 'reconfirm' : projection.episodeTotal ? 'carryover' : 'normal')
+  return { level, windows: { day: dayWindow, week: weekWindow } }
 }
 /** Reproject time only: closed intervals stay frozen, and the open interval adds seconds once from the base. */
 export function projectExecutionFacts(projection: ExecutionProjection, asOf: string): ExecutionFacts {

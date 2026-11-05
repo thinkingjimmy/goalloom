@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Untrusted finite commands, entity/guidance schemas and explicit dependency/version guards.
+ * [INPUT]: Untrusted finite commands, entity schemas and explicit dependency/version guards.
  * [OUTPUT]: Guarded writes, token-bound sync decisions, atomic nested creation, opt-in creation/rollover placement, explicit insertion (including tail) and immutable receipts.
  * [POS]: Write contract accepting neither arbitrary effects nor model-generated commands.
  */
@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, statusSchema, styleSchema, themeSchema } from './entities'
 import { validationText } from '../i18n/validation'
 import { calendarModes, policyHorizons } from './values'
-import { assistanceGuardSchema, guidanceChangeSchema } from './assistance'
+import { assistanceGuardSchema } from './assistance'
 import { captureGuardSchema, creationSelectionSchema, smartCaptureSchema } from './capture'
 
 const envelope = { operationId: idSchema, generation: idSchema }
@@ -45,14 +45,9 @@ export const setupAnchorSchema = z.discriminatedUnion('kind', [
 export type SetupAnchor = z.infer<typeof setupAnchorSchema>
 export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('resolveSyncReview'), itemId: idSchema, token: z.string().regex(/^[a-f0-9]{64}$/), choice: z.enum(['current', 'local']) }),
-  z.strictObject({ ...envelope, ...target, type: z.literal('applyAssistance'), expectedGuidanceRevision: z.number().int().nonnegative(),
-    guidance: guidanceChangeSchema, guard: assistanceGuardSchema.optional(), contextId: z.uuid().optional(),
-    description: z.string().trim().min(1).max(16_000).optional(),
-    move: z.strictObject({ horizon: horizonSchema, startDate: dateSchema.nullable(), expectedPlacementVersion: z.number().int().positive(),
-      previewPeriodId: idSchema.nullable(), confirmedLater: z.boolean().default(false) }).optional(),
-  }).refine(value => value.guidance.kind !== 'keep' || value.move !== undefined || value.description !== undefined)
-    .refine(value => value.description === undefined || !!value.guard && !!value.contextId && value.guidance.kind === 'keep' && !value.move)
-    .refine(value => value.guidance.kind !== 'set' || value.guidance.value.authorship !== 'ai_assisted' || !!value.guard && !!value.contextId),
+  z.strictObject({ ...envelope, ...target, type: z.literal('applyAssistance'),
+    description: z.string().trim().min(1).max(16_000), guard: assistanceGuardSchema, contextId: z.uuid(),
+  }),
   z.strictObject({ ...envelope, type: z.literal('confirmSetup'), mode: z.enum(calendarModes), timezone: z.string().max(100), weekStart: z.number().int().min(1).max(7), anchor: setupAnchorSchema, confirmed: z.literal(true) }),
   z.strictObject({ ...envelope, type: z.literal('create'), title: z.string().trim().min(1).max(500), description: z.string().max(100_000).default(''), dueDate: dateSchema.nullable().default(null), horizon: horizonSchema, period: createPeriodTargetSchema.optional(), parentId: idSchema.nullable().default(null), expectedParentVersion: z.number().int().positive().nullable().default(null), flowColor: flowColorSchema.nullable().default(null), autoPlace: z.boolean().optional(), beforeId: idSchema.nullable().optional(), parentRefs: z.array(parentRefSchema.options[0]).max(500).optional(), smartCapture: smartCaptureSchema.optional(), nesting: creationNestingSchema.optional() }),
   z.strictObject({ ...envelope, type: z.literal('createPlan'), items: z.array(planItemSchema).min(1).max(planLimit), autoPlace: z.boolean().optional(), smartCapture: smartCaptureSchema.optional() }),
@@ -70,7 +65,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, ...target, type: z.literal('restoreItem'), deletionSource: idSchema.nullable().default(null) }),
   z.strictObject({ ...envelope, type: z.literal('unlink'), relationId: idSchema, expectedParentVersion: z.number().int().positive(), expectedChildVersion: z.number().int().positive(), autoPlace: z.boolean().optional() }),
   z.strictObject({ ...envelope, type: z.literal('undo'), originalOperationId: idSchema }),
-  z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: styleSchema.unwrap().optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => validationText().missingPreference }),
+  z.strictObject({ ...envelope, type: z.literal('preferences'), theme: themeSchema.optional(), style: styleSchema.optional(), checkStyle: z.enum(['outline', 'paper', 'tint']).optional() }).refine(command => command.theme || command.style || command.checkStyle, { error: () => validationText().missingPreference }),
   z.strictObject({ ...envelope, type: z.literal('arrangeBacklog'), horizon: horizonSchema, autoPlace: z.boolean().optional(), items: z.array(z.strictObject({ ...target, expectedPlacementVersion: z.number().int().positive() })).min(1).max(1000) }),
   z.strictObject({ ...envelope, type: z.literal('policy'), horizon: z.enum(policyHorizons), mode: z.enum(['auto', 'manual']), expectedVersion: z.number().int().positive() }),
   z.strictObject({ ...envelope, type: z.literal('confirmRollover'), confirmed: z.literal(true) }),

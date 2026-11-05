@@ -23,14 +23,18 @@ const key = 'goalloom.insight'
 export const defaultPrefs: InsightPrefs = { about: '', stepSize: 'hour', stepNotes: '', tone: 'direct', focus: ['gap', 'overload'] }
 const defaults: InsightSettings = { prefs: defaultPrefs, breakpoints: true, reviews: true, onboarded: false, reviewed: [], dismissed: [] }
 
+function validPrefs(prefs: InsightPrefs): boolean {
+  return !!prefs && typeof prefs.about === 'string' && prefs.about.length <= 1000 && typeof prefs.stepNotes === 'string' && prefs.stepNotes.length <= 500
+    && ['smallest', 'hour', 'halfDay'].includes(prefs.stepSize) && ['direct', 'gentle', 'questions'].includes(prefs.tone)
+    && Array.isArray(prefs.focus) && prefs.focus.length <= 4 && prefs.focus.every(value => ['gap', 'overload', 'skip', 'vague'].includes(value))
+}
 function load(): InsightSettings {
   try {
-    const raw = JSON.parse(localStorage.getItem(key) ?? 'null') as Partial<InsightSettings> | null
-    if (!raw || typeof raw !== 'object') return defaults
-    const prefs = { ...defaultPrefs, ...(raw.prefs ?? {}) }
-    return { ...defaults, ...raw, prefs,
-      reviewed: Array.isArray(raw.reviewed) ? raw.reviewed.filter(value => typeof value === 'string').slice(-24) : [],
-      dismissed: Array.isArray(raw.dismissed) ? raw.dismissed.filter(value => typeof value === 'string').slice(-24) : [] }
+    const value = JSON.parse(localStorage.getItem(key) ?? 'null') as InsightSettings | null
+    if (!value || !validPrefs(value.prefs) || typeof value.breakpoints !== 'boolean' || typeof value.reviews !== 'boolean' || typeof value.onboarded !== 'boolean'
+      || !Array.isArray(value.reviewed) || value.reviewed.length > 24 || !value.reviewed.every(row => typeof row === 'string')
+      || !Array.isArray(value.dismissed) || value.dismissed.length > 24 || !value.dismissed.every(row => typeof row === 'string')) return defaults
+    return value
   } catch { return defaults }
 }
 
@@ -54,7 +58,7 @@ export function updateInsight(change: (value: InsightSettings) => InsightSetting
 }
 
 export function applyInsightPrefs(prefs: InsightPrefs): void {
-  updateInsight(value => ({ ...value, prefs: { ...defaultPrefs, ...prefs, focus: Array.isArray(prefs.focus) ? prefs.focus : value.prefs.focus } }), false)
+  updateInsight(value => ({ ...value, prefs: { ...prefs, focus: [...prefs.focus] } }), false)
 }
 export function applyInsightBreakpoints(breakpoints: boolean): void {
   if (current.breakpoints !== breakpoints) updateInsight(value => ({ ...value, breakpoints }), false)

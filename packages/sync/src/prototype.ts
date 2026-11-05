@@ -46,7 +46,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function createOp(opId: string, id: string, title: string, afterId: string | null): SyncOp {
   return parseSyncOp({
-    v: 1, opId, deviceId: 'device-a', at,
+    v: 2, opId, deviceId: 'device-a', at,
     actions: [{ t: 'item.create', id, title, description: '', dueDate: null, horizon: 'later', periodKey: null, sortHint: { afterId, beforeId: null } }],
   })
 }
@@ -55,7 +55,7 @@ function remember(driver: SqlDriver, op: SyncOp): void {
   const payload = syncOpPayload(op)
   const order = Number(driver.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()?.n ?? 0) + 1
   driver.prepare(`INSERT INTO sync_ops (opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,createdAt,updatedAt)
-    VALUES (?,?,'local',1,?,?,?,?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, at, at)
+    VALUES (?,?,'local',2,?,?,?,?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, at, at)
 }
 
 function titles(driver: SqlDriver): string[] {
@@ -113,7 +113,7 @@ function reorder(open: () => ProtoBox): void {
     const first = createOp('22222222-2222-4222-8222-222222222222', itemA, 'A', null)
     const second = createOp('33333333-3333-4333-8333-333333333333', itemB, 'B', itemA)
     const place = parseSyncOp({
-      v: 1, opId: '44444444-4444-4444-8444-444444444444', deviceId: 'device-a', at,
+      v: 2, opId: '44444444-4444-4444-8444-444444444444', deviceId: 'device-a', at,
       actions: [{ t: 'item.place', id: itemB, horizon: 'later', periodKey: null, sortHint: { afterId: null, beforeId: itemA }, reason: 'arrange' }],
     })
     applySyncOp(a.driver, first, 'visible', a.host)
@@ -136,7 +136,7 @@ function conflictReject(open: () => ProtoBox): void {
     const created = createOp('55555555-5555-4555-8555-555555555555', itemA, 'kept', null)
     mergeRemoteOps(box.driver, [{ seq: 1, op: created }], box.host, at)
     const rejected = parseSyncOp({
-      v: 1, opId: '66666666-6666-4666-8666-666666666666', deviceId: 'device-b', at,
+      v: 2, opId: '66666666-6666-4666-8666-666666666666', deviceId: 'device-b', at,
       actions: [{ t: 'item.set', id: 'missing', fields: { title: 'nope' } }],
     })
     mergeRemoteOps(box.driver, [{ seq: 2, op: rejected }], box.host, at)
@@ -170,7 +170,7 @@ function crashRecovery(open: () => ProtoBox): void {
 
 function keyRotation(): void {
   const op = parseSyncOp({
-    v: 1, opId: '88888888-8888-4888-8888-888888888888', deviceId: 'device-a', at,
+    v: 2, opId: '88888888-8888-4888-8888-888888888888', deviceId: 'device-a', at,
     actions: [{ t: 'item.set', id: itemA, fields: { title: 'rotated' } }],
   })
   const payload = syncOpPayload(op)
@@ -232,7 +232,7 @@ function snapshotJoin(open: () => ProtoBox): void {
     assert(projectionHash(target.driver, 'base') === projectionHash(source.driver, 'base'), 'base hash matches after join')
     assert(Number(target.driver.prepare('SELECT lastAppliedSeq AS seq FROM sync_state WHERE id=1').get()?.seq) === 1, 'cursor resumes at uptoSeq')
     applySyncOp(paused.driver, created, 'visible', paused.host)
-    assert(throws(() => rejectUnknownFormat(paused.driver, 2, at)), 'unknown format pauses')
+    assert(throws(() => rejectUnknownFormat(paused.driver, 3, at)), 'unknown format pauses')
     assert(paused.driver.prepare('SELECT paused FROM sync_state').get()?.paused === 'unsupported_version', 'pause reason')
     assert(paused.driver.prepare('SELECT title FROM items WHERE id=?').get(itemA)?.title === 'snap', 'local row kept after pause')
     assert(throws(() => rejectMissingKey(paused.driver, false, at)), 'missing key pauses')

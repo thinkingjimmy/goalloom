@@ -26,7 +26,7 @@ export function readAssistanceContext(store: Store, execution: ExecutionQueries,
   const parents = store.summaries('i.deletedAt IS NULL AND i.id IN (SELECT value FROM json_each(?))', [JSON.stringify([...parentIds]), 4], order)
   const children = store.summaries("i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status='todo' AND i.id IN (SELECT value FROM json_each(?))", [JSON.stringify([...childIds]), 9], order)
   const siblings = store.summaries("i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status='todo' AND i.id IN (SELECT value FROM json_each(?))", [JSON.stringify([...siblingIds]), 9], order)
-  const map = (row: ItemSummary): AssistanceContext['parents'][number] => ({ id: row.id, title: row.title, status: row.status, archived: !!row.archivedAt, horizon: row.placement.horizon, periodId: row.placement.periodId, note: row.note?.excerpt ?? null, guidance: row.guidance?.nextAction ?? null })
+  const map = (row: ItemSummary): AssistanceContext['parents'][number] => ({ id: row.id, title: row.title, status: row.status, archived: !!row.archivedAt, horizon: row.placement.horizon, periodId: row.placement.periodId, note: row.note?.excerpt ?? null })
   // Reserve one of the 20 dependency slots for an outline container, even when it is hidden.
   const siblingLimit = item.placement.nestingParentId ? 7 : 8
   const limitedParents = parents.slice(0, 3), limitedChildren = children.slice(0, 8), limitedSiblings = siblings.slice(0, siblingLimit)
@@ -40,25 +40,17 @@ export function readAssistanceContext(store: Store, execution: ExecutionQueries,
     if (!dependencies.some(dependency => dependency.itemId === root.id)) dependencies.push({ itemId: root.id, version: root.version })
   }
   const context: AssistanceContext = {
-    item: { ...item, description: item.description.slice(0, 6000) }, guidance: store.guidance(item.id), period: item.placement.periodId ? store.period(item.placement.periodId) : null,
-    parents: limitedParents.map(map), children: limitedChildren.map(map), siblings: limitedSiblings.map(map), recentGuidance: [], facts,
-    guard: { today: workspaceDate(workspace.calendar.timezone, now), calendarId: workspace.calendar.id, sourceRevision: facts.sourceRevision, dependencies, guidanceRevision: store.guidance(item.id)?.revision ?? 0, parentRelationCount, parentRelationIds },
+    item: { ...item, description: item.description.slice(0, 6000) }, period: item.placement.periodId ? store.period(item.placement.periodId) : null,
+    parents: limitedParents.map(map), children: limitedChildren.map(map), siblings: limitedSiblings.map(map), facts,
+    guard: { today: workspaceDate(workspace.calendar.timezone, now), calendarId: workspace.calendar.id, sourceRevision: facts.sourceRevision, dependencies, parentRelationCount, parentRelationIds },
     truncatedSections: [], omitted: {},
   }
   for (const [name, count, limit] of [['parents', parentRelationCount, 3], ['children', childCount, 8], ['siblings', siblingCount, siblingLimit]] as const) {
     if (count > limit) { context.truncatedSections.push(name); context.omitted[name] = count - limit }
   }
   if (item.description.length > 6000) { context.truncatedSections.push('description'); context.omitted.description = item.description.length - 6000 }
-  const recent = store.prepare("SELECT operationId FROM item_events WHERE itemId=? AND type='guidance_changed' ORDER BY seq DESC LIMIT 3").all(item.id)
-  for (const row of recent) {
-    if (row.operationId === context.guidance?.operationId) continue
-    const operation = store.operation(String(row.operationId))
-    const value = operation?.effects.find(effect => effect.kind === 'guidance' && effect.itemId === item.id)
-    if (value?.kind === 'guidance' && value.after.value) context.recentGuidance.push(value.after.value)
-    if (context.recentGuidance.length === 2) break
-  }
-  // Reserve 2,000 code units for each explicit user turn. The task and current guidance have priority.
-  const groups = ['siblings', 'children', 'parents', 'recentGuidance'] as const
+  // Reserve space for explicit user input; task notes keep priority.
+  const groups = ['siblings', 'children', 'parents'] as const
   for (const group of groups) while (context[group].length && JSON.stringify(context).length > 12_000) {
     context[group].pop(); context.omitted[group] = (context.omitted[group] ?? 0) + 1
     if (!context.truncatedSections.includes(group)) context.truncatedSections.push(group)

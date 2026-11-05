@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 ../zh/import 的 importMessages 类型；导入完整性校验的参数化文案。
- * [OUTPUT]: importMessages：西班牙语的导入/恢复数据集完整性校验失败原因（含实体标签）。
- * [POS]: shared/i18n/catalogs/es 的导入校验分册，与 zh 同构，被 domain/import-validation 通过 serverText().import 读取。
+ * [INPUT]: Typed current-format import validation reasons.
+ * [OUTPUT]: Localized v15 dataset and receipt-integrity messages.
+ * [POS]: Shared server catalog used by authoritative import validation.
  */
 import type { importMessages as source } from '../zh/import'
 
@@ -61,7 +61,6 @@ export const importMessages: typeof source = {
   invalidCreateEffect: 'El estado o las dependencias iniciales de un efecto de creación no son válidos',
   invalidOrderNeighbors: 'Dependencias de orden huérfanas o duplicadas',
   relationEffectIdentityMismatch: 'La identidad del efecto de vínculo no coincide',
-  legacyPlan: 'Un conjunto de datos de una versión anterior no puede contener planes en lote',
   effectKindNotAllowed: 'El tipo de operación o de efecto no está permitido',
   operationSourceMismatch: 'El origen de la operación no coincide',
   inverseReferenceMismatch: 'La referencia de la operación inversa no coincide',

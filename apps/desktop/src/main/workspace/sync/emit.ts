@@ -25,7 +25,7 @@ export function captureSyncBefore(db: DatabaseSync, command: Command): Map<strin
 }
 
 export function emitSyncOp(db: DatabaseSync, input: { command: Command; effects: Effect[]; before: Map<string, BeforeItem>; at: string; changed: boolean }): void {
-  if (!input.changed || !db.prepare("SELECT 1 FROM sqlite_master WHERE name='sync_ops'").get()) return
+  if (!input.changed) return
   if (input.command.type === 'preferences' || input.command.type === 'backupPreferences') {
     emitPreferences(db, input.command, input.at)
     return
@@ -37,7 +37,7 @@ export function emitSyncOp(db: DatabaseSync, input: { command: Command; effects:
   }
   const actions = actionsFor(db, input)
   if (!actions.length) return
-  insertOp(db, { v: 1, opId: input.command.operationId, deviceId: deviceId(db), at: input.at, actions,
+  insertOp(db, { v: 2, opId: input.command.operationId, deviceId: deviceId(db), at: input.at, actions,
     ...(input.command.type === 'completeCreation' ? { creationOperationId: input.command.creationOperationId } : {}) })
 }
 
@@ -57,7 +57,7 @@ export function emitRolloverOp(db: DatabaseSync, input: { itemId: string; fromPe
   const opId = uuidv5(`rollover:${input.itemId}:${fromKey.horizon}:${fromKey.startDate}@${input.placementSeq}:${toKey.horizon}:${toKey.startDate}${intent}`, namespace)
   if (db.prepare('SELECT 1 FROM sync_ops WHERE opId=?').get(opId)) return
   insertOp(db, {
-    v: 1, opId, deviceId: 'system', at: String(to.startAt), basisSeq: input.placementSeq,
+    v: 2, opId, deviceId: 'system', at: String(to.startAt), basisSeq: input.placementSeq,
     actions: [{ t: 'item.rollover', id: input.itemId, from: { periodKey: fromKey, placementSeq: input.placementSeq }, to: toKey, position: 'append',
       ...(input.sortHint ? { sortHint: input.sortHint } : {}), ...(input.groupRootId ? { groupRootId: input.groupRootId } : {}) }],
   })
@@ -69,7 +69,7 @@ function emitUndo(db: DatabaseSync, originalId: string, undoId: string, at: stri
   if (original && ['create', 'createPlan'].includes(String(original.kind)) && (JSON.parse(String(original.result)).capture || completions.length)) {
     const effects = JSON.parse(String(original.effects)) as Effect[]
     const ids = completions.map(row => String(row.id))
-    insertOp(db, { v: 1, opId: undoId, deviceId: deviceId(db), at, actions: [...effects].reverse().flatMap(effect => effect.kind === 'create'
+    insertOp(db, { v: 2, opId: undoId, deviceId: deviceId(db), at, actions: [...effects].reverse().flatMap(effect => effect.kind === 'create'
       ? [{ t: 'item.undoCreate' as const, id: effect.itemId, creationOperationId: originalId, completionOperationIds: ids }] : []) })
     return
   }
@@ -82,7 +82,7 @@ function emitUndo(db: DatabaseSync, originalId: string, undoId: string, at: stri
     db.prepare(`UPDATE sync_ops SET state='reverted_local', updatedAt=? WHERE opId=? AND state='never_sent'`).run(at, originalId)
     return
   }
-  insertOp(db, { v: 1, opId: undoId, deviceId: deviceId(db), at, actions: [{ t: 'revert', targetOpId: originalId, mode: 'all_or_nothing' }] })
+  insertOp(db, { v: 2, opId: undoId, deviceId: deviceId(db), at, actions: [{ t: 'revert', targetOpId: originalId, mode: 'all_or_nothing' }] })
 }
 
 /** A system rollover receipt is not itself a SyncOp. Revert only the item.rollover rows whose effects this undo actually applied. */
@@ -111,7 +111,7 @@ function emitRolloverUndo(db: DatabaseSync, originalId: string, undoId: string, 
       } else if (state === 'send_unknown' || state === 'accepted' || state === 'applied') {
         const revertId = uuidv5(`revert:${opId}`, undoId)
         if (!db.prepare('SELECT 1 FROM sync_ops WHERE opId=?').get(revertId)) {
-          insertOp(db, { v: 1, opId: revertId, deviceId: deviceId(db), at, actions: [{ t: 'revert', targetOpId: opId, mode: 'all_or_nothing' }] })
+          insertOp(db, { v: 2, opId: revertId, deviceId: deviceId(db), at, actions: [{ t: 'revert', targetOpId: opId, mode: 'all_or_nothing' }] })
         }
       }
     }
@@ -179,9 +179,7 @@ function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect
         else if (!edge.before) actions.push({ t: 'rel.link', id: edge.after.id, parentId: edge.after.parentId, childId: edge.after.childId, ...(effect.flowColor ? { adoptParentFlow: true } : {}) })
       }
     }
-    if (effect.kind === 'guidance' && input.command.type === 'applyAssistance') {
-      actions.push({ t: 'guidance.set', itemId: effect.itemId, value: effect.after.value, baseRevision: input.command.expectedGuidanceRevision })
-    }
+
     if (effect.kind === 'relations' && effect.flowColor && input.command.type === 'flowColor') {
       actions.push({ t: 'item.set', id: effect.itemId, fields: { flowColor: null } })
     }
@@ -268,5 +266,5 @@ function insertOp(db: DatabaseSync, op: SyncOp): void {
   const payload = syncOpPayload({ ...op, basisSeq: op.basisSeq ?? Number(db.prepare('SELECT lastAppliedSeq FROM sync_state WHERE id=1').get()?.lastAppliedSeq ?? 0) })
   const order = Number(db.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()!.n) + 1
   db.prepare(`INSERT INTO sync_ops (opId, localOrder, origin, formatVersion, payload, payloadHash, deviceId, at, state, createdAt, updatedAt)
-    VALUES (?, ?, 'local', 1, ?, ?, ?, ?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, op.at, op.at)
+    VALUES (?, ?, 'local', 2, ?, ?, ?, ?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, op.at, op.at)
 }

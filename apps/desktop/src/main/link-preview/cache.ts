@@ -8,7 +8,7 @@ import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:
 import { join } from 'node:path'
 import type { LinkPreview } from '../../shared/contracts/link-preview'
 
-export interface CachedPreview { version: 1; fetchedAt: number; faviconCheckedAt?: number; preview: LinkPreview }
+export interface CachedPreview { version: 2; fetchedAt: number; faviconCheckedAt: number; preview: LinkPreview }
 const fileLimit = 1_850_000
 const diskLimit = 64 * 1024 * 1024
 const entryLimit = 128
@@ -17,13 +17,13 @@ function valid(value: unknown, url: string): value is CachedPreview {
   if (!value || typeof value !== 'object') return false
   const record = value as CachedPreview
   const preview = record.preview
-  return record.version === 1 && Number.isFinite(record.fetchedAt) && record.fetchedAt > 0
-    && (record.faviconCheckedAt === undefined || Number.isFinite(record.faviconCheckedAt) && record.faviconCheckedAt > 0)
+  return record.version === 2 && Number.isFinite(record.fetchedAt) && record.fetchedAt > 0
+    && (Number.isFinite(record.faviconCheckedAt) && record.faviconCheckedAt > 0)
     && !!preview && preview.url === url && preview.status === 'ready'
     && typeof preview.title === 'string' && preview.title.length > 0 && preview.title.length <= 1000
     && typeof preview.siteName === 'string' && preview.siteName.length <= 200
     && typeof preview.description === 'string' && preview.description.length <= 2000
-    && (preview.favicon == null || typeof preview.favicon === 'string' && preview.favicon.length <= 350_000 && /^data:image\/(?:png|jpeg|webp|x-icon);base64,[A-Za-z0-9+/]+=*$/.test(preview.favicon))
+    && (preview.favicon === null || typeof preview.favicon === 'string' && preview.favicon.length <= 350_000 && /^data:image\/(?:png|jpeg|webp|x-icon);base64,[A-Za-z0-9+/]+=*$/.test(preview.favicon))
     && (preview.image === null || typeof preview.image === 'string' && preview.image.length <= 1_400_000 && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(preview.image))
 }
 
@@ -31,14 +31,14 @@ export class PreviewCache {
   private writes: Promise<unknown> = Promise.resolve()
   constructor(private readonly directory: string) {}
 
-  private path(url: string): string { return join(this.directory, `${createHash('sha256').update(url).digest('hex')}.json`) }
+  private path(url: string): string { return join(this.directory, `v2-${createHash('sha256').update(url).digest('hex')}.json`) }
 
   async read(url: string): Promise<CachedPreview | null> {
     try {
       const path = this.path(url)
       if ((await stat(path)).size > fileLimit) return null
       const record: unknown = JSON.parse(await readFile(path, 'utf8'))
-      return valid(record, url) ? { ...record, preview: { ...record.preview, favicon: record.preview.favicon ?? null } } : null
+      return valid(record, url) ? record : null
     } catch { return null }
   }
 
@@ -68,7 +68,7 @@ export class PreviewCache {
   private async prune(): Promise<void> {
     const entries: { path: string; size: number; time: number }[] = []
     for (const name of await readdir(this.directory)) {
-      if (!/^[a-f0-9]{64}\.json$/.test(name)) continue
+      if (!/^v2-[a-f0-9]{64}\.json$/.test(name)) continue
       const path = join(this.directory, name)
       const info = await stat(path).catch(() => null)
       if (info?.isFile()) entries.push({ path, size: info.size, time: info.mtimeMs })

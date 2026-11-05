@@ -1,11 +1,10 @@
 /**
  * [INPUT]: Validated operation effects, period metadata, undo markers and ordered task events.
- * [OUTPUT]: Indexed event ownership and guidance replay from exact observed state; only real local events establish confirmation boundaries.
+ * [OUTPUT]: Indexed event ownership and effect-specific undo ownership.
  * [POS]: Shared execution-history primitives for current facts, historical facts and activity pages.
  */
 import type { BusinessState, Effect, ItemEvent, Operation } from '../shared/contracts/effects'
 import type { PlanningPeriod } from '../shared/contracts/entities'
-import type { GuidanceValue } from '../shared/contracts/assistance'
 import { matchesStatus } from './status'
 
 interface UndoMarker { originalId: string; effectIndex: number; undoId: string; at: string; seq: number }
@@ -36,7 +35,6 @@ export function ownedExecutionEffect(event: ItemEvent, history: ExecutionHistory
       case 'status': return event.type === 'status_changed' && !!a && matchesStatus(effect.before, a) && matchesStatus(effect.after, b)
       case 'archive': return ['archived', 'unarchived'].includes(event.type) && a?.archivedAt === effect.before && b.archivedAt === effect.after
       case 'visibility': return ['deleted', 'item_restored'].includes(event.type) && a?.deletedAt === effect.before.deletedAt && a?.deletedBy === effect.before.deletedBy && b.deletedAt === effect.after.deletedAt && b.deletedBy === effect.after.deletedBy
-      case 'guidance': return event.type === 'guidance_changed'
       case 'description': return event.type === 'description_changed'
       case 'nesting': return event.type === 'nesting_changed'
       case 'groupPlacement':
@@ -44,26 +42,4 @@ export function ownedExecutionEffect(event: ItemEvent, history: ExecutionHistory
       case 'relations': return false
     }
   })
-}
-
-export function replayExecutionGuidance(events: ItemEvent[], history: ExecutionHistory, observed?: { value: GuidanceValue | null; identity: string | null }): {
-  value: GuidanceValue | null; known: boolean; boundary: { eventSeq: number; at: string } | null
-} {
-  let value: GuidanceValue | null = observed?.value ?? null, identity: string | null = observed?.identity ?? null
-  let known = observed !== undefined || events[0]?.type === 'created'
-  const confirmations = new Map<string, ItemEvent>()
-  for (const event of events) {
-    const guidanceUndo = event.type === 'undo' && !!event.before && samePlace(event.before, event.after)
-    if (event.type !== 'guidance_changed' && !guidanceUndo) continue
-    const effect = history.effects.get(event.undoOf ?? event.operationId)?.get(event.itemId)?.find(row => row.effect.kind === 'guidance')?.effect
-    if (effect?.kind !== 'guidance') {
-      if (event.type === 'guidance_changed' || !history.operations.has(event.undoOf ?? event.operationId)) { value = null; identity = null; known = false }
-      continue
-    }
-    const state = guidanceUndo ? effect.before : effect.after
-    value = state.value; identity = state.operationId; known = true
-    if (!guidanceUndo) confirmations.set(effect.after.operationId, event)
-  }
-  const confirmation = value && identity ? confirmations.get(identity) : null
-  return { value, known, boundary: confirmation ? { eventSeq: confirmation.seq, at: confirmation.at } : null }
 }

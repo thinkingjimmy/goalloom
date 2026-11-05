@@ -1,11 +1,11 @@
 /**
  * [INPUT]: base_* rows, or a captured visible board.
- * [OUTPUT]: Legacy board replay SyncOps with sibling-ordered nesting and shared canonical-base clearing for exact seed and pending task-review counts. Recovery binds atomically with its baseline; failure rolls back and pauses sync.
- * [POS]: Upgrade path for data that predates sync. Pending ops keep their order. First-join import can preserve item identities and the source calendar. Kept edges are not re-checked as new links.
+ * [OUTPUT]: Current board replay SyncOps with preserved lifecycle state/tombstone times, sibling-ordered nesting and shared canonical-base clearing.
+ * [POS]: Current offline/restore baseline preparation. Pending ops keep their order; first join preserves identities and the source calendar. Kept edges are not re-checked as new links.
  */
 import { parseSyncOp, syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
-import { applySyncOp, clearSyncSettings, pendingConflicts, rebuildVisibleFull, resetSeedState, settingsBaselineOp, type ApplyHost, type SqlDriver, type SqlValue } from '@goalloom/store-core'
+import { applySyncOp, clearSyncSettings, pendingConflicts, rebuildVisibleFull, resetSeedState, settingsBaselineOp, type ApplyHost, type SqlDriver } from '@goalloom/store-core'
 import { SyncFailure } from './failure'
 
 export interface BoardItem {
@@ -31,7 +31,6 @@ export interface LocalBoard {
   policies: { horizon: 'year' | 'half' | 'cycle' | 'month' | 'week' | 'day'; mode: 'auto' | 'manual'; startDate: string }[]
   items: BoardItem[]
   edges: { id: string; parentId: string; childId: string }[]
-  guidance: { itemId: string; value: unknown }[]
 }
 
 function id(): string {
@@ -43,7 +42,7 @@ function chunk(actions: Action[], deviceId: string, at: string): SyncOp[] {
   for (let index = 0; index < actions.length; index += 200) {
     const slice = actions.slice(index, index + 200)
     if (!slice.length) continue
-    ops.push(parseSyncOp({ v: 1, opId: id(), deviceId, at, actions: slice }))
+    ops.push(parseSyncOp({ v: 2, opId: id(), deviceId, at, actions: slice }))
   }
   return ops
 }
@@ -92,11 +91,11 @@ export function actionsForBoard(board: LocalBoard, scope: 'baseline' | 'import')
   }
   actions.push(...creates(board.items))
   for (const item of board.items) {
-    if (item.deletedAt || item.status === 'todo') continue
+    if (item.status === 'todo') continue
     actions.push({ t: 'item.status', id: item.id, status: item.status, completedAt: item.completedAt, cancelledAt: item.cancelledAt })
   }
   for (const item of board.items) {
-    if (item.deletedAt || !item.archivedAt) continue
+    if (!item.archivedAt) continue
     actions.push({ t: 'item.archive', id: item.id, archivedAt: item.archivedAt })
   }
   for (const item of [...board.items].sort((left, right) => left.sortKey - right.sortKey || left.id.localeCompare(right.id))) {
@@ -113,14 +112,8 @@ export function actionsForBoard(board: LocalBoard, scope: 'baseline' | 'import')
     if (!child || child.deletedAt || child.nestingParentId || !live.has(edge.parentId)) continue
     actions.push({ t: 'rel.link', id: edge.id, parentId: edge.parentId, childId: edge.childId, retain: true })
   }
-  for (const note of board.guidance) {
-    if (!live.has(note.itemId) || note.value === null) continue
-    actions.push({ t: 'guidance.set', itemId: note.itemId, value: note.value as never, baseRevision: 0 })
-  }
-  for (const item of board.items) {
-    if (!item.deletedAt) continue
-    actions.push({ t: 'item.delete', id: item.id })
-  }
+
+  for (const item of board.items) if (item.deletedAt) actions.push({ t: 'item.delete', id: item.id })
   return actions
 }
 
@@ -128,8 +121,14 @@ export function opsForBoard(board: LocalBoard, deviceId: string, at: string, sco
   const actions = actionsForBoard(board, scope)
   const calendar = actions.filter(action => action.t === 'calendar.setup')
   const policies = actions.filter(action => action.t === 'policy.set')
-  const rest = actions.filter(action => action.t !== 'calendar.setup' && action.t !== 'policy.set')
-  return [...chunk(calendar, deviceId, at), ...chunk(policies, deviceId, at), ...chunk(rest, deviceId, at)]
+  const rest = actions.filter(action => action.t !== 'calendar.setup' && action.t !== 'policy.set' && action.t !== 'item.delete')
+  const deleted = new Map<string, Action[]>()
+  for (const item of board.items) if (item.deletedAt) {
+    const group = deleted.get(item.deletedAt) ?? []
+    group.push({ t: 'item.delete', id: item.id }); deleted.set(item.deletedAt, group)
+  }
+  return [...chunk(calendar, deviceId, at), ...chunk(policies, deviceId, at), ...chunk(rest, deviceId, at),
+    ...[...deleted].flatMap(([deletedAt, group]) => chunk(group, deviceId, deletedAt))]
 }
 
 function text(value: unknown): string | null {
@@ -166,11 +165,7 @@ function readBoard(driver: SqlDriver, prefix: '' | 'base_'): LocalBoard {
   const edges = driver.prepare(`SELECT id, parentId, childId FROM ${prefix}item_relations WHERE invalidatedAt IS NULL`).all().map(row => ({
     id: String(row.id), parentId: String(row.parentId), childId: String(row.childId),
   }))
-  const guidance = driver.prepare(`SELECT itemId, value FROM ${prefix}item_guidance WHERE value IS NOT NULL`).all().flatMap(row => {
-    try { return [{ itemId: String(row.itemId), value: JSON.parse(String(row.value)) }] }
-    catch { return [] }
-  })
-  return { calendar, setupConfirmedAt, policies, items, edges, guidance }
+  return { calendar, setupConfirmedAt, policies, items, edges }
 }
 
 export function captureVisibleBoard(driver: SqlDriver): LocalBoard {
@@ -184,11 +179,11 @@ export function localLiveCount(driver: SqlDriver): number {
 function insertOp(driver: SqlDriver, op: SyncOp, at: string, order: number): void {
   const payload = syncOpPayload(op)
   driver.prepare(`INSERT INTO sync_ops (opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,createdAt,updatedAt)
-    VALUES (?,?,'local',1,?,?,?,?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, at, at)
+    VALUES (?,?,'local',2,?,?,?,?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, at, at)
 }
 
 export function clearBase(driver: SqlDriver): void {
-  driver.exec(`DELETE FROM base_item_guidance; DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies;
+  driver.exec(`DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies;
     DELETE FROM base_items; DELETE FROM base_planning_periods;`)
   driver.prepare('UPDATE base_workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
 }
@@ -247,55 +242,6 @@ function assertBaselineKept(before: LocalBoard, driver: SqlDriver): void {
   if (before.items.some(item => !item.deletedAt) && localLiveCount(driver) === 0) throw new SyncFailure('storage', 'baseline items')
 }
 
-/** Restores a board whose baseline calendar op was rejected and left setup unconfirmed. Payloads stay the source; onboarding is not required. A board that is already confirmed only drops the stale conflict rows. */
-export function repairRejectedBaseline(driver: SqlDriver, host: ApplyHost): boolean {
-  const confirmed = Boolean(driver.prepare('SELECT setupConfirmedAt FROM workspace WHERE id=1').get()?.setupConfirmedAt)
-  const rows = driver.prepare(`SELECT opId, localOrder, payload, at, deviceId, outcome, seq FROM sync_ops WHERE origin='local' ORDER BY localOrder`).all()
-  const head = rows.find(row => String(row.outcome ?? '') === 'rejected' && firstAction(row.payload) === 'calendar.setup')
-  if (!head) return false
-  if (confirmed) {
-    if (!baselineConflict(driver, head)) return false
-    driver.transaction(() => clearStaleBaselineConflicts(driver, head))
-    return false
-  }
-  const batch = rows.filter(row => String(row.at) === String(head.at) && String(row.deviceId) === String(head.deviceId))
-  return driver.transaction(() => {
-    for (const row of batch) applySyncOp(driver, JSON.parse(String(row.payload)), 'base', host)
-    rebuildVisibleFull(driver, host)
-    const restored = readBoard(driver, '')
-    if (!restored.calendar || !restored.setupConfirmedAt) throw new SyncFailure('storage', 'baseline repair')
-    clearStaleBaselineConflicts(driver, head)
-    return true
-  })
-}
-
-function baselineConflict(driver: SqlDriver, head: Record<string, SqlValue>): boolean {
-  return Boolean(driver.prepare(`SELECT 1 AS n FROM sync_conflicts c JOIN sync_ops o ON o.opId=c.opId
-    WHERE o.origin='local' AND o.outcome='rejected' AND o.at=? AND o.deviceId=?`).get(String(head.at), String(head.deviceId)))
-}
-
-/** Drops the rejected baseline and the rollover rejections that happened before any later op applied. */
-function clearStaleBaselineConflicts(driver: SqlDriver, head: Record<string, SqlValue>): void {
-  driver.prepare(`DELETE FROM sync_conflicts WHERE opId IN (
-    SELECT opId FROM sync_ops WHERE origin='local' AND outcome='rejected' AND at=? AND deviceId=?
-  )`).run(String(head.at), String(head.deviceId))
-  if (head.seq === null || head.seq === undefined) return
-  const seq = Number(head.seq)
-  driver.prepare(`DELETE FROM sync_conflicts WHERE opId IN (
-    SELECT opId FROM sync_ops WHERE origin='local' AND outcome='rejected'
-      AND errorCode='item_deleted' AND json_extract(payload,'$.actions[0].t')='item.rollover'
-      AND seq IS NOT NULL AND seq>?
-      AND NOT EXISTS (SELECT 1 FROM sync_ops later WHERE later.outcome='applied' AND later.seq>? AND later.seq<sync_ops.seq)
-  )`).run(seq, seq)
-}
-
-function firstAction(payload: unknown): string | null {
-  try {
-    const action = JSON.parse(String(payload))?.actions?.[0]
-    return action && typeof action.t === 'string' ? action.t : null
-  } catch { return null }
-}
-
 function placedBoard(host: ApplyHost, board: LocalBoard, at: string): LocalBoard {
   if (!board.calendar || !host.alignImportedPeriod) return board
   const local = JSON.stringify(board.calendar)
@@ -316,7 +262,7 @@ export function applyImportedBoard(driver: SqlDriver, host: ApplyHost, board: Lo
   const selected = source.items.filter(item => (options?.adoptCalendar || !item.deletedAt) && !known.has(item.id))
   const imported: LocalBoard = {
     calendar: options?.adoptCalendar ? source.calendar : null, setupConfirmedAt: options?.adoptCalendar ? source.setupConfirmedAt : null,
-    policies: options?.adoptCalendar ? source.policies : [], guidance: source.guidance, edges: [], items: [],
+    policies: options?.adoptCalendar ? source.policies : [], edges: [], items: [],
   }
   const map = new Map<string, string>()
   for (const item of selected) map.set(item.id, options?.preserveIds ? item.id : id())
@@ -331,7 +277,6 @@ export function applyImportedBoard(driver: SqlDriver, host: ApplyHost, board: Lo
     const childId = map.get(edge.childId)
     return parentId && childId ? [{ id: id(), parentId, childId }] : []
   })
-  imported.guidance = source.guidance.flatMap(note => map.has(note.itemId) ? [{ itemId: map.get(note.itemId)!, value: note.value }] : [])
   const ops = opsForBoard(imported, deviceId, at, options?.adoptCalendar ? 'baseline' : 'import')
     .map(op => imported.calendar ? { ...op, importedCalendar: imported.calendar } : op)
   if (!ops.length) return 0
@@ -349,8 +294,8 @@ export function stageImportedBoard(driver: SqlDriver, host: ApplyHost, board: Lo
 }
 
 export function clearProjection(driver: SqlDriver, binding: { workspaceId: string; deviceId: string; keyEpoch: number }, at: string): void {
-  driver.exec(`DELETE FROM item_guidance; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM items; DELETE FROM planning_periods;
-    DELETE FROM base_item_guidance; DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies; DELETE FROM base_items; DELETE FROM base_planning_periods;
+  driver.exec(`DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM items; DELETE FROM planning_periods;
+    DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies; DELETE FROM base_items; DELETE FROM base_planning_periods;
     DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops;`)
   clearSyncSettings(driver)
   resetSeedState(driver)

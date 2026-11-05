@@ -177,7 +177,7 @@ export class Repository {
   }
   detail(itemId: string): ItemDetail {
     const item = this.store.item(itemId)
-    return { item, period: item.placement.periodId ? this.store.period(item.placement.periodId) : null, relations: this.relationViews(itemId), nestingParent: item.placement.nestingParentId ? this.store.nestingParents([{ ...item, note: null }])[0] ?? null : null, hasNestingChildren: this.store.hasNestedChildren(itemId), guidance: this.store.guidance(itemId),
+    return { item, period: item.placement.periodId ? this.store.period(item.placement.periodId) : null, relations: this.relationViews(itemId), nestingParent: item.placement.nestingParentId ? this.store.nestingParents([{ ...item, note: null }])[0] ?? null : null, hasNestingChildren: this.store.hasNestedChildren(itemId),
       assistedNotes: !!this.db.prepare("SELECT 1 FROM item_events e WHERE e.itemId=? AND e.type='description_changed' AND NOT EXISTS (SELECT 1 FROM undo_effects u WHERE u.originalId=e.operationId) LIMIT 1").get(itemId) }
   }
   list(query: Extract<Query, { type: 'list' }>): ItemPage {

@@ -107,7 +107,7 @@ function prepare(db: DatabaseSync, group: PendingConflict, at: string): { review
   if (actions.length <= 500) {
     db.exec('SAVEPOINT sync_review_preview')
     try {
-      applySyncOp(nodeSqlDriver(db), { v: 1, opId: '00000000-0000-4000-8000-000000000001', deviceId: 'preview', at, actions }, 'visible', syncHost(db))
+      applySyncOp(nodeSqlDriver(db), { v: 2, opId: '00000000-0000-4000-8000-000000000001', deviceId: 'preview', at, actions }, 'visible', syncHost(db))
       local = snapshot(store, group.itemId); canUseLocal = true
     } catch (error) { if (!businessCode(error)) throw error }
     finally { db.exec('ROLLBACK TO sync_review_preview; RELEASE sync_review_preview') }
@@ -133,7 +133,7 @@ export function resolveSyncReview(context: Context, command: CommandOf<'resolveS
   if (command.choice === 'local') {
     const before = prepared.review.current.missing ? null : context.store.item(command.itemId)
     const deviceId = String(db.prepare('SELECT deviceId FROM sync_state WHERE id=1').get()?.deviceId ?? 'local')
-    const op: SyncOp = { v: 1, opId: command.operationId, deviceId, at: context.now,
+    const op: SyncOp = { v: 2, opId: command.operationId, deviceId, at: context.now,
       basisSeq: Number(db.prepare('SELECT lastAppliedSeq FROM sync_state WHERE id=1').get()?.lastAppliedSeq ?? 0), actions: prepared.actions }
     const result = applySyncOp(driver, op, 'visible', syncHost(db))
     changed = result.changes.length > 0
@@ -141,7 +141,7 @@ export function resolveSyncReview(context: Context, command: CommandOf<'resolveS
       const payload = syncOpPayload(op), payloadHash = createHash('sha256').update(payload).digest('hex')
       const order = Number(db.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()!.n) + 1
       db.prepare(`INSERT INTO sync_ops (opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,createdAt,updatedAt)
-        VALUES (?,?,'local',1,?,?,?,?,'never_sent',?,?)`).run(op.opId, order, payload, payloadHash, op.deviceId, op.at, op.at, op.at)
+        VALUES (?,?,'local',2,?,?,?,?,'never_sent',?,?)`).run(op.opId, order, payload, payloadHash, op.deviceId, op.at, op.at, op.at)
       context.store.event(command.operationId, context.now, !before ? 'created' : before.deletedAt ? 'item_restored' : 'sync_resolved', before, context.store.item(command.itemId))
     }
   }

@@ -78,7 +78,7 @@ export function installJoined(driver: SqlDriver, host: ApplyHost, input: {
         applySyncOp(driver, op, 'visible', host)
         const payload = syncOpPayload(op)
         driver.prepare(`INSERT INTO sync_ops (opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,createdAt,updatedAt)
-          VALUES (?,?,'local',1,?,?,?,?,'never_sent',?,?)`).run(op.opId, index + 1, payload, sha256Hex(payload), op.deviceId, op.at, input.at, input.at)
+          VALUES (?,?,'local',2,?,?,?,?,'never_sent',?,?)`).run(op.opId, index + 1, payload, sha256Hex(payload), op.deviceId, op.at, input.at, input.at)
       }
     } else if (captured) applyImportedBoard(driver, host, captured, input.binding.deviceId, input.at, { preserveIds: true, adoptCalendar })
     return 'installed'

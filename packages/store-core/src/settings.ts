@@ -1,18 +1,14 @@
 /**
  * [INPUT]: A validated pref.set and the sync_settings side table.
  * [OUTPUT]: Last-writer-wins comparison/rows, workspace-column projection and one local SyncOp.
- * [POS]: Settings log beside the board. v8 business tables are not altered. An API key is stored as a sha256 fingerprint. The key stays outside SQLite; desktop keeps any unknown-send retry payload in an OS-protected journal.
+ * [POS]: Settings log beside the board. Business history stays independent. An API key is stored as a sha256 fingerprint. The key stays outside SQLite; desktop keeps any unknown-send retry payload in a scope-key-protected journal.
  */
 import { canonicalJson, isSecretSettingKey, parseSetting, parseSyncOp, syncOpPayload, type SettingKey, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
 import type { SqlDriver } from './driver'
-import { persistedSecret, redactSyncOp } from './secrets'
+import { persistedSecret } from './secrets'
 
 export interface SettingRow { key: string; value: unknown; updatedAt: string; opId: string }
-
-export function syncSettingsReady(driver: SqlDriver): boolean {
-  return Boolean(driver.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_settings'").get())
-}
 
 export function isLaterSetting(at: string, opId: string, storedAt: string, storedOpId: string): boolean {
   const incoming = Date.parse(at)
@@ -38,7 +34,6 @@ export function writeSetting(driver: SqlDriver, key: SettingKey, value: unknown,
 }
 
 export function readSettings(driver: SqlDriver): SettingRow[] {
-  if (!syncSettingsReady(driver)) return []
   return driver.prepare('SELECT key, value, updatedAt, opId FROM sync_settings ORDER BY key').all().map(row => ({
     key: String(row.key),
     value: row.value === null || row.value === undefined ? null : JSON.parse(String(row.value)) as unknown,
@@ -48,14 +43,13 @@ export function readSettings(driver: SqlDriver): SettingRow[] {
 }
 
 export function clearSyncSettings(driver: SqlDriver): void {
-  if (syncSettingsReady(driver)) driver.exec('DELETE FROM sync_settings')
+  driver.exec('DELETE FROM sync_settings')
 }
 
 const workspaceColumns = { theme: 'theme', style: 'style', checkStyle: 'checkStyle' } as const
 
 /** Copies winning workspace preferences onto the visible workspace row. Other device-local columns stay put. */
 export function projectWorkspaceSettings(driver: SqlDriver): boolean {
-  if (!syncSettingsReady(driver)) return false
   let changed = false
   for (const [key, column] of Object.entries(workspaceColumns) as [('theme' | 'style' | 'checkStyle'), string][]) {
     const row = driver.prepare('SELECT value FROM sync_settings WHERE key=?').get(key)
@@ -107,7 +101,6 @@ export function enqueueSettings(driver: SqlDriver, input: {
   onlyAbsent?: boolean
   force?: boolean
 }): SyncOp | null {
-  if (!syncSettingsReady(driver)) return null
   const actions: { t: 'pref.set'; key: SettingKey; value: unknown }[] = []
   for (const entry of input.entries) {
     const setting = parseSetting(entry.key, entry.value)
@@ -120,50 +113,13 @@ export function enqueueSettings(driver: SqlDriver, input: {
     actions.push({ t: 'pref.set', key: setting.key, value: durable })
   }
   if (!actions.length) return null
-  const op = parseSyncOp({ v: 1, opId: input.opId, deviceId: input.deviceId, at: input.at, actions })
+  const op = parseSyncOp({ v: 2, opId: input.opId, deviceId: input.deviceId, at: input.at, actions })
   const payload = syncOpPayload(op)
   const order = Number(driver.prepare('SELECT COALESCE(MAX(localOrder),0) AS n FROM sync_ops').get()?.n ?? 0) + 1
   driver.prepare(`INSERT INTO sync_ops (opId, localOrder, origin, formatVersion, payload, payloadHash, deviceId, at, state, createdAt, updatedAt)
-    VALUES (?, ?, 'local', 1, ?, ?, ?, ?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, op.at, op.at)
+    VALUES (?, ?, 'local', 2, ?, ?, ?, ?, 'never_sent', ?, ?)`).run(op.opId, order, payload, sha256Hex(payload), op.deviceId, op.at, op.at, op.at)
   for (const action of actions) writeSetting(driver, action.key, action.value, op.at, op.opId)
   return op
-}
-
-/**
- * Replaces API-key plaintext left by an older build with fingerprints, then VACUUMs so the file bytes do not keep the key.
- * Returns true when a row changed. A database that already stores fingerprints is left alone.
- */
-export function scrubSecretMaterial(driver: SqlDriver): boolean {
-  if (!syncSettingsReady(driver)) return false
-  const opsReady = Boolean(driver.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_ops'").get())
-  let changed = false
-  driver.exec('PRAGMA secure_delete = ON')
-  try {
-    for (const row of driver.prepare(`SELECT key, value FROM sync_settings WHERE key IN ('ai.key.openrouter', 'ai.key.vercel-gateway')`).all()) {
-      if (row.value === null || row.value === undefined) continue
-      let parsed: unknown
-      try { parsed = JSON.parse(String(row.value)) } catch { continue }
-      const durable = persistedSecret(parsed)
-      if (durable === parsed) continue
-      driver.prepare('UPDATE sync_settings SET value=? WHERE key=?').run(encoded(durable), String(row.key))
-      changed = true
-    }
-    if (opsReady) {
-      for (const row of driver.prepare(`SELECT opId, payload FROM sync_ops WHERE instr(payload, '"ai.key.') > 0`).all()) {
-        let op: SyncOp
-        try { op = parseSyncOp(JSON.parse(String(row.payload))) } catch { continue }
-        const redacted = redactSyncOp(op)
-        const payload = syncOpPayload(redacted)
-        if (payload === String(row.payload)) continue
-        driver.prepare('UPDATE sync_ops SET payload=?, payloadHash=? WHERE opId=?').run(payload, sha256Hex(payload), String(row.opId))
-        changed = true
-      }
-    }
-    if (changed) driver.exec('VACUUM')
-  } finally {
-    driver.exec('PRAGMA secure_delete = OFF')
-  }
-  return changed
 }
 
 /** One op that re-uploads the current settings after the op log is replaced. */

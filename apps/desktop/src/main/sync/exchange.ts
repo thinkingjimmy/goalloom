@@ -74,7 +74,7 @@ export async function exchangeTurn(input: {
   const head: SyncHead = await input.remote.getSyncStatus(binding.workspaceId, binding.deviceId)
   input.check()
   if (head.generation !== binding.generation || head.headSeq < view.lastAppliedSeq) throw new SyncFailure('mismatch')
-  if (head.minProtocolRead > 1 || head.minProtocolWrite > 1) throw new SyncFailure('version')
+  if (head.minProtocolRead !== 2 || head.minProtocolWrite !== 2) throw new SyncFailure('version')
   if (view.lastAppliedSeq < head.minRetainedSeq) throw new SyncFailure('version', 'missing operations')
   if (state.verifyRoster || head.rosterVersion !== binding.rosterVersion || head.keyEpoch !== binding.epoch) {
     await input.followRoster(); input.check(); binding = input.binding()

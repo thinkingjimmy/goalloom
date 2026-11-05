@@ -4,7 +4,6 @@
  * [POS]: Storage-worker adapter; scoped writes reject replaced workspaces.
  */
 import type { DatabaseSync } from 'node:sqlite'
-import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 import type { RemoteEnvelope } from '@goalloom/store-core'
@@ -20,7 +19,7 @@ import { syncHost } from '../../sync/host'
 import { DomainError } from '../../../shared/contracts/commands'
 import { BackupManager } from '../../storage/backup/manager'
 import { Store } from '../../storage/store'
-import { withGuidanceCheckpoint } from './provenance'
+import { withProjectionObservation } from './provenance'
 import { readSyncReviews } from './review'
 
 const binding = z.strictObject({ workspaceId: z.uuid(), deviceId: z.uuid(), keyEpoch: z.number().int().positive() })
@@ -39,7 +38,6 @@ const command = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('seed-finished'), expectedBinding: bindingIdentitySchema, receipt: initializationReceiptSchema }),
   z.strictObject({ type: z.literal('retired-summary') }),
   z.strictObject({ type: z.literal('view') }),
-  z.strictObject({ type: z.literal('production-transition'), at: z.string() }),
   z.strictObject({ type: z.literal('reviews'), generation: z.uuid(), at: z.string() }),
   z.strictObject({ type: z.literal('capture') }),
   z.strictObject({ type: z.literal('bind'), binding, at: z.string() }),
@@ -120,19 +118,6 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
   const limitPending = <T extends { localOrder: number }>(rows: T[]) => finalOrder === null ? rows : rows.filter(row => row.localOrder <= finalOrder)
   if (action.type === 'mark' && finalOrder !== null && action.ids.some(id => Number(db.prepare('SELECT localOrder FROM sync_ops WHERE opId=?').get(id)?.localOrder ?? Infinity) > finalOrder)) throw new DomainError('conflict', 'initialization pending')
 
-  if (action.type === 'production-transition') {
-    const unknownSends = Number(db.prepare("SELECT count(*) AS n FROM sync_ops WHERE state='send_unknown'").get()?.n ?? 0)
-    const bound = db.prepare('SELECT workspaceId FROM sync_state WHERE id=1').get()?.workspaceId
-    const sent = db.prepare("SELECT 1 FROM sync_ops WHERE state NOT IN ('never_sent','reverted_local') LIMIT 1").get()
-    if (!bound && !sent) return { unknownSends: 0, oldReceiptsNotReconciled: false, baselineRebuilt: false }
-    const deviceId = randomUUID()
-    driver.transaction(() => {
-      const nested = { ...driver, transaction: <T>(work: () => T): T => work() }
-      queueVisibleBaseline(nested, host, deviceId, action.at)
-      db.prepare('UPDATE sync_state SET workspaceId=NULL, deviceId=NULL, keyEpoch=NULL WHERE id=1').run()
-    })
-    return { unknownSends, oldReceiptsNotReconciled: unknownSends > 0, baselineRebuilt: true }
-  }
   if ('scope' in action && action.scope) {
     const current = db.prepare('SELECT s.workspaceId, w.generation FROM sync_state s CROSS JOIN workspace w WHERE s.id=1 AND w.id=1').get()
     if (current?.workspaceId !== action.scope.workspaceId || current?.generation !== action.scope.generation) throw new DomainError('invalid', 'sync generation')
@@ -175,7 +160,7 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
   }
   if (action.type === 'take') { if (finalOrder !== null) throw new DomainError('conflict', 'use guarded seed selection'); return takePending(driver, action.at, action.attemptId) }
   if (action.type === 'accept') {
-    return withGuidanceCheckpoint(db, { binding: currentBinding, cause: 'receipt', at: action.at }, nested => acceptPushResults(nested, action.pending as PendingPlain[], action.results.map(result => {
+    return withProjectionObservation(db, { binding: currentBinding, cause: 'receipt', at: action.at }, nested => acceptPushResults(nested, action.pending as PendingPlain[], action.results.map(result => {
       const wire: PushResultWire = { opId: result.opId }
       if (result.seq !== undefined) wire.seq = result.seq
       if (result.duplicate !== undefined) wire.duplicate = result.duplicate
@@ -183,13 +168,13 @@ export async function runSyncLocal(db: DatabaseSync, argument: unknown, hooks?: 
       return wire
     }), action.at))
   }
-  if (action.type === 'absorb') return withGuidanceCheckpoint(db, { binding: currentBinding, cause: 'absorb', at: action.at }, nested => absorbOpened(nested, host, action.ops as RemoteEnvelope[], action.at))
+  if (action.type === 'absorb') return withProjectionObservation(db, { binding: currentBinding, cause: 'absorb', at: action.at }, nested => absorbOpened(nested, host, action.ops as RemoteEnvelope[], action.at))
   if (action.type === 'join-plan') return joinPlan(driver, action.workspaceId, action.ops as RemoteEnvelope[], host)
   if (action.type === 'install') {
     const source = action.sourceBinding
     if (source.workspaceId !== action.binding.workspaceId || source.deviceId !== action.binding.deviceId || source.keyEpoch !== action.binding.keyEpoch
       || source.localGeneration !== action.expectedGeneration || currentBinding && canonicalJson(currentBinding) !== canonicalJson(source)) throw new DomainError('conflict', 'sync source binding')
-    return withGuidanceCheckpoint(db, { binding: source, cause: 'install', at: action.at }, nested => {
+    return withProjectionObservation(db, { binding: source, cause: 'install', at: action.at }, nested => {
       const result = installJoined(nested, host, {
         binding: action.binding, ops: action.ops as RemoteEnvelope[], at: action.at, merge: action.merge,
         ...(action.automatic !== undefined ? { automatic: action.automatic } : {}),

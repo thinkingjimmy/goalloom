@@ -1,7 +1,7 @@
 import { sha256Hex } from '@goalloom/crypto'
 import type { SqlDriver } from './driver'
 
-const tables = ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies', 'item_guidance'] as const
+const tables = ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies'] as const
 
 /** Canonical business projection. Omits operations, events and device-local workspace columns. */
 export function projectionHash(driver: SqlDriver, scope: 'base' | 'visible'): string {

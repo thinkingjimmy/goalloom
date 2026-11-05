@@ -52,7 +52,7 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
         if (endState.periodId !== period.id || endState.deletedAt) continue
         const item = store.summaries('i.id=?', [id])[0]
         if (!item) continue
-        const row: ItemSummary = { ...item, guidance: null, status: endState.status, completedAt: endState.completedAt, cancelledAt: endState.cancelledAt,
+        const row: ItemSummary = { ...item, status: endState.status, completedAt: endState.completedAt, cancelledAt: endState.cancelledAt,
           archivedAt: endState.archivedAt, deletedAt: endState.deletedAt, deletedBy: endState.deletedBy,
           placement: { ...item.placement, horizon: endState.horizon, periodId: endState.periodId, sortKey: endState.sortKey, holdPeriodId: endState.holdPeriodId, nestingParentId: endState.nestingParentId ?? null } }
         projected.push(row)

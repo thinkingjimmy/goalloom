@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Untrusted version-1 cloud metadata and fixed server identities.
+ * [INPUT]: Untrusted version-1 retrieval envelopes, mandatory current seed receipts and fixed server identities.
  * [OUTPUT]: Strict finite DTOs with canonical identities, bounds and unchanged signed timestamps.
  * [POS]: Shared cloud boundary; no transport, credentials or storage side effects.
  */
@@ -20,9 +20,9 @@ export const retrievalManifestSchema = z.strictObject({
   workspaceId: cloudUuid, generation: cloudUuid, lifecycleVersion: cloudPositive, accessEndedAt: cloudInstant, retrieveUntil: cloudInstant,
   headSeq: cloudInteger, minRetainedSeq: z.literal(0), operationCount: cloudInteger, headHash: cloudHex(32), keyEpoch: z.literal(1),
   checkpointVersion: z.literal(1), checkpointHash: cloudHex(32), rosterVersion: cloudPositive, rosterHash: cloudHex(32), recoveryKeyId: cloudHex(32),
-  envelopeSetHash: cloudHex(32), proofKind: z.enum(['recovery', 'device']), deviceId: cloudUuid.nullable(), initialization: retrievalInitializationSchema.nullable(),
+  envelopeSetHash: cloudHex(32), proofKind: z.enum(['recovery', 'device']), deviceId: cloudUuid.nullable(), initialization: retrievalInitializationSchema,
 }).refine(value => value.operationCount === value.headSeq && (value.proofKind === 'recovery') === (value.deviceId === null)
-  && (!value.initialization || value.initialization.finalSeq <= value.headSeq))
+  && value.initialization.finalSeq <= value.headSeq)
 export const retrievalProofBodySchema = z.strictObject({
   version: z.literal(1), purpose: z.literal('retained-copy'), environment: cloudEnvironment, projectRef: cloudProject,
   ownerId: cloudUuid, authSessionId: cloudUuid, challengeId: cloudUuid, nonce: cloudHex(32), manifestHash: cloudHex(32),
@@ -36,7 +36,7 @@ export const cloudRosterWireSchema = z.strictObject({ version: cloudPositive, ro
 export const cloudCheckpointBodySchema = z.strictObject({ workspaceId: cloudUuid, cpVersion: cloudPositive, rosterVersion: cloudPositive, rosterHash: cloudHex(32), epoch: cloudPositive, recoverySignPub: cloudHex(32), recoveryBoxPub: cloudHex(32), prevCpHash: cloudHex(32).nullable() })
 export const cloudCheckpointWireSchema = z.strictObject({ cpVersion: cloudPositive, body: cloudCheckpointBodySchema, recSig: cloudHex(64), devSig: cloudHex(64) })
 export const cloudEnvelopeWireSchema = z.strictObject({ epoch: cloudPositive, recipient: z.string(), ciphertext: z.string().min(2).max(retrievalLimits.envelopeBytes * 2).regex(/^(?:[0-9a-f]{2})+$/), signature: cloudHex(64), rosterVersion: cloudPositive, signerDevice: cloudUuid.nullable() })
-export const cloudPullWireSchema = z.strictObject({ seq: cloudPositive, opId: cloudUuid, payloadHash: cloudHex(32), formatVersion: z.literal(1), keyEpoch: z.literal(1), ciphertext: z.string().min(2).max(2_097_152).regex(/^(?:[0-9a-f]{2})+$/) })
+export const cloudPullWireSchema = z.strictObject({ seq: cloudPositive, opId: cloudUuid, payloadHash: cloudHex(32), formatVersion: z.literal(2), keyEpoch: z.literal(1), ciphertext: z.string().min(2).max(2_097_152).regex(/^(?:[0-9a-f]{2})+$/) })
 export const retrievalRecoveryBodySchema = z.strictObject({ v: z.literal(2), kdf: z.strictObject({ alg: z.literal('argon2id'), salt: cloudHex(16), m: cloudInteger.refine(value => value >= 8192 && value <= 65536), t: cloudInteger.refine(value => value >= 1 && value <= 4), p: z.literal(1) }), lock: cloudHex(104),
   wrap: z.strictObject({ v: z.literal(1), ctx: z.string(), senderId: cloudUuid, recipientId: z.literal('recovery'), ephPub: cloudHex(32), nonce: cloudHex(24), ct: cloudHex(48), sig: cloudHex(64) }) })
 const rosterPage = z.strictObject({ afterRosterVersion: cloudInteger, nextAfterRosterVersion: cloudInteger, rosters: z.array(cloudRosterWireSchema).max(retrievalLimits.rosters), done: z.boolean() })

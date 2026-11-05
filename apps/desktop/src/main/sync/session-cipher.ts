@@ -1,7 +1,7 @@
 /**
  * [INPUT]: A private profile, noninteractive native session keys and the existing Windows OS cipher.
  * [OUTPUT]: A profile-bound authenticated cipher; missing native access fails without replacing keys.
- * [POS]: Sync-only persistent session encryption. AI credentials and legacy ciphertext keep their existing adapters.
+ * [POS]: Sync-only persistent session encryption. AI credentials use their separate OS adapter.
  */
 import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'

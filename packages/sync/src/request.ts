@@ -26,7 +26,7 @@ export const requestLimits = { status: 5_000, metadata: 10_000, pull: 15_000, wr
 const contextPosition = {
   finishInitialization: 1, registerDevice: 1, rebindDevice: 3, account: 0, bootstrap: 1, putEnvelopes: 3,
   getEnvelopes: 2, getCheckpoint: 2, getRoster: 2, getSyncStatus: 2, receiptsFor: 3,
-  startRecovery: 2, completeRecovery: 1, pushOps: 1, pullOps: 1, resetSync: 1,
+  startRecovery: 2, completeRecovery: 1, pushOps: 1, pullOps: 1,
 } satisfies Record<keyof SyncRemote, number>
 
 /** Shared setup workflows keep the lifetime they started with across all RPCs. */

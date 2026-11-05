@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Device configuration, the existing chat adapters and a short authoritative context reader.
- * [OUTPUT]: Settings-authorized preflight/generation and exact-output rewrite tickets, with cancellation and bounded accepted turns.
+ * [OUTPUT]: Settings-authorized rewriting, minimal hosted context and exact-output tickets with complete local guards, cancellation and bounded sessions.
  * [POS]: Main-only network coordinator; no raw content is logged or persisted and no write is performed here.
  */
 import { randomUUID } from 'node:crypto'
@@ -13,7 +13,6 @@ import type { DeviceConfig, KeyRead } from './credentials'
 import type { ChatAdapter } from './insight'
 import { Aborted, failure, ProviderFailure } from './providers'
 import { assistanceServerText } from '../../shared/i18n/assistance'
-import type { AssistanceTurn } from '../../domain/smart/assistance'
 import { retainsNoteAnchors } from '../../domain/smart/rewrite-notes'
 
 interface Dependencies {
@@ -21,7 +20,7 @@ interface Dependencies {
   key(provider: AiProvider): Promise<KeyRead>; chat: Partial<Record<AiProvider, ChatAdapter>>
   now(): number; cooling(provider: AiProvider): Failure | null; record(provider: AiProvider, outcome: Failure | null): Promise<void>
 }
-interface Session { controller: AbortController; prepared: AssistancePrepared | null; turns: number; clarified: boolean; conversation: AssistanceTurn[]; last: AssistanceReply | null; signature: string | null; bytes: number }
+interface Session { controller: AbortController; prepared: AssistancePrepared | null; last: AssistanceReply | null; signature: string | null; bytes: number }
 export class AssistanceService {
   private sessions = new Map<string, Session>()
   constructor(private readonly dependencies: Dependencies) {}
@@ -36,12 +35,12 @@ export class AssistanceService {
     while (this.sessions.size > 8 || [...this.sessions.values()].reduce((sum, row) => sum + row.bytes, 0) > 512 * 1024) this.cancel(this.sessions.keys().next().value!)
   }
   private account(session: Session) {
-    session.bytes = Buffer.byteLength(JSON.stringify([session.prepared, session.conversation, session.last])) + Buffer.byteLength(session.signature ?? '')
+    session.bytes = Buffer.byteLength(JSON.stringify([session.prepared, session.last])) + Buffer.byteLength(session.signature ?? '')
     this.trim()
   }
   async prepare(request: AssistancePrepare): Promise<AssistancePrepared | null> {
     this.cancel(request.sessionId)
-    const session: Session = { controller: new AbortController(), prepared: null, turns: 0, clarified: false, conversation: [], last: null, signature: null, bytes: 0 }
+    const session: Session = { controller: new AbortController(), prepared: null, last: null, signature: null, bytes: 0 }
     this.sessions.set(request.sessionId, session)
     this.trim()
     const active = () => this.sessions.get(request.sessionId) === session && !session.controller.signal.aborted
@@ -81,20 +80,19 @@ export class AssistanceService {
     // Lost-receipt retries are checked by the caller before a ticket is needed again.
     const session = [...this.sessions.values()].find(row => row.prepared?.contextId === command.contextId)
     const prepared = session?.prepared
-    if (command.description !== undefined && (session?.last?.status !== 'ready' || session.last.value.kind !== 'rewrite'
-      || session.last.value.description !== command.description)) throw new DomainError('stale_preview', assistanceServerText().contextChanged)
+    if (session?.last?.status !== 'ready' || session.last.value.description !== command.description) throw new DomainError('stale_preview', assistanceServerText().contextChanged)
     if (!prepared || prepared.itemId !== command.itemId || prepared.generation !== command.generation
       || JSON.stringify(prepared.context.guard) !== JSON.stringify(command.guard) || !await this.current(prepared)) throw new DomainError('stale_preview', assistanceServerText().contextChanged)
   }
   async assist(request: AssistanceRequest): Promise<AssistanceReply> {
-    const { mode: _mode, prefs: _prefs, text: _text, answer: _answer, adjustment: _adjustment, ...echo } = request
+    const { mode: _mode, prefs: _prefs, text: _text, ...echo } = request
     const session = this.sessions.get(request.sessionId), prepared = session?.prepared
     const stale = (): AssistanceReply => ({ status: 'stale', echo })
     if (!session || !prepared || prepared.contextId !== request.contextId || prepared.itemId !== request.itemId || prepared.generation !== request.generation
       || prepared.locale !== request.locale || prepared.featureRevision !== request.featureRevision) return stale()
     if (session.last?.echo.requestId === request.requestId) return session.signature === JSON.stringify(request) ? session.last : stale()
-    if (request.turn !== session.turns + 1 || request.turn > 3) return stale()
-    session.turns = request.turn; session.signature = JSON.stringify(request)
+    if (session.signature) return stale()
+    session.signature = JSON.stringify(request)
     this.sessions.delete(request.sessionId); this.sessions.set(request.sessionId, session); this.account(session)
     session.controller.abort(); session.controller = new AbortController()
     const controller = session.controller, provider = prepared.provider ?? 'openrouter'
@@ -111,25 +109,20 @@ export class AssistanceService {
       const { assistancePrompt, parseAssistance } = await import('../../domain/smart/assistance')
       const context = structuredClone(prepared.context)
       let prompt
-      try { prompt = assistancePrompt(context, request, session.conversation) } catch { return failed(failure('too_large', provider)) }
+      try { prompt = assistancePrompt(context, request) } catch { return failed(failure('too_large', provider)) }
       if (controller.signal.aborted) throw new Aborted()
-      const projected = request.mode === 'rewrite' ? { ...context, siblings: [], recentGuidance: [], period: null, omitted: {}, truncatedSections: [] } : context
-      const hosted: HostedInput = { capability: 'assistance', input: { context: projected, request: request.mode === 'rewrite' ? { ...request, answer: null, adjustment: null } : request, conversation: request.mode === 'rewrite' ? [] : session.conversation } }
+      const projected = { ...context, siblings: [], period: null, omitted: {} }
+      const hosted: HostedInput = { capability: 'assistance', input: { context: projected, request } }
       const content = await chat(key.key, prompt, controller.signal, hosted)
       if (controller.signal.aborted || this.sessions.get(request.sessionId) !== session) throw new Aborted()
       if (!await this.current(prepared, controller.signal)) return stale()
       let value
       try { value = parseAssistance(content) } catch { return failed(failure('malformed_response', provider)) }
-      if (request.mode === 'rewrite' ? value.kind !== 'rewrite' || !retainsNoteAnchors(prepared.context.item.description, value.description) : value.kind === 'rewrite') return failed(failure('malformed_response', provider))
-      if (value.kind === 'clarify') {
-        if (session.clarified || request.turn !== 1) return failed(failure('malformed_response', provider))
-        session.clarified = true
-      }
+      if (!retainsNoteAnchors(prepared.context.item.description, value.description)) return failed(failure('malformed_response', provider))
       await this.dependencies.record(provider, null)
       if (controller.signal.aborted || this.sessions.get(request.sessionId) !== session) throw new Aborted()
       if (!await this.current(prepared, controller.signal)) return stale()
       const reply: AssistanceReply = { status: 'ready', echo: echo as AssistanceEcho, provider, value, facts: prepared.context.facts, truncatedSections: context.truncatedSections }
-      session.conversation.push({ turn: request.turn, input: { text: request.text, answer: request.answer, adjustment: request.adjustment }, output: structuredClone(value) })
       session.last = reply; this.account(session)
       return reply
     } catch (error) {

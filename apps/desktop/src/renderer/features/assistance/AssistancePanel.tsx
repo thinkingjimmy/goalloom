@@ -44,7 +44,7 @@ export function AssistancePanel({ itemId, generation, revision, observedAt, acti
     live.current = true
     return () => {
       live.current = false; stop()
-      saveAssistanceDraft(generation, itemId, { choice: draft.current.selected, text: draft.current.text, answer: '', adjustment: '', guidance: null, manual: false, horizon: null, date: '', source: false })
+      saveAssistanceDraft(generation, itemId, { choice: draft.current.selected, text: draft.current.text })
     }
   }, [itemId, generation])
   useEffect(() => { setHasResult(assisted) }, [assisted])
@@ -96,8 +96,8 @@ export function AssistancePanel({ itemId, generation, revision, observedAt, acti
       const editRevision = callbacks.current.captureRevision()
       const response = await desktopApi().smart({ type: 'assist', ...aiSourceOptions('insight'), request: { mode: 'rewrite', requestId: crypto.randomUUID(),
         sessionId: value.sessionId, contextId: value.contextId, itemId, generation, locale, featureRevision: value.featureRevision,
-        inputRevision: token, manualRevision: editRevision, turn: 1, prefs: insightSettings().prefs,
-        text: selected === 3 ? text.trim() : t.choices[selected]!, answer: null, adjustment: null } })
+        inputRevision: token, manualRevision: editRevision, prefs: insightSettings().prefs,
+        text: selected === 3 ? text.trim() : t.choices[selected]! } })
       if (!live.current || token !== epoch.current || !activeRef.current) return
       if (response.type !== 'assistance') { setError(t.failed); return }
       const reply = response.reply

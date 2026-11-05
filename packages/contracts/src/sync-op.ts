@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Untrusted sync payloads (formatVersion 1).
+ * [INPUT]: Untrusted sync payloads (formatVersion 2).
  * [OUTPUT]: A strict SyncOp with exact initialization rows, observed basisSeq, causal completion, grouped undo, rollover anchors, carried-child source guards and encrypted first-import calendar metadata. payloadHash covers canonicalJson(op).
  * [POS]: Protocol boundary shared by desktop, mobile and tests. Command replay is intentionally not this schema.
  */
@@ -22,14 +22,6 @@ export const sortHintSchema = z.strictObject({ afterId: id.nullable(), beforeId:
 export const rolloverFromSchema = z.strictObject({ periodKey: periodKeySchema, placementSeq: z.number().int().nonnegative() })
 export const blobRefSchema = z.strictObject({
   blobId: z.uuid(), sha256: z.string().regex(/^[a-f0-9]{64}$/), size: z.number().int().positive().max(2_097_152),
-})
-const guidanceValueSchema = z.strictObject({
-  formatVersion: z.literal(1),
-  kind: z.enum(['next_step', 'working_scope', 'resume_point', 'waiting_note']),
-  nextAction: z.string().min(1).max(600),
-  contextNote: z.string().min(1).max(300).nullable(),
-  scopeNote: z.string().min(1).max(300).nullable(),
-  authorship: z.enum(['user', 'ai_assisted']),
 })
 const calendarSchema = z.strictObject({
   id: id, mode: z.enum(['rolling', 'natural']), timezone: z.string().min(1).max(100),
@@ -71,7 +63,6 @@ export const actionSchema = z.discriminatedUnion('t', [
   z.strictObject({ t: z.literal('item.rollover'), id, from: rolloverFromSchema, to: periodKeySchema, position: z.literal('append'), sortHint: sortHintSchema.optional(), groupRootId: id.optional() }),
   z.strictObject({ t: z.literal('rel.link'), id, parentId: id, childId: id, adoptParentFlow: z.boolean().optional(), retain: z.literal(true).optional() }),
   z.strictObject({ t: z.literal('rel.unlink'), id }),
-  z.strictObject({ t: z.literal('guidance.set'), itemId: id, value: guidanceValueSchema.nullable(), baseRevision: z.number().int().nonnegative() }),
   z.strictObject({ t: z.literal('policy.set'), horizon: periodHorizon, mode: z.enum(['auto', 'manual']), effectiveFromKey: periodKeySchema }),
   z.strictObject({ t: z.literal('calendar.setup'), calendar: calendarSchema, confirmedAt: instant.optional() }),
   z.strictObject({ t: z.literal('pref.set'), key: z.string().min(1).max(80), value: z.unknown() }),
@@ -79,7 +70,7 @@ export const actionSchema = z.discriminatedUnion('t', [
 ])
 
 export const syncOpSchema = z.strictObject({
-  v: z.literal(1),
+  v: z.literal(2),
   opId: z.uuid(),
   deviceId: z.string().min(1).max(64),
   at: instant,
@@ -93,7 +84,6 @@ export type PeriodKey = z.infer<typeof periodKeySchema>
 export type SortHint = z.infer<typeof sortHintSchema>
 export type Action = z.infer<typeof actionSchema>
 export type SyncOp = z.infer<typeof syncOpSchema>
-export type GuidanceWire = z.infer<typeof guidanceValueSchema>
 export type CalendarWire = z.infer<typeof calendarSchema>
 
 export function parseSyncOp(input: unknown): SyncOp {

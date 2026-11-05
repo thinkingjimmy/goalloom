@@ -18,9 +18,9 @@ import { copySeedStateToVisible, readSeedState, seedAssert, SeedIntegrityError }
 const localColumns = ['theme', 'style', 'checkStyle', 'backupEnabled', 'backupRetention', 'clockAnomaly', 'lastObservedAt', 'pausedAfterRestore', 'generation'] as const
 
 export function copyProjectionToBase(driver: SqlDriver): void {
-  driver.exec(`DELETE FROM base_item_guidance; DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies;
+  driver.exec(`DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies;
     DELETE FROM base_items; DELETE FROM base_planning_periods; DELETE FROM base_workspace;`)
-  for (const table of ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies', 'item_guidance']) {
+  for (const table of ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies']) {
     driver.exec(`INSERT INTO base_${table} SELECT * FROM ${table}`)
   }
 }
@@ -28,7 +28,7 @@ export function copyProjectionToBase(driver: SqlDriver): void {
 export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost, options?: { strictOpIds?: ReadonlySet<string> }): void {
   const local = driver.prepare(`SELECT ${localColumns.join(',')}, revision FROM workspace WHERE id=1`).get()
   if (!local) throw new SyncApplyError('storage', 'workspace missing')
-  driver.exec(`DELETE FROM item_guidance; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; UPDATE items SET flowColor=NULL;`)
+  driver.exec(`DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; UPDATE items SET flowColor=NULL;`)
   driver.exec(`DELETE FROM items WHERE id NOT IN (SELECT id FROM base_items)`)
   driver.exec(`DELETE FROM planning_periods WHERE id NOT IN (SELECT id FROM base_planning_periods)`)
   driver.exec(`INSERT INTO planning_periods SELECT * FROM base_planning_periods WHERE id NOT IN (SELECT id FROM planning_periods)`)
@@ -40,7 +40,6 @@ export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost, options?:
   driver.exec(`INSERT INTO item_placements SELECT * FROM base_item_placements`)
   driver.exec(`INSERT INTO item_relations SELECT * FROM base_item_relations`)
   driver.exec(`INSERT INTO rollover_policies SELECT * FROM base_rollover_policies`)
-  driver.exec(`INSERT INTO item_guidance SELECT * FROM base_item_guidance`)
   const baseWorkspace = driver.prepare('SELECT calendar, setupConfirmedAt, revision FROM base_workspace WHERE id=1').get()
   const revision = Math.max(Number(local.revision ?? 0), Number(baseWorkspace?.revision ?? 0))
   driver.prepare(`UPDATE workspace SET calendar=?, setupConfirmedAt=?, revision=?, theme=?, style=?, checkStyle=?, backupEnabled=?, backupRetention=?, clockAnomaly=?, lastObservedAt=?, pausedAfterRestore=?, generation=? WHERE id=1`)
@@ -69,7 +68,7 @@ function rememberOp(driver: SqlDriver, entry: RemoteEnvelope, outcome: 'applied'
   const existing = driver.prepare('SELECT opId FROM sync_ops WHERE opId=?').get(entry.op.opId)
   if (existing) driver.prepare(`UPDATE sync_ops SET state='applied', outcome=?, seq=?, errorCode=?, updatedAt=? WHERE opId=?`).run(stored, entry.seq, errorCode, at, entry.op.opId)
   else driver.prepare(`INSERT INTO sync_ops (opId, localOrder, origin, formatVersion, payload, payloadHash, deviceId, at, keyEpoch, state, outcome, seq, errorCode, createdAt, updatedAt)
-    VALUES (?, NULL, 'remote', 1, ?, ?, ?, ?, NULL, 'applied', ?, ?, ?, ?, ?)`).run(entry.op.opId, payload, sha256Hex(payload), entry.op.deviceId, entry.op.at, stored, entry.seq, errorCode, at, at)
+    VALUES (?, NULL, 'remote', 2, ?, ?, ?, ?, NULL, 'applied', ?, ?, ?, ?, ?)`).run(entry.op.opId, payload, sha256Hex(payload), entry.op.deviceId, entry.op.at, stored, entry.seq, errorCode, at, at)
 }
 
 function pending(driver: SqlDriver): Record<string, import('./driver').SqlValue>[] {
@@ -87,7 +86,7 @@ export interface ReplayOptions { deferIncompleteSeed?: boolean }
 
 function assertIsolatedReplay(driver: SqlDriver): void {
   seedAssert(driver.prepare('SELECT calendar FROM workspace WHERE id=1').get()?.calendar === null, 'partial seed requires isolated unconfigured store')
-  for (const table of ['items', 'item_placements', 'planning_periods', 'rollover_policies', 'item_relations', 'item_guidance', 'operations', 'item_events', 'undo_effects']) {
+  for (const table of ['items', 'item_placements', 'planning_periods', 'rollover_policies', 'item_relations', 'operations', 'item_events', 'undo_effects']) {
     seedAssert(!driver.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get(), 'partial seed requires isolated empty store')
   }
   seedAssert(!driver.prepare("SELECT 1 FROM sync_ops WHERE origin='local' LIMIT 1").get(), 'partial seed cannot hide local operations')
@@ -125,7 +124,7 @@ export function applyRemoteBatch(driver: SqlDriver, batch: RemoteEnvelope[], hos
       if (outcome !== 'rejected') recordOverwrittenConflicts(driver, entry.op, changes)
       if (errorCode) {
         const first = entry.op.actions[0]
-        const itemId = first && 'id' in first ? first.id : first && 'itemId' in first ? first.itemId : null
+        const itemId = first && 'id' in first ? first.id : null
         driver.prepare('INSERT INTO sync_conflicts (opId, seq, code, itemId, detail, at) VALUES (?,?,?,?,?,?) ON CONFLICT(opId) DO UPDATE SET seq=excluded.seq, code=excluded.code, detail=excluded.detail')
           .run(entry.op.opId, entry.seq, errorCode, itemId, errorCode, at)
       }

@@ -1,9 +1,9 @@
 /**
  * [INPUT]: OS cipher, device directory and a main-owned vault filename.
- * [OUTPUT]: Native scope-key maps plus explicitly filtered scoped recovery serialization, deferred AI secrets and recovery drafts; atomic OS-vault writes and a public resume flag. Sign-out and inactive-session checks do not use the OS cipher.
- * [POS]: Desktop secret store. Sign-out preserves ciphertext, including legacy bytes; unavailable access never replaces saved keys.
+ * [OUTPUT]: Version-2 native containers and bodies, filtered scoped recovery, deferred AI secrets and a public resume flag; old markers fail before OS cipher access.
+ * [POS]: Desktop secret store. Sign-out preserves ciphertext; unsupported files are refused before every mutation.
  */
-import { readFile, rm } from 'node:fs/promises'
+import { mkdir, readFile, rm } from 'node:fs/promises'
 import { atomicFile } from '../storage/atomic-json'
 import { join } from 'node:path'
 import { z } from 'zod'
@@ -11,7 +11,7 @@ import { hex, unhex, type RosterBody } from '@goalloom/crypto'
 import { keyScopeSchema, scopeContext, scopeId, type KeyScope } from './key-scope'
 import { CredentialError, type Cipher } from '../smart/credentials'
 
-const vaultHeader = Buffer.from('Goalloom sync vault 1\n')
+const vaultHeader = Buffer.from('Goalloom sync vault 2\n')
 
 const accountSchema = z.strictObject({
   deviceId: z.string().nullable(),
@@ -20,15 +20,14 @@ const accountSchema = z.strictObject({
   generation: z.string().nullable(),
   epoch: z.number().int().positive().nullable(),
   roster: z.unknown().nullable(),
-  recoveryBoxSk: z.string().nullable().default(null),
-  recoverySignSk: z.string().nullable().default(null),
+  recoveryBoxSk: z.string().nullable(),
+  recoverySignSk: z.string().nullable(),
 })
 
 const fileSchema = z.strictObject({
-  v: z.literal(1),
-  bindingJournalKey: z.string().regex(/^[a-f0-9]{64}$/).nullable().default(null),
-  bindingJournalKeys: z.record(z.string().regex(/^[a-f0-9]{64}$/), z.string().regex(/^[a-f0-9]{64}$/)).default({}).refine(keys => Object.keys(keys).length <= 100),
-  accountOnly: z.boolean().default(false),
+  v: z.literal(2),
+  bindingJournalKeys: z.record(z.string().regex(/^[a-f0-9]{64}$/), z.string().regex(/^[a-f0-9]{64}$/)).refine(keys => Object.keys(keys).length <= 100),
+  accountOnly: z.boolean(),
   deviceId: z.string().nullable(),
   signSk: z.string(),
   boxSk: z.string(),
@@ -37,16 +36,16 @@ const fileSchema = z.strictObject({
   generation: z.string().nullable(),
   epoch: z.number().int().positive().nullable(),
   roster: z.unknown().nullable(),
-  recoveryBoxSk: z.string().nullable().default(null),
-  recoverySignSk: z.string().nullable().default(null),
+  recoveryBoxSk: z.string().nullable(),
+  recoverySignSk: z.string().nullable(),
   refreshToken: z.string().nullable(),
-  userId: z.string().nullable().default(null),
-  accounts: z.record(z.string(), accountSchema).default({}),
-  pendingSecrets: z.record(z.string(), z.strictObject({ value: z.string().nullable(), opId: z.uuid(), updatedAt: z.string() })).default({}),
+  userId: z.string().nullable(),
+  accounts: z.record(z.string(), accountSchema),
+  pendingSecrets: z.record(z.string(), z.strictObject({ value: z.string().nullable(), opId: z.uuid(), updatedAt: z.string() })),
   pendingRecovery: z.strictObject({
-    sourceWorkspaceId: z.uuid(), destructive: z.boolean(), localGeneration: z.uuid(), workspaceId: z.uuid(), generation: z.uuid(),
+    sourceWorkspaceId: z.uuid(), localGeneration: z.uuid(), workspaceId: z.uuid(), generation: z.uuid(),
     workspaceKey: z.string(), recoveryBoxSk: z.string(), recoverySignSk: z.string(),
-  }).nullable().default(null),
+  }).nullable(),
 })
 
 export interface AccountSecrets {
@@ -61,7 +60,6 @@ export interface AccountSecrets {
 }
 
 export interface VaultSecrets {
-  bindingJournalKey?: Uint8Array | null
   bindingJournalKeys?: Record<string, Uint8Array>
   accountOnly?: boolean
   deviceId: string | null
@@ -82,13 +80,20 @@ export interface VaultSecrets {
 }
 
 export interface PendingRecovery {
-  sourceWorkspaceId: string; destructive: boolean; localGeneration: string; workspaceId: string; generation: string
+  sourceWorkspaceId: string; localGeneration: string; workspaceId: string; generation: string
   workspaceKey: Uint8Array; recoveryBoxSk: Uint8Array; recoverySignSk: Uint8Array
+}
+
+function resumeFlag(bytes: Buffer): 0 | 1 {
+  if (!bytes.subarray(0, vaultHeader.length).equals(vaultHeader)) throw new Error('Unsupported sync vault format; original file was kept')
+  const resume = bytes[vaultHeader.length]
+  if (resume !== 0 && resume !== 1) throw new Error('Invalid sync vault header')
+  return resume
 }
 
 export class SyncVault {
   private writing: Promise<void> = Promise.resolve()
-  constructor(private directory: string, private cipher: Cipher, private filename = 'sync-vault.bin') {}
+  constructor(private directory: string, private cipher: Cipher, private filename = 'sync-session.bin') {}
   get available(): boolean { return this.cipher.available() }
   async exists(): Promise<boolean> {
     await this.writing
@@ -98,7 +103,7 @@ export class SyncVault {
       throw error
     }
   }
-  async load({ resumeOnly = false, signal, migrateLegacy = true }: { resumeOnly?: boolean; signal?: AbortSignal; migrateLegacy?: boolean } = {}): Promise<VaultSecrets | null> {
+  async load({ resumeOnly = false, signal }: { resumeOnly?: boolean; signal?: AbortSignal } = {}): Promise<VaultSecrets | null> {
     await this.writing
     signal?.throwIfAborted()
     let bytes: Buffer
@@ -108,27 +113,25 @@ export class SyncVault {
       throw error
     }
     signal?.throwIfAborted()
-    const legacy = !bytes.subarray(0, vaultHeader.length).equals(vaultHeader)
-    let active = true
-    if (!legacy) {
-      const resume = bytes[vaultHeader.length]
-      if (resume !== 0 && resume !== 1) throw new Error('Invalid sync vault header')
-      active = resume === 1
-      if (resumeOnly && !active) return null
-      bytes = bytes.subarray(vaultHeader.length + 1)
-    }
+    const resume = resumeFlag(bytes)
+    const active = resume === 1
+    if (resumeOnly && !active) return null
+    bytes = bytes.subarray(vaultHeader.length + 1)
     if (!this.available) throw new CredentialError('unavailable')
     const secrets = decodeVault(this.cipher.decrypt(bytes))
     if (!active) secrets.refreshToken = null
-    if (legacy && migrateLegacy) await this.save(secrets)
     return secrets
   }
   async save(secrets: VaultSecrets): Promise<void> {
-    if (!this.available) throw new CredentialError('unavailable')
     const body = encodeVault(secrets)
-    const encrypted = this.cipher.encrypt(body)
-    const bytes = Buffer.concat([vaultHeader, Buffer.from([secrets.refreshToken ? 1 : 0]), encrypted])
-    await this.mutate(() => this.replace(bytes))
+    await this.mutate(async () => {
+      await this.checkWritable()
+      if (!this.available) throw new CredentialError('unavailable')
+      const encrypted = this.cipher.encrypt(body)
+      const bytes = Buffer.concat([vaultHeader, Buffer.from([secrets.refreshToken ? 1 : 0]), encrypted])
+      await mkdir(this.directory, { recursive: true, mode: 0o700 })
+      await this.replace(bytes)
+    })
   }
   async signOut(): Promise<void> {
     await this.mutate(async () => {
@@ -138,12 +141,8 @@ export class SyncVault {
         if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return
         throw error
       }
-      if (bytes.subarray(0, vaultHeader.length).equals(vaultHeader)) {
-        const resume = bytes[vaultHeader.length]
-        if (resume === 0) return
-        if (resume !== 1) throw new Error('Invalid sync vault header')
-        bytes = bytes.subarray(vaultHeader.length + 1)
-      }
+      if (resumeFlag(bytes) === 0) return
+      bytes = bytes.subarray(vaultHeader.length + 1)
       await this.replace(Buffer.concat([vaultHeader, Buffer.from([0]), bytes]))
     })
   }
@@ -156,8 +155,15 @@ export class SyncVault {
     this.writing = result.catch(() => undefined)
     return result
   }
+  private async checkWritable(): Promise<void> {
+    try { resumeFlag(await readFile(join(this.directory, this.filename))) }
+    catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return
+      throw error
+    }
+  }
   async clear(): Promise<void> {
-    await this.mutate(() => rm(join(this.directory, this.filename), { force: true }))
+    await this.mutate(async () => { await this.checkWritable(); await rm(join(this.directory, this.filename), { force: true }) })
   }
 }
 
@@ -179,7 +185,6 @@ export function decodeVault(text: string): VaultSecrets {
     roster: parsed.roster as RosterBody | null,
     recoveryBoxSk: parsed.recoveryBoxSk ? unhex(parsed.recoveryBoxSk) : null,
     recoverySignSk: parsed.recoverySignSk ? unhex(parsed.recoverySignSk) : null,
-    bindingJournalKey: parsed.bindingJournalKey ? unhex(parsed.bindingJournalKey) : null,
     bindingJournalKeys: Object.fromEntries(Object.entries(parsed.bindingJournalKeys).map(([id, key]) => [id, unhex(key)])),
     accountOnly: parsed.accountOnly, refreshToken: parsed.refreshToken, userId: parsed.userId, accounts, pendingSecrets: parsed.pendingSecrets,
     pendingRecovery: parsed.pendingRecovery ? { ...parsed.pendingRecovery, workspaceKey: unhex(parsed.pendingRecovery.workspaceKey),
@@ -199,7 +204,7 @@ export function encodeVault(secrets: VaultSecrets): string {
     }
   }
   return JSON.stringify({
-    v: 1, bindingJournalKey: secrets.bindingJournalKey ? hex(secrets.bindingJournalKey) : null, bindingJournalKeys: Object.fromEntries(Object.entries(secrets.bindingJournalKeys ?? {}).map(([id, key]) => [id, hex(key)])), accountOnly: secrets.accountOnly ?? false, deviceId: secrets.deviceId, signSk: hex(secrets.signSk), boxSk: hex(secrets.boxSk),
+    v: 2, bindingJournalKeys: Object.fromEntries(Object.entries(secrets.bindingJournalKeys ?? {}).map(([id, key]) => [id, hex(key)])), accountOnly: secrets.accountOnly ?? false, deviceId: secrets.deviceId, signSk: hex(secrets.signSk), boxSk: hex(secrets.boxSk),
     workspaceKey: secrets.workspaceKey ? hex(secrets.workspaceKey) : null,
     workspaceId: secrets.workspaceId, generation: secrets.generation, epoch: secrets.epoch,
     roster: secrets.roster,
@@ -212,7 +217,7 @@ export function encodeVault(secrets: VaultSecrets): string {
 }
 
 // Recovery payloads deliberately cannot express another account, an Auth token or a complete key map.
-const scopedSchema = fileSchema.omit({ v: true, bindingJournalKey: true, bindingJournalKeys: true, refreshToken: true, accounts: true }).extend({
+const scopedSchema = fileSchema.omit({ v: true, bindingJournalKeys: true, refreshToken: true, accounts: true }).extend({
   scope: keyScopeSchema, journalKey: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
 })
 export function encodeScopedVault(secrets: VaultSecrets, scope: KeyScope): string {
@@ -228,9 +233,6 @@ export function encodeScopedVault(secrets: VaultSecrets, scope: KeyScope): strin
 export function decodeScopedVault(text: string, scope: KeyScope): VaultSecrets {
   const payload = scopedSchema.parse(JSON.parse(text)), { scope: actual, journalKey, ...fields } = payload
   if (scopeContext(actual) !== scopeContext(scope) || fields.userId !== scope.accountId) throw new Error('scoped_vault_identity')
-  return decodeVault(JSON.stringify({ v: 1, ...fields, refreshToken: null, accounts: {}, bindingJournalKey: null,
+  return decodeVault(JSON.stringify({ v: 2, ...fields, refreshToken: null, accounts: {},
     bindingJournalKeys: journalKey ? { [scopeId(scope)]: journalKey } : {} }))
-}
-export function filteredLegacyVault(secrets: VaultSecrets, scope: KeyScope): VaultSecrets {
-  return decodeScopedVault(encodeScopedVault({ ...secrets, bindingJournalKeys: {} }, scope), scope)
 }

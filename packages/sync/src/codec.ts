@@ -14,11 +14,11 @@ export function sealOpWire(input: { op: SyncOp; workspaceKey: Uint8Array; worksp
     workspaceKey: input.workspaceKey, workspaceId: input.workspaceId, opId: input.op.opId, epoch: input.epoch,
     plaintext: utf8(payload), random: input.random ?? systemRandom(),
   })
-  return { opId: input.op.opId, payloadHash: sha256Hex(payload), formatVersion: 1, keyEpoch: input.epoch, ciphertext: hex(ciphertext) }
+  return { opId: input.op.opId, payloadHash: sha256Hex(payload), formatVersion: 2, keyEpoch: input.epoch, ciphertext: hex(ciphertext) }
 }
 
 export function openOpWire(row: PullWire, input: { workspaceKey: Uint8Array; workspaceId: string }): SyncOp {
-  if (row.formatVersion !== 1) throw new SyncFailure('version')
+  if (row.formatVersion !== 2) throw new SyncFailure('version')
   let plain: Uint8Array
   try {
     plain = openOp({ workspaceKey: input.workspaceKey, workspaceId: input.workspaceId, opId: row.opId, epoch: row.keyEpoch, ciphertext: unhex(row.ciphertext) })

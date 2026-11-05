@@ -1,11 +1,11 @@
 /**
  * [INPUT]: Current or review-scoped snapshots (periods, items, goal/ownership relations, observedAt), flows, completed period keys and generation-scoped dismissal keys.
- * [OUTPUT]: reviewDue entries (previous-week reminders throughout the configured week; monthly last/first-day reminders, merged only at matching closing boundaries),
+ * [OUTPUT]: reviewDue entries (completed previous-week/month reminders retained throughout the current period, merged only at matching closing boundaries),
  *           reviewSignals (descriptive gap/skip/pace facts, independent of child creation), goalRows (flow × column counts) and planCandidates (parents needing a next-period step).
  * [POS]: features/insight 的复盘纯规则；不写入、不联网，入口显示与抽屉步骤都从这里取数。
  */
 import { combinedTopology } from '../../../domain/nesting'
-import { currentPeriod, precedingPeriod, workspaceDate } from '../../../domain/calendar'
+import { precedingPeriod, workspaceDate } from '../../../domain/calendar'
 import type { ItemSummary, PlanningPeriod } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import type { InsightBoard, InsightSignal } from '../../../shared/contracts/smart-input'
@@ -20,22 +20,14 @@ export interface ReviewDue { scope: 'week' | 'month' | 'both'; week: ReviewTarge
 
 export const reviewKey = (period: PlanningPeriod) => `${period.horizon}:${period.startDate}`
 
-// Weekly reminders cover the completed previous week; monthly reminders retain their two-day window.
+// Each reminder covers the completed previous period until the next boundary.
 export function reviewTarget(snapshot: Snapshot, horizon: ReviewHorizon, reviewed: string[]): ReviewTarget | null {
   const calendar = snapshot.workspace.calendar
   const current = snapshot.periods.find(period => period.horizon === horizon)
   if (!calendar || !current) return null
-  const today = workspaceDate(calendar.timezone, snapshot.observedAt)
-  if (horizon === 'month' && addDays(current.endDate, -1) === today) {
-    const key = reviewKey(current)
-    return reviewed.includes(key) ? null : { horizon, period: current, next: currentPeriod(calendar, horizon, current.endAt), key, lastDay: true }
-  }
-  if (horizon === 'week' || current.startDate === today) {
-    const previous = precedingPeriod(calendar, current)
-    if (!previous || reviewed.includes(reviewKey(previous))) return null
-    return { horizon, period: previous, next: current, key: reviewKey(previous), lastDay: false }
-  }
-  return null
+  const previous = precedingPeriod(calendar, current)
+  if (!previous || reviewed.includes(reviewKey(previous))) return null
+  return { horizon, period: previous, next: current, key: reviewKey(previous), lastDay: false }
 }
 export function reviewDue(snapshot: Snapshot, reviewed: string[], dismissed: string[] = []): ReviewDue[] {
   const visible = (horizon: ReviewHorizon) => {

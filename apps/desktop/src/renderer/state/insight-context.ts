@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Existing bounded insight requests, actual provider consent and finite task-context queries.
- * [OUTPUT]: Consent-scoped facts/guidance projections and dependency fingerprints for existing caches.
+ * [OUTPUT]: Consent-scoped facts projections and dependency fingerprints for existing caches.
  * [POS]: Renderer read preparation only; main rehydrates all facts before sending a model request.
  */
 import type { DraftRequest, ReviewRequest } from '../../shared/contracts/smart-input'
@@ -22,7 +22,7 @@ export async function enrichInsightRequest<R extends Input>(request: R): Promise
   return { ...request, executionContext }
 }
 export function insightDependencyKey(request: Input): string {
-  return JSON.stringify(request.executionContext?.map(row => ({ itemId: row.itemId, cutoff: row.cutoff, guidance: row.guidance,
+  return JSON.stringify(request.executionContext?.map(row => ({ itemId: row.itemId, cutoff: row.cutoff,
     revision: row.executionFacts.sourceRevision, calculationVersion: row.executionFacts.calculationVersion,
     localDate: row.executionFacts.asOf.slice(0, 10), pressure: row.executionFacts.pressure })) ?? [])
 }

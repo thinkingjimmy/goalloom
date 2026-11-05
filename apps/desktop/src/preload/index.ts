@@ -44,7 +44,7 @@ const api: GoalloomApi = {
   getRuntime: async () => runtimeInfoSchema.parse(await ipcRenderer.invoke(runtimeChannel)),
   getLanguage: () => language(ipcRenderer.invoke(languageChannel)),
   setLanguage: input => language(ipcRenderer.invoke(languageChannel, input)),
-  initializeParentOrder: async enabled => parentOrderValueSchema.parse(await ipcRenderer.invoke(parentOrderChannel, parentOrderRequestSchema.parse({ type: 'initialize', enabled }))),
+  getParentOrder: async () => parentOrderValueSchema.parse(await ipcRenderer.invoke(parentOrderChannel, parentOrderRequestSchema.parse({ type: 'get' }))),
   setParentOrder: async enabled => parentOrderValueSchema.parse(await ipcRenderer.invoke(parentOrderChannel, parentOrderRequestSchema.parse({ type: 'set', enabled }))),
   onLanguage: listener => {
     const receive = (_event: unknown, value: unknown) => {

@@ -32,11 +32,11 @@ export function captureExactSeed(driver: SqlDriver, host: ApplyHost): ExactSeedS
 export function encodeExactSeed(source: ExactSeedSource, input: { seedId: string; finalOpId: string; deviceId: string; at: string }): EncodedSeed {
   const measured = describeSeedRecords(source.records)
   seedAssert(measured.digest === source.digest && measured.rowBytes === source.rowBytes && canonicalJson(measured.counts) === canonicalJson(source.counts), 'seed source descriptor changed')
-  const envelope = (opId: string, action: unknown): SyncOp => parseSyncOp({ v: 1, opId, deviceId: input.deviceId, at: input.at, actions: [action] })
+  const envelope = (opId: string, action: unknown): SyncOp => parseSyncOp({ v: 2, opId, deviceId: input.deviceId, at: input.at, actions: [action] })
   const groups: SeedRecord[][] = []
   let current: SeedRecord[] = [], currentBytes = 0
   const dummyId = '00000000-0000-4000-8000-000000000001'
-  const overhead = () => utf8(canonicalJson({ v: 1, opId: dummyId, deviceId: input.deviceId, at: input.at,
+  const overhead = () => utf8(canonicalJson({ v: 2, opId: dummyId, deviceId: input.deviceId, at: input.at,
     actions: [{ t: 'seed.rows', seedId: input.seedId, index: groups.length, records: [] }] })).length
   for (const record of source.records) {
     const bytes = utf8(canonicalJson(record)).length
@@ -47,7 +47,7 @@ export function encodeExactSeed(source: ExactSeedSource, input: { seedId: string
     current.push(record); currentBytes += bytes
   }
   if (current.length) groups.push(current)
-  const manifest: SeedManifest = { version: 1, seedId: input.seedId, counts: { ...source.counts, workspace: 1 }, rowBytes: source.rowBytes, chunks: groups.length, digest: source.digest }
+  const manifest: SeedManifest = { version: 2, seedId: input.seedId, counts: { ...source.counts, workspace: 1 }, rowBytes: source.rowBytes, chunks: groups.length, digest: source.digest }
   const begin = envelope(globalThis.crypto.randomUUID(), { t: 'seed.begin', manifest })
   const ops = [begin, ...groups.map((records, index) => envelope(globalThis.crypto.randomUUID(), { t: 'seed.rows', seedId: input.seedId, index, records }))]
   const final = envelope(input.finalOpId, { t: 'seed.final', seedId: input.seedId, chunks: manifest.chunks, digest: manifest.digest })
@@ -102,7 +102,7 @@ export function commitBindingTransition(driver: SqlDriver, host: ApplyHost, inpu
     switchActiveBinding(driver, input.expectedBinding, input.newBinding, input.at, input.requestId)
     clearBase(driver); resetSeedState(driver)
     const insert = driver.prepare(`INSERT INTO sync_ops(opId,localOrder,origin,formatVersion,payload,payloadHash,deviceId,at,state,createdAt,updatedAt)
-      VALUES (?,?,'local',1,?,?,?,?,'never_sent',?,?)`)
+      VALUES (?,?,'local',2,?,?,?,?,'never_sent',?,?)`)
     encoded.ops.forEach((op, index) => {
       const payload = syncOpPayload(op)
       insert.run(op.opId, index + 1, payload, sha256Hex(payload), op.deviceId, op.at, input.at, input.at)

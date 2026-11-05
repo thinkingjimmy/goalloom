@@ -157,8 +157,8 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
       if (!unchanged()) return null
       const latest = await desktopApi().getItem(itemId)
       if (!unchanged() || latest.item.version !== prepared.context.item.version) return null
-      return { type: 'applyAssistance', itemId, expectedVersion: latest.item.version, expectedGuidanceRevision: prepared.context.guard.guidanceRevision,
-        guidance: { kind: 'keep' }, description, guard: prepared.context.guard, contextId: prepared.contextId }
+      return { type: 'applyAssistance', itemId, expectedVersion: latest.item.version,
+        description, guard: prepared.context.guard, contextId: prepared.contextId }
     }, generation)
     if (!reply.ok && reply.pending) uncertain.current = { draft: null, onCommit }
     else if (!reply.ok || !reply.result) { rewriteLock.current = false; if (live.current) setRewriting(false) }
@@ -192,7 +192,7 @@ export function useItemAutosave({ itemId, generation, revision, write, retryWrit
   })
   const discardable = (latest: ItemDetail) => !source.current.title.trim()
     && !latest.item.placement.nestingParentId && !latest.hasNestingChildren
-    && canDiscardEmptyTitle(latest.item, latest.relations.length, !!latest.guidance?.value)
+    && canDiscardEmptyTitle(latest.item, latest.relations.length)
     && !source.current.description.trim() && !source.current.dueDate
   const dismiss = (): Promise<boolean> => enqueue(async () => {
     cancelTimer()

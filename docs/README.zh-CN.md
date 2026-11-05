@@ -55,7 +55,6 @@
 | macOS 14+（Apple 芯片） | 1.11.0 | [Goalloom-1.11.0-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.11.0/Goalloom-1.11.0-mac-arm64.dmg) |
 | Windows 11（x64） | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
 
-两个平台的本地功能和 BYOK 继续免费。macOS 1.11.0 提供 Plus 加密同步与内置 AI，每月 USD 8.99 或每年 USD 79。八天试用需主动领取，每个账号仅限一次，无需绑卡，也不会自动转为付费订阅。Windows 保持 1.9.10，可使用本地功能和 BYOK；本次未为 Windows 开放 Plus。iPhone 应用尚未公开发布。
 
 ## 首次打开
 
@@ -88,7 +87,6 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<版本>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<版本>-win-x64.exe
 ```
 
-已发布的 macOS 1.11.0 使用 v14 工作区格式，Windows 1.9.10 使用 v11。macOS 升级 v11 工作区前会创建并验证保护性本地备份。请保留该备份：1.9.10 无法打开 v14 工作区。使用 Plus 时请使用同一账号和同步密码。部分旧云工作区无法自动恢复，重新登录不会修复这些副本；请保留原本地数据和备份。说明见 [v1.11.0 发布说明](./releases/v1.11.0.md)，配置见[开发文档](./build.md)。
 
 
 

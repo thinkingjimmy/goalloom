@@ -23,7 +23,7 @@ function sampleParent(direction: string, period: PlanningPeriod): ItemSummary {
   return { id: 'onboarding-example', title: direction.trim() || t.onboardingDemoGoal, dueDate: null, status: 'todo',
     completedAt: null, cancelledAt: null, archivedAt: null, deletedAt: null, deletedBy: null,
     createdAt: period.startAt, updatedAt: period.startAt, version: 1, flowColor: 0, note: null,
-    placement: { itemId: 'onboarding-example', horizon: 'year', periodId: null, sortKey: 0, version: 1, holdPeriodId: null } }
+    placement: { nestingParentId: null, itemId: 'onboarding-example', horizon: 'year', periodId: null, sortKey: 0, version: 1, holdPeriodId: null } }
 }
 export function InsightPreviewCard({ direction, period }: { direction: string; period: PlanningPeriod }) {
   return <div className="preview-insight" inert><EmptyCard horizon="half" sources={[sampleParent(direction, period)]} period={period} insight={previewInsight} disabled={false} onWrite={noop} /></div>

@@ -31,7 +31,7 @@ export type RuntimeInfo = z.infer<typeof runtimeInfoSchema>
 export const languageChannel = 'goalloom:language'
 export const languageEvent = 'goalloom:language-state'
 export const parentOrderChannel = 'goalloom:parent-order'
-export const parentOrderRequestSchema = z.strictObject({ type: z.enum(['initialize', 'set']), enabled: z.boolean() })
+export const parentOrderRequestSchema = z.discriminatedUnion('type', [z.strictObject({ type: z.literal('get') }), z.strictObject({ type: z.literal('set'), enabled: z.boolean() })])
 export const parentOrderValueSchema = z.boolean()
 export const devicePrefsChannel = 'goalloom:device-prefs'
 export const devicePrefsEvent = 'goalloom:device-prefs'
@@ -50,7 +50,7 @@ export interface GoalloomApi {
   getLanguage(): Promise<LanguageState>
   setLanguage(language: Language): Promise<LanguageState>
   onLanguage(listener: (state: LanguageState) => void): () => void
-  initializeParentOrder(enabled: boolean): Promise<boolean>
+  getParentOrder(): Promise<boolean>
   setParentOrder(enabled: boolean): Promise<boolean>
   pullDevicePrefs(): Promise<DevicePrefEntry[]>
   reportDevicePrefs(entries: DevicePrefEntry[], mode: 'change' | 'seed'): Promise<void>

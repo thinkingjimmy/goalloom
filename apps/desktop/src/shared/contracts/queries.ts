@@ -6,7 +6,6 @@
 import { z } from 'zod'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, itemSchema, itemSummarySchema, periodHorizonSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 import { periodHorizons } from './values'
-import { guidanceRecordSchema } from './assistance'
 import { activityReadSchema } from './execution'
 
 export const querySchema = z.discriminatedUnion('type', [
@@ -38,7 +37,7 @@ export const relationViewSchema = relationSchema.extend({ parentTitle: z.string(
 export const topologySchema = relationSchema.pick({ id: true, parentId: true, childId: true, inheritedFrom: true })
 export const nestingLinkSchema = z.strictObject({ parentId: idSchema, childId: idSchema })
 export const flowSchema = z.strictObject({ id: idSchema, title: z.string(), flowColor: flowColorSchema, archived: z.boolean() })
-export const orderNodeSchema = z.strictObject({ id: idSchema, horizon: horizonSchema, periodId: idSchema.nullable(), sortKey: z.number().finite(), nestingParentId: idSchema.nullable().optional(), periodStart: dateSchema.nullable(), periodEnd: instantSchema.nullable() })
+export const orderNodeSchema = z.strictObject({ id: idSchema, horizon: horizonSchema, periodId: idSchema.nullable(), sortKey: z.number().finite(), nestingParentId: idSchema.nullable(), periodStart: dateSchema.nullable(), periodEnd: instantSchema.nullable() })
 export type OrderNode = z.infer<typeof orderNodeSchema>
 export const snapshotSchema = z.strictObject({
   workspace: workspaceSchema, periods: z.array(periodSchema), items: z.array(itemSummarySchema), relations: z.array(topologySchema), policies: z.array(policySchema),
@@ -52,7 +51,7 @@ export type BoardPeriods = z.infer<typeof boardPeriodsSchema>
 export const detailSchema = z.strictObject({
   item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema),
   nestingParent: itemSummarySchema.nullable().optional(), hasNestingChildren: z.boolean().optional(),
-  guidance: guidanceRecordSchema.nullable().optional(), assistedNotes: z.boolean().optional(),
+  assistedNotes: z.boolean().optional(),
 })
 export type Snapshot = z.infer<typeof snapshotSchema>
 export const reviewContextSchema = z.strictObject({

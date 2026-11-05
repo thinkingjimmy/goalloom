@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Main-owned file paths, locale, placement preference, shared workspace clock and narrow internal RPC.
  * [OUTPUT]: Serialized SQLite commands/reads, immutable history, protected transfer, explicit crash-safe sign-out cleanup and typed failures.
- * [POS]: Storage composition root; protected migrations finish before requests and cloud work stays outside the queue.
+ * [POS]: Storage composition root; current schema installation finishes before requests and cloud work stays outside the queue.
  */
 import { parentPort, workerData } from 'node:worker_threads'
 import { mkdirSync } from 'node:fs'
@@ -23,11 +23,7 @@ import { WorkspaceService } from '../workspace/transfer/service'
 import { readJson, writeDataset } from '../workspace/transfer/files'
 import { serverText, loadServerLocale } from '../../shared/i18n/server'
 import { readAssistanceContext } from '../workspace/assistance-context'
-import { StartupUpgrade } from './upgrade'
-import { repairRejectedBaseline } from '@goalloom/sync'
-import { nodeSqlDriver } from '@goalloom/store-core/node'
 import { protectSyncBackup, runSyncLocal } from '../workspace/sync/local'
-import { syncHost } from '../sync/host'
 import { clearLocalFiles, recoverLocalClear } from './clear-local'
 import { openDatabase } from './database'
 import { workspaceClock as clock } from './workspace-clock'
@@ -36,26 +32,19 @@ if (!parentPort) throw new Error('存储服务只能由主进程启动')
 const port = parentPort
 mkdirSync(dirname(workerData.databasePath), { recursive: true })
 let db: DatabaseSync, repository: Repository, service: WorkspaceService
-const upgrade = new StartupUpgrade(workerData.databasePath, workerData.backupDirectory, clock.now)
-let startup: { ok: true; protectivePath: string | null } | { ok: false; message: string; backupPath: string | null; backupDirectory: string; legacyVersion: number | null }
-const initialized = loadServerLocale(workerData.locale).then(() => recoverLocalClear(dirname(workerData.databasePath))).then(() => openWorkspace(workerData.databasePath, workerData.backupDirectory, clock.now)).then(opened => {
+let startup: { ok: true } | { ok: false; message: string }
+const initialized = loadServerLocale(workerData.locale).then(() => recoverLocalClear(dirname(workerData.databasePath))).then(() => openWorkspace(workerData.databasePath)).then(opened => {
   db = opened.db
   repository = new Repository(db, clock)
-  try { repairRejectedBaseline(nodeSqlDriver(db), syncHost(db)) } catch { /* A failed repair leaves the previous file untouched inside its transaction. */ }
   service = new WorkspaceService(repository, workerData.backupDirectory)
-  startup = { ok: true, protectivePath: opened.protective ? service.backups.path(opened.protective.id) : null }
+  startup = { ok: true }
 }, error => {
-  startup = { ok: false, message: error instanceof StartupError ? error.message : serverText().storage.openFailed, backupPath: error instanceof StartupError ? error.backupPath : null, legacyVersion: error instanceof StartupError ? error.legacyVersion : null, backupDirectory: workerData.backupDirectory }
+  startup = { ok: false, message: error instanceof StartupError ? error.message : serverText().storage.openFailed }
 })
 
 function handle(method: string, argument: unknown): unknown {
   if (method === 'startup') return startup
   if (method === 'locale') return loadServerLocale(z.enum(locales).parse(argument))
-  if (!startup.ok && startup.legacyVersion !== null) {
-    if (method === 'prepareStartupUpgrade') return upgrade.prepare()
-    if (method === 'commitStartupUpgrade') return upgrade.commit(z.uuid().parse(argument))
-  }
-  if (method === 'close' && !startup.ok) return upgrade.cancel()
   if (!startup.ok) { if (method === 'close') return null; throw new DomainError('startup', startup.message) }
   if (method === 'close') { db.close(); return null }
   if (method === 'finishLocalClear') return recoverLocalClear(dirname(workerData.databasePath))

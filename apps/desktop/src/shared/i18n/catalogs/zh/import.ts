@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 无；导入完整性校验的参数化文案。
- * [OUTPUT]: importMessages：导入/恢复数据集完整性校验失败时展示给用户的原因（含实体标签）。
- * [POS]: shared/i18n/catalogs/zh 的导入校验分册，被 domain/import-validation 通过 serverText().import 读取。
+ * [INPUT]: Typed current-format import validation reasons.
+ * [OUTPUT]: Localized v15 dataset and receipt-integrity messages.
+ * [POS]: Shared server catalog used by authoritative import validation.
  */
 import { widen } from '../../locale'
 export const importMessages = widen({
@@ -60,7 +60,6 @@ export const importMessages = widen({
   invalidCreateEffect: '创建效果的状态或初始依赖不合法',
   invalidOrderNeighbors: '排序依赖悬空或重复',
   relationEffectIdentityMismatch: '关系效果身份不一致',
-  legacyPlan: '旧版本数据集不能包含批量计划',
   effectKindNotAllowed: '操作类型或效果白名单不符',
   operationSourceMismatch: '操作来源不符',
   inverseReferenceMismatch: '逆操作引用不符',

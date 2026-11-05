@@ -56,7 +56,7 @@ const analyzeEcho = (request: AnalyzeRequest): AnalyzeEcho => ({ requestId: requ
 function cancelledModelReply(action: SmartAction, provider: AiProvider): SmartReply {
   if (action.type === 'analyze') return { type: 'analysis', reply: { status: 'cancelled', echo: analyzeEcho(action.request) } }
   if (action.type === 'assist') {
-    const { mode: _mode, prefs: _prefs, text: _text, answer: _answer, adjustment: _adjustment, ...echo } = action.request
+    const { mode: _mode, prefs: _prefs, text: _text, ...echo } = action.request
     return { type: 'assistance', reply: { status: 'cancelled', echo } }
   }
   const failed = { status: 'failed' as const, requestId: 'request' in action && 'requestId' in action.request ? action.request.requestId : '', failure: failure('not_enabled', provider) }
@@ -507,7 +507,7 @@ export class SmartInputService {
     const config = await this.options.store.config(), provider = config.features.insight.provider
     const allowed = !!provider && config.providers[provider].assistanceConsent?.version === 1 && !!this.options.reader.insightEvidence
     const { executionContext: _context, ...withoutContext } = request
-    const sanitized = 'tasks' in request ? { ...withoutContext, tasks: request.tasks.map(({ guidance: _guidance, ...task }) => task) } : withoutContext
+    const sanitized = withoutContext
     if (!allowed) return sanitized as R
     const identities = 'tasks' in request ? request.tasks.map(task => ({ itemId: task.id, cutoff: undefined })) : request.evidenceRequests ?? []
     const executionContext = []

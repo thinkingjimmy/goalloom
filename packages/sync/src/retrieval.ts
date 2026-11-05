@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Exact retained generation, verified Auth scope, pinned control metadata and password/device proof.
+ * [INPUT]: Exact retained generation, verified Auth scope, mandatory seed receipt and password/device proof.
  * [OUTPUT]: Verified, secret-free operations for an isolated pending copy; ready only after fixed-head verification.
  * [POS]: Read-only retrieval workflow. It never registers, joins, installs, projects settings or invokes AI.
  */
@@ -133,7 +133,7 @@ export async function retrieveRetained(input: {
         try { op = openOpWire(row, { workspaceKey: key, workspaceId: input.target.workspaceId }) }
         catch { throw new CloudFailure('retrieval_data_unavailable', 'integrity_failure') }
         const init = initial.manifest.initialization
-        if (init && row.seq <= init.finalSeq) {
+        if (row.seq <= init.finalSeq) {
           integrity(op.deviceId === init.creatorDeviceId && op.actions.length === 1 && op.actions[0]!.t.startsWith('seed.'))
           if (row.seq === init.finalSeq) integrity(row.opId === init.finalOpId && row.payloadHash === init.finalPayloadHash && op.actions[0]!.t === 'seed.final')
         }

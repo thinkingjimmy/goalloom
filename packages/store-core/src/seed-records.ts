@@ -14,15 +14,14 @@ const validationAt = '2000-01-01T00:00:00.000Z'
 const columns = {
   items: 'id,title,description,dueDate,status,completedAt,cancelledAt,archivedAt,deletedAt,deletedBy,createdAt,updatedAt,version,flowColor',
   item_placements: 'itemId,horizon,periodId,sortKey,version,holdPeriodId,nestingParentId',
-  item_guidance: 'itemId,revision,value,updatedAt,operationId',
   planning_periods: 'id,horizon,startDate,endDate,startAt,endAt',
   rollover_policies: 'horizon,mode,version,effectiveFromPeriodId',
   item_relations: 'id,parentId,childId,invalidatedAt,invalidatedBy,reason,createdAt',
 } as const
-const limits = { items: 100_000, item_placements: 100_000, item_guidance: 100_000, planning_periods: 100_000, rollover_policies: 6, item_relations: 500_000 } as const
+const limits = { items: 100_000, item_placements: 100_000, planning_periods: 100_000, rollover_policies: 6, item_relations: 500_000 } as const
 
 export function parseSeedRecord(input: unknown): SeedRecord {
-  const op = parseSyncOp({ v: 1, opId: validationId, deviceId: 'seed-validator', at: validationAt,
+  const op = parseSyncOp({ v: 2, opId: validationId, deviceId: 'seed-validator', at: validationAt,
     actions: [{ t: 'seed.rows', seedId: validationId, index: 0, records: [input] }] })
   const action = op.actions[0]!
   seedAssert(action.t === 'seed.rows', 'seed record type')
@@ -39,7 +38,7 @@ export function describeSeedRecords(records: SeedRecord[]): ExactSeedSource {
     rowBytes += seedRecordBytes(record).length
     seedAssert(rowBytes <= seedByteLimit, 'seed source exceeds byte limit')
   }
-  const domain = utf8('goalloom/seed/v1|')
+  const domain = utf8('goalloom/seed/v2|')
   const bytes = new Uint8Array(domain.length + rowBytes)
   bytes.set(domain)
   let offset = domain.length
@@ -65,7 +64,6 @@ function captureRecords(driver: SqlDriver, host: ApplyHost, scope: SeedScope): E
   }
   seedAssert(!driver.prepare(`SELECT 1 FROM ${prefix}items i WHERE NOT EXISTS (SELECT 1 FROM ${prefix}item_placements p WHERE p.itemId=i.id) LIMIT 1`).get()
     && !driver.prepare(`SELECT 1 FROM ${prefix}item_placements p WHERE NOT EXISTS (SELECT 1 FROM ${prefix}items i WHERE i.id=p.itemId) LIMIT 1`).get(), 'seed placement membership')
-  seedAssert(!driver.prepare(`SELECT 1 FROM ${prefix}item_guidance g WHERE NOT EXISTS (SELECT 1 FROM ${prefix}items i WHERE i.id=g.itemId) LIMIT 1`).get(), 'seed orphan guidance')
   seedAssert(!driver.prepare(`SELECT 1 FROM ${prefix}workspace WHERE length(CAST(calendar AS BLOB))>1048536 OR length(CAST(setupConfirmedAt AS BLOB))>1048536 LIMIT 1`).get(), 'seed workspace field size')
   const workspace = driver.prepare(`SELECT calendar,setupConfirmedAt FROM ${prefix}workspace WHERE id=1`).get()
   seedAssert(workspace, 'seed workspace missing')
@@ -97,7 +95,6 @@ function captureRecords(driver: SqlDriver, host: ApplyHost, scope: SeedScope): E
   }
   const item = (row: Row) => append({ kind: 'item', row,
     placement: driver.prepare(`SELECT ${columns.item_placements} FROM ${prefix}item_placements WHERE itemId=?`).get(row.id!),
-    guidance: driver.prepare(`SELECT ${columns.item_guidance} FROM ${prefix}item_guidance WHERE itemId=?`).get(row.id!) ?? null,
   })
   page('items', item, false)
   page('items', item, true)
@@ -112,7 +109,7 @@ export function validateSeedRecords(records: SeedRecord[], host: ApplyHost): voi
   seedAssert((workspace.calendar === null) === (workspace.setupConfirmedAt === null), 'seed calendar confirmation')
   let calendar: CalendarWire | null = null
   if (workspace.calendar !== null) {
-    const parsed = parseSyncOp({ v: 1, opId: validationId, deviceId: 'seed-validator', at: validationAt,
+    const parsed = parseSyncOp({ v: 2, opId: validationId, deviceId: 'seed-validator', at: validationAt,
       actions: [{ t: 'calendar.setup', calendar: JSON.parse(workspace.calendar), confirmedAt: workspace.setupConfirmedAt }] }).actions[0]!
     seedAssert(parsed.t === 'calendar.setup', 'seed calendar shape')
     calendar = parsed.calendar
@@ -148,8 +145,8 @@ export function validateSeedRecords(records: SeedRecord[], host: ApplyHost): voi
   }
   const incoming = new Set(relations.filter(row => row.invalidatedAt === null).map(row => row.childId))
   for (const item of items.values()) {
-    const { row, placement, guidance } = item
-    seedAssert(placement.itemId === row.id && (!guidance || guidance.itemId === row.id), 'seed item ownership')
+    const { row, placement } = item
+    seedAssert(placement.itemId === row.id, 'seed item ownership')
     seedAssert((row.deletedAt === null) === (row.deletedBy === null), 'seed deletion provenance')
     seedAssert(row.status === 'todo' ? row.completedAt === null && row.cancelledAt === null : row.status === 'done' ? row.cancelledAt === null : row.completedAt === null, 'seed status timestamps')
     seedAssert(placement.horizon === 'later' ? placement.periodId === null : periods.get(placement.periodId!)?.horizon === placement.horizon, 'seed placement period')
@@ -159,10 +156,6 @@ export function validateSeedRecords(records: SeedRecord[], host: ApplyHost): voi
     }
     seedAssert(placement.horizon !== 'later' || row.flowColor === null, 'seed Later colour')
     if (row.flowColor !== null && row.deletedAt === null) { seedAssert(!colours.has(row.flowColor), 'seed duplicate colour'); colours.add(row.flowColor) }
-    if (guidance?.value !== null && guidance) {
-      parseSyncOp({ v: 1, opId: validationId, deviceId: 'seed-validator', at: validationAt,
-        actions: [{ t: 'guidance.set', itemId: row.id, baseRevision: guidance.revision, value: JSON.parse(guidance.value!) }] })
-    }
     if (placement.nestingParentId !== null) {
       const parent = items.get(placement.nestingParentId)
       seedAssert(parent && parent.placement.nestingParentId === null && parent.row.deletedAt === null
@@ -196,5 +189,5 @@ export function insertSeedRecord(driver: SqlDriver, scope: SeedScope, record: Se
   else if (record.kind === 'period') insert('planning_periods', record.row)
   else if (record.kind === 'policy') insert('rollover_policies', record.row)
   else if (record.kind === 'relation') insert('item_relations', record.row)
-  else { insert('items', record.row); insert('item_placements', record.placement); if (record.guidance) insert('item_guidance', record.guidance) }
+  else { insert('items', record.row); insert('item_placements', record.placement) }
 }

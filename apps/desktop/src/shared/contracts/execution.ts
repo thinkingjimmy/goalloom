@@ -20,7 +20,7 @@ export const countBreakdownSchema = z.strictObject({ total: count, bySource: sou
 export type CountBreakdown = z.infer<typeof countBreakdownSchema>
 const pressureWindowSchema = z.strictObject({ startLocalDate: dateSchema, endLocalDateExclusive: dateSchema, distinctSourcePeriods: count, distinctOperationDates: count, thresholdMet: z.boolean() })
 export const evidenceSchema = z.strictObject({
-  eventId: idSchema, operationId: idSchema, category: z.enum(['carry_after_period', 'advance_reschedule', 'placement_change', 'state', 'guidance', 'other']),
+  eventId: idSchema, operationId: idSchema, category: z.enum(['carry_after_period', 'advance_reschedule', 'placement_change', 'state', 'other']),
   source: z.enum(['user', 'system', 'unknown']), at: instantSchema, effective: z.boolean().nullable(), fromPeriodId: idSchema.nullable(), toPeriodId: idSchema.nullable(),
   fromPeriod: periodSchema.nullable(), toPeriod: periodSchema.nullable(),
 })
@@ -36,7 +36,6 @@ export const executionFactsSchema = z.strictObject({
   placementDurations: z.record(z.enum(periodHorizons), factSchema(z.number().finite().nonnegative())), deadlineNow: factSchema(z.strictObject({ overdueDays: count })),
   pressure: z.strictObject({ level: factSchema(z.enum(['normal', 'carryover', 'reconfirm', 'overdue'])),
     windows: z.strictObject({ day: factSchema(pressureWindowSchema), week: factSchema(pressureWindowSchema) }),
-    suppression: factSchema(z.strictObject({ guidanceBoundary: z.strictObject({ eventSeq: count, at: instantSchema }).nullable(), hasNewSourcePeriod: z.boolean(), reconfirmationSuppressed: z.boolean() })),
   }), evidence: z.array(evidenceSchema).max(6),
 })
 export type ExecutionFacts = z.infer<typeof executionFactsSchema>

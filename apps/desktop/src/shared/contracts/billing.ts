@@ -8,7 +8,7 @@ import { z } from 'zod'
 export const billingChannel = 'goalloom:billing'
 export const billingEvent = 'goalloom:billing-state'
 export const billingCycles = ['monthly', 'annual'] as const
-export const billingMutationKinds = ['claim_trial', 'checkout', 'portal', 'switch', 'cancel', 'resume', 'remove_switch'] as const
+export const billingMutationKinds = ['checkout', 'portal', 'switch', 'cancel', 'resume', 'remove_switch'] as const
 export const billingErrors = ['authentication_failed', 'billing_configuration', 'billing_pending', 'billing_unavailable',
   'billing_request_conflict', 'billing_review_required', 'billing_source_mismatch', 'subscription_exists',
   'subscription_missing', 'checkout_expired', 'renewal_confirmation_required', 'billing_invalid_cycle',
@@ -22,7 +22,6 @@ export const billingContinuationSchema = z.strictObject({
 export const billingActionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('status') }),
   z.strictObject({ type: z.literal('refresh') }),
-  z.strictObject({ type: z.literal('claim_trial'), expectedAccountId: z.uuid() }),
   z.strictObject({ type: z.literal('checkout'), cycle: billingCycleSchema, expectedAccountId: z.uuid() }),
   z.strictObject({ type: z.literal('portal'), expectedAccountId: z.uuid() }),
   z.strictObject({ type: z.literal('switch'), cycle: billingCycleSchema, expectedAccountId: z.uuid() }),
@@ -37,8 +36,8 @@ export const billingSubscriptionSchema = z.strictObject({
   nextCycle: billingCycleSchema.nullable(), nextAmount: z.number().int().nonnegative().nullable(), nextCurrency: z.literal('USD').nullable(),
 })
 export const billingAccessSchema = z.strictObject({
-  status: z.enum(['none', 'trialing', 'active', 'verification_pending', 'expired', 'revoked']),
-  eligible: z.boolean(), serverNow: z.iso.datetime({ offset: true }), effectiveEnd: z.iso.datetime({ offset: true }).nullable(), trialEligible: z.boolean(),
+  status: z.enum(['none', 'active', 'verification_pending', 'expired', 'revoked']),
+  eligible: z.boolean(), serverNow: z.iso.datetime({ offset: true }), effectiveEnd: z.iso.datetime({ offset: true }).nullable(),
   grace: z.boolean(), prices: z.strictObject({ monthly: billingPriceSchema, annual: billingPriceSchema }),
   subscriptions: billingSubscriptionSchema.array().max(20),
 })

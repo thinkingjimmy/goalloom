@@ -14,7 +14,7 @@ export const seedByteLimit = 104_857_600
 export const seedPlaintextLimit = 1_048_536
 export const seedRecordLimit = 200
 export const seedHorizons = ['year', 'half', 'cycle', 'month', 'week', 'day'] as const
-export const emptySeedCounts = (): SeedCounts => ({ workspace: 0, periods: 0, policies: 0, items: 0, guidance: 0, relations: 0 })
+export const emptySeedCounts = (): SeedCounts => ({ workspace: 0, periods: 0, policies: 0, items: 0, relations: 0 })
 export interface ExactSeedSource { records: SeedRecord[]; counts: SeedCounts; rowBytes: number; digest: string }
 export interface SeedState {
   seedId: string; manifest: SeedManifest; creatorDeviceId: string; beginOpId: string
@@ -30,11 +30,7 @@ export class SeedIntegrityError extends SyncApplyError {
 export function seedAssert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new SeedIntegrityError(message)
 }
-export function seedTablesReady(driver: SqlDriver): boolean {
-  return Boolean(driver.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_seed_state'").get())
-}
 export function readSeedState(driver: SqlDriver, scope: SeedScope): SeedState | null {
-  if (!seedTablesReady(driver)) return null
   const row = driver.prepare('SELECT * FROM sync_seed_state WHERE scope=?').get(scope)
   if (!row) return null
   return {
@@ -54,10 +50,9 @@ export function writeSeedState(driver: SqlDriver, scope: SeedScope, state: SeedS
       state.lastKey, canonicalJson(state.counts), state.rowBytes, state.finalOpId, state.finalPayloadHash)
 }
 export function resetSeedState(driver: SqlDriver): void {
-  if (seedTablesReady(driver)) driver.exec('DELETE FROM sync_seed_state')
+  driver.exec('DELETE FROM sync_seed_state')
 }
 export function copySeedStateToVisible(driver: SqlDriver): void {
-  if (!seedTablesReady(driver)) return
   driver.prepare("DELETE FROM sync_seed_state WHERE scope='visible'").run()
   const base = readSeedState(driver, 'base')
   if (base) writeSeedState(driver, 'visible', base)
@@ -76,5 +71,5 @@ export function countSeedRecord(counts: SeedCounts, record: SeedRecord): void {
   else if (record.kind === 'period') counts.periods++
   else if (record.kind === 'policy') counts.policies++
   else if (record.kind === 'relation') counts.relations++
-  else { counts.items++; if (record.guidance) counts.guidance++ }
+  else counts.items++
 }

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Authoritative SQLite connection and a main-owned backup directory.
+ * [INPUT]: Authoritative current-schema SQLite connection and a main-owned backup directory.
  * [OUTPUT]: Verified committed-WAL copies without protected binding/epoch evidence or secret freelist bytes; failure cleans only this attempt.
  * [POS]: Shared protective/daily backup primitive, with secure portable-copy sanitation.
  */
@@ -36,14 +36,12 @@ export async function consistentBackup(db: DatabaseSync, directory: string): Pro
 
 /** Deletes secret rows and secret actions, then VACUUMs so freelist pages do not keep the key bytes. */
 function stripSecretMaterial(copy: DatabaseSync): void {
-  const settings = copy.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_settings'").get()
-  const ops = copy.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_ops'").get()
   copy.exec('PRAGMA secure_delete = ON')
   for (const table of ['sync_binding_epoch_receipts', 'sync_initialization_ack', 'sync_retired_rows', 'sync_active_binding', 'sync_binding_transitions', 'sync_seed_state']) {
-    if (copy.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table)) copy.exec(`DELETE FROM ${table}`)
+    copy.exec(`DELETE FROM ${table}`)
   }
-  if (settings) copy.exec(`DELETE FROM sync_settings WHERE key IN ('ai.key.openrouter', 'ai.key.vercel-gateway')`)
-  if (ops) {
+  copy.exec(`DELETE FROM sync_settings WHERE key IN ('ai.key.openrouter', 'ai.key.vercel-gateway')`)
+  {
     const rows = copy.prepare(`SELECT opId, payload FROM sync_ops WHERE instr(payload, '"ai.key.') > 0`).all()
     for (const row of rows) {
       const opId = String(row.opId)
@@ -60,8 +58,6 @@ function stripSecretMaterial(copy: DatabaseSync): void {
 }
 
 function dropOp(copy: DatabaseSync, opId: string): void {
-  if (copy.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_conflicts'").get()) {
-    copy.prepare('DELETE FROM sync_conflicts WHERE opId=?').run(opId)
-  }
+  copy.prepare('DELETE FROM sync_conflicts WHERE opId=?').run(opId)
   copy.prepare('DELETE FROM sync_ops WHERE opId=?').run(opId)
 }

@@ -95,7 +95,7 @@ export function createFetchRemote(input: {
   return {
     finishInitialization: (value, options) => createCloudRemote(input).finishInitialization(value, options),
     registerDevice: (input, options) => call<string>('register_device', {
-      p_name: input.name.slice(0, 64), p_platform: input.platform, p_sign_pub: bytea(input.signPub), p_box_pub: bytea(input.boxPub), p_protocol: 1,
+      p_name: input.name.slice(0, 64), p_platform: input.platform, p_sign_pub: bytea(input.signPub), p_box_pub: bytea(input.boxPub), p_protocol: 2,
     }, options),
     rebindDevice: (deviceId, message, signature, options) => call<void>('rebind_device', { p_device: deviceId, p_message: bytea(message), p_signature: bytea(signature) }, options),
     account: options => call<AccountView | null>('list_account', options?.workspaceId ? { p_workspace: options.workspaceId } : {}, options),
@@ -151,6 +151,5 @@ export function createFetchRemote(input: {
         || !/^[a-f0-9]{64}$/.test(row.payloadHash) || !/^[a-f0-9]+$/.test(row.ciphertext) || row.ciphertext.length % 2 || row.ciphertext.length > 2097152)) throw new SyncFailure('configuration')
       return result
     },
-    resetSync: (deviceId, options) => call<void>('reset_sync', { p_device: deviceId, ...(options?.workspaceId ? { p_workspace: options.workspaceId } : {}) }, options),
   }
 }

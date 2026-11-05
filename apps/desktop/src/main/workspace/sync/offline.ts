@@ -38,7 +38,7 @@ export function offlineRolloverOperations(db: DatabaseSync): { op: SyncOp; befor
     for (let index = 0; index < actions.length; index += 200) {
       const opId = index === 0 ? String(operation.id) : uuidv5(`offline-rollover:${operation.id}:${index}`, generation)
       if (ids.has(opId)) continue
-      result.push({ op: parseSyncOp({ v: 1, opId, deviceId: 'system', at: String(operation.at), actions: actions.slice(index, index + 200) }), beforeOpId: next ? String(next.opId) : null })
+      result.push({ op: parseSyncOp({ v: 2, opId, deviceId: 'system', at: String(operation.at), actions: actions.slice(index, index + 200) }), beforeOpId: next ? String(next.opId) : null })
     }
   }
   return result

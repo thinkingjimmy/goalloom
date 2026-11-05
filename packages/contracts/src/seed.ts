@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Untrusted exact initialization records inside encrypted format-1 SyncOps.
+ * [INPUT]: Untrusted exact initialization records inside encrypted format-2 SyncOps.
  * [OUTPUT]: Non-transforming, closed seed schemas with explicit row and byte limits.
  * [POS]: Application payload capability 2; ordinary commands retain their existing schemas.
  */
@@ -29,7 +29,6 @@ export const seedRecordSchema = z.discriminatedUnion('kind', [
       itemId: id, horizon: z.enum(['later', 'year', 'half', 'cycle', 'month', 'week', 'day']), periodId: id.nullable(),
       sortKey: z.number().finite().refine(value => !Object.is(value, -0)), version, holdPeriodId: id.nullable(), nestingParentId: id.nullable(),
     }),
-    guidance: z.strictObject({ itemId: id, revision: version, value: json.nullable(), updatedAt: instant, operationId: id }).nullable(),
   }),
   z.strictObject({ kind: z.literal('relation'), row: z.strictObject({
     id, parentId: id, childId: id, invalidatedAt: instant.nullable(), invalidatedBy: id.nullable(),
@@ -38,10 +37,10 @@ export const seedRecordSchema = z.discriminatedUnion('kind', [
 ])
 
 export const seedManifestSchema = z.strictObject({
-  version: z.literal(1), seedId: z.uuid(),
+  version: z.literal(2), seedId: z.uuid(),
   counts: z.strictObject({
     workspace: z.literal(1), periods: z.number().int().nonnegative().max(100_000), policies: z.number().int().nonnegative().max(6),
-    items: z.number().int().nonnegative().max(100_000), guidance: z.number().int().nonnegative().max(100_000), relations: z.number().int().nonnegative().max(500_000),
+    items: z.number().int().nonnegative().max(100_000), relations: z.number().int().nonnegative().max(500_000),
   }),
   rowBytes: z.number().int().positive().max(104_857_600), chunks: z.number().int().positive().max(1_000_000), digest: hash,
 })

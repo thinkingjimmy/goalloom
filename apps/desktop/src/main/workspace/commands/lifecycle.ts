@@ -61,7 +61,7 @@ export function deleteItem(context: Context, command: CommandOf<'delete' | 'disc
   if (command.type === 'discardEmpty') {
     const linked = item.placement.nestingParentId || context.store.hasNestedChildren(item.id)
       || context.store.prepare('SELECT 1 FROM item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?) LIMIT 1').get(item.id, item.id)
-    if (!canDiscardEmptyTitle(item, Number(!!linked), !!context.store.guidance(item.id)?.value)) throw new DomainError('conflict', serverText().errors.itemChanged)
+    if (!canDiscardEmptyTitle(item, Number(!!linked))) throw new DomainError('conflict', serverText().errors.itemChanged)
   }
   for (const child of context.store.nestedItems(item.id)) changeNesting(context, child, null)
   if (item.placement.nestingParentId) changeNesting(context, item, null)

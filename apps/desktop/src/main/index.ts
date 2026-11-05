@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Electron lifecycle, application identity, noninteractive Keychain policy, security, workspace calendar clock, storage and desktop services.
  * [OUTPUT]: Stable identity, isolated credentials, disabled Keychain dialogs, device-aware reconciliation, guarded billing/return, single window, write gates and session cleanup.
- * [POS]: Application composition root; the renderer parse overlaps guarded storage startup, and migrations remain protected before writes.
+ * [POS]: Application composition root; the renderer parse overlaps guarded storage startup, and unsupported files are refused before writes.
  */
 import { app, BrowserWindow, clipboard, dialog, powerMonitor, protocol, screen, session, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
@@ -25,7 +25,6 @@ import { LinkPreviewService } from './link-preview/service'
 import { UpdateService } from './update'
 import { installMenu } from './window/menu'
 import { openAboutEvent, updateEvent } from '../shared/contracts/update'
-import { assistanceServerText } from '../shared/i18n/assistance'
 import { SyncService } from './sync/service'
 import { createNetworkMonitor } from './sync/network-monitor'
 import { projectSettingRows } from './sync/project-settings'
@@ -124,23 +123,10 @@ async function openStorage(): Promise<StorageClient | null> {
   const backups = join(app.getPath('userData'), 'backups')
   for (;;) {
     const client = new StorageClient(join(directory, 'storage.js'), join(app.getPath('userData'), 'workspace.sqlite'), backups, language.locale)
-    const status = await client.call<{ ok: true } | { ok: false; message: string; backupPath: string | null; backupDirectory: string; legacyVersion: number | null }>('startup').catch(() => ({ ok: false as const, message: serverText().dialogs.startupUnavailable, backupPath: null, backupDirectory: backups, legacyVersion: null }))
+    const status = await client.call<{ ok: true } | { ok: false; message: string }>('startup').catch(() => ({ ok: false as const, message: serverText().dialogs.startupUnavailable }))
     if (status.ok) return client
-    if (status.legacyVersion !== null) {
-      const t = assistanceServerText()
-      const begin = await dialog.showMessageBox({ type: 'info', title: t.upgradeTitle, message: t.upgradePrepare, detail: `v${status.legacyVersion} → v8`, buttons: [t.prepare, t.cancel], defaultId: 1, cancelId: 1, noLink: true })
-      if (begin.response !== 0) { await client.close().catch(() => undefined); return null }
-      try {
-        const preview = await client.call<{ token: string; backupPath: string }>('prepareStartupUpgrade')
-        const confirm = await dialog.showMessageBox({ type: 'question', title: t.upgradeTitle, message: t.upgradeConfirm, detail: preview.backupPath, buttons: [t.confirm, t.cancel], defaultId: 1, cancelId: 1, noLink: true })
-        if (confirm.response !== 0) { await client.close().catch(() => undefined); return null }
-        await client.call('commitStartupUpgrade', preview.token)
-        await client.close().catch(() => undefined)
-        continue
-      } catch (error) { status.message = error instanceof Error ? error.message : serverText().storage.upgradeFailed }
-    }
     await client.close().catch(() => undefined)
-    const detail = serverText().dialogs.startupDetail(status.backupPath, status.backupDirectory, join(app.getPath('userData'), 'workspace.sqlite'))
+    const detail = serverText().dialogs.startupDetail(backups, join(app.getPath('userData'), 'workspace.sqlite'))
     const choice = await dialog.showMessageBox({ type: 'error', title: serverText().dialogs.startupTitle, message: status.message, detail, buttons: [serverText().dialogs.retry, serverText().dialogs.quit], defaultId: 0, cancelId: 1, noLink: true })
     if (choice.response !== 0) return null
   }

@@ -5,7 +5,7 @@
  */
 import type { Item } from '../shared/contracts/entities'
 
-export function canDiscardEmptyTitle(item: Pick<Item, 'description' | 'dueDate' | 'flowColor' | 'status' | 'archivedAt' | 'deletedAt'>, relationCount: number, hasGuidance = false): boolean {
+export function canDiscardEmptyTitle(item: Pick<Item, 'description' | 'dueDate' | 'flowColor' | 'status' | 'archivedAt' | 'deletedAt'>, relationCount: number): boolean {
   return !item.description.trim() && !item.dueDate && item.flowColor === null && item.status === 'todo'
-    && item.archivedAt === null && item.deletedAt === null && relationCount === 0 && !hasGuidance
+    && item.archivedAt === null && item.deletedAt === null && relationCount === 0
 }

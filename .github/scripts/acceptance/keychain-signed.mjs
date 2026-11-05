@@ -1,20 +1,19 @@
 /**
- * [INPUT]: Signed release executable, previous public macOS ZIP and the hosted runner's disposable signing keychain.
- * [OUTPUT]: Private session-key restart/replacement and safeStorage first-use/1.9.1 AI-upgrade evidence in output/tests/keychain-signed/.
+ * [INPUT]: Signed current release executable and the hosted runner's disposable signing keychain.
+ * [OUTPUT]: Private session-key restart/replacement and current safeStorage roundtrip evidence in output/tests/keychain-signed/.
  * [POS]: Developer ID/Hardened Runtime release gate. Runs only on the ephemeral macOS Actions runner, with synthetic data.
  */
 // Failure cases: the policy is absent or cannot load under library validation;
-// first encryption fails; restart/replacement loses its key; old credentials cannot restore;
+// first encryption fails; restart/replacement loses its key;
 // a test reads a real user's keychain or prints a secret.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join, resolve, dirname } from 'node:path'
 import { cpus, release } from 'node:os'
 import headers from 'node-api-headers'
 import { _electron as electron } from 'playwright'
-import { finishSetup } from './setup.mjs'
 import { validateSessionProfile } from '../../../apps/desktop/scripts/build/session-profile.mjs'
 
 assert(process.platform === 'darwin' && process.env.GITHUB_ACTIONS === 'true', 'This gate requires an ephemeral macOS Actions runner')
@@ -100,47 +99,6 @@ try {
   check('a replacement bundle with a new signed version and the same app/access-group identity retains the session key')
   await close()
 
-  const previous = '1.9.1'
-  const download = join(temporary, 'previous')
-  await mkdir(download)
-  run('gh', ['release', 'download', `v${previous}`, '--repo', 'thinkingjimmy/goalloom', '--pattern', `Goalloom-${previous}-mac-arm64.zip`, '--dir', download], 180_000)
-  run('/usr/bin/ditto', ['-x', '-k', join(download, `Goalloom-${previous}-mac-arm64.zip`), download], 60_000)
-  const oldApp = join(download, 'Goalloom.app')
-  run('/usr/bin/codesign', ['--verify', '--deep', '--strict', oldApp])
-  const upgrade = join(temporary, 'upgrade-profile')
-  await mkdir(upgrade)
-  await writeFile(join(upgrade, 'preferences.json'), JSON.stringify({ language: 'zh' }))
-  await launch(join(oldApp, 'Contents/MacOS/Goalloom'), upgrade)
-  // The old version did not disable UI. Apply only the noninteractive test guard;
-  // its own safeStorage still creates the legacy credential bytes and identity.
-  await application.evaluate((_, path) => { process.getBuiltinModule('module').createRequire(process.execPath)(path).disableInteraction() }, policy)
-  assert.equal(await disabled(), true)
-  await finishSetup(page)
-  const generation = (await page.evaluate(() => window.goalloom.getSnapshot())).workspace.generation
-  const encrypted = await application.evaluate(({ safeStorage }) => safeStorage.encryptString('synthetic-signed-upgrade-key').toString('base64'))
-  await close()
-  const directory = join(upgrade, 'smart-input')
-  await mkdir(directory, { recursive: true })
-  const stamp = new Date().toISOString()
-  const provider = { consentedAt: stamp, verifiedAt: stamp, keyHint: '••••-key', capabilities: { jev: stamp, chat: stamp }, lastFailure: null, assistanceConsent: null }
-  const blank = { consentedAt: null, verifiedAt: null, keyHint: null, capabilities: { jev: null, chat: null }, lastFailure: null, assistanceConsent: null }
-  const feature = { provider: 'openrouter', revision: 1, enabledForGeneration: generation }
-  const bytes = Buffer.from(encrypted, 'base64')
-  await writeFile(join(directory, 'openrouter.key'), bytes, { mode: 0o600 })
-  await writeFile(join(directory, 'config.json'), JSON.stringify({ version: 3, providers: { openrouter: provider, 'vercel-gateway': blank }, features: { smart: feature, insight: feature }, dismissed: [] }), { mode: 0o600 })
-  await launch(current, upgrade)
-  assert.equal(await disabled(), true)
-  await page.locator('.board').waitFor()
-  const status = await page.evaluate(async generation => window.goalloom.smart({ type: 'status', generation }), generation)
-  assert.equal(status.type, 'status')
-  assert.equal(status.status.providers.openrouter.credential, 'saved')
-  assert.equal(status.status.features.smart.enabled, true)
-  assert.equal(status.status.features.insight.enabled, true)
-  assert.deepEqual(await readFile(join(directory, 'openrouter.key')), bytes)
-  report.runtime = await page.evaluate(() => window.goalloom.getRuntime())
-  report.upgrade = { from: previous, to: await application.evaluate(({ app }) => app.getVersion()), preservedCiphertext: true, smartRestored: true, insightRestored: true }
-  await page.screenshot({ path: join(out, 'upgrade-restored.png') })
-  check('the signed release restores 1.9.1 AI credentials and feature settings without rewriting ciphertext or enabling UI')
   report.passed = true
 } catch (error) {
   report.failure = error.stack ?? String(error)

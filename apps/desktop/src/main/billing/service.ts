@@ -16,9 +16,9 @@ import { BillingLoopback, parseBillingReturn } from './return'
 const instant = z.iso.datetime({ offset: true })
 const price = z.object({ amount: z.number().int().nonnegative(), currency: z.literal('USD'), taxBehavior: z.literal('inclusive') })
 const statusSchema = z.object({
-  version: z.literal(1), environment: z.enum(['development', 'production']),
+  version: z.literal(2), environment: z.enum(['development', 'production']),
   status: billingAccessSchema.shape.status, eligible: z.boolean(), serverNow: instant,
-  effectiveEnd: instant.nullable(), trialEligible: z.boolean(), grace: z.boolean(),
+  effectiveEnd: instant.nullable(), grace: z.boolean(),
   priceCatalog: z.object({ monthly: price, annual: price }),
   subscriptions: z.array(z.object({ status: z.string().max(64), cycle: billingCycleSchema.nullable(), nextCycle: billingCycleSchema.nullable(),
     endsAt: instant.nullable(), cancelAtPeriodEnd: z.boolean() })).max(20),
@@ -26,11 +26,11 @@ const statusSchema = z.object({
 const browserSchema = z.object({ status: z.enum(['checkout', 'portal']), url: z.string().max(8192), requestId: z.uuid(),
   continuationExpiresAt: instant, returnToThisDevice: z.boolean() })
 const closedSchema = z.object({ environment: z.enum(['development', 'production']), operation: z.strictObject({
-  requestId: z.uuid(), requestedId: z.uuid().optional(), action: z.enum(['claim_trial', 'checkout', 'portal', 'switch', 'cancel', 'resume', 'remove_switch']),
+  requestId: z.uuid(), requestedId: z.uuid().optional(), action: z.enum(['checkout', 'portal', 'switch', 'cancel', 'resume', 'remove_switch']),
   cycle: billingCycleSchema.nullable(), status: z.literal('closed'), reason: z.enum(billingErrors),
 }) })
 const completeSchema = z.object({ environment: z.enum(['development', 'production']), operation: z.strictObject({
-  requestId: z.uuid(), requestedId: z.uuid().optional(), action: z.enum(['claim_trial', 'checkout', 'portal', 'switch', 'cancel', 'resume', 'remove_switch']),
+  requestId: z.uuid(), requestedId: z.uuid().optional(), action: z.enum(['checkout', 'portal', 'switch', 'cancel', 'resume', 'remove_switch']),
   cycle: billingCycleSchema.nullable(), status: z.literal('complete'),
 }) })
 
@@ -194,10 +194,10 @@ export class BillingService {
     if (!wire.success || wire.data.environment !== this.environment) throw new BillingFailure('billing_configuration')
     const value = wire.data
     const { priceCatalog } = value
-    if (value.eligible !== ['active', 'trialing'].includes(value.status)
+    if (value.eligible !== (value.status === 'active')
       || value.eligible && (!value.effectiveEnd || Date.parse(value.effectiveEnd) <= Date.parse(value.serverNow))) throw new BillingFailure('billing_configuration')
     return billingAccessSchema.parse({ status: value.status, eligible: value.eligible, serverNow: value.serverNow,
-      effectiveEnd: value.effectiveEnd, trialEligible: value.trialEligible, grace: value.grace,
+      effectiveEnd: value.effectiveEnd, grace: value.grace,
       prices: { monthly: { amount: priceCatalog.monthly.amount, currency: 'USD' }, annual: { amount: priceCatalog.annual.amount, currency: 'USD' } },
       subscriptions: value.subscriptions.map(row => {
         const next = row.nextCycle ?? row.cycle

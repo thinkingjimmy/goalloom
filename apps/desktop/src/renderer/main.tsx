@@ -1,7 +1,7 @@
 /**
  * [INPUT]: The application root and device language/placement initialization.
  * [OUTPUT]: React mounts after preference hydration, before the first workspace snapshot.
- * [POS]: Renderer bootstrap; migrated placement preferences reach main before startup reconciliation.
+ * [POS]: Renderer bootstrap; current placement preferences load before startup reconciliation.
  */
 import React from 'react'
 import { createRoot } from 'react-dom/client'

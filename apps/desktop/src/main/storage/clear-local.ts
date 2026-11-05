@@ -8,7 +8,7 @@ import { basename, dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { openDatabase, verifyDatabase } from './database'
-import { migrate } from './schema'
+import { initializeSchema } from './schema'
 import { atomicJson } from './atomic-json'
 
 const receiptName = 'sync-clear.json'
@@ -56,7 +56,7 @@ export async function clearLocalFiles(input: {
   await mkdir(stage, { mode: 0o700 })
   const replacement = join(stage, 'empty.sqlite')
   const blank = openDatabase(replacement)
-  try { migrate(blank); verifyDatabase(blank); blank.exec('PRAGMA wal_checkpoint(TRUNCATE)') }
+  try { initializeSchema(blank); verifyDatabase(blank); blank.exec('PRAGMA wal_checkpoint(TRUNCATE)') }
   finally { blank.close() }
   const files = (await readdir(directory)).filter(file => receiptSchema.shape.files.element.safeParse(file).success)
   try { await access(join(directory, 'cloud', 'retrieved-copies')); files.push('cloud/retrieved-copies'); await mkdir(join(stage, 'cloud'), { mode: 0o700 }) } catch (error) { if (!missing(error)) throw error }

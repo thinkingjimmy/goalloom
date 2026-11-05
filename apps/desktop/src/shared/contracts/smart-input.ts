@@ -6,10 +6,10 @@
 import { z } from 'zod'
 import { aiCapabilities, aiFailureKinds, aiFeatures, aiProviders, hostedScopeVersion, childHorizons, periodHorizons } from './values'
 import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, statusSchema } from './entities'
-import { assistancePrepareSchema, assistancePreparedSchema, assistanceReplySchema, assistanceRequestSchema, guidanceValueSchema } from './assistance'
+import { assistancePrepareSchema, assistancePreparedSchema, assistanceReplySchema, assistanceRequestSchema } from './assistance'
 import { insightPrefsSchema } from './insight-preferences'
 export { insightPrefsSchema, type InsightPrefs } from './insight-preferences'
-import { executionFactsSchema, factSchema } from './execution'
+import { executionFactsSchema } from './execution'
 import { analyzeRequestSchema, creationSelectionSchema } from './capture'
 export { analyzeRequestSchema, type AnalyzeRequest } from './capture'
 
@@ -66,7 +66,6 @@ export const draftTaskSchema = z.strictObject({
   id: z.string().min(1).max(64), parent: line, goal: line.nullable(),
   target: z.string().max(120), targetHorizon: z.enum(childHorizons),
   siblings: z.array(line).max(20),
-  guidance: guidanceValueSchema.nullable().optional(),
 })
 export type DraftTask = z.infer<typeof draftTaskSchema>
 export const insightBoardSchema = z.strictObject({
@@ -77,7 +76,7 @@ export const insightBoardSchema = z.strictObject({
 export type InsightBoard = z.infer<typeof insightBoardSchema>
 export const insightSignalSchema = z.strictObject({ kind: z.enum(['gap', 'skip', 'pace', 'overload', 'vague']), goal: line, detail: z.string().max(300) })
 export type InsightSignal = z.infer<typeof insightSignalSchema>
-export const insightEvidenceSchema = z.strictObject({ itemId: idSchema, cutoff: instantSchema.nullable(), guidance: factSchema(guidanceValueSchema), executionFacts: executionFactsSchema })
+export const insightEvidenceSchema = z.strictObject({ itemId: idSchema, cutoff: instantSchema.nullable(), executionFacts: executionFactsSchema })
 const evidenceRequestSchema = z.strictObject({ itemId: idSchema, cutoff: instantSchema })
 export const draftRequestSchema = z.strictObject({ requestId: z.uuid(), retryId: z.uuid().optional(), intentKey: z.string().max(256).optional(), generation: idSchema, board: insightBoardSchema, tasks: z.array(draftTaskSchema).min(1).max(8), prefs: insightPrefsSchema,
   executionContext: z.array(insightEvidenceSchema).max(8).optional() })

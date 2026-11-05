@@ -1,12 +1,11 @@
 /**
- * [INPUT]: Authoritative business states, relation deltas, bounded guidance and original/rewritten note text.
+ * [INPUT]: Authoritative business states, relation deltas, original/rewritten note text.
  * [OUTPUT]: Immutable v1/v2/v3 owned effects, independent nesting/group positions and body-free business-state events.
  * [POS]: Shared transaction, undo and import contract; models cannot supply effects.
  */
 import type { StatusGroup } from '../../domain/status'
 import type { Item, ItemHorizon, Relation } from './entities'
 import type { CommandResult } from './commands'
-import type { GuidanceValue } from './assistance'
 
 export interface PositionEffect { horizon: ItemHorizon; periodId: string | null; previousId: string | null; nextId: string | null; nestingParentId?: string | null | undefined }
 export interface EdgeDelta { before: Relation | null; after: Relation }
@@ -16,7 +15,6 @@ export type Effect =
   | { kind: 'nesting'; itemId: string; before: NestingPosition; after: NestingPosition; edges: EdgeDelta[]; flowColor?: { before: number; after: null } | undefined; inheritedFrom?: { rootId: string; relations: Relation[] } | undefined }
   | { kind: 'groupPlacement'; itemId: string; before: GroupPlacement; after: GroupPlacement }
   | { kind: 'description'; itemId: string; before: string; after: string }
-  | { kind: 'guidance'; itemId: string; before: { value: GuidanceValue | null; operationId: string | null }; after: { value: GuidanceValue | null; operationId: string } }
   | { kind: 'create'; itemId: string; status: StatusGroup; horizon: ItemHorizon; periodId: string | null; initialRelations: string[] }
   | { kind: 'status'; itemId: string; before: StatusGroup; after: StatusGroup }
   | { kind: 'position'; itemId: string; before: PositionEffect; after: PositionEffect }
@@ -49,6 +47,6 @@ export function sameBusinessState(a: BusinessState, b: BusinessState): boolean {
 }
 export function effectsVersion(effects: Effect[]): Operation['effectsVersion'] {
   return effects.some(effect => effect.kind === 'nesting' || effect.kind === 'groupPlacement' || effect.kind === 'position' && !!(effect.before.nestingParentId || effect.after.nestingParentId)) ? 3
-    : effects.some(effect => effect.kind === 'guidance' || effect.kind === 'description') ? 2 : 1
+    : effects.some(effect => effect.kind === 'description') ? 2 : 1
 }
 export function statusGroup(item: StatusGroup): StatusGroup { return { status: item.status, completedAt: item.completedAt, cancelledAt: item.cancelledAt } }

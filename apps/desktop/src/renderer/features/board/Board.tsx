@@ -6,7 +6,7 @@
  *           Right-aligned More/Add controls share header reveal states; column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and two-level Tab drafts; hidden columns stay mounted and inert.
  *           Every inline entry follows the captured parent-placement preference; opening at the tail does not pin the saved position.
  *           Double-clicking a card edits its title in place; Tab/Shift+Tab reuse guarded nesting while retaining the editor and its completed section.
- *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly reminders support persistent dismissal without completion.
+ *           Flow insight: retained chain breakpoints, empty-column cards and review/post-review guides with explicit targets; weekly/monthly reminders support persistent dismissal without completion.
  *           "Write my own" opens this column's inline entry, the same one as ＋.
  *           Current month/week headers share the trailing add slot with a rounded calendar-day countdown badge.
  *           Completed tasks remain inline by default; the synced board preference can group fully completed outlines below.
@@ -318,7 +318,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const guide = review && <div className="review-guide p-3 rounded-[9px]">
     <div className="review-guide-head flex items-start gap-2">
       <span className="review-guide-meta flex items-center gap-1.5 text-muted-foreground text-[12px] leading-[18px] tabular-nums"><Icon name="calendar" size={14} />{periodDates(review.period)}</span>
-      {due?.week && <IconButton size="small" type="button" className="review-guide-dismiss" data-dismiss-review aria-label={insightMessages.reviewDismiss} title={insightMessages.reviewDismiss} disabled={busy} onClick={event => {
+      {due && <IconButton size="small" type="button" className="review-guide-dismiss" data-dismiss-review aria-label={insightMessages.reviewDismiss} title={insightMessages.reviewDismiss} disabled={busy} onClick={event => {
         insight.dismiss(due)
         const control = section.current?.querySelector<HTMLElement>('[data-period-switch]')
         if (control) returnFocus(control, event.detail > 0 ? 'pointer' : 'keyboard')

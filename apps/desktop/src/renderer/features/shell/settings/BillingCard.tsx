@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Account-bound trusted billing projection and finite main-process actions.
- * [OUTPUT]: Explicit trial/purchase, original-request recovery and confirmed renewal management.
+ * [OUTPUT]: Explicit purchase, original-request recovery and confirmed renewal management.
  * [POS]: Shared Plus card for Sync, AI settings and first-run setup. It never starts sync or enables AI.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -75,9 +75,6 @@ export function BillingCard({ state, run }: { state: BillingState | null; run: (
       {subscription?.endsAt && !subscription.cancelAtPeriodEnd && <SettingsRow title={t.renews} note={date(subscription.endsAt)}>
         {subscription.nextAmount !== null && <span className="text-[13px] text-soft">{t.nextPrice}: {money(subscription.nextAmount, subscription.nextCurrency ?? 'USD')} · {(subscription.nextCycle ?? subscription.cycle) === 'annual' ? t.annual : t.monthly}</span>}
       </SettingsRow>}
-      {access?.trialEligible && !pending && <SettingsRow title={t.trialNote}>
-        <SettingsButton type="button" variant="primary" disabled={blocked} onClick={() => void execute({ type: 'claim_trial' })}>{t.trial}</SettingsButton>
-      </SettingsRow>}
       {access && !subscription && !pending && access.status !== 'verification_pending' && <div className="flex flex-col gap-3 px-4.5 py-3">
         <fieldset className="m-0 flex flex-wrap gap-3 border-0 p-0" disabled={blocked}>
           <legend className="sr-only">{t.subscribe}</legend>
@@ -85,7 +82,7 @@ export function BillingCard({ state, run }: { state: BillingState | null; run: (
             <input type="radio" name="billing-cycle" value={value} checked={cycle === value} onChange={() => setCycle(value)} />{value === 'monthly' ? t.monthly : t.annual} · {money(access.prices[value].amount)}
           </label>)}
         </fieldset>
-        <p className="m-0 text-[12px] leading-relaxed text-muted-foreground">{t.priceNote}{access.status === 'trialing' && <> {t.earlyPurchase}</>}</p>
+        <p className="m-0 text-[12px] leading-relaxed text-muted-foreground">{t.priceNote}</p>
         <div className="flex justify-end"><SettingsButton type="button" disabled={blocked} onClick={() => void execute({ type: 'checkout', cycle })}>{t.subscribe}{price ? ` · ${money(price.amount)} / ${cycle === 'annual' ? t.annual : t.monthly}` : ''}</SettingsButton></div>
       </div>}
       {subscription && !confirm && <div className="flex flex-wrap justify-end gap-2 px-4.5 py-3">

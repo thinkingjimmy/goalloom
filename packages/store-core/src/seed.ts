@@ -7,7 +7,7 @@ import { canonicalJson, syncOpPayload, type SyncOp } from '@goalloom/contracts'
 import { sha256Hex } from '@goalloom/crypto'
 import type { ApplyHost, SqlDriver } from './driver'
 import { captureSeedRecords, insertSeedRecord, seedRecordBytes } from './seed-records'
-import { countSeedRecord, emptySeedCounts, readSeedState, seedAssert, seedRecordKey, SeedIntegrityError, seedTablesReady, writeSeedState, type SeedBoundary, type SeedScope } from './seed-types'
+import { countSeedRecord, emptySeedCounts, readSeedState, seedAssert, seedRecordKey, SeedIntegrityError, writeSeedState, type SeedBoundary, type SeedScope } from './seed-types'
 
 export function hasSeedAction(input: unknown): boolean {
   if (!input || typeof input !== 'object' || !('actions' in input) || !Array.isArray(input.actions)) return false
@@ -19,12 +19,11 @@ export function applySeedOperation(driver: SqlDriver, op: SyncOp, scope: SeedSco
   const state = readSeedState(driver, scope)
   if (!hasSeedAction(op)) { seedAssert(state?.phase !== 'loading', 'ordinary operation inside seed'); return false }
   try {
-    seedAssert(seedTablesReady(driver), 'seed schema unavailable')
     seedAssert(op.actions.length === 1 && action, 'mixed seed operation')
     if (action.t === 'seed.begin') {
       seedAssert(!state, 'seed already initialized')
       const prefix = scope === 'base' ? 'base_' : ''
-      for (const table of ['items', 'item_placements', 'planning_periods', 'rollover_policies', 'item_relations', 'item_guidance']) {
+      for (const table of ['items', 'item_placements', 'planning_periods', 'rollover_policies', 'item_relations']) {
         seedAssert(!driver.prepare(`SELECT 1 FROM ${prefix}${table} LIMIT 1`).get(), 'seed requires empty projection')
       }
       seedAssert(driver.prepare(`SELECT calendar FROM ${prefix}workspace WHERE id=1`).get()?.calendar === null, 'seed requires empty calendar')

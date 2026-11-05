@@ -15,7 +15,7 @@ export {
   actionSchema, blobRefSchema, localOnlyCommands, parseSyncOp, pendingSendStates, periodKeySchema,
   sendStates, sortHintSchema, syncOpPayload, syncOpSchema,
 } from './sync-op'
-export type { Action, CalendarWire, GuidanceWire, LocalOnlyCommand, PeriodKey, SendState, SortHint, SyncOp } from './sync-op'
+export type { Action, CalendarWire, LocalOnlyCommand, PeriodKey, SendState, SortHint, SyncOp } from './sync-op'
 
 export * from './cloud'
 export * from './lifecycle'

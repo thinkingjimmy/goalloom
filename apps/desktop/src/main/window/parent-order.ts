@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A fixed device preference path and validated local or synchronized values.
- * [OUTPUT]: Immediate placement policy, a projection revision guard, serialized atomic persistence and one-time renderer preference migration.
+ * [OUTPUT]: Immediate placement policy, a projection revision guard, serialized atomic persistence and reads after accepted writes.
  * [POS]: Main-owned device state outside the workspace; available before startup reconciliation and retained across replacement.
  */
 import { readFile } from 'node:fs/promises'
@@ -18,11 +18,9 @@ export class ParentOrderPreference {
   get revision(): number { return this.change }
   async load(): Promise<void> {
     try { this.value = preferenceSchema.parse(JSON.parse(await readFile(this.path, 'utf8'))).enabled }
-    catch { /* First launch imports the existing renderer preference before reading the board. */ }
+    catch { /* Missing device preferences use the default. */ }
   }
-  initialize(enabled: boolean): Promise<boolean> {
-    return this.value === null ? this.set(enabled) : this.writes.then(() => this.enabled)
-  }
+  read(): Promise<boolean> { return this.writes.then(() => this.enabled) }
   set(enabled: boolean): Promise<boolean> {
     this.value = enabled; this.change++
     const saved = this.writes.catch(() => undefined).then(() => atomicJson(this.path, { enabled }))

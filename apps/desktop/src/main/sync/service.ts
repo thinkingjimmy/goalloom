@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Current/legacy OS ciphers, storage worker, browser, resolved device locale, connectivity signals and an optional anon key.
+ * [INPUT]: Current OS ciphers, storage worker, browser, resolved device locale, connectivity signals and an optional anon key.
  * [OUTPUT]: Independent account-only sessions, explicit sync preparation, typed service pauses with receipt-only recovery, receipt-proven key epochs, noninteractive recovery, explicit cleanup, encrypted exchange and bounded review reads. Sign-out and unused startup do not access the keychain.
  * [POS]: Desktop sync coordinator. Network stays in the main process; the worker only sees opened ops.
  * The password is held in memory only until a join finishes or ten minutes pass.
@@ -36,7 +36,8 @@ import { BindingJournal, type BindingDraft, type PreparedEpoch } from './binding
 import { resolvePreparedEpoch } from './epoch-custody'
 import { createSeedBinding, finishSeedBinding, restoredSeedBinding } from './seed-binding'
 import type { BindingIdentity } from '@goalloom/store-core'
-import { prepareProductionProfile } from './environment'
+import { productionRef } from './config'
+import { join } from 'node:path'
 import { recoverUnknownReceipts } from './receipt-recovery'
 
 type Phase = SyncStatus['phase']
@@ -66,7 +67,7 @@ export class SyncService {
   private journalProtection: Promise<void> = Promise.resolve()
   private bindingSetup: Promise<void> = Promise.resolve()
   private vault: SessionVault
-  private passwordVault: PasswordVault
+  private selectedPassword: PasswordVault | null = null
   private passwordMode = false
   private passwordReady = false
   private manualUnlock = false
@@ -175,9 +176,8 @@ export class SyncService {
     beginSignIn?: (client: SupabaseClient, open: (url: string) => Promise<void>, options?: OAuthListenOptions) => Promise<Session>
   }) {
     this.secretDirectory = deps.userData
-    this.vault = new SessionVault(deps.userData, deps.cipher, deps.sessionCipher)
-    this.passwordVault = new PasswordVault(deps.userData)
-    this.pendingCache = new PendingCache(deps.userData, deps.cipher)
+    this.vault = new SessionVault(deps.userData, deps.sessionCipher ?? deps.cipher)
+    this.pendingCache = new PendingCache(deps.userData)
     this.cooldown = new UploadCooldown(deps.userData)
     this.schedule = new SyncSchedule({ run: () => this.runTurn(), onError: error => { this.setError(error); this.publish() },
       ...(deps.clock ? { clock: deps.clock } : {}), ...(deps.random ? { random: deps.random } : {}) })
@@ -216,15 +216,20 @@ export class SyncService {
     if (!accountId) throw new SyncFailure('auth')
     return this.scopeCustody(accountId).journal
   }
+  private get passwordVault(): PasswordVault {
+    const accountId = this.requireSecrets().userId
+    if (!accountId) throw new SyncFailure('auth')
+    return this.selectPasswordScope(accountId)
+  }
   private selectPasswordScope(accountId: string): PasswordVault {
     const owned = this.scopeCustody(accountId)
-    if (this.passwordVault !== owned.password) { this.passwordVault.forget(); this.passwordVault = owned.password }
+    if (this.selectedPassword !== owned.password) { this.selectedPassword?.forget(); this.selectedPassword = owned.password }
     return owned.password
   }
   private cancelCustody(): void {
-    this.passwordVault.forget()
-    for (const owned of this.custody.values()) { owned.key = null; owned.password.forget() }
-    for (const password of this.preparedPasswords) password.forget()
+    this.selectedPassword?.forget()
+    for (const owned of this.custody.values()) { owned.key = null; owned.password!.forget() }
+    for (const password of this.preparedPasswords) password!.forget()
   }
   private async settleCustody(): Promise<void> {
     await Promise.all([...this.custody.values()].flatMap(owned => [owned.password.settle(), owned.journal.settle()]).concat([...this.preparedPasswords].map(password => password.settle())))
@@ -318,12 +323,12 @@ export class SyncService {
     const config = readSyncConfig(this.deps.userData, this.deps.packaged)
     if (!config.anonKey) { this.phase = 'unconfigured'; this.publish(); return }
     if (this.deps.packaged) {
-      const directory = await prepareProductionProfile(this.deps.userData, this.deps.storage)
+      const directory = join(this.deps.userData, 'sync', productionRef)
       this.secretDirectory = directory
       this.custody.clear()
-      this.vault = new SessionVault(directory, this.deps.cipher, this.deps.sessionCipher)
-      this.passwordVault = new PasswordVault(directory)
-      this.pendingCache = new PendingCache(directory, this.deps.cipher)
+      this.vault = new SessionVault(directory, this.deps.sessionCipher ?? this.deps.cipher)
+      this.selectedPassword = null
+      this.pendingCache = new PendingCache(directory)
       this.cooldown = new UploadCooldown(directory)
     }
     this.started = true
@@ -332,9 +337,8 @@ export class SyncService {
     this.manualUnlock = Boolean(interactive && this.deps.sessionCipher)
     this.credentialBlocked = false
     try {
-      this.passwordMode = Boolean(await this.passwordVault.identity())
-      const secrets = this.deps.sessionCipher || this.vault.available || !this.passwordMode
-        ? await this.vault.load({ resumeOnly: !interactive, signal: loading, passwordFallback: this.passwordMode }) : null
+      this.passwordMode = false
+      const secrets = await this.vault.load({ resumeOnly: !interactive, signal: loading })
       if (loading.aborted || this.stopped) return
       this.secrets = secrets
       if (secrets) this.passwordMode = false
@@ -530,11 +534,10 @@ export class SyncService {
     else if (action.type === 'create') await this.createWorkspace(action.password)
     else if (action.type === 'submit-password') await this.submitPassword(action.password)
     else if (action.type === 'change-password') await this.changePassword(action.password)
-    else if (action.type === 'reset-sync') await this.resetAndUpload(action.password)
     else if (action.type === 'create-new-workspace') {
       const approved = this.generationPreview
       if (!approved || approved.token !== action.previewToken || approved.accountId !== action.expectedAccountId || this.accountId() !== action.expectedAccountId) throw new SyncFailure('mismatch')
-      await this.resetAndUpload(action.password, false, approved)
+      await this.createNewFromLocal(action.password, approved)
     }
     else if (action.type === 'join') await this.finishJoin(action.choice, action.acknowledged)
   }
@@ -730,7 +733,7 @@ export class SyncService {
     this.publish()
   }
 
-  private async resetAndUpload(password: string, destructive = true, approved?: NonNullable<SyncService['generationPreview']>): Promise<void> {
+  private async createNewFromLocal(password: string, approved: NonNullable<SyncService['generationPreview']>): Promise<void> {
     const operation = this.lifecycleId
     if (this.phase !== 'enter-key' && this.phase !== 'ready' && !(this.phase === 'account' && approved)) return
     if (!passwordAccepted(password)) throw new SyncFailure('password')
@@ -766,7 +769,7 @@ export class SyncService {
       view = await this.readView()
     }
     if (view.initializing) throw new SyncFailure('initialization_pending')
-    await this.createSeed(password, view, approved, destructive)
+    await this.createSeed(password, view, approved)
     this.becomeReady()
     await this.runTurn()
     this.publish()
@@ -802,7 +805,7 @@ export class SyncService {
     if (this.secrets !== secrets) throw new SyncFailure('cancelled')
   }
 
-  private async createSeed(password: string, view: LocalView, approved?: NonNullable<SyncService['generationPreview']>, destructive = false): Promise<void> {
+  private async createSeed(password: string, view: LocalView, approved?: NonNullable<SyncService['generationPreview']>): Promise<void> {
     const id = this.lifecycleId, secrets = this.requireSecrets(), deviceId = this.requireDevice()
     const accountId = secrets.userId
     if (!accountId) throw new SyncFailure('auth')
@@ -810,8 +813,8 @@ export class SyncService {
     const scope = { accountId, projectRef: new URL(config.url).hostname.split('.')[0]!, environment: this.deps.packaged ? 'production' as const : 'development' as const, localGeneration: view.generation, deviceId }
     await this.ensureActiveBinding(view)
     const result = await createSeedBinding({ journal: this.bindingJournal, remote: this.requireRemote(), storage: command => this.storage(command), secret: this.deviceSecret(), secrets, scope, expectedBinding: this.activeBinding, remotePrepared: () => { this.phase = 'enter-key' }, protectDraft: async draft => { await this.persistJournalProtection(() => {
-      if (this.passwordMode && !secrets.workspaceId) secrets.pendingRecovery = { sourceWorkspaceId: view.generation, destructive: false, localGeneration: view.generation, workspaceId: draft.binding.workspaceId, generation: draft.binding.generation, workspaceKey: Buffer.from(draft.workspaceKey, 'hex'), recoveryBoxSk: Buffer.from(draft.recoveryBoxSk, 'hex'), recoverySignSk: Buffer.from(draft.recoverySignSk, 'hex') }
-    }); await this.prepareDraftPassword(draft, password, id) }, promoteDraft: draft => this.promoteDraftPassword(draft), password, ...(approved ? { preview: approved.preview, approvedBinding: approved.binding } : {}), destructive, at: this.deps.now(), check: () => this.checkLifecycle(id) })
+      if (this.passwordMode && !secrets.workspaceId) secrets.pendingRecovery = { sourceWorkspaceId: view.generation, localGeneration: view.generation, workspaceId: draft.binding.workspaceId, generation: draft.binding.generation, workspaceKey: Buffer.from(draft.workspaceKey, 'hex'), recoveryBoxSk: Buffer.from(draft.recoveryBoxSk, 'hex'), recoverySignSk: Buffer.from(draft.recoverySignSk, 'hex') }
+    }); await this.prepareDraftPassword(draft, password, id) }, promoteDraft: draft => this.promoteDraftPassword(draft), password, ...(approved ? { preview: approved.preview, approvedBinding: approved.binding } : {}), at: this.deps.now(), check: () => this.checkLifecycle(id) })
     this.checkLifecycle(id)
     this.activeBinding = result.binding
     secrets.pendingRecovery = null
@@ -841,7 +844,7 @@ export class SyncService {
       snapshot.accounts[scope.accountId] = { deviceId: snapshot.deviceId, workspaceKey: snapshot.workspaceKey, workspaceId: snapshot.workspaceId,
         generation: snapshot.generation, epoch: snapshot.epoch, roster: snapshot.roster, recoveryBoxSk: snapshot.recoveryBoxSk, recoverySignSk: snapshot.recoverySignSk }
       const hasPassword = await password.exists(); check()
-      if (passwordMode || hasPassword) { await password.save(snapshot); check() }
+      if (passwordMode || hasPassword) { await password!.save(snapshot); check() }
       if (!passwordMode) {
         let failed: unknown
         try { await vault.save(manual ? { ...snapshot, refreshToken: null } : snapshot) } catch (error) { failed = error }
@@ -1060,7 +1063,7 @@ export class SyncService {
     }
     await this.ensureDevice()
     if (this.manualUnlock && account) { this.phase = 'enter-key'; this.error = null; this.publish(); return }
-    if (secrets.pendingRecovery) throw new SyncFailure('storage', 'legacy recovery needs explicit review')
+    if (secrets.pendingRecovery) throw new SyncFailure('storage', 'unfinished recovery needs explicit review')
     if (!account) { this.phase = 'setup'; this.error = null; this.publish(); return }
     if (!secrets.workspaceKey || secrets.workspaceId !== account.workspaceId) {
       this.phase = 'enter-key'
@@ -1357,25 +1360,25 @@ export class SyncService {
   private async persist(): Promise<void> {
     if (this.signingOut || this.stopped) return
     const secrets = this.requireSecrets(), lifecycle = this.lifecycleId, vault = this.vault
-    const password = secrets.userId ? this.selectPasswordScope(secrets.userId) : this.passwordVault
+    const password = secrets.userId ? this.selectPasswordScope(secrets.userId) : null
     if (secrets.userId) secrets.accounts[secrets.userId] = this.accountSecrets()
     const snapshot = decodeVault(encodeVault(secrets)), passwordMode = this.passwordMode, manual = this.manualUnlock
     const current = () => !this.signingOut && !this.stopped && this.secrets === secrets && this.lifecycleId === lifecycle
     if (passwordMode) {
       if (this.passwordReady && (snapshot.workspaceKey || snapshot.pendingRecovery)) {
-        await password.save(snapshot)
+        await password!.save(snapshot)
         if (!current()) return
         if (this.deps.sessionCipher && !manual) {
           try { await vault.save(snapshot) }
           catch (error) { if (error instanceof CredentialError) return; throw error }
           if (!current()) return
-          this.passwordMode = false; this.passwordReady = false; password.forget()
+          this.passwordMode = false; this.passwordReady = false; password!.forget()
         }
       }
     } else {
-      if (snapshot.userId && (snapshot.workspaceKey || snapshot.pendingRecovery) && (password.prepared || await password.exists())) {
+      if (snapshot.userId && (snapshot.workspaceKey || snapshot.pendingRecovery) && password && (password.prepared || await password.exists())) {
         if (!current()) return
-        await password.save(snapshot)
+        await password!.save(snapshot)
       }
       if (!current()) return
       await vault.save(manual ? { ...snapshot, refreshToken: null } : snapshot)

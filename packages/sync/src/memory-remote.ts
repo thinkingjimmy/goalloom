@@ -82,7 +82,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       if (workspace.initialization && !workspace.initialization.receipt && workspace.initialization.creatorDeviceId !== deviceId) throw new SyncFailure('initialization_pending')
       if (workspace.id !== workspaceId) throw new SyncFailure('mismatch')
       return { workspaceId, generation: workspace.generation, keyEpoch: workspace.keyEpoch, headSeq: workspace.headSeq,
-        rosterVersion: workspace.rosterVersion, minRetainedSeq: 0, minProtocolRead: 1, minProtocolWrite: 1 }
+        rosterVersion: workspace.rosterVersion, minRetainedSeq: 0, minProtocolRead: 2, minProtocolWrite: 2 }
     },
     async receiptsFor(workspaceId, deviceId, operations, options) {
       options?.signal?.throwIfAborted()
@@ -101,14 +101,6 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
       if (workspace.headSeq !== input.finalSeq) throw new SyncFailure('initialization_conflict')
       const now = new Date().toISOString().replace('Z', '000Z')
       return init.receipt = { ok: true, version: 1, serverNow: now, requestId: input.requestId, target: input.target, finalOpId: input.finalOpId, finalPayloadHash: input.finalPayloadHash, finalSeq: input.finalSeq, completedAt: now, initialization: 'complete', lifecycleVersion: 2, lifecycleState: 'active' }
-    },
-    async resetSync(deviceId, options) {
-      failIfOffline(world)
-      device(world, sessionId, deviceId, true)
-      if (options?.workspaceId) {
-        world.workspaces.delete(options.workspaceId)
-        if (world.workspace?.id === options.workspaceId) world.workspace = [...world.workspaces.values()].at(-1) ?? null
-      } else { world.workspace = null; world.workspaces.clear() }
     },
     async bootstrap(input) {
       failIfOffline(world)
@@ -212,7 +204,7 @@ export function memoryRemote(world: MemoryWorld, sessionId: string): SyncRemote 
         for (const op of input.ops) {
           const prior = workspace.receipts.get(op.opId)
           if (prior) { if (prior.hash !== op.payloadHash) throw new SyncFailure('initialization_conflict'); continue }
-          if (final || op.keyEpoch !== 1 || op.formatVersion !== 1 || !/^[a-f0-9]{64}$/.test(op.payloadHash) || op.ciphertext.length / 2 > maxOpCiphertextBytes) throw new SyncFailure('initialization_conflict')
+          if (final || op.keyEpoch !== 1 || op.formatVersion !== 2 || !/^[a-f0-9]{64}$/.test(op.payloadHash) || op.ciphertext.length / 2 > maxOpCiphertextBytes) throw new SyncFailure('initialization_conflict')
           if (op.opId === init.finalOpId) final = true
         }
       }
@@ -254,7 +246,7 @@ function acceptOp(workspace: WorkspaceRow, _deviceId: string, op: PushWire, meas
   }
   if (measure() > maxOpCiphertextBytes || op.ciphertext.length / 2 > maxOpCiphertextBytes) return { opId: op.opId, error: 'payload_too_large' }
   if (op.keyEpoch !== workspace.keyEpoch) return { opId: op.opId, error: 'stale_epoch' }
-  if (op.formatVersion < 1) return { opId: op.opId, error: 'protocol_too_old' }
+  if (op.formatVersion !== 2) return { opId: op.opId, error: 'protocol_too_old' }
   const seq = workspace.headSeq + 1
   workspace.headSeq = seq
   workspace.ops.push({ seq, opId: op.opId, payloadHash: op.payloadHash, formatVersion: op.formatVersion, keyEpoch: op.keyEpoch, ciphertext: op.ciphertext })

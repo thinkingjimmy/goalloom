@@ -55,17 +55,16 @@
 | macOS 14+ (Apple silicon) | 1.11.0 | [Goalloom-1.11.0-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.11.0/Goalloom-1.11.0-mac-arm64.dmg) |
 | Windows 11 (x64) | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
 
-Local features and BYOK stay free on both platforms. macOS 1.11.0 includes Plus encrypted sync and built-in AI for USD 8.99/month or USD 79/year. Start the one-time eight-day trial explicitly: no card is needed and it does not convert to a paid subscription automatically. Windows remains on 1.9.10 for local work and BYOK; this release does not add Windows Plus support. The iPhone app is not publicly released.
+Local features and BYOK stay free on both platforms. macOS 1.11.0 includes Plus encrypted sync and built-in AI for USD 8.99/month or USD 79/year. Plus requires verified payment; there is no trial. Windows remains on 1.9.10 for local work and BYOK; this release does not add Windows Plus support. The iPhone app is not publicly released.
 
 The macOS build is **Developer ID signed and notarized by Apple**. The Windows installer is **not code-signed**.
 
 **macOS.** Open the DMG, drag Goalloom into `Applications`, then open it.
 
-**Upgrading from the published macOS 1.8.0 build:** quit Goalloom and replace it with 1.11.0 in `Applications` once. Its old ad-hoc signature cannot use the new Developer ID update. Keep a local backup before upgrading.
 
 **Windows.** SmartScreen shows "Windows protected your PC". Choose **More info**, then **Run anyway**, and follow the installer.
 
-Your workspace lives in `~/Library/Application Support/Goalloom/` (macOS) or `%APPDATA%\Goalloom\` (Windows), with daily backups in `backups/`. Installing a newer version keeps it.
+Your workspace lives in `~/Library/Application Support/Goalloom/` (macOS) or `%APPDATA%\Goalloom\` (Windows), with daily backups in `backups/`. Current sources accept only the launch formats described below. Unsupported files remain unchanged.
 
 ## Build from source
 
@@ -86,7 +85,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-Published macOS 1.11.0 uses workspace format v14; Windows 1.9.10 uses v11. The macOS upgrade verifies a protective local backup before upgrading a v11 workspace. Keep that backup: 1.9.10 cannot open a v14 workspace. Use the same account and sync password for Plus. Some older cloud workspaces cannot be restored automatically; signing in again does not repair those copies. Keep the original local data and backups. See the [1.11.0 release notes](./docs/releases/v1.11.0.md). Build-time configuration is in the [development guide](./docs/build.md).
+The current source baseline uses desktop/workspace export v15, mobile v11, Billing status v2 and SyncOp v2. New databases create the current shared structure directly. Old or unknown local formats are refused before writes and remain unchanged. This source change does not deploy a service or publish a client. Encryption, app identity and user-data paths are unchanged.
 
 
 

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Trusted window sender, strict DTOs and an internal StorageClient.
- * [OUTPUT]: Narrow commands/queries, immediate device placement preference updates, native-picker transfers with structured expected failures, validated link preview/browser actions, fixed update/billing actions and session cancellation.
+ * [OUTPUT]: Narrow commands/queries, write-ordered device preference reads/updates, native-picker transfers with structured expected failures, validated link preview/browser actions, fixed update/billing actions and session cancellation.
  * [POS]: Renderer permission boundary; paths never come from renderer input and stale sessions cannot resume maintenance.
  */
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
@@ -77,7 +77,7 @@ export function registerIpc(window: () => BrowserWindow | null, trustedUrl: stri
     guard(event)
     if (args.length !== 1) throw new Error(serverText().storage.invalidRequest)
     const request = parentOrderRequestSchema.parse(args[0])
-    if (request.type === 'initialize') return parentOrder.initialize(request.enabled)
+    if (request.type === 'get') return parentOrder.read()
     const at = new Date().toISOString(), opId = randomUUID()
     const enabled = await parentOrder.set(request.enabled)
     try {

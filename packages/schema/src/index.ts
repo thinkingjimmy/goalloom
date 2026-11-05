@@ -1,12 +1,10 @@
 /**
- * [INPUT]: sqlite_master rows for the seven projection tables.
- * [OUTPUT]: Historical DDL, nesting/appearance migrations, additive exact-seed/retirement/epoch-receipt DDL, and base_* statements cloned from live schema text.
- * [POS]: Schema package. No node:sqlite types. Desktop migrate() is the only writer of user_version.
+ * [INPUT]: Current business sqlite_master rows and an empty host database.
+ * [OUTPUT]: Direct current business/sync DDL, exact binding metadata and shadow statements.
+ * [POS]: Shared desktop/mobile launch schema. Hosts own format versions and transactions.
  */
-export { businessTables, prefixShadowSql, shadowStatements, v9HistoryRewrite, v9SyncDdl, type MasterRow } from './v9'
-export { nestingMigrationSql } from './v10'
+export { businessDdl } from './business'
+export { syncDdl } from './sync'
+export { businessTables, prefixShadowSql, shadowStatements, type MasterRow } from './shadow'
 export { syncSettingsDdl } from './settings'
-export { v8Ddl } from './v8'
-export { widenWorkspaceStyles } from './appearance'
-
 export { bindingEpochDdl, syncBaselineDdl } from './sync-baseline'

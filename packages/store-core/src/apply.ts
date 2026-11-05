@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A validated SyncOp, a base_ or visible table prefix, and a period materializer.
- * [OUTPUT]: Exact initialization or atomic canonical changes with desktop-equivalent guidance item metadata, gap-safe sorting/semantic undo, source-guarded group carry, cross-period ownership, parent lifecycle/two-level/Later validation, safe tombstones and causal creation preflight, or a stable business error.
+ * [OUTPUT]: Exact initialization or atomic canonical changes with gap-safe sorting/semantic undo, source-guarded group carry, cross-period ownership, parent lifecycle/two-level/Later validation, safe tombstones and causal creation preflight, or a stable business error.
  * [POS]: Reference applier. It does not touch operations, item_events or undo_effects.
  */
 import type { Action, SyncOp } from '@goalloom/contracts'
@@ -68,7 +68,6 @@ function applyAction(driver: SqlDriver, prefix: string, op: SyncOp, action: Acti
     case 'item.rollover': return rolloverItem(driver, prefix, op, action, host, changes)
     case 'rel.link': return link(driver, prefix, op, action, changes)
     case 'rel.unlink': return unlink(driver, prefix, op, action, changes)
-    case 'guidance.set': return setGuidance(driver, prefix, op, action, changes)
     case 'policy.set': return setPolicy(driver, prefix, op, action, host, changes)
     case 'calendar.setup': return setupCalendar(driver, prefix, op, action, changes)
     case 'pref.set': return setPreference(driver, op, action)
@@ -242,9 +241,8 @@ function discardIfEmpty(driver: SqlDriver, prefix: string, op: SyncOp, action: E
   const linked = driver.prepare(`SELECT 1 FROM ${prefix}item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?) LIMIT 1`).get(action.id, action.id)
   const placement = driver.prepare(`SELECT nestingParentId FROM ${prefix}item_placements WHERE itemId=?`).get(action.id)
   const child = driver.prepare(`SELECT 1 FROM ${prefix}item_placements p JOIN ${prefix}items i ON i.id=p.itemId WHERE p.nestingParentId=? AND i.deletedAt IS NULL LIMIT 1`).get(action.id)
-  const guidance = driver.prepare(`SELECT value FROM ${prefix}item_guidance WHERE itemId=?`).get(action.id)
   const empty = !String(text(item, 'description') ?? '').trim() && !text(item, 'dueDate') && item.flowColor === null
-    && text(item, 'status') === 'todo' && !text(item, 'archivedAt') && num(item, 'version') === action.expectVersion && !linked && !text(guidance, 'value')
+    && text(item, 'status') === 'todo' && !text(item, 'archivedAt') && num(item, 'version') === action.expectVersion && !linked
     && !text(placement, 'nestingParentId') && !child
   if (!empty) throw new SyncApplyError('discard_not_empty')
   return deleteItem(driver, prefix, op, action.id, changes)
@@ -367,19 +365,6 @@ function unlink(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<A
   return 'applied'
 }
 
-function setGuidance(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Action, { t: 'guidance.set' }>, changes: CanonChange[]): 'applied' {
-  requireItem(driver, prefix, action.itemId)
-  const current = driver.prepare(`SELECT revision, value FROM ${prefix}item_guidance WHERE itemId=?`).get(action.itemId)
-  const revision = current ? num(current, 'revision') : 0
-  if (revision !== action.baseRevision) throw new SyncApplyError('guidance_stale')
-  const value = action.value ? JSON.stringify(action.value) : null
-  changes.push({ itemId: action.itemId, dim: 'guidance', before: text(current, 'value'), after: value })
-  if (current) driver.prepare(`UPDATE ${prefix}item_guidance SET revision=?, value=?, updatedAt=?, operationId=? WHERE itemId=?`).run(revision + 1, value, op.at, op.opId, action.itemId)
-  else driver.prepare(`INSERT INTO ${prefix}item_guidance (itemId,revision,value,updatedAt,operationId) VALUES (?,?,?,?,?)`).run(action.itemId, 1, value, op.at, op.opId)
-  driver.prepare(`UPDATE ${prefix}items SET updatedAt=?, version=version+1 WHERE id=?`).run(op.at, action.itemId)
-  return 'applied'
-}
-
 function setPolicy(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Action, { t: 'policy.set' }>, host: ApplyHost, changes: CanonChange[]): 'applied' {
   const periodId = ensurePeriod(driver, prefix, host, action.horizon, action.effectiveFromKey.startDate)
   const current = driver.prepare(`SELECT mode, effectiveFromPeriodId FROM ${prefix}rollover_policies WHERE horizon=?`).get(action.horizon)
@@ -482,12 +467,6 @@ function invertChange(driver: SqlDriver, prefix: string, op: SyncOp, host: Apply
     const live = driver.prepare(`SELECT 1 AS n FROM ${prefix}item_relations WHERE invalidatedAt IS NULL AND (parentId=? OR childId=?) LIMIT 1`).get(itemId, itemId)
     if (live) throw new SyncApplyError('revert_superseded')
     driver.prepare(`UPDATE ${prefix}items SET deletedAt=?, deletedBy=?, updatedAt=?, version=version+1 WHERE id=?`).run(op.at, op.opId, op.at, itemId)
-  } else if (dim === 'guidance' && itemId) {
-    const current = driver.prepare(`SELECT revision FROM ${prefix}item_guidance WHERE itemId=?`).get(itemId)
-    const value = parsed === null || typeof parsed === 'string' ? parsed : JSON.stringify(parsed)
-    if (current) driver.prepare(`UPDATE ${prefix}item_guidance SET revision=?, value=?, updatedAt=?, operationId=? WHERE itemId=?`).run(num(current, 'revision') + 1, value, op.at, op.opId, itemId)
-    else driver.prepare(`INSERT INTO ${prefix}item_guidance (itemId,revision,value,updatedAt,operationId) VALUES (?,?,?,?,?)`).run(itemId, 1, value, op.at, op.opId)
-    driver.prepare(`UPDATE ${prefix}items SET updatedAt=?, version=version+1 WHERE id=?`).run(op.at, itemId)
   } else if (dim === 'relation' && itemId) {
     const created = parsed === null
     const source = (created ? (after ? JSON.parse(after) as unknown : null) : parsed) as { id?: string } | null

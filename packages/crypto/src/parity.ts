@@ -18,7 +18,7 @@ import vectors from '../test/vectors.json'
 
 const syncOps = [
   {
-    v: 1,
+    v: 2,
     opId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     deviceId: 'device-a',
     at: '2026-09-23T02:00:00.000Z',
@@ -27,7 +27,7 @@ const syncOps = [
   {
     at: '2026-09-23T02:00:00.000Z',
     deviceId: 'device-b',
-    v: 1,
+    v: 2,
     opId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     actions: [{
       reason: 'arrange',

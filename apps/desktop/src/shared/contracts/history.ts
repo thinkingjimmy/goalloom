@@ -10,11 +10,11 @@ export const businessStateSchema = z.strictObject({
   archivedAt: instantSchema.nullable(), deletedAt: instantSchema.nullable(), deletedBy: idSchema.nullable(),
   version: z.number().int().positive(), horizon: horizonSchema, periodId: idSchema.nullable(),
   sortKey: z.number().finite(), holdPeriodId: idSchema.nullable(),
-  nestingParentId: idSchema.nullable().optional(),
+  nestingParentId: idSchema.nullable(),
 })
 export const eventSchema = z.strictObject({
   seq: z.number().int().positive(), id: idSchema, operationId: idSchema, eventIndex: z.number().int().nonnegative(), itemId: idSchema,
-  at: instantSchema, type: z.enum(['created', 'baseline', 'moved', 'rolled_over', 'status_changed', 'archived', 'unarchived', 'deleted', 'item_restored', 'undo', 'guidance_changed', 'description_changed', 'nesting_changed']),
+  at: instantSchema, type: z.enum(['created', 'baseline', 'moved', 'rolled_over', 'status_changed', 'archived', 'unarchived', 'deleted', 'item_restored', 'undo', 'description_changed', 'nesting_changed']),
   before: businessStateSchema.nullable(), after: businessStateSchema, undoOf: idSchema.nullable(),
 })
 export const activitySchema = z.strictObject({ events: z.array(eventSchema), more: z.boolean() })

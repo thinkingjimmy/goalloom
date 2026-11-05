@@ -59,8 +59,8 @@ export class LinkPreviewService {
     const cached = await this.cache.read(url)
     if (generation !== this.generation) return unavailable(url)
     if (cached) {
-      // Legacy and failed icons have their own retry time, independent of a cover's seven-day TTL.
-      if (!cached.preview.favicon && (cached.faviconCheckedAt ?? 0) + textOnlyDuration < Date.now()) {
+      // Pending and failed icons have their own retry time, independent of a cover's seven-day TTL.
+      if (!cached.preview.favicon && cached.faviconCheckedAt + textOnlyDuration < Date.now()) {
         return this.enqueue(url, generation, cached)
       }
       const freshness = cached.preview.image ? freshDuration : textOnlyDuration
@@ -103,7 +103,7 @@ export class LinkPreviewService {
       if (!current()) { job.resolve(unavailable(job.url)); return }
       // A transient refresh failure must not replace a usable offline preview.
       if (preview.status === 'ready') {
-        const record: CachedPreview = { version: 1, fetchedAt: job.cached?.fetchedAt ?? Date.now(), faviconCheckedAt: Date.now(), preview }
+        const record: CachedPreview = { version: 2, fetchedAt: job.cached?.fetchedAt ?? Date.now(), faviconCheckedAt: Date.now(), preview }
         this.rememberRecord(record)
         await this.cache.write(record, current)
       } else if (!this.memory.has(job.url)) {
@@ -116,7 +116,7 @@ export class LinkPreviewService {
 
   private rememberRecord(record: CachedPreview): void {
     const metadataExpires = record.fetchedAt + (record.preview.image ? freshDuration : textOnlyDuration)
-    const iconExpires = record.preview.favicon ? Infinity : (record.faviconCheckedAt ?? 0) + textOnlyDuration
+    const iconExpires = record.preview.favicon ? Infinity : record.faviconCheckedAt + textOnlyDuration
     this.remember(record.preview, Math.max(Math.min(metadataExpires, iconExpires), Date.now() + failureDuration))
   }
 

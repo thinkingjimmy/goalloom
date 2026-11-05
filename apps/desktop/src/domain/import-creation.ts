@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Parsed v11 receipts, their events and undo markers.
+ * [INPUT]: Parsed current v15 receipts, their events and undo markers.
  * [OUTPUT]: Validated capture provenance and net creation effects for grouped inverses.
  * [POS]: Import extension for immutable asynchronous creation; forward history remains unchanged.
  */
@@ -20,13 +20,13 @@ export function validateCreationHistory(data: Dataset, operations: Map<string | 
   for (const operation of data.operations) {
     const { capture, creationOperationId, captureRequestId } = operation.result
     if (capture) {
-      valid(data.schemaVersion >= 11 && ['create', 'createPlan'].includes(operation.kind) && operation.source === 'user' && operation.result.changed)
+      valid(['create', 'createPlan'].includes(operation.kind) && operation.source === 'user' && operation.result.changed)
       const created = operation.effects.find(effect => effect.kind === 'create' && effect.itemId === capture.itemId)
       valid(created && operation.result.itemId === capture.itemId && finalEvents.get(`${operation.id}:${capture.itemId}`)?.after.version === capture.itemVersion
         && (operation.effects.length === 1 || !capture.pending && operation.effects.length === 2 && operation.effects[1]?.kind === 'nesting'))
     }
     if (operation.kind !== 'completeCreation') { valid(creationOperationId === undefined && captureRequestId === undefined); continue }
-    valid(data.schemaVersion >= 11 && creationOperationId && captureRequestId && operation.source === 'system' && !operation.result.undoable)
+    valid(creationOperationId && captureRequestId && operation.source === 'system' && !operation.result.undoable)
     const original = operations.get(creationOperationId!), guard = original?.result.capture
     valid(original && guard?.pending && original.generation === operation.generation && guard.requestId === captureRequestId && guard.itemId === operation.result.itemId)
     const effects = operation.effects, positions = effects.filter(effect => effect.kind === 'position'), relations = effects.filter(effect => effect.kind === 'relations'), nesting = effects.filter(effect => effect.kind === 'nesting')

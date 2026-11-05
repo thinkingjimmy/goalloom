@@ -73,7 +73,7 @@ export function createItem(context: Context, command: CommandOf<'create'>): bool
   const item: Item = { id, title: command.title, description: command.description, dueDate: command.dueDate,
     status: 'todo', completedAt: null, cancelledAt: null, archivedAt: null, deletedAt: null, deletedBy: null,
     createdAt: context.now, updatedAt: context.now, version: 1, flowColor: command.flowColor,
-    placement: { itemId: id, horizon: command.horizon, periodId: period?.id ?? null, sortKey: nextSortKey(context, command.horizon, period?.id ?? null, command.beforeId ?? null), version: 1, holdPeriodId: null } }
+    placement: { nestingParentId: null, itemId: id, horizon: command.horizon, periodId: period?.id ?? null, sortKey: nextSortKey(context, command.horizon, period?.id ?? null, command.beforeId ?? null), version: 1, holdPeriodId: null } }
   context.store.insertItem(item)
   const relations = parents.map(parent => newRelation(parent.id, id, context.now))
   for (const relation of relations) context.store.saveRelation(relation)

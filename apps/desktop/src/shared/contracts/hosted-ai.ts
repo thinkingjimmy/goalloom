@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { hostedScopeVersion } from './values'
 import type { ServiceFailureCode } from '@goalloom/contracts'
 import { draftRequestSchema, reviewRequestSchema } from './smart-input'
-import { assistanceContextSchema, assistanceOutputSchema, assistanceRequestSchema } from './assistance'
+import { assistanceContextSchema, assistanceRequestSchema } from './assistance'
 
 const stateKeys = new Set(['text', 'reference', 'periods', 'calendarMode', 'calendarPhrases', 'slots', 'dates', 'goals', 'task', 'reason', 'tasks'])
 function textOnly(value: unknown): boolean {
@@ -27,7 +27,7 @@ export const hostedInputSchema = z.discriminatedUnion('capability', [
   z.strictObject({ capability: z.literal('evaluate'), input: z.strictObject({ state: z.record(z.string().max(100), textJson).refine(value => Object.keys(value).length > 0 && Object.keys(value).every(key => stateKeys.has(key))), questions: z.record(z.string().max(100), question).refine(value => Object.keys(value).length > 0 && Object.keys(value).length <= 64) }) }),
   z.strictObject({ capability: z.literal('draft'), input: draftRequestSchema }),
   z.strictObject({ capability: z.literal('review'), input: reviewRequestSchema }),
-  z.strictObject({ capability: z.literal('assistance'), input: z.strictObject({ context: assistanceContextSchema, request: assistanceRequestSchema, conversation: z.array(z.strictObject({ turn: z.number().int().min(1).max(3), input: z.strictObject({ text: z.string().max(4000), answer: z.string().max(4000).nullable(), adjustment: z.string().max(4000).nullable() }), output: assistanceOutputSchema })).max(2) }) }),
+  z.strictObject({ capability: z.literal('assistance'), input: z.strictObject({ context: assistanceContextSchema, request: assistanceRequestSchema }) }),
 ])
 export type HostedInput = z.infer<typeof hostedInputSchema>
 export const hostedActionSchema = z.strictObject({ version: z.literal(2), consentScopeVersion: z.literal(hostedScopeVersion), actionId: z.uuidv7(), request: hostedInputSchema })

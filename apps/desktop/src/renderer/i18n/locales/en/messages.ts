@@ -321,6 +321,7 @@ export const messages: MessageCatalog = {
   noDue: "Not set",
   addDue: "Add due date",
   dueToday: "Today",
+  dueOverdueShort: "Overdue",
   dueTomorrow: "Tomorrow",
   dueFriday: "This Friday",
   dueNextMonday: "Next Monday",
