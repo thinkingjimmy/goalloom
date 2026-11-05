@@ -36,15 +36,15 @@ jobs:
           PLATFORM: ${{ inputs.platform }}
         run: |
           case "$PLATFORM" in
-            mac) matrix='{"include":[{"platform":"mac","os":"macos-15","arch":"arm64"}]}' ;;
+            mac) matrix='{"include":[{"platform":"mac","os":"macos-26","arch":"arm64"}]}' ;;
             windows) matrix='{"include":[{"platform":"windows","os":"windows-2025","arch":"x64"}]}' ;;
-            both) matrix='{"include":[{"platform":"mac","os":"macos-15","arch":"arm64"},{"platform":"windows","os":"windows-2025","arch":"x64"}]}' ;;
+            both) matrix='{"include":[{"platform":"mac","os":"macos-26","arch":"arm64"},{"platform":"windows","os":"windows-2025","arch":"x64"}]}' ;;
             *) exit 1 ;;
           esac
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
   preflight:
     if: (inputs.mode != 'build-only' || inputs.preflight_only) && inputs.platform != 'windows'
-    runs-on: macos-15
+    runs-on: macos-26
     environment: release
     timeout-minutes: 8
     env:
