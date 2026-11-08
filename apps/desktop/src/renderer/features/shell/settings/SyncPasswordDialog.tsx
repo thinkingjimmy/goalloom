@@ -43,7 +43,7 @@ export function SyncPasswordFields({ password, again, disabled, setPassword, set
     </label>
     <label className="m-0 flex flex-col gap-1.5 text-sm" htmlFor={`${id}-again`}>{t.confirmPassword}
       <Input id={`${id}-again`} className="text-base" type="password" autoComplete="new-password" maxLength={128} disabled={disabled} value={again} aria-invalid={mismatch || undefined} aria-describedby={mismatch ? `${id}-mismatch` : undefined} onBlur={() => setChecked(true)} onChange={event => setAgain(event.target.value)} />
-      {mismatch && <span id={`${id}-mismatch`} className="text-xs text-destructive" role="alert">{messages.start.mismatch}</span>}
+      {mismatch && <span id={`${id}-mismatch`} className="text-xs text-destructive" role="alert">{messages.passwordMismatch}</span>}
     </label>
   </div>
 }

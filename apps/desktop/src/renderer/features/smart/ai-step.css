@@ -1,12 +1,9 @@
 /**
  * [INPUT]: Optional AI forms, native controls and approved setup typography/theme tokens.
- * [OUTPUT]: Compact centered AI pages with equal-height navigation and clear preview selection.
+ * [OUTPUT]: AI-specific forms with equal-height navigation and clear preview selection; shared setup CSS owns top spacing.
  * [POS]: Onboarding only; shared Settings connection forms retain their default appearance.
  */
 .ai-entry .setup-title { white-space: pre-line; }
-.ai-entry .setup-scroll { align-items: flex-start; }
-.ai-entry .setup-form { margin-block: 0; padding-top: max(clamp(56px, 10vh, 104px), var(--feedback-clearance, 0px)); padding-bottom: 48px; }
-.onboarding-stage[data-ai='true'] > .setup-canvas { top: clamp(56px, 10vh, 104px); }
 .ai-preview-choice > p { margin: 0 0 9px; color: var(--secondary); font-size: 12px; }
 .ai-preview-switch { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; }
 .ai-preview-option { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: 1; min-width: 0; min-height: 44px; border-radius: 5px; color: var(--secondary); font-size: 13px; }
@@ -39,8 +36,4 @@
 @media (hover: hover) and (pointer: fine) {
   .ai-preview-option:hover { background: var(--hover); }
   .ai-connect-heading .text-button:hover { text-decoration: underline; text-underline-offset: 3px; }
-}
-@container setup (max-width: 700px) {
-  .ai-entry .setup-form { padding-top: 32px; }
-  .onboarding-stage[data-ai='true'] > .setup-canvas { top: auto; }
 }

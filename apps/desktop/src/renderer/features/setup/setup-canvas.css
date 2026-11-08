@@ -1,11 +1,12 @@
 /**
  * [INPUT]: Setup forms, native board labels, existing theme tokens and available window dimensions.
- * [OUTPUT]: Compact forms and independently clipped canvas with overview/year/AI camera poses and a stationary toolbar.
- * [POS]: Persistent first-run calendar/direction/AI stage; welcome keeps its approved illustration layout.
+ * [OUTPUT]: Top-aligned forms and an expanded canvas with compact 24–48px top spacing, a shared 40–64px gutter and a stationary toolbar.
+ * [POS]: Persistent first-run calendar/direction/AI stage with stacked content in narrow windows.
  */
+.onboarding-stage, .setup-entry { --setup-top: clamp(24px, 5vh, 48px); --setup-form-left: clamp(40px, 6vw, 72px); --setup-form-width: 300px; --setup-gap: clamp(40px, 5vw, 64px); }
 .setup-entry { position: relative; container: setup / inline-size; overflow: hidden; }
-.setup-scroll { position: relative; display: flex; align-items: center; width: 100%; height: 100%; min-height: 0; overflow-y: auto; overflow-x: clip; }
-.setup-entry .setup-form { position: relative; z-index: 2; flex: none; width: 300px; max-width: calc(46% - 64px); margin: auto 0 auto clamp(40px, 6vw, 72px); padding: max(40px, var(--feedback-clearance, 0px)) 0; animation: none; }
+.setup-scroll { position: relative; display: flex; align-items: flex-start; width: 100%; height: 100%; min-height: 0; overflow-y: auto; overflow-x: clip; }
+.setup-entry .setup-form { position: relative; z-index: 2; flex: none; width: var(--setup-form-width); margin: 0 0 0 var(--setup-form-left); padding: max(var(--setup-top), var(--feedback-clearance, 0px)) 0 48px; animation: none; }
 .setup-logo { display: block; width: 64px; height: 64px; margin-bottom: 20px; user-select: none; }
 .setup-title { margin: 0 0 24px; font-size: 28px; font-weight: 600; line-height: 1.4; letter-spacing: -.025em; text-wrap: pretty; }
 .setup-hint { margin: -10px 0 20px; color: var(--secondary); font-size: 12px; line-height: 1.8; }
@@ -17,7 +18,7 @@
 .setup-entry .setup-direction-input { display: block; height: 88px; min-height: 88px; resize: none; padding: 12px 14px; border-radius: 7px; font-size: 16px; line-height: 1.7; }
 .setup-examples { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-top: 16px; color: var(--secondary); font-size: 12px; line-height: 1.8; }
 .setup-examples .setup-example { color: var(--calendar-primary); font-size: 12px; line-height: 1.8; }
-.setup-canvas { position: absolute; z-index: 1; left: 46%; top: 160px; right: 0; bottom: 0; overflow: clip; isolation: isolate; contain: paint; pointer-events: none; border-radius: 24px 0 0 0; background: light-dark(#fcfaf6, #24201b); }
+.setup-canvas { position: absolute; z-index: 1; left: calc(var(--setup-form-left) + var(--setup-form-width) + var(--setup-gap)); top: var(--setup-top); right: 0; bottom: 0; overflow: clip; isolation: isolate; contain: paint; pointer-events: none; border-radius: 24px 0 0 0; background: light-dark(#fcfaf6, #24201b); }
 .setup-world { position: absolute; top: 0; left: 0; width: 1984px; height: 960px; transform-origin: 0 0; transition: transform 440ms cubic-bezier(.65,0,.35,1); }
 .setup-world[data-camera='overview'] { transform: translate(26px,24px) scale(.9); }
 .setup-world[data-camera='year'] { transform: translate(28px,40px) scale(1.08); }
@@ -40,7 +41,7 @@
 .setup-product-task-title { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .setup-product-add { display: flex; align-items: center; gap: 10px; margin: 4px 9px; color: var(--secondary); font-size: 13px; line-height: 1.8; opacity: .55; }
 .setup-entry[data-motion='instant'] .setup-world { transition: none; }
-@container setup (max-width: 900px) { .setup-entry .setup-form { width: 280px; margin-left: 32px; max-width: calc(46% - 56px); } }
+@container setup (max-width: 900px) { .setup-form, .setup-canvas { --setup-form-left: 32px; --setup-form-width: 280px; } }
 @container setup (max-width: 700px) {
   .setup-scroll { display: block; }
   .setup-entry .setup-form { width: min(420px, calc(100% - 48px)); max-width: none; margin: 0 auto; padding: 32px 0 48px; }
@@ -51,6 +52,7 @@
 @media (hover: hover) and (pointer: fine) {
   .setup-navigation .setup-back:hover:not(:disabled) { background: var(--hover); }
   .setup-example:hover:not(:disabled), .setup-hint .text-button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+  .setup-skip:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 }
 @media (prefers-reduced-motion: reduce) { .setup-entry *, .calendar-select-menu * { animation: none !important; transition: none !important; } }
 .onboarding-stage { position: relative; flex: 1; min-height: 0; container: setup / inline-size; overflow-y: auto; overflow-x: clip; }

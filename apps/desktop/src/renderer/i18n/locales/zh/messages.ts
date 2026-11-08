@@ -1,6 +1,6 @@
 /**
  * [INPUT]: UI parameters; Chinese defines the MessageCatalog shared by every locale.
- * [OUTPUT]: General UI copy and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
+ * [OUTPUT]: General UI copy, calendar-only setup actions and parameterized messages, including column actions, automatic placement and column arrangement, feedback destinations and partial restores.
  * [POS]: Chinese message catalog loaded by i18n/index; no workspace access or business decisions.
  */
 import { widen } from '../../../../shared/i18n/locale'
@@ -206,33 +206,9 @@ export const messages = widen({
   exportUnknown: "导出结果未确认，请重试",
   batchUndone: "项 · 已撤销",
   itemUnit: "项",
-  welcome: "欢迎来到 Goalloom",
-  start: {
-    apple: "使用 Apple 登录",
-    sync: "多设备同步",
-    title: "欢迎使用 Goalloom",
-    localTitle: "本地使用",
-    local: "直接开始",
-    localNote: "无需账号，离线可用。",
-    accountTitle: "已有账号？",
-    syncNote: "同步需订阅 Plus。",
-    offline: "离线可用",
-    connected: "连接方向与行动",
-    encrypted: "端到端加密",
-    optionalAi: "按需开启 AI",
-    google: "使用 Google 登录",
-    googleNote: "在多台设备间加密同步",
-    browser: "在浏览器中继续…",
-    back: "返回",
-    enterTitle: "输入同步密码",
-    enterNote: "使用在第一台设备上设置的密码。",
-    newTitle: "设置同步密码",
-    newNote: "其他设备用它加入。密码无法找回。",
-    mismatch: "两次输入不一致",
-    syncing: "正在同步看板…",
-    showPassword: "显示密码",
-    hidePassword: "隐藏密码",
-  },
+  back: "返回",
+  passwordMismatch: "两次输入不一致",
+  skipSetup: "跳过",
   timezone: "工作区时区",
   searchTimezones: "搜索城市或时区",
   noTimezoneMatch: "没有匹配的时区",

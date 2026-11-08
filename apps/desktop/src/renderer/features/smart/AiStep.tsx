@@ -51,7 +51,7 @@ export function AiStep({ ai, finish, snapshot, direction, busy = false, keyboard
   }, [stage, calendar, snapshot.observedAt, snapshot.periods, direction, busy, feature])
   const names: Record<AiFeature, string> = { smart: t.sectionTitle, insight: insightMessages.settingsSection }
   const navigate = (next: View, instant: boolean) => { stage?.motion(instant); motion.navigate(next, instant) }
-  const back = <Button type="button" variant="outline" className="setup-back" disabled={working || busy} onClick={event => navigate('demo', event.detail === 0)}>{messages.start.back}</Button>
+  const back = <Button type="button" variant="outline" className="setup-back" disabled={working || busy} onClick={event => navigate('demo', event.detail === 0)}>{messages.back}</Button>
   const skip = <Button type="button" variant="outline" className="setup-back ai-skip" disabled={busy} onClick={finish}>{t.skip}</Button>
   return <div ref={motion.root} className="onboarding setup-entry ai-entry calendar-entry flex-1 min-h-0" data-ai-view={view}
     onPointerDownCapture={() => { keyboard.current = false }} onKeyDownCapture={() => { keyboard.current = true }}>

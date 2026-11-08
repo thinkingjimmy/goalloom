@@ -27,7 +27,7 @@ export function DirectionStep({ value, change, live, remaining, nextYear, target
       onChange={event => change(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); button.current?.focus() } }} />
     <div className="direction-examples setup-examples"><span>{messages.directionExamplesLabel}</span>{messages.directionExamples.slice(0, 2).map(example => <TextButton key={example} className="setup-example" disabled={busy} onClick={() => change(example)}>{example}</TextButton>)}</div>
     <div className="onboarding-actions setup-navigation">
-      <Button variant="outline" className="setup-back" disabled={busy} onClick={back}>{messages.start.back}</Button>
+      <Button variant="outline" className="setup-back" disabled={busy} onClick={back}>{messages.back}</Button>
       <Button ref={button} className="calendar-primary setup-next" disabled={busy || !target} onClick={() => { if (target) confirm(target) }}>{messages.confirmSetup}</Button>
     </div>
   </section>

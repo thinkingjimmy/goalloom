@@ -1,6 +1,6 @@
 /**
  * [INPUT]: An explicit authentication provider and icon size.
- * [OUTPUT]: Offline decorative provider branding shared by both login surfaces.
+ * [OUTPUT]: Offline decorative provider branding for Settings account entry.
  * [POS]: Renderer authentication mark; accessible names belong to the buttons.
  */
 import { HugeiconsIcon } from '@hugeicons/react'

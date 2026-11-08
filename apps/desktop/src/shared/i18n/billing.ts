@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Device locale and trusted billing/service state.
  * [OUTPUT]: Five-language purchase, management and service-pause copy.
- * [POS]: Shared billing copy for main failures, Settings and first-run setup.
+ * [POS]: Shared billing copy for main failures and Settings.
  */
 import type { Locale } from './locale'
 
@@ -17,7 +17,7 @@ const en = {
   switchNote: 'The new cycle starts at the next renewal. No charge or credit is made now.', resumeNote: 'Confirm the next payment before you resume automatic renewal.',
   otherDevice: 'This is the original checkout from another device. After payment, return here and choose Check status.',
   browser: 'Complete checkout in your browser, then check status here.', recover: 'Reopen original checkout', pending: 'The original request is still being checked. Local work is available.',
-  local: 'Continue locally', configureSync: 'Set up sync', separate: 'Payment does not upload your tasks or turn on AI.',
+  separate: 'Payment does not upload your tasks or turn on AI.',
   auth: 'Sign in again to check this account.', network: 'Cannot reach billing. Your local work and original request are kept.', storage: 'The billing request could not be saved. Try again.',
   configuration: 'Plus is not available in this environment. Local work and your own AI key are available.',
   notStarted: 'Subscribe to use sync and built-in AI. Local work and your own AI key are available.',
@@ -46,7 +46,7 @@ export const billingCatalog: Record<Locale, BillingCopy> = {
     switchNote: '新周期在下次续费时生效，现在不会补扣或退款。', resumeNote: '恢复自动续费前，请确认下期费用。',
     otherDevice: '这是另一台设备发起的原结账。付款后请回到这里，点击「核对状态」。',
     browser: '请在浏览器完成结账，再回到这里核对状态。', recover: '重新打开原结账', pending: '原请求仍在核对，本地功能可继续使用。',
-    local: '继续本地使用', configureSync: '配置同步', separate: '付款不会上传任务，也不会开启 AI。',
+    separate: '付款不会上传任务，也不会开启 AI。',
     auth: '请重新登录后核对当前账号。', network: '暂时无法连接账单服务，本地数据和原请求已保留。', storage: '无法保存账单请求，请重试。',
     configuration: '当前环境暂未开放 Plus，本地功能和自带 AI Key 可继续使用。',
     notStarted: '订阅后可使用同步和内置 AI。本地功能和自带 Key 可继续使用。',
@@ -71,7 +71,7 @@ export const billingCatalog: Record<Locale, BillingCopy> = {
     switchNote: '新しい周期は次回更新から適用します。今すぐの請求や返金はありません。', resumeNote: '自動更新の再開前に次回の請求額を確認してください。',
     otherDevice: '別の端末で開始した元の支払い画面です。支払い後はここに戻り「状態を確認」を選んでください。',
     browser: 'ブラウザーで支払いを完了し、ここで状態を確認してください。', recover: '元の支払い画面を再度開く', pending: '元のリクエストを確認中です。ローカル作業は続けられます。',
-    local: 'ローカルで続ける', configureSync: '同期を設定', separate: '支払いだけではタスクの送信や AI の有効化は行いません。',
+    separate: '支払いだけではタスクの送信や AI の有効化は行いません。',
     auth: '再ログインしてアカウントを確認してください。', network: '請求サービスに接続できません。ローカルデータと元のリクエストは保持しています。', storage: '請求リクエストを保存できません。再試行してください。',
     configuration: 'この環境では Plus を利用できません。ローカル機能と自分の AI キーは利用できます。',
     notStarted: '同期と内蔵 AI の利用には登録が必要です。ローカル機能と自分のキーは利用できます。',
@@ -96,7 +96,7 @@ export const billingCatalog: Record<Locale, BillingCopy> = {
     switchNote: 'El nuevo ciclo empieza en la próxima renovación. No se cobra ni abona nada ahora.', resumeNote: 'Confirma el próximo pago antes de reanudar la renovación automática.',
     otherDevice: 'Es el pago original iniciado en otro dispositivo. Después de pagar, vuelve aquí y elige Comprobar estado.',
     browser: 'Completa el pago en el navegador y comprueba aquí el estado.', recover: 'Abrir el pago original', pending: 'Se está comprobando la solicitud original. Puedes trabajar en local.',
-    local: 'Continuar en local', configureSync: 'Configurar sincronización', separate: 'Pagar no sube las tareas ni activa la IA.',
+    separate: 'Pagar no sube las tareas ni activa la IA.',
     auth: 'Vuelve a iniciar sesión para comprobar esta cuenta.', network: 'No se puede conectar con facturación. Se conservan los datos locales y la solicitud original.', storage: 'No se pudo guardar la solicitud de facturación. Inténtalo de nuevo.',
     configuration: 'Plus no está disponible en este entorno. Puedes usar las funciones locales y tu propia clave de IA.',
     notStarted: 'Suscríbete para usar sincronización e IA integrada. Las funciones locales y tu propia clave siguen disponibles.',
@@ -121,7 +121,7 @@ export const billingCatalog: Record<Locale, BillingCopy> = {
     switchNote: 'Le nouveau cycle commence au prochain renouvellement. Aucun montant n’est prélevé ou crédité maintenant.', resumeNote: 'Confirmez le prochain paiement avant de reprendre le renouvellement automatique.',
     otherDevice: 'Ce paiement initial a été lancé sur un autre appareil. Après le paiement, revenez ici et choisissez Vérifier l’état.',
     browser: 'Terminez le paiement dans le navigateur, puis vérifiez l’état ici.', recover: 'Rouvrir le paiement initial', pending: 'La demande initiale est en cours de vérification. Le travail local reste disponible.',
-    local: 'Continuer en local', configureSync: 'Configurer la synchronisation', separate: 'Le paiement n’envoie pas vos tâches et n’active pas l’IA.',
+    separate: 'Le paiement n’envoie pas vos tâches et n’active pas l’IA.',
     auth: 'Reconnectez-vous pour vérifier ce compte.', network: 'Connexion à la facturation impossible. Les données locales et la demande initiale sont conservées.', storage: 'La demande de facturation n’a pas pu être enregistrée. Réessayez.',
     configuration: 'Plus n’est pas disponible dans cet environnement. Les fonctions locales et votre propre clé IA restent disponibles.',
     notStarted: 'Abonnez-vous pour la synchronisation et l’IA intégrée. Les fonctions locales et votre propre clé restent disponibles.',

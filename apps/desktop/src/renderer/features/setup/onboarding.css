@@ -1,31 +1,16 @@
 /**
  * [INPUT]: Setup content, measured feedback clearance, shared theme tokens, native field state and viewport size.
- * [OUTPUT]: Vertically centered scrollable content groups, bounded geometry, feedback-safe controls and reduced-motion rules.
+ * [OUTPUT]: Setup typography, input states and shared AI details; setup-canvas.css owns the page geometry.
  * [POS]: Setup-specific CSS; ordinary layout lives in the consuming components' Tailwind classes.
  */
 .onboarding { --onboarding-width: 1000px; --onboarding-gutter: clamp(24px, 6vw, 72px); }
 .onboarding button:not(:disabled) { cursor: pointer; }
 .calendar-select-menu [role="option"]:not([data-disabled]) { cursor: pointer; }
-.onboarding-main { padding: 0 var(--onboarding-gutter); }
 .onboarding-content { max-width: var(--onboarding-width); padding: clamp(16px, 5vh, 48px) 0 40px; animation: onboarding-enter .2s ease-out; }
 @keyframes onboarding-enter { from { opacity: 0; transform: translateY(6px); } }
-.onboarding-flow { display: flex; }
-.onboarding-stack { flex: none; width: 100%; max-width: var(--onboarding-width); margin: auto; padding: max(32px, var(--feedback-clearance, 0px)) 0; }
-.onboarding-stack > .onboarding-content { padding: 0; }
 .onboarding-footer { padding: 24px 0 0; }
-.start-entry .start-column { max-width: 420px; }
-.start-billing { max-width: 600px; }
-.onboarding-note-main .text-button { margin-left: 4px; font-size: inherit; color: var(--focus); }
-.onboarding-note-main .text-button:hover:not(:disabled) { color: var(--focus); text-decoration: underline; text-underline-offset: 3px; }
 .onboarding-actions svg { margin-right: -4px; }
 
-/* Shared intro: eyebrow, title, a short lead. */
-/* The PNG's icon body spans 80% of the canvas, so the frame crops its transparent margin. */
-.onboarding-mark { box-shadow: 0 0 0 .5px var(--edge); }
-.onboarding-mark img { position: absolute; left: -3px; top: -3px; width: 28px; max-width: none; height: 28px; user-select: none; }
-.onboarding-subtitle { max-width: 64ch; }
-.onboarding-meta .text-button { font-size: inherit; color: var(--focus); }
-.onboarding-meta .text-button:hover:not(:disabled) { color: var(--focus); text-decoration: underline; text-underline-offset: 3px; }
 
 /* Step 2 · direction: a large input with examples. */
 .direction-input { border: 1px solid var(--edit-line); box-shadow: 0 1px 2px rgba(60, 40, 20, .04); }
@@ -78,25 +63,3 @@
   .onboarding-lock { border-radius: 8px; }
 }
 @media (max-width: 760px) { .onboarding-footer { flex-wrap: wrap; } .onboarding-note { flex-basis: 80%; } }
-
-/* Account screens after the welcome choice. */
-.start-back:hover:not(:disabled) { background: var(--hover); }
-.start-quiet:hover:not(:disabled) { color: var(--fg-soft); }
-.start-spinner { width: 14px; height: 14px; border-radius: 7px; border: 2px solid var(--line); border-top-color: var(--fg); animation: start-spin .8s linear infinite; }
-@keyframes start-spin { to { transform: rotate(360deg); } }
-.start-field { border: 1px solid var(--line); }
-.start-field[data-invalid='true'] { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
-.start-field input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; font-size: 15px; letter-spacing: .12em; }
-.start-field input:focus { outline: none; }
-.start-field:focus-within:not([data-invalid='true']) { outline: 2px solid var(--focus); outline-offset: 1px; }
-.start-hint[data-ok='true'] { color: var(--ok); }
-.start-mark-large img { left: -6px; top: -6px; width: 60px; height: 60px; }
-.start-bar i { display: block; height: 100%; width: 40%; background: var(--fg); border-radius: 2px; animation: start-bar 1.2s ease-in-out infinite; }
-@keyframes start-bar { from { transform: translateX(-120%); } to { transform: translateX(280%); } }
-.start-alert { z-index: 30; transform: translateX(-50%); max-width: min(560px, calc(100% - 32px)); box-shadow: 0 0 0 1px var(--line); }
-.start-scrim { inset: 0; z-index: 40; background: var(--scrim); }
-.start-dialog { max-width: calc(100% - 32px); box-shadow: var(--shadow-lg); }
-.start-dialog h3 { margin: 0; font-size: 17px; font-weight: 600; }
-.start-dialog p { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--fg-soft); }
-.start-dialog .start-danger { background: var(--danger); color: var(--bg); }
-@media (prefers-reduced-motion: reduce) { .start-spinner, .start-bar i { animation: none; } }

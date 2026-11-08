@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Account-bound trusted billing projection and finite main-process actions.
  * [OUTPUT]: Explicit purchase, original-request recovery and confirmed renewal management.
- * [POS]: Shared Plus card for Sync, AI settings and first-run setup. It never starts sync or enables AI.
+ * [POS]: Shared Plus card for Sync and AI settings. It never starts sync or enables AI.
  */
 import { useEffect, useRef, useState } from 'react'
 import type { BillingAction, BillingCycle, BillingState } from '../../../../shared/contracts/billing'

@@ -52,7 +52,7 @@ async function launch(executable, data) {
     globalThis.protectedSessionNative = process.getBuiltinModule('module').createRequire(process.execPath)(path)
   }, join(dirname(executable), '../Resources/app.asar.unpacked/out/main/keychain-policy.node'))
   page = await application.firstWindow()
-  await page.locator('.start-cards, .board').first().waitFor()
+  await page.locator('.calendar-modes, .board').first().waitFor()
 }
 try {
   await mkdir(out, { recursive: true })

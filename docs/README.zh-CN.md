@@ -52,10 +52,10 @@
 
 | 平台 | 版本 | 安装包 |
 | --- | --- | --- |
-| macOS 14+（Apple 芯片） | 1.12.0 | [Goalloom-1.12.0-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.0/Goalloom-1.12.0-mac-arm64.dmg) |
+| macOS 14+（Apple 芯片） | 1.12.1 | [Goalloom-1.12.1-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.1/Goalloom-1.12.1-mac-arm64.dmg) |
 | Windows 11（x64） | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
 
-**更新前核对格式：** 1.12.0 只接受 v15 工作区、备份与导出，不会升级 1.11.0 的 v14 或其他旧格式。如需旧数据，请保留原版应用、本地数据与备份。详见[发布说明](./releases/v1.12.0.md)。
+**更新前核对格式：** 1.12.1 只接受 v15 工作区、备份与导出，不会升级 1.11.0 的 v14 或其他旧格式。如需旧数据，请保留原版应用、本地数据与备份。详见[发布说明](./releases/v1.12.1.md)。
 
 ## 首次打开
 
@@ -63,11 +63,11 @@ macOS 安装包已通过 Developer ID 签名和 Apple 公证。Windows 版仍未
 
 **macOS。** 打开 DMG，把 Goalloom 拖进「应用程序」后打开即可。
 
-**公开版 macOS 1.8.0 使用 ad-hoc 签名。** 它不能通过内置更新切换到 Developer ID 签名。1.12.0 也不会转换其工作区格式；如需继续使用旧工作区，请保留旧版应用和备份。
+**公开版 macOS 1.8.0 使用 ad-hoc 签名。** 它不能通过内置更新切换到 Developer ID 签名。1.12.1 也不会转换其工作区格式；如需继续使用旧工作区，请保留旧版应用和备份。
 
 **Windows。** 出现 SmartScreen「Windows 已保护你的电脑」时，点「更多信息 → 仍要运行」，再按安装向导完成。
 
-工作区位于 `~/Library/Application Support/Goalloom/`（macOS）或 `%APPDATA%\Goalloom\`（Windows），每日备份在其中的 `backups/`。应用身份和数据目录保持不变。旧格式文件保持原样，1.12.0 不会自动转换或替换它们。
+工作区位于 `~/Library/Application Support/Goalloom/`（macOS）或 `%APPDATA%\Goalloom\`（Windows），每日备份在其中的 `backups/`。应用身份和数据目录保持不变。旧格式文件保持原样，1.12.1 不会自动转换或替换它们。
 
 ## 从源码构建
 

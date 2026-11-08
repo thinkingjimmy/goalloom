@@ -60,12 +60,7 @@
   .ai-option[data-selected='true'] { box-shadow: inset 0 0 0 1.5px var(--primary); }
   .direction-example[data-active='true'] { color: var(--focus); box-shadow: inset 0 0 0 1px var(--primary); }
   .ai-results { box-shadow: inset 0 0 0 1px var(--hairline); }
-  .jev-demo-caret, .start-bar i { background: var(--primary); }
-  .start-spinner { border-top-color: var(--primary); }
-  .start-dialog { border-radius: 16px; background: var(--surface); }
-  .start-dialog .start-danger { color: oklch(1 0 0); }
-  .start-field { background: var(--macos-field); border-radius: 6px; }
-  .start-field:focus-within:not([data-invalid='true']) { outline: none; box-shadow: var(--macos-focus-ring); }
+  .jev-demo-caret { background: var(--primary); }
 }
 @media (max-width: 850px) {
   :root[data-style='macos'] .settings-row :is(.segmented, .select-trigger) { max-width: 100%; }

@@ -1,12 +1,12 @@
 /**
  * [INPUT]: Ordered first-run pages, input modality, document visibility and reduced-motion preference.
- * [OUTPUT]: Explicit welcome arrivals, reversible camera, directional form transitions and cancellation on hide/unmount.
+ * [OUTPUT]: Explicit AI arrivals, reversible camera, directional form transitions and cancellation on hide/unmount.
  * [POS]: Setup-only motion; keyboard and reduced-motion navigation commit immediately, without new dependencies.
  */
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 
 export type EntryMotion = 'forward' | 'backward' | null
-/** Only explicit welcome/setup navigation animates entry; first load remains still. */
+/** Only explicit setup navigation animates entry; first load remains still. */
 export function useEntryMotion(root: RefObject<HTMLDivElement | null>, direction: EntryMotion) {
   useLayoutEffect(() => {
     if (!direction || document.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) return

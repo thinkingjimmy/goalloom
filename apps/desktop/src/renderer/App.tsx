@@ -1,7 +1,7 @@
 /**
- * [INPUT]: Workspace/current-period state, guarded writes, setup recovery intent, selected periods, undo, flows, preferences, account-bound eligibility and sync feedback.
+ * [INPUT]: Workspace/current-period state, guarded writes, explicit setup completion, selected periods, undo, flows, preferences, account-bound eligibility and sync feedback.
  * [OUTPUT]: Board/dialog composition, guarded writes/undo, filters, shortcuts, updates and generation-scoped caches. Content-sized notices and Undo feedback use native Sonner stacking, hover expansion and duration rules; pending receipts cannot be dismissed. Timezone and backup dismissal follows condition tokens. Completion retains atomic board return and guarded celebration. Theme/style changes do not tween colors.
- * [POS]: Renderer root; owns setup-to-recovery intent, an out-of-flow startup status and a persistent setup/AI stage with early AI module loading; guards dialogs/shortcuts and retains the composer until generation changes.
+ * [POS]: Renderer root; owns direct calendar entry and explicit skip-to-board, an out-of-flow startup status and a persistent setup/AI stage; guards dialogs/shortcuts and retains the composer until generation changes.
  */
 import { useCloud, runCloud } from './state/cloud'
 import { cloudCatalog } from '../shared/i18n/cloud'
@@ -9,14 +9,13 @@ import { currentLocale } from './i18n'
 import { useSync } from './state/sync'
 import { useBilling } from './state/billing'
 import { IconButton } from './components/ui/button'
-import { messages, settingsMessages, smartMessages, useLocale } from './i18n'
+import { messages, smartMessages, useLocale } from './i18n'
 import { lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { currentPeriod, workspaceDate } from '../domain/calendar'
-import type { ItemSummary, PlanningPeriod } from '../shared/contracts/entities'
+import type { ItemSummary } from '../shared/contracts/entities'
 import { Icon } from './components/icons'
 import { OnboardingStage } from './features/setup/OnboardingStage'
-import type { CalendarChoice } from './features/setup/Setup'
-import type { SetupRecoveryIntent } from './features/setup/StartGate'
+import type { SetupSubmission } from './features/setup/Setup'
 import { revealRow } from './features/board/VirtualRows'
 import { Board, type BoardInsight } from './features/board/Board'
 import type { ComposerSeed } from './features/composer/Seeded'
@@ -49,8 +48,7 @@ import { hasUpdate, useUpdate } from './state/update'
 import { timezoneNoticeToken, useDismissedNotice } from './state/notices'
 import { resetLinkPreviewCache } from './components/links/cache'
 
-const StartGate = lazy(() => import('./features/setup/StartGate').then(module => ({ default: module.StartGate })))
-const SyncRecovery = lazy(() => import('./features/shell/settings/SyncRecovery').then(module => ({ default: module.SyncRecovery })))
+const Setup = lazy(() => import('./features/setup/Setup').then(module => ({ default: module.Setup })))
 const ItemDetail = lazy(() => import('./features/items/ItemDetail').then(module => ({ default: module.ItemDetail })))
 const Settings = lazy(() => import('./features/shell/settings/Settings').then(module => ({ default: module.Settings })))
 const CommandPalette = lazy(() => import('./features/shell/CommandPalette').then(module => ({ default: module.CommandPalette })))
@@ -71,7 +69,6 @@ export function App() {
   const billing = useBilling()
   const plusReady = !!account?.accountId && account.accountId === billing.state?.accountId && billing.state.access?.eligible === true
   const [composing, setComposing] = useState(false), [onboarding, setOnboarding] = useState(false)
-  const [setupRecovery, setSetupRecovery] = useState<SetupRecoveryIntent | null>(null), [setupRecoveryWorking, setSetupRecoveryWorking] = useState(false)
   const [composerGeneration, setComposerGeneration] = useState<string | null>(null)
   const columns = useColumns()
   const boardView = useBoardPeriods(snapshot, columns.visible)
@@ -149,10 +146,7 @@ export function App() {
   }, [theme])
   useEffect(() => { document.documentElement.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other' }, [])
   useEffect(() => startDevicePrefs(), [])
-  useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null); setReviewOpen(false); setSetupRecovery(null) }, [snapshot?.workspace.generation])
-  useEffect(() => {
-    if (setupRecovery && (setupRecovery.accountId !== account?.accountId || setupRecovery.localGeneration !== snapshot?.workspace.generation)) setSetupRecovery(null)
-  }, [account?.accountId, snapshot?.workspace.generation, setupRecovery])
+  useEffect(() => { setSelected(null); setPalette(false); setSettings(false); setFilter(null); setComposing(false); setSeed(null); setReviewing(null); setReviewOpen(false) }, [snapshot?.workspace.generation])
   // A promoted root keeps the selected flow; unrelated disappearance still returns to the full board.
   useEffect(() => {
     const previous = previousFlows.current; previousFlows.current = snapshot
@@ -172,26 +166,24 @@ export function App() {
   const [directionPending, setDirectionPending] = useState(false)
   const [setupTransition, setSetupTransition] = useState(false)
   const [setupErrorCode, setSetupErrorCode] = useState<string | null>(null)
-  const confirmSetup = async (calendar: CalendarChoice, direction: string, period: PlanningPeriod): Promise<boolean> => {
+  const confirmSetup = async (submission: SetupSubmission): Promise<void> => {
     setSetupErrorCode(null)
     setSetupTransition(true)
     try {
-      const confirmed = await write(async () => ({ type: 'confirmSetup', ...calendar, confirmed: true }), snapshot!.workspace.generation)
-      if (!confirmed.ok) { setSetupErrorCode(confirmed.code); setError(confirmed.message); return false }
-      if (!confirmed.result) return false
-      setOnboarding(!plusReady)
-      if (direction) {
+      const confirmed = await write(async () => ({ type: 'confirmSetup', ...submission.calendar, confirmed: true }), snapshot!.workspace.generation)
+      if (!confirmed.ok) { setSetupErrorCode(confirmed.code); setError(confirmed.message); return }
+      if (!confirmed.result) return
+      setOnboarding(submission.kind === 'direction' && !plusReady)
+      if (submission.kind === 'direction' && submission.direction) {
         setDirectionPending(true)
         try {
-          const result = await submit({ type: 'create', title: direction, description: '', dueDate: null, horizon: 'year', period: { kind: 'date', startDate: period.startDate }, parentId: null, expectedParentVersion: null, flowColor: 0 })
+          const result = await submit({ type: 'create', title: submission.direction, description: '', dueDate: null, horizon: 'year', period: { kind: 'date', startDate: submission.period.startDate }, parentId: null, expectedParentVersion: null, flowColor: 0 })
           if (result?.itemId) directionLocation.current = { generation: snapshot!.workspace.generation, detail: await desktopApi().getItem(result.itemId) }
         } finally { setDirectionPending(false) }
       }
-      return true
     } finally { setSetupTransition(false) }
   }
 
-  const openSetupRecovery = async (intent: SetupRecoveryIntent): Promise<void> => { setSetupRecovery(intent) }
   useEffect(() => {
     if (directionLocation.current && directionLocation.current.generation !== snapshot?.workspace.generation) directionLocation.current = null
     const detail = directionLocation.current?.detail
@@ -207,7 +199,6 @@ export function App() {
       if (event.defaultPrevented || (event.target instanceof Element && event.target.closest('.context-menu'))) return
       const combo = event.isComposing ? null : parseEvent(event)
       if (!combo) return
-      if (setupRecovery) return
       if (document.querySelector('.sync-review-modal[open]')) return
       const editing = editingTarget(event.target)
       if (reviewOpen) return
@@ -225,7 +216,7 @@ export function App() {
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, setupRecovery, onboarding, setupTransition, composing, palette, seed, reviewOpen, bindings, filterKeys, flows, selectFilter, columns])
+  }, [requestUndo, pending, snapshot?.maintenance, selected, settings, setupReady, onboarding, setupTransition, composing, palette, seed, reviewOpen, bindings, filterKeys, flows, selectFilter, columns])
   const today = snapshot?.workspace.calendar ? workspaceDate(snapshot.workspace.calendar.timezone, snapshot.observedAt) : ''
   const workspaceZone = snapshot?.workspace.calendar?.timezone ?? null
   const timezoneNotice = useDismissedNotice('timezone', workspaceZone ? timezoneNoticeToken(Intl.DateTimeFormat().resolvedOptions().timeZone, workspaceZone) : null)
@@ -233,13 +224,13 @@ export function App() {
   return <div className="app-shell" onPointerDownCapture={() => { inputOrigin.current = 'pointer' }}
     onKeyDownCapture={event => { if (!event.nativeEvent.isComposing && !['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) inputOrigin.current = 'keyboard' }}>
     <TopBar ready={setupReady && !onboarding && !setupTransition} flows={flows} filter={filter} setFilter={selectFilter} columns={columns} bindings={bindings} filterKeys={filterKeys} active={palette ? 'search' : settings ? 'settings' : null}
-      calendar={snapshot?.workspace.calendar ?? null} menuBlocked={!!selected || settings || !!setupRecovery || palette || composing || !!seed || reviewOpen}
+      calendar={snapshot?.workspace.calendar ?? null} menuBlocked={!!selected || settings || palette || composing || !!seed || reviewOpen}
       laterTodoCount={snapshot?.items.filter(item => item.placement.horizon === 'later' && item.status === 'todo' && !item.archivedAt && !item.deletedAt).length ?? 0}
       updateAvailable={hasUpdate(update)} openSearch={openPalette} openSettings={() => openSettings()} />
     {setupReady && snapshot && <SyncFeedback key={snapshot.workspace.generation} generation={snapshot.workspace.generation} onOpenChange={setSyncReviewOpen} />}
     <Suspense fallback={<main className="setup-opening" role="status">{messages.opening}</main>}>
     {!snapshot ? <main className="setup-opening" role="status">{messages.opening}</main> : !setupReady || onboarding || setupTransition ? <OnboardingStage>
-      {!setupReady || (setupTransition && !onboarding) ? <StartGate generation={snapshot.workspace.generation} onRecoveryReady={openSetupRecovery} skipAi={plusReady} confirm={confirmSetup} busy={busy || setupTransition} errorCode={setupErrorCode ?? errorCode} />
+      {!setupReady || (setupTransition && !onboarding) ? <Setup key={snapshot.workspace.generation} confirm={confirmSetup} busy={busy || setupTransition} errorCode={setupErrorCode ?? errorCode} />
       : <AiStep snapshot={snapshot} direction={directionLocation.current?.detail ?? null} keyboardEntry={inputOrigin.current === 'keyboard'} busy={directionPending} ai={ai} finish={() => setOnboarding(false)} />}
     </OnboardingStage> : <>
       <div className="board-host"><Board key={snapshot.workspace.generation} snapshot={snapshot} view={boardView} flows={flows} filter={filter} columns={columns.visible} submit={submit} busy={busy} select={select} addRequest={null} highlighted={selected ?? boardView.locating?.id ?? null} insight={insight} ai={ai}
@@ -249,11 +240,6 @@ export function App() {
     </Suspense>
     <Suspense fallback={null}>
     {settings && snapshot && <Settings snapshot={snapshot} ai={ai} initial={settingsRequest.section} request={settingsRequest.at} submit={submit} refresh={refresh} busy={busy} select={select} close={() => setSettings(false)} />}
-    {setupReady && setupRecovery && setupRecovery.localGeneration === snapshot?.workspace.generation && setupRecovery.accountId === account?.accountId && <SyncRecovery expectedAccountId={setupRecovery.accountId} working={setupRecoveryWorking} error={account?.error ? settingsMessages.sync.errors[account.error] : undefined} close={() => setSetupRecovery(null)} run={async action => {
-      setSetupRecoveryWorking(true)
-      try { const reply = await desktopApi().sync(action); return !reply.status.error && reply.status.phase === 'ready' }
-      finally { setSetupRecoveryWorking(false) }
-    }} />}
     </Suspense>
     <Suspense fallback={null}>
     {palette && <CommandPalette close={() => setPalette(false)} select={select} undo={() => void undo()} canUndo={!busy && undoCount > 0} create={compose} openSettings={openSettings} bindings={bindings} calendar={snapshot?.workspace.calendar ?? null} observedAt={snapshot?.observedAt ?? ''} />}
@@ -281,7 +267,7 @@ export function App() {
       flows={flows} candidates={boardView.candidates} today={today} calendar={snapshot.workspace.calendar!} observedAt={snapshot.observedAt} />}
     </Suspense>
     <FeedbackLayer key={snapshot?.workspace.generation}>
-        {!settings && !setupRecovery && cloud?.notices.map(notice => <WorkspaceNotice className="cloud-notice" key={`${notice.target.workspaceId}:${notice.target.generation}`} action={{ label: cloudText.settings, onClick: () => openSettings('sync') }} dismiss={{ label: cloudText.dismiss, onClick: () => { if (cloud.accountId) void runCloud({ type: 'dismiss', expectedAccountId: cloud.accountId, target: notice.target, stage: notice.stage }) } }}>{cloudText[notice.stage]}{notice.retrieveUntil && <> {cloudText.deadline} {new Date(notice.retrieveUntil).toLocaleDateString(currentLocale())}</>}</WorkspaceNotice>)}
+        {!settings && cloud?.notices.map(notice => <WorkspaceNotice className="cloud-notice" key={`${notice.target.workspaceId}:${notice.target.generation}`} action={{ label: cloudText.settings, onClick: () => openSettings('sync') }} dismiss={{ label: cloudText.dismiss, onClick: () => { if (cloud.accountId) void runCloud({ type: 'dismiss', expectedAccountId: cloud.accountId, target: notice.target, stage: notice.stage }) } }}>{cloudText[notice.stage]}{notice.retrieveUntil && <> {cloudText.deadline} {new Date(notice.retrieveUntil).toLocaleDateString(currentLocale())}</>}</WorkspaceNotice>)}
         {(pending || error) && <WorkspaceNotice severity="error"
           action={pending ? { label: working ? messages.checking : messages.retry, onClick: () => void retry(), disabled: working, checking: working } : undefined}
           dismiss={pending ? undefined : { label: messages.closeError, onClick: () => setError(null) }}>{pending ? messages.saveUnknown : error}</WorkspaceNotice>}
