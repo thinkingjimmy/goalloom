@@ -1,11 +1,11 @@
 /**
  * [INPUT]: Untrusted source-aware JSON/SQLite data and explicit maintenance actions.
- * [OUTPUT]: Validated current-format datasets, grouped creation receipts/tombstones, v2/v3 effects and protected replacement previews.
+ * [OUTPUT]: Validated v16 (and focus-free v15) datasets, grouped creation receipts/tombstones, v2/v3/focus effects and protected replacement previews.
  * [POS]: Transfer boundary preserving current receipts and rejecting inconsistent heads/history.
  */
 import { z } from 'zod'
 import { effectsVersion } from './effects'
-import { calendarSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, itemRecordSchema, periodSchema, placementSchema, policySchema, relationSchema, workspaceSchema } from './entities'
+import { calendarSchema, flowColorSchema, focusSchema, horizonSchema, idSchema, instantSchema, itemRecordSchema, periodSchema, placementSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 import { resultSchema } from './commands'
 import { businessStateSchema, eventSchema } from './history'
 import { policyHorizons } from './values'
@@ -26,18 +26,22 @@ export const effectSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('archive'), itemId: idSchema, before: instantSchema.nullable(), after: instantSchema.nullable() }),
   z.strictObject({ kind: z.literal('visibility'), itemId: idSchema, before: visibility, after: visibility, edges: z.array(edgeDelta).max(100_000) }),
   z.strictObject({ kind: z.literal('relations'), itemId: idSchema, edges: z.array(edgeDelta).max(100_000), flowColor: z.strictObject({ before: flowColorSchema, after: z.null(), transferredTo: idSchema.optional() }).optional() }),
+  z.strictObject({ kind: z.literal('focus'), itemId: idSchema, periodId: idSchema, before: idSchema.nullable(), after: idSchema.nullable() })
+    .refine(value => value.before !== value.after && value.itemId === (value.after ?? value.before)),
 ])
 export const operationSchema = z.strictObject({
   id: idSchema, generation: idSchema, requestHash: z.string().regex(/^[a-f0-9]{64}$/), kind: z.string().min(1).max(60),
   source: z.enum(['user', 'system']), at: instantSchema, effectsVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]), effects: z.array(effectSchema).max(100_000), result: resultSchema,
 }).refine(value => value.effectsVersion === effectsVersion(value.effects))
 export const undoMarkerSchema = z.strictObject({ originalId: idSchema, effectIndex: z.number().int().nonnegative(), undoId: idSchema })
+// v15 files predate period focus; they still restore, with no focus rows.
 export const datasetSchema = z.strictObject({
-  schemaVersion: z.literal(15), historyMode: z.enum(['complete', 'baseline']), exportedAt: instantSchema,
+  schemaVersion: z.union([z.literal(15), z.literal(16)]), historyMode: z.enum(['complete', 'baseline']), exportedAt: instantSchema,
   workspace: workspaceSchema, items: z.array(itemRecordSchema).max(100_000), placements: z.array(placementSchema).max(100_000),
   periods: z.array(periodSchema).max(100_000), relations: z.array(relationSchema).max(500_000), policies: z.array(policySchema).max(policyHorizons.length),
   events: z.array(eventSchema).max(1_000_000), operations: z.array(operationSchema).max(500_000), undoEffects: z.array(undoMarkerSchema).max(500_000),
-})
+  focus: z.array(focusSchema).max(100_000).default([]),
+}).refine(value => value.schemaVersion === 16 || value.focus.length === 0)
 export type Dataset = z.infer<typeof datasetSchema>
 export const backupRecordSchema = z.strictObject({
   id: z.uuid(), kind: z.enum(['daily', 'protective', 'manual']), createdAt: instantSchema, localDate: z.string().nullable(),

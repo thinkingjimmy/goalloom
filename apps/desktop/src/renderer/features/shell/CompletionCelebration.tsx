@@ -163,7 +163,7 @@ export function CompletionCelebration({ event, generation }: { event: Completion
   const accepted = useRef<string | null>(null)
   const currentGeneration = useRef(generation)
   currentGeneration.current = generation
-  const activeReview = useRef<{ generation: string; horizon: 'week' | 'month' } | null>(null)
+  const activeReview = useRef<{ generation: string; horizon: 'day' | 'week' | 'month' } | null>(null)
   const stop = useRef<() => void>(() => undefined)
   const { enabled } = useCelebration()
   const reducedMotion = useReducedMotion()

@@ -39,7 +39,7 @@ export function ownedExecutionEffect(event: ItemEvent, history: ExecutionHistory
       case 'nesting': return event.type === 'nesting_changed'
       case 'groupPlacement':
       case 'position': return !!a && !samePlace(a, b) && effect.before.horizon === a.horizon && effect.before.periodId === a.periodId && effect.after.horizon === b.horizon && effect.after.periodId === b.periodId
-      case 'relations': return false
+      case 'relations': case 'focus': return false
     }
   })
 }

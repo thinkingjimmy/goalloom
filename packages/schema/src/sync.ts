@@ -1,8 +1,15 @@
 /**
  * [INPUT]: An empty SQLite database inside its host-owned transaction.
- * [OUTPUT]: Current sync tables, indexes and integrity triggers.
+ * [OUTPUT]: Current sync tables, indexes and integrity triggers; canonical changes include the period focus dimension.
  * [POS]: Shared launch baseline DDL; no historical upgrades or database access.
  */
+// The quoted name matches the text SQLite writes when the v16 migration renames its rebuilt copy.
+export const canonChangesBody = `(
+  seq INTEGER NOT NULL REFERENCES canon_ops(seq), idx INTEGER NOT NULL, itemId TEXT,
+  dim TEXT NOT NULL CHECK(dim IN ('create','delete','restore','title','description','dueDate','flowColor','status','archive','placement','relation','policy','calendar','focus')),
+  before TEXT, after TEXT, PRIMARY KEY(seq,idx)
+) STRICT`
+
 export const syncDdl = `
 CREATE TABLE sync_ops (
   opId TEXT PRIMARY KEY,
@@ -39,9 +46,5 @@ CREATE TABLE canon_ops (
   seq INTEGER PRIMARY KEY, opId TEXT NOT NULL UNIQUE, deviceId TEXT NOT NULL, at TEXT NOT NULL,
   kind TEXT NOT NULL, outcome TEXT NOT NULL CHECK(outcome IN ('applied','rejected','partial')), errorCode TEXT
 ) STRICT;
-CREATE TABLE canon_changes (
-  seq INTEGER NOT NULL REFERENCES canon_ops(seq), idx INTEGER NOT NULL, itemId TEXT,
-  dim TEXT NOT NULL CHECK(dim IN ('create','delete','restore','title','description','dueDate','flowColor','status','archive','placement','relation','policy','calendar')),
-  before TEXT, after TEXT, PRIMARY KEY(seq,idx)
-) STRICT;
+CREATE TABLE "canon_changes" ${canonChangesBody};
 `

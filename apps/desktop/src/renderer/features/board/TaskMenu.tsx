@@ -14,11 +14,13 @@ import { messages, insightMessages as t } from '../../i18n'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '../../components/ui/context-menu'
 import { Icon } from '../../components/icons'
 import { revealRow } from './VirtualRows'
+import type { FocusScope } from '../../components/focus/FocusMark'
 
 export interface Upcoming { period: PlanningPeriod; label: string; hint: string | null }
 
-export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, assist, onMenu, onMoved, children, onNest }: {
+export function TaskMenu({ item, upcoming, relations, disabled, submit, select, decompose, assist, onMenu, onMoved, children, onNest, focus = null }: {
   onNest: () => void
+  focus?: { scope: FocusScope; on: boolean; run: () => void } | null
   item: ItemSummary; upcoming: Upcoming[]; relations: number; disabled: boolean; children: ReactElement
   submit: (action: Action) => Promise<unknown>; select: (id: string) => void; decompose: (() => void) | null; assist?: (() => void) | undefined
   onMenu: (id: string | null) => void; onMoved: (id: string) => void
@@ -68,6 +70,8 @@ export function TaskMenu({ item, upcoming, relations, disabled, submit, select, 
           </ContextMenuItem>)}
         </ContextMenuSubContent>
       </ContextMenuSub>
+      <ContextMenuSeparator /></>}
+      {focus && <><ContextMenuItem disabled={disabled} onSelect={focus.run}><Icon name="star" size={16} /><span className="context-menu-label">{focus.on ? t.focusClear(t.focusName[focus.scope]) : t.focusSet(t.focusName[focus.scope])}</span></ContextMenuItem>
       <ContextMenuSeparator /></>}
       <ContextMenuItem disabled={disabled} onSelect={() => { selecting.current = true; onNest() }}><Icon name="split" size={16} /><span>{nestingText().nest}</span></ContextMenuItem>
       {item.placement.nestingParentId && <ContextMenuItem disabled={disabled} onSelect={() => void submit({ type: 'unnest', itemId: item.id, expectedVersion: item.version, expectedPlacementVersion: item.placement.version })}><Icon name="forward" size={16} /><span>{nestingText().unnest}</span></ContextMenuItem>}

@@ -49,10 +49,7 @@
   .detail .modal-header { box-shadow: 0 1px 0 var(--hairline); }
   .activity-date[aria-pressed='true'] { background: var(--primary); color: var(--primary-foreground); }
   .activity-date:focus-visible, .execution-explanation summary:focus-visible { outline-color: var(--focus); }
-  .review-drawer { border-radius: 16px; box-shadow: var(--shadow-lg); }
   .review-guide { border-radius: 12px; background: var(--macos-group); border-color: var(--hairline); }
-  .review-steps li[aria-current] { color: var(--focus); }
-  .review-steps li[aria-current] .review-step-number { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
   .help-option[aria-pressed='true'], .help-option.is-selected { background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--fg); }
   .help-option[aria-pressed='true'] .option-letter, .help-option.is-selected .option-letter { background: var(--primary); color: var(--primary-foreground); box-shadow: none; }
 
@@ -64,7 +61,4 @@
 }
 @media (max-width: 850px) {
   :root[data-style='macos'] .settings-row :is(.segmented, .select-trigger) { max-width: 100%; }
-}
-@media (max-width: 560px) {
-  :root[data-style='macos'] .review-drawer { border-radius: 0; }
 }

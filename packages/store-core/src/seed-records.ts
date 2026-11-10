@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Exact visible/base SQL rows and a deterministic calendar period materializer.
- * [OUTPUT]: Fully validated ordered seed records and bounded canonical byte digests, without text normalization.
+ * [OUTPUT]: Fully validated ordered seed records (period focus last) and bounded canonical byte digests, without text normalization.
  * [POS]: Shared initialization serialization; it does not read command history or credentials.
  */
 import { canonicalJson, parseSyncOp, type CalendarWire } from '@goalloom/contracts'
@@ -17,8 +17,9 @@ const columns = {
   planning_periods: 'id,horizon,startDate,endDate,startAt,endAt',
   rollover_policies: 'horizon,mode,version,effectiveFromPeriodId',
   item_relations: 'id,parentId,childId,invalidatedAt,invalidatedBy,reason,createdAt',
+  period_focus: 'periodId,itemId',
 } as const
-const limits = { items: 100_000, item_placements: 100_000, planning_periods: 100_000, rollover_policies: 6, item_relations: 500_000 } as const
+const limits = { items: 100_000, item_placements: 100_000, planning_periods: 100_000, rollover_policies: 6, item_relations: 500_000, period_focus: 100_000 } as const
 
 export function parseSeedRecord(input: unknown): SeedRecord {
   const op = parseSyncOp({ v: 2, opId: validationId, deviceId: 'seed-validator', at: validationAt,
@@ -99,6 +100,12 @@ function captureRecords(driver: SqlDriver, host: ApplyHost, scope: SeedScope): E
   page('items', item, false)
   page('items', item, true)
   page('item_relations', row => append({ kind: 'relation', row }))
+  let afterPeriod: string | null = null
+  for (;;) {
+    const rows: Row[] = driver.prepare(`SELECT ${columns.period_focus} FROM ${prefix}period_focus ${afterPeriod === null ? '' : 'WHERE periodId>?'} ORDER BY periodId LIMIT 16`).all(...(afterPeriod === null ? [] : [afterPeriod]))
+    if (!rows.length) break
+    for (const row of rows) { append({ kind: 'focus', row }); afterPeriod = String(row.periodId) }
+  }
   validateSeedRecords(records, host)
   return describeSeedRecords(records)
 }
@@ -132,6 +139,10 @@ export function validateSeedRecords(records: SeedRecord[], host: ApplyHost): voi
     } else if (record.kind === 'policy') policies.set(record.row.horizon, record.row)
     else if (record.kind === 'item') items.set(record.row.id, record)
     else if (record.kind === 'relation') relations.push(record.row)
+    else if (record.kind === 'focus') {
+      // Pointers may be dormant (moved, archived, deleted); only scale and existence are invariants.
+      seedAssert(['month', 'week', 'day'].includes(periods.get(record.row.periodId)?.horizon ?? '') && items.has(record.row.itemId), 'seed focus reference')
+    }
   }
   seedAssert(calendar || records.length === 1, 'seed unconfirmed data')
   seedAssert(!calendar || policies.size === seedHorizons.length && seedHorizons.every(h => policies.has(h)), 'seed missing policies')
@@ -189,5 +200,6 @@ export function insertSeedRecord(driver: SqlDriver, scope: SeedScope, record: Se
   else if (record.kind === 'period') insert('planning_periods', record.row)
   else if (record.kind === 'policy') insert('rollover_policies', record.row)
   else if (record.kind === 'relation') insert('item_relations', record.row)
+  else if (record.kind === 'focus') insert('period_focus', record.row)
   else { insert('items', record.row); insert('item_placements', record.placement) }
 }

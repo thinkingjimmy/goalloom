@@ -41,6 +41,8 @@ import { Backlog } from './Backlog'
 import { QuickAdd, type QuickAddDraft, type SplitParent } from './QuickAdd'
 import { RelationLines } from './RelationLines'
 import { TaskRow } from './TaskRow'
+import { effectiveFocus } from '../../../domain/focus'
+import { isFocusScope } from '../../components/focus/FocusMark'
 import { VirtualRows, revealRow } from './VirtualRows'
 import { useBoardDrag } from './useBoardDrag'
 import { RelationDragContext, RelationDragOverlay, useRelationDrag } from './RelationDrag'
@@ -190,6 +192,14 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const calendar = snapshot.workspace.calendar!
   const previous = period ? precedingPeriod(calendar, period) : null
   const next = period ? currentPeriod(calendar, period.horizon, period.endAt) : null
+  // Focus: one most important item per current month/week/day period; the main process re-validates every write.
+  const focusScope = mode === 'current' && period && isFocusScope(horizon) ? horizon : null
+  const storedFocus = focusScope ? snapshot.focus?.find(value => value.periodId === period!.id)?.itemId ?? null : null
+  const focusId = useMemo(() => focusScope && period ? effectiveFocus(snapshot.focus, snapshot.items).get(period.id) ?? null : null, [focusScope, period, snapshot.focus, snapshot.items])
+  const toggleFocus = useCallback((item: ItemSummary) => {
+    if (!period) return
+    void submit({ type: 'focus', periodId: period.id, itemId: focusId === item.id ? null : item.id, expectedItemId: storedFocus })
+  }, [period, focusId, storedFocus, submit])
   const upcoming = useMemo(() => {
     if (!next || history) return null
     const periods = [next]
@@ -305,11 +315,12 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     return <TaskRow nestingTarget={canNest ? preceding : null} nestingParent={view.nestingParents.find(parent => parent.id === item.placement.nestingParentId)} index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
       // Later never joins flows, so a flow filter leaves the parking lot readable instead of greying it out.
       dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} editing={editingId === item.id} editLocked={disabled || !!dragging || !!relationSource} select={select} submit={submit} onPreview={onPreview}
-      onNest={onNest} upcoming={upcoming} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle} />
+      onNest={onNest} upcoming={upcoming} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
+      focusScope={focusScope} focusOn={focusId === item.id} onFocus={focusScope ? toggleFocus : null} />
   }
-  const due = mode === 'current' ? insight.due.find(entry => horizon === 'month' ? !!entry.month : horizon === 'week' && entry.scope === 'week') : undefined
-  const review = due ? due.month ?? due.week : null
-  const pendingCount = [due?.month, due?.week].flatMap(value => value ? [value] : []).reduce((count, value) => count + (snapshot.backlog[value.horizon] ?? 0) + (value.lastDay ? snapshot.items.filter(item => item.placement.periodId === value.period.id && item.status === 'todo').length : 0), 0)
+  const due = mode === 'current' ? insight.due.find(entry => horizon === 'month' ? !!entry.month : horizon === 'week' ? entry.scope === 'week' : horizon === 'day' && entry.scope === 'day') : undefined
+  const review = due ? due.month ?? due.week ?? due.day ?? null : null
+  const pendingCount = [due?.month, due?.week, due?.day].flatMap(value => value ? [value] : []).reduce((count, value) => count + (snapshot.backlog[value.horizon] ?? 0) + (value.lastDay ? snapshot.items.filter(item => item.placement.periodId === value.period.id && item.status === 'todo').length : 0), 0)
   const recentReview = (horizon === 'month' || horizon === 'week') && mode === 'current' ? reviewTarget(snapshot, horizon, []) : null
   const completedReview = !!recentReview && insight.reviewed.includes(recentReview.key)
   const reviewName = (period: PlanningPeriod) => period.horizon === 'week' ? planningLabel(period, calendar, snapshot.observedAt)
@@ -324,7 +335,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
         if (control) returnFocus(control, event.detail > 0 ? 'pointer' : 'keyboard')
       }}><Icon name="close" size={14} /></IconButton>}
     </div>
-    <h3>{insightMessages.reviewGuide(reviewPeriodName, reviewName(review.next))}</h3>
+    <h3>{review.horizon === 'day' ? insightMessages.reviewGuideDay : insightMessages.reviewGuide(reviewPeriodName, reviewName(review.next))}</h3>
     {pendingCount > 0 && <p>{insightMessages.reviewGuidePending(pendingCount)}</p>}
     <SettingsButton variant="primary" className="review-guide-action" data-review={horizon} title={insightMessages.reviewEntryAfter(reviewPeriodName)} disabled={busy} onClick={() => insight.review(due!)}>
       <span>{insight.started?.[review.horizon]?.key === review.key ? insightMessages.reviewContinue : insightMessages.reviewStart(reviewPeriodName)}</span><Icon name="next" size={14} />

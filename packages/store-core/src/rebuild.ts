@@ -1,9 +1,10 @@
 /**
  * [INPUT]: base_* projection, pending local sync_ops, and device-local workspace columns to preserve.
- * [OUTPUT]: Visible projection equals base plus pending replay, with exact seed-state reconstruction and local overwritten-action review metadata. Receipts and canon rows are not deleted.
+ * [OUTPUT]: Visible projection (period focus included) equals base plus pending replay, with exact seed-state reconstruction and local overwritten-action review metadata. Receipts and canon rows are not deleted.
  * [POS]: Reference rebase. A foreign-key failure aborts the caller transaction (storage pause). Baseline op ids rethrow business errors so a bad snapshot rolls back.
  */
 import { syncOpPayload, type SyncOp } from '@goalloom/contracts'
+import { businessTables } from '@goalloom/schema'
 import { redactSyncOp } from './secrets'
 import { sha256Hex } from '@goalloom/crypto'
 import { applySyncOp } from './apply'
@@ -18,17 +19,14 @@ import { copySeedStateToVisible, readSeedState, seedAssert, SeedIntegrityError }
 const localColumns = ['theme', 'style', 'checkStyle', 'backupEnabled', 'backupRetention', 'clockAnomaly', 'lastObservedAt', 'pausedAfterRestore', 'generation'] as const
 
 export function copyProjectionToBase(driver: SqlDriver): void {
-  driver.exec(`DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies;
-    DELETE FROM base_items; DELETE FROM base_planning_periods; DELETE FROM base_workspace;`)
-  for (const table of ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies']) {
-    driver.exec(`INSERT INTO base_${table} SELECT * FROM ${table}`)
-  }
+  for (const table of [...businessTables].reverse()) driver.exec(`DELETE FROM base_${table}`)
+  for (const table of businessTables) driver.exec(`INSERT INTO base_${table} SELECT * FROM ${table}`)
 }
 
 export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost, options?: { strictOpIds?: ReadonlySet<string> }): void {
   const local = driver.prepare(`SELECT ${localColumns.join(',')}, revision FROM workspace WHERE id=1`).get()
   if (!local) throw new SyncApplyError('storage', 'workspace missing')
-  driver.exec(`DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; UPDATE items SET flowColor=NULL;`)
+  driver.exec(`DELETE FROM item_relations; DELETE FROM period_focus; DELETE FROM item_placements; DELETE FROM rollover_policies; UPDATE items SET flowColor=NULL;`)
   driver.exec(`DELETE FROM items WHERE id NOT IN (SELECT id FROM base_items)`)
   driver.exec(`DELETE FROM planning_periods WHERE id NOT IN (SELECT id FROM base_planning_periods)`)
   driver.exec(`INSERT INTO planning_periods SELECT * FROM base_planning_periods WHERE id NOT IN (SELECT id FROM planning_periods)`)
@@ -40,6 +38,8 @@ export function rebuildVisibleFull(driver: SqlDriver, host: ApplyHost, options?:
   driver.exec(`INSERT INTO item_placements SELECT * FROM base_item_placements`)
   driver.exec(`INSERT INTO item_relations SELECT * FROM base_item_relations`)
   driver.exec(`INSERT INTO rollover_policies SELECT * FROM base_rollover_policies`)
+  // Dormant pointers are copied as-is; only the applier judges effectiveness.
+  driver.exec(`INSERT INTO period_focus SELECT * FROM base_period_focus`)
   const baseWorkspace = driver.prepare('SELECT calendar, setupConfirmedAt, revision FROM base_workspace WHERE id=1').get()
   const revision = Math.max(Number(local.revision ?? 0), Number(baseWorkspace?.revision ?? 0))
   driver.prepare(`UPDATE workspace SET calendar=?, setupConfirmedAt=?, revision=?, theme=?, style=?, checkStyle=?, backupEnabled=?, backupRetention=?, clockAnomaly=?, lastObservedAt=?, pausedAfterRestore=?, generation=? WHERE id=1`)
@@ -86,7 +86,7 @@ export interface ReplayOptions { deferIncompleteSeed?: boolean }
 
 function assertIsolatedReplay(driver: SqlDriver): void {
   seedAssert(driver.prepare('SELECT calendar FROM workspace WHERE id=1').get()?.calendar === null, 'partial seed requires isolated unconfigured store')
-  for (const table of ['items', 'item_placements', 'planning_periods', 'rollover_policies', 'item_relations', 'operations', 'item_events', 'undo_effects']) {
+  for (const table of ['items', 'item_placements', 'planning_periods', 'rollover_policies', 'item_relations', 'period_focus', 'operations', 'item_events', 'undo_effects']) {
     seedAssert(!driver.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get(), 'partial seed requires isolated empty store')
   }
   seedAssert(!driver.prepare("SELECT 1 FROM sync_ops WHERE origin='local' LIMIT 1").get(), 'partial seed cannot hide local operations')

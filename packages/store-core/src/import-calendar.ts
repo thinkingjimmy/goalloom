@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated first-import metadata, target projection and deterministic period mapping.
- * [OUTPUT]: Safe calendar adoption before task history, or placement targets and carried-child source guards aligned to the established calendar.
+ * [OUTPUT]: Safe calendar adoption before task history, or placement targets and carried-child source guards aligned to the established calendar (policies and focus dropped).
  * [POS]: Canonical import policy shared by pending and remote replay. Tombstones also lock the calendar.
  */
 import type { Action, PeriodKey, SyncOp } from '@goalloom/contracts'
@@ -16,7 +16,8 @@ export function alignImportAction(driver: SqlDriver, prefix: string, op: SyncOp,
   if (!op.importedCalendar) return action
   const raw = driver.prepare(`SELECT calendar FROM ${prefix}workspace WHERE id=1`).get()?.calendar
   if (!raw || JSON.parse(String(raw)).id === op.importedCalendar.id) return action
-  if (action.t === 'policy.set') return null
+  // Policies and focus pointers belong to the source calendar's periods; the established calendar keeps its own.
+  if (action.t === 'policy.set' || action.t === 'period.focus') return null
   if (!host.alignImportedPeriod) return action
   const align = (key: PeriodKey): PeriodKey => ({ ...key,
     startDate: host.alignImportedPeriod!(JSON.stringify(op.importedCalendar), key.horizon, key.startDate, op.at, String(raw)),

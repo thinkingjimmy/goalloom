@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Typed current-format import validation reasons.
- * [OUTPUT]: Localized v15 dataset and receipt-integrity messages.
+ * [OUTPUT]: Localized v15/v16 dataset and receipt-integrity messages.
  * [POS]: Shared server catalog used by authoritative import validation.
  */
 import type { importMessages as source } from '../zh/import'
@@ -18,6 +18,7 @@ export const importMessages: typeof source = {
     operationEvents: 'Eventos de la operación',
     undoEffects: 'Efectos de deshacer',
     edgeDeltas: 'Cambios de vínculos',
+    focus: 'Prioridades',
   },
   duplicateIdentity: (label: string) => `${label}: contiene identidades duplicadas`,
   deletionIncomplete: 'El origen o la fecha de eliminación están incompletos',
@@ -100,4 +101,5 @@ export const importMessages: typeof source = {
   positionReceiptMismatch: 'El recibo de ubicación no coincide con el evento',
   archiveReceiptMismatch: 'El recibo de archivo no coincide con el evento',
   visibilityReceiptMismatch: 'El recibo de visibilidad no coincide con el evento',
+  invalidFocus: 'Una prioridad hace referencia a un periodo o elemento no válido',
 }

@@ -44,6 +44,7 @@ export function InsightPane({ snapshot, ai, goto }: { snapshot: Snapshot; ai: Ai
     <SettingsGroup title={t.settingsHints}>
       <SettingsRow title={t.settingsBreakpoints} note={t.settingsBreakpointsNote}><Switch label={t.settingsBreakpoints} checked={settings.breakpoints} onChange={value => updateInsight(current => ({ ...current, breakpoints: value }))} /></SettingsRow>
       <SettingsRow title={t.settingsReviews} note={t.settingsReviewsNote}><Switch label={t.settingsReviews} checked={settings.reviews} onChange={value => updateInsight(current => ({ ...current, reviews: value }))} /></SettingsRow>
+      <SettingsRow title={t.settingsDailyReview} note={t.settingsDailyReviewNote}><Switch label={t.settingsDailyReview} checked={settings.dailyReview} onChange={value => updateInsight(current => ({ ...current, dailyReview: value }))} /></SettingsRow>
     </SettingsGroup>
     <SettingsGroup title={t.settingsPersonal} aside={<small className="settings-group-note text-[12px] text-muted-foreground">{t.settingsPersonalNote}</small>}>
       <div className="insight-tabs pt-0 pr-4 pb-0 pl-4.5 flex gap-5.5" role="tablist" aria-label={t.settingsPersonal} onKeyDown={move}>

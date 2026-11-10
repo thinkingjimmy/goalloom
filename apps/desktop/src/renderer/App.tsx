@@ -26,7 +26,7 @@ import { syncAssistanceGeneration } from './state/assistance-drafts'
 import { syncReviewDraftGeneration } from './state/review-drafts'
 import { decompose as decomposeItem } from './features/insight/decompose'
 import { shorter } from './features/insight/signals'
-import { reviewDue, type ReviewDue } from './features/insight/review'
+import { dueTargets, reviewDue, type ReviewDue } from './features/insight/review'
 import { boardItemVisibility } from './features/board/visibility'
 import { TopBar } from './features/shell/TopBar'
 import { CompletionCelebration } from './features/shell/CompletionCelebration'
@@ -54,7 +54,7 @@ const Settings = lazy(() => import('./features/shell/settings/Settings').then(mo
 const CommandPalette = lazy(() => import('./features/shell/CommandPalette').then(module => ({ default: module.CommandPalette })))
 const Composer = lazy(() => import('./features/composer/Composer').then(module => ({ default: module.Composer })))
 const Seeded = lazy(() => import('./features/composer/Seeded').then(module => ({ default: module.Seeded })))
-const ReviewDrawer = lazy(() => import('./features/insight/ReviewDrawer').then(module => ({ default: module.ReviewDrawer })))
+const ReviewDialog = lazy(() => import('./features/insight/ReviewDialog').then(module => ({ default: module.ReviewDialog })))
 const loadAiStep = () => import('./features/smart/AiStep').then(module => ({ default: module.AiStep }))
 const AiStep = lazy(loadAiStep)
 
@@ -108,17 +108,17 @@ export function App() {
   const [reviewOpen, setReviewOpen] = useState(false)
   const completeReview = () => {
     if (!reviewing || !snapshot) return
-    const generation = snapshot.workspace.generation, horizon = reviewing.month ? 'month' : 'week'
-    markReviewed([reviewing.month?.key, reviewing.week?.key].filter((key): key is string => !!key))
+    const generation = snapshot.workspace.generation, horizon = reviewing.month ? 'month' : reviewing.week ? 'week' : 'day'
+    markReviewed(dueTargets(reviewing).map(target => target.key))
     setReviewOpen(false); setReviewing(null)
     requestAnimationFrame(() => requestReviewCelebration(generation, horizon))
   }
-  const due = useMemo(() => snapshot?.workspace.calendar && insightSettings.reviews ? reviewDue(snapshot, insightSettings.reviewed, insightSettings.dismissed) : [], [snapshot, insightSettings.reviews, insightSettings.reviewed, insightSettings.dismissed])
+  const due = useMemo(() => snapshot?.workspace.calendar && insightSettings.reviews ? reviewDue(snapshot, insightSettings.reviewed, insightSettings.dismissed, insightSettings.dailyReview) : [], [snapshot, insightSettings.reviews, insightSettings.dailyReview, insightSettings.reviewed, insightSettings.dismissed])
   const insight = useMemo<BoardInsight>(() => ({ assist: id => { detailFocusOrigin.current = inputOrigin.current; setInitialHelp(true); startTransition(() => setSelected(id)) }, ready, due, started: reviewing, reviewed: insightSettings.reviewed, review: value => startTransition(() => {
-    setReviewing(previous => previous?.month?.key === value.month?.key && previous?.week?.key === value.week?.key ? previous : value); setReviewOpen(true)
+    setReviewing(previous => previous?.month?.key === value.month?.key && previous?.week?.key === value.week?.key && previous?.day?.key === value.day?.key ? previous : value); setReviewOpen(true)
   }),
     dismiss: value => {
-      if (snapshot) dismissReviews(snapshot.workspace.generation, [value.month?.key, value.week?.key].filter((key): key is string => !!key))
+      if (snapshot) dismissReviews(snapshot.workspace.generation, dueTargets(value).map(target => target.key))
     },
     seed: value => {
       columns.setVisible(value.horizon, true)
@@ -248,7 +248,7 @@ export function App() {
     {snapshot && setupReady && composerGeneration === snapshot.workspace.generation && <Composer key={snapshot.workspace.generation} open={composing} snapshot={snapshot} flows={flows} ai={ai} submit={submit} busy={busy} error={error} errorCode={errorCode} close={() => setComposing(false)} openSettings={() => openSettings('smart')} />}
     </Suspense>
     <Suspense fallback={null}>
-    {reviewing && snapshot && setupReady && <ReviewDrawer key={`${snapshot.workspace.generation}:${reviewing.month?.key}:${reviewing.week?.key}`} due={reviewing} snapshot={snapshot} open={reviewOpen} ready={ready} write={write} retryWrite={retryWrite} busy={busy && !pending} close={() => setReviewOpen(false)} complete={completeReview} />}
+    {reviewing && snapshot && setupReady && <ReviewDialog key={`${snapshot.workspace.generation}:${dueTargets(reviewing).map(target => target.key).join(':')}`} due={reviewing} snapshot={snapshot} open={reviewOpen} ready={ready} write={write} retryWrite={retryWrite} busy={busy && !pending} close={() => setReviewOpen(false)} complete={completeReview} />}
     </Suspense>
     <Suspense fallback={null}>
     {seed && snapshot && setupReady && <Seeded key={seed.key} seed={seed} snapshot={snapshot} flows={flows} submit={submit} busy={busy} error={error} close={() => setSeed(null)} />}

@@ -1,7 +1,11 @@
+/**
+ * [INPUT]: A base_ or visible business projection.
+ * [OUTPUT]: projectionHash over every business table, period focus included.
+ * [POS]: Cross-device projection equality check; omits history and device-local workspace columns.
+ */
 import { sha256Hex } from '@goalloom/crypto'
+import { businessTables as tables } from '@goalloom/schema'
 import type { SqlDriver } from './driver'
-
-const tables = ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies'] as const
 
 /** Canonical business projection. Omits operations, events and device-local workspace columns. */
 export function projectionHash(driver: SqlDriver, scope: 'base' | 'visible'): string {

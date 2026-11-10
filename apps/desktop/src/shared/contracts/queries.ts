@@ -1,10 +1,10 @@
 /**
  * [INPUT]: Finite generation/item/date/cursor requests and bounded strict response schemas.
- * [OUTPUT]: Current/past summaries, cross-period ownership, live review closingParents, effective relations, assisted-note details and execution facts.
+ * [OUTPUT]: Current/past summaries, cross-period ownership, raw period focus pointers, live review closingParents, effective relations, assisted-note details and execution facts.
  * [POS]: Read contract; only on-demand details/context carry bounded task bodies.
  */
 import { z } from 'zod'
-import { dateSchema, flowColorSchema, horizonSchema, idSchema, instantSchema, itemSchema, itemSummarySchema, periodHorizonSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
+import { dateSchema, flowColorSchema, focusSchema, horizonSchema, idSchema, instantSchema, itemSchema, itemSummarySchema, periodHorizonSchema, periodSchema, policySchema, relationSchema, workspaceSchema } from './entities'
 import { periodHorizons } from './values'
 import { activityReadSchema } from './execution'
 
@@ -16,7 +16,7 @@ export const querySchema = z.discriminatedUnion('type', [
   activityReadSchema.extend({ type: z.literal('activityDay'), date: dateSchema }),
   activityReadSchema.extend({ type: z.literal('activityPage') }),
   z.strictObject({ type: z.literal('snapshot') }),
-  z.strictObject({ type: z.literal('reviewContext'), generation: idSchema, periods: z.array(z.strictObject({ horizon: z.enum(['week', 'month']), startDate: dateSchema })).min(1).max(2) }),
+  z.strictObject({ type: z.literal('reviewContext'), generation: idSchema, periods: z.array(z.strictObject({ horizon: z.enum(['day', 'week', 'month']), startDate: dateSchema })).min(1).max(2) }),
   z.strictObject({ type: z.literal('boardPeriods'), generation: idSchema, periods: z.array(z.strictObject({ horizon: periodHorizonSchema, startDate: dateSchema })).min(1).max(periodHorizons.length) }),
   z.strictObject({ type: z.literal('item'), itemId: idSchema }),
   z.strictObject({ type: z.literal('list'), view: z.enum(['search', 'done', 'cancelled', 'archived', 'trash', 'backlog']), query: z.string().max(500).default(''), horizon: horizonSchema.optional(), offset: z.number().int().min(0).max(100_000).default(0), limit: z.number().int().min(1).max(100).default(50) }),
@@ -44,9 +44,11 @@ export const snapshotSchema = z.strictObject({
   backlog: z.record(z.string(), z.number().int().nonnegative()), observedAt: z.string(), maintenance: z.boolean(), backupError: z.string().nullable(),
   rolloverSources: z.record(idSchema, dateSchema), flows: z.array(flowSchema), orderNodes: z.array(orderNodeSchema),
   nesting: z.array(nestingLinkSchema).optional(), nestingParents: z.array(itemSummarySchema).optional(),
+  // Raw focus pointers for every period in `periods`; the renderer applies domain/focus.ts effectiveFocus.
+  focus: z.array(focusSchema).optional(),
 })
 export const itemPageSchema = z.strictObject({ items: z.array(itemSummarySchema), total: z.number().int().nonnegative(), periods: z.array(periodSchema).optional() })
-export const boardPeriodsSchema = snapshotSchema.pick({ periods: true, items: true, rolloverSources: true, orderNodes: true, nestingParents: true }).extend({ generation: idSchema, revision: z.number().int().nonnegative() })
+export const boardPeriodsSchema = snapshotSchema.pick({ periods: true, items: true, rolloverSources: true, orderNodes: true, nestingParents: true, focus: true }).extend({ generation: idSchema, revision: z.number().int().nonnegative() })
 export type BoardPeriods = z.infer<typeof boardPeriodsSchema>
 export const detailSchema = z.strictObject({
   item: itemSchema, period: periodSchema.nullable(), relations: z.array(relationViewSchema),
@@ -56,6 +58,8 @@ export const detailSchema = z.strictObject({
 export type Snapshot = z.infer<typeof snapshotSchema>
 export const reviewContextSchema = z.strictObject({
   board: snapshotSchema, planning: snapshotSchema, closing: z.array(itemSummarySchema), closingParents: z.array(itemSummarySchema).optional(), sourcePeriods: z.array(periodSchema), unknown: z.number().int().nonnegative(),
+  // Child-horizon items of each reviewed period (a week's days, a month's weeks), projected at each child period's end.
+  steps: z.array(itemSummarySchema).optional(),
 })
 export type ReviewContext = z.infer<typeof reviewContextSchema>
 export type Flow = z.infer<typeof flowSchema>

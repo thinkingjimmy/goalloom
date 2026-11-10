@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Typed current-format import validation reasons.
- * [OUTPUT]: Localized v15 dataset and receipt-integrity messages.
+ * [OUTPUT]: Localized v15/v16 dataset and receipt-integrity messages.
  * [POS]: Shared server catalog used by authoritative import validation.
  */
 import { widen } from '../../locale'
@@ -17,6 +17,7 @@ export const importMessages = widen({
     operationEvents: '操作内事件',
     undoEffects: '撤销效果',
     edgeDeltas: '关系差量',
+    focus: '最重要事项',
   },
   duplicateIdentity: (label: string) => `${label}含重复身份`,
   deletionIncomplete: '删除来源或日期不完整',
@@ -99,4 +100,5 @@ export const importMessages = widen({
   positionReceiptMismatch: '位置回执与事件不一致',
   archiveReceiptMismatch: '归档回执与事件不一致',
   visibilityReceiptMismatch: '可见性回执与事件不一致',
+  invalidFocus: '最重要事项引用的周期或条目无效',
 })

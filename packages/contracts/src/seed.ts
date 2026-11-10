@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted exact initialization records inside encrypted format-2 SyncOps.
- * [OUTPUT]: Non-transforming, closed seed schemas with explicit row and byte limits.
+ * [OUTPUT]: Non-transforming, closed seed schemas (including period focus rows) with explicit row and byte limits.
  * [POS]: Application payload capability 2; ordinary commands retain their existing schemas.
  */
 import { z } from 'zod'
@@ -34,6 +34,8 @@ export const seedRecordSchema = z.discriminatedUnion('kind', [
     id, parentId: id, childId: id, invalidatedAt: instant.nullable(), invalidatedBy: id.nullable(),
     reason: z.enum(['unlink', 'delete']).nullable(), createdAt: instant,
   }) }),
+  // Raw pointers, dormant ones included; only the stored period scale is constrained.
+  z.strictObject({ kind: z.literal('focus'), row: z.strictObject({ periodId: id, itemId: id }) }),
 ])
 
 export const seedManifestSchema = z.strictObject({
@@ -41,6 +43,8 @@ export const seedManifestSchema = z.strictObject({
   counts: z.strictObject({
     workspace: z.literal(1), periods: z.number().int().nonnegative().max(100_000), policies: z.number().int().nonnegative().max(6),
     items: z.number().int().nonnegative().max(100_000), relations: z.number().int().nonnegative().max(500_000),
+    // Present only when the source has focus rows, so focus-free manifests keep their original shape.
+    focus: z.number().int().positive().max(100_000).optional(),
   }),
   rowBytes: z.number().int().positive().max(104_857_600), chunks: z.number().int().positive().max(1_000_000), digest: hash,
 })

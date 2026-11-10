@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Typed current-format import validation reasons.
- * [OUTPUT]: Localized v15 dataset and receipt-integrity messages.
+ * [OUTPUT]: Localized v15/v16 dataset and receipt-integrity messages.
  * [POS]: Shared server catalog used by authoritative import validation.
  */
 import type { importMessages as source } from '../zh/import'
@@ -18,6 +18,7 @@ export const importMessages: typeof source = {
     operationEvents: 'Events within an operation',
     undoEffects: 'Undo effects',
     edgeDeltas: 'Link deltas',
+    focus: 'Focus pointers',
   },
   duplicateIdentity: (label: string) => `${label}: duplicate IDs`,
   deletionIncomplete: 'Deletion source or date is incomplete',
@@ -100,4 +101,5 @@ export const importMessages: typeof source = {
   positionReceiptMismatch: 'Position receipt doesn’t match its event',
   archiveReceiptMismatch: 'Archive receipt doesn’t match its event',
   visibilityReceiptMismatch: 'Visibility receipt doesn’t match its event',
+  invalidFocus: 'A focus refers to an invalid period or item',
 }

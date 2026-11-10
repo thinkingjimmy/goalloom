@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Zod, ordered product horizons and date/calendar wire validation.
- * [OUTPUT]: Strict workspace with three visual styles, item summary/detail, two-level placement, relation, period and six-horizon policy DTOs.
+ * [OUTPUT]: Strict workspace with three visual styles, item summary/detail, two-level placement, relation, period, raw period focus and six-horizon policy DTOs.
  * [POS]: Persistence, IPC and import schemas without Electron dependencies.
  */
 import { z } from 'zod'
@@ -51,6 +51,9 @@ export const relationSchema = z.strictObject({
 export const policySchema = z.strictObject({
   horizon: z.enum(policyHorizons), mode: z.enum(['auto', 'manual']), version: z.number().int().positive(), effectiveFromPeriodId: idSchema,
 })
+// A raw stored pointer; domain/focus.ts decides whether it is currently effective.
+export const focusSchema = z.strictObject({ periodId: idSchema, itemId: idSchema })
+export type Focus = z.infer<typeof focusSchema>
 export const themeSchema = z.enum(['system', 'light', 'dark'])
 export const styleSchema = z.enum(['paper', 'minimal', 'macos'])
 export const checkStyleSchema = z.enum(['outline', 'paper', 'tint'])

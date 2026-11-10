@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Immutable original effects, current state, indexed neighbors and injected time.
- * [OUTPUT]: Atomic owned-field inverses, guarded nesting/group and flow reversal, and persisted expiry holds.
+ * [OUTPUT]: Atomic owned-field inverses, guarded nesting/group and flow reversal, event-free period focus restoration and persisted expiry holds.
  * [POS]: Undo transaction rules; Repository handles SAVEPOINT conflict rollback.
  */
 import { effectProblem, insertionProblem, inverseEdges, undoEffectOrder } from '../../../domain/undo'
@@ -14,6 +14,7 @@ import { invalidateEdges, writeEdges } from './lifecycle'
 import { serverText } from '../../../shared/i18n/server'
 import { nestingTargets } from '../../../domain/nesting'
 import { creationCompletions, creationEffects } from '../../../domain/creation'
+import { reverseFocus } from './focus'
 
 function conflict(message: string): never { throw new DomainError('conflict', message) }
 export function undoOperation(context: Context, command: CommandOf<'undo'>): boolean {
@@ -49,6 +50,8 @@ export function undoOperation(context: Context, command: CommandOf<'undo'>): boo
   return true
 }
 export function reverseEffect(context: Context, effect: Effect, originalId: string, prechecked = false): void {
+  // A focus pointer is not an item field: no item lifecycle guard, version touch or event.
+  if (effect.kind === 'focus') return reverseFocus(context, effect)
   const item = context.store.item(effect.itemId)
   const before = structuredClone(item)
   const allEdges = ['create', 'visibility', 'relations', 'nesting'].includes(effect.kind) ? context.store.relations(false) : []

@@ -1,14 +1,13 @@
 /**
  * [INPUT]: base_* rows and canon rows at or below uptoSeq.
- * [OUTPUT]: A JSON snapshot body. Encryption is C4 in @goalloom/crypto; this module does not compress.
+ * [OUTPUT]: A JSON snapshot body of every business table (period focus included). Encryption is C4 in @goalloom/crypto; this module does not compress.
  * [POS]: Reference snapshot install. It keeps workspace generation and does not call replaceDataset.
  */
 import type { SqlDriver, SqlValue } from './driver'
 import { SyncApplyError } from './driver'
 import { clearSyncSettings, readSettings, writeSetting } from './settings'
 import { isSecretSettingKey, parseSetting } from '@goalloom/contracts'
-
-const tables = ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies'] as const
+import { businessTables as tables } from '@goalloom/schema'
 
 export interface SnapshotBody {
   formatVersion: 2; protocolVersion: 2; workspaceId: string | null; generation: string
@@ -31,11 +30,11 @@ export function exportCanonicalSnapshot(driver: SqlDriver, input: { workspaceId:
 export function installCanonicalSnapshot(driver: SqlDriver, body: SnapshotBody, at: string): void {
   if (body.formatVersion !== 2 || body.protocolVersion !== 2) throw new SyncApplyError('unsupported_version')
   driver.transaction(() => {
-    driver.exec(`DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM items; DELETE FROM planning_periods; DELETE FROM workspace;
-      DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies; DELETE FROM base_items; DELETE FROM base_planning_periods; DELETE FROM base_workspace;
-      DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops;`)
-    for (const table of ['workspace', 'planning_periods', 'items', 'item_placements', 'item_relations', 'rollover_policies']) {
-      const rows = body.tables[table]!
+    for (const table of [...tables].reverse()) driver.exec(`DELETE FROM ${table}; DELETE FROM base_${table};`)
+    driver.exec('DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops;')
+    for (const table of tables) {
+      // Bodies written before period focus have no focus table.
+      const rows = body.tables[table] ?? []
       for (const row of rows) insertRow(driver, table, row), insertRow(driver, `base_${table}`, row)
     }
     for (const row of body.canonOps) insertRow(driver, 'canon_ops', row)

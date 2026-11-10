@@ -13,15 +13,19 @@ export interface InsightSettings {
   prefs: InsightPrefs
   breakpoints: boolean
   reviews: boolean
+  // Daily review is opt-in and stays on this device.
+  dailyReview: boolean
   onboarded: boolean
-  // Period keys (`week:2026-09-21`) that were reviewed or skipped; bounded so the entry stays small.
+  // Period keys (`week:2026-09-21`, `day:2026-09-29`) that were reviewed or skipped; bounded so the entry stays small.
   reviewed: string[]
   // Dismissal keys include the workspace generation and never mark a review complete.
   dismissed: string[]
 }
 const key = 'goalloom.insight'
 export const defaultPrefs: InsightPrefs = { about: '', stepSize: 'hour', stepNotes: '', tone: 'direct', focus: ['gap', 'overload'] }
-const defaults: InsightSettings = { prefs: defaultPrefs, breakpoints: true, reviews: true, onboarded: false, reviewed: [], dismissed: [] }
+const defaults: InsightSettings = { prefs: defaultPrefs, breakpoints: true, reviews: true, dailyReview: false, onboarded: false, reviewed: [], dismissed: [] }
+// Daily keys add one entry per day, so the window covers about a month of days plus weeks and months.
+const markLimit = 48
 
 function validPrefs(prefs: InsightPrefs): boolean {
   return !!prefs && typeof prefs.about === 'string' && prefs.about.length <= 1000 && typeof prefs.stepNotes === 'string' && prefs.stepNotes.length <= 500
@@ -30,11 +34,12 @@ function validPrefs(prefs: InsightPrefs): boolean {
 }
 function load(): InsightSettings {
   try {
-    const value = JSON.parse(localStorage.getItem(key) ?? 'null') as InsightSettings | null
+    const value = JSON.parse(localStorage.getItem(key) ?? 'null') as (Omit<InsightSettings, 'dailyReview'> & { dailyReview?: boolean }) | null
     if (!value || !validPrefs(value.prefs) || typeof value.breakpoints !== 'boolean' || typeof value.reviews !== 'boolean' || typeof value.onboarded !== 'boolean'
-      || !Array.isArray(value.reviewed) || value.reviewed.length > 24 || !value.reviewed.every(row => typeof row === 'string')
-      || !Array.isArray(value.dismissed) || value.dismissed.length > 24 || !value.dismissed.every(row => typeof row === 'string')) return defaults
-    return value
+      || (value.dailyReview !== undefined && typeof value.dailyReview !== 'boolean')
+      || !Array.isArray(value.reviewed) || value.reviewed.length > markLimit || !value.reviewed.every(row => typeof row === 'string')
+      || !Array.isArray(value.dismissed) || value.dismissed.length > markLimit || !value.dismissed.every(row => typeof row === 'string')) return defaults
+    return { ...value, dailyReview: value.dailyReview ?? false }
   } catch { return defaults }
 }
 
@@ -70,12 +75,12 @@ export const insightSettings = (): InsightSettings => current
 export function useInsightSettings(): InsightSettings { return useSyncExternalStore(subscribe, () => current) }
 export function markReviewed(periodKeys: string[]): void {
   updateInsight(value => periodKeys.every(key => value.reviewed.includes(key)) ? value
-    : { ...value, reviewed: [...new Set([...value.reviewed, ...periodKeys])].slice(-24) })
+    : { ...value, reviewed: [...new Set([...value.reviewed, ...periodKeys])].slice(-markLimit) })
 }
 export function dismissReviews(generation: string, periodKeys: string[]): void {
   const keys = periodKeys.map(key => `${generation}:${key}`)
   updateInsight(value => keys.every(key => value.dismissed.includes(key)) ? value
-    : { ...value, dismissed: [...new Set([...value.dismissed, ...keys])].slice(-24) })
+    : { ...value, dismissed: [...new Set([...value.dismissed, ...keys])].slice(-markLimit) })
 }
 
 // Drafting follows the insight feature's own switch and provider, independent of smart input.

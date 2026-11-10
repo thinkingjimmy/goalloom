@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted sync payloads (formatVersion 2).
- * [OUTPUT]: A strict SyncOp with exact initialization rows, observed basisSeq, causal completion, grouped undo, rollover anchors, carried-child source guards and encrypted first-import calendar metadata. payloadHash covers canonicalJson(op).
+ * [OUTPUT]: A strict SyncOp with exact initialization rows, observed basisSeq, causal completion, grouped undo, rollover anchors, carried-child source guards, period focus pointers and encrypted first-import calendar metadata. payloadHash covers canonicalJson(op).
  * [POS]: Protocol boundary shared by desktop, mobile and tests. Command replay is intentionally not this schema.
  */
 import { z } from 'zod'
@@ -64,6 +64,8 @@ export const actionSchema = z.discriminatedUnion('t', [
   z.strictObject({ t: z.literal('rel.link'), id, parentId: id, childId: id, adoptParentFlow: z.boolean().optional(), retain: z.literal(true).optional() }),
   z.strictObject({ t: z.literal('rel.unlink'), id }),
   z.strictObject({ t: z.literal('policy.set'), horizon: periodHorizon, mode: z.enum(['auto', 'manual']), effectiveFromKey: periodKeySchema }),
+  // Last writer wins per period; null clears. The applier requires the item to be effective in that period.
+  z.strictObject({ t: z.literal('period.focus'), periodKey: z.strictObject({ horizon: z.enum(['month', 'week', 'day']), startDate: date }), itemId: id.nullable() }),
   z.strictObject({ t: z.literal('calendar.setup'), calendar: calendarSchema, confirmedAt: instant.optional() }),
   z.strictObject({ t: z.literal('pref.set'), key: z.string().min(1).max(80), value: z.unknown() }),
   z.strictObject({ t: z.literal('revert'), targetOpId: z.uuid(), mode: z.enum(['all_or_nothing', 'per_dimension']) }),

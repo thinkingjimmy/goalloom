@@ -6,7 +6,7 @@
 export const businessErrorCodes = [
   'parent_unavailable', 'relation_cycle', 'relation_exists', 'horizon_order', 'flow_root_parent', 'flow_color_taken', 'item_deleted', 'outline_conflict',
   'discard_not_empty', 'restore_superseded', 'calendar_locked', 'stale_preview',
-  'revert_superseded', 'rollover_stale', 'period_scale_mismatch', 'item_exists',
+  'revert_superseded', 'rollover_stale', 'period_scale_mismatch', 'item_exists', 'focus_stale',
 ] as const
 export const workspacePauseCodes = ['key_missing', 'unsupported_version', 'auth', 'generation', 'storage', 'blob_missing'] as const
 export const pushErrorCodes = ['op_id_reused', 'stale_epoch', 'rate_limited', 'payload_too_large', 'protocol_too_old'] as const

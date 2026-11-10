@@ -52,12 +52,12 @@
 
 | Platform | Version | Download |
 | --- | --- | --- |
-| macOS 14+ (Apple silicon) | 1.12.1 | [Goalloom-1.12.1-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.1/Goalloom-1.12.1-mac-arm64.dmg) |
+| macOS 14+ (Apple silicon) | 1.12.2 | [Goalloom-1.12.2-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.2/Goalloom-1.12.2-mac-arm64.dmg) |
 | Windows 11 (x64) | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
 
-**Before updating:** 1.12.1 accepts only v15 workspaces, backups and exports. It does not upgrade v14 workspaces from 1.11.0 or other older formats. Keep your previous app, local data and backups if you need an older format. See the [release notes](./docs/releases/v1.12.1.md).
+**Before updating:** 1.12.2 upgrades v15 workspaces to v16 after a verified protective backup, and accepts v15 JSON exports and SQLite backups. v14 and older formats remain unsupported and unchanged. Keep the protective backup if you need the previous app. Upgrade every computer sharing a synced workspace before using focus tasks. See the [release notes](./docs/releases/v1.12.2.md).
 
-Local features and BYOK stay free on both platforms. macOS 1.12.1 includes Plus encrypted sync and built-in AI for USD 8.99/month or USD 79/year. Plus requires verified payment; there is no trial. Windows remains on 1.9.10 for local work and BYOK; this release does not add Windows Plus support. The iPhone app is not publicly released.
+Local features and BYOK stay free on both platforms. macOS 1.12.2 includes Plus encrypted sync and built-in AI for USD 8.99/month or USD 79/year. Plus requires verified payment; there is no trial. Windows remains on 1.9.10 for local work and BYOK; this release does not add Windows Plus support. The iPhone app is not publicly released.
 
 The macOS build is **Developer ID signed and notarized by Apple**. The Windows installer is **not code-signed**.
 
@@ -87,7 +87,7 @@ pnpm package:mac   # apps/desktop/release/Goalloom-<version>-mac-arm64.dmg
 pnpm package:win   # apps/desktop/release/Goalloom-<version>-win-x64.exe
 ```
 
-The current source baseline uses desktop/workspace export v15, mobile v11, Billing status v2 and SyncOp v2. New databases create the current shared structure directly. Old or unknown local formats are refused before writes and remain unchanged. Hosted service deployment is separate from this desktop release. Encryption, app identity and user-data paths are unchanged.
+The current source baseline uses desktop/workspace export v16, mobile v12, Billing status v2 and SyncOp v2. New databases create the current shared structure directly. Desktop v15 and mobile v11 upgrade in place to add period focus (desktop after a verified protective backup); other old or unknown local formats are refused before writes and remain unchanged. Hosted service deployment is separate from this desktop release. Encryption, app identity and user-data paths are unchanged.
 
 
 

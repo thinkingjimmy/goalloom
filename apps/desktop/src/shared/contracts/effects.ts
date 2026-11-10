@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Authoritative business states, relation deltas, original/rewritten note text.
- * [OUTPUT]: Immutable v1/v2/v3 owned effects, independent nesting/group positions and body-free business-state events.
+ * [OUTPUT]: Immutable v1/v2/v3 owned effects (including event-free period focus pointers), independent nesting/group positions and body-free business-state events.
  * [POS]: Shared transaction, undo and import contract; models cannot supply effects.
  */
 import type { StatusGroup } from '../../domain/status'
@@ -21,6 +21,8 @@ export type Effect =
   | { kind: 'archive'; itemId: string; before: string | null; after: string | null }
   | { kind: 'visibility'; itemId: string; before: { deletedAt: string | null; deletedBy: string | null }; after: { deletedAt: string | null; deletedBy: string | null }; edges: EdgeDelta[] }
   | { kind: 'relations'; itemId: string; edges: EdgeDelta[]; flowColor?: { before: number; after: null; transferredTo?: string | undefined } | undefined }
+  // itemId = after ?? before. Focus effects own only the period pointer and never create item events.
+  | { kind: 'focus'; itemId: string; periodId: string; before: string | null; after: string | null }
 
 export interface BusinessState extends StatusGroup {
   horizon: ItemHorizon; periodId: string | null; archivedAt: string | null; deletedAt: string | null;

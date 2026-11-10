@@ -1,6 +1,6 @@
 /**
  * [INPUT]: base_* rows, or a captured visible board.
- * [OUTPUT]: Current board replay SyncOps with preserved lifecycle state/tombstone times, sibling-ordered nesting and shared canonical-base clearing.
+ * [OUTPUT]: Current board replay SyncOps with preserved lifecycle state/tombstone times, sibling-ordered nesting, replayable period focus pointers and shared canonical-base clearing.
  * [POS]: Current offline/restore baseline preparation. Pending ops keep their order; first join preserves identities and the source calendar. Kept edges are not re-checked as new links.
  */
 import { parseSyncOp, syncOpPayload, type Action, type SyncOp } from '@goalloom/contracts'
@@ -31,6 +31,8 @@ export interface LocalBoard {
   policies: { horizon: 'year' | 'half' | 'cycle' | 'month' | 'week' | 'day'; mode: 'auto' | 'manual'; startDate: string }[]
   items: BoardItem[]
   edges: { id: string; parentId: string; childId: string }[]
+  /** Raw period focus pointers. Optional so boards captured before period focus still stage. */
+  focus?: { period: { horizon: 'month' | 'week' | 'day'; startDate: string }; itemId: string }[]
 }
 
 function id(): string {
@@ -90,6 +92,13 @@ export function actionsForBoard(board: LocalBoard, scope: 'baseline' | 'import')
     }
   }
   actions.push(...creates(board.items))
+  // Right after creation, before status/archive/delete: the applier accepts a pointer only while its item is effective in that period.
+  // A pointer whose item now sits in another period is dormant and cannot be replayed.
+  for (const focus of board.focus ?? []) {
+    const item = board.items.find(candidate => candidate.id === focus.itemId)
+    if (!item || item.period?.horizon !== focus.period.horizon || item.period.startDate !== focus.period.startDate) continue
+    actions.push({ t: 'period.focus', periodKey: focus.period, itemId: focus.itemId })
+  }
   for (const item of board.items) {
     if (item.status === 'todo') continue
     actions.push({ t: 'item.status', id: item.id, status: item.status, completedAt: item.completedAt, cancelledAt: item.cancelledAt })
@@ -165,7 +174,11 @@ function readBoard(driver: SqlDriver, prefix: '' | 'base_'): LocalBoard {
   const edges = driver.prepare(`SELECT id, parentId, childId FROM ${prefix}item_relations WHERE invalidatedAt IS NULL`).all().map(row => ({
     id: String(row.id), parentId: String(row.parentId), childId: String(row.childId),
   }))
-  return { calendar, setupConfirmedAt, policies, items, edges }
+  const focus = driver.prepare(`SELECT f.itemId AS itemId, pp.horizon AS horizon, pp.startDate AS startDate FROM ${prefix}period_focus f
+    JOIN ${prefix}planning_periods pp ON pp.id=f.periodId ORDER BY pp.startDate, pp.horizon`).all().map(row => ({
+    period: { horizon: String(row.horizon) as 'month' | 'week' | 'day', startDate: String(row.startDate) }, itemId: String(row.itemId),
+  }))
+  return { calendar, setupConfirmedAt, policies, items, edges, focus }
 }
 
 export function captureVisibleBoard(driver: SqlDriver): LocalBoard {
@@ -183,7 +196,7 @@ function insertOp(driver: SqlDriver, op: SyncOp, at: string, order: number): voi
 }
 
 export function clearBase(driver: SqlDriver): void {
-  driver.exec(`DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies;
+  driver.exec(`DELETE FROM base_period_focus; DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies;
     DELETE FROM base_items; DELETE FROM base_planning_periods;`)
   driver.prepare('UPDATE base_workspace SET calendar=NULL, setupConfirmedAt=NULL WHERE id=1').run()
 }
@@ -252,6 +265,7 @@ function placedBoard(host: ApplyHost, board: LocalBoard, at: string): LocalBoard
       const startDate = host.alignImportedPeriod!(local, item.period.horizon, item.period.startDate, at)
       return startDate === item.period.startDate ? item : { ...item, period: { horizon: item.period.horizon, startDate } }
     }),
+    focus: (board.focus ?? []).map(focus => ({ ...focus, period: { ...focus.period, startDate: host.alignImportedPeriod!(local, focus.period.horizon, focus.period.startDate, at) } })),
   }
 }
 
@@ -272,6 +286,7 @@ export function applyImportedBoard(driver: SqlDriver, host: ApplyHost, board: Lo
     nestingParentId: item.nestingParentId && map.has(item.nestingParentId) ? map.get(item.nestingParentId)! : null,
     flowColor: item.flowColor !== null && driver.prepare('SELECT 1 FROM items WHERE flowColor=? AND deletedAt IS NULL').get(item.flowColor) ? null : item.flowColor,
   }))
+  imported.focus = (source.focus ?? []).flatMap(focus => map.has(focus.itemId) ? [{ ...focus, itemId: map.get(focus.itemId)! }] : [])
   imported.edges = source.edges.flatMap(edge => {
     const parentId = map.get(edge.parentId)
     const childId = map.get(edge.childId)
@@ -294,8 +309,8 @@ export function stageImportedBoard(driver: SqlDriver, host: ApplyHost, board: Lo
 }
 
 export function clearProjection(driver: SqlDriver, binding: { workspaceId: string; deviceId: string; keyEpoch: number }, at: string): void {
-  driver.exec(`DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM items; DELETE FROM planning_periods;
-    DELETE FROM base_item_relations; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies; DELETE FROM base_items; DELETE FROM base_planning_periods;
+  driver.exec(`DELETE FROM item_relations; DELETE FROM period_focus; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM items; DELETE FROM planning_periods;
+    DELETE FROM base_item_relations; DELETE FROM base_period_focus; DELETE FROM base_item_placements; DELETE FROM base_rollover_policies; DELETE FROM base_items; DELETE FROM base_planning_periods;
     DELETE FROM sync_conflicts; DELETE FROM canon_changes; DELETE FROM canon_ops; DELETE FROM sync_ops;`)
   clearSyncSettings(driver)
   resetSeedState(driver)

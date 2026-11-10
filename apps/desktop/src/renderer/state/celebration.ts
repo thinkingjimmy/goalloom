@@ -68,9 +68,9 @@ export function onCelebrationPreview(listener: () => void): () => void {
   return () => { previewListeners.delete(listener) }
 }
 
-interface ReviewCelebration { id: string; generation: string; horizon: 'week' | 'month' }
+interface ReviewCelebration { id: string; generation: string; horizon: 'day' | 'week' | 'month' }
 const reviewListeners = new Set<(event: ReviewCelebration) => void>()
-export function requestReviewCelebration(generation: string, horizon: 'week' | 'month'): void {
+export function requestReviewCelebration(generation: string, horizon: 'day' | 'week' | 'month'): void {
   const event = { id: `review:${crypto.randomUUID()}`, generation, horizon }
   reviewListeners.forEach(listener => listener(event))
 }

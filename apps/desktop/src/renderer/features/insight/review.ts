@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Current or review-scoped snapshots (periods, items, goal/ownership relations, observedAt), flows, completed period keys and generation-scoped dismissal keys.
- * [OUTPUT]: reviewDue entries (completed previous-week/month reminders retained throughout the current period, merged only at matching closing boundaries),
- *           reviewSignals (descriptive gap/skip/pace facts, independent of child creation), goalRows (flow × column counts) and planCandidates (parents needing a next-period step).
+ * [OUTPUT]: reviewDue entries (completed previous-day/week/month reminders retained throughout the current period; daily is opt-in; week and month merge only at matching closing boundaries),
+ *           reviewSignals (descriptive gap/skip/pace facts, independent of child creation), goalRows (flow × column counts, used by the summary digest), childHorizon/parentHorizon/dueTargets and planCandidates (parents needing a next-period step).
  * [POS]: features/insight 的复盘纯规则；不写入、不联网，入口显示与抽屉步骤都从这里取数。
  */
 import { combinedTopology } from '../../../domain/nesting'
@@ -14,9 +14,14 @@ import { mapPeriodHorizons, periodHorizons } from '../../../shared/contracts/val
 import { addDays } from '../../lib/dates'
 import { breakpoints, type ChildHorizon, type Planned } from './signals'
 
-export type ReviewHorizon = 'week' | 'month'
+export type ReviewHorizon = 'day' | 'week' | 'month'
 export interface ReviewTarget { horizon: ReviewHorizon; period: PlanningPeriod; next: PlanningPeriod; key: string; lastDay: boolean }
-export interface ReviewDue { scope: 'week' | 'month' | 'both'; week: ReviewTarget | null; month: ReviewTarget | null }
+// A daily review is always its own entry; only week and month can merge at a shared boundary.
+export interface ReviewDue { scope: 'day' | 'week' | 'month' | 'both'; week: ReviewTarget | null; month: ReviewTarget | null; day?: ReviewTarget | null }
+// The horizon whose items count as the reviewed period's steps, and the one each plan hangs under.
+export const childHorizon = { month: 'week', week: 'day', day: null } as const
+export const parentHorizon = { month: 'cycle', week: 'month', day: 'week' } as const
+export const dueTargets = (due: ReviewDue): ReviewTarget[] => [due.month, due.week, due.day].flatMap(value => value ? [value] : [])
 
 export const reviewKey = (period: PlanningPeriod) => `${period.horizon}:${period.startDate}`
 
@@ -29,17 +34,21 @@ export function reviewTarget(snapshot: Snapshot, horizon: ReviewHorizon, reviewe
   if (!previous || reviewed.includes(reviewKey(previous))) return null
   return { horizon, period: previous, next: current, key: reviewKey(previous), lastDay: false }
 }
-export function reviewDue(snapshot: Snapshot, reviewed: string[], dismissed: string[] = []): ReviewDue[] {
+export function reviewDue(snapshot: Snapshot, reviewed: string[], dismissed: string[] = [], daily = false): ReviewDue[] {
   const visible = (horizon: ReviewHorizon) => {
     const target = reviewTarget(snapshot, horizon, reviewed)
     return target && !dismissed.includes(`${snapshot.workspace.generation}:${target.key}`) ? target : null
   }
-  const week = visible('week'), month = visible('month')
-  // An unrelated monthly boundary must not hide the retained weekly reminder.
-  if (week && month && week.period.endAt === month.period.endAt) return [{ scope: 'both', week, month }]
+  const week = visible('week'), month = visible('month'), day = daily ? visible('day') : null
   const entries: ReviewDue[] = []
-  if (month) entries.push({ scope: 'month', week: null, month })
-  if (week) entries.push({ scope: 'week', week, month: null })
+  // An unrelated monthly boundary must not hide the retained weekly reminder.
+  if (week && month && week.period.endAt === month.period.endAt) entries.push({ scope: 'both', week, month })
+  else {
+    if (month) entries.push({ scope: 'month', week: null, month })
+    if (week) entries.push({ scope: 'week', week, month: null })
+  }
+  // The daily review is always separate, even on a shared boundary.
+  if (day) entries.push({ scope: 'day', week: null, month: null, day })
   return entries
 }
 
@@ -102,8 +111,7 @@ export function reviewSignals(snapshot: Snapshot, flows: Flows, due: ReviewDue):
 
 // The caller supplies the exact destination periods; children in other periods never cover this plan.
 export function planCandidates(snapshot: Snapshot, horizon: ReviewHorizon): ItemSummary[] {
-  const parentHorizon = horizon === 'week' ? 'month' : 'cycle'
-  const parentPeriod = snapshot.periods.find(period => period.horizon === parentHorizon)
+  const parentPeriod = snapshot.periods.find(period => period.horizon === parentHorizon[horizon])
   const byId = new Map(snapshot.items.map(item => [item.id, item]))
   const covered = (id: string) => combinedTopology(snapshot.relations, snapshot.nesting ?? []).some(edge => {
     if (edge.parentId !== id) return false

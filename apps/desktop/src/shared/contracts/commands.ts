@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted finite commands, entity schemas and explicit dependency/version guards.
- * [OUTPUT]: Guarded writes, token-bound sync decisions, atomic nested creation, opt-in creation/rollover placement, explicit insertion (including tail) and immutable receipts.
+ * [OUTPUT]: Guarded writes, token-bound sync decisions, atomic nested creation, opt-in creation/rollover placement, explicit insertion (including tail), owned-field period focus and immutable receipts.
  * [POS]: Write contract accepting neither arbitrary effects nor model-generated commands.
  */
 import { z } from 'zod'
@@ -72,6 +72,8 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...envelope, type: z.literal('confirmClock'), confirmed: z.literal(true) }),
   z.strictObject({ ...envelope, type: z.literal('backupPreferences'), enabled: z.boolean(), retention: z.number().int().min(1).max(100) }),
   z.strictObject({ ...envelope, type: z.literal('undoBatch'), originalOperationId: idSchema }),
+  // expectedItemId is the owned-field guard: the stored pointer the renderer saw, not a version.
+  z.strictObject({ ...envelope, type: z.literal('focus'), periodId: idSchema, itemId: idSchema.nullable(), expectedItemId: idSchema.nullable() }),
 ])
 // Completion can only enter through main's internal storage RPC, never renderer execute().
 export const internalCommandSchema = z.discriminatedUnion('type', [

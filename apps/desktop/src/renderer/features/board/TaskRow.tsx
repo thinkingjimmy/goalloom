@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Visible item summary, flow colors, topology/candidates, workspace date, upcoming destinations, an optional decompose action and guarded actions.
  * [OUTPUT]: Accessible local/cross-period task row with parent navigation, saved links, calendar deadline capsules, description signals, independent flow ports, placement dragging and hierarchy/lifecycle menus; titles fully wrap, lit rows carry `data-lit`/`--row-tint`, and Later checkboxes stay uncolored.
- *           A double click edits the title in place with guarded Tab nesting/Shift+Tab detachment; pending level writes retain drafts and serialize title commits.
+ *           A double click edits the title in place with guarded Tab nesting/Shift+Tab detachment; focus controls retain their layout space and stay disabled during editing. Pending level writes retain drafts and serialize title commits.
  * [POS]: One virtual board row; Board owns placement, preview, dimming and which row is editing; the peek and detail own description bodies.
  */
 import { nestingText } from '../../../shared/i18n/nesting'
@@ -12,7 +12,8 @@ import { CSS } from '@dnd-kit/utilities'
 import type { ItemSummary } from '../../../shared/contracts/entities'
 import type { Snapshot } from '../../../shared/contracts/queries'
 import { messages, useLocale } from '../../i18n'
-import { flowVars } from '../../lib/colors'
+import { flowStroke, flowVars } from '../../lib/colors'
+import { FocusMark, FocusToggle, type FocusScope } from '../../components/focus/FocusMark'
 import { DueDateBadge } from '../../components/due-date/DueDateBadge'
 import { returnFocus } from '../../lib/focus'
 import type { Flows } from '../../state/flows'
@@ -93,8 +94,10 @@ function TitleField({ title, itemId, renameTitle, endEdit, nest, unnest, submit 
     }} />
 }
 
-export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle, onNest, nestingParent, nestingTarget = null }: {
+export const TaskRow = memo(function TaskRow({ index, total, item, flows, relations, candidates, today, selected, dimmed, tint, disabled, editing, editLocked, select, submit, onPreview, upcoming, decompose, assist, onMenu, onMoved, beginEdit, endEdit, renameTitle, onNest, nestingParent, nestingTarget = null, focusScope = null, focusOn = false, onFocus = null }: {
   nestingTarget?: ItemSummary | null
+  // Focus is offered only in current month/week/day columns; Column owns the guarded command.
+  focusScope?: FocusScope | null; focusOn?: boolean; onFocus?: ((item: ItemSummary) => void) | null
   nestingParent: ItemSummary | undefined
   onNest: (id: string) => void
   index: number; total: number; item: ItemSummary; flows: Flows; relations: Snapshot['relations']; candidates: ItemSummary[]; today: string
@@ -143,12 +146,16 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
     : hasLinks
       ? <LinkTitle text={item.title} onOpen={activate} onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); startEdit() }} />
       : <button type="button" className="task-title" onClick={activate} onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); startEdit() }}><span>{item.title}</span></button>
+  const focusable = !!focusScope && !!onFocus && !item.archivedAt && item.status !== 'cancelled'
+  const focusColor = flows.colorsOf(item.id)[0]
   const line = <div className="task-line">
     {title}
     {item.dueDate && !done && <DueDateBadge date={item.dueDate} today={today} />}
+    {focusOn && focusScope ? <FocusMark scope={focusScope} color={focusColor === undefined ? undefined : flowStroke(focusColor)} disabled={disabled || editing} onClear={onFocus ? () => onFocus(item) : undefined} />
+      : focusable && <FocusToggle scope={focusScope!} disabled={disabled || editing} onSet={() => onFocus!(item)} />}
   </div>
   const owner = remoteParent && <TaskParentLink item={item} parent={nestingParent} disabled={disabled} select={select} />
-  const row = <article role="listitem" aria-posinset={index + 1} aria-setsize={total} aria-level={item.placement.nestingParentId ? 2 : 1} aria-description={item.placement.nestingParentId ? `${nestingText().belongsTo} ${nestingParent?.title ?? ''}` : undefined} id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-nested={!!localParent} data-nesting-parent={item.placement.nestingParentId ?? undefined} data-context={!!item.archivedAt || item.status === 'cancelled'} data-highlighted={selected} data-dimmed={dimmed} data-done={done} data-lit={!!tint || undefined}
+  const row = <article role="listitem" aria-posinset={index + 1} aria-setsize={total} aria-level={item.placement.nestingParentId ? 2 : 1} aria-description={item.placement.nestingParentId ? `${nestingText().belongsTo} ${nestingParent?.title ?? ''}` : undefined} id={`item-${item.id}`} ref={setNodeRef} className={`task-row ${isDragging ? 'dragging' : ''}`} data-item-id={item.id} data-nested={!!localParent} data-nesting-parent={item.placement.nestingParentId ?? undefined} data-context={!!item.archivedAt || item.status === 'cancelled'} data-highlighted={selected} data-dimmed={dimmed} data-done={done} data-focus={focusOn || undefined} data-lit={!!tint || undefined}
     style={{ transform: CSS.Transform.toString(transform), transition, '--row-tint': tint } as CSSProperties} onPointerDown={event => { if (event.button === 0 && !event.ctrlKey) (listeners?.onPointerDown as PointerEventHandler | undefined)?.(event) }}>
     <FlowDot item={item} flows={flows} relations={relations} candidates={candidates} disabled={disabled} submit={submit} onPreview={onPreview} />
     <button className="drag-handle" {...attributes} onKeyDown={listeners?.onKeyDown as KeyboardEventHandler | undefined} aria-label={messages.dragItem(item.title)}><Icon name="drag" size={14} /></button>
@@ -161,5 +168,6 @@ export const TaskRow = memo(function TaskRow({ index, total, item, flows, relati
   </article>
   const links = relations.filter(edge => edge.parentId === item.id || edge.childId === item.id).length
   return !item.archivedAt && item.status !== 'cancelled' ? <TaskMenu onNest={() => onNest(item.id)} item={item} upcoming={item.status === 'todo' || candidates.some(candidate => candidate.placement.nestingParentId === item.id && sameOutlinePeriod(item.placement, candidate.placement) && candidate.status === 'todo') ? upcoming ?? [] : []} relations={links} disabled={disabled || isDragging} submit={submit} select={select}
-    assist={item.status === 'todo' && assist ? () => assist(item.id) : undefined} decompose={item.status === 'todo' && decompose ? () => decompose(item) : null} onMenu={onMenu} onMoved={onMoved}>{row}</TaskMenu> : row
+    assist={item.status === 'todo' && assist ? () => assist(item.id) : undefined} decompose={item.status === 'todo' && decompose ? () => decompose(item) : null} onMenu={onMenu} onMoved={onMoved}
+    focus={focusable && !editing ? { scope: focusScope!, on: focusOn, run: () => onFocus!(item) } : null}>{row}</TaskMenu> : row
 })

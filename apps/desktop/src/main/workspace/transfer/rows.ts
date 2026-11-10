@@ -1,10 +1,10 @@
 /**
  * [INPUT]: A read-only Store view and the current dataset contract.
- * [OUTPUT]: Individually validated, bounded dataset rows including six policies, shared by export and SQLite restore.
+ * [OUTPUT]: Individually validated, bounded v16 dataset rows including six policies and period focus, shared by export and SQLite restore.
  * [POS]: Transfer serialization boundary; avoids a second full schema clone of an owned dataset.
  */
 import { operationSchema, undoMarkerSchema, type Dataset } from '../../../shared/contracts/transfer'
-import { itemRecordSchema, periodSchema, placementSchema, policySchema, relationSchema } from '../../../shared/contracts/entities'
+import { focusSchema, itemRecordSchema, periodSchema, placementSchema, policySchema, relationSchema } from '../../../shared/contracts/entities'
 import { eventSchema } from '../../../shared/contracts/history'
 import { DomainError } from '../../../shared/contracts/commands'
 import { serverText } from '../../../shared/i18n/server'
@@ -12,7 +12,7 @@ import { policyHorizons } from '../../../shared/contracts/values'
 import type { Store } from '../../storage/store'
 
 export function datasetHeader(store: Store, now: string) {
-  return { schemaVersion: 15 as const, historyMode: 'complete' as const, exportedAt: now, workspace: store.workspace() }
+  return { schemaVersion: 16 as const, historyMode: 'complete' as const, exportedAt: now, workspace: store.workspace() }
 }
 
 const tables = {
@@ -24,6 +24,7 @@ const tables = {
   events: { sql: 'SELECT * FROM item_events ORDER BY seq', schema: eventSchema, max: 1_000_000 },
   operations: { sql: 'SELECT * FROM operations ORDER BY rowid', schema: operationSchema, max: 500_000 },
   undoEffects: { sql: 'SELECT * FROM undo_effects ORDER BY originalId,effectIndex', schema: undoMarkerSchema, max: 500_000 },
+  focus: { sql: 'SELECT periodId,itemId FROM period_focus ORDER BY periodId', schema: focusSchema, max: 100_000 },
 } as const
 export type DatasetTable = keyof typeof tables
 export const datasetTables = Object.keys(tables) as DatasetTable[]

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated period selections, workspace calendar, observation time and Store.
- * [OUTPUT]: Read-only current/future resolution and board/ancestor summaries with generation/revision guards.
+ * [OUTPUT]: Read-only current/future resolution and board/ancestor summaries plus raw period focus pointers, with generation/revision guards.
  * [POS]: Planning read boundary shared by explicit placement writes; reads never materialize periods.
  */
 import { compareInstants, currentPeriod, parseDate, type Horizon, type Period } from '../../domain/calendar'
@@ -39,5 +39,5 @@ export function readBoardPeriods(store: Store, query: Extract<Query, { type: 'bo
   const periods = query.periods.map(({ horizon, startDate }) => readPlanningPeriod(store, horizon, startDate, now))
   const ids = periods.map(period => period.id)
   const items = store.summaries(`i.deletedAt IS NULL AND i.archivedAt IS NULL AND i.status!='cancelled' AND p.periodId IN (${ids.map(() => '?').join(',')})`, ids)
-  return { generation: workspace.generation, revision: workspace.revision, periods, items, nestingParents: store.nestingParents(items), orderNodes: orderNodes(store, items.map(item => item.id)), rolloverSources: periodRolloverSources(store, ids) }
+  return { generation: workspace.generation, revision: workspace.revision, periods, items, nestingParents: store.nestingParents(items), orderNodes: orderNodes(store, items.map(item => item.id)), rolloverSources: periodRolloverSources(store, ids), focus: store.focus(ids) }
 }

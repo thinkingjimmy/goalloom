@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A committed command, its effects, and item rows captured before dispatch.
- * [OUTPUT]: Transaction-owned SyncOps with root anchors, carried-child source scopes, placement-aware rollover identities, observed basisSeq, atomic nesting and root-first group undo. Clock confirmation/rollover resume write nothing.
+ * [OUTPUT]: Transaction-owned SyncOps with root anchors, carried-child source scopes, placement-aware rollover identities, period focus pointers, observed basisSeq, atomic nesting and root-first group undo. Clock confirmation/rollover resume write nothing.
  * [POS]: Desktop adapter from command effects to SyncOp. applySyncOp is the other direction.
  */
 import type { DatabaseSync } from 'node:sqlite'
@@ -11,11 +11,12 @@ import { sha256Hex, uuidv5 } from '@goalloom/crypto'
 import type { Command } from '../../../shared/contracts/commands'
 import type { Effect, PositionEffect } from '../../../shared/contracts/effects'
 import { undoEffectOrder } from '../../../domain/undo'
+import { isFocusHorizon } from '../../../domain/focus'
 
 interface BeforeItem { title: string; description: string; dueDate: string | null; deletedBy: string | null; version: number }
 
 export function captureSyncBefore(db: DatabaseSync, command: Command): Map<string, BeforeItem> {
-  const ids = 'itemId' in command ? [command.itemId] : command.type === 'link' ? [command.parentId, command.childId] : []
+  const ids = command.type === 'focus' ? [] : 'itemId' in command ? [command.itemId] : command.type === 'link' ? [command.parentId, command.childId] : []
   const rows = new Map<string, BeforeItem>()
   for (const id of ids) {
     const row = db.prepare('SELECT title, description, dueDate, deletedBy, version FROM items WHERE id=?').get(id)
@@ -140,6 +141,14 @@ function actionsFor(db: DatabaseSync, input: { command: Command; effects: Effect
   if (input.command.type === 'confirmSetup') {
     const calendar = db.prepare('SELECT calendar FROM workspace WHERE id=1').get()
     if (calendar?.calendar) actions.push({ t: 'calendar.setup', calendar: JSON.parse(String(calendar.calendar)) })
+    return actions
+  }
+  if (input.command.type === 'focus') {
+    // The canonical pointer is last-writer-wins by period identity; the desktop guard already ran.
+    for (const effect of input.effects) if (effect.kind === 'focus') {
+      const key = periodKey(db, effect.periodId)
+      if (key && isFocusHorizon(key.horizon)) actions.push({ t: 'period.focus', periodKey: { horizon: key.horizon, startDate: key.startDate }, itemId: effect.after })
+    }
     return actions
   }
   if (input.command.type === 'policy') {

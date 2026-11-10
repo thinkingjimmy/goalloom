@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Main-owned file paths, locale, placement preference, shared workspace clock and narrow internal RPC.
  * [OUTPUT]: Serialized SQLite commands/reads, immutable history, protected transfer, explicit crash-safe sign-out cleanup and typed failures.
- * [POS]: Storage composition root; current schema installation finishes before requests and cloud work stays outside the queue.
+ * [POS]: Storage composition root; current schema installation or the protected v15 upgrade finishes before requests and cloud work stays outside the queue.
  */
 import { parentPort, workerData } from 'node:worker_threads'
 import { mkdirSync } from 'node:fs'
@@ -33,7 +33,7 @@ const port = parentPort
 mkdirSync(dirname(workerData.databasePath), { recursive: true })
 let db: DatabaseSync, repository: Repository, service: WorkspaceService
 let startup: { ok: true } | { ok: false; message: string }
-const initialized = loadServerLocale(workerData.locale).then(() => recoverLocalClear(dirname(workerData.databasePath))).then(() => openWorkspace(workerData.databasePath)).then(opened => {
+const initialized = loadServerLocale(workerData.locale).then(() => recoverLocalClear(dirname(workerData.databasePath))).then(() => openWorkspace(workerData.databasePath, { backupDirectory: workerData.backupDirectory, now: clock.now })).then(opened => {
   db = opened.db
   repository = new Repository(db, clock)
   service = new WorkspaceService(repository, workerData.backupDirectory)

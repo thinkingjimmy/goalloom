@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Validated seed actions and additive seed-state rows.
- * [OUTPUT]: Shared exact-state types, fatal integrity errors and persisted replay state.
+ * [OUTPUT]: Shared exact-state types (optional focus count), fatal integrity errors and persisted replay state.
  * [POS]: Initialization support used by the single applier and binding handoff.
  */
 import { canonicalJson, type Action } from '@goalloom/contracts'
@@ -64,6 +64,7 @@ export function seedRecordKey(record: SeedRecord): string {
     case 'policy': return `2:${seedHorizons.indexOf(record.row.horizon)}`
     case 'item': return `3:${record.placement.nestingParentId === null ? 0 : 1}:${record.row.id}`
     case 'relation': return `4:${record.row.id}`
+    case 'focus': return `5:${record.row.periodId}`
   }
 }
 export function countSeedRecord(counts: SeedCounts, record: SeedRecord): void {
@@ -71,5 +72,6 @@ export function countSeedRecord(counts: SeedCounts, record: SeedRecord): void {
   else if (record.kind === 'period') counts.periods++
   else if (record.kind === 'policy') counts.policies++
   else if (record.kind === 'relation') counts.relations++
+  else if (record.kind === 'focus') counts.focus = (counts.focus ?? 0) + 1
   else counts.items++
 }

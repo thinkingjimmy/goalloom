@@ -23,7 +23,7 @@ export function applySeedOperation(driver: SqlDriver, op: SyncOp, scope: SeedSco
     if (action.t === 'seed.begin') {
       seedAssert(!state, 'seed already initialized')
       const prefix = scope === 'base' ? 'base_' : ''
-      for (const table of ['items', 'item_placements', 'planning_periods', 'rollover_policies', 'item_relations']) {
+      for (const table of ['items', 'item_placements', 'planning_periods', 'rollover_policies', 'item_relations', 'period_focus']) {
         seedAssert(!driver.prepare(`SELECT 1 FROM ${prefix}${table} LIMIT 1`).get(), 'seed requires empty projection')
       }
       seedAssert(driver.prepare(`SELECT calendar FROM ${prefix}workspace WHERE id=1`).get()?.calendar === null, 'seed requires empty calendar')
@@ -45,7 +45,7 @@ export function applySeedOperation(driver: SqlDriver, op: SyncOp, scope: SeedSco
         seedAssert(state.lastKey === null || key > state.lastKey, 'seed record order')
         countSeedRecord(state.counts, record)
         state.rowBytes += seedRecordBytes(record).length
-        for (const key of Object.keys(state.counts) as (keyof typeof state.counts)[]) seedAssert(state.counts[key] <= state.manifest.counts[key], 'seed count exceeds manifest')
+        for (const key of Object.keys(state.counts) as (keyof typeof state.counts)[]) seedAssert((state.counts[key] ?? 0) <= (state.manifest.counts[key] ?? 0), 'seed count exceeds manifest')
         seedAssert(state.rowBytes <= state.manifest.rowBytes, 'seed bytes exceed manifest')
         insertSeedRecord(driver, scope, record)
         state.lastKey = key

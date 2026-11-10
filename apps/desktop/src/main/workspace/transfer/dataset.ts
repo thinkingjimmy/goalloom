@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Normalized datasets, read-only source databases and injected time.
- * [OUTPUT]: Strict current-format datasets, explicit current-data recovery for verified application backups, and atomic replacement.
+ * [INPUT]: Normalized datasets, read-only v16 or pre-focus v15 source databases and injected time.
+ * [OUTPUT]: Strict v16 exports, focus-free v15 restores, explicit current-data recovery for verified application backups, and atomic replacement.
  * [POS]: Transfer persistence adapter; preserves source versions and never bypasses confirmation.
  */
 import { randomUUID } from 'node:crypto'
@@ -14,22 +14,24 @@ import { DomainError } from '../../../shared/contracts/commands'
 import { addBaseline } from '../baseline'
 import { Store } from '../../storage/store'
 import { transaction, verifyDatabase } from '../../storage/database'
-import { requiredTables, schemaVersion, userVersion } from '../../storage/schema'
+import { schemaVersion, tablesFor, upgradableVersion, userVersion } from '../../storage/schema'
 import { datasetHeader, datasetRows } from './rows'
 import { serverText } from '../../../shared/i18n/server'
 import { copyProjectionToBase } from '@goalloom/store-core'
 import { nodeSqlDriver } from '@goalloom/store-core/node'
 
-// All export and restore boundaries require the exact current format.
+// Exports are always v16; restore also accepts the pre-focus v15 format.
 export function exportDataset(store: Store, now: string): Dataset {
   return readDataset(store, now, true)
 }
-function readDataset(store: Store, now: string, keepDescriptions: boolean, baseline = false): Dataset {
-  return { ...datasetHeader(store, now), ...(baseline ? { historyMode: 'baseline' as const } : {}),
+// A v15 source has no focus table; it restores as a focus-free v15 dataset.
+function readDataset(store: Store, now: string, keepDescriptions: boolean, baseline = false, version: 15 | 16 = 16): Dataset {
+  return { ...datasetHeader(store, now), schemaVersion: version, ...(baseline ? { historyMode: 'baseline' as const } : {}),
     // Each original body passes the same schema before it is discarded for protection-only validation.
     items: Array.from(datasetRows(store, 'items'), item => keepDescriptions ? item : { ...item, description: '' }), placements: [...datasetRows(store, 'placements')], periods: [...datasetRows(store, 'periods')],
     relations: [...datasetRows(store, 'relations')], policies: [...datasetRows(store, 'policies')], events: baseline ? [] : [...datasetRows(store, 'events')],
     operations: baseline ? [] : [...datasetRows(store, 'operations')], undoEffects: baseline ? [] : [...datasetRows(store, 'undoEffects')],
+    focus: version === 16 ? [...datasetRows(store, 'focus')] : [],
   }
 }
 export async function readSqliteDataset(path: string, now: string, source: 'external' | 'backup' = 'external'): Promise<Dataset> {
@@ -56,13 +58,13 @@ async function readSqlite(path: string, now: string, source: 'external' | 'backu
   try {
     db.exec('PRAGMA trusted_schema=OFF; BEGIN')
     const version = userVersion(db)
-    if (version !== schemaVersion) throw new DomainError('invalid', serverText().errors.unsupportedDatabase)
+    if (version !== schemaVersion && version !== upgradableVersion) throw new DomainError('invalid', serverText().errors.unsupportedDatabase)
     const tables = db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all()
     const names = tables.map(row => String(row.name))
-    if (tables.some(row => row.type === 'view') || requiredTables.some(name => !names.includes(name))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
+    if (tables.some(row => row.type === 'view') || tablesFor(version).some(name => !names.includes(name))) throw new DomainError('invalid', serverText().errors.invalidDatabase)
     verifyDatabase(db)
     const retrieved = names.includes('retrieval_copy') && db.prepare("SELECT 1 FROM retrieval_copy WHERE id=1 AND historyMode='baseline'").get()
-    const data = readDataset(new Store(db), now, keepDescriptions, baseline || Boolean(retrieved))
+    const data = readDataset(new Store(db), now, keepDescriptions, baseline || Boolean(retrieved), version === upgradableVersion ? 15 : 16)
     return validateDataset(data, now)
   } finally { db.close() }
 }
@@ -70,7 +72,7 @@ export function emptyDataset(store: Store, now: string): Dataset {
   const workspace = store.workspace()
   return { schemaVersion, historyMode: 'complete', exportedAt: now,
     workspace: { ...workspace, generation: randomUUID(), calendar: null, setupConfirmedAt: null, pausedAfterRestore: false, revision: 0, clockAnomaly: false, lastObservedAt: null, backupEnabled: true, backupRetention: 7 },
-    items: [], placements: [], periods: [], policies: [], relations: [], events: [], operations: [], undoEffects: [] }
+    items: [], placements: [], periods: [], policies: [], relations: [], events: [], operations: [], undoEffects: [], focus: [] }
 }
 export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 'restore', now: string, retrievedCopy = false): string {
   const generation = randomUUID(), { theme, style, checkStyle } = store.workspace()
@@ -78,12 +80,13 @@ export function replaceDataset(store: Store, input: Dataset, mode: 'reset' | 're
   return transaction(store.db, () => {
     if (retrievedCopy && store.db.prepare("SELECT 1 FROM sync_ops WHERE origin='local' AND state IN ('never_sent','send_unknown','accepted') LIMIT 1").get()) throw new DomainError('conflict', cloudCatalog[serverLocale()].pendingWrites)
     // --- 唯一连接中原子替换；任何约束/校验/磁盘错误全部回滚旧库。 ---
-    store.db.exec('PRAGMA defer_foreign_keys=ON; DELETE FROM undo_effects; DELETE FROM item_events; DELETE FROM operations; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM planning_periods; DELETE FROM items; DELETE FROM sqlite_sequence WHERE name=\'item_events\';')
+    store.db.exec('PRAGMA defer_foreign_keys=ON; DELETE FROM period_focus; DELETE FROM undo_effects; DELETE FROM item_events; DELETE FROM operations; DELETE FROM item_relations; DELETE FROM item_placements; DELETE FROM rollover_policies; DELETE FROM planning_periods; DELETE FROM items; DELETE FROM sqlite_sequence WHERE name=\'item_events\';')
     store.saveWorkspace(data.workspace)
     for (const period of data.periods) store.ensurePeriod(period)
     const placements = new Map(data.placements.map(p => [p.itemId, p]))
     for (const item of data.items) store.insertItem({ ...item, placement: placements.get(item.id)! })
     for (const edge of data.relations) store.saveRelation(edge)
+    for (const focus of data.focus) store.saveFocus(focus.periodId, focus.itemId)
     const insertPolicy = store.prepare('INSERT INTO rollover_policies VALUES (?,?,?,?)')
     for (const policy of data.policies) insertPolicy.run(policy.horizon, policy.mode, policy.version, policy.effectiveFromPeriodId)
     for (const operation of data.operations) store.saveOperation(operation)

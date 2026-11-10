@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Controlled SQLite, validated DTOs and current transaction versions.
- * [OUTPUT]: Bounded note signals, ownership-preserving writes, shared local-group neighbors, effective relations and immutable events/receipts.
+ * [OUTPUT]: Bounded note signals, ownership-preserving writes, shared local-group neighbors, effective relations, raw period focus pointers and immutable events/receipts.
  * [POS]: Persistence adapter; Repository owns business policy and transactions.
  */
 import { effectiveRelations, type NestingLink } from '../../domain/nesting'
@@ -8,7 +8,7 @@ import { localParentSql } from '@goalloom/store-core'
 import type { DatabaseSync, SQLInputValue, StatementSync } from 'node:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
 import { DomainError } from '../../shared/contracts/commands'
-import { workspaceSchema, type Item, type ItemSummary, type ItemRecord, type Placement, type PlanningPeriod, type Policy, type Relation, type Workspace } from '../../shared/contracts/entities'
+import { workspaceSchema, type Focus, type Item, type ItemSummary, type ItemRecord, type Placement, type PlanningPeriod, type Policy, type Relation, type Workspace } from '../../shared/contracts/entities'
 import { businessState, type ItemEvent, type Operation, type PositionEffect } from '../../shared/contracts/effects'
 import { serverText } from '../../shared/i18n/server'
 import { noteSignal } from '../../shared/notes'
@@ -89,6 +89,18 @@ export class Store {
   }
   ensurePeriod(period: PlanningPeriod): void { this.prepare('INSERT OR IGNORE INTO planning_periods VALUES (?,?,?,?,?,?)').run(period.id, period.horizon, period.startDate, period.endDate, period.startAt, period.endAt) }
   policies(): Policy[] { return this.prepare('SELECT * FROM rollover_policies').all() as unknown as Policy[] }
+  /** Raw stored pointers for the given periods; effectiveness is computed by domain/focus.ts. */
+  focus(periodIds: readonly string[]): Focus[] {
+    return periodIds.length ? this.prepare('SELECT periodId,itemId FROM period_focus WHERE periodId IN (SELECT value FROM json_each(?)) ORDER BY periodId').all(JSON.stringify(periodIds)) as unknown as Focus[] : []
+  }
+  focusItem(periodId: string): string | null {
+    const row = this.prepare('SELECT itemId FROM period_focus WHERE periodId=?').get(periodId)
+    return row ? String(row.itemId) : null
+  }
+  saveFocus(periodId: string, itemId: string | null): void {
+    if (itemId === null) this.prepare('DELETE FROM period_focus WHERE periodId=?').run(periodId)
+    else this.prepare('INSERT INTO period_focus (periodId,itemId) VALUES (?,?) ON CONFLICT(periodId) DO UPDATE SET itemId=excluded.itemId').run(periodId, itemId)
+  }
   relations(activeOnly = true): Relation[] { return this.prepare(`SELECT * FROM item_relations ${activeOnly ? 'WHERE invalidatedAt IS NULL' : ''}`).all() as unknown as Relation[] }
   nestingLinks(): NestingLink[] {
     return this.prepare('SELECT p.nestingParentId AS parentId,p.itemId AS childId FROM item_placements p JOIN items i ON i.id=p.itemId WHERE p.nestingParentId IS NOT NULL AND i.deletedAt IS NULL').all() as unknown as NestingLink[]

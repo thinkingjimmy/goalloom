@@ -16,6 +16,6 @@ export function businessCode(error: unknown): string | null {
   if (message.includes('flowColor')) return 'flow_color_taken'
   if (message.includes('deleted endpoint') || message.includes('deleted nesting parent')) return 'parent_unavailable'
   if (message.includes('only two outline levels')) return 'outline_conflict'
-  if (message.includes('period scale mismatch')) return 'period_scale_mismatch'
+  if (message.includes('period scale mismatch') || message.includes('focus scale mismatch')) return 'period_scale_mismatch'
   return null
 }

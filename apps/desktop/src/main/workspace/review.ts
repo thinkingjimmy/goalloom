@@ -1,6 +1,6 @@
 /**
- * [INPUT]: Generation-bound week/month selections, shared outline ordering, Repository and its injected clock.
- * [OUTPUT]: A period-end review projection, live unfinished outlines, current parent summaries and active/future destination planning summaries.
+ * [INPUT]: Generation-bound day/week/month selections, shared outline ordering, Repository and its injected clock.
+ * [OUTPUT]: A period-end review projection, child-horizon steps (a week's days, a month's weeks) projected at each child period's end, live unfinished outlines, current parent summaries, active/future destination planning summaries and raw focus pointers for both.
  * [POS]: Read-only review boundary in the serial storage worker; historical states never become write versions.
  */
 import { compareInstants, currentPeriod, parseDate, workspaceDate } from '../../domain/calendar'
@@ -38,23 +38,36 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
     return [currentPeriod(calendar, horizon, observation)]
   })
   const unknown = new Set<string>()
-  let board: Snapshot = { ...snapshot, periods }
+  // Closed periods keep their historical pointers; the renderer judges them against the projected items.
+  let board: Snapshot = { ...snapshot, periods, focus: store.focus(periods.map(period => period.id)) }
+  // Each period is projected at its own end: text is current; lifecycle/placement facts are historical.
+  const project = (period: PlanningPeriod, at: string, record = true): ItemSummary[] => projectPeriod(store, { ...period, endAt: at }).flatMap(({ id, endState }) => {
+    if (!endState) {
+      const item = store.summaries('i.id=?', [id])[0]
+      if (record && item && compareInstants(item.createdAt, at) < 0) unknown.add(id)
+      return []
+    }
+    if (endState.periodId !== period.id || endState.deletedAt) return []
+    const item = store.summaries('i.id=?', [id])[0]
+    if (!item) return []
+    return [{ ...item, status: endState.status, completedAt: endState.completedAt, cancelledAt: endState.cancelledAt,
+      archivedAt: endState.archivedAt, deletedAt: endState.deletedAt, deletedBy: endState.deletedBy,
+      placement: { ...item.placement, horizon: endState.horizon, periodId: endState.periodId, sortKey: endState.sortKey, holdPeriodId: endState.holdPeriodId, nestingParentId: endState.nestingParentId ?? null } }]
+  })
+  // Steps: every child-horizon period inside a reviewed week (its days) or month (its weeks).
+  const steps: ItemSummary[] = []
+  if (closed) for (const target of targets) {
+    const child = target.horizon === 'month' ? 'week' : target.horizon === 'week' ? 'day' : null
+    if (!child) continue
+    for (let period = currentPeriod(calendar, child, target.startAt); compareInstants(period.startAt, target.endAt) < 0; period = currentPeriod(calendar, child, period.endAt)) {
+      const at = compareInstants(period.endAt, end) < 0 ? period.endAt : end
+      steps.push(...project(period, at, false).filter(item => !item.archivedAt && item.status !== 'cancelled'))
+    }
+  }
   if (closed) {
     const items: ItemSummary[] = [], projected: ItemSummary[] = []
     for (const period of periods) {
-      const projections = projectPeriod(store, { ...period, endAt: end })
-      for (const { id, endState } of projections) {
-        if (!endState) {
-          const item = store.summaries('i.id=?', [id])[0]
-          if (item && compareInstants(item.createdAt, end) < 0) unknown.add(id)
-          continue
-        }
-        if (endState.periodId !== period.id || endState.deletedAt) continue
-        const item = store.summaries('i.id=?', [id])[0]
-        if (!item) continue
-        const row: ItemSummary = { ...item, status: endState.status, completedAt: endState.completedAt, cancelledAt: endState.cancelledAt,
-          archivedAt: endState.archivedAt, deletedAt: endState.deletedAt, deletedBy: endState.deletedBy,
-          placement: { ...item.placement, horizon: endState.horizon, periodId: endState.periodId, sortKey: endState.sortKey, holdPeriodId: endState.holdPeriodId, nestingParentId: endState.nestingParentId ?? null } }
+      for (const row of project(period, end)) {
         projected.push(row)
         if (!row.archivedAt && row.status !== 'cancelled') items.push(row)
       }
@@ -79,11 +92,11 @@ export function readReviewContext(repository: Repository, query: Extract<Query, 
     const next = currentPeriod(calendar, period.horizon, period.endAt)
     // A current week can outlive its starting month; planning must use an unexpired parent period.
     const planningAt = compareInstants(next.startAt, now) < 0 ? now : next.startAt
-    const parent = currentPeriod(calendar, period.horizon === 'month' ? 'cycle' : 'month', planningAt)
+    const parent = currentPeriod(calendar, period.horizon === 'month' ? 'cycle' : period.horizon === 'week' ? 'month' : 'week', planningAt)
     destinations.set(parent.horizon, parent)
     destinations.set(next.horizon, next)
   }
   const planning = readBoardPeriods(store, { type: 'boardPeriods', generation: query.generation,
     periods: [...destinations.values()].map(({ horizon, startDate }) => ({ horizon, startDate })) }, now)
-  return { board, planning: { ...snapshot, periods: planning.periods, items: planning.items, nestingParents: planning.nestingParents, orderNodes: planning.orderNodes, rolloverSources: planning.rolloverSources }, closing, closingParents: parents, sourcePeriods, unknown: unknown.size }
+  return { board, planning: { ...snapshot, periods: planning.periods, items: planning.items, nestingParents: planning.nestingParents, orderNodes: planning.orderNodes, rolloverSources: planning.rolloverSources, focus: planning.focus ?? [] }, closing, closingParents: parents, sourcePeriods, unknown: unknown.size, steps }
 }

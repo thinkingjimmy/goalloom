@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Typed current-format import validation reasons.
- * [OUTPUT]: Localized v15 dataset and receipt-integrity messages.
+ * [OUTPUT]: Localized v15/v16 dataset and receipt-integrity messages.
  * [POS]: Shared server catalog used by authoritative import validation.
  */
 import type { importMessages as source } from '../zh/import'
@@ -18,6 +18,7 @@ export const importMessages: typeof source = {
     operationEvents: '操作内のイベント',
     undoEffects: '取り消しの効果',
     edgeDeltas: 'リンクの差分',
+    focus: '最重要の指定',
   },
   duplicateIdentity: (label: string) => `${label}に重複した ID があります`,
   deletionIncomplete: '削除元または日付が不完全です',
@@ -100,4 +101,5 @@ export const importMessages: typeof source = {
   positionReceiptMismatch: '配置の記録がイベントと一致しません',
   archiveReceiptMismatch: 'アーカイブの記録がイベントと一致しません',
   visibilityReceiptMismatch: '表示状態の記録がイベントと一致しません',
+  invalidFocus: '最重要の期間または項目の参照が無効です',
 }

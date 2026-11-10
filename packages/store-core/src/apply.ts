@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A validated SyncOp, a base_ or visible table prefix, and a period materializer.
- * [OUTPUT]: Exact initialization or atomic canonical changes with gap-safe sorting/semantic undo, source-guarded group carry, cross-period ownership, parent lifecycle/two-level/Later validation, safe tombstones and causal creation preflight, or a stable business error.
+ * [OUTPUT]: Exact initialization or atomic canonical changes with gap-safe sorting/semantic undo, source-guarded group carry, cross-period ownership, parent lifecycle/two-level/Later validation, effective-item period focus, safe tombstones and causal creation preflight, or a stable business error.
  * [POS]: Reference applier. It does not touch operations, item_events or undo_effects.
  */
 import type { Action, SyncOp } from '@goalloom/contracts'
@@ -69,6 +69,7 @@ function applyAction(driver: SqlDriver, prefix: string, op: SyncOp, action: Acti
     case 'rel.link': return link(driver, prefix, op, action, changes)
     case 'rel.unlink': return unlink(driver, prefix, op, action, changes)
     case 'policy.set': return setPolicy(driver, prefix, op, action, host, changes)
+    case 'period.focus': return setFocus(driver, prefix, action, host, changes)
     case 'calendar.setup': return setupCalendar(driver, prefix, op, action, changes)
     case 'pref.set': return setPreference(driver, op, action)
     case 'revert': return revert(driver, prefix, op, action, host, changes)
@@ -375,13 +376,31 @@ function setPolicy(driver: SqlDriver, prefix: string, op: SyncOp, action: Extrac
   return 'applied'
 }
 
+/** Last writer wins; a pointer is accepted only while its item is effective in that period. */
+function setFocus(driver: SqlDriver, prefix: string, action: Extract<Action, { t: 'period.focus' }>, host: ApplyHost, changes: CanonChange[]): 'applied' {
+  const periodId = ensurePeriod(driver, prefix, host, action.periodKey.horizon, action.periodKey.startDate)!
+  if (action.itemId !== null) {
+    const item = driver.prepare(`SELECT i.status,i.archivedAt,i.deletedAt,p.periodId FROM ${prefix}items i JOIN ${prefix}item_placements p ON p.itemId=i.id WHERE i.id=?`).get(action.itemId)
+    if (!item || text(item, 'periodId') !== periodId || text(item, 'deletedAt') || text(item, 'archivedAt') || text(item, 'status') === 'cancelled') throw new SyncApplyError('focus_stale')
+  }
+  const before = text(driver.prepare(`SELECT itemId FROM ${prefix}period_focus WHERE periodId=?`).get(periodId), 'itemId')
+  if (before === action.itemId) return 'applied'
+  writeFocus(driver, prefix, periodId, action.itemId)
+  changes.push({ itemId: periodId, dim: 'focus', before, after: action.itemId })
+  return 'applied'
+}
+function writeFocus(driver: SqlDriver, prefix: string, periodId: string, itemId: string | null): void {
+  if (itemId === null) driver.prepare(`DELETE FROM ${prefix}period_focus WHERE periodId=?`).run(periodId)
+  else driver.prepare(`INSERT INTO ${prefix}period_focus (periodId,itemId) VALUES (?,?) ON CONFLICT(periodId) DO UPDATE SET itemId=excluded.itemId`).run(periodId, itemId)
+}
+
 function setupCalendar(driver: SqlDriver, prefix: string, op: SyncOp, action: Extract<Action, { t: 'calendar.setup' }>, changes: CanonChange[]): 'applied' {
   const workspace = driver.prepare(`SELECT calendar FROM ${prefix}workspace WHERE id=1`).get()
   const previous = text(workspace, 'calendar')
   if (previous) {
     if (!op.importedCalendar || op.importedCalendar.id !== action.calendar.id) throw new SyncApplyError('calendar_locked')
     if (!canAdoptCalendar(driver, prefix, op)) return 'applied'
-    driver.exec(`DELETE FROM ${prefix}rollover_policies; DELETE FROM ${prefix}planning_periods;`)
+    driver.exec(`DELETE FROM ${prefix}period_focus; DELETE FROM ${prefix}rollover_policies; DELETE FROM ${prefix}planning_periods;`)
   }
   const calendar = JSON.stringify(action.calendar)
   driver.prepare(`UPDATE ${prefix}workspace SET calendar=?, setupConfirmedAt=? WHERE id=1`).run(calendar, action.confirmedAt ?? op.at)
@@ -473,6 +492,9 @@ function invertChange(driver: SqlDriver, prefix: string, op: SyncOp, host: Apply
     const edgeId = source && typeof source.id === 'string' ? source.id : null
     if (edgeId && created) driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=?, invalidatedBy=?, reason='unlink' WHERE id=? AND invalidatedAt IS NULL`).run(op.at, op.opId, edgeId)
     else if (edgeId) driver.prepare(`UPDATE ${prefix}item_relations SET invalidatedAt=NULL, invalidatedBy=NULL, reason=NULL WHERE id=?`).run(edgeId)
+  } else if (dim === 'focus' && itemId) {
+    // A canonical focus row stores the period id in itemId; the earlier pointer may be dormant.
+    writeFocus(driver, prefix, itemId, typeof parsed === 'string' ? parsed : null)
   } else if (dim === 'calendar') {
     driver.prepare(`UPDATE ${prefix}workspace SET calendar=? WHERE id=1`).run(before)
   }

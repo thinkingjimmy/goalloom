@@ -1,8 +1,21 @@
 /**
  * [INPUT]: An empty SQLite database inside its host-owned transaction.
- * [OUTPUT]: Current business tables, indexes and integrity triggers.
+ * [OUTPUT]: Current business tables, indexes and integrity triggers, including month/week/day period focus pointers.
  * [POS]: Shared launch baseline DDL; no historical upgrades or database access.
  */
+// Raw period focus pointers. Effectiveness depends on the item's current placement and lifecycle, so it is computed, never constrained here.
+export const focusDdl = `
+CREATE TABLE period_focus (
+  periodId TEXT PRIMARY KEY REFERENCES planning_periods(id), itemId TEXT NOT NULL REFERENCES items(id)
+) STRICT;
+CREATE TRIGGER focus_scale_insert BEFORE INSERT ON period_focus BEGIN
+  SELECT CASE WHEN (SELECT horizon FROM planning_periods WHERE id=NEW.periodId) NOT IN ('month','week','day') THEN RAISE(ABORT,'focus scale mismatch') END;
+END;
+CREATE TRIGGER focus_scale_update BEFORE UPDATE OF periodId ON period_focus BEGIN
+  SELECT CASE WHEN (SELECT horizon FROM planning_periods WHERE id=NEW.periodId) NOT IN ('month','week','day') THEN RAISE(ABORT,'focus scale mismatch') END;
+END;
+`
+
 export const businessDdl = `
 CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, appliedAt TEXT NOT NULL) STRICT;
 CREATE TABLE planning_periods (
@@ -125,4 +138,4 @@ CREATE TABLE "workspace" (
   CHECK ((calendar IS NULL) = (setupConfirmedAt IS NULL))
 ) STRICT;
 CREATE INDEX operations_creation_completion ON operations(json_extract(result,'$.creationOperationId')) WHERE kind='completeCreation';
-`
+${focusDdl}`

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Untrusted versioned datasets with two-level placements and owned leaf/group nesting effects, plus an observation time.
- * [OUTPUT]: Entity, current policies, DAG, adoption/promotion effect identity, bulk-order receipt, inverse and event-chain integrity validation.
+ * [OUTPUT]: Entity, current policies, DAG, period focus pointer/effect, adoption/promotion effect identity, bulk-order receipt, inverse and event-chain integrity validation.
  *          Moves/backlog/assistance may detach remote ownership and drop Later parent edges; creation accepts source-checked nesting and current creations retain their owned history.
  *          Empty-detail discards retain guarded visibility receipts for undo.
  *          Link/unlink may own one same-period root placement; both effects must restore together.
@@ -18,6 +18,7 @@ import { policyHorizons } from '../shared/contracts/values'
 import { serverText } from '../shared/i18n/server'
 import { validateNestingHistory, validateNestingOperation } from './import-nesting'
 import { validateCreationHistory } from './import-creation'
+import { isFocusHorizon } from './focus'
 
 function requireValid(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
 function unique<T>(rows: T[], identity: (row: T) => string | number, label: string): Map<string | number, T> {
@@ -117,6 +118,9 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
   requireValid(new Set(colours).size === colours.length, serverText().import.duplicateFlowColor)
   requireValid(data.items.every(item => item.flowColor === null || !children.has(item.id)), serverText().import.flowRootHasParent)
   for (const edge of data.relations) requireValid((edge.invalidatedAt === null) === (edge.invalidatedBy === null) && (edge.invalidatedAt === null) === (edge.reason === null), serverText().import.relationInvalidationIncomplete)
+  // Pointers may be dormant; only the period scale and both references are invariants.
+  unique(data.focus, row => row.periodId, serverText().import.labels.focus)
+  for (const row of data.focus) requireValid(isFocusHorizon(periods.get(row.periodId)?.horizon ?? '') && items.has(row.itemId), serverText().import.invalidFocus)
   if (data.historyMode === 'baseline') {
     requireValid(!data.events.length && !data.operations.length && !data.undoEffects.length, serverText().import.baselineHasHistory)
     return data
@@ -202,7 +206,7 @@ export function validateDataset(data: Dataset, observedAt: string): Dataset {
   return data
 }
 function needsEvent(effect: Effect): boolean {
-  return effect.kind !== 'relations' && !(effect.kind === 'position' && effect.before.periodId === effect.after.periodId && effect.before.horizon === effect.after.horizon)
+  return effect.kind !== 'relations' && effect.kind !== 'focus' && !(effect.kind === 'position' && effect.before.periodId === effect.after.periodId && effect.before.horizon === effect.after.horizon)
 }
 function validateHold(horizon: ItemHorizon, periodId: string | null, hold: string | null, periods: Map<string | number, PlanningPeriod>): void {
   if (!hold) return
@@ -220,6 +224,7 @@ function validateEffect(effect: Effect, items: Map<string | number, unknown>, pe
     }
     for (const delta of effect.edges) requireValid(delta.after.childId === effect.itemId && (delta.before !== null || !!effect.inheritedFrom?.relations.some(source => source.parentId === delta.after.parentId)), serverText().import.relationEffectIdentityMismatch)
   }
+  if (effect.kind === 'focus') requireValid(isFocusHorizon(periods.get(effect.periodId)?.horizon ?? '') && [effect.before, effect.after].every(id => id === null || items.has(id)), serverText().import.invalidFocus)
   if (effect.kind === 'position') for (const p of [effect.before, effect.after]) {
     placement(p.horizon, p.periodId, periods)
     requireValid([p.previousId, p.nextId].every(id => id === null || (id !== effect.itemId && items.has(id))) && (!p.previousId || p.previousId !== p.nextId), serverText().import.invalidOrderNeighbors)
@@ -238,7 +243,7 @@ function validateKind(operation: Dataset['operations'][number], operations: Map<
     serverText().import.effectKindNotAllowed)
     if (effect.flowColor.transferredTo) requireValid(effect.flowColor.transferredTo === edge!.after.parentId, serverText().import.relationEffectIdentityMismatch)
   }
-  const allowed: Record<string, Effect['kind'][]> = { completeCreation: ['position', 'relations', 'nesting'], nest: ['nesting'], unnest: ['nesting'], applyAssistance: ['description'], create: ['create', 'nesting'], createPlan: ['create', 'nesting'], edit: [], flowColor: [], move: ['position', 'relations', 'nesting', 'groupPlacement'], materializeParentOrder: ['position'], link: ['relations', 'position'], status: ['status'], archive: ['archive'], delete: ['visibility', 'nesting'], discardEmpty: ['visibility'], restoreItem: ['visibility', 'nesting'], unlink: ['relations', 'position'], undo: [], undoBatch: [], arrangeBacklog: ['position', 'relations', 'nesting', 'groupPlacement'], rollover: ['position', 'groupPlacement'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [] }
+  const allowed: Record<string, Effect['kind'][]> = { completeCreation: ['position', 'relations', 'nesting'], nest: ['nesting'], unnest: ['nesting'], applyAssistance: ['description'], create: ['create', 'nesting'], createPlan: ['create', 'nesting'], edit: [], flowColor: [], move: ['position', 'relations', 'nesting', 'groupPlacement'], materializeParentOrder: ['position'], link: ['relations', 'position'], status: ['status'], archive: ['archive'], delete: ['visibility', 'nesting'], discardEmpty: ['visibility'], restoreItem: ['visibility', 'nesting'], unlink: ['relations', 'position'], undo: [], undoBatch: [], arrangeBacklog: ['position', 'relations', 'nesting', 'groupPlacement'], rollover: ['position', 'groupPlacement'], baseline: [], confirmSetup: [], preferences: [], policy: [], confirmClock: [], confirmRollover: [], backupPreferences: [], focus: ['focus'] }
   requireValid(allowed[operation.kind] && operation.effects.every(effect => allowed[operation.kind]!.includes(effect.kind)), serverText().import.effectKindNotAllowed)
   requireValid(operation.source === (['rollover', 'baseline', 'completeCreation'].includes(operation.kind) ? 'system' : 'user'), serverText().import.operationSourceMismatch)
   const inverse = ['undo', 'undoBatch'].includes(operation.kind)

@@ -10,6 +10,7 @@ import type { SqlDriver, SqlValue } from './driver'
 interface Entry { itemId: string; actions: Action[]; seen: boolean }
 interface Detail { review: 1; entries: Entry[] }
 export interface PendingConflict { itemId: string; records: { opId: string; code: string; actions: Action[] }[] }
+// period.focus is last-writer-wins per period: an overwritten pointer never becomes a review step.
 const editable = new Set(['item.create', 'item.set', 'item.status', 'item.place', 'item.nest', 'item.archive', 'rel.link', 'rel.unlink'])
 
 export function actionItem(driver: SqlDriver, action: Action): string | null {
