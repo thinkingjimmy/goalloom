@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Apple UI kit contracts, macos appearance attributes and the control/surface/feature skins.
- * [OUTPUT]: macOS 27 inspired neutral tokens, readable content and frosted navigation/floating surfaces.
+ * [OUTPUT]: macOS 27 neutral tokens, frosted navigation and floating surfaces, and accessibility overrides.
  * [POS]: Opt-in Electron theme boundary; imported skins share these tokens and preserve feature state ownership.
  */
 @import './macos-controls.css';
@@ -69,6 +69,14 @@
 }
 
 .segmented-swatch[data-swatch='style-macos'] { background: linear-gradient(135deg, oklch(.96 .006 260), oklch(.78 .025 260)); border-color: oklch(.65 .015 260); }
+
+/* These overrides follow the material defaults and yield to the forced-color palette. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root[data-style='macos'] { --glass: var(--raised); --macos-chrome: var(--surface); --macos-popover: var(--raised); --macos-tooltip: var(--raised); --macos-glass-fill: var(--raised); --macos-glass-reflection: none; --macos-material-blur: none; }
+}
+@media (prefers-contrast: more) {
+  :root[data-style='macos'] { --primary: var(--menu-selection); --line: var(--secondary); --hairline: var(--secondary); --check-edge: var(--secondary); }
+}
 
 @media (forced-colors: active) {
   :root[data-style='macos'] {
