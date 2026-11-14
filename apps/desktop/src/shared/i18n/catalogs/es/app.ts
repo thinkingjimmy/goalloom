@@ -88,6 +88,7 @@ export const appMessages: typeof source = {
     focusClosed: 'Este periodo ha terminado, así que su prioridad ya no puede cambiar',
     focusUnavailable: 'Solo un elemento de este periodo que no esté cancelado ni archivado puede ser su prioridad',
     focusChanged: 'La prioridad ha cambiado. Actualiza y vuelve a intentarlo',
+    focusClearFirst: 'Quita la prioridad de hoy antes de elegir otra tarea.',
     writeRace: 'Conflicto de escritura. Actualiza y vuelve a intentarlo',
     periodMissing: 'El periodo no existe',
     fileTooLarge: 'La base de datos supera el límite de importación de 100 MB',

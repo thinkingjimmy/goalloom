@@ -4,7 +4,8 @@
  * [OUTPUT]: Read-only overlay: direct goal/ownership parent→child curves between rendered rows sharing an active flow, each in that flow's colour (dashed across
  *           skipped horizons), joining matching 6px row dots at the first title line; hover/focus chain highlighting (other rows faded via `data-chain-out`,
  *           without a layout read) and edge markers that reveal an off-screen related row; shared panel clipping and a finite motion pulse anchor paths
- *           throughout row/sidebar translations. Geometry is read during that motion and when the graph changes, not on an idle hover.
+ *           throughout row/sidebar translations. Touch rows with a larger first line use the measured flow-dot center.
+ *           Geometry is read during motion and when the graph changes.
  * [POS]: Board decoration mounted while one flow is filtered or a flow dot is previewed, with the device preference on; never writes
  *        workspace data or undo state.
  */
@@ -88,14 +89,17 @@ export function RelationLines({ items, graph, flows, focus, animate, columns }: 
       return [panel, rect ? { x: rect.left + dx, y: rect.top + dy, width: rect.width, height: rect.height } : noClip]
     })) as Record<Panel, Clip>
     const anchors = new Map<string, Anchor>()
+    const coarsePointer = matchMedia('(pointer: coarse)').matches
     for (const id of members) {
       const row = document.getElementById(`item-${id}`), content = row?.closest('.column-content')
       if (!row || !content || !board.contains(row) || !livePanel(row)) continue
-      const r = row.getBoundingClientRect(), c = content.getBoundingClientRect(), mid = r.top + Math.min(r.height, firstLine) / 2
+      const r = row.getBoundingClientRect(), c = content.getBoundingClientRect(), dot = row.querySelector('.flow-dot-button')
+      const dotBounds = coarsePointer && row.hasAttribute('data-focus-control') ? dot?.getBoundingClientRect() : undefined
+      const mid = dotBounds ? dotBounds.top + dotBounds.height / 2 : r.top + Math.min(r.height, firstLine) / 2
       const off = mid < c.top ? 'up' : mid > c.bottom ? 'down' : null
       const y = off === 'up' ? c.top + inset : off === 'down' ? c.bottom - inset : mid
       const panel = horizonOf.get(id) === 'later' ? 'later' : 'timeline'
-      anchors.set(id, { indent: row.dataset.nested === 'true' ? 24 : 0, left: r.left + dx, right: r.right + dx, y: y + dy, mid, off, done: row.dataset.done === 'true', dot: !!row.querySelector('.flow-dot-button'), content, panel, clip: clips[panel] })
+      anchors.set(id, { indent: row.dataset.nested === 'true' ? 24 : 0, left: r.left + dx, right: r.right + dx, y: y + dy, mid, off, done: row.dataset.done === 'true', dot: !!dot, content, panel, clip: clips[panel] })
     }
     const paths: Path[] = [], ports = new Map<string, Port>(), markers = new Map<string, Marker>()
     // A skip-level curve crosses the columns in between along a row boundary, so it never seems to leave a row it merely passes.

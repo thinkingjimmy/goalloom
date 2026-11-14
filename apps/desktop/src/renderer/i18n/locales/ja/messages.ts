@@ -31,7 +31,7 @@ export const messages: MessageCatalog = {
   undoPrevious: "直前の操作を取り消す",
   exportFailed: "書き出しに失敗しました。再試行してください",
   exportWorkspace: "ワークスペースを書き出す",
-  theme: "カラーモード",
+  theme: "テーマ",
   systemTheme: "システムに合わせる",
   lightTheme: "ライト",
   darkTheme: "ダーク",

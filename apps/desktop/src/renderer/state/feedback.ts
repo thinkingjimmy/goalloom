@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Accepted receipts, committed placement/period and post-refresh board visibility.
- * [OUTPUT]: Success feedback, quiet nesting/root-edge detachment and automatic note rewrites, actual destinations and reading durations; no undo membership changes.
+ * [OUTPUT]: Success feedback with silent focus assignment, actual destinations, partial-restore warnings and reading durations.
  * [POS]: Renderer feedback projection, shared by useWorkspace and the application shell.
  */
 import type { CommandInput, CommandResult } from '../../shared/contracts/commands'
@@ -24,6 +24,7 @@ export function feedbackKind(command: CommandInput, result: CommandResult): Feed
     case 'move': return null
     case 'unnest': return command.beforeId !== undefined ? null : 'standard'
     case 'create': case 'arrangeBacklog': case 'link': case 'unlink': case 'nest': case 'materializeParentOrder': return null
+    case 'focus': return command.itemId === null ? 'standard' : null
     case 'status': return command.status === 'done' ? null : command.status === 'todo' ? 'conditional' : 'standard'
     case 'archive': return command.archived ? 'standard' : 'conditional'
     case 'createPlan': return command.items.length === 1 ? 'conditional' : 'standard'

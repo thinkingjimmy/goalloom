@@ -53,6 +53,7 @@
 
 /* Pick the focus: the whole row is the control. */
 .rv-pick { cursor: pointer; transition: background-color 150ms ease-out; }
+.rv-pick[aria-disabled='true'] { cursor: default; }
 .rv-pick[data-on='true'] { background: var(--hover); color: var(--fg); font-weight: 600; }
 .rv-pick-hint { flex-shrink: 0; font-size: 12px; color: var(--secondary); opacity: 0; transition: opacity 150ms ease-out; }
 .rv-pick:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
@@ -71,7 +72,7 @@
 .rv-actions .rv-secondary { background: var(--hover); color: var(--fg); border: 0; }
 
 @media (hover: hover) and (pointer: fine) {
-  .rv-pick:hover { background: var(--hover); }
+  .rv-pick:not([aria-disabled='true']):hover { background: var(--hover); }
   .rv-pick:hover .rv-pick-hint { opacity: 1; }
   .rv-seg button[aria-checked='false']:hover:not(:disabled) { color: var(--fg); }
   .rv-actions .rv-secondary:hover:not(:disabled) { background: var(--pressed); }

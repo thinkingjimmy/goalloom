@@ -1,7 +1,7 @@
 /**
- * [INPUT]: state/shortcuts 的快捷键标识。
- * [OUTPUT]: 快捷键设置分册：行标题、作用范围说明、流程筛选开关与示意、录制/冲突/校验提示。
- * [POS]: renderer/i18n/locales/zh 的快捷键分册，与 messages.ts 同构；不决定键位。
+ * [INPUT]: Shortcut and conflict identifiers from state/shortcuts.
+ * [OUTPUT]: Chinese shortcut labels, one-line guidance, inline recording feedback and top-bar key instructions.
+ * [POS]: Source catalog for the renderer's shortcut translations.
  */
 import type { ConflictId, ShortcutId } from '../../../state/shortcuts'
 import { widen } from '../../../../shared/i18n/locale'
@@ -15,7 +15,7 @@ export const shortcutNotes: Partial<Record<ShortcutId, string>> = {
 }
 export const shortcutMessages = widen({
   section: '快捷键',
-  subtitle: '点击键帽后按下新组合，Esc 取消；组合需包含 ⌘/Ctrl 或 ⌥/Alt',
+  subtitle: '点击键帽后按下新组合，Esc 取消。',
   general: '通用',
   filters: '顶栏数字键',
   filtersToggle: (mod: string) => `用 ${mod} + 数字切换 Later 与顶栏筛选`,
@@ -31,7 +31,6 @@ export const shortcutMessages = widen({
   edit: (name: string) => `修改快捷键：${name}`,
   clear: (name: string) => `清除快捷键：${name}`,
   conflict: (names: string[]) => `与「${names.join('」「')}」使用相同按键`,
-  conflictNote: '仅在特定弹窗中生效的快捷键可以共用按键，冲突只提示、不阻止保存。',
   needsModifier: '需要包含 ⌘/Ctrl 或 ⌥/Alt',
   reserved: '该组合键由系统占用',
 })

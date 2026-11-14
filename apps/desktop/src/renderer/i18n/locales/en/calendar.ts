@@ -58,6 +58,7 @@ export const calendarMessages: typeof source = {
   calendarMode: "Calendar mode",
   dateChanged: "The date has changed. Confirm the new start date.",
   periodRecordsFailed: "Couldn’t load period records. Try again.",
+  changeTaskPeriod: "Change period",
   naturalDirectionTitle: "What do you most want to move forward this year?",
   useCurrentYear: "Use this year",
   example1: "Run a full marathon",

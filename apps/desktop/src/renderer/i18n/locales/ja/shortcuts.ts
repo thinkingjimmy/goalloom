@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 ../zh/shortcuts 的 ShortcutCatalog、shortcutNames、shortcutNotes 类型。
- * [OUTPUT]: 日语的快捷键设置分册：行标题、作用范围说明、流程筛选开关与示意、录制/冲突/校验提示。
- * [POS]: renderer/i18n/locales/ja 的快捷键分册，与 zh 同构；不决定键位。
+ * [INPUT]: ShortcutCatalog and label types from the Chinese catalog.
+ * [OUTPUT]: Japanese shortcut labels, one-line guidance, inline recording feedback and top-bar key instructions.
+ * [POS]: Japanese renderer messages for shortcut settings.
  */
 import type { ShortcutCatalog, shortcutNames as sourceNames, shortcutNotes as sourceNotes } from '../zh/shortcuts'
 
@@ -14,7 +14,7 @@ export const shortcutNotes: typeof sourceNotes = {
 }
 export const shortcutMessages: ShortcutCatalog = {
   section: 'ショートカット',
-  subtitle: 'キーをクリックして新しい組み合わせを押します。Esc でキャンセル。⌘/Ctrl または ⌥/Alt を含めてください',
+  subtitle: 'キーをクリックし、新しいキーを押す（Esc でキャンセル）。',
   general: '一般',
   filters: 'トップバーの数字キー',
   filtersToggle: (mod: string) => `${mod} + 数字で Later とトップバーの絞り込みを切り替え`,
@@ -30,7 +30,6 @@ export const shortcutMessages: ShortcutCatalog = {
   edit: (name: string) => `ショートカットを変更：${name}`,
   clear: (name: string) => `ショートカットをクリア：${name}`,
   conflict: (names: string[]) => `「${names.join('」「')}」と同じキーを使用しています`,
-  conflictNote: '特定のダイアログでのみ有効なショートカットはキーを共有できます。競合は通知のみで、保存は妨げません。',
   needsModifier: '⌘/Ctrl または ⌥/Alt を含めてください',
   reserved: 'この組み合わせはシステムで使用されています',
 }

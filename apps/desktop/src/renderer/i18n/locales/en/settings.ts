@@ -18,7 +18,7 @@ export const settingsMessages: SettingsCatalog = {
   collapseCompleted: 'Collapse completed tasks',
   collapseCompletedNote: 'Keep completed tasks in place when off; group them at the bottom when on. Parent tasks and subtasks stay together.',
   subtitles: {
-    ai: 'Add a key once and let smart input and insight each pick a service; keys sync end-to-end encrypted, stay in this device’s keychain, and go only to the service you choose',
+    ai: 'Connect a service to use it in Smart input or Insight.',
     board: 'Ordering and completion feedback sync between computers',
     insight: 'Breakpoints, reviews, and how drafting understands you',
     appearance: 'Theme, style and language sync between computers, and are not part of task history',
@@ -30,10 +30,7 @@ export const settingsMessages: SettingsCatalog = {
     sync: 'Sign in with Apple or Google and protect sync with a sync password',
   },
   // Appearance
-  styleNotes: { paper: 'Warm paper, dashed dividers, soft shadows', minimal: 'Neutral grays, thin solid borders', macos: 'Cool neutrals, frosted surfaces, blue primary actions' },
-  checkNotes: { outline: 'Flow-color outline only, the quietest', paper: 'White fill sets off the flow color', tint: 'Tinted fill, clearest grouping' },
   relationLines: 'Relation lines',
-  relationLinesNote: 'When one flow is filtered, lines connect its parents and children',
   celebration: 'Completion confetti',
   celebrationNote: 'Confetti bursts from both bottom corners when you complete an item in a selected column.',
   celebrationOff: 'Off. Select any column to turn it on.',
@@ -45,7 +42,7 @@ export const settingsMessages: SettingsCatalog = {
   privacyPoints: [
     'Only the service a feature is using receives content; features that are off send nothing',
     'Smart input sends only the current input text, the workspace date and goals you mention or select; insight sends only a board summary and your preferences',
-    'Descriptions, history and trash are never sent; keys sync only inside the encrypted channel, stay in this device’s keychain, and never enter workspace backups or exports',
+    'Descriptions, history and trash are never sent. Keys sync with end-to-end encryption and stay in this device’s keychain. Each key goes only to its service and stays out of workspace backups and exports.',
   ],
   // Calendar
   calendarSettings: 'Calendar settings',
@@ -128,7 +125,7 @@ export const settingsMessages: SettingsCatalog = {
     realtimeOnline: 'Connected',
     realtimeOffline: 'Disconnected',
     loading: 'Reading sync status',
-    unconfigured: 'Sync is not configured. Put the anon key in GOALLOOM_SUPABASE_ANON_KEY or in sync-config.json in this device’s user data. The board works without it.',
+    unconfigured: 'Sync is unavailable in this build. You can use the board locally.',
     locked: 'This computer cannot access the sync keys. Saved data is kept, and the board works offline. After restoring system access, quit Goalloom fully and reopen it.',
     lockedStorage: 'The local sync credential file cannot be read. Quit Goalloom fully and reopen it. If this fails again, contact support and keep the local data and credential files.',
     signedOut: 'Sign in to encrypt and sync between computers with a sync password. The board works while signed out.',

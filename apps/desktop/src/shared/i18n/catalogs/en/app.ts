@@ -88,6 +88,7 @@ export const appMessages: typeof source = {
     focusClosed: 'This period has ended, so its focus can’t change',
     focusUnavailable: 'Only an item in this period that isn’t cancelled or archived can be its focus',
     focusChanged: 'The focus has changed. Refresh and try again.',
+    focusClearFirst: 'Clear today’s focus before choosing another task.',
     writeRace: 'Write conflict. Refresh and try again.',
     periodMissing: 'Period not found',
     fileTooLarge: 'The database exceeds the 100 MB import limit',

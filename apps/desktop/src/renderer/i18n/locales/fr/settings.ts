@@ -18,7 +18,7 @@ export const settingsMessages: SettingsCatalog = {
   collapseCompleted: 'Replier les tâches terminées',
   collapseCompletedNote: 'Désactivé : conserve leur position. Activé : regroupe en bas de la colonne. Les tâches et sous-tâches restent ensemble.',
   subtitles: {
-    ai: 'Ajoutez une clé une fois, puis la saisie intelligente et les Aperçus choisissent chacun leur service ; les clés se synchronisent chiffrées de bout en bout, restent dans le trousseau de cet appareil et ne vont qu’au service choisi',
+    ai: 'Connectez un service pour l’utiliser dans Saisie intelligente ou Aperçus.',
     board: 'L’ordre et les retours de fin se synchronisent entre ordinateurs',
     insight: 'Ruptures, bilans et comment la rédaction vous comprend',
     appearance: 'Le thème, le style et la langue se synchronisent entre ordinateurs et ne font pas partie de l’historique des tâches',
@@ -30,10 +30,7 @@ export const settingsMessages: SettingsCatalog = {
     sync: 'Connectez-vous avec Apple ou Google et protégez la synchro avec un mot de passe',
   },
   // Appearance
-  styleNotes: { paper: 'Papier chaud, séparateurs pointillés, ombres douces', minimal: 'Gris neutres, contours fins et pleins', macos: 'Gris froids, surfaces dépolies et actions bleues' },
-  checkNotes: { outline: 'Seul le contour à la couleur du flux, le plus discret', paper: 'Fond blanc qui fait ressortir la couleur du flux', tint: 'Fond teinté de la même couleur, groupes les plus visibles' },
   relationLines: 'Lignes de relation',
-  relationLinesNote: 'Quand un seul flux est filtré, des lignes relient ses parents et ses enfants',
   celebration: 'Confettis à la fin',
   celebrationNote: 'Des confettis jaillissent des deux coins inférieurs quand un élément est terminé dans une colonne choisie.',
   celebrationOff: 'Désactivé. Choisissez une colonne pour l’activer.',
@@ -45,7 +42,7 @@ export const settingsMessages: SettingsCatalog = {
   privacyPoints: [
     'Seul le service utilisé par une fonction reçoit du contenu ; une fonction désactivée n’envoie rien',
     'La saisie intelligente n’envoie que le texte saisi, la date de l’espace de travail et les objectifs mentionnés ou sélectionnés ; les Aperçus n’envoient qu’un résumé du tableau et vos préférences',
-    'Les descriptions, l’historique et la corbeille ne sont jamais envoyés ; les clés ne se synchronisent que dans le canal chiffré, restent dans le trousseau de cet appareil et n’entrent pas dans les sauvegardes ni les exports',
+    'Les descriptions, l’historique et la corbeille ne sont jamais envoyés. Les clés sont synchronisées avec un chiffrement de bout en bout et restent dans le trousseau de cet appareil. Chaque clé est envoyée uniquement à son service et reste hors des sauvegardes et exports.',
   ],
   // Calendar
   calendarSettings: 'Réglages du calendrier',
@@ -128,7 +125,7 @@ export const settingsMessages: SettingsCatalog = {
     realtimeOnline: 'Connecté',
     realtimeOffline: 'Déconnecté',
     loading: 'Lecture de l’état de synchro',
-    unconfigured: 'La synchro n’est pas configurée. Placez la clé anon dans GOALLOOM_SUPABASE_ANON_KEY ou dans sync-config.json, parmi les données de cet appareil. Le tableau fonctionne sans elle.',
+    unconfigured: 'La synchronisation est indisponible dans cette version. Vous pouvez utiliser le tableau sur cet appareil.',
     locked: 'Cet ordinateur ne peut pas accéder aux clés de synchronisation. Les données enregistrées sont conservées et le tableau fonctionne hors ligne. Après avoir rétabli l’accès système, quittez complètement Goalloom et ouvrez-le à nouveau.',
     lockedStorage: 'Le fichier local des identifiants de synchronisation est illisible. Quittez complètement Goalloom et ouvrez-le à nouveau. Si le problème persiste, contactez l’assistance et conservez les données et les identifiants locaux.',
     signedOut: 'Connectez-vous pour chiffrer et synchroniser entre ordinateurs avec un mot de passe. Le tableau reste utilisable sans connexion.',

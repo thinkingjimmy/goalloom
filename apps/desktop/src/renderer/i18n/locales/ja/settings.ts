@@ -18,7 +18,7 @@ export const settingsMessages: SettingsCatalog = {
   collapseCompleted: '完了したタスクを折りたたむ',
   collapseCompletedNote: 'オフでは元の位置に残し、オンでは列の下部にまとめます。親タスクとサブタスクは一緒に表示します。',
   subtitles: {
-    ai: 'キーを一度追加すれば、スマート入力とインサイトがそれぞれサービスを選べます。キーは端末間で端から端まで暗号化して同期され、この端末のキーチェーンに残り、選んだサービスにだけ送られます',
+    ai: '接続したサービスは、スマート入力やインサイトで選べます。',
     board: '並び順と完了時の表示は、パソコンの間で同期されます',
     insight: '途切れ、振り返り、そして下書きがあなたをどう理解するか',
     appearance: 'テーマ、スタイル、言語はパソコンの間で同期され、作業履歴には入りません',
@@ -30,10 +30,7 @@ export const settingsMessages: SettingsCatalog = {
     sync: 'Apple または Google でログインし、同期パスワードでデバイス間を暗号化して同期します',
   },
   // Appearance
-  styleNotes: { paper: '温かみのある紙面、点線の区切り、やわらかな影', minimal: 'ニュートラルなグレー、細い実線の枠', macos: 'クールなグレー、すりガラスのパネル、青い主要ボタン' },
-  checkNotes: { outline: 'フローの色の枠線だけで、最も控えめ', paper: '白地でフローの色を引き立てる', tint: '同系色の淡い地で、グループが最も分かりやすい' },
   relationLines: '関係線',
-  relationLinesNote: 'フローを 1 つに絞り込むと、上位と下位を線でつなぎます',
   celebration: '完了時の紙吹雪',
   celebrationNote: '選択した列で項目を完了すると、左右の下隅から紙吹雪が舞います。',
   celebrationOff: 'オフです。いずれかの列を選ぶとオンになります。',
@@ -45,7 +42,7 @@ export const settingsMessages: SettingsCatalog = {
   privacyPoints: [
     '受け取るのは機能が使用中のサービスだけで、オフの機能は何も送信しません',
     'スマート入力が送るのは入力の原文、ワークスペースの日付、名前を挙げたか選択した目標だけ。インサイトはボードの要約と設定だけです',
-    'メモ、履歴、ゴミ箱は送信しません。キーは暗号化された通信の中だけで同期され、この端末のキーチェーンに残り、ワークスペースのバックアップや書き出しには入りません',
+    'メモ、履歴、ゴミ箱は送信しません。キーはエンドツーエンド暗号化で同期し、この端末のキーチェーンに保存します。キーは対応するサービスにだけ送信し、バックアップや書き出しには含めません。',
   ],
   // Calendar
   calendarSettings: 'カレンダー設定',
@@ -128,7 +125,7 @@ export const settingsMessages: SettingsCatalog = {
     realtimeOnline: '接続済み',
     realtimeOffline: '未接続',
     loading: '同期の状態を読み込んでいます',
-    unconfigured: '同期の設定がありません。anon key を環境変数 GOALLOOM_SUPABASE_ANON_KEY か、この端末の userData にある sync-config.json に置いてください。ログインしなくてもボードは使えます。',
+    unconfigured: 'このバージョンでは同期を利用できません。ボードはこの端末で使えます。',
     locked: 'このパソコンは同期の鍵にアクセスできません。保存済みのデータは保持され、ボードはオフラインで使えます。システムのアクセス権を復旧した後、Goalloom を完全に終了して開き直してください。',
     lockedStorage: 'このパソコンの同期認証情報ファイルを読み込めません。Goalloom を完全に終了して開き直してください。解決しない場合は、ローカルデータと認証情報ファイルを保持したままサポートに連絡してください。',
     signedOut: 'ログインすると、同じ同期パスワードでパソコン間を暗号化して同期します。ログアウト中もボードは使えます。',

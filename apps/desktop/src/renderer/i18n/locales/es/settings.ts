@@ -18,7 +18,7 @@ export const settingsMessages: SettingsCatalog = {
   collapseCompleted: 'Plegar tareas completadas',
   collapseCompletedNote: 'Desactivado: conserva su posición. Activado: agrupa al final de la columna. Las tareas y subtareas permanecen juntas.',
   subtitles: {
-    ai: 'Añade una clave una vez y deja que la entrada inteligente y Perspectiva elijan servicio; las claves se sincronizan cifradas de extremo a extremo, permanecen en el llavero de este equipo y solo van al servicio que elijas',
+    ai: 'Conecta un servicio para usarlo en Entrada inteligente o Perspectiva.',
     board: 'El orden y los avisos al completar se sincronizan entre ordenadores',
     insight: 'Cortes, repasos y cómo te entiende el borrador',
     appearance: 'El tema, el estilo y el idioma se sincronizan entre ordenadores y no forman parte del historial de tareas',
@@ -30,10 +30,7 @@ export const settingsMessages: SettingsCatalog = {
     sync: 'Entra con Apple o Google y protege la sincronización con una contraseña',
   },
   // Appearance
-  styleNotes: { paper: 'Papel cálido, separadores punteados, sombras suaves', minimal: 'Grises neutros, bordes finos continuos', macos: 'Grises fríos, superficies translúcidas y acciones azules' },
-  checkNotes: { outline: 'Solo el contorno del color de flujo; el más discreto', paper: 'Fondo blanco que resalta el color de flujo', tint: 'Fondo del mismo color, suave; agrupa mejor' },
   relationLines: 'Líneas de relación',
-  relationLinesNote: 'Al filtrar un solo flujo, unas líneas unen sus elementos superiores e inferiores',
   celebration: 'Confeti al completar',
   celebrationNote: 'Lanza confeti desde las dos esquinas inferiores al completar un elemento en las columnas elegidas.',
   celebrationOff: 'Desactivado. Elige cualquier columna para activarlo.',
@@ -45,7 +42,7 @@ export const settingsMessages: SettingsCatalog = {
   privacyPoints: [
     'Solo recibe contenido el servicio que usa cada función; las funciones desactivadas no envían nada',
     'La entrada inteligente solo envía el texto actual, la fecha del espacio de trabajo y los objetivos que menciones o elijas; Perspectiva solo envía un resumen del tablero y tus preferencias',
-    'No se envían descripciones, historial ni papelera; las claves solo se sincronizan dentro del canal cifrado, permanecen en el llavero de este equipo y no entran en las copias ni en las exportaciones',
+    'No se envían descripciones, historial ni papelera. Las claves se sincronizan con cifrado de extremo a extremo y se guardan en el llavero de este equipo. Cada clave solo se envía a su servicio y queda fuera de las copias y exportaciones.',
   ],
   // Calendar
   calendarSettings: 'Configuración del calendario',
@@ -128,7 +125,7 @@ export const settingsMessages: SettingsCatalog = {
     realtimeOnline: 'Conectado',
     realtimeOffline: 'Desconectado',
     loading: 'Leyendo el estado de sincronización',
-    unconfigured: 'La sincronización no está configurada. Pon la anon key en GOALLOOM_SUPABASE_ANON_KEY o en sync-config.json, dentro de los datos de este dispositivo. El tablero funciona sin ella.',
+    unconfigured: 'La sincronización no está disponible en esta versión. Puedes usar el tablero en este dispositivo.',
     locked: 'Este ordenador no puede acceder a las claves de sincronización. Los datos guardados se conservan y el tablero funciona sin conexión. Tras restablecer el acceso del sistema, cierra Goalloom por completo y vuelve a abrirlo.',
     lockedStorage: 'No se puede leer el archivo local de credenciales de sincronización. Cierra Goalloom por completo y vuelve a abrirlo. Si el problema continúa, contacta con soporte y conserva los datos y las credenciales locales.',
     signedOut: 'Entra para cifrar y sincronizar entre ordenadores con una contraseña. El tablero funciona aunque no entres.',

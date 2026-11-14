@@ -1,5 +1,5 @@
 /**
- * [INPUT]: Persisted current/planning views, authoritative submissions and completed-task layout.
+ * [INPUT]: Persisted current/planning views, authoritative submissions, completed-task layout and today's focus.
  * [OUTPUT]: Shared pointer drop intents, whole-group previews, atomic child/root insertion and guarded pointer/keyboard placement projections.
  * [POS]: Board drag coordinator; transactions remain authoritative and failed drops animate back.
  */
@@ -16,14 +16,14 @@ import { beginBoardMotion, captureDropPosition } from './RowMotion'
 import { dropViewport, intersectRect } from './geometry'
 import { useCollapseCompleted } from '../../state/completed-layout'
 
-interface Input { snapshot: Snapshot; view: BoardView; columns: ItemHorizon[]; busy: boolean; submit: (action: Action) => Promise<unknown> }
+interface Input { snapshot: Snapshot; view: BoardView; columns: ItemHorizon[]; busy: boolean; submit: (action: Action) => Promise<unknown>; todayFocus: string | null }
 interface Preview { generation: string; selection: string; items: ItemSummary[]; settled: boolean; success: boolean; focus: string | null }
 interface NestFocus { generation: string; selection: string; id: string; parentId: string; selector: string }
 interface SortMarker { id: string; position: 'before' | 'after'; nested: boolean }
 type PointerDrop = { type: 'nest'; parentId: string; beforeId: string | null; marker: SortMarker | null }
   | { type: 'move'; targetId: string; beforeId: string | null; marker: SortMarker }
 
-export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
+export function useBoardDrag({ snapshot, view, columns, busy, submit, todayFocus }: Input) {
   const collapseCompleted = useCollapseCompleted()
   const [dragging, setDragging] = useState<string | null>(null), [preview, setPreview] = useState<Preview | null>(null)
   const [nestFocus, setNestFocus] = useState<NestFocus | null>(null)
@@ -98,12 +98,17 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
   }, [dragging])
   const byId = new Map([...view.nestingParents, ...view.items].map(row => [row.id, row]))
   const localParent = (item: Parameters<typeof localNestingParentId>[0]) => localNestingParentId(item, byId)
+  const pinnedItem = todayFocus ? byId.get(todayFocus) : undefined
+  const pinnedRoot = pinnedItem ? localParent(pinnedItem) ?? pinnedItem.id : null
   const todoGroups = new Set(view.items.filter(row => row.status === 'todo').map(row => localParent(row) ?? row.id))
   const rowsIn = (horizon: ItemHorizon, active: ItemSummary, independent = false) => {
     const parent = independent ? null : localParent({ ...active, placement: { ...active.placement, horizon, periodId: view.periods[horizon]?.id ?? null } })
-    return view.items.filter(row => row.placement.horizon === horizon
+    const rows = view.items.filter(row => row.placement.horizon === horizon
       && localParent(row) === parent
       && (!collapseCompleted || todoGroups.has(localParent(row) ?? row.id) === todoGroups.has(localParent(active) ?? active.id)))
+    if (horizon !== 'day' || parent || !pinnedRoot) return rows
+    // The fixed outline is outside the ordinary root insertion order.
+    return active.id === pinnedRoot ? rows.filter(row => row.id === pinnedRoot) : rows.filter(row => row.id !== pinnedRoot)
   }
   const sortPeers = (rows: ItemSummary[], active: ItemSummary) => rows.filter(row =>
     localParent(row) === localParent(active))
@@ -227,6 +232,7 @@ export function useBoardDrag({ snapshot, view, columns, busy, submit }: Input) {
     const target = view.items.find(row => row.id === (keyTarget ? keyTarget.id : pointerTarget?.targetId ?? event.over?.id))
     const horizon = keyTarget?.horizon ?? target?.placement.horizon ?? String(event.over?.id).replace('column:', '') as ItemHorizon
     if (busy || !item || !editable.includes(item.placement.horizon) || !editable.includes(horizon)) return
+    if (item.id === pinnedRoot && horizon === 'day') return
     const siblings = rowsIn(horizon, item), same = item.placement.horizon === horizon
     const peers = sortPeers(siblings, item), positions = target && peers.includes(target) ? peers : siblings
     let beforeId = pointerTarget ? pointerTarget.beforeId : target && positions.includes(target) ? target.id : null

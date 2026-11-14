@@ -17,7 +17,7 @@ export const settingsMessages = widen({
   collapseCompleted: '折叠已完成任务',
   collapseCompletedNote: '关闭时保留原位置；开启时收纳到列底部。父子任务保持在一起。',
   subtitles: {
-    ai: '添加一次 Key，智能输入和洞察各自选用；Key 经端到端加密同步，保存在本机钥匙串，只发给你选中的服务',
+    ai: '连接后，可在智能输入和洞察中选用。',
     board: '排序与完成反馈会在电脑之间同步',
     insight: '断点、复盘，以及起草时怎样理解你',
     appearance: '主题、风格和语言会在电脑之间同步，不写入工作区历史',
@@ -29,10 +29,7 @@ export const settingsMessages = widen({
     sync: '用 Apple 或 Google 登录，并用同步密码在设备间加密同步',
   },
   // Appearance
-  styleNotes: { paper: '暖色纸面，虚线分隔，柔和投影', minimal: '中性灰阶，实线细描边', macos: '冷灰底色，磨砂浮层，蓝色主操作' },
-  checkNotes: { outline: '只留流程色描边，最安静', paper: '白底衬出流程色', tint: '同色淡底，分组最明显' },
   relationLines: '关系线',
-  relationLinesNote: '筛选单个流程时，用线连起它的上下级',
   celebration: '完成撒花',
   celebrationNote: '完成条目时从左右下角撒花，只在选中的列播放。',
   celebrationOff: '已关闭。选中任一列即可开启。',
@@ -44,7 +41,7 @@ export const settingsMessages = widen({
   privacyPoints: [
     '只有功能正在使用的服务会收到内容；关闭的功能不发送任何内容',
     '智能输入只发送当前输入的原文、工作区日期与你点名或选中的目标；洞察只发送看板摘要与你的偏好',
-    '不发送说明、历史、回收站；Key 只在加密通道里同步，保存在本机钥匙串，不进入工作区备份或导出',
+    '不发送说明、历史、回收站。Key 经端到端加密同步，保存在本机钥匙串，只发给对应的服务，不进入工作区备份或导出。',
   ],
   // Calendar
   calendarSettings: '日历设置',
@@ -127,7 +124,7 @@ export const settingsMessages = widen({
     realtimeOnline: '已连接',
     realtimeOffline: '未连接',
     loading: '正在读取同步状态',
-    unconfigured: '还没有同步配置。把 anon key 放在环境变量 GOALLOOM_SUPABASE_ANON_KEY，或本机 userData 里的 sync-config.json。未登录时看板照常使用。',
+    unconfigured: '此版本暂未提供同步。你可以继续使用本地看板。',
     locked: '本机无法访问同步密钥。已保存的数据保留，看板仍可离线使用。恢复系统访问权限后，请完全退出并重新打开 Goalloom。',
     lockedStorage: '本机同步凭据文件无法读取。请完全退出并重新打开 Goalloom。若仍失败，请联系支持，并保留本机数据和凭据文件。',
     signedOut: '登录后，两台电脑用同一个同步密码加密同步。不登录也可以继续使用。',

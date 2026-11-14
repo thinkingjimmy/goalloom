@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 ../zh/shortcuts 的 ShortcutCatalog、shortcutNames、shortcutNotes 类型。
- * [OUTPUT]: 与 zh 同构的英文快捷键分册：行标题、作用范围说明、流程筛选开关与示意、录制/冲突/校验提示。
- * [POS]: renderer/i18n/locales/en 的快捷键分册，与 zh 同构；不决定键位。
+ * [INPUT]: ShortcutCatalog and label types from the Chinese catalog.
+ * [OUTPUT]: English shortcut labels, one-line guidance, inline recording feedback and top-bar key instructions.
+ * [POS]: English renderer messages for shortcut settings.
  */
 import type { ShortcutCatalog, shortcutNames as names, shortcutNotes as notes } from '../zh/shortcuts'
 
@@ -14,7 +14,7 @@ export const shortcutNotes: typeof notes = {
 }
 export const shortcutMessages: ShortcutCatalog = {
   section: 'Shortcuts',
-  subtitle: 'Click a key, then press a new combination; Esc cancels. Combinations must include ⌘/Ctrl or ⌥/Alt.',
+  subtitle: 'Click a shortcut, then press new keys (Esc to cancel).',
   general: 'General',
   filters: 'Top bar numbers',
   filtersToggle: (mod: string) => `Use ${mod} + number for Later and top bar filters`,
@@ -30,7 +30,6 @@ export const shortcutMessages: ShortcutCatalog = {
   edit: (name: string) => `Change shortcut: ${name}`,
   clear: (name: string) => `Clear shortcut: ${name}`,
   conflict: (names: string[]) => `Same keys as “${names.join('”, “')}”`,
-  conflictNote: 'Shortcuts that only work in specific dialogs can share keys. Conflicts are only flagged; saving isn’t blocked.',
   needsModifier: 'Must include ⌘/Ctrl or ⌥/Alt',
   reserved: 'This combination is reserved by the system',
 }

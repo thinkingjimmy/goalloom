@@ -1,6 +1,6 @@
 /**
  * [INPUT]: A validated focus command, the authoritative period/item rows and injected time.
- * [OUTPUT]: setFocus/reverseFocus: one guarded, event-free period pointer write and its owned-field inverse.
+ * [OUTPUT]: Guarded period focus writes and owned-field undo. An active daily focus must be cleared before another is set.
  * [POS]: Period focus transaction rules, revalidated inside Repository's write transaction and undo SAVEPOINT.
  */
 import { compareInstants } from '../../../domain/calendar'
@@ -24,6 +24,9 @@ export function setFocus(context: Context, command: CommandOf<'focus'>): boolean
   const before = context.store.focusItem(period.id)
   if (before !== command.expectedItemId) throw new DomainError('stale', serverText().errors.focusChanged)
   if (command.itemId !== null && !isFocusItem(context.store.item(command.itemId), period.id)) throw new DomainError('invalid', serverText().errors.focusUnavailable)
+  if (period.horizon === 'day' && before && command.itemId && before !== command.itemId && isFocusItem(context.store.item(before), period.id)) {
+    throw new DomainError('invalid', serverText().errors.focusClearFirst)
+  }
   context.label = serverText().labels.focus(period.horizon, command.itemId !== null)
   context.itemId = command.itemId ?? before
   if (before === command.itemId) return false

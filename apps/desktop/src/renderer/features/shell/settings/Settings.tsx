@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Workspace, narrow data/actions API and device preferences.
- * [OUTPUT]: Settings navigation with colored pause icons, sync status and update status, section headings, item-filter counts, section-scoped backup reads and AI status refresh.
+ * [OUTPUT]: Settings navigation with status badges, section headings with concise shortcut guidance, item-filter counts, section-scoped backup reads and AI status refresh.
  * [POS]: Data-management container; protective preparation locks navigation and confirmation starts unchecked.
  */
 import { IconButton } from '../../../components/ui/button'
@@ -137,7 +137,6 @@ export function Settings({ snapshot, ai, initial = 'appearance', request = 0, su
   const heading = <>
     <div className="settings-heading flex-1 min-w-0 flex flex-col gap-[3px]">
       <h2>{title}</h2>{subtitle && <p>{subtitle}</p>}
-      {!preview && section === 'shortcuts' && <p className="settings-shortcut-note">{shortcutMessages.conflictNote}</p>}
     </div>
     {preview && <TransferSteps backedUp={!!preview.backup} />}
     {!preview && section === 'done' && <Segmented label={messages.endingFilter} value={ending} onChange={setEnding}

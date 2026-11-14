@@ -2,7 +2,7 @@
  * [INPUT]: Current snapshot, selected planning views, stable flows, independent Later/planning visibility, guarded actions, PeriodPicker/PeriodReturn controls, input-aware focus return and flow-insight hooks.
  * [OUTPUT]: A single-row title-as-switcher period header (header B: period panel, ←/→ stepping and a return icon with localized guidance), directional content entrances, period-scoped scroll, live past-task actions, current/future drafts/drops, virtual task menus and relation lines:
  *           persistent under a single-flow filter, transient while a row's flow dot is hovered or focused (its flows, lit and tinted).
- *           Owns independent relation dragging/prepared writes, virtual source pinning, whole-group drop previews, pointer overlays below insertion lines and scoped one-shot column arrangement.
+ *           Owns independent relation dragging/prepared writes, the task menu's period context and virtual source pinning, whole-group drop previews, pointer overlays below insertion lines and scoped one-shot column arrangement.
  *           Right-aligned More/Add controls share header reveal states; column headers, trailing blank-space double clicks and quiet todo-tail buttons share inline creation and two-level Tab drafts; hidden columns stay mounted and inert.
  *           Every inline entry follows the captured parent-placement preference; opening at the tail does not pin the saved position.
  *           Double-clicking a card edits its title in place; Tab/Shift+Tab reuse guarded nesting while retaining the editor and its completed section.
@@ -10,6 +10,7 @@
  *           "Write my own" opens this column's inline entry, the same one as ＋.
  *           Current month/week headers share the trailing add slot with a rounded calendar-day countdown badge.
  *           Completed tasks remain inline by default; the synced board preference can group fully completed outlines below.
+ *           Today's focus fixes its local outline at the top and offers only its clear action until it becomes inactive.
  * [POS]: Main board view; explicit optimistic drops and virtual-row FLIP follow saved order, with authoritative transaction validation.
  */
 import { IconButton, SettingsButton, TextButton } from '../../components/ui/button'
@@ -74,7 +75,10 @@ interface BoardProps { snapshot: Snapshot; view: BoardView; flows: Flows; filter
 export const Board = memo(function Board({ snapshot, view, flows, filter, columns, highlighted, addRequest, submit, busy, select, insight, write, relationBlocked, onError, ai }: BoardProps) {
   useLocale()
   useEffect(() => { if (highlighted) { const frame = requestAnimationFrame(() => revealRow(highlighted)); return () => cancelAnimationFrame(frame) } }, [highlighted])
-  const drag = useBoardDrag({ snapshot, view, columns, busy, submit })
+  const focusByPeriod = useMemo(() => effectiveFocus(snapshot.focus, snapshot.items), [snapshot.focus, snapshot.items])
+  const todayPeriod = view.mode('day') === 'current' ? view.periods.day : null
+  const todayFocus = todayPeriod ? focusByPeriod.get(todayPeriod.id) ?? null : null
+  const drag = useBoardDrag({ snapshot, view, columns, busy, submit, todayFocus })
   const { items, dragging } = drag
   const relationDrag = useRelationDrag({ snapshot, view, flows, blocked: relationBlocked || !!dragging, write, onError })
   const byColumn = useMemo(() => new Map(horizons.map(horizon => [horizon, items.filter(item => item.placement.horizon === horizon)])), [items])
@@ -145,7 +149,7 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   const insightSettings = useInsightSettings()
   const displayed = useMemo(() => ({ ...snapshot, periods: Object.values(view.periods), items: view.items }), [snapshot, view.periods, view.items])
   const empty = useMemo(() => emptyColumns(displayed, columns, view.mode), [displayed, columns, view.mode])
-  const column = (horizon: ItemHorizon) => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!} visible={columns.includes(horizon)}
+  const column = (horizon: ItemHorizon) => <Column key={horizon} horizon={horizon} items={byColumn.get(horizon)!} visible={columns.includes(horizon)} focusByPeriod={focusByPeriod}
     snapshot={snapshot} view={view} flows={flows} active={active} lines={lines} onPreview={onPreview} highlighted={highlighted} today={today} submit={submit} busy={busy} select={select} ai={ai}
     onNest={setNestingItemId} dragging={dragging} nestingPreview={drag.nestingPreview} relationSource={relationDrag.sourceId} editingId={editingId} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
     adding={adding?.horizon === horizon ? adding : null} onAdding={onAdding} onFocus={onFocus} insight={insight} sources={insightSettings.breakpoints ? (horizon === 'later' || horizon === 'year' ? undefined : empty.get(horizon)) ?? null : null} />
@@ -166,8 +170,9 @@ export const Board = memo(function Board({ snapshot, view, flows, filter, column
   </DndContext></RelationDragContext.Provider>
 })
 
-const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, nestingPreview, relationSource, editingId, beginEdit, endEdit, renameTitle, insight, sources, onNest, ai }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
+const Column = memo(function Column({ horizon, items, visible, snapshot, view, flows, active, lines, onPreview, highlighted, today, submit, busy, select, adding, onAdding, onFocus, dragging, nestingPreview, relationSource, editingId, beginEdit, endEdit, renameTitle, insight, sources, onNest, ai, focusByPeriod }: Omit<BoardProps, 'addRequest' | 'columns' | 'filter' | 'write' | 'relationBlocked' | 'onError'> & {
   sources: ItemSummary[] | null
+  focusByPeriod: ReadonlyMap<string, string>
   active: string[]; lines: boolean; onPreview: (itemId: string | null) => void
   horizon: ItemHorizon; items: ItemSummary[]; today: string; visible: boolean
   adding: { period: PlanningPeriod | null; split: SplitParent | null; key: number } | null
@@ -191,25 +196,27 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
   const { setNodeRef, isOver } = useDroppable({ id: `column:${horizon}`, disabled: !!history || disabled })
   const calendar = snapshot.workspace.calendar!
   const previous = period ? precedingPeriod(calendar, period) : null
-  const next = period ? currentPeriod(calendar, period.horizon, period.endAt) : null
+  const next = useMemo(() => period ? currentPeriod(calendar, period.horizon, period.endAt) : null, [calendar, period])
   // Focus: one most important item per current month/week/day period; the main process re-validates every write.
   const focusScope = mode === 'current' && period && isFocusScope(horizon) ? horizon : null
   const storedFocus = focusScope ? snapshot.focus?.find(value => value.periodId === period!.id)?.itemId ?? null : null
-  const focusId = useMemo(() => focusScope && period ? effectiveFocus(snapshot.focus, snapshot.items).get(period.id) ?? null : null, [focusScope, period, snapshot.focus, snapshot.items])
+  const focusId = focusScope && period ? focusByPeriod.get(period.id) ?? null : null
+  const todayPin = focusScope === 'day' ? focusId : null
   const toggleFocus = useCallback((item: ItemSummary) => {
-    if (!period) return
-    void submit({ type: 'focus', periodId: period.id, itemId: focusId === item.id ? null : item.id, expectedItemId: storedFocus })
-  }, [period, focusId, storedFocus, submit])
-  const upcoming = useMemo(() => {
-    if (!next || history) return null
-    const periods = [next]
-    while (periods.length < 3) periods.push(currentPeriod(calendar, next.horizon, periods.at(-1)!.endAt))
-    return periods.map(value => {
-      const relative = value.id === currentPeriod(calendar, value.horizon, current!.endAt).id
-        && !(value.horizon === 'year' && calendar.mode === 'natural') && !(value.horizon === 'cycle' && calendar.mode === 'rolling')
-      return { period: value, label: planningLabel(value, calendar, snapshot.observedAt), hint: relative ? periodLabel(value.horizon, value, calendar, today, true) : null }
+    if (!period || (todayPin && todayPin !== item.id)) return
+    const itemId = focusId === item.id ? null : item.id
+    void submit({ type: 'focus', periodId: period.id, itemId, expectedItemId: storedFocus }).then(result => {
+      if (result && itemId && focusScope === 'day') requestAnimationFrame(() => revealRow(itemId))
     })
-  }, [next?.id, history?.id, snapshot.observedAt])
+  }, [period, focusId, storedFocus, focusScope, todayPin, submit])
+  const menuPeriods = useMemo(() => {
+    if (!period || !current || !next || history) return null
+    const relative = period.id === current.id
+      && !(next.horizon === 'year' && calendar.mode === 'natural') && !(next.horizon === 'cycle' && calendar.mode === 'rolling')
+    return { period, current, calendar, today, next: {
+      label: planningLabel(next, calendar, snapshot.observedAt), hint: relative ? periodLabel(next.horizon, next, calendar, today, true) : null,
+    } }
+  }, [period, current, next, history, calendar, today, snapshot.observedAt])
   const target = mode === 'current' || mode === 'future' && (horizon === 'year' || horizon === 'half') ? shorter(horizon) : null
   const split = useCallback((item: ItemSummary) => {
     if (target) void decompose({ snapshot: { ...snapshot, periods: Object.values(view.periods), items: view.items }, flows, ready: insight.ready, submit, seed: insight.seed }, { parent: item, target, manual: false })
@@ -237,7 +244,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     setPickingState(open)
     if (!open && inside) requestAnimationFrame(() => section.current?.querySelector<HTMLElement>('[data-period-switch]')?.focus({ preventScroll: true }))
   }
-  const choosePeriod = (target: PlanningPeriod, pointer: boolean, keepOpen = false) => { switchTo(target, pointer); if (!keepOpen) setPicking(false) }
+  const choosePeriod = (target: PlanningPeriod, pointer: boolean) => { switchTo(target, pointer); setPicking(false) }
   const stepKeys = (event: KeyboardEvent) => {
     if (busy || event.nativeEvent.isComposing) return
     if (event.key === 'ArrowLeft' && back) { event.preventDefault(); switchTo(back) }
@@ -255,7 +262,7 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     refocus.current = null
   }, [period?.id, mode, history ? page.loading : false])
   useEffect(() => { if (collapseCompleted && highlighted && items.some(item => item.id === highlighted && item.status === 'done')) setDoneOpen(true) }, [collapseCompleted, highlighted, items])
-  const { rows, todo, done } = useMemo(() => outlineSections(items, view.nestingParents), [items, view.nestingParents])
+  const { rows, todo, done } = useMemo(() => outlineSections(items, view.nestingParents, todayPin), [items, view.nestingParents, todayPin])
   const editingSection = useRef<{ id: string | null; done: boolean }>({ id: null, done: false })
   if (editingSection.current.id !== editingId) editingSection.current = { id: editingId, done: done.some(item => item.id === editingId) }
   const { mainRows, doneRows } = useMemo(() => {
@@ -315,15 +322,16 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     return <TaskRow nestingTarget={canNest ? preceding : null} nestingParent={view.nestingParents.find(parent => parent.id === item.placement.nestingParentId)} index={index} total={total} key={item.id} item={item} flows={flows} relations={snapshot.relations} candidates={view.candidates} today={today} selected={highlighted === item.id}
       // Later never joins flows, so a flow filter leaves the parking lot readable instead of greying it out.
       dimmed={horizon !== 'later' && active.length > 0 && !lit} tint={lines && lit ? flowTint(lit.flowColor) : undefined} disabled={disabled} editing={editingId === item.id} editLocked={disabled || !!dragging || !!relationSource} select={select} submit={submit} onPreview={onPreview}
-      onNest={onNest} upcoming={upcoming} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
-      focusScope={focusScope} focusOn={focusId === item.id} onFocus={focusScope ? toggleFocus : null} />
+      onNest={onNest} menuPeriods={menuPeriods} assist={insight.assist} decompose={target ? split : null} onMenu={setMenuItem} onMoved={onMoved} beginEdit={beginEdit} endEdit={endEdit} renameTitle={renameTitle}
+      focusScope={focusScope} focusOn={focusId === item.id} onFocus={focusScope && (!todayPin || todayPin === item.id) ? toggleFocus : null} />
   }
   const due = mode === 'current' ? insight.due.find(entry => horizon === 'month' ? !!entry.month : horizon === 'week' ? entry.scope === 'week' : horizon === 'day' && entry.scope === 'day') : undefined
   const review = due ? due.month ?? due.week ?? due.day ?? null : null
   const pendingCount = [due?.month, due?.week, due?.day].flatMap(value => value ? [value] : []).reduce((count, value) => count + (snapshot.backlog[value.horizon] ?? 0) + (value.lastDay ? snapshot.items.filter(item => item.placement.periodId === value.period.id && item.status === 'todo').length : 0), 0)
   const recentReview = (horizon === 'month' || horizon === 'week') && mode === 'current' ? reviewTarget(snapshot, horizon, []) : null
   const completedReview = !!recentReview && insight.reviewed.includes(recentReview.key)
-  const reviewName = (period: PlanningPeriod) => period.horizon === 'week' ? planningLabel(period, calendar, snapshot.observedAt)
+  // Every review name below sits mid-sentence, so relative names use their lowered form.
+  const reviewName = (period: PlanningPeriod) => period.horizon === 'week' ? planningLabel(period, calendar, snapshot.observedAt, true)
     : periodDates(period, period.startDate.slice(0, 4) !== today.slice(0, 4))
   const reviewPeriodName = review ? reviewName(review.period) : ''
   const guide = review && <div className="review-guide p-3 rounded-[9px]">
@@ -353,8 +361,8 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
     onKeyDown={leaveOnEscape} onFocusCapture={() => focus(!history)} onPointerDown={() => focus(!history)} data-horizon={horizon} aria-label={messages.columnLabel(name)} ref={node => { setNodeRef(node); section.current = node }}>
     <header className={`column-header ${period ? 'period-header' : ''}`}>
       {period && current ? <div className="period-nav">
-        <PeriodPicker horizon={horizon as Horizon} name={name} period={period} current={current} calendar={calendar} today={today} back={back} busy={busy}
-          review={review?.period.id ?? null} open={picking} setOpen={setPicking} choose={choosePeriod} anchor={
+        <PeriodPicker name={name} period={period} current={current} calendar={calendar} today={today} back={back} busy={busy}
+          open={picking} setOpen={setPicking} choose={choosePeriod} anchor={
             <h2 className="period-heading" aria-live="polite" aria-atomic="true">
               <button type="button" className="period-switch" data-period-switch aria-haspopup="dialog" aria-expanded={picking} aria-description={daysLeft !== null ? calendarMessages.daysLeft(daysLeft) : undefined} onClick={() => setPicking(!picking)} onKeyDown={stepKeys}>
                 <span className="period-title" title={periodDates(period)}>{heading ?? (period && horizon === 'year' && calendar.mode === 'natural' ? planningLabel(period, calendar, snapshot.observedAt) : date)}</span>
@@ -388,9 +396,9 @@ const Column = memo(function Column({ horizon, items, visible, snapshot, view, f
       {history ? <PastPeriod key={history.id} history={page} select={select} submit={submit} busy={busy} /> : <>
         {loading && items.length === 0 && <p className="period-loading" role="status">{messages.loadingPeriod}</p>}
         {failed && <p className="inline-error" role="alert">{messages.planningLoadFailed} <TextButton onClick={view.retry}>{messages.retryPeriod}</TextButton></p>}
-        <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={(todayPin ? [...mainRows, ...(collapseCompleted ? doneRows : [])] : items).map(item => item.id)} strategy={verticalListSortingStrategy}>
           <VirtualRows scope={`${snapshot.workspace.generation}:${period?.id ?? "later"}:main`} items={mainRows} dragging={dragging} highlighted={highlighted} pinned={relationSource ?? menuItem} alsoPinned={editingId} nestingPreview={nestingPreview} render={row} />
-          {!adding && todo.length > 0 && <button type="button" className="column-add-task" data-column-add aria-label={messages.newToColumn(displayName)} disabled={disabled || !!dragging || !!relationSource} onClick={openAdd}>
+          {!adding && todo.some(item => item.status === 'todo') && <button type="button" className="column-add-task" data-column-add aria-label={messages.newToColumn(displayName)} disabled={disabled || !!dragging || !!relationSource} onClick={openAdd}>
             <Icon name="add" size={18} /><span>{messages.addTask}</span>
           </button>}
           {adding && <QuickAdd key={`${adding.period?.id ?? 'later'}:${adding.key}`} horizon={horizon} period={adding.period} periodName={adding.period ? planningLabel(adding.period, calendar, snapshot.observedAt) : name}

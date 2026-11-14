@@ -52,10 +52,11 @@
 
 | 平台 | 版本 | 安装包 |
 | --- | --- | --- |
-| macOS 14+（Apple 芯片） | 1.12.2 | [Goalloom-1.12.2-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.2/Goalloom-1.12.2-mac-arm64.dmg) |
-| Windows 11（x64） | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
+| macOS 14+（Apple 芯片） | 1.12.3 | [Goalloom-1.12.3-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.3/Goalloom-1.12.3-mac-arm64.dmg) |
+| Windows 11（x64），新工作区 | 1.12.3 | [Goalloom-1.12.3-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.3/Goalloom-1.12.3-win-x64.exe) |
+| Windows 11（x64），已有 1.9.10 工作区 | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
 
-**更新前核对格式：** 1.12.2 先创建并校验保护备份，再将 v15 工作区升级到 v16；仍支持 v15 JSON 导出与 SQLite 备份。v14 及更旧格式保持原样，暂不支持。如需返回旧版应用，请保留保护备份。使用焦点任务前，请升级共享同步工作区的每台电脑。详见[发布说明](./releases/v1.12.2.md)。
+如果你目前在 Windows 使用 1.9.10，请用该版本继续打开已有的 v11 工作区。Windows 1.12.3 供新工作区手动安装。macOS 1.12.3 支持打开 v16 工作区，并在校验保护备份后升级 v15 工作区。详见[发布说明](./releases/v1.12.3.md)。
 
 ## 首次打开
 
@@ -63,7 +64,7 @@ macOS 安装包已通过 Developer ID 签名和 Apple 公证。Windows 版仍未
 
 **macOS。** 打开 DMG，把 Goalloom 拖进「应用程序」后打开即可。
 
-**公开版 macOS 1.8.0 使用 ad-hoc 签名。** 它不能通过内置更新切换到 Developer ID 签名。1.12.2 也不会转换其工作区格式；如需继续使用旧工作区，请保留旧版应用和备份。
+**公开版 macOS 1.8.0 使用 ad-hoc 签名。** 如需继续使用该版本的工作区，请保留原应用和备份。
 
 **Windows。** 出现 SmartScreen「Windows 已保护你的电脑」时，点「更多信息 → 仍要运行」，再按安装向导完成。
 

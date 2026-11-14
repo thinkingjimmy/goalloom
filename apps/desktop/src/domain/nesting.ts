@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Explicit goal edges, independent placements, live nesting links and an injected stable virtual-ID factory.
- * [OUTPUT]: Effective goal edges, placement-local groups, cycle-safe targets and two-level rows with independent cross-period ownership.
+ * [OUTPUT]: Effective goal edges, placement-local groups, cycle-safe targets and two-level rows with an optional group at the top of the visible list.
  * [POS]: Shared outline rules; nesting never changes task lifecycle or creates a goal edge to its container.
  */
 import type { ItemSummary, Relation } from '../shared/contracts/entities'
@@ -55,7 +55,7 @@ export function outlineRows<T extends Pick<ItemSummary, 'id' | 'placement'>>(ite
   return [...roots.values()].sort(compare ? (a, b) => compare(a.id, b.id) : manual)
     .flatMap(root => [...visible.has(root.id) ? [root] : [], ...(children.get(root.id) ?? []).sort(manual)])
 }
-export function outlineSections(items: ItemSummary[], contexts: ItemSummary[] = []): { rows: ItemSummary[]; todo: ItemSummary[]; done: ItemSummary[] } {
+export function outlineSections(items: ItemSummary[], contexts: ItemSummary[] = [], pinnedItemId: string | null = null): { rows: ItemSummary[]; todo: ItemSummary[]; done: ItemSummary[] } {
   const visible = new Map(items.map(item => [item.id, item]))
   const context = new Map(contexts.map(item => [item.id, item]))
   const byId = new Map([...contexts, ...items].map(item => [item.id, item]))
@@ -64,12 +64,17 @@ export function outlineSections(items: ItemSummary[], contexts: ItemSummary[] = 
     const root = localNestingParentId(item, byId) ?? item.id
     const group = groups.get(root) ?? []; group.push(item); groups.set(root, group)
   }
+  const pinned = pinnedItemId ? visible.get(pinnedItemId) : undefined
+  const pinnedRoot = pinned ? localNestingParentId(pinned, byId) ?? pinned.id : null
+  const pinnedMembers = pinnedRoot ? groups.get(pinnedRoot) : undefined
+  if (pinnedRoot && pinnedMembers) groups.delete(pinnedRoot)
+  const orderedGroups = pinnedRoot && pinnedMembers ? [[pinnedRoot, pinnedMembers] as const, ...groups] : groups
   const rows: ItemSummary[] = [], todo: ItemSummary[] = [], done: ItemSummary[] = []
-  for (const [rootId, members] of groups) {
+  for (const [rootId, members] of orderedGroups) {
     const root = visible.get(rootId) ?? context.get(rootId)
     const groupRows = outlineRows(root && !visible.has(rootId) ? [root, ...members] : members)
     rows.push(...groupRows)
-    ;(members.some(item => item.status === 'todo') ? todo : done).push(...groupRows)
+    ;(rootId === pinnedRoot || members.some(item => item.status === 'todo') ? todo : done).push(...groupRows)
   }
   return { rows, todo, done }
 }

@@ -52,12 +52,13 @@
 
 | Platform | Version | Download |
 | --- | --- | --- |
-| macOS 14+ (Apple silicon) | 1.12.2 | [Goalloom-1.12.2-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.2/Goalloom-1.12.2-mac-arm64.dmg) |
-| Windows 11 (x64) | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
+| macOS 14+ (Apple silicon) | 1.12.3 | [Goalloom-1.12.3-mac-arm64.dmg](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.3/Goalloom-1.12.3-mac-arm64.dmg) |
+| Windows 11 (x64), new workspaces | 1.12.3 | [Goalloom-1.12.3-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.12.3/Goalloom-1.12.3-win-x64.exe) |
+| Windows 11 (x64), existing 1.9.10 workspaces | 1.9.10 | [Goalloom-1.9.10-win-x64.exe](https://github.com/thinkingjimmy/goalloom/releases/download/v1.9.10/Goalloom-1.9.10-win-x64.exe) |
 
-**Before updating:** 1.12.2 upgrades v15 workspaces to v16 after a verified protective backup, and accepts v15 JSON exports and SQLite backups. v14 and older formats remain unsupported and unchanged. Keep the protective backup if you need the previous app. Upgrade every computer sharing a synced workspace before using focus tasks. See the [release notes](./docs/releases/v1.12.2.md).
+If you use Windows 1.9.10, keep it to open your existing v11 workspace. Windows 1.12.3 is a manual download for a new workspace. macOS 1.12.3 opens v16 workspaces and upgrades v15 after a verified protective backup. See the [release notes](./docs/releases/v1.12.3.md).
 
-Local features and BYOK stay free on both platforms. macOS 1.12.2 includes Plus encrypted sync and built-in AI for USD 8.99/month or USD 79/year. Plus requires verified payment; there is no trial. Windows remains on 1.9.10 for local work and BYOK; this release does not add Windows Plus support. The iPhone app is not publicly released.
+Local features and BYOK are free on both platforms. On macOS, Plus includes encrypted sync and built-in AI for USD 8.99/month or USD 79/year and requires verified payment. The iPhone app is still in development.
 
 The macOS build is **Developer ID signed and notarized by Apple**. The Windows installer is **not code-signed**.
 

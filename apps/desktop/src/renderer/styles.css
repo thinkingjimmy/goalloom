@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Semantic theme tokens, native defaults, the opt-in macOS skin, shared component markers and feature state attributes.
- * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, compact task rows with localized calendar deadline capsules and overlay endpoints, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, unlined detail-title editing, in-place board titles that wrap like the card, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
- *           Trailing More/Add controls stay adjacent and reveal together on column hover, header keyboard focus or an open column menu. Placement drag cards keep full titles and wrap long URLs within their width. Persistent notifications and Undo Toasts share surfaces and action states. Startup status is fixed outside document flow.
+ * [OUTPUT]: App layout, a draggable titlebar that accepts outside presses while a popover is open, fixed Later/sidebar and independent timeline scroll, readable empty-column hints and single-row period headers with shared return/add hover and keyboard reveal plus trailing countdown badges, task titles with baseline-aligned inline deadlines and a first-line star, intrinsic flow-choice menus, quiet column creation controls with growing/wrapping titles and hints below, aligned chrome, in-place title editing, keyboard focus indicators without pointer-return title rings, appearance swaps that do not tween token transitions, and single-pane task details with compact header actions and bounded property controls.
+ *           Trailing More/Add controls stay adjacent and reveal together on column hover, header keyboard focus or an open column menu. Placement drag cards keep full titles and wrap long URLs within their width. Persistent notifications and Undo Toasts share compact shadows and action states. Startup status is fixed outside document flow.
  * [POS]: Renderer entry and coordinated feature/platform styles; ordinary layout and shared controls use Tailwind.
  */
 @import 'tailwindcss';
@@ -41,7 +41,11 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 .fab:hover { transform: translateY(-1px); }
 .feedback-layer { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; overflow: visible; background: transparent; pointer-events: none; }
 .feedback-layer::backdrop { background: transparent; pointer-events: none; }
-.feedback-surface { min-height: 44px; border-radius: 22px; background: var(--fg); color: var(--bg); font-size: 13px; line-height: 1.55; box-shadow: 0 8px 24px rgba(40, 25, 10, .18); pointer-events: auto; }
+.feedback-surface {
+  min-height: 44px; border-radius: 22px; background: var(--fg); color: var(--bg); font-size: 13px; line-height: 1.55; pointer-events: auto;
+  /* Fit within the notification scroller's padding so the shadow fades before its clip edge. */
+  box-shadow: 0 0 0 .5px var(--edge), 0 1px 3px light-dark(rgb(0 0 0 / .14), transparent);
+}
 .toast { position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%); z-index: 40; max-width: calc(100vw - 48px); display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 18px; }
 .toast-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; max-width: 420px; padding: 4px 0; }
 .toast-title { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -126,7 +130,7 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 @keyframes column-scroll-fade { from { opacity: 0; } to { opacity: 1; } }
 .backlog-entry { flex-shrink: 0; height: 36px; margin-top: 2px; padding-left: var(--row-inset); display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--backlog); }
 .backlog-entry:hover { text-decoration: underline; text-underline-offset: 3px; }
-/* The row ground holds the flow dot in its left padding; checkbox, dot and meta stay on the first title line.
+/* The row ground holds the flow dot in its left padding; checkbox and dot stay on the first title line.
    That line starts 7.2px after the checkbox; wrapped lines still return to the checkbox's left edge. */
 /* A 2px clear band above and below keeps neighbouring grounds (hover, located, flow tint) from merging into one block;
    rows carry no divider, so that band is the only separation.
@@ -153,10 +157,28 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 .task-line > .task-title-input { flex: 1 1 auto; width: auto; min-width: 0; max-width: 100%; margin: 0; padding: 3px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 14px; line-height: 22px; text-align: left; text-indent: calc(var(--check-space) - 12px + var(--title-gap)); color: inherit; resize: none; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; cursor: text; }
 .task-line > .task-title-input:focus-visible { outline: none; }
 .task-row[data-done='true'] .task-title, .task-row[data-done='true'] .task-title-input { color: var(--secondary); text-decoration: line-through; }
-.due-badge { flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; min-height: 24px; margin-top: 2px; padding: 0 7px; border: 1px solid var(--line); border-radius: 6px; background: color-mix(in srgb, var(--fg-soft) 7%, var(--bg)); color: var(--fg-soft); font-size: 12px; font-weight: 500; line-height: 20px; white-space: nowrap; cursor: default; }
-.due-badge > svg { flex-shrink: 0; }
-.due-badge[data-state='tomorrow'] { color: var(--backlog); border-color: color-mix(in srgb, var(--backlog) 25%, transparent); background: color-mix(in srgb, var(--backlog) 12%, var(--bg)); }
-.due-badge[data-state='overdue'] { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 25%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--bg)); }
+.board-task-line { display: block; min-block-size: calc(var(--task-focus-size, 0px) + 1px); }
+.board-task-line > :is(.task-title, .task-title-input) { display: block; width: 100%; }
+/* Reserve space inside the text flow only alongside the anchored star. */
+.task-row[data-focus-control] .board-task-line :is(.task-title > span, .link-rich-text)::before {
+  content: ''; float: inline-end; inline-size: var(--task-focus-reserve); block-size: calc(var(--task-focus-size) - 2px);
+}
+/* The native field is rectangular, so keep its text clear of the star while editing. */
+.board-task-line > .task-title-input { padding-inline-end: var(--task-focus-reserve, 0px); }
+@media (pointer: coarse) {
+  /* A taller first line gives the touch target room without narrowing the lines below. */
+  .task-row[data-focus-control] .board-task-line :is(.task-title > span, .link-rich-text)::first-line { line-height: calc(var(--task-focus-size) - 2px); }
+  .task-row[data-focus-control] > .check { margin-top: 15px; }
+  .task-row[data-focus-control] > .flow-dot-slot { top: 15px; }
+  .task-row[data-focus-control] .board-task-line > .task-title-input { padding-block: 13px; }
+}
+.board-task-line > .due-badge { margin-inline-start: calc(var(--check-space) - 12px + var(--title-gap)); margin-block-end: 3px; }
+.board-task-line .link-rich-text .due-badge { pointer-events: auto; }
+/* Use the date text as the inline baseline while centering its icon independently. */
+.due-badge { display: inline-flex; align-items: baseline; gap: 5px; padding-inline: 3px; color: var(--fg-soft); font-size: 12px; font-weight: 500; line-height: 18px; text-indent: 0; white-space: nowrap; }
+.due-badge > svg { flex-shrink: 0; align-self: center; }
+.due-badge[data-state='tomorrow'] { color: var(--backlog); }
+.due-badge[data-state='overdue'] { color: var(--danger); }
 .drag-handle { position: absolute; left: 2px; top: 0; width: 16px; height: 28px; display: grid; place-items: center; color: var(--secondary); opacity: 0; pointer-events: none; }
 .drag-handle:focus-visible { opacity: 1; }
 .drag-overlay { background: var(--raised); padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); font-size: 14px; max-width: 320px; overflow-wrap: anywhere; }
@@ -348,13 +370,16 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
 /* --- Detail: one scrollable task sheet with header actions. --- */
 .modal.detail[open] { display: flex; flex-direction: column; width: min(960px, calc(100vw - 40px)); min-height: min(560px, calc(100vh - 80px)); max-height: min(760px, calc(100vh - 80px)); padding: 0; overflow: hidden; }
 .detail .modal-header { position: static; flex-shrink: 0; margin: 0; height: 56px; padding: 0 58px 0 20px; gap: 2px; }
-/* The placement menu drops out of the header, so let it overflow; the chip text truncates itself. */
-.detail .modal-context { display: flex; min-width: 0; overflow: visible; }
-.detail .modal-context > .popover-root { min-width: 0; }
+.detail .detail-context { display: flex; min-width: 0; overflow: visible; }
+.detail-context > .popover-root { min-width: 0; }
 .detail > .inline-error { margin: 0 28px; }
-.placement-chip { max-width: 100%; height: 32px; padding: 0 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--secondary); font-variant-numeric: tabular-nums; }
-.placement-chip:hover, .placement-chip[aria-expanded='true'] { background: var(--hover); color: var(--fg); }
+.placement-chip { min-width: 0; max-width: 100%; height: 32px; padding: 0 8px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--secondary); text-align: left; font-variant-numeric: tabular-nums; }
+.placement-chip[aria-expanded='true'] { background: var(--hover); color: var(--fg); }
+.placement-chip[aria-disabled='true'] { cursor: default; }
+.placement-chip > svg { flex-shrink: 0; }
+@media (hover: hover) and (pointer: fine) { .placement-chip[aria-disabled='false']:hover { background: var(--hover); color: var(--fg); } }
 .placement-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail-context > .placement-text { padding-inline: 8px; }
 .modal.detail { width: min(960px, calc(100vw - 40px)); min-height: min(560px, calc(100vh - 80px)); max-height: min(760px, calc(100vh - 80px)); }
 .detail-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
 .detail-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -551,7 +576,7 @@ body:has(.popover) .titlebar { -webkit-app-region: no-drag; }
   .backlog-entry { align-self: flex-start; height: 24px; margin: 10px 0 0 var(--row-inset); padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 500;
     border: 1px solid color-mix(in oklab, var(--backlog) 30%, transparent); background: color-mix(in oklab, var(--backlog) 8%, transparent); }
   .backlog-entry:hover { text-decoration: none; background: color-mix(in oklab, var(--backlog) 14%, transparent); }
-  .feedback-surface { border-radius: 10px; background: var(--raised); color: var(--fg); box-shadow: var(--shadow-lg); padding-left: 16px; }
+  .feedback-surface { border-radius: 10px; background: var(--raised); color: var(--fg); padding-left: 16px; }
   .feedback-action { border-radius: 6px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--line), var(--shadow-xs); font-size: 12px; }
   .feedback-action:enabled:hover { background: var(--hover); }
   .fab { width: 44px; height: 44px; border-radius: 22px; background: var(--fg); color: var(--bg); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .15), 0 4px 6px -4px rgba(0, 0, 0, .1); }
@@ -584,8 +609,6 @@ html.no-transitions, html.no-transitions *, html.no-transitions *::before, html.
 .keycaps { display: inline-flex; gap: 4px; }
 .keycap { min-width: 24px; height: 24px; padding: 0 6px; display: inline-grid; place-items: center; border-radius: 6px; background: var(--hover); color: var(--fg-soft); font-size: 12px; font-variant-numeric: tabular-nums; opacity: 1; }
 
-.detail-context { padding-inline: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.detail .detail-context { display: block; overflow: hidden; }
 .detail-management { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .detail-management .detail-rail-action { width: auto; white-space: nowrap; }
 .detail-management button, .detail-management button:active { transform: none; transition: none; animation: none; }
@@ -595,4 +618,7 @@ html.no-transitions, html.no-transitions *, html.no-transitions *::before, html.
   .detail-management .detail-rail-action > span { display: none; }
   .detail-body { padding-inline: 20px; }
 }
-@media (pointer: coarse) { .detail-management .detail-rail-action { min-width: 44px; min-height: 44px; } }
+@media (pointer: coarse) {
+  .detail-management .detail-rail-action { min-width: 44px; min-height: 44px; }
+  .placement-chip { height: 44px; }
+}

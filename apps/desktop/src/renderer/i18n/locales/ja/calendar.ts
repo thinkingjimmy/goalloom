@@ -58,6 +58,7 @@ export const calendarMessages: typeof source = {
   calendarMode: "カレンダーモード",
   dateChanged: "日付が変わりました。新しい開始日を確認してください。",
   periodRecordsFailed: "期間の記録を読み込めません。再試行してください。",
+  changeTaskPeriod: "期間を変更",
   naturalDirectionTitle: "今年、最も進めたいことは何ですか？",
   useCurrentYear: "今年に戻す",
   example1: "フルマラソンを完走する",

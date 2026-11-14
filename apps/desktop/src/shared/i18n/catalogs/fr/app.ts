@@ -88,6 +88,7 @@ export const appMessages: typeof source = {
     focusClosed: 'Cette période est terminée, sa priorité ne peut donc plus changer',
     focusUnavailable: 'Seul un élément de cette période, ni annulé ni archivé, peut être sa priorité',
     focusChanged: 'La priorité a changé. Actualisez puis réessayez',
+    focusClearFirst: 'Retirez la priorité du jour avant de choisir une autre tâche.',
     writeRace: 'Conflit d’écriture. Actualisez puis réessayez',
     periodMissing: 'La période n’existe pas',
     fileTooLarge: 'La base de données dépasse la limite d’import de 100 MB',

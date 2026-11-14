@@ -58,6 +58,7 @@ export const calendarMessages = widen({
   calendarMode: "日历模式",
   dateChanged: "日期已变化，请确认新的起点",
   periodRecordsFailed: "周期记录读取失败，请重试",
+  changeTaskPeriod: "更改周期",
   naturalDirectionTitle: "今年，你最想推进哪件事？",
   useCurrentYear: "改回今年",
   example1: "跑完一场全程马拉松",

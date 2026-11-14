@@ -88,6 +88,7 @@ export const appMessages: typeof source = {
     focusClosed: 'この期間は終了したため、最重要を変更できません',
     focusUnavailable: 'この期間内で、キャンセルもアーカイブもされていない項目だけを最重要にできます',
     focusChanged: '最重要が変更されました。更新してから再試行してください',
+    focusClearFirst: '別のタスクを選ぶには、先に今日の最重要を解除してください。',
     writeRace: '書き込みが競合しました。更新してから再試行してください',
     periodMissing: '期間が存在しません',
     fileTooLarge: 'データベースが 100 MB の読み込み上限を超えています',

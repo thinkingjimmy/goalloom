@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 ../zh/shortcuts 的 ShortcutCatalog、shortcutNames、shortcutNotes 类型。
- * [OUTPUT]: 法语快捷键设置分册：行标题、作用范围说明、流程筛选开关与示意、录制/冲突/校验提示。
- * [POS]: renderer/i18n/locales/fr 的快捷键分册，与 zh 同构；不决定键位。
+ * [INPUT]: ShortcutCatalog and label types from the Chinese catalog.
+ * [OUTPUT]: French shortcut labels, one-line guidance, inline recording feedback and top-bar key instructions.
+ * [POS]: French renderer messages for shortcut settings.
  */
 import type { ShortcutCatalog, shortcutNames as names, shortcutNotes as notes } from '../zh/shortcuts'
 
@@ -14,7 +14,7 @@ export const shortcutNotes: typeof notes = {
 }
 export const shortcutMessages: ShortcutCatalog = {
   section: 'Raccourcis clavier',
-  subtitle: 'Cliquez sur une touche puis tapez la nouvelle combinaison, Esc pour annuler ; elle doit inclure ⌘/Ctrl ou ⌥/Alt',
+  subtitle: 'Cliquez, puis tapez les touches (Échap pour annuler).',
   general: 'Général',
   filters: 'Chiffres de la barre du haut',
   filtersToggle: (mod: string) => `${mod} + chiffre pour Later et les filtres de la barre du haut`,
@@ -30,7 +30,6 @@ export const shortcutMessages: ShortcutCatalog = {
   edit: (name: string) => `Modifier le raccourci : ${name}`,
   clear: (name: string) => `Effacer le raccourci : ${name}`,
   conflict: (names: string[]) => `Mêmes touches que ${names.map(name => `« ${name} »`).join(', ')}`,
-  conflictNote: 'Les raccourcis actifs seulement dans certaines fenêtres peuvent partager des touches ; un conflit est signalé sans empêcher l’enregistrement.',
   needsModifier: 'Doit inclure ⌘/Ctrl ou ⌥/Alt',
   reserved: 'Cette combinaison est réservée par le système',
 }

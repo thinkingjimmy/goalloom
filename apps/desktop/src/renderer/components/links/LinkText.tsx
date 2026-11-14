@@ -1,9 +1,9 @@
 /**
  * [INPUT]: Display text, optional saved URL membership, localized copy and external-browser IPC.
- * [OUTPUT]: Shared favicon/page-title links, authored labels and an actionable title without a native tooltip, with sibling link controls. Title activation receives the click so the board can tell a single click from a double click.
+ * [OUTPUT]: Shared favicon/page-title links, authored labels and a title action with sibling links and an optional inline suffix. The title action keeps its own name and accepts a separate accessible description.
  * [POS]: Shared text rendering for current, historical and archived item surfaces.
  */
-import { forwardRef, memo, useMemo, useState, type AnchorHTMLAttributes, type MouseEvent } from 'react'
+import { forwardRef, memo, useMemo, useState, type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from 'react'
 import { messages, useLocale } from '../../i18n'
 import { desktopApi } from '../../state/use-workspace'
 import { Icon } from '../icons'
@@ -42,9 +42,12 @@ export const LinkText = memo(function LinkText({ text, savedUrls }: { text: stri
   return <>{tokens.map((token, index) => 'text' in token ? token.text : <InlineLink key={index} url={token.url} label={token.label} named={token.named} enabled={!savedUrls || savedUrls.has(token.url)} />)}</>
 })
 
-export function LinkTitle({ text, onOpen, onDoubleClick, className = '' }: { text: string; onOpen: (event: MouseEvent<HTMLButtonElement>) => void; onDoubleClick?: (event: MouseEvent<HTMLButtonElement>) => void; className?: string }) {
+export function LinkTitle({ text, onOpen, onDoubleClick, className = '', trailing, describedBy }: {
+  text: string; onOpen: (event: MouseEvent<HTMLButtonElement>) => void; onDoubleClick?: (event: MouseEvent<HTMLButtonElement>) => void; className?: string
+  trailing?: ReactNode; describedBy?: string | undefined
+}) {
   return <div className={`link-title ${className}`}>
-    <button type="button" className="task-title link-title-open" aria-label={text} onClick={onOpen} onDoubleClick={onDoubleClick} />
-    <span className="link-rich-text"><LinkText text={text} /></span>
+    <button type="button" className="task-title link-title-open" aria-label={text} aria-describedby={describedBy} onClick={onOpen} onDoubleClick={onDoubleClick} />
+    <span className="link-rich-text"><LinkText text={text} />{trailing && <>{' '}{trailing}</>}</span>
   </div>
 }

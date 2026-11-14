@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Current account status, account-bound AI consent and existing finite account actions.
- * [OUTPUT]: Account-only login, cancellation, sign-out and explicit scope-v3 operator consent without model tests.
+ * [OUTPUT]: Responsive account card with sign-in availability, browser authorization, sign-out and explicit scope-v3 consent.
  * [POS]: AI settings account boundary; feature selection and enabling remain in their existing panes.
  */
 import { useState } from 'react'
@@ -26,12 +26,22 @@ export function HostedAiSettings({ ai }: { ai: Ai }) {
     catch { setFailed(true) } finally { setWorking(false) }
   }
   const signedIn = !!account?.accountId && account.accountId === ai.status?.hostedAccountId
+  const signingIn = account?.phase === 'signing-in'
+  const configured = !!account && account.phase !== 'unconfigured'
+  const note = signedIn ? account.email
+    : signingIn ? t.signInWaiting
+    : configured ? t.signIn
+    : account ? t.signInUnavailable : t.accountLoading
   return <>
     <SettingsGroup>
-      <SettingsRow title={t.account} note={signedIn ? account.email : t.signIn}>
-        {signedIn ? <SettingsButton type="button" disabled={working} onClick={() => void run({ type: 'sign-out' })}>{s.sync.signOut}</SettingsButton>
-          : <>{(['apple', 'google'] as const).map(provider => <SettingsButton key={provider} type="button" disabled={working || !account || account.phase === 'unconfigured' || account.phase === 'signing-in'} onClick={() => void run({ type: 'sign-in', provider, purpose: 'ai' })}><AuthMark provider={provider} size={14} />{provider === 'apple' ? s.sync.signInApple : s.sync.signIn}</SettingsButton>)}</>}
-        {account?.phase === 'signing-in' && <SettingsButton type="button" onClick={() => void run({ type: 'cancel' })}>{s.sync.cancel}</SettingsButton>}
+      <SettingsRow className="hosted-ai-account flex-wrap gap-y-2.5" title={signedIn ? t.account : t.name} note={note && <span role="status">{note}</span>}>
+        {configured && <div className="hosted-ai-account-actions flex max-w-full flex-wrap items-center gap-2">
+          {signedIn ? <SettingsButton type="button" disabled={working} onClick={() => void run({ type: 'sign-out' })}>{s.sync.signOut}</SettingsButton>
+            : (['apple', 'google'] as const).map(provider => <SettingsButton key={provider} type="button" disabled={working || signingIn} onClick={() => void run({ type: 'sign-in', provider, purpose: 'ai' })}>
+              <AuthMark provider={provider} size={16} /><span>{provider === 'apple' ? s.sync.signInApple : s.sync.signIn}</span>
+            </SettingsButton>)}
+          {signingIn && <SettingsButton type="button" onClick={() => void desktopApi().sync({ type: 'cancel' }).catch(() => setFailed(true))}>{s.sync.cancel}</SettingsButton>}
+        </div>}
       </SettingsRow>
     </SettingsGroup>
     {signedIn && <BillingCard state={billing.state} run={billing.run} />}

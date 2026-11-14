@@ -1,6 +1,7 @@
 /**
  * [INPUT]: A due review (day, week, month or merged month+week), the board snapshot, guarded/prepared writes, model readiness and the review context query.
  * [OUTPUT]: A content-sized review dialog of single-action screens per horizon — look back (replayed steps), sort unfinished items (move to the next period / to Later, add drafted next steps), choose the period's focus — then complete().
+ *           An effective daily focus preselects that task and disables other focus picks.
  * [POS]: Review session owner; historical facts come from the review projection and every write re-reads live versions.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -69,8 +70,9 @@ export function ReviewDialog({ due, snapshot, open, ready, write, retryWrite, bu
     if (!open && node.open) node.close()
   }, [open])
 
-  const name = (period: PlanningPeriod) => period.horizon === 'month' ? periodDates(period, period.startDate.slice(0, 4) !== snapshot.observedAt.slice(0, 4)) : planningLabel(period, calendar, snapshot.observedAt)
-  const nextName = name(target.next)
+  // Relative names start capitalized; copy that embeds one mid-sentence uses the lowered form.
+  const name = (period: PlanningPeriod, sentence = false) => period.horizon === 'month' ? periodDates(period, period.startDate.slice(0, 4) !== snapshot.observedAt.slice(0, 4)) : planningLabel(period, calendar, snapshot.observedAt, sentence)
+  const nextName = name(target.next), nextInSentence = name(target.next, true)
 
   // ---- Look back: the reviewed period, its child-horizon steps under their parents, and a step replay.
   const board = context?.board ?? null
@@ -131,7 +133,8 @@ export function ReviewDialog({ due, snapshot, open, ready, write, retryWrite, bu
   // ---- Focus of the destination period.
   const candidates = planning?.items.filter(item => item.placement.periodId === target.next.id && !item.archivedAt && !item.deletedAt && item.status !== 'cancelled') ?? []
   const currentFocus = planning ? effectiveFocus(planning.focus, planning.items).get(target.next.id) ?? null : null
-  const chosen = picked[stage.horizon] ?? currentFocus
+  const lockedFocus = stage.horizon === 'day' ? currentFocus : null
+  const chosen = lockedFocus ?? picked[stage.horizon] ?? currentFocus
   const chosenItem = candidates.find(item => item.id === chosen) ?? null
 
   // ---- Writes. A pending (unknown) receipt keeps the step until it is confirmed.
@@ -202,7 +205,7 @@ export function ReviewDialog({ due, snapshot, open, ready, write, retryWrite, bu
   const needsFocus = stage.kind === 'focus' && !chosen && candidates.length > 0
   const total = stages.length, last = at === total - 1
   const kind = t.reviewKind[stage.horizon]
-  const eyebrow = stage.kind === 'look' ? `${kind} · ${t.reviewLookBack(name(target.period))}` : `${kind} · ${t.reviewArrange(nextName)}`
+  const eyebrow = stage.kind === 'look' ? `${kind} · ${t.reviewLookBack(name(target.period, true))}` : `${kind} · ${t.reviewArrange(nextInSentence)}`
   const title = stage.kind === 'look' ? (stage.horizon === 'day' ? t.reviewStepsDay(lit) : t.reviewSteps(lit)) : stage.kind === 'pick' ? t.reviewPendingTitle : t.focusName[stage.horizon]
   const parentPeriod = planning?.periods.find(period => period.horizon === parentHorizon[stage.horizon])
   const parentColumn = parentPeriod && <ReviewColumn title={horizonNames[parentPeriod.horizon]} meta={periodDates(parentPeriod)} quiet>
@@ -247,10 +250,10 @@ export function ReviewDialog({ due, snapshot, open, ready, write, retryWrite, bu
         {parentColumn}
         <ReviewColumn title={nextName} meta={periodDates(target.next)} wide>
           {closing.map(item => <ReviewRow key={item.id} item={item} flows={planFlows} lit={false}>
-            <ReviewChoice value={keep(item.id)} disabled={disabled} label={item.title} yes={t.reviewMove(nextName)} no={t.reviewMoveLater} onChange={value => setChoices(previous => new Map(previous).set(item.id, value))} />
+            <ReviewChoice value={keep(item.id)} disabled={disabled} label={item.title} yes={t.reviewMove(nextInSentence)} no={t.reviewMoveLater} onChange={value => setChoices(previous => new Map(previous).set(item.id, value))} />
           </ReviewRow>)}
           {rows.map((row, index) => <ReviewRow key={row.parent.id} item={{ id: row.parent.id, title: row.title }} flows={planFlows} draft>
-            <ReviewChoice value={row.on} disabled={disabled} label={row.title} yes={t.reviewAddTo(nextName)} no={t.reviewNoAdd} onChange={value => setDrafts(previous => ({ ...previous, [stage.horizon]: rows.map((value2, at2) => at2 === index ? { ...value2, on: value } : value2) }))} />
+            <ReviewChoice value={row.on} disabled={disabled} label={row.title} yes={t.reviewAddTo(nextInSentence)} no={t.reviewNoAdd} onChange={value => setDrafts(previous => ({ ...previous, [stage.horizon]: rows.map((value2, at2) => at2 === index ? { ...value2, on: value } : value2) }))} />
           </ReviewRow>)}
           {!closing.length && !rows.length && <p className="rv-note">{t.reviewPickEmpty}</p>}
         </ReviewColumn>
@@ -260,6 +263,7 @@ export function ReviewDialog({ due, snapshot, open, ready, write, retryWrite, bu
         <ReviewColumn title={nextName} meta={periodDates(target.next)} wide>
           <div role="radiogroup" aria-label={t.focusName[stage.horizon]}>
             {candidates.map(item => <ReviewPick key={item.id} item={item} flows={planFlows} on={chosen === item.id} label={t.focusSet(t.focusName[stage.horizon])}
+              disabled={!!lockedFocus && lockedFocus !== item.id}
               hint={t.focusSet(t.focusName[stage.horizon])} onPick={() => setPicked(previous => ({ ...previous, [stage.horizon]: item.id }))}
               mark={<FocusMark scope={stage.horizon} color={flowColorOf(planFlows, item.id)} />} />)}
           </div>
@@ -272,16 +276,16 @@ export function ReviewDialog({ due, snapshot, open, ready, write, retryWrite, bu
       <div className="rv-message" key={`${at}`} aria-live="polite">
         {saveError ? <p className="rv-error" role="alert"><Icon name="warning" size={14} />{t.reviewSaveFailed}</p>
           : stage.kind === 'look' ? <p>{!settled ? t.reviewReplaying : pastFocus ? <><b className={pastFocus.status === 'done' ? 'rv-done' : undefined}>{(pastFocus.status === 'done' ? t.reviewFocusDone : t.reviewFocusOpen)(t.focusPast[stage.horizon], pastFocus.title)}</b></> : t.reviewFocusNone}</p>
-          : stage.kind === 'pick' ? <p>{t.reviewPickSay(nextName)}</p>
-          : <p>{chosenItem ? t.reviewFocusChosen(chosenItem.title, t.focusName[stage.horizon]) : t.reviewFocusSay(nextName, t.focusName[stage.horizon])}</p>}
+          : stage.kind === 'pick' ? <p>{t.reviewPickSay(nextInSentence)}</p>
+          : <p>{chosenItem ? t.reviewFocusChosen(chosenItem.title, t.focusName[stage.horizon]) : t.reviewFocusSay(nextInSentence, t.focusName[stage.horizon])}</p>}
       </div>
       <div className="rv-actions">
         {stage.kind === 'look'
           ? <SettingsButton className="rv-secondary" disabled={!settled || !context} onClick={() => setReplayRun(value => value + 1)}>{t.reviewReplay}</SettingsButton>
           : at > 0 && <SettingsButton className="rv-secondary" disabled={disabled || !!pending} onClick={() => { setSaveError(false); setAt(at - 1) }}>{t.reviewPrevious}</SettingsButton>}
         <SettingsButton variant="primary" disabled={disabled || !context || loadError || (stage.kind === 'look' && !settled) || needsFocus}
-          title={needsFocus ? t.reviewFocusSay(nextName, t.focusName[stage.horizon]) : undefined} onClick={() => void advance()}>
-          {pending ? messages.retry : stage.kind === 'look' ? t.reviewArrange(nextName) : last ? t.reviewFinish : t.reviewNextStep}
+          title={needsFocus ? t.reviewFocusSay(nextInSentence, t.focusName[stage.horizon]) : undefined} onClick={() => void advance()}>
+          {pending ? messages.retry : stage.kind === 'look' ? t.reviewArrange(nextInSentence) : last ? t.reviewFinish : t.reviewNextStep}
           {!last && !pending && <Icon name="forward" size={16} />}
         </SettingsButton>
       </div>

@@ -189,6 +189,65 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: pnpm --filter @goalloom/desktop run package:win:prepared
+      - name: Verify Windows clean-install protection
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        timeout-minutes: 5
+        env:
+          GOALLOOM_SUPABASE_ANON_KEY: ''
+          GOALLOOM_SUPABASE_URL: ''
+        run: |
+          # A fresh install must succeed without launching Goalloom. A rejected
+          # replacement must preserve the installed files and synthetic workspace.
+          $version = (Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json).version
+          if ($version -ne '1.12.3') { return }
+          $installer = (Resolve-Path "apps/desktop/release/Goalloom-$version-win-x64.exe").Path
+          $appData = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Goalloom'
+          $workspace = Join-Path $appData 'workspace.sqlite'
+          $install = Join-Path $env:RUNNER_TEMP 'goalloom-installer-smoke'
+          $installed = Join-Path $install 'Goalloom.exe'
+          $marker = Join-Path $install 'protected-installation.txt'
+          $reportPath = 'apps/desktop/output/tests/packages/windows-installer.json'
+          $report = [ordered]@{
+            passed = $false
+            source = $env:GITHUB_SHA
+            version = $version
+            installerSha256 = (Get-FileHash -LiteralPath $installer).Hash.ToLowerInvariant()
+            windowsVersion = [Environment]::OSVersion.Version.ToString()
+          }
+          try {
+            if ((Test-Path -LiteralPath $appData) -or (Test-Path -LiteralPath $install) -or (Get-Process -Name Goalloom -ErrorAction SilentlyContinue)) {
+              throw 'Windows installer smoke requires a disposable profile and installation directory.'
+            }
+            $installArgs = @('/S', '/currentuser', "/D=$install")
+            $fresh = Start-Process -FilePath $installer -ArgumentList $installArgs -PassThru -Wait
+            $report.freshExitCode = $fresh.ExitCode
+            if (($fresh.ExitCode -ne 0) -or !(Test-Path -LiteralPath $installed -PathType Leaf) -or (Test-Path -LiteralPath $appData) -or (Get-Process -Name Goalloom -ErrorAction SilentlyContinue)) {
+              throw 'Fresh installation failed or started Goalloom.'
+            }
+            node .github/scripts/acceptance/windows-installed.mjs $installed $version 'apps/desktop/output/tests/packages/windows-installed.json'
+            if ($LASTEXITCODE -ne 0) {
+              throw 'The installed application smoke failed.'
+            }
+            if ((Test-Path -LiteralPath $appData) -or (Get-Process -Name Goalloom -ErrorAction SilentlyContinue)) {
+              throw 'The application smoke touched the default profile or left Goalloom running.'
+            }
+            New-Item -ItemType Directory -Path $appData | Out-Null
+            Set-Content -LiteralPath $workspace -Value 'Synthetic workspace. This file must stay intact.'
+            Set-Content -LiteralPath $marker -Value 'Synthetic existing installation marker.'
+            $protectedFiles = @($installed, $marker, $workspace)
+            $before = (Get-FileHash -LiteralPath $protectedFiles).Hash -join ','
+            $replacement = Start-Process -FilePath $installer -ArgumentList $installArgs -PassThru -Wait
+            $report.replacementExitCode = $replacement.ExitCode
+            $report.protectedFilesUnchanged = $before -eq ((Get-FileHash -LiteralPath $protectedFiles).Hash -join ',')
+            if (($replacement.ExitCode -ne 17) -or !$report.protectedFilesUnchanged) {
+              throw 'The installer failed to reject an existing workspace before replacing files.'
+            }
+            $report.passed = $true
+          } finally {
+            New-Item -ItemType Directory -Force (Split-Path $reportPath) | Out-Null
+            $report | ConvertTo-Json | Set-Content -LiteralPath $reportPath
+          }
       - name: Record final installer bytes
         env:
           PLATFORM: ${{ matrix.platform }}

@@ -58,6 +58,7 @@ export const calendarMessages: typeof source = {
   calendarMode: "Modo de calendario",
   dateChanged: "La fecha ha cambiado. Confirma la nueva fecha de inicio.",
   periodRecordsFailed: "No se pudieron cargar los periodos. Reinténtalo.",
+  changeTaskPeriod: "Cambiar periodo",
   naturalDirectionTitle: "¿Qué es lo que más quieres avanzar este año?",
   useCurrentYear: "Usar este año",
   example1: "Correr un maratón completo",

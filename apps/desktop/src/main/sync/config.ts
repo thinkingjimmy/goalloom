@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Complete environment/profile/build pairs and the packaged identity.
- * [OUTPUT]: An environment-bound URL/anon pair, or local-only unconfigured state.
- * [POS]: Sync configuration boundary. Production ignores runtime overrides; development never targets production.
+ * [OUTPUT]: An environment-bound URL/anon pair, or local-only unconfigured state for the packaged Windows client.
+ * [POS]: Configuration boundary for accounts, sync, billing and hosted AI.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -23,6 +23,7 @@ export type SyncConfigSources = {
 }
 
 export function readSyncConfig(userData: string, packaged = false): { url: string; anonKey: string | null } {
+  if (packaged && process.platform === 'win32') return { url: productionSupabaseUrl, anonKey: null }
   return resolveSyncConfig({
     packaged,
     envUrl: process.env['GOALLOOM_SUPABASE_URL'],

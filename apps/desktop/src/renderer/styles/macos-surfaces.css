@@ -1,6 +1,6 @@
 /**
  * [INPUT]: macos material/shadow tokens and native dialog, menu, toolbar, tooltip and editor markers.
- * [OUTPUT]: Window/sheet hierarchy, a continuous glass toolbar action group and opaque accessibility fallbacks.
+ * [OUTPUT]: Window/sheet hierarchy, a continuous glass toolbar action group, feedback materials and opaque accessibility fallbacks.
  * [POS]: Theme surface layer; does not alter portal ownership, native titlebar behavior or panel placement.
  */
 :root[data-style='macos'] {
@@ -32,7 +32,7 @@
   .description-tools button:active { transform: none; }
   :is(.popover.period-return-tooltip, .popover.provider-action-tooltip, .column-visibility-tip) { border-radius: 2px; background: var(--macos-tooltip); color: var(--fg); backdrop-filter: var(--macos-material-blur); box-shadow: 0 0 0 .5px var(--edge), 0 2px 4px oklch(0 0 0 / .2); font-size: 11px; line-height: 15px; padding: 3px 6px; }
   .due-tooltip { background: var(--macos-tooltip); color: var(--fg); box-shadow: var(--shadow); }
-  .feedback-surface { background: var(--macos-popover); color: var(--fg); box-shadow: var(--shadow); backdrop-filter: var(--macos-material-blur); }
+  .feedback-surface { background: var(--macos-popover); color: var(--fg); backdrop-filter: var(--macos-material-blur); }
   .feedback-action { background: var(--macos-control); color: var(--focus); }
 }
 

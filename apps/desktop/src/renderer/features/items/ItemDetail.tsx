@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Authoritative task/notes, workspace clock and the shared guarded autosave writer.
- * [OUTPUT]: One detail sheet with independent lifecycle, deadline/goal properties, inherited goal/color provenance, AI note rewrites and persistent Markdown editing.
+ * [OUTPUT]: One detail sheet with editable period placement, independent lifecycle, deadline/goal properties, inherited goal/color provenance, AI note rewrites and persistent Markdown editing.
  * [POS]: Detail boundary; ordinary edits stay local while generating, guarded rewrites own only the description.
  */
 import { TextButton, ActionButton } from '../../components/ui/button'
@@ -15,6 +15,7 @@ import { Modal } from '../../components/Modal'
 import { Icon } from '../../components/icons'
 import { matches, useShortcuts } from '../../state/shortcuts'
 import { DuePicker } from './DuePicker'
+import { DetailPeriod } from './DetailPeriod'
 import { DetailTitle } from './DetailTitle'
 import { useItemAutosave } from './use-item-autosave'
 import { DetailFlowChip } from './DetailFlowChip'
@@ -35,13 +36,21 @@ export function ItemDetail({ itemId, generation, close, write, retryWrite, revis
   const busy = blocked || autosave.actionBusy || autosave.rewriting
   const dismiss = () => { void autosave.dismiss().then(ready => { if (ready) close() }) }
   const item = detail?.item
+  const period = detail?.period
   const savedUrls = useMemo(() => new Set(linkUrls(item?.description ?? '')), [item?.description])
   const readOnly = !!item?.deletedAt
   const done = item?.status === 'done'
   const later = item?.placement.horizon === 'later'
   const ring = item && !done && !later ? flowVars(flows.colorsOf(itemId)) : undefined
-  const context = item && `${detail?.period ? `${planningLabel(detail.period, calendar, observedAt)} · ${periodDates(detail.period)}` : horizonNames[item.placement.horizon]}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}${readOnly ? ` · ${messages.trash}` : ''}`
-  const heading = <p className="modal-context detail-context" title={context}>{context}</p>
+  const context = item && `${period ? `${planningLabel(period, calendar, observedAt)} · ${periodDates(period)}` : horizonNames[item.placement.horizon]}${item.status !== 'todo' ? ` · ${statusNames[item.status]}` : ''}${item.archivedAt ? messages.archivedSuffix : ''}${readOnly ? ` · ${messages.trash}` : ''}`
+  const heading = <div className="modal-context detail-context">
+    {item && context && period && !readOnly
+      ? <DetailPeriod label={context} period={period} calendar={calendar} today={today} observedAt={observedAt} busy={busy} move={target => void submit({
+        type: 'move', itemId, expectedVersion: item.version, expectedPlacementVersion: item.placement.version,
+        horizon: target.horizon, period: { kind: 'date', startDate: target.startDate },
+      })} />
+      : <span className="placement-text" title={context}>{context}</span>}
+  </div>
   const remove = () => {
     if (!item || !detail || !window.confirm(messages.deletePreview(detail.relations.length))) return
     void submit({ type: 'delete', itemId, expectedVersion: item.version }).then(result => { if (result) close() })

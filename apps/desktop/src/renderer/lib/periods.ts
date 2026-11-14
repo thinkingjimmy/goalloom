@@ -1,6 +1,7 @@
 /**
  * [INPUT]: Workspace calendar, observation time and authoritative planning periods.
- * [OUTPUT]: Locale-aware absolute or yearless ranges and unambiguous previous/current/next/distant destination names.
+ * [OUTPUT]: Locale-aware absolute or yearless ranges, unambiguous previous/current/next/distant destination names
+ *           (capitalized labels, or a mid-sentence form) and grouped period-list entries.
  * [POS]: Shared presentation helpers for board, details and feedback; no view state or persistence.
  */
 import type { CalendarConfig, PlanningPeriod } from '../../shared/contracts/entities'
@@ -15,11 +16,13 @@ export function horizonName(horizon: ItemHorizon, calendar: CalendarConfig): str
   return calendar.mode === 'natural' && horizon === 'year' ? c.naturalYear
     : calendar.mode === 'natural' && horizon === 'cycle' ? c.naturalCycle : horizonNames[horizon]
 }
-export function relativePeriodName(horizon: PlanningPeriod['horizon'], calendar: CalendarConfig, position: 'previous' | 'current' | 'next'): string {
-  if (position === 'current') return horizonName(horizon, calendar)
-  if (calendar.mode === 'natural' && horizon === 'year') return position === 'previous' ? c.previousNaturalYear : c.nextNaturalYear
-  if (calendar.mode === 'natural' && horizon === 'cycle') return position === 'previous' ? c.previousQuarter : c.nextQuarter
-  return (position === 'previous' ? messages.previousPeriodNames : messages.nextPeriodNames)[horizon]
+/** Relative names are capitalized labels; `sentence` lowers the first letter for mid-sentence copy (a no-op in zh/ja). */
+export function relativePeriodName(horizon: PlanningPeriod['horizon'], calendar: CalendarConfig, position: 'previous' | 'current' | 'next', sentence = false): string {
+  const name = position === 'current' ? horizonName(horizon, calendar)
+    : calendar.mode === 'natural' && horizon === 'year' ? (position === 'previous' ? c.previousNaturalYear : c.nextNaturalYear)
+    : calendar.mode === 'natural' && horizon === 'cycle' ? (position === 'previous' ? c.previousQuarter : c.nextQuarter)
+    : (position === 'previous' ? messages.previousPeriodNames : messages.nextPeriodNames)[horizon]
+  return sentence ? name.charAt(0).toLowerCase() + name.slice(1) : name
 }
 export function returnPeriodName(horizon: PlanningPeriod['horizon'], calendar: CalendarConfig): string {
   return calendar.mode === 'natural' && horizon === 'year' ? c.returnNaturalYear
@@ -39,6 +42,22 @@ export function anchoredPeriodLabel(period: Pick<PlanningPeriod, 'horizon' | 'st
   }
   return yearAwareRange(period, today, relative)
 }
+/** A period-list row: rows group under their start year (rolling years under their shared boundary), so labels avoid numeric dates. */
+export interface PeriodListEntry { group: string | null; label: string; detail: string | null }
+export function periodListEntry(period: Pick<PlanningPeriod, 'horizon' | 'startDate' | 'endDate'>, calendar: CalendarConfig): PeriodListEntry {
+  const end = addDays(period.endDate, -1), days = `${monthDay(period.startDate)} – ${monthDay(end)}`
+  if (period.horizon === 'year') {
+    if (calendar.mode === 'natural') return { group: null, label: yearOf(period.startDate), detail: null }
+    const years = period.startDate.slice(0, 4) === end.slice(0, 4) ? yearOf(period.startDate) : `${yearOf(period.startDate)} – ${yearOf(end)}`
+    // Rolling years share one month-day boundary; state it once above the rows instead of on each row.
+    return { group: days, label: years, detail: null }
+  }
+  const group = yearOf(period.startDate)
+  if (calendar.mode !== 'natural') return { group, label: days, detail: null }
+  if (period.horizon === 'cycle') return { group, label: `Q${Math.ceil(Number(period.startDate.slice(5, 7)) / 3)}`, detail: `${monthName(period.startDate)} – ${monthName(end)}` }
+  const numeric = ['zh', 'ja'].includes(currentLocale())
+  return { group, label: c.halfRange(numeric ? String(Number(period.startDate.slice(5, 7))) : monthName(period.startDate), numeric ? String(Number(end.slice(5, 7))) : monthName(end), null), detail: null }
+}
 export function yearAwareRange(period: Pick<PlanningPeriod, 'startDate' | 'endDate'>, today: string, relative = false): string {
   const end = addDays(period.endDate, -1), year = today.slice(0, 4), startYear = period.startDate.slice(0, 4), endYear = end.slice(0, 4)
   const start = !relative && startYear !== year ? shortYearDate(period.startDate) : shortDate(period.startDate)
@@ -54,13 +73,13 @@ export function periodDates(period: PlanningPeriod, includeYear = true): string 
 }
 
 /** Relative names are tied to workspace today, never to whichever column the user has opened. */
-export function planningLabel(period: PlanningPeriod, calendar: CalendarConfig, observedAt: string): string {
+export function planningLabel(period: PlanningPeriod, calendar: CalendarConfig, observedAt: string, sentence = false): string {
   let current: PlanningPeriod
   try { current = currentPeriod(calendar, period.horizon, observedAt) }
   catch { return periodDates(period) }
-  if (period.id === current.id) return relativePeriodName(period.horizon, calendar, 'current')
-  if (period.id === precedingPeriod(calendar, current)?.id) return relativePeriodName(period.horizon, calendar, 'previous')
-  if (period.id === currentPeriod(calendar, period.horizon, current.endAt).id) return relativePeriodName(period.horizon, calendar, 'next')
+  if (period.id === current.id) return relativePeriodName(period.horizon, calendar, 'current', sentence)
+  if (period.id === precedingPeriod(calendar, current)?.id) return relativePeriodName(period.horizon, calendar, 'previous', sentence)
+  if (period.id === currentPeriod(calendar, period.horizon, current.endAt).id) return relativePeriodName(period.horizon, calendar, 'next', sentence)
   if (isAnchoredHorizon(period.horizon)) return anchoredPeriodLabel(period, calendar, workspaceDate(calendar.timezone, observedAt))
   const end = addDays(period.endDate, -1), year = workspaceDate(calendar.timezone, observedAt).slice(0, 4)
   if (period.startDate.slice(0, 4) !== year || end.slice(0, 4) !== year) return periodDates(period)

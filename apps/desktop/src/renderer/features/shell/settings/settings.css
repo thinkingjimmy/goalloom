@@ -1,17 +1,22 @@
 /* [INPUT]: Settings navigation, localized labels/status and shared theme tokens.
- * [OUTPUT]: Native-dialog geometry, coordinated navigation/card states, compact provider rows with floating action hints, content skins and localized control exceptions.
+ * [OUTPUT]: Native-dialog geometry with a fixed close-button inset, coordinated navigation/card states, responsive appearance and account controls, and compact provider rows with floating action hints.
  * [POS]: Settings-specific CSS; shared primitives and ordinary layout use Tailwind.
  */
 .settings-modal[open] { display: grid; grid-template-columns: fit-content(45%) minmax(0, 1fr); grid-template-rows: minmax(76px, auto) minmax(0, 1fr) auto; width: min(880px, calc(100vw - 40px)); height: min(680px, calc(100vh - 80px)); padding: 0; overflow: hidden; }
 .settings-modal section + section { margin-top: 0; }
-.settings-modal .modal-header { grid-column: 2; grid-row: 1; position: static; min-height: 76px; margin: 0; padding: 14px 20px 14px 36px; gap: 16px; }
-.settings-heading:has(+ .segmented, + .transfer-steps) { flex: 0 0 auto; }
+/* Keep the close target in its own gutter as header content wraps. */
+.settings-modal > .modal-header {
+  grid-column: 2; grid-row: 1; position: relative; height: auto; min-height: 76px;
+  margin: 0; padding: 14px 72px 14px 36px; flex-wrap: wrap; align-content: start; gap: 8px 16px;
+}
+.settings-modal > .modal-header > .icon-button:last-child {
+  position: absolute; inset-block-start: 8px; inset-inline-end: 18px; width: 40px; height: 40px;
+}
+@media (pointer: coarse) { .settings-modal > .modal-header > .icon-button:last-child { width: 44px; height: 44px; } }
+.settings-heading:has(+ :is(.segmented, .transfer-steps)) { flex: 0 1 auto; }
+.settings-modal > .modal-header > :is(.segmented, .transfer-steps) { max-width: 100%; flex-wrap: wrap; }
 .settings-heading h2 { margin: 0; font-size: 18px; font-weight: 600; }
-/* Longer languages may take a second line; clamp beyond that so the header never pushes the pane around. */
 .settings-heading p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.settings-modal .modal-header:has(.settings-shortcut-note) { height: auto; }
-.settings-heading .settings-shortcut-note { display: block; -webkit-line-clamp: unset; }
-.settings-modal .modal-header > .segmented, .settings-modal .modal-header > .transfer-steps { margin-right: auto; }
 
 /* Grow for translated labels and status, while reserving room for the settings pane. */
 .settings-nav { grid-column: 1; grid-row: 1 / -1; border-right: 1px solid var(--hairline); }
@@ -52,10 +57,11 @@
 .settings-row-text > span { font-weight: 500; }
 .settings-row-text small { font-size: 12px; line-height: 1.5; font-weight: 400; color: var(--secondary); text-wrap: pretty; }
 .settings-row-stacked > .segmented { align-self: flex-start; max-width: 100%; flex-wrap: wrap; }
-@media (max-width: 850px) {
-  .appearance-choice { flex-direction: column; align-items: stretch; gap: 10px; }
-  .appearance-choice > .segmented { align-self: flex-start; max-width: 100%; flex-wrap: wrap; }
-}
+/* The settings pane and translated labels determine when the control needs its own line. */
+.appearance-choice { flex-wrap: wrap; row-gap: 10px; }
+.appearance-choice > .settings-row-text { flex-basis: auto; }
+.appearance-choice > .segmented { max-width: 100%; flex-wrap: wrap; }
+.appearance-choice > .segmented > button { white-space: nowrap; }
 .settings-warning > span { flex: 1; min-width: 0; }
 .settings-warning > svg { flex-shrink: 0; margin-top: 3px; }
 .settings-alert > span { flex: 1; min-width: 0; }
@@ -156,6 +162,10 @@
 .backup-kind[data-kind='protective'] { background: color-mix(in oklab, var(--backlog) 16%, transparent); color: var(--backlog); }
 
 /* AI services: compact connection rows; the connect form opens under its row. */
+.hosted-ai-account > .settings-row-text { flex-basis: 200px; overflow-wrap: anywhere; }
+.hosted-ai-account-actions > .settings-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: auto; min-height: 36px; max-width: 100%; padding-block: 6px; white-space: normal; }
+.hosted-ai-account-actions > .settings-button > svg { flex-shrink: 0; }
+@media (pointer: coarse) { .hosted-ai-account-actions > .settings-button { min-height: 44px; } }
 .smart-provider > * + * { border-top: 1px solid var(--hairline); }
 .smart-provider-form { background: color-mix(in oklab, var(--hover) 45%, transparent); }
 .provider-name > span:first-child { overflow-wrap: anywhere; }

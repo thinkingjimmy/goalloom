@@ -1,20 +1,24 @@
 /**
  * [INPUT]: Theme tokens and an optional --focus-color (the item's flow colour).
- * [OUTPUT]: Focus capsule (current / past) and the hover-revealed star toggle.
+ * [OUTPUT]: Labelled review capsule and a top-right board star with a reserved first-line footprint.
  * [POS]: Styles for components/focus; shared by the board and the review dialog.
  */
 .focus-mark { --tone: var(--focus-color, var(--secondary)); flex-shrink: 0; display: inline-flex; align-items: center; gap: 3px; height: 20px; margin-top: 1px; padding: 0 7px 0 5px; border: 0; border-radius: 999px;
   background: color-mix(in srgb, var(--tone) 15%, transparent); color: color-mix(in srgb, var(--tone) 78%, var(--fg)); font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap; }
 .focus-mark svg path { fill: currentColor; }
 .focus-mark[data-past='true'] { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 38%, transparent); font-weight: 500; }
-button.focus-mark { cursor: pointer; transition: background-color 150ms ease-out; }
-button.focus-mark:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.task-row[data-focus='true'] .task-title, .task-row[data-focus='true'] .task-title-input { font-weight: 600; color: var(--fg); }
-.focus-toggle { flex-shrink: 0; width: 24px; height: 24px; margin-top: 1px; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--secondary); opacity: 0; transition: opacity 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out; }
-.task-row:hover .focus-toggle, .task-row:focus-within .focus-toggle, .focus-toggle:focus-visible { opacity: 1; }
+.task-row[data-focus='true'] :is(.task-title, .task-title-input, .link-title) { font-weight: 600; color: var(--fg); }
+.task-row[data-focus-control] { --task-focus-size: 24px; --task-focus-reserve: calc(var(--task-focus-size) + 6px); }
+.focus-toggle { position: absolute; inset-block-start: 1px; inset-inline-end: 0; inline-size: var(--task-focus-size); block-size: var(--task-focus-size); display: grid; place-items: center; border-radius: 6px; color: var(--secondary); opacity: 0; transition: opacity 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out; }
+.focus-toggle[aria-pressed='true'] { color: color-mix(in srgb, var(--focus-color, var(--secondary)) 78%, var(--fg)); }
+.focus-toggle[aria-pressed='true'] svg path { fill: currentColor; }
+.task-row:hover .focus-toggle, .task-row:focus-within .focus-toggle, .focus-toggle:is(:focus-visible, [aria-pressed='true']) { opacity: 1; }
 .focus-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.focus-toggle[aria-disabled='true'] { cursor: default; }
 @media (hover: hover) and (pointer: fine) {
-  .focus-toggle:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
-  button.focus-mark:hover:not(:disabled) { background: color-mix(in srgb, var(--tone) 24%, transparent); }
+  .focus-toggle:hover:not(:disabled, [aria-disabled='true']) { background: var(--hover); }
 }
-@media (pointer: coarse) { .focus-toggle { opacity: 1; width: 44px; height: 44px; margin: -10px -10px -10px 0; } }
+@media (pointer: coarse) {
+  .task-row[data-focus-control] { --task-focus-size: 44px; }
+  .focus-toggle { opacity: 1; }
+}

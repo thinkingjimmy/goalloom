@@ -31,7 +31,7 @@ export const messages = widen({
   undoPrevious: "撤销上一步",
   exportFailed: "导出失败，请重试",
   exportWorkspace: "导出工作区",
-  theme: "明暗",
+  theme: "主题",
   systemTheme: "跟随系统",
   lightTheme: "浅色",
   darkTheme: "深色",

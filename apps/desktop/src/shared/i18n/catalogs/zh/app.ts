@@ -87,6 +87,7 @@ export const appMessages = widen({
     focusClosed: '该周期已结束，最重要事项不能再更改',
     focusUnavailable: '只有该周期内未取消、未归档的条目才能设为最重要',
     focusChanged: '最重要事项已变化，请刷新后重试',
+    focusClearFirst: '请先取消当前的「今日最重要」，再选择其他任务。',
     writeRace: '写入竞争，请刷新后重试',
     periodMissing: '周期不存在',
     fileTooLarge: '数据库超过 100 MB 导入限制',

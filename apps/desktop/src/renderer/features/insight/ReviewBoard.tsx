@@ -1,6 +1,6 @@
 /**
  * [INPUT]: Review-scoped item summaries, flows, focus scope and per-screen row actions.
- * [OUTPUT]: ReviewColumn (a board column inside the review dialog), ReviewRow (read-only, two-choice or pickable rows) and ReviewChoice.
+ * [OUTPUT]: Review columns, rows, choices and keyboard-accessible focus picks with optional disabled state.
  * [POS]: Presentational layer of the review dialog; ReviewDialog owns state, reads and guarded writes.
  */
 import type { ReactNode } from 'react'
@@ -41,12 +41,12 @@ export function ReviewRow({ item, flows, lit, step = false, draft = false, child
   </div>
 }
 
-export function ReviewPick({ item, flows, on, label, hint, onPick, mark }: { item: ItemSummary; flows: Flows; on: boolean; label: string; hint: string; onPick: () => void; mark: ReactNode }) {
+export function ReviewPick({ item, flows, on, label, hint, disabled, onPick, mark }: { item: ItemSummary; flows: Flows; on: boolean; label: string; hint: string; disabled: boolean; onPick: () => void; mark: ReactNode }) {
   // A div radio, not a button: saved-link titles render anchors, which cannot nest inside a button.
-  return <div role="radio" tabIndex={0} aria-checked={on} aria-label={`${label}：${item.title}`} className="rv-row rv-pick" data-on={on} data-item-id={item.id} onClick={onPick}
-    onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onPick() } }}>
+  return <div role="radio" tabIndex={disabled ? -1 : 0} aria-checked={on} aria-disabled={disabled || undefined} aria-label={`${label}：${item.title}`} className="rv-row rv-pick" data-on={on} data-item-id={item.id} onClick={disabled ? undefined : onPick}
+    onKeyDown={event => { if (!disabled && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onPick() } }}>
     <span className="check review-todo-check" aria-hidden="true" data-checked={item.status === 'done'} style={flowVars(flows.colorsOf(item.id))}>{item.status === 'done' && <Icon name="check" size={12} strokeWidth={2.5} />}</span>
     <span className="rv-title"><LinkText text={item.title} /></span>
-    {on ? mark : <span className="rv-pick-hint">{hint}</span>}
+    {on ? mark : !disabled && <span className="rv-pick-hint">{hint}</span>}
   </div>
 }

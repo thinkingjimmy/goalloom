@@ -115,6 +115,7 @@ win:
     - target: nsis
       arch: [x64]
 nsis:
+  include: build/goalloom-windows.nsh
   installerLanguages: [zh_CN]
   oneClick: false
   perMachine: false

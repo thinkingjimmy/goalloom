@@ -1,7 +1,7 @@
 /**
  * [INPUT]: Workspace appearance preferences, submission controls, LanguageSelect and local relation-line preferences.
- * [OUTPUT]: Language, three visual styles, light/dark/system appearance and relation-line controls.
- * [POS]: Settings appearance pane. Language, theme, style and relation lines sync between computers.
+ * [OUTPUT]: Compact language, style, checkbox, theme and relation-line settings.
+ * [POS]: Appearance pane. Uses shared controls and keeps layout local to appearance rows.
  */
 import type { Workspace } from '../../../../shared/contracts/entities'
 import { messages, settingsMessages as t } from '../../../i18n'
@@ -32,21 +32,19 @@ const themes = (): SegmentOption<Workspace['theme']>[] => [
 
 export function AppearancePane({ workspace, disabled, submit }: { workspace: Workspace; disabled: boolean; submit: (action: Action) => Promise<unknown> }) {
   const lines = useRelationLines()
-  return <>
-    <SettingsGroup>
-      <SettingsRow title={messages.language}><LanguageSelect className="settings-select" /></SettingsRow>
-      <SettingsRow title={messages.style} note={t.styleNotes[workspace.style]} below={
-        <Segmented label={messages.style} value={workspace.style} options={styles()} disabled={disabled} onChange={style => void submit({ type: 'preferences', style })} />
-      } />
-      <SettingsRow className="appearance-choice" title={messages.checkStyle} note={t.checkNotes[workspace.checkStyle]}>
-        <Segmented label={messages.checkStyle} value={workspace.checkStyle} options={checks()} disabled={disabled} onChange={checkStyle => void submit({ type: 'preferences', checkStyle })} />
-      </SettingsRow>
-      <SettingsRow className="appearance-choice" title={messages.theme}>
-        <Segmented label={messages.theme} value={workspace.theme} options={themes()} disabled={disabled} onChange={theme => void submit({ type: 'preferences', theme })} />
-      </SettingsRow>
-      <SettingsRow title={t.relationLines} note={t.relationLinesNote}>
-        <Switch label={t.relationLines} checked={lines.enabled} onChange={lines.setEnabled} />
-      </SettingsRow>
-    </SettingsGroup>
-  </>
+  return <SettingsGroup>
+    <SettingsRow title={messages.language}><LanguageSelect className="settings-select" /></SettingsRow>
+    <SettingsRow className="appearance-choice" title={messages.style}>
+      <Segmented label={messages.style} value={workspace.style} options={styles()} disabled={disabled} onChange={style => void submit({ type: 'preferences', style })} />
+    </SettingsRow>
+    <SettingsRow className="appearance-choice" title={messages.checkStyle}>
+      <Segmented label={messages.checkStyle} value={workspace.checkStyle} options={checks()} disabled={disabled} onChange={checkStyle => void submit({ type: 'preferences', checkStyle })} />
+    </SettingsRow>
+    <SettingsRow className="appearance-choice" title={messages.theme}>
+      <Segmented label={messages.theme} value={workspace.theme} options={themes()} disabled={disabled} onChange={theme => void submit({ type: 'preferences', theme })} />
+    </SettingsRow>
+    <SettingsRow title={t.relationLines}>
+      <Switch label={t.relationLines} checked={lines.enabled} onChange={lines.setEnabled} />
+    </SettingsRow>
+  </SettingsGroup>
 }
